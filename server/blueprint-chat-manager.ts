@@ -3,7 +3,12 @@ import { randomUUID } from 'crypto'
 import treeKill from 'tree-kill'
 import type { DbInstance } from './db'
 import type { WsMessage } from './types'
-import { getAdapter } from './providers'
+import {
+  getAdapter,
+  isModelAvailableForAdapter,
+  reasoningEffortsForModel,
+} from './providers'
+import { buildProviderEnv, pureOutputToolPolicy } from './providers/runtime'
 import type { AdapterEvent, ProviderAdapter, ReasoningEffort } from './providers/types'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { spawnAiCli } from './util/cli-prompt'
@@ -148,12 +153,17 @@ export class BlueprintChatManager {
   ): Promise<void> {
     const conversationId = conversation.id
     const adapter = getAdapter(conversation.provider)
-    const catalog = new Set(adapter.modelCatalog().map((m) => m.value))
+    const toolPolicy = pureOutputToolPolicy(adapter)
+    if (!toolPolicy) {
+      throw new Error(`provider_tool_policy_unsupported:${adapter.id}:pure-output`)
+    }
     const requested = options.model || conversation.model
-    const model = requested && catalog.has(requested) ? requested : adapter.defaultModel()
+    const model = requested && isModelAvailableForAdapter(adapter, requested)
+      ? requested
+      : adapter.defaultModel()
     // Reasoning effort: only for providers with the knob, only when the value
     // is in their catalog (else undefined = provider default).
-    const efforts = adapter.capabilities.reasoningEfforts ?? []
+    const efforts = reasoningEffortsForModel(adapter, model)
     const requestedEffort = options.reasoningEffort
     const reasoningEffort: ReasoningEffort | undefined = requestedEffort
       && (efforts as readonly string[]).includes(requestedEffort)
@@ -189,24 +199,33 @@ export class BlueprintChatManager {
       let streamed = ''
       let capturedSessionId: string | null = useResume ? conversation.session_id ?? null : null
       let capturedError: string | null = null
+      // `chat-turn` / `chat-resume` intentionally ignore `systemPrompt` for
+      // providers whose normal project-chat stance lives in their cwd
+      // instructions file. The day-0 Builder has no project instructions, so
+      // its schema/operator prompt must ride in the user prompt instead.
+      const prompt = adapter.capabilities.systemPromptArg
+        ? userText
+        : `${BUILDER_SYSTEM_PROMPT}\n\n---\n\n${userText}`
 
       console.log(
         `[blueprint-chat] turn start conv=${conversationId} provider=${adapter.id} action=${action} model=${model}`,
       )
 
+      const buildOpts = {
+        prompt,
+        systemPrompt: adapter.capabilities.systemPromptArg ? BUILDER_SYSTEM_PROMPT : undefined,
+        model,
+        sessionId: useResume ? conversation.session_id ?? undefined : undefined,
+        reasoning_effort: reasoningEffort,
+        toolPolicy,
+      }
       const invocation = this._awaitWhileLive(runAiCliInvocation({
         adapter,
         action,
         cwd,
-        env: { ...process.env },
+        env: buildProviderEnv(adapter, buildOpts),
         spawn: this._spawnOwned.bind(this),
-        buildOpts: {
-          prompt: userText,
-          systemPrompt: adapter.capabilities.systemPromptArg ? BUILDER_SYSTEM_PROMPT : undefined,
-          model,
-          sessionId: useResume ? conversation.session_id ?? undefined : undefined,
-          reasoning_effort: reasoningEffort,
-        },
+        buildOpts,
         onSpawn: (child) => {
           if (this._disposed) {
             this._terminate(child)
@@ -302,7 +321,7 @@ export class BlueprintChatManager {
     }
 
     // Auto-heal a stale session: a resume with no text retries once fresh.
-    if (canResume && !r.spawnFailed && !r.text) {
+    if (canResume && !r.spawnFailed && !r.error && !r.text) {
       updateBlueprintConversation(this._db, conversationId, { session_id: null })
       r = await invoke(false)
       if (this._disposed || r.disposed) return
@@ -323,6 +342,17 @@ export class BlueprintChatManager {
       return
     }
 
+    if (r.error || r.code !== 0) {
+      persistSession(null)
+      const reason =
+        r.error ||
+        (r.stderrTail ? r.stderrTail.split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300) : '') ||
+        `${adapter.binary} exited with code ${r.code ?? 'unknown'}`
+      this._emitError(conversationId, reason)
+      record(r, 'failed')
+      return
+    }
+
     if (r.text) {
       settleText(r)
       record(r, 'success')
@@ -331,9 +361,8 @@ export class BlueprintChatManager {
 
     persistSession(null)
     const reason =
-      r.error ||
       (r.stderrTail ? r.stderrTail.split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300) : '') ||
-      (r.code !== 0 ? `${adapter.binary} exited with code ${r.code}` : 'The Builder returned no output.')
+      'The Builder returned no output.'
     this._emitError(conversationId, reason)
     record(r, 'failed')
   }
@@ -347,8 +376,10 @@ export class BlueprintChatManager {
   ): void {
     if (this._disposed) return
     try {
+      const finishedAt = new Date().toISOString()
       const { result, estimated } = finaliseInvocationResult(adapter, outcome.events, {
         fallbackModel: model,
+        durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(outcome.startedAt)),
       })
       recordAgentInvocation(this._db, {
         id: randomUUID(),
@@ -357,7 +388,7 @@ export class BlueprintChatManager {
         provider: adapter.id,
         status,
         started_at: outcome.startedAt,
-        finished_at: new Date().toISOString(),
+        finished_at: finishedAt,
         total_cost_usd_estimated: estimated,
         ...result,
       })

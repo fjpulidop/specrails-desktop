@@ -5,12 +5,22 @@ import path from 'path'
 import express from 'express'
 import request from 'supertest'
 
+vi.mock('./smash-runner', async () => {
+  const actual = await vi.importActual<typeof import('./smash-runner')>('./smash-runner')
+  return {
+    ...actual,
+    runSmash: vi.fn(async () => ({ ok: true, ticketId: 1, runId: 'test-run', childrenIds: [] })),
+  }
+})
+
 import { createProjectRouter } from './project-router'
-import { initDb, type DbInstance } from './db'
+import { initDb, createConversation, type DbInstance } from './db'
 import { initDesktopDb } from './desktop-db'
+import { runSmash } from './smash-runner'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import {
   mutateStore,
+  readStore,
   resolveTicketStoragePath,
   CURRENT_SCHEMA_VERSION,
   type Ticket,
@@ -62,6 +72,7 @@ function seedTicket(projectPath: string, opts: {
   status?: Ticket['status']
   isEpic?: boolean
   parentEpicId?: number | null
+  originConversationId?: string | null
 } = { id: 1 }): void {
   const filePath = resolveTicketStoragePath(projectPath)
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
@@ -79,7 +90,7 @@ function seedTicket(projectPath: string, opts: {
       prerequisites: [],
       metadata: {},
       comments: [],
-      origin_conversation_id: null,
+      origin_conversation_id: opts.originConversationId ?? null,
       is_epic: opts.isEpic ?? false,
       parent_epic_id: opts.parentEpicId ?? null,
       execution_order: null,
@@ -101,6 +112,7 @@ describe('SMASH endpoints', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'smash-ep-'))
     db = initDb(':memory:')
     ctx = makeContext(db, tmpDir)
+    vi.mocked(runSmash).mockClear()
   })
 
   afterEach(() => {
@@ -172,6 +184,26 @@ describe('SMASH endpoints', () => {
       expect(res.status).toBe(202)
       expect(res.body.scheduled).toBe(true)
     })
+
+    it('rejects a Kimi-origin SMASH in a Claude-primary mixed project before running the SMASH worker', async () => {
+      ctx.project.provider = 'claude'
+      ctx.project.providers = ['claude', 'kimi']
+      createConversation(db, {
+        id: 'conv-kimi',
+        model: 'k3',
+        kind: 'explore',
+        provider: 'kimi',
+      })
+      seedTicket(tmpDir, { id: 1, originConversationId: 'conv-kimi' })
+      const app = createApp(ctx)
+
+      const res = await request(app).post('/api/projects/proj-1/tickets/1/smash').send({})
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(res.status).toBe(409)
+      expect(res.body.error).toBe('smash_unsupported_for_kimi')
+      expect(runSmash).not.toHaveBeenCalled()
+    })
   })
 
   describe('POST /tickets/:id/smash/undo', () => {
@@ -216,6 +248,46 @@ describe('SMASH endpoints', () => {
       const app = createApp(ctx)
       const res = await request(app).delete('/api/projects/proj-1/tickets/1/children')
       expect(res.status).toBe(409)
+    })
+
+    it('rejects unsupported Kimi Re-SMASH before deleting any children', async () => {
+      seedTicket(tmpDir, { id: 1, isEpic: true })
+      seedTicket(tmpDir, { id: 2, parentEpicId: 1 })
+      ctx.project.provider = 'kimi'
+      ctx.project.providers = ['kimi']
+      const app = createApp(ctx)
+
+      const res = await request(app).delete('/api/projects/proj-1/tickets/1/children')
+
+      expect(res.status).toBe(409)
+      expect(res.body.error).toBe('smash_unsupported_for_kimi')
+      const store = readStore(resolveTicketStoragePath(tmpDir))
+      expect(store.tickets['2']).toBeDefined()
+      expect(store.tickets['2'].parent_epic_id).toBe(1)
+    })
+
+    it('rejects Kimi-origin Re-SMASH in a Claude-primary mixed project with byte-identical ticket storage', async () => {
+      ctx.project.provider = 'claude'
+      ctx.project.providers = ['claude', 'kimi']
+      createConversation(db, {
+        id: 'conv-kimi',
+        model: 'k3',
+        kind: 'explore',
+        provider: 'kimi',
+      })
+      seedTicket(tmpDir, { id: 1, isEpic: true, originConversationId: 'conv-kimi' })
+      seedTicket(tmpDir, { id: 2, parentEpicId: 1 })
+      const filePath = resolveTicketStoragePath(tmpDir)
+      const before = fs.readFileSync(filePath)
+      const app = createApp(ctx)
+
+      const res = await request(app).delete('/api/projects/proj-1/tickets/1/children')
+
+      expect(res.status).toBe(409)
+      expect(res.body.error).toBe('smash_unsupported_for_kimi')
+      expect(fs.readFileSync(filePath).equals(before)).toBe(true)
+      expect(ctx.ticketWatcher.notifyDesktopWrite).not.toHaveBeenCalled()
+      expect(runSmash).not.toHaveBeenCalled()
     })
   })
 

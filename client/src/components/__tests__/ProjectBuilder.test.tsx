@@ -360,6 +360,21 @@ describe('BuilderConversation (panel-hosted phases)', () => {
     expect(screen.getByTestId('builder-send').querySelector('svg')).toHaveClass('lucide-send-horizontal')
   })
 
+  it('blocks a legacy Kimi Builder session and explains the unavailable boundary', () => {
+    const s = session({
+      provider: 'kimi',
+      model: 'k3',
+      models: [{ value: 'k3', label: 'Kimi K3' }],
+      efforts: [],
+      draft: 'do not send',
+    })
+    renderWithMode(s)
+    expect(screen.getByTestId('builder-provider-unavailable')).toHaveTextContent(/no-tools or read-only/i)
+    expect(screen.getByTestId('builder-input')).toBeDisabled()
+    expect(screen.getByTestId('builder-send')).toBeDisabled()
+    expect(s.send).not.toHaveBeenCalled()
+  })
+
   it('selecting an effort delegates to the builder session', async () => {
     const user = userEvent.setup()
     const s = session()

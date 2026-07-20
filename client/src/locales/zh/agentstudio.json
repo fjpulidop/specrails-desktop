@@ -52,6 +52,7 @@
       "sandboxNote": "沙箱运行；不写入任何文件。",
       "tokens_one": "<mono>{{count}}</mono> 个 token",
       "tokens_other": "<mono>{{count}}</mono> 个 token",
+      "tokensUnavailable": "Token 用量不可用",
       "emptyHint": "针对当前草稿运行一个示例任务，输出会显示在这里。"
     },
     "versions": {

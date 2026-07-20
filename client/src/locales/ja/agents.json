@@ -53,6 +53,7 @@
       "templateTitle": "テンプレートから始める",
       "generate": "生成",
       "generateWithClaude": "Claude で生成",
+      "generateWithAi": "AI で生成",
       "blank": "ブランク",
       "blankTitle": "空のテンプレートから始める"
     },
@@ -80,6 +81,7 @@
     }
   },
   "profiles": {
+    "providerLabel": "プロファイルのプロバイダー",
     "loading": "プロファイルを読み込み中…",
     "selectPrompt": "編集するプロファイルを選択してください",
     "errors": {

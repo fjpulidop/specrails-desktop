@@ -112,6 +112,10 @@ export interface StatsRow {
    *  billed figure (BUG-ANALYTICS-27). 0 on claude-only surfaces. */
   estimatedCostUsd: number
   estimatedCostToday: number
+  pricedRuns: number
+  unpricedRuns: number
+  pricedTodayRuns: number
+  unpricedTodayRuns: number
   avgDurationMs: number | null
 }
 
@@ -533,7 +537,7 @@ export interface AgentRefineTestMessage {
   type: 'agent_refine_test'
   projectId: string
   refineId: string
-  result: { output: string; tokens: number; durationMs: number }
+  result: { output: string; tokens: number | null; durationMs: number }
   timestamp: string
 }
 
@@ -979,9 +983,10 @@ export interface PluginManifest {
    *  `<platform>-<arch>` (e.g., `darwin-arm64`, `win32-x64`, `linux-x64`). */
   platformNotes?: Partial<Record<string, string>>
   /** Optional Markdown block appended (under marker comments) to the
-   *  project's top-level instructions file when the plugin is active.
-   *  Targets `CLAUDE.md` on claude projects and `AGENTS.md` on codex projects
-   *  (resolved via the adapter's `instructionsFilename`). The block is
+   *  project's provider-native instructions path when the plugin is active.
+   *  Targets `CLAUDE.md` for Claude, `AGENTS.md` for Codex, and
+   *  `.kimi-code/AGENTS.md` for Kimi (resolved via the adapter's
+   *  `instructionsFilename`). The block is
    *  removed on uninstall and on deactivate; any user content outside the
    *  markers is preserved byte-identical. The field name retains the
    *  historical `claudeMd` prefix for backwards compatibility; new plugins
@@ -1072,14 +1077,35 @@ export interface Plugin {
   manifest: PluginManifest
   install(ctx: PluginLifecycleContext): Promise<void>
   uninstall(ctx: PluginLifecycleContext): Promise<void>
-  verify(ctx: Pick<PluginLifecycleContext, 'projectPath' | 'projectId'>): Promise<PluginVerifyResult>
+  verify(
+    ctx: Pick<PluginLifecycleContext, 'projectPath' | 'projectId' | 'providerId' | 'slug'>,
+  ): Promise<PluginVerifyResult>
   /** Optional. Drives the diff preview UI; falls back to a derived preview. */
-  previewInstall?(ctx: Pick<PluginLifecycleContext, 'projectPath' | 'projectId'>): Promise<PluginPreviewFileEntry[]>
+  previewInstall?(
+    ctx: Pick<PluginLifecycleContext, 'projectPath' | 'projectId' | 'providerId' | 'slug'>,
+  ): Promise<PluginPreviewFileEntry[]>
   /** Optional. Returns the canonical mcpServers entry value the plugin would
    *  write today. Used for drift detection (manifest vs. on-disk). When the
    *  plugin owns multiple mcpServers, callers may use the same entry for all
    *  or supply a richer keyed structure in a future revision. */
   expectedMcpEntry?(): Record<string, unknown>
+}
+
+/** Provider-specific part of a plugin installation. The parent
+ * `PluginStateEntry` retains its historical aggregate fields so existing
+ * state readers remain compatible, while new readers use this map as the
+ * source of truth for multi-provider projects. */
+export interface PluginProviderStateEntry {
+  installedAt: string
+  installedFiles: string[]
+  /** Explicit activation survives when another provider keeps the same plugin
+   * active in a different MCP registry. Missing means "infer from registry"
+   * for state written before this field existed. */
+  active?: boolean
+  health?: 'ok' | 'degraded' | 'unknown'
+  healthReason?: string
+  /** Recovery metadata used when the bundled plugin disappears. */
+  ownedMcpServers?: string[]
 }
 
 export interface PluginStateEntry {
@@ -1089,6 +1115,9 @@ export interface PluginStateEntry {
   /** Last verify result captured by the manager (cache). */
   health?: 'ok' | 'degraded' | 'unknown'
   healthReason?: string
+  /** Provider-scoped installations. Absent means legacy schema-v1 state; the
+   * caller-supplied primary provider owns that historical installation. */
+  providers?: Record<string, PluginProviderStateEntry>
 }
 
 export interface PluginState {
@@ -1116,6 +1145,8 @@ export interface PluginCatalogEntry {
   installedAt?: string
   health?: 'ok' | 'degraded' | 'unknown'
   healthReason?: string
+  /** Provider this catalog projection describes. */
+  providerId?: string
   /** Claude marketplace plugin keys (e.g., `serena@claude-plugins-official`)
    *  currently enabled that shadow this plugin's MCP server. When non-empty,
    *  the user has the plugin globally and the app's project-scoped install
@@ -1139,6 +1170,7 @@ export interface PluginInstalledMessage {
   projectId: string
   name: string
   version: string
+  providerId?: string
   timestamp: string
 }
 
@@ -1146,6 +1178,7 @@ export interface PluginUninstalledMessage {
   type: 'plugin.uninstalled'
   projectId: string
   name: string
+  providerId?: string
   timestamp: string
 }
 
@@ -1153,6 +1186,7 @@ export interface PluginHealthChangedMessage {
   type: 'plugin.health_changed'
   projectId: string
   name: string
+  providerId?: string
   status: 'ok' | 'degraded' | 'unknown'
   reason?: string
   timestamp: string
@@ -1162,6 +1196,7 @@ export interface PluginDegradedMessage {
   type: 'plugin.degraded'
   projectId: string
   name: string
+  providerId?: string
   reason: string
   jobId?: string
   timestamp: string
@@ -1171,6 +1206,7 @@ export interface PluginInstallProgressMessage {
   type: 'plugin.install_progress'
   projectId: string
   name: string
+  providerId?: string
   line: string
   timestamp: string
 }
@@ -1636,12 +1672,12 @@ export interface JobFinalizedMessage {
   jobId: string
   status: JobStatus
   totals: {
-    tokens_in: number
-    tokens_out: number
-    tokens_cache_read: number
-    tokens_cache_create: number
-    total_cost_usd: number
-    num_turns: number
+    tokens_in: number | null
+    tokens_out: number | null
+    tokens_cache_read: number | null
+    tokens_cache_create: number | null
+    total_cost_usd: number | null
+    num_turns: number | null
   }
   timestamp: string
 }

@@ -207,7 +207,7 @@ export default function LoopsPage() {
       id: f.id,
       name: locName(f.id, f.name),
       description: locDesc(f.id, f.description),
-      tags: f.claudeOnly ? ['claude-only'] : [],
+      tags: f.requiredCapability ? [f.requiredCapability] : f.claudeOnly ? ['claude-only'] : [],
       graph: f.graph,
     })
   }, [locName, locDesc])

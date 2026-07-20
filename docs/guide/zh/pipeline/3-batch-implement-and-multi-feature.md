@@ -81,4 +81,4 @@ Project B   ▶ Rail running feature Y   ┘
 
 - [Rail 与任务](rails-and-jobs)——深入理解队列模型。
 - [任务详情视图](the-job-detail-view)——实时观看一次批量运行。
-- [为每条 rail 选择引擎](picking-an-engine-per-rail)——注意 Batch 可在任意提供方上运行；Freestyle 仅限 Claude。
+- [为每条 rail 选择引擎](picking-an-engine-per-rail)——Batch 可在任意提供方上运行；Freestyle 可用于 Claude 和 Kimi。

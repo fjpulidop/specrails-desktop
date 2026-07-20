@@ -26,13 +26,13 @@ A barra lateral direita é o seu painel de comutação para o projeto atual. Pas
 
 - **Dashboard** — o quadro de specs e os rails (onde estava agora mesmo).
 - **Jobs** — todas as execuções do pipeline deste projeto, passadas e presentes, com estado, duração e a possibilidade de aprofundar o detalhe e os logs de qualquer execução.
-- **Analytics** — quanto lhe está a custar a utilização de IA. Gastos divididos por dia, por atividade, por modelo e por ticket — para que não haja surpresas.
-- **Agentes** — os perfis de agentes do seu projeto: que agentes correm no pipeline e que modelos de IA usam. *(Apenas projetos com Claude.)*
-- **Code** — um explorador de ficheiros só de leitura com resumos de IA em linguagem simples, e etiquetas a mostrar que ficheiros a IA tocou. Ótimo para quem não programa mas quer acompanhar.
+- **Analytics** — invocações por dia, atividade, modelo e ticket. Claude comunica custo faturado, Codex/Gemini usam estimativas e Kimi deixa vazios os campos de tokens/custo USD indisponíveis.
+- **Agentes** — perfis e catálogos de roles por provider para Claude e Kimi. Com Kimi, os roles são criados/editados manualmente; Generate, Test e AI Refine não estão disponíveis.
+- **Code** — um explorador de ficheiros só de leitura com etiquetas dos ficheiros tocados pela IA. Os resumos em linguagem simples só aparecem com providers compatíveis e não estão disponíveis com Kimi.
 - **Integrações** — extras opcionais, como ligar as suas specs a um quadro do **Jira** ou ativar ferramentas adicionais para a IA.
 - **Definições** — opções por projeto (telemetria, orçamentos, configuração de fornecedores e muito mais).
 
-> Algumas secções só aparecem quando fazem sentido para os fornecedores que escolheu — por exemplo, **Agentes** é específico do Claude. Se não vir uma secção, é simplesmente porque não se aplica à configuração deste projeto.
+> Secções e ações seguem as capacidades do provider efetivo. Por exemplo, os perfis funcionam com Claude e Kimi, mas as ações de IA do Agent Studio falham de forma fechada com Kimi.
 
 ## A barra de estado
 

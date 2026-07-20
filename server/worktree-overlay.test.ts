@@ -114,6 +114,25 @@ describe('applyWorktreeOverlay — relocated workspace source', () => {
     expect(fs.readFileSync(path.join(wt, 'CLAUDE.md'), 'utf-8')).toBe('# workspace instructions')
   })
 
+  it('copies a nested Kimi instruction path instead of linking it through providerDir', () => {
+    write(source, '.kimi-code/AGENTS.md', '# Kimi workspace instructions')
+    write(source, '.kimi-code/skills/specrails-implement/SKILL.md', '# skill')
+
+    const res = applyWorktreeOverlay({
+      worktreePath: wt,
+      sourceRoot: source,
+      providerDir: '.kimi-code',
+      instructionsFilename: path.join('.kimi-code', 'AGENTS.md'),
+    })
+
+    const instructionsPath = path.join(wt, '.kimi-code', 'AGENTS.md')
+    expect(fs.lstatSync(instructionsPath).isFile()).toBe(true)
+    expect(fs.lstatSync(instructionsPath).isSymbolicLink()).toBe(false)
+    expect(fs.readFileSync(instructionsPath, 'utf-8')).toBe('# Kimi workspace instructions')
+    expect(fs.lstatSync(path.join(wt, '.kimi-code', 'skills')).isSymbolicLink()).toBe(true)
+    expect(res.createdPaths).toContain(path.join('.kimi-code', 'AGENTS.md'))
+  })
+
   it('a checkout-tracked instruction file always wins over the source one', () => {
     seedWorkspaceSource()
     write(wt, 'CLAUDE.md', '# the repo tracked its own')

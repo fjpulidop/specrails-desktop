@@ -94,7 +94,9 @@ Ein paar Dinge, die man wissen sollte:
 - **Die Summenzeile ist echt.** Der Composer zeigt eine Live-Zusammenfassung `N Turns · $X`, aufsummiert aus dem tatsächlichen Verbrauch jedes abgeschlossenen Turns — konsistent mit dem Versprechen dieser Seite, nichts zu raten.
 - **Zwei Arten, wie eine Session endet.** Die meisten Jobs **schließen sich selbst ab**: Sobald ein Turn ohne wartende Nachrichten endet, setzt sich die Session zur Ruhe und der Job ist fertig — deine Nachrichten sind optionale Lenkung, nie eine Pflicht. Eine dezente Aktion **Jetzt abschließen** beendet sie früher, mit allem, was bis dahin entstanden ist. **Freestyle**-Jobs sind die Ausnahme: Sie warten zwischen den Turns, bis du auf **Finalize** klickst — das ist ihr Design, eine Hin-und-her-Session, die du schließt, wenn du fertig bist.
 - **Bei Loop-Läufen geht die Nachricht an den aktiven Schritt.** In einem eingebauten oder eigenen Loop erreicht deine Nachricht den **gerade laufenden KI-Schritt**. Zwischen den Schritten (während der Loop Decider nachdenkt oder ein Shell-Befehl läuft) zeigt der Composer kurz *„Warte auf den nächsten Schritt…"* — dein Entwurf bleibt erhalten, und das Senden wird wieder aktiv, sobald der nächste KI-Schritt startet. **Diesen Schritt abschließen** beendet den aktuellen Schritt vorzeitig und lässt den Loop mit dem Erreichten weiterziehen.
-- **Vorerst nur Claude.** Codex- und Gemini-Jobs laufen wie bisher als One-Shot — es erscheint kein Composer. (Server-Betreiber können das ganze Feature mit `SPECRAILS_INTERACTIVE_JOBS=false` abschalten.)
+- **Persistente Interaktion gibt es nur bei Claude.** Codex, Gemini und Kimi
+  laufen One-Shot; Kimi setzt Chats nach einem Resume Hint mit einem neuen
+  `kimi --session=<id> -p` fort.
 
 ## Diagnose-Export
 

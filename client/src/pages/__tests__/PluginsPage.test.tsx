@@ -17,8 +17,10 @@ vi.mock('../../hooks/useDesktop', () => ({
     project.providers && project.providers.length > 0 ? project.providers : [project.provider],
   useDesktop: () => ({
     projects: [
-      project('proj-1', 'Specrails Desktop', 'claude', ['claude', 'codex']),
+      project('proj-1', 'Specrails Desktop', 'claude', ['claude', 'codex', 'kimi']),
       project('proj-2', 'Codex Only', 'codex', ['codex']),
+      project('proj-3', 'Kimi Only', 'kimi', ['kimi']),
+      project('proj-4', 'Gemini Only', 'gemini', ['gemini']),
     ],
   }),
 }))
@@ -126,6 +128,7 @@ function json(data: unknown, init: ResponseInit = {}) {
 function installFetchMock(state = headroomState(), jiraConnections: Record<string, unknown> = {}) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
+    const parsedUrl = new URL(url, 'http://desktop.test')
 
     if (url.endsWith('/api/global-plugins/headroom')) {
       return json({ state })
@@ -134,7 +137,7 @@ function installFetchMock(state = headroomState(), jiraConnections: Record<strin
     if (jiraMatch) {
       return json(jiraConnections[jiraMatch[1]] ?? { connected: false })
     }
-    if (url.endsWith('/plugins')) {
+    if (parsedUrl.pathname.endsWith('/plugins')) {
       return json({
         plugins: [
           {
@@ -148,9 +151,14 @@ function installFetchMock(state = headroomState(), jiraConnections: Record<strin
         ],
       })
     }
-    if (url.endsWith('/plugins/serena/preview-install')) {
+    if (parsedUrl.pathname.endsWith('/plugins/serena/preview-install')) {
+      const provider = parsedUrl.searchParams.get('provider') ?? 'claude'
       return json({
-        files: [{ path: '.mcp/serena.json', op: 'create', summary: 'Serena MCP config' }],
+        files: [{
+          path: provider === 'kimi' ? '.kimi-code/mcp.json' : '.mcp.json',
+          op: 'create',
+          summary: 'Serena MCP config',
+        }],
         requirements: [{ name: 'uvx', installed: true, executable: true, meetsMinimum: true }],
       })
     }
@@ -265,19 +273,35 @@ describe('PluginsPage', () => {
     expect(screen.queryByTestId('jira-wizard')).not.toBeInTheDocument()
   })
 
-  it('keeps Serena project-local and disables projects without Claude', async () => {
-    installFetchMock()
+  it('installs Serena for an explicit Claude, Codex, or Kimi provider', async () => {
+    const fetchMock = installFetchMock()
 
     render(<PluginsPage />)
 
     await waitFor(() => expect(cardActionButton('Serena')).toBeInTheDocument())
     fireEvent.click(cardActionButton('Serena'))
 
-    expect(await screen.findByRole('button', { name: /Codex Only/ })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: /Codex Only/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Kimi Only/ })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Gemini Only/ })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: /Specrails Desktop/ }))
 
     expect(await screen.findByText('Serena for Specrails Desktop')).toBeInTheDocument()
-    expect(await screen.findByText(/\.mcp\/serena\.json/)).toBeInTheDocument()
+    const provider = await screen.findByRole('combobox', { name: /AI provider/i })
+    expect(within(provider).getByRole('option', { name: 'Kimi' })).toBeInTheDocument()
+    fireEvent.change(provider, { target: { value: 'kimi' } })
+    expect(await screen.findByText(/\.kimi-code\/mcp\.json/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /^Install$/i }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/plugins/serena/install'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ provider: 'kimi' }),
+        }),
+      )
+    })
   })
 
   it('shows Headroom output token savings by provider', async () => {

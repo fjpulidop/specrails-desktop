@@ -1,5 +1,8 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
 import { EventEmitter } from 'events'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { ChildProcess } from 'child_process'
 
 // Wrap spawnCli with a spy that still delegates to the real implementation, so
@@ -7,7 +10,11 @@ import type { ChildProcess } from 'child_process'
 // can inspect the options handed to spawnCli.
 vi.mock('./win-spawn', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./win-spawn')>()
-  return { ...actual, spawnCli: vi.fn(actual.spawnCli) }
+  return {
+    ...actual,
+    spawnCli: vi.fn(actual.spawnCli),
+    resolveWindowsBinary: vi.fn(actual.resolveWindowsBinary),
+  }
 })
 
 import {
@@ -18,9 +25,11 @@ import {
   spawnClaude,
   spawnCodex,
   spawnGemini,
+  spawnKimi,
   spawnAiCli,
+  parseNpmCmdShimEntry,
 } from './cli-prompt'
-import { spawnCli } from './win-spawn'
+import { resolveWindowsBinary, spawnCli } from './win-spawn'
 import {
   headroomRoutedChildCount,
   setHeadroomRoutingState,
@@ -340,6 +349,200 @@ describe('transformCodexArgsForWindows', () => {
   })
 })
 
+describe('spawnKimi cross-platform launch', () => {
+  it('extracts the JavaScript entry from a standard npm command shim', () => {
+    const entry = parseNpmCmdShimEntry(
+      'C:\\Users\\Jane Doe\\AppData\\Roaming\\npm\\kimi.cmd',
+      '@ECHO off\r\n"%_prog%"  "%dp0%\\node_modules\\@moonshot-ai\\kimi-code\\dist\\main.mjs" %*\r\n',
+    )
+    expect(entry).toBe(
+      'C:\\Users\\Jane Doe\\AppData\\Roaming\\npm\\node_modules\\@moonshot-ai\\kimi-code\\dist\\main.mjs',
+    )
+  })
+
+  it('launches a native Windows executable with prompt argv unchanged', () => {
+    const fake = { stdin: null } as unknown as ChildProcess
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    vi.mocked(resolveWindowsBinary).mockReturnValueOnce('C:\\tools\\kimi.exe')
+    vi.mocked(spawnCli).mockReturnValueOnce(fake)
+    const args = ['-p', 'línea uno\n第二行', '--output-format', 'stream-json']
+    try {
+      expect(spawnKimi(args, { cwd: 'C:\\repo with spaces' })).toBe(fake)
+      expect(spawnCli).toHaveBeenLastCalledWith(
+        'C:\\tools\\kimi.exe',
+        args,
+        { cwd: 'C:\\repo with spaces' },
+      )
+    } finally {
+      platformSpy.mockRestore()
+    }
+  })
+
+  it('unwraps an npm Windows shim so multiline Unicode bypasses cmd.exe', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'specrails-kimi-shim-'))
+    const shim = join(directory, 'kimi.cmd')
+    writeFileSync(
+      shim,
+      '@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@moonshot-ai\\kimi-code\\dist\\main.mjs" %*\r\n',
+    )
+    const end = vi.fn()
+    const stdin = Object.assign(new EventEmitter(), { end })
+    const fake = {
+      stdin,
+      kill: vi.fn(),
+    } as unknown as ChildProcess
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    vi.mocked(resolveWindowsBinary).mockReturnValueOnce(shim)
+    vi.mocked(spawnCli).mockReturnValueOnce(fake)
+    const args = ['-m', 'kimi-code/k3', '-p', 'uno\n二\n🚀', '--output-format', 'stream-json']
+    try {
+      expect(spawnKimi(args, { cwd: 'C:\\repo with spaces' })).toBe(fake)
+      const [binary, launchedArgs, options] = vi.mocked(spawnCli).mock.calls.at(-1)!
+      expect(binary).toBe('node')
+      expect(launchedArgs[0]).toBe('-e')
+      expect(launchedArgs[1]).toContain('readFileSync(0,"utf8")')
+      expect(launchedArgs[2]).toMatch(
+        /node_modules[\\/]@moonshot-ai[\\/]kimi-code[\\/]dist[\\/]main\.mjs$/,
+      )
+      expect(launchedArgs[3]).toBe('3')
+      const forwarded = launchedArgs.slice(4)
+      expect(forwarded).toEqual([
+        '-m', 'kimi-code/k3', '-p', '', '--output-format', 'stream-json',
+      ])
+      expect(launchedArgs).not.toContain('uno\n二\n🚀')
+      expect(end).toHaveBeenCalledWith('uno\n二\n🚀')
+      expect(options?.cwd).toBe('C:\\repo with spaces')
+      expect(options?.stdio).toEqual(['pipe', 'pipe', 'pipe'])
+      expect(launchedArgs).not.toContain('server')
+    } finally {
+      platformSpy.mockRestore()
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps a >64K materialized prompt off argv for an npm Windows shim', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'specrails-kimi-shim-'))
+    const shim = join(directory, 'kimi.cmd')
+    writeFileSync(
+      shim,
+      '@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@moonshot-ai\\kimi-code\\dist\\main.mjs" %*\r\n',
+    )
+    const prompt = `α<&|>🚀\n${'materialized-skill '.repeat(4_000)}`
+    expect(prompt.length).toBeGreaterThan(64_000)
+    const end = vi.fn()
+    const stdin = Object.assign(new EventEmitter(), { end })
+    const fake = {
+      stdin,
+      kill: vi.fn(),
+    } as unknown as ChildProcess
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    vi.mocked(resolveWindowsBinary).mockReturnValueOnce(shim)
+    vi.mocked(spawnCli).mockReturnValueOnce(fake)
+    try {
+      spawnKimi(['-p', prompt, '--output-format', 'stream-json'], {
+        cwd: 'C:\\repo with spaces',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      const [, launchedArgs, options] = vi.mocked(spawnCli).mock.calls.at(-1)!
+      expect(launchedArgs).not.toContain(prompt)
+      expect(launchedArgs.slice(4)).toEqual([
+        '-p', '', '--output-format', 'stream-json',
+      ])
+      expect(end).toHaveBeenCalledWith(prompt)
+      expect(options?.stdio).toEqual(['pipe', 'pipe', 'pipe'])
+    } finally {
+      platformSpy.mockRestore()
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('suppresses an asynchronous EPIPE from the Windows prompt transport', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'specrails-kimi-shim-'))
+    const shim = join(directory, 'kimi.cmd')
+    writeFileSync(
+      shim,
+      '@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@moonshot-ai\\kimi-code\\dist\\main.mjs" %*\r\n',
+    )
+    const stdin = Object.assign(new EventEmitter(), { end: vi.fn() })
+    const fake = { stdin, kill: vi.fn() } as unknown as ChildProcess
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(resolveWindowsBinary).mockReturnValueOnce(shim)
+    vi.mocked(spawnCli).mockReturnValueOnce(fake)
+    try {
+      spawnKimi(['-p', 'prompt', '--output-format', 'stream-json'])
+      const brokenPipe = Object.assign(new Error('write EPIPE'), { code: 'EPIPE' })
+      expect(() => stdin.emit('error', brokenPipe)).not.toThrow()
+      expect(errorSpy).not.toHaveBeenCalled()
+    } finally {
+      errorSpy.mockRestore()
+      platformSpy.mockRestore()
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('logs a non-EPIPE Windows prompt transport failure', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'specrails-kimi-shim-'))
+    const shim = join(directory, 'kimi.cmd')
+    writeFileSync(
+      shim,
+      '@ECHO off\r\n"%_prog%" "%dp0%\\node_modules\\@moonshot-ai\\kimi-code\\dist\\main.mjs" %*\r\n',
+    )
+    const stdin = Object.assign(new EventEmitter(), { end: vi.fn() })
+    const fake = { stdin, kill: vi.fn() } as unknown as ChildProcess
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(resolveWindowsBinary).mockReturnValueOnce(shim)
+    vi.mocked(spawnCli).mockReturnValueOnce(fake)
+    try {
+      spawnKimi(['-p', 'prompt', '--output-format', 'stream-json'])
+      const transportError = Object.assign(new Error('stream destroyed'), { code: 'EIO' })
+      expect(() => stdin.emit('error', transportError)).not.toThrow()
+      expect(errorSpy).toHaveBeenCalledWith(
+        '[cli-prompt] Kimi Windows prompt transport failed:',
+        transportError,
+      )
+      expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
+    } finally {
+      errorSpy.mockRestore()
+      platformSpy.mockRestore()
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('fails actionably when a native Windows executable cannot carry an oversized prompt', () => {
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    vi.mocked(resolveWindowsBinary).mockReturnValueOnce('C:\\tools\\kimi.exe')
+    const prompt = 'x'.repeat(65_000)
+    const callsBefore = vi.mocked(spawnCli).mock.calls.length
+    try {
+      expect(() => spawnKimi(['-p', prompt, '--output-format', 'stream-json']))
+        .toThrow(/kimi_windows_native_prompt_too_large.*install the npm Kimi Code CLI shim/)
+      expect(vi.mocked(spawnCli).mock.calls).toHaveLength(callsBefore)
+    } finally {
+      platformSpy.mockRestore()
+    }
+  })
+
+  it('fails closed for a non-standard Windows command shim', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'specrails-kimi-shim-'))
+    const shim = join(directory, 'kimi.cmd')
+    writeFileSync(shim, '@echo off\r\ncustom-launcher %*\r\n')
+    const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+    vi.mocked(resolveWindowsBinary).mockReturnValueOnce(shim)
+    try {
+      expect(() => spawnKimi(
+        ['-p', 'uno\n二\n🚀', '--output-format', 'stream-json'],
+        { cwd: 'C:\\repo' },
+      )).toThrow(`unsupported_kimi_windows_shim:${shim}`)
+      expect(spawnCli).not.toHaveBeenCalledWith(shim, expect.anything(), expect.anything())
+    } finally {
+      platformSpy.mockRestore()
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('spawnCodex Headroom relay integration', () => {
   it('appends the authoritative config override and leases the routed child until close', () => {
     const relay = 'http://127.0.0.1:4200/_specrails/headroom/runtime-token'
@@ -475,9 +678,9 @@ describe('spawn dispatch (POSIX fallthrough)', () => {
     expect(out.trim()).toBe('hello')
   })
 
-  it('spawnAiCli dispatches "claude"/"codex"/"gemini"/other through the right wrapper', () => {
+  it('spawnAiCli dispatches registered provider binaries and other commands', () => {
     if (skipOnWin) return
-    for (const bin of ['claude', 'codex', 'gemini', 'true']) {
+    for (const bin of ['claude', 'codex', 'gemini', 'kimi', 'true']) {
       smokeSpawnSync(spawnAiCli(bin, [], { stdio: ['ignore', 'pipe', 'pipe'] }))
     }
   })
@@ -496,8 +699,13 @@ describe('ensureStdinPipe', () => {
     expect(ensureStdinPipe(['ignore', 'pipe', 'pipe'])).toEqual(['pipe', 'pipe', 'pipe'])
   })
 
-  it('keeps explicit stdin entry as-is when not ignore', () => {
+  it('keeps an explicit pipe and preserves stdout/stderr', () => {
     expect(ensureStdinPipe(['pipe', 'inherit', 'inherit'])).toEqual(['pipe', 'inherit', 'inherit'])
+  })
+
+  it('upgrades inherited or overlapped array stdin because child.stdin must exist', () => {
+    expect(ensureStdinPipe(['inherit', 'pipe', 'pipe'])).toEqual(['pipe', 'pipe', 'pipe'])
+    expect(ensureStdinPipe(['overlapped', 'inherit', 'inherit'])).toEqual(['pipe', 'inherit', 'inherit'])
   })
 
   it('falls back to defaults for missing array slots', () => {

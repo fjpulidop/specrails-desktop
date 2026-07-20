@@ -4,9 +4,9 @@ export interface ContextScope {
   full: boolean
   mcp: boolean
   contractRefine: boolean
-  /** Explore-only: inject the user's own already-approved MCP servers
-   *  (claude `~/.claude.json`, codex `~/.codex`). Optional for backward compat —
-   *  preset literals omit it and it is treated as `false`. */
+  /** Inject the user's own already-approved MCP servers when the selected
+   *  adapter advertises user-MCP support (currently Claude). Optional for
+   *  backward compatibility; omitted preset values are treated as `false`. */
   userMcp?: boolean
 }
 

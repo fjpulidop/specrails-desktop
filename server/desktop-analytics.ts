@@ -12,6 +12,9 @@ export interface DesktopProjectStats {
   /** Portion of `totalCostUsd` that is a rate-card estimate (codex/gemini,
    *  `jobs.total_cost_usd_estimated=1`) rather than provider-billed (claude). */
   estimatedCostUsd: number
+  /** Invocation-cost coverage; optional for wire compatibility with older clients. */
+  pricedRuns?: number
+  unpricedRuns?: number
   totalJobs: number
   successRate: number
   avgDurationMs: number | null
@@ -34,10 +37,19 @@ export interface DesktopAnalyticsResponse {
     costToday: number
     /** Portion of `costToday` that is estimated (codex/gemini). */
     estimatedCostToday: number
+    pricedRuns?: number
+    unpricedRuns?: number
+    pricedTodayRuns?: number
+    unpricedTodayRuns?: number
     jobsToday: number
   }
   projectBreakdown: DesktopProjectStats[]
-  costTimeline: Array<{ date: string; costUsd: number; estimatedCostUsd: number }>
+  costTimeline: Array<{
+    date: string
+    costUsd: number
+    estimatedCostUsd: number
+    unpricedCount?: number
+  }>
 }
 
 // ─── Period resolution ────────────────────────────────────────────────────────
@@ -93,6 +105,8 @@ function buildWhere(bounds: DateBounds): { clause: string; params: unknown[] } {
 interface ProjectKpi {
   totalCostUsd: number
   estimatedCostUsd: number
+  pricedRuns: number
+  unpricedRuns: number
   totalJobs: number
   successCount: number
   avgDurationMs: number | null
@@ -101,6 +115,8 @@ interface ProjectKpi {
 interface ProjectCost {
   totalCostUsd: number
   estimatedCostUsd: number
+  pricedRuns: number
+  unpricedRuns: number
 }
 
 // MED-8: the app-level cost KPIs must aggregate ALL billable surfaces, not just
@@ -116,7 +132,9 @@ function queryProjectCost(db: DbInstance, clause: string, params: unknown[]): Pr
   return db.prepare(`
     SELECT
       COALESCE(SUM(total_cost_usd), 0) as totalCostUsd,
-      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) as estimatedCostUsd
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) as estimatedCostUsd,
+      COUNT(total_cost_usd) as pricedRuns,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) as unpricedRuns
     FROM ai_invocations ${clause}
   `).get(...params) as ProjectCost
 }
@@ -143,6 +161,8 @@ function queryProjectKpi(db: DbInstance, clause: string, params: unknown[]): Pro
   return {
     totalCostUsd: cost.totalCostUsd,
     estimatedCostUsd: cost.estimatedCostUsd,
+    pricedRuns: cost.pricedRuns ?? 0,
+    unpricedRuns: cost.unpricedRuns ?? 0,
     totalJobs: counts.totalJobs,
     successCount: counts.successCount ?? 0,
     avgDurationMs: counts.avgDurationMs,
@@ -172,6 +192,7 @@ interface TimelineRow {
   date: string
   costUsd: number
   estimatedCostUsd: number
+  unpricedCount: number
 }
 
 // MED-8 + BUG-ANALYTICS-26: per-day cost across ALL billable surfaces
@@ -183,7 +204,8 @@ function queryProjectTimeline(db: DbInstance, clause: string, params: unknown[])
     SELECT
       strftime('%Y-%m-%d', started_at) as date,
       COALESCE(SUM(total_cost_usd), 0) as costUsd,
-      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) as estimatedCostUsd
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) as estimatedCostUsd,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) as unpricedCount
     FROM ai_invocations ${clause}
     GROUP BY date
     ORDER BY date ASC
@@ -208,14 +230,18 @@ export function getDesktopAnalytics(
 
   let totalCostUsd = 0
   let estimatedCostUsd = 0
+  let pricedRuns = 0
+  let unpricedRuns = 0
   let totalJobs = 0
   let totalSuccess = 0
   let costToday = 0
   let estimatedCostToday = 0
+  let pricedTodayRuns = 0
+  let unpricedTodayRuns = 0
   let jobsToday = 0
 
   const projectBreakdown: DesktopProjectStats[] = []
-  const timelineMap = new Map<string, { costUsd: number; estimatedCostUsd: number }>()
+  const timelineMap = new Map<string, { costUsd: number; estimatedCostUsd: number; unpricedCount: number }>()
 
   // Iterate sequentially to avoid SQLite contention
   for (const ctx of contexts) {
@@ -225,10 +251,14 @@ export function getDesktopAnalytics(
 
     totalCostUsd += kpi.totalCostUsd
     estimatedCostUsd += kpi.estimatedCostUsd
+    pricedRuns += kpi.pricedRuns
+    unpricedRuns += kpi.unpricedRuns
     totalJobs += kpi.totalJobs
     totalSuccess += kpi.successCount
     costToday += todayKpi.totalCostUsd
     estimatedCostToday += todayKpi.estimatedCostUsd
+    pricedTodayRuns += todayKpi.pricedRuns
+    unpricedTodayRuns += todayKpi.unpricedRuns
     jobsToday += todayKpi.totalJobs
 
     projectBreakdown.push({
@@ -236,15 +266,18 @@ export function getDesktopAnalytics(
       projectName: ctx.project.name,
       totalCostUsd: kpi.totalCostUsd,
       estimatedCostUsd: kpi.estimatedCostUsd,
+      pricedRuns: kpi.pricedRuns,
+      unpricedRuns: kpi.unpricedRuns,
       totalJobs: kpi.totalJobs,
       successRate: kpi.totalJobs > 0 ? kpi.successCount / kpi.totalJobs : 0,
       avgDurationMs: kpi.avgDurationMs,
     })
 
     for (const row of timeline) {
-      const acc = timelineMap.get(row.date) ?? { costUsd: 0, estimatedCostUsd: 0 }
+      const acc = timelineMap.get(row.date) ?? { costUsd: 0, estimatedCostUsd: 0, unpricedCount: 0 }
       acc.costUsd += row.costUsd
       acc.estimatedCostUsd += row.estimatedCostUsd
+      acc.unpricedCount += row.unpricedCount ?? 0
       timelineMap.set(row.date, acc)
     }
   }
@@ -258,7 +291,12 @@ export function getDesktopAnalytics(
   // Build sorted cost timeline
   const costTimeline = Array.from(timelineMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, v]) => ({ date, costUsd: v.costUsd, estimatedCostUsd: v.estimatedCostUsd }))
+    .map(([date, v]) => ({
+      date,
+      costUsd: v.costUsd,
+      estimatedCostUsd: v.estimatedCostUsd,
+      ...(v.unpricedCount > 0 ? { unpricedCount: v.unpricedCount } : {}),
+    }))
 
   // Sort projects by cost descending
   projectBreakdown.sort((a, b) => b.totalCostUsd - a.totalCostUsd)
@@ -269,10 +307,14 @@ export function getDesktopAnalytics(
       totalCostUsd,
       estimatedCostUsd,
       includesEstimated: estimatedCostUsd > 0,
+      pricedRuns,
+      unpricedRuns,
       totalJobs,
       successRate: totalJobs > 0 ? totalSuccess / totalJobs : 0,
       costToday,
       estimatedCostToday,
+      pricedTodayRuns,
+      unpricedTodayRuns,
       jobsToday,
     },
     projectBreakdown,
@@ -330,6 +372,8 @@ export interface DesktopTodayStats {
   /** True when any part of `costToday` is an estimate. */
   includesEstimated: boolean
   jobsToday: number
+  pricedRuns: number
+  unpricedRuns: number
 }
 
 // BUG-ANALYTICS-27 + MED-8: this feeds the always-visible StatusBar / /api/state
@@ -348,24 +392,42 @@ export function getDesktopTodayStats(registry: ProjectRegistry): DesktopTodaySta
   let costToday = 0
   let estimatedCostToday = 0
   let jobsToday = 0
+  let pricedRuns = 0
+  let unpricedRuns = 0
 
   for (const ctx of registry.listContexts()) {
     const costRow = ctx.db.prepare(`
       SELECT
         COALESCE(SUM(total_cost_usd), 0) as costToday,
-        COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) as estimatedCostToday
+        COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) as estimatedCostToday,
+        COUNT(total_cost_usd) as pricedRuns,
+        SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) as unpricedRuns
       FROM ai_invocations ${clause}
-    `).get(...params) as { costToday: number; estimatedCostToday: number }
+    `).get(...params) as {
+      costToday: number
+      estimatedCostToday: number
+      pricedRuns: number
+      unpricedRuns: number | null
+    }
     const jobsRow = ctx.db.prepare(`
       SELECT COUNT(*) as jobsToday FROM jobs ${clause}
     `).get(...params) as { jobsToday: number }
     costToday += costRow.costToday
     estimatedCostToday += costRow.estimatedCostToday
+    pricedRuns += costRow.pricedRuns
+    unpricedRuns += costRow.unpricedRuns ?? 0
     jobsToday += jobsRow.jobsToday
   }
 
   // App-level agent-chat spend (desktop.sqlite), added to the headline figure.
   costToday += agentCostSince(registry, today)
 
-  return { costToday, estimatedCostToday, includesEstimated: estimatedCostToday > 0, jobsToday }
+  return {
+    costToday,
+    estimatedCostToday,
+    includesEstimated: estimatedCostToday > 0,
+    jobsToday,
+    pricedRuns,
+    unpricedRuns,
+  }
 }

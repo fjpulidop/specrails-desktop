@@ -512,23 +512,25 @@ function buildSteps(t: TFunction): StepConfig[] {
             <Trans t={t} i18nKey="onboarding.providers.intro" components={{ b: <span className="text-foreground font-medium" /> }} />
           </p>
           <div className="rounded-lg border border-border/40 overflow-hidden text-xs">
-            <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr] bg-card/40">
+            <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr] bg-card/40">
               <div className="px-3 py-2 font-semibold text-muted-foreground">{t('onboarding.providers.table.capability')}</div>
               <div className="px-3 py-2 font-semibold text-accent-secondary text-center">Claude Code</div>
               <div className="px-3 py-2 font-semibold text-accent-success text-center">Codex CLI</div>
               <div className="px-3 py-2 font-semibold text-accent-info text-center">Gemini CLI</div>
+              <div className="px-3 py-2 font-semibold text-purple-300 text-center">Kimi Code</div>
             </div>
             {[
-              [t('onboarding.providers.table.streamingResume'), t('onboarding.providers.table.native'), t('onboarding.providers.table.native'), t('onboarding.providers.table.native')],
-              [t('onboarding.providers.table.costReporting'), t('onboarding.providers.table.providerBilled'), t('onboarding.providers.table.estimated'), t('onboarding.providers.table.estimated')],
-              [t('onboarding.providers.table.telemetry'), t('onboarding.providers.table.native'), t('onboarding.providers.table.synthesized'), t('onboarding.providers.table.native')],
-              [t('onboarding.providers.table.agentProfiles'), t('common:states.yes'), '—', '—'],
+              [t('onboarding.providers.table.streamingResume'), t('onboarding.providers.table.native'), t('onboarding.providers.table.native'), t('onboarding.providers.table.native'), t('onboarding.providers.table.native')],
+              [t('onboarding.providers.table.costReporting'), t('onboarding.providers.table.providerBilled'), t('onboarding.providers.table.estimated'), t('onboarding.providers.table.estimated'), t('onboarding.providers.table.unavailable')],
+              [t('onboarding.providers.table.telemetry'), t('onboarding.providers.table.native'), t('onboarding.providers.table.synthesized'), t('onboarding.providers.table.native'), t('onboarding.providers.table.synthesized')],
+              [t('onboarding.providers.table.agentProfiles'), t('common:states.yes'), '—', '—', t('common:states.yes')],
             ].map((row) => (
-              <div key={row[0]} className="grid grid-cols-[1.4fr_1fr_1fr_1fr] border-t border-border/30">
+              <div key={row[0]} className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr] border-t border-border/30">
                 <div className="px-3 py-2 text-foreground/90">{row[0]}</div>
                 <div className="px-3 py-2 text-center text-muted-foreground">{row[1]}</div>
                 <div className="px-3 py-2 text-center text-muted-foreground">{row[2]}</div>
                 <div className="px-3 py-2 text-center text-muted-foreground">{row[3]}</div>
+                <div className="px-3 py-2 text-center text-muted-foreground">{row[4]}</div>
               </div>
             ))}
           </div>

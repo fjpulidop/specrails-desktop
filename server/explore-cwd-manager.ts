@@ -9,8 +9,9 @@ import type { ProviderAdapter, ProviderId } from './providers/types'
  * provider CLI for Explore Spec turns. See openspec/changes/accelerate-spec-
  * chat-first-token/design.md decisions D1–D3 + D9, and openspec/changes/
  * add-multi-provider-support/specs/explore-spec/spec.md for the multi-
- * provider behaviour (instructions file is adapter-driven: CLAUDE.md for
- * claude, AGENTS.md for codex).
+ * provider behaviour (the instructions path is adapter-driven: CLAUDE.md for
+ * Claude, AGENTS.md for Codex, GEMINI.md for Gemini, and
+ * .kimi-code/AGENTS.md for Kimi).
  *
  * Layout under `<specrails-home>/.specrails/projects/<slug>/explore-cwd/`:
  *   ├── <adapter.instructionsFilename>  — embedded mini-prompt, app-owned
@@ -127,6 +128,9 @@ export function ensureExploreCwd(input: ExploreCwdInput, baseDir?: string): stri
 
   const adapter: ProviderAdapter = getAdapter(input.provider ?? 'claude')
   const instructionsPath = path.join(cwd, adapter.instructionsFilename)
+  // Provider instruction paths are project-relative, not necessarily
+  // top-level filenames (Kimi uses `.kimi-code/AGENTS.md`).
+  fs.mkdirSync(path.dirname(instructionsPath), { recursive: true })
   const desiredInstructions = renderExploreInstructions(input.projectName)
   let currentInstructions: string | null = null
   try {
@@ -142,12 +146,21 @@ export function ensureExploreCwd(input: ExploreCwdInput, baseDir?: string): stri
   // — provider is immutable post-creation but the lifecycle code MUST handle
   // the edge per spec), remove any stale instructions file authored by a
   // different provider so the explore-cwd doesn't carry both.
-  const STALE_INSTRUCTION_FILES = ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md']
+  const STALE_INSTRUCTION_FILES = [
+    'CLAUDE.md',
+    'AGENTS.md',
+    'GEMINI.md',
+    path.join('.kimi-code', 'AGENTS.md'),
+  ]
   for (const stale of STALE_INSTRUCTION_FILES) {
     if (stale === adapter.instructionsFilename) continue
     const stalePath = path.join(cwd, stale)
     if (fs.existsSync(stalePath)) {
       try { fs.unlinkSync(stalePath) } catch { /* best-effort */ }
+      const staleParent = path.dirname(stalePath)
+      if (staleParent !== cwd) {
+        try { fs.rmdirSync(staleParent) } catch { /* non-empty or already gone */ }
+      }
     }
   }
 

@@ -52,6 +52,7 @@
       "sandboxNote": "In sandbox; nessun file scritto.",
       "tokens_one": "<mono>{{count}}</mono> token",
       "tokens_other": "<mono>{{count}}</mono> token",
+      "tokensUnavailable": "Utilizzo dei token non disponibile",
       "emptyHint": "Esegui un task di esempio sulla bozza corrente. L'output appare qui."
     },
     "versions": {

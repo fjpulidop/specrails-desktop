@@ -81,4 +81,4 @@ Batch モードは、関連するスペックを*順番に処理する*一番す
 
 - [レールとジョブ](rails-and-jobs) — キューモデルを掘り下げて。
 - [ジョブ詳細ビュー](the-job-detail-view) — バッチ実行をライブで見守る。
-- [レールごとのエンジン選択](picking-an-engine-per-rail) — Batch はどのプロバイダーでも動きますが、Freestyle は Claude 専用である点に注意。
+- [レールごとのエンジン選択](picking-an-engine-per-rail) — Batch はすべてのプロバイダーで動き、Freestyle は Claude と Kimi で利用できます。

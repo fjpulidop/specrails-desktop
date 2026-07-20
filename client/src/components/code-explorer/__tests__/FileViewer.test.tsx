@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FileViewer, type SummaryAction } from '../FileViewer'
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 
+const desktopState = vi.hoisted(() => ({ provider: 'claude' }))
+
 vi.mock('../CodeViewerMonaco', () => ({
   CodeViewerMonaco: ({ content }: { content: string }) => <div data-testid="monaco-stub">{content}</div>,
 }))
@@ -12,7 +14,10 @@ vi.mock('../../../context/TicketDetailModalContext', () => ({
 }))
 
 vi.mock('../../../hooks/useDesktop', () => ({
-  useDesktop: () => ({ activeProjectId: 'p1' }),
+  useDesktop: () => ({
+    activeProjectId: 'p1',
+    projects: [{ id: 'p1', provider: desktopState.provider }],
+  }),
 }))
 
 vi.mock('sonner', () => ({
@@ -40,6 +45,7 @@ function captureSummaryAction() {
 
 beforeEach(() => {
   handlers.clear()
+  desktopState.provider = 'claude'
 })
 
 describe('FileViewer', () => {
@@ -158,6 +164,38 @@ describe('FileViewer', () => {
     await waitFor(() => {
       expect(screen.getByTestId('budget-prompt')).toBeInTheDocument()
     })
+  })
+
+  it('disables Kimi summary generation with an explanation and never POSTs', async () => {
+    desktopState.provider = 'kimi'
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        content: 'export const x = 1',
+        language: 'typescript',
+        summary: null,
+        story: [],
+      }),
+    })
+    global.fetch = fetchMock as never
+    const summaryAction = captureSummaryAction()
+
+    render(wrap(
+      <FileViewer relPath="src/a.ts" onSummaryActionChange={summaryAction.onChange} />,
+    ))
+
+    await waitFor(() => {
+      expect(summaryAction.get()?.disabledReason)
+        .toBe('selected AI provider cannot enforce safe pure-output mode')
+    })
+    expect(screen.getByText(
+      'Summary unavailable: selected AI provider cannot enforce safe pure-output mode.',
+    )).toBeInTheDocument()
+
+    await act(async () => { summaryAction.get()?.onClick() })
+    expect(fetchMock.mock.calls.filter(([, options]) =>
+      (options as { method?: string } | undefined)?.method === 'POST',
+    )).toHaveLength(0)
   })
 
   it('ignores WS messages for other projects', async () => {

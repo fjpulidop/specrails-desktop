@@ -11,6 +11,12 @@ interface Props {
   defaultOpen?: boolean
   label?: string
   showSummary?: boolean
+  /** Whether the selected provider can load user-scoped MCP configuration. */
+  userMcpSupported?: boolean
+  /** Whether the selected provider can run Contract Layer structured actions. */
+  contractRefineSupported?: boolean
+  /** Human provider label used in disabled-control explanations. */
+  providerLabel?: string
 }
 
 interface CheckRowProps {
@@ -63,15 +69,22 @@ export function ContextScopeChecks({
   defaultOpen = false,
   label,
   showSummary = true,
+  userMcpSupported = true,
+  contractRefineSupported = true,
+  providerLabel,
 }: Props) {
   const { t } = useTranslation('addspec')
   const effectiveLabel = label ?? t('contextScope.defaultLabel')
-  // MCP toggles are available in both Quick and Explore. Project `.mcp.json`
-  // (mcp) is discovered natively in both; "My approved MCPs" (userMcp) loads
-  // the developer's user-scope/plugin/connector servers via the server's
-  // loadUserEnv path.
+  // Project MCP discovery is provider-native. User-scoped MCP loading and
+  // Contract Layer transforms are separate adapter capabilities and therefore
+  // must be disabled (and visually unchecked) when the selected provider
+  // cannot enforce them.
   const mcpDisabled = false
-  const userMcpDisabled = false
+  const userMcpDisabled = !userMcpSupported
+  const contractRefineDisabled = !contractRefineSupported
+  const unsupportedTooltip = providerLabel
+    ? t('contextScope.checks.providerUnsupported', { provider: providerLabel })
+    : undefined
   const [open, setOpen] = useState(defaultOpen)
   const activeScopes = [
     scope.specrails && t('contextScope.tags.specrails'),
@@ -79,7 +92,7 @@ export function ContextScopeChecks({
     scope.full && t('contextScope.tags.codebase'),
     scope.mcp && !mcpDisabled && t('contextScope.tags.mcp'),
     scope.userMcp && !userMcpDisabled && t('contextScope.tags.myMcp'),
-    scope.contractRefine && t('contextScope.tags.contract'),
+    scope.contractRefine && !contractRefineDisabled && t('contextScope.tags.contract'),
   ].filter(Boolean) as string[]
   const summary = activeScopes.length === 0 ? t('contextScope.summaryMinimal') : activeScopes.join(', ')
   const tier = tierFromScope(scope)
@@ -141,14 +154,16 @@ export function ContextScopeChecks({
           hint={t('contextScope.checks.userMcpHint')}
           checked={!!scope.userMcp && !userMcpDisabled}
           disabled={userMcpDisabled}
-          tooltip={userMcpDisabled ? t('contextScope.checks.exploreOnly') : t('contextScope.checks.userMcpTooltip')}
+          tooltip={userMcpDisabled ? unsupportedTooltip : t('contextScope.checks.userMcpTooltip')}
           onChange={(v) => onChange({ ...scope, userMcp: v })}
         />
         <CheckRow
           id="ctx-contract-refine"
           label={t('contextScope.checks.contractLabel')}
           hint={t('contextScope.checks.contractHint')}
-          checked={scope.contractRefine}
+          checked={scope.contractRefine && !contractRefineDisabled}
+          disabled={contractRefineDisabled}
+          tooltip={contractRefineDisabled ? unsupportedTooltip : undefined}
           onChange={(v) => onChange({ ...scope, contractRefine: v })}
         />
       </div>

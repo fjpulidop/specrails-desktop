@@ -32,6 +32,9 @@ export interface FinaliseOptions {
   /** Optional override for cost estimation (testing hook). When omitted, the
    *  module-level `estimateCostUsd` is used. */
   estimator?: typeof estimateCostUsd
+  /** Wall-clock duration measured by the owning manager. Used only when the
+   *  provider did not report a native duration (for example Kimi). */
+  durationMs?: number
 }
 
 export interface FinalisedInvocation {
@@ -60,6 +63,13 @@ export function finaliseInvocationResult(
   // model it spawned with.
   if (!cloned.model && opts.fallbackModel) {
     cloned.model = opts.fallbackModel
+  }
+  if (
+    cloned.duration_ms == null &&
+    typeof opts.durationMs === 'number' &&
+    Number.isFinite(opts.durationMs)
+  ) {
+    cloned.duration_ms = Math.max(0, opts.durationMs)
   }
 
   let estimated = false

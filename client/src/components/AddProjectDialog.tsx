@@ -36,13 +36,14 @@ type Provider = ProviderId
 // Canonical ordering — the first selected provider becomes the project primary.
 // Providers detected by the server but not listed here still render (appended in
 // discovery order), so a new provider needs no edit to appear in the dialog.
-const PROVIDER_ORDER: Provider[] = ['claude', 'codex', 'gemini']
+const PROVIDER_ORDER: Provider[] = ['claude', 'codex', 'gemini', 'kimi']
 
 // Display metadata per provider id; unknown ids fall back to a neutral chip.
 const PROVIDER_META: Record<string, { icon: string; label: string }> = {
   claude: { icon: '🤖', label: 'Claude' },
   codex: { icon: '⚡', label: 'Codex' },
   gemini: { icon: '✨', label: 'Gemini' },
+  kimi: { icon: '🌙', label: 'Kimi' },
 }
 
 // Render order: known providers (canonical), then any extra detected ones.
@@ -58,9 +59,9 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
   // otherwise the dialog is byte-identical to the pre-Builder behaviour.
   const chooserEnabled = FEATURE_PROJECT_BUILDER && !!onOpenBuilder
   const [step, setStep] = useState<'choose' | 'existing'>(chooserEnabled ? 'choose' : 'existing')
-  // Multi-select: a project can be created with one or both providers. When both
-  // are available we pre-select both; the user can deselect down to one (but
-  // never zero). The first in canonical order is the primary/default provider.
+  // Multi-select: a project can be created with one or more providers. Available
+  // providers are pre-selected; the user can deselect down to one (but never
+  // zero). The first in canonical order is the primary/default provider.
   const [selectedProviders, setSelectedProviders] = useState<Set<Provider>>(new Set(['claude']))
   const [projectPath, setProjectPath] = useState('')
   const [projectName, setProjectName] = useState('')
@@ -69,6 +70,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
   // /available-providers fetch overwrites this with the real server map, which
   // also adds any beta-gated provider (e.g. gemini) when enabled.
   const [availableProviders, setAvailableProviders] = useState<Record<string, boolean>>({ claude: true, codex: false })
+  const [providerIssues, setProviderIssues] = useState<Record<string, { code: string; message: string }>>({})
   const [installModalOpen, setInstallModalOpen] = useState(false)
 
   const { t } = useTranslation('setup')
@@ -96,9 +98,14 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
         // simply don't appear / aren't selectable here.
         const avail: Record<string, boolean> = {}
         for (const [k, v] of Object.entries(data)) {
-          if (k === 'tiers') continue
-          avail[k] = Boolean(v)
+          if (k === 'tiers' || k === 'providerIssues' || k === 'launchDescriptors') continue
+          if (typeof v === 'boolean') avail[k] = v
         }
+        setProviderIssues(
+          data.providerIssues && typeof data.providerIssues === 'object'
+            ? data.providerIssues as Record<string, { code: string; message: string }>
+            : {},
+        )
         setAvailableProviders(avail)
         // Default selection: every available provider is pre-selected, so the
         // common "I have these" case sets up a multi-provider project in one
@@ -298,7 +305,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
             </p>
           </div>
 
-          {/* Provider selector — multi-select. Pick one or both. */}
+          {/* Provider selector — multi-select. Pick one or more. */}
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">{t('addProject.providersLabel')}</label>
             <div className="flex gap-2">
@@ -334,7 +341,11 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
                     <span>{icon}</span>
                     <span className="font-medium">{label}</span>
                     {!avail && (
-                      <span className="text-[9px] text-muted-foreground/60">{t('addProject.notFound')}</span>
+                      <span className="text-[9px] text-muted-foreground/60">
+                        {providerIssues[id]?.code === 'core_provider_unsupported'
+                          ? t('addProject.coreUpdateRequired')
+                          : t('addProject.notFound')}
+                      </span>
                     )}
                   </button>
                 )

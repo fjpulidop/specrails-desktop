@@ -11,21 +11,24 @@ Profile 决定的是*哪些 Agent 运行、用什么模型*。但 Agent 本身�
 
 ## 添加一个自定义 Agent
 
-自定义 Agent 就是你仓库里 `.claude/agents/` 目录下的普通 Markdown 文件，命名为 `custom-<某某>.md`。文件内容包含该 Agent 的指令（它的系统提示词），以及一小段 frontmatter 头部，其中含有一个默认的 `model:`。
+Role 是 provider-native asset：Claude 使用
+`.claude/agents/custom-<name>.md`；Kimi 使用
+`.kimi-code/skills/custom-<name>/SKILL.md`。
 
-文件一旦存在于项目中，它就会作为自定义 Agent 出现在目录里，你便可以把它的 id 加入任意 Profile 的 Agent 链（并把任务路由给它）。id 必须与文件名一致——`custom-docs` 这个条目对应的是 `.claude/agents/custom-docs.md`。
+Asset 存在后会出现在对应 provider 的目录中，其 id 只能加入同 provider 的 Profile。`custom-docs` 在 Claude 中对应 `.claude/agents/custom-docs.md`，在 Kimi 中对应 `.kimi-code/skills/custom-docs/SKILL.md`；二者互不混用。
 
 由于它们就住在你的仓库里，自定义 Agent 是**可提交的团队资产**：提交这个文件，你的整个团队就都拥有了这个 Agent。这呼应了贯穿整个 Agents 区的核心观念——
 
 > **Agent 定义是共享的（它们住在仓库里，随 `git` 一起流转）。模型配置则因项目而异（它住在 Profile 里）。**
 
-`custom-*` 命名空间是保留且受保护的：`specrails-core` 的 `init` 和 `update` 命令绝不会触碰 `.claude/agents/custom-*.md`，因此你的自定义 Agent 能在 core 升级中毫发无损地保留下来。（同样的保护也覆盖插件贡献的片段，比如 `custom-serena.md`。）
+Core 保护两种格式。Kimi 支持手动 create/edit/run；Generate、Test 和
+AI Refine 会在 spawn 前拒绝。
 
 ## 让自定义 Agent 上岗
 
 典型流程如下：
 
-1. 编写 `.claude/agents/custom-<name>.md`，写好指令和一个默认模型。
+1. 创建 native Claude asset 或 Kimi Skill，并使用有效指令/model。
 2. 确认它出现在 **Agents → 目录** 的「自定义」分组下。
 3. 在 **Agents → Profile** 中，把这个 Agent 加入某条 Profile 链（也可在该 Profile 内覆盖它的模型）。
 4. 添加一条路由规则，让带有合适标签的任务到达它——或者依赖链的顺序。

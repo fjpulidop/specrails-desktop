@@ -23,6 +23,7 @@ Das Einzige, was specrails nicht mitbringen kann, ist die **KI-Provider-CLI** se
 - **Claude Code**
 - **Codex CLI**
 - **Gemini CLI**
+- **Kimi Code**
 
 Installiere die, die du nutzen möchtest, melde dich einmal über dein Terminal an – fertig. specrails erkennt automatisch, welche Provider vorhanden sind.
 

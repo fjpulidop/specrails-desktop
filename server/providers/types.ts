@@ -37,8 +37,9 @@ export interface SpawnOptions {
    * Effective tool boundary for output-only/read-only invocations. Adapters map
    * `read-only` to their verified native control: Claude plan mode plus its
    * Read/Grep/Glob allowlist, Codex's read-only sandbox, and Gemini plan mode.
-   * Adapters without a verified native equivalent may ignore it until their CLI
-   * contract supports one.
+   * Adapters without a verified native equivalent MUST reject the invocation
+   * before spawn. Ignoring this field would turn a permission boundary into
+   * prompt-only guidance.
    */
   toolPolicy?: 'default' | 'none' | 'read-only'
   /**
@@ -84,6 +85,8 @@ export type AdapterEvent =
   | { kind: 'error'; message: string }
   | { kind: 'other'; type: string; raw: Record<string, unknown> }
 
+export type AdapterEventParseResult = AdapterEvent | readonly AdapterEvent[] | null
+
 export interface NormalisedResult {
   tokens_in?: number
   tokens_out?: number
@@ -115,6 +118,15 @@ export interface ProviderCapabilities {
   nativeStreamJson: boolean
   /** CLI reports `total_cost_usd` in its terminal event. */
   nativeCostUsd: boolean
+  /**
+   * CLI emits enough usage telemetry for Desktop to report aggregate token and
+   * cost totals. Optional/absent means yes for backwards compatibility.
+   *
+   * This is distinct from `nativeCostUsd`: Codex and Gemini report tokens that
+   * Desktop can price locally. A provider that reports neither sets this false
+   * so callers preserve "unavailable" instead of manufacturing zeroes.
+   */
+  reportsUsage?: boolean
   /** CLI honours environment variables for OTLP export. */
   nativeOtelEnv: boolean
   /** Provider runtime reads `SPECRAILS_PROFILE_PATH` env var. */
@@ -122,6 +134,12 @@ export interface ProviderCapabilities {
   /** CLI accepts a `--system-prompt`-style flag. When false, the adapter folds
    *  the system prompt into the user prompt before spawning. */
   systemPromptArg: boolean
+  /**
+   * Project sidebar chat must fold its dynamic app system prompt into the user
+   * turn. Explore remains grounded by the provider instruction file in its
+   * isolated cwd, avoiding duplicate long-form framing.
+   */
+  foldProjectChatSystemPrompt?: boolean
   /**
    * CLI supports a persistent multi-turn stdin transport (claude
    * `--input-format stream-json` keeping one child alive across turns). When
@@ -151,6 +169,34 @@ export interface ProviderCapabilities {
    * Optional — absent ⇒ false.
    */
   supportsImageInput?: boolean
+  /** Provider can execute SpecRails-owned structured transforms. */
+  structuredActions?: boolean
+  /**
+   * Non-default tool boundaries that the CLI enforces natively in headless
+   * mode. Absence/empty means output-only and read-only actions MUST fail
+   * closed; prompt wording is never a permission boundary.
+   */
+  toolPolicies?: readonly Exclude<NonNullable<SpawnOptions['toolPolicy']>, 'default'>[]
+  /** Desktop may expose provider-aware execution profiles. */
+  profiles?: boolean
+  /**
+   * Provider accepts user-configured model aliases beyond Desktop's static
+   * discovery catalog. Profile validation still requires a non-empty model
+   * string through the JSON schema and preserves it byte-for-byte.
+   */
+  customModelAliases?: boolean
+  /** Desktop may discover and invoke provider-native SpecRails role skills. */
+  customRoles?: boolean
+  /**
+   * Provider headless mode does not intercept its interactive slash-skill
+   * syntax, so Desktop must materialize the installed skill prompt before any
+   * generic Claude command-file fallback runs.
+   */
+  materializeHeadlessSkills?: boolean
+  /** Provider can run the provider-owned Freestyle workflow. */
+  freestyle?: boolean
+  /** Desktop can safely opt into user-scoped MCP configuration. */
+  userMcp?: boolean
 }
 
 export interface ProviderAdapter {
@@ -170,13 +216,42 @@ export interface ProviderAdapter {
   // Model catalog — populates UI dropdowns and validates profile schemas
   modelCatalog(): readonly { value: string; label: string; default?: boolean }[]
   defaultModel(): string
+  /**
+   * Optional model-level refinement of `capabilities.reasoningEfforts`.
+   * Providers whose effort knob exists only for particular models return the
+   * accepted subset here; an empty list means the control must not be exposed
+   * or forwarded for that model.
+   */
+  reasoningEffortsForModel?(model: string): readonly ReasoningEffort[]
 
   // Spawn args by action — every spawn site funnels through one of these
   buildArgs(action: SpawnAction, opts: SpawnOptions): string[]
 
+  /**
+   * Per-invocation environment overrides. Callers merge these values into a
+   * fresh environment; adapters MUST NOT mutate process.env.
+   */
+  buildEnv?(opts: SpawnOptions): Readonly<Record<string, string | undefined>>
+
+  /**
+   * Translate a Core workflow invocation into provider-native syntax/prompt.
+   * `cwd` is the provider artifact root; adapters that materialize a headless
+   * skill locally (Kimi) require it and fail closed when it is absent.
+   */
+  formatCoreCommand?(command: string, cwd?: string, sessionId?: string): string
+
+  /** Native argv granting access to extra source roots in relocated projects. */
+  buildRepoAccessArgs?(paths: readonly string[]): string[]
+
+  /** Provider-native project MCP file, when the provider uses one. */
+  projectMcpPath?(root: string): string
+
+  /** Canonical materialized path for a project custom role definition. */
+  customRolePath?(root: string, roleId: string): string
+
   // Stream parsing — uniform event shape across providers. Returns null only
   // for empty input lines; unknown JSON event types resolve to { kind: 'other' }.
-  parseStreamLine(line: string): AdapterEvent | null
+  parseStreamLine(line: string): AdapterEventParseResult
 
   // Result extraction over an accumulated event stream.
   extractResult(events: readonly AdapterEvent[]): NormalisedResult

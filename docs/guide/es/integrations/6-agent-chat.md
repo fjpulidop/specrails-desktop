@@ -22,7 +22,14 @@ Elegir un proyecto aquí **no** mueve tu panel: el objetivo del agente y lo que 
 
 ## Proveedor y modelo
 
-Justo encima del cuadro de mensaje eliges el **proveedor** (Claude, Codex o Gemini) y su **modelo**. Cada proveedor tiene su propia lista de modelos, y cambiar de proveedor inicia una sesión nueva con el modelo por defecto de ese proveedor, así que puedes, por ejemplo, manejar la app con Claude y pasar a Codex para otra conversación sin que se mezcle nada.
+Justo encima del cuadro de mensaje eliges el **proveedor** (Claude, Codex,
+Gemini o Kimi) y su **modelo**. Cada proveedor tiene su propia lista y cambiar
+de proveedor inicia una sesión separada.
+
+Con Kimi, los niveles limitan las herramientas MCP de Specrails, pero no
+convierten `kimi -p` en un sandbox: Kimi aprueba sus herramientas nativas
+automáticamente. Las acciones pure-output inseguras se rechazan antes de
+iniciar el proceso; consulta la [matriz Kimi](../../../kimi.md).
 
 ## Niveles de permiso: tú llevas las riendas
 

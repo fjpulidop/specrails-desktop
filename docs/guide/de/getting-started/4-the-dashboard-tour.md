@@ -26,13 +26,13 @@ Die rechte Seitenleiste ist deine Schaltzentrale für das aktuelle Projekt. Fahr
 
 - **Dashboard** – das Specs-Board und die Rails (wo du gerade warst).
 - **Jobs** – jeder Pipeline-Lauf dieses Projekts, vergangen und aktuell, mit Status, Dauer und der Möglichkeit, in die Details und Logs jedes Laufs einzutauchen.
-- **Analytics** – was deine KI-Nutzung kostet. Ausgaben aufgeschlüsselt nach Tag, nach Aktivität, nach Modell und nach Ticket – damit es keine Überraschungen gibt.
-- **Agenten** – die Agent-Profile deines Projekts: welche Agenten in der Pipeline laufen und welche KI-Modelle sie nutzen. *(Nur bei Claude-betriebenen Projekten.)*
-- **Code** – ein schreibgeschützter Datei-Browser mit KI-Zusammenfassungen in einfacher Sprache und Chips, die zeigen, welche Dateien die KI angefasst hat. Ideal für Nicht-Entwickler, die mitverfolgen möchten.
+- **Analytics** – Aufrufe nach Tag, Aktivität, Modell und Ticket. Claude meldet abgerechnete Kosten, Codex/Gemini Schätzwerte; Kimi lässt nicht verfügbare Token-/USD-Felder leer.
+- **Agenten** – provider-spezifische Profile und Rollenkataloge für Claude und Kimi. Kimi-Rollen lassen sich manuell erstellen und bearbeiten; Generate, Test und AI Refine sind nicht verfügbar.
+- **Code** – ein schreibgeschützter Datei-Browser mit Chips für von der KI berührte Dateien. KI-Zusammenfassungen in einfacher Sprache erscheinen nur bei kompatiblen Providern und sind mit Kimi nicht verfügbar.
 - **Integrationen** – optionale Erweiterungen, etwa das Verbinden deiner Specs mit einem **Jira**-Board oder das Aktivieren zusätzlicher Werkzeuge für die KI.
 - **Einstellungen** – projektspezifische Optionen (Telemetrie, Budgets, Provider-Konfiguration und mehr).
 
-> Manche Abschnitte erscheinen nur, wenn sie für die gewählten Provider sinnvoll sind – zum Beispiel ist **Agenten** spezifisch für Claude. Siehst du einen Abschnitt nicht, gilt er für das Setup dieses Projekts schlicht nicht.
+> Abschnitte und Aktionen richten sich nach den Fähigkeiten des effektiven Providers. Profile funktionieren etwa mit Claude und Kimi; Agent Studios KI-Aktionen werden mit Kimi dagegen sicher abgelehnt.
 
 ## Die Statusleiste
 

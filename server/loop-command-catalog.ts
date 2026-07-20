@@ -7,8 +7,9 @@
  *    claude `/specrails:<name>`, codex `$<name>` (skill), gemini `/specrails:<name>`.
  *    Mirrors QueueManager's rail invocation (`/specrails:implement #1 #2 --yes`).
  *  - `template`: a provider-invariant curated prompt (no core coupling).
- *  - `native`: a raw autonomous Freestyle command — claude-only, NOT a slash
- *    command; it expands to a self-contained autonomous prompt.
+ *  - `native`: a raw autonomous Freestyle command — gated by the provider's
+ *    Freestyle capability, NOT a slash command; it expands to a self-contained
+ *    autonomous prompt.
  *
  * Each command declares its TICKET SCOPE:
  *  - `all`        → one run over ALL the rail's tickets (`#1 #2 #3`). implement, batch.
@@ -17,6 +18,8 @@
  * Expansion order in the engine: `expandCommands()` FIRST (injects the ticket ids),
  * then `interpolateSpec()` resolves any remaining `{{spec.*}}` data tokens.
  */
+
+import { getAdapter } from './providers/registry'
 
 export type TicketScope = 'all' | 'per-ticket'
 
@@ -41,8 +44,8 @@ export interface LoopCommand {
    *  Used for agent-native loop entry points that aren't specrails-core slash
    *  commands. */
   providerNative?: Record<string, string>
-  /** Restrict to the claude provider (e.g. Freestyle). */
-  claudeOnly?: boolean
+  /** Capability required by this command (e.g. autonomous Freestyle). */
+  requiredCapability?: 'freestyle'
 }
 
 /** The autonomous prompt a `native` command (Freestyle) expands to for the
@@ -95,9 +98,9 @@ export const LOOP_COMMANDS: LoopCommand[] = [
   {
     name: 'freestyle',
     label: 'Freestyle',
-    description: 'Free-form autonomous per-ticket implementation — Claude receives the spec as a prompt and works it end-to-end with no pipeline. Claude only. Internal token: {{cmd:freestyle}}.',
+    description: 'Free-form autonomous per-ticket implementation — the selected capable provider receives the spec as a prompt and works it end-to-end with no pipeline. Internal token: {{cmd:freestyle}}.',
     native: true,
-    claudeOnly: true,
+    requiredCapability: 'freestyle',
     ticketScope: 'per-ticket',
   },
   {
@@ -161,19 +164,19 @@ export const LOOP_COMMANDS: LoopCommand[] = [
   {
     name: 'opsx:ff', label: 'opsx:ff', ticketScope: 'per-ticket',
     description: 'OpenSpec fast-forward: create (or continue) a change and generate all its artifacts (proposal, specs, design, tasks). Native /opsx:ff (claude/gemini) or $opsx:ff (codex).',
-    providerNative: { claude: '/opsx:ff', gemini: '/opsx:ff', codex: '$opsx:ff' },
+    providerNative: { claude: '/opsx:ff', gemini: '/opsx:ff', codex: '$opsx:ff', kimi: '/skill:openspec-ff-change' },
     template: 'Create or continue an OpenSpec change for the work described next and generate all of its artifacts (proposal, specs, design, and tasks) so it is ready to implement.',
   },
   {
     name: 'opsx:apply', label: 'opsx:apply', ticketScope: 'per-ticket',
     description: 'OpenSpec apply: implement all pending tasks of the active change. Native /opsx:apply (claude/gemini) or $opsx:apply (codex).',
-    providerNative: { claude: '/opsx:apply', gemini: '/opsx:apply', codex: '$opsx:apply' },
+    providerNative: { claude: '/opsx:apply', gemini: '/opsx:apply', codex: '$opsx:apply', kimi: '/skill:openspec-apply-change' },
     template: 'Implement every pending task of the active OpenSpec change, editing the code as needed and marking each task complete as you finish it.',
   },
   {
     name: 'opsx:verify', label: 'opsx:verify', ticketScope: 'per-ticket',
     description: "OpenSpec verify: check the active change's implementation against its specs/tasks; ends with VERIFICATION: PASS|FAIL. Native /opsx:verify (claude/gemini) or $opsx:verify (codex).",
-    providerNative: { claude: '/opsx:verify', gemini: '/opsx:verify', codex: '$opsx:verify' },
+    providerNative: { claude: '/opsx:verify', gemini: '/opsx:verify', codex: '$opsx:verify', kimi: '/skill:openspec-verify-change' },
     template: 'Verify the active OpenSpec change: inspect the REAL implementation against its specs, design, and tasks. Finish with exactly `VERIFICATION: PASS` when nothing required is missing, or `VERIFICATION: FAIL — <what is still missing>` otherwise.',
   },
 
@@ -268,7 +271,11 @@ export interface ExpandCommandOpts {
  *  identical in shape to the rail's `/specrails:implement #1 #2 --yes`. Codex has
  *  no `/namespace:cmd` parser, so it invokes the equivalent `$<name>` skill. */
 function nativeInvocation(coreCommand: string, provider: string, ids: number[]): string {
-  const head = provider === 'codex' ? `$${coreCommand}` : `/specrails:${coreCommand}`
+  const head = provider === 'codex'
+    ? `$${coreCommand}`
+    : provider === 'kimi'
+      ? `/skill:specrails-${coreCommand}`
+      : `/specrails:${coreCommand}`
   const tickets = ids.length ? ' ' + ids.map((id) => `#${id}`).join(' ') : ''
   return `${head}${tickets} --yes`
 }
@@ -307,10 +314,20 @@ export function dominantTicketScope(text: string): TicketScope {
   return sawPerTicket ? 'per-ticket' : 'per-ticket'
 }
 
-/** True if a prompt references any claude-only command (e.g. Freestyle's canonical token). */
+/** Legacy helper retained for API compatibility. */
 export function referencesClaudeOnlyCommand(text: string): boolean {
   for (const m of text.matchAll(CMD_TOKEN_RE)) {
-    if (COMMANDS_BY_NAME.get(m[1])?.claudeOnly) return true
+    if (COMMANDS_BY_NAME.get(m[1])?.requiredCapability === 'freestyle') return true
+  }
+  return false
+}
+
+/** True when a prompt uses a command the selected provider cannot execute. */
+export function referencesUnsupportedProviderCommand(text: string, provider: string): boolean {
+  const capabilities = getAdapter(provider).capabilities
+  for (const m of text.matchAll(CMD_TOKEN_RE)) {
+    const required = COMMANDS_BY_NAME.get(m[1])?.requiredCapability
+    if (required && capabilities[required] !== true) return true
   }
   return false
 }

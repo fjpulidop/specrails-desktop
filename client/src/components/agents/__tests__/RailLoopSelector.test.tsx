@@ -21,7 +21,7 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
     expect(within(sel).getByRole('option', { name: 'Batch' })).toBeInTheDocument()
   })
 
-  it('hides the Claude-only Freestyle built-in when freestyle is unavailable', () => {
+  it('hides the provider-owned Freestyle built-in when the capability is unavailable', () => {
     render(<RailLoopSelector value={null} onChange={() => {}} freestyleAvailable={false} loopsEnabled={false} />)
     const sel = screen.getByTestId('rail-loop-selector')
     expect(within(sel).queryByRole('option', { name: 'Freestyle' })).not.toBeInTheDocument()

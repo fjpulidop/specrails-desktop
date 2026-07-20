@@ -34,9 +34,9 @@ describe('rail-loops helpers', () => {
     expect(effectiveLoopId('', 'loop')).toBe('') // custom mode + no pick → empty (blocks launch)
   })
 
-  it('exposes the built-in rail loops with freestyle flagged claude-only', () => {
+  it('exposes the built-in rail loops with a Freestyle capability requirement', () => {
     expect(FACTORY_RAIL_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:batch', 'factory:freestyle', 'factory:sdd-quick-openspec'])
-    expect(FACTORY_RAIL_LOOPS.find((f) => f.id === 'factory:freestyle')?.claudeOnly).toBe(true)
+    expect(FACTORY_RAIL_LOOPS.find((f) => f.id === 'factory:freestyle')?.requiresFreestyle).toBe(true)
     // Graph-native built-in: only offered while the Loops feature is enabled.
     expect(FACTORY_RAIL_LOOPS.find((f) => f.id === 'factory:sdd-quick-openspec')?.requiresLoops).toBe(true)
   })

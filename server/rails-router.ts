@@ -8,12 +8,12 @@ import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance
 import { recordLoopRunProvenance } from './file-story'
 import { getLoop } from './loops-store'
 import { getLoopRun, getRunEventCounts, listActiveLoopRuns } from './loop-runs-store'
-import { getAdapter } from './providers'
+import { getAdapter, reasoningEffortsForModel, supportsToolPolicy } from './providers'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from './spec-models'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode } from './loop-factory'
 import { loadConstantMap } from './loop-constants'
-import { dominantTicketScope, referencesClaudeOnlyCommand } from './loop-command-catalog'
+import { dominantTicketScope, referencesUnsupportedProviderCommand } from './loop-command-catalog'
 import { loopNeedsTicket, type LoopGraph } from './loop-graph'
 import { isolationApplies, isRailPrDeliveryEnabled } from './rail-isolation'
 import {
@@ -51,13 +51,6 @@ declare module 'express-serve-static-core' {
 }
 
 const VALID_MODES = new Set(['implement', 'batch-implement', 'freestyle', 'loop'])
-// Models the freestyle picker exposes (Claude aliases). Mirrors the client
-// RailModelSelector options and the project-router orchestrator-model allow-list.
-const VALID_FREESTYLE_MODELS = new Set(['haiku', 'sonnet', 'opus', 'fable'])
-// Reasoning-effort tiers a loop launch may request (mirrors the client selector
-// + the provider adapters' supported values).
-const VALID_REASONING_EFFORTS = new Set(['low', 'medium', 'high'])
-
 function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: number[]): boolean {
   if (delivery.decision !== 'pr_draft' && delivery.decision !== 'pr_ready') return false
   if (!delivery.prUrl || !delivery.branch || !delivery.deliverySha || delivery.prState !== 'pr-created') return false
@@ -442,14 +435,7 @@ export function createRailsRouter(): Router {
     if (typeof targetPrNumber === 'number' && (!isLoopsEnabled() || !isRailPrDeliveryEnabled())) {
       res.status(400).json({ error: 'target_pr_requires_pr_mode', detail: 'targetPrNumber requires loops and PR delivery to be enabled' }); return
     }
-    // Freestyle model picker: optional, validated against the allow-list.
-    // Ignored for non-freestyle modes (they use the orchestrator model).
-    if (mode === 'freestyle' && model !== undefined && model !== null) {
-      if (typeof model !== 'string' || !VALID_FREESTYLE_MODELS.has(model)) {
-        res.status(400).json({ error: 'model must be one of: haiku, sonnet, opus, fable' }); return
-      }
-    }
-    // Interactive in-job chat is ON by default for EVERY claude job — the
+    // Interactive in-job chat is ON by default for providers that expose the
     // spawn-time gate in QueueManager (kill-switch + persistent-stdin
     // capability) decides, so the launch no longer passes an explicit flag. A
     // legacy `interactive` body param is accepted and ignored (wire compat).
@@ -495,20 +481,33 @@ export function createRailsRouter(): Router {
     // single-provider rails on the legacy code path).
     const railProvider = requestedEngine ? engineCheck.provider : undefined
 
-    // Freestyle bypasses the OpenSpec pipeline and hands the raw spec to
-    // Claude. It is Claude-only — reject when the effective engine is not claude.
-    if (mode === 'freestyle' && engineCheck.provider !== 'claude') {
-      res.status(400).json({ error: 'Freestyle requires the Claude provider' }); return
+    // Freestyle bypasses the OpenSpec pipeline and hands the raw spec to a
+    // provider that explicitly advertises autonomous freestyle support.
+    if (mode === 'freestyle' && getAdapter(engineCheck.provider).capabilities.freestyle !== true) {
+      res.status(400).json({ error: `Freestyle is not supported by provider '${engineCheck.provider}'` }); return
+    }
+    // Freestyle is provider-owned. Validate its optional model against the
+    // selected engine instead of a Claude-only alias list.
+    if (
+      mode === 'freestyle' &&
+      model !== undefined &&
+      model !== null &&
+      (typeof model !== 'string' || !isValidModelForProvider(model, engineCheck.provider as SpecProvider))
+    ) {
+      res.status(400).json({
+        error: `model is not valid for provider "${engineCheck.provider}"`,
+        allowed: getModelsForProvider(engineCheck.provider as SpecProvider),
+      }); return
     }
 
     // Profile selection precedence: explicit body param > stored rail profile > default resolution.
-    // `null` in the body explicitly forces legacy mode. Codex has no agent
-    // profiles, so force legacy mode whenever the chosen engine is not claude.
+    // `null` in the body explicitly forces legacy mode. Providers without
+    // profile support run in legacy mode.
     let resolvedProfile: string | null | undefined
     if (mode === 'freestyle') {
       // Freestyle runs no agent pipeline, so profiles do not apply.
       resolvedProfile = null
-    } else if (railProvider && railProvider !== 'claude') {
+    } else if (railProvider && getAdapter(railProvider).capabilities.profiles !== true) {
       resolvedProfile = null
     } else if (profileName === null) {
       resolvedProfile = null
@@ -552,26 +551,48 @@ export function createRailsRouter(): Router {
           loopGraph = loop.graph
           loopName = loop.name
         }
-        let effort: ReasoningEffort | undefined
-        if (reasoning_effort !== undefined && reasoning_effort !== null) {
-          if (typeof reasoning_effort !== 'string' || !VALID_REASONING_EFFORTS.has(reasoning_effort)) {
-            res.status(400).json({ error: 'reasoning_effort must be one of: low, medium, high' }); return
-          }
-          effort = reasoning_effort as ReasoningEffort
-        }
         const loopProvider = railProvider ?? c.project.provider ?? 'claude'
+        const loopAdapter = getAdapter(loopProvider)
+        if (
+          loopGraph.nodes.some((node) => node.type === 'decider')
+          && !supportsToolPolicy(loopAdapter, 'read-only')
+        ) {
+          res.status(409).json({
+            code: 'provider_tool_policy_unsupported',
+            provider: loopProvider,
+            requiredPolicy: 'read-only',
+            error:
+              `Provider '${loopProvider}' cannot run Loop Deciders because its headless CLI ` +
+              'does not enforce a read-only tool policy.',
+          })
+          return
+        }
         if (typeof model === 'string' && model && !isValidModelForProvider(model, loopProvider as SpecProvider)) {
           res.status(400).json({ error: `model is not valid for provider "${loopProvider}"`, allowed: getModelsForProvider(loopProvider as SpecProvider) }); return
         }
         const loopModel =
-          typeof model === 'string' && model ? model : getAdapter(loopProvider).defaultModel()
-        // The loop's command(s) declare ticket scope + claude-only-ness.
+          typeof model === 'string' && model ? model : loopAdapter.defaultModel()
+        let effort: ReasoningEffort | undefined
+        if (reasoning_effort !== undefined && reasoning_effort !== null) {
+          const allowed = reasoningEffortsForModel(loopAdapter, loopModel)
+          if (
+            typeof reasoning_effort !== 'string' ||
+            !(allowed as readonly string[]).includes(reasoning_effort)
+          ) {
+            res.status(400).json({
+              error: `reasoning_effort is not valid for provider "${loopProvider}" and model "${loopModel}"`,
+              allowed,
+            }); return
+          }
+          effort = reasoning_effort as ReasoningEffort
+        }
+        // The loop's command(s) declare ticket scope + required capabilities.
         const promptsText = loopGraph.nodes
           .filter((n) => n.type === 'ai-step')
           .map((n) => String(n.data?.prompt ?? ''))
           .join('\n')
-        if (referencesClaudeOnlyCommand(promptsText) && loopProvider !== 'claude') {
-          res.status(400).json({ error: 'This loop uses a Claude-only command and requires the Claude provider' }); return
+        if (referencesUnsupportedProviderCommand(promptsText, loopProvider)) {
+          res.status(400).json({ error: `This loop uses a command unsupported by provider '${loopProvider}'` }); return
         }
         const scope = dominantTicketScope(promptsText)
 
@@ -799,14 +820,12 @@ export function createRailsRouter(): Router {
       let jobId: string
 
       if (mode === 'freestyle') {
-        // Freestyle launches ONE independent Claude job per ticket — each gets
+        // Freestyle launches ONE independent provider-owned job per ticket — each gets
         // its own log and runs the spec autonomously (no pipeline). The rail UI
         // tracks the first job as its representative active job; every job is
         // registered so its ticket is marked done on completion.
-        // `provider: 'claude'` is explicit so the spawn resolves the claude
-        // adapter regardless of the project's primary.
         const freestyleModel =
-          mode === 'freestyle' && typeof model === 'string' && VALID_FREESTYLE_MODELS.has(model)
+          mode === 'freestyle' && typeof model === 'string'
             ? model
             : undefined
         const jobIds: string[] = []
@@ -814,7 +833,7 @@ export function createRailsRouter(): Router {
           const command = `/specrails:freestyle #${ticketId} --yes`
           const job = c.queueManager.enqueue(command, 'normal', {
             profileName: null,
-            provider: 'claude',
+            provider: engineCheck.provider,
             ...(freestyleModel ? { model: freestyleModel } : {}),
             // No explicit `interactive` — QueueManager's spawn-time default
             // (kill-switch + persistent-stdin capability) covers it, and the

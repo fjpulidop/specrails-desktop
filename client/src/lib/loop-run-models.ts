@@ -29,6 +29,11 @@ export const LOOP_RUN_MODELS: Record<string, LoopRunModel[]> = {
     { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
     { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
   ],
+  kimi: [
+    { value: 'k3', label: 'Kimi K3' },
+    { value: 'kimi-for-coding', label: 'Kimi for Coding' },
+    { value: 'kimi-for-coding-highspeed', label: 'Kimi for Coding Highspeed' },
+  ],
 }
 
 /** The selectable models for a provider (empty for an unknown provider). */

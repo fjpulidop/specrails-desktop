@@ -22,7 +22,7 @@ export interface AgentConversation {
   session_id: string | null
   pinned_project_id: string | null
   tier_level: AgentTierLevel
-  /** Reasoning effort for spawns; null = app default ("medium"). */
+  /** Reasoning effort for spawns; null = no provider-specific override. */
   reasoning_effort: string | null
   created_at: string
   updated_at: string
@@ -78,6 +78,8 @@ export interface AgentModel {
 
 export interface AgentModelsResponse {
   models: AgentModel[]
+  /** Provider accepts safe aliases configured outside SpecRails. */
+  customModelAliases: boolean
   /** Composer gates the image affordance on this capability (design D22). */
   supportsImageInput: boolean
   /** Provider's reasoning-effort tiers, ascending. Empty ⇒ no selector (gemini). */
@@ -85,11 +87,17 @@ export interface AgentModelsResponse {
 }
 
 export async function getAgentModels(provider: string): Promise<AgentModelsResponse> {
-  const data = await json<{ models: AgentModel[]; supportsImageInput?: boolean; efforts?: string[] }>(
+  const data = await json<{
+    models: AgentModel[]
+    customModelAliases?: boolean
+    supportsImageInput?: boolean
+    efforts?: string[]
+  }>(
     await fetch(`${base}/models?provider=${encodeURIComponent(provider)}`),
   )
   return {
     models: data.models,
+    customModelAliases: data.customModelAliases === true,
     supportsImageInput: data.supportsImageInput !== false,
     efforts: Array.isArray(data.efforts) ? data.efforts : [],
   }

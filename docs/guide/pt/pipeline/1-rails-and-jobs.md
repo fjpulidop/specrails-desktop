@@ -35,8 +35,8 @@ Você pode ter vários rails para organizar o trabalho em pistas nomeadas (uma p
 | **Pílula de status** | `idle`, `running` ou `failed`. Não há um "completed" separado — um rail volta para `idle` quando seu job termina sem erros. |
 | **Lista de specs** | Os IDs atribuídos a este rail. Arraste mais para dentro, arraste para fora para desanexar. |
 | **Seletor de Loop** | O Loop que este rail roda — um embutido (`Implement` / `Batch` / `Freestyle`) ou um loop personalizado. Veja a tabela abaixo. Persistido por rail. |
-| **Seletor de perfil** | Qual perfil de agente roda (apenas rails Claude). Só aparece quando o projeto tem ao menos um perfil. |
-| **Seletor de motor** | Qual provedor instalado roda este rail — Claude, Codex ou Gemini. Só é renderizado quando o projeto tem mais de um provedor. Veja [Escolhendo um motor por rail](picking-an-engine-per-rail). |
+| **Seletor de perfil** | Qual perfil do provider corre (rails Claude e Kimi). |
+| **Seletor de motor** | Qual provider corre o rail — Claude, Codex, Gemini ou Kimi. |
 | **▶ Play / ■ Stop** | Iniciar ou cancelar. |
 
 ### O que um rail roda: Loops
@@ -47,9 +47,11 @@ Um rail roda um **Loop** — a receita do trabalho. Três loops são **embutidos
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Um job cobrindo todas as specs do rail. Roda o pipeline completo Architect → Developer → Reviewer → Ship. O padrão do dia a dia. |
 | **Batch** | `/specrails:batch-implement` | Um job que percorre as specs do rail sequencialmente, em ondas que respeitam as dependências. Melhor para várias specs relacionadas. |
-| **Freestyle** | Freestyle | O Claude implementa cada spec de forma autônoma, **ignorando** o pipeline. Um job independente por spec. Apenas Claude. |
+| **Freestyle** | Freestyle | Claude ou Kimi implementa cada spec de forma autónoma, **ignorando** o pipeline. |
 
-O Freestyle é o caso atípico: ele pula a cadeia de agentes e entrega a spec crua ao Claude para trabalhar com suas ferramentas nativas. É aberto, então apertar Play abre primeiro uma confirmação, e um seletor de modelo por rail deixa você escolher Haiku / Sonnet / Opus. Ele só aparece quando o motor do rail é o Claude. Uma execução Freestyle é também o único job que **fica aberto esperando por você**: converse com ele pelo compositor do detalhe do job e clique em **Finalize** quando estiver satisfeito (todos os outros jobs terminam sozinhos).
+Freestyle usa ferramentas e modelos nativos do provider. Claude tem transport
+interativo persistente; Kimi usa um processo agentic `kimi -p` sem stdin
+persistente.
 
 Além dos embutidos, você pode **construir seus próprios loops** — repetir um ciclo verify → fix → verify até atingir uma meta, encadear comandos de shell entre AI Steps e muito mais. Esses loops personalizados aparecem no mesmo seletor de Loop. Essa é a próxima grande ideia: [O Loop Builder](the-loop-builder).
 
@@ -81,7 +83,8 @@ Clique em **■ Stop** no cabeçalho do rail. A app envia `SIGTERM` ao subproces
 
 ## Se um rail não lançar
 
-Se você escolher um motor cuja CLI não está instalada na sua máquina, o lançamento **falha rápido** em vez de iniciar um job quebrado — nada é spawnado. Instale a CLI do provedor que falta ([Usando Codex](../integrations/using-codex), [Usando Gemini](../integrations/using-gemini)) e lance de novo. Claude ou Codex ausentes dão uma mensagem precisa "*&lt;provider&gt; CLI not found*"; o Gemini ausente exibe um erro genérico de lançamento por enquanto, mas o resultado é o mesmo.
+Se faltar o CLI escolhido, o lançamento falha antes do spawn. Para Kimi,
+instale/autentique `kimi` 0.27+; Desktop não inicia um server.
 
 ## Parando tudo
 
@@ -96,4 +99,4 @@ Se algo parecer errado:
 - [O Loop Builder](the-loop-builder) — o que um rail roda, e como construir seus próprios loops.
 - [A vista de detalhe do job](the-job-detail-view) — fases, métricas ao vivo, cartões de ticket.
 - [Batch implement e multi-feature](batch-implement-and-multi-feature) — rode várias specs de uma vez.
-- [Escolhendo um motor por rail](picking-an-engine-per-rail) — Claude vs Codex vs Gemini.
+- [Escolhendo um motor por rail](picking-an-engine-per-rail) — Claude, Codex, Gemini ou Kimi.

@@ -1572,6 +1572,50 @@ const MIGRATIONS: Migration[] = [
       db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN safety_archives TEXT NOT NULL DEFAULT '[]'`)
     }
   },
+
+  // Migration 55: Agent Studio history belongs to a provider-native role
+  // catalog. The same logical custom role id can validly exist for Claude and
+  // Kimi in one project; keying history only by agent_name mixed bodies and
+  // version counters across those catalogs. Legacy rows predate provider-aware
+  // Studio and therefore belong to Claude.
+  (db) => {
+    const versionCols = new Set(
+      (db.prepare(`PRAGMA table_info(agent_versions)`).all() as { name: string }[])
+        .map((row) => row.name),
+    )
+    if (!versionCols.has('provider')) {
+      db.exec(`
+        ALTER TABLE agent_versions RENAME TO agent_versions_v54;
+        CREATE TABLE agent_versions (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          provider     TEXT    NOT NULL DEFAULT 'claude',
+          agent_name   TEXT    NOT NULL,
+          version      INTEGER NOT NULL,
+          body         TEXT    NOT NULL,
+          created_at   INTEGER NOT NULL,
+          UNIQUE (provider, agent_name, version)
+        );
+        INSERT INTO agent_versions (id, provider, agent_name, version, body, created_at)
+          SELECT id, 'claude', agent_name, version, body, created_at
+            FROM agent_versions_v54;
+        DROP TABLE agent_versions_v54;
+        CREATE INDEX idx_agent_versions_provider_name
+          ON agent_versions(provider, agent_name);
+      `)
+    }
+
+    const testCols = new Set(
+      (db.prepare(`PRAGMA table_info(agent_tests)`).all() as { name: string }[])
+        .map((row) => row.name),
+    )
+    if (!testCols.has('provider')) {
+      db.exec(`ALTER TABLE agent_tests ADD COLUMN provider TEXT NOT NULL DEFAULT 'claude'`)
+    }
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_agent_tests_provider_name
+        ON agent_tests(provider, agent_name)
+    `)
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {
@@ -1881,7 +1925,12 @@ export function getJob(
   jobId: string
 ): JobRow | undefined {
   return db
-    .prepare('SELECT * FROM jobs WHERE id = ?')
+    .prepare(`
+      SELECT jobs.*, jp.profile_name AS profile_name
+      FROM jobs
+      LEFT JOIN job_profiles jp ON jp.job_id = jobs.id
+      WHERE jobs.id = ?
+    `)
     .get(jobId) as JobRow | undefined
 }
 
@@ -2221,15 +2270,33 @@ export function getStats(db: DbInstance): StatsRow {
   const estSum = `COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0)`
 
   const costRow = db.prepare(`
-    SELECT ${costSum} as totalCostUsd, ${estSum} as estimatedCostUsd
+    SELECT
+      ${costSum} as totalCostUsd,
+      ${estSum} as estimatedCostUsd,
+      COUNT(total_cost_usd) as pricedRuns,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) as unpricedRuns
     FROM ai_invocations
-  `).get() as { totalCostUsd: number; estimatedCostUsd: number }
+  `).get() as {
+    totalCostUsd: number
+    estimatedCostUsd: number
+    pricedRuns: number
+    unpricedRuns: number | null
+  }
 
   const costTodayRow = db.prepare(`
-    SELECT ${costSum} as costToday, ${estSum} as estimatedCostToday
+    SELECT
+      ${costSum} as costToday,
+      ${estSum} as estimatedCostToday,
+      COUNT(total_cost_usd) as pricedTodayRuns,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) as unpricedTodayRuns
     FROM ai_invocations
     WHERE strftime('%Y-%m-%d', started_at) = ?
-  `).get(today) as { costToday: number; estimatedCostToday: number }
+  `).get(today) as {
+    costToday: number
+    estimatedCostToday: number
+    pricedTodayRuns: number
+    unpricedTodayRuns: number | null
+  }
 
   return {
     totalJobs: totalRow.totalJobs,
@@ -2239,6 +2306,10 @@ export function getStats(db: DbInstance): StatsRow {
     costToday: costTodayRow.costToday,
     estimatedCostUsd: costRow.estimatedCostUsd,
     estimatedCostToday: costTodayRow.estimatedCostToday,
+    pricedRuns: costRow.pricedRuns,
+    unpricedRuns: costRow.unpricedRuns ?? 0,
+    pricedTodayRuns: costTodayRow.pricedTodayRuns,
+    unpricedTodayRuns: costTodayRow.unpricedTodayRuns ?? 0,
     avgDurationMs: totalRow.avgDurationMs,
   }
 }
@@ -2246,9 +2317,9 @@ export function getStats(db: DbInstance): StatsRow {
 // ─── Project settings ─────────────────────────────────────────────────────────
 
 /**
- * Default pre-prompt used by Freestyle (Claude-only rails) when the project
+ * Default pre-prompt used by provider-capable Freestyle rails when the project
  * has no per-project override. Freestyle skips the OpenSpec pipeline entirely:
- * it hands Claude the spec text plus this instruction and lets it work
+ * it hands the selected autonomous provider the spec text plus this instruction and lets it work
  * autonomously end-to-end.
  */
 export const DEFAULT_FREESTYLE_PRE_PROMPT = [

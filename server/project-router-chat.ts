@@ -23,6 +23,7 @@ import type { JobPriority } from './types'
 import { VALID_PRIORITIES } from './types'
 import { resolveCommand } from './command-resolver'
 import { getAdapter } from './providers'
+import { supportsToolPolicy } from './providers/runtime'
 import { createHooksRouter, getPhaseStates } from './hooks'
 import { getConfig, fetchIssues } from './config'
 import { runContractRefine, runContractRefineForQuick } from './contract-refine-runner'
@@ -144,6 +145,14 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
     const rawKind = req.body?.kind
     const kind: 'sidebar' | 'explore' | 'milestone' =
       rawKind === 'explore' ? 'explore' : rawKind === 'milestone' ? 'milestone' : 'sidebar'
+    if (kind === 'milestone' && !supportsToolPolicy(getAdapter(provider), 'read-only')) {
+      res.status(409).json({
+        error: 'provider_tool_policy_unsupported',
+        provider,
+        requiredPolicy: 'read-only',
+      })
+      return
+    }
     const id = uuidv4()
     const rawScope = req.body?.contextScope
     if (rawScope !== undefined && kind !== 'explore') {
@@ -165,12 +174,10 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
     let scope: ContextScope | undefined
     if (kind === 'explore') {
       const fallback = getLastContextScope(db, 'explore')
-      // Defence-in-depth: SMASH / Contract Layer is Claude-only. Strip
-      // contractRefine from the scope when the conversation's resolved provider
-      // is non-Claude so no downstream code (Contract Refine Runner, SMASH
-      // eligibility) ever sees a mismatched flag.
+      // Defence-in-depth: retain Contract Refine only for providers that
+      // advertise the structured-action contract.
       const safeRawScope =
-        provider !== 'claude' && rawScope != null
+        getAdapter(provider).capabilities.structuredActions !== true && rawScope != null
           ? { ...rawScope, contractRefine: false }
           : rawScope
       scope = normalizeContextScope(safeRawScope ?? fallback, fallback)
@@ -186,7 +193,7 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
   })
 
   router.get('/:projectId/chat/conversations/:id', (req: Request, res: Response) => {
-    const { db } = ctx(req)
+    const { db, project } = ctx(req)
     const conversation = getConversation(db, req.params.id as string)
     if (!conversation) { res.status(404).json({ error: 'Conversation not found' }); return }
     const messages = getMessages(db, req.params.id as string)
@@ -223,7 +230,7 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
   })
 
   router.patch('/:projectId/chat/conversations/:id', (req: Request, res: Response) => {
-    const { db } = ctx(req)
+    const { db, project } = ctx(req)
     const conversation = getConversation(db, req.params.id as string)
     if (!conversation) { res.status(404).json({ error: 'Conversation not found' }); return }
     const { title, model } = req.body ?? {}
@@ -235,7 +242,9 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
     if (model !== undefined) {
       // Validate against the conversation's own provider so a bad value can't be
       // persisted and break the next turn's spawn. (Mirrors the POST handler.)
-      const convProvider = (conversation.provider as SpecProvider | null) ?? ('claude' as SpecProvider)
+      const convProvider =
+        (conversation.provider as SpecProvider | null) ??
+        ((project.provider ?? 'claude') as SpecProvider)
       if (typeof model !== 'string' || !isValidModelForProvider(model, convProvider)) {
         res.status(400).json({
           error: `Invalid model "${String(model)}" for provider "${convProvider}"`,

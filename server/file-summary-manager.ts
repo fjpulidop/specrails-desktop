@@ -60,11 +60,13 @@ export interface GenerateOutput {
   model: string
   /** Provider id ('claude' | 'codex' | ...). Stamped onto the ai_invocations row. */
   provider: string
-  costUsd: number
+  /** Null when the provider reports neither authoritative cost nor priceable usage. */
+  costUsd: number | null
   /** True when costUsd came from the pricing-table fallback (non-native-cost provider). */
   costEstimated?: boolean
-  tokensIn: number
-  tokensOut: number
+  /** Null when the provider does not report usage. */
+  tokensIn: number | null
+  tokensOut: number | null
   tokensCacheRead?: number
   tokensCacheCreate?: number
   durationMs: number
@@ -631,9 +633,9 @@ export class FileSummaryManager {
           started_at: startedIso,
           finished_at: new Date((this.deps.now ?? Date.now)()).toISOString(),
           model: out.model,
-          total_cost_usd: out.costUsd,
-          tokens_in: out.tokensIn,
-          tokens_out: out.tokensOut,
+          total_cost_usd: out.costUsd ?? undefined,
+          tokens_in: out.tokensIn ?? undefined,
+          tokens_out: out.tokensOut ?? undefined,
           tokens_cache_read: out.tokensCacheRead,
           tokens_cache_create: out.tokensCacheCreate,
           duration_ms: out.durationMs,
@@ -673,9 +675,9 @@ export class FileSummaryManager {
           started_at: startedIso,
           finished_at: new Date((this.deps.now ?? Date.now)()).toISOString(),
           model: partial?.model,
-          total_cost_usd: partial?.costUsd ?? 0,
-          tokens_in: partial?.tokensIn ?? 0,
-          tokens_out: partial?.tokensOut ?? 0,
+          total_cost_usd: partial?.costUsd ?? undefined,
+          tokens_in: partial?.tokensIn ?? undefined,
+          tokens_out: partial?.tokensOut ?? undefined,
           tokens_cache_read: partial?.tokensCacheRead,
           tokens_cache_create: partial?.tokensCacheCreate,
           duration_ms: partial?.durationMs ?? 0,

@@ -1,9 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import { Gauge } from 'lucide-react'
+import {
+  defaultReasoningEffortForProvider,
+  reasoningEffortsForProvider,
+  type ProviderReasoningEffort,
+} from '../../lib/provider-capabilities'
 
-export const REASONING_EFFORTS = ['low', 'medium', 'high'] as const
-export type ReasoningEffort = (typeof REASONING_EFFORTS)[number]
-export const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'medium'
+export type ReasoningEffort = ProviderReasoningEffort
 
 /**
  * Compact reasoning-effort dropdown for the rail header (loop mode). Mirrors
@@ -12,13 +15,20 @@ export const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'medium'
  */
 export function RailEffortSelector({
   value,
+  provider,
+  model,
   onChange,
 }: {
   value: ReasoningEffort | null | undefined
+  provider: string
+  model: string
   onChange: (value: ReasoningEffort) => void
 }) {
   const { t } = useTranslation('dashboard')
-  const current = value ?? DEFAULT_REASONING_EFFORT
+  const efforts = reasoningEffortsForProvider(provider, model)
+  const current = value && efforts.includes(value)
+    ? value
+    : defaultReasoningEffortForProvider(provider, model) ?? ''
   return (
     <div
       className="inline-flex items-center"
@@ -34,7 +44,7 @@ export function RailEffortSelector({
         onChange={(e) => onChange(e.target.value as ReasoningEffort)}
         className="h-5 text-[10px] rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
       >
-        {REASONING_EFFORTS.map((e) => (
+        {efforts.map((e) => (
           <option key={e} value={e}>{e}</option>
         ))}
       </select>

@@ -33,7 +33,7 @@
   },
   "freestylePrePrompt": {
     "title": "Freestyle 前置提示词",
-    "description": "在 Freestyle（仅限 Claude 的 rail）模式下发送给 Claude 的指令。Freestyle 跳过 OpenSpec 流水线——直接把该前置提示词加上 spec 文本交给 Claude，让其自主实现。留空则使用内置默认值。",
+    "description": "在 Freestyle 模式下发送给所选提供方的指令。Freestyle 跳过 OpenSpec 流水线——直接把该前置提示词加上 spec 文本交给提供方，让其自主实现。留空则使用内置默认值。",
     "label": "Freestyle 前置提示词",
     "placeholder": "留空以使用默认的 Freestyle 指令。",
     "helper": "spec 文本会自动追加在该前置提示词之后。留空 = 使用默认值。",

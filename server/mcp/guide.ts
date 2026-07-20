@@ -15,7 +15,7 @@ differs by client kind (see below).
 
 Specrails is a local dashboard + pipeline runner that manages multiple software
 projects (registered repositories) and drives AI coding agents (Claude Code,
-Codex, Gemini) to implement specs.
+Codex, Gemini, Kimi Code) to implement specs.
 
 ## The object model
 
@@ -44,8 +44,8 @@ Codex, Gemini) to implement specs.
 - **Loop**: an APP-LEVEL saved workflow graph (not project-scoped). Author with
   \`specrails_loops\`; RUN it with \`specrails_rails(launch, mode:'loop', loopId)\`.
 - **Profile**: per-project agent configuration (which agents, which models,
-  routing). CLAUDE-ONLY; forced to null for codex/gemini rails.
-- **Provider / engine**: claude, codex or gemini. A project installs one or
+  routing). Supported by Claude and Kimi; forced to null for Codex/Gemini rails.
+- **Provider / engine**: claude, codex, gemini or kimi. A project installs one or
   more; a requested engine must be one of the installed set.
 - **Plugin**: an MCP-based integration installed per project (e.g. serena).
 
@@ -133,15 +133,15 @@ heading inside the description); \`labels\`; \`priority\`. Spec content is Engli
   - \`implement\`: one pipeline job (Architect → Developer → Reviewer → Ship)
     over the rail's tickets.
   - \`batch-implement\`: dependency-aware waves across many tickets.
-  - Freestyle: sends a free-form autonomous prompt straight to Claude — one job
-    per ticket; Claude-only; \`model\` picker; optional \`interactive\` in-job
-    chat (settle with \`specrails_jobs(finalize)\`). To launch it through the API,
-    pass the canonical mode value \`freestyle\`. In user-facing language, call
+  - Freestyle: sends a free-form autonomous prompt to a capable provider — one
+    job per ticket; Claude and Kimi; \`model\` picker. Claude additionally
+    supports optional \`interactive\` in-job chat (settle with
+    \`specrails_jobs(finalize)\`). To launch it through the API, pass the canonical mode value \`freestyle\`. In user-facing language, call
     the feature "Freestyle".
   - \`loop\`: runs a published loop graph per ticket (\`loopId\`,
     \`reasoning_effort\`).
-- Profiles are Claude-only: a profile set on a rail that is then pointed at
-  codex/gemini is force-nulled.
+- Profiles are supported by Claude and Kimi: a profile set on a rail that is
+  then pointed at Codex/Gemini is force-nulled.
 - \`stop\` kills the rail's process tree AND cancels its queued jobs
   (destructive).
 - \`specrails_jobs(spawn, command)\` bypasses rails and enqueues an arbitrary
@@ -194,20 +194,27 @@ global update work. Note the
 embedded spec-refinement happy path (investigate + commit_draft) needs only
 read + write — ai-spawn is required only to launch work or spawn a nested AI.
 
-## Providers & Claude-only surface
+## Providers & capability-gated surfaces
 
 - Installed providers are per-project; AI-spawning calls may pick any installed
   one (\`aiEngine\`); rails carry a per-rail engine.
-- CLAUDE-ONLY: agent profiles, Contract Refine, SMASH, Freestyle mode (API mode
-  \`freestyle\`; say "Freestyle" to users), interactive jobs. They are
-  rejected or inert when the effective engine is codex or gemini.
-- Cost figures are authoritative for claude and estimated for codex/gemini
-  (flagged as estimated in analytics).
+- Claude and Kimi support agent profiles and Freestyle mode (pass the canonical
+  API value \`freestyle\`; call the feature "Freestyle" to users). Persistent
+  interactive jobs remain Claude-only.
+- Kimi prompt mode cannot enforce a no-tools or read-only boundary. Consequently
+  pure-output and safety-bounded surfaces fail closed before spawn: Quick Spec,
+  AI Edit, Contract Refine, SMASH, Builder chat/commit, milestone generation,
+  Loop Decider, Code Explorer AI summaries, and Agent Studio automation. Use
+  Explore/direct authoring or another installed provider for those surfaces.
+- Cost figures are authoritative for Claude and estimated for Codex/Gemini
+  (flagged as estimated in analytics). Kimi cost is unavailable when its stream
+  omits usage and billing data.
 
 ## Domain cheat-sheet
 
 - **Epics / SMASH** (\`specrails_specs\`): \`smash\` splits a large spec into child
-  specs (Claude-only); \`smash_undo\` restores (needs the \`smashedAt\` stamp);
+  specs with a structured-action provider (currently Claude); \`smash_undo\`
+  restores (needs the \`smashedAt\` stamp);
   \`delete_epic_children\` removes a whole family.
 - **Attachments**: \`list_attachments\` / \`get_attachment\` read files the user
   attached in the app UI; \`generate\` / \`ai_edit\` accept \`attachmentIds\`.

@@ -111,6 +111,48 @@ describe('TicketSpendingLine', () => {
     await waitFor(() => expect(screen.getByText(/1\.5s/)).toBeInTheDocument())
   })
 
+  it('renders unavailable instead of $0 and 0 turns for an all-Kimi ticket', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        totalCostUsd: 0,
+        totalTurns: null,
+        activeDurationMs: 1000,
+        totalRuns: 2,
+        pricedRuns: 0,
+        unpricedRuns: 2,
+        turnsReportedRuns: 0,
+        turnsUnavailableRuns: 2,
+        bySurface: { job: { count: 2, costUsd: 0, unpricedCount: 2 } },
+      }),
+    })
+    render(<TicketSpendingLine ticketId={77} />)
+    await waitFor(() => expect(screen.getByTestId('ticket-cost-unavailable')).toHaveTextContent('—'))
+    expect(screen.getByTestId('ticket-turns-unavailable')).toHaveTextContent('—')
+    expect(screen.queryByText('$0.0000')).not.toBeInTheDocument()
+    expect(screen.queryByText(/0 turns/)).not.toBeInTheDocument()
+  })
+
+  it('marks mixed Claude and Kimi ticket values as known lower bounds', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        totalCostUsd: 1.5,
+        totalTurns: 3,
+        activeDurationMs: 1000,
+        totalRuns: 2,
+        pricedRuns: 1,
+        unpricedRuns: 1,
+        turnsReportedRuns: 1,
+        turnsUnavailableRuns: 1,
+        bySurface: { job: { count: 2, costUsd: 1.5, unpricedCount: 1 } },
+      }),
+    })
+    render(<TicketSpendingLine ticketId={78} />)
+    await waitFor(() => expect(screen.getByText('≥$1.50')).toBeInTheDocument())
+    expect(screen.getByText(/≥3 turns/)).toBeInTheDocument()
+  })
+
   it('renders nothing when fetch fails', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) })
     const { container } = render(<TicketSpendingLine ticketId={1} />)

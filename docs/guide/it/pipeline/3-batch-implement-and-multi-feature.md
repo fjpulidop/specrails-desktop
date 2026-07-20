@@ -81,4 +81,4 @@ Non c'è alcun limite globale di concorrenza da regolare. Apri i progetti o i ra
 
 - [Rail e job](rails-and-jobs) — il modello della coda in dettaglio.
 - [La vista Dettaglio job](the-job-detail-view) — guarda un batch in esecuzione dal vivo.
-- [Scegliere un engine per ogni rail](picking-an-engine-per-rail) — nota che il Batch gira su qualsiasi provider; Freestyle è solo Claude.
+- [Scegliere un engine per ogni rail](picking-an-engine-per-rail) — Batch gira su qualsiasi provider; Freestyle è disponibile con Claude e Kimi.

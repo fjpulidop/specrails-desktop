@@ -19,7 +19,7 @@ import { JiraConnectWizard } from './jira/JiraConnectWizard'
 
 // ─── Wizard step types ────────────────────────────────────────────────────────
 //
-// Multi-provider: a project may install one or both providers. The wizard
+// Multi-provider: a project may install one or more providers. The wizard
 // configures each provider in turn (`agent-selection` with `providerIndex`),
 // then installs them sequentially (`installing`), then shows a combined
 // per-provider summary (`complete`). Single-provider projects collapse to the
@@ -74,13 +74,13 @@ function toShortModelName(modelId: string): string {
   if (modelId.includes('opus')) return 'opus'
   if (modelId.includes('haiku')) return 'haiku'
   if (modelId.includes('sonnet')) return 'sonnet'
-  return modelId // codex models pass through as-is
+  return modelId // Non-Claude model ids pass through as-is.
 }
 
-// Preset → the preset's default model for a given provider (claude/codex/gemini).
+// Preset → the preset's default model for a registered provider.
 function presetToDefaultModel(preset: ModelPreset, provider: string): string {
   const byProvider = PRESET_DEFAULTS[preset]
-  return byProvider[provider] ?? byProvider.claude
+  return byProvider[provider] ?? ''
 }
 
 function buildDefaultConfig(): InstallConfig {
@@ -585,7 +585,7 @@ export function SetupWizard({ project, onComplete: rawOnComplete, onSkip: rawOnS
   const onComplete = useCallback(() => { wizardCache.delete(project.id); rawOnComplete() }, [project.id, rawOnComplete])
   const onSkip = useCallback(() => { wizardCache.delete(project.id); rawOnSkip() }, [project.id, rawOnSkip])
 
-  // Installed providers (one or both). The wizard configures + installs each in
+  // Installed providers (one or more). The wizard configures + installs each in
   // sequence; single-provider projects collapse to the classic flow.
   const providers = projectProviders(project)
 

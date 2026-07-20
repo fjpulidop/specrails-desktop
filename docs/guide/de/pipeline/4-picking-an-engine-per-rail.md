@@ -1,6 +1,7 @@
 # Engine pro Rail wählen
 
-Specrails desktop behandelt **Claude Code**, **Codex CLI** und **Gemini CLI** als gleichwertige Engines. Ein Projekt kann eine, zwei oder alle drei installiert haben — und wenn mehr als eine vorhanden ist, wählst du, welche Engine jede Rail ausführt. Diese Seite zeigt die Engine-Auswahl pro Rail und wann du zu welcher greifst.
+Specrails desktop behandelt **Claude Code**, **Codex CLI**, **Gemini CLI** und
+**Kimi Code** als gleichwertige Engines. Jede kompatible Kombination ist möglich.
 
 ## Wann die Auswahl erscheint
 
@@ -13,30 +14,27 @@ Wenn sie erscheint, gilt deine Wahl **pro Rail und pro Start** — verschiedene 
 ## So wählst du eine Engine
 
 1. Vergewissere dich, dass die Engine-Auswahl der Rail sichtbar ist (Projekt hat 2+ Provider).
-2. Klick darauf und wähle **Claude**, **Codex** oder **Gemini**.
+2. Klick darauf und wähle **Claude**, **Codex**, **Gemini** oder **Kimi**.
 3. Starte die Rail mit **▶ Play**.
 
 Die ausgewählte Engine führt jede Phase der Pipeline dieser Rail aus. Ist die CLI der gewählten Engine nicht installiert, schlägt der Start sofort fehl — es wird nichts gestartet. Installiere die fehlende CLI und versuch es erneut.
 
 ## Wofür jede Engine gut ist
 
-Alle drei führen die Standard-Pipelines **Implement** und **Batch** aus. Hier ein praktischer Leitfaden zur Auswahl:
+Alle vier führen **Implement** und **Batch** aus:
 
 | Engine | Greif dazu, wenn… | Hinweise |
 |--------|--------------------|-------|
-| **Claude** | Du den vollen Funktionsumfang willst: Agent-Profile, Freestyle, native Kostenmeldung, die umfangreichste Tool-Unterstützung. Der Standard für die meiste Arbeit. | Die einzige Engine, die **Agent-Profile**, **Freestyle** und ein paar Claude-exklusive Spec-Features (Contract Layer, SMASH) unterstützt. |
+| **Claude** | Du native Kosten, persistente Interaktion oder strikte Tool-Policies brauchst. | Profile, Freestyle und strukturierte Transforms. |
 | **Codex** | Du die OpenAI Codex CLI bevorzugst oder Implementierungen über verschiedene Provider hinweg vergleichen willst. | `codex` ≥ 0.128.0. Keine native Kostenmeldung — die App ergänzt die Kosten aus ihrer Preistabelle. Profile gelten nicht. |
 | **Gemini** | Du Googles Gemini CLI, native Telemetrie oder einen günstigeren Lauf für Routine-Specs willst. | `gemini` ≥ 0.11.0 (setze `GEMINI_API_KEY`). Native OTLP-Telemetrie. Profile gelten nicht. |
+| **Kimi** | Du agentisches Kimi für Implement, Batch, Freestyle oder Loops ohne Decider willst. | Externes `kimi` ≥ 0.27.0; Profile/Rollen, Effort nur K3; Tokens/Kosten nicht verfügbar. |
 
-### Die Claude-exklusiven Features
+### Fähigkeitsunterschiede
 
-Ein paar Dinge funktionieren nur auf Claude-Rails — wähle Claude, wenn du sie brauchst:
-
-- **Agent-Profile** — Modell-Routing pro Agent. Auf Codex- oder Gemini-Rails läuft der Lauf immer im Legacy-Modus, und ein ausgewähltes Profil wird **ignoriert**. Die Profil-Auswahl ist für Nicht-Claude-Engines ausgeblendet.
-- **Freestyle** — der autonome, pipeline-umgehende Modus. Das `Freestyle`-Segment und seine Haiku/Sonnet/Opus-Modell-Auswahl erscheinen nur, wenn die Engine der Rail Claude ist.
-- **Contract Layer & SMASH** — Claude-exklusive Features zur Spec-Verfeinerung (das sind Add-Spec-Optionen, keine Rail-Optionen, aber dieselbe Einschränkung gilt).
-
-Wenn ein Projekt Engines mischt, zeigt die rechte Seitenleiste nur Bereiche, die **jeder** installierte Provider unterstützt — der **Agents**-Bereich verschwindet also komplett bei einem Projekt, das irgendeinen Nicht-Claude-Provider enthält, weil Profile Claude-spezifisch sind.
+Claude und Kimi unterstützen Profile/Freestyle; Codex/Gemini laufen legacy.
+Kimi lehnt Loop Decider und die Pure-Output-Transforms im
+[Kimi-Guide](../../../kimi.md) ab. Claude/Kimi-Profile sind getrennt.
 
 ## Ein praktischer Workflow
 
@@ -49,12 +47,14 @@ Multi-Provider-Projekte spielen ihre Stärken aus, wenn du **vergleichen** oder 
 ## Worauf du achten solltest
 
 - **Die Provider-Wahl ist nach dem Anlegen des Projekts unveränderlich** (v1). Du wählst die installierten Provider beim Hinzufügen des Projekts; es gibt keinen Einstellungs-Schalter, um später einen hinzuzufügen oder zu entfernen.
-- **Kosten werden immer verfolgt**, auch für Engines ohne native Kostenmeldung — die App greift auf eine Preistabelle zurück, sodass auch Codex- und Gemini-Läufe in den [Analysen](../analytics/tracking-cost) auftauchen.
+- **Verfügbare Metriken werden erfasst.** Kimi liefert keine autoritativen
+  Tokens/USD-Kosten; die Felder bleiben leer.
 - **Der „Open AI CLI“-Button im Terminal** bietet bei Multi-Provider-Projekten ebenfalls eine Provider-Auswahl, falls du eine CLI lieber von Hand bedienst.
 
 ## Wie es weitergeht
 
 - [Codex verwenden](../integrations/using-codex) — installieren und anmelden.
 - [Gemini verwenden](../integrations/using-gemini) — installieren, `GEMINI_API_KEY`, Telemetrie.
+- [Kimi verwenden](../../../kimi.md) — Installation und vollständige Matrix.
 - [Rails & Jobs](rails-and-jobs) — die Queue und der Start-Flow.
 - [Kosten verfolgen](../analytics/tracking-cost) — Kostenaufschlüsselung pro Engine.

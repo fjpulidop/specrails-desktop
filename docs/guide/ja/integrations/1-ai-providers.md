@@ -1,16 +1,20 @@
-# AI プロバイダー（Claude、Codex、Gemini）
+# AI プロバイダー（Claude、Codex、Gemini、Kimi）
 
-Specrails は特定の AI に縛られません。アプリの中で AI とやり取りするすべての部分 — Explore Spec、クイックスペック、レール、チャット、AI 編集、ターミナルの「Open AI CLI」ボタン — は、3 つのファーストクラスなプロバイダーのいずれかを通して動かせます。プロジェクトごとにどのプロバイダーを使うかを選べますし、タスク単位で切り替えることもできます。
+Specrails は特定の AI に縛られません。Claude、Codex、Gemini、Kimi
+はファーストクラスのプロバイダーで、各画面には必要な capability
+を満たすエンジンだけが表示されます。
 
-## 3 つのプロバイダー
+## 4 つのプロバイダー
 
 | プロバイダー | CLI | 提供元 | 備考 |
 |---|---|---|---|
-| **Claude** | `claude` | Anthropic | 最も機能が充実しています。エージェント（プロファイル）と Freestyle レール、そして Contract Refine を使えるのは Claude だけです。 |
+| **Claude** | `claude` | Anthropic | ネイティブコストと永続的な対話 transport。 |
 | **Codex** | `codex` | OpenAI | codex `0.128.0+` が必要です。MCP サーバーはグローバルな `~/.codex/config.toml` から読み込みます。 |
 | **Gemini** | `gemini` | Google | gemini `0.11.0+` が必要です。ネイティブのテレメトリと `GEMINI.md` 指示ファイルを使用します。 |
+| **Kimi Code** | `kimi` | Moonshot AI | Kimi `0.27.0+` が必要です。Desktop は外部 CLI を `-p` で起動し、server をインストール・起動しません。 |
 
-3 つとも**デフォルトで有効**です。プロバイダーは、その CLI がインストールされていて `PATH` 上にあれば **Add Project** に表示されます。ですので、最初のステップはいつも同じです。使いたい CLI をインストールし、そのツール自身のドキュメントの手順どおりにログインしてください。ターミナルで `claude --version`（または `codex`、`gemini`）が動くようになれば、Specrails はそれを使えるようになります。
+4 つとも**デフォルトで有効**です。CLI が `PATH` にあれば表示されます。
+Kimi は `kimi --version` を確認し、`kimi login` を実行してください。
 
 ## プロジェクトに 1 つのプロバイダーをインストールする
 
@@ -25,40 +29,46 @@ Specrails は特定の AI に縛られません。アプリの中で AI とや�
 マルチプロバイダーのプロジェクトについて、知っておくとよいことがいくつかあります。
 
 - **プロバイダーが 1 つなら、これまでとまったく同じ挙動です。** プロジェクトにプロバイダーが 1 つしかなければ、プロバイダーの選択 UI はどこにも表示されません — アプリはすっきりシンプルなままです。
-- **右サイドバーには、インストール済みのすべてのプロバイダーが対応しているセクションだけが表示されます。** エージェント（プロファイル）は Claude 専用の概念なので、プロジェクトに Claude 以外のプロバイダーが含まれた瞬間に **Agents** セクションは消えます。それ以外（Specs、Code、Analytics、Integrations、Terminal、Chat）はそのまま残ります。
+- **UI は capability に従います。** Claude と Kimi はプロバイダー別の
+  profile に対応し、Codex と Gemini は legacy mode で実行します。
 - **プロバイダーの選択は作成後に固定されます。** このバージョンでは、プロジェクトを追加するときにプロバイダーを選び、あとから設定で変更することはできません。別の組み合わせが必要になったら、新しいプロジェクトを作成してください。
 
 ## 呼び出しごとにプロバイダーを選ぶ
 
 マルチプロバイダーのプロジェクトの真価は、グローバル設定を一切変えずに、タスクごとに最適な AI を選べることにあります。AI が動くところには、小さなプロバイダー選択 UI が現れます（プロジェクトに複数のプロバイダーがあるときだけです）。
 
-- **Add Spec** — エンジンセレクターで、好きなプロバイダーを使ってスペックを Explore したりクイック生成したりできます。
+- **Add Spec** — Explore は Kimi に対応します。Quick Spec は安全な
+  pure-output 境界を持つプロバイダーだけを表示するため、Kimi は除外されます。
 - **レールのヘッダー** — その特定のレールを起動する前に、使うエンジンを選べます。
 - **ターミナル** — 「Open AI CLI」（Sparkles）ボタンを押すとプロバイダーメニューが開き、そのプロジェクトのディレクトリで任意のインストール済み CLI に入れます。
 
 選んだエンジンはプロジェクトごとに記憶され、デフォルトはプライマリプロバイダーです。毎回選び直す必要はありません。
 
-## Claude だけができること
+## Capability の違い
 
-いくつかの機能はその性質上 Claude 専用なので、ほかのプロバイダーが使われているときは非表示になるかスキップされます。
+Kimi は Project/Agent Chat、Explore/proposal、Quick Launcher
+(`/opsx:ff`)、rail、Freestyle、Decider のない loop、profile/手動 role、
+MCP、Serena、terminal、attachment に対応します。
 
-- **エージェント（プロファイル）** — プロジェクトごとのエージェントカタログとモデルルーティング。Claude 以外のプロバイダーを含むプロジェクトでは非表示になります。
-- **Freestyle レール** — 常に Claude で実行されます。
-- **Contract Refine** — コミット済みスペックに対する「Contract Layer」の追加パスは、会話のプロバイダーが Claude のときだけ実行されます。
-- **Add Spec の高度なモード**（SMASH / Contract Layer） — Claude 以外のエンジンでは非表示になります。
-
-それ以外 — Explore、クイックスペック、レールパイプライン全体、AI 編集、チャット、コストのアナリティクス — は 3 つすべてで動作します。
+`kimi -p` は tool を自動承認し、no-tools/read-only 境界を強制できません。
+そのため Quick Spec、AI Edit、Contract Refine、SMASH/Re-SMASH、
+Project Builder の blueprint/milestone 生成、Loop Decider、file summary/
+construction story、Agent Studio automation は spawn 前に拒否されます。
+AI auto-title は deterministic fallback を使います。詳細は
+[Kimi guide](../../../kimi.md) を参照してください。
 
 ## プロバイダー横断のコスト追跡
 
-**Analytics** ページは、プロバイダーに関係なく、課金対象となるすべての呼び出しを追跡します。マルチプロバイダーのプロジェクトでは、エンジンのフィルターチップが追加され、プロバイダーごとに支出を比較できます。Claude は自身の正確なコストを報告しますが、Codex と Gemini については、Specrails が組み込みの料金表からコストを推定します。そのため、これらの数値は請求額そのものではなく、おおよその近似値です。
+**Analytics** は実際に起動した invocation を記録します。Claude は
+cost を報告し、Codex/Gemini は推定値です。Kimi は authoritative な
+token/USD cost を報告しないため、その項目は空欄です。
 
 ## トラブルシューティング
 
-- **インストールしたプロバイダーが表示されない。** その CLI が `PATH` 上にあるか確認してください（新しいターミナルで `claude --version` / `codex --version` / `gemini --version` を試してみてください）。アプリはシステムの `PATH` を通してプロバイダー CLI を検出します。
+- **インストールしたプロバイダーが表示されない。** `claude --version` / `codex --version` / `gemini --version` / `kimi --version` を確認してください。
 - **チャットで Codex の MCP サーバーが読み込まれない。** Codex は MCP サーバーをグローバルな `~/.codex/config.toml` から読み込みます — `codex mcp add` でそこに登録してください。
 - **緊急時の無効化。** プロバイダーは環境変数（`SPECRAILS_CODEX_BETA=0` または `SPECRAILS_GEMINI_BETA=0`）でアプリ全体から無効にできます。これはプロバイダーを*選択肢*から隠すだけで、めったに必要にはなりません。
 
 ## 関連項目
 
-各 CLI をさらに詳しく解説した専用のプロバイダーガイドがあります。Codex ガイドと Gemini ガイドでは、それぞれセットアップ方法、使える機能、プロバイダー固有のクセを取り上げています。
+[Kimi guide](../../../kimi.md)、Codex guide、Gemini guide を参照してください。

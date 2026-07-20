@@ -9,11 +9,12 @@
       "explore": "Explore",
       "raw": "Raw",
       "exploreHint": "交互式",
-      "rawHint": "无 AI"
+      "rawHint": "无 AI",
+      "quickUnavailable": "Kimi 不可用"
     },
     "modeDescription": {
       "quick": "描述功能或改动。可附上原型图、简报或数据以提供更多上下文。",
-      "explore": "描述一个粗略的想法。Claude 会通过对话帮你打磨——由你决定何时提交。",
+      "explore": "描述一个粗略的想法。所选 AI 助手会通过对话帮你打磨——由你决定何时提交。",
       "raw": "你的 prompt 原样保存为 spec 工单。现在不运行 AI；拖到 rail 上即可开始构建。"
     },
     "editorPlaceholder": {
@@ -132,9 +133,10 @@
       "mcpLabel": "项目 MCP",
       "mcpHint": ".mcp.json 服务器",
       "userMcpLabel": "我已批准的 MCP",
-      "userMcpHint": "~/.claude · ~/.codex 服务器",
-      "userMcpTooltip": "你在本地批准的 MCP 服务器（claude mcp add / codex mcp add）",
+      "userMcpHint": "~/.claude 服务器",
+      "userMcpTooltip": "你在本地批准的 MCP 服务器（claude mcp add）",
       "exploreOnly": "仅限 Explore 模式",
+      "providerUnsupported": "{{provider}} 不支持此功能",
       "contractLabel": "用 Contract Layer 增强",
       "contractHint": "提交后增强 · 启用 SMASH"
     }

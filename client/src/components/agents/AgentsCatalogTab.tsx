@@ -5,12 +5,14 @@ import { getApiBase } from '../../lib/api'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
-import { AgentStudio } from './AgentStudio'
+import { AgentStudio, customRoleDisplayPath } from './AgentStudio'
 import { AiRefineOverlay } from './AiRefineOverlay'
 import { ShellErrorBoundary } from '../ShellErrorBoundary'
 import { AGENT_TEMPLATES, ALL_TEMPLATE_CATEGORIES, type AgentTemplateCategory } from './agentTemplates'
 import { useMinimizedChats, usePendingRestore } from '../../context/MinimizedChatsContext'
 import { useDesktop } from '../../hooks/useDesktop'
+import { defaultModelForProvider } from '../../lib/loop-run-models'
+import { providerSupportsAgentAutomation } from '../../lib/provider-capabilities'
 
 interface CatalogAgent {
   id: string
@@ -49,7 +51,9 @@ export function AgentsCatalogTab() {
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
 
-  const { activeProjectId } = useDesktop()
+  const { activeProjectId, projects } = useDesktop()
+  const activeProvider = projects.find((project) => project.id === activeProjectId)?.provider ?? 'claude'
+  const automationEnabled = providerSupportsAgentAutomation(activeProvider)
   const { minimize } = useMinimizedChats()
 
   // Snapshot of the live AiEdit shell so we can auto-minimize the current
@@ -78,7 +82,7 @@ export function AgentsCatalogTab() {
   // previously parked refine session id. If a different refine is currently
   // visible, park it as a chip first instead of dropping it.
   usePendingRestore('ai-edit', activeProjectId, (chat) => {
-    if (chat.kind !== 'ai-edit') return
+    if (chat.kind !== 'ai-edit' || !automationEnabled) return
     parkCurrentRefine()
     liveRefineRef.current = { refineId: chat.params.resumeRefineId ?? null }
     setRefine({
@@ -93,7 +97,7 @@ export function AgentsCatalogTab() {
   const refresh = useCallback(() => {
     let cancelled = false
     setLoading(true)
-    fetch(`${getApiBase()}/profiles/catalog`)
+    fetch(`${getApiBase()}/profiles/catalog?provider=${encodeURIComponent(activeProvider)}`)
       .then((r) => {
         if (!r.ok) throw new Error(t('catalog.errors.loadFailed', { status: r.status }))
         return r.json() as Promise<{ agents: CatalogAgent[] }>
@@ -112,7 +116,7 @@ export function AgentsCatalogTab() {
     return () => {
       cancelled = true
     }
-  }, [selectedId])
+  }, [activeProvider, selectedId, t])
 
   useEffect(() => {
     const cleanup = refresh()
@@ -123,7 +127,7 @@ export function AgentsCatalogTab() {
     let cancelled = false
     setBodyLoading(true)
     setBody(null)
-    fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(id)}`)
+    fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(id)}?provider=${encodeURIComponent(activeProvider)}`)
       .then((r) => {
         if (!r.ok) throw new Error(t('catalog.errors.bodyLoadFailed', { status: r.status }))
         return r.json() as Promise<{ id: string; body: string }>
@@ -140,7 +144,7 @@ export function AgentsCatalogTab() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [activeProvider, t])
 
   useEffect(() => {
     if (!selectedId) return
@@ -170,6 +174,9 @@ export function AgentsCatalogTab() {
         }
         initialName={studio.kind === 'create' ? studio.initialName : undefined}
         draftFromRefine={studio.kind === 'edit' ? studio.draftFromRefine : undefined}
+        provider={activeProvider}
+        defaultModel={defaultModelForProvider(activeProvider)}
+        automationEnabled={automationEnabled}
         onClose={() => setStudio({ kind: 'closed' })}
         onSaved={(id) => {
           setSelectedId(id)
@@ -188,7 +195,7 @@ export function AgentsCatalogTab() {
   }
 
   // AI Refine overlay view
-  if (refine.kind === 'open') {
+  if (refine.kind === 'open' && automationEnabled) {
     return (
       <ShellErrorBoundary onClose={() => setRefine({ kind: 'closed' })}>
       <AiRefineOverlay
@@ -433,7 +440,7 @@ export function AgentsCatalogTab() {
     </Dialog>
   )
 
-  const renderGenerateDialog = () => (
+  const renderGenerateDialog = () => automationEnabled ? (
     <Dialog
       open={generateOpen}
       onOpenChange={(o) => {
@@ -513,13 +520,14 @@ export function AgentsCatalogTab() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  ) : null
 
   const runGenerate = async () => {
+    if (!automationEnabled) return
     setGenerating(true)
     setGenError(null)
     try {
-      const res = await fetch(`${getApiBase()}/profiles/catalog/generate`, {
+      const res = await fetch(`${getApiBase()}/profiles/catalog/generate?provider=${encodeURIComponent(activeProvider)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: genName.trim(), description: genDescription.trim() }),
@@ -542,7 +550,7 @@ export function AgentsCatalogTab() {
 
   const duplicate = async (fromId: string) => {
     try {
-      const res = await fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(fromId)}`)
+      const res = await fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(fromId)}?provider=${encodeURIComponent(activeProvider)}`)
       if (!res.ok) throw new Error(t('catalog.errors.agentLoadFailed', { status: res.status }))
       const data = (await res.json()) as { body: string }
       setStudio({ kind: 'duplicate', from: fromId, initialBody: data.body })
@@ -566,9 +574,11 @@ export function AgentsCatalogTab() {
               />
             </div>
             <div className="flex gap-2 justify-center flex-wrap">
-              <Button size="sm" onClick={() => setGenerateOpen(true)}>
-                <Sparkles className="w-3.5 h-3.5 mr-1.5" /> {t('catalog.actions.generateWithClaude')}
-              </Button>
+              {automationEnabled && (
+                <Button size="sm" onClick={() => setGenerateOpen(true)}>
+                  <Sparkles className="w-3.5 h-3.5 mr-1.5" /> {t('catalog.actions.generateWithAi')}
+                </Button>
+              )}
               <Button size="sm" variant="ghost" onClick={() => setTemplatesOpen(true)}>
                 <FileText className="w-3.5 h-3.5 mr-1.5" /> {t('catalog.actions.template')}
               </Button>
@@ -612,15 +622,17 @@ export function AgentsCatalogTab() {
             >
               <FileText className="w-3 h-3 mr-1" /> {t('catalog.actions.template')}
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="flex-1 h-7 text-[11px] px-2"
-              onClick={() => setGenerateOpen(true)}
-              title={t('catalog.actions.generateWithClaude')}
-            >
-              <Sparkles className="w-3 h-3 mr-1" /> {t('catalog.actions.generate')}
-            </Button>
+            {automationEnabled && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="flex-1 h-7 text-[11px] px-2"
+                onClick={() => setGenerateOpen(true)}
+                title={t('catalog.actions.generateWithAi')}
+              >
+                <Sparkles className="w-3 h-3 mr-1" /> {t('catalog.actions.generate')}
+              </Button>
+            )}
             <Button
               size="sm"
               variant="ghost"
@@ -701,13 +713,13 @@ export function AgentsCatalogTab() {
                     <Button size="sm" variant="ghost" onClick={() => setStudio({ kind: 'edit', agentId: selected.id })}>
                       <Pencil className="w-3.5 h-3.5 mr-1" /> {t('common:actions.edit')}
                     </Button>
-                    <Button
+                    {automationEnabled && <Button
                       size="sm"
                       onClick={async () => {
                         if (!activeProjectId) return
                         // Load fresh body from disk so the diff is accurate.
                         try {
-                          const r = await fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(selected.id)}`)
+                          const r = await fetch(`${getApiBase()}/profiles/catalog/${encodeURIComponent(selected.id)}?provider=${encodeURIComponent(activeProvider)}`)
                           if (!r.ok) throw new Error(`Load failed: ${r.status}`)
                           const data = (await r.json()) as { body: string }
                           // Mutual exclusion — opening a new AiEdit parks any current one.
@@ -721,7 +733,7 @@ export function AgentsCatalogTab() {
                       title={t('catalog.detail.aiEditTitle')}
                     >
                       <Wand2 className="w-3.5 h-3.5 mr-1" /> {t('catalog.detail.aiEdit')}
-                    </Button>
+                    </Button>}
                   </>
                 )}
               </div>
@@ -729,7 +741,7 @@ export function AgentsCatalogTab() {
             <div className="rounded-md border border-border bg-muted/30 mt-4 min-w-0 overflow-hidden">
               <div className="flex items-center justify-between px-3 py-1.5 border-b border-border">
                 <span className="text-[11px] font-mono text-muted-foreground truncate">
-                  .claude/agents/{selected.id}.md
+                  {customRoleDisplayPath(activeProvider, selected.id)}
                 </span>
                 <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
                   {selected.kind === 'upstream'

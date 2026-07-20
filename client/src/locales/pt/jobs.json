@@ -140,8 +140,12 @@
       "connecting": "Conectando ao agente…",
       "starting": "Iniciando…"
     },
-    "pipelinePartial": "≥ exibido — {{count}} fase(s) sem custo registrado",
-    "pipelinePartialTooltip": "Algumas fases terminaram antes de reportar o custo, portanto este total é um limite inferior."
+  "pipelinePartial": "≥ exibido — {{count}} fase(s) sem custo registrado",
+  "pipelinePartialTooltip": "Algumas fases terminaram antes de reportar o custo, portanto este total é um limite inferior.",
+  "pipelineCostUnavailable": "A telemetria de custo está indisponível em todas as fases.",
+  "pipelineUsageUnavailable": "A telemetria de tokens está indisponível em todas as fases.",
+  "pipelineUsagePartial": "≥ mostrado — fases sem telemetria de tokens: {{count}}",
+  "pipelineUsageTooltip": "Os fornecedores podem concluir fases sem fornecer telemetria de tokens; apenas a utilização conhecida é incluída."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} mais",

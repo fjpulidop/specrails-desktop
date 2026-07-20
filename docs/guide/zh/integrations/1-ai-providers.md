@@ -1,16 +1,19 @@
-# AI 提供方（Claude、Codex、Gemini）
+# AI 提供方（Claude、Codex、Gemini、Kimi）
 
-Specrails 并不绑定在某一个 AI 上。应用里所有会调用 AI 的环节——Explore Spec、Quick spec、rail、聊天、AI Edit，以及终端里的「Open AI CLI」按钮——都可以走三家一流提供方中的任意一家。你来决定每个项目用哪些，甚至可以按任务逐个切换。
+Specrails 并不绑定某一个 AI。Claude、Codex、Gemini 和 Kimi 都是一流
+提供方；每个界面只显示满足该功能 capability 合约的引擎。
 
-## 三家提供方
+## 四家提供方
 
 | 提供方 | CLI | 出品方 | 说明 |
 |---|---|---|---|
-| **Claude** | `claude` | Anthropic | 功能最完整。Agents（profile）、Freestyle rail 以及 Contract Refine 都只有它支持。 |
+| **Claude** | `claude` | Anthropic | 原生成本和持久交互 transport。 |
 | **Codex** | `codex` | OpenAI | 需要 codex `0.128.0+`。从你的全局 `~/.codex/config.toml` 读取 MCP 服务器。 |
 | **Gemini** | `gemini` | Google | 需要 gemini `0.11.0+`。使用原生遥测，以及 `GEMINI.md` 指令文件。 |
+| **Kimi Code** | `kimi` | Moonshot AI | 需要 Kimi `0.27.0+`。Desktop 用 `-p` 启动外部 CLI，不安装或启动 server。 |
 
-三家都是**默认启用**的。只要某家提供方的 CLI 已安装并在你的 `PATH` 上，它就会出现在 **Add Project** 里。所以第一步永远是一样的：按那个工具自己的文档把你想用的 CLI 装好并登录。一旦 `claude --version`（或 `codex`、`gemini`）能在你的终端里正常运行，Specrails 就能用它了。
+四家都是**默认启用**的。CLI 在 `PATH` 上就会显示。Kimi 请先确认
+`kimi --version`，再运行 `kimi login`。
 
 ## 为一个项目安装单个提供方
 
@@ -25,40 +28,45 @@ Specrails 并不绑定在某一个 AI 上。应用里所有会调用 AI 的环�
 关于多提供方项目，有几点值得了解：
 
 - **只有一个提供方时，行为和以前完全一样。** 如果一个项目只有单个提供方，你在任何地方都不会看到提供方选择器——应用保持干净、简单。
-- **右侧边栏只显示所有已安装提供方都支持的板块。** 因为 Agents（profile）是 Claude 独有的概念，所以一旦项目里包含任何非 Claude 的提供方，**Agents** 板块就会消失。其余的（Specs、Code、Analytics、Integrations、Terminal、Chat）都会保留。
+- **UI 由 capability 驱动。** Claude 和 Kimi 支持按提供方隔离的
+  profile；Codex 和 Gemini 使用 legacy mode。
 - **提供方在创建后就锁定了。** 在这个版本里，你在添加项目时选定提供方，之后无法再从 Settings 更改。如果你需要不同的组合，那就新建一个项目。
 
 ## 按调用逐个选择提供方
 
 多提供方项目真正的价值，在于为每个任务挑到合适的 AI——而无需改动任何全局设置。凡是会运行 AI 的地方，都会出现一个小小的提供方选择器（仅当项目拥有不止一个提供方时）：
 
-- **Add Spec**——有一个引擎选择器，让你用喜欢的提供方来 Explore 或 Quick 生成规格。
+- **Add Spec**——Explore 支持 Kimi；Quick Spec 只显示能够保证安全
+  pure-output 边界的提供方，因此不包含 Kimi。
 - **rail 头部**——在启动某条具体的 rail 之前，为它挑选引擎。
 - **终端**——「Open AI CLI」（Sparkles）按钮会打开一个提供方菜单，让你在该项目目录下进入任意已安装的 CLI。
 
 你的选择会按项目被记住，默认是主提供方，所以你不用每次都重新选。
 
-## 只有 Claude 才能做的事
+## Capability 差异
 
-有少数功能天生就是 Claude 专属的，因此当其他提供方参与时，它们要么被隐藏、要么被跳过：
+Kimi 支持 Project/Agent Chat、Explore/proposal、Quick Launcher
+（`/opsx:ff`）、rail、Freestyle、没有 Decider 的 loop、profile/手动 role、
+MCP、Serena、terminal 和附件。
 
-- **Agents（profile）**——按项目的 agent 目录与模型路由。在任何包含非 Claude 提供方的项目上都会隐藏。
-- **Freestyle rail**——始终在 Claude 上运行。
-- **Contract Refine**——对已提交规格追加的「Contract Layer」环节，只有当对话的提供方是 Claude 时才会运行。
-- **Add Spec 高级模式**（SMASH / Contract Layer）——对非 Claude 引擎隐藏。
-
-其余的一切——Explore、Quick spec、完整的 rail 流水线、AI Edit、聊天、成本分析——三家全都能用。
+`kimi -p` 会自动批准工具，无法强制 no-tools/read-only 边界。因此
+Quick Spec、AI Edit、Contract Refine、SMASH/Re-SMASH、Project Builder
+blueprint/milestone 生成、Loop Decider、文件摘要/construction story 和
+Agent Studio automation 都会在 spawn 前拒绝。AI auto-title 使用确定性
+fallback。详见 [Kimi 指南](../../../kimi.md)。
 
 ## 跨提供方的成本追踪
 
-**Analytics** 页面会追踪每一次产生费用的调用，无论用的是哪家提供方。在多提供方项目上，它还会加上引擎筛选标签，方便你按提供方对比开销。Claude 会报告自己的精确成本；而对 Codex 和 Gemini，Specrails 会用内置的费率表来估算成本，所以那些数字是接近的近似值，而非实际账单金额。
+**Analytics** 记录实际启动的调用。Claude 报告成本，Codex/Gemini
+使用估算。Kimi 不报告 authoritative token 或 USD cost，因此这些字段
+保持为空。
 
 ## 疑难排查
 
-- **我装了某个提供方，却没出现在选项里。** 确认该 CLI 在你的 `PATH` 上（在一个全新终端里试试 `claude --version` / `codex --version` / `gemini --version`）。应用是通过你系统的 `PATH` 来探测提供方 CLI 的。
+- **我装了某个提供方，却没出现在选项里。** 检查 `claude --version` / `codex --version` / `gemini --version` / `kimi --version`。
 - **聊天里没加载 Codex 的 MCP 服务器。** Codex 从你的全局 `~/.codex/config.toml` 读取 MCP 服务器——用 `codex mcp add` 在那里注册它们。
 - **紧急停用。** 可以通过环境变量在应用范围内关闭某个提供方（`SPECRAILS_CODEX_BETA=0` 或 `SPECRAILS_GEMINI_BETA=0`）。这只会把提供方从*选择列表*中隐藏；很少会用到。
 
 ## 另见
 
-各提供方的专属指南会对每个 CLI 讲得更深入：Codex 指南和 Gemini 指南都涵盖了安装设置、能做什么，以及各自特有的小脾气。
+请参阅 [Kimi 指南](../../../kimi.md)、Codex 指南和 Gemini 指南。

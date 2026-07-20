@@ -124,6 +124,10 @@ export const PR_NEVER_STAGE_PATHS = [
   '.gemini/agent-memory/**',
   '.gemini/agent-memory/explanations',
   '.gemini/agent-memory/explanations/**',
+  '.kimi-code/agent-memory',
+  '.kimi-code/agent-memory/**',
+  '.kimi-code/agent-memory/explanations',
+  '.kimi-code/agent-memory/explanations/**',
 ] as const
 
 const PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN = '# specrails: never stage private agent artifacts'

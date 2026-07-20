@@ -53,6 +53,7 @@
       "templateTitle": "Mit einer Vorlage starten",
       "generate": "Generieren",
       "generateWithClaude": "Mit Claude generieren",
+      "generateWithAi": "Mit KI generieren",
       "blank": "Leer",
       "blankTitle": "Mit einer leeren Vorlage starten"
     },
@@ -80,6 +81,7 @@
     }
   },
   "profiles": {
+    "providerLabel": "Profilanbieter",
     "loading": "Profile werden geladen…",
     "selectPrompt": "Wähle ein Profil zum Bearbeiten",
     "errors": {

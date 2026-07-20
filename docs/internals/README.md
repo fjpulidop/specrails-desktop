@@ -21,7 +21,10 @@ If you're a user looking for **how do I do X?** docs, head back to the [user gui
 | [gemini-mcp-registration.md](gemini-mcp-registration.md) | How MCP servers actually reach gemini-cli (`.gemini/settings.json` + trust env, FQN tool prefix) and the deferred `.mcp.json` gap on non-agent-chat surfaces |
 | [browser-capture-performance.md](browser-capture-performance.md) | Embedded-browser fluidity: the CDP screencast → WS → canvas pipeline, the latency levers (non-blocking navigation, input coalescing, latest-frame-wins drawing, frame conflation), tuning knobs, and the OAuth popup design |
 
-**See also:** the app supports multiple AI CLIs as first-class, interchangeable engines — Claude Code, Codex CLI, and Gemini CLI. See [`../codex.md`](../codex.md) and [`../gemini.md`](../gemini.md) for the per-provider detail. Gemini is **enabled by default** (selectable whenever the `gemini` CLI is on `PATH`); the emergency rollback is `SPECRAILS_GEMINI_BETA=0` (only the exact string `0` disables it). Codex parallels this with `SPECRAILS_CODEX_BETA=0`.
+**See also:** the app registers Claude Code, Codex CLI, Gemini CLI, and Kimi
+Code as first-class engines. See [`../kimi.md`](../kimi.md),
+[`../codex.md`](../codex.md), and [`../gemini.md`](../gemini.md). First-class
+status is capability-aware: Kimi pure-output transforms fail closed.
 
 ## Contributing
 

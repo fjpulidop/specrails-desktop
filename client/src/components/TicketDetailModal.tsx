@@ -27,6 +27,7 @@ import { SmashActions } from './specs-smash/SmashActions'
 import { EpicBreadcrumb } from './specs-smash/EpicChildrenSection'
 import { EpicFamilySidebar } from './specs-smash/EpicFamilySidebar'
 import { MoveToRailPopover } from './MoveToRailPopover'
+import { isSmashCapable } from '../lib/provider-capabilities'
 import type { RailState } from './RailsBoard'
 import type { Attachment, LocalTicket, TicketPriority } from '../types'
 import { MODAL_FLOAT_VIEWPORT_MIN } from '../lib/viewport'
@@ -110,13 +111,12 @@ export function TicketDetailModal({
   // 409 from endpoints; the UI optimistically shows the affordance and lets
   // the server reject if disabled.
   //
-  // Also disabled on codex projects: SMASH's pipeline depends on claude's
-  // multi-agent fan-out (architect/developer/reviewer in parallel via
-  // subagent_type), which codex's spawn_agent doesn't support the same
-  // way. Hiding the affordance here keeps the modal clean rather than
-  // surfacing a feature that would 409 / fail on a codex spawn.
+  // SMASH's pipeline depends on Claude-specific structured actions and
+  // multi-agent fan-out. Hide the affordance for every provider that cannot
+  // honour that contract (including Kimi), with an unknown provider failing
+  // closed while project context is loading.
   const activeProvider = projects.find((p) => p.id === activeProjectId)?.provider
-  const smashFlagOn = activeProvider !== 'codex'
+  const smashFlagOn = isSmashCapable(activeProvider)
   const childrenList = useMemo(
     () => (allTickets ?? []).filter((t) => t.parent_epic_id === ticket.id),
     [allTickets, ticket.id],
@@ -425,6 +425,7 @@ export function TicketDetailModal({
               <SmashActions
                 ticket={ticket}
                 projectId={activeProjectId}
+                provider={activeProvider}
                 featureFlagOn={smashFlagOn}
                 childrenCount={childrenList.length}
               />

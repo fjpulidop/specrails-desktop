@@ -224,6 +224,7 @@ describe('commitWorktree', () => {
       ':(exclude).claude/agent-memory',
       ':(exclude).codex/agent-memory',
       ':(exclude).gemini/agent-memory',
+      ':(exclude).kimi-code/agent-memory',
     ]))
     for (const spec of commitCall) {
       expect(spec).not.toMatch(/agent-memory\/(\*\*|explanations)/)
@@ -542,6 +543,7 @@ describe('ensurePrNeverStageExcludes', () => {
     expect(text).toContain('.claude/agent-memory/explanations/**')
     expect(text).toContain('.codex/agent-memory/**')
     expect(text).toContain('.gemini/agent-memory/**')
+    expect(text).toContain('.kimi-code/agent-memory/**')
   })
 })
 

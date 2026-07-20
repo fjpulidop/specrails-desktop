@@ -141,7 +141,11 @@
       "starting": "Iniciando…"
     },
     "pipelinePartial": "≥ mostrado — {{count}} fase(s) aún sin coste registrado",
-    "pipelinePartialTooltip": "Algunas fases terminaron antes de reportar su coste, por lo que este total es un mínimo."
+    "pipelinePartialTooltip": "Algunas fases no informaron el coste, por lo que este total es un mínimo.",
+    "pipelineCostUnavailable": "La telemetría de coste no está disponible en ninguna fase.",
+    "pipelineUsageUnavailable": "La telemetría de tokens no está disponible en ninguna fase.",
+    "pipelineUsagePartial": "≥ mostrado — {{count}} fase(s) sin telemetría de tokens",
+    "pipelineUsageTooltip": "Los proveedores pueden completar fases sin exponer telemetría de tokens; solo se incluye el uso conocido."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} más",

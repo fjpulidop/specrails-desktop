@@ -1,54 +1,75 @@
 import { useTranslation } from 'react-i18next'
 import { Sparkles } from 'lucide-react'
+import { defaultModelForProvider, modelsForProvider } from '../../lib/loop-run-models'
+import { providerSupportsCustomModelAliases } from '../../lib/provider-capabilities'
+import { isSafeCustomModelAlias } from '../../lib/model-alias'
+import { CustomModelAliasInput } from '../CustomModelAliasInput'
 
-/** Models the freestyle picker exposes (Claude aliases). Mirrors the server
- *  rails-router allow-list. */
-export const FREESTYLE_MODELS = ['haiku', 'sonnet', 'opus', 'fable'] as const
-export type FreestyleModel = (typeof FREESTYLE_MODELS)[number]
-export const DEFAULT_FREESTYLE_MODEL: FreestyleModel = 'sonnet'
-
-const LABELS: Record<FreestyleModel, string> = {
-  haiku: 'Haiku',
-  sonnet: 'Sonnet',
-  opus: 'Opus',
-  fable: 'Fable',
-}
+export type FreestyleModel = string
 
 interface Props {
-  /** Selected model. null/undefined = default (sonnet). */
+  /** Provider whose adapter validates this model. */
+  provider?: string
+  /** Selected model. null/undefined/invalid = provider default. */
   value: FreestyleModel | null | undefined
   onChange: (value: FreestyleModel) => void
+  testId?: string
+  ariaLabel?: string
 }
 
 /**
  * Compact rail-header model selector, shown only for freestyle rails. Lets the
- * user pick which Claude model runs the autonomous implementation. Mirrors
- * RailEngineSelector's dense styling.
+ * user pick which provider model runs the autonomous implementation.
  */
-export function RailModelSelector({ value, onChange }: Props) {
+export function RailModelSelector({
+  provider = 'claude',
+  value,
+  onChange,
+  testId = 'rail-model-selector',
+  ariaLabel,
+}: Props) {
   const { t } = useTranslation('agents')
-  const current = value ?? DEFAULT_FREESTYLE_MODEL
+  const models = modelsForProvider(provider)
+  const customModelAliases = providerSupportsCustomModelAliases(provider)
+  const current = value && (
+    models.some((model) => model.value === value)
+    || (customModelAliases && isSafeCustomModelAlias(value))
+  )
+    ? value
+    : defaultModelForProvider(provider)
+  const label = ariaLabel ?? t('railSelectors.modelTitle')
   return (
     <div
       className="inline-flex items-center"
-      title={t('railSelectors.modelTitle')}
+      title={label}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
       <Sparkles className="w-3 h-3 text-accent-highlight mr-1" />
-      <select
-        value={current}
-        aria-label={t('railSelectors.modelTitle')}
-        data-testid="rail-model-selector"
-        onChange={(e) => onChange(e.target.value as FreestyleModel)}
-        className="h-5 text-[10px] rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
-      >
-        {FREESTYLE_MODELS.map((m) => (
-          <option key={m} value={m}>
-            {LABELS[m]}
-          </option>
-        ))}
-      </select>
+      {customModelAliases ? (
+        <CustomModelAliasInput
+          value={current}
+          options={models}
+          ariaLabel={label}
+          testId={testId}
+          className="h-5 w-48 border-border/50 px-1 text-[10px] text-muted-foreground hover:text-foreground"
+          onCommit={onChange}
+        />
+      ) : (
+        <select
+          value={current}
+          aria-label={label}
+          data-testid={testId}
+          onChange={(e) => onChange(e.target.value as FreestyleModel)}
+          className="h-5 text-[10px] rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
+        >
+          {models.map((model) => (
+            <option key={model.value} value={model.value}>
+              {model.label}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   )
 }

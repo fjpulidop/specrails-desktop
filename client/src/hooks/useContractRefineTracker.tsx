@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import i18n from '../lib/i18n'
 import { useSharedWebSocket } from './useSharedWebSocket'
 import { API_ORIGIN } from '../lib/origin'
+import { providerSupportsStructuredActions } from '../lib/provider-capabilities'
 import type { LocalTicket } from '../types'
 
 const CONTRACT_LAYER_MARKER = '\n\n---\n\n## Contract Layer\n\n'
@@ -55,16 +56,20 @@ export function ContractRefineTrackerProvider({ children }: { children: ReactNod
     if (!msg || msg.type !== 'explore.contract_refine_failed') return
     const ticketId = msg.ticketId as number | undefined
     const projectId = msg.projectId as string | undefined
+    const provider = typeof msg.provider === 'string' ? msg.provider : undefined
     const reason = (msg.reason as string | undefined) ?? 'unknown'
     if (typeof ticketId !== 'number' || !projectId) return
     projectByTicketRef.current.set(ticketId, projectId)
+    const retryAction = providerSupportsStructuredActions(provider)
+      ? {
+          label: i18n.t('common:actions.retry'),
+          onClick: () => void fireRetry(projectId, ticketId),
+        }
+      : undefined
     toast.error(i18n.t('activity:contractRefine.skipped'), {
       id: toastIdFor(ticketId),
       description: i18n.t('activity:contractRefine.reason', { reason }),
-      action: {
-        label: i18n.t('common:actions.retry'),
-        onClick: () => void fireRetry(projectId, ticketId),
-      },
+      ...(retryAction ? { action: retryAction } : {}),
       duration: 15_000,
     })
   }, [])

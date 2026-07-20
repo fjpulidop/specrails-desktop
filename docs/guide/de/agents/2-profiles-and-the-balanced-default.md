@@ -37,7 +37,11 @@ Das ist der ganze Ablauf: Profil wählen, starten, fertig. Gleichzeitig laufende
 
 ## Wenn der Agents-Bereich still ist
 
-Profile sind eine Claude-Fähigkeit. Bei einem Projekt, das einen Nicht-Claude-Provider (Codex oder Gemini) enthält, ist der Agents-Bereich ausgeblendet und Rails laufen ohne Profile – das ist so gewollt, kein Fehler. Außerdem setzen Profile ein hinreichend aktuelles `specrails-core` im Projekt voraus; ist es älter, siehst du ein gelbes Banner. Die von dir erstellten Profile werden trotzdem **gespeichert** – sie wirken sich nur erst auf die Pipeline aus, wenn core aktualisiert ist. Aktualisiere mit dem im Banner gezeigten Befehl, um sie freizuschalten.
+Profile sind provider-spezifisch. Claude und Kimi unterstützen Profile/Rollen;
+Codex und Gemini laufen im Legacy-Modus. Gleiche Namen können in gemischten
+Projekten nicht zwischen Claude und Kimi übergreifen. Kimi erlaubt manuelle
+Rollen, aber Agent-Studio-Generierung, Smoke-Test und AI Refine werden vor dem
+Spawn abgelehnt. Kimi benötigt `specrails-core` 4.12.0 oder neuer.
 
 ## Wie es weitergeht
 

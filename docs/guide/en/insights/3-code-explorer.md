@@ -31,6 +31,11 @@ Since editing isn't part of this version, the viewer offers an **Edit in externa
 
 Above the code you'll see a **plain-language summary** of the file — what it's for, what it does — written so a non-developer can follow along. These are generated for you and cached, so opening a file you've looked at before is instant.
 
+Kimi does not generate these summaries. File summary and construction-story
+explanation are read-only transforms, but Kimi 0.27 `-p` cannot enforce a
+read-only tool boundary. The controls are unavailable for Kimi; existing
+provenance facts, diffs, and previously generated text remain readable.
+
 Summaries are smart about staying fresh: they're keyed to the file's contents, so when a file genuinely changes the summary is regenerated, but unchanged files don't get re-summarised needlessly. If you edit a file yourself, its summary is marked as stale rather than silently regenerated — you stay in control of when it's refreshed. There's a **regenerate** action when you want a fresh take on demand.
 
 A couple of guardrails keep costs sane: summary generation runs within a **monthly budget** (a few dollars by default, configurable in Settings), and there are caps on how many summaries a single job will kick off. If a summary is skipped, the app tells you why — budget reached, a per-job cap, or the file simply not being found.

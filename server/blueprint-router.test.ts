@@ -67,6 +67,22 @@ describe('conversations CRUD', () => {
     expect(res.body.conversation.provider).toBe('claude')
   })
 
+  it('rejects Kimi before creating or switching a Builder conversation', async () => {
+    const { app, db } = makeApp()
+    const create = await request(app)
+      .post('/api/blueprint/conversations')
+      .send({ provider: 'kimi' })
+    expect(create.status).toBe(409)
+    expect(create.body.error).toBe('provider_tool_policy_unsupported')
+
+    const conv = createBlueprintConversation(db)
+    const patch = await request(app)
+      .patch(`/api/blueprint/conversations/${conv.id}`)
+      .send({ provider: 'kimi' })
+    expect(patch.status).toBe(409)
+    expect(getBlueprintConversation(db, conv.id)?.provider).toBe('claude')
+  })
+
   it('gets a conversation with messages; 404 unknown', async () => {
     const { app, db } = makeApp()
     const conv = createBlueprintConversation(db)
@@ -131,6 +147,17 @@ describe('send / abort', () => {
     expect(manager.sendMessage).not.toHaveBeenCalled()
   })
 
+  it('rejects an existing Kimi conversation before dispatching to the manager', async () => {
+    const { app, db, manager } = makeApp()
+    const conv = createBlueprintConversation(db, { provider: 'kimi', model: 'k3' })
+    const rejected = await request(app)
+      .post(`/api/blueprint/conversations/${conv.id}/send`)
+      .send({ text: 'an app idea', reasoning_effort: 'high' })
+    expect(rejected.status).toBe(409)
+    expect(rejected.body.error).toBe('provider_tool_policy_unsupported')
+    expect(manager.sendMessage).not.toHaveBeenCalled()
+  })
+
   it('400 on empty text, 409 while streaming, 404 unknown conversation', async () => {
     const { app, db } = makeApp({ manager: { isStreaming: vi.fn(() => true) } })
     const conv = createBlueprintConversation(db)
@@ -166,6 +193,16 @@ describe('models', () => {
 
     const gemini = await request(app).get('/api/blueprint/models?provider=gemini')
     expect(gemini.body.efforts).toEqual([])
+
+    const kimi = await request(app).get('/api/blueprint/models?provider=kimi&model=k3')
+    expect(kimi.body).toMatchObject({
+      provider: 'kimi',
+      available: false,
+      toolPolicy: null,
+      models: [],
+      defaultModel: null,
+      efforts: [],
+    })
   })
 })
 

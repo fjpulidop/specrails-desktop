@@ -52,26 +52,49 @@ export interface FrameActivity {
 export function mapTool(name: unknown, input: Record<string, unknown> | undefined): FrameActivity {
   const inp = input ?? {}
   const file = basename(inp.file_path ?? inp.path)
-  switch (name) {
-    case 'Edit':
-    case 'MultiEdit':
-    case 'NotebookEdit':
-    case 'Update':
+  const normalizedName = typeof name === 'string' ? name.toLowerCase() : ''
+  switch (normalizedName) {
+    case 'edit':
+    case 'multiedit':
+    case 'notebookedit':
+    case 'update':
+    case 'editfile':
+    case 'strreplace':
+    case 'searchreplace':
       return { step: true, actionKey: 'editing', actionArg: file }
-    case 'Write':
+    case 'write':
     case 'create':
+    case 'writefile':
       return { step: true, actionKey: 'writing', actionArg: file }
-    case 'Read':
+    case 'read':
+    case 'readfile':
+    case 'readmediafile':
       return { step: true, actionKey: 'reading', actionArg: file }
-    case 'Grep':
-    case 'Glob':
+    case 'grep':
+    case 'glob':
     case 'search':
+    case 'websearch':
       return { step: true, actionKey: 'searching', actionArg: clip(String(inp.pattern ?? inp.query ?? '')) }
-    case 'Bash':
+    case 'bash':
     case 'shell':
       return { step: true, actionKey: 'running', actionArg: firstToken(inp.command) }
     default:
       return { step: true, actionKey: 'working' }
+  }
+}
+
+function toolArguments(value: unknown): Record<string, unknown> | undefined {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>
+  }
+  if (typeof value !== 'string') return undefined
+  try {
+    const parsed = JSON.parse(value) as unknown
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -101,6 +124,30 @@ export function deriveFrameActivity(ev: EventRow): FrameActivity {
         return { ...mapTool(last.name, last.input as Record<string, unknown> | undefined), stepCount: toolUses.length }
       }
       if (content.some((c) => c?.type === 'text')) return { step: true, actionKey: 'thinking' }
+    }
+
+    // ── Kimi Code stream-json ──
+    // Kimi emits the assistant record directly (rather than under `message`)
+    // and uses OpenAI-style function calls whose arguments are JSON strings.
+    const kimiCalls = Array.isArray(parsed.tool_calls) ? parsed.tool_calls : []
+    const callable = kimiCalls.flatMap((call) => {
+      if (!call || typeof call !== 'object' || Array.isArray(call)) return []
+      const fn = (call as Record<string, unknown>).function
+      if (!fn || typeof fn !== 'object' || Array.isArray(fn)) return []
+      return [fn as Record<string, unknown>]
+    })
+    if (callable.length > 0) {
+      const last = callable[callable.length - 1]
+      return {
+        ...mapTool(last.name, toolArguments(last.arguments)),
+        stepCount: callable.length,
+      }
+    }
+    if (
+      typeof parsed.content === 'string' ||
+      (Array.isArray(parsed.content) && parsed.content.length > 0)
+    ) {
+      return { step: true, actionKey: 'thinking' }
     }
     return { step: true }
   }

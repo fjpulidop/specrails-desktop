@@ -9,11 +9,12 @@
       "explore": "Explore",
       "raw": "Raw",
       "exploreHint": "interaktiv",
-      "rawHint": "ohne KI"
+      "rawHint": "ohne KI",
+      "quickUnavailable": "für Kimi nicht verfügbar"
     },
     "modeDescription": {
       "quick": "Beschreibe das Feature oder die Änderung. Hänge Mockups, Briefings oder Daten für mehr Kontext an.",
-      "explore": "Beschreibe eine grobe Idee. Claude hilft dir, sie im Gespräch zu formen – du entscheidest, wann committet wird.",
+      "explore": "Beschreibe eine grobe Idee. Der ausgewählte KI-Assistent hilft dir, sie im Gespräch zu formen – du entscheidest, wann committet wird.",
       "raw": "Dein Prompt, unverändert – als Spec-Ticket gespeichert. Es läuft jetzt keine KI; zieh es auf eine Rail, um es zu bauen."
     },
     "editorPlaceholder": {
@@ -132,9 +133,10 @@
       "mcpLabel": "Projekt-MCPs",
       "mcpHint": ".mcp.json-Server",
       "userMcpLabel": "Meine freigegebenen MCPs",
-      "userMcpHint": "~/.claude · ~/.codex Server",
-      "userMcpTooltip": "Deine lokal freigegebenen MCP-Server (claude mcp add / codex mcp add)",
+      "userMcpHint": "~/.claude Server",
+      "userMcpTooltip": "Deine lokal freigegebenen MCP-Server (claude mcp add)",
       "exploreOnly": "Nur im Explore-Modus",
+      "providerUnsupported": "Für {{provider}} nicht verfügbar",
       "contractLabel": "Mit Contract Layer anreichern",
       "contractHint": "Verfeinerung nach dem Commit · aktiviert SMASH"
     }

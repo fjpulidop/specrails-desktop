@@ -3,6 +3,11 @@ import treeKill from 'tree-kill'
 import { spawnAiCli } from './util/cli-prompt'
 import { finaliseInvocationResult } from './result-event'
 import type { ProviderAdapter, AdapterEvent } from './providers/types'
+import {
+  buildProviderEnv,
+  parseStreamEvents,
+  pureOutputToolPolicy,
+} from './providers/runtime'
 import type { GenerateInput, GenerateOutput } from './file-summary-manager'
 
 const GENERATE_TIMEOUT_MS = 60_000
@@ -76,15 +81,21 @@ export function createFileSummaryGenerator(opts: GeneratorOpts): (input: Generat
   return async function generate(input: GenerateInput, signal?: AbortSignal): Promise<GenerateOutput> {
     const startedAt = Date.now()
     if (signal?.aborted) throw new Error('file-summary generator aborted before start')
-    const args = adapter.buildArgs('spec-gen', {
+    const toolPolicy = pureOutputToolPolicy(adapter)
+    if (!toolPolicy) {
+      throw new Error(`provider_tool_policy_unsupported:${adapter.id}:pure-output`)
+    }
+    const spawnOptions = {
       prompt: buildUserPrompt(input, adapter, systemPromptFor),
       systemPrompt: adapter.capabilities.systemPromptArg ? systemPromptFor(input.language) : undefined,
       model,
       maxTurns: 1,
-    })
+      toolPolicy,
+    }
+    const args = adapter.buildArgs('spec-gen', spawnOptions)
 
     const child = spawn(adapter.binary, args, {
-      env: process.env,
+      env: buildProviderEnv(adapter, spawnOptions),
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: opts.cwd,
     })
@@ -105,10 +116,10 @@ export function createFileSummaryGenerator(opts: GeneratorOpts): (input: Generat
           return {
             model: result.model ?? model,
             provider: adapter.id,
-            costUsd: result.total_cost_usd ?? 0,
+            costUsd: result.total_cost_usd ?? null,
             costEstimated: estimated,
-            tokensIn: result.tokens_in ?? 0,
-            tokensOut: result.tokens_out ?? 0,
+            tokensIn: result.tokens_in ?? null,
+            tokensOut: result.tokens_out ?? null,
             tokensCacheRead: result.tokens_cache_read,
             tokensCacheCreate: result.tokens_cache_create,
             durationMs: result.duration_ms ?? (Date.now() - startedAt),
@@ -169,10 +180,10 @@ export function createFileSummaryGenerator(opts: GeneratorOpts): (input: Generat
 
       const reader = createInterface({ input: child.stdout, crlfDelay: Infinity })
       reader.on('line', (line: string) => {
-        const ev = adapter.parseStreamLine(line)
-        if (!ev) return
-        events.push(ev)
-        if (ev.kind === 'text-delta') fullText += ev.text
+        for (const ev of parseStreamEvents(adapter, line)) {
+          events.push(ev)
+          if (ev.kind === 'text-delta') fullText += ev.text
+        }
       })
 
       child.on('error', (err) => {
@@ -213,10 +224,10 @@ export function createFileSummaryGenerator(opts: GeneratorOpts): (input: Generat
           summary,
           model: result.model ?? model,
           provider: adapter.id,
-          costUsd: result.total_cost_usd ?? 0,
+          costUsd: result.total_cost_usd ?? null,
           costEstimated: estimated,
-          tokensIn: result.tokens_in ?? 0,
-          tokensOut: result.tokens_out ?? 0,
+          tokensIn: result.tokens_in ?? null,
+          tokensOut: result.tokens_out ?? null,
           tokensCacheRead: result.tokens_cache_read,
           tokensCacheCreate: result.tokens_cache_create,
           durationMs,

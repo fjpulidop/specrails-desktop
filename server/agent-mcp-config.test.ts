@@ -132,11 +132,11 @@ describe('agent MCP capability transport', () => {
     expect(joined).not.toContain(capability)
   })
 
-  it('gemini path: the cwd .mcp.json entry carries the env', () => {
+  it('gemini path: the native project settings entry carries the env', () => {
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-origin-gem-'))
     try {
       prepareAgentMcp({ adapterId: 'gemini', conversationId: 'conv-55', cwd, port: 4200, capability })
-      const json = JSON.parse(fs.readFileSync(path.join(cwd, '.mcp.json'), 'utf-8'))
+      const json = JSON.parse(fs.readFileSync(path.join(cwd, '.gemini', 'settings.json'), 'utf-8'))
       expect(json.mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE).toContain('mcp.capability')
     } finally {
       fs.rmSync(cwd, { recursive: true, force: true })
@@ -217,11 +217,95 @@ describe('agent MCP capability transport', () => {
     }
   })
 
+  it('kimi path: merges .kimi-code/mcp.json additively with no invalid flags or Gemini env', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-origin-kimi-'))
+    try {
+      const dir = path.join(cwd, '.kimi-code')
+      fs.mkdirSync(dir, { recursive: true })
+      fs.writeFileSync(
+        path.join(dir, 'mcp.json'),
+        JSON.stringify({
+          untouched: { enabled: true },
+          mcpServers: { external: { command: 'external-mcp', args: ['serve'] } },
+        }),
+      )
+
+      const wiring = prepareAgentMcp({
+        adapterId: 'kimi',
+        conversationId: 'conv-kimi',
+        cwd,
+        port: 4545,
+        capability,
+      })
+      expect(wiring).toEqual({ extraArgs: [], env: {} })
+
+      const file = path.join(dir, 'mcp.json')
+      const config = JSON.parse(fs.readFileSync(file, 'utf-8'))
+      expect(config.untouched).toEqual({ enabled: true })
+      expect(config.mcpServers.external).toEqual({ command: 'external-mcp', args: ['serve'] })
+      expect(config.mcpServers.specrails.env.SPECRAILS_MCP_PORT).toBe('4545')
+      const bearerFile =
+        config.mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE as string
+      expect(fs.readFileSync(bearerFile, 'utf-8')).toBe(capability)
+      expect(fs.statSync(bearerFile).mode & 0o777).toBe(0o600)
+      expect(JSON.stringify(config)).not.toContain(capability)
+      expect(JSON.stringify(config)).not.toContain('GEMINI_CLI_TRUST_WORKSPACE')
+      expect(JSON.stringify(config)).not.toContain('--mcp-config')
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true })
+    }
+  })
+
+  it('kimi path: concurrent conversations keep isolated cwd configs and bearer files', async () => {
+    const firstCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-origin-kimi-a-'))
+    const secondCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-origin-kimi-b-'))
+    const firstCapability = 'k'.repeat(43)
+    const secondCapability = 'm'.repeat(43)
+    try {
+      await Promise.all([
+        Promise.resolve().then(() => prepareAgentMcp({
+          adapterId: 'kimi',
+          conversationId: 'kimi-a',
+          cwd: firstCwd,
+          port: 4200,
+          capability: firstCapability,
+        })),
+        Promise.resolve().then(() => prepareAgentMcp({
+          adapterId: 'kimi',
+          conversationId: 'kimi-b',
+          cwd: secondCwd,
+          port: 4200,
+          capability: secondCapability,
+        })),
+      ])
+
+      const firstConfig = JSON.parse(
+        fs.readFileSync(path.join(firstCwd, '.kimi-code', 'mcp.json'), 'utf-8'),
+      )
+      const secondConfig = JSON.parse(
+        fs.readFileSync(path.join(secondCwd, '.kimi-code', 'mcp.json'), 'utf-8'),
+      )
+      const firstFile =
+        firstConfig.mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE as string
+      const secondFile =
+        secondConfig.mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE as string
+      expect(firstFile).not.toBe(secondFile)
+      expect(fs.readFileSync(firstFile, 'utf-8')).toBe(firstCapability)
+      expect(fs.readFileSync(secondFile, 'utf-8')).toBe(secondCapability)
+      expect(JSON.stringify(firstConfig)).not.toContain(secondFile)
+      expect(JSON.stringify(secondConfig)).not.toContain(firstFile)
+    } finally {
+      fs.rmSync(firstCwd, { recursive: true, force: true })
+      fs.rmSync(secondCwd, { recursive: true, force: true })
+    }
+  })
+
   it('claude and codex paths do not inject the gemini trust env', () => {
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-origin-gem-'))
     try {
       expect(prepareAgentMcp({ adapterId: 'claude', conversationId: 'conv-1', cwd, port: 4200, capability }).env).not.toHaveProperty('GEMINI_CLI_TRUST_WORKSPACE')
       expect(prepareAgentMcp({ adapterId: 'codex', conversationId: 'conv-1', cwd, port: 4200, capability }).env).not.toHaveProperty('GEMINI_CLI_TRUST_WORKSPACE')
+      expect(prepareAgentMcp({ adapterId: 'kimi', conversationId: 'conv-1', cwd, port: 4200, capability }).env).not.toHaveProperty('GEMINI_CLI_TRUST_WORKSPACE')
     } finally {
       fs.rmSync(cwd, { recursive: true, force: true })
     }

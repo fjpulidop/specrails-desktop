@@ -117,13 +117,13 @@ export interface LoopTerminalRecoveryRow {
 export interface LoopJobTerminalTotals {
   exitCode: number
   status: 'completed' | 'failed' | 'canceled'
-  totalCostUsd: number
-  tokensIn: number
-  tokensOut: number
-  tokensCacheRead: number
-  tokensCacheCreate: number
+  totalCostUsd: number | null
+  tokensIn: number | null
+  tokensOut: number | null
+  tokensCacheRead: number | null
+  tokensCacheCreate: number | null
   durationMs: number
-  numTurns: number
+  numTurns: number | null
 }
 
 function parseTicketIdsJson(raw: string | null | undefined): number[] {

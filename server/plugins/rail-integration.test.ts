@@ -105,6 +105,82 @@ describe('resolvePluginsForSpawn', () => {
     const r = await resolvePluginsForSpawn(projectPath, 'pid', 'job1')
     expect(r.degraded).toEqual([{ name: 'ghost', reason: 'orphan' }])
   })
+
+  it('resolves only installations for the rail effective provider', async () => {
+    const stateDir = path.join(projectPath, '.specrails', 'plugins')
+    fs.mkdirSync(stateDir, { recursive: true })
+    fs.writeFileSync(path.join(stateDir, 'state.json'), JSON.stringify({
+      schemaVersion: 1,
+      plugins: {
+        serena: {
+          version: '1.0.0',
+          installedAt: 'now',
+          installedFiles: [],
+          health: 'ok',
+          providers: {
+            kimi: {
+              installedAt: 'now',
+              installedFiles: [],
+              active: true,
+              health: 'ok',
+            },
+          },
+        },
+      },
+    }))
+    setPluginManagerForTesting(new PluginManager([makePlugin({ verifyOk: true })]))
+
+    const claude = await resolvePluginsForSpawn(
+      projectPath,
+      'pid',
+      'job-claude',
+      'claude',
+      'claude',
+    )
+    const kimi = await resolvePluginsForSpawn(
+      projectPath,
+      'pid',
+      'job-kimi',
+      'kimi',
+      'claude',
+      'slug',
+    )
+
+    expect(claude).toEqual({ active: [], degraded: [] })
+    expect(kimi.active).toEqual([{ name: 'serena', version: '1.0.0' }])
+  })
+
+  it('omits an explicitly deactivated provider installation', async () => {
+    const stateDir = path.join(projectPath, '.specrails', 'plugins')
+    fs.mkdirSync(stateDir, { recursive: true })
+    fs.writeFileSync(path.join(stateDir, 'state.json'), JSON.stringify({
+      schemaVersion: 1,
+      plugins: {
+        serena: {
+          version: '1.0.0',
+          installedAt: 'now',
+          installedFiles: [],
+          providers: {
+            kimi: {
+              installedAt: 'now',
+              installedFiles: [],
+              active: false,
+              health: 'unknown',
+            },
+          },
+        },
+      },
+    }))
+    setPluginManagerForTesting(new PluginManager([makePlugin({ verifyOk: true })]))
+
+    expect(await resolvePluginsForSpawn(
+      projectPath,
+      'pid',
+      'job-kimi',
+      'kimi',
+      'claude',
+    )).toEqual({ active: [], degraded: [] })
+  })
 })
 
 describe('snapshotPluginsForJob', () => {

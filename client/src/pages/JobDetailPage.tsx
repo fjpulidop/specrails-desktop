@@ -52,6 +52,16 @@ export default function JobDetailPage() {
   const rerunInFlightRef = useRef(false)
   const rerunIdempotencyKeyRef = useRef<string | null>(null)
 
+  // A failed/network-ambiguous request keeps its idempotency key so retrying
+  // the SAME source is safe. Once React Router reuses this component for a
+  // different job, that key belongs to the old source and must not leak into
+  // the new rerun identity.
+  useEffect(() => {
+    rerunInFlightRef.current = false
+    rerunIdempotencyKeyRef.current = null
+    setIsRerunning(false)
+  }, [id])
+
   // Reset and re-fetch when project or job id changes
   useEffect(() => {
     if (!id) return
@@ -299,7 +309,10 @@ export default function JobDetailPage() {
           'Content-Type': 'application/json',
           'Idempotency-Key': rerunIdempotencyKeyRef.current,
         },
-        body: JSON.stringify({ command: job.command }),
+        // The server resolves the immutable execution identity from this job:
+        // exact command/tickets, provider, model alias, and profile. Avoid
+        // duplicating those fields in a client-controlled rerun payload.
+        body: JSON.stringify({ rerunOfJobId: job.id }),
       })
       const data = await res.json() as { jobId?: string; error?: string }
       if (!res.ok) throw new Error(data.error ?? t('detail.toast.spawnFailed'))
@@ -368,10 +381,21 @@ export default function JobDetailPage() {
     // the pricing-table fallback.
     costEstimated: pipelineJobs.some((j) => !!j.total_cost_usd_estimated),
     nullCostCount: pipelineJobs.filter((j) => j.total_cost_usd == null).length,
+    costUnavailable: pipelineJobs.every((j) => j.total_cost_usd == null),
     totalTokensIn: pipelineJobs.reduce((s, j) => s + (j.tokens_in ?? 0), 0),
     totalTokensOut: pipelineJobs.reduce((s, j) => s + (j.tokens_out ?? 0), 0),
     totalTokensCacheRead: pipelineJobs.reduce((s, j) => s + (j.tokens_cache_read ?? 0), 0),
     totalTokensCacheCreate: pipelineJobs.reduce((s, j) => s + (j.tokens_cache_create ?? 0), 0),
+    nullTokenCount: pipelineJobs.filter(
+      (j) =>
+        j.tokens_in == null && j.tokens_out == null
+        && j.tokens_cache_read == null && j.tokens_cache_create == null,
+    ).length,
+    tokensUnavailable: pipelineJobs.every(
+      (j) =>
+        j.tokens_in == null && j.tokens_out == null
+        && j.tokens_cache_read == null && j.tokens_cache_create == null,
+    ),
     jobCount: pipelineJobs.length,
   } : null
 

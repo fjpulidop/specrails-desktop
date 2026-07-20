@@ -17,7 +17,8 @@ import { ChildProcess } from 'node:child_process'
 import treeKill from 'tree-kill'
 import { spawnAiCli } from './util/cli-prompt'
 import { runAiCliInvocation } from './spawn-lifecycle'
-import { getAdapter } from './providers/registry'
+import { getAdapter, type AdapterEvent, type ProviderAdapter, type SpawnOptions } from './providers'
+import { buildProviderEnv } from './providers/runtime'
 import {
   buildContractRefineSystemPrompt,
   parseContractLayerBlock,
@@ -32,7 +33,7 @@ import {
 } from './db'
 import { ensureExploreCwd } from './explore-cwd-manager'
 import { recordInvocation } from './ai-invocations'
-import { normaliseResultEvent } from './result-event'
+import { finaliseInvocationResult } from './result-event'
 import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type TicketStore } from './ticket-store'
 import { resolveProjectExecution } from './workspace-resolution'
 import { captureProcessAdmission } from './process-admission'
@@ -71,6 +72,9 @@ export interface ContractRefineDeps {
   projectSlug: string
   projectPath: string
   projectName: string
+  /** Provider for Quick/no-conversation refinements. Explore refinements always
+   * use the provider persisted on their source conversation. */
+  providerId?: string
   // Loose broadcaster type — runner emits ad-hoc `explore.contract_refine_*`
   // events not yet in the WsMessage union; the project-router casts at the
   // call site.
@@ -110,30 +114,41 @@ function isResultErrorEvent(resultEvent: Record<string, unknown> | null): boolea
   return subtype === 'error_max_turns' || subtype.startsWith('error_')
 }
 
-function normalizeClaudeCodeModel(model: string | null | undefined): string {
-  if (!model || typeof model !== 'string') return 'sonnet'
-  return model
-}
-
-function buildRefineArgs(model: string, systemPrompt: string, sessionId: string): string[] {
-  return [
-    '--model', normalizeClaudeCodeModel(model),
-    // Contract Refine receives all required spec context in the prompt. An
-    // explicit no-tool allowlist is stronger than trying to enumerate every
-    // present and future tool in --disallowedTools.
-    '--tools', '__none__',
-    '--output-format', 'stream-json',
-    '--verbose',
-    '--system-prompt', systemPrompt,
-    '--resume', sessionId,
-    '--max-turns', '1',
-    '-p', CONTRACT_MARKER_USER_MESSAGE,
-  ]
+function buildRefineArgs(
+  adapter: ProviderAdapter,
+  model: string,
+  systemPrompt: string,
+  sessionId: string,
+): { args: string[]; options: SpawnOptions } {
+  const action = sessionId && adapter.capabilities.nativeResume ? 'chat-resume' : 'spec-gen'
+  // Chat adapters intentionally keep resumed Explore prompts short because the
+  // app-managed cwd already carries the normal Explore stance. Contract Refine
+  // is different: its schema is invocation-specific and must be present on the
+  // resumed turn. Providers without a native system-prompt flag therefore need
+  // the schema folded here, exactly once, before their chat-resume builder
+  // deliberately ignores `systemPrompt`.
+  const foldForResume = action === 'chat-resume' && !adapter.capabilities.systemPromptArg
+  const options: SpawnOptions = {
+    prompt: foldForResume
+      ? `${systemPrompt}\n\n---\n\n${CONTRACT_MARKER_USER_MESSAGE}`
+      : CONTRACT_MARKER_USER_MESSAGE,
+    model,
+    systemPrompt: foldForResume ? undefined : systemPrompt,
+    sessionId,
+    toolPolicy: 'none',
+    maxTurns: 1,
+  }
+  return { args: adapter.buildArgs(action, options), options }
 }
 
 /** Build the pure-output, no-resume invocation used by Quick Refine and by the
  * one-time compatibility recovery for cwd-scoped Explore sessions. */
-function buildFreshRefineArgs(model: string, title: string, description: string): string[] {
+function buildFreshRefineArgs(
+  adapter: ProviderAdapter,
+  model: string,
+  title: string,
+  description: string,
+): { args: string[]; options: SpawnOptions } {
   const systemPrompt = [
     buildContractRefineSystemPrompt(),
     '',
@@ -146,15 +161,14 @@ function buildFreshRefineArgs(model: string, title: string, description: string)
     description,
   ].join('\n')
 
-  return [
-    '--model', model,
-    '--tools', '__none__',
-    '--output-format', 'stream-json',
-    '--verbose',
-    '--system-prompt', systemPrompt,
-    '--max-turns', '1',
-    '-p', CONTRACT_MARKER_USER_MESSAGE,
-  ]
+  const options: SpawnOptions = {
+    prompt: CONTRACT_MARKER_USER_MESSAGE,
+    model,
+    systemPrompt,
+    toolPolicy: 'none',
+    maxTurns: 1,
+  }
+  return { args: adapter.buildArgs('spec-gen', options), options }
 }
 
 /** Match only Claude's missing cwd-scoped session diagnostic. The CLI has
@@ -176,9 +190,9 @@ function containsMissingClaudeSessionDiagnostic(value: unknown): boolean {
  * Build the spawn argv + cwd for the refine turn. Exported for tests.
  */
 export function prepareContractRefineSpawn(
-  deps: Pick<ContractRefineDeps, 'projectSlug' | 'projectPath' | 'projectName'>,
-  conversation: { model: string | null; session_id: string | null; context_scope?: string | null },
-): { args: string[]; cwd: string; systemPrompt: string; env?: NodeJS.ProcessEnv } {
+  deps: Pick<ContractRefineDeps, 'projectSlug' | 'projectPath' | 'projectName' | 'providerId'>,
+  conversation: { model: string | null; session_id: string | null; context_scope?: string | null; provider?: string | null },
+): { args: string[]; cwd: string; systemPrompt: string; env?: NodeJS.ProcessEnv; options: SpawnOptions; adapter: ProviderAdapter } {
   const systemPrompt = buildContractRefineSystemPrompt()
   let mcpEnabled = false
   if (conversation.context_scope) {
@@ -225,8 +239,10 @@ export function prepareContractRefineSpawn(
       cwd = deps.projectPath
     }
   }
-  const args = buildRefineArgs(conversation.model ?? 'sonnet', systemPrompt, conversation.session_id ?? '')
-  return { args, cwd, systemPrompt, env }
+  const adapter = getAdapter(conversation.provider ?? deps.providerId ?? 'claude')
+  const model = conversation.model ?? adapter.defaultModel()
+  const built = buildRefineArgs(adapter, model, systemPrompt, conversation.session_id ?? '')
+  return { args: built.args, cwd, systemPrompt, env, options: built.options, adapter }
 }
 
 /** Grace before SIGKILL-escalating a child that swallowed SIGTERM. */
@@ -415,13 +431,9 @@ export async function runContractRefine(
     return { ok: false, reason: 'not-explore', ticketId, conversationId }
   }
 
-  // Contract Layer refinement is a Claude-only capability (it `--resume`s the
-  // Explore session and invokes the `/specrails:contract-refine` slash command,
-  // neither of which Codex supports). Skip defensively when the conversation
-  // ran on a non-claude engine; the Add Spec UI already hides the toggle for
-  // those, but a manually-crafted scope must never spawn the wrong CLI.
-  if (conversation.provider && conversation.provider !== 'claude') {
-    console.log(`[contract-refine-runner] skip: provider '${conversation.provider}' does not support contract refine`)
+  const adapter = getAdapter(conversation.provider ?? deps.providerId ?? 'claude')
+  if (adapter.capabilities.structuredActions !== true) {
+    console.log(`[contract-refine-runner] skip: provider '${adapter.id}' does not support structured actions`)
     return { ok: false, reason: 'provider-unsupported', ticketId, conversationId }
   }
 
@@ -450,15 +462,17 @@ export async function runContractRefine(
   deps.broadcast({
     type: 'explore.contract_refine_started',
     projectId: deps.projectId,
+    provider: adapter.id,
     ticketId,
     timestamp: now().toISOString(),
   })
 
-  const { args, cwd, env: refineEnv } = prepareContractRefineSpawn(
+  const { args, cwd, env: refineEnv, options: refineOptions } = prepareContractRefineSpawn(
     {
       projectSlug: deps.projectSlug,
       projectPath: deps.projectPath,
       projectName: deps.projectName,
+      providerId: adapter.id,
     },
     conversation,
   )
@@ -469,30 +483,23 @@ export async function runContractRefine(
   // the raw result event) and all finalize/record/broadcast logic stay here.
   // Keeping the invocation result in one shape also lets the narrowly-gated
   // missing-session recovery re-enter the exact same finalization path.
-  const invoke = async (invocationArgs: string[]) => {
+  const invoke = async (invocationArgs: string[], invocationOptions: SpawnOptions) => {
     let fullText = ''
     let resultEvent: Record<string, unknown> | null = null
     const run = await runAiCliInvocation({
-      adapter: getAdapter('claude'),
-      binary: 'claude',
+      adapter,
+      binary: adapter.binary,
       argv: invocationArgs,
       cwd,
-      env: refineEnv ?? process.env,
+      env: buildProviderEnv(adapter, invocationOptions, refineEnv ?? process.env),
       spawn,
       timeoutMs,
       onSpawn: (child) => trackTransientChild(deps.projectId, child),
-      onStdoutLine: (line) => {
-        let parsed: Record<string, unknown> | null = null
-        try { parsed = JSON.parse(line) } catch { return }
-        if (!parsed) return
-        const type = parsed.type as string
-        if (type === 'result') {
-          resultEvent = parsed
-        } else if (type === 'assistant') {
-          const message = parsed.message as { content?: Array<{ type: string; text?: string }> } | undefined
-          for (const b of (message?.content ?? [])) {
-            if (b.type === 'text' && typeof b.text === 'string') fullText += b.text
-          }
+      onEvent: (event) => {
+        if (event.kind === 'text-delta') {
+          fullText += event.text
+        } else if (event.kind === 'result') {
+          resultEvent = event.payload
         }
       },
     })
@@ -503,10 +510,11 @@ export async function runContractRefine(
       timedOut: run.timedOut,
       spawnFailed: run.spawnFailed,
       stderrTail: run.stderrTail,
+      events: run.events,
     }
   }
 
-  let result = await invoke(args)
+  let result = await invoke(args, refineOptions)
   if (!admission.isCurrent()) {
     return { ok: false, reason: 'aborted', ticketId, conversationId }
   }
@@ -527,7 +535,7 @@ export async function runContractRefine(
     containsMissingClaudeSessionDiagnostic(result.resultEvent) ||
     containsMissingClaudeSessionDiagnostic(result.stderrTail)
 
-  if (resumedFromRelocatedWorkspace && resumeFailed && missingSessionDiagnostic) {
+  if (adapter.id === 'claude' && resumedFromRelocatedWorkspace && resumeFailed && missingSessionDiagnostic) {
     let ticket: Ticket | null = null
     try {
       ticket = readStore(resolveContractTicketsPath(deps.projectPath)).tickets[String(ticketId)] ?? null
@@ -537,11 +545,13 @@ export async function runContractRefine(
 
     if (ticket) {
       console.warn(`[contract-refine-runner] resume session unavailable; retrying once fresh from workspace ticket=${ticketId}`)
-      result = await invoke(buildFreshRefineArgs(
-        conversation.model ?? 'sonnet',
+      const fresh = buildFreshRefineArgs(
+        adapter,
+        conversation.model ?? adapter.defaultModel(),
         ticket.title,
         ticket.description,
-      ))
+      )
+      result = await invoke(fresh.args, fresh.options)
       if (!admission.isCurrent()) {
         return { ok: false, reason: 'aborted', ticketId, conversationId }
       }
@@ -550,10 +560,11 @@ export async function runContractRefine(
 
   const finishedAt = now().toISOString()
   if (result.spawnFailed) {
-    recordSafely(deps, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', null)
+    recordSafely(deps, adapter, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', result.events)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
+      provider: adapter.id,
       ticketId,
       reason: 'crashed',
       timestamp: finishedAt,
@@ -563,17 +574,19 @@ export async function runContractRefine(
   console.log(`[contract-refine-runner] spawn done code=${result.code} timedOut=${result.timedOut} hasResult=${!!result.resultEvent} textBytes=${result.fullText.length}`)
 
   if (result.timedOut) {
-    recordSafely(deps, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'aborted', result.resultEvent)
+    recordSafely(deps, adapter, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'aborted', result.events)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
+      provider: adapter.id,
       ticketId,
       reason: 'timeout',
       timestamp: finishedAt,
     })
     return { ok: false, reason: 'timeout', ticketId, conversationId }
   }
-  if (result.code !== 0 || !result.resultEvent) {
+  const providerError = result.events.some((event) => event.kind === 'error')
+  if (result.code !== 0 || providerError || !result.fullText.trim()) {
     const r = result.resultEvent as Record<string, unknown> | null
     console.log(
       `[contract-refine-runner] non-zero exit code=${result.code} ` +
@@ -582,26 +595,28 @@ export async function runContractRefine(
       `textTail=${JSON.stringify(result.fullText.slice(-400))}`,
     )
     if (r) console.log(`[contract-refine-runner] result event: ${JSON.stringify(r).slice(0, 2000)}`)
-    recordSafely(deps, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', result.resultEvent)
+    recordSafely(deps, adapter, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', result.events)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
+      provider: adapter.id,
       ticketId,
-      reason: result.resultEvent ? 'model_error' : 'crashed',
+      reason: providerError || result.resultEvent ? 'model_error' : 'crashed',
       timestamp: finishedAt,
     })
-    return { ok: false, reason: result.resultEvent ? 'model_error' : 'crashed', ticketId, conversationId }
+    return { ok: false, reason: providerError || result.resultEvent ? 'model_error' : 'crashed', ticketId, conversationId }
   }
 
   // BUG-PARSER-04: exit-0 but the result event flags an error / max-turns
   // truncation — classify as model_error, not malformed.
-  if (isResultErrorEvent(result.resultEvent)) {
+  if (result.resultEvent && isResultErrorEvent(result.resultEvent)) {
     const r = result.resultEvent as Record<string, unknown>
     console.log(`[contract-refine-runner] result error event subtype=${r.subtype ?? '-'} is_error=${r.is_error ?? '-'}`)
-    recordSafely(deps, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', result.resultEvent)
+    recordSafely(deps, adapter, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', result.events)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
+      provider: adapter.id,
       ticketId,
       reason: 'model_error',
       timestamp: finishedAt,
@@ -615,10 +630,11 @@ export async function runContractRefine(
     const reason: RefineFailureReason = parse.reason === 'parser-error'
       ? 'parser_error'
       : 'malformed'
-    recordSafely(deps, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', result.resultEvent)
+    recordSafely(deps, adapter, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', result.events)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
+      provider: adapter.id,
       ticketId,
       reason,
       timestamp: finishedAt,
@@ -633,10 +649,11 @@ export async function runContractRefine(
     updated = applyContractLayerToTicket(filePath, ticketId, parse.value, finishedAt)
   } catch (err) {
     console.error('[contract-refine-runner] PATCH failed:', err)
-    recordSafely(deps, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', result.resultEvent)
+    recordSafely(deps, adapter, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'failed', result.events)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
+      provider: adapter.id,
       ticketId,
       reason: 'parser_error',
       timestamp: finishedAt,
@@ -644,7 +661,7 @@ export async function runContractRefine(
     return { ok: false, reason: 'parser_error', ticketId, conversationId }
   }
 
-  recordSafely(deps, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'success', result.resultEvent)
+  recordSafely(deps, adapter, conversationId, ticketId, conversation.model, startedAt, finishedAt, 'success', result.events)
 
   if (updated) {
     deps.broadcast({
@@ -684,9 +701,15 @@ export async function runContractRefineForQuick(
     return { ok: false, reason: 'disabled', ticketId, conversationId: '' }
   }
   const admission = captureProcessAdmission(deps.projectId)
+  const adapter = getAdapter(deps.providerId ?? 'claude')
+  if (adapter.capabilities.structuredActions !== true) {
+    return { ok: false, reason: 'provider-unsupported', ticketId, conversationId: '' }
+  }
+  const resolvedModel = model ?? adapter.defaultModel()
 
-  const args = buildFreshRefineArgs(
-    model ?? 'sonnet',
+  const built = buildFreshRefineArgs(
+    adapter,
+    resolvedModel,
     generatedTitle,
     generatedDescription,
   )
@@ -695,51 +718,73 @@ export async function runContractRefineForQuick(
   deps.broadcast({
     type: 'explore.contract_refine_started',
     projectId: deps.projectId,
+    provider: adapter.id,
     ticketId,
     timestamp: startedAt,
   })
   // Relocate-artifacts gate: spawn from the workspace + SPECRAILS_REPO_DIR when
   // relocated, else cwd = project.path + process.env (byte-identical legacy).
   const quickExec = resolveProjectExecution({ slug: deps.projectSlug, path: deps.projectPath })
-  let child: ChildProcess
-  try {
-    child = spawn('claude', args, {
-      env: quickExec.relocated ? { ...process.env, ...quickExec.env } : process.env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: quickExec.cwd,
-    })
-    trackTransientChild(deps.projectId, child)
-  } catch (err) {
-    recordSafelyQuick(deps, ticketId, model, startedAt, now().toISOString(), 'failed', null)
-    deps.broadcast({
-      type: 'explore.contract_refine_failed',
-      projectId: deps.projectId,
-      ticketId,
-      reason: 'crashed',
-      timestamp: now().toISOString(),
-    })
-    return { ok: false, reason: 'crashed', ticketId, conversationId: '' }
+  let fullText = ''
+  let resultEvent: Record<string, unknown> | null = null
+  const run = await runAiCliInvocation({
+    adapter,
+    binary: adapter.binary,
+    argv: built.args,
+    cwd: quickExec.cwd,
+    env: buildProviderEnv(
+      adapter,
+      built.options,
+      quickExec.relocated ? { ...process.env, ...quickExec.env } : process.env,
+    ),
+    spawn,
+    timeoutMs,
+    onSpawn: (child) => trackTransientChild(deps.projectId, child),
+    onEvent: (event) => {
+      if (event.kind === 'text-delta') fullText += event.text
+      else if (event.kind === 'result') resultEvent = event.payload
+    },
+  })
+  const result = {
+    fullText,
+    resultEvent,
+    code: run.code,
+    timedOut: run.timedOut,
+    spawnFailed: run.spawnFailed,
+    events: run.events,
   }
-
-  const result = await readRefineChildOutput(child, timeoutMs)
   if (!admission.isCurrent()) {
     return { ok: false, reason: 'aborted', ticketId, conversationId: '' }
   }
   const finishedAt = now().toISOString()
   console.log(`[contract-refine-runner] quick spawn done code=${result.code} timedOut=${result.timedOut} textBytes=${result.fullText.length}`)
 
-  if (result.timedOut) {
-    recordSafelyQuick(deps, ticketId, model, startedAt, finishedAt, 'aborted', result.resultEvent)
+  if (result.spawnFailed) {
+    recordSafelyQuick(deps, adapter, ticketId, resolvedModel, startedAt, finishedAt, 'failed', result.events)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
+      provider: adapter.id,
+      ticketId,
+      reason: 'crashed',
+      timestamp: finishedAt,
+    })
+    return { ok: false, reason: 'crashed', ticketId, conversationId: '' }
+  }
+  if (result.timedOut) {
+    recordSafelyQuick(deps, adapter, ticketId, resolvedModel, startedAt, finishedAt, 'aborted', result.events)
+    deps.broadcast({
+      type: 'explore.contract_refine_failed',
+      projectId: deps.projectId,
+      provider: adapter.id,
       ticketId,
       reason: 'timeout',
       timestamp: finishedAt,
     })
     return { ok: false, reason: 'timeout', ticketId, conversationId: '' }
   }
-  if (result.code !== 0 || !result.resultEvent) {
+  const providerError = result.events.some((event) => event.kind === 'error')
+  if (result.code !== 0 || providerError || !result.fullText.trim()) {
     const r = result.resultEvent as Record<string, unknown> | null
     console.log(
       `[contract-refine-runner] quick non-zero exit code=${result.code} ` +
@@ -747,26 +792,28 @@ export async function runContractRefineForQuick(
       `num_turns=${r?.num_turns ?? '-'} ` +
       `textTail=${JSON.stringify(result.fullText.slice(-400))}`,
     )
-    recordSafelyQuick(deps, ticketId, model, startedAt, finishedAt, 'failed', result.resultEvent)
+    recordSafelyQuick(deps, adapter, ticketId, resolvedModel, startedAt, finishedAt, 'failed', result.events)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
+      provider: adapter.id,
       ticketId,
-      reason: result.resultEvent ? 'model_error' : 'crashed',
+      reason: providerError || result.resultEvent ? 'model_error' : 'crashed',
       timestamp: finishedAt,
     })
-    return { ok: false, reason: result.resultEvent ? 'model_error' : 'crashed', ticketId, conversationId: '' }
+    return { ok: false, reason: providerError || result.resultEvent ? 'model_error' : 'crashed', ticketId, conversationId: '' }
   }
 
   // BUG-PARSER-04: exit-0 but the result event flags an error / max-turns
   // truncation — classify as model_error, not malformed.
-  if (isResultErrorEvent(result.resultEvent)) {
+  if (result.resultEvent && isResultErrorEvent(result.resultEvent)) {
     const r = result.resultEvent as Record<string, unknown>
     console.log(`[contract-refine-runner] quick result error event subtype=${r.subtype ?? '-'} is_error=${r.is_error ?? '-'}`)
-    recordSafelyQuick(deps, ticketId, model, startedAt, finishedAt, 'failed', result.resultEvent)
+    recordSafelyQuick(deps, adapter, ticketId, resolvedModel, startedAt, finishedAt, 'failed', result.events)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
+      provider: adapter.id,
       ticketId,
       reason: 'model_error',
       timestamp: finishedAt,
@@ -777,10 +824,11 @@ export async function runContractRefineForQuick(
   const parse = parseContractLayerBlock(result.fullText)
   if (!parse.ok) {
     const reason: RefineFailureReason = parse.reason === 'parser-error' ? 'parser_error' : 'malformed'
-    recordSafelyQuick(deps, ticketId, model, startedAt, finishedAt, 'failed', result.resultEvent)
+    recordSafelyQuick(deps, adapter, ticketId, resolvedModel, startedAt, finishedAt, 'failed', result.events)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
+      provider: adapter.id,
       ticketId,
       reason,
       timestamp: finishedAt,
@@ -794,10 +842,11 @@ export async function runContractRefineForQuick(
     updated = applyContractLayerToTicket(filePath, ticketId, parse.value, finishedAt)
   } catch (err) {
     console.error('[contract-refine-runner] quick PATCH failed:', err)
-    recordSafelyQuick(deps, ticketId, model, startedAt, finishedAt, 'failed', result.resultEvent)
+    recordSafelyQuick(deps, adapter, ticketId, resolvedModel, startedAt, finishedAt, 'failed', result.events)
     deps.broadcast({
       type: 'explore.contract_refine_failed',
       projectId: deps.projectId,
+      provider: adapter.id,
       ticketId,
       reason: 'parser_error',
       timestamp: finishedAt,
@@ -805,7 +854,7 @@ export async function runContractRefineForQuick(
     return { ok: false, reason: 'parser_error', ticketId, conversationId: '' }
   }
 
-  recordSafelyQuick(deps, ticketId, model, startedAt, finishedAt, 'success', result.resultEvent)
+  recordSafelyQuick(deps, adapter, ticketId, resolvedModel, startedAt, finishedAt, 'success', result.events)
 
   if (updated) {
     deps.broadcast({
@@ -822,19 +871,23 @@ export async function runContractRefineForQuick(
 
 function recordSafelyQuick(
   deps: ContractRefineDeps,
+  adapter: ProviderAdapter,
   ticketId: number,
   model: string | null | undefined,
   startedAt: string,
   finishedAt: string,
   status: 'success' | 'failed' | 'aborted',
-  resultEvent: Record<string, unknown> | null,
+  events: readonly AdapterEvent[],
 ): void {
   try {
-    const normalised = resultEvent ? normaliseResultEvent(resultEvent, 'claude') : {}
+    const { result: normalised, estimated } = finaliseInvocationResult(adapter, events, {
+      fallbackModel: model ?? adapter.defaultModel(),
+      durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt)),
+    })
     recordInvocation(deps.db, {
       id: randomUUID(),
       project_id: deps.projectId,
-      provider: 'claude',
+      provider: adapter.id,
       surface: 'quick-spec',
       surface_ref_id: `contract-refine:${ticketId}`,
       conversation_id: null,
@@ -842,8 +895,9 @@ function recordSafelyQuick(
       status,
       started_at: startedAt,
       finished_at: finishedAt,
+      total_cost_usd_estimated: estimated,
       ...normalised,
-      model: (resultEvent?.model as string | undefined) ?? model ?? undefined,
+      model: normalised.model ?? model ?? undefined,
     })
   } catch (err) {
     console.error('[contract-refine-runner] quick recordInvocation failed:', err)
@@ -852,20 +906,24 @@ function recordSafelyQuick(
 
 function recordSafely(
   deps: ContractRefineDeps,
+  adapter: ProviderAdapter,
   conversationId: string,
   ticketId: number,
   model: string | null | undefined,
   startedAt: string,
   finishedAt: string,
   status: 'success' | 'failed' | 'aborted',
-  resultEvent: Record<string, unknown> | null,
+  events: readonly AdapterEvent[],
 ): void {
   try {
-    const normalised = resultEvent ? normaliseResultEvent(resultEvent, 'claude') : {}
+    const { result: normalised, estimated } = finaliseInvocationResult(adapter, events, {
+      fallbackModel: model ?? adapter.defaultModel(),
+      durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt)),
+    })
     recordInvocation(deps.db, {
       id: randomUUID(),
       project_id: deps.projectId,
-      provider: 'claude',
+      provider: adapter.id,
       surface: 'explore-spec',
       surface_ref_id: `contract-refine:${conversationId}`,
       conversation_id: conversationId,
@@ -873,8 +931,9 @@ function recordSafely(
       status,
       started_at: startedAt,
       finished_at: finishedAt,
+      total_cost_usd_estimated: estimated,
       ...normalised,
-      model: (resultEvent?.model as string | undefined) ?? model ?? undefined,
+      model: normalised.model ?? model ?? undefined,
     })
   } catch (err) {
     console.error('[contract-refine-runner] recordInvocation failed:', err)

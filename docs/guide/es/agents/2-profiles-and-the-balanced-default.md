@@ -37,7 +37,11 @@ Ese es todo el flujo: elige un perfil, lanza, listo. Los rails concurrentes de u
 
 ## Cuando la sección Agentes está en silencio
 
-Los perfiles son una capacidad de Claude. En un proyecto que incluye un proveedor que no es Claude (Codex o Gemini), la sección Agentes se oculta y los rails corren sin perfiles — eso es lo esperado, no un fallo. Los perfiles también requieren un `specrails-core` lo bastante reciente en el proyecto; si es más antiguo, verás un banner amarillo. Los perfiles que crees igualmente se **guardan** — simplemente no afectan al pipeline hasta que se actualice core. Actualiza con el comando que muestra el banner para desbloquearlos.
+Los perfiles están separados por proveedor. Claude y Kimi admiten
+perfiles/roles; Codex y Gemini ejecutan los rails en modo legacy. En proyectos
+mixtos, nombres iguales no se cruzan entre Claude y Kimi. Kimi permite roles
+manuales, pero generación, smoke test y AI Refine de Agent Studio fallan
+antes de iniciar. Kimi requiere `specrails-core` 4.12.0 o posterior.
 
 ## A dónde ir después
 

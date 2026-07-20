@@ -1,0 +1,7 @@
+{"role":"meta","type":"system.version","version":"0.27.0"}
+{"role":"assistant","content":"I will inspect both files.","tool_calls":[{"type":"function","id":"call-shell","function":{"name":"Shell","arguments":"{\"command\":\"git status --short\"}"}},{"type":"function","id":"call-read","function":{"name":"ReadFile","arguments":"{\"path\":\"package.json\"}"}}]}
+{"role":"tool","tool_call_id":"call-shell","content":" M package.json"}
+{"role":"meta","type":"turn.step.retrying","failed_attempt":1,"next_attempt":2,"max_attempts":3,"delay_ms":250,"error_name":"APIError","error_message":"transient upstream error","status_code":503}
+{"role":"tool","tool_call_id":"call-read","content":"{\"name\":\"demo\"}"}
+{"role":"assistant","content":"The project has one modified file."}
+{"role":"meta","type":"session.resume_hint","session_id":"01KIMI00000000000000000001","command":"kimi -S 01KIMI00000000000000000001","content":"Resume this session with the command above."}

@@ -47,16 +47,25 @@ export async function installSerena(ctx: PluginLifecycleContext): Promise<void> 
     return
   }
 
-  // Claude path: surgical merge of project's `.mcp.json` + custom agent
-  // fragment. Unchanged from the pre-§14 behaviour.
-  ctx.log('Adding mcpServers.serena to .mcp.json')
-  await PluginManager.mergeMcpServers(ctx.projectPath, { serena: SERENA_MCP_ENTRY })
+  const adapter = getAdapter(ctx.providerId ?? 'claude')
+  const mcpFile = adapter.projectMcpPath?.(ctx.projectPath)
+  ctx.log(`Adding mcpServers.serena to ${mcpFile ?? '.mcp.json'}`)
+  await PluginManager.mergeMcpServers(
+    ctx.projectPath,
+    { serena: SERENA_MCP_ENTRY },
+    adapter.id,
+  )
 
-  ctx.log(`Writing ${CLAUDE_FRAGMENT_REL}`)
-  const fragmentDest = path.join(ctx.projectPath, CLAUDE_FRAGMENT_REL)
-  fs.mkdirSync(path.dirname(fragmentDest), { recursive: true })
-  fs.writeFileSync(fragmentDest, SERENA_INSTRUCTIONS_MD, 'utf8')
-  ctx.recordInstalledFile(CLAUDE_FRAGMENT_REL)
+  // Claude additionally receives its historical custom-agent fragment. Kimi
+  // consumes the provider-aware AGENTS.md contributor and native MCP config;
+  // its built-in subagents are not modelled as SpecRails roles.
+  if (adapter.id === 'claude') {
+    ctx.log(`Writing ${CLAUDE_FRAGMENT_REL}`)
+    const fragmentDest = path.join(ctx.projectPath, CLAUDE_FRAGMENT_REL)
+    fs.mkdirSync(path.dirname(fragmentDest), { recursive: true })
+    fs.writeFileSync(fragmentDest, SERENA_INSTRUCTIONS_MD, 'utf8')
+    ctx.recordInstalledFile(CLAUDE_FRAGMENT_REL)
+  }
 }
 
 export async function uninstallSerena(ctx: PluginLifecycleContext): Promise<void> {
@@ -79,12 +88,15 @@ export async function uninstallSerena(ctx: PluginLifecycleContext): Promise<void
     return
   }
 
-  ctx.log('Removing mcpServers.serena from .mcp.json')
-  await PluginManager.removeMcpServers(ctx.projectPath, ['serena'])
+  const adapter = getAdapter(ctx.providerId ?? 'claude')
+  ctx.log(`Removing mcpServers.serena from ${adapter.projectMcpPath?.(ctx.projectPath) ?? '.mcp.json'}`)
+  await PluginManager.removeMcpServers(ctx.projectPath, ['serena'], adapter.id)
 
-  const fragmentDest = path.join(ctx.projectPath, CLAUDE_FRAGMENT_REL)
-  if (fs.existsSync(fragmentDest)) {
-    ctx.log(`Removing ${CLAUDE_FRAGMENT_REL}`)
-    try { fs.unlinkSync(fragmentDest) } catch { /* best-effort */ }
+  if (adapter.id === 'claude') {
+    const fragmentDest = path.join(ctx.projectPath, CLAUDE_FRAGMENT_REL)
+    if (fs.existsSync(fragmentDest)) {
+      ctx.log(`Removing ${CLAUDE_FRAGMENT_REL}`)
+      try { fs.unlinkSync(fragmentDest) } catch { /* best-effort */ }
+    }
   }
 }

@@ -6,7 +6,14 @@ import fs from 'fs'
 // Mock child_process before importing the module under test
 vi.mock('child_process', () => ({ execSync: vi.fn() }))
 
-import { checkCoreCompat, findCoreContract, detectCLI, detectCLISync, getCLIStatus } from './core-compat'
+import {
+  checkCoreCompat,
+  coreCompatSupportsProvider,
+  findCoreContract,
+  detectCLI,
+  detectCLISync,
+  getCLIStatus,
+} from './core-compat'
 import { execSync } from 'child_process'
 
 // Minimal valid contract matching app constants
@@ -86,6 +93,68 @@ describe('checkCoreCompat', () => {
     expect(result.extraCheckpoints).toEqual([])
     expect(result.missingCommands).toEqual([])
     expect(result.extraCommands).toEqual([])
+  })
+
+  it('exposes provider rendering support from the Core contract', async () => {
+    const renderedProvider = {
+      enrichCommand: '/specrails:enrich',
+      enrichArgs: ['--from-config'],
+      updateCommand: '/specrails:enrich',
+      updateArgs: ['--update'],
+      cli: {},
+    }
+    const kimiRunner = '.kimi-code/specrails/run-skill.mjs'
+    setupContractInTmpDir({
+      ...COMPATIBLE_CONTRACT,
+      providers: {
+        claude: renderedProvider,
+        codex: renderedProvider,
+        kimi: {
+          ...renderedProvider,
+          enrichCommand: '/skill:specrails-enrich',
+          cli: {
+            providerBinary: 'kimi',
+            skillRunner: kimiRunner,
+            enrichArgs: [kimiRunner, '--skill', 'specrails-enrich'],
+          },
+        },
+      },
+    }, tmpDir)
+    const result = await checkCoreCompat()
+    expect(result.supportedProviders).toEqual(['claude', 'codex', 'kimi'])
+    expect(coreCompatSupportsProvider(result, 'kimi')).toBe(true)
+    expect(coreCompatSupportsProvider(result, 'gemini')).toBe(false)
+  })
+
+  it('rejects empty or runner-less Kimi provider declarations', async () => {
+    setupContractInTmpDir({
+      ...COMPATIBLE_CONTRACT,
+      providers: {
+        empty: {},
+        kimi: {
+          enrichCommand: '/skill:specrails-enrich',
+          enrichArgs: ['--from-config'],
+          updateCommand: '/skill:specrails-enrich',
+          updateArgs: ['--update'],
+          cli: { providerBinary: 'kimi' },
+        },
+      },
+    }, tmpDir)
+
+    const result = await checkCoreCompat()
+    expect(result.supportedProviders).toEqual([])
+    expect(coreCompatSupportsProvider(result, 'kimi')).toBe(false)
+  })
+
+  it('does not treat a missing/legacy contract provider entry as Kimi support', () => {
+    expect(coreCompatSupportsProvider({
+      contractFound: false,
+      supportedProviders: [],
+    }, 'kimi')).toBe(false)
+    expect(coreCompatSupportsProvider({
+      contractFound: true,
+      supportedProviders: [],
+    }, 'kimi')).toBe(false)
   })
 
   it('detects drift when core adds a new checkpoint phase', async () => {
@@ -281,5 +350,23 @@ describe('findCoreContract', () => {
 
     const result = await findCoreContract()
     expect(result).toBe(contractPath)
+  })
+
+  it('prefers the packaged bundled Core contract', async () => {
+    const previous = process.env.SPECRAILS_BUNDLED_CORE_PATH
+    const bundledRoot = path.join(tmpDir, 'bundled-core')
+    fs.mkdirSync(bundledRoot, { recursive: true })
+    const contractPath = path.join(bundledRoot, 'integration-contract.json')
+    fs.writeFileSync(contractPath, '{}')
+    process.env.SPECRAILS_BUNDLED_CORE_PATH = bundledRoot
+    vi.mocked(execSync).mockImplementation(() => { throw new Error('global lookup must not run') })
+    vi.mocked(execSync).mockClear()
+    try {
+      await expect(findCoreContract()).resolves.toBe(contractPath)
+      expect(execSync).not.toHaveBeenCalled()
+    } finally {
+      if (previous === undefined) delete process.env.SPECRAILS_BUNDLED_CORE_PATH
+      else process.env.SPECRAILS_BUNDLED_CORE_PATH = previous
+    }
   })
 })

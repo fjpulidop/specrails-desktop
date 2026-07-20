@@ -8,7 +8,8 @@
     "surpriseMe": "Überrasch mich",
     "inputPlaceholder": "Eine App, die…",
     "createSpecs": "Specs erstellen",
-    "createSpecsHint": "Verfügbar, sobald der Blueprint Meilenstein-1-Specs enthält"
+    "createSpecsHint": "Verfügbar, sobald der Blueprint Meilenstein-1-Specs enthält",
+    "providerUnavailable": "Der Projekt-Builder benötigt einen nativen Modus ohne Werkzeuge oder mit Lesezugriff. Dieser Anbieter ist hier nicht verfügbar."
   },
   "panel": {
     "title": "Blueprint",
@@ -87,7 +88,8 @@
     "progress": "{{done}}/{{total}} fertig",
     "launchM1": "Meilenstein 1 starten",
     "generateNext": "M{{n}} generieren",
-    "generateHint": "Öffnet eine im Code verankerte Spec-Session, gesät mit dem Blueprint"
+    "generateHint": "Öffnet eine im Code verankerte Spec-Session, gesät mit dem Blueprint",
+    "generateUnavailable": "Die Meilenstein-Generierung benötigt einen nativen Nur-Lese-Modus"
   },
   "errors": {
     "startFailed": "Die Builder-Konversation konnte nicht gestartet werden.",
@@ -99,7 +101,8 @@
     "inputPlaceholder": "Specs verfeinern…",
     "commit": "{{count}} Specs als {{label}} übernehmen",
     "commitToast": "{{count}} Specs als {{label}} auf das Board übernommen",
-    "commitFailed": "Der Meilenstein konnte nicht übernommen werden"
+    "commitFailed": "Der Meilenstein konnte nicht übernommen werden",
+    "providerUnavailable": "Die Meilenstein-Generierung ist nicht verfügbar, da dieser Anbieter keinen nativen Nur-Lese-Modus hat."
   },
   "mode": {
     "title": "Projekt-Builder",

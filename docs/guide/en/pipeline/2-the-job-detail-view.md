@@ -94,7 +94,9 @@ A few things worth knowing:
 - **The totals line is real.** The composer shows a live `N turns · $X` summary, summed from each completed turn's actual usage — consistent with this page's no-guesses promise.
 - **Two ways a session ends.** Most jobs **wrap up on their own**: the moment a turn finishes with no messages queued, the session settles and the job completes — your messages are optional steering, never an obligation. A subtle **Wrap up now** action ends it early with everything produced so far. **Freestyle** jobs are the exception: they idle between turns and wait for you to click **Finalize** — that's their design, a back-and-forth session you close when you're done.
 - **Loop runs route to the active step.** On a custom or built-in loop, your message reaches the **AI step that is running right now**. Between steps (while the Loop Decider thinks, or a shell command runs) the composer shows a short *"Waiting for the next step…"* state — your drafted text is kept, and sending re-enables when the next AI step starts. **Settle this step** ends the current step early and lets the loop advance with what it produced.
-- **Claude only, for now.** Codex and Gemini jobs run one-shot exactly as before — no composer appears. (Server operators can turn the whole feature off with `SPECRAILS_INTERACTIVE_JOBS=false`.)
+- **Persistent interaction is Claude-only.** Codex, Gemini, and Kimi jobs run
+  one-shot — no composer appears. Kimi chat surfaces resume by spawning a new
+  `kimi --session=<id> -p` process after a successful resume hint.
 
 ## Diagnostic export
 

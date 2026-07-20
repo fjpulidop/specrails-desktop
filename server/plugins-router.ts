@@ -11,6 +11,7 @@ import { installPrerequisite } from './plugins/prereq-installer'
 import { augmentPathFromLoginShell } from './path-resolver'
 import { disableMarketplacePlugin } from './plugins/claude-approval'
 import { resolveProjectExecution } from './workspace-resolution'
+import { hasAdapter } from './providers'
 
 /**
  * Relocate-artifacts gate: the dir the PluginManager mutates (`.mcp.json` +
@@ -54,6 +55,39 @@ function handleError(res: Response, err: unknown): void {
   res.status(500).json({ error: message })
 }
 
+/** Resolve the explicit provider projection for one plugin operation. Legacy
+ * clients that omit it keep targeting the project's primary provider. */
+function requestedProvider(
+  req: Request,
+  res: Response,
+  project: ProjectContext['project'],
+): string | null {
+  const bodyProvider = (req.body as { provider?: unknown } | undefined)?.provider
+  const queryProvider = req.query.provider
+  const raw = bodyProvider ?? queryProvider
+  if (
+    raw !== undefined &&
+    (typeof raw !== 'string' || raw.trim().length === 0)
+  ) {
+    res.status(400).json({ error: 'provider must be a non-empty string' })
+    return null
+  }
+  const provider = typeof raw === 'string' ? raw.trim() : project.provider
+  const configured = project.providers?.length > 0 ? project.providers : [project.provider]
+  if (!configured.includes(provider)) {
+    res.status(400).json({
+      error: `provider '${provider}' is not configured for this project`,
+      providers: configured,
+    })
+    return null
+  }
+  if (!hasAdapter(provider)) {
+    res.status(400).json({ error: `unknown provider '${provider}'` })
+    return null
+  }
+  return provider
+}
+
 export function createPluginsRouter(): Router {
   const router = Router({ mergeParams: true })
 
@@ -73,7 +107,13 @@ export function createPluginsRouter(): Router {
   router.get('/', async (req, res) => {
     try {
       const { project } = ctx(req)
-      const list = await getPluginManager().listAvailable(pluginRoot(project), project.provider)
+      const provider = requestedProvider(req, res, project)
+      if (!provider) return
+      const list = await getPluginManager().listAvailable(
+        pluginRoot(project),
+        provider,
+        project.provider,
+      )
       res.json({ plugins: list })
     } catch (err) {
       handleError(res, err)
@@ -84,7 +124,15 @@ export function createPluginsRouter(): Router {
   router.get('/:name/preview-install', async (req, res) => {
     try {
       const { project } = ctx(req)
-      const result = await getPluginManager().previewInstall(pluginRoot(project), project.id, req.params.name)
+      const provider = requestedProvider(req, res, project)
+      if (!provider) return
+      const result = await getPluginManager().previewInstall(
+        pluginRoot(project),
+        project.id,
+        req.params.name,
+        provider,
+        project.slug,
+      )
       res.json(result)
     } catch (err) {
       handleError(res, err)
@@ -95,7 +143,17 @@ export function createPluginsRouter(): Router {
   router.post('/:name/install', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().install(pluginRoot(project), project.id, req.params.name, broadcast, project.provider, project.slug)
+      const provider = requestedProvider(req, res, project)
+      if (!provider) return
+      await getPluginManager().install(
+        pluginRoot(project),
+        project.id,
+        req.params.name,
+        broadcast,
+        provider,
+        project.slug,
+        project.provider,
+      )
       res.status(200).json({ ok: true })
     } catch (err) {
       handleError(res, err)
@@ -106,7 +164,17 @@ export function createPluginsRouter(): Router {
   router.delete('/:name', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().uninstall(pluginRoot(project), project.id, req.params.name, broadcast, project.provider, project.slug)
+      const provider = requestedProvider(req, res, project)
+      if (!provider) return
+      await getPluginManager().uninstall(
+        pluginRoot(project),
+        project.id,
+        req.params.name,
+        broadcast,
+        provider,
+        project.slug,
+        project.provider,
+      )
       res.status(200).json({ ok: true })
     } catch (err) {
       handleError(res, err)
@@ -197,7 +265,18 @@ export function createPluginsRouter(): Router {
   router.post('/:name/activate', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().setActive(pluginRoot(project), project.id, req.params.name, true, broadcast, project.provider)
+      const provider = requestedProvider(req, res, project)
+      if (!provider) return
+      await getPluginManager().setActive(
+        pluginRoot(project),
+        project.id,
+        req.params.name,
+        true,
+        broadcast,
+        provider,
+        project.slug,
+        project.provider,
+      )
       res.json({ ok: true })
     } catch (err) {
       handleError(res, err)
@@ -208,7 +287,18 @@ export function createPluginsRouter(): Router {
   router.post('/:name/deactivate', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().setActive(pluginRoot(project), project.id, req.params.name, false, broadcast, project.provider)
+      const provider = requestedProvider(req, res, project)
+      if (!provider) return
+      await getPluginManager().setActive(
+        pluginRoot(project),
+        project.id,
+        req.params.name,
+        false,
+        broadcast,
+        provider,
+        project.slug,
+        project.provider,
+      )
       res.json({ ok: true })
     } catch (err) {
       handleError(res, err)
@@ -219,7 +309,17 @@ export function createPluginsRouter(): Router {
   router.post('/:name/update', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      await getPluginManager().updateMcpEntry(pluginRoot(project), project.id, req.params.name, broadcast, project.provider)
+      const provider = requestedProvider(req, res, project)
+      if (!provider) return
+      await getPluginManager().updateMcpEntry(
+        pluginRoot(project),
+        project.id,
+        req.params.name,
+        broadcast,
+        provider,
+        project.slug,
+        project.provider,
+      )
       res.json({ ok: true })
     } catch (err) {
       handleError(res, err)
@@ -230,7 +330,17 @@ export function createPluginsRouter(): Router {
   router.get('/:name/health', async (req, res) => {
     try {
       const { project, broadcast } = ctx(req)
-      const result = await getPluginManager().verify(pluginRoot(project), project.id, req.params.name, broadcast)
+      const provider = requestedProvider(req, res, project)
+      if (!provider) return
+      const result = await getPluginManager().verify(
+        pluginRoot(project),
+        project.id,
+        req.params.name,
+        broadcast,
+        provider,
+        project.provider,
+        project.slug,
+      )
       res.json(result)
     } catch (err) {
       handleError(res, err)

@@ -81,4 +81,4 @@ Não há limite global de concorrência para ajustar. Abra os projetos ou rails 
 
 - [Rails e jobs](rails-and-jobs) — o modelo da fila em detalhe.
 - [A vista de detalhe do job](the-job-detail-view) — ver um batch a correr ao vivo.
-- [Escolher um motor por rail](picking-an-engine-per-rail) — note que o Batch corre em qualquer fornecedor; o Freestyle é só Claude.
+- [Escolher um motor por rail](picking-an-engine-per-rail) — o Batch corre em qualquer fornecedor; o Freestyle está disponível com Claude e Kimi.

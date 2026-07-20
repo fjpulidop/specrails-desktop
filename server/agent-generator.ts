@@ -1,8 +1,14 @@
 import { createInterface } from 'readline'
 import { createHash, randomUUID } from 'crypto'
 import treeKill from 'tree-kill'
-import { spawnClaude } from './util/cli-prompt'
-import { getAdapter, type ProviderAdapter, type AdapterEvent } from './providers'
+import { spawnAiCli } from './util/cli-prompt'
+import {
+  getAdapter,
+  type ProviderAdapter,
+  type AdapterEvent,
+  type SpawnOptions,
+} from './providers'
+import { buildProviderEnv, parseStreamEvents } from './providers/runtime'
 import { finaliseInvocationResult } from './result-event'
 import { recordInvocation, type InvocationStatus } from './ai-invocations'
 import type { DbInstance } from './db'
@@ -31,8 +37,6 @@ export interface AgentStudioRecordCtx {
   broadcast?: (msg: WsMessage) => void
 }
 
-const AGENT_STUDIO_ADAPTER: ProviderAdapter = getAdapter('claude')
-
 /**
  * Finalise the accumulated adapter events (native cost, or pricing-table
  * estimate when the run was killed before its `result` event) and persist one
@@ -41,18 +45,19 @@ const AGENT_STUDIO_ADAPTER: ProviderAdapter = getAdapter('claude')
  */
 function recordAgentStudioInvocation(
   ctx: AgentStudioRecordCtx,
+  adapter: ProviderAdapter,
   events: readonly AdapterEvent[],
   status: InvocationStatus,
   startedAtIso: string,
 ): void {
   try {
-    const { result, estimated } = finaliseInvocationResult(AGENT_STUDIO_ADAPTER, events, {
-      fallbackModel: AGENT_STUDIO_ADAPTER.defaultModel(),
+    const { result, estimated } = finaliseInvocationResult(adapter, events, {
+      fallbackModel: adapter.defaultModel(),
     })
     recordInvocation(ctx.db, {
       id: randomUUID(),
       project_id: ctx.projectId,
-      provider: AGENT_STUDIO_ADAPTER.id,
+      provider: adapter.id,
       surface: 'agent-studio',
       surface_ref_id: ctx.surfaceRefId ?? null,
       status,
@@ -96,26 +101,39 @@ function escalateKill(child: { pid?: number; once: (e: string, cb: () => void) =
   }
 }
 
+function studioToolPolicy(adapter: ProviderAdapter): NonNullable<SpawnOptions['toolPolicy']> {
+  const policies = adapter.capabilities.toolPolicies ?? []
+  if (policies.includes('none')) return 'none'
+  if (policies.includes('read-only')) return 'read-only'
+  throw new Error(`provider_tool_policy_unsupported:${adapter.id}`)
+}
+
 export async function generateCustomAgent(
   cwd: string,
-  opts: { name: string; description: string; record?: AgentStudioRecordCtx },
+  opts: { name: string; description: string; providerId?: string; record?: AgentStudioRecordCtx },
 ): Promise<string> {
   const admission = opts.record
     ? captureProcessAdmission(opts.record.projectId)
     : captureProcessAdmission()
+  const adapter = getAdapter(opts.providerId ?? 'claude')
+  const providerFrontmatter = adapter.id === 'claude'
+    ? [
+        '  - model: one of `sonnet`, `opus`, `haiku`',
+        '  - color: one of `blue`, `green`, `red`, `yellow`, `purple`, `cyan`',
+        '  - memory: `project`',
+      ]
+    : []
   const systemPrompt = [
     'You are a specrails agent-authoring assistant.',
     '',
     'Your task: given a short description of what the user wants, produce a COMPLETE',
     'Markdown file for a specrails custom agent. The file MUST be valid input for',
-    'Claude Code: YAML frontmatter between `---` separators, followed by the agent body.',
+    `${adapter.displayName}: YAML frontmatter between \`---\` separators, followed by the agent body.`,
     '',
     'Required frontmatter fields:',
     '  - name: the exact agent id (starts with `custom-`, lowercase, kebab-case)',
     '  - description: one sentence saying when this agent should run (include tag hints in square brackets)',
-    '  - model: one of `sonnet`, `opus`, `haiku`',
-    '  - color: one of `blue`, `green`, `red`, `yellow`, `purple`, `cyan`',
-    '  - memory: `project`',
+    ...providerFrontmatter,
     '',
     'Body sections (use `#` headings): Identity, Mission, Workflow protocol, Personality.',
     'Personality block: bullet list of tone, risk_tolerance, detail_level, focus_areas.',
@@ -130,25 +148,21 @@ export async function generateCustomAgent(
     'Description of what it should do:',
     opts.description,
   ].join('\n')
+  const toolPolicy = studioToolPolicy(adapter)
 
   return new Promise<string>((resolve, reject) => {
-    const child = spawnClaude(
-      [
-        // This is a pure text transformation. The non-existent sentinel is
-        // intentional: an empty tool list is dropped by some Claude versions
-        // and silently restores the default toolkit.
-        '--tools',
-        '__none__',
-        '--output-format',
-        'stream-json',
-        '--verbose',
-        '--append-system-prompt',
-        systemPrompt,
-        '-p',
-        userPrompt,
-      ],
+    const spawnOptions = {
+      prompt: userPrompt,
+      systemPrompt,
+      model: adapter.defaultModel(),
+      toolPolicy,
+    }
+    const args = adapter.buildArgs('agent-refine', spawnOptions)
+    const child = spawnAiCli(
+      adapter.binary,
+      args,
       {
-        env: process.env,
+        env: buildProviderEnv(adapter, spawnOptions),
         stdio: ['ignore', 'pipe', 'pipe'],
         cwd,
       },
@@ -167,7 +181,7 @@ export async function generateCustomAgent(
       settled = true
       clearTimeout(killer)
       if (record && admission.isCurrent()) {
-        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+        recordAgentStudioInvocation(record, adapter, adapterEvents, status, startedAt)
       }
       complete()
     }
@@ -180,24 +194,9 @@ export async function generateCustomAgent(
 
     const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
     reader.on('line', (line) => {
-      if (record) {
-        const ev = AGENT_STUDIO_ADAPTER.parseStreamLine(line)
-        if (ev) adapterEvents.push(ev)
-      }
-      let parsed: unknown
-      try { parsed = JSON.parse(line) } catch { return }
-      if (!parsed || typeof parsed !== 'object') return
-      // Claude stream-json format: {type:"assistant", message:{content:[{type:"text", text:"..."}]}}
-      const p = parsed as Record<string, unknown>
-      const message = p.message as Record<string, unknown> | undefined
-      const content = message?.content
-      if (Array.isArray(content)) {
-        for (const block of content) {
-          if (block && typeof block === 'object' && (block as { type?: string }).type === 'text') {
-            const text = (block as { text?: unknown }).text
-            if (typeof text === 'string') collected += text
-          }
-        }
+      for (const ev of parseStreamEvents(adapter, line)) {
+        if (record) adapterEvents.push(ev)
+        if (ev.kind === 'text-delta') collected += ev.text
       }
     })
 
@@ -219,11 +218,11 @@ export async function generateCustomAgent(
       const status: InvocationStatus = code === 0 && trimmed ? 'success' : 'failed'
       settle(status, () => {
         if (code !== 0) {
-          reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
+          reject(new Error(`${adapter.binary} exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
           return
         }
         if (!trimmed) {
-          reject(new Error('claude returned empty output'))
+          reject(new Error(`${adapter.binary} returned empty output`))
           return
         }
         resolve(trimmed)
@@ -234,7 +233,8 @@ export async function generateCustomAgent(
 
 export interface TestAgentResult {
   output: string
-  tokens: number
+  /** Null when the provider does not expose usage (for example Kimi). */
+  tokens: number | null
   durationMs: number
   draftHash: string
 }
@@ -252,12 +252,13 @@ export interface TestAgentResult {
  */
 export async function testCustomAgent(
   cwd: string,
-  opts: { draftBody: string; sampleTask: string; tokenCeiling?: number; record?: AgentStudioRecordCtx },
+  opts: { draftBody: string; sampleTask: string; tokenCeiling?: number; providerId?: string; record?: AgentStudioRecordCtx },
 ): Promise<TestAgentResult> {
   const admission = opts.record
     ? captureProcessAdmission(opts.record.projectId)
     : captureProcessAdmission()
   const tokenCeiling = opts.tokenCeiling ?? 4000
+  const adapter = getAdapter(opts.providerId ?? 'claude')
   // Strip YAML frontmatter so we feed only the agent's instructions.
   const body = opts.draftBody.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').trim()
   if (!body) {
@@ -275,24 +276,21 @@ export async function testCustomAgent(
 
   const draftHash = createHash('sha256').update(opts.draftBody).digest('hex').slice(0, 16)
   const started = Date.now()
+  const toolPolicy = studioToolPolicy(adapter)
 
   return new Promise<TestAgentResult>((resolve, reject) => {
-    const child = spawnClaude(
-      [
-        // A Studio smoke test evaluates the supplied instructions and returns
-        // text; it never needs authority over the project it is testing in.
-        '--tools',
-        '__none__',
-        '--output-format',
-        'stream-json',
-        '--verbose',
-        '--append-system-prompt',
-        systemPrompt,
-        '-p',
-        opts.sampleTask,
-      ],
+    const spawnOptions = {
+      prompt: opts.sampleTask,
+      systemPrompt,
+      model: adapter.defaultModel(),
+      toolPolicy,
+    }
+    const args = adapter.buildArgs('agent-refine', spawnOptions)
+    const child = spawnAiCli(
+      adapter.binary,
+      args,
       {
-        env: process.env,
+        env: buildProviderEnv(adapter, spawnOptions),
         stdio: ['ignore', 'pipe', 'pipe'],
         cwd,
       },
@@ -312,6 +310,7 @@ export async function testCustomAgent(
     let msgTokensOut = 0
     let resultTokensIn: number | undefined
     let resultTokensOut: number | undefined
+    let sawUsage = false
     let truncated = false
     // Accumulate adapter events for cost recording (surface='agent-studio', MED-3).
     const adapterEvents: AdapterEvent[] = []
@@ -327,7 +326,7 @@ export async function testCustomAgent(
       settled = true
       clearTimeout(killer)
       if (record && admission.isCurrent()) {
-        recordAgentStudioInvocation(record, adapterEvents, status, startedAt)
+        recordAgentStudioInvocation(record, adapter, adapterEvents, status, startedAt)
       }
       complete()
     }
@@ -340,39 +339,41 @@ export async function testCustomAgent(
 
     const reader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
     reader.on('line', (line) => {
-      if (record) {
-        const ev = AGENT_STUDIO_ADAPTER.parseStreamLine(line)
-        if (ev) adapterEvents.push(ev)
+      for (const ev of parseStreamEvents(adapter, line)) {
+        if (record) adapterEvents.push(ev)
+        if (ev.kind === 'text-delta') collected += ev.text
       }
       let parsed: unknown
       try { parsed = JSON.parse(line) } catch { return }
       if (!parsed || typeof parsed !== 'object') return
       const p = parsed as Record<string, unknown>
-      // Text blocks
       const message = p.message as Record<string, unknown> | undefined
-      const content = message?.content
-      if (Array.isArray(content)) {
-        for (const block of content) {
-          if (block && typeof block === 'object' && (block as { type?: string }).type === 'text') {
-            const text = (block as { text?: unknown }).text
-            if (typeof text === 'string') collected += text
-          }
-        }
-      }
       // Usage: the terminal `result` frame carries the cumulative total at the
       // top level; assistant frames carry a per-call `message.usage`. Route each
       // to its own accumulator so they are never double-counted.
       if (p.type === 'result') {
         const usage = p.usage as Record<string, unknown> | undefined
         if (usage) {
-          if (typeof usage.input_tokens === 'number') resultTokensIn = usage.input_tokens as number
-          if (typeof usage.output_tokens === 'number') resultTokensOut = usage.output_tokens as number
+          if (typeof usage.input_tokens === 'number') {
+            resultTokensIn = usage.input_tokens as number
+            sawUsage = true
+          }
+          if (typeof usage.output_tokens === 'number') {
+            resultTokensOut = usage.output_tokens as number
+            sawUsage = true
+          }
         }
       } else {
         const usage = message?.usage as Record<string, unknown> | undefined
         if (usage) {
-          if (typeof usage.input_tokens === 'number') msgTokensIn += usage.input_tokens as number
-          if (typeof usage.output_tokens === 'number') msgTokensOut += usage.output_tokens as number
+          if (typeof usage.input_tokens === 'number') {
+            msgTokensIn += usage.input_tokens as number
+            sawUsage = true
+          }
+          if (typeof usage.output_tokens === 'number') {
+            msgTokensOut += usage.output_tokens as number
+            sawUsage = true
+          }
         }
       }
       // Enforce token ceiling on the corrected running total.
@@ -401,14 +402,14 @@ export async function testCustomAgent(
       const status: InvocationStatus = truncated ? 'aborted' : failedHard ? 'failed' : 'success'
       settle(status, () => {
         if (failedHard) {
-          reject(new Error(`claude exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
+          reject(new Error(`${adapter.binary} exited with code ${code}${stderr ? `: ${stderr.slice(-500)}` : ''}`))
           return
         }
         resolve({
           output: truncated
             ? collected + `\n\n[… output truncated after reaching ${tokenCeiling}-token ceiling]`
             : collected,
-          tokens: runningTotalTokens(),
+          tokens: sawUsage ? runningTotalTokens() : null,
           durationMs,
           draftHash,
         })

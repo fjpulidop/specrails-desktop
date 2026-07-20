@@ -91,9 +91,28 @@ export function SpendingHero({ data, loading, period }: Props) {
 
   const total = data.summary.totalCostUsd
   const totalRuns = data.summary.totalRuns
-  const totalTokens = data.summary.totalTokens ?? 0
+  const totalTokens = data.summary.totalTokens
   const totalEstimated = data.summary.totalEstimatedCostUsd ?? 0
-  const delta = data.summary.deltaPct
+  const hasCostCoverage =
+    typeof data.summary.pricedRuns === 'number'
+    || typeof data.summary.unpricedRuns === 'number'
+  const unpricedRuns = data.summary.unpricedRuns ?? 0
+  const pricedRuns = data.summary.pricedRuns
+    ?? (hasCostCoverage ? Math.max(0, totalRuns - unpricedRuns) : totalRuns)
+  const costUnavailable =
+    hasCostCoverage && totalRuns > 0 && pricedRuns === 0 && unpricedRuns > 0
+  const costPartiallyUnavailable = pricedRuns > 0 && unpricedRuns > 0
+  const hasUsageCoverage =
+    typeof data.summary.usageReportedRuns === 'number'
+    || typeof data.summary.usageUnavailableRuns === 'number'
+  const usageUnavailableRuns = data.summary.usageUnavailableRuns ?? 0
+  const usageReportedRuns = data.summary.usageReportedRuns
+    ?? (hasUsageCoverage ? Math.max(0, totalRuns - usageUnavailableRuns) : totalRuns)
+  const usageUnavailable =
+    hasUsageCoverage && totalRuns > 0 && usageReportedRuns === 0 && usageUnavailableRuns > 0
+  const usagePartiallyUnavailable = usageReportedRuns > 0 && usageUnavailableRuns > 0
+  // A cost delta is only meaningful when both periods are fully priced.
+  const delta = unpricedRuns > 0 ? null : data.summary.deltaPct
   const trackingStartedAt = data.trackingStartedAt
   // Hero footnote: surface when any row in the window came from the local
   // pricing-table fallback (currently codex; future providers without a
@@ -128,8 +147,12 @@ export function SpendingHero({ data, loading, period }: Props) {
             )}
           </div>
           <div className="flex items-baseline gap-3">
-            <div className="text-5xl font-semibold tabular-nums tracking-tight">
-              {fmtUsdLarge(displayedTotal)}
+            <div
+              className="text-5xl font-semibold tabular-nums tracking-tight"
+              data-testid={costUnavailable ? 'hero-cost-unavailable' : undefined}
+              title={costUnavailable ? t('hero.costUnavailableTooltip') : undefined}
+            >
+              {costUnavailable ? '—' : fmtUsdLarge(displayedTotal)}
             </div>
             {delta !== null && (
               <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${
@@ -142,12 +165,47 @@ export function SpendingHero({ data, loading, period }: Props) {
           </div>
           <div className="text-xs text-muted-foreground mt-1 tabular-nums flex items-center gap-2">
             <span>{t('hero.invocations', { count: totalRuns })}</span>
-            {totalTokens > 0 && (
+            {usageUnavailable ? (
+              <span
+                data-testid="hero-usage-unavailable"
+                className="text-muted-foreground/80 italic"
+                title={t('hero.usageUnavailableTooltip')}
+              >
+                {t('hero.usageUnavailable')}
+              </span>
+            ) : usagePartiallyUnavailable && totalTokens != null ? (
+              <span
+                className="text-muted-foreground/80 italic"
+                title={t('hero.usagePartiallyUnavailableTooltip')}
+              >
+                {t('hero.usagePartiallyUnavailable', {
+                  tokens: fmtTokens(totalTokens),
+                  count: usageUnavailableRuns,
+                })}
+              </span>
+            ) : totalTokens != null && totalTokens > 0 ? (
               <span
                 className="text-muted-foreground/80"
                 title={t('hero.tokensTooltip')}
               >
                 {t('hero.tokens', { tokens: fmtTokens(totalTokens) })}
+              </span>
+            ) : null}
+            {costUnavailable && (
+              <span
+                className="text-muted-foreground/80 italic"
+                title={t('hero.costUnavailableTooltip')}
+              >
+                {t('hero.costUnavailable')}
+              </span>
+            )}
+            {costPartiallyUnavailable && (
+              <span
+                data-testid="hero-cost-partial"
+                className="text-muted-foreground/80 italic"
+                title={t('hero.costPartiallyUnavailableTooltip')}
+              >
+                {t('hero.costPartiallyUnavailable', { count: unpricedRuns })}
               </span>
             )}
             {hasEstimatedCost && (
@@ -179,6 +237,11 @@ export function SpendingHero({ data, loading, period }: Props) {
           </p>
         </div>
       ) : (
+        costUnavailable ? (
+          <div className="rounded-lg border border-dashed border-border/40 p-4 text-xs text-muted-foreground/80">
+            {t('hero.costUnavailableTooltip')}
+          </div>
+        ) : (
         <>
           <div className="h-3 w-full rounded-full overflow-hidden bg-background-deep flex">
             {segments.map((seg) => {
@@ -206,6 +269,7 @@ export function SpendingHero({ data, loading, period }: Props) {
             ))}
           </div>
         </>
+        )
       )}
     </div>
   )

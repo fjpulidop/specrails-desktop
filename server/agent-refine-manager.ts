@@ -10,6 +10,7 @@ import { runAiCliInvocation } from './spawn-lifecycle'
 import { resolveProjectExecution } from './workspace-resolution'
 import {
   getAdapter,
+  buildProviderEnv,
   type ProviderAdapter,
   type AdapterEvent,
   type ProviderId,
@@ -242,12 +243,16 @@ export class AgentRefineManager {
     }
     fs.writeFileSync(file, session.draft_body, 'utf8')
     const maxVersion = (this._db
-      .prepare(`SELECT COALESCE(MAX(version), 0) AS v FROM agent_versions WHERE agent_name = ?`)
-      .get(session.agent_id) as { v: number }).v
+      .prepare(
+        `SELECT COALESCE(MAX(version), 0) AS v FROM agent_versions
+         WHERE provider = ? AND agent_name = ?`,
+      )
+      .get(this._adapter.id, session.agent_id) as { v: number }).v
     const nextVersion = maxVersion + 1
     this._db.prepare(
-      `INSERT INTO agent_versions (agent_name, version, body, created_at) VALUES (?, ?, ?, ?)`,
-    ).run(session.agent_id, nextVersion, session.draft_body, Date.now())
+      `INSERT INTO agent_versions (provider, agent_name, version, body, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(this._adapter.id, session.agent_id, nextVersion, session.draft_body, Date.now())
     updateRefineSession(this._db, opts.refineId, { status: 'applied', phase: 'done' })
     this._broadcast({
       type: 'agent_refine_applied',
@@ -276,12 +281,6 @@ export class AgentRefineManager {
   }
 
   private _agentFile(agentId: string): string {
-    // Per-provider on-disk layout:
-    //   claude → <root>/.claude/agents/<agentId>.md
-    //   codex  → <root>/.codex/skills/<agentId>/SKILL.md
-    // Future providers add their own branch via the adapter; the projectDir
-    // is already provider-aware.
-    //
     // Relocate-artifacts: custom-* agents are materialized by core into the
     // WORKSPACE when the project is relocated (same place the rails load them
     // from). Reading/writing `<project.path>/<providerDir>/agents` would touch a
@@ -290,16 +289,17 @@ export class AgentRefineManager {
     // rails consume. Legacy projects are byte-identical (root === project.path).
     const exec = resolveProjectExecution({ path: this._projectPath })
     const root = exec.relocated && exec.workspaceDir ? exec.workspaceDir : this._projectPath
-    if (this._adapter.id === 'codex') {
-      return path.join(root, this._adapter.projectDirName, 'skills', agentId, 'SKILL.md')
-    }
-    return path.join(root, this._adapter.projectDirName, 'agents', `${agentId}.md`)
+    return this._adapter.customRolePath?.(root, agentId)
+      ?? path.join(root, this._adapter.projectDirName, 'agents', `${agentId}.md`)
   }
 
   private _currentVersion(agentId: string): number {
     const row = this._db
-      .prepare(`SELECT COALESCE(MAX(version), 0) AS v FROM agent_versions WHERE agent_name = ?`)
-      .get(agentId) as { v: number }
+      .prepare(
+        `SELECT COALESCE(MAX(version), 0) AS v FROM agent_versions
+         WHERE provider = ? AND agent_name = ?`,
+      )
+      .get(this._adapter.id, agentId) as { v: number }
     return row.v
   }
 
@@ -326,6 +326,7 @@ export class AgentRefineManager {
           agentId: session.agent_id,
           currentBody: bodyForFirstTurn ?? '',
           userInstruction: instruction,
+          providerId: this._adapter.id,
         })
       : instruction
 
@@ -333,6 +334,15 @@ export class AgentRefineManager {
       ? 'chat-resume' as const
       : 'agent-refine' as const
     const refineModel = this._adapter.defaultModel()
+    const supportedToolPolicies = this._adapter.capabilities.toolPolicies ?? []
+    const toolPolicy = supportedToolPolicies.includes('none')
+      ? 'none' as const
+      : supportedToolPolicies.includes('read-only')
+        ? 'read-only' as const
+        : null
+    if (!toolPolicy) {
+      throw new Error(`provider_tool_policy_unsupported:${this._adapter.id}`)
+    }
     const buildOpts: SpawnOptions = {
       prompt,
       model: refineModel,
@@ -340,10 +350,8 @@ export class AgentRefineManager {
       // The model receives the complete current agent body in its prompt and
       // must only return a replacement body. Repo tools cannot improve this
       // contract and would turn prompt text into filesystem authority.
-      toolPolicy: 'none',
+      toolPolicy,
     }
-    const args = this._adapter.buildArgs(action, buildOpts)
-
     let drafted = false
     this._bodyBuffers.set(refineId, '')
     const turnStartedAt = new Date().toISOString()
@@ -357,14 +365,13 @@ export class AgentRefineManager {
     // Relocate-artifacts gate: spawn from the workspace (with SPECRAILS_REPO_DIR)
     // when relocated, else cwd = project.path + empty env (byte-identical legacy).
     const refineExec = resolveProjectExecution({ path: this._projectPath })
-    const refineEnv = refineExec.relocated ? { ...process.env, ...refineExec.env } : undefined
+    const refineEnv = refineExec.relocated ? { ...process.env, ...refineExec.env } : process.env
     const run = await runAiCliInvocation({
       adapter: this._adapter,
-      // Pass the already-policy-bound argv so first turns and native resumes
-      // cannot diverge if the lifecycle rebuilds options later.
-      argv: args,
+      action,
+      buildOpts,
       cwd: refineExec.cwd,
-      env: refineEnv,
+      env: buildProviderEnv(this._adapter, buildOpts, refineEnv),
       onSpawn: (child) => this._activeProcesses.set(refineId, child),
       onSpawnError: (err) => { spawnState.err = err },
       onEvent: (ev) => {
@@ -426,7 +433,10 @@ export class AgentRefineManager {
     }
 
     if (run.spawnFailed) {
-      this._emitError(refineId, `Failed to launch claude: ${spawnState.err?.message ?? 'spawn error'}`)
+      this._emitError(
+        refineId,
+        `Failed to launch ${this._adapter.binary}: ${spawnState.err?.message ?? 'spawn error'}`,
+      )
       updateRefineSession(this._db, refineId, { status: 'error', phase: 'idle' })
       return
     }
@@ -435,17 +445,23 @@ export class AgentRefineManager {
     const adapterEvents = run.events
     const code = run.code
     const stderr = run.stderrTail
+    const providerError = adapterEvents.find(
+      (event): event is Extract<AdapterEvent, { kind: 'error' }> =>
+        event.kind === 'error',
+    )?.message
 
     // ai_invocations capture (surface='ai-edit'). One row per refine turn.
-    const invStatus = code === 0 && fullDraft.trim() ? 'success' : 'failed'
+    const invStatus = code === 0 && !providerError && fullDraft.trim() ? 'success' : 'failed'
     this._recordRefineInvocation(refineId, adapterEvents, refineModel, invStatus, turnStartedAt)
 
-    if (code !== 0 || !fullDraft.trim()) {
+    if (code !== 0 || providerError || !fullDraft.trim()) {
       this._emitError(
         refineId,
-        code !== 0
-          ? `claude exited with code ${code}${stderr ? `: ${stderr.slice(-300)}` : ''}`
-          : 'claude returned empty output',
+        providerError
+          ? providerError
+          : code !== 0
+          ? `${this._adapter.binary} exited with code ${code}${stderr ? `: ${stderr.slice(-300)}` : ''}`
+          : `${this._adapter.binary} returned empty output`,
       )
       updateRefineSession(this._db, refineId, { status: 'error', phase: 'idle' })
       return
@@ -516,10 +532,14 @@ export class AgentRefineManager {
   ): void {
     if (!this._projectId) return
     try {
+      const finishedAt = new Date().toISOString()
       const { result: normalised, estimated } = finaliseInvocationResult(
         this._adapter,
         adapterEvents,
-        { fallbackModel: model },
+        {
+          fallbackModel: model,
+          durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt)),
+        },
       )
       recordInvocation(this._db, {
         id: randomUUID(),
@@ -529,7 +549,7 @@ export class AgentRefineManager {
         surface_ref_id: refineId,
         status,
         started_at: startedAt,
-        finished_at: new Date().toISOString(),
+        finished_at: finishedAt,
         total_cost_usd_estimated: estimated,
         ...normalised,
       })
@@ -548,11 +568,12 @@ export class AgentRefineManager {
     if (this._disposed) return
     updateRefineSession(this._db, refineId, { phase: 'testing' })
     this._emitPhase(refineId, 'testing')
-    const sampleTask = pickSampleTask(this._db, agentId)
+    const sampleTask = pickSampleTask(this._db, this._adapter.id, agentId)
     try {
       const result = await testCustomAgent(this._projectPath, {
         draftBody,
         sampleTask,
+        providerId: this._adapter.id,
         // MED-3: the default-on per-refine-turn auto-test is a billable claude
         // spawn — record it (surface='agent-studio') when we have a project DB.
         record: this._projectId
@@ -561,9 +582,10 @@ export class AgentRefineManager {
       })
       if (this._disposed) return
       this._db.prepare(
-        `INSERT INTO agent_tests (agent_name, draft_hash, sample_task_id, tokens, duration_ms, output, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      ).run(agentId, result.draftHash, null, result.tokens, result.durationMs, result.output, Date.now())
+        `INSERT INTO agent_tests
+           (provider, agent_name, draft_hash, sample_task_id, tokens, duration_ms, output, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(this._adapter.id, agentId, result.draftHash, null, result.tokens, result.durationMs, result.output, Date.now())
       updateRefineSession(this._db, refineId, {
         last_test_at: Date.now(),
         last_test_hash: draftHash,
@@ -655,7 +677,17 @@ export function buildFirstTurnPrompt(opts: {
   agentId: string
   currentBody: string
   userInstruction: string
+  providerId?: string
 }): string {
+  const modelRule = (opts.providerId ?? 'claude') === 'claude'
+    ? [
+        '  1. Frontmatter MUST include `name`, `description`, and `model` (one of',
+        '     `sonnet`, `opus`, `haiku`).',
+      ]
+    : [
+        '  1. Frontmatter MUST include `name` and `description`.',
+        '     Do not add provider-specific model metadata.',
+      ]
   return [
     'You are refining an existing custom agent. The user wants to iterate on its',
     'definition. Output the COMPLETE refined `.md` file — full YAML frontmatter',
@@ -663,8 +695,7 @@ export function buildFirstTurnPrompt(opts: {
     'commentary, or explanations. Start at `---`.',
     '',
     'Hard rules:',
-    '  1. Frontmatter MUST include `name`, `description`, and `model` (one of',
-    '     `sonnet`, `opus`, `haiku`).',
+    ...modelRule,
     `  2. The frontmatter \`name\` MUST remain exactly: ${opts.agentId}`,
     '  3. The id `name` is locked; renaming is a separate explicit action.',
     '',
@@ -682,15 +713,15 @@ export function buildFirstTurnPrompt(opts: {
   ].join('\n')
 }
 
-function pickSampleTask(db: DbInstance, agentId: string): string {
+function pickSampleTask(db: DbInstance, provider: string, agentId: string): string {
   try {
     const row = db
       .prepare(
         `SELECT output FROM agent_tests
-         WHERE agent_name = ? AND sample_task_id IS NOT NULL
+         WHERE provider = ? AND agent_name = ? AND sample_task_id IS NOT NULL
          ORDER BY created_at DESC LIMIT 1`,
       )
-      .get(agentId) as { output: string } | undefined
+      .get(provider, agentId) as { output: string } | undefined
     if (row?.output) return row.output
   } catch { /* ignore */ }
   return DEFAULT_SAMPLE_TASK

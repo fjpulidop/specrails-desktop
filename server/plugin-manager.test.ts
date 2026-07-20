@@ -59,6 +59,36 @@ function makeSerena(opts: Partial<{ verifyOk: boolean; verifyReason: string; thr
   }
 }
 
+function makeProviderAwareSerena(): Plugin {
+  return {
+    manifest: {
+      name: 'serena',
+      version: '1.0.0',
+      description: 'semantic nav',
+      whatItDoes: ['x'],
+      owns: { mcpServers: ['serena'] },
+      providerSupport: {
+        claude: { mcpEntry: { command: 'uvx', args: ['serena'] } },
+        codex: { mcpEntry: { command: 'uvx', args: ['serena'] } },
+        kimi: { mcpEntry: { command: 'uvx', args: ['serena'] } },
+      },
+      claudeMdInstructions: '## Serena provider instructions',
+    },
+    install: async (ctx) => {
+      await PluginManager.mergeMcpServers(
+        ctx.projectPath,
+        { serena: { command: 'uvx', args: ['serena'] } },
+        ctx.providerId,
+      )
+    },
+    uninstall: async (ctx) => {
+      await PluginManager.removeMcpServers(ctx.projectPath, ['serena'], ctx.providerId)
+    },
+    verify: async () => ({ ok: true, checkedAt: new Date().toISOString() }),
+    expectedMcpEntry: () => ({ command: 'uvx', args: ['serena'] }),
+  }
+}
+
 describe('PluginManager.listAvailable', () => {
   it('reports not-installed for fresh project', async () => {
     const m = new PluginManager([makeSerena()], { claudeApprovalChecker: () => 'enabled' })
@@ -167,6 +197,56 @@ describe('PluginManager.listAvailable', () => {
     fs.writeFileSync(sf, JSON.stringify(s))
     const list = await m.listAvailable(tmpDir)
     expect(list[0].status).toBe('degraded')
+  })
+})
+
+describe('PluginManager provider-scoped state', () => {
+  it('installs the same plugin independently for Claude and Kimi', async () => {
+    const m = new PluginManager([makeProviderAwareSerena()])
+    await m.install(tmpDir, 'pid', 'serena', broadcast, 'claude', 'slug', 'claude')
+    await m.install(tmpDir, 'pid', 'serena', broadcast, 'kimi', 'slug', 'claude')
+
+    expect(JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf8')))
+      .toHaveProperty('mcpServers.serena')
+    expect(JSON.parse(fs.readFileSync(path.join(tmpDir, '.kimi-code', 'mcp.json'), 'utf8')))
+      .toHaveProperty('mcpServers.serena')
+    expect((await m.listAvailable(tmpDir, 'claude', 'claude'))[0].status).toBe('installed')
+    expect((await m.listAvailable(tmpDir, 'kimi', 'claude'))[0].status).toBe('installed')
+
+    const state = m.getProjectState(tmpDir).plugins.serena
+    expect(Object.keys(state.providers ?? {}).sort()).toEqual(['claude', 'kimi'])
+  })
+
+  it('uninstalling Kimi preserves the Claude registration and provider state', async () => {
+    const m = new PluginManager([makeProviderAwareSerena()])
+    await m.install(tmpDir, 'pid', 'serena', broadcast, 'claude', 'slug', 'claude')
+    await m.install(tmpDir, 'pid', 'serena', broadcast, 'kimi', 'slug', 'claude')
+    await m.uninstall(tmpDir, 'pid', 'serena', broadcast, 'kimi', 'slug', 'claude')
+
+    expect(JSON.parse(fs.readFileSync(path.join(tmpDir, '.mcp.json'), 'utf8')))
+      .toHaveProperty('mcpServers.serena')
+    expect((await m.listAvailable(tmpDir, 'claude', 'claude'))[0].status).toBe('installed')
+    expect((await m.listAvailable(tmpDir, 'kimi', 'claude'))[0].status).toBe('not-installed')
+    expect(m.getProjectState(tmpDir).plugins.serena.providers)
+      .toEqual(expect.objectContaining({ claude: expect.any(Object) }))
+  })
+
+  it('keeps Codex and Kimi instruction contributions independent on uninstall', async () => {
+    const m = new PluginManager([makeProviderAwareSerena()])
+    await m.install(tmpDir, 'pid', 'serena', broadcast, 'kimi', 'slug', 'kimi')
+    await m.install(tmpDir, 'pid', 'serena', broadcast, 'codex', 'slug', 'kimi')
+
+    const codexAgents = path.join(tmpDir, 'AGENTS.md')
+    const kimiAgents = path.join(tmpDir, '.kimi-code', 'AGENTS.md')
+    expect(fs.readFileSync(codexAgents, 'utf8')).toContain('Serena provider instructions')
+    expect(fs.readFileSync(kimiAgents, 'utf8')).toContain('Serena provider instructions')
+
+    await m.uninstall(tmpDir, 'pid', 'serena', broadcast, 'kimi', 'slug', 'kimi')
+    expect(fs.existsSync(kimiAgents)).toBe(false)
+    expect(fs.readFileSync(codexAgents, 'utf8')).toContain('Serena provider instructions')
+
+    await m.uninstall(tmpDir, 'pid', 'serena', broadcast, 'codex', 'slug', 'kimi')
+    expect(fs.existsSync(codexAgents)).toBe(false)
   })
 })
 

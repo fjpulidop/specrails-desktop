@@ -53,6 +53,7 @@
       "templateTitle": "从模板开始",
       "generate": "生成",
       "generateWithClaude": "用 Claude 生成",
+      "generateWithAi": "用 AI 生成",
       "blank": "空白",
       "blankTitle": "从空白模板开始"
     },
@@ -80,6 +81,7 @@
     }
   },
   "profiles": {
+    "providerLabel": "Profile 提供方",
     "loading": "正在加载 Profile…",
     "selectPrompt": "选择要编辑的 Profile",
     "errors": {

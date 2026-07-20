@@ -11,8 +11,14 @@ import type { WebhookEvent } from './desktop-db'
 import { WebhookManager } from './webhook-manager'
 import { CoreUpdateManager } from './core-update-manager'
 import { createSpecrailsTechClient } from './specrails-tech-client'
-import { checkCoreCompat, getCLIStatus, detectAvailableCLIs } from './core-compat'
-import { hasAdapter, listAdapters } from './providers'
+import {
+  checkCoreCompat,
+  coreCompatSupportsProvider,
+  getCLIStatus,
+  detectAvailableCLIs,
+} from './core-compat'
+import { getAdapter, hasAdapter, listAdapters } from './providers'
+import type { DetectionResult, ProviderAdapter } from './providers/types'
 import { getDesktopAnalytics, getDesktopTodayStats, getDesktopRecentJobs } from './desktop-analytics'
 import { getSetupPrerequisitesStatus } from './setup-prerequisites'
 import { getPathDiagnostic } from './path-resolver'
@@ -119,9 +125,85 @@ function hasCommandFiles(dir: string): boolean {
   }
 }
 
+function hasProviderSkillFiles(dir: string): boolean {
+  try {
+    for (const entry of fs.readdirSync(dir)) {
+      if (fs.existsSync(path.join(dir, entry, 'SKILL.md'))) return true
+      if (entry === 'rails') {
+        for (const role of fs.readdirSync(path.join(dir, entry))) {
+          if (fs.existsSync(path.join(dir, entry, role, 'SKILL.md'))) return true
+        }
+      }
+    }
+  } catch {
+    return false
+  }
+  return false
+}
+
 function hasSpecrails(projectPath: string): boolean {
   return hasCommandFiles(path.join(projectPath, '.claude', 'commands', 'sr'))
     || hasCommandFiles(path.join(projectPath, '.claude', 'commands', 'specrails'))
+    || hasProviderSkillFiles(path.join(projectPath, '.kimi-code', 'skills'))
+}
+
+interface ProviderReadinessIssue {
+  code: 'provider_cli_missing' | 'provider_cli_unusable' | 'provider_cli_outdated'
+  message: string
+}
+
+function readinessIssue(
+  adapter: ProviderAdapter,
+  detection: DetectionResult,
+): ProviderReadinessIssue | null {
+  if (!detection.installed) {
+    return {
+      code: 'provider_cli_missing',
+      message: `${adapter.displayName} CLI was not found on PATH. Install it, authenticate, then restart Specrails.`,
+    }
+  }
+  if (!detection.executable) {
+    return {
+      code: 'provider_cli_unusable',
+      message:
+        detection.error
+        ?? `${adapter.displayName} was found but its executable readiness probe failed. Reinstall it, authenticate, then restart Specrails.`,
+    }
+  }
+  // An adapter with a pinned floor is usable only when the probe positively
+  // verifies that floor. Treat an unparseable/unknown version as incompatible;
+  // otherwise the UI could advertise a binary that cannot honour our contract.
+  if (adapter.minCliVersion && detection.meetsMinimum !== true) {
+    return {
+      code: 'provider_cli_outdated',
+      message:
+        detection.error
+        ?? `${adapter.displayName} ${detection.version ?? '(unknown version)'} does not satisfy the required minimum ${adapter.minCliVersion}.`,
+    }
+  }
+  return null
+}
+
+async function detectProviderReadiness(
+  adapter: ProviderAdapter,
+): Promise<{ detection: DetectionResult; issue: ProviderReadinessIssue | null }> {
+  try {
+    const detection = await adapter.detectInstalled()
+    return { detection, issue: readinessIssue(adapter, detection) }
+  } catch (err) {
+    const detection: DetectionResult = {
+      installed: false,
+      executable: false,
+      error: err instanceof Error ? err.message : String(err),
+    }
+    return {
+      detection,
+      issue: {
+        code: 'provider_cli_unusable',
+        message: `${adapter.displayName} readiness probe failed: ${detection.error}`,
+      },
+    }
+  }
 }
 
 function canonicalizePath(resolvedPath: string): string {
@@ -298,11 +380,8 @@ export function createDesktopRouter(
   // the multi-provider work. The `SPECRAILS_CODEX_BETA=0` env var is honoured
   // as an emergency rollback (forces codex back to "unavailable" in the UI
   // without redeploying) — unset or `1` reports the real detection.
-  router.get('/available-providers', (_req, res) => {
+  router.get('/available-providers', async (_req, res) => {
     const providers = detectAvailableCLIs()
-    // tiers: quick install is always available (app-driven config); full requires an AI CLI
-    const tiers: ('quick' | 'full')[] = ['quick']
-    if (Object.values(providers).some(Boolean)) tiers.push('full')
     // Return the full detected map (registry-driven) so a newly-registered
     // provider surfaces here with no edit. Apply per-provider beta gates: codex
     // is forced unavailable when SPECRAILS_CODEX_BETA=0 (emergency rollback).
@@ -311,7 +390,35 @@ export function createDesktopRouter(
     // Gemini: enabled by default; forced unavailable only when
     // SPECRAILS_GEMINI_BETA=0 (emergency rollback, parity with codex).
     if (isGeminiBetaDisabled()) gated.gemini = false
-    res.json({ ...gated, tiers })
+    const providerIssues: Record<string, { code: string; message: string }> = {}
+    if (gated.kimi) {
+      const readiness = await detectProviderReadiness(getAdapter('kimi'))
+      if (readiness.issue) {
+        gated.kimi = false
+        providerIssues.kimi = readiness.issue
+      } else {
+        const core = await checkCoreCompat()
+        if (!coreCompatSupportsProvider(core, 'kimi')) {
+          gated.kimi = false
+          providerIssues.kimi = {
+            code: 'core_provider_unsupported',
+            message:
+              'This Specrails Core build cannot render Kimi skills. Update or reinstall Specrails, then retry.',
+          }
+        }
+      }
+    }
+    // tiers: quick install is always available (app-driven config); full
+    // requires a CLI that also survives provider-specific compatibility gates.
+    const tiers: ('quick' | 'full')[] = ['quick']
+    if (Object.values(gated).some(Boolean)) tiers.push('full')
+    const launchDescriptors = Object.fromEntries(
+      listAdapters().map((adapter) => [
+        adapter.id,
+        { command: adapter.binary, args: [] as string[] },
+      ]),
+    )
+    res.json({ ...gated, tiers, providerIssues, launchDescriptors })
   })
 
   router.get('/setup-prerequisites', (req, res) => {
@@ -339,7 +446,7 @@ export function createDesktopRouter(
   })
 
   // POST /api/projects — register a new project by path
-  router.post('/projects', (req, res) => {
+  router.post('/projects', async (req, res) => {
     const { path: projectPath, name, provider, providers: providersRaw } = req.body ?? {}
     if (!projectPath || typeof projectPath !== 'string') {
       res.status(400).json({ error: 'path is required' })
@@ -383,6 +490,28 @@ export function createDesktopRouter(
         error: 'Gemini provider is currently disabled (SPECRAILS_GEMINI_BETA=0). Unset or set to 1 to enable.',
       })
       return
+    }
+    if (providers.includes('kimi')) {
+      const readiness = await detectProviderReadiness(getAdapter('kimi'))
+      if (readiness.issue) {
+        res.status(409).json({
+          code: readiness.issue.code,
+          provider: 'kimi',
+          error: readiness.issue.message,
+          detection: readiness.detection,
+        })
+        return
+      }
+      const core = await checkCoreCompat()
+      if (!coreCompatSupportsProvider(core, 'kimi')) {
+        res.status(409).json({
+          code: 'core_provider_unsupported',
+          provider: 'kimi',
+          error:
+            'This Specrails Core build cannot render Kimi skills. Update or reinstall Specrails, then retry.',
+        })
+        return
+      }
     }
 
     const resolvedPath = path.resolve(projectPath)
@@ -555,11 +684,19 @@ export function createDesktopRouter(
     const desktopDailyBudgetUsd = desktopDailyBudgetRaw != null ? parseFloat(desktopDailyBudgetRaw) : null
     const costAlertRaw = getDesktopSetting(registry.desktopDb, 'cost_alert_threshold_usd')
     const costAlertThresholdUsd = costAlertRaw != null ? parseFloat(costAlertRaw) : null
-    const { costToday } = getDesktopTodayStats(registry)
-    const budgetUtilizationPct = desktopDailyBudgetUsd != null && desktopDailyBudgetUsd > 0
+    const { costToday, pricedRuns, unpricedRuns } = getDesktopTodayStats(registry)
+    const budgetUtilizationPct =
+      desktopDailyBudgetUsd != null && desktopDailyBudgetUsd > 0 && unpricedRuns === 0
       ? (costToday / desktopDailyBudgetUsd) * 100
       : null
-    res.json({ desktopDailyBudgetUsd, costAlertThresholdUsd, costToday, budgetUtilizationPct })
+    res.json({
+      desktopDailyBudgetUsd,
+      costAlertThresholdUsd,
+      costToday,
+      pricedRuns,
+      unpricedRuns,
+      budgetUtilizationPct,
+    })
   })
 
   // PATCH /api/budget — update app-level budget settings

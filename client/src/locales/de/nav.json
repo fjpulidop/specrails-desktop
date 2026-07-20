@@ -51,7 +51,7 @@
     "docs": "Doku",
     "settings": "Einstellungen",
     "noCli": "Keine AI-CLI",
-    "noCliTooltip": "Keine AI-CLI gefunden. Installiere Claude Code oder Codex CLI.",
+    "noCliTooltip": "Keine AI-CLI gefunden. Installiere Claude Code, Codex CLI, Gemini CLI oder Kimi Code.",
     "activeCli": "Aktive CLI: {{label}}"
   },
   "statusBar": {

@@ -36,6 +36,7 @@ specrails は、主要な AI コーディング CLI に対応しています。
 - **Claude**（Claude Code）
 - **Codex**（Codex CLI）
 - **Gemini**（Gemini CLI）
+- **Kimi**（Kimi Code）
 
 すでに使っているものを選んでも、複数インストールしてタスクごとに使い分けてもかまいません。プロジェクトは単一のプロバイダーでも、複数同時でも動かせるので、特定のツールに縛られることはありません。
 

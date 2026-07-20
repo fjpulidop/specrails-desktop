@@ -162,9 +162,9 @@ specrails-desktop --project ~/repos/api-srv batch-implement "#5" "#6"
 
 ## Providers
 
-The app supports three AI providers — **Claude, Codex, and Gemini** — and all three are enabled by default. Each project is configured with one or more of them when you add it.
+The app supports four AI providers — **Claude, Codex, Gemini, and Kimi** — and all four are registered by default. Each project is configured with one or more of them when you add it.
 
-The CLI itself has **no provider flag**: a CLI-routed job always launches the project's **primary provider** (the first one you selected when you added the project). To pick a different engine for a single spec or rail on a multi-provider project, use the **dashboard** — the Add Spec engine selector or the rail-header engine selector. Provider guides: [Codex](codex.md) and [Gemini](gemini.md).
+The CLI itself has **no provider flag**: a CLI-routed job always launches the project's **primary provider** (the first one you selected when you added the project). To pick a different engine for a single spec or rail on a multi-provider project, use the **dashboard** — the Add Spec engine selector or the rail-header engine selector. Provider guides: [Codex](codex.md), [Gemini](gemini.md), and [Kimi](kimi.md).
 
 > **Ops note:** to constrain which providers the dashboard offers, set `SPECRAILS_CODEX_BETA=0` or `SPECRAILS_GEMINI_BETA=0` in the server's environment (only the exact string `0` disables a provider; unset, `1`, or `true` all leave it enabled). This affects the dashboard's provider picker, not the CLI, which has no engine flag.
 
@@ -205,7 +205,7 @@ If you invoke a command that routes work (`implement`, `batch-implement`, a raw 
 
 This fallback has two important limitations:
 
-- **It always spawns `claude`** — even on a project whose primary provider is Codex or Gemini. The offline path does not honour the project's configured provider, so an offline run can behave differently from the same command run through the app.
+- **It always spawns `claude`** — even on a project whose primary provider is Codex, Gemini, or Kimi. The offline path does not honour the project's configured provider, so an offline run can behave differently from the same command run through the app.
 - **Nothing is recorded.** There's no queue, no job in the Dashboard, and nothing written to Analytics.
 
 Start the app first (`specrails-desktop start`) if you want the job to use the right provider and show up in the dashboard.

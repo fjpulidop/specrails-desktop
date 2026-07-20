@@ -1,7 +1,7 @@
 import fs from 'fs'
-import { mcpJsonPath } from './paths'
 import { getBlockContent } from './claude-md-mutation'
 import type { Plugin } from '../types'
+import { getAdapter, hasAdapter } from '../providers'
 
 /**
  * Returns true when the project's `.mcp.json` entry for any of the plugin's
@@ -11,40 +11,54 @@ import type { Plugin } from '../types'
  *
  * Only inspects entries the plugin owns; user-authored entries are ignored.
  */
-export function detectMcpDrift(projectPath: string, plugin: Plugin): boolean {
+export function detectMcpDrift(
+  projectPath: string,
+  plugin: Plugin,
+  providerId: string = 'claude',
+): boolean {
   const ownedKeys = plugin.manifest.owns.mcpServers ?? []
-  if (ownedKeys.length === 0) return false
+  const adapter = hasAdapter(providerId) ? getAdapter(providerId) : getAdapter('claude')
 
   // The plugin tells us what its current canonical entry should look like
   // via `previewInstall` is too heavy; we instead introspect via a marker:
   // plugins that ship their canonical entry expose it via `expectedMcpEntry`.
   // We accept Plugins without it (drift detection silently disabled).
-  const expected = (plugin as Plugin & { expectedMcpEntry?: () => Record<string, unknown> })
-    .expectedMcpEntry?.()
-  if (!expected) return false
+  const expected = plugin.expectedMcpEntry?.()
 
-  const file = mcpJsonPath(projectPath)
-  if (!fs.existsSync(file)) return false
-  let parsed: { mcpServers?: Record<string, unknown> }
-  try {
-    parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
-  } catch {
-    return false
+  // CLI-managed registries (Codex) have no project JSON to compare. Their
+  // registration is checked by the plugin's verify hook instead.
+  if (
+    expected &&
+    ownedKeys.length > 0 &&
+    adapter.mcpRegistration === 'project-json' &&
+    adapter.projectMcpPath
+  ) {
+    const file = adapter.projectMcpPath(projectPath)
+    if (fs.existsSync(file)) {
+      let parsed: { mcpServers?: Record<string, unknown> }
+      try {
+        parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
+      } catch {
+        return false
+      }
+      const servers = parsed.mcpServers ?? {}
+
+      for (const key of ownedKeys) {
+        const current = servers[key]
+        if (current === undefined) continue
+        if (JSON.stringify(current) !== JSON.stringify(expected)) return true
+      }
+    }
   }
-  const servers = parsed.mcpServers ?? {}
 
-  for (const key of ownedKeys) {
-    const current = servers[key]
-    if (current === undefined) continue
-    if (JSON.stringify(current) !== JSON.stringify(expected)) return true
-  }
-
-  // Shared-file contributor drift. Today only CLAUDE.md is contributed to;
-  // we hardcode the comparison here. If/when more shared-file contributors
-  // land we move this to a `compareDrift` hook on the contributor type.
+  // Provider-instructions contributor drift. The adapter path may be nested
+  // (for example Kimi's `.kimi-code/AGENTS.md`). If/when more shared-file
+  // contributors land we move this to a `compareDrift` hook.
   if (plugin.manifest.claudeMdInstructions) {
     const expectedMd = plugin.manifest.claudeMdInstructions.trim()
-    const actualMd = (getBlockContent(projectPath, plugin.manifest.name) ?? '').trim()
+    const actualMd = (
+      getBlockContent(projectPath, plugin.manifest.name, adapter.instructionsFilename) ?? ''
+    ).trim()
     if (actualMd !== expectedMd) return true
   }
 

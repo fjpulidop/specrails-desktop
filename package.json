@@ -7,7 +7,7 @@
     "url": "git+https://github.com/fjpulidop/specrails-desktop.git"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.19.0"
   },
   "bin": {
     "specrails-desktop": "cli/dist/specrails-desktop.js"
@@ -51,6 +51,7 @@
     "cross-spawn": "^7.0.6",
     "diff": "^9.0.0",
     "express": "^5.2.1",
+    "js-yaml": "4.1.1",
     "multer": "^2.2.0",
     "node-pty": "^1.0.0",
     "pdf-parse": "^2.4.5",
@@ -69,6 +70,7 @@
     "@types/cross-spawn": "^6.0.6",
     "@types/diff": "^7.0.2",
     "@types/express": "^5.0.6",
+    "@types/js-yaml": "^4.0.9",
     "@types/multer": "^2.1.0",
     "@types/node": "^25.5.0",
     "@types/pdf-parse": "^1.1.5",

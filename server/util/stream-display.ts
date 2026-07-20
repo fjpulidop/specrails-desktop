@@ -12,6 +12,42 @@
  */
 export function extractDisplayText(event: Record<string, unknown>): string | null {
   const type = event.type as string
+  // ── Kimi `--output-format stream-json` ────────────────────────────────
+  // Kimi assistant frames are role-discriminated (no top-level `type`) and
+  // can contain both narration and OpenAI-shaped function calls in one line.
+  if (!type && event.role === 'assistant') {
+    const parts: string[] = []
+    const content = event.content
+    const text = typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? content.map((part) => {
+            if (typeof part === 'string') return part
+            if (!part || typeof part !== 'object') return ''
+            const candidate = part as Record<string, unknown>
+            return typeof candidate.text === 'string' ? candidate.text : ''
+          }).join('')
+        : ''
+    if (text) parts.push(text)
+
+    const toolCalls = Array.isArray(event.tool_calls) ? event.tool_calls : []
+    for (const call of toolCalls) {
+      if (!call || typeof call !== 'object') continue
+      const fn = (call as Record<string, unknown>).function
+      if (!fn || typeof fn !== 'object') continue
+      const record = fn as Record<string, unknown>
+      const name = typeof record.name === 'string' ? record.name : '<unnamed>'
+      const rawArgs = record.arguments
+      let args: string
+      if (typeof rawArgs === 'string') {
+        args = rawArgs
+      } else {
+        try { args = JSON.stringify(rawArgs ?? {}) } catch { args = String(rawArgs ?? '') }
+      }
+      parts.push(`[tool: ${name}] ${args.slice(0, 120)}`)
+    }
+    return parts.join('\n') || null
+  }
   // ── Claude `--output-format stream-json` ───────────────────────────────
   if (type === 'assistant') {
     const content = event.message as { content?: Array<{ type: string; text?: string }> } | undefined

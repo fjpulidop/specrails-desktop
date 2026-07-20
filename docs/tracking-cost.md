@@ -1,6 +1,6 @@
 # Tracking cost
 
-specrails-desktop records every AI CLI invocation it spawns — Claude, Codex, and Gemini — and surfaces the totals on one Analytics page per project. This guide walks through what's tracked, what's not, and how to read the dashboard.
+specrails-desktop records AI CLI invocations across Claude, Codex, Gemini, and Kimi and surfaces the available metrics on one Analytics page per project. This guide walks through what's tracked, what's unavailable, and how to read the dashboard.
 
 ## What gets tracked
 
@@ -15,7 +15,17 @@ Six surfaces, all per-project:
 | **`smash`** | SMASH runs that break an epic spec into sub-specs |
 | **`file-summary`** | Code-explorer AI summaries of individual files |
 
-Each invocation row carries: provider (Claude, Codex, or Gemini), model, status, started/finished timestamps, duration (wall clock + API-only), tokens (in / out / cache read / cache create), total USD cost, turn count, and — when applicable — the ticket and conversation IDs it touched.
+Each invocation row carries the provider, model, status, timestamps, duration,
+and relevant ticket/conversation IDs. Token, USD-cost, and turn fields are
+nullable because not every CLI reports them; Kimi leaves those values
+unavailable rather than writing zero.
+
+The surface list is app-wide, not a promise that every provider can spawn
+every row type. Kimi records its agentic chats/Explore/rails/loops, but Quick
+Spec, AI Edit, Contract Refine, SMASH/Re-SMASH, file summaries, construction
+story, AI auto-title, Project Builder blueprint/milestone generation, Loop
+Decider, and Agent Studio automation fail before spawn. Those rejected
+requests create no invocation row; AI auto-title uses a deterministic fallback.
 
 > Cost averages exclude `failed`/`aborted` rows, but those rows still count toward the total run count and the failure rate.
 
@@ -25,6 +35,9 @@ Whether a cost figure is exact depends on the provider's CLI, not on which provi
 
 - **Claude cost is provider-billed and authoritative** — the figure comes straight from the CLI's own usage report.
 - **Codex and Gemini do not report cost natively**, so the app **estimates** their cost from a local rate-card (`server/pricing.ts`) using the captured token counts. Estimated rows are flagged: they render with a `~` tilde in the raw table (hover for the tooltip — *"Estimated from local pricing table — this provider does not report cost natively"*) and feed an "includes ~$X estimated" footnote in the Hero.
+- **Kimi reports neither token counts nor a native USD-cost envelope** in its
+  stream. Specrails does not invent an estimate: cost and token cells stay
+  unavailable.
 
 On multi-provider projects, a **Provider breakdown** card splits spend across the project's installed engines so you can see authoritative vs estimated at a glance.
 
@@ -32,10 +45,12 @@ On multi-provider projects, a **Provider breakdown** card splits spend across th
 
 ## What's NOT tracked (intentionally)
 
-- **Sidebar chat** — the general-purpose chat panel in the right sidebar. It spawns an AI process but isn't pipeline work, so the app excludes it from analytics by design.
+- **Sidebar chat** — the general-purpose chat panel in the right sidebar. It spawns an AI process, including `kimi -p` when Kimi is selected, but isn't pipeline work, so the app excludes it from analytics by design.
 - **Setup wizard** — the install/enrich flow when you add a project. It *does* spawn an AI CLI (a genuine model invocation), but it's an interactive one-time wizard rather than a repeatable pipeline job, so it's deliberately left uninstrumented.
 
-If you want the absolute total of what an engine has cost you, your provider's own console is the source of truth — the Anthropic console for Claude, the OpenAI dashboard for Codex, and Google AI Studio / Cloud billing for Gemini.
+If you want the absolute total of what an engine has cost you, your provider's
+own console is the source of truth. This is especially important for Kimi,
+whose CLI stream provides no billable usage envelope to Desktop.
 
 ## The Analytics page
 
@@ -45,7 +60,7 @@ Open **Analytics** from the project right sidebar.
 
 - **Period** — `7d`, `30d`, `90d`, or `All`. (There's no 24-hour or custom-range option here — the custom calendar range lives on Desktop Analytics, below.)
 - **Surface** — chips for `All` plus each of the six surfaces (Jobs, Explore, Quick, Refine, SMASH, File summaries). All are included by default; toggle chips to narrow the view.
-- **Engine** — one chip per installed provider (Claude, Codex, Gemini) plus `All`. These appear **only on multi-provider projects** (more than one engine installed) and let you filter spend by engine.
+- **Engine** — one chip per installed provider plus `All`. These appear **only on multi-provider projects** and let you filter activity by engine.
 
 The period and surface filters are URL-synced, so you can share or bookmark a view.
 
@@ -62,7 +77,10 @@ When the project has zero invocations in the period (e.g. you just started), the
 
 ### Provider breakdown
 
-On multi-provider projects, a dedicated card splits total spend across the project's installed engines (Claude, Codex, Gemini) — it's data-driven, so it renders for any combination of more than one provider. Each engine's row marks an all-estimated total with a `~` tilde. It's hidden on single-provider projects.
+On multi-provider projects, a dedicated card splits available spend across the
+project's installed engines. It is data-driven, so Kimi appears even though its
+cost is unavailable. Estimated Codex/Gemini totals carry a `~` tilde. The card
+is hidden on single-provider projects.
 
 ### Daily stacked timeline
 
@@ -159,3 +177,4 @@ For the cross-project view, open **Analytics** from the Arc sidebar on the left.
 - [Creating specs](creating-specs.md) — every spec you create adds rows to your analytics.
 - [Using Codex](codex.md) — how cost works when you run a project on Codex (estimated, ~ tilde).
 - [Using Gemini](gemini.md) — how cost works when you run a project on Gemini (also estimated, ~ tilde).
+- [Using Kimi](kimi.md) — why Kimi duration/outcome are recorded while tokens and cost remain unavailable.

@@ -121,6 +121,116 @@ describe('getSpending', () => {
     expect(r.summary.totalEstimatedCostUsd).toBeCloseTo(0.05)
   })
 
+  it('keeps Kimi cost and token telemetry unavailable instead of inventing zeroes', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      {
+        id: 'k1',
+        provider: 'kimi',
+        model: 'k3',
+        surface: 'quick-spec',
+        ticket_id: 41,
+        total_cost_usd: null,
+        tokens_in: null,
+        tokens_out: null,
+        tokens_cache_read: null,
+        tokens_cache_create: null,
+        started_at: now,
+      },
+      {
+        id: 'k2',
+        provider: 'kimi',
+        model: 'k3',
+        surface: 'job',
+        total_cost_usd: null,
+        tokens_in: null,
+        tokens_out: null,
+        tokens_cache_read: null,
+        tokens_cache_create: null,
+        started_at: now,
+      },
+    ])
+
+    const r = getSpending(db, 'p1', { period: 'all' })
+    expect(r.summary).toMatchObject({
+      totalCostUsd: 0,
+      totalTokens: null,
+      totalRuns: 2,
+      pricedRuns: 0,
+      unpricedRuns: 2,
+      usageReportedRuns: 0,
+      usageUnavailableRuns: 2,
+      avgCostPerRun: null,
+      deltaPct: null,
+    })
+    expect(r.byProvider).toContainEqual(expect.objectContaining({
+      provider: 'kimi',
+      count: 2,
+      pricedCount: 0,
+      unpricedCount: 2,
+      usageReportedCount: 0,
+      usageUnavailableCount: 2,
+    }))
+    expect(r.byModel).toContainEqual(expect.objectContaining({
+      provider: 'kimi',
+      model: 'k3',
+      count: 2,
+      unpricedCount: 2,
+    }))
+    expect(r.byMode.find((m) => m.mode === 'quick')).toMatchObject({
+      avgCostPerSpec: null,
+      unpricedCount: 1,
+    })
+    expect(r.bySurface.find((s) => s.surface === 'job')?.unpricedCount).toBe(1)
+    expect(r.dailyTimeline.reduce((n, d) => n + (d.unpricedCount ?? 0), 0)).toBe(2)
+    expect(r.topTickets.find((ticket) => ticket.ticketId === 41)).toMatchObject({
+      totalCostUsd: 0,
+      unpricedCount: 1,
+    })
+  })
+
+  it('labels mixed-provider analytics as known subtotals when Kimi telemetry is absent', () => {
+    const now = new Date().toISOString()
+    seed(db, [
+      {
+        id: 'c1',
+        provider: 'claude',
+        model: 'sonnet',
+        total_cost_usd: 1.25,
+        tokens_in: 100,
+        tokens_out: 25,
+        started_at: now,
+      },
+      {
+        id: 'k1',
+        provider: 'kimi',
+        model: 'k3',
+        total_cost_usd: null,
+        tokens_in: null,
+        tokens_out: null,
+        tokens_cache_read: null,
+        tokens_cache_create: null,
+        started_at: now,
+      },
+    ])
+
+    const r = getSpending(db, 'p1', { period: 'all' })
+    expect(r.summary).toMatchObject({
+      totalCostUsd: 1.25,
+      totalTokens: 125,
+      pricedRuns: 1,
+      unpricedRuns: 1,
+      usageReportedRuns: 1,
+      usageUnavailableRuns: 1,
+      avgCostPerRun: null,
+      deltaPct: null,
+    })
+    expect(r.byProvider.find((p) => p.provider === 'kimi')).toMatchObject({
+      pricedCount: 0,
+      unpricedCount: 1,
+    })
+  })
+
   it('summary.totalEstimatedCostUsd is 0 when no estimated rows', () => {
     const now = new Date().toISOString()
     seed(db, [

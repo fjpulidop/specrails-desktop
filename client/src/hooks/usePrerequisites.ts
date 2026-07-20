@@ -6,7 +6,7 @@ export type Platform = 'darwin' | 'win32' | 'linux'
 export interface SetupPrerequisite {
   /** node/npm/npx/git/gh for tools; the adapter id for provider CLIs. */
   key: string
-  /** 'tool' (node/npm/npx/git/gh/uv) vs 'provider' (claude/codex/gemini). */
+  /** 'tool' (node/npm/npx/git/gh/uv) vs a registered AI CLI provider. */
   kind?: 'tool' | 'provider'
   label: string
   command: string

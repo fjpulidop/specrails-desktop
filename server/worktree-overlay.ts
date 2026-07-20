@@ -64,7 +64,7 @@ export interface WorktreeOverlayInput {
    *  provider-dir entries (OpenSpec's `/opsx:*` commands, user extras) reach
    *  the worktree. Legacy launches omit it — byte-identical behaviour. */
   fallbackSourceRoots?: string[]
-  /** Provider dir name (`.claude` / `.codex` / `.gemini`). */
+  /** Provider dir name (`.claude` / `.codex` / `.gemini` / `.kimi-code`). */
   providerDir: string
   /** Provider instruction filename (`CLAUDE.md` / `AGENTS.md` / `GEMINI.md`). */
   instructionsFilename: string
@@ -545,6 +545,9 @@ function copyIfAbsent(src: string, dest: string, rel: string, created: string[],
   if (!fs.existsSync(src)) return
   if (lstatSafe(dest)) return // checkout (or a prior pass, re-claimed via manifest) wins
   try {
+    // Adapter instruction paths may be nested (Kimi uses
+    // `.kimi-code/AGENTS.md`), unlike the historical root-level CLAUDE.md.
+    fs.mkdirSync(path.dirname(dest), { recursive: true })
     fs.copyFileSync(src, dest)
     created.push(rel)
   } catch (err) {
@@ -578,6 +581,10 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
     // 1. providerDir merge-overlay (commands/agents/skills/rules/settings/…),
     //    over the UNION of entries across the configured roots (earlier wins).
     const srcProviders = roots.map((root) => path.join(root, providerDir)).filter((p) => isDir(p))
+    const nestedInstructionsEntry =
+      path.normalize(path.dirname(instructionsFilename)) === path.normalize(providerDir)
+        ? path.basename(instructionsFilename)
+        : null
     if (srcProviders.length > 0) {
       const destProvider = path.join(worktreePath, providerDir)
       // The providerDir root is ALWAYS a real local dir (never a link) so
@@ -605,7 +612,10 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
           }
         }
         for (const name of [...names].sort()) {
-          if (SKIP_PROVIDER_ENTRIES.has(name)) continue
+          // A nested provider instruction (Kimi's `.kimi-code/AGENTS.md`) must
+          // follow the spawn-local COPY semantics in step 3, not become a link
+          // merely because it also lives directly under providerDir.
+          if (SKIP_PROVIDER_ENTRIES.has(name) || name === nestedInstructionsEntry) continue
           const childSrcs = srcProviders.map((srcProvider) => path.join(srcProvider, name)).filter((p) => lstatSafe(p) !== null)
           mergeLink(
             childSrcs,
@@ -625,8 +635,8 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
     const mcpSrc = roots.map((root) => path.join(root, '.mcp.json')).find((p) => fs.existsSync(p))
     if (mcpSrc) copyIfAbsent(mcpSrc, path.join(worktreePath, '.mcp.json'), '.mcp.json', created, warnings)
 
-    // 3. Provider instruction file — COPY when a source has one and the
-    //    checkout doesn't (a repo-tracked CLAUDE.md always wins).
+    // 3. Provider instruction path — COPY when a source has one and the
+    //    checkout doesn't (a repo-tracked provider instruction always wins).
     const instructionsSrc = roots.map((root) => path.join(root, instructionsFilename)).find((p) => fs.existsSync(p))
     if (instructionsSrc) {
       copyIfAbsent(

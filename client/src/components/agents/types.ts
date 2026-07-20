@@ -1,7 +1,8 @@
 // Shared TypeScript types for the Agents section client code.
 // Mirror of server/profile-manager.ts types — kept narrow to avoid a shared package.
 
-export type ModelAlias = 'sonnet' | 'fable' | 'opus' | 'haiku'
+/** Provider-native model id or a configured custom alias. */
+export type ModelAlias = string
 
 export interface ProfileAgent {
   id: string
@@ -25,6 +26,8 @@ export interface Profile {
   schemaVersion: 1
   name: string
   description?: string
+  /** Profiles are provider-bound so model ids never cross runtimes. */
+  provider?: string
   orchestrator: { model: ModelAlias }
   agents: ProfileAgent[]
   routing: RoutingRule[]
@@ -33,6 +36,7 @@ export interface Profile {
 export interface ProfileListEntry {
   name: string
   description?: string
+  provider?: string
   isDefault: boolean
   updatedAt: number
 }
@@ -45,3 +49,21 @@ export const BASELINE_REQUIRED_AGENTS = new Set([
 ])
 
 export const MODEL_ALIASES: ModelAlias[] = ['sonnet', 'fable', 'opus', 'haiku']
+
+export interface ProfileModelOption {
+  value: string
+  label: string
+}
+
+export interface ProviderProfileCatalog {
+  models: ProfileModelOption[]
+  defaultModel: string
+  baselineAgents: string[]
+  customModelAliases?: boolean
+}
+
+export interface ProfilesContext {
+  primaryProvider: string
+  providers: string[]
+  catalogs: Record<string, ProviderProfileCatalog>
+}

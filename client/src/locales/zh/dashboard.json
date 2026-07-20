@@ -202,7 +202,7 @@
     "implement": "实现",
     "batch": "批量",
     "freestyle": "Freestyle",
-    "freestyleTitle": "Freestyle — Claude 自主实现该 Spec，不走流水线",
+    "freestyleTitle": "Freestyle — 所选提供方自主实现该 Spec，不走流水线",
     "loop": "Loop",
     "loopTitle": "Loop — 针对该轨道的 Spec 运行已发布的自动化循环",
     "pickLoop": "选择一个循环…",
@@ -232,10 +232,10 @@
     "context_other": "{{rail}} · {{count}} 个 Spec",
     "noPipelineTitle": "无 OpenSpec 流水线。",
     "noPipelineBody": "完全跳过架构师 → 开发者 → 审查者的结构化流程。",
-    "autonomyTitle": "Claude 原生自主模式。",
-    "autonomyBody": "Claude 使用原生 Agent 和动态工作流自主工作。",
+    "autonomyTitle": "{{provider}} 原生自主模式。",
+    "autonomyBody": "{{provider}} 使用原生 Agent 和动态工作流自主工作。",
     "costTitle": "成本不固定。",
-    "costBody": "花费取决于 Claude 的决策 — 可能高于预期。",
+    "costBody": "花费取决于 {{provider}} 的决策 — 可能高于预期。",
     "continue": "继续"
   },
   "useRails": {

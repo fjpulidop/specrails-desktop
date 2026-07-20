@@ -52,6 +52,7 @@
       "sandboxNote": "Exécution en sandbox ; aucun fichier écrit.",
       "tokens_one": "<mono>{{count}}</mono> token",
       "tokens_other": "<mono>{{count}}</mono> tokens",
+      "tokensUnavailable": "Utilisation des tokens indisponible",
       "emptyHint": "Exécutez une tâche d'exemple sur le brouillon actuel. La sortie s'affiche ici."
     },
     "versions": {

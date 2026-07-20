@@ -41,6 +41,14 @@
     "invocations_other": "{{count}} Aufrufe",
     "tokens": "· {{tokens}} Tokens",
     "tokensTooltip": "Tokens gesamt = neue Eingabe + Ausgabe + Cache-Read + Cache-Create über alle Aufrufe in diesem Zeitraum.",
+    "usageUnavailable": "· Token-Nutzung nicht verfügbar",
+    "usageUnavailableTooltip": "Der Anbieter hat diese Aufrufe abgeschlossen, aber keine Token-Telemetrie bereitgestellt.",
+    "usagePartiallyUnavailable": "· {{tokens}} bekannte Tokens; ohne Daten: {{count}}",
+    "usagePartiallyUnavailableTooltip": "Nur bekannte Token-Zwischensumme; einige Aufrufe haben keine Token-Telemetrie bereitgestellt.",
+    "costUnavailable": "Kosten nicht verfügbar",
+    "costUnavailableTooltip": "Der Anbieter hat diese Aufrufe abgeschlossen, aber nicht genügend Telemetrie zur Kostenermittlung bereitgestellt.",
+    "costPartiallyUnavailable": "· bekannte Zwischensumme; ohne Kosten: {{count}}",
+    "costPartiallyUnavailableTooltip": "Nur bekannte Kosten-Zwischensumme; einige Aufrufe haben nicht genügend Telemetrie zur Kostenermittlung bereitgestellt.",
     "includesEstimated": "· enthält ~{{amount}} geschätzt",
     "includesEstimatedTooltip": "Enthält {{amount}} geschätzte Kosten von Providern ohne natives Kostenfeld (z. B. codex über die lokale Preistabelle).",
     "trackingStarted": "Tracking gestartet am {{date}}",
@@ -54,12 +62,16 @@
     "noCost": "Noch keine Kosten in diesem Zeitraum erfasst.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "Kosten nicht verfügbar",
-    "costUnavailableTooltip": "Dieser Anbieter lief, aber sein Modell ist nicht in der Preistabelle, daher konnten keine Kosten berechnet werden."
+    "costUnavailableTooltip": "Dieser Anbieter lief, aber sein Modell ist nicht in der Preistabelle, daher konnten keine Kosten berechnet werden.",
+    "costPartiallyUnavailable": "· nicht verfügbar: {{count}}",
+    "costPartiallyUnavailableTooltip": "Nur bekannte Zwischensumme; für einige Aufrufe sind keine Kosten verfügbar."
   },
   "timeline": {
     "title": "Täglicher Verlauf",
     "subtitle": "gestapelt nach Surface",
-    "empty": "Keine Ausgaben in diesem Zeitraum."
+    "empty": "Keine Ausgaben in diesem Zeitraum.",
+    "costUnavailable": "Aufrufe wurden erfasst, aber die Kostentelemetrie ist nicht verfügbar.",
+    "costPartiallyUnavailable": "bekannte Kosten · nicht verfügbar: {{count}}"
   },
   "quickVsExplore": {
     "title": "Quick vs. Explore",
@@ -73,27 +85,39 @@
     "avgDuration": "Ø {{duration}}",
     "ratio": "{{ratio}}× mehr pro Spec",
     "estimatedTooltip": "Geschätzte Kosten (Rückgriff auf Preistabelle für codex/gemini, nicht vom Anbieter abgerechnet)",
-    "estimatedFootnote": "~ Enthält geschätzte Kosten (codex/gemini)"
+    "estimatedFootnote": "~ Enthält geschätzte Kosten (codex/gemini)",
+    "costUnavailable": "Kosten pro Spec nicht verfügbar",
+    "costUnavailableTooltip": "Ein Durchschnitt pro Spec kann nicht berechnet werden, da für mindestens einen Aufruf die Kostentelemetrie fehlt."
   },
   "models": {
     "title": "Modelle",
     "empty": "Keine Modelle erfasst.",
     "estimatedTooltip": "Geschätzt aus der lokalen Preistabelle — dieser Anbieter meldet die Kosten nicht nativ.",
-    "others": "Andere"
+    "others": "Andere",
+    "costUnavailableWithRuns": "— · {{count}}",
+    "costUnavailableTooltip": "Für alle Aufrufe dieses Modells fehlt die Kostentelemetrie.",
+    "costPartiallyUnavailable": "· nicht verfügbar: {{count}}",
+    "costPartiallyUnavailableTooltip": "Nur bekannte Zwischensumme; für einige Aufrufe dieses Modells fehlen Kostendaten."
   },
   "scatter": {
     "title": "Kosten vs. Turns",
     "empty": "Keine Aufrufe zum Darstellen.",
     "turnsLabel": "Turns",
     "costLabel": "Kosten",
-    "truncated": "Zeige {{shown}} von {{total}} — der teuerste Punkt bleibt erhalten, frühere Punkte werden ausgeblendet"
+    "truncated": "Zeige {{shown}} von {{total}} — der teuerste Punkt bleibt erhalten, frühere Punkte werden ausgeblendet",
+    "costUnavailable": "Aufrufe wurden erfasst, aber es sind keine Kostendaten zum Darstellen verfügbar.",
+    "costPartiallyUnavailable": "Das Diagramm enthält nur Aufrufe mit Kosten; Kosten nicht verfügbar: {{count}}."
   },
   "topTickets": {
     "title": "Top-Tickets",
     "empty": "Keine Ticket-Aktivität in diesem Zeitraum.",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "Nicht zugeordnet",
-    "deletedTicket": "gelöschtes Ticket #{{id}}"
+    "deletedTicket": "gelöschtes Ticket #{{id}}",
+    "costUnavailable": "Kosten nicht verfügbar",
+    "costUnavailableTooltip": "Keiner der Aufrufe dieses Tickets hat Kostentelemetrie bereitgestellt.",
+    "costPartiallyUnavailable": "nicht verfügbar: {{count}}",
+    "costPartiallyUnavailableTooltip": "Nur bekannte Zwischensumme; für einige Aufrufe dieses Tickets sind keine Kosten verfügbar."
   },
   "table": {
     "title": "Alle Aufrufe",
@@ -145,12 +169,14 @@
     "failedToLoad": "Analytics konnten nicht geladen werden: {{error}}",
     "totalCost": "Gesamtkosten",
     "costToday": "{{value}} heute",
+    "costTodayUnavailable": "Kosten heute nicht verfügbar",
     "totalJobs": "Jobs gesamt",
     "jobsToday": "{{n}} heute",
     "successRate": "Erfolgsquote",
     "acrossAllProjects": "über alle Projekte",
     "avgCostPerJob": "Ø Kosten / Job",
     "periodAverage": "Durchschnitt im Zeitraum",
+    "averageUnavailable": "Durchschnitt bei unvollständiger Kostentelemetrie nicht verfügbar",
     "costOverTime": "Projektübergreifende Kosten im Zeitverlauf",
     "noCostData": "Keine Kostendaten für diesen Zeitraum",
     "projectComparison": "Projektvergleich",
@@ -165,7 +191,10 @@
     "timelineEstimatedTooltip": "Einige Tage enthalten geschätzte Kosten aus der Preistabelle (codex/gemini), markiert mit ~.",
     "estimatedBadge": "gesch.",
     "projectEstimatedTooltip": "{{amount}} der Kosten dieses Projekts sind eine Schätzung aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
-    "statusBarEstimatedTooltip": "Enthält geschätzte Kosten aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet."
+    "statusBarEstimatedTooltip": "Enthält geschätzte Kosten aus der Preistabelle (codex/gemini), nicht vom Anbieter abgerechnet.",
+    "costUnavailable": "Aufrufe wurden erfasst, aber die Kostentelemetrie ist nicht verfügbar.",
+    "costUnavailableShort": "nicht verfügbar",
+    "costPartiallyUnavailable": "Bekannte Kosten-Zwischensumme; Aufrufe ohne Kosten: {{count}}."
   },
   "windowLabels": {
     "7d": "Letzte 7 Tage",

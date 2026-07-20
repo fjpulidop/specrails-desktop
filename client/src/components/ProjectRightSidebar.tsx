@@ -24,13 +24,9 @@ export function ProjectRightSidebar() {
   const lit = rightMode !== 'unpinned'
   const pinLabel = t(RIGHT_PIN_LABEL_KEY[rightMode])
 
-  // Agents (agent-profile catalogue, per-agent model overrides) and
-  // Integrations (plugins / MCP via `.mcp.json`) are Claude-only mechanics with
-  // no Codex equivalent in the app today. We show a section only when EVERY
-  // installed provider supports it (the intersection): so a Claude-only project
-  // sees both, a Codex-only project sees neither (unchanged), and a project
-  // with BOTH engines hides them — surfacing a Claude-only section for a project
-  // that can also dispatch jobs to Codex would be a footgun.
+  // Provider-sensitive sections use the capability intersection across every
+  // installed engine. Profiles are currently supported by Claude and Kimi;
+  // a mixed project that also includes an unsupported engine hides Agents.
   const activeProject = projects.find((p) => p.id === activeProjectId)
   const providers = activeProject ? projectProviders(activeProject) : ['claude']
   const showAgentsTab = FEATURE_AGENTS_SECTION && sectionVisibleForProviders('agents', providers)

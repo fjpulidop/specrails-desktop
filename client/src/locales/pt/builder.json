@@ -8,7 +8,8 @@
     "surpriseMe": "Surpreenda-me",
     "inputPlaceholder": "Um app que…",
     "createSpecs": "Criar specs",
-    "createSpecsHint": "Disponível quando o blueprint tiver specs do Marco 1"
+    "createSpecsHint": "Disponível quando o blueprint tiver specs do Marco 1",
+    "providerUnavailable": "O Construtor requer um provedor com modo nativo sem ferramentas ou somente leitura. Este provedor não está disponível aqui."
   },
   "panel": {
     "title": "Blueprint",
@@ -87,7 +88,8 @@
     "progress": "{{done}}/{{total}} concluídas",
     "launchM1": "Lançar o Marco 1",
     "generateNext": "Gerar M{{n}}",
-    "generateHint": "Abre uma sessão de specs ancorada no código, semeada com o blueprint"
+    "generateHint": "Abre uma sessão de specs ancorada no código, semeada com o blueprint",
+    "generateUnavailable": "A geração de marcos requer um modo nativo somente leitura"
   },
   "errors": {
     "startFailed": "Não foi possível iniciar a conversa do Construtor.",
@@ -99,7 +101,8 @@
     "inputPlaceholder": "Refine as specs…",
     "commit": "Confirmar {{count}} specs como {{label}}",
     "commitToast": "{{count}} specs adicionadas ao quadro como {{label}}",
-    "commitFailed": "Não foi possível confirmar o marco"
+    "commitFailed": "Não foi possível confirmar o marco",
+    "providerUnavailable": "A geração de marcos não está disponível porque este provedor não tem modo nativo somente leitura."
   },
   "mode": {
     "title": "Construtor de projetos",

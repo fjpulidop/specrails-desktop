@@ -7,10 +7,10 @@ import { OPERATOR_INSTRUCTIONS } from './agent-operator-prompt'
 //
 // The agent chat spawns the AI CLI from an app-owned cwd (NOT a project path), so
 // no project's CLAUDE.md is auto-loaded and the agent starts with a focused
-// "operator" stance. Claude/Codex retain the original app-global cwd. Gemini
-// gets a per-conversation child cwd because it discovers project MCP settings
-// from `<cwd>/.gemini/settings.json`; sharing that file would let concurrent
-// conversations overwrite each other's capability-file reference.
+// "operator" stance. Claude/Codex retain the original app-global cwd. Providers
+// whose MCP config is cwd-discovered under a nested project path (Gemini/Kimi)
+// get a per-conversation child cwd so concurrent turns cannot overwrite each
+// other's capability-file reference.
 
 function homeDir(): string {
   return process.env.SPECRAILS_REGISTRY_HOME || os.homedir()
@@ -50,6 +50,8 @@ export function ensureAgentCwd(): string {
   try { fs.unlinkSync(path.join(dir, '.mcp.json')) } catch { /* absent */ }
   try { fs.unlinkSync(path.join(dir, '.gemini', 'settings.json')) } catch { /* absent */ }
   try { fs.rmdirSync(path.join(dir, '.gemini')) } catch { /* non-empty / absent */ }
+  try { fs.unlinkSync(path.join(dir, '.kimi-code', 'mcp.json')) } catch { /* absent */ }
+  try { fs.rmdirSync(path.join(dir, '.kimi-code')) } catch { /* non-empty / absent */ }
   return dir
 }
 
@@ -62,9 +64,8 @@ export function agentConversationCwdPath(conversationId: string): string {
 }
 
 /**
- * Materialise an isolated agent cwd for one conversation. Gemini uses this so
- * its cwd-discovered `.mcp.json` and `.gemini/settings.json` can never be
- * overwritten by a concurrent turn belonging to another conversation.
+ * Materialise an isolated agent cwd for one conversation. Cwd-discovered
+ * provider MCP files can never be overwritten by another conversation.
  */
 export function ensureAgentConversationCwd(conversationId: string): string {
   return ensureCwd(agentConversationCwdPath(conversationId))

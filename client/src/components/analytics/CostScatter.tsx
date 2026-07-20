@@ -65,6 +65,9 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
       })),
   }))
   const isEmpty = data.scatter.length === 0
+  const unpricedRuns = data.summary.unpricedRuns ?? 0
+  const costUnavailable = isEmpty && unpricedRuns > 0
+  const costPartiallyUnavailable = !isEmpty && unpricedRuns > 0
   // The server caps the scatter at the 500 most-recent priced rows. When it
   // reports a truncation it UNION-s in the single costliest row so the
   // budget-blowing outlier is never invisible, but earlier mid-cost points are
@@ -93,7 +96,22 @@ export function CostScatter({ data, loading, onSelectPoint }: Props) {
           {t('scatter.truncated', { shown: data.scatter.length, total: scatterTotal })}
         </div>
       )}
-      {isEmpty ? (
+      {costPartiallyUnavailable && (
+        <div
+          data-testid="scatter-cost-partial-notice"
+          className="mb-2 text-[10px] text-muted-foreground/80 italic"
+        >
+          {t('scatter.costPartiallyUnavailable', { count: unpricedRuns })}
+        </div>
+      )}
+      {costUnavailable ? (
+        <div
+          data-testid="scatter-cost-unavailable"
+          className="h-40 flex items-center justify-center text-xs text-muted-foreground/70"
+        >
+          {t('scatter.costUnavailable')}
+        </div>
+      ) : isEmpty ? (
         <div className="h-40 flex items-center justify-center text-xs text-muted-foreground/70">
           {t('scatter.empty')}
         </div>

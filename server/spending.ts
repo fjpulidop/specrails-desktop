@@ -45,7 +45,13 @@ export interface InvocationsFilters extends SpendingFilters {
   sortBy?: 'recency' | 'cost'
 }
 
-export interface BySurfaceCount { surface: Surface; count: number; costUsd: number }
+export interface BySurfaceCount {
+  surface: Surface
+  count: number
+  costUsd: number
+  /** Invocations omitted from costUsd because no cost telemetry was available. */
+  unpricedCount?: number
+}
 export interface ByModelEntry {
   model: string
   /**
@@ -63,6 +69,8 @@ export interface ByModelEntry {
    * (BUG-ANALYTICS-08). 0 for a pure-claude model.
    */
   estimatedCostUsd: number
+  /** Invocations for which the provider exposed no native/estimable cost. */
+  unpricedCount?: number
 }
 export interface DailyEntry {
   date: string
@@ -74,6 +82,8 @@ export interface DailyEntry {
   fileSummaryCostUsd: number
   loopCostUsd: number
   totalCostUsd: number
+  /** Invocations on this day whose provider did not expose cost telemetry. */
+  unpricedCount?: number
 }
 export interface ScatterPoint {
   id: string
@@ -89,7 +99,9 @@ export interface TopTicketEntry {
   ticketTitle: string | null
   totalCostUsd: number
   totalRuns: number
-  bySurface: Record<Surface, { count: number; costUsd: number }>
+  /** Runs omitted from totalCostUsd because cost telemetry was unavailable. */
+  unpricedCount?: number
+  bySurface: Record<Surface, { count: number; costUsd: number; unpricedCount?: number }>
   isUnattributed?: boolean
   isDeleted?: boolean
 }
@@ -104,6 +116,8 @@ export interface ByModeEntry {
    * 0 for a pure-claude mode.
    */
   estimatedCostUsd: number
+  /** Runs excluded from cost averages because their cost is unavailable. */
+  unpricedCount?: number
   avgCostPerSpec: number | null
   avgDurationMs: number | null
   dominantModel: string | null
@@ -117,6 +131,14 @@ export interface ByProviderEntry {
   costUsd: number
   /** Cost computed via local pricing-table fallback. */
   estimatedCostUsd: number
+  /** Rows with a numeric (including zero) native or estimated cost. */
+  pricedCount?: number
+  /** Rows whose provider did not expose enough data to determine cost. */
+  unpricedCount?: number
+  /** Rows that exposed at least one token counter (including an explicit zero). */
+  usageReportedCount?: number
+  /** Rows with no token telemetry at all. */
+  usageUnavailableCount?: number
 }
 
 export interface SpendingResponse {
@@ -129,8 +151,14 @@ export interface SpendingResponse {
     /** Real total tokens across all matching rows = fresh input + output +
      *  cache-read + cache-create. Cache tiers (esp. cache_read) dominate
      *  agentic Claude runs, so this is far larger than input+output alone. */
-    totalTokens: number
+    totalTokens: number | null
     totalRuns: number
+    /** Coverage metadata keeps a known subtotal from being mistaken for a full total. */
+    pricedRuns?: number
+    unpricedRuns?: number
+    usageReportedRuns?: number
+    usageUnavailableRuns?: number
+    prevUnpricedRuns?: number
     failureRate: number
     prevTotalCostUsd: number
     deltaPct: number | null
@@ -181,9 +209,9 @@ const ALL_SURFACES: Surface[] = [
 
 /** Fresh zeroed per-surface bucket covering every Surface, so aggregation
  *  writes (`bySurface[r.surface]`) can never index an undefined key. */
-function emptyBySurface(): Record<Surface, { count: number; costUsd: number }> {
-  const out = {} as Record<Surface, { count: number; costUsd: number }>
-  for (const s of ALL_SURFACES) out[s] = { count: 0, costUsd: 0 }
+function emptyBySurface(): Record<Surface, { count: number; costUsd: number; unpricedCount?: number }> {
+  const out = {} as Record<Surface, { count: number; costUsd: number; unpricedCount?: number }>
+  for (const s of ALL_SURFACES) out[s] = { count: 0, costUsd: 0, unpricedCount: 0 }
   return out
 }
 
@@ -363,12 +391,18 @@ function dayBucketExpr(tzOffsetMinutes: number): string {
   return `substr(datetime(started_at, '${sign}${abs} minutes'), 1, 10)`
 }
 
-interface RowAggDay { day: string; surface: Surface; cost: number | null }
+interface RowAggDay {
+  day: string
+  surface: Surface
+  cost: number | null
+  unpriced: number | null
+}
 interface RowAggTicket {
   ticket_id: number | null
   surface: Surface
   cnt: number
   cost: number | null
+  unpriced: number | null
 }
 
 /**
@@ -398,7 +432,16 @@ export function getSpending(
       COALESCE(SUM(COALESCE(tokens_in, 0) + COALESCE(tokens_out, 0)
                    + COALESCE(tokens_cache_read, 0) + COALESCE(tokens_cache_create, 0)), 0) AS totalTokens,
       COUNT(*) AS totalRuns,
+      COUNT(total_cost_usd) AS pricedRuns,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpricedRuns,
+      SUM(CASE WHEN tokens_in IS NOT NULL OR tokens_out IS NOT NULL
+                    OR tokens_cache_read IS NOT NULL OR tokens_cache_create IS NOT NULL
+               THEN 1 ELSE 0 END) AS usageReportedRuns,
+      SUM(CASE WHEN tokens_in IS NULL AND tokens_out IS NULL
+                    AND tokens_cache_read IS NULL AND tokens_cache_create IS NULL
+               THEN 1 ELSE 0 END) AS usageUnavailableRuns,
       SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+      SUM(CASE WHEN status = 'success' AND total_cost_usd IS NULL THEN 1 ELSE 0 END) AS successfulUnpriced,
       AVG(CASE WHEN status = 'success' THEN total_cost_usd END) AS avgCost
     FROM ai_invocations WHERE ${where.sql}
   `).get(...where.params) as {
@@ -406,18 +449,27 @@ export function getSpending(
     totalEstimatedCost: number
     totalTokens: number
     totalRuns: number
+    pricedRuns: number
+    unpricedRuns: number | null
+    usageReportedRuns: number | null
+    usageUnavailableRuns: number | null
     failed: number | null
+    successfulUnpriced: number | null
     avgCost: number | null
   }
 
   // prev period
   const prevWhere = buildWhere(projectId, filters, { from: range.prevFrom, to: range.prevTo })
   const prevRow = db.prepare(`
-    SELECT COALESCE(SUM(total_cost_usd), 0) AS totalCost
+    SELECT
+      COALESCE(SUM(total_cost_usd), 0) AS totalCost,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpricedRuns
     FROM ai_invocations WHERE ${prevWhere.sql}
-  `).get(...prevWhere.params) as { totalCost: number }
+  `).get(...prevWhere.params) as { totalCost: number; unpricedRuns: number | null }
 
-  const deltaPct = prevRow.totalCost > 0
+  const deltaPct = (summaryRow.unpricedRuns ?? 0) === 0
+    && (prevRow.unpricedRuns ?? 0) === 0
+    && prevRow.totalCost > 0
     ? ((summaryRow.totalCost - prevRow.totalCost) / prevRow.totalCost) * 100
     : null
 
@@ -433,7 +485,8 @@ export function getSpending(
       model, surface,
       COUNT(*) AS cnt,
       COALESCE(SUM(total_cost_usd), 0) AS cost,
-      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estCost
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estCost,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpriced
     FROM ai_invocations WHERE ${where.sql} AND model IS NOT NULL
     GROUP BY provider, model, surface
   `).all(...where.params) as Array<{
@@ -443,18 +496,41 @@ export function getSpending(
     cnt: number
     cost: number | null
     estCost: number | null
+    unpriced: number | null
   }>
-  const modelTotals = new Map<string, { provider: string; model: string; cnt: number; cost: number; est: number }>()
+  const modelTotals = new Map<string, {
+    provider: string
+    model: string
+    cnt: number
+    cost: number
+    est: number
+    unpriced: number
+  }>()
   for (const r of modelRows) {
-    const key = `${r.provider} ${r.model}`
-    const agg = modelTotals.get(key) ?? { provider: r.provider, model: r.model, cnt: 0, cost: 0, est: 0 }
+    const key = `${r.provider}\0${r.model}`
+    const agg = modelTotals.get(key) ?? {
+      provider: r.provider,
+      model: r.model,
+      cnt: 0,
+      cost: 0,
+      est: 0,
+      unpriced: 0,
+    }
     agg.cnt += r.cnt
     agg.cost += r.cost ?? 0
     agg.est += r.estCost ?? 0
+    agg.unpriced += r.unpriced ?? 0
     modelTotals.set(key, agg)
   }
   const byModel: ByModelEntry[] = Array.from(modelTotals.values())
-    .map((t) => ({ provider: t.provider, model: t.model, count: t.cnt, costUsd: t.cost, estimatedCostUsd: t.est }))
+    .map((t) => ({
+      provider: t.provider,
+      model: t.model,
+      count: t.cnt,
+      costUsd: t.cost,
+      estimatedCostUsd: t.est,
+      ...(t.unpriced > 0 ? { unpricedCount: t.unpriced } : {}),
+    }))
     .sort((a, b) => b.costUsd - a.costUsd)
     .slice(0, 10)
   // dominantModel is the most-frequent model per surface (provider-agnostic —
@@ -462,11 +538,11 @@ export function getSpending(
   const dominantBySurface = new Map<Surface, { model: string; cnt: number }>()
   const dominantTally = new Map<string, number>()
   for (const r of modelRows) {
-    const k = `${r.surface} ${r.model}`
+    const k = `${r.surface}\0${r.model}`
     dominantTally.set(k, (dominantTally.get(k) ?? 0) + r.cnt)
   }
   for (const [k, cnt] of dominantTally.entries()) {
-    const sep = k.indexOf(' ')
+    const sep = k.indexOf('\0')
     const surface = k.slice(0, sep) as Surface
     const model = k.slice(sep + 1)
     const cur = dominantBySurface.get(surface)
@@ -477,7 +553,11 @@ export function getSpending(
   // calendar day (BUG-ANALYTICS-21): the client passes its local offset so
   // "today" lines up with the user's wall clock; offset 0 ⇒ legacy UTC days.
   const dayRows = db.prepare(`
-    SELECT ${dayBucketExpr(tzOffset)} AS day, surface, COALESCE(SUM(total_cost_usd), 0) AS cost
+    SELECT
+      ${dayBucketExpr(tzOffset)} AS day,
+      surface,
+      COALESCE(SUM(total_cost_usd), 0) AS cost,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpriced
     FROM ai_invocations WHERE ${where.sql}
     GROUP BY day, surface
   `).all(...where.params) as RowAggDay[]
@@ -494,7 +574,7 @@ export function getSpending(
   const dayMap = new Map<string, DailyEntry>()
   for (const day of days) {
     dayMap.set(day, {
-      date: day, jobsCostUsd: 0, quickCostUsd: 0, exploreCostUsd: 0, aiEditCostUsd: 0, smashCostUsd: 0, fileSummaryCostUsd: 0, loopCostUsd: 0, totalCostUsd: 0,
+      date: day, jobsCostUsd: 0, quickCostUsd: 0, exploreCostUsd: 0, aiEditCostUsd: 0, smashCostUsd: 0, fileSummaryCostUsd: 0, loopCostUsd: 0, totalCostUsd: 0, unpricedCount: 0,
     })
   }
   for (const r of dayRows) {
@@ -509,8 +589,12 @@ export function getSpending(
     else if (r.surface === 'file-summary') entry.fileSummaryCostUsd += c // B58
     else if (r.surface === 'loop') entry.loopCostUsd += c
     entry.totalCostUsd += c
+    entry.unpricedCount = (entry.unpricedCount ?? 0) + (r.unpriced ?? 0)
   }
   const dailyTimeline = Array.from(dayMap.values())
+  for (const day of dailyTimeline) {
+    if ((day.unpricedCount ?? 0) === 0) delete day.unpricedCount
+  }
 
   // byMode (Quick vs Explore) — one GROUP BY surface query for both modes;
   // dominant models come from modelRows and sparklines from dayRows, which
@@ -528,8 +612,11 @@ export function getSpending(
       COUNT(DISTINCT ticket_id) AS ticketsCreated,
       COALESCE(SUM(total_cost_usd), 0) AS totalCost,
       COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estCost,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpricedRuns,
       COALESCE(SUM(CASE WHEN status = 'success' AND ticket_id IS NOT NULL THEN total_cost_usd ELSE 0 END), 0) AS specCostSum,
       COUNT(DISTINCT CASE WHEN status = 'success' AND ticket_id IS NOT NULL THEN ticket_id END) AS specCount,
+      COUNT(DISTINCT CASE WHEN status = 'success' AND ticket_id IS NOT NULL
+                               AND total_cost_usd IS NULL THEN ticket_id END) AS unpricedSpecCount,
       AVG(CASE WHEN status = 'success' THEN duration_ms END) AS avgDur
     FROM ai_invocations WHERE ${where.sql} AND surface IN ('quick-spec', 'explore-spec')
     GROUP BY surface
@@ -539,8 +626,10 @@ export function getSpending(
     ticketsCreated: number | null
     totalCost: number
     estCost: number
+    unpricedRuns: number | null
     specCostSum: number
     specCount: number
+    unpricedSpecCount: number
     avgDur: number | null
   }>
   const modeAggBySurface = new Map(modeAggRows.map((r) => [r.surface, r]))
@@ -549,7 +638,13 @@ export function getSpending(
   const byMode: ByModeEntry[] = (['quick-spec', 'explore-spec'] as const).map((surface) => {
     const modeKey: 'quick' | 'explore' = surface === 'quick-spec' ? 'quick' : 'explore'
     const r = modeAggBySurface.get(surface)
-    const avgCostPerSpec = r && r.specCount > 0 ? r.specCostSum / r.specCount : null
+    // A partial average over only providers that report cost is worse than no
+    // average: it looks authoritative while silently excluding Kimi. Preserve
+    // unavailable until every successful ticket in the denominator is priced.
+    const avgCostPerSpec =
+      r && r.specCount > 0 && r.unpricedSpecCount === 0
+        ? r.specCostSum / r.specCount
+        : null
     const sparkline = days.map((d) => costByDaySurface.get(`${d}|${surface}`) ?? 0)
     return {
       mode: modeKey,
@@ -557,6 +652,7 @@ export function getSpending(
       ticketsCreated: r?.ticketsCreated ?? 0,
       totalCostUsd: r?.totalCost ?? 0,
       estimatedCostUsd: r?.estCost ?? 0,
+      ...((r?.unpricedRuns ?? 0) > 0 ? { unpricedCount: r?.unpricedRuns ?? 0 } : {}),
       avgCostPerSpec,
       avgDurationMs: r?.avgDur ?? null,
       dominantModel: dominantBySurface.get(surface)?.model ?? null,
@@ -630,7 +726,12 @@ export function getSpending(
 
   // topTickets (cross-surface aggregation)
   const ticketRows = db.prepare(`
-    SELECT ticket_id, surface, COUNT(*) AS cnt, COALESCE(SUM(total_cost_usd), 0) AS cost
+    SELECT
+      ticket_id,
+      surface,
+      COUNT(*) AS cnt,
+      COALESCE(SUM(total_cost_usd), 0) AS cost,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpriced
     FROM ai_invocations WHERE ${where.sql}
     GROUP BY ticket_id, surface
   `).all(...where.params) as RowAggTicket[]
@@ -643,6 +744,7 @@ export function getSpending(
         ticketTitle: null,
         totalCostUsd: 0,
         totalRuns: 0,
+        unpricedCount: 0,
         bySurface: emptyBySurface(),
         isUnattributed: r.ticket_id === null ? true : undefined,
       })
@@ -650,12 +752,21 @@ export function getSpending(
     const entry = ticketMap.get(key)!
     entry.bySurface[r.surface].count += r.cnt
     entry.bySurface[r.surface].costUsd += r.cost ?? 0
+    entry.bySurface[r.surface].unpricedCount =
+      (entry.bySurface[r.surface].unpricedCount ?? 0) + (r.unpriced ?? 0)
     entry.totalRuns += r.cnt
     entry.totalCostUsd += r.cost ?? 0
+    entry.unpricedCount = (entry.unpricedCount ?? 0) + (r.unpriced ?? 0)
   }
   const topTickets = Array.from(ticketMap.values())
     .sort((a, b) => b.totalCostUsd - a.totalCostUsd)
     .slice(0, 10)
+  for (const ticket of topTickets) {
+    if ((ticket.unpricedCount ?? 0) === 0) delete ticket.unpricedCount
+    for (const bucket of Object.values(ticket.bySurface)) {
+      if ((bucket.unpricedCount ?? 0) === 0) delete bucket.unpricedCount
+    }
+  }
   // BUG-ANALYTICS-18/36: resolve committed-ticket titles + deleted state via the
   // injected store reader so the card (and the summary-CSV / modal consumers
   // built on this same shape) show names instead of "Deleted ticket #N". Without
@@ -672,16 +783,22 @@ export function getSpending(
   // bySurface — derived from ticketRows (same WHERE, grouped by
   // ticket_id+surface): summing across tickets equals a GROUP BY surface
   // (H24: previously a dedicated query re-scanned the same rows).
-  const surfaceTotals = new Map<Surface, { cnt: number; cost: number }>()
+  const surfaceTotals = new Map<Surface, { cnt: number; cost: number; unpriced: number }>()
   for (const r of ticketRows) {
-    const agg = surfaceTotals.get(r.surface) ?? { cnt: 0, cost: 0 }
+    const agg = surfaceTotals.get(r.surface) ?? { cnt: 0, cost: 0, unpriced: 0 }
     agg.cnt += r.cnt
     agg.cost += r.cost ?? 0
+    agg.unpriced += r.unpriced ?? 0
     surfaceTotals.set(r.surface, agg)
   }
   const bySurface: BySurfaceCount[] = ALL_SURFACES.map((s) => {
     const t = surfaceTotals.get(s)
-    return { surface: s, count: t?.cnt ?? 0, costUsd: t?.cost ?? 0 }
+    return {
+      surface: s,
+      count: t?.cnt ?? 0,
+      costUsd: t?.cost ?? 0,
+      ...((t?.unpriced ?? 0) > 0 ? { unpricedCount: t?.unpriced ?? 0 } : {}),
+    }
   })
 
   // tracking start (project's first invocation)
@@ -697,6 +814,14 @@ export function getSpending(
     SELECT
       COALESCE(provider, 'claude') AS provider,
       COUNT(*) AS cnt,
+      COUNT(total_cost_usd) AS priced,
+      SUM(CASE WHEN total_cost_usd IS NULL THEN 1 ELSE 0 END) AS unpriced,
+      SUM(CASE WHEN tokens_in IS NOT NULL OR tokens_out IS NOT NULL
+                    OR tokens_cache_read IS NOT NULL OR tokens_cache_create IS NOT NULL
+               THEN 1 ELSE 0 END) AS usageReported,
+      SUM(CASE WHEN tokens_in IS NULL AND tokens_out IS NULL
+                    AND tokens_cache_read IS NULL AND tokens_cache_create IS NULL
+               THEN 1 ELSE 0 END) AS usageUnavailable,
       COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 0 THEN total_cost_usd ELSE 0 END), 0) AS authoritativeCost,
       COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estimatedCost
     FROM ai_invocations WHERE ${where.sql}
@@ -705,6 +830,10 @@ export function getSpending(
   `).all(...where.params) as Array<{
     provider: string
     cnt: number
+    priced: number
+    unpriced: number | null
+    usageReported: number | null
+    usageUnavailable: number | null
     authoritativeCost: number
     estimatedCost: number
   }>
@@ -713,18 +842,35 @@ export function getSpending(
     count: r.cnt,
     costUsd: r.authoritativeCost,
     estimatedCostUsd: r.estimatedCost,
+    pricedCount: r.priced,
+    unpricedCount: r.unpriced ?? 0,
+    usageReportedCount: r.usageReported ?? 0,
+    usageUnavailableCount: r.usageUnavailable ?? 0,
   }))
 
   return {
     summary: {
       totalCostUsd: summaryRow.totalCost,
       totalEstimatedCostUsd: summaryRow.totalEstimatedCost,
-      totalTokens: summaryRow.totalTokens,
+      totalTokens:
+        (summaryRow.usageReportedRuns ?? 0) > 0
+          ? summaryRow.totalTokens
+          : summaryRow.totalRuns > 0
+            ? null
+            : 0,
       totalRuns: summaryRow.totalRuns,
+      pricedRuns: summaryRow.pricedRuns,
+      unpricedRuns: summaryRow.unpricedRuns ?? 0,
+      usageReportedRuns: summaryRow.usageReportedRuns ?? 0,
+      usageUnavailableRuns: summaryRow.usageUnavailableRuns ?? 0,
+      prevUnpricedRuns: prevRow.unpricedRuns ?? 0,
       failureRate: summaryRow.totalRuns > 0 ? (summaryRow.failed ?? 0) / summaryRow.totalRuns : 0,
       prevTotalCostUsd: prevRow.totalCost,
       deltaPct,
-      avgCostPerRun: summaryRow.avgCost,
+      avgCostPerRun:
+        (summaryRow.successfulUnpriced ?? 0) > 0
+          ? null
+          : summaryRow.avgCost,
     },
     bySurface,
     byModel,

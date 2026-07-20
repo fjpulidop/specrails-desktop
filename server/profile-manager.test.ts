@@ -43,6 +43,22 @@ function baseProfile(name = 'default'): Profile {
   }
 }
 
+function kimiProfile(name = 'kimi-default', model = 'team-private-alias'): Profile {
+  return {
+    schemaVersion: 1,
+    name,
+    description: 'Kimi profile',
+    provider: 'kimi',
+    orchestrator: { model },
+    agents: [
+      { id: 'sr-architect', model, required: true },
+      { id: 'sr-developer', model, required: true },
+      { id: 'sr-reviewer', model, required: true },
+    ],
+    routing: [{ default: true, agent: 'sr-developer' }],
+  }
+}
+
 beforeEach(() => {
   projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prof-test-'))
   db = initDb(':memory:')
@@ -139,6 +155,29 @@ describe('validateProfile', () => {
     p.orchestrator.model = 'gpt-5.4-mini'
     p.agents = p.agents.map((a) => ({ ...a, model: 'gpt-5.4-mini' }))
     expect(() => validateProfile(p)).not.toThrow()
+  })
+
+  it('preserves non-empty configured Kimi model aliases outside the static catalog', () => {
+    const profile = kimiProfile('kimi-private', 'moonshot-team/fast-coding')
+    expect(validateProfile(profile, 'kimi').orchestrator.model).toBe('moonshot-team/fast-coding')
+  })
+
+  it('preserves configured Kimi model aliases longer than the former 64-character schema cap', () => {
+    const alias = `moonshot-team/${'private-routing-segment-'.repeat(4)}coding`
+    expect(alias.length).toBeGreaterThan(64)
+    const profile = kimiProfile('kimi-long-alias', alias)
+    expect(validateProfile(profile, 'kimi').orchestrator.model).toBe(alias)
+  })
+
+  it('rejects unsafe configured Kimi aliases instead of passing argv-like values through', () => {
+    for (const alias of ['--yolo', 'team/model with-space', 'team/model\n--plan']) {
+      expect(() => validateProfile(kimiProfile(`unsafe-${alias.length}`, alias), 'kimi'))
+        .toThrow(ProfileValidationError)
+    }
+  })
+
+  it('rejects an explicit profile provider that differs from the requested provider', () => {
+    expect(() => validateProfile(kimiProfile(), 'claude')).toThrow(ProfileValidationError)
   })
 
   it('rejects claude models on a codex profile', () => {
@@ -264,6 +303,73 @@ describe('CRUD', () => {
     expect(getProfile(projectRoot, 'codex-default', 'codex').orchestrator.model).toBe('gpt-5.4-mini')
   })
 
+  it('keeps Claude default and Kimi default profiles collision-free', () => {
+    createProfile(projectRoot, baseProfile('default'), 'claude')
+    createProfile(projectRoot, kimiProfile(), 'kimi')
+
+    expect(getProfile(projectRoot, 'default', 'claude').orchestrator.model).toBe('sonnet')
+    expect(getProfile(projectRoot, 'kimi-default', 'kimi').orchestrator.model).toBe('team-private-alias')
+    expect(() => getProfile(projectRoot, 'kimi-default', 'claude')).toThrow(ProfileNotFoundError)
+    expect(listProfiles(projectRoot).map(({ name, provider }) => [name, provider])).toEqual([
+      ['default', 'claude'],
+      ['kimi-default', 'kimi'],
+    ])
+  })
+
+  it('keeps provider-less legacy profiles assigned to Claude when Kimi is primary', () => {
+    createProfile(projectRoot, baseProfile('project-default'), 'claude')
+    createProfile(projectRoot, kimiProfile(), 'kimi')
+
+    expect(
+      listProfiles(projectRoot, 'kimi').map(({ name, provider }) => [name, provider]),
+    ).toEqual([
+      ['kimi-default', 'kimi'],
+      ['project-default', 'claude'],
+    ])
+    expect(getProfile(projectRoot, 'project-default', 'claude').orchestrator.model).toBe('sonnet')
+    expect(() => getProfile(projectRoot, 'project-default', 'kimi')).toThrow(ProfileNotFoundError)
+  })
+
+  it('does not duplicate a Core-owned legacy Kimi default when Desktop creates the same logical profile', () => {
+    const dir = path.join(projectRoot, '.specrails', 'profiles')
+    fs.mkdirSync(dir, { recursive: true })
+    const coreProfile = kimiProfile()
+    delete coreProfile.provider
+    fs.writeFileSync(
+      path.join(dir, 'kimi-default.json'),
+      JSON.stringify(coreProfile, null, 2) + '\n',
+      'utf8',
+    )
+
+    expect(() => createProfile(projectRoot, kimiProfile(), 'kimi')).toThrow(ProfileConflictError)
+    expect(fs.existsSync(path.join(dir, 'kimi--kimi-default.json'))).toBe(false)
+
+    const updated = kimiProfile()
+    updated.description = 'migrated by an explicit update'
+    updateProfile(projectRoot, updated, 'kimi')
+    expect(fs.existsSync(path.join(dir, 'kimi-default.json'))).toBe(false)
+    expect(fs.existsSync(path.join(dir, 'kimi--kimi-default.json'))).toBe(true)
+    expect(getProfile(projectRoot, 'kimi-default', 'kimi').description).toBe('migrated by an explicit update')
+  })
+
+  it('protects the provider-specific Kimi default from rename and delete', () => {
+    createProfile(projectRoot, kimiProfile(), 'kimi')
+    expect(() => deleteProfile(projectRoot, 'kimi-default', 'kimi')).toThrow(ProfileValidationError)
+    expect(() => renameProfile(projectRoot, 'kimi-default', 'renamed', 'kimi')).toThrow(ProfileValidationError)
+  })
+
+  it('refuses reserved rename targets and provider-owned legacy collisions', () => {
+    createProfile(projectRoot, { ...kimiProfile(), name: 'kimi-custom' }, 'kimi')
+    expect(() => renameProfile(projectRoot, 'kimi-custom', 'kimi-default', 'kimi'))
+      .toThrow(ProfileValidationError)
+
+    const dir = path.join(projectRoot, '.specrails', 'profiles')
+    const legacy = { ...kimiProfile(), name: 'taken' }
+    fs.writeFileSync(path.join(dir, 'taken.json'), JSON.stringify(legacy, null, 2) + '\n')
+    expect(() => renameProfile(projectRoot, 'kimi-custom', 'taken', 'kimi'))
+      .toThrow(ProfileConflictError)
+  })
+
   it('rejects a claude-model profile when expectedProvider is codex (the silent-legacy-fallback root cause)', () => {
     const p = baseProfile('codex-bad') // model 'sonnet' is a claude alias
     delete p.provider
@@ -304,6 +410,20 @@ describe('resolveProfile', () => {
     expect(r?.name).toBe('default')
   })
 
+  it('prefers the Core-installed provider default for Kimi', () => {
+    const dir = path.join(projectRoot, '.specrails', 'profiles')
+    const coreProfile = kimiProfile()
+    delete coreProfile.provider
+    fs.writeFileSync(path.join(dir, 'kimi-default.json'), JSON.stringify(coreProfile, null, 2))
+
+    const r = resolveProfile(projectRoot, undefined, 'kimi')
+
+    expect(r?.name).toBe('kimi-default')
+    expect(r?.profile.orchestrator.model).toBe('team-private-alias')
+    const entry = listProfiles(projectRoot).find((profile) => profile.name === 'kimi-default')
+    expect(entry).toMatchObject({ provider: 'kimi', isDefault: true })
+  })
+
   it('returns null when no profiles exist', () => {
     const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'prof-empty-'))
     try {
@@ -315,6 +435,28 @@ describe('resolveProfile', () => {
 
   it('throws when explicit name does not exist', () => {
     expect(() => resolveProfile(projectRoot, 'ghost')).toThrow(ProfileNotFoundError)
+  })
+})
+
+describe('vendored profile schema prose', () => {
+  it('documents registered providers and provider-native role identities, including Kimi skills', () => {
+    const schema = JSON.parse(
+      fs.readFileSync(path.join(__dirname, 'schemas', 'profile.v1.json'), 'utf8'),
+    ) as {
+      properties: { provider: { description: string } }
+      $defs: {
+        modelAlias: { maxLength?: number; description: string }
+        agentEntry: { properties: { id: { description: string } } }
+      }
+    }
+
+    expect(schema.properties.provider.description).toContain('kimi')
+    expect(schema.$defs.modelAlias.maxLength).toBeUndefined()
+    expect(schema.$defs.modelAlias.description).toContain('without truncating')
+    expect(schema.$defs.agentEntry.properties.id.description).toContain('provider-native')
+    expect(schema.$defs.agentEntry.properties.id.description).toContain(
+      '.kimi-code/skills/<id>/SKILL.md',
+    )
   })
 })
 

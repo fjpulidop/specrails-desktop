@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -27,6 +27,7 @@ import { cn } from '../lib/utils'
 import { projectProviders, useDesktop, type DesktopProject } from '../hooks/useDesktop'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import type { ConnectionState } from '../lib/jira-api'
+import { providerLabel } from '../lib/provider-capabilities'
 
 type ScopeFilter = 'all' | 'global' | 'project'
 type Provider = 'codex' | 'claude'
@@ -110,9 +111,11 @@ interface ProjectPluginCard {
   description: string
   whatItDoes: string[]
   requirements: PluginRequirement[]
-  status: 'installed' | 'deactivated' | 'not-installed' | 'orphan' | 'degraded'
+  status: 'installed' | 'deactivated' | 'not-installed' | 'not-applicable' | 'orphan' | 'degraded'
   healthReason?: string
 }
+
+const SERENA_PROVIDERS = new Set(['claude', 'codex', 'kimi'])
 
 interface PreviewResult {
   files: Array<{ path: string; op: 'create' | 'modify'; summary?: string }>
@@ -1176,7 +1179,8 @@ function ProjectPluginWizard({
             <div className="mb-2 text-xs font-medium text-muted-foreground">{t('plugins.projectWizard.chooseProject')}</div>
             <div className="max-h-[52vh] space-y-1 overflow-auto">
               {projects.map((project) => {
-                const disabled = plugin === 'serena' && !projectProviders(project).includes('claude')
+                const disabled = plugin === 'serena' &&
+                  !projectProviders(project).some((provider) => SERENA_PROVIDERS.has(provider))
                 return (
                   <button
                     key={project.id}
@@ -1190,7 +1194,13 @@ function ProjectPluginWizard({
                     )}
                   >
                     <div className="truncate text-xs font-medium">{project.name}</div>
-                    <div className="truncate text-[10px]">{disabled ? t('plugins.projectWizard.requiresClaudeProvider') : project.path}</div>
+                    <div className="truncate text-[10px]">
+                      {disabled
+                        ? t('plugins.projectWizard.requiresSupportedProvider', {
+                            defaultValue: 'Requires Claude, Codex, or Kimi',
+                          })
+                        : project.path}
+                    </div>
                   </button>
                 )
               })}
@@ -1286,29 +1296,60 @@ function ProjectJiraPanel({ project, onDone }: { project: DesktopProject; onDone
 
 function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: () => void }) {
   const { t } = useTranslation('integrations')
+  const compatibleProviders = useMemo(
+    () => projectProviders(project).filter((provider) => SERENA_PROVIDERS.has(provider)),
+    [project],
+  )
+  const preferredProvider = compatibleProviders.includes(project.provider)
+    ? project.provider
+    : compatibleProviders[0] ?? project.provider
+  const [providerId, setProviderId] = useState(preferredProvider)
   const [plugin, setPlugin] = useState<ProjectPluginCard | null>(null)
   const [preview, setPreview] = useState<PreviewResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const refreshGeneration = useRef(0)
+
+  useEffect(() => {
+    setProviderId(preferredProvider)
+    setPlugin(null)
+    setPreview(null)
+  }, [project.id, preferredProvider])
 
   const refresh = useCallback(async () => {
+    const generation = ++refreshGeneration.current
     setError(null)
-    const data = await fetch(`${projectApi(project.id)}/plugins`).then((r) => readJson<{ plugins: ProjectPluginCard[] }>(r))
-    const serena = data.plugins.find((p) => p.name === 'serena') ?? null
-    setPlugin(serena)
-    if (serena?.status === 'not-installed') {
-      const p = await fetch(`${projectApi(project.id)}/plugins/serena/preview-install`).then((r) => readJson<PreviewResult>(r))
-      setPreview(p)
+    try {
+      const query = `?provider=${encodeURIComponent(providerId)}`
+      const data = await fetch(`${projectApi(project.id)}/plugins${query}`).then((r) => readJson<{ plugins: ProjectPluginCard[] }>(r))
+      if (generation !== refreshGeneration.current) return
+      const serena = data.plugins.find((p) => p.name === 'serena') ?? null
+      setPlugin(serena)
+      setPreview(null)
+      if (serena?.status === 'not-installed') {
+        const p = await fetch(
+          `${projectApi(project.id)}/plugins/serena/preview-install${query}`,
+        ).then((r) => readJson<PreviewResult>(r))
+        if (generation === refreshGeneration.current) setPreview(p)
+      }
+    } catch (err) {
+      if (generation === refreshGeneration.current) {
+        setError((err as Error).message)
+      }
     }
-  }, [project.id])
+  }, [project.id, providerId])
 
-  useEffect(() => { void refresh().catch((err) => setError((err as Error).message)) }, [refresh])
+  useEffect(() => { void refresh() }, [refresh])
 
   async function install() {
     setBusy(true)
     setError(null)
     try {
-      await fetch(`${projectApi(project.id)}/plugins/serena/install`, { method: 'POST' }).then((r) => readJson(r))
+      await fetch(`${projectApi(project.id)}/plugins/serena/install`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: providerId }),
+      }).then((r) => readJson(r))
       await refresh()
       onDone()
     } catch (err) {
@@ -1336,6 +1377,26 @@ function SerenaInstall({ project, onDone }: { project: DesktopProject; onDone: (
         <h3 className="text-sm font-semibold">{t('plugins.serena.titleForProject', { name: project.name })}</h3>
         <p className="mt-1 text-xs text-muted-foreground">{t('plugins.serena.description')}</p>
       </div>
+      <label className="block space-y-1">
+        <span className="text-xs font-medium">
+          {t('plugins.serena.provider', { defaultValue: 'AI provider' })}
+        </span>
+        <select
+          aria-label={t('plugins.serena.provider', { defaultValue: 'AI provider' })}
+          value={providerId}
+          disabled={busy}
+          onChange={(event) => {
+            setPlugin(null)
+            setPreview(null)
+            setProviderId(event.target.value)
+          }}
+          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs"
+        >
+          {compatibleProviders.map((provider) => (
+            <option key={provider} value={provider}>{providerLabel(provider)}</option>
+          ))}
+        </select>
+      </label>
       {plugin && (
         <div className="rounded-lg border border-border bg-background/45 p-3">
           <div className="text-xs font-medium">{t('plugins.serena.status', { status: pluginStatusLabel })}</div>

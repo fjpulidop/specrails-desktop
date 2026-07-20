@@ -47,6 +47,10 @@ export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Pr
             // server-side pricing-table fallback (codex/gemini). Prefix `~` so
             // the figure is not mistaken for an authoritative claude-native cost.
             const isEstimated = (m.estimatedCostUsd ?? 0) > 0
+            const unpricedCount = m.unpricedCount ?? 0
+            const pricedCount = Math.max(0, m.count - unpricedCount)
+            const costUnavailable = m.count > 0 && unpricedCount > 0 && pricedCount === 0
+            const costPartiallyUnavailable = pricedCount > 0 && unpricedCount > 0
             return (
               <li key={`${m.provider ?? 'claude'}:${m.model}`}>
                 <button
@@ -60,9 +64,29 @@ export function ModelBreakdown({ data, loading, onSelectModel, activeModel }: Pr
                     <span className="truncate font-medium">{m.model}</span>
                     <span
                       className="text-muted-foreground"
-                      title={isEstimated ? t('models.estimatedTooltip') : undefined}
+                      data-testid={costUnavailable ? 'model-cost-unavailable' : undefined}
+                      title={
+                        costUnavailable
+                          ? t('models.costUnavailableTooltip')
+                          : costPartiallyUnavailable
+                            ? t('models.costPartiallyUnavailableTooltip')
+                            : isEstimated
+                              ? t('models.estimatedTooltip')
+                              : undefined
+                      }
                     >
-                      {isEstimated ? '~' : ''}${m.costUsd.toFixed(2)} · {m.count}
+                      {costUnavailable
+                        ? t('models.costUnavailableWithRuns', { count: m.count })
+                        : (
+                          <>
+                            {isEstimated ? '~' : ''}${m.costUsd.toFixed(2)} · {m.count}
+                            {costPartiallyUnavailable && (
+                              <span className="ml-1 italic">
+                                {t('models.costPartiallyUnavailable', { count: unpricedCount })}
+                              </span>
+                            )}
+                          </>
+                        )}
                     </span>
                   </div>
                   <div className="h-1.5 rounded-full bg-background-deep overflow-hidden">

@@ -6,9 +6,10 @@ import express from 'express'
 import request from 'supertest'
 
 import { createProjectRouter, stripSpecMetadataSections, formatDescriptionWithCriteria, extractShortSummary } from './project-router'
+import { serializeInstallConfigYaml } from './project-router-helpers'
 import { resolveTicketStoragePath, mutateStore, readStore } from './ticket-store'
 import { mirrorProjectEntry as regMirror, workspaceLayout as regLayout, resolveHome as regResolveHome } from './artifact-registry'
-import { initDb } from './db'
+import { initDb, listProposals } from './db'
 import { initDesktopDb } from './desktop-db'
 import { installConfigPath, installConfigPathForProvider } from './install-config-path'
 import { readBlueprint, writeBlueprintPair } from './blueprint-render'
@@ -133,6 +134,7 @@ function makeChatManager(overrides: Partial<{
 
 function makeProposalManager(overrides: Partial<{
   isActive: (id: string) => boolean
+  canStartExploration: () => boolean
   startExploration: () => Promise<void>
   sendRefinement: () => Promise<void>
   createIssue: () => Promise<void>
@@ -140,6 +142,7 @@ function makeProposalManager(overrides: Partial<{
 }> = {}) {
   return {
     isActive: overrides.isActive ?? vi.fn(() => false),
+    canStartExploration: overrides.canStartExploration ?? vi.fn(() => true),
     startExploration: overrides.startExploration ?? vi.fn(async () => {}),
     sendRefinement: overrides.sendRefinement ?? vi.fn(async () => {}),
     createIssue: overrides.createIssue ?? vi.fn(async () => {}),
@@ -478,6 +481,104 @@ describe('project-router', () => {
       expect(Object.prototype.hasOwnProperty.call(enqueueOptions, 'profileName')).toBe(false)
     })
 
+    it('reruns a Kimi job with its exact custom alias, profile, ticket command, and no invented effort', async () => {
+      const alias = 'moonshot-team/private-coder:v2'
+      db.prepare(`
+        INSERT INTO jobs (id, command, started_at, finished_at, status, provider, model)
+        VALUES (?, ?, ?, ?, 'completed', 'kimi', ?)
+      `).run(
+        'kimi-source',
+        '/specrails:implement #42 --yes',
+        '2026-07-18T10:00:00.000Z',
+        '2026-07-18T10:05:00.000Z',
+        alias,
+      )
+      db.prepare(`
+        INSERT INTO job_profiles (job_id, profile_name, profile_json, created_at)
+        VALUES (?, ?, ?, ?)
+      `).run('kimi-source', 'kimi-balanced', '{}', Date.now())
+
+      const enqueue = vi.fn(() => ({ id: 'kimi-rerun', queuePosition: 0 }))
+      const base = makeContext(db)
+      const ctx = makeContext(db, {
+        project: { ...base.project, provider: 'kimi', providers: ['kimi', 'claude'] },
+        queueManager: makeQueueManager({ enqueue }) as any,
+      })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const res = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .send({
+          rerunOfJobId: 'kimi-source',
+          // Duplicated client metadata is deliberately untrusted/ignored.
+          command: '/specrails:implement #999 --yes',
+          aiEngine: 'claude',
+          model: 'k3',
+          profileName: 'different-profile',
+          reasoning_effort: 'max',
+        })
+
+      expect(res.status).toBe(202)
+      expect(enqueue).toHaveBeenCalledOnce()
+      expect(enqueue.mock.calls[0][0]).toBe('/specrails:implement #42 --yes')
+      expect(enqueue.mock.calls[0][2]).toEqual({
+        profileName: 'kimi-balanced',
+        provider: 'kimi',
+        model: alias,
+        dependsOnJobId: undefined,
+        pipelineId: undefined,
+      })
+      expect(enqueue.mock.calls[0][2]).not.toHaveProperty('reasoning_effort')
+      expect(enqueue.mock.calls[0][2]).not.toHaveProperty('effort')
+    })
+
+    it('fails closed when persisted Kimi rerun metadata contains an unsafe alias', async () => {
+      db.prepare(`
+        INSERT INTO jobs (id, command, started_at, status, provider, model)
+        VALUES ('kimi-unsafe', '/specrails:implement #7 --yes', ?, 'failed', 'kimi', '--yolo')
+      `).run('2026-07-18T10:00:00.000Z')
+      const enqueue = vi.fn()
+      const base = makeContext(db)
+      const ctx = makeContext(db, {
+        project: { ...base.project, provider: 'kimi', providers: ['kimi'] },
+        queueManager: makeQueueManager({ enqueue }) as any,
+      })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const res = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .send({ rerunOfJobId: 'kimi-unsafe' })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error).toContain('model is not valid for provider "kimi"')
+      expect(enqueue).not.toHaveBeenCalled()
+    })
+
+    it('rejects a missing or non-terminal rerun source before enqueue', async () => {
+      db.prepare(`
+        INSERT INTO jobs (id, command, started_at, status, provider, model)
+        VALUES ('kimi-running', '/specrails:implement #8 --yes', ?, 'running', 'kimi', 'k3')
+      `).run('2026-07-18T10:00:00.000Z')
+      const enqueue = vi.fn()
+      const base = makeContext(db)
+      const ctx = makeContext(db, {
+        project: { ...base.project, provider: 'kimi', providers: ['kimi'] },
+        queueManager: makeQueueManager({ enqueue }) as any,
+      })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const missing = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .send({ rerunOfJobId: 'missing-source' })
+      const running = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .send({ rerunOfJobId: 'kimi-running' })
+
+      expect(missing.status).toBe(404)
+      expect(running.status).toBe(409)
+      expect(enqueue).not.toHaveBeenCalled()
+    })
+
     it('returns the original job when an idempotent spawn is submitted twice', async () => {
       const enqueue = makeAtomicEnqueue(db)
       const ctx = makeContext(db, { queueManager: makeQueueManager({ enqueue }) as any })
@@ -498,6 +599,35 @@ describe('project-router', () => {
       expect(db.prepare('SELECT id FROM queued_jobs').all()).toEqual([{ id: first.body.jobId }])
       expect(db.prepare('SELECT job_id FROM job_spawn_requests').all())
         .toEqual([{ job_id: first.body.jobId }])
+    })
+
+    it('includes the source-job identity in the rerun idempotency fingerprint', async () => {
+      const insert = db.prepare(`
+        INSERT INTO jobs (id, command, started_at, status, provider, model)
+        VALUES (?, '/specrails:implement #42 --yes', ?, 'completed', 'kimi', ?)
+      `)
+      insert.run('kimi-source-a', '2026-07-18T10:00:00.000Z', 'moonshot-team/private-coder:v2')
+      insert.run('kimi-source-b', '2026-07-18T11:00:00.000Z', 'moonshot-team/private-coder:v2')
+      const enqueue = makeAtomicEnqueue(db)
+      const base = makeContext(db)
+      const ctx = makeContext(db, {
+        project: { ...base.project, provider: 'kimi', providers: ['kimi'] },
+        queueManager: makeQueueManager({ enqueue }) as any,
+      })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const first = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .set('Idempotency-Key', 'same-rerun-key')
+        .send({ rerunOfJobId: 'kimi-source-a' })
+      const conflict = await request(app)
+        .post('/api/projects/proj-1/spawn')
+        .set('Idempotency-Key', 'same-rerun-key')
+        .send({ rerunOfJobId: 'kimi-source-b' })
+
+      expect(first.status).toBe(202)
+      expect(conflict.status).toBe(409)
+      expect(enqueue).toHaveBeenCalledTimes(1)
     })
 
     it('rejects reuse of an idempotency key for a different command', async () => {
@@ -712,6 +842,34 @@ describe('project-router', () => {
       // job fields. tickets[] is additive.
       expect(res.body.job.command).toBe('sr:implement')
       expect(res.body.job.tickets).toEqual([])
+    })
+
+    it('returns provider, exact model, and persisted profile metadata for rerun', async () => {
+      const alias = 'moonshot-team/private-coder:v2'
+      db.prepare(`
+        INSERT INTO jobs (id, command, started_at, status, provider, model)
+        VALUES ('kimi-detail', '/specrails:implement #42 --yes', ?, 'completed', 'kimi', ?)
+      `).run('2026-07-18T10:00:00.000Z', alias)
+      db.prepare(`
+        INSERT INTO job_profiles (job_id, profile_name, profile_json, created_at)
+        VALUES ('kimi-detail', 'kimi-balanced', '{}', ?)
+      `).run(Date.now())
+      const base = makeContext(db)
+      const ctx = makeContext(db, {
+        project: { ...base.project, provider: 'kimi', providers: ['kimi'] },
+      })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const res = await request(app).get('/api/projects/proj-1/jobs/kimi-detail')
+
+      expect(res.status).toBe(200)
+      expect(res.body.job).toMatchObject({
+        id: 'kimi-detail',
+        command: '/specrails:implement #42 --yes',
+        provider: 'kimi',
+        model: alias,
+        profile_name: 'kimi-balanced',
+      })
     })
 
     it('returns stable durable enqueue time and no synthetic start for a queued job', async () => {
@@ -3125,18 +3283,33 @@ describe('project-router', () => {
 
   describe('POST /:projectId/propose success path', () => {
     it('returns 202 with proposalId when proposal command exists', async () => {
-      // This route calls resolveCommand — if the resolved command differs from input,
-      // it means the command exists. We use a mock-like approach by just verifying the flow.
+      const canStartExploration = vi.fn(() => true)
       const startExploration = vi.fn(async () => {})
-      const pm = makeProposalManager({ startExploration })
+      const pm = makeProposalManager({ canStartExploration, startExploration })
       const ctx = makeContext(db, { proposalManager: pm as any })
       const { app } = createApp(new Map([['proj-1', ctx]]))
       const res = await request(app)
         .post('/api/projects/proj-1/propose')
         .send({ idea: 'add dark mode' })
-      // If propose-feature is not installed, returns 400; otherwise 202
-      // Either way the route is exercised
-      expect([202, 400]).toContain(res.status)
+      expect(res.status).toBe(202)
+      expect(canStartExploration).toHaveBeenCalledOnce()
+      expect(startExploration).toHaveBeenCalledOnce()
+    })
+
+    it('returns 400 before creating a proposal when the provider preflight fails', async () => {
+      const startExploration = vi.fn(async () => {})
+      const pm = makeProposalManager({
+        canStartExploration: vi.fn(() => false),
+        startExploration,
+      })
+      const ctx = makeContext(db, { proposalManager: pm as any })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app)
+        .post('/api/projects/proj-1/propose')
+        .send({ idea: 'add dark mode' })
+      expect(res.status).toBe(400)
+      expect(startExploration).not.toHaveBeenCalled()
+      expect(listProposals(db, { limit: 20, offset: 0 }).total).toBe(0)
     })
   })
 
@@ -3727,7 +3900,10 @@ describe('project-router', () => {
       else process.env.SPECRAILS_REGISTRY_HOME = prevRegistryHome
     })
 
-    function ctxWithProject(provider: 'claude' | 'codex' | undefined, configBody?: string): ProjectContext {
+    function ctxWithProject(
+      provider: 'claude' | 'codex' | 'gemini' | 'kimi' | undefined,
+      configBody?: string,
+    ): ProjectContext {
       const ctx = makeContext(db, {
         project: {
           id: 'proj-1', slug: 'proj', name: 'P', path: tmpDir,
@@ -3743,6 +3919,18 @@ describe('project-router', () => {
       }
       return ctx
     }
+
+    it.each([
+      [{}, 'claude', 'sonnet'],
+      [{ provider: 'not-a-provider' }, 'claude', 'sonnet'],
+    ] as const)(
+      'fails safe to Claude when serializing an absent or invalid provider (%#)',
+      (config, expectedProvider, expectedModel) => {
+        const yaml = serializeInstallConfigYaml(config)
+        expect(yaml).toContain(`provider: ${expectedProvider}`)
+        expect(yaml).toContain(`defaults: { model: ${expectedModel} }`)
+      },
+    )
 
     it('returns claude default when no install-config and provider is claude', async () => {
       const ctx = ctxWithProject('claude')
@@ -3769,6 +3957,40 @@ describe('project-router', () => {
       const { app } = createApp(new Map([['proj-1', ctx]]))
       const res = await request(app).get('/api/projects/proj-1/default-spec-model')
       expect(res.body.model).toBe('opus')
+    })
+
+    it('preserves an exact configured Kimi alias and advertises custom-alias support', async () => {
+      const customAlias = 'moonshot-team/private-coder:v2'
+      const ctx = ctxWithProject(
+        'kimi',
+        `models:\n  defaults: { model: ${customAlias} }\n`,
+      )
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app).get('/api/projects/proj-1/default-spec-model')
+
+      expect(res.status).toBe(200)
+      expect(res.body).toMatchObject({
+        provider: 'kimi',
+        model: customAlias,
+        customModelAliases: true,
+      })
+      expect(res.body.allowed.map((entry: { value: string }) => entry.value)).toEqual([
+        'k3',
+        'kimi-for-coding',
+        'kimi-for-coding-highspeed',
+      ])
+    })
+
+    it('rejects an unsafe configured Kimi alias and falls back to K3', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const ctx = ctxWithProject('kimi', 'models:\n  defaults: { model: --yolo }\n')
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app).get('/api/projects/proj-1/default-spec-model')
+
+      expect(res.status).toBe(200)
+      expect(res.body.model).toBe('k3')
+      expect(warn).toHaveBeenCalled()
+      warn.mockRestore()
     })
 
     it('falls back to provider default when configured model is not in allow-list', async () => {
@@ -3817,8 +4039,38 @@ describe('project-router', () => {
       expect(res.body.model).toBe('opus')
     })
 
+    it.each([
+      ['kimi', 'k3'],
+      ['claude', 'sonnet'],
+    ] as const)(
+      'serializes a minimal MCP-compatible %s install config with its provider default %s',
+      async (provider, expectedModel) => {
+        const ctx = makeContext(db, {
+          project: {
+            id: 'proj-1', slug: 'proj', name: 'P', path: tmpDir,
+            db_path: ':memory:', provider, providers: [provider], added_at: '', last_seen_at: '',
+          } as any,
+        })
+        const { app } = createApp(new Map([['proj-1', ctx]]))
+
+        // This is the minimal shape specrails_setup(install_config) forwards:
+        // no models block, so the server serializer owns the provider default.
+        const write = await request(app)
+          .post('/api/projects/proj-1/setup/install-config')
+          .send({ provider, agents: { selected: [], excluded: [] }, tier: 'quick' })
+
+        expect(write.status).toBe(200)
+        const yaml = fs.readFileSync(
+          installConfigPathForProvider({ slug: 'proj', path: tmpDir }, provider),
+          'utf-8',
+        )
+        expect(yaml).toContain(`provider: ${provider}`)
+        expect(yaml).toContain(`defaults: { model: ${expectedModel} }`)
+      },
+    )
+
     it('persists a PER-PROVIDER install-config per provider (additive, not clobbered)', async () => {
-      // Multi-provider regression: installing claude → codex → gemini in turn used
+      // Multi-provider regression: installing providers in turn used
       // to leave only the LAST provider's config in the single shared file. Each
       // POST must now also write install-config.<provider>.yaml so every config
       // survives.
@@ -3830,22 +4082,33 @@ describe('project-router', () => {
       })
       const { app } = createApp(new Map([['proj-1', ctx]]))
 
-      for (const provider of ['claude', 'codex', 'gemini']) {
+      const modelByProvider: Record<string, string> = {
+        claude: 'opus',
+        codex: 'gpt-5.5',
+        gemini: 'gemini-3.5-flash',
+        kimi: 'k3',
+      }
+      for (const provider of ['claude', 'codex', 'gemini', 'kimi']) {
         const w = await request(app)
           .post('/api/projects/proj-1/setup/install-config')
-          .send({ version: 1, provider, tier: 'quick', models: { defaults: { model: 'opus' } } })
+          .send({
+            version: 1,
+            provider,
+            tier: 'quick',
+            models: { defaults: { model: modelByProvider[provider] } },
+          })
         expect(w.status).toBe(200)
         expect(w.body.providerPath).toBe(installConfigPathForProvider({ slug: 'proj', path: tmpDir }, provider))
       }
 
-      // All three per-provider configs coexist, each carrying its own provider.
-      for (const provider of ['claude', 'codex', 'gemini']) {
+      // All per-provider configs coexist, each carrying its own provider.
+      for (const provider of ['claude', 'codex', 'gemini', 'kimi']) {
         const p = installConfigPathForProvider({ slug: 'proj', path: tmpDir }, provider)
         expect(fs.existsSync(p)).toBe(true)
         expect(fs.readFileSync(p, 'utf-8')).toContain(`provider: ${provider}`)
       }
       // The shared file is still written (legacy readers) = the last provider.
-      expect(fs.readFileSync(installConfigPath({ slug: 'proj', path: tmpDir }), 'utf-8')).toContain('provider: gemini')
+      expect(fs.readFileSync(installConfigPath({ slug: 'proj', path: tmpDir }), 'utf-8')).toContain('provider: kimi')
       // And still ZERO .specrails in the repo.
       expect(fs.existsSync(path.join(tmpDir, '.specrails'))).toBe(false)
     })
@@ -3879,10 +4142,232 @@ describe('project-router', () => {
       const get = await request(app).get('/api/projects/proj-1/agent-models')
       expect(get.body.agents).toEqual([{ name: 'sr-architect', model: 'opus' }])
     })
+
+    it.each([
+      ['claude', 'sonnet', 'opus'],
+      ['codex', 'gpt-5.5', 'gpt-5.4'],
+      ['gemini', 'gemini-3.5-flash', 'gemini-3.1-pro-preview'],
+      ['kimi', 'k3', 'kimi-for-coding'],
+    ] as const)(
+      'creates an absent %s config from an overrides-only patch without cross-provider defaults',
+      async (provider, expectedDefault, overrideModel) => {
+        const { app } = createApp(new Map([
+          ['proj-1', ctxWithProject(provider)],
+        ]))
+
+        const patched = await request(app)
+          .patch('/api/projects/proj-1/agent-models')
+          .send({ overrides: { 'sr-architect': overrideModel } })
+
+        expect(patched.status).toBe(200)
+        const config = fs.readFileSync(
+          installConfigPath({ slug: 'proj', path: tmpDir }),
+          'utf8',
+        )
+        expect(config).toContain(`provider: ${provider}`)
+        expect(config).toContain(`defaults: { model: ${expectedDefault} }`)
+        expect(config).toContain(`sr-architect: ${overrideModel}`)
+      },
+    )
+
+    it.each([
+      ['claude', 'opus', 'haiku'],
+      ['codex', 'gpt-5.4', 'gpt-5.4-mini'],
+      ['gemini', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite'],
+      ['kimi', 'kimi-for-coding', 'kimi-for-coding-highspeed'],
+    ] as const)(
+      'preserves a valid parsed %s default during an overrides-only patch',
+      async (provider, existingDefault, overrideModel) => {
+        const ctx = ctxWithProject(
+          provider,
+          [
+            `provider: ${provider}`,
+            'models:',
+            `  defaults: { model: ${existingDefault} }`,
+            '  overrides: {}',
+            '',
+          ].join('\n'),
+        )
+        const { app } = createApp(new Map([['proj-1', ctx]]))
+
+        const patched = await request(app)
+          .patch('/api/projects/proj-1/agent-models')
+          .send({ overrides: { 'sr-architect': overrideModel } })
+
+        expect(patched.status).toBe(200)
+        const config = fs.readFileSync(
+          installConfigPath({ slug: 'proj', path: tmpDir }),
+          'utf8',
+        )
+        expect(config).toContain(`provider: ${provider}`)
+        expect(config).toContain(`defaults: { model: ${existingDefault} }`)
+      },
+    )
+
+    it('replaces a stale cross-provider parsed default with the project provider default', async () => {
+      const ctx = ctxWithProject(
+        'codex',
+        'provider: claude\nmodels:\n  defaults: { model: sonnet }\n  overrides: {}\n',
+      )
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const patched = await request(app)
+        .patch('/api/projects/proj-1/agent-models')
+        .send({ overrides: { 'sr-architect': 'gpt-5.4' } })
+
+      expect(patched.status).toBe(200)
+      const config = fs.readFileSync(
+        installConfigPath({ slug: 'proj', path: tmpDir }),
+        'utf8',
+      )
+      expect(config).toContain('provider: codex')
+      expect(config).toContain('defaults: { model: gpt-5.5 }')
+      expect(config).not.toContain('sonnet')
+    })
+
+    it('GET /agent-models projects the K3 fallback only over direct Kimi role skills', async () => {
+      const skillsDir = path.join(tmpDir, '.kimi-code', 'skills')
+      for (const role of ['sr-architect', 'custom-auditor']) {
+        const dir = path.join(skillsDir, role)
+        fs.mkdirSync(dir, { recursive: true })
+        fs.writeFileSync(path.join(dir, 'SKILL.md'), `# ${role}\n`)
+      }
+      fs.mkdirSync(path.join(skillsDir, 'specrails-implement'), { recursive: true })
+      fs.writeFileSync(
+        path.join(skillsDir, 'specrails-implement', 'SKILL.md'),
+        '# operational command, not a role\n',
+      )
+      fs.mkdirSync(path.join(skillsDir, 'sr-incomplete'), { recursive: true })
+
+      const { app } = createApp(new Map([
+        ['proj-1', ctxWithProject('kimi')],
+      ]))
+      const res = await request(app).get('/api/projects/proj-1/agent-models')
+
+      expect(res.status).toBe(200)
+      expect(res.body.agents).toEqual([
+        { name: 'custom-auditor', model: 'k3' },
+        { name: 'sr-architect', model: 'k3' },
+      ])
+    })
+
+    it('PATCH /agent-models preserves exact Kimi aliases without modifying SKILL.md', async () => {
+      const skillsDir = path.join(tmpDir, '.kimi-code', 'skills')
+      const originalBodies = new Map<string, string>()
+      for (const role of ['sr-architect', 'sr-developer']) {
+        const dir = path.join(skillsDir, role)
+        const body = `---\nname: ${role}\ndescription: ${role}\ntype: prompt\n---\n\n# ${role}\n`
+        fs.mkdirSync(dir, { recursive: true })
+        fs.writeFileSync(path.join(dir, 'SKILL.md'), body)
+        originalBodies.set(role, body)
+      }
+      const defaultAlias = 'Moonshot-Team/Private_Coder:v2'
+      const architectAlias = 'moonshot-team/architect.v3'
+      const missingAlias = 'moonshot-team/missing:v1'
+      const { app } = createApp(new Map([
+        ['proj-1', ctxWithProject('kimi')],
+      ]))
+
+      const patched = await request(app)
+        .patch('/api/projects/proj-1/agent-models')
+        .send({
+          defaultModel: defaultAlias,
+          overrides: {
+            'sr-architect': architectAlias,
+            'sr-missing': missingAlias,
+          },
+        })
+
+      expect(patched.status).toBe(200)
+      expect(patched.body.agents).toEqual([
+        { name: 'sr-architect', model: architectAlias },
+        { name: 'sr-developer', model: defaultAlias },
+      ])
+      for (const [role, body] of originalBodies) {
+        expect(fs.readFileSync(path.join(skillsDir, role, 'SKILL.md'), 'utf8')).toBe(body)
+      }
+      expect(fs.existsSync(path.join(skillsDir, 'sr-missing'))).toBe(false)
+
+      const config = fs.readFileSync(
+        installConfigPath({ slug: 'proj', path: tmpDir }),
+        'utf8',
+      )
+      expect(config).toContain('provider: kimi')
+      expect(config).toContain(`defaults: { model: ${defaultAlias} }`)
+      expect(config).toContain(`sr-architect: ${architectAlias}`)
+      expect(config).toContain(`sr-missing: ${missingAlias}`)
+
+      const fetched = await request(app).get('/api/projects/proj-1/agent-models')
+      expect(fetched.body.agents).toEqual(patched.body.agents)
+    })
+
+    it('GET /agent-models falls back to K3 for unsafe Kimi config aliases', async () => {
+      const roleDir = path.join(tmpDir, '.kimi-code', 'skills', 'sr-architect')
+      fs.mkdirSync(roleDir, { recursive: true })
+      fs.writeFileSync(path.join(roleDir, 'SKILL.md'), '# architect\n')
+      const ctx = ctxWithProject(
+        'kimi',
+        [
+          'provider: kimi',
+          'models:',
+          '  defaults: { model: --yolo }',
+          '  overrides:',
+          '    sr-architect: --danger',
+          'agent_teams: false',
+          '',
+        ].join('\n'),
+      )
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const res = await request(app).get('/api/projects/proj-1/agent-models')
+      expect(res.status).toBe(200)
+      expect(res.body.agents).toEqual([{ name: 'sr-architect', model: 'k3' }])
+
+      const rejected = await request(app)
+        .patch('/api/projects/proj-1/agent-models')
+        .send({ defaultModel: '--yolo' })
+      expect(rejected.status).toBe(400)
+      expect(fs.readFileSync(path.join(roleDir, 'SKILL.md'), 'utf8')).toBe('# architect\n')
+    })
+
+    it.each([
+      ['claude', 'opus'],
+      ['codex', 'gpt-5.4'],
+      ['gemini', 'gemini-3.1-pro-preview'],
+    ] as const)(
+      'keeps the existing .claude agent projection byte-identical for %s',
+      async (provider, targetModel) => {
+        const agentsDir = path.join(tmpDir, '.claude', 'agents')
+        fs.mkdirSync(agentsDir, { recursive: true })
+        const before = [
+          '---',
+          'name: sr-architect',
+          'model: sonnet',
+          'description: existing role',
+          '---',
+          '',
+          'body',
+          '',
+        ].join('\n')
+        const agentPath = path.join(agentsDir, 'sr-architect.md')
+        fs.writeFileSync(agentPath, before)
+        const { app } = createApp(new Map([
+          ['proj-1', ctxWithProject(provider)],
+        ]))
+
+        const res = await request(app)
+          .patch('/api/projects/proj-1/agent-models')
+          .send({ defaultModel: targetModel })
+
+        expect(res.status).toBe(200)
+        expect(fs.readFileSync(agentPath, 'utf8'))
+          .toBe(before.replace('model: sonnet', `model: ${targetModel}`))
+      },
+    )
   })
 
   describe('POST /tickets/generate-spec — model validation', () => {
-    function ctxFor(provider: 'claude' | 'codex'): ProjectContext {
+    function ctxFor(provider: 'claude' | 'codex' | 'kimi'): ProjectContext {
       return makeContext(db, {
         project: {
           id: 'proj-1', slug: 'proj', name: 'P', path: '/tmp', db_path: ':memory:',
@@ -3924,6 +4409,19 @@ describe('project-router', () => {
       expect(res.status).toBe(400)
     })
 
+    it('rejects Kimi Quick generation before any spawn', async () => {
+      const ctx = ctxFor('kimi')
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app)
+        .post('/api/projects/proj-1/tickets/generate-spec')
+        .send({ idea: 'do a thing', model: 'k3' })
+      expect(res.status).toBe(409)
+      expect(res.body).toMatchObject({
+        error: 'provider_tool_policy_unsupported',
+        provider: 'kimi',
+      })
+    })
+
   })
 
   describe('POST /chat/conversations — model validation', () => {
@@ -3955,6 +4453,85 @@ describe('project-router', () => {
         .send({})
       expect(res.status).toBe(201)
       expect(res.body.conversation.model).toBe('sonnet')
+    })
+
+    it('preserves exact custom Kimi aliases on create and update', async () => {
+      const firstAlias = 'moonshot-team/private-coder:v2'
+      const secondAlias = 'moonshot-team/private-coder:v3'
+      const ctx = makeContext(db, {
+        project: {
+          id: 'proj-1', slug: 'proj', name: 'P', path: '/tmp', db_path: ':memory:',
+          added_at: '', last_seen_at: '', provider: 'kimi', providers: ['kimi', 'claude'],
+        } as any,
+      })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const created = await request(app)
+        .post('/api/projects/proj-1/chat/conversations')
+        .send({ model: firstAlias })
+      expect(created.status).toBe(201)
+      expect(created.body.conversation).toMatchObject({
+        provider: 'kimi',
+        model: firstAlias,
+      })
+
+      const updated = await request(app)
+        .patch(`/api/projects/proj-1/chat/conversations/${created.body.conversation.id}`)
+        .send({ model: secondAlias })
+      expect(updated.status).toBe(200)
+      expect(updated.body.conversation.model).toBe(secondAlias)
+    })
+
+    it('rejects unsafe flag-like Kimi aliases on create and update', async () => {
+      const safeAlias = 'moonshot-team/private-coder:v2'
+      const ctx = makeContext(db, {
+        project: {
+          id: 'proj-1', slug: 'proj', name: 'P', path: '/tmp', db_path: ':memory:',
+          added_at: '', last_seen_at: '', provider: 'kimi', providers: ['kimi'],
+        } as any,
+      })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const rejectedCreate = await request(app)
+        .post('/api/projects/proj-1/chat/conversations')
+        .send({ model: '--yolo' })
+      expect(rejectedCreate.status).toBe(400)
+
+      const created = await request(app)
+        .post('/api/projects/proj-1/chat/conversations')
+        .send({ model: safeAlias })
+      expect(created.status).toBe(201)
+
+      const rejectedUpdate = await request(app)
+        .patch(`/api/projects/proj-1/chat/conversations/${created.body.conversation.id}`)
+        .send({ model: '--yolo' })
+      expect(rejectedUpdate.status).toBe(400)
+
+      const unchanged = await request(app)
+        .get(`/api/projects/proj-1/chat/conversations/${created.body.conversation.id}`)
+      expect(unchanged.status).toBe(200)
+      expect(unchanged.body.conversation.model).toBe(safeAlias)
+    })
+
+    it('rejects Kimi milestone creation before persisting the conversation', async () => {
+      const ctx = makeContext(db, {
+        project: {
+          id: 'proj-1', slug: 'proj', name: 'P', path: '/tmp', db_path: ':memory:',
+          added_at: '', last_seen_at: '', provider: 'kimi', providers: ['kimi'],
+        } as any,
+      })
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app)
+        .post('/api/projects/proj-1/chat/conversations')
+        .send({ kind: 'milestone', milestone: 'm2' })
+      expect(res.status).toBe(409)
+      expect(res.body).toMatchObject({
+        error: 'provider_tool_policy_unsupported',
+        provider: 'kimi',
+        requiredPolicy: 'read-only',
+      })
+      const list = await request(app).get('/api/projects/proj-1/chat/conversations')
+      expect(list.body.conversations).toEqual([])
     })
   })
 })

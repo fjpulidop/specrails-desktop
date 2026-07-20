@@ -41,6 +41,14 @@
     "invocations_other": "{{count}} invocazioni",
     "tokens": "· {{tokens}} token",
     "tokensTooltip": "Token totali = input nuovo + output + lettura cache + creazione cache su tutte le invocazioni in questa finestra.",
+    "usageUnavailable": "· utilizzo dei token non disponibile",
+    "usageUnavailableTooltip": "Il provider ha completato queste invocazioni senza esporre la telemetria dei token.",
+    "usagePartiallyUnavailable": "· {{tokens}} token noti; senza dati: {{count}}",
+    "usagePartiallyUnavailableTooltip": "Solo subtotale noto; alcune invocazioni non espongono la telemetria dei token.",
+    "costUnavailable": "costo non disponibile",
+    "costUnavailableTooltip": "Il provider ha completato queste invocazioni senza esporre telemetria sufficiente per determinarne il costo.",
+    "costPartiallyUnavailable": "· subtotale noto; senza costo: {{count}}",
+    "costPartiallyUnavailableTooltip": "Solo subtotale noto; alcune invocazioni non espongono telemetria sufficiente per determinarne il costo.",
     "includesEstimated": "· include ~{{amount}} stimati",
     "includesEstimatedTooltip": "Include {{amount}} di costo stimato da provider senza un campo di costo nativo (es. codex tramite la tabella prezzi locale).",
     "trackingStarted": "Tracciamento iniziato il {{date}}",
@@ -54,12 +62,16 @@
     "noCost": "Ancora nessun costo registrato in questa finestra.",
     "segmentTitle": "{{label}}: {{value}} ({{count}})",
     "costUnavailable": "costo non disponibile",
-    "costUnavailableTooltip": "Questo provider è stato eseguito ma il suo modello non è nella tabella prezzi, quindi non è stato possibile calcolare alcun costo."
+    "costUnavailableTooltip": "Questo provider è stato eseguito ma il suo modello non è nella tabella prezzi, quindi non è stato possibile calcolare alcun costo.",
+    "costPartiallyUnavailable": "· non disponibili: {{count}}",
+    "costPartiallyUnavailableTooltip": "Solo subtotale noto; il costo di alcune esecuzioni non è disponibile."
   },
   "timeline": {
     "title": "Timeline giornaliera",
     "subtitle": "impilata per origine",
-    "empty": "Nessuna spesa in questo periodo."
+    "empty": "Nessuna spesa in questo periodo.",
+    "costUnavailable": "Sono state registrate invocazioni, ma la telemetria dei costi non è disponibile.",
+    "costPartiallyUnavailable": "costi noti · non disponibili: {{count}}"
   },
   "quickVsExplore": {
     "title": "Quick vs Explore",
@@ -73,27 +85,39 @@
     "avgDuration": "{{duration}} in media",
     "ratio": "{{ratio}}× in più per spec",
     "estimatedTooltip": "Costo stimato (stima da tabella prezzi per codex/gemini, non fatturato dal provider)",
-    "estimatedFootnote": "~ Include costi stimati (codex/gemini)"
+    "estimatedFootnote": "~ Include costi stimati (codex/gemini)",
+    "costUnavailable": "costo per spec non disponibile",
+    "costUnavailableTooltip": "Non è possibile calcolare la media per spec perché una o più esecuzioni non espongono il costo."
   },
   "models": {
     "title": "Modelli",
     "empty": "Nessun modello registrato.",
     "estimatedTooltip": "Stimato dalla tabella prezzi locale — questo provider non riporta il costo in modo nativo.",
-    "others": "Altri"
+    "others": "Altri",
+    "costUnavailableWithRuns": "— · {{count}}",
+    "costUnavailableTooltip": "La telemetria dei costi non è disponibile per tutte le esecuzioni di questo modello.",
+    "costPartiallyUnavailable": "· non disponibili: {{count}}",
+    "costPartiallyUnavailableTooltip": "Solo subtotale noto; alcune esecuzioni di questo modello non hanno telemetria dei costi."
   },
   "scatter": {
     "title": "Costo vs Turni",
     "empty": "Nessuna invocazione da rappresentare.",
     "turnsLabel": "turni",
     "costLabel": "costo",
-    "truncated": "Visualizzati {{shown}} di {{total}} — il punto più costoso viene mantenuto, ma i punti precedenti sono nascosti"
+    "truncated": "Visualizzati {{shown}} di {{total}} — il punto più costoso viene mantenuto, ma i punti precedenti sono nascosti",
+    "costUnavailable": "Sono state registrate invocazioni, ma non sono disponibili dati di costo da rappresentare.",
+    "costPartiallyUnavailable": "Il grafico include solo le esecuzioni con costo; costo non disponibile: {{count}}."
   },
   "topTickets": {
     "title": "Top ticket",
     "empty": "Nessuna attività sui ticket in questo periodo.",
     "breakdownItem": "{{n}} {{label}}",
     "unattributed": "Non attribuito",
-    "deletedTicket": "ticket eliminato #{{id}}"
+    "deletedTicket": "ticket eliminato #{{id}}",
+    "costUnavailable": "costo non disponibile",
+    "costUnavailableTooltip": "Nessuna esecuzione di questo ticket ha esposto telemetria dei costi.",
+    "costPartiallyUnavailable": "non disponibili: {{count}}",
+    "costPartiallyUnavailableTooltip": "Solo subtotale noto; alcune esecuzioni di questo ticket non hanno un costo disponibile."
   },
   "table": {
     "title": "Tutte le invocazioni",
@@ -145,12 +169,14 @@
     "failedToLoad": "Impossibile caricare le analytics: {{error}}",
     "totalCost": "Costo totale",
     "costToday": "{{value}} oggi",
+    "costTodayUnavailable": "costo non disponibile oggi",
     "totalJobs": "Job totali",
     "jobsToday": "{{n}} oggi",
     "successRate": "Tasso di successo",
     "acrossAllProjects": "su tutti i progetti",
     "avgCostPerJob": "Costo medio / job",
     "periodAverage": "media del periodo",
+    "averageUnavailable": "media non disponibile con telemetria dei costi incompleta",
     "costOverTime": "Costo nel tempo tra i progetti",
     "noCostData": "Nessun dato di costo per questo periodo",
     "projectComparison": "Confronto progetti",
@@ -165,7 +191,10 @@
     "timelineEstimatedTooltip": "Alcuni giorni includono un costo stimato da tabella prezzi (codex/gemini) contrassegnato con ~.",
     "estimatedBadge": "stim.",
     "projectEstimatedTooltip": "{{amount}} del costo di questo progetto è una stima da tabella prezzi (codex/gemini), non fatturato dal provider.",
-    "statusBarEstimatedTooltip": "Include un costo stimato da tabella prezzi (codex/gemini), non fatturato dal provider."
+    "statusBarEstimatedTooltip": "Include un costo stimato da tabella prezzi (codex/gemini), non fatturato dal provider.",
+    "costUnavailable": "Sono state registrate invocazioni, ma la telemetria dei costi non è disponibile.",
+    "costUnavailableShort": "non disponibile",
+    "costPartiallyUnavailable": "Subtotale dei costi noti; invocazioni senza costo: {{count}}."
   },
   "windowLabels": {
     "7d": "Ultimi 7 giorni",

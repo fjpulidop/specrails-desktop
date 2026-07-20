@@ -20,7 +20,7 @@ export function RailLoopSelector({
 }: {
   value: string | null | undefined
   onChange: (loopId: string) => void
-  /** Offer the Claude-only Freestyle built-in (hidden on non-Claude rails). */
+  /** Offer the provider-owned Freestyle built-in when the adapter supports it. */
   freestyleAvailable?: boolean
   /** Fetch + offer the user's custom published loops (Loops section feature). */
   loopsEnabled?: boolean
@@ -41,7 +41,7 @@ export function RailLoopSelector({
   }, [loopsEnabled])
 
   const builtIn = FACTORY_RAIL_LOOPS.filter(
-    (f) => (freestyleAvailable || !f.claudeOnly) && (loopsEnabled || !f.requiresLoops),
+    (f) => (freestyleAvailable || !f.requiresFreestyle) && (loopsEnabled || !f.requiresLoops),
   )
 
   return (

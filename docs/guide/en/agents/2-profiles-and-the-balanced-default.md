@@ -37,7 +37,13 @@ That's the whole flow: choose a profile, launch, done. Concurrent rails in the s
 
 ## When the Agents section is quiet
 
-Profiles are a Claude capability. On a project that includes a non-Claude provider (Codex or Gemini), the Agents section is hidden and rails run without profiles — that's expected, not a bug. Profiles also require a recent enough `specrails-core` in the project; if it's older, you'll see a yellow banner. Profiles you create still **save** — they just don't affect the pipeline until core is updated. Update with the command shown in the banner to unlock them.
+Profiles are provider-scoped. Claude and Kimi support role/profile execution;
+Codex and Gemini rails use legacy mode. A mixed project keeps independent
+Claude and Kimi profile files/models, so identically named profiles cannot
+silently cross providers. Kimi also supports manual `custom-*` role
+creation/editing/execution, while Agent Studio generation, smoke test, and AI
+Refine fail closed. Profiles require a recent enough `specrails-core`; Kimi's
+framework target requires Core 4.12.0 or newer.
 
 ## Where to go next
 

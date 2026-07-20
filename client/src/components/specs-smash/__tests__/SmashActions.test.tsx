@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 import { SmashActions, ticketCanSmash } from '../SmashActions'
 import type { LocalTicket } from '../../../types'
@@ -68,6 +68,7 @@ describe('SmashActions', () => {
       <SmashActions
         ticket={makeTicket({ description: 'no contract' })}
         projectId="p"
+        provider="claude"
         featureFlagOn
         childrenCount={0}
       />,
@@ -77,13 +78,13 @@ describe('SmashActions', () => {
 
   it('renders the SMASH button for eligible tickets', () => {
     render(
-      <SmashActions ticket={makeTicket()} projectId="p" featureFlagOn childrenCount={0} />,
+      <SmashActions ticket={makeTicket()} projectId="p" provider="claude" featureFlagOn childrenCount={0} />,
     )
     expect(screen.getByTestId('smash-button')).toBeInTheDocument()
   })
 
   it('clicking SMASH opens the confirm modal', () => {
-    render(<SmashActions ticket={makeTicket()} projectId="p" featureFlagOn childrenCount={0} />)
+    render(<SmashActions ticket={makeTicket()} projectId="p" provider="claude" featureFlagOn childrenCount={0} />)
     fireEvent.click(screen.getByTestId('smash-button'))
     expect(screen.getByTestId('smash-confirm-modal')).toBeInTheDocument()
     expect(screen.getByTestId('smash-mode-simple')).toBeInTheDocument()
@@ -91,7 +92,7 @@ describe('SmashActions', () => {
   })
 
   it('Cancel in modal returns to idle', () => {
-    render(<SmashActions ticket={makeTicket()} projectId="p" featureFlagOn childrenCount={0} />)
+    render(<SmashActions ticket={makeTicket()} projectId="p" provider="claude" featureFlagOn childrenCount={0} />)
     fireEvent.click(screen.getByTestId('smash-button'))
     fireEvent.click(screen.getByText('Cancel'))
     expect(screen.queryByTestId('smash-confirm-modal')).not.toBeInTheDocument()
@@ -99,7 +100,7 @@ describe('SmashActions', () => {
   })
 
   it('Continue in modal POSTs to the smash endpoint with mode=simple by default', async () => {
-    render(<SmashActions ticket={makeTicket()} projectId="p" featureFlagOn childrenCount={0} />)
+    render(<SmashActions ticket={makeTicket()} projectId="p" provider="claude" featureFlagOn childrenCount={0} />)
     fireEvent.click(screen.getByTestId('smash-button'))
     fireEvent.click(screen.getByTestId('smash-confirm-modal-continue'))
     await new Promise((r) => setTimeout(r, 10))
@@ -113,7 +114,7 @@ describe('SmashActions', () => {
   })
 
   it('selecting Full mode POSTs with mode=full', async () => {
-    render(<SmashActions ticket={makeTicket()} projectId="p" featureFlagOn childrenCount={0} />)
+    render(<SmashActions ticket={makeTicket()} projectId="p" provider="claude" featureFlagOn childrenCount={0} />)
     fireEvent.click(screen.getByTestId('smash-button'))
     fireEvent.click(screen.getByTestId('smash-mode-full'))
     fireEvent.click(screen.getByTestId('smash-confirm-modal-continue'))
@@ -131,6 +132,7 @@ describe('SmashActions', () => {
       <SmashActions
         ticket={makeTicket({ is_epic: true })}
         projectId="p"
+        provider="claude"
         featureFlagOn
         childrenCount={3}
       />,
@@ -143,6 +145,7 @@ describe('SmashActions', () => {
       <SmashActions
         ticket={makeTicket({ is_epic: true })}
         projectId="p"
+        provider="claude"
         featureFlagOn
         childrenCount={4}
       />,
@@ -157,6 +160,7 @@ describe('SmashActions', () => {
       <SmashActions
         ticket={makeTicket({ is_epic: true })}
         projectId="p"
+        provider="claude"
         featureFlagOn
         childrenCount={0}
       />,
@@ -164,5 +168,69 @@ describe('SmashActions', () => {
     fireEvent.click(screen.getByTestId('resmash-button'))
     expect(screen.getByTestId('smash-confirm-modal')).toBeInTheDocument()
     expect(screen.queryByText(/delete the/)).not.toBeInTheDocument()
+  })
+
+  it('Kimi never renders Re-SMASH or executes a child DELETE', () => {
+    const { container } = render(
+      <SmashActions
+        ticket={makeTicket({ is_epic: true })}
+        projectId="p"
+        provider="kimi"
+        featureFlagOn
+        childrenCount={4}
+      />,
+    )
+
+    expect(container.firstChild).toBeNull()
+    expect(screen.queryByTestId('resmash-button')).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('fails closed while resolving a ticket origin and keeps Re-SMASH hidden for a Kimi-origin ticket in a Claude-primary project', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ conversation: { provider: 'kimi' } }),
+    } as Response)
+
+    render(
+      <SmashActions
+        ticket={makeTicket({ is_epic: true, origin_conversation_id: 'conv-kimi' })}
+        projectId="p"
+        provider="claude"
+        featureFlagOn
+        childrenCount={4}
+      />,
+    )
+
+    // No optimistic flash before the provider lookup resolves.
+    expect(screen.queryByTestId('resmash-button')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/projects/p/chat/conversations/conv-kimi'),
+      )
+    })
+    expect(screen.queryByTestId('resmash-button')).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('interprets a NULL origin-conversation provider as the project primary', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ conversation: { provider: null } }),
+    } as Response)
+
+    render(
+      <SmashActions
+        ticket={makeTicket({ is_epic: true, origin_conversation_id: 'conv-primary' })}
+        projectId="p"
+        provider="claude"
+        featureFlagOn
+        childrenCount={0}
+      />,
+    )
+
+    await waitFor(() => expect(screen.getByTestId('resmash-button')).toBeInTheDocument())
   })
 })

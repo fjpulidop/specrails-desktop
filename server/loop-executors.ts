@@ -18,6 +18,11 @@ import { parseDeciderDecision } from './loop-decider'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
 import { isInteractiveJobsEnabled } from './feature-flags'
 import type { ProviderAdapter } from './providers/types'
+import {
+  buildProviderEnv,
+  buildProviderRepoAccessArgs,
+  formatProviderCommand,
+} from './providers/runtime'
 import type { LoopExecutors, ShellResult } from './loop-run-manager'
 
 // Per-step wall-clock caps so a single hung step can't block the engine's
@@ -112,13 +117,9 @@ function aiStepEnv(env: NodeJS.ProcessEnv, repoDir: string | undefined): NodeJS.
  *    no-op under danger-full-access on iteration 1.
  */
 function aiStepExtraArgs(adapter: ProviderAdapter, cwd: string, repoDir: string | undefined): string[] | undefined {
-  return !repoDir
-    ? undefined
-    : adapter.id === 'claude'
-      ? ['--add-dir', repoDir]
-      : adapter.id === 'codex'
-        ? ['-c', `sandbox_workspace_write.writable_roots=[${JSON.stringify(repoDir)}, ${JSON.stringify(cwd)}]`]
-        : undefined
+  if (!repoDir) return undefined
+  const args = buildProviderRepoAccessArgs(adapter, [repoDir, ...(adapter.id === 'codex' ? [cwd] : [])])
+  return args.length > 0 ? args : undefined
 }
 
 export function createLoopExecutors(
@@ -162,6 +163,19 @@ export function createLoopExecutors(
       // agent self-heal on Windows.
       const stepEnv = aiStepEnv(resolveEnv(), repoDir)
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
+      const effectivePrompt = formatProviderCommand(
+        adapter,
+        prompt,
+        cwd,
+        sessionId ?? undefined,
+      )
+      const buildOpts = {
+        prompt: effectivePrompt,
+        model,
+        sessionId: sessionId ?? undefined,
+        reasoning_effort: effort,
+        extraArgs,
+      }
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       // Pre-trust the spawn dir so headless claude honours the overlaid
       // `.claude/settings.json` permissions.allow (else "workspace not trusted").
@@ -172,12 +186,13 @@ export function createLoopExecutors(
       // surface the REAL reason (e.g. "You've hit your usage limit") instead of
       // the `stderrTail`, which often holds only an informational line.
       let errorText: string | undefined
+      const wallStartedAt = Date.now()
       const res = await runAiCliInvocation({
         adapter,
         action,
-        buildOpts: { prompt, model, sessionId: sessionId ?? undefined, reasoning_effort: effort, extraArgs },
+        buildOpts,
         cwd,
-        env: stepEnv,
+        env: buildProviderEnv(adapter, buildOpts, stepEnv),
         timeoutMs: aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS,
         onSpawn,
         // Two complementary streams, mirroring QueueManager's contract:
@@ -192,7 +207,11 @@ export function createLoopExecutors(
           else if (ev.kind === 'error' && ev.message) errorText = ev.message
         },
       })
-      const failed = res.spawnFailed || res.timedOut || (res.code != null && res.code !== 0)
+      const failed =
+        res.spawnFailed ||
+        res.timedOut ||
+        (res.code != null && res.code !== 0) ||
+        errorText !== undefined
       if (res.spawnFailed) {
         errorText = errorText ?? `failed to spawn "${adapter.binary}" (on PATH?)`
         const msg = `AI step: ${errorText}`
@@ -214,12 +233,24 @@ export function createLoopExecutors(
         const msg = `AI step: ${adapter.binary} exited code=${res.code}${reason ? ` — ${reason}` : ''}`
         console.error(`[loop] ${msg}`)
         onLine?.(msg, 'stderr')
+      } else if (errorText) {
+        // A normalized provider error is terminal even if an upstream CLI
+        // anomalously reports a clean process exit.
+        const msg = `AI step: ${adapter.binary} reported an error — ${errorText}`
+        console.error(`[loop] ${msg}`)
+        onLine?.(msg, 'stderr')
       }
-      const { result, estimated } = finaliseInvocationResult(adapter, res.events, { fallbackModel: model })
-      const tokensIn = result.tokens_in ?? 0
-      const tokensOut = result.tokens_out ?? 0
-      const tokensCacheRead = result.tokens_cache_read ?? 0
-      const tokensCacheCreate = result.tokens_cache_create ?? 0
+      const { result, estimated } = finaliseInvocationResult(adapter, res.events, {
+        fallbackModel: model,
+        durationMs: Math.max(0, Date.now() - wallStartedAt),
+      })
+      const tokensIn = result.tokens_in
+      const tokensOut = result.tokens_out
+      const tokensCacheRead = result.tokens_cache_read
+      const tokensCacheCreate = result.tokens_cache_create
+      const tokens = tokensIn === undefined && tokensOut === undefined
+        ? undefined
+        : (tokensIn ?? 0) + (tokensOut ?? 0)
       return {
         text,
         sessionId: res.sessionId ?? undefined,
@@ -230,7 +261,7 @@ export function createLoopExecutors(
         // cache tokens or the claude loop-job token display would inflate. The
         // full cache breakdown is persisted to the ai_invocations row via the
         // structured tokensCacheRead/tokensCacheCreate fields below.
-        tokens: tokensIn + tokensOut,
+        tokens,
         tokensIn,
         tokensOut,
         tokensCacheRead,
@@ -266,7 +297,7 @@ export function createLoopExecutors(
       // Pre-trust the spawn dir so headless claude honours the overlaid
       // `.claude/settings.json` permissions.allow (else "workspace not trusted").
       try { ensureClaudeTrusted(adapter.id, [cwd, repoDir]) } catch { /* best-effort */ }
-      const args = adapter.buildArgs('chat-stream', {
+      const buildOpts = {
         // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
         // is unused — pass empty to satisfy the shared SpawnOptions shape.
         prompt: '',
@@ -277,10 +308,11 @@ export function createLoopExecutors(
         sessionId: sessionId ?? undefined,
         reasoning_effort: effort,
         extraArgs,
-      })
+      }
+      const args = adapter.buildArgs('chat-stream', buildOpts)
       return {
         adapter,
-        spec: { binary: adapter.binary, args, cwd, env: stepEnv },
+        spec: { binary: adapter.binary, args, cwd, env: buildProviderEnv(adapter, buildOpts, stepEnv) },
         // The loop's ai-step timeout bounds the WHOLE step, interactive included.
         stepTimeoutMs: aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS,
       }
@@ -297,23 +329,31 @@ export function createLoopExecutors(
       const decEnv = repoDir ? { ...baseEnv, SPECRAILS_REPO_DIR: repoDir } : baseEnv
       // spec-gen is a one-shot, system-prompted invocation (workspace-write on
       // codex, not full-access) — appropriate for a read-only judgment.
+      const buildOpts = { prompt: userPrompt, systemPrompt, model, maxTurns: 1, reasoning_effort: effort, toolPolicy: 'read-only' as const }
+      const wallStartedAt = Date.now()
       const res = await runAiCliInvocation({
         adapter,
         action: 'spec-gen',
-        buildOpts: { prompt: userPrompt, systemPrompt, model, maxTurns: 1, reasoning_effort: effort },
+        buildOpts,
         cwd,
-        env: decEnv,
+        env: buildProviderEnv(adapter, buildOpts, decEnv),
         timeoutMs: DECIDER_TIMEOUT_MS,
         onSpawn,
         onStdoutLine: onRawLine,
         onEvent: (ev) => { if (ev.kind === 'text-delta') text += ev.text },
       })
       const decision = parseDeciderDecision(text)
-      const { result, estimated } = finaliseInvocationResult(adapter, res.events, { fallbackModel: model })
-      const tokensIn = result.tokens_in ?? 0
-      const tokensOut = result.tokens_out ?? 0
-      const tokensCacheRead = result.tokens_cache_read ?? 0
-      const tokensCacheCreate = result.tokens_cache_create ?? 0
+      const { result, estimated } = finaliseInvocationResult(adapter, res.events, {
+        fallbackModel: model,
+        durationMs: Math.max(0, Date.now() - wallStartedAt),
+      })
+      const tokensIn = result.tokens_in
+      const tokensOut = result.tokens_out
+      const tokensCacheRead = result.tokens_cache_read
+      const tokensCacheCreate = result.tokens_cache_create
+      const tokens = tokensIn === undefined && tokensOut === undefined
+        ? undefined
+        : (tokensIn ?? 0) + (tokensOut ?? 0)
       return {
         ...decision,
         cost: result.total_cost_usd,
@@ -323,7 +363,7 @@ export function createLoopExecutors(
         // cache tokens or the claude loop-job token display would inflate. The
         // full cache breakdown is persisted to the ai_invocations row via the
         // structured tokensCacheRead/tokensCacheCreate fields below.
-        tokens: tokensIn + tokensOut,
+        tokens,
         tokensIn,
         tokensOut,
         tokensCacheRead,

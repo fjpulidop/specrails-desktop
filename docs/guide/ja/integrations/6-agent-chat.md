@@ -22,7 +22,13 @@ Agent Chat は組み込みの **Specrails MCP サーバー**を通じてアプ�
 
 ## プロバイダーとモデル
 
-メッセージ欄のすぐ上で、**プロバイダー**（Claude、Codex、Gemini）とその**モデル**を選びます。各プロバイダーには独自のモデル一覧があり、プロバイダーを切り替えるとそのプロバイダーの既定モデルで新しいセッションが始まります——ですから、たとえば Claude でアプリを操作しつつ、別の会話では Codex に切り替える、といったことが何も混ざらずにできます。
+メッセージ欄のすぐ上で、**プロバイダー**（Claude、Codex、Gemini、
+Kimi）とその**モデル**を選びます。切り替えると別 session が開始します。
+
+Kimi では level は Specrails MCP tool を制限しますが、`kimi -p` 自体を
+sandbox にはしません。native tool は自動承認されます。安全でない
+pure-output action は spawn 前に拒否されます。詳細は
+[Kimi matrix](../../../kimi.md) を参照してください。
 
 ## 権限レベル——手綱はあなたが握る
 

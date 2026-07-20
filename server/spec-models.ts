@@ -1,4 +1,5 @@
 import type { ProviderId } from './providers/types'
+import { getAdapter, hasAdapter, isModelAvailableForAdapter } from './providers'
 
 // Open provider id (see desktop-db `CliProvider`). The per-provider model
 // catalog below is a data-driven lookup, not a closed union — a new provider
@@ -35,28 +36,37 @@ export const GEMINI_MODELS: SpecModelOption[] = [
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
 ]
 
-/** Per-provider model catalog. Lookup, not a branch — fallback is Claude's. */
+// Mirrors KIMI_MODELS in server/providers/kimi-adapter.ts.
+export const KIMI_MODELS: SpecModelOption[] = [
+  { value: 'k3', label: 'Kimi K3' },
+  { value: 'kimi-for-coding', label: 'Kimi for Coding' },
+  { value: 'kimi-for-coding-highspeed', label: 'Kimi for Coding Highspeed' },
+]
+
+/** Per-provider model catalog. Unknown providers intentionally return none. */
 const PROVIDER_MODELS: Record<string, SpecModelOption[]> = {
   claude: CLAUDE_MODELS,
   codex: CODEX_MODELS,
   gemini: GEMINI_MODELS,
+  kimi: KIMI_MODELS,
 }
 
 export const PROVIDER_DEFAULT_MODEL: Record<string, string> = {
   claude: 'sonnet',
   codex: 'gpt-5.5',
   gemini: 'gemini-3.5-flash',
+  kimi: 'k3',
 }
 
 export function getModelsForProvider(provider: SpecProvider): SpecModelOption[] {
-  return PROVIDER_MODELS[provider] ?? CLAUDE_MODELS
+  return PROVIDER_MODELS[provider] ?? []
 }
 
 export function isValidModelForProvider(model: unknown, provider: SpecProvider): model is string {
-  if (typeof model !== 'string' || model.length === 0) return false
-  return getModelsForProvider(provider).some((m) => m.value === model)
+  if (!hasAdapter(provider)) return false
+  return isModelAvailableForAdapter(getAdapter(provider), model)
 }
 
 export function getProviderDefault(provider: SpecProvider): string {
-  return PROVIDER_DEFAULT_MODEL[provider] ?? PROVIDER_DEFAULT_MODEL.claude
+  return PROVIDER_DEFAULT_MODEL[provider] ?? ''
 }

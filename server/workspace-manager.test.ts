@@ -109,6 +109,29 @@ describe('workspace-manager', () => {
       return base
     }
 
+    function seedKimiSubtrees(version = '4.12.0'): string {
+      const base = path.join(home, '.specrails', 'framework', version, '.kimi-code')
+      fs.mkdirSync(path.join(base, 'rules'), { recursive: true })
+      fs.writeFileSync(path.join(base, 'rules', 'specrails.md'), '# kimi rules\n')
+      fs.mkdirSync(path.join(base, 'specrails'), { recursive: true })
+      fs.writeFileSync(path.join(base, 'specrails', 'run-skill.mjs'), '// managed runner\n')
+
+      for (const [name, contents] of [
+        ['specrails-implement', '# managed workflow\n'],
+        ['sr-architect', '# managed role\n'],
+        // These deliberately exist in the framework fixture: the repair must
+        // still refuse to copy non-Core ownership prefixes.
+        ['openspec-source-only', '# upstream OpenSpec\n'],
+        ['custom-source-only', '# user custom\n'],
+        ['third-party-source-only', '# unknown owner\n'],
+      ]) {
+        const skill = path.join(base, 'skills', name)
+        fs.mkdirSync(skill, { recursive: true })
+        fs.writeFileSync(path.join(skill, 'SKILL.md'), contents)
+      }
+      return base
+    }
+
     it('recursively copies commands/skills/rules when the workspace has none (broken junction)', () => {
       win32()
       seedSubtrees()
@@ -150,6 +173,60 @@ describe('workspace-manager', () => {
       // skills + rules missing → those two heal; commands is populated → skipped.
       expect(ensureFrameworkCommandSubtrees(ws, '.claude', home)).toBe(2)
       expect(fs.readFileSync(path.join(cmds, 'implement.md'), 'utf8')).toBe('# already here\n')
+    })
+
+    it('repairs Kimi runner plus managed skill children without replacing the merged skills root', () => {
+      win32()
+      seedKimiSubtrees()
+      const ws = workspacePathFor('kimi-acme', home)
+      const skills = path.join(ws, '.kimi-code', 'skills')
+      fs.mkdirSync(skills, { recursive: true })
+
+      // Simulate Core's per-child links through an untraversable `current`
+      // junction: the merged root remains listable but managed children break.
+      fs.symlinkSync(
+        path.join(home, 'missing-specrails-implement'),
+        path.join(skills, 'specrails-implement'),
+        'dir',
+      )
+      fs.symlinkSync(
+        path.join(home, 'missing-sr-architect'),
+        path.join(skills, 'sr-architect'),
+        'dir',
+      )
+
+      for (const [name, contents] of [
+        ['openspec-apply-change', '# keep OpenSpec\n'],
+        ['custom-local', '# keep custom\n'],
+        ['unknown-local', '# keep unknown\n'],
+      ]) {
+        const skill = path.join(skills, name)
+        fs.mkdirSync(skill, { recursive: true })
+        fs.writeFileSync(path.join(skill, 'SKILL.md'), contents)
+      }
+
+      expect(ensureFrameworkCommandSubtrees(ws, '.kimi-code', home)).toBe(4)
+      expect(
+        fs.readFileSync(path.join(ws, '.kimi-code', 'specrails', 'run-skill.mjs'), 'utf8'),
+      ).toBe('// managed runner\n')
+      expect(
+        fs.readFileSync(path.join(skills, 'specrails-implement', 'SKILL.md'), 'utf8'),
+      ).toBe('# managed workflow\n')
+      expect(
+        fs.readFileSync(path.join(skills, 'sr-architect', 'SKILL.md'), 'utf8'),
+      ).toBe('# managed role\n')
+      expect(fs.readFileSync(path.join(skills, 'openspec-apply-change', 'SKILL.md'), 'utf8')).toBe('# keep OpenSpec\n')
+      expect(fs.readFileSync(path.join(skills, 'custom-local', 'SKILL.md'), 'utf8')).toBe('# keep custom\n')
+      expect(fs.readFileSync(path.join(skills, 'unknown-local', 'SKILL.md'), 'utf8')).toBe('# keep unknown\n')
+      expect(fs.existsSync(path.join(skills, 'openspec-source-only'))).toBe(false)
+      expect(fs.existsSync(path.join(skills, 'custom-source-only'))).toBe(false)
+      expect(fs.existsSync(path.join(skills, 'third-party-source-only'))).toBe(false)
+      expect(fs.existsSync(path.join(ws, '.kimi-code', 'commands'))).toBe(false)
+      expect(fs.existsSync(path.join(ws, '.kimi-code', 'agents'))).toBe(false)
+
+      // Every repaired unit is now a readable real directory; the operation is
+      // idempotent and the user-owned children remain untouched.
+      expect(ensureFrameworkCommandSubtrees(ws, '.kimi-code', home)).toBe(0)
     })
 
     it('is a NO-OP on POSIX (assemble symlinks resolve normally)', () => {

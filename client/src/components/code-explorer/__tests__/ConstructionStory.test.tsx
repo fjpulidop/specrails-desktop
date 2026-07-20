@@ -3,8 +3,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ConstructionStory, type StoryEntry } from '../ConstructionStory'
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 
+const desktopState = vi.hoisted(() => ({ provider: 'claude' }))
+
 vi.mock('../../../hooks/useDesktop', () => ({
-  useDesktop: () => ({ activeProjectId: 'p1' }),
+  useDesktop: () => ({
+    activeProjectId: 'p1',
+    projects: [{ id: 'p1', provider: desktopState.provider }],
+  }),
 }))
 
 vi.mock('sonner', () => ({
@@ -51,6 +56,7 @@ function mockStoryFetch(story: StoryEntry[]) {
 
 beforeEach(() => {
   handlers.clear()
+  desktopState.provider = 'claude'
 })
 
 describe('ConstructionStory', () => {
@@ -92,6 +98,29 @@ describe('ConstructionStory', () => {
     await waitFor(() => expect(screen.getByTestId('story-fallback')).toBeInTheDocument())
     expect(screen.getByTestId('story-fallback')).toHaveTextContent('This file was modified while implementing this spec.')
     expect(screen.getByTestId('story-explain')).toBeInTheDocument()
+  })
+
+  it('keeps the deterministic Kimi story but hides AI Explain with a reason', async () => {
+    desktopState.provider = 'kimi'
+    const fetchMock = mockStoryFetch([entry({ kind: 'modified' })])
+    global.fetch = fetchMock as never
+
+    render(wrap(
+      <ConstructionStory
+        relPath="src/a.ts"
+        height={200}
+        onOpenTicket={vi.fn()}
+      />,
+    ))
+
+    await waitFor(() => expect(screen.getByTestId('story-fallback')).toBeInTheDocument())
+    expect(screen.queryByTestId('story-explain')).not.toBeInTheDocument()
+    expect(screen.getByTestId('story-explain-unavailable')).toHaveTextContent(
+      'AI explanation is unavailable because the selected provider cannot enforce safe pure-output mode.',
+    )
+    expect(fetchMock.mock.calls.filter(([, options]) =>
+      (options as { method?: string } | undefined)?.method === 'POST',
+    )).toHaveLength(0)
   })
 
   it('renders the spec-less fallback for interventions without a ticket', async () => {

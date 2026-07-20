@@ -156,6 +156,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
         fileSummaryManager: projectCtx.fileSummaryManager,
         getTicketSpec: projectCtx.getTicketSpec,
         fileStoryManager,
+        aiTransformProvider: storyAdapter.id,
         // Relocate-artifacts: summary JSON OUTPUTS live in the workspace when
         // relocated (source tree still read from project.path). Resolved per-call.
         resolveSummaryRoot: () => {

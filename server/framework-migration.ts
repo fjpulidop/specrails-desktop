@@ -5,6 +5,7 @@ import path from 'path'
 import { frameworkRoot, FrameworkManager } from './framework-manager'
 import { assembleWorkspaceFramework, workspacePathFor } from './workspace-manager'
 import { withFileLock } from './artifact-registry'
+import { getAdapter } from './providers'
 
 /**
  * framework-migration — non-destructively convert a workspace that holds a REAL
@@ -13,8 +14,11 @@ import { withFileLock } from './artifact-registry'
  *
  * Once every workspace links `current`, an app update is a single atomic swap of
  * `current` — no per-workspace work. A migratable copy is detected by hashing the
- * shared static subtrees (`commands`, `agents`, `skills`, `rules`) of the
- * workspace providerDir against `framework/current/<providerDir>/...`.
+ * shared static subtrees of the workspace providerDir against
+ * `framework/current/<providerDir>/...`. The exact roots are provider-aware:
+ * Kimi's `skills/` is deliberately a real merged directory whose framework
+ * children are linked per-skill alongside user/OpenSpec skills, so migration
+ * never renames or verifies that root as a whole.
  *
  * SAFETY (this module NEVER deletes a user edit):
  *  - Local divergence guard: if ANY shared framework file in the copy differs
@@ -62,15 +66,30 @@ export interface MigrationResult {
   backedUp?: string[]
 }
 
-/** The shared, statically-linked subtrees of a providerDir. `agent-memory` is
- *  intentionally absent — it is real per-workspace state, never compared/linked. */
+/** Whole-directory shared subtrees for the legacy providers. `agent-memory` is
+ * intentionally absent — it is real per-workspace state, never compared/linked. */
 const SHARED_SUBTREES = ['commands', 'agents', 'skills', 'rules'] as const
+
+/**
+ * Roots that core assembles as whole-directory framework links.
+ *
+ * Kimi is intentionally special: `.kimi-code/skills` remains a REAL directory
+ * and core links only the framework-owned children within it. That merged layout
+ * is what lets Kimi keep OpenSpec skills and desktop-authored `custom-*` roles
+ * as direct children. Treating the root as a copied shared subtree would back it up,
+ * expect a root symlink that core will never create, then revert every launch.
+ */
+function sharedSubtreesFor(provider: string): readonly string[] {
+  return provider === 'kimi' ? ['rules'] : SHARED_SUBTREES
+}
 
 /** Map a provider id to its providerDir name (mirrors core). */
 export function providerDirFor(provider: string): string {
-  if (provider === 'codex') return '.codex'
-  if (provider === 'gemini') return '.gemini'
-  return '.claude'
+  try {
+    return getAdapter(provider).projectDirName
+  } catch {
+    return '.claude'
+  }
 }
 
 /** sha256 of a file's bytes, or null when unreadable. */
@@ -142,9 +161,13 @@ interface CompareResult {
  * from (or is missing in) `current` — excluding `custom-*` agents — counts as
  * local divergence.
  */
-function compareSharedSubtrees(workspaceProviderDir: string, fwProviderDir: string): CompareResult {
+function compareSharedSubtrees(
+  workspaceProviderDir: string,
+  fwProviderDir: string,
+  subtrees: readonly string[],
+): CompareResult {
   let hadSharedSubtree = false
-  for (const sub of SHARED_SUBTREES) {
+  for (const sub of subtrees) {
     const copyDir = path.join(workspaceProviderDir, sub)
     if (!isRealDir(copyDir)) continue
     hadSharedSubtree = true
@@ -229,17 +252,18 @@ function runMigration(
   const ws = workspacePathFor(slug, opts.home)
   const wsProviderDir = path.join(ws, providerDir)
   const fwProviderDir = path.join(fwCurrent, providerDir)
+  const sharedSubtrees = sharedSubtreesFor(provider)
 
   // Idempotent: if any shared subtree is already a symlink into `current`, the
   // workspace is migrated — no-op.
-  for (const sub of SHARED_SUBTREES) {
+  for (const sub of sharedSubtrees) {
     if (linkResolvesIntoFramework(path.join(wsProviderDir, sub), fwCurrent)) {
       return { outcome: 'already-symlinked' }
     }
   }
 
   // Detect the migratable real-copy layout + the local-divergence guard.
-  const cmp = compareSharedSubtrees(wsProviderDir, fwProviderDir)
+  const cmp = compareSharedSubtrees(wsProviderDir, fwProviderDir, sharedSubtrees)
   if (!cmp.hadSharedSubtree) {
     return { outcome: 'not-a-copy' }
   }
@@ -250,7 +274,7 @@ function runMigration(
 
   // ── Backup the copied shared subtrees (never delete). ──────────────────────
   const backedUp: Array<{ live: string; bak: string }> = []
-  for (const sub of SHARED_SUBTREES) {
+  for (const sub of sharedSubtrees) {
     const live = path.join(wsProviderDir, sub)
     if (!isRealDir(live)) continue
     const bak = live + BAK_SUFFIX

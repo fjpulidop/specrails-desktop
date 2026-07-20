@@ -72,7 +72,8 @@
     "label": "Provider",
     "claude": "Claude",
     "codex": "Codex",
-    "gemini": "Gemini"
+    "gemini": "Gemini",
+    "kimi": "Kimi"
   },
   "tier": {
     "cycleHint": "⇧⇥ per cambiare",
@@ -167,7 +168,7 @@
   },
   "noProvider": {
     "title": "Nessun provider IA installato",
-    "body": "L'agente richiede Claude, Codex o Gemini sul tuo computer. Installane uno e riapri l'agente per iniziare a chattare.",
+    "body": "L'agente richiede Claude, Codex, Gemini o Kimi sul tuo computer. Installane uno e riapri l'agente per iniziare a chattare.",
     "placeholder": "Installa un provider IA per usare l'agente…"
   },
   "degraded": {

@@ -10,12 +10,14 @@ import {
   DialogDescription,
 } from './ui/dialog'
 import { Button } from './ui/button'
+import { providerLabel } from '../lib/provider-capabilities'
 
 interface Props {
   open: boolean
   railLabel: string
   specCount: number
-  /** Selected model (haiku/sonnet/opus). Shown for context. */
+  provider?: string
+  /** Selected provider-native model. Shown for context. */
   model?: string | null
   onConfirm: () => void
   onCancel: () => void
@@ -23,13 +25,14 @@ interface Props {
 
 /**
  * Confirmation modal shown before launching a rail in Freestyle mode. Freestyle
- * bypasses the OpenSpec pipeline and lets Claude run with native agents +
+ * bypasses the OpenSpec pipeline and lets the selected provider run autonomously
  * dynamic workflows, so cost is variable — the user explicitly opts in here.
  * Continue is the affirmative (green) action; ⌘/Ctrl+Enter triggers it.
  */
-export function FreestyleLaunchDialog({ open, railLabel, specCount, model, onConfirm, onCancel }: Props) {
+export function FreestyleLaunchDialog({ open, railLabel, specCount, provider = 'claude', model, onConfirm, onCancel }: Props) {
   const { t } = useTranslation('dashboard')
   const confirmRef = useRef<HTMLButtonElement>(null)
+  const providerName = providerLabel(provider)
 
   // ⌘/Ctrl + Enter confirms while the dialog is open.
   useEffect(() => {
@@ -74,11 +77,11 @@ export function FreestyleLaunchDialog({ open, railLabel, specCount, model, onCon
           </li>
           <li className="flex items-start gap-2.5">
             <Bot className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-info" />
-            <span><span className="font-medium text-foreground">{t('freestyleDialog.autonomyTitle')}</span>{' '}{t('freestyleDialog.autonomyBody')}</span>
+            <span><span className="font-medium text-foreground">{t('freestyleDialog.autonomyTitle', { provider: providerName })}</span>{' '}{t('freestyleDialog.autonomyBody', { provider: providerName })}</span>
           </li>
           <li className="flex items-start gap-2.5">
             <DollarSign className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-success" />
-            <span><span className="font-medium text-foreground">{t('freestyleDialog.costTitle')}</span>{' '}{t('freestyleDialog.costBody')}</span>
+            <span><span className="font-medium text-foreground">{t('freestyleDialog.costTitle')}</span>{' '}{t('freestyleDialog.costBody', { provider: providerName })}</span>
           </li>
         </ul>
 

@@ -102,7 +102,11 @@
     "turns_other": "{{count}} 轮",
     "active": "活跃 {{duration}}",
     "breakdownItem": "{{n}} {{label}}",
-    "estimatedTooltip": "根据本地价格表估算 — 此提供商不原生报告成本。"
+    "estimatedTooltip": "根据本地价格表估算 — 此提供商不原生报告成本。",
+    "costUnavailableTooltip": "此工单的所有调用均未提供成本遥测数据。",
+    "costPartiallyUnavailableTooltip": "仅显示已知成本小计；部分调用未提供成本遥测数据。",
+    "turnsUnavailableTooltip": "此工单的轮次遥测数据不可用。",
+    "turnsPartiallyUnavailableTooltip": "仅显示已知轮次小计；部分调用未提供轮次遥测数据。"
   },
   "toasts": {
     "newTicket": "新工单：{{title}}",

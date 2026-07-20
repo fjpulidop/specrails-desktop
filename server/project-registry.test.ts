@@ -163,8 +163,9 @@ describe('ProjectRegistry', () => {
       addProject(desktopDb, { id: 'p1', slug: 'p1', name: 'P1', path: '/path/u1', providers: ['claude'] })
       addProject(desktopDb, { id: 'p2', slug: 'p2', name: 'P2', path: '/path/u2', providers: ['gemini', 'claude'] })
       addProject(desktopDb, { id: 'p3', slug: 'p3', name: 'P3', path: '/path/u3', provider: 'codex' })
+      addProject(desktopDb, { id: 'p4', slug: 'p4', name: 'P4', path: '/path/u4', provider: 'kimi' })
       const union = registry.installedProvidersUnion().sort()
-      expect(union).toEqual(['claude', 'codex', 'gemini'])
+      expect(union).toEqual(['claude', 'codex', 'gemini', 'kimi'])
     })
 
     it('includes projects that failed to load a per-project DB (reads desktop DB, not contexts)', () => {

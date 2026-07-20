@@ -12,7 +12,21 @@ import { finaliseInvocationResult } from './result-event'
 import { randomUUID } from 'crypto'
 import { parseSpecDraftBlocks, applyBlocks, type ConversationDraftState } from './spec-draft-parser'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
-import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } from './providers'
+import {
+  getAdapter,
+  isModelAvailableForAdapter,
+  type ProviderAdapter,
+  type AdapterEvent,
+  type ProviderId,
+  type SpawnOptions,
+} from './providers'
+import {
+  buildProviderEnv,
+  formatProviderCommand,
+  parseStreamEvents,
+  pureOutputToolPolicy,
+  supportsToolPolicy,
+} from './providers/runtime'
 import {
   buildScopedSystemPromptPrefix, toolFlagsForScope, normalizeContextScope,
   defaultBootScope, type ContextScope,
@@ -24,6 +38,7 @@ import { resolveProjectExecution, type ProjectExecution } from './workspace-reso
 import { workspacePathFor } from './workspace-manager'
 import { readBlueprint } from './blueprint-render'
 import type { ChatConversationRow } from './types'
+import { generateAutoTitle } from './explore-draft-title'
 
 const COMMAND_INSTRUCTION =
   'When you want to suggest a SpecRails command for the user to execute, wrap it in a command block like this: ' +
@@ -673,6 +688,14 @@ export class ChatManager {
         stats.totalJobs > 0
           ? Math.round(((stats.totalJobs - stats.failedJobs) / stats.totalJobs) * 100)
           : null
+      const totalCost =
+        stats.unpricedRuns > 0 && stats.pricedRuns === 0
+          ? 'unavailable'
+          : `${stats.unpricedRuns > 0 ? 'at least ' : ''}$${stats.totalCostUsd.toFixed(3)}`
+      const todayCost =
+        stats.unpricedTodayRuns > 0 && stats.pricedTodayRuns === 0
+          ? 'unavailable'
+          : `${stats.unpricedTodayRuns > 0 ? 'at least ' : ''}$${stats.costToday.toFixed(3)}`
 
       return (
         `## Current Dashboard Context\n\n` +
@@ -682,8 +705,8 @@ export class ChatManager {
         `- Total jobs: ${stats.totalJobs}\n` +
         `- Jobs today: ${stats.jobsToday}\n` +
         (successRate != null ? `- Overall success rate: ${successRate}%\n` : '') +
-        `- Total cost: $${stats.totalCostUsd.toFixed(3)}\n` +
-        `- Cost today: $${stats.costToday.toFixed(3)}`
+        `- Total cost: ${totalCost}\n` +
+        `- Cost today: ${todayCost}`
       )
     } catch {
       // Context is best-effort; fall back gracefully
@@ -862,6 +885,16 @@ export class ChatManager {
     // primary (this._adapter). Resolved once and used for the whole turn.
     const adapter = this._adapterForConversation(conversation)
 
+    if (conversation.kind === 'milestone' && !supportsToolPolicy(adapter, 'read-only')) {
+      this._broadcast({
+        type: 'chat_error',
+        conversationId,
+        error: 'provider_tool_policy_unsupported',
+        timestamp: new Date().toISOString(),
+      })
+      return
+    }
+
     if (!binaryOnPath(adapter.binary)) {
       this._broadcast({
         type: 'chat_error',
@@ -908,14 +941,55 @@ export class ChatManager {
       content: userText,
     })
 
-    // Resolve slash commands (e.g. /specrails:propose-spec → prompt content)
-    let resolvedText = resolveCommand(userText, this._cwd ?? process.cwd())
+    const lightweight = options?.lightweight ?? false
+    const conversationScope = this._resolveConversationScope(conversation)
+    const spawnCwd = this._resolveSpawnCwd(conversation.kind, conversationScope, adapter.id)
+
+    // Kimi print mode does not run the TUI slash-command interceptor. Resolve
+    // its project skill before the generic `.claude/commands` fallback can fold
+    // provider-incompatible content. Other adapters retain the legacy resolver.
+    const isDesktopExploreDraftCommand = /^\/specrails:explore-spec(?:\s|$)/.test(userText)
+    let resolvedText: string
+    try {
+      resolvedText = adapter.capabilities.materializeHeadlessSkills
+        && !isDesktopExploreDraftCommand
+        ? formatProviderCommand(
+            adapter,
+            userText,
+            spawnCwd,
+            conversation.session_id ?? undefined,
+          )
+        : resolveCommand(userText, this._cwd ?? process.cwd())
+    } catch (err) {
+      // Headless skill resolution is deliberately fail-closed (sending the
+      // unresolved slash text to Kimi print mode would silently do the wrong
+      // thing), but this happens after an Explore slot is claimed. Surface an
+      // actionable chat error and release the slot just like a terminal child
+      // instead of leaving the conversation permanently marked as streaming.
+      if (conversation.kind === 'explore') {
+        const life = this._exploreLifecycle.get(conversationId)
+        if (life) {
+          life.isStreaming = false
+          life.lastActivityAt = Date.now()
+          if (life.isMinimized) this._startIdleTimer(conversationId)
+        }
+        this._drainExploreQueue()
+      }
+      this._broadcast({
+        type: 'chat_error',
+        conversationId,
+        error: err instanceof Error ? err.message : String(err),
+        timestamp: new Date().toISOString(),
+      })
+      return
+    }
 
     // Fold attachments into the prompt as <user-attachment> text blocks under
     // an "## Attached Resources" section, mirroring how /generate-spec wires
     // them. Errors during extraction are logged and skipped — the chat turn
     // proceeds without that attachment rather than failing.
     let hasAttachments = false
+    let attachmentImagePaths: string[] = []
     if (options?.attachments && options.attachments.ids.length > 0) {
       try {
         const attachmentResult = await this._awaitWhileLive(
@@ -926,7 +1000,8 @@ export class ChatManager {
           ),
         )
         if (attachmentResult.disposed) return
-        const { textBlocks } = attachmentResult.value
+        const { textBlocks, imagePaths } = attachmentResult.value
+        attachmentImagePaths = imagePaths
         if (textBlocks.length > 0) {
           resolvedText = `${resolvedText}\n\n## Attached Resources\n\n${textBlocks.join('\n\n')}`
           hasAttachments = true
@@ -942,8 +1017,6 @@ export class ChatManager {
     // Build spawn args via the resolved adapter. System prompt placement
     // (--system-prompt flag vs prompt-fold) and resume vs fresh-turn are both
     // adapter-driven via capability flags.
-    const lightweight = options?.lightweight ?? false
-    const conversationScope = this._resolveConversationScope(conversation)
     let systemPrompt = conversation.kind === 'milestone'
       ? this._buildMilestoneSystemPrompt(conversation)
       : lightweight
@@ -952,7 +1025,10 @@ export class ChatManager {
     if (hasAttachments) systemPrompt = `${systemPrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
 
     const binary = adapter.binary
-    const model = conversation.model || adapter.defaultModel()
+    const requestedModel = conversation.model
+    const model = requestedModel && isModelAvailableForAdapter(adapter, requestedModel)
+      ? requestedModel
+      : adapter.defaultModel()
     const action = conversation.session_id && adapter.capabilities.nativeResume
       ? 'chat-resume' as const
       : 'chat-turn' as const
@@ -1014,18 +1090,32 @@ export class ChatManager {
           `## User turn\n\n${resolvedText}`
       }
     }
+    const foldProjectChatSystemPrompt =
+      !adapter.capabilities.systemPromptArg &&
+      adapter.capabilities.foldProjectChatSystemPrompt === true
     // Sidebar turns: the volatile dashboard snapshot lives in the user turn
     // (not --system-prompt) so the cacheable system-prompt prefix stays
     // byte-stable across turns — same pattern as the codex scoped-context
-    // prepend above. Gated on systemPromptArg: adapters without it (codex)
-    // drop the system prompt for chat turns entirely (argv stays
-    // user-text-only by design), so they never saw the dashboard block and
-    // must not start receiving it here.
-    if (!lightweight && adapter.capabilities.systemPromptArg) {
+    // prepend above. Kimi explicitly requests the same dynamic context through
+    // a folded prompt; Codex/Gemini keep their cwd-instruction-file contract.
+    if (!lightweight && (adapter.capabilities.systemPromptArg || foldProjectChatSystemPrompt)) {
       const dashboardContext = this._buildDashboardContextBlock()
       if (dashboardContext) {
         promptForAdapter = `${dashboardContext}\n\n## User turn\n\n${promptForAdapter}`
       }
+    }
+    // Kimi prompt mode has no native system-prompt argument. Fold the stable
+    // sidebar contract exactly once here, after adding volatile dashboard
+    // context. Explore is intentionally excluded: its isolated cwd already
+    // contains provider-native AGENTS.md framing, while the scoped project
+    // context above remains per-turn. Milestone already folded its complete
+    // contract earlier in this function.
+    if (
+      foldProjectChatSystemPrompt &&
+      conversation.kind !== 'explore' &&
+      conversation.kind !== 'milestone'
+    ) {
+      promptForAdapter = `${systemPrompt}\n\n---\n\n${promptForAdapter}`
     }
     const buildRecoveryPrompt = (): string => buildResumeRecoveryPrompt(
       getMessages(this._db, conversationId)
@@ -1033,7 +1123,7 @@ export class ChatManager {
         .map((message) => ({ role: message.role, content: message.content })),
       promptForAdapter,
     )
-    let args = adapter.buildArgs(action, {
+    const turnOptions: SpawnOptions = {
       prompt: promptForAdapter,
       systemPrompt,
       model,
@@ -1048,7 +1138,9 @@ export class ChatManager {
       // plugin, and connector MCP servers — which require the `user` setting
       // source. Claude-only (codex reads ~/.codex natively, ignores this).
       loadUserEnv: adapter.id === 'claude' && !!conversationScope?.userMcp,
-    })
+      imagePaths: adapter.capabilities.supportsImageInput ? attachmentImagePaths : undefined,
+    }
+    let args = adapter.buildArgs(action, turnOptions)
     if (conversationScope) {
       console.log(`[chat-manager] scope=${JSON.stringify(conversationScope)} flags=${scopeFlags.join(' ')} promptBytes=${Buffer.byteLength(systemPrompt)}`)
     }
@@ -1056,8 +1148,6 @@ export class ChatManager {
     // No OTEL env injection here — ChatManager spawns are interactive user sessions,
     // not pipeline jobs. Telemetry is scoped to QueueManager pipeline runs only.
     // spawnAiCli reroutes multi-line argv values through stdin on Windows.
-    const spawnCwd = this._resolveSpawnCwd(conversation.kind, conversationScope, adapter.id)
-
     // Relocate-artifacts env for gated spawns: NON-explore (sidebar) turns, and
     // Explore turns with `contextScope.mcp` (they spawn from the workspace when
     // relocated — see `_resolveSpawnCwd`; the env makes the workspace's
@@ -1077,6 +1167,7 @@ export class ChatManager {
         if (adapter.id === 'gemini') spawnEnv = { ...spawnEnv, GEMINI_CLI_TRUST_WORKSPACE: 'true' }
       }
     }
+    spawnEnv = buildProviderEnv(adapter, turnOptions, spawnEnv)
     const allowMissingSessionRecovery =
       adapter.id === 'claude' &&
       conversation.kind === 'explore' &&
@@ -1193,39 +1284,28 @@ export class ChatManager {
 
     const readerHandler = (line: string) => {
       if (this._disposed) return
-      const ev = adapter.parseStreamLine(line)
-      if (!ev) return
-      adapterEvents.push(ev)
-      switch (ev.kind) {
-        case 'text-delta':
-          emitDelta(ev.text)
-          break
-        case 'session-started':
-          // Last-wins: Claude rotates session ids across --resume, and only the
-          // id present at result-time is persisted on disk. Capturing the first
-          // one leaves DB with a ghost id that fails the next --resume.
-          if (ev.sessionId) capturedSessionId = ev.sessionId
-          break
-        case 'result':
-          sawResult = true
-          // Claude's result event carries the canonical (post-rotation)
-          // session_id; codex captures from thread.started but mirroring here
-          // is harmless.
-          {
+      for (const ev of parseStreamEvents(adapter, line)) {
+        adapterEvents.push(ev)
+        switch (ev.kind) {
+          case 'text-delta':
+            emitDelta(ev.text)
+            break
+          case 'session-started':
+            if (ev.sessionId) capturedSessionId = ev.sessionId
+            break
+          case 'result': {
+            sawResult = true
             const sid = (ev.payload as { session_id?: string }).session_id
             if (sid) capturedSessionId = sid
+            break
           }
-          break
-        case 'error':
-          // Capture the provider's explicit failure reason. Last-wins (codex
-          // emits `error` then `turn.failed`, both carrying the same message).
-          capturedErrorMessage = ev.message
-          break
-        case 'tool-use':
-        case 'other':
-          // No-op for ChatManager — adapter parses tool_use into the unified
-          // event shape but the chat UI does not currently surface them.
-          break
+          case 'error':
+            capturedErrorMessage = ev.message
+            break
+          case 'tool-use':
+          case 'other':
+            break
+        }
       }
     }
     stdoutReader.on('line', readerHandler)
@@ -1545,7 +1625,7 @@ export class ChatManager {
         // AND sidebar (surface='chat-sidebar') turns — see _recordChatInvocation.
         const invStatus: InvocationStatus = wasAborting
           ? 'aborted'
-          : code === 0
+          : code === 0 && !capturedErrorMessage
             ? 'success'
             : 'failed'
         this._recordChatInvocation({
@@ -1564,7 +1644,7 @@ export class ChatManager {
           return
         }
 
-        if (code === 0) {
+        if (code === 0 && !capturedErrorMessage) {
           // Parse out any spec-draft fenced blocks (Explore Spec protocol).
           // No-op for non-Explore conversations (parser pre-checks for the fence
           // marker and returns the original text unchanged).
@@ -1736,8 +1816,10 @@ export class ChatManager {
       if (this._disposed) return
       if (!this._projectId) return
       try {
+        const finishedAt = new Date().toISOString()
         const { result, estimated } = finaliseInvocationResult(adapter, adapterEvents, {
           fallbackModel: model,
+          durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(turnStartedAt)),
         })
         // MED-1: the persistent-stdin transport reuses ONE long-lived child for
         // the whole session, so claude's `result` event reports
@@ -1780,7 +1862,7 @@ export class ChatManager {
           conversation_id: conversationId,
           status,
           started_at: turnStartedAt,
-          finished_at: new Date().toISOString(),
+          finished_at: finishedAt,
           total_cost_usd_estimated: estimated,
           // Non-cumulative fields (model, durations, session_id) pass through.
           ...result,
@@ -1983,29 +2065,28 @@ export class ChatManager {
 
       const onLine = (line: string) => {
         if (this._disposed || settled) return
-        const ev = adapter.parseStreamLine(line)
-        if (!ev) return
-        adapterEvents.push(ev)
-        switch (ev.kind) {
-          case 'text-delta':
-            emitDelta(ev.text)
-            break
-          case 'session-started':
-            if (ev.sessionId) capturedSessionId = ev.sessionId
-            break
-          case 'result': {
-            const payload = ev.payload as { session_id?: string; is_error?: unknown; subtype?: unknown }
-            if (recoverMissingSession(isMissingClaudeSessionErrorResult(payload) ? payload : null)) break
-            if (payload.session_id) capturedSessionId = payload.session_id
-            // LOW-7: detect a failed turn reported through the result frame.
-            resultIsError =
-              payload.is_error === true ||
-              (typeof payload.subtype === 'string' && payload.subtype.startsWith('error'))
-            finishTurn()
-            break
+        for (const ev of parseStreamEvents(adapter, line)) {
+          adapterEvents.push(ev)
+          switch (ev.kind) {
+            case 'text-delta':
+              emitDelta(ev.text)
+              break
+            case 'session-started':
+              if (ev.sessionId) capturedSessionId = ev.sessionId
+              break
+            case 'result': {
+              const payload = ev.payload as { session_id?: string; is_error?: unknown; subtype?: unknown }
+              if (recoverMissingSession(isMissingClaudeSessionErrorResult(payload) ? payload : null)) break
+              if (payload.session_id) capturedSessionId = payload.session_id
+              resultIsError =
+                payload.is_error === true ||
+                (typeof payload.subtype === 'string' && payload.subtype.startsWith('error'))
+              finishTurn()
+              break
+            }
+            default:
+              break
           }
-          default:
-            break
         }
       }
 
@@ -2167,8 +2248,10 @@ export class ChatManager {
     // 'explore-spec' — no new surface value (analytics guardrail).
     const surface: Surface = opts.kind === 'explore' || opts.kind === 'milestone' ? 'explore-spec' : 'chat-sidebar'
     try {
+      const finishedAt = new Date().toISOString()
       const { result, estimated } = finaliseInvocationResult(opts.adapter, opts.events, {
         fallbackModel: opts.model,
+        durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(opts.startedAt)),
       })
       recordInvocation(this._db, {
         id: randomUUID(),
@@ -2179,7 +2262,7 @@ export class ChatManager {
         conversation_id: opts.conversationId,
         status: opts.status,
         started_at: opts.startedAt,
-        finished_at: new Date().toISOString(),
+        finished_at: finishedAt,
         total_cost_usd_estimated: estimated,
         ...result,
       })
@@ -2195,16 +2278,35 @@ export class ChatManager {
       // Title generation runs on the conversation's own provider.
       const conv = getConversation(this._db, conversationId)
       const adapter = this._adapterForConversation(conv ?? {})
+      const toolPolicy = pureOutputToolPolicy(adapter)
+      if (!toolPolicy) {
+        // Kimi `-p` forces automatic tool approval, so it cannot safely run a
+        // pure-output title turn. Preserve the user-facing feature with the
+        // same deterministic, local fallback used by Agent Chat.
+        const title = generateAutoTitle([{ role: 'user', content: firstUserMsg }])
+        if (title) {
+          updateConversation(this._db, conversationId, { title })
+          this._broadcast({
+            type: 'chat_title_update',
+            conversationId,
+            title,
+            timestamp: new Date().toISOString(),
+          })
+        }
+        return
+      }
       const titlePrompt =
         `Generate a 4-6 word title for this conversation. Output ONLY the title text, no quotes or punctuation.\n\n` +
         `User: ${firstUserMsg.slice(0, 200)}\nAssistant: ${firstResponse.slice(0, 300)}`
 
-      const args = adapter.buildArgs('auto-title', {
+      const titleOptions = {
         prompt: titlePrompt,
         model: adapter.defaultModel(),
-      })
+        toolPolicy,
+      }
+      const args = adapter.buildArgs('auto-title', titleOptions)
       const child = this._spawnOwned(adapter.binary, args, {
-        env: process.env,
+        env: buildProviderEnv(adapter, titleOptions),
         stdio: ['ignore', 'pipe', 'pipe'],
         cwd: this._cwd,
       })
@@ -2225,13 +2327,12 @@ export class ChatManager {
 
       reader.on('line', (line) => {
         if (this._disposed) return
-        const ev = adapter.parseStreamLine(line)
-        if (!ev) return
-        titleEvents.push(ev)
-        // Keep the FIRST non-empty text-delta as the title (unchanged behaviour).
-        if (!titleText && ev.kind === 'text-delta') {
-          const trimmed = ev.text.trim()
-          if (trimmed) titleText = trimmed
+        for (const ev of parseStreamEvents(adapter, line)) {
+          titleEvents.push(ev)
+          if (!titleText && ev.kind === 'text-delta') {
+            const trimmed = ev.text.trim()
+            if (trimmed) titleText = trimmed
+          }
         }
       })
 

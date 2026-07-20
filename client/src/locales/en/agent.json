@@ -72,7 +72,8 @@
     "label": "Provider",
     "claude": "Claude",
     "codex": "Codex",
-    "gemini": "Gemini"
+    "gemini": "Gemini",
+    "kimi": "Kimi"
   },
   "tier": {
     "cycleHint": "⇧⇥ to change",
@@ -167,7 +168,7 @@
   },
   "noProvider": {
     "title": "No AI provider installed",
-    "body": "The agent needs Claude, Codex or Gemini on your machine. Install one, then reopen the agent to start chatting.",
+    "body": "The agent needs Claude, Codex, Gemini or Kimi on your machine. Install one, then reopen the agent to start chatting.",
     "placeholder": "Install an AI provider to use the agent…"
   },
   "degraded": {

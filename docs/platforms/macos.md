@@ -43,19 +43,26 @@ You only need this once per build. It does not apply to the notarized installers
 When you add a project, the app checks for the tools it needs and surfaces them in a **prerequisites panel** (in the `Add Project` dialog and the setup wizard). It checks:
 
 - **Bundled tools** — `node`, `npm`, `npx`, `git`.
-- **Provider CLIs** — **Claude Code**, **Codex**, and **Gemini CLI**. All three are always probed via your system `PATH` (never bundled). **At least one of the three must be installed and working** before Add Project is enabled — if none is usable the panel blocks the dialog.
+- **Provider CLIs** — **Claude Code**, **Codex**, **Gemini CLI**, and **Kimi
+  Code**. All four are probed via the system `PATH` and never bundled. At
+  least one must be installed and working before Add Project is enabled.
 
-You don't need all three providers. Install whichever you prefer:
+You don't need all four providers. Install whichever you prefer:
 
 | Provider | Install | Minimum CLI | Auth |
 |---|---|---|---|
 | **Claude Code** | from [claude.com/download](https://claude.com/download) | none pinned | `claude login` |
 | **Codex** | `brew install codex` | `0.128.0` | `codex login` |
 | **Gemini CLI** | `npm i -g @google/gemini-cli` | `0.11.0` | set `GEMINI_API_KEY` (a paid key from Google AI Studio) |
+| **Kimi Code** | official installer or `@moonshot-ai/kimi-code` | `0.27.0` | `kimi login` |
 
-After installing a provider CLI, quit and relaunch Specrails so the new `PATH` is picked up (see [Verifying manually](#verifying-manually)). For full provider setup, see the [Codex guide](../codex.md) and the [Gemini guide](../gemini.md).
+After installing a provider CLI, quit and relaunch Specrails so the new `PATH`
+is picked up. See [Kimi](../kimi.md), [Codex](../codex.md), or
+[Gemini](../gemini.md).
 
-When everything is in order, the panel collapses to a single line: **All required tools detected** (no per-tool rows, no version numbers). The detailed per-tool list — with versions, and including the Claude / Codex / Gemini provider rows (one row per provider you've installed) — only renders when something is **missing**, below its minimum version, or broken.
+When everything is in order, the panel collapses to **All required tools
+detected**. Detailed rows include each installed Claude/Codex/Gemini/Kimi CLI
+only when something is missing, too old, or broken.
 
 ## PATH resolution
 
@@ -113,7 +120,8 @@ This points you at the actual fix (remove the stale link) instead of sending you
       "git": "/usr/bin/git",
       "claude": "/opt/homebrew/bin/claude",
       "codex": null,
-      "gemini": null
+      "gemini": null,
+      "kimi": null
     },
     "nodeEnv": "production",
     "platform": "darwin"
@@ -129,7 +137,7 @@ In the **shipped desktop app** the first segments come from the bundled runtimes
 "loginShellStatus": "skipped"
 ```
 
-`whichResults` is keyed by command name for **every** prerequisite the panel checks, so it includes `claude`/`codex`/`gemini` (and `uv` when probed) on top of the four bundled tools. A `null` value means that command was not found on `PATH` — in the example above, only Claude Code is installed.
+`whichResults` is keyed by command name for **every** prerequisite the panel checks, so it includes `claude`/`codex`/`gemini`/`kimi` (and `uv` when probed) on top of the four bundled tools. A `null` value means that command was not found on `PATH` — in the example above, only Claude Code is installed.
 
 The install-instructions modal exposes a **Copy diagnostics** button that fetches this endpoint and copies the JSON to the clipboard for bug reports. The base endpoint (no `?diagnostic=1`) omits the `diagnostic` field, keeping the regular UI poll small.
 
@@ -144,6 +152,8 @@ After installing or reinstalling Node (or a provider CLI):
 
 ## Known limitations
 
-- **Provider requirement**: at least one provider CLI — Claude Code, Codex, or Gemini — must be installed and on `PATH`; otherwise Add Project stays disabled. (Gemini is enabled by default; to disable it set `SPECRAILS_GEMINI_BETA=0`.)
+- **Provider requirement**: at least one provider CLI — Claude Code, Codex,
+  Gemini, or Kimi — must be installed and on `PATH`; otherwise Add Project
+  stays disabled.
 - **Port 4200** must be free on launch. The app binds `127.0.0.1:4200` for its API + WebSocket; if another process holds the port, the server cannot start.
 - **Terminal panel**: the bottom terminal panel spawns `$SHELL -l -i`, so your `.zshrc` / `.bashrc` loads as it would in a normal login shell. Per-session shell selection is not yet exposed in the UI — set `SHELL` to override the default.

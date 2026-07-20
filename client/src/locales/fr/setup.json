@@ -57,7 +57,7 @@
   "addProject": {
     "title": "Ajouter un projet",
     "description": "Enregistrez un répertoire de projet pour le gérer depuis Specrails.",
-    "noProviderDetected": "Aucune CLI d'IA détectée. Installez d'abord Claude Code ou Codex CLI.",
+    "noProviderDetected": "Aucune CLI d'IA détectée. Installez d'abord Claude Code, Codex CLI, Gemini CLI ou Kimi Code.",
     "pathLabel": "Chemin du projet",
     "pathPlaceholder": "/Users/moi/mon-projet",
     "pathHint": "Chemin absolu vers la racine du projet",
@@ -69,6 +69,7 @@
     "nameHint": "Par défaut, le nom du répertoire",
     "providersLabel": "Fournisseurs d'IA",
     "notFound": "introuvable",
+    "coreUpdateRequired": "Mise à jour de Core requise",
     "multiProviderHint": "Les deux moteurs seront configurés. Le premier est le moteur par défaut du projet. Non modifiable après la création.",
     "singleProviderHint": "Non modifiable après la création du projet.",
     "adding": "Ajout...",
@@ -238,7 +239,7 @@
       "jobLabel": "Ce que chaque job exécute",
       "flowCaption": "Chaque phase streame ses logs en direct pendant qu'elle travaille.",
       "modeLabel": "Choisissez un Loop à exécuter",
-      "modeBody": "Chaque rail exécute un <b>Loop</b>. Choisissez-en un intégré — <b>Implement</b> (le pipeline structuré complet), <b>Batch</b> (plusieurs specs à la fois) ou <b>Freestyle</b> (Claude travaille de façon autonome, sans pipeline figé) — ou un que vous avez créé vous-même.",
+      "modeBody": "Chaque rail exécute un <b>Loop</b>. Choisissez-en un intégré — <b>Implement</b> (le pipeline structuré complet), <b>Batch</b> (plusieurs specs à la fois) ou <b>Freestyle</b> (un fournisseur compatible travaille en autonomie, sans pipeline figé) — ou un que vous avez créé vous-même.",
       "profilesLabel": "Profils d'agents",
       "profilesBody": "Un catalogue déclaratif par projet qui décide quels agents s'exécutent et quel modèle chacun utilise — choisi par rail et snapshotté par job pour que les travaux concurrents restent isolés.",
       "jobDetailLabel": "Détail de job en direct",
@@ -267,8 +268,8 @@
     "providers": {
       "nav": "Votre agent",
       "title": "Apportez votre propre agent",
-      "subtitle": "Claude Code, Codex et Gemini comme moteurs de premier ordre",
-      "intro": "L'app traite <b>Claude Code</b>, <b>Codex CLI</b> et <b>Gemini CLI</b> comme des moteurs interchangeables derrière un même contrat. Un projet peut en installer un ou plusieurs — le choix se fait à l'installation.",
+      "subtitle": "Claude Code, Codex, Gemini et Kimi comme moteurs de premier ordre",
+      "intro": "L'app traite <b>Claude Code</b>, <b>Codex CLI</b>, <b>Gemini CLI</b> et <b>Kimi Code</b> comme des moteurs interchangeables derrière un même contrat. Un projet peut en installer un ou plusieurs — le choix se fait à l'installation.",
       "table": {
         "capability": "Capacité",
         "streamingResume": "Streaming & reprise de session",
@@ -276,24 +277,25 @@
         "costReporting": "Suivi des coûts",
         "providerBilled": "Facturé par le fournisseur",
         "estimated": "Estimé (~)",
+        "unavailable": "Indisponible",
         "telemetry": "Télémétrie (OTEL)",
         "synthesized": "Synthétisée",
         "agentProfiles": "Profils d'agents"
       },
       "calloutLabel": "Quand plusieurs sont installés",
-      "calloutBody": "Choisissez le moteur <b>par spec, par rail ou par lancement de terminal</b>. L'application mémorise votre dernier choix par projet. Le coût de Codex est estimé à partir d'une grille tarifaire locale et toujours signalé par un <mono>~</mono>."
+      "calloutBody": "Choisissez le moteur <b>par spec, par rail ou par lancement de terminal</b>. Les coûts estimés sont marqués d'un <mono>~</mono> ; Kimi ne fournit ni tokens ni coût."
     },
     "cost": {
       "nav": "Suivre les coûts",
       "title": "Suivez chaque centime",
       "subtitle": "Chaque invocation facturable, enregistrée et visualisée",
-      "intro": "Chaque invocation d'IA — rails, Quick, Explore, éditions IA, SMASH et résumés de fichiers — est enregistrée pour <b>Claude comme pour Codex</b>. Fini de deviner ce que coûtent les agents.",
+      "intro": "Chaque invocation d'IA enregistre son cycle de vie et son fournisseur. L'usage et le coût restent indisponibles lorsqu'un fournisseur, tel que Kimi, ne les fournit pas.",
       "analyticsLabel": "Page Analytics",
       "analyticsBody": "Un hero de burn-rate, une timeline quotidienne, le top des tickets, la répartition par modèle et un nuage coût vs tours. Filtrez par période (7 j / 30 j / 90 j / Tout) et par surface.",
       "perTicketLabel": "Dépenses par ticket",
       "perTicketBody": "Le détail de chaque spec montre ce qu'elle a coûté et combien de tours il a fallu, avec un lien direct vers Analytics filtré sur ce ticket.",
       "honestLabel": "Des chiffres honnêtes",
-      "honestBody": "Le coût Claude est le montant facturé par le fournisseur ; celui de Codex est estimé et signalé par un <mono>~</mono>. Les totaux de tokens incluent les niveaux de cache, donc les chiffres se recoupent vraiment.",
+      "honestBody": "Le coût Claude est fourni par le fournisseur ; Codex et Gemini peuvent être estimés et marqués d'un <mono>~</mono>. Pour Kimi, les tokens et le coût USD sont indisponibles, pas nuls.",
       "budgetsLabel": "Budgets & alertes",
       "budgetsBody": "Définissez un budget quotidien et une alerte de coût par job ; l'application met automatiquement la file en pause quand vous franchissez la limite. Exportez tout en CSV ou JSON."
     },

@@ -2,6 +2,7 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import { CHECKPOINTS } from './setup-manager'
+import { getBundledCoreRoot } from './bundled-core'
 
 // Windows has no `which`; probe PATH via `where` instead.
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
@@ -52,6 +53,45 @@ interface IntegrationContract {
     storagePath: string
     capabilities: string[]
   }
+  providers?: Record<string, unknown>
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+/**
+ * A provider key alone is not proof that Core can render or launch it. Require
+ * the common workflow surface and, for Kimi, the managed materialization runner
+ * that Desktop depends on for every headless Core command.
+ */
+function isRenderedProviderContract(provider: string, value: unknown): boolean {
+  if (!isRecord(value)) return false
+  if (
+    typeof value.enrichCommand !== 'string' ||
+    value.enrichCommand.length === 0 ||
+    !isStringArray(value.enrichArgs) ||
+    typeof value.updateCommand !== 'string' ||
+    value.updateCommand.length === 0 ||
+    !isStringArray(value.updateArgs) ||
+    !isRecord(value.cli)
+  ) {
+    return false
+  }
+
+  if (provider !== 'kimi') return true
+
+  const cli = value.cli
+  const skillRunner = cli.skillRunner
+  return cli.providerBinary === 'kimi' &&
+    typeof skillRunner === 'string' &&
+    skillRunner === '.kimi-code/specrails/run-skill.mjs' &&
+    isStringArray(cli.enrichArgs) &&
+    cli.enrichArgs.includes(skillRunner)
 }
 
 export interface CoreCompatResult {
@@ -64,16 +104,24 @@ export interface CoreCompatResult {
   extraCommands: string[]
   contractFound: boolean
   contractSchemaVersion?: string
+  supportedProviders: string[]
 }
 
 export async function findCoreContract(): Promise<string | null> {
-  // Strategy 1: Try require.resolve (works for local installs)
+  // Strategy 1: the packaged Desktop's bundled Core is authoritative.
+  const bundledRoot = getBundledCoreRoot()
+  if (bundledRoot) {
+    const contractPath = path.join(bundledRoot, 'integration-contract.json')
+    if (fs.existsSync(contractPath)) return contractPath
+  }
+
+  // Strategy 2: Try require.resolve (works for local installs)
   try {
     const contractPath = require.resolve('specrails-core/integration-contract.json')
     if (fs.existsSync(contractPath)) return contractPath
   } catch { /* not locally installed */ }
 
-  // Strategy 2: npm root -g
+  // Strategy 3: npm root -g
   try {
     const globalRoot = execSync('npm root -g', {
       encoding: 'utf-8',
@@ -197,10 +245,19 @@ export async function checkCoreCompat(): Promise<CoreCompatResult> {
       missingCommands: [],
       extraCommands: [],
       contractFound: false,
+      supportedProviders: [],
     }
   }
 
   const contract: IntegrationContract = JSON.parse(fs.readFileSync(contractPath, 'utf-8'))
+  const supportedProviders =
+    contract.providers && typeof contract.providers === 'object'
+      ? Object.entries(contract.providers)
+          .filter(([provider, providerContract]) =>
+            isRenderedProviderContract(provider, providerContract),
+          )
+          .map(([provider]) => provider)
+      : []
 
   const desktopCheckpointKeys = CHECKPOINTS.map((cp) => cp.key)
   // v1/v2 store checkpoints as a string[]; v3+ stores them as a description map.
@@ -237,7 +294,18 @@ export async function checkCoreCompat(): Promise<CoreCompatResult> {
     extraCommands,
     contractFound: true,
     contractSchemaVersion: contract.schemaVersion,
+    supportedProviders,
   }
+}
+
+/** True only when the located Core contract explicitly renders this provider. */
+export function coreCompatSupportsProvider(
+  result: Pick<CoreCompatResult, 'contractFound' | 'supportedProviders'>,
+  provider: string,
+): boolean {
+  return result.contractFound &&
+    Array.isArray(result.supportedProviders) &&
+    result.supportedProviders.includes(provider)
 }
 
 // v3 contracts no longer include `coreVersion` at the top level â fall back

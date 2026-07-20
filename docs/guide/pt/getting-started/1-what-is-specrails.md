@@ -36,6 +36,7 @@ O specrails funciona com as principais CLIs de programação com IA:
 - **Claude** (Claude Code)
 - **Codex** (Codex CLI)
 - **Gemini** (Gemini CLI)
+- **Kimi** (Kimi Code)
 
 Escolha aquela que já usa — ou instale mais do que uma e escolha por tarefa. Um projeto pode correr num único fornecedor ou em vários ao mesmo tempo, por isso nunca fica preso a um só.
 

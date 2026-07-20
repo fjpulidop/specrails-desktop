@@ -1,0 +1,2 @@
+{"role":"meta","type":"system.version","version":"0.27.0"}
+{"role":"meta","type":"system.error","error":{"message":"Authentication required. Run kimi login."}}

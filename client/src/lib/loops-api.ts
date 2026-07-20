@@ -61,7 +61,10 @@ export interface FactoryLoopSummary {
   description: string
   /** Legacy rail mode this loop maps to. */
   mode: 'implement' | 'batch-implement' | 'freestyle'
-  claudeOnly: boolean
+  /** Adapter capability required to execute this factory loop, when any. */
+  requiredCapability?: 'freestyle'
+  /** Backward-compatible field from older servers. */
+  claudeOnly?: boolean
   graph: LoopGraph
 }
 

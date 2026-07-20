@@ -140,8 +140,12 @@
       "connecting": "正在连接代理…",
       "starting": "正在启动…"
     },
-    "pipelinePartial": "≥ 表示部分 — {{count}} 个阶段尚无成本记录",
-    "pipelinePartialTooltip": "部分阶段在报告成本前已结束，因此该总额为下限。"
+  "pipelinePartial": "≥ 表示部分 — {{count}} 个阶段尚无成本记录",
+  "pipelinePartialTooltip": "部分阶段在报告成本前已结束，因此该总额为下限。",
+  "pipelineCostUnavailable": "所有阶段的成本遥测数据均不可用。",
+  "pipelineUsageUnavailable": "所有阶段的 token 遥测数据均不可用。",
+  "pipelineUsagePartial": "≥ 显示值 — {{count}} 个阶段无 token 遥测数据",
+  "pipelineUsageTooltip": "提供方可能在不提供 token 遥测数据的情况下完成阶段；仅计入已知用量。"
   },
   "ticketHeader": {
     "showMore": "+ 还有 {{count}} 个",

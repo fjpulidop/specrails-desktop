@@ -102,7 +102,11 @@
     "turns_other": "{{count}} turni",
     "active": "{{duration}} di attività",
     "breakdownItem": "{{n}} {{label}}",
-    "estimatedTooltip": "Stimato dalla tabella prezzi locale — questo provider non riporta il costo in modo nativo."
+    "estimatedTooltip": "Stimato dalla tabella prezzi locale — questo provider non riporta il costo in modo nativo.",
+    "costUnavailableTooltip": "Nessuna invocazione di questo ticket ha esposto telemetria dei costi.",
+    "costPartiallyUnavailableTooltip": "Solo subtotale dei costi noti; alcune invocazioni non hanno esposto il costo.",
+    "turnsUnavailableTooltip": "La telemetria dei turn non è disponibile per questo ticket.",
+    "turnsPartiallyUnavailableTooltip": "Solo subtotale dei turn noti; alcune invocazioni non hanno esposto la telemetria dei turn."
   },
   "toasts": {
     "newTicket": "Nuovo ticket: {{title}}",

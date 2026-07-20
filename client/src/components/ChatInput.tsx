@@ -3,7 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { Button } from './ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { cn } from '../lib/utils'
-import type { ProviderId } from '../lib/provider-capabilities'
+import {
+  providerSupportsCustomModelAliases,
+  type ProviderId,
+} from '../lib/provider-capabilities'
+import { CustomModelAliasInput } from './CustomModelAliasInput'
 
 const CLAUDE_MODEL_OPTIONS = [
   { value: 'opus', label: 'Opus' },
@@ -26,11 +30,18 @@ const GEMINI_MODEL_OPTIONS = [
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
 ]
 
-// Per-provider model options; unknown provider falls back to Claude's list.
+const KIMI_MODEL_OPTIONS = [
+  { value: 'k3', label: 'Kimi K3' },
+  { value: 'kimi-for-coding', label: 'Kimi for Coding' },
+  { value: 'kimi-for-coding-highspeed', label: 'Kimi for Coding Highspeed' },
+]
+
+// Per-provider model options; unknown providers intentionally have no catalog.
 const MODEL_OPTIONS_BY_PROVIDER: Record<string, { value: string; label: string }[]> = {
   claude: CLAUDE_MODEL_OPTIONS,
   codex: CODEX_MODEL_OPTIONS,
   gemini: GEMINI_MODEL_OPTIONS,
+  kimi: KIMI_MODEL_OPTIONS,
 }
 
 interface ChatInputProps {
@@ -55,7 +66,8 @@ export function ChatInput({
   onModelChange,
 }: ChatInputProps) {
   const { t } = useTranslation('chat')
-  const MODEL_OPTIONS = MODEL_OPTIONS_BY_PROVIDER[provider] ?? CLAUDE_MODEL_OPTIONS
+  const MODEL_OPTIONS = MODEL_OPTIONS_BY_PROVIDER[provider] ?? []
+  const customModelAliases = providerSupportsCustomModelAliases(provider)
   const [text, setText] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -92,22 +104,34 @@ export function ChatInput({
         <Tooltip>
           <TooltipTrigger asChild>
             <span className={hasMessages ? 'cursor-not-allowed' : undefined}>
-              <select
-                value={model}
-                disabled={hasMessages}
-                className={cn(
-                  'rounded bg-transparent text-[10px] text-muted-foreground outline-none',
-                  'border border-border/20 px-1.5 py-0.5',
-                  hasMessages && 'opacity-50 pointer-events-none'
-                )}
-                onChange={(e) => onModelChange(e.target.value)}
-              >
-                {MODEL_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value} className="bg-background">
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+              {customModelAliases ? (
+                <CustomModelAliasInput
+                  value={model}
+                  options={MODEL_OPTIONS}
+                  disabled={hasMessages}
+                  ariaLabel="Model"
+                  testId="chat-model-alias-input"
+                  className="w-52 border-border/20 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                  onCommit={onModelChange}
+                />
+              ) : (
+                <select
+                  value={model}
+                  disabled={hasMessages}
+                  className={cn(
+                    'rounded bg-transparent text-[10px] text-muted-foreground outline-none',
+                    'border border-border/20 px-1.5 py-0.5',
+                    hasMessages && 'opacity-50 pointer-events-none'
+                  )}
+                  onChange={(e) => onModelChange(e.target.value)}
+                >
+                  {MODEL_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value} className="bg-background">
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              )}
             </span>
           </TooltipTrigger>
           {hasMessages && (

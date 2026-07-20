@@ -102,7 +102,11 @@
     "turns_other": "{{count}} turns",
     "active": "{{duration}} active",
     "breakdownItem": "{{n}} {{label}}",
-    "estimatedTooltip": "Estimated from the local pricing table — this provider does not report cost natively."
+    "estimatedTooltip": "Estimated from the local pricing table — this provider does not report cost natively.",
+    "costUnavailableTooltip": "None of this ticket's invocations exposed cost telemetry.",
+    "costPartiallyUnavailableTooltip": "Known cost subtotal only; some invocations did not expose cost telemetry.",
+    "turnsUnavailableTooltip": "Turn telemetry is unavailable for this ticket.",
+    "turnsPartiallyUnavailableTooltip": "Known turn subtotal only; some invocations did not expose turn telemetry."
   },
   "toasts": {
     "newTicket": "New ticket: {{title}}",

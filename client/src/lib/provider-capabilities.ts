@@ -27,6 +27,17 @@ export function isSmashCapable(provider: string | null | undefined): boolean {
 }
 
 /**
+ * Agent generation, smoke tests and AI Refine require a safe non-writing tool
+ * policy. Kimi 0.27 prompt mode forces auto-approval, so those actions must not
+ * be offered even though manual custom-role editing remains supported.
+ */
+export function providerSupportsAgentAutomation(
+  provider: string | null | undefined,
+): boolean {
+  return provider === 'claude' || provider === 'codex' || provider === 'gemini'
+}
+
+/**
  * Returns true when the given provider honours a per-invocation reasoning-effort
  * (low/medium/high) control — so the effort selector should be offered.
  *
@@ -40,8 +51,112 @@ export function isSmashCapable(provider: string | null | undefined): boolean {
  * Mirrors each adapter's server-side `capabilities.supportsReasoningEffort`.
  * null/undefined → false (safe default: hide rather than offer a no-op control).
  */
-export function providerSupportsReasoningEffort(provider: string | null | undefined): boolean {
-  return provider === 'claude' || provider === 'codex'
+export type ProviderReasoningEffort =
+  | 'minimal'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'xhigh'
+  | 'max'
+  | 'ultra'
+
+const PROVIDER_REASONING_EFFORTS: Record<string, readonly ProviderReasoningEffort[]> = {
+  claude: ['low', 'medium', 'high', 'xhigh'],
+  codex: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+  gemini: [],
+  kimi: ['low', 'high', 'max'],
+}
+
+/** Exact effort tiers accepted by the provider adapter. */
+export function reasoningEffortsForProvider(
+  provider: string | null | undefined,
+  model?: string | null,
+): readonly ProviderReasoningEffort[] {
+  // Kimi Code exposes KIMI_MODEL_THINKING_EFFORT only for K3. Fail closed when
+  // the effective model is unknown so custom aliases never receive a no-op.
+  if (provider === 'kimi' && model !== 'k3' && model !== 'kimi-code/k3') return []
+  return provider ? PROVIDER_REASONING_EFFORTS[provider] ?? [] : []
+}
+
+/**
+ * Provider-safe initial effort. Prefer medium for providers that expose it,
+ * then high (Kimi K3's native default), then the first available tier.
+ */
+export function defaultReasoningEffortForProvider(
+  provider: string | null | undefined,
+  model?: string | null,
+): ProviderReasoningEffort | undefined {
+  const efforts = reasoningEffortsForProvider(provider, model)
+  if (efforts.includes('medium')) return 'medium'
+  if (efforts.includes('high')) return 'high'
+  return efforts[0]
+}
+
+export function providerSupportsReasoningEffort(
+  provider: string | null | undefined,
+  model?: string | null,
+): boolean {
+  return reasoningEffortsForProvider(provider, model).length > 0
+}
+
+export type RestrictedToolPolicy = 'none' | 'read-only'
+
+const PROVIDER_TOOL_POLICIES: Record<string, readonly RestrictedToolPolicy[]> = {
+  claude: ['none', 'read-only'],
+  codex: ['read-only'],
+  gemini: ['read-only'],
+  kimi: [],
+}
+
+/** Mirrors each adapter's verified native non-default tool boundaries. */
+export function providerSupportsToolPolicy(
+  provider: string | null | undefined,
+  policy: RestrictedToolPolicy,
+): boolean {
+  return provider
+    ? (PROVIDER_TOOL_POLICIES[provider] ?? []).includes(policy)
+    : false
+}
+
+/** Pure-output actions require no-tools or a native read-only fallback. */
+export function providerSupportsPureOutput(
+  provider: string | null | undefined,
+): boolean {
+  return providerSupportsToolPolicy(provider, 'none')
+    || providerSupportsToolPolicy(provider, 'read-only')
+}
+
+/** Provider-owned freestyle and profile projection are available for both. */
+export function providerSupportsFreestyle(provider: string | null | undefined): boolean {
+  return provider === 'claude' || provider === 'kimi'
+}
+
+export function providerSupportsProfiles(provider: string | null | undefined): boolean {
+  return provider === 'claude' || provider === 'kimi'
+}
+
+/**
+ * The provider accepts model aliases configured outside SpecRails. The server
+ * remains authoritative and validates the exact alias before spawning a CLI.
+ */
+export function providerSupportsCustomModelAliases(
+  provider: string | null | undefined,
+): boolean {
+  return provider === 'kimi'
+}
+
+/** Mirrors `ProviderCapabilities.structuredActions` on the server. */
+export function providerSupportsStructuredActions(
+  provider: string | null | undefined,
+): boolean {
+  return provider === 'claude'
+}
+
+/** Mirrors `ProviderCapabilities.userMcp` on the server. */
+export function providerSupportsUserMcp(
+  provider: string | null | undefined,
+): boolean {
+  return provider === 'claude'
 }
 
 // ─── Multi-provider capability matrix ────────────────────────────────────────
@@ -76,7 +191,7 @@ export function providerSupportsSection(
   section: SidebarSection,
 ): boolean {
   if (!CLAUDE_ONLY_SECTIONS.has(section)) return true
-  return provider === 'claude'
+  return providerSupportsProfiles(provider)
 }
 
 /**
@@ -102,5 +217,6 @@ export function providerLabel(provider: string | null | undefined): string {
   if (provider === 'codex') return 'Codex'
   if (provider === 'claude') return 'Claude'
   if (provider === 'gemini') return 'Gemini'
+  if (provider === 'kimi') return 'Kimi'
   return provider ?? 'Claude'
 }

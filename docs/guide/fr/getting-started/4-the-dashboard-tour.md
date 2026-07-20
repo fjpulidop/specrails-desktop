@@ -26,13 +26,13 @@ La barre latérale droite est votre tableau d'aiguillage pour le projet courant.
 
 - **Tableau de bord** — le tableau des specs et les rails (là d'où vous venez).
 - **Jobs** — chaque exécution de pipeline pour ce projet, passée et présente, avec son statut, sa durée et la possibilité de plonger dans le détail et les logs de n'importe quelle exécution.
-- **Analytics** — ce que coûte votre usage de l'IA. Les dépenses ventilées par jour, par activité, par modèle et par ticket — pour éviter les mauvaises surprises.
-- **Agents** — les profils d'agents de votre projet : quels agents s'exécutent dans le pipeline et quels modèles d'IA ils utilisent. *(Projets propulsés par Claude uniquement.)*
-- **Code** — un explorateur de fichiers en lecture seule, avec des résumés IA en langage clair et des badges indiquant quels fichiers l'IA a touchés. Idéal pour les non-développeurs qui veulent suivre.
+- **Analytics** — les invocations par jour, activité, modèle et ticket. Claude fournit le coût facturé, Codex/Gemini des estimations, et Kimi laisse vides les champs tokens/coût USD indisponibles.
+- **Agents** — profils et catalogues de rôles propres au fournisseur pour Claude et Kimi. Avec Kimi, les rôles se créent et se modifient manuellement ; Generate, Test et AI Refine sont indisponibles.
+- **Code** — un explorateur de fichiers en lecture seule et des badges indiquant quels fichiers l'IA a touchés. Les résumés IA en langage clair n'apparaissent qu'avec un fournisseur compatible ; ils sont indisponibles avec Kimi.
 - **Intégrations** — des extensions facultatives, comme connecter vos specs à un tableau **Jira** ou activer des outils supplémentaires pour l'IA.
 - **Paramètres** — les options par projet (télémétrie, budgets, configuration des fournisseurs, et plus encore).
 
-> Certaines sections n'apparaissent que lorsqu'elles ont du sens pour les fournisseurs que vous avez choisis — par exemple, **Agents** est spécifique à Claude. Si vous ne voyez pas une section, c'est simplement qu'elle ne s'applique pas à la configuration de ce projet.
+> Les sections et actions suivent les capacités du fournisseur effectif. Les profils fonctionnent par exemple avec Claude et Kimi, mais les actions IA d'Agent Studio échouent de façon fermée avec Kimi.
 
 ## La barre de statut
 

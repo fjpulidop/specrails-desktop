@@ -52,14 +52,31 @@ export function SpendingTimeline({ data, loading }: Props) {
         (d.loopCostUsd ?? 0) ===
       0
   )
+  const unpricedCount = data.dailyTimeline.reduce(
+    (sum, d) => sum + (d.unpricedCount ?? 0),
+    0,
+  )
+  const costUnavailable = isEmpty && unpricedCount > 0
+  const costPartiallyUnavailable = !isEmpty && unpricedCount > 0
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('timeline.title')}</h2>
-        <span className="text-[10px] text-muted-foreground/70">{t('timeline.subtitle')}</span>
+        <span className="text-[10px] text-muted-foreground/70">
+          {costPartiallyUnavailable
+            ? t('timeline.costPartiallyUnavailable', { count: unpricedCount })
+            : t('timeline.subtitle')}
+        </span>
       </div>
-      {isEmpty ? (
+      {costUnavailable ? (
+        <div
+          data-testid="timeline-cost-unavailable"
+          className="h-40 flex items-center justify-center text-xs text-muted-foreground/70"
+        >
+          {t('timeline.costUnavailable')}
+        </div>
+      ) : isEmpty ? (
         <div className="h-40 flex items-center justify-center text-xs text-muted-foreground/70">
           {t('timeline.empty')}
         </div>

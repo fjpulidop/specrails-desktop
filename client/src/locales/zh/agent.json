@@ -72,7 +72,8 @@
     "label": "提供方",
     "claude": "Claude",
     "codex": "Codex",
-    "gemini": "Gemini"
+    "gemini": "Gemini",
+    "kimi": "Kimi"
   },
   "tier": {
     "cycleHint": "⇧⇥ 切换",
@@ -167,7 +168,7 @@
   },
   "noProvider": {
     "title": "未安装 AI 提供方",
-    "body": "智能体需要在你的机器上安装 Claude、Codex 或 Gemini。安装其中之一后重新打开智能体即可开始对话。",
+    "body": "智能体需要在你的机器上安装 Claude、Codex、Gemini 或 Kimi。安装其中之一后重新打开智能体即可开始对话。",
     "placeholder": "请安装 AI 提供方以使用智能体…"
   },
   "degraded": {

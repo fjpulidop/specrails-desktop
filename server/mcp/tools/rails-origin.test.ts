@@ -382,15 +382,14 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     await settle()
   })
 
-  it("an out-of-contract conversation effort (codex 'minimal') is NOT defaulted — the launch must not 400", async () => {
+  it("a provider-valid conversation effort (codex 'minimal') is defaulted under the model-aware launch contract", async () => {
     const conv = createAgentConversation(desktopDb, { provider: 'codex', reasoningEffort: 'minimal' })
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
-    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex' })
-    expect(loopRun.mock.calls[0][0].effort).toBeUndefined()
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', effort: 'minimal' })
     await settle()
   })
 

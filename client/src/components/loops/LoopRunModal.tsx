@@ -3,8 +3,15 @@ import { useTranslation } from 'react-i18next'
 import { Play } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../ui/dialog'
 import { Button } from '../ui/button'
-import { providerSupportsReasoningEffort } from '../../lib/provider-capabilities'
+import {
+  defaultReasoningEffortForProvider,
+  providerLabel,
+  providerSupportsCustomModelAliases,
+  reasoningEffortsForProvider,
+} from '../../lib/provider-capabilities'
 import { modelsForProvider, defaultModelForProvider } from '../../lib/loop-run-models'
+import { isSafeCustomModelAlias } from '../../lib/model-alias'
+import { CustomModelAliasInput } from '../CustomModelAliasInput'
 
 export interface RunModalProject {
   id: string
@@ -35,14 +42,24 @@ export function LoopRunModal({
   const [projectId, setProjectId] = useState('')
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
-  const [effort, setEffort] = useState('medium')
+  const [effort, setEffort] = useState('')
 
   const selected = projects.find((p) => p.id === (projectId || projects[0]?.id))
   const providerList = useMemo(() => selected?.providers ?? (selected?.provider ? [selected.provider] : []), [selected])
   const effectiveProvider = provider || providerList[0] || ''
   const modelOptions = useMemo(() => modelsForProvider(effectiveProvider), [effectiveProvider])
-  const effectiveModel = model || defaultModelForProvider(effectiveProvider)
-  const showEffort = effectiveProvider ? providerSupportsReasoningEffort(effectiveProvider) : false
+  const customModelAliases = providerSupportsCustomModelAliases(effectiveProvider)
+  const effectiveModel = model && (
+    modelOptions.some((option) => option.value === model)
+    || (customModelAliases && isSafeCustomModelAlias(model))
+  )
+    ? model
+    : defaultModelForProvider(effectiveProvider)
+  const effortOptions = reasoningEffortsForProvider(effectiveProvider, effectiveModel)
+  const effectiveEffort = effortOptions.includes(effort as never)
+    ? effort
+    : defaultReasoningEffortForProvider(effectiveProvider, effectiveModel) ?? ''
+  const showEffort = effortOptions.length > 0
 
   const execute = () => {
     const pid = projectId || projects[0]?.id
@@ -51,7 +68,7 @@ export function LoopRunModal({
       projectId: pid,
       provider: providerList.length > 1 ? effectiveProvider : undefined,
       model: modelOptions.length > 0 ? effectiveModel : undefined,
-      effort: showEffort ? effort : undefined,
+      effort: showEffort ? effectiveEffort : undefined,
     })
   }
 
@@ -73,7 +90,7 @@ export function LoopRunModal({
                 aria-label={t('run.project')}
                 data-testid="run-project-select"
                 value={projectId || projects[0]?.id}
-                onChange={(e) => { setProjectId(e.target.value); setProvider(''); setModel('') }}
+                onChange={(e) => { setProjectId(e.target.value); setProvider(''); setModel(''); setEffort('') }}
                 className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
               >
                 {projects.map((p) => (
@@ -88,11 +105,11 @@ export function LoopRunModal({
                 <select
                   aria-label={t('run.provider')}
                   value={effectiveProvider}
-                  onChange={(e) => { setProvider(e.target.value); setModel('') }}
+                  onChange={(e) => { setProvider(e.target.value); setModel(''); setEffort('') }}
                   className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
                 >
                   {providerList.map((p) => (
-                    <option key={p} value={p}>{p}</option>
+                    <option key={p} value={p}>{providerLabel(p)}</option>
                   ))}
                 </select>
               </>
@@ -101,17 +118,35 @@ export function LoopRunModal({
             {modelOptions.length > 0 && (
               <>
                 <label className="block text-[11px] font-medium text-muted-foreground">{t('run.model')}</label>
-                <select
-                  aria-label={t('run.model')}
-                  data-testid="run-model-select"
-                  value={effectiveModel}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
-                >
-                  {modelOptions.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
+                {customModelAliases ? (
+                  <CustomModelAliasInput
+                    value={effectiveModel}
+                    options={modelOptions}
+                    ariaLabel={t('run.model')}
+                    testId="run-model-select"
+                    className="w-full px-2 py-1 text-xs"
+                    onCommit={(nextModel) => {
+                      setModel(nextModel)
+                      setEffort(defaultReasoningEffortForProvider(effectiveProvider, nextModel) ?? '')
+                    }}
+                  />
+                ) : (
+                  <select
+                    aria-label={t('run.model')}
+                    data-testid="run-model-select"
+                    value={effectiveModel}
+                    onChange={(e) => {
+                      const nextModel = e.target.value
+                      setModel(nextModel)
+                      setEffort(defaultReasoningEffortForProvider(effectiveProvider, nextModel) ?? '')
+                    }}
+                    className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
+                  >
+                    {modelOptions.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                )}
               </>
             )}
 
@@ -120,13 +155,13 @@ export function LoopRunModal({
                 <label className="block text-[11px] font-medium text-muted-foreground">{t('run.effort')}</label>
                 <select
                   aria-label={t('run.effort')}
-                  value={effort}
+                  value={effectiveEffort}
                   onChange={(e) => setEffort(e.target.value)}
                   className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
                 >
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
+                  {effortOptions.map((level) => (
+                    <option key={level} value={level}>{level}</option>
+                  ))}
                 </select>
               </>
             )}

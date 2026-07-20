@@ -22,7 +22,14 @@ Choisir un projet ici **ne déplace pas** votre tableau de bord : la cible de l'
 
 ## Fournisseur et modèle
 
-Juste au-dessus de la zone de message, vous choisissez le **fournisseur** (Claude, Codex ou Gemini) et son **modèle**. Chaque fournisseur a sa propre liste de modèles, et changer de fournisseur démarre une nouvelle session avec le modèle par défaut de ce fournisseur — vous pouvez ainsi, par exemple, piloter l'application avec Claude et passer à Codex pour une autre conversation sans que rien ne se mélange.
+Juste au-dessus de la zone de message, vous choisissez le **fournisseur**
+(Claude, Codex, Gemini ou Kimi) et son **modèle**. Changer de fournisseur
+démarre une session séparée.
+
+Avec Kimi, les niveaux limitent les outils MCP Specrails mais ne transforment
+pas `kimi -p` en sandbox : ses outils natifs sont approuvés automatiquement.
+Les actions pure-output non sûres sont refusées avant démarrage ; voir la
+[matrice Kimi](../../../kimi.md).
 
 ## Niveaux d'autorisation — c'est vous qui tenez la laisse
 

@@ -21,6 +21,7 @@ vi.mock('fs', async () => {
     rmSync: vi.fn(),
     mkdirSync: vi.fn(),
     readFileSync: vi.fn().mockReturnValue('# Enrich prompt content'),
+    realpathSync: vi.fn((p: any) => String(p)),
     writeFileSync: vi.fn(),
     copyFileSync: vi.fn(),
   }
@@ -51,6 +52,7 @@ import { detectCLISync } from './core-compat'
 import { SetupManager, CHECKPOINTS, QUICK_CHECKPOINTS, computeSummary, sweepLegacySrCommands, validateInstalledCore } from './setup-manager'
 import { CORE_PACKAGE_SPEC } from './core-package'
 import { initDb, type DbInstance } from './db'
+import * as workspaceResolution from './workspace-resolution'
 
 function createMockChildProcess() {
   const child = new EventEmitter() as any
@@ -566,6 +568,110 @@ describe('SetupManager', () => {
       expect(complete[0].summary).toBeDefined()
     })
 
+    it('broadcasts setup_complete from Kimi native direct-child role and command skills', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(readFileSync).mockReturnValue(
+        '---\nname: specrails-enrich\ndescription: test\ntype: prompt\n---\nEnrich $ARGUMENTS\n',
+      )
+
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const s = String(p)
+        return s.includes('.kimi-code/skills')
+          && (
+            s.endsWith('/skills')
+            || s.endsWith('/skills/sr-architect/SKILL.md')
+            || s.endsWith('/skills/specrails-enrich/SKILL.md')
+          )
+      })
+      vi.mocked(readdirSync).mockImplementation((p: any) => {
+        const s = String(p)
+        if (s.endsWith('.kimi-code/skills')) return ['sr-architect', 'specrails-enrich'] as any
+        return [] as any
+      })
+
+      sm.startEnrich('p1', '/path/to/project', 'kimi')
+      await finishProcess(child, 0)
+
+      const complete = getBroadcastedByType(broadcast, 'setup_complete')
+      expect(complete).toHaveLength(1)
+      expect(complete[0].summary).toMatchObject({
+        provider: 'kimi',
+        agents: 1,
+        specrailsCommands: 1,
+      })
+      expect(getBroadcastedByType(broadcast, 'setup_turn_done')).toHaveLength(0)
+    })
+
+    it('materializes and spawns Kimi enrich from a relocated workspace with explicit repo access', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.spyOn(workspaceResolution, 'resolveProjectExecution').mockReturnValue({
+        relocated: true,
+        cwd: '/workspace/project-one',
+        repoDir: '/repos/project-one',
+        workspaceDir: '/workspace/project-one',
+        env: { SPECRAILS_REPO_DIR: '/repos/project-one' },
+      } as any)
+      vi.mocked(existsSync).mockImplementation((p: any) =>
+        String(p) === '/workspace/project-one/.kimi-code/skills/specrails-enrich/SKILL.md')
+      vi.mocked(readFileSync).mockReturnValue(
+        '---\nname: specrails-enrich\ndescription: test\ntype: prompt\n---\nEnrich $ARGUMENTS\n',
+      )
+
+      sm.startEnrich('p1', '/repos/project-one', 'kimi')
+
+      const [binary, rawArgs, spawnOptions] = vi.mocked(mockSpawn).mock.calls[0]
+      const args = rawArgs as string[]
+      expect(binary).toBe('kimi')
+      expect(args[args.indexOf('-p') + 1]).toContain('<kimi-skill-loaded')
+      expect(args).toEqual(expect.arrayContaining(['--add-dir', '/repos/project-one']))
+      expect(spawnOptions).toEqual(expect.objectContaining({
+        cwd: '/workspace/project-one',
+        env: expect.objectContaining({ SPECRAILS_REPO_DIR: '/repos/project-one' }),
+      }))
+
+      // Provider-reported errors are terminal even when an anomalous CLI exits
+      // zero; setup must not emit a successful turn/completion.
+      pushLine(child, JSON.stringify({
+        role: 'meta',
+        type: 'system.error',
+        message: 'Authentication required. Run kimi login.',
+      }))
+      await finishProcess(child, 0)
+      expect(getBroadcastedByType(broadcast, 'setup_error')).toEqual([
+        expect.objectContaining({ error: 'Authentication required. Run kimi login.' }),
+      ])
+      expect(getBroadcastedByType(broadcast, 'setup_complete')).toHaveLength(0)
+      expect(getBroadcastedByType(broadcast, 'setup_turn_done')).toHaveLength(0)
+    })
+
+    it('fails closed before spawn when an unrelated Claude tree has no Kimi enrich skill', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const s = String(p)
+        return s.includes('.claude/agents') || s.includes('.claude/commands/sr')
+      })
+      vi.mocked(readdirSync).mockImplementation((p: any) => {
+        const s = String(p)
+        if (s.includes('/agents') && !s.includes('personas')) return ['sr-developer.md'] as any
+        if (s.includes('/commands/sr')) return ['implement.md'] as any
+        return [] as any
+      })
+
+      sm.startEnrich('p1', '/path/to/project', 'kimi')
+
+      expect(getBroadcastedByType(broadcast, 'setup_complete')).toHaveLength(0)
+      expect(getBroadcastedByType(broadcast, 'setup_error')).toEqual([
+        expect.objectContaining({
+          error: expect.stringContaining('specrails-enrich'),
+        }),
+      ])
+      expect(mockSpawn).not.toHaveBeenCalled()
+    })
+
     it('broadcasts setup_error on non-zero exit', async () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)
@@ -832,6 +938,41 @@ describe('SetupManager', () => {
       expect(args).toContain('019e1111-2222-7333-bbbb-cccccccccccc')
       expect(args).toContain('next turn')
     })
+
+    it('resumes Kimi from a relocated workspace and preserves explicit repo access', async () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.spyOn(workspaceResolution, 'resolveProjectExecution').mockReturnValue({
+        relocated: true,
+        cwd: '/workspace/project-one',
+        repoDir: '/repos/project-one',
+        workspaceDir: '/workspace/project-one',
+        env: { SPECRAILS_REPO_DIR: '/repos/project-one' },
+      } as any)
+
+      sm.resumeEnrich(
+        'p1',
+        '/repos/project-one',
+        '01KIMI00000000000000000001',
+        'continue please',
+        'kimi',
+      )
+
+      const [binary, rawArgs, spawnOptions] = vi.mocked(mockSpawn).mock.calls[0]
+      const args = rawArgs as string[]
+      expect(binary).toBe('kimi')
+      expect(args).toEqual(expect.arrayContaining([
+        '--session=01KIMI00000000000000000001',
+        '--add-dir',
+        '/repos/project-one',
+      ]))
+      expect(spawnOptions).toEqual(expect.objectContaining({
+        cwd: '/workspace/project-one',
+        env: expect.objectContaining({ SPECRAILS_REPO_DIR: '/repos/project-one' }),
+      }))
+
+      await finishProcess(child, 1)
+    })
   })
 
   // ─── getCheckpointStatus ───────────────────────────────────────────────────
@@ -910,6 +1051,30 @@ describe('SetupManager', () => {
       const statuses = sm.getCheckpointStatus('p1', '/path/to/project')
       const codebaseAnalysis = statuses.find((s) => s.key === 'codebase_analysis')
       expect(codebaseAnalysis?.status).toBe('done')
+    })
+
+    it('completes Kimi agent and command checkpoints from .kimi-code skills', () => {
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const s = String(p)
+        return s.includes('.kimi-code/skills')
+          && (
+            s.endsWith('/skills')
+            || s.endsWith('/skills/sr-developer/SKILL.md')
+            || s.endsWith('/skills/specrails-doctor/SKILL.md')
+          )
+      })
+      vi.mocked(readdirSync).mockImplementation((p: any) => {
+        const s = String(p)
+        if (s.endsWith('.kimi-code/skills')) return ['sr-developer', 'specrails-doctor'] as any
+        return [] as any
+      })
+
+      sm.startEnrich('p1', '/path/to/project', 'kimi')
+      const statuses = sm.getCheckpointStatus('p1', '/path/to/project')
+      expect(statuses.find((s) => s.key === 'agent_generation')?.status).toBe('done')
+      expect(statuses.find((s) => s.key === 'command_generation')?.status).toBe('done')
     })
   })
 
@@ -1218,6 +1383,51 @@ describe('SetupManager', () => {
       const result = sm.getSummary({ path: '/path/to/project' })
       expect(result).toMatchObject({ agents: 2, personas: 1, specrailsCommands: 2, opsxCommands: 1 })
     })
+
+    it('reads Kimi artefacts from the relocated workspace after a project is reopened', () => {
+      vi.spyOn(workspaceResolution, 'resolveProjectExecution').mockReturnValue({
+        relocated: true,
+        cwd: '/workspace/project-one',
+        repoDir: '/repos/project-one',
+        workspaceDir: '/workspace/project-one',
+        env: { SPECRAILS_REPO_DIR: '/repos/project-one' },
+      } as any)
+      vi.mocked(readFileSync).mockReturnValue(
+        'version: 1\nprovider: kimi\ntier: quick\nagents:\n  selected: [sr-architect]\n',
+      )
+
+      const probed: string[] = []
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const candidate = String(p)
+        probed.push(candidate)
+        return candidate === '/workspace/project-one/.kimi-code/skills'
+          || candidate === '/workspace/project-one/.kimi-code/skills/sr-architect/SKILL.md'
+          || candidate === '/workspace/project-one/.kimi-code/skills/specrails-implement/SKILL.md'
+      })
+      vi.mocked(readdirSync).mockImplementation((p: any) =>
+        String(p) === '/workspace/project-one/.kimi-code/skills'
+          ? ['sr-architect', 'specrails-implement'] as any
+          : [] as any
+      )
+
+      const result = sm.getSummary({
+        slug: 'project-one',
+        path: '/repos/project-one',
+      })
+
+      expect(result).toMatchObject({
+        provider: 'kimi',
+        tier: 'quick',
+        agents: 1,
+        specrailsCommands: 1,
+      })
+      expect(probed.some((candidate) =>
+        candidate.startsWith('/workspace/project-one/.kimi-code/'),
+      )).toBe(true)
+      expect(probed.some((candidate) =>
+        candidate.startsWith('/repos/project-one/.kimi-code/'),
+      )).toBe(false)
+    })
   })
 
   // ─── computeSummary (unit tests for new shape) ─────────────────────────────
@@ -1312,6 +1522,36 @@ describe('SetupManager', () => {
       expect(result.agents).toBe(0)
       expect(result.specrailsCommands).toBe(0)
       expect(result.opsxCommands).toBe(0)
+    })
+
+    it('counts Kimi direct-child skills and provider-local VPC personas', () => {
+      vi.mocked(existsSync).mockImplementation((p: any) => {
+        const s = String(p)
+        return s.endsWith('.kimi-code/skills')
+          || s.endsWith('.kimi-code/personas')
+          || s.endsWith('/sr-architect/SKILL.md')
+          || s.endsWith('/specrails-enrich/SKILL.md')
+          || s.endsWith('/openspec-apply-change/SKILL.md')
+      })
+      vi.mocked(readdirSync).mockImplementation((p: any) => {
+        const s = String(p)
+        if (s.endsWith('.kimi-code/skills')) {
+          return ['sr-architect', 'specrails-enrich', 'openspec-apply-change'] as any
+        }
+        if (s.endsWith('.kimi-code/personas')) {
+          return ['the-builder.md', 'the-maintainer.md', 'README.txt'] as any
+        }
+        return [] as any
+      })
+
+      expect(computeSummary('/path', 'full', 'kimi')).toMatchObject({
+        provider: 'kimi',
+        tier: 'full',
+        agents: 1,
+        personas: 2,
+        specrailsCommands: 1,
+        opsxCommands: 1,
+      })
     })
   })
 
@@ -1659,6 +1899,16 @@ describe('detectCheckpointFromText', () => {
 
   it('matches the .specrails/specrails-version path log → base_install', () => {
     expect(keys('  ✓ Wrote .specrails/specrails-version')).toContain('base_install')
+  })
+
+  it('matches a Kimi direct-child rail skill → agent_generation', () => {
+    expect(keys('Writing .kimi-code/skills/sr-reviewer/SKILL.md'))
+      .toContain('agent_generation')
+  })
+
+  it('matches a Kimi command skill → command_generation', () => {
+    expect(keys('Writing .kimi-code/skills/specrails-doctor/SKILL.md'))
+      .toContain('command_generation')
   })
 
   it('returns no hits on unrelated noise', () => {

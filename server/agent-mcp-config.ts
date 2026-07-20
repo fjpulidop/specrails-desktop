@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto'
 import { resolveBundledNodeExe } from './path-resolver'
 import { stripWindowsVerbatimPrefix } from './util/win-spawn'
 import { AGENT_CAPABILITY_FILE_ENV } from './agent-tier'
+import { getAdapter } from './providers'
 
 const AGENT_CONVERSATION_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
 
@@ -103,10 +104,15 @@ export function buildSpecrailsMcpEntry(opts: {
  * Additive + idempotent: preserves any existing (e.g. plugin) mcpServers entries,
  * writes atomically (temp + rename), inlines NO token. Returns true when written.
  */
-export function mergeSpecrailsIntoWorkspaceMcp(workspaceDir: string, port: number): boolean {
+export function mergeSpecrailsIntoWorkspaceMcp(
+  workspaceDir: string,
+  port: number,
+  providerId: string = 'claude',
+): boolean {
   const entry = buildSpecrailsMcpEntry({ port })
   if (!entry) return false
-  const file = path.join(workspaceDir, '.mcp.json')
+  const adapter = getAdapter(providerId)
+  const file = adapter.projectMcpPath?.(workspaceDir) ?? path.join(workspaceDir, '.mcp.json')
   let current: { mcpServers?: Record<string, unknown>; [k: string]: unknown } = {}
   try {
     if (fs.existsSync(file)) {
@@ -120,7 +126,7 @@ export function mergeSpecrailsIntoWorkspaceMcp(workspaceDir: string, port: numbe
   const mcpServers = { ...(current.mcpServers ?? {}), specrails: entry }
   const next = { ...current, mcpServers }
   const tmp = `${file}.tmp-${process.pid}`
-  fs.mkdirSync(workspaceDir, { recursive: true })
+  fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(tmp, JSON.stringify(next, null, 2))
   fs.renameSync(tmp, file)
   return true
@@ -244,23 +250,25 @@ export function prepareAgentMcp(opts: {
   port: number
   capability: string
 }): AgentMcpWiring {
-  if (opts.adapterId === 'claude') {
+  const adapter = getAdapter(opts.adapterId)
+  if (adapter.id === 'claude') {
     return { extraArgs: buildAgentMcpArgs(opts), env: {} }
   }
 
   const entry = buildAgentTurnEntry(opts)
   if (!entry) return { extraArgs: [], env: {} }
 
-  if (opts.adapterId === 'codex') {
+  if (adapter.mcpRegistration === 'cli-add') {
     // Inline -c overrides contain only the capability FILE PATH, never its secret.
     return { extraArgs: codexMcpOverrides(entry), env: {} }
   }
 
-  // gemini + any other project-json provider: write .mcp.json in the spawn cwd.
-  const file = path.join(opts.cwd, '.mcp.json')
+  // Project-json providers write only their native project config in the
+  // conversation-isolated cwd.
+  const file = adapter.projectMcpPath?.(opts.cwd) ?? path.join(opts.cwd, '.mcp.json')
   mergeServerIntoJsonFile(file, entry)
 
-  if (opts.adapterId === 'gemini') {
+  if (adapter.id === 'gemini') {
     // gemini-cli has NEVER read .mcp.json (a Claude convention) — its only MCP
     // surface is `mcpServers` in settings.json (user or <cwd>/.gemini project
     // scope), and an UNTRUSTED cwd suppresses MCP entirely (headless run exits
@@ -269,9 +277,6 @@ export function prepareAgentMcp(opts: {
     // via env — the same pattern every other gemini spawn path already uses
     // (chat-manager / queue-manager / cli-prompt). Verified empirically against
     // gemini-cli 0.49.0 (see docs/internals note on FQN tool prefixing).
-    const geminiDir = path.join(opts.cwd, '.gemini')
-    fs.mkdirSync(geminiDir, { recursive: true })
-    mergeServerIntoJsonFile(path.join(geminiDir, 'settings.json'), entry)
     return { extraArgs: [], env: { GEMINI_CLI_TRUST_WORKSPACE: 'true' } }
   }
 
@@ -293,5 +298,7 @@ function mergeServerIntoJsonFile(file: string, entry: AgentMcpEntry): void {
     current = {}
   }
   const next = { ...current, mcpServers: { ...(current.mcpServers ?? {}), specrails: entry } }
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
   fs.writeFileSync(file, JSON.stringify(next, null, 2), { mode: 0o600 })
+  try { fs.chmodSync(file, 0o600) } catch { /* best-effort */ }
 }

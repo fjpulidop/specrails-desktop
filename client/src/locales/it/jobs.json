@@ -141,7 +141,11 @@
       "starting": "Avvio…"
     },
     "pipelinePartial": "≥ mostrato — {{count}} fase/i senza costo registrato",
-    "pipelinePartialTooltip": "Alcune fasi si sono interrotte prima di riportare il costo, quindi questo totale è un limite inferiore."
+    "pipelinePartialTooltip": "Alcune fasi si sono interrotte prima di riportare il costo, quindi questo totale è un limite inferiore.",
+    "pipelineCostUnavailable": "La telemetria dei costi non è disponibile per nessuna fase.",
+    "pipelineUsageUnavailable": "La telemetria dei token non è disponibile per nessuna fase.",
+  "pipelineUsagePartial": "≥ mostrato — fasi senza telemetria dei token: {{count}}",
+    "pipelineUsageTooltip": "I provider possono completare le fasi senza esporre la telemetria dei token; è incluso solo l'utilizzo noto."
   },
   "ticketHeader": {
     "showMore": "+ altri {{count}}",

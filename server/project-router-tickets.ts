@@ -40,6 +40,13 @@ import {
 import { finaliseInvocationResult } from './result-event'
 import { CORE_PACKAGE_SPEC } from './core-package'
 import type { AdapterEvent } from './providers/types'
+import type { SpawnOptions } from './providers/types'
+import {
+  buildProviderEnv,
+  parseStreamEvents,
+  pureOutputToolPolicy,
+  supportsToolPolicy,
+} from './providers/runtime'
 import { getSpending, getInvocations, parseSpendingFilters } from './spending'
 import { randomUUID } from 'crypto'
 import {
@@ -107,6 +114,61 @@ import {
   formatDescriptionWithCriteria,
   resolveDefaultSpecModel,
 } from './project-router-helpers'
+
+type TicketBoundProviderResult =
+  | { ok: true; provider: string }
+  | { ok: false; status: 400 | 409; error: string }
+
+/**
+ * A NULL conversation provider is the intentional single-provider encoding:
+ * it means "use this project's primary provider", never "use Claude".
+ */
+function resolveConversationProvider(
+  context: Pick<ProjectContext, 'db' | 'project'>,
+  conversationId: string,
+): string | null {
+  const conversation = getConversation(context.db, conversationId)
+  if (!conversation) return null
+  return conversation.provider ?? context.project.provider ?? 'claude'
+}
+
+/**
+ * Resolve a ticket-bound structured action without silently changing engines.
+ * An origin conversation owns the action provider because its session/model
+ * state is provider-specific. Explicit requests may confirm that provider but
+ * cannot replace it; missing/stale origins fail closed.
+ */
+function resolveTicketBoundProvider(
+  context: Pick<ProjectContext, 'db' | 'project'>,
+  ticket: Pick<Ticket, 'origin_conversation_id'>,
+  requested: unknown,
+): TicketBoundProviderResult {
+  const requestedCheck = validateRequestedProvider(context.project, requested)
+  if (!requestedCheck.ok) {
+    return { ok: false, status: 400, error: requestedCheck.error }
+  }
+  if (!ticket.origin_conversation_id) {
+    return { ok: true, provider: requestedCheck.provider }
+  }
+
+  const originProvider = resolveConversationProvider(context, ticket.origin_conversation_id)
+  if (!originProvider) {
+    return { ok: false, status: 409, error: 'ticket_origin_conversation_not_found' }
+  }
+  const originCheck = validateRequestedProvider(context.project, originProvider)
+  if (!originCheck.ok) {
+    return { ok: false, status: 409, error: originCheck.error }
+  }
+  const hasExplicitRequest = requested !== undefined && requested !== null && requested !== ''
+  if (hasExplicitRequest && requestedCheck.provider !== originCheck.provider) {
+    return {
+      ok: false,
+      status: 400,
+      error: `provider '${requestedCheck.provider}' does not match ticket origin provider '${originCheck.provider}'`,
+    }
+  }
+  return { ok: true, provider: originCheck.provider }
+}
 
 /**
  * Add Spec on a Jira-backed project: promote the freshly-created LOCAL ticket to
@@ -229,10 +291,12 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     let hasAttachments = false
     let baseUserPrompt = `Generate a spec for the following idea:\n\n${idea.trim()}`
     let imageFlags: string[] = []
+    let imagePaths: string[] = []
     if (attachmentIds.length > 0 && pendingSpecId) {
       try {
         const extracted = await attachmentManager.getClaudeArgs(project.slug, pendingSpecId, attachmentIds)
         imageFlags = extracted.imageFlags
+        imagePaths = extracted.imagePaths
         if (extracted.textBlocks.length > 0) {
           hasAttachments = true
           baseUserPrompt = `${baseUserPrompt}\n\n## Attached Resources\n\n${extracted.textBlocks.join('\n\n')}`
@@ -250,9 +314,9 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     // Awareness controls; Quick still keeps Contract Refine as a top-level
     // field for the refine scheduler.
     const rawScope = req.body?.contextScope
-    // Contract Layer is Claude-only — force it off for any non-claude engine
-    // (defence-in-depth; the Quick UI hides the toggle for those).
-    const quickContractRefine = provider !== 'claude'
+    // Contract Layer is available only when the selected adapter advertises a
+    // safe structured-action implementation.
+    const quickContractRefine = getAdapter(provider).capabilities.structuredActions !== true
       ? false
       : typeof req.body?.contractRefine === 'boolean'
       ? req.body.contractRefine
@@ -270,6 +334,18 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       mcp: typeof rawScope?.mcp === 'boolean' ? rawScope.mcp : false,
       contractRefine: quickContractRefine,
       userMcp: typeof rawScope?.userMcp === 'boolean' ? rawScope.userMcp : false,
+    }
+    const adapter = getAdapter(provider)
+    const quickToolPolicy = quickScope.full
+      ? (supportsToolPolicy(adapter, 'read-only') ? 'read-only' : null)
+      : pureOutputToolPolicy(adapter)
+    if (!quickToolPolicy) {
+      res.status(409).json({
+        error: 'provider_tool_policy_unsupported',
+        provider,
+        requiredPolicy: quickScope.full ? 'read-only' : 'pure-output',
+      })
+      return
     }
     // Persist Quick mode Contract Refine choice (per-project last value).
     setQuickContractRefineLast(ctx(req).db, quickContractRefine)
@@ -333,24 +409,26 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     // same way. For codex the system prompt folds into the user prompt
     // (no --system-prompt flag) and the extra Claude-only flags are ignored
     // by the codex adapter (it doesn't read extraArgs that don't apply).
-    const adapter = getAdapter(provider)
     const toolFlags = provider === 'claude' ? toolFlagsForScope(quickScope) : { args: [] }
     // Full scope grants Read/Grep/Glob. The model spends turns exploring the
     // repo before it writes the spec; 6 was too tight (a few tool calls on a
     // sparse/empty repo hit error_max_turns → exit 1 → opaque failure). 15
     // leaves comfortable headroom while --max-turns still bounds runaway loops.
     const claudeMaxTurns = quickScope.full ? 15 : (hasAttachments ? 3 : 1)
-    const args = adapter.buildArgs('spec-gen', {
+    const specGenOptions: SpawnOptions = {
       prompt: userPrompt,
       systemPrompt,
       model: resolvedModel,
+      toolPolicy: quickToolPolicy,
       maxTurns: provider === 'claude' ? claudeMaxTurns : undefined,
       extraArgs: provider === 'claude' ? [...toolFlags.args, ...imageFlags] : undefined,
       // "My approved MCPs" (scope.userMcp) loads the developer's user-scope,
       // plugin, and connector MCP servers (claude-only). Quick already spawns
       // from project.path so project `.mcp.json` is discovered without a flag.
-      loadUserEnv: provider === 'claude' && quickScope.userMcp,
-    })
+      loadUserEnv: adapter.capabilities.userMcp === true && quickScope.userMcp,
+      imagePaths: adapter.capabilities.supportsImageInput ? imagePaths : undefined,
+    }
+    const args = adapter.buildArgs('spec-gen', specGenOptions)
     const binary = adapter.binary
 
     // Relocate-artifacts gate: spawn from the workspace + SPECRAILS_REPO_DIR when
@@ -365,7 +443,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     // POSIX argv path unchanged.
     console.log(`[project-router] spec-gen spawn: ${binary} (cwd=${specGenExec.cwd}, requestId=${requestId})`)
     const child = spawnAiCli(binary, args, {
-      env: specGenEnv,
+      env: buildProviderEnv(adapter, specGenOptions, specGenEnv),
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: specGenExec.cwd,
     })
@@ -437,77 +515,19 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
 
     stdoutReader.on('line', (line) => {
       if (!admission.isCurrent()) return
-      const adapterEv = adapter.parseStreamLine(line)
-      if (adapterEv) adapterEvents.push(adapterEv)
-
+      const eventsForLine = parseStreamEvents(adapter, line)
+      adapterEvents.push(...eventsForLine)
       let parsed: Record<string, unknown> | null = null
       try { parsed = JSON.parse(line) } catch { /* skip */ }
-      if (!parsed) return
-
-      if (provider === 'codex') {
-        // Codex `exec --json` emits one event per line. Capture the final
-        // `turn.completed` for usage extraction, and accumulate ONLY the
-        // assistant_message text — never the command_execution items or
-        // wrapper events, otherwise the raw JSONL ends up in the ticket
-        // description.
-        if ((parsed.type as string) === 'turn.completed') {
-          lastResultEvent = parsed
-          return
-        }
-        if ((parsed.type as string) !== 'item.completed') return
-        const item = parsed.item as { type?: string; text?: string } | undefined
-        if (!item || item.type !== 'agent_message') return
-        const newText = (item.text ?? '').trim()
-        if (!newText) return
-        // Each agent_message is a complete chunk — separate with a blank
-        // line so the parser regexes match cleanly across chunks.
-        buffer += (buffer.endsWith('\n') || buffer.length === 0 ? '' : '\n') + newText + '\n'
-        const msg: SpecGenStreamMessage = {
-          type: 'spec_gen_stream', projectId, requestId,
-          delta: newText + '\n', timestamp: new Date().toISOString(),
-        }
-        broadcast(msg)
-        return
-      }
-
-      if (provider === 'claude') {
-        // Claude path.
-        if ((parsed.type as string) === 'result') {
-          lastResultEvent = parsed
-        }
-
-        if ((parsed.type as string) === 'assistant') {
-          const msg = parsed.message as { content?: Array<{ type: string; text?: string }> } | undefined
-          const texts = (msg?.content ?? [])
-            .filter((c) => c.type === 'text')
-            .map((c) => c.text ?? '')
-          const newText = texts.join('')
-          if (newText) {
-            buffer += newText
-            const wsMsg: SpecGenStreamMessage = {
-              type: 'spec_gen_stream', projectId, requestId,
-              delta: newText, timestamp: new Date().toISOString(),
-            }
-            broadcast(wsMsg)
-          }
-        }
-        return
-      }
-
-      // Adapter-driven path (gemini + future providers): the adapter already
-      // parsed this line into a structured AdapterEvent above (`adapterEv`).
-      // Accumulate assistant text deltas into the buffer and capture the result
-      // event for usage extraction — mirrors the ai-edit endpoint's else branch.
-      // Without this, gemini (which emits `type:'message'`, not `type:'assistant'`)
-      // would never accumulate text → empty buffer → "Empty response from AI".
-      if (adapterEv?.kind === 'result') {
+      if (parsed && eventsForLine.some((event) => event.kind === 'result')) {
         lastResultEvent = parsed
       }
-      if (adapterEv?.kind === 'text-delta' && adapterEv.text) {
-        buffer += adapterEv.text
+      for (const event of eventsForLine) {
+        if (event.kind !== 'text-delta' || !event.text) continue
+        buffer += event.text
         const wsMsg: SpecGenStreamMessage = {
           type: 'spec_gen_stream', projectId, requestId,
-          delta: adapterEv.text, timestamp: new Date().toISOString(),
+          delta: event.text, timestamp: new Date().toISOString(),
         }
         broadcast(wsMsg)
       }
@@ -627,14 +647,8 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           // project is Jira-backed (unless the user opted to keep it local).
           void maybePromoteSpecToJira(ctx(req), created!.id, req.body?.createLocal === true, broadcast as (m: unknown) => void)
 
-          // Quick mode Contract Refine: when toggle is on in the request body
-          // AND the project setting + kill switch permit it, fire the no-resume
-          // Quick refine path asynchronously. Claude-only today — codex
-          // contract refine isn't wired (the spawn hardcodes the `claude`
-          // binary). Skip silently on codex projects so the ticket lands
-          // without the misleading "Contract layer skipped — model_error"
-          // toast that the refine kill-switch would otherwise emit.
-          if (quickContractRefine && created && provider === 'claude') {
+          // Quick mode Contract Refine runs on the same selected provider.
+          if (quickContractRefine && created) {
             const refineTicketId = created.id
             const refineTitle = created.title
             const refineDescription = created.description
@@ -648,6 +662,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
                   projectSlug: project.slug,
                   projectPath: project.path,
                   projectName: project.name,
+                  providerId: provider,
                   broadcast: broadcast as (m: unknown) => void,
                 },
                 refineTicketId,
@@ -658,11 +673,6 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
                 console.error('[project-router] runContractRefineForQuick error:', err)
               })
             })
-          } else if (quickContractRefine && created && provider === 'codex') {
-            console.log(
-              `[project-router] quick contract refine skipped for codex project (ticket #${created.id}); ` +
-                `feature is claude-only today`,
-            )
           }
         } catch (err) {
           console.error('[project-router] generate-spec ticket creation error:', err)
@@ -1095,17 +1105,20 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       // when the project is Jira-backed (unless the user opted to keep it local).
       void maybePromoteSpecToJira(ctx(req), created!.id, body.createLocal === true, broadcast as (m: unknown) => void)
 
-      // Fire Contract Refine post-commit (fire-and-forget). Toggle + kill-switch
-      // are checked inside runContractRefine. Claude-only today — codex
-      // contract refine isn't wired (the spawn hardcodes the `claude`
-      // binary). Skip silently on codex projects.
+      // Fire Contract Refine post-commit (fire-and-forget). Toggle, kill-switch,
+      // and provider capability are checked inside runContractRefine.
       // Gate on the CONVERSATION's own engine, not the project's PRIMARY
       // provider: a multi-provider project with a non-claude primary can still
       // run an Explore on the claude engine + opt into Contract Refine.
       const convoProvider = conversationId
-        ? (getConversation(ctx(req).db, conversationId)?.provider ?? 'claude')
+        ? resolveConversationProvider(ctx(req), conversationId)
         : null
-      if (conversationId && created && convoProvider === 'claude') {
+      if (
+        conversationId &&
+        created &&
+        convoProvider &&
+        getAdapter(convoProvider).capabilities.structuredActions === true
+      ) {
         const createdTicketId = created.id
         const convoId = conversationId
         console.log(`[project-router] from-draft hook: scheduling refine ticket=${createdTicketId} conv=${convoId}`)
@@ -1117,6 +1130,9 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
               projectSlug: project.slug,
               projectPath: project.path,
               projectName: project.name,
+              // A NULL conversation.provider means project primary. Thread the
+              // already-resolved value so the runner never falls back to Claude.
+              providerId: convoProvider,
               broadcast: broadcast as (m: unknown) => void,
             },
             convoId,
@@ -1125,7 +1141,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             console.error('[project-router] runContractRefine error:', err)
           })
         })
-      } else if (conversationId && created && convoProvider && convoProvider !== 'claude') {
+      } else if (conversationId && created && convoProvider) {
         console.log(
           `[project-router] from-draft contract refine skipped for ${convoProvider} conversation (ticket #${created.id})`,
         )
@@ -1142,7 +1158,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         const projectProviders: string[] = Array.isArray(project.providers) && project.providers.length > 0
           ? project.providers
           : [project.provider].filter((p): p is string => typeof p === 'string')
-        if (projectProviders.includes('claude')) {
+        const refineProvider = projectProviders.find(
+          (id) => getAdapter(id).capabilities.structuredActions === true,
+        )
+        if (refineProvider) {
           const refineTicketId = created.id
           const refineTitle = created.title
           const refineDescription = created.description
@@ -1155,6 +1174,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
                 projectSlug: project.slug,
                 projectPath: project.path,
                 projectName: project.name,
+                providerId: refineProvider,
                 broadcast: broadcast as (m: unknown) => void,
               },
               refineTicketId,
@@ -1167,7 +1187,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           })
         } else {
           console.log(
-            `[project-router] from-draft contract refine skipped (ticket #${created.id}): claude not installed on project`,
+            `[project-router] from-draft contract refine skipped (ticket #${created.id}): no capable provider installed`,
           )
         }
       }
@@ -1292,15 +1312,24 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (isExploreContractRefineKillSwitchActive()) {
       res.status(409).json({ error: 'feature_disabled_by_env' }); return
     }
-    if (project.provider === 'codex') {
-      res.status(409).json({ error: 'contract_refine_unsupported_for_codex' }); return
-    }
     // Validate the ticket exists.
     try {
       const filePath = ticketPath(req)
       const { withLock } = await import('./ticket-store')
       const ticket = withLock(filePath, (s) => s.tickets[String(ticketId)])
       if (!ticket) { res.status(404).json({ error: 'ticket not found' }); return }
+      const refineProviderCheck = resolveTicketBoundProvider(
+        { project, db },
+        ticket,
+        req.body?.provider ?? req.body?.aiEngine,
+      )
+      if (!refineProviderCheck.ok) {
+        res.status(refineProviderCheck.status).json({ error: refineProviderCheck.error }); return
+      }
+      const refineProvider = refineProviderCheck.provider
+      if (getAdapter(refineProvider).capabilities.structuredActions !== true) {
+        res.status(409).json({ error: `contract_refine_unsupported_for_${refineProvider}` }); return
+      }
       if (!ticket.origin_conversation_id) {
         // No Explore origin (agent-authored commit_draft / Quick spec that
         // skipped the refine): fall back to the Quick-style refine, seeded
@@ -1318,6 +1347,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
               projectSlug: project.slug,
               projectPath: project.path,
               projectName: project.name,
+              providerId: refineProvider,
               broadcast: broadcast as (m: unknown) => void,
             },
             ticketId,
@@ -1340,6 +1370,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             projectSlug: project.slug,
             projectPath: project.path,
             projectName: project.name,
+            providerId: refineProvider,
             broadcast: broadcast as (m: unknown) => void,
             ignoreConversationScope: true,
           },
@@ -1375,9 +1406,28 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         res.status(statusCode).json({ error: 'ineligible', reason: gate.reason })
         return
       }
+      const ticket = store.tickets[String(ticketId)]
       const rawMode = typeof req.body?.mode === 'string' ? req.body.mode : 'simple'
       const mode: 'simple' | 'full' = rawMode === 'full' ? 'full' : 'simple'
+      const providerCheck = resolveTicketBoundProvider(
+        { project, db },
+        ticket,
+        req.body?.provider ?? req.body?.aiEngine,
+      )
+      if (!providerCheck.ok) {
+        res.status(providerCheck.status).json({ error: providerCheck.error }); return
+      }
+      const smashProvider = providerCheck.provider
+      if (getAdapter(smashProvider).capabilities.structuredActions !== true) {
+        res.status(409).json({ error: `smash_unsupported_for_${smashProvider}` }); return
+      }
       const model = typeof req.body?.model === 'string' && req.body.model.length > 0 ? req.body.model : null
+      if (model && !isValidModelForProvider(model, smashProvider as SpecProvider)) {
+        res.status(400).json({
+          error: `model is not valid for provider "${smashProvider}"`,
+          allowed: getModelsForProvider(smashProvider as SpecProvider),
+        }); return
+      }
       res.status(202).json({ scheduled: true, mode })
       process.nextTick(() => {
         void runSmash(
@@ -1387,6 +1437,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             projectSlug: project.slug,
             projectPath: project.path,
             projectName: project.name,
+            providerId: smashProvider,
             // Relocate-artifacts: pass the gated tickets-store path so SMASH
             // reads/writes the same store the rails load (workspace when
             // relocated), not a stale repo copy.
@@ -1456,7 +1507,28 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     }
     const { project, broadcast, ticketWatcher } = ctx(req)
     try {
+      // This destructive helper exists solely as the first half of Re-SMASH.
+      // Enforce the same provider capability before touching the ticket store;
+      // otherwise a Kimi Re-SMASH could delete every existing child and only
+      // then have POST /smash reject the unsupported structured action.
       const filePath = ticketPath(req)
+      const store = readStore(filePath)
+      const ticket = store.tickets[String(ticketId)]
+      if (!ticket) {
+        res.status(404).json({ error: 'ticket not found' }); return
+      }
+      const providerCheck = resolveTicketBoundProvider(
+        ctx(req),
+        ticket,
+        req.query.provider ?? req.body?.provider ?? req.body?.aiEngine,
+      )
+      if (!providerCheck.ok) {
+        res.status(providerCheck.status).json({ error: providerCheck.error }); return
+      }
+      const smashProvider = providerCheck.provider
+      if (getAdapter(smashProvider).capabilities.structuredActions !== true) {
+        res.status(409).json({ error: `smash_unsupported_for_${smashProvider}` }); return
+      }
       const result = applyDeleteEpicChildren(filePath, ticketId)
       // Pass the real post-write revision (not 0) so the chokidar echo is
       // suppressed; a hardcoded 0 never matches the on-disk revision and
@@ -1653,15 +1725,35 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     const isRefinement = priorProposal !== null
 
     const { project, broadcast } = ctx(req)
-    const provider = project.provider ?? 'claude'
+    const providerCheck = validateRequestedProvider(
+      project,
+      req.body?.provider ?? req.body?.aiEngine,
+    )
+    if (!providerCheck.ok) {
+      res.status(400).json({ error: providerCheck.error }); return
+    }
+    const provider = providerCheck.provider
     const adapter = getAdapter(provider)
+    if (!supportsToolPolicy(adapter, 'read-only')) {
+      res.status(409).json({
+        error: 'provider_tool_policy_unsupported',
+        provider,
+        requiredPolicy: 'read-only',
+      })
+      return
+    }
     const requestId = uuidv4()
     const projectId = project.id
     const admission = captureProcessAdmission(projectId)
-    // Model used for the spawn (claude runs its CLI default, codex is pinned to
-    // gpt-5.5, other providers use the adapter default). Used only as the
-    // fallback model for cost accounting when the stream carries none.
-    const aiEditModel = provider === 'codex' ? 'gpt-5.5' : adapter.defaultModel()
+    const requestedAiEditModel =
+      typeof req.body?.model === 'string' ? req.body.model : adapter.defaultModel()
+    if (!isValidModelForProvider(requestedAiEditModel, provider as SpecProvider)) {
+      res.status(400).json({
+        error: `model is not valid for provider "${provider}"`,
+        allowed: getModelsForProvider(provider as SpecProvider),
+      }); return
+    }
+    const aiEditModel = requestedAiEditModel
 
     // Build the focused pre-prompt
     const baseRules =
@@ -1705,10 +1797,12 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         `Output the modified TITLE line followed by the modified description now.`
 
     let imageFlags: string[] = []
+    let aiEditImagePaths: string[] = []
     if (attachmentIds.length > 0) {
       try {
         const extracted = await attachmentManager.getClaudeArgs(project.slug, ticketId, attachmentIds)
         imageFlags = extracted.imageFlags
+        aiEditImagePaths = extracted.imagePaths
         if (extracted.textBlocks.length > 0) {
           systemPrompt = `${systemPrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
           userPrompt = `${userPrompt}\n\n## Attached Files\n\n${extracted.textBlocks.join('\n\n')}`
@@ -1723,43 +1817,22 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       return
     }
 
-    let binary: string
-    let args: string[]
-
-    if (provider === 'codex') {
-      binary = 'codex'
-      // Use gpt-5.5 (default for Codex per CODEX_MODELS/PRESET_DEFAULTS in ModelSelector); never hardcode o4-mini
-      args = ['exec', `${systemPrompt}\n\n${userPrompt}`, '--model', 'gpt-5.5']
-    } else if (provider === 'claude') {
-      binary = 'claude'
-      args = [
-        '--dangerously-skip-permissions',
-        // AI Edit may ground prose in the repo, but it never needs shell,
-        // network, MCP, or filesystem mutation authority.
-        '--tools', 'Read,Grep,Glob',
-        '--output-format', 'stream-json',
-        '--verbose',
-        '--max-turns', '4',
-        ...imageFlags,
-        '--system-prompt', systemPrompt,
-        '-p', userPrompt,
-      ]
-    } else {
-      // Adapter-driven path (gemini + any future provider): binary, argv, and
-      // stream parsing all come from the registered adapter — no per-provider
-      // hardcoding. The claude/codex shapes above are kept byte-identical.
-      binary = adapter.binary
-      args = adapter.buildArgs('agent-refine', {
-        prompt: userPrompt,
-        systemPrompt,
-        model: adapter.defaultModel(),
-      })
+    const binary = adapter.binary
+    const aiEditOptions: SpawnOptions = {
+      prompt: userPrompt,
+      systemPrompt,
+      model: aiEditModel,
+      toolPolicy: 'read-only',
+      maxTurns: 4,
+      extraArgs: provider === 'claude' ? imageFlags : undefined,
+      imagePaths: adapter.capabilities.supportsImageInput ? aiEditImagePaths : undefined,
     }
+    const args = adapter.buildArgs('agent-refine', aiEditOptions)
 
     // spawnAiCli reroutes multi-line argv values through stdin on Windows.
     console.log(`[project-router] ai-edit spawn: ${binary} (cwd=${project.path}, requestId=${requestId})`)
     const child = spawnAiCli(binary, args, {
-      env: process.env,
+      env: buildProviderEnv(adapter, aiEditOptions),
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: project.path,
     })
@@ -1806,48 +1879,16 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
 
     stdoutReader.on('line', (line) => {
-      const aev = adapter.parseStreamLine(line)
-      if (aev) adapterEvents.push(aev)
-      if (provider === 'codex') {
-        if (line) {
-          buffer += line + '\n'
+      const eventsForLine = parseStreamEvents(adapter, line)
+      adapterEvents.push(...eventsForLine)
+      for (const event of eventsForLine) {
+        if (event.kind === 'text-delta' && event.text) {
+          buffer += event.text
           const msg: TicketAiEditStreamMessage = {
             type: 'ticket_ai_edit_stream', projectId, ticketId: Number(ticketId),
-            requestId, delta: line + '\n', timestamp: new Date().toISOString(),
+            requestId, delta: event.text, timestamp: new Date().toISOString(),
           }
           broadcast(msg)
-        }
-      } else if (provider === 'claude') {
-        let parsed: Record<string, unknown> | null = null
-        try { parsed = JSON.parse(line) } catch { /* skip */ }
-        if (!parsed) return
-
-        if ((parsed.type as string) === 'assistant') {
-          const msg = parsed.message as { content?: Array<{ type: string; text?: string }> } | undefined
-          const texts = (msg?.content ?? [])
-            .filter((c) => c.type === 'text')
-            .map((c) => c.text ?? '')
-          const newText = texts.join('')
-          if (newText) {
-            buffer += newText
-            const wsMsg: TicketAiEditStreamMessage = {
-              type: 'ticket_ai_edit_stream', projectId, ticketId: Number(ticketId),
-              requestId, delta: newText, timestamp: new Date().toISOString(),
-            }
-            broadcast(wsMsg)
-          }
-        }
-      } else {
-        // Adapter-driven parse (gemini + future providers): uniform AdapterEvent
-        // stream — accumulate assistant text deltas (reuse the event parsed above).
-        const ev = aev
-        if (ev?.kind === 'text-delta' && ev.text) {
-          buffer += ev.text
-          const wsMsg: TicketAiEditStreamMessage = {
-            type: 'ticket_ai_edit_stream', projectId, ticketId: Number(ticketId),
-            requestId, delta: ev.text, timestamp: new Date().toISOString(),
-          }
-          broadcast(wsMsg)
         }
       }
     })

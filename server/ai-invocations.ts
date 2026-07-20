@@ -160,10 +160,16 @@ export function getTicketSpendingSummary(
    * 0 for a ticket implemented entirely via claude.
    */
   estimatedCostUsd: number
-  totalTokens: number
-  totalTurns: number
+  totalTokens: number | null
+  totalTurns: number | null
+  pricedRuns: number
+  unpricedRuns: number
+  usageReportedRuns: number
+  usageUnavailableRuns: number
+  turnsReportedRuns: number
+  turnsUnavailableRuns: number
   activeDurationMs: number
-  bySurface: Record<Surface, { count: number; costUsd: number }>
+  bySurface: Record<Surface, { count: number; costUsd: number; unpricedCount?: number }>
   totalRuns: number
 } {
   const rows = db.prepare(
@@ -182,43 +188,85 @@ export function getTicketSpendingSummary(
     tokens_cache_read: number | null
     tokens_cache_create: number | null
   }>
-  const bySurface: Record<Surface, { count: number; costUsd: number }> = {
-    job: { count: 0, costUsd: 0 },
-    'quick-spec': { count: 0, costUsd: 0 },
-    'explore-spec': { count: 0, costUsd: 0 },
-    'ai-edit': { count: 0, costUsd: 0 },
-    smash: { count: 0, costUsd: 0 },
-    'file-summary': { count: 0, costUsd: 0 },
-    loop: { count: 0, costUsd: 0 },
-    'chat-sidebar': { count: 0, costUsd: 0 },
-    'spec-launcher': { count: 0, costUsd: 0 },
-    proposal: { count: 0, costUsd: 0 },
-    'agent-studio': { count: 0, costUsd: 0 },
-    setup: { count: 0, costUsd: 0 },
+  const bySurface: Record<Surface, { count: number; costUsd: number; unpricedCount?: number }> = {
+    job: { count: 0, costUsd: 0, unpricedCount: 0 },
+    'quick-spec': { count: 0, costUsd: 0, unpricedCount: 0 },
+    'explore-spec': { count: 0, costUsd: 0, unpricedCount: 0 },
+    'ai-edit': { count: 0, costUsd: 0, unpricedCount: 0 },
+    smash: { count: 0, costUsd: 0, unpricedCount: 0 },
+    'file-summary': { count: 0, costUsd: 0, unpricedCount: 0 },
+    loop: { count: 0, costUsd: 0, unpricedCount: 0 },
+    'chat-sidebar': { count: 0, costUsd: 0, unpricedCount: 0 },
+    'spec-launcher': { count: 0, costUsd: 0, unpricedCount: 0 },
+    proposal: { count: 0, costUsd: 0, unpricedCount: 0 },
+    'agent-studio': { count: 0, costUsd: 0, unpricedCount: 0 },
+    setup: { count: 0, costUsd: 0, unpricedCount: 0 },
   }
   let totalCostUsd = 0
   let estimatedCostUsd = 0
   let totalTokens = 0
   let totalTurns = 0
+  let pricedRuns = 0
+  let unpricedRuns = 0
+  let usageReportedRuns = 0
+  let usageUnavailableRuns = 0
+  let turnsReportedRuns = 0
+  let turnsUnavailableRuns = 0
   let activeDurationMs = 0
   for (const r of rows) {
     // Defensive: a row written by a newer schema with a surface this build
     // doesn't know must not crash the summary.
-    if (!bySurface[r.surface]) bySurface[r.surface] = { count: 0, costUsd: 0 }
+    if (!bySurface[r.surface]) bySurface[r.surface] = { count: 0, costUsd: 0, unpricedCount: 0 }
     bySurface[r.surface].count += 1
     bySurface[r.surface].costUsd += r.total_cost_usd ?? 0
+    if (r.total_cost_usd == null) {
+      unpricedRuns += 1
+      bySurface[r.surface].unpricedCount = (bySurface[r.surface].unpricedCount ?? 0) + 1
+    } else {
+      pricedRuns += 1
+    }
     totalCostUsd += r.total_cost_usd ?? 0
     if (r.total_cost_usd_estimated === 1) estimatedCostUsd += r.total_cost_usd ?? 0
     // Real total tokens = fresh input + output + cache-read + cache-create.
-    totalTokens +=
-      (r.tokens_in ?? 0) +
-      (r.tokens_out ?? 0) +
-      (r.tokens_cache_read ?? 0) +
-      (r.tokens_cache_create ?? 0)
-    totalTurns += r.num_turns ?? 0
+    const hasUsage =
+      r.tokens_in != null || r.tokens_out != null
+      || r.tokens_cache_read != null || r.tokens_cache_create != null
+    if (hasUsage) {
+      usageReportedRuns += 1
+      totalTokens +=
+        (r.tokens_in ?? 0) +
+        (r.tokens_out ?? 0) +
+        (r.tokens_cache_read ?? 0) +
+        (r.tokens_cache_create ?? 0)
+    } else {
+      usageUnavailableRuns += 1
+    }
+    if (r.num_turns != null) {
+      turnsReportedRuns += 1
+      totalTurns += r.num_turns
+    } else {
+      turnsUnavailableRuns += 1
+    }
     activeDurationMs += r.duration_ms ?? 0
   }
-  return { totalCostUsd, estimatedCostUsd, totalTokens, totalTurns, activeDurationMs, bySurface, totalRuns: rows.length }
+  for (const bucket of Object.values(bySurface)) {
+    if ((bucket.unpricedCount ?? 0) === 0) delete bucket.unpricedCount
+  }
+  return {
+    totalCostUsd,
+    estimatedCostUsd,
+    totalTokens: usageReportedRuns > 0 ? totalTokens : rows.length > 0 ? null : 0,
+    totalTurns: turnsReportedRuns > 0 ? totalTurns : rows.length > 0 ? null : 0,
+    pricedRuns,
+    unpricedRuns,
+    usageReportedRuns,
+    usageUnavailableRuns,
+    turnsReportedRuns,
+    turnsUnavailableRuns,
+    activeDurationMs,
+    bySurface,
+    totalRuns: rows.length,
+  }
 }
 
 /**

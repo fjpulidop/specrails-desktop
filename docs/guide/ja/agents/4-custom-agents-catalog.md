@@ -11,21 +11,24 @@
 
 ## カスタムエージェントを追加する
 
-カスタムエージェントは、リポジトリの `.claude/agents/` 配下にある、`custom-<something>.md` という名前のただの Markdown ファイルです。そのファイルには、エージェントの指示内容（そのシステムプロンプト）と、デフォルトの `model:` を含む小さなフロントマターヘッダーが入っています。
+Role は provider-native asset です。Claude は
+`.claude/agents/custom-<name>.md`、Kimi は
+`.kimi-code/skills/custom-<name>/SKILL.md` を使います。
 
-ファイルがプロジェクトに存在すると、カタログにカスタムエージェントとして現れ、その id を任意のプロファイルのエージェントチェーンに追加できる（そしてそこへタスクをルーティングできる）ようになります。id はファイル名と一致している必要があります —— `custom-docs` という項目は `.claude/agents/custom-docs.md` に対応します。
+Asset が存在すると、その provider の Catalog に現れ、同じ provider の Profile に id を追加できます。`custom-docs` は Claude では `.claude/agents/custom-docs.md`、Kimi では `.kimi-code/skills/custom-docs/SKILL.md` に対応し、両者は独立しています。
 
 カスタムエージェントはリポジトリの中に住んでいるので、**コミット可能なチームの資産** です: ファイルをコミットすれば、チーム全員がそのエージェントを手に入れます。これは Agents セクション全体を貫く中心的な考え方を映したものです ——
 
 > **エージェントの定義は共有されます（リポジトリの中に住み、`git` とともに移動します）。モデルの設定はプロジェクトごとです（プロファイルの中に住みます）。**
 
-`custom-*` の名前空間は予約され、保護されています: `specrails-core` の `init` コマンドと `update` コマンドは `.claude/agents/custom-*.md` に決して触れないので、あなたのカスタムエージェントは core のアップグレードを無傷で生き延びます。（同じ保護は、`custom-serena.md` のようなプラグイン提供のフラグメントにも及びます。）
+Core は両形式を保護します。Kimi は manual create/edit/run に対応しますが、
+Generate、Test、AI Refine は spawn 前に拒否されます。
 
 ## カスタムエージェントを実際に使う
 
 典型的な流れは次のとおりです。
 
-1. 指示内容とデフォルトモデルを記した `.claude/agents/custom-<name>.md` を書く。
+1. native Claude asset または Kimi Skill を valid な指示/model で作成する。
 2. それが **Agents → Catalog** の Custom に現れることを確認する。
 3. **Agents → Profiles** で、そのエージェントをプロファイルのチェーンに追加する（必要なら、そのプロファイル用にモデルを上書きする）。
 4. 適切なタグの付いたタスクがそのエージェントに届くようにルーティングルールを追加する —— あるいはチェーンの順序に任せる。

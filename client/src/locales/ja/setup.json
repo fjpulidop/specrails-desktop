@@ -57,7 +57,7 @@
   "addProject": {
     "title": "プロジェクトを追加",
     "description": "プロジェクトディレクトリを登録して Specrails から管理します。",
-    "noProviderDetected": "AI CLI が見つかりません。まず Claude Code または Codex CLI をインストールしてください。",
+    "noProviderDetected": "AI CLI が見つかりません。まず Claude Code、Codex CLI、Gemini CLI、Kimi Code のいずれかをインストールしてください。",
     "pathLabel": "プロジェクトパス",
     "pathPlaceholder": "/Users/me/my-project",
     "pathHint": "プロジェクトルートへの絶対パス",
@@ -69,6 +69,7 @@
     "nameHint": "デフォルトはディレクトリ名",
     "providersLabel": "AI プロバイダー",
     "notFound": "見つかりません",
+    "coreUpdateRequired": "Core の更新が必要",
     "multiProviderHint": "両方のエンジンがセットアップされます。最初のものがプロジェクトのデフォルトです。作成後は変更できません。",
     "singleProviderHint": "プロジェクト作成後は変更できません。",
     "adding": "追加中…",
@@ -238,7 +239,7 @@
       "jobLabel": "各ジョブの実行内容",
       "flowCaption": "各フェーズは作業中のログをライブでストリーミングします。",
       "modeLabel": "実行する Loop を選択",
-      "modeBody": "各 rail は <b>Loop</b> を実行します。組み込みの Loop を選ぶ — <b>Implement</b>（構造化された完全なパイプライン）、<b>Batch</b>（複数の spec を一度に）、<b>Freestyle</b>（Claude が固定パイプラインなしで自律的に作業）— か、自分で作った Loop を選びます。",
+      "modeBody": "各 rail は <b>Loop</b> を実行します。組み込みの Loop を選ぶ — <b>Implement</b>、<b>Batch</b>、または対応プロバイダーが自律的に動く <b>Freestyle</b> — か、自分で作った Loop を選びます。",
       "profilesLabel": "エージェントプロファイル",
       "profilesBody": "どのエージェントを実行し、それぞれどのモデルを使うかを決めるプロジェクトごとの宣言的カタログ — レールごとに選択され、ジョブごとにスナップショットされるため並行作業が分離されます。",
       "jobDetailLabel": "ライブジョブ詳細",
@@ -267,8 +268,8 @@
     "providers": {
       "nav": "あなたのエージェント",
       "title": "自分のエージェントを持ち込む",
-      "subtitle": "Claude Code・Codex・Gemini を第一級エンジンとして",
-      "intro": "アプリは <b>Claude Code</b>・<b>Codex CLI</b>・<b>Gemini CLI</b> を同一契約の下で交換可能なエンジンとして扱います。プロジェクトには 1 つ以上をインストールできます — 選択はインストール時に行います。",
+      "subtitle": "Claude Code・Codex・Gemini・Kimi を第一級エンジンとして",
+      "intro": "アプリは <b>Claude Code</b>・<b>Codex CLI</b>・<b>Gemini CLI</b>・<b>Kimi Code</b> を同一契約の下で交換可能なエンジンとして扱います。プロジェクトには 1 つ以上をインストールできます。",
       "table": {
         "capability": "機能",
         "streamingResume": "ストリーミングとセッション再開",
@@ -276,24 +277,25 @@
         "costReporting": "コストレポート",
         "providerBilled": "プロバイダー請求額",
         "estimated": "推定（~）",
+        "unavailable": "利用不可",
         "telemetry": "テレメトリ（OTEL）",
         "synthesized": "合成",
         "agentProfiles": "エージェントプロファイル"
       },
       "calloutLabel": "複数インストールされている場合",
-      "calloutBody": "<b>スペックごと、レールごと、ターミナル起動ごと</b>にエンジンを選べます。アプリはプロジェクトごとに最後の選択を記憶します。Codex のコストはローカルのレートカードからの推定で、常に <mono>~</mono> が付きます。"
+      "calloutBody": "<b>スペックごと、レールごと、ターミナル起動ごと</b>にエンジンを選べます。推定コストには <mono>~</mono> が付きます。Kimi はトークンやコストを報告しません。"
     },
     "cost": {
       "nav": "コスト追跡",
       "title": "1セント単位で追跡",
       "subtitle": "課金対象のすべての呼び出しを記録・可視化",
-      "intro": "レール、Quick、Explore、AI 編集、SMASH、ファイル要約にわたるすべての AI 呼び出しが <b>Claude と Codex の両方</b>で記録されます。エージェントのコストを推測する必要はもうありません。",
+      "intro": "すべての AI 呼び出しでライフサイクルとプロバイダーを記録します。Kimi のように使用量やコストを報告しない場合、それらは利用不可のままです。",
       "analyticsLabel": "分析ページ",
       "analyticsBody": "バーンレートのヒーロー表示、日次タイムライン、トップチケット、モデル別内訳、コスト対ターン数の散布図。期間（7日 / 30日 / 90日 / 全期間）とサーフェスでフィルタできます。",
       "perTicketLabel": "チケット別の支出",
       "perTicketBody": "各スペックの詳細にはコストと所要ターン数が表示され、そのチケットでフィルタした分析ページへディープリンクします。",
       "honestLabel": "正直な数字",
-      "honestBody": "Claude のコストはプロバイダー請求額そのもの。Codex は推定で <mono>~</mono> が付きます。トークン合計にはキャッシュ階層が含まれるため、数字がきちんと一致します。",
+      "honestBody": "Claude のコストはプロバイダー報告値、Codex と Gemini は推定の場合 <mono>~</mono> が付きます。Kimi のトークンと USD コストは 0 ではなく利用不可です。",
       "budgetsLabel": "予算とアラート",
       "budgetsBody": "日次予算とジョブ単位のコストアラートを設定でき、上限を超えるとアプリが自動でキューを一時停止します。すべて CSV または JSON にエクスポートできます。"
     },

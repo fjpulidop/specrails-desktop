@@ -35,8 +35,8 @@ rail 是一条**执行通道**。你从 SpecsBoard 上拖一张 spec 卡片放�
 | **状态标签** | `idle`、`running` 或 `failed`。这里没有单独的"completed"——任务干净地跑完后，rail 会回到 `idle`。 |
 | **spec 列表** | 分配给这条 rail 的 ID。可以再拖进来，也可以拖出去解除关联。 |
 | **Loop 选择器** | 这条 rail 运行的 Loop——内置的（`Implement` / `Batch` / `Freestyle`）或某个自定义 loop。见下表。按 rail 单独记忆。 |
-| **Profile 选择器** | 运行哪个 Agent Profile（仅限 Claude rail）。只有当项目至少有一个 Profile 时才会出现。 |
-| **引擎选择器** | 这条 rail 用哪个已安装的提供方来跑——Claude、Codex 或 Gemini。仅当项目装有不止一个提供方时才显示。见 [为每条 rail 选择引擎](picking-an-engine-per-rail)。 |
+| **Profile 选择器** | 使用哪个 provider profile（Claude/Kimi rail）。 |
+| **引擎选择器** | 哪个 provider 运行 rail——Claude、Codex、Gemini 或 Kimi。 |
 | **▶ Play / ■ Stop** | 启动或取消。 |
 
 ### rail 运行的是什么：Loop
@@ -47,9 +47,11 @@ rail 是一条**执行通道**。你从 SpecsBoard 上拖一张 spec 卡片放�
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | 一个任务覆盖这条 rail 上的所有 spec。跑完整的 Architect → Developer → Reviewer → Ship 流水线。日常默认选项。 |
 | **Batch** | `/specrails:batch-implement` | 一个任务，按依赖感知的批次（wave）依次处理 rail 上的各个 spec。最适合一组相关的 spec。 |
-| **Freestyle** | Freestyle | Claude 自主实现每个 spec，**绕过**流水线。每个 spec 一个独立任务。仅限 Claude。 |
+| **Freestyle** | Freestyle | Claude 或 Kimi 自主实现每个 spec，**绕过**流水线。 |
 
-Freestyle 是个特例：它跳过 Agent 链条，把原始 spec 直接交给 Claude，让它用自己的原生工具去做。因为它比较"放飞"，所以按下 Play 会先弹出一个确认框，而且有一个按 rail 单独的模型选择器，让你在 Haiku / Sonnet / Opus 之间挑选。只有当 rail 的引擎是 Claude 时它才会出现。Freestyle 运行还是唯一会**一直开着等你**的任务：在任务详情的输入框里和它聊天，满意了就点击 **Finalize**（其他所有任务都会自己收尾）。
+Freestyle 使用 provider 的 native tool/model。Claude 有 persistent
+interactive transport；Kimi 使用没有 persistent stdin 的 agentic
+`kimi -p` process。
 
 除了这些内置 loop，你还可以**搭建自己的 loop**——重复一个 verify → fix → verify 的循环直到目标达成、在 AI 步骤之间串联 shell 命令，等等。这些自定义 loop 会出现在同一个 Loop 选择器里。这就是下一个大点子：[Loop Builder](the-loop-builder)。
 
@@ -81,7 +83,8 @@ Freestyle 是个特例：它跳过 Agent 链条，把原始 spec 直接交给 Cl
 
 ## 如果一条 rail 启动不起来
 
-如果你选了一个对应 CLI 还没装到机器上的引擎，启动会**快速失败**，而不是开一个坏掉的任务——什么都不会启动。装上缺失的提供方 CLI（[使用 Codex](../integrations/using-codex)、[使用 Gemini](../integrations/using-gemini)）再启动一次即可。缺 Claude 或 Codex 时会给出精确的 "*&lt;provider&gt; CLI not found*" 提示；缺 Gemini 目前会显示一个通用的启动错误，但结果是一样的。
+如果缺少所选 CLI，会在 spawn 前失败。Kimi 需要安装并登录 `kimi`
+0.27+；Desktop 不会启动 server。
 
 ## 全部停下
 
@@ -96,4 +99,4 @@ Freestyle 是个特例：它跳过 Agent 链条，把原始 spec 直接交给 Cl
 - [Loop Builder](the-loop-builder)——rail 运行的是什么，以及如何搭建你自己的 loop。
 - [任务详情视图](the-job-detail-view)——阶段、实时指标、工单卡片。
 - [批量实现与多功能](batch-implement-and-multi-feature)——一次跑多个 spec。
-- [为每条 rail 选择引擎](picking-an-engine-per-rail)——Claude、Codex 还是 Gemini。
+- [为每条 rail 选择引擎](picking-an-engine-per-rail)——Claude、Codex、Gemini 或 Kimi。

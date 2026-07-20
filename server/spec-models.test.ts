@@ -3,6 +3,7 @@ import {
   CLAUDE_MODELS,
   CODEX_MODELS,
   GEMINI_MODELS,
+  KIMI_MODELS,
   getModelsForProvider,
   getProviderDefault,
   isValidModelForProvider,
@@ -41,11 +42,25 @@ describe('spec-models', () => {
     expect(isValidModelForProvider('sonnet', 'gemini')).toBe(false)
   })
 
-  it('falls back to claude for an unknown / not-yet-registered provider id', () => {
-    // The provider id type is open (registry-owned). An id without an explicit
-    // catalog entry resolves to Claude's list/default rather than throwing —
-    // the safe behaviour for a provider added before its rows are filled in.
-    expect(getModelsForProvider('mystery')).toBe(CLAUDE_MODELS)
-    expect(getProviderDefault('mystery')).toBe(getProviderDefault('claude'))
+  it('serves the official Kimi catalog with K3 as default', () => {
+    expect(getModelsForProvider('kimi')).toBe(KIMI_MODELS)
+    expect(getProviderDefault('kimi')).toBe('k3')
+    expect(isValidModelForProvider('k3', 'kimi')).toBe(true)
+    // Kimi aliases are user-configured names. A token that happens to match
+    // another provider's official alias is still a valid Kimi custom alias.
+    expect(isValidModelForProvider('sonnet', 'kimi')).toBe(true)
+  })
+
+  it('accepts only safe off-catalog aliases for providers that advertise them', () => {
+    const alias = 'moonshot-team/private-coder:v2'
+    expect(isValidModelForProvider(alias, 'kimi')).toBe(true)
+    expect(isValidModelForProvider(alias, 'claude')).toBe(false)
+    expect(isValidModelForProvider('--yolo', 'kimi')).toBe(false)
+    expect(isValidModelForProvider('moonshot team/coder', 'kimi')).toBe(false)
+  })
+
+  it('does not silently substitute Claude for an unknown provider', () => {
+    expect(getModelsForProvider('mystery')).toEqual([])
+    expect(getProviderDefault('mystery')).toBe('')
   })
 })

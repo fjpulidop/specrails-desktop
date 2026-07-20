@@ -599,7 +599,7 @@ jobs:
 
       # Windows-specific relocate-artifacts framework smoke: validates dir
       # junctions for commands/skills/rules, copy-fallback for agents, real
-      # multi-provider discovery (claude + gemini), and the single `current` swap
+      # multi-provider discovery (claude + gemini + kimi), and the single `current` swap
       # — against the SHIPPED bundled core. Runs before the heavy tauri build so a
       # broken bundle fails fast.
       - name: Smoke test bundled core — relocate framework (Windows x64)

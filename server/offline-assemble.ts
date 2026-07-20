@@ -10,6 +10,7 @@ import { mirrorProjectEntry } from './artifact-registry'
 import { installConfigPathForProvider } from './install-config-path'
 import { workspacePathFor } from './workspace-manager'
 import { CORE_PACKAGE_SPEC } from './core-package'
+import { getAdapter } from './providers'
 
 // ─── Offline workspace assemble (add-project-builder D4) ─────────────────────
 //
@@ -118,8 +119,14 @@ export interface OfflineAssembleOptions {
   desktopProjectId: string
   /** Providers to assemble, first = primary. */
   providers: string[]
-  /** Per-agent default model alias for the install config. */
+  /**
+   * Legacy single-provider override for the install config's default model.
+   * Multi-provider callers must use `defaultModels` so a model alias belonging
+   * to one provider can never leak into another provider's config.
+   */
   defaultModel?: string
+  /** Explicit per-provider default-model overrides. */
+  defaultModels?: Readonly<Record<string, string | undefined>>
   /** Test seam. */
   io?: {
     spawnInit?: typeof spawnBundledCoreInit
@@ -145,6 +152,18 @@ function buildQuickInstallConfigYaml(provider: string, defaultModel: string): st
     'agent_teams: false',
     '',
   ].join('\n')
+}
+
+function defaultModelForProvider(opts: OfflineAssembleOptions, provider: string): string {
+  const providerOverride = opts.defaultModels?.[provider]
+  if (providerOverride) return providerOverride
+
+  // Preserve the original override API for its unambiguous use case. Applying
+  // one alias across a mixed-provider install is unsafe: `sonnet`, for example,
+  // is a Claude alias and is not a valid Kimi/Codex/Gemini default.
+  if (opts.providers.length === 1 && opts.defaultModel) return opts.defaultModel
+
+  return getAdapter(provider).defaultModel()
 }
 
 /**
@@ -197,7 +216,7 @@ export async function assembleProjectOffline(opts: OfflineAssembleOptions): Prom
   for (const provider of providers) {
     const configPath = installConfigPathForProvider({ slug, path: projectPath }, provider)
     mkdirSync(dirname(configPath), { recursive: true })
-    writeFileSync(configPath, buildQuickInstallConfigYaml(provider, opts.defaultModel ?? 'sonnet'), 'utf-8')
+    writeFileSync(configPath, buildQuickInstallConfigYaml(provider, defaultModelForProvider(opts, provider)), 'utf-8')
 
     const child = spawnInit(['--yes', '--from-config', configPath], projectPath)
     if (!child) {

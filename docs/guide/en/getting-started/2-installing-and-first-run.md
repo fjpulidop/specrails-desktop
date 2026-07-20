@@ -23,6 +23,7 @@ The one thing specrails can't bundle is the **AI provider CLI** itself. You'll n
 - **Claude Code**
 - **Codex CLI**
 - **Gemini CLI**
+- **Kimi Code**
 
 Install whichever you plan to use, sign in to it once from your terminal, and you're set. Specrails detects which providers are present automatically.
 

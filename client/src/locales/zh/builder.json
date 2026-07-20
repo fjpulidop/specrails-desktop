@@ -8,7 +8,8 @@
     "surpriseMe": "给我惊喜",
     "inputPlaceholder": "一个能……的应用",
     "createSpecs": "创建规格",
-    "createSpecsHint": "蓝图包含里程碑 1 规格后可用"
+    "createSpecsHint": "蓝图包含里程碑 1 规格后可用",
+    "providerUnavailable": "项目构建器需要具备原生无工具或只读模式的提供商。此提供商在这里不可用。"
   },
   "panel": {
     "title": "蓝图",
@@ -87,7 +88,8 @@
     "progress": "{{done}}/{{total}} 已完成",
     "launchM1": "启动里程碑 1",
     "generateNext": "生成 M{{n}}",
-    "generateHint": "打开以蓝图为种子、扎根真实代码的规格会话"
+    "generateHint": "打开以蓝图为种子、扎根真实代码的规格会话",
+    "generateUnavailable": "里程碑生成需要原生只读模式"
   },
   "errors": {
     "startFailed": "无法启动构建器对话。",
@@ -99,7 +101,8 @@
     "inputPlaceholder": "完善规格…",
     "commit": "将 {{count}} 个规格提交为 {{label}}",
     "commitToast": "{{count}} 个规格已作为 {{label}} 加入看板",
-    "commitFailed": "无法提交里程碑"
+    "commitFailed": "无法提交里程碑",
+    "providerUnavailable": "此提供商没有原生只读模式，因此无法生成里程碑。"
   },
   "mode": {
     "title": "项目构建器",

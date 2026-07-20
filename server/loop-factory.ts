@@ -24,8 +24,8 @@ export interface FactoryLoop {
    *  or `'loop'` for graph-native factory loops that ONLY run through the
    *  LoopRunManager (no QueueManager fallback — launch 403s when Loops are disabled). */
   mode: 'implement' | 'batch-implement' | 'freestyle' | 'loop'
-  /** Claude-only (Freestyle). */
-  claudeOnly?: boolean
+  /** Provider capability required to launch this factory loop. */
+  requiredCapability?: 'freestyle'
   /** Faithful graph for preview + fork seed. */
   graph: LoopGraph
 }
@@ -69,9 +69,9 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
     // with full freedom — no pipeline, it works like a regular coding agent.
     // The id/mode strings are the canonical rail contract.
     name: 'Freestyle',
-    description: 'Hands the spec straight to the model with full freedom — no pipeline, it works like a regular coding agent, then verify + refine until green. Claude only.',
+    description: 'Hands the spec straight to the model with full freedom — no pipeline, it works like a regular coding agent, then verify + refine until green.',
     mode: 'freestyle',
-    claudeOnly: true,
+    requiredCapability: 'freestyle',
     graph: fixLoopGraph(['{{cmd:freestyle}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
   },
   SDD_QUICK_OPENSPEC_FACTORY,

@@ -5,6 +5,7 @@ export interface AgentProviderCatalog {
   provider: string
   models: AgentModel[]
   efforts: string[]
+  customModelAliases: boolean
   supportsImageInput: boolean
   status: 'loading' | 'ready' | 'error'
 }
@@ -14,6 +15,7 @@ function pendingCatalog(provider: string): AgentProviderCatalog {
     provider,
     models: [],
     efforts: [],
+    customModelAliases: false,
     // Preserve the existing optimistic attachment behaviour while the
     // capability endpoint is pending. The ready response remains authoritative.
     supportsImageInput: true,
@@ -39,6 +41,7 @@ export function useAgentProviderCatalog(provider: string): AgentProviderCatalog 
           provider,
           models: result.models,
           efforts: result.efforts,
+          customModelAliases: result.customModelAliases,
           supportsImageInput: result.supportsImageInput,
           status: 'ready',
         })

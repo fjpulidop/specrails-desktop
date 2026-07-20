@@ -48,4 +48,40 @@ describe('detectMcpDrift', () => {
     fs.writeFileSync(path.join(projectPath, '.mcp.json'), '{not')
     expect(detectMcpDrift(projectPath, makePlugin({ a: 1 }))).toBe(false)
   })
+
+  it('checks Kimi drift against .kimi-code/mcp.json', () => {
+    const dir = path.join(projectPath, '.kimi-code')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'mcp.json'), JSON.stringify({
+      mcpServers: { serena: { a: 999 } },
+    }))
+    expect(detectMcpDrift(projectPath, makePlugin({ a: 1 }), 'kimi')).toBe(true)
+  })
+
+  it('checks contributor drift against Kimi native .kimi-code/AGENTS.md', () => {
+    const plugin = makePlugin({ a: 1 })
+    plugin.manifest.claudeMdInstructions = 'expected instructions'
+    const dir = path.join(projectPath, '.kimi-code')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'mcp.json'), JSON.stringify({
+      mcpServers: { serena: { a: 1 } },
+    }))
+    const agentsPath = path.join(dir, 'AGENTS.md')
+    fs.writeFileSync(agentsPath, [
+      '<!-- specrails-desktop-managed:serena:start -->',
+      'expected instructions',
+      '<!-- specrails-desktop-managed:serena:end -->',
+      '',
+    ].join('\n'))
+
+    expect(detectMcpDrift(projectPath, plugin, 'kimi')).toBe(false)
+
+    fs.writeFileSync(agentsPath, [
+      '<!-- specrails-desktop-managed:serena:start -->',
+      'stale instructions',
+      '<!-- specrails-desktop-managed:serena:end -->',
+      '',
+    ].join('\n'))
+    expect(detectMcpDrift(projectPath, plugin, 'kimi')).toBe(true)
+  })
 })

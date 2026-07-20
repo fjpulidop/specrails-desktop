@@ -10,7 +10,8 @@
 #      rules land as dir JUNCTIONS, agents land via the COPY-FALLBACK (file
 #      symlinks need admin on Windows; core falls back to copying). Each must
 #      have content.
-#   4. REAL provider discovery: two providers (claude + gemini) materialize +
+#   4. REAL provider discovery: three providers (claude + gemini + kimi)
+#      materialize +
 #      assemble independently into the same framework/workspace.
 #
 # Run with the BUNDLED node (no system node/git on PATH) to prove the tree is
@@ -50,7 +51,7 @@ function Invoke-Core {
   if ($LASTEXITCODE -ne 0) { Write-Error "core $($CoreArgs -join ' ') failed ($LASTEXITCODE)"; exit 1 }
 }
 
-$providers = @("claude", "gemini")
+$providers = @("claude", "gemini", "kimi")
 
 # 1. Materialize every provider WITHOUT swapping current.
 foreach ($p in $providers) {
@@ -69,8 +70,15 @@ if (-not (Test-Path $current)) { Write-Error "current not created after swap-cur
 Write-Host "current → $version OK"
 
 # 3 + 4. Assemble a workspace per provider + validate the linked subtrees.
-$providerDirs = @{ "claude" = ".claude"; "gemini" = ".gemini" }
-$linkedByProvider = @{ "claude" = @("agents", "commands", "skills", "rules"); "gemini" = @("agents", "commands") }
+$providerDirs = @{ "claude" = ".claude"; "gemini" = ".gemini"; "kimi" = ".kimi-code" }
+$linkedByProvider = @{
+  "claude" = @("agents", "commands", "skills", "rules")
+  "gemini" = @("agents", "commands")
+  # Kimi keeps the skills root real so OpenSpec and custom roles can coexist;
+  # Core links framework-owned children within it. Rules remains a whole-dir
+  # framework link and therefore exercises the junction/copy path here.
+  "kimi" = @("rules")
+}
 
 foreach ($p in $providers) {
   Invoke-Core @("assemble", "--workspace", $ws, "--framework-dir", $fwDir, "--provider", $p, "--version", $version, "--code-root", $repo)
@@ -83,6 +91,25 @@ foreach ($p in $providers) {
     $item = Get-Item $subPath
     $isJunction = ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
     Write-Host ("  {0}/{1}: {2} file(s){3}" -f $providerDirs[$p], $sub, $count, $(if ($isJunction) { " (junction)" } else { " (copy)" }))
+  }
+  if ($p -eq "kimi") {
+    $skills = Join-Path $pd "skills"
+    if (-not (Test-Path $skills)) { Write-Error "kimi assemble: missing real skills root at $skills"; exit 1 }
+    $skillCount = (Get-ChildItem -Path $skills -Recurse -Filter "SKILL.md" -File -ErrorAction SilentlyContinue | Measure-Object).Count
+    if ($skillCount -lt 1) { Write-Error "kimi assemble: skills has no SKILL.md content"; exit 1 }
+    $directRole = Join-Path $skills "sr-architect\SKILL.md"
+    if (-not (Test-Path $directRole)) {
+      Write-Error "kimi assemble: missing directly discoverable role at $directRole"; exit 1
+    }
+    $legacyNestedRole = Join-Path $skills "rails\sr-architect\SKILL.md"
+    if (Test-Path $legacyNestedRole) {
+      Write-Error "kimi assemble: role remained in undiscoverable legacy nested layout at $legacyNestedRole"; exit 1
+    }
+    $skillsItem = Get-Item $skills
+    if (($skillsItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      Write-Error "kimi assemble: skills root must remain a real dir, not a junction"; exit 1
+    }
+    Write-Host ("  {0}/skills: {1} SKILL.md file(s) (real merged root)" -f $providerDirs[$p], $skillCount)
   }
   # agent-memory is a REAL writable dir, never a reparse point.
   $mem = Join-Path $pd "agent-memory"

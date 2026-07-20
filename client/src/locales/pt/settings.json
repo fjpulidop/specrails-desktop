@@ -33,7 +33,7 @@
   },
   "freestylePrePrompt": {
     "title": "Pre-prompt de Freestyle",
-    "description": "Instrução enviada ao Claude em Freestyle (rails apenas Claude). O Freestyle salta o pipeline OpenSpec — entrega ao Claude este pre-prompt mais o texto da spec e deixa-o implementar de forma autónoma. Deixe em branco para usar o valor predefinido.",
+    "description": "Instrução enviada ao fornecedor selecionado em Freestyle. O Freestyle salta o pipeline OpenSpec — entrega ao fornecedor este pre-prompt mais o texto da spec e deixa-o implementar de forma autónoma. Deixe em branco para usar o valor predefinido.",
     "label": "Pre-prompt Freestyle",
     "placeholder": "Deixe em branco para usar a instrução Freestyle predefinida.",
     "helper": "O texto da spec é acrescentado automaticamente depois deste pre-prompt. Vazio = predefinição.",

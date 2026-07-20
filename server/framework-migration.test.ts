@@ -69,6 +69,58 @@ process.exit(7)
 `
 
 /**
+ * Kimi's framework layout is intentionally mixed:
+ *  - `rules/` is a whole-directory framework link.
+ *  - `skills/` stays real and only framework-owned skill/role children are
+ *    linked, so OpenSpec skills and custom roles can coexist.
+ */
+const FAKE_CLI_KIMI = `
+const fs = require('fs')
+const path = require('path')
+function arg(name) {
+  const i = process.argv.indexOf('--' + name)
+  return i >= 0 ? process.argv[i + 1] : undefined
+}
+const sub = process.argv[2]
+if (sub === 'install-framework') {
+  const fw = arg('framework-dir'); const version = arg('version')
+  const pd = path.join(fw, version, '.kimi-code')
+  fs.mkdirSync(path.join(pd, 'rules'), { recursive: true })
+  fs.writeFileSync(path.join(pd, 'rules', 'rules.md'), '# framework rules v1')
+  fs.mkdirSync(path.join(pd, 'skills', 'specrails-implement'), { recursive: true })
+  fs.writeFileSync(path.join(pd, 'skills', 'specrails-implement', 'SKILL.md'), '# framework implement v1')
+  fs.mkdirSync(path.join(pd, 'skills', 'sr-architect'), { recursive: true })
+  fs.writeFileSync(path.join(pd, 'skills', 'sr-architect', 'SKILL.md'), '# framework architect v1')
+  const cur = path.join(fw, 'current')
+  try { fs.unlinkSync(cur) } catch {}
+  fs.symlinkSync(version, cur)
+  process.exit(0)
+}
+if (sub === 'assemble') {
+  const ws = arg('workspace'); const fw = arg('framework-dir')
+  const wsPd = path.join(ws, '.kimi-code')
+  const fwPd = path.join(fw, 'current', '.kimi-code')
+  fs.mkdirSync(wsPd, { recursive: true })
+
+  const rules = path.join(wsPd, 'rules')
+  try { fs.rmSync(rules, { recursive: true, force: true }) } catch {}
+  fs.symlinkSync(path.join(fwPd, 'rules'), rules)
+
+  // Merged real skills root: replace only framework-owned children.
+  const skills = path.join(wsPd, 'skills')
+  fs.mkdirSync(skills, { recursive: true })
+  const command = path.join(skills, 'specrails-implement')
+  try { fs.rmSync(command, { recursive: true, force: true }) } catch {}
+  fs.symlinkSync(path.join(fwPd, 'skills', 'specrails-implement'), command)
+  const role = path.join(skills, 'sr-architect')
+  try { fs.rmSync(role, { recursive: true, force: true }) } catch {}
+  fs.symlinkSync(path.join(fwPd, 'skills', 'sr-architect'), role)
+  process.exit(0)
+}
+process.exit(7)
+`
+
+/**
  * A PARTIAL assemble that links only `agents` (and exits 0) — the rest stay
  * unlinked. Drives the `.some()` vs `.every()` verify distinction (BUG-FW-03):
  * `.some()` would pass (agents linked) and delete EVERY backup, dropping the
@@ -311,6 +363,52 @@ describe('framework-migration', () => {
       }
       const res = migrateWorkspaceToSymlinks(SLUG, repo, PROVIDER, { home })
       expect(res.outcome).toBe('already-symlinked')
+    })
+
+    it('keeps Kimi skills as a real merged directory and preserves custom/OpenSpec skills', () => {
+      installFakeCore(FAKE_CLI_KIMI)
+      const fm = new FrameworkManager({ home })
+      fm.materialize(VERSION, ['kimi'])
+
+      const kimiDir = providerDirFor('kimi')
+      const fwPd = path.join(frameworkRoot(home), 'current', kimiDir)
+      const wsPd = path.join(workspacePathFor(SLUG, home), kimiDir)
+
+      // Pre-bundled copy layout: framework-owned files are real copies.
+      mkdirSync(path.join(wsPd, 'rules'), { recursive: true })
+      writeFileSync(
+        path.join(wsPd, 'rules', 'rules.md'),
+        readFileSync(path.join(fwPd, 'rules', 'rules.md')),
+      )
+      mkdirSync(path.join(wsPd, 'skills', 'specrails-implement'), { recursive: true })
+      writeFileSync(path.join(wsPd, 'skills', 'specrails-implement', 'SKILL.md'), '# old framework copy')
+      mkdirSync(path.join(wsPd, 'skills', 'sr-architect'), { recursive: true })
+      writeFileSync(path.join(wsPd, 'skills', 'sr-architect', 'SKILL.md'), '# old framework role copy')
+
+      // User/external content in the same real root must survive assembly.
+      const customRole = path.join(wsPd, 'skills', 'custom-auditor', 'SKILL.md')
+      mkdirSync(path.dirname(customRole), { recursive: true })
+      writeFileSync(customRole, '# custom role — keep me')
+      const openspec = path.join(wsPd, 'skills', 'openspec-apply-change', 'SKILL.md')
+      mkdirSync(path.dirname(openspec), { recursive: true })
+      writeFileSync(openspec, '# external OpenSpec skill — keep me')
+
+      const first = migrateWorkspaceToSymlinks(SLUG, repo, 'kimi', { home })
+      expect(first.outcome).toBe('migrated')
+
+      // Only the provider's whole-linked root migrated. `skills/` itself remains
+      // real while framework-owned children become per-skill/per-role links.
+      expect(isLink(path.join(wsPd, 'rules'))).toBe(true)
+      expect(isLink(path.join(wsPd, 'skills'))).toBe(false)
+      expect(isLink(path.join(wsPd, 'skills', 'specrails-implement'))).toBe(true)
+      expect(isLink(path.join(wsPd, 'skills', 'sr-architect'))).toBe(true)
+      expect(readFileSync(customRole, 'utf8')).toBe('# custom role — keep me')
+      expect(readFileSync(openspec, 'utf8')).toBe('# external OpenSpec skill — keep me')
+      expect(existsSync(path.join(wsPd, 'skills.pre-symlink.bak'))).toBe(false)
+
+      // The provider-aware root link makes repeat migration an idempotent no-op.
+      expect(migrateWorkspaceToSymlinks(SLUG, repo, 'kimi', { home }).outcome)
+        .toBe('already-symlinked')
     })
   })
 

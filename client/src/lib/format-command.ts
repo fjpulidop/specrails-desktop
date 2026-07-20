@@ -6,13 +6,16 @@
  * of the project's provider — that's the form the wizard builds and
  * the form the queue-manager regex parses to extract ticket ids.
  *
- * For codex projects the user types / sees `$implement #N` (codex's
- * skill-mention syntax), so the UI translates at render time. The
- * stored value never changes.
+ * Provider-native skill syntax is translated at render time. The stored value
+ * never changes.
  *
- * Translation map (codex only):
+ * Translation map:
  *   /specrails:<name>  →  $<name>
  *   /sr:<name>         →  $<name>   (alias used in some docs)
+ * for Codex, and:
+ *   /specrails:<name>  →  /skill:specrails-<name>
+ *   /sr:<name>         →  /skill:specrails-<name>
+ * for Kimi.
  *
  * For claude projects the command is returned verbatim.
  */
@@ -20,8 +23,14 @@ export function formatCommandForProvider(
   command: string,
   provider: string | null | undefined,
 ): string {
-  if (provider !== 'codex') return command
+  if (provider === 'codex') {
+    return command.replace(/(^|\s)\/(?:specrails|sr):([\w-]+)/g, '$1$$$2')
+  }
+  if (provider === 'kimi') {
+    return command.replace(
+      /(^|\s)\/(?:specrails|sr):([\w-]+)/g,
+      '$1/skill:specrails-$2',
+    )
+  }
   return command
-    .replace(/^\/(specrails|sr):([\w-]+)/g, '$$$2')
-    .replace(/(\s)\/(specrails|sr):([\w-]+)/g, '$1$$$3')
 }

@@ -190,12 +190,27 @@ describe('agent-mcp-config', () => {
     expect(joined).not.toContain(capability)
   })
 
-  it('prepareAgentMcp: gemini/other → writes .mcp.json in the cwd', () => {
+  it('prepareAgentMcp: gemini → writes native project settings in the cwd', () => {
     const cwd = fs.mkdtempSync(`${os.tmpdir()}/agent-gem-`)
     const w = prepareAgentMcp({ adapterId: 'gemini', conversationId: 'c-gem', cwd, port: 4200, capability })
     expect(w.extraArgs).toEqual([])
-    const json = JSON.parse(fs.readFileSync(`${cwd}/.mcp.json`, 'utf-8'))
+    const json = JSON.parse(fs.readFileSync(`${cwd}/.gemini/settings.json`, 'utf-8'))
     expect(json.mcpServers.specrails.args[0]).toContain('specrails-mcp.js')
+  })
+
+  it('Part A: merges specrails into Kimi project mcp.json without replacing other servers', () => {
+    const ws = fs.mkdtempSync(`${os.tmpdir()}/agent-kimi-ws-`)
+    fs.mkdirSync(`${ws}/.kimi-code`, { recursive: true })
+    fs.writeFileSync(
+      `${ws}/.kimi-code/mcp.json`,
+      JSON.stringify({ mcpServers: { serena: { command: 'uvx' } }, other: 1 }),
+    )
+    expect(mergeSpecrailsIntoWorkspaceMcp(ws, 4242, 'kimi')).toBe(true)
+    const json = JSON.parse(fs.readFileSync(`${ws}/.kimi-code/mcp.json`, 'utf-8'))
+    expect(json.mcpServers.serena).toEqual({ command: 'uvx' })
+    expect(json.mcpServers.specrails.env.SPECRAILS_MCP_PORT).toBe('4242')
+    expect(json.other).toBe(1)
+    expect(JSON.stringify(json)).not.toMatch(/mcp\.token|Bearer/i)
   })
 
   it('Part A: merges specrails into a workspace .mcp.json, preserving others, no token', () => {
@@ -434,6 +449,9 @@ describe('agent-chat-router', () => {
     expect(claude.body.models.some((m: { value: string }) => m.value === 'sonnet')).toBe(true)
     const codex = await req(app, 'GET', '/api/agent/models?provider=codex')
     expect(codex.body.models.some((m: { value: string }) => m.value === 'gpt-5.5')).toBe(true)
+    const kimi = await req(app, 'GET', '/api/agent/models?provider=kimi')
+    expect(kimi.body.customModelAliases).toBe(true)
+    expect(kimi.body.models.some((m: { value: string }) => m.value === 'k3')).toBe(true)
   })
 
   it('validates an explicit model against the provider catalog', async () => {
@@ -444,6 +462,41 @@ describe('agent-chat-router', () => {
     expect(ok.body.conversation.model).toBe('gpt-5.5')
   })
 
+  it('preserves safe custom Kimi aliases and rejects unsafe argv-like values', async () => {
+    const alias = 'moonshot-team/private-coder:v2'
+    const created = await req(app, 'POST', '/api/agent/conversations', {
+      provider: 'kimi',
+      model: alias,
+      reasoningEffort: 'max',
+    })
+    expect(created.status).toBe(201)
+    expect(created.body.conversation.model).toBe(alias)
+    // Custom aliases do not inherit K3 effort.
+    expect(created.body.conversation.reasoning_effort).toBeNull()
+
+    const patched = await req(
+      app,
+      'PATCH',
+      `/api/agent/conversations/${created.body.conversation.id}`,
+      { model: 'registry.example/coder-v3' },
+    )
+    expect(patched.status).toBe(200)
+    expect(patched.body.conversation.model).toBe('registry.example/coder-v3')
+
+    for (const model of ['--yolo', 'team/model with-space', 'team/model\n--plan']) {
+      expect((await req(app, 'POST', '/api/agent/conversations', {
+        provider: 'kimi',
+        model,
+      })).status).toBe(400)
+      expect((await req(
+        app,
+        'PATCH',
+        `/api/agent/conversations/${created.body.conversation.id}`,
+        { model },
+      )).status).toBe(400)
+    }
+  })
+
   it('GET /models exposes per-provider reasoning-effort tiers (gemini: none)', async () => {
     const claude = await req(app, 'GET', '/api/agent/models?provider=claude')
     expect(claude.body.efforts).toEqual(['low', 'medium', 'high', 'xhigh'])
@@ -451,6 +504,10 @@ describe('agent-chat-router', () => {
     expect(codex.body.efforts).toEqual(['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
     const gemini = await req(app, 'GET', '/api/agent/models?provider=gemini')
     expect(gemini.body.efforts).toEqual([])
+    const kimiK3 = await req(app, 'GET', '/api/agent/models?provider=kimi&model=k3')
+    expect(kimiK3.body.efforts).toEqual(['low', 'high', 'max'])
+    const kimiCoding = await req(app, 'GET', '/api/agent/models?provider=kimi&model=kimi-for-coding')
+    expect(kimiCoding.body.efforts).toEqual([])
   })
 
   it('validates reasoningEffort against the provider catalog and clears it on provider switch', async () => {
@@ -467,6 +524,33 @@ describe('agent-chat-router', () => {
     expect(set.body.conversation.reasoning_effort).toBe('minimal')
     const reset = await req(app, 'PATCH', `/api/agent/conversations/${id}`, { reasoningEffort: null })
     expect(reset.body.conversation.reasoning_effort).toBeNull()
+  })
+
+  it('clears Kimi effort on a non-K3 model and rejects a no-op override', async () => {
+    const created = await req(app, 'POST', '/api/agent/conversations', {
+      provider: 'kimi',
+      model: 'k3',
+      reasoningEffort: 'high',
+    })
+    const id = created.body.conversation.id
+    expect(created.body.conversation.reasoning_effort).toBe('high')
+
+    const switched = await req(app, 'PATCH', `/api/agent/conversations/${id}`, {
+      model: 'kimi-for-coding',
+    })
+    expect(switched.status).toBe(200)
+    expect(switched.body.conversation.model).toBe('kimi-for-coding')
+    expect(switched.body.conversation.reasoning_effort).toBeNull()
+    expect((await req(app, 'PATCH', `/api/agent/conversations/${id}`, {
+      reasoningEffort: 'high',
+    })).status).toBe(400)
+
+    const restored = await req(app, 'PATCH', `/api/agent/conversations/${id}`, {
+      model: 'k3',
+      reasoningEffort: 'max',
+    })
+    expect(restored.status).toBe(200)
+    expect(restored.body.conversation.reasoning_effort).toBe('max')
   })
 
   it('rejects unknown provider and empty send text', async () => {

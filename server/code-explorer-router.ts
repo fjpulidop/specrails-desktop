@@ -22,6 +22,7 @@ import {
 } from './file-summary-manager'
 import { getFileStory, type TicketSpecLookup } from './file-story'
 import type { FileStoryManager } from './file-story-manager'
+import { getAdapter, pureOutputToolPolicy } from './providers'
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -399,6 +400,9 @@ export interface CodeExplorerDeps {
   /** Construction story: the budget-gated per-intervention AI contribution
    *  generator. Optional — POST /file/story/explain 404s without it. */
   fileStoryManager?: Pick<FileStoryManager, 'explain'>
+  /** Primary provider used by both Code Explorer AI transforms. The server
+   *  adapter is authoritative; client-side visibility is only a convenience. */
+  aiTransformProvider: string
 }
 
 export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
@@ -408,6 +412,20 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
   const listByTicket = deps.listProvenanceByTicket ?? listProvenanceByTicket
   // Summary OUTPUT root (workspace when relocated). Source reads use projectPath.
   const summaryRoot = (): string => deps.resolveSummaryRoot?.() ?? deps.projectPath
+  const aiTransformProvider = deps.aiTransformProvider
+  const aiTransformsAvailable = pureOutputToolPolicy(
+    getAdapter(aiTransformProvider),
+  ) !== null
+
+  function requireAiTransforms(res: Response): boolean {
+    if (aiTransformsAvailable) return true
+    res.status(409).json({
+      error: 'provider_tool_policy_unsupported',
+      provider: aiTransformProvider,
+      requiredPolicy: 'pure-output',
+    })
+    return false
+  }
 
   // Short-TTL per-project cache so paginating a large `all` tree reuses ONE
   // synchronous filesystem walk instead of re-walking (and re-statting) on every
@@ -437,11 +455,13 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       res.status(404).end()
       return
     }
-    // Lazily attach the file-summary watcher on first Code-Explorer use. It is
-    // not attached at registry load (that recursive watcher caused the fd leak
-    // that broke terminals); attachWatcher is idempotent, so this is cheap on
-    // every subsequent request.
-    try { deps.fileSummaryManager.attachWatcher(deps.projectId, deps.projectPath, summaryRoot()) } catch { /* non-fatal */ }
+    // Lazily attach the file-summary watcher on first Code-Explorer use. A
+    // provider without a native pure-output boundary must not attach it:
+    // implicit file-change work and explicit POSTs both fail closed before a
+    // manager or provider process can run.
+    if (aiTransformsAvailable) {
+      try { deps.fileSummaryManager.attachWatcher(deps.projectId, deps.projectPath, summaryRoot()) } catch { /* non-fatal */ }
+    }
     next()
   })
 
@@ -756,6 +776,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
   // turn; the file.story_updated WS event fires too so other open viewers of
   // the same file refresh.
   router.post('/file/story/explain', async (req: Request, res: Response) => {
+    if (!requireAiTransforms(res)) return
     const relRaw = req.query.path as string | undefined
     if (!relRaw || typeof relRaw !== 'string') {
       res.status(400).json({ error: 'path query parameter is required' })
@@ -816,6 +837,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
   })
 
   router.post('/file/regenerate-summary', async (req: Request, res: Response) => {
+    if (!requireAiTransforms(res)) return
     const relRaw = req.query.path as string | undefined
     if (!relRaw || typeof relRaw !== 'string') {
       res.status(400).json({ error: 'path query parameter is required' })

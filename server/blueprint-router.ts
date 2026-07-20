@@ -1,7 +1,12 @@
 import { Router, type Request, type Response } from 'express'
 import type { DbInstance } from './db'
 import type { BlueprintChatManager } from './blueprint-chat-manager'
-import { getAdapter } from './providers'
+import {
+  getAdapter,
+  isModelAvailableForAdapter,
+  reasoningEffortsForModel,
+} from './providers'
+import { pureOutputToolPolicy } from './providers/runtime'
 import {
   createBlueprintConversation,
   listBlueprintConversations,
@@ -54,11 +59,19 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
   router.get('/models', (req: Request, res: Response) => {
     const provider = validProvider(req.query.provider) ?? 'claude'
     const adapter = getAdapter(provider)
+    const toolPolicy = pureOutputToolPolicy(adapter)
+    const requestedModel = typeof req.query.model === 'string' && req.query.model
+      ? req.query.model
+      : null
+    const model = requestedModel ?? adapter.defaultModel()
     res.json({
       provider,
-      models: adapter.modelCatalog(),
-      defaultModel: adapter.defaultModel(),
-      efforts: adapter.capabilities.reasoningEfforts ?? [],
+      available: toolPolicy !== null,
+      toolPolicy,
+      models: toolPolicy ? adapter.modelCatalog() : [],
+      defaultModel: toolPolicy ? adapter.defaultModel() : null,
+      model,
+      efforts: toolPolicy ? reasoningEffortsForModel(adapter, model) : [],
     })
   })
 
@@ -69,6 +82,10 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
   router.post('/conversations', (req: Request, res: Response) => {
     const body = (req.body ?? {}) as { provider?: unknown; model?: unknown }
     const provider = validProvider(body.provider) ?? 'claude'
+    if (!pureOutputToolPolicy(getAdapter(provider))) {
+      res.status(409).json({ error: 'provider_tool_policy_unsupported', provider })
+      return
+    }
     const model = typeof body.model === 'string' && body.model ? body.model : null
     const conversation = createBlueprintConversation(desktopDb, { provider, model })
     res.status(201).json({ conversation })
@@ -97,6 +114,10 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
         res.status(400).json({ error: 'invalid provider' })
         return
       }
+      if (!pureOutputToolPolicy(getAdapter(provider))) {
+        res.status(409).json({ error: 'provider_tool_policy_unsupported', provider })
+        return
+      }
       patch.provider = provider
       if (provider !== conversation.provider) {
         // A session id is provider-local; a switch must reset it and the model.
@@ -111,8 +132,7 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
       }
       const effectiveProvider = (patch.provider as string | undefined) ?? conversation.provider
       if (typeof body.model === 'string' && body.model) {
-        const valid = new Set(getAdapter(effectiveProvider).modelCatalog().map((m) => m.value))
-        if (!valid.has(body.model)) {
+        if (!isModelAvailableForAdapter(getAdapter(effectiveProvider), body.model)) {
           res.status(400).json({ error: 'model not in provider catalog' })
           return
         }
@@ -159,10 +179,30 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
       res.status(409).json({ error: 'a turn is already streaming' })
       return
     }
+    const adapter = getAdapter(conversation.provider)
+    if (!pureOutputToolPolicy(adapter)) {
+      res.status(409).json({
+        error: 'provider_tool_policy_unsupported',
+        provider: conversation.provider,
+      })
+      return
+    }
+    if (
+      body.model !== undefined
+      && body.model !== null
+      && !isModelAvailableForAdapter(adapter, body.model)
+    ) {
+      res.status(400).json({ error: 'model not in provider catalog' })
+      return
+    }
     const model = typeof body.model === 'string' && body.model ? body.model : undefined
+    const effectiveModel = model
+      ?? (conversation.model && isModelAvailableForAdapter(adapter, conversation.model)
+        ? conversation.model
+        : adapter.defaultModel())
     let reasoningEffort: string | undefined
     if (body.reasoning_effort !== undefined) {
-      const allowedEfforts = getAdapter(conversation.provider).capabilities.reasoningEfforts ?? []
+      const allowedEfforts = reasoningEffortsForModel(adapter, effectiveModel)
       if (
         typeof body.reasoning_effort !== 'string'
         || !(allowedEfforts as readonly string[]).includes(body.reasoning_effort)

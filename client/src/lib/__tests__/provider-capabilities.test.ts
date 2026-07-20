@@ -6,6 +6,16 @@ import {
   isMultiProvider,
   providerLabel,
   providerSupportsReasoningEffort,
+  providerSupportsPureOutput,
+  providerSupportsToolPolicy,
+  defaultReasoningEffortForProvider,
+  providerSupportsFreestyle,
+  providerSupportsProfiles,
+  reasoningEffortsForProvider,
+  providerSupportsAgentAutomation,
+  providerSupportsCustomModelAliases,
+  providerSupportsStructuredActions,
+  providerSupportsUserMcp,
 } from '../provider-capabilities'
 
 describe('isSmashCapable', () => {
@@ -15,6 +25,10 @@ describe('isSmashCapable', () => {
 
   it('returns false for codex', () => {
     expect(isSmashCapable('codex')).toBe(false)
+  })
+
+  it('returns false for Kimi because prompt mode cannot enforce a safe tool boundary', () => {
+    expect(isSmashCapable('kimi')).toBe(false)
   })
 
   it('returns false for null (provider not yet resolved)', () => {
@@ -156,6 +170,10 @@ describe('providerLabel', () => {
     expect(providerLabel('gemini')).toBe('Gemini')
   })
 
+  it('returns "Kimi" for provider "kimi"', () => {
+    expect(providerLabel('kimi')).toBe('Kimi')
+  })
+
   it('returns the raw string for an unknown provider', () => {
     expect(providerLabel('openai')).toBe('openai')
     expect(providerLabel('')).toBe('')
@@ -180,9 +198,90 @@ describe('providerSupportsReasoningEffort', () => {
   it('gemini does NOT (no per-invocation CLI mechanism)', () => {
     expect(providerSupportsReasoningEffort('gemini')).toBe(false)
   })
+  it('Kimi supports K3 thinking effort through its environment contract', () => {
+    expect(providerSupportsReasoningEffort('kimi', 'k3')).toBe(true)
+    expect(providerSupportsReasoningEffort('kimi', 'kimi-code/k3')).toBe(true)
+    expect(providerSupportsReasoningEffort('kimi', 'kimi-for-coding')).toBe(false)
+    expect(providerSupportsReasoningEffort('kimi', 'custom-alias')).toBe(false)
+    expect(providerSupportsReasoningEffort('kimi')).toBe(false)
+  })
   it('unknown / null / undefined → false (hide rather than offer a no-op)', () => {
     expect(providerSupportsReasoningEffort('mystery')).toBe(false)
     expect(providerSupportsReasoningEffort(null)).toBe(false)
     expect(providerSupportsReasoningEffort(undefined)).toBe(false)
+  })
+
+  it('exposes only the exact Kimi tiers and a provider-safe default', () => {
+    expect(reasoningEffortsForProvider('kimi', 'k3')).toEqual(['low', 'high', 'max'])
+    expect(defaultReasoningEffortForProvider('kimi', 'k3')).toBe('high')
+    expect(reasoningEffortsForProvider('kimi', 'k3')).not.toContain('medium')
+    expect(reasoningEffortsForProvider('kimi', 'kimi-for-coding')).toEqual([])
+    expect(defaultReasoningEffortForProvider('kimi', 'custom-alias')).toBeUndefined()
+  })
+
+  it('does not invent effort tiers for an unknown provider', () => {
+    expect(reasoningEffortsForProvider('mystery')).toEqual([])
+    expect(defaultReasoningEffortForProvider('mystery')).toBeUndefined()
+  })
+})
+
+describe('restricted tool-policy capabilities', () => {
+  it('fails closed for Kimi pure-output and read-only surfaces', () => {
+    expect(providerSupportsPureOutput('kimi')).toBe(false)
+    expect(providerSupportsToolPolicy('kimi', 'read-only')).toBe(false)
+  })
+
+  it('keeps verified pure-output providers available', () => {
+    expect(providerSupportsPureOutput('claude')).toBe(true)
+    expect(providerSupportsPureOutput('codex')).toBe(true)
+    expect(providerSupportsPureOutput('gemini')).toBe(true)
+    expect(providerSupportsToolPolicy('claude', 'read-only')).toBe(true)
+  })
+})
+
+describe('provider-owned rail capabilities', () => {
+  it('enables Freestyle and profiles for Kimi', () => {
+    expect(providerSupportsFreestyle('kimi')).toBe(true)
+    expect(providerSupportsProfiles('kimi')).toBe(true)
+  })
+
+  it('keeps both unavailable for Gemini and unknown providers', () => {
+    expect(providerSupportsFreestyle('gemini')).toBe(false)
+    expect(providerSupportsProfiles('gemini')).toBe(false)
+    expect(providerSupportsFreestyle('mystery')).toBe(false)
+  })
+})
+
+describe('providerSupportsAgentAutomation', () => {
+  it('fails closed for Kimi while manual role editing remains separate', () => {
+    expect(providerSupportsAgentAutomation('kimi')).toBe(false)
+  })
+
+  it('retains automation for providers with safe tool policies', () => {
+    expect(providerSupportsAgentAutomation('claude')).toBe(true)
+    expect(providerSupportsAgentAutomation('codex')).toBe(true)
+    expect(providerSupportsAgentAutomation('gemini')).toBe(true)
+    expect(providerSupportsAgentAutomation('mystery')).toBe(false)
+  })
+})
+
+describe('providerSupportsCustomModelAliases', () => {
+  it('allows provider-configured aliases only for Kimi', () => {
+    expect(providerSupportsCustomModelAliases('kimi')).toBe(true)
+    expect(providerSupportsCustomModelAliases('claude')).toBe(false)
+    expect(providerSupportsCustomModelAliases('codex')).toBe(false)
+    expect(providerSupportsCustomModelAliases('gemini')).toBe(false)
+    expect(providerSupportsCustomModelAliases('mystery')).toBe(false)
+  })
+})
+
+describe('Add Spec provider capabilities', () => {
+  it('keeps structured actions and user MCP opt-in Claude-only', () => {
+    expect(providerSupportsStructuredActions('claude')).toBe(true)
+    expect(providerSupportsUserMcp('claude')).toBe(true)
+    for (const provider of ['codex', 'gemini', 'kimi', 'mystery']) {
+      expect(providerSupportsStructuredActions(provider)).toBe(false)
+      expect(providerSupportsUserMcp(provider)).toBe(false)
+    }
   })
 })

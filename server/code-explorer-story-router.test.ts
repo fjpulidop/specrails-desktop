@@ -24,17 +24,29 @@ let projectPath: string
 let db: DbInstance
 let app: express.Express
 let explainSpy: ReturnType<typeof vi.fn>
+let attachWatcherSpy: ReturnType<typeof vi.fn>
 
-function mountApp(withStoryManager = true): void {
+function mountApp({
+  withStoryManager = true,
+  provider = 'claude',
+}: {
+  withStoryManager?: boolean
+  provider?: string
+} = {}): void {
   app = express()
   app.use(express.json())
   explainSpy = vi.fn(async (): Promise<ExplainResult> => 'generated')
+  attachWatcherSpy = vi.fn()
   const router = createCodeExplorerRouter({
     db,
     projectPath,
     projectId: 'proj-test',
     broadcast: vi.fn(),
-    fileSummaryManager: { enqueue: vi.fn(async () => 'enqueued' as const) as never, attachWatcher: vi.fn() as never },
+    fileSummaryManager: {
+      enqueue: vi.fn(async () => 'enqueued' as const) as never,
+      attachWatcher: attachWatcherSpy as never,
+    },
+    aiTransformProvider: provider,
     getTicketSpec: (id: number) => (id === 7 ? { id, title: 'Login screen', status: 'done' } : undefined),
     ...(withStoryManager ? { fileStoryManager: { explain: explainSpy as never } } : {}),
   })
@@ -161,8 +173,44 @@ describe('POST /file/story/explain', () => {
     expect(explainSpy).not.toHaveBeenCalled()
   })
 
+  it('rejects Kimi before watcher/explain work and leaves story rows unchanged', async () => {
+    const provenanceId = seedIntervention()
+    setContributionSummary(
+      db,
+      provenanceId,
+      'Existing deterministic snapshot.',
+      'existing-model',
+      '2026-07-01T00:00:00.000Z',
+    )
+    const provenanceBefore = db.prepare(
+      'SELECT * FROM file_provenance ORDER BY id',
+    ).all()
+    const contributionsBefore = db.prepare(
+      'SELECT * FROM file_story_contributions ORDER BY provenance_id',
+    ).all()
+
+    mountApp({ provider: 'kimi' })
+    const res = await request(app)
+      .post('/api/projects/proj-test/code/file/story/explain?path=hello.ts')
+      .send({ provenanceId, overrideBudget: true })
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({
+      error: 'provider_tool_policy_unsupported',
+      provider: 'kimi',
+      requiredPolicy: 'pure-output',
+    })
+    expect(attachWatcherSpy).not.toHaveBeenCalled()
+    expect(explainSpy).not.toHaveBeenCalled()
+    expect(db.prepare('SELECT * FROM file_provenance ORDER BY id').all())
+      .toEqual(provenanceBefore)
+    expect(db.prepare(
+      'SELECT * FROM file_story_contributions ORDER BY provenance_id',
+    ).all()).toEqual(contributionsBefore)
+  })
+
   it('404s when no story manager is wired', async () => {
-    mountApp(false)
+    mountApp({ withStoryManager: false })
     const res = await request(app)
       .post('/api/projects/proj-test/code/file/story/explain?path=hello.ts')
       .send({ provenanceId: 1 })

@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { EventEmitter } from 'events'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import { verifySerena } from './verify'
+import './../../providers'
 
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
@@ -15,13 +19,16 @@ class FakeChild extends EventEmitter {
 }
 
 let fakeChild: FakeChild
+let projectPath: string
 
 beforeEach(() => {
+  projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-serena-'))
   fakeChild = new FakeChild()
   vi.mocked(spawn).mockReturnValue(fakeChild as never)
 })
 afterEach(() => {
   vi.clearAllMocks()
+  fs.rmSync(projectPath, { recursive: true, force: true })
 })
 
 describe('verifySerena', () => {
@@ -40,6 +47,34 @@ describe('verifySerena', () => {
     const r = await promise
     expect(r.ok).toBe(false)
     expect(r.reason).toMatch(/uv-non-zero-exit/)
+  })
+
+  it('requires the Serena registration in Kimi native project config', async () => {
+    const promise = verifySerena({
+      projectPath,
+      projectId: 'pid',
+      providerId: 'kimi',
+    })
+    fakeChild.emit('close', 0)
+    const r = await promise
+    expect(r).toMatchObject({ ok: false, reason: 'mcp-registration-missing' })
+  })
+
+  it('accepts Serena registered in .kimi-code/mcp.json', async () => {
+    const config = path.join(projectPath, '.kimi-code', 'mcp.json')
+    fs.mkdirSync(path.dirname(config), { recursive: true })
+    fs.writeFileSync(config, JSON.stringify({
+      mcpServers: { serena: { command: 'uvx' } },
+    }))
+
+    const promise = verifySerena({
+      projectPath,
+      projectId: 'pid',
+      providerId: 'kimi',
+    })
+    fakeChild.emit('close', 0)
+    const r = await promise
+    expect(r.ok).toBe(true)
   })
 
   it('reports uv-not-on-path when ENOENT fires', async () => {

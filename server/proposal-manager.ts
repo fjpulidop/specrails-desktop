@@ -2,7 +2,7 @@ import { ChildProcess } from 'child_process'
 import { createInterface } from 'readline'
 import { randomUUID } from 'crypto'
 import treeKill from 'tree-kill'
-import { spawnClaude } from './util/cli-prompt'
+import { spawnAiCli } from './util/cli-prompt'
 import type { WsMessage } from './types'
 import type { DbInstance } from './db'
 import {
@@ -11,8 +11,16 @@ import {
 } from './db'
 import { resolveCommand } from './command-resolver'
 import { getAdapter, type ProviderAdapter, type AdapterEvent } from './providers'
+import type { SpawnOptions } from './providers/types'
+import {
+  buildProviderEnv,
+  buildProviderRepoAccessArgs,
+  formatProviderCommand,
+  parseStreamEvents,
+} from './providers/runtime'
 import { finaliseInvocationResult } from './result-event'
 import { recordInvocation, type InvocationStatus } from './ai-invocations'
+import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
 
 // ─── ProposalManager ──────────────────────────────────────────────────────────
 
@@ -36,16 +44,67 @@ export class ProposalManager {
    *  HIGH-6). Optional so pre-wiring call sites keep compiling; recording only
    *  fires when present (the DB is always available on this manager). */
   private _projectId?: string
-  /** claude adapter — the proposal flows only ever spawn claude. */
-  private _adapter: ProviderAdapter = getAdapter('claude')
+  private _projectSlug?: string
+  private _adapter: ProviderAdapter
 
-  constructor(broadcast: (msg: WsMessage) => void, db: DbInstance, cwd: string, projectId?: string) {
+  constructor(
+    broadcast: (msg: WsMessage) => void,
+    db: DbInstance,
+    cwd: string,
+    projectId?: string,
+    providerId: string = 'claude',
+    projectSlug?: string,
+  ) {
     this._broadcast = broadcast
     this._db = db
     this._cwd = cwd
     this._projectId = projectId
+    this._projectSlug = projectSlug
+    this._adapter = getAdapter(providerId)
     this._activeProcesses = new Map()
     this._buffers = new Map()
+  }
+
+  /** Resolve lazily because a project context is created before Core may
+   * populate its relocated workspace during setup. */
+  private _execution(): ProjectExecution {
+    return resolveProjectExecution({ slug: this._projectSlug, path: this._cwd })
+  }
+
+  /**
+   * Synchronous route preflight for `/propose`. It deliberately uses the same
+   * provider-aware command resolution and lazy execution cwd as the real spawn:
+   * Claude resolves installed command markdown, Codex rewrites its native
+   * prompt invocation, and Kimi materializes the direct-child SKILL.md.
+   */
+  canStartExploration(): boolean {
+    const execution = this._execution()
+    const rawCommand = '/specrails:propose-feature test'
+    try {
+      const resolved = this._adapter.capabilities.materializeHeadlessSkills
+        ? rawCommand
+        : resolveCommand(rawCommand, execution.cwd)
+      const prompt = resolved === rawCommand
+        ? formatProviderCommand(this._adapter, rawCommand, execution.cwd)
+        : resolved
+      return prompt !== rawCommand
+    } catch {
+      return false
+    }
+  }
+
+  private _spawnOptions(
+    execution: ProjectExecution,
+    options: SpawnOptions,
+  ): SpawnOptions {
+    if (!execution.relocated) return options
+    return {
+      ...options,
+      extraArgs: [
+        ...(options.extraArgs ?? []),
+        ...buildProviderRepoAccessArgs(this._adapter, [execution.repoDir]),
+      ],
+    }
   }
 
   /**
@@ -64,8 +123,10 @@ export class ProposalManager {
   ): void {
     if (!this._projectId) return
     try {
+      const finishedAt = new Date().toISOString()
       const { result, estimated } = finaliseInvocationResult(this._adapter, events, {
         fallbackModel: this._adapter.defaultModel(),
+        durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(startedAtIso)),
       })
       recordInvocation(this._db, {
         id: randomUUID(),
@@ -75,7 +136,7 @@ export class ProposalManager {
         surface_ref_id: proposalId,
         status,
         started_at: startedAtIso,
-        finished_at: new Date().toISOString(),
+        finished_at: finishedAt,
         total_cost_usd_estimated: estimated,
         ...result,
       })
@@ -137,8 +198,24 @@ export class ProposalManager {
     }
 
     // Resolve the command file — error if not installed
+    const execution = this._execution()
     const rawCommand = `/specrails:propose-feature ${idea}`
-    const prompt = resolveCommand(rawCommand, this._cwd)
+    const resolved = this._adapter.capabilities.materializeHeadlessSkills
+      ? rawCommand
+      : resolveCommand(rawCommand, execution.cwd)
+    let prompt: string
+    try {
+      prompt = resolved === rawCommand
+        ? formatProviderCommand(this._adapter, rawCommand, execution.cwd)
+        : resolved
+    } catch (error) {
+      updateProposal(this._db, proposalId, { status: 'cancelled' })
+      this._broadcastError(
+        proposalId,
+        error instanceof Error ? error.message : String(error),
+      )
+      return
+    }
     if (prompt === rawCommand) {
       updateProposal(this._db, proposalId, { status: 'cancelled' })
       this._broadcastError(proposalId, 'This project does not have the /specrails:propose-feature command installed. Run "npx specrails-core@latest" to update.')
@@ -147,15 +224,14 @@ export class ProposalManager {
 
     updateProposal(this._db, proposalId, { status: 'exploring' })
 
-    const args = [
-      '--dangerously-skip-permissions',
-      '--tools', 'default',
-      '--output-format', 'stream-json',
-      '--verbose',
-      '-p', prompt,
-    ]
+    const spawnOptions = this._spawnOptions(execution, {
+      prompt,
+      model: this._adapter.defaultModel(),
+      toolPolicy: 'default',
+    })
+    const args = this._adapter.buildArgs('spec-gen', spawnOptions)
 
-    await this._runProcess(proposalId, args, (fullText, sessionId) => {
+    await this._runProcess(proposalId, args, spawnOptions, execution, (fullText, sessionId) => {
       updateProposal(this._db, proposalId, {
         status: 'review',
         result_markdown: fullText,
@@ -168,9 +244,9 @@ export class ProposalManager {
         markdown: fullText,
         timestamp: new Date().toISOString(),
       })
-    }, () => {
+    }, (error) => {
       updateProposal(this._db, proposalId, { status: 'input' })
-      this._broadcastError(proposalId, 'Exploration failed')
+      this._broadcastError(proposalId, error ?? 'Exploration failed')
     })
   }
 
@@ -188,16 +264,16 @@ export class ProposalManager {
 
     updateProposal(this._db, proposalId, { status: 'refining' })
 
-    const args = [
-      '--dangerously-skip-permissions',
-      '--tools', 'default',
-      '--output-format', 'stream-json',
-      '--verbose',
-      '--resume', proposal.session_id,
-      '-p', feedback,
-    ]
+    const execution = this._execution()
+    const spawnOptions = this._spawnOptions(execution, {
+      prompt: feedback,
+      model: this._adapter.defaultModel(),
+      sessionId: proposal.session_id,
+      toolPolicy: 'default',
+    })
+    const args = this._adapter.buildArgs('chat-resume', spawnOptions)
 
-    await this._runProcess(proposalId, args, (fullText, sessionId) => {
+    await this._runProcess(proposalId, args, spawnOptions, execution, (fullText, sessionId) => {
       updateProposal(this._db, proposalId, {
         status: 'review',
         result_markdown: fullText,
@@ -210,9 +286,9 @@ export class ProposalManager {
         markdown: fullText,
         timestamp: new Date().toISOString(),
       })
-    }, () => {
+    }, (error) => {
       updateProposal(this._db, proposalId, { status: 'review' })
-      this._broadcastError(proposalId, 'Refinement failed')
+      this._broadcastError(proposalId, error ?? 'Refinement failed')
     })
   }
 
@@ -234,16 +310,16 @@ export class ProposalManager {
       "Based on the proposal above, create a GitHub Issue with the label 'user-proposed'. " +
       "Output only the URL of the created issue on the last line of your response."
 
-    const args = [
-      '--dangerously-skip-permissions',
-      '--tools', 'default',
-      '--output-format', 'stream-json',
-      '--verbose',
-      '--resume', proposal.session_id,
-      '-p', prompt,
-    ]
+    const execution = this._execution()
+    const spawnOptions = this._spawnOptions(execution, {
+      prompt,
+      model: this._adapter.defaultModel(),
+      sessionId: proposal.session_id,
+      toolPolicy: 'default',
+    })
+    const args = this._adapter.buildArgs('chat-resume', spawnOptions)
 
-    await this._runProcess(proposalId, args, (fullText, sessionId) => {
+    await this._runProcess(proposalId, args, spawnOptions, execution, (fullText, sessionId) => {
       const match = fullText.match(/https:\/\/github\.com\/[^\s]+\/issues\/\d+/)
       const issueUrl = match ? match[0] : null
 
@@ -267,9 +343,9 @@ export class ProposalManager {
           'Issue creation failed — GitHub CLI may not be available or not authenticated'
         )
       }
-    }, () => {
+    }, (error) => {
       updateProposal(this._db, proposalId, { status: 'review' })
-      this._broadcastError(proposalId, 'Issue creation failed')
+      this._broadcastError(proposalId, error ?? 'Issue creation failed')
     })
   }
 
@@ -296,14 +372,18 @@ export class ProposalManager {
   private async _runProcess(
     proposalId: string,
     args: string[],
+    spawnOptions: SpawnOptions,
+    execution: ProjectExecution,
     onSuccess: (fullText: string, sessionId: string | null) => void,
-    onError: () => void
+    onError: (error?: string) => void
   ): Promise<void> {
-    // spawnClaude reroutes multi-line argv values through stdin on Windows.
-    const child = spawnClaude(args, {
-      env: process.env,
+    const child = spawnAiCli(this._adapter.binary, args, {
+      env: buildProviderEnv(this._adapter, spawnOptions, {
+        ...process.env,
+        ...execution.env,
+      }),
       stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: this._cwd,
+      cwd: execution.cwd,
     })
 
     this._activeProcesses.set(proposalId, child)
@@ -318,32 +398,15 @@ export class ProposalManager {
     const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
 
     stdoutReader.on('line', (line) => {
-      if (this._projectId) {
-        const ev = this._adapter.parseStreamLine(line)
-        if (ev) adapterEvents.push(ev)
-      }
-
-      let parsed: Record<string, unknown> | null = null
-      try { parsed = JSON.parse(line) } catch { /* skip non-JSON */ }
-      if (!parsed) return
-
-      const eventType = parsed.type as string
-
-      if (eventType === 'result') {
-        const sid = parsed.session_id as string | undefined
-        if (sid) capturedSessionId = sid
-      }
-
-      if (eventType === 'assistant') {
-        const msg = parsed.message as { content?: Array<{ type: string; text?: string; name?: string }> } | undefined
-        const blocks = msg?.content ?? []
-
-        // Extract text from text blocks (skip thinking blocks)
-        const texts = blocks
-          .filter((c) => c.type === 'text')
-          .map((c) => c.text ?? '')
-        const newText = texts.join('')
-        if (newText) {
+      for (const ev of parseStreamEvents(this._adapter, line)) {
+        adapterEvents.push(ev)
+        if (ev.kind === 'session-started') capturedSessionId = ev.sessionId
+        if (ev.kind === 'result') {
+          const sid = (ev.payload as { session_id?: string }).session_id
+          if (sid) capturedSessionId = sid
+        }
+        if (ev.kind === 'text-delta') {
+          const newText = ev.text
           const prev = this._buffers.get(proposalId) ?? ''
           this._buffers.set(proposalId, prev + newText)
           this._broadcast({
@@ -353,19 +416,14 @@ export class ProposalManager {
             delta: newText,
             timestamp: new Date().toISOString(),
           })
-        }
-
-        // Broadcast tool_use activity so the UI can show "reading codebase..."
-        for (const block of blocks) {
-          if (block.type === 'tool_use' && block.name) {
-            this._broadcast({
-              type: 'proposal_stream',
-              projectId: '',
-              proposalId,
-              delta: `<!--tool:${block.name}-->`,
-              timestamp: new Date().toISOString(),
-            })
-          }
+        } else if (ev.kind === 'tool-use') {
+          this._broadcast({
+            type: 'proposal_stream',
+            projectId: '',
+            proposalId,
+            delta: `<!--tool:${ev.name}-->`,
+            timestamp: new Date().toISOString(),
+          })
         }
       }
     })
@@ -387,8 +445,7 @@ export class ProposalManager {
         }
         if (wasCancelled) { resolve(); return } // intentional cancel; keep 'cancelled' (BUG-LONGTAIL-01)
         if (this._disposed) { resolve(); return } // M12: project removed mid-flight; DB closing
-        this._broadcastError(proposalId, `Failed to launch claude: ${err.message}`)
-        onError()
+        onError(`Failed to launch ${this._adapter.binary}: ${err.message}`)
         resolve()
       })
       /* c8 ignore stop */
@@ -398,12 +455,17 @@ export class ProposalManager {
         this._activeProcesses.delete(proposalId)
         this._buffers.delete(proposalId)
         const wasCancelled = this._cancelledIds.delete(proposalId)
+        const providerError = adapterEvents.find(
+          (event): event is Extract<AdapterEvent, { kind: 'error' }> =>
+            event.kind === 'error',
+        )?.message
         // Record the spend regardless of cancel/done outcome (the tokens were
         // burned either way) — but NOT when the project is being torn down, since
         // its DB is closing (recordInvocation would throw). Cancel/kill → aborted;
         // non-zero exit → failed; clean exit → success (HIGH-6).
         if (!this._disposed) {
-          const status: InvocationStatus = wasCancelled ? 'aborted' : code === 0 ? 'success' : 'failed'
+          const status: InvocationStatus =
+            wasCancelled ? 'aborted' : code === 0 && !providerError ? 'success' : 'failed'
           this._recordInvocation(proposalId, adapterEvents, status, turnStartedAt)
         }
         // A cancel() killed this child intentionally; its non-zero exit must NOT
@@ -411,10 +473,10 @@ export class ProposalManager {
         if (wasCancelled) { resolve(); return }
         if (this._disposed) { resolve(); return } // M12: project removed mid-flight; DB closing
 
-        if (code === 0) {
+        if (code === 0 && !providerError) {
           onSuccess(fullText, capturedSessionId)
         } else {
-          onError()
+          onError(providerError)
         }
 
         resolve()

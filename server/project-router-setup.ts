@@ -21,7 +21,6 @@ import { getProjectSetupSession } from './desktop-db'
 import { ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError, DEFAULT_ZOMBIE_TIMEOUT_MS } from './queue-manager'
 import type { JobPriority } from './types'
 import { VALID_PRIORITIES } from './types'
-import { resolveCommand } from './command-resolver'
 import { getAdapter } from './providers'
 import { createHooksRouter, getPhaseStates } from './hooks'
 import { getConfig, fetchIssues } from './config'
@@ -259,10 +258,10 @@ export function registerSetupRoutes(deps: ProjectRoutesDeps): void {
     if (!idea || typeof idea !== 'string' || !idea.trim()) {
       res.status(400).json({ error: 'idea is required' }); return
     }
-    // Pre-check: does the propose-feature command exist in this project?
-    const testCmd = `/specrails:propose-feature test`
-    const resolved = resolveCommand(testCmd, ctx(req).project.path)
-    if (resolved === testCmd) {
+    // Provider-aware pre-check. The manager resolves against the lazy
+    // execution cwd (including relocated workspaces) and understands Kimi's
+    // materialized headless skills rather than probing only Claude markdown.
+    if (!ctx(req).proposalManager.canStartExploration()) {
       res.status(400).json({ error: 'This project does not have the /specrails:propose-feature command installed. Run "npx specrails-core@latest" to update.' }); return
     }
     const id = uuidv4()

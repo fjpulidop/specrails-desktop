@@ -23,9 +23,9 @@ describe('factory loops', () => {
     expect(getFactoryLoop('factory:freestyle')?.name).toBe('Freestyle')
   })
 
-  it('freestyle is claude-only; the others are not', () => {
-    expect(getFactoryLoop('factory:freestyle')?.claudeOnly).toBe(true)
-    expect(getFactoryLoop('factory:implement')?.claudeOnly).toBeUndefined()
+  it('gates freestyle on provider capability; the others need none', () => {
+    expect(getFactoryLoop('factory:freestyle')?.requiredCapability).toBe('freestyle')
+    expect(getFactoryLoop('factory:implement')?.requiredCapability).toBeUndefined()
   })
 
   it('every factory loop is a publishable graph', () => {

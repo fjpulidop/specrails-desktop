@@ -1,6 +1,7 @@
 # 为每条 rail 选择引擎
 
-Specrails desktop 把 **Claude Code**、**Codex CLI** 和 **Gemini CLI** 都当作一等公民的引擎。一个项目可以装其中一个、两个，或三个全装——而当装的不止一个时，你就能为每条 rail 选择用哪个引擎。本页讲解按 rail 的引擎选择器，以及什么时候该选哪一个。
+Specrails desktop 把 **Claude Code**、**Codex CLI**、**Gemini CLI** 和
+**Kimi Code** 都当作一等引擎。可安装任何 compatible 组合。
 
 ## 选择器何时出现
 
@@ -13,7 +14,7 @@ Specrails desktop 把 **Claude Code**、**Codex CLI** 和 **Gemini CLI** 都当�
 ## 如何选择一个引擎
 
 1. 确认这条 rail 的引擎选择器正在显示（项目有 2 个及以上提供方）。
-2. 点开它，选 **Claude**、**Codex** 或 **Gemini**。
+2. 选择 **Claude**、**Codex**、**Gemini** 或 **Kimi**。
 3. 用 **▶ Play** 启动这条 rail。
 
 被选中的引擎会跑这条 rail 流水线的每一个阶段。如果所选引擎对应的 CLI 没装，启动会快速失败——什么都不会启动。装上缺失的 CLI 再试一次即可。
@@ -24,19 +25,16 @@ Specrails desktop 把 **Claude Code**、**Codex CLI** 和 **Gemini CLI** 都当�
 
 | 引擎 | 在什么情况下选它…… | 说明 |
 |--------|--------------------|-------|
-| **Claude** | 你想要全套功能：Agent Profile、Freestyle、原生成本上报、最丰富的工具支持。大多数工作的默认之选。 | 唯一支持 **Agent Profile**、**Freestyle** 以及几个 Claude 专属 spec 功能（Contract Layer、SMASH）的引擎。 |
+| **Claude** | 需要原生成本、持久交互或严格 tool policy。 | Profile、Freestyle 和 structured transform。 |
 | **Codex** | 你更喜欢 OpenAI Codex CLI，或想跨提供方对比实现。 | `codex` ≥ 0.128.0。无原生成本上报——应用会用自己的价格表来补上成本。Profile 不适用。 |
 | **Gemini** | 你想用 Google 的 Gemini CLI、原生遥测，或为常规 spec 跑得更省钱。 | `gemini` ≥ 0.11.0（需设置 `GEMINI_API_KEY`）。原生 OTLP 遥测。Profile 不适用。 |
+| **Kimi** | 用 agentic Kimi 跑 Implement、Batch、Freestyle 或无 Decider 的 loop。 | 外部 `kimi` ≥ 0.27.0；profile/role，effort 仅 K3；token/cost unavailable。 |
 
-### Claude 专属功能
+### Capability 差异
 
-有几样东西只在 Claude rail 上能用——如果你需要它们，就选 Claude：
-
-- **Agent Profile**——按 Agent 的模型路由。在 Codex 或 Gemini rail 上，运行始终走传统模式，所选的任何 Profile 都会被**忽略**。非 Claude 引擎下 Profile 选择器会被隐藏。
-- **Freestyle**——那个自主的、绕过流水线的模式。`Freestyle` 分段及其 Haiku/Sonnet/Opus 模型选择器，只有当 rail 的引擎是 Claude 时才会出现。
-- **Contract Layer 与 SMASH**——Claude 专属的 spec 优化功能（这些是 Add Spec 的选项，不是 rail 的选项，但同样的限制适用）。
-
-如果一个项目混用了引擎，右侧栏只会显示**每一个**已安装提供方都支持的区块——所以在一个含有任何非 Claude 提供方的项目上，**Agents** 区会彻底消失，因为 Profile 是 Claude 特有的。
+Claude/Kimi 支持 Profile 和 Freestyle；Codex/Gemini 使用 legacy。Kimi
+拒绝 Loop Decider 和 [Kimi 指南](../../../kimi.md) 中的 pure-output
+transform。Claude/Kimi Profile 彼此隔离。
 
 ## 一套实用的工作流
 
@@ -49,12 +47,14 @@ Specrails desktop 把 **Claude Code**、**Codex CLI** 和 **Gemini CLI** 都当�
 ## 几点需要记住
 
 - **提供方选择在项目创建后不可更改**（v1）。你在添加项目时选定要安装的提供方；之后没有 Settings 开关可以再增删。
-- **成本始终会被追踪**，即便是不原生上报成本的引擎——应用会回退到价格表，让 Codex 和 Gemini 的运行也照样出现在[分析](../analytics/tracking-cost)里。
+- **available metrics 会记录。** Kimi 不提供 authoritative token/USD
+  cost，字段保持为空。
 - 在多提供方项目上，**终端的"Open AI CLI"按钮**也会提供一个提供方选择器，方便你想手动驱动某个 CLI 时使用。
 
 ## 接下来去哪儿
 
 - [使用 Codex](../integrations/using-codex)——安装与登录。
 - [使用 Gemini](../integrations/using-gemini)——安装、`GEMINI_API_KEY`、遥测。
+- [使用 Kimi](../../../kimi.md)——安装与完整矩阵。
 - [Rail 与任务](rails-and-jobs)——队列与启动流程。
 - [追踪成本](../analytics/tracking-cost)——按引擎的成本明细。

@@ -22,7 +22,12 @@ Agent Chat 通过内嵌的 **Specrails MCP 服务器**来驱动应用，因此�
 
 ## 提供方与模型
 
-在消息框正上方，你可以选择**提供方**（Claude、Codex 或 Gemini）及其**模型**。每个提供方都有各自的模型清单，切换提供方会以该提供方的默认模型开启一段全新会话——因此你可以，比如说，用 Claude 驱动应用，再切到 Codex 进行另一段对话，两者互不串扰。
+在消息框上方可选择**提供方**（Claude、Codex、Gemini 或 Kimi）及其
+**模型**。切换提供方会开始独立 session。
+
+对于 Kimi，level 会限制 Specrails MCP 工具，但不会把 `kimi -p` 变成
+sandbox：Kimi native 工具会自动批准。不安全的 pure-output action 会在
+spawn 前拒绝；详见 [Kimi matrix](../../../kimi.md)。
 
 ## 权限级别——缰绳在你手里
 

@@ -2,10 +2,17 @@ import type { ChildProcess, SpawnOptions as NodeSpawnOptions } from 'child_proce
 import { randomUUID } from 'crypto'
 import { createInterface } from 'readline'
 import { tmpdir } from 'os'
+import path from 'node:path'
 import treeKill from 'tree-kill'
 import type { DbInstance } from './db'
 import type { WsMessage } from './types'
-import { getAdapter } from './providers'
+import {
+  defaultReasoningEffortForModel,
+  getAdapter,
+  isModelAvailableForAdapter,
+  reasoningEffortsForModel,
+} from './providers'
+import { buildProviderEnv, parseStreamEvents, pureOutputToolPolicy } from './providers/runtime'
 import type { ReasoningEffort, AdapterEvent, ProviderAdapter } from './providers/types'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { spawnAiCli } from './util/cli-prompt'
@@ -35,6 +42,20 @@ import type { PrDecisionCardEnvelope } from './types'
 import { generateAutoTitle } from './explore-draft-title'
 
 export type { AgentContextReference } from './agent-context-resolver'
+
+/**
+ * Providers report an expired or foreign resume token as a normalized error.
+ * Those errors are safe to recover from by clearing the token and retrying the
+ * same turn once; every other provider error remains terminal.
+ */
+function isStaleResumeError(message: string | null): boolean {
+  if (!message) return false
+  return (
+    /no rollout found for thread id/i.test(message) ||
+    /unknown (?:session|thread)(?: id)?\b/i.test(message) ||
+    /(?:session|thread)(?: id)?\b[^\n]{0,160}\b(?:not found|does not exist)\b/i.test(message)
+  )
+}
 
 // ─── AgentChatManager (design D1) ─────────────────────────────────────────────
 //
@@ -244,17 +265,20 @@ export class AgentChatManager {
     // Resolve a model that is VALID for this provider. A stale model from another
     // provider (e.g. claude's "sonnet" after switching to codex) is rejected by
     // the provider — fall back to the provider's default instead of failing.
-    const catalog = new Set(adapter.modelCatalog().map((m) => m.value))
     const requested = options.model || conversation.model
-    const model = requested && catalog.has(requested) ? requested : adapter.defaultModel()
-    // Reasoning effort: stored per conversation; null = the app default
-    // ("medium"). Passed only to providers with a per-spawn knob, and only when
-    // the value is in the provider's catalog (a provider switch clears it, but
-    // belt-and-braces against stale rows).
-    const efforts = (adapter.capabilities.reasoningEfforts ?? []) as readonly string[]
+    const model = requested && isModelAvailableForAdapter(adapter, requested)
+      ? requested
+      : adapter.defaultModel()
+    // Reasoning effort is model-scoped. A stale value from a previous model is
+    // discarded and the default is selected from the effective model's exact
+    // catalog (K3 follows its native high default; other Kimi models expose no
+    // per-invocation knob).
+    const efforts = reasoningEffortsForModel(adapter, model) as readonly string[]
     const storedEffort = conversation.reasoning_effort
     const reasoningEffort = efforts.length
-      ? ((storedEffort && efforts.includes(storedEffort) ? storedEffort : 'medium') as ReasoningEffort)
+      ? ((storedEffort && efforts.includes(storedEffort)
+          ? storedEffort
+          : defaultReasoningEffortForModel(adapter, model)) as ReasoningEffort)
       : undefined
 
     // Resolve attachments (conversation-keyed) into extracted text blocks +
@@ -313,6 +337,9 @@ export class AgentChatManager {
     const systemPrompt = hasAttachments
       ? `${OPERATOR_SYSTEM_PROMPT}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
       : OPERATOR_SYSTEM_PROMPT
+    const effectivePrompt = adapter.capabilities.systemPromptArg
+      ? prompt
+      : `${systemPrompt}\n\n---\n\n${prompt}`
     // Only pass native image paths to providers that can vision-load them (codex
     // `--image`); claude/gemini already have the `@path` ref folded into prompt.
     const spawnImagePaths = adapter.capabilities.supportsImageInput ? imagePaths : undefined
@@ -328,7 +355,11 @@ export class AgentChatManager {
       // / `.gemini/settings.json` and launch with the other's capability.
       // Claude and Codex keep their historical global cwd and explicit MCP
       // registration mechanisms unchanged.
-      const cwd = adapter.id === 'gemini'
+      const projectMcpPath = adapter.projectMcpPath?.('.')
+      const needsConversationMcpCwd =
+        !!projectMcpPath &&
+        path.dirname(projectMcpPath) !== '.'
+      const cwd = needsConversationMcpCwd
         ? ensureAgentConversationCwd(conversationId)
         : ensureAgentCwd()
       let mcpArgs: string[] = []
@@ -376,21 +407,22 @@ export class AgentChatManager {
             `action=${action} model=${model} cwd=${cwd} mcp=${mcpArgs.length ? 'mcp-config' : Object.keys(mcpEnv).join(',') || 'none'}`,
         )
 
+        const buildOpts = {
+          prompt: effectivePrompt,
+          systemPrompt: adapter.capabilities.systemPromptArg ? systemPrompt : undefined,
+          model,
+          sessionId: useResume ? conversation.session_id ?? undefined : undefined,
+          extraArgs: mcpArgs,
+          imagePaths: spawnImagePaths,
+          reasoning_effort: reasoningEffort,
+        }
         const invocation = this._awaitWhileLive(runAiCliInvocation({
           adapter,
           action,
           cwd,
-          env: { ...process.env, ...mcpEnv },
+          env: buildProviderEnv(adapter, buildOpts, { ...process.env, ...mcpEnv }),
           spawn: this._spawnOwned.bind(this),
-          buildOpts: {
-            prompt,
-            systemPrompt: adapter.capabilities.systemPromptArg ? systemPrompt : undefined,
-            model,
-            sessionId: useResume ? conversation.session_id ?? undefined : undefined,
-            extraArgs: mcpArgs,
-            imagePaths: spawnImagePaths,
-            reasoning_effort: reasoningEffort,
-          },
+          buildOpts,
           onSpawn: (child) => {
             if (this._disposed) {
               this._terminate(child)
@@ -513,7 +545,12 @@ export class AgentChatManager {
       // Auto-heal a stale/foreign session: a resume that produced no text (e.g. a
       // provider switch leaving another provider's session id, or codex
       // "no rollout found for thread id") retries once as a fresh turn.
-      if (canResume && !r.spawnFailed && !r.text) {
+      if (
+        canResume &&
+        !r.spawnFailed &&
+        !r.text &&
+        (!r.error || isStaleResumeError(r.error))
+      ) {
         console.log(`[agent-chat] resume produced no text — retrying fresh conv=${conversationId}`)
         updateAgentConversation(this._db, conversationId, { session_id: null })
         r = await invoke(false)
@@ -535,6 +572,19 @@ export class AgentChatManager {
         return
       }
 
+      // A normalized provider error is authoritative even when the CLI exits
+      // zero or streamed partial text before failing.
+      if (r.error || r.code !== 0) {
+        persistSession(null)
+        const reason =
+          r.error ||
+          (r.stderrTail ? r.stderrTail.split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300) : '') ||
+          `${adapter.binary} exited with code ${r.code ?? 'unknown'}`
+        this._emitError(conversationId, reason)
+        record(r, 'failed')
+        return
+      }
+
       if (r.text) {
         addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
         persistSession(r.sessionId)
@@ -551,9 +601,8 @@ export class AgentChatManager {
       // real reason instead of silently doing nothing.
       persistSession(null)
       const reason =
-        r.error ||
         (r.stderrTail ? r.stderrTail.split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300) : '') ||
-        (r.code !== 0 ? `${adapter.binary} exited with code ${r.code}` : 'The agent returned no output.')
+        'The agent returned no output.'
       this._emitError(conversationId, reason)
       record(r, 'failed')
     } finally {
@@ -580,8 +629,10 @@ export class AgentChatManager {
   ): void {
     if (this._disposed) return
     try {
+      const finishedAt = new Date().toISOString()
       const { result, estimated } = finaliseInvocationResult(adapter, outcome.events, {
         fallbackModel: model,
+        durationMs: Math.max(0, Date.parse(finishedAt) - Date.parse(outcome.startedAt)),
       })
       recordAgentInvocation(this._db, {
         id: randomUUID(),
@@ -590,7 +641,7 @@ export class AgentChatManager {
         provider: adapter.id,
         status,
         started_at: outcome.startedAt,
-        finished_at: new Date().toISOString(),
+        finished_at: finishedAt,
         total_cost_usd_estimated: estimated,
         ...result,
       })
@@ -670,14 +721,17 @@ export class AgentChatManager {
     try {
       const conversationId = conversation.id
       const adapter = getAdapter(conversation.provider)
+      const toolPolicy = pureOutputToolPolicy(adapter)
+      if (!toolPolicy) return
       const model = adapter.defaultModel()
       const prompt =
         'Generate a concise 3-6 word title for this conversation. ' +
         'Output ONLY the title text — no quotes, no punctuation, no markdown, no preamble.\n\n' +
         `User: ${firstUserMsg.slice(0, 240)}\nAssistant: ${firstResponse.slice(0, 320)}`
-      const args = adapter.buildArgs('auto-title', { prompt, model })
+      const titleOptions = { prompt, model, toolPolicy }
+      const args = adapter.buildArgs('auto-title', titleOptions)
       const child = this._spawnOwned(adapter.binary, args, {
-        env: process.env,
+        env: buildProviderEnv(adapter, titleOptions),
         stdio: ['ignore', 'pipe', 'pipe'],
         cwd: tmpdir(),
       })
@@ -690,10 +744,10 @@ export class AgentChatManager {
       this._auxReaders.set(child, reader)
       reader.on('line', (line) => {
         if (this._disposed) return
-        const ev = adapter.parseStreamLine(line)
-        if (!ev) return
-        events.push(ev)
-        if (ev.kind === 'text-delta') raw += ev.text
+        for (const ev of parseStreamEvents(adapter, line)) {
+          events.push(ev)
+          if (ev.kind === 'text-delta') raw += ev.text
+        }
       })
       child.on('error', () => {
         this._auxProcesses.delete(child)

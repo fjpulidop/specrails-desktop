@@ -5,8 +5,12 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { initDb, type DbInstance } from './db'
-import { createProfilesRouter } from './profiles-router'
+import {
+  createProfilesRouter,
+  providerSupportsAgentStudioAutomation,
+} from './profiles-router'
 import type { ProjectContext } from './project-registry'
+import { installConfigPath } from './install-config-path'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -40,7 +44,7 @@ function baseProfile(name = 'default') {
   }
 }
 
-function mountApp(): void {
+function mountApp(projectOverrides: Record<string, unknown> = {}): void {
   app = express()
   app.use(express.json())
   const ctx: ProjectContext = {
@@ -50,15 +54,21 @@ function mountApp(): void {
       name: 'Test',
       path: projectPath,
       provider: 'claude',
+      providers: ['claude'],
       last_active: null,
       setup_session: null,
       agent_job_id: null,
+      ...projectOverrides,
     } as never,
     db,
     queueManager: {} as never,
     chatManager: {} as never,
     setupManager: {} as never,
     proposalManager: {} as never,
+    agentRefineManager: {
+      startRefine: vi.fn(),
+      sendTurn: vi.fn(),
+    } as never,
     specLauncherManager: {} as never,
     ticketWatcher: {} as never,
     broadcast: vi.fn(),
@@ -98,6 +108,288 @@ describe('GET /profiles', () => {
     const res = await request(app).get('/api/projects/proj-test/profiles')
     expect(res.status).toBe(200)
     expect(res.body.profiles.map((p: { name: string }) => p.name)).toEqual(['alpha', 'default'])
+  })
+})
+
+describe('multi-provider profile context and storage', () => {
+  function kimiBody(name = 'kimi-default', model = 'private-kimi-alias') {
+    return {
+      schemaVersion: 1,
+      name,
+      provider: 'kimi',
+      orchestrator: { model },
+      agents: [
+        { id: 'sr-architect', model, required: true },
+        { id: 'sr-developer', model, required: true },
+        { id: 'sr-reviewer', model, required: true },
+      ],
+      routing: [{ default: true, agent: 'sr-developer' }],
+    }
+  }
+
+  beforeEach(() => {
+    mountApp({ provider: 'claude', providers: ['claude', 'kimi'] })
+  })
+
+  it('returns installed provider catalogs without a Claude model fallback', async () => {
+    const res = await request(app).get('/api/projects/proj-test/profiles/context')
+    expect(res.status).toBe(200)
+    expect(res.body.primaryProvider).toBe('claude')
+    expect(res.body.providers).toEqual(['claude', 'kimi'])
+    expect(res.body.catalogs.kimi).toMatchObject({
+      defaultModel: 'k3',
+      baselineAgents: ['sr-architect', 'sr-developer', 'sr-reviewer'],
+      customModelAliases: true,
+    })
+    expect(res.body.catalogs.kimi.models.map((model: { value: string }) => model.value))
+      .toContain('k3')
+  })
+
+  it('keeps Claude default and Kimi default separate and filters list/CRUD by provider', async () => {
+    const claude = await request(app)
+      .post('/api/projects/proj-test/profiles?provider=claude')
+      .send({ ...baseProfile('default'), provider: 'claude' })
+    const kimi = await request(app)
+      .post('/api/projects/proj-test/profiles?provider=kimi')
+      .send(kimiBody())
+    expect(claude.status).toBe(201)
+    expect(kimi.status).toBe(201)
+
+    const claudeList = await request(app)
+      .get('/api/projects/proj-test/profiles?provider=claude')
+    const kimiList = await request(app)
+      .get('/api/projects/proj-test/profiles?provider=kimi')
+    expect(claudeList.body.profiles.map((profile: { name: string }) => profile.name)).toEqual(['default'])
+    expect(kimiList.body.profiles).toEqual([
+      expect.objectContaining({ name: 'kimi-default', provider: 'kimi', isDefault: true }),
+    ])
+
+    const fetched = await request(app)
+      .get('/api/projects/proj-test/profiles/kimi-default?provider=kimi')
+    expect(fetched.status).toBe(200)
+    expect(fetched.body.profile.orchestrator.model).toBe('private-kimi-alias')
+
+    const wrongProvider = await request(app)
+      .get('/api/projects/proj-test/profiles/kimi-default?provider=claude')
+    expect(wrongProvider.status).toBe(404)
+    expect(fs.readdirSync(path.join(projectPath, '.specrails', 'profiles')).sort()).toEqual([
+      'claude--default.json',
+      'kimi--kimi-default.json',
+    ])
+  })
+
+  it('rejects query/body provider disagreement', async () => {
+    const res = await request(app)
+      .post('/api/projects/proj-test/profiles?provider=claude')
+      .send(kimiBody())
+    expect(res.status).toBe(400)
+    expect(res.body.details[0]).toContain("does not match requested provider")
+  })
+
+  it('keeps version counters and history isolated when Claude and Kimi share a role id', async () => {
+    const id = 'custom-shared'
+    const claudeV1 = '---\nname: custom-shared\ndescription: Claude v1\n---\n\nClaude body v1.'
+    const claudeV2 = '---\nname: custom-shared\ndescription: Claude v2\n---\n\nClaude body v2.'
+    const kimiV1 = '---\nname: custom-shared\ndescription: Kimi v1\n---\n\nKimi body v1.'
+    const kimiV2 = '---\nname: custom-shared\ndescription: Kimi v2\n---\n\nKimi body v2.'
+
+    const claudeCreate = await request(app)
+      .post('/api/projects/proj-test/profiles/catalog?provider=claude')
+      .send({ id, body: claudeV1 })
+    const kimiCreate = await request(app)
+      .post('/api/projects/proj-test/profiles/catalog?provider=kimi')
+      .send({ id, body: kimiV1 })
+    expect(claudeCreate.body.version).toBe(1)
+    expect(kimiCreate.body.version).toBe(1)
+
+    const claudePatch = await request(app)
+      .patch(`/api/projects/proj-test/profiles/catalog/${id}?provider=claude`)
+      .send({ body: claudeV2 })
+    const kimiPatch = await request(app)
+      .patch(`/api/projects/proj-test/profiles/catalog/${id}?provider=kimi`)
+      .send({ body: kimiV2 })
+    expect(claudePatch.body.version).toBe(2)
+    expect(kimiPatch.body.version).toBe(2)
+
+    const claudeVersions = await request(app)
+      .get(`/api/projects/proj-test/profiles/catalog/${id}/versions?provider=claude`)
+    const kimiVersions = await request(app)
+      .get(`/api/projects/proj-test/profiles/catalog/${id}/versions?provider=kimi`)
+    expect(claudeVersions.body.versions.map((row: { body: string }) => row.body))
+      .toEqual([claudeV2, claudeV1])
+    expect(kimiVersions.body.versions.map((row: { body: string }) => row.body))
+      .toEqual([kimiV2, kimiV1])
+  })
+
+  it('validates Kimi Skill frontmatter before create or update writes', async () => {
+    const invalidCreate = await request(app)
+      .post('/api/projects/proj-test/profiles/catalog?provider=kimi')
+      .send({
+        id: 'custom-review',
+        body: '---\nname: custom-wrong\ndescription: Review code\ntype: prompt\n---\n\nDo it.',
+      })
+    expect(invalidCreate.status).toBe(400)
+    expect(invalidCreate.body).toMatchObject({ error: 'invalid_kimi_skill' })
+    const file = path.join(
+      projectPath,
+      '.kimi-code',
+      'skills',
+      'custom-review',
+      'SKILL.md',
+    )
+    expect(fs.existsSync(file)).toBe(false)
+
+    const original = '---\nname: custom-review\ndescription: Review code\ntype: prompt\n---\n\nDo it.'
+    const created = await request(app)
+      .post('/api/projects/proj-test/profiles/catalog?provider=kimi')
+      .send({ id: 'custom-review', body: original })
+    expect(created.status).toBe(201)
+    expect(fs.readFileSync(file, 'utf8')).toBe(original)
+
+    const invalidUpdate = await request(app)
+      .patch('/api/projects/proj-test/profiles/catalog/custom-review?provider=kimi')
+      .send({
+        body: '---\nname: custom-review\ndescription: ""\ntype: agent\n---\n\nBad.',
+      })
+    expect(invalidUpdate.status).toBe(400)
+    expect(invalidUpdate.body.details[0]).toContain('description')
+    expect(fs.readFileSync(file, 'utf8')).toBe(original)
+
+    const invalidType = await request(app)
+      .patch('/api/projects/proj-test/profiles/catalog/custom-review?provider=kimi')
+      .send({
+        body: '---\nname: custom-review\ndescription: Review code\ntype: agent\n---\n\nBad.',
+      })
+    expect(invalidType.status).toBe(400)
+    expect(invalidType.body.details[0]).toContain('type "agent"')
+    expect(fs.readFileSync(file, 'utf8')).toBe(original)
+  })
+
+  it.each([
+    {
+      label: 'malformed YAML',
+      id: 'custom-malformed',
+      body: '---\nname: custom-malformed\ndescription: [unterminated\ntype: prompt\n---\nBody.',
+      detail: 'Invalid frontmatter',
+    },
+    {
+      label: 'a numeric description',
+      id: 'custom-number-description',
+      body: '---\nname: custom-number-description\ndescription: 123\ntype: prompt\n---\nBody.',
+      detail: '"description"',
+    },
+    {
+      label: 'a non-mapping YAML root',
+      id: 'custom-list-root',
+      body: '---\n- name: custom-list-root\n- description: Review code\n---\nBody.',
+      detail: 'mapping at the top level',
+    },
+    {
+      label: 'a numeric type',
+      id: 'custom-number-type',
+      body: '---\nname: custom-number-type\ndescription: Review code\ntype: 42\n---\nBody.',
+      detail: 'type "42"',
+    },
+    {
+      label: 'a reference-only type',
+      id: 'custom-reference',
+      body: '---\nname: custom-reference\ndescription: Review code\ntype: reference\n---\nBody.',
+      detail: 'cannot be activated',
+    },
+    {
+      label: 'duplicate YAML keys',
+      id: 'custom-duplicate',
+      body: '---\nname: custom-duplicate\ndescription: First\ndescription: Second\n---\nBody.',
+      detail: 'duplicated mapping key',
+    },
+    {
+      label: 'an empty executable body',
+      id: 'custom-empty-body',
+      body: '---\nname: custom-empty-body\ndescription: Review code\ntype: prompt\n---\n',
+      detail: 'empty body',
+    },
+  ])('rejects $label through the execution parser without writing', async ({
+    id,
+    body,
+    detail,
+  }) => {
+    const res = await request(app)
+      .post('/api/projects/proj-test/profiles/catalog?provider=kimi')
+      .send({ id, body })
+
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ error: 'invalid_kimi_skill' })
+    expect(res.body.details[0]).toContain(detail)
+    expect(fs.existsSync(path.join(
+      projectPath,
+      '.kimi-code',
+      'skills',
+      id,
+      'SKILL.md',
+    ))).toBe(false)
+  })
+
+  it('accepts full YAML block scalars, arguments, and provider extension keys', async () => {
+    const id = 'custom-rich-yaml'
+    const body = [
+      '---',
+      `name: "${id}"`,
+      'description: >-',
+      '  Reviews YAML with punctuation: colons, commas, and # characters.',
+      'type: flow',
+      'arguments:',
+      '  - target',
+      '  - severity',
+      'x-kimi:',
+      '  category: review',
+      '  enabled: true',
+      '---',
+      'Review $target at $severity.',
+    ].join('\n')
+
+    const res = await request(app)
+      .post('/api/projects/proj-test/profiles/catalog?provider=kimi')
+      .send({ id, body })
+
+    expect(res.status).toBe(201)
+    expect(fs.readFileSync(path.join(
+      projectPath,
+      '.kimi-code',
+      'skills',
+      id,
+      'SKILL.md',
+    ), 'utf8')).toBe(body)
+
+    const catalog = await request(app)
+      .get('/api/projects/proj-test/profiles/catalog?provider=kimi')
+    expect(catalog.status).toBe(200)
+    expect(catalog.body.agents).toContainEqual(expect.objectContaining({
+      id,
+      description: 'Reviews YAML with punctuation: colons, commas, and # characters.',
+    }))
+  })
+
+  it.each([
+    ['/catalog/test', { draftBody: 'draft', sampleTask: 'test it' }],
+    ['/catalog/generate', { name: 'custom-kimi', description: 'generate it' }],
+    ['/catalog/custom-kimi/refine', { instruction: 'refine it' }],
+  ])('rejects unsafe Kimi Studio automation at %s before work starts', async (endpoint, body) => {
+    const res = await request(app)
+      .post(`/api/projects/proj-test/profiles${endpoint}?provider=kimi`)
+      .send(body)
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({
+      error: 'provider_tool_policy_unsupported',
+      provider: 'kimi',
+      requiredPolicies: ['none', 'read-only'],
+    })
+  })
+
+  it('keeps existing safe Studio automation enabled for Claude, Codex, and Gemini only', () => {
+    expect(providerSupportsAgentStudioAutomation('claude')).toBe(true)
+    expect(providerSupportsAgentStudioAutomation('codex')).toBe(true)
+    expect(providerSupportsAgentStudioAutomation('gemini')).toBe(true)
+    expect(providerSupportsAgentStudioAutomation('kimi')).toBe(false)
   })
 })
 
@@ -415,6 +707,41 @@ describe('GET /profiles/analytics', () => {
     expect(res.body.rows[0].profileName).toBe('default')
     expect(res.body.rows[0].successRate).toBe(1)
   })
+
+  it('keeps Kimi profile usage and cost unavailable instead of averaging them as zero', async () => {
+    const now = Date.now()
+    db.prepare(
+      `INSERT INTO jobs (
+         id, command, started_at, status, priority, provider,
+         duration_ms, tokens_in, tokens_out, tokens_cache_read,
+         tokens_cache_create, total_cost_usd
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL)`,
+    ).run(
+      'job-kimi',
+      '/specrails:implement',
+      new Date(now).toISOString(),
+      'completed',
+      'normal',
+      'kimi',
+      1000,
+    )
+    db.prepare(
+      `INSERT INTO job_profiles (job_id, profile_name, profile_json, created_at) VALUES (?, ?, ?, ?)`,
+    ).run('job-kimi', 'default', '{}', now)
+    mountApp({ provider: 'kimi', providers: ['claude', 'kimi'] })
+
+    const res = await request(app)
+      .get('/api/projects/proj-test/profiles/analytics')
+    expect(res.status).toBe(200)
+    expect(res.body.rows[0]).toMatchObject({
+      avgTokens: null,
+      avgCostUsd: null,
+      usageReportedJobs: 0,
+      usageUnavailableJobs: 1,
+      pricedJobs: 0,
+      unpricedJobs: 1,
+    })
+  })
 })
 
 describe('POST /profiles/migrate-from-settings', () => {
@@ -465,6 +792,55 @@ describe('POST /profiles/migrate-from-settings', () => {
     await request(app).post('/api/projects/proj-test/profiles/migrate-from-settings')
     const res = await request(app).post('/api/projects/proj-test/profiles/migrate-from-settings')
     expect(res.status).toBe(409)
+  })
+
+  it('preserves exact Kimi default and per-role aliases from install config', async () => {
+    const originalSkills = new Map<string, string>()
+    for (const role of ['sr-architect', 'sr-developer', 'sr-reviewer']) {
+      const dir = path.join(projectPath, '.kimi-code', 'skills', role)
+      const body = `---\nname: ${role}\ndescription: ${role}\ntype: prompt\n---\n\n# ${role}\n`
+      fs.mkdirSync(dir, { recursive: true })
+      fs.writeFileSync(path.join(dir, 'SKILL.md'), body)
+      originalSkills.set(role, body)
+    }
+    const defaultAlias = 'Moonshot-Team/Private_Coder:v2'
+    const architectAlias = 'moonshot-team/architect.v3'
+    const previousHome = process.env.SPECRAILS_REGISTRY_HOME
+    process.env.SPECRAILS_REGISTRY_HOME = projectPath
+    try {
+      const configPath = installConfigPath({ slug: 'proj-test', path: projectPath })
+      fs.mkdirSync(path.dirname(configPath), { recursive: true })
+      fs.writeFileSync(configPath, [
+        'provider: kimi',
+        'models:',
+        `  defaults: { model: ${defaultAlias} }`,
+        '  overrides:',
+        `    sr-architect: ${architectAlias}`,
+        '',
+      ].join('\n'))
+      mountApp({ provider: 'kimi', providers: ['kimi'] })
+
+      const res = await request(app)
+        .post('/api/projects/proj-test/profiles/migrate-from-settings')
+
+      expect(res.status).toBe(201)
+      expect(res.body.profile.provider).toBe('kimi')
+      expect(res.body.profile.orchestrator.model).toBe(defaultAlias)
+      expect(res.body.profile.agents).toEqual([
+        { id: 'sr-architect', model: architectAlias, required: true },
+        { id: 'sr-developer', model: defaultAlias, required: true },
+        { id: 'sr-reviewer', model: defaultAlias, required: true },
+      ])
+      for (const [role, body] of originalSkills) {
+        expect(fs.readFileSync(
+          path.join(projectPath, '.kimi-code', 'skills', role, 'SKILL.md'),
+          'utf8',
+        )).toBe(body)
+      }
+    } finally {
+      if (previousHome === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+      else process.env.SPECRAILS_REGISTRY_HOME = previousHome
+    }
   })
 })
 

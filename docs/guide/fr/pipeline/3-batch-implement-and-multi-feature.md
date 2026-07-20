@@ -81,4 +81,4 @@ Il n'y a aucune limite globale de concurrence à régler. Ouvrez les projets ou 
 
 - [Rails et jobs](rails-and-jobs) — le modèle de file d'attente en détail.
 - [La vue détaillée du job](the-job-detail-view) — regarder un batch s'exécuter en direct.
-- [Choisir un moteur par rail](picking-an-engine-per-rail) — notez que Batch fonctionne sur n'importe quel fournisseur ; Freestyle est réservé à Claude.
+- [Choisir un moteur par rail](picking-an-engine-per-rail) — Batch fonctionne avec tous les fournisseurs ; Freestyle est disponible avec Claude et Kimi.

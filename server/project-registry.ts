@@ -825,13 +825,27 @@ export class ProjectRegistry {
       // context exists, in which case nothing is recorded (best-effort).
       (pid) => this._contexts.get(pid)?.db ?? null,
     )
-    const proposalManager = new ProposalManager(boundBroadcast, db, project.path, project.id)
+    const proposalManager = new ProposalManager(
+      boundBroadcast,
+      db,
+      project.path,
+      project.id,
+      project.provider ?? 'claude',
+      project.slug,
+    )
     const agentRefineManager = new AgentRefineManager(boundBroadcast, db, project.path, project.id, project.provider ?? 'claude')
     // Retention prune: drop stale/abandoned refine sessions on project load.
     try { pruneStaleRefineSessions(db) } catch (err) {
       console.error('[project-registry] prune refine sessions failed:', err)
     }
-    const specLauncherManager = new SpecLauncherManager(boundBroadcast, project.path, db, project.id)
+    const specLauncherManager = new SpecLauncherManager(
+      boundBroadcast,
+      project.path,
+      db,
+      project.id,
+      project.provider ?? 'claude',
+      project.slug,
+    )
 
     // FileSummaryManager — code-explorer. The class is constructed for every
     // project regardless of the feature flag; the router 404s when the flag

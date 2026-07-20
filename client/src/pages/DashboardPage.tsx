@@ -35,6 +35,14 @@ import type { RailTargetPr } from '../components/RailTargetPrSelector'
 import { getApiBase } from '../lib/api'
 import { FEATURE_LOOPS_SECTION } from '../lib/feature-flags'
 import { effectiveLoopId, deriveRailMode } from '../lib/rail-loops'
+import { defaultModelForProvider, modelsForProvider } from '../lib/loop-run-models'
+import {
+  defaultReasoningEffortForProvider,
+  providerSupportsCustomModelAliases,
+  providerSupportsFreestyle,
+  reasoningEffortsForProvider,
+} from '../lib/provider-capabilities'
+import { isSafeCustomModelAlias } from '../lib/model-alias'
 import { railIdFromIndex, railIndexFromId, MAX_RAILS } from '../lib/rail-id'
 import { useDesktop, projectProviders } from '../hooks/useDesktop'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
@@ -1095,7 +1103,18 @@ export default function DashboardPage() {
   }
 
   function handleLoopModelChange(railId: string, model: string) {
-    updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, loopModel: model } : r)))
+    updateRails((prev) => prev.map((r) => {
+      if (r.id !== railId) return r
+      const provider = r.aiEngine ?? railProviders[0] ?? 'claude'
+      const efforts = reasoningEffortsForProvider(provider, model)
+      return {
+        ...r,
+        loopModel: model,
+        reasoningEffort: r.reasoningEffort && efforts.includes(r.reasoningEffort)
+          ? r.reasoningEffort
+          : defaultReasoningEffortForProvider(provider, model) ?? null,
+      }
+    }))
   }
 
   function handleEffortChange(railId: string, effort: import('../components/agents/RailEffortSelector').ReasoningEffort) {
@@ -1103,17 +1122,43 @@ export default function DashboardPage() {
   }
 
   async function handleEngineChange(railId: string, aiEngine: string) {
-    // Freestyle is Claude-only — if the rail leaves Claude while on the Freestyle
-    // loop, fall back to the Implement loop so the launch can't 400.
+    // Preserve provider-owned Freestyle for capable adapters (Claude and Kimi).
+    // When switching to an adapter without it, fall back to Implement so launch
+    // cannot fail validation. Provider-specific model and effort selections are
+    // also reset if the previous value is not accepted by the new adapter.
     updateRails((prev) => prev.map((r) => {
       if (r.id !== railId) return r
       const onFreestyle = r.mode === 'freestyle' || r.selectedLoopId === 'factory:freestyle'
-      const fallback = aiEngine !== 'claude' && onFreestyle
+      const fallback = !providerSupportsFreestyle(aiEngine) && onFreestyle
+      const validModels = modelsForProvider(aiEngine)
+      const modelIsValid = (value: string | null | undefined) =>
+        Boolean(
+          value
+          && (
+            validModels.some((model) => model.value === value)
+            || (
+              providerSupportsCustomModelAliases(aiEngine)
+              && isSafeCustomModelAlias(value)
+            )
+          ),
+        )
+      const nextLoopModel = modelIsValid(r.loopModel)
+        ? r.loopModel
+        : defaultModelForProvider(aiEngine)
+      const efforts = reasoningEffortsForProvider(aiEngine, nextLoopModel)
       return {
         ...r,
         aiEngine,
         mode: fallback ? 'implement' : r.mode,
         selectedLoopId: fallback ? 'factory:implement' : r.selectedLoopId,
+        profileName: null,
+        freestyleModel: modelIsValid(r.freestyleModel)
+          ? r.freestyleModel
+          : defaultModelForProvider(aiEngine),
+        loopModel: nextLoopModel,
+        reasoningEffort: r.reasoningEffort && efforts.includes(r.reasoningEffort)
+          ? r.reasoningEffort
+          : defaultReasoningEffortForProvider(aiEngine, nextLoopModel) ?? null,
       }
     }))
     const railIndex = serverRailIndex(railId)
@@ -1189,6 +1234,12 @@ export default function DashboardPage() {
       if (!silent) toast.error(t('railControls.pickLoop'))
       return 'failed'
     }
+    const launchProvider = rail.aiEngine ?? railProviders[0] ?? 'claude'
+    const launchLoopModel = rail.loopModel ?? defaultModelForProvider(launchProvider)
+    const launchEfforts = reasoningEffortsForProvider(launchProvider, launchLoopModel)
+    const launchEffort = rail.reasoningEffort && launchEfforts.includes(rail.reasoningEffort)
+      ? rail.reasoningEffort
+      : null
 
     // M24: capture the API base ONCE up front. getApiBase() is a module-level
     // store that flips on project switch; evaluating it on both sides of the
@@ -1231,7 +1282,7 @@ export default function DashboardPage() {
           // rails-as-loops: always send the chosen Loop. The server maps a
           // factory loop → its legacy mode; a custom loop runs the loop engine.
           loopId: launchLoopId,
-          ...(rail.mode === 'loop' && rail.reasoningEffort ? { reasoning_effort: rail.reasoningEffort } : {}),
+          ...(rail.mode === 'loop' && launchEffort ? { reasoning_effort: launchEffort } : {}),
           // Explicit delivery target (deliver-rail-into-existing-pr): the run
           // continues this open PR's head branch; settle pushes into it.
           ...(rail.targetPr ? { targetPrNumber: rail.targetPr.number } : {}),
@@ -1543,12 +1594,14 @@ export default function DashboardPage() {
 
       {(() => {
         const r = freestyleConfirm ? rails.find((x) => x.id === freestyleConfirm.railId) : undefined
+        const provider = r?.aiEngine ?? railProviders[0] ?? 'claude'
         return (
           <FreestyleLaunchDialog
             open={!!freestyleConfirm && !!r}
             railLabel={r?.label ?? ''}
             specCount={r?.ticketIds.length ?? 0}
-            model={r?.freestyleModel ?? 'sonnet'}
+            provider={provider}
+            model={r?.freestyleModel ?? defaultModelForProvider(provider)}
             onCancel={() => setFreestyleConfirm(null)}
             onConfirm={() => {
               const id = freestyleConfirm?.railId

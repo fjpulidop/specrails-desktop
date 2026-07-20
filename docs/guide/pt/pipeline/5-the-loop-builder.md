@@ -17,7 +17,7 @@ Um **loop** é a *receita* do trabalho; um **rail** é a *pista* que o roda cont
 
 - Os loops vivem na seção **Loops** (barra lateral esquerda, ao lado dos seus projetos) — eles são **globais**, compartilhados por todos os projetos.
 - Um rail **escolhe um loop** no cabeçalho (o seletor de Loop) e o roda quando você aperta Play.
-- O **rail** decide o provedor, o modelo e o esforço de raciocínio — *não* os passos do loop. O mesmo loop roda em Claude, Codex ou Gemini dependendo do rail.
+- O **rail** escolhe provider, modelo e effort compatível. Um loop compatível corre em Claude, Codex, Gemini ou Kimi.
 
 Ou seja: construa um loop uma vez e depois escolha-o em qualquer rail, em qualquer projeto.
 
@@ -41,6 +41,10 @@ Um loop é um grafo de **nós** conectados por **arestas** (as setas). Cada nó 
 
 As arestas conectam os passos em ordem. O **Loop Decider** tem duas saídas rotuladas — **continue** e **stop** — então você liga o "ainda não terminei" de volta ao trabalho e o "terminei" para um End.
 
+> **Kimi corre loops com passos AI/shell, mas não com Loop Decider.** O
+> veredito é pure-output e `kimi -p` não consegue impor o limite no-tools; o
+> run é recusado antes do primeiro passo.
+
 ### Escrevendo o texto dos passos
 
 Dentro de qualquer AI Step ou Decider você pode referenciar:
@@ -57,7 +61,7 @@ Um loop que nunca para queimaria dinheiro para sempre, então toda execução te
 |-------|--------------|
 | **Max iterations** | Teto rígido de quantas vezes o Decider pode voltar atrás, independentemente do seu veredito. |
 | **Timeout (min)** | Limite de tempo de relógio para toda a execução. |
-| **Max cost ($)** | *Opcional.* Para o loop quando o custo acumulado cruza o seu orçamento. Verificado **entre passos** (o custo de um passo só é conhecido quando ele termina), então pode freestylepassar em um passo. No Claude o custo é exato; no Codex e no Gemini é uma estimativa. Deixe vazio para não ter teto. |
+| **Max cost ($)** | *Opcional.* Claude reporta custo; Codex/Gemini usam estimativas. Kimi não reporta custo USD autoritativo. |
 
 ## Construindo com confiança
 

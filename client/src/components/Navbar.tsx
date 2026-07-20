@@ -31,6 +31,8 @@ function CLIBadge() {
         ? `Codex CLI${status.version ? ` v${status.version}` : ''}`
         : status.provider === 'gemini'
           ? `Gemini CLI${status.version ? ` v${status.version}` : ''}`
+          : status.provider === 'kimi'
+            ? `Kimi Code${status.version ? ` v${status.version}` : ''}`
           : t('navbar.noCli')
 
   const badgeClass =
@@ -40,6 +42,8 @@ function CLIBadge() {
         ? 'bg-orange-500/15 text-orange-400 aurora-light:text-accent-warning border-orange-500/30 aurora-light:border-accent-warning/30'
         : status.provider === 'gemini'
           ? 'bg-green-500/15 text-green-400 aurora-light:text-accent-success border-green-500/30 aurora-light:border-accent-success/30'
+          : status.provider === 'kimi'
+            ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
           : 'bg-red-500/15 text-red-400 aurora-light:text-destructive border-red-500/30 aurora-light:border-destructive/30'
 
   const tooltip =

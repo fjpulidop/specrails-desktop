@@ -9,27 +9,52 @@
 // (and `action`) handed to `runAiCliInvocation`.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const { runAiCliInvocation, getAdapter, ensureFrameworkAgents } = vi.hoisted(() => ({
+const {
+  runAiCliInvocation,
+  getAdapter,
+  ensureFrameworkAgents,
+  finaliseInvocationResult,
+} = vi.hoisted(() => ({
   runAiCliInvocation: vi.fn(),
   getAdapter: vi.fn(),
   ensureFrameworkAgents: vi.fn(),
   ensureFrameworkCommandSubtrees: vi.fn(),
+  finaliseInvocationResult: vi.fn(),
 }))
 
 vi.mock('./spawn-lifecycle', () => ({ runAiCliInvocation }))
 vi.mock('./providers', () => ({ getAdapter }))
 vi.mock('./workspace-manager', () => ({ ensureFrameworkAgents }))
-vi.mock('./result-event', () => ({
-  finaliseInvocationResult: () => ({
-    result: { total_cost_usd: 0, tokens_in: 0, tokens_out: 0, duration_ms: 0 },
-    estimated: false,
-  }),
-}))
+vi.mock('./result-event', () => ({ finaliseInvocationResult }))
 
 import { createLoopExecutors } from './loop-executors'
 
 function fakeAdapter(id: string) {
-  return { id, binary: id, projectDirName: `.${id}`, buildArgs: vi.fn(() => []) }
+  const buildRepoAccessArgs =
+    id === 'codex'
+      ? (paths: readonly string[]) => [
+          '-c',
+          `sandbox_workspace_write.writable_roots=[${paths.map((repoPath) => JSON.stringify(repoPath)).join(', ')}]`,
+        ]
+      : id === 'claude' || id === 'kimi'
+        ? (paths: readonly string[]) =>
+            paths.flatMap((repoPath) => ['--add-dir', repoPath])
+        : undefined
+  return {
+    id,
+    binary: id,
+    projectDirName: `.${id}`,
+    buildArgs: vi.fn(() => []),
+    buildRepoAccessArgs,
+    ...(id === 'kimi'
+      ? {
+          formatCoreCommand: (command: string, cwd?: string) =>
+            command.startsWith('/skill:')
+              ? `materialized:${cwd}:${command.slice('/skill:'.length)}`
+              : command,
+        }
+      : {}),
+  }
 }
 
 /** Drive runAiStep and return the single object passed to runAiCliInvocation. */
@@ -50,7 +75,7 @@ async function callStep(
   })
   return runAiCliInvocation.mock.calls[0][0] as {
     action: string
-    buildOpts: { extraArgs?: string[] }
+    buildOpts: { prompt: string; extraArgs?: string[] }
     env: Record<string, string | undefined>
   }
 }
@@ -60,6 +85,18 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
     runAiCliInvocation.mockReset()
     getAdapter.mockReset()
     ensureFrameworkAgents.mockReset()
+    finaliseInvocationResult.mockReset()
+    finaliseInvocationResult.mockImplementation(
+      (_adapter: unknown, _events: unknown, options: { durationMs?: number }) => ({
+        result: {
+          total_cost_usd: 0,
+          tokens_in: 0,
+          tokens_out: 0,
+          duration_ms: options.durationMs,
+        },
+        estimated: false,
+      }),
+    )
     runAiCliInvocation.mockResolvedValue({
       spawnFailed: false,
       code: 0,
@@ -89,6 +126,47 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
     expect(inv.buildOpts.extraArgs).toEqual(['--add-dir', '/repo'])
   })
 
+  it('kimi relocated → uses its provider-native --add-dir grant', async () => {
+    const inv = await callStep('kimi', { repoDir: '/repo', cwd: '/ws' })
+    expect(inv.buildOpts.extraArgs).toEqual(['--add-dir', '/repo'])
+  })
+
+  it('materializes a Kimi loop skill at the execution cwd before invocation', async () => {
+    getAdapter.mockReturnValue(fakeAdapter('kimi'))
+    const ex = createLoopExecutors({ env: {} })
+    await ex.runAiStep({
+      prompt: '/skill:specrails-implement #7 --yes',
+      provider: 'kimi',
+      model: 'k3',
+      effort: undefined,
+      cwd: '/workspace',
+      repoDir: '/repo',
+    })
+    const invocation = runAiCliInvocation.mock.calls[0][0]
+    expect(invocation.buildOpts.prompt)
+      .toBe('materialized:/workspace:specrails-implement #7 --yes')
+  })
+
+  it('passes a wall-clock fallback so Kimi loop analytics retain duration', async () => {
+    getAdapter.mockReturnValue(fakeAdapter('kimi'))
+    const ex = createLoopExecutors({ env: {} })
+    const result = await ex.runAiStep({
+      prompt: 'implement',
+      provider: 'kimi',
+      model: 'k3',
+      effort: 'high',
+      cwd: '/workspace',
+      repoDir: '/repo',
+    })
+    const finaliseOptions = finaliseInvocationResult.mock.calls.at(-1)?.[2] as {
+      fallbackModel?: string
+      durationMs?: number
+    }
+    expect(finaliseOptions.fallbackModel).toBe('k3')
+    expect(finaliseOptions.durationMs).toBeGreaterThanOrEqual(0)
+    expect(result.durationMs).toBe(finaliseOptions.durationMs)
+  })
+
   it('non-relocated (no repoDir) → no extraArgs for codex', async () => {
     const inv = await callStep('codex', { cwd: '/repo' })
     expect(inv.buildOpts.extraArgs).toBeUndefined()
@@ -99,7 +177,7 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
     expect(inv.buildOpts.extraArgs).toBeUndefined()
   })
 
-  it('unknown provider relocated → no extraArgs (no sandbox grant emitted)', async () => {
+  it('provider without a repo-access hook → no extraArgs (no sandbox grant emitted)', async () => {
     const inv = await callStep('gemini', { repoDir: '/repo', cwd: '/ws' })
     expect(inv.buildOpts.extraArgs).toBeUndefined()
   })

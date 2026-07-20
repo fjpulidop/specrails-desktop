@@ -421,6 +421,69 @@ describe('db', () => {
       }
     })
 
+    it('migration 55 scopes Agent Studio history by provider and preserves legacy rows as Claude', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-agent-provider-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        db.exec(`
+          DROP TABLE agent_versions;
+          CREATE TABLE agent_versions (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_name   TEXT    NOT NULL,
+            version      INTEGER NOT NULL,
+            body         TEXT    NOT NULL,
+            created_at   INTEGER NOT NULL,
+            UNIQUE (agent_name, version)
+          );
+          INSERT INTO agent_versions (agent_name, version, body, created_at)
+            VALUES ('custom-shared', 1, 'legacy body', 1000);
+
+          DROP TABLE agent_tests;
+          CREATE TABLE agent_tests (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_name     TEXT    NOT NULL,
+            draft_hash     TEXT    NOT NULL,
+            sample_task_id TEXT,
+            tokens         INTEGER,
+            duration_ms    INTEGER,
+            output         TEXT,
+            created_at     INTEGER NOT NULL
+          );
+          INSERT INTO agent_tests (agent_name, draft_hash, output, created_at)
+            VALUES ('custom-shared', 'hash', 'legacy test', 1000);
+        `)
+        db.prepare(`DELETE FROM schema_migrations WHERE version = 55`).run()
+        db.close()
+        db = initDb(dbPath)
+
+        expect(db.prepare(
+          `SELECT provider, agent_name, version, body FROM agent_versions`,
+        ).all()).toEqual([{
+          provider: 'claude',
+          agent_name: 'custom-shared',
+          version: 1,
+          body: 'legacy body',
+        }])
+        expect(db.prepare(
+          `SELECT provider, agent_name, output FROM agent_tests`,
+        ).all()).toEqual([{
+          provider: 'claude',
+          agent_name: 'custom-shared',
+          output: 'legacy test',
+        }])
+        expect(() => db.prepare(`
+          INSERT INTO agent_versions (provider, agent_name, version, body, created_at)
+          VALUES ('kimi', 'custom-shared', 1, 'kimi body', 1001)
+        `).run()).not.toThrow()
+        expect(db.prepare(`SELECT version FROM schema_migrations WHERE version = 55`).get())
+          .toEqual({ version: 55 })
+      } finally {
+        try { db.close() } catch { /* already closed */ }
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
     it('migration 44 classifies legacy loop jobs and backfills their provider', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-job-owner-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')
@@ -892,6 +955,27 @@ describe('db', () => {
       expect(stats.estimatedCostUsd).toBeCloseTo(0.04 + 0.50, 5)
       expect(stats.costToday).toBeCloseTo(0.71, 5)
       expect(stats.estimatedCostToday).toBeCloseTo(0.54, 5)
+    })
+
+    it('exposes unavailable cost coverage for Kimi invocations', () => {
+      const db = makeDb()
+      const today = new Date().toISOString()
+      seedInvocation(db, {
+        id: 'kimi-stats',
+        provider: 'kimi',
+        surface: 'job',
+        total_cost_usd: null,
+        started_at: today,
+      })
+
+      expect(getStats(db)).toMatchObject({
+        totalCostUsd: 0,
+        costToday: 0,
+        pricedRuns: 0,
+        unpricedRuns: 1,
+        pricedTodayRuns: 0,
+        unpricedTodayRuns: 1,
+      })
     })
   })
 })

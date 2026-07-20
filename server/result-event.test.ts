@@ -60,6 +60,20 @@ describe('normaliseResultEvent (legacy single-event API)', () => {
 })
 
 describe('finaliseInvocationResult (new adapter-aware API)', () => {
+  it('fills missing provider duration from wall time without overwriting native duration', () => {
+    const kimi = getAdapter('kimi')
+    expect(finaliseInvocationResult(kimi, [], { durationMs: 321 }).result.duration_ms)
+      .toBe(321)
+
+    const claude = getAdapter('claude')
+    const events: AdapterEvent[] = [{
+      kind: 'result',
+      payload: { type: 'result', duration_ms: 42 },
+    }]
+    expect(finaliseInvocationResult(claude, events, { durationMs: 999 }).result.duration_ms)
+      .toBe(42)
+  })
+
   it('claude: passes through native total_cost_usd, estimated=false', () => {
     const adapter = getAdapter('claude')
     const events: AdapterEvent[] = [

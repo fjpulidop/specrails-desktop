@@ -30,7 +30,8 @@ export interface RefineHistoryTurn {
 
 export interface AutoTestResult {
   output: string
-  tokens: number
+  /** Null when the provider does not report usage (for example Kimi). */
+  tokens: number | null
   durationMs: number
 }
 

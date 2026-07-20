@@ -139,7 +139,7 @@ describe('ChatManager', () => {
       fsNode.rmSync(projectPath, { recursive: true, force: true })
     })
 
-    function seedMilestone(provider: 'claude' | 'codex' | 'gemini'): { manager: ChatManager; conversationId: string } {
+    function seedMilestone(provider: 'claude' | 'codex' | 'gemini' | 'kimi'): { manager: ChatManager; conversationId: string } {
       const slug = `atlas-${provider}`
       cmMirror({ repoPath: projectPath, slug, providers: [provider] }, registryHome)
       const workspace = cmLayout(cmResolveHome(registryHome), slug, projectPath).workspaceDir
@@ -161,7 +161,13 @@ describe('ChatManager', () => {
         m1Specs: [],
       }, null, 2))
       const conversationId = `milestone-${provider}`
-      const model = provider === 'claude' ? 'sonnet' : provider === 'codex' ? 'gpt-5.5' : 'gemini-3.5-flash'
+      const model = provider === 'claude'
+        ? 'sonnet'
+        : provider === 'codex'
+          ? 'gpt-5.5'
+          : provider === 'gemini'
+            ? 'gemini-3.5-flash'
+            : 'k3'
       createConversation(db, {
         id: conversationId,
         model,
@@ -285,6 +291,19 @@ describe('ChatManager', () => {
       pushLine(child, event)
       await finishProcess(child, 0)
       await sendPromise
+    })
+
+    it('rejects a legacy Kimi milestone conversation before spawning', async () => {
+      const { manager, conversationId } = seedMilestone('kimi')
+
+      await manager.sendMessage(conversationId, 'Generate M2 now')
+
+      expect(mockSpawn).not.toHaveBeenCalled()
+      expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'chat_error',
+        conversationId,
+        error: 'provider_tool_policy_unsupported',
+      }))
     })
   })
 
@@ -1441,6 +1460,287 @@ describe('ChatManager', () => {
         .filter((msg) => msg.type === 'chat_title_update')
       expect(titleUpdates).toHaveLength(1)
       expect(titleUpdates[0].title).toBe('SpecRails Pipeline Framework')
+    })
+  })
+
+  describe('kimi provider', () => {
+    it('forwards a safe custom model alias exactly and omits K3-only effort', async () => {
+      const dbKimi = initDb(':memory:')
+      const kimiBroadcast = vi.fn()
+      const cmKimi = new ChatManager(
+        kimiBroadcast,
+        dbKimi,
+        '/some/project',
+        'KimiProject',
+        'kimi',
+      )
+      const customAlias = 'Moonshot-Team/Private_Coder:v2'
+      createConversation(dbKimi, {
+        id: 'kimi-custom-model',
+        model: customAlias,
+        kind: 'sidebar',
+        provider: 'kimi',
+      })
+      updateConversation(dbKimi, 'kimi-custom-model', { session_id: 'kimi-custom-session' })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cmKimi.sendMessage('kimi-custom-model', 'Inspect the repository')
+      const spawnCall = vi.mocked(mockSpawn).mock.calls[0]
+      const args = spawnCall[1] as string[]
+      const options = spawnCall[2] as { env?: NodeJS.ProcessEnv }
+      expect(args[args.indexOf('-m') + 1]).toBe(customAlias)
+      expect(options.env?.KIMI_MODEL_THINKING_EFFORT).toBeUndefined()
+
+      pushLine(child, JSON.stringify({ role: 'assistant', content: 'Done' }))
+      pushLine(child, JSON.stringify({
+        role: 'meta',
+        type: 'session.resume_hint',
+        session_id: 'kimi-custom-session-2',
+      }))
+      await finishProcess(child, 0)
+      await sendPromise
+
+      cmKimi.shutdown()
+      dbKimi.close()
+    })
+
+    it('injects a project Kimi skill for a typed Core command before -p', async () => {
+      const root = fsNode.mkdtempSync(pathNode.join(osNode.tmpdir(), 'chat-kimi-skill-'))
+      const skillDir = pathNode.join(
+        root,
+        '.kimi-code',
+        'skills',
+        'specrails-implement',
+      )
+      fsNode.mkdirSync(skillDir, { recursive: true })
+      fsNode.writeFileSync(
+        pathNode.join(skillDir, 'SKILL.md'),
+        '---\nname: specrails-implement\ndescription: test\ntype: prompt\n---\nImplement exactly: $ARGUMENTS\n',
+      )
+      const dbKimi = initDb(':memory:')
+      const kimiBroadcast = vi.fn()
+      const cmKimi = new ChatManager(kimiBroadcast, dbKimi, root, 'KimiProject', 'kimi')
+      createConversation(dbKimi, {
+        id: 'kimi-command',
+        model: 'k3',
+        kind: 'sidebar',
+        provider: 'kimi',
+      })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cmKimi.sendMessage('kimi-command', '/specrails:implement #42 --yes')
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      const prompt = args[args.indexOf('-p') + 1]
+      expect(prompt).toContain('Implement exactly: #42 --yes')
+      expect(prompt).toContain('<kimi-skill-loaded')
+      expect(prompt).not.toContain('/skill:specrails-implement')
+      pushLine(child, JSON.stringify({ role: 'assistant', content: 'Done' }))
+      pushLine(child, JSON.stringify({
+        role: 'meta',
+        type: 'session.resume_hint',
+        session_id: 'kimi-command-session',
+      }))
+      await finishProcess(child, 0)
+      await sendPromise
+
+      cmKimi.shutdown()
+      dbKimi.close()
+      fsNode.rmSync(root, { recursive: true, force: true })
+    })
+
+    it('surfaces a missing headless skill and releases the Explore lifecycle slot', async () => {
+      const root = fsNode.mkdtempSync(pathNode.join(osNode.tmpdir(), 'chat-kimi-missing-skill-'))
+      const dbKimi = initDb(':memory:')
+      const kimiBroadcast = vi.fn()
+      const cmKimi = new ChatManager(kimiBroadcast, dbKimi, root, 'KimiProject', 'kimi')
+      createConversation(dbKimi, {
+        id: 'kimi-missing-skill',
+        model: 'k3',
+        kind: 'explore',
+        provider: 'kimi',
+      })
+
+      await cmKimi.sendMessage('kimi-missing-skill', '/specrails:implement #42')
+
+      expect(mockSpawn).not.toHaveBeenCalled()
+      expect(getBroadcastedByType(kimiBroadcast, 'chat_error')).toEqual([
+        expect.objectContaining({
+          conversationId: 'kimi-missing-skill',
+          error: expect.stringContaining('Kimi skill "specrails-implement" is not installed'),
+        }),
+      ])
+      const life = (
+        cmKimi as unknown as {
+          _exploreLifecycle: Map<string, { isStreaming: boolean }>
+          _reservedTurns: Set<string>
+        }
+      )._exploreLifecycle.get('kimi-missing-skill')
+      expect(life?.isStreaming).toBe(false)
+      expect((
+        cmKimi as unknown as { _reservedTurns: Set<string> }
+      )._reservedTurns.has('kimi-missing-skill')).toBe(false)
+
+      // A retry reaches resolution again instead of being silently rejected by
+      // a leaked active/reserved guard.
+      await cmKimi.sendMessage('kimi-missing-skill', '/specrails:implement #42')
+      expect(getBroadcastedByType(kimiBroadcast, 'chat_error')).toHaveLength(2)
+
+      cmKimi.shutdown()
+      dbKimi.close()
+      fsNode.rmSync(root, { recursive: true, force: true })
+    })
+
+    it('uses a deterministic local title instead of spawning an unsafe pure-output turn', async () => {
+      const dbKimi = initDb(':memory:')
+      const kimiBroadcast = vi.fn()
+      const cmKimi = new ChatManager(
+        kimiBroadcast,
+        dbKimi,
+        '/some/project',
+        'KimiProject',
+        'kimi',
+      )
+      createConversation(dbKimi, {
+        id: 'kimi-first-turn',
+        model: 'k3',
+        kind: 'sidebar',
+        provider: 'kimi',
+      })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cmKimi.sendMessage(
+        'kimi-first-turn',
+        'Implement the OAuth callback flow',
+      )
+      pushLine(child, JSON.stringify({
+        role: 'assistant',
+        content: [{ type: 'text', text: 'I can implement that flow.' }],
+      }))
+      pushLine(child, JSON.stringify({
+        role: 'meta',
+        type: 'session.resume_hint',
+        session_id: 'kimi-first-session',
+      }))
+      await finishProcess(child, 0)
+      await sendPromise
+
+      expect(mockSpawn).toHaveBeenCalledTimes(1)
+      const title = getConversation(dbKimi, 'kimi-first-turn')?.title
+      expect(title).toBeTruthy()
+      expect(kimiBroadcast.mock.calls.some(([message]) =>
+        message.type === 'chat_title_update' && message.title === title,
+      )).toBe(true)
+
+      cmKimi.shutdown()
+      dbKimi.close()
+    })
+
+    it('folds sidebar system and dashboard context exactly once for prompt mode', async () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/kimi'))
+      const dbKimi = initDb(':memory:')
+      const kimiBroadcast = vi.fn()
+      const cmKimi = new ChatManager(
+        kimiBroadcast,
+        dbKimi,
+        '/some/project',
+        'KimiProject',
+        'kimi',
+      )
+      createConversation(dbKimi, {
+        id: 'kimi-sidebar',
+        model: 'k3',
+        kind: 'sidebar',
+        provider: 'kimi',
+      })
+      // Make this a resume turn so the test does not launch the unrelated
+      // first-turn auto-title child.
+      updateConversation(dbKimi, 'kimi-sidebar', { session_id: 'kimi-session-old' })
+      createJob(dbKimi, {
+        id: 'kimi-job',
+        command: '/specrails:implement #91',
+        started_at: new Date().toISOString(),
+      })
+      finishJob(dbKimi, 'kimi-job', {
+        exit_code: 0,
+        status: 'completed',
+        total_cost_usd: null,
+        duration_ms: 1000,
+      })
+
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      const sendPromise = cmKimi.sendMessage('kimi-sidebar', 'What ran recently?')
+
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      expect(vi.mocked(mockSpawn).mock.calls[0][0]).toBe('kimi')
+      expect(args).toContain('--session=kimi-session-old')
+      expect(args).not.toContain('-S')
+      const prompt = args[args.indexOf('-p') + 1]
+      expect(prompt).toContain('You are a project assistant for the "KimiProject"')
+      expect(prompt).toContain('## Current Dashboard Context')
+      expect(prompt).toContain('/specrails:implement #91')
+      expect(prompt).toContain('## User turn\n\nWhat ran recently?')
+      expect(occurrences(prompt, 'You are a project assistant for the "KimiProject"')).toBe(1)
+
+      pushLine(child, JSON.stringify({
+        role: 'assistant',
+        content: [{ type: 'text', text: 'The implementation job ran.' }],
+      }))
+      pushLine(child, JSON.stringify({
+        role: 'meta',
+        type: 'session.resume_hint',
+        session_id: 'kimi-session-new',
+      }))
+      await finishProcess(child, 0)
+      await sendPromise
+      expect(getConversation(dbKimi, 'kimi-sidebar')?.session_id).toBe('kimi-session-new')
+
+      cmKimi.shutdown()
+      dbKimi.close()
+    })
+
+    it('treats a structured Kimi error as failure even when the process exits 0', async () => {
+      const dbKimi = initDb(':memory:')
+      const kimiBroadcast = vi.fn()
+      const cmKimi = new ChatManager(
+        kimiBroadcast,
+        dbKimi,
+        '/some/project',
+        'KimiProject',
+        'kimi',
+      )
+      createConversation(dbKimi, {
+        id: 'kimi-explicit-error',
+        model: 'k3',
+        kind: 'sidebar',
+        provider: 'kimi',
+      })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+
+      const sendPromise = cmKimi.sendMessage('kimi-explicit-error', 'Inspect the repository')
+      pushLine(child, JSON.stringify({ role: 'assistant', content: 'Partial output' }))
+      pushLine(child, JSON.stringify({
+        role: 'meta',
+        type: 'system.error',
+        message: 'Authentication required. Run kimi login.',
+      }))
+      await finishProcess(child, 0)
+      await sendPromise
+
+      expect(getBroadcastedByType(kimiBroadcast, 'chat_done')).toHaveLength(0)
+      expect(getBroadcastedByType(kimiBroadcast, 'chat_error')).toEqual([
+        expect.objectContaining({
+          conversationId: 'kimi-explicit-error',
+          error: 'Authentication required. Run kimi login.',
+        }),
+      ])
+
+      cmKimi.shutdown()
+      dbKimi.close()
     })
   })
 

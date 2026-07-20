@@ -15,6 +15,7 @@ import type { ChildProcess } from 'node:child_process'
 import { createInterface } from 'node:readline'
 import treeKill from 'tree-kill'
 import { spawnAiCli } from './util/cli-prompt'
+import { buildProviderEnv, parseStreamEvents } from './providers/runtime'
 import type { ProviderAdapter, AdapterEvent, SpawnAction, SpawnOptions } from './providers/types'
 
 /** Node child_process spawn options the lifecycle forwards verbatim. */
@@ -96,6 +97,9 @@ export function runAiCliInvocation(hooks: RunInvocationHooks): Promise<Invocatio
   const binary = hooks.binary ?? hooks.adapter.binary
   const args = hooks.argv ?? hooks.adapter.buildArgs(hooks.action as SpawnAction, hooks.buildOpts as SpawnOptions)
   const spawn = hooks.spawn ?? spawnAiCli
+  const env = hooks.buildOpts
+    ? buildProviderEnv(hooks.adapter, hooks.buildOpts, hooks.env ?? process.env)
+    : hooks.env ?? process.env
 
   const events: AdapterEvent[] = []
   let lastResultEvent: AdapterEvent | null = null
@@ -116,7 +120,7 @@ export function runAiCliInvocation(hooks: RunInvocationHooks): Promise<Invocatio
     let child: ChildProcess
     try {
       child = spawn(binary, args, {
-        env: hooks.env ?? process.env,
+        env,
         stdio: hooks.stdio ?? ['ignore', 'pipe', 'pipe'],
         cwd: hooks.cwd,
       } as Parameters<typeof spawnAiCli>[2])
@@ -158,17 +162,18 @@ export function runAiCliInvocation(hooks: RunInvocationHooks): Promise<Invocatio
         // uncaught exception that takes the sidecar down.
         try {
           hooks.onStdoutLine?.(line)
-          const ev = hooks.adapter.parseStreamLine(line)
-          if (!ev) return
-          events.push(ev)
-          if (ev.kind === 'session-started') {
-            sessionId = ev.sessionId
-          } else if (ev.kind === 'result') {
-            lastResultEvent = ev
-            const sid = (ev.payload as { session_id?: string }).session_id
-            if (sid) sessionId = sid
+          const parsedEvents = parseStreamEvents(hooks.adapter, line)
+          for (const ev of parsedEvents) {
+            events.push(ev)
+            if (ev.kind === 'session-started') {
+              sessionId = ev.sessionId
+            } else if (ev.kind === 'result') {
+              lastResultEvent = ev
+              const sid = (ev.payload as { session_id?: string }).session_id
+              if (sid) sessionId = sid
+            }
+            hooks.onEvent?.(ev)
           }
-          hooks.onEvent?.(ev)
         } catch (err) {
           console.error('[spawn-lifecycle] stdout line handler error (ignored):', err)
         }

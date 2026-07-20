@@ -44,6 +44,7 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
   // an authoritative claude figure. Prefix a `~` when any of this mode's cost is
   // estimate-derived (mirrors the Hero footnote treatment).
   const isEstimated = (mode.estimatedCostUsd ?? 0) > 0
+  const costUnavailable = mode.avgCostPerSpec == null && (mode.unpricedCount ?? 0) > 0
   return (
     <div className="flex-1 p-4 first:pr-2 last:pl-2">
       <div className="flex items-center gap-2 mb-2">
@@ -62,12 +63,20 @@ function ModeColumn({ mode, label, accentClass }: { mode: ByModeEntry; label: st
           <div
             className="text-3xl font-semibold tabular-nums tracking-tight"
             data-estimated={isEstimated ? 'true' : undefined}
-            title={isEstimated ? t('quickVsExplore.estimatedTooltip') : undefined}
+            title={
+              costUnavailable
+                ? t('quickVsExplore.costUnavailableTooltip')
+                : isEstimated
+                  ? t('quickVsExplore.estimatedTooltip')
+                  : undefined
+            }
           >
             {isEstimated && mode.avgCostPerSpec != null ? '~' : ''}
             {fmtUsd(mode.avgCostPerSpec)}
           </div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">{t('quickVsExplore.perSpec')}</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">
+            {costUnavailable ? t('quickVsExplore.costUnavailable') : t('quickVsExplore.perSpec')}
+          </div>
           <div className="mt-3"><Sparkline values={mode.sparkline.length > 0 ? mode.sparkline : [0]} /></div>
           <div className="mt-3 space-y-0.5 text-xs tabular-nums text-muted-foreground">
             <div>

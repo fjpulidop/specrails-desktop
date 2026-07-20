@@ -88,11 +88,13 @@ describe('install-config-path', () => {
       const claude = installConfigPathForProvider({ slug: 'my-repo', path: repo }, 'claude')
       const codex = installConfigPathForProvider({ slug: 'my-repo', path: repo }, 'codex')
       const gemini = installConfigPathForProvider({ slug: 'my-repo', path: repo }, 'gemini')
+      const kimi = installConfigPathForProvider({ slug: 'my-repo', path: repo }, 'kimi')
       expect(claude).toBe(path.join(home, '.specrails', 'projects', 'my-repo', 'install-config.claude.yaml'))
       expect(codex).toBe(path.join(home, '.specrails', 'projects', 'my-repo', 'install-config.codex.yaml'))
       expect(gemini).toBe(path.join(home, '.specrails', 'projects', 'my-repo', 'install-config.gemini.yaml'))
-      // The three configs coexist — none equals another or the shared file.
-      expect(new Set([claude, codex, gemini]).size).toBe(3)
+      expect(kimi).toBe(path.join(home, '.specrails', 'projects', 'my-repo', 'install-config.kimi.yaml'))
+      // The configs coexist — none equals another or the shared file.
+      expect(new Set([claude, codex, gemini, kimi]).size).toBe(4)
       expect(claude).not.toBe(installConfigPath({ slug: 'my-repo', path: repo }))
     })
 

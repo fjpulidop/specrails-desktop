@@ -35,8 +35,8 @@ Das war's. Die rail startet einen KI-CLI-Prozess im richtigen Ausführungskontex
 | **Status-Pill** | `idle`, `running` oder `failed`. Es gibt kein eigenes „completed“ — eine rail kehrt auf `idle` zurück, wenn ihr Job sauber durchläuft. |
 | **Spec-Liste** | Die IDs, die dieser rail zugewiesen sind. Zieh weitere hinein oder heraus, um sie wieder zu lösen. |
 | **Loop-Auswahl** | Der Loop, den diese rail ausführt — ein eingebauter (`Implement` / `Batch` / `Freestyle`) oder ein eigener Loop. Siehe Tabelle unten. Pro rail gespeichert. |
-| **Profil-Auswahl** | Welches Agent-Profil läuft (nur bei Claude-rails). Erscheint erst, wenn das Projekt mindestens ein Profil hat. |
-| **Engine-Auswahl** | Welcher installierte Provider diese rail ausführt — Claude, Codex oder Gemini. Wird nur angezeigt, wenn das Projekt mehr als einen Provider hat. Siehe [Engine pro Rail wählen](picking-an-engine-per-rail). |
+| **Profil-Auswahl** | Welches Provider-Profil läuft (Claude- und Kimi-Rails). |
+| **Engine-Auswahl** | Welcher Provider die Rail ausführt — Claude, Codex, Gemini oder Kimi. |
 | **▶ Play / ■ Stop** | Starten oder abbrechen. |
 
 ### Was eine rail ausführt: Loops
@@ -47,9 +47,11 @@ Eine rail führt einen **Loop** aus — das Rezept für die Arbeit. Drei Loops s
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Ein Job für alle Specs auf der rail. Durchläuft die komplette Pipeline Architect → Developer → Reviewer → Ship. Der Alltagsstandard. |
 | **Batch** | `/specrails:batch-implement` | Ein Job, der die Specs der rail nacheinander abarbeitet — in abhängigkeitsbewussten Wellen. Ideal für mehrere zusammenhängende Specs. |
-| **Freestyle** | Freestyle | Claude implementiert jede Spec eigenständig und **umgeht** dabei die Pipeline. Ein unabhängiger Job pro Spec. Nur Claude. |
+| **Freestyle** | Freestyle | Claude oder Kimi implementiert jede Spec eigenständig und **umgeht** dabei die Pipeline. |
 
-Freestyle ist der Sonderfall: Es überspringt die Agent-Kette und übergibt Claude die rohe Spec, an der es mit seinen nativen Tools arbeitet. Das ist offen angelegt, deshalb öffnet Play zuerst eine Bestätigung, und eine Modell-Auswahl pro rail lässt dich zwischen Haiku / Sonnet / Opus wählen. Es erscheint nur, wenn die Engine der rail Claude ist. Ein Freestyle-Lauf ist außerdem der einzige Job, der **für dich offen bleibt**: Chatte mit ihm über den Composer der Job-Detail-Ansicht und klicke auf **Finalize**, wenn du zufrieden bist (alle anderen Jobs schließen sich selbst ab).
+Freestyle nutzt native Tools und Modelle des Providers. Claude hat persistenten
+interaktiven Transport; Kimi nutzt einen agentischen `kimi -p`-Prozess ohne
+persistentes stdin.
 
 Über die eingebauten Loops hinaus kannst du **deine eigenen Loops bauen** — einen verify → fix → verify-Zyklus wiederholen, bis ein Ziel erreicht ist, Shell-Befehle zwischen KI-Schritten verketten und mehr. Diese eigenen Loops erscheinen in derselben Loop-Auswahl. Das ist die nächste große Idee: [Der Loop Builder](the-loop-builder).
 
@@ -81,7 +83,8 @@ Klick im rail-Header auf **■ Stop**. Die App sendet `SIGTERM` an den Subprozes
 
 ## Wenn eine Rail nicht starten will
 
-Wenn du eine Engine wählst, deren CLI nicht auf deinem Rechner installiert ist, **schlägt der Start sofort fehl**, anstatt einen kaputten Job zu starten — es wird nichts gestartet. Installiere die fehlende Provider-CLI ([Codex verwenden](../integrations/using-codex), [Gemini verwenden](../integrations/using-gemini)) und starte erneut. Ein fehlendes Claude oder Codex liefert eine präzise „*&lt;provider&gt; CLI not found*“-Meldung; ein fehlendes Gemini zeigt heute eine generische Startfehlermeldung, aber das Ergebnis ist dasselbe.
+Fehlt die gewählte CLI, schlägt der Start vor dem Spawn fehl. Für Kimi:
+`kimi` 0.27+ installieren/anmelden; Desktop startet keinen Server.
 
 ## Alles stoppen
 
@@ -96,4 +99,4 @@ Wenn etwas nicht stimmt:
 - [Der Loop Builder](the-loop-builder) — was eine rail ausführt und wie du deine eigenen Loops baust.
 - [Die Job-Detail-Ansicht](the-job-detail-view) — Phasen, Live-Metriken, Ticket-Karten.
 - [Batch implement & Multi-Feature](batch-implement-and-multi-feature) — mehrere Specs auf einmal ausführen.
-- [Engine pro Rail wählen](picking-an-engine-per-rail) — Claude vs. Codex vs. Gemini.
+- [Engine pro Rail wählen](picking-an-engine-per-rail) — Claude, Codex, Gemini oder Kimi.

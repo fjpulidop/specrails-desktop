@@ -130,6 +130,69 @@ describe('ai-invocations', () => {
     expect(summary.totalTokens).toBe(52_000)
   })
 
+  it('keeps all-Kimi ticket cost, usage and turns unavailable instead of zero', () => {
+    recordInvocation(db, fixedInput({
+      id: 'kimi',
+      provider: 'kimi',
+      model: 'k3',
+      ticket_id: 77,
+      total_cost_usd: null,
+      tokens_in: null,
+      tokens_out: null,
+      tokens_cache_read: null,
+      tokens_cache_create: null,
+      num_turns: null,
+    }))
+    const summary = getTicketSpendingSummary(db, 77)
+    expect(summary).toMatchObject({
+      totalCostUsd: 0,
+      totalTokens: null,
+      totalTurns: null,
+      pricedRuns: 0,
+      unpricedRuns: 1,
+      usageReportedRuns: 0,
+      usageUnavailableRuns: 1,
+      turnsReportedRuns: 0,
+      turnsUnavailableRuns: 1,
+    })
+    expect(summary.bySurface.job.unpricedCount).toBe(1)
+  })
+
+  it('exposes known subtotals plus coverage for mixed Claude and Kimi tickets', () => {
+    recordInvocation(db, fixedInput({
+      id: 'claude',
+      provider: 'claude',
+      ticket_id: 78,
+      total_cost_usd: 1,
+      tokens_in: 100,
+      tokens_out: 50,
+      num_turns: 2,
+    }))
+    recordInvocation(db, fixedInput({
+      id: 'kimi',
+      provider: 'kimi',
+      ticket_id: 78,
+      total_cost_usd: null,
+      tokens_in: null,
+      tokens_out: null,
+      tokens_cache_read: null,
+      tokens_cache_create: null,
+      num_turns: null,
+    }))
+    const summary = getTicketSpendingSummary(db, 78)
+    expect(summary).toMatchObject({
+      totalCostUsd: 1,
+      totalTokens: 150,
+      totalTurns: 2,
+      pricedRuns: 1,
+      unpricedRuns: 1,
+      usageReportedRuns: 1,
+      usageUnavailableRuns: 1,
+      turnsReportedRuns: 1,
+      turnsUnavailableRuns: 1,
+    })
+  })
+
   it('persists provider column from input', () => {
     recordInvocation(db, fixedInput({ id: 'cl', provider: 'claude' }))
     recordInvocation(db, fixedInput({ id: 'co', provider: 'codex' }))

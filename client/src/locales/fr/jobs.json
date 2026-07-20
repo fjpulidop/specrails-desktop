@@ -141,7 +141,11 @@
       "starting": "Démarrage…"
     },
     "pipelinePartial": "≥ affiché — {{count}} phase(s) sans coût enregistré",
-    "pipelinePartialTooltip": "Certaines phases se sont arrêtées avant de rapporter leur coût ; ce total est donc une borne inférieure."
+    "pipelinePartialTooltip": "Certaines phases se sont arrêtées avant de rapporter leur coût ; ce total est donc une borne inférieure.",
+    "pipelineCostUnavailable": "La télémétrie de coût est indisponible pour toutes les phases.",
+    "pipelineUsageUnavailable": "La télémétrie des tokens est indisponible pour toutes les phases.",
+  "pipelineUsagePartial": "≥ affiché — phases sans télémétrie des tokens : {{count}}",
+    "pipelineUsageTooltip": "Les fournisseurs peuvent terminer des phases sans exposer la télémétrie des tokens ; seule l'utilisation connue est incluse."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} de plus",
