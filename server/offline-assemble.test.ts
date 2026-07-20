@@ -49,6 +49,18 @@ function fakeInit(exitCode = 0): { spawn: (args: string[], cwd: string) => Child
   return { spawn, calls }
 }
 
+function installConfigs(
+  calls: Array<{ args: string[]; cwd: string }>,
+): Map<string, { model: string; yaml: string }> {
+  return new Map(calls.map((call) => {
+    const yaml = fs.readFileSync(call.args[2], 'utf-8')
+    const provider = yaml.match(/^provider:\s*(\S+)\s*$/m)?.[1]
+    const model = yaml.match(/^\s*defaults:\s*\{\s*model:\s*(\S+)\s*\}\s*$/m)?.[1]
+    if (!provider || !model) throw new Error(`invalid generated install config: ${call.args[2]}`)
+    return [provider, { model, yaml }]
+  }))
+}
+
 describe('assembleProjectOffline', () => {
   it('mirrors the registry, writes per-provider configs and runs one init per provider', async () => {
     const init = fakeInit(0)
@@ -70,6 +82,70 @@ describe('assembleProjectOffline', () => {
     // registry entry allocated under the slug
     const resolved = resolveArtifacts(repoDir)
     expect(resolved.entry?.slug).toBe('my-app')
+  })
+
+  it('uses Kimi adapter default k3 for a Kimi-only quick config', async () => {
+    const init = fakeInit(0)
+    await assembleProjectOffline({
+      projectPath: repoDir,
+      slug: 'my-app',
+      desktopProjectId: 'proj-1',
+      providers: ['kimi'],
+      io: { spawnInit: init.spawn as never, materialize: vi.fn() },
+    })
+
+    expect(installConfigs(init.calls).get('kimi')?.model).toBe('k3')
+  })
+
+  it('derives each mixed quick config default from its own provider adapter', async () => {
+    const init = fakeInit(0)
+    await assembleProjectOffline({
+      projectPath: repoDir,
+      slug: 'my-app',
+      desktopProjectId: 'proj-1',
+      providers: ['claude', 'kimi', 'codex', 'gemini'],
+      io: { spawnInit: init.spawn as never, materialize: vi.fn() },
+    })
+
+    const configs = installConfigs(init.calls)
+    expect(Object.fromEntries([...configs].map(([provider, config]) => [provider, config.model]))).toEqual({
+      claude: 'sonnet',
+      kimi: 'k3',
+      codex: 'gpt-5.5',
+      gemini: 'gemini-3.5-flash',
+    })
+  })
+
+  it('keeps Claude sonnet as its default and preserves explicit provider-scoped overrides', async () => {
+    const init = fakeInit(0)
+    await assembleProjectOffline({
+      projectPath: repoDir,
+      slug: 'my-app',
+      desktopProjectId: 'proj-1',
+      providers: ['claude', 'kimi'],
+      defaultModels: { kimi: 'kimi-for-coding-highspeed' },
+      // A legacy global alias must not contaminate a mixed-provider config.
+      defaultModel: 'opus',
+      io: { spawnInit: init.spawn as never, materialize: vi.fn() },
+    })
+
+    const configs = installConfigs(init.calls)
+    expect(configs.get('claude')?.model).toBe('sonnet')
+    expect(configs.get('kimi')?.model).toBe('kimi-for-coding-highspeed')
+  })
+
+  it('preserves the legacy defaultModel override for a single provider', async () => {
+    const init = fakeInit(0)
+    await assembleProjectOffline({
+      projectPath: repoDir,
+      slug: 'my-app',
+      desktopProjectId: 'proj-1',
+      providers: ['claude'],
+      defaultModel: 'opus',
+      io: { spawnInit: init.spawn as never, materialize: vi.fn() },
+    })
+
+    expect(installConfigs(init.calls).get('claude')?.model).toBe('opus')
   })
 
   it('throws when init exits non-zero, including the stderr tail', async () => {

@@ -6,6 +6,7 @@ import express from 'express'
 import request from 'supertest'
 
 import { createProjectRouter, stripSpecMetadataSections, formatDescriptionWithCriteria, extractShortSummary } from './project-router'
+import { serializeInstallConfigYaml } from './project-router-helpers'
 import { resolveTicketStoragePath, mutateStore, readStore } from './ticket-store'
 import { mirrorProjectEntry as regMirror, workspaceLayout as regLayout, resolveHome as regResolveHome } from './artifact-registry'
 import { initDb, listProposals } from './db'
@@ -3919,6 +3920,18 @@ describe('project-router', () => {
       return ctx
     }
 
+    it.each([
+      [{}, 'claude', 'sonnet'],
+      [{ provider: 'not-a-provider' }, 'claude', 'sonnet'],
+    ] as const)(
+      'fails safe to Claude when serializing an absent or invalid provider (%#)',
+      (config, expectedProvider, expectedModel) => {
+        const yaml = serializeInstallConfigYaml(config)
+        expect(yaml).toContain(`provider: ${expectedProvider}`)
+        expect(yaml).toContain(`defaults: { model: ${expectedModel} }`)
+      },
+    )
+
     it('returns claude default when no install-config and provider is claude', async () => {
       const ctx = ctxWithProject('claude')
       const { app } = createApp(new Map([['proj-1', ctx]]))
@@ -4026,6 +4039,36 @@ describe('project-router', () => {
       expect(res.body.model).toBe('opus')
     })
 
+    it.each([
+      ['kimi', 'k3'],
+      ['claude', 'sonnet'],
+    ] as const)(
+      'serializes a minimal MCP-compatible %s install config with its provider default %s',
+      async (provider, expectedModel) => {
+        const ctx = makeContext(db, {
+          project: {
+            id: 'proj-1', slug: 'proj', name: 'P', path: tmpDir,
+            db_path: ':memory:', provider, providers: [provider], added_at: '', last_seen_at: '',
+          } as any,
+        })
+        const { app } = createApp(new Map([['proj-1', ctx]]))
+
+        // This is the minimal shape specrails_setup(install_config) forwards:
+        // no models block, so the server serializer owns the provider default.
+        const write = await request(app)
+          .post('/api/projects/proj-1/setup/install-config')
+          .send({ provider, agents: { selected: [], excluded: [] }, tier: 'quick' })
+
+        expect(write.status).toBe(200)
+        const yaml = fs.readFileSync(
+          installConfigPathForProvider({ slug: 'proj', path: tmpDir }, provider),
+          'utf-8',
+        )
+        expect(yaml).toContain(`provider: ${provider}`)
+        expect(yaml).toContain(`defaults: { model: ${expectedModel} }`)
+      },
+    )
+
     it('persists a PER-PROVIDER install-config per provider (additive, not clobbered)', async () => {
       // Multi-provider regression: installing providers in turn used
       // to leave only the LAST provider's config in the single shared file. Each
@@ -4098,6 +4141,88 @@ describe('project-router', () => {
       // GET reflects the patched model from the in-repo agents dir.
       const get = await request(app).get('/api/projects/proj-1/agent-models')
       expect(get.body.agents).toEqual([{ name: 'sr-architect', model: 'opus' }])
+    })
+
+    it.each([
+      ['claude', 'sonnet', 'opus'],
+      ['codex', 'gpt-5.5', 'gpt-5.4'],
+      ['gemini', 'gemini-3.5-flash', 'gemini-3.1-pro-preview'],
+      ['kimi', 'k3', 'kimi-for-coding'],
+    ] as const)(
+      'creates an absent %s config from an overrides-only patch without cross-provider defaults',
+      async (provider, expectedDefault, overrideModel) => {
+        const { app } = createApp(new Map([
+          ['proj-1', ctxWithProject(provider)],
+        ]))
+
+        const patched = await request(app)
+          .patch('/api/projects/proj-1/agent-models')
+          .send({ overrides: { 'sr-architect': overrideModel } })
+
+        expect(patched.status).toBe(200)
+        const config = fs.readFileSync(
+          installConfigPath({ slug: 'proj', path: tmpDir }),
+          'utf8',
+        )
+        expect(config).toContain(`provider: ${provider}`)
+        expect(config).toContain(`defaults: { model: ${expectedDefault} }`)
+        expect(config).toContain(`sr-architect: ${overrideModel}`)
+      },
+    )
+
+    it.each([
+      ['claude', 'opus', 'haiku'],
+      ['codex', 'gpt-5.4', 'gpt-5.4-mini'],
+      ['gemini', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite'],
+      ['kimi', 'kimi-for-coding', 'kimi-for-coding-highspeed'],
+    ] as const)(
+      'preserves a valid parsed %s default during an overrides-only patch',
+      async (provider, existingDefault, overrideModel) => {
+        const ctx = ctxWithProject(
+          provider,
+          [
+            `provider: ${provider}`,
+            'models:',
+            `  defaults: { model: ${existingDefault} }`,
+            '  overrides: {}',
+            '',
+          ].join('\n'),
+        )
+        const { app } = createApp(new Map([['proj-1', ctx]]))
+
+        const patched = await request(app)
+          .patch('/api/projects/proj-1/agent-models')
+          .send({ overrides: { 'sr-architect': overrideModel } })
+
+        expect(patched.status).toBe(200)
+        const config = fs.readFileSync(
+          installConfigPath({ slug: 'proj', path: tmpDir }),
+          'utf8',
+        )
+        expect(config).toContain(`provider: ${provider}`)
+        expect(config).toContain(`defaults: { model: ${existingDefault} }`)
+      },
+    )
+
+    it('replaces a stale cross-provider parsed default with the project provider default', async () => {
+      const ctx = ctxWithProject(
+        'codex',
+        'provider: claude\nmodels:\n  defaults: { model: sonnet }\n  overrides: {}\n',
+      )
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+
+      const patched = await request(app)
+        .patch('/api/projects/proj-1/agent-models')
+        .send({ overrides: { 'sr-architect': 'gpt-5.4' } })
+
+      expect(patched.status).toBe(200)
+      const config = fs.readFileSync(
+        installConfigPath({ slug: 'proj', path: tmpDir }),
+        'utf8',
+      )
+      expect(config).toContain('provider: codex')
+      expect(config).toContain('defaults: { model: gpt-5.5 }')
+      expect(config).not.toContain('sonnet')
     })
 
     it('GET /agent-models projects the K3 fallback only over direct Kimi role skills', async () => {

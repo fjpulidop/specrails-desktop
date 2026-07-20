@@ -291,15 +291,15 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
     const configPath = installConfigPath(project)
 
     // Read existing config or build default shape
-    const kimiModels = provider === 'kimi'
+    const providerDefault = getProviderDefault(provider) || getProviderDefault('claude')
     let existingConfig: Record<string, unknown> = {
       version: 1,
-      provider: kimiModels ? 'kimi' : 'claude',
+      provider,
       tier: 'quick',
       agents: { selected: [], excluded: [] },
       models: {
         preset: 'balanced',
-        defaults: { model: kimiModels ? getProviderDefault('kimi') : 'sonnet' },
+        defaults: { model: providerDefault },
         overrides: {},
       },
       agent_teams: false,
@@ -310,7 +310,6 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
         const text = fs.readFileSync(configPath, 'utf-8')
         // Parse fields we care about from the existing config text
         const versionMatch = text.match(/^version:\s*(\d+)/m)
-        const providerMatch = text.match(/^provider:\s*(\S+)/m)
         const tierMatch = text.match(/^tier:\s*(\S+)/m)
         const presetMatch = text.match(/preset:\s*(\S+)/)
         const defaultModelMatch = text.match(/defaults:\s*\{\s*model:\s*(\S+?)\s*\}/)
@@ -334,34 +333,27 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
           const overrideLines = block.match(/^ {2,}(\S+):\s*(\S+)/gm) ?? []
           for (const line of overrideLines) {
             const m = line.match(/^\s+(\S+):\s*(\S+)/)
-            if (
-              m
-              && (
-                !kimiModels
-                || isValidModelForProvider(m[2], provider)
-              )
-            ) existingOverrides[m[1]] = m[2]
+            if (m && isValidModelForProvider(m[2], provider)) {
+              existingOverrides[m[1]] = m[2]
+            }
           }
         }
 
         const parsedDefaultModel = defaultModelMatch?.[1]
         existingConfig = {
           version: versionMatch ? parseInt(versionMatch[1], 10) : 1,
-          provider: kimiModels
-            ? 'kimi'
-            : providerMatch
-              ? providerMatch[1]
-              : 'claude',
+          // The project provider is authoritative. A stale shared config can
+          // belong to another provider after a multi-provider setup pass.
+          provider,
           tier: tierMatch ? tierMatch[1] : 'quick',
           agents: { selected: parsedSelected, excluded: parsedExcluded },
           models: {
             preset: presetMatch ? presetMatch[1] : 'balanced',
             defaults: {
-              model: kimiModels
-                ? parsedDefaultModel && isValidModelForProvider(parsedDefaultModel, provider)
+              model:
+                parsedDefaultModel && isValidModelForProvider(parsedDefaultModel, provider)
                   ? parsedDefaultModel
-                  : getProviderDefault('kimi')
-                : 'sonnet',
+                  : providerDefault,
             },
             overrides: existingOverrides,
           },
