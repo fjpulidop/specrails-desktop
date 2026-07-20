@@ -20,6 +20,25 @@ jobs:
       - name: Scan for secrets
         run: gitleaks detect --source . --redact --exit-code 1
 
+  # Exercise the release's exact vendored Core lock and Windows
+  # junction/copy-fallback lifecycle before a tag can reach Desktop Release.
+  # This is intentionally independent of the heavy Rust/Tauri build.
+  bundled-core-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: 20.19.0
+      - name: Assemble integrity-locked bundled Core
+        run: node scripts/assemble-bundled-core.mjs
+      - name: Smoke bundled Core relocation for every provider
+        run: pwsh scripts/smoke-bundled-core-windows.ps1 -CorePath src-tauri\core -Node node
+
   test:
     runs-on: ubuntu-latest
     steps:

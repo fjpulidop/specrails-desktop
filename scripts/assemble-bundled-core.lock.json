@@ -8,7 +8,7 @@
       "name": "bundled-core-stage",
       "version": "0.0.0",
       "dependencies": {
-        "specrails-core": "4.11.0"
+        "specrails-core": "4.12.0"
       }
     },
     "node_modules/@inquirer/ansi": {
@@ -548,9 +548,9 @@
       }
     },
     "node_modules/specrails-core": {
-      "version": "4.11.0",
-      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-4.11.0.tgz",
-      "integrity": "sha512-YpR8U8pmQluBR1nfcROXsj0pXrMYdRUcpORSkXsjTmbL7o+JCy2vHxcvn2tY56eEvDR8EhCM6B5Oqzf12e8gew==",
+      "version": "4.12.0",
+      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-4.12.0.tgz",
+      "integrity": "sha512-Srb0XI2WkUFATtG6vfXOVBW59qsOX4gDeWI27JfksftpCqzrTIAMDl4dAk6QfXNdjtcdJ89xxdIThUNFBE68BQ==",
       "license": "MIT",
       "dependencies": {
         "@inquirer/prompts": "^7.0.0",
@@ -562,7 +562,7 @@
         "specrails-core": "bin/specrails-core.mjs"
       },
       "engines": {
-        "node": ">=20.0.0"
+        "node": ">=20.19.0"
       }
     },
     "node_modules/string-width": {
