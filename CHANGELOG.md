@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.31.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.31.1...v2.31.2) (2026-07-20)
+
+
+### Bug Fixes
+
+* **ui:** enlarge existing project modal ([#567](https://github.com/fjpulidop/specrails-desktop/issues/567)) ([e18db14](https://github.com/fjpulidop/specrails-desktop/commit/e18db140b30a991bd8fd891ddd4c80a71a8014f0))
+
 ## [2.31.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.31.0...v2.31.1) (2026-07-20)
 
 
