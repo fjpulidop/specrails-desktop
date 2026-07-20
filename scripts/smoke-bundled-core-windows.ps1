@@ -10,8 +10,8 @@
 #      rules land as dir JUNCTIONS, agents land via the COPY-FALLBACK (file
 #      symlinks need admin on Windows; core falls back to copying). Each must
 #      have content.
-#   4. REAL provider discovery: three providers (claude + gemini + kimi)
-#      materialize +
+#   4. REAL provider discovery: all four providers (claude + codex + gemini +
+#      kimi) materialize +
 #      assemble independently into the same framework/workspace.
 #
 # Run with the BUNDLED node (no system node/git on PATH) to prove the tree is
@@ -51,7 +51,7 @@ function Invoke-Core {
   if ($LASTEXITCODE -ne 0) { Write-Error "core $($CoreArgs -join ' ') failed ($LASTEXITCODE)"; exit 1 }
 }
 
-$providers = @("claude", "gemini", "kimi")
+$providers = @("claude", "codex", "gemini", "kimi")
 
 # 1. Materialize every provider WITHOUT swapping current.
 foreach ($p in $providers) {
@@ -70,9 +70,15 @@ if (-not (Test-Path $current)) { Write-Error "current not created after swap-cur
 Write-Host "current → $version OK"
 
 # 3 + 4. Assemble a workspace per provider + validate the linked subtrees.
-$providerDirs = @{ "claude" = ".claude"; "gemini" = ".gemini"; "kimi" = ".kimi-code" }
+$providerDirs = @{
+  "claude" = ".claude"
+  "codex" = ".codex"
+  "gemini" = ".gemini"
+  "kimi" = ".kimi-code"
+}
 $linkedByProvider = @{
   "claude" = @("agents", "commands", "skills", "rules")
+  "codex" = @("skills")
   "gemini" = @("agents", "commands")
   # Kimi keeps the skills root real so OpenSpec and custom roles can coexist;
   # Core links framework-owned children within it. Rules remains a whole-dir
