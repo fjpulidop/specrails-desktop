@@ -79,12 +79,25 @@ Before allocating any worktree, the engine SHALL attempt to bring the repo's rem
 
 ### Requirement: Per-run worktree overlay (framework surface)
 
-Every isolated run SHALL spawn with `cwd` set directly to the worktree, with `SPECRAILS_REPO_DIR` pointing at that worktree (writes/git land there, never the live repo). Because `git worktree add` materializes only tracked files, the engine SHALL merge-overlay the project's framework surface (provider commands, sr-* agents, skills, rules, settings, `.mcp.json`, the instruction file) INTO the worktree at allocation, sourced from the project's effective artifact root — the workspace for a relocated project, the repo's own untracked on-disk entries for a legacy project — via symlinks (dir links where a dir is wholly absent, per-entry where partially present; junction-then-copy fallback on Windows), NEVER overwriting content the checkout brought. `agent-memory` SHALL be linked so all runs share agent memory (shared-cwd semantics). For a relocated project the workspace artifact indirection env (`SPECRAILS_TICKETS_PATH`, `SPECRAILS_BACKLOG_CONFIG_PATH`, `SPECRAILS_PROFILES_DIR`, `SPECRAILS_STATE_DIR`) SHALL point at the workspace. Overlay-owned paths SHALL be excluded from worktree commits so they never reach the ticket branch/PR; overlay failures SHALL degrade (log + `rail.overlay_degraded` event) without aborting the rail. Git/provenance operations SHALL target the worktree.
+Every isolated run SHALL spawn with `cwd` set directly to the worktree, with `SPECRAILS_REPO_DIR` pointing at that worktree (writes/git land there, never the live repo). Because `git worktree add` materializes only tracked files, the engine SHALL merge-overlay the project's framework surface (provider commands, sr-* agents, skills, rules, settings, `.mcp.json`, the instruction file) INTO the worktree at allocation, sourced from ORDERED source roots: the project's effective artifact root first — the workspace for a relocated project, the repo for a legacy project — and, for a relocated project, the repo's own untracked on-disk entries as a FALLBACK root (so repo-resident carve-outs such as OpenSpec's `/opsx:*` command dirs and `openspec-*` skills reach the worktree exactly as they do for legacy projects). Merging SHALL be via symlinks (whole-entry links where only one root contributes, REAL directories with per-child links where multiple roots contribute children to the same directory, per-entry where the checkout is partially present; junction-then-copy fallback on Windows), with earlier roots winning per entry and checkout content NEVER overwritten. `agent-memory` SHALL be linked so all runs share agent memory (shared-cwd semantics). For a relocated project the workspace artifact indirection env (`SPECRAILS_TICKETS_PATH`, `SPECRAILS_BACKLOG_CONFIG_PATH`, `SPECRAILS_PROFILES_DIR`, `SPECRAILS_STATE_DIR`) SHALL point at the workspace. Overlay-owned paths SHALL be excluded from worktree commits so they never reach the ticket branch/PR; cleanup-evidence authentication SHALL accept a match against any configured source root; overlay failures SHALL degrade (log + `rail.overlay_degraded` event) without aborting the rail. Git/provenance operations SHALL target the worktree.
 
 #### Scenario: Relocated run gets the framework surface in its worktree
 
 - **WHEN** an isolated run is launched for a relocated project
 - **THEN** its spawn `cwd` SHALL be the worktree AND the workspace's provider commands/agents/skills/rules SHALL resolve inside the worktree via overlay links AND `SPECRAILS_REPO_DIR` SHALL point at that run's worktree AND the tickets/backlog/profiles env SHALL point at the workspace
+
+#### Scenario: Relocated run gets repo-resident untracked provider entries
+
+- **WHEN** an isolated run is launched for a relocated project whose repo carries untracked provider-dir entries absent from the workspace (e.g. `.claude/commands/opsx/*.md` installed by OpenSpec)
+- **THEN** those entries SHALL resolve inside the worktree via overlay links sourced from the repo
+- **AND** entries present in the workspace SHALL keep sourcing from the workspace (the workspace root wins per entry)
+- **AND** a directory to which both roots contribute children (e.g. `commands/` with workspace `specrails/` and repo `opsx/`) SHALL be materialized as a real directory containing per-child links to each contributing root
+
+#### Scenario: Resumed worktree upgrades a prior whole-dir link
+
+- **WHEN** the overlay re-runs on a worktree whose prior pass created a whole-dir link for an entry that a fallback root now also contributes children to
+- **THEN** the overlay SHALL replace its own prior link with a real directory of per-child links covering both roots
+- **AND** a symlink the overlay did not create SHALL never be replaced
 
 #### Scenario: Legacy run spawns in the worktree
 
@@ -94,7 +107,7 @@ Every isolated run SHALL spawn with `cwd` set directly to the worktree, with `SP
 #### Scenario: Overlay scaffolding never lands on the branch
 
 - **WHEN** an isolated run's work is committed to its branch
-- **THEN** overlay-owned paths (links, copies, the overlay manifest) SHALL be excluded from the commit
+- **THEN** overlay-owned paths (links, copies, the overlay manifest) SHALL be excluded from the commit, including per-child links inside a merged real directory
 
 #### Scenario: Overlay failure degrades instead of aborting
 
@@ -229,3 +242,22 @@ Startup worktree reconciliation SHALL finish under the repository lock before ne
 - **WHEN** project startup is still reconciling an older worktree path
 - **THEN** a new launch SHALL not reuse that path until reconciliation has completed
 
+### Requirement: Explicit PR target resolves before allocation
+
+When a launch carries an explicit target PR, the isolated launch SHALL resolve and verify that target under the same serialized allocation section as branch/worktree allocation, producing one continuation target applied to every ticket in the launch. Validation failure SHALL reject the launch before any delivery generation is created or worktree allocated; it SHALL NOT fall back to a fresh integration-branch allocation. The existing admission guards (`pr_decision_pending`, `tickets_in_flight`, generation safety) SHALL run before target resolution and keep their current semantics.
+
+#### Scenario: Explicit target materializes the PR head as the worktree branch
+
+- **WHEN** a launch with a valid explicit target reaches allocation
+- **THEN** the worktree SHALL be created on the PR's head branch pinned to the observed `headRefOid`
+- **AND** a multi-ticket launch SHALL collapse to one atomic batch run in that single checkout, exactly as automatic continuations do
+
+#### Scenario: Undecided delivery still blocks an explicit-target relaunch
+
+- **WHEN** the rail slot has an active non-terminal delivery and a new launch names an explicit target PR
+- **THEN** the launch SHALL fail 409 `pr_decision_pending` without resolving the target
+
+#### Scenario: Target validation failure allocates nothing
+
+- **WHEN** explicit-target validation fails for any reason
+- **THEN** no branch, worktree, overlay, or delivery row SHALL exist afterwards for that launch attempt

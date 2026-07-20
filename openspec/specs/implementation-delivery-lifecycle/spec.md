@@ -32,7 +32,7 @@ The platform SHALL persist the actual implementation outcome independently from 
 
 ### Requirement: Recoverable work is never removed automatically
 
-The platform SHALL remove a worktree only after proving, immediately before removal, that all deliverable changes are clean and durably referenced by the recorded commit. That live proof SHALL include tracked, untracked, and ignored paths, while excluding only the trusted overlay paths durably recorded by Specrails for that worktree. Cleanup SHALL NOT unlink or recursively delete a mutable overlay pathname after a separate check. It SHALL atomically rename each authenticated overlay root beneath a persistent same-filesystem quarantine batch root, revalidate it after the rename, explicitly preserve any raced content there, and retain the quarantine from automatic deletion or automatic restoration over a possibly recreated source path. The batch root SHALL be durably recorded before the first child move, SHALL disclose every contained quarantine path through one inspectable root, and SHALL NOT be evicted from delivery state while its bytes remain on disk. Both implementation-card surfaces SHALL disclose safety archives independently from cleanup failures. Dirty, unknown, ref-mismatched, concurrently changed, or unauthenticated ignored worktrees SHALL remain recoverable even when the user dismisses or discards the card: the card MAY become terminal with an honest cleanup warning, but Specrails SHALL NOT interpret that workflow action as permission for forced byte deletion. Worktree release SHALL use non-force removal.
+The platform SHALL remove a worktree only after proving, immediately before removal, that all deliverable changes are clean and durably referenced by the recorded commit. That live proof SHALL include tracked and untracked paths, while excluding only the trusted overlay paths durably recorded by Specrails for that worktree. Gitignored paths SHALL be release-safe only when every live ignored path is covered by the immutable settlement snapshot of ignored paths captured at the moment the worktree was proven clean; an ignored path that appears after settlement, a missing snapshot, an oversized snapshot, or conflicting per-branch snapshots SHALL preserve the worktree. Cleanup SHALL NOT unlink or recursively delete a mutable overlay pathname after a separate check. It SHALL atomically rename each authenticated overlay root beneath a persistent same-filesystem quarantine batch root, revalidate it after the rename, explicitly preserve any raced content there, and retain the quarantine from automatic deletion or automatic restoration over a possibly recreated source path. The batch root SHALL be durably recorded before the first child move, SHALL disclose every contained quarantine path through one inspectable root, and SHALL NOT be evicted from delivery state while its bytes remain on disk. Both implementation-card surfaces SHALL disclose safety archives independently from cleanup failures. Dirty, unknown, ref-mismatched, concurrently changed, or unauthenticated ignored worktrees SHALL remain recoverable even when the user dismisses or discards the card: the card MAY become terminal with an honest cleanup warning, but Specrails SHALL NOT interpret that workflow action as permission for forced byte deletion. Worktree release SHALL use non-force removal.
 
 #### Scenario: Commit fails with dirty changes
 
@@ -54,11 +54,25 @@ The platform SHALL remove a worktree only after proving, immediately before remo
 - **AND** SHALL record and disclose an actionable cleanup warning instead of running forced cleanup
 - **AND** a later retry SHALL revalidate the worktree again so a user can safely resolve the condition
 
-#### Scenario: Ignored user data exists beside a trusted overlay
+#### Scenario: Run-created ignored artifacts release cleanly
 
-- **WHEN** a worktree contains ignored or untracked paths that are not among its durably recorded Specrails overlay paths
+- **WHEN** a delivered worktree's only remaining status entries are gitignored paths that were all present in the immutable settlement snapshot (for example build caches created by the run's own test execution)
+- **THEN** automatic release SHALL treat them as authorized run residue and proceed with non-force removal
+- **AND** the delivery SHALL NOT report `cleanup_incomplete` for those paths
+
+#### Scenario: Ignored user data appears after settlement
+
+- **WHEN** a worktree contains an ignored or untracked path that is not covered by the immutable settlement snapshot or the durably recorded Specrails overlay evidence
 - **THEN** automatic release SHALL preserve the worktree even when ordinary porcelain status appears clean
-- **AND** SHALL NOT trust a writable worktree manifest to classify those user paths as disposable
+- **AND** SHALL NOT trust a writable worktree manifest or a live name-based classification to mark those paths disposable
+- **AND** a delivery without a recorded settlement snapshot SHALL receive no ignored-path authorization at all
+
+#### Scenario: Externally removed worktree terminalizes cleanly
+
+- **WHEN** a recorded worktree's path no longer exists on the filesystem and Git itself cannot inspect it (the user ran `git worktree remove` by hand, or an external prune cleaned it)
+- **THEN** automatic release SHALL prune the stale registration and terminalize the ledger row without a cleanup warning
+- **AND** SHALL NOT keep failing cleanliness verification against the nonexistent path in a way that permanently blocks Checkout of the now-free branch
+- **AND** a path that still exists SHALL keep the full verification requirements unchanged
 
 #### Scenario: An authenticated overlay changes during cleanup
 
@@ -809,3 +823,24 @@ Startup SHALL clear prior-process decision tokens before card projection. It SHA
 - **AND** SHALL clear the pending warning and open admission only after every phase is durably complete
 </content>
 </invoke>
+
+### Requirement: Explicit designation is an authoritative continuation source
+
+Explicit user designation of a target PR SHALL be a sanctioned continuation source ranked above ledger history and gated inference: it is the user's answer, not a discovery guess, so the prohibition on fuzzy external-PR inference SHALL continue to govern only the automatic discovery path. A delivery generation created from an explicit designation SHALL be born attached — `pr_url`/`pr_number` recorded at insert, `isContinuation` set, and every unit's branch ownership recorded as `borrowed-pr` — so all existing borrowed-PR lifecycle, snapshot-convergence, and cleanup rules apply unchanged.
+
+#### Scenario: Explicitly targeted delivery renders as attached from birth
+
+- **WHEN** a launch with a valid explicit target inserts its delivery generation
+- **THEN** both decision surfaces SHALL render the attached-PR presentation (existing PR identity, push-oriented actions) from the `building` state onward
+- **AND** settle SHALL push to the designated PR's head branch rather than creating a new PR
+
+#### Scenario: Discard preserves the explicitly designated PR
+
+- **WHEN** the user discards a delivery whose target was explicitly designated
+- **THEN** the designated PR and its head branch SHALL remain intact under the existing borrowed-PR ownership rules
+- **AND** only Specrails-owned resources of that generation MAY be removed
+
+#### Scenario: Explicit designation does not relax automatic inference
+
+- **WHEN** a launch carries no explicit target
+- **THEN** automatic continuation discovery SHALL keep its existing status gates and exact-match rules, unchanged by this capability
