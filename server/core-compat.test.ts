@@ -96,14 +96,54 @@ describe('checkCoreCompat', () => {
   })
 
   it('exposes provider rendering support from the Core contract', async () => {
+    const renderedProvider = {
+      enrichCommand: '/specrails:enrich',
+      enrichArgs: ['--from-config'],
+      updateCommand: '/specrails:enrich',
+      updateArgs: ['--update'],
+      cli: {},
+    }
+    const kimiRunner = '.kimi-code/specrails/run-skill.mjs'
     setupContractInTmpDir({
       ...COMPATIBLE_CONTRACT,
-      providers: { claude: {}, codex: {}, kimi: { enrichCommand: '/skill:specrails-enrich' } },
+      providers: {
+        claude: renderedProvider,
+        codex: renderedProvider,
+        kimi: {
+          ...renderedProvider,
+          enrichCommand: '/skill:specrails-enrich',
+          cli: {
+            providerBinary: 'kimi',
+            skillRunner: kimiRunner,
+            enrichArgs: [kimiRunner, '--skill', 'specrails-enrich'],
+          },
+        },
+      },
     }, tmpDir)
     const result = await checkCoreCompat()
     expect(result.supportedProviders).toEqual(['claude', 'codex', 'kimi'])
     expect(coreCompatSupportsProvider(result, 'kimi')).toBe(true)
     expect(coreCompatSupportsProvider(result, 'gemini')).toBe(false)
+  })
+
+  it('rejects empty or runner-less Kimi provider declarations', async () => {
+    setupContractInTmpDir({
+      ...COMPATIBLE_CONTRACT,
+      providers: {
+        empty: {},
+        kimi: {
+          enrichCommand: '/skill:specrails-enrich',
+          enrichArgs: ['--from-config'],
+          updateCommand: '/skill:specrails-enrich',
+          updateArgs: ['--update'],
+          cli: { providerBinary: 'kimi' },
+        },
+      },
+    }, tmpDir)
+
+    const result = await checkCoreCompat()
+    expect(result.supportedProviders).toEqual([])
+    expect(coreCompatSupportsProvider(result, 'kimi')).toBe(false)
   })
 
   it('does not treat a missing/legacy contract provider entry as Kimi support', () => {

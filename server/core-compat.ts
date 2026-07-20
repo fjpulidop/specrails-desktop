@@ -56,6 +56,44 @@ interface IntegrationContract {
   providers?: Record<string, unknown>
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+/**
+ * A provider key alone is not proof that Core can render or launch it. Require
+ * the common workflow surface and, for Kimi, the managed materialization runner
+ * that Desktop depends on for every headless Core command.
+ */
+function isRenderedProviderContract(provider: string, value: unknown): boolean {
+  if (!isRecord(value)) return false
+  if (
+    typeof value.enrichCommand !== 'string' ||
+    value.enrichCommand.length === 0 ||
+    !isStringArray(value.enrichArgs) ||
+    typeof value.updateCommand !== 'string' ||
+    value.updateCommand.length === 0 ||
+    !isStringArray(value.updateArgs) ||
+    !isRecord(value.cli)
+  ) {
+    return false
+  }
+
+  if (provider !== 'kimi') return true
+
+  const cli = value.cli
+  const skillRunner = cli.skillRunner
+  return cli.providerBinary === 'kimi' &&
+    typeof skillRunner === 'string' &&
+    skillRunner === '.kimi-code/specrails/run-skill.mjs' &&
+    isStringArray(cli.enrichArgs) &&
+    cli.enrichArgs.includes(skillRunner)
+}
+
 export interface CoreCompatResult {
   compatible: boolean
   coreVersion: string | null
@@ -214,7 +252,11 @@ export async function checkCoreCompat(): Promise<CoreCompatResult> {
   const contract: IntegrationContract = JSON.parse(fs.readFileSync(contractPath, 'utf-8'))
   const supportedProviders =
     contract.providers && typeof contract.providers === 'object'
-      ? Object.keys(contract.providers)
+      ? Object.entries(contract.providers)
+          .filter(([provider, providerContract]) =>
+            isRenderedProviderContract(provider, providerContract),
+          )
+          .map(([provider]) => provider)
       : []
 
   const desktopCheckpointKeys = CHECKPOINTS.map((cp) => cp.key)
