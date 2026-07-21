@@ -326,7 +326,30 @@ export function createProfilesRouter(): Router {
         throw err
       }
       broadcast({ type: 'profile.changed', projectId: project.id, name: 'default' } as never)
-      res.status(201).json({ profile })
+      // Companion `fast` profile (claude only, best-effort): same chain, but
+      // the flanking pipeline stages (architect plan / reviewer gate) run on
+      // haiku while the developer keeps its migrated model — a one-click way
+      // to cut implement wall-clock when the spec doesn't need heavyweight
+      // design/review. Skipped silently when 'fast' already exists.
+      let fastProfile: typeof profile | null = null
+      if (isClaude && isModelAvailableForAdapter(adapter, 'haiku')) {
+        const candidate = {
+          ...profile,
+          name: 'fast',
+          description: 'Speed-first: haiku architect/reviewer, your developer model unchanged. Pick per rail when the spec is routine.',
+          agents: profile.agents.map((a) => (
+            a.id === 'sr-architect' || a.id === 'sr-reviewer' ? { ...a, model: 'haiku' } : a
+          )),
+        }
+        try {
+          createProfile(specRoot(project), candidate as never, provider)
+          fastProfile = candidate
+          broadcast({ type: 'profile.changed', projectId: project.id, name: 'fast' } as never)
+        } catch (err) {
+          if (!(err instanceof ProfileConflictError)) throw err
+        }
+      }
+      res.status(201).json({ profile, ...(fastProfile ? { fastProfile } : {}) })
     } catch (err) {
       handleError(res, err)
     }

@@ -2507,6 +2507,51 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
   })
 })
 
+describe('launchIsolatedRail — warm node_modules reuse', () => {
+  const gitOk = () => ({ run: async (args: string[]) => successfulGitResult(args) })
+  const okCreate = () =>
+    vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+  const noopOverlay = () => vi.fn(() => ({ createdPaths: [], cleanupEvidence: [], warnings: [] }))
+
+  it('links the base repo install into every worktree; linked paths join the commit exclusions', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const calls: { args: string[]; cwd: string }[] = []
+    const git = { run: async (args: string[], cwd: string) => { calls.push({ args, cwd }); return successfulGitResult(args) } }
+    const linkNodeModules = vi.fn(() => ({ linked: ['node_modules', 'client/node_modules'], warnings: [] }))
+    await launchIsolatedRail(input([1], ctx), { git, create: okCreate(), remove: vi.fn(async () => {}), overlay: noopOverlay(), linkNodeModules })
+
+    expect(linkNodeModules).toHaveBeenCalledWith('/repo', '/wt/ticket-1')
+    await vi.waitFor(() => expect(calls.some((c) => c.args[0] === 'commit')).toBe(true))
+    const commit = calls.find((c) => c.args[0] === 'commit')!.args
+    expect(commit).toContain(':(top,exclude,literal)node_modules')
+    expect(commit).toContain(':(top,exclude,literal)client/node_modules')
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('on_review'))
+  })
+
+  it('link warnings degrade (rail.overlay_degraded) without blocking the spawn', async () => {
+    const { ctx, run, broadcast } = fakeCtx()
+    const linkNodeModules = vi.fn(() => ({ linked: [], warnings: ['failed to link node_modules: EACCES'] }))
+    const ids = await launchIsolatedRail(input([1], ctx), { git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}), overlay: noopOverlay(), linkNodeModules })
+
+    expect(ids).toHaveLength(1)
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'rail.overlay_degraded',
+      warnings: ['failed to link node_modules: EACCES'],
+    }))
+  })
+
+  it('a THROWING linker (defensive) degrades the same way instead of failing the launch', async () => {
+    const { ctx, run, broadcast } = fakeCtx()
+    const linkNodeModules = vi.fn(() => { throw new Error('nm boom') })
+    const ids = await launchIsolatedRail(input([1], ctx), { git: gitOk(), create: okCreate(), remove: vi.fn(async () => {}), overlay: noopOverlay(), linkNodeModules: linkNodeModules as never })
+
+    expect(ids).toHaveLength(1)
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'rail.overlay_degraded', warnings: ['nm boom'] }))
+  })
+})
+
 describe('launchIsolatedRail — Code-Explorer provenance (construction story seam)', () => {
   const gitOk = () => ({ run: async (args: string[]) => successfulGitResult(args) })
   const okCreate = () =>
