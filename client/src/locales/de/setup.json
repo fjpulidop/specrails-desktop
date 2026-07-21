@@ -1,7 +1,7 @@
 {
   "wizard": {
     "configureAgents": "{{provider}}-Agenten konfigurieren",
-    "configureSubtitle": "Wählen Sie, welche Agenten installiert und wie sie ausgeführt werden.",
+    "configureSubtitle": "Überprüfe dein Agenten-Team und lege fest, wie jeder Agent ausgeführt wird.",
     "tabs": {
       "agents": "Agenten",
       "models": "Modelle"
@@ -15,7 +15,7 @@
     "waitingForOutput": "Warten auf Ausgabe…",
     "checkpoints": {
       "baseInstall": "Basisinstallation",
-      "agentSelection": "Agentenauswahl",
+      "agentSelection": "Agenten-Konfiguration",
       "agentGeneration": "Agentengenerierung"
     },
     "steps": {

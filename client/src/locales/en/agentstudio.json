@@ -139,16 +139,7 @@
     }
   },
   "agentSelector": {
-    "selectedCount": "{{selected}} / {{total}} agents selected",
-    "selectAll": "Select all",
     "coreBadge": "core",
-    "categories": {
-      "architecture": "Architecture",
-      "development": "Development",
-      "review": "Review",
-      "product": "Product",
-      "utilities": "Utilities"
-    },
     "agents": {
       "sr-architect": {
         "name": "Architect",
@@ -158,55 +149,13 @@
         "name": "Developer",
         "description": "Full-stack implementation across all layers"
       },
-      "sr-frontend-developer": {
-        "name": "Frontend Dev",
-        "description": "Frontend implementation (React, Vue, Angular, etc.)"
-      },
-      "sr-backend-developer": {
-        "name": "Backend Dev",
-        "description": "Backend specialization (APIs, databases, services)"
-      },
       "sr-reviewer": {
         "name": "Reviewer",
         "description": "General code review — the final quality gate"
-      },
-      "sr-frontend-reviewer": {
-        "name": "Frontend Reviewer",
-        "description": "Frontend review (UI, accessibility, performance)"
-      },
-      "sr-backend-reviewer": {
-        "name": "Backend Reviewer",
-        "description": "Backend review (APIs, security, scalability)"
-      },
-      "sr-security-reviewer": {
-        "name": "Security Reviewer",
-        "description": "Security analysis — OWASP, vulnerabilities, hardening"
-      },
-      "sr-performance-reviewer": {
-        "name": "Perf Reviewer",
-        "description": "Performance analysis — profiling, bottlenecks, optimization"
-      },
-      "sr-product-manager": {
-        "name": "Product Manager",
-        "description": "Product discovery, VPC personas, backlog management"
-      },
-      "sr-product-analyst": {
-        "name": "Product Analyst",
-        "description": "Backlog analysis, spec gap analysis, reporting"
-      },
-      "sr-test-writer": {
-        "name": "Test Writer",
-        "description": "Comprehensive test generation (unit, integration, E2E)"
-      },
-      "sr-doc-sync": {
-        "name": "Doc Sync",
-        "description": "Documentation sync — keeps docs aligned with code"
-      },
-      "sr-merge-resolver": {
-        "name": "Merge Resolver",
-        "description": "Merge conflict resolution with context awareness"
       }
-    }
+    },
+    "coreTeamTitle": "Your agent team",
+    "coreTeamNote": "These three core agents are always installed — nothing to choose. Add specialists later with profiles and custom-* agents."
   },
   "templates": {
     "security-reviewer": {

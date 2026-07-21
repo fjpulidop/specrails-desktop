@@ -1,7 +1,7 @@
 {
   "wizard": {
     "configureAgents": "{{provider}} エージェントを設定",
-    "configureSubtitle": "インストールするエージェントと実行方法を選択してください。",
+    "configureSubtitle": "エージェントチームを確認し、各エージェントの実行方法を選択します。",
     "tabs": {
       "agents": "エージェント",
       "models": "モデル"
@@ -15,7 +15,7 @@
     "waitingForOutput": "出力を待機中…",
     "checkpoints": {
       "baseInstall": "ベースインストール",
-      "agentSelection": "エージェント選択",
+      "agentSelection": "エージェント設定",
       "agentGeneration": "エージェント生成"
     },
     "steps": {

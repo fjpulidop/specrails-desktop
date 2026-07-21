@@ -168,11 +168,13 @@ function AgentSelectionStep({
 }) {
   const { t } = useTranslation('setup')
   const [activeTab, setActiveTab] = useState<AgentSelectionTab>('agents')
+  // v5: the core trio is the full shipped set — the agents tab is informative,
+  // never a gate. Models still configure per-agent.
   const selectedAgents = ALL_AGENTS.filter((a) => config.selectedAgents.includes(a.id))
   // Treat null/loading as ok (don't block install on a slow fetch); only block on a definitive negative
   // answer where the server reports `ok: false`.
   const prereqsBlock = prerequisites !== null && !prerequisites.ok && !prerequisitesError
-  const installDisabled = config.selectedAgents.length === 0 || prereqsBlock
+  const installDisabled = prereqsBlock
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -229,10 +231,7 @@ function AgentSelectionStep({
       {/* Tab content */}
       <div className="flex-1 overflow-auto px-6 pb-4">
         {activeTab === 'agents' ? (
-          <AgentSelector
-            selected={config.selectedAgents}
-            onChange={(selectedAgents) => onChange({ ...config, selectedAgents })}
-          />
+          <AgentSelector />
         ) : (
           <ModelSelector
             agents={selectedAgents}

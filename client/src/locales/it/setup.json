@@ -1,7 +1,7 @@
 {
   "wizard": {
     "configureAgents": "Configura gli agenti {{provider}}",
-    "configureSubtitle": "Scegli quali agenti installare e come eseguirli.",
+    "configureSubtitle": "Rivedi il tuo team di agenti e scegli come viene eseguito ciascuno.",
     "tabs": {
       "agents": "Agenti",
       "models": "Modelli"
@@ -15,7 +15,7 @@
     "waitingForOutput": "In attesa dell'output...",
     "checkpoints": {
       "baseInstall": "Installazione di base",
-      "agentSelection": "Selezione degli agenti",
+      "agentSelection": "Configurazione agenti",
       "agentGeneration": "Generazione degli agenti"
     },
     "steps": {

@@ -139,16 +139,7 @@
     }
   },
   "agentSelector": {
-    "selectedCount": "已选择 {{selected}} / {{total}} 个 Agent",
-    "selectAll": "全选",
     "coreBadge": "核心",
-    "categories": {
-      "architecture": "架构",
-      "development": "开发",
-      "review": "评审",
-      "product": "产品",
-      "utilities": "工具"
-    },
     "agents": {
       "sr-architect": {
         "name": "架构师",
@@ -158,55 +149,13 @@
         "name": "开发者",
         "description": "覆盖所有层的全栈实现"
       },
-      "sr-frontend-developer": {
-        "name": "前端开发",
-        "description": "前端实现（React、Vue、Angular 等）"
-      },
-      "sr-backend-developer": {
-        "name": "后端开发",
-        "description": "后端专精（API、数据库、服务）"
-      },
       "sr-reviewer": {
         "name": "评审员",
         "description": "通用代码评审——最终质量门禁"
-      },
-      "sr-frontend-reviewer": {
-        "name": "前端评审",
-        "description": "前端评审（UI、无障碍、性能）"
-      },
-      "sr-backend-reviewer": {
-        "name": "后端评审",
-        "description": "后端评审（API、安全、可扩展性）"
-      },
-      "sr-security-reviewer": {
-        "name": "安全评审",
-        "description": "安全分析——OWASP、漏洞、安全加固"
-      },
-      "sr-performance-reviewer": {
-        "name": "性能评审",
-        "description": "性能分析——性能剖析、瓶颈、优化"
-      },
-      "sr-product-manager": {
-        "name": "产品经理",
-        "description": "产品探索、VPC 用户画像、backlog 管理"
-      },
-      "sr-product-analyst": {
-        "name": "产品分析师",
-        "description": "Backlog 分析、spec 缺口分析、报告"
-      },
-      "sr-test-writer": {
-        "name": "测试编写者",
-        "description": "全面的测试生成（单元、集成、E2E）"
-      },
-      "sr-doc-sync": {
-        "name": "文档同步",
-        "description": "文档同步——保持文档与代码一致"
-      },
-      "sr-merge-resolver": {
-        "name": "合并冲突解决器",
-        "description": "具备上下文感知的合并冲突解决"
       }
-    }
+    },
+    "coreTeamTitle": "你的智能体团队",
+    "coreTeamNote": "这三个核心智能体始终会被安装——无需选择。之后可通过配置档案和 custom-* 智能体添加专家。"
   },
   "templates": {
     "security-reviewer": {
