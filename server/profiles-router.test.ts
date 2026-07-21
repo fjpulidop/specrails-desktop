@@ -784,6 +784,34 @@ describe('POST /profiles/migrate-from-settings', () => {
     expect(res.body.error).toContain('sr-reviewer')
   })
 
+  it('also seeds a fast companion profile: haiku architect/reviewer, developer model kept', async () => {
+    writeAgent('sr-architect', 'opus')
+    writeAgent('sr-developer', 'sonnet')
+    writeAgent('sr-reviewer')
+    const res = await request(app).post('/api/projects/proj-test/profiles/migrate-from-settings')
+    expect(res.status).toBe(201)
+    expect(res.body.fastProfile.name).toBe('fast')
+    const byId = new Map(res.body.fastProfile.agents.map((a: { id: string; model: string }) => [a.id, a.model]))
+    expect(byId.get('sr-architect')).toBe('haiku')
+    expect(byId.get('sr-reviewer')).toBe('haiku')
+    expect(byId.get('sr-developer')).toBe('sonnet')
+    const list = await request(app).get('/api/projects/proj-test/profiles')
+    expect(list.body.profiles.map((p: { name: string }) => p.name).sort()).toContain('fast')
+  })
+
+  it('an existing fast profile is left untouched (no duplicate, no error) on re-migrate', async () => {
+    writeAgent('sr-architect')
+    writeAgent('sr-developer')
+    writeAgent('sr-reviewer')
+    await request(app).post('/api/projects/proj-test/profiles/migrate-from-settings')
+    // Drop only 'default' so re-migrating hits the existing 'fast' conflict path.
+    fs.rmSync(path.join(projectPath, '.specrails', 'profiles', 'default.json'))
+    const res = await request(app).post('/api/projects/proj-test/profiles/migrate-from-settings')
+    expect(res.status).toBe(201)
+    expect(res.body.profile.name).toBe('default')
+    expect(res.body.fastProfile).toBeUndefined()
+  })
+
   it('409 when default already exists', async () => {
     writeAgent('sr-architect')
     writeAgent('sr-developer')

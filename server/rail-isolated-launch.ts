@@ -51,6 +51,7 @@ import {
   applyWorktreeOverlay, revalidateOverlayCleanupEvidence, OVERLAY_MANIFEST,
   type OverlayCleanupEvidence,
 } from './worktree-overlay'
+import { linkNodeModulesIntoWorktree } from './worktree-node-modules'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isCodeExplorerEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
@@ -136,6 +137,9 @@ export interface IsolatedLaunchIO {
   remove?: typeof removeWorktree
   /** Per-run framework overlay applied to each fresh worktree. */
   overlay?: typeof applyWorktreeOverlay
+  /** Warm-dependency reuse: links the base checkout's node_modules into the
+   *  fresh worktree so runs skip the cold `npm install`. */
+  linkNodeModules?: typeof linkNodeModulesIntoWorktree
   /** Resolves the project's execution (relocated vs legacy) — decides the
    *  overlay's primary root and whether the repo is added as fallback. */
   resolveExecution?: typeof resolveProjectExecution
@@ -817,6 +821,17 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         } catch (err) {
           // applyWorktreeOverlay never throws; this guards injected test doubles
           // and future edits — the spawn proceeds regardless.
+          notifyOverlayDegraded(unit.ticketId, [err instanceof Error ? err.message : String(err)])
+        }
+        // Warm-dependency reuse: link the base checkout's node_modules trees
+        // into the fresh worktree (best-effort; a failure just leaves the run
+        // on the legacy cold start). Linked paths join the overlay exclusion
+        // list so they inherit the commit-time guarantees.
+        try {
+          const nm = (io.linkNodeModules ?? linkNodeModulesIntoWorktree)(baseRepo, handle.worktreePath)
+          if (nm.linked.length > 0) overlayExcludes = overlayExcludes.concat(nm.linked)
+          if (nm.warnings.length > 0) notifyOverlayDegraded(unit.ticketId, nm.warnings)
+        } catch (err) {
           notifyOverlayDegraded(unit.ticketId, [err instanceof Error ? err.message : String(err)])
         }
         // Code-Explorer provenance: freeze the worktree's pre-run state (HEAD sha
