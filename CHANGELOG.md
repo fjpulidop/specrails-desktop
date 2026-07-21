@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.33.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.32.0...v2.33.0) (2026-07-21)
+
+
+### Features
+
+* **pipeline:** cost economy program — PR cost footer, deterministic repo map, per-phase attribution ([#573](https://github.com/fjpulidop/specrails-desktop/issues/573)) ([32e8656](https://github.com/fjpulidop/specrails-desktop/commit/32e86561a38f728b56adc7e7374eb701c232b16b))
+* **setup:** reflect core v5 — no agent selection, the trio is the team ([#575](https://github.com/fjpulidop/specrails-desktop/issues/575)) ([a68bad8](https://github.com/fjpulidop/specrails-desktop/commit/a68bad8379ebc133b7997899600aab1178e342aa))
+
 ## [2.32.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.31.2...v2.32.0) (2026-07-21)
 
 
