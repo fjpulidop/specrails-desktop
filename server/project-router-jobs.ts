@@ -30,6 +30,7 @@ import { isInteractiveJobsEnabled } from './feature-flags'
 import type { JobPriority } from './types'
 import { VALID_PRIORITIES } from './types'
 import { resolveCommand } from './command-resolver'
+import { computeJobPhaseBreakdown } from './job-phase-breakdown'
 import { getAdapter } from './providers'
 import { createHooksRouter, getPhaseStates } from './hooks'
 import { getConfig, fetchIssues } from './config'
@@ -722,6 +723,24 @@ const accepted = c.queueManager.sendInteractiveTurn(jobId, text)
     } else {
       res.json({ jobs })
     }
+  })
+
+  // Per-phase cost/usage attribution, computed post-hoc from the persisted
+  // raw stream events (claude Task/parent_tool_use_id envelope). Costs are
+  // rate-card ESTIMATES and flagged as such; providers whose stream carries
+  // no per-event usage (codex/gemini/kimi) return breakdown: null.
+  router.get('/:projectId/jobs/:id/phase-breakdown', (req: Request, res: Response) => {
+    const { db } = ctx(req)
+    const job = db.prepare('SELECT id FROM jobs WHERE id = ?').get(req.params.id)
+    if (!job) {
+      res.status(404).json({ error: 'Job not found' })
+      return
+    }
+    const events = db.prepare(
+      "SELECT event_type, payload, timestamp FROM events WHERE job_id = ? AND event_type IN ('assistant', 'user') ORDER BY seq ASC"
+    ).all(req.params.id) as Array<{ event_type: string; payload: string; timestamp: string | null }>
+    const breakdown = computeJobPhaseBreakdown(events)
+    res.json({ jobId: req.params.id, breakdown })
   })
 
   // Must be registered BEFORE /:projectId/jobs/:id, otherwise Express matches

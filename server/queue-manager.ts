@@ -9,6 +9,7 @@ import type { WsMessage, LogMessage, Job, PhaseDefinition, JobPriority } from '.
 import { PRIORITY_WEIGHT, VALID_PRIORITIES } from './types'
 import { resolveCommand } from './command-resolver'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
+import { injectRepoMapEnv } from './repo-map'
 import { spawnAiCli } from './util/cli-prompt'
 import { extractDisplayText } from './util/stream-display'
 import { resetPhases, setActivePhases } from './hooks'
@@ -2730,6 +2731,10 @@ export class QueueManager {
     if (profileSnapshotPath) {
       spawnEnv = { ...spawnEnv, SPECRAILS_PROFILE_PATH: profileSnapshotPath }
     }
+
+    // Deterministic repo map (zero-AI, best-effort) — orients the pipeline's
+    // exploration phase so it doesn't spend its first turns on `ls`/`find`.
+    spawnEnv = injectRepoMapEnv(spawnEnv, execution.repoDir)
 
     // ─── Plugin resolution + snapshot ──────────────────────────────────────
     // Active = installed + verify ok; degraded = installed but verify failed
