@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.32.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.31.2...v2.32.0) (2026-07-21)
+
+
+### Features
+
+* **loops:** run built-in loops untimed (0 = no timeout) ([#570](https://github.com/fjpulidop/specrails-desktop/issues/570)) ([b48c240](https://github.com/fjpulidop/specrails-desktop/commit/b48c2402a6246efd8090545577ebd008ebd702cd))
+
+
+### Performance Improvements
+
+* **rails:** warm worktrees (linked node_modules) + seeded fast profile ([#571](https://github.com/fjpulidop/specrails-desktop/issues/571)) ([9eba4e6](https://github.com/fjpulidop/specrails-desktop/commit/9eba4e663775d338ad4fd38681bdc9e9f69d1c86))
+
 ## [2.31.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.31.1...v2.31.2) (2026-07-20)
 
 
