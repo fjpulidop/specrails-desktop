@@ -42,11 +42,14 @@ export interface LoopEdge {
 export interface LoopGraphConfig {
   /** Hard upper bound on iterations regardless of the Decider's verdict. */
   maxIterations: number
-  /** Wall-clock timeout for the whole run, in minutes. */
+  /** Wall-clock timeout for the whole run, in minutes. 0 ⇒ no run deadline
+   *  (the iteration cap / cost cap remain the runaway guards). */
   timeoutMinutes: number
   /** Per-AI-step wall-clock timeout, in minutes. Undefined ⇒ the engine default
-   *  (15 min). Factory pipeline loops (implement/batch/freestyle) raise this
-   *  because a single step runs the whole architect→developer→reviewer pipeline. */
+   *  (15 min); 0 ⇒ no per-step timeout. Factory pipeline loops
+   *  (implement/batch/freestyle) disable both because a single step runs the
+   *  whole architect→developer→reviewer pipeline and a legit implement can
+   *  outlast any fixed budget. */
   aiStepTimeoutMinutes?: number
   /** Optional cost cap (USD) for the whole run. Enforced BETWEEN steps (per-step
    *  cost is only known when a step's process exits), so the loop stops before
@@ -99,7 +102,7 @@ export function emptyLoopGraph(): LoopGraph {
  *  - at least one `end` node (the explicit exit),
  *  - every edge references existing nodes (no dangling edges),
  *  - every node is reachable from `start` (no orphan / disconnected nodes),
- *  - a sane config (maxIterations ≥ 1, timeoutMinutes ≥ 1).
+ *  - a sane config (maxIterations ≥ 1, timeoutMinutes ≥ 0 — 0 = no timeout).
  *
  * Returns all errors found (not just the first) so the builder can highlight
  * every problem at once.
@@ -136,11 +139,12 @@ export function validateLoopGraph(graph: LoopGraph): GraphValidationResult {
     !Number.isInteger(cfg.maxIterations) ||
     cfg.maxIterations < 1 ||
     typeof cfg.timeoutMinutes !== 'number' ||
-    cfg.timeoutMinutes < 1
+    !Number.isFinite(cfg.timeoutMinutes) ||
+    cfg.timeoutMinutes < 0
   ) {
     errors.push({
       code: 'INVALID_CONFIG',
-      message: 'maxIterations and timeoutMinutes must both be ≥ 1.',
+      message: 'maxIterations must be ≥ 1 and timeoutMinutes ≥ 0 (0 = no timeout).',
     })
   }
 

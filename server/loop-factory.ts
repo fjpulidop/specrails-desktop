@@ -33,12 +33,14 @@ export interface FactoryLoop {
 const GREEN_GOAL = 'Stop only when the latest verification step reports {{const:VERIFICATION_PASS}} and the history proves the spec is implemented with all required tests/build checks passing.'
 
 // Factory loops run the WHOLE architect→developer→reviewer pipeline inside a
-// single AI step (`/specrails:implement` etc.), so they need far more headroom
-// than the engine defaults (loop 30 min / step 15 min): a real implement can run
-// for a long time. 360 min loop deadline, 60 min per AI step.
+// single AI step (`/specrails:implement` etc.), so no fixed wall-clock budget is
+// honest — a legit implement outran the old 60-min step cap and got killed
+// mid-run. Built-in loops therefore run UNTIMED (0 = no timeout, both the run
+// deadline and the per-step watchdog); maxIterations and the optional cost cap
+// remain the runaway guards.
 const FACTORY_MAX_ITERATIONS = 12
-const FACTORY_LOOP_TIMEOUT_MIN = 360
-const FACTORY_AI_STEP_TIMEOUT_MIN = 60
+const FACTORY_LOOP_TIMEOUT_MIN = 0
+const FACTORY_AI_STEP_TIMEOUT_MIN = 0
 
 const SDD_QUICK_OPENSPEC_FACTORY: FactoryLoop = {
   id: 'factory:sdd-quick-openspec',

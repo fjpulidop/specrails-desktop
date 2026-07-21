@@ -165,6 +165,7 @@
   "preview": {
     "steps": "Passi",
     "limits": "max {{iterations}} iterazioni · {{timeout}} min di timeout",
+    "limitsNoTimeout": "max {{iterations}} iterazioni · nessun timeout",
     "openInBuilder": "Apri nel builder",
     "builtin": "Integrato"
   },

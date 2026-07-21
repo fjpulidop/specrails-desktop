@@ -61,7 +61,7 @@ export interface RunInvocationHooks {
   onSpawnError?: (err: Error) => void
 
   /** Optional wall-clock watchdog. On fire the child is killed and the run
-   *  settles with `timedOut: true`. */
+   *  settles with `timedOut: true`. Undefined or ≤ 0 ⇒ no watchdog. */
   timeoutMs?: number
   onTimeout?: () => void
 }
@@ -131,7 +131,7 @@ export function runAiCliInvocation(hooks: RunInvocationHooks): Promise<Invocatio
     }
     hooks.onSpawn?.(child)
 
-    if (hooks.timeoutMs != null) {
+    if (hooks.timeoutMs != null && hooks.timeoutMs > 0) {
       timer = setTimeout(() => {
         hooks.onTimeout?.()
         // treeKill the whole subtree (a bare child.kill leaves grandchildren),
