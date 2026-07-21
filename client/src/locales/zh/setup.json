@@ -1,7 +1,7 @@
 {
   "wizard": {
     "configureAgents": "配置 {{provider}} Agent",
-    "configureSubtitle": "选择要安装的 Agent 及其运行方式。",
+    "configureSubtitle": "查看你的智能体团队并选择每个智能体的运行方式。",
     "tabs": {
       "agents": "Agent",
       "models": "模型"
@@ -15,7 +15,7 @@
     "waitingForOutput": "等待输出…",
     "checkpoints": {
       "baseInstall": "基础安装",
-      "agentSelection": "Agent 选择",
+      "agentSelection": "智能体配置",
       "agentGeneration": "Agent 生成"
     },
     "steps": {

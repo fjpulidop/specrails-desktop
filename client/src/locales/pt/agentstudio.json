@@ -139,16 +139,7 @@
     }
   },
   "agentSelector": {
-    "selectedCount": "{{selected}} / {{total}} agentes selecionados",
-    "selectAll": "Selecionar todos",
     "coreBadge": "core",
-    "categories": {
-      "architecture": "Arquitetura",
-      "development": "Desenvolvimento",
-      "review": "Revisão",
-      "product": "Produto",
-      "utilities": "Utilitários"
-    },
     "agents": {
       "sr-architect": {
         "name": "Arquiteto",
@@ -158,55 +149,13 @@
         "name": "Developer",
         "description": "Implementação full-stack em todas as camadas"
       },
-      "sr-frontend-developer": {
-        "name": "Dev Frontend",
-        "description": "Implementação frontend (React, Vue, Angular, etc.)"
-      },
-      "sr-backend-developer": {
-        "name": "Dev Backend",
-        "description": "Especialização backend (APIs, bases de dados, serviços)"
-      },
       "sr-reviewer": {
         "name": "Revisor",
         "description": "Revisão de código geral — o gate de qualidade final"
-      },
-      "sr-frontend-reviewer": {
-        "name": "Revisor Frontend",
-        "description": "Revisão frontend (UI, acessibilidade, desempenho)"
-      },
-      "sr-backend-reviewer": {
-        "name": "Revisor Backend",
-        "description": "Revisão backend (APIs, segurança, escalabilidade)"
-      },
-      "sr-security-reviewer": {
-        "name": "Revisor de Segurança",
-        "description": "Análise de segurança — OWASP, vulnerabilidades, hardening"
-      },
-      "sr-performance-reviewer": {
-        "name": "Revisor de Desempenho",
-        "description": "Análise de desempenho — profiling, gargalos, otimização"
-      },
-      "sr-product-manager": {
-        "name": "Product Manager",
-        "description": "Discovery de produto, personas VPC, gestão de backlog"
-      },
-      "sr-product-analyst": {
-        "name": "Analista de Produto",
-        "description": "Análise de backlog, análise de lacunas em specs, relatórios"
-      },
-      "sr-test-writer": {
-        "name": "Escritor de Testes",
-        "description": "Geração abrangente de testes (unitários, integração, E2E)"
-      },
-      "sr-doc-sync": {
-        "name": "Doc Sync",
-        "description": "Sincronização de documentação — mantém a documentação alinhada com o código"
-      },
-      "sr-merge-resolver": {
-        "name": "Merge Resolver",
-        "description": "Resolução de conflitos de merge com consciência do contexto"
       }
-    }
+    },
+    "coreTeamTitle": "Sua equipe de agentes",
+    "coreTeamNote": "Esses três agentes principais são sempre instalados — nada a escolher. Adicione especialistas depois com perfis e agentes custom-*."
   },
   "templates": {
     "security-reviewer": {

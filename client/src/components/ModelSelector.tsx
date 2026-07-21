@@ -69,10 +69,10 @@ export const PRESET_DEFAULTS: Record<ModelPreset, Record<string, string>> = {
   max: { claude: 'sonnet', codex: 'gpt-5.6-sol', gemini: 'gemini-3.5-flash', kimi: 'k3' },
 }
 
-// "max" preset: top model for architect + PM, default for rest (matches specrails-core)
+// "max" preset: top model for the architect, default for the rest (matches
+// specrails-core v5 — the core trio is the full shipped set)
 const MAX_OVERRIDES: Record<string, Record<string, string>> = {
   'sr-architect': { claude: 'opus', codex: 'gpt-5.6-sol', gemini: 'gemini-3.1-pro-preview', kimi: 'k3' },
-  'sr-product-manager': { claude: 'opus', codex: 'gpt-5.6-sol', gemini: 'gemini-3.1-pro-preview', kimi: 'k3' },
 }
 
 export function getDefaultModel(

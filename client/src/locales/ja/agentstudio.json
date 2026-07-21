@@ -139,16 +139,7 @@
     }
   },
   "agentSelector": {
-    "selectedCount": "{{selected}} / {{total}} エージェントを選択中",
-    "selectAll": "すべて選択",
     "coreBadge": "コア",
-    "categories": {
-      "architecture": "アーキテクチャ",
-      "development": "開発",
-      "review": "レビュー",
-      "product": "プロダクト",
-      "utilities": "ユーティリティ"
-    },
     "agents": {
       "sr-architect": {
         "name": "アーキテクト",
@@ -158,55 +149,13 @@
         "name": "デベロッパー",
         "description": "全レイヤーにわたるフルスタック実装"
       },
-      "sr-frontend-developer": {
-        "name": "フロントエンド開発",
-        "description": "フロントエンド実装（React、Vue、Angular など）"
-      },
-      "sr-backend-developer": {
-        "name": "バックエンド開発",
-        "description": "バックエンド特化（API、データベース、サービス）"
-      },
       "sr-reviewer": {
         "name": "レビュアー",
         "description": "一般的なコードレビュー — 最終品質ゲート"
-      },
-      "sr-frontend-reviewer": {
-        "name": "フロントエンドレビュアー",
-        "description": "フロントエンドレビュー（UI、アクセシビリティ、パフォーマンス）"
-      },
-      "sr-backend-reviewer": {
-        "name": "バックエンドレビュアー",
-        "description": "バックエンドレビュー（API、セキュリティ、スケーラビリティ）"
-      },
-      "sr-security-reviewer": {
-        "name": "セキュリティレビュアー",
-        "description": "セキュリティ分析 — OWASP、脆弱性、ハードニング"
-      },
-      "sr-performance-reviewer": {
-        "name": "パフォーマンスレビュアー",
-        "description": "パフォーマンス分析 — プロファイリング、ボトルネック、最適化"
-      },
-      "sr-product-manager": {
-        "name": "プロダクトマネージャー",
-        "description": "プロダクト発見、VPC ペルソナ、バックログ管理"
-      },
-      "sr-product-analyst": {
-        "name": "プロダクトアナリスト",
-        "description": "バックログ分析、スペックギャップ分析、レポーティング"
-      },
-      "sr-test-writer": {
-        "name": "テストライター",
-        "description": "包括的なテスト生成（ユニット、統合、E2E）"
-      },
-      "sr-doc-sync": {
-        "name": "ドキュメント同期",
-        "description": "ドキュメント同期 — ドキュメントをコードと整合させます"
-      },
-      "sr-merge-resolver": {
-        "name": "マージリゾルバー",
-        "description": "コンテキストを考慮したマージコンフリクトの解決"
       }
-    }
+    },
+    "coreTeamTitle": "エージェントチーム",
+    "coreTeamNote": "この3つのコアエージェントは常にインストールされます — 選択は不要です。後からプロファイルと custom-* エージェントで専門エージェントを追加できます。"
   },
   "templates": {
     "security-reviewer": {

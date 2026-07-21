@@ -139,16 +139,7 @@
     }
   },
   "agentSelector": {
-    "selectedCount": "{{selected}} / {{total}} agentes seleccionados",
-    "selectAll": "Seleccionar todo",
     "coreBadge": "core",
-    "categories": {
-      "architecture": "Arquitectura",
-      "development": "Desarrollo",
-      "review": "Revisión",
-      "product": "Producto",
-      "utilities": "Utilidades"
-    },
     "agents": {
       "sr-architect": {
         "name": "Arquitecto",
@@ -158,55 +149,13 @@
         "name": "Desarrollador",
         "description": "Implementación full-stack en todas las capas"
       },
-      "sr-frontend-developer": {
-        "name": "Dev frontend",
-        "description": "Implementación de frontend (React, Vue, Angular, etc.)"
-      },
-      "sr-backend-developer": {
-        "name": "Dev backend",
-        "description": "Especialización en backend (APIs, bases de datos, servicios)"
-      },
       "sr-reviewer": {
         "name": "Revisor",
         "description": "Revisión general de código — el último control de calidad"
-      },
-      "sr-frontend-reviewer": {
-        "name": "Revisor frontend",
-        "description": "Revisión de frontend (UI, accesibilidad, rendimiento)"
-      },
-      "sr-backend-reviewer": {
-        "name": "Revisor backend",
-        "description": "Revisión de backend (APIs, seguridad, escalabilidad)"
-      },
-      "sr-security-reviewer": {
-        "name": "Revisor de seguridad",
-        "description": "Análisis de seguridad — OWASP, vulnerabilidades, hardening"
-      },
-      "sr-performance-reviewer": {
-        "name": "Revisor de rendimiento",
-        "description": "Análisis de rendimiento — profiling, cuellos de botella, optimización"
-      },
-      "sr-product-manager": {
-        "name": "Product Manager",
-        "description": "Descubrimiento de producto, personas VPC, gestión del backlog"
-      },
-      "sr-product-analyst": {
-        "name": "Analista de producto",
-        "description": "Análisis del backlog, detección de huecos en las specs, informes"
-      },
-      "sr-test-writer": {
-        "name": "Redactor de tests",
-        "description": "Generación completa de tests (unitarios, integración, E2E)"
-      },
-      "sr-doc-sync": {
-        "name": "Sincronizador de docs",
-        "description": "Sincronización de documentación — mantiene los docs alineados con el código"
-      },
-      "sr-merge-resolver": {
-        "name": "Resolutor de merges",
-        "description": "Resolución de conflictos de merge teniendo en cuenta el contexto"
       }
-    }
+    },
+    "coreTeamTitle": "Tu equipo de agentes",
+    "coreTeamNote": "Estos tres agentes core se instalan siempre — no hay nada que elegir. Añade especialistas más tarde con perfiles y agentes custom-*."
   },
   "templates": {
     "security-reviewer": {
