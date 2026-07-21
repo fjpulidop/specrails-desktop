@@ -16,6 +16,7 @@ import { runAiCliInvocation } from './spawn-lifecycle'
 import { finaliseInvocationResult } from './result-event'
 import { parseDeciderDecision } from './loop-decider'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
+import { injectRepoMapEnv } from './repo-map'
 import { isInteractiveJobsEnabled } from './feature-flags'
 import type { ProviderAdapter } from './providers/types'
 import {
@@ -101,7 +102,10 @@ function runShellCommand(
  */
 function aiStepEnv(env: NodeJS.ProcessEnv, repoDir: string | undefined): NodeJS.ProcessEnv {
   const base = repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env
-  return isRailPrDeliveryEnabled() ? { ...base, SPECRAILS_GIT_AUTO: 'false' } : base
+  // Deterministic repo map (zero-AI) so the pipeline's exploration phase
+  // starts oriented instead of spending its first turns on `ls`/`find`.
+  const withMap = injectRepoMapEnv(base, repoDir)
+  return isRailPrDeliveryEnabled() ? { ...withMap, SPECRAILS_GIT_AUTO: 'false' } : withMap
 }
 
 /**

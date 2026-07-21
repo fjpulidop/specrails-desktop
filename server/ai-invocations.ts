@@ -128,6 +128,48 @@ export function recordInvocation(db: DbInstance, input: RecordInput): void {
   )
 }
 
+/**
+ * Total AI spend attributable to a set of implementation runs, for the PR-body
+ * cost footer. A "run" id is either a loop_runs row id (loop AI-step/decider
+ * invocations link via `loop_run_id`) or a QueueManager job id (rows with
+ * surface='job' and `surface_ref_id` = the id, plus the merge-orchestrator's
+ * `<jobId>:merge:<step>` sub-rows). Failed/aborted rows count — they billed
+ * real tokens. Returns null when no priced rows match, so callers can omit
+ * the footer instead of printing $0.00 for legacy runs.
+ */
+export function sumInvocationCostForRuns(
+  db: DbInstance,
+  runIds: string[],
+): { totalUsd: number; estimated: boolean } | null {
+  const ids = [...new Set(runIds.filter((id) => typeof id === 'string' && id.length > 0))]
+  if (ids.length === 0) return null
+  const placeholders = ids.map(() => '?').join(', ')
+  const mergePrefixes = ids.map(() => `surface_ref_id LIKE ? ESCAPE '\\'`).join(' OR ')
+  const rows = db.prepare(
+    `SELECT total_cost_usd, total_cost_usd_estimated FROM ai_invocations
+     WHERE total_cost_usd IS NOT NULL
+       AND (loop_run_id IN (${placeholders})
+            OR surface_ref_id IN (${placeholders})
+            OR ${mergePrefixes})`
+  ).all(
+    ...ids,
+    ...ids,
+    ...ids.map((id) => `${escapeLikePattern(id)}:merge:%`),
+  ) as Array<{ total_cost_usd: number; total_cost_usd_estimated: number }>
+  if (rows.length === 0) return null
+  let totalUsd = 0
+  let estimated = false
+  for (const row of rows) {
+    totalUsd += row.total_cost_usd
+    if (row.total_cost_usd_estimated === 1) estimated = true
+  }
+  return { totalUsd, estimated }
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (ch) => `\\${ch}`)
+}
+
 export function updateTicketIdForConversation(
   db: DbInstance,
   conversationId: string,

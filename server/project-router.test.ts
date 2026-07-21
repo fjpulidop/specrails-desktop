@@ -2144,6 +2144,62 @@ describe('project-router', () => {
 
   // ─── Jobs export ─────────────────────────────────────────────────────────
 
+  describe('GET /:projectId/jobs/:id/phase-breakdown', () => {
+    it('404s for an unknown job', async () => {
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app).get('/api/projects/proj-1/jobs/nope/phase-breakdown')
+      expect(res.status).toBe(404)
+    })
+
+    it('computes per-phase usage from persisted assistant/user events', async () => {
+      db.prepare(
+        `INSERT INTO jobs (id, command, started_at, status) VALUES ('pb-1', 'sr:implement', '2026-07-21T10:00:00.000Z', 'completed')`
+      ).run()
+      const insert = db.prepare(
+        `INSERT INTO events (job_id, seq, event_type, source, payload, timestamp) VALUES ('pb-1', ?, ?, 'stdout', ?, ?)`
+      )
+      insert.run(0, 'assistant', JSON.stringify({
+        type: 'assistant',
+        message: {
+          model: 'claude-sonnet-4-6',
+          usage: { input_tokens: 10, output_tokens: 5 },
+          content: [{ type: 'tool_use', name: 'Task', id: 'T1', input: { subagent_type: 'sr-architect' } }],
+        },
+      }), '2026-07-21T10:00:00Z')
+      insert.run(1, 'assistant', JSON.stringify({
+        type: 'assistant',
+        parent_tool_use_id: 'T1',
+        message: { model: 'claude-sonnet-4-6', usage: { input_tokens: 500, output_tokens: 100 }, content: [] },
+      }), '2026-07-21T10:01:00Z')
+      insert.run(2, 'user', JSON.stringify({
+        type: 'user',
+        message: { content: [{ type: 'tool_result', tool_use_id: 'T1' }] },
+      }), '2026-07-21T10:02:00Z')
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app).get('/api/projects/proj-1/jobs/pb-1/phase-breakdown')
+      expect(res.status).toBe(200)
+      expect(res.body.breakdown.estimated).toBe(true)
+      expect(res.body.breakdown.phases).toHaveLength(1)
+      expect(res.body.breakdown.phases[0].agent).toBe('sr-architect')
+      expect(res.body.breakdown.phases[0].tokensIn).toBe(500)
+      expect(res.body.breakdown.phases[0].durationMs).toBe(120000)
+      expect(res.body.breakdown.orchestrator.tokensIn).toBe(10)
+    })
+
+    it('returns breakdown null when the stream carries no usage envelopes', async () => {
+      db.prepare(
+        `INSERT INTO jobs (id, command, started_at, status) VALUES ('pb-2', 'sr:implement', '2026-07-21T10:00:00.000Z', 'completed')`
+      ).run()
+      const ctx = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', ctx]]))
+      const res = await request(app).get('/api/projects/proj-1/jobs/pb-2/phase-breakdown')
+      expect(res.status).toBe(200)
+      expect(res.body.breakdown).toBeNull()
+    })
+  })
+
   describe('GET /:projectId/jobs/export', () => {
     it('returns 400 for invalid format', async () => {
       const ctx = makeContext(db)
