@@ -113,6 +113,10 @@ export interface CanonicalPrBodyInput {
   tickets: PrBodyTicket[]
   /** Keyed by branch; null/undefined ⇒ the whole diff pass failed → section omitted. */
   changes?: Map<string, BranchChanges> | null
+  /** Total AI spend of the runs behind this PR. null/undefined ⇒ footer omitted
+   *  (legacy runs with no priced invocations, or the lookup failed — cost must
+   *  never block or degrade PR creation). */
+  costUsd?: { totalUsd: number; estimated: boolean } | null
 }
 
 export function buildCanonicalPrBody(input: CanonicalPrBodyInput): string {
@@ -125,7 +129,20 @@ export function buildCanonicalPrBody(input: CanonicalPrBodyInput): string {
   const changesSection = buildChangesSection(input.changes ?? null)
   if (changesSection) parts.push(changesSection)
 
+  const costLine = buildCostFooter(input.costUsd ?? null)
+  if (costLine) parts.push(costLine)
+
   return parts.join('\n\n')
+}
+
+/** `> Specrails cost: $X.XX` — the transparency footer that keeps AI spend
+ *  visible at the exact place the work is reviewed. `~` marks a total that
+ *  includes rate-card estimates (providers without native cost, kill-path
+ *  reconstructions). */
+function buildCostFooter(cost: { totalUsd: number; estimated: boolean } | null): string | null {
+  if (!cost || !Number.isFinite(cost.totalUsd) || cost.totalUsd <= 0) return null
+  const prefix = cost.estimated ? '~' : ''
+  return `> Specrails cost: ${prefix}$${cost.totalUsd.toFixed(2)}`
 }
 
 function summaryParagraph(input: CanonicalPrBodyInput): string {

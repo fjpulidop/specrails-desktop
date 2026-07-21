@@ -36,6 +36,7 @@ import { deliverRailAsPr } from './rail-pr-delivery'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from './rail-worktree-release'
 import { batchBranchNameFor, buildPrTitle, type TicketNamingInput } from './pr-naming'
 import { buildCanonicalPrBody, collectBranchChanges, type BranchChanges } from './pr-body'
+import { sumInvocationCostForRuns } from './ai-invocations'
 import { getLinkByLocalId } from './jira/jira-db'
 import {
   appendPrDeliverySafetyArchive, claimPrDeliveryOperation, getPrDelivery,
@@ -1662,12 +1663,21 @@ async function runCreatePr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promis
     changes = null
   }
 
+  // Cost footer is best-effort: a lookup failure omits the line, never blocks.
+  let costUsd: { totalUsd: number; estimated: boolean } | null = null
+  try {
+    costUsd = sumInvocationCostForRuns(deps.db, snap.runIds)
+  } catch {
+    costUsd = null
+  }
+
   const title = buildPrTitle(ticketData, { loopName: row.loop_name })
   const body = buildCanonicalPrBody({
     loopName: row.loop_name,
     baseBranch: row.base_branch,
     tickets: ticketData.map((t) => ({ ...t, branch: branchFor(t.ticketId) })),
     changes,
+    costUsd,
   })
 
   let next: PrDecision

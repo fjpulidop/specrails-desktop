@@ -253,3 +253,35 @@ describe('buildCanonicalPrBody', () => {
     expect(body).toContain('no file changes detected')
   })
 })
+
+// ─── cost footer ──────────────────────────────────────────────────────────────
+
+describe('buildCanonicalPrBody cost footer', () => {
+  const base = { loopName: 'Implement', baseBranch: 'main' }
+
+  it('appends the Specrails cost line as the final block', () => {
+    const t = ticket()
+    const body = buildCanonicalPrBody({
+      ...base, tickets: [t], changes: null,
+      costUsd: { totalUsd: 1.2345, estimated: false },
+    })
+    expect(body.endsWith('> Specrails cost: $1.23')).toBe(true)
+  })
+
+  it('marks estimated totals with ~', () => {
+    const t = ticket()
+    const body = buildCanonicalPrBody({
+      ...base, tickets: [t], changes: null,
+      costUsd: { totalUsd: 0.5, estimated: true },
+    })
+    expect(body).toContain('> Specrails cost: ~$0.50')
+  })
+
+  it('omits the footer for null, zero, and non-finite costs', () => {
+    const t = ticket()
+    for (const costUsd of [null, undefined, { totalUsd: 0, estimated: false }, { totalUsd: Number.NaN, estimated: false }]) {
+      const body = buildCanonicalPrBody({ ...base, tickets: [t], changes: null, costUsd })
+      expect(body).not.toContain('Specrails cost')
+    }
+  })
+})

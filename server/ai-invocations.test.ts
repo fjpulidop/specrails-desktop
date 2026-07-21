@@ -269,3 +269,53 @@ describe('getInvocationsByProvider', () => {
     expect(codex.estimatedCostUsd).toBeCloseTo(0.05)
   })
 })
+
+describe('sumInvocationCostForRuns', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+
+  it('sums loop_run_id, surface_ref_id, and :merge: sub-rows for the given runs', async () => {
+    const { sumInvocationCostForRuns } = await import('./ai-invocations')
+    recordInvocation(db, fixedInput({ id: 'a', surface: 'loop', loop_run_id: 'run-1', total_cost_usd: 1.25 }))
+    recordInvocation(db, fixedInput({ id: 'b', surface: 'job', surface_ref_id: 'run-2', total_cost_usd: 0.5 }))
+    recordInvocation(db, fixedInput({ id: 'c', surface: 'job', surface_ref_id: 'run-2:merge:verify', total_cost_usd: 0.25 }))
+    // Unrelated rows must not count.
+    recordInvocation(db, fixedInput({ id: 'x', surface: 'job', surface_ref_id: 'other-run', total_cost_usd: 9 }))
+    recordInvocation(db, fixedInput({ id: 'y', surface: 'loop', loop_run_id: 'other-loop', total_cost_usd: 9 }))
+    const result = sumInvocationCostForRuns(db, ['run-1', 'run-2'])
+    expect(result).not.toBeNull()
+    expect(result!.totalUsd).toBeCloseTo(2.0)
+    expect(result!.estimated).toBe(false)
+  })
+
+  it('flags estimated when any matched row is rate-card priced; counts failed rows', async () => {
+    const { sumInvocationCostForRuns } = await import('./ai-invocations')
+    recordInvocation(db, fixedInput({ id: 'a', surface: 'job', surface_ref_id: 'run-1', total_cost_usd: 0.4 }))
+    recordInvocation(db, fixedInput({ id: 'b', surface: 'job', surface_ref_id: 'run-1', status: 'failed', total_cost_usd: 0.1, total_cost_usd_estimated: true }))
+    const result = sumInvocationCostForRuns(db, ['run-1'])
+    expect(result!.totalUsd).toBeCloseTo(0.5)
+    expect(result!.estimated).toBe(true)
+  })
+
+  it('returns null for empty ids, blank ids, and runs with no priced rows', async () => {
+    const { sumInvocationCostForRuns } = await import('./ai-invocations')
+    expect(sumInvocationCostForRuns(db, [])).toBeNull()
+    expect(sumInvocationCostForRuns(db, ['', ''])).toBeNull()
+    recordInvocation(db, fixedInput({ id: 'a', surface: 'job', surface_ref_id: 'run-1', total_cost_usd: null as unknown as number }))
+    expect(sumInvocationCostForRuns(db, ['run-1'])).toBeNull()
+  })
+
+  it('escapes LIKE metacharacters in run ids so % and _ cannot over-match', async () => {
+    const { sumInvocationCostForRuns } = await import('./ai-invocations')
+    recordInvocation(db, fixedInput({ id: 'a', surface: 'job', surface_ref_id: 'runX:merge:step', total_cost_usd: 5 }))
+    expect(sumInvocationCostForRuns(db, ['run%'])).toBeNull()
+    expect(sumInvocationCostForRuns(db, ['run_'])).toBeNull()
+  })
+
+  it('dedupes repeated run ids', async () => {
+    const { sumInvocationCostForRuns } = await import('./ai-invocations')
+    recordInvocation(db, fixedInput({ id: 'a', surface: 'loop', loop_run_id: 'run-1', total_cost_usd: 1 }))
+    const result = sumInvocationCostForRuns(db, ['run-1', 'run-1'])
+    expect(result!.totalUsd).toBeCloseTo(1)
+  })
+})
