@@ -193,7 +193,9 @@ export function createLoopExecutors(
         buildOpts,
         cwd,
         env: buildProviderEnv(adapter, buildOpts, stepEnv),
-        timeoutMs: aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS,
+        // 0 ⇒ watchdog disabled (factory loops run untimed; the loop's
+        // maxIterations / cost cap remain the runaway guards).
+        timeoutMs: (aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS) > 0 ? (aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS) : undefined,
         onSpawn,
         // Two complementary streams, mirroring QueueManager's contract:
         //  • RAW JSONL via onStdoutLine → engine emits parsed `event`s that drive
@@ -313,7 +315,8 @@ export function createLoopExecutors(
       return {
         adapter,
         spec: { binary: adapter.binary, args, cwd, env: buildProviderEnv(adapter, buildOpts, stepEnv) },
-        // The loop's ai-step timeout bounds the WHOLE step, interactive included.
+        // The loop's ai-step timeout bounds the WHOLE step, interactive
+        // included. 0 ⇒ unbounded (the engine skips arming the step timer).
         stepTimeoutMs: aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS,
       }
     },

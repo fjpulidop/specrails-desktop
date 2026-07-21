@@ -240,9 +240,10 @@ export function opsxLifecycleGraph(): LoopGraph {
       { id: 'e-stop', source: 'decide', target: 'archive', branch: 'stop' },
       { id: 'e-archive', source: 'archive', target: 'done' },
     ],
-    // Conservative bounds so a never-satisfied verify can't spin: at most 3 full
-    // lifecycle passes; per-step cap raised (apply can implement a whole change).
-    config: { maxIterations: 3, timeoutMinutes: 180, aiStepTimeoutMinutes: 45 },
+    // At most 3 full lifecycle passes guard a never-satisfied verify. Like the
+    // other built-in loops the run is UNTIMED (0 = no timeout) — apply can
+    // implement a whole change and must never be killed mid-flight.
+    config: { maxIterations: 3, timeoutMinutes: 0, aiStepTimeoutMinutes: 0 },
   }
 }
 

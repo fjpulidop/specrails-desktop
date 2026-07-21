@@ -63,13 +63,12 @@ describe('factory loops', () => {
     expect(prompts.some((p) => p.includes('{{cmd:fix}}'))).toBe(true) // refinement on failure
   })
 
-  it('every rail-mode factory loop gets generous timeouts (pipeline-in-one-step needs headroom)', () => {
+  it('every factory loop runs UNTIMED (0 = no timeout; a legit implement must never be killed by wall clock)', () => {
     for (const f of FACTORY_LOOPS) {
-      if (f.mode === 'loop') continue // graph-native loops carry their own authored bounds
-      expect(f.graph.config.timeoutMinutes, f.id).toBe(360)
-      expect(f.graph.config.aiStepTimeoutMinutes, f.id).toBe(60)
+      expect(f.graph.config.timeoutMinutes, f.id).toBe(0)
+      expect(f.graph.config.aiStepTimeoutMinutes, f.id).toBe(0)
     }
-    // The openspec lifecycle keeps its own conservative bounds (3 passes max).
+    // The openspec lifecycle keeps its own conservative iteration bound (3 passes max).
     expect(getFactoryLoop('factory:sdd-quick-openspec')?.graph.config.maxIterations).toBe(3)
     expect(getFactoryLoop('factory:openspec')?.graph.config.maxIterations).toBe(3)
   })

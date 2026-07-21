@@ -165,6 +165,7 @@
   "preview": {
     "steps": "Schritte",
     "limits": "max. {{iterations}} Iterationen · {{timeout}} Min. Timeout",
+    "limitsNoTimeout": "max. {{iterations}} Iterationen · kein Timeout",
     "openInBuilder": "Im Builder öffnen",
     "builtin": "Integriert"
   },

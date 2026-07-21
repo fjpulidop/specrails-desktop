@@ -80,10 +80,14 @@ export function TemplatePreviewModal({
             </div>
 
             <p className="text-[11px] text-muted-foreground">
-              {t('preview.limits', {
-                iterations: template.graph.config.maxIterations,
-                timeout: template.graph.config.timeoutMinutes,
-              })}
+              {template.graph.config.timeoutMinutes > 0
+                ? t('preview.limits', {
+                    iterations: template.graph.config.maxIterations,
+                    timeout: template.graph.config.timeoutMinutes,
+                  })
+                : t('preview.limitsNoTimeout', {
+                    iterations: template.graph.config.maxIterations,
+                  })}
             </p>
 
             <div className="max-h-[50vh] overflow-y-auto space-y-1.5 pr-1">

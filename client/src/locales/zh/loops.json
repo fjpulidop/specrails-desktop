@@ -165,6 +165,7 @@
   "preview": {
     "steps": "步骤",
     "limits": "最多 {{iterations}} 次迭代 · {{timeout}} 分钟超时",
+    "limitsNoTimeout": "最多 {{iterations}} 次迭代 · 无超时",
     "openInBuilder": "在构建器中打开",
     "builtin": "内置"
   },

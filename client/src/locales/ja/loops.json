@@ -165,6 +165,7 @@
   "preview": {
     "steps": "ステップ",
     "limits": "最大 {{iterations}} 回 · {{timeout}} 分タイムアウト",
+    "limitsNoTimeout": "最大 {{iterations}} 回 · タイムアウトなし",
     "openInBuilder": "ビルダーで開く",
     "builtin": "ビルトイン"
   },

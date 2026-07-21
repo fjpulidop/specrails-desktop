@@ -142,7 +142,8 @@ export interface InteractivePlanInput {
   /** Resume a prior step's session (mid-pass continuity — the interactive
    *  equivalent of the one-shot path's chat-resume). Absent on a fresh pass. */
   sessionId?: string
-  /** Per-step wall-clock timeout (ms). Undefined ⇒ executor default (15 min). */
+  /** Per-step wall-clock timeout (ms). Undefined ⇒ executor default (15 min);
+   *  0 ⇒ no per-step timeout. */
   aiStepTimeoutMs?: number
 }
 
@@ -175,7 +176,8 @@ export interface LoopExecutors {
     onLine?: LoopLogSink
     onRawLine?: (line: string) => void
     onSpawn?: LoopSpawnSink
-    /** Per-step wall-clock timeout (ms). Undefined ⇒ executor default (15 min). */
+    /** Per-step wall-clock timeout (ms). Undefined ⇒ executor default (15 min);
+     *  0 ⇒ no per-step timeout. */
     aiStepTimeoutMs?: number
   }): Promise<AiStepResult>
   /** OPTIONAL interactive upgrade for ai-steps: return a resident-session spawn
@@ -852,9 +854,13 @@ export class LoopRunManager {
     const neverAfterDispose = (): Promise<LoopRunResult> => new Promise(() => { /* startup recovery owns settlement */ })
     const runId = req.runId ?? newId()
     const maxIterations = req.graph.config.maxIterations
-    const timeoutMs = req.graph.config.timeoutMinutes * 60_000
-    const deadline = this.now() + timeoutMs
-    // Per-step AI timeout (ms) — undefined falls back to the executor default.
+    // 0 ⇒ no whole-run deadline (built-in pipeline loops opt out of the wall
+    // clock; maxIterations / maxCostUsd remain the runaway guards).
+    const deadline = req.graph.config.timeoutMinutes > 0
+      ? this.now() + req.graph.config.timeoutMinutes * 60_000
+      : Infinity
+    // Per-step AI timeout (ms) — undefined falls back to the executor default,
+    // 0 disables the per-step watchdog entirely.
     const aiStepTimeoutMs = req.graph.config.aiStepTimeoutMinutes != null
       ? req.graph.config.aiStepTimeoutMinutes * 60_000
       : undefined

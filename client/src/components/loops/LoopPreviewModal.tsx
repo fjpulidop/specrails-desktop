@@ -84,10 +84,14 @@ export function LoopPreviewModal({
         </div>
 
         <p className="text-[11px] text-muted-foreground">
-          {t('preview.limits', {
-            iterations: loop.graph.config.maxIterations,
-            timeout: loop.graph.config.timeoutMinutes,
-          })}
+          {loop.graph.config.timeoutMinutes > 0
+            ? t('preview.limits', {
+                iterations: loop.graph.config.maxIterations,
+                timeout: loop.graph.config.timeoutMinutes,
+              })
+            : t('preview.limitsNoTimeout', {
+                iterations: loop.graph.config.maxIterations,
+              })}
         </p>
 
         <div className="min-h-0 space-y-1.5 overflow-y-auto pr-1">

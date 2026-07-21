@@ -163,13 +163,22 @@ describe('validateLoopGraph', () => {
     expect(validateLoopGraph(g).errors.map((e) => e.code)).toContain('INVALID_CONFIG')
   })
 
-  it('flags INVALID_CONFIG for non-positive timeout', () => {
+  it('flags INVALID_CONFIG for a negative timeout', () => {
+    const g = graph(
+      [node('s', 'start'), node('e', 'end')],
+      [edge('e1', 's', 'e')],
+      { timeoutMinutes: -1 }
+    )
+    expect(validateLoopGraph(g).errors.map((e) => e.code)).toContain('INVALID_CONFIG')
+  })
+
+  it('accepts timeoutMinutes 0 (no timeout — the factory-loop untimed sentinel)', () => {
     const g = graph(
       [node('s', 'start'), node('e', 'end')],
       [edge('e1', 's', 'e')],
       { timeoutMinutes: 0 }
     )
-    expect(validateLoopGraph(g).errors.map((e) => e.code)).toContain('INVALID_CONFIG')
+    expect(validateLoopGraph(g).valid).toBe(true)
   })
 
   it('reports multiple distinct problems at once (empty graph)', () => {
