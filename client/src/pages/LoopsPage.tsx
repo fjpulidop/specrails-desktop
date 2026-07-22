@@ -39,7 +39,13 @@ function StatusBadge({ status }: { status: LoopDefinition['status'] }) {
   )
 }
 
-export default function LoopsPage() {
+export interface LoopsPageProps {
+  /** Mission-mode loops dialog: open the embedded builder in place instead of
+   *  navigating to /loops/:id/edit (that route has no home in Agent mode). */
+  onOpenBuilder?: (id: string) => void
+}
+
+export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
   const { t } = useTranslation('loops')
   const navigate = useNavigate()
   // Template / built-in name+description are authored in English on the server;
@@ -146,7 +152,10 @@ export default function LoopsPage() {
     }
   }, [reload, t])
 
-  const openBuilder = useCallback((id: string) => navigate(`/loops/${id}/edit`), [navigate])
+  const openBuilder = useCallback((id: string) => {
+    if (onOpenBuilder) onOpenBuilder(id)
+    else navigate(`/loops/${id}/edit`)
+  }, [onOpenBuilder, navigate])
 
   const handleNew = useCallback(async () => {
     try {

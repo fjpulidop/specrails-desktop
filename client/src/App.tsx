@@ -210,6 +210,9 @@ function DesktopApp() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [loopsOpen, setLoopsOpen] = useState(false)
+  // Mission mode has no /loops/:id/edit route home, so the loops dialog swaps
+  // its body library ↔ embedded builder on this id (null = library).
+  const [loopBuilderId, setLoopBuilderId] = useState<string | null>(null)
   const [pluginsOpen, setPluginsOpen] = useState(false)
   const [docsOpen, setDocsOpen] = useState(false)
   // Stable onClose so memoised DocsDialog doesn't re-render every DesktopApp render.
@@ -292,6 +295,7 @@ function DesktopApp() {
       if (transition.surface === 'loops') {
         setPluginsOpen(false)
         setLoopsOpen(true)
+        if (transition.loopBuilderId) setLoopBuilderId(transition.loopBuilderId)
       } else {
         setLoopsOpen(false)
         setPluginsOpen(true)
@@ -406,8 +410,9 @@ function DesktopApp() {
                 <Route path="/docs" element={<DocsPage />} />
                 <Route path="/docs/:category/:slug" element={<DocsPage />} />
                 {/* Loops — GLOBAL routes (cross-project), outside ProjectLayout.
-                    The builder route (/loops/:id/edit) lands in a later phase;
-                    until then it falls back to the library so Edit never dead-ends. */}
+                    In Mission mode neither route renders: the modalize transition
+                    opens the loops dialog (library, or the embedded builder when
+                    the path carries /loops/:id/edit). */}
                 {FEATURE_LOOPS_SECTION && <Route path="/loops" element={<LoopsPage />} />}
                 {FEATURE_LOOPS_SECTION && <Route path="/loops/:id/edit" element={<LoopBuilderPage />} />}
                 <Route path="/plugins" element={<PluginsPage />} />
@@ -481,7 +486,13 @@ function DesktopApp() {
       {/* Mission-mode Loops: a near-full-screen modal over the agent surface, so
           opening Loops doesn't yank the user out of their mission (kanban mode
           keeps the /loops route). Renders the SAME LoopsPage. */}
-      <Dialog open={loopsOpen} onOpenChange={setLoopsOpen}>
+      <Dialog
+        open={loopsOpen}
+        onOpenChange={(open) => {
+          setLoopsOpen(open)
+          if (!open) setLoopBuilderId(null)
+        }}
+      >
         <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col">
           <DialogTitle className="sr-only">{t('nav:arcSidebar.loops')}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -489,11 +500,17 @@ function DesktopApp() {
           </DialogDescription>
           <GlobalSurfaceDialogChrome
             surface="loops"
-            onClose={() => setLoopsOpen(false)}
+            onClose={() => { setLoopsOpen(false); setLoopBuilderId(null) }}
           />
           <div className="flex-1 overflow-auto">
             <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
-              <LoopsPage />
+              {loopBuilderId ? (
+                <div className="h-full">
+                  <LoopBuilderPage loopId={loopBuilderId} onExit={() => setLoopBuilderId(null)} />
+                </div>
+              ) : (
+                <LoopsPage onOpenBuilder={setLoopBuilderId} />
+              )}
             </Suspense>
           </div>
         </DialogContent>
