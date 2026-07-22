@@ -41,7 +41,7 @@ import {
 import { finaliseInvocationResult } from './result-event'
 import { CORE_PACKAGE_SPEC } from './core-package'
 import type { AdapterEvent } from './providers/types'
-import { getSpending, getInvocations, parseSpendingFilters } from './spending'
+import { getSpending, getInvocations, parseSpendingFilters, getAgentMissionSpending } from './spending'
 import { randomUUID } from 'crypto'
 import {
   getModelsForProvider,
@@ -162,7 +162,16 @@ export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
       return
     }
     try {
-      res.json(getSpending(ctx(req).db, ctx(req).project.id, filters, makeTitleResolver(req)))
+      const spending = getSpending(ctx(req).db, ctx(req).project.id, filters, makeTitleResolver(req))
+      // Agent-mission spend (app-level desktop.sqlite ledger, pinned to this
+      // project) folds in additively — a failure never breaks the dashboard.
+      let agentMissions: ReturnType<typeof getAgentMissionSpending> | undefined
+      try {
+        agentMissions = getAgentMissionSpending(registry.desktopDb, ctx(req).project.id, filters)
+      } catch (err) {
+        console.error('[project-router] agent-mission spending error (non-fatal):', err)
+      }
+      res.json({ ...spending, ...(agentMissions ? { agentMissions } : {}) })
     } catch (err) {
       console.error('[project-router] spending error:', err)
       res.status(500).json({ error: 'Failed to compute spending' })

@@ -202,5 +202,13 @@
     "90d": "最近 90 天",
     "all": "全部时间",
     "custom": "自定义范围"
+  },
+  "agentMissions": {
+    "title": "代理任务",
+    "subtitle": "固定到此项目的 Agent Chat 轮次",
+    "vsPrev": "对比上一周期",
+    "turnsAndTokens": "{{turns}} 轮 · {{tokens}} tokens",
+    "untitled": "未命名任务",
+    "estimatedNote": "包含估算成本"
   }
 }

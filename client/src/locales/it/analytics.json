@@ -202,5 +202,13 @@
     "90d": "Ultimi 90 giorni",
     "all": "Sempre",
     "custom": "Intervallo personalizzato"
+  },
+  "agentMissions": {
+    "title": "Missioni dell’agente",
+    "subtitle": "Turni di Agent Chat fissati a questo progetto",
+    "vsPrev": "vs periodo precedente",
+    "turnsAndTokens": "{{turns}} turni · {{tokens}} token",
+    "untitled": "Missione senza titolo",
+    "estimatedNote": "Include costi stimati"
   }
 }

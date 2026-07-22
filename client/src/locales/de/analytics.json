@@ -202,5 +202,13 @@
     "90d": "Letzte 90 Tage",
     "all": "Gesamter Zeitraum",
     "custom": "Benutzerdefiniert"
+  },
+  "agentMissions": {
+    "title": "Agent-Missionen",
+    "subtitle": "An dieses Projekt angeheftete Agent-Chat-Züge",
+    "vsPrev": "ggü. Vorperiode",
+    "turnsAndTokens": "{{turns}} Züge · {{tokens}} Tokens",
+    "untitled": "Unbenannte Mission",
+    "estimatedNote": "Enthält geschätzte Kosten"
   }
 }

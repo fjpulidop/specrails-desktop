@@ -202,5 +202,13 @@
     "90d": "90 derniers jours",
     "all": "Tout l'historique",
     "custom": "Plage personnalisée"
+  },
+  "agentMissions": {
+    "title": "Missions de l’agent",
+    "subtitle": "Tours d’Agent Chat épinglés à ce projet",
+    "vsPrev": "vs période précédente",
+    "turnsAndTokens": "{{turns}} tours · {{tokens}} tokens",
+    "untitled": "Mission sans titre",
+    "estimatedNote": "Inclut des coûts estimés"
   }
 }

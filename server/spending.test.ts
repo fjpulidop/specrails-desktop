@@ -873,3 +873,54 @@ describe('getInvocations cost sort (BUG-35)', () => {
     expect(parseSpendingFilters({ sortBy: 'bogus' }).sortBy).toBeUndefined()
   })
 })
+
+// ─── getAgentMissionSpending (agent-chat ledger, desktop.sqlite) ─────────────
+
+describe('getAgentMissionSpending', () => {
+  it('sums pinned-project mission turns with estimated split, prev period, and top conversations', async () => {
+    const { initDesktopDb, recordAgentInvocation } = await import('./desktop-db')
+    const { createAgentConversation } = await import('./agent-store')
+    const { getAgentMissionSpending } = await import('./spending')
+    const ddb = initDesktopDb(':memory:')
+    const conv = createAgentConversation(ddb, { pinnedProjectId: 'proj-1' })
+
+    const now = Date.now()
+    const iso = (daysAgo: number) => new Date(now - daysAgo * 86_400_000).toISOString()
+    const base = {
+      conversation_id: conv.id,
+      provider: 'claude',
+      status: 'completed',
+      tokens_in: 1000,
+      tokens_out: 500,
+    }
+    recordAgentInvocation(ddb, { ...base, id: 'a1', project_id: 'proj-1', started_at: iso(1), total_cost_usd: 0.5, total_cost_usd_estimated: 0 } as never)
+    recordAgentInvocation(ddb, { ...base, id: 'a2', project_id: 'proj-1', started_at: iso(2), total_cost_usd: 0.25, total_cost_usd_estimated: 1 } as never)
+    // Prev-period row (35 days ago inside prev window of 30d).
+    recordAgentInvocation(ddb, { ...base, id: 'a3', project_id: 'proj-1', started_at: iso(35), total_cost_usd: 1.0, total_cost_usd_estimated: 0 } as never)
+    // Other project + Home rows never count.
+    recordAgentInvocation(ddb, { ...base, id: 'a4', project_id: 'proj-2', started_at: iso(1), total_cost_usd: 9 } as never)
+    recordAgentInvocation(ddb, { ...base, id: 'a5', project_id: null, started_at: iso(1), total_cost_usd: 9 } as never)
+
+    const result = getAgentMissionSpending(ddb, 'proj-1', { period: '30d' })
+    expect(result.summary.totalCostUsd).toBeCloseTo(0.75)
+    expect(result.summary.estimatedCostUsd).toBeCloseTo(0.25)
+    expect(result.summary.prevTotalCostUsd).toBeCloseTo(1.0)
+    expect(result.summary.turns).toBe(2)
+    expect(result.summary.tokensIn).toBe(2000)
+    expect(result.summary.tokensOut).toBe(1000)
+    expect(result.topConversations).toHaveLength(1)
+    expect(result.topConversations[0].conversationId).toBe(conv.id)
+    expect(result.topConversations[0].costUsd).toBeCloseTo(0.75)
+    expect(result.topConversations[0].turns).toBe(2)
+  })
+
+  it('empty ledger yields zeroed summary', async () => {
+    const { initDesktopDb } = await import('./desktop-db')
+    const { getAgentMissionSpending } = await import('./spending')
+    const ddb = initDesktopDb(':memory:')
+    const result = getAgentMissionSpending(ddb, 'proj-1', { period: '7d' })
+    expect(result.summary.totalCostUsd).toBe(0)
+    expect(result.summary.turns).toBe(0)
+    expect(result.topConversations).toEqual([])
+  })
+})
