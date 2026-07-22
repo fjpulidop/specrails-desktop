@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.34.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.33.0...v2.34.0) (2026-07-22)
+
+
+### Features
+
+* **core:** global zero-friction core — silent add, provider auto-detection, forced legacy migration, framework auto-update ([#578](https://github.com/fjpulidop/specrails-desktop/issues/578)) ([d8c00f7](https://github.com/fjpulidop/specrails-desktop/commit/d8c00f7187e62466d1455b2ed9e9517d8bfa67ee))
+
+
+### Bug Fixes
+
+* Mission-mode modal access + max 3 specs per rail launch ([#576](https://github.com/fjpulidop/specrails-desktop/issues/576)) ([a6dcf72](https://github.com/fjpulidop/specrails-desktop/commit/a6dcf72cbb9bc5164f861cf604b664e6cbbfe98e))
+
 ## [2.33.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.32.0...v2.33.0) (2026-07-21)
 
 
