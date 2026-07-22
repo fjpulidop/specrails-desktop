@@ -35,7 +35,12 @@ async function goToMappingStep() {
   await waitFor(() => expect(screen.getByTestId('jira-project-list')).toBeInTheDocument())
   fireEvent.click(screen.getByRole('button', { name: /OPS/ }))
   fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
+  // Wait for the mapping step to be POPULATED, not merely for the fetch to have
+  // been CALLED — under slow (coverage-instrumented) runs the selects render
+  // before the statuses state commits, and a fireEvent.change targeting a
+  // not-yet-existing <option> is silently ignored (the CI-only statusMap flake).
   await waitFor(() => expect(api.discoverStatuses).toHaveBeenCalled())
+  await screen.findAllByRole('option', { name: 'To Do' })
 }
 
 describe('JiraConnectWizard', () => {
