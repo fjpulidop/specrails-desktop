@@ -110,12 +110,14 @@ describe('BuilderSidebarEntry', () => {
     // M1 still has a todo ticket → launchable; M2 is the next planned milestone
     expect(screen.getByTestId('sidebar-launch-m1')).toBeInTheDocument()
     expect(screen.getByTestId('sidebar-generate-next')).toHaveTextContent('Generate M2')
-    // Regression: the entry is the FIRST nav item (top of the sidebar). A
-    // bottom-anchored panel grows UPWARD past the viewport top, so the tap
-    // looked like a no-op. The panel must anchor to the trigger's top edge.
+    // Regression: both host sidebars set `overflow-hidden` (load-bearing for
+    // their collapse animation), so an in-flow absolute flyout was clipped
+    // away and the tap looked like a no-op. The panel must be PORTALLED to
+    // <body> with fixed coordinates so no ancestor can clip it.
     const panel = screen.getByTestId('builder-sidebar-panel')
-    expect(panel.className).toContain('top-0')
+    expect(panel.className).toContain('fixed')
     expect(panel.className).not.toContain('bottom-0')
+    expect(panel.parentElement).toBe(document.body)
   })
 
   it('hides Launch M1 when no M1 todo tickets remain', async () => {

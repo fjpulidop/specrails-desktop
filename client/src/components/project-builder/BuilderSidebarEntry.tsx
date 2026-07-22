@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Hammer, Loader2, Rocket, Sparkles } from 'lucide-react'
@@ -82,6 +83,34 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
   const [launching, setLaunching] = useState(false)
   const [generating, setGenerating] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  // Fixed-position anchor for the portalled flyout: both host sidebars clip
+  // (`overflow-hidden` is load-bearing for their collapse animation), so an
+  // in-flow absolute panel is invisible. Portal to <body> + fixed coords.
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!panelOpen) {
+      setPanelPos(null)
+      return
+    }
+    const place = () => {
+      const rect = rootRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const PANEL_WIDTH = 256
+      const GAP = 8
+      const left = Math.max(GAP, rect.left - PANEL_WIDTH - GAP)
+      const top = Math.min(Math.max(GAP, rect.top), Math.max(GAP, window.innerHeight - 160))
+      setPanelPos({ top, left })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [panelOpen])
 
   // Live board fetch on open (cheap, avoids a standing subscription here).
   useEffect(() => {
@@ -101,7 +130,10 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
   useEffect(() => {
     if (!panelOpen) return
     const onDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setPanelOpen(false)
+      const target = e.target as Node
+      if (rootRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setPanelOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
@@ -113,7 +145,11 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     try {
       const result = await launchMilestone(activeProjectId, 1)
       if (result.ok) {
-        toast.success(t('done.launchToast', { count: result.ticketCount }))
+        if (result.skippedCount > 0) {
+          toast.warning(t('done.launchPartialToast', { count: result.ticketCount, skipped: result.skippedCount }))
+        } else {
+          toast.success(t('done.launchToast', { count: result.ticketCount }))
+        }
         setPanelOpen(false)
       } else {
         toast.error(t('done.launchFailed'), { description: result.detail ?? result.reason })
@@ -149,9 +185,11 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
         {expanded && <span className="text-xs truncate">{t('sidebar.title')}</span>}
       </button>
 
-      {panelOpen && (
+      {panelOpen && panelPos && createPortal(
         <div
-          className="absolute top-0 right-full z-[60] mr-2 w-64 rounded-lg border border-border/50 bg-background p-3 shadow-xl"
+          ref={panelRef}
+          className="fixed z-[72] w-64 rounded-lg border border-border/50 bg-background p-3 shadow-xl"
+          style={{ top: panelPos.top, left: panelPos.left }}
           data-testid="builder-sidebar-panel"
         >
           <h4 className="text-xs font-semibold">{t('sidebar.title')}</h4>
@@ -212,7 +250,8 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
               </button>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {generating && (
