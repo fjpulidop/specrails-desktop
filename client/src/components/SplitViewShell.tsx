@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { TicketDetailModal } from './TicketDetailModal'
 import { SpecComparePicker } from './SpecComparePicker'
 import type { LocalTicket } from '../types'
@@ -167,7 +168,7 @@ export function SplitViewShell({
   const leftPct = (state.splitRatio * 100).toFixed(2)
   const rightPct = ((1 - state.splitRatio) * 100).toFixed(2)
 
-  return (
+  return createPortal(
     <div
       ref={containerRef}
       data-testid="split-view-shell"
@@ -227,6 +228,7 @@ export function SplitViewShell({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

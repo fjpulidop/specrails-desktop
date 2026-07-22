@@ -169,20 +169,22 @@ describe('TicketDetailModal', () => {
   describe('close behavior', () => {
     it('calls onClose when the X button is clicked', () => {
       const onClose = vi.fn()
-      const { container } = render(<TicketDetailModal {...makeDefaultProps({ onClose })} />)
+      render(<TicketDetailModal {...makeDefaultProps({ onClose })} />)
 
-      // Close button has X icon (no aria-label), find via SVG class
-      const closeBtn = container.querySelector('.lucide-x')!.closest('button')!
+      // Close button has X icon (no aria-label), find via SVG class.
+      // The overlay portals to document.body, so query the document.
+      const closeBtn = document.body.querySelector('.lucide-x')!.closest('button')!
       fireEvent.click(closeBtn)
       expect(onClose).toHaveBeenCalledTimes(1)
     })
 
     it('calls onClose when backdrop is clicked', () => {
       const onClose = vi.fn()
-      const { container } = render(<TicketDetailModal {...makeDefaultProps({ onClose })} />)
+      render(<TicketDetailModal {...makeDefaultProps({ onClose })} />)
 
-      // The backdrop is the absolute inset-0 div behind the panel
-      const backdrop = container.querySelector('.absolute.inset-0')!
+      // The backdrop is the absolute inset-0 div behind the panel.
+      // The overlay portals to document.body, so query the document.
+      const backdrop = document.body.querySelector('.absolute.inset-0')!
       fireEvent.click(backdrop)
       expect(onClose).toHaveBeenCalledTimes(1)
     })
