@@ -5,6 +5,10 @@ export const BASE_RAIL_COUNT = 3
 /** Hard cap on rails per project — keeps railIndex-keyed maps (metrics,
  *  pr-deliveries, worktree progress) bounded and the board renderable. */
 export const MAX_RAILS = 12
+/** Hard cap on specs a single rail may LAUNCH with — a bigger batch must be
+ *  chunked across several rails (the milestone launcher does this client-side;
+ *  the launch route rejects oversized rails with `rail_ticket_cap_exceeded`). */
+export const MAX_TICKETS_PER_RAIL_LAUNCH = 3
 
 export interface RailState {
   railIndex: number

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { formatDistanceToNow } from 'date-fns'
@@ -826,17 +827,20 @@ export function TicketDetailModal({
   )
 
   if (embedded) return panel
-  return (
+  return createPortal(
     // z-[68]: above the floating AgentChatPanel (z-[60]/z-[61]) AND above the
     // JobDetailModal (z-[65]) — a spec chip clicked INSIDE a mission-mode job
     // modal must open the ticket IN FRONT of it, not behind. The ticket surface
     // never opens a job modal, so ticket-always-above-job is a consistent rule.
     // Still below the MinimizedChatsDock (z-[70]) and browser-capture (z-[80]).
+    // Portalled to document.body so it escapes the #root stacking context
+    // (position:relative + z-index:0) and can layer against body-portalled modals.
     <div className="fixed inset-0 z-[68] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={guardBackdrop(onClose)} />
       {panel}
       <ResizeGrips handles={resizeHandles} />
-    </div>
+    </div>,
+    document.body,
   )
 }
 

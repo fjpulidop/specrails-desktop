@@ -5,6 +5,7 @@
     "railLimitReached": "Limite di rail raggiunto ({{max}} max)",
     "railDeleteFailed": "Impossibile rimuovere il rail — contiene spec, è in esecuzione o ha una decisione PR in sospeso",
     "launchTicketsInFlight": "Una spec di questo rail è già in lavorazione da un'esecuzione attiva",
+    "launchTicketCap": "Questo binario ha {{count}} spec — un lancio ne accetta al massimo {{max}} per binario. Distribuiscile su più binari.",
     "launchAllSummary_one": "{{count}} rail lanciato in parallelo",
     "launchAllSummary_other": "{{count}} rail lanciati in parallelo",
     "launchAllNoneEligible": "Nessun rail pronto al lancio — assegna prima le spec a un rail libero",

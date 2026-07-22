@@ -124,10 +124,18 @@ function LoopNodeBox({ id, data, selected }: NodeProps<Node<LoopNodeData>>) {
   )
 }
 
-function BuilderInner() {
+function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
   const { t } = useTranslation('loops')
   const navigate = useNavigate()
-  const { id } = useParams<{ id: string }>()
+  const { id: routeId } = useParams<{ id: string }>()
+  // Embedded mode (Mission-mode loops dialog): the id and the exit action come
+  // in as props instead of the route — the builder is not mounted under
+  // /loops/:id/edit there.
+  const id = loopId ?? routeId
+  const exitBuilder = useCallback(() => {
+    if (onExit) onExit()
+    else navigate('/loops')
+  }, [onExit, navigate])
   const theme = useActiveTheme()
   const { fitView } = useReactFlow()
 
@@ -342,7 +350,7 @@ function BuilderInner() {
     try {
       await loopsApi.publish(id)
       toast.success(t('builder.published'))
-      navigate('/loops')
+      exitBuilder()
     } catch (err) {
       if (err instanceof LoopPublishError) {
         toast.error(t('errors.publishInvalid'))
@@ -350,7 +358,7 @@ function BuilderInner() {
         toast.error(err instanceof Error && err.message ? err.message : t('errors.save'))
       }
     }
-  }, [id, save, navigate, t])
+  }, [id, save, exitBuilder, t])
 
   const selected = nodes.find((n) => n.id === selectedId) ?? null
 
@@ -360,7 +368,7 @@ function BuilderInner() {
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 px-4 h-12 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <button type="button" onClick={() => navigate('/loops')} className="text-muted-foreground hover:text-foreground" aria-label={t('builder.back')}>
+          <button type="button" onClick={exitBuilder} className="text-muted-foreground hover:text-foreground" aria-label={t('builder.back')}>
             <ArrowLeft className="w-4 h-4" />
           </button>
           <input
@@ -916,10 +924,17 @@ function NodeInspector({
   )
 }
 
-export default function LoopBuilderPage() {
+export interface LoopBuilderPageProps {
+  /** Embedded mode: edit THIS loop instead of the /loops/:id/edit route param. */
+  loopId?: string
+  /** Embedded mode: back/publish exit hook instead of navigate('/loops'). */
+  onExit?: () => void
+}
+
+export default function LoopBuilderPage({ loopId, onExit }: LoopBuilderPageProps = {}) {
   return (
     <ReactFlowProvider>
-      <BuilderInner />
+      <BuilderInner loopId={loopId} onExit={onExit} />
     </ReactFlowProvider>
   )
 }

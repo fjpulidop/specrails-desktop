@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getGlobalRouteModeTransition, modalSurfaceForPath } from '../global-route-mode-transition'
+import { getGlobalRouteModeTransition, loopBuilderIdForPath, modalSurfaceForPath } from '../global-route-mode-transition'
 
 describe('global route mode transitions', () => {
   it('maps Loops and Plugins routes to mission modal surfaces', () => {
@@ -42,6 +42,30 @@ describe('global route mode transitions', () => {
       loopsOpen: false,
       pluginsOpen: true,
     })).toEqual({ kind: 'route', surface: 'plugins', path: '/plugins' })
+  })
+
+  it('extracts the loop id from the builder route only', () => {
+    expect(loopBuilderIdForPath('/loops/abc-123/edit')).toBe('abc-123')
+    expect(loopBuilderIdForPath('/loops/abc-123/edit/')).toBe('abc-123')
+    expect(loopBuilderIdForPath('/loops')).toBeNull()
+    expect(loopBuilderIdForPath('/loops/abc-123')).toBeNull()
+    expect(loopBuilderIdForPath('/plugins')).toBeNull()
+  })
+
+  it('mission mode modalizes the builder route carrying the loop id', () => {
+    expect(getGlobalRouteModeTransition({
+      uiMode: 'agent',
+      pathname: '/loops/loop-9/edit',
+      loopsOpen: false,
+      pluginsOpen: false,
+    })).toEqual({ kind: 'modalize', surface: 'loops', backgroundPath: '/', loopBuilderId: 'loop-9' })
+
+    expect(getGlobalRouteModeTransition({
+      uiMode: 'agent',
+      pathname: '/loops',
+      loopsOpen: false,
+      pluginsOpen: false,
+    })).toEqual({ kind: 'modalize', surface: 'loops', backgroundPath: '/' })
   })
 
   it('does not transform unrelated routes or normal Board global pages', () => {

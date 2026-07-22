@@ -5,6 +5,7 @@
     "railLimitReached": "Rail limit reached ({{max}} max)",
     "railDeleteFailed": "Couldn't remove the rail — it holds specs, is running, or has a pending PR decision",
     "launchTicketsInFlight": "A spec on this rail is already being worked by an active run",
+    "launchTicketCap": "This rail has {{count}} specs — a launch takes at most {{max}} per rail. Split them across rails.",
     "launchAllSummary_one": "{{count}} rail launched in parallel",
     "launchAllSummary_other": "{{count}} rails launched in parallel",
     "launchAllNoneEligible": "No rails ready to launch — assign specs to an idle rail first",

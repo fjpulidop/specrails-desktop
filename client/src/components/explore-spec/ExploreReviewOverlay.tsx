@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Check, ChevronRight } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -66,7 +67,7 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
     return () => window.removeEventListener('keydown', onKey)
   }, [onBack])
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -168,7 +169,8 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
           </Button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

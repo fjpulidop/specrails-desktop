@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   Sparkles,
@@ -174,7 +175,7 @@ export function AiEditShell(props: AiEditShellProps) {
     props.uiPhase === 'error'
   const isSplit = props.uiPhase === 'reviewing' || props.uiPhase === 'applied'
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex p-3 pt-10 sm:p-6 sm:pt-12 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
       data-testid="ai-edit-backdrop"
@@ -232,7 +233,8 @@ export function AiEditShell(props: AiEditShellProps) {
       )}
     </div>
     <ResizeGrips handles={resizeHandles} />
-    </div>
+    </div>,
+    document.body,
   )
 }
 

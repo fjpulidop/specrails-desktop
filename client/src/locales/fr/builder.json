@@ -79,7 +79,8 @@
     "description": "Votre backlog du Jalon 1 est sur le tableau, étiqueté M1.",
     "launchM1": "Lancer le Jalon 1",
     "openProject": "Ouvrir le projet",
-    "launchToast": "Jalon 1 lancé — {{count}} specs sur un rail",
+    "launchToast": "Jalon 1 lancé — {{count}} specs réparties sur des rails (max 3 par rail)",
+    "launchPartialToast": "Jalon 1 partiellement lancé — {{count}} specs lancées, {{skipped}} en attente",
     "launchFailed": "Impossible de lancer le Jalon 1"
   },
   "sidebar": {

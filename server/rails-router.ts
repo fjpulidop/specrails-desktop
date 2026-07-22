@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express'
 import type { ProjectContext } from './project-registry'
-import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, createRail, deleteRail, railCount, railExists, MAX_RAILS, type RailState } from './rails-store'
+import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, createRail, deleteRail, railCount, railExists, MAX_RAILS, MAX_TICKETS_PER_RAIL_LAUNCH, type RailState } from './rails-store'
 import { ClaudeNotFoundError, CodexNotFoundError } from './queue-manager'
 import { validateRequestedProvider } from './provider-selection'
 import { isLoopsEnabled, isCodeExplorerEnabled } from './feature-flags'
@@ -453,6 +453,17 @@ export function createRailsRouter(): Router {
 
     if (rail.ticketIds.length === 0) {
       res.status(400).json({ error: 'Rail has no tickets assigned' }); return
+    }
+
+    // Per-rail spec cap: a single launch may carry at most
+    // MAX_TICKETS_PER_RAIL_LAUNCH specs — bigger batches must be chunked
+    // across rails (the milestone launcher does this automatically).
+    if (rail.ticketIds.length > MAX_TICKETS_PER_RAIL_LAUNCH) {
+      res.status(400).json({
+        error: 'rail_ticket_cap_exceeded',
+        max: MAX_TICKETS_PER_RAIL_LAUNCH,
+        ticketCount: rail.ticketIds.length,
+      }); return
     }
 
     // Concurrent-launch safety (parallel rails): a ticket already worked by an

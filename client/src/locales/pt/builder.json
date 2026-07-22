@@ -79,7 +79,8 @@
     "description": "Seu backlog do Marco 1 está no quadro, com a etiqueta M1.",
     "launchM1": "Lançar o Marco 1",
     "openProject": "Abrir o projeto",
-    "launchToast": "Marco 1 lançado — {{count}} specs em um trilho",
+    "launchToast": "Marco 1 lançado — {{count}} specs distribuídas em trilhos (máx. 3 por trilho)",
+    "launchPartialToast": "Marco 1 lançado parcialmente — {{count}} specs lançadas, {{skipped}} pendentes",
     "launchFailed": "Não foi possível lançar o Marco 1"
   },
   "sidebar": {

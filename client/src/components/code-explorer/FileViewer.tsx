@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ChevronDown, ChevronUp, FileMinus2, FilePlus2, FileText, GitCommitHorizontal } from 'lucide-react'
@@ -623,7 +624,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
         </>
       )}
 
-      {budgetPromptOpen && (
+      {budgetPromptOpen && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           role="dialog"
@@ -656,7 +657,8 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
             </div>
           </div>
           <ResizeGrips handles={budgetModal.resizeHandles} />
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

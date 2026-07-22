@@ -79,7 +79,8 @@
     "description": "Il backlog della Milestone 1 è sulla board, etichettato M1.",
     "launchM1": "Lancia la Milestone 1",
     "openProject": "Apri il progetto",
-    "launchToast": "Milestone 1 lanciata — {{count}} spec su un binario",
+    "launchToast": "Milestone 1 lanciata — {{count}} spec distribuite sui binari (max 3 per binario)",
+    "launchPartialToast": "Milestone 1 lanciata parzialmente — {{count}} spec lanciate, {{skipped}} in attesa",
     "launchFailed": "Impossibile lanciare la Milestone 1"
   },
   "sidebar": {

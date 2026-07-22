@@ -79,7 +79,8 @@
     "description": "マイルストーン1のバックログが M1 ラベル付きでボードにあります。",
     "launchM1": "マイルストーン1を起動",
     "openProject": "プロジェクトを開く",
-    "launchToast": "マイルストーン1を起動 — {{count}} 件のスペックを1つのレールで",
+    "launchToast": "マイルストーン1を起動 — {{count}} 件のスペックをレールに分配（1レール最大3件）",
+    "launchPartialToast": "マイルストーン1を部分的に起動 — {{count}} 件を起動、{{skipped}} 件が保留",
     "launchFailed": "マイルストーン1を起動できませんでした"
   },
   "sidebar": {

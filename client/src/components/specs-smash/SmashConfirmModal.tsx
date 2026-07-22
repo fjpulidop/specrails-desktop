@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation, Trans } from 'react-i18next'
 import { Split, Zap, X } from 'lucide-react'
 
@@ -60,7 +61,7 @@ export function SmashConfirmModal({
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center"
       role="dialog"
@@ -177,6 +178,7 @@ export function SmashConfirmModal({
         </div>
       </div>
       <ResizeGrips handles={resizeHandles} />
-    </div>
+    </div>,
+    document.body,
   )
 }

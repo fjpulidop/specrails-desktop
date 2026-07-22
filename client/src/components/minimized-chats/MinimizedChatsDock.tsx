@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronUp } from 'lucide-react'
 import type { MinimizedChat } from '../../context/MinimizedChatsContext'
@@ -53,7 +54,7 @@ export function MinimizedChatsDock({
   // Anchored bottom-right, clearing the right icon rail (w-12).
   const rightClass = 'right-14'
 
-  return (
+  return createPortal(
     <div
       data-testid="minimized-chats-dock"
       aria-label={t('dock.minimizedSessions', { count: ordered.length })}
@@ -78,6 +79,7 @@ export function MinimizedChatsDock({
           {t('dock.minimizedCount', { count: ordered.length })}
         </div>
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }

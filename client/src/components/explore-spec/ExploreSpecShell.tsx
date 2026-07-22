@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Check, Send, Loader2, Minus, Sparkles, X, Plug, Globe, Ratio } from 'lucide-react'
 import { toast } from 'sonner'
@@ -763,7 +764,7 @@ export function ExploreSpecShell({
 
   const macPadLeft = isMacTauriOverlay() ? 'pl-[88px]' : 'pl-4'
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex p-3 pt-10 sm:p-6 sm:pt-12 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
       data-testid="explore-spec-backdrop"
@@ -1157,7 +1158,8 @@ export function ExploreSpecShell({
           confirmLabel={isEditingExisting ? t('shell.updateSpec') : t('shell.createSpec')}
         />
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }
 

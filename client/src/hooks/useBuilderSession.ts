@@ -395,7 +395,11 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     try {
       const result = await launchMilestone(createdProjectId, 1)
       if (result.ok) {
-        toast.success(t('done.launchToast', { count: result.ticketCount }))
+        if (result.skippedCount > 0) {
+          toast.warning(t('done.launchPartialToast', { count: result.ticketCount, skipped: result.skippedCount }))
+        } else {
+          toast.success(t('done.launchToast', { count: result.ticketCount }))
+        }
         setActiveProjectId(createdProjectId)
         onFinishedRef.current()
       } else {

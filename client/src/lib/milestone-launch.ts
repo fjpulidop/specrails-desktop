@@ -1,12 +1,15 @@
-// "Launch Milestone N" (add-project-builder D6): place ALL `M<n>`-labeled todo
-// tickets on ONE rail and launch it batch-implement (sequential, single
-// worktree, single PR) — greenfield milestone specs are chain-dependent, so
-// parallel per-ticket rails from a near-empty main would each build on
-// nothing. Reuses the existing rails REST surface unchanged; the server maps
-// the bare mode to the batch factory loop (worktree isolation + ask-first PR).
+// "Launch Milestone N" (add-project-builder D6): place `M<n>`-labeled todo
+// tickets on rails and launch them batch-implement (sequential, single
+// worktree, single PR per rail). Each rail carries AT MOST
+// MAX_TICKETS_PER_RAIL specs — a large milestone is chunked across several
+// rails instead of dumping the whole set on one. Reuses the existing rails
+// REST surface unchanged; the server maps the bare mode to the batch factory
+// loop (worktree isolation + ask-first PR) and enforces the same per-rail cap.
+
+export const MAX_TICKETS_PER_RAIL = 3
 
 export type MilestoneLaunchResult =
-  | { ok: true; railIndex: number; ticketCount: number }
+  | { ok: true; railIndices: number[]; ticketCount: number; skippedCount: number }
   | { ok: false; reason: 'no-tickets' | 'rail-create-failed' | 'assign-failed' | 'launch-failed'; detail?: string }
 
 interface TicketLite {
@@ -26,11 +29,19 @@ export function filterMilestoneTickets(tickets: TicketLite[], milestone: number)
     .map((t) => t.id)
 }
 
+export function chunkTickets(ticketIds: number[], size: number = MAX_TICKETS_PER_RAIL): number[][] {
+  const chunks: number[][] = []
+  for (let i = 0; i < ticketIds.length; i += size) chunks.push(ticketIds.slice(i, i + size))
+  return chunks
+}
+
 /**
- * Gather M<n> todo tickets → create a rail (server allocates the lowest free
- * index) → assign → launch batch-implement. Any HTTP failure surfaces as a
- * typed reason for the caller's toast; existing launch guards (409
- * tickets_in_flight / pr_decision_pending) arrive as `launch-failed` details.
+ * Gather M<n> todo tickets → chunk into groups of ≤ MAX_TICKETS_PER_RAIL →
+ * for each chunk: create a rail (server allocates the lowest free index) →
+ * assign → launch batch-implement. A failure before anything launched
+ * surfaces as a typed reason; a failure after at least one rail launched
+ * returns `ok: true` with the launched count plus `skippedCount` so the
+ * caller's toast can say how many specs did not make it.
  */
 export async function launchMilestone(
   projectId: string,
@@ -46,36 +57,60 @@ export async function launchMilestone(
   const ticketIds = filterMilestoneTickets(tickets, milestone)
   if (ticketIds.length === 0) return { ok: false, reason: 'no-tickets' }
 
-  const railRes = await fetchImpl(`${base}/rails`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: milestoneLabel(milestone) }),
-  })
-  if (!railRes.ok) {
-    const body = await railRes.json().catch(() => ({}))
-    return { ok: false, reason: 'rail-create-failed', detail: (body as { error?: string }).error }
-  }
-  const { rail } = (await railRes.json()) as { rail: { railIndex: number } }
+  const chunks = chunkTickets(ticketIds)
+  const railIndices: number[] = []
+  let launchedTickets = 0
+  let failure: { reason: 'rail-create-failed' | 'assign-failed' | 'launch-failed'; detail?: string } | null = null
 
-  const assignRes = await fetchImpl(`${base}/rails/${rail.railIndex}/tickets`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ticketIds, mode: 'batch-implement' }),
-  })
-  if (!assignRes.ok) {
-    const body = await assignRes.json().catch(() => ({}))
-    return { ok: false, reason: 'assign-failed', detail: (body as { error?: string }).error }
+  for (const [chunkIndex, chunk] of chunks.entries()) {
+    const railName = chunks.length === 1
+      ? milestoneLabel(milestone)
+      : `${milestoneLabel(milestone)} · ${chunkIndex + 1}`
+
+    const railRes = await fetchImpl(`${base}/rails`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: railName }),
+    })
+    if (!railRes.ok) {
+      const body = await railRes.json().catch(() => ({}))
+      failure = { reason: 'rail-create-failed', detail: (body as { error?: string }).error }
+      break
+    }
+    const { rail } = (await railRes.json()) as { rail: { railIndex: number } }
+
+    const assignRes = await fetchImpl(`${base}/rails/${rail.railIndex}/tickets`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticketIds: chunk, mode: 'batch-implement' }),
+    })
+    if (!assignRes.ok) {
+      const body = await assignRes.json().catch(() => ({}))
+      failure = { reason: 'assign-failed', detail: (body as { error?: string }).error }
+      break
+    }
+
+    const launchRes = await fetchImpl(`${base}/rails/${rail.railIndex}/launch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'batch-implement' }),
+    })
+    if (!launchRes.ok) {
+      const body = await launchRes.json().catch(() => ({}))
+      failure = { reason: 'launch-failed', detail: (body as { error?: string }).error }
+      break
+    }
+
+    railIndices.push(rail.railIndex)
+    launchedTickets += chunk.length
   }
 
-  const launchRes = await fetchImpl(`${base}/rails/${rail.railIndex}/launch`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'batch-implement' }),
-  })
-  if (!launchRes.ok) {
-    const body = await launchRes.json().catch(() => ({}))
-    return { ok: false, reason: 'launch-failed', detail: (body as { error?: string }).error }
-  }
+  if (railIndices.length === 0 && failure) return { ok: false, ...failure }
 
-  return { ok: true, railIndex: rail.railIndex, ticketCount: ticketIds.length }
+  return {
+    ok: true,
+    railIndices,
+    ticketCount: launchedTickets,
+    skippedCount: ticketIds.length - launchedTickets,
+  }
 }
