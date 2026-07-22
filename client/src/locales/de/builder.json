@@ -129,5 +129,15 @@
     "description": "Spec-Beschreibung",
     "acceptanceCriteria": "Akzeptanzkriterien",
     "criteriaEmpty": "Noch keine Akzeptanzkriterien."
+  },
+  "sequential": {
+    "modeLabel": "Startmodus",
+    "mode": {
+      "sequential": "Sequenziell",
+      "parallel": "Parallel"
+    },
+    "chunkLaunched": "{{milestone}} — Rail {{chunk}}/{{total}} gestartet",
+    "chunkFailed": "{{milestone}} — Rail {{chunk}}/{{total}} konnte nicht starten; restliche Rails gestoppt",
+    "done": "{{milestone}} abgeschlossen — {{count}} Specs durchliefen die sequenzielle Kette"
   }
 }

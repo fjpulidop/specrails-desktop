@@ -129,5 +129,15 @@
     "description": "スペックの説明",
     "acceptanceCriteria": "受け入れ基準",
     "criteriaEmpty": "受け入れ基準はまだありません。"
+  },
+  "sequential": {
+    "modeLabel": "起動モード",
+    "mode": {
+      "sequential": "順次",
+      "parallel": "並列"
+    },
+    "chunkLaunched": "{{milestone}} — レール {{chunk}}/{{total}} を起動",
+    "chunkFailed": "{{milestone}} — レール {{chunk}}/{{total}} の起動に失敗。残りのレールを停止",
+    "done": "{{milestone}} 完了 — {{count}} 件のスペックが順次チェーンを通過"
   }
 }

@@ -65,6 +65,7 @@ import { BackgroundProcessesProvider } from './context/BackgroundProcessesContex
 import { TicketDetailModalProvider } from './context/TicketDetailModalContext'
 import { WebViewModalProvider } from './context/WebViewModalContext'
 import { useCompareUrlSync } from './hooks/useCompareUrlSync'
+import { MilestoneSequencerProvider } from './context/MilestoneSequencerContext'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT } from './lib/feature-flags'
@@ -676,6 +677,7 @@ export default function App() {
                     <RailMetricsProviderWithDesktop>
                     <RailPrDecisionProviderWithDesktop>
                     <MinimizedChatsProvider>
+                      <MilestoneSequencerProvider>
                       <AgentChatProvider>
                         <BackgroundProcessesProvider>
                         <AgentWorkspaceProvider>
@@ -688,6 +690,7 @@ export default function App() {
                         </AgentWorkspaceProvider>
                         </BackgroundProcessesProvider>
                       </AgentChatProvider>
+                      </MilestoneSequencerProvider>
                     </MinimizedChatsProvider>
                     </RailPrDecisionProviderWithDesktop>
                     </RailMetricsProviderWithDesktop>

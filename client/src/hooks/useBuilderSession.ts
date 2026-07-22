@@ -11,6 +11,7 @@ import {
 } from '../lib/blueprint-draft'
 import type { CommitFormValue } from '../components/project-builder/BlueprintCommitForm'
 import { launchMilestone } from '../lib/milestone-launch'
+import { useMilestoneSequencer, readMilestoneLaunchMode } from '../context/MilestoneSequencerContext'
 import { analyzeBlueprintSpecQuality } from '../lib/blueprint-spec-quality'
 import {
   defaultReasoningEffortForProvider,
@@ -113,6 +114,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
   const { t } = useTranslation('builder')
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const { setActiveProjectId } = useDesktop()
+  const { startSequential } = useMilestoneSequencer()
 
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<BuilderChatMessage[]>([])
@@ -393,6 +395,17 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     if (!createdProjectId || launching) return
     setLaunching(true)
     try {
+      // Honour the user's stored launch mode (sequential = chain rails at settle).
+      if (readMilestoneLaunchMode() === 'sequential') {
+        const started = await startSequential(createdProjectId, 1)
+        if (started) {
+          setActiveProjectId(createdProjectId)
+          onFinishedRef.current()
+        } else {
+          toast.error(t('done.launchFailed'))
+        }
+        return
+      }
       const result = await launchMilestone(createdProjectId, 1)
       if (result.ok) {
         if (result.skippedCount > 0) {
@@ -408,7 +421,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     } finally {
       setLaunching(false)
     }
-  }, [createdProjectId, launching, setActiveProjectId, t])
+  }, [createdProjectId, launching, setActiveProjectId, startSequential, t])
 
   const openProject = useCallback(() => {
     if (createdProjectId) setActiveProjectId(createdProjectId)
