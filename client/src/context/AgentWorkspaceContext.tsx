@@ -16,6 +16,10 @@ interface AgentWorkspaceContextValue {
   openJobsPane: () => void
   closeJobsPane: () => void
   toggleJobsPane: () => void
+  analyticsPaneOpen: boolean
+  openAnalyticsPane: () => void
+  closeAnalyticsPane: () => void
+  toggleAnalyticsPane: () => void
   browserOpen: boolean
   openBrowser: () => void
   closeBrowser: () => void
@@ -31,6 +35,7 @@ const AgentWorkspaceContext = createContext<AgentWorkspaceContextValue | null>(n
 export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const [codePaneOpen, setCodePaneOpen] = useState(false)
   const [jobsPaneOpen, setJobsPaneOpen] = useState(false)
+  const [analyticsPaneOpen, setAnalyticsPaneOpen] = useState(false)
   const [browserOpen, setBrowserOpen] = useState(false)
   const [pendingCaptures, setPendingCaptures] = useState<AgentAttachment[]>([])
 
@@ -40,6 +45,9 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const openJobsPane = useCallback(() => setJobsPaneOpen(true), [])
   const closeJobsPane = useCallback(() => setJobsPaneOpen(false), [])
   const toggleJobsPane = useCallback(() => setJobsPaneOpen((v) => !v), [])
+  const openAnalyticsPane = useCallback(() => setAnalyticsPaneOpen(true), [])
+  const closeAnalyticsPane = useCallback(() => setAnalyticsPaneOpen(false), [])
+  const toggleAnalyticsPane = useCallback(() => setAnalyticsPaneOpen((v) => !v), [])
   const openBrowser = useCallback(() => setBrowserOpen(true), [])
   const closeBrowser = useCallback(() => setBrowserOpen(false), [])
   const queueCapture = useCallback((att: AgentAttachment) => {
@@ -58,10 +66,11 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
     () => ({
       codePaneOpen, openCodePane, closeCodePane, toggleCodePane,
       jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane,
+      analyticsPaneOpen, openAnalyticsPane, closeAnalyticsPane, toggleAnalyticsPane,
       browserOpen, openBrowser, closeBrowser,
       pendingCaptures, queueCapture, consumePendingCaptures,
     }),
-    [codePaneOpen, openCodePane, closeCodePane, toggleCodePane, jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane, browserOpen, openBrowser, closeBrowser, pendingCaptures, queueCapture, consumePendingCaptures],
+    [codePaneOpen, openCodePane, closeCodePane, toggleCodePane, jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane, analyticsPaneOpen, openAnalyticsPane, closeAnalyticsPane, toggleAnalyticsPane, browserOpen, openBrowser, closeBrowser, pendingCaptures, queueCapture, consumePendingCaptures],
   )
   return <AgentWorkspaceContext.Provider value={value}>{children}</AgentWorkspaceContext.Provider>
 }
@@ -75,6 +84,10 @@ const NOOP: AgentWorkspaceContextValue = {
   openJobsPane: () => {},
   closeJobsPane: () => {},
   toggleJobsPane: () => {},
+  analyticsPaneOpen: false,
+  openAnalyticsPane: () => {},
+  closeAnalyticsPane: () => {},
+  toggleAnalyticsPane: () => {},
   browserOpen: false,
   openBrowser: () => {},
   closeBrowser: () => {},

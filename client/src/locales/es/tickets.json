@@ -9,7 +9,9 @@
     "todo": "Por hacer",
     "inProgress": "En curso",
     "done": "Hecho",
-    "cancelled": "Cancelado"
+    "cancelled": "Cancelado",
+    "draft": "Borrador",
+    "onReview": "En revisión"
   },
   "source": {
     "manual": "Creado manualmente",

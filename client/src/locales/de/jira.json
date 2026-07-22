@@ -123,5 +123,9 @@
   "errors": {
     "generic": "Etwas ist schiefgelaufen",
     "testFirst": "Teste zuerst die Verbindung"
+  },
+  "moveToStatus": {
+    "queued": "Verschieben nach „{{status}}\" eingereiht — Synchronisierung mit Jira",
+    "failed": "Spec konnte in Jira nicht verschoben werden"
   }
 }

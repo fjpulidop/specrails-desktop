@@ -17,6 +17,7 @@ import { TicketStatusBadge } from './TicketStatusIndicator'
 import { useMinimizedChats } from '../context/MinimizedChatsContext'
 import { useTicketDetailModal } from '../context/TicketDetailModalContext'
 import { useJiraConnection } from '../hooks/useJiraConnection'
+import { jiraApi } from '../lib/jira-api'
 import { DiscardSpecDialog } from './jira/DiscardSpecDialog'
 import { JiraSpecDetailsPanel } from './jira/JiraSpecDetailsPanel'
 import { parseAcceptanceCriteria } from './explore-spec/acceptance-criteria'
@@ -30,7 +31,7 @@ import { EpicFamilySidebar } from './specs-smash/EpicFamilySidebar'
 import { MoveToRailPopover } from './MoveToRailPopover'
 import { isSmashCapable } from '../lib/provider-capabilities'
 import type { RailState } from './RailsBoard'
-import type { Attachment, LocalTicket, TicketPriority } from '../types'
+import type { Attachment, LocalTicket, TicketPriority, TicketStatus } from '../types'
 import { MODAL_FLOAT_VIEWPORT_MIN } from '../lib/viewport'
 import { useMovableResizableModal } from '../hooks/useMovableResizableModal'
 import { ResizeGrips } from './ui/ResizeGrips'
@@ -39,6 +40,21 @@ const COMPARE_VIEWPORT_MIN = MODAL_FLOAT_VIEWPORT_MIN
 const DRAG_SNAP_THRESHOLD = 0.20 // 20% of viewport width
 
 // ─── Constants ──────────────────────────────────────────────────────────────
+
+// Manual status targets from the detail selector. `draft` (Explore-owned) and
+// `on_review` (pipeline-owned, PR-decision semantics) are never offered as
+// TARGETS — but the CURRENT status always renders so the select stays truthful.
+const MANUAL_STATUS_TARGETS: TicketStatus[] = ['todo', 'in_progress', 'done', 'cancelled']
+
+// tickets:ticketStatus.* uses camelCase keys — map the snake_case status ids.
+const STATUS_LABEL_KEY: Record<TicketStatus, string> = {
+  draft: 'ticketStatus.draft',
+  todo: 'ticketStatus.todo',
+  in_progress: 'ticketStatus.inProgress',
+  on_review: 'ticketStatus.onReview',
+  done: 'ticketStatus.done',
+  cancelled: 'ticketStatus.cancelled',
+}
 
 const PRIORITY_OPTIONS: { value: TicketPriority; labelKey: string; className: string }[] = [
   { value: 'critical', labelKey: 'priority.critical', className: 'text-red-400' },
@@ -161,6 +177,43 @@ export function TicketDetailModal({
   // Attachments (synced from ticket prop)
   const [attachments, setAttachments] = useState<Attachment[]>(ticket.attachments ?? [])
   useEffect(() => { setAttachments(ticket.attachments ?? []) }, [ticket.attachments, ticket.id])
+
+  // ── Status selector (manual transitions from the detail view) ──────────────
+  const [statusMoving, setStatusMoving] = useState(false)
+  // Jira-backed specs: lazily fetch the board's REAL workflow statuses once.
+  const [jiraStatuses, setJiraStatuses] = useState<{ name: string }[] | null>(null)
+  useEffect(() => {
+    if (!isJiraBacked) return
+    let alive = true
+    jiraApi.listStatuses()
+      .then((r) => { if (alive) setJiraStatuses(r.statuses) })
+      .catch(() => { if (alive) setJiraStatuses([]) })
+    return () => { alive = false }
+  }, [isJiraBacked, ticket.id])
+  const jiraStatusValue = ticket.jira_status ?? ''
+
+  const handleLocalStatusMove = async (next: TicketStatus): Promise<void> => {
+    if (next === ticket.status) return
+    setStatusMoving(true)
+    try {
+      await onSave(ticket.id, { status: next })
+    } finally {
+      setStatusMoving(false)
+    }
+  }
+
+  const handleJiraStatusMove = async (next: string): Promise<void> => {
+    if (!next || next === jiraStatusValue) return
+    setStatusMoving(true)
+    try {
+      await jiraApi.moveSpecToStatus(ticket.id, next)
+      toast.success(tj('moveToStatus.queued', { status: next }))
+    } catch {
+      toast.error(tj('moveToStatus.failed'))
+    } finally {
+      setStatusMoving(false)
+    }
+  }
 
   const titleInputRef = useRef<HTMLInputElement>(null)
   const descTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -589,6 +642,56 @@ export function TicketDetailModal({
                   </button>
                 </div>
               )}
+              {/* Status selector — manual transitions from the detail view.
+                  Jira-backed specs offer the board's REAL workflow statuses
+                  (transition rides the outbox); local specs offer the manual
+                  targets (never INTO on_review/draft — pipeline-owned). */}
+              <div>
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">
+                  {t('fields.status')}
+                </span>
+                {isJiraBacked ? (
+                  <select
+                    value={jiraStatusValue}
+                    disabled={statusMoving || jiraStatuses === null}
+                    onChange={(e) => { void handleJiraStatusMove(e.target.value) }}
+                    className="w-full h-7 rounded border border-border bg-input px-2 text-xs text-foreground disabled:opacity-60"
+                    data-testid="ticket-jira-status-select"
+                  >
+                    {jiraStatuses === null ? (
+                      <option value={jiraStatusValue}>{jiraStatusValue || t('states.loading', { ns: 'common' })}</option>
+                    ) : (
+                      <>
+                        {jiraStatusValue && !jiraStatuses.some((s) => s.name === jiraStatusValue) && (
+                          <option value={jiraStatusValue}>{jiraStatusValue}</option>
+                        )}
+                        {jiraStatuses.map((s) => (
+                          <option key={s.name} value={s.name}>{s.name}</option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                ) : (
+                  <select
+                    value={ticket.status}
+                    disabled={statusMoving}
+                    onChange={(e) => { void handleLocalStatusMove(e.target.value as TicketStatus) }}
+                    className="w-full h-7 rounded border border-border bg-input px-2 text-xs text-foreground disabled:opacity-60"
+                    data-testid="ticket-status-select"
+                  >
+                    {/* Current status always listed (even draft/on_review) so the
+                        select renders truthfully; manual targets exclude the
+                        pipeline-owned states. */}
+                    {!MANUAL_STATUS_TARGETS.includes(ticket.status) && (
+                      <option value={ticket.status}>{t(STATUS_LABEL_KEY[ticket.status], { ns: 'tickets' })}</option>
+                    )}
+                    {MANUAL_STATUS_TARGETS.map((s) => (
+                      <option key={s} value={s}>{t(STATUS_LABEL_KEY[s], { ns: 'tickets' })}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
               {/* Priority selector */}
               <div>
                 <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block mb-1.5">

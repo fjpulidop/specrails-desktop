@@ -9,7 +9,9 @@
     "todo": "Todo",
     "inProgress": "進行中",
     "done": "完了",
-    "cancelled": "キャンセル"
+    "cancelled": "キャンセル",
+    "draft": "下書き",
+    "onReview": "レビュー中"
   },
   "source": {
     "manual": "手動で作成",

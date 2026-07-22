@@ -123,5 +123,9 @@
   "errors": {
     "generic": "Algo salió mal",
     "testFirst": "Prueba la conexión primero"
+  },
+  "moveToStatus": {
+    "queued": "Movimiento a «{{status}}» encolado — sincronizando con Jira",
+    "failed": "No se pudo mover la spec en Jira"
   }
 }

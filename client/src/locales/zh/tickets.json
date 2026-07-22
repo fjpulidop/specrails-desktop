@@ -9,7 +9,9 @@
     "todo": "待办",
     "inProgress": "进行中",
     "done": "完成",
-    "cancelled": "已取消"
+    "cancelled": "已取消",
+    "draft": "草稿",
+    "onReview": "审核中"
   },
   "source": {
     "manual": "手动创建",

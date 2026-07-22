@@ -123,5 +123,9 @@
   "errors": {
     "generic": "Algo correu mal",
     "testFirst": "Teste primeiro a ligação"
+  },
+  "moveToStatus": {
+    "queued": "Movimento para \"{{status}}\" em fila — a sincronizar com o Jira",
+    "failed": "Não foi possível mover a spec no Jira"
   }
 }

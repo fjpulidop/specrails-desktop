@@ -1,12 +1,10 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { LayoutDashboard, Briefcase, BarChart3, Bot, Code2, Settings, PanelRight } from 'lucide-react'
+import { LayoutDashboard, Briefcase, BarChart3, Code2, Settings, PanelRight } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useSidebarPin } from '../context/SidebarPinContext'
-import { useDesktop, projectProviders } from '../hooks/useDesktop'
-import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER } from '../lib/feature-flags'
-import { sectionVisibleForProviders } from '../lib/provider-capabilities'
+import { FEATURE_CODE_EXPLORER } from '../lib/feature-flags'
 import { BuilderSidebarEntry } from './project-builder/BuilderSidebarEntry'
 
 const RIGHT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned', string> = {
@@ -18,26 +16,19 @@ const RIGHT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned
 export function ProjectRightSidebar() {
   const { t } = useTranslation('nav')
   const { rightMode, cycleRightMode } = useSidebarPin()
-  const { projects, activeProjectId } = useDesktop()
   const [hovered, setHovered] = useState(false)
   const expanded = rightMode === 'pinned-open' || (rightMode === 'unpinned' && hovered)
   const lit = rightMode !== 'unpinned'
   const pinLabel = t(RIGHT_PIN_LABEL_KEY[rightMode])
 
-  // Provider-sensitive sections use the capability intersection across every
-  // installed engine. Profiles are currently supported by Claude and Kimi;
-  // a mixed project that also includes an unsupported engine hides Agents.
-  const activeProject = projects.find((p) => p.id === activeProjectId)
-  const providers = activeProject ? projectProviders(activeProject) : ['claude']
-  const showAgentsTab = FEATURE_AGENTS_SECTION && sectionVisibleForProviders('agents', providers)
+  // Agents is intentionally HIDDEN in board mode (user decision 2026-07-22) —
+  // profiles/catalog remain reachable via the /agents route and Agent Mode
+  // surfaces; the board sidebar stays focused on the delivery flow.
 
   const navItems = [
     { to: '/', end: true, icon: LayoutDashboard, label: t('rightSidebar.dashboard') },
     { to: '/jobs', end: false, icon: Briefcase, label: t('rightSidebar.jobs') },
     { to: '/analytics', end: false, icon: BarChart3, label: t('rightSidebar.analytics') },
-    ...(showAgentsTab
-      ? [{ to: '/agents', end: false, icon: Bot, label: t('rightSidebar.agents') }]
-      : []),
     ...(FEATURE_CODE_EXPLORER
       ? [{ to: '/code', end: false, icon: Code2, label: t('rightSidebar.code') }]
       : []),

@@ -184,6 +184,11 @@ export const jiraApi = {
     return fetch(`${base(apiBase)}/jira/statuses`).then((r) => asJson(r))
   },
 
+  /** Manual transition of a Jira-backed spec to a NAMED raw workflow status. */
+  moveSpecToStatus(localId: number, status: string, apiBase?: string): Promise<{ ok: true }> {
+    return fetch(`${base(apiBase)}/jira/specs/${localId}/move-to-status`, jsonPost({ status })).then((r) => asJson(r))
+  },
+
   /** Move a Jira-backed spec to the configured discard status (+ optional reason). */
   discardSpec(localId: number, comment: string | null, apiBase?: string): Promise<{ ok: true }> {
     return fetch(`${base(apiBase)}/jira/specs/${localId}/discard`, jsonPost({ comment })).then((r) => asJson(r))

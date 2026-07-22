@@ -214,7 +214,10 @@
     "jobs": "ジョブ",
     "closeJobs": "ジョブを閉じる",
     "resizeJobs": "ジョブパネルのサイズ変更",
-    "noJobs": "まだジョブがありません — エージェントに実行を頼んでみましょう"
+    "noJobs": "まだジョブがありません — エージェントに実行を頼んでみましょう",
+    "analytics": "アナリティクス",
+    "closeAnalytics": "アナリティクスを閉じる",
+    "resizeAnalytics": "アナリティクスパネルをリサイズ"
   },
   "attachFile": "ファイルを添付",
   "deleteConversation": "「{{title}}」を削除",

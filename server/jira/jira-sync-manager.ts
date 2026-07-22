@@ -778,6 +778,52 @@ export class JiraSyncManager {
    * reconciles it to the issue's real status (protected meanwhile by the
    * pending-transition frozen guard).
    */
+  /**
+   * Manual "move to <Jira status>" from the spec detail's status selector
+   * (global-core-zero-friction follow-up): enqueue an explicit-target
+   * transition to the NAMED raw Jira status. The logical state is derived by
+   * reverse statusMap lookup (falling back to `in_progress` — the resolver
+   * honours the explicit target regardless), and the local cache is
+   * optimistically flipped so the board reflects the move immediately; the
+   * inbound poll reconciles to the issue's real status afterwards.
+   */
+  moveSpecToStatus(
+    localId: number,
+    targetStatus: string,
+  ): { ok: true } | { ok: false; reason: 'not-active' | 'no-link' } {
+    if (!this.isActive()) return { ok: false, reason: 'not-active' }
+    const link = getLinkByLocalId(this.db, localId)
+    if (!link || link.tombstoned) return { ok: false, reason: 'no-link' }
+    const conn = getConnection(this.db, this.projectId)
+    const map = conn?.statusMap ?? null
+    let logical: SpecLogicalState = 'in_progress'
+    if (map) {
+      for (const [state, name] of Object.entries(map)) {
+        if (typeof name === 'string' && name.toLowerCase() === targetStatus.toLowerCase()) {
+          logical = state as SpecLogicalState
+          break
+        }
+      }
+    }
+    const nonce = Date.now().toString(36)
+    enqueueMany(this.db, [{
+      jiraIssueId: link.jiraIssueId,
+      opType: 'transition',
+      idempotencyKey: `manual-move:${localId}:${nonce}`,
+      payload: { localId, jiraIssueId: link.jiraIssueId, logicalState: logical, targetStatus },
+    }])
+    const localStatus: TicketStatus =
+      logical === 'todo' ? 'todo'
+        : logical === 'done' ? 'done'
+          : logical === 'cancelled' ? 'cancelled'
+            : logical === 'on_review' ? 'on_review'
+              : 'in_progress'
+    this.writeLocalStatus([localId], localStatus, targetStatus)
+    this.broadcastOutboxState()
+    void this.drainOnce().catch(() => undefined)
+    return { ok: true }
+  }
+
   discardSpec(
     localId: number,
     comment: string | null
@@ -1239,7 +1285,7 @@ export class JiraSyncManager {
 
   // ─── Local cache helpers ───────────────────────────────────────────────────
 
-  private writeLocalStatus(localIds: number[], status: TicketStatus): void {
+  private writeLocalStatus(localIds: number[], status: TicketStatus, rawJiraStatus?: string): void {
     if (localIds.length === 0) return
     try {
       const file = resolveTicketStoragePath(this._artifactRoot())
@@ -1248,8 +1294,11 @@ export class JiraSyncManager {
       const store = mutateStore(file, (s) => {
         for (const id of ids) {
           const t = s.tickets[id]
-          if (t && t.status !== status) {
+          if (t && (t.status !== status || (rawJiraStatus !== undefined && t.jira_status !== rawJiraStatus))) {
             t.status = status
+            // Manual move-to-status: reflect the RAW target immediately so the
+            // Jira-status filter dimension updates without waiting for the poll.
+            if (rawJiraStatus !== undefined) t.jira_status = rawJiraStatus
             t.updated_at = now
           }
         }
