@@ -17,6 +17,9 @@ const AgentModeCodePane = lazy(() =>
 const AgentModeJobsPane = lazy(() =>
   import('./AgentModeJobsPane').then((m) => ({ default: m.AgentModeJobsPane })),
 )
+const AgentModeAnalyticsPane = lazy(() =>
+  import('./AgentModeAnalyticsPane').then((m) => ({ default: m.AgentModeAnalyticsPane })),
+)
 const AgentBrowserCapture = lazy(() =>
   import('./AgentBrowserCapture').then((m) => ({ default: m.AgentBrowserCapture })),
 )
@@ -29,7 +32,7 @@ const AgentBrowserCapture = lazy(() =>
 export function AgentModeSurface() {
   const { t } = useTranslation('agent')
   const { active, refreshConversations, builderMode } = useAgentChat()
- const { codePaneOpen, jobsPaneOpen, browserOpen } = useAgentWorkspace()
+ const { codePaneOpen, jobsPaneOpen, analyticsPaneOpen, browserOpen } = useAgentWorkspace()
   const { activeProjectId } = useDesktop()
   const activeTheme = useActiveTheme()
   const isGalaxy = activeTheme.id === 'galaxy'
@@ -46,6 +49,7 @@ export function AgentModeSurface() {
   // falling back to a Home key when no conversation is open yet).
   const showCode = codePaneOpen && !!activeProjectId
   const showJobs = jobsPaneOpen && !!activeProjectId
+  const showAnalytics = analyticsPaneOpen && !!activeProjectId
 
   return (
     <MotionConfig reducedMotion="user">
@@ -111,6 +115,12 @@ export function AgentModeSurface() {
       {showCode && (
         <Suspense fallback={<div className="w-[520px] border-l border-border" />}>
           <AgentModeCodePane projectId={activeProjectId!} conversationId={active?.id ?? '__home__'} />
+        </Suspense>
+      )}
+
+      {showAnalytics && (
+        <Suspense fallback={<div className="w-[560px] border-l border-border" />}>
+          <AgentModeAnalyticsPane />
         </Suspense>
       )}
 

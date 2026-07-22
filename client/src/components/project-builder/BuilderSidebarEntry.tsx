@@ -8,6 +8,12 @@ import { useDesktop } from '../../hooks/useDesktop'
 import { getApiBase } from '../../lib/api'
 import { coerceBlueprint, type Blueprint } from '../../lib/blueprint-draft'
 import { launchMilestone, milestoneLabel } from '../../lib/milestone-launch'
+import {
+  useMilestoneSequencer,
+  readMilestoneLaunchMode,
+  saveMilestoneLaunchMode,
+  type MilestoneLaunchMode,
+} from '../../context/MilestoneSequencerContext'
 import { MilestoneGenerateShell } from './MilestoneGenerateShell'
 import { providerSupportsToolPolicy } from '../../lib/provider-capabilities'
 
@@ -81,6 +87,8 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
   const [panelOpen, setPanelOpen] = useState(false)
   const [tickets, setTickets] = useState<TicketLite[]>([])
   const [launching, setLaunching] = useState(false)
+  const [launchMode, setLaunchMode] = useState<MilestoneLaunchMode>(() => readMilestoneLaunchMode())
+  const { startSequential } = useMilestoneSequencer()
   const [generating, setGenerating] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
@@ -143,6 +151,14 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     if (!activeProjectId || launching) return
     setLaunching(true)
     try {
+      if (launchMode === 'sequential') {
+        // Chunk 1 launches now; the sequencer chains the rest as each rail
+        // settles (per-chunk progress rides its own toasts).
+        const started = await startSequential(activeProjectId, 1)
+        if (started) setPanelOpen(false)
+        else toast.error(t('done.launchFailed'))
+        return
+      }
       const result = await launchMilestone(activeProjectId, 1)
       if (result.ok) {
         if (result.skippedCount > 0) {
@@ -157,7 +173,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     } finally {
       setLaunching(false)
     }
-  }, [activeProjectId, launching, t])
+  }, [activeProjectId, launching, launchMode, startSequential, t])
 
   if (!blueprint || !activeProjectId) return null
 
@@ -219,16 +235,44 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
 
           <div className="mt-3 flex flex-col gap-1.5">
             {m1Launchable && (
-              <button
-                type="button"
-                onClick={handleLaunchM1}
-                disabled={launching}
-                className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent-primary/15 px-2 py-1.5 text-[11px] font-medium text-accent-primary transition-colors hover:bg-accent-primary/25 disabled:opacity-50"
-                data-testid="sidebar-launch-m1"
-              >
-                {launching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}
-                {t('sidebar.launchM1')}
-              </button>
+              <>
+                {/* Sequential | Parallel — sequential (default) chains each ≤3-spec
+                    rail when the previous one settles; parallel launches all at once. */}
+                <div
+                  className="flex rounded-md border border-border/40 p-0.5 text-[10px]"
+                  role="radiogroup"
+                  aria-label={t('sequential.modeLabel')}
+                  data-testid="milestone-launch-mode"
+                >
+                  {(['sequential', 'parallel'] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      role="radio"
+                      aria-checked={launchMode === m}
+                      onClick={() => { setLaunchMode(m); saveMilestoneLaunchMode(m) }}
+                      className={cn(
+                        'flex-1 rounded px-1.5 py-1 font-medium transition-colors',
+                        launchMode === m
+                          ? 'bg-accent-primary/15 text-accent-primary'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {t(`sequential.mode.${m}`)}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLaunchM1}
+                  disabled={launching}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent-primary/15 px-2 py-1.5 text-[11px] font-medium text-accent-primary transition-colors hover:bg-accent-primary/25 disabled:opacity-50"
+                  data-testid="sidebar-launch-m1"
+                >
+                  {launching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}
+                  {t('sidebar.launchM1')}
+                </button>
+              </>
             )}
             {nextPlanned && (
               <button

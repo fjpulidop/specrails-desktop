@@ -123,5 +123,9 @@
   "errors": {
     "generic": "問題が発生しました",
     "testFirst": "先に接続をテストしてください"
+  },
+  "moveToStatus": {
+    "queued": "「{{status}}」への移動をキューに追加 — Jira と同期中",
+    "failed": "Jira でのスペック移動に失敗しました"
   }
 }

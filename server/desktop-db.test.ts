@@ -32,6 +32,7 @@ import {
   listWebhooksForProject,
   recordAgentInvocation,
   sumAgentInvocationsCost,
+  setProjectProvidersMirror,
 } from './desktop-db'
 import type { DbInstance } from './db'
 
@@ -88,6 +89,38 @@ describe('desktop-db', () => {
       const db2 = makeDb()
       const versions = db2.prepare('SELECT version FROM schema_migrations').all() as { version: number }[]
       expect(versions).toHaveLength(22)
+    })
+  })
+
+  // ─── Detected-set mirror (global-core-zero-friction) ──────────────────────
+
+  describe('setProjectProvidersMirror', () => {
+    afterEach(() => {
+      setProjectProvidersMirror(null)
+    })
+
+    it('project rows read providers as the detected set with derived primary', () => {
+      addProject(db, { ...makeProjectOpts(), provider: 'codex', providers: ['codex'] })
+      setProjectProvidersMirror(() => ['claude', 'gemini'])
+      const row = getProject(db, 'proj-1')
+      expect(row?.providers).toEqual(['claude', 'gemini'])
+      // Stored primary codex is not detected → falls to claude by preference.
+      expect(row?.provider).toBe('claude')
+    })
+
+    it('stored primary is kept while still detected', () => {
+      addProject(db, { ...makeProjectOpts(), provider: 'codex', providers: ['codex'] })
+      setProjectProvidersMirror(() => ['gemini', 'codex'])
+      const row = getProject(db, 'proj-1')
+      expect(row?.provider).toBe('codex')
+    })
+
+    it('null or empty supplier restores stored row behaviour', () => {
+      addProject(db, { ...makeProjectOpts(), provider: 'codex', providers: ['codex'] })
+      setProjectProvidersMirror(() => [])
+      expect(getProject(db, 'proj-1')?.providers).toEqual(['codex'])
+      setProjectProvidersMirror(null)
+      expect(getProject(db, 'proj-1')?.providers).toEqual(['codex'])
     })
   })
 

@@ -238,22 +238,6 @@ describe('useDesktop', () => {
     expect(result.current.activeProjectId).toBe('proj-2')
   })
 
-  it('startSetupWizard/completeSetupWizard: manages setupProjectIds set', async () => {
-    ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ projects: [] }),
-    })
-
-    const { result } = renderHook(() => useDesktop(), { wrapper: makeWrapper() })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-
-    act(() => { result.current.startSetupWizard('proj-setup') })
-    expect(result.current.setupProjectIds.has('proj-setup')).toBe(true)
-
-    act(() => { result.current.completeSetupWizard('proj-setup') })
-    expect(result.current.setupProjectIds.has('proj-setup')).toBe(false)
-  })
-
   it('WS desktop.project_added (from a peer): shows toast (BUG-CLIENT-04 not suppressed)', async () => {
     ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
@@ -348,6 +332,5 @@ describe('useDesktop', () => {
     expect(result.current.projects).toEqual([])
     expect(result.current.activeProjectId).toBeNull()
     expect(result.current.isLoading).toBe(false)
-    expect(result.current.setupProjectIds.size).toBe(0)
   })
 })

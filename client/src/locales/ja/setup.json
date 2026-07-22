@@ -1,59 +1,4 @@
 {
-  "wizard": {
-    "configureAgents": "{{provider}} エージェントを設定",
-    "configureSubtitle": "エージェントチームを確認し、各エージェントの実行方法を選択します。",
-    "tabs": {
-      "agents": "エージェント",
-      "models": "モデル"
-    },
-    "skipForNow": "今はスキップ",
-    "install": "インストール",
-    "nextProvider": "次へ: {{provider}}",
-    "installingProvider": "{{provider}} をインストール中…",
-    "installingSpecrails": "specrails をインストール中…",
-    "installingFromTemplates": "テンプレートからエージェントをインストール中",
-    "waitingForOutput": "出力を待機中…",
-    "checkpoints": {
-      "baseInstall": "ベースインストール",
-      "agentSelection": "エージェント設定",
-      "agentGeneration": "エージェント生成"
-    },
-    "steps": {
-      "configure": "設定"
-    },
-    "summary": {
-      "agents": "エージェント",
-      "agentSkills": "エージェントスキル",
-      "skills": "スキル",
-      "openspecSkills": "OpenSpec スキル",
-      "legacyRemoved_one": "レガシーの <code>/specrails:*</code> コマンドを {{count}} 件削除しました",
-      "legacyRemoved_other": "レガシーの <code>/specrails:*</code> コマンドを {{count}} 件削除しました"
-    },
-    "complete": {
-      "welcome": "<spec>spec</spec><rails>rails</rails> へようこそ",
-      "configured": "<strong>{{projectName}}</strong> に AI 駆動の開発ワークフローが設定されました。専用のエージェントとコマンドが利用できます。",
-      "installedForEngines_one": "{{count}} 個のエンジンにインストールしました",
-      "installedForEngines_other": "{{count}} 個のエンジンにインストールしました",
-      "installed": "インストール済み",
-      "installFailed": "インストールに失敗しました",
-      "learnMore": "specrails を最大限に活用する方法:",
-      "continueToProject": "プロジェクトへ進む",
-      "jira": {
-        "title": "Jira ボードを接続",
-        "subtitle": "任意 — このプロジェクトのスペックを Jira ボードで裏付けます。後で設定からも行えます。",
-        "configure": "Jira を設定",
-        "optional": "任意"
-      },
-      "mcpHint": "安全なローカル MCP サーバーを通じて外部 AI ツールを Specrails に接続 — 設定で有効にできます。",
-      "agentChatHint": "チャットで Specrails を操作 — 内蔵エージェントがアプリ全体をあなたの代わりに動かします。バブルから、または ⌘⇧A で開けます。"
-    },
-    "error": {
-      "title": "セットアップに失敗しました",
-      "skipSetup": "セットアップをスキップ",
-      "prereqMissing": "SpecRails のセットアップには、PATH 上で利用可能な Node.js、npm、npx、Git が必要です。",
-      "prereqRetryHint": "不足しているツールをインストールし、Specrails を再起動してからセットアップを再試行してください。"
-    }
-  },
   "addProject": {
     "title": "プロジェクトを追加",
     "description": "プロジェクトディレクトリを登録して Specrails から管理します。",
@@ -67,18 +12,12 @@
     "optional": "（任意）",
     "namePlaceholder": "マイプロジェクト",
     "nameHint": "デフォルトはディレクトリ名",
-    "providersLabel": "AI プロバイダー",
-    "notFound": "見つかりません",
-    "coreUpdateRequired": "Core の更新が必要",
-    "multiProviderHint": "両方のエンジンがセットアップされます。最初のものがプロジェクトのデフォルトです。作成後は変更できません。",
-    "singleProviderHint": "プロジェクト作成後は変更できません。",
     "adding": "追加中…",
     "submit": "プロジェクトを追加",
     "toolsRequired_one": "プロジェクトの追加には {{tools}} が必要です",
     "toolsRequired_other": "プロジェクトの追加には {{tools}} が必要です",
     "errors": {
       "pathRequired": "プロジェクトパスは必須です",
-      "selectProvider": "AI プロバイダーを1つ以上選択してください",
       "addFailed": "プロジェクトの追加に失敗しました"
     },
     "toasts": {
@@ -150,19 +89,6 @@
       "description": "バンドルされたツール（Node.js、Git）の一部を検証できませんでした。",
       "body": "このツールは Specrails アプリにバンドルされており、個別にインストールできません。このメッセージが表示される場合、アプリバンドルが破損している可能性があります。Specrails を再インストールしてください。"
     }
-  },
-  "checkpoints": {
-    "title": "セットアップの進行状況",
-    "progress": "{{done}} / {{total}} 完了",
-    "rawLog_one": "生ログ（{{count}} 行）",
-    "rawLog_other": "生ログ（{{count}} 行）"
-  },
-  "setupChat": {
-    "title": "セットアップアシスタント",
-    "subtitle": "プロンプトに応答してプロジェクトを設定します",
-    "settingUp": "プロジェクトをセットアップ中…",
-    "placeholder": "返信を入力…",
-    "keyboardHint": "Enter で送信、Shift+Enter で改行"
   },
   "welcome": {
     "title": "<spec>spec</spec><rails>rails</rails> へようこそ",

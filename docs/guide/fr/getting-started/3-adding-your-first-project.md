@@ -4,55 +4,36 @@ Un projet, c'est simplement un dossier sur votre ordinateur qui contient une bas
 
 ## Ouvrir la boîte de dialogue Ajouter un projet
 
-Cliquez sur **Ajouter votre premier projet** sur l'écran d'accueil (ou plus tard sur le bouton **Ajouter un projet** dans la barre latérale gauche). Une petite boîte de dialogue apparaît.
+Cliquez sur **Ajoutez votre premier projet** sur l'écran d'accueil (ou sur le bouton **Ajouter un projet** de la barre latérale gauche plus tard). Une petite boîte de dialogue apparaît.
 
-## Renseigner les détails
+## Renseignez les détails
 
-**Dossier du projet** *(requis)*
+**Dossier du projet** *(obligatoire)*
 
-Indiquez à specrails le dossier qui contient votre code. Dans l'application de bureau, vous pouvez cliquer sur l'icône de dossier pour le parcourir et le sélectionner visuellement, ou bien coller le chemin complet. Il doit s'agir de la racine de votre dépôt — le dossier qui contient votre code et (généralement) un répertoire `.git`.
+Indiquez à specrails le dossier qui contient votre code. Dans l'app de bureau, vous pouvez cliquer sur l'icône de dossier pour parcourir et le choisir visuellement, ou coller le chemin complet. Il doit s'agir de la racine de votre dépôt — le dossier contenant votre code et (généralement) un répertoire `.git`.
 
 **Nom du projet** *(facultatif)*
 
-Un libellé convivial affiché dans la barre latérale. Si vous le laissez vide, specrails utilise le nom du dossier.
+Une étiquette conviviale affichée dans la barre latérale. Si vous le laissez vide, specrails utilise le nom du dossier.
 
-**Fournisseurs**
+> Une vérification rapide s'exécute en arrière-plan pour confirmer la présence des outils requis. S'il manque quelque chose d'essentiel, le bouton **Ajouter** reste désactivé et un lien **Plus d'infos** vous donne les commandes d'installation exactes.
 
-Choisissez le ou les fournisseurs d'IA que ce projet doit utiliser. Specrails vous présente ceux qu'il a détectés sur votre machine :
+C'est tout le formulaire — cliquez sur **Ajouter** et c'est terminé.
 
-- 🤖 **Claude**
-- ⚡ **Codex**
-- ✨ **Gemini**
+## Les fournisseurs d'IA sont détectés automatiquement
 
-Les fournisseurs qu'il n'a pas trouvés sont grisés et marqués *introuvable* — installez-en un et connectez-vous, puis rouvrez la boîte de dialogue. Par défaut, chaque fournisseur disponible est présélectionné, mais vous pouvez tout désélectionner pour ne garder que celui que vous voulez. Si vous en choisissez plusieurs, le **premier** devient le fournisseur par défaut du projet ; vous pourrez choisir selon la tâche plus tard.
+Vous ne choisissez plus de fournisseurs. Specrails détecte chaque CLI d'IA installé sur votre machine — **Claude**, **Codex**, **Gemini**, **Kimi** — et chaque projet peut tous les utiliser, toujours. Installez un nouveau fournisseur plus tard et il apparaît partout de lui-même la prochaine fois que vous revenez sur l'app ; pas de reconfiguration, pas de réglage par projet. Si un fournisseur est installé mais non connecté, son sélecteur affiche un badge discret *Non connecté*.
 
-> Une vérification rapide tourne en arrière-plan pour confirmer que les outils requis sont présents. S'il manque quelque chose d'essentiel, le bouton **Ajouter** reste désactivé et un lien **Informations complémentaires** vous donne les commandes d'installation exactes.
+## La configuration se fait en silence
 
-Cliquez sur **Ajouter** pour continuer.
+Il n'y a pas d'assistant de configuration. Dès que vous cliquez sur **Ajouter**, le projet est enregistré et apparaît dans votre barre latérale — vous pouvez l'ouvrir immédiatement. En arrière-plan, specrails assemble le workspace du projet (quelques secondes, entièrement hors ligne) : un petit point clignotant sur la ligne du projet indique que le travail est en cours, et il disparaît quand tout est prêt. Si quelque chose échoue pour un fournisseur, le projet fonctionne toujours avec les autres — un point ambre apparaît, et un clic relance l'opération.
 
-## Une configuration qui se fait en quelques secondes
+## Ce qui est installé — et où
 
-Si le dossier est déjà configuré avec specrails, c'est terminé — le projet apparaît instantanément dans votre barre latérale.
+La configuration est délibérément **non invasive** : votre dépôt reste intact. Tous les artefacts specrails (définitions d'agents, commandes, profils, réglages locaux) vivent dans un workspace par projet sous votre répertoire personnel, lié à une installation unique et partagée du framework livrée avec l'app. Votre dépôt n'est jamais modifié — et lorsque l'app se met à jour, chaque projet reçoit automatiquement le nouveau framework, en une seule fois.
 
-S'il s'agit d'un projet vierge, un court **assistant de configuration** se lance. Il comporte trois étapes :
-
-1. **Configurer** — confirmez les bases pour chaque fournisseur que vous avez choisi.
-2. **Installer** — specrails configure le projet automatiquement. C'est l'installation *rapide* : des agents prédéfinis prêts à l'emploi, en place en quelques secondes. Vous verrez un log en direct pendant l'exécution.
-3. **Terminé** — un récapitulatif qui confirme que tout est prêt.
-
-Pour un projet multi-fournisseurs, l'installation s'exécute une fois par fournisseur, l'une après l'autre, et l'étape Terminé affiche une carte pour chacun.
-
-## Ce qui est installé
-
-La configuration est volontairement légère et **non intrusive**. Specrails ajoute une petite quantité de configuration à votre projet pour que le pipeline sache comment s'exécuter :
-
-- Un dossier `.specrails/` qui contient les profils d'agents et les paramètres locaux de votre projet.
-- Des définitions d'agents sous `.claude/agents/` qui alimentent le pipeline Architect → Developer → Reviewer → Ship.
-
-C'est tout — specrails ne réécrit pas votre code source pendant la configuration, et ces fichiers peuvent être commités sans risque si vous souhaitez partager la configuration avec votre équipe.
-
-> **Vous préférez la configuration approfondie ?** L'application propose l'installation rapide par templates à dessein. Si vous préférez le flux enrichi par l'IA (analyse de la base de code et personas d'agents personnalisés), vous pouvez exécuter `npx specrails-core@latest init` depuis le dossier de votre projet dans un terminal.
+> **Vous préférez la configuration approfondie ?** L'app livre volontairement l'installation rapide par modèles. Si vous préférez le flux enrichi par IA (analyse de la base de code et personas d'agents personnalisées), vous pouvez exécuter `npx specrails-core@latest init` depuis le dossier de votre projet dans un terminal.
 
 ## Vous y êtes
 
-Une fois la configuration terminée, specrails vous dépose dans le tableau de bord de votre projet. Place à la visite — voir [La visite du tableau de bord](the-dashboard-tour).
+Le tableau de bord du projet est disponible dès que vous cliquez sur **Ajouter**. Place à la visite — voir [La visite du tableau de bord](the-dashboard-tour).

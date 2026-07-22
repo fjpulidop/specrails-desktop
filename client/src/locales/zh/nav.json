@@ -21,7 +21,9 @@
     "removed": "项目已移除",
     "expand": "展开 {{name}}",
     "collapse": "折叠 {{name}}",
-    "settings": "{{name}} 的设置"
+    "settings": "{{name}} 的设置",
+    "assembling": "正在准备工作区…",
+    "assembleFailed": "工作区准备失败 — 点击重试"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",

@@ -129,5 +129,15 @@
     "description": "Description de la spec",
     "acceptanceCriteria": "Critères d'acceptation",
     "criteriaEmpty": "Aucun critère d'acceptation pour le moment."
+  },
+  "sequential": {
+    "modeLabel": "Mode de lancement",
+    "mode": {
+      "sequential": "Séquentiel",
+      "parallel": "Parallèle"
+    },
+    "chunkLaunched": "{{milestone}} — rail {{chunk}}/{{total}} lancé",
+    "chunkFailed": "{{milestone}} — échec du lancement du rail {{chunk}}/{{total}} ; rails restants arrêtés",
+    "done": "{{milestone}} terminé — {{count}} specs ont traversé la chaîne séquentielle"
   }
 }

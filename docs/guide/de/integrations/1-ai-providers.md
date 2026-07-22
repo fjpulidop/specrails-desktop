@@ -17,22 +17,33 @@ Alle vier sind **standardmäßig aktiviert**. Ein Anbieter erscheint, wenn seine
 CLI im `PATH` liegt. Für Kimi: `kimi --version` prüfen und `kimi login`
 ausführen.
 
-## Einen Anbieter für ein Projekt installieren
+## Anbieter werden automatisch erkannt
 
-Wenn du ein Projekt hinzufügst, fragt dich der Einrichtungsassistent, welche(n) Anbieter du installieren möchtest. Wähle einen aus, klicke dich durch den Installationsschritt — fertig. Ab da *hat* das Projekt diesen Anbieter einfach, und du musst nie wieder darüber nachdenken. Specs, Rails, Chat und Analytics funktionieren gleich, egal für welchen du dich entschieden hast.
+Du wählst nie Anbieter pro Projekt aus. Specrails erkennt jedes auf deinem
+Rechner installierte Anbieter-CLI und stellt **alle** davon **jedem** Projekt
+zur Verfügung, immer. Jede Oberfläche prüft anschließend die vom Anbieter
+angekündigten Fähigkeiten. Siehe [Kimi verwenden](../../../kimi.md) für Kimis
+genaue Matrix.
 
-Falls eine gewünschte CLI in „Projekt hinzufügen“ nicht angeboten wird, liegt das fast immer daran, dass die CLI nicht installiert ist oder nicht in deinem `PATH` liegt. Installiere sie und öffne „Projekt hinzufügen“ erneut.
+Wenn ein gewünschter Anbieter nirgends auftaucht, liegt es fast immer daran,
+dass das CLI nicht installiert oder nicht im `PATH` ist. Installiere es, melde
+dich an und wechsle zurück zur App — die Erkennung läuft beim Fokussieren
+erneut und der Anbieter erscheint von selbst überall, seine Workspace-Oberfläche
+wird im Hintergrund zusammengebaut. Ein installierter, aber nicht angemeldeter
+Anbieter erscheint trotzdem, mit einem *Nicht angemeldet*-Badge in den
+Engine-Auswahlmenüs.
 
-## Mehrere Anbieter für ein Projekt installieren
+Wissenswertes zu Maschinen mit mehreren Anbietern:
 
-Du kannst **mehr als einen** Anbieter in dasselbe Projekt installieren — zum Beispiel Claude *und* Gemini. In **Projekt hinzufügen** wird die Anbieterliste zu einer Reihe von Checkboxen; hake alles an, was du möchtest. Der erste, den du auswählst, wird zum **primären** (Standard-)Anbieter des Projekts; die übrigen stehen als Alternativen bereit.
-
-Ein paar Dinge, die du über Multi-Anbieter-Projekte wissen solltest:
-
-- **Ein einzelner Anbieter verhält sich genau wie zuvor.** Hat ein Projekt nur einen einzigen Anbieter, siehst du nirgendwo eine Anbieterauswahl — die App bleibt schlank und einfach.
-- **Fähigkeiten steuern die UI.** Claude und Kimi unterstützen getrennte
-  provider-spezifische Profile; Codex und Gemini laufen im Legacy-Modus.
-- **Die Anbieterwahl ist nach dem Anlegen festgelegt.** In dieser Version wählst du deine Anbieter beim Hinzufügen des Projekts, und sie lassen sich später nicht mehr über die Einstellungen ändern. Brauchst du eine andere Kombination, ist das ein neues Projekt.
+- **Ein einzelner Anbieter verhält sich exakt wie zuvor.** Wird nur einer erkannt, siehst du nirgendwo einen Anbieter-Picker — die App bleibt schlicht und einfach.
+- **Fähigkeiten steuern die Seitenleiste.** Eine Sektion ist sichtbar, wenn
+  mindestens ein erkannter Anbieter sie unterstützt; darin bieten engine-bezogene
+  Aktionen nur die fähigen Anbieter an. Kimi kündigt Profile, eigene Rollen und
+  Freestyle an; keine strukturierten Aktionen, die eine durchsetzbare
+  No-Tools-Grenze erfordern.
+- **Nichts ist fixiert.** Das Installieren oder Entfernen eines Anbieter-CLIs
+  aktualisiert alle Projekte automatisch — es gibt keine Anbieter-Einstellung pro
+  Projekt zu verwalten.
 
 ## Pro Aufruf einen Anbieter wählen
 

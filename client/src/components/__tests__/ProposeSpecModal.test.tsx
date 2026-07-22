@@ -50,12 +50,16 @@ vi.mock('../../hooks/useSpecGenTracker', () => ({
   }),
 }))
 
-vi.mock('../../hooks/useSharedWebSocket', () => ({
-  useSharedWebSocket: () => ({
-    registerHandler: vi.fn(),
-    unregisterHandler: vi.fn(),
-  }),
-}))
+vi.mock('../../hooks/useSharedWebSocket', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../hooks/useSharedWebSocket')>()
+  return {
+    ...actual,
+    useSharedWebSocket: () => ({
+      registerHandler: vi.fn(),
+      unregisterHandler: vi.fn(),
+    }),
+  }
+})
 
 vi.mock('../../hooks/useChat', () => ({
   useChatContext: () => ({

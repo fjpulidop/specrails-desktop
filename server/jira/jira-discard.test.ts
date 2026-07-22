@@ -457,3 +457,51 @@ describe('executeTransition honors payload.targetStatus', () => {
     expect(done.length).toBe(1)
   })
 })
+
+// ─── 6. moveSpecToStatus() (manual status selector) ──────────────────────────
+
+describe('moveSpecToStatus()', () => {
+  it('enqueues an explicit-target transition and optimistically flips local status + raw jira_status', () => {
+    seedConnection({ statusMap: { done: 'Deployed' } as never })
+    seedLinkedTicket(7, '20007', 'in_progress')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+
+    const result = mgr.moveSpecToStatus(7, 'Deployed')
+    expect(result).toEqual({ ok: true })
+
+    const ops = listOutbox(db, {}).filter((o) => o.opType === 'transition')
+    expect(ops).toHaveLength(1)
+    const payload = JSON.parse(ops[0].payload as unknown as string) as { targetStatus?: string; logicalState?: string }
+    expect(payload.targetStatus).toBe('Deployed')
+    // statusMap reverse-maps Deployed → done.
+    expect(payload.logicalState).toBe('done')
+
+    const store = readStore(resolveTicketStoragePath(projectPath))
+    expect(store.tickets['7'].status).toBe('done')
+    expect(store.tickets['7'].jira_status).toBe('Deployed')
+    expect(typesOf()).toContain('ticket_updated')
+  })
+
+  it('unmapped raw status falls back to logical in_progress', () => {
+    seedConnection()
+    seedLinkedTicket(8, '20008', 'todo')
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+
+    expect(mgr.moveSpecToStatus(8, 'Weird QA Column')).toEqual({ ok: true })
+    const store = readStore(resolveTicketStoragePath(projectPath))
+    expect(store.tickets['8'].status).toBe('in_progress')
+    expect(store.tickets['8'].jira_status).toBe('Weird QA Column')
+  })
+
+  it('rejects unlinked specs and disabled connections', () => {
+    seedConnection({ enabled: false })
+    const { fetchImpl } = makeFakeFetch()
+    const mgr = makeManager(fetchImpl)
+    expect(mgr.moveSpecToStatus(9, 'Done')).toEqual({ ok: false, reason: 'not-active' })
+
+    seedConnection({ enabled: true })
+    expect(mgr.moveSpecToStatus(9, 'Done')).toEqual({ ok: false, reason: 'no-link' })
+  })
+})

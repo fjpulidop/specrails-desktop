@@ -123,5 +123,9 @@
   "errors": {
     "generic": "Something went wrong",
     "testFirst": "Test the connection first"
+  },
+  "moveToStatus": {
+    "queued": "Move to \"{{status}}\" queued — syncing with Jira",
+    "failed": "Failed to move the spec in Jira"
   }
 }

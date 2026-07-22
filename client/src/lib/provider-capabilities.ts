@@ -161,12 +161,14 @@ export function providerSupportsUserMcp(
 
 // ─── Multi-provider capability matrix ────────────────────────────────────────
 //
-// Right-sidebar sections that depend on a provider-specific mechanic. When a
-// project has more than one provider installed we show only the INTERSECTION of
-// what every installed provider supports — this prevents surfacing a Claude-only
-// section (Agents/Profiles, Integrations/Plugins) for a project that can also run
-// jobs on Codex, which has no equivalent. Single-provider projects are
-// unaffected: the intersection of one set is that set.
+// Right-sidebar sections that depend on a provider-specific mechanic. Under
+// auto-detection (global-core-zero-friction) providers are a MACHINE property,
+// so visibility is the UNION of what the detected providers support: a section
+// renders when AT LEAST ONE detected provider supports it, and the engine
+// selectors inside it offer only the capable providers. This prevents the old
+// intersection surprise where installing a weaker provider hid sections
+// everywhere. Single-provider machines are unaffected: the union of one set is
+// that set.
 
 export type SidebarSection =
   | 'dashboard'
@@ -195,8 +197,9 @@ export function providerSupportsSection(
 }
 
 /**
- * Intersection gate: a section is visible only when EVERY installed provider
- * supports it. An empty/undefined list defaults to Claude behaviour for
+ * Union gate: a section is visible when AT LEAST ONE available provider
+ * supports it (spec: "Capability visibility is the union of detected
+ * providers"). An empty/undefined list defaults to Claude behaviour for
  * backward compatibility (everything visible).
  */
 export function sectionVisibleForProviders(
@@ -204,7 +207,19 @@ export function sectionVisibleForProviders(
   providers: readonly string[] | null | undefined,
 ): boolean {
   const list = providers && providers.length > 0 ? providers : ['claude']
-  return list.every((p) => providerSupportsSection(p, section))
+  return list.some((p) => providerSupportsSection(p, section))
+}
+
+/**
+ * The subset of `providers` capable of a given section — feeds engine
+ * selectors inside a union-visible section.
+ */
+export function providersSupportingSection(
+  section: SidebarSection,
+  providers: readonly string[] | null | undefined,
+): string[] {
+  const list = providers && providers.length > 0 ? providers : ['claude']
+  return list.filter((p) => providerSupportsSection(p, section))
 }
 
 /** True when the project offers a choice of engines (more than one installed). */

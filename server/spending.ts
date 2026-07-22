@@ -1031,3 +1031,87 @@ export function parseSpendingFilters(query: Record<string, unknown>): SpendingFi
   }
   return f
 }
+
+// ─── Agent-mission spending (desktop.sqlite ledger) ──────────────────────────
+//
+// Mission/Agent-Chat turns record to `agent_invocations` in the APP-level
+// desktop.sqlite (project_id = the mission's pinned project; NULL for Home).
+// This block folds a project's pinned-mission spend into its /spending payload
+// so the Analytics page can surface it next to the pipeline surfaces. Home
+// (unpinned) turns belong to no project and are deliberately excluded here.
+
+export interface AgentMissionConversationRow {
+  conversationId: string | null
+  title: string | null
+  costUsd: number
+  estimatedCostUsd: number
+  turns: number
+  lastAt: string | null
+}
+
+export interface AgentMissionSpending {
+  summary: {
+    totalCostUsd: number
+    estimatedCostUsd: number
+    prevTotalCostUsd: number
+    turns: number
+    tokensIn: number
+    tokensOut: number
+  }
+  topConversations: AgentMissionConversationRow[]
+}
+
+export function getAgentMissionSpending(
+  desktopDb: DbInstance,
+  projectId: string,
+  filters: SpendingFilters,
+): AgentMissionSpending {
+  const range = resolveRange(filters)
+
+  const summaryRow = desktopDb.prepare(`
+    SELECT
+      COALESCE(SUM(total_cost_usd), 0) AS total,
+      COALESCE(SUM(CASE WHEN total_cost_usd_estimated = 1 THEN total_cost_usd ELSE 0 END), 0) AS estimated,
+      COUNT(*) AS turns,
+      COALESCE(SUM(tokens_in), 0) AS tokensIn,
+      COALESCE(SUM(tokens_out), 0) AS tokensOut
+    FROM agent_invocations
+    WHERE project_id = ? AND started_at >= ? AND started_at <= ?
+  `).get(projectId, range.from, range.to) as {
+    total: number; estimated: number; turns: number; tokensIn: number; tokensOut: number
+  }
+
+  const prevRow = desktopDb.prepare(`
+    SELECT COALESCE(SUM(total_cost_usd), 0) AS total
+    FROM agent_invocations
+    WHERE project_id = ? AND started_at >= ? AND started_at < ?
+  `).get(projectId, range.prevFrom, range.prevTo) as { total: number }
+
+  const topConversations = (desktopDb.prepare(`
+    SELECT
+      ai.conversation_id AS conversationId,
+      ac.title AS title,
+      COALESCE(SUM(ai.total_cost_usd), 0) AS costUsd,
+      COALESCE(SUM(CASE WHEN ai.total_cost_usd_estimated = 1 THEN ai.total_cost_usd ELSE 0 END), 0) AS estimatedCostUsd,
+      COUNT(*) AS turns,
+      MAX(ai.started_at) AS lastAt
+    FROM agent_invocations ai
+    LEFT JOIN agent_conversations ac ON ac.id = ai.conversation_id
+    WHERE ai.project_id = ? AND ai.started_at >= ? AND ai.started_at <= ?
+    GROUP BY ai.conversation_id
+    ORDER BY costUsd DESC
+    LIMIT 5
+  `).all(projectId, range.from, range.to)) as AgentMissionConversationRow[]
+
+  return {
+    summary: {
+      totalCostUsd: summaryRow.total,
+      estimatedCostUsd: summaryRow.estimated,
+      prevTotalCostUsd: prevRow.total,
+      turns: summaryRow.turns,
+      tokensIn: summaryRow.tokensIn,
+      tokensOut: summaryRow.tokensOut,
+    },
+    topConversations,
+  }
+}

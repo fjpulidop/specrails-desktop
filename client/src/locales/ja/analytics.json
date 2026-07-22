@@ -202,5 +202,13 @@
     "90d": "過去 90 日間",
     "all": "全期間",
     "custom": "カスタム範囲"
+  },
+  "agentMissions": {
+    "title": "エージェントミッション",
+    "subtitle": "このプロジェクトにピン留めされた Agent Chat ターン",
+    "vsPrev": "前期間比",
+    "turnsAndTokens": "{{turns}} ターン · {{tokens}} トークン",
+    "untitled": "無題のミッション",
+    "estimatedNote": "推定コストを含む"
   }
 }

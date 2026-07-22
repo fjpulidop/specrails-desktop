@@ -21,7 +21,9 @@
     "removed": "Proyecto eliminado",
     "expand": "Expandir {{name}}",
     "collapse": "Contraer {{name}}",
-    "settings": "Ajustes de {{name}}"
+    "settings": "Ajustes de {{name}}",
+    "assembling": "Preparando workspace…",
+    "assembleFailed": "Fallo al preparar el workspace — clic para reintentar"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",

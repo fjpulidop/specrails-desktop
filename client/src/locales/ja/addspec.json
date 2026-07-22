@@ -142,7 +142,8 @@
     }
   },
   "aiEngine": {
-    "label": "AI エンジン"
+    "label": "AI エンジン",
+    "notSignedIn": "未ログイン"
   },
   "modelSelector": {
     "presetHeading": "モデルプリセット",

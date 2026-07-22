@@ -9,7 +9,9 @@
     "todo": "Todo",
     "inProgress": "In Progress",
     "done": "Done",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "draft": "Draft",
+    "onReview": "On review"
   },
   "source": {
     "manual": "Created manually",

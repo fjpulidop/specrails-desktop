@@ -29,7 +29,6 @@ const desktopState = {
     { id: 'p2', name: 'Beta' },
   ] as Array<{ id: string; name: string }>,
   activeProjectId: 'p1' as string | null,
-  setupProjectIds: new Set<string>(),
 }
 const setActiveProjectIdSpy = vi.fn((id: string | null) => {
   desktopState.activeProjectId = id
@@ -40,7 +39,6 @@ vi.mock('../../hooks/useDesktop', () => ({
     projects: desktopState.projects,
     activeProjectId: desktopState.activeProjectId,
     setActiveProjectId: setActiveProjectIdSpy,
-    setupProjectIds: desktopState.setupProjectIds,
   }),
 }))
 
@@ -147,7 +145,6 @@ describe('MinimizedChatsContext', () => {
       { id: 'p2', name: 'Beta' },
     ]
     desktopState.activeProjectId = 'p1'
-    desktopState.setupProjectIds = new Set()
     setActiveProjectIdSpy.mockClear()
     spyRestoreCallback.mockClear()
   })
@@ -434,30 +431,6 @@ describe('MinimizedChatsContext', () => {
     expect(screen.queryByText('Test spec')).toBeNull()
     const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as MinimizedChat[]
     expect(persisted[0].label).toBe('Renamed live')
-  })
-
-  it('hides the dock during the active project setup-wizard takeover', async () => {
-    const user = userEvent.setup()
-    const { rerender } = renderWithProvider(<MinimizeButton />)
-    await user.click(screen.getByTestId('do-minimize'))
-    expect(screen.getByTestId('minimized-chats-dock')).toBeTruthy()
-
-    // Active project enters setup → dock hidden (chat preserved in storage).
-    desktopState.setupProjectIds = new Set(['p1'])
-    rerender(
-      <SharedWebSocketContext.Provider value={fakeWs}>
-        <MemoryRouter initialEntries={['/']}>
-          <MinimizedChatsProvider>
-            <Routes>
-              <Route path="*" element={<MinimizeButton />} />
-            </Routes>
-          </MinimizedChatsProvider>
-        </MemoryRouter>
-      </SharedWebSocketContext.Provider>,
-    )
-    expect(screen.queryByTestId('minimized-chats-dock')).toBeNull()
-    // Still durably persisted — never dropped, just not rendered.
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')).toHaveLength(1)
   })
 
   it('reflects an updated project name in the chip without a chats change', async () => {

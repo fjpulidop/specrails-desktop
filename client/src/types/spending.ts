@@ -181,6 +181,30 @@ export interface SpendingResponse {
   trackingStartedAt: string | null
   rangeFrom: string
   rangeTo: string
+  /** Agent-mission (Agent Chat) spend pinned to this project — app-level
+   *  desktop.sqlite ledger, additive; absent on older servers. */
+  agentMissions?: AgentMissionSpending
+}
+
+export interface AgentMissionConversationRow {
+  conversationId: string | null
+  title: string | null
+  costUsd: number
+  estimatedCostUsd: number
+  turns: number
+  lastAt: string | null
+}
+
+export interface AgentMissionSpending {
+  summary: {
+    totalCostUsd: number
+    estimatedCostUsd: number
+    prevTotalCostUsd: number
+    turns: number
+    tokensIn: number
+    tokensOut: number
+  }
+  topConversations: AgentMissionConversationRow[]
 }
 
 export interface InvocationRow {

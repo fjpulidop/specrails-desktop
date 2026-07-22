@@ -214,7 +214,10 @@
     "jobs": "Jobs",
     "closeJobs": "Jobs schließen",
     "resizeJobs": "Jobs-Bereich anpassen",
-    "noJobs": "Noch keine Jobs — bitte den Agenten, einen zu starten"
+    "noJobs": "Noch keine Jobs — bitte den Agenten, einen zu starten",
+    "analytics": "Analytics",
+    "closeAnalytics": "Analytics schließen",
+    "resizeAnalytics": "Analytics-Bereich anpassen"
   },
   "attachFile": "Datei anhängen",
   "deleteConversation": "„{{title}}“ löschen",

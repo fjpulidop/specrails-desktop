@@ -14,6 +14,7 @@ import { SpendingHero } from '../components/analytics/SpendingHero'
 import { ProviderBreakdownCard } from '../components/analytics/ProviderBreakdownCard'
 import { SpendingTimeline } from '../components/analytics/SpendingTimeline'
 import { QuickVsExploreCard } from '../components/analytics/QuickVsExploreCard'
+import { AgentMissionsCard } from '../components/analytics/AgentMissionsCard'
 import { ModelBreakdown } from '../components/analytics/ModelBreakdown'
 import { CostScatter } from '../components/analytics/CostScatter'
 import { TopTicketsCrossSurface } from '../components/analytics/TopTicketsCrossSurface'
@@ -427,6 +428,9 @@ export default function AnalyticsPage() {
 
       {/* Block 2: Timeline */}
       <SpendingTimeline data={data} loading={loading} />
+
+      {/* Block 2b: Agent-mission spend (pinned Agent Chat turns — hidden when empty) */}
+      <AgentMissionsCard data={data} loading={loading} />
 
       {/* Blocks 3 + 4 side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

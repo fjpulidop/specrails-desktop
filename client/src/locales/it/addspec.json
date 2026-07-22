@@ -142,7 +142,8 @@
     }
   },
   "aiEngine": {
-    "label": "Engine AI"
+    "label": "Engine AI",
+    "notSignedIn": "Non connesso"
   },
   "modelSelector": {
     "presetHeading": "Preset modello",

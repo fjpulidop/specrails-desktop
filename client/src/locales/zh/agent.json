@@ -214,7 +214,10 @@
     "jobs": "作业",
     "closeJobs": "关闭作业",
     "resizeJobs": "调整作业面板大小",
-    "noJobs": "还没有作业——让智能体启动一个吧"
+    "noJobs": "还没有作业——让智能体启动一个吧",
+    "analytics": "分析",
+    "closeAnalytics": "关闭分析",
+    "resizeAnalytics": "调整分析面板大小"
   },
   "attachFile": "附加文件",
   "deleteConversation": "删除「{{title}}」",

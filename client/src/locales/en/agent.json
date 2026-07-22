@@ -214,7 +214,10 @@
     "jobs": "Jobs",
     "closeJobs": "Close jobs",
     "resizeJobs": "Resize jobs pane",
-    "noJobs": "No jobs yet — ask the agent to launch one"
+    "noJobs": "No jobs yet — ask the agent to launch one",
+    "analytics": "Analytics",
+    "closeAnalytics": "Close analytics",
+    "resizeAnalytics": "Resize analytics pane"
   },
   "attachFile": "Attach file",
   "deleteConversation": "Delete \"{{title}}\"",

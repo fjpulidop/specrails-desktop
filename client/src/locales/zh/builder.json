@@ -129,5 +129,15 @@
     "description": "规格描述",
     "acceptanceCriteria": "验收标准",
     "criteriaEmpty": "尚无验收标准。"
+  },
+  "sequential": {
+    "modeLabel": "启动模式",
+    "mode": {
+      "sequential": "顺序",
+      "parallel": "并行"
+    },
+    "chunkLaunched": "{{milestone}} — 轨道 {{chunk}}/{{total}} 已启动",
+    "chunkFailed": "{{milestone}} — 轨道 {{chunk}}/{{total}} 启动失败；已停止后续轨道",
+    "done": "{{milestone}} 完成 — {{count}} 个 spec 已通过顺序链"
   }
 }

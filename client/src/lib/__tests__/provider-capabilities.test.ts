@@ -16,6 +16,7 @@ import {
   providerSupportsCustomModelAliases,
   providerSupportsStructuredActions,
   providerSupportsUserMcp,
+  providersSupportingSection,
 } from '../provider-capabilities'
 
 describe('isSmashCapable', () => {
@@ -112,9 +113,22 @@ describe('sectionVisibleForProviders', () => {
     expect(sectionVisibleForProviders('integrations', ['codex'])).toBe(true)
   })
 
-  it('[claude, codex] multi-provider hides agents (intersection) but shows integrations', () => {
-    expect(sectionVisibleForProviders('agents', ['claude', 'codex'])).toBe(false)
+  it('[claude, codex] multi-provider shows agents (union) and integrations', () => {
+    // global-core-zero-friction: visibility flipped from intersection to union —
+    // installing a weaker provider must never hide sections a capable one backs.
+    expect(sectionVisibleForProviders('agents', ['claude', 'codex'])).toBe(true)
     expect(sectionVisibleForProviders('integrations', ['claude', 'codex'])).toBe(true)
+  })
+
+  it('union: section with zero capable providers stays hidden', () => {
+    expect(sectionVisibleForProviders('agents', ['codex', 'gemini'])).toBe(false)
+  })
+
+  it('providersSupportingSection filters to the capable subset', () => {
+    expect(providersSupportingSection('agents', ['claude', 'codex', 'kimi'])).toEqual(['claude', 'kimi'])
+    expect(providersSupportingSection('agents', ['codex', 'gemini'])).toEqual([])
+    expect(providersSupportingSection('dashboard', ['codex', 'gemini'])).toEqual(['codex', 'gemini'])
+    expect(providersSupportingSection('agents', null)).toEqual(['claude'])
   })
 
   it('empty array defaults to claude (everything visible)', () => {

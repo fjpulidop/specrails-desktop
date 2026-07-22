@@ -1,6 +1,6 @@
 /**
  * Detects lines that contain markdown formatting.
- * Used by LogViewer and SetupWizard to decide between plain text and rich rendering.
+ * Used by LogViewer to decide between plain text and rich rendering.
  */
 export function hasMarkdownSyntax(line: string): boolean {
   const trimmed = line.trimStart()

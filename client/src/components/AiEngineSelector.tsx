@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from './ui/select'
 import { providerLabel } from '../lib/provider-capabilities'
+import { useProviderDetection } from '../hooks/useProviderDetection'
 
 interface AiEngineSelectorProps {
   /** Currently selected provider id. */
@@ -33,6 +34,7 @@ export function AiEngineSelector({
   className,
 }: AiEngineSelectorProps) {
   const { t } = useTranslation('addspec')
+  const detection = useProviderDetection()
   if (!providers || providers.length <= 1) return null
   return (
     <Select
@@ -48,11 +50,24 @@ export function AiEngineSelector({
         <SelectValue placeholder={t('aiEngine.label')} />
       </SelectTrigger>
       <SelectContent>
-        {providers.map((p) => (
-          <SelectItem key={p} value={p}>
-            {providerLabel(p)}
-          </SelectItem>
-        ))}
+        {providers.map((p) => {
+          const unauthenticated = detection.providers[p]?.authState === 'unauthenticated'
+          return (
+            <SelectItem key={p} value={p}>
+              <span className="inline-flex items-center gap-1.5">
+                {providerLabel(p)}
+                {unauthenticated && (
+                  <span
+                    className="rounded-full bg-accent-warning/15 px-1.5 py-px text-[10px] leading-4 text-accent-warning"
+                    title={t('aiEngine.notSignedIn')}
+                  >
+                    {t('aiEngine.notSignedIn')}
+                  </span>
+                )}
+              </span>
+            </SelectItem>
+          )
+        })}
       </SelectContent>
     </Select>
   )

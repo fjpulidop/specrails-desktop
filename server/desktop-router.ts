@@ -18,6 +18,15 @@ import {
   detectAvailableCLIs,
 } from './core-compat'
 import { getAdapter, hasAdapter, listAdapters } from './providers'
+import {
+  getDetectionSnapshot,
+  getDetectedIdsSync,
+  refreshDetection,
+  isCodexBetaDisabled,
+  isGeminiBetaDisabled,
+} from './provider-detection'
+import { workspacePathFor } from './workspace-manager'
+import { isWorkspacePopulated } from './workspace-resolution'
 import type { DetectionResult, ProviderAdapter } from './providers/types'
 import { getDesktopAnalytics, getDesktopTodayStats, getDesktopRecentJobs } from './desktop-analytics'
 import { getSetupPrerequisitesStatus } from './setup-prerequisites'
@@ -52,25 +61,9 @@ function allocateSlug(name: string, existing: ReadonlySet<string>): string {
   return `${base}-${n}`
 }
 
-// Emergency rollback for the codex provider: SPECRAILS_CODEX_BETA=0 forces
-// codex back to "unavailable" without redeploying. The pre-rebrand
-// SPECRAILS_HUB_CODEX_BETA name is read as a legacy fallback when the new
-// var is unset (legacy fallback — do not remove while old installs exist).
-function isCodexBetaDisabled(): boolean {
-  const v = process.env.SPECRAILS_CODEX_BETA ?? process.env.SPECRAILS_HUB_CODEX_BETA
-  return v === '0'
-}
-
-// Gemini is enabled by DEFAULT now that its stream-json schema and the full rails
-// pipeline (architect→developer→reviewer delegation, headless agent loading, the
-// MAX_TURNS resume + reviewer gate) are validated against the live binary
-// (0.46/0.47). Emergency rollback: SPECRAILS_GEMINI_BETA=0 forces it back to
-// "unavailable" without redeploying — parity with codex's SPECRAILS_CODEX_BETA.
-// The adapter is always registered (pricing/getAdapter work); only project
-// selection is gated.
-function isGeminiBetaDisabled(): boolean {
-  return process.env.SPECRAILS_GEMINI_BETA === '0'
-}
+// Beta kill switches live with the app-level detection singleton now
+// (provider-detection.ts) so detection and route gating can never disagree.
+// Re-imported here under the original names.
 
 // Theme allow-list. Mirror of THEME_IDS in `client/src/lib/themes.ts` —
 // kept duplicated to avoid pulling client code into the server bundle.
@@ -354,24 +347,63 @@ export function createDesktopRouter(
       registry.listContexts().some((c) => countRunningForLoop(c.db, loopId) > 0),
   })
 
-  // GET /api/projects — list all registered projects
-  router.get('/projects', (_req, res) => {
-    const projects = listProjects(registry.desktopDb)
-    // Detect projects that are currently in the setup wizard so the client
-    // can restore the wizard after a page refresh.
-    const setupProjectIds: string[] = []
-    for (const p of projects) {
-      const ctx = registry.getContext(p.id)
-      if (!ctx) continue
-      const installing = ctx.setupManager.isInstalling(p.id)
-      const settingUp = ctx.setupManager.isSettingUp(p.id)
-      const hasSession = !!getProjectSetupSession(registry.desktopDb, p.id)
-      const specrailsInstalled = hasSpecrails(p.path)
-      if (installing || settingUp || (hasSession && !specrailsInstalled)) {
-        setupProjectIds.push(p.id)
+  // Lazy per-provider workspace assembly (provider-auto-detection spec): when
+  // the usable set gains a provider, every RELOCATED project whose workspace
+  // lacks that provider's surface assembles it in the background — installing
+  // codex on Tuesday makes it usable everywhere without user action.
+  function assembleNewlyDetected(detected: string[]): void {
+    for (const ctx of registry.listContexts()) {
+      try {
+        const workspace = workspacePathFor(ctx.project.slug)
+        if (!isWorkspacePopulated(workspace)) continue // legacy → migration owns it
+        const missing = detected.filter((p) => {
+          try {
+            return hasAdapter(p) && !fs.existsSync(path.join(workspace, getAdapter(p).projectDirName))
+          } catch {
+            return false
+          }
+        })
+        if (missing.length === 0) continue
+        ctx.setupManager.startSilentAssemble(
+          ctx.project.id, ctx.project.path, ctx.project.slug, missing,
+        )
+      } catch (err) {
+        console.warn(`[desktop] lazy assemble check failed for ${ctx.project.id} (non-fatal):`, err)
       }
     }
-    res.json({ projects, setupProjectIds })
+  }
+
+  // GET /api/projects — list all registered projects. The old wizard-restore
+  // `setupProjectIds` field is retired (silent-project-add): kept as an empty
+  // array for wire compat with clients that still destructure it.
+  router.get('/projects', (_req, res) => {
+    res.json({ projects: listProjects(registry.desktopDb), setupProjectIds: [] })
+  })
+
+  // GET /api/providers/detected — the app-level detection snapshot (machine
+  // property, not project property). `?refresh=1` bypasses the 60s cache; a
+  // changed usable set broadcasts `providers.detected_changed` app-globally.
+  router.get('/providers/detected', async (req, res) => {
+    try {
+      if (req.query.refresh === '1') {
+        const { snapshot, changed } = await refreshDetection()
+        if (changed) {
+          broadcast({
+            type: 'providers.detected_changed',
+            detected: snapshot.detected,
+            providers: snapshot.providers,
+            timestamp: new Date().toISOString(),
+          } as unknown as WsMessage)
+          assembleNewlyDetected(snapshot.detected)
+        }
+        res.json(snapshot)
+        return
+      }
+      res.json(await getDetectionSnapshot())
+    } catch (err) {
+      console.error('[provider-detection] snapshot error:', err)
+      res.status(500).json({ error: 'provider detection failed' })
+    }
   })
 
   // GET /api/available-providers — which AI CLIs are installed, plus supported install tiers
@@ -452,17 +484,34 @@ export function createDesktopRouter(
       res.status(400).json({ error: 'path is required' })
       return
     }
-    // Normalise to a providers list. New multi-provider clients send
-    // `providers: ['claude','codex']`; legacy clients send a single
-    // `provider`; omitting both defaults to ['claude']. The first entry is the
-    // primary/default provider.
+    // Project registration is a detection refresh trigger (spec:
+    // provider-auto-detection). The refresh runs in the BACKGROUND so
+    // registration latency never pays for CLI probes; the defaulting below uses
+    // the last cached snapshot (null before the first startup detection).
+    refreshDetection()
+      .then(({ snapshot, changed }) => {
+        if (!changed) return
+        broadcast({
+          type: 'providers.detected_changed',
+          detected: snapshot.detected,
+          providers: snapshot.providers,
+          timestamp: new Date().toISOString(),
+        } as unknown as WsMessage)
+        assembleNewlyDetected(snapshot.detected)
+      })
+      .catch(() => { /* detection failure never blocks registration */ })
+    const detectedNow: string[] = getDetectedIdsSync() ?? []
+    // Normalise to a providers list. Wire compat: `providers`/`provider` are
+    // still accepted and recorded, but the DETECTED set is authoritative for
+    // what the project offers (delta spec: multi-provider-architecture).
+    // Omitting both registers with the detected set.
     let providers: string[]
     if (Array.isArray(providersRaw) && providersRaw.length > 0) {
       providers = providersRaw
     } else if (typeof provider === 'string') {
       providers = [provider]
     } else {
-      providers = ['claude']
+      providers = detectedNow.length > 0 ? [...detectedNow] : ['claude']
     }
     // De-duplicate while preserving order (primary stays first).
     providers = providers.filter((p, i) => providers.indexOf(p) === i)
@@ -555,6 +604,19 @@ export function createDesktopRouter(
         project: ctx.project,
         timestamp: new Date().toISOString(),
       })
+      // Silent add (global-core-zero-friction): registration is already done —
+      // assemble the relocated workspace in the BACKGROUND for every detected
+      // provider. Never blocks or rolls back registration. Skipped when the
+      // workspace is already populated (re-register of a relocated repo).
+      try {
+        const workspace = workspacePathFor(slug)
+        const effectiveProviders = detectedNow.length > 0 ? detectedNow : providers
+        if (!isWorkspacePopulated(workspace)) {
+          ctx.setupManager.startSilentAssemble(id, canonicalPath, slug, effectiveProviders)
+        }
+      } catch (err) {
+        console.warn('[desktop] silent assemble launch failed (non-fatal):', err)
+      }
       res.status(201).json({ project: ctx.project, has_specrails: specrailsInstalled })
     } catch (err) {
       const message = (err as Error).message ?? ''
@@ -566,6 +628,36 @@ export function createDesktopRouter(
         res.status(500).json({ error: 'Failed to register project' })
       }
     }
+  })
+
+  // POST /api/projects/:id/assemble-retry — re-run the silent workspace
+  // assemble for the providers that failed (or every detected provider when
+  // nothing is recorded as failed). 202; progress rides project.assemble_progress.
+  router.post('/projects/:id/assemble-retry', async (req, res) => {
+    const ctx = registry.getContext(req.params.id)
+    if (!ctx) {
+      res.status(404).json({ error: 'unknown project' })
+      return
+    }
+    const state = ctx.setupManager.silentAssembleState(ctx.project.id)
+    if (state.running) {
+      res.status(202).json({ alreadyRunning: true })
+      return
+    }
+    let providers = state.failed
+    if (providers.length === 0) {
+      try {
+        providers = (await getDetectionSnapshot()).detected
+      } catch {
+        providers = []
+      }
+    }
+    if (providers.length === 0) {
+      res.status(409).json({ error: 'no providers detected to assemble' })
+      return
+    }
+    ctx.setupManager.startSilentAssemble(ctx.project.id, ctx.project.path, ctx.project.slug, providers)
+    res.status(202).json({ retrying: providers })
   })
 
   // DELETE /api/projects/:id — unregister a project

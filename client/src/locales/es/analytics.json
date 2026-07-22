@@ -69,9 +69,9 @@
   "timeline": {
     "title": "Cronología diaria",
     "subtitle": "apilada por superficie",
-    "empty": "Sin gasto en este periodo."
-    ,"costUnavailable": "Hay invocaciones registradas, pero la telemetría de coste no está disponible."
-    ,"costPartiallyUnavailable": "costes conocidos · {{count}} no disponible(s)"
+    "empty": "Sin gasto en este periodo.",
+    "costUnavailable": "Hay invocaciones registradas, pero la telemetría de coste no está disponible.",
+    "costPartiallyUnavailable": "costes conocidos · {{count}} no disponible(s)"
   },
   "quickVsExplore": {
     "title": "Quick vs Explore",
@@ -85,9 +85,9 @@
     "avgDuration": "{{duration}} de media",
     "ratio": "{{ratio}}× más por spec",
     "estimatedTooltip": "Coste estimado (estimación con tabla de precios para codex/gemini, no facturado por el proveedor)",
-    "estimatedFootnote": "~ Incluye costes estimados (codex/gemini)"
-    ,"costUnavailable": "coste por spec no disponible"
-    ,"costUnavailableTooltip": "No se puede calcular la media por spec porque una o más ejecuciones no expusieron telemetría de coste."
+    "estimatedFootnote": "~ Incluye costes estimados (codex/gemini)",
+    "costUnavailable": "coste por spec no disponible",
+    "costUnavailableTooltip": "No se puede calcular la media por spec porque una o más ejecuciones no expusieron telemetría de coste."
   },
   "models": {
     "title": "Modelos",
@@ -202,5 +202,13 @@
     "90d": "Últimos 90 días",
     "all": "Todo el tiempo",
     "custom": "Rango personalizado"
+  },
+  "agentMissions": {
+    "title": "Misiones del agente",
+    "subtitle": "Turnos de Agent Chat anclados a este proyecto",
+    "vsPrev": "vs periodo anterior",
+    "turnsAndTokens": "{{turns}} turnos · {{tokens}} tokens",
+    "untitled": "Misión sin título",
+    "estimatedNote": "Incluye costes estimados"
   }
 }

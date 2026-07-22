@@ -127,11 +127,26 @@ export interface OfflineAssembleOptions {
   defaultModel?: string
   /** Explicit per-provider default-model overrides. */
   defaultModels?: Readonly<Record<string, string | undefined>>
+  /**
+   * Silent-add mode (global-core-zero-friction): keep assembling remaining
+   * providers when one fails, reporting per-provider results instead of
+   * throwing on the first failure. Default false = legacy throw-on-first.
+   */
+  continueOnError?: boolean
+  /** Progress hooks for per-provider status surfaces (silent-add WS events). */
+  onProviderStart?: (provider: string) => void
+  onProviderResult?: (result: AssembleProviderResult) => void
   /** Test seam. */
   io?: {
     spawnInit?: typeof spawnBundledCoreInit
     materialize?: (providers: string[]) => void
   }
+}
+
+export interface AssembleProviderResult {
+  provider: string
+  ok: boolean
+  error?: string
 }
 
 function buildQuickInstallConfigYaml(provider: string, defaultModel: string): string {
@@ -171,9 +186,10 @@ function defaultModelForProvider(opts: OfflineAssembleOptions, provider: string)
  * from the npx fallback in development/runtimes-less builds: registry mirror
  * → framework materialize (idempotent) → one `init` per provider. Throws on
  * any failure — the caller surfaces it as a failed step; nothing here registers
- * the project.
+ * the project. With `continueOnError` it instead reports per-provider results
+ * (silent-add mode).
  */
-export async function assembleProjectOffline(opts: OfflineAssembleOptions): Promise<void> {
+export async function assembleProjectOffline(opts: OfflineAssembleOptions): Promise<AssembleProviderResult[]> {
   const { projectPath, slug, desktopProjectId, providers } = opts
   if (!canAssembleProject() && !opts.io?.spawnInit) {
     throw new Error('specrails-core is not available — reinstall the Specrails app')
@@ -213,7 +229,8 @@ export async function assembleProjectOffline(opts: OfflineAssembleOptions): Prom
 
   const spawnInit = opts.io?.spawnInit ?? (useBundled ? spawnBundledCoreInit : spawnNpxCoreInit)
   const coreLabel = useBundled ? 'bundled core' : 'npx core'
-  for (const provider of providers) {
+  const results: AssembleProviderResult[] = []
+  const assembleOne = async (provider: string): Promise<void> => {
     const configPath = installConfigPathForProvider({ slug, path: projectPath }, provider)
     mkdirSync(dirname(configPath), { recursive: true })
     writeFileSync(configPath, buildQuickInstallConfigYaml(provider, defaultModelForProvider(opts, provider)), 'utf-8')
@@ -236,12 +253,36 @@ export async function assembleProjectOffline(opts: OfflineAssembleOptions): Prom
       throw new Error(`${coreLabel} init failed for ${provider} (exit ${code})${tail ? `: ${tail}` : ''}`)
     }
   }
+  for (const provider of providers) {
+    opts.onProviderStart?.(provider)
+    try {
+      await assembleOne(provider)
+      const result: AssembleProviderResult = { provider, ok: true }
+      results.push(result)
+      opts.onProviderResult?.(result)
+    } catch (err) {
+      const result: AssembleProviderResult = {
+        provider,
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      }
+      results.push(result)
+      opts.onProviderResult?.(result)
+      if (!opts.continueOnError) throw err
+    }
+  }
 
   // The activation gate (workspace-resolution) requires a populated workspace;
   // verify assemble actually produced one so a silent core no-op cannot leave
-  // a half-created project that would spawn from a repo cwd.
+  // a half-created project that would spawn from a repo cwd. In
+  // continueOnError mode this only applies when at least one provider
+  // succeeded (an all-failed run already carries its per-provider errors).
   const workspace = workspacePathFor(slug)
-  if (!existsSync(workspace)) {
+  if (!existsSync(workspace) && results.some((r) => r.ok)) {
     throw new Error(`assemble completed but workspace was not created at ${workspace}`)
   }
+  if (!opts.continueOnError && !existsSync(workspace)) {
+    throw new Error(`assemble completed but workspace was not created at ${workspace}`)
+  }
+  return results
 }

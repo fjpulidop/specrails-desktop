@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase, Rocket } from 'lucide-react'
+import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase, Rocket, BarChart3 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { BlueprintPanel } from '../project-builder/BlueprintPanel'
 import { cn } from '../../lib/utils'
@@ -55,6 +55,11 @@ export function AgentWorkspaceSidebar() {
     {
       key: 'jobs', icon: Briefcase, label: t('workspace.jobs'),
       onClick: () => workspace.toggleJobsPane(),
+      disabled: noProject, disabledTitle: t('workspace.requiresProject'),
+    },
+    {
+      key: 'analytics', icon: BarChart3, label: t('workspace.analytics'),
+      onClick: () => workspace.toggleAnalyticsPane(),
       disabled: noProject, disabledTitle: t('workspace.requiresProject'),
     },
     ...(isBrowserCaptureEnabled()

@@ -203,6 +203,64 @@ describe('assembleProjectOffline', () => {
   })
 })
 
+describe('assembleProjectOffline continueOnError (silent add)', () => {
+  function fakePerProviderInit(codes: Record<string, number>) {
+    const spawn = (args: string[], cwd: string): ChildProcess => {
+      const yaml = fs.readFileSync(args[2], 'utf-8')
+      const provider = yaml.match(/^provider:\s*(\S+)\s*$/m)?.[1] ?? 'unknown'
+      const exitCode = codes[provider] ?? 0
+      const child = new EventEmitter() as unknown as ChildProcess & { stdout: Readable; stderr: Readable }
+      child.stdout = new Readable({ read() {} })
+      child.stderr = new Readable({ read() {} })
+      setImmediate(() => {
+        if (exitCode !== 0) child.stderr.push(`${provider} init exploded\n`)
+        child.stdout.push(null)
+        child.stderr.push(null)
+        if (exitCode === 0) {
+          fs.mkdirSync(path.join(workspacePathFor('my-app'), '.specrails'), { recursive: true })
+        }
+        setImmediate(() => child.emit('close', exitCode))
+      })
+      return child
+    }
+    return spawn
+  }
+
+  it('keeps assembling after a provider failure and reports per-provider results', async () => {
+    const started: string[] = []
+    const settled: Array<{ provider: string; ok: boolean }> = []
+    const results = await assembleProjectOffline({
+      projectPath: repoDir,
+      slug: 'my-app',
+      desktopProjectId: 'proj-1',
+      providers: ['claude', 'codex', 'gemini'],
+      continueOnError: true,
+      onProviderStart: (p) => started.push(p),
+      onProviderResult: (r) => settled.push({ provider: r.provider, ok: r.ok }),
+      io: { spawnInit: fakePerProviderInit({ codex: 1 }) as never, materialize: vi.fn() },
+    })
+    expect(started).toEqual(['claude', 'codex', 'gemini'])
+    expect(settled).toEqual([
+      { provider: 'claude', ok: true },
+      { provider: 'codex', ok: false },
+      { provider: 'gemini', ok: true },
+    ])
+    expect(results.find((r) => r.provider === 'codex')?.error).toMatch(/codex/)
+  })
+
+  it('legacy mode still throws on the first failure', async () => {
+    await expect(
+      assembleProjectOffline({
+        projectPath: repoDir,
+        slug: 'my-app',
+        desktopProjectId: 'proj-1',
+        providers: ['codex', 'claude'],
+        io: { spawnInit: fakePerProviderInit({ codex: 1 }) as never, materialize: vi.fn() },
+      }),
+    ).rejects.toThrow(/codex/)
+  })
+})
+
 describe('canAssembleProject', () => {
   const priorDesktop = process.env.SPECRAILS_IS_DESKTOP
   const priorBundle = process.env.SPECRAILS_BUNDLED_CORE_PATH

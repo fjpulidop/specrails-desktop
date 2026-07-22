@@ -86,6 +86,24 @@ function pruneFavoriteConversationIds(prev: ReadonlySet<string>, conversations: 
   return new Set([...prev].filter((id) => valid.has(id)))
 }
 
+// Sticky agent-autonomy tier (Observe/Edit/Operate/Autonomous): the last
+// explicitly selected level survives across missions and app restarts.
+const LAST_TIER_KEY = 'specrails-desktop:agent-tier-last'
+
+function readLastTierLevel(): AgentTierLevel {
+  try {
+    const raw = localStorage.getItem(LAST_TIER_KEY)
+    const n = raw === null ? 0 : Number.parseInt(raw, 10)
+    return (n === 0 || n === 1 || n === 2 || n === 3 ? n : 0) as AgentTierLevel
+  } catch {
+    return 0
+  }
+}
+
+function saveLastTierLevel(level: AgentTierLevel): void {
+  try { localStorage.setItem(LAST_TIER_KEY, String(level)) } catch { /* ignore */ }
+}
+
 const TERMINAL_PR_CARD_DECISIONS = new Set(['completed', 'merged', 'discarded', 'superseded'])
 
 function envelopesMatch(a: AgentPrDecisionEnvelope, b: AgentPrDecisionEnvelope): boolean {
@@ -425,7 +443,9 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   // without them the EMPTY controls would visibly snap back (patchActive no-ops).
   const [draftProvider, setDraftProvider] = useState('claude')
   const [draftModel, setDraftModel] = useState<string | null>(null)
-  const [draftTierLevel, setDraftTierLevel] = useState<AgentTierLevel>(0)
+  // The tier ladder is sticky ACROSS missions: the last explicitly selected
+  // level is persisted and seeds every new mission (draft + created rows).
+  const [draftTierLevel, setDraftTierLevel] = useState<AgentTierLevel>(() => readLastTierLevel())
   // null = no provider-specific effort override.
   const [draftEffort, setDraftEffort] = useState<string | null>(null)
   const draftConvRef = useRef({ provider: 'claude', model: null as string | null, tierLevel: 0 as AgentTierLevel, effort: null as string | null })
@@ -949,6 +969,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }, [active])
 
   const setTier = useCallback(async (level: AgentTierLevel) => {
+    saveLastTierLevel(level) // sticky across missions
     if (active) await patchActive({ tierLevel: level })
     else setDraftTierLevel(level)
   }, [active, patchActive])
@@ -994,7 +1015,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setDraftPinnedProjectId(projectId ?? null)
     setDraftProvider('claude')
     setDraftModel(null)
-    setDraftTierLevel(0)
+    setDraftTierLevel(readLastTierLevel()) // sticky tier across missions
     setDraftEffort(null)
   }, [exitBuilderMode])
 
@@ -1003,7 +1024,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     // Explicit arg pins to that project (null ⇒ Home); arg-less preserves the
     // legacy behavior of inheriting the active conversation's pin.
     const pinnedProjectId = projectId !== undefined ? projectId : (active?.pinned_project_id ?? null)
-    const created = await createAgentConversation({ pinnedProjectId })
+    const created = await createAgentConversation({ pinnedProjectId, tierLevel: readLastTierLevel() })
     setConversations((c) => [created, ...c])
     setActive(created)
     setMessages([])

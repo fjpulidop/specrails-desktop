@@ -17,22 +17,30 @@ Los cuatro están **activados por defecto**. Un proveedor aparece en **Añadir
 proyecto** cuando su CLI está instalada y en tu `PATH`. Para Kimi, comprueba
 `kimi --version` y ejecuta `kimi login`.
 
-## Instalar un proveedor para un proyecto
+## Los proveedores se detectan automáticamente
 
-Cuando añades un proyecto, el asistente de configuración te pregunta qué proveedor(es) instalar. Elige uno, completa el paso de instalación y listo. A partir de ahí el proyecto simplemente *tiene* ese proveedor: ya no tendrás que pensar en ello. Las specs, los rails, el chat y las analíticas funcionan igual independientemente del que hayas elegido.
+Nunca eliges proveedores por proyecto. Specrails detecta cada CLI de proveedor
+instalado en tu máquina y pone **todos** a disposición de **todos** los
+proyectos, siempre. Cada superficie comprueba después las capacidades que el
+proveedor anuncia. Consulta [Usar Kimi](../../../kimi.md) para la matriz exacta de Kimi.
 
-Si una CLI que quieres no aparece en Añadir proyecto, casi siempre es porque la CLI no está instalada o no está en tu `PATH`. Instálala y vuelve a abrir Añadir proyecto.
+Si un proveedor que quieres no aparece por ningún sitio, casi siempre es porque
+el CLI no está instalado o no está en tu `PATH`. Instálalo, inicia sesión y
+vuelve a la app — la detección se re-ejecuta al enfocar la ventana y el
+proveedor aparece por sí solo en todas partes, con su superficie de workspace
+ensamblada en segundo plano. Un proveedor instalado pero sin sesión iniciada
+sigue apareciendo, con una insignia *Sin iniciar sesión* en los selectores de motor.
 
-## Instalar varios proveedores para un mismo proyecto
+Algunas cosas útiles sobre máquinas multi-proveedor:
 
-Puedes instalar **más de un** proveedor en el mismo proyecto; por ejemplo, Claude *y* Gemini. En **Añadir proyecto**, la lista de proveedores se convierte en un conjunto de casillas; marca todas las que quieras. El primero que selecciones se convierte en el proveedor **principal** (por defecto) del proyecto; el resto quedan disponibles como alternativas.
-
-Algunas cosas que conviene saber sobre los proyectos multiproveedor:
-
-- **Con un solo proveedor todo se comporta exactamente igual que antes.** Si un proyecto tiene un único proveedor, no verás ningún selector de proveedor en ninguna parte: la app se mantiene limpia y sencilla.
-- **Las capacidades gobiernan la interfaz.** Claude y Kimi admiten perfiles
-  separados por proveedor; Codex y Gemini ejecutan los rails en modo legacy.
-- **La elección de proveedor queda bloqueada tras la creación.** En esta versión eliges tus proveedores al añadir el proyecto y no se pueden cambiar después desde Ajustes. Si necesitas una combinación distinta, crea un proyecto nuevo.
+- **Un solo proveedor se comporta exactamente como antes.** Si solo se detecta uno, nunca verás un selector de proveedor — la app se mantiene limpia y simple.
+- **Las capacidades gobiernan la barra lateral.** Una sección es visible cuando
+  al menos un proveedor detectado la soporta; dentro, las acciones por motor solo
+  ofrecen los proveedores capaces. Kimi anuncia perfiles, roles personalizados y
+  Freestyle; no anuncia acciones estructuradas que requieran un límite sin
+  herramientas exigible.
+- **Nada queda bloqueado.** Instalar o quitar un CLI de proveedor actualiza todos
+  los proyectos automáticamente — no hay ajuste de proveedor por proyecto que gestionar.
 
 ## Elegir un proveedor por cada invocación
 

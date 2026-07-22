@@ -214,7 +214,10 @@
     "jobs": "Jobs",
     "closeJobs": "Fermer les jobs",
     "resizeJobs": "Redimensionner le panneau des jobs",
-    "noJobs": "Aucun job pour l'instant — demandez à l'agent d'en lancer un"
+    "noJobs": "Aucun job pour l'instant — demandez à l'agent d'en lancer un",
+    "analytics": "Analytique",
+    "closeAnalytics": "Fermer l'analytique",
+    "resizeAnalytics": "Redimensionner le panneau d'analytique"
   },
   "attachFile": "Joindre un fichier",
   "deleteConversation": "Supprimer « {{title}} »",

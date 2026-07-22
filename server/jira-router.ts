@@ -231,6 +231,28 @@ export function createJiraRouter(): Router {
     res.status(201).json({ localId: result.localId, jiraKey: result.jiraKey })
   })
 
+  // POST /specs/:localId/move-to-status — manual transition to a NAMED raw Jira
+  // status from the spec detail's status selector. Body: { status: string }.
+  router.post('/specs/:localId/move-to-status', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const localId = parseInt(req.params.localId as string, 10)
+    if (Number.isNaN(localId)) {
+      res.status(400).json({ error: 'Invalid spec id' })
+      return
+    }
+    const status = req.body?.status
+    if (!isNonEmptyString(status)) {
+      res.status(400).json({ error: 'status is required' })
+      return
+    }
+    const result = c.jiraSyncManager.moveSpecToStatus(localId, status.trim())
+    if (!result.ok) {
+      res.status(result.reason === 'no-link' ? 404 : 409).json({ error: result.reason })
+      return
+    }
+    res.status(202).json({ ok: true })
+  })
+
   // POST /specs/:localId/discard — "Move to <discard status>": transition the
   // linked issue to the configured discard status (+ optional reason comment)
   // instead of a destructive delete. Body: { comment?: string }.

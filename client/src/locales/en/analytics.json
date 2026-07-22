@@ -69,9 +69,9 @@
   "timeline": {
     "title": "Daily timeline",
     "subtitle": "stacked by surface",
-    "empty": "No spend in this period."
-    ,"costUnavailable": "Invocations were recorded, but cost telemetry is unavailable."
-    ,"costPartiallyUnavailable": "known costs · {{count}} unavailable"
+    "empty": "No spend in this period.",
+    "costUnavailable": "Invocations were recorded, but cost telemetry is unavailable.",
+    "costPartiallyUnavailable": "known costs · {{count}} unavailable"
   },
   "quickVsExplore": {
     "title": "Quick vs Explore",
@@ -85,9 +85,9 @@
     "avgDuration": "{{duration}} avg",
     "ratio": "{{ratio}}× more per spec",
     "estimatedTooltip": "Estimated cost (codex/gemini pricing-table fallback, not provider-billed)",
-    "estimatedFootnote": "~ Includes estimated costs (codex/gemini)"
-    ,"costUnavailable": "cost unavailable per spec"
-    ,"costUnavailableTooltip": "A per-spec average cannot be computed because one or more runs did not expose cost telemetry."
+    "estimatedFootnote": "~ Includes estimated costs (codex/gemini)",
+    "costUnavailable": "cost unavailable per spec",
+    "costUnavailableTooltip": "A per-spec average cannot be computed because one or more runs did not expose cost telemetry."
   },
   "models": {
     "title": "Models",
@@ -202,5 +202,13 @@
     "90d": "Last 90 days",
     "all": "All time",
     "custom": "Custom range"
+  },
+  "agentMissions": {
+    "title": "Agent missions",
+    "subtitle": "Agent Chat turns pinned to this project",
+    "vsPrev": "vs previous period",
+    "turnsAndTokens": "{{turns}} turns · {{tokens}} tokens",
+    "untitled": "Untitled mission",
+    "estimatedNote": "Includes estimated costs"
   }
 }

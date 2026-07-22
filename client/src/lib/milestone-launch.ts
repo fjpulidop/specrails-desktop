@@ -35,6 +35,89 @@ export function chunkTickets(ticketIds: number[], size: number = MAX_TICKETS_PER
   return chunks
 }
 
+/** Gather the milestone's todo tickets and chunk them (shared by both modes). */
+export async function prepareMilestoneChunks(
+  projectId: string,
+  milestone: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ ticketIds: number[]; chunks: number[][] } | null> {
+  const ticketsRes = await fetchImpl(`/api/projects/${projectId}/tickets`, { cache: 'no-store' })
+  if (!ticketsRes.ok) return null
+  const ticketsBody = (await ticketsRes.json()) as { tickets?: TicketLite[] } | TicketLite[]
+  const tickets = Array.isArray(ticketsBody) ? ticketsBody : ticketsBody.tickets ?? []
+  const ticketIds = filterMilestoneTickets(tickets, milestone)
+  if (ticketIds.length === 0) return null
+  return { ticketIds, chunks: chunkTickets(ticketIds) }
+}
+
+export type ChunkLaunchResult =
+  | { ok: true; railIndex: number }
+  | { ok: false; reason: 'rail-create-failed' | 'assign-failed' | 'launch-failed'; detail?: string }
+
+/** Create → assign → launch ONE milestone chunk on a fresh rail. */
+export async function launchMilestoneChunk(
+  projectId: string,
+  milestone: number,
+  chunk: number[],
+  chunkIndex: number,
+  totalChunks: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ChunkLaunchResult> {
+  const base = `/api/projects/${projectId}`
+  const railName = totalChunks === 1
+    ? milestoneLabel(milestone)
+    : `${milestoneLabel(milestone)} · ${chunkIndex + 1}`
+
+  const railRes = await fetchImpl(`${base}/rails`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: railName }),
+  })
+  if (!railRes.ok) {
+    const body = await railRes.json().catch(() => ({}))
+    return { ok: false, reason: 'rail-create-failed', detail: (body as { error?: string }).error }
+  }
+  const { rail } = (await railRes.json()) as { rail: { railIndex: number } }
+
+  const assignRes = await fetchImpl(`${base}/rails/${rail.railIndex}/tickets`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ticketIds: chunk, mode: 'batch-implement' }),
+  })
+  if (!assignRes.ok) {
+    const body = await assignRes.json().catch(() => ({}))
+    return { ok: false, reason: 'assign-failed', detail: (body as { error?: string }).error }
+  }
+
+  const launchRes = await fetchImpl(`${base}/rails/${rail.railIndex}/launch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: 'batch-implement' }),
+  })
+  if (!launchRes.ok) {
+    const body = await launchRes.json().catch(() => ({}))
+    return { ok: false, reason: 'launch-failed', detail: (body as { error?: string }).error }
+  }
+  return { ok: true, railIndex: rail.railIndex }
+}
+
+/** True when the rail has NO active job and NO active loop run (settled/idle). */
+export async function isRailIdle(
+  projectId: string,
+  railIndex: number,
+  fetchImpl: typeof fetch = fetch,
+): Promise<boolean | null> {
+  const res = await fetchImpl(`/api/projects/${projectId}/rails`, { cache: 'no-store' })
+  if (!res.ok) return null
+  const body = (await res.json()) as {
+    activeJobs?: Record<number, unknown>
+    activeLoopRuns?: Record<number, unknown>
+  }
+  const busy = (body.activeJobs && railIndex in body.activeJobs)
+    || (body.activeLoopRuns && railIndex in body.activeLoopRuns)
+  return !busy
+}
+
 /**
  * Gather M<n> todo tickets → chunk into groups of ≤ MAX_TICKETS_PER_RAIL →
  * for each chunk: create a rail (server allocates the lowest free index) →
@@ -48,60 +131,21 @@ export async function launchMilestone(
   milestone: number,
   fetchImpl: typeof fetch = fetch,
 ): Promise<MilestoneLaunchResult> {
-  const base = `/api/projects/${projectId}`
+  const prepared = await prepareMilestoneChunks(projectId, milestone, fetchImpl)
+  if (!prepared) return { ok: false, reason: 'no-tickets' }
+  const { ticketIds, chunks } = prepared
 
-  const ticketsRes = await fetchImpl(`${base}/tickets`, { cache: 'no-store' })
-  if (!ticketsRes.ok) return { ok: false, reason: 'no-tickets' }
-  const ticketsBody = (await ticketsRes.json()) as { tickets?: TicketLite[] } | TicketLite[]
-  const tickets = Array.isArray(ticketsBody) ? ticketsBody : ticketsBody.tickets ?? []
-  const ticketIds = filterMilestoneTickets(tickets, milestone)
-  if (ticketIds.length === 0) return { ok: false, reason: 'no-tickets' }
-
-  const chunks = chunkTickets(ticketIds)
   const railIndices: number[] = []
   let launchedTickets = 0
   let failure: { reason: 'rail-create-failed' | 'assign-failed' | 'launch-failed'; detail?: string } | null = null
 
   for (const [chunkIndex, chunk] of chunks.entries()) {
-    const railName = chunks.length === 1
-      ? milestoneLabel(milestone)
-      : `${milestoneLabel(milestone)} · ${chunkIndex + 1}`
-
-    const railRes = await fetchImpl(`${base}/rails`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: railName }),
-    })
-    if (!railRes.ok) {
-      const body = await railRes.json().catch(() => ({}))
-      failure = { reason: 'rail-create-failed', detail: (body as { error?: string }).error }
+    const result = await launchMilestoneChunk(projectId, milestone, chunk, chunkIndex, chunks.length, fetchImpl)
+    if (!result.ok) {
+      failure = { reason: result.reason, detail: result.detail }
       break
     }
-    const { rail } = (await railRes.json()) as { rail: { railIndex: number } }
-
-    const assignRes = await fetchImpl(`${base}/rails/${rail.railIndex}/tickets`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticketIds: chunk, mode: 'batch-implement' }),
-    })
-    if (!assignRes.ok) {
-      const body = await assignRes.json().catch(() => ({}))
-      failure = { reason: 'assign-failed', detail: (body as { error?: string }).error }
-      break
-    }
-
-    const launchRes = await fetchImpl(`${base}/rails/${rail.railIndex}/launch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'batch-implement' }),
-    })
-    if (!launchRes.ok) {
-      const body = await launchRes.json().catch(() => ({}))
-      failure = { reason: 'launch-failed', detail: (body as { error?: string }).error }
-      break
-    }
-
-    railIndices.push(rail.railIndex)
+    railIndices.push(result.railIndex)
     launchedTickets += chunk.length
   }
 

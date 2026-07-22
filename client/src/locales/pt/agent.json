@@ -214,7 +214,10 @@
     "jobs": "Jobs",
     "closeJobs": "Fechar jobs",
     "resizeJobs": "Redimensionar painel de jobs",
-    "noJobs": "Ainda não há jobs — peça ao agente para lançar um"
+    "noJobs": "Ainda não há jobs — peça ao agente para lançar um",
+    "analytics": "Analítica",
+    "closeAnalytics": "Fechar analítica",
+    "resizeAnalytics": "Redimensionar painel de analítica"
   },
   "attachFile": "Anexar arquivo",
   "deleteConversation": "Excluir \"{{title}}\"",

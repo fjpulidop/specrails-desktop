@@ -21,7 +21,9 @@
     "removed": "Progetto rimosso",
     "expand": "Espandi {{name}}",
     "collapse": "Comprimi {{name}}",
-    "settings": "Impostazioni di {{name}}"
+    "settings": "Impostazioni di {{name}}",
+    "assembling": "Preparazione del workspace…",
+    "assembleFailed": "Preparazione del workspace non riuscita — clicca per riprovare"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",

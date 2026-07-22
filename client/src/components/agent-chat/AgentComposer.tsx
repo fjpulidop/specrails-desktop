@@ -31,7 +31,7 @@ import { AgentGitBar } from './AgentGitBar'
 import { AgentComposerContextChips, AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
 import { BackgroundProcessChip, type BackgroundProcessAccent } from '../BackgroundProcessChip'
 import { useAvailableProviders } from '../../hooks/useAvailableProviders'
-import { reasoningEffortsForProvider } from '../../lib/provider-capabilities'
+import { reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../lib/provider-capabilities'
 
 function removePaletteTriggerText(
   text: string,
@@ -268,10 +268,13 @@ export function AgentComposer({
     (modelEfforts as readonly string[]).includes(level),
   )
   const configuredEffort = active ? active.reasoning_effort : draftEffort
+  // No stored effort ⇒ show the provider default the SERVER already applies at
+  // spawn (defaultReasoningEffortForModel: medium → high → first) instead of an
+  // empty selector — display-only, the send path is unchanged.
   const effort =
     configuredEffort && efforts.includes(configuredEffort)
       ? configuredEffort
-      : ''
+      : defaultReasoningEffortForProvider(provider, effectiveModel) ?? ''
 
   const adoptNewMissionDrafts = (conversationId: string): void => {
     const prompt = composerDrafts.get(NEW_MISSION_DRAFT_KEY)

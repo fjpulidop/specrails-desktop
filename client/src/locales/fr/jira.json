@@ -123,5 +123,9 @@
   "errors": {
     "generic": "Une erreur s'est produite",
     "testFirst": "Testez d'abord la connexion"
+  },
+  "moveToStatus": {
+    "queued": "Déplacement vers « {{status}} » en file — synchronisation avec Jira",
+    "failed": "Impossible de déplacer la spec dans Jira"
   }
 }

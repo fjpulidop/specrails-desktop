@@ -119,7 +119,8 @@ describe('useDesktop - error paths', () => {
     expect(postCall).toBeDefined()
     const body = JSON.parse(postCall![1].body as string)
     expect(body.name).toBe('Named Project')
-    expect(body.providers).toEqual(['claude'])
+    // Silent add: providers omitted — the server registers with the detected set.
+    expect(body.providers).toBeUndefined()
   })
 
   it('removeProject: throws when fetch returns non-ok', async () => {

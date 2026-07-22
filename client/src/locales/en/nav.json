@@ -21,7 +21,9 @@
     "removed": "Project removed",
     "expand": "Expand {{name}}",
     "collapse": "Collapse {{name}}",
-    "settings": "Settings for {{name}}"
+    "settings": "Settings for {{name}}",
+    "assembling": "Setting up workspace…",
+    "assembleFailed": "Workspace setup failed — click to retry"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",
