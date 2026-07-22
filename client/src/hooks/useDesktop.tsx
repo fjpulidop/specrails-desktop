@@ -52,10 +52,6 @@ interface DesktopContextValue {
   isLoading: boolean
   /** True briefly after switching active project — triggers the loading bar */
   isSwitchingProject: boolean
-  /** IDs of projects currently in the setup wizard */
-  setupProjectIds: Set<string>
-  startSetupWizard: (projectId: string) => void
-  completeSetupWizard: (projectId: string) => void
 }
 
 const DesktopContext = createContext<DesktopContextValue | null>(null)
@@ -80,7 +76,6 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
   const [activeProjectId, setActiveProjectIdRaw] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSwitchingProject, setIsSwitchingProject] = useState(false)
-  const [setupProjectIds, setSetupProjectIds] = useState<Set<string>>(new Set())
   const switchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // BUG-CLIENT-04: project ids this client just added via `addProject`. The
   // server echoes a `desktop.project_added` broadcast back to the initiator;
@@ -108,12 +103,8 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       try {
         const res = await fetch(`${API_ORIGIN}/api/projects`)
         if (!res.ok) return
-        const data = await res.json() as { projects: DesktopProject[]; setupProjectIds?: string[] }
+        const data = await res.json() as { projects: DesktopProject[] }
         setProjects(data.projects)
-        // Restore setup wizard state from server (survives page refresh)
-        if (data.setupProjectIds && data.setupProjectIds.length > 0) {
-          setSetupProjectIds(new Set(data.setupProjectIds))
-        }
       } catch {
         // Network error — treat as empty project list
       } finally {
@@ -169,6 +160,16 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
         // Activate the newly added project
         setActiveProjectId(project.id)
       }
+    } else if (msg.type === 'providers.detected_changed') {
+      // The machine's detected provider set changed (CLI installed/removed).
+      // Project rows mirror the detected set server-side — refetch so every
+      // selector/section converges without a reload.
+      fetch(`${API_ORIGIN}/api/projects`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { projects: DesktopProject[] } | null) => {
+          if (data && Array.isArray(data.projects)) setProjects(data.projects)
+        })
+        .catch(() => { /* transient — next trigger converges */ })
     } else if (msg.type === 'desktop.project_removed') {
       const projectId = msg.projectId as string
       toast.success(i18n.t('nav:projects.removed'))
@@ -190,10 +191,29 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     return () => unregisterHandler('desktop')
   }, [handleMessage, registerHandler, unregisterHandler])
 
-  const addProject = useCallback(async (projectPath: string, name?: string, providers: ProviderId[] = ['claude']): Promise<AddProjectResult | null> => {
+  // Window-focus is a provider-detection refresh trigger (spec:
+  // provider-auto-detection). Throttled client-side to the server's 60s cache
+  // window; the server broadcasts `providers.detected_changed` when the usable
+  // set actually changed, which the handler above turns into a projects refetch.
+  const lastDetectRefreshRef = useRef(0)
+  useEffect(() => {
+    const onFocus = () => {
+      const now = Date.now()
+      if (now - lastDetectRefreshRef.current < 60_000) return
+      lastDetectRefreshRef.current = now
+      fetch(`${API_ORIGIN}/api/providers/detected?refresh=1`).catch(() => { /* best-effort */ })
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
+
+  const addProject = useCallback(async (projectPath: string, name?: string, providers?: ProviderId[]): Promise<AddProjectResult | null> => {
     try {
-      const list = providers.length > 0 ? providers : ['claude']
-      const body: Record<string, unknown> = { path: projectPath, providers: list }
+      // Omitting providers registers with the machine's DETECTED set (server
+      // authoritative — global-core-zero-friction). Explicit lists are wire
+      // compat for callers that still pass one.
+      const body: Record<string, unknown> = { path: projectPath }
+      if (providers && providers.length > 0) body.providers = providers
       if (name) body.name = name
 
       const res = await fetch('/api/projects', {
@@ -234,12 +254,6 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       // (not only via the echoed WS broadcast).
       purgeProjectCache(id)
       setProjects((prev) => prev.filter((p) => p.id !== id))
-      setSetupProjectIds((prev) => {
-        if (!prev.has(id)) return prev
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
       setActiveProjectIdRaw((prev) => {
         if (prev !== id) return prev
         writeSavedProjectId(null)
@@ -252,18 +266,6 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const startSetupWizard = useCallback((projectId: string) => {
-    setSetupProjectIds((prev) => new Set([...prev, projectId]))
-  }, [])
-
-  const completeSetupWizard = useCallback((projectId: string) => {
-    setSetupProjectIds((prev) => {
-      const next = new Set(prev)
-      next.delete(projectId)
-      return next
-    })
-  }, [])
-
   const contextValue = useMemo(() => ({
     projects,
     activeProjectId,
@@ -272,10 +274,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     removeProject,
     isLoading,
     isSwitchingProject,
-    setupProjectIds,
-    startSetupWizard,
-    completeSetupWizard,
-  }), [projects, activeProjectId, setActiveProjectId, addProject, removeProject, isLoading, isSwitchingProject, setupProjectIds, startSetupWizard, completeSetupWizard])
+  }), [projects, activeProjectId, setActiveProjectId, addProject, removeProject, isLoading, isSwitchingProject])
 
   return (
     <DesktopContext.Provider value={contextValue}>
@@ -292,9 +291,6 @@ const LEGACY_FALLBACK: DesktopContextValue = {
   removeProject: async () => {},
   isLoading: false,
   isSwitchingProject: false,
-  setupProjectIds: new Set(),
-  startSetupWizard: () => {},
-  completeSetupWizard: () => {},
 }
 
 export function useDesktop(): DesktopContextValue {

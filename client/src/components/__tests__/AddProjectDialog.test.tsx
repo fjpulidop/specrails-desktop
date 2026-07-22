@@ -34,21 +34,17 @@ vi.mock('sonner', () => ({
   },
 }))
 
-const mockStartSetupWizard = vi.fn()
 const mockSetActiveProjectId = vi.fn()
 const mockAddProject = vi.fn()
 
 vi.mock('../../hooks/useDesktop', () => ({
   useDesktop: () => ({
-    startSetupWizard: mockStartSetupWizard,
     setActiveProjectId: mockSetActiveProjectId,
     projects: [],
     activeProjectId: null,
     isLoading: false,
     addProject: mockAddProject,
     removeProject: vi.fn(),
-    setupProjectIds: new Set(),
-    completeSetupWizard: vi.fn(),
   }),
 }))
 
@@ -77,7 +73,6 @@ function mockFetchSequence(opts?: {
 
 describe('AddProjectDialog', () => {
   beforeEach(() => {
-    mockStartSetupWizard.mockClear()
     mockSetActiveProjectId.mockClear()
     mockAddProject.mockReset()
     mockAddProject.mockResolvedValue({
@@ -172,7 +167,7 @@ describe('AddProjectDialog', () => {
     await user.click(addBtn)
 
     await waitFor(() => {
-      expect(mockAddProject).toHaveBeenCalledWith('/some/path', undefined, ['claude'])
+      expect(mockAddProject).toHaveBeenCalledWith('/some/path', undefined)
       expect(onClose).toHaveBeenCalled()
     })
   })
@@ -193,22 +188,22 @@ describe('AddProjectDialog', () => {
     })
   })
 
-  it('when has_specrails=false, triggers setup wizard and sets active project', async () => {
+  it('has_specrails=false no longer opens any wizard — silent add closes the dialog', async () => {
     const user = userEvent.setup()
+    const onClose = vi.fn()
     mockAddProject.mockResolvedValueOnce({
       project: { id: 'new-proj', name: 'New Project' },
       has_specrails: false,
     })
 
-    render(<AddProjectDialog open={true} onClose={vi.fn()} />)
+    render(<AddProjectDialog open={true} onClose={onClose} />)
     const pathInput = screen.getByPlaceholderText('/Users/me/my-project')
     await user.type(pathInput, '/some/path')
     const addBtn = screen.getByRole('button', { name: /Add Project/i })
     await user.click(addBtn)
 
     await waitFor(() => {
-      expect(mockSetActiveProjectId).toHaveBeenCalledWith('new-proj')
-      expect(mockStartSetupWizard).toHaveBeenCalledWith('new-proj')
+      expect(onClose).toHaveBeenCalled()
     })
   })
 
@@ -221,121 +216,9 @@ describe('AddProjectDialog', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('shows Claude and Codex provider toggles', async () => {
-    render(<AddProjectDialog open={true} onClose={vi.fn()} />)
-    expect(screen.getByRole('checkbox', { name: /Claude/i })).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: /Codex/i })).toBeInTheDocument()
-  })
-
-  it('Codex toggle is disabled with "not found" when codex is not on PATH', async () => {
-    // Default fetch mock (in beforeEach) reports claude:true, codex:false.
-    render(<AddProjectDialog open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      const codexBtn = screen.getByRole('checkbox', { name: /Codex/i })
-      expect(codexBtn).toBeDisabled()
-      expect(codexBtn).toHaveTextContent(/not found/i)
-    })
-  })
-
   it('shows Add Project dialog title', async () => {
     render(<AddProjectDialog open={true} onClose={vi.fn()} />)
     expect(screen.getByRole('heading', { name: /Add Project/i })).toBeInTheDocument()
   })
 
-  it('Codex toggle is enabled when the server reports codex available (Stage C)', async () => {
-    // Post-Stage-C: client honours the server's real codex availability.
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ claude: true, codex: true }),
-    })
-
-    render(<AddProjectDialog open={true} onClose={vi.fn()} />)
-
-    await waitFor(() => {
-      const codexBtn = screen.getByRole('checkbox', { name: /Codex/i })
-      expect(codexBtn).not.toBeDisabled()
-      // "not found" label is hidden when codex is available
-      expect(codexBtn).not.toHaveTextContent(/not found/i)
-    })
-  })
-
-  it('renders a Gemini toggle when the server reports it (data-driven, beta on)', async () => {
-    // The provider list is data-driven: a beta-gated provider the server returns
-    // appears with no per-provider edit. When the beta is off the server omits
-    // gemini, so it never shows.
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ claude: true, codex: true, gemini: true }),
-    })
-
-    render(<AddProjectDialog open={true} onClose={vi.fn()} />)
-
-    await waitFor(() => {
-      const geminiBtn = screen.getByRole('checkbox', { name: /Gemini/i })
-      expect(geminiBtn).not.toBeDisabled()
-      expect(geminiBtn).not.toHaveTextContent(/not found/i)
-    })
-  })
-
-  it('gives all four providers a roomy responsive layout without horizontal overflow', async () => {
-    global.fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url.includes('/api/available-providers')) {
-        return {
-          ok: true,
-          json: async () => ({
-            claude: true,
-            codex: true,
-            gemini: true,
-            kimi: true,
-          }),
-        }
-      }
-      if (url.includes('/api/setup-prerequisites')) {
-        return { ok: true, json: async () => goodPrereqsStatus }
-      }
-      return { ok: true, json: async () => ({}) }
-    })
-
-    render(<AddProjectDialog open={true} onClose={vi.fn()} />)
-
-    await waitFor(() => {
-      expect(screen.getByRole('checkbox', { name: /Kimi/i })).toHaveAttribute('aria-checked', 'true')
-    })
-
-    expect(screen.getByTestId('existing-project-dialog')).toHaveClass(
-      'max-h-[calc(100vh-2rem)]',
-      'w-[calc(100vw-2rem)]',
-      'max-w-2xl',
-      'overflow-x-hidden',
-    )
-    expect(screen.getByTestId('existing-project-provider-grid')).toHaveClass(
-      'grid',
-      'grid-cols-2',
-      'sm:grid-cols-4',
-    )
-    for (const provider of ['Claude', 'Codex', 'Gemini', 'Kimi']) {
-      expect(screen.getByRole('checkbox', { name: new RegExp(provider, 'i') })).toBeEnabled()
-    }
-  })
-
-  it('selects both providers by default when both are available and submits both', async () => {
-    const user = userEvent.setup()
-    global.fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url.includes('/api/available-providers')) return { ok: true, json: async () => ({ claude: true, codex: true }) }
-      if (url.includes('/api/setup-prerequisites')) return { ok: true, json: async () => goodPrereqsStatus }
-      return { ok: true, json: async () => ({}) }
-    })
-    render(<AddProjectDialog open={true} onClose={vi.fn()} />)
-    await waitFor(() => {
-      expect(screen.getByRole('checkbox', { name: /Codex/i })).toHaveAttribute('aria-checked', 'true')
-    })
-    const pathInput = screen.getByPlaceholderText('/Users/me/my-project')
-    await user.type(pathInput, '/some/path')
-    await user.click(screen.getByTestId('add-project-submit'))
-    await waitFor(() => {
-      expect(mockAddProject).toHaveBeenCalledWith('/some/path', undefined, ['claude', 'codex'])
-    })
-  })
 })

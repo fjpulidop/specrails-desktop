@@ -17,22 +17,31 @@ Les quatre sont **activés par défaut**. Un fournisseur apparaît dans **Ajoute
 un projet** lorsque sa CLI est installée et présente dans votre `PATH`. Pour
 Kimi, vérifiez `kimi --version` puis exécutez `kimi login`.
 
-## Installer un fournisseur pour un projet
+## Les fournisseurs sont détectés automatiquement
 
-Lorsque vous ajoutez un projet, l'assistant de configuration vous demande quel(s) fournisseur(s) installer. Choisissez-en un, déroulez l'étape d'installation, et c'est terminé. À partir de là, le projet *possède* simplement ce fournisseur — vous n'avez plus jamais à y penser. Les specs, les rails, le chat et les analytics fonctionnent de la même façon quel que soit votre choix.
+Vous ne choisissez jamais de fournisseurs par projet. Specrails détecte chaque
+CLI de fournisseur installé sur votre machine et les rend **tous** disponibles
+pour **tous** les projets, toujours. Chaque surface vérifie ensuite les
+capacités annoncées par le fournisseur. Voir [Utiliser Kimi](../../../kimi.md)
+pour la matrice exacte de Kimi.
 
-Si une CLI que vous voulez n'apparaît pas dans Ajouter un projet, c'est presque toujours parce qu'elle n'est pas installée ou absente de votre `PATH`. Installez-la, puis rouvrez Ajouter un projet.
+Si un fournisseur que vous voulez n'apparaît nulle part, c'est presque toujours
+parce que le CLI n'est pas installé ou absent de votre `PATH`. Installez-le,
+connectez-vous et revenez sur l'app — la détection se relance au focus de la
+fenêtre et le fournisseur apparaît de lui-même partout, sa surface de workspace
+assemblée en arrière-plan. Un fournisseur installé mais non connecté apparaît
+quand même, avec un badge *Non connecté* sur les sélecteurs de moteur.
 
-## Installer plusieurs fournisseurs pour un même projet
+Quelques points utiles sur les machines multi-fournisseurs :
 
-Vous pouvez installer **plus d'un** fournisseur dans le même projet — par exemple Claude *et* Gemini. Dans **Ajouter un projet**, la liste des fournisseurs devient une série de cases à cocher ; cochez tout ce que vous voulez. Le premier que vous sélectionnez devient le fournisseur **principal** (par défaut) du projet ; les autres restent disponibles comme alternatives.
-
-Quelques points utiles à connaître sur les projets multi-fournisseurs :
-
-- **Avec un seul fournisseur, rien ne change.** Si un projet n'a qu'un seul fournisseur, vous ne verrez jamais de sélecteur de fournisseur où que ce soit — l'app reste épurée et simple.
-- **Les capacités pilotent l'interface.** Claude et Kimi prennent en charge des
-  profils séparés par fournisseur ; Codex et Gemini utilisent le mode legacy.
-- **Le choix des fournisseurs est verrouillé après la création.** Dans cette version, vous choisissez vos fournisseurs au moment d'ajouter le projet et vous ne pouvez plus les modifier ensuite depuis les Réglages. S'il vous faut une combinaison différente, créez un nouveau projet.
+- **Un seul fournisseur se comporte exactement comme avant.** Si un seul est détecté, vous ne verrez jamais de sélecteur de fournisseur — l'app reste sobre et simple.
+- **Les capacités pilotent la barre latérale.** Une section est visible quand au
+  moins un fournisseur détecté la prend en charge ; à l'intérieur, les actions
+  liées au moteur ne proposent que les fournisseurs capables. Kimi annonce les
+  profils, les rôles personnalisés et le Freestyle ; il n'annonce pas les actions
+  structurées exigeant une frontière sans outils applicable.
+- **Rien n'est verrouillé.** Installer ou retirer un CLI met à jour tous les
+  projets automatiquement — il n'y a aucun réglage de fournisseur par projet à gérer.
 
 ## Choisir un fournisseur à chaque invocation
 

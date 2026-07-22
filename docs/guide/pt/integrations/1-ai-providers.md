@@ -16,22 +16,30 @@ capabilities exigidas pelo seu contrato.
 Os quatro estão **ativados por omissão**. O provider aparece quando o CLI está
 no `PATH`; para Kimi, confirme `kimi --version` e execute `kimi login`.
 
-## Instalar um provider para um projeto
+## Os providers são detetados automaticamente
 
-Quando adiciona um projeto, o assistente de configuração pergunta qual ou quais providers instalar. Escolha um, avance pelo passo de instalação e está feito. A partir daí o projeto simplesmente *tem* esse provider — nunca mais precisa de pensar nisso. Specs, rails, chat e analytics funcionam todos da mesma forma, independentemente do que escolheu.
+Nunca escolhes providers por projeto. O specrails deteta cada CLI de provider
+instalado na tua máquina e disponibiliza **todos** a **todos** os projetos,
+sempre. Cada superfície verifica depois as capacidades anunciadas pelo
+provider. Vê [Usar o Kimi](../../../kimi.md) para a matriz exata do Kimi.
 
-Se um CLI que quer não aparecer em Adicionar Projeto, é quase sempre porque o CLI não está instalado ou não está no seu `PATH`. Instale-o e volte a abrir Adicionar Projeto.
+Se um provider que queres não aparece em lado nenhum, é quase sempre porque o
+CLI não está instalado ou não está no teu `PATH`. Instala-o, inicia sessão e
+volta à app — a deteção corre de novo ao focar a janela e o provider aparece
+por si próprio em todo o lado, com a sua superfície de workspace montada em
+segundo plano. Um provider instalado mas sem sessão iniciada continua a
+aparecer, com um distintivo *Sem sessão iniciada* nos seletores de motor.
 
-## Instalar vários providers num só projeto
+Algumas coisas úteis sobre máquinas multi-provider:
 
-Pode instalar **mais do que um** provider no mesmo projeto — por exemplo Claude *e* Gemini. Em **Adicionar Projeto**, a lista de providers passa a ser um conjunto de caixas de seleção; marque tudo o que quiser. O primeiro que selecionar torna-se o provider **primário** (por omissão) do projeto; os restantes ficam disponíveis como alternativas.
-
-Algumas coisas que vale a pena saber sobre projetos multi-provider:
-
-- **Com um só provider, tudo se comporta exatamente como antes.** Se um projeto tiver apenas um provider, nunca verá um seletor de provider em lado nenhum — a app mantém-se limpa e simples.
-- **As capabilities controlam a UI.** Claude e Kimi suportam perfis separados
-  por provider; Codex e Gemini usam modo legacy.
-- **A escolha de providers fica fixada após a criação.** Nesta versão escolhe os seus providers quando adiciona o projeto e não podem ser alterados mais tarde nas Definições. Se precisar de uma combinação diferente, isso é um projeto novo.
+- **Um único provider comporta-se exatamente como antes.** Se só um for detetado, nunca verás um seletor de provider — a app mantém-se limpa e simples.
+- **As capabilities comandam a barra lateral.** Uma secção é visível quando pelo
+  menos um provider detetado a suporta; lá dentro, as ações por motor só
+  oferecem os providers capazes. O Kimi anuncia perfis, roles personalizados e
+  Freestyle; não anuncia ações estruturadas que exijam uma fronteira sem
+  ferramentas aplicável.
+- **Nada fica bloqueado.** Instalar ou remover um CLI de provider atualiza todos
+  os projetos automaticamente — não há definição de provider por projeto para gerir.
 
 ## Escolher um provider a cada invocação
 

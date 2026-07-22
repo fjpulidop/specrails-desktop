@@ -50,10 +50,32 @@ function parseProviders(raw: string | null | undefined, primary: CliProvider): C
   return [primary]
 }
 
+// Detected-set mirror (global-core-zero-friction). When the app-level
+// detection singleton has a snapshot, every project row READS its `providers`
+// as the machine's detected set (wire compat: the column keeps existing, but no
+// longer gates anything) and its `provider` as the derived primary (stored
+// primary while still detected → claude → fixed preference order). Null
+// supplier (startup, unit tests) = legacy row behaviour, byte-identical.
+let _detectedMirrorSupplier: (() => string[] | null) | null = null
+
+export function setProjectProvidersMirror(fn: (() => string[] | null) | null): void {
+  _detectedMirrorSupplier = fn
+}
+
+const PRIMARY_PREFERENCE: readonly CliProvider[] = ['claude', 'codex', 'gemini', 'kimi']
+
 function mapProjectRow(raw: ProjectRowRaw | undefined): ProjectRow | undefined {
   if (!raw) return undefined
   const provider = (raw.provider ?? 'claude') as CliProvider
-  return { ...raw, provider, providers: parseProviders(raw.providers, provider) }
+  const stored = parseProviders(raw.providers, provider)
+  const detected = _detectedMirrorSupplier?.()
+  if (Array.isArray(detected) && detected.length > 0) {
+    const mirrored = detected as CliProvider[]
+    let primary: CliProvider | undefined = mirrored.includes(provider) ? provider : undefined
+    if (!primary) primary = PRIMARY_PREFERENCE.find((p) => mirrored.includes(p)) ?? mirrored[0]
+    return { ...raw, provider: primary, providers: [...mirrored] }
+  }
+  return { ...raw, provider, providers: stored }
 }
 
 export type AgentStatus = 'idle' | 'busy' | 'offline'

@@ -6,6 +6,7 @@ import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from './SidebarResizeGrip'
 import { compactRelativeTime, absoluteTime } from '../lib/relative-time'
+import { useAssembleProgress } from '../hooks/useAssembleProgress'
 import { useDesktop } from '../hooks/useDesktop'
 import type { DesktopProject } from '../hooks/useDesktop'
 import { useSidebarPin } from '../context/SidebarPinContext'
@@ -234,6 +235,8 @@ function ProjectItem({
   onToggleConversationFavorite,
   onDeleteConversation,
   onOpenProjectSettings,
+  assembleStatus = 'ready',
+  onRetryAssemble,
 }: {
   project: DesktopProject
   isActive: boolean
@@ -255,6 +258,9 @@ function ProjectItem({
   onDeleteConversation?: (id: string) => void
   /** Hover gear (Agent Mode): open this project's settings modal. */
   onOpenProjectSettings?: () => void
+  /** Silent-add workspace assembly state (silent-project-add). */
+  assembleStatus?: 'assembling' | 'failed' | 'ready'
+  onRetryAssemble?: () => void
 }) {
   const { t } = useTranslation('nav')
   const [confirming, setConfirming] = useState(false)
@@ -337,6 +343,24 @@ function ProjectItem({
         {expanded && (
           <>
             <span className="text-xs truncate flex-1 text-left">{project.name}</span>
+            {assembleStatus === 'assembling' && (
+              <span
+                className="flex-shrink-0 h-1.5 w-1.5 rounded-full bg-accent-info animate-pulse"
+                title={t('projects.assembling')}
+                data-testid="assemble-indicator"
+                aria-label={t('projects.assembling')}
+              />
+            )}
+            {assembleStatus === 'failed' && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onRetryAssemble?.() }}
+                className="flex-shrink-0 h-2 w-2 rounded-full bg-accent-warning hover:ring-2 hover:ring-accent-warning/40 transition-shadow"
+                title={t('projects.assembleFailed')}
+                data-testid="assemble-retry"
+                aria-label={t('projects.assembleFailed')}
+              />
+            )}
             {onOpenProjectSettings && (
               <button
                 type="button"
@@ -406,6 +430,7 @@ export function ArcSidebar({
   const { t } = useTranslation('nav')
   const { t: tAgent } = useTranslation('agent')
   const { projects, activeProjectId, setActiveProjectId, removeProject } = useDesktop()
+  const assembleProgress = useAssembleProgress()
   const navigate = useNavigate()
   const location = useLocation()
   const onLoopsRoute = location.pathname.startsWith('/loops')
@@ -807,6 +832,8 @@ export function ArcSidebar({
               onSelectConversation={handleSelectConversation}
               onToggleConversationFavorite={handleToggleFavoriteConversation}
               onDeleteConversation={handleDeleteConversation}
+              assembleStatus={assembleProgress.statusFor(project.id)}
+              onRetryAssemble={() => { void assembleProgress.retry(project.id) }}
               onOpenProjectSettings={agentMode ? () => {
                 // The settings sections talk to the ACTIVE project's API base —
                 // opening a project's settings selects it first (same semantics

@@ -142,7 +142,8 @@
     }
   },
   "aiEngine": {
-    "label": "KI-Engine"
+    "label": "KI-Engine",
+    "notSignedIn": "Nicht angemeldet"
   },
   "modelSelector": {
     "presetHeading": "Modell-Preset",

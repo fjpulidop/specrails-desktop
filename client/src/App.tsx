@@ -31,7 +31,6 @@ const LoopBuilderPage = lazy(() => import('./pages/LoopBuilderPage'))
 import { ProjectLayout } from './components/ProjectLayout'
 import { ProjectErrorBoundary } from './components/ProjectErrorBoundary'
 import { WelcomeScreen } from './components/WelcomeScreen'
-import { SetupWizard } from './components/SetupWizard'
 import { OnboardingWizard, hasSeenOnboarding } from './components/OnboardingWizard'
 import { ArcSidebar } from './components/ArcSidebar'
 import { ProjectRightSidebar } from './components/ProjectRightSidebar'
@@ -195,7 +194,7 @@ function useProjectRouteMemory(activeProjectId: string | null) {
 
 function DesktopApp() {
   const { t } = useTranslation('common')
-  const { projects, activeProjectId, isLoading, isSwitchingProject, setupProjectIds, completeSetupWizard, setActiveProjectId } = useDesktop()
+  const { projects, activeProjectId, isLoading, isSwitchingProject, setActiveProjectId } = useDesktop()
   const { cycleLeftMode, cycleRightMode } = useSidebarPin()
   const navigate = useNavigate()
   const location = useLocation()
@@ -273,7 +272,6 @@ function DesktopApp() {
   useOsNotifications({ setActiveProjectId, projectsById })
 
   const activeProject = projects.find((p) => p.id === activeProjectId)
-  const isInSetup = activeProjectId !== null && setupProjectIds.has(activeProjectId)
   const onLoopsRoute = location.pathname.startsWith('/loops')
   const onPluginsRoute = location.pathname.startsWith('/plugins')
   const onDocsRoute = location.pathname.startsWith('/docs')
@@ -393,14 +391,7 @@ function DesktopApp() {
 
         {/* Content */}
         <div className="flex-1 overflow-hidden">
-          {isInSetup && activeProject ? (
-            <SetupWizard
-              key={activeProject.id}
-              project={activeProject}
-              onComplete={() => completeSetupWizard(activeProject.id)}
-              onSkip={() => completeSetupWizard(activeProject.id)}
-            />
-          ) : uiMode === 'agent' && !onGlobalRoute ? (
+          {uiMode === 'agent' && !onGlobalRoute ? (
             // Agent Mode replaces the routed dashboard; Docs still falls through
             // to <Routes>, while Loops/Plugins are modalized over New Mission.
             <AgentModeSurface />
@@ -461,11 +452,10 @@ function DesktopApp() {
       </div>
 
       {/* Right sidebar — full height. In Agent Mode this is the "On workspace"
-          toolbar; in Kanban it's the project sidebar. Hidden on global routes
-          and during setup. */}
+          toolbar; in Kanban it's the project sidebar. Hidden on global routes. */}
       {uiMode === 'agent'
-        ? !isInSetup && !onGlobalRoute && <AgentWorkspaceSidebar />
-        : activeProject && !isInSetup && !onGlobalRoute && <ProjectRightSidebar />}
+        ? !onGlobalRoute && <AgentWorkspaceSidebar />
+        : activeProject && !onGlobalRoute && <ProjectRightSidebar />}
 
       {/* New-project path (reskin): the chooser's New card puts the AGENT into
           builder mode (floating panel in board mode; mission surface + sidebar

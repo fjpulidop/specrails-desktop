@@ -4,55 +4,36 @@ Un proyecto no es más que una carpeta de tu ordenador que contiene una base de 
 
 ## Abre el diálogo de Añadir proyecto
 
-Haz clic en **Añadir tu primer proyecto** en la pantalla de bienvenida (o, más adelante, en el botón **Añadir proyecto** de la barra lateral izquierda). Aparece un pequeño diálogo.
+Haz clic en **Añade tu primer proyecto** en la pantalla de bienvenida (o en el botón **Añadir proyecto** de la barra lateral izquierda más adelante). Aparece un pequeño diálogo.
 
 ## Rellena los datos
 
 **Carpeta del proyecto** *(obligatorio)*
 
-Apunta specrails a la carpeta que contiene tu código. En la app de escritorio puedes hacer clic en el icono de carpeta para explorar y seleccionarla visualmente, o pegar la ruta completa. Debería ser la raíz de tu repositorio: la carpeta que contiene tu código y (normalmente) un directorio `.git`.
+Indica a specrails la carpeta que contiene tu código. En la app de escritorio puedes hacer clic en el icono de carpeta para navegar y elegirla visualmente, o pegar la ruta completa. Debe ser la raíz de tu repositorio: la carpeta que contiene tu código y (normalmente) un directorio `.git`.
 
 **Nombre del proyecto** *(opcional)*
 
 Una etiqueta amigable que se muestra en la barra lateral. Si lo dejas en blanco, specrails usa el nombre de la carpeta.
 
-**Providers**
+> Una comprobación rápida se ejecuta en segundo plano para confirmar que las herramientas necesarias están presentes. Si falta algo esencial, el botón **Añadir** permanece deshabilitado y un enlace **Más info** te da los comandos de instalación exactos.
 
-Elige qué provider(s) de IA debería usar este proyecto. specrails te muestra los que ha detectado en tu máquina:
+Ese es todo el formulario — haz clic en **Añadir** y listo.
 
-- 🤖 **Claude**
-- ⚡ **Codex**
-- ✨ **Gemini**
+## Los proveedores de IA se detectan automáticamente
 
-Los providers que no ha encontrado aparecen en gris y marcados como *no encontrado*: instala uno e inicia sesión, y luego vuelve a abrir el diálogo. Por defecto, todos los providers disponibles vienen preseleccionados, pero puedes deseleccionar hasta quedarte solo con el que quieras. Si eliges más de uno, el **primero** se convierte en el predeterminado del proyecto; más adelante podrás escoger según la tarea.
+Ya no eliges proveedores. Specrails detecta cada CLI de IA instalado en tu máquina — **Claude**, **Codex**, **Gemini**, **Kimi** — y todos los proyectos pueden usarlos todos, siempre. Si instalas un proveedor nuevo más adelante, aparece en todas partes por sí solo la próxima vez que vuelvas a la app; sin re-configuración, sin ajustes por proyecto. Si un proveedor está instalado pero sin sesión iniciada, su selector muestra una insignia sutil *Sin iniciar sesión*.
 
-> Una comprobación rápida se ejecuta en segundo plano para confirmar que las herramientas necesarias están presentes. Si falta algo esencial, el botón **Añadir** permanece deshabilitado y un enlace de **Más información** te da los comandos exactos de instalación.
+## La configuración ocurre en silencio
 
-Haz clic en **Añadir** para continuar.
+No hay asistente de configuración. En el momento en que haces clic en **Añadir**, el proyecto queda registrado y aparece en tu barra lateral — puedes abrirlo de inmediato. En segundo plano, specrails ensambla el workspace del proyecto (unos segundos, totalmente offline): un pequeño punto parpadeante en la fila del proyecto indica que está trabajando, y desaparece cuando todo está listo. Si algo falla para un proveedor, el proyecto sigue funcionando con los demás — aparece un punto ámbar y, al hacer clic, se reintenta.
 
-## Una configuración que se hace en segundos
+## Qué se instala — y dónde
 
-Si la carpeta ya tiene specrails configurado, has terminado: el proyecto aparece en tu barra lateral al instante.
+La configuración es deliberadamente **no invasiva**: tu repositorio permanece intacto. Todos los artefactos de specrails (definiciones de agentes, comandos, perfiles, ajustes locales) viven en un workspace por proyecto bajo tu directorio home, enlazado a una única instalación compartida del framework que viene con la app. Tu repo nunca se modifica — y cuando la app se actualiza, todos los proyectos reciben el nuevo framework automáticamente, a la vez.
 
-Si es un proyecto nuevo, se ejecuta un breve **asistente de configuración**. Tiene tres pasos:
-
-1. **Configurar** — confirma lo básico para cada provider que hayas elegido.
-2. **Instalar** — specrails configura el proyecto automáticamente. Es la instalación *rápida*: agentes de plantilla listos para usar que quedan en su sitio en segundos. Verás un log en directo mientras se ejecuta.
-3. **Hecho** — un resumen que confirma que todo está listo.
-
-En un proyecto con varios providers, la instalación se ejecuta una vez por provider, uno tras otro, y el paso Hecho muestra una tarjeta para cada uno.
-
-## Qué se instala
-
-La configuración es deliberadamente ligera y **no invasiva**. specrails añade una pequeña cantidad de configuración a tu proyecto para que el pipeline sepa cómo ejecutarse:
-
-- Una carpeta `.specrails/` que guarda los perfiles de agente y los ajustes locales de tu proyecto.
-- Definiciones de agentes en `.claude/agents/` que dan vida al pipeline Architect → Developer → Reviewer → Ship.
-
-Eso es todo: specrails no reescribe tu código fuente durante la configuración, y estos archivos se pueden hacer commit sin problema si quieres compartir la configuración con tu equipo.
-
-> **¿Prefieres la configuración a fondo?** La app incluye a propósito la instalación rápida desde plantillas. Si prefieres el flujo enriquecido con IA (análisis de la base de código y personas de agente personalizadas), puedes ejecutar `npx specrails-core@latest init` desde la carpeta de tu proyecto en una terminal.
+> **¿Prefieres la configuración profunda?** La app incluye a propósito la instalación rápida con plantillas. Si prefieres el flujo enriquecido con IA (análisis del código base y personas de agentes personalizadas), puedes ejecutar `npx specrails-core@latest init` desde la carpeta de tu proyecto en un terminal.
 
 ## Ya estás dentro
 
-Cuando termine la configuración, specrails te lleva directamente al dashboard de tu proyecto. Es hora del recorrido: consulta [El recorrido por el dashboard](the-dashboard-tour).
+El panel del proyecto está disponible en cuanto haces clic en **Añadir**. Es hora del recorrido — consulta [El recorrido por el panel](the-dashboard-tour).

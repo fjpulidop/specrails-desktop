@@ -1,59 +1,4 @@
 {
-  "wizard": {
-    "configureAgents": "Configure {{provider}} agents",
-    "configureSubtitle": "Review your agent team and choose how each agent runs.",
-    "tabs": {
-      "agents": "Agents",
-      "models": "Models"
-    },
-    "skipForNow": "Skip for now",
-    "install": "Install",
-    "nextProvider": "Next: {{provider}}",
-    "installingProvider": "Installing {{provider}}…",
-    "installingSpecrails": "Installing specrails...",
-    "installingFromTemplates": "Installing agents from templates",
-    "waitingForOutput": "Waiting for output...",
-    "checkpoints": {
-      "baseInstall": "Base installation",
-      "agentSelection": "Agent configuration",
-      "agentGeneration": "Agent generation"
-    },
-    "steps": {
-      "configure": "Configure"
-    },
-    "summary": {
-      "agents": "Agents",
-      "agentSkills": "Agent skills",
-      "skills": "Skills",
-      "openspecSkills": "OpenSpec skills",
-      "legacyRemoved_one": "Removed {{count}} legacy <code>/specrails:*</code> command",
-      "legacyRemoved_other": "Removed {{count}} legacy <code>/specrails:*</code> commands"
-    },
-    "complete": {
-      "welcome": "Welcome to <spec>spec</spec><rails>rails</rails>",
-      "configured": "<strong>{{projectName}}</strong> is now configured with AI-powered development workflows. Your specialized agents and commands are ready to use.",
-      "installedForEngines_one": "Installed for {{count}} engine",
-      "installedForEngines_other": "Installed for {{count}} engines",
-      "installed": "Installed",
-      "installFailed": "Install failed",
-      "learnMore": "Learn how to get the most out of specrails:",
-      "continueToProject": "Continue to project",
-      "jira": {
-        "title": "Connect a Jira board",
-        "subtitle": "Optional — back this project's specs with a Jira board. You can also do it later in Settings.",
-        "configure": "Configure Jira",
-        "optional": "optional"
-      },
-      "mcpHint": "Connect external AI tools to Specrails over a secure local MCP server — enable it in Settings.",
-      "agentChatHint": "Operate Specrails by chatting — the built-in agent drives the whole app for you. Open it from the bubble or ⌘⇧A."
-    },
-    "error": {
-      "title": "Setup failed",
-      "skipSetup": "Skip setup",
-      "prereqMissing": "SpecRails setup needs Node.js, npm, npx and Git available on PATH before it can install this project.",
-      "prereqRetryHint": "Install the missing tools, restart Specrails, then retry setup."
-    }
-  },
   "addProject": {
     "title": "Add Project",
     "description": "Register a project directory to manage it from Specrails.",
@@ -67,18 +12,12 @@
     "optional": "(optional)",
     "namePlaceholder": "My Project",
     "nameHint": "Defaults to the directory name",
-    "providersLabel": "AI providers",
-    "notFound": "not found",
-    "coreUpdateRequired": "Core update required",
-    "multiProviderHint": "Both engines will be set up. The first is the project default. Cannot be changed after creation.",
-    "singleProviderHint": "Cannot be changed after the project is created.",
     "adding": "Adding...",
     "submit": "Add Project",
     "toolsRequired_one": "{{tools}} is required to add a project",
     "toolsRequired_other": "{{tools}} are required to add a project",
     "errors": {
       "pathRequired": "Project path is required",
-      "selectProvider": "Select at least one AI provider",
       "addFailed": "Failed to add project"
     },
     "toasts": {
@@ -150,19 +89,6 @@
       "description": "One or more bundled tools (Node.js, Git) could not be verified.",
       "body": "This tool is bundled with the Specrails app and cannot be installed separately. If you see this message, the app bundle may be corrupted. Please reinstall Specrails."
     }
-  },
-  "checkpoints": {
-    "title": "Setup progress",
-    "progress": "{{done}} of {{total}} complete",
-    "rawLog_one": "Raw log ({{count}} line)",
-    "rawLog_other": "Raw log ({{count}} lines)"
-  },
-  "setupChat": {
-    "title": "Setup assistant",
-    "subtitle": "Respond to prompts to configure your project",
-    "settingUp": "Setting up your project...",
-    "placeholder": "Type a response...",
-    "keyboardHint": "Enter to send, Shift+Enter for new line"
   },
   "welcome": {
     "title": "Welcome to <spec>spec</spec><rails>rails</rails>",

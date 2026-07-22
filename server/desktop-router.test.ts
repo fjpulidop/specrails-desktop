@@ -15,6 +15,21 @@ vi.mock('./core-compat', async (importActual) => {
   }
 })
 
+// Deterministic detection: no real CLI probes in router tests, and a null sync
+// snapshot so provider defaulting exercises the legacy ['claude'] fallback.
+vi.mock('./provider-detection', async (importActual) => {
+  const actual = await importActual<typeof import('./provider-detection')>()
+  return {
+    ...actual,
+    refreshDetection: vi.fn().mockResolvedValue({
+      snapshot: { providers: {}, detected: [], at: 0 },
+      changed: false,
+    }),
+    getDetectionSnapshot: vi.fn().mockResolvedValue({ providers: {}, detected: [], at: 0 }),
+    getDetectedIdsSync: vi.fn().mockReturnValue(null),
+  }
+})
+
 const mockSpecrailsTechClient = {
   health: vi.fn(),
   listAgents: vi.fn(),

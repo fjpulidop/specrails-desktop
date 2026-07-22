@@ -21,7 +21,9 @@
     "removed": "プロジェクトを削除しました",
     "expand": "{{name}} を展開",
     "collapse": "{{name}} を折りたたむ",
-    "settings": "{{name}} の設定"
+    "settings": "{{name}} の設定",
+    "assembling": "ワークスペースを準備中…",
+    "assembleFailed": "ワークスペースの準備に失敗 — クリックして再試行"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",

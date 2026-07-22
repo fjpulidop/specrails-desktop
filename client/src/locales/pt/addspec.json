@@ -142,7 +142,8 @@
     }
   },
   "aiEngine": {
-    "label": "Motor de IA"
+    "label": "Motor de IA",
+    "notSignedIn": "Sem sessão iniciada"
   },
   "modelSelector": {
     "presetHeading": "Predefinição de modelo",

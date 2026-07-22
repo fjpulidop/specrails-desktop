@@ -267,4 +267,36 @@ describe('AiEngineSelector', () => {
     // providerLabel falls back to the raw id string
     expect(screen.getByRole('option', { name: /my-custom-engine/i })).toBeInTheDocument()
   })
+
+  // ── Auth badge (provider-auto-detection) ────────────────────────────────
+
+  it('shows a not-signed-in badge for unauthenticated detected providers', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        detected: ['claude', 'codex'],
+        providers: {
+          claude: { id: 'claude', authState: 'authenticated', usable: true, installed: true, executable: true, displayName: 'Claude' },
+          codex: { id: 'codex', authState: 'unauthenticated', usable: true, installed: true, executable: true, displayName: 'Codex' },
+        },
+      }),
+    } as unknown as Response)
+    try {
+      const user = userEvent.setup()
+      render(
+        <AiEngineSelector
+          value="claude"
+          providers={['claude', 'codex']}
+          onChange={vi.fn()}
+        />,
+      )
+      await user.click(screen.getByRole('combobox'))
+      const codexOption = await screen.findByRole('option', { name: /codex/i })
+      expect(codexOption.textContent).toMatch(/not signed in/i)
+      const claudeOption = screen.getByRole('option', { name: /claude/i })
+      expect(claudeOption.textContent).not.toMatch(/not signed in/i)
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
 })

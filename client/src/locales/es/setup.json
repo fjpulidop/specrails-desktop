@@ -1,59 +1,4 @@
 {
-  "wizard": {
-    "configureAgents": "Configurar agentes de {{provider}}",
-    "configureSubtitle": "Revisa tu equipo de agentes y elige cómo se ejecuta cada uno.",
-    "tabs": {
-      "agents": "Agentes",
-      "models": "Modelos"
-    },
-    "skipForNow": "Omitir por ahora",
-    "install": "Instalar",
-    "nextProvider": "Siguiente: {{provider}}",
-    "installingProvider": "Instalando {{provider}}…",
-    "installingSpecrails": "Instalando specrails...",
-    "installingFromTemplates": "Instalando agentes desde plantillas",
-    "waitingForOutput": "Esperando salida...",
-    "checkpoints": {
-      "baseInstall": "Instalación base",
-      "agentSelection": "Configuración de agentes",
-      "agentGeneration": "Generación de agentes"
-    },
-    "steps": {
-      "configure": "Configurar"
-    },
-    "summary": {
-      "agents": "Agentes",
-      "agentSkills": "Skills de agente",
-      "skills": "Skills",
-      "openspecSkills": "Skills de OpenSpec",
-      "legacyRemoved_one": "Eliminado {{count}} comando legacy <code>/specrails:*</code>",
-      "legacyRemoved_other": "Eliminados {{count}} comandos legacy <code>/specrails:*</code>"
-    },
-    "complete": {
-      "welcome": "Bienvenido a <spec>spec</spec><rails>rails</rails>",
-      "configured": "<strong>{{projectName}}</strong> ya está configurado con flujos de desarrollo impulsados por IA. Tus agentes y comandos especializados están listos para usar.",
-      "installedForEngines_one": "Instalado para {{count}} motor",
-      "installedForEngines_other": "Instalado para {{count}} motores",
-      "installed": "Instalado",
-      "installFailed": "Error en la instalación",
-      "learnMore": "Aprende a sacar el máximo partido a specrails:",
-      "continueToProject": "Continuar al proyecto",
-      "jira": {
-        "title": "Conecta un tablero de Jira",
-        "subtitle": "Opcional — respalda las specs de este proyecto con un tablero de Jira. También puedes hacerlo más tarde en Ajustes.",
-        "configure": "Configurar Jira",
-        "optional": "opcional"
-      },
-      "mcpHint": "Conecta herramientas de IA externas a Specrails mediante un servidor MCP local seguro — actívalo en Ajustes.",
-      "agentChatHint": "Opera Specrails conversando — el agente integrado maneja toda la app por ti. Ábrelo desde la burbuja o con ⌘⇧A."
-    },
-    "error": {
-      "title": "La configuración ha fallado",
-      "skipSetup": "Omitir configuración",
-      "prereqMissing": "La configuración de SpecRails necesita Node.js, npm, npx y Git disponibles en el PATH antes de poder instalar este proyecto.",
-      "prereqRetryHint": "Instala las herramientas que faltan, reinicia Specrails y reintenta la configuración."
-    }
-  },
   "addProject": {
     "title": "Añadir proyecto",
     "description": "Registra un directorio de proyecto para gestionarlo desde Specrails.",
@@ -67,18 +12,12 @@
     "optional": "(opcional)",
     "namePlaceholder": "Mi proyecto",
     "nameHint": "Por defecto, el nombre del directorio",
-    "providersLabel": "Proveedores de IA",
-    "notFound": "no encontrado",
-    "coreUpdateRequired": "Actualiza Specrails Core",
-    "multiProviderHint": "Se configurarán ambos motores. El primero es el predeterminado del proyecto. No se puede cambiar después de la creación.",
-    "singleProviderHint": "No se puede cambiar una vez creado el proyecto.",
     "adding": "Añadiendo...",
     "submit": "Añadir proyecto",
     "toolsRequired_one": "Se necesita {{tools}} para añadir un proyecto",
     "toolsRequired_other": "Se necesitan {{tools}} para añadir un proyecto",
     "errors": {
       "pathRequired": "La ruta del proyecto es obligatoria",
-      "selectProvider": "Selecciona al menos un proveedor de IA",
       "addFailed": "No se pudo añadir el proyecto"
     },
     "toasts": {
@@ -150,19 +89,6 @@
       "description": "No se pudieron verificar una o más herramientas incluidas (Node.js, Git).",
       "body": "Esta herramienta viene incluida con la app Specrails y no puede instalarse por separado. Si ves este mensaje, el bundle de la app puede estar dañado. Reinstala Specrails."
     }
-  },
-  "checkpoints": {
-    "title": "Progreso de la configuración",
-    "progress": "{{done}} de {{total}} completados",
-    "rawLog_one": "Log sin procesar ({{count}} línea)",
-    "rawLog_other": "Log sin procesar ({{count}} líneas)"
-  },
-  "setupChat": {
-    "title": "Asistente de configuración",
-    "subtitle": "Responde a las preguntas para configurar tu proyecto",
-    "settingUp": "Configurando tu proyecto...",
-    "placeholder": "Escribe una respuesta...",
-    "keyboardHint": "Enter para enviar, Shift+Enter para nueva línea"
   },
   "welcome": {
     "title": "Bienvenido a <spec>spec</spec><rails>rails</rails>",

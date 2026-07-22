@@ -20,27 +20,30 @@ command works in a fresh terminal, Specrails can use it. Kimi users must also
 complete `kimi login`; the setup probe does not spend quota merely to test
 authentication.
 
-## Installing one provider for a project
+## Providers are detected automatically
 
-When you add a project, the setup wizard asks which provider(s) to install.
-Pick one, click through the install step, and you're done. From there on the
-project has that provider, while each surface checks its advertised
+You never pick providers per project. Specrails detects every provider CLI
+installed on your machine and makes **all of them** available to **every**
+project, always. Each surface then checks the provider's advertised
 capabilities. See [Using Kimi](../../../kimi.md) for Kimi's exact matrix.
 
-If a CLI you want isn't offered in Add Project, it's almost always because the CLI isn't installed or isn't on your `PATH`. Install it, then reopen Add Project.
+If a provider you want doesn't show up anywhere, it's almost always because the
+CLI isn't installed or isn't on your `PATH`. Install it, sign in, and switch
+back to the app — detection re-runs on focus and the provider appears
+everywhere on its own, with its project workspace surface assembled in the
+background. A provider that's installed but not signed in still appears, with
+a *Not signed in* badge on the engine selectors.
 
-## Installing several providers for one project
+A few things worth knowing about multi-provider machines:
 
-You can install **more than one** provider into the same project — for example Claude *and* Gemini. In **Add Project**, the provider list becomes a set of checkboxes; tick everything you want. The first one you select becomes the project's **primary** (default) provider; the rest are available as alternatives.
-
-A few things worth knowing about multi-provider projects:
-
-- **One provider behaves exactly like before.** If a project has just a single provider, you'll never see a provider picker anywhere — the app stays clean and simple.
-- **Capability checks drive the sidebar.** Sections are visible only when their
-  backing behavior is supported by the relevant installed providers. Kimi
-  advertises profiles, custom roles, and Freestyle; it does not advertise
-  structured actions that require an enforceable no-tools boundary.
-- **Provider choice is locked after creation.** In this version you choose your providers when you add the project and they can't be changed later from Settings. If you need a different mix, that's a fresh project.
+- **One provider behaves exactly like before.** If only a single provider is detected, you'll never see a provider picker anywhere — the app stays clean and simple.
+- **Capability checks drive the sidebar.** A section is visible when at least
+  one detected provider supports it; inside it, engine-scoped affordances offer
+  only the capable providers. Kimi advertises profiles, custom roles, and
+  Freestyle; it does not advertise structured actions that require an
+  enforceable no-tools boundary.
+- **Nothing is locked.** Installing or removing a provider CLI updates every
+  project automatically — there is no per-project provider setting to manage.
 
 ## Picking a provider per invocation
 

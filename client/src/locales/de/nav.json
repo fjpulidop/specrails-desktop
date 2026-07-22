@@ -21,7 +21,9 @@
     "removed": "Projekt entfernt",
     "expand": "{{name}} aufklappen",
     "collapse": "{{name}} einklappen",
-    "settings": "Einstellungen für {{name}}"
+    "settings": "Einstellungen für {{name}}",
+    "assembling": "Workspace wird eingerichtet…",
+    "assembleFailed": "Workspace-Einrichtung fehlgeschlagen — zum Wiederholen klicken"
   },
   "arcSidebar": {
     "desktopTitle": "Desktop",

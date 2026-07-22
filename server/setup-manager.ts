@@ -24,7 +24,7 @@ import { mirrorProjectEntry, resolveArtifacts, resolveHome } from './artifact-re
 import { installConfigPath, installConfigPathForProvider, type InstallConfigProject } from './install-config-path'
 import { getBundledCoreCli, getBundledCoreVersion } from './bundled-core'
 import { resolveBundledNodeExe } from './path-resolver'
-import { spawnBundledCoreInit } from './offline-assemble'
+import { spawnBundledCoreInit, assembleProjectOffline } from './offline-assemble'
 import { FrameworkManager } from './framework-manager'
 import { resolveProjectExecution } from './workspace-resolution'
 import type { ProviderAdapter, SpawnAction, ProviderId } from './providers/types'
@@ -852,6 +852,72 @@ export class SetupManager {
     this._projectProviders = new Map()
     this._projectTiers = new Map()
     this._projectNames = new Map()
+  }
+
+  // ─── Silent assemble (global-core-zero-friction) ─────────────────────────────
+
+  // Per-project silent-assemble state: running guard + failed providers for the
+  // retry affordance. Assembly failure NEVER rolls back registration.
+  private _silentAssembles: Map<string, { running: boolean; failed: string[] }> = new Map()
+
+  silentAssembleState(projectId: string): { running: boolean; failed: string[] } {
+    return this._silentAssembles.get(projectId) ?? { running: false, failed: [] }
+  }
+
+  /**
+   * Wizard-less background workspace assembly: one offline `init` per provider,
+   * sequential, per-provider failure isolation. Progress rides the app-level
+   * `project.assemble_progress` WS event ({projectId, provider, status}); the
+   * only client surface is the project card's subtle indicator. Idempotent per
+   * project (a second call while running is a no-op; a later call retries only
+   * failed/missing providers via core's own skip-when-populated behaviour).
+   */
+  startSilentAssemble(
+    projectId: string,
+    projectPath: string,
+    slug: string,
+    providers: string[],
+    opts?: { providersFilter?: string[] },
+  ): void {
+    const state = this.silentAssembleState(projectId)
+    if (state.running) return
+    const list = (opts?.providersFilter ?? providers).filter((p) => hasAdapter(p))
+    if (list.length === 0) return
+    this._silentAssembles.set(projectId, { running: true, failed: [] })
+
+    const emit = (provider: string, status: 'running' | 'done' | 'failed', error?: string) => {
+      this._broadcast({
+        type: 'project.assemble_progress',
+        projectId,
+        provider,
+        status,
+        ...(error ? { error } : {}),
+      } as unknown as WsMessage)
+    }
+
+    void assembleProjectOffline({
+      projectPath,
+      slug,
+      desktopProjectId: projectId,
+      providers: list,
+      continueOnError: true,
+      onProviderStart: (p) => emit(p, 'running'),
+      onProviderResult: (r) => emit(r.provider, r.ok ? 'done' : 'failed', r.error),
+    })
+      .then((results) => {
+        const failed = results.filter((r) => !r.ok).map((r) => r.provider)
+        this._silentAssembles.set(projectId, { running: false, failed })
+        if (failed.length > 0) {
+          console.warn(`[SetupManager] silent assemble: failed providers for ${projectId}: ${failed.join(', ')}`)
+        }
+      })
+      .catch((err) => {
+        // Workspace-missing or other terminal failure: mark every provider
+        // failed so the retry affordance covers the whole set.
+        this._silentAssembles.set(projectId, { running: false, failed: list })
+        console.error(`[SetupManager] silent assemble failed for ${projectId}:`, err)
+        for (const p of list) emit(p, 'failed', err instanceof Error ? err.message : String(err))
+      })
   }
 
   // ─── Full Install: TUI installer (npx specrails-core) ────────────────────────

@@ -13,6 +13,11 @@ import { WebSocketServer, WebSocket } from 'ws'
 import type { WsMessage } from './types'
 import { ProjectRegistry } from './project-registry'
 import { createDesktopRouter } from './desktop-router'
+import { refreshDetection, getDetectedIdsSync } from './provider-detection'
+import { setDetectedProvidersSupplier } from './provider-selection'
+import { setProjectProvidersMirror } from './desktop-db'
+import { runLegacyMigrationSweep } from './legacy-migration'
+import { reseedStaleWorkspaces, isFrameworkAutoswapEnabled } from './framework-reseed'
 import { createProjectRouter } from './project-router'
 import { createDocsRouter } from './docs-router'
 import {
@@ -563,9 +568,20 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
       // WsMessage union; cast at this single boundary.
       broadcast: (msg) => broadcast(msg as unknown as WsMessage),
     })
-    if (framework.isAvailable()) {
+    // Kill switch (framework-auto-update spec): SPECRAILS_FRAMEWORK_AUTOSWAP=false
+    // restores the manual-only flow (GlobalSettings "check now").
+    if (framework.isAvailable() && isFrameworkAutoswapEnabled()) {
       const providers = registry.installedProvidersUnion()
-      withFileLock(undefined, () => framework.versionCheck(providers))
+      const check = withFileLock(undefined, () => framework.versionCheck(providers))
+      // Post-swap re-seed: refresh COPIED workspace files (instruction files,
+      // Windows copy-fallback, Kimi skill links) for every workspace whose
+      // recorded framework version ≠ current — also repairs missed swaps.
+      const reseedProjects = registry.listContexts().map((c) => ({
+        id: c.project.id,
+        slug: c.project.slug,
+        path: c.project.path,
+      }))
+      void reseedStaleWorkspaces(reseedProjects, check.version)
     }
   } catch (err) {
     console.error('[framework-manager] startup versionCheck failed (non-fatal):', err)
@@ -584,6 +600,30 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   runCompactionForAll(registry).catch((err) => {
     console.error('[telemetry-compactor] startup compaction error:', err)
   })
+
+  // ─── App-level provider detection (global-core-zero-friction) ───────────────
+  // Providers are a machine property: one detection snapshot feeds
+  // provider-selection (per-invocation validation) and desktop-db's project-row
+  // mirror (`providers` reads as the detected set). Startup is a refresh
+  // trigger; window-focus and project-add refreshes ride the REST route.
+  setDetectedProvidersSupplier(getDetectedIdsSync)
+  setProjectProvidersMirror(getDetectedIdsSync)
+  refreshDetection()
+    .then(({ snapshot }) => {
+      // ─── Forced legacy migration (global-core-zero-friction) ────────────────
+      // After the first detection lands, migrate repo-resident core installs to
+      // the relocated workspace in the background — serialized, fail-open,
+      // journaled. Kill switch: SPECRAILS_LEGACY_MIGRATION=false.
+      const projects = registry.listContexts().map((c) => ({
+        id: c.project.id,
+        slug: c.project.slug,
+        path: c.project.path,
+      }))
+      void runLegacyMigrationSweep(projects, { providers: snapshot.detected })
+    })
+    .catch((err) => {
+      console.error('[provider-detection] startup detection failed (non-fatal):', err)
+    })
 
   // ─── Mobile companion gateway (off by default; boot if previously enabled) ──
   // Second HTTPS+WSS listener in THIS process; the main server stays loopback.

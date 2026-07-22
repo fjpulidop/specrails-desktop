@@ -4,55 +4,36 @@ Ein Projekt ist einfach ein Ordner auf deinem Computer, der eine Codebasis enth�
 
 ## Den Dialog „Projekt hinzufügen“ öffnen
 
-Klicke auf dem Willkommensbildschirm auf **Dein erstes Projekt hinzufügen** (oder später auf die Schaltfläche **Projekt hinzufügen** in der linken Seitenleiste). Ein kleiner Dialog erscheint.
+Klicke auf **Füge dein erstes Projekt hinzu** auf dem Willkommensbildschirm (oder später auf den Button **Projekt hinzufügen** in der linken Seitenleiste). Ein kleiner Dialog erscheint.
 
 ## Die Details ausfüllen
 
 **Projektordner** *(erforderlich)*
 
-Zeige specrails den Ordner, der deinen Code enthält. In der Desktop-App kannst du auf das Ordnersymbol klicken, um ihn visuell auszuwählen, oder den vollständigen Pfad einfügen. Das sollte das Wurzelverzeichnis deines Repositorys sein – der Ordner, der deinen Code und (üblicherweise) ein `.git`-Verzeichnis enthält.
+Zeige specrails den Ordner, der deinen Code enthält. In der Desktop-App kannst du auf das Ordnersymbol klicken, um visuell zu wählen, oder den vollständigen Pfad einfügen. Es sollte die Wurzel deines Repositories sein — der Ordner mit deinem Code und (üblicherweise) einem `.git`-Verzeichnis.
 
 **Projektname** *(optional)*
 
-Ein freundliches Label, das in der Seitenleiste angezeigt wird. Lässt du es leer, verwendet specrails den Ordnernamen.
+Eine freundliche Bezeichnung in der Seitenleiste. Lässt du sie leer, verwendet specrails den Ordnernamen.
 
-**Provider**
+> Im Hintergrund läuft eine schnelle Prüfung, ob die erforderlichen Tools vorhanden sind. Fehlt etwas Wesentliches, bleibt der **Hinzufügen**-Button deaktiviert und ein **Mehr Infos**-Link liefert dir die genauen Installationsbefehle.
 
-Wähle, welche KI-Provider dieses Projekt nutzen soll. specrails zeigt dir die, die es auf deinem Rechner gefunden hat:
+Das ist das ganze Formular — klicke auf **Hinzufügen** und fertig.
 
-- 🤖 **Claude**
-- ⚡ **Codex**
-- ✨ **Gemini**
+## KI-Provider werden automatisch erkannt
 
-Nicht gefundene Provider sind ausgegraut und als *nicht gefunden* markiert – installiere einen, melde dich an und öffne den Dialog dann erneut. Standardmäßig ist jeder verfügbare Provider vorausgewählt, du kannst die Auswahl aber auf genau den reduzieren, den du möchtest. Wählst du mehr als einen, wird der **erste** zum Standard des Projekts; pro Aufgabe kannst du später trotzdem wählen.
+Du wählst keine Provider mehr aus. Specrails erkennt jedes auf deinem Rechner installierte KI-CLI — **Claude**, **Codex**, **Gemini**, **Kimi** — und jedes Projekt kann sie alle nutzen, immer. Installierst du später einen neuen Provider, erscheint er beim nächsten Fokussieren der App von selbst überall; keine Neueinrichtung, keine Konfiguration pro Projekt. Ist ein Provider installiert, aber nicht angemeldet, zeigt sein Auswahlmenü ein dezentes *Nicht angemeldet*-Badge.
 
-> Im Hintergrund läuft eine schnelle Prüfung, um sicherzustellen, dass die benötigten Tools vorhanden sind. Fehlt etwas Wesentliches, bleibt die **Hinzufügen**-Schaltfläche deaktiviert, und ein **Weitere Informationen**-Link liefert dir die genauen Installationsbefehle.
+## Die Einrichtung läuft still im Hintergrund
 
-Klicke auf **Hinzufügen**, um fortzufahren.
+Es gibt keinen Einrichtungsassistenten. Sobald du auf **Hinzufügen** klickst, ist das Projekt registriert und erscheint in deiner Seitenleiste — du kannst es sofort öffnen. Im Hintergrund baut specrails den Workspace des Projekts zusammen (wenige Sekunden, vollständig offline): Ein kleiner pulsierender Punkt in der Projektzeile zeigt die Arbeit an und verschwindet, sobald alles bereit ist. Schlägt etwas für einen Provider fehl, funktioniert das Projekt mit den anderen weiter — ein bernsteinfarbener Punkt erscheint, ein Klick darauf versucht es erneut.
 
-## Setup, das in Sekunden läuft
+## Was installiert wird — und wo
 
-Ist der Ordner bereits für specrails konfiguriert, bist du fertig – das Projekt erscheint sofort in deiner Seitenleiste.
+Die Einrichtung ist bewusst **nicht-invasiv**: Dein Repository bleibt unberührt. Alle specrails-Artefakte (Agentendefinitionen, Befehle, Profile, lokale Einstellungen) liegen in einem Workspace pro Projekt unter deinem Home-Verzeichnis, verknüpft mit einer einzigen gemeinsamen Framework-Installation, die mit der App ausgeliefert wird. Dein Repo wird nie verändert — und bei einem App-Update erhält jedes Projekt das neue Framework automatisch, auf einmal.
 
-Handelt es sich um ein frisches Projekt, läuft ein kurzer **Einrichtungsassistent**. Er hat drei Schritte:
-
-1. **Konfigurieren** – bestätige die Grundlagen für jeden Provider, den du ausgewählt hast.
-2. **Installieren** – specrails richtet das Projekt automatisch ein. Das ist die *schnelle* Installation: einsatzbereite Vorlagen-Agenten, die in Sekunden bereitstehen. Du siehst dabei ein Live-Log.
-3. **Fertig** – eine Zusammenfassung, die bestätigt, dass alles bereit ist.
-
-Bei einem Projekt mit mehreren Providern läuft die Installation einmal pro Provider, nacheinander, und der Schritt „Fertig“ zeigt für jeden eine eigene Karte.
-
-## Was installiert wird
-
-Das Setup ist bewusst schlank und **nicht-invasiv**. specrails fügt deinem Projekt eine kleine Menge Konfiguration hinzu, damit die Pipeline weiß, wie sie laufen soll:
-
-- Einen `.specrails/`-Ordner, der die Agent-Profile und lokalen Einstellungen deines Projekts enthält.
-- Agent-Definitionen unter `.claude/agents/`, die die Pipeline Architect → Developer → Reviewer → Ship antreiben.
-
-Mehr nicht – specrails schreibt deinen Quellcode beim Setup nicht um, und diese Dateien lassen sich problemlos committen, wenn du die Konfiguration mit deinem Team teilen möchtest.
-
-> **Lieber das tiefgehende Setup?** Die App liefert bewusst die schnelle Vorlagen-Installation. Wenn du den KI-angereicherten Ablauf bevorzugst (Codebasis-Analyse und individuelle Agent-Personas), kannst du `npx specrails-core@latest init` aus deinem Projektordner in einem Terminal ausführen.
+> **Lieber die tiefe Einrichtung?** Die App liefert absichtlich die schnelle Template-Installation. Wenn du den KI-angereicherten Ablauf bevorzugst (Codebasis-Analyse und individuelle Agenten-Personas), kannst du `npx specrails-core@latest init` im Projektordner in einem Terminal ausführen.
 
 ## Du bist drin
 
-Sobald das Setup abgeschlossen ist, setzt specrails dich direkt ins Dashboard deines Projekts. Zeit für die Tour – siehe [Die Dashboard-Tour](the-dashboard-tour).
+Das Projekt-Dashboard ist verfügbar, sobald du auf **Hinzufügen** klickst. Zeit für die Tour — siehe [Die Dashboard-Tour](the-dashboard-tour).

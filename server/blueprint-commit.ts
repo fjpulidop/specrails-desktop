@@ -146,7 +146,7 @@ export function createBlueprintCommitRunner(deps: BlueprintCommitDeps): Blueprin
     hasCore: deps.io?.hasCore ?? canAssembleProject,
     mkdir: deps.io?.mkdir ?? ((dir) => fs.mkdirSync(dir, { recursive: true })),
     exec: deps.io?.exec ?? execCli,
-    assemble: deps.io?.assemble ?? (async (opts) => assembleProjectOffline(opts)),
+    assemble: deps.io?.assemble ?? (async (opts) => { await assembleProjectOffline(opts) }),
     writePair: deps.io?.writePair ?? writeBlueprintPair,
     mutateTickets: deps.io?.mutateTickets ?? ((filePath, fn) => { mutateStore(filePath, fn) }),
     registerProject:

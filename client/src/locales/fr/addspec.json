@@ -142,7 +142,8 @@
     }
   },
   "aiEngine": {
-    "label": "Moteur IA"
+    "label": "Moteur IA",
+    "notSignedIn": "Non connecté"
   },
   "modelSelector": {
     "presetHeading": "Préréglage de modèle",

@@ -16,43 +16,24 @@ Point specrails at the folder that holds your code. On the desktop app you can c
 
 A friendly label shown in the sidebar. If you leave it blank, specrails uses the folder name.
 
-**Providers**
-
-Choose which AI provider(s) this project should use. Specrails shows you the ones it detected on your machine:
-
-- 🤖 **Claude**
-- ⚡ **Codex**
-- ✨ **Gemini**
-
-Providers it didn't find are greyed out and marked *not found* — install and sign in to one, then re-open the dialog. By default every available provider is pre-selected, but you can deselect down to just the one you want. If you pick more than one, the **first** becomes the project's default; you'll be able to choose per task later.
-
 > A quick check runs in the background to confirm the required tools are present. If something essential is missing, the **Add** button stays disabled and a **More info** link gives you exact install commands.
 
-Click **Add** to continue.
+That's the whole form — click **Add** and you're done.
 
-## Setup that runs in seconds
+## AI providers are detected automatically
 
-If the folder already has specrails configured, you're done — the project appears in your sidebar instantly.
+You don't pick providers anymore. Specrails detects every AI CLI installed on your machine — **Claude**, **Codex**, **Gemini**, **Kimi** — and every project can use all of them, always. Install a new provider later and it appears everywhere on its own the next time you focus the app; no re-setup, no per-project configuration. If a provider is installed but not signed in, its selector shows a subtle *Not signed in* badge.
 
-If it's a fresh project, a short **setup wizard** runs. It has three steps:
+## Setup happens silently
 
-1. **Configure** — confirm the basics for each provider you chose.
-2. **Install** — specrails sets up the project automatically. This is the *quick* install: ready-to-use template agents that are in place within seconds. You'll see a live log as it runs.
-3. **Done** — a summary confirming everything's ready.
+There is no setup wizard. The moment you click **Add**, the project is registered and appears in your sidebar — you can open it immediately. In the background, specrails assembles the project's workspace (a few seconds, fully offline): a tiny pulsing dot on the project's sidebar row shows it's working, and it simply disappears when everything is ready. If something goes wrong for one provider, the project still works with the others — an amber dot appears, and clicking it retries.
 
-For a multi-provider project, the install runs once per provider, one after another, and the Done step shows a card for each.
+## What gets installed — and where
 
-## What gets installed
-
-Setup is deliberately light and **non-invasive**. Specrails adds a small amount of configuration to your project so the pipeline knows how to run:
-
-- A `.specrails/` folder holding your project's agent profiles and local settings.
-- Agent definitions under `.claude/agents/` that power the Architect → Developer → Reviewer → Ship pipeline.
-
-That's it — specrails won't rewrite your source code during setup, and these files are safe to commit if you want to share the configuration with your team.
+Setup is deliberately **non-invasive**: your repository stays pristine. All specrails artifacts (agent definitions, commands, profiles, local settings) live in a per-project workspace under your home directory, linked to a single shared framework installation that ships with the app. Your repo is never modified — and when the app updates, every project picks up the new framework automatically, at once.
 
 > **Want the deep setup instead?** The app ships the fast template install on purpose. If you'd prefer the AI-enriched flow (codebase analysis and custom agent personas), you can run `npx specrails-core@latest init` from your project folder in a terminal.
 
 ## You're in
 
-Once setup finishes, specrails drops you into your project's dashboard. Time for the tour — see [The dashboard tour](the-dashboard-tour).
+The project dashboard is available the moment you click **Add**. Time for the tour — see [The dashboard tour](the-dashboard-tour).

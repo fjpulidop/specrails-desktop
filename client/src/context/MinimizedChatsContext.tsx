@@ -222,7 +222,7 @@ function sameSession(a: MinimizedChat, b: MinimizedChat): boolean {
 // ─── Provider ─────────────────────────────────────────────────────────────
 
 export function MinimizedChatsProvider({ children }: { children: ReactNode }) {
-  const { projects, activeProjectId, setActiveProjectId, setupProjectIds } = useDesktop()
+  const { projects, activeProjectId, setActiveProjectId } = useDesktop()
   const navigate = useNavigate()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
 
@@ -591,19 +591,13 @@ export function MinimizedChatsProvider({ children }: { children: ReactNode }) {
     [chats, pendingRestores, minimize, updateLabel, patchExploreSpecDraft, close, restore, takePendingRestore, triggerResume],
   )
 
-  // Hide the dock entirely while the active project is mid-setup-wizard, to
-  // keep that flow clean (chips reappear once setup completes — they're never
-  // dropped, just not rendered).
-  const isSetupActive =
-    activeProjectId !== null && setupProjectIds.has(activeProjectId)
-
   return (
     <MinimizedChatsContext.Provider value={value}>
       {children}
       <MinimizedChatsDock
         chats={chats}
         projects={projects}
-        hidden={isSetupActive}
+        hidden={false}
         onRestore={restore}
         onClose={close}
       />
