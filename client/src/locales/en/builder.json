@@ -79,7 +79,8 @@
     "description": "Your Milestone-1 backlog is on the board, labeled M1.",
     "launchM1": "Launch Milestone 1",
     "openProject": "Open the project",
-    "launchToast": "Milestone 1 launched — {{count}} specs on one rail",
+    "launchToast": "Milestone 1 launched — {{count}} specs across rails (max 3 per rail)",
+    "launchPartialToast": "Milestone 1 partially launched — {{count}} specs launched, {{skipped}} pending",
     "launchFailed": "Could not launch Milestone 1"
   },
   "sidebar": {

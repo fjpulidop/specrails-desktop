@@ -245,12 +245,17 @@ Launching the already committed M1/M2+ tickets is ordinary Batch rail
 execution and can use Kimi.
 
 - **Launch Milestone 1** (`client/src/lib/milestone-launch.ts`
-  `launchMilestone`): gather `M1`-labeled `todo` tickets → `POST /rails`
-  (server allocates the lowest free index) → `PUT /rails/:i/tickets` → `POST
-  /rails/:i/launch {mode:'batch-implement'}` (the server maps the bare mode to
-  the batch factory loop: worktree isolation + ask-first PR). Offered on the
-  Builder done screen and the sidebar entry; existing 409 guards surface as
-  toasts.
+  `launchMilestone`): gather `M1`-labeled `todo` tickets → chunk into groups
+  of ≤ `MAX_TICKETS_PER_RAIL` (3) → per chunk: `POST /rails` (server allocates
+  the lowest free index; rails named `M1 · <k>` when the milestone needs more
+  than one) → `PUT /rails/:i/tickets` → `POST /rails/:i/launch
+  {mode:'batch-implement'}` (the server maps the bare mode to the batch
+  factory loop: worktree isolation + ask-first PR). The launch route rejects
+  any rail carrying more than 3 specs (`rail_ticket_cap_exceeded`), so the cap
+  holds for every launch door. A failure before anything launched surfaces as
+  a typed reason; a mid-batch failure keeps the launched rails and reports the
+  skipped rest (`skippedCount` → partial-launch toast). Offered on the Builder
+  done screen and the sidebar entry; existing 409 guards surface as toasts.
 - **Sidebar re-entry** (`BuilderSidebarEntry`, mounted in
   `ProjectRightSidebar` + `AgentWorkspaceSidebar`): visible iff
   `GET /api/projects/:id/blueprint` (project-router) returns a blueprint

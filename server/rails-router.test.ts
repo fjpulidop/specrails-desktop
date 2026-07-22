@@ -1832,6 +1832,24 @@ describe('rails-router launch — concurrent-launch ticket guard', () => {
     else process.env.SPECRAILS_LOOPS_SECTION = savedLoops
   })
 
+  it('400 rail_ticket_cap_exceeded when the rail carries more than 3 specs', async () => {
+    setRailTickets(db, 0, [1, 2, 3, 4])
+    const enqueue = vi.fn()
+    const res = await request(appWith(db, { queueManager: { enqueue } }))
+      .post('/rails/0/launch').send({ mode: 'batch-implement' })
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({ error: 'rail_ticket_cap_exceeded', max: 3, ticketCount: 4 })
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('launches a rail with exactly 3 specs (cap is inclusive)', async () => {
+    setRailTickets(db, 0, [1, 2, 3])
+    const enqueue = vi.fn().mockReturnValue({ id: 'job-cap', queuePosition: 0 })
+    const res = await request(appWith(db, { queueManager: { enqueue } }))
+      .post('/rails/0/launch').send({ mode: 'batch-implement' })
+    expect(res.status).not.toBe(400)
+  })
+
   it('409 tickets_in_flight when a rail ticket is already worked by an active loop run', async () => {
     setRailTickets(db, 0, [1, 2])
     const enqueue = vi.fn()

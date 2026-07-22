@@ -5,6 +5,7 @@
     "railLimitReached": "レールの上限に達しました（最大 {{max}}）",
     "railDeleteFailed": "レールを削除できません — スペックを保持しているか、実行中か、PR の判断待ちです",
     "launchTicketsInFlight": "このレールのスペックは既にアクティブな実行で処理中です",
+    "launchTicketCap": "このレールには {{count}} 件のスペックがあります — 起動は1レールにつき最大 {{max}} 件です。複数のレールに分けてください。",
     "launchAllSummary_one": "{{count}} 件のレールを並列で起動しました",
     "launchAllSummary_other": "{{count}} 件のレールを並列で起動しました",
     "launchAllNoneEligible": "起動できるレールがありません — まず空きレールにスペックを割り当ててください",

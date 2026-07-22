@@ -79,7 +79,8 @@
     "description": "里程碑 1 的待办清单已在看板上，标签为 M1。",
     "launchM1": "启动里程碑 1",
     "openProject": "打开项目",
-    "launchToast": "里程碑 1 已启动——{{count}} 个规格在一条轨道上",
+    "launchToast": "里程碑 1 已启动——{{count}} 个规格分布在多条轨道上（每条轨道最多 3 个）",
+    "launchPartialToast": "里程碑 1 部分启动——已启动 {{count}} 个规格，{{skipped}} 个待处理",
     "launchFailed": "无法启动里程碑 1"
   },
   "sidebar": {

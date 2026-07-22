@@ -5,6 +5,7 @@
     "railLimitReached": "Límite de rails alcanzado ({{max}} máx.)",
     "railDeleteFailed": "No se pudo eliminar el rail — tiene specs, está en ejecución o tiene una decisión de PR pendiente",
     "launchTicketsInFlight": "Una spec de este rail ya está siendo trabajada por una ejecución activa",
+    "launchTicketCap": "Este raíl tiene {{count}} specs — un lanzamiento admite como máximo {{max}} por raíl. Repártelas entre raíles.",
     "launchAllSummary_one": "{{count}} rail lanzado en paralelo",
     "launchAllSummary_other": "{{count}} rails lanzados en paralelo",
     "launchAllNoneEligible": "No hay rails listos para lanzar — asigna specs a un rail libre primero",

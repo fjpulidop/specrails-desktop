@@ -79,7 +79,8 @@
     "description": "Dein Meilenstein-1-Backlog ist auf dem Board, mit M1 gelabelt.",
     "launchM1": "Meilenstein 1 starten",
     "openProject": "Projekt öffnen",
-    "launchToast": "Meilenstein 1 gestartet — {{count}} Specs auf einem Rail",
+    "launchToast": "Meilenstein 1 gestartet — {{count}} Specs auf Rails verteilt (max. 3 pro Rail)",
+    "launchPartialToast": "Meilenstein 1 teilweise gestartet — {{count}} Specs gestartet, {{skipped}} ausstehend",
     "launchFailed": "Meilenstein 1 konnte nicht gestartet werden"
   },
   "sidebar": {

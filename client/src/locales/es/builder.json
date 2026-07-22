@@ -79,7 +79,8 @@
     "description": "Tu backlog del Hito 1 está en el tablero, etiquetado M1.",
     "launchM1": "Lanzar el Hito 1",
     "openProject": "Abrir el proyecto",
-    "launchToast": "Hito 1 lanzado — {{count}} specs en un raíl",
+    "launchToast": "Hito 1 lanzado — {{count}} specs repartidas en raíles (máx. 3 por raíl)",
+    "launchPartialToast": "Hito 1 lanzado parcialmente — {{count}} specs lanzadas, {{skipped}} pendientes",
     "launchFailed": "No se pudo lanzar el Hito 1"
   },
   "sidebar": {

@@ -5,6 +5,7 @@
     "railLimitReached": "已达到 Rail 上限（最多 {{max}} 个）",
     "railDeleteFailed": "无法移除该 Rail — 它包含 Spec、正在运行或有待处理的 PR 决定",
     "launchTicketsInFlight": "该 Rail 上的某个 Spec 已在被一个活动运行处理",
+    "launchTicketCap": "此轨道有 {{count}} 个规格——每次启动每条轨道最多 {{max}} 个。请将它们分配到多条轨道。",
     "launchAllSummary_one": "已并行启动 {{count}} 个 Rail",
     "launchAllSummary_other": "已并行启动 {{count}} 个 Rail",
     "launchAllNoneEligible": "没有可启动的 Rail — 请先将 Spec 分配到空闲的 Rail",
