@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.34.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.34.0...v2.34.1) (2026-07-26)
+
+
+### Bug Fixes
+
+* dock reopen, mission project binding, warm-link release, Opus 5 ([#579](https://github.com/fjpulidop/specrails-desktop/issues/579)) ([0115732](https://github.com/fjpulidop/specrails-desktop/commit/01157328cecf6493e1a10521d10ae3ae10df7652))
+
 ## [2.34.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.33.0...v2.34.0) (2026-07-22)
 
 
