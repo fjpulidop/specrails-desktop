@@ -3,9 +3,7 @@
 ## Purpose
 
 TBD - created by syncing change harden-repeat-pr-implementation-flow. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: Implementation truth is independent from delivery truth
 
 The platform SHALL persist the actual implementation outcome independently from commit, worktree, branch verification, push, and pull-request outcomes. A post-run delivery failure MUST NOT rewrite a successful loop/job outcome as an implementation failure.
@@ -32,7 +30,7 @@ The platform SHALL persist the actual implementation outcome independently from 
 
 ### Requirement: Recoverable work is never removed automatically
 
-The platform SHALL remove a worktree only after proving, immediately before removal, that all deliverable changes are clean and durably referenced by the recorded commit. That live proof SHALL include tracked and untracked paths, while excluding only the trusted overlay paths durably recorded by Specrails for that worktree. Gitignored paths SHALL be release-safe only when every live ignored path is covered by the immutable settlement snapshot of ignored paths captured at the moment the worktree was proven clean; an ignored path that appears after settlement, a missing snapshot, an oversized snapshot, or conflicting per-branch snapshots SHALL preserve the worktree. Cleanup SHALL NOT unlink or recursively delete a mutable overlay pathname after a separate check. It SHALL atomically rename each authenticated overlay root beneath a persistent same-filesystem quarantine batch root, revalidate it after the rename, explicitly preserve any raced content there, and retain the quarantine from automatic deletion or automatic restoration over a possibly recreated source path. The batch root SHALL be durably recorded before the first child move, SHALL disclose every contained quarantine path through one inspectable root, and SHALL NOT be evicted from delivery state while its bytes remain on disk. Both implementation-card surfaces SHALL disclose safety archives independently from cleanup failures. Dirty, unknown, ref-mismatched, concurrently changed, or unauthenticated ignored worktrees SHALL remain recoverable even when the user dismisses or discards the card: the card MAY become terminal with an honest cleanup warning, but Specrails SHALL NOT interpret that workflow action as permission for forced byte deletion. Worktree release SHALL use non-force removal.
+The platform SHALL remove a worktree only after proving, immediately before removal, that all deliverable changes are clean and durably referenced by the recorded commit. That live proof SHALL include tracked and untracked paths, while excluding only the trusted overlay paths durably recorded by Specrails for that worktree and the app-created warm-dependency links authenticated live against the base repository. A warm-dependency link SHALL be authenticated only when the live worktree entry is a symbolic link whose resolved target is exactly the identically-named dependency directory of the base repository checkout; anything else — a real directory, a copy, or a link pointing elsewhere — SHALL remain unauthorized dirt. Authenticated warm-dependency links SHALL be quarantined through the same atomic rename path as overlay roots so that non-force removal can succeed. Gitignored paths SHALL be release-safe only when every live ignored path is covered by the immutable settlement snapshot of ignored paths captured at the moment the worktree was proven clean; an ignored path that appears after settlement, a missing snapshot, an oversized snapshot, or conflicting per-branch snapshots SHALL preserve the worktree. Cleanup SHALL NOT unlink or recursively delete a mutable overlay pathname after a separate check. It SHALL atomically rename each authenticated overlay root beneath a persistent same-filesystem quarantine batch root, revalidate it after the rename, explicitly preserve any raced content there, and retain the quarantine from automatic deletion or automatic restoration over a possibly recreated source path. The batch root SHALL be durably recorded before the first child move, SHALL disclose every contained quarantine path through one inspectable root, and SHALL NOT be evicted from delivery state while its bytes remain on disk. Both implementation-card surfaces SHALL disclose safety archives independently from cleanup failures. Dirty, unknown, ref-mismatched, concurrently changed, or unauthenticated ignored worktrees SHALL remain recoverable even when the user dismisses or discards the card: the card MAY become terminal with an honest cleanup warning, but Specrails SHALL NOT interpret that workflow action as permission for forced byte deletion. Worktree release SHALL use non-force removal.
 
 #### Scenario: Commit fails with dirty changes
 
@@ -53,6 +51,19 @@ The platform SHALL remove a worktree only after proving, immediately before remo
 - **THEN** the live release preflight SHALL preserve the mounted worktree and its branch
 - **AND** SHALL record and disclose an actionable cleanup warning instead of running forced cleanup
 - **AND** a later retry SHALL revalidate the worktree again so a user can safely resolve the condition
+
+#### Scenario: Warm dependency links do not block release
+
+- **WHEN** a settled worktree's only remaining untracked entries are warm-dependency links that the app created and whose targets still resolve to the base repository's identically-named dependency directories
+- **THEN** release verification SHALL treat them as authenticated app scaffolding rather than post-settlement changes
+- **AND** they SHALL be quarantined before non-force removal so the branch becomes checkout-able
+- **AND** a worktree already preserved as `needs-review` for that reason alone SHALL release on the next decision without any manual cleanup
+
+#### Scenario: A dependency path that is not an app-created link preserves the worktree
+
+- **WHEN** a settled worktree contains a dependency directory that is a real directory, a copy, or a link whose target is not the base repository's identically-named dependency directory
+- **THEN** release verification SHALL treat it as unauthorized content
+- **AND** SHALL preserve the worktree with an actionable cleanup warning
 
 #### Scenario: Run-created ignored artifacts release cleanly
 
@@ -844,3 +855,4 @@ Explicit user designation of a target PR SHALL be a sanctioned continuation sour
 
 - **WHEN** a launch carries no explicit target
 - **THEN** automatic continuation discovery SHALL keep its existing status gates and exact-match rules, unchanged by this capability
+

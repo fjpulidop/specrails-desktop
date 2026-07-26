@@ -51,7 +51,7 @@ import {
   applyWorktreeOverlay, revalidateOverlayCleanupEvidence, OVERLAY_MANIFEST,
   type OverlayCleanupEvidence,
 } from './worktree-overlay'
-import { linkNodeModulesIntoWorktree } from './worktree-node-modules'
+import { authenticateWarmNodeModulesLinks, linkNodeModulesIntoWorktree } from './worktree-node-modules'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isCodeExplorerEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
@@ -164,6 +164,12 @@ interface AllocatedRun {
   overlayExcludes: string[]
   /** Fingerprints proving the excluded paths are still allocator-owned. */
   overlayCleanupEvidence: OverlayCleanupEvidence[]
+  /** Warm-dependency link fingerprints. Kept apart from the overlay evidence
+   *  because overlay revalidation authenticates against the framework source,
+   *  which a `node_modules` link has no entry in — folding them together would
+   *  silently revoke them at settle. They are re-proven against the base repo
+   *  instead and merged only into the durable record. */
+  warmLinkEvidence: OverlayCleanupEvidence[]
   /** Immutable settlement snapshot of gitignored paths (captured the moment
    *  the worktree is proven clean). null = no ignored-release authorization. */
   settlementIgnoredPaths?: string[] | null
@@ -435,7 +441,7 @@ function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
     branchOwnership: result.run.branchOwnership,
     worktreePath: result.run.handle.worktreePath,
     overlayExcludes: result.run.overlayExcludes,
-    overlayCleanupEvidence: result.run.overlayCleanupEvidence,
+    overlayCleanupEvidence: [...result.run.overlayCleanupEvidence, ...result.run.warmLinkEvidence],
     settlementIgnoredPaths: result.run.settlementIgnoredPaths ?? null,
   })))
 }
@@ -827,9 +833,16 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         // into the fresh worktree (best-effort; a failure just leaves the run
         // on the legacy cold start). Linked paths join the overlay exclusion
         // list so they inherit the commit-time guarantees.
+        let warmLinkEvidence: OverlayCleanupEvidence[] = []
         try {
           const nm = (io.linkNodeModules ?? linkNodeModulesIntoWorktree)(baseRepo, handle.worktreePath)
-          if (nm.linked.length > 0) overlayExcludes = overlayExcludes.concat(nm.linked)
+          // `authenticated` (not `linked`) is the authorized set: it also covers
+          // links a previous pass created, which a resumed launch would
+          // otherwise leave both un-excluded from the commit and unauthorized
+          // for release.
+          const authorized = nm.authenticated ?? nm.linked ?? []
+          if (authorized.length > 0) overlayExcludes = overlayExcludes.concat(authorized)
+          warmLinkEvidence = nm.evidence ?? []
           if (nm.warnings.length > 0) notifyOverlayDegraded(unit.ticketId, nm.warnings)
         } catch (err) {
           notifyOverlayDegraded(unit.ticketId, [err instanceof Error ? err.message : String(err)])
@@ -860,6 +873,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           handle,
           overlayExcludes,
           overlayCleanupEvidence,
+          warmLinkEvidence,
           provenanceSnapshot,
           continuationTarget,
           baseRef: continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
@@ -1007,6 +1021,15 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         providerDir: overlayProviderDir,
         instructionsFilename: overlayInstructions,
       }, a.overlayCleanupEvidence)
+    }
+    // Warm-dependency links are re-proven against the base repo (their source),
+    // not the framework overlay source. A link the engine replaced with a real
+    // install loses its authorization here and correctly preserves the worktree.
+    if (a.warmLinkEvidence.length > 0) {
+      a.warmLinkEvidence = authenticateWarmNodeModulesLinks(baseRepo, a.handle.worktreePath)
+        .filter((live) => a.warmLinkEvidence.some(
+          (prior) => prior.path === live.path && prior.kind === live.kind && prior.digest === live.digest,
+        ))
     }
 
     let commit: CommitWorktreeResult

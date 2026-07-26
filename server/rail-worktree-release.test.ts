@@ -613,6 +613,159 @@ describe('settlement ignored-path snapshot (run-created artifacts)', () => {
   })
 })
 
+describe('releaseRailWorktrees + warm dependency links', () => {
+  const sha = 'b'.repeat(40)
+
+  /** Git double whose status reports the still-present worktree entries that
+   *  the caller did NOT exclude via `:(top,exclude,literal)<path>` pathspecs. */
+  function statusGit(entries: () => string[]) {
+    const calls: Array<{ args: string[]; cwd: string }> = []
+    const git: GitRunner = {
+      async run(args, cwd) {
+        calls.push({ args, cwd })
+        if (args[0] === 'status') {
+          const excluded = new Set(
+            args.filter((a) => a.startsWith(':(top,exclude,literal)'))
+              .map((a) => a.replace(':(top,exclude,literal)', '')),
+          )
+          const lines = entries().filter((e) => !excluded.has(e)).map((e) => `?? ${e}`)
+          return { code: 0, stdout: lines.length ? `${lines.join('\n')}\n` : '', stderr: '' }
+        }
+        // Untracked: exit 1 is what authorizes quarantine of an overlay path.
+        if (args[0] === 'ls-files') return { code: 1, stdout: '', stderr: '' }
+        if (args[0] === 'rev-parse') return { code: 0, stdout: `${sha}\n`, stderr: '' }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    return { git, calls }
+  }
+
+  function baseRepoWithInstall(): string {
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-baserepo-'))
+    fs.mkdirSync(path.join(repo, 'node_modules', 'left-pad'), { recursive: true })
+    fs.writeFileSync(path.join(repo, 'node_modules', 'left-pad', 'index.js'), 'x')
+    return repo
+  }
+
+  it('releases a settled worktree whose only leftover is the app-created warm link, with NO persisted evidence', async () => {
+    const db = initDb(':memory:')
+    const repoDir = baseRepoWithInstall()
+    const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-warm-'))
+    fs.symlinkSync(path.join(repoDir, 'node_modules'), path.join(wt, 'node_modules'))
+    createRailWorktree(db, {
+      id: 'warm', railIndex: 0, ticketId: 1, branch: 'feat/warm',
+      worktreePath: wt, mergeState: 'needs-review',
+    })
+    const { git, calls } = statusGit(() => (fs.existsSync(path.join(wt, 'node_modules')) ? ['node_modules'] : []))
+
+    // No overlayEvidenceByBranch entry at all: this is exactly the shape of a
+    // delivery that settled BEFORE warm links carried evidence.
+    const warnings = await releaseRailWorktrees({
+      db, git, repoDir, worktreeIds: ['warm'],
+      expectedHeadByBranch: new Map([['feat/warm', sha]]),
+      overlayEvidenceByBranch: new Map(),
+    })
+
+    expect(warnings).toEqual([])
+    expect(getRailWorktree(db, 'warm')?.merge_state).toBe('released')
+    // Quarantined out of the worktree so non-force removal can succeed.
+    expect(fs.existsSync(path.join(wt, 'node_modules'))).toBe(false)
+    expect(calls).toContainEqual({ args: ['worktree', 'remove', wt], cwd: repoDir })
+    // The shared dependency tree itself is never moved or deleted.
+    expect(fs.existsSync(path.join(repoDir, 'node_modules', 'left-pad', 'index.js'))).toBe(true)
+
+    removeOverlayQuarantines(wt)
+    fs.rmSync(wt, { recursive: true, force: true })
+    fs.rmSync(repoDir, { recursive: true, force: true })
+    db.close()
+  })
+
+  it('preserves the worktree when the dependency path is a real directory, not an app link', async () => {
+    const db = initDb(':memory:')
+    const repoDir = baseRepoWithInstall()
+    const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-realdir-'))
+    fs.mkdirSync(path.join(wt, 'node_modules'))
+    fs.writeFileSync(path.join(wt, 'node_modules', 'agent-made.js'), 'x')
+    createRailWorktree(db, {
+      id: 'real', railIndex: 0, ticketId: 1, branch: 'feat/real',
+      worktreePath: wt, mergeState: 'built',
+    })
+    const { git } = statusGit(() => ['node_modules'])
+
+    const warnings = await releaseRailWorktrees({
+      db, git, repoDir, worktreeIds: ['real'],
+      expectedHeadByBranch: new Map([['feat/real', sha]]),
+      overlayEvidenceByBranch: new Map(),
+    })
+
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/changes made after settlement/)
+    expect(getRailWorktree(db, 'real')?.merge_state).toBe('needs-review')
+    expect(fs.existsSync(path.join(wt, 'node_modules', 'agent-made.js'))).toBe(true)
+
+    fs.rmSync(wt, { recursive: true, force: true })
+    fs.rmSync(repoDir, { recursive: true, force: true })
+    db.close()
+  })
+
+  it('preserves the worktree when the link points outside the base checkout', async () => {
+    const db = initDb(':memory:')
+    const repoDir = baseRepoWithInstall()
+    const foreign = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-foreign-'))
+    const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-foreignlink-'))
+    fs.symlinkSync(foreign, path.join(wt, 'node_modules'))
+    createRailWorktree(db, {
+      id: 'foreign', railIndex: 0, ticketId: 1, branch: 'feat/foreign',
+      worktreePath: wt, mergeState: 'built',
+    })
+    const { git } = statusGit(() => ['node_modules'])
+
+    const warnings = await releaseRailWorktrees({
+      db, git, repoDir, worktreeIds: ['foreign'],
+      expectedHeadByBranch: new Map([['feat/foreign', sha]]),
+      overlayEvidenceByBranch: new Map(),
+    })
+
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/changes made after settlement/)
+    expect(getRailWorktree(db, 'foreign')?.merge_state).toBe('needs-review')
+
+    fs.rmSync(wt, { recursive: true, force: true })
+    fs.rmSync(foreign, { recursive: true, force: true })
+    fs.rmSync(repoDir, { recursive: true, force: true })
+    db.close()
+  })
+
+  it('a live warm link never overrides persisted evidence for the same path', async () => {
+    const db = initDb(':memory:')
+    const repoDir = baseRepoWithInstall()
+    const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-dedupe-'))
+    fs.symlinkSync(path.join(repoDir, 'node_modules'), path.join(wt, 'node_modules'))
+    createRailWorktree(db, {
+      id: 'dedupe', railIndex: 0, ticketId: 1, branch: 'feat/dedupe',
+      worktreePath: wt, mergeState: 'built',
+    })
+    const persisted = fingerprintOverlayCleanupPath(path.join(wt, 'node_modules'))!
+    const { git } = statusGit(() => (fs.existsSync(path.join(wt, 'node_modules')) ? ['node_modules'] : []))
+
+    const warnings = await releaseRailWorktrees({
+      db, git, repoDir, worktreeIds: ['dedupe'],
+      expectedHeadByBranch: new Map([['feat/dedupe', sha]]),
+      overlayEvidenceByBranch: new Map([['feat/dedupe', [{ path: 'node_modules', ...persisted }]]]),
+      authenticateWarmLinks: () => [{ path: 'node_modules', ...persisted }],
+    })
+
+    expect(warnings).toEqual([])
+    expect(getRailWorktree(db, 'dedupe')?.merge_state).toBe('released')
+    expect(overlayQuarantineRoots(wt)).toHaveLength(1)
+
+    removeOverlayQuarantines(wt)
+    fs.rmSync(wt, { recursive: true, force: true })
+    fs.rmSync(repoDir, { recursive: true, force: true })
+    db.close()
+  })
+})
+
 describe('durableSettlementIgnoredPaths', () => {
   it('collapses matching snapshots, poisons conflicts and failed captures, sanitizes paths', () => {
     const out = durableSettlementIgnoredPaths([

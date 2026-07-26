@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import { linkNodeModulesIntoWorktree, isWorktreeNodeModulesEnabled } from './worktree-node-modules'
+import {
+  linkNodeModulesIntoWorktree,
+  isWorktreeNodeModulesEnabled,
+  authenticateWarmNodeModulesLinks,
+} from './worktree-node-modules'
 
 let baseRepo: string
 let worktree: string
@@ -115,6 +119,76 @@ describe('linkNodeModulesIntoWorktree', () => {
   it('a repo with no package.json anywhere is a clean no-op', () => {
     mkRepo(['src/main.rs'])
     const res = linkNodeModulesIntoWorktree(baseRepo, worktree)
-    expect(res).toEqual({ linked: [], warnings: [] })
+    expect(res).toEqual({ linked: [], authenticated: [], evidence: [], warnings: [] })
+  })
+
+  it('authenticates and fingerprints the links it creates', () => {
+    mkRepo(['package.json', 'node_modules/a.js', 'client/package.json', 'client/node_modules/b.js'])
+    const res = linkNodeModulesIntoWorktree(baseRepo, worktree)
+    expect(res.authenticated.sort()).toEqual(['client/node_modules', 'node_modules'])
+    expect(res.evidence.map((e) => e.path).sort()).toEqual(['client/node_modules', 'node_modules'])
+    for (const entry of res.evidence) {
+      expect(entry.kind).toBe('symlink')
+      expect(entry.digest).toMatch(/^[0-9a-f]{64}$/)
+    }
+  })
+
+  it('re-authenticates a link a previous pass created (resume keeps the exclusion)', () => {
+    mkRepo(['package.json', 'node_modules/a.js'])
+    const first = linkNodeModulesIntoWorktree(baseRepo, worktree)
+    expect(first.linked).toEqual(['node_modules'])
+    const second = linkNodeModulesIntoWorktree(baseRepo, worktree)
+    // Nothing new is created, but the pre-existing link stays authorized.
+    expect(second.linked).toEqual([])
+    expect(second.authenticated).toEqual(['node_modules'])
+    expect(second.evidence).toEqual(first.evidence)
+  })
+
+  it('does not authenticate a destination that is a real directory', () => {
+    mkRepo(['package.json', 'node_modules/a.js'])
+    fs.mkdirSync(path.join(worktree, 'node_modules'))
+    const res = linkNodeModulesIntoWorktree(baseRepo, worktree)
+    expect(res.authenticated).toEqual([])
+    expect(res.evidence).toEqual([])
+  })
+})
+
+describe('authenticateWarmNodeModulesLinks', () => {
+  it('authenticates root and nested links pointing at the base checkout', () => {
+    mkRepo(['package.json', 'node_modules/a.js', 'client/package.json', 'client/node_modules/b.js'])
+    linkNodeModulesIntoWorktree(baseRepo, worktree)
+    const evidence = authenticateWarmNodeModulesLinks(baseRepo, worktree)
+    expect(evidence.map((e) => e.path).sort()).toEqual(['client/node_modules', 'node_modules'])
+  })
+
+  it('refuses a real directory, a copy, and a foreign link target', () => {
+    mkRepo(['package.json', 'node_modules/a.js'])
+    // real dir
+    fs.mkdirSync(path.join(worktree, 'node_modules'))
+    expect(authenticateWarmNodeModulesLinks(baseRepo, worktree)).toEqual([])
+    fs.rmSync(path.join(worktree, 'node_modules'), { recursive: true, force: true })
+    // link pointing somewhere else entirely
+    const foreign = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-nm-foreign-'))
+    fs.symlinkSync(foreign, path.join(worktree, 'node_modules'))
+    expect(authenticateWarmNodeModulesLinks(baseRepo, worktree)).toEqual([])
+    fs.rmSync(foreign, { recursive: true, force: true })
+  })
+
+  it('refuses a dangling link even when the name and relative path match', () => {
+    mkRepo(['package.json', 'node_modules/a.js'])
+    linkNodeModulesIntoWorktree(baseRepo, worktree)
+    fs.rmSync(path.join(baseRepo, 'node_modules'), { recursive: true, force: true })
+    expect(authenticateWarmNodeModulesLinks(baseRepo, worktree)).toEqual([])
+  })
+
+  it('is depth-bounded like the linker and never walks into a linked tree', () => {
+    mkRepo(['a/b/c/package.json', 'a/b/c/node_modules/deep.js'])
+    fs.mkdirSync(path.join(worktree, 'a', 'b', 'c'), { recursive: true })
+    fs.symlinkSync(path.join(baseRepo, 'a/b/c/node_modules'), path.join(worktree, 'a/b/c/node_modules'))
+    expect(authenticateWarmNodeModulesLinks(baseRepo, worktree)).toEqual([])
+  })
+
+  it('returns nothing for a worktree with no dependency entries', () => {
+    expect(authenticateWarmNodeModulesLinks(baseRepo, worktree)).toEqual([])
   })
 })

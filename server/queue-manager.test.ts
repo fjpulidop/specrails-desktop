@@ -2776,7 +2776,8 @@ describe('QueueManager', () => {
         const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
         const mIdx = spawnArgs.indexOf('--model')
         expect(mIdx).toBeGreaterThanOrEqual(0)
-        expect(spawnArgs[mIdx + 1]).toBe('opus')
+        // The `opus` catalog value reaches the spawn as the pinned generation.
+        expect(spawnArgs[mIdx + 1]).toBe('claude-opus-5')
       } finally {
         db.close()
         fs.rmSync(projectDir, { recursive: true, force: true })

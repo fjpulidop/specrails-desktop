@@ -8,6 +8,7 @@ import {
   matchesOverlayCleanupEvidenceAtPath,
   type OverlayCleanupEvidence,
 } from './worktree-overlay'
+import { authenticateWarmNodeModulesLinks } from './worktree-node-modules'
 
 export interface ReleaseRailWorktreesInput {
   db: DbInstance
@@ -28,6 +29,9 @@ export interface ReleaseRailWorktreesInput {
    * ignored path is release-safe ONLY when covered by this snapshot; absent
    * map/branch = no ignored authorization (legacy rows preserve as before). */
   settlementIgnoredByBranch?: ReadonlyMap<string, readonly string[]>
+  /** Injectable live authenticator for the app-created warm-dependency links
+   * (`node_modules` symlinks into the base checkout). Production omits it. */
+  authenticateWarmLinks?: typeof authenticateWarmNodeModulesLinks
   /** Called exactly once for each persistent quarantine batch root before any
    * overlay is moved beneath it. One durable root discloses every child and
    * remains valid across crashes or later release failure. */
@@ -162,8 +166,26 @@ async function verifyReleaseEvidence(
   if (!expected || !COMMIT_SHA_RE.test(expected)) {
     return { failure: 'no durable settled HEAD is recorded for its branch', overlayEntries: [] }
   }
-  const overlayEntries = (input.overlayEvidenceByBranch.get(worktree.branch) ?? [])
+  const persistedEntries = (input.overlayEvidenceByBranch.get(worktree.branch) ?? [])
     .filter((entry) => matchesOverlayCleanupEvidence(worktree.worktree_path, entry))
+  // Warm-dependency links are authenticated LIVE against the base repo, on top
+  // of whatever was persisted. Two reasons this is derived and not persisted-
+  // only: a repo's ordinary `node_modules/` DIRECTORY ignore pattern does not
+  // ignore a SYMLINK of that name, so the link reads as untracked dirt and
+  // permanently blocked release (and therefore branch checkout); and worktrees
+  // that settled before the links carried evidence are stuck at `needs-review`
+  // where no persisted fix could ever reach them. The proof is identical to the
+  // persisted one — a symlink resolving to the base checkout's identically-
+  // named dependency directory — so nothing weaker is being accepted here.
+  const warmEntries = (input.authenticateWarmLinks ?? authenticateWarmNodeModulesLinks)(
+    input.repoDir,
+    worktree.worktree_path,
+  )
+  const seenPaths = new Set(persistedEntries.map((entry) => entry.path))
+  const overlayEntries = [
+    ...persistedEntries,
+    ...warmEntries.filter((entry) => !seenPaths.has(entry.path)),
+  ]
   const overlayExcludes = overlayEntries.map((entry) => entry.path)
 
   try {

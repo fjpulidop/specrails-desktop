@@ -416,7 +416,7 @@ let _queueSeq = 0
 export function AgentChatProvider({ children }: { children: ReactNode }) {
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { uiMode } = useUiMode()
-  const { setActiveProjectId } = useDesktop()
+  const { setActiveProjectId, activeProjectId } = useDesktop()
 
   const [visibility, setVisibility] = useState<AgentVisibility>('hidden')
   const [conversations, setConversations] = useState<AgentConversation[]>([])
@@ -1004,6 +1004,33 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     // the sidebar untouched; the Kanban floating panel is unaffected.
     if (!active && projectId && uiMode === 'agent') setActiveProjectId(projectId)
   }, [active, patchActive, uiMode, setActiveProjectId])
+
+  // Backward binding: the sidebar's active project moves an UNSTARTED mission.
+  // `setPinnedProject` above owns the forward direction (mission selector moves
+  // the sidebar); this is the reverse, so picking a project in Agent Mode
+  // immediately points the agent at it without a second click in the mission's
+  // own project selector. Two guards keep it honest:
+  //   - only an actual CHANGE binds (the mounted value is recorded and skipped),
+  //     so an explicitly Home-pinned mission is never converted on first render;
+  //   - a mission that already carries messages keeps its project, because its
+  //     transcript, tool calls and `#ref` resolution are scoped to it.
+  // Reading the active project from context (not from a click handler) keeps the
+  // invariant regardless of which surface moved it — sidebar, command palette,
+  // a ref chip, or a minimized-chat restore.
+  const lastBoundProjectIdRef = useRef<string | null | undefined>(undefined)
+  useEffect(() => {
+    const previous = lastBoundProjectIdRef.current
+    lastBoundProjectIdRef.current = activeProjectId
+    if (previous === undefined || previous === activeProjectId) return
+    if (uiMode !== 'agent' || !activeProjectId) return
+    if (!active) {
+      setDraftPinnedProjectId(activeProjectId)
+      return
+    }
+    if (messagesRef.current.length > 0) return
+    if (active.pinned_project_id === activeProjectId) return
+    void patchActive({ pinnedProjectId: activeProjectId })
+  }, [activeProjectId, uiMode, active, patchActive])
 
   const startNewConversation = useCallback((projectId?: string | null) => {
     // An explicit mission action while the Builder skin is up is a clear
