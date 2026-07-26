@@ -38,6 +38,7 @@ function normaliseModel(model: string | null | undefined): string {
       return 'sonnet'
     case 'claude-fable-5':
       return 'fable'
+    case 'claude-opus-5':
     case 'claude-opus-4-8':
     case 'claude-opus-4-5':
     case 'claude-opus-4-1-20250805':
@@ -50,6 +51,26 @@ function normaliseModel(model: string | null | undefined): string {
     default:
       return model || 'sonnet'
   }
+}
+
+/**
+ * Catalog aliases whose GENERATION Specrails pins explicitly.
+ *
+ * The catalog value (`opus`) stays the stored, validated and displayed identity
+ * — profiles, project settings, conversation rows and analytics all keep using
+ * it, and `normaliseModel` collapses the pinned id back to it. Only the spawn
+ * argument is expanded, so picking "Claude Opus" is a product decision about
+ * WHICH Opus runs instead of delegating that to whatever generation the CLI's
+ * bare `opus` alias currently points at.
+ */
+const PINNED_ALIAS_MODEL_IDS: Readonly<Record<string, string>> = {
+  opus: 'claude-opus-5',
+}
+
+/** Catalog value (or concrete id) in, spawn model id out. */
+function resolveSpawnModel(model: string | null | undefined): string {
+  const alias = normaliseModel(model)
+  return PINNED_ALIAS_MODEL_IDS[alias] ?? alias
 }
 
 /**
@@ -102,7 +123,7 @@ function commonFlagsFor(opts: SpawnOptions): string[] {
 
 function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
   const args: string[] = []
-  const model = normaliseModel(opts.model)
+  const model = resolveSpawnModel(opts.model)
   // Titles are unconditionally pure-output. Centralising the policy here keeps
   // both ChatManager and AgentChatManager from accidentally regaining tools.
   const commonFlags = commonFlagsFor(
@@ -452,4 +473,4 @@ export const claudeAdapter = {
   detectInstalled: detectClaudeInstalled,
 } satisfies ProviderAdapter
 
-export { normaliseModel as _normaliseClaudeModel }
+export { normaliseModel as _normaliseClaudeModel, resolveSpawnModel as _resolveClaudeSpawnModel }

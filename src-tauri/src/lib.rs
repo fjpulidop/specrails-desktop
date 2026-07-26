@@ -669,6 +669,18 @@ pub fn run() {
             // sidecar keeps running and the tray item can reopen it. Sidecar
             // termination moved to the tray "Exit" path and the true-quit
             // `RunEvent::ExitRequested` hook below.
+            //
+            // Reopening the hidden window is per-platform, because a hidden
+            // window is reachable differently on each OS:
+            //  - macOS: the app keeps its Dock icon, so clicking it never
+            //    launches a second process — it raises
+            //    `applicationShouldHandleReopen`, handled as `RunEvent::Reopen`
+            //    in the run loop below.
+            //  - Windows: a hidden window has no taskbar button, so the user
+            //    necessarily relaunches from the taskbar/Start shortcut. The
+            //    `tauri_plugin_single_instance` callback registered above
+            //    intercepts that launch and calls `show_main_window` on the
+            //    existing instance, so no second sidecar is ever spawned.
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = window.hide();
@@ -682,6 +694,21 @@ pub fn run() {
             if let RunEvent::ExitRequested { .. } = event {
                 let state = app_handle.state::<SidecarState>();
                 shutdown_sidecar(&state);
+            }
+            // macOS Dock click on the ALREADY-RUNNING app. Closing the window
+            // only hides it, so without this the app is reachable exclusively
+            // from the menu-bar item — single-instance never fires because no
+            // second process is launched. Only act when macOS reports no
+            // visible window, so clicking the Dock icon of a visible app keeps
+            // its current focus/window state untouched.
+            #[cfg(target_os = "macos")]
+            if let RunEvent::Reopen {
+                has_visible_windows, ..
+            } = event
+            {
+                if !has_visible_windows {
+                    show_main_window(app_handle);
+                }
             }
         });
 }

@@ -8,7 +8,7 @@ vi.mock('child_process', async () => {
 })
 
 import { execSync } from 'child_process'
-import { claudeAdapter, _normaliseClaudeModel } from './claude-adapter'
+import { claudeAdapter, _normaliseClaudeModel, _resolveClaudeSpawnModel } from './claude-adapter'
 import type { AdapterEvent } from './types'
 
 const mockExec = vi.mocked(execSync)
@@ -61,6 +61,41 @@ describe('claudeAdapter — identity', () => {
   })
 })
 
+describe('claudeAdapter._resolveClaudeSpawnModel', () => {
+  it('resolves the opus catalog alias to Opus 5', () => {
+    expect(_resolveClaudeSpawnModel('opus')).toBe('claude-opus-5')
+  })
+  it('resolves pinned opus ids through the alias to Opus 5', () => {
+    expect(_resolveClaudeSpawnModel('claude-opus-4-8')).toBe('claude-opus-5')
+    expect(_resolveClaudeSpawnModel('claude-opus-5')).toBe('claude-opus-5')
+  })
+  it('leaves unpinned aliases untouched', () => {
+    expect(_resolveClaudeSpawnModel('sonnet')).toBe('sonnet')
+    expect(_resolveClaudeSpawnModel('haiku')).toBe('haiku')
+    expect(_resolveClaudeSpawnModel('fable')).toBe('fable')
+  })
+  it('passes an unknown concrete id through unchanged', () => {
+    expect(_resolveClaudeSpawnModel('claude-something-9')).toBe('claude-something-9')
+  })
+})
+
+describe('claude spawn args carry the resolved model', () => {
+  it('every model-bearing action spawns Opus 5 for the opus alias', () => {
+    const opts = { prompt: 'hi', model: 'opus', sessionId: 'sess-1' } as never
+    for (const action of ['chat-turn', 'chat-resume', 'chat-stream', 'rail-job', 'spec-gen'] as const) {
+      const args = claudeAdapter.buildArgs(action, opts)
+      const i = args.indexOf('--model')
+      expect(i, `${action} passes --model`).toBeGreaterThanOrEqual(0)
+      expect(args[i + 1], `${action} model value`).toBe('claude-opus-5')
+    }
+  })
+
+  it('sonnet still spawns the bare alias', () => {
+    const args = claudeAdapter.buildArgs('chat-turn', { prompt: 'hi', model: 'sonnet' } as never)
+    expect(args[args.indexOf('--model') + 1]).toBe('sonnet')
+  })
+})
+
 describe('claudeAdapter._normaliseClaudeModel', () => {
   it('normalises pinned sonnet ids to "sonnet"', () => {
     expect(_normaliseClaudeModel('claude-sonnet-4-6')).toBe('sonnet')
@@ -68,6 +103,7 @@ describe('claudeAdapter._normaliseClaudeModel', () => {
   })
   it('normalises pinned opus ids to "opus"', () => {
     expect(_normaliseClaudeModel('claude-opus-4-8')).toBe('opus')
+    expect(_normaliseClaudeModel('claude-opus-5')).toBe('opus')
   })
   it('normalises pinned haiku ids to "haiku"', () => {
     expect(_normaliseClaudeModel('claude-haiku-4-5-20251001')).toBe('haiku')
@@ -166,12 +202,22 @@ describe('claudeAdapter.buildArgs', () => {
     expect(args).not.toContain('--dangerously-skip-permissions')
   })
 
-  it('chat-turn normalises pinned model ids', () => {
+  it('chat-turn normalises pinned model ids to the catalog alias, then to the pinned generation', () => {
     const args = claudeAdapter.buildArgs('chat-turn', {
       prompt: 'x',
       model: 'claude-opus-4-8',
     })
-    expect(args[args.indexOf('--model') + 1]).toBe('opus')
+    // Legacy opus ids collapse to the `opus` catalog value, which Specrails
+    // pins to Opus 5 for the spawn.
+    expect(args[args.indexOf('--model') + 1]).toBe('claude-opus-5')
+  })
+
+  it('chat-turn normalises an unpinned alias family without expanding it', () => {
+    const args = claudeAdapter.buildArgs('chat-turn', {
+      prompt: 'x',
+      model: 'claude-sonnet-4-6',
+    })
+    expect(args[args.indexOf('--model') + 1]).toBe('sonnet')
   })
 
   it('chat-resume requires sessionId and emits --resume', () => {
