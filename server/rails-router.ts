@@ -3,7 +3,7 @@ import type { ProjectContext } from './project-registry'
 import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, createRail, deleteRail, railCount, railExists, MAX_RAILS, MAX_TICKETS_PER_RAIL_LAUNCH, type RailState } from './rails-store'
 import { ClaudeNotFoundError, CodexNotFoundError } from './queue-manager'
 import { validateRequestedProvider } from './provider-selection'
-import { isLoopsEnabled, isCodeExplorerEnabled } from './feature-flags'
+import { isLoopsEnabled, isCodeExplorerEnabled, isReviewPacketEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
 import { recordLoopRunProvenance } from './file-story'
 import { getLoop } from './loops-store'
@@ -31,6 +31,8 @@ import {
   type PrDeliverySnapshot,
 } from './rail-pr-store'
 import { classifyLoopEffect } from './loop-effect'
+import { composeReviewPacket } from './review-packet'
+import { resolveAcceptCapability } from './accept-ladder'
 import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
@@ -987,6 +989,27 @@ export function createRailsRouter(): Router {
     }
 
     res.json({ ok: true, jobIds: targetJobIds, loopRunIds: targetLoopRunIds, canceled: canceledCount })
+  })
+
+  // GET /rails/pr-deliveries/:id/packet — the plain-language review packet for a
+  // settled delivery: composed server-side from durable rows only (no model
+  // calls, no live-store reads) plus the pre-resolved Accept ladder, so the
+  // client never has to ask the user to choose between git actions. Read-only.
+  router.get('/pr-deliveries/:prDeliveryId/packet', async (req: Request, res: Response) => {
+    if (!isReviewPacketEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req)
+    const row = getPrDelivery(c.db, req.params.prDeliveryId as string)
+    if (!row) { res.status(404).json({ error: 'Delivery not found' }); return }
+    try {
+      const packet = composeReviewPacket({ db: c.db, row })
+      // Capability probes are read-only and offline; a failure degrades to the
+      // confirm-gated local path rather than blocking the packet.
+      const acceptCapability = await resolveAcceptCapability({ repoDir: c.project.path, exec: defaultExec })
+      res.json({ packet, acceptCapability, snapshot: toPrDeliverySnapshot(row) })
+    } catch (err) {
+      console.error('[rails-router] packet composition failed:', err)
+      res.status(500).json({ error: 'packet composition failed', detail: (err as Error).message })
+    }
   })
 
   // POST /rails/pr-decision — the ONE decision action (safe-pr-review-flow) both

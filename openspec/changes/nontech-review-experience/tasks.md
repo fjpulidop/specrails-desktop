@@ -15,11 +15,11 @@ Three waves; each wave is independently shippable behind its flag. Do not start 
 
 ## 2. Wave 2 — Review packet
 
-- [ ] 2.1 Verb→state mapping table as a pure, unit-tested function over `derivePrDeliveryPresentation`: every decision × outcome × statusCode presentation state maps to {human verb set | fine-control-only}; document the ~14 states in the module header
-- [ ] 2.2 Server packet composer (pure module, no model calls): variants Success / Nothing-to-change / Partial / Failed composed from delivery row + snapshot + evidence + `file_story_contributions` stats + `units[]` + `sumInvocationCostForRuns`; per-ticket cards for batches; exhaustive unit tests per variant
-- [ ] 2.3 Proof tiers in composer output: APP-VERIFIED / AI-REPORTED (with the mandated labeling copy) / REVIEWER SCORE (aspects, flags, human-review band); hard rule enforced by test: no numeric claim without a structured source
-- [ ] 2.4 Ladder pre-resolution helper: remote presence + offline `gh auth token` probe (reuse blueprint-commit preflight pattern) → Accept resolves to create-pr(+publish) or merge-local; unit tests for all capability combinations
-- [ ] 2.5 REST: `GET /:projectId/rails/pr-deliveries/:id/packet` returning composed packet + verb resolution; feature-gated by `SPECRAILS_REVIEW_PACKET`
+- [x] 2.1 Verb→state mapping table as a pure, unit-tested function over `derivePrDeliveryPresentation`: every decision × outcome × statusCode presentation state maps to {human verb set | fine-control-only}; document the ~14 states in the module header
+- [x] 2.2 Server packet composer (pure module, no model calls): variants Success / Nothing-to-change / Partial / Failed composed from delivery row + snapshot + evidence + `file_story_contributions` stats + `units[]` + `sumInvocationCostForRuns`; per-ticket cards for batches; exhaustive unit tests per variant
+- [x] 2.3 Proof tiers in composer output: APP-VERIFIED / AI-REPORTED (with the mandated labeling copy) / REVIEWER SCORE (aspects, flags, human-review band); hard rule enforced by test: no numeric claim without a structured source
+- [x] 2.4 Ladder pre-resolution helper: remote presence + offline `gh auth token` probe (reuse blueprint-commit preflight pattern) → Accept resolves to create-pr(+publish) or merge-local; unit tests for all capability combinations
+- [x] 2.5 REST: `GET /:projectId/rails/pr-deliveries/:id/packet` returning composed packet + verb resolution; feature-gated by `SPECRAILS_REVIEW_PACKET`
 - [ ] 2.6 Client packet page (routed under ProjectLayout, JobDetailPage precedent): inverted pyramid (one-line verdict + confidence pill + verbs above the fold; sections as progressive disclosure); semantic tokens only; `VITE_FEATURE_REVIEW_PACKET`
 - [ ] 2.7 Decision wiring: packet consumes `useRailPrDecisions().act()` + `rail.pr_state` + authoritative POST-response snapshot; no optimistic state; race renders neutral already-resolved outcome; merge-local plain-language consequence confirm; plain-language copy for `merge_local_blocked` reasons
 - [ ] 2.8 Fine-control disclosure embedding the existing `RailPrDecisionStrip` actions verbatim for recovery/partial/no_changes/degraded states

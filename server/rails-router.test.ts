@@ -2069,3 +2069,101 @@ describe('rails-router POST /pr-checkout generation guard', () => {
     })
   })
 })
+
+describe('rails-router GET /pr-deliveries/:id/packet', () => {
+  let db: DbInstance
+  const ORIG_FLAG = process.env.SPECRAILS_REVIEW_PACKET
+  beforeEach(() => {
+    db = initDb(':memory:')
+    mockExecRun.mockReset()
+    delete process.env.SPECRAILS_REVIEW_PACKET // default-on
+  })
+  afterEach(() => {
+    if (ORIG_FLAG === undefined) delete process.env.SPECRAILS_REVIEW_PACKET
+    else process.env.SPECRAILS_REVIEW_PACKET = ORIG_FLAG
+    db.close()
+  })
+
+  /** A delivery parked at on_review with durable units + launch snapshot. */
+  function mkOnReview(): string {
+    const row = createPrDelivery(db, {
+      railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement', ticketIds: [1],
+      baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+      specSnapshot: [{ ticketId: 1, title: 'Add login', description: 'No login today.\n\nAdd a form.', labels: ['auth'] }],
+    })
+    transitionDecision(db, row.id, 'building', 'on_review', {
+      branches: [{ ticketId: 1, branch: 'feat/1-login', succeeded: true, runId: 'run-1', implementationOutcome: 'succeeded', deliveryOutcome: 'ready' }],
+      runIds: ['run-1'],
+      implementationOutcome: 'succeeded',
+      deliveryOutcome: 'ready',
+      statusCode: 'ready_for_review',
+      settleEvidence: {
+        schemaVersion: 1, harvest: 'ok', harvestedAt: '2026-07-27T12:00:00.000Z',
+        units: [{ ticketId: 1, runId: 'run-1', sentinel: 'pass', sentinelDetail: null, verifyTail: 'VERIFICATION: PASS', confidence: null }],
+      },
+    })
+    return row.id
+  }
+
+  function ghAvailable(): void {
+    mockExecRun.mockImplementation(async (cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'remote') return { code: 0, stdout: 'origin\n', stderr: '' }
+      if (cmd === 'gh') return { code: 0, stdout: 'gho_x', stderr: '' }
+      return { code: 1, stdout: '', stderr: 'unexpected' }
+    })
+  }
+
+  it('returns the composed packet, the pre-resolved Accept ladder and the authoritative snapshot', async () => {
+    const id = mkOnReview()
+    ghAvailable()
+    const res = await request(appWith(db)).get(`/rails/pr-deliveries/${id}/packet`)
+    expect(res.status).toBe(200)
+    expect(res.body.packet).toMatchObject({
+      schemaVersion: 1, prDeliveryId: id, variant: 'success', decision: 'on_review',
+      headlineCode: 'headline.success', baseBranch: 'main', loopName: 'Implement',
+    })
+    expect(res.body.packet.sections[0]).toMatchObject({ ticketId: 1, title: 'Add login' })
+    expect(res.body.acceptCapability).toMatchObject({ target: 'create-pr', irreversible: false })
+    expect(res.body.snapshot).toMatchObject({ id, decision: 'on_review' })
+  })
+
+  it('resolves Accept to the irreversible local path when the repo has no remote', async () => {
+    const id = mkOnReview()
+    mockExecRun.mockImplementation(async () => ({ code: 0, stdout: '', stderr: '' }))
+    const res = await request(appWith(db)).get(`/rails/pr-deliveries/${id}/packet`)
+    expect(res.body.acceptCapability).toMatchObject({
+      target: 'merge-local', hasRemote: false, irreversible: true, reasonCode: 'no-remote',
+    })
+  })
+
+  it('never spends a model call composing (read-only route)', async () => {
+    const id = mkOnReview()
+    ghAvailable()
+    await request(appWith(db)).get(`/rails/pr-deliveries/${id}/packet`)
+    expect(db.prepare('SELECT COUNT(*) AS n FROM ai_invocations').get()).toEqual({ n: 0 })
+  })
+
+  it('404s an unknown delivery', async () => {
+    const res = await request(appWith(db)).get('/rails/pr-deliveries/nope/packet')
+    expect(res.status).toBe(404)
+  })
+
+  it('404s entirely when the feature flag is off (existing strip keeps working)', async () => {
+    const id = mkOnReview()
+    process.env.SPECRAILS_REVIEW_PACKET = 'false'
+    const res = await request(appWith(db)).get(`/rails/pr-deliveries/${id}/packet`)
+    expect(res.status).toBe(404)
+  })
+
+  it('still composes for a still-building delivery (no evidence yet)', async () => {
+    const row = createPrDelivery(db, {
+      railIndex: 1, loopId: 'l', railKey: '1-l', ticketIds: [2],
+      baseBranch: 'main', loopName: 'L', originSurface: 'dashboard',
+    })
+    ghAvailable()
+    const res = await request(appWith(db)).get(`/rails/pr-deliveries/${row.id}/packet`)
+    expect(res.status).toBe(200)
+    expect(res.body.packet.decision).toBe('building')
+    expect(res.body.packet.evidenceUnavailable).toBe(true)
+  })
+})
