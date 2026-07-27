@@ -510,6 +510,23 @@ export interface PacketConfidence {
   flags: string[]
 }
 
+/** One generation in the revision chain, oldest first. */
+export interface PacketVersion {
+  prDeliveryId: string
+  version: number
+  revisionNote: string | null
+  decision: RailPrDecision
+  costUsd: number | null
+  costEstimated: boolean
+  current: boolean
+}
+
+/** Advisory "this may have outgrown its spec" signal; never blocks a revision. */
+export interface PacketDriftNudge {
+  code: 'drift.costShare' | 'drift.outOfScopeChurn' | 'drift.revisionCount'
+  values: Record<string, string | number>
+}
+
 export interface ReviewPacket {
   schemaVersion: 1
   prDeliveryId: string
@@ -534,6 +551,11 @@ export interface ReviewPacket {
   evidenceUnavailable: boolean
   runIds: string[]
   supersedesDeliveryId: string | null
+  revisionNote: string | null
+  versions: PacketVersion[]
+  chainCostUsd: number | null
+  chainCostEstimated: boolean
+  driftNudges: PacketDriftNudge[]
 }
 
 /** Pre-resolved meaning of Accept for this repo (server-probed, fail-closed). */

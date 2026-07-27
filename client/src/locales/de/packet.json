@@ -19,7 +19,8 @@
     "tooltip": "Die Bewertung, die sich der KI-Reviewer selbst gibt — keine unabhängige Prüfung."
   },
   "cost": {
-    "thisBuild": "Diese Arbeit kostete {{amount}}"
+    "thisBuild": "Diese Arbeit kostete {{amount}}",
+    "allVersions": "Alle Versionen zusammen: {{amount}}"
   },
   "accept": {
     "create-pr": "Annehmen und Pull Request öffnen",
@@ -32,7 +33,11 @@
   },
   "requestChanges": {
     "label": "Änderungen erbitten",
-    "comingSoon": "Kommt als Nächstes: Änderung in einem Satz beschreiben."
+    "comingSoon": "Kommt als Nächstes: Änderung in einem Satz beschreiben.",
+    "prompt": "Was soll geändert werden?",
+    "placeholder": "z. B. den Login-Button blau machen",
+    "submit": "Änderung senden",
+    "hint": "Setzt dort an, wo die Arbeit aufgehört hat — kein Neuanfang."
   },
   "discard": {
     "label": "Verwerfen"
@@ -87,6 +92,21 @@
     "notFound": "Diese Prüfung wurde nicht gefunden.",
     "loadFailed": "Die Prüfung konnte nicht geladen werden.",
     "alreadyResolved": "Jemand hat das schon beantwortet.",
-    "actionFailed": "Diese Aktion ist nicht durchgegangen."
+    "actionFailed": "Diese Aktion ist nicht durchgegangen.",
+    "revisionStale": "Das wurde gerade anderswo entschieden — neu laden, um den Stand zu sehen.",
+    "revisionFailed": "Die Änderung konnte nicht gestartet werden. Dein Text wurde behalten."
+  },
+  "versions": {
+    "title": "Frühere Versionen ({{count}})",
+    "label": "Version {{version}}",
+    "current": "diese siehst du gerade",
+    "originalBuild": "Die ursprüngliche Arbeit."
+  },
+  "drift": {
+    "title": "Das geht möglicherweise über die ursprüngliche Anfrage hinaus",
+    "advisory": "Nur ein Hinweis — du kannst weiter Änderungen erbitten.",
+    "costShare": "{{revisions}} Änderung(en) kosteten {{revisionCost}} — {{share}}% der {{originalCost}} der ursprünglichen Arbeit.",
+    "outOfScopeChurn": "{{files}} von {{total}} geänderten Dateien gehörten nie zur ursprünglichen Anfrage.",
+    "revisionCount": "Du hast {{revisions}} Änderungsrunden erbeten. Die Anfrage neu zu formulieren geht vielleicht schneller."
   }
 }

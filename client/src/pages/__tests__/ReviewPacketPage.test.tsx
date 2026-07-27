@@ -65,6 +65,14 @@ function packet(over: Partial<ReviewPacket> = {}): ReviewPacket {
     evidenceUnavailable: false,
     runIds: ['run-1'],
     supersedesDeliveryId: null,
+    revisionNote: null,
+    versions: [{
+      prDeliveryId: 'del-1', version: 1, revisionNote: null, decision: 'on_review',
+      costUsd: 2.5, costEstimated: false, current: true,
+    }],
+    chainCostUsd: 2.5,
+    chainCostEstimated: false,
+    driftNudges: [],
     ...over,
   }
 }
@@ -312,5 +320,152 @@ describe('ReviewPacketPage — failures', () => {
     renderPage()
     fireEvent.click(await screen.findByText('Back to the board'))
     expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+})
+
+describe('ReviewPacketPage — ask for changes (Wave 3)', () => {
+  function fetchSpy() {
+    const calls: Array<{ url: string; body?: unknown }> = []
+    globalThis.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, body: init?.body ? JSON.parse(init.body as string) : undefined })
+      if (String(url).includes('/launch')) {
+        return { ok: true, status: 202, json: async () => ({ jobIds: ['run-2'] }) } as unknown as Response
+      }
+      return {
+        ok: true, status: 200,
+        json: async () => ({
+          packet: packet(),
+          acceptCapability: { target: 'create-pr', hasRemote: true, ghAuthenticated: true, irreversible: false, reasonCode: 'pr-capable' },
+          snapshot: {},
+        }),
+      } as unknown as Response
+    }) as unknown as typeof fetch
+    return calls
+  }
+
+  it('launches a revision carrying the sentence, scoped to this delivery', async () => {
+    const calls = fetchSpy()
+    renderPage()
+    fireEvent.click(await screen.findByTestId('packet-request-changes'))
+    fireEvent.change(screen.getByTestId('packet-revision-input'), { target: { value: 'make it blue' } })
+    fireEvent.click(screen.getByTestId('packet-revision-submit'))
+
+    await waitFor(() => {
+      const launch = calls.find((c) => c.url.includes('/launch'))
+      expect(launch?.body).toEqual({ revisionOfDeliveryId: 'del-1', revisionNote: 'make it blue' })
+    })
+  })
+
+  it('will not send an empty change request', async () => {
+    fetchSpy()
+    renderPage()
+    fireEvent.click(await screen.findByTestId('packet-request-changes'))
+    expect(screen.getByTestId('packet-revision-submit')).toBeDisabled()
+    fireEvent.change(screen.getByTestId('packet-revision-input'), { target: { value: '   ' } })
+    expect(screen.getByTestId('packet-revision-submit')).toBeDisabled()
+  })
+
+  it('keeps the typed text when the launch fails', async () => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/launch')) {
+        return { ok: false, status: 500, json: async () => ({ error: 'boom' }) } as unknown as Response
+      }
+      return {
+        ok: true, status: 200,
+        json: async () => ({
+          packet: packet(),
+          acceptCapability: { target: 'create-pr', hasRemote: true, ghAuthenticated: true, irreversible: false, reasonCode: 'pr-capable' },
+          snapshot: {},
+        }),
+      } as unknown as Response
+    }) as unknown as typeof fetch
+    renderPage()
+    fireEvent.click(await screen.findByTestId('packet-request-changes'))
+    fireEvent.change(screen.getByTestId('packet-revision-input'), { target: { value: 'make it blue' } })
+    fireEvent.click(screen.getByTestId('packet-revision-submit'))
+    expect(await screen.findByText(/Your text was kept/i)).toBeInTheDocument()
+    expect(screen.getByTestId('packet-revision-input')).toHaveValue('make it blue')
+  })
+
+  it('explains a raced resolution instead of a generic failure', async () => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/launch')) {
+        return { ok: false, status: 409, json: async () => ({ error: 'invalid_revision_target' }) } as unknown as Response
+      }
+      return {
+        ok: true, status: 200,
+        json: async () => ({
+          packet: packet(),
+          acceptCapability: { target: 'create-pr', hasRemote: true, ghAuthenticated: true, irreversible: false, reasonCode: 'pr-capable' },
+          snapshot: {},
+        }),
+      } as unknown as Response
+    }) as unknown as typeof fetch
+    renderPage()
+    fireEvent.click(await screen.findByTestId('packet-request-changes'))
+    fireEvent.change(screen.getByTestId('packet-revision-input'), { target: { value: 'x' } })
+    fireEvent.click(screen.getByTestId('packet-revision-submit'))
+    expect(await screen.findByText(/just resolved elsewhere/i)).toBeInTheDocument()
+  })
+
+  it('promises no duration (nothing measured yet)', async () => {
+    fetchSpy()
+    renderPage()
+    fireEvent.click(await screen.findByTestId('packet-request-changes'))
+    const hint = screen.getByText(/does not start over/i)
+    expect(hint.textContent).not.toMatch(/\d+\s*(min|minute)/i)
+  })
+})
+
+describe('ReviewPacketPage — version lineage and drift (Wave 3)', () => {
+  it('hides the version section for an unrevised delivery', async () => {
+    respond({})
+    renderPage()
+    await screen.findByText('Your change is ready for review')
+    expect(screen.queryByTestId('packet-versions')).not.toBeInTheDocument()
+  })
+
+  it('renders the chain with each instruction and the cumulative cost', async () => {
+    respond({
+      packet: packet({
+        revisionNote: 'and bigger',
+        versions: [
+          { prDeliveryId: 'd1', version: 1, revisionNote: null, decision: 'superseded', costUsd: 2, costEstimated: false, current: false },
+          { prDeliveryId: 'd2', version: 2, revisionNote: 'make it blue', decision: 'superseded', costUsd: 0.5, costEstimated: false, current: false },
+          { prDeliveryId: 'd3', version: 3, revisionNote: 'and bigger', decision: 'on_review', costUsd: 0.4, costEstimated: true, current: true },
+        ],
+        chainCostUsd: 2.9,
+        chainCostEstimated: true,
+      }),
+    })
+    renderPage()
+    fireEvent.click(await screen.findByText('Earlier versions (3)'))
+    expect(screen.getByText('The original build.')).toBeInTheDocument()
+    expect(screen.getByText('make it blue')).toBeInTheDocument()
+    expect(screen.getByText("you're looking at this one")).toBeInTheDocument()
+    expect(screen.getByText('All versions together: ~$2.90')).toBeInTheDocument()
+  })
+
+  it('shows drift nudges with their real numbers, as advice', async () => {
+    respond({
+      packet: packet({
+        driftNudges: [
+          { code: 'drift.costShare', values: { revisions: 2, revisionCost: '2.10', originalCost: '4.00', share: 53 } },
+        ],
+      }),
+    })
+    renderPage()
+    expect(await screen.findByTestId('packet-drift-nudges')).toBeInTheDocument()
+    expect(screen.getByText(/2.10/)).toBeInTheDocument()
+    expect(screen.getByText(/Only a suggestion/i)).toBeInTheDocument()
+    // Advisory only: the change request stays available.
+    expect(screen.getByTestId('packet-request-changes')).toBeEnabled()
+  })
+
+  it('renders no drift block when nothing drifted', async () => {
+    respond({})
+    renderPage()
+    await screen.findByText('Your change is ready for review')
+    expect(screen.queryByTestId('packet-drift-nudges')).not.toBeInTheDocument()
   })
 })

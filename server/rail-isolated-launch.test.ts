@@ -3867,6 +3867,46 @@ describe('launchIsolatedRail — revision generations (Wave 3)', () => {
     expect(listActivePrDeliveries(db)).toHaveLength(1)
   })
 
+  it('seeds the revision run with a full briefing, not just the sentence', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const firstId = await firstGeneration(ctx, db)
+    const run = (ctx as unknown as { loopRunManager: { run: ReturnType<typeof vi.fn> } }).loopRunManager.run
+    run.mockClear()
+
+    await launchIsolatedRail(
+      { ...input([1], ctx), revision: { ofDeliveryId: firstId, decision: 'on_review', note: 'make it blue' } },
+      okIo(),
+    )
+
+    const seed = (run.mock.calls[0][0] as { constants: Record<string, string> }).constants.REVISION_REQUEST
+    expect(seed).toContain('make it blue')
+    // The briefing must carry the frozen spec, the branch and the depth so a
+    // FRESH session (the contract) has everything it needs.
+    expect(seed).toContain('#1 T1')
+    expect(seed).toContain('sr/p/ticket-1')
+    expect(seed).toContain('revision 1')
+  })
+
+  it('counts revision depth along the supersession chain', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const firstId = await firstGeneration(ctx, db)
+    await launchIsolatedRail(
+      { ...input([1], ctx), revision: { ofDeliveryId: firstId, decision: 'on_review', note: 'v2' } },
+      okIo(),
+    )
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
+    const secondId = getActivePrDeliveryByRail(db, 0)!.id
+
+    const run = (ctx as unknown as { loopRunManager: { run: ReturnType<typeof vi.fn> } }).loopRunManager.run
+    run.mockClear()
+    await launchIsolatedRail(
+      { ...input([1], ctx), revision: { ofDeliveryId: secondId, decision: 'on_review', note: 'v3' } },
+      okIo(),
+    )
+    const seed = (run.mock.calls[0][0] as { constants: Record<string, string> }).constants.REVISION_REQUEST
+    expect(seed).toContain('revision 2')
+  })
+
   it('an ordinary launch still records no revision metadata', async () => {
     const { ctx, db } = fakeCtx()
     await launchIsolatedRail(input([1], ctx), okIo())

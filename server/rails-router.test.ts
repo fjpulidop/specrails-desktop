@@ -2260,6 +2260,19 @@ describe('rails-router launch — revision of an undecided delivery', () => {
     }
   })
 
+  it('kill switch off ⇒ byte-identical legacy guard (revision params ignored)', async () => {
+    const id = mkOnReviewRail()
+    process.env.SPECRAILS_DELIVERY_REVISIONS = 'false'
+    try {
+      const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'make the button blue' })
+      expect(res.status).toBe(409)
+      expect(res.body.error).toBe('pr_decision_pending')
+      expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.SPECRAILS_DELIVERY_REVISIONS
+    }
+  })
+
   it('rejects a malformed delivery id before touching the delivery', async () => {
     mkOnReviewRail()
     const res = await launch({ revisionOfDeliveryId: 'bad id!', revisionNote: 'tweak' })

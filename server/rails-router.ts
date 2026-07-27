@@ -3,7 +3,7 @@ import type { ProjectContext } from './project-registry'
 import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, createRail, deleteRail, railCount, railExists, MAX_RAILS, MAX_TICKETS_PER_RAIL_LAUNCH, type RailState } from './rails-store'
 import { ClaudeNotFoundError, CodexNotFoundError } from './queue-manager'
 import { validateRequestedProvider } from './provider-selection'
-import { isLoopsEnabled, isCodeExplorerEnabled, isReviewPacketEnabled } from './feature-flags'
+import { isLoopsEnabled, isCodeExplorerEnabled, isReviewPacketEnabled, areDeliveryRevisionsEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
 import { recordLoopRunProvenance } from './file-story'
 import { getLoop } from './loops-store'
@@ -692,11 +692,12 @@ export function createRailsRouter(): Router {
           // undecided delivery, and only on the exact terms below: the caller
           // names that delivery AND covers its full ticket set. Anything else
           // would silently append work to branches the user has not judged.
+          const revisionsEnabled = areDeliveryRevisionsEnabled()
           const revisionOfPending = Boolean(
-            pendingSnapshot && revisionOfDeliveryId
+            revisionsEnabled && pendingSnapshot && revisionOfDeliveryId
             && prDeliveryRevisionAllowed(pendingSnapshot, revisionOfDeliveryId as string, rail.ticketIds),
           )
-          if (pendingSnapshot && revisionOfDeliveryId && !revisionOfPending) {
+          if (revisionsEnabled && pendingSnapshot && revisionOfDeliveryId && !revisionOfPending) {
             res.status(409).json({
               error: 'invalid_revision_target',
               prDeliveryId: pendingSnapshot.id,

@@ -63,3 +63,14 @@ export function isLoopsEnabled(): boolean {
 export function isReviewPacketEnabled(): boolean {
   return process.env.SPECRAILS_REVIEW_PACKET !== 'false'
 }
+
+/**
+ * Delivery revisions (nontech-review-experience Wave 3): the ability to launch a
+ * change against a delivery that is still awaiting the user's decision. Default
+ * ON; set SPECRAILS_DELIVERY_REVISIONS="false" to restore the byte-identical
+ * legacy guard — every launch against an undecided delivery 409s again and the
+ * packet's "Ask for changes" cannot be satisfied.
+ */
+export function areDeliveryRevisionsEnabled(): boolean {
+  return process.env.SPECRAILS_DELIVERY_REVISIONS !== 'false'
+}

@@ -19,7 +19,8 @@
     "tooltip": "AI レビュアーが自分に付けたスコアです — 独立した検証ではありません。"
   },
   "cost": {
-    "thisBuild": "この作業の費用 {{amount}}"
+    "thisBuild": "この作業の費用 {{amount}}",
+    "allVersions": "全バージョン合計：{{amount}}"
   },
   "accept": {
     "create-pr": "承認してプルリクエストを作成",
@@ -32,7 +33,11 @@
   },
   "requestChanges": {
     "label": "修正を依頼",
-    "comingSoon": "近日公開：修正内容を一文で伝えられます。"
+    "comingSoon": "近日公開：修正内容を一文で伝えられます。",
+    "prompt": "何を変更しますか？",
+    "placeholder": "例：ログインボタンを青にする",
+    "submit": "変更を送る",
+    "hint": "これまでの成果から続けます — やり直しではありません。"
   },
   "discard": {
     "label": "破棄する"
@@ -87,6 +92,21 @@
     "notFound": "このレビューは見つかりませんでした。",
     "loadFailed": "レビューを読み込めませんでした。",
     "alreadyResolved": "すでに誰かが回答しています。",
-    "actionFailed": "その操作は完了しませんでした。"
+    "actionFailed": "その操作は完了しませんでした。",
+    "revisionStale": "これは別の場所で解決済みです — 再読み込みして状態を確認してください。",
+    "revisionFailed": "変更を開始できませんでした。入力した文章は保持されています。"
+  },
+  "versions": {
+    "title": "以前のバージョン（{{count}}）",
+    "label": "バージョン {{version}}",
+    "current": "いま見ているもの",
+    "originalBuild": "最初の成果。"
+  },
+  "drift": {
+    "title": "当初の依頼から広がっているようです",
+    "advisory": "あくまで提案です — 修正を続けて依頼できます。",
+    "costShare": "{{revisions}} 件の変更で {{revisionCost}} かかりました — 当初 {{originalCost}} の {{share}}% です。",
+    "outOfScopeChurn": "変更された {{total}} ファイルのうち {{files}} 件は当初の依頼に含まれていませんでした。",
+    "revisionCount": "すでに {{revisions}} 回の修正を依頼しています。依頼を書き直したほうが早いかもしれません。"
   }
 }

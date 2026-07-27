@@ -19,7 +19,8 @@
     "tooltip": "Le score que le relecteur IA s'attribue — ce n'est pas une vérification indépendante."
   },
   "cost": {
-    "thisBuild": "Ce travail a coûté {{amount}}"
+    "thisBuild": "Ce travail a coûté {{amount}}",
+    "allVersions": "Toutes les versions cumulées : {{amount}}"
   },
   "accept": {
     "create-pr": "Accepter et ouvrir une pull request",
@@ -32,7 +33,11 @@
   },
   "requestChanges": {
     "label": "Demander des changements",
-    "comingSoon": "Bientôt : décrivez le changement en une phrase."
+    "comingSoon": "Bientôt : décrivez le changement en une phrase.",
+    "prompt": "Que voulez-vous changer ?",
+    "placeholder": "ex. mettre le bouton de connexion en bleu",
+    "submit": "Envoyer le changement",
+    "hint": "Reprend là où le travail s'est arrêté — sans repartir de zéro."
   },
   "discard": {
     "label": "Jeter ceci"
@@ -87,6 +92,21 @@
     "notFound": "Cette relecture est introuvable.",
     "loadFailed": "La relecture n'a pas pu être chargée.",
     "alreadyResolved": "Quelqu'un a déjà répondu.",
-    "actionFailed": "Cette action n'a pas abouti."
+    "actionFailed": "Cette action n'a pas abouti.",
+    "revisionStale": "Cela vient d'être résolu ailleurs — rechargez pour voir l'état.",
+    "revisionFailed": "Le changement n'a pas pu démarrer. Votre texte a été conservé."
+  },
+  "versions": {
+    "title": "Versions précédentes ({{count}})",
+    "label": "Version {{version}}",
+    "current": "vous consultez celle-ci",
+    "originalBuild": "Le travail initial."
+  },
+  "drift": {
+    "title": "Cela dépasse peut-être votre demande initiale",
+    "advisory": "Simple suggestion — vous pouvez continuer à demander des changements.",
+    "costShare": "{{revisions}} changement(s) ont coûté {{revisionCost}} — {{share}} % des {{originalCost}} du travail initial.",
+    "outOfScopeChurn": "{{files}} des {{total}} fichiers modifiés ne faisaient pas partie de la demande initiale.",
+    "revisionCount": "Vous avez demandé {{revisions}} séries de changements. Réécrire la demande sera peut-être plus rapide."
   }
 }

@@ -17,7 +17,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle, ArrowLeft, Ban, Check, ChevronDown, ChevronRight,
-  CircleDollarSign, FileDiff, GitPullRequest, Loader2, MessageSquare, ShieldCheck, Sparkles,
+  CircleDollarSign, FileDiff, GitPullRequest, History, Loader2, MessageSquare, SendHorizontal, ShieldCheck, Sparkles,
 } from 'lucide-react'
 import { getApiBase } from '../lib/api'
 import { useDesktop } from '../hooks/useDesktop'
@@ -102,6 +102,10 @@ export default function ReviewPacketPage() {
   const [pending, setPending] = useState<PacketVerb | null>(null)
   const [confirmIrreversible, setConfirmIrreversible] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [revisionNote, setRevisionNote] = useState('')
+  const [revising, setRevising] = useState(false)
+  const [revisionError, setRevisionError] = useState<string | null>(null)
+  const [askingChanges, setAskingChanges] = useState(false)
 
   const load = useCallback(async () => {
     if (!prDeliveryId || !activeProjectId) return
@@ -164,6 +168,42 @@ export default function ReviewPacketPage() {
       setConfirmIrreversible(false)
     }
   }, [act, activeProjectId, load, packet, verbs])
+
+  /**
+   * "Ask for changes" launches the Architect-less revision loop against THIS
+   * generation. The server re-validates the exemption, so a raced decision (the
+   * delivery was just accepted elsewhere) fails closed with a clear message
+   * rather than appending work to branches nobody is reviewing any more.
+   */
+  const submitRevision = useCallback(async () => {
+    if (!packet || !revisionNote.trim() || !activeProjectId) return
+    setRevisionError(null)
+    setRevising(true)
+    try {
+      const res = await fetch(`${getApiBase()}/rails/${packet.railIndex}/launch`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          revisionOfDeliveryId: packet.prDeliveryId,
+          revisionNote: revisionNote.trim(),
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: string } | null
+        setRevisionError(body?.error === 'invalid_revision_target' ? 'revisionStale' : 'revisionFailed')
+        return
+      }
+      // The note is preserved until the launch is accepted, so a failure never
+      // loses what the user typed.
+      setRevisionNote('')
+      setAskingChanges(false)
+      await load()
+    } catch {
+      setRevisionError('revisionFailed')
+    } finally {
+      setRevising(false)
+    }
+  }, [activeProjectId, load, packet, revisionNote])
 
   if (loading && !packet) {
     return (
@@ -308,9 +348,10 @@ export default function ReviewPacketPage() {
             {verbs.verbs.includes('request-changes') ? (
               <button
                 type="button"
-                disabled
-                title={t('requestChanges.comingSoon')}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground opacity-60"
+                onClick={() => setAskingChanges((v) => !v)}
+                disabled={pending !== null || revising}
+                aria-expanded={askingChanges}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-surface disabled:opacity-50"
                 data-testid="packet-request-changes"
               >
                 <MessageSquare className="size-4" aria-hidden />
@@ -336,7 +377,90 @@ export default function ReviewPacketPage() {
         {actionError ? (
           <p className="mt-3 text-xs text-accent-warning">{t(`error.${actionError}`)}</p>
         ) : null}
+
+        {askingChanges ? (
+          <div className="mt-4 flex flex-col gap-2 rounded-md border border-border/70 bg-background-deep/40 p-3">
+            <label htmlFor="packet-revision-note" className="text-xs font-medium text-foreground">
+              {t('requestChanges.prompt')}
+            </label>
+            <textarea
+              id="packet-revision-note"
+              value={revisionNote}
+              onChange={(e) => setRevisionNote(e.target.value)}
+              rows={2}
+              placeholder={t('requestChanges.placeholder')}
+              className="resize-y rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground"
+              data-testid="packet-revision-input"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void submitRevision()}
+                disabled={revising || revisionNote.trim().length === 0}
+                className="inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                data-testid="packet-revision-submit"
+              >
+                {revising ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <SendHorizontal className="size-4" aria-hidden />}
+                {t('requestChanges.submit')}
+              </button>
+              {/* No duration promise: nothing measured yet for revision runs. */}
+              <span className="text-[11px] text-muted-foreground">{t('requestChanges.hint')}</span>
+            </div>
+            {revisionError ? (
+              <p className="text-xs text-accent-warning">{t(`error.${revisionError}`)}</p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
+
+      {packet.driftNudges.length > 0 ? (
+        <div className="rounded-lg border border-accent-highlight/30 bg-accent-highlight/5 p-4" data-testid="packet-drift-nudges">
+          <h2 className="mb-1 text-sm font-medium text-accent-highlight">{t('drift.title')}</h2>
+          <ul className="space-y-1 text-xs text-foreground">
+            {packet.driftNudges.map((nudge) => (
+              <li key={nudge.code}>{t(nudge.code, { ...nudge.values, defaultValue: nudge.code })}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-muted-foreground">{t('drift.advisory')}</p>
+        </div>
+      ) : null}
+
+      {packet.versions.length > 1 ? (
+        <Section
+          title={t('versions.title', { count: packet.versions.length })}
+          badge={<History className="size-3.5 text-muted-foreground" aria-hidden />}
+        >
+          <ol className="space-y-2" data-testid="packet-versions">
+            {packet.versions.map((version) => (
+              <li key={version.prDeliveryId} className="flex flex-col gap-0.5 text-sm">
+                <span className="flex items-center gap-2">
+                  <span className={version.current ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+                    {t('versions.label', { version: version.version })}
+                  </span>
+                  {version.current ? (
+                    <span className="rounded-full border border-accent-primary/40 bg-accent-primary/10 px-1.5 text-[10px] text-accent-primary">
+                      {t('versions.current')}
+                    </span>
+                  ) : null}
+                  <span className="text-[11px] text-muted-foreground">
+                    {version.costUsd === null ? '—' : `${version.costEstimated ? '~' : ''}$${version.costUsd.toFixed(2)}`}
+                  </span>
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {version.revisionNote ?? t('versions.originalBuild')}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {t('cost.allVersions', {
+              amount: packet.chainCostUsd === null
+                ? '—'
+                : `${packet.chainCostEstimated ? '~' : ''}$${packet.chainCostUsd.toFixed(2)}`,
+            })}
+          </p>
+        </Section>
+      ) : null}
 
       {/* ── What to watch out for: real signals only, never boilerplate ─────── */}
       {packet.watchOut.length > 0 ? (

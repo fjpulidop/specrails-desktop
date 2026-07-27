@@ -19,7 +19,8 @@
     "tooltip": "AI 审阅者给自己的评分 — 不是独立检查。"
   },
   "cost": {
-    "thisBuild": "本次花费 {{amount}}"
+    "thisBuild": "本次花费 {{amount}}",
+    "allVersions": "所有版本合计：{{amount}}"
   },
   "accept": {
     "create-pr": "接受并创建 pull request",
@@ -32,7 +33,11 @@
   },
   "requestChanges": {
     "label": "要求修改",
-    "comingSoon": "即将推出：用一句话描述要改什么。"
+    "comingSoon": "即将推出：用一句话描述要改什么。",
+    "prompt": "你想改什么？",
+    "placeholder": "例如：把登录按钮改成蓝色",
+    "submit": "发送修改",
+    "hint": "从现有成果继续 — 不会重新开始。"
   },
   "discard": {
     "label": "丢弃"
@@ -87,6 +92,21 @@
     "notFound": "找不到此审阅。",
     "loadFailed": "无法加载审阅。",
     "alreadyResolved": "已有人回应过。",
-    "actionFailed": "该操作未成功。"
+    "actionFailed": "该操作未成功。",
+    "revisionStale": "此项刚在别处被处理 — 请重新加载查看状态。",
+    "revisionFailed": "无法开始修改。你的文字已保留。"
+  },
+  "versions": {
+    "title": "早前的版本（{{count}}）",
+    "label": "版本 {{version}}",
+    "current": "你正在查看这个",
+    "originalBuild": "最初的成果。"
+  },
+  "drift": {
+    "title": "这可能已超出你最初的要求",
+    "advisory": "只是建议 — 你仍可以继续要求修改。",
+    "costShare": "{{revisions}} 次修改已花费 {{revisionCost}} — 是最初 {{originalCost}} 的 {{share}}%。",
+    "outOfScopeChurn": "{{total}} 个改动文件中有 {{files}} 个不属于最初的要求。",
+    "revisionCount": "你已经要求了 {{revisions}} 轮修改。重写需求可能更快。"
   }
 }

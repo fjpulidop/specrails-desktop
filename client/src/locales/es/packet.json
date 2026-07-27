@@ -19,7 +19,8 @@
     "tooltip": "La puntuación que el revisor IA se da a sí mismo — no es una comprobación independiente."
   },
   "cost": {
-    "thisBuild": "Este trabajo costó {{amount}}"
+    "thisBuild": "Este trabajo costó {{amount}}",
+    "allVersions": "Todas las versiones juntas: {{amount}}"
   },
   "accept": {
     "create-pr": "Aceptar y abrir un pull request",
@@ -32,7 +33,11 @@
   },
   "requestChanges": {
     "label": "Pedir cambios",
-    "comingSoon": "Muy pronto: describe el cambio en una frase."
+    "comingSoon": "Muy pronto: describe el cambio en una frase.",
+    "prompt": "¿Qué quieres cambiar?",
+    "placeholder": "p. ej. pon el botón de login en azul",
+    "submit": "Enviar el cambio",
+    "hint": "Continúa desde donde quedó el trabajo — no empieza de cero."
   },
   "discard": {
     "label": "Tirar esto"
@@ -87,6 +92,21 @@
     "notFound": "No se encontró esta revisión.",
     "loadFailed": "No se pudo cargar la revisión.",
     "alreadyResolved": "Alguien ya respondió a esto.",
-    "actionFailed": "Esa acción no se completó."
+    "actionFailed": "Esa acción no se completó.",
+    "revisionStale": "Esto se acaba de resolver en otro sitio — recarga para ver cómo está.",
+    "revisionFailed": "No se pudo iniciar el cambio. Tu texto se ha conservado."
+  },
+  "versions": {
+    "title": "Versiones anteriores ({{count}})",
+    "label": "Versión {{version}}",
+    "current": "estás viendo esta",
+    "originalBuild": "El trabajo original."
+  },
+  "drift": {
+    "title": "Esto puede haberse salido de lo que pediste",
+    "advisory": "Solo es una sugerencia — puedes seguir pidiendo cambios.",
+    "costShare": "{{revisions}} cambio(s) han costado {{revisionCost}} — el {{share}}% de los {{originalCost}} del trabajo original.",
+    "outOfScopeChurn": "{{files}} de {{total}} archivos cambiados no formaban parte de la petición original.",
+    "revisionCount": "Ya has pedido {{revisions}} rondas de cambios. Reescribir la petición puede ser más rápido."
   }
 }

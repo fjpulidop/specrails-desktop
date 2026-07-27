@@ -19,7 +19,8 @@
     "tooltip": "The AI reviewer's own score for its work — not an independent check."
   },
   "cost": {
-    "thisBuild": "This build cost {{amount}}"
+    "thisBuild": "This build cost {{amount}}",
+    "allVersions": "All versions together: {{amount}}"
   },
   "accept": {
     "create-pr": "Accept and open a pull request",
@@ -32,7 +33,11 @@
   },
   "requestChanges": {
     "label": "Ask for changes",
-    "comingSoon": "Coming next: describe the change in one sentence."
+    "comingSoon": "Coming next: describe the change in one sentence.",
+    "prompt": "What would you like changed?",
+    "placeholder": "e.g. make the login button blue",
+    "submit": "Send the change",
+    "hint": "This picks up where the work left off — it does not start over."
   },
   "discard": {
     "label": "Throw this away"
@@ -87,6 +92,21 @@
     "notFound": "This review could not be found.",
     "loadFailed": "The review could not be loaded.",
     "alreadyResolved": "Someone already answered this.",
-    "actionFailed": "That action did not go through."
+    "actionFailed": "That action did not go through.",
+    "revisionStale": "This was just resolved elsewhere — reload to see where it stands.",
+    "revisionFailed": "The change could not be started. Your text was kept."
+  },
+  "versions": {
+    "title": "Earlier versions ({{count}})",
+    "label": "Version {{version}}",
+    "current": "you're looking at this one",
+    "originalBuild": "The original build."
+  },
+  "drift": {
+    "title": "This may have outgrown its original request",
+    "advisory": "Only a suggestion — you can keep asking for changes.",
+    "costShare": "{{revisions}} change(s) have cost {{revisionCost}} — {{share}}% of the {{originalCost}} original build.",
+    "outOfScopeChurn": "{{files}} of {{total}} changed files were never part of the original request.",
+    "revisionCount": "You've asked for {{revisions}} rounds of changes. Rewriting the request may be quicker."
   }
 }

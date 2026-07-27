@@ -30,6 +30,7 @@
 import type { DbInstance } from './db'
 import { readSettleEvidence, type DeliveryConfidenceScore, type DeliveryUnitEvidence } from './delivery-evidence'
 import {
+  getPrDelivery,
   readSpecSnapshot,
   type DeliverBranchRecord,
   type PrDeliveryStatusCode,
@@ -74,6 +75,27 @@ export interface PacketTicketSection {
   runIds: string[]
 }
 
+/** One generation in the revision chain, oldest first. */
+export interface PacketVersion {
+  prDeliveryId: string
+  /** 1-based: v1 is the original build. */
+  version: number
+  /** The instruction that produced this version (null for v1). */
+  revisionNote: string | null
+  decision: RailPrDeliveryRow['decision']
+  /** Cost of this version alone. */
+  costUsd: number | null
+  costEstimated: boolean
+  /** True for the version being rendered. */
+  current: boolean
+}
+
+/** An advisory "this may have outgrown its spec" signal, never a block. */
+export interface PacketDriftNudge {
+  code: 'drift.costShare' | 'drift.outOfScopeChurn' | 'drift.revisionCount'
+  values: Record<string, string | number>
+}
+
 export interface PacketCost {
   totalUsd: number | null
   /** True when any component was a rate-card estimate rather than billed. */
@@ -108,6 +130,15 @@ export interface ReviewPacket {
   runIds: string[]
   /** Newest-first lineage of prior generations (Wave 3 renders versions). */
   supersedesDeliveryId: string | null
+  /** The revision instruction that produced THIS generation (null for v1). */
+  revisionNote: string | null
+  /** Oldest-first version chain; length 1 when nothing has been revised. */
+  versions: PacketVersion[]
+  /** Cumulative cost across the whole chain (the honest number for a nudge). */
+  chainCostUsd: number | null
+  chainCostEstimated: boolean
+  /** Advisory reshape-the-spec signals derived from real measurements only. */
+  driftNudges: PacketDriftNudge[]
 }
 
 const TEST_FILE_RE = /(\.test\.|\.spec\.|(^|\/)__tests__\/)/
@@ -266,6 +297,75 @@ function buildWatchOut(
   return out.slice(0, 3)
 }
 
+/**
+ * Walk the supersession chain back to the original build. Bounded so a corrupted
+ * lineage cannot spin, and tolerant of a missing ancestor (an old row may have
+ * been pruned) — the chain simply starts where the data does.
+ */
+export const MAX_VERSION_CHAIN = 25
+
+function versionChain(db: DbInstance, row: RailPrDeliveryRow): RailPrDeliveryRow[] {
+  const chain: RailPrDeliveryRow[] = [row]
+  const seen = new Set([row.id])
+  let cursor = row
+  while (chain.length < MAX_VERSION_CHAIN && cursor.revision_of) {
+    const previous = getPrDelivery(db, cursor.revision_of)
+    if (!previous || seen.has(previous.id)) break
+    seen.add(previous.id)
+    chain.push(previous)
+    cursor = previous
+  }
+  return chain.reverse() // oldest first: v1 … vN
+}
+
+/** Fraction of the original build's cost above which revisions are worth flagging. */
+export const DRIFT_COST_SHARE = 0.5
+/** Revision count backstop — advisory, never a block. */
+export const DRIFT_REVISION_COUNT = 3
+
+/**
+ * Reshape-the-spec nudges. Every trigger is a real measurement (cumulative cost
+ * vs the original build, churn landing outside the original file set, revision
+ * depth) so the banner can show its own numbers instead of asserting a vibe.
+ * A hard count alone was rejected: it treats a 40-cent typo fix and a nine-dollar
+ * architectural thrash identically.
+ */
+export function computeDriftNudges(input: {
+  versions: PacketVersion[]
+  originalFileSet: ReadonlySet<string>
+  currentFiles: ReadonlySet<string>
+}): PacketDriftNudge[] {
+  const nudges: PacketDriftNudge[] = []
+  const [original, ...revisions] = input.versions
+  if (revisions.length === 0) return nudges
+
+  const originalCost = original?.costUsd ?? null
+  const revisionCost = revisions.reduce((sum, version) => sum + (version.costUsd ?? 0), 0)
+  if (originalCost !== null && originalCost > 0 && revisionCost > originalCost * DRIFT_COST_SHARE) {
+    nudges.push({
+      code: 'drift.costShare',
+      values: {
+        revisions: revisions.length,
+        revisionCost: revisionCost.toFixed(2),
+        originalCost: originalCost.toFixed(2),
+        share: Math.round((revisionCost / originalCost) * 100),
+      },
+    })
+  }
+
+  if (input.originalFileSet.size > 0 && input.currentFiles.size > 0) {
+    const outside = [...input.currentFiles].filter((file) => !input.originalFileSet.has(file))
+    if (outside.length * 2 > input.currentFiles.size) {
+      nudges.push({ code: 'drift.outOfScopeChurn', values: { files: outside.length, total: input.currentFiles.size } })
+    }
+  }
+
+  if (revisions.length >= DRIFT_REVISION_COUNT) {
+    nudges.push({ code: 'drift.revisionCount', values: { revisions: revisions.length } })
+  }
+  return nudges
+}
+
 export interface ComposeReviewPacketInput {
   db: DbInstance
   row: RailPrDeliveryRow
@@ -325,6 +425,33 @@ export function composeReviewPacket({ db, row }: ComposeReviewPacketInput): Revi
 
   const costSum = sumInvocationCostForRuns(db, runIds)
 
+  const chain = versionChain(db, row)
+  const versions: PacketVersion[] = chain.map((entry, index) => {
+    const entryRunIds = safeParse<string[]>(entry.run_ids, [])
+    const entryCost = sumInvocationCostForRuns(db, entryRunIds)
+    return {
+      prDeliveryId: entry.id,
+      version: index + 1,
+      revisionNote: entry.revision_note,
+      decision: entry.decision,
+      costUsd: entryCost?.totalUsd ?? null,
+      costEstimated: entryCost?.estimated ?? false,
+      current: entry.id === row.id,
+    }
+  })
+  const chainCosts = versions.map((version) => version.costUsd).filter((value): value is number => value !== null)
+  // Churn comparison uses the ORIGINAL generation's files as the scope baseline:
+  // a revision touching mostly new files is the honest signal that the spec no
+  // longer describes the work.
+  const originalFiles = chain.length > 1
+    ? new Set(churnForRuns(db, safeParse<string[]>(chain[0].run_ids, [])).map((entry) => entry.file_path))
+    : new Set<string>()
+  const driftNudges = computeDriftNudges({
+    versions,
+    originalFileSet: originalFiles,
+    currentFiles: new Set(churn.map((entry) => entry.file_path)),
+  })
+
   return {
     schemaVersion: 1,
     prDeliveryId: row.id,
@@ -349,6 +476,11 @@ export function composeReviewPacket({ db, row }: ComposeReviewPacketInput): Revi
     evidenceUnavailable: evidence === null || evidence.harvest === 'failed',
     runIds,
     supersedesDeliveryId: row.supersedes_delivery_id,
+    revisionNote: row.revision_note,
+    versions,
+    chainCostUsd: chainCosts.length > 0 ? chainCosts.reduce((sum, value) => sum + value, 0) : null,
+    chainCostEstimated: versions.some((version) => version.costEstimated),
+    driftNudges,
   }
 }
 

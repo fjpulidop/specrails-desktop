@@ -3,10 +3,13 @@ import { initDb, type DbInstance } from './db'
 import { createPrDelivery, getPrDelivery, transitionDecision, type DeliverBranchRecord } from './rail-pr-store'
 import type { DeliverySettleEvidence } from './delivery-evidence'
 import {
+  DRIFT_REVISION_COUNT,
   HUMAN_REVIEW_BAND,
   composeReviewPacket,
+  computeDriftNudges,
   packetHasUnsourcedNumericClaim,
   selectVariant,
+  type PacketVersion,
 } from './review-packet'
 
 let db: DbInstance
@@ -375,5 +378,144 @@ describe('composeReviewPacket — cost and degradation', () => {
     expect(packet.railIndex).toBe(0)
     expect(packet.baseBranch).toBe('main')
     expect(packet.loopName).toBe('Implement')
+  })
+})
+
+describe('composeReviewPacket — version lineage', () => {
+  /** Build a chain of generations linked by revision_of, oldest first. */
+  function chain(notes: Array<string | null>): string[] {
+    const ids: string[] = []
+    notes.forEach((note, index) => {
+      const id = `del-${index + 1}`
+      createPrDelivery(db, {
+        id, railIndex: index, loopId: 'l', railKey: `${index}-l`, ticketIds: [1],
+        baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+        ...(note ? { revisionNote: note, revisionOf: ids[index - 1] } : {}),
+      })
+      transitionDecision(db, id, 'building', 'on_review', {
+        branches: [unit()], runIds: [`run-${index + 1}`],
+        implementationOutcome: 'succeeded', deliveryOutcome: 'ready', statusCode: 'ready_for_review',
+      })
+      ids.push(id)
+    })
+    return ids
+  }
+
+  function cost(runId: string, usd: number, estimated = false): void {
+    db.prepare(`
+      INSERT INTO ai_invocations (id, project_id, surface, surface_ref_id, status, started_at, total_cost_usd, total_cost_usd_estimated)
+      VALUES (?, 'p', 'loop', ?, 'completed', datetime('now'), ?, ?)
+    `).run(`inv-${runId}-${usd}`, runId, usd, estimated ? 1 : 0)
+  }
+
+  it('reports a single version for an unrevised delivery', () => {
+    const [id] = chain([null])
+    const packet = composeReviewPacket({ db, row: getPrDelivery(db, id)! })
+    expect(packet.versions).toHaveLength(1)
+    expect(packet.versions[0]).toMatchObject({ version: 1, revisionNote: null, current: true })
+    expect(packet.revisionNote).toBeNull()
+    expect(packet.driftNudges).toEqual([])
+  })
+
+  it('renders the chain oldest-first with each version\'s instruction', () => {
+    const ids = chain([null, 'make it blue', 'and bigger'])
+    const packet = composeReviewPacket({ db, row: getPrDelivery(db, ids[2])! })
+    expect(packet.versions.map((v) => [v.version, v.revisionNote])).toEqual([
+      [1, null], [2, 'make it blue'], [3, 'and bigger'],
+    ])
+    expect(packet.versions.filter((v) => v.current).map((v) => v.version)).toEqual([3])
+    expect(packet.revisionNote).toBe('and bigger')
+  })
+
+  it('sums cumulative cost across the chain and flags estimation', () => {
+    const ids = chain([null, 'tweak'])
+    cost('run-1', 2.0)
+    cost('run-2', 0.5, true)
+    const packet = composeReviewPacket({ db, row: getPrDelivery(db, ids[1])! })
+    expect(packet.chainCostUsd).toBeCloseTo(2.5, 5)
+    expect(packet.chainCostEstimated).toBe(true)
+    // The per-cycle cost stays the CURRENT generation's only.
+    expect(packet.cost.totalUsd).toBeCloseTo(0.5, 5)
+  })
+
+  it('tolerates a pruned ancestor by starting the chain where the data does', () => {
+    const ids = chain([null, 'tweak'])
+    db.prepare('DELETE FROM rail_pr_deliveries WHERE id = ?').run(ids[0])
+    const packet = composeReviewPacket({ db, row: getPrDelivery(db, ids[1])! })
+    expect(packet.versions).toHaveLength(1)
+    expect(packet.versions[0].current).toBe(true)
+  })
+
+  it('cannot spin on a self-referential lineage', () => {
+    const [id] = chain([null])
+    db.prepare('UPDATE rail_pr_deliveries SET revision_of = id WHERE id = ?').run(id)
+    const packet = composeReviewPacket({ db, row: getPrDelivery(db, id)! })
+    expect(packet.versions).toHaveLength(1)
+  })
+})
+
+describe('computeDriftNudges', () => {
+  const version = (over: Partial<PacketVersion> = {}): PacketVersion => ({
+    prDeliveryId: 'd', version: 1, revisionNote: null, decision: 'on_review',
+    costUsd: 1, costEstimated: false, current: false, ...over,
+  })
+
+  it('is silent with no revisions', () => {
+    expect(computeDriftNudges({
+      versions: [version()], originalFileSet: new Set(['a.ts']), currentFiles: new Set(['a.ts']),
+    })).toEqual([])
+  })
+
+  it('flags revisions that cost more than half the original build', () => {
+    const nudges = computeDriftNudges({
+      versions: [version({ costUsd: 4 }), version({ version: 2, costUsd: 2.5, revisionNote: 'x' })],
+      originalFileSet: new Set(['a.ts']), currentFiles: new Set(['a.ts']),
+    })
+    expect(nudges.map((n) => n.code)).toContain('drift.costShare')
+    expect(nudges[0].values).toMatchObject({ revisionCost: '2.50', originalCost: '4.00', share: 63 })
+  })
+
+  it('does not flag a cheap revision', () => {
+    const nudges = computeDriftNudges({
+      versions: [version({ costUsd: 4 }), version({ version: 2, costUsd: 0.4, revisionNote: 'x' })],
+      originalFileSet: new Set(['a.ts']), currentFiles: new Set(['a.ts']),
+    })
+    expect(nudges.map((n) => n.code)).not.toContain('drift.costShare')
+  })
+
+  it('flags churn landing mostly outside the original file set', () => {
+    const nudges = computeDriftNudges({
+      versions: [version(), version({ version: 2, revisionNote: 'x' })],
+      originalFileSet: new Set(['a.ts']),
+      currentFiles: new Set(['b.ts', 'c.ts', 'd.ts']),
+    })
+    expect(nudges.map((n) => n.code)).toContain('drift.outOfScopeChurn')
+  })
+
+  it('does not flag churn that stays inside the original scope', () => {
+    const nudges = computeDriftNudges({
+      versions: [version(), version({ version: 2, revisionNote: 'x' })],
+      originalFileSet: new Set(['a.ts', 'b.ts']),
+      currentFiles: new Set(['a.ts', 'b.ts']),
+    })
+    expect(nudges.map((n) => n.code)).not.toContain('drift.outOfScopeChurn')
+  })
+
+  it('uses revision count only as a backstop', () => {
+    const versions = [version(), ...Array.from({ length: DRIFT_REVISION_COUNT }, (_, i) =>
+      version({ version: i + 2, revisionNote: 'x', costUsd: 0.01 }))]
+    const nudges = computeDriftNudges({
+      versions, originalFileSet: new Set(['a.ts']), currentFiles: new Set(['a.ts']),
+    })
+    expect(nudges.map((n) => n.code)).toEqual(['drift.revisionCount'])
+    expect(nudges[0].values).toMatchObject({ revisions: DRIFT_REVISION_COUNT })
+  })
+
+  it('stays silent when cost history is unknown rather than guessing', () => {
+    const nudges = computeDriftNudges({
+      versions: [version({ costUsd: null }), version({ version: 2, costUsd: null, revisionNote: 'x' })],
+      originalFileSet: new Set(), currentFiles: new Set(),
+    })
+    expect(nudges).toEqual([])
   })
 })

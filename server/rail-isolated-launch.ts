@@ -33,13 +33,13 @@ import { ticketBranchName, ticketRef, resolveCollisionFreeName, type TicketNamin
 import { getLinkByLocalId } from './jira/jira-db'
 import type { DbInstance } from './db'
 import { getJobEvents, getProjectSettings } from './db'
-import { harvestDeliveryEvidence } from './delivery-evidence'
+import { harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
 import { resolveIntegrationBranch, fetchOrigin, resolveWorktreeBaseRef, type ResolvedIntegrationBranch } from './integration-branch'
 import { withRepoLock } from './repo-lock'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
 import {
   appendPrDeliverySafetyArchive, createPrDeliveryGeneration, failPrDeliveryAndRestoreSuperseded,
-  getPrDelivery, reconcileFailedBuildingPrDeliveries, transitionDecision, toPrDeliverySnapshot,
+  getPrDelivery, reconcileFailedBuildingPrDeliveries, readSpecSnapshot, transitionDecision, toPrDeliverySnapshot,
   toRailPrStateMessage, toPrDecisionCardEnvelope,
   type DeliverBranchRecord, type DeliverySpecSnapshotEntry, type PrDecision, type PrDeliveryOutcome,
   type PrDeliveryStatusCode, type PrImplementationOutcome, type PrOriginSurface,
@@ -53,6 +53,7 @@ import {
   type OverlayCleanupEvidence,
 } from './worktree-overlay'
 import { authenticateWarmNodeModulesLinks, linkNodeModulesIntoWorktree } from './worktree-node-modules'
+import { buildRevisionSeed } from './revision-seed'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isCodeExplorerEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
@@ -236,6 +237,46 @@ function unitNamingInput(ctx: ProjectContext, ticketId: number): TicketNamingInp
     /* tolerated */
   }
   return { ticketId, title: spec?.title ?? null, labels: spec?.labels ?? null, jiraKey }
+}
+
+/**
+ * Assemble the revision briefing from the generation being revised. Reads only
+ * durable rows, tolerates every one of them being absent (a legacy row carries
+ * no snapshot or evidence), and never throws — a thinner briefing is far better
+ * than a failed revision launch.
+ */
+function buildRevisionSeedForLaunch(
+  db: DbInstance,
+  revision: NonNullable<IsolatedLaunchInput['revision']>,
+  ticketIds: readonly number[],
+): string {
+  try {
+    const previous = getPrDelivery(db, revision.ofDeliveryId)
+    const branches = previous
+      ? [...new Set((JSON.parse(previous.branches || '[]') as DeliverBranchRecord[]).map((b) => b.branch).filter(Boolean))]
+      : []
+    // Revision depth walks the supersession chain, bounded so a corrupted
+    // lineage can never spin here.
+    let depth = 1
+    let cursor = previous
+    for (let hops = 0; hops < 20 && cursor?.revision_of; hops++) {
+      depth += 1
+      cursor = getPrDelivery(db, cursor.revision_of) ?? undefined
+    }
+    return buildRevisionSeed({
+      note: revision.note,
+      specSnapshot: previous ? readSpecSnapshot(previous.spec_snapshot) : null,
+      ticketIds: [...ticketIds],
+      branches,
+      baseBranch: previous?.base_branch ?? 'the integration branch',
+      branchDiffSummary: null,
+      evidence: previous ? readSettleEvidence(previous.settle_evidence) : null,
+      revisionNumber: depth,
+    })
+  } catch {
+    // Absolute floor: the user's instruction still reaches the run.
+    return revision.note
+  }
 }
 
 /**
@@ -500,11 +541,17 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const baseRepo = ctx.project.path
   const slug = ctx.project.slug
   const worktreesRoot = path.join(resolveHome(), '.specrails', 'projects', slug, 'worktrees')
-  // A revision run needs the user's sentence available to its prompt. It is
-  // per-RUN data, not a stored constant, so it is layered over the project's
-  // constant map for this launch only (and never persisted as a constant).
+  // A revision run is seeded with a full briefing (the instruction PLUS the
+  // frozen spec, the branch that carries the work and what the previous run
+  // actually reported) rather than the bare sentence — the run starts a FRESH
+  // provider session by contract, so durable context is the only thing it has.
+  // Per-RUN data, so it is layered over the project's constant map for this
+  // launch only and never persisted as a constant.
   const constants = input.revision
-    ? { ...loadConstantMap(ctx.desktopDb), REVISION_REQUEST: input.revision.note }
+    ? {
+        ...loadConstantMap(ctx.desktopDb),
+        REVISION_REQUEST: buildRevisionSeedForLaunch(ctx.db, input.revision, ticketIds),
+      }
     : loadConstantMap(ctx.desktopDb)
   // Capture the PR-delivery mode ONCE at launch entry so a mid-flight env flip
   // can never split one launch across the two delivery paths.

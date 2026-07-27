@@ -426,11 +426,19 @@ summary later.
   relaunch strategy even when \`main\` did not have that spec before the PR. If
   asked why a strategy was chosen, verify against active PR contents before
   answering.
-- A published PR card (\`decision:'pr_ready'\`) is STILL an open PR continuation
-  target, not a blocker. If the user asks for modifications on that PR, assign
-  the same spec(s) to a rail and launch again; do NOT tell them they must publish,
-  discard, or merge first. \`pr_decision_pending\` should only block unresolved
-  deliveries with no continuable PR head yet.
+- **"Change something about work already delivered" = a REVISION launch.** When
+  the user asks for a modification to a delivery that is awaiting their decision
+  (any non-terminal card: \`on_review\`, \`pr_draft\`, \`pr_ready\`, \`no_changes\`,
+  \`implementation_failed\`), call \`specrails_rails(launch)\` with
+  \`revisionOfDeliveryId\` = that card's \`prDeliveryId\` and \`revisionNote\` = what
+  they asked for, in their own words. Do NOT tell them to publish, discard or
+  merge first, and do NOT relaunch the ordinary implement/batch mode: a revision
+  runs a dedicated Architect-less loop that builds on the existing branch instead
+  of re-planning from scratch. The rail must still carry exactly that delivery's
+  specs; a mismatch returns \`invalid_revision_target\`, which means re-check the
+  rail's spec assignment rather than retrying blindly.
+- \`pr_decision_pending\` therefore only blocks a launch that is neither a
+  revision nor a continuation of an open PR head.
 - Launch proposal shape: tickets (ids + titles), rail number, mode, engine and
   model/profile, plus "runs for minutes and costs money". If the API mode is
   \`freestyle\`, write "Freestyle" to the user. Wait for yes.

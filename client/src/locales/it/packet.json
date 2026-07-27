@@ -19,7 +19,8 @@
     "tooltip": "Il punteggio che il revisore IA assegna a sé stesso — non è un controllo indipendente."
   },
   "cost": {
-    "thisBuild": "Questo lavoro è costato {{amount}}"
+    "thisBuild": "Questo lavoro è costato {{amount}}",
+    "allVersions": "Tutte le versioni insieme: {{amount}}"
   },
   "accept": {
     "create-pr": "Accetta e apri una pull request",
@@ -32,7 +33,11 @@
   },
   "requestChanges": {
     "label": "Chiedi modifiche",
-    "comingSoon": "Prossimamente: descrivi la modifica in una frase."
+    "comingSoon": "Prossimamente: descrivi la modifica in una frase.",
+    "prompt": "Cosa vuoi cambiare?",
+    "placeholder": "es. rendi blu il pulsante di accesso",
+    "submit": "Invia la modifica",
+    "hint": "Riprende da dove il lavoro si è fermato — non ricomincia."
   },
   "discard": {
     "label": "Butta via"
@@ -87,6 +92,21 @@
     "notFound": "Questa revisione non è stata trovata.",
     "loadFailed": "Non è stato possibile caricare la revisione.",
     "alreadyResolved": "Qualcuno ha già risposto.",
-    "actionFailed": "L'azione non è andata a buon fine."
+    "actionFailed": "L'azione non è andata a buon fine.",
+    "revisionStale": "È stato appena risolto altrove — ricarica per vedere lo stato.",
+    "revisionFailed": "Non è stato possibile avviare la modifica. Il tuo testo è stato conservato."
+  },
+  "versions": {
+    "title": "Versioni precedenti ({{count}})",
+    "label": "Versione {{version}}",
+    "current": "stai guardando questa",
+    "originalBuild": "Il lavoro originale."
+  },
+  "drift": {
+    "title": "Questo potrebbe essere andato oltre la richiesta iniziale",
+    "advisory": "Solo un suggerimento — puoi continuare a chiedere modifiche.",
+    "costShare": "{{revisions}} modifica/che sono costate {{revisionCost}} — il {{share}}% dei {{originalCost}} del lavoro originale.",
+    "outOfScopeChurn": "{{files}} su {{total}} file modificati non facevano parte della richiesta iniziale.",
+    "revisionCount": "Hai chiesto {{revisions}} giri di modifiche. Riscrivere la richiesta potrebbe essere più rapido."
   }
 }
