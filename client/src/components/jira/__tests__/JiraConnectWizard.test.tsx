@@ -24,18 +24,26 @@ const STATUSES = [
   { id: '12', name: 'Done', category: 'done' },
 ]
 
+/** Generous ceiling for the multi-step wizard walks: the default 1s waitFor
+ *  intermittently expires under coverage-instrumented CI load (recurring
+ *  flake — 2026-07-21 and 2026-07-27). */
+const WAIT = { timeout: 5000 }
+
 /** Walk the wizard through steps 1–2 into the status-map step (step 3). */
 async function goToMappingStep() {
   fireEvent.change(screen.getByPlaceholderText(/your-company\.atlassian\.net/i), { target: { value: 'https://acme.atlassian.net' } })
   const tokenInput = document.querySelector('input[type="password"]') as HTMLInputElement
   fireEvent.change(tokenInput, { target: { value: 'tok' } })
   fireEvent.click(screen.getByRole('button', { name: /test connection/i }))
-  await waitFor(() => expect(screen.getByTestId('jira-test-ok')).toBeInTheDocument())
+  await waitFor(() => expect(screen.getByTestId('jira-test-ok')).toBeInTheDocument(), WAIT)
   fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
-  await waitFor(() => expect(screen.getByTestId('jira-project-list')).toBeInTheDocument())
+  await waitFor(() => expect(screen.getByTestId('jira-project-list')).toBeInTheDocument(), WAIT)
   fireEvent.click(screen.getByRole('button', { name: /OPS/ }))
   fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
-  await waitFor(() => expect(api.discoverStatuses).toHaveBeenCalled())
+  await waitFor(() => expect(api.discoverStatuses).toHaveBeenCalled(), WAIT)
+  // The API resolving is NOT the mapping UI being painted — the callers'
+  // very next query is a SYNC getByLabelText, so wait for a mapping row.
+  await waitFor(() => expect(screen.getByLabelText('Backlog / To Do')).toBeInTheDocument(), WAIT)
 }
 
 describe('JiraConnectWizard', () => {
@@ -74,24 +82,24 @@ describe('JiraConnectWizard', () => {
     const tokenInput = document.querySelector('input[type="password"]') as HTMLInputElement
     fireEvent.change(tokenInput, { target: { value: 'tok' } })
     fireEvent.click(screen.getByRole('button', { name: /test connection/i }))
-    await waitFor(() => expect(screen.getByTestId('jira-test-ok')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('jira-test-ok')).toBeInTheDocument(), WAIT)
     expect(api.test).toHaveBeenCalledWith(expect.objectContaining({ baseUrl: 'https://acme.atlassian.net' }), apiBase)
 
     // Step 2 — discover + pick project.
     fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
-    await waitFor(() => expect(api.discoverProjects).toHaveBeenCalledWith(expect.any(Object), apiBase))
-    await waitFor(() => expect(screen.getByTestId('jira-project-list')).toBeInTheDocument())
+    await waitFor(() => expect(api.discoverProjects).toHaveBeenCalledWith(expect.any(Object), apiBase), WAIT)
+    await waitFor(() => expect(screen.getByTestId('jira-project-list')).toBeInTheDocument(), WAIT)
     fireEvent.click(screen.getByRole('button', { name: /OPS/ }))
 
     // Step 3 — statuses (auto).
     fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
-    await waitFor(() => expect(api.discoverStatuses).toHaveBeenCalledWith(expect.objectContaining({ projectKey: 'OPS' }), apiBase))
+    await waitFor(() => expect(api.discoverStatuses).toHaveBeenCalledWith(expect.objectContaining({ projectKey: 'OPS' }), apiBase), WAIT)
 
     // Step 4 — review + connect.
     fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
     fireEvent.click(screen.getByRole('button', { name: /^connect$/i }))
-    await waitFor(() => expect(api.connect).toHaveBeenCalledWith(expect.objectContaining({ jiraProjectKey: 'OPS' }), apiBase))
-    await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(api.connect).toHaveBeenCalledWith(expect.objectContaining({ jiraProjectKey: 'OPS' }), apiBase), WAIT)
+    await waitFor(() => expect(onConnected).toHaveBeenCalledTimes(1), WAIT)
   })
 
   it('renders the On Review mapping row and includes on_review in the connect statusMap when mapped', async () => {
@@ -110,11 +118,13 @@ describe('JiraConnectWizard', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
     fireEvent.click(screen.getByRole('button', { name: /^connect$/i }))
-    await waitFor(() =>
-      expect(api.connect).toHaveBeenCalledWith(
-        expect.objectContaining({ statusMap: { on_review: 'In Review' } }),
-        undefined
-      )
+    await waitFor(
+      () =>
+        expect(api.connect).toHaveBeenCalledWith(
+          expect.objectContaining({ statusMap: { on_review: 'In Review' } }),
+          undefined
+        ),
+      WAIT
     )
   })
 
@@ -132,8 +142,9 @@ describe('JiraConnectWizard', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^next$/i }))
     fireEvent.click(screen.getByRole('button', { name: /^connect$/i }))
-    await waitFor(() =>
-      expect(api.connect).toHaveBeenCalledWith(expect.objectContaining({ statusMap: { todo: 'To Do' } }), undefined)
+    await waitFor(
+      () => expect(api.connect).toHaveBeenCalledWith(expect.objectContaining({ statusMap: { todo: 'To Do' } }), undefined),
+      WAIT
     )
     const sent = api.connect.mock.calls[0][0] as { statusMap: Record<string, string> }
     expect(sent.statusMap).not.toHaveProperty('on_review')
