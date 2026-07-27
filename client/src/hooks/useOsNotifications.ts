@@ -76,8 +76,19 @@ export function useOsNotifications({
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
 
   const handleMessage = useCallback((data: unknown) => {
-    const msg = data as { type?: string; projectId?: string; jobs?: WsJob[] }
-    if (!msg || msg.type !== 'queue' || !Array.isArray(msg.jobs)) return
+    const msg = data as {
+      type?: string; projectId?: string; jobs?: WsJob[]
+      jobId?: string; staleMs?: number
+    }
+    if (!msg) return
+    // A commissioned run that stopped moving. The server fires this at most once
+    // per stall episode, so no client-side dedup is needed. Treated as a
+    // 'failed'-flavoured alert for filtering: it is bad news about a run.
+    if (msg.type === 'job.stuck' && typeof msg.jobId === 'string') {
+      fireStuckNotification(msg.jobId, msg.projectId ?? null, msg.staleMs ?? 0)
+      return
+    }
+    if (msg.type !== 'queue' || !Array.isArray(msg.jobs)) return
 
     const projectId = msg.projectId ?? null
 
@@ -95,6 +106,43 @@ export function useOsNotifications({
       jobStatesRef.current.set(job.id, newStatus)
     }
   }, [])
+
+  /**
+   * Plain-language stall alert. Unlike completion notifications this fires even
+   * with the tab focused: a user watching a wedged run cannot tell it wedged,
+   * which is the entire reason the signal exists.
+   */
+  function fireStuckNotification(jobId: string, projectId: string | null, staleMs: number): void {
+    if (typeof Notification === 'undefined') return
+    const prefs = getOsNotificationPrefs()
+    if (!prefs.enabled) return
+    if (prefs.filter === 'completed') return
+
+    function show(): void {
+      const minutes = Math.max(1, Math.round(staleMs / 60_000))
+      const projectName = projectId ? (projectsByIdRef.current?.get(projectId) ?? '') : ''
+      const body = i18n.t('commands:notifications.jobStuckBody', { count: minutes })
+      const notification = new Notification(i18n.t('commands:notifications.jobStuck'), {
+        body: projectName ? `[${projectName}] ${body}` : body,
+        tag: `specrails-job-stuck:${jobId}`,
+      })
+      notification.onclick = () => {
+        window.focus()
+        if (projectId && setActiveProjectIdRef.current) {
+          setActiveProjectIdRef.current(projectId)
+          setTimeout(() => { navigateRef.current(`/jobs/${jobId}`) }, 100)
+        } else {
+          navigateRef.current(`/jobs/${jobId}`)
+        }
+        notification.close()
+      }
+    }
+
+    if (Notification.permission === 'granted') show()
+    else if (Notification.permission === 'default') {
+      void Notification.requestPermission().then((perm) => { if (perm === 'granted') show() })
+    }
+  }
 
   function fireOsNotification(job: WsJob, projectId: string | null): void {
     if (typeof Notification === 'undefined') return

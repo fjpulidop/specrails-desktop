@@ -3,11 +3,12 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { resolveHome } from './artifact-registry'
-import { launchIsolatedRail, reconcileRailWorktrees, type IsolatedLaunchIO } from './rail-isolated-launch'
+import { buildSpecSnapshot, launchIsolatedRail, reconcileRailWorktrees, type IsolatedLaunchIO } from './rail-isolated-launch'
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
 import { listRailWorktrees, createRailWorktree, updateRailWorktreeState, getRailWorktree } from './rail-worktrees-store'
-import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, listActivePrDeliveries, PrDeliveryGenerationConflict, transitionDecision, type DeliverBranchRecord } from './rail-pr-store'
+import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, listActivePrDeliveries, PrDeliveryGenerationConflict, readSpecSnapshot, transitionDecision, type DeliverBranchRecord } from './rail-pr-store'
+import { readSettleEvidence } from './delivery-evidence'
 import { createLoopRun } from './loop-runs-store'
 import { insertLinkWithId } from './jira/jira-db'
 import { setAgentChatManager } from './agent-chat-registry'
@@ -3670,5 +3671,134 @@ describe('launchIsolatedRail — concurrent-launch allocation serialization', ()
     expect(create).toHaveBeenCalledTimes(1)
     expect(run).toHaveBeenCalledTimes(1)
     expect(listActivePrDeliveries(db)).toHaveLength(1)
+  })
+})
+
+describe('launchIsolatedRail — review-packet evidence (spec snapshot + settle harvest)', () => {
+  const okIo = (over: Partial<IsolatedLaunchIO> = {}): IsolatedLaunchIO =>
+    ({
+      git: { run: async (args: string[]) => successfulGitResult(args) },
+      create: vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({
+        branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}`,
+      })),
+      remove: vi.fn(async () => {}),
+      ...over,
+    }) as IsolatedLaunchIO
+
+  beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR }) // default-on
+
+  it('freezes every covered ticket onto the delivery row at LAUNCH', async () => {
+    const { ctx, db } = fakeCtx() // never settles — row stays building
+    await launchIsolatedRail({ ...input([1, 2], ctx), scope: 'all' }, okIo())
+
+    const snapshot = readSpecSnapshot(getActivePrDeliveryByRail(db, 0)!.spec_snapshot)
+    expect(snapshot).toEqual([
+      { ticketId: 1, title: 'T1', description: 'd', labels: [] },
+      { ticketId: 2, title: 'T2', description: 'd', labels: [] },
+    ])
+  })
+
+  it('a spec edited AFTER launch does not change what the row says was asked', async () => {
+    const { ctx, db } = fakeCtx()
+    await launchIsolatedRail(input([1], ctx), okIo())
+    ;(ctx as unknown as { getTicketSpec: (id: number) => unknown }).getTicketSpec =
+      () => ({ title: 'Renamed mid-run', description: 'rewritten' })
+
+    expect(readSpecSnapshot(getActivePrDeliveryByRail(db, 0)!.spec_snapshot)).toEqual([
+      { ticketId: 1, title: 'T1', description: 'd', labels: [] },
+    ])
+  })
+
+  // The real ctx.getTicketSpec swallows its own errors and returns undefined, so
+  // the snapshot builder is unit-tested directly for the degradation contract
+  // (a launch-wide throwing reader breaks an unrelated pre-existing callsite).
+  it('an unreadable ticket degrades to a bare-id snapshot entry', () => {
+    const throwing = { getTicketSpec: () => { throw new Error('store gone') } } as unknown as ProjectContext
+    expect(buildSpecSnapshot(throwing, [4])).toEqual([
+      { ticketId: 4, title: null, description: null, labels: [] },
+    ])
+  })
+
+  it('a missing ticket and non-array labels degrade without inventing content', () => {
+    const partial = {
+      getTicketSpec: (id: number) => (id === 5 ? undefined : { title: 'T6', labels: 'oops' }),
+    } as unknown as ProjectContext
+    expect(buildSpecSnapshot(partial, [5, 6])).toEqual([
+      { ticketId: 5, title: null, description: null, labels: [] },
+      { ticketId: 6, title: 'T6', description: null, labels: [] },
+    ])
+  })
+
+  it('harvests evidence at settle and persists it on the row', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const harvestEvidence = vi.fn(() => ({
+      schemaVersion: 1 as const,
+      harvest: 'ok' as const,
+      harvestedAt: '2026-07-27T12:00:00.000Z',
+      units: [{
+        ticketId: 1, runId: 'r', sentinel: 'pass' as const, sentinelDetail: null,
+        verifyTail: 'VERIFICATION: PASS', confidence: null,
+      }],
+    }))
+    await launchIsolatedRail(input([1], ctx), okIo({ harvestEvidence }))
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
+    expect(readSettleEvidence(getActivePrDeliveryByRail(db, 0)!.settle_evidence)).toMatchObject({
+      harvest: 'ok',
+      units: [{ ticketId: 1, sentinel: 'pass' }],
+    })
+    // The harvest is handed the run's real worktree path — it must be able to
+    // read confidence-score.json from a mount that still exists.
+    expect(harvestEvidence.mock.calls[0][1]).toEqual([
+      expect.objectContaining({ ticketId: 1, worktreePath: '/wt/ticket-1' }),
+    ])
+  })
+
+  it('harvests BEFORE any worktree release (the mount must still exist)', async () => {
+    // A FAILED implementation is a settle path that genuinely releases its
+    // worktree, so the ordering assertion is not vacuous.
+    const { ctx, db } = fakeCtx(settlingRun('failed'))
+    const order: string[] = []
+    const remove = vi.fn(async () => { order.push('remove') })
+    const harvestEvidence = vi.fn(() => {
+      order.push('harvest')
+      return { schemaVersion: 1 as const, harvest: 'ok' as const, harvestedAt: 'now', units: [] }
+    })
+    await launchIsolatedRail(input([1], ctx), okIo({ remove, harvestEvidence }))
+
+    await vi.waitFor(() => expect(remove).toHaveBeenCalled())
+    expect(order[0]).toBe('harvest')
+    expect(order).toContain('remove')
+    expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('implementation_failed')
+  })
+
+  it('a throwing harvest is non-fatal: the delivery still settles, evidence stays NULL', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await launchIsolatedRail(input([1], ctx), okIo({
+      harvestEvidence: vi.fn(() => { throw new Error('harvest exploded') }),
+    }))
+
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
+    expect(getActivePrDeliveryByRail(db, 0)!.settle_evidence).toBeNull()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('evidence harvest failed'))
+    warn.mockRestore()
+  })
+
+  it('a failed implementation still harvests (the failure packet needs evidence too)', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('failed'))
+    const harvestEvidence = vi.fn(() => ({
+      schemaVersion: 1 as const, harvest: 'ok' as const, harvestedAt: 'now',
+      units: [{
+        ticketId: 1, runId: 'r', sentinel: 'fail' as const, sentinelDetail: 'lint broke',
+        verifyTail: null, confidence: null,
+      }],
+    }))
+    await launchIsolatedRail(input([1], ctx), okIo({ harvestEvidence }))
+
+    await vi.waitFor(() => expect(getPrDelivery(db, getActivePrDeliveryByRail(db, 0)?.id ?? '')?.decision ?? '').toBe('implementation_failed'))
+    expect(readSettleEvidence(getActivePrDeliveryByRail(db, 0)!.settle_evidence)).toMatchObject({
+      units: [{ sentinel: 'fail', sentinelDetail: 'lint broke' }],
+    })
   })
 })

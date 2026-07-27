@@ -1616,6 +1616,26 @@ const MIGRATIONS: Migration[] = [
         ON agent_tests(provider, agent_name)
     `)
   },
+
+  // Migration 56: nontech-review-experience Wave 1 — two additive nullable
+  // JSON columns on rail_pr_deliveries. `spec_snapshot` freezes each covered
+  // ticket's title/description/labels at LAUNCH so the review packet renders
+  // what the user actually asked (the live store can be edited mid-run).
+  // `settle_evidence` persists the deterministic settle-time harvest (the
+  // VERIFICATION sentinel, the verify step's output tail, the reviewer's
+  // confidence-score.json) captured BEFORE worktree release — the packet's
+  // proof sections survive worktree teardown. NULL on legacy rows = honest
+  // "not captured". Additive + idempotent (guarded by PRAGMA table_info).
+  (db) => {
+    const cols = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[])
+      .map((r) => r.name)
+    if (!cols.includes('spec_snapshot')) {
+      db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN spec_snapshot TEXT`)
+    }
+    if (!cols.includes('settle_evidence')) {
+      db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN settle_evidence TEXT`)
+    }
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {

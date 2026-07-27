@@ -9,6 +9,7 @@
  */
 import type { DbInstance } from './db'
 import type { OverlayCleanupEvidence } from './worktree-overlay'
+import type { DeliverySettleEvidence } from './delivery-evidence'
 import type { PrDecisionCardEnvelope, RailPrStateMessage } from './types'
 import { newId } from './ids'
 
@@ -112,6 +113,39 @@ export interface DeliverBranchRecord {
   settlementIgnoredPaths?: string[] | null
 }
 
+/** One covered ticket, frozen at LAUNCH (migration 56). The review packet's
+ * "what you asked" section renders THIS, never the live store — a spec edited
+ * mid-run must not silently rewrite what the delivery was asked to do. */
+export interface DeliverySpecSnapshotEntry {
+  ticketId: number
+  title: string | null
+  description: string | null
+  labels: string[]
+}
+
+/** Defensive per-ticket cap; contract-layer specs run long but bounded. */
+const SPEC_SNAPSHOT_DESCRIPTION_CAP = 32_768
+
+export function boundSpecSnapshot(entries: readonly DeliverySpecSnapshotEntry[]): DeliverySpecSnapshotEntry[] {
+  return entries.map((entry) => ({
+    ticketId: entry.ticketId,
+    title: entry.title,
+    description: entry.description == null ? null : entry.description.slice(0, SPEC_SNAPSHOT_DESCRIPTION_CAP),
+    labels: entry.labels.slice(0, 32),
+  }))
+}
+
+/** Parse a persisted spec_snapshot column value (null-tolerant). */
+export function readSpecSnapshot(raw: string | null | undefined): DeliverySpecSnapshotEntry[] | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as DeliverySpecSnapshotEntry[]
+    return Array.isArray(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 /** States after which the delivery is closed (no further decision possible). */
 export const TERMINAL_PR_DECISIONS: ReadonlySet<PrDecision> = new Set(['completed', 'merged', 'discarded', 'superseded'])
 
@@ -174,6 +208,10 @@ export interface RailPrDeliveryRow {
   run_ids: string
   origin_surface: PrOriginSurface
   origin_conversation_id: string | null
+  /** JSON DeliverySpecSnapshotEntry[] frozen at launch (migration 56); NULL on legacy rows. */
+  spec_snapshot: string | null
+  /** JSON DeliverySettleEvidence harvested at settle (migration 56); NULL until settle / on legacy rows. */
+  settle_evidence: string | null
   created_at: string
   updated_at: string
 }
@@ -191,6 +229,8 @@ export interface CreatePrDeliveryInput {
   originConversationId?: string | null
   isContinuation?: boolean
   supersedesDeliveryId?: string | null
+  /** Launch-time freeze of the covered tickets (bounded before persistence). */
+  specSnapshot?: DeliverySpecSnapshotEntry[] | null
 }
 
 /**
@@ -205,9 +245,9 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
        id, rail_index, loop_id, rail_key, ticket_ids, base_branch,
        loop_name, origin_surface, origin_conversation_id,
        implementation_outcome, delivery_outcome, status_code,
-       is_continuation, supersedes_delivery_id
+       is_continuation, supersedes_delivery_id, spec_snapshot
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', 'pending',
-       'implementation_running', ?, ?)`
+       'implementation_running', ?, ?, ?)`
   ).run(
     id,
     input.railIndex,
@@ -220,6 +260,9 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
     input.originConversationId ?? null,
     input.isContinuation ? 1 : 0,
     input.supersedesDeliveryId ?? null,
+    input.specSnapshot && input.specSnapshot.length > 0
+      ? JSON.stringify(boundSpecSnapshot(input.specSnapshot))
+      : null,
   )
   return getPrDelivery(db, id)!
 }
@@ -548,6 +591,8 @@ export interface PrDeliveryPatch {
   operationStartedAtMs?: number | null
   cleanupWarnings?: string[]
   safetyArchives?: string[]
+  /** Settle-time deterministic harvest (migration 56); written once at settle. */
+  settleEvidence?: DeliverySettleEvidence | null
 }
 
 // Column allow-list — patch keys are interpolated into the SET clause, so gate
@@ -573,6 +618,7 @@ const PATCH_COLUMNS: Record<keyof PrDeliveryPatch, string> = {
   operationStartedAtMs: 'operation_started_at_ms',
   cleanupWarnings: 'cleanup_warnings',
   safetyArchives: 'safety_archives',
+  settleEvidence: 'settle_evidence',
 }
 
 function patchValue(key: keyof PrDeliveryPatch, patch: PrDeliveryPatch): string | number | null {
@@ -582,6 +628,7 @@ function patchValue(key: keyof PrDeliveryPatch, patch: PrDeliveryPatch): string 
   if (key === 'safetyArchives') return JSON.stringify(normalizeSafetyArchives(raw as string[]))
   if (key === 'statusDetail') return raw == null ? null : boundPrDiagnostic(String(raw))
   if (key === 'isContinuation') return raw ? 1 : 0
+  if (key === 'settleEvidence') return raw == null ? null : JSON.stringify(raw)
   return raw as string | number | null
 }
 

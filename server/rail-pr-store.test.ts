@@ -21,8 +21,10 @@ import {
   ACTIVE_PR_DECISIONS,
   claimPrDeliveryOperation,
   releasePrDeliveryOperation,
+  readSpecSnapshot,
   type CreatePrDeliveryInput,
 } from './rail-pr-store'
+import { harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
 import { createLoopRun, finishLoopRun } from './loop-runs-store'
 
 let db: DbInstance
@@ -680,5 +682,100 @@ describe('JSON round-trips + snapshot mapper', () => {
       branch: null,
       runIds: ['run-9'],
     })
+  })
+})
+
+describe('launch spec snapshot + settle evidence (migration 56)', () => {
+  const snapshot = [
+    { ticketId: 1, title: 'Add login', description: 'The user needs to sign in.', labels: ['auth'] },
+    { ticketId: 2, title: null, description: null, labels: [] },
+  ]
+
+  it('freezes the covered tickets at INSERT and reads them back', () => {
+    const row = mk('a', 0, { specSnapshot: snapshot })
+    expect(readSpecSnapshot(row.spec_snapshot)).toEqual(snapshot)
+  })
+
+  it('stores NULL when no snapshot is supplied (legacy launches)', () => {
+    const row = mk('a', 0)
+    expect(row.spec_snapshot).toBeNull()
+    expect(readSpecSnapshot(row.spec_snapshot)).toBeNull()
+  })
+
+  it('stores NULL for an empty snapshot rather than an empty array', () => {
+    expect(mk('a', 0, { specSnapshot: [] }).spec_snapshot).toBeNull()
+  })
+
+  it('is immune to a later edit of the live spec (the row is the frozen copy)', () => {
+    const row = mk('a', 0, { specSnapshot: snapshot })
+    // Mutating the caller's array must not reach the persisted row.
+    snapshot[0].title = 'Renamed after launch'
+    expect(readSpecSnapshot(row.spec_snapshot)?.[0].title).toBe('Add login')
+    snapshot[0].title = 'Add login'
+  })
+
+  it('bounds an overlong description and the label list', () => {
+    const row = mk('a', 0, {
+      specSnapshot: [{
+        ticketId: 1,
+        title: 't',
+        description: 'x'.repeat(40_000),
+        labels: Array.from({ length: 50 }, (_, i) => `l${i}`),
+      }],
+    })
+    const stored = readSpecSnapshot(row.spec_snapshot)!
+    expect(stored[0].description).toHaveLength(32_768)
+    expect(stored[0].labels).toHaveLength(32)
+  })
+
+  it('a continuation generation carries its OWN launch snapshot', () => {
+    mk('a', 0, { specSnapshot: [{ ticketId: 1, title: 'v1 wording', description: null, labels: [] }] })
+    transitionDecision(db, 'a', 'building', 'on_review')
+    const { delivery } = createPrDeliveryGeneration(db, {
+      id: 'b',
+      railIndex: 0,
+      loopId: 'loop-1',
+      railKey: '0-loop-1',
+      ticketIds: [1, 2],
+      baseBranch: 'main',
+      loopName: 'Implement',
+      originSurface: 'dashboard',
+      specSnapshot: [{ ticketId: 1, title: 'v2 wording', description: null, labels: [] }],
+    }, { id: 'a', decision: 'on_review' })
+    expect(readSpecSnapshot(delivery.spec_snapshot)?.[0].title).toBe('v2 wording')
+    expect(readSpecSnapshot(getPrDelivery(db, 'a')!.spec_snapshot)?.[0].title).toBe('v1 wording')
+  })
+
+  it('readSpecSnapshot rejects malformed and non-array payloads', () => {
+    expect(readSpecSnapshot('{oops')).toBeNull()
+    expect(readSpecSnapshot('{"ticketId":1}')).toBeNull()
+    expect(readSpecSnapshot(null)).toBeNull()
+  })
+
+  it('persists settle evidence through the decision patch and round-trips it', () => {
+    mk('a', 0)
+    const evidence = harvestDeliveryEvidence(
+      { readEvents: () => [] },
+      [{ ticketId: 1, runId: 'run-1', worktreePath: null }],
+    )
+    expect(transitionDecision(db, 'a', 'building', 'on_review', { settleEvidence: evidence })).toBe(true)
+    const row = getPrDelivery(db, 'a')!
+    expect(row.decision).toBe('on_review')
+    expect(readSettleEvidence(row.settle_evidence)).toEqual(evidence)
+  })
+
+  it('leaves settle evidence NULL until settle', () => {
+    const row = mk('a', 0)
+    expect(row.settle_evidence).toBeNull()
+    expect(readSettleEvidence(row.settle_evidence)).toBeNull()
+  })
+
+  it('an explicit null patch clears the column without disturbing the decision', () => {
+    mk('a', 0)
+    transitionDecision(db, 'a', 'building', 'on_review', {
+      settleEvidence: harvestDeliveryEvidence({ readEvents: () => [] }, []),
+    })
+    expect(transitionDecision(db, 'a', 'on_review', 'on_review', { settleEvidence: null })).toBe(true)
+    expect(getPrDelivery(db, 'a')!.settle_evidence).toBeNull()
   })
 })

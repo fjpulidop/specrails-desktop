@@ -129,6 +129,9 @@
   "notifications": {
     "jobCompleted": "Job completado",
     "jobFailed": "Job fallido",
+    "jobStuck": "La ejecución parece atascada",
+    "jobStuckBody_one": "Sin actividad desde {{count}} minuto — ábrela para comprobarlo",
+    "jobStuckBody_other": "Sin actividad desde {{count}} minutos — ábrela para comprobarlo",
     "unknownCommand": "Comando desconocido"
   },
   "templates": {

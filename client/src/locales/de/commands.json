@@ -129,6 +129,9 @@
   "notifications": {
     "jobCompleted": "Job abgeschlossen",
     "jobFailed": "Job fehlgeschlagen",
+    "jobStuck": "Ausführung scheint zu hängen",
+    "jobStuckBody_one": "Seit {{count}} Minute keine Aktivität — zum Prüfen öffnen",
+    "jobStuckBody_other": "Seit {{count}} Minuten keine Aktivität — zum Prüfen öffnen",
     "unknownCommand": "Unbekannter Befehl"
   },
   "templates": {

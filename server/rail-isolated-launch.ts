@@ -32,7 +32,8 @@ import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktre
 import { ticketBranchName, ticketRef, resolveCollisionFreeName, type TicketNamingInput } from './pr-naming'
 import { getLinkByLocalId } from './jira/jira-db'
 import type { DbInstance } from './db'
-import { getProjectSettings } from './db'
+import { getJobEvents, getProjectSettings } from './db'
+import { harvestDeliveryEvidence } from './delivery-evidence'
 import { resolveIntegrationBranch, fetchOrigin, resolveWorktreeBaseRef, type ResolvedIntegrationBranch } from './integration-branch'
 import { withRepoLock } from './repo-lock'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
@@ -40,7 +41,7 @@ import {
   appendPrDeliverySafetyArchive, createPrDeliveryGeneration, failPrDeliveryAndRestoreSuperseded,
   getPrDelivery, reconcileFailedBuildingPrDeliveries, transitionDecision, toPrDeliverySnapshot,
   toRailPrStateMessage, toPrDecisionCardEnvelope,
-  type DeliverBranchRecord, type PrDecision, type PrDeliveryOutcome,
+  type DeliverBranchRecord, type DeliverySpecSnapshotEntry, type PrDecision, type PrDeliveryOutcome,
   type PrDeliveryStatusCode, type PrImplementationOutcome, type PrOriginSurface,
   type SupersededPrDelivery,
 } from './rail-pr-store'
@@ -147,6 +148,8 @@ export interface IsolatedLaunchIO {
    *  (injectable so unit tests need no real git repo). */
   snapshot?: typeof snapshotWorkingTree
   recordProvenance?: typeof recordLoopRunProvenance
+  /** Settle-time review-packet evidence harvest (injectable for tests). */
+  harvestEvidence?: typeof harvestDeliveryEvidence
   /** gh-backed PR discovery for continuing already-open PR branches. */
   exec?: Exec
 }
@@ -224,6 +227,30 @@ function unitNamingInput(ctx: ProjectContext, ticketId: number): TicketNamingInp
     /* tolerated */
   }
   return { ticketId, title: spec?.title ?? null, labels: spec?.labels ?? null, jiraKey }
+}
+
+/**
+ * Launch-time freeze of every covered ticket for the delivery row's
+ * spec_snapshot column (migration 56). The review packet's "what you asked"
+ * section renders this snapshot, never the live store — a spec edited mid-run
+ * must not rewrite what the delivery was asked to do. Failure-tolerant: an
+ * unreadable ticket degrades to a bare-id entry.
+ */
+export function buildSpecSnapshot(ctx: ProjectContext, ticketIds: readonly number[]): DeliverySpecSnapshotEntry[] {
+  return ticketIds.map((ticketId) => {
+    let spec: { title?: string; description?: string; labels?: string[] } | undefined
+    try {
+      spec = ctx.getTicketSpec(ticketId) as typeof spec
+    } catch {
+      /* tolerated — snapshot stays bare */
+    }
+    return {
+      ticketId,
+      title: spec?.title ?? null,
+      description: spec?.description ?? null,
+      labels: Array.isArray(spec?.labels) ? spec.labels : [],
+    }
+  })
 }
 
 /**
@@ -723,6 +750,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       supersedesDeliveryId: launchContinuation?.source === 'rail-pr-delivery'
         ? launchContinuation.deliveryId
         : null,
+      specSnapshot: buildSpecSnapshot(ctx, ticketIds),
     }, input.requiredPrContinuation
       ? { id: input.requiredPrContinuation.deliveryId, decision: input.requiredPrContinuation.decision }
       : null)
@@ -1545,7 +1573,27 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       const expectedHeadByBranch = durableBranchHeads(settledBranchRecords)
       const overlayEvidenceByBranch = durableOverlayCleanupEvidence(settledBranchRecords)
       const settlementIgnoredByBranch = durableSettlementIgnoredPaths(settledBranchRecords)
+      // Review-packet evidence harvest (deterministic, no model calls) — MUST
+      // run while the reviewable worktrees are still mounted, i.e. before the
+      // releaseRailWorktrees calls below. harvestDeliveryEvidence never throws
+      // by contract; the belt-and-braces catch keeps settle unconditional.
+      const harvest = io.harvestEvidence ?? harvestDeliveryEvidence
+      let settleEvidence
+      try {
+        settleEvidence = harvest(
+          { readEvents: (runId) => getJobEvents(ctx.db, runId) },
+          results.map((result) => ({
+            ticketId: result.run.ticketId,
+            runId: result.run.runId,
+            worktreePath: result.run.handle.worktreePath,
+          })),
+        )
+      } catch (e) {
+        console.warn(`[rail-isolated] evidence harvest failed: ${e instanceof Error ? e.message : String(e)}`)
+        settleEvidence = undefined
+      }
       const patch = {
+        settleEvidence,
         branches: settledBranchRecords,
         worktreeIds,
         implementationOutcome,
