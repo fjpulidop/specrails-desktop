@@ -20,9 +20,6 @@ const AgentModeJobsPane = lazy(() =>
 const AgentModeAnalyticsPane = lazy(() =>
   import('./AgentModeAnalyticsPane').then((m) => ({ default: m.AgentModeAnalyticsPane })),
 )
-const AgentBrowserCapture = lazy(() =>
-  import('./AgentBrowserCapture').then((m) => ({ default: m.AgentBrowserCapture })),
-)
 /**
  * The full-screen Agent-Mode center surface. EMPTY (no active conversation) is a
  * centered "Plan, Build" composer card with a soft accent glow; ACTIVE renders
@@ -32,7 +29,7 @@ const AgentBrowserCapture = lazy(() =>
 export function AgentModeSurface() {
   const { t } = useTranslation('agent')
   const { active, refreshConversations, builderMode } = useAgentChat()
- const { codePaneOpen, jobsPaneOpen, analyticsPaneOpen, browserOpen } = useAgentWorkspace()
+ const { codePaneOpen, jobsPaneOpen, analyticsPaneOpen } = useAgentWorkspace()
   const { activeProjectId } = useDesktop()
   const activeTheme = useActiveTheme()
   const isGalaxy = activeTheme.id === 'galaxy'
@@ -124,11 +121,8 @@ export function AgentModeSurface() {
         </Suspense>
       )}
 
-      {browserOpen && activeProjectId && (
-        <Suspense fallback={null}>
-          <AgentBrowserCapture projectId={activeProjectId} conversationId={active?.id ?? null} />
-        </Suspense>
-      )}
+      {/* Browser capture mounts globally in AgentBrowserCaptureHost (App root)
+          so the board-mode floating panel can open it too. */}
     </div>
     </MotionConfig>
   )

@@ -57,6 +57,7 @@ import { useUiMode } from './context/UiModeContext'
 import { AgentWorkspaceProvider } from './context/AgentWorkspaceContext'
 import { AgentWorkspaceSidebar } from './components/agent-chat/AgentWorkspaceSidebar'
 import { AgentModeSurface } from './components/agent-chat/AgentModeSurface'
+import { AgentBrowserCaptureHost } from './components/agent-chat/AgentBrowserCaptureHost'
 import { RailMetricsProvider } from './context/RailMetricsContext'
 import { RailPrDecisionProvider } from './context/RailPrDecisionContext'
 import { MinimizedChatsProvider, } from './context/MinimizedChatsContext'
@@ -678,18 +679,23 @@ export default function App() {
                     <RailPrDecisionProviderWithDesktop>
                     <MinimizedChatsProvider>
                       <MilestoneSequencerProvider>
+                      {/* AgentWorkspaceProvider wraps AgentChatProvider so the
+                          floating panel (rendered INSIDE AgentChatProvider's own
+                          JSX, next to {children}) also sees the real workspace
+                          context — its composer must adopt browser captures. */}
+                      <AgentWorkspaceProvider>
                       <AgentChatProvider>
                         <BackgroundProcessesProvider>
-                        <AgentWorkspaceProvider>
                         <TicketDetailModalProvider>
                           <WebViewModalProvider>
                             <DesktopApp />
+                            <AgentBrowserCaptureHost />
                             <ThemedToaster />
                           </WebViewModalProvider>
                         </TicketDetailModalProvider>
-                        </AgentWorkspaceProvider>
                         </BackgroundProcessesProvider>
                       </AgentChatProvider>
+                      </AgentWorkspaceProvider>
                       </MilestoneSequencerProvider>
                     </MinimizedChatsProvider>
                     </RailPrDecisionProviderWithDesktop>

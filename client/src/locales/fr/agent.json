@@ -148,7 +148,7 @@
       "fileAttachment": "Pièce jointe",
       "fileAttachmentHint": "Ajouter docs, images, logs",
       "browserCapture": "Capture navigateur",
-      "browserCaptureHint": "Disponible depuis le navigateur du workspace"
+      "browserCaptureHint": "Capturer une zone de page pour cette mission"
     }
   },
   "mission": {
@@ -208,6 +208,7 @@
     "resizeCode": "Redimensionner le volet de code",
     "closeFiles": "Fermer le code",
     "browserConfirm": "Ajouter à l'agent",
+    "browserSelectStart": "Sélectionner pour ajouter à la mission",
     "browserCaptured": "Capture ajoutée",
     "uploadFailed": "Échec du téléversement",
     "requiresConversation": "Lancez une mission pour utiliser cet outil",
@@ -451,5 +452,18 @@
     "deleteConfirm": "Supprimer cette mission ? Action irréversible.",
     "deleteFailed": "Impossible de supprimer la mission"
   },
-  "emptyTitleCodeRain": "Que doit-on construire maintenant ?"
+  "emptyTitleCodeRain": "Que doit-on construire maintenant ?",
+  "activity": {
+    "title": "Journal d'exécution",
+    "live": "En direct",
+    "empty": "Aucune activité d'outil dans ce tour pour l'instant.",
+    "output": "Sortie",
+    "error": "Erreur",
+    "copyAll": "Copier tout le journal",
+    "copyEntry": "Copier l'entrée",
+    "copySuccess": "Journal copié dans le presse-papiers",
+    "copyFailed": "Impossible de copier le journal",
+    "openLog": "Voir le journal d'exécution",
+    "close": "Fermer"
+  }
 }

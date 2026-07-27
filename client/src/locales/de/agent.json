@@ -148,7 +148,7 @@
       "fileAttachment": "Dateianhang",
       "fileAttachmentHint": "Docs, Bilder, Logs hinzufügen",
       "browserCapture": "Browser-Aufnahme",
-      "browserCaptureHint": "Im Workspace-Browser verfügbar"
+      "browserCaptureHint": "Einen Seitenbereich für diese Mission erfassen"
     }
   },
   "mission": {
@@ -208,6 +208,7 @@
     "resizeCode": "Code-Bereich anpassen",
     "closeFiles": "Code schließen",
     "browserConfirm": "Zum Agenten hinzufügen",
+    "browserSelectStart": "Auswählen, um zur Mission hinzuzufügen",
     "browserCaptured": "Aufnahme hinzugefügt",
     "uploadFailed": "Upload fehlgeschlagen",
     "requiresConversation": "Starte eine Mission, um dieses Werkzeug zu nutzen",
@@ -451,5 +452,18 @@
     "deleteConfirm": "Diese Mission löschen? Kann nicht rückgängig gemacht werden.",
     "deleteFailed": "Mission konnte nicht gelöscht werden"
   },
-  "emptyTitleCodeRain": "Was sollen wir als Nächstes bauen?"
+  "emptyTitleCodeRain": "Was sollen wir als Nächstes bauen?",
+  "activity": {
+    "title": "Ausführungsprotokoll",
+    "live": "Live",
+    "empty": "Noch keine Tool-Aktivität in diesem Zug.",
+    "output": "Ausgabe",
+    "error": "Fehler",
+    "copyAll": "Gesamtes Protokoll kopieren",
+    "copyEntry": "Eintrag kopieren",
+    "copySuccess": "Protokoll in die Zwischenablage kopiert",
+    "copyFailed": "Protokoll konnte nicht kopiert werden",
+    "openLog": "Ausführungsprotokoll anzeigen",
+    "close": "Schließen"
+  }
 }

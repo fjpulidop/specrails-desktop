@@ -37,6 +37,7 @@ import { useBuilderSession, type BuilderSession } from '../hooks/useBuilderSessi
 import { useUiMode } from './UiModeContext'
 import { useDesktop } from '../hooks/useDesktop'
 import { comparePrSnapshotUpdatedAt } from '../lib/pr-delivery'
+import { migrateNewMissionComposerDrafts } from '../lib/agent-composer-drafts'
 
 export type AgentVisibility = 'hidden' | 'open' | 'minimized'
 export type PrDecisionSnapshotApplication = 'accepted' | 'stale' | 'untracked'
@@ -44,7 +45,20 @@ export type PrDecisionSnapshotApplication = 'accepted' | 'stale' | 'untracked'
 export interface AgentLiveTool {
   id: string
   tool: string
+  /** Bounded JSON preview of the tool input (server `agent_tool.input`). */
+  input?: string
+  /** Bounded output preview merged in from `agent_tool_result` (claude-only). */
+  output?: string
+  isError?: boolean
+  /** Provider tool-call id — correlates the result event to this entry. */
+  toolId?: string
+  /** ISO timestamp of the tool invocation (server clock). */
+  at?: string
 }
+
+/** Hard cap on retained activity entries per turn — the modal is a preview
+ *  surface, not an archive; unbounded pushes would leak on very long turns. */
+const MAX_ACTIVITY_ENTRIES = 200
 
 /** A message sent while the agent was busy — parked server-side, shown as a
  *  dimmed chip below the streaming bubble until its turn starts. */
@@ -60,10 +74,13 @@ export interface AgentConvLive {
   streamingText: string
   isStreaming: boolean
   liveTools: AgentLiveTool[]
+  /** The last SETTLED turn's tool activity — kept past agent_done so the
+   *  activity-log modal still has content between turns. Session-only. */
+  turnTools: AgentLiveTool[]
   queued: AgentQueuedItem[]
 }
 
-const EMPTY_LIVE: AgentConvLive = { streamingText: '', isStreaming: false, liveTools: [], queued: [] }
+const EMPTY_LIVE: AgentConvLive = { streamingText: '', isStreaming: false, liveTools: [], turnTools: [], queued: [] }
 const FAVORITE_CONVERSATIONS_KEY = 'specrails-desktop:favorite-agent-conversations'
 
 function loadFavoriteConversationIds(): Set<string> {
@@ -321,6 +338,9 @@ export interface AgentChatContextValue {
   streamingText: string
   isStreaming: boolean
   liveTools: AgentLiveTool[]
+  /** The active thread's last SETTLED turn activity (session-only) — what the
+   *  activity-log modal shows between turns. */
+  turnTools: AgentLiveTool[]
   /** Messages waiting behind the in-flight turn (FIFO, server-drained). */
   queuedMessages: AgentQueuedItem[]
   /** Every conversation with a live turn — feeds the sidebar title shimmer. */
@@ -405,6 +425,11 @@ interface WsAgentMsg {
   fullText?: string
   error?: string
   tool?: string
+  input?: string
+  toolId?: string
+  output?: string
+  isError?: boolean
+  timestamp?: string
   queueId?: string | null
   text?: string
   contextRefs?: AgentContextReference[]
@@ -503,7 +528,8 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       const copy = new Map(m)
       if (
         next === null ||
-        (!next.isStreaming && !next.streamingText && next.liveTools.length === 0 && next.queued.length === 0)
+        (!next.isStreaming && !next.streamingText && next.liveTools.length === 0
+          && next.turnTools.length === 0 && next.queued.length === 0)
       ) {
         copy.delete(id)
       } else {
@@ -550,6 +576,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const streamingText = activeLive.streamingText
   const isStreaming = activeLive.isStreaming
   const liveTools = activeLive.liveTools
+  const turnTools = activeLive.turnTools
   const queuedMessages = activeLive.queued
   const streamingConversationIds = useMemo(() => {
     const ids = new Set<string>()
@@ -615,7 +642,39 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         markUnread(convId)
         patchLive(convId, (p) => ({ ...p, isStreaming: true, streamingText: p.streamingText + (msg.delta ?? '') }))
       } else if (msg.type === 'agent_tool') {
-        patchLive(convId, (p) => ({ ...p, isStreaming: true, liveTools: [...p.liveTools, { id: `t${_toolSeq++}`, tool: msg.tool ?? 'tool' }] }))
+        patchLive(convId, (p) => ({
+          ...p,
+          isStreaming: true,
+          liveTools: [
+            ...p.liveTools,
+            {
+              id: `t${_toolSeq++}`,
+              tool: msg.tool ?? 'tool',
+              ...(msg.input ? { input: msg.input } : {}),
+              ...(msg.toolId ? { toolId: msg.toolId } : {}),
+              ...(msg.timestamp ? { at: msg.timestamp } : {}),
+            },
+          ].slice(-MAX_ACTIVITY_ENTRIES),
+        }))
+      } else if (msg.type === 'agent_tool_result') {
+        // Merge the output into its originating entry: by toolId when the
+        // provider correlates, else onto the LAST entry still missing output.
+        patchLive(convId, (p) => {
+          const tools = [...p.liveTools]
+          let idx = msg.toolId ? tools.findIndex((t) => t.toolId === msg.toolId) : -1
+          if (idx === -1) {
+            for (let i = tools.length - 1; i >= 0; i--) {
+              if (tools[i].output === undefined) { idx = i; break }
+            }
+          }
+          if (idx === -1) return p
+          tools[idx] = {
+            ...tools[idx],
+            output: msg.output ?? '',
+            ...(msg.isError ? { isError: true } : {}),
+          }
+          return { ...p, liveTools: tools }
+        })
       } else if (msg.type === 'agent_done') {
         markUnread(convId)
         const full = msg.fullText ?? ''
@@ -634,11 +693,20 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           })
         }
         // Keep queued chips: with a non-empty queue the next drained turn is
-        // about to start (agent_dequeued follows).
-        patchLive(convId, (p) => ({ ...EMPTY_LIVE, queued: p.queued }))
+        // about to start (agent_dequeued follows). The finished turn's tool
+        // activity survives as `turnTools` so the log modal outlives settle.
+        patchLive(convId, (p) => ({
+          ...EMPTY_LIVE,
+          queued: p.queued,
+          turnTools: p.liveTools.length ? p.liveTools : p.turnTools,
+        }))
       } else if (msg.type === 'agent_error') {
         markUnread(convId)
-        patchLive(convId, (p) => ({ ...EMPTY_LIVE, queued: p.queued }))
+        patchLive(convId, (p) => ({
+          ...EMPTY_LIVE,
+          queued: p.queued,
+          turnTools: p.liveTools.length ? p.liveTools : p.turnTools,
+        }))
         const err = msg.error || 'The agent turn failed.'
         toast.error(err)
         // Also surface it inline so it's visible in the conversation.
@@ -849,6 +917,12 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       reasoningEffort: draftConvRef.current.effort,
     })
       .then((created) => {
+        // Move the empty-compose-screen drafts (typed text + attachment chips)
+        // to the real conversation id BEFORE flipping `active`, so the
+        // composer's restore-on-switch effect finds them under the new key —
+        // this covers materialization triggered OUTSIDE the composer too
+        // (e.g. a browser capture from the workspace sidebar).
+        migrateNewMissionComposerDrafts(created.id)
         setConversations((c) => [created, ...c])
         setActive(created)
         setMessages([])
@@ -1121,7 +1195,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AgentChatContextValue>(() => ({
     visibility, open, close, minimize, toggle,
-    conversations, active, messages, streamingText, isStreaming, liveTools,
+    conversations, active, messages, streamingText, isStreaming, liveTools, turnTools,
     queuedMessages, streamingConversationIds, liveByConversation: liveByConv,
     unreadConversationIds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
@@ -1135,7 +1209,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }), [
     visibility, open, close, minimize, toggle,
     builderActive, enterBuilderMode, exitBuilderMode, builderSession,
-    conversations, active, messages, streamingText, isStreaming, liveTools,
+    conversations, active, messages, streamingText, isStreaming, liveTools, turnTools,
     queuedMessages, streamingConversationIds, liveByConv, unreadConversationIds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
     send, abort, editQueuedMessage, wasQueueConsumed,
@@ -1165,7 +1239,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
 const NOOP_AGENT_CHAT: AgentChatContextValue = {
   visibility: 'hidden',
   open: () => {}, close: () => {}, minimize: () => {}, toggle: () => {},
-  conversations: [], active: null, messages: [], streamingText: '', isStreaming: false, liveTools: [],
+  conversations: [], active: null, messages: [], streamingText: '', isStreaming: false, liveTools: [], turnTools: [],
   queuedMessages: [], streamingConversationIds: new Set<string>(),
   unreadConversationIds: new Set<string>(),
   liveByConversation: new Map<string, AgentConvLive>(),

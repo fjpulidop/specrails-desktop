@@ -148,7 +148,7 @@
       "fileAttachment": "ファイル添付",
       "fileAttachmentHint": "ドキュメント、画像、ログを追加",
       "browserCapture": "ブラウザーキャプチャ",
-      "browserCaptureHint": "ワークスペースブラウザーから利用可能"
+      "browserCaptureHint": "ページの領域をキャプチャしてこのミッションに追加"
     }
   },
   "mission": {
@@ -208,6 +208,7 @@
     "resizeCode": "コードペインをリサイズ",
     "closeFiles": "コードを閉じる",
     "browserConfirm": "エージェントに追加",
+    "browserSelectStart": "ミッションに追加する要素を選択",
     "browserCaptured": "キャプチャを追加しました",
     "uploadFailed": "アップロードに失敗しました",
     "requiresConversation": "このツールを使うにはミッションを開始してください",
@@ -451,5 +452,18 @@
     "deleteConfirm": "このミッションを削除しますか？元に戻せません。",
     "deleteFailed": "ミッションを削除できませんでした"
   },
-  "emptyTitleCodeRain": "次に何を作りますか？"
+  "emptyTitleCodeRain": "次に何を作りますか？",
+  "activity": {
+    "title": "実行ログ",
+    "live": "ライブ",
+    "empty": "このターンにはまだツールの活動がありません。",
+    "output": "出力",
+    "error": "エラー",
+    "copyAll": "ログ全体をコピー",
+    "copyEntry": "エントリをコピー",
+    "copySuccess": "ログをクリップボードにコピーしました",
+    "copyFailed": "ログをコピーできませんでした",
+    "openLog": "実行ログを表示",
+    "close": "閉じる"
+  }
 }

@@ -62,6 +62,7 @@
   "desktop": {
     "nav": {
       "appearance": "Darstellung",
+      "specrailsAgents": "Specrails Agents",
       "code": "Code",
       "terminal": "Terminal",
       "updates": "Updates",
@@ -279,5 +280,30 @@
     "saveFailed": "Worktree-Umgebung konnte nicht gespeichert werden",
     "invalidName": "{{name}} ist kein gültiger Name für eine Umgebungsvariable",
     "noValues": "Fügen Sie hier nur Variablennamen hinzu, keine KEY=value-Geheimnisse."
+  },
+  "specrailsAgents": {
+    "heading": "Specrails Agents",
+    "description": "Passe die specrails-core-Pipeline-Agenten pro KI-Anbieter an — Modell und Reasoning-Aufwand. Änderungen gelten ab dem nächsten Lauf, ohne Neustart.",
+    "loadFailed": "Agent-Einstellungen konnten nicht geladen werden.",
+    "modeDefault": "Standard",
+    "modeCustom": "Angepasst",
+    "notDetected": "Nicht erkannt",
+    "notSignedIn": "Nicht angemeldet",
+    "pipeline": "Pipeline",
+    "pipelineHint": "Modell und Aufwand für den gesamten Lauf — Subagenten erben sie, sofern unten nichts anderes gesetzt ist.",
+    "model": "Modell",
+    "effort": "Aufwand",
+    "defaultModel": "Standard ({{model}})",
+    "defaultEffort": "Standard-Aufwand",
+    "agentsTitle": "Pipeline-Agenten",
+    "agentsHint": "Modell-Override pro Agent für diesen Anbieter.",
+    "inheritNote": "Codex-Subagenten erben Modell und Aufwand der Pipeline — by design.",
+    "noPerAgentNote": "Dieser Anbieter unterstützt keine Modelle pro Agent.",
+    "reset": "Standardwerte wiederherstellen",
+    "agentNames": {
+      "sr-architect": "Architekt",
+      "sr-developer": "Entwickler",
+      "sr-reviewer": "Reviewer"
+    }
   }
 }

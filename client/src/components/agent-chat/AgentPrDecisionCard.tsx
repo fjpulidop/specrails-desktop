@@ -27,6 +27,7 @@ import {
 } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { AgentRefChip } from './AgentRefChip'
+import { notifyGitChanged } from '../../lib/git-refresh'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
 // free of the log-explorer stack (same pattern as AgentConversationView's
@@ -348,6 +349,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
       } else if (action === 'merge-local' && r.kind === 'ok' && r.decision === 'merged') {
         toast.success(t('prCard.mergedLocally', { base: envelope.baseBranch }))
       }
+      // Repo-mutating decisions (branch created/pushed, branches deleted,
+      // local merge commit) → git-state surfaces refresh immediately.
+      if (r.kind === 'ok' && (action === 'create-pr' || action === 'discard' || action === 'merge-local' || action === 'recover-and-retry')) {
+        notifyGitChanged(envelope.projectId)
+      }
     } catch (e) {
       toast.error(t('prCard.actionFailed'), { description: e instanceof Error ? e.message : undefined })
     } finally {
@@ -362,6 +368,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
       const r = await postRailPrCheckout(envelope.projectId, envelope.prDeliveryId)
       if (r.kind === 'ok') {
         toast.success(t('prCard.checkoutSuccess', { branch: envelope.branch ?? '' }))
+        // The main checkout just moved to the PR branch — git-state surfaces
+        // (AgentGitBar branch strip) must reflect it immediately.
+        notifyGitChanged(envelope.projectId)
       } else if (r.kind === 'recovering') {
         toast.info(t('common:prRecovery.inProgress'))
       } else if (r.error === 'checkout_dirty') {

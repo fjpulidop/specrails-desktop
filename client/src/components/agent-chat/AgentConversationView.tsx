@@ -9,6 +9,7 @@ import { useAgentRefActions } from '../../hooks/useAgentRefActions'
 import { listAgentAttachments, type AgentAttachment } from '../../lib/agent-api'
 import type { AgentRefTarget } from '../../lib/agent-refs'
 import { AgentActivityChip } from './AgentActivityChip'
+import { AgentActivityLogModal } from './AgentActivityLogModal'
 import { AgentContextInlineTokens, AgentMessage } from './AgentMessage'
 import { AgentComposer } from './AgentComposer'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
@@ -41,9 +42,14 @@ const warnedSystemRows = new Set<string>()
 export function AgentConversationView({ variant }: { variant: 'floating' | 'inline' }) {
   const { t } = useTranslation('agent')
   const {
-    active, messages, streamingText, isStreaming, liveTools, queuedMessages,
+    active, messages, streamingText, isStreaming, liveTools, turnTools, queuedMessages,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady, cycleTier, send,
   } = useAgentChat()
+  // Execution-log modal (opened from the activity chip). While streaming it
+  // shows the LIVE turn's tools; after settle it keeps showing the finished
+  // turn's activity (turnTools) so an open modal never blanks at agent_done.
+  const [activityOpen, setActivityOpen] = useState(false)
+  const activityTools = liveTools.length > 0 ? liveTools : turnTools
   const scrollRef = useRef<HTMLDivElement>(null)
   const smoothed = useSmoothStream(streamingText, isStreaming)
 
@@ -223,7 +229,10 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
           {isStreaming && (
             <div className="space-y-2">
               {smoothed && <AgentMessage role="assistant" content={smoothed} streaming />}
-              <AgentActivityChip tool={liveTools.length ? liveTools[liveTools.length - 1].tool : null} />
+              <AgentActivityChip
+                tool={liveTools.length ? liveTools[liveTools.length - 1].tool : null}
+                onClick={() => setActivityOpen(true)}
+              />
             </div>
           )}
           {/* Messages parked behind the in-flight turn — dimmed user-style chips
@@ -294,6 +303,16 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
         <Suspense fallback={null}>
           <LoopPreviewModal loop={loopRef} onClose={closeLoopRef} />
         </Suspense>
+      )}
+
+      {/* Activity chip clicked: the turn's execution log (tool calls with
+          input/output previews + copy affordances). Same z-[65] portal tier. */}
+      {activityOpen && (
+        <AgentActivityLogModal
+          tools={activityTools}
+          streaming={isStreaming}
+          onClose={() => setActivityOpen(false)}
+        />
       )}
     </div>
   )

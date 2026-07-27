@@ -76,7 +76,11 @@ export interface SpawnOptions {
 
 export type AdapterEvent =
   | { kind: 'text-delta'; text: string }
-  | { kind: 'tool-use'; name: string; inputPreview: string }
+  | { kind: 'tool-use'; name: string; inputPreview: string; toolUseId?: string }
+  // A tool call's result frame (claude `user`-role `tool_result` blocks).
+  // `toolUseId` correlates back to the originating tool-use; `outputPreview`
+  // is a bounded text projection for activity surfaces, never the full blob.
+  | { kind: 'tool-result'; toolUseId?: string; outputPreview: string; isError?: boolean }
   | { kind: 'session-started'; sessionId: string }
   | { kind: 'result'; payload: Record<string, unknown> }
   // Provider reported an explicit failure for the turn (e.g. codex

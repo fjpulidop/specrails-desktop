@@ -14,6 +14,11 @@ vi.mock('../../../context/AgentWorkspaceContext', () => ({
   useAgentWorkspace: () => ({ closeBrowser, queueCapture }),
 }))
 
+const materializeDraftConversation = vi.fn()
+vi.mock('../../../context/AgentChatContext', () => ({
+  useAgentChat: () => ({ materializeDraftConversation }),
+}))
+
 const uploadAgentAttachment = vi.fn()
 vi.mock('../../../lib/agent-api', () => ({
   uploadAgentAttachment: (...a: unknown[]) => uploadAgentAttachment(...a),
@@ -66,7 +71,35 @@ describe('AgentBrowserCapture', () => {
     fetchSpy.mockRestore()
   })
 
-  it('shows an error and skips the upload when there is no conversation', async () => {
+  it('materializes the draft mission when capturing with no conversation yet', async () => {
+    // Empty compose screen: the capture itself starts the mission (same
+    // contract as attaching a file there) — never an error toast.
+    const att = { id: 'att-2', filename: 'capture.png' }
+    uploadAgentAttachment.mockResolvedValue(att)
+    materializeDraftConversation.mockResolvedValue({ id: 'c-new' })
+
+    render(<AgentBrowserCapture projectId="p1" conversationId={null} />)
+    modalProps!.onCaptured(captureResult())
+
+    await waitFor(() => expect(uploadAgentAttachment).toHaveBeenCalledTimes(1))
+    expect(materializeDraftConversation).toHaveBeenCalledTimes(1)
+    expect(uploadAgentAttachment.mock.calls[0][0]).toBe('c-new')
+    expect(queueCapture).toHaveBeenCalledWith(att)
+    expect(closeBrowser).toHaveBeenCalled()
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it('does not materialize when a conversation is already active', async () => {
+    const att = { id: 'att-3', filename: 'capture.png' }
+    uploadAgentAttachment.mockResolvedValue(att)
+    render(<AgentBrowserCapture projectId="p1" conversationId="c1" />)
+    modalProps!.onCaptured(captureResult())
+    await waitFor(() => expect(uploadAgentAttachment).toHaveBeenCalledTimes(1))
+    expect(materializeDraftConversation).not.toHaveBeenCalled()
+  })
+
+  it('surfaces a materialization failure as an upload error', async () => {
+    materializeDraftConversation.mockRejectedValue(new Error('offline'))
     render(<AgentBrowserCapture projectId="p1" conversationId={null} />)
     modalProps!.onCaptured(captureResult())
     await waitFor(() => expect(toastError).toHaveBeenCalled())

@@ -370,6 +370,55 @@ describe('claudeAdapter.parseStreamLine', () => {
     expect(ev?.kind).toBe('other')
     if (ev?.kind === 'other') expect(ev.type).toBe('weird_unknown')
   })
+
+  it('surfaces toolUseId on a bare tool_use frame', () => {
+    const ev = claudeAdapter.parseStreamLine(
+      '{"type":"tool_use","id":"tu_9","name":"Bash","input":{"command":"ls"}}',
+    )
+    expect(ev?.kind).toBe('tool-use')
+    if (ev?.kind === 'tool-use') expect(ev.toolUseId).toBe('tu_9')
+  })
+
+  it('surfaces toolUseId on an assistant tool_use block', () => {
+    const ev = claudeAdapter.parseStreamLine(
+      '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tu_a","name":"Read","input":{"file_path":"/x"}}]}}',
+    )
+    expect(ev?.kind).toBe('tool-use')
+    if (ev?.kind === 'tool-use') {
+      expect(ev.name).toBe('Read')
+      expect(ev.toolUseId).toBe('tu_a')
+    }
+  })
+
+  it('parses a user tool_result frame (string content) into tool-result', () => {
+    const ev = claudeAdapter.parseStreamLine(
+      '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_9","content":"file-a\\nfile-b"}]}}',
+    )
+    expect(ev).toEqual({ kind: 'tool-result', toolUseId: 'tu_9', outputPreview: 'file-a\nfile-b' })
+  })
+
+  it('parses a user tool_result frame (block-array content + is_error)', () => {
+    const ev = claudeAdapter.parseStreamLine(
+      '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_9","is_error":true,"content":[{"type":"text","text":"boom"},{"type":"text","text":"trace"}]}]}}',
+    )
+    expect(ev).toEqual({ kind: 'tool-result', toolUseId: 'tu_9', outputPreview: 'boom\ntrace', isError: true })
+  })
+
+  it('bounds tool_result output previews at 600 chars', () => {
+    const long = 'x'.repeat(1000)
+    const ev = claudeAdapter.parseStreamLine(
+      `{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tu_9","content":"${long}"}]}}`,
+    )
+    expect(ev?.kind).toBe('tool-result')
+    if (ev?.kind === 'tool-result') expect(ev.outputPreview.length).toBe(600)
+  })
+
+  it('keeps user frames WITHOUT a tool_result block as other', () => {
+    const ev = claudeAdapter.parseStreamLine(
+      '{"type":"user","message":{"content":[{"type":"text","text":"human says hi"}]}}',
+    )
+    expect(ev?.kind).toBe('other')
+  })
 })
 
 describe('claudeAdapter.parseStreamLine — per-assistant-event usage capture (HIGH-8)', () => {

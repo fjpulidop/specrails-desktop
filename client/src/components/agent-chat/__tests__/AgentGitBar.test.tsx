@@ -10,6 +10,7 @@ vi.mock('sonner', () => ({
 vi.mock('../../../lib/origin', () => ({ API_ORIGIN: '' }))
 
 import { AgentGitBar } from '../AgentGitBar'
+import { notifyGitChanged } from '../../../lib/git-refresh'
 
 const INFO = {
   git: true,
@@ -51,6 +52,25 @@ describe('AgentGitBar', () => {
     expect(screen.queryByLabelText('Uncommitted changes')).not.toBeInTheDocument()
     // Never the OS-native select — the dropdown is our own themed listbox.
     expect(document.querySelector('select')).toBeNull()
+  })
+
+  it('refreshes immediately when a git-changed notification targets its project', async () => {
+    mockFetchSequence([
+      () => ({ body: INFO }),
+      () => ({ body: { ...INFO, branch: 'feature' } }),
+    ])
+    render(<AgentGitBar projectId="p1" />)
+    const trigger = await screen.findByLabelText('Branch')
+    await waitFor(() => expect(trigger.textContent).toContain('main'))
+
+    // A mutation in ANOTHER project must not trigger a refetch here.
+    act(() => notifyGitChanged('other-project'))
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+
+    // PR-card Checkout notifies for THIS project → the strip refetches now.
+    act(() => notifyGitChanged('p1'))
+    await waitFor(() => expect(trigger.textContent).toContain('feature'))
+    expect(global.fetch).toHaveBeenCalledTimes(2)
   })
 
   it('renders nothing when the project is not a git repo', async () => {

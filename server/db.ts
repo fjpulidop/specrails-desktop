@@ -2333,6 +2333,10 @@ export const DEFAULT_FREESTYLE_PRE_PROMPT = [
 export interface ProjectSettings {
   pipelineTelemetryEnabled: boolean
   orchestratorModel: string
+  /** True when the project stored an explicit orchestrator model (vs the
+   *  built-in 'sonnet' fallback) — lets the global Specrails Agents defaults
+   *  layer slot in below a real user choice but above the hardcoded default. */
+  orchestratorModelExplicit: boolean
   prePrompt: string
   /** Per-project Freestyle pre-prompt override. Empty string = use
    *  DEFAULT_FREESTYLE_PRE_PROMPT at spawn time. */
@@ -2400,6 +2404,7 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
   return {
     pipelineTelemetryEnabled: telemetryRow?.value === 'true',
     orchestratorModel: modelRow?.value ?? 'sonnet',
+    orchestratorModelExplicit: modelRow?.value !== undefined,
     prePrompt: prePromptRow?.value ?? '',
     freestylePrePrompt: freestylePrePromptRow?.value ?? '',
     integrationBranch: integrationBranchRow?.value ?? '',

@@ -82,6 +82,17 @@ export const FEATURE_LOOPS_SECTION = (() => {
   return true
 })()
 
+/** Gates the native embedded browser pane (Tauri child webview replacing the
+ *  screencast WebViewModal experience inside the desktop app). Default ON.
+ *  Kill switch VITE_FEATURE_NATIVE_BROWSER=false ⇒ screencast everywhere,
+ *  byte-identical legacy. Outside Tauri the runtime probe already falls back. */
+export const FEATURE_NATIVE_BROWSER = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_NATIVE_BROWSER
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()
+
 /** Gates the Project Builder (greenfield "New project" path on Add Project:
  *  day-0 blueprint chat + orchestrated bootstrap commit). Default ON; mirrors
  *  server SPECRAILS_PROJECT_BUILDER. Opt-out via VITE_FEATURE_PROJECT_BUILDER=false. */

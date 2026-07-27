@@ -439,10 +439,40 @@ class PlaywrightPageHandle implements BrowserPageHandle {
     // target=_blank, OAuth login windows). The popup lives in the SAME browser
     // context — cookies and the window.opener/postMessage relationship are
     // intact, which is exactly what an OAuth redirect/popup flow needs.
+    //
+    // HARDENING (Okta-class IdPs): a popup opened from a cross-origin IFRAME
+    // (out-of-process sign-in widgets) is attributed to the iframe's target,
+    // and the page-level 'popup' event can miss it — the login window then
+    // "never appears". So we ALSO watch the shared context for new pages whose
+    // opener chain resolves to this page and adopt those. `seen` dedupes the
+    // two doors; pages from other sessions have a different opener and are
+    // ignored.
     try {
-      this.page.on('popup', (p: any) => {
+      const seen = new WeakSet<object>()
+      const adopt = (p: any) => {
+        if (seen.has(p)) return
+        seen.add(p)
         try { cb(new PlaywrightPageHandle(p)) } catch { /* never break the event loop */ }
-      })
+      }
+      this.page.on('popup', adopt)
+      const ctx = this.page.context?.()
+      if (ctx?.on) {
+        const onContextPage = (p: any) => {
+          void (async () => {
+            try {
+              if (seen.has(p) || p === this.page) return
+              const opener = await p.opener?.()
+              if (opener === this.page) adopt(p)
+            } catch { /* ignore */ }
+          })()
+        }
+        ctx.on('page', onContextPage)
+        // The shared context outlives this page — detach on page close so a
+        // long-lived app never accumulates dead listeners.
+        this.page.on('close', () => {
+          try { ctx.off?.('page', onContextPage) } catch { /* ignore */ }
+        })
+      }
     } catch { /* ignore */ }
   }
 

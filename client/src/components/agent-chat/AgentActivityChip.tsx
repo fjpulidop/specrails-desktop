@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ScrollText } from 'lucide-react'
 
 /**
  * Abbreviated, synthetic label for the current tool activity. MCP calls collapse
@@ -34,12 +34,12 @@ export function toolChipLabel(tool: string): string {
 /** Tool names that carry no useful signal → show "Thinking…" instead. */
 const NOISE = new Set(['<unnamed>', '<missing>', ''])
 
-export function AgentActivityChip({ tool }: { tool: string | null }) {
+export function AgentActivityChip({ tool, onClick }: { tool: string | null; onClick?: () => void }) {
   const { t } = useTranslation('agent')
   const label = tool && !NOISE.has(tool) ? toolChipLabel(tool) : t('thinking')
 
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-surface/60 px-3 py-1 text-xs font-medium text-foreground/80">
+  const body = (
+    <>
       <Loader2 className="h-3 w-3 animate-spin text-accent-info" />
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
@@ -52,6 +52,28 @@ export function AgentActivityChip({ tool }: { tool: string | null }) {
           {label}
         </motion.span>
       </AnimatePresence>
-    </div>
+    </>
   )
+
+  const baseCls =
+    'inline-flex items-center gap-2 rounded-full border border-border/50 bg-surface/60 px-3 py-1 text-xs font-medium text-foreground/80'
+
+  // Clickable variant (agent chat): opens the execution-log modal. The plain
+  // div variant stays for callers with no activity stream (BuilderConversation).
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={t('activity.openLog')}
+        title={t('activity.openLog')}
+        data-testid="agent-activity-chip"
+        className={`${baseCls} group cursor-pointer transition-colors hover:border-accent-info/50 hover:bg-surface/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-info/50`}
+      >
+        {body}
+        <ScrollText className="h-3 w-3 text-foreground/40 transition-colors group-hover:text-accent-info" aria-hidden />
+      </button>
+    )
+  }
+  return <div className={baseCls}>{body}</div>
 }

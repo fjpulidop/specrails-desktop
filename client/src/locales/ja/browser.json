@@ -107,5 +107,12 @@
     "stacked": "他 {{count}} 件",
     "backToPage": "ページに戻る",
     "show": "ログインウィンドウを表示"
+  },
+  "native": {
+    "devtools": "開発者ツール",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "openExternal": "システムブラウザーで開く",
+    "badge": "ネイティブ"
   }
 }

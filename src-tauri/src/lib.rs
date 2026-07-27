@@ -1,3 +1,5 @@
+mod browser;
+
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -305,7 +307,22 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .invoke_handler(tauri::generate_handler![restart_app, set_tray_labels])
+        .invoke_handler(tauri::generate_handler![
+            restart_app,
+            set_tray_labels,
+            browser::browser_supported,
+            browser::browser_open,
+            browser::browser_navigate,
+            browser::browser_back,
+            browser::browser_forward,
+            browser::browser_reload,
+            browser::browser_set_bounds,
+            browser::browser_show,
+            browser::browser_hide,
+            browser::browser_close,
+            browser::browser_devtools,
+            browser::browser_zoom
+        ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
 

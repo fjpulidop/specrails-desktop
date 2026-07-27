@@ -62,6 +62,7 @@
   "desktop": {
     "nav": {
       "appearance": "Aspetto",
+      "specrailsAgents": "Specrails Agents",
       "code": "Codice",
       "terminal": "Terminale",
       "updates": "Aggiornamenti",
@@ -279,5 +280,30 @@
     "saveFailed": "Impossibile salvare l'ambiente dei worktree",
     "invalidName": "{{name}} non è un nome valido per una variabile d'ambiente",
     "noValues": "Aggiungi solo nomi di variabili, non segreti KEY=value."
+  },
+  "specrailsAgents": {
+    "heading": "Specrails Agents",
+    "description": "Personalizza gli agenti della pipeline specrails-core per provider IA — modello e sforzo di ragionamento. Le modifiche valgono dalla prossima esecuzione, senza riavvio.",
+    "loadFailed": "Impossibile caricare le impostazioni degli agenti.",
+    "modeDefault": "Predefinito",
+    "modeCustom": "Personalizzato",
+    "notDetected": "Non rilevato",
+    "notSignedIn": "Accesso non effettuato",
+    "pipeline": "Pipeline",
+    "pipelineHint": "Modello e sforzo dell'intera esecuzione — i sub-agenti li ereditano salvo override qui sotto.",
+    "model": "Modello",
+    "effort": "Sforzo",
+    "defaultModel": "Predefinito ({{model}})",
+    "defaultEffort": "Sforzo predefinito",
+    "agentsTitle": "Agenti della pipeline",
+    "agentsHint": "Override del modello per agente per questo provider.",
+    "inheritNote": "I sub-agenti Codex ereditano modello e sforzo della pipeline per progettazione.",
+    "noPerAgentNote": "Questo provider non supporta modelli per agente.",
+    "reset": "Ripristina predefiniti",
+    "agentNames": {
+      "sr-architect": "Architetto",
+      "sr-developer": "Sviluppatore",
+      "sr-reviewer": "Revisore"
+    }
   }
 }

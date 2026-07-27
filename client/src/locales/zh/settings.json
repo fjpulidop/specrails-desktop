@@ -62,6 +62,7 @@
   "desktop": {
     "nav": {
       "appearance": "外观",
+      "specrailsAgents": "Specrails Agents",
       "code": "代码",
       "terminal": "终端",
       "updates": "更新",
@@ -279,5 +280,30 @@
     "saveFailed": "无法保存 Worktree 环境",
     "invalidName": "{{name}} 不是有效的环境变量名",
     "noValues": "这里只添加变量名，不要添加 KEY=value 形式的密钥。"
+  },
+  "specrailsAgents": {
+    "heading": "Specrails Agents",
+    "description": "按 AI 提供商自定义 specrails-core 流水线代理 — 模型与推理力度。更改在下次运行时生效，无需重启。",
+    "loadFailed": "无法加载代理默认设置。",
+    "modeDefault": "默认",
+    "modeCustom": "自定义",
+    "notDetected": "未检测到",
+    "notSignedIn": "未登录",
+    "pipeline": "流水线",
+    "pipelineHint": "整次运行的模型与力度 — 除非在下方覆盖，子代理将继承它们。",
+    "model": "模型",
+    "effort": "力度",
+    "defaultModel": "默认（{{model}}）",
+    "defaultEffort": "默认力度",
+    "agentsTitle": "流水线代理",
+    "agentsHint": "此提供商的按代理模型覆盖。",
+    "inheritNote": "Codex 子代理按设计继承流水线的模型与力度。",
+    "noPerAgentNote": "此提供商不支持按代理设置模型。",
+    "reset": "恢复默认",
+    "agentNames": {
+      "sr-architect": "架构师",
+      "sr-developer": "开发者",
+      "sr-reviewer": "审查者"
+    }
   }
 }

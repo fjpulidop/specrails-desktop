@@ -107,5 +107,12 @@
     "stacked": "+{{count}} more",
     "backToPage": "Back to page",
     "show": "Show login window"
+  },
+  "native": {
+    "devtools": "DevTools",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "openExternal": "Open in system browser",
+    "badge": "Native"
   }
 }

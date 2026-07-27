@@ -1305,7 +1305,7 @@ export type WsMessage =
   | MobileDeviceRevokedMessage | MobileGatewayStateMessage
   | JiraSyncedMessage | JiraSyncErrorMessage | JiraAuthExpiredMessage
   | JiraOutboxChangedMessage | JiraDegradedMessage
-  | AgentStreamMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage
+  | AgentStreamMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage | AgentToolResultMessage
   | AgentTitleMessage
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage
   | AgentQueueEditedMessage
@@ -1410,6 +1410,21 @@ export interface AgentToolMessage {
   type: 'agent_tool'
   conversationId: string
   tool: string
+  /** Bounded JSON preview of the tool input (adapter `inputPreview`). */
+  input?: string
+  /** Provider tool-call id — correlates a later agent_tool_result. */
+  toolId?: string
+  timestamp: string
+}
+
+/** A tool call finished — carries a bounded output preview for the activity
+ *  log modal. Claude-only today (other adapters emit no tool-result event). */
+export interface AgentToolResultMessage {
+  type: 'agent_tool_result'
+  conversationId: string
+  toolId?: string
+  output: string
+  isError?: boolean
   timestamp: string
 }
 

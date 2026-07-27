@@ -65,6 +65,11 @@ export default defineConfig({
         // Read-only embedded-browser modal for opening spec-description links —
         // same canvas/WS/pointer machinery as BrowserCaptureModal (not jsdom-able).
         'src/components/browser-capture/WebViewModal.tsx',
+        // Native embedded browser pane: Tauri child-webview IPC + ResizeObserver
+        // + a native OS view — structurally unreachable in jsdom. The pure logic
+        // (normalization, scheme policy, bounds mapping, availability probe)
+        // lives in lib/native-browser.ts and is unit-tested there.
+        'src/components/browser-capture/NativeBrowserPane.tsx',
         // Annotation markup editor: canvas flatten + pointer-drag drawing; the
         // model/geometry/undo-reducer live in lib/annotations.ts and are tested.
         'src/components/browser-capture/AnnotationEditor.tsx',

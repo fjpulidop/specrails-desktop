@@ -318,7 +318,14 @@ function parseClaudeStreamLine(line: string): AdapterEvent | null {
         (parsed.message as { content?: Array<{ input?: unknown }> })?.content?.[0]?.input ?? {},
       )
       return withAssistantUsage(
-        { kind: 'tool-use', name: tool.name, inputPreview: input.slice(0, 200) },
+        {
+          kind: 'tool-use',
+          name: tool.name,
+          inputPreview: input.slice(0, 200),
+          ...(typeof (tool as { id?: unknown }).id === 'string'
+            ? { toolUseId: (tool as unknown as { id: string }).id }
+            : {}),
+        },
         msg,
       )
     }
@@ -328,7 +335,38 @@ function parseClaudeStreamLine(line: string): AdapterEvent | null {
   if (type === 'tool_use') {
     const name = (parsed.name as string) ?? '<unnamed>'
     const input = JSON.stringify(parsed.input ?? {})
-    return { kind: 'tool-use', name, inputPreview: input.slice(0, 200) }
+    return {
+      kind: 'tool-use',
+      name,
+      inputPreview: input.slice(0, 200),
+      ...(typeof parsed.id === 'string' ? { toolUseId: parsed.id } : {}),
+    }
+  }
+
+  // `user`-role frames carry tool RESULTS back to the model. Surface a bounded
+  // text projection so activity surfaces (agent chat's execution log) can show
+  // what a tool returned; frames without a tool_result block stay 'other'.
+  if (type === 'user') {
+    const msg = (parsed as { message?: { content?: unknown } }).message
+    const blocks = Array.isArray(msg?.content) ? (msg.content as Array<Record<string, unknown>>) : []
+    const resultBlock = blocks.find((b) => b.type === 'tool_result')
+    if (resultBlock) {
+      const content = resultBlock.content
+      const text = typeof content === 'string'
+        ? content
+        : Array.isArray(content)
+          ? (content as Array<{ type?: string; text?: string }>)
+              .filter((c) => c.type === 'text' && typeof c.text === 'string')
+              .map((c) => c.text as string)
+              .join('\n')
+          : ''
+      return {
+        kind: 'tool-result',
+        outputPreview: text.slice(0, 600),
+        ...(typeof resultBlock.tool_use_id === 'string' ? { toolUseId: resultBlock.tool_use_id } : {}),
+        ...(resultBlock.is_error === true ? { isError: true } : {}),
+      }
+    }
   }
 
   return { kind: 'other', type, raw: parsed }
