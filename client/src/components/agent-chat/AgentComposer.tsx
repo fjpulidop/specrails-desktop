@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { SendHorizontal, History, Square, Paperclip, X, Clock, Check, Pencil, Bot, Gauge } from 'lucide-react'
+import { SendHorizontal, History, Square, X, Clock, Check, Pencil, Bot, Gauge } from 'lucide-react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
 import { useBackgroundProcesses } from '../../context/BackgroundProcessesContext'
 import { useDesktop } from '../../hooks/useDesktop'
 import { API_ORIGIN } from '../../lib/origin'
 import { uploadAgentAttachment, deleteAgentAttachment, type AgentAttachment } from '../../lib/agent-api'
+import {
+  composerDrafts,
+  composerAttachmentDrafts,
+  NEW_MISSION_DRAFT_KEY,
+} from '../../lib/agent-composer-drafts'
+import { isBrowserCaptureEnabled } from '../../lib/browser-capture'
+import { AgentComposerAttachmentChip } from './AgentComposerAttachmentChip'
 import {
   buildPaletteItems,
   buildNoResultPaletteItems,
@@ -46,19 +53,11 @@ function removePaletteTriggerText(
   return { text: next, caret: before.length + bridge.length }
 }
 
-// Session-scoped composer drafts (design D15 — context/session state, never the
-// URL): the Mission⇄Board mode switch UNMOUNTS the composer, so a typed-but-
-// unsent prompt must survive outside component state. Keyed per conversation;
-// the EMPTY "new mission" compose screen shares one draft slot.
-const composerDrafts = new Map<string, string>()
-const composerAttachmentDrafts = new Map<string, AgentAttachment[]>()
-const NEW_MISSION_DRAFT_KEY = '__new-mission__'
-
-/** Test-only: reset the session draft store between cases. */
-export function __clearComposerDrafts(): void {
-  composerDrafts.clear()
-  composerAttachmentDrafts.clear()
-}
+// Session-scoped composer drafts — shared store in lib/agent-composer-drafts
+// (AgentChatContext.materializeDraftConversation migrates the new-mission slot
+// there, so externally-triggered materialization — e.g. a browser capture on
+// the empty compose screen — never loses the typed draft).
+export { __clearComposerDrafts } from '../../lib/agent-composer-drafts'
 
 /**
  * Shared agent composer — controls row (project · provider · model · effort · tier),
@@ -84,7 +83,7 @@ export function AgentComposer({
     send, abort, cycleTier, setProvider, setModel, setPinnedProject, materializeDraftConversation,
     queuedMessages, editQueuedMessage, wasQueueConsumed,
   } = useAgentChat()
-  const { pendingCaptures, consumePendingCaptures } = useAgentWorkspace()
+  const { pendingCaptures, consumePendingCaptures, openBrowser } = useAgentWorkspace()
   const { processes: backgroundProcesses, kill: killBackgroundProcess } = useBackgroundProcesses()
   const { projects, activeProjectId } = useDesktop()
   const draftKey = active?.id ?? NEW_MISSION_DRAFT_KEY
@@ -642,15 +641,15 @@ export function AgentComposer({
         </div>
       )}
       {attached.length > 0 && (
-        <div className="mb-1.5 flex flex-wrap gap-1.5">
+        <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
           {attached.map((a) => (
-            <span key={a.id} className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/70 px-2 py-0.5 text-[11px] text-foreground/80">
-              <Paperclip className="h-3 w-3 text-accent-primary" />
-              <span className="max-w-[160px] truncate">{a.filename}</span>
-              <button type="button" onClick={() => removeAttachment(a.id)} aria-label={t('close')} className="rounded-sm hover:bg-muted">
-                <X className="h-3 w-3" />
-              </button>
-            </span>
+            <AgentComposerAttachmentChip
+              key={a.id}
+              conversationId={activeId}
+              attachment={a}
+              removeLabel={t('close')}
+              onRemove={() => removeAttachment(a.id)}
+            />
           ))}
         </div>
       )}
@@ -716,6 +715,11 @@ export function AgentComposer({
           onAttachFile={() => {
             setPlusOpen(false)
             fileInputRef.current?.click()
+          }}
+          canBrowserCapture={isBrowserCaptureEnabled() && !!(pinnedProjectId ?? activeProjectId)}
+          onOpenBrowser={() => {
+            setPlusOpen(false)
+            openBrowser()
           }}
         />
         <div className="flex min-h-[3.25rem] flex-1 flex-wrap items-start gap-1.5">

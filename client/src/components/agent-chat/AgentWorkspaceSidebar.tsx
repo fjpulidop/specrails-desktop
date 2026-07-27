@@ -36,7 +36,7 @@ export function AgentWorkspaceSidebar() {
   const { activeProjectId } = useDesktop()
   const terminals = useTerminals()
   const workspace = useAgentWorkspace()
-  const { active, builderMode } = useAgentChat()
+  const { builderMode } = useAgentChat()
   const [hovered, setHovered] = useState(false)
   // Builder mode transforms this rail into the live blueprint panel (reskin
   // D4) — force it expanded for the duration so the panel is readable.
@@ -66,10 +66,11 @@ export function AgentWorkspaceSidebar() {
       ? [{
           key: 'browser', icon: Globe, label: t('workspace.browser'),
           onClick: () => workspace.openBrowser(),
-          // Captures are conversation-keyed (uploaded as agent attachments of the
-          // active conversation) — require one besides the project.
-          disabled: noProject || !active,
-          disabledTitle: noProject ? t('workspace.requiresProject') : t('workspace.requiresConversation'),
+          // Only the project gates the tool: on the EMPTY compose screen a
+          // capture materializes the draft mission (AgentBrowserCapture), so a
+          // conversation is no longer a precondition.
+          disabled: noProject,
+          disabledTitle: t('workspace.requiresProject'),
         }]
       : []),
     ...(FEATURE_TERMINAL_PANEL

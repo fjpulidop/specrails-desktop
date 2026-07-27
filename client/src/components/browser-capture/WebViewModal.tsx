@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, RotateCw, Globe, X, AlertTriangle, ExternalLink } from 'lucide-react'
 import { Button } from '../ui/button'
+import { NativeBrowserModal } from './NativeBrowserPane'
+import { isNativeBrowserAvailable } from '../../lib/native-browser'
 import { useBrowserCaptureSession } from './useBrowserCaptureSession'
 import {
   mapPointToViewport,
@@ -21,16 +23,51 @@ interface WebViewModalProps {
 }
 
 /**
- * Read-only embedded-browser modal: opens a link from a spec description inside
- * the app (instead of the OS browser), reusing the SAME headless-Chromium session
- * machinery as "From a website". It therefore shares the global browser profile
- * (cookies/logins) via the SharedBrowserContextPool — no separate auth. This is a
- * browse-only variant of BrowserCaptureModal (no select / capture / annotate).
+ * In-app browse surface router — the fallback ladder from the native-browser
+ * design (openspec: native-embedded-browser):
+ *   1. Tauri + flag + `browser_supported` → NativeBrowserModal (real child
+ *      webview, zero streaming — the Cursor-class experience).
+ *   2. Native probe/open failure → screencast variant for this session.
+ *   3. Plain browser / kill switch → screencast variant, byte-identical legacy.
+ *
+ * Excluded from coverage like the other browser-capture components; the ladder
+ * logic itself (`isNativeBrowserAvailable`) is unit-tested in lib/.
+ */
+export function WebViewModal({ open, url, projectId, onClose }: WebViewModalProps) {
+  const [engine, setEngine] = useState<'probing' | 'native' | 'screencast'>('probing')
+
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    void isNativeBrowserAvailable().then((ok) => {
+      if (alive) setEngine(ok ? 'native' : 'screencast')
+    })
+    return () => {
+      alive = false
+    }
+  }, [open])
+
+  if (!open) return null
+  // Sub-frame decision; rendering nothing briefly avoids creating a server-side
+  // screencast session that the native path would immediately orphan.
+  if (engine === 'probing') return null
+  if (engine === 'native') {
+    return <NativeBrowserModal url={url} onClose={onClose} onFallback={() => setEngine('screencast')} />
+  }
+  return <ScreencastWebViewModal open={open} url={url} projectId={projectId} onClose={onClose} />
+}
+
+/**
+ * Legacy read-only embedded-browser modal: opens a link inside the app reusing
+ * the SAME headless-Chromium session machinery as "From a website" (screencast
+ * over WS onto a canvas). Shares the global browser profile (cookies/logins)
+ * via the SharedBrowserContextPool. Browse-only variant of BrowserCaptureModal
+ * (no select / capture / annotate). Kept byte-identical as the fallback path.
  *
  * Excluded from coverage like the other browser-capture components (canvas + WS +
  * pointer input are not exercisable under jsdom).
  */
-export function WebViewModal({ open, url, projectId, onClose }: WebViewModalProps) {
+function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalProps) {
   const { t } = useTranslation('browser')
   const session = useBrowserCaptureSession({ projectId, open, initialUrl: url })
   const { canvasRef, viewport, status, errorMsg, url: pageUrl, title, popup } = session
@@ -125,12 +162,13 @@ export function WebViewModal({ open, url, projectId, onClose }: WebViewModalProp
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[80] bg-background-deep/50 backdrop-blur-sm pointer-events-auto"
+      className="fixed inset-0 z-[80] bg-background-deep/60 backdrop-blur-md pointer-events-auto"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       data-testid="webview-modal"
     >
+      {/* Large modal (visible app rim), matching BrowserCaptureModal's shell. */}
       <div
-        className="absolute inset-2 flex flex-col border border-border rounded-lg bg-background-deep overflow-hidden"
+        className="absolute inset-x-[4%] inset-y-[3.5%] flex flex-col border border-border/70 rounded-2xl bg-background-deep overflow-hidden shadow-2xl ring-1 ring-black/20"
         role="dialog"
         aria-modal="true"
         aria-label={t('modal.dialogLabel')}

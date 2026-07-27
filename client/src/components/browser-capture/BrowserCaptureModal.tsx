@@ -43,6 +43,9 @@ interface BrowserCaptureModalProps {
   /** Label for the annotation editor's primary confirm button, so the caller can
    *  reflect context ("Crear spec" vs "Actualizar spec"). */
   confirmLabel?: string
+  /** Label for the select-mode toggle button, so the caller can reflect its
+   *  destination ("Select to create spec" vs "Select to add to mission"). */
+  selectLabel?: string
 }
 
 interface SelectionBox {
@@ -66,7 +69,7 @@ const PRESET_DIMS: Record<Exclude<ViewportPreset, 'fit'>, { w: number; h: number
  * select mode a drag rectangle is captured (screenshot + DOM) and handed back to
  * Add Spec. Excluded from coverage (canvas + WS + pointer drag is not jsdom-able).
  */
-export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, onCaptured, confirmLabel }: BrowserCaptureModalProps) {
+export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, onCaptured, confirmLabel, selectLabel }: BrowserCaptureModalProps) {
   const { t } = useTranslation('browser')
   const session = useBrowserCaptureSession({ projectId, open })
   const { canvasRef, viewport, status, errorMsg, url, title, hoverRect, hoverSelector, hoverPath, popup } = session
@@ -414,13 +417,14 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
     // Translucent backdrop gutter — clicking it closes the capture modal and
     // returns to Add Spec. The Add Spec modal stays mounted underneath.
     <div
-      className="fixed inset-0 z-[80] bg-background-deep/50 backdrop-blur-sm pointer-events-auto"
+      className="fixed inset-0 z-[80] bg-background-deep/60 backdrop-blur-md pointer-events-auto"
       onClick={onBackdropClick}
     >
-      {/* Near-full-bleed panel with hairline border. stopPropagation so only
-          clicking the gutter (outside this div) triggers the backdrop close. */}
+      {/* Large MODAL panel (not full-bleed): a visible rim of the app around it
+          keeps the browser readable as part of Specrails. stopPropagation so
+          only clicking the gutter (outside this div) triggers backdrop close. */}
       <div
-        className="absolute inset-2 flex flex-col border border-border rounded-lg bg-background-deep overflow-hidden"
+        className="absolute inset-x-[4%] inset-y-[3.5%] flex flex-col border border-border/70 rounded-2xl bg-background-deep overflow-hidden shadow-2xl ring-1 ring-black/20"
         role="dialog"
         aria-modal="true"
         aria-label={t('modal.dialogLabel')}
@@ -517,7 +521,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           data-testid="browser-select-toggle"
         >
           <Crop className="w-3.5 h-3.5" />
-          {selecting ? t('modal.select.active') : t('modal.select.start')}
+          {selecting ? t('modal.select.active') : (selectLabel ?? t('modal.select.start'))}
         </Button>
         <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={t('modal.closeBrowser')} onClick={onClose}><X className="w-4 h-4" /></Button>
       </div>

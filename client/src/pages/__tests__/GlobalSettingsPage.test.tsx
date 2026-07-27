@@ -14,7 +14,10 @@ vi.mock('sonner', () => ({
 
 // MobileAccessSection (rendered inside the settings page) subscribes to the
 // shared socket for live device updates; stub it so no provider is required.
+// SpecrailsAgentsSection → useProviderDetection reads the raw context export,
+// so the mock must ship it too (a missing export throws on property access).
 vi.mock('../../hooks/useSharedWebSocket', () => ({
+  SharedWebSocketContext: React.createContext(null),
   useSharedWebSocket: () => ({
     registerHandler: vi.fn(),
     unregisterHandler: vi.fn(),

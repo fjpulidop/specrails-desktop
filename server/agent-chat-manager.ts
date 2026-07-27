@@ -444,7 +444,28 @@ export class AgentChatManager {
                 break
               case 'tool-use':
                 if (this._active.has(conversationId)) {
-                  this._broadcast({ type: 'agent_tool', conversationId, tool: ev.name, timestamp: timestamp() })
+                  this._broadcast({
+                    type: 'agent_tool',
+                    conversationId,
+                    tool: ev.name,
+                    ...(ev.inputPreview ? { input: ev.inputPreview } : {}),
+                    ...(ev.toolUseId ? { toolId: ev.toolUseId } : {}),
+                    timestamp: timestamp(),
+                  })
+                }
+                break
+              case 'tool-result':
+                // Feeds the activity-log modal's output column. Claude-only
+                // today; other adapters never emit this kind.
+                if (this._active.has(conversationId)) {
+                  this._broadcast({
+                    type: 'agent_tool_result',
+                    conversationId,
+                    ...(ev.toolUseId ? { toolId: ev.toolUseId } : {}),
+                    output: ev.outputPreview,
+                    ...(ev.isError ? { isError: true } : {}),
+                    timestamp: timestamp(),
+                  })
                 }
                 break
               case 'session-started':

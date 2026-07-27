@@ -62,6 +62,7 @@
   "desktop": {
     "nav": {
       "appearance": "Apparence",
+      "specrailsAgents": "Specrails Agents",
       "code": "Code",
       "terminal": "Terminal",
       "updates": "Mises à jour",
@@ -279,5 +280,30 @@
     "saveFailed": "Impossible d'enregistrer l'environnement des worktrees",
     "invalidName": "{{name}} n'est pas un nom de variable d'environnement valide",
     "noValues": "Ajoutez uniquement des noms de variables, pas de secrets KEY=value."
+  },
+  "specrailsAgents": {
+    "heading": "Specrails Agents",
+    "description": "Personnalisez les agents du pipeline specrails-core par fournisseur d'IA — modèle et effort de raisonnement. Les changements s'appliquent à la prochaine exécution, sans redémarrage.",
+    "loadFailed": "Impossible de charger les réglages des agents.",
+    "modeDefault": "Par défaut",
+    "modeCustom": "Personnalisé",
+    "notDetected": "Non détecté",
+    "notSignedIn": "Non connecté",
+    "pipeline": "Pipeline",
+    "pipelineHint": "Modèle et effort pour toute l'exécution — les sous-agents en héritent sauf réglage ci-dessous.",
+    "model": "Modèle",
+    "effort": "Effort",
+    "defaultModel": "Par défaut ({{model}})",
+    "defaultEffort": "Effort par défaut",
+    "agentsTitle": "Agents du pipeline",
+    "agentsHint": "Modèle par agent pour ce fournisseur.",
+    "inheritNote": "Les sous-agents Codex héritent du modèle et de l'effort du pipeline, par conception.",
+    "noPerAgentNote": "Ce fournisseur ne prend pas en charge les modèles par agent.",
+    "reset": "Restaurer les valeurs par défaut",
+    "agentNames": {
+      "sr-architect": "Architecte",
+      "sr-developer": "Développeur",
+      "sr-reviewer": "Réviseur"
+    }
   }
 }

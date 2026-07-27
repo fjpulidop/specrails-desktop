@@ -30,8 +30,15 @@ import {
   buildProviderEnv,
   buildProviderRepoAccessArgs,
   formatProviderCommand,
+  isReasoningEffortValidForModel,
   parseStreamEvents,
 } from './providers/runtime'
+import {
+  GLOBAL_DEFAULTS_PROFILE_NAME,
+  mergeProfileWithAgentDefaults,
+  synthesizeProfileFromDefaults,
+  type ResolvedProviderAgentDefaults,
+} from './agent-defaults'
 import { createCodexOtelBridge, type CodexOtelBridge } from './codex-otel-bridge'
 import { createJob, deleteQueuedJob, finishJob, appendEvent, skipJob, getProjectSettings, getFreestylePrePrompt, DEFAULT_FREESTYLE_PRE_PROMPT, upsertQueuedJob } from './db'
 import type { DbInstance, JobResult, QueuedJobRecord } from './db'
@@ -401,6 +408,7 @@ export class QueueManager {
    *  For codex it controls the catalog model used at spawn time and as the
    *  fallback model name stamped onto the ai_invocations row. */
   private _resolvedModel: string | null
+  private _agentDefaults: ((provider: string) => ResolvedProviderAgentDefaults | null) | null
   private _onJobFinished:
     | ((
         jobId: string,
@@ -514,6 +522,11 @@ export class QueueManager {
       provider?: ProviderId
       /** Effective model for codex spawns. If omitted, falls back to 'gpt-5.5'. */
       resolvedModel?: string
+      /** Global Specrails Agents defaults layer (app Settings ▸ Specrails
+       *  Agents). Resolved AT SPAWN TIME so a settings change applies to the
+       *  next job with zero restart. Slots below every project-level choice
+       *  and above the built-in adapter defaults. */
+      agentDefaults?: (provider: string) => ResolvedProviderAgentDefaults | null
       /** Terminal-status callback. On `completed` exits the 4th arg carries the
        *  spawn-captured PR-delivery mode as `ticketCompletionStatus`
        *  (`'on_review'` when SPECRAILS_RAIL_DELIVER_PR was on at spawn — the
@@ -575,6 +588,7 @@ export class QueueManager {
     this._getDesktopDailyBudget = options?.getDesktopDailyBudget ?? null
     this._adapter = getAdapter(options?.provider ?? 'claude')
     this._resolvedModel = options?.resolvedModel ?? null
+    this._agentDefaults = options?.agentDefaults ?? null
     this._onJobFinished = options?.onJobFinished ?? null
     this._onJobAdmission = options?.onJobAdmission ?? null
     this._onBudgetExceeded = options?.onBudgetExceeded ?? null
@@ -2632,9 +2646,17 @@ export class QueueManager {
     // Per-job model override (consumed once) takes precedence — used by the
     // freestyle model picker so the user can choose haiku/sonnet/opus per launch.
     const modelOverride = this._jobModelSelection.get(jobId)
-    const fallbackRailModel = adapter.id === 'claude' && this._db
-      ? getProjectSettings(this._db).orchestratorModel
-      : (this._resolvedModel ?? adapter.defaultModel())
+    // Global Specrails Agents defaults (app Settings ▸ Specrails Agents) —
+    // read AT SPAWN TIME (no restart) and layered BELOW every project-level
+    // choice, ABOVE the built-in adapter default.
+    let globalAgentDefaults: ResolvedProviderAgentDefaults | null = null
+    try { globalAgentDefaults = this._agentDefaults?.(adapter.id) ?? null } catch { globalAgentDefaults = null }
+    const claudeProjectSettings = adapter.id === 'claude' && this._db ? getProjectSettings(this._db) : null
+    const fallbackRailModel = claudeProjectSettings
+      ? (claudeProjectSettings.orchestratorModelExplicit
+        ? claudeProjectSettings.orchestratorModel
+        : globalAgentDefaults?.pipelineModel ?? claudeProjectSettings.orchestratorModel)
+      : (this._resolvedModel ?? globalAgentDefaults?.pipelineModel ?? adapter.defaultModel())
     // Relocate-artifacts: when relocated, claude is spawned from the workspace
     // so add `--add-dir <repoDir>` so its tools can still reach repo files by
     // absolute path. (gemini/codex get env-only tweaks at spawn time below.)
@@ -2665,7 +2687,22 @@ export class QueueManager {
             snapshotForJob,
             persistJobProfile,
           } = require('./profile-manager') as typeof import('./profile-manager')
-          const resolved = resolveProfile(execution.cwd, selection ?? undefined, adapter.id)
+          let resolved = resolveProfile(execution.cwd, selection ?? undefined, adapter.id)
+          // Global agent defaults: fill per-agent model gaps in the resolved
+          // profile, or synthesize a baseline profile when the project has
+          // none. Explicit profile choices always win; inert when the global
+          // layer is off (byte-identical legacy behaviour).
+          if (globalAgentDefaults && adapter.capabilities.profiles === true) {
+            if (resolved) {
+              const merged = mergeProfileWithAgentDefaults(resolved.profile, globalAgentDefaults)
+              if (merged.changed) resolved = { name: resolved.name, profile: merged.profile }
+            } else if (Object.keys(globalAgentDefaults.agentModels).length > 0) {
+              resolved = {
+                name: GLOBAL_DEFAULTS_PROFILE_NAME,
+                profile: synthesizeProfileFromDefaults(adapter, globalAgentDefaults),
+              }
+            }
+          }
           if (resolved) {
             profileSnapshotPath = snapshotForJob(this._projectSlug, jobId, resolved)
             profileName = resolved.name
@@ -2686,10 +2723,20 @@ export class QueueManager {
     // explicit per-job override > resolved profile orchestrator > project/default.
     // resolveProfile validates the profile model against this adapter's catalog.
     const railModel = modelOverride ?? profileOrchestratorModel ?? fallbackRailModel
+    // Pipeline-level reasoning effort from the global layer (rails never had a
+    // per-job effort knob, so this is purely additive). Validated against the
+    // FINAL model — claude/codex sub-agents inherit the process-level effort,
+    // kimi rides its env knob via buildProviderEnv, gemini has no effort.
+    const globalRailEffort =
+      globalAgentDefaults?.pipelineEffort
+        && isReasoningEffortValidForModel(adapter, railModel, globalAgentDefaults.pipelineEffort)
+        ? globalAgentDefaults.pipelineEffort
+        : undefined
     const railSpawnOptions = {
       prompt: railPrompt,
       systemPrompt: systemAppend || undefined,
       model: railModel,
+      ...(globalRailEffort ? { reasoning_effort: globalRailEffort } : {}),
       extraArgs: railExtraArgs.length > 0 ? railExtraArgs : undefined,
     }
     const args = adapter.buildArgs('rail-job', railSpawnOptions)
@@ -2914,6 +2961,7 @@ export class QueueManager {
         // spawn and APPEND on top of the CLI default instead of replacing it.
         systemPrompt: isFreestyle ? (systemAppend || undefined) : undefined,
         model: railModel,
+        ...(globalRailEffort ? { reasoning_effort: globalRailEffort } : {}),
         extraArgs: !isFreestyle && systemAppend
           ? ['--append-system-prompt', systemAppend, ...(railExtraArgs ?? [])]
           : (railExtraArgs.length > 0 ? railExtraArgs : undefined),

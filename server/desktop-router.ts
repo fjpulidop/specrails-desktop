@@ -25,6 +25,12 @@ import {
   isCodexBetaDisabled,
   isGeminiBetaDisabled,
 } from './provider-detection'
+import {
+  AgentDefaultsValidationError,
+  applyAgentDefaultsPatch,
+  buildAgentDefaultsCatalog,
+  readAgentDefaultsSettings,
+} from './agent-defaults'
 import { workspacePathFor } from './workspace-manager'
 import { isWorkspacePopulated } from './workspace-resolution'
 import type { DetectionResult, ProviderAdapter } from './providers/types'
@@ -1199,6 +1205,29 @@ export function createDesktopRouter(
     const parsed = budgetRaw !== undefined ? Number(budgetRaw) : NaN
     const monthlyBudgetUsd = Number.isFinite(parsed) && parsed >= 0 ? parsed : 5.0
     res.json({ language, monthlyBudgetUsd })
+  })
+
+  // ─── Specrails Agents defaults (global per-provider agent model/effort) ───
+  // App-level layer read AT SPAWN TIME by QueueManager / rails-router / loop
+  // executors — a change applies to the next run with zero restart.
+  router.get('/agent-defaults', (_req, res) => {
+    res.json({
+      settings: readAgentDefaultsSettings(registry.desktopDb),
+      catalog: buildAgentDefaultsCatalog(),
+    })
+  })
+
+  router.patch('/agent-defaults', (req, res) => {
+    try {
+      const settings = applyAgentDefaultsPatch(registry.desktopDb, req.body)
+      res.json({ settings, catalog: buildAgentDefaultsCatalog() })
+    } catch (err) {
+      if (err instanceof AgentDefaultsValidationError) {
+        res.status(400).json({ error: err.code, message: err.message })
+        return
+      }
+      res.status(500).json({ error: 'agent_defaults_failed', message: (err as Error).message })
+    }
   })
 
   // ─── specrails-core update channel (app-global) ─────────────────────────────

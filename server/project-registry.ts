@@ -4,6 +4,7 @@ import os from 'os'
 import type { DbInstance } from './db'
 import { initDb } from './db'
 import { QueueManager } from './queue-manager'
+import { createLoopProfilePathResolver, resolveAgentDefaults } from './agent-defaults'
 import { ChatManager } from './chat-manager'
 import { SetupManager } from './setup-manager'
 import { ProposalManager } from './proposal-manager'
@@ -521,6 +522,10 @@ export class ProjectRegistry {
       projectId: project.id,
       projectSlug: project.slug,
       desktopPort: this._desktopPort,
+      // Global Specrails Agents defaults — resolved at spawn time from
+      // desktop.sqlite so a Settings change applies to the next job without
+      // restarting (mirrors the pipelineTelemetryEnabled read-at-spawn rule).
+      agentDefaults: (provider) => resolveAgentDefaults(this._desktopDb, provider),
       onJobAdmission: (projectDb, job) => {
         const ticketIds = extractTicketIdsFromCommand(job.command)
         claimTicketOutcomeOwners(projectDb, ticketIds, job.id)
@@ -943,6 +948,22 @@ export class ProjectRegistry {
         undefined,
         applyWorktreeEnvPassthrough(db, process.env),
       ),
+      // Global Specrails Agents defaults, loop path: per-agent model overrides
+      // ride SPECRAILS_PROFILE_PATH on each ai-step spawn. Resolved per step
+      // (no restart); inert (null) unless the global layer carries per-agent
+      // models for the provider — byte-identical legacy behaviour otherwise.
+      profilePathFor: createLoopProfilePathResolver({
+        desktopDb: this._desktopDb,
+        profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
+        // Lazy require: several suites mock './queue-manager' with only the
+        // class export — a top-level named import would throw on module eval.
+        // The closure only runs at loop ai-step spawn time, never in tests
+        // that stub the queue.
+        supportsProfiles: (root) => {
+          const { projectSupportsProfiles } = require('./queue-manager') as typeof import('./queue-manager')
+          return projectSupportsProfiles(root)
+        },
+      }),
     }))
 
     const getTicketSpec = (ticketId: number): LoopSpec | undefined => {

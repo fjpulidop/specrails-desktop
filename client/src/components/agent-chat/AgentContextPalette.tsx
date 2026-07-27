@@ -189,6 +189,8 @@ export function AgentPlusMenu({
   onClose,
   onOpenMode,
   onAttachFile,
+  canBrowserCapture,
+  onOpenBrowser,
 }: {
   open: boolean
   canAttach: boolean
@@ -197,6 +199,11 @@ export function AgentPlusMenu({
   onClose: () => void
   onOpenMode: (mode: AgentPaletteMode) => void
   onAttachFile: () => void
+  /** Browser capture is available when the capture feature is on and a project
+   *  is active — a conversation is NOT required (a capture on the empty compose
+   *  screen materializes the draft mission). */
+  canBrowserCapture: boolean
+  onOpenBrowser: () => void
 }) {
   const { t } = useTranslation('agent')
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -273,8 +280,11 @@ export function AgentPlusMenu({
           </button>
           <button
             type="button"
-            disabled
-            className="flex w-full cursor-not-allowed items-center gap-2 px-3 py-2 text-left text-sm opacity-45"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => { onClose(); onOpenBrowser() }}
+            disabled={!canBrowserCapture}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface disabled:cursor-not-allowed disabled:opacity-45"
+            data-testid="agent-plus-browser-capture"
           >
             <Camera className="h-4 w-4 text-foreground/50" />
             <span className="min-w-0 flex-1">

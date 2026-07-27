@@ -148,7 +148,7 @@
       "fileAttachment": "文件附件",
       "fileAttachmentHint": "添加文档、图片、日志",
       "browserCapture": "浏览器捕获",
-      "browserCaptureHint": "可从工作区浏览器使用"
+      "browserCaptureHint": "捕获页面区域并添加到此任务"
     }
   },
   "mission": {
@@ -208,6 +208,7 @@
     "resizeCode": "调整代码面板",
     "closeFiles": "关闭代码",
     "browserConfirm": "添加到智能体",
+    "browserSelectStart": "选择以添加到任务",
     "browserCaptured": "已添加捕获",
     "uploadFailed": "上传失败",
     "requiresConversation": "启动任务后才能使用此工具",
@@ -451,5 +452,18 @@
     "deleteConfirm": "删除此任务？此操作无法撤销。",
     "deleteFailed": "无法删除任务"
   },
-  "emptyTitleCodeRain": "接下来要构建什么？"
+  "emptyTitleCodeRain": "接下来要构建什么？",
+  "activity": {
+    "title": "执行日志",
+    "live": "实时",
+    "empty": "本回合尚无工具活动。",
+    "output": "输出",
+    "error": "错误",
+    "copyAll": "复制完整日志",
+    "copyEntry": "复制条目",
+    "copySuccess": "日志已复制到剪贴板",
+    "copyFailed": "无法复制日志",
+    "openLog": "查看执行日志",
+    "close": "关闭"
+  }
 }

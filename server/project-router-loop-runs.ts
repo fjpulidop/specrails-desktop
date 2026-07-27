@@ -12,6 +12,8 @@ import { getLoop } from './loops-store'
 import { getLoopRun } from './loop-runs-store'
 import { loadConstantMap } from './loop-constants'
 import { getAdapter, hasAdapter, reasoningEffortsForModel, supportsToolPolicy } from './providers'
+import { isReasoningEffortValidForModel } from './providers/runtime'
+import { resolveAgentDefaults } from './agent-defaults'
 import { validateRequestedProvider } from './provider-selection'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from './spec-models'
 import { resolveProjectExecution } from './workspace-resolution'
@@ -92,7 +94,9 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     }
 
     // Optional explicit model — validated against the chosen provider's catalog
-    // (mirrors Add Spec). Omitted ⇒ the provider's default.
+    // (mirrors Add Spec). Omitted ⇒ the global Specrails Agents default when
+    // set (read at launch time — no restart), else the provider's default.
+    const globalAgentDefaults = resolveAgentDefaults(c.desktopDb, provider)
     let model: string
     if (requestedModel !== undefined && requestedModel !== null) {
       if (!isValidModelForProvider(requestedModel, provider as SpecProvider)) {
@@ -100,7 +104,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       }
       model = requestedModel
     } else {
-      model = adapter.defaultModel()
+      model = globalAgentDefaults?.pipelineModel ?? adapter.defaultModel()
     }
     let effort: ReasoningEffort | undefined
     if (reasoning_effort !== undefined && reasoning_effort !== null) {
@@ -115,6 +119,11 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
         }); return
       }
       effort = reasoning_effort as ReasoningEffort
+    } else if (
+      globalAgentDefaults?.pipelineEffort
+      && isReasoningEffortValidForModel(adapter, model, globalAgentDefaults.pipelineEffort)
+    ) {
+      effort = globalAgentDefaults.pipelineEffort as ReasoningEffort
     }
     const exec = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
     const runId = newId()

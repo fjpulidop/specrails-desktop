@@ -1,3 +1,4 @@
+import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { render } from '../../test-utils'
@@ -16,6 +17,9 @@ beforeEach(() => {
 // MobileAccessSection subscribes to the shared socket for live device updates;
 // stub it so the settings page renders without a SharedWebSocketProvider.
 vi.mock('../../hooks/useSharedWebSocket', () => ({
+  // SpecrailsAgentsSection → useProviderDetection reads the raw context
+  // export; a missing export throws on property access under vitest mocks.
+  SharedWebSocketContext: React.createContext(null),
   useSharedWebSocket: () => ({
     registerHandler: vi.fn(),
     unregisterHandler: vi.fn(),

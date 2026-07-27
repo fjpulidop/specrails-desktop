@@ -90,6 +90,7 @@ vi.mock('sonner', () => ({
 import { toast } from 'sonner'
 import * as agentApi from '../../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../../context/AgentChatContext'
+import { AgentWorkspaceProvider, useAgentWorkspace } from '../../../context/AgentWorkspaceContext'
 import { AgentComposer, __clearComposerDrafts } from '../AgentComposer'
 import { AgentTierChip } from '../AgentTierChip'
 import { AgentProjectSelector } from '../AgentProjectSelector'
@@ -472,6 +473,10 @@ function Harness() {
       <span data-testid="streaming">{String(a.isStreaming)}</span>
       <span data-testid="stream">{a.streamingText}</span>
       <span data-testid="tools">{a.liveTools.length}</span>
+      <span data-testid="turn-tools">{a.turnTools.length}</span>
+      <span data-testid="tool-detail">
+        {a.liveTools.map((t) => `${t.tool}:${t.input ?? ''}:${t.output ?? ''}${t.isError ? ':err' : ''}`).join('|')}
+      </span>
       <span data-testid="queued">{a.queuedMessages.length}</span>
       <span data-testid="queued-texts">{a.queuedMessages.map((q) => q.text).join('|')}</span>
       <span data-testid="live-ids">{[...a.streamingConversationIds].sort().join(',')}</span>
@@ -490,6 +495,37 @@ function Harness() {
     </div>
   )
 }
+
+describe('Browser-capture adoption (mission flow)', () => {
+  it('adopts a queued capture as a VISIBLE thumbnail chip after materializing the mission', async () => {
+    // The exact empty-compose-screen flow AgentBrowserCapture runs: materialize
+    // the draft mission, upload, queueCapture — the composer must show the chip.
+    let workspace: ReturnType<typeof useAgentWorkspace> | null = null
+    let chat: ReturnType<typeof useAgentChat> | null = null
+    function Probe() {
+      workspace = useAgentWorkspace()
+      chat = useAgentChat()
+      return null
+    }
+    vi.mocked(agentApi.fetchAgentAttachmentBlob).mockResolvedValue(new Blob(['png'], { type: 'image/png' }))
+    render(
+      <AgentWorkspaceProvider>
+        <AgentChatProvider>
+          <AgentComposer />
+          <Probe />
+        </AgentChatProvider>
+      </AgentWorkspaceProvider>,
+    )
+
+    await act(async () => { await chat!.materializeDraftConversation() })
+    act(() => {
+      workspace!.queueCapture({ id: 'att-cap', filename: 'capture-9.png', mimeType: 'image/png', size: 3 } as agentApi.AgentAttachment)
+    })
+
+    expect(await screen.findByTestId('composer-attachment-thumb')).toBeInTheDocument()
+    expect(await screen.findByAltText('capture-9.png')).toBeInTheDocument()
+  })
+})
 
 describe('AgentChatProvider', () => {
   it('keeps project, provider, model and effort selectors visually coherent', async () => {
@@ -580,6 +616,30 @@ describe('AgentChatProvider', () => {
     await waitFor(() => expect(agentApi.createAgentConversation).toHaveBeenCalled())
     await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'OTHER', delta: 'x' }) })
     expect(screen.getByTestId('stream').textContent).toBe('')
+  })
+
+  it('accumulates tool inputs, merges tool results, and keeps the turn log past settle', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(agentApi.createAgentConversation).toHaveBeenCalled())
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+
+    await act(async () => {
+      wsHandler!({ type: 'agent_tool', conversationId: 'c1', tool: 'Bash', input: '{"command":"ls"}', toolId: 'tu_1', timestamp: '2026-07-27T10:00:00.000Z' })
+      wsHandler!({ type: 'agent_tool', conversationId: 'c1', tool: 'Read', input: '{"file_path":"/a"}' })
+      // Correlated by toolId → lands on the Bash entry, not the last one.
+      wsHandler!({ type: 'agent_tool_result', conversationId: 'c1', toolId: 'tu_1', output: 'file-a\nfile-b' })
+      // No toolId → falls back to the LAST entry still missing an output.
+      wsHandler!({ type: 'agent_tool_result', conversationId: 'c1', output: 'boom', isError: true })
+    })
+    expect(screen.getByTestId('tools').textContent).toBe('2')
+    expect(screen.getByTestId('tool-detail').textContent)
+      .toBe('Bash:{"command":"ls"}:file-a\nfile-b|Read:{"file_path":"/a"}:boom:err')
+
+    // Settle: live slice resets but the finished turn survives as turnTools.
+    await act(async () => { wsHandler!({ type: 'agent_done', conversationId: 'c1', fullText: 'done' }) })
+    expect(screen.getByTestId('tools').textContent).toBe('0')
+    expect(screen.getByTestId('turn-tools').textContent).toBe('2')
   })
 
   it('cycles the tier through the API', async () => {

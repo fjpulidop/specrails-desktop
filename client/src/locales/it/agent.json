@@ -148,7 +148,7 @@
       "fileAttachment": "File allegato",
       "fileAttachmentHint": "Aggiungi doc, immagini, log",
       "browserCapture": "Cattura browser",
-      "browserCaptureHint": "Disponibile dal browser del workspace"
+      "browserCaptureHint": "Cattura un'area della pagina per questa missione"
     }
   },
   "mission": {
@@ -208,6 +208,7 @@
     "resizeCode": "Ridimensiona pannello codice",
     "closeFiles": "Chiudi codice",
     "browserConfirm": "Aggiungi all'agente",
+    "browserSelectStart": "Seleziona per aggiungere alla missione",
     "browserCaptured": "Cattura aggiunta",
     "uploadFailed": "Caricamento non riuscito",
     "requiresConversation": "Avvia una missione per usare questo strumento",
@@ -451,5 +452,18 @@
     "deleteConfirm": "Eliminare questa missione? Non è reversibile.",
     "deleteFailed": "Impossibile eliminare la missione"
   },
-  "emptyTitleCodeRain": "Cosa costruiamo adesso?"
+  "emptyTitleCodeRain": "Cosa costruiamo adesso?",
+  "activity": {
+    "title": "Log di esecuzione",
+    "live": "In diretta",
+    "empty": "Nessuna attività degli strumenti in questo turno.",
+    "output": "Output",
+    "error": "Errore",
+    "copyAll": "Copia log completo",
+    "copyEntry": "Copia voce",
+    "copySuccess": "Log copiato negli appunti",
+    "copyFailed": "Impossibile copiare il log",
+    "openLog": "Vedi log di esecuzione",
+    "close": "Chiudi"
+  }
 }

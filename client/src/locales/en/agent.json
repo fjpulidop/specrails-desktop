@@ -148,7 +148,7 @@
       "fileAttachment": "File attachment",
       "fileAttachmentHint": "Add docs, images, logs",
       "browserCapture": "Browser capture",
-      "browserCaptureHint": "Available from workspace browser"
+      "browserCaptureHint": "Capture a page region into this mission"
     }
   },
   "mission": {
@@ -208,6 +208,7 @@
     "resizeCode": "Resize code pane",
     "closeFiles": "Close code",
     "browserConfirm": "Add to agent",
+    "browserSelectStart": "Select to add to mission",
     "browserCaptured": "Capture added",
     "uploadFailed": "Upload failed",
     "requiresConversation": "Start a mission to use this tool",
@@ -451,5 +452,18 @@
     "deleteConfirm": "Delete this mission? This cannot be undone.",
     "deleteFailed": "Could not delete the mission"
   },
-  "emptyTitleCodeRain": "What should we build next?"
+  "emptyTitleCodeRain": "What should we build next?",
+  "activity": {
+    "title": "Execution log",
+    "live": "Live",
+    "empty": "No tool activity in this turn yet.",
+    "output": "Output",
+    "error": "Error",
+    "copyAll": "Copy full log",
+    "copyEntry": "Copy entry",
+    "copySuccess": "Log copied to clipboard",
+    "copyFailed": "Could not copy the log",
+    "openLog": "View execution log",
+    "close": "Close"
+  }
 }

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { GitBranch, ChevronDown, Check, Search, Loader2, FolderGit2, Copy } from 'lucide-react'
 import { API_ORIGIN } from '../../lib/origin'
 import { useAgentChat } from '../../context/AgentChatContext'
+import { subscribeGitChanged } from '../../lib/git-refresh'
 
 interface GitWorktree {
   path: string
@@ -62,6 +63,15 @@ export function AgentGitBar({ projectId }: { projectId: string }) {
     if (prevStreamingRef.current && !isStreaming) void refresh()
     prevStreamingRef.current = isStreaming
   }, [isStreaming, refresh])
+
+  // Client-side repo mutations (PR-card Checkout / Integrate locally / Discard)
+  // notify through the git-refresh bus — reflect them here IMMEDIATELY instead
+  // of waiting for the next turn settle.
+  useEffect(() => {
+    return subscribeGitChanged((changedProjectId) => {
+      if (changedProjectId === projectId) void refresh()
+    })
+  }, [projectId, refresh])
 
   // Click-away closes the dropdown (same pattern as AgentProjectSelector).
   useEffect(() => {

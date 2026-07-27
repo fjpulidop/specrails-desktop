@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { AgentAttachment } from '../lib/agent-api'
 
 /**
@@ -50,15 +50,22 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const toggleAnalyticsPane = useCallback(() => setAnalyticsPaneOpen((v) => !v), [])
   const openBrowser = useCallback(() => setBrowserOpen(true), [])
   const closeBrowser = useCallback(() => setBrowserOpen(false), [])
+  // The queue ALSO lives in a ref: `consumePendingCaptures` must return the
+  // pending items synchronously, and reading them inside a functional setState
+  // updater is NOT reliable — React only runs the updater eagerly when the
+  // hook's update queue is empty, otherwise it defers it and the consumer saw
+  // `[]` (the captured screenshot silently never became a composer chip).
+  const pendingCapturesRef = useRef<AgentAttachment[]>([])
   const queueCapture = useCallback((att: AgentAttachment) => {
-    setPendingCaptures((prev) => [...prev, att])
+    pendingCapturesRef.current = [...pendingCapturesRef.current, att]
+    setPendingCaptures(pendingCapturesRef.current)
   }, [])
   const consumePendingCaptures = useCallback(() => {
-    let taken: AgentAttachment[] = []
-    setPendingCaptures((prev) => {
-      taken = prev
-      return prev.length ? [] : prev
-    })
+    const taken = pendingCapturesRef.current
+    if (taken.length) {
+      pendingCapturesRef.current = []
+      setPendingCaptures([])
+    }
     return taken
   }, [])
 

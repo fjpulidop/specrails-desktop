@@ -133,10 +133,24 @@ export function createLoopExecutors(
      *  inject core's workspace artifact indirection (and a project relocated
      *  AFTER server start is picked up without a restart). Default process.env. */
     env?: NodeJS.ProcessEnv | (() => NodeJS.ProcessEnv)
+    /** Global Specrails Agents defaults seam: per-step SPECRAILS_PROFILE_PATH
+     *  for ai-steps (per-agent model overrides). Re-resolved per step so a
+     *  Settings change applies to the next step without restart; null ⇒ no
+     *  injection (byte-identical legacy — core's own file fallback rules). */
+    profilePathFor?: (provider: string) => string | null
   } = {},
 ): LoopExecutors {
   const resolveEnv = (): NodeJS.ProcessEnv =>
     typeof opts.env === 'function' ? opts.env() : opts.env ?? process.env
+  // Deciders deliberately excluded: they run no pipeline agents.
+  const withProfileEnv = (env: NodeJS.ProcessEnv, provider: string): NodeJS.ProcessEnv => {
+    try {
+      const profilePath = opts.profilePathFor?.(provider) ?? null
+      return profilePath ? { ...env, SPECRAILS_PROFILE_PATH: profilePath } : env
+    } catch {
+      return env
+    }
+  }
   return {
     // Cheap working-tree fingerprint for the engine's non-convergence guard:
     // HEAD sha + the porcelain dirty set, hashed. Two identical fingerprints
@@ -165,7 +179,7 @@ export function createLoopExecutors(
       // for the pipeline's I/O exactly like QueueManager: SPECRAILS_REPO_DIR +
       // claude `--add-dir <repoDir>` (see the shared helpers above). Best-effort
       // agent self-heal on Windows.
-      const stepEnv = aiStepEnv(resolveEnv(), repoDir)
+      const stepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir), provider)
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
       const effectivePrompt = formatProviderCommand(
         adapter,
@@ -297,7 +311,7 @@ export function createLoopExecutors(
       if (!isInteractiveJobsEnabled()) return null
       const adapter = getAdapter(provider)
       if (!adapter.capabilities.persistentStdin) return null
-      const stepEnv = aiStepEnv(resolveEnv(), repoDir)
+      const stepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir), provider)
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       // Pre-trust the spawn dir so headless claude honours the overlaid

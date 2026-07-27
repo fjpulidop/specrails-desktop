@@ -62,6 +62,7 @@
   "desktop": {
     "nav": {
       "appearance": "Appearance",
+      "specrailsAgents": "Specrails Agents",
       "code": "Code",
       "terminal": "Terminal",
       "updates": "Updates",
@@ -279,5 +280,30 @@
     "saveFailed": "Could not save the worktree environment",
     "invalidName": "{{name}} is not a valid environment variable name",
     "noValues": "Add only variable names here, not KEY=value secrets."
+  },
+  "specrailsAgents": {
+    "heading": "Specrails Agents",
+    "description": "Customize the specrails-core pipeline agents per AI provider — model and reasoning effort. Changes apply to the next run, no restart needed.",
+    "loadFailed": "Could not load the agent defaults.",
+    "modeDefault": "Default",
+    "modeCustom": "Custom",
+    "notDetected": "Not detected",
+    "notSignedIn": "Not signed in",
+    "pipeline": "Pipeline",
+    "pipelineHint": "Model and effort for the whole run — sub-agents inherit them unless overridden below.",
+    "model": "Model",
+    "effort": "Effort",
+    "defaultModel": "Default ({{model}})",
+    "defaultEffort": "Default effort",
+    "agentsTitle": "Pipeline agents",
+    "agentsHint": "Per-agent model override for this provider.",
+    "inheritNote": "Codex sub-agents inherit the pipeline model and effort by design.",
+    "noPerAgentNote": "This provider does not support per-agent model overrides.",
+    "reset": "Restore defaults",
+    "agentNames": {
+      "sr-architect": "Architect",
+      "sr-developer": "Developer",
+      "sr-reviewer": "Reviewer"
+    }
   }
 }

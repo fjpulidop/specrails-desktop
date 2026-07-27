@@ -107,5 +107,12 @@
     "stacked": "还有 {{count}} 个",
     "backToPage": "返回页面",
     "show": "显示登录窗口"
+  },
+  "native": {
+    "devtools": "开发者工具",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "openExternal": "在系统浏览器中打开",
+    "badge": "原生"
   }
 }

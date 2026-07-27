@@ -9,6 +9,8 @@ import { recordLoopRunProvenance } from './file-story'
 import { getLoop } from './loops-store'
 import { getLoopRun, getRunEventCounts, listActiveLoopRuns } from './loop-runs-store'
 import { getAdapter, reasoningEffortsForModel, supportsToolPolicy } from './providers'
+import { isReasoningEffortValidForModel } from './providers/runtime'
+import { resolveAgentDefaults } from './agent-defaults'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from './spec-models'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode } from './loop-factory'
@@ -581,8 +583,15 @@ export function createRailsRouter(): Router {
         if (typeof model === 'string' && model && !isValidModelForProvider(model, loopProvider as SpecProvider)) {
           res.status(400).json({ error: `model is not valid for provider "${loopProvider}"`, allowed: getModelsForProvider(loopProvider as SpecProvider) }); return
         }
+        // Global Specrails Agents defaults (Settings ▸ Specrails Agents): fill
+        // model/effort ONLY when the launch body carries no explicit choice —
+        // dashboard factory launches send neither. Read at launch time, so a
+        // settings change applies to the next launch without restart.
+        const globalAgentDefaults = resolveAgentDefaults(c.desktopDb, loopProvider)
         const loopModel =
-          typeof model === 'string' && model ? model : loopAdapter.defaultModel()
+          typeof model === 'string' && model
+            ? model
+            : (globalAgentDefaults?.pipelineModel ?? loopAdapter.defaultModel())
         let effort: ReasoningEffort | undefined
         if (reasoning_effort !== undefined && reasoning_effort !== null) {
           const allowed = reasoningEffortsForModel(loopAdapter, loopModel)
@@ -596,6 +605,11 @@ export function createRailsRouter(): Router {
             }); return
           }
           effort = reasoning_effort as ReasoningEffort
+        } else if (
+          globalAgentDefaults?.pipelineEffort
+          && isReasoningEffortValidForModel(loopAdapter, loopModel, globalAgentDefaults.pipelineEffort)
+        ) {
+          effort = globalAgentDefaults.pipelineEffort as ReasoningEffort
         }
         // The loop's command(s) declare ticket scope + required capabilities.
         const promptsText = loopGraph.nodes

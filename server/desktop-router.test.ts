@@ -496,6 +496,55 @@ describe('desktop-router', () => {
     })
   })
 
+  // ─── Specrails Agents defaults ─────────────────────────────────────────────
+
+  describe('GET/PATCH /api/agent-defaults', () => {
+    it('GET returns empty settings + a full provider catalog', async () => {
+      const { app } = createApp()
+      const res = await request(app).get('/api/agent-defaults')
+      expect(res.status).toBe(200)
+      expect(res.body.settings).toEqual({ version: 1, providers: {} })
+      const ids = res.body.catalog.map((c: { id: string }) => c.id)
+      expect(ids).toEqual(expect.arrayContaining(['claude', 'codex', 'gemini', 'kimi']))
+      const claude = res.body.catalog.find((c: { id: string }) => c.id === 'claude')
+      expect(claude.perAgentModels).toBe(true)
+      expect(claude.baselineAgents).toEqual(['sr-architect', 'sr-developer', 'sr-reviewer'])
+    })
+
+    it('PATCH persists a valid provider entry and echoes canonical settings', async () => {
+      const { app } = createApp()
+      const res = await request(app)
+        .patch('/api/agent-defaults')
+        .send({ providers: { claude: { custom: true, pipelineModel: 'opus', pipelineEffort: 'high', agentModels: { 'sr-reviewer': 'haiku' } } } })
+      expect(res.status).toBe(200)
+      expect(res.body.settings.providers.claude).toEqual({
+        custom: true,
+        pipelineModel: 'opus',
+        pipelineEffort: 'high',
+        agentModels: { 'sr-reviewer': 'haiku' },
+      })
+      const roundTrip = await request(app).get('/api/agent-defaults')
+      expect(roundTrip.body.settings.providers.claude.pipelineModel).toBe('opus')
+    })
+
+    it('PATCH rejects invalid payloads with the validation code', async () => {
+      const { app } = createApp()
+      const badBody = await request(app).patch('/api/agent-defaults').send({ nope: 1 })
+      expect(badBody.status).toBe(400)
+      expect(badBody.body.error).toBe('invalid_body')
+      const badModel = await request(app)
+        .patch('/api/agent-defaults')
+        .send({ providers: { claude: { custom: true, pipelineModel: '!!' } } })
+      expect(badModel.status).toBe(400)
+      expect(badModel.body.error).toBe('invalid_model')
+      const perAgent = await request(app)
+        .patch('/api/agent-defaults')
+        .send({ providers: { codex: { custom: true, agentModels: { 'sr-architect': 'gpt-5.5' } } } })
+      expect(perAgent.status).toBe(400)
+      expect(perAgent.body.error).toBe('per_agent_not_supported')
+    })
+  })
+
   // ─── PUT /settings ─────────────────────────────────────────────────────────
 
   describe('PUT /api/settings', () => {
