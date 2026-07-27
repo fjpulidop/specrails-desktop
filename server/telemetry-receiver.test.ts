@@ -4,7 +4,7 @@ import request from 'supertest'
 import os from 'os'
 import fs from 'fs'
 import path from 'path'
-import { createTelemetryRouter } from './telemetry-receiver'
+import { createTelemetryRouter, awaitTelemetryAppendQuiescence } from './telemetry-receiver'
 import { initDb, createJob, getTelemetryBlob } from './db'
 import type { DbInstance } from './db'
 import type { ProjectRegistry } from './project-registry'
@@ -115,7 +115,10 @@ describe('OTLP receiver — validation', () => {
     })
   })
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Drain in-flight gzip appends BEFORE removing their target dir — an
+    // orphaned append logging after the test races vitest worker teardown.
+    await awaitTelemetryAppendQuiescence()
     try { fs.rmSync(telemetryDir, { recursive: true, force: true }) } catch { /* ok */ }
   })
 
@@ -179,7 +182,10 @@ describe('OTLP receiver — successful ingest', () => {
     })
   })
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Drain in-flight gzip appends BEFORE removing their target dir — an
+    // orphaned append logging after the test races vitest worker teardown.
+    await awaitTelemetryAppendQuiescence()
     try { fs.rmSync(telemetryDir, { recursive: true, force: true }) } catch { /* ok */ }
   })
 
@@ -264,7 +270,8 @@ describe('OTLP receiver — byteSize integrity on append failure (BUG-WEBHOOK-03
     })
   })
 
-  afterEach(() => {
+  afterEach(async () => {
+    await awaitTelemetryAppendQuiescence()
     vi.restoreAllMocks()
     try { fs.rmSync(telemetryDir, { recursive: true, force: true }) } catch { /* ok */ }
   })

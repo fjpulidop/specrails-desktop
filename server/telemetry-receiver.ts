@@ -63,6 +63,27 @@ function blobKey(projectId: string, jobId: string): string {
   return `${projectId}:${jobId}`
 }
 
+/**
+ * Await full append-queue quiescence (every blob: idle writer + empty queue).
+ * Test seam: the ingest handler ACKs 200 while queued gzip appends are still
+ * in flight; a suite that removes the telemetry dir in afterEach races them —
+ * the orphaned append then console.errors DURING vitest environment teardown
+ * ("Closing rpc while onUserConsoleLog was pending", flaked in CI 2026-07-27).
+ * Bounded so a wedged writer can never hang a suite.
+ */
+export async function awaitTelemetryAppendQuiescence(maxWaitMs = 2000): Promise<void> {
+  const deadline = Date.now() + maxWaitMs
+  const busy = (): boolean => {
+    for (const state of _blobState.values()) {
+      if (state.writing || state.queue.length > 0) return true
+    }
+    return false
+  }
+  while (busy() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+}
+
 /** Evict the in-memory BlobState for one job (bounds the per-(project,job) leak —
  *  the map otherwise grew for the whole process lifetime). */
 export function dropBlobState(projectId: string, jobId: string): void {
