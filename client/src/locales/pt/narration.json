@@ -1,0 +1,38 @@
+{
+  "modeNarrated": "Relato",
+  "modeLog": "Registo",
+  "emptyLive": "Ainda não aconteceu nada.",
+  "emptySettled": "Não foi registada atividade nesta execução.",
+  "waiting": {
+    "range": "Execuções como esta levaram {{low}}–{{high}} min (últimas {{count}})",
+    "elapsed": "A correr há {{minutes}} min"
+  },
+  "aiNote": "Construído a partir do que realmente aconteceu durante a execução.",
+  "step": {
+    "start": "Passo {{step}}: {{title}}",
+    "startRetry": "Passo {{step}}: {{title}} — tentativa {{iteration}}",
+    "done": "Passo {{step}} concluído",
+    "doneTimed": "Passo {{step}} concluído em {{seconds}} s",
+    "failed": "O passo {{step}} não correu bem",
+    "interrupted": "O passo {{step}} foi interrompido antes de terminar"
+  },
+  "decision": {
+    "another": "Ainda não está — outra volta",
+    "satisfied": "Objetivo cumprido — a seguir"
+  },
+  "activity": {
+    "reading": "A ler {{target}}",
+    "readingBare": "A ler o código",
+    "editing": "A alterar {{target}}",
+    "editingBare": "A alterar o código",
+    "writing": "A escrever {{target}}",
+    "writingBare": "A escrever código novo",
+    "searching": "A procurar {{target}}",
+    "searchingBare": "A procurar no código",
+    "running": "A executar {{target}}",
+    "runningBare": "A executar um comando",
+    "working": "A trabalhar em {{target}}",
+    "workingBare": "A trabalhar"
+  },
+  "repeats": "×{{count}}"
+}

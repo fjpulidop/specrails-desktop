@@ -164,11 +164,49 @@ rejected: it treats a 40-cent typo fix and a nine-dollar thrash identically.
   (counts emitted into `confidence-score.json`). When it does, the composer's
   tier-1 branch picks them up and the claim becomes app-verified.
 
+## Narrated progress (Wave 3b)
+
+The third altitude on the job log surfaces, between the glance-level phase chips
+and the raw log. `client/src/components/loop-log/narration-model.ts`
+`buildNarration` turns the persisted event stream into MILESTONES:
+
+- Each milestone is a stable i18n key plus factual values — nothing in the model
+  writes prose, so nothing in it can invent. Zero model calls.
+- The only outcomes stated are STRUCTURAL: a step's ok/failed status, a shell
+  exit code, the Loop Decider's routed verdict. Agent prose is never promoted —
+  "68 tests passed" in the stream produces no milestone and no number.
+- Repeated identical activity collapses into a count, so a loop that reads the
+  same file nine times reads as nine attempts rather than nine lines.
+- A step with no end event is only "interrupted" once the run has SETTLED; while
+  it is live it is simply still working.
+- Silence is honest: an unrecognised frame produces no milestone rather than a
+  reassuring filler line.
+
+**Provider degradation is predictable** because the model reuses
+`deriveFrameActivity` — the same derivation the job status panel and rail metrics
+use. Claude yields tool-level detail; codex/gemini/kimi yield fewer activity
+milestones while every structural milestone stays identical.
+
+**Waiting is honest.** The band comes from the Wave 1 percentile endpoint and is
+rendered only when the server returned one (≥5 samples); below that, nothing is
+shown rather than a guess. Elapsed time is real clock data. No estimate is ever
+synthesised client-side.
+
+**The toggle** follows the Code explorer's Story|Log precedent and DEFAULTS to
+narrated, on both the routed Job Detail page and the mission-mode modal. The
+preference is one app-level key (`client/src/lib/job-log-mode.ts`) rather than
+per-project: it describes the reader, not a project, and splitting it made the
+two surfaces disagree about what the same person had chosen. With
+`VITE_FEATURE_NARRATED_PROGRESS=false` both surfaces render byte-identically to
+their pre-change behaviour, with no toggle at all.
+
 ## Flags
 
 - `SPECRAILS_REVIEW_PACKET=false` → the packet route 404s.
 - `VITE_FEATURE_REVIEW_PACKET=false` → the route and both entry points vanish.
 - `SPECRAILS_DELIVERY_REVISIONS=false` → the revision exemption disappears and
   every launch against an undecided delivery 409s exactly as before.
+- `VITE_FEATURE_NARRATED_PROGRESS=false` → the job log surfaces lose the mode
+  toggle and render exactly as before.
 
 Any flag off leaves the existing decision strip byte-identical.

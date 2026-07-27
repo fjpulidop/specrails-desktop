@@ -80,6 +80,9 @@ describe('JobDetailModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     wsHandler = null
+    // The log surface defaults to the narrated altitude; these tests are about
+    // the RAW views, so pin the shared reading preference.
+    localStorage.setItem('specrails-desktop:job-log-mode', 'log')
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({

@@ -1,0 +1,38 @@
+{
+  "modeNarrated": "Story",
+  "modeLog": "Log",
+  "emptyLive": "Nothing has happened yet.",
+  "emptySettled": "No activity was recorded for this run.",
+  "waiting": {
+    "range": "Runs like this have taken {{low}}–{{high}} min (last {{count}})",
+    "elapsed": "Running for {{minutes}} min"
+  },
+  "aiNote": "Built from what actually happened during the run.",
+  "step": {
+    "start": "Step {{step}}: {{title}}",
+    "startRetry": "Step {{step}}: {{title}} — attempt {{iteration}}",
+    "done": "Finished step {{step}}",
+    "doneTimed": "Finished step {{step}} in {{seconds}}s",
+    "failed": "Step {{step}} did not succeed",
+    "interrupted": "Step {{step}} was interrupted before it finished"
+  },
+  "decision": {
+    "another": "Not done yet — going round again",
+    "satisfied": "Goal met — moving on"
+  },
+  "activity": {
+    "reading": "Reading {{target}}",
+    "readingBare": "Reading the code",
+    "editing": "Changing {{target}}",
+    "editingBare": "Changing the code",
+    "writing": "Writing {{target}}",
+    "writingBare": "Writing new code",
+    "searching": "Searching for {{target}}",
+    "searchingBare": "Searching the code",
+    "running": "Running {{target}}",
+    "runningBare": "Running a command",
+    "working": "Working on {{target}}",
+    "workingBare": "Working"
+  },
+  "repeats": "×{{count}}"
+}

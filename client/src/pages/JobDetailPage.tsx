@@ -18,6 +18,9 @@ import { useTicketDetailModal } from '../context/TicketDetailModalContext'
 import { cn } from '../lib/utils'
 import { LogViewer } from '../components/LogViewer'
 import { LoopStepExplorer } from '../components/loop-log/LoopStepExplorer'
+import { NarratedProgress, type DurationRange } from '../components/loop-log/NarratedProgress'
+import { FEATURE_NARRATED_PROGRESS } from '../lib/feature-flags'
+import { loadJobLogMode, saveJobLogMode, type JobLogMode } from '../lib/job-log-mode'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import type { JobSummary, EventRow, PhaseDefinition } from '../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
@@ -36,6 +39,7 @@ const STATUS_BADGE: Record<string, { variant: BadgeVariant; labelKey: string; to
 
 export default function JobDetailPage() {
   const { t } = useTranslation('jobs')
+  const { t: tNarration } = useTranslation('narration')
   const { id } = useParams<{ id: string }>()
   const { activeProjectId, projects } = useDesktop()
   const activeProvider = projects.find((p) => p.id === activeProjectId)?.provider
@@ -48,6 +52,41 @@ export default function JobDetailPage() {
   const [pipelineJobs, setPipelineJobs] = useState<JobSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  // Log-surface altitude, remembered per project like the Code explorer's
+  // Story|Log toggle. Narrated is the default: a reader who wants raw logs can
+  // switch in one click, but a reader who cannot read them never has to.
+  const [narrationMode, setNarrationModeState] = useState<JobLogMode>(loadJobLogMode)
+  const [durationRange, setDurationRange] = useState<DurationRange | null>(null)
+
+  const setNarrationMode = useCallback((mode: JobLogMode) => {
+    setNarrationModeState(mode)
+    saveJobLogMode(mode)
+  }, [])
+
+  // Measured duration band for the waiting line. The server returns
+  // `range: null` below its sample floor, and we render NOTHING in that case —
+  // an unknown must never appear as a guess (honest-metrics contract).
+  const jobCommand = job?.command ?? null
+  useEffect(() => {
+    // Only fetched while the narrated view is actually on screen: the band is
+    // decoration for that altitude, not something to spend a request on for a
+    // reader who is reading raw logs.
+    if (!FEATURE_NARRATED_PROGRESS || narrationMode !== 'narrated') return
+    if (!activeProjectId || !jobCommand) return
+    let cancelled = false
+    const query = `command=${encodeURIComponent(jobCommand)}`
+    try {
+      void Promise.resolve(fetch(`${getApiBase()}/run-duration-range?${query}`))
+        .then((res) => (res && res.ok ? res.json() : null))
+        .then((data: { range?: DurationRange | null } | null) => {
+          if (!cancelled) setDurationRange(data?.range ?? null)
+        })
+        .catch(() => { if (!cancelled) setDurationRange(null) })
+    } catch {
+      setDurationRange(null)
+    }
+    return () => { cancelled = true }
+  }, [activeProjectId, jobCommand, narrationMode])
   const [isRerunning, setIsRerunning] = useState(false)
   const rerunInFlightRef = useRef(false)
   const rerunIdempotencyKeyRef = useRef<string | null>(null)
@@ -531,9 +570,46 @@ export default function JobDetailPage() {
         />
       )}
 
-      {/* Log viewer — loop jobs get the step-grouped explorer */}
+      {/* Log surface. The narrated altitude is a MODE over the same stream —
+          the raw views below stay byte-identical when it is off. */}
       <div className="flex-1 overflow-hidden relative">
-        {isLoopJob ? (
+        {FEATURE_NARRATED_PROGRESS ? (
+          <div className="flex h-full flex-col">
+            <div className="flex items-center gap-1 border-b border-border/50 px-3 py-1.5">
+              {(['narrated', 'log'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setNarrationMode(mode)}
+                  aria-pressed={narrationMode === mode}
+                  data-testid={`job-narration-mode-${mode}`}
+                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                    narrationMode === mode
+                      ? 'bg-accent-primary/15 text-accent-primary'
+                      : 'text-muted-foreground hover:bg-surface'
+                  }`}
+                >
+                  {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
+                </button>
+              ))}
+            </div>
+            <div className="flex-1 overflow-hidden">
+              {narrationMode === 'narrated' ? (
+                <NarratedProgress
+                  events={events}
+                  settled={job.status !== 'running' && job.status !== 'queued'}
+                  durationRange={durationRange}
+                  elapsedMs={job.duration_ms ?? null}
+                  variant="page"
+                />
+              ) : isLoopJob ? (
+                <LoopStepExplorer events={events} jobStatus={job.status} variant="page" />
+              ) : (
+                <LogViewer events={events} />
+              )}
+            </div>
+          </div>
+        ) : isLoopJob ? (
           <LoopStepExplorer events={events} jobStatus={job.status} variant="page" />
         ) : (
           <LogViewer events={events} />

@@ -1,0 +1,38 @@
+{
+  "modeNarrated": "Verlauf",
+  "modeLog": "Protokoll",
+  "emptyLive": "Bisher ist nichts passiert.",
+  "emptySettled": "Für diesen Lauf wurde keine Aktivität erfasst.",
+  "waiting": {
+    "range": "Solche Läufe dauerten {{low}}–{{high}} min (letzte {{count}})",
+    "elapsed": "Läuft seit {{minutes}} min"
+  },
+  "aiNote": "Aus dem erstellt, was während des Laufs tatsächlich passiert ist.",
+  "step": {
+    "start": "Schritt {{step}}: {{title}}",
+    "startRetry": "Schritt {{step}}: {{title}} — Versuch {{iteration}}",
+    "done": "Schritt {{step}} abgeschlossen",
+    "doneTimed": "Schritt {{step}} in {{seconds}} s abgeschlossen",
+    "failed": "Schritt {{step}} war nicht erfolgreich",
+    "interrupted": "Schritt {{step}} wurde vor dem Ende abgebrochen"
+  },
+  "decision": {
+    "another": "Noch nicht fertig — nächste Runde",
+    "satisfied": "Ziel erreicht — weiter"
+  },
+  "activity": {
+    "reading": "Liest {{target}}",
+    "readingBare": "Liest den Code",
+    "editing": "Ändert {{target}}",
+    "editingBare": "Ändert den Code",
+    "writing": "Schreibt {{target}}",
+    "writingBare": "Schreibt neuen Code",
+    "searching": "Sucht nach {{target}}",
+    "searchingBare": "Sucht im Code",
+    "running": "Führt {{target}} aus",
+    "runningBare": "Führt einen Befehl aus",
+    "working": "Arbeitet an {{target}}",
+    "workingBare": "Arbeitet"
+  },
+  "repeats": "×{{count}}"
+}

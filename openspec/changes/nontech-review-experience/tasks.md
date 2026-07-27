@@ -47,14 +47,14 @@ Three waves; each wave is independently shippable behind its flag. Do not start 
 
 ## 4. Wave 3b — Narrated progress
 
-- [ ] 4.1 Pure narration model (`client/src/lib/` or `components/loop-log/` sibling): structured events + parsed lines → milestone list; handles plain jobs, loop jobs, legacy runs without `loop_graph`, interrupted steps (no end event + settled job); exhaustive unit tests per stream shape
-- [ ] 4.2 i18n milestone templates ×8 (`narration` namespace): step kinds, iterations, durations, decider verdicts, tool activity lines (file paths/commands verbatim, outcomes only from structured verdicts); key-parity green
-- [ ] 4.3 Narrated|Log mode toggle in JobDetailPage + JobDetailModal (Story|Log precedent, per-project localStorage persistence); raw log view byte-identical; glance surfaces untouched; `VITE_FEATURE_NARRATED_PROGRESS`
-- [ ] 4.4 Honest waiting line: p25–p75 band + sample count from the Wave 1 endpoint, absent below floor; elapsed from real clock
-- [ ] 4.5 Provider degradation: predictable narration from loop events alone where tool granularity is absent (codex/gemini/kimi); test per provider stream fixture
-- [ ] 4.6 Docs: narration section in `docs/internals/loop-step-log-explorer.md` (or sibling doc) + CLAUDE.md update
-- [ ] 4.7 Gates: typecheck, vitest, coverage green
+- [x] 4.1 Pure narration model (`client/src/lib/` or `components/loop-log/` sibling): structured events + parsed lines → milestone list; handles plain jobs, loop jobs, legacy runs without `loop_graph`, interrupted steps (no end event + settled job); exhaustive unit tests per stream shape
+- [x] 4.2 i18n milestone templates ×8 (`narration` namespace): step kinds, iterations, durations, decider verdicts, tool activity lines (file paths/commands verbatim, outcomes only from structured verdicts); key-parity green
+- [x] 4.3 Narrated|Log mode toggle in JobDetailPage + JobDetailModal, defaulting to narrated (Code-explorer Story|Log precedent). DEVIATION: persisted to ONE app-level key (`client/src/lib/job-log-mode.ts`) rather than per-project — a reading preference describes the reader, not a project, and the per-project key made the two surfaces disagree about the same person's choice. Raw log views byte-identical behind the flag; glance surfaces untouched.
+- [x] 4.4 Honest waiting line: p25–p75 band + sample count from the Wave 1 endpoint, absent below floor; elapsed from real clock
+- [x] 4.5 Provider degradation: predictable narration from loop events alone where tool granularity is absent (codex/gemini/kimi); test per provider stream fixture
+- [x] 4.6 Docs: narration section in `docs/internals/loop-step-log-explorer.md` (or sibling doc) + CLAUDE.md update
+- [x] 4.7 Gates: typecheck, vitest, coverage green
 
 ## 5. Parallel track (non-blocking, separate repo)
 
-- [ ] 5.1 File the specrails-core ask: structured test counts (pass/fail/total) emitted into `confidence-score.json` by the verify/review step + delta-scoped verification (pipeline-cost-economy program); when counts land, packet tier-2 auto-upgrades (composer already checks for the structured field — add the check in 2.3)
+- [~] 5.1 File the specrails-core ask: structured test counts (pass/fail/total) emitted into `confidence-score.json` by the verify/review step + delta-scoped verification (pipeline-cost-economy program); when counts land, packet tier-2 auto-upgrades (composer already checks for the structured field — add the check in 2.3)

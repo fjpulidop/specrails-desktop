@@ -115,3 +115,15 @@ export const FEATURE_REVIEW_PACKET = (() => {
   if (typeof override === 'string') return override !== 'false'
   return true
 })()
+
+/**
+ * Gates the narrated (plain-language) altitude on the job log surfaces. Default
+ * ON; set VITE_FEATURE_NARRATED_PROGRESS=false to render the raw log views
+ * exactly as before, with no mode toggle.
+ */
+export const FEATURE_NARRATED_PROGRESS = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_NARRATED_PROGRESS
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()
