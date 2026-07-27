@@ -294,6 +294,8 @@
     "createPr": "Crear PR",
     "publish": "Publicar",
     "checkout": "Cambiar a la rama",
+    "openReview": "Revisar",
+    "openReviewTooltip": "Abrir la revisión en lenguaje claro",
     "checkoutTooltip": "Cambia la carpeta principal del proyecto a {{branch}}",
     "checkoutSuccess": "Checkout en {{branch}}",
     "checkoutFailed": "No se pudo hacer checkout de la rama de la PR",

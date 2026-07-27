@@ -34,8 +34,8 @@
 - [ ] 6.2 Verify `{{cmd:implement}}` runs correctly in an isolated worktree on a relocated project.
 
 ## 7. Product-builder "Review & Approve" surface (`safe-pr-workflow`)
-- [~] 7.1 Delivery is now SURFACED to the user: `DashboardPage` handles the `rail.pr_delivered` WS event → toast with the draft-PR link (`Open PR`) / pushed / local-only / assembly-failed, i18n ×8 (parity green). **Deferred:** the full plain-language "what changed + proof" review bundle (needs a product/UX decision).
-- [x] 7.2 Approve/Discard action DONE: `POST /rails/pr-review {prUrl, action:'ready'|'discard'}` (`gh pr ready` / `gh pr close --delete-branch`) + the dashboard delivered-PR toast now offers **Approve** (promote draft→ready, hands off to the engineer) alongside **Open PR**, i18n ×8. **Deferred:** the plain-language what-changed + proof bundle and reviewer auto-assignment (product/UX decision).
+- [x] 7.1 Delivery is SURFACED to the user. The v1 `rail.pr_delivered` toast this task described was RETIRED and replaced by `RailPrDecisionStrip` + the agent-chat PR card (see CLAUDE.md safe-pr-review-flow). **The deferred plain-language "what changed + proof" review bundle is DISCHARGED** by the `nontech-review-experience` change (Wave 2 review packet — `docs/internals/review-packet.md`); the SHALL in this change's spec is satisfied there.
+- [x] 7.2 Approve/Discard action DONE — though the stateless `POST /rails/pr-review` this task described was RETIRED in favour of the durable `POST /rails/pr-decision` state machine. The **plain-language bundle deferral is discharged** by `nontech-review-experience` (three human verbs + tiered proof + Accept-ladder pre-resolution). Reviewer auto-assignment remains deferred.
 - [x] 7.3 i18n for the delivery toasts across all 8 locales (parity test passes). (Remaining builder-facing strings ship with 7.1/7.2.)
 
 ## 8. Coverage & docs

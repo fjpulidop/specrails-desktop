@@ -1,10 +1,12 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useInRouterContext, useNavigate } from 'react-router-dom'
+import { FEATURE_REVIEW_PACKET } from '../../lib/feature-flags'
 import { toast } from 'sonner'
 import { motion } from 'motion/react'
 import {
   GitBranch, GitMerge, GitPullRequest, AlertTriangle, XCircle,
-  ExternalLink, Loader2, CheckCircle2, Ticket, ScrollText, Play, Square, RotateCcw, FolderOpen,
+  ExternalLink, Loader2, CheckCircle2, Ticket, ScrollText, Play, Square, RotateCcw, FolderOpen, Eye,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { useDesktop } from '../../hooks/useDesktop'
@@ -126,6 +128,26 @@ function OutcomeEvidence({ envelope }: { envelope: AgentPrDecisionEnvelope }) {
   )
 }
 
+/** Route entry into the plain-language review packet. Split out so the parent
+ *  card can stay renderable without a Router (see inRouterContext there). */
+function ReviewPacketEntry({ prDeliveryId }: { prDeliveryId: string }) {
+  const { t } = useTranslation('agent')
+  const navigate = useNavigate()
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(`/review/${prDeliveryId}`)}
+      data-testid="agent-pr-open-packet"
+      data-agent-interactive
+      title={t('prCard.openReviewTooltip')}
+      className="inline-flex items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-2 py-1 text-[11px] font-medium text-accent-primary transition-colors hover:bg-accent-primary/20"
+    >
+      <Eye className="h-3 w-3" />
+      {t('prCard.openReview')}
+    </button>
+  )
+}
+
 function prNumberFromUrl(prUrl: string): string | null {
   const m = /\/pull\/(\d+)/.exec(prUrl)
   return m ? `#${m[1]}` : null
@@ -208,6 +230,11 @@ function RunLogChip({
 
 export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: AgentPrDecisionEnvelope }) {
   const { t } = useTranslation('agent')
+  // The card is deliberately Router-OPTIONAL (it is unit-rendered bare in dozens
+  // of tests and mounted inside the app Router in production). useNavigate would
+  // throw outside a Router, so the route entry is gated on this non-throwing
+  // probe and the hook itself lives in the child that only mounts inside one.
+  const inRouterContext = useInRouterContext()
   const { projects } = useDesktop()
   const { applyPrDecisionSnapshot } = useAgentChat()
   const { openWebView, canOpenWebView } = useWebViewModal()
@@ -608,6 +635,13 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
     </button>
   )
 
+  // Entry into the plain-language review packet (nontech-review-experience).
+  // The card keeps its precise git actions; this offers the readable surface to
+  // whoever would rather judge the work than the plumbing.
+  const reviewPacketAction = FEATURE_REVIEW_PACKET && inRouterContext && !presentation.terminal
+    ? <ReviewPacketEntry prDeliveryId={envelope.prDeliveryId} />
+    : null
+
   const checkoutAction = prUrl && envelope.branch && envelope.deliverySha && !presentation.deliveryBlocked && (
     <button
       type="button"
@@ -943,6 +977,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           )}
           {decision === 'on_review' && !presentation.noChanges && !presentation.partial && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
+              {reviewPacketAction}
               {primaryAction('create-pr', t('prCard.createPr'))}
               {mergeLocalAction}
               {presentation.continuation ? dismissAction : discardAction}

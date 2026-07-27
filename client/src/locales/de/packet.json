@@ -1,0 +1,92 @@
+{
+  "backToBoard": "Zurück zum Board",
+  "stillWorking": "Läuft noch…",
+  "alreadyResolved": "Das wurde bereits entschieden.",
+  "fineControlOnly": "Diese Lieferung braucht eine technische Entscheidung. Nutze die Detailsteuerung im Board.",
+  "openPr": "Pull Request #{{number}} öffnen",
+  "noSolutionRecorded": "Keine Zusammenfassung erfasst.",
+  "headline": {
+    "success": "Deine Änderung ist bereit zur Prüfung",
+    "successMany": "Alle {{count}} Änderungen sind bereit zur Prüfung",
+    "partial": "{{succeeded}} von {{total}} Änderungen sind fertig",
+    "noChanges": "Es musste nichts geändert werden",
+    "failed": "Das konnte nicht abgeschlossen werden",
+    "failedPartial": "Nur ein Teil konnte abgeschlossen werden"
+  },
+  "confidence": {
+    "pill": "Sicherheit des KI-Reviewers {{overall}}/100",
+    "unavailable": "Keine Reviewer-Bewertung",
+    "tooltip": "Die Bewertung, die sich der KI-Reviewer selbst gibt — keine unabhängige Prüfung."
+  },
+  "cost": {
+    "thisBuild": "Diese Arbeit kostete {{amount}}"
+  },
+  "accept": {
+    "create-pr": "Annehmen und Pull Request öffnen",
+    "publish": "Annehmen und zur Prüfung senden",
+    "merge-local": "In mein Projekt übernehmen",
+    "mark-done": "Annehmen — nichts zu ändern",
+    "generic": "Annehmen",
+    "irreversibleWarning": "Damit werden die Änderungen direkt in dein Projekt auf deinem Rechner geschrieben. Es gibt keine separate Prüfkopie und es ist nicht rückgängig zu machen.",
+    "irreversibleConfirm": "Ja, in mein Projekt schreiben"
+  },
+  "requestChanges": {
+    "label": "Änderungen erbitten",
+    "comingSoon": "Kommt als Nächstes: Änderung in einem Satz beschreiben."
+  },
+  "discard": {
+    "label": "Verwerfen"
+  },
+  "watchOut": {
+    "title": "Vor dem Annehmen ansehen"
+  },
+  "sections": {
+    "whatYouAsked": "Was du wolltest",
+    "whatIDid": "Was getan wurde",
+    "howItWasChecked": "Wie es geprüft wurde"
+  },
+  "churn": {
+    "line": "{{files}} Dateien geändert · +{{added}} / −{{removed}} Zeilen",
+    "batchNotSplittable": "Dateiänderungen gelten für die gesamte Lieferung, nicht pro Anfrage."
+  },
+  "tier": {
+    "app-verified": {
+      "title": "Von Specrails gemessen",
+      "caveat": "Fakten aus den tatsächlichen Änderungen."
+    },
+    "ai-reported": {
+      "title": "Von der KI berichtet",
+      "caveat": "Worte der KI selbst. Specrails hat diese Prüfungen nicht ausgeführt."
+    },
+    "reviewer-score": {
+      "title": "Selbsteinschätzung des KI-Reviewers",
+      "caveat": "Die KI bewertet ihre eigene Arbeit — nützlich, aber keine unabhängige Prüfung."
+    }
+  },
+  "proof": {
+    "filesChanged": "{{files}} Dateien geändert (+{{added}} / −{{removed}} Zeilen)",
+    "testFilesChanged": "{{count}} Testdateien geändert",
+    "noTestFilesChanged": "Keine Testdateien geändert.",
+    "commitsRecorded": "Arbeit wurde auf {{branches}} Branch(es) festgehalten",
+    "verificationPassed": "Die KI berichtete, ihre Prüfungen seien bestanden ({{count}})",
+    "verificationFailed": "Die KI berichtete, ihre Prüfungen seien FEHLGESCHLAGEN ({{count}})",
+    "noVerificationReported": "Die KI berichtete keine Verifizierung.",
+    "verifyOutput": "Verifizierungsausgabe der KI:",
+    "reviewerScore": "Gesamtbewertung {{overall}}/100",
+    "reviewerAspect": "{{aspect}}: {{score}}/100",
+    "reviewerScoreUnavailable": "Keine Reviewer-Bewertung erzeugt.",
+    "evidenceUnavailable": "Belege nicht verfügbar"
+  },
+  "watch": {
+    "humanReviewRecommended": "Der KI-Reviewer gab {{overall}}/100 und empfiehlt eine menschliche Prüfung.",
+    "lowConfidence": "Der KI-Reviewer gab nur {{overall}}/100.",
+    "reviewerFlag": "Der Reviewer merkte an:",
+    "noTestsForChangedCode": "{{files}} Code-Dateien geändert, ohne Teständerungen."
+  },
+  "error": {
+    "notFound": "Diese Prüfung wurde nicht gefunden.",
+    "loadFailed": "Die Prüfung konnte nicht geladen werden.",
+    "alreadyResolved": "Jemand hat das schon beantwortet.",
+    "actionFailed": "Diese Aktion ist nicht durchgegangen."
+  }
+}

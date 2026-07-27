@@ -48,6 +48,8 @@
       "acknowledge-no-changes": "Marking done…"
     },
     "readyForReview": "Ready for review",
+    "openReview": "Review",
+    "openReviewTooltip": "Open the plain-language review",
     "draftPr": "Draft PR",
     "branchPushed": "Branch pushed — PR pending",
     "branchPushedHint": "The branch was pushed but the PR couldn't be created (GitHub CLI unavailable). Retry to create it.",

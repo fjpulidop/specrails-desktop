@@ -1,0 +1,92 @@
+{
+  "backToBoard": "Volver al tablero",
+  "stillWorking": "Todavía trabajando en esto…",
+  "alreadyResolved": "Esto ya se ha resuelto.",
+  "fineControlOnly": "Esta entrega necesita una decisión técnica. Usa los controles detallados del tablero.",
+  "openPr": "Abrir pull request #{{number}}",
+  "noSolutionRecorded": "No se registró ningún resumen.",
+  "headline": {
+    "success": "Tu cambio está listo para revisar",
+    "successMany": "Los {{count}} cambios están listos para revisar",
+    "partial": "{{succeeded}} de {{total}} cambios están listos",
+    "noChanges": "No hacía falta cambiar nada",
+    "failed": "Esto no se pudo completar",
+    "failedPartial": "Solo se pudo completar una parte"
+  },
+  "confidence": {
+    "pill": "Confianza del revisor IA {{overall}}/100",
+    "unavailable": "Sin puntuación del revisor",
+    "tooltip": "La puntuación que el revisor IA se da a sí mismo — no es una comprobación independiente."
+  },
+  "cost": {
+    "thisBuild": "Este trabajo costó {{amount}}"
+  },
+  "accept": {
+    "create-pr": "Aceptar y abrir un pull request",
+    "publish": "Aceptar y enviar a revisión",
+    "merge-local": "Aceptar en mi proyecto",
+    "mark-done": "Aceptar — nada que cambiar",
+    "generic": "Aceptar",
+    "irreversibleWarning": "Esto escribe los cambios directamente en tu proyecto, en tu ordenador. No hay copia de revisión aparte y no se puede deshacer.",
+    "irreversibleConfirm": "Sí, escríbelo en mi proyecto"
+  },
+  "requestChanges": {
+    "label": "Pedir cambios",
+    "comingSoon": "Muy pronto: describe el cambio en una frase."
+  },
+  "discard": {
+    "label": "Tirar esto"
+  },
+  "watchOut": {
+    "title": "Merece un vistazo antes de aceptar"
+  },
+  "sections": {
+    "whatYouAsked": "Lo que pediste",
+    "whatIDid": "Lo que se hizo",
+    "howItWasChecked": "Cómo se comprobó"
+  },
+  "churn": {
+    "line": "{{files}} archivos cambiados · +{{added}} / −{{removed}} líneas",
+    "batchNotSplittable": "Los cambios de archivos se informan para toda la entrega, no por petición."
+  },
+  "tier": {
+    "app-verified": {
+      "title": "Medido por Specrails",
+      "caveat": "Datos tomados de los cambios reales."
+    },
+    "ai-reported": {
+      "title": "Informado por la IA",
+      "caveat": "Palabras de la propia IA. Specrails no ejecutó estas comprobaciones."
+    },
+    "reviewer-score": {
+      "title": "Autoevaluación del revisor IA",
+      "caveat": "La IA calificando su propio trabajo — útil, pero no es una revisión independiente."
+    }
+  },
+  "proof": {
+    "filesChanged": "{{files}} archivos cambiados (+{{added}} / −{{removed}} líneas)",
+    "testFilesChanged": "Se cambiaron {{count}} archivos de test",
+    "noTestFilesChanged": "No se cambió ningún archivo de test.",
+    "commitsRecorded": "El trabajo se registró en {{branches}} rama(s)",
+    "verificationPassed": "La IA informó de que sus comprobaciones pasaron ({{count}})",
+    "verificationFailed": "La IA informó de que sus comprobaciones FALLARON ({{count}})",
+    "noVerificationReported": "La IA no informó de ninguna verificación.",
+    "verifyOutput": "Salida de verificación de la IA:",
+    "reviewerScore": "Puntuación global {{overall}}/100",
+    "reviewerAspect": "{{aspect}}: {{score}}/100",
+    "reviewerScoreUnavailable": "No se generó puntuación del revisor.",
+    "evidenceUnavailable": "sin evidencia"
+  },
+  "watch": {
+    "humanReviewRecommended": "El revisor IA puntuó esto {{overall}}/100 y recomienda que lo mire una persona.",
+    "lowConfidence": "El revisor IA puntuó esto solo {{overall}}/100.",
+    "reviewerFlag": "El revisor señaló:",
+    "noTestsForChangedCode": "{{files}} archivos de código cambiados sin cambios en tests."
+  },
+  "error": {
+    "notFound": "No se encontró esta revisión.",
+    "loadFailed": "No se pudo cargar la revisión.",
+    "alreadyResolved": "Alguien ya respondió a esto.",
+    "actionFailed": "Esa acción no se completó."
+  }
+}

@@ -297,6 +297,8 @@
     "createPr": "Criar PR",
     "publish": "Publicar",
     "checkout": "Mudar para o branch",
+    "openReview": "Revisar",
+    "openReviewTooltip": "Abrir a revisão em linguagem clara",
     "checkoutTooltip": "Fazer checkout de {{branch}} na pasta principal do projeto",
     "checkoutSuccess": "Checkout feito em {{branch}}",
     "checkoutFailed": "Não foi possível fazer checkout do ramo da PR",

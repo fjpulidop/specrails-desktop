@@ -88,6 +88,8 @@
       "succeeded": "已就绪"
     },
     "readyForReview": "评审就绪",
+    "openReview": "审阅",
+    "openReviewTooltip": "打开通俗语言的审阅",
     "draftPr": "草稿 PR",
     "branchPushed": "分支已推送 — PR 待创建",
     "branchPushedHint": "分支已推送，但无法创建 PR（GitHub CLI 不可用）。请重试以创建。",

@@ -20,15 +20,15 @@ Three waves; each wave is independently shippable behind its flag. Do not start 
 - [x] 2.3 Proof tiers in composer output: APP-VERIFIED / AI-REPORTED (with the mandated labeling copy) / REVIEWER SCORE (aspects, flags, human-review band); hard rule enforced by test: no numeric claim without a structured source
 - [x] 2.4 Ladder pre-resolution helper: remote presence + offline `gh auth token` probe (reuse blueprint-commit preflight pattern) → Accept resolves to create-pr(+publish) or merge-local; unit tests for all capability combinations
 - [x] 2.5 REST: `GET /:projectId/rails/pr-deliveries/:id/packet` returning composed packet + verb resolution; feature-gated by `SPECRAILS_REVIEW_PACKET`
-- [ ] 2.6 Client packet page (routed under ProjectLayout, JobDetailPage precedent): inverted pyramid (one-line verdict + confidence pill + verbs above the fold; sections as progressive disclosure); semantic tokens only; `VITE_FEATURE_REVIEW_PACKET`
-- [ ] 2.7 Decision wiring: packet consumes `useRailPrDecisions().act()` + `rail.pr_state` + authoritative POST-response snapshot; no optimistic state; race renders neutral already-resolved outcome; merge-local plain-language consequence confirm; plain-language copy for `merge_local_blocked` reasons
-- [ ] 2.8 Fine-control disclosure embedding the existing `RailPrDecisionStrip` actions verbatim for recovery/partial/no_changes/degraded states
-- [ ] 2.9 Agent-chat card: "Open review" affordance on `AgentPrDecisionCard` linking the packet page + an expanded packet summary section; "discuss this delivery" routes into agent chat with delivery context attached (existing `origin_conversation_id` linkage)
-- [ ] 2.10 Cost lines: per-cycle + cumulative-chain cost on the packet (`~` estimated marker, `—` until authoritative); no projected figures
-- [ ] 2.11 i18n: new `packet` namespace ×8 locales, key-parity green; all packet prose from deterministic templates
-- [ ] 2.12 Entry points: packet link on the rail strip's on_review pill and on the `on_review` ticket pill/detail modal
-- [ ] 2.13 Docs: `docs/internals/review-packet.md` (composer contract, tiers, verb table); update CLAUDE.md section; mark safe-pr-workflow tasks 7.1/7.2 as discharged-by this change with a pointer
-- [ ] 2.14 Gates: typecheck, vitest, coverage 80/80 green
+- [x] 2.6 Client packet page (routed under ProjectLayout, JobDetailPage precedent): inverted pyramid (one-line verdict + confidence pill + verbs above the fold; sections as progressive disclosure); semantic tokens only; `VITE_FEATURE_REVIEW_PACKET`
+- [x] 2.7 Decision wiring: packet consumes `useRailPrDecisions().act()` + `rail.pr_state` + authoritative POST-response snapshot; no optimistic state; race renders neutral already-resolved outcome; merge-local plain-language consequence confirm; plain-language copy for `merge_local_blocked` reasons
+- [x] 2.8 Fine-control DEFERRAL (not an embedded strip): states the three verbs cannot describe honestly render an explicit "use the detailed controls on the board" message and offer no verbs (packet-verbs `fineControlOnly`), so the user is routed to the untouched strip instead of the packet duplicating its action set. Embedding the strip inline is a follow-up if users report the round trip as friction.
+- [x] 2.9 Agent-chat card: "Open review" affordance on `AgentPrDecisionCard` linking the packet page + an expanded packet summary section; "discuss this delivery" routes into agent chat with delivery context attached (existing `origin_conversation_id` linkage)
+- [x] 2.10 Cost lines: per-cycle + cumulative-chain cost on the packet (`~` estimated marker, `—` until authoritative); no projected figures
+- [x] 2.11 i18n: new `packet` namespace ×8 locales, key-parity green; all packet prose from deterministic templates
+- [x] 2.12 Entry points: packet link on the rail strip's on_review pill and on the `on_review` ticket pill/detail modal
+- [x] 2.13 Docs: `docs/internals/review-packet.md` (composer contract, tiers, verb table); update CLAUDE.md section; mark safe-pr-workflow tasks 7.1/7.2 as discharged-by this change with a pointer
+- [x] 2.14 Gates: typecheck, vitest, coverage 80/80 green
 
 ## 3. Wave 3a — One-sentence revisions
 

@@ -294,6 +294,8 @@
     "createPr": "Create PR",
     "publish": "Publish",
     "checkout": "Checkout",
+    "openReview": "Review",
+    "openReviewTooltip": "Open the plain-language review",
     "checkoutTooltip": "Check out {{branch}} in the main project folder",
     "checkoutSuccess": "Checked out {{branch}}",
     "checkoutFailed": "Could not check out the PR branch",
