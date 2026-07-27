@@ -3802,3 +3802,76 @@ describe('launchIsolatedRail — review-packet evidence (spec snapshot + settle 
     })
   })
 })
+
+describe('launchIsolatedRail — revision generations (Wave 3)', () => {
+  const okIo = (over: Partial<IsolatedLaunchIO> = {}): IsolatedLaunchIO =>
+    ({
+      git: { run: async (args: string[]) => successfulGitResult(args) },
+      create: vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({
+        branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}`,
+      })),
+      remove: vi.fn(async () => {}),
+      ...over,
+    }) as IsolatedLaunchIO
+
+  beforeEach(() => { delete process.env.SPECRAILS_RAIL_DELIVER_PR })
+
+  /** Settle a first launch at on_review so it can be revised. */
+  async function firstGeneration(ctx: ProjectContext, db: ReturnType<typeof initDb>) {
+    await launchIsolatedRail(input([1], ctx), okIo())
+    await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)!.decision).toBe('on_review'))
+    return getActivePrDeliveryByRail(db, 0)!.id
+  }
+
+  it('supersedes the revised generation and records the sentence on the new row', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const firstId = await firstGeneration(ctx, db)
+
+    await launchIsolatedRail(
+      { ...input([1], ctx), revision: { ofDeliveryId: firstId, decision: 'on_review', note: 'make the button blue' } },
+      okIo(),
+    )
+
+    const active = getActivePrDeliveryByRail(db, 0)!
+    expect(active.id).not.toBe(firstId)
+    expect(active.revision_note).toBe('make the button blue')
+    expect(active.revision_of).toBe(firstId)
+    // Lineage: the predecessor is superseded, so the rail shows ONE active row
+    // and the packet can render v1 → v2 from the chain.
+    expect(getPrDelivery(db, firstId)!.decision).toBe('superseded')
+    expect(active.supersedes_delivery_id).toBe(firstId)
+  })
+
+  it('the revision generation carries its OWN launch snapshot', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const firstId = await firstGeneration(ctx, db)
+    ;(ctx as unknown as { getTicketSpec: (id: number) => unknown }).getTicketSpec =
+      () => ({ title: 'Retitled before the revision', description: 'd2' })
+
+    await launchIsolatedRail(
+      { ...input([1], ctx), revision: { ofDeliveryId: firstId, decision: 'on_review', note: 'tweak' } },
+      okIo(),
+    )
+    expect(readSpecSnapshot(getActivePrDeliveryByRail(db, 0)!.spec_snapshot)?.[0].title)
+      .toBe('Retitled before the revision')
+  })
+
+  it('a stale revision target conflicts rather than creating a second active row', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    await firstGeneration(ctx, db)
+
+    await expect(launchIsolatedRail(
+      { ...input([1], ctx), revision: { ofDeliveryId: 'gone', decision: 'on_review', note: 'tweak' } },
+      okIo(),
+    )).rejects.toThrow()
+    expect(listActivePrDeliveries(db)).toHaveLength(1)
+  })
+
+  it('an ordinary launch still records no revision metadata', async () => {
+    const { ctx, db } = fakeCtx()
+    await launchIsolatedRail(input([1], ctx), okIo())
+    const row = getActivePrDeliveryByRail(db, 0)!
+    expect(row.revision_note).toBeNull()
+    expect(row.revision_of).toBeNull()
+  })
+})

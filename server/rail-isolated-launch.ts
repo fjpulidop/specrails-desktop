@@ -117,6 +117,15 @@ export interface IsolatedLaunchInput {
    * continuation discovery is skipped and validation failure throws
    * `ExplicitPrTargetError` BEFORE any delivery row or worktree exists. */
   explicitPrTarget?: { prNumber: number }
+  /** Revision of an undecided delivery (nontech-review-experience Wave 3): the
+   * router has already verified the exemption. The new generation supersedes
+   * that one and records the user's instruction, so packet v2 can show what was
+   * asked to change and the version chain reads as v1 → v2. */
+  revision?: {
+    ofDeliveryId: string
+    decision: PrDecision
+    note: string
+  }
 }
 
 /** A PR follow-up may only run on the verified PR branch in a dedicated
@@ -491,7 +500,12 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const baseRepo = ctx.project.path
   const slug = ctx.project.slug
   const worktreesRoot = path.join(resolveHome(), '.specrails', 'projects', slug, 'worktrees')
-  const constants = loadConstantMap(ctx.desktopDb)
+  // A revision run needs the user's sentence available to its prompt. It is
+  // per-RUN data, not a stored constant, so it is layered over the project's
+  // constant map for this launch only (and never persisted as a constant).
+  const constants = input.revision
+    ? { ...loadConstantMap(ctx.desktopDb), REVISION_REQUEST: input.revision.note }
+    : loadConstantMap(ctx.desktopDb)
   // Capture the PR-delivery mode ONCE at launch entry so a mid-flight env flip
   // can never split one launch across the two delivery paths.
   const prMode = isRailPrDeliveryEnabled()
@@ -751,9 +765,15 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         ? launchContinuation.deliveryId
         : null,
       specSnapshot: buildSpecSnapshot(ctx, ticketIds),
+      ...(input.revision ? { revisionNote: input.revision.note, revisionOf: input.revision.ofDeliveryId } : {}),
     }, input.requiredPrContinuation
       ? { id: input.requiredPrContinuation.deliveryId, decision: input.requiredPrContinuation.decision }
-      : null)
+      // A revision replaces the generation it revises, atomically, so the rail
+      // never shows two active deliveries and a failed revision restores the
+      // predecessor through the shipped rollback path.
+      : input.revision
+        ? { id: input.revision.ofDeliveryId, decision: input.revision.decision }
+        : null)
     prDeliveryId = generation.delivery.id
     supersededDelivery = generation.superseded
     input.onPrDeliveryCreated?.(prDeliveryId)

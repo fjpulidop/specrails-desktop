@@ -135,6 +135,14 @@ export function boundSpecSnapshot(entries: readonly DeliverySpecSnapshotEntry[])
   }))
 }
 
+/** A revision instruction is one sentence of intent, not a document. Bound it so
+ *  a pasted essay cannot bloat every snapshot that carries the row. */
+export const REVISION_NOTE_CAP = 2000
+
+export function boundRevisionNote(note: string): string {
+  return note.replace(/[\r\n\t\0]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, REVISION_NOTE_CAP)
+}
+
 /** Parse a persisted spec_snapshot column value (null-tolerant). */
 export function readSpecSnapshot(raw: string | null | undefined): DeliverySpecSnapshotEntry[] | null {
   if (!raw) return null
@@ -212,6 +220,10 @@ export interface RailPrDeliveryRow {
   spec_snapshot: string | null
   /** JSON DeliverySettleEvidence harvested at settle (migration 56); NULL until settle / on legacy rows. */
   settle_evidence: string | null
+  /** The user's one-sentence revision instruction (migration 57); NULL on ordinary launches. */
+  revision_note: string | null
+  /** The generation this one revises (migration 57); NULL on ordinary launches. */
+  revision_of: string | null
   created_at: string
   updated_at: string
 }
@@ -231,6 +243,9 @@ export interface CreatePrDeliveryInput {
   supersedesDeliveryId?: string | null
   /** Launch-time freeze of the covered tickets (bounded before persistence). */
   specSnapshot?: DeliverySpecSnapshotEntry[] | null
+  /** Revision metadata: the user's sentence + the generation being revised. */
+  revisionNote?: string | null
+  revisionOf?: string | null
 }
 
 /**
@@ -245,9 +260,10 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
        id, rail_index, loop_id, rail_key, ticket_ids, base_branch,
        loop_name, origin_surface, origin_conversation_id,
        implementation_outcome, delivery_outcome, status_code,
-       is_continuation, supersedes_delivery_id, spec_snapshot
+       is_continuation, supersedes_delivery_id, spec_snapshot,
+       revision_note, revision_of
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', 'pending',
-       'implementation_running', ?, ?, ?)`
+       'implementation_running', ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.railIndex,
@@ -263,6 +279,8 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
     input.specSnapshot && input.specSnapshot.length > 0
       ? JSON.stringify(boundSpecSnapshot(input.specSnapshot))
       : null,
+    input.revisionNote ? boundRevisionNote(input.revisionNote) : null,
+    input.revisionOf ?? null,
   )
   return getPrDelivery(db, id)!
 }

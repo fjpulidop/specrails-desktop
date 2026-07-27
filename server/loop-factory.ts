@@ -50,6 +50,23 @@ const SDD_QUICK_OPENSPEC_FACTORY: FactoryLoop = {
   graph: opsxLifecycleGraph(),
 }
 
+/** The Architect-less revision loop every "ask for a change" launch runs. */
+export const FACTORY_REVISION_LOOP_ID = 'factory:revision'
+
+/**
+ * Deliberately NOT in FACTORY_LOOPS: it is resolvable by id but never offered
+ * as a selectable rail mode or library entry. Its prompt consumes
+ * `{{const:REVISION_REQUEST}}`, which only a revision launch injects — listing
+ * it would let a user start a fresh run whose central instruction is empty.
+ */
+const REVISION_FACTORY: FactoryLoop = {
+  id: FACTORY_REVISION_LOOP_ID,
+  name: 'Revision',
+  description: "Apply the ONE change the user asked for on top of work already delivered, re-grade it with the reviewer, then verify + refine until green. No re-planning.",
+  mode: 'loop',
+  graph: fixLoopGraph(['{{cmd:revise}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
+}
+
 export const FACTORY_LOOPS: FactoryLoop[] = [
   {
     id: 'factory:implement',
@@ -86,6 +103,7 @@ const FACTORY_ALIASES = new Map<string, FactoryLoop>([
 const FACTORY_BY_ID = new Map<string, FactoryLoop>([
   ...FACTORY_LOOPS.map((f) => [f.id, f] as const),
   ...FACTORY_ALIASES,
+  [REVISION_FACTORY.id, REVISION_FACTORY],
 ])
 
 export function getFactoryLoop(id: string): FactoryLoop | undefined {

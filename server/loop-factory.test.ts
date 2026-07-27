@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  FACTORY_LOOPS,
-  getFactoryLoop,
-  isFactoryLoopId,
-  factoryLoopMode,
-  factoryLoopForMode,
-} from './loop-factory'
+import { FACTORY_LOOPS, getFactoryLoop, isFactoryLoopId, factoryLoopMode, factoryLoopForMode, FACTORY_REVISION_LOOP_ID } from './loop-factory'
 import { validateLoopGraph } from './loop-graph'
 import { assertDeciderBranches } from './loop-templates.test'
 
@@ -80,5 +74,41 @@ describe('factory loops', () => {
     expect(factoryLoopMode('factory:batch')).toBe('batch-implement')
     expect(factoryLoopForMode('freestyle')?.id).toBe('factory:freestyle')
     expect(factoryLoopForMode('loop')).toBeUndefined()
+  })
+})
+
+describe('factory revision loop (nontech-review-experience)', () => {
+  it('is resolvable by id but never offered in the public catalog', () => {
+    // Listing it would let a user start a fresh run whose central instruction
+    // ({{const:REVISION_REQUEST}}) is only injected by a revision launch.
+    expect(getFactoryLoop(FACTORY_REVISION_LOOP_ID)).toBeDefined()
+    expect(FACTORY_LOOPS.map((f) => f.id)).not.toContain(FACTORY_REVISION_LOOP_ID)
+    expect(isFactoryLoopId(FACTORY_REVISION_LOOP_ID)).toBe(true)
+  })
+
+  it('runs the revise step and NO architect/implement pipeline step', () => {
+    const graph = getFactoryLoop(FACTORY_REVISION_LOOP_ID)!.graph
+    const prompts = graph.nodes
+      .filter((n) => n.type === 'ai-step')
+      .map((n) => String((n.data as { prompt?: string })?.prompt ?? ''))
+      .join('\n')
+    expect(prompts).toContain('{{cmd:revise}}')
+    expect(prompts).not.toContain('{{cmd:implement}}')
+    expect(prompts).not.toContain('{{cmd:batch}}')
+  })
+
+  it('still verifies: the graph closes on a verify step + decider', () => {
+    const graph = getFactoryLoop(FACTORY_REVISION_LOOP_ID)!.graph
+    const prompts = graph.nodes
+      .filter((n) => n.type === 'ai-step')
+      .map((n) => String((n.data as { prompt?: string })?.prompt ?? ''))
+      .join('\n')
+    // Verification scope is never silently narrowed for a revision.
+    expect(prompts).toContain('{{cmd:verify}}')
+    expect(graph.nodes.some((n) => n.type === 'decider')).toBe(true)
+  })
+
+  it('is a graph-native loop (runs through the loop engine, not QueueManager)', () => {
+    expect(getFactoryLoop(FACTORY_REVISION_LOOP_ID)!.mode).toBe('loop')
   })
 })
