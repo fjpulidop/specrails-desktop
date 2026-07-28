@@ -448,6 +448,17 @@ export function createRailsRouter(): Router {
     if (typeof loopId === 'string' && isFactoryLoopId(loopId)) {
       const fmode = factoryLoopMode(loopId)
       if (!fmode) { res.status(404).json({ error: 'Factory loop not found' }); return }
+      // The revision loop is meaningless without a revision to apply: its prompt
+      // consumes {{const:REVISION_REQUEST}}, and an unresolved constant renders
+      // as an EMPTY string (loop-constants), so naming it directly would spawn a
+      // run whose central instruction is silently blank. It is reachable by id
+      // (fork/preview resolve it), so the launch door has to refuse it.
+      if (loopId === FACTORY_REVISION_LOOP_ID && !revisionOfDeliveryId) {
+        res.status(400).json({
+          error: 'revision_loop_requires_revision',
+          detail: 'factory:revision only runs as a revision — pass revisionOfDeliveryId and revisionNote instead of naming the loop',
+        }); return
+      }
       mode = fmode
     }
     if (!VALID_MODES.has(mode as string)) {

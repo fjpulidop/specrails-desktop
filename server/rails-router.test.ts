@@ -2260,6 +2260,24 @@ describe('rails-router launch — revision of an undecided delivery', () => {
     }
   })
 
+  it('refuses the revision loop named directly, with no revision to apply', async () => {
+    // An unresolved {{const:REVISION_REQUEST}} renders as an EMPTY string, so a
+    // bare `loopId: factory:revision` would spawn a run whose central
+    // instruction is silently blank. The loop is resolvable by id (fork/preview
+    // need that), so the launch door is where it has to be refused.
+    setRailTickets(db, 0, [1])
+    const res = await launch({ loopId: 'factory:revision' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('revision_loop_requires_revision')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('accepts the revision loop when it IS a revision', async () => {
+    const id = mkOnReviewRail()
+    const res = await launch({ loopId: 'factory:revision', revisionOfDeliveryId: id, revisionNote: 'blue' })
+    expect(res.status).toBe(202)
+  })
+
   it('kill switch off ⇒ byte-identical legacy guard (revision params ignored)', async () => {
     const id = mkOnReviewRail()
     process.env.SPECRAILS_DELIVERY_REVISIONS = 'false'
