@@ -95,6 +95,8 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
         description: f.description,
         mode: f.mode,
         requiredCapability: f.requiredCapability ?? null,
+        // Absent means launchable (every pre-existing factory loop is).
+        launchable: f.launchable !== false,
         graph: f.graph,
       })),
     })

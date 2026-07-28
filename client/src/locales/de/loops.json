@@ -369,6 +369,10 @@
     "factory_openspec": {
       "name": "OpenSpec Lifecycle",
       "description": "OpenSpec-Lebenszyklus vom Ticket bis zum Archiv: Artefakte generieren (opsx:ff) → implementieren (opsx:apply) → verifizieren (opsx:verify); bei FAIL zurück und denselben Change nachbessern, bei PASS unbeaufsichtigt archivieren."
+    },
+    "factory_revision": {
+      "name": "Überarbeitung",
+      "description": "Wendet die eine erbetene Änderung auf bereits gelieferte Arbeit an, lässt sie vom Reviewer neu bewerten und prüft bis grün. Keine Neuplanung."
     }
   },
   "import": {
@@ -377,5 +381,6 @@
     "skipped_one": "{{count}} Duplikat übersprungen: {{names}}",
     "skipped_other": "{{count}} Duplikate übersprungen: {{names}}",
     "invalid": "Diese Datei ist kein gültiger Loops-Export."
-  }
+  },
+  "automaticOnly": "Läuft automatisch, wenn du bei einer Prüfung Änderungen erbittest — diesen startest du nicht selbst."
 }

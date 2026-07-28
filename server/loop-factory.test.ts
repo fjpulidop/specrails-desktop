@@ -5,7 +5,10 @@ import { assertDeciderBranches } from './loop-templates.test'
 
 describe('factory loops', () => {
   it('ships implement / batch / freestyle mapped to canonical rail modes + the graph-native openspec loop', () => {
-    expect(FACTORY_LOOPS.map((f) => f.id)).toEqual(['factory:implement', 'factory:batch', 'factory:freestyle', 'factory:sdd-quick-openspec'])
+    expect(FACTORY_LOOPS.map((f) => f.id)).toEqual([
+      'factory:implement', 'factory:batch', 'factory:freestyle',
+      'factory:revision', 'factory:sdd-quick-openspec',
+    ])
     expect(getFactoryLoop('factory:implement')?.mode).toBe('implement')
     expect(getFactoryLoop('factory:batch')?.mode).toBe('batch-implement')
     expect(getFactoryLoop('factory:freestyle')?.mode).toBe('freestyle')
@@ -78,12 +81,29 @@ describe('factory loops', () => {
 })
 
 describe('factory revision loop (nontech-review-experience)', () => {
-  it('is resolvable by id but never offered in the public catalog', () => {
-    // Listing it would let a user start a fresh run whose central instruction
-    // ({{const:REVISION_REQUEST}}) is only injected by a revision launch.
+  it('is listed for discovery but marked NOT launchable', () => {
+    // Visible so the platform's behaviour is discoverable (preview/fork), yet it
+    // has no launch path: the app runs it when a user asks for a change, and its
+    // prompt consumes a constant only a revision launch injects.
     expect(getFactoryLoop(FACTORY_REVISION_LOOP_ID)).toBeDefined()
-    expect(FACTORY_LOOPS.map((f) => f.id)).not.toContain(FACTORY_REVISION_LOOP_ID)
+    expect(FACTORY_LOOPS.map((f) => f.id)).toContain(FACTORY_REVISION_LOOP_ID)
+    expect(getFactoryLoop(FACTORY_REVISION_LOOP_ID)?.launchable).toBe(false)
     expect(isFactoryLoopId(FACTORY_REVISION_LOOP_ID)).toBe(true)
+  })
+
+  it('is the ONLY non-launchable factory loop', () => {
+    const nonLaunchable = FACTORY_LOOPS.filter((f) => f.launchable === false).map((f) => f.id)
+    expect(nonLaunchable).toEqual([FACTORY_REVISION_LOOP_ID])
+  })
+
+  it('is never picked as the loop for a legacy rail mode', () => {
+    for (const mode of ['implement', 'batch-implement', 'freestyle', 'loop']) {
+      expect(factoryLoopForMode(mode)?.id).not.toBe(FACTORY_REVISION_LOOP_ID)
+    }
+  })
+
+  it('says in its own description that it is not started by hand', () => {
+    expect(getFactoryLoop(FACTORY_REVISION_LOOP_ID)?.description).toMatch(/not started by hand/i)
   })
 
   it('runs the revise step and NO architect/implement pipeline step', () => {

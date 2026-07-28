@@ -26,6 +26,13 @@ export interface FactoryLoop {
   mode: 'implement' | 'batch-implement' | 'freestyle' | 'loop'
   /** Provider capability required to launch this factory loop. */
   requiredCapability?: 'freestyle'
+  /**
+   * False for a loop the platform runs on its OWN initiative and a user must
+   * never start by hand — it is listed for discovery (preview/fork) but has no
+   * launch path. `factory:revision` is the case: its prompt consumes
+   * `{{const:REVISION_REQUEST}}`, injected only by a revision launch.
+   */
+  launchable?: boolean
   /** Faithful graph for preview + fork seed. */
   graph: LoopGraph
 }
@@ -53,19 +60,6 @@ const SDD_QUICK_OPENSPEC_FACTORY: FactoryLoop = {
 /** The Architect-less revision loop every "ask for a change" launch runs. */
 export const FACTORY_REVISION_LOOP_ID = 'factory:revision'
 
-/**
- * Deliberately NOT in FACTORY_LOOPS: it is resolvable by id but never offered
- * as a selectable rail mode or library entry. Its prompt consumes
- * `{{const:REVISION_REQUEST}}`, which only a revision launch injects — listing
- * it would let a user start a fresh run whose central instruction is empty.
- */
-const REVISION_FACTORY: FactoryLoop = {
-  id: FACTORY_REVISION_LOOP_ID,
-  name: 'Revision',
-  description: "Apply the ONE change the user asked for on top of work already delivered, re-grade it with the reviewer, then verify + refine until green. No re-planning.",
-  mode: 'loop',
-  graph: fixLoopGraph(['{{cmd:revise}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
-}
 
 export const FACTORY_LOOPS: FactoryLoop[] = [
   {
@@ -93,6 +87,19 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
     requiredCapability: 'freestyle',
     graph: fixLoopGraph(['{{cmd:freestyle}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
   },
+  {
+    id: FACTORY_REVISION_LOOP_ID,
+    name: 'Revision',
+    // Listed so the platform's behaviour is discoverable, but `launchable:false`:
+    // the app runs this itself when a user asks for a change to a delivery. Its
+    // prompt consumes `{{const:REVISION_REQUEST}}`, and an unresolved constant
+    // renders as an EMPTY string, so a hand-launched run would have a blank
+    // central instruction. The launch route refuses it; the prompt guards too.
+    launchable: false,
+    description: "Apply the ONE change the user asked for on top of work already delivered, re-grade it with the reviewer, then verify + refine until green. No re-planning. Runs automatically when you ask for changes on a review — it is not started by hand.",
+    mode: 'loop',
+    graph: fixLoopGraph(['{{cmd:revise}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
+  },
   SDD_QUICK_OPENSPEC_FACTORY,
 ]
 
@@ -103,7 +110,6 @@ const FACTORY_ALIASES = new Map<string, FactoryLoop>([
 const FACTORY_BY_ID = new Map<string, FactoryLoop>([
   ...FACTORY_LOOPS.map((f) => [f.id, f] as const),
   ...FACTORY_ALIASES,
-  [REVISION_FACTORY.id, REVISION_FACTORY],
 ])
 
 export function getFactoryLoop(id: string): FactoryLoop | undefined {

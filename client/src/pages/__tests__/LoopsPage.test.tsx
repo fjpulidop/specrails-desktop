@@ -253,3 +253,47 @@ describe('LoopsPage', () => {
     expect(api.fromTemplate).not.toHaveBeenCalled()
   })
 })
+
+describe('LoopsPage — non-launchable built-ins', () => {
+  const revision = {
+    id: 'factory:revision',
+    name: 'Revision',
+    description: 'Applies the one change you asked for…',
+    mode: 'loop' as const,
+    launchable: false,
+    graph: { nodes: [], edges: [], config: {} } as never,
+  }
+  const implement = {
+    id: 'factory:implement',
+    name: 'Implement',
+    description: 'Fully autonomous…',
+    mode: 'implement' as const,
+    launchable: true,
+    graph: { nodes: [], edges: [], config: {} } as never,
+  }
+
+  it('says the loop runs automatically instead of leaving a card with no way to start it', async () => {
+    api.factoryLoops.mockResolvedValue([implement, revision])
+    renderPage()
+    expect(await screen.findByText('Revision')).toBeInTheDocument()
+    const note = screen.getByTestId('factory-loop-automatic')
+    expect(note).toHaveTextContent(/Runs automatically when you ask for changes/i)
+    // Exactly one card carries it — a launchable built-in must not.
+    expect(screen.getAllByTestId('factory-loop-automatic')).toHaveLength(1)
+  })
+
+  it('keeps preview and fork available on it (discovery is the point)', async () => {
+    api.factoryLoops.mockResolvedValue([revision])
+    renderPage()
+    await screen.findByText('Revision')
+    expect(screen.getByRole('button', { name: /preview/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /fork/i })).toBeInTheDocument()
+  })
+
+  it('shows no note for a server that predates the flag', async () => {
+    api.factoryLoops.mockResolvedValue([{ ...implement, launchable: undefined }])
+    renderPage()
+    await screen.findByText('Implement')
+    expect(screen.queryByTestId('factory-loop-automatic')).not.toBeInTheDocument()
+  })
+})

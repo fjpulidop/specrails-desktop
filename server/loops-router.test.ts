@@ -168,7 +168,16 @@ describe('loops-router factory loops', () => {
     const res = await request(app).get('/api/loops/factory')
     expect(res.status).toBe(200)
     const ids = res.body.factoryLoops.map((f: { id: string }) => f.id)
-    expect(ids).toEqual(['factory:implement', 'factory:batch', 'factory:freestyle', 'factory:sdd-quick-openspec'])
+    expect(ids).toEqual([
+      'factory:implement', 'factory:batch', 'factory:freestyle',
+      'factory:revision', 'factory:sdd-quick-openspec',
+    ])
+    // The catalog tells the client which entries have no launch path.
+    const revision = res.body.factoryLoops.find((f: { id: string }) => f.id === 'factory:revision')
+    expect(revision.launchable).toBe(false)
+    for (const other of res.body.factoryLoops.filter((f: { id: string }) => f.id !== 'factory:revision')) {
+      expect(other.launchable).toBe(true)
+    }
     const freestyle = res.body.factoryLoops.find((f: { id: string }) => f.id === 'factory:freestyle')
     expect(freestyle.mode).toBe('freestyle')
     expect(freestyle.name).toBe('Freestyle')

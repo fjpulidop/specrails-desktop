@@ -403,6 +403,17 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground flex-1">{locDesc(f.id, f.description)}</p>
+                    {f.launchable === false && (
+                      // Without this the card reads as a loop whose Run button is
+                      // missing. It has none by design: the app starts it itself.
+                      <p
+                        className="text-[11px] text-accent-info/90 flex items-start gap-1.5"
+                        data-testid="factory-loop-automatic"
+                      >
+                        <Sparkles className="w-3 h-3 mt-0.5 shrink-0" aria-hidden />
+                        {t('automaticOnly')}
+                      </p>
+                    )}
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"

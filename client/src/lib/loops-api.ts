@@ -65,6 +65,12 @@ export interface FactoryLoopSummary {
   requiredCapability?: 'freestyle'
   /** Backward-compatible field from older servers. */
   claudeOnly?: boolean
+  /**
+   * False for a loop the platform runs on its own initiative and the user cannot
+   * start by hand. Absent on older servers, which only ever shipped launchable
+   * loops — so `!== false` is the correct read.
+   */
+  launchable?: boolean
   graph: LoopGraph
 }
 
