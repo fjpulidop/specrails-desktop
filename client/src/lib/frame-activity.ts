@@ -54,6 +54,16 @@ export function commandLabel(command: unknown): string {
   return firstToken(unwrapShell(command.trim().split(/\s+/)).join(' '))
 }
 
+/** The whole command with any shell wrapper removed, for callers that need to
+ *  read the subcommand (narration translates intent, not just the binary). */
+export function fullCommand(command: unknown): string {
+  if (Array.isArray(command)) {
+    return unwrapShell(command.filter((x): x is string => typeof x === 'string')).join(' ').trim()
+  }
+  if (typeof command !== 'string' || command.length === 0) return ''
+  return unwrapShell(command.trim().split(/\s+/)).join(' ').trim()
+}
+
 export function codexCallCommand(args: unknown): string {
   if (typeof args !== 'string') return ''
   try {
@@ -104,6 +114,15 @@ export function mapTool(name: unknown, input: Record<string, unknown> | undefine
     case 'bash':
     case 'shell':
       return { step: true, actionKey: 'running', actionArg: commandLabel(inp.command) }
+    case 'task':
+      // A subagent spawn is the most informative frame the pipeline emits: it is
+      // the hand-off to the architect / developer / reviewer. It was landing in
+      // the generic 'working' bucket, hiding the pipeline's own structure.
+      return {
+        step: true,
+        actionKey: 'delegating',
+        actionArg: clip(String(inp.subagent_type ?? inp.description ?? '').replace(/^sr-/, '')),
+      }
     default:
       return { step: true, actionKey: 'working' }
   }
@@ -210,4 +229,46 @@ export function countActivitySteps(events: EventRow[]): number {
     if (d.step) steps += d.stepCount ?? 1
   }
   return steps
+}
+
+/**
+ * Full command carried by an event, whatever provider shape it arrived in
+ * (claude Bash tool_use, codex local_shell_call/function_call/command_execution).
+ * Returns '' when the event carries no command. Never throws.
+ */
+export function commandFromEvent(ev: EventRow): string {
+  let parsed: Record<string, unknown> = {}
+  try {
+    const j = JSON.parse(ev.payload)
+    if (j && typeof j === 'object' && !Array.isArray(j)) parsed = j as Record<string, unknown>
+  } catch {
+    return ''
+  }
+
+  if (ev.event_type === 'assistant') {
+    const content = (parsed.message as { content?: Array<Record<string, unknown>> } | undefined)?.content
+    if (!Array.isArray(content)) return ''
+    for (const block of content) {
+      if (block?.type !== 'tool_use') continue
+      const input = block.input as Record<string, unknown> | undefined
+      const command = input?.command
+      if (command) return fullCommand(command)
+    }
+    return ''
+  }
+
+  if (ev.event_type === 'item.completed') {
+    const item = parsed.item as Record<string, unknown> | undefined
+    if (!item) return ''
+    if (item.command) return fullCommand(item.command)
+    if (typeof item.arguments === 'string') {
+      try {
+        const args = JSON.parse(item.arguments) as { command?: unknown }
+        if (args?.command) return fullCommand(args.command)
+      } catch {
+        return ''
+      }
+    }
+  }
+  return ''
 }

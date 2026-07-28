@@ -146,7 +146,7 @@ describe('buildNarration — activity', () => {
     expect(model.milestones[0].code).toBe('activity.workingBare')
   })
 
-  it('recognises edit, write, search and shell activity', () => {
+  it('recognises edit, write and search activity, and translates a test command', () => {
     const model = buildNarration({
       events: [
         tool('Edit', { file_path: '/a.ts' }),
@@ -157,9 +157,14 @@ describe('buildNarration — activity', () => {
       settled: false,
     })
     expect(codes(model.milestones)).toEqual([
-      'activity.editing', 'activity.writing', 'activity.searching', 'activity.running',
+      'activity.editing', 'activity.writing', 'activity.searching', 'activity.testing',
     ])
-    expect(model.milestones[3].values.target).toBe('npm')
+  })
+
+  it('reports an unmapped command by its tool, not by a guess', () => {
+    const model = buildNarration({ events: [tool('Bash', { command: 'terraform apply' })], settled: false })
+    expect(model.milestones[0].code).toBe('activity.running')
+    expect(model.milestones[0].values.target).toBe('terraform')
   })
 
   it('stays silent rather than inventing filler for unrecognised frames', () => {
@@ -287,33 +292,34 @@ describe('buildNarration — noise the reader must not see (regression)', () => 
 
   it('surfaces the REAL command, not the shell codex wraps it in', () => {
     const model = buildNarration({
-      events: [step(1, 'Implement'), codexShell(['/bin/zsh', '-lc', 'npm test -- --run'])],
+      // An UNMAPPED tool keeps its name, which is what proves the wrapper is gone.
+      events: [step(1, 'Implement'), codexShell(['/bin/zsh', '-lc', 'terraform apply'])],
       settled: false,
     })
     const activity = model.milestones.find((m) => m.kind === 'activity')!
-    expect(activity.values.target).toBe('npm')
+    expect(activity.values.target).toBe('terraform')
     expect(JSON.stringify(model.milestones)).not.toContain('zsh')
   })
 
-  it('handles bash/sh wrappers and a bare command alike', () => {
-    for (const [cmd, expected] of [
-      [['/bin/bash', '-c', 'pytest -q'], 'pytest'],
-      [['/bin/sh', '-lc', 'cargo test'], 'cargo'],
-      [['npm', 'run', 'build'], 'npm'],
+  it('unwraps bash/sh/zsh wrappers alike before classifying', () => {
+    for (const [cmd, code] of [
+      [['/bin/bash', '-c', 'pytest -q'], 'activity.testing'],
+      [['/bin/sh', '-lc', 'cargo test'], 'activity.testing'],
+      [['/bin/zsh', '-lc', 'npm run build'], 'activity.building'],
     ] as Array<[string[], string]>) {
       const model = buildNarration({ events: [codexShell(cmd)], settled: false })
-      expect(model.milestones[0]?.values.target).toBe(expected)
+      expect(model.milestones[0]?.code).toBe(code)
     }
   })
 
   it('unwraps the shell when the command arrives as one string', () => {
     const model = buildNarration({ events: [codexExec("/bin/zsh -lc 'npm run build'")], settled: false })
-    expect(model.milestones[0]?.values.target).toBe('npm')
+    expect(model.milestones[0]?.code).toBe('activity.building')
   })
 
   it('keeps a lone shell invocation rather than reporting nothing', () => {
     const model = buildNarration({ events: [codexShell(['/bin/zsh'])], settled: false })
-    expect(model.milestones[0]?.values.target).toBe('/bin/zsh')
+    expect(model.milestones[0]?.values.target).toBe('zsh')
   })
 
   it('a codex step reads as commands only, with no thinking filler between them', () => {
@@ -328,8 +334,77 @@ describe('buildNarration — noise the reader must not see (regression)', () => 
       ],
       settled: true,
     })
-    expect(codes(model.milestones)).toEqual(['step.start', 'activity.running', 'step.doneTimed'])
-    expect(model.milestones[1].values).toMatchObject({ target: 'npm', repeats: 2 })
+    // 682s crosses the minutes threshold, so the step reads in minutes.
+    expect(codes(model.milestones)).toEqual(['step.start', 'activity.testing', 'step.doneTimedMin'])
+    expect(model.milestones[1].values.repeats).toBe(2)
+  })
+
+
+  it('collapses plumbing into ONE line per step, however interleaved', () => {
+    // The shape a real run produced: exploration threaded between commands, which
+    // consecutive-only merging rendered as five identical lines in one step.
+    const model = buildNarration({
+      events: [
+        step(1, 'x'),
+        codexShell(['/bin/zsh', '-lc', 'grep -rn foo src']),
+        codexShell(['/bin/zsh', '-lc', 'git status']),
+        codexShell(['/bin/zsh', '-lc', 'ls -la']),
+        codexShell(['/bin/zsh', '-lc', 'npm test']),
+        codexShell(['/bin/zsh', '-lc', 'find . -name x']),
+        codexShell(['/bin/zsh', '-lc', 'openspec validate']),
+        codexShell(['/bin/zsh', '-lc', 'sed -n 1,20p f']),
+        stepEnd(1),
+      ],
+      settled: true,
+    })
+    expect(codes(model.milestones)).toEqual([
+      'step.start', 'activity.exploringBare', 'activity.testing', 'activity.checkingSpec', 'step.doneTimed',
+    ])
+    // Every occurrence is still counted — nothing hidden, just not repeated.
+    expect(model.milestones[1].values.repeats).toBe(5)
+  })
+
+  it('keeps each step activity separate', () => {
+    const model = buildNarration({
+      events: [
+        step(1, 'a'), codexShell(['/bin/zsh', '-lc', 'ls']), stepEnd(1),
+        step(2, 'b'), codexShell(['/bin/zsh', '-lc', 'ls']), stepEnd(2),
+      ],
+      settled: true,
+    })
+    expect(model.milestones.filter((m) => m.kind === 'activity')).toHaveLength(2)
+  })
+
+  it('names a step by its engine ROLE when the node id declares one', () => {
+    const model = buildNarration({
+      events: [
+        ev('loop_step', { index: 1, title: '\u{1F916} AI Step (codex/gpt-5.5)', kind: 'ai-step', nodeId: 'main-1', iteration: 1 }),
+        ev('loop_step', { index: 2, title: '\u{1F916} AI Step (codex/gpt-5.5)', kind: 'ai-step', nodeId: 'verify', iteration: 1 }),
+        ev('loop_step', { index: 3, title: '\u{1F50D} Loop Decider (iteration 1)', kind: 'decider', nodeId: 'decide', iteration: 1 }),
+      ],
+      settled: false,
+    })
+    expect(model.milestones.map((m) => m.values.roleCode)).toEqual([
+      'step.role.work', 'step.role.verify', 'step.role.decide',
+    ])
+  })
+
+  it('falls back to the real title for an unknown node id', () => {
+    const model = buildNarration({
+      events: [ev('loop_step', { index: 1, title: 'Custom author step', kind: 'ai-step', nodeId: 'whatever' })],
+      settled: false,
+    })
+    expect(model.milestones[0].values.roleCode).toBeUndefined()
+    expect(model.milestones[0].values.title).toBe('Custom author step')
+  })
+
+  it('reads long durations in minutes and short ones in seconds', () => {
+    const long = buildNarration({ events: [step(1, 'x'), stepEnd(1, { durationMs: 682_000 })], settled: true })
+    expect(long.milestones[1].code).toBe('step.doneTimedMin')
+    expect(long.milestones[1].values.minutes).toBe(11)
+    const short = buildNarration({ events: [step(1, 'x'), stepEnd(1, { durationMs: 36_000 })], settled: true })
+    expect(short.milestones[1].code).toBe('step.doneTimed')
+    expect(short.milestones[1].values.seconds).toBe(36)
   })
 
   it('strips decorative emoji from engine step titles', () => {
@@ -370,5 +445,141 @@ describe('narration i18n parity (structural guard)', () => {
         `action key '${key}' is neither narratable nor filtered — it would leak a raw i18n key`,
       ).toBe(true)
     }
+  })
+})
+
+describe('buildNarration — pipeline hand-offs', () => {
+  const task = (subagent: string) =>
+    ev('assistant', {
+      type: 'assistant',
+      message: { content: [{ type: 'tool_use', name: 'Task', input: { subagent_type: subagent } }] },
+    })
+
+  it('names the specialist a step handed off to', () => {
+    const model = buildNarration({
+      events: [step(1, 'x'), task('sr-developer'), task('sr-reviewer')],
+      settled: false,
+    })
+    expect(codes(model.milestones)).toEqual(['step.start', 'activity.delegating', 'activity.delegating'])
+    expect(model.milestones.slice(1).map((m) => m.values.target)).toEqual(['developer', 'reviewer'])
+  })
+
+  it('falls back to a bare hand-off when the subagent is unnamed', () => {
+    const model = buildNarration({
+      events: [ev('assistant', {
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Task', input: {} }] },
+      })],
+      settled: false,
+    })
+    expect(model.milestones[0].code).toBe('activity.delegatingBare')
+  })
+})
+
+describe('buildNarration — file activity is folded honestly', () => {
+  const write = (path: string) => tool('Write', { file_path: path })
+  const read = (path: string) => tool('Read', { file_path: path })
+
+  it('one file touched repeatedly is ONE file, never N', () => {
+    // The false-number bug: counting touches instead of distinct files would
+    // claim "2 files" for a single file read twice.
+    const model = buildNarration({
+      events: [step(1, 'x'), read('/a.ts'), read('/a.ts'), read('/a.ts')],
+      settled: false,
+    })
+    const activity = model.milestones.find((m) => m.kind === 'activity')!
+    expect(activity.code).toBe('activity.reading')
+    expect(activity.values.files).toBe(1)
+    expect(activity.values.repeats).toBe(3)
+  })
+
+  it('folds many files into one line with a count and examples', () => {
+    const model = buildNarration({
+      events: [
+        step(1, 'x'),
+        write('/src/board.js'), write('/src/pieces.js'), write('/src/game.js'),
+        write('/src/renderer.js'), write('/index.html'),
+      ],
+      settled: false,
+    })
+    const activity = model.milestones.find((m) => m.kind === 'activity')!
+    expect(activity.code).toBe('activity.writingFiles')
+    expect(activity.values.files).toBe(5)
+    expect(String(activity.values.names).split(', ')).toHaveLength(3)
+    // The badge must not double-count: the text already says "5 files".
+    expect(activity.values.repeats).toBe(1)
+  })
+
+  it('counts distinct files even when they repeat', () => {
+    const model = buildNarration({
+      events: [step(1, 'x'), write('/a.js'), write('/b.js'), write('/a.js'), write('/b.js')],
+      settled: false,
+    })
+    expect(model.milestones.find((m) => m.kind === 'activity')!.values.files).toBe(2)
+  })
+
+  it('keeps reads, writes and edits as separate lines', () => {
+    const model = buildNarration({
+      events: [step(1, 'x'), read('/a.ts'), write('/b.ts'), tool('Edit', { file_path: '/c.ts' })],
+      settled: false,
+    })
+    expect(codes(model.milestones)).toEqual([
+      'step.start', 'activity.reading', 'activity.writing', 'activity.editing',
+    ])
+  })
+
+  it('separates the pipeline own notes from the user product', () => {
+    // Showing "Writing confidence-score.json" beside "Writing game.js" implies
+    // both are the user's work. They are not.
+    const model = buildNarration({
+      events: [
+        step(1, 'x'),
+        write('/proj/game.js'),
+        write('/proj/.specrails/agent-memory/MEMORY.md'),
+        write('/proj/openspec/changes/x/confidence-score.json'),
+        write('/proj/.specrails/agent-memory/2026-07-22-architect-notes.md'),
+        write('/proj/feedback_greenfield.md'),
+      ],
+      settled: false,
+    })
+    const codesSeen = codes(model.milestones)
+    expect(codesSeen).toContain('activity.bookkeeping')
+    expect(codesSeen).toContain('activity.writing')
+    const bookkeeping = model.milestones.find((m) => m.code === 'activity.bookkeeping')!
+    expect(bookkeeping.values.repeats).toBe(4)
+    // The product file is still named.
+    expect(model.milestones.find((m) => m.code === 'activity.writing')!.values.target).toBe('game.js')
+  })
+
+  it('calls writing the spec what it is', () => {
+    const model = buildNarration({
+      events: [
+        step(1, 'x'),
+        write('/proj/openspec/changes/x/proposal.md'),
+        write('/proj/openspec/changes/x/design.md'),
+        write('/proj/openspec/changes/x/tasks.md'),
+      ],
+      settled: false,
+    })
+    const spec = model.milestones.find((m) => m.code === 'activity.writingSpec')!
+    expect(spec.values.repeats).toBe(3)
+  })
+
+  it('drops filesystem plumbing that is not the work itself', () => {
+    // From a real greenfield run: mkdir/cp/rm and shell test syntax leaked in as
+    // "Running mkdir", "Running cp", "Running [[".
+    const model = buildNarration({
+      events: [
+        step(1, 'x'),
+        tool('Bash', { command: 'mkdir -p src' }),
+        tool('Bash', { command: 'cp a b' }),
+        tool('Bash', { command: 'rm -f tmp' }),
+        tool('Bash', { command: '[[ -f package.json ]]' }),
+        tool('Bash', { command: 'touch x' }),
+      ],
+      settled: false,
+    })
+    expect(codes(model.milestones)).toEqual(['step.start', 'activity.exploringBare'])
+    expect(JSON.stringify(model.milestones)).not.toContain('mkdir')
   })
 })

@@ -91,7 +91,11 @@ export function NarratedProgress({
           const Icon = ICON[milestone.kind]
           const isStep = milestone.kind === 'step-start' || milestone.kind === 'step-end'
             || milestone.kind === 'step-interrupted'
-          const repeats = Number(milestone.values.repeats ?? 1)
+          // A folded "N files" line already states its count in the text; the
+          // ×N badge is only for the same thing happening repeatedly.
+          const repeats = Number(milestone.values.files ?? 0) > 1
+            ? 1
+            : Number(milestone.values.repeats ?? 1)
           return (
             <li
               key={`${milestone.seq}-${milestone.code}-${index}`}
@@ -101,7 +105,15 @@ export function NarratedProgress({
             >
               <Icon className={`mt-0.5 size-3.5 shrink-0 ${TONE[milestone.tone]}`} aria-hidden />
               <span>
-                {t(milestone.code, { ...milestone.values, defaultValue: milestone.code })}
+                {/* A step the engine named by role reads as its role; anything
+                    else keeps the real title rather than a guessed label. */}
+                {milestone.kind === 'step-start' && typeof milestone.values.roleCode === 'string'
+                  ? t(milestone.code, {
+                      ...milestone.values,
+                      title: t(milestone.values.roleCode as string),
+                      defaultValue: milestone.code,
+                    })
+                  : t(milestone.code, { ...milestone.values, defaultValue: milestone.code })}
                 {repeats > 1 ? (
                   <span className="ml-1.5 text-[11px] opacity-70">{t('repeats', { count: repeats })}</span>
                 ) : null}

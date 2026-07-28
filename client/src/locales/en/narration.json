@@ -14,7 +14,14 @@
     "done": "Finished step {{step}}",
     "doneTimed": "Finished step {{step}} in {{seconds}}s",
     "failed": "Step {{step}} did not succeed",
-    "interrupted": "Step {{step}} was interrupted before it finished"
+    "interrupted": "Step {{step}} was interrupted before it finished",
+    "doneTimedMin": "Finished step {{step}} in {{minutes}} min",
+    "role": {
+      "work": "making the changes",
+      "verify": "checking it works",
+      "decide": "deciding whether it's done",
+      "fix": "fixing what failed"
+    }
   },
   "decision": {
     "another": "Not done yet — going round again",
@@ -32,7 +39,25 @@
     "running": "Running {{target}}",
     "runningBare": "Running a command",
     "working": "Working on {{target}}",
-    "workingBare": "Working"
+    "workingBare": "Working",
+    "exploring": "Looking through the code",
+    "exploringBare": "Looking through the code",
+    "testing": "Running the tests",
+    "building": "Building the project",
+    "typechecking": "Checking the types",
+    "linting": "Checking code style",
+    "installing": "Installing dependencies",
+    "savingWork": "Saving the work",
+    "checkingSpec": "Checking the spec",
+    "bookkeeping": "Recording its own notes",
+    "bookkeepingBare": "Recording its own notes",
+    "writingSpec": "Writing the plan",
+    "writingSpecBare": "Writing the plan",
+    "writingFiles": "Writing {{files}} files ({{names}}…)",
+    "readingFiles": "Reading {{files}} files ({{names}}…)",
+    "editingFiles": "Changing {{files}} files ({{names}}…)",
+    "delegating": "Handing off to the {{target}}",
+    "delegatingBare": "Handing off to a specialist"
   },
   "repeats": "×{{count}}"
 }

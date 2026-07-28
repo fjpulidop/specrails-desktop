@@ -14,7 +14,14 @@
     "done": "Passo {{step}} concluído",
     "doneTimed": "Passo {{step}} concluído em {{seconds}} s",
     "failed": "O passo {{step}} não correu bem",
-    "interrupted": "O passo {{step}} foi interrompido antes de terminar"
+    "interrupted": "O passo {{step}} foi interrompido antes de terminar",
+    "doneTimedMin": "Passo {{step}} concluído em {{minutes}} min",
+    "role": {
+      "work": "a fazer as alterações",
+      "verify": "a comprovar que funciona",
+      "decide": "a decidir se está terminado",
+      "fix": "a corrigir o que falhou"
+    }
   },
   "decision": {
     "another": "Ainda não está — outra volta",
@@ -32,7 +39,25 @@
     "running": "A executar {{target}}",
     "runningBare": "A executar um comando",
     "working": "A trabalhar em {{target}}",
-    "workingBare": "A trabalhar"
+    "workingBare": "A trabalhar",
+    "exploring": "A percorrer o código",
+    "exploringBare": "A percorrer o código",
+    "testing": "A executar os testes",
+    "building": "A compilar o projeto",
+    "typechecking": "A verificar os tipos",
+    "linting": "A verificar o estilo do código",
+    "installing": "A instalar dependências",
+    "savingWork": "A guardar o trabalho",
+    "checkingSpec": "A verificar a spec",
+    "bookkeeping": "A registar as suas notas",
+    "bookkeepingBare": "A registar as suas notas",
+    "writingSpec": "A escrever o plano",
+    "writingSpecBare": "A escrever o plano",
+    "writingFiles": "A escrever {{files}} ficheiros ({{names}}…)",
+    "readingFiles": "A ler {{files}} ficheiros ({{names}}…)",
+    "editingFiles": "A alterar {{files}} ficheiros ({{names}}…)",
+    "delegating": "A passar o trabalho ao {{target}}",
+    "delegatingBare": "A passar o trabalho a um especialista"
   },
   "repeats": "×{{count}}"
 }

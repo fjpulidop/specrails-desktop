@@ -14,7 +14,14 @@
     "done": "Schritt {{step}} abgeschlossen",
     "doneTimed": "Schritt {{step}} in {{seconds}} s abgeschlossen",
     "failed": "Schritt {{step}} war nicht erfolgreich",
-    "interrupted": "Schritt {{step}} wurde vor dem Ende abgebrochen"
+    "interrupted": "Schritt {{step}} wurde vor dem Ende abgebrochen",
+    "doneTimedMin": "Schritt {{step}} in {{minutes}} min abgeschlossen",
+    "role": {
+      "work": "nimmt die Änderungen vor",
+      "verify": "prüft, ob es funktioniert",
+      "decide": "entscheidet, ob es fertig ist",
+      "fix": "behebt, was fehlschlug"
+    }
   },
   "decision": {
     "another": "Noch nicht fertig — nächste Runde",
@@ -32,7 +39,25 @@
     "running": "Führt {{target}} aus",
     "runningBare": "Führt einen Befehl aus",
     "working": "Arbeitet an {{target}}",
-    "workingBare": "Arbeitet"
+    "workingBare": "Arbeitet",
+    "exploring": "Sieht den Code durch",
+    "exploringBare": "Sieht den Code durch",
+    "testing": "Führt die Tests aus",
+    "building": "Baut das Projekt",
+    "typechecking": "Prüft die Typen",
+    "linting": "Prüft den Codestil",
+    "installing": "Installiert Abhängigkeiten",
+    "savingWork": "Sichert die Arbeit",
+    "checkingSpec": "Prüft die Spec",
+    "bookkeeping": "Notiert eigene Aufzeichnungen",
+    "bookkeepingBare": "Notiert eigene Aufzeichnungen",
+    "writingSpec": "Schreibt den Plan",
+    "writingSpecBare": "Schreibt den Plan",
+    "writingFiles": "Schreibt {{files}} Dateien ({{names}}…)",
+    "readingFiles": "Liest {{files}} Dateien ({{names}}…)",
+    "editingFiles": "Ändert {{files}} Dateien ({{names}}…)",
+    "delegating": "Übergibt an {{target}}",
+    "delegatingBare": "Übergibt an einen Spezialisten"
   },
   "repeats": "×{{count}}"
 }

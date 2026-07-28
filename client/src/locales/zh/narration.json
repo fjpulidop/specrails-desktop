@@ -14,7 +14,14 @@
     "done": "第 {{step}} 步完成",
     "doneTimed": "第 {{step}} 步用 {{seconds}} 秒完成",
     "failed": "第 {{step}} 步未成功",
-    "interrupted": "第 {{step}} 步在完成前被中断"
+    "interrupted": "第 {{step}} 步在完成前被中断",
+    "doneTimedMin": "第 {{step}} 步用 {{minutes}} 分钟完成",
+    "role": {
+      "work": "进行修改",
+      "verify": "验证是否可用",
+      "decide": "判断是否完成",
+      "fix": "修复失败的部分"
+    }
   },
   "decision": {
     "another": "还没完成 — 再来一轮",
@@ -32,7 +39,25 @@
     "running": "正在运行 {{target}}",
     "runningBare": "正在运行命令",
     "working": "正在处理 {{target}}",
-    "workingBare": "正在工作"
+    "workingBare": "正在工作",
+    "exploring": "正在查看代码",
+    "exploringBare": "正在查看代码",
+    "testing": "正在运行测试",
+    "building": "正在构建项目",
+    "typechecking": "正在检查类型",
+    "linting": "正在检查代码风格",
+    "installing": "正在安装依赖",
+    "savingWork": "正在保存工作",
+    "checkingSpec": "正在检查规格",
+    "bookkeeping": "正在记录自己的笔记",
+    "bookkeepingBare": "正在记录自己的笔记",
+    "writingSpec": "正在编写计划",
+    "writingSpecBare": "正在编写计划",
+    "writingFiles": "正在写入 {{files}} 个文件（{{names}}…）",
+    "readingFiles": "正在读取 {{files}} 个文件（{{names}}…）",
+    "editingFiles": "正在修改 {{files}} 个文件（{{names}}…）",
+    "delegating": "移交给 {{target}}",
+    "delegatingBare": "移交给专家"
   },
   "repeats": "×{{count}}"
 }

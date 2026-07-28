@@ -28,7 +28,7 @@ describe('NarratedProgress', () => {
     />)
     expect(screen.getByText('Step 1: Implement')).toBeInTheDocument()
     expect(screen.getByText('Reading auth.ts')).toBeInTheDocument()
-    expect(screen.getByText('Finished step 1 in 90s')).toBeInTheDocument()
+    expect(screen.getByText('Finished step 1 in 2 min')).toBeInTheDocument()
   })
 
   it('shows a repeat count instead of nine identical lines', () => {
@@ -90,7 +90,28 @@ describe('NarratedProgress', () => {
 
   it('renders a plain (non-loop) job from activity alone', () => {
     render(<NarratedProgress events={[tool('Bash', { command: 'npm test' })]} settled />)
-    expect(screen.getByText('Running npm')).toBeInTheDocument()
+    expect(screen.getByText('Running the tests')).toBeInTheDocument()
+  })
+
+  it('reads a step by its role and folds plumbing into one line', () => {
+    render(<NarratedProgress
+      events={[
+        ev('loop_step', { index: 1, title: 'AI Step (codex/gpt-5.5)', kind: 'ai-step', nodeId: 'main-1', iteration: 1 }),
+        tool('Bash', { command: 'grep -rn foo src' }),
+        tool('Bash', { command: 'git status' }),
+        tool('Bash', { command: 'npm run build' }),
+        tool('Bash', { command: 'ls -la' }),
+      ]}
+      settled={false}
+    />)
+    expect(screen.getByText('Step 1: making the changes')).toBeInTheDocument()
+    expect(screen.getAllByText('Looking through the code')).toHaveLength(1)
+    expect(screen.getByText('×3')).toBeInTheDocument()
+    expect(screen.getByText('Building the project')).toBeInTheDocument()
+    // The tool names never reach the reader.
+    for (const noise of ['grep', 'git status', 'ls']) {
+      expect(screen.queryByText(new RegExp(noise))).not.toBeInTheDocument()
+    }
   })
 
   it('never renders a number the stream did not carry', () => {
