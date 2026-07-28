@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.35.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.34.1...v2.35.0) (2026-07-28)
+
+
+### Features
+
+* global Specrails Agents defaults + agent execution-log modal ([#581](https://github.com/fjpulidop/specrails-desktop/issues/581)) ([0e2db5a](https://github.com/fjpulidop/specrails-desktop/commit/0e2db5a84fa4169a426ee226f2589ec17bb9f29b))
+* plain-language review experience for non-tech users ([#583](https://github.com/fjpulidop/specrails-desktop/issues/583)) ([45b805a](https://github.com/fjpulidop/specrails-desktop/commit/45b805aac00dca6b03c79dfa1b252fd58524045d))
+
 ## [2.34.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.34.0...v2.34.1) (2026-07-26)
 
 
