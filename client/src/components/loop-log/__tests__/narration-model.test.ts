@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildNarration, type NarrationMilestone } from '../narration-model'
+import { NARRATABLE_ACTIONS, buildNarration, type NarrationMilestone } from '../narration-model'
 import type { EventRow } from '../../../types'
 
 let seq = 0
@@ -252,5 +252,123 @@ describe('buildNarration — provider degradation', () => {
     })
     // Whatever the provider's frame shape, the shared derivation drives it.
     expect(model.milestones.length).toBeGreaterThanOrEqual(0)
+  })
+})
+
+describe('buildNarration — noise the reader must not see (regression)', () => {
+  /** Codex wraps every command: ["/bin/zsh","-lc","npm test"]. */
+  const codexShell = (cmd: string[]) => ev('item.completed', {
+    type: 'item.completed',
+    item: { type: 'local_shell_call', arguments: JSON.stringify({ command: cmd }) },
+  })
+  /** The other codex shape: the command arrives as one string on the item. */
+  const codexExec = (cmd: string) => ev('item.completed', {
+    type: 'item.completed',
+    item: { type: 'command_execution', command: cmd },
+  })
+  /** A codex reasoning/message frame — activity for metrics, not a milestone. */
+  const codexThinking = () => ev('item.completed', {
+    type: 'item.completed',
+    item: { type: 'agent_message', text: 'Let me look at the tests…' },
+  })
+  /** Codex reasoning frames are the other half of the noise. */
+  const codexReasoning = () => ev('item.completed', {
+    type: 'item.completed',
+    item: { type: 'agent_reasoning', text: 'thinking…' },
+  })
+
+  it('never narrates "thinking" — it is the absence of an observable action', () => {
+    const model = buildNarration({
+      events: [step(1, 'Implement'), codexThinking(), codexReasoning(), codexThinking()],
+      settled: false,
+    })
+    expect(model.milestones.filter((m) => m.kind === 'activity')).toEqual([])
+  })
+
+  it('surfaces the REAL command, not the shell codex wraps it in', () => {
+    const model = buildNarration({
+      events: [step(1, 'Implement'), codexShell(['/bin/zsh', '-lc', 'npm test -- --run'])],
+      settled: false,
+    })
+    const activity = model.milestones.find((m) => m.kind === 'activity')!
+    expect(activity.values.target).toBe('npm')
+    expect(JSON.stringify(model.milestones)).not.toContain('zsh')
+  })
+
+  it('handles bash/sh wrappers and a bare command alike', () => {
+    for (const [cmd, expected] of [
+      [['/bin/bash', '-c', 'pytest -q'], 'pytest'],
+      [['/bin/sh', '-lc', 'cargo test'], 'cargo'],
+      [['npm', 'run', 'build'], 'npm'],
+    ] as Array<[string[], string]>) {
+      const model = buildNarration({ events: [codexShell(cmd)], settled: false })
+      expect(model.milestones[0]?.values.target).toBe(expected)
+    }
+  })
+
+  it('unwraps the shell when the command arrives as one string', () => {
+    const model = buildNarration({ events: [codexExec("/bin/zsh -lc 'npm run build'")], settled: false })
+    expect(model.milestones[0]?.values.target).toBe('npm')
+  })
+
+  it('keeps a lone shell invocation rather than reporting nothing', () => {
+    const model = buildNarration({ events: [codexShell(['/bin/zsh'])], settled: false })
+    expect(model.milestones[0]?.values.target).toBe('/bin/zsh')
+  })
+
+  it('a codex step reads as commands only, with no thinking filler between them', () => {
+    // Reproduces the shape a real codex run produced: alternating reasoning and
+    // wrapped shell calls. The reader should see the commands, nothing else.
+    const model = buildNarration({
+      events: [
+        step(1, '🤖 AI Step (codex/gpt-5.5)'),
+        codexThinking(), codexShell(['/bin/zsh', '-lc', 'npm test']),
+        codexThinking(), codexShell(['/bin/zsh', '-lc', 'npm test']),
+        stepEnd(1, { durationMs: 682_000 }),
+      ],
+      settled: true,
+    })
+    expect(codes(model.milestones)).toEqual(['step.start', 'activity.running', 'step.doneTimed'])
+    expect(model.milestones[1].values).toMatchObject({ target: 'npm', repeats: 2 })
+  })
+
+  it('strips decorative emoji from engine step titles', () => {
+    const model = buildNarration({ events: [step(1, '🤖 AI Step (codex/gpt-5.5)')], settled: false })
+    expect(model.milestones[0].values.title).toBe('AI Step (codex/gpt-5.5)')
+  })
+
+  it('keeps a title that legitimately starts with a bracket', () => {
+    const model = buildNarration({ events: [step(1, '(re)verify')], settled: false })
+    expect(model.milestones[0].values.title).toBe('(re)verify')
+  })
+})
+
+describe('narration i18n parity (structural guard)', () => {
+  // The bug this pins: `deriveFrameActivity` can emit 8 action keys and the
+  // locale only covered 6, so `activity.thinkingBare` rendered as a RAW KEY in
+  // the UI. Any new action key must be translated or explicitly non-narratable.
+  it('every action key the shared derivation can emit is translated or filtered', async () => {
+    const source = (await import('../../../lib/frame-activity.ts?raw')).default as string
+    const emitted = [...source.matchAll(/actionKey: '([a-z]+)'/g)].map((m) => m[1])
+    expect(emitted.length).toBeGreaterThan(4) // the regex still matches something
+
+    const locale = await import('../../../locales/en/narration.json')
+    const activity = ((locale.default ?? locale) as { activity: Record<string, string> }).activity
+
+    for (const key of new Set(emitted)) {
+      const narratable = (NARRATABLE_ACTIONS as readonly string[]).includes(key)
+      if (!narratable) continue
+      expect(activity[key], `missing narration.activity.${key}`).toBeTruthy()
+      expect(activity[`${key}Bare`], `missing narration.activity.${key}Bare`).toBeTruthy()
+    }
+
+    // And nothing emitted may be silently absent from BOTH lists.
+    const filtered = ['thinking', 'reasoning']
+    for (const key of new Set(emitted)) {
+      expect(
+        (NARRATABLE_ACTIONS as readonly string[]).includes(key) || filtered.includes(key),
+        `action key '${key}' is neither narratable nor filtered — it would leak a raw i18n key`,
+      ).toBe(true)
+    }
   })
 })

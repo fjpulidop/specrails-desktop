@@ -74,10 +74,32 @@ function parsePayload(payload: string): Record<string, unknown> {
   }
 }
 
+/** Engine step titles carry decorative emoji ("🤖 AI Step"). Harmless in a log,
+ *  noise in a plain-language timeline — the words carry the meaning. */
+function cleanTitle(title: string): string {
+  return title.replace(/^[^\p{L}\p{N}(]+/u, '').trim()
+}
+
 const asNumber = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null
 const asString = (value: unknown): string | null =>
   typeof value === 'string' && value.length > 0 ? value : null
+
+/**
+ * Action keys that are activity for the metrics counter but NOT narratable
+ * milestones. "Thinking" is the absence of an observable action: nine
+ * consecutive thinking frames tell the reader nothing, and rendering them
+ * violates the silence-over-filler rule this model is built on.
+ */
+const NON_NARRATABLE_ACTIONS = new Set(['thinking', 'reasoning'])
+
+/**
+ * Every action key `deriveFrameActivity` can emit must either be narratable
+ * (with i18n copy under `activity.*`) or listed above. The parity test in
+ * narration-model.test.ts pins this, so a new action key in the shared
+ * derivation can never again leak a raw i18n key into the UI.
+ */
+export const NARRATABLE_ACTIONS = ['reading', 'editing', 'writing', 'searching', 'running', 'working'] as const
 
 /** Consecutive identical activity is one milestone with a count, so a loop that
  *  reads the same file nine times reads as nine attempts — not nine lines. */
@@ -132,7 +154,7 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
       sawLoopStructure = true
       const info: StepInfo = {
         index,
-        title: asString(payload.title) ?? '',
+        title: cleanTitle(asString(payload.title) ?? ''),
         kind: asString(payload.kind) ?? 'ai-step',
         iteration: asNumber(payload.iteration),
         ended: false,
@@ -196,7 +218,7 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
     }
 
     const activity = deriveFrameActivity(event)
-    if (activity.step && activity.actionKey) {
+    if (activity.step && activity.actionKey && !NON_NARRATABLE_ACTIONS.has(activity.actionKey)) {
       pushActivity(milestones, event.seq, currentStep, activity.actionKey, activity.actionArg ?? '')
     }
   }
