@@ -1,0 +1,112 @@
+{
+  "backToBoard": "Back to the board",
+  "stillWorking": "Still working on this…",
+  "alreadyResolved": "This has already been resolved.",
+  "fineControlOnly": "This delivery needs a technical decision. Use the detailed controls on the board.",
+  "openPr": "Open pull request #{{number}}",
+  "noSolutionRecorded": "No summary was recorded.",
+  "headline": {
+    "success": "Your change is ready for review",
+    "successMany": "All {{count}} changes are ready for review",
+    "partial": "{{succeeded}} of {{total}} changes are ready",
+    "noChanges": "Nothing needed changing",
+    "failed": "This could not be completed",
+    "failedPartial": "Only part of this could be completed"
+  },
+  "confidence": {
+    "pill": "AI reviewer confidence {{overall}}/100",
+    "unavailable": "No reviewer score",
+    "tooltip": "The AI reviewer's own score for its work — not an independent check."
+  },
+  "cost": {
+    "thisBuild": "This build cost {{amount}}",
+    "allVersions": "All versions together: {{amount}}"
+  },
+  "accept": {
+    "create-pr": "Accept and open a pull request",
+    "publish": "Accept and send for review",
+    "merge-local": "Accept into my project",
+    "mark-done": "Accept — nothing to change",
+    "generic": "Accept",
+    "irreversibleWarning": "This writes the changes directly into your project on your computer. There is no separate review copy and this cannot be undone.",
+    "irreversibleConfirm": "Yes, write it into my project"
+  },
+  "requestChanges": {
+    "label": "Ask for changes",
+    "comingSoon": "Coming next: describe the change in one sentence.",
+    "prompt": "What would you like changed?",
+    "placeholder": "e.g. make the login button blue",
+    "submit": "Send the change",
+    "hint": "This picks up where the work left off — it does not start over."
+  },
+  "discard": {
+    "label": "Throw this away"
+  },
+  "watchOut": {
+    "title": "Worth a look before you accept"
+  },
+  "sections": {
+    "whatYouAsked": "What you asked for",
+    "whatIDid": "What was done",
+    "howItWasChecked": "How it was checked"
+  },
+  "churn": {
+    "line": "{{files}} files changed · +{{added}} / −{{removed}} lines",
+    "batchNotSplittable": "File changes are reported for the whole delivery, not per request."
+  },
+  "tier": {
+    "app-verified": {
+      "title": "Measured by Specrails",
+      "caveat": "Facts taken from the actual changes."
+    },
+    "ai-reported": {
+      "title": "Reported by the AI",
+      "caveat": "The AI's own words. Specrails did not run these checks itself."
+    },
+    "reviewer-score": {
+      "title": "AI reviewer's self-assessment",
+      "caveat": "The AI grading its own work — useful, but not an independent review."
+    }
+  },
+  "proof": {
+    "filesChanged": "{{files}} files changed (+{{added}} / −{{removed}} lines)",
+    "testFilesChanged": "{{count}} test files were changed",
+    "noTestFilesChanged": "No test files were changed.",
+    "commitsRecorded": "Work was recorded on {{branches}} branch(es)",
+    "verificationPassed": "The AI reported its checks passed ({{count}})",
+    "verificationFailed": "The AI reported its checks FAILED ({{count}})",
+    "noVerificationReported": "The AI did not report any verification.",
+    "verifyOutput": "The AI's verification output:",
+    "reviewerScore": "Overall score {{overall}}/100",
+    "reviewerAspect": "{{aspect}}: {{score}}/100",
+    "reviewerScoreUnavailable": "No reviewer score was produced.",
+    "evidenceUnavailable": "evidence unavailable"
+  },
+  "watch": {
+    "humanReviewRecommended": "The AI reviewer scored this {{overall}}/100 and recommends a person look at it.",
+    "lowConfidence": "The AI reviewer scored this only {{overall}}/100.",
+    "reviewerFlag": "The reviewer flagged:",
+    "noTestsForChangedCode": "{{files}} code files changed with no test changes."
+  },
+  "error": {
+    "notFound": "This review could not be found.",
+    "loadFailed": "The review could not be loaded.",
+    "alreadyResolved": "Someone already answered this.",
+    "actionFailed": "That action did not go through.",
+    "revisionStale": "This was just resolved elsewhere — reload to see where it stands.",
+    "revisionFailed": "The change could not be started. Your text was kept."
+  },
+  "versions": {
+    "title": "Earlier versions ({{count}})",
+    "label": "Version {{version}}",
+    "current": "you're looking at this one",
+    "originalBuild": "The original build."
+  },
+  "drift": {
+    "title": "This may have outgrown its original request",
+    "advisory": "Only a suggestion — you can keep asking for changes.",
+    "costShare": "{{revisions}} change(s) have cost {{revisionCost}} — {{share}}% of the {{originalCost}} original build.",
+    "outOfScopeChurn": "{{files}} of {{total}} changed files were never part of the original request.",
+    "revisionCount": "You've asked for {{revisions}} rounds of changes. Rewriting the request may be quicker."
+  }
+}

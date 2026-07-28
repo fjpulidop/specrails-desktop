@@ -297,6 +297,8 @@
     "createPr": "Créer la PR",
     "publish": "Publier",
     "checkout": "Changer de branche",
+    "openReview": "Relire",
+    "openReviewTooltip": "Ouvrir la relecture en langage clair",
     "checkoutTooltip": "Basculer le dossier principal du projet sur {{branch}}",
     "checkoutSuccess": "Checkout effectué sur {{branch}}",
     "checkoutFailed": "Impossible de faire le checkout de la branche de la PR",

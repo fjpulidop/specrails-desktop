@@ -129,6 +129,9 @@
   "notifications": {
     "jobCompleted": "Job concluído",
     "jobFailed": "Job falhou",
+    "jobStuck": "A execução parece travada",
+    "jobStuckBody_one": "Sem atividade há {{count}} minuto — abra para verificar",
+    "jobStuckBody_other": "Sem atividade há {{count}} minutos — abra para verificar",
     "unknownCommand": "Comando desconhecido"
   },
   "templates": {

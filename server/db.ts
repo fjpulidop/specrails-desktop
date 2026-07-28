@@ -1616,6 +1616,45 @@ const MIGRATIONS: Migration[] = [
         ON agent_tests(provider, agent_name)
     `)
   },
+
+  // Migration 56: nontech-review-experience Wave 1 — two additive nullable
+  // JSON columns on rail_pr_deliveries. `spec_snapshot` freezes each covered
+  // ticket's title/description/labels at LAUNCH so the review packet renders
+  // what the user actually asked (the live store can be edited mid-run).
+  // `settle_evidence` persists the deterministic settle-time harvest (the
+  // VERIFICATION sentinel, the verify step's output tail, the reviewer's
+  // confidence-score.json) captured BEFORE worktree release — the packet's
+  // proof sections survive worktree teardown. NULL on legacy rows = honest
+  // "not captured". Additive + idempotent (guarded by PRAGMA table_info).
+  (db) => {
+    const cols = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[])
+      .map((r) => r.name)
+    if (!cols.includes('spec_snapshot')) {
+      db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN spec_snapshot TEXT`)
+    }
+    if (!cols.includes('settle_evidence')) {
+      db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN settle_evidence TEXT`)
+    }
+  },
+
+  // Migration 57: nontech-review-experience Wave 3 — revision metadata on the
+  // NEW delivery generation a revision creates. `revision_note` is the user's
+  // one-sentence instruction (so packet v2 can show what was asked to change)
+  // and `revision_of` points at the generation being revised. Deliberately NOT
+  // a new `decision` value: an unknown decision makes older clients drop the
+  // whole PR card, and the shipped generation/supersession model already
+  // expresses "a newer attempt replaced the previous one". Additive +
+  // idempotent; NULL on every pre-existing row and on ordinary launches.
+  (db) => {
+    const cols = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[])
+      .map((r) => r.name)
+    if (!cols.includes('revision_note')) {
+      db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN revision_note TEXT`)
+    }
+    if (!cols.includes('revision_of')) {
+      db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN revision_of TEXT`)
+    }
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {

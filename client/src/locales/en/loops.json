@@ -369,6 +369,10 @@
     "factory_openspec": {
       "name": "OpenSpec Lifecycle",
       "description": "Ticket-to-archive OpenSpec lifecycle: generate artifacts (opsx:ff) → implement (opsx:apply) → verify (opsx:verify); on FAIL loop back and amend the same change, on PASS archive it unattended."
+    },
+    "factory_revision": {
+      "name": "Revision",
+      "description": "Applies the one change you asked for on top of work already delivered, has the reviewer re-grade it, then verifies until green. It does not re-plan from scratch."
     }
   },
   "import": {
@@ -377,5 +381,6 @@
     "skipped_one": "Skipped {{count}} duplicate: {{names}}",
     "skipped_other": "Skipped {{count}} duplicates: {{names}}",
     "invalid": "That file isn't a valid loops export."
-  }
+  },
+  "automaticOnly": "Runs automatically when you ask for changes on a review — you don't start this one."
 }

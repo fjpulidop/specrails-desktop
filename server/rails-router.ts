@@ -3,7 +3,7 @@ import type { ProjectContext } from './project-registry'
 import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, createRail, deleteRail, railCount, railExists, MAX_RAILS, MAX_TICKETS_PER_RAIL_LAUNCH, type RailState } from './rails-store'
 import { ClaudeNotFoundError, CodexNotFoundError } from './queue-manager'
 import { validateRequestedProvider } from './provider-selection'
-import { isLoopsEnabled, isCodeExplorerEnabled } from './feature-flags'
+import { isLoopsEnabled, isCodeExplorerEnabled, isReviewPacketEnabled, areDeliveryRevisionsEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
 import { recordLoopRunProvenance } from './file-story'
 import { getLoop } from './loops-store'
@@ -13,7 +13,7 @@ import { isReasoningEffortValidForModel } from './providers/runtime'
 import { resolveAgentDefaults } from './agent-defaults'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from './spec-models'
 import { resolveProjectExecution } from './workspace-resolution'
-import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode } from './loop-factory'
+import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode, FACTORY_REVISION_LOOP_ID } from './loop-factory'
 import { loadConstantMap } from './loop-constants'
 import { dominantTicketScope, referencesUnsupportedProviderCommand } from './loop-command-catalog'
 import { loopNeedsTicket, type LoopGraph } from './loop-graph'
@@ -27,10 +27,14 @@ import {
   toPrDeliverySnapshot,
   toRailPrStateMessage,
   transitionDecision,
+  isTerminalPrDecision,
   PrDeliveryGenerationConflict,
+  type PrDecision,
   type PrDeliverySnapshot,
 } from './rail-pr-store'
 import { classifyLoopEffect } from './loop-effect'
+import { composeReviewPacket } from './review-packet'
+import { resolveAcceptCapability } from './accept-ladder'
 import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
@@ -56,6 +60,25 @@ const VALID_MODES = new Set(['implement', 'batch-implement', 'freestyle', 'loop'
 function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: number[]): boolean {
   if (delivery.decision !== 'pr_draft' && delivery.decision !== 'pr_ready') return false
   if (!delivery.prUrl || !delivery.branch || !delivery.deliverySha || delivery.prState !== 'pr-created') return false
+  const covered = new Set(delivery.ticketIds)
+  const requested = new Set(ticketIds)
+  return requested.size > 0 && requested.size === covered.size && [...requested].every((id) => covered.has(id))
+}
+
+/**
+ * Whether a launch may revise an undecided delivery. Deliberately strict:
+ * the named id must BE the rail's active generation, that generation must still
+ * be awaiting a decision (a terminal one is history, not revisable), and the
+ * rail must still carry exactly the delivery's ticket set — a subset would
+ * revise work the user never asked about while leaving the rest undecided.
+ */
+export function prDeliveryRevisionAllowed(
+  delivery: PrDeliverySnapshot,
+  revisionOfDeliveryId: string,
+  ticketIds: number[],
+): boolean {
+  if (delivery.id !== revisionOfDeliveryId) return false
+  if (isTerminalPrDecision(delivery.decision)) return false
   const covered = new Set(delivery.ticketIds)
   const requested = new Set(ticketIds)
   return requested.size > 0 && requested.size === covered.size && [...requested].every((id) => covered.has(id))
@@ -387,7 +410,18 @@ export function createRailsRouter(): Router {
     }
 
     let { mode = 'implement' } = req.body ?? {}
-    const { profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber } = req.body ?? {}
+    const { profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote } = req.body ?? {}
+    // Revision launch (nontech-review-experience Wave 3): the user asked for a
+    // change to a delivery that is already awaiting their decision. Shape is
+    // validated here; the narrow guard exemption is enforced below.
+    if (revisionOfDeliveryId !== undefined && revisionOfDeliveryId !== null) {
+      if (typeof revisionOfDeliveryId !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(revisionOfDeliveryId)) {
+        res.status(400).json({ error: 'invalid_revision_target', detail: 'revisionOfDeliveryId must be a delivery id' }); return
+      }
+      if (typeof revisionNote !== 'string' || revisionNote.trim().length === 0) {
+        res.status(400).json({ error: 'revision_note_required', detail: 'revisionNote must describe the change to make' }); return
+      }
+    }
     // Explicit target PR (deliver-rail-into-existing-pr): the user names an
     // existing open PR as the delivery destination. Shape-validated here;
     // resolved and verified inside the isolated launch, fail-closed.
@@ -414,6 +448,17 @@ export function createRailsRouter(): Router {
     if (typeof loopId === 'string' && isFactoryLoopId(loopId)) {
       const fmode = factoryLoopMode(loopId)
       if (!fmode) { res.status(404).json({ error: 'Factory loop not found' }); return }
+      // The revision loop is meaningless without a revision to apply: its prompt
+      // consumes {{const:REVISION_REQUEST}}, and an unresolved constant renders
+      // as an EMPTY string (loop-constants), so naming it directly would spawn a
+      // run whose central instruction is silently blank. It is reachable by id
+      // (fork/preview resolve it), so the launch door has to refuse it.
+      if (loopId === FACTORY_REVISION_LOOP_ID && !revisionOfDeliveryId) {
+        res.status(400).json({
+          error: 'revision_loop_requires_revision',
+          detail: 'factory:revision only runs as a revision — pass revisionOfDeliveryId and revisionNote instead of naming the loop',
+        }); return
+      }
       mode = fmode
     }
     if (!VALID_MODES.has(mode as string)) {
@@ -427,6 +472,17 @@ export function createRailsRouter(): Router {
     // uncommitted work. Loops off ⇒ legacy QueueManager path, unchanged.
     if (isLoopsEnabled() && (typeof loopId !== 'string' || !loopId) && mode !== 'loop') {
       loopId = factoryLoopForMode(mode as string)?.id
+    }
+    // A revision must run the Architect-LESS revision loop, whatever the rail's
+    // stored mode is. Without this every one-sentence tweak would re-run the
+    // full implement pipeline — the exact cost the feature exists to avoid.
+    // An explicit loopId is respected (a caller naming a loop means it).
+    if (revisionOfDeliveryId && isLoopsEnabled() && (typeof loopId !== 'string' || !loopId || isFactoryLoopId(loopId))) {
+      const revisionLoop = getFactoryLoop(FACTORY_REVISION_LOOP_ID)
+      if (revisionLoop) {
+        loopId = revisionLoop.id
+        mode = revisionLoop.mode
+      }
     }
     if (mode === 'loop' && !isLoopsEnabled()) {
       res.status(403).json({ error: 'Loops are disabled on this server' }); return
@@ -632,6 +688,7 @@ export function createRailsRouter(): Router {
         // cards) is diagnosable from the UI, not just the server log.
         let isolationUnavailableDetail: string | undefined
         let continuablePrDelivery: PrDeliverySnapshot | null = null
+        let revisionRequest: { ofDeliveryId: string; decision: PrDecision; note: string } | null = null
         // Read-only vs mutating is DERIVED from the loop's nodes (see loop-effect),
         // not a user flag — a content-read-only loop (no ai-step/shell) never writes,
         // so it is not isolated; anything that can write is.
@@ -642,8 +699,31 @@ export function createRailsRouter(): Router {
         if (isRailPrDeliveryEnabled()) {
           const pending = getActivePrDeliveryByRail(c.db, railIndex)
           const pendingSnapshot = pending ? toPrDeliverySnapshot(pending) : null
-          if (pendingSnapshot && !prDeliveryContinuesTickets(pendingSnapshot, rail.ticketIds)) {
+          // A revision is the ONE launch allowed to proceed against an
+          // undecided delivery, and only on the exact terms below: the caller
+          // names that delivery AND covers its full ticket set. Anything else
+          // would silently append work to branches the user has not judged.
+          const revisionsEnabled = areDeliveryRevisionsEnabled()
+          const revisionOfPending = Boolean(
+            revisionsEnabled && pendingSnapshot && revisionOfDeliveryId
+            && prDeliveryRevisionAllowed(pendingSnapshot, revisionOfDeliveryId as string, rail.ticketIds),
+          )
+          if (revisionsEnabled && pendingSnapshot && revisionOfDeliveryId && !revisionOfPending) {
+            res.status(409).json({
+              error: 'invalid_revision_target',
+              prDeliveryId: pendingSnapshot.id,
+              detail: 'a revision must target the rail\'s active delivery and cover all of its specs',
+            }); return
+          }
+          if (pendingSnapshot && !revisionOfPending && !prDeliveryContinuesTickets(pendingSnapshot, rail.ticketIds)) {
             res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return
+          }
+          if (revisionOfPending && pendingSnapshot) {
+            revisionRequest = {
+              ofDeliveryId: pendingSnapshot.id,
+              decision: pendingSnapshot.decision as PrDecision,
+              note: revisionNote as string,
+            }
           }
           // Explicit target vs an undecided continuable delivery: the slot's
           // active generation owns its PR. A DIFFERENT explicit target would
@@ -714,6 +794,9 @@ export function createRailsRouter(): Router {
                 ...(typeof targetPrNumber === 'number' && !continuablePrDelivery
                   ? { explicitPrTarget: { prNumber: targetPrNumber } }
                   : {}),
+                // Revision of an undecided delivery: the guard above proved the
+                // exemption, so pass the contract through for supersession.
+                ...(revisionRequest ? { revision: revisionRequest } : {}),
               })
               res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true })
               return
@@ -987,6 +1070,27 @@ export function createRailsRouter(): Router {
     }
 
     res.json({ ok: true, jobIds: targetJobIds, loopRunIds: targetLoopRunIds, canceled: canceledCount })
+  })
+
+  // GET /rails/pr-deliveries/:id/packet — the plain-language review packet for a
+  // settled delivery: composed server-side from durable rows only (no model
+  // calls, no live-store reads) plus the pre-resolved Accept ladder, so the
+  // client never has to ask the user to choose between git actions. Read-only.
+  router.get('/pr-deliveries/:prDeliveryId/packet', async (req: Request, res: Response) => {
+    if (!isReviewPacketEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req)
+    const row = getPrDelivery(c.db, req.params.prDeliveryId as string)
+    if (!row) { res.status(404).json({ error: 'Delivery not found' }); return }
+    try {
+      const packet = composeReviewPacket({ db: c.db, row })
+      // Capability probes are read-only and offline; a failure degrades to the
+      // confirm-gated local path rather than blocking the packet.
+      const acceptCapability = await resolveAcceptCapability({ repoDir: c.project.path, exec: defaultExec })
+      res.json({ packet, acceptCapability, snapshot: toPrDeliverySnapshot(row) })
+    } catch (err) {
+      console.error('[rails-router] packet composition failed:', err)
+      res.status(500).json({ error: 'packet composition failed', detail: (err as Error).message })
+    }
   })
 
   // POST /rails/pr-decision — the ONE decision action (safe-pr-review-flow) both

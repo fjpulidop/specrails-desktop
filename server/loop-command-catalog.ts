@@ -104,6 +104,39 @@ export const LOOP_COMMANDS: LoopCommand[] = [
     ticketScope: 'per-ticket',
   },
   {
+    name: 'revise',
+    label: 'revise',
+    description: 'Revision step (nontech-review-experience): apply the ONE change the user asked for on top of work already delivered, then have the reviewer re-grade it. No re-planning, no re-implementing.',
+    ticketScope: 'all',
+    // Deliberately NOT the implement pipeline: the plan and the code already
+    // exist, so an Architect pass would re-derive both and pay the full cost of
+    // a first run for a one-sentence tweak. The reviewer pass is orchestrated
+    // from HERE rather than added to core, because the sr-* agents are already
+    // present in the run's worktree via the overlay — that keeps the loop a
+    // pure desktop concern with zero specrails-core coupling, and it is what
+    // keeps the review packet's reviewer tier populated for revisions.
+    template: [
+      'A previous run already delivered work for this spec, and the user has now asked for ONE specific change to it. Apply exactly that change.',
+      '',
+      'What the user asked to change:',
+      '{{const:REVISION_REQUEST}}',
+      '',
+      'If the section above is EMPTY, no change was actually requested: do not',
+      'guess, do not re-implement anything, and do not touch the branch. Report',
+      'that no revision instruction was provided and stop.',
+      '',
+      'Rules:',
+      '- Start from the work that is ALREADY on this branch. Read it first (git diff against the base branch) so you extend it instead of redoing it.',
+      '- Make the SMALLEST change that satisfies the request. Do not refactor, re-plan, or re-implement anything the user did not ask about.',
+      '- If the request is ambiguous, choose the most conservative reading and say which one you chose.',
+      '- If the request cannot be done without breaking something the spec requires, stop and report that instead of forcing it.',
+      '',
+      'Then re-grade the result: run the `sr-reviewer` agent over the resulting diff so its review report and `confidence-score.json` reflect THIS revision, not the previous run.',
+      '',
+      '{{const:GUARDRAILS}}',
+    ].join('\n'),
+  },
+  {
     name: 'fix',
     label: 'fix',
     description: 'Refinement/advance step: the Loop Decider judged the goal not yet met. Read the verification output — if it FAILED, fix the smallest thing; if it PASSED but the feature is incomplete, implement the missing pieces; if genuinely blocked on a human decision, emit LOOP_BLOCKED and stop.',

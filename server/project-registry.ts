@@ -37,6 +37,7 @@ import { applyWorktreeEnvPassthrough } from './project-env'
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './ticket-store'
 import { JiraSyncManager } from './jira/jira-sync-manager'
+import { StuckRunDetector } from './stuck-run-detector'
 import { LoopRunManager, recoverOrphanLoopStepAccounting } from './loop-run-manager'
 import { createLoopExecutors } from './loop-executors'
 import { reconcileRailWorktrees } from './rail-isolated-launch'
@@ -101,6 +102,8 @@ export interface ProjectContext {
   ticketWatcher: TicketWatcher
   browserCaptureManager: BrowserCaptureManager
   jiraSyncManager: JiraSyncManager
+  /** Emits `job.stuck` when a running loop step stops producing activity. */
+  stuckRunDetector: StuckRunDetector
   broadcast: (msg: WsMessage) => void
   /** Maps jobId → rail metadata for active rail-launched jobs */
   railJobs: Map<string, { railIndex: number; mode: string; ticketIds: number[] }>
@@ -350,6 +353,7 @@ export class ProjectRegistry {
       void ctx.browserCaptureManager.shutdown().catch(() => { /* ignore */ })
       // Stop the Jira sync poll/drain timers (no children, just intervals).
       try { ctx.jiraSyncManager.stop() } catch { /* ignore */ }
+      try { ctx.stuckRunDetector.stop() } catch { /* ignore */ }
       // Kill any terminal sessions belonging to this project
       try { getTerminalManager().killAllForProject(id) } catch { /* ignore */ }
       // Close the ticket file watcher
@@ -448,6 +452,7 @@ export class ProjectRegistry {
       try { ctx.specLauncherManager.shutdown() } catch { /* ignore */ }
       void ctx.browserCaptureManager.shutdown().catch(() => { /* ignore */ })
       try { ctx.jiraSyncManager.stop() } catch { /* ignore */ }
+      try { ctx.stuckRunDetector.stop() } catch { /* ignore */ }
       // Release chokidar watchers + abort in-flight generations so a restart
       // does not leak handles/children — mirror removeProject()'s per-project teardown.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
@@ -1149,7 +1154,10 @@ export class ProjectRegistry {
       }
     }
 
-    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb }
+    const stuckRunDetector = new StuckRunDetector(project.id, { db }, boundBroadcast)
+    stuckRunDetector.start()
+
+    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb }
     this._contexts.set(project.id, ctx)
     const loopRecoveryOk = this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns)
     if (loopRecoveryOk) {

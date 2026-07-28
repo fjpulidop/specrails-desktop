@@ -297,6 +297,8 @@
     "createPr": "创建 PR",
     "publish": "发布",
     "checkout": "检出分支",
+    "openReview": "审阅",
+    "openReviewTooltip": "打开通俗语言的审阅",
     "checkoutTooltip": "在项目主目录检出 {{branch}}",
     "checkoutSuccess": "已检出 {{branch}}",
     "checkoutFailed": "无法检出 PR 分支",

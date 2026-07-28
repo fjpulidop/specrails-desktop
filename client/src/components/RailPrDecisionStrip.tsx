@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import { FEATURE_REVIEW_PACKET } from '../lib/feature-flags'
 import { toast } from 'sonner'
 import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, FolderOpen } from 'lucide-react'
 import {
@@ -379,6 +380,24 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     </button>
   )
 
+  // Entry point into the plain-language review packet (nontech-review-experience).
+  // Rendered before the git-shaped actions so the readable surface is the first
+  // thing offered; the fine-grained buttons stay for technical users.
+  const reviewPacketBtn = FEATURE_REVIEW_PACKET ? (
+    <button
+      type="button"
+      data-testid="rail-pr-open-packet"
+      title={t('railPr.openReviewTooltip')}
+      onClick={(e) => { e.stopPropagation(); navigate(`/review/${decision.prDeliveryId}`) }}
+      className={`inline-flex items-center gap-1 rounded-md font-medium border border-accent-primary/40 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors ${
+        compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
+      }`}
+    >
+      <Eye className={iconCls} aria-hidden />
+      {t('railPr.openReview')}
+    </button>
+  ) : null
+
   const checkoutBtn = checkout && decision.prUrl && decision.branch && decision.deliverySha && !presentation.deliveryBlocked ? (
     <button
       type="button"
@@ -646,6 +665,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     )
     actions = (
       <>
+        {reviewPacketBtn}
         {actionButton('create-pr', 'on_review', t('railPr.createPr'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }), <GitPullRequest className={iconCls} aria-hidden />)}
         {mergeLocalBtn}
         {presentation.continuation ? dismissBtn : discardBtn}

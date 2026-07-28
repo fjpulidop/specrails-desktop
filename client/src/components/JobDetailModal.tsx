@@ -14,6 +14,9 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from './ui/t
 import { PipelineProgress } from './PipelineProgress'
 import { LogViewer } from './LogViewer'
 import { LoopStepExplorer } from './loop-log/LoopStepExplorer'
+import { NarratedProgress } from './loop-log/NarratedProgress'
+import { FEATURE_NARRATED_PROGRESS } from '../lib/feature-flags'
+import { loadJobLogMode, saveJobLogMode, type JobLogMode } from '../lib/job-log-mode'
 import { InteractiveJobComposer } from './InteractiveJobComposer'
 import { useMovableResizableModal } from '../hooks/useMovableResizableModal'
 import { ResizeGrips } from './ui/ResizeGrips'
@@ -61,12 +64,20 @@ interface JobDetailModalProps {
 
 export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProps) {
   const { t } = useTranslation('jobs')
+  const { t: tNarration } = useTranslation('narration')
   // Lazy so the no-explicit-projectId path keeps getApiBase()'s call-time
   // resolution (it throws when no project is active — never during render).
   const apiBase = useCallback(
     () => (projectId ? `${API_ORIGIN}/api/projects/${projectId}` : getApiBase()),
     [projectId],
   )
+  // Log-surface altitude, shared per project with the routed Job Detail page so
+  // the two views never disagree about which one the user prefers.
+  const [narrationMode, setNarrationModeState] = useState<JobLogMode>(loadJobLogMode)
+  const setNarrationMode = useCallback((mode: JobLogMode) => {
+    setNarrationModeState(mode)
+    saveJobLogMode(mode)
+  }, [])
   const [job, setJob] = useState<JobSummary | null>(null)
   const [events, setEvents] = useState<EventRow[]>([])
   const [phaseDefinitions, setPhaseDefinitions] = useState<PhaseDefinition[]>([])
@@ -333,6 +344,47 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
           {notFound ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-sm text-muted-foreground">{t('modal.notFound')}</p>
+            </div>
+          ) : FEATURE_NARRATED_PROGRESS && job ? (
+            <div className="flex h-full flex-col">
+              <div className="flex items-center gap-1 border-b border-border/40 px-3 py-1.5">
+                {(['narrated', 'log'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setNarrationMode(mode)}
+                    aria-pressed={narrationMode === mode}
+                    data-testid={`modal-narration-mode-${mode}`}
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                      narrationMode === mode
+                        ? 'bg-accent-primary/15 text-accent-primary'
+                        : 'text-muted-foreground hover:bg-surface/60'
+                    }`}
+                  >
+                    {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
+                  </button>
+                ))}
+              </div>
+              <div className="flex-1 overflow-hidden">
+                {narrationMode === 'narrated' ? (
+                  <NarratedProgress
+                    events={events}
+                    settled={job.status !== 'running' && job.status !== 'queued'}
+                    elapsedMs={job.duration_ms ?? null}
+                    variant="glass"
+                  />
+                ) : job.command.startsWith('loop:') ? (
+                  <LoopStepExplorer
+                    events={events}
+                    jobStatus={job.status}
+                    isLoading={isLoading}
+                    variant="glass"
+                    projectId={projectId}
+                  />
+                ) : (
+                  <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
+                )}
+              </div>
             </div>
           ) : job?.command.startsWith('loop:') ? (
             <LoopStepExplorer

@@ -1,0 +1,112 @@
+{
+  "backToBoard": "Retour au tableau",
+  "stillWorking": "Toujours en cours…",
+  "alreadyResolved": "Cela a déjà été résolu.",
+  "fineControlOnly": "Cette livraison nécessite une décision technique. Utilisez les contrôles détaillés du tableau.",
+  "openPr": "Ouvrir la pull request #{{number}}",
+  "noSolutionRecorded": "Aucun résumé n'a été enregistré.",
+  "headline": {
+    "success": "Votre changement est prêt à être relu",
+    "successMany": "Les {{count}} changements sont prêts à être relus",
+    "partial": "{{succeeded}} changements sur {{total}} sont prêts",
+    "noChanges": "Rien n'avait besoin d'être changé",
+    "failed": "Cela n'a pas pu être terminé",
+    "failedPartial": "Seule une partie a pu être terminée"
+  },
+  "confidence": {
+    "pill": "Confiance du relecteur IA {{overall}}/100",
+    "unavailable": "Pas de score du relecteur",
+    "tooltip": "Le score que le relecteur IA s'attribue — ce n'est pas une vérification indépendante."
+  },
+  "cost": {
+    "thisBuild": "Ce travail a coûté {{amount}}",
+    "allVersions": "Toutes les versions cumulées : {{amount}}"
+  },
+  "accept": {
+    "create-pr": "Accepter et ouvrir une pull request",
+    "publish": "Accepter et envoyer en relecture",
+    "merge-local": "Accepter dans mon projet",
+    "mark-done": "Accepter — rien à changer",
+    "generic": "Accepter",
+    "irreversibleWarning": "Cela écrit les changements directement dans votre projet, sur votre ordinateur. Il n'y a pas de copie de relecture et c'est irréversible.",
+    "irreversibleConfirm": "Oui, écrire dans mon projet"
+  },
+  "requestChanges": {
+    "label": "Demander des changements",
+    "comingSoon": "Bientôt : décrivez le changement en une phrase.",
+    "prompt": "Que voulez-vous changer ?",
+    "placeholder": "ex. mettre le bouton de connexion en bleu",
+    "submit": "Envoyer le changement",
+    "hint": "Reprend là où le travail s'est arrêté — sans repartir de zéro."
+  },
+  "discard": {
+    "label": "Jeter ceci"
+  },
+  "watchOut": {
+    "title": "À regarder avant d'accepter"
+  },
+  "sections": {
+    "whatYouAsked": "Ce que vous avez demandé",
+    "whatIDid": "Ce qui a été fait",
+    "howItWasChecked": "Comment cela a été vérifié"
+  },
+  "churn": {
+    "line": "{{files}} fichiers modifiés · +{{added}} / −{{removed}} lignes",
+    "batchNotSplittable": "Les modifications de fichiers concernent toute la livraison, pas chaque demande."
+  },
+  "tier": {
+    "app-verified": {
+      "title": "Mesuré par Specrails",
+      "caveat": "Faits tirés des modifications réelles."
+    },
+    "ai-reported": {
+      "title": "Rapporté par l'IA",
+      "caveat": "Les mots de l'IA. Specrails n'a pas exécuté ces vérifications."
+    },
+    "reviewer-score": {
+      "title": "Auto-évaluation du relecteur IA",
+      "caveat": "L'IA note son propre travail — utile, mais pas une relecture indépendante."
+    }
+  },
+  "proof": {
+    "filesChanged": "{{files}} fichiers modifiés (+{{added}} / −{{removed}} lignes)",
+    "testFilesChanged": "{{count}} fichiers de test modifiés",
+    "noTestFilesChanged": "Aucun fichier de test modifié.",
+    "commitsRecorded": "Le travail a été enregistré sur {{branches}} branche(s)",
+    "verificationPassed": "L'IA a rapporté que ses vérifications ont réussi ({{count}})",
+    "verificationFailed": "L'IA a rapporté que ses vérifications ont ÉCHOUÉ ({{count}})",
+    "noVerificationReported": "L'IA n'a rapporté aucune vérification.",
+    "verifyOutput": "Sortie de vérification de l'IA :",
+    "reviewerScore": "Score global {{overall}}/100",
+    "reviewerAspect": "{{aspect}} : {{score}}/100",
+    "reviewerScoreUnavailable": "Aucun score de relecteur produit.",
+    "evidenceUnavailable": "preuves indisponibles"
+  },
+  "watch": {
+    "humanReviewRecommended": "Le relecteur IA a noté {{overall}}/100 et recommande une relecture humaine.",
+    "lowConfidence": "Le relecteur IA n'a noté que {{overall}}/100.",
+    "reviewerFlag": "Le relecteur a signalé :",
+    "noTestsForChangedCode": "{{files}} fichiers de code modifiés sans changement de test."
+  },
+  "error": {
+    "notFound": "Cette relecture est introuvable.",
+    "loadFailed": "La relecture n'a pas pu être chargée.",
+    "alreadyResolved": "Quelqu'un a déjà répondu.",
+    "actionFailed": "Cette action n'a pas abouti.",
+    "revisionStale": "Cela vient d'être résolu ailleurs — rechargez pour voir l'état.",
+    "revisionFailed": "Le changement n'a pas pu démarrer. Votre texte a été conservé."
+  },
+  "versions": {
+    "title": "Versions précédentes ({{count}})",
+    "label": "Version {{version}}",
+    "current": "vous consultez celle-ci",
+    "originalBuild": "Le travail initial."
+  },
+  "drift": {
+    "title": "Cela dépasse peut-être votre demande initiale",
+    "advisory": "Simple suggestion — vous pouvez continuer à demander des changements.",
+    "costShare": "{{revisions}} changement(s) ont coûté {{revisionCost}} — {{share}} % des {{originalCost}} du travail initial.",
+    "outOfScopeChurn": "{{files}} des {{total}} fichiers modifiés ne faisaient pas partie de la demande initiale.",
+    "revisionCount": "Vous avez demandé {{revisions}} séries de changements. Réécrire la demande sera peut-être plus rapide."
+  }
+}

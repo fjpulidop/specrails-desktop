@@ -32,15 +32,16 @@ import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktre
 import { ticketBranchName, ticketRef, resolveCollisionFreeName, type TicketNamingInput } from './pr-naming'
 import { getLinkByLocalId } from './jira/jira-db'
 import type { DbInstance } from './db'
-import { getProjectSettings } from './db'
+import { getJobEvents, getProjectSettings } from './db'
+import { harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
 import { resolveIntegrationBranch, fetchOrigin, resolveWorktreeBaseRef, type ResolvedIntegrationBranch } from './integration-branch'
 import { withRepoLock } from './repo-lock'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
 import {
   appendPrDeliverySafetyArchive, createPrDeliveryGeneration, failPrDeliveryAndRestoreSuperseded,
-  getPrDelivery, reconcileFailedBuildingPrDeliveries, transitionDecision, toPrDeliverySnapshot,
+  getPrDelivery, reconcileFailedBuildingPrDeliveries, readSpecSnapshot, transitionDecision, toPrDeliverySnapshot,
   toRailPrStateMessage, toPrDecisionCardEnvelope,
-  type DeliverBranchRecord, type PrDecision, type PrDeliveryOutcome,
+  type DeliverBranchRecord, type DeliverySpecSnapshotEntry, type PrDecision, type PrDeliveryOutcome,
   type PrDeliveryStatusCode, type PrImplementationOutcome, type PrOriginSurface,
   type SupersededPrDelivery,
 } from './rail-pr-store'
@@ -52,6 +53,7 @@ import {
   type OverlayCleanupEvidence,
 } from './worktree-overlay'
 import { authenticateWarmNodeModulesLinks, linkNodeModulesIntoWorktree } from './worktree-node-modules'
+import { buildRevisionSeed } from './revision-seed'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isCodeExplorerEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
@@ -116,6 +118,15 @@ export interface IsolatedLaunchInput {
    * continuation discovery is skipped and validation failure throws
    * `ExplicitPrTargetError` BEFORE any delivery row or worktree exists. */
   explicitPrTarget?: { prNumber: number }
+  /** Revision of an undecided delivery (nontech-review-experience Wave 3): the
+   * router has already verified the exemption. The new generation supersedes
+   * that one and records the user's instruction, so packet v2 can show what was
+   * asked to change and the version chain reads as v1 → v2. */
+  revision?: {
+    ofDeliveryId: string
+    decision: PrDecision
+    note: string
+  }
 }
 
 /** A PR follow-up may only run on the verified PR branch in a dedicated
@@ -147,6 +158,8 @@ export interface IsolatedLaunchIO {
    *  (injectable so unit tests need no real git repo). */
   snapshot?: typeof snapshotWorkingTree
   recordProvenance?: typeof recordLoopRunProvenance
+  /** Settle-time review-packet evidence harvest (injectable for tests). */
+  harvestEvidence?: typeof harvestDeliveryEvidence
   /** gh-backed PR discovery for continuing already-open PR branches. */
   exec?: Exec
 }
@@ -224,6 +237,70 @@ function unitNamingInput(ctx: ProjectContext, ticketId: number): TicketNamingInp
     /* tolerated */
   }
   return { ticketId, title: spec?.title ?? null, labels: spec?.labels ?? null, jiraKey }
+}
+
+/**
+ * Assemble the revision briefing from the generation being revised. Reads only
+ * durable rows, tolerates every one of them being absent (a legacy row carries
+ * no snapshot or evidence), and never throws — a thinner briefing is far better
+ * than a failed revision launch.
+ */
+function buildRevisionSeedForLaunch(
+  db: DbInstance,
+  revision: NonNullable<IsolatedLaunchInput['revision']>,
+  ticketIds: readonly number[],
+): string {
+  try {
+    const previous = getPrDelivery(db, revision.ofDeliveryId)
+    const branches = previous
+      ? [...new Set((JSON.parse(previous.branches || '[]') as DeliverBranchRecord[]).map((b) => b.branch).filter(Boolean))]
+      : []
+    // Revision depth walks the supersession chain, bounded so a corrupted
+    // lineage can never spin here.
+    let depth = 1
+    let cursor = previous
+    for (let hops = 0; hops < 20 && cursor?.revision_of; hops++) {
+      depth += 1
+      cursor = getPrDelivery(db, cursor.revision_of) ?? undefined
+    }
+    return buildRevisionSeed({
+      note: revision.note,
+      specSnapshot: previous ? readSpecSnapshot(previous.spec_snapshot) : null,
+      ticketIds: [...ticketIds],
+      branches,
+      baseBranch: previous?.base_branch ?? 'the integration branch',
+      branchDiffSummary: null,
+      evidence: previous ? readSettleEvidence(previous.settle_evidence) : null,
+      revisionNumber: depth,
+    })
+  } catch {
+    // Absolute floor: the user's instruction still reaches the run.
+    return revision.note
+  }
+}
+
+/**
+ * Launch-time freeze of every covered ticket for the delivery row's
+ * spec_snapshot column (migration 56). The review packet's "what you asked"
+ * section renders this snapshot, never the live store — a spec edited mid-run
+ * must not rewrite what the delivery was asked to do. Failure-tolerant: an
+ * unreadable ticket degrades to a bare-id entry.
+ */
+export function buildSpecSnapshot(ctx: ProjectContext, ticketIds: readonly number[]): DeliverySpecSnapshotEntry[] {
+  return ticketIds.map((ticketId) => {
+    let spec: { title?: string; description?: string; labels?: string[] } | undefined
+    try {
+      spec = ctx.getTicketSpec(ticketId) as typeof spec
+    } catch {
+      /* tolerated — snapshot stays bare */
+    }
+    return {
+      ticketId,
+      title: spec?.title ?? null,
+      description: spec?.description ?? null,
+      labels: Array.isArray(spec?.labels) ? spec.labels : [],
+    }
+  })
 }
 
 /**
@@ -464,7 +541,18 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const baseRepo = ctx.project.path
   const slug = ctx.project.slug
   const worktreesRoot = path.join(resolveHome(), '.specrails', 'projects', slug, 'worktrees')
-  const constants = loadConstantMap(ctx.desktopDb)
+  // A revision run is seeded with a full briefing (the instruction PLUS the
+  // frozen spec, the branch that carries the work and what the previous run
+  // actually reported) rather than the bare sentence — the run starts a FRESH
+  // provider session by contract, so durable context is the only thing it has.
+  // Per-RUN data, so it is layered over the project's constant map for this
+  // launch only and never persisted as a constant.
+  const constants = input.revision
+    ? {
+        ...loadConstantMap(ctx.desktopDb),
+        REVISION_REQUEST: buildRevisionSeedForLaunch(ctx.db, input.revision, ticketIds),
+      }
+    : loadConstantMap(ctx.desktopDb)
   // Capture the PR-delivery mode ONCE at launch entry so a mid-flight env flip
   // can never split one launch across the two delivery paths.
   const prMode = isRailPrDeliveryEnabled()
@@ -723,9 +811,16 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       supersedesDeliveryId: launchContinuation?.source === 'rail-pr-delivery'
         ? launchContinuation.deliveryId
         : null,
+      specSnapshot: buildSpecSnapshot(ctx, ticketIds),
+      ...(input.revision ? { revisionNote: input.revision.note, revisionOf: input.revision.ofDeliveryId } : {}),
     }, input.requiredPrContinuation
       ? { id: input.requiredPrContinuation.deliveryId, decision: input.requiredPrContinuation.decision }
-      : null)
+      // A revision replaces the generation it revises, atomically, so the rail
+      // never shows two active deliveries and a failed revision restores the
+      // predecessor through the shipped rollback path.
+      : input.revision
+        ? { id: input.revision.ofDeliveryId, decision: input.revision.decision }
+        : null)
     prDeliveryId = generation.delivery.id
     supersededDelivery = generation.superseded
     input.onPrDeliveryCreated?.(prDeliveryId)
@@ -1545,7 +1640,27 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       const expectedHeadByBranch = durableBranchHeads(settledBranchRecords)
       const overlayEvidenceByBranch = durableOverlayCleanupEvidence(settledBranchRecords)
       const settlementIgnoredByBranch = durableSettlementIgnoredPaths(settledBranchRecords)
+      // Review-packet evidence harvest (deterministic, no model calls) — MUST
+      // run while the reviewable worktrees are still mounted, i.e. before the
+      // releaseRailWorktrees calls below. harvestDeliveryEvidence never throws
+      // by contract; the belt-and-braces catch keeps settle unconditional.
+      const harvest = io.harvestEvidence ?? harvestDeliveryEvidence
+      let settleEvidence
+      try {
+        settleEvidence = harvest(
+          { readEvents: (runId) => getJobEvents(ctx.db, runId) },
+          results.map((result) => ({
+            ticketId: result.run.ticketId,
+            runId: result.run.runId,
+            worktreePath: result.run.handle.worktreePath,
+          })),
+        )
+      } catch (e) {
+        console.warn(`[rail-isolated] evidence harvest failed: ${e instanceof Error ? e.message : String(e)}`)
+        settleEvidence = undefined
+      }
       const patch = {
+        settleEvidence,
         branches: settledBranchRecords,
         worktreeIds,
         implementationOutcome,

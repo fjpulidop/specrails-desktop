@@ -369,6 +369,10 @@
     "factory_openspec": {
       "name": "OpenSpec Lifecycle",
       "description": "Cycle OpenSpec du ticket à l'archive : générer les artefacts (opsx:ff) → implémenter (opsx:apply) → vérifier (opsx:verify) ; en cas de FAIL, reboucle et amende le même change ; en cas de PASS, archive sans intervention."
+    },
+    "factory_revision": {
+      "name": "Révision",
+      "description": "Applique l'unique changement demandé par-dessus le travail déjà livré, fait re-noter par le relecteur, puis vérifie jusqu'au vert. Aucune replanification."
     }
   },
   "import": {
@@ -377,5 +381,6 @@
     "skipped_one": "{{count}} doublon ignoré : {{names}}",
     "skipped_other": "{{count}} doublons ignorés : {{names}}",
     "invalid": "Ce fichier n'est pas un export de loops valide."
-  }
+  },
+  "automaticOnly": "S'exécute automatiquement quand vous demandez des changements sur une relecture — vous ne le lancez pas."
 }

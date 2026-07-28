@@ -297,6 +297,8 @@
     "createPr": "PR erstellen",
     "publish": "Veröffentlichen",
     "checkout": "Branch auschecken",
+    "openReview": "Prüfen",
+    "openReviewTooltip": "Die Prüfung in klarer Sprache öffnen",
     "checkoutTooltip": "Den Hauptordner des Projekts auf {{branch}} auschecken",
     "checkoutSuccess": "{{branch}} ausgecheckt",
     "checkoutFailed": "PR-Branch konnte nicht ausgecheckt werden",

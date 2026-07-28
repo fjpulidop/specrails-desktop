@@ -468,3 +468,107 @@ export interface LocalTicket {
    *  Done card. Cleared on the next clean completion. */
   needs_review?: boolean
 }
+
+// ─── Review packet (nontech-review-experience) ────────────────────────────────
+
+/** Which story the packet tells; chosen server-side from durable outcomes. */
+export type PacketVariant = 'success' | 'no-changes' | 'partial' | 'failed'
+
+/**
+ * Where a proof claim came from. The UI MUST label these differently: an
+ * `ai-reported` item is the agent's own word, never a Specrails measurement.
+ */
+export type ProofTier = 'app-verified' | 'ai-reported' | 'reviewer-score'
+
+export interface PacketProofItem {
+  tier: ProofTier
+  /** Stable machine key; all copy lives in the `packet` i18n namespace. */
+  code: string
+  values?: Record<string, string | number>
+  /** Verbatim agent output — only ever rendered inside a labelled block. */
+  rawExcerpt?: string
+}
+
+export interface PacketTicketSection {
+  ticketId: number
+  title: string | null
+  problem: string | null
+  solution: string | null
+  labels: string[]
+  implementationOutcome: string | null
+  deliveryOutcome: string | null
+  changed: boolean | null
+  /** Null when a batch run's files cannot honestly be split per ticket. */
+  churn: { filesTouched: number; addedLines: number; removedLines: number; testFilesTouched: string[] } | null
+  runIds: string[]
+}
+
+export interface PacketConfidence {
+  changeName: string | null
+  overall: number | null
+  aspects: Record<string, number>
+  flags: string[]
+}
+
+/** One generation in the revision chain, oldest first. */
+export interface PacketVersion {
+  prDeliveryId: string
+  version: number
+  revisionNote: string | null
+  decision: RailPrDecision
+  costUsd: number | null
+  costEstimated: boolean
+  current: boolean
+}
+
+/** Advisory "this may have outgrown its spec" signal; never blocks a revision. */
+export interface PacketDriftNudge {
+  code: 'drift.costShare' | 'drift.outOfScopeChurn' | 'drift.revisionCount'
+  values: Record<string, string | number>
+}
+
+export interface ReviewPacket {
+  schemaVersion: 1
+  prDeliveryId: string
+  railIndex: number
+  variant: PacketVariant
+  decision: RailPrDecision
+  statusCode: string | null
+  headlineCode: string
+  ticketIds: number[]
+  baseBranch: string
+  loopName: string
+  prUrl: string | null
+  prNumber: number | null
+  succeededCount: number
+  failedCount: number
+  totalCount: number
+  sections: PacketTicketSection[]
+  proof: PacketProofItem[]
+  watchOut: PacketProofItem[]
+  confidence: PacketConfidence | null
+  cost: { totalUsd: number | null; estimated: boolean }
+  evidenceUnavailable: boolean
+  runIds: string[]
+  supersedesDeliveryId: string | null
+  revisionNote: string | null
+  versions: PacketVersion[]
+  chainCostUsd: number | null
+  chainCostEstimated: boolean
+  driftNudges: PacketDriftNudge[]
+}
+
+/** Pre-resolved meaning of Accept for this repo (server-probed, fail-closed). */
+export interface AcceptCapability {
+  target: 'create-pr' | 'merge-local'
+  hasRemote: boolean
+  ghAuthenticated: boolean
+  irreversible: boolean
+  reasonCode: 'pr-capable' | 'no-remote' | 'gh-unauthenticated' | 'probe-failed'
+}
+
+export interface ReviewPacketResponse {
+  packet: ReviewPacket
+  acceptCapability: AcceptCapability
+  snapshot: unknown
+}

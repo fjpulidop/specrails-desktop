@@ -10,6 +10,7 @@ import type { ProjectRoutesDeps } from './project-router-helpers'
 import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './loops-store'
 import { getLoopRun } from './loop-runs-store'
+import { MIN_DURATION_SAMPLES, getJobCommandDurationRange, getLoopDurationRange, jobCommandShape } from './run-duration-stats'
 import { loadConstantMap } from './loop-constants'
 import { getAdapter, hasAdapter, reasoningEffortsForModel, supportsToolPolicy } from './providers'
 import { isReasoningEffortValidForModel } from './providers/runtime'
@@ -47,6 +48,22 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
             usage_available: false,
           },
     })
+  })
+
+  // Measured duration band for "runs like this have taken X–Y". Returns
+  // `range: null` below the sample floor — the caller MUST render nothing
+  // rather than a guess (honest-metrics contract; see run-duration-stats).
+  router.get('/:projectId/run-duration-range', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const loopId = typeof req.query.loopId === 'string' ? req.query.loopId : null
+    const command = typeof req.query.command === 'string' ? req.query.command : null
+    if (!loopId && !command) {
+      res.status(400).json({ error: 'loopId or command is required' }); return
+    }
+    const range = loopId
+      ? getLoopDurationRange(c.db, c.project.id, loopId)
+      : getJobCommandDurationRange(c.db, jobCommandShape(command as string))
+    res.json({ range, minSamples: MIN_DURATION_SAMPLES })
   })
 
   router.post('/:projectId/loop-runs', (req: Request, res: Response) => {

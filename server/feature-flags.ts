@@ -51,3 +51,26 @@ export function isInteractiveJobsEnabled(): boolean {
 export function isLoopsEnabled(): boolean {
   return process.env.SPECRAILS_LOOPS_SECTION !== 'false'
 }
+
+/**
+ * Review packet (nontech-review-experience): the plain-language what-changed +
+ * proof surface a non-technical user decides on, replacing raw git vocabulary
+ * at the review moment. Server-side default ON; set
+ * SPECRAILS_REVIEW_PACKET="false" to 404 the packet route (emergency
+ * rollback — the existing decision strip keeps working untouched). The client
+ * gates separately on VITE_FEATURE_REVIEW_PACKET.
+ */
+export function isReviewPacketEnabled(): boolean {
+  return process.env.SPECRAILS_REVIEW_PACKET !== 'false'
+}
+
+/**
+ * Delivery revisions (nontech-review-experience Wave 3): the ability to launch a
+ * change against a delivery that is still awaiting the user's decision. Default
+ * ON; set SPECRAILS_DELIVERY_REVISIONS="false" to restore the byte-identical
+ * legacy guard — every launch against an undecided delivery 409s again and the
+ * packet's "Ask for changes" cannot be satisfied.
+ */
+export function areDeliveryRevisionsEnabled(): boolean {
+  return process.env.SPECRAILS_DELIVERY_REVISIONS !== 'false'
+}

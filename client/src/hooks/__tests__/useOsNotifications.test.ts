@@ -311,4 +311,111 @@ describe('getOsNotificationPrefs / setOsNotificationPrefs', () => {
     localStorage.setItem('specrails-os-notifications', JSON.stringify({ enabled: false }))
     expect(getOsNotificationPrefs()).toEqual({ enabled: false, filter: 'all' })
   })
+
+})
+
+describe('useOsNotifications — job.stuck (stalled run alert)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockNavigate.mockReset()
+    capturedHandler = null
+    setupNotificationMock('granted')
+    vi.useFakeTimers()
+    localStorage.clear()
+    Object.defineProperty(document, 'hidden', { value: true, writable: true, configurable: true })
+  })
+
+  afterEach(() => { vi.useRealTimers() })
+
+  function sendStuck(jobId: string, projectId?: string, staleMs = 11 * 60_000) {
+    act(() => {
+      capturedHandler?.({ type: 'job.stuck', projectId, jobId, stepKey: 'step-1', staleMs })
+    })
+  }
+
+  it('fires a plain-language notification naming the stall duration', () => {
+    renderOsNotifications()
+    sendStuck('job-9', undefined, 12 * 60_000)
+    expect(MockNotification.instances).toHaveLength(1)
+    expect(MockNotification.instances[0].title).toBe('Run seems stuck')
+    expect(MockNotification.instances[0].options.body).toContain('12 minutes')
+    expect(MockNotification.instances[0].options.tag).toBe('specrails-job-stuck:job-9')
+  })
+
+  it('uses the singular form for a one-minute stall and never shows 0', () => {
+    renderOsNotifications()
+    sendStuck('job-9', undefined, 30_000)
+    expect(MockNotification.instances[0].options.body).toContain('1 minute')
+  })
+
+  it('prefixes the project name when known', () => {
+    renderOsNotifications({ projectsById: new Map([['p1', 'Acme']]) })
+    sendStuck('job-9', 'p1')
+    expect(MockNotification.instances[0].options.body).toContain('[Acme]')
+  })
+
+  it('fires even while the tab is focused (a watched wedge is invisible otherwise)', () => {
+    Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true })
+    renderOsNotifications()
+    sendStuck('job-9')
+    expect(MockNotification.instances).toHaveLength(1)
+  })
+
+  it('respects the disabled preference', () => {
+    setOsNotificationPrefs({ enabled: false, filter: 'all' })
+    renderOsNotifications()
+    sendStuck('job-9')
+    expect(MockNotification.instances).toHaveLength(0)
+  })
+
+  it('is suppressed by the completed-only filter but kept by failed-only', () => {
+    setOsNotificationPrefs({ enabled: true, filter: 'completed' })
+    const first = renderOsNotifications()
+    sendStuck('job-9')
+    expect(MockNotification.instances).toHaveLength(0)
+    first.unmount()
+
+    setOsNotificationPrefs({ enabled: true, filter: 'failed' })
+    renderOsNotifications()
+    sendStuck('job-9')
+    expect(MockNotification.instances).toHaveLength(1)
+  })
+
+  it('navigates to the job on click, switching project first when needed', () => {
+    const setActiveProjectId = vi.fn()
+    renderOsNotifications({ setActiveProjectId })
+    sendStuck('job-9', 'p1')
+    act(() => { MockNotification.instances[0].onclick?.() })
+    expect(setActiveProjectId).toHaveBeenCalledWith('p1')
+    act(() => { vi.advanceTimersByTime(200) })
+    expect(mockNavigate).toHaveBeenCalledWith('/jobs/job-9')
+  })
+
+  it('navigates directly when the message carries no project', () => {
+    renderOsNotifications()
+    sendStuck('job-9')
+    act(() => { MockNotification.instances[0].onclick?.() })
+    expect(mockNavigate).toHaveBeenCalledWith('/jobs/job-9')
+  })
+
+  it('ignores a malformed stuck message', () => {
+    renderOsNotifications()
+    act(() => { capturedHandler?.({ type: 'job.stuck' }) })
+    act(() => { capturedHandler?.(null) })
+    expect(MockNotification.instances).toHaveLength(0)
+  })
+
+  it('requests permission when it has not been decided yet', () => {
+    setupNotificationMock('default')
+    renderOsNotifications()
+    sendStuck('job-9')
+    expect(MockNotification.requestPermission).toHaveBeenCalled()
+  })
+
+  it('shows nothing when permission is denied', () => {
+    setupNotificationMock('denied')
+    renderOsNotifications()
+    sendStuck('job-9')
+    expect(MockNotification.instances).toHaveLength(0)
+  })
 })

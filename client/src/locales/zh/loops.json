@@ -369,6 +369,10 @@
     "factory_openspec": {
       "name": "OpenSpec Lifecycle",
       "description": "从 ticket 到归档的 OpenSpec 生命周期: 生成工件 (opsx:ff) → 实现 (opsx:apply) → 验证 (opsx:verify); FAIL 则回环修正同一 change, PASS 则无人值守归档。"
+    },
+    "factory_revision": {
+      "name": "修订",
+      "description": "在已交付的成果之上应用你要求的那一处修改，让审阅者重新评分，然后验证到通过。不会从头重新规划。"
     }
   },
   "import": {
@@ -377,5 +381,6 @@
     "skipped_one": "已跳过 {{count}} 个重复项：{{names}}",
     "skipped_other": "已跳过 {{count}} 个重复项：{{names}}",
     "invalid": "该文件不是有效的循环导出。"
-  }
+  },
+  "automaticOnly": "当你在审阅中要求修改时自动运行 —— 这个不由你启动。"
 }

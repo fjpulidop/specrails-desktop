@@ -88,6 +88,8 @@
       "succeeded": "準備完了"
     },
     "readyForReview": "レビュー準備完了",
+    "openReview": "レビュー",
+    "openReviewTooltip": "わかりやすいレビューを開く",
     "draftPr": "ドラフト PR",
     "branchPushed": "ブランチはプッシュ済み — PR は未作成",
     "branchPushedHint": "ブランチはプッシュされましたが、PR を作成できませんでした（GitHub CLI が利用できません）。再試行して作成してください。",

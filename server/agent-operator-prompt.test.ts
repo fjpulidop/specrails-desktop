@@ -124,10 +124,16 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('through rails/worktrees for auditability')
   })
 
-  it('treats published PR cards as continuable, not relaunch blockers', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain("`decision:'pr_ready'`")
-    expect(OPERATOR_INSTRUCTIONS).toContain('STILL an open PR continuation\n  target')
-    expect(OPERATOR_INSTRUCTIONS).toContain('do NOT tell them they must publish,\n  discard, or merge first')
+  it('treats an undecided delivery as revisable, not a relaunch blocker', () => {
+    // Superseded by the revision door: a modification request on ANY
+    // non-terminal card is a revision launch, never "publish/discard first".
+    expect(OPERATOR_INSTRUCTIONS).toContain('any non-terminal card')
+    expect(OPERATOR_INSTRUCTIONS).toContain('`pr_ready`')
+    expect(OPERATOR_INSTRUCTIONS).toContain('revisionOfDeliveryId')
+    expect(OPERATOR_INSTRUCTIONS).toContain('revisionNote')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Do NOT tell them to publish, discard or\n  merge first')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Architect-less loop')
+    expect(OPERATOR_INSTRUCTIONS).toContain('invalid_revision_target')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('published pr_ready card')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('do not require publish/discard/merge first')
   })

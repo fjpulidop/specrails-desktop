@@ -129,6 +129,9 @@
   "notifications": {
     "jobCompleted": "ジョブが完了しました",
     "jobFailed": "ジョブが失敗しました",
+    "jobStuck": "実行が停止しているようです",
+    "jobStuckBody_one": "{{count}} 分間 動きがありません — 開いて確認してください",
+    "jobStuckBody_other": "{{count}} 分間 動きがありません — 開いて確認してください",
     "unknownCommand": "不明なコマンド"
   },
   "templates": {

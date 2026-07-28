@@ -1,0 +1,112 @@
+{
+  "backToBoard": "ボードに戻る",
+  "stillWorking": "まだ作業中です…",
+  "alreadyResolved": "これはすでに解決済みです。",
+  "fineControlOnly": "この納品には技術的な判断が必要です。ボードの詳細操作を使ってください。",
+  "openPr": "プルリクエスト #{{number}} を開く",
+  "noSolutionRecorded": "要約は記録されていません。",
+  "headline": {
+    "success": "変更のレビュー準備ができました",
+    "successMany": "{{count}} 件すべての変更がレビュー可能です",
+    "partial": "{{total}} 件のうち {{succeeded}} 件が完了",
+    "noChanges": "変更は不要でした",
+    "failed": "完了できませんでした",
+    "failedPartial": "一部しか完了できませんでした"
+  },
+  "confidence": {
+    "pill": "AI レビュアーの確信度 {{overall}}/100",
+    "unavailable": "レビュアースコアなし",
+    "tooltip": "AI レビュアーが自分に付けたスコアです — 独立した検証ではありません。"
+  },
+  "cost": {
+    "thisBuild": "この作業の費用 {{amount}}",
+    "allVersions": "全バージョン合計：{{amount}}"
+  },
+  "accept": {
+    "create-pr": "承認してプルリクエストを作成",
+    "publish": "承認してレビューに出す",
+    "merge-local": "自分のプロジェクトに取り込む",
+    "mark-done": "承認 — 変更なし",
+    "generic": "承認",
+    "irreversibleWarning": "変更をあなたのパソコンのプロジェクトへ直接書き込みます。別のレビュー用コピーはなく、取り消せません。",
+    "irreversibleConfirm": "はい、プロジェクトに書き込む"
+  },
+  "requestChanges": {
+    "label": "修正を依頼",
+    "comingSoon": "近日公開：修正内容を一文で伝えられます。",
+    "prompt": "何を変更しますか？",
+    "placeholder": "例：ログインボタンを青にする",
+    "submit": "変更を送る",
+    "hint": "これまでの成果から続けます — やり直しではありません。"
+  },
+  "discard": {
+    "label": "破棄する"
+  },
+  "watchOut": {
+    "title": "承認する前に確認したい点"
+  },
+  "sections": {
+    "whatYouAsked": "依頼した内容",
+    "whatIDid": "行われた作業",
+    "howItWasChecked": "確認の方法"
+  },
+  "churn": {
+    "line": "{{files}} ファイル変更 · +{{added}} / −{{removed}} 行",
+    "batchNotSplittable": "ファイル変更は納品全体の集計で、依頼ごとではありません。"
+  },
+  "tier": {
+    "app-verified": {
+      "title": "Specrails が計測",
+      "caveat": "実際の変更から得た事実です。"
+    },
+    "ai-reported": {
+      "title": "AI の報告",
+      "caveat": "AI 自身の言葉です。Specrails はこれらの検査を実行していません。"
+    },
+    "reviewer-score": {
+      "title": "AI レビュアーの自己評価",
+      "caveat": "AI が自分の作業を採点したもの — 参考にはなりますが独立したレビューではありません。"
+    }
+  },
+  "proof": {
+    "filesChanged": "{{files}} ファイル変更（+{{added}} / −{{removed}} 行）",
+    "testFilesChanged": "テストファイル {{count}} 件を変更",
+    "noTestFilesChanged": "テストファイルの変更はありません。",
+    "commitsRecorded": "作業は {{branches}} 本のブランチに記録されました",
+    "verificationPassed": "AI は検査に合格したと報告しました（{{count}}）",
+    "verificationFailed": "AI は検査が失敗したと報告しました（{{count}}）",
+    "noVerificationReported": "AI は検証を報告しませんでした。",
+    "verifyOutput": "AI の検証出力：",
+    "reviewerScore": "総合スコア {{overall}}/100",
+    "reviewerAspect": "{{aspect}}：{{score}}/100",
+    "reviewerScoreUnavailable": "レビュアースコアは生成されませんでした。",
+    "evidenceUnavailable": "証跡なし"
+  },
+  "watch": {
+    "humanReviewRecommended": "AI レビュアーは {{overall}}/100 と評価し、人による確認を推奨しています。",
+    "lowConfidence": "AI レビュアーの評価は {{overall}}/100 にとどまりました。",
+    "reviewerFlag": "レビュアーの指摘：",
+    "noTestsForChangedCode": "コード {{files}} ファイルが変更されましたが、テストの変更はありません。"
+  },
+  "error": {
+    "notFound": "このレビューは見つかりませんでした。",
+    "loadFailed": "レビューを読み込めませんでした。",
+    "alreadyResolved": "すでに誰かが回答しています。",
+    "actionFailed": "その操作は完了しませんでした。",
+    "revisionStale": "これは別の場所で解決済みです — 再読み込みして状態を確認してください。",
+    "revisionFailed": "変更を開始できませんでした。入力した文章は保持されています。"
+  },
+  "versions": {
+    "title": "以前のバージョン（{{count}}）",
+    "label": "バージョン {{version}}",
+    "current": "いま見ているもの",
+    "originalBuild": "最初の成果。"
+  },
+  "drift": {
+    "title": "当初の依頼から広がっているようです",
+    "advisory": "あくまで提案です — 修正を続けて依頼できます。",
+    "costShare": "{{revisions}} 件の変更で {{revisionCost}} かかりました — 当初 {{originalCost}} の {{share}}% です。",
+    "outOfScopeChurn": "変更された {{total}} ファイルのうち {{files}} 件は当初の依頼に含まれていませんでした。",
+    "revisionCount": "すでに {{revisions}} 回の修正を依頼しています。依頼を書き直したほうが早いかもしれません。"
+  }
+}

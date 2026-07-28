@@ -102,3 +102,28 @@ export const FEATURE_PROJECT_BUILDER = (() => {
   if (typeof override === 'string') return override !== 'false'
   return true
 })()
+
+/**
+ * Gates the review-packet surface (the /review/:prDeliveryId page and its entry
+ * points). Default ON; set VITE_FEATURE_REVIEW_PACKET=false to fall back to the
+ * existing decision strip alone. The server gates the packet route separately
+ * on SPECRAILS_REVIEW_PACKET.
+ */
+export const FEATURE_REVIEW_PACKET = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_REVIEW_PACKET
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()
+
+/**
+ * Gates the narrated (plain-language) altitude on the job log surfaces. Default
+ * ON; set VITE_FEATURE_NARRATED_PROGRESS=false to render the raw log views
+ * exactly as before, with no mode toggle.
+ */
+export const FEATURE_NARRATED_PROGRESS = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_NARRATED_PROGRESS
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()

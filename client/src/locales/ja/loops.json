@@ -369,6 +369,10 @@
     "factory_openspec": {
       "name": "OpenSpec Lifecycle",
       "description": "チケットからアーカイブまでの OpenSpec ライフサイクル: アーティファクト生成 (opsx:ff) → 実装 (opsx:apply) → 検証 (opsx:verify)。FAIL なら同じ change を修正しに戻り、PASS なら無人でアーカイブします。"
+    },
+    "factory_revision": {
+      "name": "修正",
+      "description": "すでに納品された成果の上に依頼された一点の変更を適用し、レビュアーに再評価させ、通るまで検証します。ゼロからの再計画はしません。"
     }
   },
   "import": {
@@ -377,5 +381,6 @@
     "skipped_one": "{{count}} 件の重複をスキップ：{{names}}",
     "skipped_other": "{{count}} 件の重複をスキップ：{{names}}",
     "invalid": "そのファイルは有効なループのエクスポートではありません。"
-  }
+  },
+  "automaticOnly": "レビューで修正を依頼したときに自動で実行されます — これは手動で開始しません。"
 }

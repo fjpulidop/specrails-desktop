@@ -88,6 +88,8 @@
       "succeeded": "bereit"
     },
     "readyForReview": "Bereit zur Prüfung",
+    "openReview": "Prüfen",
+    "openReviewTooltip": "Die Prüfung in klarer Sprache öffnen",
     "draftPr": "Entwurfs-PR",
     "branchPushed": "Branch gepusht — PR ausstehend",
     "branchPushedHint": "Der Branch wurde gepusht, aber die PR konnte nicht erstellt werden (GitHub CLI nicht verfügbar). Erneut versuchen, um sie zu erstellen.",

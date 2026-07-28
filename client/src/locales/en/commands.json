@@ -129,6 +129,9 @@
   "notifications": {
     "jobCompleted": "Job completed",
     "jobFailed": "Job failed",
+    "jobStuck": "Run seems stuck",
+    "jobStuckBody_one": "No activity for {{count}} minute — open it to check",
+    "jobStuckBody_other": "No activity for {{count}} minutes — open it to check",
     "unknownCommand": "Unknown command"
   },
   "templates": {

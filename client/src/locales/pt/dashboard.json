@@ -88,6 +88,8 @@
       "succeeded": "pronta"
     },
     "readyForReview": "Pronto para revisão",
+    "openReview": "Revisar",
+    "openReviewTooltip": "Abrir a revisão em linguagem clara",
     "draftPr": "PR em rascunho",
     "branchPushed": "Ramo enviado — PR pendente",
     "branchPushedHint": "O ramo foi enviado mas não foi possível criar a PR (GitHub CLI indisponível). Tente novamente para a criar.",

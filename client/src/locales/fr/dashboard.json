@@ -88,6 +88,8 @@
       "succeeded": "prête"
     },
     "readyForReview": "Prêt pour la revue",
+    "openReview": "Relire",
+    "openReviewTooltip": "Ouvrir la relecture en langage clair",
     "draftPr": "PR en brouillon",
     "branchPushed": "Branche poussée — PR en attente",
     "branchPushedHint": "La branche a été poussée mais la PR n'a pas pu être créée (GitHub CLI indisponible). Réessayez pour la créer.",

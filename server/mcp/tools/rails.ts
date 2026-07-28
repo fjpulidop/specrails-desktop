@@ -115,6 +115,14 @@ export function railsTools(): McpToolSpec[] {
           .min(1)
           .optional()
           .describe('Deliver INTO an existing open PR instead of creating a new one (launch). When the user names an existing PR ("extend PR #151"), pass its number here — the rail then works on that PR\'s head branch and settle pushes to it; NEVER launch without it in that case (a plain launch would create a duplicate PR). The PR must be open and same-repo (fork PRs are rejected with target_pr_fork).'),
+        revisionOfDeliveryId: z
+          .string()
+          .optional()
+          .describe('Revise a delivery that is ALREADY awaiting the user\'s decision (launch). This is the only way to launch against an undecided delivery: pass its prDeliveryId (from rails.prDeliveries) together with revisionNote. Use it whenever the user asks for a change to work you already delivered — never publish/discard/merge first. The rail must still carry exactly that delivery\'s specs.'),
+        revisionNote: z
+          .string()
+          .optional()
+          .describe('What to change, in the user\'s own words (required with revisionOfDeliveryId). It is injected into the revision run and shown on the updated review packet as "what you asked to change".'),
       },
       async handler(ctx, args) {
         const base = `${projectPath(ctx, args.projectId as string | undefined)}/rails`
@@ -200,6 +208,12 @@ export function railsTools(): McpToolSpec[] {
             if (args.loopId !== undefined) body.loopId = args.loopId as string
             if (args.reasoning_effort !== undefined) body.reasoning_effort = args.reasoning_effort as string
             if (args.targetPrNumber !== undefined) body.targetPrNumber = args.targetPrNumber as number
+            // Revision of a delivery already awaiting the user's decision: the
+            // ONE launch allowed against an undecided delivery. The route
+            // re-validates the exemption (must be the rail's active delivery and
+            // cover its full spec set), so a wrong id fails closed there.
+            if (args.revisionOfDeliveryId !== undefined) body.revisionOfDeliveryId = args.revisionOfDeliveryId as string
+            if (args.revisionNote !== undefined) body.revisionNote = args.revisionNote as string
             // Origin link (safe-pr-review-flow): a launch driven by the in-app
             // agent carries its conversation id (from the loopback header, via
             // ctx) so the PR decision card is posted back into that conversation.

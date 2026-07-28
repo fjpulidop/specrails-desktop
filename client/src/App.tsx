@@ -16,6 +16,7 @@ import { ThemeEffectLayer } from './components/theme-effects/ThemeEffectLayer'
 
 // Lazy-loaded pages — never visible at initial render
 const JobDetailPage = lazy(() => import('./pages/JobDetailPage'))
+const ReviewPacketPage = lazy(() => import('./pages/ReviewPacketPage'))
 const JobsPage = lazy(() => import('./pages/JobsPage'))
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'))
 const ActivityFeedPage = lazy(() => import('./pages/ActivityFeedPage'))
@@ -69,7 +70,7 @@ import { useCompareUrlSync } from './hooks/useCompareUrlSync'
 import { MilestoneSequencerProvider } from './context/MilestoneSequencerContext'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { LanguageProvider } from './context/LanguageContext'
-import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT } from './lib/feature-flags'
+import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT, FEATURE_REVIEW_PACKET } from './lib/feature-flags'
 import { getGlobalRouteModeTransition, type GlobalModalSurface } from './lib/global-route-mode-transition'
 
 const STATUSBAR_HEIGHT_PX = 28
@@ -421,6 +422,7 @@ function DesktopApp() {
                     <Route path="/" element={<DashboardPage />} />
                     <Route path="/jobs" element={<JobsPage />} />
                     <Route path="/jobs/:id" element={<JobDetailPage />} />
+              {FEATURE_REVIEW_PACKET && <Route path="/review/:prDeliveryId" element={<ReviewPacketPage />} />}
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/activity" element={<ActivityFeedPage />} />
                     <Route path="/agents" element={<AgentsPage />} />

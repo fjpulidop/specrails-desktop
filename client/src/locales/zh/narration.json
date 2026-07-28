@@ -1,0 +1,63 @@
+{
+  "modeNarrated": "过程",
+  "modeLog": "日志",
+  "emptyLive": "还没有发生任何事。",
+  "emptySettled": "本次运行没有记录到活动。",
+  "waiting": {
+    "range": "同类运行耗时 {{low}}–{{high}} 分钟（最近 {{count}} 次）",
+    "elapsed": "已运行 {{minutes}} 分钟"
+  },
+  "aiNote": "根据运行期间真实发生的事情生成。",
+  "step": {
+    "start": "第 {{step}} 步：{{title}}",
+    "startRetry": "第 {{step}} 步：{{title}} — 第 {{iteration}} 次尝试",
+    "done": "第 {{step}} 步完成",
+    "doneTimed": "第 {{step}} 步用 {{seconds}} 秒完成",
+    "failed": "第 {{step}} 步未成功",
+    "interrupted": "第 {{step}} 步在完成前被中断",
+    "doneTimedMin": "第 {{step}} 步用 {{minutes}} 分钟完成",
+    "role": {
+      "work": "进行修改",
+      "verify": "验证是否可用",
+      "decide": "判断是否完成",
+      "fix": "修复失败的部分"
+    }
+  },
+  "decision": {
+    "another": "还没完成 — 再来一轮",
+    "satisfied": "目标达成 — 继续"
+  },
+  "activity": {
+    "reading": "正在读取 {{target}}",
+    "readingBare": "正在读取代码",
+    "editing": "正在修改 {{target}}",
+    "editingBare": "正在修改代码",
+    "writing": "正在编写 {{target}}",
+    "writingBare": "正在编写新代码",
+    "searching": "正在搜索 {{target}}",
+    "searchingBare": "正在搜索代码",
+    "running": "正在运行 {{target}}",
+    "runningBare": "正在运行命令",
+    "working": "正在处理 {{target}}",
+    "workingBare": "正在工作",
+    "exploring": "正在查看代码",
+    "exploringBare": "正在查看代码",
+    "testing": "正在运行测试",
+    "building": "正在构建项目",
+    "typechecking": "正在检查类型",
+    "linting": "正在检查代码风格",
+    "installing": "正在安装依赖",
+    "savingWork": "正在保存工作",
+    "checkingSpec": "正在检查规格",
+    "bookkeeping": "正在记录自己的笔记",
+    "bookkeepingBare": "正在记录自己的笔记",
+    "writingSpec": "正在编写计划",
+    "writingSpecBare": "正在编写计划",
+    "writingFiles": "正在写入 {{files}} 个文件（{{names}}…）",
+    "readingFiles": "正在读取 {{files}} 个文件（{{names}}…）",
+    "editingFiles": "正在修改 {{files}} 个文件（{{names}}…）",
+    "delegating": "移交给 {{target}}",
+    "delegatingBare": "移交给专家"
+  },
+  "repeats": "×{{count}}"
+}

@@ -3,7 +3,7 @@ import express from 'express'
 import request from 'supertest'
 import { initDb, type DbInstance } from './db'
 import { initDesktopDb } from './desktop-db'
-import { createRailsRouter } from './rails-router'
+import { createRailsRouter, prDeliveryRevisionAllowed } from './rails-router'
 import { PrContinuationIsolationError } from './rail-isolated-launch'
 import { getRail, setRailTickets } from './rails-store'
 import { createLoop, publishLoop } from './loops-store'
@@ -2067,5 +2067,270 @@ describe('rails-router POST /pr-checkout generation guard', () => {
     expect(res.body).toEqual({
       error: 'stale_decision', current: 'building', currentPrDeliveryId: 'generation-b',
     })
+  })
+})
+
+describe('rails-router GET /pr-deliveries/:id/packet', () => {
+  let db: DbInstance
+  const ORIG_FLAG = process.env.SPECRAILS_REVIEW_PACKET
+  beforeEach(() => {
+    db = initDb(':memory:')
+    mockExecRun.mockReset()
+    delete process.env.SPECRAILS_REVIEW_PACKET // default-on
+  })
+  afterEach(() => {
+    if (ORIG_FLAG === undefined) delete process.env.SPECRAILS_REVIEW_PACKET
+    else process.env.SPECRAILS_REVIEW_PACKET = ORIG_FLAG
+    db.close()
+  })
+
+  /** A delivery parked at on_review with durable units + launch snapshot. */
+  function mkOnReview(): string {
+    const row = createPrDelivery(db, {
+      railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement', ticketIds: [1],
+      baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+      specSnapshot: [{ ticketId: 1, title: 'Add login', description: 'No login today.\n\nAdd a form.', labels: ['auth'] }],
+    })
+    transitionDecision(db, row.id, 'building', 'on_review', {
+      branches: [{ ticketId: 1, branch: 'feat/1-login', succeeded: true, runId: 'run-1', implementationOutcome: 'succeeded', deliveryOutcome: 'ready' }],
+      runIds: ['run-1'],
+      implementationOutcome: 'succeeded',
+      deliveryOutcome: 'ready',
+      statusCode: 'ready_for_review',
+      settleEvidence: {
+        schemaVersion: 1, harvest: 'ok', harvestedAt: '2026-07-27T12:00:00.000Z',
+        units: [{ ticketId: 1, runId: 'run-1', sentinel: 'pass', sentinelDetail: null, verifyTail: 'VERIFICATION: PASS', confidence: null }],
+      },
+    })
+    return row.id
+  }
+
+  function ghAvailable(): void {
+    mockExecRun.mockImplementation(async (cmd: string, args: string[]) => {
+      if (cmd === 'git' && args[0] === 'remote') return { code: 0, stdout: 'origin\n', stderr: '' }
+      if (cmd === 'gh') return { code: 0, stdout: 'gho_x', stderr: '' }
+      return { code: 1, stdout: '', stderr: 'unexpected' }
+    })
+  }
+
+  it('returns the composed packet, the pre-resolved Accept ladder and the authoritative snapshot', async () => {
+    const id = mkOnReview()
+    ghAvailable()
+    const res = await request(appWith(db)).get(`/rails/pr-deliveries/${id}/packet`)
+    expect(res.status).toBe(200)
+    expect(res.body.packet).toMatchObject({
+      schemaVersion: 1, prDeliveryId: id, variant: 'success', decision: 'on_review',
+      headlineCode: 'headline.success', baseBranch: 'main', loopName: 'Implement',
+    })
+    expect(res.body.packet.sections[0]).toMatchObject({ ticketId: 1, title: 'Add login' })
+    expect(res.body.acceptCapability).toMatchObject({ target: 'create-pr', irreversible: false })
+    expect(res.body.snapshot).toMatchObject({ id, decision: 'on_review' })
+  })
+
+  it('resolves Accept to the irreversible local path when the repo has no remote', async () => {
+    const id = mkOnReview()
+    mockExecRun.mockImplementation(async () => ({ code: 0, stdout: '', stderr: '' }))
+    const res = await request(appWith(db)).get(`/rails/pr-deliveries/${id}/packet`)
+    expect(res.body.acceptCapability).toMatchObject({
+      target: 'merge-local', hasRemote: false, irreversible: true, reasonCode: 'no-remote',
+    })
+  })
+
+  it('never spends a model call composing (read-only route)', async () => {
+    const id = mkOnReview()
+    ghAvailable()
+    await request(appWith(db)).get(`/rails/pr-deliveries/${id}/packet`)
+    expect(db.prepare('SELECT COUNT(*) AS n FROM ai_invocations').get()).toEqual({ n: 0 })
+  })
+
+  it('404s an unknown delivery', async () => {
+    const res = await request(appWith(db)).get('/rails/pr-deliveries/nope/packet')
+    expect(res.status).toBe(404)
+  })
+
+  it('404s entirely when the feature flag is off (existing strip keeps working)', async () => {
+    const id = mkOnReview()
+    process.env.SPECRAILS_REVIEW_PACKET = 'false'
+    const res = await request(appWith(db)).get(`/rails/pr-deliveries/${id}/packet`)
+    expect(res.status).toBe(404)
+  })
+
+  it('still composes for a still-building delivery (no evidence yet)', async () => {
+    const row = createPrDelivery(db, {
+      railIndex: 1, loopId: 'l', railKey: '1-l', ticketIds: [2],
+      baseBranch: 'main', loopName: 'L', originSurface: 'dashboard',
+    })
+    ghAvailable()
+    const res = await request(appWith(db)).get(`/rails/pr-deliveries/${row.id}/packet`)
+    expect(res.status).toBe(200)
+    expect(res.body.packet.decision).toBe('building')
+    expect(res.body.packet.evidenceUnavailable).toBe(true)
+  })
+})
+
+describe('rails-router launch — revision of an undecided delivery', () => {
+  let db: DbInstance
+  beforeEach(() => {
+    db = initDb(':memory:')
+    mockExecRun.mockReset()
+    mockRepoStatus.mockReset().mockResolvedValue('ok')
+    mockLaunchIsolated.mockReset().mockResolvedValue(['run-new'])
+    delete process.env.SPECRAILS_RAIL_DELIVER_PR
+  })
+  afterEach(() => { openProjectProcessAdmission('p1'); db.close() })
+
+  /** A rail carrying tickets 1+2 whose delivery sits at on_review, undecided. */
+  function mkOnReviewRail(ticketIds = [1, 2]): string {
+    setRailTickets(db, 0, ticketIds)
+    const row = createPrDelivery(db, {
+      railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement',
+      ticketIds, baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+    })
+    transitionDecision(db, row.id, 'building', 'on_review', {
+      branches: ticketIds.map((id) => ({ ticketId: id, branch: `feat/${id}`, succeeded: true })),
+      implementationOutcome: 'succeeded', deliveryOutcome: 'ready', statusCode: 'ready_for_review',
+    })
+    return row.id
+  }
+
+  const launch = (body: Record<string, unknown>) =>
+    request(appWith(db, { loopRunManager: { run: vi.fn(), cancel: vi.fn() }, desktopDb: initDesktopDb(':memory:') }))
+      .post('/rails/0/launch').send(body)
+
+  it('accepts a revision naming the active delivery with the full spec set', async () => {
+    const id = mkOnReviewRail()
+    const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'make the button blue' })
+    expect(res.status).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        revision: { ofDeliveryId: id, decision: 'on_review', note: 'make the button blue' },
+      }),
+    )
+  })
+
+  it('runs the Architect-LESS revision loop, whatever the rail mode is', async () => {
+    const id = mkOnReviewRail()
+    setRailTickets(db, 0, [1, 2], 'implement') // rail mode would normally imply the full pipeline
+    const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'blue button' })
+    expect(res.status).toBe(202)
+    const call = mockLaunchIsolated.mock.calls[0][0] as { loopId: string; loopGraph: { nodes: Array<{ type: string; data?: { prompt?: string } }> } }
+    expect(call.loopId).toBe('factory:revision')
+    const prompts = call.loopGraph.nodes.filter((n) => n.type === 'ai-step').map((n) => n.data?.prompt ?? '').join('\n')
+    expect(prompts).toContain('{{cmd:revise}}')
+    expect(prompts).not.toContain('{{cmd:implement}}')
+  })
+
+  it('respects an explicitly named custom loop instead of forcing the revision loop', async () => {
+    const id = mkOnReviewRail()
+    const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'x', loopId: 'not-a-factory-loop' })
+    // A caller naming a loop means it; the route validates that loop separately.
+    expect(mockLaunchIsolated.mock.calls[0]?.[0]?.loopId ?? res.body.error).not.toBe('factory:revision')
+  })
+
+  it('still 409s an ordinary launch while the delivery is undecided', async () => {
+    mkOnReviewRail()
+    const res = await launch({})
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('pr_decision_pending')
+  })
+
+  it('rejects a revision naming a DIFFERENT delivery', async () => {
+    mkOnReviewRail()
+    const res = await launch({ revisionOfDeliveryId: 'some-other-id', revisionNote: 'tweak' })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('invalid_revision_target')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('rejects a revision covering only part of the delivery', async () => {
+    const id = mkOnReviewRail([1, 2])
+    // The rail is narrowed to one of the two covered specs.
+    setRailTickets(db, 0, [1])
+    const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'tweak' })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('invalid_revision_target')
+  })
+
+  it('requires a note describing the change', async () => {
+    const id = mkOnReviewRail()
+    for (const note of [undefined, '', '   ']) {
+      const res = await launch({ revisionOfDeliveryId: id, ...(note === undefined ? {} : { revisionNote: note }) })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toBe('revision_note_required')
+    }
+  })
+
+  it('refuses the revision loop named directly, with no revision to apply', async () => {
+    // An unresolved {{const:REVISION_REQUEST}} renders as an EMPTY string, so a
+    // bare `loopId: factory:revision` would spawn a run whose central
+    // instruction is silently blank. The loop is resolvable by id (fork/preview
+    // need that), so the launch door is where it has to be refused.
+    setRailTickets(db, 0, [1])
+    const res = await launch({ loopId: 'factory:revision' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('revision_loop_requires_revision')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('accepts the revision loop when it IS a revision', async () => {
+    const id = mkOnReviewRail()
+    const res = await launch({ loopId: 'factory:revision', revisionOfDeliveryId: id, revisionNote: 'blue' })
+    expect(res.status).toBe(202)
+  })
+
+  it('kill switch off ⇒ byte-identical legacy guard (revision params ignored)', async () => {
+    const id = mkOnReviewRail()
+    process.env.SPECRAILS_DELIVERY_REVISIONS = 'false'
+    try {
+      const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'make the button blue' })
+      expect(res.status).toBe(409)
+      expect(res.body.error).toBe('pr_decision_pending')
+      expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.SPECRAILS_DELIVERY_REVISIONS
+    }
+  })
+
+  it('rejects a malformed delivery id before touching the delivery', async () => {
+    mkOnReviewRail()
+    const res = await launch({ revisionOfDeliveryId: 'bad id!', revisionNote: 'tweak' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('invalid_revision_target')
+  })
+})
+
+describe('prDeliveryRevisionAllowed', () => {
+  const snap = (over: Record<string, unknown> = {}) => ({
+    id: 'del-1', decision: 'on_review', ticketIds: [1, 2], ...over,
+  }) as unknown as PrDeliverySnapshot
+
+  it('allows the rail\'s active delivery with an exact ticket-set match', () => {
+    expect(prDeliveryRevisionAllowed(snap(), 'del-1', [1, 2])).toBe(true)
+    expect(prDeliveryRevisionAllowed(snap(), 'del-1', [2, 1])).toBe(true)
+  })
+
+  it('refuses a different id', () => {
+    expect(prDeliveryRevisionAllowed(snap(), 'other', [1, 2])).toBe(false)
+  })
+
+  it('refuses a subset or a superset', () => {
+    expect(prDeliveryRevisionAllowed(snap(), 'del-1', [1])).toBe(false)
+    expect(prDeliveryRevisionAllowed(snap(), 'del-1', [1, 2, 3])).toBe(false)
+  })
+
+  it('refuses an empty ticket set', () => {
+    expect(prDeliveryRevisionAllowed(snap(), 'del-1', [])).toBe(false)
+  })
+
+  it('refuses a terminal generation (history is not revisable)', () => {
+    for (const decision of ['merged', 'discarded', 'superseded', 'completed']) {
+      expect(prDeliveryRevisionAllowed(snap({ decision }), 'del-1', [1, 2])).toBe(false)
+    }
+  })
+
+  it('allows every non-terminal decision, including a PR already created', () => {
+    for (const decision of ['on_review', 'pr_draft', 'pr_ready', 'no_changes', 'pr_failed', 'implementation_failed']) {
+      expect(prDeliveryRevisionAllowed(snap({ decision }), 'del-1', [1, 2])).toBe(true)
+    }
   })
 })

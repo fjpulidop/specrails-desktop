@@ -1,0 +1,63 @@
+{
+  "modeNarrated": "経過",
+  "modeLog": "ログ",
+  "emptyLive": "まだ何も起きていません。",
+  "emptySettled": "この実行では活動が記録されませんでした。",
+  "waiting": {
+    "range": "同種の実行は {{low}}〜{{high}} 分かかっています（直近 {{count}} 件）",
+    "elapsed": "実行中 {{minutes}} 分"
+  },
+  "aiNote": "実行中に実際に起きたことから作成しています。",
+  "step": {
+    "start": "ステップ {{step}}：{{title}}",
+    "startRetry": "ステップ {{step}}：{{title}} — {{iteration}} 回目",
+    "done": "ステップ {{step}} 完了",
+    "doneTimed": "ステップ {{step}} を {{seconds}} 秒で完了",
+    "failed": "ステップ {{step}} は成功しませんでした",
+    "interrupted": "ステップ {{step}} は完了前に中断されました",
+    "doneTimedMin": "ステップ {{step}} を {{minutes}} 分で完了",
+    "role": {
+      "work": "変更を加えています",
+      "verify": "動作を確認しています",
+      "decide": "完了かどうか判断しています",
+      "fix": "失敗した箇所を修正しています"
+    }
+  },
+  "decision": {
+    "another": "まだ未達 — もう一周",
+    "satisfied": "目標達成 — 次へ"
+  },
+  "activity": {
+    "reading": "{{target}} を読んでいます",
+    "readingBare": "コードを読んでいます",
+    "editing": "{{target}} を変更しています",
+    "editingBare": "コードを変更しています",
+    "writing": "{{target}} を書いています",
+    "writingBare": "新しいコードを書いています",
+    "searching": "{{target}} を検索しています",
+    "searchingBare": "コードを検索しています",
+    "running": "{{target}} を実行しています",
+    "runningBare": "コマンドを実行しています",
+    "working": "{{target}} を進めています",
+    "workingBare": "作業中",
+    "exploring": "コードを見ています",
+    "exploringBare": "コードを見ています",
+    "testing": "テストを実行しています",
+    "building": "プロジェクトをビルドしています",
+    "typechecking": "型を確認しています",
+    "linting": "コードスタイルを確認しています",
+    "installing": "依存関係をインストールしています",
+    "savingWork": "作業を保存しています",
+    "checkingSpec": "仕様を確認しています",
+    "bookkeeping": "自分用のメモを記録しています",
+    "bookkeepingBare": "自分用のメモを記録しています",
+    "writingSpec": "計画を書いています",
+    "writingSpecBare": "計画を書いています",
+    "writingFiles": "{{files}} 個のファイルを書いています（{{names}}…）",
+    "readingFiles": "{{files}} 個のファイルを読んでいます（{{names}}…）",
+    "editingFiles": "{{files}} 個のファイルを変更しています（{{names}}…）",
+    "delegating": "{{target}} に引き継いでいます",
+    "delegatingBare": "担当に引き継いでいます"
+  },
+  "repeats": "×{{count}}"
+}

@@ -297,6 +297,8 @@
     "createPr": "PR を作成",
     "publish": "公開",
     "checkout": "ブランチをチェックアウト",
+    "openReview": "レビュー",
+    "openReviewTooltip": "わかりやすいレビューを開く",
     "checkoutTooltip": "プロジェクトのメインフォルダで {{branch}} をチェックアウト",
     "checkoutSuccess": "{{branch}} をチェックアウトしました",
     "checkoutFailed": "PR ブランチをチェックアウトできませんでした",

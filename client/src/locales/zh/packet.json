@@ -1,0 +1,112 @@
+{
+  "backToBoard": "返回面板",
+  "stillWorking": "仍在处理…",
+  "alreadyResolved": "此项已处理完毕。",
+  "fineControlOnly": "这次交付需要技术决策。请使用面板上的详细控件。",
+  "openPr": "打开 pull request #{{number}}",
+  "noSolutionRecorded": "未记录摘要。",
+  "headline": {
+    "success": "你的更改已可供审阅",
+    "successMany": "全部 {{count}} 项更改已可供审阅",
+    "partial": "{{total}} 项更改中有 {{succeeded}} 项已就绪",
+    "noChanges": "无需改动",
+    "failed": "未能完成",
+    "failedPartial": "仅完成了一部分"
+  },
+  "confidence": {
+    "pill": "AI 审阅者信心 {{overall}}/100",
+    "unavailable": "没有审阅者评分",
+    "tooltip": "AI 审阅者给自己的评分 — 不是独立检查。"
+  },
+  "cost": {
+    "thisBuild": "本次花费 {{amount}}",
+    "allVersions": "所有版本合计：{{amount}}"
+  },
+  "accept": {
+    "create-pr": "接受并创建 pull request",
+    "publish": "接受并送交审阅",
+    "merge-local": "接受到我的项目",
+    "mark-done": "接受 — 无需改动",
+    "generic": "接受",
+    "irreversibleWarning": "这会把更改直接写入你电脑上的项目。没有单独的审阅副本，且无法撤销。",
+    "irreversibleConfirm": "是的，写入我的项目"
+  },
+  "requestChanges": {
+    "label": "要求修改",
+    "comingSoon": "即将推出：用一句话描述要改什么。",
+    "prompt": "你想改什么？",
+    "placeholder": "例如：把登录按钮改成蓝色",
+    "submit": "发送修改",
+    "hint": "从现有成果继续 — 不会重新开始。"
+  },
+  "discard": {
+    "label": "丢弃"
+  },
+  "watchOut": {
+    "title": "接受前值得一看"
+  },
+  "sections": {
+    "whatYouAsked": "你要求的",
+    "whatIDid": "已完成的",
+    "howItWasChecked": "如何检查的"
+  },
+  "churn": {
+    "line": "{{files}} 个文件改动 · +{{added}} / −{{removed}} 行",
+    "batchNotSplittable": "文件改动按整次交付统计，不按单个请求。"
+  },
+  "tier": {
+    "app-verified": {
+      "title": "由 Specrails 测量",
+      "caveat": "取自实际改动的事实。"
+    },
+    "ai-reported": {
+      "title": "由 AI 报告",
+      "caveat": "AI 自己的说法。Specrails 并未运行这些检查。"
+    },
+    "reviewer-score": {
+      "title": "AI 审阅者自评",
+      "caveat": "AI 给自己的工作打分 — 有用，但不是独立审阅。"
+    }
+  },
+  "proof": {
+    "filesChanged": "{{files}} 个文件改动（+{{added}} / −{{removed}} 行）",
+    "testFilesChanged": "改动了 {{count}} 个测试文件",
+    "noTestFilesChanged": "没有改动测试文件。",
+    "commitsRecorded": "工作已记录在 {{branches}} 个分支上",
+    "verificationPassed": "AI 报告其检查通过（{{count}}）",
+    "verificationFailed": "AI 报告其检查失败（{{count}}）",
+    "noVerificationReported": "AI 未报告任何验证。",
+    "verifyOutput": "AI 的验证输出：",
+    "reviewerScore": "总分 {{overall}}/100",
+    "reviewerAspect": "{{aspect}}：{{score}}/100",
+    "reviewerScoreUnavailable": "未生成审阅者评分。",
+    "evidenceUnavailable": "无证据"
+  },
+  "watch": {
+    "humanReviewRecommended": "AI 审阅者给出 {{overall}}/100，建议由人来查看。",
+    "lowConfidence": "AI 审阅者仅给出 {{overall}}/100。",
+    "reviewerFlag": "审阅者标记：",
+    "noTestsForChangedCode": "{{files}} 个代码文件有改动但测试无改动。"
+  },
+  "error": {
+    "notFound": "找不到此审阅。",
+    "loadFailed": "无法加载审阅。",
+    "alreadyResolved": "已有人回应过。",
+    "actionFailed": "该操作未成功。",
+    "revisionStale": "此项刚在别处被处理 — 请重新加载查看状态。",
+    "revisionFailed": "无法开始修改。你的文字已保留。"
+  },
+  "versions": {
+    "title": "早前的版本（{{count}}）",
+    "label": "版本 {{version}}",
+    "current": "你正在查看这个",
+    "originalBuild": "最初的成果。"
+  },
+  "drift": {
+    "title": "这可能已超出你最初的要求",
+    "advisory": "只是建议 — 你仍可以继续要求修改。",
+    "costShare": "{{revisions}} 次修改已花费 {{revisionCost}} — 是最初 {{originalCost}} 的 {{share}}%。",
+    "outOfScopeChurn": "{{total}} 个改动文件中有 {{files}} 个不属于最初的要求。",
+    "revisionCount": "你已经要求了 {{revisions}} 轮修改。重写需求可能更快。"
+  }
+}

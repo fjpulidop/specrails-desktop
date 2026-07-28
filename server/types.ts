@@ -1295,7 +1295,7 @@ export type WsMessage =
   | BackgroundProcessStartedMessage | BackgroundProcessOutputMessage | BackgroundProcessExitedMessage
   | SpendingInvalidatedMessage
   | JobTurnUserMessage | JobTurnDoneMessage | JobFinalizedMessage
-  | JobInteractiveMessage
+  | JobInteractiveMessage | JobStuckMessage
   | SmashStartedMessage | SmashProgressMessage | SmashCompletedMessage
   | SmashFailedMessage | SmashUndoneMessage
   | FileProvenanceUpdatedMessage
@@ -1676,6 +1676,25 @@ export interface JobInteractiveMessage {
   acceptingTurns: boolean
   /** Settle mode of the session that just started/settled (loops are 'auto'). */
   settleMode: 'finalize' | 'auto'
+  timestamp: string
+}
+
+/**
+ * A running loop step has produced no activity for longer than the staleness
+ * threshold (nontech-review-experience Wave 1). Derived exclusively from the
+ * persisted per-step activity checkpoints — never a guess. Fired at most ONCE
+ * per stall episode; fresh activity re-arms it. The client turns this into a
+ * plain-language native notification, because a user who cannot read logs has
+ * no other way to learn that a commissioned run has wedged.
+ */
+export interface JobStuckMessage {
+  type: 'job.stuck'
+  projectId: string
+  jobId: string
+  /** Human-facing step title when the checkpoint carries one. */
+  stepKey: string
+  /** Milliseconds since the last recorded activity on that step. */
+  staleMs: number
   timestamp: string
 }
 

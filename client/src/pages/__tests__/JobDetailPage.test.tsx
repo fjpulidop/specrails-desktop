@@ -1,5 +1,5 @@
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import JobDetailPage from '../JobDetailPage'
@@ -90,7 +90,13 @@ describe('JobDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockNavigate.mockClear()
+    // The log surface now defaults to the narrated altitude (matching the Code
+    // explorer's Story|Log precedent). These tests are about the RAW views, so
+    // pin the persisted mode; the narrated mode has its own tests below.
+    localStorage.setItem('specrails-desktop:job-log-mode', 'log')
   })
+
+  afterEach(() => { localStorage.clear() })
 
   it('shows loading state initially', () => {
     global.fetch = vi.fn().mockImplementation(() => new Promise(() => {}))
@@ -693,4 +699,44 @@ describe('JobDetailPage', () => {
     })
   })
 
+})
+
+describe('JobDetailPage — narrated altitude', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockNavigate.mockClear()
+    localStorage.clear() // no pinned preference ⇒ the narrated default applies
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: mockJob, events: mockEvents }),
+    })
+  })
+
+  afterEach(() => { localStorage.clear() })
+
+  it('opens on the narrated view by default', async () => {
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByTestId('job-narration-mode-narrated')).toHaveAttribute('aria-pressed', 'true')
+    })
+    // The raw log line is NOT shown until the user asks for it.
+    expect(screen.queryByText('Starting implementation...')).not.toBeInTheDocument()
+  })
+
+  it('switches to the raw log and remembers the choice', async () => {
+    render(<JobDetailPage />)
+    fireEvent.click(await screen.findByTestId('job-narration-mode-log'))
+    await waitFor(() => {
+      expect(screen.getByText('Starting implementation...')).toBeInTheDocument()
+    })
+    expect(localStorage.getItem('specrails-desktop:job-log-mode')).toBe('log')
+  })
+
+  it('restores a previously chosen raw-log preference', async () => {
+    localStorage.setItem('specrails-desktop:job-log-mode', 'log')
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByTestId('job-narration-mode-log')).toHaveAttribute('aria-pressed', 'true')
+    })
+  })
 })

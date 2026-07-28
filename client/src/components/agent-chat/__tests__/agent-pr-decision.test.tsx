@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 
 // ── Mocks (mirror the agent-chat harness) ─────────────────────────────────────
 let wsHandler: ((msg: unknown) => void) | null = null
@@ -18,6 +19,15 @@ const projects = [
 vi.mock('../../../hooks/useDesktop', () => ({
   useDesktop: () => ({ projects, activeProjectId: 'p1', setActiveProjectId: vi.fn() }),
 }))
+
+// The card is Router-OPTIONAL: bare renders below must keep working, so only the
+// two review-entry tests wrap in a MemoryRouter. useNavigate is mocked so the
+// route target can be asserted.
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return { ...(actual as object), useNavigate: () => mockNavigate }
+})
 
 const mockOpenWebView = vi.fn()
 vi.mock('../../../context/WebViewModalContext', () => ({
@@ -169,6 +179,29 @@ describe('AgentPrDecisionCard states', () => {
     expect(screen.getByText('acme-api')).toBeInTheDocument()
     expect(screen.getByText('Rail 1')).toBeInTheDocument()
     expect(screen.queryByRole('link')).not.toBeInTheDocument() // no PR yet
+  })
+
+  it('offers the plain-language review entry on on_review and routes to it', () => {
+    render(<MemoryRouter><AgentPrDecisionCard envelope={env()} /></MemoryRouter>)
+    const review = screen.getByTestId('agent-pr-open-packet')
+    expect(review).toHaveTextContent('Review')
+    fireEvent.click(review)
+    expect(mockNavigate).toHaveBeenCalledWith(`/review/${env().prDeliveryId}`)
+  })
+
+  it('does not offer the review entry once the delivery is terminal', () => {
+    render(
+      <MemoryRouter>
+        <AgentPrDecisionCard envelope={env({ decision: 'merged', statusCode: 'merged' })} />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByTestId('agent-pr-open-packet')).not.toBeInTheDocument()
+  })
+
+  it('stays renderable outside a Router (the entry is simply absent)', () => {
+    render(<AgentPrDecisionCard envelope={env()} />)
+    expect(screen.getByRole('button', { name: 'Create PR' })).toBeInTheDocument()
+    expect(screen.queryByTestId('agent-pr-open-packet')).not.toBeInTheDocument()
   })
 
   it('falls back to the raw projectId when the project is unknown', () => {

@@ -1,0 +1,112 @@
+{
+  "backToBoard": "Torna alla bacheca",
+  "stillWorking": "Ancora al lavoro…",
+  "alreadyResolved": "È già stato risolto.",
+  "fineControlOnly": "Questa consegna richiede una decisione tecnica. Usa i controlli dettagliati nella bacheca.",
+  "openPr": "Apri la pull request #{{number}}",
+  "noSolutionRecorded": "Nessun riepilogo registrato.",
+  "headline": {
+    "success": "La tua modifica è pronta per la revisione",
+    "successMany": "Tutte le {{count}} modifiche sono pronte per la revisione",
+    "partial": "{{succeeded}} modifiche su {{total}} sono pronte",
+    "noChanges": "Non c'era nulla da cambiare",
+    "failed": "Non è stato possibile completarlo",
+    "failedPartial": "È stato completato solo in parte"
+  },
+  "confidence": {
+    "pill": "Fiducia del revisore IA {{overall}}/100",
+    "unavailable": "Nessun punteggio del revisore",
+    "tooltip": "Il punteggio che il revisore IA assegna a sé stesso — non è un controllo indipendente."
+  },
+  "cost": {
+    "thisBuild": "Questo lavoro è costato {{amount}}",
+    "allVersions": "Tutte le versioni insieme: {{amount}}"
+  },
+  "accept": {
+    "create-pr": "Accetta e apri una pull request",
+    "publish": "Accetta e invia in revisione",
+    "merge-local": "Accetta nel mio progetto",
+    "mark-done": "Accetta — nulla da cambiare",
+    "generic": "Accetta",
+    "irreversibleWarning": "Questo scrive le modifiche direttamente nel tuo progetto, sul tuo computer. Non esiste una copia di revisione separata e non è annullabile.",
+    "irreversibleConfirm": "Sì, scrivi nel mio progetto"
+  },
+  "requestChanges": {
+    "label": "Chiedi modifiche",
+    "comingSoon": "Prossimamente: descrivi la modifica in una frase.",
+    "prompt": "Cosa vuoi cambiare?",
+    "placeholder": "es. rendi blu il pulsante di accesso",
+    "submit": "Invia la modifica",
+    "hint": "Riprende da dove il lavoro si è fermato — non ricomincia."
+  },
+  "discard": {
+    "label": "Butta via"
+  },
+  "watchOut": {
+    "title": "Da guardare prima di accettare"
+  },
+  "sections": {
+    "whatYouAsked": "Cosa hai chiesto",
+    "whatIDid": "Cosa è stato fatto",
+    "howItWasChecked": "Come è stato verificato"
+  },
+  "churn": {
+    "line": "{{files}} file modificati · +{{added}} / −{{removed}} righe",
+    "batchNotSplittable": "Le modifiche ai file riguardano tutta la consegna, non ogni richiesta."
+  },
+  "tier": {
+    "app-verified": {
+      "title": "Misurato da Specrails",
+      "caveat": "Fatti presi dalle modifiche reali."
+    },
+    "ai-reported": {
+      "title": "Riferito dall'IA",
+      "caveat": "Parole dell'IA stessa. Specrails non ha eseguito questi controlli."
+    },
+    "reviewer-score": {
+      "title": "Autovalutazione del revisore IA",
+      "caveat": "L'IA valuta il proprio lavoro — utile, ma non è una revisione indipendente."
+    }
+  },
+  "proof": {
+    "filesChanged": "{{files}} file modificati (+{{added}} / −{{removed}} righe)",
+    "testFilesChanged": "{{count}} file di test modificati",
+    "noTestFilesChanged": "Nessun file di test modificato.",
+    "commitsRecorded": "Il lavoro è stato registrato su {{branches}} ramo/i",
+    "verificationPassed": "L'IA ha riferito che i suoi controlli sono passati ({{count}})",
+    "verificationFailed": "L'IA ha riferito che i suoi controlli sono FALLITI ({{count}})",
+    "noVerificationReported": "L'IA non ha riferito alcuna verifica.",
+    "verifyOutput": "Output di verifica dell'IA:",
+    "reviewerScore": "Punteggio complessivo {{overall}}/100",
+    "reviewerAspect": "{{aspect}}: {{score}}/100",
+    "reviewerScoreUnavailable": "Nessun punteggio del revisore prodotto.",
+    "evidenceUnavailable": "prove non disponibili"
+  },
+  "watch": {
+    "humanReviewRecommended": "Il revisore IA ha dato {{overall}}/100 e consiglia che una persona lo guardi.",
+    "lowConfidence": "Il revisore IA ha dato solo {{overall}}/100.",
+    "reviewerFlag": "Il revisore ha segnalato:",
+    "noTestsForChangedCode": "{{files}} file di codice modificati senza modifiche ai test."
+  },
+  "error": {
+    "notFound": "Questa revisione non è stata trovata.",
+    "loadFailed": "Non è stato possibile caricare la revisione.",
+    "alreadyResolved": "Qualcuno ha già risposto.",
+    "actionFailed": "L'azione non è andata a buon fine.",
+    "revisionStale": "È stato appena risolto altrove — ricarica per vedere lo stato.",
+    "revisionFailed": "Non è stato possibile avviare la modifica. Il tuo testo è stato conservato."
+  },
+  "versions": {
+    "title": "Versioni precedenti ({{count}})",
+    "label": "Versione {{version}}",
+    "current": "stai guardando questa",
+    "originalBuild": "Il lavoro originale."
+  },
+  "drift": {
+    "title": "Questo potrebbe essere andato oltre la richiesta iniziale",
+    "advisory": "Solo un suggerimento — puoi continuare a chiedere modifiche.",
+    "costShare": "{{revisions}} modifica/che sono costate {{revisionCost}} — il {{share}}% dei {{originalCost}} del lavoro originale.",
+    "outOfScopeChurn": "{{files}} su {{total}} file modificati non facevano parte della richiesta iniziale.",
+    "revisionCount": "Hai chiesto {{revisions}} giri di modifiche. Riscrivere la richiesta potrebbe essere più rapido."
+  }
+}
