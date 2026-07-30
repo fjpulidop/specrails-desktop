@@ -61,9 +61,9 @@ describe('ExternalMcpServersCard', () => {
     // Four matrix checkboxes per row.
     expect(screen.getByLabelText('jira · claude')).toBeInTheDocument()
     expect(screen.getByLabelText('jira · kimi')).toBeInTheDocument()
-    // Codex-native row is display-only (no checkboxes inside it).
+    // Codex-native row is display-only (no provider toggles inside it).
     const codexRow = screen.getByTestId('external-mcp-codex-native-tool')
-    expect(codexRow.querySelectorAll('input')).toHaveLength(0)
+    expect(codexRow.querySelectorAll('button, input')).toHaveLength(0)
     // Consent warning copy present.
     expect(screen.getByText(/without tool-approval prompts/)).toBeInTheDocument()
   })
@@ -111,7 +111,7 @@ describe('ExternalMcpServersCard', () => {
     fireEvent.click(screen.getByLabelText('mi-tool · gemini'))
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
     // Reverted: gemini stays unticked for the custom entry.
-    expect((screen.getByLabelText('mi-tool · gemini') as HTMLInputElement).checked).toBe(false)
+    expect(screen.getByLabelText('mi-tool · gemini')).toHaveAttribute('aria-checked', 'false')
   })
 
   it('adds a custom server through the form', async () => {

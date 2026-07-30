@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
-import { Globe, Plus, Trash2, TriangleAlert } from 'lucide-react'
+import { Check, Globe, Plus, Trash2, TriangleAlert } from 'lucide-react'
 import { Button } from '../ui/button'
 import { API_ORIGIN } from '../../lib/origin'
 
@@ -325,19 +325,31 @@ export function ExternalMcpServersCard() {
                   <TriangleAlert className="h-2.5 w-2.5" /> {t('external.orphan')}
                 </span>
               )}
-              <span className="ml-auto flex items-center gap-2.5">
-                {PROVIDERS.map((provider) => (
-                  <label key={provider} className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={row.providers[provider] === true}
-                      disabled={busy}
-                      onChange={() => toggle(row, provider)}
-                      aria-label={`${row.name} · ${provider}`}
-                    />
-                    {provider}
-                  </label>
-                ))}
+              <span className="ml-auto flex items-center gap-2">
+                <span className="flex items-center gap-1">
+                  {PROVIDERS.map((provider) => {
+                    const active = row.providers[provider] === true
+                    return (
+                      <button
+                        key={provider}
+                        type="button"
+                        role="switch"
+                        aria-checked={active}
+                        aria-label={`${row.name} · ${provider}`}
+                        disabled={busy}
+                        onClick={() => toggle(row, provider)}
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-all duration-150 disabled:opacity-50 ${
+                          active
+                            ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary shadow-[0_0_8px_-2px] shadow-accent-primary/30'
+                            : 'border-border/60 bg-transparent text-muted-foreground/70 hover:border-border hover:text-foreground hover:bg-muted/30'
+                        }`}
+                      >
+                        {active && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
+                        {provider}
+                      </button>
+                    )
+                  })}
+                </span>
                 {row.stored && (
                   <button
                     type="button"
