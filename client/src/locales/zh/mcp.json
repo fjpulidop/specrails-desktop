@@ -73,7 +73,17 @@
       "args": "参数（空格分隔）",
       "env": "环境变量（每行 KEY=VALUE）",
       "cancel": "取消",
-      "save": "保存"
+      "save": "保存",
+      "nameLabel": "名称",
+      "commandLabel": "命令",
+      "argsLabel": "参数",
+      "envLabel": "环境变量",
+      "enableFor": "启用于",
+      "addVar": "添加变量",
+      "envKey": "键",
+      "envValue": "值",
+      "nameInvalid": "仅限字母、数字、点和连字符 — 且 'specrails' 为保留名称",
+      "nameTaken": "已存在同名的自定义服务器"
     },
     "errors": {
       "reserved_name": "该服务器名称已被保留",

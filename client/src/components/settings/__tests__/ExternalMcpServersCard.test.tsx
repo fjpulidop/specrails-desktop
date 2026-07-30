@@ -126,32 +126,50 @@ describe('ExternalMcpServersCard', () => {
     render(<ExternalMcpServersCard />)
     await screen.findByTestId('external-mcp-card')
     fireEvent.click(screen.getByTestId('external-mcp-add'))
-    fireEvent.change(screen.getByLabelText('Name (e.g. jira-tools)'), { target: { value: 'mi-tool' } })
-    fireEvent.change(screen.getByLabelText('Command (e.g. npx)'), { target: { value: 'npx' } })
-    fireEvent.change(screen.getByLabelText('Arguments (space-separated)'), { target: { value: '-y some-mcp' } })
-    fireEvent.change(screen.getByLabelText('Environment (KEY=VALUE per line)'), { target: { value: 'TOKEN=x\nbad-line' } })
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'mi-tool' } })
+    fireEvent.change(screen.getByLabelText('Command'), { target: { value: 'npx' } })
+    fireEvent.change(screen.getByLabelText('Arguments'), { target: { value: '-y some-mcp' } })
+    // Env pair editor: add one KEY=VALUE row; an empty-key row is dropped on save.
+    fireEvent.click(screen.getByTestId('external-mcp-env-add'))
+    fireEvent.click(screen.getByTestId('external-mcp-env-add'))
+    fireEvent.change(screen.getByLabelText('KEY 1'), { target: { value: 'TOKEN' } })
+    fireEvent.change(screen.getByLabelText('value 1'), { target: { value: 'x' } })
+    // Enable-for pills apply the matrix at creation time.
+    fireEvent.click(screen.getByTestId('external-mcp-form-provider-claude'))
     fireEvent.click(screen.getByTestId('external-mcp-form-save'))
     await waitFor(() => expect(calls).toHaveLength(1))
     expect(calls[0].body!.servers['c:mi-tool']).toEqual({
       source: 'custom',
       name: 'mi-tool',
-      providers: {},
+      providers: { claude: true },
       transport: { command: 'npx', args: ['-y', 'some-mcp'], env: { TOKEN: 'x' } },
     })
   })
 
-  it('rejects the reserved specrails name client-side without a network call', async () => {
+  it('rejects the reserved specrails name inline — Save disabled, no network call', async () => {
     const fetchMock = vi.fn(async () => jsonResponse(true, EMPTY_PAYLOAD))
     global.fetch = fetchMock as never
     render(<ExternalMcpServersCard />)
     await screen.findByTestId('external-mcp-card')
     fireEvent.click(screen.getByTestId('external-mcp-add'))
-    fireEvent.change(screen.getByLabelText('Name (e.g. jira-tools)'), { target: { value: 'specrails' } })
-    fireEvent.change(screen.getByLabelText('Command (e.g. npx)'), { target: { value: 'npx' } })
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'specrails' } })
+    fireEvent.change(screen.getByLabelText('Command'), { target: { value: 'npx' } })
+    expect(screen.getByTestId('external-mcp-name-hint')).toBeInTheDocument()
+    expect(screen.getByTestId('external-mcp-form-save')).toBeDisabled()
     const before = fetchMock.mock.calls.length
     fireEvent.click(screen.getByTestId('external-mcp-form-save'))
-    await waitFor(() => expect(toast.error).toHaveBeenCalled())
     expect(fetchMock.mock.calls.length).toBe(before)
+  })
+
+  it('flags a duplicate custom name inline', async () => {
+    global.fetch = vi.fn(async () => jsonResponse(true, STORED_PAYLOAD)) as never
+    render(<ExternalMcpServersCard />)
+    await screen.findByTestId('external-mcp-card')
+    fireEvent.click(screen.getByTestId('external-mcp-add'))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'mi-tool' } })
+    fireEvent.change(screen.getByLabelText('Command'), { target: { value: 'npx' } })
+    expect(screen.getByTestId('external-mcp-name-hint')).toBeInTheDocument()
+    expect(screen.getByTestId('external-mcp-form-save')).toBeDisabled()
   })
 
   it('removes a stored entry via the trash action', async () => {

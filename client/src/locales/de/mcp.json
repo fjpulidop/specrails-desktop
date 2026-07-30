@@ -73,7 +73,17 @@
       "args": "Argumente (durch Leerzeichen getrennt)",
       "env": "Umgebung (KEY=VALUE pro Zeile)",
       "cancel": "Abbrechen",
-      "save": "Speichern"
+      "save": "Speichern",
+      "nameLabel": "Name",
+      "commandLabel": "Befehl",
+      "argsLabel": "Argumente",
+      "envLabel": "Umgebungsvariablen",
+      "enableFor": "Aktivieren für",
+      "addVar": "Variable hinzufügen",
+      "envKey": "SCHLÜSSEL",
+      "envValue": "Wert",
+      "nameInvalid": "Nur Buchstaben, Ziffern, Punkte und Bindestriche — und 'specrails' ist reserviert",
+      "nameTaken": "Ein benutzerdefinierter Server mit diesem Namen existiert bereits"
     },
     "errors": {
       "reserved_name": "Dieser Servername ist reserviert",

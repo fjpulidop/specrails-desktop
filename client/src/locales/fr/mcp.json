@@ -73,7 +73,17 @@
       "args": "Arguments (séparés par des espaces)",
       "env": "Environnement (KEY=VALUE par ligne)",
       "cancel": "Annuler",
-      "save": "Enregistrer"
+      "save": "Enregistrer",
+      "nameLabel": "Nom",
+      "commandLabel": "Commande",
+      "argsLabel": "Arguments",
+      "envLabel": "Variables d'environnement",
+      "enableFor": "Activer pour",
+      "addVar": "Ajouter une variable",
+      "envKey": "CLÉ",
+      "envValue": "valeur",
+      "nameInvalid": "Lettres, chiffres, points et tirets uniquement — et « specrails » est réservé",
+      "nameTaken": "Un serveur personnalisé porte déjà ce nom"
     },
     "errors": {
       "reserved_name": "Ce nom de serveur est réservé",

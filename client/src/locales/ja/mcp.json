@@ -73,7 +73,17 @@
       "args": "引数（スペース区切り）",
       "env": "環境変数（1 行につき KEY=VALUE）",
       "cancel": "キャンセル",
-      "save": "保存"
+      "save": "保存",
+      "nameLabel": "名前",
+      "commandLabel": "コマンド",
+      "argsLabel": "引数",
+      "envLabel": "環境変数",
+      "enableFor": "有効化対象",
+      "addVar": "変数を追加",
+      "envKey": "キー",
+      "envValue": "値",
+      "nameInvalid": "使用できるのは英数字・ドット・ハイフンのみ — 'specrails' は予約済みです",
+      "nameTaken": "同じ名前のカスタムサーバーが既に存在します"
     },
     "errors": {
       "reserved_name": "そのサーバー名は予約されています",

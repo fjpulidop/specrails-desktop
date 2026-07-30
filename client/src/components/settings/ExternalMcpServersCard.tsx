@@ -58,17 +58,13 @@ interface Row {
   stored: boolean
 }
 
-/** Parse `KEY=VALUE` lines into an env record (blank lines ignored). */
-function parseEnvLines(text: string): Record<string, string> {
-  const env: Record<string, string> = {}
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
-    const eq = trimmed.indexOf('=')
-    if (eq <= 0) continue
-    env[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1)
-  }
-  return env
+/** Shared look for the provider toggle pills (matrix rows + the custom form). */
+function providerPillClass(active: boolean): string {
+  return `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-all duration-150 disabled:opacity-50 ${
+    active
+      ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary shadow-[0_0_8px_-2px] shadow-accent-primary/30'
+      : 'border-border/60 bg-transparent text-muted-foreground/70 hover:border-border hover:text-foreground hover:bg-muted/30'
+  }`
 }
 
 /**
@@ -86,7 +82,8 @@ export function ExternalMcpServersCard() {
   const [formName, setFormName] = useState('')
   const [formCommand, setFormCommand] = useState('')
   const [formArgs, setFormArgs] = useState('')
-  const [formEnv, setFormEnv] = useState('')
+  const [formEnvPairs, setFormEnvPairs] = useState<{ key: string; value: string }[]>([])
+  const [formProviders, setFormProviders] = useState<Record<string, boolean>>({})
 
   const load = useCallback(async () => {
     try {
@@ -204,38 +201,48 @@ export function ExternalMcpServersCard() {
     [payload, patch]
   )
 
+  // Inline form validation — Save stays disabled until the entry is well-formed.
+  const trimmedName = formName.trim()
+  const nameInvalid = trimmedName !== '' && (!NAME_PATTERN.test(trimmedName) || trimmedName === 'specrails')
+  const nameTaken =
+    trimmedName !== '' && !nameInvalid && !!payload?.settings.servers[`c:${trimmedName}`]
+  const formValid = trimmedName !== '' && !nameInvalid && !nameTaken && formCommand.trim() !== ''
+
+  const resetForm = useCallback(() => {
+    setShowForm(false)
+    setFormName('')
+    setFormCommand('')
+    setFormArgs('')
+    setFormEnvPairs([])
+    setFormProviders({})
+  }, [])
+
   const addCustom = useCallback(async () => {
-    if (!payload) return
-    const name = formName.trim()
-    const command = formCommand.trim()
-    if (!NAME_PATTERN.test(name) || name === 'specrails') {
-      toast.error(t('external.errors.reserved_name'))
-      return
+    if (!payload || !formValid) return
+    const name = trimmedName
+    const env: Record<string, string> = {}
+    for (const pair of formEnvPairs) {
+      const key = pair.key.trim()
+      if (key) env[key] = pair.value
     }
-    if (!command) {
-      toast.error(t('external.errors.invalid_transport'))
-      return
+    const providers: Record<string, boolean> = {}
+    for (const [provider, on] of Object.entries(formProviders)) {
+      if (on) providers[provider] = true
     }
     const servers = { ...payload.settings.servers }
     servers[`c:${name}`] = {
       source: 'custom',
       name,
-      providers: {},
+      providers,
       transport: {
-        command,
+        command: formCommand.trim(),
         args: formArgs.trim() ? formArgs.trim().split(/\s+/) : [],
-        env: parseEnvLines(formEnv),
+        env,
       },
     }
     const ok = await patch(servers)
-    if (ok) {
-      setShowForm(false)
-      setFormName('')
-      setFormCommand('')
-      setFormArgs('')
-      setFormEnv('')
-    }
-  }, [payload, formName, formCommand, formArgs, formEnv, patch, t])
+    if (ok) resetForm()
+  }, [payload, formValid, trimmedName, formCommand, formArgs, formEnvPairs, formProviders, patch, resetForm])
 
   if (!payload) return <div className="h-16 bg-muted/30 rounded-lg animate-pulse" data-testid="external-mcp-skeleton" />
 
@@ -263,41 +270,139 @@ export function ExternalMcpServersCard() {
       </p>
 
       {showForm && (
-        <div className="space-y-1.5 rounded-md border border-border/70 bg-muted/20 p-2" data-testid="external-mcp-form">
-          <input
-            value={formName}
-            onChange={(e) => setFormName(e.target.value)}
-            placeholder={t('external.form.name')}
-            className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs"
-            aria-label={t('external.form.name')}
-          />
-          <input
-            value={formCommand}
-            onChange={(e) => setFormCommand(e.target.value)}
-            placeholder={t('external.form.command')}
-            className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs font-mono"
-            aria-label={t('external.form.command')}
-          />
-          <input
-            value={formArgs}
-            onChange={(e) => setFormArgs(e.target.value)}
-            placeholder={t('external.form.args')}
-            className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs font-mono"
-            aria-label={t('external.form.args')}
-          />
-          <textarea
-            value={formEnv}
-            onChange={(e) => setFormEnv(e.target.value)}
-            placeholder={t('external.form.env')}
-            rows={2}
-            className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs font-mono"
-            aria-label={t('external.form.env')}
-          />
-          <div className="flex justify-end gap-1.5">
-            <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => setShowForm(false)}>
+        <div className="space-y-2.5 rounded-md border border-border/70 bg-muted/20 p-3" data-testid="external-mcp-form">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label htmlFor="ext-mcp-name" className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t('external.form.nameLabel')}
+              </label>
+              <input
+                id="ext-mcp-name"
+                autoFocus
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder={t('external.form.name')}
+                className={`w-full rounded-md border bg-background px-2 py-1 text-xs transition-colors ${
+                  nameInvalid || nameTaken ? 'border-destructive/60 focus:outline-destructive' : 'border-border'
+                }`}
+              />
+              {(nameInvalid || nameTaken) && (
+                <p className="text-[10px] text-destructive" data-testid="external-mcp-name-hint">
+                  {nameInvalid ? t('external.form.nameInvalid') : t('external.form.nameTaken')}
+                </p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="ext-mcp-command" className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t('external.form.commandLabel')}
+              </label>
+              <input
+                id="ext-mcp-command"
+                value={formCommand}
+                onChange={(e) => setFormCommand(e.target.value)}
+                placeholder={t('external.form.command')}
+                className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="ext-mcp-args" className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t('external.form.argsLabel')}
+            </label>
+            <input
+              id="ext-mcp-args"
+              value={formArgs}
+              onChange={(e) => setFormArgs(e.target.value)}
+              placeholder={t('external.form.args')}
+              className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t('external.form.envLabel')}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFormEnvPairs((p) => [...p, { key: '', value: '' }])}
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                data-testid="external-mcp-env-add"
+              >
+                <Plus className="h-2.5 w-2.5" /> {t('external.form.addVar')}
+              </button>
+            </div>
+            {formEnvPairs.map((pair, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <input
+                  value={pair.key}
+                  onChange={(e) =>
+                    setFormEnvPairs((p) => p.map((x, j) => (j === i ? { ...x, key: e.target.value } : x)))
+                  }
+                  placeholder={t('external.form.envKey')}
+                  aria-label={`${t('external.form.envKey')} ${i + 1}`}
+                  className="w-2/5 rounded-md border border-border bg-background px-2 py-1 text-xs font-mono"
+                />
+                <span className="text-[10px] text-muted-foreground">=</span>
+                <input
+                  value={pair.value}
+                  onChange={(e) =>
+                    setFormEnvPairs((p) => p.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))
+                  }
+                  placeholder={t('external.form.envValue')}
+                  aria-label={`${t('external.form.envValue')} ${i + 1}`}
+                  className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setFormEnvPairs((p) => p.filter((_, j) => j !== i))}
+                  className="text-muted-foreground hover:text-destructive transition-colors"
+                  aria-label={`${t('external.remove')} ${i + 1}`}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-1">
+            <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t('external.form.enableFor')}
+            </span>
+            <div className="flex items-center gap-1">
+              {PROVIDERS.map((provider) => {
+                const active = formProviders[provider] === true
+                return (
+                  <button
+                    key={provider}
+                    type="button"
+                    role="switch"
+                    aria-checked={active}
+                    aria-label={`custom · ${provider}`}
+                    onClick={() => setFormProviders((p) => ({ ...p, [provider]: !p[provider] }))}
+                    className={providerPillClass(active)}
+                    data-testid={`external-mcp-form-provider-${provider}`}
+                  >
+                    {active && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
+                    {provider}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-1.5 pt-0.5">
+            <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={resetForm}>
               {t('external.form.cancel')}
             </Button>
-            <Button size="sm" className="h-7 text-[11px]" disabled={busy} onClick={() => void addCustom()} data-testid="external-mcp-form-save">
+            <Button
+              size="sm"
+              className="h-7 text-[11px]"
+              disabled={busy || !formValid}
+              onClick={() => void addCustom()}
+              data-testid="external-mcp-form-save"
+            >
               {t('external.form.save')}
             </Button>
           </div>
@@ -338,11 +443,7 @@ export function ExternalMcpServersCard() {
                         aria-label={`${row.name} · ${provider}`}
                         disabled={busy}
                         onClick={() => toggle(row, provider)}
-                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-all duration-150 disabled:opacity-50 ${
-                          active
-                            ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary shadow-[0_0_8px_-2px] shadow-accent-primary/30'
-                            : 'border-border/60 bg-transparent text-muted-foreground/70 hover:border-border hover:text-foreground hover:bg-muted/30'
-                        }`}
+                        className={providerPillClass(active)}
                       >
                         {active && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
                         {provider}

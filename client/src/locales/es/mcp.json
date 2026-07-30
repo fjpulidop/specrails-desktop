@@ -73,7 +73,17 @@
       "args": "Argumentos (separados por espacios)",
       "env": "Entorno (KEY=VALUE por línea)",
       "cancel": "Cancelar",
-      "save": "Guardar"
+      "save": "Guardar",
+      "nameLabel": "Nombre",
+      "commandLabel": "Comando",
+      "argsLabel": "Argumentos",
+      "envLabel": "Variables de entorno",
+      "enableFor": "Activar para",
+      "addVar": "Añadir variable",
+      "envKey": "CLAVE",
+      "envValue": "valor",
+      "nameInvalid": "Solo letras, dígitos, puntos y guiones — y 'specrails' está reservado",
+      "nameTaken": "Ya existe un servidor personalizado con ese nombre"
     },
     "errors": {
       "reserved_name": "Ese nombre de servidor está reservado",

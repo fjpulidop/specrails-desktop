@@ -73,7 +73,17 @@
       "args": "Arguments (space-separated)",
       "env": "Environment (KEY=VALUE per line)",
       "cancel": "Cancel",
-      "save": "Save"
+      "save": "Save",
+      "nameLabel": "Name",
+      "commandLabel": "Command",
+      "argsLabel": "Arguments",
+      "envLabel": "Environment variables",
+      "enableFor": "Enable for",
+      "addVar": "Add variable",
+      "envKey": "KEY",
+      "envValue": "value",
+      "nameInvalid": "Letters, digits, dots and dashes only — and 'specrails' is reserved",
+      "nameTaken": "A custom server with this name already exists"
     },
     "errors": {
       "reserved_name": "That server name is reserved",
