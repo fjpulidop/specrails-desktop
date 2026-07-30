@@ -54,5 +54,34 @@
     "exit": "終了",
     "statusOn": "MCP サーバー: オン",
     "statusOff": "MCP サーバー: オフ"
+  },
+  "external": {
+    "heading": "外部 MCP サーバー",
+    "description": "自分の MCP サーバーをミッションエージェントで使えるようにします。検出されたエントリは AI プロバイダーの設定から取得され、リアルタイムに解決されます。プロバイダーにチェックを入れると、そのミッションでサーバーが有効になります。",
+    "warning": "ミッションのターンはツール承認プロンプトなしで実行され、外部ツールは Specrails の権限ティアの対象外です。信頼できるサーバーのみ有効にしてください。",
+    "sourceDiscovered": "{{provider}} から",
+    "sourceCustom": "カスタム",
+    "orphan": "ソース設定に見つかりません",
+    "codexNative": "codex ネイティブ — 常時有効",
+    "empty": "MCP サーバーが見つかりません。カスタムサーバーを追加するか、AI CLI で登録してください。",
+    "addCustom": "カスタムを追加",
+    "remove": "サーバーを削除",
+    "updateFailed": "外部 MCP 設定を保存できませんでした",
+    "form": {
+      "name": "名前（例: jira-tools）",
+      "command": "コマンド（例: npx）",
+      "args": "引数（スペース区切り）",
+      "env": "環境変数（1 行につき KEY=VALUE）",
+      "cancel": "キャンセル",
+      "save": "保存"
+    },
+    "errors": {
+      "reserved_name": "そのサーバー名は予約されています",
+      "duplicate_server_name": "同じプロバイダーで有効な 2 つのサーバーが同名です",
+      "invalid_transport": "カスタムサーバーにはコマンドが必要です",
+      "unknown_provider": "アクティベーションマトリクスに不明なプロバイダーがあります",
+      "invalid_entry": "サーバーエントリの形式が不正です",
+      "invalid_body": "リクエストの形式が不正です"
+    }
   }
 }

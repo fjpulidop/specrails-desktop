@@ -54,5 +54,34 @@
     "exit": "Beenden",
     "statusOn": "MCP-Server: an",
     "statusOff": "MCP-Server: aus"
+  },
+  "external": {
+    "heading": "Externe MCP-Server",
+    "description": "Stelle deine eigenen MCP-Server dem Missions-Agenten zur Verfügung. Entdeckte Einträge stammen aus den Konfigurationen deiner KI-Provider und werden live aufgelöst; hake einen Provider an, um einen Server für dessen Missionen zu aktivieren.",
+    "warning": "Missions-Turns laufen ohne Tool-Freigabe-Abfragen, und externe Tools liegen außerhalb der Specrails-Berechtigungsstufen. Aktiviere nur Server, denen du vertraust.",
+    "sourceDiscovered": "aus {{provider}}",
+    "sourceCustom": "benutzerdefiniert",
+    "orphan": "nicht in der Quellkonfiguration gefunden",
+    "codexNative": "codex-nativ — immer aktiv",
+    "empty": "Keine MCP-Server gefunden. Füge einen benutzerdefinierten Server hinzu oder registriere einen mit deinem KI-CLI.",
+    "addCustom": "Benutzerdefiniert hinzufügen",
+    "remove": "Server entfernen",
+    "updateFailed": "Externe MCP-Einstellungen konnten nicht gespeichert werden",
+    "form": {
+      "name": "Name (z. B. jira-tools)",
+      "command": "Befehl (z. B. npx)",
+      "args": "Argumente (durch Leerzeichen getrennt)",
+      "env": "Umgebung (KEY=VALUE pro Zeile)",
+      "cancel": "Abbrechen",
+      "save": "Speichern"
+    },
+    "errors": {
+      "reserved_name": "Dieser Servername ist reserviert",
+      "duplicate_server_name": "Zwei aktive Server teilen denselben Namen für einen Provider",
+      "invalid_transport": "Ein benutzerdefinierter Server benötigt einen Befehl",
+      "unknown_provider": "Unbekannter Provider in der Aktivierungsmatrix",
+      "invalid_entry": "Fehlerhafter Servereintrag",
+      "invalid_body": "Fehlerhafte Anfrage"
+    }
   }
 }

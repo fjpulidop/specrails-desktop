@@ -21,6 +21,7 @@ import { recordAgentInvocation, type AgentInvocationStatus } from './desktop-db'
 import { ensureAgentConversationCwd, ensureAgentCwd } from './agent-cwd-manager'
 import { OPERATOR_SYSTEM_PROMPT } from './agent-operator-prompt'
 import { prepareAgentMcp, removeAgentCapabilityFile } from './agent-mcp-config'
+import { resolveExternalEntries } from './external-mcp'
 import { normalizeLevel, type AgentTierLevel } from './agent-tier'
 import { mintAgentCapability, revokeAgentCapability } from './mcp/agent-capability'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
@@ -371,6 +372,7 @@ export class AgentChatManager {
           cwd,
           port: this._port,
           capability: agentCapability,
+          external: resolveExternalEntries(adapter.id, this._db),
         })
         mcpArgs = wiring.extraArgs
         mcpEnv = wiring.env

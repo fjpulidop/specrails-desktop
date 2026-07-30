@@ -6,6 +6,7 @@ import { resolveBundledNodeExe } from './path-resolver'
 import { stripWindowsVerbatimPrefix } from './util/win-spawn'
 import { AGENT_CAPABILITY_FILE_ENV } from './agent-tier'
 import { getAdapter } from './providers'
+import { isCodexInjectable, type ResolvedExternalServer } from './external-mcp'
 
 const AGENT_CONVERSATION_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
 
@@ -143,12 +144,19 @@ export function buildAgentMcpArgs(opts: {
   conversationId: string
   port: number
   capability: string
+  /** User-configured external servers to inject alongside `specrails`. */
+  external?: ResolvedExternalServer[]
 }): string[] {
   const entry = buildAgentTurnEntry(opts)
   if (!entry) return []
   const dir = agentDir(opts.conversationId)
   const file = path.join(dir, 'mcp.json')
-  fs.writeFileSync(file, JSON.stringify({ mcpServers: { specrails: entry } }, null, 2), { mode: 0o600 })
+  const mcpServers: Record<string, unknown> = { specrails: entry }
+  for (const server of opts.external ?? []) {
+    if (server.name === 'specrails') continue
+    mcpServers[server.name] = server.config
+  }
+  fs.writeFileSync(file, JSON.stringify({ mcpServers }, null, 2), { mode: 0o600 })
   try {
     fs.chmodSync(file, 0o600)
   } catch {
@@ -238,6 +246,27 @@ function codexMcpOverrides(entry: AgentMcpEntry): string[] {
   return args
 }
 
+/** External-server variant of the codex `-c` overrides. Callers pre-filter with
+ *  `isCodexInjectable` (TOML-safe name + string command). */
+function codexExternalOverrides(server: ResolvedExternalServer): string[] {
+  const c = (kv: string): string[] => ['-c', kv]
+  const command = String(server.config.command)
+  const argsList = Array.isArray(server.config.args)
+    ? server.config.args.filter((a): a is string => typeof a === 'string')
+    : []
+  const args: string[] = [
+    ...c(`mcp_servers.${server.name}.command=${JSON.stringify(command)}`),
+    ...c(`mcp_servers.${server.name}.args=[${argsList.map((a) => JSON.stringify(a)).join(', ')}]`),
+  ]
+  const env = server.config.env
+  if (env && typeof env === 'object' && !Array.isArray(env)) {
+    for (const [k, v] of Object.entries(env as Record<string, unknown>)) {
+      if (typeof v === 'string') args.push(...c(`mcp_servers.${server.name}.env.${k}=${JSON.stringify(v)}`))
+    }
+  }
+  return args
+}
+
 /**
  * Prepares the specrails MCP for the given provider and returns the spawn
  * extraArgs + env to merge. Returns empty wiring when the bridge is unavailable
@@ -249,8 +278,12 @@ export function prepareAgentMcp(opts: {
   cwd: string
   port: number
   capability: string
+  /** User-configured external servers to inject alongside `specrails`
+   *  (resolved by the caller via `resolveExternalEntries`). */
+  external?: ResolvedExternalServer[]
 }): AgentMcpWiring {
   const adapter = getAdapter(opts.adapterId)
+  const external = (opts.external ?? []).filter((s) => s.name !== 'specrails')
   if (adapter.id === 'claude') {
     return { extraArgs: buildAgentMcpArgs(opts), env: {} }
   }
@@ -260,13 +293,15 @@ export function prepareAgentMcp(opts: {
 
   if (adapter.mcpRegistration === 'cli-add') {
     // Inline -c overrides contain only the capability FILE PATH, never its secret.
-    return { extraArgs: codexMcpOverrides(entry), env: {} }
+    const externalArgs = external.filter(isCodexInjectable).flatMap(codexExternalOverrides)
+    return { extraArgs: [...codexMcpOverrides(entry), ...externalArgs], env: {} }
   }
 
   // Project-json providers write only their native project config in the
   // conversation-isolated cwd.
   const file = adapter.projectMcpPath?.(opts.cwd) ?? path.join(opts.cwd, '.mcp.json')
   mergeServerIntoJsonFile(file, entry)
+  syncExternalServersIntoJsonFile(file, external)
 
   if (adapter.id === 'gemini') {
     // gemini-cli has NEVER read .mcp.json (a Claude convention) — its only MCP
@@ -301,4 +336,54 @@ function mergeServerIntoJsonFile(file: string, entry: AgentMcpEntry): void {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
   fs.writeFileSync(file, JSON.stringify(next, null, 2), { mode: 0o600 })
   try { fs.chmodSync(file, 0o600) } catch { /* best-effort */ }
+}
+
+/**
+ * Sync the user's EXTERNAL servers into a persistent settings file (gemini
+ * `.gemini/settings.json`, kimi `.kimi-code/mcp.json`) with owned-key hygiene:
+ * a sidecar (`external-owned.json`, same dir) records every key the app wrote,
+ * and each spawn removes the previously-owned set before merging the currently
+ * enabled one — so disabling an entry removes it on the next spawn while keys
+ * the app never wrote (and `specrails`, managed separately) are untouched.
+ */
+export function syncExternalServersIntoJsonFile(file: string, external: ResolvedExternalServer[]): void {
+  const dir = path.dirname(file)
+  const sidecar = path.join(dir, 'external-owned.json')
+  let owned: string[] = []
+  try {
+    const parsed = JSON.parse(fs.readFileSync(sidecar, 'utf-8'))
+    if (parsed && Array.isArray(parsed.owned)) {
+      owned = parsed.owned.filter((n: unknown): n is string => typeof n === 'string')
+    }
+  } catch {
+    /* first spawn / no sidecar yet */
+  }
+  // Nothing owned before and nothing to inject now → leave the file alone.
+  if (owned.length === 0 && external.length === 0) return
+
+  let current: { mcpServers?: Record<string, unknown>; [k: string]: unknown } = {}
+  try {
+    if (fs.existsSync(file)) {
+      const parsed = JSON.parse(fs.readFileSync(file, 'utf-8'))
+      if (parsed && typeof parsed === 'object') current = parsed
+    }
+  } catch {
+    current = {}
+  }
+  const mcpServers: Record<string, unknown> = { ...(current.mcpServers ?? {}) }
+  for (const name of owned) {
+    if (name !== 'specrails') delete mcpServers[name]
+  }
+  const nextOwned: string[] = []
+  for (const server of external) {
+    if (server.name === 'specrails') continue
+    mcpServers[server.name] = server.config
+    nextOwned.push(server.name)
+  }
+  const next = { ...current, mcpServers }
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
+  fs.writeFileSync(file, JSON.stringify(next, null, 2), { mode: 0o600 })
+  try { fs.chmodSync(file, 0o600) } catch { /* best-effort */ }
+  fs.writeFileSync(sidecar, JSON.stringify({ owned: nextOwned }, null, 2), { mode: 0o600 })
+  try { fs.chmodSync(sidecar, 0o600) } catch { /* best-effort */ }
 }

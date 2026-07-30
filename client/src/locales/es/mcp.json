@@ -54,5 +54,34 @@
     "exit": "Salir",
     "statusOn": "Servidor MCP: activado",
     "statusOff": "Servidor MCP: desactivado"
+  },
+  "external": {
+    "heading": "Servidores MCP externos",
+    "description": "Pon tus propios servidores MCP a disposición del agente de misiones. Las entradas descubiertas provienen de las configuraciones de tus proveedores de IA y se resuelven en vivo; marca un proveedor para activar un servidor en sus misiones.",
+    "warning": "Los turnos de misión se ejecutan sin confirmación de herramientas, y las herramientas externas quedan fuera de los niveles de permiso de Specrails. Activa solo servidores de confianza.",
+    "sourceDiscovered": "de {{provider}}",
+    "sourceCustom": "personalizado",
+    "orphan": "no encontrado en la configuración de origen",
+    "codexNative": "nativo de codex — siempre activo",
+    "empty": "No se encontraron servidores MCP. Añade uno personalizado o regístralo con tu CLI de IA.",
+    "addCustom": "Añadir personalizado",
+    "remove": "Eliminar servidor",
+    "updateFailed": "No se pudo guardar la configuración de MCP externos",
+    "form": {
+      "name": "Nombre (p. ej. jira-tools)",
+      "command": "Comando (p. ej. npx)",
+      "args": "Argumentos (separados por espacios)",
+      "env": "Entorno (KEY=VALUE por línea)",
+      "cancel": "Cancelar",
+      "save": "Guardar"
+    },
+    "errors": {
+      "reserved_name": "Ese nombre de servidor está reservado",
+      "duplicate_server_name": "Dos servidores activos comparten nombre para un mismo proveedor",
+      "invalid_transport": "Un servidor personalizado necesita un comando",
+      "unknown_provider": "Proveedor desconocido en la matriz de activación",
+      "invalid_entry": "Entrada de servidor malformada",
+      "invalid_body": "Petición malformada"
+    }
   }
 }

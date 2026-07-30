@@ -54,5 +54,34 @@
     "exit": "Exit",
     "statusOn": "MCP server: on",
     "statusOff": "MCP server: off"
+  },
+  "external": {
+    "heading": "External MCP servers",
+    "description": "Make your own MCP servers available to the mission agent. Discovered entries come from your AI provider configs and resolve live; tick a provider to enable a server for its missions.",
+    "warning": "Mission turns run without tool-approval prompts, and external tools are outside the Specrails permission tiers. Enable only servers you trust.",
+    "sourceDiscovered": "from {{provider}}",
+    "sourceCustom": "custom",
+    "orphan": "not found in source config",
+    "codexNative": "codex native — always on",
+    "empty": "No MCP servers found. Add a custom server or register one with your AI CLI.",
+    "addCustom": "Add custom",
+    "remove": "Remove server",
+    "updateFailed": "Could not save external MCP settings",
+    "form": {
+      "name": "Name (e.g. jira-tools)",
+      "command": "Command (e.g. npx)",
+      "args": "Arguments (space-separated)",
+      "env": "Environment (KEY=VALUE per line)",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "errors": {
+      "reserved_name": "That server name is reserved",
+      "duplicate_server_name": "Two enabled servers share the same name for one provider",
+      "invalid_transport": "A custom server needs a command",
+      "unknown_provider": "Unknown provider in the activation matrix",
+      "invalid_entry": "Malformed server entry",
+      "invalid_body": "Malformed request"
+    }
   }
 }
