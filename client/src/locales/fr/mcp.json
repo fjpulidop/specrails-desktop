@@ -66,6 +66,7 @@
     "empty": "Aucun serveur MCP trouvé. Ajoutez un serveur personnalisé ou enregistrez-en un avec votre CLI d'IA.",
     "addCustom": "Ajouter personnalisé",
     "remove": "Supprimer le serveur",
+    "edit": "Modifier le serveur",
     "updateFailed": "Impossible d'enregistrer les paramètres MCP externes",
     "form": {
       "name": "Nom (p. ex. jira-tools)",

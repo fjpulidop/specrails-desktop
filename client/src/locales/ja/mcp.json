@@ -66,6 +66,7 @@
     "empty": "MCP サーバーが見つかりません。カスタムサーバーを追加するか、AI CLI で登録してください。",
     "addCustom": "カスタムを追加",
     "remove": "サーバーを削除",
+    "edit": "サーバーを編集",
     "updateFailed": "外部 MCP 設定を保存できませんでした",
     "form": {
       "name": "名前（例: jira-tools）",

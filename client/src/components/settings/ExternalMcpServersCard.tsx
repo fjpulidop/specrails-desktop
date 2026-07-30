@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
-import { Check, Globe, Plus, Trash2, TriangleAlert } from 'lucide-react'
+import { Check, Globe, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react'
 import { Button } from '../ui/button'
 import { API_ORIGIN } from '../../lib/origin'
 
@@ -84,6 +84,8 @@ export function ExternalMcpServersCard() {
   const [formArgs, setFormArgs] = useState('')
   const [formEnvPairs, setFormEnvPairs] = useState<{ key: string; value: string }[]>([])
   const [formProviders, setFormProviders] = useState<Record<string, boolean>>({})
+  /** Registry id of the CUSTOM entry being edited; null = creating a new one. */
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -202,14 +204,19 @@ export function ExternalMcpServersCard() {
   )
 
   // Inline form validation — Save stays disabled until the entry is well-formed.
+  // While editing, the entry's OWN id is exempt from the duplicate check.
   const trimmedName = formName.trim()
   const nameInvalid = trimmedName !== '' && (!NAME_PATTERN.test(trimmedName) || trimmedName === 'specrails')
   const nameTaken =
-    trimmedName !== '' && !nameInvalid && !!payload?.settings.servers[`c:${trimmedName}`]
+    trimmedName !== '' &&
+    !nameInvalid &&
+    `c:${trimmedName}` !== editingId &&
+    !!payload?.settings.servers[`c:${trimmedName}`]
   const formValid = trimmedName !== '' && !nameInvalid && !nameTaken && formCommand.trim() !== ''
 
   const resetForm = useCallback(() => {
     setShowForm(false)
+    setEditingId(null)
     setFormName('')
     setFormCommand('')
     setFormArgs('')
@@ -217,7 +224,34 @@ export function ExternalMcpServersCard() {
     setFormProviders({})
   }, [])
 
-  const addCustom = useCallback(async () => {
+  const openCreateForm = useCallback(() => {
+    setEditingId(null)
+    setFormName('')
+    setFormCommand('')
+    setFormArgs('')
+    setFormEnvPairs([])
+    setFormProviders({})
+    setShowForm(true)
+  }, [])
+
+  /** Prefill the form from an existing CUSTOM entry (discovered entries are
+   *  read-only by design — their transport lives in the provider's config). */
+  const openEditForm = useCallback(
+    (id: string) => {
+      const entry = payload?.settings.servers[id]
+      if (!entry || entry.source !== 'custom' || !entry.transport) return
+      setEditingId(id)
+      setFormName(entry.name)
+      setFormCommand(entry.transport.command)
+      setFormArgs(entry.transport.args.join(' '))
+      setFormEnvPairs(Object.entries(entry.transport.env).map(([key, value]) => ({ key, value })))
+      setFormProviders({ ...entry.providers })
+      setShowForm(true)
+    },
+    [payload]
+  )
+
+  const saveCustom = useCallback(async () => {
     if (!payload || !formValid) return
     const name = trimmedName
     const env: Record<string, string> = {}
@@ -230,6 +264,9 @@ export function ExternalMcpServersCard() {
       if (on) providers[provider] = true
     }
     const servers = { ...payload.settings.servers }
+    // A rename re-keys the entry: drop the old id, insert the new one — one
+    // atomic PATCH, no intermediate state.
+    if (editingId && editingId !== `c:${name}`) delete servers[editingId]
     servers[`c:${name}`] = {
       source: 'custom',
       name,
@@ -242,7 +279,7 @@ export function ExternalMcpServersCard() {
     }
     const ok = await patch(servers)
     if (ok) resetForm()
-  }, [payload, formValid, trimmedName, formCommand, formArgs, formEnvPairs, formProviders, patch, resetForm])
+  }, [payload, formValid, trimmedName, formCommand, formArgs, formEnvPairs, formProviders, editingId, patch, resetForm])
 
   if (!payload) return <div className="h-16 bg-muted/30 rounded-lg animate-pulse" data-testid="external-mcp-skeleton" />
 
@@ -257,7 +294,7 @@ export function ExternalMcpServersCard() {
           size="sm"
           className="h-7 text-[11px]"
           disabled={busy}
-          onClick={() => setShowForm((s) => !s)}
+          onClick={() => (showForm && !editingId ? setShowForm(false) : openCreateForm())}
           data-testid="external-mcp-add"
         >
           <Plus className="h-3 w-3" /> {t('external.addCustom')}
@@ -400,7 +437,7 @@ export function ExternalMcpServersCard() {
               size="sm"
               className="h-7 text-[11px]"
               disabled={busy || !formValid}
-              onClick={() => void addCustom()}
+              onClick={() => void saveCustom()}
               data-testid="external-mcp-form-save"
             >
               {t('external.form.save')}
@@ -451,6 +488,18 @@ export function ExternalMcpServersCard() {
                     )
                   })}
                 </span>
+                {row.stored && row.source === 'custom' && (
+                  <button
+                    type="button"
+                    onClick={() => openEditForm(row.id)}
+                    disabled={busy}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label={t('external.edit')}
+                    data-testid={`external-mcp-edit-${row.id}`}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
                 {row.stored && (
                   <button
                     type="button"

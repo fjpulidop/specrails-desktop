@@ -66,6 +66,7 @@
     "empty": "No se encontraron servidores MCP. Añade uno personalizado o regístralo con tu CLI de IA.",
     "addCustom": "Añadir personalizado",
     "remove": "Eliminar servidor",
+    "edit": "Editar servidor",
     "updateFailed": "No se pudo guardar la configuración de MCP externos",
     "form": {
       "name": "Nombre (p. ej. jira-tools)",

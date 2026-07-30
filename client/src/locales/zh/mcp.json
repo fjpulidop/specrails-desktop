@@ -66,6 +66,7 @@
     "empty": "未找到 MCP 服务器。请添加自定义服务器，或使用你的 AI CLI 注册一个。",
     "addCustom": "添加自定义",
     "remove": "移除服务器",
+    "edit": "编辑服务器",
     "updateFailed": "无法保存外部 MCP 设置",
     "form": {
       "name": "名称（如 jira-tools）",

@@ -66,6 +66,7 @@
     "empty": "Keine MCP-Server gefunden. Füge einen benutzerdefinierten Server hinzu oder registriere einen mit deinem KI-CLI.",
     "addCustom": "Benutzerdefiniert hinzufügen",
     "remove": "Server entfernen",
+    "edit": "Server bearbeiten",
     "updateFailed": "Externe MCP-Einstellungen konnten nicht gespeichert werden",
     "form": {
       "name": "Name (z. B. jira-tools)",

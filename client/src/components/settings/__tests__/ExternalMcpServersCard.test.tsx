@@ -195,3 +195,48 @@ describe('ExternalMcpServersCard', () => {
     expect(screen.getByText(/No MCP servers found/)).toBeInTheDocument()
   })
 })
+
+describe('ExternalMcpServersCard — edit custom entries', () => {
+  it('discovered rows never render an edit action', async () => {
+    global.fetch = vi.fn(async () => jsonResponse(true, STORED_PAYLOAD)) as never
+    render(<ExternalMcpServersCard />)
+    await screen.findByTestId('external-mcp-row-d:claude:jira')
+    expect(screen.queryByTestId('external-mcp-edit-d:claude:jira')).not.toBeInTheDocument()
+    expect(screen.getByTestId('external-mcp-edit-c:mi-tool')).toBeInTheDocument()
+  })
+
+  it('edit prefills the form and a rename re-keys the entry in one PATCH', async () => {
+    const calls: { body?: { servers: Record<string, unknown> } }[] = []
+    global.fetch = vi.fn(async (url: unknown, opts?: { method?: string; body?: string }) => {
+      if ((opts?.method ?? 'GET') === 'PATCH') {
+        calls.push({ body: JSON.parse(opts!.body!) })
+        return jsonResponse(true, EMPTY_PAYLOAD)
+      }
+      return jsonResponse(true, STORED_PAYLOAD)
+    }) as never
+    render(<ExternalMcpServersCard />)
+    await screen.findByTestId('external-mcp-row-c:mi-tool')
+    fireEvent.click(screen.getByTestId('external-mcp-edit-c:mi-tool'))
+    // Prefilled from the stored entry.
+    expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('mi-tool')
+    expect((screen.getByLabelText('Command') as HTMLInputElement).value).toBe('npx')
+    // Own name is exempt from the duplicate check.
+    expect(screen.queryByTestId('external-mcp-name-hint')).not.toBeInTheDocument()
+    expect(screen.getByTestId('external-mcp-form-save')).toBeEnabled()
+    // Rename + change command.
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'mi-tool2' } })
+    fireEvent.change(screen.getByLabelText('Command'), { target: { value: 'bunx' } })
+    fireEvent.click(screen.getByTestId('external-mcp-form-save'))
+    await waitFor(() => expect(calls).toHaveLength(1))
+    const servers = calls[0].body!.servers
+    expect(servers['c:mi-tool']).toBeUndefined()
+    expect(servers['c:mi-tool2']).toEqual({
+      source: 'custom',
+      name: 'mi-tool2',
+      providers: { claude: true }, // matrix preserved through the edit
+      transport: { command: 'bunx', args: [], env: {} },
+    })
+    // The untouched discovered entry rides along unchanged.
+    expect(servers['d:claude:jira']).toBeDefined()
+  })
+})

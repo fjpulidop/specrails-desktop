@@ -66,6 +66,7 @@
     "empty": "No MCP servers found. Add a custom server or register one with your AI CLI.",
     "addCustom": "Add custom",
     "remove": "Remove server",
+    "edit": "Edit server",
     "updateFailed": "Could not save external MCP settings",
     "form": {
       "name": "Name (e.g. jira-tools)",
