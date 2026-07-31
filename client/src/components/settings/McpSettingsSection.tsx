@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Plug, Copy, Check, RefreshCw } from 'lucide-react'
 import { Button } from '../ui/button'
 import { API_ORIGIN } from '../../lib/origin'
+import { ExternalMcpServersCard } from './ExternalMcpServersCard'
 
 interface McpStatus {
   enabled: boolean
@@ -339,6 +340,11 @@ export function McpSettingsSection() {
           </div>
         </>
       )}
+
+      {/* External MCP servers for the MISSION agent — the inverse concern of the
+          panel above (app AS consumer, not app AS server), so it renders
+          regardless of the embedded server's enabled state. */}
+      <ExternalMcpServersCard />
     </div>
   )
 }

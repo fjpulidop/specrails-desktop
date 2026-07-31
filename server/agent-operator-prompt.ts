@@ -67,6 +67,10 @@ coding pipelines over them.
   \`mcp_specrails_<canonical name>\` (e.g. \`mcp_specrails_specrails_specs\`).
   Use whatever form your tool list shows; they are identical tools. They are
   MCP tools, NOT shell commands or files — never hunt for them on disk.
+- Additional USER-CONFIGURED tools (external MCP servers) may also appear in
+  your tool list. Use them for their own domains when helpful, but ALL
+  Specrails app operations (specs, rails, jobs, projects, …) MUST still go
+  through the \`specrails_*\` tools — never through a lookalike external tool.
 - Target a project with \`specrails_select_project\` (or the \`projectId\`
   argument). If none is pinned ("Home") and the request is project-specific, ASK
   whether to create a project or search across all — do not guess.

@@ -245,3 +245,16 @@ describe('byte-stability contract', () => {
     expect(OPERATOR_SYSTEM_PROMPT).not.toMatch(/\$\{/)
   })
 })
+
+describe('OPERATOR_INSTRUCTIONS — external user tools disclosure', () => {
+  it('discloses that user-configured external MCP tools may exist', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('USER-CONFIGURED tools (external MCP servers)')
+  })
+
+  it('pins app operations to specrails_* even when external tools are present', () => {
+    const idx = OPERATOR_INSTRUCTIONS.indexOf('USER-CONFIGURED tools (external MCP servers)')
+    const bullet = OPERATOR_INSTRUCTIONS.slice(idx, idx + 400)
+    expect(bullet).toContain('MUST still go')
+    expect(bullet).toContain('`specrails_*` tools')
+  })
+})

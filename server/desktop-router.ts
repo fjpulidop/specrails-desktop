@@ -31,6 +31,12 @@ import {
   buildAgentDefaultsCatalog,
   readAgentDefaultsSettings,
 } from './agent-defaults'
+import {
+  ExternalMcpValidationError,
+  applyExternalMcpPatch,
+  discoverExternalMcp,
+  readExternalMcpSettings,
+} from './external-mcp'
 import { workspacePathFor } from './workspace-manager'
 import { isWorkspacePopulated } from './workspace-resolution'
 import type { DetectionResult, ProviderAdapter } from './providers/types'
@@ -1227,6 +1233,28 @@ export function createDesktopRouter(
         return
       }
       res.status(500).json({ error: 'agent_defaults_failed', message: (err as Error).message })
+    }
+  })
+
+  // ─── External MCP servers (mission agent, app-global) ─────────────────────
+  // Registry of the user's OWN MCP servers for mission spawns. Discovery reads
+  // provider native configs per request (cheap file reads, read-only); entries
+  // resolve at spawn time, so a PATCH applies to the next turn with no restart.
+  router.get('/external-mcp', (_req, res) => {
+    const settings = readExternalMcpSettings(registry.desktopDb)
+    res.json({ discovered: discoverExternalMcp(settings), settings })
+  })
+
+  router.patch('/external-mcp', (req, res) => {
+    try {
+      const settings = applyExternalMcpPatch(registry.desktopDb, req.body)
+      res.json({ discovered: discoverExternalMcp(settings), settings })
+    } catch (err) {
+      if (err instanceof ExternalMcpValidationError) {
+        res.status(400).json({ error: err.code, message: err.message })
+        return
+      }
+      res.status(500).json({ error: 'external_mcp_failed', message: (err as Error).message })
     }
   })
 

@@ -253,6 +253,22 @@ only with the scoped MCP token:
 
 These boundaries are intentional and may be revisited in a later version.
 
+## External MCP servers for the mission agent
+
+The inverse direction — the mission agent (Desktop agent chat) consuming *your*
+MCP servers — is configured in **Settings ▸ MCP ▸ External MCP servers**. The
+app discovers servers registered in your provider CLIs (`~/.claude.json`,
+`~/.gemini/settings.json`, `~/.kimi-code/mcp.json`; codex `config.toml` servers
+already load natively in missions) and lets you enable each one per provider,
+or add a custom stdio server manually. Nothing activates without your explicit
+per-provider tick, and discovered transports resolve live from your CLI config
+at every mission turn — edits there flow through automatically.
+
+**Security note:** mission turns run without per-tool approval prompts, and
+external tools are outside the Specrails permission tiers (those govern only
+`specrails_*` tools). Enable only servers you trust. Kill switch:
+`SPECRAILS_EXTERNAL_MCP=false`.
+
 ## Troubleshooting
 
 **My client can't connect / "app is not running"** — start the Specrails

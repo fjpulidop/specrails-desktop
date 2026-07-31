@@ -54,5 +54,45 @@
     "exit": "Quitter",
     "statusOn": "Serveur MCP : activé",
     "statusOff": "Serveur MCP : désactivé"
+  },
+  "external": {
+    "heading": "Serveurs MCP externes",
+    "description": "Rendez vos propres serveurs MCP disponibles pour l'agent de missions. Les entrées découvertes proviennent des configurations de vos fournisseurs d'IA et sont résolues en direct ; cochez un fournisseur pour activer un serveur dans ses missions.",
+    "warning": "Les tours de mission s'exécutent sans confirmation d'outils, et les outils externes sont hors des niveaux de permission Specrails. N'activez que des serveurs de confiance.",
+    "sourceDiscovered": "depuis {{provider}}",
+    "sourceCustom": "personnalisé",
+    "orphan": "introuvable dans la configuration source",
+    "codexNative": "natif codex — toujours actif",
+    "empty": "Aucun serveur MCP trouvé. Ajoutez un serveur personnalisé ou enregistrez-en un avec votre CLI d'IA.",
+    "addCustom": "Ajouter personnalisé",
+    "remove": "Supprimer le serveur",
+    "edit": "Modifier le serveur",
+    "updateFailed": "Impossible d'enregistrer les paramètres MCP externes",
+    "form": {
+      "name": "Nom (p. ex. jira-tools)",
+      "command": "Commande (p. ex. npx)",
+      "args": "Arguments (séparés par des espaces)",
+      "env": "Environnement (KEY=VALUE par ligne)",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "nameLabel": "Nom",
+      "commandLabel": "Commande",
+      "argsLabel": "Arguments",
+      "envLabel": "Variables d'environnement",
+      "enableFor": "Activer pour",
+      "addVar": "Ajouter une variable",
+      "envKey": "CLÉ",
+      "envValue": "valeur",
+      "nameInvalid": "Lettres, chiffres, points et tirets uniquement — et « specrails » est réservé",
+      "nameTaken": "Un serveur personnalisé porte déjà ce nom"
+    },
+    "errors": {
+      "reserved_name": "Ce nom de serveur est réservé",
+      "duplicate_server_name": "Deux serveurs actifs partagent le même nom pour un fournisseur",
+      "invalid_transport": "Un serveur personnalisé nécessite une commande",
+      "unknown_provider": "Fournisseur inconnu dans la matrice d'activation",
+      "invalid_entry": "Entrée de serveur malformée",
+      "invalid_body": "Requête malformée"
+    }
   }
 }

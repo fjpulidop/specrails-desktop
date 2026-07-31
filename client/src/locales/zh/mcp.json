@@ -54,5 +54,45 @@
     "exit": "退出",
     "statusOn": "MCP 服务器：开启",
     "statusOff": "MCP 服务器：关闭"
+  },
+  "external": {
+    "heading": "外部 MCP 服务器",
+    "description": "让任务代理可以使用你自己的 MCP 服务器。发现的条目来自你的 AI 提供商配置并实时解析；勾选提供商即可在其任务中启用服务器。",
+    "warning": "任务回合运行时不会弹出工具批准提示，外部工具也不受 Specrails 权限层级约束。请只启用你信任的服务器。",
+    "sourceDiscovered": "来自 {{provider}}",
+    "sourceCustom": "自定义",
+    "orphan": "在源配置中未找到",
+    "codexNative": "codex 原生 — 始终启用",
+    "empty": "未找到 MCP 服务器。请添加自定义服务器，或使用你的 AI CLI 注册一个。",
+    "addCustom": "添加自定义",
+    "remove": "移除服务器",
+    "edit": "编辑服务器",
+    "updateFailed": "无法保存外部 MCP 设置",
+    "form": {
+      "name": "名称（如 jira-tools）",
+      "command": "命令（如 npx）",
+      "args": "参数（空格分隔）",
+      "env": "环境变量（每行 KEY=VALUE）",
+      "cancel": "取消",
+      "save": "保存",
+      "nameLabel": "名称",
+      "commandLabel": "命令",
+      "argsLabel": "参数",
+      "envLabel": "环境变量",
+      "enableFor": "启用于",
+      "addVar": "添加变量",
+      "envKey": "键",
+      "envValue": "值",
+      "nameInvalid": "仅限字母、数字、点和连字符 — 且 'specrails' 为保留名称",
+      "nameTaken": "已存在同名的自定义服务器"
+    },
+    "errors": {
+      "reserved_name": "该服务器名称已被保留",
+      "duplicate_server_name": "两个已启用的服务器在同一提供商下重名",
+      "invalid_transport": "自定义服务器需要一个命令",
+      "unknown_provider": "激活矩阵中存在未知提供商",
+      "invalid_entry": "服务器条目格式错误",
+      "invalid_body": "请求格式错误"
+    }
   }
 }

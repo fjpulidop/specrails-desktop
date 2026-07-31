@@ -545,6 +545,57 @@ describe('desktop-router', () => {
     })
   })
 
+  // ─── External MCP servers ──────────────────────────────────────────────────
+
+  describe('GET/PATCH /api/external-mcp', () => {
+    const STDIO = { command: 'npx', args: ['-y', 'some-mcp'], env: {} }
+
+    it('GET returns discovery lists and empty settings', async () => {
+      const { app } = createApp()
+      const res = await request(app).get('/api/external-mcp')
+      expect(res.status).toBe(200)
+      expect(res.body.settings).toEqual({ version: 1, servers: {} })
+      expect(res.body.discovered).toMatchObject({ codexNative: expect.any(Array), orphanIds: [] })
+      expect(Array.isArray(res.body.discovered.claude)).toBe(true)
+    })
+
+    it('PATCH persists a valid registry and round-trips through GET', async () => {
+      const { app } = createApp()
+      const res = await request(app).patch('/api/external-mcp').send({
+        servers: {
+          'c:mi-tool': { source: 'custom', name: 'mi-tool', providers: { claude: true }, transport: STDIO },
+        },
+      })
+      expect(res.status).toBe(200)
+      expect(res.body.settings.servers['c:mi-tool'].transport.command).toBe('npx')
+      const roundTrip = await request(app).get('/api/external-mcp')
+      expect(roundTrip.body.settings).toEqual(res.body.settings)
+    })
+
+    it('PATCH rejects the reserved specrails name and stores nothing', async () => {
+      const { app } = createApp()
+      const res = await request(app).patch('/api/external-mcp').send({
+        servers: { 'c:specrails': { source: 'custom', name: 'specrails', providers: {}, transport: STDIO } },
+      })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toBe('reserved_name')
+      const after = await request(app).get('/api/external-mcp')
+      expect(after.body.settings).toEqual({ version: 1, servers: {} })
+    })
+
+    it('PATCH rejects duplicate injected names per provider', async () => {
+      const { app } = createApp()
+      const res = await request(app).patch('/api/external-mcp').send({
+        servers: {
+          'c:jira': { source: 'custom', name: 'jira', providers: { claude: true }, transport: STDIO },
+          'd:gemini:jira': { source: 'discovered', sourceProvider: 'gemini', name: 'jira', providers: { claude: true } },
+        },
+      })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toBe('duplicate_server_name')
+    })
+  })
+
   // ─── PUT /settings ─────────────────────────────────────────────────────────
 
   describe('PUT /api/settings', () => {

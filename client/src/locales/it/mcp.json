@@ -54,5 +54,45 @@
     "exit": "Esci",
     "statusOn": "Server MCP: attivo",
     "statusOff": "Server MCP: disattivato"
+  },
+  "external": {
+    "heading": "Server MCP esterni",
+    "description": "Rendi i tuoi server MCP disponibili all'agente delle missioni. Le voci scoperte provengono dalle configurazioni dei tuoi provider IA e vengono risolte in tempo reale; spunta un provider per attivare un server nelle sue missioni.",
+    "warning": "I turni di missione vengono eseguiti senza conferme degli strumenti, e gli strumenti esterni sono fuori dai livelli di permesso di Specrails. Attiva solo server di cui ti fidi.",
+    "sourceDiscovered": "da {{provider}}",
+    "sourceCustom": "personalizzato",
+    "orphan": "non trovato nella configurazione di origine",
+    "codexNative": "nativo codex — sempre attivo",
+    "empty": "Nessun server MCP trovato. Aggiungi un server personalizzato o registrane uno con la tua CLI IA.",
+    "addCustom": "Aggiungi personalizzato",
+    "remove": "Rimuovi server",
+    "edit": "Modifica server",
+    "updateFailed": "Impossibile salvare le impostazioni MCP esterne",
+    "form": {
+      "name": "Nome (es. jira-tools)",
+      "command": "Comando (es. npx)",
+      "args": "Argomenti (separati da spazi)",
+      "env": "Ambiente (KEY=VALUE per riga)",
+      "cancel": "Annulla",
+      "save": "Salva",
+      "nameLabel": "Nome",
+      "commandLabel": "Comando",
+      "argsLabel": "Argomenti",
+      "envLabel": "Variabili d'ambiente",
+      "enableFor": "Attiva per",
+      "addVar": "Aggiungi variabile",
+      "envKey": "CHIAVE",
+      "envValue": "valore",
+      "nameInvalid": "Solo lettere, cifre, punti e trattini — e 'specrails' è riservato",
+      "nameTaken": "Esiste già un server personalizzato con questo nome"
+    },
+    "errors": {
+      "reserved_name": "Quel nome di server è riservato",
+      "duplicate_server_name": "Due server attivi condividono lo stesso nome per un provider",
+      "invalid_transport": "Un server personalizzato richiede un comando",
+      "unknown_provider": "Provider sconosciuto nella matrice di attivazione",
+      "invalid_entry": "Voce di server malformata",
+      "invalid_body": "Richiesta malformata"
+    }
   }
 }

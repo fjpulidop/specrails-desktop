@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { resolveBridgeScript, buildSpecrailsMcpEntry, buildAgentMcpArgs, prepareAgentMcp, removeAgentCapabilityFile } from './agent-mcp-config'
+import { resolveBridgeScript, buildSpecrailsMcpEntry, buildAgentMcpArgs, prepareAgentMcp, removeAgentCapabilityFile, syncExternalServersIntoJsonFile } from './agent-mcp-config'
 
 // resolveBridgeScript must survive the Tauri `\\?\` verbatim prefix on the
 // SPECRAILS_BUNDLED_MCP_BRIDGE_PATH env var: a `\\?\C:\…` script argument
@@ -306,6 +306,133 @@ describe('agent MCP capability transport', () => {
       expect(prepareAgentMcp({ adapterId: 'claude', conversationId: 'conv-1', cwd, port: 4200, capability }).env).not.toHaveProperty('GEMINI_CLI_TRUST_WORKSPACE')
       expect(prepareAgentMcp({ adapterId: 'codex', conversationId: 'conv-1', cwd, port: 4200, capability }).env).not.toHaveProperty('GEMINI_CLI_TRUST_WORKSPACE')
       expect(prepareAgentMcp({ adapterId: 'kimi', conversationId: 'conv-1', cwd, port: 4200, capability }).env).not.toHaveProperty('GEMINI_CLI_TRUST_WORKSPACE')
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true })
+    }
+  })
+})
+
+// ─── External MCP server injection (add-external-mcp-servers) ────────────────
+describe('external MCP server injection', () => {
+  const prevEnv = process.env.SPECRAILS_BUNDLED_MCP_BRIDGE_PATH
+  const prevHome = process.env.SPECRAILS_REGISTRY_HOME
+  const capability = 'c'.repeat(43)
+  let tmpDir: string
+
+  const jira = { id: 'd:claude:jira', name: 'jira', config: { command: 'npx', args: ['-y', 'jira-mcp'], env: { TOKEN: 'x' } } }
+  const dotty = { id: 'c:has.dot', name: 'has.dot', config: { command: 'npx' } }
+  const httpish = { id: 'c:web', name: 'web', config: { url: 'https://example.com/mcp' } }
+  const impostor = { id: 'c:specrails', name: 'specrails', config: { command: 'evil' } }
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-mcp-ext-'))
+    const bridgeFile = path.join(tmpDir, 'specrails-mcp.js')
+    fs.writeFileSync(bridgeFile, '// stub bridge\n')
+    process.env.SPECRAILS_BUNDLED_MCP_BRIDGE_PATH = bridgeFile
+    process.env.SPECRAILS_REGISTRY_HOME = tmpDir
+  })
+
+  afterEach(() => {
+    if (prevEnv === undefined) delete process.env.SPECRAILS_BUNDLED_MCP_BRIDGE_PATH
+    else process.env.SPECRAILS_BUNDLED_MCP_BRIDGE_PATH = prevEnv
+    if (prevHome === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+    else process.env.SPECRAILS_REGISTRY_HOME = prevHome
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('claude: mcp.json carries specrails plus every external server', () => {
+    const w = prepareAgentMcp({ adapterId: 'claude', conversationId: 'conv-ext-1', cwd: os.tmpdir(), port: 4200, capability, external: [jira, httpish] })
+    const json = JSON.parse(fs.readFileSync(w.extraArgs[1], 'utf-8'))
+    expect(Object.keys(json.mcpServers).sort()).toEqual(['jira', 'specrails', 'web'])
+    expect(json.mcpServers.jira).toEqual(jira.config)
+    expect(json.mcpServers.web).toEqual(httpish.config) // relayed as-is (http shapes allowed on claude)
+  })
+
+  it('claude: an external server named specrails can never shadow the bridge', () => {
+    const w = prepareAgentMcp({ adapterId: 'claude', conversationId: 'conv-ext-2', cwd: os.tmpdir(), port: 4200, capability, external: [impostor] })
+    const json = JSON.parse(fs.readFileSync(w.extraArgs[1], 'utf-8'))
+    expect(json.mcpServers.specrails.command).not.toBe('evil')
+  })
+
+  it('codex: injectable externals ride -c overrides; unsafe ones are skipped', () => {
+    const w = prepareAgentMcp({ adapterId: 'codex', conversationId: 'conv-ext-3', cwd: os.tmpdir(), port: 4200, capability, external: [jira, dotty, httpish] })
+    const joined = w.extraArgs.join(' ')
+    expect(joined).toContain('mcp_servers.jira.command="npx"')
+    expect(joined).toContain('mcp_servers.jira.args=["-y", "jira-mcp"]')
+    expect(joined).toContain('mcp_servers.jira.env.TOKEN="x"')
+    expect(joined).not.toContain('has.dot')
+    expect(joined).not.toContain('mcp_servers.web')
+  })
+
+  it('gemini: externals merge into settings.json with sidecar ownership; disable removes on next spawn', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-ext-gem-'))
+    try {
+      const file = path.join(cwd, '.gemini', 'settings.json')
+      // Pre-existing foreign key must survive every sync.
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, JSON.stringify({ mcpServers: { foreign: { command: 'keep' } }, theme: 'dark' }))
+
+      prepareAgentMcp({ adapterId: 'gemini', conversationId: 'conv-ext-4', cwd, port: 4200, capability, external: [jira] })
+      let json = JSON.parse(fs.readFileSync(file, 'utf-8'))
+      expect(Object.keys(json.mcpServers).sort()).toEqual(['foreign', 'jira', 'specrails'])
+      expect(json.theme).toBe('dark')
+      const sidecar = JSON.parse(fs.readFileSync(path.join(cwd, '.gemini', 'external-owned.json'), 'utf-8'))
+      expect(sidecar.owned).toEqual(['jira'])
+
+      // Entry disabled → next spawn passes no externals → owned key removed.
+      prepareAgentMcp({ adapterId: 'gemini', conversationId: 'conv-ext-4', cwd, port: 4200, capability, external: [] })
+      json = JSON.parse(fs.readFileSync(file, 'utf-8'))
+      expect(Object.keys(json.mcpServers).sort()).toEqual(['foreign', 'specrails'])
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true })
+    }
+  })
+
+  it('kimi: externals merge into .kimi-code/mcp.json and swap sets cleanly', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-ext-kimi-'))
+    try {
+      const file = path.join(cwd, '.kimi-code', 'mcp.json')
+      prepareAgentMcp({ adapterId: 'kimi', conversationId: 'conv-ext-5', cwd, port: 4200, capability, external: [jira] })
+      expect(Object.keys(JSON.parse(fs.readFileSync(file, 'utf-8')).mcpServers).sort()).toEqual(['jira', 'specrails'])
+
+      const other = { id: 'c:other', name: 'other', config: { command: 'bunx' } }
+      prepareAgentMcp({ adapterId: 'kimi', conversationId: 'conv-ext-5', cwd, port: 4200, capability, external: [other] })
+      const json = JSON.parse(fs.readFileSync(file, 'utf-8'))
+      expect(Object.keys(json.mcpServers).sort()).toEqual(['other', 'specrails'])
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true })
+    }
+  })
+
+  it('syncExternalServersIntoJsonFile leaves an untouched file alone when nothing owned and nothing to inject', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-ext-sync-'))
+    try {
+      const file = path.join(dir, 'settings.json')
+      fs.writeFileSync(file, JSON.stringify({ mcpServers: { foreign: {} } }))
+      const before = fs.readFileSync(file, 'utf-8')
+      syncExternalServersIntoJsonFile(file, [])
+      expect(fs.readFileSync(file, 'utf-8')).toBe(before)
+      expect(fs.existsSync(path.join(dir, 'external-owned.json'))).toBe(false)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('no external opts keeps every provider byte-compatible with the legacy single-server wiring', () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-ext-legacy-'))
+    try {
+      const w = prepareAgentMcp({ adapterId: 'claude', conversationId: 'conv-ext-6', cwd, port: 4200, capability })
+      const json = JSON.parse(fs.readFileSync(w.extraArgs[1], 'utf-8'))
+      expect(Object.keys(json.mcpServers)).toEqual(['specrails'])
+      const gem = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-ext-legacy-gem-'))
+      try {
+        prepareAgentMcp({ adapterId: 'gemini', conversationId: 'conv-ext-6', cwd: gem, port: 4200, capability })
+        const settings = JSON.parse(fs.readFileSync(path.join(gem, '.gemini', 'settings.json'), 'utf-8'))
+        expect(Object.keys(settings.mcpServers)).toEqual(['specrails'])
+        expect(fs.existsSync(path.join(gem, '.gemini', 'external-owned.json'))).toBe(false)
+      } finally {
+        fs.rmSync(gem, { recursive: true, force: true })
+      }
     } finally {
       fs.rmSync(cwd, { recursive: true, force: true })
     }
