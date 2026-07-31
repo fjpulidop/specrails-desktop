@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.36.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.35.0...v2.36.0) (2026-07-31)
+
+
+### Features
+
+* external MCP servers for the mission agent ([#588](https://github.com/fjpulidop/specrails-desktop/issues/588)) ([7d40a0c](https://github.com/fjpulidop/specrails-desktop/commit/7d40a0cccd938aec150cffa845a22be0327ca01b))
+
 ## [2.35.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.34.1...v2.35.0) (2026-07-28)
 
 
