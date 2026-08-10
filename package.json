@@ -68,7 +68,7 @@
     "@types/better-sqlite3": "^7.6.0",
     "@types/chokidar": "^1.7.5",
     "@types/cross-spawn": "^6.0.6",
-    "@types/diff": "^7.0.2",
+    "@types/diff": "^8.0.0",
     "@types/express": "^5.0.6",
     "@types/js-yaml": "^4.0.9",
     "@types/multer": "^2.1.0",
