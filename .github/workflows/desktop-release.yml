@@ -1256,7 +1256,7 @@ jobs:
       # per-job subdirectories with raw Tauri filenames stay out so the
       # versioned folder mirrors what consumers expect.
       - name: Deploy versioned installers to Hostinger
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
