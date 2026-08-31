@@ -25,6 +25,11 @@ function step(index: number, nodeId: string, job_id = 'run-1'): EventRow {
   return ev('loop_step', JSON.stringify({ index, nodeId, kind: 'ai-step', title: nodeId }), job_id)
 }
 
+/** A step payload written by a build that carries the ms-precision boundary. */
+function stepAt(index: number, nodeId: string, startedAtMs: number, job_id = 'run-1'): EventRow {
+  return ev('loop_step', JSON.stringify({ index, nodeId, kind: 'ai-step', title: nodeId, startedAtMs }), job_id)
+}
+
 function stepEnd(index: number, nodeId: string, job_id = 'run-1'): EventRow {
   return ev('loop_step_end', JSON.stringify({ index, nodeId, status: 'ok' }), job_id)
 }
@@ -301,5 +306,149 @@ describe('readSettleEvidence', () => {
     expect(readSettleEvidence('')).toBeNull()
     expect(readSettleEvidence('{oops')).toBeNull()
     expect(readSettleEvidence('{"schemaVersion":1}')).toBeNull()
+  })
+})
+
+
+describe('parseConfidenceScore — shipped reviewer schema', () => {
+  it('accepts `overall_score`, the field the installed Codex reviewer actually writes', () => {
+    const parsed = parseConfidenceScore(JSON.stringify({ overall_score: 91 }), 'c')
+    expect(parsed?.overall).toBe(91)
+  })
+
+  it('prefers the documented `overall` when a payload carries both', () => {
+    const parsed = parseConfidenceScore(JSON.stringify({ overall: 70, overall_score: 91 }), 'c')
+    expect(parsed?.overall).toBe(70)
+  })
+
+  it('lifts `issues[].note` into flags alongside explicit flags, deduped', () => {
+    const parsed = parseConfidenceScore(
+      JSON.stringify({
+        flags: ['missing-tests'],
+        issues: [{ note: 'missing-tests' }, { note: '  no rollback path  ' }, { note: '' }, null, 'nope'],
+      }),
+      'c',
+    )
+    expect(parsed?.flags).toEqual(['missing-tests', 'no rollback path'])
+  })
+
+  it('reports no score rather than inventing one when neither field is numeric', () => {
+    const parsed = parseConfidenceScore(JSON.stringify({ overall_score: 'high' }), 'c')
+    expect(parsed?.overall).toBeNull()
+  })
+})
+
+describe('extractVerifyStepText — verify epoch boundary', () => {
+  it('returns the ms boundary carried by the verify step payload', () => {
+    const out = extractVerifyStepText([stepAt(1, 'verify', 1_700_000_000_000), assistant('VERIFICATION: PASS')])
+    expect(out.startedAtMs).toBe(1_700_000_000_000)
+  })
+
+  it('reports no boundary for legacy payloads that predate the field', () => {
+    const out = extractVerifyStepText([step(1, 'verify'), assistant('VERIFICATION: PASS')])
+    expect(out.startedAtMs).toBeNull()
+  })
+
+  it('takes the LAST verify epoch when the loop iterated', () => {
+    const out = extractVerifyStepText([
+      stepAt(1, 'verify', 1000),
+      assistant('VERIFICATION: FAIL — first pass'),
+      stepAt(2, 'fix', 2000),
+      stepAt(3, 'verify', 3000),
+      assistant('VERIFICATION: PASS'),
+    ])
+    expect(out.startedAtMs).toBe(3000)
+    expect(out.text).toContain('VERIFICATION: PASS')
+    expect(out.text).not.toContain('first pass')
+  })
+})
+
+describe('harvestDeliveryEvidence — revision freshness gate', () => {
+  const REVISION = 'factory:revision'
+  const openSpecScore = '/wt/a/openspec/changes/my-change/confidence-score.json'
+  const memoryDir = '/wt/a/.specrails/agent-memory/explanations'
+  const memoryScore = `${memoryDir}/2026-07-28-reviewer-ticket-7.confidence-score.json`
+
+  const revisionIo = (over: Partial<EvidenceHarvestIO> = {}): EvidenceHarvestIO => ({
+    readEvents: () => [stepAt(1, 'verify', 5_000), assistant('VERIFICATION: PASS')],
+    listDir: (dir) => (dir === memoryDir ? ['2026-07-28-reviewer-ticket-7.confidence-score.json'] : ['my-change']),
+    fileExists: (p) => p === openSpecScore || p === memoryScore,
+    fileMtimeMs: () => 6_000,
+    readFile: () => JSON.stringify({ overall_score: 90 }),
+    now: () => new Date('2026-07-28T12:00:00.000Z'),
+    ...over,
+  })
+
+  const unit = { ticketId: 7, runId: 'run-1', worktreePath: '/wt/a', loopId: REVISION }
+
+  it('accepts a score written during the latest verify epoch', () => {
+    const out = harvestDeliveryEvidence(revisionIo(), [unit])
+    expect(out.harvest).toBe('ok')
+    expect(out.units[0].confidence?.overall).toBe(90)
+  })
+
+  it('rejects a score left by an earlier pass, so a fix cannot reuse a clean verdict', () => {
+    const out = harvestDeliveryEvidence(revisionIo({ fileMtimeMs: () => 4_999 }), [unit])
+    expect(out.units[0].confidence).toBeNull()
+    // Absence is honest data, not a harvest failure.
+    expect(out.harvest).toBe('ok')
+  })
+
+  it('fails closed when the run carries no high-resolution boundary', () => {
+    const out = harvestDeliveryEvidence(
+      revisionIo({ readEvents: () => [step(1, 'verify'), assistant('VERIFICATION: PASS')] }),
+      [unit],
+    )
+    expect(out.units[0].confidence).toBeNull()
+  })
+
+  it('finds the reviewer artifact in agent-memory when openspec holds none', () => {
+    const out = harvestDeliveryEvidence(
+      revisionIo({ fileExists: (p) => p === memoryScore }),
+      [unit],
+    )
+    expect(out.units[0].confidence?.overall).toBe(90)
+  })
+
+  it('ignores an agent-memory score belonging to a different ticket', () => {
+    const out = harvestDeliveryEvidence(
+      revisionIo({
+        listDir: (dir) => (dir === memoryDir ? ['2026-07-28-reviewer-ticket-99.confidence-score.json'] : []),
+        fileExists: () => false,
+      }),
+      [unit],
+    )
+    expect(out.units[0].confidence).toBeNull()
+  })
+
+  it('ignores a file that only resembles the reviewer filename contract', () => {
+    const out = harvestDeliveryEvidence(
+      revisionIo({
+        listDir: (dir) => (dir === memoryDir ? ['reviewer-ticket-7.confidence-score.json.bak'] : []),
+        fileExists: () => false,
+      }),
+      [unit],
+    )
+    expect(out.units[0].confidence).toBeNull()
+  })
+
+  it('picks the newest candidate, breaking mtime ties deterministically by path', () => {
+    const out = harvestDeliveryEvidence(
+      revisionIo({
+        fileMtimeMs: () => 6_000,
+        readFile: (p) => JSON.stringify({ overall_score: p === memoryScore ? 42 : 88 }),
+      }),
+      [unit],
+    )
+    // Same mtime → the lexicographically greater path wins; openspec/… > .specrails/…
+    expect(out.units[0].confidence?.overall).toBe(88)
+  })
+
+  it('leaves non-revision loops on the legacy read that needs no boundary', () => {
+    const out = harvestDeliveryEvidence(
+      revisionIo({ readEvents: () => [step(1, 'verify'), assistant('VERIFICATION: PASS')] }),
+      [{ ...unit, loopId: 'factory:implement' }],
+    )
+    expect(out.units[0].confidence?.overall).toBe(90)
   })
 })

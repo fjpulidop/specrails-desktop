@@ -117,15 +117,46 @@ describe('factory revision loop (nontech-review-experience)', () => {
     expect(prompts).not.toContain('{{cmd:batch}}')
   })
 
-  it('still verifies: the graph closes on a verify step + decider', () => {
+  it('still verifies: the graph closes on a dedicated verify step + decider', () => {
     const graph = getFactoryLoop(FACTORY_REVISION_LOOP_ID)!.graph
     const prompts = graph.nodes
       .filter((n) => n.type === 'ai-step')
       .map((n) => String((n.data as { prompt?: string })?.prompt ?? ''))
       .join('\n')
-    // Verification scope is never silently narrowed for a revision.
-    expect(prompts).toContain('{{cmd:verify}}')
+    // Verification scope is never silently narrowed for a revision: the gate is
+    // swapped for a dedicated command, not removed, and the generic one is gone
+    // so no second repository-wide pass follows the reviewer.
+    expect(prompts).toContain('{{cmd:revision-verify}}')
+    expect(prompts).not.toContain('{{cmd:verify}}')
     expect(graph.nodes.some((n) => n.type === 'decider')).toBe(true)
+  })
+
+  it('keeps the node id `verify` so the Decider and every step consumer still key off it', () => {
+    const graph = getFactoryLoop(FACTORY_REVISION_LOOP_ID)!.graph
+    const verify = graph.nodes.find((n) => n.id === 'verify')
+    expect(verify?.type).toBe('ai-step')
+    expect(String((verify?.data as { prompt?: string })?.prompt)).toBe('{{cmd:revision-verify}}')
+    expect(graph.edges.some((e) => e.source === 'verify' && e.target === 'decide')).toBe(true)
+  })
+
+  it('runs the verify/fix cycle in a fresh provider session', () => {
+    const graph = getFactoryLoop(FACTORY_REVISION_LOOP_ID)!.graph
+    for (const id of ['verify', 'fix']) {
+      const node = graph.nodes.find((n) => n.id === id)
+      expect((node?.data as { freshSession?: boolean })?.freshSession).toBe(true)
+    }
+    // The mutating step must NOT be reset — it continues the run's own session.
+    const main = graph.nodes.find((n) => n.id === 'main-1')
+    expect((main?.data as { freshSession?: boolean })?.freshSession).toBeUndefined()
+  })
+
+  it('leaves every other factory loop on the generic verify gate', () => {
+    for (const id of ['factory:implement', 'factory:batch', 'factory:freestyle']) {
+      const graph = getFactoryLoop(id)!.graph
+      const verify = graph.nodes.find((n) => n.id === 'verify')
+      expect(String((verify?.data as { prompt?: string })?.prompt)).toBe('{{cmd:verify}}')
+      expect((verify?.data as { freshSession?: boolean })?.freshSession).toBeUndefined()
+    }
   })
 
   it('is a graph-native loop (runs through the loop engine, not QueueManager)', () => {

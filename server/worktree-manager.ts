@@ -128,6 +128,13 @@ export const PR_NEVER_STAGE_PATHS = [
   '.kimi-code/agent-memory/**',
   '.kimi-code/agent-memory/explanations',
   '.kimi-code/agent-memory/explanations/**',
+  // The relocated workspace root. The Revision gate harvests reviewer scores
+  // from `.specrails/agent-memory/explanations/`, so that dir now materializes
+  // inside the worktree — it is private evidence, never PR content.
+  '.specrails/agent-memory',
+  '.specrails/agent-memory/**',
+  '.specrails/agent-memory/explanations',
+  '.specrails/agent-memory/explanations/**',
 ] as const
 
 const PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN = '# specrails: never stage private agent artifacts'

@@ -1653,6 +1653,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
             ticketId: result.run.ticketId,
             runId: result.run.runId,
             worktreePath: result.run.handle.worktreePath,
+            loopId,
           })),
         )
       } catch (e) {

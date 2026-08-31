@@ -124,3 +124,83 @@ describe('loop command catalog', () => {
     expect(t).toContain('LOOP_BLOCKED:')
   })
 })
+
+
+describe('revision commands — mutation and review are separate owners', () => {
+  const revise = getLoopCommand('revise')!
+  const gate = getLoopCommand('revision-verify')!
+
+  it('registers both halves of the revision pair', () => {
+    expect(revise).toBeDefined()
+    expect(gate).toBeDefined()
+    expect(revise.ticketScope).toBe('all')
+    expect(gate.ticketScope).toBe('all')
+  })
+
+  describe('revise (mutation only)', () => {
+    it('still carries the user request and the smallest-change rule', () => {
+      expect(revise.template).toContain('{{const:REVISION_REQUEST}}')
+      expect(revise.template).toMatch(/SMALLEST change/)
+    })
+
+    it('no longer runs the reviewer itself', () => {
+      expect(revise.template).not.toMatch(/sr-reviewer/)
+      expect(revise.template).not.toMatch(/confidence-score\.json/)
+      expect(revise.template).toMatch(/Do not re-grade your own work/i)
+    })
+
+    it('runs focused checks only — never the full gate or a health audit', () => {
+      expect(revise.template).toMatch(/smallest focused test slice/i)
+      expect(revise.template).toMatch(/Do not run the full project gate/i)
+      expect(revise.template).not.toMatch(/health-check/i)
+    })
+
+    it('does not emit the sentinel, so the Decider reads only the gate verdict', () => {
+      expect(revise.template).toMatch(/Do not emit a `VERIFICATION: PASS\|FAIL` sentinel/)
+    })
+  })
+
+  describe('revision-verify (the single review + verification owner)', () => {
+    it('is read-only and routes defects to the loop\'s separate fix step', () => {
+      expect(gate.template).toMatch(/This gate is read-only/)
+      expect(gate.template).toMatch(/do NOT fix findings/i)
+      expect(gate.template).toMatch(/separate fix step/)
+    })
+
+    it('owns exactly ONE full-scope project gate and refuses to repeat it', () => {
+      expect(gate.template).toMatch(/exactly ONE full-scope project gate/)
+      expect(gate.template).toMatch(/DO NOT repeat them/)
+    })
+
+    it('runs the reviewer and asks for fresh confidence evidence', () => {
+      expect(gate.template).toMatch(/sr-reviewer/)
+      expect(gate.template).toMatch(/fresh `confidence-score\.json`/)
+    })
+
+    it('degrades honestly when the reviewer is unavailable', () => {
+      expect(gate.template).toMatch(/reviewer is unavailable or inapplicable/)
+      expect(gate.template).toMatch(/Never infer PASS from missing reviewer evidence/)
+    })
+
+    it('reconciles the reviewer Score/Verdict finish with the outer sentinel', () => {
+      expect(gate.template).toMatch(/`Score:` and `Verdict:`/)
+      expect(gate.template).toMatch(/intermediate reviewer result, not the end of your turn/)
+    })
+
+    it('excludes the repository-wide health audit the old double gate triggered', () => {
+      expect(gate.template).toMatch(/Do not expand this into a general codebase health audit/)
+      expect(gate.template).toMatch(/do not save a health snapshot/)
+      expect(gate.template).not.toMatch(/health-check/i)
+    })
+
+    it('emits the sentinel the Decider and the review packet both read', () => {
+      expect(gate.template).toMatch(/VERIFICATION: PASS/)
+      expect(gate.template).toMatch(/VERIFICATION: FAIL — <short reason>/)
+    })
+
+    it('does not depend on the mutating agent\'s conversation', () => {
+      expect(gate.template).toContain('{{const:REVISION_REQUEST}}')
+      expect(gate.template).toMatch(/Do not depend on the mutating agent remembering/)
+    })
+  })
+})

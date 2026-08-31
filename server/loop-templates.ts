@@ -136,11 +136,26 @@ export function aiLoopGraph(
 }
 
 /** Helper: a FULLY-AUTONOMOUS implement-and-fix loop. The `main` steps run ONCE,
- *  then `{{cmd:verify}}` runs; if the Decider says not-done it routes to
+ *  then the verification prompt (`{{cmd:verify}}` by default) runs; if the Decider says not-done it routes to
  *  `{{cmd:fix}}` (refinement) and RE-verifies — `verify → fix → verify → …` until
  *  the verification passes. No human in the loop. (main may be empty for a
- *  verify-only loop.) */
-export function fixLoopGraph(mainPrompts: string[], deciderGoal: string, maxIterations = 12, timeoutMinutes = 30, aiStepTimeoutMinutes?: number): LoopGraph {
+ *  verify-only loop.)
+ *
+ *  `verificationPrompt` lets a caller own the gate with a dedicated command while
+ *  KEEPING the node id `verify` (the Decider, the sentinel scan and every
+ *  loop-step consumer key off that id). `isolatedVerificationCycle` marks the
+ *  verify/fix pair as `freshSession`, so the gate never inherits the mutating
+ *  step's provider conversation — its verdict describes the candidate on disk,
+ *  not what the mutator remembers writing. */
+export function fixLoopGraph(
+  mainPrompts: string[],
+  deciderGoal: string,
+  maxIterations = 12,
+  timeoutMinutes = 30,
+  aiStepTimeoutMinutes?: number,
+  verificationPrompt = '{{cmd:verify}}',
+  isolatedVerificationCycle = false,
+): LoopGraph {
   const nodes: LoopGraph['nodes'] = [{ id: 'start', type: 'start', position: { x: COL_X, y: 0 } }]
   let row = 1
   mainPrompts.forEach((prompt, i) => {
@@ -148,11 +163,27 @@ export function fixLoopGraph(mainPrompts: string[], deciderGoal: string, maxIter
   })
   const verifyRow = row++
   const decideRow = row++
-  nodes.push({ id: 'verify', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * verifyRow }, data: { prompt: '{{cmd:verify}}' } })
+  nodes.push({
+    id: 'verify',
+    type: 'ai-step',
+    position: { x: COL_X, y: ROW_GAP * verifyRow },
+    data: {
+      prompt: verificationPrompt,
+      ...(isolatedVerificationCycle ? { freshSession: true } : {}),
+    },
+  })
   nodes.push({ id: 'decide', type: 'decider', position: { x: COL_X, y: ROW_GAP * decideRow }, data: { goal: deciderGoal } })
   // `fix` sits to the RIGHT of the Decider (clean horizontal 'continue' edge);
   // it arcs back UP to `verify` to re-check. `done` drops straight below.
-  nodes.push({ id: 'fix', type: 'ai-step', position: { x: COL_RIGHT_X, y: ROW_GAP * decideRow }, data: { prompt: '{{cmd:fix}}' } })
+  nodes.push({
+    id: 'fix',
+    type: 'ai-step',
+    position: { x: COL_RIGHT_X, y: ROW_GAP * decideRow },
+    data: {
+      prompt: '{{cmd:fix}}',
+      ...(isolatedVerificationCycle ? { freshSession: true } : {}),
+    },
+  })
   nodes.push({ id: 'done', type: 'end', position: { x: COL_X, y: ROW_GAP * row }, data: { outcome: 'success' } })
 
   const firstId = mainPrompts.length ? 'main-1' : 'verify'

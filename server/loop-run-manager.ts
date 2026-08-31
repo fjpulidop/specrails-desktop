@@ -309,6 +309,13 @@ export interface LoopStepEventPayload {
    *  cross-iteration history). Capped at STEP_COMMAND_CAP with an ellipsis.
    *  Replaces the removed `Command: …` flat-log line. */
   command?: string
+  /** Millisecond-precision wall-clock instant the step opened. ADDITIVE and
+   *  optional: legacy persisted payloads predate it, and consumers must fail
+   *  closed rather than guess when it is absent. Evidence harvesting needs it
+   *  because the ISO `timestamp` on the enclosing event is second-granular —
+   *  a reviewer artifact written in the same second as the verify step opened
+   *  could not otherwise be told apart from one left by the previous pass. */
+  startedAtMs?: number
 }
 
 /** `loop_step_end` — appended+broadcast at each step's tail. A step torn down
@@ -957,8 +964,9 @@ export class LoopRunManager {
       detail?: Pick<LoopStepEventPayload, 'template' | 'command'>,
     ): void => {
       stepNum += 1
-      openStep = { index: stepNum, nodeId, startMs: this.now() }
-      const payload: LoopStepEventPayload = { index: stepNum, kind, title, nodeId, iteration, ...(detail ?? {}) }
+      const startedAtMs = this.now()
+      openStep = { index: stepNum, nodeId, startMs: startedAtMs }
+      const payload: LoopStepEventPayload = { index: stepNum, kind, title, nodeId, iteration, startedAtMs, ...(detail ?? {}) }
       emitRunEvent('loop_step', payload)
       logLine(`\n━━━━━━ Step ${stepNum} · ${title} ━━━━━━`)
     }
@@ -1337,6 +1345,11 @@ export class LoopRunManager {
             settled = true
             break
           case 'ai-step': {
+            // Some roles must inspect the previous step without inheriting its
+            // provider conversation (notably Revision's mutator → reviewer
+            // boundary). The node still receives durable disk state, its fully
+            // rendered prompt, and bounded prior-step history.
+            if (node.data?.freshSession === true) aiSessionId = undefined
             // Expand magic commands FIRST — `{{cmd:implement}}` becomes the
             // NATIVE per-provider invocation (claude `/specrails:implement #<id>
             // --yes`, codex `$implement #<id> --yes`) — then resolve `{{spec.*}}`

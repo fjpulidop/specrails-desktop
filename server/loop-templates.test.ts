@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { LOOP_TEMPLATES, LOOP_CATEGORIES, getLoopTemplate, compilePortSpec } from './loop-templates'
+import { LOOP_TEMPLATES, LOOP_CATEGORIES, getLoopTemplate, compilePortSpec, fixLoopGraph } from './loop-templates'
 import { validateLoopGraph, type LoopGraph } from './loop-graph'
 import { LOOP_COMMANDS } from './loop-command-catalog'
 import { BUILTIN_CONSTANTS } from './loop-constants'
@@ -237,5 +237,48 @@ describe('loop templates', () => {
       const decider = getLoopTemplate(id)!.graph.nodes.find((n) => n.type === 'decider')!
       expect(String(decider.data?.goal), id).toContain('{{const:VERIFICATION_PASS}}')
     }
+  })
+})
+
+
+describe('fixLoopGraph — configurable verification gate', () => {
+  const goal = 'stop when green'
+
+  it('defaults to the generic verify command, unchanged for every existing caller', () => {
+    const graph = fixLoopGraph(['{{cmd:implement}}'], goal)
+    const verify = graph.nodes.find((n) => n.id === 'verify')
+    expect(verify?.data?.prompt).toBe('{{cmd:verify}}')
+    expect(verify?.data?.freshSession).toBeUndefined()
+    expect(graph.nodes.find((n) => n.id === 'fix')?.data?.freshSession).toBeUndefined()
+  })
+
+  it('swaps the gate prompt while KEEPING the node id `verify`', () => {
+    const graph = fixLoopGraph(['{{cmd:revise}}'], goal, 12, 30, undefined, '{{cmd:revision-verify}}')
+    const verify = graph.nodes.find((n) => n.id === 'verify')
+    expect(verify?.data?.prompt).toBe('{{cmd:revision-verify}}')
+    // The id is the contract: the Decider edge, the sentinel scan and the
+    // evidence harvest all key off it.
+    expect(graph.edges.some((e) => e.source === 'verify' && e.target === 'decide')).toBe(true)
+    expect(graph.edges.some((e) => e.source === 'fix' && e.target === 'verify')).toBe(true)
+    expect(validateLoopGraph(graph).valid).toBe(true)
+  })
+
+  it('marks verify AND fix as freshSession only when the cycle is isolated', () => {
+    const isolated = fixLoopGraph(['{{cmd:revise}}'], goal, 12, 30, undefined, '{{cmd:x}}', true)
+    expect(isolated.nodes.find((n) => n.id === 'verify')?.data?.freshSession).toBe(true)
+    expect(isolated.nodes.find((n) => n.id === 'fix')?.data?.freshSession).toBe(true)
+    // The mutating step keeps the run's own session.
+    expect(isolated.nodes.find((n) => n.id === 'main-1')?.data?.freshSession).toBeUndefined()
+
+    const shared = fixLoopGraph(['{{cmd:revise}}'], goal, 12, 30, undefined, '{{cmd:x}}', false)
+    expect(shared.nodes.find((n) => n.id === 'verify')?.data?.freshSession).toBeUndefined()
+    expect(shared.nodes.find((n) => n.id === 'fix')?.data?.freshSession).toBeUndefined()
+  })
+
+  it('keeps the graph shape identical regardless of the gate prompt', () => {
+    const generic = fixLoopGraph(['{{cmd:implement}}'], goal)
+    const custom = fixLoopGraph(['{{cmd:implement}}'], goal, 12, 30, undefined, '{{cmd:revision-verify}}', true)
+    expect(custom.nodes.map((n) => n.id)).toEqual(generic.nodes.map((n) => n.id))
+    expect(custom.edges).toEqual(generic.edges)
   })
 })
