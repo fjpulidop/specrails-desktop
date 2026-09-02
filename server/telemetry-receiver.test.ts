@@ -353,6 +353,10 @@ describe('OTLP receiver — cap enforcement', () => {
       .send(logsBody('job-cap', 'proj-1'))
     expect(res.status).toBe(200)
 
+    // The route acknowledges before its queued gzip append completes. Drain it
+    // before removing the target directory so no late append can log during
+    // Vitest worker teardown.
+    await awaitTelemetryAppendQuiescence()
     try { fs.rmSync(telDir, { recursive: true, force: true }) } catch { /* ok */ }
   })
 })
