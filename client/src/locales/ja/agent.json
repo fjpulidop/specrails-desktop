@@ -418,6 +418,16 @@
     "expand": "説明をすべて表示",
     "collapse": "説明を折りたたむ"
   },
+  "problemFrame": {
+    "heading": "認識の整理",
+    "framing": "依頼を整理しています…",
+    "restated": "理解した内容",
+    "alternative": "こちらの意味かもしれません",
+    "touches": "影響する範囲",
+    "discriminator": "どちらでしょうか？",
+    "assumptions": "前提としていること",
+    "unknowns": "未確定のこと"
+  },
   "refs": {
     "openTicket": "スペック #{{id}} を開く",
     "openPullRequest": "PR #{{id}} を開く",

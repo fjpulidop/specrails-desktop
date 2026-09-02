@@ -418,6 +418,16 @@
     "expand": "Vollständige Beschreibung anzeigen",
     "collapse": "Beschreibung einklappen"
   },
+  "problemFrame": {
+    "heading": "Rahmen",
+    "framing": "Anfrage wird eingeordnet…",
+    "restated": "Was ich verstanden habe",
+    "alternative": "Es könnte auch bedeuten",
+    "touches": "Würde berühren",
+    "discriminator": "Welches von beiden?",
+    "assumptions": "Was ich annehme",
+    "unknowns": "Noch offen"
+  },
   "refs": {
     "openTicket": "Spec #{{id}} öffnen",
     "openPullRequest": "PR #{{id}} öffnen",

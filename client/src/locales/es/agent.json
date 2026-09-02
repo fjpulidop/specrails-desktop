@@ -418,6 +418,16 @@
     "expand": "Ver descripción completa",
     "collapse": "Contraer descripción"
   },
+  "problemFrame": {
+    "heading": "Marco",
+    "framing": "Enmarcando la petición…",
+    "restated": "Lo que he entendido",
+    "alternative": "También podría significar",
+    "touches": "Tocaría",
+    "discriminator": "¿Cuál de las dos?",
+    "assumptions": "Lo que doy por supuesto",
+    "unknowns": "Sigue abierto"
+  },
   "refs": {
     "openTicket": "Abrir spec #{{id}}",
     "openPullRequest": "Abrir PR #{{id}}",

@@ -418,6 +418,16 @@
     "expand": "Afficher la description complète",
     "collapse": "Réduire la description"
   },
+  "problemFrame": {
+    "heading": "Cadrage",
+    "framing": "Cadrage de la demande…",
+    "restated": "Ce que j'ai compris",
+    "alternative": "Cela pourrait aussi signifier",
+    "touches": "Toucherait",
+    "discriminator": "Laquelle des deux ?",
+    "assumptions": "Ce que je suppose",
+    "unknowns": "Encore ouvert"
+  },
   "refs": {
     "openTicket": "Ouvrir la spec #{{id}}",
     "openPullRequest": "Ouvrir la PR #{{id}}",

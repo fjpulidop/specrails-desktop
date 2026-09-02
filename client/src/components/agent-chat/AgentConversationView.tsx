@@ -39,6 +39,21 @@ const warnedSystemRows = new Set<string>()
  * and the inline `AgentModeSurface` (variant='inline'). Window chrome
  * (drag/resize/maximize) stays in the panel wrapper. Context-driven.
  */
+// System rows that are records rather than cards: recognised, rendered as
+// nothing, and deliberately NOT warned about. Kept in sync with
+// server/agent-spec-framing.ts SPEC_FRAMING_MARKER_KIND.
+const SILENT_SYSTEM_ROW_KINDS = new Set(['spec-framing.committed'])
+
+function isSilentSystemRow(content: string): boolean {
+  if (!content.startsWith('{')) return false
+  try {
+    const parsed = JSON.parse(content) as { kind?: unknown }
+    return typeof parsed?.kind === 'string' && SILENT_SYSTEM_ROW_KINDS.has(parsed.kind)
+  } catch {
+    return false
+  }
+}
+
 export function AgentConversationView({ variant }: { variant: 'floating' | 'inline' }) {
   const { t } = useTranslation('agent')
   const {
@@ -177,10 +192,14 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
             </div>
           )}
           {messages.map((m, i) => {
-            // `system` rows are app-authored inline cards, not chat bubbles.
-            // Today's only kind is the PR-decision card (safe-pr-review-flow);
-            // anything else is defensively skipped instead of leaking raw JSON.
+            // `system` rows are app-authored records, not chat bubbles. Some
+            // render as inline cards (the PR-decision card, safe-pr-review-flow);
+            // others are pure bookkeeping and render as nothing at all — the
+            // spec-framing marker that spends an answered frame is one of those.
+            // Anything unrecognised is defensively skipped instead of leaking
+            // raw JSON, with a one-shot warn so a NEW kind is noticed.
             if (m.role === 'system') {
+              if (isSilentSystemRow(m.content)) return null
               const envelope = prCards.byMessageId.get(m.id)
               if (!envelope) {
                 if (prCards.duplicateMessageIds.has(m.id)) return null
