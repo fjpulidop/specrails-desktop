@@ -280,6 +280,36 @@ describe('LoopRunManager session bounding (provider-agnostic)', () => {
     expect(sessionArg(ex, 3)).toBeDefined()   // a2, pass 2 — resumes within the pass
   })
 
+  it('a freshSession step does NOT inherit the previous step\'s provider conversation', async () => {
+    // Revision's mutator → reviewer boundary: the gate must judge the candidate
+    // on disk, not continue the conversation of the agent that wrote it.
+    const graph = twoStepGraph('a1')
+    const a2 = graph.nodes.find((n) => n.id === 'a2')!
+    a2.data = { ...a2.data, freshSession: true }
+    const ex = trackingExecutors()
+    await manager(ex).run({ ...baseReq(), graph })
+    expect(sessionArg(ex, 0)).toBeUndefined() // a1 — fresh (start of pass)
+    expect(sessionArg(ex, 1)).toBeUndefined() // a2 — freshSession, NOT resumed
+  })
+
+  it('still hands a freshSession step its fully rendered prompt and prior-step history', async () => {
+    const graph = twoStepGraph('a1')
+    const a2 = graph.nodes.find((n) => n.id === 'a2')!
+    a2.data = { ...a2.data, freshSession: true }
+    const ex = trackingExecutors()
+    await manager(ex).run({ ...baseReq(), graph })
+    const prompt = ((ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[1][0] as { prompt: string }).prompt
+    // The briefing travels in the prompt precisely because the session does not.
+    expect(prompt).toContain('green')
+    expect(prompt).toContain('Context from previous iterations')
+  })
+
+  it('leaves a step without the flag resuming exactly as before', async () => {
+    const ex = trackingExecutors()
+    await manager(ex).run({ ...baseReq(), graph: twoStepGraph('a1') })
+    expect(sessionArg(ex, 1)).toBeDefined()
+  })
+
   it('appends cross-iteration history only when fresh or right after a Decider continue', async () => {
     const ex = trackingExecutors()
     await manager(ex).run({ ...baseReq(), graph: twoStepGraph('a2') })

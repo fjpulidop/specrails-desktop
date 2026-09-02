@@ -106,15 +106,13 @@ export const LOOP_COMMANDS: LoopCommand[] = [
   {
     name: 'revise',
     label: 'revise',
-    description: 'Revision step (nontech-review-experience): apply the ONE change the user asked for on top of work already delivered, then have the reviewer re-grade it. No re-planning, no re-implementing.',
+    description: 'Revision mutation step: apply the ONE change the user asked for on top of work already delivered and run only focused checks. The next step owns independent review and full verification.',
     ticketScope: 'all',
     // Deliberately NOT the implement pipeline: the plan and the code already
     // exist, so an Architect pass would re-derive both and pay the full cost of
-    // a first run for a one-sentence tweak. The reviewer pass is orchestrated
-    // from HERE rather than added to core, because the sr-* agents are already
-    // present in the run's worktree via the overlay — that keeps the loop a
-    // pure desktop concern with zero specrails-core coupling, and it is what
-    // keeps the review packet's reviewer tier populated for revisions.
+    // a first run for a one-sentence tweak. Review is deliberately NOT owned by
+    // this mutating step; the following revision-verify command runs in a fresh
+    // AI step so its verdict and confidence artifact describe the final candidate.
     template: [
       'A previous run already delivered work for this spec, and the user has now asked for ONE specific change to it. Apply exactly that change.',
       '',
@@ -131,9 +129,49 @@ export const LOOP_COMMANDS: LoopCommand[] = [
       '- If the request is ambiguous, choose the most conservative reading and say which one you chose.',
       '- If the request cannot be done without breaking something the spec requires, stop and report that instead of forcing it.',
       '',
-      'Then re-grade the result: run the `sr-reviewer` agent over the resulting diff so its review report and `confidence-score.json` reflect THIS revision, not the previous run.',
+      'After editing, run only the smallest focused test slice needed to catch an immediate mistake in this requested delta. Do not run the full project gate or a general codebase health audit in this mutation step. Do not re-grade your own work: a fresh, independent step immediately after this one owns reviewer evidence and final verification.',
+      '',
+      'Report the files changed and the focused checks you ran. Do not emit a `VERIFICATION: PASS|FAIL` sentinel from this mutation step.',
       '',
       '{{const:GUARDRAILS}}',
+    ].join('\n'),
+  },
+  {
+    name: 'revision-verify',
+    label: 'revision verify',
+    description: 'Read-only independent Revision gate: run sr-reviewer, ensure one full-scope pass of record, write fresh confidence evidence when available, and emit VERIFICATION: PASS|FAIL.',
+    ticketScope: 'all',
+    // The Revision loop's SINGLE owner of review + verification. It exists because
+    // running sr-reviewer inside `revise` and then a generic `{{cmd:verify}}` made
+    // two independent full gates for one one-sentence change — the exact cost the
+    // Architect-less revision path was created to avoid. Kept read-only so a failed
+    // gate routes to the loop's separate `fix` step instead of the grader patching
+    // its own verdict, and run in a fresh session so its confidence artifact
+    // describes the candidate on disk rather than the mutator's recollection.
+    template: [
+      'You are the dedicated independent review and verification gate for a delivery revision. The previous step changed the candidate; this fresh step owns ALL final review evidence for that exact candidate.',
+      '',
+      'Authoritative revision briefing (the user request, frozen launch-time spec, existing branch and prior evidence):',
+      '{{const:REVISION_REQUEST}}',
+      '',
+      'Treat that briefing and the files on disk as the complete source context. Do not depend on the mutating agent remembering or summarizing it for you.',
+      '',
+      'Reviewer output-format reconciliation: the installed `sr-reviewer` may require its review phase to finish with only `Score:` and `Verdict:` lines and then end. In this OUTER verification gate those two lines are an intermediate reviewer result, not the end of your turn. Preserve every reviewer rule except that terminal response-format instruction; after recording its score/verdict, continue with any missing project gates and emit the outer `VERIFICATION` sentinel required below.',
+      '',
+      'Work in this order:',
+      '1. Load and follow the installed `sr-reviewer` role over the resulting diff and the governing OpenSpec package (use its archived package when that is the delivery context; do not archive or re-archive anything). Produce a fresh `confidence-score.json` for this pass when the reviewer is applicable.',
+      '2. Establish exactly ONE full-scope project gate for this candidate: the complete configured test suite plus typecheck, lint, and build when present. Inspect what the reviewer actually ran. If it already ran that full gate, treat those commands as the pass of record and DO NOT repeat them. If it ran only scoped/focused checks, run only the missing full-scope commands once.',
+      '3. Independently map the user revision request and frozen spec to the real diff. A clean command exit alone is not enough when required behavior is missing or out-of-scope work was introduced.',
+      '',
+      'If the reviewer is unavailable or inapplicable, run the full-scope project gate yourself exactly once, continue the semantic diff review, and report reviewer confidence as unavailable. Never infer PASS from missing reviewer evidence.',
+      '',
+      'This gate is read-only: do NOT edit source, tests, configuration, or OpenSpec contract artifacts, and do NOT fix findings. The only permitted writes are reviewer/evidence artifacts. On any defect or failed/missing required gate, report FAIL so the loop routes to its separate fix step.',
+      '',
+      'Do not expand this into a general codebase health audit: do not run unrelated coverage, complexity, dependency, performance, or historical-regression sweeps, and do not save a health snapshot. Run only the reviewer work and the project gates required above.',
+      '',
+      '{{const:GUARDRAILS}}',
+      '',
+      'Finish with one final line: exactly `VERIFICATION: PASS` when the independent review is clean and one full-scope gate is proven green for this candidate, or `VERIFICATION: FAIL — <short reason>` otherwise.',
     ].join('\n'),
   },
   {

@@ -143,6 +143,32 @@ describe('MilestoneGenerateShell rich-spec gate', () => {
     expect(screen.getByTestId('milestone-commit')).toBeDisabled()
   })
 
+  it('accepts a frame that arrives in the same tick as the seeded turn', async () => {
+    // Production ordering: the server accepts the turn and starts streaming
+    // immediately, so the first frame can land before React has flushed the
+    // effect that mirrors conversationId into the ref the WS guard reads.
+    // Firing it from inside the POST reproduces that deterministically —
+    // without a synchronously-armed ref the frame is dropped as foreign.
+    const rawSpec = detailedSpec()
+    global.fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/chat/conversations')) {
+        return { ok: true, status: 201, json: async () => ({ conversation: { id: 'conv-1' } }) }
+      }
+      if (url.includes('/chat/conversations/conv-1/messages')) {
+        handler()({
+          type: 'chat_done', conversationId: 'conv-1', projectId: 'proj-1', fullText: fence(rawSpec),
+        })
+        return { ok: true, status: 202, json: async () => ({ accepted: true }) }
+      }
+      return { ok: false, status: 404, json: async () => ({}) }
+    })
+
+    renderShell()
+
+    await waitFor(() => expect(screen.getByTestId('milestone-commit')).toBeEnabled())
+  })
+
   it('commits the exact valid raw batch and invalidates the parent blueprint', async () => {
     const callbacks = renderShell()
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(

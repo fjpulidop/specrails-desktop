@@ -96,9 +96,16 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
     // renders as an EMPTY string, so a hand-launched run would have a blank
     // central instruction. The launch route refuses it; the prompt guards too.
     launchable: false,
-    description: "Apply the ONE change the user asked for on top of work already delivered, re-grade it with the reviewer, then verify + refine until green. No re-planning. Runs automatically when you ask for changes on a review — it is not started by hand.",
+    description: "Apply the ONE change the user asked for on top of work already delivered, then run one independent reviewer-owned verification gate and refine until green. No re-planning. Runs automatically when you ask for changes on a review — it is not started by hand.",
     mode: 'loop',
-    graph: fixLoopGraph(['{{cmd:revise}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
+    // Revision is the ONLY factory loop that swaps the generic `{{cmd:verify}}`
+    // gate: `{{cmd:revision-verify}}` owns reviewer re-grading AND the full pass
+    // of record in ONE read-only step, so the mutator no longer runs sr-reviewer
+    // itself and no second repository-wide gate follows it. The trailing `true`
+    // makes verify/fix run in a FRESH provider session — the gate's verdict and
+    // its confidence artifact then describe the candidate on disk rather than
+    // the mutator's own account of it.
+    graph: fixLoopGraph(['{{cmd:revise}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN, '{{cmd:revision-verify}}', true),
   },
   SDD_QUICK_OPENSPEC_FACTORY,
 ]
