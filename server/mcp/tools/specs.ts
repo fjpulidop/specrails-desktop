@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
-import { apiCall, projectPath } from './types'
+import { apiCall, originConversationDefaults, projectPath } from './types'
 import { checkSpecFraming, recordSpecCommitted } from '../../agent-spec-framing'
 
 // Mirror of the McpTier union (mcp-tiers) — `./types` re-imports but does not
@@ -111,6 +111,8 @@ export function specsTools(): McpToolSpec[] {
           .describe('list: CSV status filter (draft|todo|in_progress|on_review|done|cancelled). update: set ticket status — note job outcomes set in_progress/on_review/done automatically (on_review = implemented, awaiting PR review); do not fight the pipeline.'),
         label: z.string().optional().describe('list: filter by label (CSV)'),
         q: z.string().optional().describe('list: free-text search over title + description'),
+        limit: z.number().int().positive().max(100).optional().describe('list: compact results per page (default 50, maximum 100)'),
+        offset: z.number().int().nonnegative().optional().describe('list: zero-based offset for the next compact page'),
 
         // ── create / update / from_prompt / commit_draft fields ──────────
         title: z.string().optional().describe('Ticket title (required for create / commit_draft)'),
@@ -220,7 +222,32 @@ export function specsTools(): McpToolSpec[] {
             if (typeof args.label === 'string') qs.set('label', args.label)
             if (typeof args.q === 'string') qs.set('q', args.q)
             const suffix = qs.toString() ? `?${qs.toString()}` : ''
-            return apiCall(ctx, 'GET', `${base}/tickets${suffix}`)
+            const result = await apiCall(ctx, 'GET', `${base}/tickets${suffix}`) as Record<string, unknown>
+            const tickets = Array.isArray(result.tickets) ? result.tickets as Array<Record<string, unknown>> : []
+            const offset = typeof args.offset === 'number' ? args.offset : 0
+            const limit = typeof args.limit === 'number' ? args.limit : 50
+            const page = tickets.slice(offset, offset + limit).map((ticket) => ({
+              id: ticket.id,
+              title: ticket.title,
+              status: ticket.status,
+              priority: ticket.priority,
+              labels: ticket.labels,
+              shortSummary: ticket.short_summary ?? ticket.shortSummary ?? null,
+              updatedAt: ticket.updated_at ?? ticket.updatedAt,
+            }))
+            const nextOffset = offset + page.length < tickets.length ? offset + page.length : null
+            return {
+              tickets: page,
+              revision: result.revision,
+              total: result.total ?? tickets.length,
+              matched: tickets.length,
+              offset,
+              limit,
+              nextOffset,
+              hint: nextOffset == null
+                ? 'List complete. Use get(id) for the full description and acceptance criteria.'
+                : `More specs are available. Call list with offset=${nextOffset}; use get(id) for full details.`,
+            }
           }
           case 'get':
             return apiCall(ctx, 'GET', `${base}/tickets/${requireId()}`)
@@ -328,6 +355,7 @@ export function specsTools(): McpToolSpec[] {
             // Throwing lands in registerTieredTool's catch, producing the same
             // errorResult shape a tier refusal does.
             const framedConversationId = ctx.firstPartyAgent ? ctx.originConversationId : null
+            const agentProvider = framedConversationId ? originConversationDefaults(ctx).provider : undefined
             if (framedConversationId) {
               const refusal = checkSpecFraming(ctx.desktopDb, framedConversationId)
               if (refusal) throw new Error(refusal)
@@ -347,6 +375,7 @@ export function specsTools(): McpToolSpec[] {
               metadata: args.metadata,
               createLocal: args.createLocal,
               contractRefine,
+              agentProvider,
             })
             // Spend the frame only on a spec that actually landed: a refusal or
             // a failed write above throws before reaching here, so nothing is

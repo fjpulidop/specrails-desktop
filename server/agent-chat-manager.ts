@@ -103,6 +103,8 @@ export class AgentChatManager {
   private readonly _auxProcesses = new Set<ChildProcess>()
   private readonly _auxReaders = new Map<ChildProcess, ReturnType<typeof createInterface>>()
   private readonly _terminationTimers = new Map<ChildProcess, ReturnType<typeof setTimeout>>()
+  private readonly _turnStartedAt = new Map<string, string>()
+  private _turnSnapshotVersion = 0
   /** Permanent lifecycle gate: the app DB may be closed immediately after
    * shutdown, so no delayed turn/title/card callback may touch it afterwards. */
   private _disposed = false
@@ -145,6 +147,7 @@ export class AgentChatManager {
       const pid = child.pid
       treeKill(pid, 'SIGTERM')
       const timer = setTimeout(() => {
+        if (this._terminationTimers.get(child) !== timer || child.pid !== pid) return
         this._terminationTimers.delete(child)
         if (process.platform !== 'win32') {
           try { process.kill(-pid, 'SIGKILL') } catch { /* group already gone */ }
@@ -154,6 +157,11 @@ export class AgentChatManager {
       }, 2000)
       timer.unref?.()
       this._terminationTimers.set(child, timer)
+      child.once('close', () => {
+        const pending = this._terminationTimers.get(child)
+        if (pending) clearTimeout(pending)
+        this._terminationTimers.delete(child)
+      })
     } catch {
       /* already gone */
     }
@@ -173,6 +181,27 @@ export class AgentChatManager {
   /** True while a turn is in flight (spawned or reserved) — a send now queues. */
   isBusy(conversationId: string): boolean {
     return !this._disposed && (this._active.has(conversationId) || this._reserved.has(conversationId))
+  }
+
+  activeTurns(): { snapshotVersion: number; capturedAt: string; turns: Array<{ conversationId: string; startedAt: string }> } {
+    return {
+      snapshotVersion: this._turnSnapshotVersion,
+      capturedAt: new Date().toISOString(),
+      turns: [...this._turnStartedAt].map(([conversationId, startedAt]) => ({ conversationId, startedAt })),
+    }
+  }
+
+  private _startLifecycle(conversationId: string): void {
+    const startedAt = new Date().toISOString()
+    this._turnStartedAt.set(conversationId, startedAt)
+    this._turnSnapshotVersion += 1
+    console.info('[agent-chat] lifecycle', JSON.stringify({ conversationId, state: 'active', startedAt }))
+  }
+
+  private _settleLifecycle(conversationId: string, state: 'terminal' | 'aborted' | 'interrupted'): void {
+    if (!this._turnStartedAt.delete(conversationId)) return
+    this._turnSnapshotVersion += 1
+    console.info('[agent-chat] lifecycle', JSON.stringify({ conversationId, state, settledAt: new Date().toISOString() }))
   }
 
   /**
@@ -245,12 +274,15 @@ export class AgentChatManager {
     userText: string,
     options: AgentTurnOptions,
   ): Promise<void> {
+    this._startLifecycle(conversation.id)
     try {
       await this._runTurn(conversation, userText, options)
     } catch (err) {
       if (this._disposed) return
       console.error(`[agent-chat] turn failed (${conversation.id}):`, err)
       this._emitError(conversation.id, err instanceof Error ? err.message : 'The agent turn failed.')
+    } finally {
+      this._settleLifecycle(conversation.id, this._abortedTurns.has(conversation.id) ? 'aborted' : 'terminal')
     }
   }
 
@@ -425,6 +457,8 @@ export class AgentChatManager {
           env: buildProviderEnv(adapter, buildOpts, { ...process.env, ...mcpEnv }),
           spawn: this._spawnOwned.bind(this),
           buildOpts,
+          inactivityTimeoutMs: Number.parseInt(process.env.SPECRAILS_AGENT_INACTIVITY_MS ?? '', 10) || 5 * 60_000,
+          onInactivityTimeout: () => console.warn('[agent-chat] inactivity timeout', JSON.stringify({ conversationId, provider: adapter.id })),
           onSpawn: (child) => {
             if (this._disposed) {
               this._terminate(child)
@@ -603,6 +637,10 @@ export class AgentChatManager {
           r.error ||
           (r.stderrTail ? r.stderrTail.split('\n').filter(Boolean).slice(-3).join(' ').slice(0, 300) : '') ||
           `${adapter.binary} exited with code ${r.code ?? 'unknown'}`
+        if (r.text) {
+          addAgentMessage(this._db, { conversationId, role: 'assistant', content: r.text })
+          this._broadcast({ type: 'agent_partial', conversationId, fullText: r.text, error: reason, timestamp: timestamp() })
+        }
         this._emitError(conversationId, reason)
         record(r, 'failed')
         return

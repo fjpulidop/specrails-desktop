@@ -44,6 +44,10 @@ export function codeTools(): McpToolSpec[] {
             'Project-relative file path. Required for read_file/summary/regenerate_summary/diff; ' +
               'optional narrowing filter for provenance.',
           ),
+        file: z
+          .string()
+          .optional()
+          .describe('Compatibility alias for path (accepted for read_file/summary/regenerate_summary/diff)'),
         filter: z
           .enum(['touched-by-ai', 'all'])
           .optional()
@@ -56,6 +60,13 @@ export function codeTools(): McpToolSpec[] {
           .string()
           .optional()
           .describe('tree only: opaque pagination cursor from a prior response\'s nextCursor'),
+        limit: z
+          .number()
+          .int()
+          .positive()
+          .max(500)
+          .optional()
+          .describe('tree only: entries per page (default 200, maximum 500 for MCP context safety)'),
         ticketId: z
           .number()
           .int()
@@ -79,7 +90,7 @@ export function codeTools(): McpToolSpec[] {
         const action = args.action as string
 
         const requirePath = (): string => {
-          const p = args.path as string | undefined
+          const p = (args.path ?? args.file) as string | undefined
           if (!p || p.trim() === '') throw new Error(`Action "${action}" requires a "path".`)
           return p
         }
@@ -90,10 +101,22 @@ export function codeTools(): McpToolSpec[] {
             if (args.filter) qs.set('filter', args.filter as string)
             if (args.withProvenance === true) qs.set('withProvenance', '1')
             if (args.cursor) qs.set('cursor', args.cursor as string)
+            qs.set('limit', String(typeof args.limit === 'number' ? args.limit : 200))
             if (typeof args.ticketId === 'number') qs.set('ticketId', String(args.ticketId))
             if (args.jobId) qs.set('jobId', args.jobId as string)
             const suffix = qs.toString() ? `?${qs.toString()}` : ''
-            return apiCall(ctx, 'GET', `${base}/code/tree${suffix}`)
+            const result = await apiCall(ctx, 'GET', `${base}/code/tree${suffix}`) as Record<string, unknown>
+            if (args.withProvenance === true || !Array.isArray(result.entries)) return result
+            return {
+              ...result,
+              entries: result.entries.map((entry) => {
+                const item = entry as Record<string, unknown>
+                return { path: item.path, kind: item.kind }
+              }),
+              hint: result.nextCursor
+                ? 'More files are available. Call tree again with this nextCursor; prefer targeted read_file calls.'
+                : 'Tree complete. Prefer targeted read_file calls.',
+            }
           }
 
           case 'read_file': {

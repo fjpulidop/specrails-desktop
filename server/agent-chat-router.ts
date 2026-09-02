@@ -170,6 +170,10 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     res.json({ conversations: listAgentConversations(desktopDb) })
   })
 
+  router.get('/active-turns', (_req: Request, res: Response) => {
+    res.json(manager.activeTurns())
+  })
+
   router.post('/conversations', (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>
     let provider = 'claude'

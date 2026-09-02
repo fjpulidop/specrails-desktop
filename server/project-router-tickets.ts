@@ -1153,15 +1153,12 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         // --resume; seeded with the just-inserted spec body). Default OFF at
         // this layer so Explore-client payloads stay byte-identical — the MCP
         // specs facade defaults it ON for agent-authored commit_drafts. The
-        // kill switch is checked inside the runner; Claude-only because the
-        // refine spawn hardcodes the `claude` binary.
-        const projectProviders: string[] = Array.isArray(project.providers) && project.providers.length > 0
-          ? project.providers
-          : [project.provider].filter((p): p is string => typeof p === 'string')
-        const refineProvider = projectProviders.find(
-          (id) => getAdapter(id).capabilities.structuredActions === true,
-        )
-        if (refineProvider) {
+        // The originating agent provider is forwarded by the authenticated MCP
+        // facade. Never borrow another installed provider (and its quota).
+        const requestedAgentProvider = typeof body.agentProvider === 'string' ? body.agentProvider : null
+        const providerCheck = validateRequestedProvider(project, requestedAgentProvider)
+        const refineProvider = providerCheck.ok ? providerCheck.provider : null
+        if (refineProvider && getAdapter(refineProvider).capabilities.structuredActions === true) {
           const refineTicketId = created.id
           const refineTitle = created.title
           const refineDescription = created.description
@@ -1186,9 +1183,19 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             })
           })
         } else {
-          console.log(
-            `[project-router] from-draft contract refine skipped (ticket #${created.id}): no capable provider installed`,
-          )
+          console.info('[project-router] agent-authored contract refine skipped', JSON.stringify({
+            ticketId: created.id,
+            provider: refineProvider ?? requestedAgentProvider,
+            reason: 'provider-unsupported',
+          }))
+          ;(broadcast as (message: unknown) => void)({
+            type: 'explore.contract_refine_failed',
+            projectId: project.id,
+            provider: refineProvider ?? requestedAgentProvider ?? 'unknown',
+            ticketId: created.id,
+            reason: 'provider-unsupported',
+            timestamp: new Date().toISOString(),
+          })
         }
       }
     } catch (err) {

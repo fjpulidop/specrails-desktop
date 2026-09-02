@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '../../../test-utils'
 import { SpecModelPicker, useDefaultSpecModel } from '../SpecModelPicker'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 
 describe('SpecModelPicker', () => {
   it('renders the loading state when loading=true', () => {
@@ -52,6 +52,35 @@ describe('SpecModelPicker', () => {
 })
 
 describe('useDefaultSpecModel', () => {
+  it('ignores an older provider response after a rapid provider switch', async () => {
+    let resolveClaude!: (value: unknown) => void
+    let resolveCodex!: (value: unknown) => void
+    ;(global.fetch as ReturnType<typeof vi.fn>)
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveClaude = resolve }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveCodex = resolve }))
+
+    const { result, rerender } = renderHook(
+      ({ provider }) => useDefaultSpecModel('proj-1', true, provider),
+      { initialProps: { provider: 'claude' } },
+    )
+    rerender({ provider: 'codex' })
+    expect(result.current.model).toBeNull()
+    expect(result.current.loading).toBe(true)
+
+    await act(async () => resolveCodex({
+      ok: true,
+      json: async () => ({ model: 'gpt-5.1-codex', provider: 'codex', allowed: [{ value: 'gpt-5.1-codex', label: 'Codex' }] }),
+    }))
+    await waitFor(() => expect(result.current.model).toBe('gpt-5.1-codex'))
+
+    await act(async () => resolveClaude({
+      ok: true,
+      json: async () => ({ model: 'sonnet', provider: 'claude', allowed: [{ value: 'sonnet', label: 'Sonnet' }] }),
+    }))
+    expect(result.current.provider).toBe('codex')
+    expect(result.current.model).toBe('gpt-5.1-codex')
+  })
+
   it('fetches and exposes the resolved default + allowed list', async () => {
     ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,

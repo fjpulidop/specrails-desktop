@@ -543,11 +543,11 @@ describe('AgentChatManager lifecycle shutdown', () => {
     expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM')
     expect(vi.mocked(treeKill)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(mockSpawn).mock.calls[0][2]).toMatchObject({ detached: true })
-    // Root exits before grace; escalation must still target the detached group
-    // where a resistant MCP descendant remains.
+    // Once the owned provider root exits, its escalation timer must be cancelled.
+    // Reusing the PID/group later must never allow Stop to signal another process.
     child.emit('close', 1)
     await vi.advanceTimersByTimeAsync(2000)
-    expect(vi.mocked(process.kill)).toHaveBeenCalledWith(-child.pid, 'SIGKILL')
+    expect(vi.mocked(process.kill)).not.toHaveBeenCalledWith(-child.pid, 'SIGKILL')
     vi.useRealTimers()
     expect(mgr.isBusy(conv.id)).toBe(false)
     expect(mgr.editQueued(conv.id, 'q-after-shutdown', 'edited')).toBe(false)

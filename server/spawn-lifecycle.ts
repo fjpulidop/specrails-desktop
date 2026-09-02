@@ -64,6 +64,10 @@ export interface RunInvocationHooks {
    *  settles with `timedOut: true`. Undefined or ≤ 0 ⇒ no watchdog. */
   timeoutMs?: number
   onTimeout?: () => void
+  /** Optional progress-based watchdog. Unlike timeoutMs, this deadline resets
+   * whenever stdout/stderr produces data. */
+  inactivityTimeoutMs?: number
+  onInactivityTimeout?: () => void
 }
 
 export interface InvocationResult {
@@ -109,15 +113,42 @@ export function runAiCliInvocation(hooks: RunInvocationHooks): Promise<Invocatio
   return new Promise<InvocationResult>((resolve) => {
     let settled = false
     let timer: ReturnType<typeof setTimeout> | null = null
+    let inactivityTimer: ReturnType<typeof setTimeout> | null = null
+    let child: ChildProcess
+
+    const terminateForTimeout = () => {
+      if (child.pid) {
+        treeKill(child.pid, 'SIGTERM')
+        const pid = child.pid
+        const killTimer = setTimeout(() => {
+          try { treeKill(pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* gone */ }
+        }, 2000)
+        killTimer.unref?.()
+        child.once('close', () => clearTimeout(killTimer))
+      } else {
+        try { child.kill('SIGTERM') } catch { /* already gone */ }
+      }
+    }
+
+    const armInactivityTimer = () => {
+      if (hooks.inactivityTimeoutMs == null || hooks.inactivityTimeoutMs <= 0 || settled) return
+      if (inactivityTimer) clearTimeout(inactivityTimer)
+      inactivityTimer = setTimeout(() => {
+        hooks.onInactivityTimeout?.()
+        terminateForTimeout()
+        settle({ code: null, timedOut: true, spawnFailed: false, child })
+      }, hooks.inactivityTimeoutMs)
+      inactivityTimer.unref?.()
+    }
 
     const settle = (partial: { code: number | null; timedOut: boolean; spawnFailed: boolean; child: ChildProcess | null }) => {
       if (settled) return
       settled = true
       if (timer) { clearTimeout(timer); timer = null }
+      if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null }
       resolve({ ...partial, events, lastResultEvent, sessionId, stderrTail })
     }
 
-    let child: ChildProcess
     try {
       child = spawn(binary, args, {
         env,
@@ -130,6 +161,7 @@ export function runAiCliInvocation(hooks: RunInvocationHooks): Promise<Invocatio
       return
     }
     hooks.onSpawn?.(child)
+    armInactivityTimer()
 
     if (hooks.timeoutMs != null && hooks.timeoutMs > 0) {
       timer = setTimeout(() => {
@@ -138,24 +170,14 @@ export function runAiCliInvocation(hooks: RunInvocationHooks): Promise<Invocatio
         // then escalate to SIGKILL after a grace window if the child ignores
         // SIGTERM — otherwise a hung, signal-swallowing CLI is orphaned for the
         // host's lifetime. (Mirrors QueueManager._kill.)
-        if (child.pid) {
-          treeKill(child.pid, 'SIGTERM')
-          const pid = child.pid
-          const killTimer = setTimeout(() => {
-            try { treeKill(pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* gone */ }
-          }, 2000)
-          killTimer.unref?.()
-          child.once('close', () => clearTimeout(killTimer))
-        } else {
-          try { child.kill('SIGTERM') } catch { /* already gone */ }
-        }
+        terminateForTimeout()
         settle({ code: null, timedOut: true, spawnFailed: false, child })
       }, hooks.timeoutMs)
     }
 
     if (child.stdout) {
       const reader = createInterface({ input: child.stdout, crlfDelay: Infinity })
-      if (hooks.onData) child.stdout.on('data', () => hooks.onData!('stdout'))
+      child.stdout.on('data', () => { armInactivityTimer(); hooks.onData?.('stdout') })
       reader.on('line', (line) => {
         // A malformed line or a buggy adapter parser must NEVER crash the whole
         // server process — a throw in this readline handler is otherwise an
@@ -183,10 +205,11 @@ export function runAiCliInvocation(hooks: RunInvocationHooks): Promise<Invocatio
     if (child.stderr) {
       if (hooks.onStderrLine) {
         const errReader = createInterface({ input: child.stderr, crlfDelay: Infinity })
-        if (hooks.onData) child.stderr.on('data', () => hooks.onData!('stderr'))
+        child.stderr.on('data', () => { armInactivityTimer(); hooks.onData?.('stderr') })
         errReader.on('line', (line) => hooks.onStderrLine!(line))
       } else {
         child.stderr.on('data', (chunk: Buffer) => {
+          armInactivityTimer()
           if (hooks.onData) hooks.onData('stderr')
           if (stderrTail.length < STDERR_TAIL_CAP) stderrTail += chunk.toString()
         })

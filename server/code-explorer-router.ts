@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { execFileSync } from 'child_process'
+import { spawn } from 'child_process'
 import { Router, Request, Response } from 'express'
 import type { DbInstance } from './db'
 import type { WsMessage } from './types'
@@ -31,6 +31,10 @@ declare module 'express-serve-static-core' {
 }
 
 const MAX_TREE_PAGE = 2000
+const DEFAULT_MAX_TREE_ENTRIES = 20_000
+const DEFAULT_TREE_SCAN_MS = 5_000
+const TREE_YIELD_EVERY = 128
+const GIT_IGNORE_CHUNK = 1_000
 const MAX_FILE_BYTES = 2 * 1024 * 1024
 const BINARY_PROBE_BYTES = 8 * 1024
 
@@ -80,26 +84,33 @@ function normalizeRel(rel: string): string {
 // paths reported, so the deny-list remains the only filter. `check-ignore` exits
 // 1 ("none ignored") which execFileSync throws on — the matched list still lands
 // on stdout, so both branches read stdout.
-function gitIgnoredSet(projectPath: string, relPaths: string[]): Set<string> {
+async function gitIgnoredSet(projectPath: string, relPaths: string[]): Promise<Set<string>> {
   if (relPaths.length === 0) return new Set()
-  let out = ''
-  try {
-    out = execFileSync('git', ['check-ignore', '--stdin', '-z'], {
-      cwd: projectPath,
-      input: relPaths.join('\0') + '\0',
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-      maxBuffer: 16 * 1024 * 1024,
-      timeout: 15_000,
+  const ignored = new Set<string>()
+  for (let offset = 0; offset < relPaths.length; offset += GIT_IGNORE_CHUNK) {
+    const chunk = relPaths.slice(offset, offset + GIT_IGNORE_CHUNK)
+    let out = ''
+    out = await new Promise<string>((resolve) => {
+      let stdout = ''
+      let settled = false
+      const child = spawn('git', ['check-ignore', '--stdin', '-z'], { cwd: projectPath, stdio: ['pipe', 'pipe', 'ignore'] })
+      const finish = () => { if (!settled) { settled = true; resolve(stdout) } }
+      const timer = setTimeout(() => { try { child.kill('SIGTERM') } catch { /* gone */ }; finish() }, 5_000)
+      timer.unref?.()
+      child.stdout?.on('data', (data: Buffer) => {
+        if (stdout.length < 4 * 1024 * 1024) stdout += data.toString('utf8')
+      })
+      child.once('error', () => { clearTimeout(timer); finish() })
+      child.once('close', () => { clearTimeout(timer); finish() })
+      child.stdin?.end(chunk.join('\0') + '\0')
     })
-  } catch (err) {
-    out = ((err as { stdout?: string | Buffer }).stdout ?? '').toString()
+    for (const rel of out.split('\0')) if (rel) ignored.add(rel)
   }
-  return new Set(out.split('\0').filter((p) => p.length > 0))
+  return ignored
 }
 
-function isGitIgnored(projectPath: string, relPath: string): boolean {
-  return gitIgnoredSet(projectPath, [relPath]).has(relPath)
+async function isGitIgnored(projectPath: string, relPath: string): Promise<boolean> {
+  return (await gitIgnoredSet(projectPath, [relPath])).has(relPath)
 }
 
 function languageForExt(ext: string): string {
@@ -269,18 +280,44 @@ function listTouchedRows(
   ).all(...args) as ProvenanceRow[]
 }
 
-function listAllEntries(projectPath: string): Array<{ rel: string; isDir: boolean; size: number | null; mtime: number | null }> {
+interface TreeScanResult {
+  entries: Array<{ rel: string; isDir: boolean; size: number | null; mtime: number | null }>
+  truncated: boolean
+  reason: 'entry-limit' | 'time-limit' | null
+  visited: number
+  durationMs: number
+  maxEntries: number
+  maxDurationMs: number
+}
+
+function positiveEnvInt(name: string, fallback: number): number {
+  const parsed = Number.parseInt(process.env[name] ?? '', 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+async function listAllEntries(projectPath: string): Promise<TreeScanResult> {
+  const started = Date.now()
+  const maxEntries = positiveEnvInt('SPECRAILS_CODE_TREE_MAX_ENTRIES', DEFAULT_MAX_TREE_ENTRIES)
+  const maxMs = positiveEnvInt('SPECRAILS_CODE_TREE_MAX_MS', DEFAULT_TREE_SCAN_MS)
   const out: Array<{ rel: string; isDir: boolean; size: number | null; mtime: number | null }> = []
   const stack: string[] = [projectPath]
+  let visited = 0
+  let reason: TreeScanResult['reason'] = null
   while (stack.length > 0) {
+    if (visited >= maxEntries) { reason = 'entry-limit'; break }
+    if (Date.now() - started >= maxMs) { reason = 'time-limit'; break }
     const dir = stack.pop()!
     let entries: fs.Dirent[]
     try {
-      entries = fs.readdirSync(dir, { withFileTypes: true })
+      entries = await fs.promises.readdir(dir, { withFileTypes: true })
     } catch {
       continue
     }
     for (const entry of entries) {
+      visited += 1
+      if (visited % TREE_YIELD_EVERY === 0) await new Promise<void>((resolve) => setImmediate(resolve))
+      if (visited >= maxEntries) { reason = 'entry-limit'; break }
+      if (Date.now() - started >= maxMs) { reason = 'time-limit'; break }
       if (isDenied(entry.name)) continue
       const abs = path.join(dir, entry.name)
       // Normalize to POSIX so provenance/summary lookups (which are '/'-keyed)
@@ -293,7 +330,7 @@ function listAllEntries(projectPath: string): Array<{ rel: string; isDir: boolea
         let size: number | null = null
         let mtime: number | null = null
         try {
-          const st = fs.statSync(abs)
+          const st = await fs.promises.stat(abs)
           size = st.size
           mtime = st.mtimeMs
         } catch {
@@ -307,16 +344,24 @@ function listAllEntries(projectPath: string): Array<{ rel: string; isDir: boolea
   // Directories are kept — git can't report an ignored dir without its files, and
   // an empty dir node is harmless; its ignored children are already filtered.
   const files = out.filter((e) => !e.isDir).map((e) => e.rel)
-  const ignored = gitIgnoredSet(projectPath, files)
+  const ignored = await gitIgnoredSet(projectPath, files)
   const filtered = ignored.size > 0 ? out.filter((e) => e.isDir || !ignored.has(e.rel)) : out
   filtered.sort((a, b) => a.rel.localeCompare(b.rel))
-  return filtered
+  return {
+    entries: filtered,
+    truncated: reason !== null,
+    reason,
+    visited,
+    durationMs: Date.now() - started,
+    maxEntries,
+    maxDurationMs: maxMs,
+  }
 }
 
-function listTouchedEntries(
+async function listTouchedEntries(
   projectPath: string,
   rowsByPath: Map<string, ProvenanceRow[]>,
-): Array<{ rel: string; isDir: boolean; size: number | null; mtime: number | null }> {
+): Promise<Array<{ rel: string; isDir: boolean; size: number | null; mtime: number | null }>> {
   const seen = new Set<string>()
   const out: Array<{ rel: string; isDir: boolean; size: number | null; mtime: number | null }> = []
 
@@ -325,7 +370,7 @@ function listTouchedEntries(
   // not deny-listed never surfaces its path / ticket-attribution / mtime. One
   // batched git check-ignore over the not-already-denied touched files.
   const candidateFiles = [...rowsByPath.keys()].filter((p) => !isDeniedRelPath(p))
-  const ignored = gitIgnoredSet(projectPath, candidateFiles)
+  const ignored = await gitIgnoredSet(projectPath, candidateFiles)
 
   for (const filePath of rowsByPath.keys()) {
     // Keep touched-by-ai consistent with the `all` tree (and never surface
@@ -433,14 +478,32 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
   // one-readdir summary-hash set. 5s is long enough for a pagination burst and
   // short enough that tree edits surface promptly.
   const WALK_CACHE_TTL_MS = 5000
-  let allEntriesCache: { at: number; entries: ReturnType<typeof listAllEntries> } | null = null
+  let allEntriesCache: { at: number; scan: TreeScanResult } | null = null
+  let allEntriesInFlight: Promise<TreeScanResult> | null = null
+  let watcherScheduled = false
   let summaryHashCache: { at: number; set: Set<string> } | null = null
   const nowMs = () => Date.now()
-  function getAllEntriesCached(): ReturnType<typeof listAllEntries> {
-    if (allEntriesCache && nowMs() - allEntriesCache.at < WALK_CACHE_TTL_MS) return allEntriesCache.entries
-    const entries = listAllEntries(deps.projectPath)
-    allEntriesCache = { at: nowMs(), entries }
-    return entries
+  async function getAllEntriesCached(): Promise<{ scan: TreeScanResult; cache: 'hit' | 'shared' | 'miss' }> {
+    if (allEntriesCache && nowMs() - allEntriesCache.at < WALK_CACHE_TTL_MS) {
+      return { scan: allEntriesCache.scan, cache: 'hit' }
+    }
+    if (allEntriesInFlight) return { scan: await allEntriesInFlight, cache: 'shared' }
+    allEntriesInFlight = listAllEntries(deps.projectPath)
+    try {
+      const scan = await allEntriesInFlight
+      allEntriesCache = { at: nowMs(), scan }
+      console.info('[code-explorer] tree scan', JSON.stringify({
+        projectId: deps.projectId,
+        durationMs: scan.durationMs,
+        visited: scan.visited,
+        returned: scan.entries.length,
+        truncated: scan.truncated,
+        reason: scan.reason,
+      }))
+      return { scan, cache: 'miss' }
+    } finally {
+      allEntriesInFlight = null
+    }
   }
   function getSummaryHashesCached(): Set<string> {
     if (summaryHashCache && nowMs() - summaryHashCache.at < WALK_CACHE_TTL_MS) return summaryHashCache.set
@@ -459,20 +522,34 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     // provider without a native pure-output boundary must not attach it:
     // implicit file-change work and explicit POSTs both fail closed before a
     // manager or provider process can run.
-    if (aiTransformsAvailable) {
-      try { deps.fileSummaryManager.attachWatcher(deps.projectId, deps.projectPath, summaryRoot()) } catch { /* non-fatal */ }
+    if (aiTransformsAvailable && !watcherScheduled) {
+      watcherScheduled = true
+      setImmediate(() => {
+        try {
+          deps.fileSummaryManager.attachWatcher(deps.projectId, deps.projectPath, summaryRoot())
+        } catch (err) {
+          console.warn('[code-explorer] watcher startup failed', JSON.stringify({
+            projectId: deps.projectId,
+            error: err instanceof Error ? err.message : String(err),
+          }))
+        }
+      })
     }
     next()
   })
 
-  router.get('/tree', (req: Request, res: Response) => {
+  router.get('/tree', async (req: Request, res: Response) => {
     const filter = (req.query.filter as string | undefined) ?? 'touched-by-ai'
     const withProvenance = req.query.withProvenance === '1' || req.query.withProvenance === 'true'
     const { skip } = decodeCursor(req.query.cursor as string | undefined)
+    const requestedLimit = parsePositiveInt(req.query.limit)
+    const pageLimit = Math.min(requestedLimit ?? MAX_TREE_PAGE, MAX_TREE_PAGE)
     const ticketId = parsePositiveInt(req.query.ticketId)
     const jobId = parseNonEmptyString(req.query.jobId)
 
     let entries: Array<{ rel: string; isDir: boolean; size: number | null; mtime: number | null }>
+    let scanMeta: Omit<TreeScanResult, 'entries'> | null = null
+    let cache: 'hit' | 'shared' | 'miss' | null = null
     const touchedRowsByPath = new Map<string, ProvenanceRow[]>()
     if (filter === 'touched-by-ai') {
       const rows = listTouchedRows(deps.db, { ticketId, jobId })
@@ -481,9 +558,12 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
         if (existing) existing.push(row)
         else touchedRowsByPath.set(row.file_path, [row])
       }
-      entries = listTouchedEntries(deps.projectPath, touchedRowsByPath)
+      entries = await listTouchedEntries(deps.projectPath, touchedRowsByPath)
     } else {
-      entries = getAllEntriesCached()
+      const result = await getAllEntriesCached()
+      entries = result.scan.entries
+      cache = result.cache
+      scanMeta = result.scan
       // Batch-load ALL provenance once instead of a per-entry SQL query (N+1).
       if (withProvenance) {
         for (const row of listTouchedRows(deps.db, {})) {
@@ -494,7 +574,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       }
     }
 
-    const page = entries.slice(skip, skip + MAX_TREE_PAGE)
+    const page = entries.slice(skip, skip + pageLimit)
     const nextCursor = skip + page.length < entries.length ? encodeCursor(skip + page.length) : null
 
     // Read the summaries dir ONCE into a Set of path-hashes instead of opening +
@@ -523,6 +603,18 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
         provenance: treeProvenanceToJson(entry.provenance),
       })),
       nextCursor,
+      ...(scanMeta ? {
+        truncated: scanMeta.truncated,
+        truncationReason: scanMeta.reason,
+        scan: {
+          visited: scanMeta.visited,
+          durationMs: scanMeta.durationMs,
+          maxEntries: scanMeta.maxEntries,
+          maxDurationMs: scanMeta.maxDurationMs,
+          retryable: scanMeta.truncated,
+          cache,
+        },
+      } : {}),
     })
   })
 
@@ -544,7 +636,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     }
     // Canonical POSIX form for all summary/provenance/hash lookups.
     const rel = normalizeRel(relRaw)
-    if (isGitIgnored(deps.projectPath, rel)) {
+    if (await isGitIgnored(deps.projectPath, rel)) {
       res.status(403).json({ error: 'path is gitignored' })
       return
     }
@@ -641,7 +733,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
   // scope here. After a write the existing hash-gated `summaryStale` flag makes
   // the next GET /file surface the summary as stale (regenerate via the existing
   // POST /file/regenerate-summary).
-  router.put('/file', (req: Request, res: Response) => {
+  router.put('/file', async (req: Request, res: Response) => {
     const body = (req.body ?? {}) as { path?: unknown; content?: unknown }
     const relRaw = typeof body.path === 'string' ? body.path : undefined
     const content = typeof body.content === 'string' ? body.content : undefined
@@ -659,7 +751,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       return
     }
     const rel = normalizeRel(relRaw)
-    if (isGitIgnored(deps.projectPath, rel)) {
+    if (await isGitIgnored(deps.projectPath, rel)) {
       res.status(403).json({ error: 'path is gitignored' })
       return
     }
@@ -725,7 +817,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       return
     }
     const rel = normalizeRel(relRaw)
-    if (isGitIgnored(deps.projectPath, rel)) {
+    if (await isGitIgnored(deps.projectPath, rel)) {
       res.status(403).json({ error: 'path is gitignored' })
       return
     }
@@ -748,7 +840,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
   // contribution paragraph when generated, and the spec's live title/status.
   // Same guards as every sibling content endpoint. Works for deleted files too
   // (their story is still worth telling), so no stat/existence requirement.
-  router.get('/file/story', (req: Request, res: Response) => {
+  router.get('/file/story', async (req: Request, res: Response) => {
     const relRaw = req.query.path as string | undefined
     if (!relRaw || typeof relRaw !== 'string') {
       res.status(400).json({ error: 'path query parameter is required' })
@@ -764,7 +856,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       return
     }
     const rel = normalizeRel(relRaw)
-    if (isGitIgnored(deps.projectPath, rel)) {
+    if (await isGitIgnored(deps.projectPath, rel)) {
       res.status(403).json({ error: 'path is gitignored' })
       return
     }
@@ -792,7 +884,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       return
     }
     const rel = normalizeRel(relRaw)
-    if (isGitIgnored(deps.projectPath, rel)) {
+    if (await isGitIgnored(deps.projectPath, rel)) {
       res.status(403).json({ error: 'path is gitignored' })
       return
     }
@@ -853,7 +945,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       return
     }
     const rel = normalizeRel(relRaw)
-    if (isGitIgnored(deps.projectPath, rel)) {
+    if (await isGitIgnored(deps.projectPath, rel)) {
       res.status(403).json({ error: 'path is gitignored' })
       return
     }
@@ -935,7 +1027,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     }
   })
 
-  router.get('/provenance', (req: Request, res: Response) => {
+  router.get('/provenance', async (req: Request, res: Response) => {
     const ticketId = parsePositiveInt(req.query.ticketId)
     const jobId = parseNonEmptyString(req.query.jobId)
     const relPath = parseNonEmptyString(req.query.path)
@@ -968,7 +1060,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     )
   })
 
-  router.get('/diff', (req: Request, res: Response) => {
+  router.get('/diff', async (req: Request, res: Response) => {
     const jobId = parseNonEmptyString(req.query.jobId)
     const relPath = parseNonEmptyString(req.query.path)
     if (!jobId || !relPath) {
@@ -989,7 +1081,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       return
     }
     const rel = normalizeRel(relPath)
-    if (isGitIgnored(deps.projectPath, rel)) {
+    if (await isGitIgnored(deps.projectPath, rel)) {
       res.status(403).json({ error: 'path is gitignored' })
       return
     }
