@@ -23,6 +23,7 @@ import {
   getMcpStatus,
   enableMcp,
   getAvailableProviders,
+  getAgentActiveTurns,
   coercePrDecisionEnvelope,
   parsePrDecisionEnvelope,
   type AgentConversation,
@@ -487,6 +488,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const draftMaterializeRef = useRef<Promise<AgentConversation> | null>(null)
   const prSnapshotVersionRef = useRef(0)
   const conversationLoadEpochRef = useRef(0)
+  const localTurnStartedAtRef = useRef(new Map<string, string>())
 
   const applyPrDecisionSnapshot = useCallback((
     envelope: AgentPrDecisionEnvelope,
@@ -675,7 +677,17 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           }
           return { ...p, liveTools: tools }
         })
+      } else if (msg.type === 'agent_partial') {
+        const partial = msg.fullText ?? ''
+        if (isActive && partial) {
+          setMessages((m) => {
+            const last = m[m.length - 1]
+            if (last?.role === 'assistant' && last.content === partial) return m
+            return [...m, { id: `partial-${convId}-${msg.timestamp ?? Date.now()}`, conversation_id: convId, role: 'assistant', content: partial, created_at: msg.timestamp ?? new Date().toISOString() }]
+          })
+        }
       } else if (msg.type === 'agent_done') {
+        localTurnStartedAtRef.current.delete(convId)
         markUnread(convId)
         const full = msg.fullText ?? ''
         if (isActive) {
@@ -701,6 +713,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           turnTools: p.liveTools.length ? p.liveTools : p.turnTools,
         }))
       } else if (msg.type === 'agent_error') {
+        localTurnStartedAtRef.current.delete(convId)
         markUnread(convId)
         patchLive(convId, (p) => ({
           ...EMPTY_LIVE,
@@ -831,6 +844,42 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const reconcileActiveTurns = useCallback(async (): Promise<void> => {
+    try {
+      const snapshot = await getAgentActiveTurns()
+      const activeIds = new Set(snapshot.turns.map((turn) => turn.conversationId))
+      const capturedAt = Date.parse(snapshot.capturedAt)
+      const interrupted: string[] = []
+      setLiveByConv((current) => {
+        const next = new Map(current)
+        for (const [conversationId, live] of current) {
+          if (!live.isStreaming || activeIds.has(conversationId)) continue
+          const localStartedAt = localTurnStartedAtRef.current.get(conversationId)
+          if (localStartedAt && Date.parse(localStartedAt) > capturedAt) continue
+          interrupted.push(conversationId)
+          next.set(conversationId, { ...EMPTY_LIVE, queued: live.queued, turnTools: live.liveTools.length ? live.liveTools : live.turnTools })
+          localTurnStartedAtRef.current.delete(conversationId)
+        }
+        for (const conversationId of activeIds) {
+          const live = next.get(conversationId) ?? EMPTY_LIVE
+          next.set(conversationId, { ...live, isStreaming: true })
+        }
+        return next
+      })
+      const activeId = activeIdRef.current
+      if (activeId && interrupted.includes(activeId)) {
+        const id = `interrupted-${activeId}-${snapshot.snapshotVersion}`
+        setMessages((current) => current.some((message) => message.id === id) ? current : [
+          ...current,
+          { id, conversation_id: activeId, role: 'assistant', content: '⚠️ The agent turn was interrupted when the Specrails server reconnected. It was not retried.', created_at: snapshot.capturedAt },
+        ])
+      }
+      console.info('[agent-chat] reconciled active turns', { snapshotVersion: snapshot.snapshotVersion, active: activeIds.size, interrupted: interrupted.length })
+    } catch {
+      /* The connection may still be stabilising; a later reconnect can retry. */
+    }
+  }, [])
+
   useEffect(() => {
     const onFocus = () => { void hydrateActivePrCards() }
     window.addEventListener('focus', onFocus)
@@ -841,8 +890,11 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const previous = previousConnectionRef.current
     previousConnectionRef.current = connectionStatus
-    if (connectionStatus === 'connected' && previous !== 'connected') void hydrateActivePrCards()
-  }, [connectionStatus, hydrateActivePrCards])
+    if (connectionStatus === 'connected' && previous !== 'connected') {
+      void hydrateActivePrCards()
+      void reconcileActiveTurns()
+    }
+  }, [connectionStatus, hydrateActivePrCards, reconcileActiveTurns])
 
   const ensureActive = useCallback(async (): Promise<AgentConversation> => {
     if (active) return active
@@ -944,6 +996,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     const conv = active ?? await materializeDraftConversation()
     const queueId = `q-${Date.now()}-${_queueSeq++}`
     const nowIso = new Date().toISOString()
+    localTurnStartedAtRef.current.set(conv.id, nowIso)
     // "Last interaction" is NOW — bump the conversation's updated_at (so the
     // mission-list time-since counter resets immediately to "now") and float it
     // to the top (newest-first, matching the server's ORDER BY updated_at DESC).
@@ -996,6 +1049,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         setMessages((m) => [...m, userBubble])
       }
     } catch (e) {
+      localTurnStartedAtRef.current.delete(conv.id)
       // No agent_* WS event will arrive (the POST never spawned a turn) — reset
       // the optimistic state here, mirroring the agent_error handler.
       if (wasBusy) {

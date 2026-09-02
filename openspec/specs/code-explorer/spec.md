@@ -32,7 +32,7 @@ The app SHALL render a **Code** entry in the project's left sidebar (`ProjectLay
 
 ### Requirement: File tree with provenance badges and filters
 
-The Code page SHALL render a virtualised file tree on the left with chip badges showing the tickets that created and/or modified each file, with a filter toggle that defaults to **Tocado por IA** (only files with provenance entries) and can be switched to **All files**.
+The Code page SHALL render a virtualised file tree on the left with chip badges showing the tickets that created and/or modified each file, with a filter toggle that defaults to **Tocado por IA** (only files with provenance entries) and can be switched to **All files**. Repository enumeration SHALL be asynchronous, bounded, symlink-safe, and unable to monopolize the desktop server's HTTP or WebSocket control plane.
 
 #### Scenario: Default filter shows only AI-touched files
 
@@ -44,9 +44,22 @@ The Code page SHALL render a virtualised file tree on the left with chip badges 
 #### Scenario: All-files filter shows the full repo with deny-list applied
 
 - **WHEN** the user switches the filter to **All files**
-- **THEN** the tree MUST display the project working tree
+- **THEN** the tree MUST enumerate the project working tree without blocking unrelated HTTP or WebSocket handling
 - **AND** the tree MUST exclude `node_modules`, `dist`, `.git`, `coverage`, `*.lock`, `*.log`, and dotfiles by default
 - **AND** the tree MUST respect the project's `.gitignore` for additional exclusions
+- **AND** the scanner MUST NOT follow symbolic links
+
+#### Scenario: Repository exceeds a discovery safety bound
+
+- **WHEN** an all-files scan reaches its configured entry or elapsed-time safety bound
+- **THEN** the server MUST stop further discovery cooperatively
+- **AND** it MUST return a typed truncated or retryable result instead of hanging, crashing, or silently claiming the tree is complete
+- **AND** health, provider availability, and WebSocket traffic MUST remain responsive during the scan
+
+#### Scenario: Concurrent pages share discovery work
+
+- **WHEN** multiple requests page through the same project tree while a snapshot is being built or remains fresh
+- **THEN** the server MUST deduplicate or reuse that scan rather than start one complete repository traversal per page
 
 #### Scenario: Provenance badges render per file
 
@@ -61,6 +74,22 @@ The Code page SHALL render a virtualised file tree on the left with chip badges 
 - **THEN** the tree MUST request entries in pages of at most 2000 from `GET /tree`
 - **AND** scroll position MUST not block rendering of off-screen entries
 - **AND** project-switch MUST not cause visible re-flicker thanks to `useProjectCache`
+
+### Requirement: File-summary watcher startup is isolated from reads
+
+The server SHALL keep file-summary watcher initialization outside the latency-critical Code Explorer response path and SHALL constrain it with the same build-directory, dot-directory, and symlink policy as tree discovery.
+
+#### Scenario: First Code Explorer request starts the watcher
+
+- **WHEN** the first Code Explorer request for a project triggers watcher initialization
+- **THEN** the read request MUST be able to complete without waiting for recursive watcher readiness
+- **AND** watcher initialization MUST NOT follow symbolic links or enter denied build and dot directories
+
+#### Scenario: Watcher initialization fails
+
+- **WHEN** the watcher cannot initialize because of filesystem or resource pressure
+- **THEN** the server MUST log the failure and continue serving read-only Code Explorer requests
+- **AND** it MUST NOT terminate the desktop sidecar
 
 ### Requirement: File viewer with AI summary header
 

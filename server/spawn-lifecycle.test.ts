@@ -188,4 +188,18 @@ describe('runAiCliInvocation', () => {
     expect(r.code).toBeNull()
     expect(onTimeout).toHaveBeenCalledTimes(1)
   })
+
+  it('settles a silent provider on the inactivity watchdog without waiting for close', async () => {
+    const onInactivityTimeout = vi.fn()
+    const r = await runAiCliInvocation({
+      adapter: fakeAdapter,
+      argv: ['x'],
+      cwd: '/x',
+      inactivityTimeoutMs: 20,
+      onInactivityTimeout,
+      spawn: fakeSpawn([], 0, { delay: 100000 }),
+    })
+    expect(r.timedOut).toBe(true)
+    expect(onInactivityTimeout).toHaveBeenCalledTimes(1)
+  })
 })

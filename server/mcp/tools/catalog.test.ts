@@ -62,6 +62,31 @@ describe('tool catalog smoke (all domains)', () => {
     }
   })
 
+  it('keeps Code Explorer tree payloads compact and accepts the file alias', async () => {
+    const code = buildToolSpecs().find((spec) => spec.name === 'specrails_code')!
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        entries: [{ path: 'src/a.ts', kind: 'file', sizeBytes: 900, provenance: { rows: new Array(50).fill({}) } }],
+        nextCursor: 'next-page',
+      }),
+    })
+    const tree = await code.handler(ctx, { action: 'tree', filter: 'all' }) as { entries: unknown[]; nextCursor: string }
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      expect.stringContaining('filter=all&limit=200'),
+      expect.anything(),
+    )
+    expect(tree.entries).toEqual([{ path: 'src/a.ts', kind: 'file' }])
+    expect(tree.nextCursor).toBe('next-page')
+
+    await code.handler(ctx, { action: 'read_file', file: 'src/a.ts' })
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      expect.stringContaining('path=src%2Fa.ts'),
+      expect.anything(),
+    )
+  })
+
   it('every action of every domain tool dispatches (or validates) without crashing the framework', async () => {
     const genericArgs: Record<string, unknown> = {
       projectId: 'p1',

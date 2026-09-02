@@ -120,6 +120,9 @@ export function useDefaultSpecModel(
     let cancelled = false
     setLoading(true)
     setError(null)
+    setModel(null)
+    setAllowed([])
+    setProvider(providerOverride ?? null)
     setCustomModelAliases(false)
     const qs = providerOverride ? `?provider=${encodeURIComponent(providerOverride)}` : ''
     fetch(`${getApiBase()}/default-spec-model${qs}`)

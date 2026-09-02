@@ -216,6 +216,23 @@ describe('GET /tree pagination', () => {
     expect(paths.some((p) => p === '.env')).toBe(false)
   })
 
+  it('reports an explicit retryable truncation when the visited-entry safety bound is reached', async () => {
+    const previous = process.env.SPECRAILS_CODE_TREE_MAX_ENTRIES
+    process.env.SPECRAILS_CODE_TREE_MAX_ENTRIES = '3'
+    try {
+      for (let i = 0; i < 8; i++) fs.writeFileSync(path.join(projectPath, `bounded-${i}.ts`), 'x')
+      const r = await request(app).get('/api/projects/proj-test/code/tree?filter=all')
+      expect(r.status).toBe(200)
+      expect(r.body.truncated).toBe(true)
+      expect(r.body.truncationReason).toBe('entry-limit')
+      expect(r.body.scan).toEqual(expect.objectContaining({ retryable: true, maxEntries: 3 }))
+      expect(r.body.entries.length).toBeLessThanOrEqual(3)
+    } finally {
+      if (previous === undefined) delete process.env.SPECRAILS_CODE_TREE_MAX_ENTRIES
+      else process.env.SPECRAILS_CODE_TREE_MAX_ENTRIES = previous
+    }
+  })
+
   it('touched-by-ai filter returns touched files with folder context and provenance rows', async () => {
     fs.mkdirSync(path.join(projectPath, 'src'), { recursive: true })
     fs.writeFileSync(path.join(projectPath, 'src', 'touched.ts'), 'x')

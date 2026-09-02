@@ -1305,7 +1305,7 @@ export type WsMessage =
   | MobileDeviceRevokedMessage | MobileGatewayStateMessage
   | JiraSyncedMessage | JiraSyncErrorMessage | JiraAuthExpiredMessage
   | JiraOutboxChangedMessage | JiraDegradedMessage
-  | AgentStreamMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage | AgentToolResultMessage
+  | AgentStreamMessage | AgentPartialMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage | AgentToolResultMessage
   | AgentTitleMessage
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage
   | AgentQueueEditedMessage
@@ -1394,6 +1394,15 @@ export interface AgentDoneMessage {
   type: 'agent_done'
   conversationId: string
   fullText: string
+  timestamp: string
+}
+
+/** Non-empty assistant output preserved when the provider turn fails. */
+export interface AgentPartialMessage {
+  type: 'agent_partial'
+  conversationId: string
+  fullText: string
+  error: string
   timestamp: string
 }
 

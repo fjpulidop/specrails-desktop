@@ -3,12 +3,13 @@ import { useState } from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
 let wsHandler: ((msg: unknown) => void) | null = null
+let wsConnectionStatus: 'connected' | 'disconnected' = 'connected'
 
 vi.mock('../hooks/useSharedWebSocket', () => ({
   useSharedWebSocket: () => ({
     registerHandler: (_id: string, fn: (m: unknown) => void) => { wsHandler = fn },
     unregisterHandler: () => { wsHandler = null },
-    connectionStatus: 'connected',
+    connectionStatus: wsConnectionStatus,
   }),
 }))
 
@@ -63,6 +64,7 @@ vi.mock('../lib/agent-api', async (orig) => {
     getMcpStatus: vi.fn(async () => ({ enabled: true, running: true })),
     enableMcp: vi.fn(async () => {}),
     getAvailableProviders: vi.fn(async () => ({ any: true, providers: [] })),
+    getAgentActiveTurns: vi.fn(async () => ({ snapshotVersion: 1, capturedAt: new Date().toISOString(), turns: [] })),
   }
 })
 
@@ -107,7 +109,10 @@ function Harness() {
         return envelope ? [`${envelope.prDeliveryId}:${envelope.decision}`] : []
       }).join(',')}</span>
       <span data-testid="apply-result">{applyResult}</span>
+      <span data-testid="streaming">{String(agentChat.isStreaming)}</span>
+      <span data-testid="message-text">{agentChat.messages.map((message) => message.content).join('|')}</span>
       <button onClick={agentChat.open}>open</button>
+      <button onClick={() => void agentChat.send('hello')}>send</button>
       <button onClick={() => void agentChat.selectConversation('c1')}>select-c1</button>
       <button onClick={() => void agentChat.selectConversation('c2')}>select-c2</button>
       <button onClick={() => setApplyResult(agentChat.applyPrDecisionSnapshot(prEnvelope({ decision: 'pr_draft' })))}>apply-d1</button>
@@ -121,6 +126,7 @@ function Harness() {
 
 beforeEach(() => {
   wsHandler = null
+  wsConnectionStatus = 'connected'
   vi.clearAllMocks()
   vi.mocked(agentApi.listAgentConversations).mockResolvedValue([api.conv1, api.conv2])
   vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => ({
@@ -129,7 +135,49 @@ beforeEach(() => {
   }))
   vi.mocked(agentApi.getMcpStatus).mockResolvedValue({ enabled: true, running: true })
   vi.mocked(agentApi.getAvailableProviders).mockResolvedValue({ any: true, providers: [] })
+  vi.mocked(agentApi.getAgentActiveTurns).mockResolvedValue({ snapshotVersion: 1, capturedAt: new Date().toISOString(), turns: [] })
   setDocumentVisibility('visible')
+})
+
+describe('AgentChatContext reconnect reconciliation', () => {
+  it('settles an optimistic turn absent from the server snapshot without retrying it', async () => {
+    wsConnectionStatus = 'disconnected'
+    const view = render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('active-id')).toHaveTextContent('c1'))
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    expect(screen.getByTestId('streaming')).toHaveTextContent('true')
+
+    vi.mocked(agentApi.getAgentActiveTurns).mockResolvedValue({
+      snapshotVersion: 7,
+      capturedAt: new Date(Date.now() + 1000).toISOString(),
+      turns: [],
+    })
+    wsConnectionStatus = 'connected'
+    view.rerender(<AgentChatProvider><Harness /></AgentChatProvider>)
+
+    await waitFor(() => expect(screen.getByTestId('streaming')).toHaveTextContent('false'))
+    expect(screen.getByTestId('message-text')).toHaveTextContent('was interrupted')
+    expect(agentApi.sendAgentMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves an optimistic turn that the authoritative snapshot reports active', async () => {
+    wsConnectionStatus = 'disconnected'
+    const view = render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('active-id')).toHaveTextContent('c1'))
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    vi.mocked(agentApi.getAgentActiveTurns).mockResolvedValue({
+      snapshotVersion: 8,
+      capturedAt: new Date(Date.now() + 1000).toISOString(),
+      turns: [{ conversationId: 'c1', startedAt: new Date().toISOString() }],
+    })
+    wsConnectionStatus = 'connected'
+    view.rerender(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await waitFor(() => expect(agentApi.getAgentActiveTurns).toHaveBeenCalled())
+    expect(screen.getByTestId('streaming')).toHaveTextContent('true')
+    expect(screen.getByTestId('message-text')).not.toHaveTextContent('was interrupted')
+  })
 })
 
 describe('AgentChatContext unread conversations', () => {

@@ -736,6 +736,7 @@ export class FileSummaryManager {
     // The predicate is tested against each path relative to the project root so a
     // dot-segment in the absolute prefix (the user's home dir) can't false-positive.
     const watcher = chokidar.watch(projectPath, {
+      followSymlinks: false,
       ignored: (p: string) => {
         const rel = path.relative(projectPath, p)
         if (!rel || rel.startsWith('..')) return false // the root itself — never ignore

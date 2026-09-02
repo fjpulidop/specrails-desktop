@@ -260,8 +260,9 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
   const canSubmit = useMemo(
     () => (hasText || captures.length > 0)
       && !isSubmitting
+      && (mode === 'free' || (!modelLoading && model !== null))
       && (mode !== 'quick' || quickAvailable),
-    [hasText, captures.length, isSubmitting, mode, quickAvailable],
+    [hasText, captures.length, isSubmitting, mode, quickAvailable, modelLoading, model],
   )
 
   const handleCaptured = useCallback((result: CaptureResult) => {
@@ -323,6 +324,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
 
     const projectId = activeProjectIdRef.current
     if (!projectId) return
+    if (mode !== 'free' && (modelLoading || model === null)) return
     if (mode === 'quick' && !quickAvailable) {
       setMode('explore')
       return
@@ -386,12 +388,9 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
       }
       submittedRef.current = true // suppress attachment cleanup on close
       void persistScope(effectiveScope)
-      // If the picker is still resolving, fall back to 'sonnet' as a safe
-      // claude default — server re-validates and will resolve the project's
-      // configured default if this doesn't fit.
       onExploreLaunch({
         idea, pendingSpecId, initialAttachmentIds: attachmentIds,
-        model: model ?? 'sonnet',
+        model: model!,
         provider: effectiveProvider ?? undefined,
         contextScope: effectiveScope,
       })
@@ -508,7 +507,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                   onChange={handleScopeChange}
                   budget={budget}
                   budgetError={budgetError}
-                  model={model ?? 'sonnet'}
+                  model={model ?? ''}
                   maxPresetId={mode === 'quick' ? 'max' : 'desktop'}
                   smashCapable={smashCapable}
                 />

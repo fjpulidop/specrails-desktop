@@ -142,12 +142,12 @@ describe('ProposeSpecModal', () => {
     expect(button).toBeDisabled()
   })
 
-  it('enables Generate Spec button when textarea has content', () => {
+  it('enables Generate Spec button when textarea has content after its model resolves', async () => {
     render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const textarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     fireEvent.change(textarea, { target: { value: 'Add dark mode' } })
     const button = screen.getByRole('button', { name: /generate spec/i })
-    expect(button).not.toBeDisabled()
+    await waitFor(() => expect(button).not.toBeDisabled())
   })
 
   it('exposes a Quick / Explore / Raw segmented control with Quick selected by default', () => {
@@ -308,6 +308,7 @@ describe('ProposeSpecModal', () => {
     fireEvent.click(exploreTab)
     const textarea = screen.getByPlaceholderText(/dark mode/i)
     fireEvent.change(textarea, { target: { value: 'dark mode rough idea' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: /continue/i })).not.toBeDisabled())
     fireEvent.click(screen.getByRole('button', { name: /continue/i }))
 
     await waitFor(() => {
@@ -323,20 +324,22 @@ describe('ProposeSpecModal', () => {
     )
   })
 
-  it('hands slider-derived contractRefine through to Explore launch payload', async () => {
+  it('hands slider-derived context through to Explore launch payload', async () => {
     const onExploreLaunch = vi.fn()
     render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} onExploreLaunch={onExploreLaunch} />)
+    await waitFor(() => expect(screen.getByText('Claude Sonnet')).toBeInTheDocument())
     const exploreTab = screen.getAllByRole('tab').find((t) => t.textContent?.toLowerCase().includes('explore'))!
     fireEvent.click(exploreTab)
     fireEvent.click(screen.getByTestId('scope-stop-max'))
     const textarea = screen.getByPlaceholderText(/dark mode/i)
     fireEvent.change(textarea, { target: { value: 'max context idea' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: /continue/i })).not.toBeDisabled())
     fireEvent.click(screen.getByRole('button', { name: /continue/i }))
 
     await waitFor(() => {
       expect(onExploreLaunch).toHaveBeenCalledWith(
         expect.objectContaining({
-          contextScope: expect.objectContaining({ contractRefine: true, mcp: false }),
+          contextScope: expect.objectContaining({ full: true, mcp: false }),
         }),
       )
     })
@@ -362,6 +365,7 @@ describe('ProposeSpecModal', () => {
     render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const textarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     fireEvent.change(textarea, { target: { value: 'Keyboard test' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: /generate spec/i })).not.toBeDisabled())
     fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true })
 
     await waitFor(() => {
@@ -387,6 +391,7 @@ describe('ProposeSpecModal', () => {
     // Explore codebase defaults to unchecked — fast mode is the default path.
     const textarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     fireEvent.change(textarea, { target: { value: 'Fast spec' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: /generate spec/i })).not.toBeDisabled())
     fireEvent.click(screen.getByRole('button', { name: /generate spec/i }))
 
     await waitFor(() => {
@@ -530,6 +535,7 @@ describe('ProposeSpecModal', () => {
     render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} />)
     const textarea = screen.getByPlaceholderText(/add a dark mode toggle/i)
     fireEvent.change(textarea, { target: { value: 'Fast spec' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: /generate spec/i })).not.toBeDisabled())
     fireEvent.click(screen.getByRole('button', { name: /generate spec/i }))
 
     await waitFor(() => {

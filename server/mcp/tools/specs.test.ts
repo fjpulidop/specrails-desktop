@@ -55,6 +55,32 @@ describe('specrails_specs facade', () => {
     return JSON.parse(call[1].body ?? '{}') as Record<string, unknown>
   }
 
+  it('returns a compact paginated list instead of full spec descriptions', async () => {
+    const tickets = Array.from({ length: 55 }, (_, index) => ({
+      id: index + 1,
+      title: `Spec ${index + 1}`,
+      description: 'x'.repeat(10_000),
+      status: 'todo',
+      priority: 'medium',
+      labels: ['area:test'],
+      updated_at: '2026-09-02T00:00:00Z',
+    }))
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ tickets, revision: 3, total: 55 }),
+    })
+
+    const result = await spec.handler(ctx, { action: 'list', projectId: 'p1' }) as {
+      tickets: Array<Record<string, unknown>>
+      nextOffset: number | null
+    }
+    expect(result.tickets).toHaveLength(50)
+    expect(result.tickets[0]).not.toHaveProperty('description')
+    expect(result.nextOffset).toBe(50)
+    expect(JSON.stringify(result).length).toBeLessThan(15_000)
+  })
+
   it('create forwards contextScope/attachmentIds/pendingSpecId/createLocal and drops the dead provider key', async () => {
     await spec.handler(ctx, {
       action: 'create',

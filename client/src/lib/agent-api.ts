@@ -107,6 +107,16 @@ export async function listAgentConversations(): Promise<AgentConversation[]> {
   return (await json<{ conversations: AgentConversation[] }>(await fetch(`${base}/conversations`))).conversations
 }
 
+export interface AgentActiveTurnsSnapshot {
+  snapshotVersion: number
+  capturedAt: string
+  turns: Array<{ conversationId: string; startedAt: string }>
+}
+
+export async function getAgentActiveTurns(): Promise<AgentActiveTurnsSnapshot> {
+  return json(await fetch(`${base}/active-turns`))
+}
+
 export async function createAgentConversation(input: {
   provider?: string
   model?: string | null
