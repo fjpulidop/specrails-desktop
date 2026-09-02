@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.38.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.37.0...v2.38.0) (2026-09-02)
+
+
+### Features
+
+* make the operator agent frame a request before it drafts a spec ([#592](https://github.com/fjpulidop/specrails-desktop/issues/592)) ([201da51](https://github.com/fjpulidop/specrails-desktop/commit/201da51f0553ff9d599deb5c5be050f498d49eb7))
+
 ## [2.37.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.36.0...v2.37.0) (2026-09-02)
 
 
