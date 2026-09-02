@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.38.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.38.0...v2.38.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **agent:** keep chat and MCP responsive ([#594](https://github.com/fjpulidop/specrails-desktop/issues/594)) ([f631c7c](https://github.com/fjpulidop/specrails-desktop/commit/f631c7ceb36ae0a96e1529a6c0a2fa6826c2ab02))
+
 ## [2.38.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.37.0...v2.38.0) (2026-09-02)
 
 
