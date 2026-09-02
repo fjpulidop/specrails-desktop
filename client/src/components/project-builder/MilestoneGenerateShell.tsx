@@ -63,6 +63,10 @@ export function MilestoneGenerateShell({
   const conversationIdRef = useRef<string | null>(null)
   const projectIdRef = useRef(projectId)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  // Kept in sync from the effect for every OTHER way the id can change; the
+  // bootstrap below ALSO writes it synchronously, because the seeded turn is
+  // POSTed in the same tick and its first WS frame can land before React has
+  // flushed this effect — the handler's guard would then drop it as foreign.
   useEffect(() => { conversationIdRef.current = conversationId }, [conversationId])
   useEffect(() => { projectIdRef.current = projectId }, [projectId])
 
@@ -89,6 +93,8 @@ export function MilestoneGenerateShell({
       .then((r) => r.json())
       .then((data: { conversation?: { id: string } }) => {
         if (cancelled || !data.conversation) return
+        // Synchronous, so the WS guard is armed BEFORE the seeded turn is sent.
+        conversationIdRef.current = data.conversation.id
         setConversationId(data.conversation.id)
         const planned = milestone?.plannedSpecs ?? []
         // The seed is BOTH the model instruction and the first user bubble, so
