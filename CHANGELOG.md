@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.37.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.36.0...v2.37.0) (2026-09-02)
+
+
+### Features
+
+* one independent gate per revision, not two overlapping ones ([#590](https://github.com/fjpulidop/specrails-desktop/issues/590)) ([e7eaf96](https://github.com/fjpulidop/specrails-desktop/commit/e7eaf96e49c3376817cc70fe8aff3e195bb5d840))
+
 ## [2.36.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.35.0...v2.36.0) (2026-07-31)
 
 
