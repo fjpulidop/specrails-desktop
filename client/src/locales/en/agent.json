@@ -418,6 +418,16 @@
     "expand": "Show full description",
     "collapse": "Collapse description"
   },
+  "problemFrame": {
+    "heading": "Framing",
+    "framing": "Framing the request…",
+    "restated": "What I understood",
+    "alternative": "It could also mean",
+    "touches": "Would touch",
+    "discriminator": "Which is it?",
+    "assumptions": "What I'm assuming",
+    "unknowns": "Still open"
+  },
   "refs": {
     "openTicket": "Open spec #{{id}}",
     "openPullRequest": "Open PR #{{id}}",

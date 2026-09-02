@@ -12,6 +12,8 @@ import { useWebViewModal } from '../../context/WebViewModalContext'
 import { extractAgentOptions } from './agent-options'
 import { extractAgentSpecDraft } from './agent-spec-draft'
 import { AgentSpecDraftCard, AgentSpecDraftPending } from './AgentSpecDraftCard'
+import { extractAgentProblemFrame } from './agent-problem-frame'
+import { AgentProblemFrameCard, AgentProblemFramePending } from './AgentProblemFrameCard'
 import { parseAgentRefHref, remarkAgentRefs, type AgentRefTarget } from '../../lib/agent-refs'
 import { fetchAgentAttachmentBlob, type AgentAttachment, type AgentContextReference } from '../../lib/agent-api'
 import { AgentRefChip } from './AgentRefChip'
@@ -500,14 +502,33 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, onPi
   // likewise stripped and rendered as a premium draft card below the prose;
   // while it is still streaming in, the raw JSON tail is cut and a small
   // "updating draft" chip shows instead.
-  const { body: bodyWithDraft, options } = extractAgentOptions(content)
-  const { body, draft, pending } = extractAgentSpecDraft(bodyWithDraft, streaming)
+  //
+  // A fenced ```problem-frame block (the framing step that PRECEDES drafting)
+  // gets the same treatment and renders above the draft card. A turn may carry
+  // both when the agent re-frames and re-drafts in one reply. The whole
+  // extraction chain is memoized on (content, streaming) so a streaming turn
+  // does not reparse three protocols on every frame.
+  const { body, options, frame, framePending, draft, pending } = useMemo(() => {
+    const withoutOptions = extractAgentOptions(content)
+    const withoutFrame = extractAgentProblemFrame(withoutOptions.body, streaming)
+    const withoutDraft = extractAgentSpecDraft(withoutFrame.body, streaming)
+    return {
+      body: withoutDraft.body,
+      options: withoutOptions.options,
+      frame: withoutFrame.frame,
+      framePending: withoutFrame.pending,
+      draft: withoutDraft.draft,
+      pending: withoutDraft.pending,
+    }
+  }, [content, streaming])
   const showChips = !!options && !!isLast && !streaming && !!onPickOption
   return (
     <div className="group flex flex-col gap-1">
       <div className={cn('max-w-full', MD)}>
         <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>{body}</ReactMarkdown>
       </div>
+      {frame && <AgentProblemFrameCard frame={frame} />}
+      {framePending && <AgentProblemFramePending />}
       {draft && <AgentSpecDraftCard draft={draft} />}
       {pending && <AgentSpecDraftPending />}
       {showChips && (

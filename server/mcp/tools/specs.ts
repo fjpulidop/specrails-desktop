@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
 import { apiCall, projectPath } from './types'
+import { checkSpecFraming, recordSpecCommitted } from '../../agent-spec-framing'
 
 // Mirror of the McpTier union (mcp-tiers) — `./types` re-imports but does not
 // re-export it, so we restate the literal union to keep imports to zod + ./types.
@@ -318,7 +319,20 @@ export function specsTools(): McpToolSpec[] {
               : agentAuthored
                 ? true
                 : undefined
-            return apiCall(ctx, 'POST', `${base}/tickets/from-draft`, {
+            // The framing gate (critical-spec-framing): a spec the in-app agent
+            // authored may not be persisted until the conversation holds a
+            // problem frame the user has answered, and one frame authorises ONE
+            // spec. Applied ONLY to first-party calls carrying a conversation —
+            // an external MCP client cannot render the framing card and holds no
+            // conversation here, so its behaviour is byte-identical to before.
+            // Throwing lands in registerTieredTool's catch, producing the same
+            // errorResult shape a tier refusal does.
+            const framedConversationId = ctx.firstPartyAgent ? ctx.originConversationId : null
+            if (framedConversationId) {
+              const refusal = checkSpecFraming(ctx.desktopDb, framedConversationId)
+              if (refusal) throw new Error(refusal)
+            }
+            const committed = await apiCall(ctx, 'POST', `${base}/tickets/from-draft`, {
               title: args.title,
               description: args.description,
               draftTicketId: args.draftTicketId,
@@ -334,6 +348,11 @@ export function specsTools(): McpToolSpec[] {
               createLocal: args.createLocal,
               contractRefine,
             })
+            // Spend the frame only on a spec that actually landed: a refusal or
+            // a failed write above throws before reaching here, so nothing is
+            // consumed by an attempt.
+            if (framedConversationId) recordSpecCommitted(ctx.desktopDb, framedConversationId)
+            return committed
           }
           case 'cancel_ai_edit': {
             if (!args.requestId) throw new Error('cancel_ai_edit requires a "requestId".')

@@ -418,6 +418,16 @@
     "expand": "Ver descrição completa",
     "collapse": "Recolher descrição"
   },
+  "problemFrame": {
+    "heading": "Enquadramento",
+    "framing": "A enquadrar o pedido…",
+    "restated": "O que entendi",
+    "alternative": "Também poderia significar",
+    "touches": "Tocaria em",
+    "discriminator": "Qual das duas?",
+    "assumptions": "O que estou a assumir",
+    "unknowns": "Ainda em aberto"
+  },
   "refs": {
     "openTicket": "Abrir spec #{{id}}",
     "openPullRequest": "Abrir PR #{{id}}",

@@ -418,6 +418,16 @@
     "expand": "显示完整描述",
     "collapse": "收起描述"
   },
+  "problemFrame": {
+    "heading": "理解框架",
+    "framing": "正在梳理需求…",
+    "restated": "我的理解",
+    "alternative": "也可能是指",
+    "touches": "会涉及",
+    "discriminator": "是哪一种？",
+    "assumptions": "我的假设",
+    "unknowns": "仍待确认"
+  },
   "refs": {
     "openTicket": "打开 Spec #{{id}}",
     "openPullRequest": "打开 PR #{{id}}",

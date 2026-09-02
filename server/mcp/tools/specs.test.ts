@@ -5,6 +5,7 @@ import type { ProjectRegistry, ProjectContext } from '../../project-registry'
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import { specsTools } from './specs'
 import type { McpToolContext } from './types'
+import { createAgentConversation, addAgentMessage, listAgentMessages } from '../../agent-store'
 
 // Focused tests for the specs facade behavior fixes (plan B4/B5):
 //  - `create` forwards the full generate-spec option set via the shared body
@@ -197,5 +198,132 @@ describe('specrails_specs facade', () => {
     await spec.handler(ctx, { action: 'update', projectId: 'p1', id: 5, priority: null })
     const body = lastBody()
     expect(body.priority).toBeNull()
+  })
+})
+
+// ─── The framing gate on commit_draft (critical-spec-framing) ─────────────────
+// A spec the IN-APP agent authored may not be persisted until the conversation
+// holds a problem frame the user has answered. External MCP clients are exempt:
+// they cannot render the card and hold no conversation here.
+
+describe('specrails_specs commit_draft — framing gate', () => {
+  let db: DbInstance
+  let baseCtx: McpToolContext
+  let fetchMock: ReturnType<typeof vi.fn>
+  let conversationId: string
+  const spec = specsTools()[0]
+
+  const frame = {
+    restated: { reading: 'Group the Settings sections', touches: ['client/src/pages/SettingsPage.tsx'] },
+    alternative: { reading: 'Make one setting findable from anywhere', touches: ['client/src/components/CommandPalette.tsx'] },
+    discriminator: 'Are you scanning the page, or did you arrive by accident?',
+    assumptions: [],
+    unknowns: [],
+  }
+  const fenced = '```problem-frame\n' + JSON.stringify(frame) + '\n```'
+
+  const commitArgs = {
+    action: 'commit_draft',
+    projectId: 'p1',
+    title: 'Group the Settings sections',
+    description: 'D',
+    acceptanceCriteria: ['C'],
+  }
+
+  function firstParty(): McpToolContext {
+    return { ...baseCtx, firstPartyAgent: true, originConversationId: conversationId }
+  }
+
+  beforeEach(() => {
+    db = initDesktopDb(':memory:')
+    baseCtx = makeCtx(db)
+    conversationId = createAgentConversation(db, {}).id
+    fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ id: 42 }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    db.close()
+  })
+
+  function answeredFrame() {
+    addAgentMessage(db, { conversationId, role: 'assistant', content: fenced })
+    addAgentMessage(db, { conversationId, role: 'user', content: 'yes, the first one' })
+  }
+
+  it('refuses a first-party commit with no frame, and writes nothing', async () => {
+    await expect(spec.handler(firstParty(), { ...commitArgs })).rejects.toThrow(/problem-frame/)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(listAgentMessages(db, conversationId)).toHaveLength(0)
+  })
+
+  it('refuses while the frame is still unanswered', async () => {
+    addAgentMessage(db, { conversationId, role: 'assistant', content: fenced })
+    await expect(spec.handler(firstParty(), { ...commitArgs })).rejects.toThrow(/has not answered/)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('proceeds once the frame is answered, keeping the Contract Layer default', async () => {
+    answeredFrame()
+    const result = await spec.handler(firstParty(), { ...commitArgs })
+    expect(result).toEqual({ id: 42 })
+    const call = fetchMock.mock.calls.at(-1) as [string, { body?: string }]
+    const body = JSON.parse(call[1].body ?? '{}') as Record<string, unknown>
+    expect(body.title).toBe('Group the Settings sections')
+    expect(body.contractRefine).toBe(true)
+  })
+
+  it('spends the frame: a second spec in the same conversation is refused', async () => {
+    answeredFrame()
+    await spec.handler(firstParty(), { ...commitArgs })
+    fetchMock.mockClear()
+    await expect(spec.handler(firstParty(), { ...commitArgs, title: 'Second' })).rejects.toThrow(/already spent/)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('a fresh frame after the commit re-arms the path', async () => {
+    answeredFrame()
+    await spec.handler(firstParty(), { ...commitArgs })
+    answeredFrame()
+    await expect(spec.handler(firstParty(), { ...commitArgs, title: 'Second' })).resolves.toEqual({ id: 42 })
+  })
+
+  it('a user waiver lets several specs through untouched', async () => {
+    addAgentMessage(db, { conversationId, role: 'user', content: '#noframe just do it' })
+    await expect(spec.handler(firstParty(), { ...commitArgs })).resolves.toEqual({ id: 42 })
+    await expect(spec.handler(firstParty(), { ...commitArgs, title: 'Second' })).resolves.toEqual({ id: 42 })
+  })
+
+  it('a failed write does not spend the frame', async () => {
+    answeredFrame()
+    fetchMock.mockImplementationOnce(async () => ({ ok: false, status: 500, text: async () => 'boom' }))
+    await expect(spec.handler(firstParty(), { ...commitArgs })).rejects.toThrow()
+    // Still satisfied: nothing was consumed by the attempt.
+    await expect(spec.handler(firstParty(), { ...commitArgs })).resolves.toEqual({ id: 42 })
+  })
+
+  it('an EXTERNAL MCP client is unaffected — no frame required, no marker written', async () => {
+    await expect(spec.handler(baseCtx, { ...commitArgs })).resolves.toEqual({ id: 42 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(listAgentMessages(db, conversationId)).toHaveLength(0)
+  })
+
+  it('a first-party call without a conversation is not gated (nothing to read)', async () => {
+    const noConversation = { ...baseCtx, firstPartyAgent: true, originConversationId: null }
+    await expect(spec.handler(noConversation, { ...commitArgs })).resolves.toEqual({ id: 42 })
+  })
+
+  it('an Explore-origin flip is gated too, and keeps its own contractRefine default', async () => {
+    answeredFrame()
+    await spec.handler(firstParty(), { ...commitArgs, conversationId: 'explore-conv-1', priority: 'medium' })
+    const call = fetchMock.mock.calls.at(-1) as [string, { body?: string }]
+    const body = JSON.parse(call[1].body ?? '{}') as Record<string, unknown>
+    expect(body.conversationId).toBe('explore-conv-1')
+    expect(body.contractRefine).toBeUndefined()
   })
 })

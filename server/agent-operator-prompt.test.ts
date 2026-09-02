@@ -258,3 +258,138 @@ describe('OPERATOR_INSTRUCTIONS — external user tools disclosure', () => {
     expect(bullet).toContain('`specrails_*` tools')
   })
 })
+
+// ─── Framing the request (critical-spec-framing) ──────────────────────────────
+// The framing card is a forcing function, not advice: the client parser
+// (client/src/components/agent-chat/agent-problem-frame.ts) and the server gate
+// (server/agent-spec-framing.ts) both depend on the model being taught this
+// exact protocol. A reword that drops the block, the discriminator, or the
+// user-only waiver must fail here rather than degrade silently in production.
+
+describe('OPERATOR_INSTRUCTIONS — framing precedes drafting', () => {
+  it('carries the framing section and its fenced block protocol', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('## Framing the request')
+    expect(OPERATOR_INSTRUCTIONS).toContain('```problem-frame')
+    expect(OPERATOR_INSTRUCTIONS).toContain('"restated"')
+    expect(OPERATOR_INSTRUCTIONS).toContain('"alternative"')
+    expect(OPERATOR_INSTRUCTIONS).toContain('"discriminator"')
+    expect(OPERATOR_INSTRUCTIONS).toContain('FULL SNAPSHOT')
+  })
+
+  it('requires the alternative to be a different reading and anchors both in real paths', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('GENUINELY')
+    expect(OPERATOR_INSTRUCTIONS).toContain('not the same reading in other words')
+    expect(OPERATOR_INSTRUCTIONS).toContain('ACTUALLY READ')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Never list a path you did not open')
+  })
+
+  it('teaches the discriminator as the check on a fabricated second reading', () => {
+    const idx = OPERATOR_INSTRUCTIONS.indexOf('`discriminator` is the ONE thing')
+    expect(idx).toBeGreaterThan(-1)
+    const bullet = OPERATOR_INSTRUCTIONS.slice(idx, idx + 400)
+    expect(bullet).toContain('your two readings are the same')
+  })
+
+  it('ends the turn on the framing question', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('The framing question is the LAST thing in the turn')
+  })
+
+  it('states a question FLOOR alongside the existing ceiling', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('ask at least ONE')
+    expect(OPERATOR_INSTRUCTIONS).toContain('at most TWO per turn')
+    expect(OPERATOR_INSTRUCTIONS).toContain('staying silent is not neutral')
+  })
+
+  it('makes the waiver user-only, token-driven and never agent-inferred', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('#noframe')
+    expect(OPERATOR_INSTRUCTIONS).toContain('#frame')
+    expect(OPERATOR_INSTRUCTIONS).toContain('The USER, never you')
+    expect(OPERATOR_INSTRUCTIONS).toContain('may NOT ask the user to send')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Certainty is not evidence')
+  })
+
+  it('requires the waiver to be ANNOUNCED with the word that restores it', () => {
+    const idx = OPERATOR_INSTRUCTIONS.indexOf('**Switching it off.**')
+    expect(idx).toBeGreaterThan(-1)
+    const section = OPERATOR_INSTRUCTIONS.slice(idx, idx + 600)
+    expect(section).toContain('say plainly that framing is off')
+    expect(section).toContain('`#frame` turns it back on')
+  })
+
+  it('teaches the commit_draft gate as a missing artifact, not an obstacle', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('one frame authorises ONE spec')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Never work\naround it')
+  })
+
+  it('extends framing to the AI creation paths the hard gate does not cover', () => {
+    const idx = OPERATOR_INSTRUCTIONS.indexOf('Frame before the other creation paths')
+    expect(idx).toBeGreaterThan(-1)
+    expect(OPERATOR_INSTRUCTIONS.slice(idx, idx + 200)).toContain('`generate`')
+  })
+
+  it('drops the numbered dispatch pipeline that led with spec capture', () => {
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('## Think in specs (default stance)')
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('1. Check the backlog for duplicates first')
+    expect(OPERATOR_INSTRUCTIONS).toContain('## Understand first (default stance)')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Your\nfirst move is never to draft')
+  })
+
+  it('no longer makes the agent judge whether a request is clear enough to one-shot', () => {
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('when the request is fuzzy, contested, or')
+    expect(OPERATOR_INSTRUCTIONS).toContain('that judgement is exactly the one you are worst')
+    // The Quick path must not reintroduce the same self-assessment trigger.
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('Use for clear, well-scoped requests')
+    expect(OPERATOR_INSTRUCTIONS).toContain('not because YOU judged the request clear')
+  })
+
+  it('stops "action-oriented" from governing spec authoring', () => {
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('Be concise and action-oriented')
+    expect(OPERATOR_INSTRUCTIONS).toContain('understanding the request comes before dispatch')
+  })
+
+  it('opens spec refinement with the frame, not with the draft', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('ALWAYS opens with the framing card')
+    expect(OPERATOR_INSTRUCTIONS).toContain('never in the same breath as your first reading')
+  })
+})
+
+describe('OPERATOR_SYSTEM_PROMPT — framing non-negotiable stays in sync', () => {
+  it('carries the block, its fields and the discriminator', () => {
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('problem-frame')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('discriminator')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('DIFFERENT reading of the same request')
+  })
+
+  it('carries the gate and the user-only waiver tokens', () => {
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('commit_draft refuses until a frame has been answered')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('one frame authorises ONE spec')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('#noframe')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('never skip framing because you feel certain')
+  })
+})
+
+describe('existing guardrails survive the framing rewrite', () => {
+  it('keeps the cost, destruction and one-yes-one-action rules', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('without first proposing it in\n  plain words')
+    expect(OPERATOR_INSTRUCTIONS).toContain('is irreversible, and receiving an explicit yes naming it')
+    expect(OPERATOR_INSTRUCTIONS).toContain('One yes covers one action')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Ask a confirmation question EXACTLY ONCE')
+  })
+
+  it('keeps the permission ladder and the support-first routing', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('observe (read) ▸ edit (write) ▸')
+    expect(OPERATOR_INSTRUCTIONS).toContain("specrails_support(action:'triage'")
+    expect(OPERATOR_INSTRUCTIONS).toContain('this is SUPPORT — not backlog work')
+  })
+
+  it('keeps support questions out of the framing path', () => {
+    const idx = OPERATOR_INSTRUCTIONS.indexOf('## Understand first (default stance)')
+    const section = OPERATOR_INSTRUCTIONS.slice(idx, idx + 900)
+    expect(section).toContain('does NOT apply to support/troubleshooting')
+  })
+
+  it('keeps both constants free of interpolation after the rewrite', () => {
+    expect(OPERATOR_INSTRUCTIONS).not.toMatch(/\$\{/)
+    expect(OPERATOR_SYSTEM_PROMPT).not.toMatch(/\$\{/)
+  })
+})
