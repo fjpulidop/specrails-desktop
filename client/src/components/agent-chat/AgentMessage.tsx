@@ -407,7 +407,15 @@ interface Props {
   streaming?: boolean
   /** True only for the newest message while no turn is streaming — gates chips. */
   isLast?: boolean
-  /** Sends the clicked option label as the user's reply. */
+  /** True for the newest message in the thread, streaming or not. Unlike
+   *  `isLast` this survives an in-flight turn, so the problem-frame card can
+   *  keep its (disabled) reading affordance instead of silently going static. */
+  isLatest?: boolean
+  /** A turn is in flight anywhere in the conversation — disables the frame
+   *  card's readings so a click can't queue a duplicate concurrent reply. */
+  isStreaming?: boolean
+  /** Sends the clicked option label — or a picked problem-frame reading — as
+   *  the user's reply (the same send() the composer's submit() calls). */
   onPickOption?: (option: string) => void
   /** Project scope for ticket/job ref chips — the mission's pinned project.
    *  null/undefined (Home / app-global conversations) ⇒ refs stay plain text. */
@@ -423,7 +431,7 @@ interface Props {
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
-export function AgentMessage({ role, content, createdAt, streaming, isLast, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId }: Props) {
+export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId }: Props) {
   const isUser = role === 'user'
   const { openWebView, canOpenWebView } = useWebViewModal()
 
@@ -527,7 +535,18 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, onPi
       <div className={cn('max-w-full', MD)}>
         <ReactMarkdown remarkPlugins={remarkPlugins} components={markdownComponents}>{body}</ReactMarkdown>
       </div>
-      {frame && <AgentProblemFrameCard frame={frame} />}
+      {frame && (
+        // Both readings are clickable answers to the discriminating question:
+        // the same send() the option chips use, gated to the newest card and
+        // disabled while a turn is in flight (no resend of an answered frame,
+        // no duplicate concurrent turn).
+        <AgentProblemFrameCard
+          frame={frame}
+          isLatest={!!isLatest}
+          isStreaming={!!isStreaming || !!streaming}
+          onSelect={onPickOption}
+        />
+      )}
       {framePending && <AgentProblemFramePending />}
       {draft && <AgentSpecDraftCard draft={draft} />}
       {pending && <AgentSpecDraftPending />}
