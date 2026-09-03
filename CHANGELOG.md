@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.38.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.38.1...v2.38.2) (2026-09-03)
+
+
+### Bug Fixes
+
+* **code-explorer:** stop the EMFILE watcher crash and let the agent locate files ([#596](https://github.com/fjpulidop/specrails-desktop/issues/596)) ([aa84e21](https://github.com/fjpulidop/specrails-desktop/commit/aa84e214a284a42b0fc0223a75c7228ce3673814))
+
 ## [2.38.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.38.0...v2.38.1) (2026-09-02)
 
 
