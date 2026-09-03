@@ -1,7 +1,7 @@
 import { createHash, randomUUID, randomBytes } from 'crypto'
 import * as fs from 'fs'
 import * as path from 'path'
-import chokidar, { type FSWatcher } from 'chokidar'
+import chokidar from 'chokidar'
 import Ajv2020 from 'ajv/dist/2020'
 import type { ValidateFunction } from 'ajv'
 import { isInBuildDir } from './build-dirs'
@@ -73,6 +73,11 @@ export interface GenerateOutput {
 }
 
 export interface FileSummaryDeps {
+  /** Test seam: override the platform-derived source-watch engine
+   *  (see resolveWatchEngine). */
+  watchEngine?: WatchEngine
+  /** Test seam: the `fs.watch` the 'native' engine calls. */
+  fsWatch?: typeof fs.watch
   db: DbInstance
   broadcast: (msg: WsMessage) => void
   /** Generate a summary. The optional AbortSignal lets the manager tear down an
@@ -289,9 +294,56 @@ interface QueueEntry {
   reject: (err: Error) => void
 }
 
+/** Which engine backs a project's source watcher. */
+export type WatchEngine = 'native' | 'chokidar'
+/** `degraded` = the watcher could not start or died (fd / inotify exhaustion,
+ *  unsupported platform). The manager keeps working — edits just stop marking
+ *  summaries stale until the next explicit read/regenerate hash check. */
+export type WatcherStatus = WatchEngine | 'degraded'
+
 interface WatcherState {
   projectPath: string
-  watcher: FSWatcher
+  status: WatcherStatus
+  close: () => void
+  /** Per-relpath trailing debounce so one logical edit (editors write in
+   *  several chunks / temp-file renames) marks stale ONCE — the successor of
+   *  chokidar's awaitWriteFinish. */
+  timers: Map<string, ReturnType<typeof setTimeout>>
+}
+
+/** Trailing debounce applied to source-change events before the stale check. */
+export const WATCH_DEBOUNCE_MS = 200
+
+/** Errno codes meaning the watcher is consuming a process-wide resource it can
+ *  no longer get (kqueue file descriptors on macOS, inotify watches on Linux).
+ *  Keeping such a watcher alive keeps the leak — and, before this guard, an
+ *  unhandled `error` event on the recursive watcher took the whole server down
+ *  (`Error: EMFILE: too many open files, watch`). Close + degrade instead. */
+const WATCHER_EXHAUSTION_CODES: ReadonlySet<string> = new Set(['EMFILE', 'ENFILE', 'ENOSPC'])
+
+/**
+ * Pick the source-watch engine for a platform.
+ *
+ * macOS and Windows get the kernel's own recursive watch —
+ * `fs.watch(dir, { recursive: true })` = FSEvents / ReadDirectoryChangesW —
+ * which costs ONE handle for the whole tree. chokidar ≥ 4 dropped fsevents and
+ * watches every file with its own `fs.watch`; on macOS that is one kqueue fd
+ * PER FILE, so any repo past the ~10k-fd limit blew the process up with
+ * `EMFILE: too many open files, watch`. Linux keeps chokidar: inotify watches
+ * are not fds, and chokidar's `ignored` pruning keeps `node_modules` / build
+ * trees out of the watch set (Node's own recursive implementation on Linux
+ * walks and watches everything, `node_modules` included).
+ */
+export function resolveWatchEngine(platform: NodeJS.Platform = process.platform): WatchEngine {
+  return platform === 'darwin' || platform === 'win32' ? 'native' : 'chokidar'
+}
+
+function errnoCode(err: unknown): string | undefined {
+  return (err as NodeJS.ErrnoException | undefined)?.code
+}
+
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
 }
 
 // App-wide concurrency is shared across EVERY FileSummaryManager instance.
@@ -343,9 +395,9 @@ export class FileSummaryManager {
   private _disposed = false
   // Per-project SUPERSET of relPaths that have a summary on disk. Seeded from
   // the summaries dir at attachWatcher and only ever added to (on write), so a
-  // path absent from the set provably has no summary — letting the chokidar
-  // 'change' handler skip the readSummary disk hit for the common no-summary
-  // file. A stale entry (after sweep) just costs one harmless failed read.
+  // path absent from the set provably has no summary — letting the watcher's
+  // change funnel skip the disk hits for the common no-summary file. A stale
+  // entry (after sweep) just costs one harmless failed read.
   private readonly knownSummaries = new Map<string, Set<string>>()
   // Tracks pending generation promises so flush() can await them in tests.
   private readonly pending = new Set<Promise<unknown>>()
@@ -718,6 +770,11 @@ export class FileSummaryManager {
    * summary JSON lives (workspace when relocated) — source is watched at
    * `projectPath`, summaries are scanned/swept/marked at `summaryRoot`. When
    * omitted `summaryRoot` defaults to `projectPath` (legacy, byte-identical).
+   *
+   * Never throws and never lets the watcher take the process down: a watcher
+   * that cannot start (or later dies of fd/inotify exhaustion) leaves the
+   * project attached in `degraded` status, so later Code-Explorer requests do
+   * not retry a doomed recursive watch on every hit.
    */
   attachWatcher(projectId: string, projectPath: string, summaryRoot?: string): void {
     if (this.watchers.has(projectId)) return
@@ -725,16 +782,58 @@ export class FileSummaryManager {
     this.knownSummaries.set(projectId, this.scanKnownSummaries(sumRoot))
     // Reclaim summary JSON files whose source file was renamed/deleted since the
     // last session. Runs once per project per session (attachWatcher is
-    // idempotent) and is capped at 200/pass inside sweepOrphans. The chokidar
-    // watcher only sees 'change', never 'unlink', so this is the only reaper.
+    // idempotent) and is capped at 200/pass inside sweepOrphans. The watcher
+    // only marks stale, never deletes, so this is the only reaper.
     // sweepOrphans resolves source files against the repo, so it must know both:
     // summaries under sumRoot, source under projectPath.
     try { sweepOrphans(sumRoot, undefined, projectPath) } catch { /* best effort */ }
-    // CRITICAL: prune build/dep trees (node_modules, dist, target, src-tauri/target,
-    // dot-dirs, …) from the recursive watch. Watching a Rust/Tauri `target/` tree
-    // opened ~10k file descriptors and broke terminal spawning under fd pressure.
-    // The predicate is tested against each path relative to the project root so a
-    // dot-segment in the absolute prefix (the user's home dir) can't false-positive.
+    // Registered BEFORE the watch is created so a failed start still counts as
+    // attached (degraded) — idempotency is what stops a retry storm.
+    const state: WatcherState = { projectPath, status: 'degraded', close: () => {}, timers: new Map() }
+    this.watchers.set(projectId, state)
+    const engine = this.deps.watchEngine ?? resolveWatchEngine()
+    const onChange = (raw: string | Buffer | null): void => this.onSourceChanged(projectId, state, raw, sumRoot)
+    const onError = (err: unknown): void => this.onWatcherError(projectId, state, err)
+    try {
+      state.close = engine === 'native'
+        ? this.startNativeWatcher(projectPath, onChange, onError)
+        : this.startChokidarWatcher(projectPath, onChange, onError)
+      state.status = engine
+    } catch (err) {
+      this.degradeWatcher(projectId, state, err, 'start')
+    }
+  }
+
+  /** Current watcher status for a project, or null when never attached. */
+  watcherStatus(projectId: string): WatcherStatus | null {
+    return this.watchers.get(projectId)?.status ?? null
+  }
+
+  /** One kernel-level recursive watch for the whole tree (FSEvents on macOS,
+   *  ReadDirectoryChangesW on Windows). `filename` arrives relative to the
+   *  watched root. `persistent: false` — the HTTP server keeps the process
+   *  alive; a watcher never should. */
+  private startNativeWatcher(
+    projectPath: string,
+    onChange: (raw: string | Buffer | null) => void,
+    onError: (err: unknown) => void,
+  ): () => void {
+    const watch = this.deps.fsWatch ?? fs.watch
+    const watcher = watch(projectPath, { recursive: true, persistent: false }, (_event, filename) => onChange(filename))
+    watcher.on('error', onError)
+    return () => { try { watcher.close() } catch { /* best effort */ } }
+  }
+
+  /** chokidar (Linux): one inotify watch per file/dir, so the build/dep trees
+   *  MUST be pruned — a Rust `target/` or `node_modules` alone is tens of
+   *  thousands of watches. The predicate is tested against each path relative
+   *  to the project root so a dot-segment in the absolute prefix (the user's
+   *  home dir) can't false-positive. */
+  private startChokidarWatcher(
+    projectPath: string,
+    onChange: (raw: string | Buffer | null) => void,
+    onError: (err: unknown) => void,
+  ): () => void {
     const watcher = chokidar.watch(projectPath, {
       followSymlinks: false,
       ignored: (p: string) => {
@@ -743,23 +842,89 @@ export class FileSummaryManager {
         return isInBuildDir(rel)
       },
       ignoreInitial: true,
-      persistent: true,
-      // Coalesce partial-write churn so one logical edit fires one event.
-      awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 100 },
+      // A dir we cannot read is not a reason to lose the whole watcher.
+      ignorePermissionErrors: true,
+      persistent: false,
     })
-    watcher.on('change', (changed: string) => {
-      // The summary store keys off POSIX forward-slash relpaths everywhere
-      // (the REST normalizeRel, pathHash, knownSummaries seeding). On Windows
-      // path.relative yields backslashes, so normalize before lookup/markStale —
-      // otherwise `known.has(rel)` always misses and edits never mark stale.
-      const rel = path.relative(projectPath, changed).split(path.sep).join('/')
-      if (!rel || rel.startsWith('..')) return
-      // Skip the readSummary disk hit when this file provably has no summary.
-      const known = this.knownSummaries.get(projectId)
-      if (known && !known.has(rel)) return
-      this.markStale(projectPath, projectId, rel, sumRoot)
-    })
-    this.watchers.set(projectId, { projectPath, watcher })
+    watcher.on('change', (changed: string) => onChange(changed))
+    watcher.on('unlink', (removed: string) => onChange(removed))
+    watcher.on('error', onError)
+    return () => { void watcher.close().catch(() => { /* best effort */ }) }
+  }
+
+  /** Shared change funnel for both engines: normalise to a POSIX relpath, drop
+   *  build/dep/dot trees and files that provably have no summary, then debounce
+   *  per path before the (hash-checked) stale mark. */
+  private onSourceChanged(projectId: string, state: WatcherState, raw: string | Buffer | null, sumRoot: string): void {
+    if (raw == null || this._disposed || state.status === 'degraded') return
+    const name = typeof raw === 'string' ? raw : raw.toString()
+    // Native engines report paths relative to the watched root (Windows with
+    // backslashes); chokidar reports absolute paths. Meet in the middle.
+    const relRaw = path.isAbsolute(name) ? path.relative(state.projectPath, name) : name
+    // The summary store keys off POSIX forward-slash relpaths everywhere (the
+    // REST normalizeRel, pathHash, knownSummaries seeding) — normalise before
+    // lookup/markStale, otherwise `known.has(rel)` always misses on Windows.
+    const rel = relRaw.split(path.sep).join('/')
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return
+    if (isInBuildDir(rel)) return
+    // Skip the disk hits when this file provably has no summary.
+    const known = this.knownSummaries.get(projectId)
+    if (known && !known.has(rel)) return
+    const pending = state.timers.get(rel)
+    if (pending) clearTimeout(pending)
+    const timer = setTimeout(() => {
+      state.timers.delete(rel)
+      void this.markStaleIfChanged(state.projectPath, projectId, rel, sumRoot)
+    }, WATCH_DEBOUNCE_MS)
+    timer.unref?.()
+    state.timers.set(rel, timer)
+  }
+
+  /** Watcher-side markStale: broadcast ONLY when the source really differs from
+   *  what the summary was generated against. A save that leaves the bytes
+   *  unchanged, an editor's temp-file dance, or a replayed/coalesced kernel
+   *  event must not flag a still-valid summary. A source that vanished IS
+   *  stale — the summary describes a file that is gone. */
+  private async markStaleIfChanged(projectPath: string, projectId: string, rel: string, sumRoot: string): Promise<void> {
+    const existing = readSummary(sumRoot, rel)
+    if (!existing) return
+    let hash: string | null = null
+    try { hash = await computeFileHash(path.join(projectPath, rel)) } catch { hash = null }
+    if (hash !== null && hash === existing.fileHash) return
+    if (this._disposed) return
+    this.deps.broadcast(buildSummaryUpdated(projectId, existing, true))
+  }
+
+  private onWatcherError(projectId: string, state: WatcherState, err: unknown): void {
+    const code = errnoCode(err)
+    if (code && !WATCHER_EXHAUSTION_CODES.has(code) && state.status !== 'degraded') {
+      // Transient and local (a dir vanished mid-scan, a permission hiccup on
+      // one subtree): keep watching, just log.
+      console.warn('[file-summary] watcher error', JSON.stringify({ projectId, code, error: errMessage(err) }))
+      return
+    }
+    this.degradeWatcher(projectId, state, err, 'runtime')
+  }
+
+  /** Release the watcher (and, with it, every fd/watch it holds) and park the
+   *  project in degraded mode. Logged once — never thrown, never re-armed. */
+  private degradeWatcher(projectId: string, state: WatcherState, err: unknown, phase: 'start' | 'runtime'): void {
+    const alreadyDegraded = state.status === 'degraded' && phase === 'runtime'
+    state.status = 'degraded'
+    this.closeWatcherState(state)
+    if (alreadyDegraded) return
+    console.warn(
+      '[file-summary] watcher degraded — edits will not mark summaries stale until the next explicit read/regenerate',
+      JSON.stringify({ projectId, projectPath: state.projectPath, phase, code: errnoCode(err) ?? null, error: errMessage(err) }),
+    )
+  }
+
+  private closeWatcherState(state: WatcherState): void {
+    const close = state.close
+    state.close = () => {}
+    try { close() } catch { /* best effort */ }
+    for (const timer of state.timers.values()) clearTimeout(timer)
+    state.timers.clear()
   }
 
   /** Read the relPaths of every summary on disk into a set (one-time at attach). */
@@ -781,7 +946,7 @@ export class FileSummaryManager {
   detachWatcher(projectId: string): void {
     const state = this.watchers.get(projectId)
     if (!state) return
-    void state.watcher.close()
+    this.closeWatcherState(state)
     this.watchers.delete(projectId)
     this.knownSummaries.delete(projectId)
   }
@@ -809,15 +974,14 @@ export class FileSummaryManager {
     this.queues.clear()
     this.inFlightByKey.clear()
     this.pendingSpend.clear()
-    for (const [, state] of this.watchers) {
-      try { void state.watcher.close() } catch { /* best effort */ }
-    }
+    for (const [, state] of this.watchers) this.closeWatcherState(state)
     this.watchers.clear()
     this.knownSummaries.clear()
   }
 
-  /** Close every watcher. Called on graceful server shutdown so chokidar's
-   *  underlying fsevents/inotify handles are released, never leaked. */
+  /** Close every watcher. Called on graceful server shutdown so the
+   *  underlying FSEvents/ReadDirectoryChangesW/inotify handles are released,
+   *  never leaked. */
   disposeAll(): void {
     this.dispose()
   }

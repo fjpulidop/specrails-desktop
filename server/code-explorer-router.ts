@@ -290,6 +290,52 @@ interface TreeScanResult {
   maxDurationMs: number
 }
 
+const DEFAULT_FIND_LIMIT = 20
+const MAX_FIND_LIMIT = 50
+const MAX_FIND_QUERY_LENGTH = 256
+
+export type FindMatchKind = 'exact' | 'suffix' | 'basename' | 'substring'
+
+export interface FindMatch {
+  rel: string
+  size: number | null
+  match: FindMatchKind
+}
+
+/**
+ * Rank the files of a scan against a name / path-suffix / fragment query.
+ * Case-insensitive, POSIX-normalised. Order: `exact` (whole relpath), `suffix`
+ * (the query is the tail of the relpath — the "path copied from a stack trace
+ * or import that is relative to some subdirectory" case), `basename` (same
+ * file name under another directory), `substring`; ties break on the shorter
+ * path. Directories never match — the caller wants something to read.
+ */
+export function rankFindMatches(
+  entries: ReadonlyArray<{ rel: string; isDir: boolean; size: number | null }>,
+  query: string,
+): FindMatch[] {
+  const needle = query.trim().replace(/\\/g, '/').replace(/^(\.\/|\/)+/, '').toLowerCase()
+  if (!needle) return []
+  const needleBase = needle.slice(needle.lastIndexOf('/') + 1)
+  const order: Record<FindMatchKind, number> = { exact: 0, suffix: 1, basename: 2, substring: 3 }
+  const out: FindMatch[] = []
+  for (const e of entries) {
+    if (e.isDir) continue
+    const rel = e.rel.toLowerCase()
+    const base = rel.slice(rel.lastIndexOf('/') + 1)
+    let match: FindMatchKind | null = null
+    if (rel === needle) match = 'exact'
+    else if (rel.endsWith(`/${needle}`)) match = 'suffix'
+    else if (needleBase && base === needleBase) match = 'basename'
+    else if (rel.includes(needle)) match = 'substring'
+    if (match) out.push({ rel: e.rel, size: e.size, match })
+  }
+  out.sort((a, b) =>
+    order[a.match] - order[b.match] || a.rel.length - b.rel.length || (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0),
+  )
+  return out
+}
+
 function positiveEnvInt(name: string, fallback: number): number {
   const parsed = Number.parseInt(process.env[name] ?? '', 10)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
@@ -615,6 +661,34 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
           cache,
         },
       } : {}),
+    })
+  })
+
+  /**
+   * Locate files by name / path-suffix / fragment across the whole scanned tree
+   * (same deny-list + .gitignore rules as `/tree?filter=all`, same cached scan).
+   * The escape hatch for a caller holding a path that is relative to some
+   * subdirectory (a stack trace, an import): `/file` 404s, `/find` says where
+   * the file actually lives.
+   */
+  router.get('/find', async (req: Request, res: Response) => {
+    const q = parseNonEmptyString(req.query.q)
+    if (!q) {
+      res.status(400).json({ error: 'q is required' })
+      return
+    }
+    if (q.length > MAX_FIND_QUERY_LENGTH) {
+      res.status(400).json({ error: `q must be at most ${MAX_FIND_QUERY_LENGTH} characters` })
+      return
+    }
+    const limit = Math.min(parsePositiveInt(req.query.limit) ?? DEFAULT_FIND_LIMIT, MAX_FIND_LIMIT)
+    const { scan } = await getAllEntriesCached()
+    const ranked = rankFindMatches(scan.entries, q)
+    res.json({
+      query: q,
+      matches: ranked.slice(0, limit).map((m) => ({ path: m.rel, sizeBytes: m.size, match: m.match })),
+      total: ranked.length,
+      truncated: scan.truncated,
     })
   })
 

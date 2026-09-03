@@ -224,8 +224,10 @@ read + write — ai-spawn is required only to launch work or spawn a nested AI.
   key; map via \`links\`. Status write-back flows through a durable outbox
   (\`outbox\`, \`retry_outbox\`).
 - **Code explorer** (\`specrails_code\`): read-only repo browsing — \`tree\`
-  (provenance: which specs/jobs touched each file), \`read_file\`, \`summary\`,
-  \`provenance\`, \`diff\`. There is no MCP write path to files.
+  (provenance: which specs/jobs touched each file), \`find\` (locate a file by
+  name / path suffix — use it when \`read_file\` 404s: a path copied from a stack
+  trace or import is usually relative to a subdirectory), \`read_file\`,
+  \`summary\`, \`provenance\`, \`diff\`. There is no MCP write path to files.
 - **Analytics** (\`specrails_analytics\`): \`spending\` aggregates by surface
   (\`job\`, \`quick-spec\`, \`explore-spec\`, \`ai-edit\`, \`file-summary\`), model,
   ticket, day. Prefer \`spending\` over raw \`invocations\`/\`export\` for token

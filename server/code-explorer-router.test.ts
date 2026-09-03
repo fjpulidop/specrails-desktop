@@ -6,7 +6,7 @@ import os from 'os'
 import path from 'path'
 import { execSync } from 'child_process'
 import { initDb, type DbInstance } from './db'
-import { createCodeExplorerRouter } from './code-explorer-router'
+import { createCodeExplorerRouter, rankFindMatches } from './code-explorer-router'
 import {
   writeSummary,
   computeFileHash,
@@ -67,7 +67,7 @@ afterEach(() => {
 describe('feature-flag gating', () => {
   it('returns 404 on every route when SPECRAILS_CODE_EXPLORER=false', async () => {
     process.env.SPECRAILS_CODE_EXPLORER = 'false'
-    const routes = ['/tree', '/file?path=foo.ts', '/summary?path=foo.ts', '/provenance?ticketId=1', '/diff?jobId=j1&path=foo.ts']
+    const routes = ['/tree', '/find?q=foo', '/file?path=foo.ts', '/summary?path=foo.ts', '/provenance?ticketId=1', '/diff?jobId=j1&path=foo.ts']
     for (const r of routes) {
       const res = await request(app).get(`/api/projects/proj-test/code${r}`)
       expect(res.status).toBe(404)
@@ -663,5 +663,88 @@ describe('security: deny-list + gitignore', () => {
   it('applies the deny-list to GET /provenance?path so touched-secret metadata never leaks', async () => {
     const res = await request(app).get('/api/projects/proj-test/code/provenance?path=.env')
     expect(res.status).toBe(403)
+  })
+})
+
+describe('GET /find (locate a file by name / path suffix)', () => {
+  function seedTree(): void {
+    for (const rel of [
+      'src/components/detail/LessonView.tsx',
+      'packages/ui/components/detail/LessonView.tsx',
+      'legacy/LessonView.tsx',
+      'src/other.ts',
+      'node_modules/dep/LessonView.tsx',
+    ]) {
+      fs.mkdirSync(path.dirname(path.join(projectPath, rel)), { recursive: true })
+      fs.writeFileSync(path.join(projectPath, rel), '// x\n', 'utf8')
+    }
+  }
+
+  it('ranks path-suffix matches (the stack-trace case) before same-name files elsewhere', async () => {
+    seedTree()
+    const res = await request(app).get('/api/projects/proj-test/code/find?q=components/detail/LessonView.tsx')
+    expect(res.status).toBe(200)
+    expect(res.body.query).toBe('components/detail/LessonView.tsx')
+    expect(res.body.matches).toEqual([
+      { path: 'src/components/detail/LessonView.tsx', sizeBytes: 5, match: 'suffix' },
+      { path: 'packages/ui/components/detail/LessonView.tsx', sizeBytes: 5, match: 'suffix' },
+      { path: 'legacy/LessonView.tsx', sizeBytes: 5, match: 'basename' },
+    ])
+    expect(res.body.total).toBe(3)
+    expect(res.body.truncated).toBe(false)
+  })
+
+  it('is case-insensitive, matches fragments, reports exact matches first and honours limit', async () => {
+    seedTree()
+    const frag = await request(app).get('/api/projects/proj-test/code/find?q=lessonview&limit=2')
+    expect(frag.status).toBe(200)
+    expect(frag.body.total).toBe(3)
+    expect(frag.body.matches.map((m: { path: string }) => m.path)).toEqual([
+      'legacy/LessonView.tsx',
+      'src/components/detail/LessonView.tsx',
+    ])
+    const exact = await request(app).get('/api/projects/proj-test/code/find?q=SRC/other.ts')
+    expect(exact.body.matches[0]).toMatchObject({ path: 'src/other.ts', match: 'exact' })
+  })
+
+  it('never surfaces build trees or gitignored files', async () => {
+    seedTree()
+    execSync('git init -q', { cwd: projectPath })
+    fs.writeFileSync(path.join(projectPath, '.gitignore'), 'legacy/\n', 'utf8')
+    const res = await request(app).get('/api/projects/proj-test/code/find?q=LessonView.tsx')
+    const paths = (res.body.matches as Array<{ path: string }>).map((m) => m.path)
+    expect(paths).not.toContain('node_modules/dep/LessonView.tsx')
+    expect(paths).not.toContain('legacy/LessonView.tsx')
+    expect(paths).toContain('src/components/detail/LessonView.tsx')
+  })
+
+  it('rejects a missing or oversized query', async () => {
+    expect((await request(app).get('/api/projects/proj-test/code/find')).status).toBe(400)
+    expect((await request(app).get('/api/projects/proj-test/code/find?q=%20')).status).toBe(400)
+    expect((await request(app).get(`/api/projects/proj-test/code/find?q=${'a'.repeat(300)}`)).status).toBe(400)
+  })
+})
+
+describe('rankFindMatches', () => {
+  const entries = [
+    { rel: 'src/a/B.ts', isDir: false, size: 1 },
+    { rel: 'src/a', isDir: true, size: null },
+    { rel: 'lib/b.ts', isDir: false, size: 2 },
+    { rel: 'b.ts', isDir: false, size: 3 },
+  ]
+
+  it('normalises backslashes and leading ./ or /, skips directories, and orders by kind then path length', () => {
+    expect(rankFindMatches(entries, '.\\src\\a\\b.ts').map((m) => [m.rel, m.match])).toEqual([
+      ['src/a/B.ts', 'exact'],
+      ['b.ts', 'basename'],
+      ['lib/b.ts', 'basename'],
+    ])
+    expect(rankFindMatches(entries, '/b.ts').map((m) => [m.rel, m.match])).toEqual([
+      ['b.ts', 'exact'],
+      ['lib/b.ts', 'suffix'],
+      ['src/a/B.ts', 'suffix'],
+    ])
+    expect(rankFindMatches(entries, 'a')).toEqual([{ rel: 'src/a/B.ts', size: 1, match: 'substring' }])
+    expect(rankFindMatches(entries, '   ')).toEqual([])
   })
 })

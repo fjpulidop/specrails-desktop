@@ -23,18 +23,20 @@ export function codeTools(): McpToolSpec[] {
       title: 'Code Explorer',
       description:
         'Read-only browse a project\'s source through the Code Explorer: list the file tree ' +
-        '(default scoped to AI-touched files, optional provenance rollup), read a file with its ' +
-        'AI summary + staleness + provenance, fetch a stored summary alone, regenerate a file\'s ' +
-        'AI summary (cost-incurring, async), list "touched by AI" provenance rows, and fetch the ' +
-        'stored unified-diff a job applied to a file. ' +
-        'Actions: tree, read_file, summary, regenerate_summary (ai-spawn — spawns an AI CLI, ' +
+        '(default scoped to AI-touched files, optional provenance rollup), locate a file by name / ' +
+        'path suffix, read a file with its AI summary + staleness + provenance, fetch a stored ' +
+        'summary alone, regenerate a file\'s AI summary (cost-incurring, async), list "touched by ' +
+        'AI" provenance rows, and fetch the stored unified-diff a job applied to a file. ' +
+        'Actions: tree, find (name / path-suffix / fragment → ranked project-relative paths; use it ' +
+        'when read_file 404s — a path copied from a stack trace or import is usually relative to a ' +
+        'subdirectory), read_file, summary, regenerate_summary (ai-spawn — spawns an AI CLI, ' +
         'incurs cost, returns 202 then completes over WS), provenance, diff. ' +
         'Requires SPECRAILS_CODE_EXPLORER (default on); the /code prefix 404s when disabled.',
       hintTier: 'read',
       tier: (a) => (a.action === 'regenerate_summary' ? 'ai-spawn' : 'read'),
       inputSchema: {
         action: z
-          .enum(['tree', 'read_file', 'summary', 'regenerate_summary', 'provenance', 'diff'])
+          .enum(['tree', 'find', 'read_file', 'summary', 'regenerate_summary', 'provenance', 'diff'])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
         path: z
@@ -48,6 +50,13 @@ export function codeTools(): McpToolSpec[] {
           .string()
           .optional()
           .describe('Compatibility alias for path (accepted for read_file/summary/regenerate_summary/diff)'),
+        query: z
+          .string()
+          .optional()
+          .describe(
+            'find only: file name, path suffix (e.g. components/detail/LessonView.tsx) or fragment ' +
+              'to locate, case-insensitive. Falls back to path/file when omitted.',
+          ),
         filter: z
           .enum(['touched-by-ai', 'all'])
           .optional()
@@ -66,7 +75,7 @@ export function codeTools(): McpToolSpec[] {
           .positive()
           .max(500)
           .optional()
-          .describe('tree only: entries per page (default 200, maximum 500 for MCP context safety)'),
+          .describe('tree: entries per page (default 200, maximum 500 for MCP context safety); find: matches to return (default 20, maximum 50)'),
         ticketId: z
           .number()
           .int()
@@ -95,6 +104,25 @@ export function codeTools(): McpToolSpec[] {
           return p
         }
 
+        // A bare `→ 404: {"error":"file not found"}` sent callers into a
+        // ToolSearch/retry loop: the path they hold is usually right, just
+        // relative to a subdirectory. Point them at `find` instead of leaving
+        // them to page through `tree`.
+        const withNotFoundHint = async (p: string, run: () => Promise<unknown>): Promise<unknown> => {
+          try {
+            return await run()
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            if (!/→ 404: .*file not found/.test(msg)) throw err
+            const base = p.replace(/\\/g, '/').replace(/\/+$/, '').split('/').pop() || p
+            throw new Error(
+              `${msg}. Paths are relative to the project root and "${p}" may live under a subdirectory ` +
+                '(a path copied from a stack trace or import usually does). Locate it with ' +
+                `specrails_code(action: "find", query: ${JSON.stringify(base)}) and retry with the returned path.`,
+            )
+          }
+        }
+
         switch (action) {
           case 'tree': {
             const qs = new URLSearchParams()
@@ -119,14 +147,32 @@ export function codeTools(): McpToolSpec[] {
             }
           }
 
+          case 'find': {
+            const q = ((args.query ?? args.path ?? args.file) as string | undefined)?.trim()
+            if (!q) throw new Error('Action "find" requires a "query" (file name, path suffix or fragment).')
+            const qs = new URLSearchParams({ q })
+            qs.set('limit', String(typeof args.limit === 'number' ? Math.min(args.limit, 50) : 20))
+            const r = (await apiCall(ctx, 'GET', `${base}/code/find?${qs.toString()}`)) as Record<string, unknown>
+            const matches = Array.isArray(r.matches) ? r.matches : []
+            return {
+              ...r,
+              hint: matches.length
+                ? 'Call read_file with one of these project-relative paths (best match first).'
+                : 'No file matches. The scan skips build/dependency trees, dot-directories and gitignored paths; ' +
+                  'try a shorter fragment or the bare file name.',
+            }
+          }
+
           case 'read_file': {
-            const qs = new URLSearchParams({ path: requirePath() })
-            return apiCall(ctx, 'GET', `${base}/code/file?${qs.toString()}`)
+            const p = requirePath()
+            const qs = new URLSearchParams({ path: p })
+            return withNotFoundHint(p, () => apiCall(ctx, 'GET', `${base}/code/file?${qs.toString()}`))
           }
 
           case 'summary': {
-            const qs = new URLSearchParams({ path: requirePath() })
-            return apiCall(ctx, 'GET', `${base}/code/summary?${qs.toString()}`)
+            const p = requirePath()
+            const qs = new URLSearchParams({ path: p })
+            return withNotFoundHint(p, () => apiCall(ctx, 'GET', `${base}/code/summary?${qs.toString()}`))
           }
 
           case 'regenerate_summary': {

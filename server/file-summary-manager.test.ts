@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import { EventEmitter } from 'events'
 
 // The 'file-summary' surface is being added in a sibling task; pre-extend the
 // allow-list here so recordInvocation accepts our rows during tests.
@@ -30,6 +31,8 @@ import {
   sweepOrphans,
   isValidSummaryPayload,
   SUMMARY_MAX_LENGTH,
+  WATCH_DEBOUNCE_MS,
+  resolveWatchEngine,
   __resetDesktopSummaryStateForTests,
   type FileSummaryDeps,
   type GenerateInput,
@@ -855,5 +858,232 @@ describe('FileSummaryManager bug-fix regressions', () => {
     mgr.dispose()
     expect(captured?.aborted).toBe(true)
     expect(await p).toBe('failed')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Source watcher (attachWatcher). Regression for the EMFILE crash: chokidar ≥ 4
+// watches every file with its own fs.watch (one kqueue fd per file on macOS),
+// a large repo blew past the fd limit, and the recursive watcher's unhandled
+// `error` event took the whole server down. The watcher must (a) use the
+// kernel recursive watch where it exists, (b) degrade — never throw, never
+// crash — on start or runtime resource exhaustion, (c) only mark a summary
+// stale when the source bytes actually changed.
+// ---------------------------------------------------------------------------
+
+async function waitFor(pred: () => boolean, timeoutMs = 4000): Promise<boolean> {
+  const started = Date.now()
+  while (Date.now() - started < timeoutMs) {
+    if (pred()) return true
+    await new Promise((r) => setTimeout(r, 25))
+  }
+  return pred()
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+function storeSummary(rel: string, fileHash: string): void {
+  writeSummary(projectPath, rel, {
+    schemaVersion: 1,
+    path: rel,
+    fileHash,
+    summary: 's',
+    language: 'en',
+    generatedAt: '2026-05-22T00:00:00.000Z',
+    generatedBy: { model: 'claude-haiku-4-5', promptVersion: 1 },
+    triggeredBy: { kind: 'user', id: 'u1', ticketId: null },
+  })
+}
+
+function errno(code: string, message = `${code}: too many open files, watch`): NodeJS.ErrnoException {
+  const e = new Error(message) as NodeJS.ErrnoException
+  e.code = code
+  return e
+}
+
+/** A stand-in for the handle `fs.watch` returns: an EventEmitter the test can
+ *  drive (`emit('change', …)`, `emit('error', …)`) with a spied `close`. */
+class FakeNativeWatcher extends EventEmitter {
+  close = vi.fn()
+}
+
+function fakeFsWatch(): { fsWatch: typeof fs.watch; handles: FakeNativeWatcher[]; calls: number } {
+  const state = { handles: [] as FakeNativeWatcher[], calls: 0, fsWatch: undefined as unknown as typeof fs.watch }
+  state.fsWatch = ((_p: fs.PathLike, _o: unknown, listener: (event: string, filename: string | null) => void) => {
+    state.calls += 1
+    const h = new FakeNativeWatcher()
+    h.on('change', (event: string, filename: string | null) => listener(event, filename))
+    state.handles.push(h)
+    return h as unknown as fs.FSWatcher
+  }) as unknown as typeof fs.watch
+  return state
+}
+
+const staleEvents = (broadcasts: Array<{ type: string; [k: string]: unknown }>) =>
+  broadcasts.filter((b) => b.type === 'file.summary_updated' && (b as { stale?: boolean }).stale === true)
+
+describe('resolveWatchEngine', () => {
+  it('uses the kernel recursive watch on macOS/Windows and chokidar elsewhere', () => {
+    expect(resolveWatchEngine('darwin')).toBe('native')
+    expect(resolveWatchEngine('win32')).toBe('native')
+    expect(resolveWatchEngine('linux')).toBe('chokidar')
+    expect(resolveWatchEngine('freebsd')).toBe('chokidar')
+  })
+})
+
+describe('attachWatcher (source watcher)', () => {
+  let mgr: FileSummaryManager | null = null
+
+  afterEach(() => {
+    mgr?.dispose()
+    mgr = null
+  })
+
+  for (const engine of ['native', 'chokidar'] as const) {
+    it(`[${engine}] marks a summarized file stale when its content really changes`, async () => {
+      writeFile(projectPath, 'src/a.ts', 'export const a = 1\n')
+      storeSummary('src/a.ts', await computeFileHash(path.join(projectPath, 'src/a.ts')))
+      const { deps, broadcasts } = makeDeps(db, { watchEngine: engine })
+      mgr = new FileSummaryManager(deps)
+      mgr.attachWatcher('p1', projectPath)
+      expect(mgr.watcherStatus('p1')).toBe(engine)
+      // Let the watcher settle (chokidar's initial scan; FSEvents stream start).
+      await sleep(400)
+      writeFile(projectPath, 'src/a.ts', 'export const a = 2\n')
+      expect(await waitFor(() => staleEvents(broadcasts).length > 0)).toBe(true)
+      expect(staleEvents(broadcasts)[0]).toMatchObject({ projectId: 'p1', stale: true })
+    })
+  }
+
+  it('[native] a save that leaves the bytes unchanged does NOT flag the summary (hash gate)', async () => {
+    const content = 'export const a = 1\n'
+    writeFile(projectPath, 'src/a.ts', content)
+    storeSummary('src/a.ts', await computeFileHash(path.join(projectPath, 'src/a.ts')))
+    const { deps, broadcasts } = makeDeps(db, { watchEngine: 'native' })
+    mgr = new FileSummaryManager(deps)
+    mgr.attachWatcher('p1', projectPath)
+    await sleep(300)
+    writeFile(projectPath, 'src/a.ts', content)
+    await sleep(WATCH_DEBOUNCE_MS * 4)
+    expect(staleEvents(broadcasts)).toHaveLength(0)
+  })
+
+  it('is idempotent per project (a second attach never creates a second watch)', () => {
+    const fake = fakeFsWatch()
+    const { deps } = makeDeps(db, { watchEngine: 'native', fsWatch: fake.fsWatch })
+    mgr = new FileSummaryManager(deps)
+    mgr.attachWatcher('p1', projectPath)
+    mgr.attachWatcher('p1', projectPath)
+    expect(fake.calls).toBe(1)
+    expect(mgr.watcherStatus('p2')).toBeNull()
+  })
+
+  it('degrades instead of throwing when the watch cannot start (EMFILE at fs.watch)', () => {
+    let calls = 0
+    const fsWatch = (() => { calls += 1; throw errno('EMFILE') }) as unknown as typeof fs.watch
+    const { deps } = makeDeps(db, { watchEngine: 'native', fsWatch })
+    mgr = new FileSummaryManager(deps)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      expect(() => mgr!.attachWatcher('p1', projectPath)).not.toThrow()
+      expect(mgr.watcherStatus('p1')).toBe('degraded')
+      // Still attached: no retry storm on the next Code-Explorer request.
+      mgr.attachWatcher('p1', projectPath)
+      expect(calls).toBe(1)
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(String(warn.mock.calls[0][0])).toContain('watcher degraded')
+      expect(String(warn.mock.calls[0][1])).toContain('"code":"EMFILE"')
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('a runtime EMFILE closes the watcher and degrades — the process never sees an unhandled error', async () => {
+    writeFile(projectPath, 'src/a.ts', 'x')
+    storeSummary('src/a.ts', 'c'.repeat(64))
+    const fake = fakeFsWatch()
+    const { deps, broadcasts } = makeDeps(db, { watchEngine: 'native', fsWatch: fake.fsWatch })
+    mgr = new FileSummaryManager(deps)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      mgr.attachWatcher('p1', projectPath)
+      const handle = fake.handles[0]
+      expect(mgr.watcherStatus('p1')).toBe('native')
+      // A transient, local error keeps the watcher alive (logged only).
+      handle.emit('error', errno('ENOENT', 'ENOENT: no such file or directory'))
+      expect(mgr.watcherStatus('p1')).toBe('native')
+      expect(handle.close).not.toHaveBeenCalled()
+      // Resource exhaustion: close (release every fd) + degrade, logged once.
+      handle.emit('error', errno('EMFILE'))
+      expect(mgr.watcherStatus('p1')).toBe('degraded')
+      expect(handle.close).toHaveBeenCalledTimes(1)
+      handle.emit('error', errno('EMFILE'))
+      expect(handle.close).toHaveBeenCalledTimes(1)
+      expect(warn.mock.calls.filter((c) => String(c[0]).includes('watcher degraded'))).toHaveLength(1)
+      // Events after degradation are inert.
+      handle.emit('change', 'change', 'src/a.ts')
+      await sleep(WATCH_DEBOUNCE_MS * 3)
+      expect(staleEvents(broadcasts)).toHaveLength(0)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('normalises absolute (chokidar-style) paths, prunes build/dot trees, and debounces bursts to one stale mark', async () => {
+    writeFile(projectPath, 'src/a.ts', 'x')
+    storeSummary('src/a.ts', 'c'.repeat(64))
+    writeFile(projectPath, 'node_modules/dep/index.js', 'x')
+    storeSummary('node_modules/dep/index.js', 'c'.repeat(64))
+    const fake = fakeFsWatch()
+    const { deps, broadcasts } = makeDeps(db, { watchEngine: 'native', fsWatch: fake.fsWatch })
+    mgr = new FileSummaryManager(deps)
+    mgr.attachWatcher('p1', projectPath)
+    const handle = fake.handles[0]
+    // An editor's chunked write: several events, one logical edit.
+    handle.emit('change', 'change', path.join(projectPath, 'src/a.ts'))
+    handle.emit('change', 'change', 'src/a.ts')
+    handle.emit('change', 'rename', 'src/a.ts')
+    // Pruned trees and files without a summary never reach the stale check.
+    handle.emit('change', 'change', 'node_modules/dep/index.js')
+    handle.emit('change', 'change', 'src/no-summary.ts')
+    handle.emit('change', 'change', null)
+    handle.emit('change', 'change', '../outside.ts')
+    await sleep(WATCH_DEBOUNCE_MS * 3)
+    const stale = staleEvents(broadcasts)
+    expect(stale).toHaveLength(1)
+    expect(stale[0]).toMatchObject({ path: 'src/a.ts' })
+  })
+
+  it('a source that vanished is stale (the summary describes a file that is gone)', async () => {
+    writeFile(projectPath, 'src/a.ts', 'x')
+    storeSummary('src/a.ts', await computeFileHash(path.join(projectPath, 'src/a.ts')))
+    const fake = fakeFsWatch()
+    const { deps, broadcasts } = makeDeps(db, { watchEngine: 'native', fsWatch: fake.fsWatch })
+    mgr = new FileSummaryManager(deps)
+    mgr.attachWatcher('p1', projectPath)
+    fs.rmSync(path.join(projectPath, 'src/a.ts'))
+    fake.handles[0].emit('change', 'rename', 'src/a.ts')
+    await sleep(WATCH_DEBOUNCE_MS * 3)
+    expect(staleEvents(broadcasts)).toHaveLength(1)
+  })
+
+  it('detachWatcher closes the handle and drops pending debounce timers', async () => {
+    writeFile(projectPath, 'src/a.ts', 'x')
+    storeSummary('src/a.ts', 'c'.repeat(64))
+    const fake = fakeFsWatch()
+    const { deps, broadcasts } = makeDeps(db, { watchEngine: 'native', fsWatch: fake.fsWatch })
+    mgr = new FileSummaryManager(deps)
+    mgr.attachWatcher('p1', projectPath)
+    fake.handles[0].emit('change', 'change', 'src/a.ts')
+    mgr.detachWatcher('p1')
+    expect(fake.handles[0].close).toHaveBeenCalledTimes(1)
+    expect(mgr.watcherStatus('p1')).toBeNull()
+    await sleep(WATCH_DEBOUNCE_MS * 3)
+    expect(staleEvents(broadcasts)).toHaveLength(0)
+    // Re-attach after detach is allowed (a fresh watch).
+    mgr.attachWatcher('p1', projectPath)
+    expect(fake.calls).toBe(2)
   })
 })

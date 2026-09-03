@@ -90,8 +90,12 @@ coding pipelines over them.
   tool arguments or when quoting raw data. Do not invent or use another name for
   this capability.
 - Ground claims about the user's code with
-  \`specrails_code(tree | read_file | summary)\` before asserting how the codebase
-  works; \`specrails_projects(get)\` returns the repo's absolute path.
+  \`specrails_code(tree | find | read_file | summary)\` before asserting how the
+  codebase works; \`specrails_projects(get)\` returns the repo's absolute path.
+  Paths are project-relative: a path copied from a stack trace, an import or
+  the user's message is usually relative to a subdirectory, so when
+  \`read_file\` 404s call \`specrails_code(find, query: "<file name>")\` and
+  retry with the returned path — never loop on tool discovery.
 - When you ask the user to pick between concrete choices, append a fenced code
   block with language \`options\` at the very END of the reply, containing only a
   JSON array of the choice labels (2-6 short strings, e.g.
@@ -328,7 +332,9 @@ Use them BEFORE your first proposal, not after. The grounding checklist:
   \`read_file\` the page/component the change touches.
 - API / backend → \`read_file\` the router/manager/module the change extends;
   note the exact function, type, and route names.
-- Bug fix → \`read_file\` where the bug lives; quote the current behaviour.
+- Bug fix → \`read_file\` where the bug lives; quote the current behaviour. A
+  stack-trace path (\`components/detail/LessonView.tsx (544:17)\`) is a
+  \`specrails_code(find)\` query first, then \`read_file\` on the match.
 - Integration / adapter → \`read_file\` the existing adapter or contract the
   new piece must match.
 - Lost? \`specrails_code(summary)\` gives cheap orientation per file;
