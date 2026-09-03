@@ -402,3 +402,77 @@ describe('specrails_support tool', () => {
     expect(actionOptions(spec)).not.toContain('reassemble_project_workspace')
   })
 })
+
+describe('specrails_code find + not-found hint', () => {
+  let db: DbInstance
+  let ctx: McpToolContext
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    db = initDesktopDb(':memory:')
+    ctx = makeCtx(db)
+    setActiveProject('p1')
+    fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    setActiveProject(null)
+  })
+
+  const code = () => buildToolSpecs().find((spec) => spec.name === 'specrails_code')!
+
+  it('exposes find as a read-tier action', () => {
+    expect(actionOptions(code())).toContain('find')
+    expect((code().tier as (a: Record<string, unknown>) => string)({ action: 'find' })).toBe('read')
+  })
+
+  it('find forwards the query (path/file fallback, capped limit) and hints at read_file', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ query: 'LessonView.tsx', matches: [{ path: 'src/a/LessonView.tsx', match: 'suffix' }], total: 1 }),
+    })
+    const r = (await code().handler(ctx, { action: 'find', query: ' LessonView.tsx ', limit: 500 })) as Record<string, unknown>
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      expect.stringContaining('/code/find?q=LessonView.tsx&limit=50'),
+      expect.anything(),
+    )
+    expect(String(r.hint)).toContain('read_file')
+
+    await code().handler(ctx, { action: 'find', path: 'components/detail/LessonView.tsx' })
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      expect.stringContaining('/code/find?q=components%2Fdetail%2FLessonView.tsx&limit=20'),
+      expect.anything(),
+    )
+    await expect(code().handler(ctx, { action: 'find' })).rejects.toThrow(/requires a "query"/)
+  })
+
+  it('find with no matches says so instead of pretending', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ query: 'nope', matches: [], total: 0 }),
+    })
+    const r = (await code().handler(ctx, { action: 'find', query: 'nope' })) as Record<string, unknown>
+    expect(String(r.hint)).toContain('No file matches')
+  })
+
+  it('read_file / summary 404s point the caller at find with the bare file name', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: async () => JSON.stringify({ error: 'file not found' }),
+    })
+    await expect(code().handler(ctx, { action: 'read_file', path: 'components/detail/LessonView.tsx' })).rejects.toThrow(
+      /find", query: "LessonView\.tsx"/,
+    )
+    await expect(code().handler(ctx, { action: 'summary', file: 'a\\b\\c.ts' })).rejects.toThrow(/query: "c\.ts"/)
+  })
+
+  it('a 404 that is not "file not found" (feature flag off) keeps the raw error', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 404, text: async () => '' })
+    await expect(code().handler(ctx, { action: 'read_file', path: 'x.ts' })).rejects.toThrow(/→ 404: null$/)
+  })
+})
