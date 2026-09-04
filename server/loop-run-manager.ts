@@ -17,6 +17,7 @@ import { createJob, appendEvent, markJobInteractive, accumulateInteractiveTurn, 
 import {
   InteractiveJobSession,
   isZeroWorkSettle,
+  UNKNOWN_COMMAND_RE,
   type InteractiveJobSessionDeps,
   type InteractiveSpawnSpec,
 } from './interactive-job-session'
@@ -269,6 +270,40 @@ function aiStepBlockedReason(text: string): string | null {
     return 'The AI step asked how to proceed instead of performing unattended work.'
   }
   return null
+}
+
+/** The interactive step's timeout failure reason (matched by isResumeMiss). */
+const AI_STEP_TIMEOUT_ERROR = 'AI step timed out'
+
+/** Whole-step zero-work judgment. The interactive path reports it
+ *  authoritatively (`zeroWork` set at session settle); the one-shot path is
+ *  derived from the result's accumulated signals — one-shot `text` accumulates
+ *  ONLY from assistant text-delta events, so non-empty text ⇒ assistant events
+ *  were seen. A hard-failed one-shot (non-zero exit) is a crash, not zero-work. */
+function aiStepZeroWork(res: AiStepResult): boolean {
+  if (res.zeroWork !== undefined) return res.zeroWork
+  if (res.failed) return false
+  return isZeroWorkSettle({
+    numTurns: res.numTurns ?? 0,
+    tokensIn: res.tokensIn ?? 0,
+    tokensOut: res.tokensOut ?? 0,
+    tokensCacheRead: res.tokensCacheRead ?? 0,
+    tokensCacheCreate: res.tokensCacheCreate ?? 0,
+    sawAssistantEvent: res.text.trim().length > 0,
+    resultText: res.text.trim() ? res.text : null,
+  })
+}
+
+/** A RESUMED step whose settle is zero-work for a reason other than an
+ *  unresolvable command or the step timeout: the CLI answered with session
+ *  bookkeeping (no model call — a transcript the resume could not load, a
+ *  session torn down mid-flight) and the prompt never ran. Worth exactly one
+ *  fresh retry; an `Unknown command:` would fail again identically. */
+function isResumeMiss(res: AiStepResult): boolean {
+  if (!aiStepZeroWork(res)) return false
+  if (UNKNOWN_COMMAND_RE.test(res.text.trim())) return false
+  if (res.errorText === AI_STEP_TIMEOUT_ERROR) return false
+  return true
 }
 
 export interface LoopRunResult {
@@ -1391,47 +1426,58 @@ export class LoopRunManager {
             // and the provider is capable (claude); null falls through to the
             // byte-identical one-shot spawn. The plan mirrors the one-shot's
             // cwd/env/argv derivation; the engine owns the session lifecycle.
-            const interactivePlan = this.executors.planInteractiveAiStep?.({
-              provider: nodeProvider,
-              model: nodeModel,
-              effort: nodeEffort,
-              cwd: req.cwd,
-              repoDir: req.repoDir,
-              sessionId: aiSessionId,
-              aiStepTimeoutMs,
-            }) ?? null
-            const res = interactivePlan
-              ? await this._runInteractiveAiStep({
-                  runId,
-                  projectId: req.projectId,
-                  plan: interactivePlan,
-                  prompt,
-                  fallbackModel: nodeModel,
-                  nextEventSeq: takeSeq,
-                  recoveryStepKey: aiRecoveryKey,
-                })
-              : await this.executors.runAiStep({ prompt, sessionId: aiSessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs })
+            // One attempt of this step. `sessionId` is the ONLY thing that
+            // differs between the resumed attempt and its fresh retry below.
+            const runAttempt = async (sessionId: string | undefined): Promise<AiStepResult> => {
+              const interactivePlan = this.executors.planInteractiveAiStep?.({
+                provider: nodeProvider,
+                model: nodeModel,
+                effort: nodeEffort,
+                cwd: req.cwd,
+                repoDir: req.repoDir,
+                sessionId,
+                aiStepTimeoutMs,
+              }) ?? null
+              return interactivePlan
+                ? this._runInteractiveAiStep({
+                    runId,
+                    projectId: req.projectId,
+                    plan: interactivePlan,
+                    prompt,
+                    fallbackModel: nodeModel,
+                    nextEventSeq: takeSeq,
+                    recoveryStepKey: aiRecoveryKey,
+                  })
+                : this.executors.runAiStep({ prompt, sessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs })
+            }
+            let res = await runAttempt(aiSessionId)
             if (this._disposed) return neverAfterDispose()
             this._activeChild.delete(runId)
+            // Resume miss (loop run 5c958db2): a step that `--resume`d the
+            // previous step's session and settled with ZERO work — no model
+            // call, no `Unknown command:` text — was answered by the CLI's
+            // session bookkeeping (a transcript the resume could not load, a
+            // session torn down mid-flight), never by the model. The prompt did
+            // not run, so retry it ONCE in a fresh session instead of failing
+            // the step and spinning the loop through verify/fix on nothing.
+            // Unknown commands, timeouts and cancels are NOT resume misses.
+            if (aiSessionId && !this._cancelled.has(runId) && isResumeMiss(res)) {
+              logLine(`↻ Resuming session ${aiSessionId} produced no work — retrying this step in a fresh session.`, 'stderr')
+              aiSessionId = undefined
+              res = await runAttempt(undefined)
+              if (this._disposed) return neverAfterDispose()
+              this._activeChild.delete(runId)
+            }
             // Zero-work strictness (run 01f41203): a settle that consumed NO
             // model work — the claude CLI's synthetic `Unknown command:` result
             // frame (num_turns 0, no assistant events, zero usage tokens) —
             // means the step's command never actually ran. A step that didn't
             // run is FAILED, never 'ok'. The interactive path evaluates the
             // predicate at session settle (res.zeroWork set); for the one-shot
-            // path the engine derives it here from the result's accumulated
-            // signals (text accumulates ONLY from assistant text-delta events,
-            // so non-empty text ⇒ assistant events were seen).
-            const oneShotZeroWork = res.zeroWork === undefined && !res.failed && isZeroWorkSettle({
-              numTurns: res.numTurns ?? 0,
-              tokensIn: res.tokensIn ?? 0,
-              tokensOut: res.tokensOut ?? 0,
-              tokensCacheRead: res.tokensCacheRead ?? 0,
-              tokensCacheCreate: res.tokensCacheCreate ?? 0,
-              sawAssistantEvent: res.text.trim().length > 0,
-              resultText: res.text.trim() ? res.text : null,
-            })
-            const zeroWork = res.zeroWork === true || oneShotZeroWork
+            // path the engine derives it from the result's accumulated signals
+            // (aiStepZeroWork).
+            const zeroWork = aiStepZeroWork(res)
+            const oneShotZeroWork = res.zeroWork === undefined && zeroWork
             const blockedReason = aiStepBlockedReason(res.text)
             const stepFailed = res.failed === true || zeroWork || blockedReason !== null
             const stepErrorText = res.errorText ?? (zeroWork
@@ -1489,7 +1535,10 @@ export class LoopRunManager {
             // (its `Unknown command:` text is a CLI synthetic, not model output),
             // so a persistently-unresolvable command aborts the run identically
             // instead of grinding to the cap.
-            if (stepFailed && (zeroWork || !res.text.trim())) {
+            if (this._cancelled.has(runId)) {
+              // A user cancel tears the step down with no output — that is not
+              // a provider failure; the loop head settles the run 'stopped'.
+            } else if (stepFailed && (zeroWork || !res.text.trim())) {
               consecutiveAiFailures += 1
               if (consecutiveAiFailures >= AI_FAILFAST_THRESHOLD) {
                 logLine(`Loop aborted: provider appears down — ${consecutiveAiFailures} AI steps failed with no output and no successful AI call in between${stepErrorText ? ` — ${stepErrorText}` : ''}`, 'stderr')
@@ -1967,7 +2016,7 @@ export class LoopRunManager {
             zeroWork: info.zeroWork,
             errorText: failed
               ? (info.reason === 'crashed'
-                  ? (timedOut ? 'AI step timed out' : 'interactive step session crashed')
+                  ? (timedOut ? AI_STEP_TIMEOUT_ERROR : 'interactive step session crashed')
                   : `zero work performed — the command never ran${info.resultText ? `: ${info.resultText}` : ''}`)
               : undefined,
           })

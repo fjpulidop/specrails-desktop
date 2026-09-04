@@ -159,6 +159,54 @@ command didn't actually run, the settle is FAILED.**
   from the step result's accumulated signals (one-shot `text` accumulates only from assistant
   text-deltas, so non-empty text ⇒ assistant events were seen).
 
+## CLI notification turns, orphaned background tasks, resume misses (run `5c958db2`)
+
+Live evidence (loop run `5c958db2`, claude 2.1.260, factory Freestyle): the **verify** step
+backgrounded the CI chain (`run_in_background`), replied *"I'll deliver the final verdict line
+when it lands"*, and quiesced. The auto-settle EOF'd stdin; the CLI kept the process alive for
+its background tasks, so the 5 s grace expired and SIGTERM tore it down — orphaning the tasks.
+The Decider (rightly) said *continue*, and the **fix** step `--resume`d the same session. On
+resume the CLI reported the orphans (`system/task_notification … "Orphaned by a previous Claude
+Code process exit"`) and emitted a **turn of its own** BEFORE processing our prompt: a `result`
+frame with `origin: {kind:'task-notification'}`, `num_turns: 0`, `stop_reason: null`, empty
+`result`, zero usage. The session took it as our turn's terminal result → quiescent auto-settle →
+the real turn (already thinking) was killed 5 s later as a zero-work FAILED step in "0.1 s". Three
+guards now cover the chain:
+
+- **Notification frames are not turn results.** `isClaudeNotificationResultFrame`
+  (`server/providers/claude-adapter.ts`) recognises `origin.kind === 'task-notification'`; the
+  adapter surfaces such a frame as a NON-terminal `{kind:'other', type:'result'}` event, so every
+  adapter-event consumer (persistent Explore turns, agent chat, `extractResult`, crash recovery)
+  ignores it. `InteractiveJobSession._handleStdoutLine` classifies through the adapter BEFORE the
+  drop logic: a result frame with no `kind:'result'` adapter event leaves the turn armed, is NOT
+  persisted as a `result` row (recovery counts persisted result rows as completed turns), and
+  logs `↷ claude reported a background-task notification (not this turn's result) — continuing.`
+  The caller's own turns carry no `origin` at all; other `origin.kind` values the CLI bundle
+  knows (`human`, `auto-continuation`, `observer-activity`, `channel`) are deliberately NOT
+  special-cased — only the observed no-op kind is.
+- **Resume miss ⇒ one fresh retry (loop engine).** `isResumeMiss` (`loop-run-manager.ts`): a
+  step that resumed the previous step's session and settled zero-work WITHOUT an
+  `Unknown command:` text and WITHOUT the step timeout was answered by session bookkeeping, not
+  the model — the prompt never ran. The engine logs
+  `↻ Resuming session <id> produced no work — retrying this step in a fresh session.` and re-runs
+  the SAME prompt once with no `sessionId`, inside the same step (one `loop_step`/`loop_step_end`
+  pair, one `record()` row from the final attempt; the empty attempt has nothing to account).
+  A fresh (non-resumed) zero-work step, an Unknown-command, a timeout, a cancel, or a zero-work
+  retry all keep the existing FAILED path. This is the belt-and-braces for the OTHER resume-miss
+  cause — a transcript the SIGTERM escalation raced (the graceful-EOF fix in `_finalizeQuiescent`
+  made that rare, not impossible).
+- **Backgrounding is forbidden and visible.** `FOREGROUND_RULE` (`loop-constants.ts`) rides
+  `{{const:GUARDRAILS}}` and the verify / fix / freestyle templates (plus the default Freestyle
+  pre-prompt): run every command in the foreground, never `run_in_background`/`&`, the reply ends
+  the step. At quiescent auto-settle the session mirrors claude's
+  `system/background_tasks_changed` roster and, when tasks are still running, persists
+  `⚠️ The agent ended its turn with N background task(s) still running (…) — long commands must
+  run in the foreground.` so a verdict-less verify step explains itself. Finalize mode (idling by
+  design) never emits it.
+- **User cancel is not a provider failure.** The `AI_FAILFAST_THRESHOLD` streak skips a step
+  torn down by `cancel()`, so the run settles `stopped` instead of `failed` with a misleading
+  *"provider appears down"* (the live run hit exactly that when the user stopped it mid-verify).
+
 ## Zombie / timeout interplay
 
 - **One-shot jobs**: unchanged — the queue's zombie timer kills a silent child.

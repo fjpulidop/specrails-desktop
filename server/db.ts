@@ -2367,6 +2367,7 @@ export const DEFAULT_FREESTYLE_PRE_PROMPT = [
   'Work independently until the feature is done: write the code, the tests, update docs as needed, and make sure everything builds and the test suite passes.',
   'Do NOT follow any structured architect/developer/reviewer pipeline — use your own judgement and the repo conventions.',
   'Never ask for confirmation; there is no human to answer. Choose the recommended option and proceed.',
+  'Run every command in the FOREGROUND and wait for it to finish — never background a command (no run_in_background, no trailing `&`): your reply ends the step and anything still running is killed with its output lost.',
 ].join('\n')
 
 export interface ProjectSettings {

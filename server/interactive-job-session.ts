@@ -302,6 +302,11 @@ export class InteractiveJobSession {
    *  real turns always emit assistant events; the synthetic `Unknown command:`
    *  frame never does. */
   private _sawModelWork = false
+  /** The child's still-running backgrounded commands, mirrored from claude's
+   *  `system/background_tasks_changed` roster (descriptions, else task ids).
+   *  Read at quiescent auto-settle to say out loud that they are being torn
+   *  down with the session (their output never reaches the agent). */
+  private _liveBackgroundTasks: string[] = []
 
   /** Previous turn's CUMULATIVE `total_cost_usd` / `num_turns` reading. The
    *  persistent stream-json transport reports both cumulatively per turn, so we
@@ -576,19 +581,40 @@ export class InteractiveJobSession {
     let parsed: Record<string, unknown> | null = null
     try { parsed = JSON.parse(line) } catch { /* plain text */ }
 
+    // Keep the child's live background-task roster current so the quiescent
+    // auto-settle can say out loud when the agent replied with work still running.
+    this._trackBackgroundTasks(parsed)
+
+    // parseStreamEvents is pure, so classifying the frame through the adapter
+    // BEFORE the drop logic is safe — and it is the adapter that knows a claude
+    // `result` frame carrying `origin.kind === 'task-notification'` is a
+    // CLI-internal notification turn, not this turn's terminal result.
+    const adapterEvents = parseStreamEvents(this._adapter, line)
+
     // A late retransmission can arrive after the next queued prompt has already
-    // been written. Drop it BEFORE adapter parsing and event persistence: adding
-    // it to the next turn's event buffer corrupts live totals, while persisting
-    // it beyond the prior checkpoint would make crash recovery count it again.
+    // been written. Drop it BEFORE event persistence: adding it to the next
+    // turn's event buffer corrupts live totals, while persisting it beyond the
+    // prior checkpoint would make crash recovery count it again.
     if (parsed?.type === 'result') {
       // A terminal frame with no active turn is causally unassignable. Drop it
-      // before adapter parsing/persistence so raw recovery cannot count it.
+      // before persistence so raw recovery cannot count it.
       if (!this._awaitingResult) return
+      if (!adapterEvents.some((ev) => ev.kind === 'result')) {
+        // Notification turn (loop run 5c958db2): the CLI answered its OWN
+        // orphaned-background-task notice, not the prompt we wrote — the real
+        // turn is still coming. Closing the turn here auto-settled the session
+        // and tore the child down mid-thought as a zero-work failure. Leave the
+        // turn armed, and do not persist the frame as a `result` row either
+        // (crash recovery counts persisted result rows as completed turns).
+        const note = `↷ ${this._adapter.id} reported a background-task notification (not this turn's result) — continuing.`
+        this._persistLog('stdout', note)
+        this._emitLog('stdout', note)
+        return
+      }
       const signature = resultFrameSignature(parsed)
       if (this._acceptedResultSignatures.has(signature)) return
     }
 
-    const adapterEvents = parseStreamEvents(this._adapter, line)
     for (const adapterEvent of adapterEvents) {
       this._turnEvents.push(adapterEvent)
       if (!this._sawModelWork && isModelWorkEvent(adapterEvent)) this._sawModelWork = true
@@ -625,6 +651,33 @@ export class InteractiveJobSession {
         this._emitLog('stdout', line)
       }
     }
+  }
+
+  /** Mirror claude's `system/background_tasks_changed` roster. Any other frame
+   *  (or a non-claude provider, which never emits it) leaves the roster as is. */
+  private _trackBackgroundTasks(parsed: Record<string, unknown> | null): void {
+    if (!parsed || parsed.type !== 'system' || parsed.subtype !== 'background_tasks_changed') return
+    const tasks = Array.isArray(parsed.tasks) ? parsed.tasks : []
+    this._liveBackgroundTasks = tasks.map((task) => {
+      const t = (task ?? {}) as { description?: unknown; task_id?: unknown }
+      if (typeof t.description === 'string' && t.description.trim()) return t.description.trim()
+      return typeof t.task_id === 'string' && t.task_id ? t.task_id : 'task'
+    })
+  }
+
+  /** Quiescence reached while the child still has background tasks running
+   *  (loop run 5c958db2: a verify step backgrounded the CI chain and replied
+   *  "I'll report the verdict when it lands"). The reply IS the step's end —
+   *  the child is torn down and the task output never reaches the agent — so
+   *  say so in the transcript instead of leaving a verdict-less step to be
+   *  puzzled over. The loop templates forbid backgrounding for this reason. */
+  private _noteOrphanedBackgroundTasks(): void {
+    const tasks = this._liveBackgroundTasks
+    if (tasks.length === 0) return
+    const shown = tasks.slice(0, 3).join(', ') + (tasks.length > 3 ? `, +${tasks.length - 3} more` : '')
+    const note = `⚠️ The agent ended its turn with ${tasks.length} background task(s) still running (${shown}). A step settles on the reply, so they are terminated and their output never reaches the agent — long commands must run in the foreground.`
+    this._persistLog('stderr', note)
+    this._emitLog('stderr', note)
   }
 
   private _handleStderrLine(line: string): void {
@@ -782,6 +835,7 @@ export class InteractiveJobSession {
       queueMicrotask(() => {
         if (this._disposed || this._settled || this._finalizing) return
         if (this._streaming || this._pending.length > 0) return
+        this._noteOrphanedBackgroundTasks()
         this._finalizeQuiescent()
       })
     }

@@ -20,6 +20,7 @@
  */
 
 import { getAdapter } from './providers/registry'
+import { FOREGROUND_RULE } from './loop-constants'
 
 export type TicketScope = 'all' | 'per-ticket'
 
@@ -53,6 +54,8 @@ export interface LoopCommand {
  *  `_buildFreestylePrompt` instead (phase A); this is the custom-loop fallback. */
 const FREESTYLE_PROMPT = [
   'Implement the following spec completely and autonomously. Explore the codebase first, then write the code and tests and make the full test suite pass. Work end-to-end without stopping for confirmation; do not open a pipeline — just do it.',
+  '',
+  FOREGROUND_RULE,
   '',
   'Title: {{spec.title}}',
   '',
@@ -193,6 +196,8 @@ export const LOOP_COMMANDS: LoopCommand[] = [
       '',
       'Do NOT invent scope or silently take a big architectural decision to make the loop stop. If real progress is BLOCKED on a decision only a human can make — ambiguous requirements, a missing/undone prerequisite, or introducing a new external dependency (a new database, service, or SDK) — do NOT guess and do NOT keep re-running: end your reply with a single line `LOOP_BLOCKED: <the one specific question the human must answer>` and stop. The loop will halt and surface it instead of cycling.',
       '',
+      FOREGROUND_RULE,
+      '',
       'Verification will run again after this step (unless you reported LOOP_BLOCKED).',
     ].join('\n'),
   },
@@ -209,7 +214,9 @@ export const LOOP_COMMANDS: LoopCommand[] = [
       '',
       'Pick the commands that match the stack (e.g. `npx vitest run`, `npm test`, `npm run typecheck`, `npm run lint`, `npm run build`, `pytest`, `cargo test`, `go test ./...`). Do NOT assume `npm test` exists — inspect first.',
       '',
-      'If anything fails, fix it and re-run until green (do not change unrelated code). Finish with a clear final line — exactly `VERIFICATION: PASS` when everything is green, or `VERIFICATION: FAIL — <short reason>` otherwise.',
+      FOREGROUND_RULE,
+      '',
+      'If anything fails, fix it and re-run until green (do not change unrelated code). Finish with a clear final line — exactly `VERIFICATION: PASS` when everything is green, or `VERIFICATION: FAIL — <short reason>` otherwise. The verdict line must be in THIS reply: a reply that defers the verdict ("still waiting on…") counts as no verdict.',
     ].join('\n'),
   },
 

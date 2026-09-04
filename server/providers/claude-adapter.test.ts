@@ -8,7 +8,7 @@ vi.mock('child_process', async () => {
 })
 
 import { execSync } from 'child_process'
-import { claudeAdapter, _normaliseClaudeModel, _resolveClaudeSpawnModel } from './claude-adapter'
+import { claudeAdapter, _normaliseClaudeModel, _resolveClaudeSpawnModel, isClaudeNotificationResultFrame } from './claude-adapter'
 import type { AdapterEvent } from './types'
 
 const mockExec = vi.mocked(execSync)
@@ -590,5 +590,67 @@ describe('claudeAdapter.detectInstalled', () => {
     const result = await claudeAdapter.detectInstalled()
     expect(result.installed).toBe(true)
     expect(result.executable).toBe(false)
+  })
+})
+
+// ─── CLI notification turns (loop run 5c958db2, claude 2.1.260) ───────────────
+// A `--resume` of a session whose previous process exited with background tasks
+// still running makes the CLI emit a turn of its OWN (origin task-notification,
+// num_turns 0, empty result) BEFORE it processes the caller's prompt. It must
+// never surface as the caller's terminal `result`.
+
+/** The EXACT frame captured from the live run (seq 186), trimmed to the fields
+ *  the adapter reads. */
+const NOTIFICATION_RESULT_LINE = JSON.stringify({
+  type: 'result',
+  subtype: 'success',
+  is_error: false,
+  duration_api_ms: 0,
+  num_turns: 0,
+  stop_reason: null,
+  session_id: '5808cb6e-962e-4a72-83a3-de203ca4cdf1',
+  total_cost_usd: 0,
+  result: '',
+  usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+  origin: { kind: 'task-notification' },
+})
+
+describe('claudeAdapter — task-notification result frames are not turn results', () => {
+  it('isClaudeNotificationResultFrame recognises origin.kind task-notification only', () => {
+    expect(isClaudeNotificationResultFrame(JSON.parse(NOTIFICATION_RESULT_LINE))).toBe(true)
+    expect(isClaudeNotificationResultFrame({ type: 'result', result: 'done' })).toBe(false)
+    expect(isClaudeNotificationResultFrame({ type: 'result', origin: null })).toBe(false)
+    expect(isClaudeNotificationResultFrame({ type: 'result', origin: 'task-notification' })).toBe(false)
+    expect(isClaudeNotificationResultFrame({ type: 'result', origin: { kind: 'human' } })).toBe(false)
+  })
+
+  it('parseStreamLine maps the notification frame to a NON-terminal other event', () => {
+    const ev = claudeAdapter.parseStreamLine(NOTIFICATION_RESULT_LINE)
+    expect(ev).toMatchObject({ kind: 'other', type: 'result' })
+    expect((ev as { raw?: { origin?: { kind?: string } } }).raw?.origin?.kind).toBe('task-notification')
+  })
+
+  it('a result frame without origin (the caller\'s own turn) still parses as kind result', () => {
+    const ev = claudeAdapter.parseStreamLine('{"type":"result","subtype":"success","num_turns":3,"result":"done"}')
+    expect(ev).toMatchObject({ kind: 'result' })
+  })
+
+  it('extractResult ignores the notification frame and keeps the real terminal result', () => {
+    const events = [
+      claudeAdapter.parseStreamLine(NOTIFICATION_RESULT_LINE),
+      claudeAdapter.parseStreamLine('{"type":"assistant","message":{"id":"m1","model":"claude-opus-5","usage":{"input_tokens":10,"output_tokens":5},"content":[{"type":"text","text":"hi"}]}}'),
+      claudeAdapter.parseStreamLine('{"type":"result","subtype":"success","num_turns":2,"total_cost_usd":0.5,"result":"done","usage":{"input_tokens":10,"output_tokens":5}}'),
+    ].filter((e): e is AdapterEvent => e !== null)
+    const result = claudeAdapter.extractResult(events)
+    expect(result.num_turns).toBe(2)
+    expect(result.total_cost_usd).toBe(0.5)
+    expect(result.tokens_in).toBe(10)
+  })
+
+  it('a stream that ends on ONLY the notification frame has no terminal result (usage reconstructed)', () => {
+    const events = [claudeAdapter.parseStreamLine(NOTIFICATION_RESULT_LINE)].filter((e): e is AdapterEvent => e !== null)
+    const result = claudeAdapter.extractResult(events)
+    expect(result.num_turns).toBeUndefined()
+    expect(result.total_cost_usd).toBeUndefined()
   })
 })

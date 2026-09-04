@@ -270,6 +270,22 @@ function withAssistantUsage(
   return ev
 }
 
+/** True when a claude `result` frame is a CLI-INTERNAL notification turn, NOT
+ *  the answer to a prompt the caller wrote. Live evidence (loop run 5c958db2,
+ *  claude 2.1.260): a `--resume` of a session whose previous process exited
+ *  with background tasks still running makes the CLI report those tasks as
+ *  orphaned and emit a turn of its own — `origin: {kind:'task-notification'}`,
+ *  `num_turns: 0`, `stop_reason: null`, empty `result`, zero usage — BEFORE it
+ *  processes the caller's prompt. A consumer that closes its turn on the first
+ *  `result` (interactive job/loop sessions, persistent Explore turns) would
+ *  settle on that frame and tear the real turn down mid-thought. The caller's
+ *  own turns carry no `origin` at all. */
+export function isClaudeNotificationResultFrame(frame: Record<string, unknown>): boolean {
+  const origin = frame.origin
+  if (!origin || typeof origin !== 'object') return false
+  return (origin as { kind?: unknown }).kind === 'task-notification'
+}
+
 function parseClaudeStreamLine(line: string): AdapterEvent | null {
   if (line.length === 0) return null
   let parsed: Record<string, unknown>
@@ -291,6 +307,10 @@ function parseClaudeStreamLine(line: string): AdapterEvent | null {
   }
 
   if (type === 'result') {
+    // A CLI-internal notification turn surfaces as a NON-terminal 'other'
+    // event so no consumer (turn-closing sessions, extractResult, recovery)
+    // mistakes it for the caller's turn result.
+    if (isClaudeNotificationResultFrame(parsed)) return { kind: 'other', type, raw: parsed }
     return { kind: 'result', payload: parsed }
   }
 
