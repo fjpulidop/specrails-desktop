@@ -17,6 +17,9 @@ export interface BuilderSpecQualityIssue {
   field: string
   code: string
   message: string
+  /** Structured values behind `message` (spec number, heading, label, bounds…)
+   *  so the client can localize the issue instead of showing English prose. */
+  params?: Record<string, string | number>
 }
 
 export interface BuilderSpecBatchQualityOptions {
@@ -42,8 +45,15 @@ function issue(
   field: string,
   code: string,
   message: string,
+  params: Record<string, string | number> = {},
 ): void {
-  issues.push({ specIndex, field, code, message })
+  issues.push({
+    specIndex,
+    field,
+    code,
+    message,
+    params: specIndex === null ? params : { n: specIndex + 1, ...params },
+  })
 }
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -94,6 +104,7 @@ export function analyzeBuilderSpecBatch(
       'm1Specs',
       'spec_count',
       `requires ${options.minSpecs}-${options.maxSpecs} specs (received ${input.specs.length})`,
+      { min: options.minSpecs, max: options.maxSpecs, count: input.specs.length },
     )
   }
 
@@ -124,7 +135,7 @@ export function analyzeBuilderSpecBatch(
       const key = normalized(title)
       const prior = titles.get(key)
       if (prior !== undefined) {
-        issue(issues, specIndex, 'title', 'duplicate', `spec ${humanIndex} duplicates spec ${prior + 1} title`)
+        issue(issues, specIndex, 'title', 'duplicate', `spec ${humanIndex} duplicates spec ${prior + 1} title`, { other: prior + 1 })
       } else {
         titles.set(key, specIndex)
       }
@@ -147,10 +158,10 @@ export function analyzeBuilderSpecBatch(
       : []
     const normalizedLabels = new Set(labels.map((value) => value.toUpperCase()))
     if (!normalizedLabels.has(label)) {
-      issue(issues, specIndex, 'labels', 'milestone_label', `spec ${humanIndex} labels must include ${label}`)
+      issue(issues, specIndex, 'labels', 'milestone_label', `spec ${humanIndex} labels must include ${label}`, { label })
     }
     if (labels.every((value) => value.toUpperCase() === label)) {
-      issue(issues, specIndex, 'labels', 'domain_label', `spec ${humanIndex} requires at least one domain label besides ${label}`)
+      issue(issues, specIndex, 'labels', 'domain_label', `spec ${humanIndex} requires at least one domain label besides ${label}`, { label })
     }
 
     const description = typeof spec.description === 'string' ? spec.description.trim() : ''
@@ -170,13 +181,13 @@ export function analyzeBuilderSpecBatch(
     }
     for (const heading of BUILDER_SPEC_HEADINGS) {
       if (!(sections.bodies.get(heading) ?? '').trim()) {
-        issue(issues, specIndex, 'description', 'empty_section', `spec ${humanIndex} section "${heading}" cannot be empty`)
+        issue(issues, specIndex, 'description', 'empty_section', `spec ${humanIndex} section "${heading}" cannot be empty`, { heading })
       }
     }
     for (const heading of ['Out of Scope', 'Technical Considerations'] as const) {
       const body = sections.bodies.get(heading) ?? ''
       if (body && bulletCount(body) < 2) {
-        issue(issues, specIndex, 'description', 'section_bullets', `spec ${humanIndex} section "${heading}" requires at least two bullets`)
+        issue(issues, specIndex, 'description', 'section_bullets', `spec ${humanIndex} section "${heading}" requires at least two bullets`, { heading })
       }
     }
     const complexity = sections.bodies.get('Estimated Complexity') ?? ''
@@ -189,18 +200,18 @@ export function analyzeBuilderSpecBatch(
 
     const criteria = Array.isArray(spec.acceptanceCriteria) ? spec.acceptanceCriteria : []
     if (criteria.length < 4 || criteria.length > 10) {
-      issue(issues, specIndex, 'acceptanceCriteria', 'criteria_count', `spec ${humanIndex} acceptanceCriteria requires 4-10 items`)
+      issue(issues, specIndex, 'acceptanceCriteria', 'criteria_count', `spec ${humanIndex} acceptanceCriteria requires 4-10 items`, { count: criteria.length })
     }
     const seenCriteria = new Set<string>()
     criteria.forEach((criterion, criterionIndex) => {
       const text = typeof criterion === 'string' ? criterion.trim() : ''
       if (text.length < 10 || PLACEHOLDER_CRITERION.test(text)) {
-        issue(issues, specIndex, 'acceptanceCriteria', 'criterion_quality', `spec ${humanIndex} criterion ${criterionIndex + 1} must be a concrete testable outcome`)
+        issue(issues, specIndex, 'acceptanceCriteria', 'criterion_quality', `spec ${humanIndex} criterion ${criterionIndex + 1} must be a concrete testable outcome`, { criterion: criterionIndex + 1 })
         return
       }
       const key = normalized(text)
       if (seenCriteria.has(key)) {
-        issue(issues, specIndex, 'acceptanceCriteria', 'duplicate_criterion', `spec ${humanIndex} criterion ${criterionIndex + 1} is duplicated`)
+        issue(issues, specIndex, 'acceptanceCriteria', 'duplicate_criterion', `spec ${humanIndex} criterion ${criterionIndex + 1} is duplicated`, { criterion: criterionIndex + 1 })
       }
       seenCriteria.add(key)
     })
@@ -228,4 +239,29 @@ export function analyzeTypedBuilderSpecs(
   options: BuilderSpecBatchQualityOptions,
 ): BuilderSpecBatchQualityReport {
   return analyzeBuilderSpecBatch({ specs, specsComplete }, options)
+}
+
+/** M1 walking-skeleton gate options — the single definition shared by the
+ *  commit validator, the chat manager's post-turn audit, and the router. */
+export const M1_BATCH_QUALITY_OPTIONS: BuilderSpecBatchQualityOptions = {
+  milestoneLabel: 'M1',
+  minSpecs: 5,
+  maxSpecs: 10,
+  requireScaffold: true,
+}
+
+/** Audit an exact raw snapshot payload against the M1 gate. Tolerant of any
+ *  input shape (a non-object simply fails the gate). */
+export function auditRawBlueprintForM1(rawBlueprint: unknown): BuilderSpecBatchQualityReport & { claimsComplete: boolean } {
+  const source = record(rawBlueprint)
+  const specs = Array.isArray(source?.m1Specs) ? source.m1Specs : []
+  const report = analyzeBuilderSpecBatch({ specsComplete: source?.specsComplete, specs }, M1_BATCH_QUALITY_OPTIONS)
+  return { ...report, claimsComplete: source?.specsComplete === true }
+}
+
+/** Compact, model-facing rendering of the audit (one line per issue). */
+export function formatQualityIssuesForModel(issues: readonly BuilderSpecQualityIssue[], max = 40): string {
+  const lines = issues.slice(0, max).map((i) => `- ${i.message}`)
+  if (issues.length > max) lines.push(`- …and ${issues.length - max} more`)
+  return lines.join('\n')
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, X, FileText, Layers, ListChecks } from 'lucide-react'
+import { Check, X, FileText, Layers, ListChecks, Loader2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import {
   deriveDimensions,
@@ -8,6 +8,7 @@ import {
   type BlueprintSpecPriority,
 } from '../../lib/blueprint-draft'
 import { BlueprintSpecModal } from './BlueprintSpecModal'
+import type { BuilderSnapshotState } from '../../hooks/useBuilderSession'
 
 // Live blueprint panel (add-project-builder D8): five dimension rows filling
 // in as ✓/✗ during the interview, then the complete M1 spec batch after
@@ -19,6 +20,8 @@ interface BlueprintPanelProps {
   blueprint: Blueprint | null
   /** The detailed-spec payload is shared by day-0 M1 and grounded M2+ drafts. */
   milestoneLabel?: string
+  /** Live snapshot status — a repair in flight pulses the header. */
+  snapshot?: BuilderSnapshotState
 }
 
 const PRIORITY_PILL: Record<BlueprintSpecPriority, string> = {
@@ -28,7 +31,7 @@ const PRIORITY_PILL: Record<BlueprintSpecPriority, string> = {
   low: 'border-border/60 bg-surface/70 text-foreground/60',
 }
 
-export function BlueprintPanel({ blueprint, milestoneLabel = 'M1' }: BlueprintPanelProps) {
+export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: BlueprintPanelProps) {
   const { t } = useTranslation('builder')
   const { t: tTickets } = useTranslation('tickets')
   const dims = deriveDimensions(blueprint)
@@ -57,8 +60,11 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1' }: BlueprintPa
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto p-4" data-testid="blueprint-panel">
       <div className="space-y-1.5">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {t('panel.title')}
+          {snapshot?.status === 'repairing' && (
+            <Loader2 className="h-3 w-3 animate-spin text-accent-info" aria-hidden data-testid="panel-repairing" />
+          )}
         </h3>
         <div className="space-y-1">
           {rows.map((row) => (
@@ -106,6 +112,17 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1' }: BlueprintPa
           <h4 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             <Layers className="h-3 w-3" />
             {t('panel.m1Specs', { count: blueprint.m1Specs.length })}
+            <span
+              className={cn(
+                'ml-auto rounded-full border px-1.5 py-px text-[9px] font-medium normal-case tracking-normal',
+                blueprint.specsComplete
+                  ? 'border-accent-success/35 bg-accent-success/10 text-accent-success'
+                  : 'border-accent-warning/35 bg-accent-warning/10 text-accent-warning',
+              )}
+              data-testid="m1-specs-completeness"
+            >
+              {blueprint.specsComplete ? t('panel.specsComplete') : t('panel.specsInProgress')}
+            </span>
           </h4>
           <div className="space-y-1.5">
             {blueprint.m1Specs.map((spec, i) => (

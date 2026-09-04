@@ -7,6 +7,7 @@ import { spawnCli, windowsSpawnEnv } from './util/win-spawn'
 import type { WsMessage } from './types'
 import type { ProjectRegistry } from './project-registry'
 import { listProjects } from './desktop-db'
+import { getBlueprintConversation, markBlueprintCommitted } from './blueprint-store'
 import { hasAdapter } from './providers'
 import { coerceBlueprint } from './blueprint-draft-parser'
 import { Blueprint, M1_SPECS_MAX, M1_SPECS_MIN } from './blueprint-types'
@@ -33,10 +34,22 @@ export interface BlueprintCommitInput {
   location?: unknown
   providers?: unknown
   createGithubRepo?: unknown
+  /** The Builder conversation the blueprint came from — linked to the new
+   *  project on success so the resume list stops offering it. Optional and
+   *  ignored when unknown (a stale client can never block a commit). */
+  conversationId?: unknown
 }
 
 export type BlueprintCommitValidation =
-  | { ok: true; blueprint: Blueprint; name: string; location: string; providers: string[]; createGithubRepo: boolean }
+  | {
+      ok: true
+      blueprint: Blueprint
+      name: string
+      location: string
+      providers: string[]
+      createGithubRepo: boolean
+      conversationId: string | null
+    }
   | { ok: false; error: string; detail?: string }
 
 export interface BlueprintCommitRunner {
@@ -54,6 +67,8 @@ export interface BlueprintCommitIO {
   writePair: (workspaceDir: string, blueprint: Blueprint) => void
   mutateTickets: (filePath: string, fn: (store: TicketStore) => void) => void
   registerProject: (opts: { id: string; slug: string; name: string; path: string; providers: string[] }) => void
+  /** Link the Builder conversation to the project it created (best-effort). */
+  markCommitted: (conversationId: string, projectId: string) => void
 }
 
 export interface BlueprintCommitDeps {
@@ -149,6 +164,11 @@ export function createBlueprintCommitRunner(deps: BlueprintCommitDeps): Blueprin
     assemble: deps.io?.assemble ?? (async (opts) => { await assembleProjectOffline(opts) }),
     writePair: deps.io?.writePair ?? writeBlueprintPair,
     mutateTickets: deps.io?.mutateTickets ?? ((filePath, fn) => { mutateStore(filePath, fn) }),
+    markCommitted:
+      deps.io?.markCommitted ??
+      ((conversationId, projectId) => {
+        markBlueprintCommitted(deps.registry.desktopDb, conversationId, projectId)
+      }),
     registerProject:
       deps.io?.registerProject ??
       ((opts) => {
@@ -226,7 +246,12 @@ export function createBlueprintCommitRunner(deps: BlueprintCommitDeps): Blueprin
       /* unreadable registry — never block on the projection; addProject re-mirrors */
     }
 
-    return { ok: true, blueprint, name, location, providers, createGithubRepo: input.createGithubRepo === true }
+    const conversationId = typeof input.conversationId === 'string' && input.conversationId
+      && getBlueprintConversation(deps.registry.desktopDb, input.conversationId)
+      ? input.conversationId
+      : null
+
+    return { ok: true, blueprint, name, location, providers, createGithubRepo: input.createGithubRepo === true, conversationId }
   }
 
   const start = (input: BlueprintCommitInput): string => {
@@ -354,6 +379,13 @@ export function createBlueprintCommitRunner(deps: BlueprintCommitDeps): Blueprin
       emit(commitId, step, 'running')
       io.registerProject({ id: projectId, slug, name, path: location, providers })
       emit(commitId, step, 'done')
+      if (v.conversationId) {
+        try {
+          io.markCommitted(v.conversationId, projectId)
+        } catch (err) {
+          console.warn(`[blueprint-commit] could not link conversation ${v.conversationId}:`, (err as Error).message)
+        }
+      }
 
       // 7. best-effort GitHub remote — never aborts. Pre-flight guards against
       // a stale client cache sending createGithubRepo with gh absent/unauthed.

@@ -509,6 +509,26 @@ function applyDesktopMigrations(db: DbInstance): void {
         CREATE INDEX IF NOT EXISTS idx_blueprint_messages_conv ON blueprint_messages(conversation_id, created_at);
       `)
     },
+    // 23: durable Builder snapshots (harden-project-builder-snapshots). The
+    // blueprint used to live ONLY in client memory — the persisted assistant
+    // rows were stripped of the blueprint-draft JSON — so a closed panel, a
+    // refresh, or a silently rejected block lost everything the model had
+    // produced (and billed). Now every ACCEPTED snapshot is stored on the
+    // conversation (normalized + exact raw payload), the model's unstripped
+    // reply is kept per message for forensics/re-parsing, the last rejection
+    // is recorded so a manual repair can resume after a restart, and a commit
+    // links the conversation to the project it created (so the resume list
+    // only offers unfinished blueprints).
+    () => {
+      db.exec(`
+        ALTER TABLE blueprint_conversations ADD COLUMN blueprint_json TEXT;
+        ALTER TABLE blueprint_conversations ADD COLUMN raw_blueprint_json TEXT;
+        ALTER TABLE blueprint_conversations ADD COLUMN snapshot_updated_at TEXT;
+        ALTER TABLE blueprint_conversations ADD COLUMN snapshot_issue_json TEXT;
+        ALTER TABLE blueprint_conversations ADD COLUMN committed_project_id TEXT;
+        ALTER TABLE blueprint_messages ADD COLUMN raw_content TEXT;
+      `)
+    },
   ]
 
   for (let i = 0; i < migrations.length; i++) {

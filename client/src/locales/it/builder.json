@@ -8,7 +8,7 @@
     "surpriseMe": "Sorprendimi",
     "inputPlaceholder": "Un'app che…",
     "createSpecs": "Crea le spec",
-    "createSpecsHint": "Disponibile quando il blueprint ha spec della Milestone 1",
+    "createSpecsHint": "Disponibile quando le spec della Milestone 1 superano l’audit",
     "providerUnavailable": "Il Costruttore richiede un provider con modalità nativa senza strumenti o di sola lettura. Questo provider non è disponibile qui."
   },
   "panel": {
@@ -24,7 +24,9 @@
     "dependsOn": "dipende da #{{index}}",
     "criteriaCount": "{{count}} criteri di accettazione",
     "laterMilestones": "Milestone successive",
-    "empty": "Il blueprint si riempie mentre conversi."
+    "empty": "Il blueprint si riempie mentre conversi.",
+    "specsComplete": "Complete",
+    "specsInProgress": "In corso"
   },
   "commit": {
     "title": "Crea il progetto",
@@ -110,14 +112,15 @@
     "subtitle": "L'agente sta costruendo un nuovo progetto",
     "exit": "Esci",
     "exitConfirmTitle": "Uscire dal Costruttore?",
-    "exitConfirmBody": "Il blueprint in corso verrà scartato.",
+    "exitConfirmBody": "Il Builder si ferma ora. Il tuo blueprint resta salvato: riprendilo da «Continua da dove eri rimasto» alla prossima apertura del Builder.",
     "exitConfirmCancel": "Continua a costruire",
     "exitConfirmDiscard": "Scarta ed esci"
   },
   "prompts": {
     "surpriseMe": "Sorprendimi — proponi valori sensati per tutte le dimensioni del blueprint, lascia m1Specs vuoto e fammi approvare il piano prima di generare le spec dettagliate.",
     "milestoneSeed": "Genera le spec dettagliate della milestone {{label}} (\"{{title}}\"). Leggi prima il codice reale, valida il lotto completo e solo allora emetti TUTTE le spec dettagliate della milestone in un'unica risposta/snapshot blueprint-draft.",
-    "milestoneSeedWithPlanned": "Genera le spec dettagliate della milestone {{label}} (\"{{title}}\"). Titoli di spec pianificate: {{planned}}. Leggi prima il codice reale, valida il lotto completo e solo allora emetti TUTTE le spec dettagliate della milestone in un'unica risposta/snapshot blueprint-draft."
+    "milestoneSeedWithPlanned": "Genera le spec dettagliate della milestone {{label}} (\"{{title}}\"). Titoli di spec pianificate: {{planned}}. Leggi prima il codice reale, valida il lotto completo e solo allora emetti TUTTE le spec dettagliate della milestone in un'unica risposta/snapshot blueprint-draft.",
+    "repairSnapshot": "Il tuo ultimo blocco blueprint-draft non è stato utilizzabile dall’app ({{reason}}). Riemetti lo snapshot COMPLETO come JSON strettamente valido (a capo nelle stringhe come \\n, niente virgole finali, niente blocchi di codice annidati) — solo il blocco."
   },
   "specModal": {
     "eyebrow": "{{milestone}} · Spec {{index}}",
@@ -139,5 +142,108 @@
     "chunkLaunched": "{{milestone}} — rail {{chunk}}/{{total}} avviato",
     "chunkFailed": "{{milestone}} — avvio del rail {{chunk}}/{{total}} non riuscito; rail rimanenti fermati",
     "done": "{{milestone}} completato — {{count}} spec hanno attraversato la catena sequenziale"
+  },
+  "generation": {
+    "writing": "Scrittura delle spec della Milestone 1…",
+    "specCount": "spec {{n}}"
+  },
+  "readiness": {
+    "title": "Pronto a creare le spec?",
+    "steps": {
+      "blueprint": "Blueprint approvato",
+      "specs": "Spec della Milestone 1 generate",
+      "audit": "Audit di qualità"
+    },
+    "details": {
+      "blueprint": {
+        "done": "{{filled}}/{{total}} dimensioni",
+        "pending": "{{filled}}/{{total}} dimensioni",
+        "blocked": "{{filled}}/{{total}} dimensioni"
+      },
+      "specs": {
+        "done": "{{count}} spec · complete",
+        "pending": "{{count}} di {{min}}–{{max}}",
+        "blocked": "{{count}} spec · servono {{min}}–{{max}}"
+      },
+      "audit": {
+        "done": "nessun problema",
+        "pending": "in attesa delle spec",
+        "blocked": "{{count}} da correggere"
+      }
+    },
+    "hints": {
+      "blueprint": {
+        "pending": "Completa l’intervista o di’ «sorprendimi» — finora {{filled}}/{{total}} dimensioni.",
+        "blocked": "Il blueprint è incompleto."
+      },
+      "specs": {
+        "pending": "Approva il blueprint e il Builder genererà il backlog della Milestone 1.",
+        "blocked": "La Milestone 1 richiede {{min}}–{{max}} spec (ora {{count}}). Chiedi al Builder di ridimensionarla."
+      },
+      "audit": {
+        "pending": "In attesa delle spec.",
+        "blocked": "{{count}} problema/i di audit bloccano il commit — apri l’elenco qui sotto."
+      }
+    },
+    "issuesCount_one": "{{count}} problema di audit",
+    "issuesCount_other": "{{count}} problemi di audit",
+    "askFix": "Chiedi al Builder di correggerli"
+  },
+  "snapshot": {
+    "repairing": {
+      "invalid_json": "Riparazione dello snapshot (l’ultimo blocco non era JSON valido)…",
+      "truncated": "Nuova richiesta dello snapshot (la risposta è stata troncata)…",
+      "quality": "Richiesta al Builder di correggere i problemi di audit…",
+      "automatic": "automatica"
+    },
+    "rejected": {
+      "title": "L’ultimo snapshot del Builder non è stato utilizzabile",
+      "invalid_json": "Il blocco del blueprint non era JSON valido, quindi il pannello mostra ancora lo stato precedente.",
+      "missing_version": "Il blocco non era uno snapshot di blueprint (manca blueprintVersion).",
+      "truncated": "La risposta è stata troncata prima della chiusura del blocco: non è arrivato nulla.",
+      "autoRepairFailed": "Una riparazione automatica è già stata tentata.",
+      "retry": "Richiedi di nuovo lo snapshot"
+    },
+    "repairedNote": "Snapshot riparato automaticamente",
+    "nothingToRepair": "Non c’è nulla da riparare — continua a parlare con il Builder.",
+    "noSession": "Questa conversazione non può essere ripresa con il suo provider; invia invece un nuovo messaggio.",
+    "alreadyStreaming": "Il Builder sta ancora rispondendo."
+  },
+  "recent": {
+    "title": "Continua da dove eri rimasto",
+    "untitled": "Blueprint senza titolo",
+    "specsComplete": "{{count}} spec pronte",
+    "specsInProgress": "{{count}} spec in corso",
+    "dimensions": "{{filled}}/{{total}} dimensioni",
+    "pendingIssue": "snapshot da riparare",
+    "discard": "Scarta",
+    "discardConfirm": "Conferma eliminazione",
+    "discardCancel": "Mantieni",
+    "resumeFailed": "Impossibile riprendere questo blueprint.",
+    "discardFailed": "Impossibile scartare questo blueprint."
+  },
+  "quality": {
+    "batch_incomplete": "Il Builder non ha ancora segnato il batch come completo.",
+    "spec_count": "Il batch richiede {{min}}–{{max}} spec (ora {{count}}).",
+    "invalid_shape": "La spec {{n}} non è un oggetto valido.",
+    "invalid_kind": "La spec {{n}} richiede un tipo valido (scaffold, feature o verification).",
+    "scaffold_first": "La prima spec deve essere lo scaffold del progetto.",
+    "duplicate_scaffold": "La spec {{n}} non può essere un secondo scaffold.",
+    "title_required": "La spec {{n}} richiede un titolo.",
+    "title_duplicate": "La spec {{n}} ripete il titolo della spec {{other}}.",
+    "summary": "La spec {{n}} richiede un riassunto di una riga sotto i 240 caratteri.",
+    "invalid_priority": "La spec {{n}} richiede una priorità valida.",
+    "canonical_sections": "Alla spec {{n}} mancano le cinque sezioni canoniche in ordine.",
+    "empty_section": "La sezione «{{heading}}» della spec {{n}} è vuota.",
+    "section_bullets": "La spec {{n}} richiede almeno due punti elenco in «{{heading}}».",
+    "complexity_format": "La spec {{n}} richiede un livello di complessità motivato.",
+    "scaffold_readme": "La spec di scaffold deve citare il README esistente.",
+    "criteria_count": "La spec {{n}} richiede 4–10 criteri di accettazione (ne ha {{count}}).",
+    "criterion_quality": "Spec {{n}}, criterio {{criterion}}: non abbastanza concreto.",
+    "duplicate_criterion": "La spec {{n}} ripete il criterio di accettazione {{criterion}}.",
+    "milestone_label": "La spec {{n}} richiede l’etichetta {{label}}.",
+    "domain_label": "La spec {{n}} richiede un’etichetta di dominio oltre a {{label}}.",
+    "invalid_dependency": "La spec {{n}} può dipendere solo da una spec precedente.",
+    "scaffold_dependency": "La spec di scaffold non può dichiarare dipendenze."
   }
 }

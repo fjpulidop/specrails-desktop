@@ -66,6 +66,7 @@ interface Harness {
   registered: unknown[]
   tmp: string
   workspace: string
+  db: ReturnType<typeof initDesktopDb>
 }
 
 function makeHarness(ioOverrides: Partial<BlueprintCommitIO> = {}): Harness {
@@ -88,7 +89,7 @@ function makeHarness(ioOverrides: Partial<BlueprintCommitIO> = {}): Harness {
   }
   const registry = { desktopDb: db } as unknown as ProjectRegistry
   const runner = createBlueprintCommitRunner({ registry, broadcast: (m) => messages.push(m), io })
-  return { runner, messages, io, registered, tmp, workspace }
+  return { runner, messages, io, registered, tmp, workspace, db }
 }
 
 // The default writePair/mutateTickets target workspacePathFor(slug) — point the
@@ -350,6 +351,32 @@ describe('orchestration', () => {
   it('start throws on invalid input', () => {
     const h = makeHarness()
     expect(() => h.runner.start({})).toThrow(/invalid commit input/)
+  })
+})
+
+describe('conversation link (harden-project-builder-snapshots)', () => {
+  it('links the Builder conversation to the created project after register; unknown ids are ignored', async () => {
+    const h = makeHarness()
+    const { createBlueprintConversation, getBlueprintConversation } = await import('./blueprint-store')
+    const conv = createBlueprintConversation(h.db)
+    const v = h.runner.validate(validInput(h, { conversationId: conv.id }))
+    expect(v.ok && v.conversationId).toBe(conv.id)
+    expect(h.runner.validate(validInput(h, { conversationId: 'ghost' })).ok && (h.runner.validate(validInput(h, { conversationId: 'ghost' })) as { conversationId: string | null }).conversationId).toBeNull()
+    expect((h.runner.validate(validInput(h, { conversationId: 42 })) as { conversationId: string | null }).conversationId).toBeNull()
+
+    h.runner.start(validInput(h, { conversationId: conv.id }))
+    await waitSettled(h)
+    expect(h.messages.some((m) => m.type === 'blueprint.commit_done')).toBe(true)
+    expect(getBlueprintConversation(h.db, conv.id)?.committed_project_id).toBeTruthy()
+  })
+
+  it('a failing link never fails the commit', async () => {
+    const h = makeHarness({ markCommitted: () => { throw new Error('db gone') } })
+    const { createBlueprintConversation } = await import('./blueprint-store')
+    const conv = createBlueprintConversation(h.db)
+    h.runner.start(validInput(h, { conversationId: conv.id }))
+    await waitSettled(h)
+    expect(h.messages.some((m) => m.type === 'blueprint.commit_done')).toBe(true)
   })
 })
 

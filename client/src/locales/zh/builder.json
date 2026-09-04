@@ -8,7 +8,7 @@
     "surpriseMe": "给我惊喜",
     "inputPlaceholder": "一个能……的应用",
     "createSpecs": "创建规格",
-    "createSpecsHint": "蓝图包含里程碑 1 规格后可用",
+    "createSpecsHint": "里程碑 1 的规格通过审核后可用",
     "providerUnavailable": "项目构建器需要具备原生无工具或只读模式的提供商。此提供商在这里不可用。"
   },
   "panel": {
@@ -24,7 +24,9 @@
     "dependsOn": "依赖 #{{index}}",
     "criteriaCount": "{{count}} 条验收标准",
     "laterMilestones": "后续里程碑",
-    "empty": "蓝图会在对话中逐步填充。"
+    "empty": "蓝图会在对话中逐步填充。",
+    "specsComplete": "已完成",
+    "specsInProgress": "进行中"
   },
   "commit": {
     "title": "创建项目",
@@ -110,14 +112,15 @@
     "subtitle": "智能体正在构建新项目",
     "exit": "退出",
     "exitConfirmTitle": "退出构建器？",
-    "exitConfirmBody": "进行中的蓝图将被丢弃。",
+    "exitConfirmBody": "构建器现在停止。你的蓝图已保存——下次打开构建器时可在“从上次离开的地方继续”中恢复。",
     "exitConfirmCancel": "继续构建",
     "exitConfirmDiscard": "丢弃并退出"
   },
   "prompts": {
     "surpriseMe": "给我惊喜——为蓝图的所有维度提出合理方案，保持 m1Specs 为空，并在生成详细规格前让我先批准计划。",
     "milestoneSeed": "为里程碑 {{label}}（\"{{title}}\"）生成详细规格。先阅读真实代码并验证完整批次，然后在一次 blueprint-draft 回复/快照中输出该里程碑的全部详细规格。",
-    "milestoneSeedWithPlanned": "为里程碑 {{label}}（\"{{title}}\"）生成详细规格。计划的规格标题：{{planned}}。先阅读真实代码并验证完整批次，然后在一次 blueprint-draft 回复/快照中输出该里程碑的全部详细规格。"
+    "milestoneSeedWithPlanned": "为里程碑 {{label}}（\"{{title}}\"）生成详细规格。计划的规格标题：{{planned}}。先阅读真实代码并验证完整批次，然后在一次 blueprint-draft 回复/快照中输出该里程碑的全部详细规格。",
+    "repairSnapshot": "应用无法使用你上一个 blueprint-draft 块（{{reason}}）。请重新输出完整的快照，且必须是严格有效的 JSON（字符串内换行转义为 \\n，无尾随逗号，无嵌套代码块）——只输出该块。"
   },
   "specModal": {
     "eyebrow": "{{milestone}} · 规格 {{index}}",
@@ -139,5 +142,108 @@
     "chunkLaunched": "{{milestone}} — 轨道 {{chunk}}/{{total}} 已启动",
     "chunkFailed": "{{milestone}} — 轨道 {{chunk}}/{{total}} 启动失败；已停止后续轨道",
     "done": "{{milestone}} 完成 — {{count}} 个 spec 已通过顺序链"
+  },
+  "generation": {
+    "writing": "正在撰写里程碑 1 的规格…",
+    "specCount": "规格 {{n}}"
+  },
+  "readiness": {
+    "title": "准备好创建规格了吗？",
+    "steps": {
+      "blueprint": "蓝图已批准",
+      "specs": "已生成里程碑 1 的规格",
+      "audit": "质量审核"
+    },
+    "details": {
+      "blueprint": {
+        "done": "{{filled}}/{{total}} 个维度",
+        "pending": "{{filled}}/{{total}} 个维度",
+        "blocked": "{{filled}}/{{total}} 个维度"
+      },
+      "specs": {
+        "done": "{{count}} 条规格 · 已完成",
+        "pending": "{{count}} / {{min}}–{{max}}",
+        "blocked": "{{count}} 条规格 · 需要 {{min}}–{{max}} 条"
+      },
+      "audit": {
+        "done": "没有问题",
+        "pending": "等待规格",
+        "blocked": "{{count}} 项待修正"
+      }
+    },
+    "hints": {
+      "blueprint": {
+        "pending": "完成访谈或说“给我惊喜”——目前 {{filled}}/{{total}} 个维度。",
+        "blocked": "蓝图不完整。"
+      },
+      "specs": {
+        "pending": "批准蓝图后，构建器将生成里程碑 1 的待办清单。",
+        "blocked": "里程碑 1 需要 {{min}}–{{max}} 条规格（当前 {{count}} 条）。请让构建器调整。"
+      },
+      "audit": {
+        "pending": "等待规格。",
+        "blocked": "{{count}} 个审核问题阻止提交——请展开下方列表。"
+      }
+    },
+    "issuesCount_one": "{{count}} 个审核问题",
+    "issuesCount_other": "{{count}} 个审核问题",
+    "askFix": "让构建器修正这些问题"
+  },
+  "snapshot": {
+    "repairing": {
+      "invalid_json": "正在修复快照（上一个块不是有效的 JSON）…",
+      "truncated": "正在重新请求快照（回复被截断）…",
+      "quality": "正在让构建器修正审核问题…",
+      "automatic": "自动"
+    },
+    "rejected": {
+      "title": "构建器的上一个快照无法使用",
+      "invalid_json": "蓝图块不是有效的 JSON，面板仍显示之前的状态。",
+      "missing_version": "该块不是蓝图快照（缺少 blueprintVersion）。",
+      "truncated": "回复在块闭合前被截断，未收到任何内容。",
+      "autoRepairFailed": "已尝试过一次自动修复。",
+      "retry": "再次请求快照"
+    },
+    "repairedNote": "快照已自动修复",
+    "nothingToRepair": "没有需要修复的内容——继续与构建器对话即可。",
+    "noSession": "此对话无法在其提供商上恢复；请改为发送新消息。",
+    "alreadyStreaming": "构建器仍在回复。"
+  },
+  "recent": {
+    "title": "从上次离开的地方继续",
+    "untitled": "未命名蓝图",
+    "specsComplete": "{{count}} 条规格已就绪",
+    "specsInProgress": "{{count}} 条规格进行中",
+    "dimensions": "{{filled}}/{{total}} 个维度",
+    "pendingIssue": "快照待修复",
+    "discard": "丢弃",
+    "discardConfirm": "确认丢弃",
+    "discardCancel": "保留",
+    "resumeFailed": "无法恢复该蓝图。",
+    "discardFailed": "无法丢弃该蓝图。"
+  },
+  "quality": {
+    "batch_incomplete": "构建器尚未将该批次标记为完成。",
+    "spec_count": "该批次需要 {{min}}–{{max}} 条规格（当前 {{count}} 条）。",
+    "invalid_shape": "规格 {{n}} 不是有效对象。",
+    "invalid_kind": "规格 {{n}} 需要有效的类型（scaffold、feature 或 verification）。",
+    "scaffold_first": "第一条规格必须是项目脚手架。",
+    "duplicate_scaffold": "规格 {{n}} 不能是第二个脚手架。",
+    "title_required": "规格 {{n}} 需要标题。",
+    "title_duplicate": "规格 {{n}} 与规格 {{other}} 的标题重复。",
+    "summary": "规格 {{n}} 需要一行 240 字符以内的摘要。",
+    "invalid_priority": "规格 {{n}} 需要有效的优先级。",
+    "canonical_sections": "规格 {{n}} 缺少按顺序排列的五个规范章节。",
+    "empty_section": "规格 {{n}} 的“{{heading}}”章节为空。",
+    "section_bullets": "规格 {{n}} 的“{{heading}}”下至少需要两个要点。",
+    "complexity_format": "规格 {{n}} 需要带理由的复杂度等级。",
+    "scaffold_readme": "脚手架规格必须提及现有的 README。",
+    "criteria_count": "规格 {{n}} 需要 4–10 条验收标准（当前 {{count}} 条）。",
+    "criterion_quality": "规格 {{n}} 的第 {{criterion}} 条标准不够具体。",
+    "duplicate_criterion": "规格 {{n}} 重复了第 {{criterion}} 条验收标准。",
+    "milestone_label": "规格 {{n}} 需要 {{label}} 标签。",
+    "domain_label": "规格 {{n}} 除 {{label}} 外还需要一个领域标签。",
+    "invalid_dependency": "规格 {{n}} 只能依赖更早的规格。",
+    "scaffold_dependency": "脚手架规格不能声明依赖。"
   }
 }

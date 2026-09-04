@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import { Bot, X, Plus, Maximize2, Minimize2, Rocket } from 'lucide-react'
+import { Bot, X, Plus, Maximize2, Minimize2 } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useMovableResizableModal } from '../../hooks/useMovableResizableModal'
@@ -9,10 +9,10 @@ import { ResizeGrips } from '../ui/ResizeGrips'
 import { AgentConversationView } from './AgentConversationView'
 import { AgentProjectSelector } from './AgentProjectSelector'
 import { AgentMissionSelector } from './AgentMissionSelector'
-import { Button } from '../ui/button'
 import { BuilderHalo } from '../project-builder/BuilderHalo'
 import { BuilderConversation } from '../project-builder/BuilderConversation'
 import { BlueprintPanel } from '../project-builder/BlueprintPanel'
+import { BlueprintReadiness } from '../project-builder/BlueprintReadiness'
 
 /** The floating, movable+resizable, non-modal agent chat panel (Kanban Mode
  *  quick-access). Window chrome only — the conversation body is the shared
@@ -115,25 +115,16 @@ export function AgentChatPanel() {
           <div className="flex min-h-0 flex-1">
             <BuilderConversation variant="floating" />
             <aside className="flex w-72 shrink-0 flex-col border-l border-border/40 lg:w-80">
-              <BlueprintPanel blueprint={builderMode.session.blueprint} />
+              <BlueprintPanel blueprint={builderMode.session.blueprint} snapshot={builderMode.session.snapshot} />
               {builderMode.session.phase === 'chat' && (
-                <div className="border-t border-border/40 p-3">
-                  <Button
-                    className="w-full"
-                    size="sm"
-                    disabled={!builderMode.session.canProposeCommit}
-                    onClick={builderMode.session.goToCommit}
-                    data-testid="builder-create-specs"
-                  >
-                    <Rocket className="mr-1.5 h-3.5 w-3.5" />
-                    {tBuilder('shell.createSpecs')}
-                  </Button>
-                  {!builderMode.session.canProposeCommit && (
-                    <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
-                      {builderMode.session.specQualityDetail ?? tBuilder('shell.createSpecsHint')}
-                    </p>
-                  )}
-                </div>
+                <BlueprintReadiness
+                  readiness={builderMode.session.readiness}
+                  snapshot={builderMode.session.snapshot}
+                  busy={builderMode.session.busy}
+                  primaryLabel={tBuilder('shell.createSpecs')}
+                  onPrimary={builderMode.session.goToCommit}
+                  onRepair={() => void builderMode.session.repairSnapshot()}
+                />
               )}
             </aside>
           </div>

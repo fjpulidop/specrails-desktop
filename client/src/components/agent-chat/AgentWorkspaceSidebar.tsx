@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase, Rocket, BarChart3 } from 'lucide-react'
-import { Button } from '../ui/button'
+import { Globe, TerminalSquare, FileCode2, PanelRight, Briefcase, BarChart3 } from 'lucide-react'
 import { BlueprintPanel } from '../project-builder/BlueprintPanel'
+import { BlueprintReadiness } from '../project-builder/BlueprintReadiness'
 import { cn } from '../../lib/utils'
 import { useResizableSidebar } from '../../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from '../SidebarResizeGrip'
@@ -148,25 +148,16 @@ export function AgentWorkspaceSidebar() {
             className="flex min-h-0 flex-1 flex-col"
             data-testid="workspace-blueprint-panel"
           >
-            <BlueprintPanel blueprint={builderMode.session.blueprint} />
+            <BlueprintPanel blueprint={builderMode.session.blueprint} snapshot={builderMode.session.snapshot} />
             {builderMode.session.phase === 'chat' && (
-              <div className="border-t border-border/40 p-3">
-                <Button
-                  className="w-full"
-                  size="sm"
-                  disabled={!builderMode.session.canProposeCommit}
-                  onClick={builderMode.session.goToCommit}
-                  data-testid="builder-create-specs"
-                >
-                  <Rocket className="mr-1.5 h-3.5 w-3.5" />
-                  {tBuilder('shell.createSpecs')}
-                </Button>
-                {!builderMode.session.canProposeCommit && (
-                  <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
-                    {builderMode.session.specQualityDetail ?? tBuilder('shell.createSpecsHint')}
-                  </p>
-                )}
-              </div>
+              <BlueprintReadiness
+                readiness={builderMode.session.readiness}
+                snapshot={builderMode.session.snapshot}
+                busy={builderMode.session.busy}
+                primaryLabel={tBuilder('shell.createSpecs')}
+                onPrimary={builderMode.session.goToCommit}
+                onRepair={() => void builderMode.session.repairSnapshot()}
+              />
             )}
           </motion.div>
         </AnimatePresence>

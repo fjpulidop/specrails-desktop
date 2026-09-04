@@ -8,7 +8,7 @@
     "surpriseMe": "おまかせ",
     "inputPlaceholder": "〜ができるアプリ",
     "createSpecs": "スペックを作成",
-    "createSpecsHint": "ブループリントにマイルストーン1のスペックが揃うと使えます",
+    "createSpecsHint": "マイルストーン 1 のスペックが監査を通過すると利用できます",
     "providerUnavailable": "プロジェクトビルダーには、ツールなしまたは読み取り専用のネイティブモードを持つプロバイダーが必要です。このプロバイダーは利用できません。"
   },
   "panel": {
@@ -24,7 +24,9 @@
     "dependsOn": "#{{index}} に依存",
     "criteriaCount": "受け入れ基準 {{count}} 件",
     "laterMilestones": "以降のマイルストーン",
-    "empty": "会話に合わせてブループリントが埋まっていきます。"
+    "empty": "会話に合わせてブループリントが埋まっていきます。",
+    "specsComplete": "完了",
+    "specsInProgress": "進行中"
   },
   "commit": {
     "title": "プロジェクトを作成",
@@ -110,14 +112,15 @@
     "subtitle": "エージェントが新しいプロジェクトを作成中",
     "exit": "終了",
     "exitConfirmTitle": "ビルダーを終了しますか？",
-    "exitConfirmBody": "作成中のブループリントは破棄されます。",
+    "exitConfirmBody": "ビルダーはここで停止します。ブループリントは保存済みです。次回ビルダーを開いたときに「前回の続きから」で再開できます。",
     "exitConfirmCancel": "作成を続ける",
     "exitConfirmDiscard": "破棄して終了"
   },
   "prompts": {
     "surpriseMe": "おまかせで——ブループリントの全項目に妥当な値を提案し、m1Specs は空のまま、詳細スペックを生成する前に計画を承認させてください。",
     "milestoneSeed": "マイルストーン {{label}}（\"{{title}}\"）の詳細スペックを生成してください。まず実際のコードを読み、完全な一括セットを検証してから、マイルストーンの詳細スペックをすべて単一の blueprint-draft レスポンス／スナップショットで出力してください。",
-    "milestoneSeedWithPlanned": "マイルストーン {{label}}（\"{{title}}\"）の詳細スペックを生成してください。計画中のスペックタイトル：{{planned}}。まず実際のコードを読み、完全な一括セットを検証してから、マイルストーンの詳細スペックをすべて単一の blueprint-draft レスポンス／スナップショットで出力してください。"
+    "milestoneSeedWithPlanned": "マイルストーン {{label}}（\"{{title}}\"）の詳細スペックを生成してください。計画中のスペックタイトル：{{planned}}。まず実際のコードを読み、完全な一括セットを検証してから、マイルストーンの詳細スペックをすべて単一の blueprint-draft レスポンス／スナップショットで出力してください。",
+    "repairSnapshot": "直前の blueprint-draft ブロックはアプリで使用できませんでした（{{reason}}）。完全なスナップショットを厳密に有効な JSON で再出力してください（文字列内の改行は \\n にエスケープ、末尾カンマなし、ネストしたコードブロックなし）。ブロックのみを出力してください。"
   },
   "specModal": {
     "eyebrow": "{{milestone}} · スペック {{index}}",
@@ -139,5 +142,108 @@
     "chunkLaunched": "{{milestone}} — レール {{chunk}}/{{total}} を起動",
     "chunkFailed": "{{milestone}} — レール {{chunk}}/{{total}} の起動に失敗。残りのレールを停止",
     "done": "{{milestone}} 完了 — {{count}} 件のスペックが順次チェーンを通過"
+  },
+  "generation": {
+    "writing": "マイルストーン 1 のスペックを作成中…",
+    "specCount": "スペック {{n}}"
+  },
+  "readiness": {
+    "title": "スペックを作成する準備はできましたか？",
+    "steps": {
+      "blueprint": "ブループリント承認済み",
+      "specs": "マイルストーン 1 のスペック生成済み",
+      "audit": "品質監査"
+    },
+    "details": {
+      "blueprint": {
+        "done": "{{filled}}/{{total}} 項目",
+        "pending": "{{filled}}/{{total}} 項目",
+        "blocked": "{{filled}}/{{total}} 項目"
+      },
+      "specs": {
+        "done": "{{count}} 件 · 完了",
+        "pending": "{{count}} / {{min}}–{{max}} 件",
+        "blocked": "{{count}} 件 · {{min}}–{{max}} 件が必要"
+      },
+      "audit": {
+        "done": "問題なし",
+        "pending": "スペック待ち",
+        "blocked": "{{count}} 件の修正が必要"
+      }
+    },
+    "hints": {
+      "blueprint": {
+        "pending": "インタビューを終えるか「おまかせ」と伝えてください。現在 {{filled}}/{{total}} 項目です。",
+        "blocked": "ブループリントが不完全です。"
+      },
+      "specs": {
+        "pending": "ブループリントを承認すると、ビルダーがマイルストーン 1 のバックログを生成します。",
+        "blocked": "マイルストーン 1 には {{min}}–{{max}} 件のスペックが必要です（現在 {{count}} 件）。ビルダーに調整を依頼してください。"
+      },
+      "audit": {
+        "pending": "スペックを待っています。",
+        "blocked": "{{count}} 件の監査問題がコミットを妨げています。下のリストを開いてください。"
+      }
+    },
+    "issuesCount_one": "監査問題 {{count}} 件",
+    "issuesCount_other": "監査問題 {{count}} 件",
+    "askFix": "ビルダーに修正を依頼"
+  },
+  "snapshot": {
+    "repairing": {
+      "invalid_json": "スナップショットを修復中（直前のブロックが有効な JSON ではありませんでした）…",
+      "truncated": "スナップショットを再要求中（応答が途中で切れました）…",
+      "quality": "ビルダーに監査問題の修正を依頼中…",
+      "automatic": "自動"
+    },
+    "rejected": {
+      "title": "ビルダーの直前のスナップショットを使用できませんでした",
+      "invalid_json": "ブループリントのブロックが有効な JSON ではなかったため、パネルは以前の状態のままです。",
+      "missing_version": "ブロックはブループリントのスナップショットではありませんでした（blueprintVersion がありません）。",
+      "truncated": "ブロックが閉じる前に応答が切れたため、何も受信できませんでした。",
+      "autoRepairFailed": "自動修復はすでに試行済みです。",
+      "retry": "スナップショットを再要求"
+    },
+    "repairedNote": "スナップショットを自動修復しました",
+    "nothingToRepair": "修復するものはありません。ビルダーとの会話を続けてください。",
+    "noSession": "この会話はプロバイダーで再開できません。代わりに新しいメッセージを送ってください。",
+    "alreadyStreaming": "ビルダーはまだ応答中です。"
+  },
+  "recent": {
+    "title": "前回の続きから",
+    "untitled": "無題のブループリント",
+    "specsComplete": "スペック {{count}} 件 準備完了",
+    "specsInProgress": "スペック {{count}} 件 進行中",
+    "dimensions": "{{filled}}/{{total}} 項目",
+    "pendingIssue": "要修復のスナップショット",
+    "discard": "破棄",
+    "discardConfirm": "破棄を確定",
+    "discardCancel": "保持",
+    "resumeFailed": "そのブループリントを再開できませんでした。",
+    "discardFailed": "そのブループリントを破棄できませんでした。"
+  },
+  "quality": {
+    "batch_incomplete": "ビルダーはまだこのバッチを完了とマークしていません。",
+    "spec_count": "バッチには {{min}}–{{max}} 件のスペックが必要です（現在 {{count}} 件）。",
+    "invalid_shape": "スペック {{n}} は有効なオブジェクトではありません。",
+    "invalid_kind": "スペック {{n}} には有効な種類（scaffold、feature、verification）が必要です。",
+    "scaffold_first": "最初のスペックはプロジェクトのスキャフォールドである必要があります。",
+    "duplicate_scaffold": "スペック {{n}} を 2 つ目のスキャフォールドにはできません。",
+    "title_required": "スペック {{n}} にはタイトルが必要です。",
+    "title_duplicate": "スペック {{n}} はスペック {{other}} とタイトルが重複しています。",
+    "summary": "スペック {{n}} には 240 文字未満の 1 行要約が必要です。",
+    "invalid_priority": "スペック {{n}} には有効な優先度が必要です。",
+    "canonical_sections": "スペック {{n}} には順序どおりの 5 つの標準セクションが不足しています。",
+    "empty_section": "スペック {{n}} の「{{heading}}」セクションが空です。",
+    "section_bullets": "スペック {{n}} の「{{heading}}」には箇条書きが少なくとも 2 つ必要です。",
+    "complexity_format": "スペック {{n}} には根拠付きの複雑度レベルが必要です。",
+    "scaffold_readme": "スキャフォールドのスペックは既存の README に言及する必要があります。",
+    "criteria_count": "スペック {{n}} には 4〜10 件の受け入れ基準が必要です（現在 {{count}} 件）。",
+    "criterion_quality": "スペック {{n}} の基準 {{criterion}} は具体性が足りません。",
+    "duplicate_criterion": "スペック {{n}} は受け入れ基準 {{criterion}} を繰り返しています。",
+    "milestone_label": "スペック {{n}} には {{label}} ラベルが必要です。",
+    "domain_label": "スペック {{n}} には {{label}} に加えてドメインラベルが必要です。",
+    "invalid_dependency": "スペック {{n}} は先行するスペックにのみ依存できます。",
+    "scaffold_dependency": "スキャフォールドのスペックは依存関係を宣言できません。"
   }
 }

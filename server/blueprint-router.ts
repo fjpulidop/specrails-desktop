@@ -10,11 +10,14 @@ import { pureOutputToolPolicy } from './providers/runtime'
 import {
   createBlueprintConversation,
   listBlueprintConversations,
+  listResumableBlueprintConversations,
   getBlueprintConversation,
+  getBlueprintSnapshot,
   updateBlueprintConversation,
   deleteBlueprintConversation,
   listBlueprintMessages,
 } from './blueprint-store'
+import { auditRawBlueprintForM1 } from './blueprint-spec-quality'
 import type { BlueprintCommitInput, BlueprintCommitRunner } from './blueprint-commit'
 
 // ─── Project Builder REST surface (/api/blueprint) ────────────────────────────
@@ -75,7 +78,15 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
     })
   })
 
-  router.get('/conversations', (_req: Request, res: Response) => {
+  // `?resumable=1` → the "continue where you left off" list: unfinished
+  // (never committed) conversations with at least one assistant reply, each
+  // with a snapshot summary — the durable answer to "I closed the panel and
+  // lost the specs".
+  router.get('/conversations', (req: Request, res: Response) => {
+    if (req.query.resumable === '1' || req.query.resumable === 'true') {
+      res.json({ conversations: listResumableBlueprintConversations(desktopDb) })
+      return
+    }
     res.json({ conversations: listBlueprintConversations(desktopDb) })
   })
 
@@ -91,13 +102,36 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
     res.status(201).json({ conversation })
   })
 
+  // Rehydration payload: transcript (block-only replies hidden — their raw
+  // payload stays in the row), the persisted snapshot pair, and its status so
+  // the panel resumes with the same readiness/repair affordances it had live.
   router.get('/conversations/:id', (req: Request, res: Response) => {
     const conversation = getBlueprintConversation(desktopDb, String(req.params.id))
     if (!conversation) {
       res.status(404).json({ error: 'conversation not found' })
       return
     }
-    res.json({ conversation, messages: listBlueprintMessages(desktopDb, conversation.id) })
+    const snapshot = getBlueprintSnapshot(desktopDb, conversation.id)
+    const audit = snapshot.rawBlueprint !== null ? auditRawBlueprintForM1(snapshot.rawBlueprint) : null
+    const messages = listBlueprintMessages(desktopDb, conversation.id)
+      .filter((m) => m.content.trim() !== '')
+      .map(({ raw_content: _raw, ...rest }) => rest)
+    res.json({
+      conversation,
+      messages,
+      blueprint: snapshot.blueprint,
+      rawBlueprint: snapshot.rawBlueprint,
+      snapshot: snapshot.issue
+        ? { status: 'rejected', reason: snapshot.issue.reason, detail: snapshot.issue.detail }
+        : snapshot.blueprint
+          ? {
+              status: 'accepted',
+              claimsComplete: audit?.claimsComplete ?? false,
+              ...(audit && audit.claimsComplete && !audit.valid ? { qualityIssues: audit.issues } : {}),
+            }
+          : { status: 'none' },
+      snapshotUpdatedAt: snapshot.snapshotUpdatedAt,
+    })
   })
 
   router.patch('/conversations/:id', (req: Request, res: Response) => {
@@ -214,6 +248,24 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
     }
     void manager.sendMessage(conversation.id, text, { model, reasoningEffort })
     res.status(202).json({ accepted: true })
+  })
+
+  // Manual snapshot repair: re-ask the Builder for its last block (rejected
+  // JSON / cut-off reply) or for the audit fixes (claimed complete, gate
+  // disagreed). 202 + `blueprint.repairing` → streams → `blueprint.done`.
+  router.post('/conversations/:id/repair-snapshot', async (req: Request, res: Response) => {
+    const conversation = getBlueprintConversation(desktopDb, String(req.params.id))
+    if (!conversation) {
+      res.status(404).json({ error: 'conversation not found' })
+      return
+    }
+    const outcome = await manager.repairSnapshot(conversation.id)
+    if (!outcome.ok) {
+      const status = outcome.reason === 'unknown_conversation' ? 404 : 409
+      res.status(status).json({ error: outcome.reason })
+      return
+    }
+    res.status(202).json({ accepted: true, kind: outcome.kind })
   })
 
   router.post('/conversations/:id/abort', (req: Request, res: Response) => {

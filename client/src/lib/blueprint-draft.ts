@@ -2,6 +2,14 @@
 // Full-snapshot last-valid-wins extraction of ```blueprint-draft fenced JSON
 // blocks, plus a streaming tail cut so raw JSON never flashes while a block is
 // still arriving. Keep the coercion rules in sync with the server module.
+//
+// Nothing is dropped silently: a block that cannot become a snapshot is
+// reported in `rejected` (invalid JSON after the tolerant repair pass, missing
+// `blueprintVersion`, or a reply cut off inside the block — `truncated`), and
+// `countStreamingSpecs` lets the chat show live generation progress while a
+// block is still arriving.
+
+import { parseJsonTolerant } from './json-tolerant'
 
 export type MilestoneStatus = 'planned' | 'committed' | 'done'
 export type BlueprintSpecKind = 'scaffold' | 'feature' | 'verification'
@@ -152,44 +160,109 @@ export function coerceBlueprint(parsed: unknown): Blueprint | null {
   }
 }
 
+export type BlueprintRejectionReason = 'invalid_json' | 'missing_version' | 'truncated'
+
+export interface BlueprintRejectedBlock {
+  index: number
+  reason: BlueprintRejectionReason
+  detail: string
+}
+
 export interface BlueprintParseResult {
+  /** Text with every block removed — including an unterminated trailing one. */
   stripped: string
   blueprint: Blueprint | null
   /** Exact last schema-valid JSON payload before legacy-compatible coercion.
    * Keep it for readiness/commit validation; render from `blueprint`. */
   rawBlueprint: unknown | null
   hadBlocks: boolean
+  /** Every block that did not become a snapshot, in document order. */
+  rejected: BlueprintRejectedBlock[]
+  /** The winning snapshot only parsed after the tolerant repair pass. */
+  repaired: boolean
+  /** The text ended inside an open fence (the reply was cut off). */
+  truncated: boolean
+}
+
+/** A lone closing fence right after a matched block (nested ```json fence). */
+const ORPHAN_CLOSE_RE = /^[ \t]*\r?\n?[ \t]*```[ \t]*(?=\r?\n|$)/
+
+/** Rough count of specs that had started in a (possibly partial) block. */
+export function countStartedSpecs(blockText: string): number {
+  const at = blockText.indexOf('"m1Specs"')
+  if (at === -1) return 0
+  return (blockText.slice(at).match(/"title"\s*:/g) ?? []).length
 }
 
 /** Scan for closed blueprint-draft fences; the LAST valid snapshot wins. */
 export function parseBlueprintDraftBlocks(text: string): BlueprintParseResult {
   if (!text || !text.includes('```blueprint-draft')) {
-    return { stripped: text ?? '', blueprint: null, rawBlueprint: null, hadBlocks: false }
+    return { stripped: text ?? '', blueprint: null, rawBlueprint: null, hadBlocks: false, rejected: [], repaired: false, truncated: false }
   }
   let blueprint: Blueprint | null = null
   let rawBlueprint: unknown | null = null
+  let repaired = false
   let hadBlocks = false
+  const rejected: BlueprintRejectedBlock[] = []
   let stripped = ''
   let cursor = 0
+  let index = 0
   FENCE_RE.lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = FENCE_RE.exec(text)) !== null) {
     hadBlocks = true
     stripped += text.slice(cursor, match.index)
     cursor = match.index + match[0].length
-    try {
-      const parsed = JSON.parse(match[1]) as unknown
-      const candidate = coerceBlueprint(parsed)
-      if (candidate) {
-        blueprint = candidate
-        rawBlueprint = parsed
-      }
-    } catch {
-      // malformed; keep the previous valid snapshot
+    const orphan = ORPHAN_CLOSE_RE.exec(text.slice(cursor))
+    if (orphan) {
+      cursor += orphan[0].length
+      FENCE_RE.lastIndex = cursor
     }
+    const blockIndex = index
+    index += 1
+    const parsed = parseJsonTolerant(match[1])
+    if (!parsed.ok) {
+      const where = parsed.excerpt ? ` near: …${parsed.excerpt}…` : ''
+      rejected.push({ index: blockIndex, reason: 'invalid_json', detail: `${parsed.error}${where}` })
+      continue
+    }
+    const candidate = coerceBlueprint(parsed.value)
+    if (!candidate) {
+      rejected.push({ index: blockIndex, reason: 'missing_version', detail: 'the payload is not a blueprint object with an integer blueprintVersion' })
+      continue
+    }
+    blueprint = candidate
+    rawBlueprint = parsed.value
+    repaired = parsed.repaired
   }
-  stripped += text.slice(cursor)
-  return { stripped, blueprint, rawBlueprint, hadBlocks }
+  const remainder = text.slice(cursor)
+  const open = OPEN_FENCE_RE.exec(remainder)
+  let truncated = false
+  if (open) {
+    hadBlocks = true
+    truncated = true
+    const started = countStartedSpecs(remainder.slice(open.index))
+    rejected.push({
+      index,
+      reason: 'truncated',
+      detail: started > 0
+        ? `the block was cut off before its closing fence after ${started} spec title(s) had started`
+        : 'the block was cut off before its closing fence',
+    })
+    stripped += remainder.slice(0, open.index)
+  } else {
+    stripped += remainder
+  }
+  return { stripped, blueprint, rawBlueprint, hadBlocks, rejected, repaired, truncated }
+}
+
+/** Live generation progress for a stream buffer: whether a snapshot block is
+ *  currently arriving and how many M1 spec titles have started inside it. */
+export function describeStreamingSnapshot(buffer: string | null): { generating: boolean; specsStarted: number } {
+  if (!buffer || !buffer.includes('```blueprint-draft')) return { generating: false, specsStarted: 0 }
+  const open = OPEN_FENCE_RE.exec(buffer)
+  if (!open) return { generating: false, specsStarted: 0 }
+  return { generating: true, specsStarted: countStartedSpecs(buffer.slice(open.index)) }
 }
 
 /** Cut an UNTERMINATED trailing fence for live stream rendering. */

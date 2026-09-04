@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   coerceBlueprint,
+  countStartedSpecs,
   cutUnterminatedBlock,
   deriveDimensions,
+  describeStreamingSnapshot,
   parseBlueprintDraftBlocks,
   type Blueprint,
 } from '../blueprint-draft'
@@ -32,7 +34,7 @@ function fence(payload: unknown): string {
 describe('parseBlueprintDraftBlocks', () => {
   it('returns text unchanged with no blocks', () => {
     const res = parseBlueprintDraftBlocks('hello')
-    expect(res).toEqual({ stripped: 'hello', blueprint: null, rawBlueprint: null, hadBlocks: false })
+    expect(res).toEqual({ stripped: 'hello', blueprint: null, rawBlueprint: null, hadBlocks: false, rejected: [], repaired: false, truncated: false })
   })
 
   it('extracts and strips a valid snapshot', () => {
@@ -132,5 +134,45 @@ describe('deriveDimensions', () => {
     expect(d.platform).toBe(false)
     expect(d.stack).toBe(true)
     expect(d.milestones).toBe(true)
+  })
+})
+
+describe('rejection diagnostics + tolerant repair (harden-project-builder-snapshots)', () => {
+  it('invalid JSON is reported, not dropped', () => {
+    const res = parseBlueprintDraftBlocks('x\n```blueprint-draft\n{"blueprintVersion": 1, "product": {"name": "A" "pitch": "p"}}\n```')
+    expect(res.blueprint).toBeNull()
+    expect(res.hadBlocks).toBe(true)
+    expect(res.rejected).toEqual([expect.objectContaining({ index: 0, reason: 'invalid_json' })])
+    expect(res.stripped).toBe('x\n')
+  })
+
+  it('repairs raw newlines / trailing commas / inner quotes and flags repaired', () => {
+    const body = '{\n "blueprintVersion": 1,\n "product": { "name": "Say "hi"", "pitch": "a\nb", "audience": "x", },\n "m1Specs": [],\n}'
+    const res = parseBlueprintDraftBlocks('```blueprint-draft\n' + body + '\n```')
+    expect(res.blueprint?.product.name).toBe('Say "hi"')
+    expect(res.blueprint?.product.pitch).toBe('a\nb')
+    expect(res.repaired).toBe(true)
+  })
+
+  it('an unterminated trailing block is cut from the transcript and reported as truncated', () => {
+    const res = parseBlueprintDraftBlocks('Generating…\n```blueprint-draft\n{"blueprintVersion":1,"m1Specs":[{"title":"a"},{"title":"b"},{"tit')
+    expect(res.truncated).toBe(true)
+    expect(res.stripped).toBe('Generating…\n')
+    expect(res.rejected[0]).toMatchObject({ reason: 'truncated' })
+    expect(res.rejected[0].detail).toMatch(/after 2 spec title/)
+  })
+
+  it('a nested json fence inside the block is unwrapped (orphan closing fence removed)', () => {
+    const res = parseBlueprintDraftBlocks('Here.\n```blueprint-draft\n```json\n' + JSON.stringify(snapshot()) + '\n```\n```\nDone.')
+    expect(res.blueprint?.product.name).toBe('Recipely')
+    expect(res.stripped).toBe('Here.\n\nDone.')
+  })
+
+  it('describeStreamingSnapshot reports live generation only while a fence is open', () => {
+    expect(describeStreamingSnapshot(null)).toEqual({ generating: false, specsStarted: 0 })
+    expect(describeStreamingSnapshot('plain text')).toEqual({ generating: false, specsStarted: 0 })
+    expect(describeStreamingSnapshot('Generating…\n```blueprint-draft\n{"m1Specs":[{"title":"a"},{"title":"b"}')).toEqual({ generating: true, specsStarted: 2 })
+    expect(describeStreamingSnapshot('```blueprint-draft\n{"blueprintVersion":1}\n```\ndone')).toEqual({ generating: false, specsStarted: 0 })
+    expect(countStartedSpecs('{"product":{"title":"x"},"m1Specs":[{"title":"a"}')).toBe(1)
   })
 })
