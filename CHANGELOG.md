@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.39.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.38.2...v2.39.0) (2026-09-04)
+
+
+### Features
+
+* **mcp:** enable the embedded MCP server and every permission tier by default ([#601](https://github.com/fjpulidop/specrails-desktop/issues/601)) ([71fd8b4](https://github.com/fjpulidop/specrails-desktop/commit/71fd8b41e0d13f45f26c82ef76d82b1234846a3f))
+
+
+### Bug Fixes
+
+* **loop:** ignore claude task-notification result frames and retry resumed zero-work steps ([#599](https://github.com/fjpulidop/specrails-desktop/issues/599)) ([32a6e4a](https://github.com/fjpulidop/specrails-desktop/commit/32a6e4abd45725034cdb2e05a215619feb444a33))
+
 ## [2.38.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.38.1...v2.38.2) (2026-09-03)
 
 
