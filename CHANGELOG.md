@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.40.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.39.0...v2.40.0) (2026-09-04)
+
+
+### Features
+
+* **builder:** never lose a blueprint — tolerant snapshot parsing, automatic repair turn, durable snapshots and resume ([#602](https://github.com/fjpulidop/specrails-desktop/issues/602)) ([21feb49](https://github.com/fjpulidop/specrails-desktop/commit/21feb491a6baa85c2a7021eab55a304587535274))
+
 ## [2.39.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.38.2...v2.39.0) (2026-09-04)
 
 
