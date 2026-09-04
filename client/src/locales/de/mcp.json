@@ -2,8 +2,8 @@
   "heading": "MCP-Server",
   "explainer": {
     "what": "Ein MCP-Server (Model Context Protocol) ermöglicht es externen KI-Tools – wie Claude Desktop, Cursor oder jedem MCP-Client – direkt mit Specrails zu kommunizieren. Sie können Ihre Projekte durchsuchen, Spezifikationen lesen und – wenn Sie es erlauben – Arbeiten starten, alles über eine einzige sichere lokale Verbindung.",
-    "how": "Aktivieren Sie ihn unten und kopieren Sie dann die Client-Konfiguration in Ihr KI-Tool. Specrails lauscht nur auf Ihrem eigenen Rechner – nichts wird ins Internet veröffentlicht.",
-    "grants": "Standardmäßig erhalten Tools nur Lesezugriff. Verwenden Sie die Berechtigungsstufen, um mehr zu gewähren – eine Fähigkeit nach der anderen."
+    "how": "Standardmäßig eingeschaltet – kopieren Sie die Client-Konfiguration unten in Ihr KI-Tool. Specrails lauscht nur auf Ihrem eigenen Rechner – nichts ist im Internet erreichbar.",
+    "grants": "Alle Berechtigungsstufen sind standardmäßig aktiv. Deaktivieren Sie eine Stufe, um einzuschränken, was Clients tun dürfen – eine Fähigkeit nach der anderen."
   },
   "enable": {
     "on": "MCP-Server an",
@@ -20,7 +20,7 @@
   },
   "tiers": {
     "heading": "Berechtigungsstufen",
-    "description": "Jede Stufe, die ein Client verwenden darf. Lesen ist immer aktiv; der Rest ist aus, bis Sie ihn gewähren.",
+    "description": "Jede Stufe, die ein Client verwenden darf. Lesen ist immer aktiv; der Rest ist standardmäßig an – schalten Sie Stufen aus, um Clients einzuschränken.",
     "read": "Lesen",
     "readHelp": "Projekte, Spezifikationen und Analysen durchsuchen. Immer erlaubt.",
     "write": "Schreiben",

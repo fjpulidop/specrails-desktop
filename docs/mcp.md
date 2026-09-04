@@ -18,9 +18,10 @@ the [Serena plugin](running-pipelines.md#plugins) or
 `codex mcp add`, where Specrails *consumes* an MCP server. Here Specrails *is*
 the server.
 
-The MCP server is **off by default** and entirely local: it listens only on
-loopback (`127.0.0.1`), is authenticated by a token separate from the app's
-master token, and serves nothing until you explicitly enable it in Settings.
+The MCP server is **on by default** and entirely local: it listens only on
+loopback (`127.0.0.1`) and is authenticated by a token separate from the app's
+master token, so nothing off your machine can reach it. You can switch it off
+at any time in Settings — an explicit off stays off across upgrades.
 
 ## What the MCP exposes
 
@@ -88,37 +89,40 @@ before any mutation.
 
 Every tool declares one tier. The server refuses any tool whose tier is not
 enabled, and the refusal **names the tier the user must turn on** so the agent
-can relay it rather than retrying blindly. The tiers are **opt-in and
-cumulative** — read is always on, the rest are off until you enable them in
-**Settings ▸ MCP**:
+can relay it rather than retrying blindly. The tiers are **on by default and
+opt-out** — read is always on, and the other three are granted on a fresh
+install so a connected assistant can drive the whole app out of the box; untick
+any of them in **Settings ▸ MCP** to restrict clients:
 
 | Tier | Default | What it allows |
 |---|---|---|
 | **Read** | Always on | Queries + resources (list specs, read analytics, inspect jobs) |
-| **Write** | Off | Mutating but non-destructive, non-spawn: create/edit specs, change settings, configure a rail |
-| **AI-spawn** | Off | Actions that spawn an AI CLI and **cost money**: launch a rail, generate a spec, send a chat turn |
-| **Destructive** | Off | Delete data, kill processes, or mutate an external system (e.g. unregister a project, `smash_undo`, Jira writes) |
+| **Write** | On | Mutating but non-destructive, non-spawn: create/edit specs, change settings, configure a rail |
+| **AI-spawn** | On | Actions that spawn an AI CLI and **cost money**: launch a rail, generate a spec, send a chat turn |
+| **Destructive** | On | Delete data, kill processes, or mutate an external system (e.g. unregister a project, `smash_undo`, Jira writes) |
 
-The split is deliberate: a client you only half-trust can be left read-only;
-**destructive and cost-incurring actions are opt-in** and never happen by
-accident. A tool's tier is dynamic per action — e.g. `specrails_specs(list)` is
-read while `specrails_specs(delete)` is destructive — so the same tool exposes
-different actions at different trust levels.
+The split is deliberate: a client you only half-trust can be dropped to
+read-only with three unticks, and **destructive and cost-incurring actions can
+be withheld independently**. A tool's tier is dynamic per action — e.g.
+`specrails_specs(list)` is read while `specrails_specs(delete)` is destructive —
+so the same tool exposes different actions at different trust levels.
 
-## Enabling it
+## Setting it up
+
+It is already running — the app persists `mcp_enabled` as on and serves
+`/api/mcp` from the first launch, and the scoped token is minted at boot so the
+bridge finds it immediately.
 
 1. Open the app and go to **Settings ▸ MCP**.
-2. Toggle **Enable MCP**. This boots the embedded transport immediately — no
-   app restart. (Behind the scenes it persists `mcp_enabled` and starts serving
-   `/api/mcp`.)
-3. Enable the permission tiers you want (**Write** / **AI-spawn** /
-   **Destructive**). Leave them off to keep the agent read-only.
-4. Click **Copy client config** to grab a ready-to-paste configuration, or
+2. Review the permission tiers (**Write** / **AI-spawn** / **Destructive**).
+   Untick the ones you don't want an external client to have; untick all three
+   to keep the agent read-only.
+3. Click **Copy client config** to grab a ready-to-paste configuration, or
    **Copy token** if your client needs the raw token (for the direct-HTTP path
    below).
 
-Toggling the enable switch off again tears down all open MCP sessions
-immediately.
+Toggling the enable switch off tears down all open MCP sessions immediately;
+toggling it back on boots the transport again — no app restart either way.
 
 ## Connecting a client
 
@@ -213,7 +217,8 @@ codex mcp add specrails -- <bridge command from Settings ▸ MCP>
   (`/api/mcp-admin`) require the request to come from `127.0.0.1`. There is no
   network ingress; an MCP client must run on the same machine.
 - **Tiers, not blanket access.** Even with a valid token, an agent can only do
-  what the enabled tiers allow (read by default). High-risk actions stay opt-in.
+  what the enabled tiers allow. All four are on by default so a fresh install
+  works out of the box; high-risk actions can be withheld per tier at any time.
 - **Loopback is not identity.** The scoped MCP token identifies an external local
   client; it cannot impersonate the embedded Agent Mode by adding tier, project,
   or conversation headers. For each Agent Mode turn, Specrails mints a private,

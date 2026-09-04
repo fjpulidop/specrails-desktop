@@ -52,7 +52,7 @@ export function createMcpAdminRouter(deps: McpAdminDeps): Router {
     res.json(await manager.setEnabled(false))
   })
 
-  // Update the opt-in permission tiers (read is always on, not settable here).
+  // Update the opt-out permission tiers (all on by default; read is always on, not settable here).
   router.patch('/tiers', (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>
     const fields: Array<[string, Exclude<McpTier, 'read'>]> = [

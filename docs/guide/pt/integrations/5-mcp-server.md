@@ -4,20 +4,20 @@ O Specrails pode expor-se **a si próprio** a qualquer assistente de IA que fale
 
 Este é o sentido oposto das funcionalidades de plugins e "Os meus MCPs aprovados": essas permitem que o Specrails *use* outros servidores MCP; esta permite que outras apps usem o **Specrails**.
 
-## Como ativar
+## Vem ativado de origem
 
-Está **desativado por predefinição**. Abra **Definições ▸ MCP** e ligue o **Enable MCP**. É só isso — o servidor arranca imediatamente, sem reiniciar.
+Está **ativado por predefinição** — o servidor já está a correr na primeira vez que abre a app, sem reiniciar nem ligar nada. Abra **Definições ▸ MCP** para copiar a configuração de cliente, ou para o desligar se não o quiser.
 
 Mantém o controlo *do que* uma IA externa pode fazer através de um conjunto de níveis de permissão:
 
 | Nível | O que permite | Predefinição |
 |---|---|---|
 | **Leitura** | Listar e inspecionar projetos, specs, trabalhos, análises… | Sempre ativo (quando o MCP está ativado) |
-| **Escrita** | Criar e editar specs, alterar definições e configuração de rails | Desativado — ativação opcional |
-| **Invocação de IA** | Ações que correm uma IA e **custam dinheiro** (lançar um rail, gerar uma spec, enviar um turno de chat) | Desativado — ativação opcional |
-| **Destrutivo** | Eliminar projetos/specs/trabalhos, parar trabalho em curso | Desativado — ativação opcional |
+| **Escrita** | Criar e editar specs, alterar definições e configuração de rails | Ativado — desmarque para restringir |
+| **Invocação de IA** | Ações que correm uma IA e **custam dinheiro** (lançar um rail, gerar uma spec, enviar um turno de chat) | Ativado — desmarque para restringir |
+| **Destrutivo** | Eliminar projetos/specs/trabalhos, parar trabalho em curso | Ativado — desmarque para restringir |
 
-Se o seu assistente tentar algo abrangido por um nível desativado, o Specrails recusa com uma mensagem clara que lhe diz qual o nível a ativar. Assim, pode começar apenas em modo de leitura e abrir exatamente aquilo de que precisa.
+Os quatro níveis vêm concedidos de origem, por isso um assistente ligado pode conduzir toda a app desde logo. Desmarque qualquer nível que prefira reservar para si; se depois o seu assistente tentar algo abrangido por esse nível, o Specrails recusa com uma mensagem clara que lhe diz qual o nível a voltar a ativar.
 
 ## Ligar o seu assistente
 
@@ -54,7 +54,7 @@ Uma vez ligado, o seu assistente vê cerca de **18 ferramentas** que cobrem a ap
 
 ## O que pode fazer com ele
 
-Algumas receitas assim que o seu assistente estiver ligado. Comece com a **Leitura** ativa e, depois, ligue a **Escrita** e a **Invocação de IA** quando quiser que ele crie e lance trabalho de verdade.
+Algumas receitas assim que o seu assistente estiver ligado. Está tudo ativo por predefinição; desmarque a **Escrita** ou a **Invocação de IA** em Definições ▸ MCP se por agora preferir que ele apenas observe.
 
 **Transforme em specs o trabalho das suas outras ferramentas.** Se o seu assistente também tiver o GitHub, o Jira, o Gmail ou o Slack ligados, ele pode trazer esse trabalho para o Specrails por si:
 > *"Pega nas issues abertas do GitHub desta semana com a etiqueta 'bug', cria uma spec para cada uma no projeto da API e lança-as."*
@@ -64,7 +64,7 @@ Algumas receitas assim que o seu assistente estiver ligado. Comece com a **Leitu
 **Piloto automático durante a noite.** Deixe-o a correr com a app no tabuleiro (tray) e volte para encontrar um relatório:
 > *"Aqui estão 12 ideias. Transforma cada uma numa spec, lança-as três de cada vez pelos rails, vigia todos os trabalhos e amanhã dá-me um resumo do que terminou, do que falhou e do que custou."*
 
-Mantenha o **Destrutivo** desativado e ele pode trabalhar a noite toda sem nunca eliminar nada.
+Desmarque o **Destrutivo** e ele pode trabalhar a noite toda sem nunca eliminar nada.
 
 **Em todos os seus projetos.** Algo que o painel não faz por si só:
 > *"Verifica todos os meus projetos. Diz-me quais têm specs no backlog e nenhum rail a correr, e arranca o de prioridade mais alta em cada um."*

@@ -2,8 +2,8 @@
   "heading": "MCP server",
   "explainer": {
     "what": "An MCP (Model Context Protocol) server lets external AI tools — like Claude Desktop, Cursor, or any MCP client — talk to Specrails directly. They can browse your projects, read specs, and (if you allow it) launch work, all through one secure local connection.",
-    "how": "Turn it on below, then copy the client config into your AI tool. Specrails only listens on your own machine — nothing is exposed to the internet.",
-    "grants": "By default tools get read-only access. Use the permission tiers to grant more, one capability at a time."
+    "how": "It's on by default — copy the client config below into your AI tool. Specrails only listens on your own machine — nothing is exposed to the internet.",
+    "grants": "Every permission tier is on by default. Untick a tier to restrict what clients may do, one capability at a time."
   },
   "enable": {
     "on": "MCP server on",
@@ -20,7 +20,7 @@
   },
   "tiers": {
     "heading": "Permission tiers",
-    "description": "Each tier a client may use. Read is always on; the rest are off until you grant them.",
+    "description": "Each tier a client may use. Read is always on; the rest are on by default — switch any off to restrict clients.",
     "read": "Read",
     "readHelp": "Browse projects, specs, and analytics. Always allowed.",
     "write": "Write",

@@ -319,7 +319,10 @@ describe('registerTieredTool agent capability', () => {
   })
 
   it('falls back to Settings tiers when no agent capability is present', async () => {
-    // write disabled by default → refused
+    // Every tier is on by default → a write action is allowed out of the box.
+    expect((await captured!({ action: 'create' })).isError).toBeFalsy()
+    // The user opts the write tier out in Settings ▸ MCP → refused.
+    setDesktopSetting(db, 'mcp_tier_write', 'false')
     expect((await captured!({ action: 'create' })).isError).toBe(true)
     setDesktopSetting(db, 'mcp_tier_write', 'true')
     expect((await captured!({ action: 'create' })).isError).toBeFalsy()
@@ -351,6 +354,7 @@ describe('registerTieredTool agent capability', () => {
   })
 
   it('legacy autonomous header cannot bypass disabled Settings tiers', async () => {
+    setDesktopSetting(db, 'mcp_tier_destructive', 'false') // user opted destructive out
     const spoof: ToolHandlerExtra = { requestInfo: { headers: { [AGENT_TIER_HEADER]: 'autonomous' } } }
     expect((await captured!({ action: 'delete' }, spoof)).isError).toBe(true)
   })

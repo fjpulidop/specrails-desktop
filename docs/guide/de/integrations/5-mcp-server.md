@@ -4,20 +4,20 @@ Specrails kann **sich selbst** für jeden KI-Assistenten bereitstellen, der das 
 
 Das ist die umgekehrte Richtung zu den Plugins und dem Feature „Meine freigegebenen MCPs": Diese lassen Specrails andere MCP-Server *nutzen*; dieses hier lässt andere Apps **Specrails** nutzen.
 
-## Einschalten
+## Von Anfang an eingeschaltet
 
-Es ist **standardmäßig aus**. Öffne **Einstellungen ▸ MCP** und aktiviere **MCP aktivieren**. Das war's — der Server startet sofort, ohne Neustart.
+Es ist **standardmäßig an** — der Server läuft bereits beim ersten Öffnen der App, ohne Neustart und ohne etwas umzulegen. Öffne **Einstellungen ▸ MCP**, um die Client-Konfiguration zu kopieren oder ihn auszuschalten, falls du ihn nicht willst.
 
 Du behältst die Kontrolle darüber, *was* eine externe KI über Specrails tun darf, und zwar über eine Reihe von Berechtigungsstufen:
 
 | Stufe | Was sie erlaubt | Standard |
 |---|---|---|
 | **Lesen** | Projekte, Specs, Jobs, Analytics … auflisten und einsehen | Immer an (wenn MCP aktiviert ist) |
-| **Schreiben** | Specs erstellen und bearbeiten, Einstellungen und Rail-Konfiguration ändern | Aus — opt-in |
-| **KI-Start** | Aktionen, die eine KI ausführen und **Geld kosten** (ein Rail starten, eine Spec generieren, einen Chat-Zug senden) | Aus — opt-in |
-| **Destruktiv** | Projekte/Specs/Jobs löschen, laufende Arbeit stoppen | Aus — opt-in |
+| **Schreiben** | Specs erstellen und bearbeiten, Einstellungen und Rail-Konfiguration ändern | An — zum Einschränken abwählen |
+| **KI-Start** | Aktionen, die eine KI ausführen und **Geld kosten** (ein Rail starten, eine Spec generieren, einen Chat-Zug senden) | An — zum Einschränken abwählen |
+| **Destruktiv** | Projekte/Specs/Jobs löschen, laufende Arbeit stoppen | An — zum Einschränken abwählen |
 
-Versucht dein Assistent etwas, das eine deaktivierte Stufe abdeckt, verweigert Specrails mit einer klaren Meldung, die dir sagt, welche Stufe du einschalten musst. So kannst du nur-lesend starten und genau das freigeben, was du brauchst.
+Alle vier Stufen sind von Anfang an gewährt, sodass ein verbundener Assistent die ganze App sofort steuern kann. Wähle jede Stufe ab, die du lieber für dich behältst; versucht dein Assistent danach etwas, das diese Stufe abdeckt, verweigert Specrails mit einer klaren Meldung, welche Stufe du wieder einschalten musst.
 
 ## Deinen Assistenten verbinden
 
@@ -54,7 +54,7 @@ Einmal verbunden, sieht dein Assistent etwa **18 Tools**, die die ganze App abde
 
 ## Was du damit machen kannst
 
-Ein paar Rezepte, sobald dein Assistent verbunden ist. Beginne mit aktiviertem **Lesen** und schalte dann **Schreiben** und **KI-Start** hinzu, wenn er tatsächlich Arbeit erstellen und starten soll.
+Ein paar Rezepte, sobald dein Assistent verbunden ist. Alles ist standardmäßig an; wähle **Schreiben** oder **KI-Start** in Einstellungen ▸ MCP ab, wenn er vorerst nur beobachten soll.
 
 **Mach aus Arbeit in deinen anderen Tools Specs.** Wenn dein Assistent auch GitHub, Jira, Gmail oder Slack verbunden hat, kann er die Arbeit für dich nach Specrails holen:
 > *„Nimm die diese Woche offenen GitHub-Issues mit dem Label ‚bug', erstelle für jedes eine Spec im API-Projekt und starte sie."*
@@ -64,7 +64,7 @@ Ein paar Rezepte, sobald dein Assistent verbunden ist. Beginne mit aktiviertem *
 **Autopilot über Nacht.** Lass es mit der App im Tray laufen und komm zu einem Bericht zurück:
 > *„Hier sind 12 Ideen. Mach aus jeder eine Spec, starte sie zu dritt über die Rails, beobachte jeden Job und gib mir morgen eine Zusammenfassung, was fertig wurde, was fehlschlug und was es gekostet hat."*
 
-Lass **Destruktiv** aus, und es kann die ganze Nacht bauen, ohne jemals etwas zu löschen.
+Wähle **Destruktiv** ab, und es kann die ganze Nacht bauen, ohne jemals etwas zu löschen.
 
 **Über alle deine Projekte hinweg.** Etwas, das das Dashboard von allein nicht kann:
 > *„Prüfe alle meine Projekte. Sag mir, welche Specs im Backlog haben und kein laufendes Rail, und starte in jedem das mit der höchsten Priorität."*

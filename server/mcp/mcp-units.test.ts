@@ -91,19 +91,26 @@ describe('mcp-tiers', () => {
     vi.mocked(killOwnedBackgroundProcess).mockReset()
   })
 
-  it('mcp disabled by default, enabled when set', () => {
+  it('mcp enabled by default; only an explicit false disables it', () => {
+    expect(isMcpEnabled(db)).toBe(true)
+    setDesktopSetting(db, 'mcp_enabled', 'false')
     expect(isMcpEnabled(db)).toBe(false)
     setDesktopSetting(db, 'mcp_enabled', 'true')
     expect(isMcpEnabled(db)).toBe(true)
   })
 
-  it('read tier always enabled; others require their flag', () => {
+  it('every tier is on by default; read is fixed, the rest opt out via an explicit false', () => {
     expect(isTierEnabled(db, 'read')).toBe(true)
+    expect(isTierEnabled(db, 'write')).toBe(true)
+    expect(isTierEnabled(db, 'ai-spawn')).toBe(true)
+    expect(isTierEnabled(db, 'destructive')).toBe(true)
+    setDesktopSetting(db, TIER_SETTING_KEY.write, 'false')
     expect(isTierEnabled(db, 'write')).toBe(false)
     setDesktopSetting(db, TIER_SETTING_KEY.write, 'true')
     expect(isTierEnabled(db, 'write')).toBe(true)
-    expect(isTierEnabled(db, 'ai-spawn')).toBe(false)
-    expect(isTierEnabled(db, 'destructive')).toBe(false)
+    // A garbage value never disables — only the literal 'false' does.
+    setDesktopSetting(db, TIER_SETTING_KEY.destructive, 'off')
+    expect(isTierEnabled(db, 'destructive')).toBe(true)
   })
 
   it('labels + refusal messages name the tier', () => {
@@ -184,7 +191,7 @@ describe('tool handlers', () => {
     const t = tool('specrails_settings')
     const got = (await t.handler(ctx, { action: 'get' })) as { theme: string; mcp: { enabled: boolean } }
     expect(got.theme).toBe('specrails')
-    expect(got.mcp.enabled).toBe(false)
+    expect(got.mcp.enabled).toBe(true)
     const themeOptions = ((t.inputSchema.theme as any)._def.innerType.options as string[])
     expect(themeOptions).toEqual(['specrails', 'dracula', 'aurora-light', 'obsidian-dark', 'code-rain', 'galaxy'])
     expect(themeOptions).not.toContain('matrix')

@@ -3,13 +3,18 @@
 ## Purpose
 TBD - created by archiving change add-desktop-mcp-server. Update Purpose after archive.
 ## Requirements
-### Requirement: MCP server is disabled by default and toggled from settings
-The app SHALL expose an `mcp_enabled` app-level setting (default `false`) that boots or tears down the embedded MCP transport without restarting the server.
+### Requirement: MCP server is enabled by default and toggled from settings
+The app SHALL expose an `mcp_enabled` app-level setting (default `true` — only the explicitly stored value `false` disables it) that boots or tears down the embedded MCP transport without restarting the server, so a fresh install is reachable from the user's AI tools out of the box while remaining loopback-only and scoped-token authenticated.
 
-#### Scenario: MCP disabled by default
+#### Scenario: MCP enabled by default
 - **WHEN** the app starts with no prior MCP setting
-- **THEN** `mcp_enabled` is `false`
-- **AND** requests to `/api/mcp` are rejected (not served)
+- **THEN** `mcp_enabled` reads as `true`
+- **AND** requests to `/api/mcp` carrying the scoped token are served
+- **AND** the scoped token file (`~/.specrails/mcp.token`) is minted at boot so the stdio bridge finds it before Settings ▸ MCP is ever opened
+
+#### Scenario: An explicit off survives upgrades
+- **WHEN** the user has previously disabled MCP (stored `mcp_enabled = false`)
+- **THEN** the app starts with the transport disabled and requests to `/api/mcp` are rejected (not served)
 
 #### Scenario: Enabling MCP from settings
 - **WHEN** the user enables MCP via `PUT /api/settings` (`mcp_enabled: true`)
@@ -45,8 +50,12 @@ The MCP surface SHALL authenticate with a dedicated MCP-scoped token, separate f
 - **WHEN** the user regenerates the MCP token from settings
 - **THEN** a new MCP-scoped token replaces the old one and previously issued tokens no longer authorize
 
-### Requirement: Four-tier opt-in permission enforcement
-The MCP server SHALL classify every tool into one of four tiers — Read (always available when MCP is enabled), Write, AI-spawn, Destructive — and SHALL refuse any tool whose tier is not enabled, returning a machine-readable error naming the tier to enable.
+### Requirement: Four-tier opt-out permission enforcement
+The MCP server SHALL classify every tool into one of four tiers — Read (always available when MCP is enabled), Write, AI-spawn, Destructive — and SHALL refuse any tool whose tier is not enabled, returning a machine-readable error naming the tier to enable. Every tier SHALL be enabled by default on a fresh install; a tier is disabled only when the user has explicitly stored `false` for it (`mcp_tier_write` / `mcp_tier_ai_spawn` / `mcp_tier_destructive`), and that explicit choice survives upgrades.
+
+#### Scenario: All tiers enabled by default
+- **WHEN** MCP is enabled and no tier setting has ever been stored
+- **THEN** Write, AI-spawn and Destructive tools all execute
 
 #### Scenario: Read works whenever MCP is enabled
 - **WHEN** MCP is enabled and a client invokes a Read-tier tool

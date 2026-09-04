@@ -4,20 +4,20 @@ Specrails peut s'exposer **lui-même** à n'importe quel assistant IA qui parle 
 
 C'est la direction inverse des fonctionnalités plugins et « Mes MCP approuvés » : celles-ci permettent à Specrails d'*utiliser* d'autres serveurs MCP ; ceci permet à d'autres apps d'utiliser **Specrails**.
 
-## L'activer
+## Activé d'emblée
 
-C'est **désactivé par défaut**. Ouvrez **Paramètres ▸ MCP** et basculez **Activer MCP**. C'est tout — le serveur démarre immédiatement, sans redémarrage.
+C'est **activé par défaut** : le serveur tourne déjà dès la première ouverture de l'app, sans redémarrage ni rien à basculer. Ouvrez **Paramètres ▸ MCP** pour copier la configuration client, ou pour le désactiver si vous n'en voulez pas.
 
 Vous gardez le contrôle de *ce qu'*une IA externe peut faire grâce à un ensemble de niveaux de permission :
 
 | Niveau | Ce qu'il autorise | Par défaut |
 |---|---|---|
 | **Lecture** | Lister et inspecter les projets, specs, jobs, analyses… | Toujours actif (lorsque MCP est activé) |
-| **Écriture** | Créer et modifier des specs, changer les paramètres et la configuration des rails | Désactivé — à activer |
-| **Lancement d'IA** | Actions qui exécutent une IA et **coûtent de l'argent** (lancer un rail, générer une spec, envoyer un tour de chat) | Désactivé — à activer |
-| **Destructif** | Supprimer des projets/specs/jobs, arrêter un travail en cours | Désactivé — à activer |
+| **Écriture** | Créer et modifier des specs, changer les paramètres et la configuration des rails | Activé — décochez pour restreindre |
+| **Lancement d'IA** | Actions qui exécutent une IA et **coûtent de l'argent** (lancer un rail, générer une spec, envoyer un tour de chat) | Activé — décochez pour restreindre |
+| **Destructif** | Supprimer des projets/specs/jobs, arrêter un travail en cours | Activé — décochez pour restreindre |
 
-Si votre assistant tente quelque chose que couvre un niveau désactivé, Specrails refuse avec un message clair vous indiquant quel niveau activer. Vous pouvez donc commencer en lecture seule et ouvrir exactement ce dont vous avez besoin.
+Les quatre niveaux sont accordés d'emblée : un assistant connecté peut piloter toute l'app immédiatement. Décochez tout niveau que vous préférez garder pour vous ; si votre assistant tente ensuite quelque chose que ce niveau couvre, Specrails refuse avec un message clair vous indiquant quel niveau réactiver.
 
 ## Connecter votre assistant
 
@@ -54,7 +54,7 @@ Une fois connecté, votre assistant voit environ **18 outils** couvrant toute l'
 
 ## Ce que vous pouvez en faire
 
-Quelques recettes une fois votre assistant connecté. Commencez avec **Lecture** activée, puis activez **Écriture** et **Lancement d'IA** quand vous voulez qu'il crée et lance réellement du travail.
+Quelques recettes une fois votre assistant connecté. Tout est activé par défaut ; décochez **Écriture** ou **Lancement d'IA** dans Paramètres ▸ MCP si vous préférez qu'il se contente d'observer pour l'instant.
 
 **Transformez le travail de vos autres outils en specs.** Si votre assistant a aussi GitHub, Jira, Gmail ou Slack connectés, il peut amener le travail jusqu'à Specrails pour vous :
 > *« Prends les issues GitHub ouvertes cette semaine étiquetées "bug", crée une spec pour chacune dans le projet API, et lance-les. »*
@@ -64,7 +64,7 @@ Quelques recettes une fois votre assistant connecté. Commencez avec **Lecture**
 **Pilote automatique nocturne.** Laissez-le tourner avec l'app dans la zone de notification et revenez à un rapport :
 > *« Voici 12 idées. Transforme chacune en une spec, lance-les trois par trois à travers les rails, surveille chaque job, et demain donne-moi un résumé de ce qui s'est terminé, ce qui a échoué et ce que ça a coûté. »*
 
-Gardez **Destructif** désactivé et il peut construire toute la nuit sans jamais rien supprimer.
+Décochez **Destructif** et il peut construire toute la nuit sans jamais rien supprimer.
 
 **À travers tous vos projets.** Quelque chose que le tableau de bord ne fait pas tout seul :
 > *« Vérifie tous mes projets. Dis-moi lesquels ont des specs dans le backlog sans aucun rail en cours, et démarre la plus prioritaire dans chacun. »*

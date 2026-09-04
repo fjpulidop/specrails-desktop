@@ -22,23 +22,25 @@ describe('createMcpAdminRouter', () => {
     app.use('/api/mcp-admin', createMcpAdminRouter({ manager, desktopDb: db, desktopPort: 4242, broadcast: () => {} }))
   })
 
-  it('GET /status reports disabled with tiers + token hint', async () => {
+  it('GET /status reports enabled-by-default with every tier on + token hint', async () => {
     const res = await request(app).get('/api/mcp-admin/status')
     expect(res.status).toBe(200)
-    expect(res.body.enabled).toBe(false)
-    expect(res.body.tiers).toEqual({ write: false, aiSpawn: false, destructive: false })
+    expect(res.body.enabled).toBe(true)
+    expect(res.body.tiers).toEqual({ write: true, aiSpawn: true, destructive: true })
     expect(res.body.tokenHint).toMatch(/^…/)
     expect(res.body.toolCount).toBeGreaterThan(4)
   })
 
-  it('POST /enable and /disable toggle the flag', async () => {
-    expect((await request(app).post('/api/mcp-admin/enable')).body.enabled).toBe(true)
+  it('POST /disable and /enable toggle the flag', async () => {
     expect((await request(app).post('/api/mcp-admin/disable')).body.enabled).toBe(false)
+    expect((await request(app).post('/api/mcp-admin/enable')).body.enabled).toBe(true)
   })
 
   it('PATCH /tiers updates tiers and validates booleans', async () => {
-    const ok = await request(app).patch('/api/mcp-admin/tiers').send({ write: true, destructive: true })
-    expect(ok.body.tiers).toEqual({ write: true, aiSpawn: false, destructive: true })
+    const ok = await request(app).patch('/api/mcp-admin/tiers').send({ write: false, destructive: false })
+    expect(ok.body.tiers).toEqual({ write: false, aiSpawn: true, destructive: false })
+    const back = await request(app).patch('/api/mcp-admin/tiers').send({ write: true })
+    expect(back.body.tiers).toEqual({ write: true, aiSpawn: true, destructive: false })
     const bad = await request(app).patch('/api/mcp-admin/tiers').send({ write: 'yes' })
     expect(bad.status).toBe(400)
   })
