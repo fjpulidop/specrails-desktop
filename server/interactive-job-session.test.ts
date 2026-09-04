@@ -885,3 +885,124 @@ describe('InteractiveJobSession zero-work settles', () => {
     expect(h.settled[0].zeroWork).toBe(true)
   })
 })
+
+// ─── CLI notification turns + orphaned background tasks (loop run 5c958db2) ──
+// Step 2 of that run replied with two backgrounded Bash tasks still running;
+// the quiescent auto-settle tore the CLI down (orphaning them). Step 4 then
+// `--resume`d the session: claude 2.1.260 reported the orphans and emitted a
+// turn of its OWN — `origin: {kind:'task-notification'}`, num_turns 0, empty
+// result — BEFORE our prompt's turn. The session took it as the turn result,
+// auto-settled, and killed the real turn 5s later as a zero-work failure.
+
+/** The EXACT frame captured from the live run (events seq 186). */
+function notificationResultFrame(): string {
+  return JSON.stringify({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    duration_api_ms: 0,
+    num_turns: 0,
+    stop_reason: null,
+    session_id: 'sess-1',
+    total_cost_usd: 0,
+    result: '',
+    usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+    origin: { kind: 'task-notification' },
+  }) + '\n'
+}
+
+function backgroundTasksFrame(tasks: Array<{ task_id: string; task_type?: string; description?: string }>): string {
+  return JSON.stringify({ type: 'system', subtype: 'background_tasks_changed', tasks }) + '\n'
+}
+
+describe('InteractiveJobSession — notification turns and orphaned background tasks (run 5c958db2)', () => {
+  it('auto mode: a task-notification result does NOT close the turn — the real result settles it, not zero-work', async () => {
+    const h = setup('job-notif-1', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: ['--resume', 'sess-1'] }, 'fix the failing step')
+    h.child.stdout.push(notificationResultFrame())
+    await tick(); await tick()
+
+    // Turn still armed: no settle, no teardown, child untouched.
+    expect(h.settled.length).toBe(0)
+    expect(h.session.isStreaming()).toBe(true)
+    expect(h.child.stdinEnded).toBe(false)
+    expect(h.child.treeKillSignals).toEqual([])
+    // Not persisted as a `result` row (crash recovery counts those as turns)…
+    const resultRows = h.db
+      .prepare(`SELECT COUNT(*) AS n FROM events WHERE job_id = ? AND event_type = 'result'`)
+      .get('job-notif-1') as { n: number }
+    expect(resultRows.n).toBe(0)
+    // …but the skip is said out loud in the transcript.
+    expect(
+      h.broadcasts.some((m) => m.type === 'log' && (m as any).line?.includes('background-task notification')),
+    ).toBe(true)
+
+    // The real turn now streams and settles productively.
+    h.child.stdout.push(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'working' }] } }) + '\n')
+    h.child.stdout.push(resultFrame({ result: 'fixed', num_turns: 4 }))
+    await tick(); await tick()
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].reason).toBe('finalized')
+    expect(h.settled[0].zeroWork).toBe(false)
+    expect(h.settled[0].resultText).toBe('fixed')
+    expect(h.settled[0].totals.num_turns).toBe(4)
+  })
+
+  it('a task-notification result with no active turn is dropped like any stray result', async () => {
+    const h = setup('job-notif-2', { settleMode: 'finalize' })
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(resultFrame({ result: 'turn 1 done' }))
+    await tick(); await tick()
+    h.child.stdout.push(notificationResultFrame())
+    await tick()
+    expect(h.settled.length).toBe(0) // finalize mode idles
+    expect(h.broadcasts.filter((m) => m.type === 'event' && (m as any).event_type === 'result').length).toBe(1)
+    expect(h.session.isStreaming()).toBe(false)
+  })
+
+  it('auto mode: quiescence with background tasks still running surfaces a stderr note naming them', async () => {
+    const h = setup('job-bg-1', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'verify')
+    h.child.stdout.push(backgroundTasksFrame([
+      { task_id: 'bnlvumgrm', task_type: 'local_bash', description: 'Run full CI chain in background' },
+      { task_id: 'b6d2i2lyo', task_type: 'local_bash' },
+    ]))
+    h.child.stdout.push(resultFrame({ result: "Waiting on the CI chain to finish; I'll deliver the final verdict line when it lands." }))
+    await tick(); await tick()
+
+    expect(h.settled.length).toBe(1) // still settles — the reply IS the step's end
+    const note = h.broadcasts.find(
+      (m) => m.type === 'log' && (m as any).source === 'stderr' && (m as any).line?.includes('background task(s) still running'),
+    ) as { line: string } | undefined
+    expect(note).toBeTruthy()
+    expect(note!.line).toContain('2 background task(s)')
+    expect(note!.line).toContain('Run full CI chain in background')
+    expect(note!.line).toContain('b6d2i2lyo') // no description → task id
+    // Persisted too, so a reload of the job log keeps the explanation.
+    const persisted = h.db
+      .prepare(`SELECT payload FROM events WHERE job_id = ? AND event_type = 'log' AND source = 'stderr'`)
+      .all('job-bg-1') as Array<{ payload: string }>
+    expect(persisted.some((r) => r.payload.includes('background task(s) still running'))).toBe(true)
+  })
+
+  it('auto mode: no note once the roster reports no background tasks left', async () => {
+    const h = setup('job-bg-2', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'verify')
+    h.child.stdout.push(backgroundTasksFrame([{ task_id: 'b1', description: 'Run typecheck' }]))
+    h.child.stdout.push(backgroundTasksFrame([]))
+    h.child.stdout.push(resultFrame({ result: 'VERIFICATION: PASS' }))
+    await tick(); await tick()
+    expect(h.settled.length).toBe(1)
+    expect(h.broadcasts.some((m) => m.type === 'log' && (m as any).line?.includes('background task(s) still running'))).toBe(false)
+  })
+
+  it('finalize mode never emits the note (the session idles; nothing is torn down)', async () => {
+    const h = setup('job-bg-3', { settleMode: 'finalize' })
+    h.session.start({ binary: 'claude', args: [] }, 'go')
+    h.child.stdout.push(backgroundTasksFrame([{ task_id: 'b1', description: 'long build' }]))
+    h.child.stdout.push(resultFrame({ result: 'building in the background' }))
+    await tick(); await tick()
+    expect(h.settled.length).toBe(0)
+    expect(h.broadcasts.some((m) => m.type === 'log' && (m as any).line?.includes('background task(s) still running'))).toBe(false)
+  })
+})

@@ -14,6 +14,16 @@ import type { DbInstance } from './db'
  *  drag `{{const:GUARDRAILS}}` so the agent cannot quietly cheat its own exit
  *  condition. Read-only (a built-in) on purpose: an editable guardrails block
  *  could be weakened to defeat its own point. */
+/** Every AI step ends the moment the agent replies: the resident session
+ *  settles on quiescence and the child is torn down, so a command left running
+ *  in the background (claude's `run_in_background`, a trailing `&`) is killed
+ *  with it and its output never reaches the agent. Live evidence (loop run
+ *  5c958db2): the verify step backgrounded the CI chain, replied "I'll report
+ *  the verdict when it lands", and the loop spun on a verdict-less step. Stated
+ *  once here; dragged by GUARDRAILS and the verify / fix / freestyle templates. */
+export const FOREGROUND_RULE =
+  'Run every command in the FOREGROUND and wait for it to finish. Never background a command (no run_in_background, no trailing `&`, no "I will report when it lands"): your reply ends this step, and anything still running is killed with its output lost. If a command is slow, wait for it anyway.'
+
 const GUARDRAILS_CONTRACT = [
   'Guardrails — do NOT violate these to satisfy the exit condition:',
   '- Do not modify the check command, the exit criteria, or the goal to force success.',
@@ -21,6 +31,7 @@ const GUARDRAILS_CONTRACT = [
   '- Do not weaken, delete, or skip tests, and do not replace real assertions with always-pass tests.',
   '- Prefer fixing the production code over patching the tests to go green.',
   '- If you are stuck after several iterations, stop and report the blockers instead of gaming the metric.',
+  `- ${FOREGROUND_RULE}`,
 ].join('\n')
 
 /** The per-pass iteration discipline for "one item at a time" loops (strict TDD,

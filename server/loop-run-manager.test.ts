@@ -2263,3 +2263,151 @@ describe('LoopRunManager blocked + non-convergence guards', () => {
     expect(res.outcome).toBe('success') // null never matches null → no false stall
   })
 })
+
+// ─── Resume miss → one fresh retry (loop run 5c958db2) ───────────────────────
+// A step that `--resume`s the previous step's session and settles ZERO-WORK
+// without an `Unknown command:` was answered by the CLI's session bookkeeping
+// (a transcript the resume could not load, a session torn down mid-flight) —
+// the prompt never ran. The engine retries it ONCE in a fresh session instead
+// of failing the step and spinning the loop through verify/fix on nothing.
+
+/** Session-bookkeeping settle: an EMPTY result, no model call, no text. */
+function emptyResumeResultFrame(): string {
+  return JSON.stringify({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    num_turns: 0,
+    total_cost_usd: 0,
+    duration_api_ms: 0,
+    stop_reason: null,
+    result: '',
+    session_id: 'sess-1',
+    usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+  }) + '\n'
+}
+
+describe('LoopRunManager resume miss → one fresh retry (run 5c958db2)', () => {
+  function endPayloads(runId: string): Array<{ nodeId: string; status: string }> {
+    return getJobEvents(db, runId)
+      .filter((e) => e.event_type === 'loop_step_end')
+      .map((e) => JSON.parse(e.payload) as { nodeId: string; status: string })
+  }
+  function logLines(runId: string): string[] {
+    return getJobEvents(db, runId)
+      .filter((e) => e.event_type === 'log')
+      .map((e) => (JSON.parse(e.payload) as { line?: string }).line ?? '')
+  }
+
+  it('a resumed step that settles zero-work is retried ONCE fresh, inside the same step, and the retry counts', async () => {
+    const { executors, children, planInputs } = interactiveExecutors()
+    const p = manager(executors).run({ ...baseReq(), runId: 'run-resume-miss', graph: twoAiStepGraph() })
+    // a1: real work in session sess-1.
+    await waitFor(() => children.length === 1, 'a1 spawn')
+    children[0].stdout.push(assistantFrame('implemented'))
+    children[0].stdout.push(resultFrame({ result: 'implemented', session_id: 'sess-1' }))
+    // a2 resumes sess-1 and gets the empty bookkeeping settle.
+    await waitFor(() => children.length === 2, 'a2 resumed spawn')
+    expect(planInputs[1].sessionId).toBe('sess-1')
+    children[1].stdout.push(emptyResumeResultFrame())
+    // The engine retries a2 FRESH (no session id) with the SAME prompt.
+    await waitFor(() => children.length === 3, 'a2 fresh retry spawn')
+    expect(planInputs[2].sessionId).toBeUndefined()
+    expect(children[2].stdinWrites[0]).toContain('verify')
+    children[2].stdout.push(assistantFrame('verified'))
+    children[2].stdout.push(resultFrame({ result: 'VERIFICATION: PASS', session_id: 'sess-2' }))
+    const res = await p
+
+    expect(res.outcome).toBe('success')
+    const ends = endPayloads(res.runId)
+    expect(ends).toEqual([
+      expect.objectContaining({ nodeId: 'a1', status: 'ok' }),
+      expect.objectContaining({ nodeId: 'a2', status: 'ok' }), // ONE step-end: the retry lives inside the step
+    ])
+    // The transcript reads honestly and in order: the resumed attempt's own
+    // zero-work note, then the retry announcement — and nothing after the
+    // retry claims zero work again.
+    const lines = logLines(res.runId)
+    const zeroWorkIdx = lines.findIndex((l) => l.includes('Zero work performed'))
+    const retryIdx = lines.findIndex((l) => l.includes('retrying this step in a fresh session'))
+    expect(zeroWorkIdx).toBeGreaterThanOrEqual(0)
+    expect(retryIdx).toBeGreaterThan(zeroWorkIdx)
+    expect(lines.filter((l) => l.includes('retrying this step in a fresh session'))).toHaveLength(1)
+    expect(lines.slice(retryIdx + 1).some((l) => l.includes('Zero work performed'))).toBe(false)
+    // One successful ai_invocations row per step — the empty attempt records nothing.
+    const rows = db.prepare(
+      `SELECT status FROM ai_invocations WHERE surface='loop' AND loop_run_id=? AND surface_ref_id NOT LIKE '%decider' ORDER BY started_at`,
+    ).all(res.runId) as Array<{ status: string }>
+    expect(rows.map((r) => r.status)).toEqual(['success', 'success'])
+  })
+
+  it('an Unknown-command zero-work on a resumed session is NOT retried (it would fail identically)', async () => {
+    const { executors, children } = interactiveExecutors()
+    const p = manager(executors).run({ ...baseReq(), runId: 'run-resume-unknown', graph: twoAiStepGraph() })
+    await waitFor(() => children.length === 1, 'a1 spawn')
+    children[0].stdout.push(assistantFrame('implemented'))
+    children[0].stdout.push(resultFrame({ result: 'implemented', session_id: 'sess-1' }))
+    await waitFor(() => children.length === 2, 'a2 spawn')
+    children[1].stdout.push(syntheticUnknownCommandFrame('/nope'))
+    const res = await p
+    expect(children.length).toBe(2)
+    expect(endPayloads(res.runId)[1]).toMatchObject({ nodeId: 'a2', status: 'failed' })
+  })
+
+  it('a FRESH (non-resumed) zero-work step is not retried — the existing failure path is unchanged', async () => {
+    const { executors, children } = interactiveExecutors()
+    const p = manager(executors).run({ ...baseReq(), runId: 'run-fresh-zw', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'spawn')
+    children[0].stdout.push(emptyResumeResultFrame())
+    const res = await p
+    expect(children.length).toBe(1)
+    expect(endPayloads(res.runId)[0]).toMatchObject({ nodeId: 'ai', status: 'failed' })
+  })
+
+  it('the fresh retry itself settling zero-work fails the step — exactly one retry', async () => {
+    const { executors, children } = interactiveExecutors()
+    const p = manager(executors).run({ ...baseReq(), runId: 'run-resume-miss-twice', graph: twoAiStepGraph() })
+    await waitFor(() => children.length === 1, 'a1 spawn')
+    children[0].stdout.push(assistantFrame('implemented'))
+    children[0].stdout.push(resultFrame({ result: 'implemented', session_id: 'sess-1' }))
+    await waitFor(() => children.length === 2, 'a2 spawn')
+    children[1].stdout.push(emptyResumeResultFrame())
+    await waitFor(() => children.length === 3, 'a2 retry')
+    children[2].stdout.push(emptyResumeResultFrame())
+    const res = await p
+    expect(children.length).toBe(3)
+    expect(endPayloads(res.runId)[1]).toMatchObject({ nodeId: 'a2', status: 'failed' })
+    expect(logLines(res.runId).some((l) => l.includes('Zero work performed'))).toBe(true)
+  })
+
+  it('a resumed step torn down by the step TIMEOUT is not retried', async () => {
+    vi.useFakeTimers()
+    try {
+      const { executors, children } = interactiveExecutors({ stepTimeoutMs: 1000 })
+      const p = manager(executors).run({ ...baseReq(), runId: 'run-resume-timeout', graph: twoAiStepGraph() })
+      await vi.waitFor(() => expect(children.length).toBe(1))
+      children[0].stdout.push(assistantFrame('implemented'))
+      children[0].stdout.push(resultFrame({ result: 'implemented', session_id: 'sess-1' }))
+      await vi.waitFor(() => expect(children.length).toBe(2))
+      await vi.advanceTimersByTimeAsync(1500) // a2 produces nothing → timeout
+      const res = await p
+      expect(children.length).toBe(2)
+      expect(endPayloads(res.runId)[1]).toMatchObject({ nodeId: 'a2', status: 'failed' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a user cancel during a failed-no-output streak settles stopped, never "provider appears down"', async () => {
+    const { executors, children } = interactiveExecutors()
+    const mgr = manager(executors)
+    const p = mgr.run({ ...baseReq(), runId: 'run-cancel-streak', graph: twoAiStepGraph() })
+    await waitFor(() => children.length === 1, 'a1 spawn')
+    children[0].emit('close', 1) // a1 crashes with no output (streak = 1)
+    await waitFor(() => children.length === 2, 'a2 spawn')
+    mgr.cancel('run-cancel-streak') // tears a2 down with no output
+    const res = await p
+    expect(res.outcome).toBe('stopped')
+    expect(logLines(res.runId).some((l) => l.includes('provider appears down'))).toBe(false)
+  })
+})
