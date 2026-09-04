@@ -236,6 +236,10 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
                 // Option chips are clickable only on the newest settled message —
                 // a streaming turn suppresses them everywhere.
                 isLast={!isStreaming && i === messages.length - 1}
+                // Problem-frame readings stay affordable (but disabled) while a
+                // turn streams, so the card doesn't silently go static mid-turn.
+                isLatest={i === messages.length - 1}
+                isStreaming={isStreaming}
                 onPickOption={(option) => void send(option)}
                 refsProjectId={refsProjectId}
                 onOpenRef={onOpenRef}

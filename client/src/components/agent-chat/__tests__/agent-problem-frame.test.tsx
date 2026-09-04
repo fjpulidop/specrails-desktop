@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 vi.mock('../../../context/WebViewModalContext', () => ({
   useWebViewModal: () => ({ openWebView: vi.fn(), canOpenWebView: false }),
@@ -150,6 +151,77 @@ describe('AgentProblemFrameCard', () => {
     expect(screen.queryByText('Still open')).not.toBeInTheDocument()
   })
 
+  it('readings are static (non-interactive) when no onSelect is wired', () => {
+    render(<AgentProblemFrameCard frame={frame} isLatest />)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.getByTestId('agent-problem-frame-reading-restated').tagName).toBe('DIV')
+    expect(screen.getByTestId('agent-problem-frame-reading-alternative').tagName).toBe('DIV')
+  })
+
+  it('clicking the restated reading sends its exact text', async () => {
+    const onSelect = vi.fn()
+    render(<AgentProblemFrameCard frame={frame} isLatest onSelect={onSelect} />)
+    await userEvent.click(screen.getByTestId('agent-problem-frame-reading-restated'))
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(onSelect).toHaveBeenCalledWith(frame.restated.reading)
+  })
+
+  it('clicking the alternative reading sends its own text', async () => {
+    const onSelect = vi.fn()
+    render(<AgentProblemFrameCard frame={frame} isLatest onSelect={onSelect} />)
+    await userEvent.click(screen.getByTestId('agent-problem-frame-reading-alternative'))
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(onSelect).toHaveBeenCalledWith(frame.alternative.reading)
+  })
+
+  it('both readings are keyboard-focusable and activate on Enter and Space', async () => {
+    const onSelect = vi.fn()
+    render(<AgentProblemFrameCard frame={frame} isLatest onSelect={onSelect} />)
+    const restated = screen.getByTestId('agent-problem-frame-reading-restated')
+    const alternative = screen.getByTestId('agent-problem-frame-reading-alternative')
+    restated.focus()
+    expect(restated).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+    expect(onSelect).toHaveBeenLastCalledWith(frame.restated.reading)
+    alternative.focus()
+    expect(alternative).toHaveFocus()
+    await userEvent.keyboard(' ')
+    expect(onSelect).toHaveBeenLastCalledWith(frame.alternative.reading)
+    expect(onSelect).toHaveBeenCalledTimes(2)
+  })
+
+  it('an older (not latest) card never fires a resend', async () => {
+    const onSelect = vi.fn()
+    render(<AgentProblemFrameCard frame={frame} isLatest={false} onSelect={onSelect} />)
+    const restated = screen.getByTestId('agent-problem-frame-reading-restated')
+    expect(restated.tagName).toBe('DIV')
+    await userEvent.click(restated)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('readings are disabled while a turn is streaming', async () => {
+    const onSelect = vi.fn()
+    render(<AgentProblemFrameCard frame={frame} isLatest isStreaming onSelect={onSelect} />)
+    const restated = screen.getByTestId('agent-problem-frame-reading-restated')
+    expect(restated).toBeDisabled()
+    await userEvent.click(restated)
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('keeps both readings on the same shell classes — only the affordance differs', () => {
+    const { unmount } = render(<AgentProblemFrameCard frame={frame} isLatest />)
+    const staticClass = screen.getByTestId('agent-problem-frame-reading-restated').className
+    unmount()
+    render(<AgentProblemFrameCard frame={frame} isLatest onSelect={vi.fn()} />)
+    const restated = screen.getByTestId('agent-problem-frame-reading-restated')
+    const alternative = screen.getByTestId('agent-problem-frame-reading-alternative')
+    // Identical weight between the two readings…
+    expect(restated.className).toBe(alternative.className)
+    // …and the interactive rendering only ADDS to the static shell.
+    for (const cls of staticClass.split(' ')) expect(restated.className).toContain(cls)
+    expect(restated.className).toContain('cursor-pointer')
+  })
+
   it('renders a reading with no touched surfaces without an empty list', () => {
     render(
       <AgentProblemFrameCard
@@ -191,6 +263,27 @@ describe('AgentMessage problem-frame integration', () => {
     render(<AgentMessage role="assistant" content={content} isLast onPickOption={vi.fn()} />)
     expect(screen.getByTestId('agent-problem-frame-card')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: "That's it" })).toBeInTheDocument()
+  })
+
+  it('a picked reading is sent through the same callback the option chips use', async () => {
+    const onPickOption = vi.fn()
+    render(
+      <AgentMessage role="assistant" content={withFrame} isLast isLatest onPickOption={onPickOption} />,
+    )
+    await userEvent.click(screen.getByTestId('agent-problem-frame-reading-alternative'))
+    expect(onPickOption).toHaveBeenCalledWith(frame.alternative.reading)
+  })
+
+  it('an older frame card in the history is not actionable', () => {
+    render(<AgentMessage role="assistant" content={withFrame} onPickOption={vi.fn()} />)
+    expect(screen.getByTestId('agent-problem-frame-reading-restated').tagName).toBe('DIV')
+  })
+
+  it('the latest frame card is disabled while a turn streams elsewhere', () => {
+    render(
+      <AgentMessage role="assistant" content={withFrame} isLatest isStreaming onPickOption={vi.fn()} />,
+    )
+    expect(screen.getByTestId('agent-problem-frame-reading-restated')).toBeDisabled()
   })
 
   it('composes with a spec-draft block: both cards render, neither protocol leaks', () => {

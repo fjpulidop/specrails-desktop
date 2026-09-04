@@ -7,15 +7,41 @@
 // job is to make a fabricated second reading obvious at a glance — hierarchy
 // would invite the eye to skip the alternative, which is the one field the
 // whole framing step exists to surface.
+//
+// Each reading is also the ANSWER to the discriminating question, so both are
+// clickable: a click sends that reading's text as the user's next turn through
+// the same `send()` the composer's submit() uses (no pre-fill, no confirm) —
+// the pattern the ```options chips already established. The affordance is added
+// symmetrically (hover/focus/cursor on both) so the identical-weight intent
+// above survives. Actionability is gated by the caller: only the newest
+// message's card can fire, and never while a turn is in flight.
 
-import { Compass, CircleHelp, FileCode2 } from 'lucide-react'
+import { Compass, CircleHelp, CornerDownLeft, FileCode2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { cn } from '../../lib/utils'
 import type { ProblemFrame, ProblemFrameReading } from './agent-problem-frame'
 
-function Reading({ label, value }: { label: string; value: ProblemFrameReading }) {
+/** Shared shell: identical for the static and the interactive rendering, so the
+ *  two readings keep the same weight whether or not they are actionable. */
+const READING_SHELL =
+  'flex min-w-0 flex-col gap-1.5 rounded-lg border border-border/50 bg-surface/50 p-2.5 text-left'
+
+interface ReadingProps {
+  label: string
+  value: ProblemFrameReading
+  testId: string
+  /** Sends this reading's text as the user's reply. Absent ⇒ static rendering
+   *  (an older, already-answered card). */
+  onSelect?: (text: string) => void
+  /** A turn is in flight: the affordance stays visible but cannot fire a
+   *  duplicate concurrent send. */
+  disabled?: boolean
+}
+
+function Reading({ label, value, testId, onSelect, disabled }: ReadingProps) {
   const { t } = useTranslation('agent')
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-border/50 bg-surface/50 p-2.5">
+  const body = (
+    <>
       <div className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">{label}</div>
       <div className="text-xs leading-5 text-foreground/90">{value.reading}</div>
       {value.touches.length > 0 && (
@@ -36,7 +62,50 @@ function Reading({ label, value }: { label: string; value: ProblemFrameReading }
           </div>
         </div>
       )}
-    </div>
+    </>
+  )
+
+  if (!onSelect) {
+    return (
+      <div data-testid={testId} className={READING_SHELL}>
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      data-agent-interactive
+      disabled={disabled}
+      title={t('problemFrame.pick')}
+      onClick={() => onSelect(value.reading)}
+      className={cn(
+        READING_SHELL,
+        'group/reading transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50',
+        disabled
+          ? 'cursor-default'
+          : 'cursor-pointer hover:border-accent-primary/45 hover:bg-accent-primary/[0.09]',
+      )}
+    >
+      {body}
+      {/* Whisper-subtle send hint — revealed on hover/focus only, so the static
+          weight of both readings is untouched. */}
+      <span
+        aria-hidden
+        className={cn(
+          'mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium text-accent-primary/80 transition-opacity',
+          disabled
+            ? 'opacity-0'
+            : 'opacity-0 group-hover/reading:opacity-100 group-focus-visible/reading:opacity-100',
+        )}
+      >
+        <CornerDownLeft className="h-2.5 w-2.5" />
+        {t('problemFrame.pick')}
+      </span>
+    </button>
   )
 }
 
@@ -57,9 +126,24 @@ function Bullets({ label, items }: { label: string; items: string[] }) {
   )
 }
 
-export function AgentProblemFrameCard({ frame }: { frame: ProblemFrame }) {
+export interface AgentProblemFrameCardProps {
+  frame: ProblemFrame
+  /** This card belongs to the NEWEST message in the thread. Older frames are
+   *  already answered — clicking them would resend a resolved question. */
+  isLatest?: boolean
+  /** A turn is streaming: readings render disabled rather than queueing a
+   *  duplicate reply behind the in-flight turn. */
+  isStreaming?: boolean
+  /** Sends the picked reading as the user's next turn (the composer's send()). */
+  onSelect?: (text: string) => void
+}
+
+export function AgentProblemFrameCard({ frame, isLatest, isStreaming, onSelect }: AgentProblemFrameCardProps) {
   const { t } = useTranslation('agent')
   const hasFooter = frame.assumptions.length > 0 || frame.unknowns.length > 0
+  // Only the latest pending frame is answerable. An older card renders exactly
+  // as it always did — a static div, not a dead button.
+  const pick = onSelect && isLatest ? onSelect : undefined
 
   return (
     <div
@@ -73,8 +157,20 @@ export function AgentProblemFrameCard({ frame }: { frame: ProblemFrame }) {
 
       <div className="flex flex-col gap-2.5 px-3.5 py-3">
         <div className="grid gap-2 sm:grid-cols-2">
-          <Reading label={t('problemFrame.restated')} value={frame.restated} />
-          <Reading label={t('problemFrame.alternative')} value={frame.alternative} />
+          <Reading
+            label={t('problemFrame.restated')}
+            value={frame.restated}
+            testId="agent-problem-frame-reading-restated"
+            onSelect={pick}
+            disabled={isStreaming}
+          />
+          <Reading
+            label={t('problemFrame.alternative')}
+            value={frame.alternative}
+            testId="agent-problem-frame-reading-alternative"
+            onSelect={pick}
+            disabled={isStreaming}
+          />
         </div>
 
         <div className="flex items-start gap-2 rounded-lg border border-accent-primary/25 bg-accent-primary/[0.07] px-2.5 py-2">

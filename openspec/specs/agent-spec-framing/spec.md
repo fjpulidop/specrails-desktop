@@ -65,6 +65,27 @@ The framing artifact SHALL be a single fenced code block tagged `problem-frame` 
 - **THEN** the later block SHALL be treated as the current frame
 - **AND** the earlier card SHALL NOT be treated as the frame in force
 
+### Requirement: The frame's readings are one-click answers to the discriminating question
+
+Each rendered reading SHALL be an interactive control that, when activated, sends that reading's own text as the user's next turn through the same send path a composer submission uses, with no composer pre-fill step and no additional confirmation. The two readings SHALL keep identical visual weight; the interaction SHALL add only an affordance (pointer cursor, hover and focus states, keyboard focus ring). Both readings SHALL be focusable and activatable from the keyboard. Only the card on the newest message SHALL be actionable, and while a turn is in flight the readings SHALL be disabled. The `assumptions`, `unknowns`, and `discriminator` fields SHALL remain non-interactive.
+
+#### Scenario: A reading is picked as the reply
+
+- **WHEN** the user activates either reading on the current frame's card
+- **THEN** that reading's exact text SHALL be sent as the next user turn
+- **AND** the conversation SHALL continue as if the user had typed it and pressed send
+
+#### Scenario: An already-answered frame is not re-sendable
+
+- **WHEN** the user activates a reading on a frame card that is no longer the newest message
+- **THEN** no turn SHALL be sent
+- **AND** the older card SHALL render as static content rather than a dead control
+
+#### Scenario: A reading cannot fire during an in-flight turn
+
+- **WHEN** a turn is streaming and the user activates a reading on the newest frame card
+- **THEN** the control SHALL be disabled and no turn SHALL be sent
+
 ### Requirement: Persisting an agent-authored spec requires an answered frame
 
 `specrails_specs(commit_draft)` SHALL refuse a first-party call when the calling conversation contains no `problem-frame` block that the user has subsequently answered. A frame is answered when at least one user message follows the assistant message carrying it. The refusal SHALL be returned in the same shape as an existing tier refusal, SHALL name the missing artifact, and SHALL state the action that satisfies it. A refusal SHALL NOT persist a spec, SHALL NOT partially write, and SHALL NOT trigger Contract Layer enrichment.
