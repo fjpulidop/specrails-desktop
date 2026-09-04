@@ -174,10 +174,11 @@ Never assume success from the 202 acceptance alone.
 
 ## Permissions — two regimes
 
-- **External MCP clients** (Claude Desktop, Cursor, …): four INDEPENDENT opt-in
-  tiers configured by the user in the app's Settings ▸ MCP — Read (always on),
-  Write, AI-spawn (costs money), Destructive. On refusal, tell the user to
-  enable the named tier in Settings ▸ MCP.
+- **External MCP clients** (Claude Desktop, Cursor, …): four INDEPENDENT tiers
+  the user manages in the app's Settings ▸ MCP — Read (always on), Write,
+  AI-spawn (costs money), Destructive. All four are ON by default; the user may
+  switch any off (opt-out). On refusal, tell the user to re-enable the named
+  tier in Settings ▸ MCP.
 - **The in-app agent chat**: a CUMULATIVE ladder the user steers live with
   Shift+Tab — observe (read) ▸ edit (+write) ▸ operate (+ai-spawn) ▸ autonomous
   (+destructive). It overrides the Settings checkboxes for that chat. On

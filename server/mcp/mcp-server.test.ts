@@ -59,7 +59,9 @@ describe('McpServerManager (embedded MCP server)', () => {
     await new Promise<void>((resolve) => server.close(() => resolve()))
   })
 
-  it('is disabled by default and refuses initialize with a 404', async () => {
+  it('is enabled by default; once switched off it refuses initialize with a 404', async () => {
+    expect(manager.isEnabledSetting()).toBe(true)
+    setDesktopSetting(db, 'mcp_enabled', 'false')
     expect(manager.isEnabledSetting()).toBe(false)
     const res = await fetch(url, {
       method: 'POST',
@@ -70,6 +72,7 @@ describe('McpServerManager (embedded MCP server)', () => {
   })
 
   it('does not treat a spoofed agent-tier header as first-party', async () => {
+    setDesktopSetting(db, 'mcp_enabled', 'false')
     expect(manager.isEnabledSetting()).toBe(false)
     const res = await fetch(url, {
       method: 'POST',
@@ -132,7 +135,8 @@ describe('McpServerManager (embedded MCP server)', () => {
   })
 
   it('refuses a destructive action when the tier is disabled, naming the tier', async () => {
-    setDesktopSetting(db, 'mcp_enabled', 'true') // destructive tier left off
+    setDesktopSetting(db, 'mcp_enabled', 'true')
+    setDesktopSetting(db, 'mcp_tier_destructive', 'false') // user opted the destructive tier out
     const client = await connectClient(url)
     const result = await client.callTool({ name: 'specrails_projects', arguments: { action: 'unregister', projectId: 'x' } })
     expect(result.isError).toBe(true)
@@ -150,9 +154,9 @@ describe('McpServerManager (embedded MCP server)', () => {
     await client.close()
   })
 
-  it('reports status with a non-zero tool count', () => {
+  it('reports status (enabled by default) with a non-zero tool count', () => {
     const status = manager.status()
-    expect(status.enabled).toBe(false)
+    expect(status.enabled).toBe(true)
     expect(status.toolCount).toBeGreaterThan(4)
   })
 

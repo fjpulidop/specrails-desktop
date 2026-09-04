@@ -35,7 +35,7 @@ import { getTerminalManager } from './terminal-manager'
 import { cleanupStaleShimDirs } from './terminal-shell-integration'
 import { isBrowserCaptureEnabled } from './feature-flags'
 import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mobile'
-import { McpServerManager, requireMcpAuth, createMcpAdminRouter } from './mcp'
+import { McpServerManager, requireMcpAuth, createMcpAdminRouter, getMcpToken } from './mcp'
 import { AgentChatManager } from './agent-chat-manager'
 import { createAgentChatRouter, isAgentChatEnabled } from './agent-chat-router'
 import { BlueprintChatManager } from './blueprint-chat-manager'
@@ -651,6 +651,14 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     broadcast,
   }))
   if (mcpManager.isEnabledSetting()) {
+    // MCP is on by default, so mint + persist the scoped token at boot: the
+    // stdio bridge reads ~/.specrails/mcp.token locally, and on a fresh install
+    // nothing else would have written it until Settings ▸ MCP was opened.
+    try {
+      getMcpToken()
+    } catch (err) {
+      console.warn('[mcp] could not prepare the scoped token at boot:', err)
+    }
     mcpManager.start().catch((err) => console.error('[mcp] boot start failed:', err))
   }
 

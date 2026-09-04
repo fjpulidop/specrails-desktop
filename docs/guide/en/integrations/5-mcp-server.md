@@ -4,20 +4,20 @@ Specrails can expose **itself** to any AI assistant that speaks the [Model Conte
 
 This is the opposite direction from the plugins and "My approved MCPs" features: those let Specrails *use* other MCP servers; this lets other apps use **Specrails**.
 
-## Turning it on
+## It's on out of the box
 
-It's **off by default**. Open **Settings ▸ MCP** and flip **Enable MCP**. That's it — the server starts immediately, no restart.
+It's **on by default** — the server is already running the first time you open the app, no restart, nothing to flip. Open **Settings ▸ MCP** to grab the client config, or to switch it off if you don't want it.
 
 You stay in control of *what* an external AI may do through a set of permission tiers:
 
 | Tier | What it allows | Default |
 |---|---|---|
 | **Read** | List and inspect projects, specs, jobs, analytics… | Always on (when MCP is enabled) |
-| **Write** | Create and edit specs, change settings and rail config | Off — opt in |
-| **AI-spawn** | Actions that run an AI and **cost money** (launch a rail, generate a spec, send a chat turn) | Off — opt in |
-| **Destructive** | Delete projects/specs/jobs, stop running work | Off — opt in |
+| **Write** | Create and edit specs, change settings and rail config | On — untick to restrict |
+| **AI-spawn** | Actions that run an AI and **cost money** (launch a rail, generate a spec, send a chat turn) | On — untick to restrict |
+| **Destructive** | Delete projects/specs/jobs, stop running work | On — untick to restrict |
 
-If your assistant tries something a disabled tier covers, Specrails refuses with a clear message telling you which tier to switch on. So you can start read-only and open up exactly what you need.
+All four tiers are granted out of the box, so a connected assistant can drive the whole app right away. Untick any tier you'd rather keep to yourself; if your assistant then tries something that tier covers, Specrails refuses with a clear message telling you which tier to switch back on.
 
 ## Connecting your assistant
 
@@ -54,7 +54,7 @@ Once connected, your assistant sees about **18 tools** covering the whole app �
 
 ## What you can do with it
 
-A few recipes once your assistant is connected. Start with **Read** on, then turn on **Write** and **AI-spawn** when you want it to actually create and launch work.
+A few recipes once your assistant is connected. Everything is on by default; untick **Write** or **AI-spawn** in Settings ▸ MCP if you'd rather it only observe for now.
 
 **Turn work from your other tools into specs.** If your assistant also has GitHub, Jira, Gmail or Slack connected, it can bring the work to Specrails for you:
 > *"Take this week's open GitHub issues labelled 'bug', create a spec for each in the API project, and launch them."*
@@ -64,7 +64,7 @@ A few recipes once your assistant is connected. Start with **Read** on, then tur
 **Overnight autopilot.** Leave it running with the app in the tray and come back to a report:
 > *"Here are 12 ideas. Turn each into a spec, launch them three at a time across the rails, watch every job, and tomorrow give me a summary of what finished, what failed and what it cost."*
 
-Keep **Destructive** off and it can build all night without ever deleting anything.
+Untick **Destructive** and it can build all night without ever deleting anything.
 
 **Across all your projects.** Something the dashboard doesn't do on its own:
 > *"Check all my projects. Tell me which have specs in the backlog and no rail running, and start the highest-priority one in each."*

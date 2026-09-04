@@ -2,8 +2,8 @@
   "heading": "Servidor MCP",
   "explainer": {
     "what": "Um servidor MCP (Model Context Protocol) permite que ferramentas de IA externas — como o Claude Desktop, o Cursor ou qualquer cliente MCP — comuniquem diretamente com o Specrails. Elas podem explorar os seus projetos, ler especificações e, se você permitir, iniciar trabalhos, tudo através de uma única ligação local segura.",
-    "how": "Ative-o abaixo e copie a configuração do cliente para a sua ferramenta de IA. O Specrails só escuta na sua própria máquina: nada fica exposto à internet.",
-    "grants": "Por predefinição, as ferramentas têm acesso só de leitura. Use os níveis de permissão para conceder mais, uma capacidade de cada vez."
+    "how": "Está ativado por predefinição: copie a configuração de cliente abaixo para a sua ferramenta de IA. O Specrails só escuta na sua própria máquina — nada fica exposto à internet.",
+    "grants": "Todos os níveis de permissão estão ativos por predefinição. Desmarque um nível para restringir o que os clientes podem fazer, uma capacidade de cada vez."
   },
   "enable": {
     "on": "Servidor MCP ativado",
@@ -20,7 +20,7 @@
   },
   "tiers": {
     "heading": "Níveis de permissão",
-    "description": "Cada nível que um cliente pode usar. A leitura está sempre ativa; o resto está desativado até você conceder.",
+    "description": "Cada nível que um cliente pode usar. A leitura está sempre ativa; o resto está ativo por predefinição — desligue qualquer um para restringir os clientes.",
     "read": "Leitura",
     "readHelp": "Explorar projetos, especificações e análises. Sempre permitido.",
     "write": "Escrita",

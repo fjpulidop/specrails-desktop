@@ -4,20 +4,20 @@ Specrails può esporre **se stesso** a qualsiasi assistente AI che parli il [Mod
 
 Questa è la direzione opposta rispetto alle funzionalità dei plugin e degli "MCP approvati da me": quelle permettono a Specrails di *usare* altri server MCP; questa permette ad altre app di usare **Specrails**.
 
-## Come attivarlo
+## Attivo fin da subito
 
-È **disattivato di default**. Apri **Impostazioni ▸ MCP** e attiva **Abilita MCP**. Fatto — il server si avvia immediatamente, senza riavvii.
+È **attivo di default** — il server è già in esecuzione la prima volta che apri l'app, senza riavvii e senza toccare nulla. Apri **Impostazioni ▸ MCP** per copiare la configurazione client, o per disattivarlo se non lo vuoi.
 
 Resti tu a controllare *cosa* può fare un'AI esterna tramite una serie di livelli di permesso:
 
 | Livello | Cosa consente | Default |
 |---|---|---|
 | **Lettura** | Elencare e ispezionare progetti, spec, job, analisi… | Sempre attivo (quando l'MCP è abilitato) |
-| **Scrittura** | Creare e modificare spec, cambiare impostazioni e configurazione dei rail | Disattivato — da abilitare |
-| **AI-spawn** | Azioni che eseguono un'AI e **costano denaro** (lanciare un rail, generare una spec, inviare un turno di chat) | Disattivato — da abilitare |
-| **Distruttivo** | Eliminare progetti/spec/job, fermare il lavoro in corso | Disattivato — da abilitare |
+| **Scrittura** | Creare e modificare spec, cambiare impostazioni e configurazione dei rail | Attivo — deseleziona per limitare |
+| **AI-spawn** | Azioni che eseguono un'AI e **costano denaro** (lanciare un rail, generare una spec, inviare un turno di chat) | Attivo — deseleziona per limitare |
+| **Distruttivo** | Eliminare progetti/spec/job, fermare il lavoro in corso | Attivo — deseleziona per limitare |
 
-Se il tuo assistente prova a fare qualcosa coperto da un livello disattivato, Specrails rifiuta con un messaggio chiaro che ti indica quale livello attivare. Così puoi partire in sola lettura e aprire esattamente ciò che ti serve.
+Tutti e quattro i livelli sono concessi fin da subito, quindi un assistente collegato può guidare l'intera app da subito. Deseleziona qualsiasi livello che preferisci tenere per te; se poi il tuo assistente prova a fare qualcosa coperto da quel livello, Specrails rifiuta con un messaggio chiaro che ti indica quale livello riattivare.
 
 ## Collegare il tuo assistente
 
@@ -54,7 +54,7 @@ Una volta collegato, il tuo assistente vede circa **18 strumenti** che coprono l
 
 ## Cosa puoi farci
 
-Qualche ricetta una volta collegato il tuo assistente. Parti con la **Lettura** attiva, poi accendi **Scrittura** e **AI-spawn** quando vuoi che crei e lanci davvero il lavoro.
+Qualche ricetta una volta collegato il tuo assistente. È tutto attivo di default; deseleziona **Scrittura** o **AI-spawn** in Impostazioni ▸ MCP se per ora preferisci che si limiti a osservare.
 
 **Trasforma il lavoro degli altri tuoi strumenti in spec.** Se il tuo assistente ha collegati anche GitHub, Jira, Gmail o Slack, può portare il lavoro dentro Specrails al posto tuo:
 > *"Prendi le issue GitHub aperte di questa settimana con etichetta 'bug', crea una spec per ognuna nel progetto API e lanciale."*
@@ -64,7 +64,7 @@ Qualche ricetta una volta collegato il tuo assistente. Parti con la **Lettura** 
 **Pilota automatico notturno.** Lascialo in esecuzione con l'app nella barra di sistema e torna a un resoconto:
 > *"Ecco 12 idee. Trasforma ognuna in una spec, lanciale tre alla volta sui rail, tieni d'occhio ogni job e domani dammi un riepilogo di cosa è finito, cosa è fallito e quanto è costato."*
 
-Tieni **Distruttivo** disattivato e potrà lavorare tutta la notte senza mai eliminare nulla.
+Deseleziona **Distruttivo** e potrà lavorare tutta la notte senza mai eliminare nulla.
 
 **Su tutti i tuoi progetti.** Qualcosa che la dashboard da sola non fa:
 > *"Controlla tutti i miei progetti. Dimmi quali hanno spec nel backlog e nessun rail in esecuzione, e avvia in ognuno quella a priorità più alta."*
