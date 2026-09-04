@@ -139,7 +139,12 @@ describe('MilestoneGenerateShell rich-spec gate', () => {
       fullText: fence(detailedSpec({ priority: 'urgent', dependsOnIndex: -1 })),
     }))
 
-    expect(await screen.findByTestId('milestone-quality-detail')).toHaveTextContent('valid priority')
+    // The readiness surface lists the audit issues, localized and spec-precise.
+    const toggle = await screen.findByTestId('readiness-issues-toggle')
+    expect(toggle).toHaveTextContent(/audit issues/)
+    await userEvent.click(toggle)
+    expect(screen.getByTestId('readiness-issues')).toHaveTextContent('Spec 1 needs a valid priority.')
+    expect(screen.getByTestId('readiness-issues')).toHaveTextContent('may only depend on an earlier spec')
     expect(screen.getByTestId('milestone-commit')).toBeDisabled()
   })
 

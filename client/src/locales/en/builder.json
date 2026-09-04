@@ -8,7 +8,7 @@
     "surpriseMe": "Surprise me",
     "inputPlaceholder": "An app that…",
     "createSpecs": "Create specs",
-    "createSpecsHint": "Available once the blueprint has Milestone-1 specs",
+    "createSpecsHint": "Available once the Milestone-1 specs pass the audit",
     "providerUnavailable": "Project Builder requires a provider with a native no-tools or read-only mode. This provider is unavailable here."
   },
   "panel": {
@@ -24,7 +24,9 @@
     "dependsOn": "builds on #{{index}}",
     "criteriaCount": "{{count}} acceptance criteria",
     "laterMilestones": "Later milestones",
-    "empty": "The blueprint fills in as you talk."
+    "empty": "The blueprint fills in as you talk.",
+    "specsComplete": "Complete",
+    "specsInProgress": "In progress"
   },
   "commit": {
     "title": "Create the project",
@@ -110,14 +112,15 @@
     "subtitle": "The agent is building a new project",
     "exit": "Exit",
     "exitConfirmTitle": "Leave the Builder?",
-    "exitConfirmBody": "The blueprint in progress will be discarded.",
+    "exitConfirmBody": "The Builder stops now. Your blueprint is saved — pick it up again from \"Continue where you left off\" the next time you open the Builder.",
     "exitConfirmCancel": "Keep building",
     "exitConfirmDiscard": "Discard and exit"
   },
   "prompts": {
     "surpriseMe": "Surprise me — propose sensible defaults for every blueprint dimension, keep m1Specs empty, and let me approve the plan before generating detailed specs.",
     "milestoneSeed": "Generate the detailed specs for milestone {{label}} (\"{{title}}\"). Read the real codebase first, validate the complete batch, then emit ALL detailed milestone specs in one blueprint-draft response/snapshot.",
-    "milestoneSeedWithPlanned": "Generate the detailed specs for milestone {{label}} (\"{{title}}\"). Planned spec titles: {{planned}}. Read the real codebase first, validate the complete batch, then emit ALL detailed milestone specs in one blueprint-draft response/snapshot."
+    "milestoneSeedWithPlanned": "Generate the detailed specs for milestone {{label}} (\"{{title}}\"). Planned spec titles: {{planned}}. Read the real codebase first, validate the complete batch, then emit ALL detailed milestone specs in one blueprint-draft response/snapshot.",
+    "repairSnapshot": "Your last blueprint-draft block could not be used by the app ({{reason}}). Re-emit the COMPLETE snapshot as strictly valid JSON (newlines inside strings escaped as \\n, no trailing commas, no nested code fences) — only the block."
   },
   "specModal": {
     "eyebrow": "{{milestone}} · Spec {{index}}",
@@ -139,5 +142,108 @@
     "chunkLaunched": "{{milestone}} — rail {{chunk}}/{{total}} launched",
     "chunkFailed": "{{milestone}} — rail {{chunk}}/{{total}} failed to launch; remaining rails stopped",
     "done": "{{milestone}} complete — {{count}} specs went through the sequential chain"
+  },
+  "generation": {
+    "writing": "Writing the Milestone-1 specs…",
+    "specCount": "spec {{n}}"
+  },
+  "readiness": {
+    "title": "Ready to create specs?",
+    "steps": {
+      "blueprint": "Blueprint approved",
+      "specs": "Milestone-1 specs generated",
+      "audit": "Quality audit"
+    },
+    "details": {
+      "blueprint": {
+        "done": "{{filled}}/{{total}} dimensions",
+        "pending": "{{filled}}/{{total}} dimensions",
+        "blocked": "{{filled}}/{{total}} dimensions"
+      },
+      "specs": {
+        "done": "{{count}} specs · complete",
+        "pending": "{{count}} of {{min}}–{{max}}",
+        "blocked": "{{count}} specs · needs {{min}}–{{max}}"
+      },
+      "audit": {
+        "done": "no issues",
+        "pending": "waiting for specs",
+        "blocked": "{{count}} to fix"
+      }
+    },
+    "hints": {
+      "blueprint": {
+        "pending": "Finish the interview or say \"surprise me\" — {{filled}}/{{total}} dimensions so far.",
+        "blocked": "The blueprint is incomplete."
+      },
+      "specs": {
+        "pending": "Approve the blueprint and the Builder will generate the Milestone-1 backlog.",
+        "blocked": "Milestone 1 needs {{min}}–{{max}} specs (currently {{count}}). Ask the Builder to resize it."
+      },
+      "audit": {
+        "pending": "Waiting for the specs.",
+        "blocked": "{{count}} audit issue(s) block the commit — open the list below."
+      }
+    },
+    "issuesCount_one": "{{count}} audit issue",
+    "issuesCount_other": "{{count}} audit issues",
+    "askFix": "Ask the Builder to fix these"
+  },
+  "snapshot": {
+    "repairing": {
+      "invalid_json": "Repairing the snapshot (the last block was not valid JSON)…",
+      "truncated": "Re-requesting the snapshot (the reply was cut off)…",
+      "quality": "Asking the Builder to fix the audit issues…",
+      "automatic": "automatic"
+    },
+    "rejected": {
+      "title": "The Builder's last snapshot could not be used",
+      "invalid_json": "The blueprint block was not valid JSON, so the panel still shows the previous state.",
+      "missing_version": "The block was not a blueprint snapshot (missing blueprintVersion).",
+      "truncated": "The reply was cut off before the block closed, so nothing was received.",
+      "autoRepairFailed": "An automatic repair was already attempted.",
+      "retry": "Ask for the snapshot again"
+    },
+    "repairedNote": "Snapshot repaired automatically",
+    "nothingToRepair": "There is nothing to repair — keep talking with the Builder.",
+    "noSession": "This conversation cannot be resumed with its provider; send a new message instead.",
+    "alreadyStreaming": "The Builder is still answering."
+  },
+  "recent": {
+    "title": "Continue where you left off",
+    "untitled": "Untitled blueprint",
+    "specsComplete": "{{count}} specs ready",
+    "specsInProgress": "{{count}} specs in progress",
+    "dimensions": "{{filled}}/{{total}} dimensions",
+    "pendingIssue": "snapshot to repair",
+    "discard": "Discard",
+    "discardConfirm": "Confirm discard",
+    "discardCancel": "Keep",
+    "resumeFailed": "Could not resume that blueprint.",
+    "discardFailed": "Could not discard that blueprint."
+  },
+  "quality": {
+    "batch_incomplete": "The Builder has not marked the batch as complete yet.",
+    "spec_count": "The batch needs {{min}}–{{max}} specs (currently {{count}}).",
+    "invalid_shape": "Spec {{n}} is not a valid object.",
+    "invalid_kind": "Spec {{n}} needs a valid kind (scaffold, feature or verification).",
+    "scaffold_first": "The first spec must be the project scaffold.",
+    "duplicate_scaffold": "Spec {{n}} cannot be a second scaffold.",
+    "title_required": "Spec {{n}} needs a title.",
+    "title_duplicate": "Spec {{n}} repeats the title of spec {{other}}.",
+    "summary": "Spec {{n}} needs a one-line summary under 240 characters.",
+    "invalid_priority": "Spec {{n}} needs a valid priority.",
+    "canonical_sections": "Spec {{n}} is missing the five canonical sections in order.",
+    "empty_section": "Spec {{n}} has an empty \"{{heading}}\" section.",
+    "section_bullets": "Spec {{n}} needs at least two bullets under \"{{heading}}\".",
+    "complexity_format": "Spec {{n}} needs a complexity level with a justification.",
+    "scaffold_readme": "The scaffold spec must mention the existing README.",
+    "criteria_count": "Spec {{n}} needs 4–10 acceptance criteria (has {{count}}).",
+    "criterion_quality": "Spec {{n}}, criterion {{criterion}} is not concrete enough.",
+    "duplicate_criterion": "Spec {{n}} repeats acceptance criterion {{criterion}}.",
+    "milestone_label": "Spec {{n}} needs the {{label}} label.",
+    "domain_label": "Spec {{n}} needs a domain label besides {{label}}.",
+    "invalid_dependency": "Spec {{n}} may only depend on an earlier spec.",
+    "scaffold_dependency": "The scaffold spec cannot declare a dependency."
   }
 }

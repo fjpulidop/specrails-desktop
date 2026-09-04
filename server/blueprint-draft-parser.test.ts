@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   coerceBlueprint,
+  countStartedSpecs,
   cutUnterminatedBlock,
   parseBlueprintDraftBlocks,
 } from './blueprint-draft-parser'
@@ -98,12 +99,78 @@ describe('parseBlueprintDraftBlocks', () => {
     expect(res.hadBlocks).toBe(true)
   })
 
-  it('unterminated trailing block is not parsed (tail cut)', () => {
+  it('unterminated trailing block is not parsed, is cut from the transcript, and is reported as truncated', () => {
     const text = 'streaming…\n```blueprint-draft\n{"blueprintVersion": 1, "product"'
-    const res = parseBlueprintDraftBlocks(text)
-    expect(res.blueprint).toBeNull()
-    // the open fence stays in stripped output — stream renderers use cutUnterminatedBlock
-    expect(res.stripped).toContain('```blueprint-draft')
+    const r = parseBlueprintDraftBlocks(text)
+    expect(r.blueprint).toBeNull()
+    expect(r.hadBlocks).toBe(true)
+    expect(r.truncated).toBe(true)
+    // Raw partial JSON never reaches the chat transcript.
+    expect(r.stripped).toBe('streaming…\n')
+    expect(r.rejected).toEqual([expect.objectContaining({ reason: 'truncated' })])
+  })
+
+  it('truncated report counts the spec titles that had started', () => {
+    const text = '```blueprint-draft\n{"blueprintVersion":1,"m1Specs":[{"title":"a"},{"title":"b"},{"tit'
+    const r = parseBlueprintDraftBlocks(text)
+    expect(r.truncated).toBe(true)
+    expect(r.rejected[0].detail).toMatch(/after 2 spec title\(s\)/)
+  })
+
+  it('invalid JSON is reported with the parser diagnostic instead of vanishing', () => {
+    const text = 'x\n```blueprint-draft\n{"blueprintVersion": 1, "product": {"name": "A" "pitch": "p"}}\n```'
+    const r = parseBlueprintDraftBlocks(text)
+    expect(r.blueprint).toBeNull()
+    expect(r.hadBlocks).toBe(true)
+    expect(r.rejected).toHaveLength(1)
+    expect(r.rejected[0].reason).toBe('invalid_json')
+    expect(r.rejected[0].detail).toMatch(/JSON/)
+    expect(r.stripped).toBe('x\n')
+  })
+
+  it('missing blueprintVersion is reported as missing_version', () => {
+    const r = parseBlueprintDraftBlocks('```blueprint-draft\n{"product": {"name": "A"}}\n```')
+    expect(r.blueprint).toBeNull()
+    expect(r.rejected).toEqual([expect.objectContaining({ index: 0, reason: 'missing_version' })])
+  })
+
+  it('repairs the common model mistakes (raw newline, trailing comma, inner quote) and flags repaired', () => {
+    const body = [
+      '{',
+      '  "blueprintVersion": 1,',
+      '  "product": { "name": "Say "hi"", "pitch": "line one',
+      'line two", "audience": "a", },',
+      '  "m1Specs": [],',
+      '}',
+    ].join('\n')
+    const r = parseBlueprintDraftBlocks('```blueprint-draft\n' + body + '\n```')
+    expect(r.blueprint?.product.name).toBe('Say "hi"')
+    expect(r.blueprint?.product.pitch).toBe('line one\nline two')
+    expect(r.repaired).toBe(true)
+    expect(r.rejected).toEqual([])
+  })
+
+  it('a nested ```json fence inside the block is unwrapped and its orphan closing fence removed', () => {
+    const text = 'Here.\n```blueprint-draft\n```json\n' + JSON.stringify(snapshot()) + '\n```\n```\nDone.'
+    const r = parseBlueprintDraftBlocks(text)
+    expect(r.blueprint?.product.name).toBe('Recipely')
+    expect(r.repaired).toBe(true)
+    expect(r.stripped).toBe('Here.\n\nDone.')
+  })
+
+  it('a rejected later block keeps the earlier valid one AND reports the rejection', () => {
+    const good = '```blueprint-draft\n' + JSON.stringify(snapshot()) + '\n```'
+    const bad = '```blueprint-draft\n{"blueprintVersion": 1, "product": {"name": "B" "pitch": "p"}}\n```'
+    const r = parseBlueprintDraftBlocks(good + '\n' + bad)
+    expect(r.blueprint?.product.name).toBe('Recipely')
+    expect(r.rejected).toEqual([expect.objectContaining({ index: 1, reason: 'invalid_json' })])
+  })
+})
+
+describe('countStartedSpecs', () => {
+  it('counts title keys after the m1Specs key only', () => {
+    expect(countStartedSpecs('{"product":{"title":"x"},"m1Specs":[{"title":"a"},{"title":"b"}')).toBe(2)
+    expect(countStartedSpecs('{"product":{"title":"x"}}')).toBe(0)
   })
 })
 

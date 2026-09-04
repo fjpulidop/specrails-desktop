@@ -7,6 +7,12 @@
 // Streaming tail cut: the fence regex only matches CLOSED fences, so an
 // unterminated trailing block is never parsed. `cutUnterminatedBlock` lets
 // stream renderers hide the raw open fence while it is still arriving.
+//
+// Nothing is dropped silently any more: every block that could not become a
+// snapshot is reported in `rejected` (invalid JSON after the tolerant repair
+// pass, missing `blueprintVersion`, or a block the output limit cut off before
+// its closing fence — `truncated`). The chat manager turns those into an
+// automatic repair turn and the UI into a precise, actionable notice.
 
 import {
   Blueprint,
@@ -18,9 +24,23 @@ import {
   isBlueprintSpecPriority,
   isMilestoneStatus,
 } from './blueprint-types'
+import { parseJsonTolerant } from './json-tolerant'
+
+export type BlueprintRejectionReason = 'invalid_json' | 'missing_version' | 'truncated'
+
+export interface BlueprintRejectedBlock {
+  /** 0-based position of the block among every fenced block in the text. */
+  index: number
+  reason: BlueprintRejectionReason
+  /** Human/model-readable diagnostic (parser message + excerpt, or the
+   *  number of specs that had started when the output was cut off). */
+  detail: string
+}
 
 export interface BlueprintParseResult {
-  /** Full message text with every `blueprint-draft` fenced block removed. */
+  /** Full message text with every `blueprint-draft` fenced block removed —
+   *  including an unterminated trailing one, so raw JSON never reaches the
+   *  chat transcript. */
   stripped: string
   /** The last VALID snapshot in the text, or null when none parsed. */
   blueprint: Blueprint | null
@@ -29,12 +49,28 @@ export interface BlueprintParseResult {
    * invalid model field cannot become valid merely because the read parser is
    * intentionally permissive for legacy blueprints. */
   rawBlueprint: unknown | null
-  /** True when at least one fenced block (valid or not) was present. */
+  /** True when at least one fenced block (valid, invalid or truncated) was present. */
   hadBlocks: boolean
+  /** Every block that did not become a snapshot, in document order. */
+  rejected: BlueprintRejectedBlock[]
+  /** True when the winning snapshot only parsed after the tolerant repair pass. */
+  repaired: boolean
+  /** True when the text ended inside an open fence (the reply was cut off). */
+  truncated: boolean
 }
 
 const FENCE_RE = /```blueprint-draft\s*\n([\s\S]*?)\n\s*```/g
 const OPEN_FENCE_RE = /```blueprint-draft(?![\s\S]*?\n\s*```)/
+/** A lone closing fence right after a matched block — left behind when the
+ *  model nested a ```json fence inside the blueprint-draft one. */
+const ORPHAN_CLOSE_RE = /^[ \t]*\r?\n?[ \t]*```[ \t]*(?=\r?\n|$)/
+
+/** Rough count of specs that had started in a (possibly truncated) block. */
+export function countStartedSpecs(blockText: string): number {
+  const at = blockText.indexOf('"m1Specs"')
+  if (at === -1) return 0
+  return (blockText.slice(at).match(/"title"\s*:/g) ?? []).length
+}
 
 function asString(value: unknown): string {
   return typeof value === 'string' ? value : ''
@@ -140,34 +176,79 @@ export function coerceBlueprint(parsed: unknown): Blueprint | null {
  */
 export function parseBlueprintDraftBlocks(text: string): BlueprintParseResult {
   if (!text || !text.includes('```blueprint-draft')) {
-    return { stripped: text ?? '', blueprint: null, rawBlueprint: null, hadBlocks: false }
+    return {
+      stripped: text ?? '',
+      blueprint: null,
+      rawBlueprint: null,
+      hadBlocks: false,
+      rejected: [],
+      repaired: false,
+      truncated: false,
+    }
   }
 
   let blueprint: Blueprint | null = null
   let rawBlueprint: unknown | null = null
+  let repaired = false
   let hadBlocks = false
+  const rejected: BlueprintRejectedBlock[] = []
   let stripped = ''
   let cursor = 0
+  let index = 0
   FENCE_RE.lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = FENCE_RE.exec(text)) !== null) {
     hadBlocks = true
     stripped += text.slice(cursor, match.index)
     cursor = match.index + match[0].length
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(match[1])
-    } catch {
-      continue // malformed; drop silently, keep the previous valid snapshot
+    const orphan = ORPHAN_CLOSE_RE.exec(text.slice(cursor))
+    if (orphan) {
+      cursor += orphan[0].length
+      FENCE_RE.lastIndex = cursor
     }
-    const candidate = coerceBlueprint(parsed)
-    if (candidate) {
-      blueprint = candidate
-      rawBlueprint = parsed
+    const blockIndex = index
+    index += 1
+    const parsed = parseJsonTolerant(match[1])
+    if (!parsed.ok) {
+      const where = parsed.excerpt ? ` near: …${parsed.excerpt}…` : ''
+      rejected.push({ index: blockIndex, reason: 'invalid_json', detail: `${parsed.error}${where}` })
+      continue // keep the previous valid snapshot
     }
+    const candidate = coerceBlueprint(parsed.value)
+    if (!candidate) {
+      rejected.push({
+        index: blockIndex,
+        reason: 'missing_version',
+        detail: 'the payload is not a blueprint object with an integer blueprintVersion',
+      })
+      continue
+    }
+    blueprint = candidate
+    rawBlueprint = parsed.value
+    repaired = parsed.repaired
   }
-  stripped += text.slice(cursor)
-  return { stripped, blueprint, rawBlueprint, hadBlocks }
+  const remainder = text.slice(cursor)
+  const open = OPEN_FENCE_RE.exec(remainder)
+  let truncated = false
+  if (open) {
+    // The reply ended inside a block: the output limit cut it off. Never let
+    // the partial JSON reach the transcript; report how far it got instead.
+    hadBlocks = true
+    truncated = true
+    const partial = remainder.slice(open.index)
+    const started = countStartedSpecs(partial)
+    rejected.push({
+      index,
+      reason: 'truncated',
+      detail: started > 0
+        ? `the block was cut off before its closing fence after ${started} spec title(s) had started`
+        : 'the block was cut off before its closing fence',
+    })
+    stripped += remainder.slice(0, open.index)
+  } else {
+    stripped += remainder
+  }
+  return { stripped, blueprint, rawBlueprint, hadBlocks, rejected, repaired, truncated }
 }
 
 /**

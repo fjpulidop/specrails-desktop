@@ -6,6 +6,9 @@ import { AddProjectDialog } from '../AddProjectDialog'
 import { BlueprintPanel } from '../project-builder/BlueprintPanel'
 import { BlueprintCommitForm } from '../project-builder/BlueprintCommitForm'
 import { BuilderConversation } from '../project-builder/BuilderConversation'
+import { BlueprintReadiness } from '../project-builder/BlueprintReadiness'
+import { BuilderRecentBlueprints } from '../project-builder/BuilderRecentBlueprints'
+import { BuilderGenerationProgress } from '../project-builder/BuilderGenerationProgress'
 import { __resetPrerequisitesCacheForTest } from '../../hooks/usePrerequisites'
 import { SharedWebSocketContext } from '../../hooks/useSharedWebSocket'
 import type { Blueprint } from '../../lib/blueprint-draft'
@@ -307,7 +310,14 @@ describe('BuilderConversation (panel-hosted phases)', () => {
     return {
       phase: 'chat', messages: [], streamBuffer: null, blueprint: null, busy: false,
       commitError: null, commitSteps: [], createdProjectId: null, launching: false, submitting: false,
-      conversationReady: true, dirty: false, canProposeCommit: false, showSurpriseMe: true,
+      conversationReady: true, conversationId: 'conv-1', dirty: false, canProposeCommit: false, specQualityDetail: null, showSurpriseMe: true,
+      readiness: { ready: false, steps: [
+        { key: 'blueprint', state: 'pending', params: { filled: 0, total: 5 } },
+        { key: 'specs', state: 'pending', params: { count: 0, min: 5, max: 10 } },
+        { key: 'audit', state: 'pending', params: { count: 0 } },
+      ], issues: [] },
+      snapshot: { status: 'idle' }, generation: { generating: false, specsStarted: 0 },
+      recent: [], recentLoading: false, resume: vi.fn(async () => {}), discardRecent: vi.fn(async () => {}), repairSnapshot: vi.fn(async () => {}),
       provider: 'claude', model: null, models: [{ value: 'sonnet', label: 'Claude Sonnet' }],
       efforts: ['low', 'medium', 'high'], effort: 'medium', draft: '', setDraft: vi.fn(), setEffort: vi.fn(),
       setProvider: vi.fn(), setModel: vi.fn(),
@@ -522,5 +532,234 @@ describe('BuilderConversation (panel-hosted phases)', () => {
     await user.keyboard('{Escape}')
     await user.click(screen.getByTestId('builder-exit-confirm-btn'))
     expect(exit).toHaveBeenCalled()
+  })
+})
+
+// ─── harden-project-builder-snapshots: readiness, resume list, generation progress
+
+describe('BlueprintReadiness', () => {
+  const readyReport = {
+    ready: true,
+    steps: [
+      { key: 'blueprint' as const, state: 'done' as const, params: { filled: 5, total: 5 } },
+      { key: 'specs' as const, state: 'done' as const, params: { count: 8, min: 5, max: 10 } },
+      { key: 'audit' as const, state: 'done' as const, params: { count: 0 } },
+    ],
+    issues: [],
+  }
+
+  it('renders the three steps with localized details and an enabled CTA when ready', async () => {
+    const onPrimary = vi.fn()
+    render(
+      <BlueprintReadiness readiness={readyReport} snapshot={{ status: 'idle' }} busy={false} primaryLabel="Create specs" onPrimary={onPrimary} />,
+    )
+    expect(screen.getByTestId('readiness-step-blueprint')).toHaveAttribute('data-state', 'done')
+    expect(screen.getByTestId('readiness-step-specs')).toHaveTextContent('8 specs · complete')
+    expect(screen.getByTestId('readiness-step-audit')).toHaveTextContent('no issues')
+    const cta = screen.getByTestId('builder-create-specs')
+    expect(cta).toBeEnabled()
+    await userEvent.click(cta)
+    expect(onPrimary).toHaveBeenCalled()
+    expect(screen.queryByTestId('readiness-hint')).toBeNull()
+  })
+
+  it('disabled CTA explains the FIRST blocker in plain language', () => {
+    const report = {
+      ready: false,
+      steps: [
+        { key: 'blueprint' as const, state: 'done' as const, params: { filled: 5, total: 5 } },
+        { key: 'specs' as const, state: 'pending' as const, params: { count: 0, min: 5, max: 10 } },
+        { key: 'audit' as const, state: 'pending' as const, params: { count: 0 } },
+      ],
+      issues: [],
+    }
+    render(<BlueprintReadiness readiness={report} snapshot={{ status: 'idle' }} busy={false} primaryLabel="Create specs" onPrimary={vi.fn()} />)
+    expect(screen.getByTestId('builder-create-specs')).toBeDisabled()
+    expect(screen.getByTestId('readiness-hint')).toHaveTextContent('Approve the blueprint and the Builder will generate the Milestone-1 backlog.')
+  })
+
+  it('lists localized audit issues per spec and offers "ask the Builder to fix" when completion was claimed', async () => {
+    const onRepair = vi.fn()
+    const report = {
+      ready: false,
+      steps: [
+        { key: 'blueprint' as const, state: 'done' as const, params: { filled: 5, total: 5 } },
+        { key: 'specs' as const, state: 'done' as const, params: { count: 8, min: 5, max: 10 } },
+        { key: 'audit' as const, state: 'blocked' as const, params: { count: 2 } },
+      ],
+      issues: [
+        { specIndex: 2, field: 'acceptanceCriteria', code: 'criteria_count', message: 'raw', params: { n: 3, count: 1 } },
+        { specIndex: 4, field: 'labels', code: 'domain_label', message: 'raw', params: { n: 5, label: 'M1' } },
+      ],
+    }
+    render(<BlueprintReadiness readiness={report} snapshot={{ status: 'accepted', repaired: false, repairAttempted: true, at: 'now' }} busy={false} primaryLabel="Create specs" onPrimary={vi.fn()} onRepair={onRepair} />)
+    expect(screen.getByTestId('readiness-issues-toggle')).toHaveTextContent('2 audit issues')
+    await userEvent.click(screen.getByTestId('readiness-issues-toggle'))
+    expect(screen.getByTestId('readiness-issues')).toHaveTextContent('Spec 3 needs 4–10 acceptance criteria (has 1).')
+    expect(screen.getByTestId('readiness-issues')).toHaveTextContent('Spec 5 needs a domain label besides M1.')
+    await userEvent.click(screen.getByTestId('readiness-ask-fix'))
+    expect(onRepair).toHaveBeenCalled()
+  })
+
+  it('hides "ask to fix" while the model has not claimed completion (nothing for the app to repair)', () => {
+    const report = {
+      ready: false,
+      steps: [
+        { key: 'blueprint' as const, state: 'done' as const, params: { filled: 5, total: 5 } },
+        { key: 'specs' as const, state: 'pending' as const, params: { count: 3, min: 5, max: 10 } },
+        { key: 'audit' as const, state: 'blocked' as const, params: { count: 1 } },
+      ],
+      issues: [{ specIndex: 0, field: 'title', code: 'required', message: 'raw', params: { n: 1 } }],
+    }
+    render(<BlueprintReadiness readiness={report} snapshot={{ status: 'idle' }} busy={false} primaryLabel="Create specs" onPrimary={vi.fn()} onRepair={vi.fn()} />)
+    expect(screen.queryByTestId('readiness-ask-fix')).toBeNull()
+  })
+
+  it('a rejected snapshot shows the reason, the diagnostic, and a retry that calls onRepair', async () => {
+    const onRepair = vi.fn()
+    render(
+      <BlueprintReadiness
+        readiness={{ ...readyReport, ready: false }}
+        snapshot={{ status: 'rejected', reason: 'truncated', detail: 'cut off after 3 spec title(s)', repairAttempted: true, at: 'now' }}
+        busy={false}
+        primaryLabel="Create specs"
+        onPrimary={vi.fn()}
+        onRepair={onRepair}
+      />,
+    )
+    expect(screen.getByTestId('snapshot-rejected')).toHaveTextContent('The reply was cut off before the block closed')
+    expect(screen.getByTestId('snapshot-rejected')).toHaveTextContent('An automatic repair was already attempted.')
+    expect(screen.getByTestId('snapshot-rejected-detail')).toHaveTextContent('cut off after 3 spec title(s)')
+    await userEvent.click(screen.getByTestId('snapshot-retry'))
+    expect(onRepair).toHaveBeenCalled()
+    // No hint competes with the rejection card.
+    expect(screen.queryByTestId('readiness-hint')).toBeNull()
+  })
+
+  it('repairing state renders the in-flight pill and disables the retry surface', () => {
+    render(
+      <BlueprintReadiness readiness={{ ...readyReport, ready: false }} snapshot={{ status: 'repairing', kind: 'invalid_json', manual: false, attempt: 1 }} busy primaryLabel="Create specs" onPrimary={vi.fn()} onRepair={vi.fn()} />,
+    )
+    expect(screen.getByTestId('snapshot-repairing')).toHaveTextContent('Repairing the snapshot (the last block was not valid JSON)… · automatic')
+    expect(screen.queryByTestId('snapshot-retry')).toBeNull()
+    expect(screen.getByTestId('builder-create-specs')).toBeDisabled()
+  })
+
+  it('an accepted snapshot that needed repair says so', () => {
+    render(<BlueprintReadiness readiness={readyReport} snapshot={{ status: 'accepted', repaired: true, repairAttempted: true, at: 'now' }} busy={false} primaryLabel="Create specs" onPrimary={vi.fn()} />)
+    expect(screen.getByTestId('snapshot-repaired')).toHaveTextContent('Snapshot repaired automatically')
+  })
+})
+
+describe('BuilderRecentBlueprints', () => {
+  const item = {
+    id: 'conv-old', title: 'Tetris', productName: 'WebTetris', platform: 'web', provider: 'claude', model: null,
+    updatedAt: new Date().toISOString(), messageCount: 6, specCount: 8, specsComplete: true, dimensionsFilled: 5,
+    hasSnapshot: true, pendingIssue: null as null,
+  }
+
+  it('renders nothing when there is nothing to resume', () => {
+    const { container } = render(<BuilderRecentBlueprints items={[]} loading={false} onResume={vi.fn()} onDiscard={vi.fn()} />)
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('lists resumable blueprints with their summary and resumes on click', async () => {
+    const onResume = vi.fn()
+    render(<BuilderRecentBlueprints items={[item, { ...item, id: 'conv-2', productName: null, title: null, specCount: 0, specsComplete: false, dimensionsFilled: 3, pendingIssue: 'truncated' }]} loading={false} onResume={onResume} onDiscard={vi.fn()} />)
+    expect(screen.getByTestId('builder-recent')).toHaveTextContent('Continue where you left off')
+    expect(screen.getByTestId('builder-recent-conv-old')).toHaveTextContent('WebTetris')
+    expect(screen.getByTestId('builder-recent-conv-old')).toHaveTextContent('8 specs ready')
+    expect(screen.getByTestId('builder-recent-conv-2')).toHaveTextContent('Untitled blueprint')
+    expect(screen.getByTestId('builder-recent-conv-2')).toHaveTextContent('3/5 dimensions')
+    expect(screen.getByTestId('builder-recent-pending-issue')).toHaveTextContent('snapshot to repair')
+    await userEvent.click(screen.getByTestId('builder-recent-resume-conv-old'))
+    expect(onResume).toHaveBeenCalledWith('conv-old')
+  })
+
+  it('discard is a two-step inline confirm', async () => {
+    const onDiscard = vi.fn()
+    render(<BuilderRecentBlueprints items={[item]} loading={false} onResume={vi.fn()} onDiscard={onDiscard} />)
+    await userEvent.click(screen.getByTestId('builder-recent-discard-conv-old'))
+    expect(onDiscard).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByTestId('builder-recent-discard-cancel-conv-old'))
+    expect(screen.getByTestId('builder-recent-discard-conv-old')).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('builder-recent-discard-conv-old'))
+    await userEvent.click(screen.getByTestId('builder-recent-discard-confirm-conv-old'))
+    expect(onDiscard).toHaveBeenCalledWith('conv-old')
+  })
+})
+
+describe('BuilderGenerationProgress', () => {
+  it('shows the writing label with the live spec count', () => {
+    render(<BuilderGenerationProgress specsStarted={5} snapshot={{ status: 'idle' }} />)
+    expect(screen.getByTestId('builder-generation-progress')).toHaveAttribute('data-phase', 'generating')
+    expect(screen.getByTestId('builder-generation-progress')).toHaveTextContent('Writing the Milestone-1 specs…')
+    expect(screen.getByTestId('builder-generation-count')).toHaveTextContent('spec 5')
+  })
+
+  it('switches to the repair label while the app re-asks for the snapshot', () => {
+    render(<BuilderGenerationProgress specsStarted={0} snapshot={{ status: 'repairing', kind: 'truncated', manual: false, attempt: 1 }} />)
+    expect(screen.getByTestId('builder-generation-progress')).toHaveAttribute('data-phase', 'repairing')
+    expect(screen.getByTestId('builder-generation-progress')).toHaveTextContent('Re-requesting the snapshot (the reply was cut off)…')
+    expect(screen.queryByTestId('builder-generation-count')).toBeNull()
+  })
+})
+
+describe('BuilderConversation (snapshot hardening)', () => {
+  function session(overrides: Partial<BuilderSession> = {}): BuilderSession {
+    return {
+      phase: 'chat', messages: [], streamBuffer: null, blueprint: null, busy: false,
+      commitError: null, commitErrorDetail: null, commitSteps: [], createdProjectId: null, launching: false, submitting: false,
+      conversationReady: true, conversationId: null, dirty: false, canProposeCommit: false, specQualityDetail: null, showSurpriseMe: true,
+      readiness: { ready: false, steps: [], issues: [] }, snapshot: { status: 'idle' }, generation: { generating: false, specsStarted: 0 },
+      recent: [], recentLoading: false, resume: vi.fn(async () => {}), discardRecent: vi.fn(async () => {}), repairSnapshot: vi.fn(async () => {}),
+      provider: 'claude', model: null, models: [{ value: 'sonnet', label: 'Claude Sonnet' }],
+      efforts: ['low', 'medium', 'high'], effort: 'medium', draft: '', setDraft: vi.fn(), setEffort: vi.fn(),
+      setProvider: vi.fn(), setModel: vi.fn(),
+      send: vi.fn(), surpriseMe: vi.fn(), goToCommit: vi.fn(), backToChat: vi.fn(),
+      submitCommit: vi.fn(), launchM1: vi.fn(async () => {}), openProject: vi.fn(), abortAndReset: vi.fn(),
+      ...overrides,
+    }
+  }
+  function renderWith(s: BuilderSession) {
+    mockAgentChat.builderMode = { active: true, enter: vi.fn(), exit: vi.fn(), session: s }
+    render(withWs(<BuilderConversation variant="floating" />))
+  }
+
+  it('the empty hero offers the resume list and resumes through the session', async () => {
+    const resume = vi.fn(async () => {})
+    renderWith(session({
+      resume,
+      recent: [{
+        id: 'conv-old', title: 'Tetris', productName: 'WebTetris', platform: 'web', provider: 'claude', model: null,
+        updatedAt: new Date().toISOString(), messageCount: 6, specCount: 8, specsComplete: true, dimensionsFilled: 5,
+        hasSnapshot: true, pendingIssue: null,
+      }],
+    }))
+    expect(screen.getByTestId('builder-recent')).toHaveTextContent('WebTetris')
+    await userEvent.click(screen.getByTestId('builder-recent-resume-conv-old'))
+    expect(resume).toHaveBeenCalledWith('conv-old')
+  })
+
+  it('a streaming snapshot block shows generation progress instead of the thinking chip', () => {
+    renderWith(session({
+      messages: [{ role: 'user', content: 'go', createdAt: new Date().toISOString() }],
+      busy: true,
+      streamBuffer: 'Generating…\n```blueprint-draft\n{"m1Specs":[{"title":"a"},{"title":"b"},{"title":"c"}',
+      generation: { generating: true, specsStarted: 3 },
+    }))
+    expect(screen.getByTestId('builder-generation-progress')).toHaveTextContent('spec 3')
+    // The raw open fence never reaches the bubble.
+    expect(screen.queryByText(/blueprint-draft/)).toBeNull()
+  })
+
+  it('a repair turn shows the repairing phase in the thread', () => {
+    renderWith(session({
+      messages: [{ role: 'user', content: 'go', createdAt: new Date().toISOString() }],
+      busy: true,
+      streamBuffer: null,
+      snapshot: { status: 'repairing', kind: 'quality', manual: false, attempt: 1 },
+    }))
+    expect(screen.getByTestId('builder-generation-progress')).toHaveAttribute('data-phase', 'repairing')
   })
 })

@@ -1319,7 +1319,10 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
     session: {
       phase: 'chat', messages: [], streamBuffer: null, blueprint: null, busy: false,
       commitError: null, commitErrorDetail: null, commitSteps: [], createdProjectId: null, launching: false, submitting: false,
-      conversationReady: false, dirty: false, canProposeCommit: false, specQualityDetail: null, showSurpriseMe: true,
+      conversationReady: false, conversationId: null, dirty: false, canProposeCommit: false, specQualityDetail: null,
+      readiness: { ready: false, steps: [], issues: [] }, snapshot: { status: 'idle' },
+      generation: { generating: false, specsStarted: 0 }, recent: [], recentLoading: false,
+      resume: async () => {}, discardRecent: async () => {}, repairSnapshot: async () => {}, showSurpriseMe: true,
       provider: 'claude', model: null, models: [], efforts: [], effort: 'medium', draft: '', setDraft: () => {},
       setEffort: () => {}, setProvider: () => {}, setModel: () => {},
       send: () => {}, surpriseMe: () => {}, goToCommit: () => {}, backToChat: () => {},

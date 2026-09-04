@@ -8,7 +8,7 @@
     "surpriseMe": "Surprenez-moi",
     "inputPlaceholder": "Une app qui…",
     "createSpecs": "Créer les specs",
-    "createSpecsHint": "Disponible dès que le blueprint contient des specs du Jalon 1",
+    "createSpecsHint": "Disponible dès que les specs du Jalon 1 passent l’audit",
     "providerUnavailable": "Le Constructeur nécessite un fournisseur avec un mode natif sans outils ou en lecture seule. Ce fournisseur n’est pas disponible ici."
   },
   "panel": {
@@ -24,7 +24,9 @@
     "dependsOn": "dépend de #{{index}}",
     "criteriaCount": "{{count}} critères d'acceptation",
     "laterMilestones": "Jalons suivants",
-    "empty": "Le blueprint se remplit au fil de la conversation."
+    "empty": "Le blueprint se remplit au fil de la conversation.",
+    "specsComplete": "Complètes",
+    "specsInProgress": "En cours"
   },
   "commit": {
     "title": "Créer le projet",
@@ -110,14 +112,15 @@
     "subtitle": "L'agent construit un nouveau projet",
     "exit": "Quitter",
     "exitConfirmTitle": "Quitter le Constructeur ?",
-    "exitConfirmBody": "Le blueprint en cours sera abandonné.",
+    "exitConfirmBody": "Le Constructeur s’arrête maintenant. Votre blueprint est enregistré : reprenez-le depuis « Reprendre où vous en étiez » à la prochaine ouverture du Constructeur.",
     "exitConfirmCancel": "Continuer",
     "exitConfirmDiscard": "Abandonner et quitter"
   },
   "prompts": {
     "surpriseMe": "Surprends-moi — propose des valeurs cohérentes pour toutes les dimensions du blueprint, garde m1Specs vide et laisse-moi approuver le plan avant de générer les specs détaillées.",
     "milestoneSeed": "Génère les specs détaillées du jalon {{label}} (\"{{title}}\"). Lis d'abord le vrai code, valide le lot complet, puis émets TOUTES les specs détaillées du jalon dans une seule réponse/un seul snapshot blueprint-draft.",
-    "milestoneSeedWithPlanned": "Génère les specs détaillées du jalon {{label}} (\"{{title}}\"). Titres de specs prévus : {{planned}}. Lis d'abord le vrai code, valide le lot complet, puis émets TOUTES les specs détaillées du jalon dans une seule réponse/un seul snapshot blueprint-draft."
+    "milestoneSeedWithPlanned": "Génère les specs détaillées du jalon {{label}} (\"{{title}}\"). Titres de specs prévus : {{planned}}. Lis d'abord le vrai code, valide le lot complet, puis émets TOUTES les specs détaillées du jalon dans une seule réponse/un seul snapshot blueprint-draft.",
+    "repairSnapshot": "Votre dernier bloc blueprint-draft n’a pas pu être utilisé par l’app ({{reason}}). Réémettez le snapshot COMPLET en JSON strictement valide (retours à la ligne dans les chaînes échappés en \\n, pas de virgule finale, pas de bloc de code imbriqué) — uniquement le bloc."
   },
   "specModal": {
     "eyebrow": "{{milestone}} · Spec {{index}}",
@@ -139,5 +142,108 @@
     "chunkLaunched": "{{milestone}} — rail {{chunk}}/{{total}} lancé",
     "chunkFailed": "{{milestone}} — échec du lancement du rail {{chunk}}/{{total}} ; rails restants arrêtés",
     "done": "{{milestone}} terminé — {{count}} specs ont traversé la chaîne séquentielle"
+  },
+  "generation": {
+    "writing": "Rédaction des specs du Jalon 1…",
+    "specCount": "spec {{n}}"
+  },
+  "readiness": {
+    "title": "Prêt à créer les specs ?",
+    "steps": {
+      "blueprint": "Blueprint approuvé",
+      "specs": "Specs du Jalon 1 générées",
+      "audit": "Audit qualité"
+    },
+    "details": {
+      "blueprint": {
+        "done": "{{filled}}/{{total}} dimensions",
+        "pending": "{{filled}}/{{total}} dimensions",
+        "blocked": "{{filled}}/{{total}} dimensions"
+      },
+      "specs": {
+        "done": "{{count}} specs · complètes",
+        "pending": "{{count}} sur {{min}}–{{max}}",
+        "blocked": "{{count}} specs · {{min}}–{{max}} requises"
+      },
+      "audit": {
+        "done": "aucun problème",
+        "pending": "en attente des specs",
+        "blocked": "{{count}} à corriger"
+      }
+    },
+    "hints": {
+      "blueprint": {
+        "pending": "Terminez l’entretien ou dites « surprenez-moi » — {{filled}}/{{total}} dimensions pour l’instant.",
+        "blocked": "Le blueprint est incomplet."
+      },
+      "specs": {
+        "pending": "Approuvez le blueprint et le Constructeur générera le backlog du Jalon 1.",
+        "blocked": "Le Jalon 1 a besoin de {{min}}–{{max}} specs (actuellement {{count}}). Demandez au Constructeur de l’ajuster."
+      },
+      "audit": {
+        "pending": "En attente des specs.",
+        "blocked": "{{count}} problème(s) d’audit bloquent le commit — ouvrez la liste ci-dessous."
+      }
+    },
+    "issuesCount_one": "{{count}} problème d’audit",
+    "issuesCount_other": "{{count}} problèmes d’audit",
+    "askFix": "Demander au Constructeur de corriger"
+  },
+  "snapshot": {
+    "repairing": {
+      "invalid_json": "Réparation du snapshot (le dernier bloc n’était pas du JSON valide)…",
+      "truncated": "Nouvelle demande du snapshot (la réponse a été tronquée)…",
+      "quality": "Demande au Constructeur de corriger les problèmes d’audit…",
+      "automatic": "automatique"
+    },
+    "rejected": {
+      "title": "Le dernier snapshot du Constructeur n’a pas pu être utilisé",
+      "invalid_json": "Le bloc blueprint n’était pas du JSON valide ; le panneau affiche donc toujours l’état précédent.",
+      "missing_version": "Le bloc n’était pas un snapshot de blueprint (blueprintVersion manquant).",
+      "truncated": "La réponse a été tronquée avant la fermeture du bloc ; rien n’a été reçu.",
+      "autoRepairFailed": "Une réparation automatique a déjà été tentée.",
+      "retry": "Redemander le snapshot"
+    },
+    "repairedNote": "Snapshot réparé automatiquement",
+    "nothingToRepair": "Rien à réparer — continuez la conversation avec le Constructeur.",
+    "noSession": "Cette conversation ne peut pas être reprise avec son fournisseur ; envoyez plutôt un nouveau message.",
+    "alreadyStreaming": "Le Constructeur est encore en train de répondre."
+  },
+  "recent": {
+    "title": "Reprendre où vous en étiez",
+    "untitled": "Blueprint sans titre",
+    "specsComplete": "{{count}} specs prêtes",
+    "specsInProgress": "{{count}} specs en cours",
+    "dimensions": "{{filled}}/{{total}} dimensions",
+    "pendingIssue": "snapshot à réparer",
+    "discard": "Supprimer",
+    "discardConfirm": "Confirmer la suppression",
+    "discardCancel": "Conserver",
+    "resumeFailed": "Impossible de reprendre ce blueprint.",
+    "discardFailed": "Impossible de supprimer ce blueprint."
+  },
+  "quality": {
+    "batch_incomplete": "Le Constructeur n’a pas encore marqué le lot comme complet.",
+    "spec_count": "Le lot a besoin de {{min}}–{{max}} specs (actuellement {{count}}).",
+    "invalid_shape": "La spec {{n}} n’est pas un objet valide.",
+    "invalid_kind": "La spec {{n}} a besoin d’un type valide (scaffold, feature ou verification).",
+    "scaffold_first": "La première spec doit être le scaffold du projet.",
+    "duplicate_scaffold": "La spec {{n}} ne peut pas être un second scaffold.",
+    "title_required": "La spec {{n}} a besoin d’un titre.",
+    "title_duplicate": "La spec {{n}} répète le titre de la spec {{other}}.",
+    "summary": "La spec {{n}} a besoin d’un résumé d’une ligne de moins de 240 caractères.",
+    "invalid_priority": "La spec {{n}} a besoin d’une priorité valide.",
+    "canonical_sections": "Il manque à la spec {{n}} les cinq sections canoniques dans l’ordre.",
+    "empty_section": "La section « {{heading}} » de la spec {{n}} est vide.",
+    "section_bullets": "La spec {{n}} a besoin d’au moins deux puces sous « {{heading}} ».",
+    "complexity_format": "La spec {{n}} a besoin d’un niveau de complexité justifié.",
+    "scaffold_readme": "La spec de scaffold doit mentionner le README existant.",
+    "criteria_count": "La spec {{n}} a besoin de 4 à 10 critères d’acceptation (elle en a {{count}}).",
+    "criterion_quality": "Spec {{n}}, critère {{criterion}} : pas assez concret.",
+    "duplicate_criterion": "La spec {{n}} répète le critère d’acceptation {{criterion}}.",
+    "milestone_label": "La spec {{n}} a besoin du label {{label}}.",
+    "domain_label": "La spec {{n}} a besoin d’un label de domaine en plus de {{label}}.",
+    "invalid_dependency": "La spec {{n}} ne peut dépendre que d’une spec antérieure.",
+    "scaffold_dependency": "La spec de scaffold ne peut pas déclarer de dépendance."
   }
 }

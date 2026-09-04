@@ -1310,7 +1310,7 @@ export type WsMessage =
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage
   | AgentQueueEditedMessage
   | AgentPrDecisionMessage
-  | BlueprintStreamMessage | BlueprintDoneMessage | BlueprintErrorMessage
+  | BlueprintStreamMessage | BlueprintDoneMessage | BlueprintErrorMessage | BlueprintRepairingMessage
   | BlueprintCommitProgressMessage | BlueprintCommitDoneMessage | BlueprintCommitFailedMessage
 
 // ─── Project Builder day-0 chat (app-global, no projectId — a project does ────
@@ -1325,14 +1325,46 @@ export interface BlueprintStreamMessage {
 }
 
 /** Builder turn finished. `fullText` has blueprint-draft blocks stripped;
- *  `blueprint` is the normalized last valid snapshot and `rawBlueprint` is
- *  its exact pre-coercion JSON payload for strict commit validation. */
+ *  `blueprint` is the normalized snapshot THIS turn accepted (null when the
+ *  turn carried none — the client keeps its previous one) and `rawBlueprint`
+ *  is its exact pre-coercion JSON payload for strict commit validation.
+ *  `snapshot` says what happened to the block (accepted / rejected with the
+ *  reason / none), whether an automatic repair ran, and the deterministic
+ *  audit issues when the model claimed completion but the gate disagreed. */
 export interface BlueprintDoneMessage {
   type: 'blueprint.done'
   conversationId: string
   fullText: string
   blueprint: unknown | null
   rawBlueprint: unknown | null
+  snapshot: {
+    status: 'accepted' | 'rejected' | 'none'
+    reason?: 'invalid_json' | 'missing_version' | 'truncated'
+    detail?: string
+    repaired?: boolean
+    repairAttempted?: boolean
+    claimsComplete?: boolean
+    qualityIssues?: Array<{
+      specIndex: number | null
+      field: string
+      code: string
+      message: string
+      params?: Record<string, string | number>
+    }>
+  }
+  timestamp: string
+}
+
+/** The app is asking the Builder to re-emit its last snapshot (the block
+ *  was invalid JSON, cut off by the output limit, or failed the audit while
+ *  claiming completion). Streams like a normal turn; `blueprint.done` follows. */
+export interface BlueprintRepairingMessage {
+  type: 'blueprint.repairing'
+  conversationId: string
+  kind: 'invalid_json' | 'truncated' | 'quality'
+  attempt: number
+  /** true = the user clicked retry; false = automatic after the turn settled. */
+  manual: boolean
   timestamp: string
 }
 

@@ -9,6 +9,8 @@ import { cutUnterminatedBlock } from '../../lib/blueprint-draft'
 import { BlueprintCommitForm } from './BlueprintCommitForm'
 import { BuilderComposer } from './BuilderComposer'
 import { BuilderHalo } from './BuilderHalo'
+import { BuilderRecentBlueprints } from './BuilderRecentBlueprints'
+import { BuilderGenerationProgress } from './BuilderGenerationProgress'
 import { AgentMessage } from '../agent-chat/AgentMessage'
 import { AgentActivityChip } from '../agent-chat/AgentActivityChip'
 import { COMMIT_STEP_ORDER, githubErrorKey } from '../../hooks/useBuilderSession'
@@ -95,6 +97,15 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
                 <BuilderComposer session={session} autoFocus />
               </motion.div>
             </div>
+            {/* Durable blueprints: resume an unfinished conversation instead of
+                starting over (harden-project-builder-snapshots). */}
+            <BuilderRecentBlueprints
+              items={session.recent}
+              loading={session.recentLoading}
+              disabled={!session.conversationReady}
+              onResume={(id) => void session.resume(id)}
+              onDiscard={(id) => void session.discardRecent(id)}
+            />
           </motion.div>
         </div>
       ) : (
@@ -122,7 +133,13 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
                 {session.streamBuffer !== null && cutUnterminatedBlock(session.streamBuffer) && (
                   <AgentMessage role="assistant" content={cutUnterminatedBlock(session.streamBuffer)} streaming />
                 )}
-                <AgentActivityChip tool={null} />
+                {/* A snapshot block streaming in (hidden by the tail cut) or an
+                    app-driven repair turn reads as real progress, not "Thinking…". */}
+                {session.generation.generating || session.snapshot.status === 'repairing' ? (
+                  <BuilderGenerationProgress specsStarted={session.generation.specsStarted} snapshot={session.snapshot} />
+                ) : (
+                  <AgentActivityChip tool={null} />
+                )}
               </div>
             )}
           </div>

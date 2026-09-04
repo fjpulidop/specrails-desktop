@@ -1,19 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Hammer, Loader2, Rocket, Send, X } from 'lucide-react'
+import { Hammer, Loader2, Send, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { cn } from '../../lib/utils'
 import { useSharedWebSocket } from '../../hooks/useSharedWebSocket'
 import { getApiBase } from '../../lib/api'
 import { BlueprintPanel } from './BlueprintPanel'
+import { BlueprintReadiness } from './BlueprintReadiness'
+import { BuilderGenerationProgress } from './BuilderGenerationProgress'
 import {
   cutUnterminatedBlock,
+  describeStreamingSnapshot,
   parseBlueprintDraftBlocks,
   type Blueprint,
 } from '../../lib/blueprint-draft'
 import { analyzeBlueprintSpecQuality } from '../../lib/blueprint-spec-quality'
+import { deriveReadiness } from '../../lib/blueprint-readiness'
 import { providerSupportsToolPolicy } from '../../lib/provider-capabilities'
+import type { BuilderSnapshotState } from '../../hooks/useBuilderSession'
 
 // "Generate M<n>" (add-project-builder D7): PROJECT-level grounded milestone
 // generation. Spawns through the existing ChatManager (kind='milestone' —
@@ -59,6 +64,9 @@ export function MilestoneGenerateShell({
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [committing, setCommitting] = useState(false)
+  // Same precise snapshot feedback as the day-0 Builder: a rejected or cut-off
+  // block is reported instead of silently keeping the previous draft.
+  const [snapshot, setSnapshot] = useState<BuilderSnapshotState>({ status: 'idle' })
 
   const conversationIdRef = useRef<string | null>(null)
   const projectIdRef = useRef(projectId)
@@ -80,6 +88,11 @@ export function MilestoneGenerateShell({
     ),
     [draft, rawDraft, label],
   )
+  const readiness = useMemo(
+    () => deriveReadiness(draft, rawDraft ?? draft, specQuality, { minSpecs: 1, maxSpecs: 10 }),
+    [draft, rawDraft, specQuality],
+  )
+  const generation = useMemo(() => describeStreamingSnapshot(streamBuffer), [streamBuffer])
 
   // Bootstrap the milestone conversation and fire the seeded first turn.
   useEffect(() => {
@@ -135,10 +148,15 @@ export function MilestoneGenerateShell({
         setBusy(false)
         const fullText = String(msg.fullText ?? '')
         const parsed = parseBlueprintDraftBlocks(fullText)
-        setMessages((prev) => [...prev, { role: 'assistant', content: parsed.stripped.trim() || fullText }])
+        const content = parsed.stripped.trim() || (parsed.hadBlocks ? '' : fullText)
+        if (content) setMessages((prev) => [...prev, { role: 'assistant', content }])
         if (parsed.blueprint) {
           setDraft(parsed.blueprint)
           setRawDraft(parsed.rawBlueprint)
+          setSnapshot({ status: 'accepted', repaired: parsed.repaired, repairAttempted: false, at: new Date().toISOString() })
+        } else if (parsed.rejected.length > 0) {
+          const last = parsed.rejected[parsed.rejected.length - 1]
+          setSnapshot({ status: 'rejected', reason: last.reason, detail: last.detail, repairAttempted: false, at: new Date().toISOString() })
         }
       } else if (msg.type === 'chat_error') {
         setStreamBuffer(null)
@@ -172,6 +190,13 @@ export function MilestoneGenerateShell({
     },
     [busy, t],
   )
+
+  const repair = useCallback(() => {
+    const reason = snapshot.status === 'rejected'
+      ? t(`snapshot.rejected.${snapshot.reason}`)
+      : t('readiness.issuesCount', { count: readiness.issues.length })
+    send(t('prompts.repairSnapshot', { reason }))
+  }, [snapshot, readiness.issues.length, send, t])
 
   const commit = useCallback(() => {
     const source = rawDraft ?? draft
@@ -269,6 +294,9 @@ export function MilestoneGenerateShell({
                 <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-accent-primary/70 align-middle" />
               </div>
             )}
+            {generation.generating && (
+              <BuilderGenerationProgress specsStarted={generation.specsStarted} snapshot={snapshot} />
+            )}
           </div>
           <div className="flex items-end gap-2 border-t border-border/40 p-3">
             <textarea
@@ -291,18 +319,16 @@ export function MilestoneGenerateShell({
         </div>
 
         <aside className="flex w-80 shrink-0 flex-col lg:w-96">
-          <BlueprintPanel blueprint={draft} milestoneLabel={label} />
-          <div className="border-t border-border/40 p-3">
-            <Button className="w-full" size="sm" disabled={!specQuality.valid || committing} onClick={commit} data-testid="milestone-commit">
-              {committing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Rocket className="mr-1.5 h-3.5 w-3.5" />}
-              {t('milestone.commit', { count: specCount, label })}
-            </Button>
-            {!specQuality.valid && (
-              <p className="mt-1.5 text-center text-[10px] text-muted-foreground" data-testid="milestone-quality-detail">
-                {specQuality.issues[0]?.message}
-              </p>
-            )}
-          </div>
+          <BlueprintPanel blueprint={draft} milestoneLabel={label} snapshot={snapshot} />
+          <BlueprintReadiness
+            readiness={readiness}
+            snapshot={snapshot}
+            busy={busy || committing}
+            primaryLabel={committing ? t('commit.creating') : t('milestone.commit', { count: specCount, label })}
+            onPrimary={commit}
+            onRepair={repair}
+            primaryTestId="milestone-commit"
+          />
         </aside>
       </div>
     </div>

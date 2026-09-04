@@ -223,3 +223,87 @@ describe('commit', () => {
     expect(runner.start).toHaveBeenCalled()
   })
 })
+
+describe('durable snapshots + resume (harden-project-builder-snapshots)', () => {
+  const bp = {
+    blueprintVersion: 1,
+    product: { name: 'WebTetris', pitch: 'p', audience: 'a' },
+    coreFlow: 'flow', platform: 'web',
+    stack: { language: 'ts', framework: 'vite', db: 'none' },
+    assumptions: [], milestones: [{ id: 'm1', title: 't', goal: 'g', status: 'planned' as const, plannedSpecs: [] }],
+    specsComplete: false, m1Specs: [],
+  }
+
+  it('GET /conversations?resumable=1 lists unfinished conversations with a snapshot summary', async () => {
+    const { app, db } = makeApp()
+    const { saveBlueprintSnapshot, addBlueprintMessage } = await import('./blueprint-store')
+    const conv = createBlueprintConversation(db)
+    addBlueprintMessage(db, { conversationId: conv.id, role: 'assistant', content: 'plan' })
+    saveBlueprintSnapshot(db, conv.id, { blueprint: bp, rawBlueprint: bp })
+    createBlueprintConversation(db) // empty bootstrap row — excluded
+    const res = await request(app).get('/api/blueprint/conversations?resumable=1')
+    expect(res.status).toBe(200)
+    expect(res.body.conversations).toHaveLength(1)
+    expect(res.body.conversations[0]).toEqual(expect.objectContaining({ id: conv.id, productName: 'WebTetris', dimensionsFilled: 5, hasSnapshot: true }))
+    // The plain list is unchanged (both rows).
+    const all = await request(app).get('/api/blueprint/conversations')
+    expect(all.body.conversations).toHaveLength(2)
+  })
+
+  it('GET /conversations/:id rehydrates the transcript (empty rows hidden, raw hidden), the snapshot pair and its status', async () => {
+    const { app, db } = makeApp()
+    const { saveBlueprintSnapshot, addBlueprintMessage } = await import('./blueprint-store')
+    const conv = createBlueprintConversation(db)
+    addBlueprintMessage(db, { conversationId: conv.id, role: 'user', content: 'tetris' })
+    addBlueprintMessage(db, { conversationId: conv.id, role: 'assistant', content: '', rawContent: 'raw' })
+    addBlueprintMessage(db, { conversationId: conv.id, role: 'assistant', content: 'plan', rawContent: 'raw2' })
+    saveBlueprintSnapshot(db, conv.id, { blueprint: bp, rawBlueprint: bp })
+    const res = await request(app).get(`/api/blueprint/conversations/${conv.id}`)
+    expect(res.status).toBe(200)
+    expect(res.body.messages.map((m: { content: string }) => m.content)).toEqual(['tetris', 'plan'])
+    expect(res.body.messages[1].raw_content).toBeUndefined()
+    expect(res.body.blueprint.product.name).toBe('WebTetris')
+    expect(res.body.rawBlueprint.product.name).toBe('WebTetris')
+    expect(res.body.snapshot).toEqual({ status: 'accepted', claimsComplete: false })
+    expect(res.body.snapshotUpdatedAt).toBeTruthy()
+  })
+
+  it('GET /conversations/:id reports a pending rejection and, for a claimed-complete snapshot, the audit issues', async () => {
+    const { app, db } = makeApp()
+    const { saveBlueprintSnapshot, saveBlueprintSnapshotIssue } = await import('./blueprint-store')
+    const conv = createBlueprintConversation(db)
+    saveBlueprintSnapshotIssue(db, conv.id, { reason: 'truncated', detail: 'cut', at: 'now' })
+    let res = await request(app).get(`/api/blueprint/conversations/${conv.id}`)
+    expect(res.body.snapshot).toEqual({ status: 'rejected', reason: 'truncated', detail: 'cut' })
+    expect(res.body.blueprint).toBeNull()
+
+    const claimed = { ...bp, specsComplete: true, m1Specs: [{ kind: 'feature', title: 'x' }] }
+    saveBlueprintSnapshot(db, conv.id, { blueprint: claimed as never, rawBlueprint: claimed })
+    res = await request(app).get(`/api/blueprint/conversations/${conv.id}`)
+    expect(res.body.snapshot.status).toBe('accepted')
+    expect(res.body.snapshot.claimsComplete).toBe(true)
+    expect(res.body.snapshot.qualityIssues.length).toBeGreaterThan(0)
+
+    const none = createBlueprintConversation(db)
+    res = await request(app).get(`/api/blueprint/conversations/${none.id}`)
+    expect(res.body.snapshot).toEqual({ status: 'none' })
+  })
+
+  it('POST /conversations/:id/repair-snapshot → 202 with the kind, 409 on refusal, 404 unknown', async () => {
+    const repairSnapshot = vi.fn(async () => ({ ok: true as const, kind: 'invalid_json' as const }))
+    const { app, db } = makeApp({ manager: { repairSnapshot } as never })
+    const conv = createBlueprintConversation(db)
+    let res = await request(app).post(`/api/blueprint/conversations/${conv.id}/repair-snapshot`)
+    expect(res.status).toBe(202)
+    expect(res.body).toEqual({ accepted: true, kind: 'invalid_json' })
+    expect(repairSnapshot).toHaveBeenCalledWith(conv.id)
+
+    repairSnapshot.mockResolvedValueOnce({ ok: false, reason: 'nothing_to_repair' } as never)
+    res = await request(app).post(`/api/blueprint/conversations/${conv.id}/repair-snapshot`)
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('nothing_to_repair')
+
+    res = await request(app).post('/api/blueprint/conversations/missing/repair-snapshot')
+    expect(res.status).toBe(404)
+  })
+})

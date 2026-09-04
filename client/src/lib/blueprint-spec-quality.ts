@@ -15,6 +15,9 @@ export interface BuilderSpecQualityIssue {
   field: string
   code: string
   message: string
+  /** Structured values behind `message` so the UI can localize the issue
+   *  (`n` = 1-based spec number for spec-scoped issues). */
+  params?: Record<string, string | number>
 }
 
 export interface BuilderSpecQualityOptions {
@@ -69,13 +72,31 @@ export function analyzeBlueprintSpecQuality(
   const source = record(blueprint)
   const specs = Array.isArray(source?.m1Specs) ? source.m1Specs : []
   const label = options.milestoneLabel.trim().toUpperCase()
-  const add = (specIndex: number | null, field: string, code: string, message: string): void => {
-    issues.push({ specIndex, field, code, message })
+  const add = (
+    specIndex: number | null,
+    field: string,
+    code: string,
+    message: string,
+    params: Record<string, string | number> = {},
+  ): void => {
+    issues.push({
+      specIndex,
+      field,
+      code,
+      message,
+      params: specIndex === null ? params : { n: specIndex + 1, ...params },
+    })
   }
 
   if (source?.specsComplete !== true) add(null, 'specsComplete', 'batch_incomplete', 'Generation is not complete yet.')
   if (specs.length < options.minSpecs || specs.length > options.maxSpecs) {
-    add(null, 'm1Specs', 'spec_count', `The batch needs ${options.minSpecs}-${options.maxSpecs} specs.`)
+    add(
+      null,
+      'm1Specs',
+      'spec_count',
+      `The batch needs ${options.minSpecs}-${options.maxSpecs} specs.`,
+      { min: options.minSpecs, max: options.maxSpecs, count: specs.length },
+    )
   }
 
   const titles = new Map<string, number>()
@@ -102,7 +123,7 @@ export function analyzeBlueprintSpecQuality(
     } else {
       const key = normalized(title)
       const prior = titles.get(key)
-      if (prior !== undefined) add(specIndex, 'title', 'duplicate', `Spec ${n} duplicates spec ${prior + 1}.`)
+      if (prior !== undefined) add(specIndex, 'title', 'duplicate', `Spec ${n} duplicates spec ${prior + 1}.`, { other: prior + 1 })
       else titles.set(key, specIndex)
     }
 
@@ -125,12 +146,12 @@ export function analyzeBlueprintSpecQuality(
     }
     for (const heading of BUILDER_SPEC_HEADINGS) {
       if (!(parsed.bodies.get(heading) ?? '').trim()) {
-        add(specIndex, 'description', 'empty_section', `Spec ${n} has an empty ${heading} section.`)
+        add(specIndex, 'description', 'empty_section', `Spec ${n} has an empty ${heading} section.`, { heading })
       }
     }
     for (const heading of ['Out of Scope', 'Technical Considerations'] as const) {
       const body = parsed.bodies.get(heading) ?? ''
-      if (body && bullets(body) < 2) add(specIndex, 'description', 'section_bullets', `Spec ${n} needs two ${heading} bullets.`)
+      if (body && bullets(body) < 2) add(specIndex, 'description', 'section_bullets', `Spec ${n} needs two ${heading} bullets.`, { heading })
     }
     const complexity = parsed.bodies.get('Estimated Complexity') ?? ''
     if (complexity && !/^(?:Low|Medium|High|Very High)\s*(?:[—\-:]\s*)\S/i.test(complexity)) {
@@ -142,17 +163,17 @@ export function analyzeBlueprintSpecQuality(
 
     const criteria = Array.isArray(spec.acceptanceCriteria) ? spec.acceptanceCriteria : []
     if (criteria.length < 4 || criteria.length > 10) {
-      add(specIndex, 'acceptanceCriteria', 'criteria_count', `Spec ${n} needs 4-10 acceptance criteria.`)
+      add(specIndex, 'acceptanceCriteria', 'criteria_count', `Spec ${n} needs 4-10 acceptance criteria.`, { count: criteria.length })
     }
     const seenCriteria = new Set<string>()
     criteria.forEach((criterion, criterionIndex) => {
       const text = typeof criterion === 'string' ? criterion.trim() : ''
       if (text.length < 10 || PLACEHOLDER_CRITERION.test(text)) {
-        add(specIndex, 'acceptanceCriteria', 'criterion_quality', `Spec ${n} criterion ${criterionIndex + 1} is not concrete.`)
+        add(specIndex, 'acceptanceCriteria', 'criterion_quality', `Spec ${n} criterion ${criterionIndex + 1} is not concrete.`, { criterion: criterionIndex + 1 })
         return
       }
       const key = normalized(text)
-      if (seenCriteria.has(key)) add(specIndex, 'acceptanceCriteria', 'duplicate_criterion', `Spec ${n} repeats an acceptance criterion.`)
+      if (seenCriteria.has(key)) add(specIndex, 'acceptanceCriteria', 'duplicate_criterion', `Spec ${n} repeats an acceptance criterion.`, { criterion: criterionIndex + 1 })
       seenCriteria.add(key)
     })
 
@@ -160,8 +181,8 @@ export function analyzeBlueprintSpecQuality(
       ? spec.labels.filter((value): value is string => typeof value === 'string').map((value) => value.trim()).filter(Boolean)
       : []
     const normalizedLabels = new Set(labels.map((value) => value.toUpperCase()))
-    if (!normalizedLabels.has(label)) add(specIndex, 'labels', 'milestone_label', `Spec ${n} needs the ${label} label.`)
-    if (labels.every((value) => value.toUpperCase() === label)) add(specIndex, 'labels', 'domain_label', `Spec ${n} needs a domain label.`)
+    if (!normalizedLabels.has(label)) add(specIndex, 'labels', 'milestone_label', `Spec ${n} needs the ${label} label.`, { label })
+    if (labels.every((value) => value.toUpperCase() === label)) add(specIndex, 'labels', 'domain_label', `Spec ${n} needs a domain label.`, { label })
 
     const dependency = spec.dependsOnIndex
     if (dependency !== undefined && (!Number.isInteger(dependency) || (dependency as number) < 0 || (dependency as number) >= specIndex)) {

@@ -8,7 +8,7 @@
     "surpriseMe": "Überrasch mich",
     "inputPlaceholder": "Eine App, die…",
     "createSpecs": "Specs erstellen",
-    "createSpecsHint": "Verfügbar, sobald der Blueprint Meilenstein-1-Specs enthält",
+    "createSpecsHint": "Verfügbar, sobald die Specs von Meilenstein 1 die Prüfung bestehen",
     "providerUnavailable": "Der Projekt-Builder benötigt einen nativen Modus ohne Werkzeuge oder mit Lesezugriff. Dieser Anbieter ist hier nicht verfügbar."
   },
   "panel": {
@@ -24,7 +24,9 @@
     "dependsOn": "baut auf #{{index}} auf",
     "criteriaCount": "{{count}} Akzeptanzkriterien",
     "laterMilestones": "Spätere Meilensteine",
-    "empty": "Der Blueprint füllt sich während des Gesprächs."
+    "empty": "Der Blueprint füllt sich während des Gesprächs.",
+    "specsComplete": "Vollständig",
+    "specsInProgress": "In Arbeit"
   },
   "commit": {
     "title": "Projekt erstellen",
@@ -110,14 +112,15 @@
     "subtitle": "Der Agent baut ein neues Projekt",
     "exit": "Beenden",
     "exitConfirmTitle": "Builder verlassen?",
-    "exitConfirmBody": "Der laufende Blueprint wird verworfen.",
+    "exitConfirmBody": "Der Builder stoppt jetzt. Dein Blueprint bleibt gespeichert – nimm ihn beim nächsten Öffnen des Builders unter „Dort weitermachen, wo du aufgehört hast“ wieder auf.",
     "exitConfirmCancel": "Weiterbauen",
     "exitConfirmDiscard": "Verwerfen und beenden"
   },
   "prompts": {
     "surpriseMe": "Überrasch mich — schlage sinnvolle Werte für alle Blueprint-Dimensionen vor, lasse m1Specs leer und lass mich den Plan vor der Erstellung detaillierter Specs genehmigen.",
     "milestoneSeed": "Generiere die detaillierten Specs für Meilenstein {{label}} (\"{{title}}\"). Lies zuerst die echte Codebasis, validiere den vollständigen Satz und gib erst dann ALLE detaillierten Specs des Meilensteins in einer einzigen blueprint-draft-Antwort/einem einzigen Snapshot aus.",
-    "milestoneSeedWithPlanned": "Generiere die detaillierten Specs für Meilenstein {{label}} (\"{{title}}\"). Geplante Spec-Titel: {{planned}}. Lies zuerst die echte Codebasis, validiere den vollständigen Satz und gib erst dann ALLE detaillierten Specs des Meilensteins in einer einzigen blueprint-draft-Antwort/einem einzigen Snapshot aus."
+    "milestoneSeedWithPlanned": "Generiere die detaillierten Specs für Meilenstein {{label}} (\"{{title}}\"). Geplante Spec-Titel: {{planned}}. Lies zuerst die echte Codebasis, validiere den vollständigen Satz und gib erst dann ALLE detaillierten Specs des Meilensteins in einer einzigen blueprint-draft-Antwort/einem einzigen Snapshot aus.",
+    "repairSnapshot": "Dein letzter blueprint-draft-Block konnte von der App nicht verwendet werden ({{reason}}). Gib den VOLLSTÄNDIGEN Snapshot erneut als streng gültiges JSON aus (Zeilenumbrüche in Strings als \\n escapen, keine abschließenden Kommas, keine verschachtelten Codeblöcke) – nur den Block."
   },
   "specModal": {
     "eyebrow": "{{milestone}} · Spec {{index}}",
@@ -139,5 +142,108 @@
     "chunkLaunched": "{{milestone}} — Rail {{chunk}}/{{total}} gestartet",
     "chunkFailed": "{{milestone}} — Rail {{chunk}}/{{total}} konnte nicht starten; restliche Rails gestoppt",
     "done": "{{milestone}} abgeschlossen — {{count}} Specs durchliefen die sequenzielle Kette"
+  },
+  "generation": {
+    "writing": "Specs für Meilenstein 1 werden geschrieben…",
+    "specCount": "Spec {{n}}"
+  },
+  "readiness": {
+    "title": "Bereit, die Specs zu erstellen?",
+    "steps": {
+      "blueprint": "Blueprint freigegeben",
+      "specs": "Specs für Meilenstein 1 generiert",
+      "audit": "Qualitätsprüfung"
+    },
+    "details": {
+      "blueprint": {
+        "done": "{{filled}}/{{total}} Dimensionen",
+        "pending": "{{filled}}/{{total}} Dimensionen",
+        "blocked": "{{filled}}/{{total}} Dimensionen"
+      },
+      "specs": {
+        "done": "{{count}} Specs · vollständig",
+        "pending": "{{count}} von {{min}}–{{max}}",
+        "blocked": "{{count}} Specs · {{min}}–{{max}} nötig"
+      },
+      "audit": {
+        "done": "keine Probleme",
+        "pending": "wartet auf Specs",
+        "blocked": "{{count}} zu beheben"
+      }
+    },
+    "hints": {
+      "blueprint": {
+        "pending": "Beende das Interview oder sag „überrasch mich“ – bisher {{filled}}/{{total}} Dimensionen.",
+        "blocked": "Der Blueprint ist unvollständig."
+      },
+      "specs": {
+        "pending": "Gib den Blueprint frei, dann generiert der Builder das Backlog für Meilenstein 1.",
+        "blocked": "Meilenstein 1 braucht {{min}}–{{max}} Specs (aktuell {{count}}). Bitte den Builder, das anzupassen."
+      },
+      "audit": {
+        "pending": "Wartet auf die Specs.",
+        "blocked": "{{count}} Prüfungsproblem(e) blockieren den Commit – öffne die Liste unten."
+      }
+    },
+    "issuesCount_one": "{{count}} Prüfungsproblem",
+    "issuesCount_other": "{{count}} Prüfungsprobleme",
+    "askFix": "Builder um Korrektur bitten"
+  },
+  "snapshot": {
+    "repairing": {
+      "invalid_json": "Snapshot wird repariert (der letzte Block war kein gültiges JSON)…",
+      "truncated": "Snapshot wird erneut angefordert (die Antwort wurde abgeschnitten)…",
+      "quality": "Builder wird gebeten, die Prüfungsprobleme zu beheben…",
+      "automatic": "automatisch"
+    },
+    "rejected": {
+      "title": "Der letzte Snapshot des Builders konnte nicht verwendet werden",
+      "invalid_json": "Der Blueprint-Block war kein gültiges JSON, daher zeigt das Panel weiterhin den vorherigen Stand.",
+      "missing_version": "Der Block war kein Blueprint-Snapshot (blueprintVersion fehlt).",
+      "truncated": "Die Antwort wurde abgeschnitten, bevor der Block geschlossen wurde – nichts kam an.",
+      "autoRepairFailed": "Eine automatische Reparatur wurde bereits versucht.",
+      "retry": "Snapshot erneut anfordern"
+    },
+    "repairedNote": "Snapshot automatisch repariert",
+    "nothingToRepair": "Nichts zu reparieren – sprich einfach weiter mit dem Builder.",
+    "noSession": "Diese Unterhaltung kann mit ihrem Anbieter nicht fortgesetzt werden; sende stattdessen eine neue Nachricht.",
+    "alreadyStreaming": "Der Builder antwortet noch."
+  },
+  "recent": {
+    "title": "Dort weitermachen, wo du aufgehört hast",
+    "untitled": "Unbenannter Blueprint",
+    "specsComplete": "{{count}} Specs bereit",
+    "specsInProgress": "{{count}} Specs in Arbeit",
+    "dimensions": "{{filled}}/{{total}} Dimensionen",
+    "pendingIssue": "Snapshot zu reparieren",
+    "discard": "Verwerfen",
+    "discardConfirm": "Verwerfen bestätigen",
+    "discardCancel": "Behalten",
+    "resumeFailed": "Dieser Blueprint konnte nicht fortgesetzt werden.",
+    "discardFailed": "Dieser Blueprint konnte nicht verworfen werden."
+  },
+  "quality": {
+    "batch_incomplete": "Der Builder hat den Batch noch nicht als vollständig markiert.",
+    "spec_count": "Der Batch braucht {{min}}–{{max}} Specs (aktuell {{count}}).",
+    "invalid_shape": "Spec {{n}} ist kein gültiges Objekt.",
+    "invalid_kind": "Spec {{n}} braucht einen gültigen Typ (scaffold, feature oder verification).",
+    "scaffold_first": "Die erste Spec muss das Projekt-Scaffold sein.",
+    "duplicate_scaffold": "Spec {{n}} darf kein zweites Scaffold sein.",
+    "title_required": "Spec {{n}} braucht einen Titel.",
+    "title_duplicate": "Spec {{n}} wiederholt den Titel von Spec {{other}}.",
+    "summary": "Spec {{n}} braucht eine einzeilige Zusammenfassung unter 240 Zeichen.",
+    "invalid_priority": "Spec {{n}} braucht eine gültige Priorität.",
+    "canonical_sections": "Spec {{n}} fehlen die fünf kanonischen Abschnitte in der richtigen Reihenfolge.",
+    "empty_section": "Der Abschnitt „{{heading}}“ von Spec {{n}} ist leer.",
+    "section_bullets": "Spec {{n}} braucht mindestens zwei Aufzählungspunkte unter „{{heading}}“.",
+    "complexity_format": "Spec {{n}} braucht eine Komplexitätsstufe mit Begründung.",
+    "scaffold_readme": "Die Scaffold-Spec muss die vorhandene README erwähnen.",
+    "criteria_count": "Spec {{n}} braucht 4–10 Akzeptanzkriterien (hat {{count}}).",
+    "criterion_quality": "Spec {{n}}, Kriterium {{criterion}}: nicht konkret genug.",
+    "duplicate_criterion": "Spec {{n}} wiederholt Akzeptanzkriterium {{criterion}}.",
+    "milestone_label": "Spec {{n}} braucht das Label {{label}}.",
+    "domain_label": "Spec {{n}} braucht zusätzlich zu {{label}} ein Domänen-Label.",
+    "invalid_dependency": "Spec {{n}} darf nur von einer früheren Spec abhängen.",
+    "scaffold_dependency": "Die Scaffold-Spec darf keine Abhängigkeit deklarieren."
   }
 }

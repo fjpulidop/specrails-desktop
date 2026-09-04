@@ -106,6 +106,142 @@ from declaring Kimi among the new project's target providers.
   partial subset as the latest draft; `specsComplete: true` appears only on the
   complete set. If generation cannot finish, the prior non-complete proposal
   remains the last valid state and cannot be committed.
+- **Lazy conversation row**: the client no longer POSTs a conversation when
+  the Builder opens. `useBuilderSession.ensureConversation()` creates the row
+  (with the composer's provider/model) on the FIRST send, single-flight, or
+  `resume()` rehydrates a persisted one — so opening and closing the Builder
+  never leaves empty orphan rows behind.
+
+## Snapshot hardening (harden-project-builder-snapshots)
+
+> Why: a real run (WebTetris, 8 specs, `specsComplete: true` claimed by the
+> model) ended with a greyed-out *Create specs* button reading "Generation is
+> not complete yet." The 8-spec block had been REJECTED by `JSON.parse` and
+> dropped **silently** — `continue // malformed; drop silently` — so the panel
+> kept the interview snapshot (`m1Specs: []`), the model never learned its
+> block was unusable ("no reemito un nuevo snapshot"), and because the
+> snapshot lived only in client memory (persisted rows were STRIPPED of the
+> JSON) the whole batch was lost when the panel closed. Two grave bugs with
+> one root: the snapshot pipeline had no feedback loop and no durability.
+
+**1. Nothing is dropped silently (parser).** `parseBlueprintDraftBlocks`
+(server + client mirror) now returns `rejected: BlueprintRejectedBlock[]`
+(`{index, reason: 'invalid_json'|'missing_version'|'truncated', detail}`),
+`repaired` and `truncated` next to the existing fields. Before rejecting, every
+block runs through `parseJsonTolerant` (`server/json-tolerant.ts` ⇄
+`client/src/lib/json-tolerant.ts`): strict `JSON.parse` first, then ONE
+string-aware repair pass for the mistakes a model makes when hand-writing a
+~20 KB payload — raw newlines/tabs/control chars inside strings, a stray inner
+`"`, trailing commas, `//` / `/* */` comments outside strings, a nested
+```` ```json ```` fence, prose around the object, invalid `\x` escapes — and
+parses again (`repaired: true`, repair kinds listed). An UNTERMINATED trailing
+fence in a settled reply (the output limit cut the block) is now reported as
+`truncated` (with the number of spec titles that had started, via
+`countStartedSpecs`) and CUT from the transcript — raw partial JSON never
+reaches the chat. The `invalid_json` detail carries the parser message plus a
+±40-char excerpt around the failing position so the model can fix it.
+
+**2. The app tells the model (repair loop).** `BlueprintChatManager._runTurn`
+audits every settled turn: `planSnapshotRepair(parse)` returns a repair
+request when (a) no snapshot was accepted but a block was emitted (kind
+`invalid_json` / `truncated`), or (b) the accepted raw snapshot declares
+`specsComplete: true` and the deterministic M1 gate
+(`auditRawBlueprintForM1`, the same `analyzeBuilderSpecBatch` the commit runs)
+disagrees (kind `quality`, detail = one line per issue). Then it runs **ONE
+automatic repair turn** on the SAME session (`--resume`, so the model has its
+own context) with a byte-stable prompt from `blueprint-operator-prompt.ts`
+`buildSnapshotRepairPrompt(kind, detail)` — "APP CHECK: … re-emit the
+COMPLETE snapshot … reply with ONLY the block" (the `truncated` variant asks
+to tighten descriptions so the block fits). `blueprint.repairing
+{kind, attempt, manual}` is broadcast first; the repair turn streams like any
+turn; ONE `blueprint.done` follows. Outcomes: repaired block accepted ⇒
+`snapshot.status='accepted', repaired: true, repairAttempted: true`; still
+unusable ⇒ `status='rejected'` with the freshest diagnostic (never
+`blueprint.error` — the user's turn succeeded); a quality repair that still
+fails the gate ⇒ the snapshot is delivered WITH `qualityIssues` so the UI can
+list them. Bounded: a repair never nests another; no session id / provider
+without `nativeResume` ⇒ the rejection is reported without a repair. Every
+spawn records its own `agent_invocations` row (a repair bills too). Manual
+repair: `POST /api/blueprint/conversations/:id/repair-snapshot` →
+`BlueprintChatManager.repairSnapshot(id)` decides what to ask from the
+PERSISTED state (pending rejection ⇒ JSON/truncated prompt; claimed-complete
+snapshot failing the gate ⇒ quality prompt) so it works after a restart; 202
+`{kind}` / 409 `streaming|nothing_to_repair|no_session` / 404. The operator
+prompts (both `BUILDER_INSTRUCTIONS` and `BUILDER_SYSTEM_PROMPT`) gained the
+JSON hygiene rules (escape `\n` / `\"`, no trailing commas, no nested
+fences, nothing after the closing fence, "if the app reports a rejected or
+cut-off block answer with ONLY the corrected snapshot").
+
+**3. Durable snapshots (migration 23, `desktop.sqlite`).**
+`blueprint_conversations` += `blueprint_json` (normalized accepted snapshot),
+`raw_blueprint_json` (exact payload — the commit/readiness evidence),
+`snapshot_updated_at`, `snapshot_issue_json` (the pending rejection until the
+next accepted block), `committed_project_id` (set by the commit's
+`markCommitted` IO hook right after `register`; the commit body accepts an
+optional `conversationId`, unknown ids are ignored, a failing link never fails
+the commit). `blueprint_messages` += `raw_content` — the model's UNSTRIPPED
+reply whenever it carried a block (forensics; a later parser fix can re-read
+an old rejected snapshot). A block-only reply persists `content=''` with the
+raw payload; `GET /conversations/:id` hides empty rows and never exposes
+`raw_content`. Store helpers: `saveBlueprintSnapshot`,
+`saveBlueprintSnapshotIssue`, `getBlueprintSnapshot` (normalizes through
+`coerceBlueprint`; corrupt JSON reads as null), `markBlueprintCommitted`,
+`listResumableBlueprintConversations`.
+
+**4. Resume ("Continue where you left off").** `GET
+/api/blueprint/conversations?resumable=1` lists unfinished conversations
+(never committed, ≥1 assistant reply) newest first with a snapshot summary
+(`productName`, `platform`, `specCount`, `specsComplete`, `dimensionsFilled`,
+`hasSnapshot`, `pendingIssue`, `messageCount`). `GET /conversations/:id` now
+returns the transcript + `blueprint` + `rawBlueprint` + `snapshot`
+(`accepted` with `claimsComplete`/`qualityIssues`, `rejected` with
+reason/detail, or `none`) + `snapshotUpdatedAt`. Client:
+`BuilderRecentBlueprints` (under the hero composer while the session is empty)
+→ `session.resume(id)` rehydrates messages, snapshot pair, provider/model and
+the provider session (later turns `--resume`); two-step inline discard →
+`DELETE`. The exit confirm copy no longer threatens to discard the blueprint —
+it says where to pick it up.
+
+**5. Readiness, made legible (client).** `client/src/lib/blueprint-readiness.ts`
+`deriveReadiness` turns the same deterministic report into three steps —
+**blueprint** (5 dimensions) · **specs** (count within 5–10 and
+`specsComplete`) · **audit** (issues excluding the two batch-level codes) —
+with structured params, and `localizeQualityIssue(t, issue)` maps every
+`(field, code)` to a `builder:quality.*` key (`{{n}}`, `{{heading}}`,
+`{{label}}`, `{{min}}`/`{{max}}`/`{{count}}`, `{{criterion}}`, `{{other}}`;
+unknown codes fall back to the English message). Both quality analyzers
+(server `analyzeBuilderSpecBatch` and the client mirror) now attach `params`
+to each issue. `BlueprintReadiness` (`client/src/components/project-builder/`)
+replaces the old CTA + raw-English hint in BOTH surfaces (floating panel side
+pane and the Agent-Mode workspace sidebar) and in the M2+ shell: the three
+steps, the snapshot status (repairing pill / rejected card with reason +
+diagnostic + **Ask for the snapshot again** / "repaired automatically" note),
+the audit issues per spec with **Ask the Builder to fix these** (shown only
+when the model claimed completion — the only case the app can repair), and the
+primary CTA whose disabled hint names the FIRST blocker in plain language.
+`useBuilderSession` exposes `snapshot: BuilderSnapshotState`
+(`idle|repairing|accepted|rejected`), `readiness`, `generation`, `recent`,
+`resume`, `discardRecent`, `repairSnapshot`, `conversationId`; a block-only
+`blueprint.done` (empty `fullText`) appends no bubble; a legacy `done` without
+`snapshot` still parses the settled text. `BlueprintPanel` shows a
+Complete / In progress pill on the M1 header and a pulse while repairing.
+
+**6. Live generation progress.** While a block streams in (hidden by the tail
+cut — previously a static "Thinking…" for up to a minute) `describeStreamingSnapshot`
+counts the spec titles started inside the open fence and
+`BuilderGenerationProgress` renders "Writing the Milestone-1 specs… · spec N"
+with a soft progress bar (specs ÷ cap, capped at 95% until the block closes),
+switching to the repair label during a repair turn. Used in the day-0 thread
+and the M2+ shell.
+
+**M2+ (`MilestoneGenerateShell`)** rides `ChatManager`, which has no
+app-driven repair turn; it gets the tolerant parser + rejection diagnostics +
+the same readiness surface for free, and its repair button sends a localized
+user message (`builder:prompts.repairSnapshot`) instead.
+
+**WS contract.** `blueprint.done` += `snapshot` (see `BlueprintDoneMessage`);
+new `blueprint.repairing`. i18n: `builder` namespace gained `generation.*`,
+`readiness.*`, `snapshot.*`, `recent.*`, `quality.*` (×8, parity-tested).
 
 ## blueprint-draft protocol
 
@@ -313,15 +449,17 @@ execution and can use Kimi.
 ## Tests
 
 `server/blueprint-{draft-parser,render,store,chat-manager,commit,router}.test.ts`,
-`server/offline-assemble.test.ts`, `server/project-router.test.ts`; client
-`src/lib/__tests__/{blueprint-draft,milestone-launch}.test.ts`,
+`server/json-tolerant.test.ts`, `server/offline-assemble.test.ts`,
+`server/project-router.test.ts`, `server/desktop-db.test.ts` (migration 23);
+client `src/lib/__tests__/{blueprint-draft,blueprint-readiness,milestone-launch}.test.ts`,
 `src/hooks/__tests__/useBuilderSession.test.ts`,
-`src/components/__tests__/{ProjectBuilder,BuilderSidebarEntry}.test.tsx`, and
-`src/pages/__tests__/DashboardPage.test.tsx`.
+`src/components/__tests__/{ProjectBuilder,BuilderSidebarEntry,MilestoneGenerateShell}.test.tsx`,
+and `src/pages/__tests__/DashboardPage.test.tsx`.
 Locale parity covers the `builder` namespace ×8.
 
 ## Deferred (v2)
 
-Resume/minimize for Builder conversations (no dock chip — no `projectId` to
-tag), an orphan-dir startup sweeper, non-GitHub remotes, editing an existing
-blueprint via the day-0 Builder, a live side-panel draft during M2 generation.
+Minimize-to-dock for Builder conversations (no `projectId` to tag — resume is
+now the hero list instead), an orphan-dir startup sweeper, non-GitHub remotes,
+editing an existing blueprint via the day-0 Builder, a live side-panel draft
+during M2 generation, an app-driven repair turn for M2+ (ChatManager path).
