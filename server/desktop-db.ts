@@ -591,6 +591,13 @@ function applyDesktopMigrations(db: DbInstance): void {
       db.exec(AGENT_SEARCH_INDEX_DDL)
       rebuildAgentSearchIndex(db)
     },
+    // 25: Builder decision cards (premium-milestone-progress follow-up): a user
+    // turn sent from a one-click card ("surprise me", "approve") keeps its
+    // intent so the thread renders the settled decision card in place of the
+    // prompt bubble — across resumes and locale switches.
+    () => {
+      db.exec(`ALTER TABLE blueprint_messages ADD COLUMN intent TEXT;`)
+    },
   ]
 
   for (let i = 0; i < migrations.length; i++) {
