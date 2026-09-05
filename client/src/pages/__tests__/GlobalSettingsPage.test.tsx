@@ -675,3 +675,20 @@ describe('GlobalSettingsPage — OS Notifications', () => {
     expect(stored.filter).toBe('failed')
   })
 })
+
+describe('GlobalSettingsPage — Effects section', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockProjects = []
+    global.fetch = vi.fn().mockImplementation(defaultFetchMock)
+  })
+
+  it('lists Effects in the left nav and shows the thinking-halo switch when selected', async () => {
+    render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
+    await screen.findByText('Desktop Settings')
+    const nav = await screen.findByRole('button', { name: /effects/i })
+    await userEvent.click(nav)
+    expect(screen.getByTestId('effects-section')).toBeVisible()
+    expect(screen.getByTestId('effects-thinking-halo-toggle')).toHaveAttribute('aria-checked', 'true')
+  })
+})

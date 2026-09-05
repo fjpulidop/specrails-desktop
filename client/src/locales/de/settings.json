@@ -71,7 +71,8 @@
       "projects": "Projekte",
       "advanced": "Erweitert",
       "webhooks": "Webhooks",
-      "about": "Info"
+      "about": "Info",
+      "effects": "Effekte"
     },
     "title": "Desktop-Einstellungen",
     "description": "Registrierte Projekte verwalten und Desktop-Informationen einsehen.",
@@ -305,5 +306,16 @@
       "sr-developer": "Entwickler",
       "sr-reviewer": "Reviewer"
     }
+  },
+  "effects": {
+    "heading": "Effekte",
+    "description": "Visuelle Akzente in der App. Jeder lässt sich hier abschalten.",
+    "thinkingHalo": {
+      "label": "Denk-Halo am Agent-Composer",
+      "description": "Während der Agent nachdenkt oder schreibt, leuchtet der kreisende Ring des Builders um den Composer: er blendet beim Start eines Turns ein und beim Abschluss der Antwort aus."
+    },
+    "reducedMotion": "Folgt der Systemeinstellung für reduzierte Bewegung: der Ring bleibt ein statisches Leuchten.",
+    "preview": "Vorschau",
+    "previewThinking": "Denkt nach…"
   }
 }

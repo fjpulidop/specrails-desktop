@@ -71,7 +71,8 @@
       "projects": "Progetti",
       "advanced": "Avanzate",
       "webhooks": "Webhooks",
-      "about": "Info"
+      "about": "Info",
+      "effects": "Effetti"
     },
     "title": "Impostazioni Desktop",
     "description": "Gestisci i progetti registrati e visualizza le informazioni di Desktop.",
@@ -305,5 +306,16 @@
       "sr-developer": "Sviluppatore",
       "sr-reviewer": "Revisore"
     }
+  },
+  "effects": {
+    "heading": "Effetti",
+    "description": "Tocchi visivi dell'app. Ognuno si può disattivare qui.",
+    "thinkingHalo": {
+      "label": "Alone di riflessione sul composer dell'agente",
+      "description": "Mentre l'agente pensa o scrive, l'anello orbitante del Builder brilla attorno al composer: appare in dissolvenza all'inizio del turno e svanisce quando la risposta si conclude."
+    },
+    "reducedMotion": "Rispetta l'impostazione di sistema per la riduzione del movimento: l'anello resta un bagliore statico.",
+    "preview": "Anteprima",
+    "previewThinking": "Sto pensando…"
   }
 }

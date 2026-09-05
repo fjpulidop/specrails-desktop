@@ -71,7 +71,8 @@
       "projects": "プロジェクト",
       "advanced": "詳細",
       "webhooks": "Webhooks",
-      "about": "概要"
+      "about": "概要",
+      "effects": "エフェクト"
     },
     "title": "Desktop 設定",
     "description": "登録済みプロジェクトの管理と Desktop 情報の表示。",
@@ -305,5 +306,16 @@
       "sr-developer": "デベロッパー",
       "sr-reviewer": "レビュアー"
     }
+  },
+  "effects": {
+    "heading": "エフェクト",
+    "description": "アプリ内の視覚的な演出。それぞれここでオフにできます。",
+    "thinkingHalo": {
+      "label": "エージェントコンポーザーの思考ハロー",
+      "description": "エージェントが考えたり書いたりしている間、ビルダーの回転リングがコンポーザーの周りで光ります。ターン開始時にフェードイン、返答完了時にフェードアウトします。"
+    },
+    "reducedMotion": "システムの「視差効果を減らす」設定に従い、リングは静的な光のままになります。",
+    "preview": "プレビュー",
+    "previewThinking": "考え中…"
   }
 }

@@ -523,3 +523,24 @@ describe('surfaces', () => {
     expect(markers()).toHaveLength(1)
   })
 })
+
+// ── Thinking halo on the OUTER composer card (Settings ▸ Effects) ────────────
+describe('thinking halo on the composer dock', () => {
+  it('orbits the whole dock card while a turn streams and fades once it settles; off ⇒ absent', async () => {
+    const { resetEffectsPrefsCache, setEffectsPrefs } = await import('../../../lib/effects-prefs')
+    localStorage.clear(); resetEffectsPrefsCache()
+    render(<AgentChatProvider><InlineHarness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('select')) })
+    const dockCard = await screen.findByTestId('agent-composer-dock')
+    expect(within(dockCard).getByTestId('agent-thinking-halo')).toHaveAttribute('data-active', 'false')
+    // The halo lives on the OUTER card, not inside the composer's textarea box.
+    expect(dockCard.querySelector('[data-testid="agent-thinking-halo"]')?.parentElement).toBe(dockCard)
+    await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Thinking' }) })
+    expect(within(dockCard).getByTestId('agent-thinking-halo')).toHaveAttribute('data-active', 'true')
+    expect(within(dockCard).getByTestId('builder-halo')).toBeInTheDocument()
+    await act(async () => { wsHandler!({ type: 'agent_done', conversationId: 'c1', fullText: 'Thinking done' }) })
+    expect(within(dockCard).getByTestId('agent-thinking-halo')).toHaveAttribute('data-active', 'false')
+    await act(async () => { setEffectsPrefs({ agentThinkingHalo: false }) })
+    expect(within(dockCard).queryByTestId('agent-thinking-halo')).toBeNull()
+  })
+})
