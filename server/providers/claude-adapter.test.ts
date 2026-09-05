@@ -547,6 +547,16 @@ describe('claudeAdapter.extractResult — from fixture', () => {
     expect(result.total_cost_usd).toBeUndefined()
   })
 
+  it('a result frame flagged is_error carries isError on the result event', () => {
+    const flagged = claudeAdapter.parseStreamLine(JSON.stringify({ type: 'result', subtype: 'success', is_error: true, result: "You've hit your session limit", session_id: 'S' }))
+    const first = Array.isArray(flagged) ? flagged[0] : flagged
+    expect(first).toMatchObject({ kind: 'result', isError: true })
+    const plain = claudeAdapter.parseStreamLine(JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: 'ok', session_id: 'S' }))
+    const firstPlain = Array.isArray(plain) ? plain[0] : plain
+    expect(firstPlain).toMatchObject({ kind: 'result' })
+    expect((firstPlain as { isError?: boolean }).isError).toBeUndefined()
+  })
+
   it('result event session_id wins over earlier session-started', () => {
     const events: AdapterEvent[] = [
       { kind: 'session-started', sessionId: 'S-OLD' },

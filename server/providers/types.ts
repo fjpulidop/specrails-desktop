@@ -82,7 +82,9 @@ export type AdapterEvent =
   // is a bounded text projection for activity surfaces, never the full blob.
   | { kind: 'tool-result'; toolUseId?: string; outputPreview: string; isError?: boolean }
   | { kind: 'session-started'; sessionId: string }
-  | { kind: 'result'; payload: Record<string, unknown> }
+  // `isError`: the provider flagged the turn's result as an error (claude
+  // `is_error: true` — e.g. a usage/rate limit notice returned AS the reply).
+  | { kind: 'result'; payload: Record<string, unknown>; isError?: boolean }
   // Provider reported an explicit failure for the turn (e.g. codex
   // `turn.failed` / top-level `error`). Carries the human-readable reason so
   // callers can surface it instead of swallowing it into `{ kind: 'other' }`.
