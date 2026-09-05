@@ -160,7 +160,8 @@
     "mergeLocalBlockedDirty": "Integration nicht möglich: dein Arbeitsverzeichnis auf {{base}} hat uncommittete Änderungen. Committe oder stashe sie und versuche es erneut.",
     "mergeLocalBlockedBranch": "Integration nicht möglich: dein Checkout steht auf {{current}}, nicht auf {{base}}. Wechsle zu {{base}} und versuche es erneut.",
     "mergeLocalFailed": "Lokaler Merge fehlgeschlagen: {{detail}}",
-    "mergedLocally": "Lokal in {{base}} integriert"
+    "mergedLocally": "Lokal in {{base}} integriert",
+    "discardStackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit."
   },
   "railsBoard": {
     "title": "Rails",

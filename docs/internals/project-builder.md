@@ -74,6 +74,28 @@ route).
 
 ## Day-0 chat (no project exists)
 
+**Decision cards (`BuilderDecisionCard`).** The interview prose keeps
+asking the user to type "surprise me" and, once the five dimensions are
+decided, to "approve the blueprint" — and the hero composer's Surprise-me
+button only exists before the first turn (`showSurpriseMe`). Each ask gets ONE
+premium card in the thread (same glass shell as `AgentSpecDraftCard`: accent
+header band, identity chip, CTA pill, `motion` enter/exit, reduced-motion
+safe) in two modes. **Offer** — clickable, rendered after the newest SETTLED
+Builder reply by a deterministic rule (no prose detection): `phase === 'chat'`,
+not busy, no stream buffer, last message is the assistant's, snapshot not
+`generating`; `surprise` while the readiness `blueprint` step is not `done`,
+`approve` once it is `done` and no M1 spec exists yet (specs step pending with
+count 0). One click sends the canonical prompt (`prompts.surpriseMe` /
+`prompts.approve`) through `session.surpriseMe()` / `session.approveBlueprint()`
+tagged with an **intent**. **Settled** — the user turn that carried the intent
+renders as the non-clickable "Decision taken · time" card IN PLACE of the raw
+prompt bubble, so the decision stays fixed in the thread; the intent is
+PERSISTED on the message row (`blueprint_messages.intent`, desktop-db
+migration 24; `POST /send { intent: 'surprise' | 'approve' }`, validated,
+anything else dropped; `GET /conversations/:id` returns it) so it survives a
+resume and a locale switch. i18n `builder:decisionCard.*` + `prompts.approve`
+×8.
+
 The provider selector excludes adapters that cannot enforce the blueprint
 generator's pure-output policy. A direct Kimi request is rejected before
 `BlueprintChatManager` spawns. This does not prevent the approved blueprint
@@ -245,6 +267,20 @@ new `blueprint.repairing`. i18n: `builder` namespace gained `generation.*`,
 
 ## blueprint-draft protocol
 
+**Fence tolerance (bug fix, 2026-09-04).** Models mirror the schema example
+and Sonnet emitted the whole snapshot inside a ```` ```json ```` fence: the
+parsers only knew ```` ```blueprint-draft ````, so the raw JSON landed in the
+chat, no snapshot was accepted (no rejection either) and the panel stayed at
+0/5 dimensions. Two-sided fix: the prompt's example is now fenced
+`blueprint-draft` with an explicit rule ("the fence language is EXACTLY
+`blueprint-draft` — a json or bare fence is NOT a snapshot"), and both parsers
+run `promoteJsonBlueprintFences` first — a CLOSED ```` ```json ```` / bare
+fence whose body is a `{…}` object with an integer `blueprintVersion` is
+promoted to a blueprint-draft block (outside proper blocks only; ordinary json
+fences and invalid payloads are untouched), and an OPEN one is reported
+`truncated` / hidden from the live stream (`cutUnterminatedBlock`,
+`describeStreamingSnapshot`).
+
 Fenced ` ```blueprint-draft ` JSON blocks. FULL snapshots, LAST syntactically
 valid block wins, streaming tail cut (unterminated trailing fence never
 parsed/shown — `cutUnterminatedBlock`). Unknown keys dropped; missing or
@@ -281,7 +317,14 @@ files remain readable (and returns null for missing/corrupt input).
 ## Canonical rich-spec contract (M1 and generated M2+)
 
 There is no Builder-specific “lite spec” format. Every detailed Builder spec
-uses the normal Specrails contract:
+uses the normal Specrails contract, and since premium-milestone-progress the
+prose that teaches it lives in ONE module — `server/spec-contract-prompt.ts`
+(`premiumSpecContract(mode)`, `premiumSpecContractCompact(mode)`,
+`PREMIUM_SCAFFOLD_EXAMPLE`, `SPEC_DEPTH_FLOORS`) — consumed by the Builder
+operator prompt, `ChatManager._buildMilestoneSystemPrompt` (M2+) and the
+agent's super-spec section, so the three authors never drift. `mode` selects
+the grounding hook: `day0` (no repo — every module/path/route is labelled
+*planned*) vs `verified` (only paths that were inspected).
 
 1. `kind`: `scaffold`, `feature`, or `verification`
 2. an English, action-oriented, unique `title`
@@ -289,28 +332,113 @@ uses the normal Specrails contract:
 4. `description` with exactly these `##` headings, once and in this order:
    `Problem Statement`, `Proposed Solution`, `Out of Scope`,
    `Technical Considerations`, `Estimated Complexity`
-5. a separate `acceptanceCriteria[]` containing 4–10 non-empty, independently
-   testable outcomes; `description` MUST NOT contain `## Acceptance Criteria`
+5. a separate `acceptanceCriteria[]` containing **6–10** independently
+   testable outcomes (each ≥ 20 chars, covering the happy path, at least one
+   failure/edge case and an automated verification); `description` MUST NOT
+   contain `## Acceptance Criteria`
 6. a catalog-valid `priority`, non-empty domain labels, and an optional
    `dependsOnIndex` that points strictly backward (the M1 scaffold omits it)
 
-Every named description section has a non-empty body. `Out of Scope` and
-`Technical Considerations` each contain at least 2 bullets; Estimated
-Complexity includes a reasoned estimate. Day-0 technical considerations name
-the selected stack, planned components/contracts, risks, and inter-spec
-dependencies but never fabricate repository paths. Generated M2+ specs first
-inspect the real project and may name only verified existing paths and
-identifiers; their criteria cover behavior, failure/edge cases, and tests.
+**Depth floors (`SPEC_DEPTH_FLOORS`, enforced by the deterministic gate on
+both sides):** Problem Statement ≥ 200 chars of narrative (who, what breaks
+today, why now, what good looks like); Proposed Solution ≥ 500 chars — a
+numbered user journey followed by the five `###` sub-blocks *User
+experience · Data model · Interfaces & contracts · Planned modules · Key
+decisions*; Out of Scope ≥ 3 bullets, each naming WHERE the exclusion goes
+(a later milestone / never); Technical Considerations ≥ 5 labelled bullets
+(**Architecture**, **Data & contracts**, **Failure handling & edge cases**,
+**Security & privacy**, **Testing strategy**, **Dependencies**, **Risks &
+mitigations**); Estimated Complexity = a reasoned estimate naming the main
+uncertainty. `PREMIUM_SCAFFOLD_EXAMPLE` is the mandatory first spec written
+at that depth; "shorter is a defect, not a style". The floors were raised
+because the old minima ("at least two bullets", 4–10 criteria) became the
+ceiling the model aimed at (design D6/D8). Test fixtures that need a
+gate-valid spec use `server/blueprint-spec-fixtures.ts` ⇄
+`client/src/lib/__tests__/premium-spec-fixture.ts`.
 
 `server/blueprint-spec-quality.ts` is the shared deterministic authority. It
 validates `specsComplete=true`, the complete-set size, all fields/sections
-above (including both 2-bullet minima), unique titles, the M1 first-item
-`kind='scaffold'` rule, and backward-only dependencies. Both commit paths run
-it before any filesystem, registry, blueprint, milestone, or ticket-store
-mutation and return a stable spec/field-oriented detail when it rejects. A
-prompt is a generation aid, never the integrity boundary. Validation receives
-the exact raw generated payload; normalized compatibility views are not
-commit evidence.
+above (including the depth floors — issue codes `section_depth` carries the
+heading + min chars, `section_bullets` the min, `criteria_count` the 6–10
+bounds, `criterion_short` the 20-char floor), unique titles, the M1
+first-item `kind='scaffold'` rule, and backward-only dependencies. Both
+commit paths run it before any filesystem, registry, blueprint, milestone,
+or ticket-store mutation and return a stable spec/field-oriented detail when
+it rejects. A prompt is a generation aid, never the integrity boundary.
+Validation receives the exact raw generated payload; normalized
+compatibility views are not commit evidence.
+
+### App-driven batched generation (premium-milestone-progress D7)
+
+"Emit all 5–10 specs complete in ONE reply" capped every spec's depth by the
+output budget (ten premium specs do not fit) and the old `truncated` repair
+told the model to *tighten* — institutionalising thin specs. Generation is
+now driven by the app, in turns on the SAME session (`server/blueprint-
+generation.ts` + the drive closure in `BlueprintChatManager._runTurn`):
+
+1. **Outline.** After approval the Builder emits ONE `blueprint-draft` FULL
+   snapshot with every spec's `kind/title/shortSummary/priority/labels/
+   dependsOnIndex` decided but `description: ""`, `acceptanceCriteria: []`,
+   `specsComplete: false`. `isOutlineSnapshot` (≥ `M1_SPECS_MIN` specs, every
+   body empty) on a resumable session (`capabilities.nativeResume` + a session
+   id) starts the drive; the outline is broadcast as the first
+   `blueprint.done { continuing: true }` frame so the panel lists the specs
+   immediately.
+2. **Detail turns.** `APP CONTINUE` names `SPECS_PER_DETAIL_TURN = 2` specs
+   by index + title; the model answers with one fenced `spec-detail` block
+   per spec — `{ "index": n, "spec": { …complete premium spec… } }` — and
+   nothing else. `parseGenerationBlocks` extracts/strips them (tolerant JSON,
+   `truncated` on an open fence), `mergeSpecDetails` merges by index (an
+   omitted key keeps the outline's value, out-of-range indexes are ignored).
+   A range that is still unfilled gets ONE `APP CHECK` re-ask
+   (`buildDetailRepairPrompt`); still unfilled ⇒ the drive **halts**
+   (`blueprint.done { snapshot.generationHalted: true }`, `specsComplete`
+   forced false, the outline/partial snapshot persisted — nothing is lost).
+3. **Audit turn.** `APP AUDIT` asks for one `spec-audit` block
+   `{ specsComplete, issues[], fixes[{ index, spec }] }`. Fixes merge like
+   details; a verdict with zero fixes still applies (`specsComplete`). A
+   verdict of `false` WITH issues gets ONE corrections turn
+   (`buildAuditIssuesPrompt` — `spec-detail` blocks for the affected specs
+   only); a reply without any block lets the deterministic gate judge.
+4. **Quality repair.** The pre-existing repair tail runs unchanged after the
+   audit (`planSnapshotRepair` → `quality` when the model claims complete and
+   the gate disagrees); the repair reply may now be `spec-detail` patches
+   instead of a whole snapshot (`applyReply`).
+
+Bounds: `MAX_GENERATION_TURNS = 8` (outline + 5 detail turns for 10 specs +
+audit + one repair); every turn persists its snapshot (`saveBlueprintSnapshot`)
+and records its own `agent_invocations` row; generation fences are stripped
+from the transcript exactly like `blueprint-draft` blocks (the raw reply
+survives in `raw_content`). Wire: `blueprint.generating { phase:
+outline|details|audit|repair, from, to, total, turn, totalTurns }` announces
+each phase; every intermediate `blueprint.done` carries `continuing: true` +
+`snapshot.generation` (the client keeps `busy`, appends no bubble, refreshes
+the panel); the final frame carries the descriptor without `continuing`.
+**Resume:** `POST /conversations/:id/repair-snapshot` now also resumes a
+halted drive — when no rejection is pending and the persisted snapshot still
+has unfilled specs it answers `202 { kind: 'resume' }` and continues from
+the next unfilled range (turn ordinal re-derived from what is already
+written), which the readiness panel exposes as **Continue generating**
+(`snapshot-halted` notice: "N of M specs written in full"). Providers without
+`nativeResume` get the `GENERATION MODE: single response` line appended to
+each user turn and keep the single-snapshot behaviour (never driven).
+
+Client: `BuilderSnapshotState` gains `{ status: 'generating', generation }`
+and `accepted.generationHalted`; `BuilderGenerationProgress` renders the
+phase label ("Writing specs 3–4 of 8 in full…"), a `turn x/y` pill and a REAL
+ratio from the descriptor (falls back to the streaming spec count for
+single-response providers); `BuilderConversation` keeps that progress chip
+between batched turns instead of the generic thinking chip; readiness
+`specs` step params carry `written` (specs with a body). **Honest audit
+during the drive:** an outline's empty bodies are NOT audit failures — while
+`snapshot.status === 'generating'` `deriveReadiness(…, { generating })` puts
+the specs + audit steps in the `writing` state ("2 of 8 written" / "after the
+specs are written", spinner, batch hint) and lists NO issues; a halted partial
+batch keeps only the issues of WRITTEN specs (the unwritten tail simply waits);
+the panel's spec card shows "writing…" / "not written yet" instead of
+"0 acceptance criteria" for an unwritten entry. i18n `builder:generation.*`,
+`builder:snapshot.halted.*`, `builder:readiness.*.writing`,
+`builder:panel.specWriting|specPendingBody` ×8.
 
 ## Orchestrated commit (register-project-LAST)
 
@@ -380,24 +508,120 @@ day-0 blueprint generation. Kimi cannot be selected for that generation turn.
 Launching the already committed M1/M2+ tickets is ordinary Batch rail
 execution and can use Kimi.
 
-- **Launch Milestone 1** (`client/src/lib/milestone-launch.ts`
-  `launchMilestone`): gather `M1`-labeled `todo` tickets → chunk into groups
-  of ≤ `MAX_TICKETS_PER_RAIL` (3) → per chunk: `POST /rails` (server allocates
-  the lowest free index; rails named `M1 · <k>` when the milestone needs more
-  than one) → `PUT /rails/:i/tickets` → `POST /rails/:i/launch
-  {mode:'batch-implement'}` (the server maps the bare mode to the batch
-  factory loop: worktree isolation + ask-first PR). The launch route rejects
-  any rail carrying more than 3 specs (`rail_ticket_cap_exceeded`), so the cap
-  holds for every launch door. A failure before anything launched surfaces as
-  a typed reason; a mid-batch failure keeps the launched rails and reports the
-  skipped rest (`skippedCount` → partial-launch toast). Offered on the Builder
-  done screen and the sidebar entry; existing 409 guards surface as toasts.
+- **Launch Milestone N is SERVER-owned** (premium-milestone-progress D3):
+  `POST /api/projects/:id/blueprint/milestones/:n/launch { mode }`
+  (`client/src/lib/milestone-launch.ts` `launchMilestone` is one POST; the
+  old browser-local `MilestoneSequencerContext` + its `localStorage` plan are
+  GONE — `dropLegacySequentialPlans()` forgets the leftover key on load).
+  `server/milestone-chain.ts` `MilestoneChainManager` gathers the `M<n>`
+  `todo` tickets, chunks them (≤3, `chainRailName` → `M<n>` / `M<n> · k`),
+  persists ONE `milestone_launch_chains` row (`server/milestone-chain-store.ts`,
+  migration 58, partial unique index = one non-terminal chain per milestone;
+  CAS `updateChain`) and launches chunk 1 through the app's OWN rails launch
+  route over loopback (`server/internal-api.ts`, lifted from the MCP tools'
+  `apiCall`) so every existing guard applies and each 4xx becomes a typed
+  `pause_reason` (`launch_rejected:<error>`). **Sequential (default)** chains
+  the next chunk when the in-flight chunk's DELIVERY settles — the manager taps
+  the project's bound broadcast for `rail.pr_state` (the engine's
+  `onLoopRunFinished` fires BEFORE the delivery row leaves `building`, so it is
+  only the delivery-less shared-cwd fallback, recording `last_run_outcome` to
+  name the pause reason) — and **STACKS** it: chunk k+1 launches with
+  `baseBranch = chunk k's delivered branch` (the rails launch route's new
+  `baseBranch` param → `resolveIntegrationBranch({ explicit })`, recorded as
+  the delivery's `base_branch`, so a walking skeleton accumulates without
+  waiting for a merge). `no_changes` keeps the previous head; failure /
+  stall / stop / launch refusal / missing head / discarded head / lost run
+  PAUSE the chain (`chunk_failed | chunk_stalled | chunk_stopped |
+  launch_rejected:<e> | head_missing | head_discarded | run_lost`) — never
+  skip ahead. `POST …/blueprint/chains/:id/resume` **retries the chunk that failed**
+  (the row remembers it in `retry_chunk`, set by every chunk-failure pause:
+  `chunk_failed | chunk_stalled | chunk_stopped | provider_limit | run_lost`;
+  `launch_rejected` / `head_missing` keep launching the NEXT chunk) from the
+  current head (409 `head_missing` when the branch is gone) — run 10dedd5a
+  showed the old resume skipping to tickets 4–6 while 1–3 had failed. The
+  retry REUSES the failed attempt's rail when no undecided delivery sits on
+  it any more (`activeDeliveryForRail` null — e.g. after Discard), else takes
+  a fresh rail so the failed delivery stays reviewable; the launched entry
+  for that chunk is replaced (delivery rows keep the history). A NEW chain for
+  the same milestone likewise reuses a rail already named for the chunk
+  (`io.findRailByName` → `rails-store` `getRails`) when it holds no undecided
+  delivery, so relaunching M1 never piles up duplicate "M1 · 1" rails;
+  `…/cancel` stops the chain and leaves in-flight rails alone. Startup
+  recovery (`recoverOnStartup`, run once the HTTP server listens) replays a
+  chunk that settled while the server was down exactly once.
+  **Wave checkpoints (D9).** The row carries `auto_advance` (default 1 for
+  API callers; the UI sends the user's stored preference
+  `localStorage['specrails-desktop:milestone-auto-advance']`, default OFF)
+  and a non-terminal status `awaiting_approval`. When a chunk's delivery
+  settles successfully and auto-advance is off (and chunks remain), the
+  manager records the head and parks the chain at `awaiting_approval`
+  (`afterChunkSuccess`) instead of launching — a HEALTHY decision point, unlike
+  `paused` whose Resume retries the SAME chunk. `…/chains/:id/resume` launches
+  the NEXT chunk from `awaiting_approval` too; `PATCH …/chains/:id
+  { autoAdvance }` (`setAutoAdvance`) flips the flag on any active chain and,
+  when turning it on at a checkpoint, launches immediately. `awaiting_approval`
+  counts as active (one non-terminal chain per milestone, cancellable) and is
+  ignored by startup recovery (waiting for the user is the point); a failure
+  always PAUSES regardless of the flag (checkpoints are reached only by
+  success). Client: `launchMilestone(projectId, n, mode, { autoAdvance })`,
+  `setChainAutoAdvance`, `readMilestoneAutoAdvance`/`saveMilestoneAutoAdvance`
+  (`milestone-launch.ts`); `chainAtCheckpoint` + `isMilestoneLaunchable`
+  excludes a checkpoint (`milestone-progress.ts`). **Parallel**
+  launches every chunk at once from the integration branch (row recorded
+  `completed` so the progress model still orders the rails). Kill switch
+  `SPECRAILS_MILESTONE_CHAIN=false` ⇒ parallel, no row. Merging a STACKED
+  chunk sweeps its merged ancestors (`sweepMergedChainAncestors` in
+  `rail-pr-decision.ts`: chain-local, `git merge-base --is-ancestor`, same
+  CAS + ticket effect + Jira hook) and merge-local integrates into the CHAIN's
+  integration branch, never the feature base (`mergeLocalTargetBranch`);
+  discarding a delivery a later chunk was built on pauses its chain
+  (`pauseChainsForDiscardedHead`) and the decision surfaces warn first
+  (`discardStackedNote` ×3 namespaces). Offered on the Builder done screen and
+  the sidebar entry with the Sequential | Parallel toggle.
+- **Milestone progress is SERVER-derived** (premium-milestone-progress D2):
+  `server/milestone-progress.ts` `deriveMilestoneProgress` builds, per
+  milestone, counts by spec state (`total/done/onReview/inProgress/todo/failed`
+  — `failed` = specs back at `todo` whose NEWEST delivery unit failed), the
+  milestone's rails (active runs + non-terminal deliveries, chunk-ordered), the
+  chain snapshot and a derived `state`
+  (`done` ⇐ every spec done · `delivered` ⇐ nothing pending, ≥1 on_review ·
+  `running` ⇐ in-progress or a live chain · `committed` · stored status).
+  `GET /:id/blueprint` returns `{ blueprint, progress }`;
+  `MilestoneProgressBroadcaster` (tapped from the bound broadcast on
+  ticket/rail/delivery/run/chain messages, 150 ms debounce, memoized "no
+  blueprint") re-broadcasts `blueprint.milestone_progress` and persists
+  `status:'done'` once via `markMilestoneDone` (+ `blueprint.milestone_completed`).
+  Display ALWAYS uses the derived state — a delivered milestone reads
+  "8 of 8 delivered · 0 done", never done/complete.
 - **Sidebar re-entry** (`BuilderSidebarEntry`, mounted in
   `ProjectRightSidebar` + `AgentWorkspaceSidebar`): visible iff
-  `GET /api/projects/:id/blueprint` (project-router) returns a blueprint
-  (404 = hidden). Progress derives LIVE from board tickets by `M<n>` label —
-  never from stored ticket ids. Actions: Launch M1 (while launchable) +
-  Generate M<next> (first `planned` milestone > 1).
+  `GET /api/projects/:id/blueprint` returns a blueprint (404 = hidden).
+  Reads `useMilestoneProgress(projectId)` (cached per project, live over WS —
+  NO board fetch on open) and renders one `MilestoneCard`
+  (`MilestoneProgressCard.tsx`: segmented bar done/in review/in progress/
+  failed/pending, honest counts, state pill, per-rail rows with decision pill +
+  elapsed + Review → `/review/:prDeliveryId`, chain row with k of n / waiting /
+  paused reason + Resume / Cancel, and at a wave checkpoint "Rail k of n
+  delivered — launch rail k+1?" with **Launch next rail** + the chain-level
+  **Continue automatically** switch (`MilestoneAutoAdvanceToggle`, PATCH; also
+  saves the preference) + Cancel; a running auto-off chain notes "stops after
+  this rail") per milestone in a 320 px flyout. Actions: Launch M1 (while
+  `isMilestoneLaunchable`) with the mode toggle and, for sequential mode, the
+  same auto-continue switch (stored preference, default OFF — the launch toast
+  then says "you'll be asked before each next rail") + Generate M<next> (first
+  `planned` milestone > 1). The Builder done screen shows the same live card
+  after Launch (`BuilderDoneMilestone`) and the auto-continue switch next to
+  Launch M1 — "Open the project" stays the exit. **Review in Mission mode:**
+  every Review button navigates to `/review/:prDeliveryId`, a Board ROUTE
+  that Mission mode never renders (the button "did nothing"); the route is
+  now a third `modalize` surface (`global-route-mode-transition.ts`
+  `reviewDeliveryIdForPath`) — `App.tsx` opens the SAME `ReviewPacketPage`
+  embedded in a mission modal (`prDeliveryId` + `onClose` props, no New
+  Mission reset), and switching back to Board routes to the page. App-level toasts
+  (`useMilestoneNotifications`): later chunk launched, chain paused
+  (+ Resume), wave checkpoint (once per rail: **Launch next rail** +
+  **Auto-continue** actions), milestone delivered (+ Review), milestone
+  complete. i18n `builder:milestoneProgress.chain.*` / `toast.*` ×8.
 - **Board classification**: new Builder tickets use
   `source='project-builder'` + `created_by='project-builder'`. For projects
   created before that source existed, `DashboardPage` also treats
@@ -441,8 +665,8 @@ execution and can use Kimi.
   retain priority, short summary, domain + `M<n>` labels, and prerequisites.
   `blueprint.json` deliberately stores only the existing milestone skeleton
   with `status='committed'` and advisory `ticketIds`; it has no detailed-M2-
-  per-milestone schema. On 201 the shell calls `onCommitted`, increments the
-  sidebar blueprint refresh key (no-store refetch), closes, and the next CTA
+  per-milestone schema. On 201 the shell calls `onCommitted`, refreshes the live
+  milestone-progress cache (no-store refetch), closes, and the next CTA
   resolves to the first later milestone still `planned`. Jira-connected
   projects ride the existing machinery on the store mutation.
 

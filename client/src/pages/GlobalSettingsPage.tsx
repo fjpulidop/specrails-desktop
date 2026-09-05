@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
 import { TerminalSettingsSection } from '../components/settings/TerminalSettingsSection'
+import { EffectsSection } from '../components/settings/EffectsSection'
 import { AppearanceSection } from '../components/settings/AppearanceSection'
 import { LanguageSection } from '../components/settings/LanguageSection'
 import { CodeSectionSettings } from '../components/settings/CodeSectionSettings'
@@ -11,7 +12,7 @@ import { AppUpdateSection } from '../components/settings/AppUpdateSection'
 import { MobileAccessSection } from '../components/settings/MobileAccessSection'
 import { McpSettingsSection } from '../components/settings/McpSettingsSection'
 import { FEATURE_MCP } from '../lib/feature-flags'
-import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, BrainCircuit, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare } from 'lucide-react'
+import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, BrainCircuit, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare, Sparkles } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -90,6 +91,7 @@ function ProjectListItem({
 // wrapper in the content area; contiguous settings blocks are grouped per tab.
 const SETTINGS_SECTIONS = [
   { id: 'appearance', icon: Palette, labelKey: 'desktop.nav.appearance' },
+  { id: 'effects', icon: Sparkles, labelKey: 'desktop.nav.effects' },
   { id: 'specrailsAgents', icon: BrainCircuit, labelKey: 'desktop.nav.specrailsAgents' },
   { id: 'code', icon: Code2, labelKey: 'desktop.nav.code' },
   { id: 'terminal', icon: TerminalSquare, labelKey: 'desktop.nav.terminal' },
@@ -363,6 +365,10 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
             <AppearanceSection />
 
             <LanguageSection />
+            </div>
+
+            <div className={paneCls('effects')}>
+            <EffectsSection />
             </div>
 
             <div className={paneCls('specrailsAgents')}>

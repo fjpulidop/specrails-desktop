@@ -26,7 +26,9 @@
     "laterMilestones": "Later milestones",
     "empty": "The blueprint fills in as you talk.",
     "specsComplete": "Complete",
-    "specsInProgress": "In progress"
+    "specsInProgress": "In progress",
+    "specWriting": "writing…",
+    "specPendingBody": "not written yet"
   },
   "commit": {
     "title": "Create the project",
@@ -88,7 +90,6 @@
   "sidebar": {
     "title": "Blueprint",
     "milestone": "M{{n}}",
-    "progress": "{{done}}/{{total}} done",
     "launchM1": "Launch Milestone 1",
     "generateNext": "Generate M{{n}}",
     "generateHint": "Opens a grounded spec session seeded with the blueprint",
@@ -120,7 +121,8 @@
     "surpriseMe": "Surprise me — propose sensible defaults for every blueprint dimension, keep m1Specs empty, and let me approve the plan before generating detailed specs.",
     "milestoneSeed": "Generate the detailed specs for milestone {{label}} (\"{{title}}\"). Read the real codebase first, validate the complete batch, then emit ALL detailed milestone specs in one blueprint-draft response/snapshot.",
     "milestoneSeedWithPlanned": "Generate the detailed specs for milestone {{label}} (\"{{title}}\"). Planned spec titles: {{planned}}. Read the real codebase first, validate the complete batch, then emit ALL detailed milestone specs in one blueprint-draft response/snapshot.",
-    "repairSnapshot": "Your last blueprint-draft block could not be used by the app ({{reason}}). Re-emit the COMPLETE snapshot as strictly valid JSON (newlines inside strings escaped as \\n, no trailing commas, no nested code fences) — only the block."
+    "repairSnapshot": "Your last blueprint-draft block could not be used by the app ({{reason}}). Re-emit the COMPLETE snapshot as strictly valid JSON (newlines inside strings escaped as \\n, no trailing commas, no nested code fences) — only the block.",
+    "approve": "Approved — generate the detailed Milestone-1 backlog now."
   },
   "specModal": {
     "eyebrow": "{{milestone}} · Spec {{index}}",
@@ -138,14 +140,18 @@
     "mode": {
       "sequential": "Sequential",
       "parallel": "Parallel"
-    },
-    "chunkLaunched": "{{milestone}} — rail {{chunk}}/{{total}} launched",
-    "chunkFailed": "{{milestone}} — rail {{chunk}}/{{total}} failed to launch; remaining rails stopped",
-    "done": "{{milestone}} complete — {{count}} specs went through the sequential chain"
+    }
   },
   "generation": {
     "writing": "Writing the Milestone-1 specs…",
-    "specCount": "spec {{n}}"
+    "specCount": "spec {{n}}",
+    "turn": "turn {{turn}}/{{total}}",
+    "phase": {
+      "outline": "Outlining the Milestone-1 specs…",
+      "details": "Writing specs {{from}}–{{to}} of {{total}} in full…",
+      "audit": "Auditing all {{total}} specs…",
+      "repair": "Re-asking for specs {{from}}–{{to}}…"
+    }
   },
   "readiness": {
     "title": "Ready to create specs?",
@@ -163,12 +169,14 @@
       "specs": {
         "done": "{{count}} specs · complete",
         "pending": "{{count}} of {{min}}–{{max}}",
-        "blocked": "{{count}} specs · needs {{min}}–{{max}}"
+        "blocked": "{{count}} specs · needs {{min}}–{{max}}",
+        "writing": "{{written}} of {{count}} written"
       },
       "audit": {
         "done": "no issues",
         "pending": "waiting for specs",
-        "blocked": "{{count}} to fix"
+        "blocked": "{{count}} to fix",
+        "writing": "after the specs are written"
       }
     },
     "hints": {
@@ -178,11 +186,13 @@
       },
       "specs": {
         "pending": "Approve the blueprint and the Builder will generate the Milestone-1 backlog.",
-        "blocked": "Milestone 1 needs {{min}}–{{max}} specs (currently {{count}}). Ask the Builder to resize it."
+        "blocked": "Milestone 1 needs {{min}}–{{max}} specs (currently {{count}}). Ask the Builder to resize it.",
+        "writing": "The Builder is writing every spec in full — the quality audit runs once the batch is complete."
       },
       "audit": {
         "pending": "Waiting for the specs.",
-        "blocked": "{{count}} audit issue(s) block the commit — open the list below."
+        "blocked": "{{count}} audit issue(s) block the commit — open the list below.",
+        "writing": "The audit runs once every spec is written."
       }
     },
     "issuesCount_one": "{{count}} audit issue",
@@ -207,7 +217,12 @@
     "repairedNote": "Snapshot repaired automatically",
     "nothingToRepair": "There is nothing to repair — keep talking with the Builder.",
     "noSession": "This conversation cannot be resumed with its provider; send a new message instead.",
-    "alreadyStreaming": "The Builder is still answering."
+    "alreadyStreaming": "The Builder is still answering.",
+    "halted": {
+      "title": "Spec generation stopped early",
+      "detail": "{{written}} of {{total}} specs written in full. The rest are still outline titles.",
+      "resume": "Continue generating"
+    }
   },
   "recent": {
     "title": "Continue where you left off",
@@ -235,15 +250,118 @@
     "invalid_priority": "Spec {{n}} needs a valid priority.",
     "canonical_sections": "Spec {{n}} is missing the five canonical sections in order.",
     "empty_section": "Spec {{n}} has an empty \"{{heading}}\" section.",
-    "section_bullets": "Spec {{n}} needs at least two bullets under \"{{heading}}\".",
+    "section_bullets": "Spec {{n}} needs at least {{min}} bullets under \"{{heading}}\".",
     "complexity_format": "Spec {{n}} needs a complexity level with a justification.",
     "scaffold_readme": "The scaffold spec must mention the existing README.",
-    "criteria_count": "Spec {{n}} needs 4–10 acceptance criteria (has {{count}}).",
+    "criteria_count": "Spec {{n}} needs {{min}}–{{max}} acceptance criteria (has {{count}}).",
     "criterion_quality": "Spec {{n}}, criterion {{criterion}} is not concrete enough.",
     "duplicate_criterion": "Spec {{n}} repeats acceptance criterion {{criterion}}.",
     "milestone_label": "Spec {{n}} needs the {{label}} label.",
     "domain_label": "Spec {{n}} needs a domain label besides {{label}}.",
     "invalid_dependency": "Spec {{n}} may only depend on an earlier spec.",
-    "scaffold_dependency": "The scaffold spec cannot declare a dependency."
+    "scaffold_dependency": "The scaffold spec cannot declare a dependency.",
+    "section_depth": "Spec {{n}} needs a fuller \"{{heading}}\" (at least {{min}} characters)."
+  },
+  "milestoneProgress": {
+    "state": {
+      "planned": "Planned",
+      "committed": "Ready to launch",
+      "running": "In progress",
+      "delivered": "Delivered — awaiting review",
+      "done": "Done"
+    },
+    "counts": "{{delivered}} of {{total}} delivered · {{done}} done",
+    "failedNote_one": "{{count}} spec failed its last attempt",
+    "failedNote_other": "{{count}} specs failed their last attempt",
+    "legend": {
+      "done": "Done",
+      "onReview": "In review",
+      "inProgress": "In progress",
+      "failed": "Failed last attempt",
+      "todo": "Pending"
+    },
+    "rail": {
+      "fallbackName": "Rail {{n}}",
+      "chunk": "Rail {{k}} of the chain",
+      "running": "Running · {{elapsed}}",
+      "review": "Review",
+      "open": "Open the rail",
+      "noDelivery": "No delivery yet"
+    },
+    "chain": {
+      "title": "Sequential chain",
+      "parallelTitle": "Parallel launch",
+      "progress": "rail {{k}} of {{n}}",
+      "waiting": "waiting for rail {{k}} to settle",
+      "stackedOn": "next rail builds on {{branch}}",
+      "paused": "Paused — {{reason}}",
+      "completed": "All rails launched",
+      "cancelled": "Chain cancelled",
+      "resume": "Resume",
+      "cancel": "Cancel chain",
+      "resumed": "Chain resumed",
+      "resumeFailed": "Could not resume the chain",
+      "cancelledToast": "Chain cancelled — running rails keep going",
+      "reasons": {
+        "chunk_failed": "the last rail failed",
+        "chunk_stalled": "the last rail stalled (no provider output)",
+        "chunk_stopped": "the last rail was stopped",
+        "launch_rejected": "the next rail could not launch ({{detail}})",
+        "head_missing": "the branch to build on no longer exists",
+        "head_discarded": "the delivery the next rail builds on was discarded",
+        "run_lost": "the running rail could not be found after a restart",
+        "unknown": "paused",
+        "provider_limit": "the provider's usage limit was reached"
+      },
+      "checkpoint": "Rail {{k}} of {{n}} delivered — launch rail {{next}}?",
+      "launchNext": "Launch next rail",
+      "nextLaunched": "Next rail launched",
+      "autoAdvance": "Continue automatically",
+      "autoAdvanceHint": "Launch each next rail as soon as the previous one is delivered",
+      "checkpointHint": "Stop after each rail and ask before launching the next",
+      "checkpointNote": "stops after this rail",
+      "autoOn": "Auto-continue on — the next rails launch on their own",
+      "autoOff": "Auto-continue off — you'll be asked before each next rail",
+      "autoFailed": "Could not update the chain"
+    },
+    "toast": {
+      "launched": "{{milestone}} launched — {{count}} specs on rail 1 of {{n}}; the next rails follow automatically",
+      "launchedAll": "{{milestone}} launched — {{count}} specs across {{n}} rails",
+      "launchedPartial": "{{milestone}} partially launched — {{count}} specs launched, {{skipped}} pending",
+      "chainActive": "{{milestone}} is already launching — see the Blueprint panel",
+      "chunkLaunched": "{{milestone}} — rail {{k}} of {{n}} launched",
+      "paused": "{{milestone}} paused — {{reason}}",
+      "resume": "Resume",
+      "delivered": "{{milestone}} delivered — {{count}} specs waiting for your review",
+      "review": "Review",
+      "completed": "{{milestone}} complete — every spec merged",
+      "launchedCheckpoint": "{{milestone}} launched — {{count}} specs on rail 1 of {{n}}; you'll be asked before each next rail",
+      "checkpoint": "{{milestone}} — rail {{k}} of {{n}} delivered. Launch the next rail?",
+      "launchNext": "Launch next rail",
+      "autoContinue": "Auto-continue"
+    },
+    "sequentialHint": "Each rail builds on the previous rail's branch",
+    "parallelHint": "Independent rails from the integration branch (no stacking)"
+  },
+  "decisionCard": {
+    "settledLabel": "Decision taken",
+    "surprise": {
+      "label": "Builder",
+      "hint": "You can adjust any decision afterwards",
+      "title": "Surprise me",
+      "description": "Let the Builder decide the product, core flow, platform, stack and milestones, then present the blueprint for you to approve or tweak.",
+      "cta": "Surprise me",
+      "settledTitle": "Surprise me",
+      "settledDescription": "You let the Builder decide every blueprint dimension."
+    },
+    "approve": {
+      "label": "Blueprint ready",
+      "hint": "Or type what you want to change",
+      "title": "Approve the blueprint",
+      "description": "Every dimension is decided. Approve it and the Builder writes the Milestone-1 specs in full, two at a time, then audits the batch.",
+      "cta": "Approve & generate specs",
+      "settledTitle": "Blueprint approved",
+      "settledDescription": "The Builder is generating the Milestone-1 backlog from this blueprint."
+    }
   }
 }

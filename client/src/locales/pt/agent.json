@@ -408,7 +408,8 @@
     "mergeLocalTooltip": "Faz merge dos branches entregues em {{base}} no seu checkout local (sem GitHub)",
     "mergeLocalBlockedDirty": "Não é possível integrar: sua árvore de trabalho em {{base}} tem mudanças sem commit. Faça commit ou stash e tente de novo.",
     "mergeLocalBlockedBranch": "Não é possível integrar: seu checkout está em {{current}}, não em {{base}}. Mude para {{base}} e tente de novo.",
-    "mergedLocally": "Integrado em {{base}} localmente"
+    "mergedLocally": "Integrado em {{base}} localmente",
+    "discardStackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho."
   },
   "specDraft": {
     "heading": "Rascunho da spec",

@@ -16,6 +16,7 @@ import type { Exec, ExecResult } from './pr-publisher'
 import { PR_LIFECYCLE_JSON_FIELDS } from './pr-lifecycle'
 import { withRepoLock } from './repo-lock'
 import { claimTicketOutcomeOwners } from './rails-store'
+import { createChain, updateChain, getChain } from './milestone-chain-store'
 import { fingerprintOverlayCleanupPath } from './worktree-overlay'
 import { recoveryRefForDelivery } from './rail-pr-recovery-git'
 
@@ -4073,5 +4074,72 @@ describe('race-safe and recoverable PR decisions', () => {
     expect(git(['status', '--porcelain'])).toBe(beforeStatus)
     expect(fs.readFileSync(path.join(repo, 'shared.txt'), 'utf8')).toBe('base\n')
     expect(getPrDelivery(db, row.id)?.decision).toBe('on_review')
+  })
+})
+
+// ─── milestone chain hooks (premium-milestone-progress D4) ────────────────────
+describe('milestone chain: ancestor sweep + head discard', () => {
+  function chainOf(entries: Array<{ chunk: number; deliveryId: string; ticketIds: number[] }>) {
+    createChain(db, { id: 'chain-1', milestoneN: 1, milestoneId: 'm1', mode: 'sequential', chunks: entries.map((e) => e.ticketIds), integrationBranch: 'main' })
+    updateChain(db, 'chain-1', 'running', { status: 'completed', launched: entries.map((e) => ({ ...e, railIndex: e.chunk - 1, runIds: [] })) })
+  }
+
+  it('integrating a STACKED chunk locally targets the chain integration branch and marks its merged ancestor merged', async () => {
+    const script = gitScript()
+    const git: GitRunner = {
+      async run(args, cwd) {
+        // Chunk 1's head (sha 1111…) is an ancestor of main once chunk 2 merged; ticket 3's is not.
+        if (args[0] === 'merge-base' && args[1] === '--is-ancestor') return { code: args[2] === '1'.repeat(40) ? 0 : 1, stdout: '', stderr: '' }
+        return script.git.run(args, cwd)
+      },
+    }
+    const { deps, jira, broadcast } = mkDeps({ git })
+    // One active delivery per rail: move each earlier chunk onto its own rail
+    // (the fixture always inserts on rail 0).
+    const first = mkRow({ decision: 'on_review', ticketIds: [1], branch: 'feat/1-t1', deliverySha: '1'.repeat(40) })
+    db.prepare('UPDATE rail_pr_deliveries SET rail_index = 1 WHERE id = ?').run(first.id)
+    const second = mkRow({ decision: 'on_review', ticketIds: [2], branch: BATCH, deliverySha: 'a'.repeat(40), baseBranch: 'feat/1-t1' })
+    db.prepare('UPDATE rail_pr_deliveries SET rail_index = 2 WHERE id = ?').run(second.id)
+    const unrelated = mkRow({ decision: 'on_review', ticketIds: [3], deliverySha: '3'.repeat(40) })
+    chainOf([{ chunk: 1, deliveryId: first.id, ticketIds: [1] }, { chunk: 2, deliveryId: second.id, ticketIds: [2] }, { chunk: 3, deliveryId: unrelated.id, ticketIds: [3] }])
+
+    const res = await executePrDecision(deps, { prDeliveryId: second.id, action: 'merge-local', expectedDecision: 'on_review' })
+    expect(res.status).toBe(200)
+    // The checkout guard compared against the chain's integration branch (main), not feat/1-t1.
+    expect(getPrDelivery(db, second.id)!.decision).toBe('merged')
+    const swept = getPrDelivery(db, first.id)!
+    expect(swept.decision).toBe('merged')
+    expect(swept.status_detail).toContain('merged as part of')
+    expect(swept.operation_token).toBeNull()
+    expect(getPrDelivery(db, unrelated.id)!.decision).toBe('on_review')
+    expect(readTicketStatuses(ticketFile)).toMatchObject({ '1': 'done', '2': 'done', '3': 'done' })
+    expect(jira.onRailMerged).toHaveBeenCalledWith([1], first.id, null)
+    const merged = prStateBroadcasts(broadcast).filter((m) => m.decision === 'merged')
+    expect(merged.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('a stacked delivery without a chain row still integrates on its own base (legacy)', async () => {
+    const script = gitScript({ head: 'develop' })
+    const { deps } = mkDeps({ git: script.git })
+    const row = mkRow({ decision: 'on_review', baseBranch: 'develop' })
+    const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
+    expect(res.status).toBe(200)
+  })
+
+  it('discarding a chain head pauses the chain head_discarded and broadcasts the chain', async () => {
+    const { deps, broadcast } = mkDeps({ git: gitScript().git })
+    const first = mkRow({ decision: 'on_review', ticketIds: [1], branch: 'feat/1-t1' })
+    db.prepare('UPDATE rail_pr_deliveries SET rail_index = 1 WHERE id = ?').run(first.id)
+    const second = mkRow({ decision: 'on_review', ticketIds: [2], branch: BATCH })
+    createChain(db, { id: 'chain-2', milestoneN: 1, milestoneId: 'm1', mode: 'sequential', chunks: [[1], [2], [9]], integrationBranch: 'main' })
+    updateChain(db, 'chain-2', 'running', { status: 'paused', pauseReason: 'chunk_failed', headBranch: BATCH, nextChunk: 2, launched: [
+      { chunk: 1, railIndex: 0, ticketIds: [1], runIds: [], deliveryId: first.id },
+      { chunk: 2, railIndex: 1, ticketIds: [2], runIds: [], deliveryId: second.id },
+    ] })
+    const res = await executePrDecision(deps, { prDeliveryId: second.id, action: 'discard', expectedDecision: 'on_review' })
+    expect(res.status).toBe(200)
+    expect(getChain(db, 'chain-2')!).toMatchObject({ status: 'paused', pause_reason: 'head_discarded', head_branch: 'feat/1-t1' })
+    const chainMsgs = broadcast.mock.calls.map((c) => c[0] as { type: string }).filter((m) => m.type === 'milestone.chain_changed')
+    expect(chainMsgs).toHaveLength(1)
   })
 })

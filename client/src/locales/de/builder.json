@@ -26,7 +26,9 @@
     "laterMilestones": "Spätere Meilensteine",
     "empty": "Der Blueprint füllt sich während des Gesprächs.",
     "specsComplete": "Vollständig",
-    "specsInProgress": "In Arbeit"
+    "specsInProgress": "In Arbeit",
+    "specWriting": "wird geschrieben…",
+    "specPendingBody": "noch nicht geschrieben"
   },
   "commit": {
     "title": "Projekt erstellen",
@@ -88,7 +90,6 @@
   "sidebar": {
     "title": "Blueprint",
     "milestone": "M{{n}}",
-    "progress": "{{done}}/{{total}} fertig",
     "launchM1": "Meilenstein 1 starten",
     "generateNext": "M{{n}} generieren",
     "generateHint": "Öffnet eine im Code verankerte Spec-Session, gesät mit dem Blueprint",
@@ -120,7 +121,8 @@
     "surpriseMe": "Überrasch mich — schlage sinnvolle Werte für alle Blueprint-Dimensionen vor, lasse m1Specs leer und lass mich den Plan vor der Erstellung detaillierter Specs genehmigen.",
     "milestoneSeed": "Generiere die detaillierten Specs für Meilenstein {{label}} (\"{{title}}\"). Lies zuerst die echte Codebasis, validiere den vollständigen Satz und gib erst dann ALLE detaillierten Specs des Meilensteins in einer einzigen blueprint-draft-Antwort/einem einzigen Snapshot aus.",
     "milestoneSeedWithPlanned": "Generiere die detaillierten Specs für Meilenstein {{label}} (\"{{title}}\"). Geplante Spec-Titel: {{planned}}. Lies zuerst die echte Codebasis, validiere den vollständigen Satz und gib erst dann ALLE detaillierten Specs des Meilensteins in einer einzigen blueprint-draft-Antwort/einem einzigen Snapshot aus.",
-    "repairSnapshot": "Dein letzter blueprint-draft-Block konnte von der App nicht verwendet werden ({{reason}}). Gib den VOLLSTÄNDIGEN Snapshot erneut als streng gültiges JSON aus (Zeilenumbrüche in Strings als \\n escapen, keine abschließenden Kommas, keine verschachtelten Codeblöcke) – nur den Block."
+    "repairSnapshot": "Dein letzter blueprint-draft-Block konnte von der App nicht verwendet werden ({{reason}}). Gib den VOLLSTÄNDIGEN Snapshot erneut als streng gültiges JSON aus (Zeilenumbrüche in Strings als \\n escapen, keine abschließenden Kommas, keine verschachtelten Codeblöcke) – nur den Block.",
+    "approve": "Freigegeben — erstelle jetzt das detaillierte Backlog für Meilenstein 1."
   },
   "specModal": {
     "eyebrow": "{{milestone}} · Spec {{index}}",
@@ -138,14 +140,18 @@
     "mode": {
       "sequential": "Sequenziell",
       "parallel": "Parallel"
-    },
-    "chunkLaunched": "{{milestone}} — Rail {{chunk}}/{{total}} gestartet",
-    "chunkFailed": "{{milestone}} — Rail {{chunk}}/{{total}} konnte nicht starten; restliche Rails gestoppt",
-    "done": "{{milestone}} abgeschlossen — {{count}} Specs durchliefen die sequenzielle Kette"
+    }
   },
   "generation": {
-    "writing": "Specs für Meilenstein 1 werden geschrieben…",
-    "specCount": "Spec {{n}}"
+    "writing": "Milestone-1-Specs werden geschrieben…",
+    "specCount": "Spec {{n}}",
+    "turn": "Zug {{turn}}/{{total}}",
+    "phase": {
+      "outline": "Milestone-1-Specs werden skizziert…",
+      "details": "Specs {{from}}–{{to}} von {{total}} werden ausformuliert…",
+      "audit": "Alle {{total}} Specs werden geprüft…",
+      "repair": "Specs {{from}}–{{to}} werden erneut angefordert…"
+    }
   },
   "readiness": {
     "title": "Bereit, die Specs zu erstellen?",
@@ -163,12 +169,14 @@
       "specs": {
         "done": "{{count}} Specs · vollständig",
         "pending": "{{count}} von {{min}}–{{max}}",
-        "blocked": "{{count}} Specs · {{min}}–{{max}} nötig"
+        "blocked": "{{count}} Specs · {{min}}–{{max}} nötig",
+        "writing": "{{written}} von {{count}} geschrieben"
       },
       "audit": {
         "done": "keine Probleme",
         "pending": "wartet auf Specs",
-        "blocked": "{{count}} zu beheben"
+        "blocked": "{{count}} zu beheben",
+        "writing": "sobald die Specs geschrieben sind"
       }
     },
     "hints": {
@@ -178,11 +186,13 @@
       },
       "specs": {
         "pending": "Gib den Blueprint frei, dann generiert der Builder das Backlog für Meilenstein 1.",
-        "blocked": "Meilenstein 1 braucht {{min}}–{{max}} Specs (aktuell {{count}}). Bitte den Builder, das anzupassen."
+        "blocked": "Meilenstein 1 braucht {{min}}–{{max}} Specs (aktuell {{count}}). Bitte den Builder, das anzupassen.",
+        "writing": "Der Builder schreibt jede Spec vollständig — die Qualitätsprüfung läuft, sobald der Stapel komplett ist."
       },
       "audit": {
         "pending": "Wartet auf die Specs.",
-        "blocked": "{{count}} Prüfungsproblem(e) blockieren den Commit – öffne die Liste unten."
+        "blocked": "{{count}} Prüfungsproblem(e) blockieren den Commit – öffne die Liste unten.",
+        "writing": "Die Prüfung läuft, sobald alle Specs geschrieben sind."
       }
     },
     "issuesCount_one": "{{count}} Prüfungsproblem",
@@ -207,7 +217,12 @@
     "repairedNote": "Snapshot automatisch repariert",
     "nothingToRepair": "Nichts zu reparieren – sprich einfach weiter mit dem Builder.",
     "noSession": "Diese Unterhaltung kann mit ihrem Anbieter nicht fortgesetzt werden; sende stattdessen eine neue Nachricht.",
-    "alreadyStreaming": "Der Builder antwortet noch."
+    "alreadyStreaming": "Der Builder antwortet noch.",
+    "halted": {
+      "title": "Die Spec-Generierung wurde vorzeitig gestoppt",
+      "detail": "{{written}} von {{total}} Specs vollständig geschrieben. Der Rest besteht noch aus reinen Gliederungstiteln.",
+      "resume": "Generierung fortsetzen"
+    }
   },
   "recent": {
     "title": "Dort weitermachen, wo du aufgehört hast",
@@ -235,15 +250,118 @@
     "invalid_priority": "Spec {{n}} braucht eine gültige Priorität.",
     "canonical_sections": "Spec {{n}} fehlen die fünf kanonischen Abschnitte in der richtigen Reihenfolge.",
     "empty_section": "Der Abschnitt „{{heading}}“ von Spec {{n}} ist leer.",
-    "section_bullets": "Spec {{n}} braucht mindestens zwei Aufzählungspunkte unter „{{heading}}“.",
+    "section_bullets": "Spec {{n}} braucht mindestens {{min}} Punkte unter „{{heading}}“.",
     "complexity_format": "Spec {{n}} braucht eine Komplexitätsstufe mit Begründung.",
     "scaffold_readme": "Die Scaffold-Spec muss die vorhandene README erwähnen.",
-    "criteria_count": "Spec {{n}} braucht 4–10 Akzeptanzkriterien (hat {{count}}).",
+    "criteria_count": "Spec {{n}} braucht {{min}}–{{max}} Akzeptanzkriterien (hat {{count}}).",
     "criterion_quality": "Spec {{n}}, Kriterium {{criterion}}: nicht konkret genug.",
     "duplicate_criterion": "Spec {{n}} wiederholt Akzeptanzkriterium {{criterion}}.",
     "milestone_label": "Spec {{n}} braucht das Label {{label}}.",
     "domain_label": "Spec {{n}} braucht zusätzlich zu {{label}} ein Domänen-Label.",
     "invalid_dependency": "Spec {{n}} darf nur von einer früheren Spec abhängen.",
-    "scaffold_dependency": "Die Scaffold-Spec darf keine Abhängigkeit deklarieren."
+    "scaffold_dependency": "Die Scaffold-Spec darf keine Abhängigkeit deklarieren.",
+    "section_depth": "Spec {{n}} braucht einen ausführlicheren Abschnitt „{{heading}}“ (mindestens {{min}} Zeichen)."
+  },
+  "milestoneProgress": {
+    "state": {
+      "planned": "Geplant",
+      "committed": "Startbereit",
+      "running": "Läuft",
+      "delivered": "Geliefert – wartet auf Review",
+      "done": "Fertig"
+    },
+    "counts": "{{delivered}} von {{total}} geliefert · {{done}} fertig",
+    "failedNote_one": "{{count}} Spec ist beim letzten Versuch fehlgeschlagen",
+    "failedNote_other": "{{count}} Specs sind beim letzten Versuch fehlgeschlagen",
+    "legend": {
+      "done": "Fertig",
+      "onReview": "Im Review",
+      "inProgress": "Läuft",
+      "failed": "Letzter Versuch fehlgeschlagen",
+      "todo": "Ausstehend"
+    },
+    "rail": {
+      "fallbackName": "Rail {{n}}",
+      "chunk": "Rail {{k}} der Kette",
+      "running": "Läuft · {{elapsed}}",
+      "review": "Prüfen",
+      "open": "Rail öffnen",
+      "noDelivery": "Noch keine Lieferung"
+    },
+    "chain": {
+      "title": "Sequenzielle Kette",
+      "parallelTitle": "Paralleler Start",
+      "progress": "Rail {{k}} von {{n}}",
+      "waiting": "wartet, bis Rail {{k}} abgeschlossen ist",
+      "stackedOn": "das nächste Rail baut auf {{branch}} auf",
+      "paused": "Pausiert – {{reason}}",
+      "completed": "Alle Rails gestartet",
+      "cancelled": "Kette abgebrochen",
+      "resume": "Fortsetzen",
+      "cancel": "Kette abbrechen",
+      "resumed": "Kette fortgesetzt",
+      "resumeFailed": "Kette konnte nicht fortgesetzt werden",
+      "cancelledToast": "Kette abgebrochen – laufende Rails laufen weiter",
+      "reasons": {
+        "chunk_failed": "das letzte Rail ist fehlgeschlagen",
+        "chunk_stalled": "das letzte Rail hing (keine Provider-Ausgabe)",
+        "chunk_stopped": "das letzte Rail wurde gestoppt",
+        "launch_rejected": "das nächste Rail konnte nicht starten ({{detail}})",
+        "head_missing": "der Basis-Branch existiert nicht mehr",
+        "head_discarded": "die Lieferung, auf der das nächste Rail aufbaut, wurde verworfen",
+        "run_lost": "das laufende Rail wurde nach einem Neustart nicht gefunden",
+        "unknown": "pausiert",
+        "provider_limit": "das Nutzungslimit des Anbieters ist erreicht"
+      },
+      "checkpoint": "Rail {{k}} von {{n}} geliefert — Rail {{next}} starten?",
+      "launchNext": "Nächstes Rail starten",
+      "nextLaunched": "Nächstes Rail gestartet",
+      "autoAdvance": "Automatisch fortfahren",
+      "autoAdvanceHint": "Startet jedes nächste Rail, sobald das vorherige geliefert ist",
+      "checkpointHint": "Hält nach jedem Rail an und fragt vor dem nächsten Start",
+      "checkpointNote": "hält nach diesem Rail an",
+      "autoOn": "Automatisches Fortfahren an — die nächsten Rails starten von selbst",
+      "autoOff": "Automatisches Fortfahren aus — vor jedem Rail wird gefragt",
+      "autoFailed": "Kette konnte nicht aktualisiert werden"
+    },
+    "toast": {
+      "launched": "{{milestone}} gestartet – {{count}} Specs auf Rail 1 von {{n}}; die nächsten Rails folgen automatisch",
+      "launchedAll": "{{milestone}} gestartet – {{count}} Specs auf {{n}} Rails",
+      "launchedPartial": "{{milestone}} teilweise gestartet – {{count}} Specs gestartet, {{skipped}} ausstehend",
+      "chainActive": "{{milestone}} wird bereits gestartet – siehe Blueprint-Panel",
+      "chunkLaunched": "{{milestone}} – Rail {{k}} von {{n}} gestartet",
+      "paused": "{{milestone}} pausiert – {{reason}}",
+      "resume": "Fortsetzen",
+      "delivered": "{{milestone}} geliefert – {{count}} Specs warten auf dein Review",
+      "review": "Prüfen",
+      "completed": "{{milestone}} abgeschlossen – alle Specs gemergt",
+      "launchedCheckpoint": "{{milestone}} gestartet — {{count}} Specs auf Rail 1 von {{n}}; vor jedem weiteren Rail wird gefragt",
+      "checkpoint": "{{milestone}} — Rail {{k}} von {{n}} geliefert. Nächstes Rail starten?",
+      "launchNext": "Nächstes Rail starten",
+      "autoContinue": "Automatisch weiter"
+    },
+    "sequentialHint": "Jedes Rail baut auf dem Branch des vorherigen Rails auf",
+    "parallelHint": "Unabhängige Rails vom Integrations-Branch (kein Stapeln)"
+  },
+  "decisionCard": {
+    "settledLabel": "Entscheidung getroffen",
+    "surprise": {
+      "label": "Builder",
+      "hint": "Jede Entscheidung lässt sich danach anpassen",
+      "title": "Überrasch mich",
+      "description": "Lass den Builder Produkt, Kernablauf, Plattform, Stack und Meilensteine festlegen und dir den Blueprint zur Freigabe oder Anpassung vorlegen.",
+      "cta": "Überrasch mich",
+      "settledTitle": "Überrasch mich",
+      "settledDescription": "Du hast den Builder alle Blueprint-Dimensionen festlegen lassen."
+    },
+    "approve": {
+      "label": "Blueprint bereit",
+      "hint": "Oder schreib, was du ändern möchtest",
+      "title": "Blueprint freigeben",
+      "description": "Alle Dimensionen sind festgelegt. Gib ihn frei und der Builder schreibt die Specs für Meilenstein 1 vollständig, jeweils zwei auf einmal, und prüft dann den Stapel.",
+      "cta": "Freigeben und Specs erzeugen",
+      "settledTitle": "Blueprint freigegeben",
+      "settledDescription": "Der Builder erzeugt aus diesem Blueprint das Backlog für Meilenstein 1."
+    }
   }
 }

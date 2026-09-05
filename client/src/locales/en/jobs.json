@@ -270,7 +270,12 @@
     "copyCommand": "Copy",
     "interrupted": "Interrupted",
     "waiting": "Waiting for the next step…",
-    "stepMapAria": "Loop step map"
+    "stepMapAria": "Loop step map",
+    "stalled": "Stalled",
+    "stalledIdle_one": "No provider output for {{count}} minute — the app stopped this attempt",
+    "stalledIdle_other": "No provider output for {{count}} minutes — the app stopped this attempt",
+    "providerLimit": "Provider limit",
+    "providerLimitHint": "The provider answered with a usage or rate-limit notice, so the app stopped the run instead of cycling."
   },
   "logViewer": {
     "loading": "Loading logs...",

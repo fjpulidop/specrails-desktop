@@ -158,6 +158,10 @@ export interface SettleInfo {
    *  the same field the one-shot path captures for output chaining between
    *  dependent pipeline steps. */
   resultText: string | null
+  /** The last turn's `result` frame was flagged `is_error` by the provider
+   *  (claude: a usage/rate-limit notice returned as the reply). The owner
+   *  treats the step as FAILED with `resultText` as the reason. */
+  resultIsError: boolean
   /** True when the WHOLE session consumed no model work (isZeroWorkSettle over
    *  the accumulated totals + assistant-event flag + final result text). A
    *  'finalized' settle that is zero-work must be treated as FAILED by the
@@ -196,6 +200,10 @@ export interface InteractiveJobSessionDeps {
    *  Never armed in 'finalize' mode — idling awaiting the human is by design.
    *  Unset / <= 0 disables the timer. */
   zombieTimeoutMs?: number
+  /** Fired synchronously when the zombie budget elapses, BEFORE the session
+   *  aborts — lets the owner tell a wedge apart from any other 'crashed'
+   *  settle (the loop engine retries a stalled step once by resume). */
+  onZombieTimeout?: () => void
   /** Grace window for the QUIESCENT auto-settle's graceful teardown: the child
    *  gets its stdin EOF'd (the stream-json CLI exits by itself after flushing
    *  its session transcript — an immediate SIGTERM races that flush and leaves
@@ -252,6 +260,7 @@ export class InteractiveJobSession {
   private readonly _onSettle: (info: SettleInfo) => void
   private readonly _settleMode: 'finalize' | 'auto'
   private readonly _zombieTimeoutMs: number
+  private readonly _onZombieTimeoutHook: (() => void) | undefined
   private readonly _quiescentEofGraceMs: number
   /** Armed by the quiescent graceful teardown: SIGTERM escalation if the child
    *  ignores the stdin EOF. Cleared on close/settle/dispose. */
@@ -297,6 +306,7 @@ export class InteractiveJobSession {
   private _sessionId: string | null = null
   /** Last completed turn's `result` payload (output chaining — see SettleInfo). */
   private _resultText: string | null = null
+  private _resultIsError = false
   /** True once ANY assistant-derived event was observed across the whole
    *  session life (isModelWorkEvent). Feeds the zero-work settle predicate:
    *  real turns always emit assistant events; the synthetic `Unknown command:`
@@ -346,6 +356,7 @@ export class InteractiveJobSession {
     this._onSettle = deps.onSettle
     this._settleMode = deps.settleMode ?? 'finalize'
     this._zombieTimeoutMs = deps.zombieTimeoutMs ?? 0
+    this._onZombieTimeoutHook = deps.onZombieTimeout
     this._quiescentEofGraceMs = deps.quiescentEofGraceMs ?? 5000
     this._nextEventSeq = deps.nextEventSeq ?? null
     this._persistTurnUsage = deps.persistTurnUsage ?? null
@@ -737,6 +748,7 @@ export class InteractiveJobSession {
     if (typeof parsed.result === 'string') {
       this._resultText = parsed.result
     }
+    this._resultIsError = parsed.is_error === true
     const { result: normalised } = finaliseInvocationResult(this._adapter, this._turnEvents, {})
 
     // COST-ACCOUNTING-AUDIT HIGH-2: this ONE resident `claude -p --input-format
@@ -1001,6 +1013,7 @@ export class InteractiveJobSession {
     const timeoutSec = Math.round(this._zombieTimeoutMs / 1000)
     const note = `[zombie-detection] Interactive job ${this._jobId} produced no output for ${timeoutSec}s — auto-terminating`
     console.error(note)
+    try { this._onZombieTimeoutHook?.() } catch { /* owner hook must never block teardown */ }
     this.abort(note)
   }
 
@@ -1053,6 +1066,7 @@ export class InteractiveJobSession {
       estimated: this._inflightEstimated,
       activeDurationMs: this._activeDurationMs,
       resultText: this._resultText,
+      resultIsError: this._resultIsError,
       zeroWork,
     })
   }

@@ -21,7 +21,10 @@
       "verify": "验证是否可用",
       "decide": "判断是否完成",
       "fix": "修复失败的部分"
-    }
+    },
+    "stalled": "第 {{step}} 步停滞：{{idleMinutes}} 分钟无活动，应用已将其停止",
+    "startResume": "第 {{step}} 步：{{title}}——停滞后恢复",
+    "providerLimit": "步骤 {{step}} 已停止 — 已达到提供商用量限额"
   },
   "decision": {
     "another": "还没完成 — 再来一轮",

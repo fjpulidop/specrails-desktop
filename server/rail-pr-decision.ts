@@ -71,6 +71,14 @@ import {
   releaseRecoveryCommit,
 } from './rail-pr-recovery-git'
 import type { WsMessage, PrDecisionCardEnvelope } from './types'
+import { listChainsTouchingDelivery, parseLaunched, pauseChainsForDiscardedHead, toChainSnapshot } from './milestone-chain-store'
+import {
+  getPrDelivery as chainGetDelivery,
+  toPrDeliverySnapshot as chainSnapshotOf,
+  isTerminalPrDecision as chainIsTerminal,
+  claimPrDeliveryOperation as chainClaimOp,
+  releasePrDeliveryOperation as chainReleaseOp,
+} from './rail-pr-store'
 
 export const PR_DECISION_ACTIONS = ['create-pr', 'publish', 'discard', 'dismiss', 'poll-merge', 'reopen', 'merge-local', 'acknowledge-no-changes', 'recover-and-retry'] as const
 export type PrDecisionAction = (typeof PR_DECISION_ACTIONS)[number]
@@ -2038,6 +2046,7 @@ async function runDiscard(
         prUrl: null,
       })
   if (conflict) return conflict
+  pauseChainsOnDiscard(deps, row)
   if (!preserveExternalReview) applyTerminalTicketEffect(deps, row, 'discarded', cleanupWarnings)
   finalizeTransition(deps, row.id)
   return {
@@ -2143,6 +2152,7 @@ async function settleMergedPr(deps: PrDecisionDeps, row: RailPrDeliveryRow): Pro
   await releaseDeliveredRecoveryLineage(deps, row, row.delivery_sha)
   applyTerminalTicketEffect(deps, row, 'merged', cleanupWarnings)
   finalizeTransition(deps, row.id)
+  await sweepMergedChainAncestors(deps, row)
   return {
     status: 200,
     body: {
@@ -2386,6 +2396,10 @@ async function runMergeLocal(deps: PrDecisionDeps, row: RailPrDeliveryRow): Prom
 }
 
 async function runMergeLocalLocked(deps: PrDecisionDeps, row: RailPrDeliveryRow): Promise<PrDecisionResult> {
+  // Stacked chunk (milestone chain): the row's base_branch is the previous
+  // chunk's FEATURE branch, but local integration always lands on the chain's
+  // integration branch — the checkout guard and the merge use that.
+  const integrationTarget = mergeLocalTargetBranch(deps, row)
   deps.assertAdmission?.()
   const snap = toPrDeliverySnapshot(row)
   const cleanupWarnings: string[] = []
@@ -2394,20 +2408,20 @@ async function runMergeLocalLocked(deps: PrDecisionDeps, row: RailPrDeliveryRow)
   // revalidated immediately before the one final fast-forward.
   const head = await deps.git.run(['rev-parse', '--abbrev-ref', 'HEAD'], deps.project.path)
   const currentBranch = head.code === 0 ? head.stdout.trim() : ''
-  if (currentBranch !== row.base_branch) {
+  if (currentBranch !== integrationTarget) {
     return {
       status: 409,
-      body: { error: 'merge_local_blocked', reason: 'wrong_branch', current: currentBranch || null, base: row.base_branch },
+      body: { error: 'merge_local_blocked', reason: 'wrong_branch', current: currentBranch || null, base: integrationTarget },
     }
   }
   const status = await deps.git.run(['status', '--porcelain'], deps.project.path)
   if (status.code !== 0 || status.stdout.trim() !== '') {
-    return { status: 409, body: { error: 'merge_local_blocked', reason: 'dirty', base: row.base_branch } }
+    return { status: 409, body: { error: 'merge_local_blocked', reason: 'dirty', base: integrationTarget } }
   }
   const startingHead = await deps.git.run(['rev-parse', '--verify', 'HEAD'], deps.project.path)
   const startingSha = startingHead.code === 0 ? startingHead.stdout.trim() : ''
   if (!/^[0-9a-f]{40,64}$/i.test(startingSha)) {
-    return { status: 409, body: { error: 'merge_local_blocked', reason: 'unresolved_head', base: row.base_branch } }
+    return { status: 409, body: { error: 'merge_local_blocked', reason: 'unresolved_head', base: integrationTarget } }
   }
 
   // What to merge: immutable object ids only. The assembled head carries every
@@ -2504,7 +2518,7 @@ async function runMergeLocalLocked(deps: PrDecisionDeps, row: RailPrDeliveryRow)
     deps.git.run(['status', '--porcelain'], deps.project.path),
     deps.git.run(['rev-parse', '--verify', 'HEAD'], deps.project.path),
   ])
-  const changedReason = finalBranch.code !== 0 || finalBranch.stdout.trim() !== row.base_branch
+  const changedReason = finalBranch.code !== 0 || finalBranch.stdout.trim() !== integrationTarget
     ? 'wrong_branch'
     : finalStatus.code !== 0 || finalStatus.stdout.trim() !== ''
       ? 'dirty'
@@ -2518,16 +2532,16 @@ async function runMergeLocalLocked(deps: PrDecisionDeps, row: RailPrDeliveryRow)
       if (conflict) return conflict
       finalizeTransition(deps, row.id)
     }
-    return { status: 409, body: { error: 'merge_local_blocked', reason: changedReason, base: row.base_branch } }
+    return { status: 409, body: { error: 'merge_local_blocked', reason: changedReason, base: integrationTarget } }
   }
 
   const advanced = await deps.git.run(['merge', '--ff-only', assembledSha], deps.project.path)
   if (advanced.code !== 0) {
     await removeAssembly()
     const detail = (advanced.stderr.trim() || advanced.stdout.trim()).split('\n')[0] || `exit ${advanced.code}`
-    const conflict = persistAssemblyFailure(`advancing '${row.base_branch}': ${detail}`)
+    const conflict = persistAssemblyFailure(`advancing '${integrationTarget}': ${detail}`)
     if (conflict) return conflict
-    return { status: 502, body: { error: 'merge_failed', detail: `advancing '${row.base_branch}': ${detail}` } }
+    return { status: 502, body: { error: 'merge_failed', detail: `advancing '${integrationTarget}': ${detail}` } }
   }
   await removeAssembly()
 
@@ -2560,6 +2574,7 @@ async function runMergeLocalLocked(deps: PrDecisionDeps, row: RailPrDeliveryRow)
   if (conflict) return conflict
   applyTerminalTicketEffect(deps, row, 'merged', cleanupWarnings)
   finalizeTransition(deps, row.id)
+  await sweepMergedChainAncestors(deps, row)
   return { status: 200, body: { ok: true, decision: 'merged', merged: true, local: true } }
 }
 
@@ -2567,4 +2582,114 @@ function resolveTicketFile(deps: PrDecisionDeps): string {
   if (deps.ticketFile) return deps.ticketFile
   const exec = resolveProjectExecution({ slug: deps.project.slug, path: deps.project.path })
   return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(deps.project.path)
+}
+
+// ─── Milestone chain hooks (premium-milestone-progress D4) ───────────────────
+
+/** Decisions a stacked sibling can sit at while its head is already merged. */
+const SWEEPABLE_DECISIONS: ReadonlySet<string> = new Set(['on_review', 'pr_draft', 'pr_ready', 'pr_closed'])
+
+/**
+ * Merging a STACKED delivery also lands every earlier chunk it was built on.
+ * Walk the chain(s) this delivery belongs to and settle each still-undecided
+ * sibling whose delivered head commit is PROVABLY an ancestor of the chain's
+ * integration branch (`git merge-base --is-ancestor`) as `merged` — the same
+ * CAS + ticket effect (`done`) + Jira hook a direct merge runs. Chain-local by
+ * design; siblings whose head is not an ancestor are left untouched. Returns
+ * the swept delivery ids. Never throws.
+ */
+export async function sweepMergedChainAncestors(deps: PrDecisionDeps, mergedRow: RailPrDeliveryRow): Promise<string[]> {
+  const swept: string[] = []
+  let chains: ReturnType<typeof listChainsTouchingDelivery>
+  try { chains = listChainsTouchingDelivery(deps.db, mergedRow.id) } catch { return swept }
+  for (const chain of chains) {
+    const integration = chain.integration_branch
+    if (!integration) continue
+    for (const entry of parseLaunched(chain)) {
+      if (!entry.deliveryId || entry.deliveryId === mergedRow.id || swept.includes(entry.deliveryId)) continue
+      const other = chainGetDelivery(deps.db, entry.deliveryId)
+      if (!other || chainIsTerminal(other.decision) || !SWEEPABLE_DECISIONS.has(other.decision)) continue
+      const snap = chainSnapshotOf(other)
+      const sha = snap.deliverySha
+        ?? snap.units.map((u) => u.finalSha ?? null).find((s): s is string => typeof s === 'string' && s.length > 0)
+        ?? null
+      if (!sha) continue
+      let isAncestor = false
+      try {
+        const r = await deps.git.run(['merge-base', '--is-ancestor', sha, integration], deps.project.path)
+        isAncestor = r.code === 0
+      } catch { isAncestor = false }
+      if (!isAncestor) continue
+      const token = newId()
+      if (!chainClaimOp(deps.db, other.id, other.decision, 'poll-merge', token)) continue
+      let released = false
+      try {
+        const claimed = { ...other, operation_token: token } as RailPrDeliveryRow
+        const cleanupWarnings = await releaseRailWorktrees({
+          db: deps.db, git: deps.git, repoDir: deps.project.path,
+          worktreeIds: releasableWorktreeIds(deps, snap), state: 'merged',
+          expectedHeadByBranch: durableBranchHeads(snap.branches),
+          overlayEvidenceByBranch: durableOverlayCleanupEvidence(snap.branches),
+          settlementIgnoredByBranch: durableSettlementIgnoredPaths(snap.branches),
+          onSafetyArchive: safetyArchiveRecorder(deps, claimed),
+        })
+        await deleteOwnedBranchesIfUnchanged(deps, claimed, snap, cleanupWarnings)
+        const conflict = casTransitionWithTicketEffect(deps, claimed, 'merged', {
+          deliveryOutcome: 'delivered',
+          statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'merged',
+          statusDetail: `merged as part of ${mergedRow.rail_key}`,
+          cleanupWarnings,
+        }, {
+          deliveryId: claimed.id,
+          ticketIds: snap.ticketIds,
+          targetStatus: 'done',
+          jiraAction: 'merged',
+          prUrl: claimed.pr_url,
+        })
+        if (conflict) continue
+        applyTerminalTicketEffect(deps, claimed, 'merged', cleanupWarnings)
+        // Release BEFORE finalizing: a row still holding a lease defers its
+        // broadcast to the lease owner's finally, which here would never come.
+        chainReleaseOp(deps.db, other.id, token)
+        released = true
+        finalizeTransition(deps, other.id)
+        swept.push(other.id)
+      } catch (err) {
+        console.error(`[milestone-chain] ancestor sweep failed for ${other.id}:`, err)
+      } finally {
+        if (!released) chainReleaseOp(deps.db, other.id, token)
+      }
+    }
+  }
+  return swept
+}
+
+/** A discarded delivery that a chain's later chunks build on pauses those
+ *  chains (`head_discarded`, head rewound to the previous chunk's branch). */
+function pauseChainsOnDiscard(deps: PrDecisionDeps, row: RailPrDeliveryRow): void {
+  try {
+    const branchOf = (id: string): string | null => {
+      const other = chainGetDelivery(deps.db, id)
+      if (!other) return null
+      const s = chainSnapshotOf(other)
+      return s.branch ?? s.units.find((u) => u.succeeded && u.branch)?.branch ?? null
+    }
+    const paused = pauseChainsForDiscardedHead(deps.db, row.id, branchOf)
+    for (const chain of paused) {
+      deps.broadcast({ type: 'milestone.chain_changed', projectId: deps.project.id, chain: toChainSnapshot(chain), timestamp: new Date().toISOString() })
+    }
+  } catch (err) {
+    console.error('[milestone-chain] discard hook failed:', err)
+  }
+}
+
+/** Local-integration target: a chain-launched (stacked) delivery integrates
+ *  into the chain's integration branch, never into its feature base. */
+function mergeLocalTargetBranch(deps: PrDecisionDeps, row: RailPrDeliveryRow): string {
+  try {
+    for (const chain of listChainsTouchingDelivery(deps.db, row.id)) {
+      if (chain.integration_branch) return chain.integration_branch
+    }
+  } catch { /* fall through */ }
+  return row.base_branch
 }

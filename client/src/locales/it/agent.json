@@ -408,7 +408,8 @@
     "mergeLocalTooltip": "Unisce i branch consegnati in {{base}} nel tuo checkout locale (senza GitHub)",
     "mergeLocalBlockedDirty": "Impossibile integrare: il tuo albero di lavoro su {{base}} ha modifiche non committate. Fai commit o stash e riprova.",
     "mergeLocalBlockedBranch": "Impossibile integrare: il tuo checkout è su {{current}}, non su {{base}}. Passa a {{base}} e riprova.",
-    "mergedLocally": "Integrato in {{base}} in locale"
+    "mergedLocally": "Integrato in {{base}} in locale",
+    "discardStackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro."
   },
   "specDraft": {
     "heading": "Bozza della spec",

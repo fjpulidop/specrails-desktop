@@ -17,6 +17,9 @@ import {
   updateAgentConversation,
   deleteAgentConversation,
   listAgentMessages,
+  searchAgentConversations,
+  MISSION_SEARCH_DEFAULT_LIMIT,
+  MISSION_SEARCH_MAX_LIMIT,
 } from './agent-store'
 import { killBackgroundProcessesForChat } from './transient-children'
 
@@ -168,6 +171,21 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
 
   router.get('/conversations', (_req: Request, res: Response) => {
     res.json({ conversations: listAgentConversations(desktopDb) })
+  })
+
+  // Mission search (search-missions-in-palette): title + user/assistant content,
+  // one row per conversation, title hits first. Blank `q` is a client bug → 400.
+  router.get('/search', (req: Request, res: Response) => {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : ''
+    if (!q) {
+      res.status(400).json({ error: 'q is required' })
+      return
+    }
+    const rawLimit = Number(req.query.limit)
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.min(MISSION_SEARCH_MAX_LIMIT, Math.floor(rawLimit))
+      : MISSION_SEARCH_DEFAULT_LIMIT
+    res.json({ results: searchAgentConversations(desktopDb, q, limit) })
   })
 
   router.get('/active-turns', (_req: Request, res: Response) => {

@@ -123,6 +123,10 @@ export function railsTools(): McpToolSpec[] {
           .string()
           .optional()
           .describe('What to change, in the user\'s own words (required with revisionOfDeliveryId). It is injected into the revision run and shown on the updated review packet as "what you asked to change".'),
+        baseBranch: z
+          .string()
+          .optional()
+          .describe('Local branch to base the isolated worktree on instead of the integration branch (launch). Used to STACK work on a previous delivery\'s branch (the milestone launch chain does this automatically for chunk 2+). Must resolve locally and requires worktree isolation; rejected with invalid_base_branch / base_branch_requires_isolation otherwise.'),
       },
       async handler(ctx, args) {
         const base = `${projectPath(ctx, args.projectId as string | undefined)}/rails`
@@ -208,6 +212,7 @@ export function railsTools(): McpToolSpec[] {
             if (args.loopId !== undefined) body.loopId = args.loopId as string
             if (args.reasoning_effort !== undefined) body.reasoning_effort = args.reasoning_effort as string
             if (args.targetPrNumber !== undefined) body.targetPrNumber = args.targetPrNumber as number
+            if (args.baseBranch !== undefined) body.baseBranch = args.baseBranch as string
             // Revision of a delivery already awaiting the user's decision: the
             // ONE launch allowed against an undecided delivery. The route
             // re-validates the exemption (must be the rail's active delivery and

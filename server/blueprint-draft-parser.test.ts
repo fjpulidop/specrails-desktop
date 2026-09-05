@@ -4,6 +4,7 @@ import {
   countStartedSpecs,
   cutUnterminatedBlock,
   parseBlueprintDraftBlocks,
+  promoteJsonBlueprintFences,
 } from './blueprint-draft-parser'
 import { Blueprint } from './blueprint-types'
 
@@ -284,5 +285,59 @@ describe('cutUnterminatedBlock', () => {
     const complete = fence(snapshot())
     const text = `${complete}\ntail\n\`\`\`blueprint-draft\n{"blue`
     expect(cutUnterminatedBlock(text)).toBe(`${complete}\ntail\n`)
+  })
+})
+
+describe('fence tolerance: json / bare fenced snapshots', () => {
+  const body = JSON.stringify(snapshot({ product: { name: 'Neon Breaker', pitch: 'p', audience: 'a' } }), null, 2)
+
+  it('accepts a ```json fence carrying blueprintVersion as a snapshot and strips it', () => {
+    const text = '¿Aprobamos este blueprint?\n\n```json\n' + body + '\n```\n'
+    const r = parseBlueprintDraftBlocks(text)
+    expect(r.hadBlocks).toBe(true)
+    expect(r.blueprint?.product.name).toBe('Neon Breaker')
+    expect(r.rejected).toEqual([])
+    expect(r.stripped.trim()).toBe('¿Aprobamos este blueprint?')
+    expect(r.stripped).not.toContain('blueprintVersion')
+  })
+
+  it('accepts a bare fence whose body is the blueprint object', () => {
+    const r = parseBlueprintDraftBlocks('Plan.\n```\n' + body + '\n```')
+    expect(r.blueprint?.product.name).toBe('Neon Breaker')
+    expect(r.stripped.trim()).toBe('Plan.')
+  })
+
+  it('leaves ordinary json / code fences alone (no blueprintVersion → not a snapshot)', () => {
+    const text = 'Config:\n```json\n{ "port": 4200 }\n```\nand\n```ts\nconst x = { blueprintVersion: 1 }\n```'
+    const r = parseBlueprintDraftBlocks(text)
+    expect(r.hadBlocks).toBe(false)
+    expect(r.stripped).toBe(text)
+    expect(promoteJsonBlueprintFences(text)).toBe(text)
+  })
+
+  it('a json fence with blueprintVersion but an invalid payload is left untouched (no promotion)', () => {
+    const text = '```json\n{ "blueprintVersion": "one", "product": {} }\n```'
+    expect(promoteJsonBlueprintFences(text)).toBe(text)
+    expect(parseBlueprintDraftBlocks(text).hadBlocks).toBe(false)
+  })
+
+  it('never rewrites inside a proper blueprint-draft block; the proper block still wins', () => {
+    const proper = '```blueprint-draft\n' + JSON.stringify(snapshot({ product: { name: 'Proper', pitch: 'p', audience: 'a' } })) + '\n```'
+    const text = '```json\n' + body + '\n```\nthen\n' + proper
+    const r = parseBlueprintDraftBlocks(text)
+    expect(r.blueprint?.product.name).toBe('Proper')
+    expect(r.stripped.trim()).toBe('then')
+  })
+
+  it('an OPEN json snapshot fence is reported truncated and cut, on the parser and the live cut', () => {
+    const open = 'Here:\n```json\n{\n  "blueprintVersion": 1,\n  "product": { "name": "x" },\n  "m1Specs": [ { "title": "a" }, { "title": "b" }'
+    const r = parseBlueprintDraftBlocks(open)
+    expect(r.truncated).toBe(true)
+    expect(r.rejected[0]).toMatchObject({ reason: 'truncated' })
+    expect(r.rejected[0].detail).toContain('2 spec title(s)')
+    expect(r.stripped).toBe('Here:\n')
+    expect(cutUnterminatedBlock(open)).toBe('Here:\n')
+    // A closed ordinary json fence followed by prose is not cut.
+    expect(cutUnterminatedBlock('```json\n{ "port": 1 }\n```\ntail')).toBe('```json\n{ "port": 1 }\n```\ntail')
   })
 })

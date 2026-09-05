@@ -160,7 +160,8 @@
       "blocked": "delivery blocked",
       "noChanges": "no changes",
       "succeeded": "ready"
-    }
+    },
+    "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work."
   },
   "railsBoard": {
     "title": "Rails",

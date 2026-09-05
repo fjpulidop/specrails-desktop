@@ -17,6 +17,8 @@ import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '
 import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDecisionContext'
 import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode } from '../lib/pr-delivery'
 import { isTauri, revealItemInDir } from '../lib/tauri-shell'
+import { useDesktop } from '../hooks/useDesktop'
+import { useStackedHeadDeliveryIds } from '../hooks/useMilestoneProgress'
 
 interface RailPrDecisionStripProps {
   decision: RailPrStateSnapshot
@@ -297,6 +299,11 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const iconCls = compact ? 'w-2.5 h-2.5' : 'w-3 h-3'
   const spinner = <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
   const busy = inFlight !== null || checkingOut || decision.operation != null
+  // A later milestone chunk was stacked on this delivery (premium-milestone-
+  // progress): discarding it pauses the chain — say so before the click.
+  const { activeProjectId: stripProjectId } = useDesktop()
+  const stackedHeads = useStackedHeadDeliveryIds(stripProjectId)
+  const isStackedHead = stackedHeads.has(decision.prDeliveryId)
   const discardTitle = d === 'implementation_failed' ? t('railPr.implementationFailedHint') : t('railPr.discardTooltip')
 
   const linkChip = decision.prUrl ? (
@@ -864,6 +871,11 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
             <DialogDescription>{t(d === 'implementation_failed'
               ? 'railPr.implementationFailedDiscardBody'
               : 'railPr.discardConfirmBody')}</DialogDescription>
+            {isStackedHead && (
+              <p className="mt-2 rounded-md border border-accent-warning/40 bg-accent-warning/10 px-2 py-1.5 text-xs text-accent-warning" data-testid="rail-pr-discard-stacked-note">
+                {t('railPr.discardStackedNote')}
+              </p>
+            )}
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={closeConfirmation}>

@@ -2,10 +2,12 @@
   "palette": {
     "label": "Befehlspalette",
     "searchPlaceholder": "Projekte, Befehle, Jobs durchsuchen...",
+    "searchPlaceholderAgent": "Missionen, Projekte, Jobs durchsuchen...",
     "noResults": "Keine Ergebnisse gefunden.",
     "activeBadge": "aktiv",
     "groups": {
       "projects": "Projekte",
+      "missions": "Missionen",
       "spec": "Spec",
       "jobs": "Jobs",
       "navigation": "Navigation"
@@ -30,6 +32,9 @@
       "navigate": "navigieren",
       "select": "auswählen",
       "close": "schließen"
+    },
+    "missions": {
+      "home": "Start"
     }
   },
   "toasts": {
@@ -132,7 +137,13 @@
     "jobStuck": "Ausführung scheint zu hängen",
     "jobStuckBody_one": "Seit {{count}} Minute keine Aktivität — zum Prüfen öffnen",
     "jobStuckBody_other": "Seit {{count}} Minuten keine Aktivität — zum Prüfen öffnen",
-    "unknownCommand": "Unbekannter Befehl"
+    "unknownCommand": "Unbekannter Befehl",
+    "jobStuckStop": "Ausführung stoppen",
+    "jobStuckStopped": "Ausführung gestoppt",
+    "jobStuckStopFailed": "Ausführung konnte nicht gestoppt werden",
+    "providerLimit": "Nutzungslimit des Anbieters erreicht",
+    "providerLimitBody": "{{provider}} hat die Anfrage abgelehnt: Nutzungslimit erreicht — Reset {{resetsAt}}. Der Lauf wurde gestoppt; nach dem Reset neu starten oder „Wiederherstellen und erneut versuchen“.",
+    "providerLimitBodyNoReset": "{{provider}} hat die Anfrage abgelehnt: Nutzungslimit erreicht. Der Lauf wurde gestoppt; nach dem Reset neu starten."
   },
   "templates": {
     "emptyState": {

@@ -57,6 +57,15 @@ describe('blueprint-store', () => {
     expect(msgs[0].content).toBe('an app for recipes')
   })
 
+  it('persists a decision intent on a user turn; typed turns keep null', () => {
+    const conv = createBlueprintConversation(db)
+    const tagged = addBlueprintMessage(db, { conversationId: conv.id, role: 'user', content: 'Surprise me', intent: 'surprise' })
+    const typed = addBlueprintMessage(db, { conversationId: conv.id, role: 'user', content: 'hi' })
+    expect(tagged.intent).toBe('surprise')
+    expect(typed.intent).toBeNull()
+    expect(listBlueprintMessages(db, conv.id).map((m) => m.intent)).toEqual(['surprise', null])
+  })
+
   it('delete cascades messages', () => {
     const conv = createBlueprintConversation(db)
     addBlueprintMessage(db, { conversationId: conv.id, role: 'user', content: 'x' })

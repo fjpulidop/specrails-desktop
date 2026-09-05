@@ -21,7 +21,10 @@
       "verify": "vérification du fonctionnement",
       "decide": "décision : est-ce terminé ?",
       "fix": "correction de ce qui a échoué"
-    }
+    },
+    "stalled": "L'étape {{step}} s'est bloquée — aucune activité pendant {{idleMinutes}} min, l'app l'a donc arrêtée",
+    "startResume": "Étape {{step}} : {{title}} — reprise après un blocage",
+    "providerLimit": "Étape {{step}} arrêtée — la limite d'utilisation du fournisseur a été atteinte"
   },
   "decision": {
     "another": "Pas encore fini — nouveau tour",

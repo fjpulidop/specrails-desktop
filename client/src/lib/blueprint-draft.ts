@@ -62,6 +62,15 @@ export interface Blueprint {
 
 const FENCE_RE = /```blueprint-draft\s*\n([\s\S]*?)\n\s*```/g
 const OPEN_FENCE_RE = /```blueprint-draft(?![\s\S]*?\n\s*```)/
+// Fence tolerance (mirror of the server): a ```json / bare fence whose body
+// is a `{…}` object with an integer blueprintVersion is promoted to a
+// blueprint-draft block; an OPEN one is hidden from the live stream.
+const JSON_BLUEPRINT_FENCE_RE = /```(?:json|JSON)?[ \t]*\r?\n(?=[ \t]*\{)([\s\S]*?)\r?\n[ \t]*```(?=[ \t]*(?:\r?\n|$))/g
+const OPEN_JSON_BLUEPRINT_FENCE_RE = /```(?:json|JSON)?[ \t]*\r?\n[ \t]*\{(?=[\s\S]*"blueprintVersion")(?![\s\S]*?\n[ \t]*```)/
+// Batched generation (premium-milestone-progress D7): detail/audit turns reply
+// with small `spec-detail` / `spec-audit` fences — hidden from the live
+// stream exactly like an open blueprint-draft block.
+const OPEN_GENERATION_FENCE_RE = /```(?:blueprint-draft|spec-detail|spec-audit)(?![\s\S]*?\n\s*```)/
 
 const MILESTONE_STATUSES = new Set<MilestoneStatus>(['planned', 'committed', 'done'])
 const SPEC_KINDS = new Set<BlueprintSpecKind>(['scaffold', 'feature', 'verification'])
@@ -195,8 +204,32 @@ export function countStartedSpecs(blockText: string): number {
 }
 
 /** Scan for closed blueprint-draft fences; the LAST valid snapshot wins. */
-export function parseBlueprintDraftBlocks(text: string): BlueprintParseResult {
-  if (!text || !text.includes('```blueprint-draft')) {
+export function promoteJsonBlueprintFences(text: string): string {
+  if (!text || !text.includes('"blueprintVersion"')) return text ?? ''
+  const promoteGap = (gap: string): string => {
+    if (!gap.includes('```') || !gap.includes('"blueprintVersion"')) return gap
+    JSON_BLUEPRINT_FENCE_RE.lastIndex = 0
+    return gap.replace(JSON_BLUEPRINT_FENCE_RE, (whole, body: string) => {
+      if (!body.includes('"blueprintVersion"')) return whole
+      const parsed = parseJsonTolerant(body)
+      if (!parsed.ok || !coerceBlueprint(parsed.value)) return whole
+      return '```blueprint-draft\n' + body + '\n```'
+    })
+  }
+  let out = ''
+  let cursor = 0
+  FENCE_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = FENCE_RE.exec(text)) !== null) {
+    out += promoteGap(text.slice(cursor, m.index)) + m[0]
+    cursor = m.index + m[0].length
+  }
+  return out + promoteGap(text.slice(cursor))
+}
+
+export function parseBlueprintDraftBlocks(input: string): BlueprintParseResult {
+  const text = promoteJsonBlueprintFences(input ?? '')
+  if (!text || (!text.includes('```blueprint-draft') && !OPEN_JSON_BLUEPRINT_FENCE_RE.test(text))) {
     return { stripped: text ?? '', blueprint: null, rawBlueprint: null, hadBlocks: false, rejected: [], repaired: false, truncated: false }
   }
   let blueprint: Blueprint | null = null
@@ -236,7 +269,7 @@ export function parseBlueprintDraftBlocks(text: string): BlueprintParseResult {
     repaired = parsed.repaired
   }
   const remainder = text.slice(cursor)
-  const open = OPEN_FENCE_RE.exec(remainder)
+  const open = OPEN_FENCE_RE.exec(remainder) ?? OPEN_JSON_BLUEPRINT_FENCE_RE.exec(remainder)
   let truncated = false
   if (open) {
     hadBlocks = true
@@ -259,16 +292,25 @@ export function parseBlueprintDraftBlocks(text: string): BlueprintParseResult {
 /** Live generation progress for a stream buffer: whether a snapshot block is
  *  currently arriving and how many M1 spec titles have started inside it. */
 export function describeStreamingSnapshot(buffer: string | null): { generating: boolean; specsStarted: number } {
-  if (!buffer || !buffer.includes('```blueprint-draft')) return { generating: false, specsStarted: 0 }
-  const open = OPEN_FENCE_RE.exec(buffer)
-  if (!open) return { generating: false, specsStarted: 0 }
-  return { generating: true, specsStarted: countStartedSpecs(buffer.slice(open.index)) }
+  if (!buffer) return { generating: false, specsStarted: 0 }
+  if (buffer.includes('```blueprint-draft')) {
+    const open = OPEN_FENCE_RE.exec(buffer)
+    if (open) return { generating: true, specsStarted: countStartedSpecs(buffer.slice(open.index)) }
+  }
+  const openJson = OPEN_JSON_BLUEPRINT_FENCE_RE.exec(buffer)
+  if (openJson) return { generating: true, specsStarted: countStartedSpecs(buffer.slice(openJson.index)) }
+  // A detail/audit turn streaming in: count the spec objects that started.
+  const openGen = /```spec-(?:detail|audit)(?![\s\S]*?\n\s*```)/.exec(buffer)
+  if (openGen) return { generating: true, specsStarted: (buffer.slice(openGen.index).match(/"title"\s*:/g) ?? []).length }
+  return { generating: false, specsStarted: 0 }
 }
 
-/** Cut an UNTERMINATED trailing fence for live stream rendering. */
+/** Cut an UNTERMINATED trailing fence (blueprint-draft, spec-detail or
+ *  spec-audit) for live stream rendering. */
 export function cutUnterminatedBlock(text: string): string {
-  if (!text || !text.includes('```blueprint-draft')) return text ?? ''
-  const match = OPEN_FENCE_RE.exec(text)
+  if (!text) return ''
+  const match = (/```(?:blueprint-draft|spec-detail|spec-audit)/.test(text) ? OPEN_GENERATION_FENCE_RE.exec(text) : null)
+    ?? OPEN_JSON_BLUEPRINT_FENCE_RE.exec(text)
   if (!match) return text
   return text.slice(0, match.index)
 }

@@ -255,3 +255,185 @@ export function updateAgentMessageContent(db: DbInstance, messageId: string, con
   const row = db.prepare('SELECT * FROM agent_messages WHERE id = ?').get(messageId) as AgentMessageRaw | undefined
   return row ? mapMessage(row) : undefined
 }
+
+// ─── Mission search (search-missions-in-palette) ──────────────────────────────
+
+/** A highlighted excerpt: plain text plus `[start, end)` ranges to mark. */
+export interface MissionSearchSnippet {
+  text: string
+  ranges: Array<[number, number]>
+}
+
+export interface MissionSearchHit {
+  conversation: AgentConversation
+  /** Title matches rank above content matches; a mission can satisfy both, in
+   *  which case `match` stays `'title'` and the content snippet still rides along. */
+  match: 'title' | 'content'
+  /** Best-ranked matching message for content hits; null for title-only hits. */
+  messageId: string | null
+  snippet: MissionSearchSnippet | null
+}
+
+export const MISSION_SEARCH_DEFAULT_LIMIT = 20
+export const MISSION_SEARCH_MAX_LIMIT = 50
+/** The trigram tokenizer matches nothing below three characters; shorter
+ *  queries take the bounded substring scan instead. */
+const TRIGRAM_MIN_CHARS = 3
+/** Rows the substring fallback inspects at most (newest first). */
+const FALLBACK_SCAN_ROWS = 400
+/** Characters kept on each side of the first match in a snippet window. */
+const FALLBACK_CONTEXT = 60
+const MARK_START = '\u0001'
+const MARK_END = '\u0002'
+
+/** Lowercase + strip combining diacritics, mirroring the index tokenizer so a
+ *  title compare and a content compare agree on what "matches". */
+export function foldSearchText(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+/** Quote a raw user query as one FTS5 phrase so operators/punctuation in it
+ *  never become syntax; a trigram phrase is a plain substring match. */
+function ftsPhrase(query: string): string {
+  return `"${query.replace(/"/g, '""')}"`
+}
+
+/**
+ * Cut a marked full-content string (`highlight()` output, or the substring
+ * fallback's own marking) down to a window of ~${FALLBACK_CONTEXT} characters on
+ * each side of the FIRST match, with ellipses where text was dropped and
+ * whitespace collapsed. Markers outside the window are simply cut away;
+ * `parseMarkedSnippet` tolerates a dangling one.
+ */
+function windowMarked(marked: string): string {
+  const at = marked.indexOf(MARK_START)
+  if (at < 0) return marked.slice(0, FALLBACK_CONTEXT * 2).replace(/\s+/g, ' ')
+  const close = marked.indexOf(MARK_END, at)
+  const matchEnd = close < 0 ? marked.length : close + 1
+  const start = Math.max(0, at - FALLBACK_CONTEXT)
+  const end = Math.min(marked.length, matchEnd + FALLBACK_CONTEXT)
+  const prefix = start > 0 ? '…' : ''
+  const suffix = end < marked.length ? '…' : ''
+  return prefix + marked.slice(start, end).replace(/\s+/g, ' ') + suffix
+}
+
+/** Turn a marked window into plain text + `[start, end)` highlight ranges. */
+function parseMarkedSnippet(marked: string): MissionSearchSnippet {
+  let text = ''
+  const ranges: Array<[number, number]> = []
+  let open = -1
+  for (const ch of marked) {
+    if (ch === MARK_START) {
+      open = text.length
+    } else if (ch === MARK_END) {
+      if (open >= 0 && text.length > open) ranges.push([open, text.length])
+      open = -1
+    } else {
+      text += ch
+    }
+  }
+  return { text, ranges }
+}
+
+interface ContentHitRow {
+  conversation_id: string
+  message_id: string
+  /** Full message content with the FIRST-match window still to be cut. */
+  marked: string
+}
+
+function contentHitsFts(db: DbInstance, query: string, limit: number): ContentHitRow[] {
+  return db
+    .prepare(
+      `WITH hits AS (
+         SELECT conversation_id, message_id,
+                bm25(agent_messages_fts) AS rank,
+                highlight(agent_messages_fts, 3, ?, ?) AS marked
+         FROM agent_messages_fts
+         WHERE agent_messages_fts MATCH ? AND role IN ('user', 'assistant')
+       ),
+       ranked AS (
+         SELECT conversation_id, message_id, rank, marked,
+                row_number() OVER (PARTITION BY conversation_id ORDER BY rank, message_id) AS rn
+         FROM hits
+       )
+       SELECT conversation_id, message_id, marked
+       FROM ranked WHERE rn = 1
+       ORDER BY rank, conversation_id
+       LIMIT ?`,
+    )
+    .all(MARK_START, MARK_END, ftsPhrase(query), limit) as ContentHitRow[]
+}
+
+function contentHitsSubstring(db: DbInstance, query: string, limit: number): ContentHitRow[] {
+  const escaped = query.replace(/[\\%_]/g, (c) => `\\${c}`)
+  const rows = db
+    .prepare(
+      `SELECT conversation_id, id AS message_id, content
+       FROM agent_messages
+       WHERE role IN ('user', 'assistant') AND content LIKE ? ESCAPE '\\'
+       ORDER BY created_at DESC, rowid DESC
+       LIMIT ?`,
+    )
+    .all(`%${escaped}%`, FALLBACK_SCAN_ROWS) as Array<{ conversation_id: string; message_id: string; content: string }>
+  const seen = new Set<string>()
+  const hits: ContentHitRow[] = []
+  const needle = query.toLowerCase()
+  for (const row of rows) {
+    if (seen.has(row.conversation_id)) continue
+    seen.add(row.conversation_id)
+    const at = row.content.toLowerCase().indexOf(needle)
+    const marked = at < 0
+      ? row.content
+      : row.content.slice(0, at) + MARK_START + row.content.slice(at, at + needle.length) + MARK_END + row.content.slice(at + needle.length)
+    hits.push({ conversation_id: row.conversation_id, message_id: row.message_id, marked })
+    if (hits.length >= limit) break
+  }
+  return hits
+}
+
+/**
+ * Search missions by title and by the text of their user/assistant messages.
+ * Returns at most `limit` conversations, one row each: title matches first
+ * (newest first), then content matches by relevance. `system` rows (the
+ * app-authored PR-decision envelopes) never match. An empty query yields [].
+ */
+export function searchAgentConversations(db: DbInstance, rawQuery: string, limit = MISSION_SEARCH_DEFAULT_LIMIT): MissionSearchHit[] {
+  const query = rawQuery.trim()
+  if (!query) return []
+  const cap = Math.max(1, Math.min(MISSION_SEARCH_MAX_LIMIT, Math.floor(limit)))
+
+  const conversations = (
+    db.prepare('SELECT * FROM agent_conversations ORDER BY updated_at DESC').all() as AgentConversationRaw[]
+  ).map((r) => mapConversation(r)!)
+  const byId = new Map(conversations.map((c) => [c.id, c]))
+
+  const folded = foldSearchText(query)
+  const titleHits = conversations.filter((c) => c.title && foldSearchText(c.title).includes(folded))
+
+  const contentRows = [...query].length >= TRIGRAM_MIN_CHARS
+    ? contentHitsFts(db, query, cap + titleHits.length)
+    : contentHitsSubstring(db, query, cap + titleHits.length)
+  const contentById = new Map(contentRows.map((r) => [r.conversation_id, r]))
+
+  const results: MissionSearchHit[] = []
+  for (const conversation of titleHits) {
+    const content = contentById.get(conversation.id)
+    results.push({
+      conversation,
+      match: 'title',
+      messageId: content?.message_id ?? null,
+      snippet: content ? parseMarkedSnippet(windowMarked(content.marked)) : null,
+    })
+    if (results.length >= cap) return results
+  }
+  const titleIds = new Set(titleHits.map((c) => c.id))
+  for (const row of contentRows) {
+    if (titleIds.has(row.conversation_id)) continue
+    const conversation = byId.get(row.conversation_id)
+    if (!conversation) continue
+    results.push({ conversation, match: 'content', messageId: row.message_id, snippet: parseMarkedSnippet(windowMarked(row.marked)) })
+    if (results.length >= cap) break
+  }
+  return results
+}

@@ -270,7 +270,12 @@
     "copyCommand": "Copiar",
     "interrupted": "Interrumpido",
     "waiting": "Esperando el siguiente paso...",
-    "stepMapAria": "Mapa de pasos del loop"
+    "stepMapAria": "Mapa de pasos del loop",
+    "stalled": "Atascado",
+    "stalledIdle_one": "Sin salida del proveedor durante {{count}} minuto: la app detuvo este intento",
+    "stalledIdle_other": "Sin salida del proveedor durante {{count}} minutos: la app detuvo este intento",
+    "providerLimit": "Límite del proveedor",
+    "providerLimitHint": "El proveedor respondió con un aviso de límite de uso, así que la app detuvo el run en vez de seguir iterando."
   },
   "logViewer": {
     "loading": "Cargando logs...",

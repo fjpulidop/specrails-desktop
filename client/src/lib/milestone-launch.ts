@@ -1,16 +1,62 @@
-// "Launch Milestone N" (add-project-builder D6): place `M<n>`-labeled todo
-// tickets on rails and launch them batch-implement (sequential, single
-// worktree, single PR per rail). Each rail carries AT MOST
-// MAX_TICKETS_PER_RAIL specs — a large milestone is chunked across several
-// rails instead of dumping the whole set on one. Reuses the existing rails
-// REST surface unchanged; the server maps the bare mode to the batch factory
-// loop (worktree isolation + ask-first PR) and enforces the same per-rail cap.
+// "Launch Milestone N" (premium-milestone-progress): the launch is SERVER-owned.
+// One POST chunks the milestone's todo specs into ≤3-spec rails, launches
+// through the ordinary rails launch route, and — in sequential mode — chains
+// each later chunk on the previous chunk's delivered branch inside the server
+// (durable in SQLite; survives window close / restart). The client keeps NO
+// launch plan in browser storage any more: the old localStorage sequencer is
+// gone, and its leftover key is dropped on load.
+
+import type { MilestoneChainLaunched, MilestoneChainSnapshot } from './milestone-progress'
+import { coerceChain } from './milestone-progress'
 
 export const MAX_TICKETS_PER_RAIL = 3
 
-export type MilestoneLaunchResult =
-  | { ok: true; railIndices: number[]; ticketCount: number; skippedCount: number }
-  | { ok: false; reason: 'no-tickets' | 'rail-create-failed' | 'assign-failed' | 'launch-failed'; detail?: string }
+export type MilestoneLaunchMode = 'sequential' | 'parallel'
+
+export const MILESTONE_LAUNCH_MODE_KEY = 'specrails-desktop:milestone-launch-mode'
+/** The retired browser-local sequencer's plan store — dropped, never read. */
+export const LEGACY_SEQUENTIAL_PLANS_KEY = 'specrails-desktop:milestone-sequential-plans'
+
+export function readMilestoneLaunchMode(): MilestoneLaunchMode {
+  try {
+    return localStorage.getItem(MILESTONE_LAUNCH_MODE_KEY) === 'parallel' ? 'parallel' : 'sequential'
+  } catch {
+    return 'sequential'
+  }
+}
+
+export function saveMilestoneLaunchMode(mode: MilestoneLaunchMode): void {
+  try { localStorage.setItem(MILESTONE_LAUNCH_MODE_KEY, mode) } catch { /* ignore */ }
+}
+
+/** Wave checkpoints (premium-milestone-progress D9): the user's stored
+ *  auto-continue preference. Default OFF — every delivered rail waits for
+ *  "Launch next rail" unless the user opts into automatic continuation. */
+export const MILESTONE_AUTO_ADVANCE_KEY = 'specrails-desktop:milestone-auto-advance'
+
+export function readMilestoneAutoAdvance(): boolean {
+  try {
+    return localStorage.getItem(MILESTONE_AUTO_ADVANCE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+export function saveMilestoneAutoAdvance(on: boolean): void {
+  try { localStorage.setItem(MILESTONE_AUTO_ADVANCE_KEY, on ? 'true' : 'false') } catch { /* ignore */ }
+}
+
+/** Forget any plan the retired client-side sequencer left behind. Its runs
+ *  were settled server-side long ago; the chain row is authoritative now. */
+export function dropLegacySequentialPlans(): boolean {
+  try {
+    if (localStorage.getItem(LEGACY_SEQUENTIAL_PLANS_KEY) === null) return false
+    localStorage.removeItem(LEGACY_SEQUENTIAL_PLANS_KEY)
+    return true
+  } catch {
+    return false
+  }
+}
 
 interface TicketLite {
   id: number
@@ -35,126 +81,131 @@ export function chunkTickets(ticketIds: number[], size: number = MAX_TICKETS_PER
   return chunks
 }
 
-/** Gather the milestone's todo tickets and chunk them (shared by both modes). */
-export async function prepareMilestoneChunks(
-  projectId: string,
-  milestone: number,
-  fetchImpl: typeof fetch = fetch,
-): Promise<{ ticketIds: number[]; chunks: number[][] } | null> {
-  const ticketsRes = await fetchImpl(`/api/projects/${projectId}/tickets`, { cache: 'no-store' })
-  if (!ticketsRes.ok) return null
-  const ticketsBody = (await ticketsRes.json()) as { tickets?: TicketLite[] } | TicketLite[]
-  const tickets = Array.isArray(ticketsBody) ? ticketsBody : ticketsBody.tickets ?? []
-  const ticketIds = filterMilestoneTickets(tickets, milestone)
-  if (ticketIds.length === 0) return null
-  return { ticketIds, chunks: chunkTickets(ticketIds) }
+export type MilestoneLaunchFailure = 'chain_active' | 'no_tickets' | 'milestone_not_found' | 'unavailable' | 'launch_rejected' | 'network'
+
+export type MilestoneLaunchResult =
+  | {
+      ok: true
+      chainId: string | null
+      launched: MilestoneChainLaunched[]
+      pending: number[][]
+      /** Specs on rails right now. */
+      ticketCount: number
+      /** Specs still waiting for a later chunk (sequential) or that could not launch (parallel). */
+      skippedCount: number
+    }
+  | { ok: false; reason: MilestoneLaunchFailure; error: string; detail?: string; chainId?: string }
+
+function failureReason(status: number, error: string): MilestoneLaunchFailure {
+  if (error === 'chain_active') return 'chain_active'
+  if (error === 'no_tickets') return 'no_tickets'
+  if (error === 'milestone_not_found') return 'milestone_not_found'
+  if (status === 503) return 'unavailable'
+  return 'launch_rejected'
 }
 
-export type ChunkLaunchResult =
-  | { ok: true; railIndex: number }
-  | { ok: false; reason: 'rail-create-failed' | 'assign-failed' | 'launch-failed'; detail?: string }
-
-/** Create → assign → launch ONE milestone chunk on a fresh rail. */
-export async function launchMilestoneChunk(
-  projectId: string,
-  milestone: number,
-  chunk: number[],
-  chunkIndex: number,
-  totalChunks: number,
-  fetchImpl: typeof fetch = fetch,
-): Promise<ChunkLaunchResult> {
-  const base = `/api/projects/${projectId}`
-  const railName = totalChunks === 1
-    ? milestoneLabel(milestone)
-    : `${milestoneLabel(milestone)} · ${chunkIndex + 1}`
-
-  const railRes = await fetchImpl(`${base}/rails`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: railName }),
-  })
-  if (!railRes.ok) {
-    const body = await railRes.json().catch(() => ({}))
-    return { ok: false, reason: 'rail-create-failed', detail: (body as { error?: string }).error }
+async function readBody(res: Response): Promise<Record<string, unknown>> {
+  try {
+    const body = await res.json()
+    return body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
+  } catch {
+    return {}
   }
-  const { rail } = (await railRes.json()) as { rail: { railIndex: number } }
-
-  const assignRes = await fetchImpl(`${base}/rails/${rail.railIndex}/tickets`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ticketIds: chunk, mode: 'batch-implement' }),
-  })
-  if (!assignRes.ok) {
-    const body = await assignRes.json().catch(() => ({}))
-    return { ok: false, reason: 'assign-failed', detail: (body as { error?: string }).error }
-  }
-
-  const launchRes = await fetchImpl(`${base}/rails/${rail.railIndex}/launch`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: 'batch-implement' }),
-  })
-  if (!launchRes.ok) {
-    const body = await launchRes.json().catch(() => ({}))
-    return { ok: false, reason: 'launch-failed', detail: (body as { error?: string }).error }
-  }
-  return { ok: true, railIndex: rail.railIndex }
 }
 
-/** True when the rail has NO active job and NO active loop run (settled/idle). */
-export async function isRailIdle(
-  projectId: string,
-  railIndex: number,
-  fetchImpl: typeof fetch = fetch,
-): Promise<boolean | null> {
-  const res = await fetchImpl(`/api/projects/${projectId}/rails`, { cache: 'no-store' })
-  if (!res.ok) return null
-  const body = (await res.json()) as {
-    activeJobs?: Record<number, unknown>
-    activeLoopRuns?: Record<number, unknown>
-  }
-  const busy = (body.activeJobs && railIndex in body.activeJobs)
-    || (body.activeLoopRuns && railIndex in body.activeLoopRuns)
-  return !busy
+export interface MilestoneLaunchOptions {
+  /** Sequential chains only: launch the next rail automatically after each
+   *  delivered rail (true) or stop at a checkpoint (false, the UI default). */
+  autoAdvance?: boolean
+  fetchImpl?: typeof fetch
 }
 
-/**
- * Gather M<n> todo tickets → chunk into groups of ≤ MAX_TICKETS_PER_RAIL →
- * for each chunk: create a rail (server allocates the lowest free index) →
- * assign → launch batch-implement. A failure before anything launched
- * surfaces as a typed reason; a failure after at least one rail launched
- * returns `ok: true` with the launched count plus `skippedCount` so the
- * caller's toast can say how many specs did not make it.
- */
 export async function launchMilestone(
   projectId: string,
   milestone: number,
-  fetchImpl: typeof fetch = fetch,
+  mode: MilestoneLaunchMode = readMilestoneLaunchMode(),
+  options: MilestoneLaunchOptions | typeof fetch = {},
 ): Promise<MilestoneLaunchResult> {
-  const prepared = await prepareMilestoneChunks(projectId, milestone, fetchImpl)
-  if (!prepared) return { ok: false, reason: 'no-tickets' }
-  const { ticketIds, chunks } = prepared
-
-  const railIndices: number[] = []
-  let launchedTickets = 0
-  let failure: { reason: 'rail-create-failed' | 'assign-failed' | 'launch-failed'; detail?: string } | null = null
-
-  for (const [chunkIndex, chunk] of chunks.entries()) {
-    const result = await launchMilestoneChunk(projectId, milestone, chunk, chunkIndex, chunks.length, fetchImpl)
-    if (!result.ok) {
-      failure = { reason: result.reason, detail: result.detail }
-      break
-    }
-    railIndices.push(result.railIndex)
-    launchedTickets += chunk.length
+  const opts: MilestoneLaunchOptions = typeof options === 'function' ? { fetchImpl: options } : options
+  const fetchImpl = opts.fetchImpl ?? fetch
+  const autoAdvance = opts.autoAdvance ?? readMilestoneAutoAdvance()
+  let res: Response
+  try {
+    res = await fetchImpl(`/api/projects/${projectId}/blueprint/milestones/${milestone}/launch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode, autoAdvance }),
+    })
+  } catch (err) {
+    return { ok: false, reason: 'network', error: 'network', detail: err instanceof Error ? err.message : String(err) }
   }
-
-  if (railIndices.length === 0 && failure) return { ok: false, ...failure }
-
+  const body = await readBody(res)
+  if (!res.ok) {
+    const error = typeof body.error === 'string' ? body.error : `http_${res.status}`
+    return {
+      ok: false,
+      reason: failureReason(res.status, error),
+      error,
+      ...(typeof body.detail === 'string' ? { detail: body.detail } : {}),
+      ...(typeof body.chainId === 'string' ? { chainId: body.chainId } : {}),
+    }
+  }
+  const launched = Array.isArray(body.launched)
+    ? body.launched.filter((l): l is MilestoneChainLaunched => Boolean(l) && typeof l === 'object' && typeof (l as MilestoneChainLaunched).chunk === 'number')
+    : []
+  const pending = Array.isArray(body.pending) ? body.pending.filter((c): c is number[] => Array.isArray(c)) : []
   return {
     ok: true,
-    railIndices,
-    ticketCount: launchedTickets,
-    skippedCount: ticketIds.length - launchedTickets,
+    chainId: typeof body.chainId === 'string' ? body.chainId : null,
+    launched,
+    pending,
+    ticketCount: launched.reduce((n, l) => n + (Array.isArray(l.ticketIds) ? l.ticketIds.length : 0), 0),
+    skippedCount: pending.reduce((n, c) => n + c.length, 0),
   }
+}
+
+export type ChainControlResult =
+  | { ok: true; chain: MilestoneChainSnapshot | null }
+  | { ok: false; error: string; detail?: string }
+
+async function controlChain(projectId: string, chainId: string, verb: 'resume' | 'cancel', fetchImpl: typeof fetch): Promise<ChainControlResult> {
+  let res: Response
+  try {
+    res = await fetchImpl(`/api/projects/${projectId}/blueprint/chains/${chainId}/${verb}`, { method: 'POST' })
+  } catch (err) {
+    return { ok: false, error: 'network', detail: err instanceof Error ? err.message : String(err) }
+  }
+  const body = await readBody(res)
+  if (!res.ok) {
+    return { ok: false, error: typeof body.error === 'string' ? body.error : `http_${res.status}`, ...(typeof body.detail === 'string' ? { detail: body.detail } : {}) }
+  }
+  return { ok: true, chain: coerceChain(body.chain) }
+}
+
+export function resumeChain(projectId: string, chainId: string, fetchImpl: typeof fetch = fetch): Promise<ChainControlResult> {
+  return controlChain(projectId, chainId, 'resume', fetchImpl)
+}
+
+export function cancelChain(projectId: string, chainId: string, fetchImpl: typeof fetch = fetch): Promise<ChainControlResult> {
+  return controlChain(projectId, chainId, 'cancel', fetchImpl)
+}
+
+/** Flip auto-continue on a live chain; turning it on at a checkpoint launches
+ *  the next rail immediately (the server resumes). */
+export async function setChainAutoAdvance(projectId: string, chainId: string, autoAdvance: boolean, fetchImpl: typeof fetch = fetch): Promise<ChainControlResult> {
+  let res: Response
+  try {
+    res = await fetchImpl(`/api/projects/${projectId}/blueprint/chains/${chainId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ autoAdvance }),
+    })
+  } catch (err) {
+    return { ok: false, error: 'network', detail: err instanceof Error ? err.message : String(err) }
+  }
+  const body = await readBody(res)
+  if (!res.ok) {
+    return { ok: false, error: typeof body.error === 'string' ? body.error : `http_${res.status}`, ...(typeof body.detail === 'string' ? { detail: body.detail } : {}) }
+  }
+  return { ok: true, chain: coerceChain(body.chain) }
 }

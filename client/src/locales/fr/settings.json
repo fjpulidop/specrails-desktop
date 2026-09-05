@@ -71,7 +71,8 @@
       "projects": "Projets",
       "advanced": "Avancé",
       "webhooks": "Webhooks",
-      "about": "À propos"
+      "about": "À propos",
+      "effects": "Effets"
     },
     "title": "Paramètres de Desktop",
     "description": "Gérez les projets enregistrés et consultez les informations de Desktop.",
@@ -305,5 +306,16 @@
       "sr-developer": "Développeur",
       "sr-reviewer": "Réviseur"
     }
+  },
+  "effects": {
+    "heading": "Effets",
+    "description": "Touches visuelles de l'app. Chacune peut être désactivée ici.",
+    "thinkingHalo": {
+      "label": "Halo de réflexion sur le composeur de l'agent",
+      "description": "Pendant que l'agent réfléchit ou écrit, l'anneau orbital du Constructeur brille autour du composeur : il apparaît en fondu au début du tour et s'estompe quand la réponse se termine."
+    },
+    "reducedMotion": "Respecte le réglage système de réduction des animations : l'anneau reste une lueur statique.",
+    "preview": "Aperçu",
+    "previewThinking": "Réflexion…"
   }
 }

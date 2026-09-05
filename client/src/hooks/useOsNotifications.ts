@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useSharedWebSocket } from './useSharedWebSocket'
 import i18n from '../lib/i18n'
 
@@ -78,14 +79,29 @@ export function useOsNotifications({
   const handleMessage = useCallback((data: unknown) => {
     const msg = data as {
       type?: string; projectId?: string; jobs?: WsJob[]
-      jobId?: string; staleMs?: number
+      jobId?: string; staleMs?: number; actions?: unknown
+      runId?: unknown; provider?: unknown; resetsAt?: unknown; message?: unknown
     }
     if (!msg) return
     // A commissioned run that stopped moving. The server fires this at most once
     // per stall episode, so no client-side dedup is needed. Treated as a
     // 'failed'-flavoured alert for filtering: it is bad news about a run.
     if (msg.type === 'job.stuck' && typeof msg.jobId === 'string') {
-      fireStuckNotification(msg.jobId, msg.projectId ?? null, msg.staleMs ?? 0)
+      const actions = Array.isArray(msg.actions) ? msg.actions.filter((a): a is 'stop' => a === 'stop') : []
+      fireStuckNotification(msg.jobId, msg.projectId ?? null, msg.staleMs ?? 0, actions)
+      return
+    }
+    // The provider answered a loop step with a usage/rate-limit notice: the run
+    // stopped at once (no cycling). Say so with the provider's reset hint —
+    // the one fact the user needs to decide when to relaunch.
+    if (msg.type === 'loop.provider_limit' && typeof msg.runId === 'string') {
+      fireProviderLimitNotification(
+        msg.runId,
+        msg.projectId ?? null,
+        typeof msg.provider === 'string' ? msg.provider : '',
+        typeof msg.resetsAt === 'string' && msg.resetsAt ? msg.resetsAt : null,
+        typeof msg.message === 'string' ? msg.message : '',
+      )
       return
     }
     if (msg.type !== 'queue' || !Array.isArray(msg.jobs)) return
@@ -107,21 +123,73 @@ export function useOsNotifications({
     }
   }, [])
 
+  function fireProviderLimitNotification(
+    runId: string,
+    projectId: string | null,
+    provider: string,
+    resetsAt: string | null,
+    message: string,
+  ): void {
+    const prefs = getOsNotificationPrefs()
+    if (!prefs.enabled) return
+    if (prefs.filter === 'completed') return
+    const projectName = projectId ? (projectsByIdRef.current?.get(projectId) ?? '') : ''
+    const providerName = provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : 'AI'
+    const body = resetsAt
+      ? i18n.t('commands:notifications.providerLimitBody', { provider: providerName, resetsAt })
+      : i18n.t('commands:notifications.providerLimitBodyNoReset', { provider: providerName })
+    const title = i18n.t('commands:notifications.providerLimit')
+    toast.error(title, {
+      id: `provider-limit:${runId}`,
+      description: `${projectName ? `[${projectName}] ` : ''}${body}${message ? ` · ${message}` : ''}`,
+      duration: 60_000,
+    })
+    if (typeof Notification === 'undefined') return
+    const show = (): void => {
+      const n = new Notification(title, { body: projectName ? `[${projectName}] ${body}` : body, tag: `specrails-provider-limit:${runId}` })
+      n.onclick = () => { window.focus(); n.close() }
+    }
+    if (Notification.permission === 'granted') show()
+  }
+
   /**
    * Plain-language stall alert. Unlike completion notifications this fires even
    * with the tab focused: a user watching a wedged run cannot tell it wedged,
    * which is the entire reason the signal exists.
    */
-  function fireStuckNotification(jobId: string, projectId: string | null, staleMs: number): void {
-    if (typeof Notification === 'undefined') return
+  function fireStuckNotification(
+    jobId: string,
+    projectId: string | null,
+    staleMs: number,
+    actions: Array<'stop'> = [],
+  ): void {
     const prefs = getOsNotificationPrefs()
     if (!prefs.enabled) return
     if (prefs.filter === 'completed') return
 
+    const minutes = Math.max(1, Math.round(staleMs / 60_000))
+    const projectName = projectId ? (projectsByIdRef.current?.get(projectId) ?? '') : ''
+    const body = i18n.t('commands:notifications.jobStuckBody', { count: minutes })
+
+    // Actionable in-app alert (loop-step-idle): the server advertises `stop`
+    // when the existing cancel route can end the run — offer it right on the
+    // toast so a wedged run is one click from settled. Independent of OS
+    // notification permission (an in-app surface, not a system one).
+    if (projectId && actions.includes('stop')) {
+      toast.warning(i18n.t('commands:notifications.jobStuck'), {
+        id: `job-stuck:${jobId}`,
+        description: projectName ? `[${projectName}] ${body}` : body,
+        duration: 20_000,
+        action: {
+          label: i18n.t('commands:notifications.jobStuckStop'),
+          onClick: () => { void stopStuckRun(projectId, jobId) },
+        },
+      })
+    }
+
+    if (typeof Notification === 'undefined') return
+
     function show(): void {
-      const minutes = Math.max(1, Math.round(staleMs / 60_000))
-      const projectName = projectId ? (projectsByIdRef.current?.get(projectId) ?? '') : ''
-      const body = i18n.t('commands:notifications.jobStuckBody', { count: minutes })
       const notification = new Notification(i18n.t('commands:notifications.jobStuck'), {
         body: projectName ? `[${projectName}] ${body}` : body,
         tag: `specrails-job-stuck:${jobId}`,
@@ -141,6 +209,18 @@ export function useOsNotifications({
     if (Notification.permission === 'granted') show()
     else if (Notification.permission === 'default') {
       void Notification.requestPermission().then((perm) => { if (perm === 'granted') show() })
+    }
+  }
+
+  /** "Stop run" from the stuck toast → the EXISTING cancel route (loop runs
+   *  route through it to LoopRunManager.cancel; no new endpoint). */
+  async function stopStuckRun(projectId: string, jobId: string): Promise<void> {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/jobs/${jobId}/cancel`, { method: 'POST' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      toast.success(i18n.t('commands:notifications.jobStuckStopped'), { id: `job-stuck:${jobId}` })
+    } catch {
+      toast.error(i18n.t('commands:notifications.jobStuckStopFailed'), { id: `job-stuck:${jobId}` })
     }
   }
 

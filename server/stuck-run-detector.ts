@@ -147,6 +147,7 @@ export class StuckRunDetector {
         jobId: candidate.runId,
         stepKey: candidate.stepKey,
         staleMs: candidate.staleMs,
+        actions: ['stop'],
         timestamp: new Date(this.io.now?.() ?? Date.now()).toISOString(),
       }
       try {

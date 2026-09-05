@@ -6,6 +6,7 @@ import {
   deriveDimensions,
   describeStreamingSnapshot,
   parseBlueprintDraftBlocks,
+  promoteJsonBlueprintFences,
   type Blueprint,
 } from '../blueprint-draft'
 
@@ -174,5 +175,34 @@ describe('rejection diagnostics + tolerant repair (harden-project-builder-snapsh
     expect(describeStreamingSnapshot('Generating…\n```blueprint-draft\n{"m1Specs":[{"title":"a"},{"title":"b"}')).toEqual({ generating: true, specsStarted: 2 })
     expect(describeStreamingSnapshot('```blueprint-draft\n{"blueprintVersion":1}\n```\ndone')).toEqual({ generating: false, specsStarted: 0 })
     expect(countStartedSpecs('{"product":{"title":"x"},"m1Specs":[{"title":"a"}')).toBe(1)
+  })
+})
+
+describe('fence tolerance: json / bare fenced snapshots (mirror)', () => {
+  const body = JSON.stringify(snapshot({ product: { name: 'Neon Breaker', pitch: 'p', audience: 'a' } }), null, 2)
+
+  it('accepts a ```json fence carrying blueprintVersion and strips it from the transcript', () => {
+    const r = parseBlueprintDraftBlocks('¿Aprobamos?\n\n```json\n' + body + '\n```\n')
+    expect(r.hadBlocks).toBe(true)
+    expect(r.blueprint?.product.name).toBe('Neon Breaker')
+    expect(r.stripped.trim()).toBe('¿Aprobamos?')
+    expect(parseBlueprintDraftBlocks('```\n' + body + '\n```').blueprint?.product.name).toBe('Neon Breaker')
+  })
+
+  it('leaves ordinary json fences and invalid payloads alone', () => {
+    const plain = 'Config:\n```json\n{ "port": 4200 }\n```'
+    expect(parseBlueprintDraftBlocks(plain).hadBlocks).toBe(false)
+    expect(promoteJsonBlueprintFences(plain)).toBe(plain)
+    const bad = '```json\n{ "blueprintVersion": "one" }\n```'
+    expect(promoteJsonBlueprintFences(bad)).toBe(bad)
+  })
+
+  it('an OPEN json snapshot fence is hidden from the live stream and counted as generating', () => {
+    const open = 'Here:\n```json\n{\n  "blueprintVersion": 1,\n  "m1Specs": [ { "title": "a" }, { "title": "b" }'
+    expect(cutUnterminatedBlock(open)).toBe('Here:\n')
+    expect(describeStreamingSnapshot(open)).toEqual({ generating: true, specsStarted: 2 })
+    expect(parseBlueprintDraftBlocks(open).truncated).toBe(true)
+    expect(cutUnterminatedBlock('```json\n{ "port": 1 }\n```\ntail')).toBe('```json\n{ "port": 1 }\n```\ntail')
+    expect(describeStreamingSnapshot('```json\n{ "port": 1 }')).toEqual({ generating: false, specsStarted: 0 })
   })
 })

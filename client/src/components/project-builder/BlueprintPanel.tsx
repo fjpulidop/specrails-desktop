@@ -157,13 +157,32 @@ export function BlueprintPanel({ blueprint, milestoneLabel = 'M1', snapshot }: B
                       >
                         {tTickets(`priority.${spec.priority}`)}
                       </span>
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-surface/70 px-1.5 py-px text-[9px] text-muted-foreground"
-                        data-testid={`m1-spec-criteria-count-${i}`}
-                      >
-                        <ListChecks className="h-2.5 w-2.5" aria-hidden />
-                        {t('panel.criteriaCount', { count: spec.acceptanceCriteria.length })}
-                      </span>
+                      {!spec.description.trim() && spec.acceptanceCriteria.length === 0 ? (
+                        // Outline entry: the batched generation has not written this
+                        // spec yet — never "0 acceptance criteria" (that reads as a defect).
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[9px]',
+                            snapshot?.status === 'generating'
+                              ? 'border-accent-info/35 bg-accent-info/10 text-accent-info'
+                              : 'border-border/50 bg-surface/70 text-muted-foreground',
+                          )}
+                          data-testid={`m1-spec-unwritten-${i}`}
+                        >
+                          {snapshot?.status === 'generating'
+                            ? <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden />
+                            : <ListChecks className="h-2.5 w-2.5" aria-hidden />}
+                          {t(snapshot?.status === 'generating' ? 'panel.specWriting' : 'panel.specPendingBody')}
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-surface/70 px-1.5 py-px text-[9px] text-muted-foreground"
+                          data-testid={`m1-spec-criteria-count-${i}`}
+                        >
+                          <ListChecks className="h-2.5 w-2.5" aria-hidden />
+                          {t('panel.criteriaCount', { count: spec.acceptanceCriteria.length })}
+                        </span>
+                      )}
                       {spec.labels.map((label) => (
                         <span key={label} className="rounded bg-accent-primary/10 px-1.5 py-px text-[9px] text-accent-primary">
                           {label}

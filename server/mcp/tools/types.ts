@@ -6,7 +6,7 @@ import type { DbInstance } from '../../db'
 import type { WsMessage } from '../../types'
 import type { MobileEventBus } from '../../mobile/mobile-event-bus'
 import { isTierEnabled, tierRefusalMessage, type McpTier } from '../mcp-tiers'
-import { loadOrGenerateToken } from '../../auth'
+import { createInternalApi } from '../../internal-api'
 import { AGENT_CAPABILITY_HEADER, levelAllowsTier } from '../../agent-tier'
 import { getAgentConversation } from '../../agent-store'
 import { verifyAgentCapability } from '../agent-capability'
@@ -62,27 +62,15 @@ export async function apiCall(
   path: string,
   body?: unknown,
 ): Promise<unknown> {
-  const url = `http://127.0.0.1:${ctx.desktopPort}/api${path}`
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${loadOrGenerateToken()}`,
-      ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
-  const text = await res.text()
-  let data: unknown
-  try {
-    data = text ? JSON.parse(text) : null
-  } catch {
-    data = text
-  }
+  // Shared loopback client (server/internal-api.ts) — also drives the milestone
+  // launch chain's chunk launches, so both stay byte-identical to a dashboard call.
+  const res = await createInternalApi({ port: ctx.desktopPort }).call(method, path, body)
   if (!res.ok) {
+    const data = res.body
     const detail = typeof data === 'object' && data !== null ? JSON.stringify(data) : String(data)
     throw new Error(`API ${method} ${path} → ${res.status}: ${detail}`)
   }
-  return data
+  return res.body
 }
 
 /** Convenience: build the `/projects/<id>` path prefix for a resolved project. */

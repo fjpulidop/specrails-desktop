@@ -21,7 +21,10 @@
       "verify": "checking it works",
       "decide": "deciding whether it's done",
       "fix": "fixing what failed"
-    }
+    },
+    "stalled": "Step {{step}} stalled — no activity for {{idleMinutes}} min, so the app stopped it",
+    "startResume": "Step {{step}}: {{title}} — resuming after a stall",
+    "providerLimit": "Step {{step}} stopped — the provider's usage limit was reached"
   },
   "decision": {
     "another": "Not done yet — going round again",

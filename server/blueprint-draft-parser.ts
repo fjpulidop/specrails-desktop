@@ -61,9 +61,43 @@ export interface BlueprintParseResult {
 
 const FENCE_RE = /```blueprint-draft\s*\n([\s\S]*?)\n\s*```/g
 const OPEN_FENCE_RE = /```blueprint-draft(?![\s\S]*?\n\s*```)/
+// Fence tolerance: models mirror the schema example and sometimes emit the
+// snapshot inside a ```json (or bare) fence. A closed json/bare block whose
+// body is a `{…}` object carrying an integer `blueprintVersion` IS a snapshot
+// — it is promoted to a blueprint-draft fence before parsing so the panel
+// fills and the raw JSON never lands in the transcript. Never applied inside
+// a proper blueprint-draft block (the nested-json case is handled there).
+const JSON_BLUEPRINT_FENCE_RE = /```(?:json|JSON)?[ \t]*\r?\n(?=[ \t]*\{)([\s\S]*?)\r?\n[ \t]*```(?=[ \t]*(?:\r?\n|$))/g
+const OPEN_JSON_BLUEPRINT_FENCE_RE = /```(?:json|JSON)?[ \t]*\r?\n[ \t]*\{(?=[\s\S]*"blueprintVersion")(?![\s\S]*?\n[ \t]*```)/
 /** A lone closing fence right after a matched block — left behind when the
  *  model nested a ```json fence inside the blueprint-draft one. */
 const ORPHAN_CLOSE_RE = /^[ \t]*\r?\n?[ \t]*```[ \t]*(?=\r?\n|$)/
+
+/** Promote json / bare fenced blueprint objects to blueprint-draft fences
+ *  (outside proper blueprint-draft blocks). Exported for the client mirror
+ *  tests' parity checks. */
+export function promoteJsonBlueprintFences(text: string): string {
+  if (!text || !text.includes('"blueprintVersion"')) return text ?? ''
+  const promoteGap = (gap: string): string => {
+    if (!gap.includes('```') || !gap.includes('"blueprintVersion"')) return gap
+    JSON_BLUEPRINT_FENCE_RE.lastIndex = 0
+    return gap.replace(JSON_BLUEPRINT_FENCE_RE, (whole, body: string) => {
+      if (!body.includes('"blueprintVersion"')) return whole
+      const parsed = parseJsonTolerant(body)
+      if (!parsed.ok || !coerceBlueprint(parsed.value)) return whole
+      return '```blueprint-draft\n' + body + '\n```'
+    })
+  }
+  let out = ''
+  let cursor = 0
+  FENCE_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = FENCE_RE.exec(text)) !== null) {
+    out += promoteGap(text.slice(cursor, m.index)) + m[0]
+    cursor = m.index + m[0].length
+  }
+  return out + promoteGap(text.slice(cursor))
+}
 
 /** Rough count of specs that had started in a (possibly truncated) block. */
 export function countStartedSpecs(blockText: string): number {
@@ -174,8 +208,9 @@ export function coerceBlueprint(parsed: unknown): Blueprint | null {
  * every block (valid or malformed) stripped, plus the LAST valid snapshot.
  * Never throws.
  */
-export function parseBlueprintDraftBlocks(text: string): BlueprintParseResult {
-  if (!text || !text.includes('```blueprint-draft')) {
+export function parseBlueprintDraftBlocks(input: string): BlueprintParseResult {
+  const text = promoteJsonBlueprintFences(input ?? '')
+  if (!text || (!text.includes('```blueprint-draft') && !OPEN_JSON_BLUEPRINT_FENCE_RE.test(text))) {
     return {
       stripped: text ?? '',
       blueprint: null,
@@ -228,7 +263,7 @@ export function parseBlueprintDraftBlocks(text: string): BlueprintParseResult {
     repaired = parsed.repaired
   }
   const remainder = text.slice(cursor)
-  const open = OPEN_FENCE_RE.exec(remainder)
+  const open = OPEN_FENCE_RE.exec(remainder) ?? OPEN_JSON_BLUEPRINT_FENCE_RE.exec(remainder)
   let truncated = false
   if (open) {
     // The reply ended inside a block: the output limit cut it off. Never let
@@ -258,8 +293,8 @@ export function parseBlueprintDraftBlocks(text: string): BlueprintParseResult {
  * parser on the settled text instead.
  */
 export function cutUnterminatedBlock(text: string): string {
-  if (!text || !text.includes('```blueprint-draft')) return text ?? ''
-  const match = OPEN_FENCE_RE.exec(text)
+  if (!text) return ''
+  const match = (text.includes('```blueprint-draft') ? OPEN_FENCE_RE.exec(text) : null) ?? OPEN_JSON_BLUEPRINT_FENCE_RE.exec(text)
   if (!match) return text
   return text.slice(0, match.index)
 }

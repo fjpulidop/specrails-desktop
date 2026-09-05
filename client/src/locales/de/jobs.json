@@ -144,7 +144,7 @@
     "pipelinePartialTooltip": "Einige Phasen wurden beendet, bevor ihre Kosten gemeldet wurden – dieser Gesamtwert ist eine Untergrenze.",
     "pipelineCostUnavailable": "Die Kostentelemetrie ist für alle Phasen nicht verfügbar.",
     "pipelineUsageUnavailable": "Die Token-Telemetrie ist für alle Phasen nicht verfügbar.",
-  "pipelineUsagePartial": "≥ angezeigt — Phasen ohne Token-Telemetrie: {{count}}",
+    "pipelineUsagePartial": "≥ angezeigt — Phasen ohne Token-Telemetrie: {{count}}",
     "pipelineUsageTooltip": "Anbieter können Phasen abschließen, ohne Token-Telemetrie bereitzustellen; enthalten ist nur die bekannte Nutzung."
   },
   "ticketHeader": {
@@ -270,7 +270,12 @@
     "copyCommand": "Kopieren",
     "interrupted": "Unterbrochen",
     "waiting": "Warte auf den nächsten Schritt…",
-    "stepMapAria": "Loop-Schrittübersicht"
+    "stepMapAria": "Loop-Schrittübersicht",
+    "stalled": "Hängt",
+    "stalledIdle_one": "{{count}} Minute ohne Provider-Ausgabe – die App hat diesen Versuch beendet",
+    "stalledIdle_other": "{{count}} Minuten ohne Provider-Ausgabe – die App hat diesen Versuch beendet",
+    "providerLimit": "Anbieter-Limit",
+    "providerLimitHint": "Der Anbieter antwortete mit einem Nutzungslimit-Hinweis; die App hat den Lauf gestoppt statt weiterzudrehen."
   },
   "logViewer": {
     "loading": "Logs werden geladen…",

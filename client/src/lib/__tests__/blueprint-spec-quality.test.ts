@@ -1,24 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { premiumSpec } from './premium-spec-fixture'
 import { analyzeBlueprintSpecQuality } from '../blueprint-spec-quality'
 import { parseBlueprintDraftBlocks, type Blueprint, type BlueprintM1Spec } from '../blueprint-draft'
 
 function spec(index: number): BlueprintM1Spec {
-  return {
-    kind: index === 0 ? 'scaffold' : 'feature',
-    title: `Deliver slice ${index}`,
-    shortSummary: `Deliver a complete testable slice ${index}.`,
-    description: [
-      '## Problem Statement', `Users need slice ${index} to complete their workflow.${index === 0 ? ' The repository already contains a README.' : ''}`,
-      '', '## Proposed Solution', 'Build the complete behavior with explicit boundaries and persisted state.',
-      '', '## Out of Scope', '- Collaboration', '- Advanced analytics',
-      '', '## Technical Considerations', '- Model loading and failure states', '- Automated behavior coverage',
-      '', '## Estimated Complexity', 'Medium — the slice crosses several layers.',
-    ].join('\n'),
-    acceptanceCriteria: ['The happy path completes successfully.', 'Invalid input is rejected clearly.', 'Empty state is rendered deliberately.', 'Automated tests cover failures.'],
-    priority: 'medium',
-    labels: ['M1', 'workflow'],
-    ...(index > 0 ? { dependsOnIndex: index - 1 } : {}),
-  }
+  return premiumSpec(index, { title: `Deliver slice ${index}`, labels: ['M1', 'workflow'] })
 }
 
 function blueprint(): Pick<Blueprint, 'specsComplete' | 'm1Specs'> {

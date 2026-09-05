@@ -265,14 +265,20 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
       }
       steps.set(index, info)
       currentStep = index
+      // `attempt: 2` = the engine's single automatic resume after an idle stall
+      // (structural — the previous attempt closed with a `stalled` end event).
+      const attempt = asNumber(payload.attempt)
       milestones.push({
         seq: event.seq,
         kind: 'step-start',
-        code: info.iteration && info.iteration > 1 ? 'step.startRetry' : 'step.start',
+        code: attempt !== null && attempt > 1
+          ? 'step.startResume'
+          : info.iteration && info.iteration > 1 ? 'step.startRetry' : 'step.start',
         values: {
           step: index,
           title: info.title,
           iteration: info.iteration ?? 1,
+          ...(attempt !== null && attempt > 1 ? { attempt } : {}),
           ...(info.roleCode ? { roleCode: info.roleCode } : {}),
         },
         stepIndex: index,
@@ -290,21 +296,33 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
       const status = asString(payload.status)
       const durationMs = asNumber(payload.durationMs)
       const exitCode = asNumber(payload.exitCode)
-      const failed = status === 'failed'
+      const idleMs = asNumber(payload.idleMs)
+      // `stalled` is structural too: the server's idle watchdog ended the step
+      // because the provider went silent — stated as such, never as a guess.
+      const stalled = status === 'stalled'
+      const failed = status === 'failed' || stalled
+      // A provider usage/rate limit is structural too (the CLI's own notice,
+      // flagged by the server) — say exactly that, never a vague "failed".
+      const providerLimit = status === 'failed' && asString(payload.reason) === 'provider_limit'
       milestones.push({
         seq: event.seq,
         kind: 'step-end',
-        code: failed
-          ? 'step.failed'
-          : durationMs === null
-            ? 'step.done'
-            // Past a minute and a half, minutes are what a human reads.
-            : durationMs >= 90_000 ? 'step.doneTimedMin' : 'step.doneTimed',
+        code: stalled
+          ? 'step.stalled'
+          : providerLimit
+            ? 'step.providerLimit'
+          : failed
+            ? 'step.failed'
+            : durationMs === null
+              ? 'step.done'
+              // Past a minute and a half, minutes are what a human reads.
+              : durationMs >= 90_000 ? 'step.doneTimedMin' : 'step.doneTimed',
         values: {
           step: index,
           title: info?.title ?? '',
           seconds: durationMs === null ? 0 : Math.max(1, Math.round(durationMs / 1000)),
           minutes: durationMs === null ? 0 : Math.max(1, Math.round(durationMs / 60_000)),
+          ...(stalled ? { idleMinutes: idleMs === null ? 0 : Math.max(1, Math.round(idleMs / 60_000)) } : {}),
           ...(info?.roleCode ? { roleCode: info.roleCode } : {}),
           ...(exitCode !== null ? { exitCode } : {}),
         },

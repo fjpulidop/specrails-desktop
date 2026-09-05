@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getGlobalRouteModeTransition, loopBuilderIdForPath, modalSurfaceForPath } from '../global-route-mode-transition'
+import { getGlobalRouteModeTransition, loopBuilderIdForPath, modalSurfaceForPath, reviewDeliveryIdForPath } from '../global-route-mode-transition'
 
 describe('global route mode transitions', () => {
   it('maps Loops and Plugins routes to mission modal surfaces', () => {
@@ -66,6 +66,20 @@ describe('global route mode transitions', () => {
       loopsOpen: false,
       pluginsOpen: false,
     })).toEqual({ kind: 'modalize', surface: 'loops', backgroundPath: '/' })
+  })
+
+  it('mission mode modalizes the review packet route with its delivery id and never resets the mission', () => {
+    expect(modalSurfaceForPath('/review/abc-123')).toBe('review')
+    expect(reviewDeliveryIdForPath('/review/abc-123')).toBe('abc-123')
+    expect(reviewDeliveryIdForPath('/review')).toBeNull()
+    expect(getGlobalRouteModeTransition({ uiMode: 'agent', pathname: '/review/abc-123', loopsOpen: false, pluginsOpen: false })).toEqual({
+      kind: 'modalize', surface: 'review', backgroundPath: '/', reviewDeliveryId: 'abc-123',
+    })
+    // Back to Board mode with the review modal open → the routed page.
+    expect(getGlobalRouteModeTransition({ uiMode: 'kanban', pathname: '/', loopsOpen: false, pluginsOpen: false, reviewOpen: 'abc-123' })).toEqual({
+      kind: 'route', surface: 'review', path: '/review/abc-123',
+    })
+    expect(getGlobalRouteModeTransition({ uiMode: 'kanban', pathname: '/review/abc-123', loopsOpen: false, pluginsOpen: false })).toBeNull()
   })
 
   it('does not transform unrelated routes or normal Board global pages', () => {
