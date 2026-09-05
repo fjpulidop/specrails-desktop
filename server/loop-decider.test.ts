@@ -49,6 +49,23 @@ describe('decider prompts', () => {
     expect(p.length).toBeLessThan(3000)
   })
 
+  it('judges every spec in a batch, retaining later tickets after a long first description', () => {
+    const p = buildDeciderUserPrompt({
+      goal: 'all complete', history: [],
+      spec: { tickets: [
+        { id: 1, title: 'API', description: 'x'.repeat(5000) + 'API acceptance criteria' },
+        { id: 2, title: 'UI', description: 'Show the new data' },
+        { id: 3, title: 'Tests', description: 'Add regression coverage' },
+      ] },
+    })
+    expect(p).toContain('every listed spec must be complete')
+    expect(p).toContain('API acceptance criteria')
+    expect(p).toContain('Spec #2: UI')
+    expect(p).toContain('Show the new data')
+    expect(p).toContain('Spec #3: Tests')
+    expect(p).toContain('Add regression coverage')
+  })
+
   it('exposes a prompt version', () => {
     expect(DECIDER_PROMPT_VERSION).toBe(3)
   })

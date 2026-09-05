@@ -1,7 +1,8 @@
 import { z } from 'zod'
+import path from 'node:path'
 import type { ProjectRow } from '../../desktop-db'
 import type { McpToolSpec } from './types'
-import { requireProject } from './types'
+import { getActiveProject } from './types'
 
 export function serializeProject(p: ProjectRow): Record<string, unknown> {
   return {
@@ -35,19 +36,24 @@ export function projectsTools(): McpToolSpec[] {
         const action = args.action as string
         switch (action) {
           case 'list':
-            return ctx.registry.listContexts().map((c) => serializeProject(c.project))
-          case 'get':
-            return serializeProject(requireProject(ctx, args.projectId as string | undefined).project)
+            return ctx.registry.listProjects().map((p) => ({ ...serializeProject(p), available: !!ctx.registry.getContext(p.id) }))
+          case 'get': {
+            const id = (args.projectId as string | undefined) ?? getActiveProject(ctx)
+            if (!id) throw new Error('No project selected. Provide projectId or use specrails_select_project.')
+            const p = ctx.registry.getProjectRow(id)
+            if (!p) throw new Error(`Unknown projectId "${id}".`)
+            return { ...serializeProject(p), available: !!ctx.registry.getContext(id) }
+          }
           case 'resolve': {
             const p = args.path as string | undefined
             if (!p) throw new Error('resolve requires a "path".')
-            const pc = ctx.registry.getContextByPath(p)
-            return pc ? serializeProject(pc.project) : { resolved: false }
+            const project = ctx.registry.listProjects().find(row => path.resolve(row.path) === path.resolve(p))
+            return project ? { ...serializeProject(project), available: !!ctx.registry.getContext(project.id) } : { resolved: false }
           }
           case 'unregister': {
             const id = args.projectId as string | undefined
             if (!id) throw new Error('unregister requires a "projectId".')
-            if (!ctx.registry.getContext(id)) throw new Error(`Unknown projectId "${id}".`)
+            if (!ctx.registry.getProjectRow(id)) throw new Error(`Unknown projectId "${id}".`)
             ctx.registry.removeProject(id)
             return { ok: true, unregistered: id }
           }

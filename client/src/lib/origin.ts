@@ -10,7 +10,7 @@
  */
 export const API_ORIGIN = (() => {
   if (typeof window === 'undefined') return ''
-  if ('__TAURI_INTERNALS__' in window) return 'http://localhost:4200'
+  if ('__TAURI_INTERNALS__' in window || window.location.hostname === 'tauri.localhost') return 'http://localhost:4200'
   const proto = window.location.protocol
   if (proto !== 'http:' && proto !== 'https:') return 'http://localhost:4200'
   return ''

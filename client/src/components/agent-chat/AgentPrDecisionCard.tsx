@@ -20,7 +20,7 @@ import {
   type AgentPrDecisionAction,
   type AgentPrDecisionEnvelope,
 } from '../../lib/agent-api'
-import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode } from '../../lib/pr-delivery'
+import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode, prDeliveryCheckoutBranch } from '../../lib/pr-delivery'
 import { cancelJob } from '../../lib/cancel-job'
 import { isTauri, revealItemInDir } from '../../lib/tauri-shell'
 import { useAgentChat } from '../../context/AgentChatContext'
@@ -30,6 +30,7 @@ import {
 import { Button } from '../ui/button'
 import { AgentRefChip } from './AgentRefChip'
 import { notifyGitChanged } from '../../lib/git-refresh'
+import { forceProjectRoute } from '../../lib/route-memory'
 
 // Only loads when a run-log chip is actually clicked — keeps the card chunk
 // free of the log-explorer stack (same pattern as AgentConversationView's
@@ -130,13 +131,23 @@ function OutcomeEvidence({ envelope }: { envelope: AgentPrDecisionEnvelope }) {
 
 /** Route entry into the plain-language review packet. Split out so the parent
  *  card can stay renderable without a Router (see inRouterContext there). */
-function ReviewPacketEntry({ prDeliveryId }: { prDeliveryId: string }) {
+function ReviewPacketEntry({ prDeliveryId, projectId }: { prDeliveryId: string; projectId: string }) {
   const { t } = useTranslation('agent')
   const navigate = useNavigate()
+  const { activeProjectId, setActiveProjectId } = useDesktop()
   return (
     <button
       type="button"
-      onClick={() => navigate(`/review/${prDeliveryId}`)}
+      onClick={() => {
+        const route = `/review/${prDeliveryId}`
+        // Review packets use the active project's API. Pin route memory before
+        // switching so the app cannot restore a different page over this one.
+        if (activeProjectId !== projectId) {
+          forceProjectRoute(projectId, route)
+          setActiveProjectId(projectId)
+        }
+        navigate(route)
+      }}
       data-testid="agent-pr-open-packet"
       data-agent-interactive
       title={t('prCard.openReviewTooltip')}
@@ -394,7 +405,10 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
     try {
       const r = await postRailPrCheckout(envelope.projectId, envelope.prDeliveryId)
       if (r.kind === 'ok') {
-        toast.success(t('prCard.checkoutSuccess', { branch: envelope.branch ?? '' }))
+        toast.success(t('prCard.checkoutSuccess', { branch: r.branch ?? prDeliveryCheckoutBranch(envelope) ?? '' }))
+        if (r.cleanupWarnings.length > 0) {
+          toast.warning(t('prCard.cleanupIncomplete', { count: r.cleanupWarnings.length }), { description: r.cleanupWarnings.join('\n') })
+        }
         // The main checkout just moved to the PR branch — git-state surfaces
         // (AgentGitBar branch strip) must reflect it immediately.
         notifyGitChanged(envelope.projectId)
@@ -639,17 +653,18 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
   // The card keeps its precise git actions; this offers the readable surface to
   // whoever would rather judge the work than the plumbing.
   const reviewPacketAction = FEATURE_REVIEW_PACKET && inRouterContext && !presentation.terminal
-    ? <ReviewPacketEntry prDeliveryId={envelope.prDeliveryId} />
+    ? <ReviewPacketEntry prDeliveryId={envelope.prDeliveryId} projectId={envelope.projectId} />
     : null
 
-  const checkoutAction = prUrl && envelope.branch && envelope.deliverySha && !presentation.deliveryBlocked && (
+  const checkoutBranch = prDeliveryCheckoutBranch(envelope)
+  const checkoutAction = checkoutBranch && (
     <button
       type="button"
       onClick={() => void checkoutPrBranch()}
       disabled={anyBusy}
       data-testid="agent-pr-checkout"
       data-agent-interactive
-      title={t('prCard.checkoutTooltip', { branch: envelope.branch })}
+      title={t('prCard.checkoutTooltip', { branch: checkoutBranch })}
       className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-1 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:pointer-events-none disabled:opacity-50"
     >
       {checkingOut ? spinner : <GitBranch className="h-3 w-3" />}
@@ -957,6 +972,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           )}
           {!terminal && presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
+              {checkoutAction}
               {primaryAction('create-pr', t('prCard.retryPr'))}
               {mergeLocalAction}
               {presentation.continuation ? dismissAction : discardAction}
@@ -971,6 +987,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           )}
           {!terminal && partialCreatePending && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
+              {checkoutAction}
               {primaryAction('create-pr', t('prCard.createPartialPr', { count: presentation.deliverableCount }))}
               {presentation.continuation ? dismissAction : discardAction}
             </div>
@@ -978,6 +995,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           {decision === 'on_review' && !presentation.noChanges && !presentation.partial && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
               {reviewPacketAction}
+              {checkoutAction}
               {primaryAction('create-pr', t('prCard.createPr'))}
               {mergeLocalAction}
               {presentation.continuation ? dismissAction : discardAction}
@@ -992,6 +1010,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           )}
           {degradedDraft && !partialCreatePending && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && (
             <div className="flex items-center gap-1.5">
+              {checkoutAction}
               {primaryAction('create-pr', t('prCard.retryPr'))}
               {mergeLocalAction}
               {presentation.continuation ? dismissAction : discardAction}

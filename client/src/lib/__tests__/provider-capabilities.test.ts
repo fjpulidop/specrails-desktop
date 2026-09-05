@@ -233,6 +233,14 @@ describe('providerSupportsReasoningEffort', () => {
     expect(defaultReasoningEffortForProvider('kimi', 'custom-alias')).toBeUndefined()
   })
 
+  it('offers only the model-supported Codex tiers, including Astra ultra', () => {
+    expect(reasoningEffortsForProvider('codex', 'gpt-6-astra')).toEqual(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
+    expect(reasoningEffortsForProvider('codex', 'gpt-5.6-luna')).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
+    expect(reasoningEffortsForProvider('codex', 'gpt-5.5')).toEqual(['low', 'medium', 'high', 'xhigh'])
+    expect(reasoningEffortsForProvider('codex', 'gpt-5.4-mini')).not.toContain('minimal')
+    expect(defaultReasoningEffortForProvider('codex', 'gpt-6-astra')).toBe('medium')
+  })
+
   it('does not invent effort tiers for an unknown provider', () => {
     expect(reasoningEffortsForProvider('mystery')).toEqual([])
     expect(defaultReasoningEffortForProvider('mystery')).toBeUndefined()

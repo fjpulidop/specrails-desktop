@@ -6,6 +6,7 @@ describe('WS_URL', () => {
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     vi.resetModules()
   })
 
@@ -25,5 +26,21 @@ describe('WS_URL', () => {
   it('WS_URL starts with ws: or wss:', async () => {
     const { WS_URL } = await import('../ws-url')
     expect(WS_URL).toMatch(/^wss?:/)
+  })
+
+  it('targets the sidecar on Windows before the native bridge becomes available', async () => {
+    vi.stubGlobal('window', { location: { protocol: 'http:', hostname: 'tauri.localhost', host: 'tauri.localhost', origin: 'http://tauri.localhost' } })
+    const { getWsUrl } = await import('../ws-url')
+    const { API_ORIGIN } = await import('../origin')
+    expect(getWsUrl('')).toBe('ws://localhost:4200')
+    expect(API_ORIGIN).toBe('http://localhost:4200')
+  })
+
+  it('keeps HTTPS browser deployments on their own secure origin', async () => {
+    vi.stubGlobal('window', { location: { protocol: 'https:', hostname: 'dashboard.example', host: 'dashboard.example', origin: 'https://dashboard.example' } })
+    const { getWsUrl } = await import('../ws-url')
+    const { API_ORIGIN } = await import('../origin')
+    expect(getWsUrl('')).toBe('wss://dashboard.example')
+    expect(API_ORIGIN).toBe('')
   })
 })

@@ -4,6 +4,7 @@ import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js'
 import { SPECRAILS_GUIDE } from './guide'
 import { serializeProject } from './tools/projects'
 import type { McpToolContext } from './tools/types'
+import { getProject, listProjects } from '../desktop-db'
 
 // Read-only state exposed as MCP resources. Read-tier only (resources are never
 // mutating). Per-project resource templates (tickets, rails, analytics) are
@@ -23,7 +24,7 @@ export function registerResources(server: McpServer, ctx: McpToolContext): void 
     'specrails://projects',
     { title: 'Projects', description: 'All registered Specrails projects.', mimeType: 'application/json' },
     async (uri): Promise<ReadResourceResult> => ({
-      contents: [{ uri: uri.href, text: JSON.stringify(ctx.registry.listContexts().map((c) => serializeProject(c.project)), null, 2) }],
+      contents: [{ uri: uri.href, text: JSON.stringify(listProjects(ctx.desktopDb).map(serializeProject), null, 2) }],
     }),
   )
 
@@ -33,9 +34,9 @@ export function registerResources(server: McpServer, ctx: McpToolContext): void 
     { title: 'Project', description: 'A single project by id.', mimeType: 'application/json' },
     async (uri, variables): Promise<ReadResourceResult> => {
       const projectId = String(variables.projectId)
-      const pc = ctx.registry.getContext(projectId)
-      if (!pc) throw new Error(`Unknown projectId "${projectId}".`)
-      return { contents: [{ uri: uri.href, text: JSON.stringify(serializeProject(pc.project), null, 2) }] }
+      const project = getProject(ctx.desktopDb, projectId)
+      if (!project) throw new Error(`Unknown projectId "${projectId}".`)
+      return { contents: [{ uri: uri.href, text: JSON.stringify(serializeProject(project), null, 2) }] }
     },
   )
 }

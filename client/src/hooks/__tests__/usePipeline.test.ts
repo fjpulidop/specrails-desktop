@@ -43,6 +43,21 @@ describe('usePipeline', () => {
     expect(result.current.projectName).toBe('')
   })
 
+  it('reloads recovered project state while preserving existing log lines', async () => {
+    const { result } = renderHook(() => usePipeline('proj-pipeline'))
+    await act(async () => {})
+    act(() => { wsHandler?.({ type: 'log', projectId: 'proj-pipeline', line: 'retained log', source: 'stdout' }) })
+    const fetchMock = vi.mocked(global.fetch)
+    const calls = fetchMock.mock.calls.length
+    act(() => { wsHandler?.({ type: 'desktop.project_recovered', projectId: 'other-project' }) })
+    expect(fetchMock).toHaveBeenCalledTimes(calls)
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ projectName: 'Recovered project', recentJobs: [{ id: 'recovered-job' }] }) } as Response)
+    act(() => { wsHandler?.({ type: 'desktop.project_recovered', projectId: 'proj-pipeline' }) })
+    await waitFor(() => expect(result.current.projectName).toBe('Recovered project'))
+    expect(result.current.recentJobs[0].id).toBe('recovered-job')
+    expect(result.current.logLines[0].line).toBe('retained log')
+  })
+
   it('WS init message: sets phaseDefinitions, phases, projectName, recentJobs, queueState', async () => {
     ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: false })
 

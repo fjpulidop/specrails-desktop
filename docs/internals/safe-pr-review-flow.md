@@ -102,10 +102,13 @@ Fresh no-change cards offer explicit **Mark done** and **Refine** outcomes. Mark
 them to the backlog. Existing-PR no-change cards only dismiss their borrowed follow-up state.
 
 **`merge-local` (remote-less acceptance).** Legal only without a real PR. Both surfaces confirm
-because it changes the user's checkout. Source branches are first assembled away from the user's
-checkout; only a complete conflict-free result may advance a still-clean, still-at-the-original-
-HEAD integration branch. A conflict leaves the user's checkout byte-identical and the delivery
-actionable.
+because it advances the local integration branch. Exact delivered commits are first assembled away
+from the user's checkout; only a complete conflict-free result may advance the still-at-the-original-
+HEAD integration branch. Compatible staged, unstaged, untracked and ignored local files survive;
+Git refuses an overwrite with a retryable `merge_local_blocked` response. If the user is on another
+branch or detached HEAD, a temporary checkout claims the base without switching the user's checkout.
+A base already held by another worktree remains untouched and reports `integration_branch_busy`.
+Both temporary checkouts use non-force cleanup, including after a Git runner exception.
 
 ## Launch and recovery wiring (`server/rail-isolated-launch.ts`)
 
@@ -125,7 +128,9 @@ actionable.
   proven clean) — run-created build caches (`__pycache__`, `node_modules`) release cleanly, while an
   ignored path that APPEARS after settlement, a failed/oversized capture (>400 paths → null), a
   legacy row without a snapshot, or conflicting per-branch snapshots all preserve the worktree
-  (`durableSettlementIgnoredPaths`, cleanup-and-checkout-tolerate-run-artifacts). Authenticated overlay roots are atomically renamed to a unique
+  (`durableSettlementIgnoredPaths`, cleanup-and-checkout-tolerate-run-artifacts). Authorized ignored
+  roots are archived as well: the snapshot grants release authority for their names, never deletion
+  authority for user edits or additions under those directories. Authenticated overlay roots are atomically renamed to a unique
   persistent same-filesystem quarantine batch and revalidated there; automatic cleanup never unlinks that
   quarantine, so a raced replacement or open-descriptor write remains recoverable. The batch root is
   persisted before the first move and pointers are never evicted while their bytes remain on disk. A recreated
@@ -333,7 +338,8 @@ attached and ready for Verify so that explicit decision can commit terminal tick
   reopening the stale attachment. A valid reopen returns to draft or ready according to GitHub;
   an exact merge racing the action terminalizes, while an exact still-closed result reports failure.
 - **merge-local** — builds the complete merge in an isolated temporary checkout and advances the
-  user's revalidated clean base only after all branches succeed.
+  revalidated base only after all branches succeed, preserving compatible local work. A missing
+  immutable delivery object never falls back to a branch that may have moved.
 
 Terminal discard/merge/completion inserts `rail_pr_ticket_effects` in the same SQLite transaction
 as its decision and snapshots each ticket's non-null outcome owner. Before crossing into ticket JSON
@@ -411,10 +417,14 @@ the `expectedDecision` they rendered.
   result and offers the confirmed Commit & retry push action above. A `recovery_unavailable` row
   replaces that primary action with Check again; a clone without the original worktree/object never
   claims that the implementation failed or that local progress was discarded. Ordinary Checkout is restricted
-  to a delivery with an immutable SHA; the server repeats that guard under the repo lock and refuses
-  a dirty or unreadable main checkout before releasing a worktree or changing any ref. Checkout
-  re-reads and uses only the current attached PR branch and immutable `delivery_sha` after acquiring
-  the repository lock, never the pre-lock snapshot. A same-named local/remote branch must equal that
+  to a reviewable delivery with an immutable SHA; the server repeats that guard under the repo lock
+  and refuses unreadable main-checkout status. Compatible dirty edits are preserved by Git's
+  non-force checkout with ignored-file overwrite protection. Checkout re-reads the current delivery
+  branch and immutable `delivery_sha` after acquiring the repository lock, never the pre-lock snapshot.
+  A single succeeded local unit with `finalSha` can be checked out before creating any PR; an
+  unassembled batch cannot expose just its first unit as the whole result. Cleanup warnings from
+  unrelated preserved unit worktrees remain visible without blocking an available assembled branch.
+  A same-named local/remote branch must equal that
   SHA before switching, and the final branch plus HEAD are verified afterward; divergence is
   preserved and a failed fast-forward can never be reported as success. Logs remain available after settle. Buttons
   disable in flight and apply the authoritative HTTP snapshot immediately.

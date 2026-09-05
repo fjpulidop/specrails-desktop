@@ -155,7 +155,7 @@ function inferTopic(question: string): SupportTopic {
 }
 
 async function collectDiagnostics(ctx: McpToolContext, projectId: string | undefined, topic: SupportTopic): Promise<Record<string, unknown>> {
-  const projects = ctx.registry.listContexts().map((c) => serializeProject(c.project))
+  const projects = ctx.registry.listProjects().map((p) => ({ ...serializeProject(p), available: !!ctx.registry.getContext(p.id) }))
   const selectedProjectId = projectId ?? getActiveProject(ctx) ?? undefined
   const out: Record<string, unknown> = {
     mcp: {

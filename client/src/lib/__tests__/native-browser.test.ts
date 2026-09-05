@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   isNativeBrowserAvailable,
+  isNativeBrowserCaptureAvailable,
   nativeBrowser,
   normalizeAddress,
   rectToBounds,
@@ -26,7 +27,10 @@ describe('normalizeAddress', () => {
   })
 
   it('allows loopback and private hosts (dev-server preview)', () => {
-    expect(normalizeAddress('localhost:5173')).toBe('https://localhost:5173/')
+    expect(normalizeAddress('localhost:5173')).toBe('http://localhost:5173/')
+    expect(normalizeAddress('127.0.0.1:3000/test')).toBe('http://127.0.0.1:3000/test')
+    expect(normalizeAddress('[::1]:3000')).toBe('http://[::1]:3000/')
+    expect(normalizeAddress('demo.localhost:3000')).toBe('http://demo.localhost:3000/')
     expect(normalizeAddress('http://192.168.1.20:3000')).toBe('http://192.168.1.20:3000/')
   })
 
@@ -67,6 +71,10 @@ describe('rectToBounds', () => {
       height: 1,
     })
   })
+
+  it('never sends non-finite layout values over IPC', () => {
+    expect(rectToBounds({ left: NaN, top: Infinity, width: NaN, height: -Infinity })).toEqual({ x: 0, y: 0, width: 1, height: 1 })
+  })
 })
 
 describe('isNativeBrowserAvailable', () => {
@@ -99,6 +107,22 @@ describe('isNativeBrowserAvailable', () => {
     await expect(isNativeBrowserAvailable({ flag: true, tauri: true })).resolves.toBe(false)
   })
 
+  it('recovers a transient startup failure without restarting the app', async () => {
+    const invoke = vi.fn().mockRejectedValueOnce(new Error('starting')).mockResolvedValue(true)
+    _setNativeBrowserIpcForTests(invoke as unknown as InvokeFn)
+    await expect(isNativeBrowserAvailable({ flag: true, tauri: true })).resolves.toBe(false)
+    await expect(isNativeBrowserCaptureAvailable({ flag: true, tauri: true })).resolves.toBe(true)
+    expect(invoke.mock.calls.map(call => call[0])).toEqual(['browser_supported', 'browser_supported', 'browser_capture_supported'])
+  })
+
+  it('does not select native capture on a platform that only supports browsing', async () => {
+    const invoke = vi.fn().mockResolvedValueOnce(true).mockResolvedValue(false)
+    _setNativeBrowserIpcForTests(invoke as unknown as InvokeFn)
+    await expect(isNativeBrowserCaptureAvailable({ flag: true, tauri: true })).resolves.toBe(false)
+    await expect(isNativeBrowserCaptureAvailable({ flag: true, tauri: true })).resolves.toBe(false)
+    expect(invoke).toHaveBeenCalledTimes(2)
+  })
+
   it('resolves false when the platform reports unsupported', async () => {
     const invoke = vi.fn().mockResolvedValue(false)
     _setNativeBrowserIpcForTests(invoke as unknown as InvokeFn)
@@ -122,30 +146,30 @@ describe('nativeBrowser command wrappers', () => {
     _setNativeBrowserIpcForTests(invoke as unknown as InvokeFn)
 
     const bounds = { x: 1, y: 2, width: 3, height: 4 }
-    await nativeBrowser.open('https://example.com/', bounds)
-    await nativeBrowser.navigate('https://example.com/next')
-    await nativeBrowser.setBounds(bounds)
-    await nativeBrowser.zoom(1.5)
-    await nativeBrowser.back()
-    await nativeBrowser.forward()
-    await nativeBrowser.reload()
-    await nativeBrowser.show()
-    await nativeBrowser.hide()
-    await nativeBrowser.close()
-    await nativeBrowser.devtools()
+    await nativeBrowser.open('pane-a', 'https://example.com/', bounds)
+    await nativeBrowser.navigate('pane-a', 'https://example.com/next')
+    await nativeBrowser.setBounds('pane-a', bounds)
+    await nativeBrowser.zoom('pane-a', 1.5)
+    await nativeBrowser.back('pane-a')
+    await nativeBrowser.forward('pane-a')
+    await nativeBrowser.reload('pane-a')
+    await nativeBrowser.show('pane-a')
+    await nativeBrowser.hide('pane-a')
+    await nativeBrowser.close('pane-a')
+    await nativeBrowser.devtools('pane-a')
 
     expect(invoke.mock.calls).toEqual([
-      ['browser_open', { url: 'https://example.com/', bounds }],
-      ['browser_navigate', { url: 'https://example.com/next' }],
-      ['browser_set_bounds', { bounds }],
-      ['browser_zoom', { factor: 1.5 }],
-      ['browser_back', undefined],
-      ['browser_forward', undefined],
-      ['browser_reload', undefined],
-      ['browser_show', undefined],
-      ['browser_hide', undefined],
-      ['browser_close', undefined],
-      ['browser_devtools', undefined],
+      ['browser_open', { ownerId: 'pane-a', url: 'https://example.com/', bounds }],
+      ['browser_navigate', { ownerId: 'pane-a', url: 'https://example.com/next' }],
+      ['browser_set_bounds', { ownerId: 'pane-a', bounds }],
+      ['browser_zoom', { ownerId: 'pane-a', factor: 1.5 }],
+      ['browser_back', { ownerId: 'pane-a' }],
+      ['browser_forward', { ownerId: 'pane-a' }],
+      ['browser_reload', { ownerId: 'pane-a' }],
+      ['browser_show', { ownerId: 'pane-a' }],
+      ['browser_hide', { ownerId: 'pane-a' }],
+      ['browser_close', { ownerId: 'pane-a' }],
+      ['browser_devtools', { ownerId: 'pane-a' }],
     ])
   })
 
@@ -162,15 +186,46 @@ describe('nativeBrowser command wrappers', () => {
       },
     )
 
-    const dispose = await nativeBrowser.onEvent((e) => received.push(e))
-    captured?.({ payload: { kind: 'nav', url: 'https://example.com/' } })
-    captured?.({ payload: { kind: 'load-finished', url: 'https://example.com/' } })
+    const dispose = await nativeBrowser.onEvent('pane-a', (e) => received.push(e))
+    captured?.({ payload: { ownerId: 'pane-a', kind: 'nav', url: 'https://example.com/' } })
+    captured?.({ payload: { ownerId: 'pane-a', kind: 'load-finished', url: 'https://example.com/' } })
+    captured?.({ payload: { ownerId: 'obsolete-pane', kind: 'nav', url: 'https://unrelated.example/' } })
     dispose()
 
     expect(received).toEqual([
-      { kind: 'nav', url: 'https://example.com/' },
-      { kind: 'load-finished', url: 'https://example.com/' },
+      { ownerId: 'pane-a', kind: 'nav', url: 'https://example.com/' },
+      { ownerId: 'pane-a', kind: 'load-finished', url: 'https://example.com/' },
     ])
     expect(unlisten).toHaveBeenCalledTimes(1)
+  })
+
+  it('serializes close and reopen behind an outstanding native open', async () => {
+    let resolveOpen!: () => void
+    const invoke = vi.fn().mockImplementationOnce(() => new Promise<void>(resolve => { resolveOpen = resolve })).mockResolvedValue(undefined)
+    _setNativeBrowserIpcForTests(invoke as unknown as InvokeFn)
+    const bounds = { x: 0, y: 0, width: 500, height: 400 }
+    const first = nativeBrowser.open('pane-a', 'about:blank', bounds)
+    await vi.waitFor(() => expect(invoke).toHaveBeenCalledTimes(1))
+    const close = nativeBrowser.close('pane-a')
+    const next = nativeBrowser.open('pane-b', 'http://localhost:3000', bounds)
+    expect(invoke).toHaveBeenCalledTimes(1)
+    resolveOpen()
+    await Promise.all([first, close, next])
+    expect(invoke.mock.calls.map(call => [call[0], call[1].ownerId])).toEqual([
+      ['browser_open', 'pane-a'], ['browser_close', 'pane-a'], ['browser_open', 'pane-b'],
+    ])
+  })
+
+  it('passes ownership to selection and native capture operations', async () => {
+    const invoke = vi.fn().mockResolvedValue(null)
+    _setNativeBrowserIpcForTests(invoke as unknown as InvokeFn)
+    await nativeBrowser.setSelectMode('pane-a', true)
+    await nativeBrowser.selection('pane-a')
+    await nativeBrowser.capture('pane-a', true)
+    expect(invoke.mock.calls).toEqual([
+      ['browser_set_select_mode', { ownerId: 'pane-a', enabled: true }],
+      ['browser_selection', { ownerId: 'pane-a' }],
+      ['browser_capture', { ownerId: 'pane-a', selectionOnly: true }],
+    ])
   })
 })

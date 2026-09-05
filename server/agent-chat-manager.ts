@@ -26,6 +26,8 @@ import { normalizeLevel, type AgentTierLevel } from './agent-tier'
 import { mintAgentCapability, revokeAgentCapability } from './mcp/agent-capability'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import {
+  buildAgentHistoryBlock,
+  buildAgentProjectContextBlock,
   buildResolvedAgentContextBlock,
   type AgentContextReference,
   type AgentContextRegistry,
@@ -350,6 +352,7 @@ export class AgentChatManager {
     // The conversation may have been deleted while attachments were extracting
     // (DELETE aborts the child and drops the row) — inserting would violate the FK.
     if (!getAgentConversation(this._db, conversationId)) return
+    const historyBlock = buildAgentHistoryBlock(listAgentMessages(this._db, conversationId))
     addAgentMessage(this._db, { conversationId, role: 'user', content: userText, attachmentIds, contextRefs: options.contextRefs })
     this._autoTitle(conversationId, conversation.title)
 
@@ -363,16 +366,23 @@ export class AgentChatManager {
     // Per-turn dynamic context (pinned project, permission level, provider) rides
     // the USER turn, never the system prompt — byte-stability contract (see
     // agent-operator-prompt.ts).
+    const turnSettings = `Permission level: ${tierLevel} (${['observe', 'edit', 'operate', 'autonomous'][tierLevel]}) | Provider: ${adapter.id} | Model: ${model}${reasoningEffort ? ` | Reasoning effort: ${reasoningEffort}` : ''}`
     const contextPrefix = conversation.pinned_project_id
-      ? `[Active project: projectId="${conversation.pinned_project_id}" | Permission level: ${tierLevel} | Provider: ${adapter.id}. Use the project for project-scoped tools unless told otherwise.]`
-      : `[No project pinned (Home) | Permission level: ${tierLevel} | Provider: ${adapter.id}]`
-    const prompt = `${contextPrefix}\n\n${userWithAttachments}`
+      ? `[Active project: projectId="${conversation.pinned_project_id}" | ${turnSettings}. Use this project for project-scoped tools; changing the execution target requires changing the conversation pin.]`
+      : `[No project pinned (Home) | ${turnSettings}]`
+    const projectSnapshot = buildAgentProjectContextBlock({
+      desktopDb: this._db,
+      registry: this._registry,
+      fallbackProjectId: conversation.pinned_project_id,
+    })
+    const prompt = `${contextPrefix}\n\n${projectSnapshot}\n\n${userWithAttachments}`
     const systemPrompt = hasAttachments
       ? `${OPERATOR_SYSTEM_PROMPT}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
       : OPERATOR_SYSTEM_PROMPT
-    const effectivePrompt = adapter.capabilities.systemPromptArg
-      ? prompt
-      : `${systemPrompt}\n\n---\n\n${prompt}`
+    const effectivePrompt = (useResume: boolean): string => {
+      const freshPrompt = !useResume && historyBlock ? `${contextPrefix}\n\n${historyBlock}\n\n${prompt}` : prompt
+      return adapter.capabilities.systemPromptArg ? freshPrompt : `${systemPrompt}\n\n---\n\n${freshPrompt}`
+    }
     // Only pass native image paths to providers that can vision-load them (codex
     // `--image`); claude/gemini already have the `@path` ref folded into prompt.
     const spawnImagePaths = adapter.capabilities.supportsImageInput ? imagePaths : undefined
@@ -409,8 +419,9 @@ export class AgentChatManager {
         mcpArgs = wiring.extraArgs
         mcpEnv = wiring.env
       } catch (err) {
-        // A bad conversation id or fs failure shouldn't poison the chat — run tool-less.
         console.error('[agent-chat] failed to prepare mcp:', err)
+        this._emitError(conversationId, 'Specrails could not prepare its MCP tools. The agent was not launched. Check the app installation and retry. ' + (err instanceof Error ? err.message : String(err)))
+        return
       }
 
       const timestamp = (): string => new Date().toISOString()
@@ -442,7 +453,7 @@ export class AgentChatManager {
         )
 
         const buildOpts = {
-          prompt: effectivePrompt,
+          prompt: effectivePrompt(useResume),
           systemPrompt: adapter.capabilities.systemPromptArg ? systemPrompt : undefined,
           model,
           sessionId: useResume ? conversation.session_id ?? undefined : undefined,
@@ -599,17 +610,18 @@ export class AgentChatManager {
         return
       }
 
-      // Auto-heal a stale/foreign session: a resume that produced no text (e.g. a
-      // provider switch leaving another provider's session id, or codex
-      // "no rollout found for thread id") retries once as a fresh turn.
+      // Retry only a verified stale resume that did not execute tools. An empty
+      // reply can still have launched a rail or edited a spec; replaying that
+      // turn would duplicate its mutations and spend tokens twice.
       if (
         canResume &&
         !r.spawnFailed &&
         !r.text &&
-        (!r.error || isStaleResumeError(r.error))
+        !r.events.some((event) => event.kind === 'tool-use' || event.kind === 'tool-result') &&
+        isStaleResumeError(r.error || r.stderrTail)
       ) {
         console.log(`[agent-chat] resume produced no text — retrying fresh conv=${conversationId}`)
-        updateAgentConversation(this._db, conversationId, { session_id: null })
+        persistSession(null)
         r = await invoke(false)
         if (this._disposed || r.disposed) return
         if (!getAgentConversation(this._db, conversationId)) {

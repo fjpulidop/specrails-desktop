@@ -18,6 +18,13 @@ describe('spec-models', () => {
     expect(isValidModelForProvider(getProviderDefault('codex'), 'codex')).toBe(true)
   })
 
+  it('accepts Astra for spec generation without changing the Codex default', () => {
+    expect(isValidModelForProvider('gpt-6-astra', 'codex')).toBe(true)
+    expect(getModelsForProvider('codex')[0]).toEqual({ value: 'gpt-6-astra', label: 'GPT-6 Astra' })
+    expect(getProviderDefault('codex')).toBe('gpt-5.5')
+    expect(isValidModelForProvider('gpt-6-astra', 'claude')).toBe(false)
+  })
+
   it('rejects cross-provider models', () => {
     expect(isValidModelForProvider('sonnet', 'codex')).toBe(false)
     expect(isValidModelForProvider('gpt-5.4-mini', 'claude')).toBe(false)

@@ -81,6 +81,11 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
   // server echoes a `desktop.project_added` broadcast back to the initiator;
   // we skip the redundant toast + re-activation for our own additions.
   const justAddedRef = useRef<Set<string>>(new Set())
+  const mountedRef = useRef(false)
+  const projectsRevisionRef = useRef(0)
+  const projectRequestRef = useRef<AbortController | null>(null)
+  const projectRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const projectRetryCountRef = useRef(0)
 
   const setActiveProjectId = useCallback((id: string | null): void => {
     writeSavedProjectId(id)
@@ -95,27 +100,79 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       return id
     })
   }, [])
-  const { registerHandler, unregisterHandler } = useSharedWebSocket()
+  const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
 
-  // Load projects from REST on mount
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(`${API_ORIGIN}/api/projects`)
-        if (!res.ok) return
-        const data = await res.json() as { projects: DesktopProject[] }
-        setProjects(data.projects)
-      } catch {
-        // Network error — treat as empty project list
-      } finally {
-        setIsLoading(false)
+  const refreshProjects = useCallback(async function refresh() {
+    if (!mountedRef.current || projectRequestRef.current) return
+    if (projectRetryRef.current) clearTimeout(projectRetryRef.current)
+    const request = new AbortController()
+    projectRequestRef.current = request
+    const revision = projectsRevisionRef.current
+    const timeout = setTimeout(() => request.abort(), 8000)
+    try {
+      const res = await fetch(`${API_ORIGIN}/api/projects`, { signal: request.signal })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json() as { projects?: DesktopProject[] }
+      if (!Array.isArray(data.projects)) throw new Error('Invalid project snapshot')
+      if (!mountedRef.current || request.signal.aborted || revision !== projectsRevisionRef.current) return
+      setProjects(data.projects)
+      // A missed WebSocket snapshot must not prevent restoring the saved
+      // project. Keep the explicit Home view when no project was saved.
+      const incoming = data.projects
+      setActiveProjectIdRaw((prev) => {
+        if (prev && incoming.some((project) => project.id === prev)) return prev
+        const saved = readSavedProjectId()
+        const next = saved && incoming.some((project) => project.id === saved) ? saved : null
+        writeSavedProjectId(next)
+        setApiActiveProjectId(next)
+        return next
+      })
+      projectRetryCountRef.current = 0
+      setIsLoading(false)
+    } catch {
+      // Sidecar startup/restart is not an empty database. Keep the last good
+      // project list and retry; only an authoritative empty snapshot is empty.
+      if (mountedRef.current && revision === projectsRevisionRef.current) {
+        const delay = Math.min(500 * 2 ** Math.min(projectRetryCountRef.current++, 5), 10000)
+        projectRetryRef.current = setTimeout(() => { void refresh() }, delay)
       }
+    } finally {
+      clearTimeout(timeout)
+      if (projectRequestRef.current === request) projectRequestRef.current = null
     }
-    load()
   }, [])
+
+  useEffect(() => {
+    mountedRef.current = true
+    void refreshProjects()
+    const wake = () => { void refreshProjects() }
+    window.addEventListener('online', wake)
+    window.addEventListener('focus', wake)
+    return () => {
+      mountedRef.current = false
+      projectsRevisionRef.current++
+      projectRequestRef.current?.abort()
+      projectRequestRef.current = null
+      if (projectRetryRef.current) clearTimeout(projectRetryRef.current)
+      if (switchTimerRef.current) clearTimeout(switchTimerRef.current)
+      window.removeEventListener('online', wake)
+      window.removeEventListener('focus', wake)
+    }
+  }, [refreshProjects])
+
+  const previousConnectionRef = useRef(connectionStatus)
+  const connectedOnceRef = useRef(connectionStatus === 'connected')
+  useEffect(() => {
+    if (connectionStatus === 'connected') {
+      if (connectedOnceRef.current && previousConnectionRef.current !== 'connected') void refreshProjects()
+      connectedOnceRef.current = true
+    }
+    previousConnectionRef.current = connectionStatus
+  }, [connectionStatus, refreshProjects])
 
   // Handle app-level WebSocket messages
   const handleMessage = useCallback((raw: unknown) => {
+    if (!raw || typeof raw !== 'object') return
     const msg = raw as Record<string, unknown>
     if (typeof msg.type !== 'string') return
 
@@ -124,6 +181,9 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       // array — otherwise `incoming.find` below throws and (pre-fix) starved the
       // shared WS fan-out for every later-registered handler.
       if (!Array.isArray(msg.projects)) return
+      projectsRevisionRef.current++
+      projectRetryCountRef.current = 0
+      if (projectRetryRef.current) clearTimeout(projectRetryRef.current)
       const incoming = msg.projects as DesktopProject[]
       setProjects(incoming)
       setActiveProjectIdRaw((prev) => {
@@ -145,6 +205,8 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     } else if (msg.type === 'desktop.project_added') {
       const project = msg.project as DesktopProject
+      if (!project || typeof project.id !== 'string') return
+      projectsRevisionRef.current++
       setProjects((prev) => {
         if (prev.find((p) => p.id === project.id)) return prev
         return [...prev, project]
@@ -164,14 +226,11 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       // The machine's detected provider set changed (CLI installed/removed).
       // Project rows mirror the detected set server-side — refetch so every
       // selector/section converges without a reload.
-      fetch(`${API_ORIGIN}/api/projects`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data: { projects: DesktopProject[] } | null) => {
-          if (data && Array.isArray(data.projects)) setProjects(data.projects)
-        })
-        .catch(() => { /* transient — next trigger converges */ })
+      void refreshProjects()
     } else if (msg.type === 'desktop.project_removed') {
       const projectId = msg.projectId as string
+      if (typeof projectId !== 'string') return
+      projectsRevisionRef.current++
       toast.success(i18n.t('nav:projects.removed'))
       // BUG-CLIENT-03: free the removed project's cache entries so the module-
       // level globalCache doesn't grow unbounded across add/remove cycles.
@@ -184,7 +243,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
         return null
       })
     }
-  }, [])
+  }, [refreshProjects, setActiveProjectId])
 
   useLayoutEffect(() => {
     registerHandler('desktop', handleMessage)
@@ -231,6 +290,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       // BUG-CLIENT-04: mark this id so the echoed `desktop.project_added`
       // broadcast doesn't double-toast / re-activate for the initiator.
       justAddedRef.current.add(data.project.id)
+      projectsRevisionRef.current++
       setProjects((prev) => {
         if (prev.find((p) => p.id === data.project.id)) return prev
         return [...prev, data.project]
@@ -253,6 +313,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       // BUG-CLIENT-03: drop this project's cached data on local removal too
       // (not only via the echoed WS broadcast).
       purgeProjectCache(id)
+      projectsRevisionRef.current++
       setProjects((prev) => prev.filter((p) => p.id !== id))
       setActiveProjectIdRaw((prev) => {
         if (prev !== id) return prev

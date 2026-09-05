@@ -38,6 +38,7 @@ import { appendEvent, accumulateInteractiveTurn, type DbInstance, type Interacti
 import { extractDisplayText } from './util/stream-display'
 import type { AdapterEvent, ProviderAdapter } from './providers/types'
 import { parseStreamEvents } from './providers/runtime'
+import { terminalResultError } from './providers/terminal-result'
 import type { WsMessage } from './types'
 
 /** Claude's stream-json result frames do not carry a turn id. Hash a canonical
@@ -734,9 +735,7 @@ export class InteractiveJobSession {
     }
     // Capture the turn's result text for output chaining (mirrors the one-shot
     // path's lastResultEvent.result). The LAST completed turn wins.
-    if (typeof parsed.result === 'string') {
-      this._resultText = parsed.result
-    }
+    this._resultText = typeof parsed.result === 'string' ? parsed.result : null
     const { result: normalised } = finaliseInvocationResult(this._adapter, this._turnEvents, {})
 
     // COST-ACCOUNTING-AUDIT HIGH-2: this ONE resident `claude -p --input-format
@@ -808,6 +807,22 @@ export class InteractiveJobSession {
       totals: { ...this._accum },
       timestamp: new Date().toISOString(),
     })
+
+    const resultError = terminalResultError(parsed)
+    if (resultError) {
+      // The terminal result still owns real usage: checkpoint it above before
+      // ending the session. Never auto-finalize or dispatch a queued prompt
+      // after a max-turns/provider execution failure, even if stdout previously
+      // included a PASS or the resident child would eventually exit with 0.
+      this._finalizing = true
+      this._terminationReason = 'crashed'
+      this._clearZombieTimer()
+      const note = `✖ Provider turn failed — ${resultError}`
+      this._persistLog('stderr', note)
+      this._emitLog('stderr', note)
+      this._terminateChildTree('crashed')
+      return
+    }
 
     // Feed the next queued prompt (if any) now that the turn is idle. Deferred to a
     // microtask so any stray/duplicate result for THIS just-settled turn that is
@@ -1006,6 +1021,9 @@ export class InteractiveJobSession {
 
   private _settle(reason: 'finalized' | 'crashed'): void {
     if (this._settled) return
+    // A terminal error received during graceful teardown overrides an earlier
+    // finalize request, including a teardown timer armed before the error.
+    if (this._terminationReason === 'crashed') reason = 'crashed'
     this._settled = true
     // Fold any unfinished turn BEFORE snapshotting totals so a mid-turn
     // finalize/crash keeps that turn's spend (CRIT-4).

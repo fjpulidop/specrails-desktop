@@ -140,6 +140,25 @@ beforeEach(() => {
 })
 
 describe('AgentChatContext reconnect reconciliation', () => {
+  it('refreshes persisted cards after project recovery while preserving the current live turn', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(screen.getByTestId('active-id')).toHaveTextContent('c1'))
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    expect(screen.getByTestId('streaming')).toHaveTextContent('true')
+    const listCalls = vi.mocked(agentApi.listAgentConversations).mock.calls.length
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({
+      conversation: api.conv1,
+      messages: [prMessage('c1', prEnvelope({ decision: 'pr_draft' }))],
+    })
+    await act(async () => { wsHandler?.({ type: 'desktop.project_recovered', projectId: 'p1' }) })
+    await waitFor(() => expect(screen.getByTestId('pr-deliveries')).toHaveTextContent('d1:pr_draft'))
+    expect(agentApi.listAgentConversations).toHaveBeenCalledTimes(listCalls + 1)
+    expect(screen.getByTestId('active-id')).toHaveTextContent('c1')
+    expect(screen.getByTestId('streaming')).toHaveTextContent('true')
+    expect(agentApi.sendAgentMessage).toHaveBeenCalledTimes(1)
+  })
+
   it('settles an optimistic turn absent from the server snapshot without retrying it', async () => {
     wsConnectionStatus = 'disconnected'
     const view = render(<AgentChatProvider><Harness /></AgentChatProvider>)

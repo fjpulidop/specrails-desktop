@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -252,6 +252,30 @@ describe('createLoopProfilePathResolver', () => {
     expect(resolver()('claude')).toBeNull()
     seed({ claude: { custom: true, pipelineModel: 'opus' } }) // pipeline-only ⇒ ride run-level, not profile
     expect(resolver()('claude')).toBeNull()
+  })
+
+  it('snapshots an explicitly selected rail profile even with global defaults off', () => {
+    const profile = synthesizeProfileFromDefaults(getAdapter('claude'), {
+      pipelineModel: 'opus', pipelineEffort: null, agentModels: { 'sr-reviewer': 'sonnet' },
+    })
+    profile.name = 'premium'
+    const resolve = vi.fn(() => ({ name: 'premium', profile }))
+    const result = resolver({ resolveProfile: resolve })('claude', 'premium')
+    expect(resolve).toHaveBeenCalledWith('/fake/workspace', 'premium', 'claude')
+    expect(JSON.parse(fs.readFileSync(result!, 'utf8'))).toEqual(profile)
+  })
+
+  it('an explicit legacy selection opts out of global profiles', () => {
+    seed({ claude: { custom: true, agentModels: { 'sr-architect': 'opus' } } })
+    const resolve = vi.fn()
+    expect(resolver({ resolveProfile: resolve })('claude', null)).toBeNull()
+    expect(resolve).not.toHaveBeenCalled()
+  })
+
+  it('does not silently replace a missing explicitly selected profile', () => {
+    expect(() => resolver()('claude', 'missing')).toThrow("Profile 'missing' is unavailable")
+    expect(() => resolver({ resolveProfile: () => { throw new Error('invalid profile') } })('claude', 'premium'))
+      .toThrow('invalid profile')
   })
 
   it('is inert for non-profile providers and unsupported cores', () => {

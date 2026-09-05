@@ -6,6 +6,7 @@
  * via `ai_invocations` (`surface='loop'`).
  */
 import type { Request, Response } from 'express'
+import { validateLoopGraph } from './loop-graph'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './loops-store'
@@ -79,6 +80,10 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     if (!loop) { res.status(404).json({ error: 'Loop not found' }); return }
     if (loop.status !== 'published') {
       res.status(400).json({ error: 'Loop must be published before it can run' }); return
+    }
+    const validation = validateLoopGraph(loop.graph)
+    if (!validation.valid) {
+      res.status(422).json({ error: 'Loop graph is invalid', errors: validation.errors }); return
     }
 
     const check = validateRequestedProvider(c.project, aiEngine ?? providerAlias)

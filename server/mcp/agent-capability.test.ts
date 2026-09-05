@@ -4,6 +4,7 @@ import {
   mintAgentCapability,
   revokeAgentCapability,
   verifyAgentCapability,
+  onAgentCapabilityRevoked,
 } from './agent-capability'
 
 describe('agent MCP capabilities', () => {
@@ -46,5 +47,24 @@ describe('agent MCP capabilities', () => {
 
   it('rejects unsafe conversation ids before minting', () => {
     expect(() => mintAgentCapability({ conversationId: '../escape', tierLevel: 3 })).toThrow(/unsafe/)
+  })
+
+  it('rejects invalid permission levels and ambiguous duplicate headers', () => {
+    expect(() => mintAgentCapability({ conversationId: 'bad-level', tierLevel: 5 as never })).toThrow('permission level')
+    const token = mintAgentCapability({ conversationId: 'valid', tierLevel: 0 })
+    expect(verifyAgentCapability([token, 'other'])).toBeNull()
+  })
+
+  it('notifies session owners once on revoke or expiration and supports unsubscribing', () => {
+    const token = mintAgentCapability({ conversationId: 'owner', tierLevel: 0, ttlMs: 1000 })
+    const close = vi.fn()
+    const detached = vi.fn()
+    onAgentCapabilityRevoked(token, close)
+    onAgentCapabilityRevoked(token, detached)()
+    vi.advanceTimersByTime(1001)
+    expect(verifyAgentCapability(token)).toBeNull()
+    revokeAgentCapability(token)
+    expect(close).toHaveBeenCalledOnce()
+    expect(detached).not.toHaveBeenCalled()
   })
 })

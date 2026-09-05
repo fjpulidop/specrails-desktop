@@ -118,7 +118,7 @@ export type BrowserInputEvent =
   | { type: 'mouse'; action: 'move' | 'down' | 'up'; x: number; y: number; button?: 'left' | 'middle' | 'right'; clickCount?: number; modifiers?: number }
   | { type: 'wheel'; x: number; y: number; deltaX: number; deltaY: number; modifiers?: number }
   | { type: 'key'; action: 'down' | 'up'; key: string; code?: string; text?: string; modifiers?: number }
-  | { type: 'resize'; width: number; height: number }
+  | { type: 'resize'; width: number; height: number; deviceScaleFactor?: number }
 
 export interface BreakpointCapture {
   attachment: Attachment
@@ -182,14 +182,14 @@ export async function navigateBrowser(
   sessionId: string,
   action: 'goto' | 'back' | 'forward' | 'reload',
   url?: string,
-): Promise<{ url: string; title: string }> {
+): Promise<{ url: string; title: string; target?: 'popup' }> {
   const res = await fetch(`${browserApiBase(projectId)}/browser/sessions/${sessionId}/navigate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, url }),
   })
   if (!res.ok) throw new Error(`Navigation failed (${res.status})`)
-  return (await res.json()) as { url: string; title: string }
+  return (await res.json()) as { url: string; title: string; target?: 'popup' }
 }
 
 export async function captureBrowserRegion(
@@ -283,17 +283,14 @@ export async function navigateBrowserElement(
 }
 
 /** Switch the viewed page between the root page and the top popup (OAuth login
- *  window). Best-effort — the server broadcasts the resulting state over WS. */
+ *  window). The server broadcasts the resulting state over WS. */
 export async function setBrowserPopupView(projectId: string, sessionId: string, target: 'root' | 'popup'): Promise<void> {
-  try {
-    await fetch(`${browserApiBase(projectId)}/browser/sessions/${sessionId}/popup-view`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target }),
-    })
-  } catch {
-    /* best effort */
-  }
+  const res = await fetch(`${browserApiBase(projectId)}/browser/sessions/${sessionId}/popup-view`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target }),
+  })
+  if (!res.ok) throw new Error(`Could not switch browser view (${res.status})`)
 }
 
 /** Human label for a popup's origin ("Login window — okta.example"). Falls back

@@ -158,7 +158,7 @@ export default function ReviewPacketPage() {
     try {
       const result = await act(packet.railIndex, action, packet.decision, packet.prDeliveryId)
       if (!result.ok) {
-        setActionError(result.status === 409 ? 'alreadyResolved' : 'actionFailed')
+        setActionError(result.status === 409 && result.error === 'stale_decision' ? 'alreadyResolved' : 'actionFailed')
       } else {
         if (activeProjectId) notifyGitChanged(activeProjectId)
       }

@@ -3,6 +3,7 @@ import { claudeAdapter } from './claude-adapter'
 import { codexAdapter } from './codex-adapter'
 import { geminiAdapter } from './gemini-adapter'
 import type { SpawnOptions } from './types'
+import { isReasoningEffortValidForModel } from './runtime'
 
 function opts(over: Partial<SpawnOptions> = {}): SpawnOptions {
   return { prompt: 'Do the task.', model: 'sonnet', ...over }
@@ -29,6 +30,27 @@ describe('reasoning effort — gemini (unsupported)', () => {
 })
 
 describe('reasoning effort — codex (native -c)', () => {
+  it('rejects unavailable tiers for each current Codex model before launch', () => {
+    expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6-astra', 'minimal')).toBe(false)
+    expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6-astra', 'ultra')).toBe(true)
+    expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-5.6-luna', 'ultra')).toBe(false)
+    expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-5.6-luna', 'max')).toBe(true)
+    expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-5.5', 'max')).toBe(false)
+    expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-5.4-mini', 'high')).toBe(true)
+  })
+
+  it.each(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const)(
+    'passes Astra and %s effort unchanged to rail jobs and resumed conversations', (effort) => {
+      for (const action of ['rail-job', 'chat-resume'] as const) {
+        const args = codexAdapter.buildArgs(action, opts({
+          model: 'gpt-6-astra', reasoning_effort: effort, sessionId: 'astra-session',
+        }))
+        expect(argAfter(args, '--model')).toBe('gpt-6-astra')
+        expect(args).toContain(`model_reasoning_effort="${effort}"`)
+      }
+    },
+  )
+
   it('emits -c model_reasoning_effort when set', () => {
     const args = codexAdapter.buildArgs('rail-job', opts({ reasoning_effort: 'high', model: 'gpt-5.5' }))
     const i = args.indexOf('-c')

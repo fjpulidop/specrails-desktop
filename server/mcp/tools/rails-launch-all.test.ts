@@ -165,7 +165,7 @@ describe('specrails_rails — create_rail + launch_all', () => {
     expect(byIndex.get(3)).toMatchObject({ outcome: 'skipped', reason: 'already-running' })
     expect(byIndex.get(4)).toMatchObject({ outcome: 'skipped', reason: 'pr-decision-pending' })
     expect(enqueue).toHaveBeenCalledTimes(2) // one launch per eligible rail
-    expect(data.hint).toContain('PARALLEL')
+    expect(data.hint).toMatch(/parallel/i)
   })
 
   it('launch_all treats a published PR delivery covering the rail tickets as continuable', async () => {

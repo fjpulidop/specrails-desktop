@@ -4,11 +4,12 @@ import http from 'http'
 import type { AddressInfo } from 'net'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import { initDesktopDb, setDesktopSetting, type DbInstance } from '../desktop-db'
+import { addProject, getProject, listProjects, initDesktopDb, setDesktopSetting, type DbInstance } from '../desktop-db'
 import type { ProjectRegistry } from '../project-registry'
 import { McpServerManager } from './mcp-server'
 import { AGENT_CAPABILITY_HEADER, AGENT_TIER_HEADER } from '../agent-tier'
-import { _resetAgentCapabilitiesForTest, mintAgentCapability } from './agent-capability'
+import { _resetAgentCapabilitiesForTest, mintAgentCapability, revokeAgentCapability } from './agent-capability'
+import { RecoveringHttpTransport } from '../../mcp-bridge/src/http-transport'
 
 // A minimal ProjectRegistry stub: the MCP core only needs desktopDb + the
 // project lookup methods. No real projects are required for these tests.
@@ -16,6 +17,8 @@ function makeRegistry(db: DbInstance): ProjectRegistry {
   return {
     desktopDb: db,
     listContexts: () => [],
+    listProjects: () => listProjects(db),
+    getProjectRow: (id: string) => getProject(db, id),
     getContext: () => undefined,
     getContextByPath: () => undefined,
     removeProject: () => undefined,
@@ -87,6 +90,7 @@ describe('McpServerManager (embedded MCP server)', () => {
   })
 
   it('serves a server-minted first-party capability when the toggle is disabled', async () => {
+    setDesktopSetting(db, 'mcp_enabled', 'false')
     const capability = mintAgentCapability({ conversationId: 'conv-server', projectId: null, tierLevel: 0 })
     const res = await fetch(url, {
       method: 'POST',
@@ -101,6 +105,79 @@ describe('McpServerManager (embedded MCP server)', () => {
     expect(res.headers.get('mcp-session-id')).toBeTruthy()
   })
 
+  it('rejects invalid capabilities even when external MCP has every tier enabled', async () => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', [AGENT_CAPABILITY_HEADER]: 'invalid'.repeat(8) },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize' }),
+    })
+    expect(response.status).toBe(401)
+    expect(manager.status().activeSessions).toBe(0)
+  })
+
+  it('binds sessions to their owning turn and closes them when that capability is revoked', async () => {
+    const capability = mintAgentCapability({ conversationId: 'owner', tierLevel: 0 })
+    const other = mintAgentCapability({ conversationId: 'other', tierLevel: 3 })
+    const transport = new StreamableHTTPClientTransport(url, { requestInit: { headers: { [AGENT_CAPABILITY_HEADER]: capability } } })
+    const client = new Client({ name: 'owner', version: '1' })
+    await client.connect(transport)
+    const sid = transport.sessionId!
+    expect(manager.status().activeSessions).toBe(1)
+    for (const headers of [{}, { [AGENT_CAPABILITY_HEADER]: other }]) {
+      const res = await fetch(url, { method: 'DELETE', headers: { ...headers, 'mcp-session-id': sid } })
+      expect(res.status).toBe(403)
+      expect(manager.status().activeSessions).toBe(1)
+    }
+    revokeAgentCapability(capability)
+    expect(manager.status().activeSessions).toBe(0)
+    const res = await fetch(url, { method: 'DELETE', headers: { 'mcp-session-id': sid } })
+    expect(res.status).toBe(404)
+    await client.close()
+  })
+
+  it('reports unknown sessions with protocol 404, including object prototype names', async () => {
+    for (const sid of ['expired', 'constructor', '__proto__']) {
+      const response = await fetch(url, { method: 'DELETE', headers: { 'mcp-session-id': sid } })
+      expect(response.status).toBe(404)
+    }
+  })
+
+  it('the stdio bridge recovers a lost SDK session and deletes the replacement when closed', async () => {
+    const client = new Client({ name: 'bridge-client', version: '1' })
+    const transport = new RecoveringHttpTransport(() => new StreamableHTTPClientTransport(url))
+    await client.connect(transport)
+    expect((await client.listTools()).tools.length).toBeGreaterThan(1)
+    await manager.stop()
+    expect(manager.status().activeSessions).toBe(0)
+    expect((await client.listTools()).tools.length).toBeGreaterThan(1)
+    expect(manager.status().activeSessions).toBe(1)
+    await client.close()
+    expect(manager.status().activeSessions).toBe(0)
+  })
+
+  it('does not share the selected project across independent client sessions', async () => {
+    addProject(db, { id: 'project-a', slug: 'a', name: 'A', path: '/tmp/a' })
+    const first = await connectClient(url)
+    const second = await connectClient(url)
+    const selected = await first.callTool({ name: 'specrails_select_project', arguments: { projectId: 'project-a' } })
+    expect(selected.isError).toBeFalsy()
+    const result = await second.callTool({ name: 'specrails_specs', arguments: { action: 'list' } })
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result.content)).toContain('No project specified')
+    await first.close()
+    await second.close()
+  })
+
+  it('resources preserve registered projects even when their runtime database is unavailable', async () => {
+    addProject(db, { id: 'unavailable', slug: 'unavailable', name: 'Still registered', path: '/tmp/mcp-test' })
+    const client = await connectClient(url)
+    const listed = await client.readResource({ uri: 'specrails://projects' })
+    expect(JSON.parse((listed.contents[0] as { text: string }).text)).toEqual([expect.objectContaining({ id: 'unavailable' })])
+    const project = await client.readResource({ uri: 'specrails://projects/unavailable' })
+    expect(JSON.parse((project.contents[0] as { text: string }).text)).toMatchObject({ id: 'unavailable', name: 'Still registered' })
+    await client.close()
+  })
+
   it('initializes and lists the tool catalog when enabled', async () => {
     setDesktopSetting(db, 'mcp_enabled', 'true')
     const client = await connectClient(url)
@@ -111,6 +188,10 @@ describe('McpServerManager (embedded MCP server)', () => {
     expect(names).toContain('specrails_watch')
     expect(names).toContain('specrails_search')
     expect(names).toContain('specrails_select_project')
+    expect(tools.find((tool) => tool.name === 'specrails_projects')?.annotations).toMatchObject({
+      readOnlyHint: false, destructiveHint: true, openWorldHint: true,
+    })
+    expect(tools.find((tool) => tool.name === 'specrails_guide')?.annotations).toMatchObject({ readOnlyHint: true })
     await client.close()
   })
 
@@ -165,5 +246,18 @@ describe('McpServerManager (embedded MCP server)', () => {
     expect(manager.isEnabledSetting()).toBe(true)
     await manager.setEnabled(false)
     expect(manager.isEnabledSetting()).toBe(false)
+  })
+
+  it('disabling external MCP preserves an independently authorized mission session', async () => {
+    const capability = mintAgentCapability({ conversationId: 'in-progress', tierLevel: 0 })
+    const mission = new Client({ name: 'mission', version: '1' })
+    await mission.connect(new StreamableHTTPClientTransport(url, { requestInit: { headers: { [AGENT_CAPABILITY_HEADER]: capability } } }))
+    const external = await connectClient(url)
+    expect(manager.status().activeSessions).toBe(2)
+    await manager.setEnabled(false)
+    expect(manager.status().activeSessions).toBe(1)
+    expect((await mission.listTools()).tools.length).toBeGreaterThan(1)
+    await mission.close()
+    await external.close()
   })
 })

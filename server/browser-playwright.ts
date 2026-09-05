@@ -19,6 +19,7 @@ import type {
 } from './browser-capture-types'
 import { resolveBundledChromiumExecutable } from './chromium-resolver'
 import { NetworkRingBuffer, sketchJsonShape } from './browser-network'
+import { MAX_BROWSER_RASTER, normalizeBrowserViewport } from './browser-viewport'
 
 /**
  * Centralized SSRF / scheme guard for EVERY navigation path (WS `navigate`, REST
@@ -112,7 +113,7 @@ export function screencastParams(env: NodeJS.ProcessEnv = process.env): {
     const n = Number(raw)
     if (Number.isFinite(n)) quality = Math.min(100, Math.max(1, Math.round(n)))
   }
-  return { format: 'jpeg', quality, everyNthFrame: 1, maxWidth: 3840, maxHeight: 2400 }
+  return { format: 'jpeg', quality, everyNthFrame: 1, maxWidth: MAX_BROWSER_RASTER.width, maxHeight: MAX_BROWSER_RASTER.height }
 }
 
 /**
@@ -133,11 +134,19 @@ export function normalizeUrl(raw: string): string {
   return isNavigableUrl(candidate) ? candidate : 'about:blank'
 }
 
-class PlaywrightPageHandle implements BrowserPageHandle {
+export class PlaywrightPageHandle implements BrowserPageHandle {
   // `page` and `cdp` are deliberately `any` — we don't want a hard type-level
   // dependency on playwright's exported types leaking through the abstraction.
   private cdp: any = null
   private screencastHandler: ((frame: ScreencastFrame) => void) | null = null
+  private screencastStart: Promise<void> | null = null
+  // Captures can render at display density independently of the interactive
+  // viewport. CDP emulation scale/DPR changes break screencast or wheel semantics.
+  private captureCdp: any = null
+  private viewportOp: Promise<void> | null = null
+  private pendingViewport: ReturnType<typeof normalizeBrowserViewport> | null = null
+  private requestedDeviceScaleFactor = 1
+  private captureDeviceScaleFactor = 1
   // A dedicated, long-lived CDP session for the Network domain — kept SEPARATE
   // from `cdp` (which is attached/detached around screencast) so request capture
   // survives screencast toggles.
@@ -190,8 +199,24 @@ class PlaywrightPageHandle implements BrowserPageHandle {
     try { return await this.page.title() } catch { return '' }
   }
 
-  async setViewport(width: number, height: number): Promise<void> {
-    try { await this.page.setViewportSize({ width: Math.max(1, Math.round(width)), height: Math.max(1, Math.round(height)) }) } catch { /* ignore */ }
+  async setViewport(width: number, height: number, deviceScaleFactor?: number): Promise<void> {
+    if (deviceScaleFactor !== undefined) this.requestedDeviceScaleFactor = deviceScaleFactor
+    this.pendingViewport = normalizeBrowserViewport(width, height, this.requestedDeviceScaleFactor)
+    if (this.viewportOp) return this.viewportOp
+    const operation = (async () => {
+      while (this.pendingViewport) {
+        const next = this.pendingViewport
+        this.pendingViewport = null
+        try {
+          await this.page.setViewportSize({ width: next.width, height: next.height })
+          this.captureDeviceScaleFactor = next.deviceScaleFactor
+        } catch {
+          this.captureDeviceScaleFactor = 1 // page closed/navigating; input stays best-effort
+        }
+      }
+    })()
+    this.viewportOp = operation
+    try { await operation } finally { if (this.viewportOp === operation) this.viewportOp = null }
   }
 
   async dispatchInput(event: BrowserInputEvent): Promise<void> {
@@ -230,7 +255,7 @@ class PlaywrightPageHandle implements BrowserPageHandle {
           if (!event.text) await this.page.keyboard.up(event.key)
         }
       } else if (event.type === 'resize') {
-        await this.setViewport(event.width, event.height)
+        await this.setViewport(event.width, event.height, event.deviceScaleFactor)
       }
     } catch {
       // Input on a navigating/closed page can throw; never let it bubble.
@@ -238,34 +263,52 @@ class PlaywrightPageHandle implements BrowserPageHandle {
   }
 
   async startScreencast(onFrame: (frame: ScreencastFrame) => void): Promise<void> {
+    if (this.screencastStart) return this.screencastStart
     if (this.screencastHandler) return
-    this.screencastHandler = onFrame
-    const ctx = this.page.context()
-    this.cdp = await ctx.newCDPSession(this.page)
-    this.cdp.on('Page.screencastFrame', (evt: { data: string; sessionId: number; metadata?: { deviceWidth?: number; deviceHeight?: number } }) => {
-      // Ack FIRST, fire-and-forget: Chromium throttles the screencast on unacked
-      // frames, so acking before the fan-out lets it capture+compress the next
-      // frame while this one is being delivered (pipeline overlap → higher fps,
-      // lower frame age). The frames are independent JPEGs, so there is no
-      // ordering hazard in acking early.
-      try { this.cdp?.send('Page.screencastFrameAck', { sessionId: evt.sessionId })?.catch?.(() => { /* ignore */ }) } catch { /* ignore */ }
+    const startup = (async () => {
+      let cdp: any = null
       try {
-        this.screencastHandler?.({
-          data: Buffer.from(evt.data, 'base64'),
-          width: evt.metadata?.deviceWidth ?? 0,
-          height: evt.metadata?.deviceHeight ?? 0,
+        cdp = await this.page.context().newCDPSession(this.page)
+        this.cdp = cdp
+        this.screencastHandler = onFrame
+        cdp.on('Page.screencastFrame', (evt: { data: string; sessionId: number; metadata?: { deviceWidth?: number; deviceHeight?: number } }) => {
+          // Ack on the session that emitted the frame. A late callback from an
+          // old cast must never ack or render into its replacement.
+          try { cdp.send('Page.screencastFrameAck', { sessionId: evt.sessionId })?.catch?.(() => { /* ignore */ }) } catch { /* ignore */ }
+          if (this.cdp !== cdp) return
+          try {
+            this.screencastHandler?.({
+              data: Buffer.from(evt.data, 'base64'),
+              width: evt.metadata?.deviceWidth ?? 0,
+              height: evt.metadata?.deviceHeight ?? 0,
+            })
+          } catch { /* never let a handler error kill the CDP session */ }
         })
-      } catch { /* never let a handler error kill the CDP session */ }
-    })
-    await this.cdp.send('Page.startScreencast', screencastParams())
+        await cdp.send('Page.startScreencast', screencastParams())
+      } catch (err) {
+        this.screencastHandler = null
+        if (this.cdp === cdp) this.cdp = null
+        if (cdp) {
+          try { await cdp.send('Page.stopScreencast') } catch { /* ignore */ }
+          try { await cdp.detach() } catch { /* ignore */ }
+        }
+        throw err
+      }
+    })()
+    this.screencastStart = startup
+    try { await startup } finally { if (this.screencastStart === startup) this.screencastStart = null }
   }
 
   async stopScreencast(): Promise<void> {
+    // Closing while newCDPSession/start is awaiting must also close the eventual
+    // CDP handle. Otherwise unmount can leave an invisible capture running.
+    try { await this.screencastStart } catch { /* startup already cleaned up */ }
     this.screencastHandler = null
-    if (this.cdp) {
-      try { await this.cdp.send('Page.stopScreencast') } catch { /* ignore */ }
-      try { await this.cdp.detach() } catch { /* ignore */ }
-      this.cdp = null
+    const cdp = this.cdp
+    this.cdp = null
+    if (cdp) {
+      try { await cdp.send('Page.stopScreencast') } catch { /* ignore */ }
+      try { await cdp.detach() } catch { /* ignore */ }
     }
   }
 
@@ -275,6 +318,25 @@ class PlaywrightPageHandle implements BrowserPageHandle {
       y: Math.max(0, Math.round(rect.y)),
       width: Math.max(1, Math.round(rect.width)),
       height: Math.max(1, Math.round(rect.height)),
+    }
+    await this.viewportOp
+    if (this.captureDeviceScaleFactor > 1) {
+      // Screenshot clip.scale re-rasterizes vector/text detail at display
+      // density without changing page DPR, input units, scroll, or live JPEGs.
+      // CSS layout metrics supply the document offset of the viewport crop.
+      this.captureCdp ??= await this.page.context().newCDPSession(this.page)
+      try {
+        const { cssVisualViewport } = await this.captureCdp.send('Page.getLayoutMetrics')
+        const result = await this.captureCdp.send('Page.captureScreenshot', {
+          format: 'png', captureBeyondViewport: false,
+          clip: { ...clip, x: clip.x + (cssVisualViewport?.pageX ?? 0), y: clip.y + (cssVisualViewport?.pageY ?? 0), scale: this.captureDeviceScaleFactor },
+        })
+        return Buffer.from(result.data, 'base64')
+      } catch (error) {
+        try { await this.captureCdp.detach() } catch { /* ignore */ }
+        this.captureCdp = null
+        throw error
+      }
     }
     return this.page.screenshot({ clip, type: 'png' })
   }
@@ -440,17 +502,15 @@ class PlaywrightPageHandle implements BrowserPageHandle {
     // context — cookies and the window.opener/postMessage relationship are
     // intact, which is exactly what an OAuth redirect/popup flow needs.
     //
-    // HARDENING (Okta-class IdPs): a popup opened from a cross-origin IFRAME
-    // (out-of-process sign-in widgets) is attributed to the iframe's target,
-    // and the page-level 'popup' event can miss it — the login window then
-    // "never appears". So we ALSO watch the shared context for new pages whose
-    // opener chain resolves to this page and adopt those. `seen` dedupes the
-    // two doors; pages from other sessions have a different opener and are
-    // ignored.
+    // Also watch the context for pages whose direct opener is this page. A
+    // chained login can open its next window before its own handle is adopted,
+    // so replay existing pages after subscribing. Deduplication covers both
+    // events and the replay; another session's pages never share this opener.
     try {
       const seen = new WeakSet<object>()
+      let active = !this.page.isClosed?.()
       const adopt = (p: any) => {
-        if (seen.has(p)) return
+        if (!active || p === this.page || p.isClosed?.() || seen.has(p)) return
         seen.add(p)
         try { cb(new PlaywrightPageHandle(p)) } catch { /* never break the event loop */ }
       }
@@ -460,17 +520,22 @@ class PlaywrightPageHandle implements BrowserPageHandle {
         const onContextPage = (p: any) => {
           void (async () => {
             try {
-              if (seen.has(p) || p === this.page) return
+              if (!active || seen.has(p) || p === this.page || p.isClosed?.()) return
               const opener = await p.opener?.()
+              // `opener()` is async; the opener or popup may have closed while
+              // it was pending. adopt checks that lifetime again.
               if (opener === this.page) adopt(p)
             } catch { /* ignore */ }
           })()
         }
         ctx.on('page', onContextPage)
-        // The shared context outlives this page — detach on page close so a
-        // long-lived app never accumulates dead listeners.
-        this.page.on('close', () => {
+        for (const p of ctx.pages?.() ?? []) onContextPage(p)
+        // The shared context outlives this page. Invalidate pending lookups as
+        // well as detaching listeners, or a late result can revive a dead tab.
+        this.onClose(() => {
+          active = false
           try { ctx.off?.('page', onContextPage) } catch { /* ignore */ }
+          try { this.page.off?.('popup', adopt) } catch { /* ignore */ }
         })
       }
     } catch { /* ignore */ }
@@ -478,9 +543,16 @@ class PlaywrightPageHandle implements BrowserPageHandle {
 
   onClose(cb: () => void): void {
     try {
-      this.page.on('close', () => {
+      let delivered = false
+      const notify = () => {
+        if (delivered) return
+        delivered = true
         try { cb() } catch { /* ignore */ }
-      })
+      }
+      this.page.on('close', notify)
+      // An immediate OAuth callback can self-close before adoption finishes.
+      // Deliver that state too; waiting only for a future event strands it.
+      if (this.page.isClosed?.()) queueMicrotask(notify)
     } catch { /* ignore */ }
   }
 
@@ -512,6 +584,11 @@ class PlaywrightPageHandle implements BrowserPageHandle {
 
   async close(): Promise<void> {
     await this.stopScreencast()
+    await this.viewportOp
+    if (this.captureCdp) {
+      try { await this.captureCdp.detach() } catch { /* ignore */ }
+      this.captureCdp = null
+    }
     if (this.netCdp) {
       try { await this.netCdp.send('Network.disable') } catch { /* ignore */ }
       try { await this.netCdp.detach() } catch { /* ignore */ }
@@ -980,8 +1057,11 @@ class PlaywrightContextHandle implements BrowserContextHandle {
  * sandbox frequently fails to initialise inside a packaged/headless app and would
  * otherwise refuse to launch. We never disable the sandbox where it functions.
  */
-export function chromiumLaunchArgs(): string[] {
-  const args = ['--disable-dev-shm-usage', '--disable-gpu']
+export function chromiumLaunchArgs(env: NodeJS.ProcessEnv = process.env): string[] {
+  const args = ['--disable-dev-shm-usage']
+  // Native acceleration is the browser default. Retain an explicit escape hatch
+  // for machines/drivers that need software rendering, without forcing it on Macs.
+  if (env.SPECRAILS_BROWSER_DISABLE_GPU === 'true') args.push('--disable-gpu')
   if (process.platform === 'linux') args.unshift('--no-sandbox')
   return args
 }

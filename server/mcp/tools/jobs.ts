@@ -77,7 +77,7 @@ export function jobsTools(): McpToolSpec[] {
         'compare (two jobs side-by-side), export (up to 10k rows as JSON/CSV — inlines everything; prefer list/stats for token economy), ' +
         'diagnostic (binary ZIP — returns a note, not the bytes), run_state (project run state), ' +
         'pipeline (read a pipeline\'s jobs + statuses — use after composing dependent spawns), ' +
-        'activity (recent activity feed), stats, metrics, default_spec_model, ' +
+        'activity (recent activity feed), stats, metrics, phase_breakdown (per-phase timing and token use for jobId), default_spec_model, ' +
         'interactive_turn (ai-spawn — send a steering prompt to any running interactive job; claude jobs are interactive by default), ' +
         'finalize (settle a running interactive job now — Freestyle jobs otherwise wait for it, others auto-settle).',
       hintTier: 'read',
@@ -109,6 +109,7 @@ export function jobsTools(): McpToolSpec[] {
             'activity',
             'stats',
             'metrics',
+            'phase_breakdown',
             'default_spec_model',
             'interactive_turn',
             'finalize',
@@ -124,8 +125,10 @@ export function jobsTools(): McpToolSpec[] {
           .optional()
           .describe('Job id (for get / cancel / priority / diagnostic / interactive_turn / finalize)'),
         // ── list / export pagination + filters ──
-        limit: z.number().optional().describe('Page size for list (1-200, default 50) / activity (1-100, default 50); background_logs returns the last N buffered log lines'),
-        offset: z.number().optional().describe('Page offset for list'),
+        limit: z.number().int().positive().max(200).optional().describe('Page size for list (1-200, default 50) / activity (1-100, default 50); background_logs returns the last N buffered log lines'),
+        offset: z.number().int().nonnegative().optional().describe('Page offset for list'),
+        eventLimit: z.number().int().positive().max(200).optional().describe('get: maximum persisted events to return (default 50, latest events by default)'),
+        eventOffset: z.number().int().nonnegative().optional().describe('get: chronological event offset; omit for the latest eventLimit events'),
         status: z.string().optional().describe('Filter by job status (list)'),
         from: z.string().optional().describe('ISO date lower bound (list / export / purge)'),
         to: z.string().optional().describe('ISO date upper bound (list / export / purge)'),
@@ -140,9 +143,11 @@ export function jobsTools(): McpToolSpec[] {
         pipelineId: z.string().optional().describe('Pipeline id: group the spawned job into this pipeline (spawn) / pipeline to read (pipeline)'),
         profileName: z
           .string()
+          .nullable()
           .optional()
-          .describe('Agent profile for spawn (omit = default resolution; pass empty/null upstream forces legacy)'),
+          .describe('Agent profile for spawn (omit = default resolution; null forces legacy)'),
         aiEngine: z.string().optional().describe('Per-job provider override for spawn (must be installed on the project). From the in-app agent chat, omitting it defaults to the launching conversation\'s provider.'),
+        model: z.string().optional().describe('Model for spawn; defaults to the launching conversation model when the provider matches. Explicit override is validated by the server.'),
         // ── reorder ──
         jobIds: z
           .array(z.string())
@@ -152,7 +157,7 @@ export function jobsTools(): McpToolSpec[] {
         text: z.string().optional().describe('Prompt text for interactive_turn'),
         chatId: z.string().optional().describe('Conversation id for background_logs ownership. background_start/background_kill ignore this field and use the authenticated in-app capability.'),
         cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected project root'),
-        pid: z.number().optional().describe('Background process pid for background_logs/background_kill'),
+        pid: z.number().int().positive().optional().describe('Background process pid for background_logs/background_kill'),
         confirmed: z.boolean().optional().describe('background_start only: must be true after explicit user confirmation for this exact command'),
         allowWhileBusy: z.boolean().optional().describe('background_start only: override active job/loop guard after explicit user confirmation'),
         // ── export ──
@@ -173,13 +178,25 @@ export function jobsTools(): McpToolSpec[] {
             if (args.from) qs.set('from', args.from as string)
             if (args.to) qs.set('to', args.to as string)
             const q = qs.toString()
-            return apiCall(ctx, 'GET', `${base}/jobs${q ? `?${q}` : ''}`)
+            const result = await apiCall(ctx, 'GET', `${base}/jobs${q ? `?${q}` : ''}`) as { jobs?: unknown[]; total?: number }
+            const offset = (args.offset as number | undefined) ?? 0
+            const count = result.jobs?.length ?? 0
+            return { ...result, offset, nextOffset: typeof result.total === 'number' && offset + count < result.total && count > 0 ? offset + count : null }
           }
 
           case 'get': {
             const id = args.jobId as string | undefined
             if (!id) throw new Error('get requires a "jobId".')
-            return apiCall(ctx, 'GET', `${base}/jobs/${encodeURIComponent(id)}`)
+            const result = await apiCall(ctx, 'GET', `${base}/jobs/${encodeURIComponent(id)}`) as Record<string, unknown>
+            const events = Array.isArray(result.events) ? result.events : []
+            const limit = (args.eventLimit as number | undefined) ?? 50
+            const offset = (args.eventOffset as number | undefined) ?? Math.max(0, events.length - limit)
+            const page = events.slice(offset, offset + limit)
+            return {
+              ...result,
+              events: page,
+              eventPage: { offset, limit, total: events.length, hasEarlier: offset > 0, nextOffset: offset + page.length < events.length ? offset + page.length : null },
+            }
           }
 
           case 'queue':
@@ -195,19 +212,22 @@ export function jobsTools(): McpToolSpec[] {
             // validates installed-ness (its clear 400 surfaces as the tool
             // error). No origin conversation (dashboard / external MCP client)
             // or an unknown id → no default, byte-identical to before.
-            // (/spawn has no reasoning_effort field, so only the engine defaults.)
-            const aiEngine = (args.aiEngine as string | undefined) ?? originConversationDefaults(ctx).provider
+            // /spawn accepts model but has no reasoning_effort field.
+            const defaults = originConversationDefaults(ctx)
+            const aiEngine = (args.aiEngine as string | undefined) ?? defaults.provider
+            const model = (args.model as string | undefined) ?? (aiEngine === defaults.provider ? defaults.model : undefined)
             const r = await apiCall(ctx, 'POST', `${base}/spawn`, {
               command,
               priority: args.priority as string | undefined,
               dependsOnJobId: args.dependsOnJobId as string | undefined,
               pipelineId: args.pipelineId as string | undefined,
-              profileName: args.profileName as string | undefined,
+              profileName: args.profileName as string | null | undefined,
               aiEngine,
+              model,
             })
             return {
               ...(r as Record<string, unknown>),
-              hint: 'Spawned an AI CLI job (incurs token cost). Use specrails_jobs(get, jobId) to poll status; specrails_watch settles for this jobId via its 5s job-status poll fallback (terminal events stream only for rail-launched or interactive jobs).',
+              hint: 'Spawned a direct AI CLI job (incurs token cost; bypasses rail isolation and delivery cards). Use specrails_watch(ref:jobId, kind:"job") or specrails_jobs(get, jobId) to read completion. For spec implementations and delivery revisions, use specrails_rails(launch) instead.',
             }
           }
 
@@ -301,6 +321,12 @@ export function jobsTools(): McpToolSpec[] {
 
           case 'metrics':
             return apiCall(ctx, 'GET', `${base}/metrics`)
+
+          case 'phase_breakdown': {
+            const id = args.jobId as string | undefined
+            if (!id) throw new Error('phase_breakdown requires a "jobId".')
+            return apiCall(ctx, 'GET', `${base}/jobs/${encodeURIComponent(id)}/phase-breakdown`)
+          }
 
           case 'default_spec_model': {
             const qs = new URLSearchParams()

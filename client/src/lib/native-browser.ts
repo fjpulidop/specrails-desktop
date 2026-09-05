@@ -17,9 +17,25 @@ export interface PaneBounds {
 }
 
 export interface NativeBrowserEvent {
-  kind: 'nav' | 'load-started' | 'load-finished' | 'title' | 'closed'
+  ownerId: string
+  kind: 'nav' | 'load-started' | 'load-finished' | 'title' | 'closed' | 'popup-error' | 'popup-opened'
   url?: string | null
   title?: string | null
+}
+
+export interface NativeBrowserSelection {
+  selector: string
+  tagName: string
+  text: string
+  rect: { x: number; y: number; width: number; height: number }
+}
+
+export interface NativeBrowserCapture {
+  screenshotDataUrl: string
+  url: string
+  title: string
+  viewport: { width: number; height: number; deviceScaleFactor: number }
+  element?: NativeBrowserSelection | null
 }
 
 export const NATIVE_BROWSER_EVENT = 'native-browser:event'
@@ -46,7 +62,12 @@ export function normalizeAddress(raw: string): string | null {
     if (!/^\d+([/?#].*)?$/.test(tail)) return null
   }
   const upgraded = tryParseUrl(`https://${trimmed}`)
-  if (upgraded && upgraded.protocol === 'https:') return upgraded.toString()
+  if (upgraded && upgraded.protocol === 'https:') {
+    // Development servers normally expose HTTP, including IPv6 loopback.
+    const hostname = upgraded.hostname.toLowerCase()
+    if (hostname === 'localhost' || hostname.endsWith('.localhost') || hostname === '[::1]' || /^127\./.test(hostname)) upgraded.protocol = 'http:'
+    return upgraded.toString()
+  }
   return null
 }
 
@@ -60,11 +81,12 @@ function tryParseUrl(candidate: string): URL | null {
 
 /** Map a hole element's client rect (CSS logical px) to pane bounds. */
 export function rectToBounds(rect: { left: number; top: number; width: number; height: number }): PaneBounds {
+  const finite = (value: number, fallback: number) => Number.isFinite(value) ? value : fallback
   return {
-    x: Math.max(0, Math.round(rect.left)),
-    y: Math.max(0, Math.round(rect.top)),
-    width: Math.max(1, Math.round(rect.width)),
-    height: Math.max(1, Math.round(rect.height)),
+    x: Math.max(0, Math.round(finite(rect.left, 0))),
+    y: Math.max(0, Math.round(finite(rect.top, 0))),
+    width: Math.max(1, Math.round(finite(rect.width, 1))),
+    height: Math.max(1, Math.round(finite(rect.height, 1))),
   }
 }
 
@@ -77,12 +99,16 @@ export type ListenFn = (
 let invokeOverride: InvokeFn | null = null
 let listenOverride: ListenFn | null = null
 let supportProbe: Promise<boolean> | null = null
+let captureProbe: Promise<boolean> | null = null
+let lifecycle: Promise<unknown> = Promise.resolve()
 
 /** Test seam: inject IPC fakes and reset the memoized probe. */
 export function _setNativeBrowserIpcForTests(invoke: InvokeFn | null, listen?: ListenFn | null): void {
   invokeOverride = invoke
   listenOverride = listen ?? null
   supportProbe = null
+  captureProbe = null
+  lifecycle = Promise.resolve()
 }
 
 async function getInvoke(): Promise<InvokeFn> {
@@ -106,6 +132,8 @@ export function isNativeBrowserAvailable(opts?: { flag?: boolean; tauri?: boolea
         const invoke = await getInvoke()
         return (await invoke<boolean>('browser_supported')) === true
       } catch {
+        // An IPC failure during startup is not a permanent platform verdict.
+        supportProbe = null
         return false
       }
     })()
@@ -113,28 +141,50 @@ export function isNativeBrowserAvailable(opts?: { flag?: boolean; tauri?: boolea
   return supportProbe
 }
 
+/** Capture must use the same live native page, never a second browser profile. */
+export async function isNativeBrowserCaptureAvailable(opts?: { flag?: boolean; tauri?: boolean }): Promise<boolean> {
+  if (!await isNativeBrowserAvailable(opts)) return false
+  if (!captureProbe) {
+    captureProbe = inv<boolean>('browser_capture_supported').then(result => result === true).catch(() => {
+      captureProbe = null
+      return false
+    })
+  }
+  return captureProbe
+}
+
 async function inv<T = void>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const invoke = await getInvoke()
   return invoke<T>(cmd, args)
 }
 
-/** Thin command wrappers around the Rust pane (src-tauri/src/browser.rs). */
+function serializeLifecycle<T>(operation: () => Promise<T>): Promise<T> {
+  const next = lifecycle.then(operation, operation)
+  lifecycle = next.catch(() => {})
+  return next
+}
+
+/** Every operation belongs to a single pane lifetime, including late cleanup. */
 export const nativeBrowser = {
-  open: (url: string, bounds: PaneBounds) => inv('browser_open', { url, bounds }),
-  navigate: (url: string) => inv('browser_navigate', { url }),
-  back: () => inv('browser_back'),
-  forward: () => inv('browser_forward'),
-  reload: () => inv('browser_reload'),
-  setBounds: (bounds: PaneBounds) => inv('browser_set_bounds', { bounds }),
-  show: () => inv('browser_show'),
-  hide: () => inv('browser_hide'),
-  close: () => inv('browser_close'),
-  devtools: () => inv('browser_devtools'),
-  zoom: (factor: number) => inv('browser_zoom', { factor }),
+  open: (ownerId: string, url: string, bounds: PaneBounds) => serializeLifecycle(() => inv('browser_open', { ownerId, url, bounds })),
+  navigate: (ownerId: string, url: string) => inv('browser_navigate', { ownerId, url }),
+  back: (ownerId: string) => inv('browser_back', { ownerId }),
+  forward: (ownerId: string) => inv('browser_forward', { ownerId }),
+  reload: (ownerId: string) => inv('browser_reload', { ownerId }),
+  setBounds: (ownerId: string, bounds: PaneBounds) => inv('browser_set_bounds', { ownerId, bounds }),
+  show: (ownerId: string) => inv('browser_show', { ownerId }),
+  hide: (ownerId: string) => inv('browser_hide', { ownerId }),
+  close: (ownerId: string) => serializeLifecycle(() => inv('browser_close', { ownerId })),
+  devtools: (ownerId: string) => inv('browser_devtools', { ownerId }),
+  zoom: (ownerId: string, factor: number) => inv('browser_zoom', { ownerId, factor }),
+  setSelectMode: (ownerId: string, enabled: boolean) => inv('browser_set_select_mode', { ownerId, enabled }),
+  selection: (ownerId: string) => inv<NativeBrowserSelection | null>('browser_selection', { ownerId }),
+  capture: (ownerId: string, selectionOnly: boolean) => inv<NativeBrowserCapture>('browser_capture', { ownerId, selectionOnly }),
   /** Subscribe to pane events; resolves to the unlisten function. */
-  onEvent: async (cb: (e: NativeBrowserEvent) => void): Promise<() => void> => {
-    if (listenOverride) return listenOverride(NATIVE_BROWSER_EVENT, (e) => cb(e.payload))
+  onEvent: async (ownerId: string, cb: (e: NativeBrowserEvent) => void): Promise<() => void> => {
+    const receive = (e: { payload: NativeBrowserEvent }) => { if (e.payload.ownerId === ownerId) cb(e.payload) }
+    if (listenOverride) return listenOverride(NATIVE_BROWSER_EVENT, receive)
     const { listen } = await import('@tauri-apps/api/event')
-    return listen<NativeBrowserEvent>(NATIVE_BROWSER_EVENT, (e) => cb(e.payload))
+    return listen<NativeBrowserEvent>(NATIVE_BROWSER_EVENT, receive)
   },
 }

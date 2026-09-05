@@ -115,6 +115,16 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     return db.prepare('SELECT * FROM agent_invocations ORDER BY started_at ASC').all() as Array<Record<string, unknown>>
   }
 
+  it('reports MCP preparation failure before spawning a paid tool-less agent', async () => {
+    const conv = createAgentConversation(db, { provider: 'claude' })
+    agentMcpMocks.prepare.mockImplementationOnce(() => { throw new Error('MCP bridge missing') })
+    await mgr.sendMessage(conv.id, 'inspect the project')
+    expect(mockSpawn).not.toHaveBeenCalled()
+    expect(rows()).toHaveLength(0)
+    expect(broadcastsOfType(broadcast, 'agent_error')[0].error).toContain('could not prepare its MCP tools')
+    expect(agentMcpMocks.removeCapabilityFile).toHaveBeenCalledWith(conv.id)
+  })
+
   it('records a success row with native cost (estimated=0) and broadcasts spending.invalidated for a pinned project', async () => {
     const conv = createAgentConversation(db, { provider: 'claude', pinnedProjectId: 'proj-77' })
     primeTurn([

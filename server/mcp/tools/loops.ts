@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
-import { apiCall, projectPath } from './types'
+import { apiCall, projectPath, originConversationDefaults } from './types'
 
 /**
  * Loops — the GLOBAL (cross-project) visual loop-builder library. Routes live at
@@ -118,7 +118,7 @@ export function loopsTools(): McpToolSpec[] {
         provider: z
           .string()
           .optional()
-          .describe('Provider for token resolution in preview (default "claude") / AI engine for run (must be installed on the project; default = project primary)'),
+          .describe('Provider for token resolution in preview (default "claude") / AI engine for run (must be installed on the project; defaults to the launching conversation provider, otherwise project primary)'),
         model: z
           .string()
           .optional()
@@ -170,8 +170,9 @@ export function loopsTools(): McpToolSpec[] {
           }
           case 'constant_update': {
             if (!constantId) throw new Error('constant_update requires a "constantId".')
+            if (args.value === undefined) throw new Error('constant_update requires "value" (use an empty string to clear it).')
             return apiCall(ctx, 'PUT', `/loops/constants/${encodeURIComponent(constantId)}`, {
-              value: (args.value as string | undefined) ?? '',
+              value: args.value as string,
             })
           }
           case 'constant_delete': {
@@ -235,15 +236,22 @@ export function loopsTools(): McpToolSpec[] {
           case 'run': {
             if (!loopId) throw new Error('run requires a "loopId" (the loop must be Published).')
             const base = projectPath(ctx, args.projectId as string | undefined)
+            const defaults = originConversationDefaults(ctx)
+            const provider = (args.provider as string | undefined) ?? defaults.provider
+            const model = (args.model as string | undefined)
+              ?? (provider === defaults.provider ? defaults.model : undefined)
+            const effort = (args.reasoning_effort as string | undefined)
+              ?? (provider === defaults.provider && (!defaults.model || model === defaults.model)
+                ? defaults.reasoningEffort : undefined)
             const r = await apiCall(ctx, 'POST', `${base}/loop-runs`, {
               loopId,
-              ...(args.provider !== undefined ? { provider: args.provider as string } : {}),
-              ...(args.model !== undefined ? { model: args.model as string } : {}),
-              ...(args.reasoning_effort !== undefined ? { reasoning_effort: args.reasoning_effort as string } : {}),
+              ...(provider !== undefined ? { provider } : {}),
+              ...(model !== undefined ? { model } : {}),
+              ...(effort !== undefined ? { reasoning_effort: effort } : {}),
             })
             return {
               ...(r as Record<string, unknown>),
-              hint: 'Run accepted (202). Use specrails_watch with the returned loopRunId (loop.run_completed / loop.run_stopped are terminal), or poll specrails_loops(run_get, loopRunId) after a timeout.',
+              hint: 'Run accepted (202). Use specrails_watch with ref:loopRunId and kind:"loop_run" to recover live or already-terminal state. Settled means finished, not necessarily successful: inspect final_outcome/status. Use specrails_loops(run_get, loopRunId) for durable details.',
             }
           }
           case 'run_get': {

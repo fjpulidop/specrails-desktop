@@ -60,7 +60,7 @@
       "arrow": "Seta (A)",
       "box": "Caixa (R)",
       "text": "Texto (T)",
-      "blur": "Desfocar / ocultar (B)",
+      "blur": "Censurar (B)",
       "step": "Número de passo (N)"
     },
     "notePrompt": "Texto da nota:",
@@ -106,13 +106,19 @@
     "loginWindow": "Janela de início de sessão — {{origin}}",
     "stacked": "+{{count}} mais",
     "backToPage": "Voltar à página",
-    "show": "Mostrar janela de início de sessão"
+    "show": "Mostrar janela de início de sessão",
+    "openFailed": "Não foi possível abrir a janela de início de sessão. Tenta iniciar sessão novamente."
   },
   "native": {
     "devtools": "DevTools",
     "zoomIn": "Aumentar zoom",
     "zoomOut": "Diminuir zoom",
     "openExternal": "Abrir no navegador do sistema",
-    "badge": "Nativo"
+    "badge": "Nativo",
+    "selectElement": "Selecionar elemento",
+    "selectHint": "Clique num elemento da página",
+    "capturePage": "Capturar página",
+    "captureSelection": "Capturar seleção",
+    "capturing": "A capturar…"
   }
 }

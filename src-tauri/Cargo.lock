@@ -4098,7 +4098,12 @@ dependencies = [
 name = "specrails-desktop"
 version = "0.1.0"
 dependencies = [
+ "block2",
  "dirs-next",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "objc2-web-kit",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
@@ -4110,6 +4115,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
+ "tokio",
 ]
 
 [[package]]

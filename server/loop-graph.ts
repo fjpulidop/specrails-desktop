@@ -76,6 +76,12 @@ export type GraphValidationCode =
   | 'ORPHAN_NODE'
   | 'DANGLING_EDGE'
   | 'INVALID_CONFIG'
+  | 'INVALID_NODE'
+  | 'DUPLICATE_NODE'
+  | 'DUPLICATE_EDGE'
+  | 'INVALID_BRANCH'
+  | 'UNSUPPORTED_BRANCHING'
+  | 'DEAD_END'
 
 export interface GraphValidationError {
   code: GraphValidationCode
@@ -110,8 +116,25 @@ export function emptyLoopGraph(): LoopGraph {
 export function validateLoopGraph(graph: LoopGraph): GraphValidationResult {
   const errors: GraphValidationError[] = []
 
-  const nodes = graph.nodes ?? []
-  const edges = graph.edges ?? []
+  if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
+    return { valid: false, errors: [{ code: 'INVALID_CONFIG', message: 'A loop graph must contain nodes and edges arrays.' }] }
+  }
+  const nodes = graph.nodes
+  const edges = graph.edges
+  const kinds = new Set<LoopNodeType>(['start', 'ai-step', 'shell', 'decider', 'condition', 'end'])
+  if (nodes.some((node) => !node || typeof node.id !== 'string' || !node.id.trim() || !kinds.has(node.type))) {
+    return { valid: false, errors: [{ code: 'INVALID_NODE', message: 'Every node needs a non-empty id and a supported node type.' }] }
+  }
+  if (edges.some((edge) => !edge || typeof edge.id !== 'string' || !edge.id.trim() || typeof edge.source !== 'string' || typeof edge.target !== 'string')) {
+    return { valid: false, errors: [{ code: 'DANGLING_EDGE', message: 'Every edge needs a non-empty id, source and target.' }] }
+  }
+  for (const [items, code] of [[nodes, 'DUPLICATE_NODE'], [edges, 'DUPLICATE_EDGE']] as const) {
+    const ids = new Set<string>()
+    for (const item of items) {
+      if (ids.has(item.id)) errors.push({ code, message: `Duplicate ${code === 'DUPLICATE_NODE' ? 'node' : 'edge'} id "${item.id}".` })
+      ids.add(item.id)
+    }
+  }
 
   // ── Start cardinality ──────────────────────────────────────────────────────
   const starts = nodes.filter((n) => n.type === 'start')
@@ -140,11 +163,13 @@ export function validateLoopGraph(graph: LoopGraph): GraphValidationResult {
     cfg.maxIterations < 1 ||
     typeof cfg.timeoutMinutes !== 'number' ||
     !Number.isFinite(cfg.timeoutMinutes) ||
-    cfg.timeoutMinutes < 0
+    cfg.timeoutMinutes < 0 ||
+    (cfg.aiStepTimeoutMinutes !== undefined && (!Number.isFinite(cfg.aiStepTimeoutMinutes) || cfg.aiStepTimeoutMinutes < 0)) ||
+    (cfg.maxCostUsd !== undefined && !Number.isFinite(cfg.maxCostUsd))
   ) {
     errors.push({
       code: 'INVALID_CONFIG',
-      message: 'maxIterations must be ≥ 1 and timeoutMinutes ≥ 0 (0 = no timeout).',
+      message: 'maxIterations must be ≥ 1; timeouts must be finite and ≥ 0 (0 = no timeout); maxCostUsd must be finite.',
     })
   }
 
@@ -157,6 +182,29 @@ export function validateLoopGraph(graph: LoopGraph): GraphValidationResult {
         message: `Edge "${e.id}" references a node that does not exist.`,
         edgeId: e.id,
       })
+    }
+  }
+
+  // The executor follows one successor at a time. Publishing a branching AI,
+  // shell or condition node would silently skip all but its first branch.
+  for (const node of nodes) {
+    const out = edges.filter((edge) => edge.source === node.id)
+    if (node.type === 'end') {
+      if (out.length) errors.push({ code: 'INVALID_BRANCH', nodeId: node.id, message: 'End nodes cannot have outgoing edges.' })
+    } else if (node.type === 'decider') {
+      const labeled = out.some((edge) => edge.branch !== undefined)
+      const validBranches = labeled
+        ? out.length === 2 && out.filter((edge) => edge.branch === 'continue').length === 1 && out.filter((edge) => edge.branch === 'stop').length === 1
+        : out.length === 2 && out.filter((edge) => nodes.find((candidate) => candidate.id === edge.target)?.type === 'end').length === 1
+      if (!validBranches) errors.push({ code: 'INVALID_BRANCH', nodeId: node.id, message: 'A Decider needs exactly one continue branch and one stop branch.' })
+      const cont = out.find((edge) => edge.branch === 'continue')
+      if (cont && nodes.find((candidate) => candidate.id === cont.target)?.type === 'end') {
+        errors.push({ code: 'INVALID_BRANCH', nodeId: node.id, message: 'The continue branch must lead to another step, not End.' })
+      }
+    } else if (!out.length) {
+      errors.push({ code: 'DEAD_END', nodeId: node.id, message: `Node "${node.id}" needs a next step or an End.` })
+    } else if (out.length !== 1) {
+      errors.push({ code: 'UNSUPPORTED_BRANCHING', nodeId: node.id, message: `Node "${node.id}" has multiple successors; use sequential steps or a Decider with explicit branches.` })
     }
   }
 
@@ -227,6 +275,8 @@ export interface LoopSpec {
   id?: number
   /** All ticket ids this run targets (for `{{spec.ids}}` → `#1 #2 #3`). */
   ticketIds?: number[]
+  /** Exact specs covered by an all-ticket run, for independent verification. */
+  tickets?: Array<{ id: number; title?: string; description?: string }>
   title?: string
   description?: string
   status?: string

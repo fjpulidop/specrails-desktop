@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { StrictMode } from 'react'
 
@@ -127,6 +127,89 @@ beforeEach(() => {
     value: vi.fn(),
   })
 })
+
+
+/** Read the editable document as the user-facing tokens, without the pill's label
+ *  or remove-button text becoming part of the message. */
+function editorText(editor: HTMLElement): string {
+  const document = editor.cloneNode(true) as HTMLElement
+  document.querySelectorAll<HTMLElement>('[data-inline-reference]').forEach((pill) => {
+    pill.replaceWith(pill.dataset.token ?? '')
+  })
+  return visibleNodeText(document)
+}
+
+function visibleNodeText(node: Node | null): string {
+  return (node?.textContent ?? '').replace(/\u200b/g, '')
+}
+
+/** Place a real DOM caret at a token-aware offset. Atomic pills occupy the
+ *  length of their token; a caret can only sit before or after a pill. */
+function selectEditor(editor: HTMLElement, offset: number, report = true): void {
+  editor.focus()
+  const range = document.createRange()
+  let remaining = offset
+  let placed = false
+  const visit = (node: Node): void => {
+    if (placed) return
+    if (node instanceof HTMLElement && node.hasAttribute('data-inline-reference')) {
+      const size = (node.dataset.token ?? '').length
+      if (remaining <= size) {
+        if (remaining === 0) range.setStartBefore(node)
+        else if (node.nextSibling?.nodeType === Node.TEXT_NODE && node.nextSibling.textContent?.startsWith('\u200b')) {
+          range.setStart(node.nextSibling, 1)
+        } else range.setStartAfter(node)
+        placed = true
+      } else remaining -= size
+      return
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      const raw = node.textContent ?? ''
+      const length = visibleNodeText(node).length
+      if (remaining <= length) {
+        let rawOffset = 0
+        let plainOffset = 0
+        while (rawOffset < raw.length && (plainOffset < remaining || raw[rawOffset] === '\u200b')) {
+          if (raw[rawOffset] !== '\u200b') plainOffset += 1
+          rawOffset += 1
+        }
+        range.setStart(node, rawOffset)
+        placed = true
+      } else remaining -= length
+      return
+    }
+    node.childNodes.forEach(visit)
+  }
+  visit(editor)
+  if (!placed) {
+    range.selectNodeContents(editor)
+    range.collapse(false)
+  }
+  range.collapse(true)
+  const selection = window.getSelection()!
+  selection.removeAllRanges()
+  selection.addRange(range)
+  if (report) fireEvent(document, new Event('selectionchange'))
+}
+
+function inputEditor(editor: HTMLElement, text: string, caret = text.length): void {
+  editor.textContent = text
+  selectEditor(editor, caret, false)
+  fireEvent.input(editor, { inputType: 'insertText' })
+}
+
+function insertEditorText(editor: HTMLElement, text: string): void {
+  const selection = window.getSelection()!
+  const range = selection.getRangeAt(0)
+  const node = document.createTextNode(text)
+  range.deleteContents()
+  range.insertNode(node)
+  range.setStart(node, text.length)
+  range.collapse(true)
+  selection.removeAllRanges()
+  selection.addRange(range)
+  fireEvent.input(editor, { inputType: 'insertText', data: text })
+}
 
 // ── AgentTierChip ─────────────────────────────────────────────────────────────
 describe('AgentTierChip', () => {
@@ -670,18 +753,18 @@ describe('AgentChatProvider', () => {
     })
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = (await screen.findByPlaceholderText('Ask the agent to do anything…')) as HTMLTextAreaElement
+    const box = (await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' }))
     // ↑ from empty → most recent
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    expect(box.value).toBe('second prompt')
+    expect(editorText(box)).toBe('second prompt')
     // ↑ again → older
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    expect(box.value).toBe('first prompt')
+    expect(editorText(box)).toBe('first prompt')
     // ↓ → newer, then ↓ past newest → cleared
     fireEvent.keyDown(box, { key: 'ArrowDown' })
-    expect(box.value).toBe('second prompt')
+    expect(editorText(box)).toBe('second prompt')
     fireEvent.keyDown(box, { key: 'ArrowDown' })
-    expect(box.value).toBe('')
+    expect(editorText(box)).toBe('')
   })
 
   it('reflects a disabled MCP server', async () => {
@@ -773,6 +856,22 @@ describe('AgentChatProvider', () => {
     expect(screen.getByTestId('streaming').textContent).toBe('false')
   })
 
+  it('keeps a running turn and queued messages visible when stop is rejected', async () => {
+    vi.mocked(agentApi.sendAgentMessage)
+      .mockResolvedValueOnce({ queued: false })
+      .mockResolvedValue({ queued: true })
+    vi.mocked(agentApi.abortAgentTurn).mockRejectedValueOnce(new Error('Could not stop provider'))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'x' }) })
+    await act(async () => { fireEvent.click(screen.getByText('send-extra')) })
+    await act(async () => { fireEvent.click(screen.getByText('abort')) })
+    expect(screen.getByTestId('queued')).toHaveTextContent('1')
+    expect(screen.getByTestId('streaming')).toHaveTextContent('true')
+    expect(toast.error).toHaveBeenCalledWith('Could not stop provider')
+  })
+
   it('keeps a background conversation streaming and restores its text on switch-back', async () => {
     const conv2 = { ...api.conv, id: 'c2' }
     vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id: string) => ({
@@ -821,13 +920,13 @@ describe('AgentChatProvider', () => {
     // Start a turn → streaming, box empty → red Stop.
     await act(async () => { fireEvent.click(screen.getByText('send')) })
     expect(screen.getByLabelText('Stop')).toBeInTheDocument()
-    const box = screen.getByPlaceholderText('Add more while the agent works — it will queue…') as HTMLTextAreaElement
+    const box = screen.getByRole('textbox', { name: 'Add more while the agent works — it will queue…' })
     // Typing mid-stream → third state: send-to-queue (Stop hidden).
-    fireEvent.change(box, { target: { value: 'follow-up' } })
+    inputEditor(box, 'follow-up')
     expect(screen.queryByLabelText('Stop')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Send to queue')).toBeInTheDocument()
     // Clearing the box restores the red Stop.
-    fireEvent.change(box, { target: { value: '' } })
+    inputEditor(box, '')
     expect(screen.getByLabelText('Stop')).toBeInTheDocument()
     expect(screen.queryByLabelText('Send to queue')).not.toBeInTheDocument()
   })
@@ -835,29 +934,29 @@ describe('AgentChatProvider', () => {
   it('a typed-but-unsent draft SURVIVES unmounting the composer (Mission⇄Board switch)', async () => {
     const first = render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
-    fireEvent.change(box, { target: { value: 'idea a medio escribir' } })
+    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    inputEditor(box, 'idea a medio escribir')
     // Switch to Board mode = the whole agent surface unmounts.
     first.unmount()
     // Back to Mission Control: the draft is right where it was left.
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box2 = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
-    expect(box2.value).toBe('idea a medio escribir')
+    const box2 = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    expect(editorText(box2)).toBe('idea a medio escribir')
     // Sending clears the stored draft — a fresh mount starts empty again.
     await act(async () => { fireEvent.keyDown(box2, { key: 'Enter' }) })
-    expect(box2.value).toBe('')
+    expect(editorText(box2)).toBe('')
   })
 
   it('lets @ select a project and sends the resolved context reference', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
+    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
 
-    fireEvent.change(box, { target: { value: '@deck', selectionStart: 5, selectionEnd: 5 } })
+    inputEditor(box, '@deck', 5)
     expect(await screen.findByTestId('agent-context-palette')).toBeInTheDocument()
     await act(async () => { fireEvent.click(screen.getByText('deckdex')) })
-    await waitFor(() => expect(box.value).toBe(''))
+    await waitFor(() => expect(editorText(box)).toBe('@deckdex'))
     expect(screen.getByText('deckdex')).toBeInTheDocument()
 
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
@@ -868,10 +967,155 @@ describe('AgentChatProvider', () => {
     })
   })
 
+  it('inserts @ at the invoked position and sends the surrounding text in its original order', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+
+    inputEditor(box, 'revisa @deck y explica los cambios', 'revisa @deck'.length)
+    await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
+    const pill = box.querySelector('[data-inline-reference]')!
+    expect(pill).toHaveAttribute('data-token', '@deckdex')
+    expect(visibleNodeText(pill.previousSibling)).toBe('revisa ')
+    expect(visibleNodeText(pill.nextSibling)).toBe(' y explica los cambios')
+    expect(editorText(box)).toBe('revisa @deckdex y explica los cambios')
+
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    expect(agentApi.sendAgentMessage).toHaveBeenLastCalledWith(
+      'c1',
+      'revisa @deckdex y explica los cambios',
+      expect.objectContaining({
+        contextRefs: [expect.objectContaining({ kind: 'project', id: 'p2', token: '@deckdex' })],
+      }),
+    )
+  })
+
+  it('selects the exact # spec first and keeps it after the words that introduced it', async () => {
+    vi.mocked(agentApi.createAgentConversation).mockResolvedValue({ ...api.conv, pinned_project_id: 'p1' })
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        tickets: [
+          { id: 10, title: 'Later spec', status: 'todo', labels: [] },
+          { id: 1, title: 'Scaffold the runnable project foundation', status: 'todo', labels: [] },
+        ],
+        jobs: [{ id: '1deadbeef', command: 'Implement #1', status: 'canceled' }],
+      }),
+    } as Response)
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+
+    inputEditor(box, 'implementemos el #1 y verifica los tests', 'implementemos el #1'.length)
+    const palette = await screen.findByTestId('agent-context-palette')
+    const spec = await within(palette).findByRole('option', { name: /Scaffold the runnable project foundation/ })
+    expect(within(palette).getAllByRole('option')[0]).toBe(spec)
+    expect(spec).toHaveAttribute('aria-selected', 'true')
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+
+    const pill = box.querySelector('[data-inline-reference]')!
+    expect(pill).toHaveAttribute('data-token', '#1')
+    expect(visibleNodeText(pill.previousSibling)).toBe('implementemos el ')
+    expect(visibleNodeText(pill.nextSibling)).toBe(' y verifica los tests')
+    expect(editorText(box)).toBe('implementemos el #1 y verifica los tests')
+    expect(agentApi.sendAgentMessage).not.toHaveBeenCalled()
+
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    expect(agentApi.sendAgentMessage).toHaveBeenLastCalledWith(
+      'c1',
+      'implementemos el #1 y verifica los tests',
+      expect.objectContaining({
+        contextRefs: [expect.objectContaining({ id: '1', token: '#1', scope: { projectId: 'p1', projectName: 'acme-api' } })],
+      }),
+    )
+  })
+
+  it('keeps repeated references at both positions and removing one preserves the other metadata', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    inputEditor(box, 'revisa @deck')
+    await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
+    selectEditor(box, editorText(box).length)
+    insertEditorText(box, ' y compara @deck')
+    await act(async () => { fireEvent.click((await screen.findAllByRole('option', { name: /deckdex/ }))[0]) })
+    expect(editorText(box)).toBe('revisa @deckdex y compara @deckdex')
+    const pills = box.querySelectorAll<HTMLElement>('[data-inline-reference]')
+    expect(pills).toHaveLength(2)
+    fireEvent.click(within(pills[0]).getByRole('button'))
+    expect(box.querySelectorAll('[data-inline-reference]')).toHaveLength(1)
+    expect(editorText(box)).toBe('revisa  y compara @deckdex')
+
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    const call = vi.mocked(agentApi.sendAgentMessage).mock.calls.at(-1)!
+    expect(call[1]).toBe('revisa  y compara @deckdex')
+    expect(call[2]).toMatchObject({
+      contextRefs: [{ kind: 'project', id: 'p2', token: '@deckdex' }],
+    })
+  })
+
+  it('preserves the position and metadata of an unsent reference across Mission/Board remounts', async () => {
+    const first = render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    inputEditor(box, 'trabaja en @deck y resume', 'trabaja en @deck'.length)
+    await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
+    first.unmount()
+
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const restored = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    expect(editorText(restored)).toBe('trabaja en @deckdex y resume')
+    const pill = restored.querySelector('[data-inline-reference]')!
+    expect(visibleNodeText(pill.previousSibling)).toBe('trabaja en ')
+    expect(visibleNodeText(pill.nextSibling)).toBe(' y resume')
+
+    await act(async () => { fireEvent.keyDown(restored, { key: 'Enter' }) })
+    expect(agentApi.sendAgentMessage).toHaveBeenLastCalledWith(
+      'c1',
+      'trabaja en @deckdex y resume',
+      expect.objectContaining({ contextRefs: [expect.objectContaining({ id: 'p2', token: '@deckdex' })] }),
+    )
+  })
+
+  it('never restores another mission’s text or reference through Undo after switching conversations', async () => {
+    const secondConversation = { ...api.conv, id: 'c2' }
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id) => ({
+      conversation: id === 'c2' ? secondConversation : api.conv,
+      messages: [],
+    }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    const firstEditor = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    inputEditor(firstEditor, 'revisa @deck en la primera misión', 'revisa @deck'.length)
+    await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
+
+    await act(async () => { fireEvent.click(screen.getByText('go-c2')) })
+    const secondEditor = screen.getByRole('textbox', { name: 'Ask the agent to do anything…' })
+    expect(secondEditor).not.toBe(firstEditor)
+    expect(editorText(secondEditor)).toBe('')
+    fireEvent.keyDown(secondEditor, { key: 'z', metaKey: true })
+    expect(editorText(secondEditor)).toBe('')
+    expect(secondEditor.querySelector('[data-inline-reference]')).toBeNull()
+    inputEditor(secondEditor, 'borrador de la segunda misión')
+
+    await act(async () => { fireEvent.click(screen.getByText('go-c1')) })
+    const restored = screen.getByRole('textbox', { name: 'Ask the agent to do anything…' })
+    fireEvent.keyDown(restored, { key: 'z', metaKey: true })
+    expect(editorText(restored)).toBe('revisa @deckdex en la primera misión')
+    expect(restored.querySelector('[data-inline-reference]')).toHaveAttribute('data-token', '@deckdex')
+
+    await act(async () => { fireEvent.click(screen.getByText('go-c2')) })
+    const secondRestored = screen.getByRole('textbox', { name: 'Ask the agent to do anything…' })
+    fireEvent.keyDown(secondRestored, { key: 'z', metaKey: true })
+    expect(editorText(secondRestored)).toBe('borrador de la segunda misión')
+    expect(secondRestored.querySelector('[data-inline-reference]')).toBeNull()
+  })
+
   it('materializes a new mission before uploading an attachment from the empty composer', async () => {
     render(<StrictMode><AgentChatProvider><AgentComposer /></AgentChatProvider></StrictMode>)
-    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
-    fireEvent.change(box, { target: { value: 'usa este archivo' } })
+    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    inputEditor(box, 'usa este archivo')
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement | null
     expect(fileInput).not.toBeNull()
@@ -883,21 +1127,21 @@ describe('AgentChatProvider', () => {
 
     await waitFor(() => expect(agentApi.createAgentConversation).toHaveBeenCalledTimes(1))
     expect(agentApi.uploadAgentAttachment).toHaveBeenCalledWith('c1', file)
-    expect(box.value).toBe('usa este archivo')
+    expect(editorText(screen.getByRole('textbox', { name: 'Ask the agent to do anything…' }))).toBe('usa este archivo')
     expect(await screen.findByText('brief.txt')).toBeInTheDocument()
   })
 
   it('opens the same command palette from + and inserts a selected action', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
+    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
 
     fireEvent.click(screen.getByLabelText('Add context or action'))
     fireEvent.click(screen.getByText('Action'))
-    expect(box.value).toBe('/')
+    expect(editorText(box)).toBe('/')
     expect(await screen.findByText('Create spec')).toBeInTheDocument()
     await act(async () => { fireEvent.click(screen.getByText('Create spec')) })
-    await waitFor(() => expect(box.value).toBe(''))
+    await waitFor(() => expect(editorText(box)).toBe('/create spec'))
     expect(screen.getByText('Create spec')).toBeInTheDocument()
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
     const call = vi.mocked(agentApi.sendAgentMessage).mock.calls.at(-1)!
@@ -910,7 +1154,7 @@ describe('AgentChatProvider', () => {
   it('closes the + menu on outside click and Escape', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    await screen.findByPlaceholderText('Ask the agent to do anything…')
+    await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
 
     fireEvent.click(screen.getByLabelText('Add context or action'))
     expect(screen.getByText('Reference')).toBeInTheDocument()
@@ -926,25 +1170,25 @@ describe('AgentChatProvider', () => {
   it('filters / actions while typing and accepts the highlighted result with Enter', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
+    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
 
-    fireEvent.change(box, { target: { value: '/sta', selectionStart: 4, selectionEnd: 4 } })
+    inputEditor(box, '/sta', 4)
     expect(await screen.findByText('Show status')).toBeInTheDocument()
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
-    await waitFor(() => expect(box.value).toBe(''))
+    await waitFor(() => expect(editorText(box)).toBe('/status'))
     expect(screen.getByText('Show status')).toBeInTheDocument()
   })
 
   it('turns no-result @ queries into recovery actions', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByPlaceholderText('Ask the agent to do anything…') as HTMLTextAreaElement
+    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
 
-    fireEvent.change(box, { target: { value: '@missing-x', selectionStart: 10, selectionEnd: 10 } })
+    inputEditor(box, '@missing-x', 10)
     expect(await screen.findByText('Search all Specrails')).toBeInTheDocument()
     expect(screen.getByText('Create "missing-x"')).toBeInTheDocument()
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
-    await waitFor(() => expect(box.value).toBe('/search all projects missing-x'))
+    await waitFor(() => expect(editorText(box)).toBe('/search all projects missing-x'))
   })
 
   it('Shift+Tab inside the panel cycles the tier', async () => {
@@ -955,12 +1199,12 @@ describe('AgentChatProvider', () => {
     expect(agentApi.patchAgentConversation).toHaveBeenCalledWith('c1', { tierLevel: 1 })
   })
 
-  it('Shift+Tab inside the TEXTAREA cycles the tier exactly once (no focus jump, no double-cycle)', async () => {
+  it('Shift+Tab inside the composer editor cycles the tier exactly once (no focus jump, no double-cycle)', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByPlaceholderText('Ask the agent to do anything…')
+    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
     await act(async () => { fireEvent.keyDown(box, { key: 'Tab', shiftKey: true }) })
-    // Once — the textarea handler stops propagation so the view wrapper's
+    // Once — the composer handler stops propagation so the view wrapper's
     // Shift+Tab listener doesn't cycle a second time.
     const cycleCalls = vi.mocked(agentApi.patchAgentConversation).mock.calls.filter(
       (c) => (c[1] as { tierLevel?: number }).tierLevel !== undefined,
@@ -973,7 +1217,7 @@ describe('AgentChatProvider', () => {
 describe('AgentComposer queue-edit mode', () => {
   /** Open the panel, run one direct turn (streaming), then park `texts` on the
    *  queue through the composer — the exact user flow that builds a queue. */
-  async function openWithQueuedMessages(texts: string[]): Promise<HTMLTextAreaElement> {
+  async function openWithQueuedMessages(texts: string[]): Promise<HTMLElement> {
     vi.mocked(agentApi.sendAgentMessage)
       .mockResolvedValueOnce({ queued: false }) // first turn runs directly
       .mockResolvedValue({ queued: true })      // mid-stream sends park
@@ -981,9 +1225,9 @@ describe('AgentComposer queue-edit mode', () => {
     await act(async () => { fireEvent.click(screen.getByText('open')) })
     await act(async () => { fireEvent.click(screen.getByText('send')) })
     await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Working…' }) })
-    const box = screen.getByPlaceholderText('Add more while the agent works — it will queue…') as HTMLTextAreaElement
+    const box = screen.getByRole('textbox', { name: 'Add more while the agent works — it will queue…' })
     for (const t of texts) {
-      fireEvent.change(box, { target: { value: t } })
+      inputEditor(box, t)
       await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
     }
     expect(screen.getByTestId('queued').textContent).toBe(String(texts.length))
@@ -998,36 +1242,36 @@ describe('AgentComposer queue-edit mode', () => {
     const box = await openWithQueuedMessages(['first queued', 'second queued'])
     // ↑ from the empty box → the QUEUE takes precedence over prompt history.
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    expect(box.value).toBe('second queued')
+    expect(editorText(box)).toBe('second queued')
     expect(screen.getByTestId('queue-edit-chip').textContent).toContain('Editing queued message 2 of 2')
     // ↑ at caret start (pristine) → older slot.
-    box.setSelectionRange(0, 0)
+    selectEditor(box, 0)
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    expect(box.value).toBe('first queued')
+    expect(editorText(box)).toBe('first queued')
     expect(screen.getByTestId('queue-edit-chip').textContent).toContain('1 of 2')
     // ↑ at the oldest → stays (no wrap, no history bleed-through).
-    box.setSelectionRange(0, 0)
+    selectEditor(box, 0)
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    expect(box.value).toBe('first queued')
+    expect(editorText(box)).toBe('first queued')
     // ↓ at caret end → newer slot; ↓ past the newest → exit, empty draft back.
-    box.setSelectionRange(box.value.length, box.value.length)
+    selectEditor(box, editorText(box).length)
     fireEvent.keyDown(box, { key: 'ArrowDown' })
-    expect(box.value).toBe('second queued')
-    box.setSelectionRange(box.value.length, box.value.length)
+    expect(editorText(box)).toBe('second queued')
+    selectEditor(box, editorText(box).length)
     fireEvent.keyDown(box, { key: 'ArrowDown' })
-    expect(box.value).toBe('')
+    expect(editorText(box)).toBe('')
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
   })
 
   it('entering queue-edit stashes the un-sent draft; Esc cancels and restores it untouched', async () => {
     const box = await openWithQueuedMessages(['queued msg'])
-    fireEvent.change(box, { target: { value: 'wip draft' } })
-    box.setSelectionRange(0, 0)
+    inputEditor(box, 'wip draft')
+    selectEditor(box, 0)
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    expect(box.value).toBe('queued msg')
-    fireEvent.change(box, { target: { value: 'queued msg but edited' } })
+    expect(editorText(box)).toBe('queued msg')
+    inputEditor(box, 'queued msg but edited')
     fireEvent.keyDown(box, { key: 'Escape' })
-    expect(box.value).toBe('wip draft') // draft survived the whole round-trip
+    expect(editorText(box)).toBe('wip draft') // draft survived the whole round-trip
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
     // The abandoned edit did NOT touch the parked chip.
     expect(screen.getByTestId('queued-texts').textContent).toBe('queued msg')
@@ -1037,11 +1281,11 @@ describe('AgentComposer queue-edit mode', () => {
     const box = await openWithQueuedMessages(['polish me'])
     const sendCalls = vi.mocked(agentApi.sendAgentMessage).mock.calls.length
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    fireEvent.change(box, { target: { value: 'polished text' } })
+    inputEditor(box, 'polished text')
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
     expect(agentApi.editQueuedAgentMessage).toHaveBeenCalledWith('c1', queueIdOf(1), 'polished text')
     expect(vi.mocked(agentApi.sendAgentMessage).mock.calls.length).toBe(sendCalls) // Enter saved, never sent
-    expect(box.value).toBe('') // empty draft restored
+    expect(editorText(box)).toBe('') // empty draft restored
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
     expect(screen.getByTestId('queued-texts').textContent).toBe('polished text')
   })
@@ -1049,10 +1293,10 @@ describe('AgentComposer queue-edit mode', () => {
   it('a dirty slot never navigates away on ↑ (keystrokes cannot be lost by an arrow)', async () => {
     const box = await openWithQueuedMessages(['one', 'two'])
     fireEvent.keyDown(box, { key: 'ArrowUp' }) // editing 'two'
-    fireEvent.change(box, { target: { value: 'two edited' } })
-    box.setSelectionRange(0, 0)
+    inputEditor(box, 'two edited')
+    selectEditor(box, 0)
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    expect(box.value).toBe('two edited') // stayed put
+    expect(editorText(box)).toBe('two edited') // stayed put
     expect(screen.getByTestId('queue-edit-chip').textContent).toContain('2 of 2')
   })
 
@@ -1060,10 +1304,10 @@ describe('AgentComposer queue-edit mode', () => {
     vi.mocked(agentApi.editQueuedAgentMessage).mockResolvedValue('conflict')
     const box = await openWithQueuedMessages(['racing'])
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    fireEvent.change(box, { target: { value: 'edited too late' } })
+    inputEditor(box, 'edited too late')
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
     expect(toast.info).toHaveBeenCalledWith('That queued message was already sent — your text is kept as a draft')
-    expect(box.value).toBe('edited too late') // NOTHING lost
+    expect(editorText(box)).toBe('edited too late') // NOTHING lost
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
   })
 
@@ -1071,34 +1315,57 @@ describe('AgentComposer queue-edit mode', () => {
     vi.mocked(agentApi.editQueuedAgentMessage).mockRejectedValue(new Error('network down'))
     const box = await openWithQueuedMessages(['fragile'])
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    fireEvent.change(box, { target: { value: 'fragile edited' } })
+    inputEditor(box, 'fragile edited')
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
     expect(toast.error).toHaveBeenCalledWith("Couldn't save the queued message")
-    expect(box.value).toBe('fragile edited')
+    expect(editorText(box)).toBe('fragile edited')
     expect(screen.getByTestId('queue-edit-chip')).toBeInTheDocument() // still editing — Enter retries
   })
 
   it('drain race: the slot being edited is dispatched mid-edit → toast + dirty text kept as draft', async () => {
     const box = await openWithQueuedMessages(['about to go'])
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    fireEvent.change(box, { target: { value: 'dirty edit in progress' } })
+    inputEditor(box, 'dirty edit in progress')
     await act(async () => {
       wsHandler!({ type: 'agent_dequeued', conversationId: 'c1', queueId: queueIdOf(1), text: 'about to go' })
     })
     expect(toast.info).toHaveBeenCalledWith('That queued message was already sent — your text is kept as a draft')
-    expect(box.value).toBe('dirty edit in progress') // nothing lost
+    expect(editorText(box)).toBe('dirty edit in progress') // nothing lost
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
   })
 
   it('queue cleared (Stop) while editing pristine exits silently and restores the stashed draft', async () => {
     const box = await openWithQueuedMessages(['parked'])
-    fireEvent.change(box, { target: { value: 'my draft' } })
-    box.setSelectionRange(0, 0)
+    inputEditor(box, 'my draft')
+    selectEditor(box, 0)
     fireEvent.keyDown(box, { key: 'ArrowUp' })
     await act(async () => { wsHandler!({ type: 'agent_queue_cleared', conversationId: 'c1' }) })
     expect(toast.info).not.toHaveBeenCalled() // self-initiated Stop — no notice
-    expect(box.value).toBe('my draft')
+    expect(editorText(box)).toBe('my draft')
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+  })
+
+  it('keeps destination draft references in the undo baseline when switching out of queue-edit mode', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id) => ({
+      conversation: { ...api.conv, id },
+      messages: [],
+    }))
+    await openWithQueuedMessages(['parked in c1'])
+    await act(async () => { fireEvent.click(screen.getByText('go-c2')) })
+    const secondEditor = screen.getByRole('textbox', { name: 'Ask the agent to do anything…' })
+    inputEditor(secondEditor, 'revisa @deck')
+    await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
+
+    await act(async () => { fireEvent.click(screen.getByText('go-c1')) })
+    const firstEditor = screen.getByRole('textbox', { name: 'Add more while the agent works — it will queue…' })
+    fireEvent.keyDown(firstEditor, { key: 'ArrowUp' })
+    expect(screen.getByTestId('queue-edit-chip')).toBeInTheDocument()
+    await act(async () => { fireEvent.click(screen.getByText('go-c2')) })
+    const restored = screen.getByRole('textbox', { name: 'Ask the agent to do anything…' })
+    expect(restored.querySelector('[data-inline-reference]')).toHaveAttribute('data-token', '@deckdex')
+    fireEvent.keyDown(restored, { key: 'z', metaKey: true })
+    expect(editorText(restored)).toBe('revisa @deckdex')
+    expect(restored.querySelector('[data-inline-reference]')).toHaveAttribute('data-token', '@deckdex')
   })
 
   it('agent_queue_edited from another window updates the parked chip text', async () => {
@@ -1117,11 +1384,11 @@ describe('AgentComposer queue-edit mode', () => {
     })
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = (await screen.findByPlaceholderText('Ask the agent to do anything…')) as HTMLTextAreaElement
+    const box = (await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' }))
     fireEvent.keyDown(box, { key: 'ArrowUp' })
-    expect(box.value).toBe('past prompt') // history, not queue-edit
+    expect(editorText(box)).toBe('past prompt') // history, not queue-edit
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
     fireEvent.keyDown(box, { key: 'ArrowDown' })
-    expect(box.value).toBe('')
+    expect(editorText(box)).toBe('')
   })
 })

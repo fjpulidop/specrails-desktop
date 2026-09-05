@@ -103,6 +103,21 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
     expect(enqueue.mock.calls[0][2]).toMatchObject({ provider: 'claude' })
   })
 
+  it('preserves the conversation model and explicit null profile through the real spawn route', async () => {
+    const conv = createAgentConversation(desktopDb, { provider: 'codex', model: 'gpt-6-astra' })
+    const r = await captured!({ ...spawnArgs, profileName: null }, spawnExtra(conv.id))
+    expect(r.isError).toBeFalsy()
+    expect(enqueue.mock.calls[0][2]).toMatchObject({ provider: 'codex', model: 'gpt-6-astra', profileName: null })
+  })
+
+  it('explicit model override reaches provider validation instead of being silently discarded', async () => {
+    const conv = createAgentConversation(desktopDb, { provider: 'codex', model: 'gpt-6-astra' })
+    const r = await captured!({ ...spawnArgs, model: 'not-a-codex-model' }, spawnExtra(conv.id))
+    expect(r.isError).toBe(true)
+    expect(r.content[0].text).toContain('model')
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
   it('without an agent capability no engine is sent (legacy primary resolution)', async () => {
     const r = await captured!(spawnArgs, spawnExtra())
     expect(r.isError).toBeFalsy()

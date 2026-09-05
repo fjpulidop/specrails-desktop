@@ -81,6 +81,7 @@ import type { ProjectContext } from './project-registry'
 import type { ReasoningEffort } from './providers/types'
 
 export interface IsolatedLaunchInput {
+  profileName?: string | null
   ctx: ProjectContext
   railIndex: number
   ticketIds: number[]
@@ -526,9 +527,8 @@ function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
 /**
  * Launch the rail's tickets in isolated worktrees + schedule the merge-back.
  * Returns the loop run ids. Throws if worktree allocation fails, but only after
- * tearing down owned partial allocation. A fresh launch may degrade to shared
- * cwd in the router; a PR continuation raises PrContinuationIsolationError and
- * must fail closed because shared cwd cannot prove which branch receives work.
+ * tearing down owned partial allocation. The router refuses shared-cwd
+ * fallback for these errors; execution stays bound to a verified worktree.
  */
 export async function launchIsolatedRail(input: IsolatedLaunchInput, io: IsolatedLaunchIO = {}): Promise<string[]> {
   const { ctx, railIndex, ticketIds, loopId, loopName, loopGraph, provider, model, effort } = input
@@ -1287,10 +1287,20 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         cwd: a.handle.worktreePath, repoDir: a.handle.worktreePath,
         isolation: { branch: a.handle.branch, worktreePath: a.handle.worktreePath },
         railIndex, ticketId: a.ticketId,
-        spec: spec ? { ...spec, ticketIds: a.ticketIds } : { ticketIds: a.ticketIds },
+        spec: {
+          ...spec,
+          ticketIds: a.ticketIds,
+          ...(a.ticketIds.length > 1 ? {
+            tickets: a.ticketIds.map((id) => {
+              const ticket = ctx.getTicketSpec(id)
+              return { id, title: ticket?.title, description: ticket?.description }
+            }),
+          } : {}),
+        },
         ticketCompletionStatus: runFinishedOpts.ticketCompletionStatus,
         deferTerminalOutcome: true,
         constants, provider, model, effort,
+        profileName: input.profileName,
       })
     runPromises.push(settleAllocatedRun(a, enginePromise))
     try { ctx.jiraSyncManager.onRailLaunch(a.ticketIds, a.runId) } catch { /* non-fatal */ }

@@ -4,7 +4,7 @@ import request from 'supertest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { execSync } from 'child_process'
+import { execSync, execFileSync } from 'child_process'
 import { initDb, type DbInstance } from './db'
 import { createCodeExplorerRouter, rankFindMatches } from './code-explorer-router'
 import {
@@ -62,12 +62,13 @@ afterEach(() => {
   fs.rmSync(projectPath, { recursive: true, force: true })
   db.close()
   delete process.env.SPECRAILS_CODE_EXPLORER
+  vi.unstubAllEnvs()
 })
 
 describe('feature-flag gating', () => {
   it('returns 404 on every route when SPECRAILS_CODE_EXPLORER=false', async () => {
     process.env.SPECRAILS_CODE_EXPLORER = 'false'
-    const routes = ['/tree', '/find?q=foo', '/file?path=foo.ts', '/summary?path=foo.ts', '/provenance?ticketId=1', '/diff?jobId=j1&path=foo.ts']
+    const routes = ['/tree', '/find?q=foo', '/search?q=foo', '/file?path=foo.ts', '/summary?path=foo.ts', '/provenance?ticketId=1', '/diff?jobId=j1&path=foo.ts']
     for (const r of routes) {
       const res = await request(app).get(`/api/projects/proj-test/code${r}`)
       expect(res.status).toBe(404)
@@ -80,6 +81,66 @@ describe('feature-flag gating', () => {
 })
 
 describe('GET /file', () => {
+  it.skipIf(process.platform === 'win32')('rejects named pipes without waiting for a writer', async () => {
+    execFileSync('mkfifo', [path.join(projectPath, 'input.pipe')])
+    const response = await request(app).get('/api/projects/proj-test/code/file').query({ path: 'input.pipe', startLine: 1 }).timeout(1000)
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('path is not a regular file')
+  })
+
+  it('returns bounded line pages with a hash while keeping the editor full-file response', async () => {
+    const content = Array.from({ length: 600 }, (_, i) => `line ${i + 1}`).join('\n')
+    fs.writeFileSync(path.join(projectPath, 'pages.ts'), content)
+    const first = await request(app).get('/api/projects/proj-test/code/file').query({ path: 'pages.ts', startLine: 1 })
+    expect(first.status).toBe(200)
+    expect(first.body.content.split('\n')).toHaveLength(200)
+    expect(first.body).toMatchObject({ startLine: 1, endLine: 200, totalLines: 600, nextLine: 201, nextColumn: 1, truncated: true })
+    expect(first.body.fileHash).toMatch(/^[a-f0-9]{64}$/)
+    const last = await request(app).get('/api/projects/proj-test/code/file').query({ path: 'pages.ts', startLine: first.body.nextLine, endLine: 10000, expectedHash: first.body.fileHash })
+    expect(last.body.content.split('\n')).toHaveLength(400)
+    expect(last.body).toMatchObject({ endLine: 600, nextLine: null, truncated: false, fileHash: first.body.fileHash })
+    const capped = await request(app).get('/api/projects/proj-test/code/file').query({ path: 'pages.ts', startLine: 1, endLine: 600 })
+    expect(capped.body.content.split('\n')).toHaveLength(500)
+    expect(capped.body.nextLine).toBe(501)
+    expect((await request(app).get('/api/projects/proj-test/code/file').query({ path: 'pages.ts' })).body.content).toBe(content)
+  })
+
+  it('paginates minified long lines without dropping content and refuses changed-file continuation', async () => {
+    const content = `${'a'.repeat(25000)}tail`
+    const file = path.join(projectPath, 'min.js')
+    fs.writeFileSync(file, content)
+    const first = await request(app).get('/api/projects/proj-test/code/file').query({ path: 'min.js', startLine: 1 })
+    expect(first.body.content).toHaveLength(20000)
+    expect(first.body).toMatchObject({ nextLine: 1, nextColumn: 20001, truncationReason: 'character-limit' })
+    const continuation = { path: 'min.js', startLine: first.body.nextLine, startColumn: first.body.nextColumn, expectedHash: first.body.fileHash }
+    const second = await request(app).get('/api/projects/proj-test/code/file').query(continuation)
+    expect(first.body.content + second.body.content).toBe(content)
+    expect(second.body.nextLine).toBeNull()
+    fs.writeFileSync(file, 'changed')
+    const changed = await request(app).get('/api/projects/proj-test/code/file').query(continuation)
+    expect(changed.status).toBe(409)
+    expect(changed.body.error).toBe('file_changed')
+    expect(changed.body).not.toHaveProperty('content')
+  })
+
+  it('does not exceed its character budget when a complete line exactly fills the page', async () => {
+    fs.writeFileSync(path.join(projectPath, 'edge.js'), `${'x'.repeat(20000)}\nnext`)
+    const first = await request(app).get('/api/projects/proj-test/code/file').query({ path: 'edge.js', startLine: 1 })
+    expect(first.body.content).toHaveLength(20000)
+    expect(first.body).toMatchObject({ nextLine: 2, nextColumn: 1 })
+  })
+
+  it('returns real errors for paged missing, binary, oversized and invalid-range reads', async () => {
+    fs.writeFileSync(path.join(projectPath, 'blob.bin'), Buffer.from([0, 1]))
+    fs.writeFileSync(path.join(projectPath, 'big.txt'), Buffer.alloc(2 * 1024 * 1024 + 1, 65))
+    fs.writeFileSync(path.join(projectPath, 'one.ts'), 'line one')
+    expect((await request(app).get('/api/projects/proj-test/code/file').query({ path: 'missing.ts', startLine: 1 })).status).toBe(404)
+    expect((await request(app).get('/api/projects/proj-test/code/file').query({ path: 'blob.bin', startLine: 1 })).status).toBe(415)
+    expect((await request(app).get('/api/projects/proj-test/code/file').query({ path: 'big.txt', startLine: 1 })).status).toBe(413)
+    expect((await request(app).get('/api/projects/proj-test/code/file').query({ path: 'one.ts', startLine: 2 })).status).toBe(416)
+    expect((await request(app).get('/api/projects/proj-test/code/file').query({ path: 'one.ts', startLine: 3, endLine: 2 })).status).toBe(400)
+  })
+
   it('returns content + language for a small text file', async () => {
     fs.writeFileSync(path.join(projectPath, 'hello.ts'), 'export const x = 1\n', 'utf8')
     db.prepare(
@@ -131,6 +192,100 @@ describe('GET /file', () => {
   it('returns 404 when file does not exist and no summary stored', async () => {
     const res = await request(app).get('/api/projects/proj-test/code/file?path=missing.ts')
     expect(res.status).toBe(404)
+  })
+})
+
+describe('GET /search literal source search', () => {
+  const search = (query: Record<string, string | number | boolean>) => request(app).get('/api/projects/proj-test/code/search').query(query)
+
+  it('finds literal text with line/column and narrows by path and case', async () => {
+    fs.mkdirSync(path.join(projectPath, 'src'))
+    fs.writeFileSync(path.join(projectPath, 'src', 'match.ts'), 'other\nconst a = value.*Test\nconst b = value.*test')
+    fs.writeFileSync(path.join(projectPath, 'test.ts'), 'value.*Test')
+    const result = await search({ q: 'value.*Test', path: 'src', caseSensitive: true })
+    expect(result.status).toBe(200)
+    expect(result.body.truncated).toBe(false)
+    expect(result.body.matches).toEqual([expect.objectContaining({ path: 'src/match.ts', lineNumber: 2, column: 11, snippet: 'const a = value.*Test' })])
+    expect(result.body.matches[0].fileHash).toMatch(/^[a-f0-9]{64}$/)
+    const dotPath = await search({ q: 'value.*Test', path: './src/' })
+    expect(dotPath.status).toBe(200)
+    expect(dotPath.body.matches).toHaveLength(2)
+    const insensitive = await search({ q: 'VALUE.*TEST' })
+    expect(insensitive.body.matches).toHaveLength(3)
+  })
+
+  it('respects deny lists, symlink containment and current gitignore even with a cached tree', async () => {
+    execSync('git init -q', { cwd: projectPath })
+    fs.writeFileSync(path.join(projectPath, 'public.ts'), 'needle')
+    fs.writeFileSync(path.join(projectPath, 'local.txt'), 'needle secret')
+    fs.writeFileSync(path.join(projectPath, '.env'), 'needle secret')
+    fs.mkdirSync(path.join(projectPath, 'node_modules'))
+    fs.writeFileSync(path.join(projectPath, 'node_modules', 'dep.js'), 'needle')
+    expect((await search({ q: 'needle' })).body.matches).toHaveLength(2)
+    fs.writeFileSync(path.join(projectPath, '.gitignore'), 'local.txt\n')
+    const next = await search({ q: 'needle' })
+    expect(next.body.matches.map((match: { path: string }) => match.path)).toEqual(['public.ts'])
+    expect((await search({ q: 'needle', path: '../' })).status).toBe(400)
+    expect((await search({ q: 'needle', path: '.env' })).status).toBe(403)
+  })
+
+  it('reports partial results when matches or scanned files exceed their budget, including zero matches', async () => {
+    fs.writeFileSync(path.join(projectPath, 'a.ts'), 'first\nfirst')
+    fs.writeFileSync(path.join(projectPath, 'b.ts'), 'needle')
+    const limited = await search({ q: 'first', limit: 1 })
+    expect(limited.body.matches).toHaveLength(1)
+    expect(limited.body.truncationReasons).toContain('match-limit')
+    vi.stubEnv('SPECRAILS_CODE_SEARCH_MAX_FILES', '1')
+    const partial = await search({ q: 'needle' })
+    expect(partial.body.matches).toEqual([])
+    expect(partial.body.truncated).toBe(true)
+    expect(partial.body.truncationReasons).toContain('file-limit')
+    expect(partial.body.hint).toContain('not proof of absence')
+  })
+
+  it('can narrow into a folder omitted from a truncated full-tree scan', async () => {
+    vi.stubEnv('SPECRAILS_CODE_TREE_MAX_ENTRIES', '3')
+    for (let i = 0; i < 5; i++) fs.writeFileSync(path.join(projectPath, `a${i}.ts`), 'unrelated')
+    fs.mkdirSync(path.join(projectPath, 'z-source'))
+    fs.writeFileSync(path.join(projectPath, 'z-source', 'target.ts'), 'needle')
+    const global = await search({ q: 'needle' })
+    expect(global.body.truncated).toBe(true)
+    expect(global.body.truncationReasons).toContain('tree-entry-limit')
+    const narrow = await search({ q: 'needle', path: 'z-source' })
+    expect(narrow.body.truncated).toBe(false)
+    expect(narrow.body.matches[0]).toMatchObject({ path: 'z-source/target.ts', lineNumber: 1 })
+  })
+
+  it('marks an unreadable cached file as incomplete instead of returning a definitive empty match set', async () => {
+    const file = path.join(projectPath, 'gone.ts')
+    fs.writeFileSync(file, 'unrelated')
+    await request(app).get('/api/projects/proj-test/code/tree?filter=all')
+    fs.unlinkSync(file)
+    const result = await search({ q: 'needle' })
+    expect(result.body.matches).toEqual([])
+    expect(result.body.truncated).toBe(true)
+    expect(result.body.truncationReasons).toContain('unreadable-files')
+  })
+
+  it('bounds byte reads and reports oversized or unreadable files as incomplete search', async () => {
+    fs.writeFileSync(path.join(projectPath, 'a.ts'), 'x'.repeat(50))
+    vi.stubEnv('SPECRAILS_CODE_SEARCH_MAX_BYTES', '16')
+    const partial = await search({ q: 'needle' })
+    expect(partial.body.truncated).toBe(true)
+    expect(partial.body.scan.bytesRead).toBeLessThanOrEqual(16)
+    expect(partial.body.scan.skipped.tooLarge).toBe(1)
+    expect(partial.body.truncationReasons).toContain('oversized-or-changing-files')
+  })
+
+  it('rejects empty/multiline/oversized queries and limits snippets around long-line matches', async () => {
+    expect((await search({ q: '' })).status).toBe(400)
+    expect((await search({ q: 'line\nbreak' })).status).toBe(400)
+    expect((await search({ q: 'x'.repeat(257) })).status).toBe(400)
+    fs.writeFileSync(path.join(projectPath, 'min.js'), `${'x'.repeat(25000)}needle${'y'.repeat(1000)}`)
+    const result = await search({ q: 'needle' })
+    expect(result.body.matches[0]).toMatchObject({ lineNumber: 1, column: 25001, snippetTruncated: true })
+    expect(result.body.matches[0].snippet.length).toBeLessThanOrEqual(320)
+    expect(result.body.matches[0].snippet).toContain('needle')
   })
 })
 

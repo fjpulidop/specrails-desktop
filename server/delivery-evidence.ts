@@ -13,13 +13,13 @@ import fs from 'fs'
 import path from 'path'
 import type { EventRow } from './types'
 import { FACTORY_REVISION_LOOP_ID } from './loop-factory'
+import { parseVerificationSentinel, type SentinelVerdict } from './verification-sentinel'
+export { parseVerificationSentinel, type SentinelVerdict } from './verification-sentinel'
 
 /** Bounded tail of the verify step's raw output persisted per unit. */
 export const VERIFY_TAIL_CAP = 4096
 /** Raw confidence-score.json payloads are capped before persistence. */
 export const CONFIDENCE_RAW_CAP = 8192
-
-export type SentinelVerdict = 'pass' | 'fail' | 'absent'
 
 /** Normalized view of a reviewer confidence-score.json. Fields the schema does
  * not carry (or that fail to parse) stay null/empty — never invented. */
@@ -75,21 +75,6 @@ export interface EvidenceHarvestIO {
   now?: () => Date
 }
 
-/** Last sentinel wins: the verify prompt itself quotes the format, so earlier
- * mentions in assistant reasoning must not shadow the final verdict line. */
-const SENTINEL_RE = /VERIFICATION:\s*(PASS|FAIL)\b[ \t]*(?:[—:-][ \t]*)?([^\n]*)/gi
-
-export function parseVerificationSentinel(text: string): { verdict: SentinelVerdict; detail: string | null } {
-  let verdict: SentinelVerdict = 'absent'
-  let detail: string | null = null
-  for (const match of text.matchAll(SENTINEL_RE)) {
-    verdict = match[1].toUpperCase() === 'PASS' ? 'pass' : 'fail'
-    const tail = (match[2] ?? '').trim()
-    detail = verdict === 'fail' && tail ? tail.slice(0, 512) : null
-  }
-  return { verdict, detail }
-}
-
 interface ParsedStep {
   index: number | null
   nodeId: string | null
@@ -117,7 +102,16 @@ function parseLoopStepPayload(payload: string): ParsedStep | null {
  * hold the raw provider JSONL line; log rows hold plain text. Everything else
  * contributes nothing (structured/loop events are boundaries, not output). */
 function eventText(event: EventRow): string {
-  if (event.event_type === 'log') return event.payload
+  if (event.event_type === 'log') {
+    // LoopRunManager persists the visible transcript as { line }, including
+    // Codex/Gemini output. Decode it before matching line-based verdicts and
+    // collecting the review excerpt; legacy plain-text rows still work.
+    try {
+      const value = JSON.parse(event.payload) as { line?: unknown } | null
+      if (value && typeof value.line === 'string') return value.line
+    } catch { /* legacy plain-text log */ }
+    return event.payload
+  }
   if (event.event_type !== 'assistant') return ''
   try {
     const frame = JSON.parse(event.payload) as {
@@ -142,11 +136,12 @@ function eventText(event: EventRow): string {
  */
 export function extractVerifyStepText(
   events: readonly EventRow[],
-): { text: string; scoped: boolean; startedAtMs: number | null } {
+): { text: string; scoped: boolean; startedAtMs: number | null; status: 'ok' | 'failed' | null } {
   let start = -1
   let end = events.length
   let stepIndex: number | null = null
   let startedAtMs: number | null = null
+  let status: 'ok' | 'failed' | null = null
   for (let i = 0; i < events.length; i++) {
     const event = events[i]
     if (event.event_type === 'loop_step') {
@@ -159,6 +154,7 @@ export function extractVerifyStepText(
         // They cannot prove artifact ordering within that second, so freshness
         // deliberately requires the high-resolution boundary in the payload.
         startedAtMs = step.startedAtMs
+        status = null
       } else if (start >= 0 && i > start) {
         // A later non-verify step closes the previous verify range unless a
         // later verify step reopens it (loop iterations: last verify wins).
@@ -169,11 +165,15 @@ export function extractVerifyStepText(
       stepIndex !== null && parseLoopStepPayload(event.payload)?.index === stepIndex
     ) {
       end = i
+      try {
+        const payload = JSON.parse(event.payload) as { status?: unknown }
+        if (payload.status === 'ok' || payload.status === 'failed') status = payload.status
+      } catch { /* missing/malformed completion is not successful evidence */ }
     }
   }
   const range = start >= 0 ? events.slice(start, end) : events
   const text = range.map(eventText).filter(Boolean).join('\n')
-  return { text, scoped: start >= 0, startedAtMs }
+  return { text, scoped: start >= 0, startedAtMs, status }
 }
 
 function toNumberRecord(value: unknown): Record<string, number> {
@@ -356,11 +356,15 @@ export function harvestDeliveryEvidence(
     try {
       if (unit.runId) {
         const events = io.readEvents(unit.runId)
-        const { text, startedAtMs } = extractVerifyStepText(events)
+        const { text, startedAtMs, scoped, status } = extractVerifyStepText(events)
         verifyStartedAtMs = startedAtMs
         if (text) {
           const sentinel = parseVerificationSentinel(text)
-          evidence.sentinel = sentinel.verdict
+          // A PASS printed before a crash/cancel is not a completed
+          // verification. Keep its raw excerpt but never advertise it as green.
+          evidence.sentinel = sentinel.verdict === 'pass' && scoped && status !== 'ok'
+            ? 'absent'
+            : sentinel.verdict
           evidence.sentinelDetail = sentinel.detail
           evidence.verifyTail = text.slice(-VERIFY_TAIL_CAP)
         }

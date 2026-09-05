@@ -56,6 +56,8 @@ export interface RailPrCheckoutResult {
   ok: boolean
   error?: string
   detail?: string
+  branch?: string
+  cleanupWarnings?: string[]
 }
 
 interface RailPrDecisionContextValue {

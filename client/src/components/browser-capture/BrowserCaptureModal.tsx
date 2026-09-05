@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, RotateCw, X, Crop, Loader2, Globe, AlertTriangle
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { useBrowserCaptureSession } from './useBrowserCaptureSession'
+import { useBrowserViewport } from './useBrowserViewport'
 import { AnnotationEditor } from './AnnotationEditor'
 import {
   mapPointToViewport,
@@ -39,7 +40,7 @@ interface BrowserCaptureModalProps {
   onClose: () => void
   projectId: string
   pendingSpecId: string
-  onCaptured: (result: CaptureResult) => void
+  onCaptured: (result: CaptureResult) => void | Promise<void>
   /** Label for the annotation editor's primary confirm button, so the caller can
    *  reflect context ("Crear spec" vs "Actualizar spec"). */
   confirmLabel?: string
@@ -72,7 +73,7 @@ const PRESET_DIMS: Record<Exclude<ViewportPreset, 'fit'>, { w: number; h: number
 export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, onCaptured, confirmLabel, selectLabel }: BrowserCaptureModalProps) {
   const { t } = useTranslation('browser')
   const session = useBrowserCaptureSession({ projectId, open })
-  const { canvasRef, viewport, status, errorMsg, url, title, hoverRect, hoverSelector, hoverPath, popup } = session
+  const { canvasRef, viewport, status, errorMsg, url, title, hoverRect, hoverSelector, hoverPath, popup, popupError } = session
 
   const [addressValue, setAddressValue] = useState('')
   const [selecting, setSelecting] = useState(false)
@@ -111,7 +112,6 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
     return coalescerRef.current
   }, [])
   useEffect(() => () => { coalescerRef.current?.dispose(); coalescerRef.current = null }, [])
-  const presetRef = useRef<ViewportPreset>('fit')
   const canvasRectRef = useRef<{ left: number; top: number; width: number; height: number } | null>(null)
   const lastProbeAtRef = useRef(0)
   // Refs for the breadcrumb keyboard handler (avoid re-subscribing on every hover).
@@ -122,46 +122,21 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
   useEffect(() => { hoverSelectorRef.current = hoverSelector }, [hoverSelector])
   navigateElementRef.current = session.navigateElement
 
-  useEffect(() => { setAddressValue(url ?? '') }, [url])
+  const visibleUrl = popup?.active ? popup.url ?? 'about:blank' : url ?? ''
+  useEffect(() => { setAddressValue(visibleUrl) }, [visibleUrl, popup?.active])
 
   const go = useCallback(() => {
     const u = addressValue.trim()
     if (u) void session.navigate('goto', u)
   }, [addressValue, session])
 
-  const fitToContainer = useCallback(() => {
-    const el = containerRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    if (r.width > 0 && r.height > 0) session.setViewport(r.width, r.height)
-  }, [session])
-
+  const { setViewport } = session
+  const fixedViewport = preset === 'fit' ? undefined : { width: PRESET_DIMS[preset].w, height: PRESET_DIMS[preset].h }
+  useBrowserViewport(containerRef, setViewport, open && !markup, fixedViewport)
   const applyPreset = useCallback((p: ViewportPreset) => {
     setPreset(p)
-    presetRef.current = p
-    if (p === 'fit') fitToContainer()
-    else session.setViewport(PRESET_DIMS[p].w, PRESET_DIMS[p].h)
-  }, [fitToContainer, session])
-
-  // In "fit" mode keep the page viewport matched to the displayed canvas for crisp
-  // 1:1 rendering; a fixed preset (mobile/tablet/desktop) locks it so resizing the
-  // window doesn't override the chosen device size.
-  useEffect(() => {
-    if (!open) return
-    const el = containerRef.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    let t: ReturnType<typeof setTimeout> | null = null
-    const ro = new ResizeObserver(() => {
-      if (presetRef.current !== 'fit') return
-      if (t) clearTimeout(t)
-      t = setTimeout(() => {
-        const r = el.getBoundingClientRect()
-        if (r.width > 0 && r.height > 0) session.setViewport(r.width, r.height)
-      }, 150)
-    })
-    ro.observe(el)
-    return () => { if (t) clearTimeout(t); ro.disconnect() }
-  }, [open, session])
+    if (p !== 'fit') setViewport(PRESET_DIMS[p].w, PRESET_DIMS[p].h)
+  }, [setViewport])
 
   // Escape closes (when not mid-selection).
   useEffect(() => {
@@ -306,7 +281,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
         // Multi-breakpoint = 3 reference images; no markup step.
         const anchorPoint = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
         const result = await session.captureBreakpoints(rect, anchorPoint, pendingSpecId, BREAKPOINT_DIMS)
-        onCaptured(result)
+        await onCaptured(result)
         toast.success(t('modal.toast.captured'))
         onClose()
       } else {
@@ -366,25 +341,21 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
 
   const onSelectUp = useCallback((e: React.PointerEvent) => {
     const lk = lockedRef.current
-    setBox((b) => {
-      if (b) {
-        const a = toViewport(b.startX, b.startY)
-        const c = toViewport(e.clientX, e.clientY)
-        const dragRect = rectFromPoints(a, c)
-        if (isUsableSelection(dragRect)) {
-          // A real drag → capture the custom rectangle.
-          void runCapture(dragRect)
-        } else if (lk) {
-          // A click with a breadcrumb lock → capture the locked element.
-          void runCapture(lk.rect)
-        } else if (hoverRect) {
-          // A click (no meaningful drag) → capture the hovered element.
-          void runCapture(hoverRect)
-        }
-      }
-      return null
-    })
-  }, [toViewport, hoverRect, runCapture])
+    setBox(null)
+    if (!box) return
+    const a = toViewport(box.startX, box.startY)
+    const c = toViewport(e.clientX, e.clientY)
+    const dragRect = rectFromPoints(a, c)
+    // Network work belongs to the event, not a React updater: StrictMode may
+    // replay an updater and used to capture the same selection twice.
+    if (isUsableSelection(dragRect)) {
+      void runCapture(dragRect)
+    } else if (lk) {
+      void runCapture(lk.rect)
+    } else if (hoverRect) {
+      void runCapture(hoverRect)
+    }
+  }, [box, toViewport, hoverRect, runCapture])
 
   const onBackdropClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose()
@@ -436,7 +407,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           pendingSpecId={pendingSpecId}
           macOverlay={macOverlay}
           confirmLabel={confirmLabel}
-          onConfirm={(aug) => { onCaptured(aug); onClose() }}
+          onConfirm={async (aug) => { await onCaptured(aug); onClose() }}
           onReselect={() => { setMarkup(null); setSelecting(true) }}
           onCancel={() => { setMarkup(null); onClose() }}
         />
@@ -532,7 +503,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           aria-hidden
         />
         <span className="truncate">
-          {status === 'connecting' ? t('modal.status.connecting') : status === 'error' ? (errorMsg ?? t('modal.status.unavailable')) : (title || '')}
+          {status === 'connecting' ? t('modal.status.connecting') : status === 'error' ? (errorMsg ?? t('modal.status.unavailable')) : popup?.active ? t('popup.loginWindow', { origin: popupOriginLabel(popup.url) }) : (title || '')}
         </span>
       </div>
 
@@ -540,6 +511,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
           input target the popup; "Back to page" returns to the opener without
           closing the popup. When the popup self-closes (typical OAuth), the
           server auto-returns and this bar disappears. */}
+      {popupError && <div role="alert" className="px-3 py-1.5 text-xs text-destructive border-b border-border/40 shrink-0">{popupError}</div>}
       {popup && (
         <div
           data-testid="browser-popup-bar"
@@ -596,6 +568,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
                 the frame to fit, preserving aspect. */}
             <canvas
               ref={canvasRef}
+              style={{ maxWidth: `min(100%, ${viewport.width}px)`, maxHeight: `min(100%, ${viewport.height}px)` }}
               className={`max-w-full max-h-full block shadow-2xl ${selecting ? 'cursor-crosshair' : 'cursor-default'}`}
               onPointerMove={onPointerMove}
               onPointerDown={onPointerDown}

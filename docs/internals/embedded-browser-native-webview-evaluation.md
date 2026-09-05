@@ -1,5 +1,7 @@
 # Embedded browser: native-webview evaluation (Cursor-class experience)
 
+> Update 2026-09-05: mission browsing now also uses the native pane on macOS, with same-page Retina snapshots, DOM selection and annotations. The original evaluation below is historical; current behavior and validation are documented in [the browser audit](browser-native-retina-audit.md).
+
 > Status: **implemented (phases 0–1 + devtools/zoom from phase 2)** — researched
 > 2026-07-26, shipped via OpenSpec change `native-embedded-browser`. As-built:
 > `src-tauri/src/browser.rs`, `client/src/lib/native-browser.ts`,

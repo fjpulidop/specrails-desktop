@@ -74,6 +74,21 @@ describe('useTickets', () => {
   // ── Initial state ──────────────────────────────────────────────────────────
 
   describe('initial state', () => {
+    it('reloads only the active project when its database recovers after an unavailable read', async () => {
+      const fetchMock = vi.mocked(global.fetch)
+      fetchMock.mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+      const { result } = renderHook(() => useTickets())
+      await waitFor(() => expect(result.current.error).toContain('503'))
+      const calls = fetchMock.mock.calls.length
+      act(() => { wsHandler?.({ type: 'desktop.project_recovered', projectId: 'other-project' }) })
+      expect(fetchMock).toHaveBeenCalledTimes(calls)
+      const ticket = makeTicket({ id: 33 })
+      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ tickets: [ticket] }) } as Response)
+      act(() => { wsHandler?.({ type: 'desktop.project_recovered', projectId: 'proj-1' }) })
+      await waitFor(() => expect(result.current.tickets).toEqual([ticket]))
+      expect(result.current.error).toBeNull()
+    })
+
     it('returns empty tickets when no projectId', () => {
       mockActiveProjectId = null
       const { result } = renderHook(() => useTickets())

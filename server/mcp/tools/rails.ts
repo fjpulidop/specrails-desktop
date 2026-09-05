@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
-import { apiCall, projectPath, originConversationDefaults } from './types'
+import { apiCall, projectPath, originConversationDefaults, McpApiError } from './types'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -35,14 +35,14 @@ export function railsTools(): McpToolSpec[] {
       description:
         'List and configure a project\'s rail launch slots, then launch or stop the AI pipeline for a rail. ' +
         'A rail holds assigned ticket IDs plus a mode/profile/engine/name. Rails are DYNAMIC: create_rail adds a new slot (up to 12), so when every rail is busy or holds other work, create a fresh one and proceed — never wait for a slot. ' +
-        'Launching several rails in parallel is safe and normal: each launch runs in its own isolated git worktree. ' +
-        'Actions: list (rails + active jobs/loop runs), create_rail (add a new rail slot; returns its railIndex), set_tickets (assign ticket IDs), set_profile (default agent profile, null=legacy), ' +
+        'Parallel launches normally run in isolated git worktrees; verify the returned isolated flag. Legacy or non-git runs may use shared project files and have no delivery card. ' +
+        'Actions: list (rails + active jobs/loop runs), pr_candidates (read compatible open PR targets for railIndex), review_packet (read durable evidence, verification and acceptance capability by prDeliveryId), create_rail (add a new rail slot; returns its railIndex), set_tickets (assign ticket IDs), set_profile (default agent profile, null=legacy), ' +
         'set_engine (provider override, null=primary), set_name (display label, null clears), ' +
         'launch (ai-spawn — spawns the selected installed provider CLI job(s), including Kimi when installed, that WRITE CODE, RUN TESTS, COMMIT, and INCUR TOKEN COST; returns 202 with jobId/jobIds/loopRunIds), ' +
         'launch_all (ai-spawn — launches EVERY rail that has tickets and no active run/uncontinuable pending PR decision, in parallel, using each rail\'s stored mode/engine/profile; returns per-rail outcomes with skip reasons), ' +
         'stop (destructive — kills all active jobs and loop runs for the rail). ' +
         'For on_review tickets with an already-open GitHub PR (including a published pr_ready delivery), launch automatically tries to continue that PR head branch; Jira-linked in_progress tickets can do the same when the PR match is explicit; fresh tickets still start from the project integration branch. ' +
-        'When launched from the in-app agent chat without an explicit aiEngine, the engine defaults to your conversation\'s provider (pass aiEngine to override; launch_all always uses each rail\'s stored engine). ' +
+        'When launched from the in-app agent chat without an explicit aiEngine, the engine defaults to your conversation\'s provider. On that same provider, an omitted model inherits the conversation model; an explicit model wins (pass aiEngine to override; launch_all always uses each rail\'s stored engine). ' +
         'User-facing naming: call the free-form autonomous mode "Freestyle"; use "freestyle" as the canonical API enum value for that same capability. ' +
         'For small OpenSpec-governed work, recommend "SDD Quick (OpenSpec)" and launch with mode "loop" plus loopId "factory:sdd-quick-openspec"; keep Freestyle for ticket-local implementation-only work. ' +
         'NAMING: railIndex is the 0-BASED internal identity; the dashboard shows rails 1-based ("Rail N" = railIndex N-1). When talking to the user, ALWAYS say "Rail <railIndex + 1>" (or the rail\'s custom name) — results include railLabel with the correct user-facing label.',
@@ -56,7 +56,7 @@ export function railsTools(): McpToolSpec[] {
       },
       inputSchema: {
         action: z
-          .enum(['list', 'create_rail', 'set_tickets', 'set_profile', 'set_engine', 'set_name', 'launch', 'launch_all', 'stop'])
+          .enum(['list', 'pr_candidates', 'review_packet', 'create_rail', 'set_tickets', 'set_profile', 'set_engine', 'set_name', 'launch', 'launch_all', 'stop'])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
         railIndex: z
@@ -64,7 +64,8 @@ export function railsTools(): McpToolSpec[] {
           .int()
           .min(0)
           .optional()
-          .describe('Rail slot index, 0-BASED (required for every action except list). The dashboard labels rails 1-based: UI "Rail N" = railIndex N-1.'),
+          .describe('Rail slot index, 0-BASED (required except list, create_rail, launch_all and review_packet). The dashboard labels rails 1-based: UI "Rail N" = railIndex N-1.'),
+        prDeliveryId: z.string().optional().describe('Delivery id returned by list/prDeliveries (required for review_packet)'),
         // set_tickets
         ticketIds: z
           .array(z.number().int())
@@ -96,7 +97,7 @@ export function railsTools(): McpToolSpec[] {
         model: z
           .string()
           .optional()
-          .describe('Model for launch. For Freestyle or loop mode, pass a model string valid for the selected installed provider; Kimi preserves configured model aliases. Freestyle availability is capability-gated by provider.'),
+          .describe('Model for launch. Defaults to the launching conversation model when the engine matches; an explicit model wins. For Freestyle or loop mode, pass a model string valid for the selected installed provider; Kimi preserves configured model aliases. Freestyle availability is capability-gated by provider.'),
         interactive: z
           .boolean()
           .optional()
@@ -139,6 +140,16 @@ export function railsTools(): McpToolSpec[] {
         switch (action) {
           case 'list':
             return apiCall(ctx, 'GET', base)
+
+          case 'pr_candidates':
+            return apiCall(ctx, 'GET', `${base}/${requireRailIndex()}/pr-candidates`)
+
+          case 'review_packet': {
+            if (typeof args.prDeliveryId !== 'string' || !args.prDeliveryId.trim()) {
+              throw new Error('review_packet requires "prDeliveryId" from list/prDeliveries.')
+            }
+            return apiCall(ctx, 'GET', `${base}/pr-deliveries/${encodeURIComponent(args.prDeliveryId)}/packet`)
+          }
 
           case 'create_rail': {
             const body: Record<string, unknown> = {}
@@ -235,11 +246,17 @@ export function railsTools(): McpToolSpec[] {
             if (body.aiEngine === undefined && defaults.provider) {
               body.aiEngine = defaults.provider
             }
+            if (body.model === undefined && defaults.model && body.aiEngine === defaults.provider) {
+              body.model = defaults.model
+            }
             if (
               body.reasoning_effort === undefined &&
               defaults.reasoningEffort &&
               defaults.provider &&
-              body.aiEngine === defaults.provider
+              body.aiEngine === defaults.provider &&
+              // Effort is model-specific (Astra's ultra is not valid for
+              // GPT-5.5). An explicit different model gets its own default.
+              (!defaults.model || body.model === defaults.model)
             ) {
               body.reasoning_effort = defaults.reasoningEffort
             }
@@ -267,10 +284,17 @@ export function railsTools(): McpToolSpec[] {
                 hint: `Launch accepted (202) on ${railLabel}, but WORKTREE ISOLATION IS UNAVAILABLE because ${why}. The run proceeds on the SHARED working tree and writes changes DIRECTLY into the user's files — there is NO PR-decision/implementation card and NO branch. Do NOT tell the user to look for a PR card; tell them the run writes to their files in place, and explain why. ${fix} When it finishes, the spec parks at on_review — the user accepts it by moving it to Done on the board (the changes are already in their files) or reverts the spec's status (which does NOT undo the file changes).`,
               }
             }
+            if (r.isolated !== true) {
+              return {
+                ...r,
+                railLabel,
+                hint: `Launch accepted (202) on ${railLabel}. The server did not report worktree isolation (the legacy/shared checkout path may be enabled); do not promise a separate branch or delivery card. Read the returned jobId/jobIds with specrails_jobs(get) or use specrails_watch(ref:jobId, kind:"job"); for loopRunIds use kind:"loop_run".`,
+              }
+            }
             return {
               ...r,
               railLabel,
-              hint: `Launch accepted (202) on ${railLabel} (isolated worktree, PR flow active) — tell the user it runs on "${railLabel}" (UI labels are 1-based). If the assigned spec is on_review with a matching open PR, including an already-published pr_ready PR, or is Jira-linked in_progress with an explicit PR match, Specrails continues that PR branch automatically; otherwise it starts a fresh branch from the integration branch. The PR-decision card will appear here and on the rail header when it settles. Use specrails_watch with the returned loopRunIds to await completion only if asked. Rails run for minutes; pass untilMs up to 600000 and re-watch on timeout.`,
+              hint: `Launch accepted (202) on ${railLabel} (isolated worktree, PR flow active) — tell the user it runs on "${railLabel}" (UI labels are 1-based). If the assigned spec is on_review with a matching open PR, including an already-published pr_ready PR, or is Jira-linked in_progress with an explicit PR match, Specrails continues that PR branch automatically; otherwise it starts a fresh branch from the integration branch. The PR-decision card will appear here and on the rail header when it settles. Use specrails_watch(ref:loopRunId, kind:"loop_run") for each returned loopRunId to inspect completion. Rails run for minutes; pass untilMs up to 600000 and re-watch on timeout. Settled does not imply successful delivery: read rails(list) and review_packet for verification and blockers.`,
             }
           }
 
@@ -306,6 +330,10 @@ export function railsTools(): McpToolSpec[] {
               jobId?: string
               jobIds?: string[]
               loopRunIds?: string[]
+              prDeliveryId?: string
+              isolationUnavailable?: string
+              isolationUnavailableDetail?: string
+              isolated?: boolean
               error?: string
             }
             const results: LaunchAllOutcome[] = []
@@ -342,15 +370,19 @@ export function railsTools(): McpToolSpec[] {
                       ...(typeof data.jobId === 'string' ? { jobId: data.jobId } : {}),
                       ...(Array.isArray(data.jobIds) ? { jobIds: data.jobIds as string[] } : {}),
                       ...(Array.isArray(data.loopRunIds) ? { loopRunIds: data.loopRunIds as string[] } : {}),
+                      ...(typeof data.isolationUnavailable === 'string' ? { isolationUnavailable: data.isolationUnavailable } : {}),
+                      ...(typeof data.isolationUnavailableDetail === 'string' ? { isolationUnavailableDetail: data.isolationUnavailableDetail } : {}),
+                      ...(typeof data.prDeliveryId === 'string' ? { prDeliveryId: data.prDeliveryId } : {}),
+                      ...(typeof data.isolated === 'boolean' ? { isolated: data.isolated } : {}),
                     })
                   })
                   .catch((err: unknown) => {
                     // Race-safe: a 409 raised between the snapshot and the launch
                     // maps back to its skip reason instead of a hard failure.
                     const message = err instanceof Error ? err.message : String(err)
-                    if (message.includes('pr_decision_pending')) {
+                    if (err instanceof McpApiError && err.status === 409 && err.code === 'pr_decision_pending') {
                       results.push({ railIndex: idx, outcome: 'skipped', reason: 'pr-decision-pending', ticketIds })
-                    } else if (message.includes('tickets_in_flight')) {
+                    } else if (err instanceof McpApiError && err.status === 409 && err.code === 'tickets_in_flight') {
                       results.push({ railIndex: idx, outcome: 'skipped', reason: 'tickets-in-flight', ticketIds })
                     } else {
                       results.push({ railIndex: idx, outcome: 'failed', ticketIds, error: message })
@@ -367,7 +399,7 @@ export function railsTools(): McpToolSpec[] {
             return {
               launched, skipped, failed, results,
               hint: launched > 0
-                ? 'Launches accepted (202) and running IN PARALLEL in isolated worktrees. Report the per-rail ids verbatim and release the turn — progress streams live; re-check later with specrails_jobs(get) or specrails_watch on request.'
+                ? 'Launches accepted (202) and running in parallel. Check each result: isolationUnavailable means that rail writes directly into project files and has NO delivery card; explain that limitation. Report the per-rail ids verbatim; progress streams live. Use specrails_watch(kind:"loop_run", ref:loopRunId) or specrails_jobs(get) to inspect completion.'
                 : 'No rail was launched — see per-rail reasons. Assign tickets with set_tickets (create_rail if no free rail) and retry.',
             }
           }

@@ -11,12 +11,13 @@ import { getLoopRun, getRunEventCounts, listActiveLoopRuns } from './loop-runs-s
 import { getAdapter, reasoningEffortsForModel, supportsToolPolicy } from './providers'
 import { isReasoningEffortValidForModel } from './providers/runtime'
 import { resolveAgentDefaults } from './agent-defaults'
+import { resolveProfile } from './profile-manager'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from './spec-models'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode, FACTORY_REVISION_LOOP_ID } from './loop-factory'
 import { loadConstantMap } from './loop-constants'
 import { dominantTicketScope, referencesUnsupportedProviderCommand } from './loop-command-catalog'
-import { loopNeedsTicket, type LoopGraph } from './loop-graph'
+import { loopNeedsTicket, validateLoopGraph, type LoopGraph } from './loop-graph'
 import { isolationApplies, isRailPrDeliveryEnabled } from './rail-isolation'
 import {
   getActivePrDeliveryByRail,
@@ -84,11 +85,30 @@ export function prDeliveryRevisionAllowed(
   return requested.size > 0 && requested.size === covered.size && [...requested].every((id) => covered.has(id))
 }
 
+function prDeliveryCheckoutTarget(delivery: PrDeliverySnapshot): { branch: string; sha: string } | null {
+  if (delivery.branch && delivery.deliverySha) return { branch: delivery.branch, sha: delivery.deliverySha }
+  // Before Create PR, a single settled unit already has an exact local result.
+  // A batch must first be assembled: checking out its first branch would hide
+  // the rest of the implementation.
+  const units = delivery.branches
+  if (!delivery.branch && !delivery.deliverySha && units.length === 1 && units[0].succeeded && units[0].finalSha &&
+    units[0].deliveryOutcome !== 'blocked' && units[0].deliveryOutcome !== 'no_changes' &&
+    units[0].implementationOutcome !== 'failed' && units[0].changed !== false) {
+    return { branch: units[0].branch, sha: units[0].finalSha }
+  }
+  return null
+}
+
 function prDeliveryCheckoutBlock(delivery: PrDeliverySnapshot): string | null {
+  if (isTerminalPrDecision(delivery.decision) || delivery.decision === 'building' ||
+    delivery.decision === 'implementation_failed' || delivery.decision === 'no_changes') {
+    return 'delivery is not awaiting implementation review'
+  }
   if (delivery.deliveryOutcome === 'blocked') {
     return 'delivery is blocked and has no safely checkoutable result'
   }
-  if (!delivery.deliverySha) {
+  const target = prDeliveryCheckoutTarget(delivery)
+  if (!target || !/^[0-9a-f]{40,64}$/i.test(target.sha)) {
     return 'delivery has no verified commit available for checkout'
   }
   return null
@@ -576,7 +596,7 @@ export function createRailsRouter(): Router {
     if (mode === 'freestyle') {
       // Freestyle runs no agent pipeline, so profiles do not apply.
       resolvedProfile = null
-    } else if (railProvider && getAdapter(railProvider).capabilities.profiles !== true) {
+    } else if (getAdapter(engineCheck.provider).capabilities.profiles !== true) {
       resolvedProfile = null
     } else if (profileName === null) {
       resolvedProfile = null
@@ -609,6 +629,10 @@ export function createRailsRouter(): Router {
           if (!loop) { res.status(404).json({ error: 'Loop not found' }); return }
           if (loop.status !== 'published') {
             res.status(400).json({ error: 'Loop must be published before it can run on a rail' }); return
+          }
+          const validation = validateLoopGraph(loop.graph)
+          if (!validation.valid) {
+            res.status(422).json({ error: 'Loop graph is invalid', errors: validation.errors }); return
           }
           // A standalone loop (no {{spec.*}} and no ticket command) ignores the
           // rail's spec — it would just re-run once per ticket. Those belong to
@@ -644,10 +668,20 @@ export function createRailsRouter(): Router {
         // dashboard factory launches send neither. Read at launch time, so a
         // settings change applies to the next launch without restart.
         const globalAgentDefaults = resolveAgentDefaults(c.desktopDb, loopProvider)
+        let profileModel: string | undefined
+        if (resolvedProfile) {
+          try {
+            const execution = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
+            profileModel = resolveProfile(execution.cwd, resolvedProfile, loopProvider)?.profile.orchestrator.model
+          } catch (error) {
+            res.status(400).json({ error: 'invalid_profile', detail: error instanceof Error ? error.message : String(error) })
+            return
+          }
+        }
         const loopModel =
           typeof model === 'string' && model
             ? model
-            : (globalAgentDefaults?.pipelineModel ?? loopAdapter.defaultModel())
+            : (profileModel ?? globalAgentDefaults?.pipelineModel ?? loopAdapter.defaultModel())
         let effort: ReasoningEffort | undefined
         if (reasoning_effort !== undefined && reasoning_effort !== null) {
           const allowed = reasoningEffortsForModel(loopAdapter, loopModel)
@@ -679,14 +713,10 @@ export function createRailsRouter(): Router {
 
         // Parallel isolation (default-on; disable with SPECRAILS_RAIL_WORKTREES=0):
         // a per-ticket rail on a repo-mutating loop runs each ticket in its own git
-        // worktree, then merges the branches back. Degrades gracefully — a non-git
-        // repo, an unborn HEAD, or a worktree-allocation failure all fall through to
-        // the shared-cwd path below. See rail-isolation.ts.
+        // worktree, then merges the branches back. A non-git repo or an unborn
+        // HEAD uses the explicit shared-cwd fallback; an operational allocation
+        // failure aborts rather than moving execution into the active checkout.
         let isolationUnavailable: string | undefined
-        // Human-readable failure detail for the 'error' case — surfaced to the
-        // client so a silent fallback (no delivery row → no implementation
-        // cards) is diagnosable from the UI, not just the server log.
-        let isolationUnavailableDetail: string | undefined
         let continuablePrDelivery: PrDeliverySnapshot | null = null
         let revisionRequest: { ofDeliveryId: string; decision: PrDecision; note: string } | null = null
         // Read-only vs mutating is DERIVED from the loop's nodes (see loop-effect),
@@ -775,6 +805,7 @@ export function createRailsRouter(): Router {
               const ids = await launchIsolatedRail({
                 ctx: c, railIndex, ticketIds: [...rail.ticketIds], loopId, loopName, loopGraph,
                 provider: loopProvider, model: loopModel, effort, scope,
+                profileName: resolvedProfile,
                 originSurface: originSurface ?? 'dashboard',
                 originConversationId: originConversationId ?? null,
                 ...(continuablePrDelivery ? {
@@ -827,9 +858,13 @@ export function createRailsRouter(): Router {
                 })
                 return
               }
-              console.error('[rails-router] isolated launch failed; falling back to shared cwd:', err)
-              isolationUnavailable = 'error'
-              isolationUnavailableDetail = err instanceof Error ? err.message : String(err)
+              console.error('[rails-router] isolated launch failed:', err)
+              res.status(409).json({
+                error: 'isolation_failed',
+                detail: err instanceof Error ? err.message : String(err),
+                action: 'Resolve the worktree allocation error and retry the rail launch.',
+              })
+              return
             }
           }
         }
@@ -879,12 +914,22 @@ export function createRailsRouter(): Router {
               repoDir: loopExec.relocated ? loopExec.repoDir : undefined,
               railIndex,
               ticketId: ticketIds[0],
-              spec: spec ? { ...spec, ticketIds } : { ticketIds },
+              spec: {
+                ...spec,
+                ticketIds,
+                ...(ticketIds.length > 1 ? {
+                  tickets: ticketIds.map((id) => {
+                    const ticket = c.getTicketSpec(id)
+                    return { id, title: ticket?.title, description: ticket?.description }
+                  }),
+                } : {}),
+              },
               ticketCompletionStatus: loopTicketCompletionStatus,
               constants: loadConstantMap(c.desktopDb),
               provider: loopProvider,
               model: loopModel,
               effort,
+              profileName: resolvedProfile,
             })
             .then((r) => {
               recordRunProvenance()
@@ -914,7 +959,6 @@ export function createRailsRouter(): Router {
         res.status(202).json({
           loopRunIds, railIndex, mode,
           ...(isolationUnavailable ? { isolationUnavailable } : {}),
-          ...(isolationUnavailableDetail ? { isolationUnavailableDetail } : {}),
         })
         return
       }
@@ -1188,9 +1232,6 @@ export function createRailsRouter(): Router {
     if (checkoutBlock) {
       res.status(409).json({ error: 'checkout_not_deliverable', detail: checkoutBlock }); return
     }
-    if (!snap.branch || !snap.prUrl) {
-      res.status(409).json({ error: 'checkout_unavailable', detail: 'delivery has no PR branch' }); return
-    }
     try {
       const outcome = await withRepoLock(c.project.path, async () => {
         admission.assertCurrent()
@@ -1213,12 +1254,13 @@ export function createRailsRouter(): Router {
             detail: currentCheckoutBlock,
           }
         }
-        if (!currentSnap.branch || !currentSnap.prUrl) {
+        const target = prDeliveryCheckoutTarget(currentSnap)
+        if (!target) {
           return {
             ok: false as const,
             status: 409,
             error: 'checkout_not_deliverable',
-            detail: 'The current delivery no longer has an attached PR branch.',
+            detail: 'The current delivery no longer has a verified local branch.',
           }
         }
         const cleanliness = await inspectProjectCheckoutCleanliness(c.project.path)
@@ -1230,9 +1272,8 @@ export function createRailsRouter(): Router {
             detail: cleanliness.detail,
           }
         }
-        if (!cleanliness.clean) {
-          return { ok: false as const, status: 409, error: 'checkout_dirty', detail: 'Working tree has uncommitted changes. Commit or stash them before checkout.' }
-        }
+        // Compatible local edits are preserved by Git's checkout transaction;
+        // only unreadable status prevents attempting the handoff here.
         const info = await getProjectGitInfo(c.project.path)
         if (!info.git) {
           return { ok: false as const, status: 409, error: 'checkout_unavailable', detail: 'project is not a git repository' }
@@ -1266,34 +1307,29 @@ export function createRailsRouter(): Router {
             }
           }
         }
-        if (cleanupWarnings.length > 0) {
-          return {
-            ok: false as const,
-            status: 409,
-            error: 'checkout_unavailable',
-            detail: cleanupWarnings[0],
-          }
-        }
-        // Cleanup just completed with ZERO warnings — clear any stale
-        // cleanup_incomplete evidence persisted by earlier failed release
-        // attempts, so the card stops claiming "Cleanup is incomplete" after
-        // the condition has been resolved. Same-state patch + live broadcast.
-        if (currentSnap.cleanupWarnings.length > 0 || currentSnap.statusCode === 'cleanup_incomplete') {
+        // A preserved unit worktree need not hold the assembled review branch.
+        // Keep its warnings visible, but let Git decide whether the requested
+        // branch is actually occupied instead of blocking every batch checkout.
+        if (cleanupWarnings.length > 0 || currentSnap.cleanupWarnings.length > 0 || currentSnap.statusCode === 'cleanup_incomplete') {
           transitionDecision(c.db, row.id, currentSnap.decision, currentSnap.decision, {
-            cleanupWarnings: [],
-            ...(currentSnap.statusCode === 'cleanup_incomplete' ? { statusCode: null } : {}),
+            cleanupWarnings,
+            ...(cleanupWarnings.length > 0 ? { statusCode: 'cleanup_incomplete' as const }
+              : currentSnap.statusCode === 'cleanup_incomplete' ? { statusCode: null } : {}),
           })
           emitPrDeliveryUpdate(c, row.id)
         }
         const checkedOut = await checkoutProjectReviewBranch(
           c.project.path,
-          currentSnap.branch,
-          currentSnap.deliverySha,
+          target.branch,
+          target.sha,
         )
         if (!checkedOut.ok) {
-          return { ok: false as const, status: 409, error: 'checkout_failed', detail: checkedOut.error }
+          return {
+            ok: false as const, status: 409, error: 'checkout_failed',
+            detail: [checkedOut.error, ...cleanupWarnings].join('\n'),
+          }
         }
-        return { ok: true as const, git: await getProjectGitInfo(c.project.path) }
+        return { ok: true as const, branch: target.branch, git: await getProjectGitInfo(c.project.path), cleanupWarnings }
       })
       if (!outcome.ok) {
         res.status(outcome.status).json({ error: outcome.error, detail: outcome.detail }); return

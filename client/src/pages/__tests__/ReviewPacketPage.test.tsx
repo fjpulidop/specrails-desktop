@@ -199,6 +199,15 @@ describe('ReviewPacketPage — decision verbs', () => {
     expect(mockNotifyGitChanged).not.toHaveBeenCalled()
   })
 
+  it('does not confuse a safety conflict with an already answered decision', async () => {
+    respond({})
+    mockAct.mockResolvedValue({ status: 409, ok: false, error: 'delivery_not_verified' })
+    renderPage()
+    fireEvent.click(await screen.findByTestId('packet-discard'))
+    expect(await screen.findByText('That action did not go through.')).toBeInTheDocument()
+    expect(screen.queryByText('Someone already answered this.')).not.toBeInTheDocument()
+  })
+
   it('defers to the technical controls for a state the verbs cannot describe', async () => {
     respond({
       packet: packet({

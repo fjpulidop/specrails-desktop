@@ -30,6 +30,7 @@ export const CLAUDE_MODELS = [
 ]
 
 export const CODEX_MODELS = [
+  { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
   { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
   { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
   { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
@@ -66,13 +67,13 @@ const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
 export const PRESET_DEFAULTS: Record<ModelPreset, Record<string, string>> = {
   balanced: { claude: 'sonnet', codex: 'gpt-5.5', gemini: 'gemini-3.5-flash', kimi: 'k3' },
   budget: { claude: 'haiku', codex: 'gpt-5.4-mini', gemini: 'gemini-2.5-flash-lite', kimi: 'k3' },
-  max: { claude: 'sonnet', codex: 'gpt-5.6-sol', gemini: 'gemini-3.5-flash', kimi: 'k3' },
+  max: { claude: 'sonnet', codex: 'gpt-6-astra', gemini: 'gemini-3.5-flash', kimi: 'k3' },
 }
 
 // "max" preset: top model for the architect, default for the rest (matches
 // specrails-core v5 — the core trio is the full shipped set)
 const MAX_OVERRIDES: Record<string, Record<string, string>> = {
-  'sr-architect': { claude: 'opus', codex: 'gpt-5.6-sol', gemini: 'gemini-3.1-pro-preview', kimi: 'k3' },
+  'sr-architect': { claude: 'opus', codex: 'gpt-6-astra', gemini: 'gemini-3.1-pro-preview', kimi: 'k3' },
 }
 
 export function getDefaultModel(

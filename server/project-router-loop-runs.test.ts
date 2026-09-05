@@ -177,6 +177,7 @@ describe('project-router standalone loop runs', () => {
       { id: 'e1', source: 's', target: 'ai' },
       { id: 'e2', source: 'ai', target: 'd' },
       { id: 'e3', source: 'd', target: 'e', branch: 'stop' },
+      { id: 'e4', source: 'd', target: 'ai', branch: 'continue' },
     ]
     const loop = createLoop(desktopDb, { id: 'kimi-decider', name: 'Kimi Decider', graph })
     publishLoop(desktopDb, loop.id)

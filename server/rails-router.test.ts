@@ -13,6 +13,7 @@ import type { LoopGraph } from './loop-graph'
 import { beginProjectProcessQuiescence, openProjectProcessAdmission } from './process-admission'
 import { ExplicitPrTargetError } from './active-pr-continuation'
 import { withRepoLock } from './repo-lock'
+import * as profileManager from './profile-manager'
 
 const {
   mockExecRun,
@@ -804,6 +805,43 @@ describe('rails-router loop mode', () => {
     expect(req.spec.metadata?.openspecChangeName).toBe('quick-change')
   })
 
+  it.each([false, true])('honors the chosen profile and orchestrator on loop launches (isolated=%s)', async (isolated) => {
+    setRailTickets(db, 0, [1], 'implement', 'premium')
+    const resolve = vi.spyOn(profileManager, 'resolveProfile').mockReturnValue({
+      name: 'premium',
+      profile: {
+        schemaVersion: 1, name: 'premium', orchestrator: { model: 'opus' },
+        agents: [{ id: 'sr-architect' }, { id: 'sr-developer' }, { id: 'sr-reviewer' }],
+        routing: [{ default: true, agent: 'sr-developer' }],
+      },
+    })
+    try {
+      if (isolated) mockRepoStatus.mockResolvedValue('ok')
+      mockLaunchIsolated.mockResolvedValue(['isolated-run'])
+      const run = vi.fn().mockResolvedValue({ runId: 'run', outcome: 'success', iterations: 1, totalCostUsd: 0 })
+      const app = appWith(db, { desktopDb, loopRunManager: { run, cancel: vi.fn() } })
+      const result = await request(app).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+      expect(result.status).toBe(202)
+      expect(isolated ? mockLaunchIsolated : run).toHaveBeenCalledWith(expect.objectContaining({
+        profileName: 'premium', model: 'opus',
+      }))
+    } finally { resolve.mockRestore() }
+  })
+
+  it('rejects a missing named loop profile before spawning or allocating a worktree', async () => {
+    setRailTickets(db, 0, [1], 'implement', 'missing')
+    const resolve = vi.spyOn(profileManager, 'resolveProfile').mockImplementation(() => { throw new Error('Profile missing') })
+    const run = vi.fn()
+    try {
+      const result = await request(appWith(db, { desktopDb, loopRunManager: { run, cancel: vi.fn() } }))
+        .post('/rails/0/launch').send({ loopId: 'factory:implement' })
+      expect(result.status).toBe(400)
+      expect(result.body.error).toBe('invalid_profile')
+      expect(run).not.toHaveBeenCalled()
+      expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    } finally { resolve.mockRestore() }
+  })
+
   it('a factory loop runs through the loop engine (autonomous fix-loop), deriving its mode', async () => {
     setRailTickets(db, 0, [1, 2], 'loop')
     const enqueue = vi.fn()
@@ -821,6 +859,10 @@ describe('rails-router loop mode', () => {
     expect(run).toHaveBeenCalledTimes(1) // loop engine; implement is all-scope → ONE run
     expect(enqueue).not.toHaveBeenCalled() // NOT the QueueManager path
     expect((run.mock.calls[0][0] as { spec: { ticketIds: number[] } }).spec.ticketIds).toEqual([1, 2])
+    expect(run.mock.calls[0][0].spec.tickets).toEqual([
+      { id: 1, title: 'T', description: 'D' },
+      { id: 2, title: 'T', description: 'D' },
+    ])
   })
 
   it('falls back to the QueueManager mode when Loops are disabled', async () => {
@@ -1099,17 +1141,16 @@ describe('rails-router POST /:railIndex/launch — ask-first PR delivery (safe-p
     }))
   })
 
-  it("an isolated-launch failure falls back to shared cwd and SURFACES isolationUnavailable:'error' + detail", async () => {
-    // The silent-missing-cards trap: launchIsolatedRail throwing means NO
-    // rail_pr_deliveries row (no implementation card anywhere). The 202 must
-    // carry the reason so the client can toast it instead of failing mute.
+  it('refuses to launch in the active repository after worktree allocation fails', async () => {
     mockRepoStatus.mockResolvedValue('ok')
     mockLaunchIsolated.mockRejectedValue(new Error('git worktree add failed for feat/x: boom'))
-    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
-    expect(res.status).toBe(202)
-    expect(res.body.isolationUnavailable).toBe('error')
-    expect(res.body.isolationUnavailableDetail).toContain('git worktree add failed')
+    const run = vi.fn()
+    const res = await request(launchApp({ loopRunManager: { run } })).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('isolation_failed')
+    expect(res.body.detail).toContain('git worktree add failed')
     expect(res.body.isolated).toBeUndefined()
+    expect(run).not.toHaveBeenCalled()
   })
 
   it('refuses shared-cwd fallback when an existing PR continuation cannot get a verified worktree', async () => {
@@ -1920,7 +1961,7 @@ describe('rails-router POST /pr-checkout generation guard', () => {
     expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalled()
   })
 
-  it('keeps a dirty primary checkout untouched and returns the stable dirty error', async () => {
+  it('lets Git preserve compatible tracked edits during checkout instead of rejecting every dirty repo', async () => {
     const delivery = checkoutDelivery({ id: 'checkout-dirty', deliveryOutcome: 'delivered', deliverySha: 'b'.repeat(40) })
     mockInspectProjectCheckoutCleanliness.mockResolvedValueOnce({ ok: true, clean: false })
 
@@ -1928,15 +1969,10 @@ describe('rails-router POST /pr-checkout generation guard', () => {
       prDeliveryId: delivery.id,
     })
 
-    expect(res.status).toBe(409)
-    expect(res.body).toEqual({
-      error: 'checkout_dirty',
-      detail: 'Working tree has uncommitted changes. Commit or stash them before checkout.',
-    })
+    expect(res.status).toBe(200)
     expect(mockInspectProjectCheckoutCleanliness).toHaveBeenCalledOnce()
-    expect(mockGetProjectGitInfo).not.toHaveBeenCalled()
-    expect(mockReleaseRailWorktrees).not.toHaveBeenCalled()
-    expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalled()
+    expect(mockReleaseRailWorktrees).toHaveBeenCalledOnce()
+    expect(mockCheckoutProjectReviewBranch).toHaveBeenCalledWith('/repo', 'feat/review', 'b'.repeat(40))
   })
 
   it('fails closed when main-checkout cleanliness cannot be proved', async () => {
@@ -1975,6 +2011,59 @@ describe('rails-router POST /pr-checkout generation guard', () => {
     const row = getPrDelivery(db, delivery.id)!
     expect(JSON.parse(row.cleanup_warnings)).toEqual([])
     expect(row.status_code).toBeNull()
+  })
+
+  it('checks out an assembled branch even when another unit worktree must be preserved, and persists the warning', async () => {
+    const deliverySha = 'f'.repeat(40)
+    const delivery = checkoutDelivery({ id: 'checkout-preserved-unit', deliveryOutcome: 'delivered', deliverySha })
+    const warning = 'worktree /wt/another-unit: preserved because it contains changes made after settlement'
+    mockReleaseRailWorktrees.mockResolvedValueOnce([warning])
+
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({ prDeliveryId: delivery.id })
+
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ branch: 'feat/review', cleanupWarnings: [warning] })
+    expect(mockCheckoutProjectReviewBranch).toHaveBeenCalledWith('/repo', 'feat/review', deliverySha)
+    const row = getPrDelivery(db, delivery.id)!
+    expect(row.status_code).toBe('cleanup_incomplete')
+    expect(JSON.parse(row.cleanup_warnings)).toEqual([warning])
+  })
+
+  it('checks out the single verified local unit before any PR has been created', async () => {
+    const delivery = createPrDelivery(db, {
+      id: 'checkout-local-only', railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement',
+      ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'agent-chat',
+    })
+    transitionDecision(db, delivery.id, 'building', 'on_review', {
+      implementationOutcome: 'succeeded', deliveryOutcome: 'ready',
+      branches: [{ ticketId: 1, branch: 'feat/local-result', succeeded: true, finalSha: 'c'.repeat(40), changed: true }],
+    })
+
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({ prDeliveryId: delivery.id })
+
+    expect(res.status).toBe(200)
+    expect(res.body.branch).toBe('feat/local-result')
+    expect(mockCheckoutProjectReviewBranch).toHaveBeenCalledWith('/repo', 'feat/local-result', 'c'.repeat(40))
+    expect(getPrDelivery(db, delivery.id)?.pr_url).toBeNull()
+  })
+
+  it('does not expose only the successful part of an unassembled partial batch as the full checkout', async () => {
+    const delivery = createPrDelivery(db, {
+      id: 'checkout-partial-batch', railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement',
+      ticketIds: [1, 2], baseBranch: 'main', loopName: 'Implement', originSurface: 'agent-chat',
+    })
+    transitionDecision(db, delivery.id, 'building', 'on_review', {
+      implementationOutcome: 'partially_succeeded', deliveryOutcome: 'partial',
+      branches: [
+        { ticketId: 1, branch: 'feat/first', succeeded: true, finalSha: 'c'.repeat(40), changed: true },
+        { ticketId: 2, branch: 'feat/second', succeeded: false, implementationOutcome: 'failed' },
+      ],
+    })
+    const res = await request(appWith(db)).post('/rails/pr-checkout').send({ prDeliveryId: delivery.id })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('checkout_not_deliverable')
+    expect(mockReleaseRailWorktrees).not.toHaveBeenCalled()
+    expect(mockCheckoutProjectReviewBranch).not.toHaveBeenCalled()
   })
 
   it('passes the immutable delivery SHA to checkout and relays a divergent-ref refusal', async () => {

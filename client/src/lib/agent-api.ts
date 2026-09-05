@@ -151,7 +151,7 @@ export async function patchAgentConversation(
 }
 
 export async function deleteAgentConversation(id: string): Promise<void> {
-  await fetch(`${base}/conversations/${id}`, { method: 'DELETE' })
+  await json(await fetch(`${base}/conversations/${id}`, { method: 'DELETE' }))
 }
 
 export async function sendAgentMessage(
@@ -198,11 +198,11 @@ export async function fetchAgentAttachmentBlob(conversationId: string, attachmen
 }
 
 export async function deleteAgentAttachment(conversationId: string, attachmentId: string): Promise<void> {
-  await fetch(`${base}/conversations/${conversationId}/attachments/${attachmentId}`, { method: 'DELETE' })
+  await json(await fetch(`${base}/conversations/${conversationId}/attachments/${attachmentId}`, { method: 'DELETE' }))
 }
 
 export async function abortAgentTurn(id: string): Promise<void> {
-  await fetch(`${base}/conversations/${id}/abort`, { method: 'POST' })
+  await json(await fetch(`${base}/conversations/${id}/abort`, { method: 'POST' }))
 }
 
 /**
@@ -422,7 +422,7 @@ export async function postRailPrDecision(
         snapshot,
       }
     }
-    if (data?.error === 'merge_local_blocked') {
+    if (data?.error === 'merge_local_blocked' && (data.reason === 'dirty' || data.reason === 'wrong_branch')) {
       return {
         kind: 'blocked',
         reason: data?.reason === 'dirty' ? 'dirty' : 'wrong_branch',
@@ -431,7 +431,9 @@ export async function postRailPrDecision(
         snapshot: coerceRailPrStateSnapshot(data?.snapshot),
       }
     }
-    return { kind: 'stale', current: String(data?.current ?? ''), snapshot: coerceRailPrStateSnapshot(data?.snapshot) }
+    if (data?.error === 'stale_decision') {
+      return { kind: 'stale', current: String(data?.current ?? ''), snapshot: coerceRailPrStateSnapshot(data?.snapshot) }
+    }
   }
   return {
     kind: 'failed',
@@ -475,7 +477,7 @@ export function agentEnvelopeFromSnapshot(
 }
 
 export type AgentPrCheckoutOutcome =
-  | { kind: 'ok' }
+  | { kind: 'ok'; branch: string | null; cleanupWarnings: string[] }
   | { kind: 'recovering' }
   | { kind: 'failed'; error: string; detail: string }
 
@@ -492,7 +494,13 @@ export async function postRailPrCheckout(projectId: string, prDeliveryId: string
   } catch {
     data = null
   }
-  if (res.ok) return { kind: 'ok' }
+  if (res.ok) return {
+    kind: 'ok',
+    branch: typeof data?.branch === 'string' ? data.branch : null,
+    cleanupWarnings: Array.isArray(data?.cleanupWarnings)
+      ? data.cleanupWarnings.filter((warning): warning is string => typeof warning === 'string' && warning.length > 0)
+      : [],
+  }
   if (res.status === 409 && data?.error === 'project_recovery_in_progress') return { kind: 'recovering' }
   return {
     kind: 'failed',
@@ -515,5 +523,5 @@ export async function getMcpStatus(): Promise<{ enabled: boolean; running: boole
   return json(await fetch(`${API_ORIGIN}/api/mcp-admin/status`))
 }
 export async function enableMcp(): Promise<void> {
-  await fetch(`${API_ORIGIN}/api/mcp-admin/enable`, { method: 'POST' })
+  await json(await fetch(`${API_ORIGIN}/api/mcp-admin/enable`, { method: 'POST' }))
 }

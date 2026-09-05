@@ -16,9 +16,12 @@ const projects = [
   { id: 'p1', name: 'acme-api', slug: 'acme-api', path: '/acme', provider: 'claude' },
   { id: 'p2', name: 'deckdex', slug: 'deckdex', path: '/deck', provider: 'claude' },
 ]
+const mockSetActiveProjectId = vi.fn()
 vi.mock('../../../hooks/useDesktop', () => ({
-  useDesktop: () => ({ projects, activeProjectId: 'p1', setActiveProjectId: vi.fn() }),
+  useDesktop: () => ({ projects, activeProjectId: 'p1', setActiveProjectId: mockSetActiveProjectId }),
 }))
+const mockForceProjectRoute = vi.fn()
+vi.mock('../../../lib/route-memory', () => ({ forceProjectRoute: (...args: unknown[]) => mockForceProjectRoute(...args) }))
 
 // The card is Router-OPTIONAL: bare renders below must keep working, so only the
 // two review-entry tests wrap in a MemoryRouter. useNavigate is mocked so the
@@ -169,6 +172,20 @@ beforeEach(() => {
 
 // ── AgentPrDecisionCard: state matrix ─────────────────────────────────────────
 describe('AgentPrDecisionCard states', () => {
+  it('offers checkout for a verified single local result before a PR exists', async () => {
+    global.fetch = vi.fn(async () => httpRes(200, { ok: true, branch: 'sr/ticket-4', cleanupWarnings: ['A modified worktree was preserved.'] })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({
+      projectId: 'p2', ticketIds: [4],
+      units: [{ ticketId: 4, branch: 'sr/ticket-4', succeeded: true, finalSha: 'a'.repeat(40) }],
+    })} />)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Checkout' })) })
+    expect(global.fetch).toHaveBeenCalledWith('/api/projects/p2/rails/pr-checkout', expect.objectContaining({
+      body: JSON.stringify({ prDeliveryId: 'd1' }),
+    }))
+    expect(toast.success).toHaveBeenCalledWith('Checked out sr/ticket-4')
+    expect(toast.warning).toHaveBeenCalledWith('Cleanup is incomplete (1 warning)', { description: 'A modified worktree was preserved.' })
+  })
+
   it('on_review: title, Create PR + Discard, base chip, spec pill, project + rail badge', () => {
     render(<AgentPrDecisionCard envelope={env()} />)
     expect(screen.getByText('Implementation ready for review')).toBeInTheDocument()
@@ -187,6 +204,15 @@ describe('AgentPrDecisionCard states', () => {
     expect(review).toHaveTextContent('Review')
     fireEvent.click(review)
     expect(mockNavigate).toHaveBeenCalledWith(`/review/${env().prDeliveryId}`)
+  })
+
+  it('opens review in the card project instead of the currently selected project', () => {
+    render(<MemoryRouter><AgentPrDecisionCard envelope={env({ projectId: 'p2' })} /></MemoryRouter>)
+    fireEvent.click(screen.getByTestId('agent-pr-open-packet'))
+    expect(mockForceProjectRoute).toHaveBeenCalledWith('p2', '/review/d1')
+    expect(mockSetActiveProjectId).toHaveBeenCalledWith('p2')
+    expect(mockNavigate).toHaveBeenCalledWith('/review/d1')
+    expect(mockForceProjectRoute.mock.invocationCallOrder[0]).toBeLessThan(mockSetActiveProjectId.mock.invocationCallOrder[0])
   })
 
   it('does not offer the review entry once the delivery is terminal', () => {
@@ -673,6 +699,14 @@ describe('AgentPrDecisionCard actions', () => {
     expect(vi.mocked(toast.error)).not.toHaveBeenCalled()
   })
 
+  it('surfaces an actual conflict instead of falsely reporting it resolved', async () => {
+    global.fetch = vi.fn(async () => httpRes(409, { error: 'delivery_not_verified', detail: 'Commit evidence is missing.' })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env()} />)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create PR' })) })
+    expect(toast.error).toHaveBeenCalledWith(expect.any(String), { description: 'Commit evidence is missing.' })
+    expect(toast.info).not.toHaveBeenCalledWith('Already resolved elsewhere')
+  })
+
   it('409 project recovery reports a safe temporary pause instead of stale/destructive feedback', async () => {
     global.fetch = vi.fn(async () => httpRes(409, { error: 'project_recovery_in_progress' })) as unknown as typeof fetch
     render(<AgentPrDecisionCard envelope={env()} />)
@@ -713,7 +747,7 @@ describe('AgentPrDecisionCard actions', () => {
     ],
     [
       'checkout_not_deliverable',
-      'This PR branch is not the preserved implementation',
+      'This branch is not the preserved implementation',
       'No exact delivery commit has been verified yet. Inspect or recover the local result instead.',
     ],
     [

@@ -11,15 +11,25 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 name = "specrails-desktop"
 path = "src/main.rs"
 
+[features]
+native-browser-smoke = ["tauri/test"]
+
+[[example]]
+name = "native-browser-smoke"
+path = "examples/native-browser-smoke.rs"
+required-features = ["native-browser-smoke"]
+
+[[example]]
+name = "native-browser-popup-smoke"
+path = "examples/native-browser-popup-smoke.rs"
+required-features = ["native-browser-smoke"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# NOTE: devtools/Inspect Element is intentionally NOT force-enabled here. Tauri
-# auto-enables devtools in debug builds (debug_assertions), so dev keeps the
-# inspector while release builds ship WITHOUT it — this both removes the
-# "embedded web page" Inspect Element entry from production and avoids shipping
-# the WKWebView private devtools API (a macOS App Store blocker).
+# The native browser toolbar exposes browser_devtools in packaged builds too;
+# keep this feature aligned with that command, not only debug_assertions.
 tauri = { version = "2", features = ["tray-icon", "image-png", "unstable", "devtools"] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
@@ -31,6 +41,16 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", features = ["blocking"] }
 dirs-next = "2"
+tokio = { version = "1", features = ["sync", "time"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# These are already transitive Tauri dependencies. Expose the public WebKit
+# snapshot API directly so the interactive browser never streams screenshots.
+objc2 = "0.6"
+block2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSData", "NSDictionary", "NSError", "NSGeometry", "NSString"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSBitmapImageRep", "NSImage", "NSImageRep"] }
+objc2-web-kit = { version = "0.3", default-features = false, features = ["std", "block2", "objc2-core-foundation", "WKContentWorld", "WKFrameInfo", "WKNavigation", "WKSnapshotConfiguration", "WKUIDelegate", "WKWebView"] }
 
 # wayland-scanner 0.31.10 still pins vulnerable quick-xml 0.39.x. Upstream has
 # landed the audited 0.41 bump but has not published a replacement crate yet.

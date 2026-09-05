@@ -10,9 +10,9 @@ const SAMPLE_AGENTS: AgentDef[] = [
 ]
 
 describe('CODEX_MODELS catalog', () => {
-  it('lists the GPT-5.6 family (sol/terra/luna) ahead of gpt-5.5', () => {
+  it('lists gpt-6-astra first, then the GPT-5.6 family (sol/terra/luna), ahead of gpt-5.5', () => {
     const values = CODEX_MODELS.map((m) => m.value)
-    expect(values.slice(0, 3)).toEqual(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
+    expect(values.slice(0, 4)).toEqual(['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
     expect(values).toContain('gpt-5.5')
   })
 })
@@ -50,12 +50,12 @@ describe('getDefaultModel', () => {
     expect(getDefaultModel('sr-architect', 'balanced', 'codex')).toBe('gpt-5.5')
   })
 
-  it('returns gpt-5.6-sol for sr-architect in max preset (codex)', () => {
-    expect(getDefaultModel('sr-architect', 'max', 'codex')).toBe('gpt-5.6-sol')
+  it('returns gpt-6-astra for sr-architect in max preset (codex)', () => {
+    expect(getDefaultModel('sr-architect', 'max', 'codex')).toBe('gpt-6-astra')
   })
 
-  it('returns gpt-5.6-sol for sr-product-manager in max preset (codex)', () => {
-    expect(getDefaultModel('sr-product-manager', 'max', 'codex')).toBe('gpt-5.6-sol')
+  it('returns gpt-6-astra for sr-product-manager in max preset (codex)', () => {
+    expect(getDefaultModel('sr-product-manager', 'max', 'codex')).toBe('gpt-6-astra')
   })
 
   it('returns gemini-3.5-flash for non-special agents in balanced preset (gemini)', () => {
@@ -80,8 +80,8 @@ describe('getDefaultModel', () => {
     expect(getDefaultModel('sr-developer', 'balanced', 'mystery')).toBe('')
   })
 
-  it('returns gpt-5.6-sol for sr-developer in max preset (codex)', () => {
-    expect(getDefaultModel('sr-developer', 'max', 'codex')).toBe('gpt-5.6-sol')
+  it('returns gpt-6-astra for sr-developer in max preset (codex)', () => {
+    expect(getDefaultModel('sr-developer', 'max', 'codex')).toBe('gpt-6-astra')
   })
 
   it('returns gpt-5.4-mini for any agent in budget preset (codex)', () => {

@@ -47,6 +47,16 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     const projectId = req.params.projectId as string
     const ctx = registry.getContext(projectId)
     if (!ctx) {
+      if (registry.getProjectRow(projectId)) {
+        const failure = registry.listFailedProjects().find((entry) => entry.project.id === projectId)
+        res.setHeader('Retry-After', '2')
+        res.status(503).json({
+          error: 'project_unavailable',
+          projectId,
+          detail: failure?.error ?? 'Project is registered but its database is not available yet.',
+        })
+        return
+      }
       res.status(404).json({ error: 'Project not found' })
       return
     }

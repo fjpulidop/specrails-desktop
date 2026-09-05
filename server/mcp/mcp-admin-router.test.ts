@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 import { initDesktopDb, type DbInstance } from '../desktop-db'
@@ -13,14 +13,18 @@ function makeRegistry(db: DbInstance): ProjectRegistry {
 describe('createMcpAdminRouter', () => {
   let db: DbInstance
   let app: express.Express
+  let manager: McpServerManager
 
   beforeEach(() => {
     db = initDesktopDb(':memory:')
-    const manager = new McpServerManager({ registry: makeRegistry(db), broadcast: () => {}, desktopPort: 4242 })
+    manager = new McpServerManager({ registry: makeRegistry(db), broadcast: () => {}, desktopPort: 4242 })
     app = express()
     app.use(express.json())
     app.use('/api/mcp-admin', createMcpAdminRouter({ manager, desktopDb: db, desktopPort: 4242, broadcast: () => {} }))
+    app.use('/api/mcp', (req, res) => { void manager.handleHttp(req, res) })
   })
+
+  afterEach(async () => { await manager.stop(); db.close() })
 
   it('GET /status reports enabled-by-default with every tier on + token hint', async () => {
     const res = await request(app).get('/api/mcp-admin/status')
@@ -51,6 +55,24 @@ describe('createMcpAdminRouter', () => {
     const t2 = (await request(app).post('/api/mcp-admin/regenerate-token')).body.token
     expect(t2).not.toBe(t1)
     expect((await request(app).get('/api/mcp-admin/token')).body.token).toBe(t2)
+  })
+
+  it('rejects a malformed tier patch without partially updating valid earlier fields', async () => {
+    const bad = await request(app).patch('/api/mcp-admin/tiers').send({ write: false, aiSpawn: false, destructive: 'invalid' })
+    expect(bad.status).toBe(400)
+    expect((await request(app).get('/api/mcp-admin/status')).body.tiers).toEqual({ write: true, aiSpawn: true, destructive: true })
+  })
+
+  it('token rotation invalidates already-established transport sessions', async () => {
+    const initialized = await request(app).post('/api/mcp')
+      .set('Accept', 'application/json, text/event-stream')
+      .send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'old-credential', version: '1' } } })
+    expect(initialized.status).toBe(200)
+    expect(manager.status().activeSessions).toBe(1)
+    expect((await request(app).post('/api/mcp-admin/regenerate-token')).status).toBe(200)
+    expect(manager.status().activeSessions).toBe(0)
+    const stale = await request(app).delete('/api/mcp').set('mcp-session-id', initialized.headers['mcp-session-id'])
+    expect(stale.status).toBe(404)
   })
 
   it('GET /config returns connection info for the panel', async () => {

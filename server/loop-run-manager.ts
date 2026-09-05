@@ -57,6 +57,7 @@ import { getAdapter, requireToolPolicy } from './providers'
 import { parseStreamEvents } from './providers/runtime'
 import { finaliseInvocationResult } from './result-event'
 import { claimRailTickets, claimTicketOutcomeOwners } from './rails-store'
+import { parseVerificationSentinel } from './verification-sentinel'
 
 export interface AiStepResult {
   text: string
@@ -138,6 +139,7 @@ export interface InteractivePlanInput {
   provider: string
   model: string
   effort?: ReasoningEffort
+  profileName?: string | null
   cwd: string
   repoDir?: string
   /** Resume a prior step's session (mid-pass continuity — the interactive
@@ -159,6 +161,8 @@ export interface InteractiveAiStepPlan {
   /** Wall-clock bound for the WHOLE step, user turns included. On expiry the
    *  session is aborted (fold in-flight turn → settle 'crashed'). */
   stepTimeoutMs: number
+  /** Progress watchdog, including untimed factory steps. Zero disables it. */
+  inactivityTimeoutMs?: number
   /** Injectable spawn (tests). Defaults to the session's spawnAiCli. */
   spawn?: InteractiveJobSessionDeps['spawn']
   /** Injectable process-tree terminator paired with `spawn` in tests. */
@@ -172,6 +176,7 @@ export interface LoopExecutors {
     provider: string
     model: string
     effort?: ReasoningEffort
+    profileName?: string | null
     cwd: string
     repoDir?: string
     onLine?: LoopLogSink
@@ -186,7 +191,7 @@ export interface LoopExecutors {
    *  stdin (claude); return null/undefined (or omit the method) to run the step
    *  through the one-shot `runAiStep` — byte-identical legacy behaviour. */
   planInteractiveAiStep?(input: InteractivePlanInput): InteractiveAiStepPlan | null
-  runShell(input: { command: string; cwd: string; onLine?: LoopLogSink; onSpawn?: LoopSpawnSink }): Promise<ShellResult>
+  runShell(input: { command: string; cwd: string; repoDir?: string; timeoutMs?: number; onLine?: LoopLogSink; onSpawn?: LoopSpawnSink }): Promise<ShellResult>
   runDecider(input: {
     systemPrompt: string
     userPrompt: string
@@ -198,6 +203,7 @@ export interface LoopExecutors {
     onLine?: LoopLogSink
     onRawLine?: (line: string) => void
     onSpawn?: LoopSpawnSink
+    timeoutMs?: number
   }): Promise<DeciderRunResult>
   /** OPTIONAL: a cheap, deterministic fingerprint of the repo's working-tree
    *  state (HEAD + dirty set) used by the non-convergence guard — when this is
@@ -209,6 +215,8 @@ export interface LoopExecutors {
 }
 
 export interface LoopRunRequest {
+  /** Explicit rail profile; null opts out of profile injection, undefined uses defaults. */
+  profileName?: string | null
   /** Pre-allocated run id (so the caller can track/cancel before completion).
    *  Defaults to a fresh id. */
   runId?: string
@@ -1127,6 +1135,10 @@ export class LoopRunManager {
     // RESUMED steps already carry prior context in their session, so re-appending
     // the history there is redundant tokens; this flag keeps it off for them.
     let justContinued = false
+    // Transport/test failures are engine facts. A model's STOP cannot turn a
+    // failed pass (or a failed final archive command) into a successful run.
+    // A continue starts a fresh repair pass which can establish success again.
+    let passFailed = false
     // Fail-open honesty: flips true the first time a cost-bearing step yields no
     // priced cost while a cap is set (non-Claude estimate / unknown model / a
     // failed step) → the cap can under-count, so we warn once in the run log.
@@ -1351,7 +1363,7 @@ export class LoopRunManager {
 
       while (nodeId && !settled) {
         if (this._cancelled.has(runId)) { outcome = 'stopped'; break }
-        if (this.now() > deadline) { outcome = 'failed'; break }
+        if (this.now() >= deadline) { outcome = 'failed'; break }
         if (++steps > stepCap) { outcome = 'max-iterations'; break }
         // Cost cap: stop BEFORE the next step once prior steps crossed the budget.
         if (maxCostUsd !== undefined && totalCost >= maxCostUsd) {
@@ -1376,7 +1388,7 @@ export class LoopRunManager {
             nodeId = succs[0]?.id
             break
           case 'end':
-            outcome = node.data?.outcome === 'failure' ? 'failed' : 'success'
+            outcome = node.data?.outcome === 'failure' || passFailed ? 'failed' : 'success'
             settled = true
             break
           case 'ai-step': {
@@ -1429,14 +1441,19 @@ export class LoopRunManager {
             // One attempt of this step. `sessionId` is the ONLY thing that
             // differs between the resumed attempt and its fresh retry below.
             const runAttempt = async (sessionId: string | undefined): Promise<AiStepResult> => {
+              const remainingMs = deadline - this.now()
+              const effectiveTimeoutMs = Number.isFinite(remainingMs)
+                ? Math.max(1, Math.min(aiStepTimeoutMs === 0 ? Infinity : (aiStepTimeoutMs ?? 15 * 60_000), remainingMs))
+                : aiStepTimeoutMs
               const interactivePlan = this.executors.planInteractiveAiStep?.({
                 provider: nodeProvider,
                 model: nodeModel,
                 effort: nodeEffort,
+                profileName: req.profileName,
                 cwd: req.cwd,
                 repoDir: req.repoDir,
                 sessionId,
-                aiStepTimeoutMs,
+                aiStepTimeoutMs: effectiveTimeoutMs,
               }) ?? null
               return interactivePlan
                 ? this._runInteractiveAiStep({
@@ -1448,7 +1465,7 @@ export class LoopRunManager {
                     nextEventSeq: takeSeq,
                     recoveryStepKey: aiRecoveryKey,
                   })
-                : this.executors.runAiStep({ prompt, sessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs })
+                : this.executors.runAiStep({ prompt, sessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, profileName: req.profileName, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs: effectiveTimeoutMs })
             }
             let res = await runAttempt(aiSessionId)
             if (this._disposed) return neverAfterDispose()
@@ -1479,12 +1496,20 @@ export class LoopRunManager {
             const zeroWork = aiStepZeroWork(res)
             const oneShotZeroWork = res.zeroWork === undefined && zeroWork
             const blockedReason = aiStepBlockedReason(res.text)
-            const stepFailed = res.failed === true || zeroWork || blockedReason !== null
+            const requiresVerification = node.data?.requireVerificationPass === true
+              || /\{\{cmd:(?:verify|revision-verify|opsx:verify)\}\}/.test(rawTemplate)
+            const verificationFailed = requiresVerification
+              && parseVerificationSentinel(res.text).verdict !== 'pass'
+            const stepFailed = res.failed === true || zeroWork || blockedReason !== null || verificationFailed
+            passFailed ||= res.failed === true || zeroWork || (verificationFailed && !blockedReason)
             const stepErrorText = res.errorText ?? (zeroWork
               ? `zero work performed — the command never ran${res.text.trim() ? `: ${res.text.trim()}` : ''}`
               : blockedReason
                 ? `blocked — ${blockedReason}`
+              : verificationFailed
+                ? 'verification did not finish with VERIFICATION: PASS'
               : undefined)
+            if (verificationFailed && !blockedReason) logLine(`✖ ${stepErrorText}`, 'stderr')
             // Make the failure reason land visibly INSIDE the step's log
             // segment (the interactive session already surfaced its own note at
             // settle; the Template/Command flat-log lines are gone, so without
@@ -1504,7 +1529,8 @@ export class LoopRunManager {
             // hard-failed turn (codex still emits thread.started before its error)
             // would otherwise make the next step `--resume` a dead session.
             if (res.sessionId && (!stepFailed || (blockedReason !== null && !res.failed && !zeroWork))) aiSessionId = res.sessionId
-            history.push(`AI Step: ${truncate(res.text)}`)
+            else if (stepFailed) aiSessionId = undefined
+            history.push(`AI Step${stepFailed ? ` FAILED (${stepErrorText ?? 'provider invocation failed'})` : ''}: ${truncate(res.text)}`)
             record(`loop:${runId}`, { ...res, failed: stepFailed }, aiStepStart, aiRecoveryKey)
             this._activeStepRecovery.delete(runId)
             if (blockedReason) {
@@ -1574,11 +1600,12 @@ export class LoopRunManager {
             const command = resolveConstants(resolveRunVars(interpolateSpec(String(node.data?.command ?? ''), req.spec), runVars), constMap)
             emitStep('shell', `⚡ ${nodeLabel || 'Shell'}`, node.id, iteration + 1)
             logLine(`$ ${command}`)
-            const sh = await this.executors.runShell({ command, cwd: req.cwd, onLine: logLine, onSpawn: (c) => this._activeChild.set(runId, c) })
+            const sh = await this.executors.runShell({ command, cwd: req.cwd, repoDir: req.repoDir, timeoutMs: Math.min(10 * 60_000, Math.max(1, deadline - this.now())), onLine: logLine, onSpawn: (c) => this._activeChild.set(runId, c) })
             if (this._disposed) return neverAfterDispose()
             this._activeChild.delete(runId)
             logLine(`(exit ${sh.exitCode})`)
             emitStepEnd({ status: sh.exitCode === 0 ? 'ok' : 'failed', exitCode: sh.exitCode, durationMs: sh.durationMs })
+            passFailed ||= sh.exitCode !== 0
             totalDuration += sh.durationMs ?? 0
             updateLoopRunCounters(this.db, runId, {
               iterationCount: iteration,
@@ -1602,11 +1629,11 @@ export class LoopRunManager {
             const deciderRecoveryKey = stageAiAccounting(
               'decider', node.id, `loop:${runId}:decider`, deciderStart,
             )
-            const dec = await this.executors.runDecider({
+            let dec = await this.executors.runDecider({
               systemPrompt: buildDeciderSystemPrompt(),
               // Give the Decider the spec so it can verify completeness against the
               // FULL scope instead of trusting a step's self-reported success.
-              userPrompt: buildDeciderUserPrompt({ goal, history, spec: req.spec ? { title: req.spec.title, description: req.spec.description } : undefined }),
+              userPrompt: buildDeciderUserPrompt({ goal, history, spec: req.spec }),
               provider: nodeProvider,
               model: nodeModel,
               effort: nodeEffort,
@@ -1615,9 +1642,13 @@ export class LoopRunManager {
               onLine: logLine,
               onRawLine,
               onSpawn: (c) => this._activeChild.set(runId, c),
+              timeoutMs: Math.min(3 * 60_000, Math.max(1, deadline - this.now())),
             })
             if (this._disposed) return neverAfterDispose()
             this._activeChild.delete(runId)
+            if ((!dec.parsed || passFailed) && !dec.blocked && !dec.continue) {
+              dec = { ...dec, continue: true, reasoning: `A required step failed in this pass; repair and verify before completion. ${dec.reasoning}` }
+            }
             // A parseable Decider verdict means this AI invocation (SAME
             // provider/model) succeeded → the provider is alive, so clear any
             // ai-step failure streak. This stops a false fail-fast abort when an
@@ -1713,9 +1744,13 @@ export class LoopRunManager {
               }
             }
             if (dec.continue) {
+              // Enforce the cap before another expensive implementation pass,
+              // not after that extra pass reaches the next decider.
+              if (iteration >= maxIterations) { outcome = 'max-iterations'; settled = true; break }
               const target = branchTarget('continue') ?? conts[0]?.id
-              if (target) {
+              if (target && byId.get(target)?.type !== 'end') {
                 nodeId = target
+                passFailed = false
                 // The next step acts on this verdict → let it see the history.
                 justContinued = true
                 // New iteration of an iterate-per-item loop → drop the resumed AI
@@ -1725,7 +1760,7 @@ export class LoopRunManager {
                 // native spawn — no claude/codex/gemini/kimi branching here.
                 if (target === firstStepId) aiSessionId = undefined
               }
-              else { outcome = 'success'; settled = true }
+              else { outcome = 'failed'; settled = true }
             } else {
               const target = branchTarget('stop') ?? ends[0]?.id
               if (target) nodeId = target
@@ -1734,7 +1769,14 @@ export class LoopRunManager {
             break
           }
           case 'condition':
-            // v1: AND/OR branching is not yet evaluated — follow the first edge.
+            // Multiple branches have no implemented condition evaluator. Never
+            // silently skip required branches and report a successful run.
+            if (succs.length !== 1) {
+              logLine('Condition branching is unsupported; replace it with explicit sequential steps or a Decider.', 'stderr')
+              outcome = 'failed'
+              settled = true
+              break
+            }
             nodeId = succs[0]?.id
             break
           default:
@@ -1743,7 +1785,7 @@ export class LoopRunManager {
 
         // Ran off the end of the graph without an explicit End node.
         if (nodeId === undefined && !settled) {
-          outcome = 'success'
+          outcome = 'failed'
           settled = true
         }
       }
@@ -1944,8 +1986,9 @@ export class LoopRunManager {
         adapter: input.plan.adapter,
         broadcast: this.broadcast,
         settleMode: 'auto',
-        // The step timeout below is the sole watchdog — the one-shot loop path
-        // has no zombie detector either (byte-parity), so none is armed here.
+        // Match the one-shot progress watchdog, including factory steps whose
+        // total wall-clock bound is disabled.
+        zombieTimeoutMs: input.plan.inactivityTimeoutMs,
         nextEventSeq: input.nextEventSeq,
         persistTurnUsage: (usage, completedEventSeq, checkpoint) => {
           const checkpointTurn = this.db.transaction(() => {

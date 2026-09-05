@@ -337,6 +337,42 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     await settle()
   })
 
+  it('inherits Astra together with its ultra effort instead of rejecting it against the default model', async () => {
+    const conv = createAgentConversation(desktopDb, { provider: 'codex', model: 'gpt-6-astra', reasoningEffort: 'ultra' })
+    const r = await captured!(
+      { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
+      launchExtra(conv.id),
+    )
+    expect(r.isError).toBeFalsy()
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-6-astra', effort: 'ultra' })
+    await settle()
+  })
+
+  it('an explicit model does not inherit an incompatible effort from the mission model', async () => {
+    const conv = createAgentConversation(desktopDb, { provider: 'codex', model: 'gpt-6-astra', reasoningEffort: 'ultra' })
+    const r = await captured!(
+      { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', model: 'gpt-5.5' },
+      launchExtra(conv.id),
+    )
+    expect(r.isError).toBeFalsy()
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-5.5' })
+    expect(loopRun.mock.calls[0][0].effort).toBeUndefined()
+    await settle()
+  })
+
+  it('never carries the conversation model or effort into a different engine', async () => {
+    const conv = createAgentConversation(desktopDb, { provider: 'codex', model: 'gpt-6-astra', reasoningEffort: 'ultra' })
+    const r = await captured!(
+      { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement', aiEngine: 'claude' },
+      launchExtra(conv.id),
+    )
+    expect(r.isError).toBeFalsy()
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude' })
+    expect(loopRun.mock.calls[0][0].model).not.toBe('gpt-6-astra')
+    expect(loopRun.mock.calls[0][0].effort).toBeUndefined()
+    await settle()
+  })
+
   it('an explicit aiEngine null forces the project primary despite the conversation provider', async () => {
     const conv = createAgentConversation(desktopDb, { provider: 'codex' })
     const r = await captured!(
@@ -382,14 +418,14 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     await settle()
   })
 
-  it("a provider-valid conversation effort (codex 'minimal') is defaulted under the model-aware launch contract", async () => {
-    const conv = createAgentConversation(desktopDb, { provider: 'codex', reasoningEffort: 'minimal' })
+  it('a model-valid conversation effort is defaulted under the model-aware launch contract', async () => {
+    const conv = createAgentConversation(desktopDb, { provider: 'codex', reasoningEffort: 'low' })
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
       launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
-    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', effort: 'minimal' })
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', effort: 'low' })
     await settle()
   })
 

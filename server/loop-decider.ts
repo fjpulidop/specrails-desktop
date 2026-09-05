@@ -40,13 +40,22 @@ export function buildDeciderUserPrompt(input: {
   history: string[]
   /** The spec the loop is implementing — so the Decider can judge completeness
    *  against the FULL scope instead of trusting a step's self-reported success. */
-  spec?: { title?: string; description?: string }
+  spec?: { title?: string; description?: string; tickets?: Array<{ id: number; title?: string; description?: string }> }
 }): string {
   const history = input.history.length > 0 ? input.history.join('\n') : '(no output yet)'
   const lines: string[] = [`LOOP GOAL: ${input.goal}`, '']
   const specTitle = input.spec?.title?.trim()
   const specDesc = input.spec?.description?.trim()
-  if (specTitle || specDesc) {
+  if (input.spec?.tickets && input.spec.tickets.length > 1) {
+    lines.push('SPECS BEING IMPLEMENTED — every listed spec must be complete before STOP:')
+    for (const ticket of input.spec.tickets) {
+      const description = ticket.description?.trim() || '(spec description unavailable; completeness is not established)'
+      const bounded = description.length > 2000
+        ? `${description.slice(0, 1000)}\n…\n${description.slice(-1000)}`
+        : description
+      lines.push(`Spec #${ticket.id}: ${ticket.title?.trim() || '(untitled)'}`, bounded, '')
+    }
+  } else if (specTitle || specDesc) {
     // Cap the description so a huge spec can't blow up the Decider prompt.
     const desc = specDesc ? (specDesc.length > 2000 ? specDesc.slice(0, 2000) + '…' : specDesc) : ''
     lines.push(

@@ -4,7 +4,34 @@ import {
   comparePrSnapshotUpdatedAt,
   derivePrDeliveryPresentation,
   isInterruptedPrDeliveryOperation,
+  prDeliveryCheckoutBranch,
 } from '../pr-delivery'
+
+describe('verified local checkout evidence', () => {
+  const local = {
+    decision: 'on_review' as const, ticketIds: [1], prUrl: null, prState: 'none' as const,
+    units: [{ ticketId: 1, branch: 'sr/ticket-1', succeeded: true, finalSha: 'a'.repeat(40) }],
+  }
+
+  it('offers a verified unit before PR assembly, and an assembled branch without GitHub', () => {
+    expect(prDeliveryCheckoutBranch(local)).toBe('sr/ticket-1')
+    expect(prDeliveryCheckoutBranch({ ...local, branch: 'sr/assembled', deliverySha: 'b'.repeat(40) })).toBe('sr/assembled')
+  })
+
+  it('does not pick an arbitrary unit from an unassembled batch', () => {
+    expect(prDeliveryCheckoutBranch({ ...local, units: [...local.units, { ...local.units[0], ticketId: 2, branch: 'sr/ticket-2' }] })).toBeNull()
+  })
+
+  it('withholds checkout for unverified, blocked, or terminal results', () => {
+    expect(prDeliveryCheckoutBranch({ ...local, units: [{ ...local.units[0], finalSha: null }] })).toBeNull()
+    expect(prDeliveryCheckoutBranch({ ...local, branch: 'unverified/assembled' })).toBeNull()
+    expect(prDeliveryCheckoutBranch({ ...local, units: [{ ...local.units[0], finalSha: 'not-a-commit' }] })).toBeNull()
+    expect(prDeliveryCheckoutBranch({ ...local, deliveryOutcome: 'blocked' })).toBeNull()
+    expect(prDeliveryCheckoutBranch({ ...local, decision: 'building' })).toBeNull()
+    expect(prDeliveryCheckoutBranch({ ...local, decision: 'merged' })).toBeNull()
+    expect(prDeliveryCheckoutBranch({ ...local, units: [{ ...local.units[0], changed: false }] })).toBeNull()
+  })
+})
 
 describe('PR delivery semantic derivation', () => {
   it('never converts a successful implementation into an implementation failure when delivery is blocked', () => {

@@ -8,12 +8,15 @@
  */
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { lstatSync, readFileSync, readlinkSync } from 'node:fs'
+import { resolve } from 'node:path'
 import treeKill from 'tree-kill'
 import { getAdapter } from './providers'
 import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from './workspace-manager'
 import { ensureClaudeTrusted } from './claude-trust'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { finaliseInvocationResult } from './result-event'
+import { terminalResultError } from './providers/terminal-result'
 import { parseDeciderDecision } from './loop-decider'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
 import { injectRepoMapEnv } from './repo-map'
@@ -32,6 +35,9 @@ const AI_STEP_TIMEOUT_MS = 15 * 60_000
 const DECIDER_TIMEOUT_MS = 3 * 60_000
 const SHELL_TIMEOUT_MS = 10 * 60_000
 const SHELL_OUTPUT_CAP = 256 * 1024
+// Match the queue's idle budget: a long implementation may keep running while
+// producing output; a silent, wedged CLI must eventually release its rail.
+const DEFAULT_INACTIVITY_TIMEOUT_MS = 30 * 60_000
 
 function runShellCommand(
   command: string,
@@ -133,27 +139,39 @@ export function createLoopExecutors(
      *  inject core's workspace artifact indirection (and a project relocated
      *  AFTER server start is picked up without a restart). Default process.env. */
     env?: NodeJS.ProcessEnv | (() => NodeJS.ProcessEnv)
-    /** Global Specrails Agents defaults seam: per-step SPECRAILS_PROFILE_PATH
-     *  for ai-steps (per-agent model overrides). Re-resolved per step so a
-     *  Settings change applies to the next step without restart; null ⇒ no
-     *  injection (byte-identical legacy — core's own file fallback rules). */
-    profilePathFor?: (provider: string) => string | null
+    /** Named rail profiles and global per-agent defaults: resolves the immutable
+     *  SPECRAILS_PROFILE_PATH snapshot for AI steps. A null selection opts out;
+     *  undefined keeps the existing global/Core default resolution. */
+    profilePathFor?: (provider: string, profileName?: string | null) => string | null
   } = {},
 ): LoopExecutors {
   const resolveEnv = (): NodeJS.ProcessEnv =>
     typeof opts.env === 'function' ? opts.env() : opts.env ?? process.env
+  const inactivityTimeoutMs = (): number => {
+    const raw = resolveEnv().SPECRAILS_LOOP_INACTIVITY_MS ?? process.env.SPECRAILS_LOOP_INACTIVITY_MS
+    const value = raw?.trim() ? Number(raw) : DEFAULT_INACTIVITY_TIMEOUT_MS
+    return Number.isFinite(value) && value >= 0 ? value : DEFAULT_INACTIVITY_TIMEOUT_MS
+  }
   // Deciders deliberately excluded: they run no pipeline agents.
-  const withProfileEnv = (env: NodeJS.ProcessEnv, provider: string): NodeJS.ProcessEnv => {
+  const withProfileEnv = (env: NodeJS.ProcessEnv, provider: string, profileName?: string | null): NodeJS.ProcessEnv => {
+    if (profileName === null) {
+      const legacyEnv = { ...env }
+      delete legacyEnv.SPECRAILS_PROFILE_PATH
+      return legacyEnv
+    }
     try {
-      const profilePath = opts.profilePathFor?.(provider) ?? null
+      const profilePath = opts.profilePathFor?.(provider, profileName) ?? null
       return profilePath ? { ...env, SPECRAILS_PROFILE_PATH: profilePath } : env
-    } catch {
+    } catch (error) {
+      if (profileName) throw error
       return env
     }
   }
   return {
     // Cheap working-tree fingerprint for the engine's non-convergence guard:
-    // HEAD sha + the porcelain dirty set, hashed. Two identical fingerprints
+    // HEAD, tracked diffs and untracked file contents, hashed. Status/path names
+    // alone stay identical while a fixer keeps improving the same files.
+    // Two identical fingerprints
     // across consecutive Decider 'continue' verdicts ⇒ the loop changed nothing
     // ⇒ abort `stalled`. Synchronous + best-effort: any git failure (no repo,
     // detached, etc.) returns null so the guard simply stays off. Never throws.
@@ -164,12 +182,30 @@ export function createLoopExecutors(
         // `-z` NUL-delimited + include untracked so a brand-new file counts as
         // a change; stable ordering makes the hash deterministic per tree state.
         const porcelain = execFileSync('git', ['status', '--porcelain', '-z', '--untracked-files=all'], opt)
-        return createHash('sha256').update(head).update('\0').update(porcelain).digest('hex')
+        const hash = createHash('sha256').update(head).update('\0').update(porcelain)
+        // Separate index/worktree diffs preserve staged-only changes and staged
+        // content subsequently edited back to HEAD. Binary patches include
+        // actual bytes; disable external diff/textconv so this is read-only.
+        for (const args of [
+          ['diff', '--no-ext-diff', '--no-textconv', '--binary', '--'],
+          ['diff', '--cached', '--no-ext-diff', '--no-textconv', '--binary', '--'],
+        ]) hash.update('\0').update(execFileSync('git', args, { ...opt, maxBuffer: 16 * 1024 * 1024 }))
+        const untracked = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], opt)
+        for (const relative of untracked.split('\0').filter(Boolean).sort()) {
+          const file = resolve(dir, relative)
+          const stat = lstatSync(file)
+          hash.update('\0').update(relative).update('\0').update(String(stat.mode))
+          // Never follow a symlink outside the worktree. If an unreadable file
+          // or a racing delete defeats the snapshot, disable this sample.
+          if (stat.isSymbolicLink()) hash.update(readlinkSync(file))
+          else if (stat.isFile()) hash.update(readFileSync(file))
+        }
+        return hash.digest('hex')
       } catch {
         return null
       }
     },
-    async runAiStep({ prompt, sessionId, provider, model, effort, cwd, repoDir, onLine, onRawLine, onSpawn, aiStepTimeoutMs }) {
+    async runAiStep({ prompt, sessionId, provider, model, effort, profileName, cwd, repoDir, onLine, onRawLine, onSpawn, aiStepTimeoutMs }) {
       const adapter = getAdapter(provider)
       // First iteration spawns headless (rail-job); subsequent iterations resume
       // the session so the agent keeps prior context across iterations.
@@ -179,7 +215,7 @@ export function createLoopExecutors(
       // for the pipeline's I/O exactly like QueueManager: SPECRAILS_REPO_DIR +
       // claude `--add-dir <repoDir>` (see the shared helpers above). Best-effort
       // agent self-heal on Windows.
-      const stepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir), provider)
+      const stepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir), provider, profileName)
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
       const effectivePrompt = formatProviderCommand(
         adapter,
@@ -198,6 +234,11 @@ export function createLoopExecutors(
       // Pre-trust the spawn dir so headless claude honours the overlaid
       // `.claude/settings.json` permissions.allow (else "workspace not trusted").
       try { ensureClaudeTrusted(adapter.id, [cwd, repoDir]) } catch { /* best-effort */ }
+      // Gemini acknowledges project agents before headless execution. Rails
+      // using the loop engine need the same adapter preparation as queue jobs.
+      try { adapter.prepareHeadlessSpawn?.(cwd) } catch (err) {
+        console.warn(`[loop] provider preparation failed: ${(err as Error).message}`)
+      }
       let text = ''
       // The adapter parses provider failures (codex `turn.failed`, etc.) into a
       // structured `error` event on the stdout stream — capture its message so we
@@ -214,6 +255,8 @@ export function createLoopExecutors(
         // 0 ⇒ watchdog disabled (factory loops run untimed; the loop's
         // maxIterations / cost cap remain the runaway guards).
         timeoutMs: (aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS) > 0 ? (aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS) : undefined,
+        inactivityTimeoutMs: inactivityTimeoutMs(),
+        onInactivityTimeout: () => { errorText = `${adapter.binary} stopped producing output; the loop step was terminated after the inactivity timeout` },
         onSpawn,
         // Two complementary streams, mirroring QueueManager's contract:
         //  • RAW JSONL via onStdoutLine → engine emits parsed `event`s that drive
@@ -225,12 +268,13 @@ export function createLoopExecutors(
           if (ev.kind === 'text-delta') { text += ev.text; onLine?.(ev.text) }
           else if (ev.kind === 'tool-use') onLine?.(`🔧 ${ev.name} ${ev.inputPreview ?? ''}`.trim())
           else if (ev.kind === 'error' && ev.message) errorText = ev.message
+          else if (ev.kind === 'result') errorText = terminalResultError(ev.payload) ?? errorText
         },
       })
       const failed =
         res.spawnFailed ||
         res.timedOut ||
-        (res.code != null && res.code !== 0) ||
+        res.code !== 0 ||
         errorText !== undefined
       if (res.spawnFailed) {
         errorText = errorText ?? `failed to spawn "${adapter.binary}" (on PATH?)`
@@ -245,11 +289,12 @@ export function createLoopExecutors(
         const msg = `AI step: ${errorText}`
         console.error(`[loop] ${msg}`)
         onLine?.(msg, 'stderr')
-      } else if (res.code != null && res.code !== 0) {
+      } else if (res.code !== 0) {
         // Prefer the adapter's structured error (e.g. codex `turn.failed`:
         // "You've hit your usage limit") over `stderrTail`, which for codex holds
         // only the informational "Reading additional input from stdin…" line.
         const reason = errorText ?? (res.stderrTail ? res.stderrTail.slice(0, 300) : '')
+        errorText = reason || `${adapter.binary} terminated without a successful exit (code=${res.code})`
         const msg = `AI step: ${adapter.binary} exited code=${res.code}${reason ? ` — ${reason}` : ''}`
         console.error(`[loop] ${msg}`)
         onLine?.(msg, 'stderr')
@@ -307,16 +352,19 @@ export function createLoopExecutors(
      * spike-verified on claude 2.1.198). Null ⇒ the engine one-shots the step
      * (non-claude providers, or the kill-switch) — byte-identical legacy.
      */
-    planInteractiveAiStep({ provider, model, effort, cwd, repoDir, sessionId, aiStepTimeoutMs }) {
+    planInteractiveAiStep({ provider, model, effort, profileName, cwd, repoDir, sessionId, aiStepTimeoutMs }) {
       if (!isInteractiveJobsEnabled()) return null
       const adapter = getAdapter(provider)
       if (!adapter.capabilities.persistentStdin) return null
-      const stepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir), provider)
+      const stepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir), provider, profileName)
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       // Pre-trust the spawn dir so headless claude honours the overlaid
       // `.claude/settings.json` permissions.allow (else "workspace not trusted").
       try { ensureClaudeTrusted(adapter.id, [cwd, repoDir]) } catch { /* best-effort */ }
+      try { adapter.prepareHeadlessSpawn?.(cwd) } catch (err) {
+        console.warn(`[loop] provider preparation failed: ${(err as Error).message}`)
+      }
       const buildOpts = {
         // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
         // is unused — pass empty to satisfy the shared SpawnOptions shape.
@@ -336,16 +384,19 @@ export function createLoopExecutors(
         // The loop's ai-step timeout bounds the WHOLE step, interactive
         // included. 0 ⇒ unbounded (the engine skips arming the step timer).
         stepTimeoutMs: aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS,
+        inactivityTimeoutMs: inactivityTimeoutMs(),
       }
     },
 
-    async runShell({ command, cwd, onLine, onSpawn }) {
-      return runShellCommand(command, cwd, resolveEnv(), SHELL_TIMEOUT_MS, onLine, onSpawn)
+    async runShell({ command, cwd, repoDir, onLine, onSpawn, timeoutMs }) {
+      const env = resolveEnv()
+      return runShellCommand(command, repoDir ?? cwd, repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env, timeoutMs ?? SHELL_TIMEOUT_MS, onLine, onSpawn)
     },
 
-    async runDecider({ systemPrompt, userPrompt, provider, model, effort, cwd, repoDir, onRawLine, onSpawn }) {
+    async runDecider({ systemPrompt, userPrompt, provider, model, effort, cwd, repoDir, onRawLine, onSpawn, timeoutMs }) {
       const adapter = getAdapter(provider)
       let text = ''
+      let errorText: string | undefined
       const baseEnv = resolveEnv()
       const decEnv = repoDir ? { ...baseEnv, SPECRAILS_REPO_DIR: repoDir } : baseEnv
       // spec-gen is a one-shot, system-prompted invocation (workspace-write on
@@ -358,12 +409,21 @@ export function createLoopExecutors(
         buildOpts,
         cwd,
         env: buildProviderEnv(adapter, buildOpts, decEnv),
-        timeoutMs: DECIDER_TIMEOUT_MS,
+        timeoutMs: timeoutMs ?? DECIDER_TIMEOUT_MS,
         onSpawn,
         onStdoutLine: onRawLine,
-        onEvent: (ev) => { if (ev.kind === 'text-delta') text += ev.text },
+        onEvent: (ev) => {
+          if (ev.kind === 'text-delta') text += ev.text
+          else if (ev.kind === 'error' && ev.message) errorText = ev.message
+          else if (ev.kind === 'result') errorText = terminalResultError(ev.payload) ?? errorText
+        },
       })
-      const decision = parseDeciderDecision(text)
+      // A streamed verdict from an interrupted/failed invocation is not an
+      // authoritative completion gate, even when the partial JSON parses.
+      const failed = res.spawnFailed || res.timedOut || res.code !== 0 || errorText !== undefined
+      const decision = failed
+        ? { continue: true, blocked: false, parsed: false, reasoning: errorText ?? (res.timedOut ? 'Decider timed out; verification is incomplete.' : res.stderrTail || 'Decider failed; verification is incomplete.') }
+        : parseDeciderDecision(text)
       const { result, estimated } = finaliseInvocationResult(adapter, res.events, {
         fallbackModel: model,
         durationMs: Math.max(0, Date.now() - wallStartedAt),

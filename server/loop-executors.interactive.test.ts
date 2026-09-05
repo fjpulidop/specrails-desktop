@@ -49,6 +49,27 @@ describe('createLoopExecutors.planInteractiveAiStep', () => {
     expect(plan({ aiStepTimeoutMs: 120_000 })!.stepTimeoutMs).toBe(120_000)
   })
 
+  it('keeps an inactivity watchdog on untimed factory steps and accepts an explicit disable', () => {
+    const executors = createLoopExecutors({ env: { SPECRAILS_LOOP_INACTIVITY_MS: '1234' } })
+    const input = { provider: 'claude', model: 'sonnet', cwd: '/repo', aiStepTimeoutMs: 0 }
+    expect(executors.planInteractiveAiStep!(input)).toMatchObject({ stepTimeoutMs: 0, inactivityTimeoutMs: 1234 })
+    expect(createLoopExecutors({ env: { SPECRAILS_LOOP_INACTIVITY_MS: '0' } }).planInteractiveAiStep!(input)?.inactivityTimeoutMs).toBe(0)
+    expect(createLoopExecutors({ env: { SPECRAILS_LOOP_INACTIVITY_MS: 'NaN' } }).planInteractiveAiStep!(input)?.inactivityTimeoutMs).toBe(30 * 60_000)
+  })
+
+  it('uses the chosen rail profile for interactive steps and honors an explicit opt-out', () => {
+    const selections: Array<string | null | undefined> = []
+    const executors = createLoopExecutors({
+      env: { ...baseEnv, SPECRAILS_PROFILE_PATH: '/inherited/profile.json' },
+      profilePathFor: (_provider, name) => { selections.push(name); return '/snapshots/premium.json' },
+    })
+    const selected = executors.planInteractiveAiStep!({ provider: 'claude', model: 'opus', cwd: '/repo', profileName: 'premium' })
+    expect(selected!.spec.env!.SPECRAILS_PROFILE_PATH).toBe('/snapshots/premium.json')
+    const legacy = executors.planInteractiveAiStep!({ provider: 'claude', model: 'opus', cwd: '/repo', profileName: null })
+    expect(legacy!.spec.env!.SPECRAILS_PROFILE_PATH).toBeUndefined()
+    expect(selections).toEqual(['premium'])
+  })
+
   it('resumes a prior step session (mid-pass continuity)', () => {
     const p = plan({ sessionId: 'sess-9' })!
     const i = p.spec.args.indexOf('--resume')

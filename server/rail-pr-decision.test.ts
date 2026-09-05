@@ -3349,6 +3349,7 @@ function gitScript(responses: { head?: string; dirty?: boolean; failMergeOf?: st
   const calls: string[][] = []
   const baseSha = '1'.repeat(40)
   const assembledSha = '2'.repeat(40)
+  let baseAdvanced = false
   const branchSha = (branch: string): string => {
     if (branch === BATCH) return 'a'.repeat(40)
     const ticket = /^feat\/(\d+)-/.exec(branch)
@@ -3358,25 +3359,26 @@ function gitScript(responses: { head?: string; dirty?: boolean; failMergeOf?: st
   const git: GitRunner = {
     async run(args, cwd) {
       calls.push(args)
-      if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') {
-        return { code: 0, stdout: `${responses.head ?? 'main'}\n`, stderr: '' }
+      if (args[0] === 'symbolic-ref') {
+        return { code: 0, stdout: `refs/heads/${cwd.includes('local-base-') ? 'main' : responses.head ?? 'main'}\n`, stderr: '' }
       }
       if (args[0] === 'status') return { code: 0, stdout: responses.dirty ? ' M x.ts\n' : '', stderr: '' }
       if (args[0] === 'rev-parse' && args[1] === '--verify' && args[2] === 'HEAD') {
         const ticket = /ticket-(\d+)/.exec(cwd)
         const sha = cwd === '/repo'
-          ? baseSha
+          ? baseAdvanced ? assembledSha : baseSha
           : ticket
             ? Math.max(1, Number(ticket[1]) % 16).toString(16).repeat(40)
             : assembledSha
         return { code: 0, stdout: `${sha}\n`, stderr: '' }
       }
       if (args[0] === 'rev-parse' && args[1] === '--verify' && args[2]?.startsWith('refs/heads/')) {
-        return { code: 0, stdout: `${branchSha(args[2].slice('refs/heads/'.length))}\n`, stderr: '' }
+        return { code: 0, stdout: `${args[2] === 'refs/heads/main' && baseAdvanced ? assembledSha : branchSha(args[2].slice('refs/heads/'.length))}\n`, stderr: '' }
       }
       if (args[0] === 'merge' && responses.failMergeOf && args.includes(responses.failMergeOf)) {
         return { code: 1, stdout: '', stderr: 'CONFLICT (content): merge conflict in x.ts' }
       }
+      if (args[0] === 'merge' && args[1] === '--ff-only') baseAdvanced = true
       return ok
     },
   }
@@ -3398,22 +3400,23 @@ describe('merge-local', () => {
     expect(res.status).toBe(409)
   })
 
-  it('409 merge_local_blocked (wrong_branch) when the checkout is not on the integration branch — no transition', async () => {
-    const { deps } = mkDeps({ git: gitScript({ head: 'develop' }).git })
+  it('claims a separate base worktree when the user is on another branch', async () => {
+    const script = gitScript({ head: 'develop' })
+    const { deps } = mkDeps({ git: script.git })
     const row = mkRow({ decision: 'on_review' })
     const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
-    expect(res.status).toBe(409)
-    expect(res.body).toMatchObject({ error: 'merge_local_blocked', reason: 'wrong_branch', current: 'develop', base: 'main' })
-    expect(getPrDelivery(db, row.id)!.decision).toBe('on_review')
+    expect(res.status).toBe(200)
+    expect(script.calls.some((args) => args[0] === 'worktree' && args[1] === 'add' && args[3] === 'main')).toBe(true)
+    expect(script.calls.some((args) => ['checkout', 'reset', 'stash'].includes(args[0]))).toBe(false)
+    expect(getPrDelivery(db, row.id)!.decision).toBe('merged')
   })
 
-  it('409 merge_local_blocked (dirty) when the working tree has changes — no transition', async () => {
+  it('allows unrelated working tree changes through Git’s non-forced fast-forward', async () => {
     const { deps } = mkDeps({ git: gitScript({ dirty: true }).git })
     const row = mkRow({ decision: 'on_review' })
     const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
-    expect(res.status).toBe(409)
-    expect(res.body).toMatchObject({ error: 'merge_local_blocked', reason: 'dirty' })
-    expect(getPrDelivery(db, row.id)!.decision).toBe('on_review')
+    expect(res.status).toBe(200)
+    expect(getPrDelivery(db, row.id)!.decision).toBe('merged')
   })
 
   it('happy path from a degraded local-only draft: merges the assembled head, sweeps, tickets → done, jira gets NULL url', async () => {

@@ -79,7 +79,7 @@ export function parseWorktreePorcelain(out: string): ProjectWorktree[] {
 }
 
 async function listLocalBranches(repoDir: string): Promise<string[]> {
-  const out = await git(repoDir, ['branch', '--format=%(refname:short)'])
+  const out = await git(repoDir, ['branch', '--format=%(refname:lstrip=2)'])
   return out.split('\n').map((b) => b.trim()).filter(Boolean)
 }
 
@@ -117,7 +117,7 @@ export async function getProjectGitInfo(repoDir: string): Promise<ProjectGitInfo
   let branch: string | null = null
   let detached = false
   try {
-    branch = await git(repoDir, ['symbolic-ref', '--short', 'HEAD'])
+    branch = (await git(repoDir, ['symbolic-ref', 'HEAD'])).replace(/^refs\/heads\//, '')
   } catch {
     detached = true
   }
@@ -183,7 +183,7 @@ export async function checkoutProjectBranch(repoDir: string, branch: string): Pr
     return { ok: false, error: `Unknown local branch: ${branch}` }
   }
   try {
-    await git(repoDir, ['checkout', branch])
+    await git(repoDir, ['checkout', '--no-overwrite-ignore', branch])
     return { ok: true }
   } catch (err) {
     // Typical: uncommitted changes that would be overwritten — surface git's own
@@ -220,18 +220,12 @@ export async function checkoutProjectReviewBranch(
     return { ok: false, error: 'The verified delivery commit is invalid; checkout was not attempted.' }
   }
 
-  let dirty = false
-  try {
-    // Tracked modifications only — see inspectProjectCheckoutCleanliness.
-    dirty = (await git(repoDir, ['status', '--porcelain', '--untracked-files=no'])) !== ''
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'git status failed' }
-  }
-  if (dirty) return { ok: false, error: 'Working tree has uncommitted changes. Commit or stash them before checkout.' }
-
-  // Best effort: refresh remote-tracking refs before deciding whether a branch
-  // can be materialized. Failure degrades to local-only checkout.
-  await git(repoDir, ['fetch', 'origin']).catch(() => {})
+  // Git's checkout transaction preserves compatible staged/unstaged changes
+  // and refuses only paths it would overwrite. A blanket dirty guard prevented
+  // reviewing any delivery while unrelated local edits existed. Include
+  // ignored files in that protection (Git otherwise overwrites them by default).
+  const cleanliness = await inspectProjectCheckoutCleanliness(repoDir)
+  if (!cleanliness.ok) return { ok: false, error: cleanliness.detail }
 
   let branches: string[]
   try {
@@ -241,6 +235,9 @@ export async function checkoutProjectReviewBranch(
   }
 
   try {
+    // A verified local branch needs no network. Refresh only when it must be
+    // materialized from origin, avoiding a fetch timeout on every local handoff.
+    if (!branches.includes(target)) await git(repoDir, ['fetch', 'origin']).catch(() => {})
     if (branches.includes(target)) {
       if (expected) {
         const localSha = (await git(repoDir, ['rev-parse', '--verify', `refs/heads/${target}`])).toLowerCase()
@@ -251,7 +248,7 @@ export async function checkoutProjectReviewBranch(
           }
         }
       }
-      await git(repoDir, ['checkout', target])
+      await git(repoDir, ['checkout', '--no-overwrite-ignore', target])
     } else if (await remoteBranchExists(repoDir, target)) {
       if (expected) {
         const remoteSha = (await git(
@@ -265,7 +262,7 @@ export async function checkoutProjectReviewBranch(
           }
         }
       }
-      await git(repoDir, ['checkout', '-b', target, '--track', `origin/${target}`])
+      await git(repoDir, ['checkout', '--no-overwrite-ignore', '-b', target, '--track', `origin/${target}`])
     } else {
       return { ok: false, error: `Unknown branch: ${target}` }
     }
@@ -276,10 +273,10 @@ export async function checkoutProjectReviewBranch(
   if (expected) {
     try {
       const [currentBranch, currentSha] = await Promise.all([
-        git(repoDir, ['rev-parse', '--abbrev-ref', 'HEAD']),
+        git(repoDir, ['symbolic-ref', '--quiet', 'HEAD']),
         git(repoDir, ['rev-parse', '--verify', 'HEAD']),
       ])
-      if (currentBranch !== target || currentSha.toLowerCase() !== expected) {
+      if (currentBranch !== `refs/heads/${target}` || currentSha.toLowerCase() !== expected) {
         return {
           ok: false,
           error: `Checkout changed concurrently and did not land on verified delivery ${expected.slice(0, 8)}. No reset or cleanup was performed.`,

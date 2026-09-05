@@ -185,7 +185,7 @@ function aiStepMock(opts: { ffEmitsChangeId?: boolean } = {}) {
     const isFf = input.prompt.includes('/opsx:ff')
     const text = isFf && ffEmits
       ? 'Created change at openspec/changes/my-change/ — generated artifacts.'
-      : 'did the work'
+      : input.prompt.includes('/opsx:verify') ? 'VERIFICATION: PASS' : 'did the work'
     return { text, sessionId: 's1', cost: 0.01, tokens: 100, provider: 'claude', model: 'sonnet' }
   })
   return { fn, prompts }

@@ -63,10 +63,13 @@ describe('codexAdapter — identity', () => {
     expect(codexAdapter.defaultModel()).toBe('gpt-5.5')
   })
 
-  it('catalogs the GPT-5.6 family (sol/terra/luna) ahead of gpt-5.5', () => {
+  it('catalogs gpt-6-astra first, then the GPT-5.6 family (sol/terra/luna), ahead of gpt-5.5', () => {
     const values = codexAdapter.modelCatalog().map((m) => m.value)
-    expect(values.slice(0, 3)).toEqual(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
+    expect(values.slice(0, 4)).toEqual(['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
     expect(values).toContain('gpt-5.5')
+    // Adding a model never moves the default.
+    expect(codexAdapter.defaultModel()).toBe('gpt-5.5')
+    expect(codexAdapter.modelCatalog().find((m) => m.value === 'gpt-6-astra')).toEqual({ value: 'gpt-6-astra', label: 'GPT-6 Astra' })
   })
 
   it('advertises the GPT-5.6 reasoning tiers (xhigh/max/ultra)', () => {

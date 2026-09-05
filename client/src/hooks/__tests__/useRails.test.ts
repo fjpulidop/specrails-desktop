@@ -60,6 +60,19 @@ describe('useRails', () => {
     expect(result.current.rails[0].railIndex).toBe(0)
   })
 
+  it('recovers rails after the active project database becomes available without changing projects', async () => {
+    stubFetch({}, false)
+    const { result } = renderHook(() => useRails(), { wrapper: makeWrapper() })
+    await waitFor(() => expect(result.current.error).not.toBeNull())
+    const handler = mockRegisterHandler.mock.calls.at(-1)![1] as (message: unknown) => void
+    stubFetch({ rails: [{ railIndex: 0, ticketIds: [9], mode: 'implement' }] })
+    act(() => { handler({ type: 'desktop.project_recovered', projectId: 'other-project' }) })
+    expect(global.fetch).not.toHaveBeenCalled()
+    act(() => { handler({ type: 'desktop.project_recovered', projectId: 'test-project' }) })
+    await waitFor(() => expect(result.current.rails[0].ticketIds).toEqual([9]))
+    expect(result.current.error).toBeNull()
+  })
+
   it('fetches rails on mount when activeProjectId is set', async () => {
     const { result } = renderHook(() => useRails(), { wrapper: makeWrapper() })
     await waitFor(() => {
