@@ -67,6 +67,7 @@ As respostas chegam de forma fluida e já formatadas (títulos, tabelas, listas)
 - **Minimize sem perder nada.** Clique no ✕ para devolver o painel à bolha — a conversa continua rodando. Reabra e você chega na mensagem mais recente; nada é redigitado.
 - **Nova conversa.** O botão **+** inicia um fio limpo; o histórico vive no nível da aplicação, acima de qualquer projeto individual.
 - **Troque de missão.** O seletor de missões ao lado do seletor de projeto lista suas conversas da mais recente para a mais antiga — um ponto pulsante marca aquelas em que o agente ainda está trabalhando, e um pequeno selo conta as mensagens na fila. A busca aparece quando a lista passa de oito, e o ícone de lixeira de cada linha exclui uma missão após uma confirmação rápida em linha — mesmo uma em andamento (ele avisa primeiro e depois para o agente).
+- **Encontre uma missão de qualquer lugar.** Pressione **⌘K** (ou o botão **Pesquisar** da barra lateral no modo Agente) e digite qualquer fragmento de que se lembre — uma palavra do título *ou* do que foi dito lá dentro. As missões coincidem na hora por título a partir da memória e, um instante depois, chegam as coincidências por conteúdo com o trecho destacado, mais o projeto fixado e quando teve atividade pela última vez. No modo Agente as missões são o primeiro grupo; no quadro ficam logo depois de Projetos. Enter abre a missão.
 
 ## Algumas coisas para saber
 

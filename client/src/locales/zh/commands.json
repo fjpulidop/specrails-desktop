@@ -2,10 +2,12 @@
   "palette": {
     "label": "命令面板",
     "searchPlaceholder": "搜索项目、命令、任务...",
+    "searchPlaceholderAgent": "搜索任务、项目、作业...",
     "noResults": "未找到结果。",
     "activeBadge": "当前",
     "groups": {
       "projects": "项目",
+      "missions": "任务",
       "spec": "Spec",
       "jobs": "任务",
       "navigation": "导航"
@@ -30,6 +32,9 @@
       "navigate": "导航",
       "select": "选择",
       "close": "关闭"
+    },
+    "missions": {
+      "home": "主页"
     }
   },
   "toasts": {

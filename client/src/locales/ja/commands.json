@@ -2,10 +2,12 @@
   "palette": {
     "label": "コマンドパレット",
     "searchPlaceholder": "プロジェクト、コマンド、ジョブを検索...",
+    "searchPlaceholderAgent": "ミッション、プロジェクト、ジョブを検索...",
     "noResults": "結果が見つかりません。",
     "activeBadge": "アクティブ",
     "groups": {
       "projects": "プロジェクト",
+      "missions": "ミッション",
       "spec": "スペック",
       "jobs": "ジョブ",
       "navigation": "ナビゲーション"
@@ -30,6 +32,9 @@
       "navigate": "移動",
       "select": "選択",
       "close": "閉じる"
+    },
+    "missions": {
+      "home": "ホーム"
     }
   },
   "toasts": {

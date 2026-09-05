@@ -68,6 +68,7 @@ Les réponses arrivent en flux fluide et s'affichent déjà mises en forme (titr
 - **Réduire sans rien perdre.** Cliquez sur la ✕ pour renvoyer le panneau dans la bulle — la conversation continue de tourner. Rouvrez-le et vous atterrissez sur le dernier message ; rien n'est à retaper.
 - **Nouvelle conversation.** Le bouton **+** démarre un fil vierge ; l'historique vit au niveau de l'application, au-dessus de tout projet individuel.
 - **Changez de mission.** Le sélecteur de missions, à côté du sélecteur de projet, liste vos conversations de la plus récente à la plus ancienne — un point clignotant signale celles où l'agent travaille encore, et un petit badge compte les messages en file. La recherche apparaît dès que la liste dépasse huit entrées, et l'icône corbeille de chaque ligne supprime une mission après une confirmation rapide en ligne — même une mission en cours (elle prévient d'abord, puis arrête l'agent).
+- **Retrouvez une mission de n'importe où.** Appuyez sur **⌘K** (ou le bouton **Rechercher** de la barre latérale en mode Agent) et tapez n'importe quel fragment dont vous vous souvenez — un mot du titre *ou* de ce qui a été dit dedans. Les missions correspondent instantanément par titre depuis la mémoire, puis un instant plus tard arrivent les correspondances par contenu avec le passage surligné, le projet épinglé et la date de dernière activité. En mode Agent, les missions forment le premier groupe ; sur le tableau, elles suivent les Projets. Entrée ouvre la mission.
 
 ## Quelques points à savoir
 

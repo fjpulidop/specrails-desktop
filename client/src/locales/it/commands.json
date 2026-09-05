@@ -2,10 +2,12 @@
   "palette": {
     "label": "Palette comandi",
     "searchPlaceholder": "Cerca progetti, comandi, job...",
+    "searchPlaceholderAgent": "Cerca missioni, progetti, job...",
     "noResults": "Nessun risultato trovato.",
     "activeBadge": "attivo",
     "groups": {
       "projects": "Progetti",
+      "missions": "Missioni",
       "spec": "Spec",
       "jobs": "Job",
       "navigation": "Navigazione"
@@ -30,6 +32,9 @@
       "navigate": "naviga",
       "select": "seleziona",
       "close": "chiudi"
+    },
+    "missions": {
+      "home": "Home"
     }
   },
   "toasts": {

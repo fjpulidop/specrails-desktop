@@ -68,6 +68,7 @@ Le risposte arrivano fluide e già formattate (titoli, tabelle, elenchi), ciascu
 - **Riduci a icona, senza perdere nulla.** Clicca la ✕ per rimettere il pannello nella bolla — la conversazione continua a girare. Riaprilo e atterri sull'ultimo messaggio; nulla viene riscritto.
 - **Nuova conversazione.** Il pulsante **+** avvia un thread pulito; la cronologia vive a livello di app, sopra qualunque singolo progetto.
 - **Cambia missione.** Il selettore di missioni accanto al selettore di progetto elenca le conversazioni dalla più recente alla più vecchia — un punto pulsante segnala quelle in cui l'agente sta ancora lavorando, e un piccolo badge conta i messaggi in coda. La ricerca compare quando la lista supera le otto voci, e l'icona del cestino su ogni riga elimina una missione dopo una rapida conferma in linea — anche una in corso (prima avvisa, poi ferma l'agente).
+- **Trova una missione da ovunque.** Premi **⌘K** (o il pulsante **Cerca** della barra laterale in modalità Agente) e digita un frammento qualsiasi che ricordi — una parola del titolo *o* di ciò che è stato detto dentro. Le missioni corrispondono all'istante per titolo dalla memoria e, un battito dopo, arrivano le corrispondenze per contenuto con il passaggio evidenziato, più il progetto fissato e l'ultima attività. In modalità Agente le missioni sono il primo gruppo; sulla board stanno subito dopo i Progetti. Invio apre la missione.
 
 ## Alcune cose da sapere
 
