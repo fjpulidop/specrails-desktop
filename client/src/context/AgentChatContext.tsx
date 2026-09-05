@@ -620,11 +620,18 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const [projectRecoveryRevision, setProjectRecoveryRevision] = useState(0)
+
   // ── WebSocket: app-global agent_* events (no projectId filter) ──────────────
   useEffect(() => {
     if (!FEATURE_AGENT_CHAT) return
     const handler = (raw: unknown): void => {
       const msg = raw as WsAgentMsg
+      if (!msg) return
+      if (msg.type === 'desktop.project_recovered') {
+        setProjectRecoveryRevision((revision) => revision + 1)
+        return
+      }
       if (typeof msg.type !== 'string' || !msg.type.startsWith('agent_')) return
       // Auto-title updates apply to the LIST (any conversation), not just the
       // active one — handle before the active-conversation filter.
@@ -849,16 +856,21 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       const snapshot = await getAgentActiveTurns()
       const activeIds = new Set(snapshot.turns.map((turn) => turn.conversationId))
       const capturedAt = Date.parse(snapshot.capturedAt)
-      const interrupted: string[] = []
+      // React may defer or repeat a state updater. Derive side effects before
+      // queuing it, otherwise the interruption notice depends on eager render.
+      const interrupted = [...liveRef.current].flatMap(([conversationId, live]) => {
+        if (!live.isStreaming || activeIds.has(conversationId)) return []
+        const startedAt = localTurnStartedAtRef.current.get(conversationId)
+        if (startedAt && Date.parse(startedAt) > capturedAt) return []
+        return [conversationId]
+      })
       setLiveByConv((current) => {
         const next = new Map(current)
         for (const [conversationId, live] of current) {
           if (!live.isStreaming || activeIds.has(conversationId)) continue
           const localStartedAt = localTurnStartedAtRef.current.get(conversationId)
           if (localStartedAt && Date.parse(localStartedAt) > capturedAt) continue
-          interrupted.push(conversationId)
           next.set(conversationId, { ...EMPTY_LIVE, queued: live.queued, turnTools: live.liveTools.length ? live.liveTools : live.turnTools })
-          localTurnStartedAtRef.current.delete(conversationId)
         }
         for (const conversationId of activeIds) {
           const live = next.get(conversationId) ?? EMPTY_LIVE
@@ -866,6 +878,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         }
         return next
       })
+      for (const conversationId of interrupted) localTurnStartedAtRef.current.delete(conversationId)
       const activeId = activeIdRef.current
       if (activeId && interrupted.includes(activeId)) {
         const id = `interrupted-${activeId}-${snapshot.snapshotVersion}`
@@ -886,15 +899,24 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('focus', onFocus)
   }, [hydrateActivePrCards])
 
+  useEffect(() => {
+    if (!projectRecoveryRevision) return
+    void refreshConversations()
+    void hydrateActivePrCards()
+  }, [projectRecoveryRevision, refreshConversations, hydrateActivePrCards])
+
   const previousConnectionRef = useRef(connectionStatus)
   useEffect(() => {
     const previous = previousConnectionRef.current
     previousConnectionRef.current = connectionStatus
     if (connectionStatus === 'connected' && previous !== 'connected') {
+      void refreshConversations()
+      void refreshMcp()
+      void refreshProviders()
       void hydrateActivePrCards()
       void reconcileActiveTurns()
     }
-  }, [connectionStatus, hydrateActivePrCards, reconcileActiveTurns])
+  }, [connectionStatus, refreshConversations, refreshMcp, refreshProviders, hydrateActivePrCards, reconcileActiveTurns])
 
   const ensureActive = useCallback(async (): Promise<AgentConversation> => {
     if (active) return active
@@ -1063,10 +1085,14 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
 
   const abort = useCallback(async () => {
     if (!active) return
-    // Stop means stop: drop the stream state AND any queued chips immediately
-    // (the server discards its queue too and broadcasts agent_queue_cleared).
-    patchLive(active.id, () => null)
-    await abortAgentTurn(active.id)
+    try {
+      await abortAgentTurn(active.id)
+      // Preserve the live turn if stopping fails: hiding it would imply that
+      // the provider stopped while it can still spend tokens and mutate state.
+      patchLive(active.id, () => null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to stop the agent.')
+    }
   }, [active, patchLive])
 
   const editQueuedMessage = useCallback(async (queueId: string, text: string): Promise<'saved' | 'conflict'> => {
@@ -1242,6 +1268,8 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     try {
       await enableMcp()
       await refreshMcp()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to enable MCP.')
     } finally {
       setEnablingMcp(false)
     }

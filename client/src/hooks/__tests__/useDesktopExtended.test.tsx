@@ -161,13 +161,42 @@ describe('useDesktop - error paths', () => {
     ).rejects.toThrow('HTTP 403')
   })
 
-  it('fetch non-ok on initial load: isLoading becomes false, projects stays empty', async () => {
-    ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: false })
+  it('does not mistake a startup failure for an empty database and recovers automatically', async () => {
+    vi.useFakeTimers()
+    ;(global.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ projects: [makeProject()] }) })
 
     const { result } = renderHook(() => useDesktop(), { wrapper: makeWrapper() })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current.isLoading).toBe(true)
+    await act(async () => { await vi.advanceTimersByTimeAsync(500) })
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.projects).toHaveLength(1)
+    vi.useRealTimers()
+  })
 
-    expect(result.current.projects).toHaveLength(0)
+  it('keeps the newer WebSocket project snapshot when an older REST response arrives late', async () => {
+    let complete!: (response: unknown) => void
+    ;(global.fetch as ReturnType<typeof vi.fn>).mockImplementationOnce(() => new Promise((resolve) => { complete = resolve }))
+    const { result } = renderHook(() => useDesktop(), { wrapper: makeWrapper() })
+    act(() => {
+      MockWebSocket.instances[0].simulateMessage({ type: 'desktop.projects', projects: [makeProject({ id: 'live-project' })] })
+    })
+    await act(async () => { complete({ ok: true, json: async () => ({ projects: [] }) }) })
+    expect(result.current.projects.map((project) => project.id)).toEqual(['live-project'])
+    expect(result.current.activeProjectId).toBe('live-project')
+  })
+
+  it('preserves loaded projects during a failed focus refresh', async () => {
+    ;(global.fetch as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ projects: [makeProject()] }) })
+      .mockRejectedValue(new Error('sidecar restarting'))
+    const { result } = renderHook(() => useDesktop(), { wrapper: makeWrapper() })
+    await waitFor(() => expect(result.current.projects).toHaveLength(1))
+    await act(async () => { window.dispatchEvent(new Event('focus')) })
+    expect(result.current.projects).toHaveLength(1)
+    expect(result.current.isLoading).toBe(false)
   })
 
   it('WS desktop.project_added: does not add duplicate project', async () => {

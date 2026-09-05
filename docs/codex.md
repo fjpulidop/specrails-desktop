@@ -102,6 +102,17 @@ spawns, no overrides.
 
 ## What's different across providers
 
+`gpt-6-astra` is available in the spec, agent, rail and standalone-loop model
+pickers and is the Codex **Max** preset. The default remains `gpt-5.5`.
+Its cost stays unavailable until a rate card is configured.
+
+Reasoning choices follow the selected model's CLI capabilities, verified on
+2026-09-05: Astra, Sol and Terra offer `low`, `medium`, `high`, `xhigh`, `max`
+and `ultra`; Luna stops at `max`; GPT-5.5 and GPT-5.4 Mini stop at `xhigh`.
+These models do not offer `minimal`. Mission-originated launches inherit the
+mission's model and effort when the engine matches; an explicit launch model
+still takes precedence.
+
 The table below includes all four registered providers. See the
 [Kimi guide](kimi.md) for its full safety matrix.
 
@@ -111,7 +122,7 @@ The table below includes all four registered providers. See the
 | **Min CLI version** | none pinned | `0.128.0` | `0.11.0` | `0.27.0` |
 | **Project dir** | `.claude/` | `.codex/` | `.gemini/` | `.kimi-code/` |
 | **Instructions file** | `CLAUDE.md` | `AGENTS.md` | `GEMINI.md` | `AGENTS.md` |
-| **Default model** | `sonnet` | `gpt-5.5` | `gemini-3.5-flash` | `k3` |
+| **Default model** | `sonnet` | `gpt-5.5` (catalog also lists `gpt-6-astra` — the `max` preset model, no rate card yet so its cost shows as unavailable — and the GPT-5.6 family `gpt-5.6-sol` / `gpt-5.6-terra` / `gpt-5.6-luna`) | `gemini-3.5-flash` | `k3` |
 | **Reasoning efforts** | `low`–`xhigh` | model-dependent | none | `low`/`high`/`max`, K3 only |
 | **Agent format** | `.claude/agents/<id>.md` | `.codex/skills/<id>/SKILL.md` | `.gemini/` target | `.kimi-code/skills/<id>/SKILL.md` |
 | **Agent profiles** | ✅ | legacy | legacy | ✅ provider-scoped |

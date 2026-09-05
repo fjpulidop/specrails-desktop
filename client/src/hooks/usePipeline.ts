@@ -46,6 +46,7 @@ export function usePipeline(activeProjectId?: string | null) {
   const [logLines, setLogLines] = useState<LogLine[]>([])
   const [recentJobs, setRecentJobs] = useState<JobSummary[]>([])
   const [queueState, setQueueState] = useState<QueueState>(INITIAL_QUEUE)
+  const [recoveryRevision, setRecoveryRevision] = useState(0)
 
   // Keep a ref to activeProjectId so the WS handler always sees the latest value
   const activeProjectRef = useRef(activeProjectId)
@@ -93,6 +94,7 @@ export function usePipeline(activeProjectId?: string | null) {
 
   const handleMessage = useCallback((data: unknown) => {
     const msg = data as { type: string; projectId?: string } & Record<string, unknown>
+    if (!msg || typeof msg.type !== 'string') return
 
     // Filter: only process messages for the active project
     const currentProjectId = activeProjectRef.current
@@ -100,7 +102,9 @@ export function usePipeline(activeProjectId?: string | null) {
       return
     }
 
-    if (msg.type === 'init') {
+    if (msg.type === 'desktop.project_recovered') {
+      if (msg.projectId === currentProjectId) setRecoveryRevision((revision) => revision + 1)
+    } else if (msg.type === 'init') {
       const name = (msg.projectName as string) ?? ''
       const defs = (msg.phaseDefinitions ?? []) as PhaseDefinition[]
       const initialPhases: PhaseMap = {}
@@ -185,7 +189,7 @@ export function usePipeline(activeProjectId?: string | null) {
     }
     fetchState()
     return () => { cancelled = true }
-  }, [activeProjectId])
+  }, [activeProjectId, recoveryRevision])
 
   return { phases, phaseDefinitions, projectName, logLines, connectionStatus, recentJobs, queueState }
 }

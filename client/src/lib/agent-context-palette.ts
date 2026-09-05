@@ -225,7 +225,14 @@ function stableDedupe(items: AgentPaletteItem[]): AgentPaletteItem[] {
 }
 
 export function filterPaletteItems(items: AgentPaletteItem[], query: string): AgentPaletteItem[] {
-  return stableDedupe(items).filter((item) => itemMatches(item, query)).slice(0, 12)
+  const matches = stableDedupe(items).filter((item) => itemMatches(item, query))
+  const exactSpec = `#${query.trim()}`
+  // An exact spec ID wins over partial matches (#1 before #10/#21), even
+  // when a large backlog would otherwise push it beyond the visible limit.
+  const isExactSpec = (item: AgentPaletteItem): boolean => (
+    item.mode === 'trace' && item.icon === 'spec' && item.title === exactSpec
+  )
+  return matches.sort((a, b) => Number(isExactSpec(b)) - Number(isExactSpec(a))).slice(0, 12)
 }
 
 export function buildReferenceItems(state: PaletteSourceState): AgentPaletteItem[] {
@@ -330,6 +337,22 @@ export function buildReferenceItems(state: PaletteSourceState): AgentPaletteItem
 export function buildTraceItems(state: PaletteSourceState): AgentPaletteItem[] {
   const pinnedName = projectName(state.projects, state.pinnedProjectId)
   const items: AgentPaletteItem[] = []
+  // # primarily addresses specs. Keep them together in numeric ID order,
+  // before run references, so the first keyboard selection is a spec.
+  for (const ticket of [...state.tickets].sort((a, b) => a.id - b.id)) {
+    const chip = ticketChip(ticket, state.pinnedProjectId, pinnedName)
+    items.push({
+      id: `trace:spec:${ticket.id}`,
+      mode: 'trace',
+      title: `#${ticket.id}`,
+      subtitle: `${ticket.title} · ${ticket.status}`,
+      detail: pinnedName ?? undefined,
+      group: 'Specs',
+      icon: 'spec',
+      chip: { ...chip, kind: 'trace', token: `#${ticket.id}` },
+      keywords: [String(ticket.id), ticket.title, ticket.status],
+    })
+  }
   for (const job of state.jobs) {
     const chip = jobChip(job, state.pinnedProjectId, pinnedName)
     items.push({
@@ -342,20 +365,6 @@ export function buildTraceItems(state: PaletteSourceState): AgentPaletteItem[] {
       icon: 'job',
       chip: { ...chip, kind: 'trace' },
       keywords: [job.id, job.command, job.status, 'failed', 'running', 'deploy', 'run'],
-    })
-  }
-  for (const ticket of state.tickets) {
-    const chip = ticketChip(ticket, state.pinnedProjectId, pinnedName)
-    items.push({
-      id: `trace:spec:${ticket.id}`,
-      mode: 'trace',
-      title: `#${ticket.id}`,
-      subtitle: `${ticket.title} · ${ticket.status}`,
-      detail: pinnedName ?? undefined,
-      group: 'IDs',
-      icon: 'spec',
-      chip: { ...chip, kind: 'trace', token: `#${ticket.id}` },
-      keywords: [String(ticket.id), ticket.title, ticket.status],
     })
   }
   return items

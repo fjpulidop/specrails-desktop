@@ -60,7 +60,7 @@
       "arrow": "Flèche (A)",
       "box": "Rectangle (R)",
       "text": "Texte (T)",
-      "blur": "Flouter / caviarder (B)",
+      "blur": "Masquer (B)",
       "step": "Numéro d'étape (N)"
     },
     "notePrompt": "Texte de la note :",
@@ -106,13 +106,19 @@
     "loginWindow": "Fenêtre de connexion — {{origin}}",
     "stacked": "+{{count}} de plus",
     "backToPage": "Retour à la page",
-    "show": "Afficher la fenêtre de connexion"
+    "show": "Afficher la fenêtre de connexion",
+    "openFailed": "Impossible d’ouvrir la fenêtre de connexion. Réessaie de te connecter."
   },
   "native": {
     "devtools": "DevTools",
     "zoomIn": "Zoom avant",
     "zoomOut": "Zoom arrière",
     "openExternal": "Ouvrir dans le navigateur système",
-    "badge": "Natif"
+    "badge": "Natif",
+    "selectElement": "Sélectionner un élément",
+    "selectHint": "Cliquez sur un élément de la page",
+    "capturePage": "Capturer la page",
+    "captureSelection": "Capturer la sélection",
+    "capturing": "Capture en cours…"
   }
 }

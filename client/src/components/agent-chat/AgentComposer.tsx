@@ -11,6 +11,8 @@ import { uploadAgentAttachment, deleteAgentAttachment, type AgentAttachment } fr
 import {
   composerDrafts,
   composerAttachmentDrafts,
+  composerReferenceDrafts,
+  migrateNewMissionComposerDrafts,
   NEW_MISSION_DRAFT_KEY,
 } from '../../lib/agent-composer-drafts'
 import { isBrowserCaptureEnabled } from '../../lib/browser-capture'
@@ -23,7 +25,6 @@ import {
   filterPaletteItems,
   insertPaletteSelection,
   toContextReference,
-  type AgentContextChip,
   type AgentPaletteItem,
   type AgentPaletteMode,
   type AgentPaletteTrigger,
@@ -35,22 +36,28 @@ import { AgentModelSelector } from './AgentModelSelector'
 import { AgentToolbarSelector } from './AgentToolbarSelector'
 import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
-import { AgentComposerContextChips, AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
+import { AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
+import { AgentComposerEditor, type AgentComposerEditorHandle, type AgentInlineReference } from './AgentComposerEditor'
 import { BackgroundProcessChip, type BackgroundProcessAccent } from '../BackgroundProcessChip'
 import { useAvailableProviders } from '../../hooks/useAvailableProviders'
 import { reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../lib/provider-capabilities'
 
-function removePaletteTriggerText(
+function replaceInlineRange(
   text: string,
-  trigger: Pick<AgentPaletteTrigger, 'start' | 'end'> | null,
-): { text: string; caret: number } {
-  if (!trigger) return { text, caret: text.length }
-  let before = text.slice(0, trigger.start)
-  let after = text.slice(trigger.end)
-  if (/\s$/.test(before) && /^\s/.test(after)) after = after.replace(/^\s+/, '')
-  const bridge = before && after && !/\s$/.test(before) && !/^\s/.test(after) ? ' ' : ''
-  const next = `${before}${bridge}${after}`
-  return { text: next, caret: before.length + bridge.length }
+  references: AgentInlineReference[],
+  start: number,
+  end: number,
+  replacement: string,
+): { text: string; references: AgentInlineReference[] } {
+  const delta = replacement.length - (end - start)
+  return {
+    text: `${text.slice(0, start)}${replacement}${text.slice(end)}`,
+    references: references.flatMap(ref => {
+      if (ref.end <= start) return [ref]
+      if (ref.start >= end) return [{ ...ref, start: ref.start + delta, end: ref.end + delta }]
+      return [] // A replaced selection also removes the references it covered.
+    }),
+  }
 }
 
 // Session-scoped composer drafts — shared store in lib/agent-composer-drafts
@@ -61,7 +68,7 @@ export { __clearComposerDrafts } from '../../lib/agent-composer-drafts'
 
 /**
  * Shared agent composer — controls row (project · provider · model · effort · tier),
- * prompt-history textarea, send/stop. Context-driven so the floating panel and
+ * prompt-history editor, send/stop. Context-driven so the floating panel and
  * the inline Agent-Mode surface render the exact same input (attachment parity
  * lands here in a later phase). The project selector is re-homed here so it
  * survives in both variants.
@@ -87,13 +94,23 @@ export function AgentComposer({
   const { processes: backgroundProcesses, kill: killBackgroundProcess } = useBackgroundProcesses()
   const { projects, activeProjectId } = useDesktop()
   const draftKey = active?.id ?? NEW_MISSION_DRAFT_KEY
-  const [input, setInputState] = useState(() => composerDrafts.get(draftKey) ?? '')
+  const [inputState, updateInputState] = useState(() => ({ draftKey, value: composerDrafts.get(draftKey) ?? '' }))
+  const [referenceState, updateReferenceState] = useState(() => ({ draftKey, value: composerReferenceDrafts.get(draftKey) ?? [] }))
+  // A newly keyed editor must receive its own draft on its very first render,
+  // before the conversation-switch effect runs, including its undo baseline.
+  const input = inputState.draftKey === draftKey ? inputState.value : composerDrafts.get(draftKey) ?? ''
+  const inlineReferences = referenceState.draftKey === draftKey ? referenceState.value : composerReferenceDrafts.get(draftKey) ?? []
+  const setInputState = (value: string): void => updateInputState({ draftKey, value })
+  const setInlineReferences = (value: AgentInlineReference[]): void => updateReferenceState({ draftKey, value })
   // Every keystroke mirrors into the session draft store so an unmount
   // (mode switch, panel close) never loses a typed-but-unsent prompt.
-  const setInput = (v: string): void => {
+  const setInput = (v: string, refs: AgentInlineReference[] = []): void => {
     setInputState(v)
+    setInlineReferences(refs)
     if (v) composerDrafts.set(draftKey, v)
     else composerDrafts.delete(draftKey)
+    if (v && refs.length) composerReferenceDrafts.set(draftKey, refs)
+    else composerReferenceDrafts.delete(draftKey)
   }
   const [histIndex, setHistIndex] = useState<number | null>(null)
   const [attached, setAttached] = useState<AgentAttachment[]>(() => composerAttachmentDrafts.get(draftKey) ?? [])
@@ -114,8 +131,12 @@ export function AgentComposer({
   }
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const [contextChips, setContextChips] = useState<AgentContextChip[]>([])
+  const editorRef = useRef<AgentComposerEditorHandle | null>(null)
+  // Keep each occurrence in the editor, but send entity metadata once. Scope
+  // participates in identity so equal spec IDs in different projects differ.
+  const contextChips = useMemo(() => [...new Map(inlineReferences.map(({ chip }) =>
+    [JSON.stringify([chip.projectId, chipKey(chip)]), chip],
+  )).values()], [inlineReferences])
   const [paletteTrigger, setPaletteTrigger] = useState<AgentPaletteTrigger | null>(null)
   const [activePaletteIndex, setActivePaletteIndex] = useState(0)
   const [plusOpen, setPlusOpen] = useState(false)
@@ -141,7 +162,7 @@ export function AgentComposer({
   const editBaseTextRef = useRef('')
   const editIdx = editingQueueId === null ? -1 : queuedMessages.findIndex((q) => q.queueId === editingQueueId)
   const editingItem = editIdx >= 0 ? queuedMessages[editIdx] : null
-  const inQueueEdit = editingQueueId !== null
+  const inQueueEdit = editingQueueId !== null && inputState.draftKey === draftKey
   const blocked = providersReady === false
   // Attachments upload to a conversation-keyed endpoint. On the EMPTY compose
   // screen we materialise the draft conversation just before the upload.
@@ -193,7 +214,7 @@ export function AgentComposer({
     setHistIndex(null)
     setPaletteTrigger(null)
     setPlusOpen(false)
-    setContextChips([])
+    setInlineReferences(composerReferenceDrafts.get(activeId ?? NEW_MISSION_DRAFT_KEY) ?? [])
     // A queue-edit in progress belongs to the previous conversation — drop it
     // (the queued message is untouched server-side; the draft store below still
     // holds the stashed draft, which is exactly what gets restored).
@@ -276,18 +297,13 @@ export function AgentComposer({
       : defaultReasoningEffortForProvider(provider, effectiveModel) ?? ''
 
   const adoptNewMissionDrafts = (conversationId: string): void => {
-    const prompt = composerDrafts.get(NEW_MISSION_DRAFT_KEY)
-    if (prompt) {
-      if (!composerDrafts.has(conversationId)) composerDrafts.set(conversationId, prompt)
-      composerDrafts.delete(NEW_MISSION_DRAFT_KEY)
-      setInputState(composerDrafts.get(conversationId) ?? prompt)
+    migrateNewMissionComposerDrafts(conversationId)
+    const currentKey = attachmentDraftKeyRef.current
+    if (currentKey === conversationId || currentKey === NEW_MISSION_DRAFT_KEY) {
+      setInputState(composerDrafts.get(conversationId) ?? '')
+      setInlineReferences(composerReferenceDrafts.get(conversationId) ?? [])
     }
-    const draftAttachments = composerAttachmentDrafts.get(NEW_MISSION_DRAFT_KEY)
-    if (draftAttachments?.length) {
-      const existing = composerAttachmentDrafts.get(conversationId) ?? []
-      setAttachmentDraft(conversationId, [...existing, ...draftAttachments])
-      composerAttachmentDrafts.delete(NEW_MISSION_DRAFT_KEY)
-    }
+    setAttachmentDraft(conversationId, composerAttachmentDrafts.get(conversationId) ?? [])
   }
 
   const uploadFiles = async (files: File[]) => {
@@ -318,12 +334,20 @@ export function AgentComposer({
     }
     setUploading(false)
   }
-  const removeAttachment = (id: string) => {
-    setAttachmentDraft(draftKey, (prev) => prev.filter((a) => a.id !== id))
-    if (active) void deleteAgentAttachment(active.id, id)
+  const removeAttachment = async (id: string) => {
+    try {
+      if (active) await deleteAgentAttachment(active.id, id)
+      setAttachmentDraft(draftKey, (prev) => prev.filter((a) => a.id !== id))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove attachment.')
+    }
   }
 
-  const syncPalette = (text: string, caret: number): void => {
+  const syncPalette = (text: string, caret: number, references = inlineReferences): void => {
+    if (references.some(ref => caret > ref.start && caret <= ref.end)) {
+      setPaletteTrigger(null)
+      return
+    }
     const trigger = detectAgentPaletteTrigger(text, caret)
     setPaletteTrigger(trigger)
     if (trigger) setPlusOpen(false)
@@ -331,43 +355,44 @@ export function AgentComposer({
   const triggerForMode = (mode: AgentPaletteMode): AgentPaletteTrigger['trigger'] => (
     mode === 'reference' ? '@' : mode === 'trace' ? '#' : '/'
   )
-  const focusTextareaAt = (caret: number): void => {
+  const focusEditorAt = (caret: number): void => {
     requestAnimationFrame(() => {
-      textareaRef.current?.focus()
-      textareaRef.current?.setSelectionRange(caret, caret)
+      editorRef.current?.focus()
+      editorRef.current?.setSelectionRange(caret, caret)
     })
   }
   const openPaletteMode = (mode: AgentPaletteMode): void => {
     if (inQueueEdit) return
     const trigger = triggerForMode(mode)
-    const el = textareaRef.current
+    const el = editorRef.current
     const start = el?.selectionStart ?? input.length
     const end = el?.selectionEnd ?? start
-    const next = `${input.slice(0, start)}${trigger}${input.slice(end)}`
-    setInput(next)
+    const next = replaceInlineRange(input, inlineReferences, start, end, trigger)
+    setInput(next.text, next.references)
     setHistIndex(null)
     setPlusOpen(false)
     setPaletteTrigger({ mode, trigger, query: '', start, end: start + 1 })
-    focusTextareaAt(start + 1)
+    focusEditorAt(start + 1)
   }
   const selectPaletteItem = (item: AgentPaletteItem): void => {
-    const next = item.chip
-      ? removePaletteTriggerText(input, paletteTrigger)
-      : insertPaletteSelection(input, paletteTrigger, item)
-    setInput(next.text)
+    // Palette buttons can own focus when invoked with assistive technology or
+    // the + menu. Restore the editable surface before its undoable insertion.
+    editorRef.current?.focus()
+    const next = insertPaletteSelection(input, paletteTrigger, item)
+    const start = paletteTrigger?.start ?? input.length
+    const end = paletteTrigger?.end ?? start
+    const replacement = next.text.slice(start, next.caret)
+    const { references } = replaceInlineRange(input, inlineReferences, start, end, replacement)
+    if (item.chip) {
+      const tokenStart = start + replacement.indexOf(item.chip.token)
+      references.push({ key: crypto.randomUUID(), start: tokenStart, end: tokenStart + item.chip.token.length, chip: item.chip })
+      references.sort((a, b) => a.start - b.start)
+    }
+    setInput(next.text, references)
     setHistIndex(null)
     setPaletteTrigger(null)
     setPlusOpen(false)
-    if (item.chip) {
-      setContextChips((prev) => (
-        prev.some((chip) => chipKey(chip) === chipKey(item.chip!)) ? prev : [...prev, item.chip!]
-      ))
-    }
-    focusTextareaAt(next.caret)
-  }
-  const removeContextChip = (chip: AgentContextChip): void => {
-    const key = chipKey(chip)
-    setContextChips((prev) => prev.filter((item) => chipKey(item) !== key))
+    focusEditorAt(next.caret)
   }
 
   // ── Queue-edit helpers ──────────────────────────────────────────────────────
@@ -414,12 +439,12 @@ export function AgentComposer({
   // Drain race: the slot being edited left the queue (its turn started, or the
   // queue was cleared by Stop). Exit gracefully — dirty edits become the draft.
   useEffect(() => {
-    if (editingQueueId === null || queuedMessages.some((q) => q.queueId === editingQueueId)) return
+    if (!inQueueEdit || queuedMessages.some((q) => q.queueId === editingQueueId)) return
     const dirty = input !== editBaseTextRef.current
     if (wasQueueConsumed(editingQueueId)) toast.info(t('queueEdit.dispatched'))
     exitQueueEdit(dirty ? 'keep' : 'restore')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingQueueId, queuedMessages])
+  }, [editingQueueId, queuedMessages, inQueueEdit])
 
   const submit = () => {
     // Text is required (server contract: 400 on empty text) — an attachment-only
@@ -433,7 +458,6 @@ export function AgentComposer({
     void send(textForTurn, attached.length || contextChips.length ? opts : undefined)
     setInput('')
     setAttachmentDraft(draftKey, [])
-    setContextChips([])
     setPaletteTrigger(null)
     setPlusOpen(false)
     setHistIndex(null)
@@ -446,8 +470,9 @@ export function AgentComposer({
     setHistIndex(i)
     setInput(history[i])
   }
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Shift+Tab cycles the tier ladder from INSIDE the textarea too. Handled
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.nativeEvent.isComposing) return
+    // Shift+Tab cycles the tier ladder from INSIDE the editor too. Handled
     // here (not only on the conversation-view wrapper) because the EMPTY
     // compose card renders the composer without that wrapper — there the
     // browser default (focus previous element) was winning on macOS.
@@ -484,11 +509,6 @@ export function AgentComposer({
         return
       }
     }
-    if (e.key === 'Backspace' && input.length === 0 && contextChips.length > 0 && !inQueueEdit) {
-      e.preventDefault()
-      setContextChips((prev) => prev.slice(0, -1))
-      return
-    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       // In queue-edit mode Enter SAVES the slot in place — it never sends.
@@ -508,9 +528,9 @@ export function AgentComposer({
     // (start for ↑, end for ↓) — inside multi-line text they move the cursor.
     // A DIRTY slot never navigates away: your keystrokes can't be lost by an
     // accidental arrow; save (Enter) or cancel (Esc) first.
-    const el = e.currentTarget
-    const caretAtStart = el.selectionStart === 0 && el.selectionEnd === 0
-    const caretAtEnd = el.selectionStart === input.length && el.selectionEnd === input.length
+    const el = editorRef.current
+    const caretAtStart = el?.selectionStart === 0 && el?.selectionEnd === 0
+    const caretAtEnd = el?.selectionStart === input.length && el?.selectionEnd === input.length
     if (e.key === 'ArrowUp') {
       if (inQueueEdit) {
         const pristine = editingItem !== null && input === editingItem.text
@@ -722,42 +742,40 @@ export function AgentComposer({
             openBrowser()
           }}
         />
-        <div className="flex min-h-[3.25rem] flex-1 flex-wrap items-start gap-1.5">
-          {!inQueueEdit && (
-            <AgentComposerContextChips
-              chips={contextChips}
-              onRemove={removeContextChip}
-            />
-          )}
-          <textarea
-            ref={textareaRef}
+        <div className="min-w-0 flex-1">
+          <AgentComposerEditor
+            key={draftKey}
+            ref={editorRef}
             value={input}
+            references={inQueueEdit ? [] : inlineReferences}
             autoFocus={autoFocus}
-            onChange={(e) => {
+            onChange={(value, references, caret) => {
               // Editing a queued slot: keep the keystrokes OUT of the draft store
               // (it still holds the stashed draft) and stay in the mode — Enter
               // saves, Esc cancels.
               if (inQueueEdit) {
-                setInputState(e.target.value)
+                setInputState(value)
                 return
               }
               if (inHistory) setHistIndex(null)
-              setInput(e.target.value)
-              syncPalette(e.target.value, e.target.selectionStart ?? e.target.value.length)
+              setInput(value, references)
+              syncPalette(value, caret, references)
             }}
-            onClick={(e) => syncPalette(e.currentTarget.value, e.currentTarget.selectionStart ?? e.currentTarget.value.length)}
+            onSelect={(start) => {
+              // Existing atomic references are already resolved, so placing the
+              // cursor next to one must not reopen its autocomplete menu.
+              if (!inQueueEdit) syncPalette(editorRef.current?.value ?? input, start)
+            }}
             onKeyDown={onKeyDown}
             onPaste={(e) => {
               if (!canAttach) return
               const files = Array.from(e.clipboardData.files)
               if (files.length) { e.preventDefault(); void uploadFiles(files) }
             }}
-            rows={2}
             disabled={blocked}
-            placeholder={contextChips.length > 0 ? '' : blocked ? t('noProvider.placeholder') : isStreaming ? t('queue.placeholder') : t('composerPlaceholder')}
-            data-agent-interactive
+            placeholder={blocked ? t('noProvider.placeholder') : isStreaming ? t('queue.placeholder') : t('composerPlaceholder')}
             title={inQueueEdit ? t('queueEdit.hint') : inHistory ? t('history.hint') : undefined}
-            className={`min-h-[3.25rem] max-h-64 min-w-[12rem] flex-1 resize-y bg-transparent text-sm outline-none placeholder:text-foreground/40 disabled:opacity-60 ${
+            className={`min-h-[3.25rem] max-h-64 min-w-0 w-full resize-y overflow-y-auto bg-transparent text-sm outline-none ${
               inHistory ? 'italic text-foreground/50' : 'text-foreground'
             }`}
           />

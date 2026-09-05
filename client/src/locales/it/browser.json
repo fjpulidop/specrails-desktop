@@ -60,7 +60,7 @@
       "arrow": "Freccia (A)",
       "box": "Riquadro (R)",
       "text": "Testo (T)",
-      "blur": "Sfoca / oscura (B)",
+      "blur": "Oscura (B)",
       "step": "Numero di passaggio (N)"
     },
     "notePrompt": "Testo della nota:",
@@ -106,13 +106,19 @@
     "loginWindow": "Finestra di accesso — {{origin}}",
     "stacked": "+{{count}} altre",
     "backToPage": "Torna alla pagina",
-    "show": "Mostra finestra di accesso"
+    "show": "Mostra finestra di accesso",
+    "openFailed": "Impossibile aprire la finestra di accesso. Prova ad accedere di nuovo."
   },
   "native": {
     "devtools": "DevTools",
     "zoomIn": "Aumenta zoom",
     "zoomOut": "Riduci zoom",
     "openExternal": "Apri nel browser di sistema",
-    "badge": "Nativo"
+    "badge": "Nativo",
+    "selectElement": "Seleziona elemento",
+    "selectHint": "Fai clic su un elemento della pagina",
+    "capturePage": "Cattura pagina",
+    "captureSelection": "Cattura selezione",
+    "capturing": "Acquisizione…"
   }
 }

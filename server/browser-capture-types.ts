@@ -127,7 +127,7 @@ export type BrowserInputEvent =
   | { type: 'mouse'; action: 'move' | 'down' | 'up'; x: number; y: number; button?: 'left' | 'middle' | 'right'; clickCount?: number; modifiers?: number }
   | { type: 'wheel'; x: number; y: number; deltaX: number; deltaY: number; modifiers?: number }
   | { type: 'key'; action: 'down' | 'up'; key: string; code?: string; text?: string; modifiers?: number }
-  | { type: 'resize'; width: number; height: number }
+  | { type: 'resize'; width: number; height: number; deviceScaleFactor?: number }
 
 /** A screencast frame emitted by the page handle. `data` is raw JPEG bytes. */
 export interface ScreencastFrame {
@@ -164,7 +164,7 @@ export interface BrowserPageHandle {
   reload(): Promise<{ url: string; title: string }>
   currentUrl(): string
   currentTitle(): Promise<string>
-  setViewport(width: number, height: number): Promise<void>
+  setViewport(width: number, height: number, deviceScaleFactor?: number): Promise<void>
   dispatchInput(event: BrowserInputEvent): Promise<void>
   /** Begin streaming JPEG frames; the handle auto-acks. */
   startScreencast(onFrame: (frame: ScreencastFrame) => void): Promise<void>

@@ -82,8 +82,10 @@ export function getMcpToken(): string {
  */
 export function regenerateMcpToken(): string {
   const next = generateToken()
+  // Commit the file before switching the live credential. If persistence
+  // fails, bridges must still authenticate with the existing on-disk token.
+  writePrivateTextFile(tokenPath(), next)
   _mcpToken = next
-  persist(next)
   return next
 }
 

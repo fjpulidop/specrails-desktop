@@ -13,7 +13,7 @@ export type { LocalTicket }
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface TicketWsMessage {
-  type: 'ticket_created' | 'ticket_updated' | 'ticket_deleted' | 'explore.contract_refine_started' | 'explore.contract_refine_failed' | 'mcp.activity'
+  type: 'ticket_created' | 'ticket_updated' | 'ticket_deleted' | 'explore.contract_refine_started' | 'explore.contract_refine_failed' | 'mcp.activity' | 'desktop.project_recovered'
   projectId?: string
   /** mcp.activity: the project an external-MCP action touched (no top-level projectId so it isn't filtered). */
   affectedProjectId?: string
@@ -197,6 +197,10 @@ export function useTickets() {
     if ((msg as { projectId?: string }).projectId && (msg as { projectId?: string }).projectId !== currentProjectId) return
 
     switch (msg.type) {
+      case 'desktop.project_recovered': {
+        if (msg.projectId === currentProjectId) refetch()
+        break
+      }
       case 'mcp.activity': {
         // An external MCP client mutated something. The event is app-level (no
         // top-level projectId, so it isn't filtered above); refetch when it

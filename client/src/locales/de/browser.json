@@ -60,7 +60,7 @@
       "arrow": "Pfeil (A)",
       "box": "Rechteck (R)",
       "text": "Text (T)",
-      "blur": "Weichzeichnen / Schwärzen (B)",
+      "blur": "Schwärzen (B)",
       "step": "Schrittnummer (N)"
     },
     "notePrompt": "Notiztext:",
@@ -106,13 +106,19 @@
     "loginWindow": "Anmeldefenster — {{origin}}",
     "stacked": "+{{count}} weitere",
     "backToPage": "Zurück zur Seite",
-    "show": "Anmeldefenster anzeigen"
+    "show": "Anmeldefenster anzeigen",
+    "openFailed": "Das Anmeldefenster konnte nicht geöffnet werden. Versuche erneut, dich anzumelden."
   },
   "native": {
     "devtools": "DevTools",
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "openExternal": "Im Systembrowser öffnen",
-    "badge": "Nativ"
+    "badge": "Nativ",
+    "selectElement": "Element auswählen",
+    "selectHint": "Klicke auf ein Element der Seite",
+    "capturePage": "Seite aufnehmen",
+    "captureSelection": "Auswahl aufnehmen",
+    "capturing": "Aufnahme läuft…"
   }
 }

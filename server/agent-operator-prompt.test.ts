@@ -30,6 +30,15 @@ describe('OPERATOR_INSTRUCTIONS — super-spec refinement mode', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('ask-first PR flow')
   })
 
+  it('distinguishes implementation, local checkout, and accepted integration without destructive bypasses', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('implemented and awaiting acceptance → `on_review`')
+    expect(OPERATOR_INSTRUCTIONS).not.toContain('success → `done`')
+    expect(OPERATOR_INSTRUCTIONS).toContain('it preserves the review decision and does not\n  merge or accept the spec')
+    expect(OPERATOR_INSTRUCTIONS).toContain('checkout/integration is not authorization to discard local edits')
+    expect(OPERATOR_INSTRUCTIONS).toContain('response still contains cleanup warnings')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('never bypass a blocked checkout/integration with shell mutation')
+  })
+
   it('carries a per-spec-type grounding checklist', () => {
     for (const anchor of ['UI feature →', 'API / backend →', 'Bug fix →', 'Integration / adapter →']) {
       expect(OPERATOR_INSTRUCTIONS).toContain(anchor)
@@ -77,6 +86,16 @@ describe('OPERATOR_INSTRUCTIONS — super-spec refinement mode', () => {
 })
 
 describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
+  it('teaches live project context, scoped identifiers, and bounded discovery without replaying historical actions', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('specrails_context')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Spec numbers are project-local')
+    expect(OPERATOR_INSTRUCTIONS).toContain('specrails_code(search)')
+    expect(OPERATOR_INSTRUCTIONS).toContain('nested JSON schema and tier')
+    expect(OPERATOR_INSTRUCTIONS).toContain('not a fresh instruction to execute old launches')
+    expect(OPERATOR_INSTRUCTIONS).toContain('override a conversation pin')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('refresh after operations')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('never replay completed launches')
+  })
   it('states the Kimi capability boundary without advertising Claude-only transforms', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('Claude and Kimi\n  support profiles and Freestyle')
     expect(OPERATOR_INSTRUCTIONS).toContain('Contract Refine and SMASH require Claude')

@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { createHash } from 'node:crypto'
 import { spawn } from 'child_process'
 import { Router, Request, Response } from 'express'
 import type { DbInstance } from './db'
@@ -37,6 +38,38 @@ const TREE_YIELD_EVERY = 128
 const GIT_IGNORE_CHUNK = 1_000
 const MAX_FILE_BYTES = 2 * 1024 * 1024
 const BINARY_PROBE_BYTES = 8 * 1024
+const MAX_CODE_PAGE_LINES = 500
+const MAX_CODE_PAGE_CHARS = 20_000
+const MAX_SEARCH_FILES = 1_000
+const MAX_SEARCH_BYTES = 8 * 1024 * 1024
+const MAX_SEARCH_MS = 2_000
+
+/** Read a regular file through one descriptor with a hard byte ceiling, even
+ * if a writer grows it after stat. Never interpret a truncated read as text. */
+async function readBoundedSource(abs: string, maxBytes: number): Promise<Buffer | 'too-large' | 'not-file'> {
+  const before = await fs.promises.stat(abs)
+  if (!before.isFile()) return 'not-file'
+  if (before.size > maxBytes) return 'too-large'
+  // A FIFO swapped in between stat/open must not hang an agent request. fstat
+  // below still validates the descriptor before any bytes are read.
+  const flags = fs.constants.O_RDONLY | (process.platform === 'win32' ? 0 : fs.constants.O_NONBLOCK)
+  const handle = await fs.promises.open(abs, flags)
+  try {
+    const stat = await handle.stat()
+    if (!stat.isFile()) return 'not-file'
+    if (stat.size > maxBytes) return 'too-large'
+    const buffer = Buffer.alloc(Math.min(stat.size + 1, maxBytes + 1))
+    let offset = 0
+    while (offset < buffer.length) {
+      const { bytesRead } = await handle.read(buffer, offset, buffer.length - offset, offset)
+      if (!bytesRead) return buffer.subarray(0, offset)
+      offset += bytesRead
+    }
+    // Filled the extra byte: the file changed while reading. Retry a fresh
+    // snapshot instead of serving content whose completeness is unknown.
+    return 'too-large'
+  } finally { await handle.close() }
+}
 
 // Hard-coded app deny-list (mirrors design D8). Dotfiles are excluded by name
 // prefix; build/dep dirs come from the shared BUILD_DIRS set (node_modules, dist,
@@ -68,7 +101,7 @@ function isDenied(entryName: string): boolean {
 // single source of truth across every surface (tree walk, touched-by-ai list,
 // and the content endpoints) — not just the top-level `all` walk.
 function isDeniedRelPath(rel: string): boolean {
-  return rel.split(/[\\/]/).filter(Boolean).some(isDenied)
+  return rel.split(/[\\/]/).filter((segment) => segment !== '' && segment !== '.').some(isDenied)
 }
 
 // Normalize a client-supplied relative path to POSIX separators so summary
@@ -84,10 +117,12 @@ function normalizeRel(rel: string): string {
 // paths reported, so the deny-list remains the only filter. `check-ignore` exits
 // 1 ("none ignored") which execFileSync throws on — the matched list still lands
 // on stdout, so both branches read stdout.
-async function gitIgnoredSet(projectPath: string, relPaths: string[]): Promise<Set<string>> {
+async function gitIgnoredSet(projectPath: string, relPaths: string[], maxDurationMs = Number.POSITIVE_INFINITY): Promise<Set<string>> {
   if (relPaths.length === 0) return new Set()
   const ignored = new Set<string>()
+  const deadline = Date.now() + maxDurationMs
   for (let offset = 0; offset < relPaths.length; offset += GIT_IGNORE_CHUNK) {
+    if (Date.now() >= deadline) break
     const chunk = relPaths.slice(offset, offset + GIT_IGNORE_CHUNK)
     let out = ''
     out = await new Promise<string>((resolve) => {
@@ -95,13 +130,14 @@ async function gitIgnoredSet(projectPath: string, relPaths: string[]): Promise<S
       let settled = false
       const child = spawn('git', ['check-ignore', '--stdin', '-z'], { cwd: projectPath, stdio: ['pipe', 'pipe', 'ignore'] })
       const finish = () => { if (!settled) { settled = true; resolve(stdout) } }
-      const timer = setTimeout(() => { try { child.kill('SIGTERM') } catch { /* gone */ }; finish() }, 5_000)
+      const timer = setTimeout(() => { try { child.kill('SIGTERM') } catch { /* gone */ }; finish() }, Math.min(5_000, Math.max(1, deadline - Date.now())))
       timer.unref?.()
       child.stdout?.on('data', (data: Buffer) => {
         if (stdout.length < 4 * 1024 * 1024) stdout += data.toString('utf8')
       })
       child.once('error', () => { clearTimeout(timer); finish() })
       child.once('close', () => { clearTimeout(timer); finish() })
+      child.stdin?.on('error', () => { /* git may exit before reading stdin */ })
       child.stdin?.end(chunk.join('\0') + '\0')
     })
     for (const rel of out.split('\0')) if (rel) ignored.add(rel)
@@ -283,7 +319,7 @@ function listTouchedRows(
 interface TreeScanResult {
   entries: Array<{ rel: string; isDir: boolean; size: number | null; mtime: number | null }>
   truncated: boolean
-  reason: 'entry-limit' | 'time-limit' | null
+  reason: 'entry-limit' | 'time-limit' | 'read-errors' | null
   visited: number
   durationMs: number
   maxEntries: number
@@ -357,6 +393,7 @@ async function listAllEntries(projectPath: string): Promise<TreeScanResult> {
     try {
       entries = await fs.promises.readdir(dir, { withFileTypes: true })
     } catch {
+      reason ??= 'read-errors'
       continue
     }
     for (const entry of entries) {
@@ -524,20 +561,27 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
   // one-readdir summary-hash set. 5s is long enough for a pagination burst and
   // short enough that tree edits surface promptly.
   const WALK_CACHE_TTL_MS = 5000
-  let allEntriesCache: { at: number; scan: TreeScanResult } | null = null
-  let allEntriesInFlight: Promise<TreeScanResult> | null = null
+  const allEntriesCache = new Map<string, { at: number; scan: TreeScanResult }>()
+  const allEntriesInFlight = new Map<string, Promise<TreeScanResult>>()
   let watcherScheduled = false
   let summaryHashCache: { at: number; set: Set<string> } | null = null
   const nowMs = () => Date.now()
-  async function getAllEntriesCached(): Promise<{ scan: TreeScanResult; cache: 'hit' | 'shared' | 'miss' }> {
-    if (allEntriesCache && nowMs() - allEntriesCache.at < WALK_CACHE_TTL_MS) {
-      return { scan: allEntriesCache.scan, cache: 'hit' }
+  async function getAllEntriesCached(relativeRoot = ''): Promise<{ scan: TreeScanResult; cache: 'hit' | 'shared' | 'miss' }> {
+    const cached = allEntriesCache.get(relativeRoot)
+    if (cached && nowMs() - cached.at < WALK_CACHE_TTL_MS) {
+      return { scan: cached.scan, cache: 'hit' }
     }
-    if (allEntriesInFlight) return { scan: await allEntriesInFlight, cache: 'shared' }
-    allEntriesInFlight = listAllEntries(deps.projectPath)
+    const existing = allEntriesInFlight.get(relativeRoot)
+    if (existing) return { scan: await existing, cache: 'shared' }
+    const pending = listAllEntries(relativeRoot ? path.join(deps.projectPath, relativeRoot) : deps.projectPath).then((scan) => relativeRoot
+      ? { ...scan, entries: scan.entries.map((entry) => ({ ...entry, rel: `${relativeRoot}/${entry.rel}` })) }
+      : scan)
+    allEntriesInFlight.set(relativeRoot, pending)
     try {
-      const scan = await allEntriesInFlight
-      allEntriesCache = { at: nowMs(), scan }
+      const scan = await pending
+      // Bound retained trees when an agent searches many different subfolders.
+      if (allEntriesCache.size >= 4 && !allEntriesCache.has(relativeRoot)) allEntriesCache.delete(allEntriesCache.keys().next().value!)
+      allEntriesCache.set(relativeRoot, { at: nowMs(), scan })
       console.info('[code-explorer] tree scan', JSON.stringify({
         projectId: deps.projectId,
         durationMs: scan.durationMs,
@@ -548,7 +592,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       }))
       return { scan, cache: 'miss' }
     } finally {
-      allEntriesInFlight = null
+      allEntriesInFlight.delete(relativeRoot)
     }
   }
   function getSummaryHashesCached(): Set<string> {
@@ -688,7 +732,94 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       query: q,
       matches: ranked.slice(0, limit).map((m) => ({ path: m.rel, sizeBytes: m.size, match: m.match })),
       total: ranked.length,
-      truncated: scan.truncated,
+      truncated: scan.truncated || ranked.length > limit,
+      truncationReason: scan.reason ?? (ranked.length > limit ? 'match-limit' : null),
+    })
+  })
+
+  router.get('/search', async (req: Request, res: Response) => {
+    const query = typeof req.query.q === 'string' ? req.query.q : ''
+    if (!query.trim() || query.length > 256 || /[\r\n]/.test(query)) {
+      res.status(400).json({ error: 'q must be a non-empty literal single-line query of at most 256 characters' })
+      return
+    }
+    const selectedPath = parseNonEmptyString(req.query.path)
+    const rawPath = selectedPath === '.' || selectedPath === './' ? null : selectedPath
+    if (rawPath && !resolveSafePath(deps.projectPath, rawPath)) {
+      res.status(400).json({ error: 'path traversal not allowed' })
+      return
+    }
+    if (rawPath && isDeniedRelPath(rawPath)) {
+      res.status(403).json({ error: 'path is excluded by the code-explorer deny-list' })
+      return
+    }
+    const prefix = rawPath ? normalizeRel(rawPath).replace(/^\.\//, '') : ''
+    const caseSensitive = req.query.caseSensitive === 'true' || req.query.caseSensitive === '1'
+    const needle = caseSensitive ? query : query.toLowerCase()
+    const limit = Math.min(parsePositiveInt(req.query.limit) ?? 30, 100)
+    let scan: TreeScanResult
+    if (prefix) {
+      // Narrowing must narrow the walk itself. Filtering an already truncated
+      // full-tree cache would make later subfolders impossible to discover.
+      try {
+        const stat = await fs.promises.stat(path.join(deps.projectPath, prefix))
+        if (stat.isDirectory()) scan = (await getAllEntriesCached(prefix)).scan
+        else if (stat.isFile()) scan = { entries: [{ rel: prefix, isDir: false, size: stat.size, mtime: stat.mtimeMs }], truncated: false, reason: null, visited: 1, durationMs: 0, maxEntries: 1, maxDurationMs: DEFAULT_TREE_SCAN_MS }
+        else { res.status(400).json({ error: 'search path is not a regular file or directory' }); return }
+      } catch (err) {
+        res.status((err as NodeJS.ErrnoException).code === 'ENOENT' ? 404 : 500).json({ error: 'search path is unavailable' })
+        return
+      }
+    } else scan = (await getAllEntriesCached()).scan
+    const candidates = scan.entries.filter((entry) => !entry.isDir && (!prefix || entry.rel === prefix || entry.rel.startsWith(`${prefix}/`)))
+    const maxFiles = Math.min(positiveEnvInt('SPECRAILS_CODE_SEARCH_MAX_FILES', MAX_SEARCH_FILES), MAX_SEARCH_FILES)
+    const maxBytes = Math.min(positiveEnvInt('SPECRAILS_CODE_SEARCH_MAX_BYTES', MAX_SEARCH_BYTES), MAX_SEARCH_BYTES)
+    const maxMs = Math.min(positiveEnvInt('SPECRAILS_CODE_SEARCH_MAX_MS', MAX_SEARCH_MS), MAX_SEARCH_MS)
+    const started = Date.now()
+    const matches: Array<{ path: string; lineNumber: number; column: number; snippet: string; snippetTruncated: boolean; fileHash: string }> = []
+    const reasons = new Set<string>(scan.reason ? [`tree-${scan.reason}`] : [])
+    const skipped = { binary: 0, tooLarge: 0, unreadable: 0, excluded: 0 }
+    let scannedFiles = 0
+    let bytesRead = 0
+    // The tree is cached. Revalidate ignore rules for this request so adding a
+    // .gitignore cannot leak newly excluded content during the cache TTL.
+    const ignored = await gitIgnoredSet(deps.projectPath, candidates.slice(0, maxFiles).map((entry) => entry.rel), maxMs)
+    search: for (const entry of candidates) {
+      if (Date.now() - started >= maxMs) { reasons.add('time-limit'); break }
+      if (scannedFiles >= maxFiles) { reasons.add('file-limit'); break }
+      if (bytesRead >= maxBytes) { reasons.add('byte-limit'); break }
+      scannedFiles++
+      const abs = resolveSafePath(deps.projectPath, entry.rel)
+      if (!abs || isDeniedRelPath(entry.rel) || ignored.has(entry.rel)) { skipped.excluded++; continue }
+      try {
+        const data = await readBoundedSource(abs, Math.min(MAX_FILE_BYTES, maxBytes - bytesRead))
+        if (data === 'too-large') { skipped.tooLarge++; reasons.add('oversized-or-changing-files'); continue }
+        if (data === 'not-file') { skipped.unreadable++; reasons.add('unreadable-files'); continue }
+        bytesRead += data.length
+        if (data.includes(0)) { skipped.binary++; continue }
+        const lines = data.toString('utf8').split('\n')
+        let hash: string | null = null
+        for (let index = 0; index < lines.length; index++) {
+          if (index % 128 === 0 && Date.now() - started >= maxMs) { reasons.add('time-limit'); break search }
+          const line = lines[index].replace(/\r$/, '')
+          const position = (caseSensitive ? line : line.toLowerCase()).indexOf(needle)
+          if (position < 0) continue
+          if (matches.length >= limit) { reasons.add('match-limit'); break search }
+          const from = Math.max(0, position - 80)
+          const to = Math.min(line.length, from + 320)
+          hash ??= createHash('sha256').update(data).digest('hex')
+          matches.push({ path: entry.rel, lineNumber: index + 1, column: position + 1, snippet: line.slice(from, to), snippetTruncated: from > 0 || to < line.length, fileHash: hash })
+        }
+      } catch { skipped.unreadable++; reasons.add('unreadable-files') }
+    }
+    const truncated = reasons.size > 0
+    res.json({
+      query, path: prefix || null, caseSensitive, matches, truncated,
+      truncationReasons: [...reasons],
+      scan: { candidateFiles: candidates.length, scannedFiles, bytesRead, durationMs: Date.now() - started, maxFiles, maxBytes, maxDurationMs: maxMs, skipped, treeTruncated: scan.truncated },
+      hint: truncated
+        ? 'Partial search: absence of a match is not proof of absence. Narrow path/query and retry; use read_file at a returned line with its fileHash as expectedHash.'
+        : 'Search complete for eligible text files; binary, denied and gitignored paths are excluded. Use read_file at a matching line.',
     })
   })
 
@@ -715,6 +846,71 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       return
     }
     const abs = guard
+
+    // The editor keeps its existing full-preview contract. MCP callers always
+    // supply a range, which avoids spending a model context on a 2 MB response.
+    const ranged = req.query.startLine !== undefined || req.query.endLine !== undefined || req.query.startColumn !== undefined
+    if (ranged) {
+      const startLine = req.query.startLine === undefined ? 1 : parsePositiveInt(req.query.startLine)
+      const endLine = req.query.endLine === undefined && startLine !== null ? startLine + 199 : parsePositiveInt(req.query.endLine)
+      const startColumn = req.query.startColumn === undefined ? 1 : parsePositiveInt(req.query.startColumn)
+      if (startLine === null || endLine === null || startColumn === null || endLine < startLine) {
+        res.status(400).json({ error: 'invalid line range; startLine/endLine/startColumn must be positive integers' })
+        return
+      }
+      const expectedHash = parseNonEmptyString(req.query.expectedHash)
+      if (expectedHash && !/^[a-f0-9]{64}$/i.test(expectedHash)) {
+        res.status(400).json({ error: 'expectedHash must be a SHA-256 file hash' })
+        return
+      }
+      let bytes: Buffer | 'too-large' | 'not-file'
+      try { bytes = await readBoundedSource(abs, MAX_FILE_BYTES) } catch (err) {
+        res.status((err as NodeJS.ErrnoException).code === 'ENOENT' ? 404 : 500).json({ error: (err as NodeJS.ErrnoException).code === 'ENOENT' ? 'file not found' : 'failed to read file' })
+        return
+      }
+      if (bytes === 'too-large') { res.status(413).json({ error: 'file exceeds the 2 MB read limit or changed while reading; use a narrower code search' }); return }
+      if (bytes === 'not-file') { res.status(400).json({ error: 'path is not a regular file' }); return }
+      if (bytes.includes(0)) { res.status(415).json({ error: 'binary file is not readable as source text' }); return }
+      const fileHash = createHash('sha256').update(bytes).digest('hex')
+      if (expectedHash && expectedHash.toLowerCase() !== fileHash) {
+        res.status(409).json({ error: 'file_changed', fileHash, detail: 'The file changed since the previous page/search. Restart the read using the current hash.' })
+        return
+      }
+      const lines = bytes.toString('utf8').split('\n')
+      if (startLine > lines.length || startColumn > lines[startLine - 1].length + 1) {
+        res.status(416).json({ error: 'range_out_of_bounds', totalLines: lines.length, fileHash })
+        return
+      }
+      const lastLine = Math.min(endLine, startLine + MAX_CODE_PAGE_LINES - 1, lines.length)
+      let content = ''
+      let actualEndLine = startLine
+      let nextLine: number | null = lastLine < lines.length ? lastLine + 1 : null
+      let nextColumn: number | null = nextLine === null ? null : 1
+      let reason: string | null = nextLine === null ? null : 'line-limit'
+      for (let lineNumber = startLine; lineNumber <= lastLine; lineNumber++) {
+        const column = lineNumber === startLine ? startColumn : 1
+        const line = lines[lineNumber - 1].slice(column - 1)
+        const remaining = MAX_CODE_PAGE_CHARS - content.length
+        actualEndLine = lineNumber
+        if (line.length > remaining) {
+          content += line.slice(0, remaining)
+          nextLine = lineNumber
+          nextColumn = column + remaining
+          reason = 'character-limit'
+          break
+        }
+        content += line
+        if (content.length >= MAX_CODE_PAGE_CHARS && lineNumber < lastLine) {
+          nextLine = lineNumber + 1
+          nextColumn = 1
+          reason = 'character-limit'
+          break
+        }
+        if (lineNumber < lastLine) content += '\n'
+      }
+      res.json({ path: rel, content, encoding: 'utf-8', language: languageForExt(path.extname(rel)), fileHash, sizeBytes: bytes.length, startLine, startColumn, endLine: actualEndLine, totalLines: lines.length, nextLine, nextColumn, truncated: nextLine !== null, truncationReason: reason })
+      return
+    }
 
     let stat: fs.Stats
     try {

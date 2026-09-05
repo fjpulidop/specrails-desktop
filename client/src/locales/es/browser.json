@@ -60,7 +60,7 @@
       "arrow": "Flecha (A)",
       "box": "Recuadro (R)",
       "text": "Texto (T)",
-      "blur": "Difuminar / censurar (B)",
+      "blur": "Censurar (B)",
       "step": "Número de paso (N)"
     },
     "notePrompt": "Texto de la nota:",
@@ -106,13 +106,19 @@
     "loginWindow": "Ventana de inicio de sesión — {{origin}}",
     "stacked": "+{{count}} más",
     "backToPage": "Volver a la página",
-    "show": "Mostrar ventana de inicio de sesión"
+    "show": "Mostrar ventana de inicio de sesión",
+    "openFailed": "No se ha podido abrir la ventana de inicio de sesión. Vuelve a intentarlo."
   },
   "native": {
     "devtools": "DevTools",
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
     "openExternal": "Abrir en el navegador del sistema",
-    "badge": "Nativo"
+    "badge": "Nativo",
+    "selectElement": "Seleccionar elemento",
+    "selectHint": "Haz clic en un elemento de la página",
+    "capturePage": "Capturar página",
+    "captureSelection": "Capturar selección",
+    "capturing": "Capturando…"
   }
 }

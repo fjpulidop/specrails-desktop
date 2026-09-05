@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import React from 'react'
 import { SharedWebSocketProvider, useSharedWebSocket } from '../useSharedWebSocket'
-import { getDesktopTokenProtocol } from '../../lib/auth'
+import { getDesktopTokenProtocol, refreshDesktopToken } from '../../lib/auth'
 
 vi.mock('../../lib/auth', () => ({
   getDesktopTokenProtocol: vi.fn(() => undefined),
+  refreshDesktopToken: vi.fn(async () => true),
 }))
 
 // ─── Mock WebSocket ────────────────────────────────────────────────────────────
@@ -149,27 +150,27 @@ describe('useSharedWebSocket', () => {
     act(() => { ws1.triggerClose() })
     expect(MockWebSocket.instances).toHaveLength(1) // not yet reconnected
 
-    act(() => { vi.advanceTimersByTime(1000) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
     expect(MockWebSocket.instances).toHaveLength(2) // reconnected after 1s
 
     // Second close — reconnect after 2s
     act(() => { MockWebSocket.lastInstance!.triggerClose() })
-    act(() => { vi.advanceTimersByTime(2000) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
     expect(MockWebSocket.instances).toHaveLength(3)
 
     // Third close — reconnect after 4s
     act(() => { MockWebSocket.lastInstance!.triggerClose() })
-    act(() => { vi.advanceTimersByTime(4000) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(4000) })
     expect(MockWebSocket.instances).toHaveLength(4)
 
     // Fourth close — reconnect after 8s
     act(() => { MockWebSocket.lastInstance!.triggerClose() })
-    act(() => { vi.advanceTimersByTime(8000) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(8000) })
     expect(MockWebSocket.instances).toHaveLength(5)
 
     // Fifth close — reconnect after 16s
     act(() => { MockWebSocket.lastInstance!.triggerClose() })
-    act(() => { vi.advanceTimersByTime(16000) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(16000) })
     expect(MockWebSocket.instances).toHaveLength(6)
   })
 
@@ -181,14 +182,14 @@ describe('useSharedWebSocket', () => {
 
     // Disconnect and reconnect once
     act(() => { ws1.triggerClose() })
-    act(() => { vi.advanceTimersByTime(1000) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
 
     const ws2 = MockWebSocket.lastInstance!
     act(() => { ws2.triggerOpen() }) // successful reconnect — resets retry count
 
     // Now disconnect again — should use 1s delay (reset to first delay)
     act(() => { ws2.triggerClose() })
-    act(() => { vi.advanceTimersByTime(1000) })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
     expect(MockWebSocket.instances).toHaveLength(3)
     expect(result.current.connectionStatus).toBe('connecting')
   })
@@ -208,6 +209,18 @@ describe('useSharedWebSocket', () => {
     })
 
     expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('refreshes authentication before reconnecting after sidecar startup or restart', async () => {
+    renderHook(() => useSharedWebSocket(), { wrapper: makeWrapper() })
+    vi.mocked(refreshDesktopToken).mockImplementationOnce(async () => {
+      vi.mocked(getDesktopTokenProtocol).mockReturnValue('desktop-token.restarted')
+      return true
+    })
+    act(() => { MockWebSocket.lastInstance!.triggerClose() })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+    expect(refreshDesktopToken).toHaveBeenCalledOnce()
+    expect(MockWebSocket.lastInstance!.protocols).toEqual(['specrails-desktop', 'desktop-token.restarted'])
   })
 
   it('disposed flag prevents actions after unmount', () => {

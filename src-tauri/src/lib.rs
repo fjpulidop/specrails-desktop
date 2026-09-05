@@ -1,17 +1,21 @@
 mod browser;
+mod invoke_guard;
+mod backend_health;
 
 use std::net::TcpListener;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
+use tauri::Emitter;
 use tauri::{RunEvent, WindowEvent};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_shell::ShellExt;
 
 const SERVER_PORT: u16 = 4200;
-const HEALTH_URL: &str = "http://localhost:4200/api/state";
+const HEALTH_URL: &str = "http://127.0.0.1:4200/api/health";
 const HEALTH_TIMEOUT_SECS: u64 = 30;
 
 /// Check whether a TCP port is currently free (bind succeeds → free).
@@ -19,22 +23,17 @@ fn check_port_available(port: u16) -> bool {
     TcpListener::bind(format!("127.0.0.1:{}", port)).is_ok()
 }
 
-/// Poll the server health endpoint until it returns 200 or the timeout elapses.
-fn wait_for_server(timeout: Duration) -> bool {
+fn wait_for_port_available(port: u16, timeout: Duration) -> bool {
     let start = Instant::now();
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(2))
-        .build()
-        .unwrap_or_default();
-
-    while start.elapsed() < timeout {
-        if let Ok(_resp) = client.get(HEALTH_URL).send() {
-            // Any HTTP response (including 401 Unauthorized) means the server is up.
+    loop {
+        if check_port_available(port) {
             return true;
         }
-        std::thread::sleep(Duration::from_millis(500));
+        if start.elapsed() >= timeout {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(100));
     }
-    false
 }
 
 /// A substring that must appear in the sidecar process's command line / image
@@ -43,6 +42,22 @@ fn wait_for_server(timeout: Duration) -> bool {
 /// argument (see the spawn site below). Both anchors are checked so a recycled
 /// PID belonging to unrelated user software is never killed (BUG-TAURI-02).
 const SIDECAR_PROCESS_MARKER: &str = "specrails-server";
+
+#[cfg(any(unix, test))]
+fn sidecar_command_matches(command: &str, parent_pid: u32) -> bool {
+    command.contains(SIDECAR_PROCESS_MARKER)
+        && command.split_whitespace().any(|arg| arg == format!("--parent-pid={parent_pid}"))
+}
+
+#[cfg(any(windows, test))]
+fn sidecar_tasklist_matches(row: &str, pid: u32) -> bool {
+    let mut fields = row.trim().split(',');
+    let image = fields.next().unwrap_or_default().trim_matches('"').to_ascii_lowercase();
+    let observed_pid = fields.next().unwrap_or_default().trim_matches('"');
+    let image_matches = image == "specrails-server.exe"
+        || (image.starts_with("specrails-server-") && image.ends_with(".exe"));
+    image_matches && observed_pid == pid.to_string()
+}
 
 /// Verify that the live process holding `pid` is actually our sidecar before we
 /// signal it. The stored PID is captured once at spawn and could, after an early
@@ -56,7 +71,7 @@ fn pid_is_sidecar(pid: u32) -> bool {
     // `ps -o command= -p <pid>` prints only the full command line (no header).
     // An empty/failed result means the PID is not alive or not inspectable.
     let cmdline = Command::new("ps")
-        .args(["-o", "command=", "-p", &pid.to_string()])
+        .args(["-ww", "-o", "command=", "-p", &pid.to_string()])
         .output()
         .ok()
         .filter(|o| o.status.success())
@@ -65,11 +80,9 @@ fn pid_is_sidecar(pid: u32) -> bool {
     if cmdline.is_empty() {
         return false;
     }
-    // Match either the sidecar binary name or the parent-pid handshake arg that
-    // is unique to our spawn (`--parent-pid=<host pid>`). Either anchor is a
-    // strong signal this is our process and not a recycled, unrelated PID.
-    cmdline.contains(SIDECAR_PROCESS_MARKER)
-        || cmdline.contains(&format!("--parent-pid={}", std::process::id()))
+    // Require both anchors, with an exact handshake token: a reused PID for
+    // another Specrails instance or a parent-pid prefix must never be signalled.
+    sidecar_command_matches(&cmdline, std::process::id())
 }
 
 #[cfg(windows)]
@@ -87,12 +100,9 @@ fn pid_is_sidecar(pid: u32) -> bool {
         Some(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
         _ => return false,
     };
-    // No matching task → tasklist prints an "INFO:" line, not a CSV row.
-    if !row.contains(&pid.to_string()) {
-        return false;
-    }
-    let lower = row.to_ascii_lowercase();
-    lower.contains(SIDECAR_PROCESS_MARKER) || lower.contains(".exe")
+    // No matching task prints an INFO line. A generic `.exe` suffix is not
+    // identity evidence: it used to authorize killing any recycled Windows PID.
+    sidecar_tasklist_matches(&row, pid)
 }
 
 /// Kill a child process — SIGTERM on Unix with SIGKILL fallback, taskkill on Windows.
@@ -173,6 +183,19 @@ fn terminate_process(pid: u32) {
 /// Shared handle to the spawned sidecar PID, exposed to commands via managed state.
 struct SidecarState {
     pid: Arc<Mutex<Option<u32>>>,
+    stopping: Arc<AtomicBool>,
+}
+
+/// Retire only the process generation that exited. Return whether the user
+/// should see a disconnection, suppressing planned quit/update teardown.
+fn record_sidecar_exit(pid_state: &Mutex<Option<u32>>, stopping: &AtomicBool, exited_pid: u32) -> bool {
+    if let Ok(mut current) = pid_state.lock() {
+        if *current == Some(exited_pid) {
+            *current = None;
+            return !stopping.load(Ordering::SeqCst);
+        }
+    }
+    false
 }
 
 /// Stable id for the single system-tray / menu-bar item, used to retrieve and
@@ -214,6 +237,7 @@ fn tray_action_for_id(id: &str) -> TrayAction {
 /// rejects a recycled/unrelated PID — so calling this twice (tray Exit then the
 /// `ExitRequested` fired by `app.exit(0)`) is safe.
 fn shutdown_sidecar(state: &SidecarState) {
+    state.stopping.store(true, Ordering::SeqCst);
     let pid = *state.pid.lock().unwrap();
     if let Some(pid) = pid {
         terminate_process(pid);
@@ -269,7 +293,11 @@ fn show_main_window(app: &tauri::AppHandle) {
 /// only THEN restarts — so the new instance always finds a clean port.
 #[tauri::command]
 fn restart_app(app: tauri::AppHandle, sidecar: tauri::State<'_, SidecarState>) {
+    if sidecar.stopping.swap(true, Ordering::SeqCst) {
+        return;
+    }
     let pid = *sidecar.pid.lock().unwrap();
+    let stopping = Arc::clone(&sidecar.stopping);
     // Run off the command thread so the `invoke` resolves immediately and the UI
     // stays responsive while the (up to several second) teardown happens.
     std::thread::spawn(move || {
@@ -277,13 +305,15 @@ fn restart_app(app: tauri::AppHandle, sidecar: tauri::State<'_, SidecarState>) {
             terminate_process(pid);
         }
         // The Node server holds the port; it may take a moment to release after
-        // SIGTERM/taskkill. Wait until the bind succeeds, then restart regardless.
-        let deadline = Instant::now() + Duration::from_secs(8);
-        while Instant::now() < deadline {
-            if check_port_available(SERVER_PORT) {
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(100));
+        // SIGTERM/taskkill. Never launch a new host into an occupied port: that
+        // previously turned a delayed shutdown into a broken update relaunch.
+        if !wait_for_port_available(SERVER_PORT, Duration::from_secs(8)) {
+            stopping.store(false, Ordering::SeqCst);
+            app.dialog()
+                .message("The local server has not released port 4200 yet. Specrails has not restarted. Wait a moment and try Restart again.")
+                .title("Specrails — Restart delayed")
+                .blocking_show();
+            return;
         }
         app.restart();
     });
@@ -295,6 +325,7 @@ pub fn run() {
     // hides to tray); sidecar termination runs from the tray Exit path and the
     // true-quit `RunEvent::ExitRequested` hook, which read SidecarState.
     let sidecar_pid: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
+    let sidecar_stopping = Arc::new(AtomicBool::new(false));
 
     tauri::Builder::default()
         // Single-instance MUST be registered FIRST so a second launch focuses the
@@ -307,7 +338,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(|invoke| invoke_guard::dispatch(invoke, tauri::generate_handler![
             restart_app,
             set_tray_labels,
             browser::browser_supported,
@@ -321,8 +352,12 @@ pub fn run() {
             browser::browser_hide,
             browser::browser_close,
             browser::browser_devtools,
-            browser::browser_zoom
-        ])
+            browser::browser_zoom,
+            browser::browser_capture_supported,
+            browser::browser_set_select_mode,
+            browser::browser_selection,
+            browser::browser_capture
+        ]))
         .setup(move |app| {
             let app_handle = app.handle().clone();
 
@@ -330,6 +365,7 @@ pub fn run() {
             // handler, and the `RunEvent::ExitRequested` quit hook.
             app.manage(SidecarState {
                 pid: Arc::clone(&sidecar_pid),
+                stopping: Arc::clone(&sidecar_stopping),
             });
 
             // --- Port conflict check (with a grace window) ---
@@ -338,13 +374,7 @@ pub fn run() {
             // the previous sidecar may still be releasing port 4200 for a second
             // or two; retry for a grace window instead of an immediate fatal
             // failure that would force the user to restart a second time.
-            let port_deadline = Instant::now() + Duration::from_secs(10);
-            let mut port_free = check_port_available(SERVER_PORT);
-            while !port_free && Instant::now() < port_deadline {
-                std::thread::sleep(Duration::from_millis(250));
-                port_free = check_port_available(SERVER_PORT);
-            }
-            if !port_free {
+            if !wait_for_port_available(SERVER_PORT, Duration::from_secs(10)) {
                 app_handle
                     .dialog()
                     .message("Port 4200 is already in use by another process. Close it and reopen Specrails.")
@@ -438,7 +468,13 @@ pub fn run() {
             let sidecar = app_handle
                 .shell()
                 .sidecar("specrails-server")
-                .expect("specrails-server sidecar not configured")
+                .map_err(|error| {
+                    app_handle.dialog()
+                        .message(format!("The bundled local server could not be found: {error}. Reinstall Specrails; your saved projects remain on disk."))
+                        .title("Specrails — Startup Error")
+                        .blocking_show();
+                    error
+                })?
                 .args([&parent_pid_arg]);
             let sidecar = if has_runtimes {
                 // Bundled node/git win: server/path-resolver.ts prepends the bundled bin
@@ -618,7 +654,13 @@ pub fn run() {
 
             let (mut rx, child) = sidecar
                 .spawn()
-                .expect("failed to spawn specrails-server sidecar");
+                .map_err(|error| {
+                    app_handle.dialog()
+                        .message(format!("The local server could not start: {error}. Your saved projects remain on disk."))
+                        .title("Specrails — Startup Error")
+                        .blocking_show();
+                    error
+                })?;
 
             let pid = child.pid();
             *sidecar_pid.lock().unwrap() = Some(pid);
@@ -635,12 +677,16 @@ pub fn run() {
             // window-close / restart_app never signals a stale (possibly
             // OS-recycled) PID — the second half of the BUG-TAURI-02 guard.
             let terminated_pid_state = Arc::clone(&sidecar_pid);
+            let terminated_stopping = Arc::clone(&sidecar_stopping);
+            let terminated_app = app_handle.clone();
+            let readiness_log_path = log_path.clone();
             std::thread::spawn(move || {
                 use tauri_plugin_shell::process::CommandEvent;
                 use std::io::Write;
                 let mut log = std::fs::OpenOptions::new()
                     .create(true).append(true).open(&log_path).ok();
                 while let Some(event) = rx.blocking_recv() {
+                    let mut unexpected_exit = false;
                     let line = match event {
                         CommandEvent::Stdout(b) => format!("[OUT] {}\n", String::from_utf8_lossy(&b)),
                         CommandEvent::Stderr(b) => format!("[ERR] {}\n", String::from_utf8_lossy(&b)),
@@ -648,34 +694,62 @@ pub fn run() {
                         CommandEvent::Terminated(s) => {
                             // Forget the PID: the sidecar is gone and its PID may
                             // be reassigned by the OS to unrelated software.
-                            if let Ok(mut guard) = terminated_pid_state.lock() {
-                                if *guard == Some(pid) {
-                                    *guard = None;
-                                }
-                            }
+                            unexpected_exit = record_sidecar_exit(&terminated_pid_state, &terminated_stopping, pid);
                             format!("[EXIT] code={:?}\n", s.code)
                         }
                         _ => continue,
                     };
                     if let Some(f) = log.as_mut() { let _ = f.write_all(line.as_bytes()); }
+                    if unexpected_exit {
+                        let detail = format!(
+                            "The local Specrails server stopped unexpectedly. Your saved projects remain on disk. Restart Specrails to reconnect. Diagnostics: {}",
+                            log_path.display()
+                        );
+                        let _ = terminated_app.emit("specrails:backend-unavailable", &detail);
+                        terminated_app.dialog()
+                            .message(detail)
+                            .title("Specrails — Server disconnected")
+                            .show(|_| {});
+                    }
                 }
             });
 
-            // --- Health check (blocking, runs on a background thread) ---
+            // --- Readiness monitor (runs off the UI thread) ---
+            // Cold starts can take longer than 30s while migrations/recovery run.
+            // A timeout is not proof of process failure: keep monitoring and let
+            // the frontend retry authentication rather than killing a healthy
+            // slow-starting server and presenting an apparently empty registry.
             let app_handle2 = app_handle.clone();
+            let readiness_pid = Arc::clone(&sidecar_pid);
+            let readiness_stopping = Arc::clone(&sidecar_stopping);
             std::thread::spawn(move || {
-                if !wait_for_server(Duration::from_secs(HEALTH_TIMEOUT_SECS)) {
-                    app_handle2
-                        .dialog()
-                        .message(
-                            "Specrails failed to start. Check that port 4200 is not in use.",
-                        )
-                        .title("Specrails — Startup Error")
-                        .blocking_show();
-                    std::process::exit(1);
+                use backend_health::{wait_for_backend, BackendReadiness};
+                use std::io::Write;
+                let mut reported_delay = false;
+                loop {
+                    let readiness = wait_for_backend(
+                        HEALTH_URL,
+                        Duration::from_secs(HEALTH_TIMEOUT_SECS),
+                        || !readiness_stopping.load(Ordering::SeqCst)
+                            && readiness_pid.lock().map(|state| *state == Some(pid)).unwrap_or(false),
+                    );
+                    match readiness {
+                        BackendReadiness::Ready => {
+                            let _ = app_handle2.emit("specrails:backend-ready", ());
+                            break;
+                        }
+                        BackendReadiness::Stopped => break,
+                        BackendReadiness::TimedOut => {
+                            if !reported_delay {
+                                reported_delay = true;
+                                if let Ok(mut log) = std::fs::OpenOptions::new().create(true).append(true).open(&readiness_log_path) {
+                                    let _ = writeln!(log, "[HOST] Backend readiness is delayed; keeping the sidecar alive and retrying health.");
+                                }
+                                let _ = app_handle2.emit("specrails:backend-starting", ());
+                            }
+                        }
+                    }
                 }
-                // Server is ready — the React app (served from client/dist by Tauri)
-                // makes API calls to localhost:4200 automatically; no redirect needed.
             });
 
             Ok(())
@@ -733,6 +807,65 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sidecar_identity_requires_its_image_and_exact_parent_handshake() {
+        assert!(sidecar_command_matches("/Applications/Specrails.app/specrails-server --parent-pid=123", 123));
+        for command in [
+            "/Applications/Specrails.app/specrails-server --parent-pid=1234",
+            "/Applications/Specrails.app/specrails-server --parent-pid=456",
+            "/usr/bin/unrelated --parent-pid=123",
+            "/Applications/Specrails.app/specrails-server",
+        ] {
+            assert!(!sidecar_command_matches(command, 123), "{command}");
+        }
+    }
+
+    #[test]
+    fn windows_identity_never_accepts_an_arbitrary_executable_or_pid_prefix() {
+        assert!(sidecar_tasklist_matches(r#""specrails-server.exe","123","Console","1","10 K""#, 123));
+        assert!(sidecar_tasklist_matches(r#""specrails-server-x86_64-pc-windows-msvc.exe","123","Console""#, 123));
+        for row in [
+            r#""notepad.exe","123","Console""#,
+            r#""not-specrails-server.exe","123","Console""#,
+            r#""specrails-server.exe","1234","Console""#,
+            "INFO: No tasks are running which match the specified criteria.",
+        ] {
+            assert!(!sidecar_tasklist_matches(row, 123), "{row}");
+        }
+    }
+
+    #[test]
+    fn port_release_wait_refuses_an_occupied_port_and_accepts_it_after_release() {
+        // An ephemeral test socket only; never bind or stop the user's server.
+        let listener = TcpListener::bind("127.0.0.1:0").expect("test socket");
+        let port = listener.local_addr().unwrap().port();
+        assert!(!wait_for_port_available(port, Duration::ZERO));
+        drop(listener);
+        assert!(wait_for_port_available(port, Duration::from_millis(100)));
+    }
+
+    #[test]
+    fn unexpected_sidecar_exit_is_reported_once_and_clears_its_pid() {
+        let current = Mutex::new(Some(42));
+        let stopping = AtomicBool::new(false);
+        assert!(record_sidecar_exit(&current, &stopping, 42));
+        assert_eq!(*current.lock().unwrap(), None);
+        assert!(!record_sidecar_exit(&current, &stopping, 42));
+    }
+
+    #[test]
+    fn update_shutdown_and_old_process_events_do_not_report_false_disconnections() {
+        let current = Mutex::new(Some(42));
+        let stopping = AtomicBool::new(true);
+        assert!(!record_sidecar_exit(&current, &stopping, 42));
+        assert_eq!(*current.lock().unwrap(), None);
+
+        *current.lock().unwrap() = Some(43);
+        stopping.store(false, Ordering::SeqCst);
+        assert!(!record_sidecar_exit(&current, &stopping, 42));
+        assert_eq!(*current.lock().unwrap(), Some(43));
+    }
 
     // BUG-TAURI-02: the identity gate must REFUSE to recognise the current test
     // process as the sidecar — its command line is the test binary, not
@@ -815,6 +948,7 @@ mod tests {
     fn shutdown_sidecar_is_noop_when_pid_is_none() {
         let state = SidecarState {
             pid: Arc::new(Mutex::new(None)),
+            stopping: Arc::new(AtomicBool::new(false)),
         };
         let start = Instant::now();
         shutdown_sidecar(&state);
@@ -824,6 +958,7 @@ mod tests {
         );
         // The PID stays None — nothing was spawned or signalled.
         assert!(state.pid.lock().unwrap().is_none());
+        assert!(state.stopping.load(Ordering::SeqCst));
     }
 
     // `shutdown_sidecar` with a non-sidecar PID (our own, which is alive but not
@@ -835,6 +970,7 @@ mod tests {
     fn shutdown_sidecar_short_circuits_for_non_sidecar_pid() {
         let state = SidecarState {
             pid: Arc::new(Mutex::new(Some(std::process::id()))),
+            stopping: Arc::new(AtomicBool::new(false)),
         };
         let start = Instant::now();
         shutdown_sidecar(&state);

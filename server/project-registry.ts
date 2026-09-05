@@ -177,6 +177,9 @@ export function reprojectActivePrDeliveries(ctx: ProjectContext): number {
 
 // ─── ProjectRegistry ──────────────────────────────────────────────────────────
 
+class ProjectDatabaseBusyError extends Error {}
+const PROJECT_LOAD_RETRY_DELAYS_MS = [1000, 2000, 5000, 30000]
+
 export class ProjectRegistry {
   private _desktopDb: DbInstance
   private _contexts: Map<string, ProjectContext>
@@ -186,6 +189,8 @@ export class ProjectRegistry {
   // M9: projects whose per-project DB failed to load at startup (corrupt, locked,
   // or migration-stuck). They stay registered but have no live context.
   private _failedProjects: Map<string, { project: ProjectRow; error: string }>
+  private _loadRetryTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  private _shuttingDown = false
   // App-wide shared browser context for "Add Spec from a website": ONE persistent
   // Chromium profile under ~/.specrails/browser-profile, so cookies/logins are
   // shared across every project. Launched lazily, disposed once at shutdown().
@@ -225,19 +230,49 @@ export class ProjectRegistry {
       console.error('[project-registry] registry reconcile failed (non-fatal):', err)
     }
     for (const project of projects) {
-      try {
-        this._loadProjectContext(project)
-        this._failedProjects.delete(project.id)
-      } catch (err) {
-        // M9: a single corrupt / locked / migration-stuck per-project jobs.sqlite
-        // must NOT crash the whole app at startup (previously it did, killing
-        // every other project + the UI in a restart loop). Log it, record it as
-        // failed-to-load, and keep loading the rest.
-        const msg = err instanceof Error ? err.message : String(err)
-        console.error(`[project-registry] failed to load project ${project.id} (${project.slug}): ${msg}`)
-        this._failedProjects.set(project.id, { project, error: msg })
+      this._tryLoadProject(project)
+    }
+  }
+
+  private _tryLoadProject(project: ProjectRow, retry = 0): void {
+    this._clearLoadRetry(project.id)
+    if (this._shuttingDown) return
+    try {
+      this._loadProjectContext(project)
+      const recovered = this._failedProjects.delete(project.id)
+      if (recovered) {
+        try {
+          this._broadcast({ type: 'desktop.project_recovered', projectId: project.id, timestamp: new Date().toISOString() })
+        } catch { /* the available context remains authoritative */ }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[project-registry] failed to load project ${project.id} (${project.slug}): ${msg}`)
+      this._failedProjects.set(project.id, { project, error: msg })
+      // Only an unopened DB can be retried safely: no managers/watchers or
+      // recovery work exist yet. Corruption and later constructor errors stay
+      // visible without repeatedly constructing partially initialized contexts.
+      if (err instanceof ProjectDatabaseBusyError) {
+        const timer = setTimeout(() => {
+          this._loadRetryTimers.delete(project.id)
+          const current = getProject(this._desktopDb, project.id)
+          if (current) this._tryLoadProject(current, Math.min(retry + 1, PROJECT_LOAD_RETRY_DELAYS_MS.length - 1))
+        }, PROJECT_LOAD_RETRY_DELAYS_MS[retry])
+        timer.unref?.()
+        this._loadRetryTimers.set(project.id, timer)
       }
     }
+  }
+
+  private _clearLoadRetry(id: string): void {
+    const timer = this._loadRetryTimers.get(id)
+    if (timer) clearTimeout(timer)
+    this._loadRetryTimers.delete(id)
+  }
+
+  /** The durable catalog includes projects whose DB could not be opened. */
+  listProjects(): ProjectRow[] {
+    return listProjects(this._desktopDb)
   }
 
   /** Projects whose per-project DB failed to load at startup (M9). */
@@ -314,6 +349,7 @@ export class ProjectRegistry {
   }
 
   removeProject(id: string): void {
+    this._clearLoadRetry(id)
     // Resolve the repo path BEFORE the DB row is deleted below so we can drop the
     // shared artifact-registry entry. Prefer the live context, fall back to the
     // desktop DB row (project may be registered-but-not-loaded, e.g. M9 failure).
@@ -449,6 +485,8 @@ export class ProjectRegistry {
    * exiting anyway).
    */
   shutdown(): void {
+    this._shuttingDown = true
+    for (const id of this._loadRetryTimers.keys()) this._clearLoadRetry(id)
     for (const ctx of this._contexts.values()) {
       try { ctx.queueManager.shutdown() } catch { /* ignore */ }
       try { ctx.chatManager.shutdown() } catch { /* ignore */ }
@@ -494,7 +532,16 @@ export class ProjectRegistry {
     // until durable loop callbacks and isolated worktrees have been reconciled.
     beginProjectProcessQuiescence(project.id)
 
-    const db = initDb(project.db_path)
+    let db: DbInstance
+    try {
+      db = initDb(project.db_path)
+    } catch (err) {
+      const code = (err as { code?: unknown } | null)?.code
+      if (typeof code === 'string' && /^SQLITE_(BUSY|LOCKED)(_|$)/.test(code)) {
+        throw new ProjectDatabaseBusyError(err instanceof Error ? err.message : String(err), { cause: err })
+      }
+      throw err
+    }
 
     // Bind broadcast with projectId so all WS messages carry context.
     // Also wire agent status: when a queued job reaches a terminal state,
@@ -977,10 +1024,9 @@ export class ProjectRegistry {
         undefined,
         applyWorktreeEnvPassthrough(db, process.env),
       ),
-      // Global Specrails Agents defaults, loop path: per-agent model overrides
-      // ride SPECRAILS_PROFILE_PATH on each ai-step spawn. Resolved per step
-      // (no restart); inert (null) unless the global layer carries per-agent
-      // models for the provider — byte-identical legacy behaviour otherwise.
+      // Named rail profiles and global per-agent defaults ride the same
+      // SPECRAILS_PROFILE_PATH snapshot in both AI transports. An explicit null
+      // rail selection opts out; omitted selections keep Core's default rules.
       profilePathFor: createLoopProfilePathResolver({
         desktopDb: this._desktopDb,
         profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,

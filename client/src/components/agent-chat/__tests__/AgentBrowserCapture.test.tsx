@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import type { CaptureResult } from '../../../lib/browser-capture'
 
 const toastSuccess = vi.fn()
@@ -24,10 +24,29 @@ vi.mock('../../../lib/agent-api', () => ({
   uploadAgentAttachment: (...a: unknown[]) => uploadAgentAttachment(...a),
 }))
 
+const nativeAvailable = vi.fn()
+vi.mock('../../../lib/native-browser', () => ({
+  isNativeBrowserCaptureAvailable: () => nativeAvailable(),
+  normalizeAddress: (value: string) => value || null,
+}))
+
+let nativeProps: {
+  url: string
+  onCaptured: (result: { screenshotDataUrl: string }) => Promise<void>
+  onFallback: () => void
+  onUrlChange: (url: string) => void
+} | null = null
+vi.mock('../../browser-capture/NativeBrowserPane', () => ({
+  NativeBrowserModal: (props: NonNullable<typeof nativeProps>) => {
+    nativeProps = props
+    return <div data-testid="native-browser-fixture" />
+  },
+}))
+
 // Capture the modal props so the test can drive onCaptured directly.
-let modalProps: { onCaptured: (r: CaptureResult) => void } | null = null
+let modalProps: { onCaptured: (r: CaptureResult) => Promise<void> } | null = null
 vi.mock('../../browser-capture/BrowserCaptureModal', () => ({
-  BrowserCaptureModal: (props: { onCaptured: (r: CaptureResult) => void }) => {
+  BrowserCaptureModal: (props: { onCaptured: (r: CaptureResult) => Promise<void> }) => {
     modalProps = props
     return null
   },
@@ -46,6 +65,8 @@ describe('AgentBrowserCapture', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     modalProps = null
+    nativeProps = null
+    nativeAvailable.mockResolvedValue(false)
   })
 
   it('decodes the capture WITHOUT fetch() and uploads it as an agent attachment', async () => {
@@ -56,7 +77,8 @@ describe('AgentBrowserCapture', () => {
     uploadAgentAttachment.mockResolvedValue(att)
 
     render(<AgentBrowserCapture projectId="p1" conversationId="c1" />)
-    modalProps!.onCaptured(captureResult())
+    await waitFor(() => expect(modalProps).not.toBeNull())
+    await modalProps!.onCaptured(captureResult())
 
     await waitFor(() => expect(uploadAgentAttachment).toHaveBeenCalledTimes(1))
     expect(fetchSpy).not.toHaveBeenCalled()
@@ -79,7 +101,8 @@ describe('AgentBrowserCapture', () => {
     materializeDraftConversation.mockResolvedValue({ id: 'c-new' })
 
     render(<AgentBrowserCapture projectId="p1" conversationId={null} />)
-    modalProps!.onCaptured(captureResult())
+    await waitFor(() => expect(modalProps).not.toBeNull())
+    await modalProps!.onCaptured(captureResult())
 
     await waitFor(() => expect(uploadAgentAttachment).toHaveBeenCalledTimes(1))
     expect(materializeDraftConversation).toHaveBeenCalledTimes(1)
@@ -93,7 +116,8 @@ describe('AgentBrowserCapture', () => {
     const att = { id: 'att-3', filename: 'capture.png' }
     uploadAgentAttachment.mockResolvedValue(att)
     render(<AgentBrowserCapture projectId="p1" conversationId="c1" />)
-    modalProps!.onCaptured(captureResult())
+    await waitFor(() => expect(modalProps).not.toBeNull())
+    await modalProps!.onCaptured(captureResult())
     await waitFor(() => expect(uploadAgentAttachment).toHaveBeenCalledTimes(1))
     expect(materializeDraftConversation).not.toHaveBeenCalled()
   })
@@ -101,7 +125,8 @@ describe('AgentBrowserCapture', () => {
   it('surfaces a materialization failure as an upload error', async () => {
     materializeDraftConversation.mockRejectedValue(new Error('offline'))
     render(<AgentBrowserCapture projectId="p1" conversationId={null} />)
-    modalProps!.onCaptured(captureResult())
+    await waitFor(() => expect(modalProps).not.toBeNull())
+    await expect(modalProps!.onCaptured(captureResult())).rejects.toThrow('offline')
     await waitFor(() => expect(toastError).toHaveBeenCalled())
     expect(uploadAgentAttachment).not.toHaveBeenCalled()
     expect(closeBrowser).not.toHaveBeenCalled()
@@ -110,10 +135,64 @@ describe('AgentBrowserCapture', () => {
   it('surfaces upload failures with the raw cause as description', async () => {
     uploadAgentAttachment.mockRejectedValue(new Error('boom'))
     render(<AgentBrowserCapture projectId="p1" conversationId="c1" />)
-    modalProps!.onCaptured(captureResult())
+    await waitFor(() => expect(modalProps).not.toBeNull())
+    await expect(modalProps!.onCaptured(captureResult())).rejects.toThrow('boom')
     await waitFor(() => expect(toastError).toHaveBeenCalled())
     expect(toastError.mock.calls[0][1]).toMatchObject({ description: 'boom' })
     expect(queueCapture).not.toHaveBeenCalled()
     expect(closeBrowser).not.toHaveBeenCalled()
+
+    const attachment = { id: 'retry-att', filename: 'capture.png' }
+    uploadAgentAttachment.mockResolvedValue(attachment)
+    await modalProps!.onCaptured(captureResult())
+    expect(queueCapture).toHaveBeenCalledExactlyOnceWith(attachment)
+    expect(closeBrowser).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses native capture in missions without mounting the screencast session and remembers the project URL', async () => {
+    nativeAvailable.mockResolvedValue(true)
+    localStorage.setItem('specrails-desktop:agent-browser-url:p1', 'http://localhost:5173/')
+    render(<AgentBrowserCapture projectId="p1" conversationId="c1" />)
+    await screen.findByTestId('native-browser-fixture')
+    expect(modalProps).toBeNull()
+    expect(nativeProps!.url).toBe('http://localhost:5173/')
+    nativeProps!.onUrlChange('http://localhost:5173/settings')
+    expect(localStorage.getItem('specrails-desktop:agent-browser-url:p1')).toBe('http://localhost:5173/settings')
+    nativeProps!.onUrlChange('about:blank')
+    expect(localStorage.getItem('specrails-desktop:agent-browser-url:p1')).toBe('http://localhost:5173/settings')
+  })
+
+  it('uploads the native snapshot through the same mission attachment flow', async () => {
+    nativeAvailable.mockResolvedValue(true)
+    const attachment = { id: 'native-att', filename: 'capture.png' }
+    uploadAgentAttachment.mockResolvedValue(attachment)
+    render(<AgentBrowserCapture projectId="p1" conversationId="c1" />)
+    await screen.findByTestId('native-browser-fixture')
+    await act(async () => { await nativeProps!.onCaptured(captureResult()) })
+    expect(uploadAgentAttachment).toHaveBeenCalledExactlyOnceWith('c1', expect.any(File))
+    expect(queueCapture).toHaveBeenCalledWith(attachment)
+    expect(closeBrowser).toHaveBeenCalledTimes(1)
+    expect(modalProps).toBeNull()
+  })
+
+  it('propagates native upload errors so the annotation preview can retain the image for retry', async () => {
+    nativeAvailable.mockResolvedValue(true)
+    uploadAgentAttachment.mockRejectedValue(new Error('offline'))
+    render(<AgentBrowserCapture projectId="p1" conversationId="c1" />)
+    await screen.findByTestId('native-browser-fixture')
+    await expect(nativeProps!.onCaptured(captureResult())).rejects.toThrow('offline')
+    expect(screen.getByTestId('native-browser-fixture')).toBeInTheDocument()
+    expect(modalProps).toBeNull()
+    expect(closeBrowser).not.toHaveBeenCalled()
+    expect(queueCapture).not.toHaveBeenCalled()
+  })
+
+  it('falls back only when native opening fails, keeping advanced capture available', async () => {
+    nativeAvailable.mockResolvedValue(true)
+    render(<AgentBrowserCapture projectId="p1" conversationId="c1" />)
+    await screen.findByTestId('native-browser-fixture')
+    act(() => { nativeProps!.onFallback() })
+    await waitFor(() => expect(modalProps).not.toBeNull())
+    expect(screen.queryByTestId('native-browser-fixture')).not.toBeInTheDocument()
   })
 })

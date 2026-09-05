@@ -3,6 +3,7 @@ import path from 'path'
 import Database from 'better-sqlite3'
 import type { JobRow, EventRow, StatsRow, JobStatus, JobPriority, JobOwner, ChatConversationRow, ChatMessageRow, ActivityItem } from './types'
 import { secureDir, secureDbFile } from './util/secure-fs'
+import { applyNumberedMigrations } from './util/sqlite-migrations'
 
 // ─── Proposal types ───────────────────────────────────────────────────────────
 
@@ -1701,29 +1702,7 @@ function applyMigrations(db: DbInstance): void {
     )
   `)
 
-  const appliedVersions = new Set<number>(
-    (db.prepare('SELECT version FROM schema_migrations').all() as { version: number }[])
-      .map((r) => r.version)
-  )
-
-  for (let i = 0; i < MIGRATIONS.length; i++) {
-    const version = i + 1
-    if (!appliedVersions.has(version)) {
-      // M8: run each migration body and its version INSERT atomically. SQLite DDL
-      // is transactional, so a crash/failure mid-migration now rolls back the
-      // whole body instead of leaving a half-applied schema with the version
-      // unrecorded — which under the old code re-ran a bare `ALTER TABLE ADD
-      // COLUMN` on next startup and bricked it forever with 'duplicate column
-      // name'. With this, a failed migration leaves nothing applied and re-runs
-      // cleanly. (Pre-existing half-applied DBs are contained by the per-project
-      // load isolation in project-registry.ts — one bad DB no longer kills the app.)
-      const tx = db.transaction(() => {
-        MIGRATIONS[i](db)
-        db.prepare('INSERT OR IGNORE INTO schema_migrations (version) VALUES (?)').run(version)
-      })
-      tx()
-    }
-  }
+  applyNumberedMigrations(db, MIGRATIONS)
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -1736,27 +1715,31 @@ export function initDb(dbPath: string): DbInstance {
   }
 
   const db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
-  // Under load, QueueManager / ChatManager / FileSummaryManager write the same
-  // per-project DB concurrently with /analytics reads. Wait up to 5s on a lock
-  // instead of throwing SQLITE_BUSY, and cap the WAL so a long checkpoint can't
-  // grow it without bound.
-  db.pragma('busy_timeout = 5000')
-  db.pragma('journal_size_limit = 10000000') // ~10 MB
+  try {
+    db.pragma('journal_mode = WAL')
+    db.pragma('foreign_keys = ON')
+    // Under load, QueueManager / ChatManager / FileSummaryManager write the same
+    // per-project DB concurrently with /analytics reads. Wait up to 5s on a lock
+    // instead of throwing SQLITE_BUSY, and cap the WAL so a long checkpoint can't
+    // grow it without bound.
+    db.pragma('busy_timeout = 5000')
+    db.pragma('journal_size_limit = 10000000') // ~10 MB
 
-  applyMigrations(db)
+    applyMigrations(db)
 
-  // H-13: restrict the db + its WAL sidecars to 0600 (jobs.sqlite holds chat
-  // transcripts and verbatim terminal command history). After migrations the
-  // WAL/SHM files exist, so this covers them too.
-  secureDbFile(dbPath)
+    // H-13: restrict the db + its WAL sidecars to 0600 (jobs.sqlite holds chat
+    // transcripts and verbatim terminal command history). After migrations the
+    // WAL/SHM files exist, so this covers them too.
+    secureDbFile(dbPath)
 
-  // Orphan sweep: cancel any in-flight proposals from a previous server session
-  db.prepare(
-    "UPDATE proposals SET status = 'cancelled', updated_at = ? WHERE status IN ('exploring', 'refining')"
-  ).run(new Date().toISOString())
-
+    // Orphan sweep: cancel any in-flight proposals from a previous server session
+    db.prepare(
+      "UPDATE proposals SET status = 'cancelled', updated_at = ? WHERE status IN ('exploring', 'refining')"
+    ).run(new Date().toISOString())
+  } catch (err) {
+    db.close()
+    throw err
+  }
   return db
 }
 

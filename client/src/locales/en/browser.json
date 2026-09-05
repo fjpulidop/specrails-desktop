@@ -60,7 +60,7 @@
       "arrow": "Arrow (A)",
       "box": "Box (R)",
       "text": "Text (T)",
-      "blur": "Blur / redact (B)",
+      "blur": "Redact (B)",
       "step": "Step number (N)"
     },
     "notePrompt": "Note text:",
@@ -106,13 +106,19 @@
     "loginWindow": "Login window — {{origin}}",
     "stacked": "+{{count}} more",
     "backToPage": "Back to page",
-    "show": "Show login window"
+    "show": "Show login window",
+    "openFailed": "Could not open the sign-in window. Try signing in again."
   },
   "native": {
     "devtools": "DevTools",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "openExternal": "Open in system browser",
-    "badge": "Native"
+    "badge": "Native",
+    "selectElement": "Select element",
+    "selectHint": "Click an element on the page",
+    "capturePage": "Capture page",
+    "captureSelection": "Capture selection",
+    "capturing": "Capturing…"
   }
 }

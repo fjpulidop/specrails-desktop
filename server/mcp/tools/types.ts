@@ -7,7 +7,7 @@ import type { WsMessage } from '../../types'
 import type { MobileEventBus } from '../../mobile/mobile-event-bus'
 import { isTierEnabled, tierRefusalMessage, type McpTier } from '../mcp-tiers'
 import { createInternalApi } from '../../internal-api'
-import { AGENT_CAPABILITY_HEADER, levelAllowsTier } from '../../agent-tier'
+import { AGENT_CAPABILITY_HEADER, levelAllowsTier, type AgentTierLevel } from '../../agent-tier'
 import { getAgentConversation } from '../../agent-store'
 import { verifyAgentCapability } from '../agent-capability'
 
@@ -20,6 +20,7 @@ export type { McpTier } from '../mcp-tiers'
  */
 export interface ToolHandlerExtra {
   requestInfo?: { headers?: Record<string, string | string[] | undefined> }
+  signal?: AbortSignal
 }
 
 /** Everything a tool handler needs to drive the in-process managers. */
@@ -47,6 +48,21 @@ export interface McpToolContext {
   originConversationId?: string | null
   /** True only when the request presented a live server-minted capability. */
   firstPartyAgent?: boolean
+  agentTierLevel?: AgentTierLevel
+  /** Mutable defaults shared only by requests belonging to this MCP session. */
+  sessionState?: { activeProjectId: string | null }
+  /** SDK cancellation for this request; never stored in the session context. */
+  signal?: AbortSignal
+}
+
+export class McpApiError extends Error {
+  readonly code?: string
+  constructor(message: string, readonly status: number, readonly data: unknown) {
+    super(message)
+    this.name = 'McpApiError'
+    const error = (data as { error?: unknown } | null)?.error
+    if (typeof error === 'string') this.code = error
+  }
 }
 
 /**
@@ -64,11 +80,19 @@ export async function apiCall(
 ): Promise<unknown> {
   // Shared loopback client (server/internal-api.ts) — also drives the milestone
   // launch chain's chunk launches, so both stay byte-identical to a dashboard call.
-  const res = await createInternalApi({ port: ctx.desktopPort }).call(method, path, body)
+  // MCP calls additionally retain their request cancellation and bounded wait;
+  // those lifetimes belong to this call, not to the durable milestone chain.
+  const signal = ctx.signal
+    ? AbortSignal.any([ctx.signal, AbortSignal.timeout(120_000)])
+    : AbortSignal.timeout(120_000)
+  const res = await createInternalApi({
+    port: ctx.desktopPort,
+    fetchImpl: (input, init) => fetch(input, { ...init, signal }),
+  }).call(method, path, body)
   if (!res.ok) {
     const data = res.body
     const detail = typeof data === 'object' && data !== null ? JSON.stringify(data) : String(data)
-    throw new Error(`API ${method} ${path} → ${res.status}: ${detail}`)
+    throw new McpApiError(`API ${method} ${path} → ${res.status}: ${detail}`, res.status, data)
   }
   return res.body
 }
@@ -91,13 +115,14 @@ export function projectPath(ctx: McpToolContext, projectId: string | undefined):
  * (dashboard / external MCP client), an unknown/malformed id, or a store
  * failure all yield `{}` — those calls proceed byte-identically to before.
  */
-export function originConversationDefaults(ctx: McpToolContext): { provider?: string; reasoningEffort?: string } {
+export function originConversationDefaults(ctx: McpToolContext): { provider?: string; model?: string; reasoningEffort?: string } {
   if (!ctx.originConversationId) return {}
   try {
     const conv = getAgentConversation(ctx.desktopDb, ctx.originConversationId)
     if (!conv) return {}
     return {
       ...(conv.provider ? { provider: conv.provider } : {}),
+      ...(conv.model ? { model: conv.model } : {}),
       ...(conv.reasoning_effort ? { reasoningEffort: conv.reasoning_effort } : {}),
     }
   } catch {
@@ -119,7 +144,8 @@ export interface McpToolSpec {
   title: string
   description: string
   tier: McpTier | ((args: Record<string, unknown>) => McpTier)
-  /** Static hint for tool annotations when `tier` is dynamic. */
+  /** Display grouping hint. Dynamic facades still receive conservative protocol
+   * annotations because clients may use readOnlyHint for automatic approval. */
   hintTier?: McpTier
   inputSchema: ZodRawShape
   handler: (ctx: McpToolContext, args: Record<string, unknown>) => Promise<unknown> | unknown
@@ -132,7 +158,12 @@ export function requireProject(ctx: McpToolContext, projectId: string | undefine
     throw new Error('No project specified and no active project selected. Call specrails_select_project or pass projectId.')
   }
   const pc = ctx.registry.getContext(id)
-  if (!pc) throw new Error(`Unknown projectId "${id}". Use specrails_projects(list) to see valid ids.`)
+  if (!pc) {
+    if (ctx.registry.getProjectRow?.(id)) {
+      throw new Error(`Project "${id}" is registered but its database is temporarily unavailable. Retry after recovery; do not register a duplicate project.`)
+    }
+    throw new Error(`Unknown projectId "${id}". Use specrails_projects(list) to see valid ids.`)
+  }
   return pc
 }
 
@@ -142,11 +173,27 @@ export function requireProject(ctx: McpToolContext, projectId: string | undefine
 // wins over the process-wide selection. `setActiveProject` remains for
 // `specrails_select_project`; request context must never mutate this global.
 let _activeProjectId: string | null = null
-export function setActiveProject(id: string | null): void {
-  _activeProjectId = id
+export function setActiveProject(ctx: McpToolContext, id: string | null): void
+export function setActiveProject(id: string | null): void
+export function setActiveProject(ctxOrId: McpToolContext | string | null, id?: string | null): void {
+  if (typeof ctxOrId === 'object' && ctxOrId !== null) {
+    ctxOrId.sessionState ??= { activeProjectId: null }
+    ctxOrId.sessionState.activeProjectId = id ?? null
+  } else {
+    // Compatibility for direct legacy unit callers. Live transports always
+    // provide sessionState and never consult or change this fallback.
+    _activeProjectId = ctxOrId
+  }
 }
 export function getActiveProject(ctx: McpToolContext): string | null {
-  return ctx.requestProjectId !== undefined ? ctx.requestProjectId : _activeProjectId
+  return ctx.requestProjectId !== undefined ? ctx.requestProjectId
+    : ctx.sessionState ? ctx.sessionState.activeProjectId : _activeProjectId
+}
+
+export function toolTierAllowed(ctx: McpToolContext, tier: McpTier): boolean {
+  return ctx.firstPartyAgent && ctx.agentTierLevel !== undefined
+    ? levelAllowsTier(ctx.agentTierLevel, tier)
+    : isTierEnabled(ctx.desktopDb, tier)
 }
 
 function tierAnnotations(tier: McpTier): { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean } {
@@ -163,7 +210,7 @@ function tierAnnotations(tier: McpTier): { readOnlyHint?: boolean; destructiveHi
 }
 
 function toResult(data: unknown): CallToolResult {
-  const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
+  const text = typeof data === 'string' ? data : JSON.stringify(data ?? null, null, 2)
   return { content: [{ type: 'text', text }] }
 }
 
@@ -205,36 +252,42 @@ function emitMcpActivity(ctx: McpToolContext, spec: McpToolSpec, args: Record<st
  * the tier check because it lives here, not in the handler.
  */
 export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec: McpToolSpec): void {
-  const hintTier: McpTier = spec.hintTier ?? (typeof spec.tier === 'string' ? spec.tier : 'write')
+  // An action facade may read, write, launch AI and delete data through ONE
+  // protocol tool. Advertising the common read action as readOnlyHint:true
+  // misleads clients that use annotations when approving mutations.
+  const annotations = typeof spec.tier === 'function'
+    ? { readOnlyHint: false, destructiveHint: true, openWorldHint: true }
+    : tierAnnotations(spec.tier)
   server.registerTool(
     spec.name,
     {
       title: spec.title,
       description: spec.description,
       inputSchema: spec.inputSchema,
-      annotations: tierAnnotations(hintTier),
+      annotations,
     },
     async (args: Record<string, unknown>, extra?: ToolHandlerExtra): Promise<CallToolResult> => {
+      if (extra?.signal?.aborted) return errorResult('MCP request was cancelled before execution.')
       // Loopback identifies a machine, not a trusted caller. All first-party
       // authority and context come from this unguessable, server-minted bearer;
       // legacy tier/project/conversation headers are deliberately ignored.
-      const capability = verifyAgentCapability(
-        extra?.requestInfo?.headers?.[AGENT_CAPABILITY_HEADER],
-      )
+      const suppliedCapability = extra?.requestInfo?.headers?.[AGENT_CAPABILITY_HEADER]
+      const capability = verifyAgentCapability(suppliedCapability)
+      if (suppliedCapability !== undefined && !capability) {
+        return errorResult('Agent capability expired or was revoked. Start a new mission turn to reconnect.')
+      }
       const callCtx: McpToolContext = capability
         ? {
             ...ctx,
             requestProjectId: capability.projectId,
             originConversationId: capability.conversationId,
             firstPartyAgent: true,
+            agentTierLevel: capability.tierLevel,
           }
-        : ctx
+        : { ...ctx }
+      callCtx.signal = extra?.signal
       const tier: McpTier = typeof spec.tier === 'function' ? spec.tier(args ?? {}) : spec.tier
-      if (capability) {
-        if (!levelAllowsTier(capability.tierLevel, tier)) {
-          return errorResult(tierRefusalMessage(tier))
-        }
-      } else if (!isTierEnabled(ctx.desktopDb, tier)) {
+      if (!toolTierAllowed(callCtx, tier)) {
         return errorResult(tierRefusalMessage(tier))
       }
       try {

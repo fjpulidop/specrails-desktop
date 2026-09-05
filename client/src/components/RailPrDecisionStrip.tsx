@@ -15,7 +15,7 @@ import {
 import { Button } from './ui/button'
 import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../types'
 import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDecisionContext'
-import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode } from '../lib/pr-delivery'
+import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode, prDeliveryCheckoutBranch } from '../lib/pr-delivery'
 import { isTauri, revealItemInDir } from '../lib/tauri-shell'
 import { useDesktop } from '../hooks/useDesktop'
 import { useStackedHeadDeliveryIds } from '../hooks/useMilestoneProgress'
@@ -149,7 +149,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         }
         // merge-local preconditions are USER-fixable, not a lost race — say
         // exactly what to fix (checkout the base / clean the tree) and stop.
-        if (res.error === 'merge_local_blocked') {
+        if (res.error === 'merge_local_blocked' && (res.reason === 'dirty' || res.reason === 'wrong_branch')) {
           toast.warning(res.reason === 'dirty'
             ? t('railPr.mergeLocalBlockedDirty', { base: res.base ?? decision.baseBranch })
             : t('railPr.mergeLocalBlockedBranch', { base: res.base ?? decision.baseBranch, current: res.current ?? '?' }))
@@ -157,7 +157,11 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         }
         // A concurrent answer (other surface / other client) won — the
         // broadcast reconciles the strip; just say so, neutrally.
-        toast.info(t('railPr.alreadyResolved'))
+        if (res.error === 'stale_decision') {
+          toast.info(t('railPr.alreadyResolved'))
+        } else {
+          toast.error(t('railPr.actionFailed'), { description: res.detail ?? res.error })
+        }
         return
       }
       if (res.status === 502) {
@@ -255,7 +259,10 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         toast.warning(t('railPr.checkoutFailed'), { description: res.detail ?? res.error })
         return
       }
-      toast.success(t('railPr.checkoutSuccess', { branch: decision.branch ?? '' }))
+      toast.success(t('railPr.checkoutSuccess', { branch: res.branch ?? prDeliveryCheckoutBranch(decision) ?? '' }))
+      if (res.cleanupWarnings?.length) {
+        toast.warning(t('railPr.cleanupIncomplete', { count: res.cleanupWarnings.length }), { description: res.cleanupWarnings.join('\n') })
+      }
     } finally {
       if (mountedRef.current && currentDeliveryIdRef.current === expectedDeliveryId) setCheckingOut(false)
     }
@@ -405,12 +412,13 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     </button>
   ) : null
 
-  const checkoutBtn = checkout && decision.prUrl && decision.branch && decision.deliverySha && !presentation.deliveryBlocked ? (
+  const checkoutBranch = prDeliveryCheckoutBranch(decision)
+  const checkoutBtn = checkout && checkoutBranch ? (
     <button
       type="button"
       data-testid="rail-pr-checkout"
       disabled={busy}
-      title={t('railPr.checkoutTooltip', { branch: decision.branch })}
+      title={t('railPr.checkoutTooltip', { branch: checkoutBranch })}
       onClick={(e) => { e.stopPropagation(); void runCheckout() }}
       className={`inline-flex items-center gap-1 rounded-md font-medium border border-border/60 text-foreground/70 hover:border-accent-primary/40 hover:bg-accent-primary/10 disabled:opacity-50 disabled:pointer-events-none transition-colors ${
         compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]'
@@ -593,6 +601,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     } else if (d === 'on_review' || (d === 'pr_draft' && !decision.prUrl)) {
       actions = (
         <>
+          {checkoutBtn}
           {actionButton('create-pr', d, t('railPr.createPartialPr', { count: presentation.deliverableCount }), 'rail-pr-create-partial')}
           {presentation.continuation ? dismissBtn : discardBtn}
         </>
@@ -644,6 +653,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {actionButton('create-pr', d, t('railPr.retryPr'), 'rail-pr-create')}
+        {checkoutBtn}
         {mergeLocalBtn}
         {presentation.continuation ? dismissBtn : discardBtn}
       </>
@@ -673,6 +683,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {reviewPacketBtn}
+        {checkoutBtn}
         {actionButton('create-pr', 'on_review', t('railPr.createPr'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }), <GitPullRequest className={iconCls} aria-hidden />)}
         {mergeLocalBtn}
         {presentation.continuation ? dismissBtn : discardBtn}
@@ -705,6 +716,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     actions = (
       <>
         {actionButton('create-pr', 'pr_draft', t('railPr.retryPr'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }))}
+        {checkoutBtn}
         {mergeLocalBtn}
         {presentation.continuation ? dismissBtn : discardBtn}
       </>

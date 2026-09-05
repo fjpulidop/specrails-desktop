@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // We need to re-import auth after each test to reset module-level state.
 describe('auth', () => {
@@ -6,6 +6,7 @@ describe('auth', () => {
     vi.resetModules()
     vi.restoreAllMocks()
   })
+  afterEach(() => { vi.useRealTimers() })
 
   describe('initAuth', () => {
     it('fetches /api/token and caches the token', async () => {
@@ -17,7 +18,7 @@ describe('auth', () => {
       const { initAuth, getDesktopToken } = await import('../auth')
       await initAuth()
 
-      expect(global.fetch).toHaveBeenCalledWith('/api/token')
+      expect(global.fetch).toHaveBeenCalledWith('/api/token', expect.objectContaining({ signal: expect.any(AbortSignal) }))
       expect(getDesktopToken()).toBe('test-token-abc')
     })
 
@@ -48,15 +49,18 @@ describe('auth', () => {
       vi.useRealTimers()
     })
 
-    it('handles missing token field gracefully (token=undefined)', async () => {
-      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({}), // no token field
-      })
+    it('retries a malformed token response instead of finishing unauthenticated', async () => {
+      vi.useFakeTimers()
+      ;(global.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ token: 'ready-token' }) })
 
       const { initAuth, getDesktopToken } = await import('../auth')
-      await initAuth()
-      expect(getDesktopToken()).toBeNull()
+      const pending = initAuth()
+      await vi.runAllTimersAsync()
+      await pending
+      expect(getDesktopToken()).toBe('ready-token')
+      vi.useRealTimers()
     })
   })
 
@@ -78,6 +82,142 @@ describe('auth', () => {
   })
 
   describe('installFetchInterceptor', () => {
+    it('retries a temporarily unavailable project read with Retry-After without refreshing auth', async () => {
+      vi.useFakeTimers()
+      const spyFetch = vi.fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'project_unavailable' }), { status: 503, headers: { 'Retry-After': '2' } }))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ tickets: [1] }), { status: 200 }))
+      window.fetch = spyFetch
+      const { installFetchInterceptor } = await import('../auth')
+      installFetchInterceptor()
+      const pending = window.fetch(new Request(`${window.location.origin}/api/projects/p1/tickets`, { headers: { Accept: 'application/json' } }))
+      await vi.advanceTimersByTimeAsync(1999)
+      expect(spyFetch).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(await (await pending).json()).toEqual({ tickets: [1] })
+      expect(spyFetch).toHaveBeenCalledTimes(2)
+      expect((spyFetch.mock.calls[1][0] as Request).method).toBe('GET')
+      expect(new Headers(spyFetch.mock.calls[1][1].headers).get('Accept')).toBe('application/json')
+    })
+
+    it('stops project read recovery after ten seconds and preserves the final error response', async () => {
+      vi.useFakeTimers()
+      const spyFetch = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ error: 'project_unavailable', detail: 'database locked' }), { status: 503, headers: { 'Retry-After': '2' } })))
+      window.fetch = spyFetch
+      const { installFetchInterceptor } = await import('../auth')
+      installFetchInterceptor()
+      const pending = window.fetch('/api/projects/p1/tickets')
+      await vi.advanceTimersByTimeAsync(10000)
+      const response = await pending
+      expect(response.status).toBe(503)
+      expect(await response.json()).toEqual({ error: 'project_unavailable', detail: 'database locked' })
+      expect(spyFetch).toHaveBeenCalledTimes(6)
+      await vi.advanceTimersByTimeAsync(30000)
+      expect(spyFetch).toHaveBeenCalledTimes(6)
+    })
+
+    it('aborts during the project recovery delay without replaying the read', async () => {
+      vi.useFakeTimers()
+      const spyFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'project_unavailable' }), { status: 503 }))
+      window.fetch = spyFetch
+      const { installFetchInterceptor } = await import('../auth')
+      installFetchInterceptor()
+      const controller = new AbortController()
+      const pending = window.fetch('/api/projects/p1/tickets', { signal: controller.signal })
+      const aborted = expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+      await vi.advanceTimersByTimeAsync(1000)
+      controller.abort()
+      await aborted
+      await vi.advanceTimersByTimeAsync(10000)
+      expect(spyFetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('never delays mutations or unrelated 503 failures', async () => {
+      vi.useFakeTimers()
+      const spyFetch = vi.fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'project_unavailable' }), { status: 503 }))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'maintenance' }), { status: 503 }))
+      window.fetch = spyFetch
+      const { installFetchInterceptor } = await import('../auth')
+      installFetchInterceptor()
+      const request = new Request(`${window.location.origin}/api/projects/p1/rails/0/launch`, { method: 'POST', body: '{}' })
+      expect((await window.fetch(request)).status).toBe(503)
+      expect((await window.fetch('/api/projects/p1/tickets')).status).toBe(503)
+      await vi.advanceTimersByTimeAsync(30000)
+      expect(spyFetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('recovers a late sidecar token and retries the originally unauthorized project read', async () => {
+      const spyFetch = vi.fn()
+        .mockResolvedValueOnce({ ok: false, status: 401 })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ token: 'late-token' }) })
+        .mockResolvedValueOnce({ ok: true, status: 200 })
+      window.fetch = spyFetch
+      const { installFetchInterceptor, getDesktopToken } = await import('../auth')
+      installFetchInterceptor()
+      expect((await window.fetch('/api/projects')).status).toBe(200)
+      expect(getDesktopToken()).toBe('late-token')
+      expect(spyFetch.mock.calls[2][1].headers.get('X-Desktop-Token')).toBe('late-token')
+    })
+
+    it('refreshes a stale token only once for simultaneous unauthorized calls', async () => {
+      let tokenReads = 0
+      const spyFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/api/token')) {
+          tokenReads++
+          return { ok: true, status: 200, json: async () => ({ token: tokenReads === 1 ? 'old' : 'new' }) } as Response
+        }
+        const authorized = new Headers(init?.headers).get('X-Desktop-Token') === 'new'
+        return { ok: authorized, status: authorized ? 200 : 401 } as Response
+      })
+      window.fetch = spyFetch
+      const { initAuth, installFetchInterceptor } = await import('../auth')
+      await initAuth()
+      installFetchInterceptor()
+      const results = await Promise.all([window.fetch('/api/projects'), window.fetch('/api/settings')])
+      expect(results.map((response) => response.status)).toEqual([200, 200])
+      expect(tokenReads).toBe(2)
+    })
+
+    it('preserves Request headers and body when replaying after token refresh', async () => {
+      const bodies: string[] = []
+      const spyFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith('/api/token')) return { ok: true, json: async () => ({ token: 'new' }) } as Response
+        const request = input as Request
+        bodies.push(await request.text())
+        expect(new Headers(init?.headers).get('Content-Type')).toBe('application/json')
+        return { ok: bodies.length === 2, status: bodies.length === 2 ? 200 : 401 } as Response
+      })
+      window.fetch = spyFetch
+      const { installFetchInterceptor } = await import('../auth')
+      installFetchInterceptor()
+      const request = new Request(`${window.location.origin}/api/projects`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: '/repo' }),
+      })
+      expect((await window.fetch(request)).status).toBe(200)
+      expect(bodies).toEqual(['{"path":"/repo"}', '{"path":"/repo"}'])
+    })
+
+    it('never leaks the desktop token to a protocol-relative external URL', async () => {
+      const spyFetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ token: 'private-token' }) })
+      window.fetch = spyFetch
+      const { initAuth, installFetchInterceptor } = await import('../auth')
+      await initAuth()
+      installFetchInterceptor()
+      await window.fetch('//external.example/api/projects')
+      expect(spyFetch.mock.calls.at(-1)?.[1]).toEqual({})
+    })
+
+    it('does not repeat a failed authentication refresh or a caller-owned credential', async () => {
+      const spyFetch = vi.fn().mockResolvedValue({ ok: false, status: 401 })
+      window.fetch = spyFetch
+      const { installFetchInterceptor } = await import('../auth')
+      installFetchInterceptor()
+      expect((await window.fetch('/api/projects')).status).toBe(401)
+      expect(spyFetch).toHaveBeenCalledTimes(2)
+      await window.fetch('/api/projects', { headers: { 'X-Desktop-Token': 'explicit' } })
+      expect(spyFetch).toHaveBeenCalledTimes(3)
+    })
     it('wraps window.fetch when called', async () => {
       ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         ok: true,

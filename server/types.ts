@@ -397,6 +397,12 @@ export interface DesktopProjectRemovedMessage {
   timestamp: string
 }
 
+export interface DesktopProjectRecoveredMessage {
+  type: 'desktop.project_recovered'
+  projectId: string
+  timestamp: string
+}
+
 // ─── Setup message types ──────────────────────────────────────────────────────
 
 export interface SetupLogMessage {
@@ -1271,7 +1277,7 @@ export type WsMessage =
   | ChatStreamMessage | ChatDoneMessage | ChatErrorMessage
   | ChatCommandProposalMessage | ChatTitleUpdateMessage
   | SpecDraftUpdateMessage
-  | DesktopProjectsMessage | DesktopProjectAddedMessage | DesktopProjectRemovedMessage
+  | DesktopProjectsMessage | DesktopProjectAddedMessage | DesktopProjectRemovedMessage | DesktopProjectRecoveredMessage
   | SetupLogMessage | SetupCheckpointMessage | SetupChatMessage
   | SetupInstallDoneMessage | SetupCompleteMessage | SetupErrorMessage
   | SetupTurnDoneMessage

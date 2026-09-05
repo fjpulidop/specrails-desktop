@@ -105,6 +105,70 @@ beforeEach(() => {
 })
 
 describe('LoopRunManager fail-fast (provider down / out of quota)', () => {
+  it.each(['premium', null])('forwards the rail profile %s to both spawn paths', async (profileName) => {
+    const planInteractiveAiStep = vi.fn(() => null)
+    const ex = makeExecutors({ planInteractiveAiStep })
+    await manager(ex).run({ ...baseReq(), profileName })
+    expect(planInteractiveAiStep).toHaveBeenCalledWith(expect.objectContaining({ profileName }))
+    expect(ex.runAiStep).toHaveBeenCalledWith(expect.objectContaining({ profileName }))
+  })
+
+  it('does not accept STOP over a failed verification, then succeeds after a clean repair pass', async () => {
+    const ex = makeExecutors({
+      runShell: vi.fn()
+        .mockResolvedValueOnce({ stdout: '', stderr: 'assertion failed', exitCode: 1 })
+        .mockResolvedValue({ stdout: 'all checks passed', stderr: '', exitCode: 0 }),
+    })
+    const result = await manager(ex).run(baseReq())
+    expect(result.outcome).toBe('success')
+    expect(ex.runAiStep).toHaveBeenCalledTimes(2)
+    expect(ex.runDecider).toHaveBeenCalledTimes(2)
+    const ends = getJobEvents(db, result.runId)
+      .filter((event) => event.event_type === 'loop_step_end')
+      .map((event) => JSON.parse(event.payload))
+    expect(ends.filter((event) => event.nodeId === 'd').map((event) => event.decision)).toEqual(['continue', 'stop'])
+  })
+
+  it('does not report completion when the final archive shell command fails', async () => {
+    const graph = loopGraph()
+    graph.edges = graph.edges.filter((edge) => edge.source !== 'sh' && edge.source !== 'd')
+    graph.edges.push({ id: 'finish', source: 'sh', target: 'e' })
+    graph.nodes = graph.nodes.filter((node) => node.id !== 'd')
+    const result = await manager(makeExecutors({
+      runShell: vi.fn(async () => ({ stdout: '', stderr: 'archive target missing', exitCode: 1 })),
+    })).run({ ...baseReq(), graph })
+    expect(result.outcome).toBe('failed')
+    expect(getJob(db, result.runId)?.status).toBe('failed')
+  })
+
+  it('forwards the source repository to shell steps in a relocated project', async () => {
+    const ex = makeExecutors()
+    await manager(ex).run({ ...baseReq(), cwd: '/workspace', repoDir: '/source/repository' })
+    expect(ex.runShell).toHaveBeenCalledWith(expect.objectContaining({ cwd: '/workspace', repoDir: '/source/repository' }))
+  })
+
+  it('caps every process by the remaining run deadline even when AI step timeout is disabled', async () => {
+    const ex = makeExecutors()
+    await manager(ex).run({ ...baseReq(), graph: { ...loopGraph(), config: { maxIterations: 10, timeoutMinutes: 0.1, aiStepTimeoutMinutes: 0 } } })
+    expect(ex.runAiStep).toHaveBeenCalledWith(expect.objectContaining({ aiStepTimeoutMs: 6000 }))
+    expect(ex.runShell).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 6000 }))
+    expect(ex.runDecider).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 6000 }))
+  })
+
+  it('never starts an extra implementation after consuming maxIterations', async () => {
+    const ex = makeExecutors({ runDecider: vi.fn(async () => ({ continue: true, blocked: false, parsed: true, reasoning: 'more work' })) })
+    const result = await manager(ex).run({ ...baseReq(), graph: loopGraph(2) })
+    expect(result.outcome).toBe('max-iterations')
+    expect(ex.runAiStep).toHaveBeenCalledTimes(2)
+  })
+
+  it('never succeeds on a dead-end path without an explicit End', async () => {
+    const graph = loopGraph()
+    graph.edges = graph.edges.filter((edge) => edge.source !== 'ai')
+    const result = await manager(makeExecutors()).run({ ...baseReq(), graph })
+    expect(result.outcome).toBe('failed')
+  })
+
   it('aborts after AI_FAILFAST_THRESHOLD consecutive hard-failures instead of grinding to the cap', async () => {
     // Provider is genuinely down: every AI step hard-fails with no output AND the
     // Decider (same provider) can't produce a verdict either (parsed=false) — the
@@ -157,7 +221,8 @@ describe('LoopRunManager fail-fast (provider down / out of quota)', () => {
     const runAiStep = vi.fn(async () => ({ text: 'partial output', failed: true, errorText: 'exited 1', provider: 'claude', model: 'sonnet' }))
     const runDecider = vi.fn(async () => ({ continue: false, reasoning: 'stop', parsed: true }))
     const res = await manager(makeExecutors({ runAiStep, runDecider })).run({ ...baseReq(), graph: loopGraph(20) })
-    expect(res.outcome).toBe('success')
+    expect(res.outcome).toBe('max-iterations')
+    expect(runAiStep).toHaveBeenCalledTimes(20)
   })
 })
 
@@ -168,7 +233,7 @@ describe('LoopRunManager honest cost (unpriced step → lower bound)', () => {
     // bills $0. The decider then stops with a real cost.
     const runAiStep = vi.fn(async () => ({ text: 'partial work', failed: true, errorText: 'claude timed out', tokens: 1200, provider: 'claude', model: 'sonnet' }))
     const runDecider = vi.fn(async () => ({ continue: false, reasoning: 'done', parsed: true, cost: 0.001, tokens: 20, provider: 'claude', model: 'sonnet' }))
-    const res = await manager(makeExecutors({ runAiStep, runDecider })).run(baseReq())
+    const res = await manager(makeExecutors({ runAiStep, runDecider })).run({ ...baseReq(), graph: loopGraph(1) })
 
     // Per-occurrence honesty warning surfaced in the run log.
     expect(broadcasts.some((m) => m.type === 'log' && /Step cost unknown/.test((m as { line: string }).line))).toBe(true)
@@ -745,7 +810,7 @@ describe('LoopRunManager', () => {
           model: 'sonnet',
         }
       }
-      return { text: 'continued after human decision', provider: 'claude', model: 'sonnet' }
+      return { text: runAiStep.mock.calls.length === 3 ? 'VERIFICATION: PASS' : 'continued after human decision', provider: 'claude', model: 'sonnet' }
     })
     const m = manager(makeExecutors({ runAiStep }))
     const runPromise = m.run({ ...baseReq(), runId: 'run-human-decision', graph })
@@ -783,7 +848,7 @@ describe('LoopRunManager', () => {
     const runAiStep = vi.fn(async () => (
       runAiStep.mock.calls.length === 1
         ? { text: 'LOOP_BLOCKED: Which review feedback should be applied?', provider: 'claude', model: 'sonnet' }
-        : { text: 'applied selected feedback', provider: 'claude', model: 'sonnet' }
+        : { text: runAiStep.mock.calls.length === 3 ? 'VERIFICATION: PASS' : 'applied selected feedback', provider: 'claude', model: 'sonnet' }
     ))
 
     const m = manager(makeExecutors({ runAiStep }))
@@ -876,7 +941,10 @@ describe('LoopRunManager', () => {
     let aiCalls = 0
     let deciderCalls = 0
     const ex = makeExecutors({
-      runAiStep: vi.fn(async () => { aiCalls += 1; return { text: 'ok', provider: 'claude', model: 'sonnet' } }),
+      runAiStep: vi.fn(async () => {
+        aiCalls += 1
+        return { text: aiCalls === 2 ? 'VERIFICATION: FAIL — test failed' : aiCalls === 4 ? 'VERIFICATION: PASS' : 'implemented', provider: 'claude', model: 'sonnet' }
+      }),
       runDecider: vi.fn(async () => {
         deciderCalls += 1
         // Fail once (continue → fix → re-verify), then pass (stop).
@@ -888,6 +956,29 @@ describe('LoopRunManager', () => {
     expect(deciderCalls).toBe(2) // verify-fail then verify-pass
     // implement (once) + verify + fix + verify = 4 AI steps; the fix step ran.
     expect(aiCalls).toBe(4)
+  })
+
+  it.each([
+    'Looks finished.',
+    'VERIFICATION: FAIL — missing acceptance criteria',
+    'VERIFICATION: PASS\nVERIFICATION: FAIL — final check failed',
+    'The requested output format is "VERIFICATION: PASS".',
+  ])('refuses a Decider STOP without a successful final verification sentinel: %s', async (text) => {
+    const ex = makeExecutors({ runAiStep: vi.fn(async () => ({ text, tokens: 100 })) })
+    const result = await manager(ex).run({ ...baseReq(), graph: fixLoopGraph(['implement'], 'all green', 2) })
+    expect(result.outcome).toBe('max-iterations')
+    expect(getJob(db, result.runId)?.status).toBe('failed')
+  })
+
+  it('forces a repair even when the Decider prematurely reports STOP, then accepts a fresh PASS', async () => {
+    let aiCalls = 0
+    const ex = makeExecutors({ runAiStep: vi.fn(async () => ({
+      text: ++aiCalls === 4 ? 'VERIFICATION: PASS' : 'The implementation needs another check.', tokens: 100,
+    })) })
+    const result = await manager(ex).run({ ...baseReq(), graph: fixLoopGraph(['implement'], 'all green', 3) })
+    expect(result.outcome).toBe('success')
+    expect(ex.runAiStep).toHaveBeenCalledTimes(4)
+    expect(ex.runDecider).toHaveBeenCalledTimes(2)
   })
 
   it('marks the run failed when it reaches an End node flagged failure', async () => {
@@ -1049,7 +1140,7 @@ function assistantFrame(text = 'hello world'): string {
 
 /** Executors whose planner upgrades every ai-step to a real interactive session
  *  over a fresh scripted fake child. Deciders/shell stay one-shot fakes. */
-function interactiveExecutors(opts: { stepTimeoutMs?: number; over?: Partial<LoopExecutors> } = {}) {
+function interactiveExecutors(opts: { stepTimeoutMs?: number; inactivityTimeoutMs?: number; over?: Partial<LoopExecutors> } = {}) {
   const children: FakeChild[] = []
   const planInputs: InteractivePlanInput[] = []
   const planInteractiveAiStep = vi.fn((input: InteractivePlanInput): InteractiveAiStepPlan => {
@@ -1060,6 +1151,7 @@ function interactiveExecutors(opts: { stepTimeoutMs?: number; over?: Partial<Loo
       adapter: getAdapter('claude'),
       spec: { binary: 'claude', args: ['-p', '--input-format', 'stream-json'], cwd: input.cwd },
       stepTimeoutMs: opts.stepTimeoutMs ?? 15 * 60_000,
+      inactivityTimeoutMs: opts.inactivityTimeoutMs,
       spawn: (() => child) as InteractiveAiStepPlan['spawn'],
       killTree: ((_pid, _signal, callback) => {
         child.killed = true
@@ -1092,6 +1184,30 @@ function singleInteractiveGraph(aiStepTimeoutMinutes?: number): LoopGraph {
 }
 
 describe('LoopRunManager interactive ai-steps', () => {
+  it('fails the run on a terminal provider error after PASS while accounting its usage exactly once', async () => {
+    const { executors, children } = interactiveExecutors()
+    const p = manager(executors).run({ ...baseReq(), runId: 'failed-terminal-result', graph: singleInteractiveGraph() })
+    await waitFor(() => children.length === 1, 'interactive child')
+    children[0].stdout.push(resultFrame({ subtype: 'error_max_turns', is_error: true, errors: ['verification stopped'], result: 'VERIFICATION: PASS' }))
+    const result = await p
+    expect(result.outcome).toBe('failed')
+    expect(result.totalCostUsd).toBeCloseTo(0.05)
+    expect(getJob(db, result.runId)).toMatchObject({ status: 'failed', total_cost_usd: 0.05, tokens_in: 100, tokens_out: 200 })
+    expect(db.prepare('SELECT status, total_cost_usd, tokens_in, tokens_out FROM ai_invocations WHERE loop_run_id = ?').all(result.runId)).toEqual([
+      { status: 'failed', total_cost_usd: 0.05, tokens_in: 100, tokens_out: 200 },
+    ])
+  })
+
+  it('releases an untimed factory step when its interactive child remains silent', async () => {
+    const { executors, children } = interactiveExecutors({ stepTimeoutMs: 0, inactivityTimeoutMs: 25 })
+    const mgr = manager(executors)
+    const result = await mgr.run({ ...baseReq(), runId: 'silent-factory-step', graph: singleInteractiveGraph(0) })
+    expect(result).toMatchObject({ outcome: 'stalled', stallReason: 'idle_timeout' })
+    expect(children).toHaveLength(2)
+    expect(children.every(child => child.killed)).toBe(true)
+    expect(mgr.isInteractiveJob('silent-factory-step')).toBe(false)
+    expect(broadcasts.some((event) => event.type === 'log' && event.line.includes('zombie-detection'))).toBe(true)
+  })
   it('happy path: session spawned, first frame = rendered prompt, interactive row, quiescence advances', async () => {
     const { executors, children, planInputs } = interactiveExecutors()
     const mgr = manager(executors)
@@ -1270,7 +1386,7 @@ describe('LoopRunManager interactive ai-steps', () => {
     children[0].stdout.push(assistantFrame('grinding'))
 
     const res = await p // resolves via the 40ms abort
-    expect(res.outcome).toBe('success') // single-step graph still reaches End (step failed, run not)
+    expect(res.outcome).toBe('failed') // reaching End cannot erase the timed-out step
     expect(children[0].killed).toBe(true)
     expect(mgr.isInteractiveJob('run-int-5')).toBe(false)
     // The timeout note reached the transcript.
@@ -1466,9 +1582,8 @@ describe('LoopRunManager zero-work ai-steps', () => {
     const ends = endPayloads(res.runId)
     expect(ends.length).toBe(1)
     expect(ends[0]).toMatchObject({ nodeId: 'ai', status: 'failed' })
-    // One zero-work step alone does not abort the run — the graph routes on,
-    // exactly like a crashed step today (single-step graph reaches End).
-    expect(res.outcome).toBe('success')
+    // The command never executed; reaching End must not report completion.
+    expect(res.outcome).toBe('failed')
 
     // The step's ai_invocations row is failed.
     const row = db.prepare(`SELECT status, total_cost_usd, num_turns FROM ai_invocations WHERE surface='loop' AND loop_run_id=?`).get(res.runId) as { status: string; total_cost_usd: number; num_turns: number }
@@ -1777,7 +1892,7 @@ describe('LoopRunManager crash-consistent accounting', () => {
     }
     const res = await run
 
-    expect(res.outcome).toBe('success')
+    expect(res.outcome).toBe('failed')
     expect(children[0].stdinWrites).toHaveLength(1)
     expect(broadcasts.some((message) => message.type === 'job.turn_done')).toBe(false)
     expect(db.prepare(`
@@ -1824,7 +1939,7 @@ describe('LoopRunManager crash-consistent accounting', () => {
 
     const res = await run
 
-    expect(res.outcome).toBe('success')
+    expect(res.outcome).toBe('failed')
     expect(children[0].stdinWrites).toHaveLength(1)
     expect(db.prepare(`SELECT COUNT(*) AS n FROM events WHERE job_id = 'raw-persist-fail' AND event_type = 'assistant'`).get())
       .toEqual({ n: 0 })
@@ -2085,7 +2200,7 @@ describe('LoopRunManager structured run events', () => {
       // Non-zero shell exit → the step end must carry the REAL code and flag failed.
       runShell: vi.fn(async () => ({ stdout: 'boom', stderr: '', exitCode: 2, durationMs: 7 })),
     })
-    const res = await manager(ex).run(baseReq())
+    const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(1) })
 
     const events = getJobEvents(db, res.runId)
     const ends = payloads(res.runId, 'loop_step_end')
@@ -2096,7 +2211,7 @@ describe('LoopRunManager structured run events', () => {
     // shell: executor-reported duration + real exit code; non-zero ⇒ failed.
     expect(ends[1]).toMatchObject({ index: 2, nodeId: 'sh', status: 'failed', exitCode: 2, durationMs: 7 })
     // decider: verdict included; parseable ⇒ ok.
-    expect(ends[2]).toMatchObject({ index: 3, nodeId: 'd', status: 'ok', exitCode: null, decision: 'stop' })
+    expect(ends[2]).toMatchObject({ index: 3, nodeId: 'd', status: 'ok', exitCode: null, decision: 'continue' })
     // Tail ordering: the shell end sits after the step's last output line (`(exit 2)`).
     const exitLog = events.find((e) => e.event_type === 'log' && ((JSON.parse(e.payload) as { line?: string }).line ?? '').startsWith('(exit'))!
     const shellEnd = events.filter((e) => e.event_type === 'loop_step_end')[1]
@@ -2525,6 +2640,68 @@ describe('LoopRunManager idle stall (premium-milestone-progress)', () => {
     const log = broadcasts.filter((m) => m.type === 'log').map((m) => (m as { line: string }).line).join('\n')
     expect(log).toContain('Step stalled')
     expect(log).toContain('Retrying this step once')
+  })
+
+  it('records both stalled and resumed attempts without losing spend or reusing their recovery frontier', async () => {
+    const runAiStep = vi.fn()
+      .mockResolvedValueOnce({ ...stalledResult(), cost: 0.25, tokensIn: 10, tokensOut: 20, numTurns: 1, durationMs: 30 })
+      .mockImplementationOnce(async () => {
+        // The failed attempt is durable before a second provider can run.
+        const first = db.prepare('SELECT status, total_cost_usd FROM ai_invocations WHERE loop_run_id = ?').all('run-retry-accounting')
+        expect(first).toEqual([{ status: 'failed', total_cost_usd: 0.25 }])
+        return { text: 'done', cost: 0.5, tokensIn: 30, tokensOut: 40, numTurns: 1, durationMs: 50, provider: 'claude', model: 'sonnet' }
+      })
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), makeExecutors({ runAiStep }), () => 1000, { idleTimeoutMs: 60_000 })
+    const res = await mgr.run({ ...baseReq(), runId: 'run-retry-accounting', graph: stallGraph() })
+    expect(res).toMatchObject({ outcome: 'success', totalCostUsd: 0.75 })
+    expect(getJob(db, res.runId)).toMatchObject({ total_cost_usd: 0.75, tokens_in: 40, tokens_out: 60, num_turns: 2, duration_ms: 80 })
+    const rows = db.prepare('SELECT status, total_cost_usd FROM ai_invocations WHERE loop_run_id = ? ORDER BY started_at, rowid').all(res.runId)
+    expect(rows).toEqual([{ status: 'failed', total_cost_usd: 0.25 }, { status: 'success', total_cost_usd: 0.5 }])
+    expect(recoverOrphanLoopStepAccounting(db, undefined, res.runId)).toBe(0)
+  })
+
+  it('does not retry a stalled attempt that already consumed the cost cap', async () => {
+    const graph = stallGraph()
+    graph.config.maxCostUsd = 0.25
+    const runAiStep = vi.fn().mockResolvedValue({ ...stalledResult(), cost: 0.25 })
+    const res = await manager(makeExecutors({ runAiStep })).run({ ...baseReq(), graph })
+    expect(res).toMatchObject({ outcome: 'max-cost', totalCostUsd: 0.25 })
+    expect(runAiStep).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not retry a stalled attempt after the whole-run deadline', async () => {
+    let now = 1000
+    const graph = stallGraph()
+    graph.config.timeoutMinutes = 1
+    const runAiStep = vi.fn(async () => { now = 61_001; return stalledResult() })
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), makeExecutors({ runAiStep }), () => now)
+    const res = await mgr.run({ ...baseReq(), graph })
+    expect(res.outcome).toBe('failed')
+    expect(runAiStep).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a provider-limit settlement durable when its notification listener fails', async () => {
+    const runAiStep = vi.fn(async () => ({ text: "You've hit your session limit", cost: 0.1 }))
+    const mgr = new LoopRunManager(db, (message) => {
+      if (message.type === 'loop.provider_limit') throw new Error('disconnected listener')
+    }, makeExecutors({ runAiStep }), () => 1000)
+    const res = await mgr.run({ ...baseReq(), graph: stallGraph() })
+    expect(res).toMatchObject({ outcome: 'stalled', stallReason: 'provider_limit', totalCostUsd: 0.1 })
+    expect(getLoopRun(db, res.runId)?.final_outcome).toBe('stalled')
+    expect(runAiStep).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves the legacy watchdog setting while the new setting has precedence', async () => {
+    vi.stubEnv('SPECRAILS_LOOP_INACTIVITY_MS', '0')
+    vi.stubEnv('SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS', undefined)
+    try {
+      const ex = makeExecutors()
+      await manager(ex).run({ ...baseReq(), graph: stallGraph() })
+      expect(ex.runAiStep).toHaveBeenCalledWith(expect.objectContaining({ idleTimeoutMs: 0 }))
+      vi.stubEnv('SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS', '2400000')
+      await manager(ex).run({ ...baseReq(), graph: stallGraph() })
+      expect(ex.runAiStep).toHaveBeenLastCalledWith(expect.objectContaining({ idleTimeoutMs: 2_400_000 }))
+    } finally { vi.unstubAllEnvs() }
   })
 
   it('a second stall fails the step and settles the run `stalled` (never `running` forever)', async () => {

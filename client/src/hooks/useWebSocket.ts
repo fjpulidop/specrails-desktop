@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { getDesktopTokenProtocol } from '../lib/auth'
+import { useEffect, useRef, useState } from 'react'
+import { getDesktopTokenProtocol, refreshDesktopToken } from '../lib/auth'
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 
@@ -10,50 +10,89 @@ export function useWebSocket(
   onMessage: (data: unknown) => void
 ): { connectionStatus: ConnectionStatus } {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting')
-  const wsRef = useRef<WebSocket | null>(null)
-  const retryCountRef = useRef(0)
-  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onMessageRef = useRef(onMessage)
   onMessageRef.current = onMessage
 
-  const connect = useCallback(() => {
-    const protocol = getDesktopTokenProtocol()
-    const ws = protocol ? new WebSocket(url, ['specrails-desktop', protocol]) : new WebSocket(url)
-    wsRef.current = ws
-    setConnectionStatus('connecting')
+  useEffect(() => {
+    // Keep transport ownership inside this effect generation. A token refresh
+    // completing after unmount, StrictMode cleanup or a URL change must never
+    // recreate the old connection or replace the new generation's socket.
+    let disposed = false
+    let refreshing = false
+    let current: WebSocket | null = null
+    let retries = 0
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null
 
-    ws.onopen = () => {
-      retryCountRef.current = 0
-      setConnectionStatus('connected')
+    async function reconnect() {
+      if (disposed || refreshing || current) return
+      refreshing = true
+      try { await refreshDesktopToken() } catch { /* transient auth failure: socket retry remains recoverable */ }
+      finally { refreshing = false }
+      if (!disposed && !current) connect()
     }
 
-    ws.onmessage = (event) => {
+    function scheduleReconnect() {
+      if (disposed) return
+      if (retryTimeout !== null) clearTimeout(retryTimeout)
+      setConnectionStatus('connecting')
+      const delay = BACKOFF_DELAYS[retries++] ?? 30000
+      retryTimeout = setTimeout(() => {
+        retryTimeout = null
+        void reconnect()
+      }, delay)
+    }
+
+    function connect() {
+      if (disposed || current) return
+      const protocol = getDesktopTokenProtocol()
+      let ws: WebSocket
       try {
-        const parsed = JSON.parse(event.data as string)
-        onMessageRef.current(parsed)
+        ws = protocol ? new WebSocket(url, ['specrails-desktop', protocol]) : new WebSocket(url)
       } catch {
-        // ignore malformed messages
-      }
-    }
-
-    ws.onclose = () => {
-      wsRef.current = null
-      const attempt = retryCountRef.current
-      if (attempt >= BACKOFF_DELAYS.length) {
-        setConnectionStatus('disconnected')
+        scheduleReconnect()
         return
       }
-      const delay = BACKOFF_DELAYS[attempt]
-      retryCountRef.current += 1
-      retryTimeoutRef.current = setTimeout(connect, delay)
-    }
-  }, [url])
+      current = ws
+      setConnectionStatus('connecting')
 
-  useEffect(() => {
+      ws.onopen = () => {
+        if (disposed || current !== ws) return
+        retries = 0
+        setConnectionStatus('connected')
+      }
+
+      ws.onmessage = (event) => {
+        if (disposed || current !== ws) return
+        try {
+          onMessageRef.current(JSON.parse(event.data as string))
+        } catch {
+          // Ignore malformed messages without breaking the connection.
+        }
+      }
+
+      ws.onclose = () => {
+        if (disposed || current !== ws) return
+        current = null
+        scheduleReconnect()
+      }
+    }
+
+    const wake = () => {
+      if (disposed || current) return
+      if (retryTimeout !== null) clearTimeout(retryTimeout)
+      retryTimeout = null
+      void reconnect()
+    }
+    window.addEventListener('online', wake)
+    window.addEventListener('focus', wake)
     connect()
     return () => {
-      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
-      const ws = wsRef.current
+      disposed = true
+      window.removeEventListener('online', wake)
+      window.removeEventListener('focus', wake)
+      if (retryTimeout !== null) clearTimeout(retryTimeout)
+      const ws = current
+      current = null
       if (ws) {
         // B24: detach handlers BEFORE close(). Otherwise this intentional close
         // fires ws.onclose, which schedules a setTimeout(connect) reconnect after
@@ -63,11 +102,10 @@ export function useWebSocket(
         ws.onmessage = null
         ws.onclose = null
         ws.onerror = null
-        ws.close()
+        try { ws.close() } catch { /* already closed by the browser */ }
       }
-      wsRef.current = null
     }
-  }, [connect])
+  }, [url])
 
   return { connectionStatus }
 }

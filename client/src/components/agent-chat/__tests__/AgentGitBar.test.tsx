@@ -42,6 +42,33 @@ beforeEach(() => {
 })
 
 describe('AgentGitBar', () => {
+  it('ignores a previous project response after the mission changes project', async () => {
+    let finishOld!: (response: unknown) => void
+    global.fetch = vi.fn()
+      .mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve }))
+      .mockResolvedValue({ ok: true, json: async () => ({ ...INFO, branch: 'second-project' }) })
+    const view = render(<AgentGitBar projectId="p1" />)
+    view.rerender(<AgentGitBar projectId="p2" />)
+    expect(await screen.findByLabelText('Branch')).toHaveTextContent('second-project')
+    await act(async () => { finishOld({ ok: true, json: async () => INFO }) })
+    expect(screen.getByLabelText('Branch')).toHaveTextContent('second-project')
+  })
+
+  it('ignores an old status read that settles after checkout', async () => {
+    let finishOld!: (response: unknown) => void
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => INFO })
+      .mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve }))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ...INFO, branch: 'feature' }) })
+    render(<AgentGitBar projectId="p1" />)
+    await screen.findByLabelText('Branch')
+    act(() => notifyGitChanged('p1'))
+    await openDropdown()
+    await act(async () => { fireEvent.click(screen.getByRole('option', { name: /feature/ })) })
+    expect(screen.getByLabelText('Branch')).toHaveTextContent('feature')
+    await act(async () => { finishOld({ ok: true, json: async () => INFO }) })
+    expect(screen.getByLabelText('Branch')).toHaveTextContent('feature')
+  })
   it('renders the themed branch trigger and the last commit', async () => {
     mockFetchSequence([() => ({ body: INFO })])
     render(<AgentGitBar projectId="p1" />)

@@ -60,15 +60,21 @@ export function createMcpAdminRouter(deps: McpAdminDeps): Router {
       ['aiSpawn', 'ai-spawn'],
       ['destructive', 'destructive'],
     ]
+    // Validate the complete patch before changing any tier. A 400 must never
+    // leave the first fields committed while later fields were rejected.
     for (const [bodyKey, tier] of fields) {
       if (bodyKey in body) {
         if (typeof body[bodyKey] !== 'boolean') {
           res.status(400).json({ error: `${bodyKey} must be a boolean` })
           return
         }
-        setDesktopSetting(desktopDb, TIER_SETTING_KEY[tier], body[bodyKey] ? 'true' : 'false')
       }
     }
+    desktopDb.transaction(() => {
+      for (const [bodyKey, tier] of fields) {
+        if (bodyKey in body) setDesktopSetting(desktopDb, TIER_SETTING_KEY[tier], body[bodyKey] ? 'true' : 'false')
+      }
+    })()
     res.json({ ok: true, tiers: tierState(desktopDb) })
   })
 
@@ -78,8 +84,16 @@ export function createMcpAdminRouter(deps: McpAdminDeps): Router {
     res.json({ token: getMcpToken() })
   })
 
-  router.post('/regenerate-token', (_req: Request, res: Response) => {
-    res.json({ token: regenerateMcpToken() })
+  router.post('/regenerate-token', async (_req: Request, res: Response) => {
+    try {
+      const token = regenerateMcpToken()
+      // Already-open SSE streams were authenticated before rotation. Close
+      // them too; new requests must initialize with the newly persisted token.
+      await manager.stop()
+      res.json({ token })
+    } catch (err) {
+      res.status(500).json({ error: 'Could not regenerate MCP token', detail: err instanceof Error ? err.message : String(err) })
+    }
   })
 
   // Connection info for the panel to render a ready-to-paste client config.

@@ -54,6 +54,11 @@ describe('parseVerificationSentinel', () => {
     expect(parseVerificationSentinel('tests pass, everything is fine')).toEqual({ verdict: 'absent', detail: null })
   })
 
+  it('does not accept a format quoted in prose or a tool invocation as a verdict', () => {
+    expect(parseVerificationSentinel('I will print VERIFICATION: PASS when tests finish').verdict).toBe('absent')
+    expect(parseVerificationSentinel('🔧 shell echo "VERIFICATION: PASS"').verdict).toBe('absent')
+  })
+
   it('last sentinel wins so a quoted format in reasoning cannot shadow the verdict', () => {
     const text = 'I will end with VERIFICATION: PASS if green\n...\nVERIFICATION: FAIL — lint errors'
     expect(parseVerificationSentinel(text)).toEqual({ verdict: 'fail', detail: 'lint errors' })
@@ -121,6 +126,16 @@ describe('extractVerifyStepText', () => {
     expect(text).not.toContain('graph')
   })
 
+  it('decodes persisted provider log envelopes into readable verification lines', () => {
+    const text = extractVerifyStepText([
+      step(1, 'verify'),
+      ev('log', JSON.stringify({ line: 'Tests finished\nVERIFICATION: FAIL — auth regression' })),
+      stepEnd(1, 'verify'),
+    ]).text
+    expect(text).toBe('Tests finished\nVERIFICATION: FAIL — auth regression')
+    expect(parseVerificationSentinel(text)).toEqual({ verdict: 'fail', detail: 'auth regression' })
+  })
+
   it('survives malformed payloads', () => {
     const events = [step(1, 'verify'), ev('assistant', '{not json'), assistant('ok')]
     expect(extractVerifyStepText(events).text).toBe('ok')
@@ -186,7 +201,7 @@ describe('parseConfidenceScore', () => {
 describe('harvestDeliveryEvidence', () => {
   const scorePath = '/wt/a/openspec/changes/my-change/confidence-score.json'
   const io = (over: Partial<EvidenceHarvestIO> = {}): EvidenceHarvestIO => ({
-    readEvents: () => [step(1, 'verify'), assistant('VERIFICATION: PASS')],
+    readEvents: () => [step(1, 'verify'), assistant('VERIFICATION: PASS'), stepEnd(1, 'verify')],
     listDir: () => ['my-change'],
     fileExists: (p) => p === scorePath,
     readFile: () => JSON.stringify({ overall: 88, aspects: { security: 80 }, flags: [] }),
@@ -202,6 +217,25 @@ describe('harvestDeliveryEvidence', () => {
     expect(out.units[0]).toMatchObject({ ticketId: 7, runId: 'run-1', sentinel: 'pass' })
     expect(out.units[0].verifyTail).toContain('VERIFICATION: PASS')
     expect(out.units[0].confidence).toMatchObject({ changeName: 'my-change', overall: 88 })
+  })
+
+  it.each(['failed', 'interrupted'])('does not promote a %s verification to PASS', (status) => {
+    const events = [step(1, 'verify'), ev('log', JSON.stringify({ line: 'VERIFICATION: PASS' }))]
+    if (status === 'failed') events.push(ev('loop_step_end', JSON.stringify({ index: 1, nodeId: 'verify', status: 'failed' })))
+    const out = harvestDeliveryEvidence(io({ readEvents: () => events }), [
+      { ticketId: 7, runId: 'run-1', worktreePath: null },
+    ])
+    expect(out.units[0].sentinel).toBe('absent')
+    expect(out.units[0].verifyTail).toBe('VERIFICATION: PASS')
+  })
+
+  it('uses a completed repaired verification after an earlier failed pass', () => {
+    const out = harvestDeliveryEvidence(io({ readEvents: () => [
+      step(1, 'verify'), assistant('VERIFICATION: FAIL — regression'),
+      ev('loop_step_end', JSON.stringify({ index: 1, nodeId: 'verify', status: 'failed' })),
+      step(2, 'verify'), ev('log', JSON.stringify({ line: 'VERIFICATION: PASS' })), stepEnd(2, 'verify'),
+    ] }), [{ ticketId: 7, runId: 'run-1', worktreePath: null }])
+    expect(out.units[0].sentinel).toBe('pass')
   })
 
   it('absence of every source is still `ok` (absence is honest data)', () => {
@@ -370,7 +404,7 @@ describe('harvestDeliveryEvidence — revision freshness gate', () => {
   const memoryScore = `${memoryDir}/2026-07-28-reviewer-ticket-7.confidence-score.json`
 
   const revisionIo = (over: Partial<EvidenceHarvestIO> = {}): EvidenceHarvestIO => ({
-    readEvents: () => [stepAt(1, 'verify', 5_000), assistant('VERIFICATION: PASS')],
+    readEvents: () => [stepAt(1, 'verify', 5_000), assistant('VERIFICATION: PASS'), stepEnd(1, 'verify')],
     listDir: (dir) => (dir === memoryDir ? ['2026-07-28-reviewer-ticket-7.confidence-score.json'] : ['my-change']),
     fileExists: (p) => p === openSpecScore || p === memoryScore,
     fileMtimeMs: () => 6_000,

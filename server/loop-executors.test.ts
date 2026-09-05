@@ -172,6 +172,16 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
     expect(inv.buildOpts.extraArgs).toBeUndefined()
   })
 
+  it('prepares provider-native headless agents at the actual worktree before spawning', async () => {
+    const prepareHeadlessSpawn = vi.fn()
+    getAdapter.mockReturnValue({ ...fakeAdapter('gemini'), prepareHeadlessSpawn })
+    runAiCliInvocation.mockImplementation(async () => {
+      expect(prepareHeadlessSpawn).toHaveBeenCalledWith('/worktree')
+      return { code: 0, events: [], spawnFailed: false }
+    })
+    await createLoopExecutors({ env: {} }).runAiStep({ prompt: 'implement', provider: 'gemini', model: 'm', cwd: '/worktree', repoDir: '/worktree' })
+  })
+
   it('non-relocated (no repoDir) → no extraArgs for claude', async () => {
     const inv = await callStep('claude', { cwd: '/repo' })
     expect(inv.buildOpts.extraArgs).toBeUndefined()
@@ -188,6 +198,65 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
     expect(
       (await callStep('codex', { repoDir: '/repo', cwd: '/ws', sessionId: 's' })).action
     ).toBe('chat-resume')
+  })
+
+  it('treats signal termination (null exit code) as a failed AI step', async () => {
+    getAdapter.mockReturnValue(fakeAdapter('codex'))
+    runAiCliInvocation.mockResolvedValue({ code: null, events: [], spawnFailed: false, timedOut: false, stderrTail: '' })
+    const result = await createLoopExecutors({ env: {} }).runAiStep({ prompt: 'implement', provider: 'codex', model: 'm', cwd: '/repo' })
+    expect(result.failed).toBe(true)
+    expect(result.errorText).toContain('terminated')
+  })
+
+  it.each([
+    { type: 'result', is_error: true, errors: ['provider execution failed'] },
+    { type: 'result', subtype: 'error_max_turns', errors: ['turn budget exhausted'] },
+    { type: 'result', subtype: 'error_during_execution', result: 'provider failed' },
+  ])('fails an AI step on a terminal result error even after PASS text and exit 0: %j', async (payload) => {
+    getAdapter.mockReturnValue(fakeAdapter('claude'))
+    runAiCliInvocation.mockImplementation(async (hooks) => {
+      const events = [{ kind: 'result', payload }]
+      hooks.onEvent({ kind: 'text-delta', text: 'VERIFICATION: PASS' })
+      hooks.onEvent(events[0])
+      return { code: 0, events, spawnFailed: false }
+    })
+    finaliseInvocationResult.mockReturnValue({ result: { total_cost_usd: 0.25, tokens_in: 123, tokens_out: 456 }, estimated: false })
+    const result = await createLoopExecutors({ env: {} }).runAiStep({ prompt: 'verify', provider: 'claude', model: 'm', cwd: '/repo' })
+    expect(result).toMatchObject({ failed: true, cost: 0.25, tokensIn: 123, tokensOut: 456 })
+    expect(result.errorText).toBeTruthy()
+  })
+
+  it('rejects STOP from a Decider whose result ends in error even when its process exits cleanly', async () => {
+    getAdapter.mockReturnValue(fakeAdapter('claude'))
+    runAiCliInvocation.mockImplementation(async (hooks) => {
+      const event = { kind: 'result', payload: { type: 'result', is_error: true, errors: ['verification interrupted'] } }
+      hooks.onEvent({ kind: 'text-delta', text: '{"action":"stop","reasoning":"done"}' })
+      hooks.onEvent(event)
+      return { code: 0, events: [event], spawnFailed: false }
+    })
+    const result = await createLoopExecutors({ env: {} }).runDecider({ systemPrompt: 'judge', userPrompt: 'verify', provider: 'claude', model: 'm', cwd: '/repo' })
+    expect(result).toMatchObject({ continue: true, parsed: false, blocked: false })
+  })
+
+  it('keeps the one-shot inactivity watchdog active when factory wall-clock limits are disabled', async () => {
+    getAdapter.mockReturnValue(fakeAdapter('codex'))
+    await createLoopExecutors({ env: { SPECRAILS_LOOP_INACTIVITY_MS: '1234' } }).runAiStep({ prompt: 'implement', provider: 'codex', model: 'm', cwd: '/repo', aiStepTimeoutMs: 0 })
+    expect(runAiCliInvocation.mock.calls[0][0]).toMatchObject({ timeoutMs: undefined, inactivityTimeoutMs: 1234 })
+  })
+
+  it.each([
+    { code: 1, timedOut: false, error: undefined },
+    { code: null, timedOut: true, error: undefined },
+    { code: 0, timedOut: false, error: 'usage limit reached' },
+  ])('rejects a streamed STOP verdict when the Decider invocation fails: %j', async ({ code, timedOut, error }) => {
+    getAdapter.mockReturnValue(fakeAdapter('codex'))
+    runAiCliInvocation.mockImplementation(async (hooks) => {
+      hooks.onEvent({ kind: 'text-delta', text: '{"action":"stop","reasoning":"done"}' })
+      if (error) hooks.onEvent({ kind: 'error', message: error })
+      return { code, timedOut, spawnFailed: false, events: [], stderrTail: '' }
+    })
+    const result = await createLoopExecutors({ env: {} }).runDecider({ systemPrompt: 'judge', userPrompt: 'verify', provider: 'codex', model: 'm', cwd: '/repo' })
+    expect(result).toMatchObject({ continue: true, parsed: false, blocked: false })
   })
 
   describe('spawn env — per-run repoDir pin + lazy base-env provider (isolated rails)', () => {
@@ -281,12 +350,12 @@ describe('loop-executors — idle watchdog (loop-step-idle)', () => {
     expect(typeof inv.onInactivityTimeout).toBe('function')
   })
 
-  it('0 / absent ⇒ no inactivity watchdog (byte-identical untimed legacy)', async () => {
+  it('0 disables the watchdog while an absent bound preserves the existing 30-minute default', async () => {
     const a = await run(0)
     expect(a.inv.inactivityTimeoutMs).toBeUndefined()
     runAiCliInvocation.mockClear()
     const b = await run(undefined)
-    expect(b.inv.inactivityTimeoutMs).toBeUndefined()
+    expect(b.inv.inactivityTimeoutMs).toBe(30 * 60_000)
   })
 
   it('an inactivity teardown surfaces as a STALLED result, not a plain timeout', async () => {

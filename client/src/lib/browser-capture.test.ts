@@ -256,7 +256,7 @@ describe('browser-capture lib', () => {
       await expect(killBrowserSession('proj-1', 's1')).resolves.toBeUndefined()
     })
 
-    it('setBrowserPopupView posts the target and swallows errors', async () => {
+    it('setBrowserPopupView posts the target and reports transport or HTTP failures', async () => {
       const fetchMock = mockFetch((url, init) => {
         expect(url).toBe('/api/projects/proj-1/browser/sessions/s1/popup-view')
         expect(JSON.parse(init?.body as string)).toEqual({ target: 'root' })
@@ -267,7 +267,9 @@ describe('browser-capture lib', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
 
       global.fetch = vi.fn(async () => { throw new Error('network') }) as unknown as typeof fetch
-      await expect(setBrowserPopupView('proj-1', 's1', 'popup')).resolves.toBeUndefined()
+      await expect(setBrowserPopupView('proj-1', 's1', 'popup')).rejects.toThrow('network')
+      global.fetch = mockFetch(() => ({ status: 409 })) as unknown as typeof fetch
+      await expect(setBrowserPopupView('proj-1', 's1', 'root')).rejects.toThrow('409')
     })
   })
 

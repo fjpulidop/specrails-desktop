@@ -19,6 +19,8 @@ function makeCtx(db: DbInstance, repoPath = '/tmp/p1'): McpToolContext {
   const registry = {
     desktopDb: db,
     listContexts: () => [pc],
+    listProjects: () => [project],
+    getProjectRow: (id: string) => id === 'p1' ? project : undefined,
     getContext: (id: string) => (id === 'p1' ? pc : undefined),
     getContextByPath: (p: string) => (p === repoPath ? pc : undefined),
     removeProject: () => undefined,

@@ -6,6 +6,7 @@ import * as fs from 'fs'
 import {
   matchesOverlayCleanupEvidence,
   matchesOverlayCleanupEvidenceAtPath,
+  fingerprintOverlayCleanupPath,
   type OverlayCleanupEvidence,
 } from './worktree-overlay'
 import { authenticateWarmNodeModulesLinks } from './worktree-node-modules'
@@ -217,6 +218,20 @@ async function verifyReleaseEvidence(
       const uncovered = ignoredPaths.filter((livePath) => !coveredBySnapshot(livePath, snapshot))
       if (uncovered.length > 0) {
         return { failure: `the worktree contains ignored paths that appeared after settlement (${uncovered.slice(0, 3).join(', ')})`, overlayEntries: [] }
+      }
+      // A snapshot records names, not bytes. Files under an existing ignored
+      // directory may have been edited or added since settlement. Git's
+      // non-force worktree removal still deletes ignored content, so preserve
+      // every authorized ignored root in the same lossless quarantine used
+      // for overlays before releasing the mount.
+      for (const ignoredPath of ignoredPaths) {
+        const relative = safeRelativeOverlayPath(ignoredPath.replace(/\/$/, ''))
+        if (!relative) return { failure: 'Git reported an unsafe ignored path', overlayEntries: [] }
+        const target = path.join(worktree.worktree_path, ...relative.split('/'))
+        if (!pathStillExists(target)) continue
+        const fingerprint = fingerprintOverlayCleanupPath(target)
+        if (!fingerprint) return { failure: `could not preserve ignored path ${relative}`, overlayEntries: [] }
+        overlayEntries.push({ path: relative, ...fingerprint })
       }
     }
 

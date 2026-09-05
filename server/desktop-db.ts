@@ -5,6 +5,7 @@ import Database from 'better-sqlite3'
 import type { DbInstance } from './db'
 import type { ProviderId } from './providers/types'
 import { secureDir, secureDbFile } from './util/secure-fs'
+import { applyNumberedMigrations } from './util/sqlite-migrations'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -116,9 +117,8 @@ function migrateLegacyDbFile(dbPath: string): void {
       // is renamed first, a crash in the (sub-ms) window between renames leaves
       // `desktop.sqlite` with no adjacent WAL -> un-checkpointed commits in the
       // orphaned `hub.sqlite-wal` are silently discarded on next open. Moving the
-      // sidecars first means an interrupted migration leaves the WAL/SHM still
-      // matched to the legacy main file (the new file does not exist yet, so the
-      // guard above re-runs the whole migration on the next launch).
+      // sidecars first keeps the new main file from being opened without its
+      // WAL. An interrupted migration resumes before opening either main file.
       for (const suffix of ['-wal', '-shm']) {
         if (fs.existsSync(legacyPath + suffix)) {
           fs.renameSync(legacyPath + suffix, dbPath + suffix)
@@ -127,7 +127,11 @@ function migrateLegacyDbFile(dbPath: string): void {
       fs.renameSync(legacyPath, dbPath)
     }
   } catch (err) {
-    console.warn('[desktop-db] could not migrate legacy hub.sqlite:', err)
+    // A failed rename must never fall through into creating an empty catalog.
+    // Tolerate only a second startup that already completed the same rename.
+    if (!fs.existsSync(legacyPath) && fs.existsSync(dbPath)) return
+    const detail = err instanceof Error ? err.message : String(err)
+    throw new Error(`Could not migrate the existing project database from hub.sqlite to desktop.sqlite: ${detail}`, { cause: err })
   }
 }
 
@@ -197,11 +201,6 @@ function applyDesktopMigrations(db: DbInstance): void {
       applied_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `)
-
-  const appliedVersions = new Set<number>(
-    (db.prepare('SELECT version FROM schema_migrations').all() as { version: number }[])
-      .map((r) => r.version)
-  )
 
   const migrations: Array<() => void> = [
     // Migration 1: projects and hub_settings tables
@@ -600,22 +599,7 @@ function applyDesktopMigrations(db: DbInstance): void {
     },
   ]
 
-  for (let i = 0; i < migrations.length; i++) {
-    const version = i + 1
-    if (!appliedVersions.has(version)) {
-      // Run each migration body and its version INSERT atomically (mirrors
-      // db.ts applyMigrations). SQLite DDL is transactional, so a crash/failure
-      // mid-migration rolls back the whole body instead of leaving a half-applied
-      // schema with the version unrecorded — which previously re-ran a bare
-      // `ALTER TABLE ADD COLUMN` on next startup and bricked app launch forever
-      // with 'duplicate column name'.
-      const tx = db.transaction(() => {
-        migrations[i]()
-        db.prepare('INSERT OR IGNORE INTO schema_migrations (version) VALUES (?)').run(version)
-      })
-      tx()
-    }
-  }
+  applyNumberedMigrations(db, migrations)
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -629,17 +613,22 @@ export function initDesktopDb(dbPath: string = getDesktopDbPath()): DbInstance {
   migrateLegacyDbFile(dbPath)
 
   const db = new Database(dbPath)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
-  // Wait up to 5s on a lock instead of throwing SQLITE_BUSY, and cap the WAL.
-  db.pragma('busy_timeout = 5000')
-  db.pragma('journal_size_limit = 10000000') // ~10 MB
+  try {
+    db.pragma('journal_mode = WAL')
+    db.pragma('foreign_keys = ON')
+    // Wait up to 5s on a lock instead of throwing SQLITE_BUSY, and cap the WAL.
+    db.pragma('busy_timeout = 5000')
+    db.pragma('journal_size_limit = 10000000') // ~10 MB
 
-  applyDesktopMigrations(db)
+    applyDesktopMigrations(db)
 
-  // H-13: desktop.sqlite stores webhook HMAC secrets in plaintext — restrict it
-  // (and its WAL sidecars) to owner read/write.
-  if (dbPath !== ':memory:') secureDbFile(dbPath)
+    // H-13: desktop.sqlite stores webhook HMAC secrets in plaintext — restrict it
+    // (and its WAL sidecars) to owner read/write.
+    if (dbPath !== ':memory:') secureDbFile(dbPath)
+  } catch (err) {
+    db.close()
+    throw err
+  }
   return db
 }
 

@@ -209,6 +209,21 @@ export interface PrDeliveryPresentation {
   recoveryWorktreePaths: string[]
 }
 
+/** A local checkout needs a single verified branch, never a GitHub PR. Before
+ * PR assembly, a one-unit rail carries that evidence on the unit itself. */
+export function prDeliveryCheckoutBranch(input: PrDeliverySemanticInput): string | null {
+  const presentation = derivePrDeliveryPresentation(input)
+  if (presentation.terminal || presentation.deliveryBlocked || presentation.implementationFailed || presentation.noChanges || input.decision === 'building' || input.decision === 'implementation_failed') return null
+  if (input.branch || input.deliverySha) {
+    return input.branch && /^[0-9a-f]{40,64}$/i.test(input.deliverySha ?? '') ? input.branch : null
+  }
+  const units = input.units ?? []
+  if (units.length !== 1) return null
+  const unit = units[0]
+  if (!unit.succeeded || unit.implementationOutcome === 'failed' || unit.deliveryOutcome === 'blocked' || unit.deliveryOutcome === 'no_changes' || unit.changed === false) return null
+  return unit.branch && /^[0-9a-f]{40,64}$/i.test(unit.finalSha ?? '') ? unit.branch : null
+}
+
 /** ONE semantic derivation shared by dashboard and agent-chat cards. */
 export function derivePrDeliveryPresentation(input: PrDeliverySemanticInput): PrDeliveryPresentation {
   const units = input.units ?? []

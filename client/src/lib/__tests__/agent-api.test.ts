@@ -67,4 +67,28 @@ describe('agent-api', () => {
     mockFetch({ error: 'boom' }, false, 500)
     await expect(api.listAgentConversations()).rejects.toThrow('boom')
   })
+
+  it.each([
+    () => api.deleteAgentConversation('c1'),
+    () => api.deleteAgentAttachment('c1', 'attachment-1'),
+    () => api.abortAgentTurn('c1'),
+    () => api.enableMcp(),
+  ])('does not report a rejected mutation as successful', async (mutate) => {
+    mockFetch({ error: 'mutation refused' }, false, 409)
+    await expect(mutate()).rejects.toThrow('mutation refused')
+  })
+
+  it('preserves an unknown delivery conflict as a failure instead of saying it was resolved', async () => {
+    mockFetch({ error: 'delivery_not_verified', detail: 'The implementation commit is missing.' }, false, 409)
+    expect(await api.postRailPrDecision('p1', { prDeliveryId: 'd1', action: 'merge-local', expectedDecision: 'on_review' })).toEqual({
+      kind: 'failed', detail: 'The implementation commit is missing.', snapshot: null,
+    })
+  })
+
+  it('returns the checked out branch and preserved-worktree warnings', async () => {
+    mockFetch({ ok: true, branch: 'feat/local', cleanupWarnings: ['preserved modified worktree', null, 3] })
+    expect(await api.postRailPrCheckout('p1', 'd1')).toEqual({
+      kind: 'ok', branch: 'feat/local', cleanupWarnings: ['preserved modified worktree'],
+    })
+  })
 })

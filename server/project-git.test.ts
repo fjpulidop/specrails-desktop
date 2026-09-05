@@ -118,7 +118,7 @@ describe('project-git', () => {
     fs.writeFileSync(path.join(repo, 'file.txt'), 'dirty\n')
     const dirty = await checkoutProjectReviewBranch(repo, 'feature')
     expect(dirty.ok).toBe(false)
-    if (!dirty.ok) expect(dirty.error).toContain('uncommitted changes')
+    if (!dirty.ok) expect(dirty.error).toContain('would be overwritten')
     run(repo, 'checkout', '--', 'file.txt')
 
     const ok = await checkoutProjectReviewBranch(repo, 'feature')

@@ -169,6 +169,7 @@ export function fixLoopGraph(
     position: { x: COL_X, y: ROW_GAP * verifyRow },
     data: {
       prompt: verificationPrompt,
+      requireVerificationPass: true,
       ...(isolatedVerificationCycle ? { freshSession: true } : {}),
     },
   })
@@ -251,7 +252,7 @@ export function opsxLifecycleGraph(): LoopGraph {
       { id: 'start', type: 'start', position: { x: COL_X, y: 0 } },
       { id: 'ff', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 1 }, data: { label: 'opsx:ff', prompt: OPSX_FF_PROMPT } },
       { id: 'apply', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 2 }, data: { label: 'opsx:apply', prompt: OPSX_APPLY_PROMPT } },
-      { id: 'verify', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 3 }, data: { label: 'opsx:verify', prompt: OPSX_VERIFY_PROMPT } },
+      { id: 'verify', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 3 }, data: { label: 'opsx:verify', prompt: OPSX_VERIFY_PROMPT, requireVerificationPass: true } },
       { id: 'decide', type: 'decider', position: { x: COL_X, y: ROW_GAP * 4 }, data: { goal: OPSX_DECIDER_GOAL } },
       // Unattended archive: deterministic CLI, no AI, no prompt. `requireRunVars`
       // makes the engine REFUSE to run if no change id was captured (never archive

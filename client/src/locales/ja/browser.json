@@ -60,7 +60,7 @@
       "arrow": "矢印 (A)",
       "box": "ボックス (R)",
       "text": "テキスト (T)",
-      "blur": "ぼかし / 黒塗り (B)",
+      "blur": "黒塗り (B)",
       "step": "ステップ番号 (N)"
     },
     "notePrompt": "メモのテキスト:",
@@ -106,13 +106,19 @@
     "loginWindow": "ログインウィンドウ — {{origin}}",
     "stacked": "他 {{count}} 件",
     "backToPage": "ページに戻る",
-    "show": "ログインウィンドウを表示"
+    "show": "ログインウィンドウを表示",
+    "openFailed": "ログインウィンドウを開けませんでした。もう一度ログインしてください。"
   },
   "native": {
     "devtools": "開発者ツール",
     "zoomIn": "拡大",
     "zoomOut": "縮小",
     "openExternal": "システムブラウザーで開く",
-    "badge": "ネイティブ"
+    "badge": "ネイティブ",
+    "selectElement": "要素を選択",
+    "selectHint": "ページ上の要素をクリックしてください",
+    "capturePage": "ページをキャプチャ",
+    "captureSelection": "選択範囲をキャプチャ",
+    "capturing": "キャプチャ中…"
   }
 }

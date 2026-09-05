@@ -324,10 +324,9 @@ export function buildAgentDefaultsCatalog(): Array<{
  * Loop-path profile resolver factory. Returns `(provider) => snapshotPath|null`
  * for injection as `SPECRAILS_PROFILE_PATH` on loop ai-step spawns.
  *
- * Deliberately inert unless the global layer carries per-agent models for the
- * provider — when inactive (or when the project profile already pins every
- * agent) it returns null and the run behaves byte-identically to today (core
- * resolves `.specrails/profiles/project-default.json` on its own).
+ * A named rail profile always gets its own immutable snapshot. An explicit
+ * null opts out. Without a selection, the global layer only fills missing
+ * per-agent models; otherwise Core keeps its existing file-based defaults.
  */
 export function createLoopProfilePathResolver(io: {
   desktopDb: DbInstance
@@ -338,11 +337,13 @@ export function createLoopProfilePathResolver(io: {
   /** Seam for tests. */
   resolveProfile?: (root: string, explicit: string | undefined, provider: string) => ResolvedProfile | null
   snapshotDir?: string
-}): (provider: string) => string | null {
-  return (provider: string): string | null => {
+}): (provider: string, profileName?: string | null) => string | null {
+  return (provider: string, profileName?: string | null): string | null => {
+    if (profileName === null) return null
     try {
       const defaults = resolveAgentDefaults(io.desktopDb, provider)
-      if (!defaults || Object.keys(defaults.agentModels).length === 0) return null
+      const hasGlobalModels = defaults && Object.keys(defaults.agentModels).length > 0
+      if (!profileName && !hasGlobalModels) return null
       const adapter = getAdapter(provider)
       if (adapter.capabilities.profiles !== true || adapter.capabilities.profileEnvSupport !== true) return null
       const root = io.profileRoot()
@@ -352,21 +353,24 @@ export function createLoopProfilePathResolver(io: {
         const resolve = io.resolveProfile
           ?? ((r: string, e: string | undefined, p: string) =>
             (require('./profile-manager') as typeof import('./profile-manager')).resolveProfile(r, e, p))
-        base = resolve(root, undefined, provider)
-      } catch {
+        base = resolve(root, profileName, provider)
+      } catch (error) {
+        if (profileName) throw error
         base = null
       }
+      if (profileName && !base) throw new Error(`Profile '${profileName}' is unavailable for ${provider}`)
       let effective: Profile | null = null
       if (base) {
-        const merged = mergeProfileWithAgentDefaults(base.profile, defaults)
+        const merged = defaults ? mergeProfileWithAgentDefaults(base.profile, defaults) : { changed: false, profile: base.profile }
         // Nothing to add ⇒ stay out of the way (core's own file fallback rules).
-        effective = merged.changed ? merged.profile : null
-      } else {
+        effective = profileName || merged.changed ? merged.profile : null
+      } else if (defaults) {
         effective = synthesizeProfileFromDefaults(adapter, defaults)
       }
       if (!effective) return null
       return ensureGlobalProfileSnapshot(provider, effective, io.snapshotDir)
     } catch (err) {
+      if (profileName) throw err
       console.warn(`[agent-defaults] loop profile resolution failed for ${provider}: ${(err as Error).message}`)
       return null
     }

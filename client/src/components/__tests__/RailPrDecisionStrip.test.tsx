@@ -195,6 +195,25 @@ describe('RailPrDecisionStrip interactions', () => {
     expect(mockToast.error).not.toHaveBeenCalled()
   })
 
+  it('surfaces delivery conflicts without disguising them as an answered card', async () => {
+    const act = vi.fn().mockResolvedValue({ ok: false, status: 409, error: 'delivery_not_verified', detail: 'Missing commit evidence.' })
+    renderStrip(snapshot(), act)
+    fireEvent.click(screen.getByTestId('rail-pr-create'))
+    await waitFor(() => expect(mockToast.error).toHaveBeenCalledWith(expect.any(String), { description: 'Missing commit evidence.' }))
+    expect(mockToast.info).not.toHaveBeenCalled()
+  })
+
+  it('offers local checkout before PR creation and reports preserved worktrees', async () => {
+    const checkout = vi.fn().mockResolvedValue({ ok: true, status: 200, branch: 'sr/local', cleanupWarnings: ['Modified worktree preserved.'] })
+    render(<RailPrDecisionStrip density="normal" act={vi.fn()} checkout={checkout} decision={snapshot({
+      ticketIds: [1], units: [{ ticketId: 1, branch: 'sr/local', succeeded: true, finalSha: 'a'.repeat(40) }],
+    })} />)
+    fireEvent.click(screen.getByTestId('rail-pr-checkout'))
+    await waitFor(() => expect(mockToast.success).toHaveBeenCalledWith('Checked out sr/local'))
+    expect(checkout).toHaveBeenCalledWith('del-1')
+    expect(mockToast.warning).toHaveBeenCalledWith('Cleanup is incomplete (1 warning)', { description: 'Modified worktree preserved.' })
+  })
+
   it.each(['stale', 'untracked'] as const)('does not celebrate an ok HTTP snapshot classified as %s', async (snapshotApplication) => {
     const act = vi.fn().mockResolvedValue({
       ok: true,

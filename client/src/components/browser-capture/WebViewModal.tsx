@@ -6,6 +6,7 @@ import { Button } from '../ui/button'
 import { NativeBrowserModal } from './NativeBrowserPane'
 import { isNativeBrowserAvailable } from '../../lib/native-browser'
 import { useBrowserCaptureSession } from './useBrowserCaptureSession'
+import { useBrowserViewport } from './useBrowserViewport'
 import {
   mapPointToViewport,
   createPointerInputCoalescer,
@@ -37,7 +38,7 @@ export function WebViewModal({ open, url, projectId, onClose }: WebViewModalProp
   const [engine, setEngine] = useState<'probing' | 'native' | 'screencast'>('probing')
 
   useEffect(() => {
-    if (!open) return
+    if (!open || engine !== 'probing') return
     let alive = true
     void isNativeBrowserAvailable().then((ok) => {
       if (alive) setEngine(ok ? 'native' : 'screencast')
@@ -45,14 +46,16 @@ export function WebViewModal({ open, url, projectId, onClose }: WebViewModalProp
     return () => {
       alive = false
     }
-  }, [open])
+  }, [open, engine])
+
+  const onNativeFallback = useCallback(() => setEngine('screencast'), [])
 
   if (!open) return null
   // Sub-frame decision; rendering nothing briefly avoids creating a server-side
   // screencast session that the native path would immediately orphan.
   if (engine === 'probing') return null
   if (engine === 'native') {
-    return <NativeBrowserModal url={url} onClose={onClose} onFallback={() => setEngine('screencast')} />
+    return <NativeBrowserModal url={url} onClose={onClose} onFallback={onNativeFallback} />
   }
   return <ScreencastWebViewModal open={open} url={url} projectId={projectId} onClose={onClose} />
 }
@@ -70,8 +73,10 @@ export function WebViewModal({ open, url, projectId, onClose }: WebViewModalProp
 function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalProps) {
   const { t } = useTranslation('browser')
   const session = useBrowserCaptureSession({ projectId, open, initialUrl: url })
-  const { canvasRef, viewport, status, errorMsg, url: pageUrl, title, popup } = session
+  const { canvasRef, viewport, status, errorMsg, url: pageUrl, title, popup, popupError, setViewport } = session
   const [addressValue, setAddressValue] = useState(url)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  useBrowserViewport(containerRef, setViewport, open)
 
   // Browse input coalescer (same rationale as BrowserCaptureModal): pointermove
   // newest-wins + wheel deltas summed, ≤1 of each per animation frame.
@@ -86,8 +91,9 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
   }, [])
   useEffect(() => () => { coalescerRef.current?.dispose(); coalescerRef.current = null }, [])
 
-  // Reflect the page's real URL (after redirects / in-page navigation).
-  useEffect(() => { if (pageUrl) setAddressValue(pageUrl) }, [pageUrl])
+  // Navigation controls and address refer to the page currently being viewed.
+  const visibleUrl = popup?.active ? popup.url ?? 'about:blank' : pageUrl ?? ''
+  useEffect(() => { setAddressValue(visibleUrl) }, [visibleUrl, popup?.active])
 
   // Esc closes the modal.
   useEffect(() => {
@@ -205,11 +211,12 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
             aria-hidden
           />
           <span className="truncate">
-            {status === 'connecting' ? t('modal.status.connecting') : status === 'error' ? (errorMsg ?? t('modal.status.unavailable')) : (title || '')}
+            {status === 'connecting' ? t('modal.status.connecting') : status === 'error' ? (errorMsg ?? t('modal.status.unavailable')) : popup?.active ? t('popup.loginWindow', { origin: popupOriginLabel(popup.url) }) : (title || '')}
           </span>
         </div>
 
         {/* Popup (OAuth login window) bar — mirrors BrowserCaptureModal. */}
+        {popupError && <div role="alert" className="px-3 py-1.5 text-xs text-destructive border-b border-border/40 shrink-0">{popupError}</div>}
         {popup && (
           <div
             data-testid="webview-popup-bar"
@@ -245,6 +252,7 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
         {/* Viewport (browse-only) */}
         {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
         <div
+          ref={containerRef}
           className="relative flex-1 min-h-0 overflow-hidden flex items-center justify-center outline-none"
           tabIndex={0}
           onKeyDown={onKeyDown}
@@ -258,6 +266,7 @@ function ScreencastWebViewModal({ open, url, projectId, onClose }: WebViewModalP
           ) : (
             <canvas
               ref={canvasRef}
+              style={{ maxWidth: `min(100%, ${viewport.width}px)`, maxHeight: `min(100%, ${viewport.height}px)` }}
               className="max-w-full max-h-full block shadow-2xl cursor-default"
               onPointerMove={onPointerMove}
               onPointerDown={onPointerDown}

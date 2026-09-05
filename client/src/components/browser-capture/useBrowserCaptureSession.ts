@@ -50,6 +50,8 @@ export interface BrowserSessionState {
   hoverPath: BreadcrumbSegment[] | null
   /** Live popup stack, null when none are open. */
   popup: PopupState | null
+  /** Recoverable view-switch failure; the live page remains usable. */
+  popupError: string | null
 }
 
 export interface UseBrowserCaptureSession extends BrowserSessionState {
@@ -59,7 +61,7 @@ export interface UseBrowserCaptureSession extends BrowserSessionState {
   capture: (rect: CaptureRect, pendingSpecId: string, opts?: { captureNetwork?: boolean }) => Promise<CaptureResult>
   /** Capture the same selection at several viewport sizes (responsive reference). */
   captureBreakpoints: (rect: CaptureRect, anchorPoint: { x: number; y: number }, pendingSpecId: string, breakpoints?: Record<string, { width: number; height: number }>) => Promise<CaptureResult>
-  setViewport: (width: number, height: number) => void
+  setViewport: (width: number, height: number, deviceScaleFactor?: number) => void
   /** Bridge the host clipboard to the page (copy/cut → returns selection; paste → inject). */
   clipboard: (action: 'copy' | 'paste' | 'cut', text?: string) => Promise<{ text: string }>
   /** Step the breadcrumb to a parent/child/self element; null when can't step. */
@@ -69,7 +71,7 @@ export interface UseBrowserCaptureSession extends BrowserSessionState {
   /** Clear the current hover highlight. */
   clearHover: () => void
   /** Switch the viewed page between the root page and the top popup. */
-  setPopupView: (target: 'root' | 'popup') => void
+  setPopupView: (target: 'root' | 'popup') => Promise<void>
 }
 
 /**
@@ -90,6 +92,24 @@ export function useBrowserCaptureSession(opts: {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const sessionRef = useRef<{ id: string; projectId: string } | null>(null)
+  const popupRevisionRef = useRef(0)
+  const popupRequestRef = useRef(0)
+  // The measured surface usually exists before the REST session / WS handshake.
+  // Retain its latest size and replay it for each new socket, rather than losing
+  // an early resize and browsing forever at Chromium's default 1280×800.
+  const desiredViewportRef = useRef<{ width: number; height: number; deviceScaleFactor: number } | null>(null)
+  const sentViewportRef = useRef<typeof desiredViewportRef.current>(null)
+  const flushViewport = useCallback(() => {
+    const viewport = desiredViewportRef.current
+    const sent = sentViewportRef.current
+    const ws = wsRef.current
+    if (!viewport || !ws || ws.readyState !== WebSocket.OPEN) return
+    if (sent && sent.width === viewport.width && sent.height === viewport.height && sent.deviceScaleFactor === viewport.deviceScaleFactor) return
+    try {
+      ws.send(JSON.stringify({ type: 'input', event: { type: 'resize', ...viewport } }))
+      sentViewportRef.current = viewport
+    } catch { /* Retain the desired size for the next open/ready notification. */ }
+  }, [])
   // Count capture POSTs currently awaiting. The effect cleanup must NOT kill the
   // session out from under an in-flight capture (a transient effect re-run /
   // StrictMode double-invoke would otherwise 404 the capture).
@@ -117,14 +137,16 @@ export function useBrowserCaptureSession(opts: {
     hoverSelector: null,
     hoverPath: null,
     popup: null,
+    popupError: null,
   })
 
   useEffect(() => {
     if (!open || !projectId) return
     let cancelled = false
     let ownedSessionId: string | null = null
+    sentViewportRef.current = null
 
-    setState((s) => ({ ...s, status: 'connecting', errorMsg: null, popup: null }))
+    setState((s) => ({ ...s, status: 'connecting', errorMsg: null, popup: null, popupError: null }))
 
     // Latest-frame-wins decode + rAF-coalesced draw (see browser-frame-pipeline):
     // createImageBitmap decodes off the main thread; only the newest frame is
@@ -158,7 +180,7 @@ export function useBrowserCaptureSession(opts: {
           ...s,
           url: session.url,
           title: session.title,
-          viewport: { width: session.viewportWidth, height: session.viewportHeight },
+          viewport: desiredViewportRef.current ?? { width: session.viewportWidth, height: session.viewportHeight },
         }))
 
         const ws = openBrowserWs(session.id, projectId)
@@ -168,14 +190,16 @@ export function useBrowserCaptureSession(opts: {
             try {
               const msg = JSON.parse(ev.data) as { type: string; url?: string; title?: string; viewport?: { width: number; height: number }; rect?: CaptureRect | null; selector?: string | null; path?: BreadcrumbSegment[] | null; count?: number; active?: boolean }
               if (msg.type === 'ready') {
-                setState((s) => ({ ...s, status: 'ready', url: msg.url ?? s.url, title: msg.title ?? s.title, viewport: msg.viewport ?? s.viewport }))
+                setState((s) => ({ ...s, status: 'ready', url: msg.url ?? s.url, title: msg.title ?? s.title, viewport: desiredViewportRef.current ?? msg.viewport ?? s.viewport }))
+                flushViewport()
               } else if (msg.type === 'nav') {
                 setState((s) => ({ ...s, url: msg.url ?? s.url, title: msg.title ?? s.title }))
               } else if (msg.type === 'hover') {
                 setState((s) => ({ ...s, hoverRect: msg.rect ?? null, hoverSelector: msg.selector ?? null, hoverPath: msg.path ?? null }))
               } else if (msg.type === 'popup') {
                 const count = typeof msg.count === 'number' ? msg.count : 0
-                setState((s) => ({ ...s, popup: count > 0 ? { count, active: msg.active === true, url: msg.url ?? null } : null }))
+                popupRevisionRef.current += 1
+                setState((s) => ({ ...s, popup: count > 0 ? { count, active: msg.active === true, url: msg.url ?? null } : null, popupError: null }))
               }
             } catch {
               /* ignore */
@@ -185,12 +209,16 @@ export function useBrowserCaptureSession(opts: {
           // binary screencast frame
           pipeline.push(ev.data as ArrayBuffer)
         }
-        ws.onopen = () => { if (!cancelled) setState((s) => ({ ...s, status: 'ready' })) }
+        ws.onopen = () => {
+          if (cancelled) return
+          flushViewport()
+          setState((s) => ({ ...s, status: 'ready' }))
+        }
         ws.onerror = () => { if (!cancelled) setState((s) => ({ ...s, status: 'error', errorMsg: i18n.t('browser:session.connectionError') })) }
         ws.onclose = () => {
           // Unexpected drop (server restarted, session ended) — surface it so the
           // user knows to reopen instead of capturing against a dead session.
-          if (!cancelled) setState((s) => (s.status === 'ready' ? { ...s, status: 'error', errorMsg: i18n.t('browser:session.lostConnection') } : s))
+          if (!cancelled) setState((s) => ({ ...s, status: 'error', errorMsg: i18n.t('browser:session.lostConnection') }))
         }
       } catch (err) {
         if (cancelled) return
@@ -233,7 +261,7 @@ export function useBrowserCaptureSession(opts: {
         }
       }
     }
-  }, [open, projectId, initialUrl, flushPendingKills])
+  }, [open, projectId, initialUrl, flushPendingKills, flushViewport])
 
   const forwardInput = useCallback((event: BrowserInputEvent) => {
     const ws = wsRef.current
@@ -247,8 +275,10 @@ export function useBrowserCaptureSession(opts: {
     if (!session) return
     try {
       const result = await navigateBrowser(session.projectId, session.id, action, url)
-      if (sessionRef.current?.id !== session.id || sessionRef.current.projectId !== session.projectId) return
-      setState((s) => ({ ...s, url: result.url, title: result.title }))
+      if (sessionRef.current !== session) return
+      // Popup metadata arrives through WS. A late HTTP result must neither
+      // overwrite the opener's URL nor revive a popup that has already closed.
+      if (result.target !== 'popup') setState((s) => ({ ...s, url: result.url, title: result.title }))
     } catch {
       /* nav failures are non-fatal */
     }
@@ -284,12 +314,15 @@ export function useBrowserCaptureSession(opts: {
     return browserClipboard(session.projectId, session.id, action, text)
   }, [])
 
-  const setViewport = useCallback((width: number, height: number) => {
+  const setViewport = useCallback((width: number, height: number, deviceScaleFactor = window.devicePixelRatio || 1) => {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return
     const w = Math.max(1, Math.round(width))
     const h = Math.max(1, Math.round(height))
-    setState((s) => ({ ...s, viewport: { width: w, height: h } }))
-    forwardInput({ type: 'resize', width: w, height: h })
-  }, [forwardInput])
+    const scale = Number.isFinite(deviceScaleFactor) ? Math.min(2, Math.max(1, deviceScaleFactor)) : 1
+    desiredViewportRef.current = { width: w, height: h, deviceScaleFactor: scale }
+    setState((s) => s.viewport.width === w && s.viewport.height === h ? s : { ...s, viewport: { width: w, height: h } })
+    flushViewport()
+  }, [flushViewport])
 
   const probe = useCallback((point: { x: number; y: number }) => {
     const ws = wsRef.current
@@ -308,13 +341,20 @@ export function useBrowserCaptureSession(opts: {
     return navigateBrowserElement(session.projectId, session.id, selector, direction)
   }, [])
 
-  const setPopupView = useCallback((target: 'root' | 'popup') => {
+  const setPopupView = useCallback(async (target: 'root' | 'popup') => {
     const session = sessionRef.current
     if (!session) return
-    // Optimistic flip so the bar reacts instantly; the server's `popup` broadcast
-    // is authoritative and reconciles the state right after.
-    setState((s) => (s.popup ? { ...s, popup: { ...s.popup, active: target === 'popup' } } : s))
-    void setBrowserPopupView(session.projectId, session.id, target)
+    const revision = popupRevisionRef.current
+    const request = ++popupRequestRef.current
+    const isCurrent = () => sessionRef.current === session && popupRevisionRef.current === revision && popupRequestRef.current === request
+    // Keep the visible state authoritative: a failed request must not enable
+    // root-page capture while the image and input still belong to the login.
+    try {
+      await setBrowserPopupView(session.projectId, session.id, target)
+      if (isCurrent()) setState((s) => ({ ...s, popupError: null }))
+    } catch {
+      if (isCurrent()) setState((s) => ({ ...s, popupError: i18n.t('browser:session.connectionError') }))
+    }
   }, [])
 
   return {

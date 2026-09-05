@@ -269,8 +269,8 @@ function codexExternalOverrides(server: ResolvedExternalServer): string[] {
 
 /**
  * Prepares the specrails MCP for the given provider and returns the spawn
- * extraArgs + env to merge. Returns empty wiring when the bridge is unavailable
- * (agent then runs tool-less / degraded).
+ * extraArgs + env to merge. A missing bridge is an actionable failure: never
+ * launch a paid operator turn while silently omitting its primary tools.
  */
 export function prepareAgentMcp(opts: {
   adapterId: string
@@ -285,11 +285,13 @@ export function prepareAgentMcp(opts: {
   const adapter = getAdapter(opts.adapterId)
   const external = (opts.external ?? []).filter((s) => s.name !== 'specrails')
   if (adapter.id === 'claude') {
-    return { extraArgs: buildAgentMcpArgs(opts), env: {} }
+    const extraArgs = buildAgentMcpArgs(opts)
+    if (!extraArgs.length) throw new Error('The bundled Specrails MCP bridge is unavailable.')
+    return { extraArgs, env: {} }
   }
 
   const entry = buildAgentTurnEntry(opts)
-  if (!entry) return { extraArgs: [], env: {} }
+  if (!entry) throw new Error('The bundled Specrails MCP bridge is unavailable.')
 
   if (adapter.mcpRegistration === 'cli-add') {
     // Inline -c overrides contain only the capability FILE PATH, never its secret.

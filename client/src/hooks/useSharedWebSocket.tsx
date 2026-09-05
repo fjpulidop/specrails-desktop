@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import { getDesktopTokenProtocol } from '../lib/auth'
+import { getDesktopTokenProtocol, refreshDesktopToken } from '../lib/auth'
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 
@@ -34,23 +34,49 @@ export function SharedWebSocketProvider({ url, children }: { url: string; childr
 
   useEffect(() => {
     let disposed = false
+    let refreshing = false
+
+    async function reconnect() {
+      if (disposed || refreshing || wsRef.current) return
+      refreshing = true
+      // The sidecar may have started after bootstrap timed out or restarted
+      // with a different credential. Never retry a cached missing/stale token
+      // forever while the local API has already become healthy.
+      try { await refreshDesktopToken() } finally { refreshing = false }
+      if (!disposed && !wsRef.current) connect()
+    }
+
+    function scheduleReconnect() {
+      if (disposed) return
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+      const attempt = retryCountRef.current++
+      setConnectionStatus('connecting')
+      retryTimeoutRef.current = setTimeout(() => { void reconnect() }, BACKOFF_DELAYS[attempt] ?? 30000)
+    }
 
     function connect() {
       if (disposed) return
       const protocol = getDesktopTokenProtocol()
-      const ws = protocol ? new WebSocket(url, ['specrails-desktop', protocol]) : new WebSocket(url)
+      let ws: WebSocket
+      try {
+        ws = protocol ? new WebSocket(url, ['specrails-desktop', protocol]) : new WebSocket(url)
+      } catch {
+        scheduleReconnect()
+        return
+      }
       wsRef.current = ws
       setConnectionStatus('connecting')
 
       ws.onopen = () => {
         if (disposed) { ws.close(); return }
+        if (wsRef.current !== ws) return
         // Reset retry count on successful connection
         retryCountRef.current = 0
         setConnectionStatus('connected')
       }
 
       ws.onmessage = (event) => {
-        if (disposed) return
+        if (disposed || wsRef.current !== ws) return
         let parsed: unknown
         try {
           parsed = JSON.parse(event.data as string)
@@ -70,27 +96,27 @@ export function SharedWebSocketProvider({ url, children }: { url: string; childr
       }
 
       ws.onclose = () => {
-        if (disposed) return
+        if (disposed || wsRef.current !== ws) return
         wsRef.current = null
-        const attempt = retryCountRef.current
-        if (attempt >= BACKOFF_DELAYS.length) {
-          // Continue retrying every 30s instead of giving up
-          setConnectionStatus('connecting')
-          retryTimeoutRef.current = setTimeout(connect, 30000)
-          return
-        }
-        setConnectionStatus('connecting')
-        const delay = BACKOFF_DELAYS[attempt]
-        retryCountRef.current += 1
-        retryTimeoutRef.current = setTimeout(connect, delay)
+        scheduleReconnect()
       }
     }
 
+    const wake = () => {
+      if (wsRef.current) return
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
+      void reconnect()
+    }
+    window.addEventListener('online', wake)
+    window.addEventListener('focus', wake)
     connect()
     return () => {
       disposed = true
+      window.removeEventListener('online', wake)
+      window.removeEventListener('focus', wake)
       if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current)
       const ws = wsRef.current
+      wsRef.current = null
       if (!ws) return
       // Detach handlers so this (now-orphaned) socket stays silent — important
       // under React StrictMode's mount→unmount→mount cycle in dev.

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -29,6 +29,14 @@ describe('resolveBridgeScript', () => {
   it('returns the env-provided path when it exists', () => {
     process.env.SPECRAILS_BUNDLED_MCP_BRIDGE_PATH = bridgeFile
     expect(resolveBridgeScript()).toBe(bridgeFile)
+  })
+
+  it.each(['claude', 'codex', 'gemini', 'kimi'])('refuses a tool-less %s agent when no bridge can be found', (adapterId) => {
+    const absent = vi.spyOn(fs, 'existsSync').mockReturnValue(false)
+    try {
+      expect(() => prepareAgentMcp({ adapterId, conversationId: `missing-${adapterId}`, cwd: tmpDir, port: 4200, capability: 'test-capability' }))
+        .toThrow('bundled Specrails MCP bridge is unavailable')
+    } finally { absent.mockRestore() }
   })
 
   it('strips the \\\\?\\ verbatim prefix from the env-provided path', () => {

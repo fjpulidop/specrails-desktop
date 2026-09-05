@@ -12,16 +12,19 @@ const DESTRUCTIVE_ACTIONS = new Set(['delete', 'smash_undo', 'delete_epic_childr
 // `create` routes through Quick Add Spec (generate-spec) so MCP-created specs
 // match the app's "Add Spec → Quick" flow — hence ai-spawn, not write.
 const AI_SPAWN_ACTIONS = new Set(['create', 'generate', 'ai_edit', 'contract_refine', 'smash'])
-// `commit_draft` (POST /tickets/from-draft) may fire-and-forget a Contract
-// Refine spawn as a side-effect (Explore-origin flips per the conversation's
-// scope; agent-authored inserts by the facade's default-ON `contractRefine` —
-// opt out per call with `contractRefine: false`), but the call itself is a
-// synchronous store mutation (a write), so it is classified as `write`.
+// A post-commit background AI pass still incurs cost. Classify commit_draft
+// using its actual side effects, not the synchronous HTTP response alone.
 const WRITE_ACTIONS = new Set([
   'update', 'from_prompt', 'save_draft', 'commit_draft', 'cancel_ai_edit',
 ])
 
-function resolveSpecsTier(action: string): McpTier {
+function resolveSpecsTier(action: string, args: Record<string, unknown>): McpTier {
+  if (action === 'commit_draft') {
+    // Explore's stored scope governs refinement; its route does not accept an
+    // opt-out override here. A standalone draft flip does not launch AI.
+    if (args.conversationId) return 'ai-spawn'
+    return args.draftTicketId != null || args.contractRefine === false ? 'write' : 'ai-spawn'
+  }
   if (DESTRUCTIVE_ACTIONS.has(action)) return 'destructive'
   if (AI_SPAWN_ACTIONS.has(action)) return 'ai-spawn'
   if (WRITE_ACTIONS.has(action)) return 'write'
@@ -53,7 +56,7 @@ export function specsTools(): McpToolSpec[] {
         'from_prompt (verbatim insert, no AI — use ONLY when you already have a complete finished spec to store as-is; ' +
         'cannot set acceptanceCriteria or shortSummary — prefer commit_draft for structured specs), ' +
         'save_draft (persist an Explore conversation as a draft), ' +
-        'commit_draft (write — TWO uses: (a) flip an Explore draft to a real spec, passing conversationId from ' +
+        'commit_draft (ai-spawn when refinement may run; write for standalone draft flips or new inserts with contractRefine:false — TWO uses: (a) flip an Explore draft to a real spec, passing conversationId from ' +
         'specrails_chat and/or draftTicketId; (b) with NO conversationId/draftTicketId, insert a COMPLETE spec you ' +
         'authored in ONE call: title (required), description, acceptanceCriteria, priority, labels, shortSummary, ' +
         'assignee, prerequisites, metadata. THE canonical way to persist a spec refined in conversation — do NOT route ' +
@@ -70,7 +73,7 @@ export function specsTools(): McpToolSpec[] {
         'list_attachments, get_attachment. The generate/ai_edit/contract_refine/smash actions are async (HTTP 202) — ' +
         'results arrive over the WebSocket, not the HTTP response.',
       hintTier: 'read',
-      tier: (args) => resolveSpecsTier(args.action as string),
+      tier: (args) => resolveSpecsTier(args.action as string, args),
       inputSchema: {
         action: z
           .enum([
@@ -126,7 +129,7 @@ export function specsTools(): McpToolSpec[] {
           .optional()
           .describe('update/from_prompt/commit_draft: ticket priority. update: null allowed only for drafts'),
         labels: z.array(z.string()).optional().describe('update/from_prompt/save_draft/commit_draft: labels array'),
-        assignee: z.string().optional().describe('update/commit_draft: assignee'),
+        assignee: z.string().nullable().optional().describe('update/commit_draft: assignee; null clears'),
         prerequisites: z.array(z.number().int()).optional().describe('update/commit_draft: prerequisite ticket ids'),
         metadata: z.record(z.unknown()).optional().describe('update/commit_draft: free-form metadata object (update merges keys)'),
         acceptanceCriteria: z
@@ -134,7 +137,7 @@ export function specsTools(): McpToolSpec[] {
           .optional()
           .describe('update/commit_draft: acceptance-criteria bullets folded into the description'),
         shortSummary: z.string().optional().describe('commit_draft: explicit short summary (camelCase key)'),
-        short_summary: z.string().optional().describe('update: explicit short summary (snake_case key; null clears)'),
+        short_summary: z.string().nullable().optional().describe('update: explicit short summary (snake_case key; null clears)'),
         structured: z.boolean().optional().describe('from_prompt: lightly structure the verbatim prompt'),
         createLocal: z.boolean().optional().describe('create/generate/commit_draft: keep the spec local (skip Jira promote)'),
 
@@ -265,11 +268,16 @@ export function specsTools(): McpToolSpec[] {
             const attachmentId = args.attachmentId as string | undefined
             if (!ticketId) throw new Error('get_attachment requires a "ticketId".')
             if (!attachmentId) throw new Error('get_attachment requires an "attachmentId".')
-            return apiCall(
-              ctx,
-              'GET',
-              `${base}/tickets/${encodeURIComponent(ticketId)}/attachments/${encodeURIComponent(attachmentId)}`,
-            )
+            // The download endpoint streams binary files; decoding those as
+            // text corrupts their content and can exhaust the model context.
+            const list = await apiCall(ctx, 'GET', `${base}/tickets/${encodeURIComponent(ticketId)}/attachments`) as { attachments?: Array<{ id: string }> }
+            const attachment = list.attachments?.find((entry) => entry.id === attachmentId)
+            if (!attachment) throw new Error('Attachment not found. Use list_attachments to read current attachment ids.')
+            return {
+              attachment,
+              path: `${base}/tickets/${encodeURIComponent(ticketId)}/attachments/${encodeURIComponent(attachmentId)}`,
+              hint: 'Attachment metadata and download path; binary content is not inlined. Fetch the authenticated REST download or open the attachment in the app.',
+            }
           }
 
           // ── writes (synchronous store mutations) ────────────────────────

@@ -68,6 +68,14 @@ describe('connectBridge', () => {
     await app.close()
     expect(client.closed).toBe(true)
   })
+
+  it('fails pending calls on a lost SSE response instead of hanging or replaying mutations', async () => {
+    await client.onmessage!({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'mutate' } })
+    app.onerror!(new Error('SSE stream disconnected: socket lost'))
+    await Promise.resolve()
+    expect(client.sent).toEqual([expect.objectContaining({ id: 9, error: expect.objectContaining({ message: expect.stringContaining('inspect current state') }) })])
+    expect(app.sent).toHaveLength(1)
+  })
 })
 
 describe('bridge config', () => {
@@ -98,9 +106,9 @@ describe('agentForwardHeaders (capability file → authenticated header)', () =>
     }
   })
 
-  it('omits the header when the capability file is absent or unreadable', () => {
+  it('fails closed when a mission capability file is unreadable', () => {
     expect(agentForwardHeaders({})).toEqual({})
-    expect(agentForwardHeaders({ SPECRAILS_AGENT_CAPABILITY_FILE: '/does/not/exist' })).toEqual({})
+    expect(() => agentForwardHeaders({ SPECRAILS_AGENT_CAPABILITY_FILE: '/does/not/exist' })).toThrow('refusing to connect')
   })
 
   it('never forwards caller-authored legacy context env vars', () => {

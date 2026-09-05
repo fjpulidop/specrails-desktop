@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import fs from 'fs'
 import type { Request, Response } from 'express'
 vi.mock('../transient-children', () => ({
   startBackgroundProcess: vi.fn(),
@@ -26,6 +27,8 @@ function makeRegistry(db: DbInstance, contexts: Partial<ProjectContext>[] = []):
   return {
     desktopDb: db,
     listContexts: () => ctxs,
+    listProjects: () => ctxs.map((ctx) => ctx.project),
+    getProjectRow: (id: string) => ctxs.find((ctx) => ctx.project?.id === id)?.project,
     getContext: (id: string) => ctxs.find((c) => c.project?.id === id),
     getContextByPath: (p: string) => ctxs.find((c) => c.project?.path === p),
     removeProject: () => undefined,
@@ -56,6 +59,15 @@ describe('mcp-token', () => {
     const t2 = regenerateMcpToken()
     expect(t2).not.toBe(t1)
     expect(loadOrGenerateMcpToken()).toBe(t2)
+  })
+
+  it('keeps the previous live credential if regeneration cannot persist the new token', () => {
+    const previous = loadOrGenerateMcpToken()
+    const rename = vi.spyOn(fs, 'renameSync').mockImplementation(() => { throw new Error('disk unavailable') })
+    try {
+      expect(() => regenerateMcpToken()).toThrow('disk unavailable')
+      expect(loadOrGenerateMcpToken()).toBe(previous)
+    } finally { rename.mockRestore() }
   })
 
   it('requireMcpAuth accepts the valid Bearer token', () => {
@@ -148,7 +160,7 @@ describe('tool handlers', () => {
     expect(String(text)).toContain('Permissions — two regimes')
     expect(String(text)).toContain('pass the canonical mode value `freestyle`')
     expect(String(text)).toContain('call\n    the feature "Freestyle"')
-    expect(String(text)).toContain('Claude and Kimi support agent profiles')
+    expect(String(text)).toContain('Explicit named profiles are validated against the selected provider')
     expect(String(text)).toContain('Kimi prompt mode cannot enforce')
     expect(String(text)).toContain('specrails_support')
     expect(String(text)).toContain('APP-GLOBAL specrails-core framework')
@@ -182,7 +194,7 @@ describe('tool handlers', () => {
     expect(untilMs.optional).toBe(true)
     // Enums surface their values.
     const kind = d.inputFields.find((f) => f.name === 'kind')!
-    expect(kind.enumValues).toEqual(['job'])
+    expect(kind.enumValues).toEqual(['job', 'loop_run'])
     await expect(async () => tool('specrails_describe').handler(ctx, { name: 'nope' })).rejects.toThrow(/Unknown tool/)
   })
 
@@ -506,7 +518,7 @@ describe('specrails_watch', () => {
       const r = await p
       expect(r.settled).toBe(false)
       expect(r.reason).toBe('timeout')
-      expect(fetchMock).toHaveBeenCalledTimes(2)
+      expect(fetchMock).toHaveBeenCalledTimes(3)
     } finally {
       vi.unstubAllGlobals()
       vi.useRealTimers()
@@ -675,11 +687,12 @@ describe('registerTieredTool per-request origin conversation', () => {
     expect(parsed.project).toBe('proj-42')
   })
 
-  it('a revoked capability immediately loses first-party context', async () => {
+  it('a revoked capability is rejected instead of gaining external-client permissions', async () => {
     const { extra, token } = extraWithCapability('conv-revoked', 'proj-revoked')
     revokeAgentCapability(token)
     const r = await captured!({}, extra)
-    expect(JSON.parse(r.content[0].text)).toEqual({ project: null })
+    expect(r.isError).toBe(true)
+    expect(r.content[0].text).toContain('revoked')
   })
 })
 

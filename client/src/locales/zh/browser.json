@@ -60,7 +60,7 @@
       "arrow": "箭头 (A)",
       "box": "方框 (R)",
       "text": "文本 (T)",
-      "blur": "模糊/遮盖 (B)",
+      "blur": "遮盖 (B)",
       "step": "步骤编号 (N)"
     },
     "notePrompt": "备注文本：",
@@ -106,13 +106,19 @@
     "loginWindow": "登录窗口 — {{origin}}",
     "stacked": "还有 {{count}} 个",
     "backToPage": "返回页面",
-    "show": "显示登录窗口"
+    "show": "显示登录窗口",
+    "openFailed": "无法打开登录窗口。请重新尝试登录。"
   },
   "native": {
     "devtools": "开发者工具",
     "zoomIn": "放大",
     "zoomOut": "缩小",
     "openExternal": "在系统浏览器中打开",
-    "badge": "原生"
+    "badge": "原生",
+    "selectElement": "选择元素",
+    "selectHint": "点击页面上的元素",
+    "capturePage": "截取页面",
+    "captureSelection": "截取选中区域",
+    "capturing": "正在截图…"
   }
 }

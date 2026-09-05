@@ -24,19 +24,20 @@ export function codeTools(): McpToolSpec[] {
       description:
         'Read-only browse a project\'s source through the Code Explorer: list the file tree ' +
         '(default scoped to AI-touched files, optional provenance rollup), locate a file by name / ' +
-        'path suffix, read a file with its AI summary + staleness + provenance, fetch a stored ' +
+        'path suffix, read a bounded file range with a stable content hash, fetch a stored ' +
         'summary alone, regenerate a file\'s AI summary (cost-incurring, async), list "touched by ' +
         'AI" provenance rows, and fetch the stored unified-diff a job applied to a file. ' +
         'Actions: tree, find (name / path-suffix / fragment → ranked project-relative paths; use it ' +
         'when read_file 404s — a path copied from a stack trace or import is usually relative to a ' +
-        'subdirectory), read_file, summary, regenerate_summary (ai-spawn — spawns an AI CLI, ' +
+        'subdirectory), search (literal source content, scoped path and explicit scan budgets), ' +
+        'read_file (bounded line/column pages with hash and continuation, default 200 lines), summary, regenerate_summary (ai-spawn — spawns an AI CLI, ' +
         'incurs cost, returns 202 then completes over WS), provenance, diff. ' +
         'Requires SPECRAILS_CODE_EXPLORER (default on); the /code prefix 404s when disabled.',
       hintTier: 'read',
       tier: (a) => (a.action === 'regenerate_summary' ? 'ai-spawn' : 'read'),
       inputSchema: {
         action: z
-          .enum(['tree', 'find', 'read_file', 'summary', 'regenerate_summary', 'provenance', 'diff'])
+          .enum(['tree', 'find', 'search', 'read_file', 'summary', 'regenerate_summary', 'provenance', 'diff'])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
         path: z
@@ -44,7 +45,7 @@ export function codeTools(): McpToolSpec[] {
           .optional()
           .describe(
             'Project-relative file path. Required for read_file/summary/regenerate_summary/diff; ' +
-              'optional narrowing filter for provenance.',
+              'optional directory/file prefix for search or narrowing filter for provenance.',
           ),
         file: z
           .string()
@@ -54,13 +55,18 @@ export function codeTools(): McpToolSpec[] {
           .string()
           .optional()
           .describe(
-            'find only: file name, path suffix (e.g. components/detail/LessonView.tsx) or fragment ' +
+            'search: literal single-line source text (not regex). find: file name, path suffix (e.g. components/detail/LessonView.tsx) or fragment ' +
               'to locate, case-insensitive. Falls back to path/file when omitted.',
           ),
         filter: z
           .enum(['touched-by-ai', 'all'])
           .optional()
           .describe('tree only: scope to AI-touched files (default) or the whole repo'),
+        caseSensitive: z.boolean().optional().describe('search only: match exact character case (default false)'),
+        startLine: z.number().int().positive().optional().describe('read_file only: first line, 1-based (default 1)'),
+        endLine: z.number().int().positive().optional().describe('read_file only: last line inclusive (default startLine + 199; at most 500 lines returned)'),
+        startColumn: z.number().int().positive().optional().describe('read_file only: resume at nextColumn when a long line was split by the character budget (default 1)'),
+        expectedHash: z.string().regex(/^[a-f0-9]{64}$/i).optional().describe('read_file only: hash from the previous page/search; rejects changed files so pages cannot silently mix revisions'),
         withProvenance: z
           .boolean()
           .optional()
@@ -75,7 +81,7 @@ export function codeTools(): McpToolSpec[] {
           .positive()
           .max(500)
           .optional()
-          .describe('tree: entries per page (default 200, maximum 500 for MCP context safety); find: matches to return (default 20, maximum 50)'),
+          .describe('tree: entries per page (default 200, maximum 500); find: matches (default 20, max 50); search: matching lines (default 30, max 100)'),
         ticketId: z
           .number()
           .int()
@@ -158,14 +164,30 @@ export function codeTools(): McpToolSpec[] {
               ...r,
               hint: matches.length
                 ? 'Call read_file with one of these project-relative paths (best match first).'
-                : 'No file matches. The scan skips build/dependency trees, dot-directories and gitignored paths; ' +
+                : r.truncated
+                  ? 'Partial scan found no matches; this does not prove absence. Narrow the query and retry or inspect the project tree.'
+                  : 'No file matches. The scan skips build/dependency trees, dot-directories and gitignored paths; ' +
                   'try a shorter fragment or the bare file name.',
             }
           }
 
+          case 'search': {
+            const query = args.query as string | undefined
+            if (!query?.trim()) throw new Error('Action "search" requires a literal source-text "query".')
+            if (typeof args.limit === 'number' && args.limit > 100) throw new Error('Action "search" limit must be at most 100.')
+            const qs = new URLSearchParams({ q: query, limit: String(args.limit ?? 30), caseSensitive: String(args.caseSensitive === true) })
+            if (args.path) qs.set('path', args.path as string)
+            return apiCall(ctx, 'GET', `${base}/code/search?${qs.toString()}`)
+          }
+
           case 'read_file': {
             const p = requirePath()
-            const qs = new URLSearchParams({ path: p })
+            const startLine = typeof args.startLine === 'number' ? args.startLine : 1
+            const endLine = typeof args.endLine === 'number' ? args.endLine : startLine + 199
+            if (endLine < startLine) throw new Error('endLine must be greater than or equal to startLine.')
+            const qs = new URLSearchParams({ path: p, startLine: String(startLine), endLine: String(endLine) })
+            if (args.startColumn !== undefined) qs.set('startColumn', String(args.startColumn))
+            if (args.expectedHash) qs.set('expectedHash', args.expectedHash as string)
             return withNotFoundHint(p, () => apiCall(ctx, 'GET', `${base}/code/file?${qs.toString()}`))
           }
 

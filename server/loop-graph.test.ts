@@ -81,6 +81,45 @@ describe('emptyLoopGraph', () => {
 })
 
 describe('validateLoopGraph', () => {
+  it.each([
+    { aiStepTimeoutMinutes: -1 },
+    { aiStepTimeoutMinutes: NaN },
+    { maxCostUsd: Infinity },
+  ])('rejects invalid optional execution limits: %j', (config) => {
+    const g = validLoopGraph()
+    Object.assign(g.config, config)
+    expect(validateLoopGraph(g).errors.map((error) => error.code)).toContain('INVALID_CONFIG')
+  })
+
+  it('rejects duplicate node ids instead of executing a different node than the canvas shows', () => {
+    const g = validLoopGraph()
+    g.nodes.push({ ...g.nodes[1] })
+    expect(validateLoopGraph(g).errors.map((error) => error.code)).toContain('DUPLICATE_NODE')
+  })
+
+  it('rejects ambiguous decider branches', () => {
+    const g = validLoopGraph()
+    for (const edge of g.edges.filter((edge) => edge.source === 'd')) edge.branch = 'continue'
+    expect(validateLoopGraph(g).errors.map((error) => error.code)).toContain('INVALID_BRANCH')
+  })
+
+  it('rejects a dead end instead of silently treating it as successful completion', () => {
+    const g = validLoopGraph()
+    g.edges = g.edges.filter((edge) => edge.source !== 'sh')
+    expect(validateLoopGraph(g).errors).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'DEAD_END', nodeId: 'sh' })]))
+  })
+
+  it.each(['ai-step', 'shell', 'condition'] as const)('rejects unsupported %s fanout that would skip branches', (kind) => {
+    const g = validLoopGraph()
+    g.nodes[1].type = kind
+    g.edges.push(edge('skipped', 'ai', 'e'))
+    expect(validateLoopGraph(g).errors).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'UNSUPPORTED_BRANCHING', nodeId: 'ai' })]))
+  })
+
+  it.each([null, { nodes: {}, edges: [] }, { nodes: [null], edges: [] }, { nodes: [], edges: [null] }])('returns validation errors rather than throwing for malformed imported graphs: %j', (g) => {
+    expect(validateLoopGraph(g as unknown as LoopGraph).valid).toBe(false)
+  })
+
   it('accepts a canonical loop with a cycle back to an earlier node', () => {
     const result = validateLoopGraph(validLoopGraph())
     expect(result.valid).toBe(true)

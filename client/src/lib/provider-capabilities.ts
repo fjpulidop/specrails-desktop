@@ -67,6 +67,17 @@ const PROVIDER_REASONING_EFFORTS: Record<string, readonly ProviderReasoningEffor
   kimi: ['low', 'high', 'max'],
 }
 
+// Mirrors the model-specific Codex CLI capabilities in codex-adapter.ts.
+const CODEX_BASE_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const
+const CODEX_MODEL_EFFORTS: Record<string, readonly ProviderReasoningEffort[]> = {
+  'gpt-6-astra': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
+  'gpt-5.6-sol': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
+  'gpt-5.6-terra': [...CODEX_BASE_EFFORTS, 'max', 'ultra'],
+  'gpt-5.6-luna': [...CODEX_BASE_EFFORTS, 'max'],
+  'gpt-5.5': CODEX_BASE_EFFORTS,
+  'gpt-5.4-mini': CODEX_BASE_EFFORTS,
+}
+
 /** Exact effort tiers accepted by the provider adapter. */
 export function reasoningEffortsForProvider(
   provider: string | null | undefined,
@@ -75,6 +86,7 @@ export function reasoningEffortsForProvider(
   // Kimi Code exposes KIMI_MODEL_THINKING_EFFORT only for K3. Fail closed when
   // the effective model is unknown so custom aliases never receive a no-op.
   if (provider === 'kimi' && model !== 'k3' && model !== 'kimi-code/k3') return []
+  if (provider === 'codex' && model && CODEX_MODEL_EFFORTS[model]) return CODEX_MODEL_EFFORTS[model]
   return provider ? PROVIDER_REASONING_EFFORTS[provider] ?? [] : []
 }
 

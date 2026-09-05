@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -577,6 +577,47 @@ describe('legacy hub → desktop migrations', () => {
     expect(fs.existsSync(legacyPath)).toBe(true)
     // The fresh desktop DB was kept — no legacy keys leaked in.
     expect(getDesktopSetting(db, 'desktop_daily_budget_usd')).toBeUndefined()
+    db.close()
+  })
+
+  it('never creates an empty catalog when the legacy database rename fails', () => {
+    const legacyPath = path.join(dir, 'hub.sqlite')
+    const desktopPath = path.join(dir, 'desktop.sqlite')
+    seedLegacyDb(legacyPath)
+    const rename = vi.spyOn(fs, 'renameSync').mockImplementation(() => {
+      throw Object.assign(new Error('temporarily denied'), { code: 'EACCES' })
+    })
+    try {
+      expect(() => initDesktopDb(desktopPath)).toThrow('Could not migrate the existing project database')
+      expect(fs.existsSync(desktopPath)).toBe(false)
+      expect(fs.existsSync(legacyPath)).toBe(true)
+    } finally {
+      rename.mockRestore()
+    }
+    const db = initDesktopDb(desktopPath)
+    expect(getDesktopSetting(db, 'ui_theme')).toBe('matrix')
+    db.close()
+  })
+
+  it('resumes migration after sidecars moved but the main rename failed', () => {
+    const legacyPath = path.join(dir, 'hub.sqlite')
+    const desktopPath = path.join(dir, 'desktop.sqlite')
+    seedLegacyDb(legacyPath)
+    fs.writeFileSync(legacyPath + '-wal', 'WAL-SENTINEL')
+    const realRename = fs.renameSync.bind(fs)
+    const rename = vi.spyOn(fs, 'renameSync').mockImplementation((from, to) => {
+      if (from === legacyPath) throw new Error('rename interrupted')
+      realRename(from, to)
+    })
+    try {
+      expect(() => initDesktopDb(desktopPath)).toThrow('rename interrupted')
+      expect(fs.existsSync(desktopPath)).toBe(false)
+      expect(fs.readFileSync(desktopPath + '-wal', 'utf8')).toBe('WAL-SENTINEL')
+    } finally {
+      rename.mockRestore()
+    }
+    const db = initDesktopDb(desktopPath)
+    expect(getDesktopSetting(db, 'ui_theme')).toBe('matrix')
     db.close()
   })
 

@@ -2,16 +2,15 @@
 
 Specrails Desktop can expose itself to **any MCP client** — Claude Desktop,
 Claude Code, Cursor, or your own agent — as a local
-[Model Context Protocol](https://modelcontextprotocol.io) server. Turn it on
-and an external LLM can drive the whole dashboard: list your projects, read and
+[Model Context Protocol](https://modelcontextprotocol.io) server. A connected
+agent can drive the whole dashboard: list your projects, read and
 create specs, launch the AI pipeline, watch jobs settle, inspect analytics, and
-more — through ~18 well-described tools instead of clicking around the UI.
+more — through 22 tools with discoverable action schemas.
 
-> **Just want to get going?** Open **Settings ▸ MCP**, flip **Enable MCP** on,
-> click **Copy client config**, and paste it into your MCP client. By default
-> only **read** actions are allowed; turn on the **Write** / **AI-spawn** /
-> **Destructive** tiers when you want the agent to actually change things or
-> spend money. Everything below is detail for when you need it.
+> **Just want to get going?** Open **Settings ▸ MCP**, click **Copy client
+> config**, and paste it into your MCP client. MCP and all four permission tiers
+> are on by default. Disable **Write**, **AI-spawn**, or **Destructive** there
+> to restrict external clients. Existing disabled settings survive upgrades.
 
 This is the **app talking to an outside agent** — the opposite direction from
 the [Serena plugin](running-pipelines.md#plugins) or
@@ -29,7 +28,7 @@ When enabled, the server registers a compact catalog of **domain-facade tools**
 plus a few **meta tools**, a set of read-only **resources**, and a self-contained
 **guide** an LLM can read to learn the platform with no prior knowledge.
 
-### Tools (~18)
+### Tools (22)
 
 Each domain is a single tool with an `action` enum, rather than dozens of
 narrow tools — so the catalog stays small and an agent discovers actions by
@@ -38,26 +37,44 @@ reading one description. The tools are:
 | Tool | What it covers |
 |---|---|
 | `specrails_projects` | List / resolve projects; unregister (destructive) |
+| `specrails_context` | Compact live briefing: project/providers, backlog, rails/runs/deliveries, Git/worktrees, blueprint; source and availability per section |
 | `specrails_specs` | The spec/ticket backlog: list, get, create, update, delete, drafts, AI generate, AI-edit, Contract Refine, SMASH, per-ticket spend |
-| `specrails_rails` | Assign tickets to a rail, configure it, and launch the pipeline — rails are dynamic (`create_rail`, up to 12) and `launch_all` starts every ready rail in parallel (worktree-isolated) |
-| `specrails_jobs` | Inspect, stream, and stop pipeline jobs |
+| `specrails_rails` | Configure/launch dynamic rails (`create_rail`, up to 12), inspect PR candidates/review packets; `launch_all` reports outcomes and isolation availability per rail |
+| `specrails_jobs` | Inspect paginated job events, phase breakdowns, queues and background processes; stop jobs |
 | `specrails_chat` | Explore / sidebar chat conversations and turns |
-| `specrails_agents` | Provider-scoped agent profiles and catalog (Claude and Kimi execution; Kimi manual roles only) |
+| `specrails_agents` | Provider-scoped agent profiles and catalog; explicit profiles are validated for the selected provider |
 | `specrails_plugins` | The per-project plugin marketplace (install / verify / uninstall) |
 | `specrails_jira` | The Jira integration (connect, sync, outbox) |
 | `specrails_loops` | Saved loop workflows |
-| `specrails_code` | The code explorer (tree/file/provenance are provider-neutral; AI transforms are capability-gated) |
+| `specrails_code` | File discovery, literal content search, bounded line reads, summaries and provenance; AI summary regeneration is capability-gated |
+| `specrails_git` | Repository/branch/worktree information, status, diffs and PR lookup |
+| `specrails_env` | Project environment readiness and environment-file management |
+| `specrails_support` | Support triage, local diagnostics and specrails-core update workflows |
 | `specrails_setup` | Add-project setup wizard surface |
 | `specrails_analytics` | Per-project spending analytics + budget |
 | `specrails_settings` | App-level settings |
 | `specrails_watch` | Await the real result of an async (cost-incurring) action |
 | `specrails_guide` | Returns the platform guide — read this first |
-| `specrails_search` | Find the right tool/action for an intent |
-| `specrails_describe` | Full description + input schema for a named tool |
-| `specrails_select_project` | Set an active project so later calls can omit `projectId` |
+| `specrails_search` | Find tools/actions by English or Spanish intent, including current permission previews |
+| `specrails_describe` | Complete nested JSON schema and action tiers; optionally validate proposed arguments without execution |
+| `specrails_select_project` | Set this session's active project so later calls can omit `projectId` |
 
 Almost every domain tool is **project-scoped** and takes a `projectId`. Calling
-`specrails_select_project` first lets later calls omit it.
+`specrails_select_project` first lets later calls omit it. Each external MCP
+session has its own selection. Mission calls default to the conversation's
+project pin; change that pin in the mission UI or use an explicit `projectId`
+for an intentional operation in another project. Selecting an MCP default
+cannot silently override the mission pin.
+
+`specrails_projects` includes registered projects whose databases are temporarily
+unavailable and marks their `available` state. Their absence from the live
+execution registry does not mean the project was deleted. `specrails_context`
+reports unavailable sections explicitly rather than presenting empty data.
+
+For investigation, fetch the relevant context sections, search source text with
+`specrails_code(search)`, and read the returned file ranges. Refresh state after
+mutations and inspect `specrails_rails(review_packet)` before assessing a
+delivery. Context summaries and truncated searches are partial evidence.
 
 ### Resources
 
@@ -77,6 +94,11 @@ app's WebSocket bus. An agent gets the actual outcome by calling
 `specrails_watch` with that reference; it waits for the operation to settle and
 returns the final result. Don't assume success from the acceptance alone — this
 is spelled out in `specrails_guide`.
+
+For jobs and loop runs, watch checks stored state before waiting; a completed
+run returns immediately even if its completion event preceded the call. Use
+`kind: "loop_run"` with a loop-run id. Timeouts do not establish success or
+failure; inspect `specrails_jobs(get)` or `specrails_loops(run_get)` for evidence.
 
 Provider membership does not bypass capability checks. With Kimi, agentic
 chat/Explore/Quick Launcher/rails/loops without Decider/profiles are
@@ -100,6 +122,12 @@ any of them in **Settings ▸ MCP** to restrict clients:
 | **Write** | On | Mutating but non-destructive, non-spawn: create/edit specs, change settings, configure a rail |
 | **AI-spawn** | On | Actions that spawn an AI CLI and **cost money**: launch a rail, generate a spec, send a chat turn |
 | **Destructive** | On | Delete data, kill processes, or mutate an external system (e.g. unregister a project, `smash_undo`, Jira writes) |
+
+`specrails_specs(commit_draft)` requires AI-spawn when it can append a Contract
+Layer. A fresh direct insert with `contractRefine: false` and no Explore/draft
+ids remains Write. `specrails_describe` can preview the tier for specific
+arguments; its shared-schema validation does not replace action-specific or
+backend state checks.
 
 The split is deliberate: a client you only half-trust can be dropped to
 read-only with three unticks, and **destructive and cost-incurring actions can

@@ -41,12 +41,17 @@ export function AgentGitBar({ projectId }: { projectId: string }) {
   const [query, setQuery] = useState('')
   const rootRef = useRef<HTMLDivElement>(null)
   const base = `${API_ORIGIN}/api/projects/${projectId}/git`
+  const currentBaseRef = useRef(base)
+  currentBaseRef.current = base
+  const refreshVersionRef = useRef(0)
 
   const refresh = useCallback(async () => {
+    const version = ++refreshVersionRef.current
     try {
       const res = await fetch(base)
       if (!res.ok) return
-      setInfo(await res.json() as GitInfo)
+      const next = await res.json() as GitInfo
+      if (currentBaseRef.current === base && refreshVersionRef.current === version) setInfo(next)
     } catch {
       /* transient — keep last known */
     }
@@ -54,6 +59,9 @@ export function AgentGitBar({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     setInfo(null)
+    setSwitching(false)
+    setOpen(false)
+    setQuery('')
     void refresh()
   }, [refresh])
 
@@ -86,7 +94,9 @@ export function AgentGitBar({ projectId }: { projectId: string }) {
   const checkout = useCallback(async (branch: string) => {
     setOpen(false)
     setQuery('')
-    if (!branch || branch === info?.branch) return
+    if (!branch || branch === info?.branch || switching || isStreaming || currentBaseRef.current !== base) return
+    // Invalidate any read started before the branch mutation.
+    ++refreshVersionRef.current
     setSwitching(true)
     try {
       const res = await fetch(`${base}/checkout`, {
@@ -95,6 +105,7 @@ export function AgentGitBar({ projectId }: { projectId: string }) {
         body: JSON.stringify({ branch }),
       })
       const data = await res.json().catch(() => ({})) as GitInfo & { error?: string }
+      if (currentBaseRef.current !== base) return
       if (!res.ok) {
         // git refused (dirty tree, unknown branch, …) and touched NOTHING —
         // surface its exact reason and re-sync the strip with the real state.
@@ -102,15 +113,17 @@ export function AgentGitBar({ projectId }: { projectId: string }) {
         void refresh()
         return
       }
+      ++refreshVersionRef.current
       setInfo(data)
       toast.success(t('git.switched', { branch }))
     } catch {
+      if (currentBaseRef.current !== base) return
       toast.error(t('git.switchFailed'))
       void refresh()
     } finally {
-      setSwitching(false)
+      if (currentBaseRef.current === base) setSwitching(false)
     }
-  }, [base, info?.branch, t, refresh])
+  }, [base, info?.branch, switching, isStreaming, t, refresh])
 
   const filtered = useMemo(() => {
     if (!info) return []

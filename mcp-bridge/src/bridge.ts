@@ -38,10 +38,10 @@ export function agentForwardHeaders(env: NodeJS.ProcessEnv = process.env): Recor
   if (!capabilityFile) return {}
   try {
     const capability = fs.readFileSync(capabilityFile, 'utf8').trim()
-    if (capability.length < 32 || capability.length > 256) return {}
+    if (capability.length < 32 || capability.length > 256) throw new Error('Invalid capability length')
     return { 'x-specrails-agent-capability': capability }
   } catch {
-    return {}
+    throw new Error('Cannot read the mission capability. Start a new mission turn; refusing to connect as an unrestricted external client.')
   }
 }
 
@@ -53,6 +53,7 @@ function isUnreachable(err: unknown): boolean {
 const APP_NOT_RUNNING = 'Specrails app is not running. Start the Specrails Desktop app, then retry.'
 
 function jsonRpcId(msg: JSONRPCMessage): string | number | null {
+  if (typeof (msg as { method?: unknown }).method !== 'string') return null
   const id = (msg as { id?: string | number }).id
   return id ?? null
 }
@@ -65,13 +66,15 @@ function jsonRpcId(msg: JSONRPCMessage): string | number | null {
  * unreachable, a request gets a clear JSON-RPC error instead of a silent hang.
  */
 export function connectBridge(clientFacing: Transport, appFacing: Transport): void {
+  const pending = new Set<string | number>()
   clientFacing.onmessage = async (msg: JSONRPCMessage) => {
+    const id = jsonRpcId(msg)
+    if (id !== null) pending.add(id)
     try {
       await appFacing.send(msg)
     } catch (err) {
-      const id = jsonRpcId(msg)
       const message = isUnreachable(err) ? APP_NOT_RUNNING : err instanceof Error ? err.message : String(err)
-      if (id !== null) {
+      if (id !== null && pending.delete(id)) {
         await clientFacing
           .send({ jsonrpc: '2.0', id, error: { code: -32000, message } } as JSONRPCMessage)
           .catch(() => {})
@@ -80,6 +83,7 @@ export function connectBridge(clientFacing: Transport, appFacing: Transport): vo
   }
 
   appFacing.onmessage = (msg: JSONRPCMessage) => {
+    if ('result' in msg || 'error' in msg) pending.delete(msg.id as string | number)
     void clientFacing.send(msg).catch(() => {})
   }
 
@@ -96,7 +100,19 @@ export function connectBridge(clientFacing: Transport, appFacing: Transport): vo
   clientFacing.onclose = closeBoth
   // Per-request transport errors are surfaced via the send() catch above; a
   // transport-level error should not crash the bridge process.
-  appFacing.onerror = () => {}
+  appFacing.onerror = (err) => {
+    // A lost response stream has no send() rejection: the SDK has already
+    // returned from POST. Resolve pending calls explicitly instead of hanging
+    // until the host's timeout. An operation may have started; never replay it.
+    if (!/SSE stream disconnected|Maximum reconnection attempts|Failed to reconnect/i.test(err.message)) return
+    for (const id of pending) {
+      void clientFacing.send({ jsonrpc: '2.0', id, error: {
+        code: -32000, message: 'Connection lost before the action result arrived. Reconnect and inspect current state before retrying mutations.',
+      } }).catch(() => {})
+    }
+    pending.clear()
+    closeBoth()
+  }
 }
 
 export { APP_NOT_RUNNING }

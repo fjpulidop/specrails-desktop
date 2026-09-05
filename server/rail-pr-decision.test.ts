@@ -4,7 +4,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { execFileSync } from 'child_process'
 import { initDb, type DbInstance } from './db'
-import { executePrDecision, isPrDecisionAction, type PrDecisionDeps } from './rail-pr-decision'
+import { executePrDecision, isPrDecisionAction, sweepMergedChainAncestors, type PrDecisionDeps } from './rail-pr-decision'
 import {
   claimPrDeliveryOperation, createPrDelivery, getPrDelivery, toPrDeliverySnapshot, transitionDecision,
   type DeliverBranchRecord, type PrDecision, type PrDeliveryPatch,
@@ -3350,6 +3350,8 @@ function gitScript(responses: { head?: string; dirty?: boolean; failMergeOf?: st
   const calls: string[][] = []
   const baseSha = '1'.repeat(40)
   const assembledSha = '2'.repeat(40)
+  let baseAdvanced = false
+  let advancedBranch: string | null = null
   const branchSha = (branch: string): string => {
     if (branch === BATCH) return 'a'.repeat(40)
     const ticket = /^feat\/(\d+)-/.exec(branch)
@@ -3359,24 +3361,28 @@ function gitScript(responses: { head?: string; dirty?: boolean; failMergeOf?: st
   const git: GitRunner = {
     async run(args, cwd) {
       calls.push(args)
-      if (args[0] === 'rev-parse' && args[1] === '--abbrev-ref') {
-        return { code: 0, stdout: `${responses.head ?? 'main'}\n`, stderr: '' }
+      if (args[0] === 'symbolic-ref') {
+        return { code: 0, stdout: `refs/heads/${cwd.includes('local-base-') ? 'main' : responses.head ?? 'main'}\n`, stderr: '' }
       }
       if (args[0] === 'status') return { code: 0, stdout: responses.dirty ? ' M x.ts\n' : '', stderr: '' }
       if (args[0] === 'rev-parse' && args[1] === '--verify' && args[2] === 'HEAD') {
         const ticket = /ticket-(\d+)/.exec(cwd)
         const sha = cwd === '/repo'
-          ? baseSha
+          ? baseAdvanced ? assembledSha : baseSha
           : ticket
             ? Math.max(1, Number(ticket[1]) % 16).toString(16).repeat(40)
             : assembledSha
         return { code: 0, stdout: `${sha}\n`, stderr: '' }
       }
       if (args[0] === 'rev-parse' && args[1] === '--verify' && args[2]?.startsWith('refs/heads/')) {
-        return { code: 0, stdout: `${branchSha(args[2].slice('refs/heads/'.length))}\n`, stderr: '' }
+        return { code: 0, stdout: `${args[2] === `refs/heads/${advancedBranch}` && baseAdvanced ? assembledSha : branchSha(args[2].slice('refs/heads/'.length))}\n`, stderr: '' }
       }
       if (args[0] === 'merge' && responses.failMergeOf && args.includes(responses.failMergeOf)) {
         return { code: 1, stdout: '', stderr: 'CONFLICT (content): merge conflict in x.ts' }
+      }
+      if (args[0] === 'merge' && args[1] === '--ff-only') {
+        baseAdvanced = true
+        advancedBranch = cwd.includes('local-base-') ? 'main' : responses.head ?? 'main'
       }
       return ok
     },
@@ -3399,22 +3405,23 @@ describe('merge-local', () => {
     expect(res.status).toBe(409)
   })
 
-  it('409 merge_local_blocked (wrong_branch) when the checkout is not on the integration branch — no transition', async () => {
-    const { deps } = mkDeps({ git: gitScript({ head: 'develop' }).git })
+  it('claims a separate base worktree when the user is on another branch', async () => {
+    const script = gitScript({ head: 'develop' })
+    const { deps } = mkDeps({ git: script.git })
     const row = mkRow({ decision: 'on_review' })
     const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
-    expect(res.status).toBe(409)
-    expect(res.body).toMatchObject({ error: 'merge_local_blocked', reason: 'wrong_branch', current: 'develop', base: 'main' })
-    expect(getPrDelivery(db, row.id)!.decision).toBe('on_review')
+    expect(res.status).toBe(200)
+    expect(script.calls.some((args) => args[0] === 'worktree' && args[1] === 'add' && args[3] === 'main')).toBe(true)
+    expect(script.calls.some((args) => ['checkout', 'reset', 'stash'].includes(args[0]))).toBe(false)
+    expect(getPrDelivery(db, row.id)!.decision).toBe('merged')
   })
 
-  it('409 merge_local_blocked (dirty) when the working tree has changes — no transition', async () => {
+  it('allows unrelated working tree changes through Git’s non-forced fast-forward', async () => {
     const { deps } = mkDeps({ git: gitScript({ dirty: true }).git })
     const row = mkRow({ decision: 'on_review' })
     const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
-    expect(res.status).toBe(409)
-    expect(res.body).toMatchObject({ error: 'merge_local_blocked', reason: 'dirty' })
-    expect(getPrDelivery(db, row.id)!.decision).toBe('on_review')
+    expect(res.status).toBe(200)
+    expect(getPrDelivery(db, row.id)!.decision).toBe('merged')
   })
 
   it('happy path from a degraded local-only draft: merges the assembled head, sweeps, tickets → done, jira gets NULL url', async () => {
@@ -4083,6 +4090,58 @@ describe('milestone chain: ancestor sweep + head discard', () => {
     createChain(db, { id: 'chain-1', milestoneN: 1, milestoneId: 'm1', mode: 'sequential', chunks: entries.map((e) => e.ticketIds), integrationBranch: 'main' })
     updateChain(db, 'chain-1', 'running', { status: 'completed', launched: entries.map((e) => ({ ...e, railIndex: e.chunk - 1, runIds: [] })) })
   }
+
+  it.each([
+    { name: 'one of two units remains unmerged', allMerged: false, missingSha: false, emptyUnits: false, expectedSweep: false },
+    { name: 'every unit is merged', allMerged: true, missingSha: false, emptyUnits: false, expectedSweep: true },
+    { name: 'one unit has no verified SHA', allMerged: true, missingSha: true, emptyUnits: false, expectedSweep: false },
+    { name: 'the delivery has no unit evidence', allMerged: true, missingSha: false, emptyUnits: true, expectedSweep: false },
+  ])('without an assembled head, checks all units before cleanup: $name', async ({ allMerged, missingSha, emptyUnits, expectedSweep }) => {
+    const fallback = fakeGit()
+    const run = vi.fn(async (args: string[], cwd: string) => {
+      if (args[0] === 'merge-base' && args[1] === '--is-ancestor') {
+        return { code: allMerged || args[2] === '1'.repeat(40) ? 0 : 1, stdout: '', stderr: '' }
+      }
+      return fallback.git.run(args, cwd)
+    })
+    const { deps, jira } = mkDeps({ git: { run } })
+    const branches = emptyUnits ? [] : branchRecords([1, 2]).map((unit) => (
+      missingSha && unit.ticketId === 2 ? { ...unit, finalSha: null } : unit
+    ))
+    for (const unit of branchRecords([1, 2])) {
+      createRailWorktree(db, {
+        id: `chain-wt-${unit.ticketId}`, railIndex: 1, ticketId: unit.ticketId,
+        branch: unit.branch, worktreePath: `/wt/ticket-${unit.ticketId}`, mergeState: 'built',
+      })
+    }
+    const pending = mkRow({
+      decision: 'on_review', ticketIds: [1, 2], branches, deliverySha: null,
+      worktreeIds: ['chain-wt-1', 'chain-wt-2'],
+    })
+    db.prepare('UPDATE rail_pr_deliveries SET rail_index = 1 WHERE id = ?').run(pending.id)
+    const merged = mkRow({ decision: 'merged', ticketIds: [3], deliverySha: 'a'.repeat(40) })
+    chainOf([{ chunk: 1, deliveryId: pending.id, ticketIds: [1, 2] }, { chunk: 2, deliveryId: merged.id, ticketIds: [3] }])
+
+    const swept = await sweepMergedChainAncestors(deps, merged)
+
+    expect(swept).toEqual(expectedSweep ? [pending.id] : [])
+    expect(getPrDelivery(db, pending.id)).toMatchObject({
+      decision: expectedSweep ? 'merged' : 'on_review', operation_token: null,
+    })
+    expect(readTicketStatuses(ticketFile)).toMatchObject({
+      '1': expectedSweep ? 'done' : 'on_review', '2': expectedSweep ? 'done' : 'on_review',
+    })
+    const ancestorCalls = run.mock.calls.filter(([args]) => args[0] === 'merge-base')
+    expect(ancestorCalls.map(([args]) => args[2])).toEqual(missingSha || emptyUnits ? [] : ['1'.repeat(40), '2'.repeat(40)])
+    if (!expectedSweep) {
+      expect(run.mock.calls.every(([args]) => args[0] === 'merge-base')).toBe(true)
+      expect(getRailWorktree(db, 'chain-wt-1')?.merge_state).toBe('built')
+      expect(getRailWorktree(db, 'chain-wt-2')?.merge_state).toBe('built')
+      expect(jira.onRailMerged).not.toHaveBeenCalled()
+    } else {
+      expect(jira.onRailMerged).toHaveBeenCalledWith([1, 2], pending.id, null)
+    }
+  })
 
   it('integrating a STACKED chunk locally targets the chain integration branch and marks its merged ancestor merged', async () => {
     const script = gitScript()

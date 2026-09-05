@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import Database from 'better-sqlite3'
+import * as projectDb from './db'
+import { TicketWatcher } from './ticket-watcher'
 
 // Mock all managers before importing
 vi.mock('./queue-manager', () => {
@@ -97,6 +100,9 @@ describe('ProjectRegistry', () => {
     // ProjectRegistry now performs) to a tmp home so tests never touch the real
     // ~/.specrails/registry.json.
     registryHome = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-registry-home-'))
+    // Registry entries AND jobs.sqlite paths must stay inside the test home.
+    vi.spyOn(os, 'homedir').mockReturnValue(registryHome)
+    vi.spyOn(TicketWatcher.prototype, 'start').mockImplementation(() => {})
     prevRegistryHome = process.env.SPECRAILS_REGISTRY_HOME
     process.env.SPECRAILS_REGISTRY_HOME = registryHome
     broadcast = vi.fn()
@@ -105,6 +111,7 @@ describe('ProjectRegistry', () => {
   })
 
   afterEach(() => {
+    registry.shutdown()
     vi.restoreAllMocks()
     resetProcessAdmissionForTests()
     if (prevRegistryHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = prevRegistryHome
@@ -149,6 +156,90 @@ describe('ProjectRegistry', () => {
       expect(registry.getContext('good')).toBeDefined()
       expect(registry.getContext('bad')).toBeUndefined()
       expect(registry.listFailedProjects().map((f) => f.project.id)).toContain('bad')
+      expect(registry.listProjects().map((project) => project.id)).toEqual(['good', 'bad'])
+    })
+  })
+
+  describe('startup lock recovery', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => {
+      registry.shutdown()
+      vi.useRealTimers()
+    })
+
+    it('recovers a real WAL write lock without losing the registered project or requiring restart', () => {
+      const project = addProject(desktopDb, { id: 'locked', slug: 'locked', name: 'Locked', path: '/path/locked' })
+      initDb(project.db_path).close()
+      const holder = new Database(project.db_path)
+      holder.pragma('journal_mode = WAL')
+      holder.exec('BEGIN IMMEDIATE')
+      const realPragma = Database.prototype.pragma
+      // Exercise SQLite's real BUSY error quickly; production waits 5s before
+      // scheduling this retry, tests use a 1ms lock wait on the same statements.
+      vi.spyOn(Database.prototype, 'pragma').mockImplementation(function (this: DbInstance, source, options) {
+        return realPragma.call(this, source === 'busy_timeout = 5000' ? 'busy_timeout = 1' : source, options)
+      })
+      try {
+        registry.loadAll()
+        expect(registry.getContext(project.id)).toBeUndefined()
+        expect(registry.listProjects()).toHaveLength(1)
+        expect(registry.listFailedProjects()[0].error).toContain('locked')
+        holder.exec('ROLLBACK')
+        vi.advanceTimersByTime(1000)
+        expect(registry.getContext(project.id)).toBeDefined()
+        expect(registry.listFailedProjects()).toEqual([])
+        expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
+          type: 'desktop.project_recovered', projectId: project.id,
+        }))
+      } finally {
+        if (holder.inTransaction) holder.exec('ROLLBACK')
+        holder.close()
+      }
+    })
+
+    it('backs off persistent locks and can recover after the initial retry burst', () => {
+      addProject(desktopDb, { id: 'locked', slug: 'locked', name: 'Locked', path: '/path/locked' })
+      const initialize = vi.spyOn(projectDb, 'initDb').mockImplementation(() => {
+        throw Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY' })
+      })
+      registry.loadAll()
+      vi.advanceTimersByTime(30000)
+      expect(initialize).toHaveBeenCalledTimes(4)
+      expect(registry.listProjects()).toHaveLength(1)
+      expect(registry.listFailedProjects()).toHaveLength(1)
+      initialize.mockRestore()
+      vi.advanceTimersByTime(8000)
+      expect(registry.getContext('locked')).toBeDefined()
+      expect(registry.listFailedProjects()).toEqual([])
+    })
+
+    it('does not retry corruption or callbacks after shutdown', () => {
+      addProject(desktopDb, { id: 'bad', slug: 'bad', name: 'Bad', path: '/path/bad' })
+      const initialize = vi.spyOn(projectDb, 'initDb').mockImplementation(() => {
+        throw Object.assign(new Error('database is malformed'), { code: 'SQLITE_CORRUPT' })
+      })
+      registry.loadAll()
+      vi.advanceTimersByTime(30000)
+      expect(initialize).toHaveBeenCalledOnce()
+
+      initialize.mockImplementation(() => { throw Object.assign(new Error('locked'), { code: 'SQLITE_LOCKED' }) })
+      registry.loadAll()
+      registry.shutdown()
+      vi.advanceTimersByTime(30000)
+      expect(initialize).toHaveBeenCalledTimes(2)
+    })
+
+    it('cancels pending retry when the project is removed', () => {
+      addProject(desktopDb, { id: 'locked', slug: 'locked', name: 'Locked', path: '/path/locked' })
+      const initialize = vi.spyOn(projectDb, 'initDb').mockImplementation(() => {
+        throw Object.assign(new Error('locked'), { code: 'SQLITE_BUSY' })
+      })
+      registry.loadAll()
+      registry.removeProject('locked')
+      vi.advanceTimersByTime(30000)
+      expect(initialize).toHaveBeenCalledOnce()
+      expect(registry.listProjects()).toEqual([])
+      expect(registry.listFailedProjects()).toEqual([])
     })
   })
 

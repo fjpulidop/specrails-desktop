@@ -406,6 +406,49 @@ describe('BrowserCaptureManager', () => {
     expect(await mgr.attach('nope', makeWs())).toBeNull()
   })
 
+  it('retries a failed screencast start after releasing its partial resources', async () => {
+    const { mgr, ctx } = makeManager({ db })
+    const meta = await mgr.create()
+    const page = ctx.pages[0]
+    const originalStart = page.startScreencast.bind(page)
+    const start = vi.spyOn(page, 'startScreencast').mockRejectedValueOnce(new Error('CDP unavailable')).mockImplementation(originalStart)
+    const stop = vi.spyOn(page, 'stopScreencast')
+    const ws = makeWs()
+    await mgr.attach(meta.id, ws)
+    expect(start).toHaveBeenCalledTimes(2)
+    expect(stop).toHaveBeenCalledOnce()
+    page.emitFrame(Buffer.from('recovered'))
+    expect(ws.sent).toContainEqual(Buffer.from('recovered'))
+    expect(ws.closed).toBe(false)
+  })
+
+  it('surfaces persistent screencast failure and allows a later attach to recover', async () => {
+    const { mgr, ctx } = makeManager({ db })
+    const meta = await mgr.create()
+    const page = ctx.pages[0]
+    const originalStart = page.startScreencast.bind(page)
+    const start = vi.spyOn(page, 'startScreencast').mockRejectedValue(new Error('CDP unavailable'))
+    const ws = makeWs()
+    await mgr.attach(meta.id, ws)
+    expect(start).toHaveBeenCalledTimes(2)
+    expect(ws.closed).toBe(true)
+    start.mockImplementation(originalStart)
+    const reconnected = makeWs()
+    await mgr.attach(meta.id, reconnected)
+    page.emitFrame(Buffer.from('fresh'))
+    expect(reconnected.sent).toContainEqual(Buffer.from('fresh'))
+  })
+
+  it('normalizes Retina resize input before recording or forwarding it', async () => {
+    const { mgr, ctx } = makeManager({ db })
+    const meta = await mgr.create()
+    await mgr.handleInput(meta.id, { type: 'resize', width: 3000, height: 2000, deviceScaleFactor: 2 })
+    expect(ctx.pages[0].inputs).toContainEqual({ type: 'resize', width: 3000, height: 2000, deviceScaleFactor: 2 })
+    expect(mgr.getSession(meta.id)?.viewport).toEqual({ width: 3000, height: 2000, deviceScaleFactor: 2 })
+    await mgr.handleInput(meta.id, { type: 'resize', width: NaN, height: Infinity, deviceScaleFactor: NaN })
+    expect(ctx.pages[0].inputs).toContainEqual({ type: 'resize', width: 1280, height: 800, deviceScaleFactor: 1 })
+  })
+
   it('skips screencast frames for a client with a backed-up send buffer (conflation)', async () => {
     const { mgr, ctx } = makeManager({ db })
     const meta = await mgr.create()
@@ -701,6 +744,8 @@ describe('BrowserCaptureManager', () => {
     resolveCtx(ctx) // launch resolves AFTER shutdown began
     await Promise.allSettled([createPromise, shutdownPromise])
     expect(ctx.closed).toBe(true)
+    expect(ctx.pages.every((page) => page.closed)).toBe(true)
+    expect(mgr.sessionCount()).toBe(0)
   })
 
   it('public methods are inert after shutdown', async () => {
@@ -790,6 +835,60 @@ describe('BrowserCaptureManager popup support', () => {
     expect(popup.clips).toHaveLength(0)
   })
 
+  it.each([
+    ['goto', 'goto:https://idp.example/next'],
+    ['back', 'back'],
+    ['forward', 'forward'],
+    ['reload', 'reload'],
+  ] as const)('routes %s to the visible popup without changing the opener or its persisted URL', async (action, call) => {
+    const { mgr, meta, root, ws } = await setup()
+    await mgr.navigate(meta.id, 'goto', 'https://app.example/dashboard')
+    const popup = root.emitPopup()
+    popup.nextNav = { url: 'https://idp.example/next', title: 'Identity provider' }
+    await flush()
+    const rootCalls = [...root.calls]
+    const controlsBefore = ws.sent.length
+    const result = await mgr.navigate(meta.id, action, 'https://idp.example/next')
+    expect(result).toEqual({ ...popup.nextNav, target: 'popup' })
+    expect(popup.calls).toContain(call)
+    expect(root.calls).toEqual(rootCalls)
+    expect(mgr.getSession(meta.id)).toMatchObject({ url: 'https://app.example/dashboard', title: 'T' })
+    expect(mgr.getLastUrl()).toBe('https://app.example/dashboard')
+    const controls = ws.sent.slice(controlsBefore).filter((item): item is string => typeof item === 'string').map((item) => JSON.parse(item))
+    expect(controls.some((item) => item.type === 'nav')).toBe(false)
+    expect(controls).toContainEqual({ type: 'popup', count: 1, active: true, url: 'https://idp.example/next' })
+  })
+
+  it('keeps a navigation bound to its popup when that popup self-closes before navigation settles', async () => {
+    const { mgr, meta, root, ws } = await setup()
+    await mgr.navigate(meta.id, 'goto', 'https://app.example/dashboard')
+    const popup = root.emitPopup()
+    await flush()
+    let resolve!: (result: { url: string; title: string }) => void
+    popup.reload = () => new Promise((done) => { resolve = done })
+    const navigation = mgr.navigate(meta.id, 'reload')
+    popup.closeCb?.()
+    await flush()
+    const controlsBefore = ws.sent.length
+    resolve({ url: 'https://idp.example/callback', title: 'Callback' })
+    expect(await navigation).toEqual({ url: 'https://idp.example/callback', title: 'Callback', target: 'popup' })
+    expect(mgr.getLastUrl()).toBe('https://app.example/dashboard')
+    expect(mgr.getSession(meta.id)).toMatchObject({ url: 'https://app.example/dashboard', title: 'T', popups: [], activeOperations: 0 })
+    expect(ws.sent.slice(controlsBefore)).toEqual([])
+    expect(root.calls).not.toContain('reload')
+  })
+
+  it('navigates the root normally while a live popup is kept in the background', async () => {
+    const { mgr, meta, root } = await setup()
+    const popup = root.emitPopup()
+    await flush()
+    mgr.setPopupView(meta.id, 'root')
+    const popupCalls = [...popup.calls]
+    expect(await mgr.navigate(meta.id, 'goto', 'https://app.example/other')).toEqual({ url: 'https://app.example/other', title: 'T' })
+    expect(popup.calls).toEqual(popupCalls)
+    expect(mgr.getLastUrl()).toBe('https://app.example/other')
+  })
+
   it('resize keeps root and popups at the same viewport', async () => {
     const { mgr, meta, root } = await setup()
     const popup = root.emitPopup()
@@ -824,6 +923,16 @@ describe('BrowserCaptureManager popup support', () => {
     expect(mgr.setPopupView('nope', 'root')).toBe(false)
   })
 
+  it('discards late root frames after switching to a popup', async () => {
+    const { root, ws } = await setup()
+    const oldFrame = root.frameCb!
+    const popup = root.emitPopup()
+    await flush()
+    popup.emitFrame(Buffer.from('popup'))
+    oldFrame({ data: Buffer.from('stale root'), width: 1280, height: 800 })
+    expect(ws.sent.filter(Buffer.isBuffer)).toEqual([Buffer.from('popup')])
+  })
+
   it('auto-returns to the opener when the popup closes (OAuth self-close)', async () => {
     const { meta, ws, root, mgr } = await setup()
     const popup = root.emitPopup()
@@ -837,6 +946,22 @@ describe('BrowserCaptureManager popup support', () => {
     // Input is back on the root page.
     await mgr.handleInput(meta.id, { type: 'mouse', action: 'down', x: 1, y: 1 })
     expect(root.inputs).toHaveLength(1)
+  })
+
+  it('does not disconnect the opener when an obsolete popup exhausts stream retries while closing', async () => {
+    const { mgr, meta, ws, root } = await setup()
+    const popup = new FakePage()
+    let attempts = 0
+    popup.startScreencast = async () => { attempts++; throw new Error('popup closed during CDP attach') }
+    popup.stopScreencast = async () => {
+      if (attempts === 2) popup.closeCb?.()
+    }
+    root.popupCb?.(popup)
+    await flush()
+    expect(attempts).toBe(2)
+    expect(mgr.getSession(meta.id)?.popups).toHaveLength(0)
+    expect(ws.closed).toBe(false)
+    expect(root.screencasting).toBe(true)
   })
 
   it('stacks popups latest-wins and falls back to the previous one on close', async () => {

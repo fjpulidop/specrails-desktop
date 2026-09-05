@@ -184,6 +184,8 @@ function makeRegistry(contexts: Map<string, ProjectContext>): ProjectRegistry {
     desktopDb,
     getContext: vi.fn((id: string) => contexts.get(id)),
     getContextByPath: vi.fn(() => undefined),
+    getProjectRow: vi.fn(() => undefined),
+    listFailedProjects: vi.fn(() => []),
     addProject: vi.fn() as any,
     removeProject: vi.fn(),
     touchProject: vi.fn(),
@@ -225,6 +227,17 @@ describe('project-router', () => {
       const { app } = createApp()
       const res = await request(app).get('/api/projects/bad-id/jobs')
       expect(res.status).toBe(404)
+    })
+
+    it('returns a retryable unavailable response for a registered project with a failed database', async () => {
+      const { app, registry } = createApp()
+      const project = makeContext(db).project
+      vi.mocked(registry.getProjectRow).mockReturnValue(project)
+      vi.mocked(registry.listFailedProjects).mockReturnValue([{ project, error: 'database is locked' }])
+      const res = await request(app).get('/api/projects/proj-1/state')
+      expect(res.status).toBe(503)
+      expect(res.headers['retry-after']).toBe('2')
+      expect(res.body).toEqual({ error: 'project_unavailable', projectId: 'proj-1', detail: 'database is locked' })
     })
   })
 
@@ -3994,7 +4007,7 @@ describe('project-router', () => {
       expect(res.status).toBe(200)
       expect(res.body.provider).toBe('codex')
       expect(res.body.model).toBe('gpt-5.5')
-      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex'])
+      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex'])
     })
 
     it('honors install-config defaults.model when valid', async () => {

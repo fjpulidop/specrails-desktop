@@ -6994,10 +6994,10 @@ function agentForwardHeaders(env = process.env) {
   if (!capabilityFile) return {};
   try {
     const capability = import_fs.default.readFileSync(capabilityFile, "utf8").trim();
-    if (capability.length < 32 || capability.length > 256) return {};
+    if (capability.length < 32 || capability.length > 256) throw new Error("Invalid capability length");
     return { "x-specrails-agent-capability": capability };
   } catch {
-    return {};
+    throw new Error("Cannot read the mission capability. Start a new mission turn; refusing to connect as an unrestricted external client.");
   }
 }
 function isUnreachable(err) {
@@ -7006,23 +7006,27 @@ function isUnreachable(err) {
 }
 var APP_NOT_RUNNING = "Specrails app is not running. Start the Specrails Desktop app, then retry.";
 function jsonRpcId(msg) {
+  if (typeof msg.method !== "string") return null;
   const id = msg.id;
   return id ?? null;
 }
 function connectBridge(clientFacing, appFacing) {
+  const pending = /* @__PURE__ */ new Set();
   clientFacing.onmessage = async (msg) => {
+    const id = jsonRpcId(msg);
+    if (id !== null) pending.add(id);
     try {
       await appFacing.send(msg);
     } catch (err) {
-      const id = jsonRpcId(msg);
       const message = isUnreachable(err) ? APP_NOT_RUNNING : err instanceof Error ? err.message : String(err);
-      if (id !== null) {
+      if (id !== null && pending.delete(id)) {
         await clientFacing.send({ jsonrpc: "2.0", id, error: { code: -32e3, message } }).catch(() => {
         });
       }
     }
   };
   appFacing.onmessage = (msg) => {
+    if ("result" in msg || "error" in msg) pending.delete(msg.id);
     void clientFacing.send(msg).catch(() => {
     });
   };
@@ -7037,16 +7041,139 @@ function connectBridge(clientFacing, appFacing) {
   };
   appFacing.onclose = closeBoth;
   clientFacing.onclose = closeBoth;
-  appFacing.onerror = () => {
+  appFacing.onerror = (err) => {
+    if (!/SSE stream disconnected|Maximum reconnection attempts|Failed to reconnect/i.test(err.message)) return;
+    for (const id of pending) {
+      void clientFacing.send({ jsonrpc: "2.0", id, error: {
+        code: -32e3,
+        message: "Connection lost before the action result arrived. Reconnect and inspect current state before retrying mutations."
+      } }).catch(() => {
+      });
+    }
+    pending.clear();
+    closeBoth();
   };
 }
 
+// mcp-bridge/src/http-transport.ts
+var import_crypto = require("crypto");
+function authenticatedFetch(agentHeaders, fetchImpl = fetch) {
+  return async (input, init) => {
+    const token = readMcpToken();
+    const headers = new Headers(init?.headers);
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    for (const [key, value] of Object.entries(agentHeaders)) headers.set(key, value);
+    const response = await fetchImpl(input, { ...init, headers });
+    const refreshed = response.status === 401 ? readMcpToken() : null;
+    if (refreshed && refreshed !== token) {
+      await response.body?.cancel();
+      headers.set("Authorization", `Bearer ${refreshed}`);
+      return fetchImpl(input, { ...init, headers });
+    }
+    return response;
+  };
+}
+var RecoveringHttpTransport = class {
+  constructor(create) {
+    this.create = create;
+    this.current = this.attach(create());
+  }
+  create;
+  onmessage;
+  onerror;
+  onclose;
+  current;
+  initializeMessage;
+  recovery;
+  closed = false;
+  attach(transport) {
+    transport.onmessage = (message, extra) => {
+      if (transport === this.current && !this.closed) this.onmessage?.(message, extra);
+    };
+    transport.onerror = (error2) => {
+      if (transport === this.current && !this.closed) this.onerror?.(error2);
+    };
+    transport.onclose = () => {
+      if (transport === this.current && !this.closed) this.onclose?.();
+    };
+    return transport;
+  }
+  async start() {
+    await this.current.start();
+  }
+  async send(message) {
+    if (this.closed) throw new Error("MCP bridge is closed");
+    if ("method" in message && message.method === "initialize") this.initializeMessage = message;
+    if (this.recovery) await this.recovery;
+    const attempted = this.current;
+    try {
+      await attempted.send(message);
+    } catch (err) {
+      if (err?.code !== 404 || !this.initializeMessage || message === this.initializeMessage) throw err;
+      if (attempted === this.current) {
+        this.recovery ??= this.reinitialize().finally(() => {
+          this.recovery = void 0;
+        });
+      }
+      if (this.recovery) await this.recovery;
+      await this.current.send(message);
+    }
+  }
+  async reinitialize() {
+    const previous = this.current;
+    const next = this.attach(this.create());
+    this.current = next;
+    await previous.close().catch(() => {
+    });
+    const id = `specrails-bridge-${(0, import_crypto.randomUUID)()}`;
+    let timer;
+    const relay = next.onmessage;
+    try {
+      await next.start();
+      await new Promise((resolve, reject) => {
+        timer = setTimeout(() => reject(new Error("MCP session recovery timed out. Reconnect the client.")), 1e4);
+        next.onmessage = (message, extra) => {
+          if ("id" in message && message.id === id) {
+            if ("error" in message) reject(new Error(message.error.message));
+            else if ("result" in message) resolve();
+          } else relay?.(message, extra);
+        };
+        void next.send({ ...this.initializeMessage, id }).catch(reject);
+      });
+      await next.send({ jsonrpc: "2.0", method: "notifications/initialized" });
+    } catch (err) {
+      await this.close();
+      throw err;
+    } finally {
+      if (timer) clearTimeout(timer);
+      next.onmessage = relay;
+    }
+  }
+  async close() {
+    if (this.closed) return;
+    this.closed = true;
+    let timer;
+    try {
+      await Promise.race([
+        this.current.terminateSession?.().catch(() => {
+        }),
+        new Promise((resolve) => {
+          timer = setTimeout(resolve, 2e3);
+        })
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+      await this.current.close().catch(() => {
+      });
+      this.onclose?.();
+    }
+  }
+};
+
 // mcp-bridge/src/index.ts
 async function main() {
-  const token = readMcpToken();
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-  Object.assign(headers, agentForwardHeaders());
-  const appFacing = new StreamableHTTPClientTransport(appUrl(), { requestInit: { headers } });
+  const fetchWithCredentials = authenticatedFetch(agentForwardHeaders());
+  const appFacing = new RecoveringHttpTransport(() => new StreamableHTTPClientTransport(appUrl(), { fetch: fetchWithCredentials }));
   const clientFacing = new StdioServerTransport();
   connectBridge(clientFacing, appFacing);
   await appFacing.start();

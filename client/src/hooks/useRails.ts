@@ -13,7 +13,7 @@ export interface RailState {
 }
 
 interface RailWsMessage {
-  type: 'rail.job_started' | 'rail.job_stopped' | 'rail.job_completed'
+  type: 'rail.job_started' | 'rail.job_stopped' | 'rail.job_completed' | 'desktop.project_recovered'
   projectId?: string
   railIndex: number
   jobId: string
@@ -58,10 +58,16 @@ export function useRails() {
   // ── Refetch ───────────────────────────────────────────────────────────────
 
   const refetch = useCallback(() => {
-    if (!activeProjectIdRef.current) return
+    const projectId = activeProjectIdRef.current
+    if (!projectId) return
     fetchRails()
-      .then((fetched) => setRails(fetched))
+      .then((fetched) => {
+        if (activeProjectIdRef.current !== projectId) return
+        setRails(fetched)
+        setError(null)
+      })
       .catch((err) => {
+        if (activeProjectIdRef.current !== projectId) return
         if (err instanceof DOMException && err.name === 'AbortError') return
         setError((err as Error).message)
       })
@@ -106,10 +112,14 @@ export function useRails() {
   const handleMessage = useCallback((data: unknown) => {
     const msg = data as RailWsMessage
     if (!msg || typeof msg.type !== 'string') return
-    if (!msg.type.startsWith('rail.')) return
 
     const currentProjectId = activeProjectIdRef.current
     if (msg.projectId && msg.projectId !== currentProjectId) return
+    if (msg.type === 'desktop.project_recovered') {
+      if (msg.projectId === currentProjectId) refetch()
+      return
+    }
+    if (!msg.type.startsWith('rail.')) return
 
     switch (msg.type) {
       case 'rail.job_started':
@@ -149,7 +159,7 @@ export function useRails() {
         })
         break
     }
-  }, [])
+  }, [refetch])
 
   useLayoutEffect(() => {
     registerHandler('rails', handleMessage)

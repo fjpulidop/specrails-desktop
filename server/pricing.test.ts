@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { PRICING, estimateCostUsd, lastReviewedAt, providerNeedsCostEstimation } from './pricing'
+import { PRICING, estimateCostUsd, lastReviewedAt, providerNeedsCostEstimation, resolvePriceEntry } from './pricing'
 // Import the providers barrel so claude+codex are registered for the helper-
 // behind-adapter test cases below.
 import './providers'
@@ -125,6 +125,11 @@ describe('estimateCostUsd', () => {
     const luna = estimateCostUsd('codex', 'gpt-5.6-luna', { tokens_in: 1_000_000 })
     expect(luna).toBeCloseTo(1.0, 6)
     expect(estimateCostUsd('codex', 'gpt-5.6-terra', { tokens_in: 1_000_000 })).toBeCloseTo(2.5, 6)
+  })
+
+  it('returns null for gpt-6-astra until a rate card is recorded (never a fabricated cost)', () => {
+    expect(resolvePriceEntry('codex', 'gpt-6-astra')).toBeUndefined()
+    expect(estimateCostUsd('codex', 'gpt-6-astra', { tokens_in: 1_000_000, tokens_out: 100_000 })).toBeNull()
   })
 
   it('returns null when model is null', () => {

@@ -505,7 +505,7 @@ describe('agent-chat-router', () => {
     const claude = await req(app, 'GET', '/api/agent/models?provider=claude')
     expect(claude.body.efforts).toEqual(['low', 'medium', 'high', 'xhigh'])
     const codex = await req(app, 'GET', '/api/agent/models?provider=codex')
-    expect(codex.body.efforts).toEqual(['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
+    expect(codex.body.efforts).toEqual(['low', 'medium', 'high', 'xhigh'])
     const gemini = await req(app, 'GET', '/api/agent/models?provider=gemini')
     expect(gemini.body.efforts).toEqual([])
     const kimiK3 = await req(app, 'GET', '/api/agent/models?provider=kimi&model=k3')
@@ -524,8 +524,8 @@ describe('agent-chat-router', () => {
     const switched = await req(app, 'PATCH', `/api/agent/conversations/${id}`, { provider: 'codex' })
     expect(switched.body.conversation.reasoning_effort).toBeNull()
     // an in-catalog pick for the new provider sticks; null resets to default
-    const set = await req(app, 'PATCH', `/api/agent/conversations/${id}`, { reasoningEffort: 'minimal' })
-    expect(set.body.conversation.reasoning_effort).toBe('minimal')
+    const set = await req(app, 'PATCH', `/api/agent/conversations/${id}`, { reasoningEffort: 'low' })
+    expect(set.body.conversation.reasoning_effort).toBe('low')
     const reset = await req(app, 'PATCH', `/api/agent/conversations/${id}`, { reasoningEffort: null })
     expect(reset.body.conversation.reasoning_effort).toBeNull()
   })
@@ -722,6 +722,10 @@ describe('AgentChatManager', () => {
     })
 
     expect(prompt).toContain('## Resolved Specrails Context')
+    expect(prompt).toContain('## Current Specrails project snapshot')
+    expect(prompt).toContain('Permission level: 0 (observe)')
+    expect(prompt).toContain('Provider: claude | Model:')
+    expect(prompt).toContain('project.name: MyProject')
     expect(prompt).toContain('job.command: /specrails:implement #42')
     expect(prompt).toContain('job.status: running')
     expect(prompt).toContain('settings.json validation failed at line 12')
@@ -869,6 +873,60 @@ describe('AgentChatManager', () => {
     expect(calls).toBe(2) // resume failed → retried fresh
     expect(events.some((e) => e.type === 'agent_done')).toBe(true)
     expect(listAgentMessages(db, c.id).some((m) => m.content === 'fresh reply')).toBe(true)
+  })
+
+  it('restores persisted context on a fresh provider turn without replaying history into a native resume', async () => {
+    const c = createAgentConversation(db, { provider: 'claude' })
+    addAgentMessage(db, { conversationId: c.id, role: 'user', content: 'Use PostgreSQL and preserve existing data.' })
+    addAgentMessage(db, { conversationId: c.id, role: 'assistant', content: 'Spec #7 is ready for review.' })
+    fakeRun([{ kind: 'text-delta', text: 'Understood.' }, { kind: 'session-started', sessionId: 'native-session' }])
+    await manager.sendMessage(c.id, 'continue with those constraints')
+    const first = vi.mocked(runAiCliInvocation).mock.calls[0][0].buildOpts.prompt
+    expect(first).toContain('Persisted conversation history (fresh provider session)')
+    expect(first).toContain('Use PostgreSQL and preserve existing data.')
+    expect(first).toContain('do not repeat completed actions')
+    expect(first.match(/continue with those constraints/g)).toHaveLength(1)
+    vi.mocked(runAiCliInvocation).mockClear()
+    await manager.sendMessage(c.id, 'show the current status')
+    const resumed = vi.mocked(runAiCliInvocation).mock.calls[0][0]
+    expect(resumed.action).toBe('chat-resume')
+    expect(resumed.buildOpts.prompt).not.toContain('Persisted conversation history')
+    expect(resumed.buildOpts.prompt).toContain('Current Specrails project snapshot')
+  })
+
+  it('restores previous constraints when an explicitly stale native session must start fresh', async () => {
+    const c = createAgentConversation(db, { provider: 'claude' })
+    addAgentMessage(db, { conversationId: c.id, role: 'user', content: 'Never remove the legacy integration.' })
+    updateAgentConversation(db, c.id, { session_id: 'missing-session' })
+    vi.mocked(runAiCliInvocation)
+      .mockImplementationOnce(async (hooks) => {
+        hooks.onSpawn?.({ kill: () => true } as never)
+        hooks.onEvent?.({ kind: 'error', message: 'session missing-session not found' })
+        return { code: 1, events: [], spawnFailed: false, stderrTail: '' } as InvocationResult
+      })
+      .mockImplementationOnce(async (hooks) => {
+        hooks.onSpawn?.({ kill: () => true } as never)
+        hooks.onEvent?.({ kind: 'text-delta', text: 'I retained the integration.' })
+        return { code: 0, events: [], spawnFailed: false, stderrTail: '' } as InvocationResult
+      })
+    await manager.sendMessage(c.id, 'continue')
+    const calls = vi.mocked(runAiCliInvocation).mock.calls
+    expect(calls).toHaveLength(2)
+    expect(calls[0][0].buildOpts.prompt).not.toContain('Never remove the legacy integration.')
+    expect(calls[1][0].buildOpts.prompt).toContain('Never remove the legacy integration.')
+    expect(calls[1][0].action).toBe('chat-turn')
+  })
+
+  it.each([
+    [],
+    [{ kind: 'tool-use', name: 'specrails_rails', inputPreview: 'launch' }, { kind: 'error', message: 'session id not found' }],
+  ] as AdapterEvent[][])('does not replay an empty resume with no stale evidence or after tool execution (%j)', async (streamEvents) => {
+    const c = createAgentConversation(db, { provider: 'claude' })
+    updateAgentConversation(db, c.id, { session_id: 'native-session' })
+    fakeRun(streamEvents, 1)
+    await manager.sendMessage(c.id, 'launch the confirmed rail')
+    expect(runAiCliInvocation).toHaveBeenCalledTimes(1)
+    expect(events.some((event) => event.type === 'agent_error')).toBe(true)
   })
 
   it('editQueued rewrites a still-parked message in place and the drained turn runs the EDITED text', async () => {

@@ -17,6 +17,7 @@ import { analyticsTools } from './analytics'
 import { gitTools } from './git'
 import { supportTools } from './support'
 import { envTools } from './env'
+import { contextTools } from './context'
 
 /**
  * The full MCP tool catalog. Domain-facade tools each expose an `action` enum
@@ -27,6 +28,7 @@ export function buildToolSpecs(): McpToolSpec[] {
   const specs: McpToolSpec[] = []
   // App-level + meta + watch
   specs.push(...projectsTools())
+  specs.push(...contextTools())
   specs.push(...appTools())
   specs.push(watchTool())
   // Per-project domains

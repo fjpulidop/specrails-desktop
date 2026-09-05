@@ -19,6 +19,7 @@ import {
   type SharedBrowserContext,
 } from './browser-capture-types'
 import { createPlaywrightLauncher } from './browser-playwright'
+import { normalizeBrowserDeviceScaleFactor, normalizeBrowserViewport } from './browser-viewport'
 
 const WS_OPEN = 1
 const DEFAULT_VIEWPORT = { width: 1280, height: 800 }
@@ -58,8 +59,8 @@ export interface BrowserWsClient {
 interface BrowserSession {
   id: string
   projectId: string
-  /** The root/opener page — capture, probe and URL-bar navigation ALWAYS target
-   *  this page, regardless of any popup being viewed. */
+  /** The root/opener page — capture, probe and persisted session metadata target
+   *  this page. Interactive navigation follows the visible page instead. */
   page: BrowserPageHandle
   /** Live popups opened by the page (window.open / target=_blank / OAuth login
    *  windows), in open order — the last one is the top of the stack. They share
@@ -72,7 +73,7 @@ interface BrowserSession {
   lastFrame: Buffer | null
   url: string | null
   title: string | null
-  viewport: { width: number; height: number }
+  viewport: { width: number; height: number; deviceScaleFactor?: number }
   createdAt: number
   /** Last client/session activity used by the server-side orphan reaper. */
   lastActivityAt: number
@@ -296,6 +297,11 @@ export class BrowserCaptureManager {
       this._reserved--
       throw err
     }
+    if (this.disposed) {
+      this._reserved--
+      try { await page.close() } catch { /* ignore */ }
+      throw new BrowserLaunchError('manager disposed')
+    }
 
     // Re-check AFTER the awaits: another create that started before us may have
     // committed its session in the meantime. If the cap is now exceeded, tear the
@@ -405,7 +411,7 @@ export class BrowserCaptureManager {
     s.popupView = true
     // Popups inherit the session viewport so coordinate mapping + screencast
     // dimensions stay identical to the root page.
-    void popup.setViewport(s.viewport.width, s.viewport.height).catch(() => { /* ignore */ })
+    void popup.setViewport(s.viewport.width, s.viewport.height, s.viewport.deviceScaleFactor).catch(() => { /* ignore */ })
     popup.onClose?.(() => this.dropPopup(s, popup))
     popup.onNavigated?.(() => {
       // Keep the "Login window — <origin>" label fresh while the top popup
@@ -501,21 +507,40 @@ export class BrowserCaptureManager {
         s.screencastPage = null
         try { await old.stopScreencast() } catch { /* ignore */ }
       }
+      s.lastFrame = null // never replay a previous popup/root frame under new chrome
       if (desired) {
-        s.screencastPage = desired
-        await desired.startScreencast((frame) => {
-          if (s.closed) return
-          s.lastFrame = frame.data
-          for (const client of s.clients) {
-            if (client.readyState !== WS_OPEN) continue
-            // Conflate for slow consumers: when the socket's send-buffer is
-            // already backed up, skip this frame for that client instead of
-            // queueing ever-staler frames behind the backlog (latency, not
-            // fps, is what makes a screencast feel sluggish).
-            if ((client.bufferedAmount ?? 0) > MAX_CLIENT_BUFFERED_BYTES) continue
-            try { client.send(frame.data) } catch { /* drop */ }
+        for (let attempt = 0; attempt < 2; attempt++) {
+          if (s.closed || !s.screencastDesired || this.activePage(s) !== desired) return
+          try {
+            await desired.startScreencast((frame) => {
+              if (s.closed || !s.screencastDesired || this.activePage(s) !== desired) return
+              s.lastFrame = frame.data
+              for (const client of s.clients) {
+                if (client.readyState !== WS_OPEN) continue
+                // Keep slow clients current instead of queueing stale JPEGs.
+                if ((client.bufferedAmount ?? 0) > MAX_CLIENT_BUFFERED_BYTES) continue
+                try { client.send(frame.data) } catch { /* drop */ }
+              }
+            })
+            s.screencastPage = desired
+            return
+          } catch {
+            // A rejected CDP start previously left this session permanently
+            // marked as casting. Release partial resources before one retry.
+            try { await desired.stopScreencast() } catch { /* ignore */ }
           }
-        })
+        }
+        // An OAuth window can self-close during the final failed CDP attach or
+        // its cleanup. The queued transition will resume its opener; a failure
+        // belonging to the old popup must not disconnect the whole session.
+        if (s.closed || !s.screencastDesired || this.activePage(s) !== desired) return
+        s.screencastDesired = false
+        // Persistent failure must surface as a disconnected stream, not a ready
+        // socket that displays a blank canvas forever. A later attach can retry.
+        for (const client of s.clients) {
+          try { client.close(1011, 'browser_stream_failed') } catch { /* ignore */ }
+        }
+        s.clients.clear()
       }
     }).catch(() => { /* never let a screencast transition reject the chain */ })
     return s.screencastOp
@@ -553,15 +578,20 @@ export class BrowserCaptureManager {
     const s = this.getSessionForActivity(sessionId)
     if (!s) return
     if (event.type === 'resize') {
+      const normalized = normalizeBrowserViewport(event.width, event.height, event.deviceScaleFactor ?? s.viewport.deviceScaleFactor)
       s.viewport = {
-        width: Math.max(1, Math.round(event.width)),
-        height: Math.max(1, Math.round(event.height)),
+        width: normalized.width,
+        height: normalized.height,
+        ...(event.deviceScaleFactor !== undefined || s.viewport.deviceScaleFactor !== undefined
+          ? { deviceScaleFactor: normalizeBrowserDeviceScaleFactor(event.deviceScaleFactor ?? s.viewport.deviceScaleFactor ?? 1) }
+          : {}),
       }
       // Keep every page of the session (root + popups) at the same viewport so
       // switching between them never re-maps coordinates or resizes the canvas.
-      await s.page.dispatchInput(event)
+      const resize = { type: 'resize' as const, ...s.viewport }
+      await s.page.dispatchInput(resize)
       for (const popup of s.popups) {
-        try { await popup.dispatchInput(event) } catch { /* ignore */ }
+        try { await popup.dispatchInput(resize) } catch { /* ignore */ }
       }
       return
     }
@@ -570,21 +600,34 @@ export class BrowserCaptureManager {
     await this.activePage(s).dispatchInput(event)
   }
 
-  async navigate(sessionId: string, action: 'goto' | 'back' | 'forward' | 'reload', url?: string): Promise<{ url: string; title: string } | null> {
+  async navigate(sessionId: string, action: 'goto' | 'back' | 'forward' | 'reload', url?: string): Promise<{ url: string; title: string; target?: 'popup' } | null> {
     if (this.disposed) return null
     const s = this.getSessionForActivity(sessionId)
     if (!s) return null
+    // Snapshot before awaiting: an OAuth window can close, or the user can
+    // switch views, while a navigation is in flight. Its result still belongs
+    // to the page the user acted on, never to the newly visible opener.
+    const page = this.activePage(s)
+    const isPopup = page !== s.page
     this.beginOperation(s)
     try {
       let result: { url: string; title: string }
-      if (action === 'goto') result = await s.page.goto(url ?? 'about:blank')
-      else if (action === 'back') result = await s.page.goBack()
-      else if (action === 'forward') result = await s.page.goForward()
-      else result = await s.page.reload()
-      s.url = result.url
-      s.title = result.title
-      if (result.url && result.url !== 'about:blank') this.setLastUrl(result.url)
-      this.broadcastControl(s, { type: 'nav', url: result.url, title: result.title })
+      if (action === 'goto') result = await page.goto(url ?? 'about:blank')
+      else if (action === 'back') result = await page.goBack()
+      else if (action === 'forward') result = await page.goForward()
+      else result = await page.reload()
+      if (isPopup) {
+        if (!s.closed && !this.disposed && this.topPopup(s) === page) this.broadcastPopupState(s)
+        // Popup redirect/callback URLs must never replace the project page's
+        // remembered URL, title or nav events (nor the client's root state).
+        return { ...result, target: 'popup' }
+      }
+      if (!s.closed && !this.disposed) {
+        s.url = result.url
+        s.title = result.title
+        if (result.url && result.url !== 'about:blank') this.setLastUrl(result.url)
+        this.broadcastControl(s, { type: 'nav', url: result.url, title: result.title })
+      }
       return result
     } finally {
       this.endOperation(s)

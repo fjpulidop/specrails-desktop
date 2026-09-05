@@ -50,7 +50,11 @@ codex mcp add specrails -- <Bridge-Befehl aus Einstellungen ▸ MCP>
 
 Der Header `Authorization: Bearer <token>` funktioniert ebenfalls. Falls du den App-Port geändert hast, ersetze `4200`.
 
-Einmal verbunden, sieht dein Assistent etwa **18 Tools**, die die ganze App abdecken — Projekte, Specs, Rails und Jobs, Chat/Explore, Agenten, Plugins, Jira, Loops, den Code-Explorer, Analytics, Einstellungen — plus ein eingebautes **Guide**-Tool, das er zuerst liest, sodass er versteht, wie Specrails funktioniert, ohne dass du irgendetwas erklären musst.
+Einmal verbunden, sieht dein Assistent **22 Tools**, die die ganze App abdecken — Projekte, Specs, Rails und Jobs, Chat/Explore, Agenten, Plugins, Jira, Loops, den Code-Explorer, Analytics, Einstellungen — darunter ein eingebautes **Guide**-Tool, das er zuerst liest, sodass er versteht, wie Specrails funktioniert, ohne dass du irgendetwas erklären musst.
+
+Vor einer Aktion kann der Assistent mit `specrails_context` den aktuellen Stand von Projekt, Specs, Ausführungen und Git abrufen. Nicht verfügbare Abschnitte werden ausdrücklich gekennzeichnet; sie bedeuten nicht, dass das Projekt leer ist. `specrails_code(search)` sucht Text im Quellcode, und `read_file` liest bestimmte Zeilenbereiche mit Hinweisen zum Weiterlesen, wenn noch Inhalt übrig ist.
+
+Jede externe MCP-Sitzung hat ihre eigene Projektauswahl. Im Missionsmodus gilt standardmäßig das im Gespräch angeheftete Projekt, das du in der Missionsoberfläche änderst; eine MCP-Auswahl kann es nicht überschreiben. Mit einer expliziten `projectId` lässt sich eine Aktion gezielt auf ein anderes Projekt richten.
 
 ## Was du damit machen kannst
 

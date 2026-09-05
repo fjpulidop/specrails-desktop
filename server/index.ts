@@ -546,7 +546,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   const registry = new ProjectRegistry(broadcast, undefined, port)
   registry.loadAll()
   _registry = registry
-  _getProjectCount = () => registry.listContexts().length
+  _getProjectCount = () => registry.listProjects().length
 
   // ─── Bundled framework update channel (Phase 6) ─────────────────────────────
   // After the registry + projects have loaded, run a single framework
@@ -726,7 +726,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     })
 
     // Send app state init
-    const projects = registry.listContexts().map((ctx) => ctx.project)
+    const projects = registry.listProjects()
     ws.send(JSON.stringify({
       type: 'desktop.projects',
       projects,

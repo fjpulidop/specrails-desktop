@@ -2,7 +2,7 @@
   "$schema": "https://schemas.tauri.app/config/v2/capability.json",
   "identifier": "default",
   "description": "Default capabilities for Specrails",
-  "windows": ["main"],
+  "webviews": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-close",

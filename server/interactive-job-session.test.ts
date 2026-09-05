@@ -107,6 +107,46 @@ describe('InteractiveJobSession', () => {
   let h: Harness
   beforeEach(() => { h = setup() })
 
+  it.each([
+    { is_error: true, errors: ['execution failed'] },
+    { subtype: 'error_max_turns', errors: ['turn budget exhausted'] },
+    { subtype: 'error_during_execution', errors: ['provider failed'] },
+  ])('auto mode settles crashed on a terminal result error, preserving usage and stopping queued work: %j', async (error) => {
+    h = setup('terminal-error', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    h.session.send('queued follow-up')
+    h.child.stdout.push(resultFrame({ ...error, result: 'VERIFICATION: PASS' }))
+    await tick()
+    expect(h.settled).toHaveLength(1)
+    expect(h.settled[0]).toMatchObject({ reason: 'crashed', totals: { total_cost_usd: 0.05, tokens_in: 100, tokens_out: 200, num_turns: 3 } })
+    expect(getJob(h.db, 'terminal-error')).toMatchObject({ total_cost_usd: 0.05, tokens_in: 100, tokens_out: 200 })
+    expect(h.child.stdinWrites).toHaveLength(1)
+    expect(h.child.killed).toBe(true)
+    expect(h.session.send('must not be accepted')).toBe(false)
+  })
+
+  it('clears a previous PASS when a later failed turn supplies no result text', async () => {
+    h = setup('later-terminal-error', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    h.session.send('verify again')
+    h.child.stdout.push(resultFrame({ result: 'VERIFICATION: PASS' }))
+    await tick()
+    expect(h.child.stdinWrites).toHaveLength(2)
+    h.child.stdout.push(resultFrame({ subtype: 'error_max_turns', errors: ['verification stopped'], total_cost_usd: 0.10, num_turns: 4 }))
+    await tick()
+    expect(h.settled).toHaveLength(1)
+    expect(h.settled[0]).toMatchObject({ reason: 'crashed', resultText: null, totals: { total_cost_usd: 0.10, tokens_in: 200, tokens_out: 400, num_turns: 4 } })
+  })
+
+  it('allows recovery from a tool_result is_error within a successful turn', async () => {
+    h = setup('recoverable-tool-error', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    h.child.stdout.push(JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tool1', is_error: true, content: 'test failed' }] } }) + '\n')
+    h.child.stdout.push(resultFrame({ subtype: 'success', is_error: false, result: 'Fixed and verified. VERIFICATION: PASS' }))
+    await tick()
+    expect(h.settled[0]?.reason).toBe('finalized')
+  })
+
   it('writes the first turn to stdin on start', () => {
     h.session.start({ binary: 'claude', args: [] }, 'implement the spec')
     expect(h.child.stdinWrites.length).toBe(1)
