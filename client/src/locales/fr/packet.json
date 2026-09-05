@@ -40,7 +40,8 @@
     "hint": "Reprend là où le travail s'est arrêté — sans repartir de zéro."
   },
   "discard": {
-    "label": "Jeter ceci"
+    "label": "Jeter ceci",
+    "stackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail."
   },
   "watchOut": {
     "title": "À regarder avant d'accepter"

@@ -2,10 +2,12 @@
   "palette": {
     "label": "Palette de commandes",
     "searchPlaceholder": "Rechercher projets, commandes, jobs...",
+    "searchPlaceholderAgent": "Rechercher missions, projets, jobs...",
     "noResults": "Aucun résultat.",
     "activeBadge": "actif",
     "groups": {
       "projects": "Projets",
+      "missions": "Missions",
       "spec": "Spec",
       "jobs": "Jobs",
       "navigation": "Navigation"
@@ -30,6 +32,9 @@
       "navigate": "naviguer",
       "select": "sélectionner",
       "close": "fermer"
+    },
+    "missions": {
+      "home": "Accueil"
     }
   },
   "toasts": {
@@ -132,7 +137,13 @@
     "jobStuck": "L'exécution semble bloquée",
     "jobStuckBody_one": "Aucune activité depuis {{count}} minute — ouvrez-la pour vérifier",
     "jobStuckBody_other": "Aucune activité depuis {{count}} minutes — ouvrez-la pour vérifier",
-    "unknownCommand": "Commande inconnue"
+    "unknownCommand": "Commande inconnue",
+    "jobStuckStop": "Arrêter l'exécution",
+    "jobStuckStopped": "Exécution arrêtée",
+    "jobStuckStopFailed": "Impossible d'arrêter l'exécution",
+    "providerLimit": "Limite d'utilisation du fournisseur atteinte",
+    "providerLimitBody": "{{provider}} a refusé la requête : limite d'utilisation atteinte — réinitialisation {{resetsAt}}. L'exécution s'est arrêtée ; relancez ou utilisez Récupérer et réessayer après la réinitialisation.",
+    "providerLimitBodyNoReset": "{{provider}} a refusé la requête : limite d'utilisation atteinte. L'exécution s'est arrêtée ; relancez après la réinitialisation."
   },
   "templates": {
     "emptyState": {

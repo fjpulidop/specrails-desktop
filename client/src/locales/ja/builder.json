@@ -26,7 +26,9 @@
     "laterMilestones": "以降のマイルストーン",
     "empty": "会話に合わせてブループリントが埋まっていきます。",
     "specsComplete": "完了",
-    "specsInProgress": "進行中"
+    "specsInProgress": "進行中",
+    "specWriting": "作成中…",
+    "specPendingBody": "未作成"
   },
   "commit": {
     "title": "プロジェクトを作成",
@@ -88,7 +90,6 @@
   "sidebar": {
     "title": "ブループリント",
     "milestone": "M{{n}}",
-    "progress": "{{done}}/{{total}} 完了",
     "launchM1": "マイルストーン1を起動",
     "generateNext": "M{{n}} を生成",
     "generateHint": "ブループリントを種にした、実コードに根ざすスペックセッションを開きます",
@@ -120,7 +121,8 @@
     "surpriseMe": "おまかせで——ブループリントの全項目に妥当な値を提案し、m1Specs は空のまま、詳細スペックを生成する前に計画を承認させてください。",
     "milestoneSeed": "マイルストーン {{label}}（\"{{title}}\"）の詳細スペックを生成してください。まず実際のコードを読み、完全な一括セットを検証してから、マイルストーンの詳細スペックをすべて単一の blueprint-draft レスポンス／スナップショットで出力してください。",
     "milestoneSeedWithPlanned": "マイルストーン {{label}}（\"{{title}}\"）の詳細スペックを生成してください。計画中のスペックタイトル：{{planned}}。まず実際のコードを読み、完全な一括セットを検証してから、マイルストーンの詳細スペックをすべて単一の blueprint-draft レスポンス／スナップショットで出力してください。",
-    "repairSnapshot": "直前の blueprint-draft ブロックはアプリで使用できませんでした（{{reason}}）。完全なスナップショットを厳密に有効な JSON で再出力してください（文字列内の改行は \\n にエスケープ、末尾カンマなし、ネストしたコードブロックなし）。ブロックのみを出力してください。"
+    "repairSnapshot": "直前の blueprint-draft ブロックはアプリで使用できませんでした（{{reason}}）。完全なスナップショットを厳密に有効な JSON で再出力してください（文字列内の改行は \\n にエスケープ、末尾カンマなし、ネストしたコードブロックなし）。ブロックのみを出力してください。",
+    "approve": "承認 — マイルストーン1の詳細バックログを今すぐ生成してください。"
   },
   "specModal": {
     "eyebrow": "{{milestone}} · スペック {{index}}",
@@ -138,14 +140,18 @@
     "mode": {
       "sequential": "順次",
       "parallel": "並列"
-    },
-    "chunkLaunched": "{{milestone}} — レール {{chunk}}/{{total}} を起動",
-    "chunkFailed": "{{milestone}} — レール {{chunk}}/{{total}} の起動に失敗。残りのレールを停止",
-    "done": "{{milestone}} 完了 — {{count}} 件のスペックが順次チェーンを通過"
+    }
   },
   "generation": {
     "writing": "マイルストーン 1 のスペックを作成中…",
-    "specCount": "スペック {{n}}"
+    "specCount": "スペック {{n}}",
+    "turn": "ターン {{turn}}/{{total}}",
+    "phase": {
+      "outline": "マイルストーン 1 のスペックの概要を作成中…",
+      "details": "スペック {{from}}〜{{to}}（全 {{total}} 件）を詳細に作成中…",
+      "audit": "{{total}} 件すべてのスペックを監査中…",
+      "repair": "スペック {{from}}〜{{to}} を再依頼中…"
+    }
   },
   "readiness": {
     "title": "スペックを作成する準備はできましたか？",
@@ -163,12 +169,14 @@
       "specs": {
         "done": "{{count}} 件 · 完了",
         "pending": "{{count}} / {{min}}–{{max}} 件",
-        "blocked": "{{count}} 件 · {{min}}–{{max}} 件が必要"
+        "blocked": "{{count}} 件 · {{min}}–{{max}} 件が必要",
+        "writing": "{{count}} 件中 {{written}} 件作成済み"
       },
       "audit": {
         "done": "問題なし",
         "pending": "スペック待ち",
-        "blocked": "{{count}} 件の修正が必要"
+        "blocked": "{{count}} 件の修正が必要",
+        "writing": "スペック作成後に実行"
       }
     },
     "hints": {
@@ -178,11 +186,13 @@
       },
       "specs": {
         "pending": "ブループリントを承認すると、ビルダーがマイルストーン 1 のバックログを生成します。",
-        "blocked": "マイルストーン 1 には {{min}}–{{max}} 件のスペックが必要です（現在 {{count}} 件）。ビルダーに調整を依頼してください。"
+        "blocked": "マイルストーン 1 には {{min}}–{{max}} 件のスペックが必要です（現在 {{count}} 件）。ビルダーに調整を依頼してください。",
+        "writing": "ビルダーが各スペックを完全に作成中です。バッチ完了後に品質監査を実行します。"
       },
       "audit": {
         "pending": "スペックを待っています。",
-        "blocked": "{{count}} 件の監査問題がコミットを妨げています。下のリストを開いてください。"
+        "blocked": "{{count}} 件の監査問題がコミットを妨げています。下のリストを開いてください。",
+        "writing": "すべてのスペック作成後に監査を実行します。"
       }
     },
     "issuesCount_one": "監査問題 {{count}} 件",
@@ -207,7 +217,12 @@
     "repairedNote": "スナップショットを自動修復しました",
     "nothingToRepair": "修復するものはありません。ビルダーとの会話を続けてください。",
     "noSession": "この会話はプロバイダーで再開できません。代わりに新しいメッセージを送ってください。",
-    "alreadyStreaming": "ビルダーはまだ応答中です。"
+    "alreadyStreaming": "ビルダーはまだ応答中です。",
+    "halted": {
+      "title": "スペック生成が途中で停止しました",
+      "detail": "{{total}} 件中 {{written}} 件のスペックを完全に作成済み。残りはまだアウトラインのタイトルのみです。",
+      "resume": "生成を続行"
+    }
   },
   "recent": {
     "title": "前回の続きから",
@@ -235,15 +250,118 @@
     "invalid_priority": "スペック {{n}} には有効な優先度が必要です。",
     "canonical_sections": "スペック {{n}} には順序どおりの 5 つの標準セクションが不足しています。",
     "empty_section": "スペック {{n}} の「{{heading}}」セクションが空です。",
-    "section_bullets": "スペック {{n}} の「{{heading}}」には箇条書きが少なくとも 2 つ必要です。",
+    "section_bullets": "スペック {{n}} の「{{heading}}」には少なくとも {{min}} 個の箇条書きが必要です。",
     "complexity_format": "スペック {{n}} には根拠付きの複雑度レベルが必要です。",
     "scaffold_readme": "スキャフォールドのスペックは既存の README に言及する必要があります。",
-    "criteria_count": "スペック {{n}} には 4〜10 件の受け入れ基準が必要です（現在 {{count}} 件）。",
+    "criteria_count": "スペック {{n}} には {{min}}〜{{max}} 個の受け入れ基準が必要です（現在 {{count}} 個）。",
     "criterion_quality": "スペック {{n}} の基準 {{criterion}} は具体性が足りません。",
     "duplicate_criterion": "スペック {{n}} は受け入れ基準 {{criterion}} を繰り返しています。",
     "milestone_label": "スペック {{n}} には {{label}} ラベルが必要です。",
     "domain_label": "スペック {{n}} には {{label}} に加えてドメインラベルが必要です。",
     "invalid_dependency": "スペック {{n}} は先行するスペックにのみ依存できます。",
-    "scaffold_dependency": "スキャフォールドのスペックは依存関係を宣言できません。"
+    "scaffold_dependency": "スキャフォールドのスペックは依存関係を宣言できません。",
+    "section_depth": "スペック {{n}} の「{{heading}}」をもっと充実させてください（{{min}} 文字以上）。"
+  },
+  "milestoneProgress": {
+    "state": {
+      "planned": "計画済み",
+      "committed": "起動可能",
+      "running": "進行中",
+      "delivered": "納品済み — レビュー待ち",
+      "done": "完了"
+    },
+    "counts": "{{total}} 件中 {{delivered}} 件納品 · {{done}} 件完了",
+    "failedNote_one": "{{count}} 件のスペックが前回の試行で失敗しました",
+    "failedNote_other": "{{count}} 件のスペックが前回の試行で失敗しました",
+    "legend": {
+      "done": "完了",
+      "onReview": "レビュー中",
+      "inProgress": "進行中",
+      "failed": "前回の試行で失敗",
+      "todo": "未着手"
+    },
+    "rail": {
+      "fallbackName": "レール {{n}}",
+      "chunk": "チェーンのレール {{k}}",
+      "running": "実行中 · {{elapsed}}",
+      "review": "レビュー",
+      "open": "レールを開く",
+      "noDelivery": "まだ納品なし"
+    },
+    "chain": {
+      "title": "順次チェーン",
+      "parallelTitle": "並列起動",
+      "progress": "レール {{k}}/{{n}}",
+      "waiting": "レール {{k}} の完了を待機中",
+      "stackedOn": "次のレールは {{branch}} を基に構築",
+      "paused": "一時停止 — {{reason}}",
+      "completed": "すべてのレールを起動済み",
+      "cancelled": "チェーンはキャンセルされました",
+      "resume": "再開",
+      "cancel": "チェーンをキャンセル",
+      "resumed": "チェーンを再開しました",
+      "resumeFailed": "チェーンを再開できませんでした",
+      "cancelledToast": "チェーンをキャンセルしました — 実行中のレールは継続します",
+      "reasons": {
+        "chunk_failed": "前のレールが失敗しました",
+        "chunk_stalled": "前のレールが停止しました（プロバイダーの出力なし）",
+        "chunk_stopped": "前のレールが停止されました",
+        "launch_rejected": "次のレールを起動できませんでした（{{detail}}）",
+        "head_missing": "基にするブランチが存在しません",
+        "head_discarded": "次のレールの基になる納品が破棄されました",
+        "run_lost": "再起動後に実行中のレールが見つかりません",
+        "unknown": "一時停止",
+        "provider_limit": "プロバイダーの利用上限に達しました"
+      },
+      "checkpoint": "レール {{k}}/{{n}} を納品 — レール {{next}} を起動しますか？",
+      "launchNext": "次のレールを起動",
+      "nextLaunched": "次のレールを起動しました",
+      "autoAdvance": "自動で続行",
+      "autoAdvanceHint": "前のレールが納品され次第、次のレールを起動します",
+      "checkpointHint": "各レールの後で停止し、次を起動する前に確認します",
+      "checkpointNote": "このレールの後で停止",
+      "autoOn": "自動続行オン — 次のレールは自動で起動します",
+      "autoOff": "自動続行オフ — 各レールの前に確認します",
+      "autoFailed": "チェーンを更新できませんでした"
+    },
+    "toast": {
+      "launched": "{{milestone}} を起動 — レール 1/{{n}} に {{count}} 件のスペック。以降のレールは自動で続きます",
+      "launchedAll": "{{milestone}} を起動 — {{n}} 本のレールに {{count}} 件のスペック",
+      "launchedPartial": "{{milestone}} を一部起動 — {{count}} 件を起動、{{skipped}} 件が保留",
+      "chainActive": "{{milestone}} はすでに起動中です — ブループリントパネルを確認",
+      "chunkLaunched": "{{milestone}} — レール {{k}}/{{n}} を起動",
+      "paused": "{{milestone}} を一時停止 — {{reason}}",
+      "resume": "再開",
+      "delivered": "{{milestone}} を納品 — {{count}} 件のスペックがレビュー待ちです",
+      "review": "レビュー",
+      "completed": "{{milestone}} 完了 — すべてのスペックをマージ済み",
+      "launchedCheckpoint": "{{milestone}} を起動 — レール 1/{{n}} に {{count}} 件のスペック。次のレールごとに確認します",
+      "checkpoint": "{{milestone}} — レール {{k}}/{{n}} を納品。次のレールを起動しますか？",
+      "launchNext": "次のレールを起動",
+      "autoContinue": "自動続行"
+    },
+    "sequentialHint": "各レールは前のレールのブランチを基に構築します",
+    "parallelHint": "統合ブランチから独立したレール（積み重ねなし）"
+  },
+  "decisionCard": {
+    "settledLabel": "決定済み",
+    "surprise": {
+      "label": "ビルダー",
+      "hint": "どの決定も後から調整できます",
+      "title": "おまかせ",
+      "description": "製品・コアフロー・プラットフォーム・スタック・マイルストーンをビルダーに決めさせ、ブループリントを承認または調整できる形で提示します。",
+      "cta": "おまかせ",
+      "settledTitle": "おまかせ",
+      "settledDescription": "ブループリントの全項目をビルダーに決めさせました。"
+    },
+    "approve": {
+      "label": "ブループリント準備完了",
+      "hint": "または変更したい点を入力",
+      "title": "ブループリントを承認",
+      "description": "すべての項目が決まりました。承認するとビルダーがマイルストーン1のスペックを2件ずつ完全に作成し、バッチを監査します。",
+      "cta": "承認してスペックを生成",
+      "settledTitle": "ブループリント承認済み",
+      "settledDescription": "ビルダーがこのブループリントからマイルストーン1のバックログを生成中です。"
+    }
   }
 }

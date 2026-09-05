@@ -408,7 +408,8 @@
     "mergeLocalTooltip": "配信されたブランチをローカルチェックアウトの {{base}} にマージします（GitHub 不要）",
     "mergeLocalBlockedDirty": "統合できません：{{base}} のローカル変更が実装と重なっています。該当する変更をコミットまたはスタッシュしてから再試行してください。",
     "mergeLocalBlockedBranch": "統合できません：チェックアウトは {{current}} で、{{base}} ではありません。{{base}} に切り替えて再試行してください。",
-    "mergedLocally": "ローカルで {{base}} に統合しました"
+    "mergedLocally": "ローカルで {{base}} に統合しました",
+    "discardStackedNote": "このマイルストーンの後続レールはこの納品を基に構築されています。破棄するとマイルストーンのチェーンが一時停止します。後続レールの作業は保持されます。"
   },
   "specDraft": {
     "heading": "スペック下書き",

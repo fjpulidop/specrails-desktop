@@ -1,4 +1,5 @@
 import type { BlueprintM1Spec } from './blueprint-types'
+import { SPEC_DEPTH_FLOORS } from './spec-contract-prompt'
 
 export const BUILDER_SPEC_HEADINGS = [
   'Problem Statement',
@@ -184,10 +185,19 @@ export function analyzeBuilderSpecBatch(
         issue(issues, specIndex, 'description', 'empty_section', `spec ${humanIndex} section "${heading}" cannot be empty`, { heading })
       }
     }
-    for (const heading of ['Out of Scope', 'Technical Considerations'] as const) {
+    // Depth floors (premium-milestone-progress D8): a restated title is not a
+    // problem statement and two lines are not a solution. Character floors are
+    // crude but deterministic — the prompt carries the real bar.
+    for (const [heading, min] of [['Problem Statement', SPEC_DEPTH_FLOORS.problemMinChars], ['Proposed Solution', SPEC_DEPTH_FLOORS.solutionMinChars]] as const) {
+      const body = (sections.bodies.get(heading) ?? '').trim()
+      if (body && body.length < min) {
+        issue(issues, specIndex, 'description', 'section_depth', `spec ${humanIndex} section "${heading}" is too thin (needs at least ${min} characters)`, { heading, min })
+      }
+    }
+    for (const [heading, min] of [['Out of Scope', SPEC_DEPTH_FLOORS.outOfScopeMinBullets], ['Technical Considerations', SPEC_DEPTH_FLOORS.technicalMinBullets]] as const) {
       const body = sections.bodies.get(heading) ?? ''
-      if (body && bulletCount(body) < 2) {
-        issue(issues, specIndex, 'description', 'section_bullets', `spec ${humanIndex} section "${heading}" requires at least two bullets`, { heading })
+      if (body && bulletCount(body) < min) {
+        issue(issues, specIndex, 'description', 'section_bullets', `spec ${humanIndex} section "${heading}" requires at least ${min} bullets`, { heading, min })
       }
     }
     const complexity = sections.bodies.get('Estimated Complexity') ?? ''
@@ -199,13 +209,13 @@ export function analyzeBuilderSpecBatch(
     }
 
     const criteria = Array.isArray(spec.acceptanceCriteria) ? spec.acceptanceCriteria : []
-    if (criteria.length < 4 || criteria.length > 10) {
-      issue(issues, specIndex, 'acceptanceCriteria', 'criteria_count', `spec ${humanIndex} acceptanceCriteria requires 4-10 items`, { count: criteria.length })
+    if (criteria.length < SPEC_DEPTH_FLOORS.criteriaMin || criteria.length > SPEC_DEPTH_FLOORS.criteriaMax) {
+      issue(issues, specIndex, 'acceptanceCriteria', 'criteria_count', `spec ${humanIndex} acceptanceCriteria requires ${SPEC_DEPTH_FLOORS.criteriaMin}-${SPEC_DEPTH_FLOORS.criteriaMax} items`, { count: criteria.length, min: SPEC_DEPTH_FLOORS.criteriaMin, max: SPEC_DEPTH_FLOORS.criteriaMax })
     }
     const seenCriteria = new Set<string>()
     criteria.forEach((criterion, criterionIndex) => {
       const text = typeof criterion === 'string' ? criterion.trim() : ''
-      if (text.length < 10 || PLACEHOLDER_CRITERION.test(text)) {
+      if (text.length < SPEC_DEPTH_FLOORS.criterionMinChars || PLACEHOLDER_CRITERION.test(text)) {
         issue(issues, specIndex, 'acceptanceCriteria', 'criterion_quality', `spec ${humanIndex} criterion ${criterionIndex + 1} must be a concrete testable outcome`, { criterion: criterionIndex + 1 })
         return
       }

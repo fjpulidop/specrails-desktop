@@ -311,7 +311,7 @@ function parseClaudeStreamLine(line: string): AdapterEvent | null {
     // event so no consumer (turn-closing sessions, extractResult, recovery)
     // mistakes it for the caller's turn result.
     if (isClaudeNotificationResultFrame(parsed)) return { kind: 'other', type, raw: parsed }
-    return { kind: 'result', payload: parsed }
+    return { kind: 'result', payload: parsed, ...(parsed.is_error === true ? { isError: true } : {}) }
   }
 
   if (type === 'assistant') {

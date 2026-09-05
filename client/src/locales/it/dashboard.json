@@ -160,7 +160,8 @@
     "mergeLocalBlockedDirty": "Impossibile integrare: le modifiche locali su {{base}} si sovrappongono alla consegna. Esegui il commit o lo stash di queste modifiche e riprova.",
     "mergeLocalBlockedBranch": "Impossibile integrare: il tuo checkout è su {{current}}, non su {{base}}. Passa a {{base}} e riprova.",
     "mergeLocalFailed": "Merge locale fallito: {{detail}}",
-    "mergedLocally": "Integrato in {{base}} in locale"
+    "mergedLocally": "Integrato in {{base}} in locale",
+    "discardStackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro."
   },
   "railsBoard": {
     "title": "Rails",

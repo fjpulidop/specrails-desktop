@@ -2,10 +2,12 @@
   "palette": {
     "label": "Command palette",
     "searchPlaceholder": "Search projects, commands, jobs...",
+    "searchPlaceholderAgent": "Search missions, projects, jobs...",
     "noResults": "No results found.",
     "activeBadge": "active",
     "groups": {
       "projects": "Projects",
+      "missions": "Missions",
       "spec": "Spec",
       "jobs": "Jobs",
       "navigation": "Navigation"
@@ -30,6 +32,9 @@
       "navigate": "navigate",
       "select": "select",
       "close": "close"
+    },
+    "missions": {
+      "home": "Home"
     }
   },
   "toasts": {
@@ -132,7 +137,13 @@
     "jobStuck": "Run seems stuck",
     "jobStuckBody_one": "No activity for {{count}} minute — open it to check",
     "jobStuckBody_other": "No activity for {{count}} minutes — open it to check",
-    "unknownCommand": "Unknown command"
+    "unknownCommand": "Unknown command",
+    "jobStuckStop": "Stop run",
+    "jobStuckStopped": "Run stopped",
+    "jobStuckStopFailed": "Could not stop the run",
+    "providerLimit": "Provider usage limit reached",
+    "providerLimitBody": "{{provider}} refused the request: usage limit reached — resets {{resetsAt}}. The run stopped; relaunch or Recover & retry after the reset.",
+    "providerLimitBodyNoReset": "{{provider}} refused the request: usage limit reached. The run stopped; relaunch after the limit resets."
   },
   "templates": {
     "emptyState": {

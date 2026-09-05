@@ -63,7 +63,7 @@ spawnInteractive = isInteractiveJobsEnabled()            // SPECRAILS_INTERACTIV
 | Who gets it | freestyle/Freestyle QueueManager jobs (claude) | every other interactive job + ALL loop ai-steps |
 | End of session | explicit human **Finalize** only (SIGTERM → 2s → SIGKILL) | **quiescence**: a turn `result` arrived, nothing queued, no write in flight — torn down GRACEFULLY: stdin EOF (the CLI exits itself, flushing its session transcript so the next loop step can `--resume`), SIGTERM only after a grace window (`quiescentEofGraceMs`, default 5s) or when stdin is already gone |
 | Idle between turns | by design (awaiting the human) | only transiently (microtask window) |
-| Wedge detector | never armed | the queue's zombie-timeout budget, reset on any raw child output; silence for the whole budget → fold in-flight turn, settle `crashed` |
+| Wedge detector | never armed | the queue's zombie-timeout budget (QueueManager) / the loop-step idle budget (loop ai-steps — `server/loop-step-idle.ts`, default 30 min, `SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS`), reset on any raw child output; silence for the whole budget → fold in-flight turn, settle `crashed` (loop steps: tagged `stalled`, retried once by resume) |
 | Composer action | **Finalize Job** | **Wrap up now** (QueueManager) / **Settle this step** (loop step) |
 
 **Quiescence detail:** the auto-settle is deferred to a microtask after the `result` so anything
@@ -98,9 +98,16 @@ persistent stdin, each claude **ai-step** runs as its own `InteractiveJobSession
   quiescence / explicit finalize → `'finalized'` (step ok); step timeout → `session.abort()` →
   fold in-flight turn → `'crashed'`; run cancel → `abort()` → `'crashed'` → engine settles the
   run `'stopped'` at the next boundary; manager shutdown / project removal → `dispose()` (kill,
-  NO settle; the startup orphan sweeps reconcile rows on next boot). No zombie timer is armed on
-  loop steps — the loop's ai-step timeout bounds the whole step and is the sole watchdog
-  (byte-parity with the one-shot loop path, which has no zombie detector either).
+  NO settle; the startup orphan sweeps reconcile rows on next boot). The session's zombie timer
+  IS the loop step's **idle watchdog** (`zombieTimeoutMs = plan.idleTimeoutMs`, `onZombieTimeout`
+  tags the settle `stalled`): factory loops are UNTIMED (`aiStepTimeoutMinutes = 0`), so before
+  this bound a wedged provider left the run `running` forever. Silence for the idle budget →
+  `loop_step_end { status:'stalled', reason:'idle_timeout', idleMs }` → the engine retries the
+  SAME step once by resuming the captured session (`loop_step { attempt: 2 }`); a second stall
+  settles the run `stalled` (tickets → `todo`, delivery row auto-closes). The one-shot loop path
+  arms the same bound through `runAiCliInvocation`'s `inactivityTimeoutMs`. Contract:
+  `server/loop-step-idle.ts` — `SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS` (default 30 min; `0|false|off`
+  disables; clamped ≥ the stuck-notification threshold so `job.stuck` always precedes teardown).
 
 ## Accounting reconciliation
 
@@ -207,6 +214,52 @@ guards now cover the chain:
   torn down by `cancel()`, so the run settles `stopped` instead of `failed` with a misleading
   *"provider appears down"* (the live run hit exactly that when the user stopped it mid-verify).
 
+## Provider usage / rate limits (run `52124009`, 2026-09-04)
+
+The claude subscription hit its session limit mid-batch. The CLI answered
+every later spawn in ~0.5 s with a `result` frame whose text was
+*"You've hit your session limit · resets 3am (Europe/Madrid)"* and
+`is_error: true`. The engine saw a non-empty, exit-0 reply → step `ok` →
+verify → decider (unparseable → continue) → fix … three full cycles until the
+no-progress stall guard finally stopped the run — nine steps of nothing after
+the real cause. A limit is not something to iterate on.
+
+- **Structural signal.** The claude adapter now carries `is_error` on the
+  `result` AdapterEvent (`isError`); `InteractiveJobSession` captures it per
+  turn (`SettleInfo.resultIsError`) and the one-shot executor reads it off the
+  result event. Both AI-step paths mark such a step `failed` with the result
+  text as `errorText` (`AiStepResult.resultIsError`), and the engine's
+  fail-fast counts an error result even though it carried text (two in a row
+  ⇒ "provider appears down", as for no-output crashes).
+- **Limit classifier (`server/provider-limit.ts`).** `classifyProviderLimit`
+  judges only the TAIL of a step's final text / error text (a spec discussing
+  rate limiting never trips it): claude session/usage limits and the API
+  wrapper (`error type rate_limit`, `HTTP 429`), codex quota notices, gemini
+  `RESOURCE_EXHAUSTED`; `extractLimitReset` pulls the provider's reset hint
+  ("3am (Europe/Madrid)", "in 2 hours").
+- **Engine stop.** On a hit the AI step closes `loop_step_end { status:
+  'failed', reason: 'provider_limit' }`, logs `■ Provider limit reached
+  (<provider>): <the provider's sentence> — relaunch or Recover & retry after
+  the reset`, records the invocation as failed, broadcasts the project-scoped
+  `loop.provider_limit { runId, provider, kind, message, resetsAt }` and
+  settles the run `stalled` with `LoopRunResult.stallReason = 'provider_limit'`
+  (+ `providerLimit`) — no verify, no decider, no retry. The other stall paths
+  now name their reason too (`idle_timeout`, `no_progress`).
+- **Propagation.** Every run-finished caller forwards `stallReason` to
+  `onLoopRunFinished(runId, outcome, { stallReason })`; the milestone chain
+  records `last_run_outcome = 'provider_limit'` and pauses with its OWN reason
+  `provider_limit` (Resume after the reset relaunches the same chunk). Client:
+  `useOsNotifications` toasts `loop.provider_limit` (provider + reset hint +
+  the provider's sentence, OS notification when permitted), the step section
+  shows a **Provider limit** badge, narration says "Step N stopped — the
+  provider's usage limit was reached", the chain row/toast localise the reason.
+  i18n `jobs:loopExplorer.providerLimit*`, `narration:step.providerLimit`,
+  `commands:notifications.providerLimit*`,
+  `builder:milestoneProgress.chain.reasons.provider_limit` ×8.
+- **Not detected (by design):** a Decider whose own reply is the limit
+  notice — the executor exposes no raw text; in practice the preceding AI
+  step already stopped the run.
+
 ## Zombie / timeout interplay
 
 - **One-shot jobs**: unchanged — the queue's zombie timer kills a silent child.
@@ -214,8 +267,11 @@ guards now cover the chain:
   stdout/stderr `data`); firing folds the in-flight turn and settles `'crashed'`.
 - **Interactive `'finalize'`**: no timer at all — an idle session awaiting Finalize is the
   feature. QueueManager's queue-level timer is never armed for interactive jobs.
-- **Loop ai-steps**: no zombie timer; the step timeout aborts the session (`'crashed'`,
-  `errorText: 'AI step timed out'`), partial work accounted.
+- **Loop ai-steps**: the idle watchdog (`loop-step-idle`) is armed as the session's zombie timer
+  (`'crashed'` + `stalled` flag, `errorText: 'AI step stalled'`, retried once by resume); the
+  optional step timeout still aborts the session (`'crashed'`, `errorText: 'AI step timed out'`),
+  partial work accounted either way. `job.stuck` carries `actions: ['stop']` — the client toast
+  offers **Stop run** through the existing `POST /jobs/:id/cancel` route.
 - **Finalize hard-deadline**: SIGTERM → 2s → SIGKILL, plus a forced settle if the child never
   emits `close` (D-state / signal-swallowing) so the queue slot can never leak.
 - **Undeliverable turns**: a confirmed-failed stdin write (destroyed/EPIPE) is surfaced as a

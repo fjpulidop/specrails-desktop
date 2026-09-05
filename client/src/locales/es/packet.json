@@ -40,7 +40,8 @@
     "hint": "Continúa desde donde quedó el trabajo — no empieza de cero."
   },
   "discard": {
-    "label": "Tirar esto"
+    "label": "Tirar esto",
+    "stackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo."
   },
   "watchOut": {
     "title": "Merece un vistazo antes de aceptar"

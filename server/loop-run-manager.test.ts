@@ -173,7 +173,9 @@ describe('LoopRunManager fail-fast (provider down / out of quota)', () => {
     // Provider is genuinely down: every AI step hard-fails with no output AND the
     // Decider (same provider) can't produce a verdict either (parsed=false) — the
     // real codex-out-of-quota shape.
-    const runAiStep = vi.fn(async () => ({ text: '', failed: true, errorText: "You've hit your usage limit", provider: 'codex', model: 'gpt-5.5' }))
+    // (A usage/rate-limit notice is now its own signal — see the provider-limit
+    // tests — so this fixture is a plain crash: connection refused, no output.)
+    const runAiStep = vi.fn(async () => ({ text: '', failed: true, errorText: 'codex exited code=1 — connection refused', provider: 'codex', model: 'gpt-5.5' }))
     const runDecider = vi.fn(async () => ({ continue: true, reasoning: '(could not parse decision; continuing)', parsed: false }))
     const ex = makeExecutors({ runAiStep, runDecider })
     const res = await manager(ex).run({ ...baseReq(), graph: loopGraph(20) })
@@ -1200,8 +1202,9 @@ describe('LoopRunManager interactive ai-steps', () => {
     const { executors, children } = interactiveExecutors({ stepTimeoutMs: 0, inactivityTimeoutMs: 25 })
     const mgr = manager(executors)
     const result = await mgr.run({ ...baseReq(), runId: 'silent-factory-step', graph: singleInteractiveGraph(0) })
-    expect(result.outcome).toBe('failed')
-    expect(children[0].killed).toBe(true)
+    expect(result).toMatchObject({ outcome: 'stalled', stallReason: 'idle_timeout' })
+    expect(children).toHaveLength(2)
+    expect(children.every(child => child.killed)).toBe(true)
     expect(mgr.isInteractiveJob('silent-factory-step')).toBe(false)
     expect(broadcasts.some((event) => event.type === 'log' && event.line.includes('zombie-detection'))).toBe(true)
   })
@@ -2523,5 +2526,213 @@ describe('LoopRunManager resume miss → one fresh retry (run 5c958db2)', () => 
     const res = await p
     expect(res.outcome).toBe('stopped')
     expect(logLines(res.runId).some((l) => l.includes('provider appears down'))).toBe(false)
+  })
+})
+
+// ─── Idle watchdog (loop-step-idle): stalled step → retry once → settle ───────
+describe('LoopRunManager idle stall (premium-milestone-progress)', () => {
+  function stallGraph(): LoopGraph {
+    return {
+      nodes: [
+        { id: 's', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'ai', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'do {{spec.title}}' } },
+        { id: 'e', type: 'end', position: { x: 0, y: 2 } },
+      ],
+      edges: [
+        { id: 'e1', source: 's', target: 'ai' },
+        { id: 'e2', source: 'ai', target: 'e' },
+      ],
+      // Factory shape: untimed step — the idle bound is the only watchdog.
+      config: { maxIterations: 5, timeoutMinutes: 0, aiStepTimeoutMinutes: 0 },
+    }
+  }
+  const stalledResult = () => ({ text: '', sessionId: 'sess-stall', failed: true, stalled: true, errorText: 'AI step stalled', provider: 'claude', model: 'sonnet', durationMs: 5 })
+
+  function stepEvents(runId: string): Array<{ type: string; payload: Record<string, unknown> }> {
+    return getJobEvents(db, runId)
+      .filter((e) => e.event_type === 'loop_step' || e.event_type === 'loop_step_end')
+      .map((e) => ({ type: e.event_type, payload: JSON.parse(e.payload) as Record<string, unknown> }))
+  }
+
+  it('threads the resolved idle timeout into both executor paths', async () => {
+    const plan = vi.fn((_: InteractivePlanInput) => null)
+    const ex = makeExecutors({ planInteractiveAiStep: plan })
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), ex, () => 1000, { idleTimeoutMs: 123_000 })
+    await mgr.run({ ...baseReq(), graph: stallGraph() })
+    expect(plan.mock.calls[0][0].idleTimeoutMs).toBe(123_000)
+    const call = (ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[0][0] as { idleTimeoutMs?: number; aiStepTimeoutMs?: number }
+    expect(call.idleTimeoutMs).toBe(123_000)
+    expect(call.aiStepTimeoutMs).toBe(0)
+  })
+
+  it('a provider usage-limit reply stops the run AT ONCE with reason provider_limit (no verify/decider cycling)', async () => {
+    const limit = "You've hit your session limit · resets 3am (Europe/Madrid)"
+    const runAiStep = vi.fn(async () => ({ text: limit, sessionId: 'sess-lim', provider: 'claude', model: 'opus', resultIsError: true, failed: true, errorText: `provider returned an error result — ${limit}`, durationMs: 500 }))
+    const runDecider = vi.fn(async () => ({ continue: true, reasoning: 'x', parsed: false, provider: 'claude', model: 'opus' }))
+    const ex = makeExecutors({ runAiStep, runDecider })
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), ex, () => 1000)
+    const res = await mgr.run({ ...baseReq(), runId: 'run-limit' })
+    expect(res.outcome).toBe('stalled')
+    expect(res.stallReason).toBe('provider_limit')
+    expect(res.providerLimit).toMatchObject({ kind: 'session_limit', resetsAt: '3am (Europe/Madrid)' })
+    // One AI call, nothing else ran.
+    expect(runAiStep).toHaveBeenCalledTimes(1)
+    expect(runDecider).not.toHaveBeenCalled()
+    const ev = stepEvents('run-limit')
+    expect(ev.map((e) => e.type)).toEqual(['loop_step', 'loop_step_end'])
+    expect(ev[1].payload).toMatchObject({ status: 'failed', reason: 'provider_limit' })
+    const ws = broadcasts.find((m) => m.type === 'loop.provider_limit') as { runId: string; provider: string; message: string; resetsAt: string | null } | undefined
+    expect(ws).toMatchObject({ runId: 'run-limit', provider: 'claude', resetsAt: '3am (Europe/Madrid)' })
+    expect(ws!.message).toContain('session limit')
+    const log = broadcasts.filter((m) => m.type === 'log').map((m) => (m as { line: string }).line).join('\n')
+    expect(log).toContain('Provider limit reached (claude)')
+    expect(log).toContain('resets 3am')
+    // The invocation is recorded as failed, never as successful work.
+    const rows = db.prepare("SELECT status FROM ai_invocations WHERE surface = 'loop'").all() as Array<{ status: string }>
+    expect(rows.map((r) => r.status)).toEqual(['failed'])
+  })
+
+  it('the limit is detected on the one-shot text too, and a plain error result (no limit text) fails the step and feeds fail-fast', async () => {
+    const limit = 'Rate limited: HTTP 429 Too Many Requests'
+    const oneShot = vi.fn(async () => ({ text: `Working…\n${limit}`, provider: 'claude', model: 'opus' }))
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), makeExecutors({ runAiStep: oneShot }), () => 1000)
+    const res = await mgr.run({ ...baseReq(), runId: 'run-limit-2' })
+    expect(res.outcome).toBe('stalled')
+    expect(res.stallReason).toBe('provider_limit')
+    expect(oneShot).toHaveBeenCalledTimes(1)
+
+    // A codex quota notice riding errorText (empty text) is a limit too — one call, no grinding.
+    const quota = vi.fn(async () => ({ text: '', failed: true, errorText: "You've hit your usage limit", provider: 'codex', model: 'gpt-5.5' }))
+    const mgrQ = new LoopRunManager(db, (m) => broadcasts.push(m), makeExecutors({ runAiStep: quota }), () => 1000)
+    const resQ = await mgrQ.run({ ...baseReq(), runId: 'run-quota', graph: loopGraph(20) })
+    expect(resQ).toMatchObject({ outcome: 'stalled', stallReason: 'provider_limit' })
+    expect(quota).toHaveBeenCalledTimes(1)
+
+    // A provider error result WITHOUT a limit signature: the step is failed
+    // (structural is_error) even though it carried text, and two in a row
+    // abort "provider appears down" (the decider cannot parse either).
+    const errResult = vi.fn(async () => ({ text: 'Internal server error', provider: 'claude', model: 'opus', resultIsError: true, failed: true, errorText: 'provider returned an error result — Internal server error' }))
+    const runDecider = vi.fn(async () => ({ continue: true, reasoning: '(could not parse decision; continuing)', parsed: false }))
+    const mgr2 = new LoopRunManager(db, (m) => broadcasts.push(m), makeExecutors({ runAiStep: errResult, runDecider }), () => 1000)
+    const res2 = await mgr2.run({ ...baseReq(), runId: 'run-err', graph: loopGraph(20) })
+    expect(res2.outcome).toBe('failed')
+    expect(errResult).toHaveBeenCalledTimes(2)
+    const log = broadcasts.filter((m) => m.type === 'log').map((m) => (m as { line: string }).line).join('\n')
+    expect(log).toContain('provider appears down')
+  })
+
+  it('a first stall closes the attempt as `stalled`, retries ONCE by resume, and the run succeeds', async () => {
+    const runAiStep = vi.fn()
+      .mockResolvedValueOnce(stalledResult())
+      .mockResolvedValueOnce({ text: 'done', sessionId: 'sess-stall', provider: 'claude', model: 'sonnet' })
+    const ex = makeExecutors({ runAiStep })
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), ex, () => 1000, { idleTimeoutMs: 60_000 })
+    const res = await mgr.run({ ...baseReq(), runId: 'run-stall-1', graph: stallGraph() })
+    expect(res.outcome).toBe('success')
+    expect(runAiStep).toHaveBeenCalledTimes(2)
+    // The retry resumes the STALLED attempt's session (partial work carries).
+    expect((runAiStep.mock.calls[1][0] as { sessionId?: string }).sessionId).toBe('sess-stall')
+    const ev = stepEvents('run-stall-1')
+    expect(ev.map((e) => e.type)).toEqual(['loop_step', 'loop_step_end', 'loop_step', 'loop_step_end'])
+    expect(ev[1].payload).toMatchObject({ status: 'stalled', reason: 'idle_timeout', idleMs: 60_000 })
+    expect(ev[2].payload).toMatchObject({ attempt: 2, nodeId: 'ai' })
+    expect(ev[3].payload).toMatchObject({ status: 'ok' })
+    const log = broadcasts.filter((m) => m.type === 'log').map((m) => (m as { line: string }).line).join('\n')
+    expect(log).toContain('Step stalled')
+    expect(log).toContain('Retrying this step once')
+  })
+
+  it('records both stalled and resumed attempts without losing spend or reusing their recovery frontier', async () => {
+    const runAiStep = vi.fn()
+      .mockResolvedValueOnce({ ...stalledResult(), cost: 0.25, tokensIn: 10, tokensOut: 20, numTurns: 1, durationMs: 30 })
+      .mockImplementationOnce(async () => {
+        // The failed attempt is durable before a second provider can run.
+        const first = db.prepare('SELECT status, total_cost_usd FROM ai_invocations WHERE loop_run_id = ?').all('run-retry-accounting')
+        expect(first).toEqual([{ status: 'failed', total_cost_usd: 0.25 }])
+        return { text: 'done', cost: 0.5, tokensIn: 30, tokensOut: 40, numTurns: 1, durationMs: 50, provider: 'claude', model: 'sonnet' }
+      })
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), makeExecutors({ runAiStep }), () => 1000, { idleTimeoutMs: 60_000 })
+    const res = await mgr.run({ ...baseReq(), runId: 'run-retry-accounting', graph: stallGraph() })
+    expect(res).toMatchObject({ outcome: 'success', totalCostUsd: 0.75 })
+    expect(getJob(db, res.runId)).toMatchObject({ total_cost_usd: 0.75, tokens_in: 40, tokens_out: 60, num_turns: 2, duration_ms: 80 })
+    const rows = db.prepare('SELECT status, total_cost_usd FROM ai_invocations WHERE loop_run_id = ? ORDER BY started_at, rowid').all(res.runId)
+    expect(rows).toEqual([{ status: 'failed', total_cost_usd: 0.25 }, { status: 'success', total_cost_usd: 0.5 }])
+    expect(recoverOrphanLoopStepAccounting(db, undefined, res.runId)).toBe(0)
+  })
+
+  it('does not retry a stalled attempt that already consumed the cost cap', async () => {
+    const graph = stallGraph()
+    graph.config.maxCostUsd = 0.25
+    const runAiStep = vi.fn().mockResolvedValue({ ...stalledResult(), cost: 0.25 })
+    const res = await manager(makeExecutors({ runAiStep })).run({ ...baseReq(), graph })
+    expect(res).toMatchObject({ outcome: 'max-cost', totalCostUsd: 0.25 })
+    expect(runAiStep).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not retry a stalled attempt after the whole-run deadline', async () => {
+    let now = 1000
+    const graph = stallGraph()
+    graph.config.timeoutMinutes = 1
+    const runAiStep = vi.fn(async () => { now = 61_001; return stalledResult() })
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), makeExecutors({ runAiStep }), () => now)
+    const res = await mgr.run({ ...baseReq(), graph })
+    expect(res.outcome).toBe('failed')
+    expect(runAiStep).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a provider-limit settlement durable when its notification listener fails', async () => {
+    const runAiStep = vi.fn(async () => ({ text: "You've hit your session limit", cost: 0.1 }))
+    const mgr = new LoopRunManager(db, (message) => {
+      if (message.type === 'loop.provider_limit') throw new Error('disconnected listener')
+    }, makeExecutors({ runAiStep }), () => 1000)
+    const res = await mgr.run({ ...baseReq(), graph: stallGraph() })
+    expect(res).toMatchObject({ outcome: 'stalled', stallReason: 'provider_limit', totalCostUsd: 0.1 })
+    expect(getLoopRun(db, res.runId)?.final_outcome).toBe('stalled')
+    expect(runAiStep).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves the legacy watchdog setting while the new setting has precedence', async () => {
+    vi.stubEnv('SPECRAILS_LOOP_INACTIVITY_MS', '0')
+    vi.stubEnv('SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS', undefined)
+    try {
+      const ex = makeExecutors()
+      await manager(ex).run({ ...baseReq(), graph: stallGraph() })
+      expect(ex.runAiStep).toHaveBeenCalledWith(expect.objectContaining({ idleTimeoutMs: 0 }))
+      vi.stubEnv('SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS', '2400000')
+      await manager(ex).run({ ...baseReq(), graph: stallGraph() })
+      expect(ex.runAiStep).toHaveBeenLastCalledWith(expect.objectContaining({ idleTimeoutMs: 2_400_000 }))
+    } finally { vi.unstubAllEnvs() }
+  })
+
+  it('a second stall fails the step and settles the run `stalled` (never `running` forever)', async () => {
+    const runAiStep = vi.fn().mockResolvedValue(stalledResult())
+    const ex = makeExecutors({ runAiStep })
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), ex, () => 1000, { idleTimeoutMs: 60_000 })
+    const res = await mgr.run({ ...baseReq(), runId: 'run-stall-2', graph: stallGraph() })
+    expect(res.outcome).toBe('stalled')
+    expect(runAiStep).toHaveBeenCalledTimes(2)
+    const ev = stepEvents('run-stall-2')
+    expect(ev.filter((e) => e.type === 'loop_step_end').map((e) => e.payload.status)).toEqual(['stalled', 'stalled'])
+    const completed = broadcasts.find((m) => m.type === 'loop.run_completed') as { status?: string } | undefined
+    expect(completed?.status).toBe('stalled')
+    const job = getJob(db, 'run-stall-2') as unknown as { status: string }
+    expect(job.status).not.toBe('running')
+  })
+
+  it('a user cancel during a stall is NOT retried — the run settles stopped', async () => {
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), makeExecutors({
+      runAiStep: vi.fn(async () => { mgr.cancel('run-stall-3'); return stalledResult() }),
+    }), () => 1000, { idleTimeoutMs: 60_000 })
+    const res = await mgr.run({ ...baseReq(), runId: 'run-stall-3', graph: stallGraph() })
+    expect(res.outcome).toBe('stopped')
+    expect(stepEvents('run-stall-3').filter((e) => e.payload.attempt === 2)).toHaveLength(0)
+  })
+
+  it('idle 0 (disabled) passes no idle bound to the executors', async () => {
+    const ex = makeExecutors()
+    const mgr = new LoopRunManager(db, (m) => broadcasts.push(m), ex, () => 1000, { idleTimeoutMs: 0 })
+    await mgr.run({ ...baseReq(), graph: stallGraph() })
+    const call = (ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[0][0] as { idleTimeoutMs?: number }
+    expect(call.idleTimeoutMs).toBe(0)
   })
 })

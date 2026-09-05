@@ -509,6 +509,20 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     })
   })
 
+  it('keeps provider-limit stall reasons scoped to the run that reported them', async () => {
+    const pending: Array<{ runId: string; resolve: (value: unknown) => void }> = []
+    const { ctx, onLoopRunFinished } = fakeCtx(({ runId }) => new Promise((resolve) => pending.push({ runId, resolve })))
+    const ids = await launchIsolatedRail(input([1, 2], ctx), okIo())
+    pending[0].resolve({ runId: ids[0], outcome: 'failed', stallReason: 'provider_limit' })
+    await vi.waitFor(() => expect(onLoopRunFinished).toHaveBeenCalledWith(ids[0], 'failed', {
+      ticketCompletionStatus: 'on_review', stallReason: 'provider_limit',
+    }))
+    pending[1].resolve({ runId: ids[1], outcome: 'failed' })
+    await vi.waitFor(() => expect(onLoopRunFinished).toHaveBeenCalledWith(ids[1], 'failed', {
+      ticketCompletionStatus: 'on_review',
+    }))
+  })
+
   it('persists a mixed batch as partial without dropping the failed unit', async () => {
     let call = 0
     const { ctx, db } = fakeCtx(async ({ runId }) => ({ runId, outcome: call++ === 0 ? 'success' : 'failed' }))

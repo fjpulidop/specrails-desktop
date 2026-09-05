@@ -139,6 +139,54 @@ function getProjectDbPath(slug: string): string {
   return path.join(os.homedir(), '.specrails', 'projects', slug, 'jobs.sqlite')
 }
 
+// ─── Mission search index ─────────────────────────────────────────────────────
+
+/**
+ * DDL for the mission full-text index (migration 24). Kept as a constant so
+ * `rebuildAgentSearchIndex` and tests can reason about the same schema. The
+ * column order matters: `content` is column 3, which is what `snippet()` and
+ * `highlight()` address in `agent-store.ts`.
+ */
+export const AGENT_SEARCH_INDEX_DDL = `
+  CREATE VIRTUAL TABLE IF NOT EXISTS agent_messages_fts USING fts5(
+    conversation_id UNINDEXED,
+    message_id UNINDEXED,
+    role UNINDEXED,
+    content,
+    tokenize='trigram remove_diacritics 1'
+  );
+  CREATE TRIGGER IF NOT EXISTS agent_messages_fts_ai AFTER INSERT ON agent_messages BEGIN
+    INSERT INTO agent_messages_fts (conversation_id, message_id, role, content)
+    VALUES (new.conversation_id, new.id, new.role, new.content);
+  END;
+  CREATE TRIGGER IF NOT EXISTS agent_messages_fts_ad AFTER DELETE ON agent_messages BEGIN
+    DELETE FROM agent_messages_fts WHERE message_id = old.id;
+  END;
+  CREATE TRIGGER IF NOT EXISTS agent_messages_fts_au AFTER UPDATE OF content, role, conversation_id ON agent_messages BEGIN
+    DELETE FROM agent_messages_fts WHERE message_id = old.id;
+    INSERT INTO agent_messages_fts (conversation_id, message_id, role, content)
+    VALUES (new.conversation_id, new.id, new.role, new.content);
+  END;
+`
+
+/**
+ * Re-derive the whole mission search index from `agent_messages`. Idempotent
+ * and cheap (the corpus is a few MB at most); the migration calls it once, and
+ * any future bulk writer that bypasses SQL triggers (an import, a repair tool)
+ * must call it afterwards. Runs in one transaction so a reader never observes
+ * a half-empty index.
+ */
+export function rebuildAgentSearchIndex(db: DbInstance): void {
+  const tx = db.transaction(() => {
+    db.exec('DELETE FROM agent_messages_fts')
+    db.exec(`
+      INSERT INTO agent_messages_fts (conversation_id, message_id, role, content)
+      SELECT conversation_id, id, role, content FROM agent_messages
+    `)
+  })
+  tx()
+}
+
 // ─── Schema migrations ────────────────────────────────────────────────────────
 
 // NOTE: existing migrations below intentionally keep the legacy `hub_settings`
@@ -527,6 +575,27 @@ function applyDesktopMigrations(db: DbInstance): void {
         ALTER TABLE blueprint_conversations ADD COLUMN committed_project_id TEXT;
         ALTER TABLE blueprint_messages ADD COLUMN raw_content TEXT;
       `)
+    },
+    // 24: mission search (search-missions-in-palette). A standard FTS5 table
+    // (NOT external-content: `agent_messages` has a TEXT primary key, so its
+    // rowid is implicit and a VACUUM may renumber it — an external-content
+    // index keyed on that rowid would silently desync) carrying its own copy of
+    // every message body plus UNINDEXED conversation/message/role columns so a
+    // search never has to join back. The trigram tokenizer gives substring
+    // semantics ("etris" finds "Tetris") with an index and `snippet()`;
+    // `remove_diacritics 1` makes "mision" find "misión". Three triggers keep
+    // it in sync so every existing writer stays untouched; the one-off rebuild
+    // indexes the history already on disk.
+    () => {
+      db.exec(AGENT_SEARCH_INDEX_DDL)
+      rebuildAgentSearchIndex(db)
+    },
+    // 25: Builder decision cards (premium-milestone-progress follow-up): a user
+    // turn sent from a one-click card ("surprise me", "approve") keeps its
+    // intent so the thread renders the settled decision card in place of the
+    // prompt bubble — across resumes and locale switches.
+    () => {
+      db.exec(`ALTER TABLE blueprint_messages ADD COLUMN intent TEXT;`)
     },
   ]
 

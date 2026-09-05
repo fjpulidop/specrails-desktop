@@ -21,7 +21,10 @@
       "verify": "prüft, ob es funktioniert",
       "decide": "entscheidet, ob es fertig ist",
       "fix": "behebt, was fehlschlug"
-    }
+    },
+    "stalled": "Schritt {{step}} hing – {{idleMinutes}} Min. ohne Aktivität, daher hat die App ihn beendet",
+    "startResume": "Schritt {{step}}: {{title}} – Fortsetzung nach einem Hänger",
+    "providerLimit": "Schritt {{step}} gestoppt — das Nutzungslimit des Anbieters ist erreicht"
   },
   "decision": {
     "another": "Noch nicht fertig — nächste Runde",

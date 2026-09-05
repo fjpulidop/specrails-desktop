@@ -26,7 +26,9 @@
     "laterMilestones": "后续里程碑",
     "empty": "蓝图会在对话中逐步填充。",
     "specsComplete": "已完成",
-    "specsInProgress": "进行中"
+    "specsInProgress": "进行中",
+    "specWriting": "撰写中…",
+    "specPendingBody": "尚未撰写"
   },
   "commit": {
     "title": "创建项目",
@@ -88,7 +90,6 @@
   "sidebar": {
     "title": "蓝图",
     "milestone": "M{{n}}",
-    "progress": "{{done}}/{{total}} 已完成",
     "launchM1": "启动里程碑 1",
     "generateNext": "生成 M{{n}}",
     "generateHint": "打开以蓝图为种子、扎根真实代码的规格会话",
@@ -120,7 +121,8 @@
     "surpriseMe": "给我惊喜——为蓝图的所有维度提出合理方案，保持 m1Specs 为空，并在生成详细规格前让我先批准计划。",
     "milestoneSeed": "为里程碑 {{label}}（\"{{title}}\"）生成详细规格。先阅读真实代码并验证完整批次，然后在一次 blueprint-draft 回复/快照中输出该里程碑的全部详细规格。",
     "milestoneSeedWithPlanned": "为里程碑 {{label}}（\"{{title}}\"）生成详细规格。计划的规格标题：{{planned}}。先阅读真实代码并验证完整批次，然后在一次 blueprint-draft 回复/快照中输出该里程碑的全部详细规格。",
-    "repairSnapshot": "应用无法使用你上一个 blueprint-draft 块（{{reason}}）。请重新输出完整的快照，且必须是严格有效的 JSON（字符串内换行转义为 \\n，无尾随逗号，无嵌套代码块）——只输出该块。"
+    "repairSnapshot": "应用无法使用你上一个 blueprint-draft 块（{{reason}}）。请重新输出完整的快照，且必须是严格有效的 JSON（字符串内换行转义为 \\n，无尾随逗号，无嵌套代码块）——只输出该块。",
+    "approve": "已批准 — 现在生成里程碑 1 的详细待办。"
   },
   "specModal": {
     "eyebrow": "{{milestone}} · 规格 {{index}}",
@@ -138,14 +140,18 @@
     "mode": {
       "sequential": "顺序",
       "parallel": "并行"
-    },
-    "chunkLaunched": "{{milestone}} — 轨道 {{chunk}}/{{total}} 已启动",
-    "chunkFailed": "{{milestone}} — 轨道 {{chunk}}/{{total}} 启动失败；已停止后续轨道",
-    "done": "{{milestone}} 完成 — {{count}} 个 spec 已通过顺序链"
+    }
   },
   "generation": {
-    "writing": "正在撰写里程碑 1 的规格…",
-    "specCount": "规格 {{n}}"
+    "writing": "正在编写里程碑 1 的规格…",
+    "specCount": "规格 {{n}}",
+    "turn": "第 {{turn}}/{{total}} 轮",
+    "phase": {
+      "outline": "正在勾勒里程碑 1 的规格…",
+      "details": "正在详细编写第 {{from}}–{{to}} 个规格（共 {{total}} 个）…",
+      "audit": "正在审核全部 {{total}} 个规格…",
+      "repair": "正在重新请求第 {{from}}–{{to}} 个规格…"
+    }
   },
   "readiness": {
     "title": "准备好创建规格了吗？",
@@ -163,12 +169,14 @@
       "specs": {
         "done": "{{count}} 条规格 · 已完成",
         "pending": "{{count}} / {{min}}–{{max}}",
-        "blocked": "{{count}} 条规格 · 需要 {{min}}–{{max}} 条"
+        "blocked": "{{count}} 条规格 · 需要 {{min}}–{{max}} 条",
+        "writing": "已写出 {{written}}/{{count}}"
       },
       "audit": {
         "done": "没有问题",
         "pending": "等待规格",
-        "blocked": "{{count}} 项待修正"
+        "blocked": "{{count}} 项待修正",
+        "writing": "规格写完后进行"
       }
     },
     "hints": {
@@ -178,11 +186,13 @@
       },
       "specs": {
         "pending": "批准蓝图后，构建器将生成里程碑 1 的待办清单。",
-        "blocked": "里程碑 1 需要 {{min}}–{{max}} 条规格（当前 {{count}} 条）。请让构建器调整。"
+        "blocked": "里程碑 1 需要 {{min}}–{{max}} 条规格（当前 {{count}} 条）。请让构建器调整。",
+        "writing": "构建器正在完整撰写每条规格，批次完成后再运行质量审核。"
       },
       "audit": {
         "pending": "等待规格。",
-        "blocked": "{{count}} 个审核问题阻止提交——请展开下方列表。"
+        "blocked": "{{count}} 个审核问题阻止提交——请展开下方列表。",
+        "writing": "所有规格写完后运行审核。"
       }
     },
     "issuesCount_one": "{{count}} 个审核问题",
@@ -207,7 +217,12 @@
     "repairedNote": "快照已自动修复",
     "nothingToRepair": "没有需要修复的内容——继续与构建器对话即可。",
     "noSession": "此对话无法在其提供商上恢复；请改为发送新消息。",
-    "alreadyStreaming": "构建器仍在回复。"
+    "alreadyStreaming": "构建器仍在回复。",
+    "halted": {
+      "title": "规格生成提前中止",
+      "detail": "已完整写出 {{written}}/{{total}} 条规格，其余仍只是大纲标题。",
+      "resume": "继续生成"
+    }
   },
   "recent": {
     "title": "从上次离开的地方继续",
@@ -235,15 +250,118 @@
     "invalid_priority": "规格 {{n}} 需要有效的优先级。",
     "canonical_sections": "规格 {{n}} 缺少按顺序排列的五个规范章节。",
     "empty_section": "规格 {{n}} 的“{{heading}}”章节为空。",
-    "section_bullets": "规格 {{n}} 的“{{heading}}”下至少需要两个要点。",
+    "section_bullets": "规格 {{n}} 的“{{heading}}”下至少需要 {{min}} 个要点。",
     "complexity_format": "规格 {{n}} 需要带理由的复杂度等级。",
     "scaffold_readme": "脚手架规格必须提及现有的 README。",
-    "criteria_count": "规格 {{n}} 需要 4–10 条验收标准（当前 {{count}} 条）。",
+    "criteria_count": "规格 {{n}} 需要 {{min}}–{{max}} 条验收标准（当前 {{count}} 条）。",
     "criterion_quality": "规格 {{n}} 的第 {{criterion}} 条标准不够具体。",
     "duplicate_criterion": "规格 {{n}} 重复了第 {{criterion}} 条验收标准。",
     "milestone_label": "规格 {{n}} 需要 {{label}} 标签。",
     "domain_label": "规格 {{n}} 除 {{label}} 外还需要一个领域标签。",
     "invalid_dependency": "规格 {{n}} 只能依赖更早的规格。",
-    "scaffold_dependency": "脚手架规格不能声明依赖。"
+    "scaffold_dependency": "脚手架规格不能声明依赖。",
+    "section_depth": "规格 {{n}} 的“{{heading}}”需要更充实（至少 {{min}} 个字符）。"
+  },
+  "milestoneProgress": {
+    "state": {
+      "planned": "已规划",
+      "committed": "可启动",
+      "running": "进行中",
+      "delivered": "已交付 — 等待审阅",
+      "done": "已完成"
+    },
+    "counts": "已交付 {{delivered}}/{{total}} · 已完成 {{done}}",
+    "failedNote_one": "{{count}} 个规格上次尝试失败",
+    "failedNote_other": "{{count}} 个规格上次尝试失败",
+    "legend": {
+      "done": "已完成",
+      "onReview": "审阅中",
+      "inProgress": "进行中",
+      "failed": "上次尝试失败",
+      "todo": "待处理"
+    },
+    "rail": {
+      "fallbackName": "轨道 {{n}}",
+      "chunk": "链中的第 {{k}} 条轨道",
+      "running": "运行中 · {{elapsed}}",
+      "review": "审阅",
+      "open": "打开轨道",
+      "noDelivery": "尚无交付"
+    },
+    "chain": {
+      "title": "顺序链",
+      "parallelTitle": "并行启动",
+      "progress": "第 {{k}}/{{n}} 条轨道",
+      "waiting": "等待第 {{k}} 条轨道结束",
+      "stackedOn": "下一条轨道基于 {{branch}}",
+      "paused": "已暂停 — {{reason}}",
+      "completed": "所有轨道已启动",
+      "cancelled": "链已取消",
+      "resume": "恢复",
+      "cancel": "取消链",
+      "resumed": "链已恢复",
+      "resumeFailed": "无法恢复链",
+      "cancelledToast": "链已取消 — 运行中的轨道继续",
+      "reasons": {
+        "chunk_failed": "上一条轨道失败",
+        "chunk_stalled": "上一条轨道停滞（无提供方输出）",
+        "chunk_stopped": "上一条轨道已被停止",
+        "launch_rejected": "下一条轨道无法启动（{{detail}}）",
+        "head_missing": "用于构建的分支已不存在",
+        "head_discarded": "下一条轨道所基于的交付已被丢弃",
+        "run_lost": "重启后找不到运行中的轨道",
+        "unknown": "已暂停",
+        "provider_limit": "已达到提供商用量限额"
+      },
+      "checkpoint": "第 {{k}}/{{n}} 条轨道已交付 — 启动第 {{next}} 条？",
+      "launchNext": "启动下一条轨道",
+      "nextLaunched": "下一条轨道已启动",
+      "autoAdvance": "自动继续",
+      "autoAdvanceHint": "上一条轨道交付后立即启动下一条",
+      "checkpointHint": "每条轨道结束后暂停，启动下一条前先询问",
+      "checkpointNote": "本轨道结束后暂停",
+      "autoOn": "已开启自动继续 — 后续轨道将自动启动",
+      "autoOff": "已关闭自动继续 — 每条轨道启动前都会询问",
+      "autoFailed": "无法更新链"
+    },
+    "toast": {
+      "launched": "{{milestone}} 已启动 — 第 1/{{n}} 条轨道上有 {{count}} 个规格；后续轨道将自动跟进",
+      "launchedAll": "{{milestone}} 已启动 — {{count}} 个规格分布在 {{n}} 条轨道",
+      "launchedPartial": "{{milestone}} 部分启动 — 已启动 {{count}} 个规格，{{skipped}} 个待处理",
+      "chainActive": "{{milestone}} 正在启动 — 请查看蓝图面板",
+      "chunkLaunched": "{{milestone}} — 第 {{k}}/{{n}} 条轨道已启动",
+      "paused": "{{milestone}} 已暂停 — {{reason}}",
+      "resume": "恢复",
+      "delivered": "{{milestone}} 已交付 — {{count}} 个规格等待您的审阅",
+      "review": "审阅",
+      "completed": "{{milestone}} 已完成 — 所有规格均已合并",
+      "launchedCheckpoint": "{{milestone}} 已启动 — {{count}} 条规格在第 1/{{n}} 条轨道上；每条后续轨道启动前都会询问",
+      "checkpoint": "{{milestone}} — 第 {{k}}/{{n}} 条轨道已交付。启动下一条？",
+      "launchNext": "启动下一条轨道",
+      "autoContinue": "自动继续"
+    },
+    "sequentialHint": "每条轨道基于上一条轨道的分支",
+    "parallelHint": "从集成分支独立启动各轨道（不堆叠）"
+  },
+  "decisionCard": {
+    "settledLabel": "已做决定",
+    "surprise": {
+      "label": "构建器",
+      "hint": "之后可以调整任何决定",
+      "title": "给我惊喜",
+      "description": "让构建器决定产品、核心流程、平台、技术栈和里程碑，然后把蓝图交给你审批或微调。",
+      "cta": "给我惊喜",
+      "settledTitle": "给我惊喜",
+      "settledDescription": "你让构建器决定了蓝图的全部维度。"
+    },
+    "approve": {
+      "label": "蓝图就绪",
+      "hint": "或者输入你想修改的内容",
+      "title": "批准蓝图",
+      "description": "所有维度已确定。批准后构建器会完整撰写里程碑 1 的规格，每次两条，然后审核整批。",
+      "cta": "批准并生成规格",
+      "settledTitle": "蓝图已批准",
+      "settledDescription": "构建器正根据此蓝图生成里程碑 1 的待办。"
+    }
   }
 }

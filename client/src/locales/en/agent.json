@@ -408,7 +408,8 @@
       "noChangesDoneBody": "The implementation confirmed that no code changes are needed. The specs will move to Done and the no-change worktree will be cleaned up.",
       "refineTitle": "Refine these specs?",
       "refineBody": "The no-change result will be closed and the specs will return to the backlog so you can refine them. The run logs remain available."
-    }
+    },
+    "discardStackedNote": "Later rails of this milestone were built on this delivery. Discarding it pauses the milestone chain; the later rails keep their work."
   },
   "specDraft": {
     "heading": "Spec draft",

@@ -11,9 +11,10 @@ const STEP_TITLES = [
   'Choose your language',
   'Pick your look',
   'Welcome to Specrails',
+  'Talk — the agent operates',
+  'Start a project from an idea',
   'Turn ideas into specs',
   'Run the pipeline on rails',
-  'Operate the app by chatting',
   'Bring your own agent',
   'Track every cent',
   'Make it your workspace',
@@ -134,6 +135,23 @@ describe('OnboardingWizard', () => {
     expect(screen.getAllByText('B').length).toBeGreaterThan(0)
     expect(screen.getAllByText('?').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Alt').length).toBeGreaterThan(0)
+    // The agent shortcuts joined the sheet: ⌘⇧A toggles it, Shift+Tab cycles its level.
+    expect(screen.getAllByText('Shift').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Tab').length).toBeGreaterThan(0)
+  })
+
+  it('leads with Mission mode right after the welcome, then the Builder, and never mentions the retired board-only loop', () => {
+    render(<OnboardingWizard open={true} onClose={onClose} />)
+    fireEvent.click(screen.getAllByRole('button', { name: /^Go to step/ })[2])
+    expect(screen.getByText('Mission mode — the default')).toBeTruthy()
+    expect(screen.getByText('Board mode — one switch away')).toBeTruthy()
+    expect(screen.queryByText('Drop in a Rail')).toBeNull()
+    fireEvent.click(screen.getByTestId('onboarding-next'))
+    expect(screen.getByText(STEP_TITLES[3])).toBeTruthy()
+    expect(screen.getByText(/on by default/)).toBeTruthy()
+    fireEvent.click(screen.getByTestId('onboarding-next'))
+    expect(screen.getByText(STEP_TITLES[4])).toBeTruthy()
+    expect(screen.getByText(/Wave checkpoints/)).toBeTruthy()
   })
 
   it('companion step links to the web companion (specrails.dev/companion-app)', () => {

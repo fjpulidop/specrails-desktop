@@ -408,7 +408,8 @@
     "mergeLocalTooltip": "Fusionne les branches livrées dans {{base}} dans votre checkout local (sans GitHub)",
     "mergeLocalBlockedDirty": "Intégration impossible : les modifications locales sur {{base}} chevauchent la livraison. Commitez ou remisez ces modifications, puis réessayez.",
     "mergeLocalBlockedBranch": "Impossible d'intégrer : votre checkout est sur {{current}}, pas sur {{base}}. Passez sur {{base}}, puis réessayez.",
-    "mergedLocally": "Intégré dans {{base}} en local"
+    "mergedLocally": "Intégré dans {{base}} en local",
+    "discardStackedNote": "Les rails suivants de ce jalon ont été construits sur cette livraison. L'abandonner met la chaîne du jalon en pause ; les rails suivants conservent leur travail."
   },
   "specDraft": {
     "heading": "Brouillon de spec",

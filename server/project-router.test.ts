@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { premiumSpec } from './blueprint-spec-fixtures'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -300,26 +301,14 @@ describe('project-router', () => {
         .send({
           milestoneId: 'm2',
           specsComplete: true,
-          specs: [{
+          // Premium bar (raised floors): the shared gate-valid fixture with the M2 identity.
+          specs: [premiumSpec(0, {
             kind: 'feature',
             title: 'Add reports',
             shortSummary: 'Show actionable progress reports.',
-            description: [
-              '## Problem Statement', 'Teams cannot understand progress or identify stalled work from the current project view.',
-              '', '## Proposed Solution', 'Add a grounded report view that derives milestone progress from the existing ticket store and current status model.',
-              '', '## Out of Scope', '- Predictive forecasting', '- External data warehouse exports',
-              '', '## Technical Considerations', '- Reuse the existing ticket storage contract', '- Cover empty, loading, success, and failure states',
-              '', '## Estimated Complexity', 'Medium — the report crosses server aggregation and client presentation.',
-            ].join('\n'),
-            acceptanceCriteria: [
-              'The report shows progress for every committed milestone.',
-              'An empty project renders a deliberate empty state.',
-              'A ticket read failure produces an actionable error state.',
-              'Automated tests cover aggregation and presentation behavior.',
-            ],
             priority: 'high',
             labels: ['analytics', 'M2'],
-          }],
+          })],
         })
 
       expect(response.status).toBe(201)

@@ -21,7 +21,10 @@
       "verify": "sta verificando che funzioni",
       "decide": "sta decidendo se è finito",
       "fix": "sta correggendo ciò che è fallito"
-    }
+    },
+    "stalled": "Il passo {{step}} si è bloccato — nessuna attività per {{idleMinutes}} min, quindi l'app l'ha fermato",
+    "startResume": "Passo {{step}}: {{title}} — ripresa dopo un blocco",
+    "providerLimit": "Passo {{step}} fermato — raggiunto il limite d'uso del provider"
   },
   "decision": {
     "another": "Non ancora — un altro giro",

@@ -140,12 +140,12 @@
       "connecting": "Conectando ao agente…",
       "starting": "Iniciando…"
     },
-  "pipelinePartial": "≥ exibido — {{count}} fase(s) sem custo registrado",
-  "pipelinePartialTooltip": "Algumas fases terminaram antes de reportar o custo, portanto este total é um limite inferior.",
-  "pipelineCostUnavailable": "A telemetria de custo está indisponível em todas as fases.",
-  "pipelineUsageUnavailable": "A telemetria de tokens está indisponível em todas as fases.",
-  "pipelineUsagePartial": "≥ mostrado — fases sem telemetria de tokens: {{count}}",
-  "pipelineUsageTooltip": "Os fornecedores podem concluir fases sem fornecer telemetria de tokens; apenas a utilização conhecida é incluída."
+    "pipelinePartial": "≥ exibido — {{count}} fase(s) sem custo registrado",
+    "pipelinePartialTooltip": "Algumas fases terminaram antes de reportar o custo, portanto este total é um limite inferior.",
+    "pipelineCostUnavailable": "A telemetria de custo está indisponível em todas as fases.",
+    "pipelineUsageUnavailable": "A telemetria de tokens está indisponível em todas as fases.",
+    "pipelineUsagePartial": "≥ mostrado — fases sem telemetria de tokens: {{count}}",
+    "pipelineUsageTooltip": "Os fornecedores podem concluir fases sem fornecer telemetria de tokens; apenas a utilização conhecida é incluída."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} mais",
@@ -270,7 +270,12 @@
     "copyCommand": "Copiar",
     "interrupted": "Interrompido",
     "waiting": "A aguardar o próximo passo...",
-    "stepMapAria": "Mapa de passos do loop"
+    "stepMapAria": "Mapa de passos do loop",
+    "stalled": "Travado",
+    "stalledIdle_one": "Sem saída do fornecedor durante {{count}} minuto — a app parou esta tentativa",
+    "stalledIdle_other": "Sem saída do fornecedor durante {{count}} minutos — a app parou esta tentativa",
+    "providerLimit": "Limite do fornecedor",
+    "providerLimitHint": "O fornecedor respondeu com um aviso de limite de utilização, por isso a app parou a execução em vez de continuar a ciclar."
   },
   "logViewer": {
     "loading": "A carregar logs...",

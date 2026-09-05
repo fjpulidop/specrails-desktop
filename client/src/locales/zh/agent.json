@@ -408,7 +408,8 @@
     "mergeLocalTooltip": "将交付的分支合并到本地检出的 {{base}}（无需 GitHub）",
     "mergeLocalBlockedDirty": "无法集成：{{base}} 上的本地更改与交付内容重叠。请先提交或暂存这些更改，然后重试。",
     "mergeLocalBlockedBranch": "无法集成：当前检出在 {{current}}，而不是 {{base}}。请切换到 {{base}} 后重试。",
-    "mergedLocally": "已在本地集成到 {{base}}"
+    "mergedLocally": "已在本地集成到 {{base}}",
+    "discardStackedNote": "此里程碑的后续轨道基于此交付构建。丢弃它会暂停里程碑链；后续轨道保留其工作。"
   },
   "specDraft": {
     "heading": "规格草稿",

@@ -144,7 +144,7 @@
     "pipelinePartialTooltip": "Certaines phases se sont arrêtées avant de rapporter leur coût ; ce total est donc une borne inférieure.",
     "pipelineCostUnavailable": "La télémétrie de coût est indisponible pour toutes les phases.",
     "pipelineUsageUnavailable": "La télémétrie des tokens est indisponible pour toutes les phases.",
-  "pipelineUsagePartial": "≥ affiché — phases sans télémétrie des tokens : {{count}}",
+    "pipelineUsagePartial": "≥ affiché — phases sans télémétrie des tokens : {{count}}",
     "pipelineUsageTooltip": "Les fournisseurs peuvent terminer des phases sans exposer la télémétrie des tokens ; seule l'utilisation connue est incluse."
   },
   "ticketHeader": {
@@ -270,7 +270,12 @@
     "copyCommand": "Copier",
     "interrupted": "Interrompue",
     "waiting": "En attente de la prochaine étape…",
-    "stepMapAria": "Carte des étapes de la boucle"
+    "stepMapAria": "Carte des étapes de la boucle",
+    "stalled": "Bloquée",
+    "stalledIdle_one": "Aucune sortie du fournisseur pendant {{count}} minute — l'app a arrêté cette tentative",
+    "stalledIdle_other": "Aucune sortie du fournisseur pendant {{count}} minutes — l'app a arrêté cette tentative",
+    "providerLimit": "Limite du fournisseur",
+    "providerLimitHint": "Le fournisseur a répondu par un avis de limite d'utilisation ; l'app a arrêté l'exécution au lieu de boucler."
   },
   "logViewer": {
     "loading": "Chargement des logs…",

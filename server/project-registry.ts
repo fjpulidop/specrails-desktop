@@ -38,11 +38,18 @@ import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './ticket-store'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { StuckRunDetector } from './stuck-run-detector'
+import { MilestoneProgressBroadcaster, readMilestoneProgress, markMilestoneDone, resolveBlueprintWorkspace } from './milestone-progress'
+import { MilestoneChainManager } from './milestone-chain'
+import { createInternalApi, internalApiError } from './internal-api'
+import { readBlueprint } from './blueprint-render'
+import { defaultGitRunner } from './worktree-manager'
+import { resolveIntegrationBranch } from './integration-branch'
+import { getProjectSettings } from './db'
 import { LoopRunManager, recoverOrphanLoopStepAccounting } from './loop-run-manager'
 import { createLoopExecutors } from './loop-executors'
 import { reconcileRailWorktrees } from './rail-isolated-launch'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
-import { clearOrphanedPrDeliveryOperations, getPrDelivery, listOriginLinkedPrDeliveries, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './rail-pr-store'
+import { clearOrphanedPrDeliveryOperations, getActivePrDeliveryByRail, getPrDelivery, listOriginLinkedPrDeliveries, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './rail-pr-store'
 import { getAgentChatManager } from './agent-chat-registry'
 import { replayRailPrTicketEffectsUntilSettled } from './rail-pr-ticket-effects'
 import {
@@ -129,12 +136,17 @@ export interface ProjectContext {
   onLoopRunFinished: (
     runId: string,
     outcome: string,
-    opts?: { ticketCompletionStatus?: 'done' | 'on_review' },
+    opts?: { ticketCompletionStatus?: 'done' | 'on_review'; stallReason?: string },
   ) => void
   /** Read a spec's fields for {{spec.*}} interpolation at launch. */
   getTicketSpec: (ticketId: number) => LoopSpec | undefined
   /** App-level DB (project registry + the global `loops` table). */
   desktopDb: DbInstance
+  /** Debounced `blueprint.milestone_progress` broadcaster (premium-milestone-
+   *  progress); tapped from the bound broadcast. Absent in bare test contexts. */
+  milestoneProgress?: MilestoneProgressBroadcaster
+  /** Server-durable milestone launch chains (sequential Launch Milestone). */
+  milestoneChains?: MilestoneChainManager
 }
 
 /** Rehydrate both authoritative PR-decision surfaces after startup recovery.
@@ -390,6 +402,7 @@ export class ProjectRegistry {
       // Stop the Jira sync poll/drain timers (no children, just intervals).
       try { ctx.jiraSyncManager.stop() } catch { /* ignore */ }
       try { ctx.stuckRunDetector.stop() } catch { /* ignore */ }
+      try { ctx.milestoneProgress?.dispose() } catch { /* ignore */ }
       // Kill any terminal sessions belonging to this project
       try { getTerminalManager().killAllForProject(id) } catch { /* ignore */ }
       // Close the ticket file watcher
@@ -491,6 +504,7 @@ export class ProjectRegistry {
       void ctx.browserCaptureManager.shutdown().catch(() => { /* ignore */ })
       try { ctx.jiraSyncManager.stop() } catch { /* ignore */ }
       try { ctx.stuckRunDetector.stop() } catch { /* ignore */ }
+      try { ctx.milestoneProgress?.dispose() } catch { /* ignore */ }
       // Release chokidar watchers + abort in-flight generations so a restart
       // does not leak handles/children — mirror removeProject()'s per-project teardown.
       try { ctx.fileSummaryManager.dispose() } catch { /* ignore */ }
@@ -532,9 +546,19 @@ export class ProjectRegistry {
     // Bind broadcast with projectId so all WS messages carry context.
     // Also wire agent status: when a queued job reaches a terminal state,
     // clear current_job_id on any agent that was assigned to it.
+    // Milestone progress tap (premium-milestone-progress): every project-scoped
+    // broadcast that can change a milestone's counts/rails/chain schedules ONE
+    // debounced `blueprint.milestone_progress` re-derivation. Assigned below,
+    // once the rail maps exist; null until then (startup messages are few).
+    let milestoneProgress: MilestoneProgressBroadcaster | null = null
+    let milestoneChains: MilestoneChainManager | null = null
     const boundBroadcast = (msg: WsMessage): void => {
       const enriched = { ...msg, projectId: project.id }
       this._broadcast(enriched as WsMessage)
+      // Chain first: a delivery settle may launch the next chunk (async) and
+      // emit its own `milestone.chain_changed`; the progress tap then coalesces.
+      milestoneChains?.observe(msg)
+      milestoneProgress?.observe(msg)
       if (msg.type === 'queue') {
         for (const job of msg.jobs) {
           if (isTerminalJobStatus(job.status)) {
@@ -1047,7 +1071,7 @@ export class ProjectRegistry {
     const onLoopRunFinished = (
       runId: string,
       outcome: string,
-      opts?: { ticketCompletionStatus?: 'done' | 'on_review' },
+      opts?: { ticketCompletionStatus?: 'done' | 'on_review'; stallReason?: string },
     ): void => {
       const intent = getLoopTerminalRecovery(db, runId)
       let payload: LoopTerminalRecoveryPayload | null = null
@@ -1166,6 +1190,10 @@ export class ProjectRegistry {
         })
         const delivered = deliver()
         railLoopRuns.delete(runId)
+        // Milestone chain fallback hook: records the engine outcome (names the
+        // pause reason) and settles delivery-less chunks. Isolated chunks
+        // advance from the later `rail.pr_state` settle instead.
+        try { milestoneChains?.onRunSettled(runId, effectiveOutcome, opts?.stallReason) } catch (err) { console.error('[milestone-chain] onRunSettled failed:', err) }
         for (const ticketId of delivered.changedIds) {
           const ticket = delivered.store?.tickets[String(ticketId)]
           if (!ticket) continue
@@ -1203,7 +1231,86 @@ export class ProjectRegistry {
     const stuckRunDetector = new StuckRunDetector(project.id, { db }, boundBroadcast)
     stuckRunDetector.start()
 
-    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb }
+    const blueprintWorkspace = (): string | null => resolveBlueprintWorkspace({ slug: project.slug, path: project.path })
+    // Milestone launch chain (premium-milestone-progress D3): chunks launch
+    // through the app's OWN rails launch route over loopback (the single
+    // authority for every guard) — never by re-implementing the handler.
+    const internalApi = createInternalApi({ port: this._desktopPort })
+    const railsBase = `/projects/${project.id}/rails`
+    milestoneChains = new MilestoneChainManager(db, project.id, {
+      createRail: async (name) => {
+        const r = await internalApi.call('POST', railsBase, { name })
+        const railIndex = (r.body as { rail?: { railIndex?: unknown } } | null)?.rail?.railIndex
+        return r.ok && typeof railIndex === 'number'
+          ? { ok: true, railIndex }
+          : { ok: false, status: r.status, ...internalApiError(r) }
+      },
+      assignTickets: async (railIndex, ticketIds) => {
+        const r = await internalApi.call('PUT', `${railsBase}/${railIndex}/tickets`, { ticketIds, mode: 'batch-implement' })
+        return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
+      },
+      launch: async (railIndex, body) => {
+        const r = await internalApi.call('POST', `${railsBase}/${railIndex}/launch`, body)
+        if (!r.ok) return { ok: false, status: r.status, ...internalApiError(r) }
+        const data = (r.body ?? {}) as { loopRunIds?: unknown; jobIds?: unknown; jobId?: unknown }
+        const ids = Array.isArray(data.loopRunIds) ? data.loopRunIds
+          : Array.isArray(data.jobIds) ? data.jobIds
+            : typeof data.jobId === 'string' ? [data.jobId] : []
+        return { ok: true, loopRunIds: ids.filter((v): v is string => typeof v === 'string') }
+      },
+      activeDeliveryForRail: (railIndex) => {
+        const row = getActivePrDeliveryByRail(db, railIndex)
+        return row ? toPrDeliverySnapshot(row) : null
+      },
+      findRailByName: (name) => {
+        try {
+          const hit = getRails(db).find((r) => r.name === name)
+          return hit ? hit.railIndex : null
+        } catch { return null }
+      },
+      getDelivery: (id) => {
+        const row = getPrDelivery(db, id)
+        return row ? toPrDeliverySnapshot(row) : null
+      },
+      branchExists: async (branch) => {
+        const r = await defaultGitRunner.run(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], project.path)
+        return r.code === 0
+      },
+      readTickets: () => {
+        try {
+          return Object.values(readStore(ticketStorePath()).tickets).map((t) => ({ id: t.id, status: t.status, labels: t.labels ?? [] }))
+        } catch { return [] }
+      },
+      readBlueprint: () => { const ws = blueprintWorkspace(); return ws ? readBlueprint(ws) : null },
+      integrationBranch: async () => {
+        try {
+          return (await resolveIntegrationBranch(defaultGitRunner, { repoDir: project.path, projectSetting: getProjectSettings(db).integrationBranch })).branch
+        } catch { return null }
+      },
+      runState: (runId) => {
+        const run = getLoopRun(db, runId)
+        if (!run) return null
+        return { settled: run.status !== 'running' && run.status !== 'paused', outcome: run.final_outcome ?? null }
+      },
+      broadcast: boundBroadcast,
+    })
+    milestoneProgress = new MilestoneProgressBroadcaster({
+      projectId: project.id,
+      read: () => readMilestoneProgress({
+        db,
+        projectId: project.id,
+        workspaceDir: blueprintWorkspace,
+        ticketsPath: ticketStorePath,
+        railJobs,
+        railLoopRuns,
+        chains: () => milestoneChains?.listForProgress() ?? [],
+      }),
+      persistDone: (milestoneId) => markMilestoneDone(blueprintWorkspace(), milestoneId) !== null,
+      broadcast: boundBroadcast,
+    })
+
+    const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress }
+    ctx.milestoneChains = milestoneChains
     this._contexts.set(project.id, ctx)
     const loopRecoveryOk = this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns)
     if (loopRecoveryOk) {

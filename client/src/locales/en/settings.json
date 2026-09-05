@@ -71,7 +71,8 @@
       "projects": "Projects",
       "advanced": "Advanced",
       "webhooks": "Webhooks",
-      "about": "About"
+      "about": "About",
+      "effects": "Effects"
     },
     "title": "Desktop Settings",
     "description": "Manage registered projects and view Desktop information.",
@@ -305,5 +306,16 @@
       "sr-developer": "Developer",
       "sr-reviewer": "Reviewer"
     }
+  },
+  "effects": {
+    "heading": "Effects",
+    "description": "Visual flourishes across the app. Each one can be switched off here.",
+    "thinkingHalo": {
+      "label": "Thinking halo on the agent composer",
+      "description": "While the agent is thinking or writing, the Builder's orbiting ring glows around the composer — it fades in when a turn starts and fades out when the reply settles."
+    },
+    "reducedMotion": "Follows your system's reduced-motion setting: the ring stays as a static glow.",
+    "preview": "Preview",
+    "previewThinking": "Thinking…"
   }
 }

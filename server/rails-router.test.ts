@@ -14,6 +14,7 @@ import { beginProjectProcessQuiescence, openProjectProcessAdmission } from './pr
 import { ExplicitPrTargetError } from './active-pr-continuation'
 import { withRepoLock } from './repo-lock'
 import * as profileManager from './profile-manager'
+import { defaultGitRunner } from './worktree-manager'
 
 const {
   mockExecRun,
@@ -2421,5 +2422,69 @@ describe('prDeliveryRevisionAllowed', () => {
     for (const decision of ['on_review', 'pr_draft', 'pr_ready', 'no_changes', 'pr_failed', 'implementation_failed']) {
       expect(prDeliveryRevisionAllowed(snap({ decision }), 'del-1', [1, 2])).toBe(true)
     }
+  })
+})
+
+// ─── baseBranch (premium-milestone-progress: stacked chunk launches) ─────────
+describe('POST /rails/:i/launch — baseBranch', () => {
+  let db: DbInstance
+  let desktopDb: DbInstance
+  beforeEach(() => {
+    db = initDb(':memory:')
+    desktopDb = initDesktopDb(':memory:')
+    setRailTickets(db, 0, [1, 2], 'loop')
+  })
+  afterEach(() => { openProjectProcessAdmission('p1'); db.close(); desktopDb.close() })
+  const launchApp = () => appWith(db, {
+    desktopDb,
+    loopRunManager: { run: vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 }), cancel: vi.fn() },
+    getTicketSpec: () => ({ title: 'T', description: 'D' }),
+  })
+
+  it('rejects a malformed branch name before touching git', async () => {
+    mockRepoStatus.mockResolvedValue('ok')
+    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:batch', baseBranch: 'bad name' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('invalid_base_branch')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('rejects a branch that does not resolve locally', async () => {
+    mockRepoStatus.mockResolvedValue('ok')
+    const spy = vi.spyOn(defaultGitRunner, 'run').mockResolvedValue({ code: 128, stdout: '', stderr: 'fatal' })
+    try {
+      const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:batch', baseBranch: 'feat/missing' })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toBe('invalid_base_branch')
+      expect(spy).toHaveBeenCalledWith(['rev-parse', '--verify', '--quiet', 'refs/heads/feat/missing'], '/repo')
+      expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    } finally { spy.mockRestore() }
+  })
+
+  it('threads a resolvable base branch into launchIsolatedRail', async () => {
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-1'])
+    const spy = vi.spyOn(defaultGitRunner, 'run').mockResolvedValue({ code: 0, stdout: 'abc\n', stderr: '' })
+    try {
+      const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:batch', baseBranch: 'feat/1-batch-3-tickets' })
+      expect(res.status).toBe(202)
+      expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ baseBranch: 'feat/1-batch-3-tickets' }))
+    } finally { spy.mockRestore() }
+  })
+
+  it('a launch without baseBranch passes none (byte-identical legacy)', async () => {
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-1'])
+    await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:batch' })
+    const call = mockLaunchIsolated.mock.calls[0][0] as Record<string, unknown>
+    expect('baseBranch' in call).toBe(false)
+  })
+
+  it('requires isolation: an unavailable worktree setup refuses rather than silently launching shared', async () => {
+    mockRepoStatus.mockResolvedValue('no-commits')
+    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:batch', baseBranch: 'feat/x' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('base_branch_requires_isolation')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
   })
 })

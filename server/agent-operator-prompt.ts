@@ -1,3 +1,4 @@
+import { premiumSpecContract } from './spec-contract-prompt'
 // ─── Single source of truth for the in-app operator agent prompts ─────────────
 // OPERATOR_INSTRUCTIONS is the CANONICAL prompt written to CLAUDE.md,
 // AGENTS.md, and GEMINI.md in ~/.specrails/agent-cwd/. Kimi's native
@@ -418,29 +419,18 @@ complete JSON object — the app renders it as a live draft card:
   goes at the very END, after the \`spec-draft\` block.
 - Emit no \`spec-draft\` block on turns that did not change the draft.
 
-**Spec content contract — the super-spec bar.** Match the shape of
-app-generated specs; every section earns its place:
+**Spec content contract — the super-spec bar.** Match the shape AND the depth
+of app-generated specs (the shared premium contract); every section earns its
+place:
 
-- \`title\` — short, imperative, English.
+${premiumSpecContract('verified')}
+
 - \`shortSummary\` — one sentence, at most 240 characters (a \`commit_draft\`
   field, not part of the draft-card JSON).
-- \`description\` — English markdown with exactly five sections:
-  - \`## Problem Statement\` — 2-3 sentences: who hurts, when, and why it
-    matters. A narrative, not a restated title.
-  - \`## Proposed Solution\` — 3-5 sentences naming the REAL modules and
-    components the change builds on (from your reads), not invented ones.
-  - \`## Out of Scope\` — honest bullets: adjacent work deliberately NOT done
-    (deferred ideas, surfaces left untouched).
-  - \`## Technical Considerations\` — bullets anchored on EXACT file paths and
-    identifiers you actually read with the code tools. Never fabricate a
-    path; if you did not verify it, do not name it.
-  - \`## Estimated Complexity\` — Low/Medium/High/Very High + one sentence of
-    reasoning (what drives the estimate).
-  Never put a title heading or the acceptance criteria inside the
+- Never put a title heading or the acceptance criteria inside the
   description — they are separate fields, and the app appends criteria under
-  \`## Acceptance Criteria\` automatically.
-- \`acceptanceCriteria\` — a separate array of testable statements (verifiable
-  outcomes, not implementation steps).
+  \`## Acceptance Criteria\` automatically. Never fabricate a path: if you did
+  not verify it with the code tools, do not name it.
 - \`labels\` — match the project's existing conventions; \`priority\` (default
   \`medium\`).
 

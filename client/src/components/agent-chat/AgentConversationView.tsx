@@ -12,6 +12,7 @@ import { AgentActivityChip } from './AgentActivityChip'
 import { AgentActivityLogModal } from './AgentActivityLogModal'
 import { AgentContextInlineTokens, AgentMessage } from './AgentMessage'
 import { AgentComposer } from './AgentComposer'
+import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import { AgentPrPinnedDock, PrDecisionPill } from './AgentPrPinnedDock'
 import { AgentConversationHeader } from './AgentConversationHeader'
@@ -298,13 +299,19 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
             <motion.div
               layoutId="agent-composer-dock"
               transition={{ layout: { type: 'spring', stiffness: 350, damping: 34 } }}
-              className="mx-auto w-full max-w-[680px] rounded-2xl border border-border/60 bg-card/90 p-3 shadow-2xl backdrop-blur-xl"
+              className="relative mx-auto w-full max-w-[680px] rounded-2xl border border-border/60 bg-card/90 p-3 shadow-2xl backdrop-blur-xl"
+              data-testid="agent-composer-dock"
             >
+              {/* Thinking halo (Settings ▸ Effects): the Builder's ring orbits the
+                  WHOLE composer card while the agent thinks / writes — same
+                  outer-edge treatment as the Builder's hero card. */}
+              <AgentThinkingHalo active={isStreaming} radius="1rem" inset={-3} />
               <AgentComposer />
             </motion.div>
           </div>
         ) : (
-          <div className="shrink-0 border-t border-border/50 bg-surface/30 p-3">
+          <div className="relative shrink-0 border-t border-border/50 bg-surface/30 p-3" data-testid="agent-composer-dock">
+            <AgentThinkingHalo active={isStreaming} radius="0.75rem" inset={-2} />
             {/* Kanban floating panel: the project selector lives in the panel
                 HEADER (next to the Agent title), so the composer hides its own. */}
             <AgentComposer hideProjectSelector />

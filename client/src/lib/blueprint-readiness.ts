@@ -9,7 +9,9 @@ import type { BuilderSpecQualityIssue, BuilderSpecQualityReport } from './bluepr
 // plus localized, spec-precise issue lines, so the user always knows what is
 // missing and who has to act (the Builder, automatically, or themselves).
 
-export type ReadinessStepState = 'done' | 'pending' | 'blocked'
+/** `writing` = the app-driven batched generation is filling the specs right
+ *  now (premium-milestone-progress D7): the audit waits for the batch. */
+export type ReadinessStepState = 'done' | 'pending' | 'blocked' | 'writing'
 
 export interface ReadinessStep {
   key: 'blueprint' | 'specs' | 'audit'
@@ -32,11 +34,17 @@ export interface ReadinessBounds {
 
 const BATCH_LEVEL_CODES = new Set(['batch_incomplete', 'spec_count'])
 
+export interface ReadinessOptions {
+  /** The batched generation drive is in flight (snapshot status `generating`). */
+  generating?: boolean
+}
+
 export function deriveReadiness(
   blueprint: Blueprint | null,
   rawBlueprint: unknown,
   quality: BuilderSpecQualityReport,
   bounds: ReadinessBounds,
+  options: ReadinessOptions = {},
 ): ReadinessReport {
   const dims = deriveDimensions(blueprint)
   const filled = Object.values(dims).filter(Boolean).length
@@ -45,8 +53,26 @@ export function deriveReadiness(
     ? rawBlueprint as Record<string, unknown>
     : null
   const specCount = Array.isArray(raw?.m1Specs) ? raw.m1Specs.length : blueprint?.m1Specs.length ?? 0
+  // Specs that already carry a body (the batched generation writes them in
+  // ranges; a halted drive leaves the tail as title-only outline entries).
+  const specList = Array.isArray(raw?.m1Specs) ? raw.m1Specs : blueprint?.m1Specs ?? []
+  const writtenIndexes = new Set<number>()
+  specList.forEach((spec, index) => {
+    const item = spec && typeof spec === 'object' ? spec as Record<string, unknown> : null
+    const description = typeof item?.description === 'string' ? item.description.trim() : ''
+    const criteria = Array.isArray(item?.acceptanceCriteria) ? item.acceptanceCriteria : []
+    if (description.length > 0 || criteria.length > 0) writtenIndexes.add(index)
+  })
+  const written = writtenIndexes.size
   const claimsComplete = raw ? raw.specsComplete === true : blueprint?.specsComplete === true
-  const issues = quality.issues.filter((issue) => !BATCH_LEVEL_CODES.has(issue.code))
+  const writing = options.generating === true && specCount > 0
+  // Outline / partly written batch (a halted drive): the unwritten specs are
+  // not "audit failures", they are simply not written yet.
+  const partial = !writing && specCount > 0 && written < specCount && !claimsComplete
+  const issues = writing
+    ? []
+    : quality.issues.filter((issue) => !BATCH_LEVEL_CODES.has(issue.code)
+        && (!partial || issue.specIndex === null || writtenIndexes.has(issue.specIndex)))
 
   const blueprintStep: ReadinessStep = {
     key: 'blueprint',
@@ -54,17 +80,22 @@ export function deriveReadiness(
     params: { filled, total },
   }
   let specsState: ReadinessStepState
-  if (specCount === 0) specsState = 'pending'
+  if (writing) specsState = 'writing'
+  else if (specCount === 0) specsState = 'pending'
   else if (specCount < bounds.minSpecs || specCount > bounds.maxSpecs) specsState = 'blocked'
   else specsState = claimsComplete ? 'done' : 'pending'
   const specsStep: ReadinessStep = {
     key: 'specs',
     state: specsState,
-    params: { count: specCount, min: bounds.minSpecs, max: bounds.maxSpecs },
+    params: { count: specCount, written, min: bounds.minSpecs, max: bounds.maxSpecs },
   }
   const auditStep: ReadinessStep = {
     key: 'audit',
-    state: specCount === 0 ? 'pending' : issues.length === 0 ? 'done' : 'blocked',
+    state: writing
+      ? 'writing'
+      : specCount === 0 || (partial && issues.length === 0)
+        ? 'pending'
+        : issues.length === 0 ? 'done' : 'blocked',
     params: { count: issues.length },
   }
   return { ready: quality.valid, steps: [blueprintStep, specsStep, auditStep], issues }

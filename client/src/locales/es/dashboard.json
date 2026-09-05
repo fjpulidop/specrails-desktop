@@ -160,7 +160,8 @@
       "blocked": "entrega bloqueada",
       "noChanges": "sin cambios",
       "succeeded": "lista"
-    }
+    },
+    "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo."
   },
   "railsBoard": {
     "title": "Rails",

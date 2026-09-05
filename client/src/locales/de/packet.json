@@ -40,7 +40,8 @@
     "hint": "Setzt dort an, wo die Arbeit aufgehört hat — kein Neuanfang."
   },
   "discard": {
-    "label": "Verwerfen"
+    "label": "Verwerfen",
+    "stackedNote": "Spätere Rails dieses Meilensteins bauen auf dieser Lieferung auf. Sie zu verwerfen pausiert die Meilenstein-Kette; die späteren Rails behalten ihre Arbeit."
   },
   "watchOut": {
     "title": "Vor dem Annehmen ansehen"

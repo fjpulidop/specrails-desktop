@@ -20,17 +20,27 @@ interface BuilderGenerationProgressProps {
 export function BuilderGenerationProgress({ specsStarted, snapshot, maxSpecs = 10 }: BuilderGenerationProgressProps) {
   const { t } = useTranslation('builder')
   const repairing = snapshot.status === 'repairing'
-  const ratio = Math.min(0.95, Math.max(0.06, specsStarted / maxSpecs))
+  const generation = snapshot.status === 'generating' ? snapshot.generation : null
+  // Batched generation (premium-milestone-progress D7): the phase descriptor
+  // gives a REAL ratio (specs written ÷ total) instead of the streaming guess.
+  const generationRatio = generation && generation.total > 0
+    ? generation.phase === 'audit'
+      ? 0.95
+      : Math.min(0.95, Math.max(0.06, Math.max(0, generation.from - 1) / generation.total))
+    : null
+  const ratio = generationRatio ?? Math.min(0.95, Math.max(0.06, specsStarted / maxSpecs))
   const Icon = repairing ? Wrench : Sparkles
   const label = repairing
     ? t(`snapshot.repairing.${snapshot.kind}`)
-    : t('generation.writing')
+    : generation
+      ? t(`generation.phase.${generation.phase}`, { from: generation.from, to: generation.to, total: generation.total })
+      : t('generation.writing')
 
   return (
     <div
       className="inline-flex max-w-full flex-col gap-1.5 rounded-xl border border-border/50 bg-surface/60 px-3 py-2 text-xs text-foreground/80"
       data-testid="builder-generation-progress"
-      data-phase={repairing ? 'repairing' : 'generating'}
+      data-phase={repairing ? 'repairing' : generation ? `generation-${generation.phase}` : 'generating'}
       role="status"
       aria-live="polite"
     >
@@ -49,6 +59,11 @@ export function BuilderGenerationProgress({ specsStarted, snapshot, maxSpecs = 1
             {label}
           </motion.span>
         </AnimatePresence>
+        {generation && generation.totalTurns > 0 && (
+          <span className="rounded-full bg-muted/60 px-2 py-px font-mono text-[10px] text-muted-foreground" data-testid="builder-generation-turn">
+            {t('generation.turn', { turn: generation.turn, total: generation.totalTurns })}
+          </span>
+        )}
         {specsStarted > 0 && (
           <AnimatePresence mode="wait" initial={false}>
             <motion.span

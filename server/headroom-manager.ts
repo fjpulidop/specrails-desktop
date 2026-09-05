@@ -154,7 +154,27 @@ export interface WindowsOwnershipSnapshot {
 const STATE_KEY = 'plugins.headroom.state'
 const DEFAULT_PORT = 8787
 const PROXY_HEALTH_REQUEST_TIMEOUT_MS = 750
+/**
+ * How long a freshly spawned proxy gets to answer `/livez` before activation
+ * is declared failed. The proxy is a Python tool run through uv: a COLD start
+ * (first run after install, or a wiped bytecode cache) compiles ~3 000
+ * modules and only prints its banner ~4 s in, answering `/livez` after ~7.5 s
+ * on an M-series Mac — the previous 6 s budget killed it every time and left
+ * `proxyTail` empty, so the diagnostics said nothing. Warm starts take ~3.7 s.
+ * A child that EXITS is failed immediately regardless of this budget.
+ */
+export const PROXY_START_TIMEOUT_MS = 30_000
+const PROXY_START_TIMEOUT_ENV = 'SPECRAILS_HEADROOM_START_TIMEOUT_MS'
 const RELAY_CONNECT_TIMEOUT_MS = 3_000
+
+/** Effective proxy startup budget: the env override when it is a positive
+ *  integer number of milliseconds, else the default. */
+export function getProxyStartTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env[PROXY_START_TIMEOUT_ENV]
+  if (raw === undefined || raw.trim() === '') return PROXY_START_TIMEOUT_MS
+  const parsed = Number(raw)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : PROXY_START_TIMEOUT_MS
+}
 export const HEADROOM_RELAY_PATH = '/_specrails/headroom'
 export const HEADROOM_MANAGED_PYTHON_VERSION = '3.12'
 export const HEADROOM_ACTIVATION_SCHEMA_VERSION = 1
@@ -1641,6 +1661,9 @@ export class HeadroomManager {
           HEADROOM_LEARN: state.learning.enabled ? '1' : '0',
           HEADROOM_SAVINGS_PROFILE: process.env.HEADROOM_SAVINGS_PROFILE ?? 'agent-90',
           HEADROOM_MODE: process.env.HEADROOM_MODE ?? 'token',
+          // stdout is a pipe here, so Python block-buffers it: without this the
+          // banner (and any traceback) never reaches `proxyTail` before a kill.
+          PYTHONUNBUFFERED: '1',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       })
@@ -1675,17 +1698,27 @@ export class HeadroomManager {
     child.on('exit', invalidateOwnedProxy)
     child.on('close', invalidateOwnedProxy)
 
+    const startTimeoutMs = getProxyStartTimeoutMs()
+    const childAlive = () => child.exitCode == null && child.signalCode == null
     const healthy = await this.waitForProxyHealthy(
       state.port,
-      6000,
-      () => this.isProxyGenerationCurrent(generation),
+      startTimeoutMs,
+      // A dead child can never become healthy — stop waiting the moment it
+      // exits so a crash surfaces at once instead of after the whole budget.
+      () => this.isProxyGenerationCurrent(generation) && childAlive(),
     )
     if (!this.isProxyGenerationCurrent(generation)) {
       await this.discardProxyChild(child)
       return this.cancelledProxyStart()
     }
     if (!healthy) {
-      const failure = classifyProxyFailure(this.proxyTail, command)
+      // Prefer the process's own words; otherwise say precisely which of the two
+      // things happened so "did not become healthy" is never an empty box.
+      const tail = this.proxyTail.trim()
+      const detail = tail || (childAlive()
+        ? `The Headroom proxy did not answer /livez within ${Math.round(startTimeoutMs / 1000)} s.`
+        : `The Headroom proxy exited during startup (${child.signalCode ?? `exit code ${child.exitCode}`}).`)
+      const failure = classifyProxyFailure(detail, command)
       await this.discardProxyChild(child)
       this.updatePersisted({ lastIssue: failure })
       this.emit('failed', failure.title)

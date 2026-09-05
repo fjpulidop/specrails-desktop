@@ -15,9 +15,13 @@ interface BuilderHaloProps {
    *  header icon), the card radius (e.g. '1rem') for the composer box. */
   radius?: string
   className?: string
+  /** Enter / exit fade durations in ms (the Builder's entry flourish keeps
+   *  the 350 ms defaults; the agent's thinking halo fades out slower). */
+  fadeInMs?: number
+  fadeOutMs?: number
 }
 
-export function BuilderHalo({ active, inset = -4, radius = '9999px', className }: BuilderHaloProps) {
+export function BuilderHalo({ active, inset = -4, radius = '9999px', className, fadeInMs = 350, fadeOutMs = 350 }: BuilderHaloProps) {
   const reducedMotion = useReducedMotion()
 
   return (
@@ -28,9 +32,8 @@ export function BuilderHalo({ active, inset = -4, radius = '9999px', className }
           data-testid="builder-halo"
           data-reduced-motion={reducedMotion ? 'true' : undefined}
           initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 1.15 }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
+          animate={{ opacity: 1, scale: 1, transition: { duration: fadeInMs / 1000, ease: 'easeOut' } }}
+          exit={{ opacity: 0, scale: 1.15, transition: { duration: fadeOutMs / 1000, ease: 'easeInOut' } }}
           style={{ inset }}
           className={`pointer-events-none absolute ${className ?? ''}`}
         >

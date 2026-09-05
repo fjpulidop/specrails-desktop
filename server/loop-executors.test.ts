@@ -314,3 +314,78 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
     })
   })
 })
+
+describe('loop-executors — idle watchdog (loop-step-idle)', () => {
+  beforeEach(() => {
+    runAiCliInvocation.mockReset()
+    getAdapter.mockReset()
+    ensureFrameworkAgents.mockReset()
+    finaliseInvocationResult.mockReset()
+    finaliseInvocationResult.mockImplementation(
+      (_adapter: unknown, _events: unknown, options: { durationMs?: number }) => ({
+        result: { total_cost_usd: 0, tokens_in: 0, tokens_out: 0, duration_ms: options.durationMs },
+        estimated: false,
+      }),
+    )
+    runAiCliInvocation.mockResolvedValue({ spawnFailed: false, code: 0, events: [], sessionId: 'sid', stderrTail: '' })
+  })
+
+  async function run(idleTimeoutMs?: number) {
+    getAdapter.mockReturnValue(fakeAdapter('claude'))
+    const ex = createLoopExecutors({ env: {} })
+    const lines: string[] = []
+    const res = await ex.runAiStep({
+      prompt: 'do it', provider: 'claude', model: 'm', cwd: '/ws',
+      aiStepTimeoutMs: 0, idleTimeoutMs,
+      onLine: (l: string) => { lines.push(l) },
+    })
+    const inv = runAiCliInvocation.mock.calls[0][0] as { inactivityTimeoutMs?: number; timeoutMs?: number; onInactivityTimeout?: () => void }
+    return { res, inv, lines }
+  }
+
+  it('passes the idle bound as the spawn inactivity watchdog (untimed step keeps NO wall-clock cap)', async () => {
+    const { inv } = await run(1_800_000)
+    expect(inv.inactivityTimeoutMs).toBe(1_800_000)
+    expect(inv.timeoutMs).toBeUndefined()
+    expect(typeof inv.onInactivityTimeout).toBe('function')
+  })
+
+  it('0 disables the watchdog while an absent bound preserves the existing 30-minute default', async () => {
+    const a = await run(0)
+    expect(a.inv.inactivityTimeoutMs).toBeUndefined()
+    runAiCliInvocation.mockClear()
+    const b = await run(undefined)
+    expect(b.inv.inactivityTimeoutMs).toBe(30 * 60_000)
+  })
+
+  it('an inactivity teardown surfaces as a STALLED result, not a plain timeout', async () => {
+    runAiCliInvocation.mockImplementation(async (hooks: { onInactivityTimeout?: () => void }) => {
+      hooks.onInactivityTimeout?.()
+      return { spawnFailed: false, code: null, timedOut: true, events: [], sessionId: 'sid', stderrTail: '' }
+    })
+    const { res, lines } = await run(60_000)
+    expect(res.stalled).toBe(true)
+    expect(res.failed).toBe(true)
+    expect(res.errorText).toBe('AI step stalled')
+    expect(res.sessionId).toBe('sid')
+    expect(lines.join('\n')).toContain('produced no output for 60s — stalled')
+  })
+
+  it('a wall-clock timeout without inactivity stays a plain timeout (no stalled flag)', async () => {
+    runAiCliInvocation.mockResolvedValue({ spawnFailed: false, code: null, timedOut: true, events: [], sessionId: 'sid', stderrTail: '' })
+    const { res } = await run(60_000)
+    expect(res.stalled).toBeUndefined()
+    expect(res.failed).toBe(true)
+    expect(res.errorText).toContain('timed out')
+  })
+
+  it('planInteractiveAiStep threads the idle bound into the plan (and omits it when 0)', () => {
+    getAdapter.mockReturnValue({ ...fakeAdapter('claude'), capabilities: { persistentStdin: true } })
+    const ex = createLoopExecutors({ env: {} })
+    const plan = ex.planInteractiveAiStep!({ provider: 'claude', model: 'm', cwd: '/ws', aiStepTimeoutMs: 0, idleTimeoutMs: 90_000 })
+    expect(plan?.idleTimeoutMs).toBe(90_000)
+    expect(plan?.stepTimeoutMs).toBe(0)
+    const none = ex.planInteractiveAiStep!({ provider: 'claude', model: 'm', cwd: '/ws', aiStepTimeoutMs: 0, idleTimeoutMs: 0 })
+    expect(none?.idleTimeoutMs).toBeUndefined()
+  })
+})

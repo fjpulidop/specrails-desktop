@@ -12,8 +12,7 @@ import {
   type BlueprintRejectionReason,
 } from '../lib/blueprint-draft'
 import type { CommitFormValue } from '../components/project-builder/BlueprintCommitForm'
-import { launchMilestone } from '../lib/milestone-launch'
-import { useMilestoneSequencer, readMilestoneLaunchMode } from '../context/MilestoneSequencerContext'
+import { launchMilestone, milestoneLabel, readMilestoneLaunchMode, readMilestoneAutoAdvance } from '../lib/milestone-launch'
 import { analyzeBlueprintSpecQuality, type BuilderSpecQualityIssue } from '../lib/blueprint-spec-quality'
 import { deriveReadiness, localizeQualityIssue, type ReadinessReport } from '../lib/blueprint-readiness'
 import {
@@ -31,9 +30,14 @@ import {
 
 export type BuilderPhase = 'chat' | 'commit' | 'progress' | 'done'
 
+/** A user turn sent from a one-click decision card (kept on the row). */
+export type BuilderTurnIntent = 'surprise' | 'approve'
+
 export interface BuilderChatMessage {
   role: 'user' | 'assistant'
   content: string
+  /** Present when the turn came from a decision card — rendered as the settled card. */
+  intent?: BuilderTurnIntent | null
   /** ISO instant, set at push time — feeds AgentMessage's timestamp row so the
    *  builder chat is 1:1 with the mission chat. */
   createdAt: string
@@ -75,10 +79,25 @@ export type BuilderRepairKind = 'invalid_json' | 'truncated' | 'quality'
 
 /** What the app knows about the Builder's LAST snapshot block — the precise
  *  answer to "why is Create specs disabled" (harden-project-builder-snapshots). */
+export type BuilderGenerationPhase = 'outline' | 'details' | 'audit' | 'repair'
+
+export interface BuilderGenerationDescriptor {
+  phase: BuilderGenerationPhase
+  from: number
+  to: number
+  total: number
+  turn: number
+  totalTurns: number
+}
+
 export type BuilderSnapshotState =
   | { status: 'idle' }
   | { status: 'repairing'; kind: BuilderRepairKind; manual: boolean; attempt: number }
-  | { status: 'accepted'; repaired: boolean; repairAttempted: boolean; at: string }
+  /** App-driven batched generation in flight (premium-milestone-progress D7). */
+  | { status: 'generating'; generation: BuilderGenerationDescriptor }
+  /** `generationHalted`: the app-driven batch stopped before every spec was
+   *  written (the snapshot is usable, the readiness panel offers "Continue"). */
+  | { status: 'accepted'; repaired: boolean; repairAttempted: boolean; at: string; generationHalted?: boolean }
   | { status: 'rejected'; reason: BlueprintRejectionReason; detail: string; repairAttempted: boolean; at: string }
 
 /** One unfinished Builder conversation as the "continue where you left off"
@@ -107,13 +126,37 @@ interface WireSnapshotStatus {
   repairAttempted?: boolean
   claimsComplete?: boolean
   qualityIssues?: BuilderSpecQualityIssue[]
+  generation?: BuilderGenerationDescriptor
+  continuing?: boolean
+  generationHalted?: boolean
+}
+
+export function coerceGenerationDescriptor(raw: unknown): BuilderGenerationDescriptor | null {
+  const g = (raw && typeof raw === 'object' ? raw : null) as Record<string, unknown> | null
+  if (!g) return null
+  const phase = g.phase
+  if (phase !== 'outline' && phase !== 'details' && phase !== 'audit' && phase !== 'repair') return null
+  const n = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+  return { phase, from: n(g.from), to: n(g.to), total: n(g.total), turn: n(g.turn), totalTurns: n(g.totalTurns) }
 }
 
 function snapshotFromWire(raw: unknown, previous: BuilderSnapshotState): BuilderSnapshotState {
   const wire = (raw && typeof raw === 'object' ? raw : {}) as WireSnapshotStatus
   const at = new Date().toISOString()
+  if (wire.continuing) {
+    // Batched generation is still running: stay in the generating state so the
+    // progress surface keeps its phase; the final frame lands below.
+    const generation = coerceGenerationDescriptor(wire.generation)
+    return generation ? { status: 'generating', generation } : previous
+  }
   if (wire.status === 'accepted') {
-    return { status: 'accepted', repaired: wire.repaired === true, repairAttempted: wire.repairAttempted === true, at }
+    return {
+      status: 'accepted',
+      repaired: wire.repaired === true,
+      repairAttempted: wire.repairAttempted === true,
+      at,
+      ...(wire.generationHalted === true ? { generationHalted: true } : {}),
+    }
   }
   if (wire.status === 'rejected') {
     return {
@@ -126,7 +169,7 @@ function snapshotFromWire(raw: unknown, previous: BuilderSnapshotState): Builder
   }
   // No block this turn: whatever was settled before stays current (a repair
   // that produced nothing falls back to the pre-repair state).
-  return previous.status === 'repairing' ? { status: 'idle' } : previous
+  return previous.status === 'repairing' || previous.status === 'generating' ? { status: 'idle' } : previous
 }
 
 function mapRecent(raw: unknown): RecentBlueprint[] {
@@ -163,6 +206,9 @@ export interface BuilderSession {
   commitSteps: BuilderCommitStep[]
   createdProjectId: string | null
   launching: boolean
+  /** True once Milestone 1 was launched from the done screen (the live
+   *  milestone card replaces the Launch button; Open the project stays). */
+  launched: boolean
   submitting: boolean
   conversationReady: boolean
   /** The persisted conversation id (null until the first send / a resume). */
@@ -203,8 +249,11 @@ export interface BuilderSession {
   setEffort: (effort: string) => void
   setProvider: (provider: string) => void
   setModel: (model: string) => void
-  send: (text: string) => void
+  send: (text: string, opts?: { intent?: BuilderTurnIntent }) => void
   surpriseMe: () => void
+  /** One-click approval of the blueprint: sends the canonical approval prompt
+   *  (tagged `approve`) so the Builder starts the Milestone-1 generation. */
+  approveBlueprint: () => void
   goToCommit: () => void
   backToChat: () => void
   submitCommit: (value: CommitFormValue) => void
@@ -218,7 +267,6 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
   const { t } = useTranslation('builder')
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const { setActiveProjectId } = useDesktop()
-  const { startSequential } = useMilestoneSequencer()
 
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [messages, setMessages] = useState<BuilderChatMessage[]>([])
@@ -235,6 +283,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
   const [commitSteps, setCommitSteps] = useState<BuilderCommitStep[]>([])
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null)
   const [launching, setLaunching] = useState(false)
+  const [launched, setLaunched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [provider, setProviderState] = useState('claude')
   const [model, setModelState] = useState<string | null>(null)
@@ -410,12 +459,21 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
         const kind = msg.kind === 'truncated' || msg.kind === 'quality' ? msg.kind : 'invalid_json'
         setBusy(true)
         setSnapshot({ status: 'repairing', kind, manual: msg.manual === true, attempt: typeof msg.attempt === 'number' ? msg.attempt : 1 })
-      } else if (msg.type === 'blueprint.done' && isOurConversation) {
+      } else if (msg.type === 'blueprint.generating' && isOurConversation) {
+        // Batched generation: the app is about to run a detail/audit turn.
+        const generation = coerceGenerationDescriptor(msg)
         setStreamBuffer(null)
-        setBusy(false)
+        setBusy(true)
+        if (generation) setSnapshot({ status: 'generating', generation })
+      } else if (msg.type === 'blueprint.done' && isOurConversation) {
+        const continuing = msg.continuing === true
+        setStreamBuffer(null)
+        // A continuing frame keeps the turn busy — the panel fills in while the
+        // app drives the next generation turn.
+        setBusy(continuing)
         const fullText = String(msg.fullText ?? '')
         // A block-only reply has no prose — never append an empty bubble.
-        if (fullText.trim()) {
+        if (fullText.trim() && !continuing) {
           setMessages((prev) => [...prev, { role: 'assistant', content: fullText, createdAt: new Date().toISOString() }])
         }
         let accepted = coerceBlueprint(msg.blueprint)
@@ -436,7 +494,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       } else if (msg.type === 'blueprint.error' && isOurConversation) {
         setStreamBuffer(null)
         setBusy(false)
-        setSnapshot((prev) => (prev.status === 'repairing' ? { status: 'idle' } : prev))
+        setSnapshot((prev) => (prev.status === 'repairing' || prev.status === 'generating' ? { status: 'idle' } : prev))
         toast.error(t('errors.turnFailed'), { description: String(msg.error ?? '') })
       } else if (msg.type === 'blueprint.commit_progress' && isOurCommit) {
         const step = String(msg.step)
@@ -468,10 +526,10 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
   }, [enabled, registerHandler, unregisterHandler, t])
 
   const send = useCallback(
-    (text: string) => {
+    (text: string, opts: { intent?: BuilderTurnIntent } = {}) => {
       const trimmed = text.trim()
       if (!trimmed || busy || resuming) return
-      setMessages((prev) => [...prev, { role: 'user', content: trimmed, createdAt: new Date().toISOString() }])
+      setMessages((prev) => [...prev, { role: 'user', content: trimmed, createdAt: new Date().toISOString(), ...(opts.intent ? { intent: opts.intent } : {}) }])
       setBusy(true)
       const selectedEffort = effortRef.current
       const supportsSelectedEffort = effortsRef.current.includes(selectedEffort)
@@ -488,6 +546,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
             text: trimmed,
             ...(modelRef.current ? { model: modelRef.current } : {}),
             ...(supportsSelectedEffort ? { reasoning_effort: selectedEffort } : {}),
+            ...(opts.intent ? { intent: opts.intent } : {}),
           }),
         })
           .then((r) => {
@@ -514,7 +573,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       const data = (await r.json()) as {
         conversation?: { id: string; provider?: string; model?: string | null }
-        messages?: Array<{ role: 'user' | 'assistant'; content: string; created_at?: string }>
+        messages?: Array<{ role: 'user' | 'assistant'; content: string; created_at?: string; intent?: string | null }>
         blueprint?: unknown
         rawBlueprint?: unknown
         snapshot?: WireSnapshotStatus
@@ -526,7 +585,12 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       setModelState(data.conversation.model ?? null)
       setMessages((data.messages ?? [])
         .filter((m) => typeof m.content === 'string' && m.content.trim() !== '')
-        .map((m) => ({ role: m.role, content: m.content, createdAt: m.created_at ?? new Date().toISOString() })))
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+          createdAt: m.created_at ?? new Date().toISOString(),
+          ...(m.intent === 'surprise' || m.intent === 'approve' ? { intent: m.intent } : {}),
+        })))
       const restored = coerceBlueprint(data.blueprint)
       setBlueprint(restored)
       setRawBlueprint(restored ? (data.rawBlueprint ?? data.blueprint) : null)
@@ -560,7 +624,11 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     if (!conv || busy) return
     setBusy(true)
     try {
-      const r = await fetch(`/api/blueprint/conversations/${conv}/repair-snapshot`, { method: 'POST' })
+      const r = await fetch(`/api/blueprint/conversations/${conv}/repair-snapshot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(effort ? { reasoningEffort: effort } : {}),
+      })
       if (r.status === 202) return // `blueprint.repairing` → stream → `blueprint.done`
       const body = (await r.json().catch(() => ({}))) as { error?: string }
       setBusy(false)
@@ -572,9 +640,10 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       setBusy(false)
       toast.error(t('errors.turnFailed'))
     }
-  }, [busy, t])
+  }, [busy, effort, t])
 
-  const surpriseMe = useCallback(() => send(t('prompts.surpriseMe')), [send, t])
+  const surpriseMe = useCallback(() => send(t('prompts.surpriseMe'), { intent: 'surprise' }), [send, t])
+  const approveBlueprint = useCallback(() => send(t('prompts.approve'), { intent: 'approve' }), [send, t])
 
   const submitCommit = useCallback(
     (value: CommitFormValue) => {
@@ -623,33 +692,35 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     if (!createdProjectId || launching) return
     setLaunching(true)
     try {
-      // Honour the user's stored launch mode (sequential = chain rails at settle).
-      if (readMilestoneLaunchMode() === 'sequential') {
-        const started = await startSequential(createdProjectId, 1)
-        if (started) {
-          setActiveProjectId(createdProjectId)
-          onFinishedRef.current()
-        } else {
-          toast.error(t('done.launchFailed'))
-        }
-        return
-      }
-      const result = await launchMilestone(createdProjectId, 1)
+      // Server-owned launch (premium-milestone-progress): ≤3-spec rails,
+      // sequential chunks stacked server-side. The done screen then shows the
+      // live milestone card — "Open the project" remains the exit.
+      const mode = readMilestoneLaunchMode()
+      const autoAdvance = readMilestoneAutoAdvance()
+      const result = await launchMilestone(createdProjectId, 1, mode, { autoAdvance })
+      const label = milestoneLabel(1)
       if (result.ok) {
-        if (result.skippedCount > 0) {
-          toast.warning(t('done.launchPartialToast', { count: result.ticketCount, skipped: result.skippedCount }))
+        const totalRails = result.launched.length + result.pending.length
+        if (mode === 'sequential' && result.pending.length > 0) {
+          toast.success(t(autoAdvance ? 'milestoneProgress.toast.launched' : 'milestoneProgress.toast.launchedCheckpoint', { milestone: label, count: result.ticketCount, n: totalRails }))
+        } else if (result.skippedCount > 0) {
+          toast.warning(t('milestoneProgress.toast.launchedPartial', { milestone: label, count: result.ticketCount, skipped: result.skippedCount }))
         } else {
-          toast.success(t('done.launchToast', { count: result.ticketCount }))
+          toast.success(t('milestoneProgress.toast.launchedAll', { milestone: label, count: result.ticketCount, n: totalRails }))
         }
         setActiveProjectId(createdProjectId)
-        onFinishedRef.current()
+        setLaunched(true)
+      } else if (result.reason === 'chain_active') {
+        toast.info(t('milestoneProgress.toast.chainActive', { milestone: label }))
+        setActiveProjectId(createdProjectId)
+        setLaunched(true)
       } else {
-        toast.error(t('done.launchFailed'), { description: result.detail ?? result.reason })
+        toast.error(t('done.launchFailed'), { description: result.detail ?? result.error })
       }
     } finally {
       setLaunching(false)
     }
-  }, [createdProjectId, launching, setActiveProjectId, startSequential, t])
+  }, [createdProjectId, launching, setActiveProjectId, t])
 
   const openProject = useCallback(() => {
     if (createdProjectId) setActiveProjectId(createdProjectId)
@@ -679,7 +750,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     setCommitId(null)
     setCommitSteps([])
     ghWarnedRef.current = false
-    setCreatedProjectId(null)
+    setCreatedProjectId(null); setLaunched(false)
     setLaunching(false)
     submittingRef.current = false
     setSubmitting(false)
@@ -701,9 +772,10 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     ),
     [blueprint, rawBlueprint],
   )
+  const generating = snapshot.status === 'generating'
   const readiness = useMemo(
-    () => deriveReadiness(blueprint, rawBlueprint ?? blueprint, specQuality, M1_READINESS_BOUNDS),
-    [blueprint, rawBlueprint, specQuality],
+    () => deriveReadiness(blueprint, rawBlueprint ?? blueprint, specQuality, M1_READINESS_BOUNDS, { generating }),
+    [blueprint, rawBlueprint, specQuality, generating],
   )
   const specQualityDetail = useMemo(() => {
     if (specQuality.valid) return null
@@ -723,6 +795,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     commitSteps,
     createdProjectId,
     launching,
+    launched,
     submitting,
     conversationReady: enabled && !resuming,
     conversationId,
@@ -750,6 +823,7 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     setModel,
     send,
     surpriseMe,
+    approveBlueprint,
     goToCommit: () => setPhase('commit'),
     backToChat: () => setPhase('chat'),
     submitCommit,

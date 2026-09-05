@@ -107,6 +107,31 @@ export async function listAgentConversations(): Promise<AgentConversation[]> {
   return (await json<{ conversations: AgentConversation[] }>(await fetch(`${base}/conversations`))).conversations
 }
 
+// ─── Mission search (search-missions-in-palette) ──────────────────────────────
+
+/** A highlighted excerpt: plain text plus `[start, end)` ranges to mark. The
+ *  server never sends HTML — the palette renders the marks itself. */
+export interface MissionSearchSnippet {
+  text: string
+  ranges: Array<[number, number]>
+}
+
+export interface MissionSearchHit {
+  conversation: AgentConversation
+  /** Title hits rank first; a mission matching both keeps `'title'` and still
+   *  carries the content snippet. */
+  match: 'title' | 'content'
+  messageId: string | null
+  snippet: MissionSearchSnippet | null
+}
+
+/** Full-text search over missions (title + user/assistant content). Pass an
+ *  `AbortSignal` so a superseded keystroke can cancel its request. */
+export async function searchMissions(q: string, limit = 20, signal?: AbortSignal): Promise<MissionSearchHit[]> {
+  const params = new URLSearchParams({ q, limit: String(limit) })
+  return (await json<{ results: MissionSearchHit[] }>(await fetch(`${base}/search?${params.toString()}`, { signal }))).results
+}
+
 export interface AgentActiveTurnsSnapshot {
   snapshotVersion: number
   capturedAt: string

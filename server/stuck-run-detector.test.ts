@@ -147,6 +147,8 @@ describe('StuckRunDetector', () => {
     expect(det.sweep()).toHaveLength(1)
     expect(sent[0]).toMatchObject({
       type: 'job.stuck', projectId: 'proj', jobId: 'run-1', stepKey: 'step-1',
+      // Actionable: the client offers "Stop run" through the existing cancel route.
+      actions: ['stop'],
     })
     expect(sent[0].timestamp).toBe(new Date(NOW).toISOString())
   })

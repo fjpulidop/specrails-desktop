@@ -11,7 +11,9 @@ import {
   HEADROOM_MANAGED_PYTHON_VERSION,
   HEADROOM_RELAY_PATH,
   HeadroomManager,
+  PROXY_START_TIMEOUT_MS,
   getHeadroomManagedInstallPlan,
+  getProxyStartTimeoutMs,
   parseHeadroomDoctorRoutes,
   parseWindowsOwnershipSnapshot,
   windowsSnapshotHasOwnedListener,
@@ -55,8 +57,9 @@ type HeadroomManagerTestHarness = {
   ) => Promise<{ code: number | null; output: string }>
   readHeadroomVersion: () => string
   detectProviderRoutes: () => Record<'codex' | 'claude', boolean>
-  ensureProxy: () => Promise<{ ok: boolean; issue?: { code: string } }>
+  ensureProxy: () => Promise<{ ok: boolean; issue?: { code: string; detail?: string } }>
   probeProxyHealthy: (port: number) => Promise<boolean>
+  fetchProxyHealth: (port: number, timeoutMs: number) => Promise<boolean>
   waitForProxyHealthy: (
     port: number,
     timeoutMs: number,
@@ -1580,6 +1583,168 @@ describe('HeadroomManager', () => {
     expect(getHeadroomRoutingState()).toMatchObject({
       port: 8787,
       activeProviders: { codex: true, claude: false },
+    })
+  })
+
+  // ── Proxy startup budget (cold start) ──────────────────────────────────────
+  //
+  // Measured on an M-series Mac: a cold start of the uv-managed Python proxy
+  // prints its banner ~4 s in and answers /livez after ~7.5 s; warm ~3.7 s.
+  // The old 6 s budget killed every first activation after install.
+  describe('proxy startup budget', () => {
+    const ENV = 'SPECRAILS_HEADROOM_START_TIMEOUT_MS'
+    let previousBudget: string | undefined
+
+    beforeEach(() => { previousBudget = process.env[ENV] })
+    afterEach(() => {
+      if (previousBudget === undefined) delete process.env[ENV]
+      else process.env[ENV] = previousBudget
+      vi.useRealTimers()
+    })
+
+    function seedInstalledState(exe: string) {
+      setDesktopSetting(db!, STATE_KEY, JSON.stringify({
+        installed: true,
+        version: '0.30.0',
+        executablePath: exe,
+        installSource: 'managed',
+        port: 8787,
+        ...explicitActivation({ codex: true, claude: false }),
+        detectedRoutes: { codex: true, claude: false },
+      }))
+    }
+
+    /** A manager whose only unstubbed startup step is the /livez polling loop. */
+    function harness(child: ChildProcess, fetchProxyHealth: () => Promise<boolean>) {
+      const spawnProxy = vi.fn(() => child)
+      const killTree = vi.fn((_pid: number, signal: NodeJS.Signals, callback?: () => void) => {
+        callback?.()
+        if (child.exitCode == null && child.signalCode == null) {
+          Object.assign(child, { signalCode: signal })
+          child.emit('close', null, signal)
+        }
+      })
+      const manager = new HeadroomManager(db!, () => undefined, () => ['codex'], {
+        spawnProxy: spawnProxy as unknown as typeof import('child_process').spawn,
+        ownsProxyPort: () => true,
+        killTree: killTree as unknown as typeof import('./util/win-spawn').treeKillSafe,
+        relayOrigin: 'http://127.0.0.1:4200',
+      })
+      const internals = manager as unknown as HeadroomManagerTestHarness
+      internals.refreshMetricsInBackground = () => undefined
+      internals.refreshMetrics = async () => undefined
+      internals.probeProxyHealthy = async () => false
+      internals.fetchProxyHealth = fetchProxyHealth
+      return { manager, internals, spawnProxy }
+    }
+
+    it('reads the budget from the env override and falls back to 30 s on junk', () => {
+      delete process.env[ENV]
+      expect(getProxyStartTimeoutMs()).toBe(PROXY_START_TIMEOUT_MS)
+      expect(PROXY_START_TIMEOUT_MS).toBe(30_000)
+      expect(getProxyStartTimeoutMs({ [ENV]: '10000' })).toBe(10_000)
+      for (const junk of ['0', '-5', 'abc', '1.5', ' ']) {
+        expect(getProxyStartTimeoutMs({ [ENV]: junk })).toBe(PROXY_START_TIMEOUT_MS)
+      }
+    })
+
+    it('keeps waiting past the old 6 s for a cold-start proxy and spawns it unbuffered', async () => {
+      vi.useFakeTimers()
+      db = initDesktopDb(':memory:')
+      const fake = makeHeadroomExe()
+      tempDir = fake.dir
+      process.env.SPECRAILS_REGISTRY_HOME = tempDir
+      seedInstalledState(fake.exe)
+      const child = makeProxyChild()
+      const startedAt = Date.now()
+      // /livez only answers 8 s in — a cold Python start, past the old budget.
+      const { manager, internals, spawnProxy } = harness(child, async () => Date.now() - startedAt >= 8_000)
+
+      let settled: { ok: boolean } | null = null
+      const pending = internals.ensureProxy().then((r) => { settled = r; return r })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(spawnProxy).toHaveBeenCalledTimes(1)
+      const spawnEnv = (spawnProxy.mock.calls[0] as unknown as [string, string[], { env: Record<string, string> }])[2].env
+      expect(spawnEnv.PYTHONUNBUFFERED).toBe('1')
+
+      await vi.advanceTimersByTimeAsync(6_500)
+      expect(settled).toBeNull()
+
+      await vi.advanceTimersByTimeAsync(2_000)
+      expect(await pending).toMatchObject({ ok: true })
+      expect(internals.proxyTrustedPort).toBe(8787)
+      expect(manager.getState().lastIssue).toBeNull()
+    })
+
+    it('fails at once when the proxy exits during startup and surfaces its own output', async () => {
+      vi.useFakeTimers()
+      db = initDesktopDb(':memory:')
+      const fake = makeHeadroomExe()
+      tempDir = fake.dir
+      process.env.SPECRAILS_REGISTRY_HOME = tempDir
+      seedInstalledState(fake.exe)
+      const child = makeProxyChild()
+      const { manager, internals, spawnProxy } = harness(child, async () => false)
+
+      let settled: { ok: boolean } | null = null
+      const pending = internals.ensureProxy().then((r) => { settled = r; return r })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(spawnProxy).toHaveBeenCalledTimes(1)
+
+      child.stderr!.emit('data', Buffer.from('Traceback (most recent call last):\nModuleNotFoundError: No module named uvicorn\n'))
+      Object.assign(child, { exitCode: 1 })
+      child.emit('exit', 1, null)
+      child.emit('close', 1, null)
+
+      // Well inside the 30 s budget: a dead child must not keep the user waiting.
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(settled).not.toBeNull()
+      const result = await pending
+      expect(result.ok).toBe(false)
+      expect(result.issue).toMatchObject({ code: 'proxy_unhealthy' })
+      expect(result.issue?.detail).toContain('ModuleNotFoundError')
+      expect(manager.getState().lastIssue?.detail).toContain('ModuleNotFoundError')
+      expect(internals.proxyTrustedPort).toBeNull()
+    })
+
+    it('names the exhausted budget when a silent proxy never answers', async () => {
+      vi.useFakeTimers()
+      process.env[ENV] = '2000'
+      db = initDesktopDb(':memory:')
+      const fake = makeHeadroomExe()
+      tempDir = fake.dir
+      process.env.SPECRAILS_REGISTRY_HOME = tempDir
+      seedInstalledState(fake.exe)
+      const child = makeProxyChild()
+      const { internals } = harness(child, async () => false)
+
+      const pending = internals.ensureProxy()
+      await vi.advanceTimersByTimeAsync(2_600)
+      const result = await pending
+      expect(result.ok).toBe(false)
+      expect(result.issue).toMatchObject({ code: 'proxy_unhealthy' })
+      expect(result.issue?.detail).toMatch(/did not answer \/livez within 2 s/)
+    })
+
+    it('reports the exit code when the proxy dies without printing anything', async () => {
+      vi.useFakeTimers()
+      db = initDesktopDb(':memory:')
+      const fake = makeHeadroomExe()
+      tempDir = fake.dir
+      process.env.SPECRAILS_REGISTRY_HOME = tempDir
+      seedInstalledState(fake.exe)
+      const child = makeProxyChild()
+      const { internals } = harness(child, async () => false)
+
+      const pending = internals.ensureProxy()
+      await vi.advanceTimersByTimeAsync(0)
+      Object.assign(child, { exitCode: 137 })
+      child.emit('exit', 137, null)
+      child.emit('close', 137, null)
+      await vi.advanceTimersByTimeAsync(500)
+      const result = await pending
+      expect(result.ok).toBe(false)
+      expect(result.issue?.detail).toMatch(/exited during startup \(exit code 137\)/)
     })
   })
 })

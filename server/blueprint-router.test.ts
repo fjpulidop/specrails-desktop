@@ -134,6 +134,11 @@ describe('send / abort', () => {
       .send({ text: 'an app idea', reasoning_effort: 'high' })
     expect(res.status).toBe(202)
     expect(manager.sendMessage).toHaveBeenCalledWith(conv.id, 'an app idea', { model: undefined, reasoningEffort: 'high' })
+    // Decision-card intents ride the send; anything else is dropped, never rejected.
+    await request(app).post(`/api/blueprint/conversations/${conv.id}/send`).send({ text: 'Surprise me', intent: 'surprise' })
+    expect(manager.sendMessage).toHaveBeenLastCalledWith(conv.id, 'Surprise me', { model: undefined, reasoningEffort: undefined, intent: 'surprise' })
+    await request(app).post(`/api/blueprint/conversations/${conv.id}/send`).send({ text: 'hey', intent: 'bogus' })
+    expect(manager.sendMessage).toHaveBeenLastCalledWith(conv.id, 'hey', { model: undefined, reasoningEffort: undefined })
   })
 
   it('400 on a reasoning effort outside the conversation provider catalog', async () => {
@@ -296,7 +301,15 @@ describe('durable snapshots + resume (harden-project-builder-snapshots)', () => 
     let res = await request(app).post(`/api/blueprint/conversations/${conv.id}/repair-snapshot`)
     expect(res.status).toBe(202)
     expect(res.body).toEqual({ accepted: true, kind: 'invalid_json' })
-    expect(repairSnapshot).toHaveBeenCalledWith(conv.id)
+    expect(repairSnapshot).toHaveBeenCalledWith(conv.id, {})
+    res = await request(app).post(`/api/blueprint/conversations/${conv.id}/repair-snapshot`).send({ reasoningEffort: 'high' })
+    expect(res.status).toBe(202)
+    expect(repairSnapshot).toHaveBeenLastCalledWith(conv.id, { reasoningEffort: 'high' })
+
+    repairSnapshot.mockResolvedValueOnce({ ok: true, kind: 'resume' } as never)
+    res = await request(app).post(`/api/blueprint/conversations/${conv.id}/repair-snapshot`)
+    expect(res.status).toBe(202)
+    expect(res.body).toEqual({ accepted: true, kind: 'resume' })
 
     repairSnapshot.mockResolvedValueOnce({ ok: false, reason: 'nothing_to_repair' } as never)
     res = await request(app).post(`/api/blueprint/conversations/${conv.id}/repair-snapshot`)

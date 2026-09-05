@@ -6,6 +6,17 @@ export const BUILDER_SPEC_HEADINGS = [
   'Estimated Complexity',
 ] as const
 
+/** Mirror of server/spec-contract-prompt.ts SPEC_DEPTH_FLOORS — keep in sync. */
+export const SPEC_DEPTH_FLOORS = {
+  problemMinChars: 200,
+  solutionMinChars: 500,
+  outOfScopeMinBullets: 3,
+  technicalMinBullets: 5,
+  criteriaMin: 6,
+  criteriaMax: 10,
+  criterionMinChars: 20,
+} as const
+
 const VALID_KINDS = new Set(['scaffold', 'feature', 'verification'])
 const VALID_PRIORITIES = new Set(['critical', 'high', 'medium', 'low'])
 const PLACEHOLDER_CRITERION = /^(?:todo|tbd|n\/?a|works?|test(?: it)?|criterion|acceptance criterion)$/i
@@ -149,9 +160,13 @@ export function analyzeBlueprintSpecQuality(
         add(specIndex, 'description', 'empty_section', `Spec ${n} has an empty ${heading} section.`, { heading })
       }
     }
-    for (const heading of ['Out of Scope', 'Technical Considerations'] as const) {
+    for (const [heading, min] of [['Problem Statement', SPEC_DEPTH_FLOORS.problemMinChars], ['Proposed Solution', SPEC_DEPTH_FLOORS.solutionMinChars]] as const) {
+      const body = (parsed.bodies.get(heading) ?? '').trim()
+      if (body && body.length < min) add(specIndex, 'description', 'section_depth', `Spec ${n} ${heading} is too thin.`, { heading, min })
+    }
+    for (const [heading, min] of [['Out of Scope', SPEC_DEPTH_FLOORS.outOfScopeMinBullets], ['Technical Considerations', SPEC_DEPTH_FLOORS.technicalMinBullets]] as const) {
       const body = parsed.bodies.get(heading) ?? ''
-      if (body && bullets(body) < 2) add(specIndex, 'description', 'section_bullets', `Spec ${n} needs two ${heading} bullets.`, { heading })
+      if (body && bullets(body) < min) add(specIndex, 'description', 'section_bullets', `Spec ${n} needs ${min} ${heading} bullets.`, { heading, min })
     }
     const complexity = parsed.bodies.get('Estimated Complexity') ?? ''
     if (complexity && !/^(?:Low|Medium|High|Very High)\s*(?:[—\-:]\s*)\S/i.test(complexity)) {
@@ -162,13 +177,13 @@ export function analyzeBlueprintSpecQuality(
     }
 
     const criteria = Array.isArray(spec.acceptanceCriteria) ? spec.acceptanceCriteria : []
-    if (criteria.length < 4 || criteria.length > 10) {
-      add(specIndex, 'acceptanceCriteria', 'criteria_count', `Spec ${n} needs 4-10 acceptance criteria.`, { count: criteria.length })
+    if (criteria.length < SPEC_DEPTH_FLOORS.criteriaMin || criteria.length > SPEC_DEPTH_FLOORS.criteriaMax) {
+      add(specIndex, 'acceptanceCriteria', 'criteria_count', `Spec ${n} needs ${SPEC_DEPTH_FLOORS.criteriaMin}-${SPEC_DEPTH_FLOORS.criteriaMax} acceptance criteria.`, { count: criteria.length, min: SPEC_DEPTH_FLOORS.criteriaMin, max: SPEC_DEPTH_FLOORS.criteriaMax })
     }
     const seenCriteria = new Set<string>()
     criteria.forEach((criterion, criterionIndex) => {
       const text = typeof criterion === 'string' ? criterion.trim() : ''
-      if (text.length < 10 || PLACEHOLDER_CRITERION.test(text)) {
+      if (text.length < SPEC_DEPTH_FLOORS.criterionMinChars || PLACEHOLDER_CRITERION.test(text)) {
         add(specIndex, 'acceptanceCriteria', 'criterion_quality', `Spec ${n} criterion ${criterionIndex + 1} is not concrete.`, { criterion: criterionIndex + 1 })
         return
       }

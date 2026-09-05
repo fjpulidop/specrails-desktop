@@ -6,7 +6,7 @@ import type { DbInstance } from '../../db'
 import type { WsMessage } from '../../types'
 import type { MobileEventBus } from '../../mobile/mobile-event-bus'
 import { isTierEnabled, tierRefusalMessage, type McpTier } from '../mcp-tiers'
-import { loadOrGenerateToken } from '../../auth'
+import { createInternalApi } from '../../internal-api'
 import { AGENT_CAPABILITY_HEADER, levelAllowsTier, type AgentTierLevel } from '../../agent-tier'
 import { getAgentConversation } from '../../agent-store'
 import { verifyAgentCapability } from '../agent-capability'
@@ -78,30 +78,23 @@ export async function apiCall(
   path: string,
   body?: unknown,
 ): Promise<unknown> {
-  const url = `http://127.0.0.1:${ctx.desktopPort}/api${path}`
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${loadOrGenerateToken()}`,
-      ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    signal: ctx.signal
-      ? AbortSignal.any([ctx.signal, AbortSignal.timeout(120_000)])
-      : AbortSignal.timeout(120_000),
-  })
-  const text = await res.text()
-  let data: unknown
-  try {
-    data = text ? JSON.parse(text) : null
-  } catch {
-    data = text
-  }
+  // Shared loopback client (server/internal-api.ts) — also drives the milestone
+  // launch chain's chunk launches, so both stay byte-identical to a dashboard call.
+  // MCP calls additionally retain their request cancellation and bounded wait;
+  // those lifetimes belong to this call, not to the durable milestone chain.
+  const signal = ctx.signal
+    ? AbortSignal.any([ctx.signal, AbortSignal.timeout(120_000)])
+    : AbortSignal.timeout(120_000)
+  const res = await createInternalApi({
+    port: ctx.desktopPort,
+    fetchImpl: (input, init) => fetch(input, { ...init, signal }),
+  }).call(method, path, body)
   if (!res.ok) {
+    const data = res.body
     const detail = typeof data === 'object' && data !== null ? JSON.stringify(data) : String(data)
     throw new McpApiError(`API ${method} ${path} → ${res.status}: ${detail}`, res.status, data)
   }
-  return data
+  return res.body
 }
 
 /** Convenience: build the `/projects/<id>` path prefix for a resolved project. */

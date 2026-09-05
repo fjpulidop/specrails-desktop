@@ -488,6 +488,38 @@ one-shot, consumed by the launch) with `TargetPrLaunchDialog` confirming number/
 MCP `specrails_rails(launch, targetPrNumber)` with operator-prompt teaching ("user names a PR →
 pass it; never create a duplicate"). Fork PR push support and multi-PR batches remain out of scope.
 
+## Explicit base branch + stacked chunks (premium-milestone-progress)
+
+The launch body accepts an optional `baseBranch`: a LOCAL branch to base the isolated worktree on
+instead of the integration branch. Shape-validated (`isValidBranchName`, 400 `invalid_base_branch`),
+isolation-gated (400 `base_branch_requires_isolation` when loops are off, the launch would run in
+the shared checkout, or isolation is unavailable), and resolved right before allocation
+(`git rev-parse --verify --quiet refs/heads/<branch>`, 400 `invalid_base_branch` otherwise — a chain
+never stacks on a guess). `launchIsolatedRail` threads it as `resolveIntegrationBranch({ explicit })`,
+so the delivery row records it as `base_branch` and `deliverRailAsPr` creates the PR STACKED on it
+(`gh pr create --base <branch>`). Today's only driver is the milestone launch chain
+(`server/milestone-chain.ts`): chunk k+1 of a sequential "Launch Milestone" launches with
+`baseBranch = chunk k's delivered branch`, so a greenfield walking skeleton accumulates without waiting
+for a merge. MCP `specrails_rails(launch, baseBranch)` exposes the same parameter.
+
+Two decision-side consequences keep the stacked lineage honest. **Ancestor sweep** — after any
+`merged` transition (merge-local or poll-merge), `sweepMergedChainAncestors` walks the chain(s) the
+merged delivery belongs to and settles every still-undecided sibling (`on_review | pr_draft |
+pr_ready | pr_closed`) whose delivered head (`delivery_sha`, else a unit's `finalSha`) is PROVABLY an
+ancestor of the chain's integration branch (`git merge-base --is-ancestor`) as `merged` through the
+same CAS (own operation lease, released BEFORE `finalizeTransition` so the broadcast is not deferred
+to a lease owner that never comes) + ticket effect (`done`) + Jira `onRailMerged(…, null)`;
+`status_detail` records `merged as part of <railKey>`. Chain-local by design — a non-ancestor sibling
+is untouched. **Merge-local target** — a stacked delivery's `base_branch` is the previous chunk's
+FEATURE branch, so `runMergeLocalLocked` resolves `mergeLocalTargetBranch` (the chain's
+`integration_branch` when the delivery belongs to a chain, else `base_branch`) for both the checkout
+guard (`wrong_branch`) and the merge itself. **Discard of a stacked head** — `pauseChainsForDiscardedHead`
+pauses every active chain whose launched chunks include the discarded delivery (`head_discarded`, head
+rewound to the previous chunk's branch, else the integration branch) and broadcasts
+`milestone.chain_changed`; the rail strip, the agent card and the review packet render
+`discardStackedNote` in the discard confirm when the delivery is such a head
+(`useStackedHeadDeliveryIds`).
+
 ## Ticket lifecycle — `on_review`
 
 New status in `TicketStatus` / `VALID_STATUSES` (`server/ticket-store.ts`), between

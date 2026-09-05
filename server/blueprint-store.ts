@@ -50,6 +50,8 @@ export interface BlueprintMessage {
   /** The model's unstripped reply when it carried a block (forensics; lets a
    *  later parser fix re-read an old rejected snapshot). Null otherwise. */
   raw_content: string | null
+  /** One-click card intent for a user turn (`surprise` | `approve`), null for typed prompts. */
+  intent: string | null
   created_at: string
 }
 
@@ -99,12 +101,12 @@ export function deleteBlueprintConversation(db: DbInstance, id: string): void {
 
 export function addBlueprintMessage(
   db: DbInstance,
-  input: { conversationId: string; role: BlueprintMessageRole; content: string; rawContent?: string | null },
+  input: { conversationId: string; role: BlueprintMessageRole; content: string; rawContent?: string | null; intent?: string | null },
 ): BlueprintMessage {
   const id = randomUUID()
   db.prepare(
-    'INSERT INTO blueprint_messages (id, conversation_id, role, content, raw_content) VALUES (?, ?, ?, ?, ?)',
-  ).run(id, input.conversationId, input.role, input.content, input.rawContent ?? null)
+    'INSERT INTO blueprint_messages (id, conversation_id, role, content, raw_content, intent) VALUES (?, ?, ?, ?, ?, ?)',
+  ).run(id, input.conversationId, input.role, input.content, input.rawContent ?? null, input.intent ?? null)
   db.prepare("UPDATE blueprint_conversations SET updated_at = datetime('now') WHERE id = ?").run(
     input.conversationId,
   )

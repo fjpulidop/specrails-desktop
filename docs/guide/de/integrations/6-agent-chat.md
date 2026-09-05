@@ -68,6 +68,7 @@ Antworten strömen flüssig herein und landen bereits formatiert (Überschriften
 - **Minimieren, nicht verlieren.** Klicke auf das ✕, um das Panel zurück in die Blase abzulegen — die Unterhaltung läuft weiter. Öffne es wieder und du landest bei der neuesten Nachricht; nichts muss neu getippt werden.
 - **Neue Unterhaltung.** Der **+**-Button startet einen sauberen Thread; der Verlauf lebt app-weit, oberhalb jedes einzelnen Projekts.
 - **Missionen wechseln.** Der Missions-Selektor neben dem Projekt-Selektor listet deine Unterhaltungen von neu nach alt — ein pulsierender Punkt markiert die, an denen der Agent noch arbeitet, und ein kleines Badge zählt die Nachrichten in der Warteschlange. Die Suche erscheint, sobald die Liste mehr als acht Einträge hat, und das Papierkorb-Symbol jeder Zeile löscht eine Mission nach einer kurzen Inline-Bestätigung — auch eine laufende (es warnt zuerst und stoppt dann den Agenten).
+- **Eine Mission von überall finden.** Drücke **⌘K** (oder den **Suchen**-Button in der Seitenleiste im Agent-Modus) und tippe irgendein Fragment, an das du dich erinnerst — ein Wort aus dem Titel *oder* aus dem, was darin gesagt wurde. Missionen treffen sofort per Titel aus dem Speicher, einen Herzschlag später kommen die Inhaltstreffer mit hervorgehobener Passage dazu, plus angepinntes Projekt und letzte Aktivität. Im Agent-Modus sind Missionen die erste Gruppe; auf dem Board stehen sie direkt nach den Projekten. Enter öffnet die Mission.
 
 ## Ein paar Dinge, die du wissen solltest
 

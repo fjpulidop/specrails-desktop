@@ -775,6 +775,13 @@ server.on('error', (err: NodeJS.ErrnoException) => {
 server.listen(port, '127.0.0.1', () => {
   console.log(`specrails web manager running on http://127.0.0.1:${port}`)
   writePidFile()
+  // Milestone launch chains launch chunks over loopback REST, so a chain whose
+  // chunk settled while the server was down can only replay once we listen.
+  for (const ctx of _registry?.listContexts() ?? []) {
+    void ctx.milestoneChains?.recoverOnStartup().catch((err: unknown) => {
+      console.error(`[milestone-chain] startup recovery failed for ${ctx.project.id}:`, err)
+    })
+  }
   // Sweep stale shell-integration shim directories left behind by previous runs.
   try {
     const removed = cleanupStaleShimDirs()

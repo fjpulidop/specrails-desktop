@@ -57,6 +57,14 @@ describe('createLoopExecutors.planInteractiveAiStep', () => {
     expect(createLoopExecutors({ env: { SPECRAILS_LOOP_INACTIVITY_MS: 'NaN' } }).planInteractiveAiStep!(input)?.inactivityTimeoutMs).toBe(30 * 60_000)
   })
 
+  it('honors the new watchdog setting and an explicit run override above the legacy setting', () => {
+    const executors = createLoopExecutors({ env: { SPECRAILS_LOOP_INACTIVITY_MS: '1234', SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS: 'off' } })
+    const input = { provider: 'claude', model: 'sonnet', cwd: '/repo', aiStepTimeoutMs: 0 }
+    expect(executors.planInteractiveAiStep!(input)?.inactivityTimeoutMs).toBe(0)
+    expect(executors.planInteractiveAiStep!({ ...input, idleTimeoutMs: 90_000 })).toMatchObject({ inactivityTimeoutMs: 90_000, idleTimeoutMs: 90_000 })
+    expect(executors.planInteractiveAiStep!({ ...input, idleTimeoutMs: 0 })?.inactivityTimeoutMs).toBe(0)
+  })
+
   it('uses the chosen rail profile for interactive steps and honors an explicit opt-out', () => {
     const selections: Array<string | null | undefined> = []
     const executors = createLoopExecutors({

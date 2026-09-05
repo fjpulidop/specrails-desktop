@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
-import { Puzzle, Workflow, X } from 'lucide-react'
+import { Puzzle, Workflow, X, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
 import DashboardPage from './pages/DashboardPage'
 import SettingsPage from './pages/SettingsPage'
@@ -67,7 +67,8 @@ import { BackgroundProcessesProvider } from './context/BackgroundProcessesContex
 import { TicketDetailModalProvider } from './context/TicketDetailModalContext'
 import { WebViewModalProvider } from './context/WebViewModalContext'
 import { useCompareUrlSync } from './hooks/useCompareUrlSync'
-import { MilestoneSequencerProvider } from './context/MilestoneSequencerContext'
+import { useMilestoneNotifications } from './hooks/useMilestoneNotifications'
+import { dropLegacySequentialPlans } from './lib/milestone-launch'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT, FEATURE_REVIEW_PACKET } from './lib/feature-flags'
@@ -83,8 +84,8 @@ function GlobalSurfaceDialogChrome({
   onClose: () => void
 }) {
   const { t } = useTranslation('nav')
-  const title = surface === 'loops' ? t('arcSidebar.loops') : t('arcSidebar.plugins')
-  const Icon = surface === 'loops' ? Workflow : Puzzle
+  const title = surface === 'loops' ? t('arcSidebar.loops') : surface === 'review' ? t('arcSidebar.review') : t('arcSidebar.plugins')
+  const Icon = surface === 'loops' ? Workflow : surface === 'review' ? Eye : Puzzle
 
   return (
     <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border bg-popover/95 px-3">
@@ -216,6 +217,8 @@ function DesktopApp() {
   // its body library ↔ embedded builder on this id (null = library).
   const [loopBuilderId, setLoopBuilderId] = useState<string | null>(null)
   const [pluginsOpen, setPluginsOpen] = useState(false)
+  // Mission-mode review packet (a Board ROUTE elsewhere): the delivery id open as a modal.
+  const [reviewDeliveryId, setReviewDeliveryId] = useState<string | null>(null)
   const [docsOpen, setDocsOpen] = useState(false)
   // Stable onClose so memoised DocsDialog doesn't re-render every DesktopApp render.
   const closeDocs = useCallback(() => setDocsOpen(false), [])
@@ -273,6 +276,11 @@ function DesktopApp() {
     [projects]
   )
   useOsNotifications({ setActiveProjectId, projectsById })
+  // Milestone toasts (chunk launched / chain paused / delivered / complete) —
+  // the server-owned chain replaced the browser-local sequencer; drop its
+  // leftover plan key once (its runs settled server-side long ago).
+  useMilestoneNotifications({ setActiveProjectId })
+  useEffect(() => { dropLegacySequentialPlans() }, [])
 
   const activeProject = projects.find((p) => p.id === activeProjectId)
   const onLoopsRoute = location.pathname.startsWith('/loops')
@@ -289,10 +297,20 @@ function DesktopApp() {
       pathname: location.pathname,
       loopsOpen,
       pluginsOpen,
+      reviewOpen: reviewDeliveryId,
     })
     if (!transition) return
 
     if (transition.kind === 'modalize') {
+      if (transition.surface === 'review') {
+        // The review packet opens OVER the mission — the conversation the user
+        // is in stays exactly where it is (no New Mission reset).
+        if (transition.reviewDeliveryId) setReviewDeliveryId(transition.reviewDeliveryId)
+        if (location.pathname !== transition.backgroundPath) {
+          navigate(transition.backgroundPath, { replace: true })
+        }
+        return
+      }
       if (transition.surface === 'loops') {
         setPluginsOpen(false)
         setLoopsOpen(true)
@@ -310,6 +328,7 @@ function DesktopApp() {
 
     setLoopsOpen(false)
     setPluginsOpen(false)
+    setReviewDeliveryId(null)
     if (location.pathname !== transition.path) {
       navigate(transition.path, { replace: true })
     }
@@ -319,6 +338,7 @@ function DesktopApp() {
     loopsOpen,
     navigate,
     pluginsOpen,
+    reviewDeliveryId,
     startNewConversation,
     uiMode,
   ])
@@ -510,6 +530,26 @@ function DesktopApp() {
         </DialogContent>
       </Dialog>
 
+      {/* Mission-mode review packet: the same ReviewPacketPage, embedded over
+          the mission (the Review buttons navigate to /review/:id, which Mission
+          mode has no routed dashboard to render). */}
+      {FEATURE_REVIEW_PACKET && (
+        <Dialog open={reviewDeliveryId !== null} onOpenChange={(open) => { if (!open) setReviewDeliveryId(null) }}>
+          <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col" data-testid="review-packet-modal">
+            <DialogTitle className="sr-only">{t('nav:arcSidebar.review')}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {t('nav:globalSurfaceModal.reviewDescription')}
+            </DialogDescription>
+            <GlobalSurfaceDialogChrome surface="review" onClose={() => setReviewDeliveryId(null)} />
+            <div className="flex-1 overflow-auto">
+              <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
+                {reviewDeliveryId && <ReviewPacketPage prDeliveryId={reviewDeliveryId} onClose={() => setReviewDeliveryId(null)} />}
+              </Suspense>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       <Dialog open={pluginsOpen} onOpenChange={setPluginsOpen}>
         <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col">
           <DialogTitle className="sr-only">{t('nav:arcSidebar.plugins')}</DialogTitle>
@@ -680,7 +720,6 @@ export default function App() {
                     <RailMetricsProviderWithDesktop>
                     <RailPrDecisionProviderWithDesktop>
                     <MinimizedChatsProvider>
-                      <MilestoneSequencerProvider>
                       {/* AgentWorkspaceProvider wraps AgentChatProvider so the
                           floating panel (rendered INSIDE AgentChatProvider's own
                           JSX, next to {children}) also sees the real workspace
@@ -698,7 +737,6 @@ export default function App() {
                         </BackgroundProcessesProvider>
                       </AgentChatProvider>
                       </AgentWorkspaceProvider>
-                      </MilestoneSequencerProvider>
                     </MinimizedChatsProvider>
                     </RailPrDecisionProviderWithDesktop>
                     </RailMetricsProviderWithDesktop>

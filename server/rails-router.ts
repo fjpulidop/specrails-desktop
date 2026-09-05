@@ -40,6 +40,7 @@ import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './ra
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
 import { launchIsolatedRail, PrContinuationIsolationError } from './rail-isolated-launch'
 import { repoIsolationStatus, defaultGitRunner } from './worktree-manager'
+import { isValidBranchName } from './integration-branch'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from './rail-worktree-release'
 import { checkoutProjectReviewBranch, getProjectGitInfo, inspectProjectCheckoutCleanliness } from './project-git'
 import { defaultExec } from './pr-publisher'
@@ -430,7 +431,7 @@ export function createRailsRouter(): Router {
     }
 
     let { mode = 'implement' } = req.body ?? {}
-    const { profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote } = req.body ?? {}
+    const { profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch } = req.body ?? {}
     // Revision launch (nontech-review-experience Wave 3): the user asked for a
     // change to a delivery that is already awaiting their decision. Shape is
     // validated here; the narrow guard exemption is enforced below.
@@ -449,6 +450,19 @@ export function createRailsRouter(): Router {
       if (typeof targetPrNumber !== 'number' || !Number.isSafeInteger(targetPrNumber) || targetPrNumber <= 0 || targetPrNumber > 1_000_000_000) {
         res.status(400).json({ error: 'invalid_target_pr', detail: 'targetPrNumber must be a positive integer' }); return
       }
+    }
+    // Explicit base branch (premium-milestone-progress): a milestone chain
+    // stacks chunk k+1 on chunk k's delivered branch. Shape-validated here;
+    // resolved locally and isolation-gated below. Never silently ignored.
+    let baseBranch: string | null = null
+    if (rawBaseBranch !== undefined && rawBaseBranch !== null) {
+      if (typeof rawBaseBranch !== 'string' || !isValidBranchName(rawBaseBranch)) {
+        res.status(400).json({ error: 'invalid_base_branch', detail: 'baseBranch must be a valid local branch name' }); return
+      }
+      baseBranch = rawBaseBranch
+    }
+    if (baseBranch && !isLoopsEnabled()) {
+      res.status(400).json({ error: 'base_branch_requires_isolation', detail: 'baseBranch requires an isolated (worktree) loop launch; loops are disabled' }); return
     }
     let loopId: unknown = rawLoopId
     // Origin link (safe-pr-review-flow): an agent-chat/MCP launch tags itself so
@@ -770,6 +784,9 @@ export function createRailsRouter(): Router {
         if (typeof targetPrNumber === 'number' && !useIsolation) {
           res.status(400).json({ error: 'target_pr_requires_pr_mode', detail: 'targetPrNumber requires an isolated (worktree) launch; this launch would run in the shared checkout' }); return
         }
+        if (baseBranch && !useIsolation) {
+          res.status(400).json({ error: 'base_branch_requires_isolation', detail: 'baseBranch requires an isolated (worktree) launch; this launch would run in the shared checkout' }); return
+        }
         if (continuablePrDelivery && !loopReadOnly && !useIsolation) {
           res.status(409).json({
             error: 'pr_continuation_isolation_required',
@@ -783,6 +800,9 @@ export function createRailsRouter(): Router {
           // unborn HEAD can't be branched). Fall back (with a message) otherwise.
           const status = await repoIsolationStatus(defaultGitRunner, c.project.path)
           if (status !== 'ok') {
+            if (baseBranch) {
+              res.status(400).json({ error: 'base_branch_requires_isolation', detail: `baseBranch requires worktree isolation, which is unavailable (${status})` }); return
+            }
             if (typeof targetPrNumber === 'number') {
               res.status(400).json({
                 error: 'target_pr_requires_pr_mode',
@@ -801,6 +821,13 @@ export function createRailsRouter(): Router {
             isolationUnavailable = status // 'no-git' | 'no-commits'
             console.warn(`[rails-router] worktree isolation unavailable (${status}); running shared cwd`)
           } else {
+            if (baseBranch) {
+              // Must resolve as a LOCAL branch — a chain never stacks on a guess.
+              const verify = await defaultGitRunner.run(['rev-parse', '--verify', '--quiet', `refs/heads/${baseBranch}`], c.project.path)
+              if (verify.code !== 0) {
+                res.status(400).json({ error: 'invalid_base_branch', detail: `branch ${baseBranch} does not resolve locally` }); return
+              }
+            }
             try {
               const ids = await launchIsolatedRail({
                 ctx: c, railIndex, ticketIds: [...rail.ticketIds], loopId, loopName, loopGraph,
@@ -808,6 +835,7 @@ export function createRailsRouter(): Router {
                 profileName: resolvedProfile,
                 originSurface: originSurface ?? 'dashboard',
                 originConversationId: originConversationId ?? null,
+                ...(baseBranch ? { baseBranch } : {}),
                 ...(continuablePrDelivery ? {
                   requiredPrContinuation: {
                     deliveryId: continuablePrDelivery.id,
@@ -933,7 +961,7 @@ export function createRailsRouter(): Router {
             })
             .then((r) => {
               recordRunProvenance()
-              c.onLoopRunFinished(r.runId, r.outcome)
+              c.onLoopRunFinished(r.runId, r.outcome, r.stallReason ? { stallReason: r.stallReason } : undefined)
               return r.outcome === 'success'
             })
             .catch((err) => {

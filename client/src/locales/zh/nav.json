@@ -31,11 +31,13 @@
     "docs": "文档",
     "analytics": "分析",
     "settings": "设置",
-    "plugins": "插件"
+    "plugins": "插件",
+    "review": "审阅"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops 已作为 Mission 模态窗口打开。",
-    "pluginsDescription": "Plugins 已作为 Mission 模态窗口打开。"
+    "pluginsDescription": "Plugins 已作为 Mission 模态窗口打开。",
+    "reviewDescription": "审阅包已作为任务模态窗口打开。"
   },
   "rightSidebar": {
     "projectTitle": "项目",

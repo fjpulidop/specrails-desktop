@@ -1,6 +1,7 @@
 import React from 'react'
+import { premiumDescription, premiumCriteria } from '../../lib/__tests__/premium-spec-fixture'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '../../test-utils'
+import { cleanup, render, screen, waitFor } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { AddProjectDialog } from '../AddProjectDialog'
 import { BlueprintPanel } from '../project-builder/BlueprintPanel'
@@ -58,24 +59,8 @@ function blueprint(overrides: Partial<Blueprint> = {}): Blueprint {
         kind: 'scaffold',
         title: 'Scaffold',
         shortSummary: 'Initialize a runnable, tested application foundation for the first product slice.',
-        description: [
-          '## Problem Statement',
-          'The product needs a reliable foundation before feature work begins.',
-          '## Proposed Solution',
-          'Initialize the selected stack with development, test, and build commands.',
-          '## Out of Scope',
-          '- User-facing recipe features.',
-          '## Technical Considerations',
-          '- Preserve the existing README and pin the supported runtime.',
-          '## Estimated Complexity',
-          'Medium — the stack is known, but its toolchain must be verified end to end.',
-        ].join('\n\n'),
-        acceptanceCriteria: [
-          'The development command starts the application successfully.',
-          'The production build completes without errors.',
-          'The automated test command completes successfully.',
-          'The repository README documents the verified commands.',
-        ],
+        description: premiumDescription({ readme: true, subject: 'the project foundation' }),
+        acceptanceCriteria: premiumCriteria('foundation'),
         priority: 'critical',
         labels: ['M1', 'foundation'],
       },
@@ -83,8 +68,8 @@ function blueprint(overrides: Partial<Blueprint> = {}): Blueprint {
         kind: 'feature',
         title: 'Upload',
         shortSummary: 'Let cooks upload a pantry photo for recipe suggestions.',
-        description: 'photo upload',
-        acceptanceCriteria: ['A supported image can be selected.', 'Invalid files are rejected.', 'Upload failure is visible.', 'The flow is tested.'],
+        description: premiumDescription({ subject: 'photo upload' }),
+        acceptanceCriteria: premiumCriteria('upload'),
         priority: 'high',
         labels: ['M1'],
         dependsOnIndex: 0,
@@ -170,7 +155,7 @@ describe('BlueprintPanel', () => {
     expect(screen.getByTestId('m1-spec-card-0')).toHaveTextContent('Scaffold')
     expect(screen.getByTestId('m1-spec-summary-0')).toHaveTextContent('Initialize a runnable, tested application foundation')
     expect(screen.getByTestId('m1-spec-priority-0')).toHaveTextContent('Critical')
-    expect(screen.getByTestId('m1-spec-criteria-count-0')).toHaveTextContent('4 acceptance criteria')
+    expect(screen.getByTestId('m1-spec-criteria-count-0')).toHaveTextContent('6 acceptance criteria')
     expect(screen.getByTestId('m1-spec-card-1')).toHaveTextContent('builds on #1')
     expect(screen.getByText('no auth in M1')).toBeInTheDocument()
     expect(screen.getByText('Accounts')).toBeInTheDocument()
@@ -183,24 +168,8 @@ describe('BlueprintPanel', () => {
       kind: 'scaffold',
       title: 'Scaffold',
       shortSummary: 'Create the verified foundation used by every later product capability.',
-      description: [
-        '## Problem Statement',
-        'The product needs a runnable foundation.',
-        '## Proposed Solution',
-        'Initialize Next.js and TypeScript.',
-        '## Out of Scope',
-        '- Product features.',
-        '## Technical Considerations',
-        '- Keep the existing README.',
-        '## Estimated Complexity',
-        'Medium — bootstrapping and verification are bounded.',
-      ].join('\n\n'),
-      acceptanceCriteria: [
-        'Development mode starts successfully.',
-        'The production build succeeds.',
-        'The test suite succeeds.',
-        'Verified commands are documented.',
-      ],
+      description: premiumDescription({ readme: true, subject: 'the project foundation' }),
+      acceptanceCriteria: premiumCriteria('foundation'),
       priority: 'critical',
       labels: ['M1', 'foundation'],
     }
@@ -219,9 +188,9 @@ describe('BlueprintPanel', () => {
     expect(modal).toHaveTextContent('Technical Considerations')
     expect(modal).toHaveTextContent('Estimated Complexity')
     // Structured criteria are shown in full, not collapsed into a count.
-    expect(screen.getAllByTestId(/^blueprint-spec-criterion-/)).toHaveLength(4)
-    expect(modal).toHaveTextContent('Development mode starts successfully.')
-    expect(modal).toHaveTextContent('Verified commands are documented.')
+    expect(screen.getAllByTestId(/^blueprint-spec-criterion-/)).toHaveLength(6)
+    expect(modal).toHaveTextContent('When the persistence layer is unavailable (foundation)')
+    expect(modal).toHaveTextContent('end-to-end tests cover the happy path')
     await user.click(screen.getByTestId('blueprint-spec-modal-close'))
     expect(screen.queryByTestId('blueprint-spec-modal')).not.toBeInTheDocument()
   })
@@ -309,7 +278,7 @@ describe('BuilderConversation (panel-hosted phases)', () => {
   function session(overrides: Partial<BuilderSession> = {}): BuilderSession {
     return {
       phase: 'chat', messages: [], streamBuffer: null, blueprint: null, busy: false,
-      commitError: null, commitSteps: [], createdProjectId: null, launching: false, submitting: false,
+      commitError: null, commitSteps: [], createdProjectId: null, launching: false, launched: false, submitting: false,
       conversationReady: true, conversationId: 'conv-1', dirty: false, canProposeCommit: false, specQualityDetail: null, showSurpriseMe: true,
       readiness: { ready: false, steps: [
         { key: 'blueprint', state: 'pending', params: { filled: 0, total: 5 } },
@@ -321,7 +290,7 @@ describe('BuilderConversation (panel-hosted phases)', () => {
       provider: 'claude', model: null, models: [{ value: 'sonnet', label: 'Claude Sonnet' }],
       efforts: ['low', 'medium', 'high'], effort: 'medium', draft: '', setDraft: vi.fn(), setEffort: vi.fn(),
       setProvider: vi.fn(), setModel: vi.fn(),
-      send: vi.fn(), surpriseMe: vi.fn(), goToCommit: vi.fn(), backToChat: vi.fn(),
+      send: vi.fn(), surpriseMe: vi.fn(), approveBlueprint: vi.fn(), goToCommit: vi.fn(), backToChat: vi.fn(),
       submitCommit: vi.fn(), launchM1: vi.fn(async () => {}), openProject: vi.fn(), abortAndReset: vi.fn(),
       ...overrides,
     }
@@ -505,6 +474,11 @@ describe('BuilderConversation (panel-hosted phases)', () => {
     const user = userEvent.setup()
     const s = session({ phase: 'done', createdProjectId: 'proj-9' })
     renderWithMode(s)
+    // Wave checkpoints: the done screen carries the stored auto-continue preference (default OFF).
+    expect(screen.getByTestId('done-auto-advance')).toHaveAttribute('aria-checked', 'false')
+    await user.click(screen.getByTestId('done-auto-advance'))
+    expect(screen.getByTestId('done-auto-advance')).toHaveAttribute('aria-checked', 'true')
+    expect(localStorage.getItem('specrails-desktop:milestone-auto-advance')).toBe('true')
     await user.click(screen.getByTestId('launch-m1'))
     expect(s.launchM1).toHaveBeenCalled()
     await user.click(screen.getByTestId('open-project'))
@@ -588,14 +562,14 @@ describe('BlueprintReadiness', () => {
         { key: 'audit' as const, state: 'blocked' as const, params: { count: 2 } },
       ],
       issues: [
-        { specIndex: 2, field: 'acceptanceCriteria', code: 'criteria_count', message: 'raw', params: { n: 3, count: 1 } },
+        { specIndex: 2, field: 'acceptanceCriteria', code: 'criteria_count', message: 'raw', params: { n: 3, count: 1, min: 6, max: 10 } },
         { specIndex: 4, field: 'labels', code: 'domain_label', message: 'raw', params: { n: 5, label: 'M1' } },
       ],
     }
     render(<BlueprintReadiness readiness={report} snapshot={{ status: 'accepted', repaired: false, repairAttempted: true, at: 'now' }} busy={false} primaryLabel="Create specs" onPrimary={vi.fn()} onRepair={onRepair} />)
     expect(screen.getByTestId('readiness-issues-toggle')).toHaveTextContent('2 audit issues')
     await userEvent.click(screen.getByTestId('readiness-issues-toggle'))
-    expect(screen.getByTestId('readiness-issues')).toHaveTextContent('Spec 3 needs 4–10 acceptance criteria (has 1).')
+    expect(screen.getByTestId('readiness-issues')).toHaveTextContent('Spec 3 needs 6–10 acceptance criteria (has 1).')
     expect(screen.getByTestId('readiness-issues')).toHaveTextContent('Spec 5 needs a domain label besides M1.')
     await userEvent.click(screen.getByTestId('readiness-ask-fix'))
     expect(onRepair).toHaveBeenCalled()
@@ -705,18 +679,141 @@ describe('BuilderGenerationProgress', () => {
   })
 })
 
+describe('BuilderGenerationProgress (batched generation)', () => {
+  it('renders the phase label, the turn pill and a real ratio from the descriptor', () => {
+    render(<BuilderGenerationProgress specsStarted={0} snapshot={{ status: 'generating', generation: { phase: 'details', from: 3, to: 4, total: 8, turn: 3, totalTurns: 6 } }} />)
+    const el = screen.getByTestId('builder-generation-progress')
+    expect(el).toHaveAttribute('data-phase', 'generation-details')
+    expect(el).toHaveTextContent('Writing specs 3–4 of 8 in full…')
+    expect(screen.getByTestId('builder-generation-turn')).toHaveTextContent('turn 3/6')
+    expect(screen.queryByTestId('builder-generation-count')).toBeNull()
+  })
+
+  it('audit, repair and outline phases have their own labels', () => {
+    // Fresh mounts per phase: AnimatePresence mode="wait" keeps the exiting
+    // label mounted during the swap, which is exactly the crossfade we want.
+    const mount = (phase: 'audit' | 'repair' | 'outline', from: number, to: number) =>
+      render(<BuilderGenerationProgress specsStarted={0} snapshot={{ status: 'generating', generation: { phase, from, to, total: 8, turn: 5, totalTurns: 6 } }} />)
+    let view = mount('audit', 1, 8)
+    expect(screen.getByTestId('builder-generation-progress')).toHaveTextContent('Auditing all 8 specs…')
+    view.unmount()
+    view = mount('repair', 5, 6)
+    expect(screen.getByTestId('builder-generation-progress')).toHaveAttribute('data-phase', 'generation-repair')
+    expect(screen.getByTestId('builder-generation-progress')).toHaveTextContent('Re-asking for specs 5–6…')
+    view.unmount()
+    mount('outline', 0, 0)
+    expect(screen.getByTestId('builder-generation-progress')).toHaveTextContent('Outlining the Milestone-1 specs…')
+  })
+})
+
+describe('BlueprintReadiness (writing state)', () => {
+  it('renders the writing steps with a spinner and the batch hint, no issue list', () => {
+    render(
+      <BlueprintReadiness
+        readiness={{
+          ready: false,
+          steps: [
+            { key: 'blueprint', state: 'done', params: { filled: 5, total: 5 } },
+            { key: 'specs', state: 'writing', params: { count: 8, written: 2, min: 5, max: 10 } },
+            { key: 'audit', state: 'writing', params: { count: 0 } },
+          ],
+          issues: [],
+        }}
+        snapshot={{ status: 'generating', generation: { phase: 'details', from: 3, to: 4, total: 8, turn: 3, totalTurns: 6 } }}
+        busy
+        primaryLabel="Create"
+        onPrimary={vi.fn()}
+        onRepair={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('readiness-step-specs')).toHaveAttribute('data-state', 'writing')
+    expect(screen.getByTestId('readiness-step-specs')).toHaveTextContent('2 of 8 written')
+    expect(screen.getByTestId('readiness-step-audit')).toHaveTextContent('after the specs are written')
+    expect(screen.getByTestId('readiness-step-specs').querySelector('svg')).toHaveClass('animate-spin')
+    expect(screen.queryByTestId('readiness-issues')).toBeNull()
+    expect(screen.getByText(/The Builder is writing every spec in full/)).toBeInTheDocument()
+  })
+})
+
+describe('BlueprintPanel (outline entries)', () => {
+  it('an unwritten spec shows writing… while generating and "not written yet" when idle, never 0 criteria', () => {
+    const bp = { ...blueprint(), specsComplete: false, m1Specs: blueprint().m1Specs.map((spec, i) => (i === 0 ? spec : { ...spec, description: '', acceptanceCriteria: [] })) }
+    const { rerender } = render(<BlueprintPanel blueprint={bp} snapshot={{ status: 'generating', generation: { phase: 'details', from: 2, to: 3, total: 5, turn: 2, totalTurns: 5 } }} />)
+    expect(screen.getByTestId('m1-spec-criteria-count-0')).toHaveTextContent('6 acceptance criteria')
+    expect(screen.getByTestId('m1-spec-unwritten-1')).toHaveTextContent('writing…')
+    expect(screen.queryByText('0 acceptance criteria')).toBeNull()
+    rerender(<BlueprintPanel blueprint={bp} snapshot={{ status: 'accepted', repaired: false, repairAttempted: true, at: 'now', generationHalted: true }} />)
+    expect(screen.getByTestId('m1-spec-unwritten-1')).toHaveTextContent('not written yet')
+  })
+})
+
+describe('BlueprintReadiness (halted generation)', () => {
+  const steps = [
+    { key: 'blueprint' as const, state: 'done' as const, params: { filled: 5, total: 5 } },
+    { key: 'specs' as const, state: 'pending' as const, params: { count: 8, written: 4, min: 5, max: 10 } },
+    { key: 'audit' as const, state: 'blocked' as const, params: { count: 4 } },
+  ]
+
+  it('offers Continue generating with the written/total detail and routes it to onRepair', async () => {
+    const onRepair = vi.fn()
+    render(
+      <BlueprintReadiness
+        readiness={{ ready: false, steps, issues: [] }}
+        snapshot={{ status: 'accepted', repaired: false, repairAttempted: true, at: 'now', generationHalted: true }}
+        busy={false}
+        primaryLabel="Create"
+        onPrimary={vi.fn()}
+        onRepair={onRepair}
+      />,
+    )
+    const halted = screen.getByTestId('snapshot-halted')
+    expect(halted).toHaveTextContent('Spec generation stopped early')
+    expect(halted).toHaveTextContent('4 of 8 specs written in full')
+    await userEvent.click(screen.getByTestId('snapshot-resume'))
+    expect(onRepair).toHaveBeenCalledTimes(1)
+    // The generic first-blocker hint yields to the halted notice.
+    expect(screen.queryByText(/Approve the blueprint and the Builder will generate/)).toBeNull()
+  })
+
+  it('hides the halted notice while a turn is busy and when nothing halted', () => {
+    const { rerender } = render(
+      <BlueprintReadiness
+        readiness={{ ready: false, steps, issues: [] }}
+        snapshot={{ status: 'accepted', repaired: false, repairAttempted: true, at: 'now', generationHalted: true }}
+        busy
+        primaryLabel="Create"
+        onPrimary={vi.fn()}
+        onRepair={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId('snapshot-halted')).toBeNull()
+    rerender(
+      <BlueprintReadiness
+        readiness={{ ready: false, steps, issues: [] }}
+        snapshot={{ status: 'accepted', repaired: true, repairAttempted: true, at: 'now' }}
+        busy={false}
+        primaryLabel="Create"
+        onPrimary={vi.fn()}
+        onRepair={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId('snapshot-halted')).toBeNull()
+    expect(screen.getByTestId('snapshot-repaired')).toBeInTheDocument()
+  })
+})
+
 describe('BuilderConversation (snapshot hardening)', () => {
   function session(overrides: Partial<BuilderSession> = {}): BuilderSession {
     return {
       phase: 'chat', messages: [], streamBuffer: null, blueprint: null, busy: false,
-      commitError: null, commitErrorDetail: null, commitSteps: [], createdProjectId: null, launching: false, submitting: false,
+      commitError: null, commitErrorDetail: null, commitSteps: [], createdProjectId: null, launching: false, launched: false, submitting: false,
       conversationReady: true, conversationId: null, dirty: false, canProposeCommit: false, specQualityDetail: null, showSurpriseMe: true,
       readiness: { ready: false, steps: [], issues: [] }, snapshot: { status: 'idle' }, generation: { generating: false, specsStarted: 0 },
       recent: [], recentLoading: false, resume: vi.fn(async () => {}), discardRecent: vi.fn(async () => {}), repairSnapshot: vi.fn(async () => {}),
       provider: 'claude', model: null, models: [{ value: 'sonnet', label: 'Claude Sonnet' }],
       efforts: ['low', 'medium', 'high'], effort: 'medium', draft: '', setDraft: vi.fn(), setEffort: vi.fn(),
       setProvider: vi.fn(), setModel: vi.fn(),
-      send: vi.fn(), surpriseMe: vi.fn(), goToCommit: vi.fn(), backToChat: vi.fn(),
+      send: vi.fn(), surpriseMe: vi.fn(), approveBlueprint: vi.fn(), goToCommit: vi.fn(), backToChat: vi.fn(),
       submitCommit: vi.fn(), launchM1: vi.fn(async () => {}), openProject: vi.fn(), abortAndReset: vi.fn(),
       ...overrides,
     }
@@ -741,6 +838,99 @@ describe('BuilderConversation (snapshot hardening)', () => {
     expect(resume).toHaveBeenCalledWith('conv-old')
   })
 
+  it('offers a one-click Surprise me card after a settled Builder reply while the interview is open', async () => {
+    const surpriseMe = vi.fn()
+    const s = session({
+      surpriseMe,
+      messages: [
+        { role: 'user', content: 'quiero un pong', createdAt: new Date().toISOString() },
+        { role: 'assistant', content: 'Unas preguntas… o dime "sorpréndeme".', createdAt: new Date().toISOString() },
+      ],
+      readiness: { ready: false, steps: [{ key: 'blueprint', state: 'pending', params: { filled: 0, total: 5 } }], issues: [] },
+    })
+    renderWith(s)
+    const card = screen.getByTestId('builder-decision-card')
+    expect(card).toHaveAttribute('data-kind', 'surprise')
+    expect(card).toHaveAttribute('data-mode', 'offer')
+    expect(card).toHaveTextContent('Surprise me')
+    expect(card).toHaveTextContent('Let the Builder decide the product')
+    await userEvent.click(card)
+    expect(surpriseMe).toHaveBeenCalledTimes(1)
+  })
+
+  it('a decision taken from a card stays a settled card in the thread instead of the prompt bubble', () => {
+    renderWith(session({
+      messages: [
+        { role: 'user', content: 'quiero un pong', createdAt: '2026-09-04T21:58:41.000Z' },
+        { role: 'assistant', content: 'Preguntas…', createdAt: '2026-09-04T21:58:50.000Z' },
+        { role: 'user', content: 'Surprise me — propose sensible defaults…', createdAt: '2026-09-04T21:59:00.000Z', intent: 'surprise' },
+        { role: 'assistant', content: '¡Perfecto! Propuesta completa.', createdAt: '2026-09-04T21:59:30.000Z' },
+      ],
+      busy: true,
+    }))
+    const settled = screen.getByTestId('builder-decision-card')
+    expect(settled).toHaveAttribute('data-mode', 'settled')
+    expect(settled).toHaveAttribute('data-kind', 'surprise')
+    expect(settled).toHaveTextContent('Decision taken')
+    expect(settled).toHaveTextContent('You let the Builder decide every blueprint dimension.')
+    expect(screen.queryByText('Surprise me — propose sensible defaults…')).toBeNull()
+    expect(settled.tagName).toBe('DIV')
+  })
+
+  it('offers Approve once the blueprint is decided and no spec exists; click approves; hidden once specs exist', async () => {
+    const approveBlueprint = vi.fn()
+    const base = {
+      approveBlueprint,
+      messages: [
+        { role: 'user' as const, content: 'go', createdAt: new Date().toISOString() },
+        { role: 'assistant' as const, content: '¿Aprobamos el blueprint?', createdAt: new Date().toISOString() },
+      ],
+      blueprint: { ...blueprint(), specsComplete: false, m1Specs: [] },
+      readiness: {
+        ready: false,
+        steps: [
+          { key: 'blueprint' as const, state: 'done' as const, params: { filled: 5, total: 5 } },
+          { key: 'specs' as const, state: 'pending' as const, params: { count: 0, written: 0, min: 5, max: 10 } },
+          { key: 'audit' as const, state: 'pending' as const, params: { count: 0 } },
+        ],
+        issues: [],
+      },
+    }
+    renderWith(session(base))
+    const card = screen.getByTestId('builder-decision-card')
+    expect(card).toHaveAttribute('data-kind', 'approve')
+    expect(card).toHaveTextContent('Approve & generate specs')
+    expect(card).toHaveTextContent('Or type what you want to change')
+    await userEvent.click(card)
+    expect(approveBlueprint).toHaveBeenCalledTimes(1)
+    cleanup()
+    // Specs already exist (outline or complete): no approve card, no surprise card.
+    renderWith(session({
+      ...base,
+      blueprint: blueprint(),
+      readiness: { ...base.readiness, steps: [base.readiness.steps[0], { key: 'specs', state: 'done', params: { count: 5, written: 5, min: 5, max: 10 } }, base.readiness.steps[2]] },
+    }))
+    expect(screen.queryByTestId('builder-decision-card')).toBeNull()
+  })
+
+  it('hides the decision cards while a turn is in flight, after the user speaks, and on the hero', () => {
+    const base = {
+      messages: [
+        { role: 'user' as const, content: 'go', createdAt: new Date().toISOString() },
+        { role: 'assistant' as const, content: 'ok', createdAt: new Date().toISOString() },
+      ],
+      readiness: { ready: false, steps: [{ key: 'blueprint' as const, state: 'pending' as const, params: { filled: 2, total: 5 } }], issues: [] },
+    }
+    renderWith(session({ ...base, busy: true }))
+    expect(screen.queryByTestId('builder-decision-card')).toBeNull()
+    cleanup()
+    renderWith(session({ ...base, messages: [...base.messages, { role: 'user', content: 'web', createdAt: new Date().toISOString() }] }))
+    expect(screen.queryByTestId('builder-decision-card')).toBeNull()
+    cleanup()
+    renderWith(session({ ...base, messages: [] }))
+    expect(screen.queryByTestId('builder-decision-card')).toBeNull()
+  })
+
   it('a streaming snapshot block shows generation progress instead of the thinking chip', () => {
     renderWith(session({
       messages: [{ role: 'user', content: 'go', createdAt: new Date().toISOString() }],
@@ -751,6 +941,18 @@ describe('BuilderConversation (snapshot hardening)', () => {
     expect(screen.getByTestId('builder-generation-progress')).toHaveTextContent('spec 3')
     // The raw open fence never reaches the bubble.
     expect(screen.queryByText(/blueprint-draft/)).toBeNull()
+  })
+
+  it('between batched generation turns the thread keeps the phase progress, not the thinking chip', () => {
+    renderWith(session({
+      messages: [{ role: 'user', content: 'go', createdAt: new Date().toISOString() }],
+      busy: true,
+      streamBuffer: null,
+      generation: { generating: false, specsStarted: 0 },
+      snapshot: { status: 'generating', generation: { phase: 'details', from: 5, to: 6, total: 8, turn: 4, totalTurns: 6 } },
+    }))
+    expect(screen.getByTestId('builder-generation-progress')).toHaveAttribute('data-phase', 'generation-details')
+    expect(screen.getByTestId('builder-generation-turn')).toHaveTextContent('turn 4/6')
   })
 
   it('a repair turn shows the repairing phase in the thread', () => {

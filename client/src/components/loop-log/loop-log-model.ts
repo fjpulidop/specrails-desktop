@@ -43,10 +43,16 @@ export interface LoopStepMeta {
 export interface LoopStepEndMeta {
   index: number
   nodeId: string | null
-  status: 'ok' | 'failed'
+  /** `stalled`: the server's idle watchdog tore the step down (no provider
+   *  output for `idleMs`); the engine retries such a step once by resume. */
+  status: 'ok' | 'failed' | 'stalled'
   exitCode: number | null
   durationMs: number | null
   decision?: 'continue' | 'stop'
+  /** `idle_timeout` (stalled) or `provider_limit` (failed: the provider
+   *  answered with a usage/rate-limit notice and the run stopped at once). */
+  reason?: 'idle_timeout' | 'provider_limit'
+  idleMs?: number | null
 }
 
 export interface LoopGraphMeta {
@@ -82,7 +88,7 @@ export interface LoopLogModel {
   totalLines: number
 }
 
-export type SegmentStatus = 'ok' | 'failed' | 'running' | 'interrupted' | 'unknown'
+export type SegmentStatus = 'ok' | 'failed' | 'stalled' | 'running' | 'interrupted' | 'unknown'
 
 export type NodeChipState = 'pending' | 'running' | 'ok' | 'failed' | 'interrupted'
 
@@ -204,11 +210,13 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
           segMetas[s].end = {
             index: p.index,
             nodeId: typeof p.nodeId === 'string' ? p.nodeId : null,
-            status: p.status === 'failed' ? 'failed' : 'ok',
+            status: p.status === 'stalled' ? 'stalled' : p.status === 'failed' ? 'failed' : 'ok',
             exitCode: typeof p.exitCode === 'number' ? p.exitCode : null,
             durationMs: typeof p.durationMs === 'number' ? p.durationMs : null,
             decision:
               p.decision === 'continue' || p.decision === 'stop' ? p.decision : undefined,
+            ...(p.reason === 'idle_timeout' || p.reason === 'provider_limit' ? { reason: p.reason } : {}),
+            ...(typeof p.idleMs === 'number' ? { idleMs: p.idleMs } : {}),
           }
           break
         }
@@ -321,8 +329,9 @@ export function buildChips(
       jobSettled: opts.jobSettled,
     })
     // Legacy mid-run steps without an end: the loop advanced past them — render
-    // as done rather than falsely pending/interrupted.
-    return st === 'unknown' ? 'ok' : st
+    // as done rather than falsely pending/interrupted. A stalled attempt reads
+    // as failed on the node chip (the section carries the stall detail).
+    return st === 'unknown' ? 'ok' : st === 'stalled' ? 'failed' : st
   }
 
   if (model.graphMeta) {

@@ -71,7 +71,8 @@
       "projects": "项目",
       "advanced": "高级",
       "webhooks": "Webhooks",
-      "about": "关于"
+      "about": "关于",
+      "effects": "效果"
     },
     "title": "Desktop 设置",
     "description": "管理已注册的项目并查看 Desktop 信息。",
@@ -305,5 +306,16 @@
       "sr-developer": "开发者",
       "sr-reviewer": "审查者"
     }
+  },
+  "effects": {
+    "heading": "效果",
+    "description": "应用中的视觉点缀，每一项都可以在这里关闭。",
+    "thinkingHalo": {
+      "label": "代理输入框的思考光环",
+      "description": "代理思考或书写时，构建器的环绕光环会围绕输入框发光：回合开始时淡入，回复结束时淡出。"
+    },
+    "reducedMotion": "遵循系统的减少动态效果设置：光环将保持为静态光晕。",
+    "preview": "预览",
+    "previewThinking": "思考中…"
   }
 }

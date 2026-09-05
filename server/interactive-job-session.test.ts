@@ -645,6 +645,21 @@ describe("InteractiveJobSession settleMode 'auto'", () => {
     expect(h.settled[0].resultText).toBe('all done')
   })
 
+  it('surfaces the provider\'s is_error flag on settle (a usage-limit notice returned AS the reply)', async () => {
+    const h = setup('job-limit', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, '/specrails:implement #1')
+    h.child.stdout.push(resultFrame({ result: "You've hit your session limit · resets 3am (Europe/Madrid)", is_error: true, num_turns: 1 }))
+    await tick()
+    expect(h.settled.length).toBe(1)
+    expect(h.settled[0].resultIsError).toBe(true)
+    expect(h.settled[0].resultText).toContain('session limit')
+    const ok = setup('job-ok', { settleMode: 'auto' })
+    ok.session.start({ binary: 'claude', args: [] }, 'x')
+    ok.child.stdout.push(resultFrame({ result: 'done' }))
+    await tick()
+    expect(ok.settled[0].resultIsError).toBe(false)
+  })
+
   it('escalates to SIGTERM when the child ignores the stdin EOF (grace elapsed)', async () => {
     const h = setup('job-auto-eof', { settleMode: 'auto', quiescentEofGraceMs: 10 })
     h.child.stdin.end = () => { h.child.stdinEnded = true } // child ignores EOF
@@ -1044,5 +1059,44 @@ describe('InteractiveJobSession — notification turns and orphaned background t
     await tick(); await tick()
     expect(h.settled.length).toBe(0)
     expect(h.broadcasts.some((m) => m.type === 'log' && (m as any).line?.includes('background task(s) still running'))).toBe(false)
+  })
+})
+
+describe('InteractiveJobSession — onZombieTimeout owner hook (loop-step-idle)', () => {
+  it('fires the hook BEFORE the crashed settle so the owner can tag the stall', () => {
+    vi.useFakeTimers()
+    try {
+      const order: string[] = []
+      const h = setup('job-stall-hook', {
+        settleMode: 'auto',
+        zombieTimeoutMs: 500,
+        onZombieTimeout: () => { order.push('hook') },
+      })
+      const origSettled = h.settled
+      h.session.start({ binary: 'claude', args: [] }, 'go')
+      vi.advanceTimersByTime(501)
+      expect(origSettled.length).toBe(1)
+      expect(origSettled[0].reason).toBe('crashed')
+      expect(order).toEqual(['hook'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a throwing hook never blocks the teardown', () => {
+    vi.useFakeTimers()
+    try {
+      const h = setup('job-stall-throw', {
+        settleMode: 'auto',
+        zombieTimeoutMs: 500,
+        onZombieTimeout: () => { throw new Error('boom') },
+      })
+      h.session.start({ binary: 'claude', args: [] }, 'go')
+      vi.advanceTimersByTime(501)
+      expect(h.settled.length).toBe(1)
+      expect(h.child.killed).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

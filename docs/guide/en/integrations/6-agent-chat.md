@@ -73,6 +73,7 @@ Replies stream in smoothly and land formatted (headings, tables, lists), each wi
 - **Minimize, don't lose.** Click the ✕ to drop the panel back to the bubble — the conversation keeps running. Reopen and you land at the latest message; nothing is re-typed.
 - **New conversation.** The **+** button starts a clean thread; the history lives app-wide, above any single project.
 - **Switch missions.** The mission selector next to the project picker lists your conversations newest-first — a pulsing dot marks the ones where the agent is still working, and a small badge counts queued messages. Search appears when the list grows past eight, and the trash icon on each row deletes a mission after a quick inline confirm — even a running one (it warns first, then stops the agent).
+- **Find a mission from anywhere.** Press **⌘K** (or the sidebar **Search** button in Agent Mode) and type any fragment you remember — a word from the title *or* from what was said inside. Missions match instantly by title from memory, and a heartbeat later the matches by content arrive with the matching passage highlighted, plus the pinned project and when it was last active. In Agent Mode missions are the first group; on the board they sit right after Projects. Enter opens the mission.
 
 ## A few things to know
 
