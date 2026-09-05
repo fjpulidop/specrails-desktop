@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.41.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.40.0...v2.41.0) (2026-09-05)
+
+
+### Features
+
+* mission search in ⌘K, premium milestone lifecycle, thinking halo, decision cards, provider-limit stop ([#604](https://github.com/fjpulidop/specrails-desktop/issues/604)) ([36baa16](https://github.com/fjpulidop/specrails-desktop/commit/36baa162f93484eea6237d11aa735da49717fc24))
+
+
+### Bug Fixes
+
+* harden mission execution and embedded browser reliability ([#607](https://github.com/fjpulidop/specrails-desktop/issues/607)) ([447f75d](https://github.com/fjpulidop/specrails-desktop/commit/447f75d1afc79cc5f3da3cba8c35dc8c8bf6377b))
+* **headroom:** give the proxy a 30 s cold-start budget and fail fast when it exits ([#605](https://github.com/fjpulidop/specrails-desktop/issues/605)) ([ad255db](https://github.com/fjpulidop/specrails-desktop/commit/ad255dbe056dcc1f0d68b2631953e13b3ec65aea))
+
 ## [2.40.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.39.0...v2.40.0) (2026-09-04)
 
 
