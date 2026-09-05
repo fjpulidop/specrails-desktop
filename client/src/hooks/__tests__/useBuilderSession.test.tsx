@@ -1,4 +1,5 @@
 import React from 'react'
+import { premiumDescription, premiumCriteria } from '../../lib/__tests__/premium-spec-fixture'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useBuilderSession, SURPRISE_ME_PROMPT } from '../useBuilderSession'
@@ -15,13 +16,7 @@ vi.mock('../useDesktop', () => ({
 }))
 
 function blueprint(): Blueprint {
-  const description = (readme: boolean) => [
-    '## Problem Statement', `Users need a complete workflow.${readme ? ' The repository already contains a README.' : ''}`,
-    '', '## Proposed Solution', 'Build the end-to-end behavior with explicit boundaries and persisted state.',
-    '', '## Out of Scope', '- Collaboration', '- Advanced analytics',
-    '', '## Technical Considerations', '- Cover failure states', '- Add automated tests',
-    '', '## Estimated Complexity', 'Medium — the slice crosses multiple layers.',
-  ].join('\n')
+  const description = (readme: boolean) => premiumDescription({ readme })
   return {
     blueprintVersion: 1,
     product: { name: 'Recipely', pitch: 'p', audience: 'a' },
@@ -36,12 +31,7 @@ function blueprint(): Blueprint {
       title: index === 0 ? 'Scaffold the project' : `Deliver slice ${index}`,
       shortSummary: `Deliver a complete testable slice ${index}.`,
       description: description(index === 0),
-      acceptanceCriteria: [
-        'The happy path completes successfully.',
-        'Invalid input produces an actionable error.',
-        'An empty state renders deliberately.',
-        'Automated tests cover failure behavior.',
-      ],
+      acceptanceCriteria: premiumCriteria(),
       priority: 'medium',
       labels: ['M1', index === 0 ? 'foundation' : 'workflow'],
       ...(index > 0 ? { dependsOnIndex: index - 1 } : {}),
@@ -240,6 +230,75 @@ describe('useBuilderSession', () => {
     expect(result.current.generation).toEqual({ generating: false, specsStarted: 0 })
   })
 
+  it('batched generation: generating frames keep the turn busy with the phase; the final frame settles', async () => {
+    const { result } = renderHook(() => useBuilderSession(true, { onFinished: vi.fn() }), { wrapper })
+    await waitFor(() => expect(result.current.conversationReady).toBe(true))
+    await openConversation(result)
+    const outline = { ...blueprint(), specsComplete: false, m1Specs: blueprint().m1Specs.map((s) => ({ ...s, description: '', acceptanceCriteria: [] })) }
+    // Outline accepted as a continuing frame: no bubble, still busy, phase outline.
+    act(() => {
+      lastHandler()({ type: 'blueprint.done', conversationId: 'conv-1', fullText: 'Outline ready.', blueprint: outline, rawBlueprint: outline, continuing: true, snapshot: { status: 'accepted', continuing: true, generation: { phase: 'outline', from: 0, to: 0, total: 5, turn: 1, totalTurns: 5 } } })
+    })
+    expect(result.current.busy).toBe(true)
+    expect(result.current.messages.filter((m) => m.role === 'assistant')).toHaveLength(0)
+    expect(result.current.snapshot).toEqual({ status: 'generating', generation: { phase: 'outline', from: 0, to: 0, total: 5, turn: 1, totalTurns: 5 } })
+    expect(result.current.blueprint?.m1Specs).toHaveLength(5)
+    // The outline's empty bodies are NOT audit failures while the drive writes them.
+    expect(result.current.readiness.steps[1]).toMatchObject({ state: 'writing', params: { count: 5, written: 0 } })
+    expect(result.current.readiness.steps[2].state).toBe('writing')
+    expect(result.current.readiness.issues).toEqual([])
+    // The app announces a detail turn.
+    act(() => {
+      lastHandler()({ type: 'blueprint.generating', conversationId: 'conv-1', phase: 'details', from: 1, to: 2, total: 5, turn: 2, totalTurns: 5 })
+    })
+    expect(result.current.snapshot).toEqual({ status: 'generating', generation: { phase: 'details', from: 1, to: 2, total: 5, turn: 2, totalTurns: 5 } })
+    expect(result.current.busy).toBe(true)
+    // A malformed descriptor never throws nor changes the phase.
+    act(() => {
+      lastHandler()({ type: 'blueprint.generating', conversationId: 'conv-1', phase: 'bogus' })
+    })
+    expect(result.current.snapshot).toMatchObject({ status: 'generating', generation: { phase: 'details' } })
+    // Final frame: accepted, busy released, prose appended once.
+    act(() => {
+      lastHandler()({ type: 'blueprint.done', conversationId: 'conv-1', fullText: 'All written.', blueprint: blueprint(), rawBlueprint: blueprint(), snapshot: { status: 'accepted', claimsComplete: true, generation: { phase: 'audit', from: 1, to: 5, total: 5, turn: 5, totalTurns: 5 } } })
+    })
+    expect(result.current.busy).toBe(false)
+    expect(result.current.snapshot).toMatchObject({ status: 'accepted', repaired: false })
+    expect(result.current.messages.filter((m) => m.role === 'assistant').map((m) => m.content)).toEqual(['All written.'])
+    expect(result.current.readiness.steps[1]).toMatchObject({ state: 'done', params: { count: 5, written: 5 } })
+  })
+
+  it('a halted generation lands as an accepted-but-halted snapshot; Continue routes through repairSnapshot', async () => {
+    mockFetch({
+      '/repair-snapshot': { status: 202, body: { accepted: true, kind: 'resume' } },
+      '/api/blueprint/conversations': { body: { conversation: { id: 'conv-1' } } },
+    })
+    const { result } = renderHook(() => useBuilderSession(true, { onFinished: vi.fn() }), { wrapper })
+    await waitFor(() => expect(result.current.conversationReady).toBe(true))
+    await openConversation(result)
+    const partial = { ...blueprint(), specsComplete: false, m1Specs: blueprint().m1Specs.map((s, i) => (i < 2 ? s : { ...s, description: '', acceptanceCriteria: [] })) }
+    act(() => {
+      lastHandler()({ type: 'blueprint.done', conversationId: 'conv-1', fullText: 'Outline ready.', blueprint: partial, rawBlueprint: partial, snapshot: { status: 'accepted', repairAttempted: true, generationHalted: true, generation: { phase: 'details', from: 3, to: 4, total: 5, turn: 3, totalTurns: 5 } } })
+    })
+    expect(result.current.busy).toBe(false)
+    expect(result.current.snapshot).toMatchObject({ status: 'accepted', generationHalted: true, repairAttempted: true })
+    expect(result.current.readiness.steps[1]).toMatchObject({ state: 'pending', params: { count: 5, written: 2 } })
+    expect(result.current.canProposeCommit).toBe(false)
+    await act(async () => { await result.current.repairSnapshot() })
+    const repairCall = vi.mocked(global.fetch).mock.calls.find(([input]) => String(input).includes('/repair-snapshot'))
+    expect(repairCall).toBeDefined()
+    // Continue generating runs like a send: the composer's effort rides along.
+    expect(JSON.parse(String((repairCall?.[1] as RequestInit | undefined)?.body ?? '{}'))).toEqual({ reasoningEffort: 'medium' })
+    expect(result.current.busy).toBe(true)
+    // A blueprint.error while generating drops back to idle and releases the turn.
+    act(() => {
+      lastHandler()({ type: 'blueprint.generating', conversationId: 'conv-1', phase: 'details', from: 3, to: 4, total: 5, turn: 3, totalTurns: 5 })
+      lastHandler()({ type: 'blueprint.error', conversationId: 'conv-1', error: 'boom' })
+    })
+    expect(result.current.busy).toBe(false)
+    expect(result.current.snapshot).toEqual({ status: 'idle' })
+  })
+
   it('keeps raw invalid model fields uncommittable and submits them without laundering defaults', async () => {
     const { result } = renderHook(() => useBuilderSession(true, { onFinished: vi.fn() }), { wrapper })
     await waitFor(() => expect(result.current.conversationReady).toBe(true))
@@ -272,12 +331,51 @@ describe('useBuilderSession', () => {
     expect(body.conversationId).toBe('conv-1')
   })
 
-  it('surpriseMe sends the fixed prompt', async () => {
+  it('surpriseMe sends the fixed prompt tagged as a surprise decision', async () => {
     const { result } = renderHook(() => useBuilderSession(true, { onFinished: vi.fn() }), { wrapper })
     await waitFor(() => expect(result.current.conversationReady).toBe(true))
     act(() => result.current.surpriseMe())
-    expect(result.current.messages[0]).toMatchObject({ role: 'user', content: SURPRISE_ME_PROMPT })
+    expect(result.current.messages[0]).toMatchObject({ role: 'user', content: SURPRISE_ME_PROMPT, intent: 'surprise' })
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/blueprint/conversations/conv-1/send', expect.anything()))
+    expect(requestBodyFor('/send')).toMatchObject({ text: SURPRISE_ME_PROMPT, intent: 'surprise' })
+  })
+
+  it('approveBlueprint sends the canonical approval tagged approve; a typed message carries no intent', async () => {
+    const { result } = renderHook(() => useBuilderSession(true, { onFinished: vi.fn() }), { wrapper })
+    await waitFor(() => expect(result.current.conversationReady).toBe(true))
+    act(() => result.current.approveBlueprint())
+    expect(result.current.messages[0]).toMatchObject({ role: 'user', intent: 'approve' })
+    expect(result.current.messages[0].content).toContain('Approved')
+    await waitFor(() => expect(requestBodyFor('/send')).toMatchObject({ intent: 'approve' }))
+    act(() => {
+      lastHandler()({ type: 'blueprint.done', conversationId: 'conv-1', fullText: 'ok', blueprint: null, snapshot: { status: 'none' } })
+    })
+    act(() => result.current.send('change the stack'))
+    expect(result.current.messages[2]).toEqual(expect.not.objectContaining({ intent: expect.anything() }))
+    const sendBodies = () => vi.mocked(global.fetch).mock.calls.filter(([input]) => String(input).includes('/send')).map(([, init]) => JSON.parse(String((init as RequestInit).body)))
+    await waitFor(() => expect(sendBodies()).toHaveLength(2))
+    expect(sendBodies()[1]).not.toHaveProperty('intent')
+  })
+
+  it('resume keeps each decision intent so the settled cards survive a reload', async () => {
+    mockFetch({
+      '/api/blueprint/conversations/conv-old': {
+        body: {
+          conversation: { id: 'conv-old', provider: 'claude', model: null },
+          messages: [
+            { role: 'user', content: 'idea', created_at: '2026-09-04T21:00:00.000Z' },
+            { role: 'user', content: 'Surprise me…', created_at: '2026-09-04T21:01:00.000Z', intent: 'surprise' },
+            { role: 'user', content: 'Approved…', created_at: '2026-09-04T21:02:00.000Z', intent: 'approve' },
+            { role: 'assistant', content: 'ok', created_at: '2026-09-04T21:03:00.000Z', intent: null },
+          ],
+          snapshot: { status: 'none' },
+        },
+      },
+    })
+    const { result } = renderHook(() => useBuilderSession(true, { onFinished: vi.fn() }), { wrapper })
+    await waitFor(() => expect(result.current.conversationReady).toBe(true))
+    await act(async () => { await result.current.resume('conv-old') })
+    expect(result.current.messages.map((m) => m.intent ?? null)).toEqual([null, 'surprise', 'approve', null])
   })
 
   it('loads the provider effort catalog and sends the selected effort', async () => {
@@ -610,7 +708,7 @@ describe('useBuilderSession', () => {
         lastHandler()({ type: 'blueprint.done', conversationId: 'conv-1', fullText: '', blueprint: null, snapshot: { status: 'rejected', reason: 'invalid_json', detail: 'x' } })
       })
       await act(async () => { await result.current.repairSnapshot() })
-      expect(global.fetch).toHaveBeenCalledWith('/api/blueprint/conversations/conv-1/repair-snapshot', { method: 'POST' })
+      expect(global.fetch).toHaveBeenCalledWith('/api/blueprint/conversations/conv-1/repair-snapshot', expect.objectContaining({ method: 'POST', body: JSON.stringify({ reasoningEffort: 'medium' }) }))
       expect(result.current.busy).toBe(true)
 
       mockFetch({

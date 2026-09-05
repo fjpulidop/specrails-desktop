@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import type { DbInstance } from './db'
-import type { BlueprintChatManager } from './blueprint-chat-manager'
+import { BUILDER_TURN_INTENTS, type BlueprintChatManager, type BuilderTurnIntent } from './blueprint-chat-manager'
 import {
   getAdapter,
   isModelAvailableForAdapter,
@@ -203,7 +203,7 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
       res.status(404).json({ error: 'conversation not found' })
       return
     }
-    const body = (req.body ?? {}) as { text?: unknown; model?: unknown; reasoning_effort?: unknown }
+    const body = (req.body ?? {}) as { text?: unknown; model?: unknown; reasoning_effort?: unknown; intent?: unknown }
     const text = typeof body.text === 'string' ? body.text.trim() : ''
     if (!text) {
       res.status(400).json({ error: 'text is required' })
@@ -246,7 +246,8 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
       }
       reasoningEffort = body.reasoning_effort
     }
-    void manager.sendMessage(conversation.id, text, { model, reasoningEffort })
+    const intent = (BUILDER_TURN_INTENTS as readonly string[]).includes(String(body.intent)) ? body.intent as BuilderTurnIntent : undefined
+    void manager.sendMessage(conversation.id, text, { model, reasoningEffort, ...(intent ? { intent } : {}) })
     res.status(202).json({ accepted: true })
   })
 
@@ -259,7 +260,8 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
       res.status(404).json({ error: 'conversation not found' })
       return
     }
-    const outcome = await manager.repairSnapshot(conversation.id)
+    const rawEffort = (req.body ?? {}).reasoningEffort
+    const outcome = await manager.repairSnapshot(conversation.id, typeof rawEffort === 'string' ? { reasoningEffort: rawEffort } : {})
     if (!outcome.ok) {
       const status = outcome.reason === 'unknown_conversation' ? 404 : 409
       res.status(status).json({ error: outcome.reason })

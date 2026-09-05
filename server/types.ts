@@ -1310,8 +1310,9 @@ export type WsMessage =
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage
   | AgentQueueEditedMessage
   | AgentPrDecisionMessage
-  | BlueprintStreamMessage | BlueprintDoneMessage | BlueprintErrorMessage | BlueprintRepairingMessage
+  | BlueprintStreamMessage | BlueprintDoneMessage | BlueprintErrorMessage | BlueprintRepairingMessage | BlueprintGeneratingMessage
   | BlueprintCommitProgressMessage | BlueprintCommitDoneMessage | BlueprintCommitFailedMessage
+  | BlueprintMilestoneProgressMessage | BlueprintMilestoneCompletedMessage | MilestoneChainChangedMessage | LoopProviderLimitMessage
 
 // ─── Project Builder day-0 chat (app-global, no projectId — a project does ────
 // not exist yet). NOT part of the mobile-ws translation layer.
@@ -1337,6 +1338,9 @@ export interface BlueprintDoneMessage {
   fullText: string
   blueprint: unknown | null
   rawBlueprint: unknown | null
+  /** Batched generation is still running: keep the turn busy, apply the
+   *  snapshot to the panel, do not end the turn. */
+  continuing?: boolean
   snapshot: {
     status: 'accepted' | 'rejected' | 'none'
     reason?: 'invalid_json' | 'missing_version' | 'truncated'
@@ -1351,6 +1355,9 @@ export interface BlueprintDoneMessage {
       message: string
       params?: Record<string, string | number>
     }>
+    generation?: { phase: 'outline' | 'details' | 'audit' | 'repair'; from: number; to: number; total: number; turn: number; totalTurns: number }
+    continuing?: boolean
+    generationHalted?: boolean
   }
   timestamp: string
 }
@@ -1365,6 +1372,22 @@ export interface BlueprintRepairingMessage {
   attempt: number
   /** true = the user clicked retry; false = automatic after the turn settled. */
   manual: boolean
+  timestamp: string
+}
+
+/** App-driven batched generation (premium-milestone-progress D7): the app is
+ *  about to run a generation turn — outline / details (spec range) / audit /
+ *  repair — so the progress surface can say what is being written. */
+export interface BlueprintGeneratingMessage {
+  type: 'blueprint.generating'
+  conversationId: string
+  phase: 'outline' | 'details' | 'audit' | 'repair'
+  /** 1-based inclusive spec range (details/repair); 1..total for audit. */
+  from: number
+  to: number
+  total: number
+  turn: number
+  totalTurns: number
   timestamp: string
 }
 
@@ -1400,6 +1423,35 @@ export interface BlueprintCommitFailedMessage {
   commitId: string
   step: string
   error: string
+  timestamp: string
+}
+
+/** Project-scoped live milestone progress (premium-milestone-progress):
+ *  the server-derived model, re-broadcast (debounced) after every ticket /
+ *  delivery / run / chain mutation. Not translated onto the mobile wire. */
+export interface BlueprintMilestoneProgressMessage {
+  type: 'blueprint.milestone_progress'
+  projectId: string
+  progress: import('./milestone-progress').MilestoneProgress[]
+  timestamp: string
+}
+
+/** A milestone launch chain transitioned (launched / waiting / paused /
+ *  completed / cancelled). The progress broadcaster re-derives on it. */
+export interface MilestoneChainChangedMessage {
+  type: 'milestone.chain_changed'
+  projectId: string
+  chain: import('./milestone-progress').MilestoneChainSnapshot
+  timestamp: string
+}
+
+/** A milestone's every spec reached `done` — persisted once on the blueprint. */
+export interface BlueprintMilestoneCompletedMessage {
+  type: 'blueprint.milestone_completed'
+  projectId: string
+  milestoneId: string
+  n: number
+  title: string
   timestamp: string
 }
 
@@ -1728,6 +1780,20 @@ export interface JobInteractiveMessage {
  * plain-language native notification, because a user who cannot read logs has
  * no other way to learn that a commissioned run has wedged.
  */
+/** A loop run stopped because the provider answered with a usage/rate-limit
+ *  notice (project-scoped; the client toasts it with the reset hint). */
+export interface LoopProviderLimitMessage {
+  type: 'loop.provider_limit'
+  projectId: string
+  runId: string
+  provider: string
+  kind: 'session_limit' | 'rate_limit' | 'quota'
+  /** The provider's own sentence, verbatim. */
+  message: string
+  resetsAt: string | null
+  timestamp: string
+}
+
 export interface JobStuckMessage {
   type: 'job.stuck'
   projectId: string
@@ -1736,6 +1802,9 @@ export interface JobStuckMessage {
   stepKey: string
   /** Milliseconds since the last recorded activity on that step. */
   staleMs: number
+  /** Actions the client may offer on the notification. `stop` invokes the
+   *  existing loop-run stop route for `jobId` (no new route). */
+  actions?: Array<'stop'>
   timestamp: string
 }
 

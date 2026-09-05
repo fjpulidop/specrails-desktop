@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { premiumDescription, premiumCriteria } from './blueprint-spec-fixtures'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -12,14 +13,7 @@ import { writeBlueprintPair } from './blueprint-render'
 import { parseBlueprintDraftBlocks } from './blueprint-draft-parser'
 
 function richDescription(readme = false): string {
-  return [
-    '## Problem Statement',
-    `Cooks need a reliable end-to-end workflow.${readme ? ' The repository already contains a README.' : ''}`,
-    '', '## Proposed Solution', 'Build the complete workflow with TypeScript, Next.js, and SQLite using explicit boundaries.',
-    '', '## Out of Scope', '- Social collaboration', '- Advanced personalization',
-    '', '## Technical Considerations', '- Keep persistence independently testable', '- Cover loading, empty, success, and failure states',
-    '', '## Estimated Complexity', 'Medium — the work crosses UI and persistence boundaries.',
-  ].join('\n')
+  return premiumDescription({ readme })
 }
 
 function richSpec(index: number) {
@@ -29,12 +23,7 @@ function richSpec(index: number) {
     title: titles[index],
     shortSummary: `Deliver the ${titles[index].toLowerCase()} slice.`,
     description: richDescription(index === 0),
-    acceptanceCriteria: [
-      'The primary happy path completes successfully.',
-      'Invalid input produces an actionable error.',
-      'An empty state is rendered deliberately.',
-      'Automated tests cover success and failure behavior.',
-    ],
+    acceptanceCriteria: premiumCriteria(titles[index]),
     priority: index === 1 ? 'high' as const : 'medium' as const,
     labels: ['M1', index === 0 ? 'foundation' : 'workflow'],
     ...(index > 0 ? { dependsOnIndex: index - 1 } : {}),

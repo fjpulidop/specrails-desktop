@@ -11,6 +11,7 @@ import type { LocalTicket } from './types'
 import { resolveProjectExecution } from './workspace-resolution'
 import { workspacePathFor } from './workspace-manager'
 import { readBlueprint, writeBlueprintPair } from './blueprint-render'
+import { readMilestoneProgress, resolveBlueprintWorkspace } from './milestone-progress'
 import { coerceBlueprint } from './blueprint-draft-parser'
 import { analyzeBuilderSpecBatch, firstBuilderSpecQualityDetail } from './blueprint-spec-quality'
 import { FileStoryManager, buildStorySystemPrompt } from './file-story-manager'
@@ -173,17 +174,93 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   // workspace-resident blueprint pair's source of truth. 404 when the project
   // has no blueprint (every non-Builder project) — the sidebar entry hides.
   router.get('/:projectId/blueprint', (req: Request, res: Response) => {
-    const project = ctx(req).project
-    const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-    const workspace = exec.relocated && exec.workspaceDir
-      ? exec.workspaceDir
-      : (project.slug ? workspacePathFor(project.slug) : null)
-    const blueprint = workspace ? readBlueprint(workspace) : null
-    if (!blueprint) {
+    const projectCtx = ctx(req)
+    const project = projectCtx.project
+    // `progress` is the server-derived live milestone model (premium-milestone-
+    // progress): counts by spec state, rails, chain, derived state — the same
+    // payload `blueprint.milestone_progress` re-broadcasts on every mutation.
+    const snapshot = readMilestoneProgress({
+      db: projectCtx.db,
+      projectId: project.id,
+      workspaceDir: () => resolveBlueprintWorkspace({ slug: project.slug, path: project.path }),
+      ticketsPath: () => ticketPath(req),
+      railJobs: projectCtx.railJobs,
+      railLoopRuns: projectCtx.railLoopRuns,
+      chains: projectCtx.milestoneChains ? () => projectCtx.milestoneChains!.listActive() : undefined,
+    })
+    if (!snapshot) {
       res.status(404).json({ error: 'no blueprint for this project' })
       return
     }
-    res.json({ blueprint })
+    res.json({ blueprint: snapshot.blueprint, progress: snapshot.progress })
+  })
+
+  // Milestone launch chain (premium-milestone-progress D3): "Launch Milestone
+  // N" is server-owned — chunked into ≤3-spec rails, launched through the
+  // ordinary rails launch route, and (sequential) chained on each chunk's
+  // delivered branch. The client keeps NO plan in browser storage.
+  router.post('/:projectId/blueprint/milestones/:n/launch', async (req: Request, res: Response) => {
+    const projectCtx = ctx(req)
+    const n = Number.parseInt(String(req.params.n), 10)
+    if (!Number.isInteger(n) || n < 1 || n > 999) {
+      res.status(400).json({ error: 'invalid_milestone' }); return
+    }
+    const rawMode = (req.body ?? {}).mode
+    if (rawMode !== undefined && rawMode !== 'sequential' && rawMode !== 'parallel') {
+      res.status(400).json({ error: "mode must be 'sequential' or 'parallel'" }); return
+    }
+    const rawAuto = (req.body ?? {}).autoAdvance
+    if (rawAuto !== undefined && typeof rawAuto !== 'boolean') {
+      res.status(400).json({ error: 'autoAdvance must be a boolean' }); return
+    }
+    const chains = projectCtx.milestoneChains
+    if (!chains) { res.status(503).json({ error: 'milestone_chain_unavailable' }); return }
+    try {
+      const result = await chains.start(n, rawMode ?? 'sequential', { autoAdvance: rawAuto })
+      if (result.ok) {
+        res.status(202).json({ chainId: result.chainId, launched: result.launched, pending: result.pending })
+      } else {
+        res.status(result.status).json({ error: result.error, ...(result.detail ? { detail: result.detail } : {}), ...(result.chainId ? { chainId: result.chainId } : {}) })
+      }
+    } catch (err) {
+      console.error('[project-router] milestone launch error:', err)
+      res.status(500).json({ error: 'Failed to launch the milestone' })
+    }
+  })
+
+  router.post('/:projectId/blueprint/chains/:id/resume', async (req: Request, res: Response) => {
+    const chains = ctx(req).milestoneChains
+    if (!chains) { res.status(503).json({ error: 'milestone_chain_unavailable' }); return }
+    try {
+      const result = await chains.resume(String(req.params.id))
+      res.status(result.status).json(result.ok ? { chain: result.chain } : { error: result.error, ...(result.detail ? { detail: result.detail } : {}) })
+    } catch (err) {
+      console.error('[project-router] chain resume error:', err)
+      res.status(500).json({ error: 'Failed to resume the chain' })
+    }
+  })
+
+  // Wave checkpoints (D9): flip auto-advance on a live chain; turning it on
+  // at a checkpoint launches the next chunk right away.
+  router.patch('/:projectId/blueprint/chains/:id', async (req: Request, res: Response) => {
+    const chains = ctx(req).milestoneChains
+    if (!chains) { res.status(503).json({ error: 'milestone_chain_unavailable' }); return }
+    const autoAdvance = (req.body ?? {}).autoAdvance
+    if (typeof autoAdvance !== 'boolean') { res.status(400).json({ error: 'autoAdvance must be a boolean' }); return }
+    try {
+      const result = await chains.setAutoAdvance(String(req.params.id), autoAdvance)
+      res.status(result.status).json(result.ok ? { chain: result.chain } : { error: result.error, ...(result.detail ? { detail: result.detail } : {}) })
+    } catch (err) {
+      console.error('[project-router] chain patch error:', err)
+      res.status(500).json({ error: 'Failed to update the chain' })
+    }
+  })
+
+  router.post('/:projectId/blueprint/chains/:id/cancel', (req: Request, res: Response) => {
+    const chains = ctx(req).milestoneChains
+    if (!chains) { res.status(503).json({ error: 'milestone_chain_unavailable' }); return }
+    const result = chains.cancel(String(req.params.id))
+    res.status(result.status).json(result.ok ? { chain: result.chain } : { error: result.error, ...(result.detail ? { detail: result.detail } : {}) })
   })
 
   // Relocate-artifacts gate (single chokepoint for ALL project-router ticket
@@ -285,6 +362,9 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
       milestone.status = 'committed'
       milestone.ticketIds = created.map((t) => t.id)
       writeBlueprintPair(workspace, blueprint)
+      // A blueprint now exists for sure — forget any "absent" memo so the
+      // ticket_created broadcasts below re-derive the milestone progress.
+      projectCtx.milestoneProgress?.invalidate()
       for (const ticket of created) {
         projectCtx.broadcast({
           type: 'ticket_created',

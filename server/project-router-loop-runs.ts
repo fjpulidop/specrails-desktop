@@ -161,7 +161,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
         model,
         effort,
       })
-      .then((r) => c.onLoopRunFinished(r.runId, r.outcome))
+      .then((r) => c.onLoopRunFinished(r.runId, r.outcome, r.stallReason ? { stallReason: r.stallReason } : undefined))
       .catch((err) => {
         console.error('[loop-runs] standalone run failed:', err)
         c.onLoopRunFinished(runId, 'failed')

@@ -40,7 +40,8 @@
     "hint": "Riprende da dove il lavoro si è fermato — non ricomincia."
   },
   "discard": {
-    "label": "Butta via"
+    "label": "Butta via",
+    "stackedNote": "I rail successivi di questa milestone sono stati costruiti su questa consegna. Scartarla mette in pausa la catena della milestone; i rail successivi conservano il loro lavoro."
   },
   "watchOut": {
     "title": "Da guardare prima di accettare"

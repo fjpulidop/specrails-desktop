@@ -21,7 +21,10 @@
       "verify": "comprobando que funciona",
       "decide": "decidiendo si está terminado",
       "fix": "arreglando lo que falló"
-    }
+    },
+    "stalled": "El paso {{step}} se atascó: sin actividad durante {{idleMinutes}} min, así que la app lo detuvo",
+    "startResume": "Paso {{step}}: {{title}} — reanudando tras un atasco",
+    "providerLimit": "Paso {{step}} detenido — se alcanzó el límite de uso del proveedor"
   },
   "decision": {
     "another": "Aún no está — otra vuelta",

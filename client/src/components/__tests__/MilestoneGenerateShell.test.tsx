@@ -1,4 +1,5 @@
 import React from 'react'
+import { premiumDescription, premiumCriteria } from '../../lib/__tests__/premium-spec-fixture'
 import { act, render, screen, waitFor } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -35,30 +36,8 @@ function detailedSpec(overrides: Record<string, unknown> = {}): Record<string, u
     kind: 'feature',
     title: 'Export a verified operational report',
     shortSummary: 'Let an operator export the currently verified report.',
-    description: [
-      '## Problem Statement',
-      'Operators need to carry verified report data into downstream operational workflows without manually copying values.',
-      '',
-      '## Proposed Solution',
-      'Add an export action that serializes the current verified report through the existing reporting boundary.',
-      '',
-      '## Out of Scope',
-      '- Scheduled report delivery',
-      '- Custom export templates',
-      '',
-      '## Technical Considerations',
-      '- Reuse the verified report data contract inspected in the repository',
-      '- Cover empty, stale, successful, and failed export outcomes',
-      '',
-      '## Estimated Complexity',
-      'Medium — the export crosses the report boundary and browser download behavior.',
-    ].join('\n'),
-    acceptanceCriteria: [
-      'A verified report can be exported from its visible action.',
-      'The exported payload contains the values shown in the verified report.',
-      'An unavailable report disables export with an actionable explanation.',
-      'Automated tests cover successful and failed export behavior.',
-    ],
+    description: premiumDescription({ subject: 'the verified report export' }),
+    acceptanceCriteria: premiumCriteria('export'),
     priority: 'high',
     labels: ['M2', 'reporting'],
     ...overrides,

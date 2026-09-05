@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { premiumDescription, premiumCriteria } from './premium-spec-fixture'
 import i18n from '../i18n'
 import { analyzeBlueprintSpecQuality } from '../blueprint-spec-quality'
 import { deriveReadiness, localizeQualityIssue, qualityIssueKey } from '../blueprint-readiness'
@@ -8,13 +9,7 @@ const BOUNDS = { minSpecs: 5, maxSpecs: 10 }
 const OPTIONS = { milestoneLabel: 'M1', minSpecs: 5, maxSpecs: 10, requireScaffold: true }
 
 function description(readme: boolean): string {
-  return [
-    '## Problem Statement', `Users need a complete workflow.${readme ? ' The repository already contains a README.' : ''}`,
-    '', '## Proposed Solution', 'Build the end-to-end behavior with explicit boundaries.',
-    '', '## Out of Scope', '- Collaboration', '- Analytics',
-    '', '## Technical Considerations', '- Cover failure states', '- Add automated tests',
-    '', '## Estimated Complexity', 'Medium — crosses layers.',
-  ].join('\n')
+  return premiumDescription({ readme })
 }
 
 function complete(): Blueprint {
@@ -32,7 +27,7 @@ function complete(): Blueprint {
       title: i === 0 ? 'Scaffold the project' : `Deliver slice ${i}`,
       shortSummary: `Deliver slice ${i}.`,
       description: description(i === 0),
-      acceptanceCriteria: ['The happy path completes.', 'Invalid input errors clearly.', 'Empty state renders.', 'Tests cover failures.'],
+      acceptanceCriteria: premiumCriteria(`slice ${i}`),
       priority: 'medium' as const,
       labels: ['M1', i === 0 ? 'foundation' : 'workflow'],
       ...(i > 0 ? { dependsOnIndex: i - 1 } : {}),
@@ -59,7 +54,7 @@ describe('deriveReadiness', () => {
     const r = readiness(raw)
     expect(r.ready).toBe(false)
     expect(r.steps.map((s) => s.state)).toEqual(['done', 'pending', 'pending'])
-    expect(r.steps[1].params).toEqual({ count: 0, min: 5, max: 10 })
+    expect(r.steps[1].params).toEqual({ count: 0, written: 0, min: 5, max: 10 })
   })
 
   it('complete valid batch → all done, ready', () => {
@@ -86,6 +81,45 @@ describe('deriveReadiness', () => {
     expect(r.steps[2]).toMatchObject({ state: 'blocked', params: { count: 2 } })
     expect(r.issues.map((i) => i.code)).toEqual(['invalid_priority', 'domain_label'])
     expect(r.issues.every((i) => i.code !== 'batch_incomplete' && i.code !== 'spec_count')).toBe(true)
+  })
+})
+
+describe('batched generation: writing / partial batches (premium-milestone-progress D7)', () => {
+  function outline(written: number) {
+    const raw = complete() as unknown as { specsComplete: boolean; m1Specs: Array<Record<string, unknown>> }
+    raw.specsComplete = false
+    raw.m1Specs = raw.m1Specs.map((spec, i) => (i < written ? spec : { ...spec, description: '', acceptanceCriteria: [] }))
+    return raw
+  }
+
+  it('while the drive writes, specs + audit read as writing and NO audit issue is listed', () => {
+    const raw = outline(2)
+    const r = deriveReadiness(coerceBlueprint(raw), raw, analyzeBlueprintSpecQuality(raw, OPTIONS), BOUNDS, { generating: true })
+    expect(r.ready).toBe(false)
+    expect(r.steps[1]).toMatchObject({ state: 'writing', params: { count: 5, written: 2 } })
+    expect(r.steps[2]).toMatchObject({ state: 'writing', params: { count: 0 } })
+    expect(r.issues).toEqual([])
+  })
+
+  it('a halted partial batch keeps only the issues of WRITTEN specs; the unwritten tail is not an audit failure', () => {
+    const raw = outline(2)
+    raw.m1Specs[1].labels = ['M1'] // a real defect on a written spec
+    const r = deriveReadiness(coerceBlueprint(raw), raw, analyzeBlueprintSpecQuality(raw, OPTIONS), BOUNDS)
+    expect(r.steps[1]).toMatchObject({ state: 'pending', params: { count: 5, written: 2 } })
+    expect(r.issues.map((i) => [i.specIndex, i.code])).toEqual([[1, 'domain_label']])
+    expect(r.steps[2]).toMatchObject({ state: 'blocked', params: { count: 1 } })
+    // No defect on the written specs → the audit simply waits.
+    const clean = outline(2)
+    const r2 = deriveReadiness(coerceBlueprint(clean), clean, analyzeBlueprintSpecQuality(clean, OPTIONS), BOUNDS)
+    expect(r2.issues).toEqual([])
+    expect(r2.steps[2]).toMatchObject({ state: 'pending' })
+  })
+
+  it('a complete batch ignores the generating flag semantics once specsComplete is true', () => {
+    const raw = complete()
+    const r = deriveReadiness(coerceBlueprint(raw), raw, analyzeBlueprintSpecQuality(raw, OPTIONS), BOUNDS, { generating: false })
+    expect(r.steps[1].state).toBe('done')
+    expect(r.steps[2].state).toBe('done')
   })
 })
 

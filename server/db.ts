@@ -1655,6 +1655,40 @@ const MIGRATIONS: Migration[] = [
       db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN revision_of TEXT`)
     }
   },
+
+  // Migration 58: premium-milestone-progress — server-durable milestone launch
+  // chains. One row per sequential "Launch Milestone": the chunk plan, the
+  // chunk in flight (rail / runs / delivery), the branch the next chunk stacks
+  // on, and a CAS status. The partial unique index enforces ONE non-terminal
+  // chain per milestone. Additive; nothing else references it.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS milestone_launch_chains (
+        id                   TEXT PRIMARY KEY,
+        milestone_n          INTEGER NOT NULL,
+        milestone_id         TEXT NOT NULL,
+        mode                 TEXT NOT NULL,
+        chunks               TEXT NOT NULL DEFAULT '[]',
+        next_chunk           INTEGER NOT NULL DEFAULT 0,
+        current_rail_index   INTEGER,
+        current_run_ids      TEXT NOT NULL DEFAULT '[]',
+        current_delivery_id  TEXT,
+        integration_branch   TEXT,
+        head_branch          TEXT,
+        status               TEXT NOT NULL DEFAULT 'running',
+        pause_reason         TEXT,
+        launched             TEXT NOT NULL DEFAULT '[]',
+        last_run_outcome     TEXT,
+        auto_advance         INTEGER NOT NULL DEFAULT 1,
+        retry_chunk          INTEGER,
+        created_at           TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at           TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_milestone_chains_active
+        ON milestone_launch_chains(milestone_n) WHERE status IN ('running','waiting','paused','awaiting_approval');
+      CREATE INDEX IF NOT EXISTS idx_milestone_chains_status ON milestone_launch_chains(status);
+    `)
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {

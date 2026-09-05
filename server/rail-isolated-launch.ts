@@ -102,6 +102,11 @@ export interface IsolatedLaunchInput {
   originConversationId?: string | null
   /** Called immediately after the PR-delivery row is inserted. */
   onPrDeliveryCreated?: (id: string) => void
+  /** Explicit base branch (premium-milestone-progress): a milestone chain
+   *  stacks chunk k+1 on chunk k's delivered branch. Resolved as the
+   *  integration branch's `explicit` source; recorded as the delivery row's
+   *  `base_branch`, so the PR (if any) is created stacked on it. */
+  baseBranch?: string | null
   /** Router-established continuation contract. When present, resolving or
    * materializing any other branch is an error; never start fresh work. */
   requiredPrContinuation?: {
@@ -688,6 +693,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // (repo default → HEAD fallback). See server/integration-branch.ts.
   integration = await resolveIntegrationBranch(git, {
     repoDir: baseRepo,
+    explicit: input.baseBranch ?? undefined,
     projectSetting: getProjectSettings(ctx.db).integrationBranch,
   })
 
@@ -1037,7 +1043,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   //    atomic batch run because git cannot mount one branch in multiple linked
   //    worktrees. In PR mode a COMPLETED run's tickets park at on_review (the
   //    user decides done vs discard via the PR flow); failures ignore the field.
-  const runFinishedOpts = { ticketCompletionStatus: prMode ? ('on_review' as const) : ('done' as const) }
+  let runFinishedOpts: { ticketCompletionStatus: 'on_review' | 'done'; stallReason?: string } = { ticketCompletionStatus: prMode ? 'on_review' : 'done' }
   // Code-Explorer provenance at settle: diff the worktree against its pre-run
   // snapshot and record file_provenance/story rows (keyed by runId), exactly
   // like QueueManager's post-exit hook. Runs BEFORE commitWorktree so the
@@ -1081,13 +1087,14 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
    * terminal callback. Delivery failures become blocked evidence instead. */
   const settleAllocatedRun = async (
     a: AllocatedRun,
-    enginePromise: Promise<{ runId: string; outcome: string }>,
+    enginePromise: Promise<{ runId: string; outcome: string; stallReason?: string }>,
   ): Promise<SettledRun> => {
     let actualOutcome = 'failed'
     let engineFailure: string | undefined
     try {
       const result = await enginePromise
       actualOutcome = result.outcome
+      if (result.stallReason) runFinishedOpts = { ...runFinishedOpts, stallReason: result.stallReason }
     } catch (err) {
       engineFailure = errorDetail(err)
       console.error(`[rail-isolated] loop run ${a.runId} rejected: ${engineFailure}`)

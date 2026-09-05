@@ -352,3 +352,50 @@ describe('formatStepDuration', () => {
     expect(formatStepDuration(-5)).toBe('—')
   })
 })
+
+describe('provider limit (loop.provider_limit)', () => {
+  it('keeps the provider_limit reason on a failed end', () => {
+    const model = groupByLoopStep([
+      stepEv(1, 'ai-step', 'Implement'),
+      endEv(1, { status: 'failed', reason: 'provider_limit', exitCode: null }),
+    ])
+    expect(model.segments[0].end).toMatchObject({ status: 'failed', reason: 'provider_limit' })
+    expect(segmentStatus(model.segments[0], { isLast: true, jobSettled: true })).toBe('failed')
+    // Unknown reasons are dropped, never invented.
+    const other = groupByLoopStep([stepEv(1, 'ai-step', 'x'), endEv(1, { status: 'failed', reason: 'weird' })])
+    expect(other.segments[0].end?.reason).toBeUndefined()
+  })
+})
+
+describe('stalled steps (loop-step-idle)', () => {
+  it('parses a stalled end with its reason and idle budget', () => {
+    const model = groupByLoopStep([
+      stepEv(1, 'ai-step', 'Implement'),
+      logEv('working'),
+      endEv(1, { status: 'stalled', reason: 'idle_timeout', idleMs: 1_800_000, exitCode: null }),
+      stepEv(2, 'ai-step', 'Implement', { attempt: 2 }),
+      endEv(2),
+    ])
+    expect(model.segments).toHaveLength(2)
+    expect(model.segments[0].end).toMatchObject({ status: 'stalled', reason: 'idle_timeout', idleMs: 1_800_000 })
+    expect(segmentStatus(model.segments[0], { isLast: false, jobSettled: false })).toBe('stalled')
+    expect(model.segments[1].end?.status).toBe('ok')
+  })
+
+  it('an unknown reason / non-numeric idleMs are dropped, never guessed', () => {
+    const model = groupByLoopStep([stepEv(1, 'ai-step', 'X'), endEv(1, { status: 'stalled', reason: 'weird', idleMs: 'x' })])
+    expect(model.segments[0].end?.status).toBe('stalled')
+    expect(model.segments[0].end?.reason).toBeUndefined()
+    expect(model.segments[0].end?.idleMs).toBeUndefined()
+  })
+
+  it('a stalled attempt reads as failed on the node chip (section keeps the detail)', () => {
+    const model = groupByLoopStep([
+      graphEv(),
+      stepEv(1, 'ai-step', 'Implement', { nodeId: 'ai1' }),
+      endEv(1, { status: 'stalled', reason: 'idle_timeout', idleMs: 60_000 }),
+    ])
+    const chip = buildChips(model, { jobSettled: true, jobFailed: true }).find((c) => c.key === 'ai1')
+    expect(chip?.state).toBe('failed')
+  })
+})

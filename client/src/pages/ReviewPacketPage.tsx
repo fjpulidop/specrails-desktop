@@ -13,6 +13,7 @@
  *    fine-grained controls instead (see packet-verbs' fineControlOnly).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useStackedHeadDeliveryIds } from '../hooks/useMilestoneProgress'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -88,11 +89,22 @@ function Section({
   )
 }
 
-export default function ReviewPacketPage() {
-  const { prDeliveryId } = useParams<{ prDeliveryId: string }>()
+interface ReviewPacketPageProps {
+  /** Embedded use (Mission-mode modal): the delivery to show, else the route param. */
+  prDeliveryId?: string
+  /** Embedded use: "Back to the board" closes the host instead of routing. */
+  onClose?: () => void
+}
+
+export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
+  const params = useParams<{ prDeliveryId: string }>()
+  const prDeliveryId = props.prDeliveryId ?? params.prDeliveryId
   const { t } = useTranslation(['packet', 'common'])
   const navigate = useNavigate()
+  const goBack = props.onClose ?? (() => navigate('/'))
   const { activeProjectId } = useDesktop()
+  const stackedHeads = useStackedHeadDeliveryIds(activeProjectId)
+  const isStackedHead = prDeliveryId ? stackedHeads.has(prDeliveryId) : false
   const { act } = useRailPrDecisions()
   const { openTicketDetail } = useTicketDetailModal()
 
@@ -223,7 +235,7 @@ export default function ReviewPacketPage() {
         </p>
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={goBack}
           className="rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-surface"
         >
           {t('backToBoard')}
@@ -244,7 +256,7 @@ export default function ReviewPacketPage() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
       <button
         type="button"
-        onClick={() => navigate('/')}
+        onClick={goBack}
         className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" aria-hidden />
@@ -374,6 +386,11 @@ export default function ReviewPacketPage() {
           </div>
         )}
 
+        {isStackedHead && verbs.verbs.includes('discard') ? (
+          <p className="mt-3 rounded-md border border-accent-warning/40 bg-accent-warning/10 px-3 py-2 text-xs text-accent-warning" data-testid="packet-discard-stacked-note">
+            {t('discard.stackedNote')}
+          </p>
+        ) : null}
         {actionError ? (
           <p className="mt-3 text-xs text-accent-warning">{t(`error.${actionError}`)}</p>
         ) : null}

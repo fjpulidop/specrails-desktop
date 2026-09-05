@@ -132,6 +132,7 @@ function LoopStepSectionInner({
         'mt-3 rounded-md overflow-hidden border animate-in fade-in duration-200',
         status === 'running' && 'border-accent-primary/40',
         status === 'failed' && 'border-destructive/30',
+        status === 'stalled' && 'border-dashed border-destructive/40',
         status === 'interrupted' && 'border-dashed border-accent-warning/40',
         (status === 'ok' || status === 'unknown') && 'border-border/20',
       )}
@@ -141,7 +142,7 @@ function LoopStepSectionInner({
       <div
         className={cn(
           'flex items-stretch bg-primary/5 border-b',
-          status === 'failed' ? 'border-destructive/20' : 'border-primary/20',
+          status === 'failed' || status === 'stalled' ? 'border-destructive/20' : 'border-primary/20',
         )}
       >
         <button
@@ -182,7 +183,24 @@ function LoopStepSectionInner({
             </span>
           )}
           {status === 'ok' && <Check className="w-3.5 h-3.5 text-accent-success shrink-0" />}
+          {status === 'failed' && end?.reason === 'provider_limit' && (
+            <span
+              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-destructive"
+              title={t('loopExplorer.providerLimitHint')}
+              data-testid="loop-step-provider-limit"
+            >
+              {t('loopExplorer.providerLimit')}
+            </span>
+          )}
           {status === 'failed' && <X className="w-3.5 h-3.5 text-destructive shrink-0" />}
+          {status === 'stalled' && (
+            <span
+              className="shrink-0 rounded border border-dashed border-destructive/50 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-destructive"
+              title={end?.idleMs != null ? t('loopExplorer.stalledIdle', { count: Math.max(1, Math.round(end.idleMs / 60_000)) }) : undefined}
+            >
+              {t('loopExplorer.stalled')}
+            </span>
+          )}
           {status === 'interrupted' && (
             <span className="shrink-0 rounded border border-dashed border-accent-warning/50 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-accent-warning">
               {t('loopExplorer.interrupted')}

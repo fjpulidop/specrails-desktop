@@ -31,11 +31,13 @@
     "docs": "Doku",
     "analytics": "Analytics",
     "settings": "Einstellungen",
-    "plugins": "Plugins"
+    "plugins": "Plugins",
+    "review": "Review"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops ist als Mission-Modal geöffnet.",
-    "pluginsDescription": "Plugins ist als Mission-Modal geöffnet."
+    "pluginsDescription": "Plugins ist als Mission-Modal geöffnet.",
+    "reviewDescription": "Das Review-Paket ist als Missions-Modal geöffnet."
   },
   "rightSidebar": {
     "projectTitle": "Projekt",

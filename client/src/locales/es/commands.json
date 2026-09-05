@@ -137,7 +137,13 @@
     "jobStuck": "La ejecución parece atascada",
     "jobStuckBody_one": "Sin actividad desde {{count}} minuto — ábrela para comprobarlo",
     "jobStuckBody_other": "Sin actividad desde {{count}} minutos — ábrela para comprobarlo",
-    "unknownCommand": "Comando desconocido"
+    "unknownCommand": "Comando desconocido",
+    "jobStuckStop": "Detener ejecución",
+    "jobStuckStopped": "Ejecución detenida",
+    "jobStuckStopFailed": "No se pudo detener la ejecución",
+    "providerLimit": "Límite de uso del proveedor alcanzado",
+    "providerLimitBody": "{{provider}} rechazó la petición: límite de uso alcanzado — se restablece {{resetsAt}}. El run se ha detenido; vuelve a lanzarlo o usa Recuperar y reintentar tras el reinicio.",
+    "providerLimitBodyNoReset": "{{provider}} rechazó la petición: límite de uso alcanzado. El run se ha detenido; vuelve a lanzarlo cuando se restablezca el límite."
   },
   "templates": {
     "emptyState": {

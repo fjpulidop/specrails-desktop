@@ -26,7 +26,9 @@
     "laterMilestones": "Marcos posteriores",
     "empty": "O blueprint se preenche enquanto você conversa.",
     "specsComplete": "Completas",
-    "specsInProgress": "Em andamento"
+    "specsInProgress": "Em andamento",
+    "specWriting": "a escrever…",
+    "specPendingBody": "ainda por escrever"
   },
   "commit": {
     "title": "Criar o projeto",
@@ -88,7 +90,6 @@
   "sidebar": {
     "title": "Blueprint",
     "milestone": "M{{n}}",
-    "progress": "{{done}}/{{total}} concluídas",
     "launchM1": "Lançar o Marco 1",
     "generateNext": "Gerar M{{n}}",
     "generateHint": "Abre uma sessão de specs ancorada no código, semeada com o blueprint",
@@ -120,7 +121,8 @@
     "surpriseMe": "Surpreenda-me — proponha valores sensatos para todas as dimensões do blueprint, mantenha m1Specs vazio e deixe-me aprovar o plano antes de gerar as specs detalhadas.",
     "milestoneSeed": "Gere as specs detalhadas do marco {{label}} (\"{{title}}\"). Leia primeiro o código real, valide o lote completo e só então emita TODAS as specs detalhadas do marco em uma única resposta/snapshot blueprint-draft.",
     "milestoneSeedWithPlanned": "Gere as specs detalhadas do marco {{label}} (\"{{title}}\"). Títulos de specs planejadas: {{planned}}. Leia primeiro o código real, valide o lote completo e só então emita TODAS as specs detalhadas do marco em uma única resposta/snapshot blueprint-draft.",
-    "repairSnapshot": "Seu último bloco blueprint-draft não pôde ser usado pelo app ({{reason}}). Reemita o snapshot COMPLETO como JSON estritamente válido (quebras de linha dentro de strings escapadas como \\n, sem vírgulas finais, sem blocos de código aninhados) — apenas o bloco."
+    "repairSnapshot": "Seu último bloco blueprint-draft não pôde ser usado pelo app ({{reason}}). Reemita o snapshot COMPLETO como JSON estritamente válido (quebras de linha dentro de strings escapadas como \\n, sem vírgulas finais, sem blocos de código aninhados) — apenas o bloco.",
+    "approve": "Aprovado — gera agora o backlog detalhado do Marco 1."
   },
   "specModal": {
     "eyebrow": "{{milestone}} · Spec {{index}}",
@@ -138,14 +140,18 @@
     "mode": {
       "sequential": "Sequencial",
       "parallel": "Paralelo"
-    },
-    "chunkLaunched": "{{milestone}} — rail {{chunk}}/{{total}} lançado",
-    "chunkFailed": "{{milestone}} — o rail {{chunk}}/{{total}} falhou ao lançar; rails restantes parados",
-    "done": "{{milestone}} concluído — {{count}} specs passaram pela cadeia sequencial"
+    }
   },
   "generation": {
-    "writing": "Redigindo as specs do Marco 1…",
-    "specCount": "spec {{n}}"
+    "writing": "A escrever as specs do Milestone 1…",
+    "specCount": "spec {{n}}",
+    "turn": "turno {{turn}}/{{total}}",
+    "phase": {
+      "outline": "A esboçar as specs do Milestone 1…",
+      "details": "A escrever em detalhe as specs {{from}}–{{to}} de {{total}}…",
+      "audit": "A auditar as {{total}} specs…",
+      "repair": "A pedir de novo as specs {{from}}–{{to}}…"
+    }
   },
   "readiness": {
     "title": "Pronto para criar as specs?",
@@ -163,12 +169,14 @@
       "specs": {
         "done": "{{count}} specs · completas",
         "pending": "{{count}} de {{min}}–{{max}}",
-        "blocked": "{{count}} specs · precisa de {{min}}–{{max}}"
+        "blocked": "{{count}} specs · precisa de {{min}}–{{max}}",
+        "writing": "{{written}} de {{count}} escritas"
       },
       "audit": {
         "done": "sem problemas",
         "pending": "aguardando as specs",
-        "blocked": "{{count}} a corrigir"
+        "blocked": "{{count}} a corrigir",
+        "writing": "quando as specs estiverem escritas"
       }
     },
     "hints": {
@@ -178,11 +186,13 @@
       },
       "specs": {
         "pending": "Aprove o blueprint e o Construtor gerará o backlog do Marco 1.",
-        "blocked": "O Marco 1 precisa de {{min}}–{{max}} specs (agora {{count}}). Peça ao Construtor para ajustar."
+        "blocked": "O Marco 1 precisa de {{min}}–{{max}} specs (agora {{count}}). Peça ao Construtor para ajustar.",
+        "writing": "O Construtor está a escrever cada spec por completo — a auditoria de qualidade corre quando o lote estiver completo."
       },
       "audit": {
         "pending": "Aguardando as specs.",
-        "blocked": "{{count}} problema(s) de auditoria bloqueiam o commit — abra a lista abaixo."
+        "blocked": "{{count}} problema(s) de auditoria bloqueiam o commit — abra a lista abaixo.",
+        "writing": "A auditoria corre quando todas as specs estiverem escritas."
       }
     },
     "issuesCount_one": "{{count}} problema de auditoria",
@@ -207,7 +217,12 @@
     "repairedNote": "Snapshot reparado automaticamente",
     "nothingToRepair": "Não há nada para reparar — continue conversando com o Construtor.",
     "noSession": "Esta conversa não pode ser retomada com seu provedor; envie uma nova mensagem.",
-    "alreadyStreaming": "O Construtor ainda está respondendo."
+    "alreadyStreaming": "O Construtor ainda está respondendo.",
+    "halted": {
+      "title": "A geração de specs parou cedo demais",
+      "detail": "{{written}} de {{total}} specs escritas por completo. As restantes ainda são só títulos do esboço.",
+      "resume": "Continuar a gerar"
+    }
   },
   "recent": {
     "title": "Continue de onde parou",
@@ -235,15 +250,118 @@
     "invalid_priority": "A spec {{n}} precisa de uma prioridade válida.",
     "canonical_sections": "Faltam à spec {{n}} as cinco seções canônicas em ordem.",
     "empty_section": "A spec {{n}} tem a seção “{{heading}}” vazia.",
-    "section_bullets": "A spec {{n}} precisa de pelo menos dois itens em “{{heading}}”.",
+    "section_bullets": "A spec {{n}} precisa de pelo menos {{min}} marcadores em \"{{heading}}\".",
     "complexity_format": "A spec {{n}} precisa de um nível de complexidade com justificativa.",
     "scaffold_readme": "A spec de scaffold deve mencionar o README existente.",
-    "criteria_count": "A spec {{n}} precisa de 4 a 10 critérios de aceitação (tem {{count}}).",
+    "criteria_count": "A spec {{n}} precisa de {{min}}–{{max}} critérios de aceitação (tem {{count}}).",
     "criterion_quality": "Spec {{n}}, critério {{criterion}}: não é concreto o suficiente.",
     "duplicate_criterion": "A spec {{n}} repete o critério de aceitação {{criterion}}.",
     "milestone_label": "A spec {{n}} precisa do rótulo {{label}}.",
     "domain_label": "A spec {{n}} precisa de um rótulo de domínio além de {{label}}.",
     "invalid_dependency": "A spec {{n}} só pode depender de uma spec anterior.",
-    "scaffold_dependency": "A spec de scaffold não pode declarar dependência."
+    "scaffold_dependency": "A spec de scaffold não pode declarar dependência.",
+    "section_depth": "A spec {{n}} precisa de um \"{{heading}}\" mais completo (pelo menos {{min}} caracteres)."
+  },
+  "milestoneProgress": {
+    "state": {
+      "planned": "Planeado",
+      "committed": "Pronto a lançar",
+      "running": "Em curso",
+      "delivered": "Entregue — a aguardar revisão",
+      "done": "Concluído"
+    },
+    "counts": "{{delivered}} de {{total}} entregues · {{done}} concluídas",
+    "failedNote_one": "{{count}} spec falhou na última tentativa",
+    "failedNote_other": "{{count}} specs falharam na última tentativa",
+    "legend": {
+      "done": "Concluídas",
+      "onReview": "Em revisão",
+      "inProgress": "Em curso",
+      "failed": "Falharam na última tentativa",
+      "todo": "Pendentes"
+    },
+    "rail": {
+      "fallbackName": "Rail {{n}}",
+      "chunk": "Rail {{k}} da cadeia",
+      "running": "A correr · {{elapsed}}",
+      "review": "Rever",
+      "open": "Abrir o rail",
+      "noDelivery": "Ainda sem entrega"
+    },
+    "chain": {
+      "title": "Cadeia sequencial",
+      "parallelTitle": "Lançamento paralelo",
+      "progress": "rail {{k}} de {{n}}",
+      "waiting": "à espera que o rail {{k}} termine",
+      "stackedOn": "o próximo rail parte de {{branch}}",
+      "paused": "Em pausa — {{reason}}",
+      "completed": "Todos os rails lançados",
+      "cancelled": "Cadeia cancelada",
+      "resume": "Retomar",
+      "cancel": "Cancelar cadeia",
+      "resumed": "Cadeia retomada",
+      "resumeFailed": "Não foi possível retomar a cadeia",
+      "cancelledToast": "Cadeia cancelada — os rails em curso continuam",
+      "reasons": {
+        "chunk_failed": "o último rail falhou",
+        "chunk_stalled": "o último rail travou (sem saída do fornecedor)",
+        "chunk_stopped": "o último rail foi parado",
+        "launch_rejected": "o próximo rail não pôde ser lançado ({{detail}})",
+        "head_missing": "o ramo de base já não existe",
+        "head_discarded": "a entrega de que o próximo rail parte foi descartada",
+        "run_lost": "o rail em execução não foi encontrado após um reinício",
+        "unknown": "em pausa",
+        "provider_limit": "o limite de utilização do fornecedor foi atingido"
+      },
+      "checkpoint": "Rail {{k}} de {{n}} entregue — lançar o rail {{next}}?",
+      "launchNext": "Lançar o próximo rail",
+      "nextLaunched": "Próximo rail lançado",
+      "autoAdvance": "Continuar automaticamente",
+      "autoAdvanceHint": "Lança cada rail seguinte assim que o anterior é entregue",
+      "checkpointHint": "Para após cada rail e pergunta antes de lançar o próximo",
+      "checkpointNote": "para após este rail",
+      "autoOn": "Continuação automática ligada — os próximos rails são lançados sozinhos",
+      "autoOff": "Continuação automática desligada — será perguntado antes de cada rail",
+      "autoFailed": "Não foi possível atualizar a cadeia"
+    },
+    "toast": {
+      "launched": "{{milestone}} lançado — {{count}} specs no rail 1 de {{n}}; os próximos rails seguem automaticamente",
+      "launchedAll": "{{milestone}} lançado — {{count}} specs em {{n}} rails",
+      "launchedPartial": "{{milestone}} parcialmente lançado — {{count}} specs lançadas, {{skipped}} pendentes",
+      "chainActive": "{{milestone}} já está a ser lançado — veja o painel Blueprint",
+      "chunkLaunched": "{{milestone}} — rail {{k}} de {{n}} lançado",
+      "paused": "{{milestone}} em pausa — {{reason}}",
+      "resume": "Retomar",
+      "delivered": "{{milestone}} entregue — {{count}} specs aguardam a sua revisão",
+      "review": "Rever",
+      "completed": "{{milestone}} concluído — todas as specs integradas",
+      "launchedCheckpoint": "{{milestone}} lançado — {{count}} specs no rail 1 de {{n}}; será perguntado antes de cada rail seguinte",
+      "checkpoint": "{{milestone}} — rail {{k}} de {{n}} entregue. Lançar o próximo rail?",
+      "launchNext": "Lançar o próximo rail",
+      "autoContinue": "Continuar auto"
+    },
+    "sequentialHint": "Cada rail parte do ramo do rail anterior",
+    "parallelHint": "Rails independentes a partir do ramo de integração (sem empilhar)"
+  },
+  "decisionCard": {
+    "settledLabel": "Decisão tomada",
+    "surprise": {
+      "label": "Construtor",
+      "hint": "Poderás ajustar qualquer decisão depois",
+      "title": "Surpreende-me",
+      "description": "Deixa o Construtor decidir produto, fluxo principal, plataforma, stack e marcos, e apresentar-te o blueprint para aprovares ou afinares.",
+      "cta": "Surpreende-me",
+      "settledTitle": "Surpreende-me",
+      "settledDescription": "Deixaste o Construtor decidir todas as dimensões do blueprint."
+    },
+    "approve": {
+      "label": "Blueprint pronto",
+      "hint": "Ou escreve o que queres mudar",
+      "title": "Aprovar o blueprint",
+      "description": "Todas as dimensões estão decididas. Aprova-o e o Construtor escreve as specs do Marco 1 por completo, duas de cada vez, e depois audita o lote.",
+      "cta": "Aprovar e gerar specs",
+      "settledTitle": "Blueprint aprovado",
+      "settledDescription": "O Construtor está a gerar o backlog do Marco 1 a partir deste blueprint."
+    }
   }
 }

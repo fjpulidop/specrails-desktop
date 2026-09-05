@@ -201,7 +201,7 @@ describe('ChatManager', () => {
       ]) {
         expect(prompt).toContain(heading)
       }
-      expect(prompt).toContain('4-10 non-empty, independent, testable outcomes')
+      expect(prompt).toContain('6-10 non-empty, independent, testable outcomes')
       expect(prompt).toContain('failure/edge cases')
       expect(prompt).toContain('unit/integration/end-to-end tests')
       expect(prompt).toContain('verifying it in the code during this turn')

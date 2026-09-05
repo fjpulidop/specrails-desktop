@@ -1,49 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { analyzeBuilderSpecBatch, BUILDER_SPEC_HEADINGS } from './blueprint-spec-quality'
+import { premiumDescription, premiumSpec } from './blueprint-spec-fixtures'
+import { SPEC_DEPTH_FLOORS } from './spec-contract-prompt'
 import type { BlueprintM1Spec } from './blueprint-types'
 
-const description = (readme = false): string => [
-  '## Problem Statement',
-  `Home cooks need a reliable end-to-end starting point for the product.${readme ? ' The repository already contains a README.' : ''}`,
-  '',
-  '## Proposed Solution',
-  'Build the smallest complete workflow with TypeScript, React, and SQLite while keeping each boundary explicit.',
-  '',
-  '## Out of Scope',
-  '- Social sharing and collaboration',
-  '- Advanced personalization',
-  '',
-  '## Technical Considerations',
-  '- Keep domain and persistence contracts independently testable',
-  '- Cover loading, empty, success, and failure states',
-  '',
-  '## Estimated Complexity',
-  'Medium — it crosses UI, domain, and persistence boundaries.',
-].join('\n')
+const validSpecs = (): BlueprintM1Spec[] => Array.from({ length: 5 }, (_, index) => premiumSpec(index))
+const options = { milestoneLabel: 'M1', minSpecs: 5, maxSpecs: 10, requireScaffold: true }
+const codesOf = (specs: BlueprintM1Spec[]) => analyzeBuilderSpecBatch({ specsComplete: true, specs }, options).issues.map((item) => item.code)
 
-function spec(index: number): BlueprintM1Spec {
-  return {
-    kind: index === 0 ? 'scaffold' : 'feature',
-    title: index === 0 ? 'Scaffold the application' : `Deliver workflow slice ${index}`,
-    shortSummary: index === 0 ? 'Initialize the runnable project foundation.' : `Deliver an independently testable workflow slice ${index}.`,
-    description: description(index === 0),
-    acceptanceCriteria: [
-      'The primary happy path completes with persisted data.',
-      'Invalid input produces an actionable validation state.',
-      'An empty result renders a deliberate empty state.',
-      'Automated tests cover success and failure behavior.',
-    ],
-    priority: 'medium',
-    labels: ['M1', index === 0 ? 'foundation' : 'workflow'],
-    ...(index > 0 ? { dependsOnIndex: index - 1 } : {}),
-  }
+/** Replace one canonical section's body in a premium description. */
+function withSection(description: string, heading: string, body: string): string {
+  const re = new RegExp(`(## ${heading}\\n)[\\s\\S]*?(?=\\n## |$)`)
+  return description.replace(re, `$1${body}`)
 }
 
-const validSpecs = (): BlueprintM1Spec[] => Array.from({ length: 5 }, (_, index) => spec(index))
-const options = { milestoneLabel: 'M1', minSpecs: 5, maxSpecs: 10, requireScaffold: true }
-
 describe('analyzeBuilderSpecBatch', () => {
-  it('accepts a complete canonical M1 batch', () => {
+  it('accepts a complete canonical premium M1 batch', () => {
     expect(analyzeBuilderSpecBatch({ specsComplete: true, specs: validSpecs() }, options)).toEqual({ valid: true, issues: [] })
   })
 
@@ -65,14 +37,12 @@ describe('analyzeBuilderSpecBatch', () => {
   })
 
   it('rejects missing, duplicate, or out-of-order headings', () => {
+    const base = premiumDescription({ readme: true })
     for (const broken of [
-      `Unheaded summary that does not belong in the canonical contract.\n\n${description(true)}`,
-      description(true).replace('## Out of Scope\n', ''),
-      description(true).replace('## Technical Considerations', '## Out of Scope'),
-      description(true).replace(
-        '## Proposed Solution\nBuild the smallest complete workflow with TypeScript, React, and SQLite while keeping each boundary explicit.\n\n## Out of Scope',
-        '## Out of Scope\n- A\n- B\n\n## Proposed Solution\nBuild the smallest complete workflow with TypeScript, React, and SQLite while keeping each boundary explicit.',
-      ),
+      `Unheaded summary that does not belong in the canonical contract.\n\n${base}`,
+      base.replace('## Out of Scope\n', ''),
+      base.replace('## Technical Considerations', '## Out of Scope'),
+      base.replace('## Problem Statement', '## Proposed Solution').replace('## Proposed Solution\n1.', '## Problem Statement\n1.'),
     ]) {
       const specs = validSpecs()
       specs[0] = { ...specs[0], description: broken }
@@ -82,36 +52,67 @@ describe('analyzeBuilderSpecBatch', () => {
     }
   })
 
-  it('rejects criteria outside 4-10, placeholders, and duplicates', () => {
+  it('enforces the premium depth floors: thin problem / solution sections and too few bullets', () => {
     const specs = validSpecs()
-    specs[1] = { ...specs[1], acceptanceCriteria: ['Works', 'A concrete outcome exists.', 'A concrete outcome exists.'] }
-    const codes = analyzeBuilderSpecBatch({ specsComplete: true, specs }, options).issues.map((item) => item.code)
-    expect(codes).toEqual(expect.arrayContaining(['criteria_count', 'criterion_quality', 'duplicate_criterion']))
+    specs[1] = {
+      ...specs[1],
+      description: withSection(
+        withSection(
+          withSection(withSection(specs[1].description, 'Problem Statement', 'Users need this.'), 'Proposed Solution', 'Build it well.'),
+          'Out of Scope', '- A\n- B',
+        ),
+        'Technical Considerations', '- One\n- Two\n- Three\n- Four',
+      ),
+    }
+    const issues = analyzeBuilderSpecBatch({ specsComplete: true, specs }, options).issues
+    expect(issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'section_depth', specIndex: 1, params: expect.objectContaining({ heading: 'Problem Statement', min: SPEC_DEPTH_FLOORS.problemMinChars }) }),
+      expect.objectContaining({ code: 'section_depth', specIndex: 1, params: expect.objectContaining({ heading: 'Proposed Solution', min: SPEC_DEPTH_FLOORS.solutionMinChars }) }),
+      expect.objectContaining({ code: 'section_bullets', specIndex: 1, params: expect.objectContaining({ heading: 'Out of Scope', min: 3 }) }),
+      expect.objectContaining({ code: 'section_bullets', specIndex: 1, params: expect.objectContaining({ heading: 'Technical Considerations', min: 5 }) }),
+    ]))
+    // The premium fixture itself sits above every floor.
+    expect(codesOf(validSpecs())).toEqual([])
+  })
+
+  it('### sub-headings never count as canonical sections', () => {
+    const specs = validSpecs()
+    expect(specs[1].description).toContain('### Data model')
+    expect(codesOf(specs)).toEqual([])
+  })
+
+  it('rejects criteria outside 6-10, short or placeholder criteria, and duplicates', () => {
+    const specs = validSpecs()
+    specs[1] = { ...specs[1], acceptanceCriteria: ['Works', 'A concrete outcome exists here.', 'A concrete outcome exists here.'] }
+    const issues = analyzeBuilderSpecBatch({ specsComplete: true, specs }, options).issues
+    expect(issues.map((item) => item.code)).toEqual(expect.arrayContaining(['criteria_count', 'criterion_quality', 'duplicate_criterion']))
+    expect(issues.find((i) => i.code === 'criteria_count')?.params).toMatchObject({ count: 3, min: 6, max: 10 })
+    const eleven = { ...specs[2], acceptanceCriteria: Array.from({ length: 11 }, (_, i) => `Given the state ${i}, when the user acts, then outcome ${i} is observable.`) }
+    expect(codesOf([specs[0], eleven, specs[2], specs[3], specs[4]].map((s, i) => ({ ...s, title: `T${i}` })))).toContain('criteria_count')
+    const shortOne = { ...specs[3], acceptanceCriteria: [...specs[3].acceptanceCriteria.slice(0, 5), 'Short criterion.'] }
+    expect(codesOf([specs[0], specs[1], specs[2], shortOne, specs[4]])).toContain('criterion_quality')
   })
 
   it('rejects duplicate titles, missing domain label, and self/forward dependencies', () => {
     const specs = validSpecs()
     specs[1] = { ...specs[1], title: specs[0].title.toUpperCase(), labels: ['M1'], dependsOnIndex: 1 }
-    const codes = analyzeBuilderSpecBatch({ specsComplete: true, specs }, options).issues.map((item) => item.code)
-    expect(codes).toEqual(expect.arrayContaining(['duplicate', 'domain_label', 'invalid_dependency']))
+    expect(codesOf(specs)).toEqual(expect.arrayContaining(['duplicate', 'domain_label', 'invalid_dependency']))
   })
 
   it('requires an explicit dependency-free first scaffold mentioning README', () => {
     const specs = validSpecs()
-    specs[0] = { ...specs[0], kind: 'feature', description: description(false), dependsOnIndex: 0 }
-    const codes = analyzeBuilderSpecBatch({ specsComplete: true, specs }, options).issues.map((item) => item.code)
-    expect(codes).toEqual(expect.arrayContaining(['scaffold_first', 'scaffold_readme', 'invalid_dependency', 'scaffold_dependency']))
+    specs[0] = { ...specs[0], kind: 'feature', description: premiumDescription({ readme: false, subject: 'the project foundation' }), dependsOnIndex: 0 }
+    expect(codesOf(specs)).toEqual(expect.arrayContaining(['scaffold_first', 'scaffold_readme', 'invalid_dependency', 'scaffold_dependency']))
   })
 
   it('rejects a second scaffold and a non-catalog priority', () => {
     const specs = validSpecs()
     specs[1] = { ...specs[1], kind: 'scaffold', priority: 'urgent' as never }
-    const codes = analyzeBuilderSpecBatch({ specsComplete: true, specs }, options).issues.map((item) => item.code)
-    expect(codes).toEqual(expect.arrayContaining(['duplicate_scaffold', 'invalid_priority']))
+    expect(codesOf(specs)).toEqual(expect.arrayContaining(['duplicate_scaffold', 'invalid_priority']))
   })
 
   it('supports a complete non-M1 milestone without a scaffold requirement', () => {
-    const later = [spec(1), spec(2)].map((value, index) => ({
+    const later = [premiumSpec(1), premiumSpec(2)].map((value, index) => ({
       ...value,
       title: `M2 feature ${index}`,
       labels: ['M2', 'workflow'],

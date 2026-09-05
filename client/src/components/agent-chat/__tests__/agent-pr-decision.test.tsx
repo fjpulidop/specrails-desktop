@@ -902,7 +902,7 @@ describe('AgentPrDecisionCard actions', () => {
     expect(dialog).toHaveTextContent('anything changed will be preserved with a warning')
     expect(dialog).toHaveTextContent('specs will return to the backlog')
     expect(dialog).toHaveTextContent('Removed local resources cannot be recovered')
-    expect(global.fetch).not.toHaveBeenCalled()
+    expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/rails/pr-decision'))).toBe(false)
     await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-discard-confirm-btn')) })
     expect(global.fetch).toHaveBeenCalledWith(
       '/api/projects/p1/rails/pr-decision',
@@ -918,7 +918,7 @@ describe('AgentPrDecisionCard actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Discard' }))
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByTestId('agent-pr-discard-confirm')).not.toBeInTheDocument())
-    expect(global.fetch).not.toHaveBeenCalled()
+    expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/rails/pr-decision'))).toBe(false)
   })
 
   it('applies the authoritative HTTP snapshot immediately when the WS transition is lost', async () => {
@@ -1001,7 +1001,7 @@ describe('AgentPrDecisionCard actions', () => {
     render(<AgentPrDecisionCard envelope={env()} />)
     fireEvent.click(screen.getByRole('button', { name: 'Integrate locally' }))
     expect(screen.getByTestId('agent-pr-merge-local-confirm')).toHaveTextContent('merged into main')
-    expect(global.fetch).not.toHaveBeenCalled()
+    expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/rails/pr-decision'))).toBe(false)
     await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-merge-local-confirm-btn')) })
     expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/rails/pr-decision', expect.objectContaining({
       body: JSON.stringify({ prDeliveryId: 'd1', action: 'merge-local', expectedDecision: 'on_review' }),
@@ -1014,7 +1014,7 @@ describe('AgentPrDecisionCard actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Mark done' }))
     expect(screen.getByTestId('agent-pr-no-changes-done-confirm')).toHaveTextContent('specs will move to Done')
-    expect(global.fetch).not.toHaveBeenCalled()
+    expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/rails/pr-decision'))).toBe(false)
     await act(async () => { fireEvent.click(screen.getByTestId('agent-pr-no-changes-done-confirm-btn')) })
     expect(global.fetch).toHaveBeenLastCalledWith('/api/projects/p1/rails/pr-decision', expect.objectContaining({
       body: JSON.stringify({ prDeliveryId: 'd1', action: 'acknowledge-no-changes', expectedDecision: 'no_changes' }),

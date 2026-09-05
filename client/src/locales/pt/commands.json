@@ -137,7 +137,13 @@
     "jobStuck": "A execução parece travada",
     "jobStuckBody_one": "Sem atividade há {{count}} minuto — abra para verificar",
     "jobStuckBody_other": "Sem atividade há {{count}} minutos — abra para verificar",
-    "unknownCommand": "Comando desconhecido"
+    "unknownCommand": "Comando desconhecido",
+    "jobStuckStop": "Parar execução",
+    "jobStuckStopped": "Execução parada",
+    "jobStuckStopFailed": "Não foi possível parar a execução",
+    "providerLimit": "Limite de utilização do fornecedor atingido",
+    "providerLimitBody": "{{provider}} recusou o pedido: limite de utilização atingido — repõe {{resetsAt}}. A execução parou; volta a lançar ou usa Recuperar e tentar de novo após a reposição.",
+    "providerLimitBodyNoReset": "{{provider}} recusou o pedido: limite de utilização atingido. A execução parou; volta a lançar após a reposição."
   },
   "templates": {
     "emptyState": {

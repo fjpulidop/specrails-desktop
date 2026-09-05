@@ -137,7 +137,13 @@
     "jobStuck": "実行が停止しているようです",
     "jobStuckBody_one": "{{count}} 分間 動きがありません — 開いて確認してください",
     "jobStuckBody_other": "{{count}} 分間 動きがありません — 開いて確認してください",
-    "unknownCommand": "不明なコマンド"
+    "unknownCommand": "不明なコマンド",
+    "jobStuckStop": "実行を停止",
+    "jobStuckStopped": "実行を停止しました",
+    "jobStuckStopFailed": "実行を停止できませんでした",
+    "providerLimit": "プロバイダーの利用上限に達しました",
+    "providerLimitBody": "{{provider}} がリクエストを拒否しました：利用上限に達しています — {{resetsAt}} にリセット。実行は停止しました。リセット後に再起動するか「復旧して再試行」してください。",
+    "providerLimitBodyNoReset": "{{provider}} がリクエストを拒否しました：利用上限に達しています。実行は停止しました。上限のリセット後に再起動してください。"
   },
   "templates": {
     "emptyState": {

@@ -40,7 +40,8 @@
     "hint": "Continua de onde o trabalho ficou — não começa do zero."
   },
   "discard": {
-    "label": "Descartar isto"
+    "label": "Descartar isto",
+    "stackedNote": "Os rails seguintes deste marco foram construídos sobre esta entrega. Descartá-la pausa a cadeia do marco; os rails seguintes mantêm o seu trabalho."
   },
   "watchOut": {
     "title": "Vale a pena ver antes de aceitar"

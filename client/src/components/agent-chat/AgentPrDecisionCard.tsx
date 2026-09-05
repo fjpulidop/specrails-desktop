@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
+import { useStackedHeadDeliveryIds } from '../../hooks/useMilestoneProgress'
 import { useTranslation } from 'react-i18next'
 import { useInRouterContext, useNavigate } from 'react-router-dom'
 import { FEATURE_REVIEW_PACKET } from '../../lib/feature-flags'
@@ -254,7 +255,10 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
   // replaces this override and keeps pinning/history placement authoritative.
   const [localEnvelope, setLocalEnvelope] = useState<AgentPrDecisionEnvelope | null>(null)
   const envelope = localEnvelope ?? envelopeProp
-  // A clicked run-log chip → the run's JobDetailModal (portals to body).
+  // Stacked head (milestone chain): a later chunk builds on this delivery.
+  const stackedHeads = useStackedHeadDeliveryIds(envelope.projectId)
+  const isStackedHead = stackedHeads.has(envelope.prDeliveryId)
+    // A clicked run-log chip → the run's JobDetailModal (portals to body).
   const [logRunId, setLogRunId] = useState<string | null>(null)
   const [pausedRuns, setPausedRuns] = useState<Record<string, { paused: boolean; pausedReason: string | null }>>({})
   const [stoppingRunId, setStoppingRunId] = useState<string | null>(null)
@@ -1085,6 +1089,11 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
             <DialogDescription>{t(decision === 'implementation_failed'
               ? 'prCard.confirm.implementationFailedDiscardBody'
               : 'prCard.confirm.freshDiscardBody')}</DialogDescription>
+            {isStackedHead && (
+              <p className="mt-2 rounded-md border border-accent-warning/40 bg-accent-warning/10 px-2 py-1.5 text-xs text-accent-warning" data-testid="agent-pr-discard-stacked-note">
+                {t('prCard.discardStackedNote')}
+              </p>
+            )}
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setConfirmingDiscard(false)}>{t('common:actions.cancel')}</Button>

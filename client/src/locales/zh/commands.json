@@ -137,7 +137,13 @@
     "jobStuck": "运行似乎卡住了",
     "jobStuckBody_one": "已有 {{count}} 分钟没有活动 — 打开查看",
     "jobStuckBody_other": "已有 {{count}} 分钟没有活动 — 打开查看",
-    "unknownCommand": "未知命令"
+    "unknownCommand": "未知命令",
+    "jobStuckStop": "停止运行",
+    "jobStuckStopped": "已停止运行",
+    "jobStuckStopFailed": "无法停止运行",
+    "providerLimit": "已达到提供商用量限额",
+    "providerLimitBody": "{{provider}} 拒绝了请求：已达到用量限额 — {{resetsAt}} 重置。运行已停止；重置后重新启动或使用“恢复并重试”。",
+    "providerLimitBodyNoReset": "{{provider}} 拒绝了请求：已达到用量限额。运行已停止；限额重置后重新启动。"
   },
   "templates": {
     "emptyState": {

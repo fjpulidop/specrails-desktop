@@ -21,7 +21,10 @@
       "verify": "動作を確認しています",
       "decide": "完了かどうか判断しています",
       "fix": "失敗した箇所を修正しています"
-    }
+    },
+    "stalled": "ステップ {{step}} が停止：{{idleMinutes}} 分間活動がなかったため、アプリが停止しました",
+    "startResume": "ステップ {{step}}：{{title}} — 停止後に再開",
+    "providerLimit": "ステップ {{step}} 停止 — プロバイダーの利用上限に達しました"
   },
   "decision": {
     "another": "まだ未達 — もう一周",

@@ -18,6 +18,7 @@ import { parseDeciderDecision } from './loop-decider'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
 import { injectRepoMapEnv } from './repo-map'
 import { isInteractiveJobsEnabled } from './feature-flags'
+import { AI_STEP_STALLED_ERROR } from './loop-step-idle'
 import type { ProviderAdapter } from './providers/types'
 import {
   buildProviderEnv,
@@ -169,7 +170,7 @@ export function createLoopExecutors(
         return null
       }
     },
-    async runAiStep({ prompt, sessionId, provider, model, effort, cwd, repoDir, onLine, onRawLine, onSpawn, aiStepTimeoutMs }) {
+    async runAiStep({ prompt, sessionId, provider, model, effort, cwd, repoDir, onLine, onRawLine, onSpawn, aiStepTimeoutMs, idleTimeoutMs }) {
       const adapter = getAdapter(provider)
       // First iteration spawns headless (rail-job); subsequent iterations resume
       // the session so the agent keeps prior context across iterations.
@@ -204,6 +205,13 @@ export function createLoopExecutors(
       // surface the REAL reason (e.g. "You've hit your usage limit") instead of
       // the `stderrTail`, which often holds only an informational line.
       let errorText: string | undefined
+      // Idle watchdog (loop-step-idle): the child produced NO stdout/stderr for
+      // the idle budget — a wedge, not a slow step. Flagged separately from the
+      // wall-clock timeout so the engine can retry the step once by resume.
+      let stalled = false
+      // The provider flagged the final `result` as an error (claude
+      // `is_error: true` — a usage/rate-limit notice returned AS the reply).
+      let resultIsError = false
       const wallStartedAt = Date.now()
       const res = await runAiCliInvocation({
         adapter,
@@ -214,6 +222,9 @@ export function createLoopExecutors(
         // 0 ⇒ watchdog disabled (factory loops run untimed; the loop's
         // maxIterations / cost cap remain the runaway guards).
         timeoutMs: (aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS) > 0 ? (aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS) : undefined,
+        // Inactivity bound — resets on every raw output chunk. 0/undefined ⇒ off.
+        inactivityTimeoutMs: idleTimeoutMs != null && idleTimeoutMs > 0 ? idleTimeoutMs : undefined,
+        onInactivityTimeout: () => { stalled = true },
         onSpawn,
         // Two complementary streams, mirroring QueueManager's contract:
         //  • RAW JSONL via onStdoutLine → engine emits parsed `event`s that drive
@@ -225,16 +236,25 @@ export function createLoopExecutors(
           if (ev.kind === 'text-delta') { text += ev.text; onLine?.(ev.text) }
           else if (ev.kind === 'tool-use') onLine?.(`🔧 ${ev.name} ${ev.inputPreview ?? ''}`.trim())
           else if (ev.kind === 'error' && ev.message) errorText = ev.message
+          else if (ev.kind === 'result' && ev.isError) resultIsError = true
         },
       })
       const failed =
         res.spawnFailed ||
         res.timedOut ||
         (res.code != null && res.code !== 0) ||
-        errorText !== undefined
+        errorText !== undefined ||
+        resultIsError
       if (res.spawnFailed) {
         errorText = errorText ?? `failed to spawn "${adapter.binary}" (on PATH?)`
         const msg = `AI step: ${errorText}`
+        console.error(`[loop] ${msg}`)
+        onLine?.(msg, 'stderr')
+      } else if (stalled) {
+        // The inactivity watchdog tore the child down (settles timedOut too, so
+        // this branch must precede the wall-clock one). The engine retries once.
+        errorText = AI_STEP_STALLED_ERROR
+        const msg = `AI step: ${adapter.binary} produced no output for ${Math.round((idleTimeoutMs ?? 0) / 1000)}s — stalled`
         console.error(`[loop] ${msg}`)
         onLine?.(msg, 'stderr')
       } else if (res.timedOut) {
@@ -243,6 +263,13 @@ export function createLoopExecutors(
         // full timeout every pass.
         errorText = errorText ?? `${adapter.binary} timed out`
         const msg = `AI step: ${errorText}`
+        console.error(`[loop] ${msg}`)
+        onLine?.(msg, 'stderr')
+      } else if (resultIsError) {
+        // The provider returned an error AS the reply (claude `is_error: true`
+        // — typically a usage/rate-limit notice). The text IS the reason.
+        errorText = errorText ?? (text.trim().slice(-300) || 'the provider returned an error result')
+        const msg = `AI step: provider returned an error result — ${errorText}`
         console.error(`[loop] ${msg}`)
         onLine?.(msg, 'stderr')
       } else if (res.code != null && res.code !== 0) {
@@ -294,6 +321,8 @@ export function createLoopExecutors(
         estimated,
         failed,
         errorText,
+        ...(stalled ? { stalled: true } : {}),
+        ...(resultIsError ? { resultIsError: true } : {}),
       }
     },
 
@@ -307,7 +336,7 @@ export function createLoopExecutors(
      * spike-verified on claude 2.1.198). Null ⇒ the engine one-shots the step
      * (non-claude providers, or the kill-switch) — byte-identical legacy.
      */
-    planInteractiveAiStep({ provider, model, effort, cwd, repoDir, sessionId, aiStepTimeoutMs }) {
+    planInteractiveAiStep({ provider, model, effort, cwd, repoDir, sessionId, aiStepTimeoutMs, idleTimeoutMs }) {
       if (!isInteractiveJobsEnabled()) return null
       const adapter = getAdapter(provider)
       if (!adapter.capabilities.persistentStdin) return null
@@ -336,6 +365,8 @@ export function createLoopExecutors(
         // The loop's ai-step timeout bounds the WHOLE step, interactive
         // included. 0 ⇒ unbounded (the engine skips arming the step timer).
         stepTimeoutMs: aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS,
+        // Inactivity bound — the engine arms it as the session's wedge detector.
+        ...(idleTimeoutMs != null && idleTimeoutMs > 0 ? { idleTimeoutMs } : {}),
       }
     },
 

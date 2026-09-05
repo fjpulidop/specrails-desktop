@@ -37,6 +37,7 @@ import { ExploreStdinSessions, isExplorePersistentStdinEnabled } from './explore
 import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
 import { workspacePathFor } from './workspace-manager'
 import { readBlueprint } from './blueprint-render'
+import { premiumSpecContract } from './spec-contract-prompt'
 import type { ChatConversationRow } from './types'
 import { generateAutoTitle } from './explore-draft-title'
 
@@ -793,26 +794,21 @@ export class ChatManager {
       '- dependsOnIndex is optional. When present it must point strictly backward to an earlier item in this batch;',
       '  the first item always omits it. Never point to the same item or a later item.',
       '',
-      '## Canonical description contract',
+      '## Canonical description contract (premium bar)',
       '',
-      'description is English markdown with exactly these five ## headings, once each and in this order:',
-      '1. ## Problem Statement — the concrete user/system problem confirmed by the blueprint and current code.',
-      '2. ## Proposed Solution — observable behavior and integration with verified existing components/contracts.',
-      '3. ## Out of Scope — at least two bullets naming adjacent work deliberately deferred.',
-      '4. ## Technical Considerations — at least two bullets naming only verified paths and identifiers, plus data/contracts,',
-      '   compatibility, risks, failure handling, observability, migrations, and test strategy where relevant.',
-      '5. ## Estimated Complexity — Low/Medium/High/Very High plus one sentence explaining the estimate.',
-      'Do NOT put an ## Acceptance Criteria heading in description. The app folds the separate criteria array into',
-      'the final ticket deterministically.',
+      ...premiumSpecContract('verified').split('\n'),
       '',
       '## Acceptance and self-audit',
       '',
-      '- acceptanceCriteria contains 4-10 non-empty, independent, testable outcomes rather than implementation steps.',
+      '- Every spec MUST reach the premium depth above; a restated title is a defect. Add code-grounded reports',
+      '  of what exists today where it sharpens the Problem Statement or the Proposed Solution.',
+      '- acceptanceCriteria contains 6-10 non-empty, independent, testable outcomes rather than implementation steps.',
       '- Across the criteria, cover intended functional behavior, observable failure/edge cases, compatibility where',
       '  relevant, and the automated unit/integration/end-to-end tests that prove the change.',
-      '- Before specsComplete: true, audit every item for all payload fields, exact heading names/order, non-empty',
-      '  sections, English content, 4-10 criteria, valid priority, milestone plus domain labels, unique titles,',
-      '  verified code references, and strictly backward dependencies. Repair failures before marking complete.',
+      '- Before specsComplete: true, audit every item for all payload fields, exact heading names/order, the ###',
+      '  sub-blocks, the depth floors, non-empty sections, English content, 6-10 criteria, valid priority, milestone',
+      '  plus domain labels, unique titles, verified code references, and strictly backward dependencies. Repair',
+      '  failures before marking complete.',
     ]
     if (execution?.relocated && execution.repoDir) {
       lines.push(

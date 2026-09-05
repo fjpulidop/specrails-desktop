@@ -33,6 +33,7 @@ import {
 } from './loop-graph'
 import { expandCommands } from './loop-command-catalog'
 import { BUILTIN_CONSTANTS, resolveConstants } from './loop-constants'
+import { resolveLoopStepIdleTimeoutMs, AI_STEP_STALLED_ERROR } from './loop-step-idle'
 import { buildDeciderSystemPrompt, buildDeciderUserPrompt, type DeciderDecision } from './loop-decider'
 import {
   createLoopRun,
@@ -52,6 +53,7 @@ import {
   type LoopRunOutcome,
 } from './loop-runs-store'
 import { recordInvocation } from './ai-invocations'
+import { classifyProviderLimit, describeProviderLimit, type ProviderLimit } from './provider-limit'
 import { newId } from './ids'
 import { getAdapter, requireToolPolicy } from './providers'
 import { parseStreamEvents } from './providers/runtime'
@@ -86,6 +88,9 @@ export interface AiStepResult {
   failed?: boolean
   /** The real failure reason (adapter error event, else stderr tail). */
   errorText?: string
+  /** The provider flagged the final `result` as an error (claude `is_error`).
+   *  Structural — no text heuristics; the engine fails the step on it. */
+  resultIsError?: boolean
   /** True when the step's settle consumed NO model work across its whole life
    *  (the claude CLI's synthetic `Unknown command:` result frame — see
    *  isZeroWorkSettle in interactive-job-session.ts). Set authoritatively by
@@ -93,6 +98,10 @@ export interface AiStepResult {
    *  derives it from the result's accumulated signals (one-shot path). A
    *  zero-work step is FAILED — its command never actually ran. */
   zeroWork?: boolean
+  /** True when the idle watchdog tore the step down (no provider output for
+   *  the idle budget). The engine retries such a step ONCE by resume before
+   *  failing it; `failed` is also true. */
+  stalled?: boolean
 }
 
 export interface ShellResult {
@@ -146,6 +155,8 @@ export interface InteractivePlanInput {
   /** Per-step wall-clock timeout (ms). Undefined ⇒ executor default (15 min);
    *  0 ⇒ no per-step timeout. */
   aiStepTimeoutMs?: number
+  /** Inactivity bound (ms) — see loop-step-idle.ts. 0/undefined ⇒ no watchdog. */
+  idleTimeoutMs?: number
 }
 
 /** A resident interactive-session spawn plan for ONE ai-step (the interactive
@@ -159,6 +170,9 @@ export interface InteractiveAiStepPlan {
   /** Wall-clock bound for the WHOLE step, user turns included. On expiry the
    *  session is aborted (fold in-flight turn → settle 'crashed'). */
   stepTimeoutMs: number
+  /** Inactivity bound (ms): the engine arms it as the session's wedge detector
+   *  (no raw output for this long → step settles `stalled`). Absent ⇒ none. */
+  idleTimeoutMs?: number
   /** Injectable spawn (tests). Defaults to the session's spawnAiCli. */
   spawn?: InteractiveJobSessionDeps['spawn']
   /** Injectable process-tree terminator paired with `spawn` in tests. */
@@ -180,6 +194,8 @@ export interface LoopExecutors {
     /** Per-step wall-clock timeout (ms). Undefined ⇒ executor default (15 min);
      *  0 ⇒ no per-step timeout. */
     aiStepTimeoutMs?: number
+    /** Inactivity bound (ms) — see loop-step-idle.ts. 0/undefined ⇒ no watchdog. */
+    idleTimeoutMs?: number
   }): Promise<AiStepResult>
   /** OPTIONAL interactive upgrade for ai-steps: return a resident-session spawn
    *  plan when interactive jobs are enabled AND the provider supports persistent
@@ -300,17 +316,24 @@ function aiStepZeroWork(res: AiStepResult): boolean {
  *  session torn down mid-flight) and the prompt never ran. Worth exactly one
  *  fresh retry; an `Unknown command:` would fail again identically. */
 function isResumeMiss(res: AiStepResult): boolean {
+  if (res.stalled) return false
   if (!aiStepZeroWork(res)) return false
   if (UNKNOWN_COMMAND_RE.test(res.text.trim())) return false
   if (res.errorText === AI_STEP_TIMEOUT_ERROR) return false
   return true
 }
 
+export type LoopStallReason = 'idle_timeout' | 'no_progress' | 'provider_limit'
+
 export interface LoopRunResult {
   runId: string
   outcome: LoopRunOutcome
   iterations: number
   totalCostUsd: number | null
+  /** Why a `stalled` run stopped (absent for other outcomes). */
+  stallReason?: LoopStallReason
+  /** `provider_limit` only: the provider's own notice + reset hint. */
+  providerLimit?: ProviderLimit
 }
 
 // ── Structured run-event payloads (loop-step log explorer contract) ──────────
@@ -351,6 +374,10 @@ export interface LoopStepEventPayload {
    *  a reviewer artifact written in the same second as the verify step opened
    *  could not otherwise be told apart from one left by the previous pass. */
   startedAtMs?: number
+  /** ai-step only — set to 2 on the single automatic retry the engine runs
+   *  after an idle stall (the stalled attempt closed with a `stalled` end
+   *  event). Absent on first attempts. */
+  attempt?: number
 }
 
 /** `loop_step_end` — appended+broadcast at each step's tail. A step torn down
@@ -360,13 +387,20 @@ export interface LoopStepEndEventPayload {
   /** Matches the opening `loop_step`'s index. */
   index: number
   nodeId: string
-  status: 'ok' | 'failed'
+  /** `stalled`: the idle watchdog tore the step down (no provider output for
+   *  `idleMs`); `reason` says why. Older clients fold it into `failed`. */
+  status: 'ok' | 'failed' | 'stalled'
   /** Shell steps: the real exit code. ai-step/decider: null (the one-shot
    *  executor result does not expose an exit code). */
   exitCode: number | null
   durationMs: number
   /** Decider steps only — the verdict the run actually routed by. */
   decision?: 'continue' | 'stop'
+  /** `stalled`: `idle_timeout`. `failed`: `provider_limit` when the provider
+   *  answered with a usage/rate-limit notice (the run stops at once). */
+  reason?: 'idle_timeout' | 'provider_limit'
+  /** `stalled` only — the idle budget that elapsed. */
+  idleMs?: number
 }
 
 /** `loop_graph` — emitted ONCE at run start (after the run-header log lines,
@@ -735,7 +769,10 @@ export class LoopRunManager {
     private readonly db: DbInstance,
     private readonly broadcast: (msg: WsMessage) => void,
     private readonly executors: LoopExecutors,
-    private readonly now: () => number = () => Date.now()
+    private readonly now: () => number = () => Date.now(),
+    /** `idleTimeoutMs`: override the env-resolved loop-step idle watchdog
+     *  (tests). Undefined ⇒ resolveLoopStepIdleTimeoutMs() per run. */
+    private readonly options: { idleTimeoutMs?: number } = {},
   ) {}
 
   /** WebSocket delivery is advisory. A disconnected/misbehaving listener must
@@ -906,6 +943,10 @@ export class LoopRunManager {
     const aiStepTimeoutMs = req.graph.config.aiStepTimeoutMinutes != null
       ? req.graph.config.aiStepTimeoutMinutes * 60_000
       : undefined
+    // Inactivity bound for every AI step (loop-step-idle): an UNTIMED step is
+    // still bounded by silence, so a wedged provider never leaves the run
+    // `running` forever. 0 ⇒ disabled.
+    const idleTimeoutMs = this.options.idleTimeoutMs ?? resolveLoopStepIdleTimeoutMs()
     // Optional cost cap (USD). Like maxIterations/timeout, it's a BETWEEN-STEPS
     // guard: per-step cost is only known when that step's process exits, so the
     // loop is stopped before the NEXT step once the accumulated total crosses the
@@ -996,7 +1037,7 @@ export class LoopRunManager {
       title: string,
       nodeId: string,
       iteration: number,
-      detail?: Pick<LoopStepEventPayload, 'template' | 'command'>,
+      detail?: Pick<LoopStepEventPayload, 'template' | 'command' | 'attempt'>,
     ): void => {
       stepNum += 1
       const startedAtMs = this.now()
@@ -1011,7 +1052,14 @@ export class LoopRunManager {
     // SAME allocator synchronously as it streams, so this event's seq is always
     // greater. durationMs falls back to the step's wall-clock when the executor
     // reported none.
-    const emitStepEnd = (input: { status: 'ok' | 'failed'; exitCode?: number | null; durationMs?: number; decision?: 'continue' | 'stop' }): void => {
+    const emitStepEnd = (input: {
+      status: LoopStepEndEventPayload['status']
+      exitCode?: number | null
+      durationMs?: number
+      decision?: 'continue' | 'stop'
+      reason?: LoopStepEndEventPayload['reason']
+      idleMs?: number
+    }): void => {
       if (!openStep) return
       const payload: LoopStepEndEventPayload = {
         index: openStep.index,
@@ -1020,6 +1068,8 @@ export class LoopRunManager {
         exitCode: input.exitCode ?? null,
         durationMs: input.durationMs ?? Math.max(0, this.now() - openStep.startMs),
         ...(input.decision ? { decision: input.decision } : {}),
+        ...(input.reason ? { reason: input.reason } : {}),
+        ...(input.idleMs != null ? { idleMs: input.idleMs } : {}),
       }
       openStep = null
       emitRunEvent('loop_step_end', payload)
@@ -1092,6 +1142,8 @@ export class LoopRunManager {
     const start = findStartNode(req.graph)
 
     let outcome: LoopRunOutcome = 'failed'
+    let stallReason: LoopStallReason | undefined
+    let providerLimitHit: ProviderLimit | undefined
     let iteration = 0
     let totalCost = 0
     let totalTokens = 0
@@ -1412,10 +1464,12 @@ export class LoopRunManager {
             // were noise once the step explorer landed; the log now opens on real
             // output). `template` is omitted when rendering changed nothing (a
             // plain free-text prompt would just duplicate `command`).
-            emitStep('ai-step', `🤖 ${nodeLabel || 'AI Step'} (${nodeProvider}/${nodeModel}${nodeEffort ? `, effort: ${nodeEffort}` : ''})`, node.id, iteration + 1, {
+            const stepTitle = `🤖 ${nodeLabel || 'AI Step'} (${nodeProvider}/${nodeModel}${nodeEffort ? `, effort: ${nodeEffort}` : ''})`
+            const stepDetail: Pick<LoopStepEventPayload, 'template' | 'command'> = {
               ...(rawTemplate && rawTemplate !== base ? { template: capText(rawTemplate, STEP_TEMPLATE_CAP) } : {}),
               ...(base ? { command: capText(base, STEP_COMMAND_CAP) } : {}),
-            })
+            }
+            emitStep('ai-step', stepTitle, node.id, iteration + 1, stepDetail)
             // BUG-32: capture the REAL start instant BEFORE the await — the row is
             // bucketed/ordered by started_at, which must be the turn-start, not the
             // finish time (this.now() evaluated after the await would be the finish).
@@ -1437,6 +1491,7 @@ export class LoopRunManager {
                 repoDir: req.repoDir,
                 sessionId,
                 aiStepTimeoutMs,
+                idleTimeoutMs,
               }) ?? null
               return interactivePlan
                 ? this._runInteractiveAiStep({
@@ -1448,11 +1503,39 @@ export class LoopRunManager {
                     nextEventSeq: takeSeq,
                     recoveryStepKey: aiRecoveryKey,
                   })
-                : this.executors.runAiStep({ prompt, sessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs })
+                : this.executors.runAiStep({ prompt, sessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs, idleTimeoutMs })
             }
             let res = await runAttempt(aiSessionId)
             if (this._disposed) return neverAfterDispose()
             this._activeChild.delete(runId)
+            // Idle stall (loop-step-idle): the provider produced no stream
+            // activity for the idle budget and the watchdog tore the step down.
+            // Close this attempt as `stalled`, then retry the SAME step ONCE by
+            // resuming its session (the worktree + transcript carry the partial
+            // work). A second stall fails the step and settles the run `stalled`
+            // instead of leaving it `running` forever. A user cancel is not a
+            // stall — the loop head settles it 'stopped' below.
+            if (res.stalled && !this._cancelled.has(runId)) {
+              const stalledSession = res.sessionId ?? aiSessionId
+              const idleMin = Math.max(1, Math.round(idleTimeoutMs / 60_000))
+              emitStepEnd({ status: 'stalled', reason: 'idle_timeout', idleMs: idleTimeoutMs, durationMs: res.durationMs })
+              logLine(`↻ Step stalled — no provider output for ${idleMin} min. Retrying this step once${stalledSession ? ` by resuming session ${stalledSession}` : ''}.`, 'stderr')
+              emitStep('ai-step', stepTitle, node.id, iteration + 1, { ...stepDetail, attempt: 2 })
+              res = await runAttempt(stalledSession)
+              if (this._disposed) return neverAfterDispose()
+              this._activeChild.delete(runId)
+              if (res.stalled && !this._cancelled.has(runId)) {
+                emitStepEnd({ status: 'stalled', reason: 'idle_timeout', idleMs: idleTimeoutMs, durationMs: res.durationMs })
+                logLine(`■ Step stalled twice — no provider output for ${idleMin} min on the resumed attempt either; stopping the run.`, 'stderr')
+                history.push(`AI Step: ${truncate(res.text)}`)
+                record(`loop:${runId}`, { ...res, failed: true }, aiStepStart, aiRecoveryKey)
+                this._activeStepRecovery.delete(runId)
+                stallReason = 'idle_timeout'
+                outcome = 'stalled'
+                settled = true
+                break
+              }
+            }
             // Resume miss (loop run 5c958db2): a step that `--resume`d the
             // previous step's session and settled with ZERO work — no model
             // call, no `Unknown command:` text — was answered by the CLI's
@@ -1478,6 +1561,36 @@ export class LoopRunManager {
             // (aiStepZeroWork).
             const zeroWork = aiStepZeroWork(res)
             const oneShotZeroWork = res.zeroWork === undefined && zeroWork
+            // Provider usage/rate limit (run 52124009): the CLI answers with the
+            // limit notice as the reply. Iterating on it burns cycles and hides
+            // the real cause — stop the run at once with the provider's own
+            // words and the reset hint, and tell every surface.
+            const providerLimit = !this._cancelled.has(runId)
+              ? (classifyProviderLimit(res.errorText) ?? classifyProviderLimit(res.text))
+              : null
+            if (providerLimit) {
+              const described = describeProviderLimit(providerLimit)
+              emitStepEnd({ status: 'failed', reason: 'provider_limit', durationMs: res.durationMs })
+              logLine(`■ Provider limit reached (${req.provider}): ${described}. Stopping the loop now — relaunch or Recover & retry after the reset.`, 'stderr')
+              history.push(`AI Step: ${truncate(res.text)}`)
+              record(`loop:${runId}`, { ...res, failed: true }, aiStepStart, aiRecoveryKey)
+              this._activeStepRecovery.delete(runId)
+              this.broadcast({
+                type: 'loop.provider_limit',
+                projectId: req.projectId,
+                runId,
+                provider: req.provider,
+                kind: providerLimit.kind,
+                message: providerLimit.message,
+                resetsAt: providerLimit.resetsAt,
+                timestamp: new Date().toISOString(),
+              })
+              stallReason = 'provider_limit'
+              providerLimitHit = providerLimit
+              outcome = 'stalled'
+              settled = true
+              break
+            }
             const blockedReason = aiStepBlockedReason(res.text)
             const stepFailed = res.failed === true || zeroWork || blockedReason !== null
             const stepErrorText = res.errorText ?? (zeroWork
@@ -1538,7 +1651,7 @@ export class LoopRunManager {
             if (this._cancelled.has(runId)) {
               // A user cancel tears the step down with no output — that is not
               // a provider failure; the loop head settles the run 'stopped'.
-            } else if (stepFailed && (zeroWork || !res.text.trim())) {
+            } else if (stepFailed && (zeroWork || res.resultIsError || !res.text.trim())) {
               consecutiveAiFailures += 1
               if (consecutiveAiFailures >= AI_FAILFAST_THRESHOLD) {
                 logLine(`Loop aborted: provider appears down — ${consecutiveAiFailures} AI steps failed with no output and no successful AI call in between${stepErrorText ? ` — ${stepErrorText}` : ''}`, 'stderr')
@@ -1702,6 +1815,7 @@ export class LoopRunManager {
                   consecutiveNoProgress += 1
                   if (consecutiveNoProgress >= NO_PROGRESS_LIMIT) {
                     logLine(`\n■ Loop stalled — ${consecutiveNoProgress + 1} iterations changed nothing in the working tree; stopping instead of cycling.`, 'stderr')
+                    stallReason = 'no_progress'
                     outcome = 'stalled'
                     settled = true
                     break
@@ -1897,6 +2011,8 @@ export class LoopRunManager {
       outcome,
       iterations: iteration,
       totalCostUsd: usageTelemetryAvailable ? totalCost : null,
+      ...(outcome === 'stalled' && stallReason ? { stallReason } : {}),
+      ...(providerLimitHit ? { providerLimit: providerLimitHit } : {}),
     }
   }
 
@@ -1937,6 +2053,9 @@ export class LoopRunManager {
     return new Promise<AiStepResult>((resolve) => {
       let timer: ReturnType<typeof setTimeout> | null = null
       let timedOut = false
+      // Set by the session's wedge detector BEFORE it aborts: tells a stall
+      // (no raw output for the idle budget) apart from any other 'crashed'.
+      let stalled = false
       const session = new InteractiveJobSession({
         jobId: input.runId,
         projectId: input.projectId,
@@ -1944,8 +2063,13 @@ export class LoopRunManager {
         adapter: input.plan.adapter,
         broadcast: this.broadcast,
         settleMode: 'auto',
-        // The step timeout below is the sole watchdog — the one-shot loop path
-        // has no zombie detector either (byte-parity), so none is armed here.
+        // Inactivity bound (loop-step-idle): the session's zombie timer IS the
+        // step's idle watchdog — reset on any raw child output, silence for the
+        // whole budget folds the in-flight turn and settles 'crashed' with the
+        // `stalled` flag set so the engine retries the step once by resume.
+        // Absent (0) ⇒ the step timeout below is the only watchdog.
+        zombieTimeoutMs: input.plan.idleTimeoutMs ?? 0,
+        onZombieTimeout: () => { stalled = true },
         nextEventSeq: input.nextEventSeq,
         persistTurnUsage: (usage, completedEventSeq, checkpoint) => {
           const checkpointTurn = this.db.transaction(() => {
@@ -1991,7 +2115,7 @@ export class LoopRunManager {
           // command:` frame) is a FAILED step — the command never ran. Judged
           // by the session itself over the accumulated totals (whole-session,
           // so a multi-turn step ending on one synthetic frame is unaffected).
-          const failed = info.reason === 'crashed' || info.zeroWork
+          const failed = info.reason === 'crashed' || info.zeroWork || info.resultIsError
           resolve({
             // The last turn's `result` payload — the same terminal text the
             // one-shot path captures (feeds history/changeId/fail-fast).
@@ -2016,9 +2140,13 @@ export class LoopRunManager {
             zeroWork: info.zeroWork,
             errorText: failed
               ? (info.reason === 'crashed'
-                  ? (timedOut ? AI_STEP_TIMEOUT_ERROR : 'interactive step session crashed')
-                  : `zero work performed — the command never ran${info.resultText ? `: ${info.resultText}` : ''}`)
+                  ? (stalled ? AI_STEP_STALLED_ERROR : timedOut ? AI_STEP_TIMEOUT_ERROR : 'interactive step session crashed')
+                  : info.zeroWork
+                    ? `zero work performed — the command never ran${info.resultText ? `: ${info.resultText}` : ''}`
+                    : `provider returned an error result${info.resultText ? ` — ${info.resultText}` : ''}`)
               : undefined,
+            ...(stalled && info.reason === 'crashed' ? { stalled: true } : {}),
+            ...(info.resultIsError ? { resultIsError: true } : {}),
           })
         },
       })

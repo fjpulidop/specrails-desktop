@@ -140,12 +140,12 @@
       "connecting": "正在连接代理…",
       "starting": "正在启动…"
     },
-  "pipelinePartial": "≥ 表示部分 — {{count}} 个阶段尚无成本记录",
-  "pipelinePartialTooltip": "部分阶段在报告成本前已结束，因此该总额为下限。",
-  "pipelineCostUnavailable": "所有阶段的成本遥测数据均不可用。",
-  "pipelineUsageUnavailable": "所有阶段的 token 遥测数据均不可用。",
-  "pipelineUsagePartial": "≥ 显示值 — {{count}} 个阶段无 token 遥测数据",
-  "pipelineUsageTooltip": "提供方可能在不提供 token 遥测数据的情况下完成阶段；仅计入已知用量。"
+    "pipelinePartial": "≥ 表示部分 — {{count}} 个阶段尚无成本记录",
+    "pipelinePartialTooltip": "部分阶段在报告成本前已结束，因此该总额为下限。",
+    "pipelineCostUnavailable": "所有阶段的成本遥测数据均不可用。",
+    "pipelineUsageUnavailable": "所有阶段的 token 遥测数据均不可用。",
+    "pipelineUsagePartial": "≥ 显示值 — {{count}} 个阶段无 token 遥测数据",
+    "pipelineUsageTooltip": "提供方可能在不提供 token 遥测数据的情况下完成阶段；仅计入已知用量。"
   },
   "ticketHeader": {
     "showMore": "+ 还有 {{count}} 个",
@@ -270,7 +270,12 @@
     "copyCommand": "复制",
     "interrupted": "已中断",
     "waiting": "等待下一个步骤…",
-    "stepMapAria": "循环步骤图"
+    "stepMapAria": "循环步骤图",
+    "stalled": "已停滞",
+    "stalledIdle_one": "{{count}} 分钟内无提供方输出，应用已停止此次尝试",
+    "stalledIdle_other": "{{count}} 分钟内无提供方输出，应用已停止此次尝试",
+    "providerLimit": "提供商限额",
+    "providerLimitHint": "提供商返回了用量限额提示，应用已停止运行而不是继续循环。"
   },
   "logViewer": {
     "loading": "正在加载日志…",

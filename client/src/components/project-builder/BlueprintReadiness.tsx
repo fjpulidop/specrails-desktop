@@ -46,12 +46,14 @@ const STEP_ICON: Record<ReadinessStep['state'], typeof Check> = {
   done: Check,
   pending: CircleDashed,
   blocked: AlertTriangle,
+  writing: Loader2,
 }
 
 const STEP_TONE: Record<ReadinessStep['state'], string> = {
   done: 'text-accent-success',
   pending: 'text-muted-foreground/50',
   blocked: 'text-accent-warning',
+  writing: 'text-accent-info animate-spin',
 }
 
 export function BlueprintReadiness({
@@ -68,6 +70,7 @@ export function BlueprintReadiness({
   const [issuesOpen, setIssuesOpen] = useState(false)
   const repairing = snapshot.status === 'repairing'
   const rejected = snapshot.status === 'rejected'
+  const halted = snapshot.status === 'accepted' && snapshot.generationHalted === true && !busy
   const specsStep = readiness.steps.find((s) => s.key === 'specs')
   const claimsComplete = specsStep?.state === 'done'
   const canAskFix = Boolean(onRepair) && claimsComplete && readiness.issues.length > 0
@@ -87,7 +90,7 @@ export function BlueprintReadiness({
               data-state={step.state}
             >
               <Icon className={cn('mt-px h-3.5 w-3.5 shrink-0', STEP_TONE[step.state])} aria-hidden />
-              <span className={cn('font-medium', step.state === 'pending' && 'text-muted-foreground')}>
+              <span className={cn('font-medium', step.state === 'pending' && 'text-muted-foreground', step.state === 'writing' && 'text-accent-info')}>
                 {t(`readiness.steps.${step.key}`)}
               </span>
               <span className="ml-auto max-w-[60%] truncate text-right text-muted-foreground" title={t(`readiness.details.${step.key}.${step.state}`, step.params)}>
@@ -159,7 +162,40 @@ export function BlueprintReadiness({
             )}
           </motion.div>
         )}
-        {snapshot.status === 'accepted' && snapshot.repaired && (
+        {halted && (
+          <motion.div
+            key="halted"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="space-y-1.5 rounded-md border border-accent-warning/35 bg-accent-warning/10 p-2.5"
+            data-testid="snapshot-halted"
+          >
+            <div className="flex items-start gap-2 text-[11px] leading-4 text-accent-warning">
+              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{t('snapshot.halted.title')}</p>
+                <p className="text-accent-warning/90">
+                  {t('snapshot.halted.detail', { written: specsStep?.params?.written ?? 0, total: specsStep?.params?.count ?? 0 })}
+                </p>
+              </div>
+            </div>
+            {onRepair && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={busy}
+                onClick={onRepair}
+                data-testid="snapshot-resume"
+              >
+                <Sparkles className="mr-1.5 h-3 w-3" aria-hidden />
+                {t('snapshot.halted.resume')}
+              </Button>
+            )}
+          </motion.div>
+        )}
+        {snapshot.status === 'accepted' && snapshot.repaired && !halted && (
           <motion.p
             key="repaired"
             initial={{ opacity: 0 }}
@@ -233,7 +269,7 @@ export function BlueprintReadiness({
             <Rocket className="mr-1.5 h-3.5 w-3.5" aria-hidden />
             {primaryLabel}
           </Button>
-          {!readiness.ready && firstBlocker && !repairing && !rejected && (
+          {!readiness.ready && firstBlocker && !repairing && !rejected && !halted && (
             <p className="mt-1.5 text-center text-[10px] text-muted-foreground" data-testid="readiness-hint">
               {t(`readiness.hints.${firstBlocker.key}.${firstBlocker.state}`, firstBlocker.params)}
             </p>

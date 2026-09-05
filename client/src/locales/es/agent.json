@@ -408,7 +408,8 @@
       "noChangesDoneBody": "La implementación confirmó que no hacen falta cambios de código. Las specs pasarán a Hecho y se limpiará el worktree sin cambios.",
       "refineTitle": "¿Refinar estas specs?",
       "refineBody": "Se cerrará el resultado sin cambios y las specs volverán al backlog para que puedas refinarlas. Los registros de ejecución seguirán disponibles."
-    }
+    },
+    "discardStackedNote": "Los rails posteriores de este hito se construyeron sobre esta entrega. Descartarla pausa la cadena del hito; los rails posteriores conservan su trabajo."
   },
   "specDraft": {
     "heading": "Borrador de spec",

@@ -137,7 +137,13 @@
     "jobStuck": "L'esecuzione sembra bloccata",
     "jobStuckBody_one": "Nessuna attività da {{count}} minuto — aprila per controllare",
     "jobStuckBody_other": "Nessuna attività da {{count}} minuti — aprila per controllare",
-    "unknownCommand": "Comando sconosciuto"
+    "unknownCommand": "Comando sconosciuto",
+    "jobStuckStop": "Ferma esecuzione",
+    "jobStuckStopped": "Esecuzione fermata",
+    "jobStuckStopFailed": "Impossibile fermare l'esecuzione",
+    "providerLimit": "Limite d'uso del provider raggiunto",
+    "providerLimitBody": "{{provider}} ha rifiutato la richiesta: limite d'uso raggiunto — si azzera {{resetsAt}}. La run si è fermata; rilanciala o usa Recupera e riprova dopo l'azzeramento.",
+    "providerLimitBodyNoReset": "{{provider}} ha rifiutato la richiesta: limite d'uso raggiunto. La run si è fermata; rilanciala dopo l'azzeramento."
   },
   "templates": {
     "emptyState": {

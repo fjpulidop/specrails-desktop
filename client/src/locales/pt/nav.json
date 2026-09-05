@@ -31,11 +31,13 @@
     "docs": "Docs",
     "analytics": "Análises",
     "settings": "Definições",
-    "plugins": "Plugins"
+    "plugins": "Plugins",
+    "review": "Revisão"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops está aberto como modal de Mission.",
-    "pluginsDescription": "Plugins está aberto como modal de Mission."
+    "pluginsDescription": "Plugins está aberto como modal de Mission.",
+    "reviewDescription": "O pacote de revisão está aberto como modal de missão."
   },
   "rightSidebar": {
     "projectTitle": "Projeto",

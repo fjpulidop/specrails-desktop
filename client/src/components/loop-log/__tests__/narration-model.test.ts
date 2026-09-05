@@ -583,3 +583,39 @@ describe('buildNarration — file activity is folded honestly', () => {
     expect(JSON.stringify(model.milestones)).not.toContain('mkdir')
   })
 })
+
+describe('buildNarration — provider limit', () => {
+  it('names a provider usage limit structurally, tone bad, no guess about the cause', () => {
+    const model = buildNarration({
+      events: [step(1, 'Implement'), stepEnd(1, { status: 'failed', reason: 'provider_limit' })],
+      settled: true,
+    })
+    const end = model.milestones.find((m) => m.kind === 'step-end')!
+    expect(end.code).toBe('step.providerLimit')
+    expect(end.tone).toBe('bad')
+  })
+})
+
+describe('buildNarration — idle stalls (loop-step-idle)', () => {
+  it('states a stalled step structurally with the idle minutes, tone bad', () => {
+    const model = buildNarration({
+      events: [step(1, 'Implement'), stepEnd(1, { status: 'stalled', reason: 'idle_timeout', idleMs: 1_800_000 })],
+      settled: false,
+    })
+    const end = model.milestones.find((m) => m.kind === 'step-end')!
+    expect(end.code).toBe('step.stalled')
+    expect(end.tone).toBe('bad')
+    expect(end.values.idleMinutes).toBe(30)
+  })
+
+  it('narrates the automatic resume attempt distinctly from an iteration retry', () => {
+    const model = buildNarration({ events: [step(2, 'Implement', { attempt: 2 })], settled: false })
+    expect(model.milestones[0].code).toBe('step.startResume')
+    expect(model.milestones[0].values.attempt).toBe(2)
+  })
+
+  it('rounds a sub-minute idle budget up to 1, never 0', () => {
+    const model = buildNarration({ events: [step(1, 'X'), stepEnd(1, { status: 'stalled', idleMs: 5_000 })], settled: true })
+    expect(model.milestones.find((m) => m.kind === 'step-end')!.values.idleMinutes).toBe(1)
+  })
+})

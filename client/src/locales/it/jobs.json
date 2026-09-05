@@ -144,7 +144,7 @@
     "pipelinePartialTooltip": "Alcune fasi si sono interrotte prima di riportare il costo, quindi questo totale è un limite inferiore.",
     "pipelineCostUnavailable": "La telemetria dei costi non è disponibile per nessuna fase.",
     "pipelineUsageUnavailable": "La telemetria dei token non è disponibile per nessuna fase.",
-  "pipelineUsagePartial": "≥ mostrato — fasi senza telemetria dei token: {{count}}",
+    "pipelineUsagePartial": "≥ mostrato — fasi senza telemetria dei token: {{count}}",
     "pipelineUsageTooltip": "I provider possono completare le fasi senza esporre la telemetria dei token; è incluso solo l'utilizzo noto."
   },
   "ticketHeader": {
@@ -270,7 +270,12 @@
     "copyCommand": "Copia",
     "interrupted": "Interrotto",
     "waiting": "In attesa del prossimo passo...",
-    "stepMapAria": "Mappa dei passi del loop"
+    "stepMapAria": "Mappa dei passi del loop",
+    "stalled": "Bloccato",
+    "stalledIdle_one": "Nessun output dal provider per {{count}} minuto — l'app ha fermato questo tentativo",
+    "stalledIdle_other": "Nessun output dal provider per {{count}} minuti — l'app ha fermato questo tentativo",
+    "providerLimit": "Limite del provider",
+    "providerLimitHint": "Il provider ha risposto con un avviso di limite d'uso, quindi l'app ha fermato la run invece di continuare a ciclare."
   },
   "logViewer": {
     "loading": "Caricamento dei log...",

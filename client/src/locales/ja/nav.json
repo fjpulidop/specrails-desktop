@@ -31,11 +31,13 @@
     "docs": "ドキュメント",
     "analytics": "分析",
     "settings": "設定",
-    "plugins": "プラグイン"
+    "plugins": "プラグイン",
+    "review": "レビュー"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops は Mission のモーダルとして開いています。",
-    "pluginsDescription": "Plugins は Mission のモーダルとして開いています。"
+    "pluginsDescription": "Plugins は Mission のモーダルとして開いています。",
+    "reviewDescription": "レビューパケットはミッションのモーダルとして開いています。"
   },
   "rightSidebar": {
     "projectTitle": "プロジェクト",
