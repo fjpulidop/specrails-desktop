@@ -142,28 +142,28 @@ jobs:
         working-directory: src-tauri
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
-        run: .\target\debug\examples\native-browser-smoke.exe
+        run: pwsh ..\scripts\run-native-smoke.ps1 -Exe .\target\debug\examples\native-browser-smoke.exe
       - name: Native WebView2 authentication popup smoke
         if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         timeout-minutes: 5
         working-directory: src-tauri
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
-        run: .\target\debug\examples\native-browser-popup-smoke.exe
+        run: pwsh ..\scripts\run-native-smoke.ps1 -Exe .\target\debug\examples\native-browser-popup-smoke.exe
       - name: Native independent mission window and handoff smoke
         if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         timeout-minutes: 5
         working-directory: src-tauri
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
-        run: .\target\debug\examples\native-mission-window-smoke.exe
+        run: pwsh ..\scripts\run-native-smoke.ps1 -Exe .\target\debug\examples\native-mission-window-smoke.exe
       - name: Native WebView2 multiwindow session and parking smoke
         if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         timeout-minutes: 5
         working-directory: src-tauri
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
-        run: .\target\debug\examples\native-browser-multiwindow-smoke.exe
+        run: pwsh ..\scripts\run-native-smoke.ps1 -Exe .\target\debug\examples\native-browser-multiwindow-smoke.exe
       # Native platform checks report first; retain the complete client suite.
       - name: Client regressions on Windows
         if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
