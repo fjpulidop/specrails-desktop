@@ -208,7 +208,13 @@ export class FrameworkManager {
         if (fs.lstatSync(current).isSymbolicLink()) {
           fs.symlinkSync(fs.realpathSync(current), backup, process.platform === 'win32' ? 'junction' : 'dir')
         } else {
-          fs.cpSync(current, backup, { recursive: true, dereference: false, verbatimSymlinks: true })
+          fs.cpSync(current, backup, {
+            recursive: true, dereference: false, verbatimSymlinks: true,
+            // Node 22's native recursive-copy fast path mishandles Unicode on
+            // Windows (nodejs/node#61878). The filter selects JS traversal and
+            // non-forced clone mode uses libuv for any overwritten file too.
+            filter: () => true, mode: fs.constants.COPYFILE_FICLONE,
+          })
         }
       } catch (error) {
         return { ok: false, detail: `Could not preserve the active framework before updating: ${error instanceof Error ? error.message : String(error)}` }

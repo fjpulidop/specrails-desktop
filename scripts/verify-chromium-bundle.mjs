@@ -181,8 +181,10 @@ export async function verifyChromiumBundle(runtimes, options = {}) {
     } else {
       // Copy without dereferencing framework links. Never launch or modify the
       // developer's Playwright cache or an installed application's resource tree.
+      // Avoid Node native traversal/overwrite bugs on Windows Unicode paths.
+      // FICLONE falls back to a normal copy when cloning is unavailable.
       if (process.platform === 'darwin') await runCommand('/usr/bin/ditto', [root, extracted])
-      else fs.cpSync(root, extracted, { recursive: true, dereference: false, verbatimSymlinks: true })
+      else fs.cpSync(root, extracted, { filter: () => true, mode: fs.constants.COPYFILE_FICLONE, recursive: true, dereference: false, verbatimSymlinks: true })
     }
     validateExtractedTree(extracted)
     const browser = await discoverBrowser(extracted, { platform, run })

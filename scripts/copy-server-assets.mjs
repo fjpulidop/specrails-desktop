@@ -18,7 +18,9 @@ export function copyServerAssets(root) {
     const destination = path.join(root, 'server', 'dist', entry)
     if (!fs.existsSync(source)) throw new Error(`Required server resource missing: ${entry}`)
     fs.mkdirSync(path.dirname(destination), { recursive: true })
-    fs.cpSync(source, destination, { recursive: true })
+    // Avoid Node native traversal/overwrite bugs on Windows Unicode paths.
+    // FICLONE falls back to a normal copy when cloning is unavailable.
+    fs.cpSync(source, destination, { filter: () => true, mode: fs.constants.COPYFILE_FICLONE, recursive: true })
   }
 }
 

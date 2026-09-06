@@ -45,4 +45,13 @@ Release and recovery procedures are documented in [Desktop CI/CD](../../../docs/
 
 ## Native popup smoke follow-up
 
-The hosted macOS popup test exhausted one five-second JavaScript deadline while synchronously constructing nine native windows. The fixture now fills eight concurrent slots one at a time, waiting for each native window, and then attempts the ninth. It retains the original per-operation deadline and explicitly requires a new denial event, checks slot release/retry and verifies owner isolation. The real macOS native smoke passed all OAuth-style opener/cookie/postMessage, IPC denial, close, limit and teardown scenarios after this change; no product popup limit or global timeout was relaxed.
+Hosted macOS timed out while evaluating synchronous popup creation immediately after a self-closing popup, including a single-slot opening in one run. The fixture now schedules each opening after evaluation returns, fills eight concurrent slots one at a time, waits for both native-window and JavaScript acknowledgements, and then attempts the ninth. It retains the original per-operation deadline and explicitly requires a new denial event, checks slot release/retry and verifies owner isolation. The real macOS native smoke passed all OAuth-style opener/cookie/postMessage, IPC denial, close, limit and teardown scenarios after this change; no product popup limit or global timeout was relaxed.
+
+
+## Windows process and Unicode follow-up
+
+The orphan-process fixture previously spawned its server through Node without `detached`. On Windows, libuv puts that immediate child in an additional `KILL_ON_JOB_CLOSE` job, so exiting the wrapper killed the server before Specrails could exercise its own job ownership. The integration and installed-app fixtures now share a .NET launcher with no extra job or breakaway. Both still require the wrapper and shell to exit, the server to remain alive, and Stop/supervisor shutdown to close the owned descendant. Failed startup now includes bounded captured state/output.
+
+The Windows filesystem worker also exited during a directory copy under a Unicode profile. Node's native `cpSync` directory fast path has a [documented Windows path regression](https://github.com/nodejs/node/issues/61878). Recovery, updates, migration, overlay preparation and packaging copies use the JavaScript traversal path while preserving existing options and actual Unicode fixtures. This does not substitute mocked filesystem behavior for the native Windows checks.
+
+Independent Windows/macOS checks now continue after another check fails, provided their install/build prerequisites succeeded. There is no `continue-on-error`: any failing check still fails its job. This exposes multiple regressions in one run instead of hiding later checks behind the first failure.

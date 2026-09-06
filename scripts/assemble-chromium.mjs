@@ -86,8 +86,10 @@ export function assembleChromium({ release = false, output = path.resolve('src-t
   let signed
   try {
     fs.mkdirSync(path.dirname(staged), { recursive: true })
+    // Avoid Node native traversal/overwrite bugs on Windows Unicode paths.
+    // FICLONE falls back to a normal copy when cloning is unavailable.
     if (platform === 'darwin') runMacTool('/usr/bin/ditto', [source, staged], { timeout: 300_000 })
-    else fs.cpSync(source, staged, { recursive: true, dereference: false, verbatimSymlinks: true })
+    else fs.cpSync(source, staged, { filter: () => true, mode: fs.constants.COPYFILE_FICLONE, recursive: true, dereference: false, verbatimSymlinks: true })
     const links = collectSymlinks(staged)
     if (credentials) {
       const app = topLevelMacApp(staged)

@@ -78,6 +78,8 @@ jobs:
         os: [windows-latest, windows-11-arm]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    # Keep independent checks running after a failure so one run exposes every
+    # regression. No continue-on-error: any failed check still fails the job.
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
@@ -95,12 +97,17 @@ jobs:
       - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: "./src-tauri -> target"
-      - run: npm ci
-      - run: npm ci --prefix client
-      - run: npm run typecheck
+      - id: root-dependencies
+        run: npm ci
+      - id: client-dependencies
+        run: npm ci --prefix client
+      - if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
+        run: npm run typecheck
       - name: Release and packaging helper regressions
+        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
         run: npm run test:scripts
       - name: Native Windows filesystem, execution and shutdown regressions
+        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
         run: >-
           node node_modules/vitest/vitest.mjs run --maxWorkers=2
           server/windows-filesystem.integration.test.ts server/windows-execution.integration.test.ts
@@ -111,39 +118,50 @@ jobs:
           server/loop-executors-shell.test.ts
           server/mobile/mobile-redact.test.ts server/provider-detection.test.ts
       - name: Client regressions on Windows
+        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
         run: npm run test:client -- --maxWorkers=2
-      - run: npm run build
-      - run: npm run check:package
+      - id: production-build
+        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
+        run: npm run build
+      - if: ${{ !cancelled() && steps.production-build.outcome == 'success' }}
+        run: npm run check:package
       - name: Build native host and WebView2 smoke fixtures on this architecture
+        id: native-build
+        if: ${{ !cancelled() && steps.production-build.outcome == 'success' }}
         # Compile native APIs without pretending to assemble an installer here.
         # Release jobs separately build + validate the complete runtime resources.
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
         run: cargo build --locked --manifest-path src-tauri/Cargo.toml --bins --examples --features native-browser-smoke
       - name: Native host regression tests
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         working-directory: src-tauri
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
         run: cargo test --locked --lib --features native-browser-smoke
       - name: Native WebView2 capture and selector smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         timeout-minutes: 5
         working-directory: src-tauri
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
         run: .\target\debug\examples\native-browser-smoke.exe
       - name: Native WebView2 authentication popup smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         timeout-minutes: 5
         working-directory: src-tauri
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
         run: .\target\debug\examples\native-browser-popup-smoke.exe
       - name: Native independent mission window and handoff smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         timeout-minutes: 5
         working-directory: src-tauri
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
         run: .\target\debug\examples\native-mission-window-smoke.exe
       - name: Native WebView2 multiwindow session and parking smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         timeout-minutes: 5
         working-directory: src-tauri
         env:
@@ -174,30 +192,41 @@ jobs:
       - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: "./src-tauri -> target"
-      - run: npm ci
-      - run: npm ci --prefix client
+      - id: root-dependencies
+        run: npm ci
+      - id: client-dependencies
+        run: npm ci --prefix client
       # generate_context! embeds the application asset/ACL configuration. The
       # mission fixture replaces page assets with its own in-memory HTML.
-      - run: npm run build --prefix client
+      - id: client-build
+        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
+        run: npm run build --prefix client
       - name: Build native fixtures without packaged runtime resources
+        id: native-build
+        if: ${{ !cancelled() && steps.client-build.outcome == 'success' }}
         working-directory: src-tauri
         run: cargo build --locked --examples --features native-browser-smoke
       - name: Native host and ownership regression tests
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         working-directory: src-tauri
         run: cargo test --locked --lib --features native-browser-smoke
       - name: Native WebKit capture and selector smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         timeout-minutes: 5
         working-directory: src-tauri
         run: ./target/debug/examples/native-browser-smoke
       - name: Native WebKit authentication popup smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         timeout-minutes: 5
         working-directory: src-tauri
         run: ./target/debug/examples/native-browser-popup-smoke
       - name: Native independent mission window and handoff smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         timeout-minutes: 5
         working-directory: src-tauri
         run: ./target/debug/examples/native-mission-window-smoke
       - name: Native WebKit multiwindow session and parking smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
         timeout-minutes: 5
         working-directory: src-tauri
         run: ./target/debug/examples/native-browser-multiwindow-smoke

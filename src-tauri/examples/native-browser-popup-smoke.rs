@@ -189,20 +189,22 @@ async fn run(app: tauri::AppHandle, port: u16, other: u16) -> Result<(), String>
 
     // Saturate only temporary about:blank windows. Errors intentionally contain
     // no navigation URL, raw engine error or OAuth parameters.
-    // Keep all eight windows open, but give each native construction its own
-    // normal script deadline. Nine synchronous window creations in a single
-    // evaluate call measured the hosted runner's throughput, not the slot limit.
+    // Keep all eight windows open. Schedule construction after evaluate returns:
+    // a WKWebView evaluate completion can otherwise be held up by focus/creation
+    // work for its new about:blank popup after the previous popup self-closes.
+    // Each slot must satisfy both the native and JS checks at normal deadlines.
     evaluate(&pane,"window.many=[];return true;").await?;
     for index in 0..8 {
-        evaluate(&pane, &format!("many.push(window.open('about:blank','limited-{index}'));return true;"))
-            .await.map_err(|error| format!("opening popup slot {}: {error}", index + 1))?;
+        evaluate(&pane, &format!("setTimeout(()=>many.push(window.open('about:blank','limited-{index}')),0);return true;"))
+            .await.map_err(|error| format!("scheduling popup slot {}: {error}", index + 1))?;
         popup_count(&app, &owner, index + 1).await?;
+        eventually(&pane, &format!("many.length==={}", index + 1)).await?;
     }
     let prior_errors = events.lock().unwrap().iter().filter(|event|event["kind"]=="popup-error").count();
-    evaluate(&pane,"many.push(window.open('about:blank','limited-8'));return true;").await?;
+    evaluate(&pane,"setTimeout(()=>many.push(window.open('about:blank','limited-8')),0);return true;").await?;
     // WebView2 resolves NewWindowRequested asynchronously: a denied request can
     // initially return a WindowProxy which becomes closed after the deferral.
-    eventually(&pane,"many.filter(window=>window && !window.closed).length===8").await?;
+    eventually(&pane,"many.length===9 && many.filter(window=>window && !window.closed).length===8").await?;
     popup_count(&app,&owner,8).await?;
     let error_count = events.lock().unwrap().iter().filter(|event|event["kind"]=="popup-error").count();
     assert!(error_count>prior_errors,"ninth concurrent popup did not emit a denial event");

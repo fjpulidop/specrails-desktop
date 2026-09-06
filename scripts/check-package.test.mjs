@@ -25,7 +25,7 @@ test('rejects a different version, unsafe paths, and accidentally shipped fixtur
   }
 })
 test('copies runtime resources beside emitted modules and fails if a source resource is missing', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-asset-test-'))
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-asset-José-'))
   try {
     for (const entry of SERVER_ASSETS) {
       const file = /\.(json|cjs)$/.test(entry) ? entry : `${entry}/fixture.txt`
@@ -36,6 +36,14 @@ test('copies runtime resources beside emitted modules and fails if a source reso
     for (const entry of SERVER_ASSETS) {
       const file = /\.(json|cjs)$/.test(entry) ? entry : `${entry}/fixture.txt`
       assert.equal(fs.readFileSync(path.join(root, 'server', 'dist', file), 'utf8'), file)
+      fs.writeFileSync(path.join(root, 'server', file), `updated: ${file}`)
+    }
+    // Rebuild in-place: Node's affected Windows path must also safely replace
+    // existing Unicode-path destinations, not only create new directories.
+    copyServerAssets(root)
+    for (const entry of SERVER_ASSETS) {
+      const file = /\.(json|cjs)$/.test(entry) ? entry : `${entry}/fixture.txt`
+      assert.equal(fs.readFileSync(path.join(root, 'server', 'dist', file), 'utf8'), `updated: ${file}`)
     }
     fs.rmSync(path.join(root, 'server', SERVER_ASSETS[0]), { recursive: true })
     assert.throws(() => copyServerAssets(root), /resource missing/)

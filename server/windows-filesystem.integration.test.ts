@@ -71,8 +71,18 @@ describe('Windows filesystem persistence and recovery (native platform)', () => 
     fs.mkdirSync(previous, { recursive: true })
     fs.writeFileSync(path.join(previous, '.framework-stamp.json'), JSON.stringify({ version: '5.0.0' }))
     fs.writeFileSync(path.join(previous, 'instructions.md'), 'Previous working instructions')
+    const nestedFile = path.join('Guía española', '契約.md')
+    fs.mkdirSync(path.dirname(path.join(previous, nestedFile)), { recursive: true })
+    fs.writeFileSync(path.join(previous, nestedFile), 'Preserved nested Unicode instructions')
     if (layout === 'junction') fs.symlinkSync(previous, current, process.platform === 'win32' ? 'junction' : 'dir')
-    else fs.cpSync(previous, current, { recursive: true })
+    else {
+      // Seed independently of cpSync: the operation under test must perform the
+      // recursive recovery copy, including Unicode parent and child paths.
+      fs.mkdirSync(path.dirname(path.join(current, nestedFile)), { recursive: true })
+      for (const file of ['.framework-stamp.json', 'instructions.md', nestedFile]) {
+        fs.writeFileSync(path.join(current, file), fs.readFileSync(path.join(previous, file)))
+      }
+    }
     const coreRoot = path.join(root, 'Core fixture')
     const cli = path.join(coreRoot, 'dist', 'installer', 'cli.js')
     fs.mkdirSync(path.dirname(cli), { recursive: true })
@@ -90,5 +100,7 @@ process.stderr.write('EPERM simulated publication failure'); process.exit(41);
     expect(readCurrentFrameworkVersion(home)).toBe('5.0.0')
     expect(fs.readFileSync(path.join(current, 'instructions.md'), 'utf8')).toBe('Previous working instructions')
     expect(fs.readFileSync(path.join(previous, 'instructions.md'), 'utf8')).toBe('Previous working instructions')
+    expect(fs.readFileSync(path.join(current, nestedFile), 'utf8')).toBe('Preserved nested Unicode instructions')
+    expect(fs.readFileSync(path.join(previous, nestedFile), 'utf8')).toBe('Preserved nested Unicode instructions')
   })
 })

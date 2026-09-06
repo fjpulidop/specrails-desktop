@@ -124,6 +124,33 @@ describe('buildCleanupManifest', () => {
 })
 
 describe('migrateProject', () => {
+  it('preserves nested Unicode state across a cross-device move before removing its source', async () => {
+    const unicodeHome = path.join(homeDir, 'José User Home')
+    fs.mkdirSync(unicodeHome)
+    process.env.SPECRAILS_REGISTRY_HOME = unicodeHome
+    seedLegacyRepo()
+    const source = path.join(repoDir, '.claude', 'agent-memory')
+    const nested = path.join('Guía española', '契約.md')
+    fs.mkdirSync(path.dirname(path.join(source, nested)), { recursive: true })
+    fs.writeFileSync(path.join(source, nested), 'User-authored memory survives migration')
+    const renameSync = fs.renameSync
+    const rename = vi.spyOn(fs, 'renameSync').mockImplementation((src, dest) => {
+      if (src === source) throw Object.assign(new Error('Cross-device fixture'), { code: 'EXDEV' })
+      return renameSync(src, dest)
+    })
+    try {
+      const result = await migrateProject(project(), {
+        assemble: populateWorkspaceOnAssemble(), providers: ['claude'], removeMcpKeys: async () => {},
+      })
+      expect(result.migrated).toBe(true)
+      expect(fs.readFileSync(path.join(workspacePathFor('my-app'), '.claude', 'agent-memory', nested), 'utf8'))
+        .toBe('User-authored memory survives migration')
+      expect(fs.existsSync(source)).toBe(false)
+    } finally {
+      rename.mockRestore()
+    }
+  })
+
   it('moves state, cleans framework files, preserves user files and carve-outs', async () => {
     seedLegacyRepo()
     const removeMcpKeys = vi.fn(async (repoPath: string, keys: string[]) => {

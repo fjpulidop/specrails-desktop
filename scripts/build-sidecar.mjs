@@ -201,7 +201,9 @@ if (typeof process !== "undefined" && process.pkg !== undefined) {
 
 function copyDirSync(src, dest) {
   fs.rmSync(dest, { recursive: true, force: true })
-  fs.cpSync(src, dest, { recursive: true, dereference: false })
+  // Avoid Node native traversal/overwrite bugs on Windows Unicode paths.
+  // FICLONE falls back to a normal copy when cloning is unavailable.
+  fs.cpSync(src, dest, { filter: () => true, mode: fs.constants.COPYFILE_FICLONE, recursive: true, dereference: false })
 }
 
 /** Recursively delete every directory named `name` under `root`. */

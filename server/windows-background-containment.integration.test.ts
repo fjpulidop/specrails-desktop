@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { createServer } from 'node:net'
 import path from 'node:path'
 import {
   awaitBackgroundProcessesStopped,
   getBackgroundProcess,
+  getBackgroundProcessLogs,
   killOwnedBackgroundProcess,
   startBackgroundProcess,
   type BackgroundProcess,
@@ -55,7 +56,7 @@ async function runningOrphanFixture() {
   const fixture: Fixture = { directory }
   fixtures.push(fixture)
   const serverFile = path.join(directory, 'persistent server.cjs')
-  const wrapperFile = path.join(directory, 'fast wrapper.cjs')
+  const wrapperFile = path.join(directory, 'fast wrapper.ps1')
   const serverReceipt = path.join(directory, 'server ready.json')
   const wrapperReceipt = path.join(directory, 'wrapper identity.json')
   writeFileSync(serverFile, `
@@ -64,30 +65,31 @@ const server = require('node:http').createServer((_request, response) => respons
 server.listen(0, '127.0.0.1', () => fs.writeFileSync(${JSON.stringify(serverReceipt)}, JSON.stringify({ pid: process.pid, parentPid: process.ppid, port: server.address().port })));
 setTimeout(() => process.exit(99), 60000).unref();
 `)
-  writeFileSync(wrapperFile, `
-const child = require('node:child_process').spawn(process.execPath, [${JSON.stringify(serverFile)}], { detached: false, stdio: 'ignore' });
-child.once('spawn', () => {
-  require('node:fs').writeFileSync(${JSON.stringify(wrapperReceipt)}, JSON.stringify({ pid: process.pid, shellPid: process.ppid, serverPid: child.pid }));
-  process.exit(0);
-});
-child.once('error', () => process.exit(7));
-`)
+  copyFileSync(path.resolve('scripts/fixtures/windows-orphan-wrapper.ps1'), wrapperFile)
   const exits: Array<{ process: BackgroundProcess; serverWasAlive: boolean }> = []
-  fixture.app = startBackgroundProcess(`"${process.execPath}" "${wrapperFile}"`, directory, 'containment-chat', 'containment-project', {
+  const powershell = path.join(process.env.SystemRoot!, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+  const command = `"${powershell}" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${wrapperFile}" -NodePath "${process.execPath}" -ServerPath "${serverFile}" -ReceiptPath "${wrapperReceipt}"`
+  fixture.app = startBackgroundProcess(command, directory, 'containment-chat', 'containment-project', {
     onExited(process) { exits.push({ process, serverWasAlive: fixture.serverPid ? alive(fixture.serverPid) : false }) },
   })
-  const wrapper = await until(() => JSON.parse(readFileSync(wrapperReceipt, 'utf8')) as { pid: number; shellPid: number; serverPid: number }, 'Fast wrapper did not execute')
-  fixture.serverPid = wrapper.serverPid
-  const server = await until(() => JSON.parse(readFileSync(serverReceipt, 'utf8')) as { pid: number; parentPid: number; port: number }, 'Fixture server did not become ready')
-  expect(server.pid).toBe(wrapper.serverPid)
-  expect(server.parentPid).toBe(wrapper.pid)
-  await until(() => !alive(wrapper.pid) && !alive(wrapper.shellPid), 'Wrapper and shell should exit before the ownership check')
-  expect(alive(server.pid)).toBe(true)
-  const response = await fetch(`http://127.0.0.1:${server.port}`, { signal: AbortSignal.timeout(2000) })
-  expect(await response.text()).toBe('owned fixture')
-  expect(exits).toEqual([])
-  expect(getBackgroundProcess(fixture.app.pid, fixture.app.processId)?.status).toBe('running')
-  return { fixture, server, exits }
+  try {
+    const wrapper = await until(() => JSON.parse(readFileSync(wrapperReceipt, 'utf8')) as { pid: number; shellPid: number; serverPid: number }, 'Fast wrapper did not execute')
+    fixture.serverPid = wrapper.serverPid
+    const server = await until(() => JSON.parse(readFileSync(serverReceipt, 'utf8')) as { pid: number; parentPid: number; port: number }, 'Fixture server did not become ready')
+    expect(server.pid).toBe(wrapper.serverPid)
+    expect(server.parentPid).toBe(wrapper.pid)
+    await until(() => !alive(wrapper.pid) && !alive(wrapper.shellPid), 'Wrapper and shell should exit before the ownership check')
+    expect(alive(server.pid)).toBe(true)
+    const response = await fetch(`http://127.0.0.1:${server.port}`, { signal: AbortSignal.timeout(2000) })
+    expect(await response.text()).toBe('owned fixture')
+    expect(exits).toEqual([])
+    expect(getBackgroundProcess(fixture.app.pid, fixture.app.processId)?.status).toBe('running')
+    return { fixture, server, exits }
+  } catch (error) {
+    const state = getBackgroundProcess(fixture.app.pid, fixture.app.processId)
+    const logs = getBackgroundProcessLogs(fixture.app.pid, { processId: fixture.app.processId })?.lines.map(line => line.line).join('\n') ?? ''
+    throw new Error(`${error instanceof Error ? error.message : String(error)}\nBackground state: ${JSON.stringify(state)}\nCaptured output:\n${logs}`)
+  }
 }
 
 async function portIsAvailable(port: number): Promise<boolean> {
@@ -99,7 +101,7 @@ async function portIsAvailable(port: number): Promise<boolean> {
 }
 
 describe.skipIf(process.platform !== 'win32')('Windows background Job Object containment (real native processes)', () => {
-  it('stops a non-detached server after its fast wrapper and shell ancestors have already exited', async () => {
+  it('stops an inherited-job server after its fast wrapper and shell ancestors have already exited', async () => {
     const { fixture, server, exits } = await runningOrphanFixture()
 
     expect(killOwnedBackgroundProcess(fixture.app!.pid, fixture.app!)).toBe(true)

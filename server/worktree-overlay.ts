@@ -339,7 +339,9 @@ function linkOrCopyEntry(src: string, dest: string, rel: string, created: string
     // Copy fallback (Windows without symlink rights, exotic filesystems).
     // Dereference so workspace-internal symlinks become real files.
     try {
-      if (srcIsDir) fs.cpSync(src, dest, { recursive: true, dereference: true })
+      // A filter avoids Node 22's native Unicode directory-copy failure on
+      // Windows (nodejs/node#61878); non-forced clone mode also protects overwrites.
+      if (srcIsDir) fs.cpSync(src, dest, { recursive: true, dereference: true, filter: () => true, mode: fs.constants.COPYFILE_FICLONE })
       else fs.copyFileSync(src, dest)
       linked = true
     } catch (err) {

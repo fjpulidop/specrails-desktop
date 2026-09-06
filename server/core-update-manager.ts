@@ -187,7 +187,10 @@ export class CoreUpdateManager {
       const retained = path.join(managedCoreRoot(this.home), requested, 'node_modules', CORE_PACKAGE)
       if (readCoreRuntime(retained, 'managed')?.version === requested) {
         // A project migration retry can finish fully offline.
-        fs.cpSync(path.dirname(path.dirname(retained)), tmp, { recursive: true })
+        // Force JS traversal: Node 22's native directory copy mishandles Unicode
+        // Windows profiles (nodejs/node#61878); non-forced clone mode also keeps
+        // overwritten files on libuv's Unicode-safe copy path.
+        fs.cpSync(path.dirname(path.dirname(retained)), tmp, { recursive: true, filter: () => true, mode: fs.constants.COPYFILE_FICLONE })
       } else {
         this.npmInstallFn(`${CORE_PACKAGE}@${requested}`, tmp)
       }
@@ -208,7 +211,7 @@ export class CoreUpdateManager {
         const staging = fs.mkdtempSync(path.join(store, '.stage-'))
         let retainedBackup: string | null = null
         try {
-          fs.cpSync(tmp, staging, { recursive: true })
+          fs.cpSync(tmp, staging, { recursive: true, filter: () => true, mode: fs.constants.COPYFILE_FICLONE })
           try {
             fs.lstatSync(destination)
             const backup = fs.mkdtempSync(path.join(store, `.previous-${installed}-`))

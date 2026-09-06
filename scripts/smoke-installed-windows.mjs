@@ -7,6 +7,7 @@ import net from 'node:net'
 import { randomUUID } from 'node:crypto'
 import { spawn, execFileSync } from 'node:child_process'
 import { once } from 'node:events'
+import { fileURLToPath } from 'node:url'
 import { WebSocket } from 'ws'
 
 if (process.platform !== 'win32') throw new Error('This smoke must execute on Windows')
@@ -117,19 +118,20 @@ try {
   // A launcher can exit before any process-tree snapshot observes its child.
   // The installed background controller must retain kernel ownership anyway.
   const backgroundHelper = path.join(fixture, 'background helper.cjs')
-  const backgroundWrapper = path.join(fixture, 'fast background wrapper.cjs')
+  const backgroundWrapper = path.join(fixture, 'fast background wrapper.ps1')
   const backgroundReceipt = path.join(fixture, 'background receipt.json')
   const wrapperReceipt = path.join(fixture, 'wrapper receipt.json')
   fs.writeFileSync(backgroundHelper, `require('fs').writeFileSync(${JSON.stringify(backgroundReceipt)}, JSON.stringify({ pid: process.pid })); setTimeout(() => process.exit(99), 60000);`)
-  fs.writeFileSync(backgroundWrapper, `const child = require('child_process').spawn(process.execPath, [${JSON.stringify(backgroundHelper)}], { detached: false, stdio: 'ignore' }); child.once('spawn', () => { require('fs').writeFileSync(${JSON.stringify(wrapperReceipt)}, JSON.stringify({ pid: process.pid, shellPid: process.ppid, childPid: child.pid })); process.exit(0); }); child.once('error', () => process.exit(7));`)
+  fs.copyFileSync(fileURLToPath(new URL('./fixtures/windows-orphan-wrapper.ps1', import.meta.url)), backgroundWrapper)
+  const powershell = path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
   const chatId = 'installed-background-smoke'
   const { process: background } = await api(`/projects/${id}/background-processes`, {
-    method: 'POST', body: JSON.stringify({ command: `"${node}" "${backgroundWrapper}"`, chatId, confirmed: true }),
+    method: 'POST', body: JSON.stringify({ command: `"${powershell}" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${backgroundWrapper}" -NodePath "${node}" -ServerPath "${backgroundHelper}" -ReceiptPath "${wrapperReceipt}"`, chatId, confirmed: true }),
   })
   assert.ok(background.pid)
   assert.ok(background.processId)
   const wrapper = await until(() => fs.existsSync(wrapperReceipt) && JSON.parse(fs.readFileSync(wrapperReceipt, 'utf8')), 'Installed background wrapper did not execute')
-  backgroundHelperPid = wrapper.childPid
+  backgroundHelperPid = wrapper.serverPid
   await until(() => fs.existsSync(backgroundReceipt), 'Background descendant did not become ready')
   await until(() => !running(wrapper.pid) && !running(wrapper.shellPid), 'Background launchers did not exit')
   assert.ok(running(backgroundHelperPid), 'Background child exited before Stop could be tested')
