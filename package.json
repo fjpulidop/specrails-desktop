@@ -65,7 +65,7 @@
     "selfsigned": "^5.5.0",
     "tree-kill": "^1.2.2",
     "werift": "^0.23.0",
-    "ws": "^8.21.0",
+    "ws": "^8.21.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {
