@@ -28,11 +28,11 @@ If the destination already contains another browser, its pane and popups are par
 
 | Check | Native macOS | Windows x64 / ARM64 |
 | --- | --- | --- |
-| Rust ownership, snapshot scope, revisions and close policy | Passed locally; `native-macos` CI gate | `windows-parity` CI gates; native execution pending |
-| `native-mission-window-smoke`: independent windows, Home scope, renderer IPC, duplicate focus, close/ack and timeout recovery | Passed locally | Gate added; execution pending |
-| `native-browser-multiwindow-smoke`: separate owners/popups, transfer/adoption, parked target, rollback, source destruction with a live popup, event routing, destination scale and stale cleanup | Passed locally | Gate added; execution pending |
-| `native-browser-smoke`: native capture, DOM/Shadow DOM selection, zoom and remote IPC denial | Passed locally | Existing gate retained |
-| `native-browser-popup-smoke`: nested/cross-origin opener callbacks, self-close, capacity recovery and owner cleanup | Passed locally | Existing gate retained |
+| Rust ownership, snapshot scope, revisions and close policy | Passed locally; `native-macos` CI gate | `windows-parity` CI gates on windows-latest and windows-11-arm |
+| `native-mission-window-smoke`: independent windows, Home scope, renderer IPC, duplicate focus, close/ack and timeout recovery | Passed locally; `native-macos` CI gate | Passes in `windows-parity` CI (WebView2, both architectures) |
+| `native-browser-multiwindow-smoke`: separate owners/popups, transfer/adoption, parked target, rollback, source destruction with a live popup, event routing, destination scale and stale cleanup | Passed locally; `native-macos` CI gate | Passes in `windows-parity` CI (WebView2, both architectures) |
+| `native-browser-smoke`: native capture, DOM/Shadow DOM selection, zoom and remote IPC denial | Passed locally; `native-macos` CI gate | Passes in `windows-parity` CI (WebView2, both architectures) |
+| `native-browser-popup-smoke`: nested/cross-origin opener callbacks, self-close, capacity recovery and owner cleanup | Passed locally; `native-macos` CI gate | Passes in `windows-parity` CI; popup activation is asserted through the OS foreground window and skipped when another process owns the foreground |
 | React handoff, draft/reference restoration and shared workspace behavior | Shared client regression suites | Shared client suite also runs on Windows |
 
 The native fixtures use local or in-memory pages and isolated browser profiles. They do not start a sidecar, access user databases, authenticate with external tenants or call models. Run them from `src-tauri` after building the client assets:
