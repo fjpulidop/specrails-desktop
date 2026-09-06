@@ -31,6 +31,7 @@ import {
   sweepOrphans,
   isValidSummaryPayload,
   SUMMARY_MAX_LENGTH,
+  CURRENT_PROMPT_VERSION,
   WATCH_DEBOUNCE_MS,
   resolveWatchEngine,
   __resetDesktopSummaryStateForTests,
@@ -156,7 +157,7 @@ describe('FileSummaryManager.enqueue', () => {
       summary: 'old summary',
       language: 'en',
       generatedAt: '2026-05-22T00:00:00.000Z',
-      generatedBy: { model: 'claude-haiku-4-5', promptVersion: 1 },
+      generatedBy: { model: 'claude-haiku-4-5', promptVersion: CURRENT_PROMPT_VERSION },
       triggeredBy: { kind: 'job', id: 'job_old', ticketId: 1 },
     })
     const { deps, generate, broadcasts } = makeDeps(db)
@@ -1029,6 +1030,35 @@ describe('attachWatcher (source watcher)', () => {
     } finally {
       warn.mockRestore()
     }
+  })
+
+  it('degrades a terminated Windows watcher and bounds explicit recovery attempts', () => {
+    const fake = fakeFsWatch()
+    const { deps } = makeDeps(db, { watchEngine: 'native', fsWatch: fake.fsWatch })
+    mgr = new FileSummaryManager(deps)
+    const now = vi.spyOn(Date, 'now').mockReturnValue(100_000)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      mgr.attachWatcher('p1', projectPath)
+      fake.handles[0].emit('error', errno('EPERM', 'watched root removed'))
+      expect(mgr.watcherStatus('p1')).toBe('degraded')
+      expect(fake.handles[0].close).toHaveBeenCalledOnce()
+      for (let i = 0; i < 10; i++) mgr.attachWatcher('p1', projectPath)
+      expect(fake.calls).toBe(1)
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        now.mockReturnValue(100_000 + attempt * 31_000)
+        mgr.attachWatcher('p1', projectPath)
+        expect(mgr.watcherStatus('p1')).toBe('native')
+        fake.handles[attempt].emit('error', errno('EPERM'))
+      }
+      now.mockReturnValue(500_000)
+      mgr.attachWatcher('p1', projectPath)
+      expect(fake.calls).toBe(4)
+      expect(mgr.watcherStatus('p1')).toBe('degraded')
+      mgr.dispose()
+      mgr.attachWatcher('p1', projectPath)
+      expect(fake.calls).toBe(4)
+    } finally { now.mockRestore(); warn.mockRestore() }
   })
 
   it('normalises absolute (chokidar-style) paths, prunes build/dot trees, and debounces bursts to one stale mark', async () => {

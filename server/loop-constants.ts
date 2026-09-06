@@ -14,15 +14,11 @@ import type { DbInstance } from './db'
  *  drag `{{const:GUARDRAILS}}` so the agent cannot quietly cheat its own exit
  *  condition. Read-only (a built-in) on purpose: an editable guardrails block
  *  could be weakened to defeat its own point. */
-/** Every AI step ends the moment the agent replies: the resident session
- *  settles on quiescence and the child is torn down, so a command left running
- *  in the background (claude's `run_in_background`, a trailing `&`) is killed
- *  with it and its output never reaches the agent. Live evidence (loop run
- *  5c958db2): the verify step backgrounded the CI chain, replied "I'll report
- *  the verdict when it lands", and the loop spun on a verdict-less step. Stated
- *  once here; dragged by GUARDRAILS and the verify / fix / freestyle templates. */
+/** The transport supervises background tasks, but pipeline work should be
+ * joined by its parent before replying. Also applies to architect/developer
+ * subagents: starting an Agent is not completion of the implementation step. */
 export const FOREGROUND_RULE =
-  'Run every command in the FOREGROUND and wait for it to finish. Never background a command (no run_in_background, no trailing `&`, no "I will report when it lands"): your reply ends this step, and anything still running is killed with its output lost. If a command is slow, wait for it anyway.'
+  'Run every command and subagent in the FOREGROUND and wait for it to finish. Never background a command or Agent/Task (no run_in_background, no trailing `&`, no "I will report when it lands"). If work is already running in the background, collect its result with a blocking wait (TaskOutput with block=true, or the provider equivalent), then continue the original workflow through implementation and verification. Do not launch duplicate workers or treat delegation, planning, or a waiting message as completion. If a command is slow, wait for it anyway.'
 
 const GUARDRAILS_CONTRACT = [
   'Guardrails — do NOT violate these to satisfy the exit condition:',

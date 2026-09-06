@@ -10,6 +10,11 @@ import {
   type Blueprint,
 } from '../blueprint-draft'
 
+it('retains a milestone spec repository selection when rebuilding the client blueprint snapshot', () => {
+  const draft = coerceBlueprint({ blueprintVersion: 1, m1Specs: [{ title: 'Shared feature', repositoryIds: ['primary-p', 'api'] }] })
+  expect(draft?.m1Specs[0].repositoryIds).toEqual(['primary-p', 'api'])
+})
+
 function snapshot(overrides: Partial<Blueprint> = {}): Blueprint {
   return {
     blueprintVersion: 1,

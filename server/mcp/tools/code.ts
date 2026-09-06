@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
-import { apiCall, projectPath } from './types'
+import { apiCall, projectPath, repositoryPath, requireProject } from './types'
+import { getProjectRepositories } from '../../project-repositories'
 
 /**
  * Read-only Code Explorer surface for a project: the AI-touched file tree,
@@ -40,6 +41,7 @@ export function codeTools(): McpToolSpec[] {
           .enum(['tree', 'find', 'search', 'read_file', 'summary', 'regenerate_summary', 'provenance', 'diff'])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
+        repositoryId: z.string().min(1).optional().describe('Repository membership ID. Required for individual tree/file/summary/provenance/diff actions in multi-repository projects. Omit for find/search to discover across members under one shared budget.'),
         path: z
           .string()
           .optional()
@@ -101,8 +103,19 @@ export function codeTools(): McpToolSpec[] {
           ),
       },
       async handler(ctx, args) {
-        const base = projectPath(ctx, args.projectId as string | undefined)
         const action = args.action as string
+        const projectId = args.projectId as string | undefined
+        const repositoryId = args.repositoryId as string | undefined
+        if (repositoryId === undefined && ['find', 'search'].includes(action) && getProjectRepositories(requireProject(ctx, projectId).project).length > 1) {
+          const query = (args.query ?? args.path ?? args.file) as string | undefined
+          if (!query?.trim()) throw new Error(`Action "${action}" requires a "query".`)
+          const qs = new URLSearchParams({ kind: action, q: query })
+          if (args.limit !== undefined) qs.set('limit', String(args.limit))
+          if (action === 'search' && args.path) qs.set('path', String(args.path))
+          if (args.caseSensitive === true) qs.set('caseSensitive', 'true')
+          return apiCall(ctx, 'GET', `${projectPath(ctx, projectId)}/code/discover?${qs}`)
+        }
+        const base = repositoryPath(ctx, projectId, repositoryId)
 
         const requirePath = (): string => {
           const p = (args.path ?? args.file) as string | undefined
@@ -145,7 +158,7 @@ export function codeTools(): McpToolSpec[] {
               ...result,
               entries: result.entries.map((entry) => {
                 const item = entry as Record<string, unknown>
-                return { path: item.path, kind: item.kind }
+                return { path: item.path, kind: item.kind, ...(item.repositoryId ? { repositoryId: item.repositoryId } : {}) }
               }),
               hint: result.nextCursor
                 ? 'More files are available. Call tree again with this nextCursor; prefer targeted read_file calls.'

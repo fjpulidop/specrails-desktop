@@ -2,6 +2,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'catalog-test-token-no-filesystem-access' }))
 import { z } from 'zod'
 import { initDesktopDb, type DbInstance } from '../../desktop-db'
 import type { ProjectRegistry, ProjectContext } from '../../project-registry'

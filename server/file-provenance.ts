@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import type { DbInstance } from './db'
 import type { WsMessage, FileProvenanceUpdatedMessage } from './types'
+import { provenanceRepositoryFilter, type ProvenanceRepositoryScope } from './project-repository-provenance'
 
 export type DiffStatus = 'A' | 'M' | 'D' | 'R'
 
@@ -16,6 +17,7 @@ export type ProvenanceKind = 'created' | 'modified' | 'deleted'
 
 export interface ProvenanceRow {
   id: number
+  repository_id?: string | null
   file_path: string
   ticket_id: number | null
   job_id: string | null
@@ -355,6 +357,7 @@ export function recordProvenanceForJob(
   diff: DiffEntry[],
   atMs: number = Date.now(),
   patches?: Map<string, StoredPatch>,
+  repositoryId?: string,
 ): ProvenanceRow[] {
   void projectId
   if (diff.length === 0) return []
@@ -377,9 +380,10 @@ export function recordProvenanceForJob(
     }
   }
 
-  const insert = db.prepare(`
-    INSERT INTO file_provenance (file_path, ticket_id, job_id, kind, at)
-    VALUES (?, ?, ?, ?, ?)
+  const insert = db.prepare(repositoryId === undefined ? `
+    INSERT INTO file_provenance (file_path, ticket_id, job_id, kind, at) VALUES (?, ?, ?, ?, ?)
+  ` : `
+    INSERT INTO file_provenance (file_path, ticket_id, job_id, kind, at, repository_id) VALUES (?, ?, ?, ?, ?, ?)
   `)
   let insertPatch: any = null
   try {
@@ -409,9 +413,10 @@ export function recordProvenanceForJob(
   const inserted: ProvenanceRow[] = []
   const tx = db.transaction((rows: Pending[]) => {
     for (const r of rows) {
-      const result = insert.run(r.file_path, ticketId, jobId, r.kind, atMs)
+      const result = insert.run(r.file_path, ticketId, jobId, r.kind, atMs, ...(repositoryId === undefined ? [] : [repositoryId]))
       inserted.push({
         id: Number(result.lastInsertRowid),
+        ...(repositoryId === undefined ? {} : { repository_id: repositoryId }),
         file_path: r.file_path,
         ticket_id: ticketId,
         job_id: jobId,
@@ -444,17 +449,19 @@ export function getProvenanceDiff(
   projectId: string,
   jobId: string,
   filePath: string,
+  repository?: ProvenanceRepositoryScope,
 ): { patch: string; truncated: boolean } | null {
   void projectId
   try {
+    const scope = provenanceRepositoryFilter(db, repository, 'p')
     const row = db.prepare(
       `SELECT d.patch, d.truncated
        FROM file_provenance p
        JOIN file_provenance_diffs d ON d.provenance_id = p.id
-       WHERE p.job_id = ? AND p.file_path = ?
+       WHERE p.job_id = ? AND p.file_path = ? AND ${scope.sql}
        ORDER BY p.at DESC, p.id DESC
        LIMIT 1`,
-    ).get(jobId, filePath) as { patch: string; truncated: number } | undefined
+    ).get(jobId, filePath, ...scope.params) as { patch: string; truncated: number } | undefined
     return row ? { patch: row.patch, truncated: row.truncated === 1 } : null
   } catch {
     return null
@@ -465,24 +472,28 @@ export function listProvenanceByTicket(
   db: DbInstance,
   projectId: string,
   ticketId: number,
+  repository?: ProvenanceRepositoryScope,
 ): ProvenanceRow[] {
   void projectId
+  const scope = provenanceRepositoryFilter(db, repository)
   return db.prepare(
     `SELECT id, file_path, ticket_id, job_id, kind, at
-     FROM file_provenance WHERE ticket_id = ? ORDER BY at DESC`,
-  ).all(ticketId) as ProvenanceRow[]
+     FROM file_provenance WHERE ticket_id = ? AND ${scope.sql} ORDER BY at DESC`,
+  ).all(ticketId, ...scope.params) as ProvenanceRow[]
 }
 
 export function listProvenanceByPath(
   db: DbInstance,
   projectId: string,
   filePath: string,
+  repository?: ProvenanceRepositoryScope,
 ): ProvenanceRow[] {
   void projectId
+  const scope = provenanceRepositoryFilter(db, repository)
   return db.prepare(
     `SELECT id, file_path, ticket_id, job_id, kind, at
-     FROM file_provenance WHERE file_path = ? ORDER BY at DESC`,
-  ).all(filePath) as ProvenanceRow[]
+     FROM file_provenance WHERE file_path = ? AND ${scope.sql} ORDER BY at DESC`,
+  ).all(filePath, ...scope.params) as ProvenanceRow[]
 }
 
 export function broadcastProvenanceUpdated(
@@ -493,6 +504,7 @@ export function broadcastProvenanceUpdated(
   const msg: FileProvenanceUpdatedMessage = {
     type: 'file.provenance_updated',
     projectId,
+    ...(row.repository_id ? { repositoryId: row.repository_id } : {}),
     path: row.file_path,
     kind: row.kind,
     ticketId: row.ticket_id,

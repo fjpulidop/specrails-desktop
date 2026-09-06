@@ -115,6 +115,15 @@ async function waitSettled(h: Harness): Promise<void> {
 }
 
 describe('validate', () => {
+  it('rejects explicit scope before provisioning a new project whose repository IDs do not exist yet', () => {
+    const h = makeHarness()
+    const draft = blueprint()
+    draft.m1Specs[0].repositoryIds = ['foreign-project-repository']
+    expect(h.runner.validate(validInput(h, { blueprint: draft }))).toMatchObject({ ok: false, error: 'invalid_repository_ids' })
+    expect(h.io.exec).not.toHaveBeenCalled()
+    expect(h.registered).toEqual([])
+  })
+
   it('rejects missing name / location / providers', () => {
     const h = makeHarness()
     expect(h.runner.validate({})).toMatchObject({ ok: false, error: 'invalid_name' })

@@ -38,6 +38,7 @@ import {
 } from './rail-pr-store'
 import { extractSpecNarrative } from './pr-body'
 import { sumInvocationCostForRuns } from './ai-invocations'
+import { provenanceRepositoryFilter, type ProvenanceRepositoryScope } from './project-repository-provenance'
 
 /** Which story the packet tells. Chosen from durable outcomes, never guessed. */
 export type PacketVariant = 'success' | 'no-changes' | 'partial' | 'failed'
@@ -104,6 +105,7 @@ export interface PacketCost {
 
 export interface ReviewPacket {
   schemaVersion: 1
+  repositoryId?: string
   prDeliveryId: string
   railIndex: number
   variant: PacketVariant
@@ -146,24 +148,33 @@ const TEST_FILE_RE = /(\.test\.|\.spec\.|(^|\/)__tests__\/)/
 /** Per-provenance churn for one delivery run, from file_story_contributions. */
 interface ChurnRow {
   job_id: string | null
+  repository_id: string | null
   file_path: string
   added_lines: number
   removed_lines: number
 }
 
-function churnForRuns(db: DbInstance, runIds: readonly string[]): ChurnRow[] {
+function churnForRuns(db: DbInstance, runIds: readonly string[], repository?: ProvenanceRepositoryScope): ChurnRow[] {
   const ids = [...new Set(runIds.filter((id) => typeof id === 'string' && id.length > 0))]
   if (ids.length === 0) return []
   const placeholders = ids.map(() => '?').join(', ')
   try {
+    const scope = provenanceRepositoryFilter(db, repository, 'p')
+    const hasRepository = (db.prepare('PRAGMA table_info(file_provenance)').all() as Array<{ name: string }>).some(column => column.name === 'repository_id')
     return db.prepare(`
-      SELECT job_id, file_path, added_lines, removed_lines
-        FROM file_story_contributions
-       WHERE job_id IN (${placeholders})
-    `).all(...ids) as ChurnRow[]
+      SELECT c.job_id, c.file_path, c.added_lines, c.removed_lines,
+             ${hasRepository ? 'p.repository_id' : 'NULL'} AS repository_id
+        FROM file_story_contributions c
+        LEFT JOIN file_provenance p ON p.id = c.provenance_id
+       WHERE c.job_id IN (${placeholders}) AND ${scope.sql}
+    `).all(...ids, ...scope.params) as ChurnRow[]
   } catch {
     return []
   }
+}
+
+function churnIdentity(row: ChurnRow): string {
+  return JSON.stringify([row.repository_id ?? null, row.file_path])
 }
 
 /**
@@ -205,8 +216,8 @@ function buildProof(
   const proof: PacketProofItem[] = []
 
   // ── Tier 1: what Specrails measured itself ────────────────────────────────
-  const testFiles = [...new Set(churn.filter((row) => TEST_FILE_RE.test(row.file_path)).map((row) => row.file_path))]
-  const totalFiles = new Set(churn.map((row) => row.file_path)).size
+  const testFiles = [...new Set(churn.filter((row) => TEST_FILE_RE.test(row.file_path)).map(churnIdentity))]
+  const totalFiles = new Set(churn.map(churnIdentity)).size
   const added = churn.reduce((sum, row) => sum + (row.added_lines || 0), 0)
   const removed = churn.reduce((sum, row) => sum + (row.removed_lines || 0), 0)
   if (totalFiles > 0) {
@@ -369,15 +380,18 @@ export function computeDriftNudges(input: {
 export interface ComposeReviewPacketInput {
   db: DbInstance
   row: RailPrDeliveryRow
+  repositoryId?: string
+  includeLegacyProvenance?: boolean
 }
 
-export function composeReviewPacket({ db, row }: ComposeReviewPacketInput): ReviewPacket {
+export function composeReviewPacket({ db, row, repositoryId = row.repository_id ?? undefined, includeLegacyProvenance = false }: ComposeReviewPacketInput): ReviewPacket {
+  const repository = repositoryId ? { repositoryId, includeLegacy: includeLegacyProvenance } : undefined
   const ticketIds = safeParse<number[]>(row.ticket_ids, [])
   const units = safeParse<DeliverBranchRecord[]>(row.branches, [])
   const runIds = safeParse<string[]>(row.run_ids, [])
   const snapshot = readSpecSnapshot(row.spec_snapshot)
   const evidence = readSettleEvidence(row.settle_evidence)
-  const churn = churnForRuns(db, runIds)
+  const churn = churnForRuns(db, runIds, repository)
   const variant = selectVariant(row, units)
 
   const confidence = (evidence?.units ?? [])
@@ -407,10 +421,10 @@ export function composeReviewPacket({ db, row }: ComposeReviewPacketInput): Revi
       deliveryOutcome: unitRows[0]?.deliveryOutcome ?? null,
       changed: unitRows[0]?.changed ?? null,
       churn: unitChurn === null ? null : {
-        filesTouched: new Set(unitChurn.map((c) => c.file_path)).size,
+        filesTouched: new Set(unitChurn.map(churnIdentity)).size,
         addedLines: unitChurn.reduce((sum, c) => sum + (c.added_lines || 0), 0),
         removedLines: unitChurn.reduce((sum, c) => sum + (c.removed_lines || 0), 0),
-        testFilesTouched: [...new Set(unitChurn.filter((c) => TEST_FILE_RE.test(c.file_path)).map((c) => c.file_path))],
+        testFilesTouched: [...new Set(unitChurn.filter((c) => TEST_FILE_RE.test(c.file_path)).map((c) => !repositoryId && c.repository_id ? `${c.repository_id}:${c.file_path}` : c.file_path))],
       },
       runIds: unitRunIds,
     }
@@ -444,16 +458,17 @@ export function composeReviewPacket({ db, row }: ComposeReviewPacketInput): Revi
   // a revision touching mostly new files is the honest signal that the spec no
   // longer describes the work.
   const originalFiles = chain.length > 1
-    ? new Set(churnForRuns(db, safeParse<string[]>(chain[0].run_ids, [])).map((entry) => entry.file_path))
+    ? new Set(churnForRuns(db, safeParse<string[]>(chain[0].run_ids, []), repository).map(churnIdentity))
     : new Set<string>()
   const driftNudges = computeDriftNudges({
     versions,
     originalFileSet: originalFiles,
-    currentFiles: new Set(churn.map((entry) => entry.file_path)),
+    currentFiles: new Set(churn.map(churnIdentity)),
   })
 
   return {
     schemaVersion: 1,
+    ...(repositoryId ? { repositoryId } : {}),
     prDeliveryId: row.id,
     railIndex: row.rail_index,
     variant,

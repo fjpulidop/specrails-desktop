@@ -8,10 +8,16 @@
  * IPC symbol is not always present at module-load time, but the tauri://
  * protocol is — so the protocol check is the reliable fallback.
  */
-export const API_ORIGIN = (() => {
+declare const __API_ORIGIN__: string
+
+export function getApiOrigin(configuredOrigin = typeof __API_ORIGIN__ !== 'undefined' ? __API_ORIGIN__ : ''): string {
   if (typeof window === 'undefined') return ''
-  if ('__TAURI_INTERNALS__' in window || window.location.hostname === 'tauri.localhost') return 'http://localhost:4200'
   const proto = window.location.protocol
-  if (proto !== 'http:' && proto !== 'https:') return 'http://localhost:4200'
+  if ('__TAURI_INTERNALS__' in window || window.location.hostname === 'tauri.localhost' || (proto !== 'http:' && proto !== 'https:')) {
+    return configuredOrigin || 'http://127.0.0.1:4200'
+  }
+  // Browser requests use Vite's proxy in dev and the page origin in production.
   return ''
-})()
+}
+
+export const API_ORIGIN = getApiOrigin()

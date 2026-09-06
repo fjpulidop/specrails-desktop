@@ -267,3 +267,19 @@ describe('mobile-router', () => {
     expect(res.status).toBe(502)
   })
 })
+
+describe('mobile project list grants', () => {
+  it('filters the project listing and protects mission endpoints with auth and the current grant', async () => {
+    _resetAclColumnCacheForTests()
+    const db = initDesktopDb(':memory:')
+    try {
+      const device = createDevice(db, { name: 'Scoped', platform: 'ios', tokenHash: hashToken('scoped-token'), certFingerprint: 'fp' })
+      setAllowedProjects(db, device.id, ['different-project'])
+      const app = buildApp(db)
+      expect((await request(app).get('/v1/projects').set('Authorization', 'Bearer scoped-token')).body.projects).toEqual([])
+      expect((await request(app).get('/v1/capabilities')).status).toBe(401)
+      expect((await request(app).get('/v1/projects/p1/missions').set('Authorization', 'Bearer scoped-token')).status).toBe(403)
+      expect((await request(app).get('/v1/capabilities').set('Authorization', 'Bearer scoped-token').set('Origin', 'https://untrusted.example')).status).toBe(403)
+    } finally { db.close() }
+  })
+})

@@ -38,6 +38,7 @@ export interface ExploreSpecParams {
     priority?: 'low' | 'medium' | 'high' | 'critical'
     labels?: string[]
     acceptanceCriteria?: string[]
+    repositoryIds?: string[]
   }
   /** When set, the shell is launched in edit-existing-ticket mode. The shell
    *  pre-seeds the draft from this payload, uses it as the Review baseline,
@@ -50,6 +51,7 @@ export interface ExploreSpecParams {
     labels: string[]
     priority: 'low' | 'medium' | 'high' | 'critical' | null
     acceptanceCriteria: string[]
+    repositoryIds?: string[]
     /** Current ticket status. `'draft'` makes the shell PUBLISH on commit
      *  (flip draft → real spec) instead of PATCHing in place. Optional for
      *  backward-compat; absent ⇒ treated as a real-spec edit. */
@@ -315,6 +317,7 @@ export function MinimizedChatsProvider({ children }: { children: ReactNode }) {
         priority: 'low' | 'medium' | 'high' | 'critical'
         labels: string[]
         acceptanceCriteria: string[]
+    repositoryIds?: string[]
       }>
       if (incoming.title?.trim()) {
         updateLabelRef.current(match.id, incoming.title)
@@ -324,6 +327,7 @@ export function MinimizedChatsProvider({ children }: { children: ReactNode }) {
       if (incoming.description !== undefined) patch.description = incoming.description
       if (incoming.priority !== undefined) patch.priority = incoming.priority
       if (incoming.labels !== undefined) patch.labels = incoming.labels
+      if (incoming.repositoryIds !== undefined) patch.repositoryIds = incoming.repositoryIds
       if (incoming.acceptanceCriteria !== undefined) patch.acceptanceCriteria = incoming.acceptanceCriteria
       if (Object.keys(patch).length > 0) {
         patchExploreSpecDraftRef.current(match.id, patch)

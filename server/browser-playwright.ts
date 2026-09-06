@@ -1083,6 +1083,8 @@ export function createPlaywrightLauncher(): ContextLauncher {
     const context = await chromium.launchPersistentContext(opts.userDataDir, {
       headless: true,
       executablePath,
+      // Playwright defaults this option to false even without --no-sandbox.
+      chromiumSandbox: process.platform !== 'linux',
       viewport: opts.viewport,
       args: chromiumLaunchArgs(),
     })

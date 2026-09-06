@@ -2,7 +2,7 @@ import { spawnSync, type ChildProcess } from 'child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { dirname, isAbsolute, resolve as resolvePath } from 'path'
 import { spawnCli, windowsSpawnEnv } from './util/win-spawn'
-import { getBundledCoreCli, getBundledCoreRoot, getBundledCoreVersion } from './bundled-core'
+import { resolveCoreRuntime } from './core-runtime'
 import { getBundledOpenspecCli } from './bundled-openspec'
 import { resolveBundledNodeExe } from './path-resolver'
 import { FrameworkManager } from './framework-manager'
@@ -36,9 +36,9 @@ import { getAdapter } from './providers'
  * fallback outside the packaged desktop app.
  */
 export function spawnBundledCoreInit(args: string[], cwd: string): ChildProcess | null {
-  const cli = getBundledCoreCli()
-  const coreRoot = getBundledCoreRoot()
-  if (!cli || !coreRoot) return null
+  const runtime = resolveCoreRuntime()
+  if (!runtime) return null
+  const { cli, root: coreRoot } = runtime
   const fullArgs = [cli, 'init', ...args]
   const env: NodeJS.ProcessEnv = { ...windowsSpawnEnv(), SPECRAILS_CORE_SCRIPT_DIR: coreRoot, SPECRAILS_RELOCATE: '1' }
 
@@ -66,7 +66,7 @@ export function spawnBundledCoreInit(args: string[], cwd: string): ChildProcess 
 
 /** True when the bundled specrails-core is present (offline assemble possible). */
 export function hasOfflineCore(): boolean {
-  return getBundledCoreCli() !== null
+  return resolveCoreRuntime() !== null
 }
 
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
@@ -107,7 +107,7 @@ export function spawnNpxCoreInit(args: string[], cwd: string): ChildProcess {
  * missing/corrupted bundle returns false → the "reinstall the app" error.
  */
 export function canAssembleProject(): boolean {
-  return getBundledCoreCli() !== null || process.env.SPECRAILS_IS_DESKTOP !== '1'
+  return resolveCoreRuntime() !== null || process.env.SPECRAILS_IS_DESKTOP !== '1'
 }
 
 export interface OfflineAssembleOptions {
@@ -133,6 +133,8 @@ export interface OfflineAssembleOptions {
    * throwing on the first failure. Default false = legacy throw-on-first.
    */
   continueOnError?: boolean
+  /** Updates retain the project's selected agents/model configuration. */
+  preserveExistingConfig?: boolean
   /** Progress hooks for per-provider status surfaces (silent-add WS events). */
   onProviderStart?: (provider: string) => void
   onProviderResult?: (result: AssembleProviderResult) => void
@@ -215,7 +217,7 @@ export async function assembleProjectOffline(opts: OfflineAssembleOptions): Prom
   const materialize = opts.io?.materialize ?? ((provs: string[]) => {
     try {
       const fm = new FrameworkManager({ broadcast: () => { /* headless */ } })
-      const mat = fm.materialize(getBundledCoreVersion() ?? undefined, provs)
+      const mat = fm.materialize(undefined, provs)
       if (mat.ran && mat.errors.length > 0) {
         console.warn(
           `[offline-assemble] framework materialize had errors: ${mat.errors.map((e) => `${e.provider}: ${e.message}`).join('; ')}`,
@@ -233,7 +235,9 @@ export async function assembleProjectOffline(opts: OfflineAssembleOptions): Prom
   const assembleOne = async (provider: string): Promise<void> => {
     const configPath = installConfigPathForProvider({ slug, path: projectPath }, provider)
     mkdirSync(dirname(configPath), { recursive: true })
-    writeFileSync(configPath, buildQuickInstallConfigYaml(provider, defaultModelForProvider(opts, provider)), 'utf-8')
+    if (!opts.preserveExistingConfig || !existsSync(configPath)) {
+      writeFileSync(configPath, buildQuickInstallConfigYaml(provider, defaultModelForProvider(opts, provider)), 'utf-8')
+    }
 
     const child = spawnInit(['--yes', '--from-config', configPath], projectPath)
     if (!child) {

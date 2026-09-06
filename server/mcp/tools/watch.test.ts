@@ -3,6 +3,11 @@ import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { WsMessage } from '../../types'
 import { watchTool } from './watch'
 import type { McpToolContext } from './types'
+import type { DbInstance } from '../../db'
+import { acknowledgeNativeAgentSteering, notifyAgentSteering, onAgentSteering, registerAgentSteering, runWithAgentSteering } from '../../agent-steering'
+import { mintAgentCapability, revokeAgentCapability } from '../agent-capability'
+
+vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'watch-test-token' }))
 
 describe('MCP watch durable recovery and event isolation', () => {
   let ctx: McpToolContext
@@ -120,6 +125,71 @@ describe('MCP watch durable recovery and event isolation', () => {
     expect(await watch()).toMatchObject({ settled: false, reason: 'canceled' })
     expect(fetchMock).not.toHaveBeenCalled()
     expect(ctx.eventBus.listenerCount('message')).toBe(0)
+  })
+
+  it('a mission update ends only the read wait and disposes its notification and polling resources', async () => {
+    let notify!: () => void
+    const unsubscribe = vi.fn()
+    ctx.onMissionInput = listener => { notify = listener; return unsubscribe }
+    let readSignal!: AbortSignal
+    fetchMock.mockImplementation((_url: string, options: { signal: AbortSignal }) => {
+      readSignal = options.signal
+      return new Promise((_resolve, reject) => readSignal.addEventListener('abort', () => reject(new Error('read aborted'))))
+    })
+    const waiting = watch({ untilMs: 600_000 })
+    notify()
+    expect(await waiting).toMatchObject({ settled: false, reason: 'user_update', operationStopped: false })
+    expect(readSignal.aborted).toBe(true)
+    expect(unsubscribe).toHaveBeenCalledOnce()
+    expect(ctx.eventBus.listenerCount('message')).toBe(0)
+    await vi.advanceTimersByTimeAsync(600_000)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0][1].method).toBe('GET')
+  })
+
+  it('handles an input reported synchronously during subscription without starting a read or leaving listeners', async () => {
+    const unsubscribe = vi.fn()
+    ctx.onMissionInput = listener => { listener(); return unsubscribe }
+    expect(await watch()).toMatchObject({ settled: false, reason: 'user_update', operationStopped: false })
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(unsubscribe).toHaveBeenCalledOnce()
+    expect(ctx.eventBus.listenerCount('message')).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('native steering wakes a real watch without requesting an unsupported MCP acknowledgement or stopping the operation', async () => {
+    const database = {} as DbInstance
+    const capability = mintAgentCapability({ conversationId: 'native-watch', projectId: 'p1', tierLevel: 3 })
+    const consume = vi.fn(async () => ({ content: 'Must arrive through the native channel only.' }))
+    const unregister = registerAgentSteering(database, capability, consume, { native: true })
+    ctx.onMissionInput = listener => onAgentSteering(database, capability, listener)
+    try {
+      const waiting = runWithAgentSteering(database, capability, undefined, async () => ({
+        content: [{ type: 'text', text: JSON.stringify(await watch({ untilMs: 600_000 })) }],
+      }))
+      expect(ctx.eventBus.listenerCount('message')).toBe(1)
+      const revision = notifyAgentSteering(database, capability)!
+      const result = await waiting
+      expect(result.content).toHaveLength(1)
+      const block = result.content[0] as { type: 'text'; text: string }
+      expect(JSON.parse(block.text)).toMatchObject({ settled: false, reason: 'user_update', operationStopped: false })
+      expect(block.text).not.toMatch(/acknowledge|acknowledge_updates/i)
+      expect(consume).not.toHaveBeenCalled()
+      expect(ctx.eventBus.listenerCount('message')).toBe(0)
+      expect(vi.getTimerCount()).toBe(0)
+
+      // After receipt, a new watch waits for the same still-running operation.
+      acknowledgeNativeAgentSteering(database, capability, revision)
+      const resumed = watch()
+      expect(ctx.eventBus.listenerCount('message')).toBe(1)
+      emit({ type: 'loop.run_completed', projectId: 'p1', loopRunId: 'run-1', status: 'success' })
+      expect(await resumed).toMatchObject({ settled: true, reason: 'terminal:loop.run_completed' })
+      expect(fetchMock.mock.calls.every(([, options]) => options.method === 'GET')).toBe(true)
+      expect(consume).not.toHaveBeenCalled()
+    } finally {
+      unregister()
+      revokeAgentCapability(capability)
+    }
   })
 
   it('a durable watch without a project fails immediately with actionable input guidance', () => {

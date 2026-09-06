@@ -1,3 +1,5 @@
+import { useMissionWindows } from '../../context/MissionWindowsContext'
+import { blockMissionTransfer, useMissionViewRevision } from '../../lib/mission-view-state'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -21,10 +23,18 @@ import type { CaptureResult } from '../../lib/browser-capture'
  */
 export function AgentBrowserCapture({ projectId, conversationId }: { projectId: string; conversationId: string | null }) {
   const { t } = useTranslation('agent')
-  const { closeBrowser, queueCapture } = useAgentWorkspace()
+  const { error: transferError } = useMissionWindows()
+  const browserRevision = useMissionViewRevision(conversationId ?? '__new-mission__')
+  const { closeBrowser, queueCapture, browserOwnerId, browserUrl, setBrowserUrl } = useAgentWorkspace()
   const { materializeDraftConversation } = useAgentChat()
+  const [nativeBusy, setNativeBusy] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [engine, setEngine] = useState<'probing' | 'native' | 'screencast'>('probing')
+  useEffect(() => {
+    if (conversationId && (nativeBusy || uploading || engine === 'screencast')) return blockMissionTransfer(conversationId)
+  }, [conversationId, nativeBusy, uploading, engine])
   const initialUrl = useMemo(() => {
+    if (browserUrl) return browserUrl
     try { return normalizeAddress(localStorage.getItem(`specrails-desktop:agent-browser-url:${projectId}`) ?? '') ?? 'about:blank' }
     catch { return 'about:blank' }
   }, [projectId])
@@ -39,6 +49,7 @@ export function AgentBrowserCapture({ projectId, conversationId }: { projectId: 
   const pendingSpecId = useMemo(() => `agent-${conversationId ?? 'home'}-${Math.round(performance.now())}`, [conversationId])
 
   const onCaptured = async (result: Pick<CaptureResult, 'screenshotDataUrl'>) => {
+    setUploading(true)
     try {
       // No conversation yet (empty compose screen) — materialize the draft
       // mission so the capture has a home. The context migrates any typed
@@ -57,17 +68,22 @@ export function AgentBrowserCapture({ projectId, conversationId }: { projectId: 
         description: err instanceof Error ? err.message : undefined,
       })
       throw err
-    }
+    } finally { setUploading(false) }
   }
 
   if (engine === 'probing') return null
   if (engine === 'native') {
     return (
       <NativeBrowserModal
+        ownerId={browserOwnerId ?? undefined}
+        leaseRevision={browserRevision}
+        onBusyChange={setNativeBusy}
+        transferError={transferError}
         url={initialUrl}
         onClose={closeBrowser}
         onFallback={() => setEngine('screencast')}
         onUrlChange={url => {
+          setBrowserUrl(url)
           if (normalizeAddress(url) && url !== 'about:blank') {
             try { localStorage.setItem(`specrails-desktop:agent-browser-url:${projectId}`, url) } catch { /* Session browsing still works without persistence. */ }
           }

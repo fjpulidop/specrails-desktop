@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, waitFor } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
+import { toast } from 'sonner'
 import { TerminalViewport } from '../TerminalViewport'
 
 const mocks = vi.hoisted(() => ({
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../../context/TerminalsContext', () => ({
   useTerminals: () => mocks.useTerminals(),
 }))
+vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
 
 vi.mock('../../../lib/tauri-shell', () => ({
   isTauri: () => false,
@@ -39,13 +41,14 @@ interface FakeTerminal {
   modes: { mouseTrackingMode: string }
 }
 
-function mockTerminals(term: FakeTerminal | null = null, writeToSession = vi.fn(() => false)) {
+function mockTerminals(term: FakeTerminal | null = null, writeToSession = vi.fn(() => false), shell: string | null = null) {
   mocks.useTerminals.mockReturnValue({
     subscribeOpenSearch: vi.fn(() => undefined),
     getSearchAddon: vi.fn(() => null),
     getTerminalInstance: vi.fn(() => term),
     writeToSession,
     getCwd: vi.fn(() => null),
+    getShell: vi.fn(() => shell),
     getContainer: vi.fn(() => null),
     notifyAdopted: vi.fn(),
     refitActive: vi.fn(),
@@ -55,6 +58,7 @@ function mockTerminals(term: FakeTerminal | null = null, writeToSession = vi.fn(
 describe('TerminalViewport', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
     mockTerminals(null)
   })
 
@@ -168,5 +172,33 @@ describe('TerminalViewport', () => {
     })
 
     expect(setData).toHaveBeenCalledWith('text/plain', 'selected text')
+  })
+
+  it.each([
+    ['C:\\Windows\\System32\\cmd.exe', '"C:\\A B\\hello^world.txt"'],
+    ['C:\\Program Files\\PowerShell\\7\\pwsh.exe', "'C:\\A B\\hello^world.txt'"],
+  ])('pastes file paths using the actual Windows shell %s', (shell, quoted) => {
+    Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
+    const write = vi.fn(() => true)
+    mockTerminals(makeTerm(), write, shell)
+    const { container } = render(<TerminalViewport activeId="s1" />)
+    fireEvent.paste(container.querySelector('[data-terminal-viewport]')!, {
+      clipboardData: { files: [Object.assign(new File([''], 'file.txt'), { path: 'C:\\A B\\hello^world.txt' })], getData: () => '' },
+    })
+    expect(write).toHaveBeenCalledWith('s1', quoted)
+  })
+
+  it('rejects a cmd path containing expansion syntax without writing any partial command', () => {
+    Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
+    const write = vi.fn(() => true)
+    const term = makeTerm()
+    mockTerminals(term, write, 'cmd.exe')
+    const { container } = render(<TerminalViewport activeId="s1" />)
+    fireEvent.paste(container.querySelector('[data-terminal-viewport]')!, {
+      clipboardData: { files: [Object.assign(new File([''], 'file.txt'), { path: 'C:\\%PATH%\\file.txt' })], getData: () => '' },
+    })
+    expect(write).not.toHaveBeenCalled()
+    expect(term.paste).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledOnce()
   })
 })

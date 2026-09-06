@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { Minus, Search, Square, X } from 'lucide-react'
+import { Copy, Minus, Search, Square, X } from 'lucide-react'
 import { useDesktop } from '../hooks/useDesktop'
 import { useUiMode } from '../context/UiModeContext'
 
@@ -190,7 +190,26 @@ function DefaultTitleBar() {
   const { projects, activeProjectId } = useDesktop()
   const { uiMode } = useUiMode()
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null
-  const appWindow = getCurrentWindow()
+  const appWindow = useMemo(() => getCurrentWindow(), [])
+  const [maximized, setMaximized] = useState(false)
+  useEffect(() => {
+    let disposed = false
+    let revision = 0
+    let unlisten: (() => void) | undefined
+    const refresh = async () => {
+      const request = ++revision
+      try {
+        const value = await appWindow.isMaximized?.()
+        if (!disposed && request === revision) setMaximized(value === true)
+      } catch { /* the window can close between resize and state retrieval */ }
+    }
+    void refresh()
+    void appWindow.onResized?.(() => { void refresh() }).then(dispose => {
+      if (disposed) dispose()
+      else unlisten = dispose
+    }).catch(() => {})
+    return () => { disposed = true; unlisten?.() }
+  }, [appWindow])
 
   const handleMinimize = useCallback(() => {
     void appWindow.minimize()
@@ -245,8 +264,8 @@ function DefaultTitleBar() {
         />
         <WinButton
           onClick={handleMaximize}
-          icon={<Square size={12} strokeWidth={1.8} />}
-          ariaLabel={t('titleBar.maximizeWindow')}
+          icon={maximized ? <Copy size={12} strokeWidth={1.8} /> : <Square size={12} strokeWidth={1.8} />}
+          ariaLabel={maximized ? t('titleBar.restoreWindow') : t('titleBar.maximizeWindow')}
         />
         <WinButton
           onClick={handleClose}

@@ -232,7 +232,18 @@
     "toastDone": "Specrails Core 已更新到 {{version}}",
     "toastError": "核心更新失败：{{message}}",
     "toastUpToDate": "Specrails Core 已是最新",
-    "toastCheckFailed": "检查更新失败：{{message}}"
+    "toastCheckFailed": "检查更新失败：{{message}}",
+    "loadFailed": "无法刷新 Core 状态。重试",
+    "runtime": "运行时：{{version}}",
+    "bundled": "Desktop 内置：{{version}}",
+    "sources": {
+      "override": "显式指定",
+      "managed": "由 Desktop 管理",
+      "bundled": "Desktop 内置",
+      "local": "本地软件包",
+      "global": "外部 CLI"
+    },
+    "repair": "完成 {{version}} 更新"
   },
   "appUpdate": {
     "heading": "Specrails Desktop",

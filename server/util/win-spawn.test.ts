@@ -13,6 +13,7 @@ vi.mock('tree-kill', () => ({ default: vi.fn() }))
 import { execFileSync, execFile } from 'child_process'
 import crossSpawn from 'cross-spawn'
 import treeKill from 'tree-kill'
+import os from 'os'
 import {
   spawnCli,
   resolveWindowsBinary,
@@ -50,6 +51,7 @@ describe('stripWindowsVerbatimPrefix', () => {
 describe('windowsSpawnEnv', () => {
   const ORIGINAL = process.platform
   afterEach(() => {
+    vi.restoreAllMocks()
     Object.defineProperty(process, 'platform', { value: ORIGINAL, configurable: true })
   })
 
@@ -68,16 +70,35 @@ describe('windowsSpawnEnv', () => {
     expect(out.PATH).toBe('x')
   })
 
-  it('backfills npm config env (USERPROFILE/APPDATA/HOMEDRIVE/TEMP) from defaults on win32', () => {
+  it('recovers the actual profile before startup can redirect the data directory', () => {
     Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    vi.spyOn(os, 'homedir').mockReturnValue('D:\\Users\\Lucía Smith')
     const out = windowsSpawnEnv({ PATH: 'x' } as NodeJS.ProcessEnv)
-    expect(out.USERPROFILE).toBe('C:\\Users\\Default')
-    expect(out.HOMEDRIVE).toBe('C:')
-    expect(out.HOMEPATH).toBe('\\Users\\Default')
-    expect(out.APPDATA).toBe('C:\\Users\\Default\\AppData\\Roaming')
-    expect(out.LOCALAPPDATA).toBe('C:\\Users\\Default\\AppData\\Local')
-    expect(out.TEMP).toBe('C:\\Users\\Default\\AppData\\Local\\Temp')
-    expect(out.TMP).toBe('C:\\Users\\Default\\AppData\\Local\\Temp')
+    expect(out.USERPROFILE).toBe('D:\\Users\\Lucía Smith')
+    expect(out.HOMEDRIVE).toBe('D:')
+    expect(out.HOMEPATH).toBe('\\Users\\Lucía Smith')
+    expect(out.APPDATA).toBe('D:\\Users\\Lucía Smith\\AppData\\Roaming')
+    expect(out.LOCALAPPDATA).toBe('D:\\Users\\Lucía Smith\\AppData\\Local')
+    expect(out.TEMP).toBe('D:\\Users\\Lucía Smith\\AppData\\Local\\Temp')
+    expect(out.TMP).toBe(out.TEMP)
+  })
+
+  it('preserves case-insensitive explicit profile and redirected app-data values without conflicting aliases', () => {
+    asWin32()
+    const base = { userprofile: 'E:\\People\\Ana', appdata: '\\\\server\\profiles\\Ana', temp: 'F:\\Temp', systemroot: 'D:\\Windows' }
+    const out = windowsSpawnEnv(base)
+    expect(out.USERPROFILE).toBe('E:\\People\\Ana')
+    expect(out.APPDATA).toBe('\\\\server\\profiles\\Ana')
+    expect(out.TEMP).toBe('F:\\Temp')
+    expect(out.ComSpec).toBe('D:\\Windows\\System32\\cmd.exe')
+    expect(out.userprofile).toBeUndefined()
+    expect(base.userprofile).toBe('E:\\People\\Ana')
+  })
+
+  it('does not invent a profile if the operating system cannot supply one', () => {
+    asWin32()
+    vi.spyOn(os, 'homedir').mockReturnValue('')
+    expect(() => windowsSpawnEnv({})).toThrow('Cannot determine the Windows user profile')
   })
 
   it('derives APPDATA from an existing USERPROFILE and preserves existing values', () => {

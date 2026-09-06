@@ -95,9 +95,10 @@ interface RailsBoardProps {
     action: RailPrDecisionAction,
     expectedDecision: RailPrDecision,
     expectedPrDeliveryId: string,
+    repositoryId?: string,
   ) => Promise<RailPrActResult>
   /** POSTs /rails/pr-checkout for a rail's active delivery. */
-  onPrCheckout?: (railIndex: number, expectedPrDeliveryId: string) => Promise<RailPrCheckoutResult>
+  onPrCheckout?: (railIndex: number, expectedPrDeliveryId: string, repositoryId?: string) => Promise<RailPrCheckoutResult>
   /** Installed providers — when >1 the rail header shows an AI engine selector. */
   providers?: readonly string[]
   onModeChange: (railId: string, mode: RailMode) => void
@@ -250,10 +251,10 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
                     worktreeSummary={worktreeSummary(railWorktrees?.[railIndex])}
                     prDecision={railPrDecisions?.get(railIndex) ?? null}
                     onPrDecision={onPrDecision
-                      ? (action, expected, expectedPrDeliveryId) => onPrDecision(railIndex, action, expected, expectedPrDeliveryId)
+                      ? (action, expected, expectedPrDeliveryId, repositoryId) => onPrDecision(railIndex, action, expected, expectedPrDeliveryId, repositoryId)
                       : undefined}
                     onPrCheckout={onPrCheckout
-                      ? (expectedPrDeliveryId) => onPrCheckout(railIndex, expectedPrDeliveryId)
+                      ? (expectedPrDeliveryId, repositoryId) => onPrCheckout(railIndex, expectedPrDeliveryId, repositoryId)
                       : undefined}
                     executionMetric={railMetrics?.[railIndex] ?? null}
                     providers={providers}

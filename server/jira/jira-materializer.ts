@@ -141,6 +141,7 @@ export function mapIssueToTicket(
     labels: issue.fields.labels ?? [],
     assignee: issue.fields.assignee?.displayName ?? issue.fields.assignee?.emailAddress ?? null,
     prerequisites: existing?.prerequisites ?? [],
+    ...(existing?.repositoryIds ? { repositoryIds: [...existing.repositoryIds] } : {}),
     metadata: existing?.metadata ?? {},
     comments: existing?.comments ?? [],
     attachments: existing?.attachments,

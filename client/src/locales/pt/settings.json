@@ -232,7 +232,18 @@
     "toastDone": "Specrails Core atualizado para {{version}}",
     "toastError": "Falha na atualização do core: {{message}}",
     "toastUpToDate": "O Specrails Core está atualizado",
-    "toastCheckFailed": "Falha ao verificar atualizações: {{message}}"
+    "toastCheckFailed": "Falha ao verificar atualizações: {{message}}",
+    "loadFailed": "Não foi possível atualizar o estado do Core. Tentar novamente",
+    "runtime": "Motor: {{version}}",
+    "bundled": "Incluído no Desktop: {{version}}",
+    "sources": {
+      "override": "Seleção explícita",
+      "managed": "Gerido pelo Desktop",
+      "bundled": "Incluído no Desktop",
+      "local": "Pacote local",
+      "global": "CLI externa"
+    },
+    "repair": "Concluir atualização {{version}}"
   },
   "appUpdate": {
     "heading": "Specrails Desktop",

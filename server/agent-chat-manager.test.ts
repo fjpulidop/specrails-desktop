@@ -1,3 +1,6 @@
+// These fixtures exercise the CLI/MCP fallback; native protocols have dedicated integration suites.
+vi.mock('./providers/live-session', () => ({ nativeLiveSessionRunner: () => undefined }))
+
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { EventEmitter } from 'events'
 import { Readable } from 'stream'
@@ -50,6 +53,7 @@ import {
 } from './agent-store'
 import type { DbInstance } from './db'
 import { _resetAgentCapabilitiesForTest, verifyAgentCapability } from './mcp/agent-capability'
+import { getAgentInput } from './agent-input-store'
 
 beforeEach(() => {
   vi.spyOn(process, 'kill').mockImplementation(() => true)
@@ -122,7 +126,7 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     expect(mockSpawn).not.toHaveBeenCalled()
     expect(rows()).toHaveLength(0)
     expect(broadcastsOfType(broadcast, 'agent_error')[0].error).toContain('could not prepare its MCP tools')
-    expect(agentMcpMocks.removeCapabilityFile).toHaveBeenCalledWith(conv.id)
+    expect(agentMcpMocks.removeCapabilityFile).toHaveBeenCalledWith(conv.id, expect.any(String))
   })
 
   it('records a success row with native cost (estimated=0) and broadcasts spending.invalidated for a pinned project', async () => {
@@ -237,7 +241,7 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
 
     expect(capability).not.toBe('')
     expect(verifyAgentCapability(capability)).toBeNull()
-    expect(agentMcpMocks.removeCapabilityFile).toHaveBeenCalledWith(conv.id)
+    expect(agentMcpMocks.removeCapabilityFile).toHaveBeenCalledWith(conv.id, expect.any(String))
   })
 
   it('applies Kimi effort only to K3 and drops stale effort for other models', async () => {
@@ -508,7 +512,7 @@ describe('AgentChatManager AI title', () => {
     const rowsBeforeShutdown = rows().length
 
     await mgr.shutdown()
-    expect(vi.mocked(treeKill)).toHaveBeenCalledWith(titleChild.pid, 'SIGTERM')
+    expect(vi.mocked(treeKill)).toHaveBeenCalledWith(titleChild.pid, 'SIGTERM', expect.any(Function))
     const broadcastsAtShutdown = broadcast.mock.calls.length
 
     titleChild.emit('error', new Error('late title error'))
@@ -550,7 +554,7 @@ describe('AgentChatManager lifecycle shutdown', () => {
     await mgr.shutdown()
     await mgr.shutdown() // idempotent: no duplicate signal/timer/listener ownership
     await expect(first).resolves.toBeUndefined()
-    expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM')
+    expect(vi.mocked(treeKill)).toHaveBeenCalledWith(child.pid, 'SIGTERM', expect.any(Function))
     expect(vi.mocked(treeKill)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(mockSpawn).mock.calls[0][2]).toMatchObject({ detached: true })
     // Once the owned provider root exits, its escalation timer must be cancelled.
@@ -569,7 +573,8 @@ describe('AgentChatManager lifecycle shutdown', () => {
     await new Promise((resolve) => setImmediate(resolve))
     expect(mockSpawn).toHaveBeenCalledTimes(1)
     expect(broadcast.mock.calls).toHaveLength(broadcastsAtShutdown)
-    expect(listAgentMessages(db, conv.id).some((m) => m.content === 'queued')).toBe(false)
+    expect(listAgentMessages(db, conv.id).some((m) => m.content === 'queued')).toBe(true)
+    expect(getAgentInput(db, conv.id, 'q-after-shutdown')?.status).toBe('interrupted')
 
     await mgr.sendMessage(conv.id, 'after shutdown')
     expect(mockSpawn).toHaveBeenCalledTimes(1)

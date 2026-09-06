@@ -1,13 +1,16 @@
+import { toast } from 'sonner'
+import i18n from './i18n'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { isTauri } from './tauri-shell'
-import { quotePathList } from './shell-quote'
+import { quotePathList, windowsShellHint } from './shell-quote'
 
 export interface DragDropController {
   dispose: () => void
 }
 
 interface ActiveDropTarget {
+  shell?: string | null
   viewportEl: HTMLElement
   writeText: (text: string) => boolean
 }
@@ -25,8 +28,8 @@ export async function registerTauriDragDrop(
   getActive: () => ActiveDropTarget | null,
 ): Promise<DragDropController> {
   if (!isTauri()) return { dispose: () => {} }
+  const unlisteners: Array<() => void> = []
   try {
-    const unlisteners: Array<() => void> = []
     let lastDropKey = ''
     let lastDropAt = 0
     const isWindows = typeof navigator !== 'undefined' && /Win/i.test(navigator.platform || '')
@@ -48,8 +51,8 @@ export async function registerTauriDragDrop(
       if (!active) return
       const rect = active.viewportEl.getBoundingClientRect()
       if (!isDropPositionInsideRect(pos, rect, window.devicePixelRatio || 1)) return
-      const text = quotePathList(paths, isWindows)
-      try { active.writeText(text) } catch { /* ignore */ }
+      try { active.writeText(quotePathList(paths, isWindows, windowsShellHint(active.shell))) }
+      catch { toast.error(i18n.t('terminal:errors.pathPasteUnsafe')) }
     }
 
     const webview = (() => { try { return getCurrentWebview() } catch { return null } })()
@@ -63,6 +66,7 @@ export async function registerTauriDragDrop(
     if (unlisteners.length === 0) return { dispose: () => {} }
     return { dispose: () => { for (const unlisten of unlisteners) { try { unlisten() } catch { /* ignore */ } } } }
   } catch {
+    for (const unlisten of unlisteners) { try { unlisten() } catch { /* already gone */ } }
     return { dispose: () => {} }
   }
 }
@@ -81,7 +85,6 @@ export function isDropPositionInsideRect(
   rect: Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom'>,
   scaleFactor: number,
 ): boolean {
-  if (pointInsideRect(pos.x, pos.y, rect)) return true
   const factor = Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1
   return pointInsideRect(pos.x / factor, pos.y / factor, rect)
 }

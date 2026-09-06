@@ -5,20 +5,48 @@ on:
     branches: ["**"]
   pull_request:
     branches: [main]
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  secret-scan:
+  workflow-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
+          persist-credentials: false
+      - name: Validate workflow syntax, expressions and action inputs
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz -o "$RUNNER_TEMP/actionlint.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -shellcheck=
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install gitleaks
         run: |
-          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz \
-            | tar xz -C /usr/local/bin gitleaks
+          set -euo pipefail
+          curl --fail --silent --show-error --location https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz -o "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "5bc41815076e6ed6ef8fbecc9d9b75bcae31f39029ceb55da08086315316e3ba  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
       - name: Scan for secrets
-        run: gitleaks detect --source . --redact --exit-code 1
+        run: '"$RUNNER_TEMP/gitleaks" detect --source . --redact --exit-code 1'
 
   # Exercise the release's exact vendored Core lock and Windows
   # junction/copy-fallback lifecycle before a tag can reach Desktop Release.
@@ -31,6 +59,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
           node-version: 20.19.0
@@ -39,13 +69,179 @@ jobs:
       - name: Smoke bundled Core relocation for every provider
         run: pwsh scripts/smoke-bundled-core-windows.ps1 -CorePath src-tauri\core -Node node
 
-  test:
-    runs-on: ubuntu-latest
+  # Source-level Windows regressions run on every PR; installed NSIS/MSI tests
+  # also run in Desktop Release before its artifacts can reach publication.
+  windows-parity:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    # Keep independent checks running after a failure so one run exposes every
+    # regression. No continue-on-error: any failed check still fails the job.
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
-          node-version: 20
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87  # stable
+        with:
+          toolchain: stable
+      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
+        with:
+          workspaces: "./src-tauri -> target"
+      - id: root-dependencies
+        run: npm ci
+      - id: client-dependencies
+        run: npm ci --prefix client
+      - if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
+        run: npm run typecheck
+      - name: Release and packaging helper regressions
+        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
+        run: npm run test:scripts
+      - name: Native Windows filesystem, execution and shutdown regressions
+        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
+        run: >-
+          node node_modules/vitest/vitest.mjs run --maxWorkers=2
+          server/windows-filesystem.integration.test.ts server/windows-execution.integration.test.ts
+          server/windows-background-containment.integration.test.ts
+          server/host-control.test.ts server/util/win-spawn.test.ts server/plugins/codex-spawn.test.ts
+          server/util/windows-provider-shell.test.ts server/util/cli-prompt-windows.test.ts
+          server/background-windows-bootstrap.test.ts server/background-windows-job-control.test.ts
+          server/loop-executors-shell.test.ts
+          server/mobile/mobile-redact.test.ts server/provider-detection.test.ts
+      - id: production-build
+        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
+        run: npm run build
+      - if: ${{ !cancelled() && steps.production-build.outcome == 'success' }}
+        run: npm run check:package
+      - name: Build native host and WebView2 smoke fixtures on this architecture
+        id: native-build
+        if: ${{ !cancelled() && steps.production-build.outcome == 'success' }}
+        # Compile native APIs without pretending to assemble an installer here.
+        # Release jobs separately build + validate the complete runtime resources.
+        env:
+          TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
+        run: cargo build --locked --manifest-path src-tauri/Cargo.toml --bins --examples --features native-browser-smoke
+      - name: Native host regression tests
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        working-directory: src-tauri
+        env:
+          TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
+        run: cargo test --locked --lib --features native-browser-smoke
+      - name: Native WebView2 capture and selector smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        timeout-minutes: 5
+        working-directory: src-tauri
+        env:
+          TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
+        run: pwsh ..\scripts\run-native-smoke.ps1 -Exe .\target\debug\examples\native-browser-smoke.exe
+      - name: Native WebView2 authentication popup smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        timeout-minutes: 5
+        working-directory: src-tauri
+        env:
+          TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
+        run: pwsh ..\scripts\run-native-smoke.ps1 -Exe .\target\debug\examples\native-browser-popup-smoke.exe
+      - name: Native independent mission window and handoff smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        timeout-minutes: 5
+        working-directory: src-tauri
+        env:
+          TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
+        run: pwsh ..\scripts\run-native-smoke.ps1 -Exe .\target\debug\examples\native-mission-window-smoke.exe
+      - name: Native WebView2 multiwindow session and parking smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        timeout-minutes: 5
+        working-directory: src-tauri
+        env:
+          TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
+        run: pwsh ..\scripts\run-native-smoke.ps1 -Exe .\target\debug\examples\native-browser-multiwindow-smoke.exe
+      # Native platform checks report first; retain the complete client suite.
+      - name: Client regressions on Windows
+        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
+        run: npm run test:client -- --maxWorkers=2
+
+  # These fixtures use local/in-memory pages and temporary native profiles.
+  # They do not start a sidecar, read a user database or call an AI provider.
+  native-macos:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87  # stable
+        with:
+          toolchain: stable
+      - uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
+        with:
+          workspaces: "./src-tauri -> target"
+      - id: root-dependencies
+        run: npm ci
+      - id: client-dependencies
+        run: npm ci --prefix client
+      # generate_context! embeds the application asset/ACL configuration. The
+      # mission fixture replaces page assets with its own in-memory HTML.
+      - id: client-build
+        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
+        run: npm run build --prefix client
+      - name: Build native fixtures without packaged runtime resources
+        id: native-build
+        if: ${{ !cancelled() && steps.client-build.outcome == 'success' }}
+        working-directory: src-tauri
+        run: cargo build --locked --examples --features native-browser-smoke
+      - name: Native host and ownership regression tests
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        working-directory: src-tauri
+        run: cargo test --locked --lib --features native-browser-smoke
+      - name: Native WebKit capture and selector smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        timeout-minutes: 5
+        working-directory: src-tauri
+        run: ./target/debug/examples/native-browser-smoke
+      - name: Native WebKit authentication popup smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        timeout-minutes: 5
+        working-directory: src-tauri
+        run: ./target/debug/examples/native-browser-popup-smoke
+      - name: Native independent mission window and handoff smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        timeout-minutes: 5
+        working-directory: src-tauri
+        run: ./target/debug/examples/native-mission-window-smoke
+      - name: Native WebKit multiwindow session and parking smoke
+        if: ${{ !cancelled() && steps.native-build.outcome == 'success' }}
+        timeout-minutes: 5
+        working-directory: src-tauri
+        run: ./target/debug/examples/native-browser-multiwindow-smoke
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: 22.22.3
           cache: npm
           # Two npm trees (root + client/) — key the cache on both lockfiles so
           # client-only dependency changes also refresh it.
@@ -56,6 +252,9 @@ jobs:
       - run: cd client && npm ci
       - run: npm run typecheck
       - run: npm run check-core-compat
+      - run: npm run build
+      - run: npm run check:package
+      - run: npm run test:scripts
       # Single vitest pass: the coverage run below executes the full server+cli
       # suite with thresholds enforced, so a plain `npm test` here would run the
       # same 100+ files twice (check-core-compat is kept as its own step above).

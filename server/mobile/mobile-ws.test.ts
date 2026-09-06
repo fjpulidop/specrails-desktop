@@ -287,3 +287,41 @@ describe('MobileWsBridge', () => {
     expect(frame.reasoning).toBeUndefined() // must not leak
   })
 })
+
+describe('mission capabilities and live ACL boundaries', () => {
+  it('sends bounded mission invalidations without provider payloads to the authoritative project only', () => {
+    const bridge = new MobileWsBridge({ missionProjectFor: id => id === 'c1' ? 'p1' : null })
+    const one = new StubSocket(), other = new StubSocket()
+    bridge.attach(one, 'all'); bridge.attach(other, 'other')
+    sub(one, ['p1'], ['missions']); sub(other, ['p2'], ['missions'])
+    bridge.dispatch({ type: 'agent_tool', conversationId: 'c1', tool: 'specrails_specs', input: { token: 'private' }, output: 'private', projectId: 'p2' } as unknown as WsMessage)
+    expect(one.sent).toEqual([{ type: 'mission.updated', projectId: 'p1', conversationId: 'c1', event: 'agent_tool', tool: 'specrails_specs' }])
+    expect(other.sent).toHaveLength(0)
+    bridge.dispatch({ type: 'agent_stream', conversationId: 'foreign', delta: 'private', projectId: 'p1' } as unknown as WsMessage)
+    expect(one.sent).toHaveLength(1)
+    bridge.dispatch({ type: 'agent_stream', conversationId: 'c1', delta: 'x'.repeat(20000) } as unknown as WsMessage)
+    expect((one.sent[1] as { delta: string }).delta).toHaveLength(16000)
+  })
+  it('enforces restrictions immediately without reconnect and filters registry/budget events', () => {
+    let allowed: Set<string> | null = null
+    const bridge = new MobileWsBridge({ allowedProjectsFor: () => allowed, missionProjectFor: () => 'p1' })
+    const socket = new StubSocket(); bridge.attach(socket, 'phone'); sub(socket, ['p1', 'p2'], ['missions', 'queue', 'alerts'])
+    allowed = new Set(['p1'])
+    bridge.dispatch({ type: 'agent_done', conversationId: 'c1' } as unknown as WsMessage)
+    bridge.dispatch({ type: 'queue', projectId: 'p2' } as unknown as WsMessage)
+    bridge.dispatch({ type: 'desktop_daily_budget_exceeded', desktopDailySpend: 42 } as unknown as WsMessage)
+    expect(socket.sent).toHaveLength(0)
+    bridge.dispatch({ type: 'desktop.projects', projects: [{ id: 'p1' }, { id: 'p2' }] } as unknown as WsMessage)
+    expect(socket.sent).toEqual([{ type: 'hub.projects', projects: [{ id: 'p1' }] }])
+  })
+  it('drops buffered logs when a project grant is revoked before flush', () => {
+    let allowed: Set<string> | null = null
+    const bridge = new MobileWsBridge({ allowedProjectsFor: () => allowed })
+    const socket = new StubSocket(); bridge.attach(socket, 'phone'); sub(socket, ['p1'], [])
+    socket.emit('message', JSON.stringify({ type: 'watch_job', projectId: 'p1', jobId: 'j1' }))
+    bridge.dispatch({ type: 'log', projectId: 'p1', processId: 'j1', line: 'private' } as unknown as WsMessage)
+    allowed = new Set(['p2'])
+    ;(bridge as unknown as { flushLogs(): void }).flushLogs()
+    expect(socket.sent).toHaveLength(0)
+  })
+})

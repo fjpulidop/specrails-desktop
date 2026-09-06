@@ -4,41 +4,20 @@ import path from 'path'
 import { spawn } from 'child_process'
 import { Transform } from 'stream'
 import { pipeline } from 'stream/promises'
+import { validateChromiumArchive, validateChromiumTree } from './chromium-archive.cjs'
 
 /**
- * Resolve the Chromium executable the browser-capture feature should launch.
+ * Discover bundled Chromium, extracting its distribution archive when necessary.
  *
- * In desktop mode (`SPECRAILS_IS_DESKTOP=1`) we ship Chromium INSIDE the app, but
- * NOT as an unpacked directory: Tauri's resource bundler dereferences symlinks when
- * it copies `bundle.resources` into the .app (tauri-apps/tauri#13219), which mangles
- * Chromium's versioned `*.framework` (the `Versions/Current` + top-level symlinks
- * become flat duplicate copies) and invalidates its code signature — macOS
- * notarization then rejects the app ("The signature of the binary is invalid").
+ * A transparent chromium.tar.gz preserves the versioned framework symlinks that
+ * Tauri resource copying would otherwise dereference. Release assembly signs and
+ * notarizes Chromium before packing it; extraction preserves that signed layout.
+ * The writable cache is an installation location, not a signing bypass.
  *
- * So we ship Chromium as a single OPAQUE, OBFUSCATED blob
- * (`<runtimes>/chromium/chromium.pak`):
- *   - It is an XOR-transformed `chromium.tar.gz`. The notarization service recursively
- *     unpacks archives it recognises (.zip → .tar.gz → .tar → …) and validates every
- *     Mach-O inside; Chromium's ~50 nested binaries are only ad-hoc ("linker") signed
- *     by Google, so a plain archive fails notarization. XOR-ing breaks the gzip/tar
- *     magic, so the notary cannot identify the file as a container and treats it as
- *     opaque data — nothing inside is inspected, and the app notarizes with NO
- *     Developer-ID signing of Chromium. (Obfuscation, not security: the key is public.)
- *   - Tauri also copies it as one regular file — nothing to dereference.
- *   - At first use we reverse the XOR and extract it to a writable cache
- *     (`~/.specrails/runtimes/chromium`), restoring the framework symlinks intact. The
- *     extracted Chromium keeps Google's ad-hoc signature, which is sufficient to execute
- *     on Apple Silicon, and — being self-extracted rather than downloaded — carries no
- *     `com.apple.quarantine` xattr, so Gatekeeper does not block it.
- *
- * A plain `chromium.tar.gz`/`chromium.tar` is also accepted (e.g. unobfuscated local
- * builds). When no archive is present (dev, a runtimes-less build, a partial
- * extraction) we fall back to discovering an UNPACKED `<runtimes>/chromium` tree, and
- * finally to `null` so Playwright uses its own managed browser — never dead-ending.
- *
- * We DISCOVER rather than hard-code the executable path because Playwright's layout
- * changes across versions (`chrome-mac/Chromium.app` → `chrome-mac-arm64/Google Chrome
- * for Testing.app`, `chrome-win/chrome.exe`, `chrome-linux/chrome`).
+ * Older bundles used an XOR-encoded chromium.pak. Decode that format only for
+ * compatibility, preferring transparent archives whenever both are present.
+ * Unpacked development bundles and Playwright-managed browsers remain fallbacks.
+ * The executable is discovered because Playwright's platform layout can change.
  */
 
 const MAX_DEPTH = 6
@@ -130,13 +109,10 @@ export function resolveBundledChromiumPath(): string | null {
 }
 
 /** Candidate archive names under `<runtimes>/chromium`, in preference order. */
-const ARCHIVE_NAMES = ['chromium.pak', 'chromium.tar.gz', 'chromium.tar']
+const ARCHIVE_NAMES = ['chromium.tar.gz', 'chromium.tar', 'chromium.pak']
 
-// XOR key for the obfuscated `chromium.pak` blob. Keep byte-identical to KEY in
-// scripts/obfuscate-chromium.mjs — the round-trip is covered by a unit test.
-// (Safe to have changed at the rebrand: the .pak and this binary always ship
-// together in the same bundle, and the extraction cache re-extracts on a new
-// archive via the `.source` marker.)
+// Legacy archive decoding only. The bytes must remain compatible with previously
+// shipped chromium.pak files; new release assembly produces transparent archives.
 const OBFUSCATION_KEY = Buffer.from('specrails-desktop-chromium-pack-v1', 'utf8')
 
 /** Streaming XOR transform (symmetric: packs and unpacks). */
@@ -167,10 +143,10 @@ function chromiumCacheDir(): string {
   )
 }
 
-/** Identity string for an archive (size:mtime) used to skip re-extraction. */
+/** Bind the extraction to the selected archive and its precise filesystem revision. */
 function archiveIdentity(archivePath: string): string {
   const st = fs.statSync(archivePath)
-  return `${st.size}:${Math.round(st.mtimeMs)}`
+  return JSON.stringify({ version: 2, path: fs.realpathSync(archivePath), size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, dev: st.dev, ino: st.ino })
 }
 
 /** Resolve the platform `tar` binary. macOS/Linux ship `/usr/bin/tar`; Windows 10+ ships `tar` (bsdtar) on PATH. */
@@ -179,12 +155,18 @@ function tarBinary(): string {
   return 'tar'
 }
 
-/** Extract `archivePath` into `destDir` using the system tar (auto-detects gzip). */
+/** Extract a preflight-validated archive using the system tar (auto-detects gzip). */
 function runTarExtract(archivePath: string, destDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(tarBinary(), ['-xf', archivePath, '-C', destDir], { stdio: ['ignore', 'ignore', 'pipe'] })
+    // Apple tar must restore the metadata carrying the stapled ticket. These
+    // caller overrides are appropriate for source copies, not signed bundles.
+    const env = { ...process.env }
+    delete env.TAR_OPTIONS
+    delete env.COPYFILE_DISABLE
+    delete env.COPY_EXTENDED_ATTRIBUTES_DISABLE
+    const child = spawn(tarBinary(), ['-xf', archivePath, '-C', destDir], { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, env })
     let stderr = ''
-    child.stderr?.on('data', (d) => { stderr += d.toString() })
+    child.stderr?.on('data', (d) => { stderr = (stderr + d.toString()).slice(-4096) })
     child.on('error', reject)
     child.on('close', (code) => {
       if (code === 0) resolve()
@@ -193,9 +175,9 @@ function runTarExtract(archivePath: string, destDir: string): Promise<void> {
   })
 }
 
-// In-process single-slot cache so concurrent / StrictMode double-invokes share one
-// extraction instead of racing. Keyed by archive identity; invalidated if it changes.
-let _extractInflight: { identity: string; promise: Promise<string | null> } | null = null
+// Share pending work and serialize replacement of the same cache directory.
+// Completed promises are removed so deleted or changed cache files are rechecked.
+const extractInflight = new Map<string, { identity: string; promise: Promise<string | null> }>()
 
 /** First archive that exists under `<runtimes>/chromium`, or null. */
 function findBundledArchive(runtimesPath: string): string | null {
@@ -206,8 +188,7 @@ function findBundledArchive(runtimesPath: string): string | null {
   return null
 }
 
-async function extractAndDiscover(archivePath: string, identity: string): Promise<string | null> {
-  const destRoot = chromiumCacheDir()
+async function extractAndDiscover(archivePath: string, identity: string, destRoot: string): Promise<string | null> {
   const marker = path.join(destRoot, '.source')
 
   // Fast path: already extracted from this exact archive.
@@ -218,10 +199,10 @@ async function extractAndDiscover(archivePath: string, identity: string): Promis
     }
   } catch { /* not yet extracted / stale → fall through */ }
 
-  // Extract to a temp sibling, then atomically swap in.
-  const tmpDir = `${destRoot}.tmp-${process.pid}`
-  fs.rmSync(tmpDir, { recursive: true, force: true })
-  fs.mkdirSync(tmpDir, { recursive: true })
+  // Validate a complete extraction before publishing; retain the prior cache if
+  // publication fails (for example, while a running browser locks it on Windows).
+  fs.mkdirSync(path.dirname(destRoot), { recursive: true })
+  const tmpDir = fs.mkdtempSync(`${destRoot}.tmp-`)
   // An obfuscated `.pak` is XOR-decoded to a real `.tar.gz` first; plain archives
   // are fed straight to tar.
   const isPak = archivePath.endsWith('.pak')
@@ -232,15 +213,32 @@ async function extractAndDiscover(archivePath: string, identity: string): Promis
       await deobfuscate(archivePath, decodedTar)
       tarSource = decodedTar
     }
+    // Windows tar can follow an archive-created link before a post-extraction
+    // check runs. Validate the complete archive before allowing any writes.
+    await validateChromiumArchive(tarSource)
     await runTarExtract(tarSource, tmpDir)
+    validateChromiumTree(tmpDir)
     const exeInTmp = discoverChromiumExecutable(tmpDir)
     if (!exeInTmp) throw new Error('no chromium executable found after extraction')
     try { fs.chmodSync(exeInTmp, 0o755) } catch { /* perms best-effort */ }
 
-    fs.rmSync(destRoot, { recursive: true, force: true })
-    fs.mkdirSync(path.dirname(destRoot), { recursive: true })
-    fs.renameSync(tmpDir, destRoot)
-    fs.writeFileSync(marker, identity)
+    if (archiveIdentity(archivePath) !== identity) throw new Error('Chromium archive changed during extraction; retry with the current bundle')
+    fs.writeFileSync(path.join(tmpDir, '.source'), identity)
+    const previous = `${tmpDir}.previous`
+    let movedPrevious = false
+    if (fs.existsSync(destRoot)) {
+      fs.renameSync(destRoot, previous)
+      movedPrevious = true
+    }
+    try {
+      fs.renameSync(tmpDir, destRoot)
+    } catch (error) {
+      if (movedPrevious) fs.renameSync(previous, destRoot)
+      throw error
+    }
+    if (movedPrevious) {
+      try { fs.rmSync(previous, { recursive: true, force: true }) } catch { /* a locked prior version can be cleaned up later */ }
+    }
     return discoverChromiumExecutable(destRoot)
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true })
@@ -251,8 +249,8 @@ async function extractAndDiscover(archivePath: string, identity: string): Promis
 /**
  * Resolve the bundled Chromium executable for the launch path, extracting the
  * shipped archive on first use. Returns `null` (never throws) when not in desktop
- * mode, when no bundle is present, or when extraction fails — so Playwright falls
- * back to its managed browser rather than dead-ending.
+ * mode, when no bundle is present, or when extraction fails. The caller may then
+ * try an installed Playwright-managed browser; this resolver does not download one.
  */
 export async function resolveBundledChromiumExecutable(): Promise<string | null> {
   if (process.env.SPECRAILS_IS_DESKTOP !== '1') return null
@@ -268,14 +266,16 @@ export async function resolveBundledChromiumExecutable(): Promise<string | null>
   let identity: string
   try { identity = archiveIdentity(archivePath) } catch { return resolveBundledChromiumPath() }
 
-  if (_extractInflight && _extractInflight.identity === identity) {
-    return _extractInflight.promise
-  }
-  const promise = extractAndDiscover(archivePath, identity).catch((err) => {
+  const destRoot = path.resolve(chromiumCacheDir())
+  const pending = extractInflight.get(destRoot)
+  if (pending?.identity === identity) return pending.promise
+  const extract = () => extractAndDiscover(archivePath, identity, destRoot)
+  const promise = (pending ? pending.promise.then(extract) : extract()).catch((err) => {
     console.error('[chromium-resolver] extraction failed:', err instanceof Error ? err.message : err)
-    _extractInflight = null // allow a later retry
-    return resolveBundledChromiumPath()
+    return discoverChromiumExecutable(path.join(runtimesPath, 'chromium'))
+  }).finally(() => {
+    if (extractInflight.get(destRoot)?.promise === promise) extractInflight.delete(destRoot)
   })
-  _extractInflight = { identity, promise }
+  extractInflight.set(destRoot, { identity, promise })
   return promise
 }

@@ -24,6 +24,16 @@ name = "native-browser-popup-smoke"
 path = "examples/native-browser-popup-smoke.rs"
 required-features = ["native-browser-smoke"]
 
+[[example]]
+name = "native-mission-window-smoke"
+path = "examples/native-mission-window-smoke.rs"
+required-features = ["native-browser-smoke"]
+
+[[example]]
+name = "native-browser-multiwindow-smoke"
+path = "examples/native-browser-multiwindow-smoke.rs"
+required-features = ["native-browser-smoke"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -37,11 +47,18 @@ tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-single-instance = "2"
+tauri-plugin-notification = "2"
+rand = "0.8"
+base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", features = ["blocking"] }
 dirs-next = "2"
 tokio = { version = "1", features = ["sync", "time"] }
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # These are already transitive Tauri dependencies. Expose the public WebKit

@@ -24,9 +24,19 @@ const ROOT = path.resolve(__dirname, '..')
 const NODE_PTY_DIR = path.join(ROOT, 'node_modules', 'node-pty')
 const PTY_CC = path.join(NODE_PTY_DIR, 'src', 'unix', 'pty.cc')
 
-const MARKER = 'POSIX_SPAWN_CLOEXEC_DEFAULT'
 const ORIGINAL_LINE = 'int flags = POSIX_SPAWN_CLOEXEC_DEFAULT |'
 const PATCHED_LINE = 'int flags = 0 | /* pkg-patch: removed POSIX_SPAWN_CLOEXEC_DEFAULT — see scripts/patch-node-pty.mjs */'
+
+/** Recognize only the original statement or our exact replacement. The flag
+ * name remains in the replacement comment, so its presence alone is not a
+ * reliable indication that the source still needs patching. */
+export function patchNodePtySource(source) {
+  const originals = source.split(ORIGINAL_LINE).length - 1
+  const patched = source.split(PATCHED_LINE).length - 1
+  if (originals === 0 && patched === 1) return { source, changed: false }
+  if (originals === 1 && patched === 0) return { source: source.replace(ORIGINAL_LINE, PATCHED_LINE), changed: true }
+  throw new Error('Unexpected node-pty source layout: expected exactly one original flags statement or the exact pkg patch. Inspect src/unix/pty.cc and update scripts/patch-node-pty.mjs.')
+}
 
 function log(msg) { console.log(`[patch-node-pty] ${msg}`) }
 
@@ -46,19 +56,16 @@ function main() {
   }
   const src = fs.readFileSync(PTY_CC, 'utf8')
 
-  // Idempotent detection: if the file still contains POSIX_SPAWN_CLOEXEC_DEFAULT
-  // in a `flags` line, we haven't patched. Otherwise (or if our marker line is
-  // already present), skip the source edit but still ensure the native addon is
-  // built and copied into prebuilds/.
-  const needsEdit = src.includes(MARKER) && src.includes(ORIGINAL_LINE)
-  if (needsEdit) {
-    const patched = src.replace(ORIGINAL_LINE, PATCHED_LINE)
-    fs.writeFileSync(PTY_CC, patched)
+  let patch
+  try { patch = patchNodePtySource(src) }
+  catch (error) {
+    log(`ERROR: ${error.message}`)
+    process.exitCode = 1
+    return
+  }
+  if (patch.changed) {
+    fs.writeFileSync(PTY_CC, patch.source)
     log('patched src/unix/pty.cc')
-  } else if (src.includes(MARKER)) {
-    log(`WARNING: MARKER present but expected ORIGINAL_LINE not found — node-pty version may have changed`)
-    log('Aborting — inspect src/unix/pty.cc and update this script')
-    process.exit(1)
   } else {
     log('source already patched — ensuring native addon is rebuilt')
   }
@@ -94,4 +101,10 @@ function main() {
   log(`rebuilt artifacts → ${prebuildsDir}`)
 }
 
-main()
+// Importing the pure transform for fixture tests must never rebuild node-pty.
+// Resolve argv as a filesystem path so relative and symlinked entrypoints work.
+const isDirectRun = (() => {
+  try { return Boolean(process.argv[1]) && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)) }
+  catch { return false }
+})()
+if (isDirectRun) main()

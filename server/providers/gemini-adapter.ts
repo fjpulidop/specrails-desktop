@@ -272,6 +272,7 @@ export const geminiAdapter = {
   modelCatalog: () => GEMINI_MODELS,
   defaultModel: () => 'gemini-3.5-flash',
   buildArgs: buildGeminiArgs,
+  buildRepoAccessArgs: (paths: readonly string[]) => paths.flatMap((repoPath) => ['--include-directories', repoPath]),
   parseStreamLine: parseGeminiStreamLine,
   extractResult: extractGeminiResult,
   projectMcpPath: (root: string) => path.join(root, '.gemini', 'settings.json'),

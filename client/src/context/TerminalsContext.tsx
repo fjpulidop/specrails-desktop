@@ -43,6 +43,8 @@ export interface TerminalRef {
   id: string
   projectId: string
   name: string
+  shell?: string
+  cwd?: string
   cols: number
   rows: number
   createdAt: number
@@ -89,6 +91,7 @@ interface TerminalsContextValue {
   subscribeMarks: (sessionId: string, fn: (m: MarkFrame) => void) => () => void
   /** Last reported CWD for a session, when shell integration has emitted one. */
   getCwd: (sessionId: string) => string | null
+  getShell: (sessionId: string) => string | null
   /** Returns the SearchAddon for a session, used by the search overlay. */
   getSearchAddon: (sessionId: string) => SearchAddon | null
   /** Returns the underlying Terminal instance for context-menu / scrollback save. */
@@ -512,7 +515,11 @@ export function TerminalsProvider({ children, activeProjectId }: ProviderProps) 
   }, [])
 
   const getCwd = useCallback((sessionId: string): string | null => {
-    return xtermHandles.current.get(sessionId)?.currentCwd ?? null
+    return xtermHandles.current.get(sessionId)?.currentCwd ?? Object.values(statesRef.current).flatMap((state) => state.sessions).find((session) => session.id === sessionId)?.cwd ?? null
+  }, [])
+
+  const getShell = useCallback((sessionId: string): string | null => {
+    return Object.values(statesRef.current).flatMap((state) => state.sessions).find((session) => session.id === sessionId)?.shell ?? null
   }, [])
 
   const getSearchAddon = useCallback((sessionId: string): SearchAddon | null => {
@@ -534,9 +541,9 @@ export function TerminalsProvider({ children, activeProjectId }: ProviderProps) 
     states,
     getState, ensureProject, setVisibility, togglePanel, setUserHeight,
     setActive, create, createAndType, writeToSession, rename, kill, focusActive, disposeProject,
-    getContainer, notifyAdopted, refitActive, subscribeMarks, getCwd,
+    getContainer, notifyAdopted, refitActive, subscribeMarks, getCwd, getShell,
     getSearchAddon, subscribeOpenSearch, getTerminalInstance,
-  }), [states, getState, ensureProject, setVisibility, togglePanel, setUserHeight, setActive, create, createAndType, writeToSession, rename, kill, focusActive, disposeProject, getContainer, notifyAdopted, refitActive, subscribeMarks, getCwd, getSearchAddon, subscribeOpenSearch, getTerminalInstance])
+  }), [states, getState, ensureProject, setVisibility, togglePanel, setUserHeight, setActive, create, createAndType, writeToSession, rename, kill, focusActive, disposeProject, getContainer, notifyAdopted, refitActive, subscribeMarks, getCwd, getShell, getSearchAddon, subscribeOpenSearch, getTerminalInstance])
 
   return <TerminalsContext.Provider value={value}>{children}</TerminalsContext.Provider>
 }
@@ -563,6 +570,7 @@ const NOOP_CONTEXT: TerminalsContextValue = {
   refitActive: () => {},
   subscribeMarks: () => () => {},
   getCwd: () => null,
+  getShell: () => null,
   getSearchAddon: () => null,
   subscribeOpenSearch: () => () => {},
   getTerminalInstance: () => null,

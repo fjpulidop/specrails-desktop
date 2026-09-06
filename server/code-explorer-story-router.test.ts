@@ -131,6 +131,7 @@ describe('POST /file/story/explain', () => {
       relPath: 'hello.ts',
       provenanceId,
       overrideBudget: false,
+      force: false,
     })
   })
 
@@ -215,5 +216,21 @@ describe('POST /file/story/explain', () => {
       .post('/api/projects/proj-test/code/file/story/explain?path=hello.ts')
       .send({ provenanceId: 1 })
     expect(res.status).toBe(404)
+  })
+})
+
+
+describe('story explanation outcomes', () => {
+  it.each([
+    ['skipped:hash', { ok: true, reused: true }],
+    ['skipped:no-evidence', { skipped: 'no-evidence' }],
+    ['skipped:ttl', { skipped: 'ttl' }],
+  ])('surfaces %s without claiming a generated explanation', async (result, expected) => {
+    const provenanceId = seedIntervention()
+    explainSpy.mockResolvedValueOnce(result)
+    const response = await request(app).post('/api/projects/proj-test/code/file/story/explain?path=hello.ts').send({ provenanceId, force: true })
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual(expected)
+    expect(explainSpy).toHaveBeenCalledWith(expect.objectContaining({ provenanceId, force: true }))
   })
 })

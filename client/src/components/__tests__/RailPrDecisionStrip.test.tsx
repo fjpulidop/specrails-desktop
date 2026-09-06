@@ -19,6 +19,7 @@ import { RailRow } from '../RailRow'
 import { RailPrDecisionStrip } from '../RailPrDecisionStrip'
 import type { LocalTicket, RailPrDecision, RailPrStateSnapshot } from '../../types'
 import type { RailPrActResult } from '../../context/RailPrDecisionContext'
+import type { RepositoryDeliverySnapshot } from '../../types/multi-repo'
 
 function snapshot(overrides: Partial<RailPrStateSnapshot> = {}): RailPrStateSnapshot {
   return {
@@ -76,6 +77,46 @@ beforeEach(() => {
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
     value: { writeText: mockClipboardWriteText },
+  })
+})
+
+describe('grouped RailPrDecisionStrip actions', () => {
+  const repositories: RepositoryDeliverySnapshot[] = ['web', 'api'].map((repositoryId) => ({
+    repositoryId, name: repositoryId, path: `/repos/${repositoryId}`, deliveryId: `child-${repositoryId}`,
+    branch: `feature-${repositoryId}`, baseBranch: 'previous-chunk', integrationBranch: `${repositoryId}-main`,
+    deliverySha: 'a'.repeat(40), decision: 'on_review', implementationOutcome: 'succeeded', deliveryOutcome: 'ready',
+    statusCode: null, statusDetail: null, prUrl: null, prNumber: null, worktreeIds: [], runIds: [],
+  }))
+
+  it('confirms the selected member destination and sends its identity without any global delivery action', async () => {
+    const caller = vi.fn().mockResolvedValue({ ...okResult, decision: 'merged' })
+    const checkout = vi.fn().mockResolvedValue({ ok: true, status: 200 })
+    render(<RailPrDecisionStrip decision={snapshot({ baseBranch: 'unrelated-parent-base', repositoryDeliveries: repositories })}
+      density="normal" act={caller} checkout={checkout} />)
+    expect(screen.queryByTestId('rail-pr-create')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-merge-local')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-checkout')).toBeNull()
+    expect(screen.getAllByRole('button', { name: 'Create PR' })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: 'Integrate locally' })).toHaveLength(2)
+    expect(screen.getByTestId('rail-pr-discard')).toBeInTheDocument()
+    fireEvent.click(within(screen.getByRole('region', { name: 'api' })).getByRole('button', { name: 'Integrate locally' }))
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByText(/api-main/)).toBeInTheDocument()
+    expect(screen.queryByText(/unrelated-parent-base/)).toBeNull()
+    expect(caller).not.toHaveBeenCalled()
+    fireEvent.click(dialog.getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(caller).toHaveBeenCalledWith('merge-local', 'on_review', 'del-1', 'api'))
+    await waitFor(() => expect(mockToast.success).toHaveBeenCalledWith(expect.stringContaining('api-main')))
+  })
+
+  it.each(['pr_draft', 'pr_ready', 'pr_failed', 'pr_closed', 'no_changes'] as const)('keeps %s global delivery controls hidden while repository rows remain available', (decision) => {
+    renderStrip(snapshot({ decision, prUrl: 'https://github.com/test/parent/pull/3', prState: 'pr-created',
+      repositoryDeliveries: repositories.map((repository) => ({ ...repository, decision, ...(decision === 'no_changes' ? { deliveryOutcome: 'no_changes' } : {}) })),
+    }))
+    for (const id of ['rail-pr-create', 'rail-pr-create-partial', 'rail-pr-merge-local', 'rail-pr-publish', 'rail-pr-poll', 'rail-pr-reopen', 'rail-pr-checkout', 'rail-pr-no-changes-done']) {
+      expect(screen.queryByTestId(id)).toBeNull()
+    }
+    expect(screen.getByTestId('repository-deliveries')).toBeInTheDocument()
   })
 })
 

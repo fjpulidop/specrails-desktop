@@ -1,10 +1,16 @@
 import { Router, Request, Response, NextFunction } from 'express'
+import fs from 'node:fs'
+import { getProjectRepositories, resolveProjectRepository, validateTicketRepositoryIds, RepositoryValidationError } from './project-repositories'
+import { repositorySummaryRoot } from './file-summary-manager'
+import { discoverProjectCode } from './project-code-discovery'
+import { isCodeExplorerEnabled } from './feature-flags'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import { createHooksRouter } from './hooks'
 import { createRailsRouter } from './rails-router'
 import { createProfilesRouter } from './profiles-router'
 import { createPluginsRouter } from './plugins-router'
-import { createCodeExplorerRouter } from './code-explorer-router'
+import { createCodeExplorerRouter, filterCodeExplorerActivityPaths } from './code-explorer-router'
+import { listCodeActivity, parseCodeActivityQuery, CodeActivityQueryError } from './code-activity'
 import { createJiraRouter } from './jira-router'
 import { resolveTicketStoragePath, mutateStore, type Ticket } from './ticket-store'
 import type { LocalTicket } from './types'
@@ -122,18 +128,70 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   router.use('/:projectId/jira', jiraRouter)
 
   // Mount Code-Explorer router. FileSummaryManager comes from ProjectContext.
-  const codeRouterByCtx = new WeakMap<object, Router>()
-  router.use('/:projectId/code', (req: Request, res: Response, next: NextFunction) => {
+  router.get('/:projectId/code/discover', async (req, res) => {
+    if (!isCodeExplorerEnabled()) { res.status(404).json({ error: 'code_explorer_disabled' }); return }
+    try {
+      res.json(await discoverProjectCode(ctx(req).project, {
+        kind: String(req.query.kind ?? 'find') as 'find' | 'search',
+        query: String(req.query.q ?? ''),
+        ...(req.query.limit === undefined ? {} : { limit: Number(req.query.limit) }),
+        ...(req.query.path === undefined ? {} : { path: String(req.query.path) }),
+        caseSensitive: req.query.caseSensitive === 'true',
+      }))
+    } catch (err) {
+      res.status(400).json({ error: (err as Error).message })
+    }
+  })
+  // Activity reads recorded evidence across memberships; unlike source reads it
+  // can report unavailable roots explicitly without hiding the rest of a project.
+  router.get(['/:projectId/code/activity', '/:projectId/repositories/:repositoryId/code/activity'], async (req, res) => {
+    if (!isCodeExplorerEnabled()) { res.status(404).json({ error: 'code_explorer_disabled' }); return }
+    try {
+      const context = ctx(req)
+      res.json(await listCodeActivity(context.db, context.project,
+        parseCodeActivityQuery(req.query, req.params.repositoryId as string | undefined), filterCodeExplorerActivityPaths))
+    } catch (err) {
+      res.status(err instanceof CodeActivityQueryError ? err.status : 500).json({ error: err instanceof CodeActivityQueryError ? err.message : 'activity_unavailable' })
+    }
+  })
+  const codeRouterByCtx = new WeakMap<object, Map<string, { path: string; router: Router }>>()
+  const storyManagerByCtx = new WeakMap<object, FileStoryManager>()
+  router.use(['/:projectId/repositories/:repositoryId/code', '/:projectId/code'], (req: Request, res: Response, next: NextFunction) => {
     const projectCtx = ctx(req)
-    const codeRouter = memoizedSubRouter(codeRouterByCtx, projectCtx, () => {
+    let repository
+    try {
+      repository = resolveProjectRepository(projectCtx.project, req.params.repositoryId as string | undefined)
+    } catch (err) {
+      res.status(404).json({ error: 'repository_not_found', detail: (err as Error).message })
+      return
+    }
+    try {
+      if (!fs.statSync(repository.path).isDirectory()) throw new Error('not a directory')
+    } catch {
+      res.status(503).json({ error: 'repository_unavailable', repositoryId: repository.id })
+      return
+    }
+    let cache = codeRouterByCtx.get(projectCtx)
+    if (!cache) { cache = new Map(); codeRouterByCtx.set(projectCtx, cache) }
+    const members = getProjectRepositories(projectCtx.project)
+    for (const [id, cached] of cache) {
+      if (!members.some(member => member.id === id && member.path === cached.path)) {
+        cache.delete(id)
+        projectCtx.fileSummaryManager.detachWatcher(projectCtx.project.id, id)
+      }
+    }
+    let codeRouter = cache.get(repository.id)?.router
+    if (!codeRouter) {
       // Construction-story contribution generator — per-ctx (memoized with the
       // router). Reuses the file-summary spawn skeleton with the story prompt,
       // and the SAME monthly budget setting + ai_invocations surface, so the
       // whole Code-section AI spend rides one budget (see file-story-manager).
       const storyAdapter = getAdapter(projectCtx.project.provider ?? 'claude')
-      const fileStoryManager = new FileStoryManager({
+      let fileStoryManager = storyManagerByCtx.get(projectCtx)
+      if (!fileStoryManager) fileStoryManager = new FileStoryManager({
         db: projectCtx.db,
         broadcast: projectCtx.broadcast,
+        scheduler: projectCtx.fileSummaryManager,
         generate: createFileSummaryGenerator({
           adapter: storyAdapter,
           cwd: projectCtx.project.path,
@@ -159,10 +217,14 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
         providerId: () => storyAdapter.id,
         getTicketSpec: projectCtx.getTicketSpec,
       })
-      return createCodeExplorerRouter({
+      storyManagerByCtx.set(projectCtx, fileStoryManager)
+      codeRouter = createCodeExplorerRouter({
         db: projectCtx.db,
-        projectPath: projectCtx.project.path,
+        projectPath: repository.path,
         projectId: projectCtx.project.id,
+        repositoryId: repository.id,
+        repositoryName: repository.name,
+        includeLegacyProvenance: repository.isPrimary,
         broadcast: projectCtx.broadcast,
         fileSummaryManager: projectCtx.fileSummaryManager,
         getTicketSpec: projectCtx.getTicketSpec,
@@ -172,10 +234,12 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
         // relocated (source tree still read from project.path). Resolved per-call.
         resolveSummaryRoot: () => {
           const exec = resolveProjectExecution({ slug: projectCtx.project.slug, path: projectCtx.project.path })
-          return exec.relocated && exec.workspaceDir ? exec.workspaceDir : projectCtx.project.path
+          const artifactRoot = exec.relocated && exec.workspaceDir ? exec.workspaceDir : projectCtx.project.path
+          return repositorySummaryRoot(artifactRoot, repository)
         },
       })
-    })
+      cache.set(repository.id, { path: repository.path, router: codeRouter })
+    }
     codeRouter(req, res, next)
   })
 
@@ -302,6 +366,13 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
       res.status(400).json({ error: 'specs must contain at least one titled spec' })
       return
     }
+    let repositoryScopes: Array<string[] | undefined>
+    try {
+      repositoryScopes = rawSpecs.map((spec) => validateTicketRepositoryIds(project, spec && typeof spec === 'object' ? (spec as { repositoryIds?: unknown }).repositoryIds : undefined))
+    } catch (err) {
+      if (err instanceof RepositoryValidationError) { res.status(err.status).json({ error: err.message, code: err.code }); return }
+      throw err
+    }
     const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
     const workspace = exec.relocated && exec.workspaceDir
       ? exec.workspaceDir
@@ -345,6 +416,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
             ? [indexToId.get(prerequisite)!]
             : []
           const ticket: Ticket = {
+            ...(repositoryScopes[index] ? { repositoryIds: repositoryScopes[index] } : {}),
             id,
             title: spec.title,
             description: formatDescriptionWithCriteria(spec.description, spec.acceptanceCriteria),

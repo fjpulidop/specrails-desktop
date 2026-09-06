@@ -57,7 +57,9 @@
     "invalidName": "ターミナル名が無効です。",
     "openFailed": "ターミナルを開けませんでした。",
     "serverUnreachable": "ターミナルを開くためにサーバーへ接続できませんでした。",
-    "exitedImmediately": "ターミナルが直ちに終了しました — シェルの起動に失敗した可能性があります。繰り返し発生する場合はアプリを再起動してください。"
+    "exitedImmediately": "ターミナルが直ちに終了しました — シェルの起動に失敗した可能性があります。繰り返し発生する場合はアプリを再起動してください。",
+    "nativeActionFailed": "デスクトップ操作を完了できませんでした。",
+    "pathPasteUnsafe": "このパスは cmd.exe に安全に貼り付けられません。PowerShell ターミナルを使用してください。"
   },
   "session": {
     "processExited": "[プロセスが終了しました]",

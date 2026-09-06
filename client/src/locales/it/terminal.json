@@ -57,7 +57,9 @@
     "invalidName": "Nome del terminale non valido.",
     "openFailed": "Impossibile aprire il terminale.",
     "serverUnreachable": "Impossibile raggiungere il server per aprire un terminale.",
-    "exitedImmediately": "Il terminale si è chiuso immediatamente — la shell potrebbe non essersi avviata. Se il problema persiste, riavvia l'app."
+    "exitedImmediately": "Il terminale si è chiuso immediatamente — la shell potrebbe non essersi avviata. Se il problema persiste, riavvia l'app.",
+    "nativeActionFailed": "Impossibile completare l’azione desktop.",
+    "pathPasteUnsafe": "Questo percorso non può essere incollato in sicurezza in cmd.exe. Usa un terminale PowerShell."
   },
   "session": {
     "processExited": "[processo terminato]",

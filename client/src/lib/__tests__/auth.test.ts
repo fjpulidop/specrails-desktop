@@ -82,6 +82,31 @@ describe('auth', () => {
   })
 
   describe('installFetchInterceptor', () => {
+    it('uses only the native IPv4 backend for token bootstrap and API auth, without replaying HTML200 or authenticating localhost', async () => {
+      Object.defineProperty(window, '__TAURI_INTERNALS__', { value: {}, configurable: true })
+      const rawFetch = vi.fn()
+        .mockResolvedValueOnce(new Response('{"token":"fixture-token"}', { headers: { 'Content-Type': 'application/json' } }))
+        .mockResolvedValueOnce(new Response('<!DOCTYPE html>', { headers: { 'Content-Type': 'text/html' } }))
+        .mockResolvedValueOnce(new Response('<!DOCTYPE html>'))
+      window.fetch = rawFetch
+      try {
+        const { refreshDesktopToken, installFetchInterceptor, getDesktopTokenProtocol } = await import('../auth')
+        installFetchInterceptor()
+        expect(await refreshDesktopToken()).toBe(true)
+        expect(rawFetch.mock.calls[0][0]).toBe('http://127.0.0.1:4200/api/token')
+        expect(getDesktopTokenProtocol()).toBe('desktop-token.fixture-token')
+        expect((await window.fetch('/api/agent/conversations/c1/send', { method: 'POST', body: '{}' })).status).toBe(200)
+        expect(rawFetch).toHaveBeenCalledTimes(2)
+        expect(rawFetch.mock.calls[1][0]).toBe('http://127.0.0.1:4200/api/agent/conversations/c1/send')
+        expect(new Headers(rawFetch.mock.calls[1][1].headers).get('X-Desktop-Token')).toBe('fixture-token')
+        await window.fetch('http://localhost:4200/api/agent/conversations')
+        expect(new Headers(rawFetch.mock.calls[2][1]?.headers).has('X-Desktop-Token')).toBe(false)
+        expect(rawFetch).toHaveBeenCalledTimes(3)
+      } finally {
+        delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__
+      }
+    })
+
     it('retries a temporarily unavailable project read with Retry-After without refreshing auth', async () => {
       vi.useFakeTimers()
       const spyFetch = vi.fn()

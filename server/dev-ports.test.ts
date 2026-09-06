@@ -32,14 +32,25 @@ describe('dev port resolution', () => {
     expect(resolveWebDevPorts({})).toEqual({
       serverPort: DEFAULT_DEV_SERVER_PORT,
       clientPort: DEFAULT_DEV_CLIENT_PORT,
-      serverOrigin: 'http://localhost:4200',
-      wsUrl: 'ws://localhost:4200',
+      serverOrigin: 'http://127.0.0.1:4200',
+      wsUrl: 'ws://127.0.0.1:4200',
     })
     expect(resolveWebDevPorts({ SPECRAILS_DEV_SERVER_PORT: '4300', SPECRAILS_DEV_CLIENT_PORT: '4301' })).toEqual({
       serverPort: 4300,
       clientPort: 4301,
-      serverOrigin: 'http://localhost:4300',
-      wsUrl: 'ws://localhost:4300',
+      serverOrigin: 'http://127.0.0.1:4300',
+      wsUrl: 'ws://127.0.0.1:4300',
     })
+  })
+
+  it('keeps browser proxy, native API and WS on the same legacy-configured backend port', () => {
+    const env = { SPECRAILS_PORT: '4350' }
+    expect(resolveWebDevPorts(env)).toMatchObject({ serverPort: resolveServerPort([], env), serverOrigin: 'http://127.0.0.1:4350', wsUrl: 'ws://127.0.0.1:4350' })
+    expect(resolveWebDevPorts({ ...env, SPECRAILS_DEV_SERVER_PORT: '4360' }).serverPort).toBe(4360)
+  })
+
+  it('fails explicitly instead of allowing the frontend and API to share a numeric port', () => {
+    expect(() => resolveWebDevPorts({ SPECRAILS_DEV_CLIENT_PORT: '4200' })).toThrow('must differ')
+    expect(() => resolveWebDevPorts({ SPECRAILS_PORT: '4301', SPECRAILS_DEV_CLIENT_PORT: '4301' })).toThrow('must differ')
   })
 })

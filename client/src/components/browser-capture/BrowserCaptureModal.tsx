@@ -138,9 +138,10 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
     if (p !== 'fit') setViewport(PRESET_DIMS[p].w, PRESET_DIMS[p].h)
   }, [setViewport])
 
-  // Escape closes (when not mid-selection).
+  // The editor owns Escape (including its dirty-confirmation and save guard).
+  // Running both listeners used to close the browser even when discard was denied.
   useEffect(() => {
-    if (!open) return
+    if (!open || markup) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (selecting) { setSelecting(false); setBox(null); setLocked(null) }
@@ -149,7 +150,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, selecting, onClose])
+  }, [open, markup, selecting, onClose])
 
   // Breadcrumb navigation: ↑ = parent, ↓ = child of the locked-or-hovered element.
   // Locks the selection to the resolved element until the cursor moves again.
@@ -278,12 +279,11 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
     setCaptureError(null)
     try {
       if (captureAllSizes) {
-        // Multi-breakpoint = 3 reference images; no markup step.
+        // Keep the responsive references, but annotate the canonical image before
+        // delivering anything, just as for a single-region capture.
         const anchorPoint = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
         const result = await session.captureBreakpoints(rect, anchorPoint, pendingSpecId, BREAKPOINT_DIMS)
-        await onCaptured(result)
-        toast.success(t('modal.toast.captured'))
-        onClose()
+        setMarkup(result)
       } else {
         // Freeze the single capture and hand it to the in-place markup editor.
         const result = await session.capture(rect, pendingSpecId, { captureNetwork })
@@ -302,7 +302,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
       setLocked(null)
       session.clearHover()
     }
-  }, [session, pendingSpecId, captureNetwork, captureAllSizes, onCaptured, onClose, t, viewport])
+  }, [session, pendingSpecId, captureNetwork, captureAllSizes, t, viewport])
 
   const onBreadcrumbClick = useCallback((segment: BreadcrumbSegment) => {
     void session.navigateElement(segment.selector, 'self').then((probe) => { if (probe) setLocked(probe) })
@@ -358,8 +358,10 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
   }, [box, toViewport, hoverRect, runCapture])
 
   const onBackdropClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose()
-  }, [onClose])
+    // While annotating, closing goes through the editor's Cancel action so a
+    // backdrop click cannot discard markup or interrupt an attachment upload.
+    if (e.target === e.currentTarget && !markup) onClose()
+  }, [onClose, markup])
 
   if (!open || typeof document === 'undefined') return null
 

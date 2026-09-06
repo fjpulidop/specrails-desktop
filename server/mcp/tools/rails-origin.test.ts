@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'rails-origin-test-token-no-filesystem-access' }))
 import express from 'express'
 import type { Server } from 'http'
 import type { AddressInfo } from 'net'

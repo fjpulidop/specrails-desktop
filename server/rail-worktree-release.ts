@@ -1,3 +1,4 @@
+import { repositoryLockKey } from './repo-lock'
 import { getRailWorktree, isTerminalMergeState, updateRailWorktreeState, type MergeState } from './rail-worktrees-store'
 import { removeWorktree, type GitRunner } from './worktree-manager'
 import type { DbInstance } from './db'
@@ -393,6 +394,20 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
   for (const wtId of input.worktreeIds) {
     const wt = getRailWorktree(input.db, wtId)
     if (!wt) continue
+    if (wt.repository_path && repositoryLockKey(wt.repository_path) !== repositoryLockKey(input.repoDir)) {
+      warnings.push(`worktree ${wtId} belongs to a different repository; preserved`)
+      continue
+    }
+    const recordRemoved = (): void => {
+      input.db.transaction(() => {
+        updateRailWorktreeState(input.db, wt.id, state)
+        // Revisions can borrow the same mount under a new ledger id. Once Git
+        // proves that mount removed, older records must not pin membership forever.
+        input.db.prepare(`UPDATE rail_worktrees SET merge_state = 'released', updated_at = datetime('now')
+          WHERE id <> ? AND worktree_path = ? AND repository_id IS ?
+            AND merge_state IN ('building','built','merging','needs-review')`).run(wt.id, wt.worktree_path, wt.repository_id ?? null)
+      })()
+    }
     // Successful removal already terminalized these rows. Re-running `git
     // worktree remove` against their now-missing paths turns ordinary Publish /
     // Poll / Discard follow-ups into false cleanup_incomplete warnings.
@@ -407,7 +422,7 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
     // terminalize the ledger row honestly.
     if (evidence.gone) {
       try { await input.git.run(['worktree', 'prune'], input.repoDir) } catch { /* a leftover registration surfaces at checkout with git's own error */ }
-      updateRailWorktreeState(input.db, wt.id, state)
+      recordRemoved()
       continue
     }
     if (evidence.failure) {
@@ -464,7 +479,7 @@ export async function releaseRailWorktrees(input: ReleaseRailWorktreesInput): Pr
       continue
     }
     if (wt.merge_state === 'needs-review' || !isTerminalMergeState(wt.merge_state)) {
-      updateRailWorktreeState(input.db, wt.id, state)
+      recordRemoved()
     }
   }
   return warnings

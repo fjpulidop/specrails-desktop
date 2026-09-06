@@ -16,6 +16,7 @@
     "cli/dist",
     "server/dist",
     "client/dist",
+    "mcp-bridge/dist",
     "docs",
     ".claude/commands/specrails"
   ],
@@ -24,9 +25,13 @@
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "cd client && npm run dev",
     "dev:desktop": "tauri dev",
-    "build:server": "node -e \"require('fs').rmSync('server/dist',{recursive:true,force:true})\" && tsc --project tsconfig.build.json --noCheck",
+    "dev:desktop:prepare": "npm run build:sidecar && npm run build:mcp-bridge && npm run dev:client",
+    "build:server": "node -e \"require('fs').rmSync('server/dist',{recursive:true,force:true})\" && tsc --project tsconfig.build.json --noCheck && node scripts/copy-server-assets.mjs",
     "build:cli": "tsc --project tsconfig.cli.json",
-    "build": "npm run build:server && cd client && npm run build && cd .. && npm run build:cli",
+    "build": "npm run build:server && npm run build --prefix client && npm run build:cli && npm run build:mcp-bridge",
+    "prepack": "npm run build",
+    "test:scripts": "node scripts/test-scripts.mjs",
+    "check:package": "node scripts/check-package.mjs",
     "build:sidecar": "node scripts/build-sidecar.mjs",
     "build:mcp-bridge": "node scripts/build-mcp-bridge.mjs",
     "build:desktop": "npm run build:server && cd client && npm run build && cd .. && npm run build:sidecar && npm run build:mcp-bridge && tauri build",
@@ -40,7 +45,7 @@
     "test:coverage": "vitest run --coverage --maxWorkers=1 --reporter=dot --bail=1",
     "test:client": "cd client && npx vitest run",
     "test:all": "vitest run && cd client && npx vitest run",
-    "ci": "npm run typecheck && npm run check-core-compat && npm run test:coverage && cd client && npm run test:coverage"
+    "ci": "npm run typecheck && npm run check-core-compat && npm run test:scripts && npm run test:coverage && npm run test:coverage --prefix client && npm run build && npm run check:package"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

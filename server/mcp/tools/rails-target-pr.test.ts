@@ -44,4 +44,10 @@ describe('specrails_rails launch — targetPrNumber pass-through', () => {
     const body = mockApiCall.mock.calls[0][3] as Record<string, unknown>
     expect('targetPrNumber' in body).toBe(false)
   })
+  it('forwards explicit repository scope for launch and a grouped child review packet', async () => {
+    await spec.handler(ctx, { action: 'launch', railIndex: 0, repositoryIds: ['app', 'api'] })
+    expect(mockApiCall).toHaveBeenLastCalledWith(ctx, 'POST', expect.stringMatching(/\/rails\/0\/launch$/), expect.objectContaining({ repositoryIds: ['app', 'api'] }))
+    await spec.handler(ctx, { action: 'review_packet', prDeliveryId: 'parent', repositoryId: 'api' })
+    expect(mockApiCall).toHaveBeenLastCalledWith(ctx, 'GET', expect.stringMatching(/\/pr-deliveries\/parent\/packet\?repositoryId=api$/))
+  })
 })

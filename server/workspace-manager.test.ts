@@ -11,6 +11,7 @@ import {
   ensureFrameworkCommandSubtrees,
 } from './workspace-manager'
 import { FrameworkManager } from './framework-manager'
+import { coreUpdatePendingPath } from './core-update-state'
 
 describe('workspace-manager', () => {
   let home: string
@@ -29,10 +30,23 @@ describe('workspace-manager', () => {
     fs.rmSync(projectRoot, { recursive: true, force: true })
   })
 
+  function activate(version: string): void {
+    const current = path.join(home, '.specrails', 'framework', 'current')
+    try { fs.unlinkSync(current) } catch { /* first fixture */ }
+    fs.symlinkSync(version, current)
+  }
+
   it('workspacePathFor composes the expected path', () => {
     expect(workspacePathFor('myslug', home)).toBe(
       path.join(home, '.specrails', 'projects', 'myslug', 'workspace'),
     )
+  })
+  it('blocks implementation repair while a workspace Core migration is pending on every platform', () => {
+    const ws = workspacePathFor('pending', home)
+    fs.mkdirSync(path.dirname(coreUpdatePendingPath(ws)), { recursive: true })
+    fs.writeFileSync(coreUpdatePendingPath(ws), '{"version":"5.0.0"}')
+    expect(() => ensureFrameworkAgents(ws, '.claude', home)).toThrow(/unfinished Core update/)
+    expect(() => ensureFrameworkCommandSubtrees(ws, '.claude', home)).toThrow(/unfinished Core update/)
   })
 
   describe('ensureFrameworkAgents (win32 repair)', () => {
@@ -44,6 +58,7 @@ describe('workspace-manager', () => {
       const dir = path.join(home, '.specrails', 'framework', version, '.claude', 'agents')
       fs.mkdirSync(dir, { recursive: true })
       for (const a of agents) fs.writeFileSync(path.join(dir, `${a}.md`), `# ${a}\n`)
+      activate(version)
     }
 
     it('copies the framework sr-* agents from the version dir into an empty workspace', () => {
@@ -68,12 +83,13 @@ describe('workspace-manager', () => {
       expect(ensureFrameworkAgents(ws, '.claude', home)).toBe(0) // idempotent
     })
 
-    it('picks the highest framework version dir', () => {
+    it('uses the activated framework and ignores a newer unpublished stage', () => {
       win32()
       seedFramework('4.9.0', ['sr-architect'])
       seedFramework('4.10.0', ['sr-architect', 'sr-developer'])
+      activate('4.9.0')
       const ws = workspacePathFor('acme', home)
-      expect(ensureFrameworkAgents(ws, '.claude', home)).toBe(2) // from 4.10.0, not 4.9.0
+      expect(ensureFrameworkAgents(ws, '.claude', home)).toBe(1) // active 4.9.0; 4.10.0 was never published
     })
 
     it('is a NO-OP on POSIX (the assemble symlinks already populate agents)', () => {
@@ -106,6 +122,7 @@ describe('workspace-manager', () => {
       fs.writeFileSync(path.join(base, 'skills', 'a.md'), '# a\n')
       fs.mkdirSync(path.join(base, 'rules'), { recursive: true })
       fs.writeFileSync(path.join(base, 'rules', 'layer.md'), '# rules\n')
+      activate(version)
       return base
     }
 
@@ -129,6 +146,7 @@ describe('workspace-manager', () => {
         fs.mkdirSync(skill, { recursive: true })
         fs.writeFileSync(path.join(skill, 'SKILL.md'), contents)
       }
+      activate(version)
       return base
     }
 

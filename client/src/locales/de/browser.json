@@ -56,6 +56,7 @@
     }
   },
   "editor": {
+    "responsiveHint": "Anmerkungen gelten für das angezeigte Bild. Die anderen Bildschirmgrößen bleiben unverändert.",
     "tools": {
       "arrow": "Pfeil (A)",
       "box": "Rechteck (R)",

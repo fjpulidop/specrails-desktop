@@ -611,6 +611,7 @@ export interface SpecLauncherErrorMessage {
 // ─── Ticket message types ────────────────────────────────────────────────────
 
 export interface LocalTicket {
+  repositoryIds?: string[]
   id: number
   title: string
   description: string
@@ -810,6 +811,9 @@ export interface RailWorktreeProgressMessage {
  * `rail.pr_delivered` event.
  */
 export interface RailPrStateMessage {
+  executionManifest?: import('./multi-repo-execution-store').RunExecutionManifest | null
+  repositoryDeliveries?: import('./multi-repo-execution-store').RepositoryDeliverySnapshot[]
+
   type: 'rail.pr_state'
   projectId: string
   railIndex: number
@@ -834,7 +838,7 @@ export interface RailPrStateMessage {
   /** Explicit allocation rollback: this active generation was restored after
    * the referenced replacement generation failed. */
   restoredFromDeliveryId: string | null
-  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | null
+  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | 'checkout' | null
   cleanupWarnings: string[]
   safetyArchives: string[]
   units: Array<{
@@ -1234,19 +1238,8 @@ export interface PluginPrereqInstalledMessage {
   timestamp: string
 }
 
-export type BackgroundProcessStatus = 'starting' | 'running' | 'exited' | 'killed' | 'failed'
-
-export interface BackgroundProcess {
-  pid: number
-  command: string
-  cwd: string
-  startedAt: number
-  status: BackgroundProcessStatus
-  chatId: string
-  projectId: string
-  exitCode?: number | null
-  signal?: string | null
-}
+export type BackgroundProcessStatus = import('./transient-children').BackgroundProcessStatus
+export type BackgroundProcess = import('./transient-children').BackgroundProcess
 
 export interface BackgroundProcessStartedMessage {
   type: 'background_process.started'
@@ -1267,6 +1260,13 @@ export interface BackgroundProcessOutputMessage {
 
 export interface BackgroundProcessExitedMessage {
   type: 'background_process.exited'
+  process: BackgroundProcess
+  timestamp: string
+  projectId: string
+}
+
+export interface BackgroundProcessUpdatedMessage {
+  type: 'background_process.updated'
   process: BackgroundProcess
   timestamp: string
   projectId: string
@@ -1298,7 +1298,7 @@ export type WsMessage =
   | PluginHealthChangedMessage | PluginDegradedMessage
   | PluginInstallProgressMessage
   | PluginPrereqInstallProgressMessage | PluginPrereqInstalledMessage
-  | BackgroundProcessStartedMessage | BackgroundProcessOutputMessage | BackgroundProcessExitedMessage
+  | BackgroundProcessStartedMessage | BackgroundProcessOutputMessage | BackgroundProcessExitedMessage | BackgroundProcessUpdatedMessage
   | SpendingInvalidatedMessage
   | JobTurnUserMessage | JobTurnDoneMessage | JobFinalizedMessage
   | JobInteractiveMessage | JobStuckMessage
@@ -1313,8 +1313,8 @@ export type WsMessage =
   | JiraOutboxChangedMessage | JiraDegradedMessage
   | AgentStreamMessage | AgentPartialMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage | AgentToolResultMessage
   | AgentTitleMessage
-  | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage
-  | AgentQueueEditedMessage
+  | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage | AgentSteeredMessage | AgentInputReceiptMessage
+  | AgentQueueEditedMessage | AgentQueueRemovedMessage
   | AgentPrDecisionMessage
   | BlueprintStreamMessage | BlueprintDoneMessage | BlueprintErrorMessage | BlueprintRepairingMessage | BlueprintGeneratingMessage
   | BlueprintCommitProgressMessage | BlueprintCommitDoneMessage | BlueprintCommitFailedMessage
@@ -1484,6 +1484,7 @@ export interface AgentDoneMessage {
   type: 'agent_done'
   conversationId: string
   fullText: string
+  messageId?: string
   timestamp: string
 }
 
@@ -1492,6 +1493,7 @@ export interface AgentPartialMessage {
   type: 'agent_partial'
   conversationId: string
   fullText: string
+  messageId?: string
   error: string
   timestamp: string
 }
@@ -1535,6 +1537,8 @@ export interface AgentContextRefMessage {
   scope?: {
     projectId?: string | null
     projectName?: string | null
+    repositoryId?: string | null
+    repositoryName?: string | null
   }
   status?: string | null
   metadata?: Record<string, unknown>
@@ -1548,6 +1552,8 @@ export interface AgentQueuedMessage {
   queueId: string | null
   text: string
   contextRefs?: AgentContextRefMessage[]
+  attachmentIds?: string[]
+  deliveryMode?: 'queue' | 'steer'
   position: number
   timestamp: string
 }
@@ -1559,6 +1565,33 @@ export interface AgentDequeuedMessage {
   queueId: string | null
   text: string
   contextRefs?: AgentContextRefMessage[]
+  attachmentIds?: string[]
+  messageId?: string
+  deliveryReceipt?: 'sent' | 'received' | 'read'
+  timestamp: string
+}
+
+/** Input delivered into the current invocation; it does not end the turn. */
+export interface AgentSteeredMessage {
+  type: 'agent_steered'
+  conversationId: string
+  queueId: string
+  messageId: string
+  deliveryStatus?: 'delivered' | 'interrupted'
+  deliveryReceipt?: 'sent' | 'received' | 'read'
+  text: string
+  contextRefs?: AgentContextRefMessage[]
+  attachmentIds?: string[]
+  assistantSegment?: { id: string; content: string; created_at: string }
+  timestamp: string
+}
+
+export interface AgentInputReceiptMessage {
+  type: 'agent_input_receipt'
+  conversationId: string
+  queueId: string
+  messageId?: string
+  receipt: 'received' | 'read'
   timestamp: string
 }
 
@@ -1566,6 +1599,7 @@ export interface AgentDequeuedMessage {
 export interface AgentQueueClearedMessage {
   type: 'agent_queue_cleared'
   conversationId: string
+  messages?: Array<import('./agent-store').AgentMessage & { delivery_status: 'delivered' | 'cancelled' | 'interrupted' }>
   timestamp: string
 }
 
@@ -1575,7 +1609,15 @@ export interface AgentQueueEditedMessage {
   conversationId: string
   queueId: string
   text: string
+  deliveryMode?: 'queue' | 'steer'
   contextRefs?: AgentContextRefMessage[]
+  timestamp: string
+}
+
+export interface AgentQueueRemovedMessage {
+  type: 'agent_queue_removed'
+  conversationId: string
+  queueId: string
   timestamp: string
 }
 
@@ -1587,6 +1629,9 @@ export interface AgentQueueEditedMessage {
  * decision mutations update the SAME card in place.
  */
 export interface PrDecisionCardEnvelope {
+  executionManifest?: import('./multi-repo-execution-store').RunExecutionManifest | null
+  repositoryDeliveries?: import('./multi-repo-execution-store').RepositoryDeliverySnapshot[]
+
   kind: 'pr_decision'
   prDeliveryId: string
   railIndex: number
@@ -1602,7 +1647,7 @@ export interface PrDecisionCardEnvelope {
   isContinuation: boolean
   supersedesDeliveryId: string | null
   restoredFromDeliveryId: string | null
-  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | null
+  operation: 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | 'checkout' | null
   cleanupWarnings: string[]
   safetyArchives: string[]
   units: Array<{
@@ -1682,6 +1727,7 @@ export interface JiraDegradedMessage {
 export interface FileProvenanceUpdatedMessage {
   type: 'file.provenance_updated'
   projectId: string
+  repositoryId?: string
   path: string
   kind: 'created' | 'modified' | 'deleted'
   ticketId: number | null
@@ -1692,6 +1738,7 @@ export interface FileProvenanceUpdatedMessage {
 export interface FileSummaryUpdatedMessage {
   type: 'file.summary_updated'
   projectId: string
+  repositoryId?: string
   path: string
   summaryAvailable: boolean
   stale: boolean
@@ -1701,6 +1748,7 @@ export interface FileSummaryUpdatedMessage {
 export interface FileSummaryFailedMessage {
   type: 'file.summary_failed'
   projectId: string
+  repositoryId?: string
   path: string
   reason: string
 }
@@ -1710,6 +1758,7 @@ export interface FileSummaryFailedMessage {
 export interface FileStoryUpdatedMessage {
   type: 'file.story_updated'
   projectId: string
+  repositoryId?: string
   path: string
   provenanceId: number
   ok: boolean
@@ -1719,6 +1768,7 @@ export interface FileStoryUpdatedMessage {
 export interface FileSummarySkippedMessage {
   type: 'file.summary_skipped'
   projectId: string
+  repositoryId?: string
   path: string
   reason: 'budget' | 'per-job-cap' | 'ttl' | 'not-found'
 }

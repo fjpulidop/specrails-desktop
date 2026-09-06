@@ -127,6 +127,64 @@ describe('MCP → jobs spawn → conversation-provider engine default', () => {
     expect(enqueue.mock.calls[0][2].provider).toBeUndefined()
   })
 
+  it('validates an explicit repository ID for a legacy single-repository project', async () => {
+    const foreign = await captured!({ ...spawnArgs, repositoryId: 'foreign' }, spawnExtra())
+    expect(foreign.isError).toBe(true)
+    expect(foreign.content[0].text).toContain('does not belong')
+    expect(enqueue).not.toHaveBeenCalled()
+    const primary = await captured!({ ...spawnArgs, repositoryId: 'primary-p1' }, spawnExtra())
+    expect(primary.isError).toBeFalsy()
+    expect(JSON.parse(primary.content[0].text)).toMatchObject({ jobId: 'job-1' })
+    expect(enqueue).toHaveBeenCalledTimes(1)
+  })
+
+  describe('multi-repository direct spawn', () => {
+    beforeEach(() => {
+      const project = ctx.registry.getContext('p1')!.project
+      project.repositories = ['primary-p1', 'secondary-p1'].map((id, index) => ({
+        id, projectId: 'p1', name: index === 0 ? 'App' : 'API',
+        path: index === 0 ? project.path : '/another-repository', isPrimary: index === 0,
+        kind: 'git', integrationBranch: null, addedAt: '',
+      }))
+    })
+
+    it('requires an explicit repository before reaching the queue route', async () => {
+      const result = await captured!(spawnArgs, spawnExtra())
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toContain('Provide repositoryId')
+      expect(enqueue).not.toHaveBeenCalled()
+    })
+
+    it('rejects a secondary target with coordinated execution instructions before enqueue', async () => {
+      const result = await captured!({ ...spawnArgs, repositoryId: 'secondary-p1' }, spawnExtra())
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toContain('only the primary repository')
+      expect(result.content[0].text).toContain('specrails_rails(action:"launch"')
+      expect(result.content[0].text).toContain('specrails_loops(action:"run"')
+      expect(enqueue).not.toHaveBeenCalled()
+    })
+
+    it('rejects an identity owned by another project before enqueue', async () => {
+      const project = ctx.registry.getContext('p1')!.project
+      project.repositories!.push({ ...project.repositories![0], id: 'foreign', projectId: 'another-project' })
+      const result = await captured!({ ...spawnArgs, repositoryId: 'foreign' }, spawnExtra())
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toContain('does not belong')
+      expect(enqueue).not.toHaveBeenCalled()
+    })
+
+    it('routes an explicit primary through the existing HTTP queue with conversation defaults intact', async () => {
+      const conversation = createAgentConversation(desktopDb, { provider: 'codex', model: 'gpt-6-astra' })
+      const result = await captured!({ ...spawnArgs, repositoryId: 'primary-p1' }, spawnExtra(conversation.id))
+      expect(result.isError).toBeFalsy()
+      expect(JSON.parse(result.content[0].text)).toMatchObject({ jobId: 'job-1', hint: expect.stringContaining('primary repository') })
+      expect(enqueue).toHaveBeenCalledTimes(1)
+      expect(enqueue.mock.calls[0][2]).toMatchObject({ provider: 'codex', model: 'gpt-6-astra' })
+      expect(enqueue.mock.calls[0][2]).not.toHaveProperty('cwd')
+      expect(enqueue.mock.calls[0][2]).not.toHaveProperty('repositoryId')
+    })
+  })
+
   it('an unknown conversation id is tolerated: no default, spawn proceeds', async () => {
     const r = await captured!(spawnArgs, spawnExtra('conv-that-does-not-exist'))
     expect(r.isError).toBeFalsy()

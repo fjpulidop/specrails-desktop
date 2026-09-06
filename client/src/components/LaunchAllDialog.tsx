@@ -1,3 +1,4 @@
+import { keyboardLabel } from '../lib/keyboard-label'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Rocket, GitBranch, Layers, DollarSign } from 'lucide-react'
@@ -94,7 +95,7 @@ export function LaunchAllDialog({ open, railCount, specCount, onConfirm, onCance
             onClick={onConfirm}
           >
             {t('launchAllDialog.launch', { count: railCount })}
-            <kbd className="hidden sm:inline-flex items-center rounded border border-white/30 bg-white/10 px-1 text-[9px] font-medium leading-4">⌘↵</kbd>
+            <kbd className="hidden sm:inline-flex items-center rounded border border-white/30 bg-white/10 px-1 text-[9px] font-medium leading-4">{keyboardLabel('⌘↵')}</kbd>
           </Button>
         </DialogFooter>
       </DialogContent>

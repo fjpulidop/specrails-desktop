@@ -1,12 +1,14 @@
 //! macOS capture uses WKWebView's public snapshot API on the same interactive
 //! page. No Screen Recording permission, CDP session or second navigation.
-use super::{CaptureViewport, NativeCapture, PaneBounds, SelectedElement};
+use super::{CaptureViewport, NativeCapture, SelectedElement};
+#[cfg(test)]
+use super::PaneBounds;
 use block2::RcBlock;
 use objc2::{runtime::AnyObject, sel, ClassType, MainThreadMarker};
 use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSImage};
 use objc2_foundation::{NSDataBase64EncodingOptions, NSDictionary, NSError, NSPoint, NSRect, NSSize, NSString, NSObjectProtocol};
 use objc2_web_kit::{WKContentWorld, WKSnapshotConfiguration, WKWebView};
-use serde::Deserialize;
+use super::capture_common::{CaptureMetadata, validate_element, capture_rect};
 use std::time::Duration;
 use tauri::Webview;
 
@@ -72,34 +74,6 @@ pub async fn selection(pane: &Webview) -> Result<Option<SelectedElement>, String
     Ok(selected)
 }
 
-#[derive(Deserialize)]
-struct CaptureMetadata { url: String, title: String, viewport: CaptureViewport, element: Option<SelectedElement> }
-fn validate_element(element: &SelectedElement) -> Result<(), String> {
-    let rect = element.rect;
-    if element.selector.len() > 8192 || element.tag_name.len() > 256 || element.text.len() > 8192
-        || ![rect.x, rect.y, rect.width, rect.height].iter().all(|n| n.is_finite())
-        || rect.width <= 0.0 || rect.height <= 0.0 {
-        return Err("invalid native selection geometry".into());
-    }
-    Ok(())
-}
-fn capture_rect(viewport: &CaptureViewport, element: Option<&SelectedElement>) -> Result<PaneBounds, String> {
-    let CaptureViewport { width, height, device_scale_factor } = *viewport;
-    if ![width, height, device_scale_factor].iter().all(|n| n.is_finite())
-        || width < 1.0 || height < 1.0 || width > 16_384.0 || height > 16_384.0
-        || device_scale_factor <= 0.0 || device_scale_factor > 8.0 {
-        return Err("invalid native browser viewport".into());
-    }
-    let Some(element) = element else { return Ok(PaneBounds { x: 0.0, y: 0.0, width, height }); };
-    validate_element(element)?;
-    let rect = element.rect;
-    let x = rect.x.max(0.0).min(width);
-    let y = rect.y.max(0.0).min(height);
-    let right = (rect.x + rect.width).max(0.0).min(width);
-    let bottom = (rect.y + rect.height).max(0.0).min(height);
-    if right - x < 1.0 || bottom - y < 1.0 { return Err("selected element is outside the visible page".into()); }
-    Ok(PaneBounds { x, y, width: right - x, height: bottom - y })
-}
 
 fn encode_image(image: &NSImage) -> Result<(String, f64), String> {
     // Snapshots normally carry a bitmap representation already. Keep its backing

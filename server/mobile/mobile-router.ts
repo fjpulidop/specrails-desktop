@@ -5,6 +5,7 @@ import { redact } from './mobile-redact'
 import { createMobileAuthMiddleware, type MobileAuthedRequest } from './mobile-auth'
 import { getAllowedProjects, isProjectAllowed } from './mobile-devices'
 import type { DbInstance } from '../db'
+import { createMobileMissionsRouter } from './mobile-missions'
 
 // The gateway's authenticated REST surface: the `/v1/*` allow-list. Each route
 // forwards, in-process, via a REAL loopback HTTP request to
@@ -43,7 +44,7 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
   // any `:pid`-scoped route is gated against the device's granted project set.
   // An unrestricted device (null grant ⇒ all projects, legacy default) passes
   // through; a scoped device gets 403 for any project it wasn't granted. The
-  // bare `GET /v1/projects` list has no `:pid` and is unaffected.
+  // bare `GET /v1/projects` list applies the same grant when shaping its response.
   v1.use('/projects/:pid', (req, res, next) => {
     const pid = seg(req.params.pid)
     if (!PID_RE.test(pid)) {
@@ -72,11 +73,13 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
     internalPath: string,
     query: string,
     body?: unknown,
+    transform?: (json: unknown) => unknown,
   ): Promise<void> {
     const url = internalBase + internalPath + (query ? `?${query}` : '')
     try {
       const init: RequestInit = {
         method,
+        signal: AbortSignal.timeout(30_000),
         headers: {
           'x-desktop-token': loadOrGenerateToken(),
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
@@ -94,7 +97,7 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
         res.status(502).json({ error: 'Bad upstream response' })
         return
       }
-      res.status(upstream.status).json(redact(json))
+      res.status(upstream.status).json(redact(upstream.ok && transform ? transform(json) : json))
     } catch {
       res.status(502).json({ error: 'Server unreachable' })
     }
@@ -119,7 +122,12 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
   // —— Reads ——
   v1.get('/projects', (req, res) => {
     // Exact GET /api/projects is served by the desktop router (mounted at /api).
-    void forward(res, 'GET', '/api/projects', '')
+    const allowed = getAllowedProjects(deps.db, (req as MobileAuthedRequest).mobileDevice!.id)
+    void forward(res, 'GET', '/api/projects', '', undefined, json => {
+      if (allowed === null || !json || typeof json !== 'object') return json
+      const value = json as { projects?: Array<{ id?: string }> }
+      return { ...value, projects: value.projects?.filter(project => project.id && allowed.has(project.id)) ?? [] }
+    })
   })
 
   const projectReads: Array<[string, string]> = [
@@ -178,6 +186,10 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
     if (typeof b.status === 'string') narrowed.status = b.status
     if (typeof b.priority === 'string') narrowed.priority = b.priority
     if (typeof b.title === 'string') narrowed.title = b.title
+    if (b.repositoryIds !== undefined) {
+      if (!Array.isArray(b.repositoryIds) || !b.repositoryIds.length || b.repositoryIds.length > 30 || b.repositoryIds.some(id => typeof id !== 'string' || !PID_RE.test(id))) { res.status(400).json({ error: 'Invalid repository selection' }); return }
+      narrowed.repositoryIds = b.repositoryIds
+    }
     void forward(res, 'PATCH', `/api/projects/${encodeURIComponent(pid)}/tickets/${encodeURIComponent(tid)}`, '', narrowed)
   })
 
@@ -216,6 +228,10 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
       narrowed.reasoning_effort = b.reasoning_effort
     }
     if (typeof b.interactive === 'boolean') narrowed.interactive = b.interactive
+    if (b.repositoryIds !== undefined) {
+      if (!Array.isArray(b.repositoryIds) || !b.repositoryIds.length || b.repositoryIds.length > 30 || b.repositoryIds.some(id => typeof id !== 'string' || !PID_RE.test(id))) { res.status(400).json({ error: 'Invalid repository selection' }); return }
+      narrowed.repositoryIds = b.repositoryIds
+    }
     void forward(res, 'POST', `/api/projects/${encodeURIComponent(pid)}/rails/${encodeURIComponent(i)}/launch`, '', narrowed)
   })
 
@@ -373,6 +389,12 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
     void forward(res, 'POST', `/api/projects/${encodeURIComponent(pid)}/tickets/from-draft`, '', narrowed)
   })
 
+  v1.use(createMobileMissionsRouter({ db: deps.db, upstream: async (method, path, body) => {
+    const response = await fetch(internalBase + path, { method, signal: AbortSignal.timeout(30_000),
+      headers: { 'x-desktop-token': loadOrGenerateToken(), ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}) })
+    return { status: response.status, json: await response.json() }
+  } }))
   router.use('/v1', v1)
 
   // Any unmatched gateway path → 404 JSON (NEVER falls through to a SPA handler;
@@ -387,6 +409,20 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
 /** The allow-list, exported for the CI drift test (asserts each entry resolves
  *  against a real internal route, and that no traversal param is accepted). */
 export const MOBILE_ALLOWLIST: Array<{ method: string; path: string }> = [
+  { method: 'GET', path: '/v1/capabilities' },
+  { method: 'GET', path: '/v1/mission-models' },
+  { method: 'GET', path: '/v1/projects/:pid/repositories' },
+  { method: 'GET', path: '/v1/projects/:pid/missions' },
+  { method: 'POST', path: '/v1/projects/:pid/missions' },
+  { method: 'GET', path: '/v1/projects/:pid/missions/:cid' },
+  { method: 'POST', path: '/v1/projects/:pid/missions/:cid/send' },
+  { method: 'POST', path: '/v1/projects/:pid/missions/:cid/abort' },
+  { method: 'PATCH', path: '/v1/projects/:pid/missions/:cid/queue/:queueId' },
+  { method: 'DELETE', path: '/v1/projects/:pid/missions/:cid/queue/:queueId' },
+  { method: 'POST', path: '/v1/projects/:pid/missions/:cid/queue/:queueId/steer' },
+  { method: 'GET', path: '/v1/projects/:pid/missions/:cid/processes' },
+  { method: 'GET', path: '/v1/projects/:pid/missions/:cid/processes/:processId/logs' },
+  { method: 'DELETE', path: '/v1/projects/:pid/missions/:cid/processes/:processId' },
   { method: 'GET', path: '/v1/projects' },
   { method: 'GET', path: '/v1/projects/:pid/tickets' },
   { method: 'GET', path: '/v1/projects/:pid/tickets/:tid' },

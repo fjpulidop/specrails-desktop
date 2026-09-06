@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'operational-test-token-no-filesystem-access' }))
 import { z } from 'zod'
 import { initDesktopDb, type DbInstance } from '../../desktop-db'
 import { createAgentConversation } from '../../agent-store'

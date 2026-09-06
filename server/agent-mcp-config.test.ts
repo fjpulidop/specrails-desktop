@@ -140,6 +140,84 @@ describe('agent MCP capability transport', () => {
     expect(joined).not.toContain(capability)
   })
 
+  it.each(['claude', 'codex', 'gemini', 'kimi'])('%s keeps per-invocation capability files separate even within one conversation', adapterId => {
+    const firstId = '11111111-1111-4111-8111-111111111111'
+    const secondId = '22222222-2222-4222-8222-222222222222'
+    const cwd = path.join(tmpDir, 'agent-cwd')
+    fs.mkdirSync(cwd)
+    const first = prepareAgentMcp({ adapterId, conversationId: 'same-conversation', invocationId: firstId, cwd, port: 4200, capability: 'first-capability' })
+    const firstFile = path.join(tmpDir, '.specrails', 'agent', 'same-conversation', `mcp.${firstId}.capability`)
+    let firstConfig: string | undefined
+    if (adapterId === 'claude') firstConfig = fs.readFileSync(first.extraArgs[1], 'utf8')
+    const second = prepareAgentMcp({ adapterId, conversationId: 'same-conversation', invocationId: secondId, cwd, port: 4200, capability: 'second-capability' })
+    const secondFile = path.join(path.dirname(firstFile), `mcp.${secondId}.capability`)
+    expect(fs.readFileSync(firstFile, 'utf8')).toBe('first-capability')
+    expect(fs.readFileSync(secondFile, 'utf8')).toBe('second-capability')
+    expect(fs.statSync(firstFile).mode & 0o777).toBe(0o600)
+    expect(fs.statSync(secondFile).mode & 0o777).toBe(0o600)
+    if (adapterId === 'claude') {
+      expect(first.extraArgs[1]).not.toBe(second.extraArgs[1])
+      expect(fs.readFileSync(first.extraArgs[1], 'utf8')).toBe(firstConfig)
+      expect(firstConfig).toContain(firstFile)
+      expect(firstConfig).not.toContain(secondFile)
+    } else if (adapterId === 'codex') {
+      expect(first.extraArgs.join(' ')).toContain(firstFile)
+      expect(second.extraArgs.join(' ')).toContain(secondFile)
+    } else {
+      const configPath = adapterId === 'gemini' ? path.join(cwd, '.gemini', 'settings.json') : path.join(cwd, '.kimi-code', 'mcp.json')
+      expect(JSON.parse(fs.readFileSync(configPath, 'utf8')).mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE).toBe(secondFile)
+    }
+    removeAgentCapabilityFile('same-conversation', firstId)
+    expect(fs.existsSync(firstFile)).toBe(false)
+    expect(fs.readFileSync(secondFile, 'utf8')).toBe('second-capability')
+    if (adapterId === 'claude') {
+      expect(fs.existsSync(first.extraArgs[1])).toBe(false)
+      expect(fs.existsSync(second.extraArgs[1])).toBe(true)
+    }
+    removeAgentCapabilityFile('same-conversation', firstId)
+    expect(fs.existsSync(secondFile)).toBe(true)
+  })
+
+  it('does not replace a bearer when the same invocation identity is accidentally reused', () => {
+    const invocationId = '11111111-1111-4111-8111-111111111111'
+    const opts = { conversationId: 'immutable', invocationId, port: 4200, capability }
+    const args = buildAgentMcpArgs(opts)
+    const config = fs.readFileSync(args[1], 'utf8')
+    expect(() => buildAgentMcpArgs({ ...opts, capability: 'replacement' })).toThrow()
+    const file = JSON.parse(config).mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE
+    expect(fs.readFileSync(file, 'utf8')).toBe(capability)
+    expect(fs.readFileSync(args[1], 'utf8')).toBe(config)
+  })
+
+  it('rejects invalid invocation identities without creating or deleting another capability file', () => {
+    buildAgentMcpArgs({ conversationId: 'legacy', port: 4200, capability })
+    const legacyFile = path.join(tmpDir, '.specrails', 'agent', 'legacy', 'mcp.capability')
+    for (const invocationId of ['../legacy/mcp', '', 'not-a-uuid', '11111111-1111-4111-8111-111111111111/../x']) {
+      expect(() => prepareAgentMcp({ adapterId: 'codex', conversationId: 'invalid', invocationId, port: 4200, capability, cwd: tmpDir })).toThrow('expected a UUID')
+      removeAgentCapabilityFile('legacy', invocationId)
+      expect(fs.readFileSync(legacyFile, 'utf8')).toBe(capability)
+    }
+    expect(fs.existsSync(path.join(tmpDir, '.specrails', 'agent', 'invalid'))).toBe(false)
+  })
+
+  it('rejects pre-planted capability/config symlinks without modifying their targets', () => {
+    const invocationId = '11111111-1111-4111-8111-111111111111'
+    const dir = path.join(tmpDir, '.specrails', 'agent', 'symlink')
+    fs.mkdirSync(dir, { recursive: true })
+    const victim = path.join(tmpDir, 'untouched.txt')
+    fs.writeFileSync(victim, 'untouched')
+    const capabilityFile = path.join(dir, `mcp.${invocationId}.capability`)
+    fs.symlinkSync(victim, capabilityFile)
+    expect(() => buildAgentMcpArgs({ conversationId: 'symlink', invocationId, port: 4200, capability })).toThrow()
+    expect(fs.readFileSync(victim, 'utf8')).toBe('untouched')
+    fs.unlinkSync(capabilityFile)
+    fs.symlinkSync(victim, path.join(dir, `mcp.${invocationId}.json`))
+    expect(() => buildAgentMcpArgs({ conversationId: 'symlink', invocationId, port: 4200, capability })).toThrow()
+    expect(fs.readFileSync(victim, 'utf8')).toBe('untouched')
+    removeAgentCapabilityFile('symlink', invocationId)
+    expect(fs.readFileSync(victim, 'utf8')).toBe('untouched')
+  })
+
   it('gemini path: the native project settings entry carries the env', () => {
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'srh-origin-gem-'))
     try {

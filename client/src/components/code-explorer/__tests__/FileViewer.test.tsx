@@ -1,12 +1,13 @@
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FileViewer, type SummaryAction } from '../FileViewer'
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
+import { CodeRepositoryContext } from '../CodeRepositoryContext'
 
 const desktopState = vi.hoisted(() => ({ provider: 'claude' }))
 
 vi.mock('../CodeViewerMonaco', () => ({
-  CodeViewerMonaco: ({ content }: { content: string }) => <div data-testid="monaco-stub">{content}</div>,
+  CodeViewerMonaco: ({ content, initialLine }: { content: string; initialLine?: number }) => <div data-testid="monaco-stub" data-line={initialLine}>{content}</div>,
 }))
 
 vi.mock('../../../context/TicketDetailModalContext', () => ({
@@ -49,6 +50,39 @@ beforeEach(() => {
 })
 
 describe('FileViewer', () => {
+  it('loads the selected repository and ignores summary events from other repositories and legacy primary events', async () => {
+    const base = '/api/projects/p1/repositories/api'
+    global.fetch = vi.fn(async (url: RequestInfo | URL) => ({ ok: true, json: async () => String(url).includes('/story') ? { story: [] } : { content: 'API contents', language: 'typescript', provenance: [] } })) as never
+    render(wrap(<CodeRepositoryContext.Provider value={{ apiBase: base, repositoryId: 'api', isPrimary: false }}><FileViewer relPath="src/index.ts" /></CodeRepositoryContext.Provider>))
+    await screen.findByText('API contents')
+    await act(async () => {})
+    expect(fetch).toHaveBeenCalledWith(`${base}/code/file?path=src%2Findex.ts`, { signal: expect.any(AbortSignal) })
+    vi.mocked(fetch).mockClear()
+    act(() => { for (const handler of handlers.values()) {
+      handler({ type: 'file.summary_updated', projectId: 'p1', path: 'src/index.ts' })
+      handler({ type: 'file.summary_updated', projectId: 'p1', repositoryId: 'primary-p1', path: 'src/index.ts' })
+      handler({ type: 'file.summary_updated', projectId: 'other-project', repositoryId: 'api', path: 'src/index.ts' })
+    } })
+    expect(fetch).not.toHaveBeenCalled()
+    act(() => { for (const handler of handlers.values()) handler({ type: 'file.summary_updated', projectId: 'p1', repositoryId: 'api', path: 'src/index.ts' }) })
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(`${base}/code/file?path=src%2Findex.ts`, { signal: expect.any(AbortSignal) }))
+  })
+
+  it('does not show a late response from the previous repository for the same relative file path', async () => {
+    let finishPrimary!: (value: Response) => void
+    global.fetch = vi.fn((url: RequestInfo | URL) => {
+      if (String(url).includes('/primary-p1/code/file?')) return new Promise<Response>((resolve) => { finishPrimary = resolve })
+      return Promise.resolve({ ok: true, json: async () => String(url).includes('/story') ? { story: [] } : { content: 'API contents', language: 'typescript', provenance: [] } } as Response)
+    })
+    const tree = (id: string) => wrap(<CodeRepositoryContext.Provider value={{ apiBase: `/api/projects/p1/repositories/${id}`, repositoryId: id, isPrimary: id === 'primary-p1' }}><FileViewer relPath="src/index.ts" /></CodeRepositoryContext.Provider>)
+    const { rerender } = render(tree('primary-p1'))
+    rerender(tree('api'))
+    await screen.findByText('API contents')
+    await act(async () => finishPrimary({ ok: true, json: async () => ({ content: 'Old frontend contents', language: 'typescript', provenance: [] }) } as Response))
+    expect(screen.queryByText('Old frontend contents')).not.toBeInTheDocument()
+    expect(screen.getByText('API contents')).toBeInTheDocument()
+  })
+
   it('renders binary state and suppresses Monaco', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -113,33 +147,72 @@ describe('FileViewer', () => {
     await waitFor(() => expect(screen.getByTestId('construction-story')).toBeInTheDocument())
   })
 
-  it('edits a text file and saves it via PUT /code/file', async () => {
-    const fetchMock = vi.fn((_url: string, opts?: { method?: string }) => {
-      if (opts?.method === 'PUT') {
-        return Promise.resolve({ ok: true, json: async () => ({ ok: true, bytes: 18 }) })
+  it('keeps text files read-only and reveals the requested source line', async () => {
+    global.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ content: 'export const x = 1', language: 'typescript', summary: null, story: [] }) })) as never
+    const { rerender } = render(wrap(<FileViewer relPath="src/x.ts" initialLine={12} />))
+    expect(await screen.findByTestId('monaco-stub')).toHaveAttribute('data-line', '12')
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    rerender(wrap(<FileViewer relPath="src/x.ts" initialLine={21} />))
+    expect(screen.getByTestId('monaco-stub')).toHaveAttribute('data-line', '21')
+    expect(vi.mocked(fetch).mock.calls.some(([, opts]) => opts?.method === 'PUT')).toBe(false)
+  })
+
+  it('aborts an old summary request and immediately clears its source when moving to another file', async () => {
+    let finishSummary!: (response: Response) => void
+    let finishB!: (response: Response) => void
+    let summarySignal: AbortSignal | undefined
+    global.fetch = vi.fn((url: RequestInfo | URL, opts?: RequestInit) => {
+      if (opts?.method === 'POST') {
+        summarySignal = opts.signal as AbortSignal
+        return new Promise<Response>((resolve) => { finishSummary = resolve })
       }
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ content: 'export const x = 1', language: 'typescript', summary: null, summaryStale: false }),
-      })
+      if (String(url).includes('/story')) return Promise.resolve({ ok: true, json: async () => ({ story: [] }) } as Response)
+      if (String(url).includes('b.ts')) return new Promise<Response>((resolve) => { finishB = resolve })
+      return Promise.resolve({ ok: true, json: async () => ({ content: 'source A', language: 'typescript' }) } as Response)
     })
-    global.fetch = fetchMock as never
-    render(wrap(<FileViewer relPath="src/x.ts" />))
-    await waitFor(() => expect(screen.getByTestId('monaco-stub')).toBeInTheDocument())
+    const summaryAction = captureSummaryAction()
+    const { rerender } = render(wrap(<FileViewer relPath="a.ts" onSummaryActionChange={summaryAction.onChange} />))
+    await screen.findByText('source A')
+    act(() => { void summaryAction.get()?.onClick() })
+    expect(finishSummary).toBeTypeOf('function')
+    rerender(wrap(<FileViewer relPath="b.ts" onSummaryActionChange={summaryAction.onChange} />))
+    expect(screen.queryByText('source A')).not.toBeInTheDocument()
+    expect(summarySignal?.aborted).toBe(true)
+    await act(async () => finishB({ ok: true, json: async () => ({ content: 'source B', language: 'typescript' }) } as Response))
+    await act(async () => finishSummary({ ok: true, json: async () => ({ ok: true }) } as Response))
+    expect(screen.getByText('source B')).toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/code/file?path=a.ts'))).toHaveLength(1)
+  })
 
-    // Enter edit mode → Save/Cancel appear.
-    fireEvent.click(screen.getByText('Edit'))
-    expect(screen.getByText('Save')).toBeInTheDocument()
-    expect(screen.getByText('Cancel')).toBeInTheDocument()
+  it('refreshes source on provenance changes and retains the last successful read after refresh failure', async () => {
+    let version = 'source before'
+    let fails = false
+    global.fetch = vi.fn(async (url: RequestInfo | URL) => ({ ok: !fails, json: async () => String(url).includes('/story') ? { story: [] } : { content: version, language: 'typescript' } })) as never
+    render(wrap(<FileViewer relPath="a.ts" />))
+    await screen.findByText('source before')
+    version = 'source after'
+    act(() => { for (const handler of handlers.values()) handler({ type: 'file.provenance_updated', projectId: 'p1', path: 'a.ts' }) })
+    await screen.findByText('source after')
+    fails = true
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh source' }))
+    await screen.findByRole('alert')
+    expect(screen.getByText('source after')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+  })
 
-    // Save → PUTs the (unchanged-by-stub) draft to /code/file.
-    await act(async () => {
-      fireEvent.click(screen.getByText('Save'))
+  it('opens historical patches independently of the current source and resets a changed run immediately', async () => {
+    global.fetch = vi.fn((url: RequestInfo | URL) => {
+      if (String(url).includes('/code/diff')) return Promise.resolve({ ok: true, json: async () => ({ patch: '@@ -1 +1 @@\n-old\n+' + (String(url).includes('second') ? 'second patch' : 'first patch'), truncated: false }) } as Response)
+      if (String(url).includes('/story')) return Promise.resolve({ ok: true, json: async () => ({ story: [] }) } as Response)
+      return new Promise<Response>(() => {})
     })
-    const putCall = fetchMock.mock.calls.find((c) => (c[1] as { method?: string } | undefined)?.method === 'PUT')
-    expect(putCall).toBeTruthy()
-    expect(String(putCall![0])).toContain('/code/file')
-    expect(JSON.parse((putCall![1] as { body: string }).body)).toEqual({ path: 'src/x.ts', content: 'export const x = 1' })
+    const { rerender } = render(wrap(<FileViewer relPath="deleted.ts" initialJobId="first" />))
+    await screen.findByText('+first patch')
+    expect(screen.queryByTestId('monaco-stub')).not.toBeInTheDocument()
+    rerender(wrap(<FileViewer relPath="deleted.ts" initialJobId="second" />))
+    expect(screen.queryByText('+first patch')).not.toBeInTheDocument()
+    await screen.findByText('+second patch')
   })
 
   it('does not show the Edit affordance for a binary file', async () => {
@@ -254,4 +327,39 @@ describe('FileViewer', () => {
       expect(summaryAction.get()?.regenerating).toBe(false)
     })
   })
+  it('keeps simultaneous source viewers subscribed when one closes', async () => {
+    global.fetch = vi.fn(async (url: RequestInfo | URL) => ({ ok: true, json: async () => String(url).includes('/story') ? { story: [] } : { content: 'shared source', language: 'typescript' } })) as never
+    const { rerender } = render(wrap(<><FileViewer key="main" relPath="same.ts" /><FileViewer key="mission" relPath="same.ts" /></>))
+    await waitFor(() => expect(screen.getAllByText('shared source')).toHaveLength(2))
+    const sourceHandlers = () => [...handlers].filter(([key]) => key.startsWith('code-file-'))
+    expect(sourceHandlers()).toHaveLength(2)
+    rerender(wrap(<FileViewer key="mission" relPath="same.ts" />))
+    expect(sourceHandlers()).toHaveLength(1)
+    vi.mocked(fetch).mockClear()
+    act(() => { for (const [, handler] of sourceHandlers()) handler({ type: 'file.provenance_updated', projectId: 'p1', path: 'same.ts' }) })
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes('/code/file?'))).toHaveLength(1))
+  })
+
+  it('defaults compact history to collapsed independently of wide preferences and remembers explicit toggles', async () => {
+    localStorage.removeItem('specrails-desktop:code-history-collapsed:p1:compact')
+    localStorage.setItem('specrails-desktop:code-history-collapsed:p1', 'false')
+    global.fetch = vi.fn(async (url: RequestInfo | URL) => ({ ok: true, json: async () => String(url).includes('/story') ? { story: [] } : { content: 'compact source', language: 'typescript', provenance: [{ path: 'a.ts', jobId: 'run-1', ticketId: 1, kind: 'modified', at: 1000 }] } })) as never
+    const { rerender, unmount } = render(wrap(<FileViewer relPath="a.ts" compact />))
+    await screen.findByText('compact source')
+    expect(screen.queryByTestId('construction-story')).not.toBeInTheDocument()
+    fireEvent.click(within(screen.getByTestId('code-history-resizer')).getByRole('button', { name: 'Show' }))
+    await screen.findByTestId('construction-story')
+    expect(localStorage.getItem('specrails-desktop:code-history-collapsed:p1:compact')).toBe('false')
+    rerender(wrap(<FileViewer relPath="b.ts" compact />))
+    await screen.findByTestId('construction-story')
+    fireEvent.click(within(screen.getByTestId('code-history-resizer')).getByRole('button', { name: 'Hide' }))
+    expect(screen.queryByTestId('construction-story')).not.toBeInTheDocument()
+    rerender(wrap(<FileViewer relPath="b.ts" compact={false} />))
+    await screen.findByTestId('construction-story')
+    expect(localStorage.getItem('specrails-desktop:code-history-collapsed:p1')).toBe('false')
+    unmount()
+    localStorage.removeItem('specrails-desktop:code-history-collapsed:p1:compact')
+    localStorage.removeItem('specrails-desktop:code-history-collapsed:p1')
+  })
+
 })

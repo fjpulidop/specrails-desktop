@@ -51,6 +51,7 @@
 import { execFileSync } from 'node:child_process'
 import {
   cpSync,
+  constants,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -214,8 +215,12 @@ function main() {
     // Stage the whole node_modules tree (deps included) into dest (clean first).
     rmSync(dest, { recursive: true, force: true })
     mkdirSync(dest, { recursive: true })
+    // Avoid Node native traversal/overwrite bugs on Windows Unicode paths.
+    // FICLONE falls back to a normal copy when cloning is unavailable.
     cpSync(nodeModules, path.join(dest, 'node_modules'), {
       recursive: true,
+      filter: () => true,
+      mode: constants.COPYFILE_FICLONE,
       verbatimSymlinks: true,
     })
     // Drop the npm `.bin` shims — they are dangling after the copy and Tauri

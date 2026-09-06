@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
 import { GitBranch, ChevronDown, Check, Search, Loader2, FolderGit2, Copy } from 'lucide-react'
-import { API_ORIGIN } from '../../lib/origin'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { subscribeGitChanged } from '../../lib/git-refresh'
+import { useDesktop } from '../../hooks/useDesktop'
+import { projectRepositories, repositoryApiBase } from '../../lib/project-repositories'
 
 interface GitWorktree {
   path: string
@@ -15,6 +16,7 @@ interface GitWorktree {
 }
 
 interface GitInfo {
+  repositoryId?: string
   git: boolean
   branch: string | null
   detached: boolean
@@ -35,34 +37,61 @@ interface GitInfo {
 export function AgentGitBar({ projectId }: { projectId: string }) {
   const { t } = useTranslation('agent')
   const { isStreaming } = useAgentChat()
-  const [info, setInfo] = useState<GitInfo | null>(null)
+  const { projects } = useDesktop()
+  const project = projects.find(project => project.id === projectId)
+  const repositories = projectRepositories(project)
+  const [selection, setSelection] = useState<{ projectId: string; repositoryId: string } | null>(null)
+  const repositoryId = selection?.projectId === projectId ? selection.repositoryId : repositories.find(repository => repository.isPrimary)?.id
+  const repository = repositories.find(repository => repository.id === repositoryId)
+  const [snapshot, setSnapshot] = useState<{ key: string; value: GitInfo } | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [switching, setSwitching] = useState(false)
   const [open, setOpen] = useState(false)
+  const [repositoryOpen, setRepositoryOpen] = useState(false)
   const [query, setQuery] = useState('')
   const rootRef = useRef<HTMLDivElement>(null)
-  const base = `${API_ORIGIN}/api/projects/${projectId}/git`
-  const currentBaseRef = useRef(base)
-  currentBaseRef.current = base
+  const base = `${repositoryApiBase(projectId, repositoryId)}/git`
+  const scopeKey = `${base}\0${repository?.path ?? ''}`
+  const scopeRef = useRef({ key: scopeKey, epoch: 0 })
+  if (scopeRef.current.key !== scopeKey) scopeRef.current = { key: scopeKey, epoch: scopeRef.current.epoch + 1 }
+  const scopeEpoch = scopeRef.current.epoch
+  const info = snapshot?.key === scopeKey ? snapshot.value : null
+  const refreshAbortRef = useRef<AbortController | null>(null)
   const refreshVersionRef = useRef(0)
+  const mountedRef = useRef(true)
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false } }, [])
 
   const refresh = useCallback(async () => {
     const version = ++refreshVersionRef.current
+    refreshAbortRef.current?.abort()
+    const controller = new AbortController()
+    refreshAbortRef.current = controller
     try {
-      const res = await fetch(base)
-      if (!res.ok) return
+      const res = await fetch(base, { signal: controller.signal })
+      if (!res.ok) throw new Error('unavailable')
       const next = await res.json() as GitInfo
-      if (currentBaseRef.current === base && refreshVersionRef.current === version) setInfo(next)
+      if (typeof next.git !== 'boolean' || (repositoryId && next.repositoryId && next.repositoryId !== repositoryId)) throw new Error('repository mismatch')
+      if (mountedRef.current && scopeRef.current.epoch === scopeEpoch && refreshVersionRef.current === version && !controller.signal.aborted) {
+        setSnapshot({ key: scopeKey, value: next })
+        setLoadFailed(false)
+      }
     } catch {
-      /* transient — keep last known */
+      if (mountedRef.current && scopeRef.current.epoch === scopeEpoch && refreshVersionRef.current === version && !controller.signal.aborted) {
+        setSnapshot(null)
+        setLoadFailed(true)
+      }
     }
-  }, [base])
+  }, [base, repositoryId, scopeKey, scopeEpoch])
 
   useEffect(() => {
-    setInfo(null)
+    setSnapshot(null)
+    setLoadFailed(false)
     setSwitching(false)
     setOpen(false)
+    setRepositoryOpen(false)
     setQuery('')
     void refresh()
+    return () => { ++refreshVersionRef.current; refreshAbortRef.current?.abort() }
   }, [refresh])
 
   // Turn settled → the agent may have committed or switched branches.
@@ -83,29 +112,30 @@ export function AgentGitBar({ projectId }: { projectId: string }) {
 
   // Click-away closes the dropdown (same pattern as AgentProjectSelector).
   useEffect(() => {
-    if (!open) return
+    if (!open && !repositoryOpen) return
     const onDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) { setOpen(false); setRepositoryOpen(false) }
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
+  }, [open, repositoryOpen])
 
   const checkout = useCallback(async (branch: string) => {
     setOpen(false)
     setQuery('')
-    if (!branch || branch === info?.branch || switching || isStreaming || currentBaseRef.current !== base) return
+    if (!info?.git || !branch || branch === info.branch || switching || isStreaming || scopeRef.current.epoch !== scopeEpoch) return
     // Invalidate any read started before the branch mutation.
     ++refreshVersionRef.current
+    refreshAbortRef.current?.abort()
     setSwitching(true)
     try {
       const res = await fetch(`${base}/checkout`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ branch }),
+        body: JSON.stringify({ branch, ...(repositoryId ? { repositoryId } : {}) }),
       })
       const data = await res.json().catch(() => ({})) as GitInfo & { error?: string }
-      if (currentBaseRef.current !== base) return
+      if (!mountedRef.current || scopeRef.current.epoch !== scopeEpoch) return
       if (!res.ok) {
         // git refused (dirty tree, unknown branch, …) and touched NOTHING —
         // surface its exact reason and re-sync the strip with the real state.
@@ -114,32 +144,38 @@ export function AgentGitBar({ projectId }: { projectId: string }) {
         return
       }
       ++refreshVersionRef.current
-      setInfo(data)
+      if (typeof data.git !== 'boolean' || (repositoryId && data.repositoryId && data.repositoryId !== repositoryId)) {
+        setSnapshot(null)
+        setLoadFailed(true)
+        return
+      }
+      setSnapshot({ key: scopeKey, value: data })
       toast.success(t('git.switched', { branch }))
     } catch {
-      if (currentBaseRef.current !== base) return
+      if (!mountedRef.current || scopeRef.current.epoch !== scopeEpoch) return
       toast.error(t('git.switchFailed'))
       void refresh()
     } finally {
-      if (currentBaseRef.current === base) setSwitching(false)
+      if (mountedRef.current && scopeRef.current.epoch === scopeEpoch) setSwitching(false)
     }
-  }, [base, info?.branch, switching, isStreaming, t, refresh])
+  }, [base, info, repositoryId, scopeKey, scopeEpoch, switching, isStreaming, t, refresh])
 
   const filtered = useMemo(() => {
     if (!info) return []
     const q = query.trim().toLowerCase()
-    return q ? info.branches.filter((b) => b.toLowerCase().includes(q)) : info.branches
+    return q ? (info.branches ?? []).filter((b) => b.toLowerCase().includes(q)) : info.branches ?? []
   }, [info, query])
 
-  if (!info?.git) return null
+  const showRepositories = repositories.length > 1 || (!!repositoryId && !repository)
+  if (!info?.git && !showRepositories && !loadFailed) return null
 
   const disabled = switching || isStreaming
-  const currentLabel = info.detached ? t('git.detached') : info.branch ?? t('git.detached')
+  const currentLabel = info?.detached ? t('git.detached') : info?.branch ?? t('git.detached')
   // Branches living in a LINKED worktree (rails create them for parallel
   // implementation) can't be checked out here — git refuses "already checked
   // out at <path>". They render grouped with their path and copy it on click.
   const worktreeByBranch = new Map(
-    (info.worktrees ?? []).filter((w) => !w.isMain && w.branch).map((w) => [w.branch as string, w]),
+    (info?.worktrees ?? []).filter((w) => !w.isMain && w.branch).map((w) => [w.branch as string, w]),
   )
   const switchable = filtered.filter((b) => !worktreeByBranch.has(b))
   const inWorktrees = filtered.filter((b) => worktreeByBranch.has(b))
@@ -158,9 +194,31 @@ export function AgentGitBar({ projectId }: { projectId: string }) {
 
   return (
     <div ref={rootRef} className="relative mt-1.5 flex min-w-0 items-center gap-2 px-1 text-[11px] text-foreground/50" data-agent-interactive>
-      <button
+      {showRepositories && <div className="relative min-w-0 shrink-0">
+        <button type="button" aria-label={t('git.repository')} aria-expanded={repositoryOpen} disabled={switching}
+          onClick={() => { setRepositoryOpen(value => !value); setOpen(false) }}
+          className="flex max-w-[180px] items-center gap-1.5 rounded-md border border-border/50 bg-surface/60 px-1.5 py-0.5 text-foreground hover:bg-surface disabled:opacity-50">
+          <FolderGit2 className="h-3 w-3 shrink-0 text-accent-primary/70" />
+          <span className="truncate">{repository?.name ?? t('git.repositoryUnavailable')}</span>
+          <ChevronDown className="h-3 w-3 shrink-0" />
+        </button>
+        {repositoryOpen && <div role="listbox" aria-label={t('git.repository')}
+          className="absolute bottom-full left-0 z-20 mb-1 max-h-56 w-64 overflow-y-auto rounded-xl border border-border/60 bg-card p-1 shadow-2xl">
+          {repositories.map(member => <button key={member.id} type="button" role="option" aria-selected={member.id === repositoryId}
+            onClick={() => { setSelection({ projectId, repositoryId: member.id }); setRepositoryOpen(false) }}
+            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-foreground hover:bg-surface">
+            <span className="min-w-0 flex-1 truncate">{member.name}</span>
+            {member.id === repositoryId && <Check className="h-3 w-3" />}
+          </button>)}
+        </div>}
+      </div>}
+      {!info?.git && <span role={loadFailed ? 'status' : undefined} className="min-w-0 truncate">
+        {loadFailed ? t('git.loadFailed') : info ? t('git.notGit') : <Loader2 className="h-3 w-3 animate-spin" />}
+      </span>}
+      {loadFailed && <button type="button" onClick={() => void refresh()} className="shrink-0 text-accent-primary hover:underline">{t('git.retry')}</button>}
+      {info?.git && <button
         type="button"
-        onClick={() => { if (!disabled) setOpen((o) => !o) }}
+        onClick={() => { if (!disabled) { setOpen((o) => !o); setRepositoryOpen(false) } }}
         disabled={disabled}
         aria-label={t('git.branch')}
         aria-expanded={open}
@@ -172,10 +230,10 @@ export function AgentGitBar({ projectId }: { projectId: string }) {
           : <GitBranch className="h-3 w-3 shrink-0 text-accent-primary/70" />}
         <span className="min-w-0 truncate">{currentLabel}</span>
         <ChevronDown className="h-3 w-3 shrink-0 text-foreground/40" />
-      </button>
+      </button>}
 
       <AnimatePresence>
-        {open && (
+        {open && info?.git && (
           <motion.div
             initial={{ opacity: 0, y: 6, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -252,14 +310,14 @@ export function AgentGitBar({ projectId }: { projectId: string }) {
         )}
       </AnimatePresence>
 
-      {info.dirty && (
+      {info?.dirty && (
         <span
           title={t('git.dirty')}
           aria-label={t('git.dirty')}
           className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-warning"
         />
       )}
-      {info.lastCommit && (
+      {info?.lastCommit && (
         <span className="min-w-0 flex-1 truncate" title={`${info.lastCommit.hash} · ${info.lastCommit.subject}`}>
           <span className="font-mono text-foreground/40">{info.lastCommit.hash}</span>
           {' · '}

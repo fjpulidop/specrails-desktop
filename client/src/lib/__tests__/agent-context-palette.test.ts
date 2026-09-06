@@ -6,6 +6,7 @@ import {
   buildReferenceItems,
   chipKey,
   detectAgentPaletteTrigger,
+  discoveredFileItems,
   filterPaletteItems,
   insertPaletteSelection,
   toContextReference,
@@ -54,6 +55,25 @@ const baseState: PaletteSourceState = {
 }
 
 describe('agent context palette', () => {
+  it('keeps same-path files from different repositories distinct through mention insertion and context serialization', () => {
+    const items = discoveredFileItems(projects[0], [
+      { path: 'src/index.ts', repositoryId: 'web', repositoryName: 'Frontend' },
+      { path: 'src/index.ts', repositoryId: 'api', repositoryName: 'Backend' },
+    ])
+    expect(new Set(items.map((item) => item.id)).size).toBe(2)
+    expect(new Set(items.map((item) => chipKey(item.chip!))).size).toBe(2)
+    const selected = items[1]
+    const text = 'Inspect @src/index.ts then implement it'
+    const caret = text.indexOf(' then')
+    const inserted = insertPaletteSelection(text, detectAgentPaletteTrigger(text, caret)!, selected)
+    expect(inserted.text).toBe('Inspect @Backend/src/index.ts then implement it')
+    const reference = toContextReference(selected.chip!)
+    expect(reference.scope).toMatchObject({ projectId: 'p1', repositoryId: 'api', repositoryName: 'Backend' })
+    expect(reference.metadata).toEqual({ path: 'src/index.ts' })
+    expect(buildAgentContextBlock([reference])).toContain('repositoryId=api')
+    expect(filterPaletteItems(items, 'backend')).toEqual([selected])
+  })
+
   it('detects @, #, and / triggers only at token boundaries', () => {
     expect(detectAgentPaletteTrigger('inspect @chec')?.mode).toBe('reference')
     expect(detectAgentPaletteTrigger('inspect #job')?.mode).toBe('trace')

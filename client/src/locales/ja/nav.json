@@ -70,7 +70,8 @@
     "searchPlaceholder": "検索…",
     "minimizeWindow": "ウィンドウを最小化",
     "maximizeWindow": "ウィンドウを最大化",
-    "closeWindow": "ウィンドウを閉じる"
+    "closeWindow": "ウィンドウを閉じる",
+    "restoreWindow": "ウィンドウを元のサイズに戻す"
   },
   "costAlerts": {
     "costAlertTitle": "コストアラート",

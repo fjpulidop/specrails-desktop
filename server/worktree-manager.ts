@@ -194,6 +194,10 @@ async function fastForwardExistingBranch(
  * callers creating fresh work may choose shared cwd. PR continuations must fail
  * closed because shared cwd cannot guarantee branch identity.
  */
+function canonicalWorktreePath(value: string): string {
+  try { return fs.realpathSync.native(value) } catch { return path.resolve(value) }
+}
+
 export async function createWorktree(git: GitRunner, input: CreateWorktreeInput): Promise<WorktreeHandle> {
   const branch = input.branch ?? worktreeBranch(input.slug, input.ticketId)
   const wt = worktreePath(input.worktreesRoot, input.ticketId)
@@ -206,7 +210,7 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
   //     it out into a worktree (resume from the committed partial work).
   //  3. neither → create a fresh branch off base.
   const existing = await listWorktrees(git, input.repoDir)
-  if (existing.some((p) => path.resolve(p) === path.resolve(wt))) {
+  if (existing.some((p) => canonicalWorktreePath(p) === canonicalWorktreePath(wt))) {
     // The still-mounted worktree may be checked out on a DIFFERENT branch than
     // the caller's preferred name (the path is keyed by ticketId only, so a
     // stale mount from a prior run of the same ticket collides here). The
@@ -518,7 +522,7 @@ export async function listWorktrees(git: GitRunner, repoDir: string): Promise<st
   for (const line of res.stdout.split('\n')) {
     if (line.startsWith('worktree ')) {
       const p = line.slice('worktree '.length).trim()
-      if (p && path.resolve(p) !== path.resolve(repoDir)) paths.push(p)
+      if (p && canonicalWorktreePath(p) !== canonicalWorktreePath(repoDir)) paths.push(p)
     }
   }
   return paths

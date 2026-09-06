@@ -9,6 +9,14 @@ import { getAdapter } from './providers'
 import { isCodexInjectable, type ResolvedExternalServer } from './external-mcp'
 
 const AGENT_CONVERSATION_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
+const AGENT_INVOCATION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function invocationFileName(extension: 'capability' | 'json', invocationId?: string): string {
+  if (invocationId !== undefined && !AGENT_INVOCATION_ID_RE.test(invocationId)) {
+    throw new Error('Unsafe agent invocation id: expected a UUID.')
+  }
+  return invocationId === undefined ? `mcp.${extension}` : `mcp.${invocationId}.${extension}`
+}
 
 // ─── Agent MCP wiring (design D8 / D1) ────────────────────────────────────────
 //
@@ -142,6 +150,7 @@ export function mergeSpecrailsIntoWorkspaceMcp(
  */
 export function buildAgentMcpArgs(opts: {
   conversationId: string
+  invocationId?: string
   port: number
   capability: string
   /** User-configured external servers to inject alongside `specrails`. */
@@ -150,13 +159,13 @@ export function buildAgentMcpArgs(opts: {
   const entry = buildAgentTurnEntry(opts)
   if (!entry) return []
   const dir = agentDir(opts.conversationId)
-  const file = path.join(dir, 'mcp.json')
+  const file = path.join(dir, invocationFileName('json', opts.invocationId))
   const mcpServers: Record<string, unknown> = { specrails: entry }
   for (const server of opts.external ?? []) {
     if (server.name === 'specrails') continue
     mcpServers[server.name] = server.config
   }
-  fs.writeFileSync(file, JSON.stringify({ mcpServers }, null, 2), { mode: 0o600 })
+  fs.writeFileSync(file, JSON.stringify({ mcpServers }, null, 2), { mode: 0o600, flag: opts.invocationId === undefined ? 'w' : 'wx' })
   try {
     fs.chmodSync(file, 0o600)
   } catch {
@@ -190,18 +199,33 @@ function agentDir(conversationId: string): string {
   return dir
 }
 
-function capabilityFilePath(conversationId: string): string {
-  return path.join(agentDir(conversationId), 'mcp.capability')
+function capabilityFilePath(conversationId: string, invocationId?: string): string {
+  const fileName = invocationFileName('capability', invocationId)
+  return path.join(agentDir(conversationId), fileName)
 }
 
 function buildAgentTurnEntry(opts: {
   conversationId: string
+  invocationId?: string
   port: number
   capability: string
 }): AgentMcpEntry | null {
-  const capabilityFile = capabilityFilePath(opts.conversationId)
+  const capabilityFile = capabilityFilePath(opts.conversationId, opts.invocationId)
   const entry = buildSpecrailsMcpEntry({ port: opts.port, capabilityFile })
   if (!entry) return null
+  if (opts.invocationId !== undefined) {
+    // Never replace an invocation's bearer, even if a stale process has not
+    // opened it yet. Publish the config/argv only after this synchronous write.
+    // Exclusive creation also rejects a pre-planted file or symlink.
+    const fd = fs.openSync(capabilityFile, 'wx', 0o600)
+    try {
+      fs.writeFileSync(fd, opts.capability, { encoding: 'utf8' })
+    } catch (err) {
+      try { fs.unlinkSync(capabilityFile) } catch { /* only our newly-created file */ }
+      throw err
+    } finally { fs.closeSync(fd) }
+    return entry
+  }
   const tmp = `${capabilityFile}.tmp-${process.pid}-${randomBytes(8).toString('hex')}`
   try {
     // `wx` prevents a pre-planted symlink from redirecting the bearer write.
@@ -220,10 +244,17 @@ function buildAgentTurnEntry(opts: {
 }
 
 /** Delete the on-disk bearer as soon as its owning agent turn settles. */
-export function removeAgentCapabilityFile(conversationId: string): void {
-  if (!AGENT_CONVERSATION_ID_RE.test(conversationId)) return
-  const file = path.join(homeDir(), '.specrails', 'agent', conversationId, 'mcp.capability')
-  try { fs.unlinkSync(file) } catch { /* absent/already removed */ }
+export function removeAgentCapabilityFile(conversationId: string, invocationId?: string): void {
+  if (!AGENT_CONVERSATION_ID_RE.test(conversationId) ||
+      (invocationId !== undefined && !AGENT_INVOCATION_ID_RE.test(invocationId))) return
+  const dir = path.join(homeDir(), '.specrails', 'agent', conversationId)
+  const files = [invocationFileName('capability', invocationId)]
+  // The invocation-owned Claude config is no longer needed either. Preserve
+  // the legacy shared config and every other invocation's files.
+  if (invocationId !== undefined) files.push(invocationFileName('json', invocationId))
+  for (const file of files) {
+    try { fs.unlinkSync(path.join(dir, file)) } catch { /* absent/already removed */ }
+  }
 }
 
 /**
@@ -275,6 +306,8 @@ function codexExternalOverrides(server: ResolvedExternalServer): string[] {
 export function prepareAgentMcp(opts: {
   adapterId: string
   conversationId: string
+  /** Fresh UUID per spawned invocation (including stale-session retries). */
+  invocationId?: string
   cwd: string
   port: number
   capability: string

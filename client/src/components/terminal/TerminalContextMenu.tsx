@@ -44,6 +44,7 @@ export function TerminalContextMenu({ x, y, term, cwd, hasReveal, onClose, onOpe
   const flippedX = typeof window !== 'undefined' && x + 220 > window.innerWidth ? x - 220 : x
   const flippedY = typeof window !== 'undefined' && y + 260 > window.innerHeight ? y - 260 : y
 
+  const modifier = /Mac/i.test(navigator.platform || '') ? '⌘' : 'Ctrl+'
   const selection = term.getSelection()
   const hasSelection = selection.length > 0
 
@@ -85,12 +86,12 @@ export function TerminalContextMenu({ x, y, term, cwd, hasReveal, onClose, onOpe
       style={{ position: 'fixed', left: flippedX, top: flippedY, minWidth: 200 }}
       className="bg-[#1f1f29] border border-[#44475a] rounded-md shadow-lg py-1 z-50 text-sm"
     >
-      <Item onClick={copy} disabled={!hasSelection} label={t('common:actions.copy')} shortcut="⌘C" />
-      <Item onClick={paste} label={t('contextMenu.paste')} shortcut="⌘V" />
-      <Item onClick={selectAll} label={t('contextMenu.selectAll')} shortcut="⌘A" />
+      <Item onClick={copy} disabled={!hasSelection} label={t('common:actions.copy')} shortcut={modifier + 'C'} />
+      <Item onClick={paste} label={t('contextMenu.paste')} shortcut={modifier + 'V'} />
+      <Item onClick={selectAll} label={t('contextMenu.selectAll')} shortcut={modifier + 'A'} />
       <Divider />
-      <Item onClick={clear} label={t('contextMenu.clear')} shortcut="⌘K" />
-      <Item onClick={search} label={t('contextMenu.search')} shortcut="⌘F" />
+      <Item onClick={clear} label={t('contextMenu.clear')} shortcut={modifier + 'K'} />
+      <Item onClick={search} label={t('contextMenu.search')} shortcut={modifier + 'F'} />
       <Item onClick={save} label={t('contextMenu.saveScrollback')} />
       {cwd && hasReveal && (
         <>

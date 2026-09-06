@@ -123,6 +123,26 @@ describe('loop command catalog', () => {
     // …and gives a first-class blocked signal so a human-decision blocker halts.
     expect(t).toContain('LOOP_BLOCKED:')
   })
+
+  it('repairs missing implementation even when baseline checks pass and verification reports FAIL', () => {
+    const fix = expandCommands('{{cmd:fix}}', { provider: 'claude' })
+    expect(fix).toContain('implement the missing pieces whether verification reported `VERIFICATION: FAIL` or `VERIFICATION: PASS`')
+    expect(fix).toContain('only prepared the environment, planned, or launched unfinished delegated work')
+    expect(fix).toContain('Resume from the last completed phase')
+    expect(fix).toContain('governing OpenSpec artifacts')
+    expect(fix).not.toContain('fix ONLY what is needed to make the failing tests')
+    expect(fix).toContain('For a delivery revision, the authorized scope is the requested delta')
+  })
+
+  it('checks acceptance evidence before spending a full gate on an unchanged baseline', () => {
+    const verify = expandCommands('{{cmd:verify}}', { provider: 'claude' })
+    expect(verify).toContain('Map each acceptance criterion to concrete code and relevant behavioral evidence')
+    expect(verify).toContain('every ticket and required repository')
+    expect(verify).toContain('VERIFICATION: FAIL — <missing implementation and next action>')
+    expect(verify).toContain('Do not spend this step repeatedly running the full unchanged baseline')
+    expect(verify).toContain('An empty diff is not automatically a failure if the required behavior already exists')
+    expect(verify.indexOf('First inspect the actual implementation')).toBeLessThan(verify.indexOf('Once required implementation is present'))
+  })
 })
 
 

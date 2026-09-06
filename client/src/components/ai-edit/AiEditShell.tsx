@@ -1,3 +1,4 @@
+import { keyboardLabel } from '../../lib/keyboard-label'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -316,7 +317,7 @@ function Header({
         {showApply && (
           <Button size="sm" onClick={onApply} className="gap-1.5">
             <Check className="w-3.5 h-3.5" /> {t('shell.apply')}
-            <span className="text-[10px] opacity-70 ml-1">⌘⏎</span>
+            <span className="text-[10px] opacity-70 ml-1">{keyboardLabel('⌘⏎')}</span>
           </Button>
         )}
       </div>
@@ -914,7 +915,7 @@ export function PlainComposer({
       </div>
       <div className="flex items-center justify-end text-[11px] text-muted-foreground/70">
         <span>
-          <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-mono">⌘⏎</kbd> {t('shell.composer.kbdSubmit')}
+          <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-mono">{keyboardLabel('⌘⏎')}</kbd> {t('shell.composer.kbdSubmit')}
           <span className="mx-1.5">·</span>
           <kbd className="px-1.5 py-0.5 rounded bg-muted/60 text-[10px] font-mono">Esc</kbd> {t('shell.composer.kbdCancel')}
         </span>

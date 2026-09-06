@@ -7,6 +7,7 @@ import {
   type SpecDraftPriority,
 } from '../../lib/spec-draft'
 import type { Attachment } from '../../types'
+import { RepositoryScopeSelector } from '../RepositoryScopeSelector'
 
 interface SpecDraftPanelProps {
   draft: SpecDraft
@@ -77,6 +78,8 @@ export function SpecDraftPanel({
             ))}
           </select>
         </Field>
+
+        <RepositoryScopeSelector value={draft.repositoryIds} onChange={(ids) => onFieldChange('repositoryIds', ids)} />
 
         <Field label={t('draftPanel.labelsLabel')} flash={flashFields.includes('labels')}>
           <LabelsEditor

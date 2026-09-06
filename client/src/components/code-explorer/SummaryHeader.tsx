@@ -7,6 +7,8 @@ export interface SummaryPayload {
   summary: string
   generatedAt?: string
   model?: string
+  language?: string
+  generatedBy?: { model?: string; promptVersion?: number; truncated?: boolean }
   triggeredBy?: {
     ticketId?: number | null
     modifiedTicketIds?: number[]
@@ -65,6 +67,8 @@ export function SummaryHeader({ path, summary, stale, regenerating, generateDisa
   }
 
   const ts = humanise(summary.generatedAt, i18n.language)
+  const model = summary.generatedBy?.model ?? summary.model
+  const absoluteDate = summary.generatedAt && Number.isFinite(Date.parse(summary.generatedAt)) ? new Date(summary.generatedAt).toLocaleString(i18n.language) : undefined
   const triggered = summary.triggeredBy?.ticketId
   const modified = summary.triggeredBy?.modifiedTicketIds ?? []
 
@@ -88,8 +92,10 @@ export function SummaryHeader({ path, summary, stale, regenerating, generateDisa
               <span className="w-1.5 h-1.5 rounded-full bg-accent-primary animate-pulse" aria-hidden />
             )}
           </div>
-          <p className="text-sm text-foreground mt-1">{summary.summary}</p>
+          <p className="text-sm text-foreground mt-1 whitespace-pre-wrap break-words">{summary.summary}</p>
+          {summary.generatedBy?.truncated && <p className="mt-2 text-xs text-accent-warning">{t('reader.summaryPartial', { defaultValue: 'Generated from a partial source snapshot. This summary may not cover the entire file.' })}</p>}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
+            {model && <span className="text-[10px] text-muted-foreground">{t('story.explainedBy', { model })}</span>}
             {typeof triggered === 'number' && (
               <button
                 type="button"
@@ -109,7 +115,7 @@ export function SummaryHeader({ path, summary, stale, regenerating, generateDisa
                 #{tid}
               </button>
             ))}
-            {ts && <span className="text-[10px] text-muted-foreground">{ts}</span>}
+            {ts && <time className="text-[10px] text-muted-foreground" dateTime={summary.generatedAt} title={absoluteDate}>{ts}</time>}
           </div>
         </div>
         {onCollapse && (

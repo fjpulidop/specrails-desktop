@@ -1,4 +1,12 @@
 {
+  "network": {
+    "htmlResponse": "L’API ha restituito una pagina web anziché JSON. Verifica che il server Specrails sia attivo e che la porta dell’API sia corretta.",
+    "invalidResponse": "L’API di Specrails ha restituito una risposta non valida.",
+    "endpointUnavailable": "Questo endpoint API non è disponibile. Verifica che le versioni del client e del server Specrails corrispondano.",
+    "httpError": "L’API di Specrails ha restituito HTTP {{status}}.",
+    "requestFailed": "Impossibile contattare il server Specrails.",
+    "deliveryUnconfirmed": "Non è stato possibile confermare la consegna del messaggio. La bozza viene conservata e non sarà inviata di nuovo automaticamente."
+  },
   "actions": {
     "save": "Salva",
     "cancel": "Annulla",
@@ -91,5 +99,45 @@
       "w": "Ridimensiona — bordo sinistro"
     },
     "resetPosition": "Reimposta posizione"
+  },
+  "repositories": {
+    "title": "Repository e cartelle",
+    "additional": "Cartelle aggiuntive",
+    "sharedBacklog": "Un progetto, un backlog condiviso. Ogni spec può selezionare uno o più repository.",
+    "folderNumber": "Cartella {{number}}",
+    "removeFolder": "Rimuovi cartella",
+    "addFolder": "Aggiungi cartella",
+    "primary": "Principale",
+    "contextOnly": "Solo contesto",
+    "unavailable": "Non disponibile",
+    "detach": "Scollega",
+    "detachHint": "Scollegare rimuove solo l’associazione. I file rimangono sul disco. Le spec e le consegne in sospeso devono prima rilasciare i propri riferimenti.",
+    "name": "Nome",
+    "path": "Percorso della cartella",
+    "browse": "Scegli cartella",
+    "integrationBranch": "Branch di integrazione",
+    "branchDefault": "Usa il branch predefinito del repository",
+    "specScope": "Repository di questa spec",
+    "scopeHint": "Seleziona i repository che questa spec può modificare. Le altre cartelle rimangono disponibili come contesto.",
+    "invalidSelection": "Un repository selezionato non è più registrato. Aggiorna la selezione prima di salvare.",
+    "shellTarget": "Repository di questo comando",
+    "shellDefault": "Repository di esecuzione (esecuzioni con un solo repository)",
+    "shellHint": "Obbligatorio quando un’esecuzione interessa più repository.",
+    "select": "Repository",
+    "all": "Tutti i repository"
+  },
+  "repositoryDelivery": {
+    "building": "Implementazione in corso",
+    "on_review": "Pronta per la revisione",
+    "no_changes": "Nessuna modifica",
+    "pr_draft": "Bozza di PR",
+    "pr_ready": "PR pronta",
+    "pr_closed": "PR chiusa",
+    "completed": "Completata",
+    "merged": "Integrata",
+    "discarded": "Scartata",
+    "superseded": "Sostituita",
+    "implementation_failed": "Implementazione non riuscita",
+    "pr_failed": "Consegna non riuscita"
   }
 }

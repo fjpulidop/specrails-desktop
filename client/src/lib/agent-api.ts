@@ -1,4 +1,6 @@
 import { API_ORIGIN } from './origin'
+import { ApiResponseError, parseApiJson, readApiJson as json } from './api-response'
+import i18n from './i18n'
 import { coerceRailPrStateSnapshot } from './pr-delivery'
 import type {
   RailDeliveryOutcome,
@@ -28,6 +30,8 @@ export interface AgentConversation {
   updated_at: string
 }
 
+export type AgentDeliveryReceipt = 'sent' | 'received' | 'read'
+
 export interface AgentMessage {
   id: string
   conversation_id: string
@@ -36,7 +40,34 @@ export interface AgentMessage {
   content: string
   attachment_ids?: string[]
   context_refs?: AgentContextReference[]
+  delivery_status?: 'delivered' | 'interrupted' | 'cancelled'
+  delivery_receipt?: AgentDeliveryReceipt
   created_at: string
+}
+
+export interface AgentPendingMessage {
+  queueId: string
+  text: string
+  contextRefs?: AgentContextReference[]
+  attachmentIds?: string[]
+  deliveryMode?: 'queue' | 'steer'
+  deliveryReceipt?: AgentDeliveryReceipt
+  timestamp?: string
+}
+
+export interface AgentConversationSnapshot {
+  conversation: AgentConversation
+  messages: AgentMessage[]
+  pendingMessages?: AgentPendingMessage[]
+  live?: { streamingText: string; isStreaming: boolean; startedAt?: string }
+}
+
+export interface AgentSendResponse {
+  queued: boolean
+  deliveryMode?: 'queue' | 'steer'
+  message?: AgentMessage
+  duplicate?: boolean
+  removed?: boolean
 }
 
 export interface AgentAttachment {
@@ -56,19 +87,14 @@ export interface AgentContextReference {
   scope?: {
     projectId?: string | null
     projectName?: string | null
+    repositoryId?: string | null
+    repositoryName?: string | null
   }
   status?: string | null
   metadata?: Record<string, unknown>
 }
 
 const base = `${API_ORIGIN}/api/agent`
-
-async function json<T>(res: Response): Promise<T> {
-  const text = await res.text()
-  const data = text ? JSON.parse(text) : null
-  if (!res.ok) throw new Error((data && data.error) || `HTTP ${res.status}`)
-  return data as T
-}
 
 export interface AgentModel {
   value: string
@@ -135,7 +161,7 @@ export async function searchMissions(q: string, limit = 20, signal?: AbortSignal
 export interface AgentActiveTurnsSnapshot {
   snapshotVersion: number
   capturedAt: string
-  turns: Array<{ conversationId: string; startedAt: string }>
+  turns: Array<{ conversationId: string; startedAt: string; pendingMessages?: AgentPendingMessage[]; streamingText?: string }>
 }
 
 export async function getAgentActiveTurns(): Promise<AgentActiveTurnsSnapshot> {
@@ -159,7 +185,7 @@ export async function createAgentConversation(input: {
 
 export async function getAgentConversation(
   id: string,
-): Promise<{ conversation: AgentConversation; messages: AgentMessage[] }> {
+): Promise<AgentConversationSnapshot> {
   return json(await fetch(`${base}/conversations/${id}`))
 }
 
@@ -189,15 +215,27 @@ export async function sendAgentMessage(
     queueId?: string
     contextRefs?: AgentContextReference[]
   } = {},
-): Promise<{ queued: boolean }> {
-  // Through json() so a non-OK response (400/404) throws — the caller resets its
-  // streaming state instead of waiting for WS events that will never arrive.
-  const body = await json<{ accepted: boolean; queued?: boolean } | null>(await fetch(`${base}/conversations/${id}/send`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ text, ...opts }),
-  }))
-  return { queued: body?.queued === true }
+): Promise<AgentSendResponse> {
+  let body: (Partial<AgentSendResponse> & { accepted: boolean }) | null
+  try {
+    body = await json(await fetch(`${base}/conversations/${id}/send`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ text, ...opts }),
+    }))
+    // An empty/unrelated HTTP 200 is not an admission acknowledgement. Throwing
+    // retains the composer's draft and queueId for an explicit idempotent retry.
+    if (body?.accepted !== true || typeof body.queued !== 'boolean') {
+      throw new ApiResponseError('invalidResponse', 200)
+    }
+  } catch (error) {
+    if (error instanceof ApiResponseError || error instanceof TypeError) {
+      const detail = error instanceof ApiResponseError ? error.message : i18n.t('network.requestFailed', { ns: 'common' })
+      throw new Error(`${detail} ${i18n.t('network.deliveryUnconfirmed', { ns: 'common' })}`)
+    }
+    throw error
+  }
+  return { queued: body?.queued === true, ...(body?.deliveryMode ? { deliveryMode: body.deliveryMode } : {}), ...(body?.message ? { message: body.message } : {}), ...(body?.duplicate !== undefined ? { duplicate: body.duplicate } : {}), ...(body?.removed !== undefined ? { removed: body.removed } : {}) }
 }
 
 export async function uploadAgentAttachment(conversationId: string, file: File): Promise<AgentAttachment> {
@@ -250,6 +288,20 @@ export async function editQueuedAgentMessage(
   return 'saved'
 }
 
+export async function steerQueuedAgentMessage(conversationId: string, queueId: string): Promise<'saved' | 'conflict'> {
+  const res = await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/queue/${encodeURIComponent(queueId)}/steer`, { method: 'POST' })
+  if (res.status === 409) return 'conflict'
+  await json<{ ok: boolean }>(res)
+  return 'saved'
+}
+
+export async function removeQueuedAgentMessage(conversationId: string, queueId: string): Promise<'saved' | 'conflict'> {
+  const res = await fetch(`${base}/conversations/${encodeURIComponent(conversationId)}/queue/${encodeURIComponent(queueId)}`, { method: 'DELETE' })
+  if (res.status === 409) return 'conflict'
+  await json<{ ok: boolean }>(res)
+  return 'saved'
+}
+
 // ── PR-decision card (safe-pr-review-flow) ────────────────────────────────────
 // A rail launched from an agent conversation posts a `system`-role row whose
 // content is this JSON envelope; the server updates the SAME row in place on
@@ -268,6 +320,8 @@ const PR_DELIVERY_STATES: readonly string[] = ['none', 'local-only', 'pushed', '
 
 /** Parsed content of a `system` pr_decision row (mirrors the server envelope). */
 export interface AgentPrDecisionEnvelope {
+  executionManifest?: import('../types/multi-repo').RunExecutionManifest | null
+  repositoryDeliveries?: import('../types/multi-repo').RepositoryDeliverySnapshot[]
   kind: 'pr_decision'
   prDeliveryId: string
   railIndex: number
@@ -290,7 +344,7 @@ export interface AgentPrDecisionEnvelope {
   isContinuation?: boolean
   supersedesDeliveryId?: string | null
   restoredFromDeliveryId?: string | null
-  operation?: AgentPrDecisionAction | null
+  operation?: AgentPrDecisionAction | 'checkout' | null
   cleanupWarnings?: string[]
   safetyArchives?: string[]
   units?: RailPrUnitOutcome[]
@@ -345,6 +399,8 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
     cleanupWarnings: snapshot.cleanupWarnings,
     safetyArchives: snapshot.safetyArchives,
     units: snapshot.units,
+    executionManifest: snapshot.executionManifest,
+    repositoryDeliveries: snapshot.repositoryDeliveries,
     createdAt: snapshot.createdAt,
     updatedAt: snapshot.updatedAt,
   }
@@ -385,7 +441,7 @@ export type AgentPrDecisionOutcome =
   /** Decision changed before this request; the authoritative snapshot reconciles. */
   | { kind: 'stale'; current: string; snapshot: RailPrStateSnapshot | null }
   /** Another surface owns the durable operation lease; snapshot disables actions. */
-  | { kind: 'busy'; operation: AgentPrDecisionAction | null; snapshot: RailPrStateSnapshot | null }
+  | { kind: 'busy'; operation: AgentPrDecisionAction | 'checkout' | null; snapshot: RailPrStateSnapshot | null }
   /** merge-local precondition failed — USER-fixable (checkout base / clean tree). */
   | { kind: 'blocked'; reason: 'wrong_branch' | 'dirty'; base: string; current: string | null; snapshot: RailPrStateSnapshot | null }
   | { kind: 'failed'; detail: string; snapshot: RailPrStateSnapshot | null }
@@ -399,7 +455,7 @@ export type AgentPrDecisionOutcome =
  */
 export async function postRailPrDecision(
   projectId: string,
-  body: { prDeliveryId: string; action: AgentPrDecisionAction; expectedDecision: AgentPrDecisionValue },
+  body: { repositoryId?: string; prDeliveryId: string; action: AgentPrDecisionAction; expectedDecision: AgentPrDecisionValue },
 ): Promise<AgentPrDecisionOutcome> {
   const res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/rails/pr-decision`, {
     method: 'POST',
@@ -408,10 +464,10 @@ export async function postRailPrDecision(
   })
   let data: Record<string, unknown> | null = null
   try {
-    const text = await res.text()
-    data = text ? (JSON.parse(text) as Record<string, unknown>) : null
-  } catch {
-    data = null
+    data = await parseApiJson<Record<string, unknown>>(res)
+    if (res.ok && (!data || typeof data !== 'object' || Array.isArray(data))) throw new ApiResponseError('invalidResponse', res.status)
+  } catch (error) {
+    return { kind: 'failed', detail: error instanceof Error ? error.message : i18n.t('network.invalidResponse', { ns: 'common' }), snapshot: null }
   }
   if (res.ok) {
     const snapshot = coerceRailPrStateSnapshot(data?.snapshot)
@@ -441,8 +497,8 @@ export async function postRailPrDecision(
       const rawOperation = snapshot?.operation ?? data?.operation
       return {
         kind: 'busy',
-        operation: typeof rawOperation === 'string' && PR_DECISION_ACTION_VALUES.includes(rawOperation as AgentPrDecisionAction)
-          ? rawOperation as AgentPrDecisionAction
+        operation: typeof rawOperation === 'string' && (rawOperation === 'checkout' || PR_DECISION_ACTION_VALUES.includes(rawOperation as AgentPrDecisionAction))
+          ? rawOperation as AgentPrDecisionAction | 'checkout'
           : null,
         snapshot,
       }
@@ -496,6 +552,8 @@ export function agentEnvelopeFromSnapshot(
     cleanupWarnings: snapshot.cleanupWarnings,
     safetyArchives: snapshot.safetyArchives,
     units: snapshot.units,
+    executionManifest: snapshot.executionManifest,
+    repositoryDeliveries: snapshot.repositoryDeliveries,
     createdAt: snapshot.createdAt,
     updatedAt: snapshot.updatedAt,
   }
@@ -506,18 +564,18 @@ export type AgentPrCheckoutOutcome =
   | { kind: 'recovering' }
   | { kind: 'failed'; error: string; detail: string }
 
-export async function postRailPrCheckout(projectId: string, prDeliveryId: string): Promise<AgentPrCheckoutOutcome> {
+export async function postRailPrCheckout(projectId: string, prDeliveryId: string, repositoryId?: string): Promise<AgentPrCheckoutOutcome> {
   const res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/rails/pr-checkout`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prDeliveryId }),
+    body: JSON.stringify({ prDeliveryId, ...(repositoryId ? { repositoryId } : {}) }),
   })
   let data: Record<string, unknown> | null = null
   try {
-    const text = await res.text()
-    data = text ? (JSON.parse(text) as Record<string, unknown>) : null
-  } catch {
-    data = null
+    data = await parseApiJson<Record<string, unknown>>(res)
+    if (res.ok && (!data || typeof data !== 'object' || Array.isArray(data))) throw new ApiResponseError('invalidResponse', res.status)
+  } catch (error) {
+    return { kind: 'failed', error: 'invalid_api_response', detail: error instanceof Error ? error.message : i18n.t('network.invalidResponse', { ns: 'common' }) }
   }
   if (res.ok) return {
     kind: 'ok',

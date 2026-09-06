@@ -17,6 +17,9 @@ If you're contributing to the app itself or building on its API, head over to [`
 | Guide | Use it when… |
 |-------|-------------|
 | [Creating specs](creating-specs.md) | …you want to draft a spec, compare two specs, save a draft, split a big epic, or refine an existing spec |
+| [Projects with several repositories](multi-repo-projects.md) | …your product spans frontend, backend or other repos and needs one shared backlog |
+| [Messages during a mission](agent-live-steering.md) | …you want to give the agent new instructions while it is working |
+| [Mission applications and process logs](mission-processes.md) | …you want to launch an application, stop it reliably or inspect its output |
 | [Running pipelines](running-pipelines.md) | …you want to launch the AI pipeline against a spec, manage rails, pick agent profiles, or install plugins |
 | [Using Codex](codex.md) | …you added a project with OpenAI's Codex CLI instead of (or alongside) Claude |
 | [Using Gemini](gemini.md) | …you added a project with Google's Gemini CLI instead of (or alongside) Claude, Codex, or Kimi |

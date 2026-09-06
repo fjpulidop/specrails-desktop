@@ -14,7 +14,7 @@ export function getWsUrl(configuredUrl = typeof __WS_URL__ !== 'undefined' ? __W
       window.location.protocol !== 'http:' &&
       window.location.protocol !== 'https:')
   if (inTauri) {
-    return 'ws://localhost:4200'
+    return 'ws://127.0.0.1:4200'
   }
   // In production browser, derive from page origin
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'

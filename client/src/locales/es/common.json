@@ -1,4 +1,12 @@
 {
+  "network": {
+    "htmlResponse": "La API devolvió una página web en lugar de JSON. Comprueba que el servidor de Specrails esté activo y que el puerto de la API sea correcto.",
+    "invalidResponse": "La API de Specrails devolvió una respuesta no válida.",
+    "endpointUnavailable": "Este endpoint de la API no está disponible. Comprueba que las versiones del cliente y del servidor de Specrails coincidan.",
+    "httpError": "La API de Specrails devolvió HTTP {{status}}.",
+    "requestFailed": "No se ha podido conectar con el servidor de Specrails.",
+    "deliveryUnconfirmed": "No se ha podido confirmar la entrega del mensaje. El borrador se conserva y no se reenviará automáticamente."
+  },
   "actions": {
     "save": "Guardar",
     "cancel": "Cancelar",
@@ -91,5 +99,45 @@
       "w": "Redimensionar — borde izquierdo"
     },
     "resetPosition": "Restablecer posición"
+  },
+  "repositories": {
+    "title": "Repositorios y carpetas",
+    "additional": "Carpetas adicionales",
+    "sharedBacklog": "Un proyecto, un backlog común. Cada spec puede seleccionar uno o varios repositorios.",
+    "folderNumber": "Carpeta {{number}}",
+    "removeFolder": "Quitar carpeta",
+    "addFolder": "Añadir carpeta",
+    "primary": "Principal",
+    "contextOnly": "Solo contexto",
+    "unavailable": "No disponible",
+    "detach": "Desvincular",
+    "detachHint": "Desvincular elimina la asociación; los archivos permanecen en disco. Primero deben liberarse las referencias de specs y entregas pendientes.",
+    "name": "Nombre",
+    "path": "Ruta de la carpeta",
+    "browse": "Seleccionar carpeta",
+    "integrationBranch": "Rama de integración",
+    "branchDefault": "Usar la predeterminada del repositorio",
+    "specScope": "Repositorios de esta spec",
+    "scopeHint": "Selecciona los repositorios que puede modificar esta spec. Las demás carpetas siguen disponibles como contexto.",
+    "invalidSelection": "Un repositorio seleccionado ya no está registrado. Actualiza la selección antes de guardar.",
+    "shellTarget": "Repositorio de este comando",
+    "shellDefault": "Repositorio de ejecución (ejecuciones con un único repo)",
+    "shellHint": "Obligatorio cuando la ejecución afecta a varios repositorios.",
+    "select": "Repositorio",
+    "all": "Todos los repositorios"
+  },
+  "repositoryDelivery": {
+    "building": "Implementando",
+    "on_review": "Listo para revisar",
+    "no_changes": "Sin cambios",
+    "pr_draft": "PR en borrador",
+    "pr_ready": "PR lista",
+    "pr_closed": "PR cerrada",
+    "completed": "Completado",
+    "merged": "Integrado",
+    "discarded": "Descartado",
+    "superseded": "Sustituido",
+    "implementation_failed": "Implementación fallida",
+    "pr_failed": "Entrega fallida"
   }
 }

@@ -68,6 +68,20 @@ boundary, so Kimi + Decider is rejected before the loop starts.
 
 ### Pipeline phases
 
+Core versions that declare the shared execution runtime also keep a durable
+journal for each run. Desktop freezes the selected specs, repository roots and
+ownership in `.specrails/pipeline/<runId>/desktop-context.json`; Core owns the
+separate normalized context, phase state and verification receipts. Retries keep
+valid completed work and resume the first incomplete or invalid phase. A batch
+uses one aggregate change, retaining each ticket's requirements and repository
+scope.
+
+Verification can reuse an actual successful command receipt only when its scope,
+candidate files and environment remain current. Acceptance and security review
+are still required, and confidence must pass before archive. A new verification
+step checks receipt freshness again before reporting success. Older Core versions
+continue through the ordinary verification path.
+
 `Implement` and `Batch` run the pipeline phases defined by the slash command's frontmatter — by default:
 
 ```

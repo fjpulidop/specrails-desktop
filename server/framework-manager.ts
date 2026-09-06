@@ -1,9 +1,11 @@
 import { spawnSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
+import { randomUUID } from 'crypto'
 
-import { getBundledCoreCli, getBundledCoreVersion } from './bundled-core'
-import { resolveHome, atomicWrite } from './artifact-registry'
+import { resolveCoreRuntime, readCoreRuntime, frameworkRoot, readCurrentFrameworkVersion } from './core-runtime'
+export { frameworkRoot, readCurrentFrameworkVersion } from './core-runtime'
+import { atomicWrite } from './artifact-registry'
 import { isNewer } from './semver-lite'
 import { resolveBundledNodeExe } from './path-resolver'
 
@@ -81,83 +83,6 @@ function realpathOrSelf(p: string): string {
   }
 }
 
-/** `~/.specrails/framework` — same home as the registry. */
-export function frameworkRoot(home?: string): string {
-  return path.join(resolveHome(home), '.specrails', 'framework')
-}
-
-/** Path to the `current` symlink under the framework root. */
-function currentLink(home?: string): string {
-  return path.join(frameworkRoot(home), 'current')
-}
-
-/**
- * Read the framework version from the documented per-version stamp marker that
- * core's `install-framework` writes at `<versionDir>/.framework-stamp<providerDir>.json`
- * (`{ version, provider, at }`). When `current` is a real dir (Windows copy
- * fallback) or a junction, the version is NOT recoverable from the path basename
- * (`current`), so the marker inside the dir is the source of truth.
- *
- * Returns the first non-empty `version` field found among any stamp markers
- * directly under `dir`, or null when none is present/readable.
- */
-function readFrameworkVersionMarker(dir: string): string | null {
-  let entries: string[]
-  try {
-    entries = fs.readdirSync(dir)
-  } catch {
-    return null
-  }
-  for (const name of entries) {
-    // `.framework-stamp.claude.json` / `.framework-stamp.codex.json` / `.gemini`.
-    if (!name.startsWith('.framework-stamp') || !name.endsWith('.json')) continue
-    try {
-      const parsed = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8')) as { version?: unknown }
-      if (typeof parsed.version === 'string') {
-        const v = parsed.version.trim()
-        if (v.length > 0) return v
-      }
-    } catch {
-      /* unreadable / malformed marker — try the next one */
-    }
-  }
-  return null
-}
-
-/**
- * The version `framework/current` resolves to, or null when `current` is absent
- * / unresolvable. POSIX: reads the basename of the symlink target (the `<version>`
- * dir name). Windows junction/copy fallback: `current` is a real dir (or a
- * junction whose `lstat` is not a POSIX symlink), so the basename is `current`
- * and the version is read from the documented `.framework-stamp*.json` marker
- * inside it instead.
- */
-export function readCurrentFrameworkVersion(home?: string): string | null {
-  const link = currentLink(home)
-  try {
-    const st = fs.lstatSync(link)
-    if (st.isSymbolicLink()) {
-      const target = fs.readlinkSync(link)
-      const resolved = path.isAbsolute(target) ? target : path.resolve(frameworkRoot(home), target)
-      const base = path.basename(resolved)
-      // A POSIX symlink targets the `<version>` dir by name. A Windows junction
-      // read as a symlink also yields the absolute `<version>` target, so the
-      // basename is the version. Only when the basename is still `current`
-      // (unresolvable) do we fall back to the stamp marker inside the dir.
-      if (base !== 'current') return base
-      return readFrameworkVersionMarker(resolved)
-    }
-    if (st.isDirectory()) {
-      // Windows copy fallback / non-symlink junction: `current` is a real dir
-      // holding the materialized framework. Read the version from its marker.
-      return readFrameworkVersionMarker(link)
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
 export class FrameworkManager {
   private readonly home?: string
   private readonly broadcast?: FrameworkBroadcast
@@ -178,8 +103,7 @@ export class FrameworkManager {
       const cli = path.join(this.coreRoot, 'dist', 'installer', 'cli.js')
       return fs.existsSync(cli) ? realpathOrSelf(cli) : null
     }
-    const bundled = getBundledCoreCli()
-    return bundled ? realpathOrSelf(bundled) : null
+    return resolveCoreRuntime(this.home)?.cli ?? null
   }
 
   /** True when a usable core (override or bundled) is present (else methods no-op). */
@@ -188,23 +112,14 @@ export class FrameworkManager {
   }
 
   /**
-   * The version the app should materialize: the override core's version (update
-   * channel) when a `coreRoot` is set, else the bundled core version. Null when
+   * Historical API name: this is the SELECTED runtime's version (including a
+   * managed update or newer external CLI), not necessarily the shipped bundle. Null when
    * neither is present / unreadable.
    */
   bundledVersion(): string | null {
-    if (this.coreRoot) {
-      try {
-        const pkg = JSON.parse(
-          fs.readFileSync(path.join(this.coreRoot, 'package.json'), 'utf8'),
-        ) as { version?: string }
-        const v = pkg.version?.trim()
-        return v && v.length > 0 ? v : null
-      } catch {
-        return null
-      }
-    }
-    return getBundledCoreVersion()
+    return this.coreRoot
+      ? readCoreRuntime(this.coreRoot, 'managed')?.version ?? null
+      : resolveCoreRuntime(this.home)?.version ?? null
   }
 
   /**
@@ -284,6 +199,49 @@ export class FrameworkManager {
     if (!cli) return { ok: false, detail: 'no usable core CLI to run swap-current with' }
     if (readCurrentFrameworkVersion(this.home) === version) return { ok: true, detail: null }
     const fwDir = frameworkRoot(this.home)
+    const current = path.join(fwDir, 'current')
+    const previousVersion = readCurrentFrameworkVersion(this.home)
+    let backup: string | null = null
+    if (previousVersion) {
+      backup = path.join(fwDir, `.current-recovery-${randomUUID()}`)
+      try {
+        if (fs.lstatSync(current).isSymbolicLink()) {
+          fs.symlinkSync(fs.realpathSync(current), backup, process.platform === 'win32' ? 'junction' : 'dir')
+        } else {
+          fs.cpSync(current, backup, {
+            recursive: true, dereference: false, verbatimSymlinks: true,
+            // Node 22's native recursive-copy fast path mishandles Unicode on
+            // Windows (nodejs/node#61878). Use JS traversal into the fresh backup
+            // so neither native directory copy nor file replacement is used.
+            filter: () => true, mode: fs.constants.COPYFILE_FICLONE,
+          })
+        }
+      } catch (error) {
+        return { ok: false, detail: `Could not preserve the active framework before updating: ${error instanceof Error ? error.message : String(error)}` }
+      }
+    }
+    const failed = (detail: string): { ok: false; detail: string } => {
+      if (!backup) return { ok: false, detail }
+      const actualVersion = readCurrentFrameworkVersion(this.home)
+      if (actualVersion === previousVersion) {
+        try { fs.rmSync(backup, { recursive: true, force: true }) } catch { /* safe recovery copy */ }
+        return { ok: false, detail }
+      }
+      // Never overwrite another operation's published version. Preserve the
+      // recovery copy for diagnosis instead of guessing which install owns it.
+      if (actualVersion !== null && actualVersion !== version) return { ok: false, detail: `${detail}; recovery retained at ${backup} (current changed concurrently)` }
+      const failedCurrent = path.join(fwDir, `.failed-current-${randomUUID()}`)
+      try {
+        try { fs.lstatSync(current); fs.renameSync(current, failedCurrent) } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        }
+        fs.renameSync(backup, current)
+        if (readCurrentFrameworkVersion(this.home) !== previousVersion) throw new Error('restored framework identity did not match')
+        return { ok: false, detail: `${detail}; previous framework ${previousVersion} restored` }
+      } catch (error) {
+        return { ok: false, detail: `${detail}; recovery retained at ${backup}: ${error instanceof Error ? error.message : String(error)}` }
+      }
+    }
     const res = spawnSync(
       nodeInterpreter(),
       [cli, 'swap-current', '--framework-dir', fwDir, '--version', version],
@@ -291,11 +249,12 @@ export class FrameworkManager {
     )
     if (res.error || (res.status ?? 1) !== 0) {
       const detail = (res.error?.message ?? `${res.stderr || res.stdout || ''}`.trim()) || `exit ${res.status ?? 'unknown'}`
-      return { ok: false, detail }
+      return failed(detail)
     }
     if (readCurrentFrameworkVersion(this.home) !== version) {
-      return { ok: false, detail: `swap-current exited 0 but current still resolves to ${readCurrentFrameworkVersion(this.home) ?? 'nothing'}` }
+      return failed(`swap-current exited 0 but current still resolves to ${readCurrentFrameworkVersion(this.home) ?? 'nothing'}`)
     }
+    if (backup) { try { fs.rmSync(backup, { recursive: true, force: true }) } catch { /* recovery copy is safe to retain */ } }
     return { ok: true, detail: null }
   }
 
@@ -306,12 +265,18 @@ export class FrameworkManager {
    * no bundled core is present. Returns the resulting current version (or null).
    */
   versionCheck(providers: string[] = ['claude']): { swapped: boolean; version: string | null } {
-    const bundled = this.bundledVersion()
+    // Keep an already activated framework even if its old updater discarded the
+    // corresponding package. Runtime consumers report the repair requirement.
+    let bundled: string | null
+    try { bundled = this.bundledVersion() }
+    catch { return { swapped: false, version: readCurrentFrameworkVersion(this.home) } }
     if (!this.resolveCli() || !bundled) {
       return { swapped: false, version: readCurrentFrameworkVersion(this.home) }
     }
     const current = readCurrentFrameworkVersion(this.home)
     if (current === bundled) {
+      const mat = this.materialize(bundled, providers)
+      if (mat.errors.length) this.broadcast?.({ type: 'framework.update_failed', version: bundled, errors: mat.errors })
       return { swapped: false, version: current }
     }
     // Anti-downgrade guard: NEVER swap `current` down to the bundled version when
@@ -421,7 +386,7 @@ export class FrameworkManager {
     // Point the core CLI's scriptDir at the package whose framework we are
     // materializing so its template/command sources resolve from there: the
     // OVERRIDE core (update channel) when set, else the bundled package.
-    const coreRoot = this.coreRoot ?? process.env.SPECRAILS_BUNDLED_CORE_PATH
+    const coreRoot = this.coreRoot ?? resolveCoreRuntime(this.home)?.root
     if (coreRoot) env.SPECRAILS_CORE_SCRIPT_DIR = coreRoot
     return env
   }

@@ -16,8 +16,11 @@ import i18n from '../lib/i18n'
 import { useSharedWebSocket } from './useSharedWebSocket'
 import { setActiveProjectId as setApiActiveProjectId } from '../lib/api'
 import { purgeProjectCache } from './useProjectCache'
+import type { ProjectRepository, RepositoryInput } from '../lib/project-repositories'
 
 export interface DesktopProject {
+  repositories?: ProjectRepository[]
+  primaryRepositoryId?: string
   id: string
   slug: string
   name: string
@@ -47,7 +50,8 @@ interface DesktopContextValue {
   projects: DesktopProject[]
   activeProjectId: string | null
   setActiveProjectId: (id: string | null) => void
-  addProject: (path: string, name?: string, providers?: ProviderId[]) => Promise<AddProjectResult | null>
+  addProject: (path: string, name?: string, providers?: ProviderId[], repositories?: RepositoryInput[]) => Promise<AddProjectResult | null>
+  refreshProjects: () => Promise<void>
   removeProject: (id: string) => Promise<void>
   isLoading: boolean
   /** True briefly after switching active project — triggers the loading bar */
@@ -71,7 +75,9 @@ function readSavedProjectId(): string | null {
   try { return localStorage.getItem(ACTIVE_PROJECT_KEY) } catch { return null }
 }
 
-export function DesktopProvider({ children }: { children: ReactNode }) {
+export function DesktopProvider({ children, isolated = false }: { children: ReactNode; isolated?: boolean }) {
+  // A mission window has its own project context and must not rewrite main's selection.
+  const persistSelection = useCallback((id: string | null) => { if (!isolated) writeSavedProjectId(id) }, [isolated])
   const [projects, setProjects] = useState<DesktopProject[]>([])
   const [activeProjectId, setActiveProjectIdRaw] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -88,7 +94,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
   const projectRetryCountRef = useRef(0)
 
   const setActiveProjectId = useCallback((id: string | null): void => {
-    writeSavedProjectId(id)
+    persistSelection(id)
     setApiActiveProjectId(id)
     setActiveProjectIdRaw((prev) => {
       if (prev !== null && prev !== id) {
@@ -99,7 +105,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       }
       return id
     })
-  }, [])
+  }, [persistSelection])
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
 
   const refreshProjects = useCallback(async function refresh() {
@@ -121,9 +127,9 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       const incoming = data.projects
       setActiveProjectIdRaw((prev) => {
         if (prev && incoming.some((project) => project.id === prev)) return prev
-        const saved = readSavedProjectId()
+        const saved = isolated ? null : readSavedProjectId()
         const next = saved && incoming.some((project) => project.id === saved) ? saved : null
-        writeSavedProjectId(next)
+        persistSelection(next)
         setApiActiveProjectId(next)
         return next
       })
@@ -140,7 +146,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeout)
       if (projectRequestRef.current === request) projectRequestRef.current = null
     }
-  }, [])
+  }, [isolated, persistSelection])
 
   useEffect(() => {
     mountedRef.current = true
@@ -193,12 +199,12 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
         } else {
           // B22: on first resolution prefer the persisted last-active project,
           // falling back to the first project when it's gone / unset.
-          const saved = readSavedProjectId()
+          const saved = isolated ? null : readSavedProjectId()
           next = (saved && incoming.find((p) => p.id === saved))
             ? saved
-            : (incoming.length > 0 ? incoming[0].id : null)
+            : (!isolated && incoming.length > 0 ? incoming[0].id : null)
         }
-        writeSavedProjectId(next)
+        persistSelection(next)
         setApiActiveProjectId(next)
         return next
       })
@@ -217,7 +223,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       // additions; peers still get both.
       if (justAddedRef.current.has(project.id)) {
         justAddedRef.current.delete(project.id)
-      } else {
+      } else if (!isolated) {
         toast.success(i18n.t('nav:projects.added', { name: project.name }))
         // Activate the newly added project
         setActiveProjectId(project.id)
@@ -231,19 +237,19 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       const projectId = msg.projectId as string
       if (typeof projectId !== 'string') return
       projectsRevisionRef.current++
-      toast.success(i18n.t('nav:projects.removed'))
+      if (!isolated) toast.success(i18n.t('nav:projects.removed'))
       // BUG-CLIENT-03: free the removed project's cache entries so the module-
       // level globalCache doesn't grow unbounded across add/remove cycles.
       purgeProjectCache(projectId)
       setProjects((prev) => prev.filter((p) => p.id !== projectId))
       setActiveProjectIdRaw((prev) => {
         if (prev !== projectId) return prev
-        writeSavedProjectId(null)
+        persistSelection(null)
         setApiActiveProjectId(null)
         return null
       })
     }
-  }, [refreshProjects, setActiveProjectId])
+  }, [refreshProjects, setActiveProjectId, isolated, persistSelection])
 
   useLayoutEffect(() => {
     registerHandler('desktop', handleMessage)
@@ -266,7 +272,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('focus', onFocus)
   }, [])
 
-  const addProject = useCallback(async (projectPath: string, name?: string, providers?: ProviderId[]): Promise<AddProjectResult | null> => {
+  const addProject = useCallback(async (projectPath: string, name?: string, providers?: ProviderId[], repositories?: RepositoryInput[]): Promise<AddProjectResult | null> => {
     try {
       // Omitting providers registers with the machine's DETECTED set (server
       // authoritative — global-core-zero-friction). Explicit lists are wire
@@ -274,6 +280,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       const body: Record<string, unknown> = { path: projectPath }
       if (providers && providers.length > 0) body.providers = providers
       if (name) body.name = name
+      if (repositories?.length) body.repositories = repositories
 
       const res = await fetch('/api/projects', {
         method: 'POST',
@@ -317,7 +324,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       setProjects((prev) => prev.filter((p) => p.id !== id))
       setActiveProjectIdRaw((prev) => {
         if (prev !== id) return prev
-        writeSavedProjectId(null)
+        persistSelection(null)
         setApiActiveProjectId(null)
         return null
       })
@@ -325,7 +332,7 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
       console.error('[useDesktop] removeProject error:', err)
       throw err
     }
-  }, [])
+  }, [persistSelection])
 
   const contextValue = useMemo(() => ({
     projects,
@@ -333,9 +340,10 @@ export function DesktopProvider({ children }: { children: ReactNode }) {
     setActiveProjectId,
     addProject,
     removeProject,
+    refreshProjects,
     isLoading,
     isSwitchingProject,
-  }), [projects, activeProjectId, setActiveProjectId, addProject, removeProject, isLoading, isSwitchingProject])
+  }), [projects, activeProjectId, setActiveProjectId, addProject, removeProject, refreshProjects, isLoading, isSwitchingProject])
 
   return (
     <DesktopContext.Provider value={contextValue}>
@@ -350,6 +358,7 @@ const LEGACY_FALLBACK: DesktopContextValue = {
   setActiveProjectId: () => {},
   addProject: async () => null,
   removeProject: async () => {},
+  refreshProjects: async () => {},
   isLoading: false,
   isSwitchingProject: false,
 }

@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+
+const testOriginalPath = process.env.PATH
+beforeEach(() => { process.env.PATH = '' })
+afterEach(() => { process.env.PATH = testOriginalPath })
 import { EventEmitter } from 'events'
 import { Readable } from 'stream'
 
@@ -359,36 +363,11 @@ describe('SetupManager', () => {
       expect(vi.mocked(mockSpawn)).not.toHaveBeenCalled()
     })
 
-    it('resolves SPECRAILS_CORE_BIN command names to absolute paths before spawn', () => {
-      process.env.SPECRAILS_CORE_BIN = 'specrails-core'
-      vi.mocked(mockSpawnSync).mockImplementation((cmd: any, args: any) => {
-        if (cmd === 'which' && Array.isArray(args) && ['node', 'npm', 'npx', 'git'].includes(args[0])) {
-          return { status: 0, stdout: `/usr/bin/${args[0]}\n`, stderr: '' } as any
-        }
-        if (['node', 'npm', 'npx', 'git'].includes(cmd) && Array.isArray(args) && args[0] === '--version') {
-          return { status: 0, stdout: `${cmd} 1.0.0\n`, stderr: '' } as any
-        }
-        if (cmd === 'which' && Array.isArray(args) && args[0] === 'specrails-core') {
-          return { status: 0, stdout: '/opt/homebrew/bin/specrails-core\n', stderr: '' } as any
-        }
-        if (cmd === '/opt/homebrew/bin/specrails-core' && Array.isArray(args) && args[0] === 'version') {
-          return { status: 0, stdout: 'specrails-core v4.1.1\n', stderr: '' } as any
-        }
-        return { status: 1, stdout: '', stderr: '' } as any
-      })
-
-      const child = createMockChildProcess()
-      vi.mocked(mockSpawn).mockReturnValue(child as any)
-      vi.mocked(existsSync).mockReturnValue(false)
-
+    it('rejects an explicit Core shim whose package cannot be verified before spawn', () => {
+      process.env.SPECRAILS_CORE_BIN = 'missing-core'
       sm.startInstall('p1', '/path/to/project')
-
-      expect(vi.mocked(mockSpawn)).toHaveBeenCalledWith(
-        '/opt/homebrew/bin/specrails-core',
-        expect.arrayContaining(['init', '--yes', '--root-dir', '/path/to/project']),
-        expect.objectContaining({ cwd: '/path/to/project' }),
-      )
-      delete process.env.SPECRAILS_CORE_BIN
+      expect(mockSpawn).not.toHaveBeenCalled()
+      expect(getBroadcastedByType(broadcast, 'setup_error')[0].error).toMatch(/SPECRAILS_CORE_BIN/)
     })
 
     it('rejects legacy installs even when the child exits 0', async () => {
@@ -452,6 +431,22 @@ describe('SetupManager', () => {
   // ─── startEnrich ───────────────────────────────────────────────────────────
 
   describe('startEnrich', () => {
+    it('completes Core 5 deterministic setup without invoking a removed enrich command', () => {
+      vi.mocked(existsSync).mockImplementation((p: any) => /(?:specrails-version|\.claude\/agents|commands\/specrails)$/.test(String(p)))
+      vi.mocked(readFileSync).mockImplementation((p: any) => String(p).endsWith('specrails-version') ? '5.0.0' : '')
+      vi.mocked(readdirSync).mockImplementation((p: any) => String(p).endsWith('/agents') ? ['sr-architect.md', 'sr-developer.md', 'sr-reviewer.md'] as any : ['implement.md'] as any)
+      sm.startEnrich('p1', '/path/to/project', 'claude')
+      expect(mockSpawn).not.toHaveBeenCalled()
+      expect(getBroadcastedByType(broadcast, 'setup_complete')).toHaveLength(1)
+    })
+    it('does not report a marker-only Core 5 installation as complete', () => {
+      vi.mocked(existsSync).mockImplementation((p: any) => String(p).endsWith('specrails-version'))
+      vi.mocked(readFileSync).mockReturnValue('5.0.0')
+      sm.startEnrich('p1', '/path/to/project', 'claude')
+      expect(mockSpawn).not.toHaveBeenCalled()
+      expect(getBroadcastedByType(broadcast, 'setup_complete')).toHaveLength(0)
+      expect(getBroadcastedByType(broadcast, 'setup_error')[0].error).toMatch(/repair/)
+    })
     it('spawns claude with /specrails:enrich args', () => {
       const child = createMockChildProcess()
       vi.mocked(mockSpawn).mockReturnValue(child as any)

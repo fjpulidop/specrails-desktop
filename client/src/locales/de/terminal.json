@@ -57,7 +57,9 @@
     "invalidName": "Ungültiger Terminal-Name.",
     "openFailed": "Terminal konnte nicht geöffnet werden.",
     "serverUnreachable": "Server zum Öffnen eines Terminals nicht erreichbar.",
-    "exitedImmediately": "Terminal wurde sofort beendet – die Shell konnte womöglich nicht starten. Wenn das wiederholt passiert, starte die App neu."
+    "exitedImmediately": "Terminal wurde sofort beendet – die Shell konnte womöglich nicht starten. Wenn das wiederholt passiert, starte die App neu.",
+    "nativeActionFailed": "Die Desktop-Aktion konnte nicht abgeschlossen werden.",
+    "pathPasteUnsafe": "Dieser Pfad kann nicht sicher in cmd.exe eingefügt werden. Verwende ein PowerShell-Terminal."
   },
   "session": {
     "processExited": "[Prozess beendet]",

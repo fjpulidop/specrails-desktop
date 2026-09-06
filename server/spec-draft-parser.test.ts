@@ -150,3 +150,19 @@ describe('applyBlocks', () => {
     expect(result.chips).toHaveLength(3)
   })
 })
+
+
+describe('repository scope in draft streams', () => {
+  it('merges valid selections, reports the changed field and preserves it when omitted', () => {
+    const parsed = parseSpecDraftBlocks('```spec-draft\n{"repositoryIds":["primary-p","api"]}\n```')
+    const state = applyBlocks(undefined, parsed.blocks)
+    expect(state.draft.repositoryIds).toEqual(['primary-p', 'api'])
+    expect(state.lastChangedFields).toContain('repositoryIds')
+    expect(mergeDraft(state.draft, { title: 'Cross-repository feature' }).repositoryIds).toEqual(['primary-p', 'api'])
+  })
+
+  it.each([[], ['x', 'x'], [''], ['x', 2], null].map((repositoryIds) => ({ repositoryIds })))('does not silently normalize invalid scope $repositoryIds', ({ repositoryIds }) => {
+    const parsed = parseSpecDraftBlocks('```spec-draft\n' + JSON.stringify({ repositoryIds }) + '\n```')
+    expect(parsed.blocks[0].partial.repositoryIds).toBeUndefined()
+  })
+})

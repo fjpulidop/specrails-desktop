@@ -57,7 +57,9 @@
     "invalidName": "Invalid terminal name.",
     "openFailed": "Failed to open terminal.",
     "serverUnreachable": "Could not reach the server to open a terminal.",
-    "exitedImmediately": "Terminal exited immediately — the shell may have failed to start. If this keeps happening, restart the app."
+    "exitedImmediately": "Terminal exited immediately — the shell may have failed to start. If this keeps happening, restart the app.",
+    "nativeActionFailed": "The desktop action could not be completed.",
+    "pathPasteUnsafe": "This path cannot be pasted safely into cmd.exe. Use a PowerShell terminal."
   },
   "session": {
     "processExited": "[process exited]",

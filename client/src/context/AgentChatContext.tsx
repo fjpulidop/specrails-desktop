@@ -1,3 +1,5 @@
+import { useMissionWindows } from './MissionWindowsContext'
+import { isMissionWindowRoute } from '../lib/mission-windows'
 import {
   createContext,
   useContext,
@@ -20,6 +22,8 @@ import {
   sendAgentMessage,
   abortAgentTurn,
   editQueuedAgentMessage,
+  steerQueuedAgentMessage,
+  removeQueuedAgentMessage,
   getMcpStatus,
   enableMcp,
   getAvailableProviders,
@@ -29,6 +33,8 @@ import {
   type AgentConversation,
   type AgentContextReference,
   type AgentMessage,
+  type AgentDeliveryReceipt,
+  type AgentPendingMessage,
   type AgentPrDecisionEnvelope,
   type AgentTierLevel,
 } from '../lib/agent-api'
@@ -61,13 +67,8 @@ export interface AgentLiveTool {
  *  surface, not an archive; unbounded pushes would leak on very long turns. */
 const MAX_ACTIVITY_ENTRIES = 200
 
-/** A message sent while the agent was busy — parked server-side, shown as a
- *  dimmed chip below the streaming bubble until its turn starts. */
-export interface AgentQueuedItem {
-  queueId: string
-  text: string
-  contextRefs?: AgentContextReference[]
-}
+/** Input awaiting native delivery, a safe tool checkpoint or a resumed turn. */
+export interface AgentQueuedItem extends AgentPendingMessage {}
 
 /** Live turn state for ONE conversation. Kept per-conversation so background
  *  agents keep streaming while the user reads another thread. */
@@ -361,11 +362,13 @@ export interface AgentChatContextValue {
   /** null = not yet checked; false = no AI provider CLI is installed. */
   providersReady: boolean | null
 
-  send: (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[] }) => Promise<void>
+  send: (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[]; queueId?: string }) => Promise<{ accepted: boolean; conversationId?: string }>
   abort: () => Promise<void>
   /** Edit a still-queued message in place (composer ↑/↓ queue navigation).
    *  `'conflict'` = already dispatched — the caller keeps the text as a draft. */
   editQueuedMessage: (queueId: string, text: string) => Promise<'saved' | 'conflict'>
+  steerQueuedMessage: (queueId: string) => Promise<'saved' | 'conflict'>
+  removeQueuedMessage: (queueId: string) => Promise<'saved' | 'conflict'>
   /** True when a queued message already left the queue as a real turn
    *  (`agent_dequeued` seen) — distinguishes "dispatched" from "cleared". */
   wasQueueConsumed: (queueId: string) => boolean
@@ -390,7 +393,7 @@ export interface AgentChatContextValue {
   draftTierLevel: AgentTierLevel
   draftEffort: string | null
   setEffort: (effort: string | null) => Promise<void>
-  selectConversation: (id: string) => Promise<void>
+  selectConversation: (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal }) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
   /** Rename a conversation (optimistic; blank clears to auto-title). */
   renameConversation: (id: string, title: string) => Promise<void>
@@ -434,23 +437,70 @@ interface WsAgentMsg {
   queueId?: string | null
   text?: string
   contextRefs?: AgentContextReference[]
+  attachmentIds?: string[]
+  deliveryMode?: 'queue' | 'steer'
+  deliveryStatus?: 'delivered' | 'interrupted'
+  delivery_receipt?: AgentDeliveryReceipt
+  deliveryReceipt?: AgentDeliveryReceipt
+  receipt?: 'received' | 'read'
+  messageId?: string
+  assistantSegment?: { id: string; content: string; created_at: string }
+  messages?: AgentMessage[]
 }
 
 let _toolSeq = 0
 let _queueSeq = 0
 
+const receiptRank = { sent: 0, received: 1, read: 2 }
+function latestReceipt(a?: AgentDeliveryReceipt, b?: AgentDeliveryReceipt): AgentDeliveryReceipt | undefined {
+  return !a ? b : !b || receiptRank[a] >= receiptRank[b] ? a : b
+}
+
+function mergeTranscriptRows(current: AgentMessage[], incoming: AgentMessage[]): AgentMessage[] {
+  const rows = [...current]
+  for (const [incomingIndex, message] of incoming.entries()) {
+    const index = rows.findIndex((row) => row.id === message.id)
+    if (index >= 0) {
+      const receipt = latestReceipt(rows[index].delivery_receipt, message.delivery_receipt)
+      rows[index] = { ...message, ...(receipt ? { delivery_receipt: receipt } : {}) }
+    }
+    else {
+      // HTTP can acknowledge a user row before WS delivers the preceding
+      // assistant segment. Insert that segment before its already-known user.
+      const nextIds = new Set(incoming.slice(incomingIndex + 1).map((row) => row.id))
+      const nextIndex = rows.findIndex((row) => nextIds.has(row.id))
+      if (nextIndex >= 0) rows.splice(nextIndex, 0, message)
+      else rows.push(message)
+    }
+  }
+  return rows
+}
+
 export function AgentChatProvider({ children }: { children: ReactNode }) {
   const { registerHandler, unregisterHandler, connectionStatus } = useSharedWebSocket()
   const { uiMode } = useUiMode()
   const { setActiveProjectId, activeProjectId } = useDesktop()
+  const missionWindows = useMissionWindows()
+  const windowsRef = useRef(missionWindows)
+  windowsRef.current = missionWindows
+  const secondaryWindow = isMissionWindowRoute()
+  const editable = (id?: string | null) => id ? windowsRef.current.isEditable(id) : !secondaryWindow
 
   const [visibility, setVisibility] = useState<AgentVisibility>('hidden')
   const [conversations, setConversations] = useState<AgentConversation[]>([])
   const [active, setActive] = useState<AgentConversation | null>(null)
   const [messages, setMessages] = useState<AgentMessage[]>([])
+  const metadataVersion = useRef(new Map<string, number>())
   const messagesRef = useRef(messages)
   messagesRef.current = messages
   const [favoriteConversationIds, setFavoriteConversationIds] = useState<ReadonlySet<string>>(loadFavoriteConversationIds)
+  useEffect(() => {
+    const sync = (event: StorageEvent) => {
+      if (event.key === FAVORITE_CONVERSATIONS_KEY || event.key === null) setFavoriteConversationIds(loadFavoriteConversationIds())
+    }
+    window.addEventListener('storage', sync)
+    return () => window.removeEventListener('storage', sync)
+  }, [])
   const [unreadConversationIds, setUnreadConversationIds] = useState<ReadonlySet<string>>(new Set())
   // Live turn state is PER CONVERSATION: agents keep working in the background,
   // so switching threads never drops streamed text, tool chips or queued
@@ -485,6 +535,21 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   // queueIds whose agent_dequeued already ran — send()'s race reconciliation
   // must never re-add a chip that was consumed while the POST was in flight.
   const consumedQueueIdsRef = useRef(new Set<string>())
+  const removedQueueIdsRef = useRef(new Set<string>())
+  const inputReceiptsRef = useRef(new Map<string, AgentDeliveryReceipt>())
+  const inputMessageIdsRef = useRef(new Map<string, string>())
+  const withReceipt = (row: AgentMessage): AgentMessage => {
+    const receipt = latestReceipt(row.delivery_receipt, inputReceiptsRef.current.get(`${row.conversation_id}:m:${row.id}`))
+    return receipt ? { ...row, delivery_receipt: receipt } : row
+  }
+  const withPendingReceipt = (conversationId: string, item: AgentQueuedItem): AgentQueuedItem => {
+    const receipt = latestReceipt(item.deliveryReceipt, inputReceiptsRef.current.get(`${conversationId}:q:${item.queueId}`))
+    return receipt ? { ...item, deliveryReceipt: receipt } : item
+  }
+  const deliveredMessageIdsRef = useRef(new Set<string>())
+  const conversationEventVersionRef = useRef(new Map<string, number>())
+  const queueClearVersionRef = useRef(new Map<string, number>())
+  const transcriptEventsRef = useRef(new Map<string, AgentMessage[]>())
   const draftMaterializeRef = useRef<Promise<AgentConversation> | null>(null)
   const prSnapshotVersionRef = useRef(0)
   const conversationLoadEpochRef = useRef(0)
@@ -592,8 +657,8 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       const list = await listAgentConversations()
       setConversations(list)
       setFavoriteConversationIds((prev) => {
-        const next = pruneFavoriteConversationIds(prev, list)
-        if (next.size === prev.size) return prev
+        const next = pruneFavoriteConversationIds(loadFavoriteConversationIds(), list)
+        if (next.size === prev.size && [...next].every(id => prev.has(id))) return prev
         saveFavoriteConversationIds(next)
         return next
       })
@@ -643,11 +708,33 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       }
       const convId = msg.conversationId
       if (!convId) return
+      conversationEventVersionRef.current.set(convId, (conversationEventVersionRef.current.get(convId) ?? 0) + 1)
       // NO active-conversation filter for live state: background turns keep
       // accumulating in their own slice so a switch-back shows the full stream.
       // Only the `messages` list (the active thread) is gated on isActive.
       const isActive = convId === activeIdRef.current
-      if (msg.type === 'agent_stream') {
+      const appendTranscript = (rows: AgentMessage[]) => {
+        transcriptEventsRef.current.set(convId, mergeTranscriptRows(transcriptEventsRef.current.get(convId) ?? [], rows).slice(-500))
+        if (isActive) {
+          messagesRef.current = mergeTranscriptRows(messagesRef.current, rows)
+          setMessages((current) => mergeTranscriptRows(current, rows))
+        }
+      }
+      if (msg.type === 'agent_input_receipt') {
+        if (msg.receipt !== 'received' && msg.receipt !== 'read') return
+        const queueKey = `${convId}:q:${msg.queueId}`
+        const messageId = msg.messageId ?? inputMessageIdsRef.current.get(queueKey)
+        if (msg.queueId) inputReceiptsRef.current.set(queueKey, latestReceipt(inputReceiptsRef.current.get(queueKey), msg.receipt)!)
+        if (messageId) {
+          const key = `${convId}:m:${messageId}`
+          inputReceiptsRef.current.set(key, latestReceipt(inputReceiptsRef.current.get(key), msg.receipt)!)
+          const rows = isActive ? messagesRef.current : transcriptEventsRef.current.get(convId) ?? []
+          const existing = rows.find((row) => row.id === messageId)
+          if (existing) appendTranscript([withReceipt(existing)])
+        }
+        patchLive(convId, (previous) => ({ ...previous, queued: previous.queued.map((item) => item.queueId === msg.queueId
+          ? { ...item, deliveryReceipt: latestReceipt(item.deliveryReceipt, msg.receipt) } : item) }))
+      } else if (msg.type === 'agent_stream') {
         markUnread(convId)
         patchLive(convId, (p) => ({ ...p, isStreaming: true, streamingText: p.streamingText + (msg.delta ?? '') }))
       } else if (msg.type === 'agent_tool') {
@@ -686,18 +773,16 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         })
       } else if (msg.type === 'agent_partial') {
         const partial = msg.fullText ?? ''
-        if (isActive && partial) {
-          setMessages((m) => {
-            const last = m[m.length - 1]
-            if (last?.role === 'assistant' && last.content === partial) return m
-            return [...m, { id: `partial-${convId}-${msg.timestamp ?? Date.now()}`, conversation_id: convId, role: 'assistant', content: partial, created_at: msg.timestamp ?? new Date().toISOString() }]
-          })
+        if (partial) {
+          appendTranscript([{ id: msg.messageId ?? `partial-${convId}-${msg.timestamp ?? Date.now()}`, conversation_id: convId, role: 'assistant', content: partial, created_at: msg.timestamp ?? new Date().toISOString() }])
         }
       } else if (msg.type === 'agent_done') {
         localTurnStartedAtRef.current.delete(convId)
         markUnread(convId)
         const full = msg.fullText ?? ''
-        if (isActive) {
+        if (msg.messageId && full) {
+          appendTranscript([{ id: msg.messageId, conversation_id: convId, role: 'assistant', content: full, created_at: msg.timestamp ?? new Date().toISOString() }])
+        } else if (isActive && full) {
           setMessages((m) => {
             // A switch-back refetch can already contain this reply (it is
             // persisted before the broadcast) — don't append it twice. Only
@@ -738,36 +823,69 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         }
       } else if (msg.type === 'agent_queued') {
         // Dedupe by queueId: the sending window already parked its own chip.
+        if (msg.queueId && consumedQueueIdsRef.current.has(msg.queueId)) return
         patchLive(convId, (p) => {
-          if (msg.queueId && p.queued.some((q) => q.queueId === msg.queueId)) return p
+          const receipt = latestReceipt(msg.deliveryReceipt ?? msg.delivery_receipt, inputReceiptsRef.current.get(`${convId}:q:${msg.queueId}`))
+          const item = { queueId: msg.queueId ?? `srv-${_queueSeq++}`, text: msg.text ?? '', contextRefs: msg.contextRefs, attachmentIds: msg.attachmentIds, deliveryMode: msg.deliveryMode, ...(receipt ? { deliveryReceipt: receipt } : {}), timestamp: msg.timestamp }
+          if (msg.queueId && p.queued.some((q) => q.queueId === msg.queueId)) {
+            return { ...p, queued: p.queued.map((q) => q.queueId === msg.queueId ? { ...q, ...item, deliveryReceipt: latestReceipt(q.deliveryReceipt, item.deliveryReceipt), deliveryMode: q.deliveryMode === 'steer' ? 'steer' : item.deliveryMode ?? q.deliveryMode, attachmentIds: item.attachmentIds ?? q.attachmentIds, contextRefs: item.contextRefs ?? q.contextRefs } : q) }
+          }
           return {
             ...p,
-            queued: [...p.queued, { queueId: msg.queueId ?? `srv-${_queueSeq++}`, text: msg.text ?? '', contextRefs: msg.contextRefs }],
+            queued: [...p.queued, item],
           }
         })
+      } else if (msg.type === 'agent_steered') {
+        if (!msg.messageId) return
+        if (deliveredMessageIdsRef.current.has(msg.messageId)) {
+          if (msg.queueId) consumedQueueIdsRef.current.add(msg.queueId)
+          patchLive(convId, (p) => ({ ...p, queued: p.queued.filter((q) => q.queueId !== msg.queueId) }))
+          return
+        }
+        deliveredMessageIdsRef.current.add(msg.messageId)
+        if (msg.queueId) consumedQueueIdsRef.current.add(msg.queueId)
+        inputMessageIdsRef.current.set(`${convId}:q:${msg.queueId}`, msg.messageId)
+        const receipt = latestReceipt(msg.delivery_receipt ?? msg.deliveryReceipt, inputReceiptsRef.current.get(`${convId}:q:${msg.queueId}`))
+        const rows: AgentMessage[] = []
+        if (msg.assistantSegment) rows.push({ ...msg.assistantSegment, conversation_id: convId, role: 'assistant' })
+        rows.push(withReceipt({ id: msg.messageId, conversation_id: convId, role: 'user', content: msg.text ?? '', context_refs: msg.contextRefs ?? [], attachment_ids: msg.attachmentIds ?? [], delivery_status: msg.deliveryStatus ?? 'delivered', ...(receipt ? { delivery_receipt: receipt } : {}), created_at: msg.timestamp ?? new Date().toISOString() }))
+        appendTranscript(rows)
+        // Settling input delivery (including an unconfirmed native write) does
+        // not end the turn. Only the persisted assistant segment resets.
+        patchLive(convId, (p) => ({ ...p, queued: p.queued.filter((q) => q.queueId !== msg.queueId), streamingText: msg.assistantSegment ? '' : p.streamingText }))
       } else if (msg.type === 'agent_dequeued') {
         // The queued message's turn starts now: chip → real user bubble.
+        if (msg.queueId && consumedQueueIdsRef.current.has(msg.queueId)) return
         if (msg.queueId) consumedQueueIdsRef.current.add(msg.queueId)
         patchLive(convId, (p) => {
-          const idx = msg.queueId ? p.queued.findIndex((q) => q.queueId === msg.queueId) : 0
-          const drop = idx === -1 ? 0 : idx
-          return { ...p, queued: p.queued.filter((_, i) => i !== drop), isStreaming: true, streamingText: '', liveTools: [] }
+          return { ...p, queued: msg.queueId ? p.queued.filter((q) => q.queueId !== msg.queueId) : p.queued.slice(1), isStreaming: true, streamingText: '', liveTools: [] }
         })
-        if (isActive && msg.text) {
-          setMessages((m) => [
-            ...m,
-            {
-              id: `local-u-${Date.now()}`,
+        if (msg.text) {
+          if (msg.messageId) inputMessageIdsRef.current.set(`${convId}:q:${msg.queueId}`, msg.messageId)
+          const receipt = latestReceipt(msg.delivery_receipt ?? msg.deliveryReceipt, inputReceiptsRef.current.get(`${convId}:q:${msg.queueId}`))
+          appendTranscript([
+            withReceipt({
+              id: msg.messageId ?? `local-u-${Date.now()}`,
               conversation_id: convId,
               role: 'user',
               content: msg.text!,
               context_refs: msg.contextRefs ?? [],
-              created_at: new Date().toISOString(),
-            },
+              attachment_ids: msg.attachmentIds ?? [],
+              ...(msg.messageId ? { delivery_status: 'delivered' as const } : {}),
+              ...(receipt ? { delivery_receipt: receipt } : {}),
+              created_at: msg.timestamp ?? new Date().toISOString(),
+            }),
           ])
         }
       } else if (msg.type === 'agent_queue_cleared') {
+        queueClearVersionRef.current.set(convId, (queueClearVersionRef.current.get(convId) ?? 0) + 1)
+        if (msg.messages?.length) appendTranscript(msg.messages)
         patchLive(convId, (p) => ({ ...p, queued: [] }))
+      } else if (msg.type === 'agent_queue_removed') {
+        if (!msg.queueId) return
+        consumedQueueIdsRef.current.add(msg.queueId)
+        removedQueueIdsRef.current.add(msg.queueId)
+        patchLive(convId, (p) => ({ ...p, queued: p.queued.filter((item) => item.queueId !== msg.queueId) }))
       } else if (msg.type === 'agent_queue_edited') {
         // A queued chip was edited in place (this window or another) — update
         // its text; the editing window's optimistic update makes this a no-op.
@@ -775,7 +893,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           ...p,
           queued: p.queued.map((q) => (
             msg.queueId && q.queueId === msg.queueId
-              ? { ...q, text: msg.text ?? q.text, contextRefs: msg.contextRefs ?? q.contextRefs }
+              ? { ...q, text: msg.text ?? q.text, contextRefs: msg.contextRefs ?? q.contextRefs, deliveryMode: msg.deliveryMode ?? q.deliveryMode }
               : q
           )),
         }))
@@ -806,33 +924,63 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     return () => unregisterHandler('agent-chat')
   }, [registerHandler, unregisterHandler, patchLive, markUnread])
 
-  const loadConversation = useCallback(async (id: string) => {
+  const loadConversation = useCallback(async (id: string, signal?: AbortSignal) => {
     const epoch = ++conversationLoadEpochRef.current
+    const eventVersion = conversationEventVersionRef.current.get(id) ?? 0
     // Invalidates a focus/reconnect card hydration for the previous view even
     // when navigation later returns to the same conversation (C1→C2→C1 ABA).
     prSnapshotVersionRef.current++
-    const { conversation, messages: msgs } = await getAgentConversation(id)
-    if (epoch !== conversationLoadEpochRef.current) return
+    const { conversation, messages: fetched, pendingMessages, live } = await getAgentConversation(id)
+    if (signal?.aborted) throw new DOMException('Window transfer cancelled', 'AbortError')
+    if (epoch !== conversationLoadEpochRef.current) {
+      if (signal) throw new DOMException('The mission changed during restoration', 'AbortError')
+      return
+    }
     prSnapshotVersionRef.current++
+    const msgs = mergeTranscriptRows(fetched, transcriptEventsRef.current.get(id) ?? []).map(withReceipt)
+    for (const message of msgs) if (message.delivery_status === 'delivered' || message.delivery_status === 'interrupted') deliveredMessageIdsRef.current.add(message.id)
     setActive(conversation)
     messagesRef.current = msgs
     setMessages(msgs)
     clearUnread(id)
-    // Live state (stream text / tools / queue) is per-conversation and is
-    // deliberately NOT reset here — a background turn keeps its full context
-    // and re-appears mid-stream when the user switches back.
-  }, [clearUnread])
+    if (eventVersion === (conversationEventVersionRef.current.get(id) ?? 0) && (pendingMessages !== undefined || live)) {
+      patchLive(id, (previous) => ({
+        ...previous,
+        ...(live ? { isStreaming: live.isStreaming, streamingText: live.streamingText } : {}),
+        queued: pendingMessages?.filter((item) => !consumedQueueIdsRef.current.has(item.queueId)).map((item) => withPendingReceipt(id, item)) ?? previous.queued,
+      }))
+    }
+    // Old servers omit live snapshots; retain background state in that case.
+    // Modern snapshots hydrate reloads without overwriting newer WS events.
+  }, [clearUnread, patchLive])
 
-  // A card action can complete while this window misses its WS packet. Re-read
-  // only the persisted PR system rows on focus/reconnect; user/stream messages
-  // remain untouched, so a live turn cannot be clobbered by hydration.
+  // Reconcile persisted cards and checkpoint deliveries after missed WS events.
+  // Older servers still use the card-only convergence path.
   const hydrateActivePrCards = useCallback(async (): Promise<void> => {
     const conversationId = activeIdRef.current
     if (!conversationId) return
     const version = prSnapshotVersionRef.current
+    const eventVersion = conversationEventVersionRef.current.get(conversationId) ?? 0
+    const metaVersion = metadataVersion.current.get(conversationId) ?? 0
     try {
       const fresh = await getAgentConversation(conversationId)
       if (activeIdRef.current !== conversationId || prSnapshotVersionRef.current !== version) return
+      if (metaVersion === (metadataVersion.current.get(conversationId) ?? 0)) {
+        setActive(current => current?.id === conversationId ? fresh.conversation : current)
+        setConversations(current => current.map(item => item.id === conversationId ? fresh.conversation : item))
+      }
+      // A current server snapshot also reconciles checkpoint deliveries and
+      // pending inputs after missed WS events. Never overwrite a newer event.
+      if ((fresh.pendingMessages !== undefined || fresh.live) && eventVersion === (conversationEventVersionRef.current.get(conversationId) ?? 0)) {
+        const persisted = mergeTranscriptRows(fresh.messages, transcriptEventsRef.current.get(conversationId) ?? []).map(withReceipt)
+        for (const message of persisted) if (message.delivery_status === 'delivered' || message.delivery_status === 'interrupted') deliveredMessageIdsRef.current.add(message.id)
+        setMessages((current) => mergeTranscriptRows(persisted, current.filter((message) => message.id.startsWith('local-u-') && !persisted.some((row) => row.role === 'user' && row.content === message.content))))
+        patchLive(conversationId, (previous) => ({
+          ...previous,
+          ...(fresh.live ? { isStreaming: fresh.live.isStreaming, streamingText: fresh.live.streamingText } : {}),
+          queued: fresh.pendingMessages?.filter((item) => !consumedQueueIdsRef.current.has(item.queueId)).map((item) => withPendingReceipt(conversationId, item)) ?? previous.queued,
+        }))
+      }
       const envelopes = fresh.messages
         .filter((message) => message.role === 'system')
         .map((message) => parsePrDecisionEnvelope(message.content))
@@ -849,10 +997,11 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     } catch {
       /* Advisory convergence path; the next focus/reconnect can retry. */
     }
-  }, [])
+  }, [patchLive])
 
   const reconcileActiveTurns = useCallback(async (): Promise<void> => {
     try {
+      const eventVersions = new Map(conversationEventVersionRef.current)
       const snapshot = await getAgentActiveTurns()
       const activeIds = new Set(snapshot.turns.map((turn) => turn.conversationId))
       const capturedAt = Date.parse(snapshot.capturedAt)
@@ -860,6 +1009,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       // queuing it, otherwise the interruption notice depends on eager render.
       const interrupted = [...liveRef.current].flatMap(([conversationId, live]) => {
         if (!live.isStreaming || activeIds.has(conversationId)) return []
+        if ((eventVersions.get(conversationId) ?? 0) !== (conversationEventVersionRef.current.get(conversationId) ?? 0)) return []
         const startedAt = localTurnStartedAtRef.current.get(conversationId)
         if (startedAt && Date.parse(startedAt) > capturedAt) return []
         return [conversationId]
@@ -868,13 +1018,19 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         const next = new Map(current)
         for (const [conversationId, live] of current) {
           if (!live.isStreaming || activeIds.has(conversationId)) continue
+          if ((eventVersions.get(conversationId) ?? 0) !== (conversationEventVersionRef.current.get(conversationId) ?? 0)) continue
           const localStartedAt = localTurnStartedAtRef.current.get(conversationId)
           if (localStartedAt && Date.parse(localStartedAt) > capturedAt) continue
           next.set(conversationId, { ...EMPTY_LIVE, queued: live.queued, turnTools: live.liveTools.length ? live.liveTools : live.turnTools })
         }
-        for (const conversationId of activeIds) {
+        for (const turn of snapshot.turns) {
+          const conversationId = turn.conversationId
+          if ((eventVersions.get(conversationId) ?? 0) !== (conversationEventVersionRef.current.get(conversationId) ?? 0)) continue
           const live = next.get(conversationId) ?? EMPTY_LIVE
-          next.set(conversationId, { ...live, isStreaming: true })
+          next.set(conversationId, { ...live, isStreaming: true,
+            streamingText: turn.streamingText ?? live.streamingText,
+            queued: turn.pendingMessages?.filter((item) => !consumedQueueIdsRef.current.has(item.queueId)).map((item) => withPendingReceipt(conversationId, item)) ?? live.queued,
+          })
         }
         return next
       })
@@ -894,10 +1050,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    const onFocus = () => { void hydrateActivePrCards() }
+    const onFocus = () => { void refreshConversations(); void hydrateActivePrCards() }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
-  }, [hydrateActivePrCards])
+  }, [hydrateActivePrCards, refreshConversations])
 
   useEffect(() => {
     if (!projectRecoveryRevision) return
@@ -920,11 +1076,12 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
 
   const ensureActive = useCallback(async (): Promise<AgentConversation> => {
     if (active) return active
+    if (secondaryWindow) throw new Error('This window is reserved for its mission.')
     const list = await listAgentConversations()
     setConversations(list)
     setFavoriteConversationIds((prev) => {
-      const next = pruneFavoriteConversationIds(prev, list)
-      if (next.size === prev.size) return prev
+      const next = pruneFavoriteConversationIds(loadFavoriteConversationIds(), list)
+      if (next.size === prev.size && [...next].every(id => prev.has(id))) return prev
       saveFavoriteConversationIds(next)
       return next
     })
@@ -964,6 +1121,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const builderSession = useBuilderSession(builderActive, { onFinished: exitBuilderMode })
   builderSessionRef.current = builderSession
   const enterBuilderMode = useCallback(() => {
+    if (secondaryWindow) return
     setBuilderActive(true)
     // Board mode: the builder lives in the floating panel — summon it. Agent
     // Mode suppresses the panel; the mission surface takes the builder skin.
@@ -980,6 +1138,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }, [visibility, refreshConversations, refreshMcp, refreshProviders, ensureActive])
 
   const materializeDraftConversation = useCallback(async (): Promise<AgentConversation> => {
+    if (!editable(active?.id)) throw new Error('This mission is active in another window.')
     if (active) return active
     if (draftMaterializeRef.current) return draftMaterializeRef.current
 
@@ -1010,13 +1169,17 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     return promise
   }, [active])
 
-  const send = useCallback(async (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[] }) => {
+  const send = useCallback(async (text: string, opts?: { attachmentIds?: string[]; contextRefs?: AgentContextReference[]; queueId?: string }): Promise<{ accepted: boolean; conversationId?: string }> => {
+    if (!editable(active?.id)) return { accepted: false }
     const trimmed = text.trim()
-    if (!trimmed) return
+    if (!trimmed) return { accepted: false }
     // EMPTY compose screen (no active conversation) ALWAYS starts a fresh
     // conversation with the draft pin — it never resurrects the latest chat.
     const conv = active ?? await materializeDraftConversation()
-    const queueId = `q-${Date.now()}-${_queueSeq++}`
+    conversationEventVersionRef.current.set(conv.id, (conversationEventVersionRef.current.get(conv.id) ?? 0) + 1)
+    const sendEventVersion = conversationEventVersionRef.current.get(conv.id)
+    const queueClearVersion = queueClearVersionRef.current.get(conv.id) ?? 0
+    const queueId = opts?.queueId ?? `q-${Date.now()}-${_queueSeq++}`
     const nowIso = new Date().toISOString()
     localTurnStartedAtRef.current.set(conv.id, nowIso)
     // "Last interaction" is NOW — bump the conversation's updated_at (so the
@@ -1035,13 +1198,16 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       content: trimmed,
       attachment_ids: opts?.attachmentIds ?? [],
       context_refs: opts?.contextRefs ?? [],
+      delivery_receipt: 'sent' as const,
       created_at: nowIso,
     }
-    // Busy conversation → the message QUEUES (server-side FIFO) and shows as a
-    // parked chip below the streaming bubble instead of a normal bubble.
+    // Busy sends wait for the next turn unless the user explicitly picks Steer.
     const wasBusy = liveRef.current.get(conv.id)?.isStreaming === true
+    const pendingItem: AgentQueuedItem = { queueId, text: trimmed, contextRefs: opts?.contextRefs, attachmentIds: opts?.attachmentIds, deliveryMode: 'queue', deliveryReceipt: 'sent', timestamp: nowIso }
     if (wasBusy) {
-      patchLive(conv.id, (p) => ({ ...p, queued: [...p.queued, { queueId, text: trimmed, contextRefs: opts?.contextRefs }] }))
+      patchLive(conv.id, (p) => ({ ...p, queued: p.queued.some((item) => item.queueId === queueId)
+        ? p.queued.map((item) => item.queueId === queueId ? { ...pendingItem, deliveryReceipt: latestReceipt(item.deliveryReceipt, pendingItem.deliveryReceipt), deliveryMode: item.deliveryMode ?? pendingItem.deliveryMode, timestamp: item.timestamp ?? pendingItem.timestamp } : item)
+        : [...p.queued, pendingItem] }))
     } else {
       setMessages((m) => [...m, userBubble])
       patchLive(conv.id, (p) => ({ ...p, isStreaming: true, streamingText: '', liveTools: [] }))
@@ -1050,6 +1216,36 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     try {
       const contextRefs = opts?.contextRefs && opts.contextRefs.length ? opts.contextRefs : undefined
       const res = await sendAgentMessage(conv.id, trimmed, { tierLevel: conv.tier_level, attachments, queueId, contextRefs })
+      if (res.removed) {
+        // A durable deletion survives reloads, unlike this window's tombstones.
+        // Its idempotent retry must never become a new user bubble or turn.
+        consumedQueueIdsRef.current.add(queueId)
+        removedQueueIdsRef.current.add(queueId)
+        const undoIdleStart = !wasBusy && sendEventVersion === conversationEventVersionRef.current.get(conv.id)
+        if (activeIdRef.current === conv.id) setMessages((current) => current.filter((message) => message.id !== userBubble.id))
+        patchLive(conv.id, (previous) => ({
+          ...previous,
+          queued: previous.queued.filter((item) => item.queueId !== queueId),
+          ...(undoIdleStart ? { isStreaming: false } : {}),
+        }))
+        if (undoIdleStart) localTurnStartedAtRef.current.delete(conv.id)
+        return { accepted: true, conversationId: conv.id }
+      }
+      if (res.message) {
+        inputMessageIdsRef.current.set(`${conv.id}:q:${queueId}`, res.message.id)
+        const receipt = latestReceipt(res.message.delivery_receipt, inputReceiptsRef.current.get(`${conv.id}:q:${queueId}`))
+        const canonical = withReceipt({ ...res.message, ...(receipt ? { delivery_receipt: receipt } : {}) })
+        consumedQueueIdsRef.current.add(queueId)
+        transcriptEventsRef.current.set(conv.id, mergeTranscriptRows(transcriptEventsRef.current.get(conv.id) ?? [], [canonical]).slice(-500))
+        if (activeIdRef.current === conv.id) setMessages((current) => mergeTranscriptRows(current.filter((message) => message.id !== userBubble.id), [canonical]))
+        patchLive(conv.id, (previous) => ({ ...previous, queued: previous.queued.filter((item) => item.queueId !== queueId) }))
+        if (res.duplicate) void reconcileActiveTurns()
+        return { accepted: true, conversationId: conv.id }
+      }
+      if (queueClearVersion !== (queueClearVersionRef.current.get(conv.id) ?? 0)) {
+        setMessages((current) => current.filter((message) => message.id !== userBubble.id))
+        return { accepted: true, conversationId: conv.id }
+      }
       const queued = res?.queued === true
       if (queued && !wasBusy) {
         // Rare race: the server was actually mid-turn — re-home the optimistic
@@ -1061,16 +1257,18 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           patchLive(conv.id, (p) =>
             p.queued.some((q) => q.queueId === queueId)
               ? p
-              : { ...p, queued: [...p.queued, { queueId, text: trimmed, contextRefs: opts?.contextRefs }] },
+              : { ...p, queued: [...p.queued, { ...pendingItem, deliveryMode: res.deliveryMode ?? pendingItem.deliveryMode }] },
           )
         }
-      } else if (!queued && wasBusy) {
+      } else if (!queued && wasBusy && !consumedQueueIdsRef.current.has(queueId)) {
         // Rare race: the turn had just settled — our chip is running as a direct
         // turn (no agent_dequeued will ever come for it), promote it now.
         patchLive(conv.id, (p) => ({ ...p, queued: p.queued.filter((q) => q.queueId !== queueId), isStreaming: true }))
         setMessages((m) => [...m, userBubble])
       }
+      return { accepted: true, conversationId: conv.id }
     } catch (e) {
+      if (consumedQueueIdsRef.current.has(queueId) || queueClearVersion !== (queueClearVersionRef.current.get(conv.id) ?? 0)) return { accepted: true, conversationId: conv.id }
       localTurnStartedAtRef.current.delete(conv.id)
       // No agent_* WS event will arrive (the POST never spawned a turn) — reset
       // the optimistic state here, mirroring the agent_error handler.
@@ -1078,15 +1276,19 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         patchLive(conv.id, (p) => ({ ...p, queued: p.queued.filter((q) => q.queueId !== queueId) }))
       } else {
         patchLive(conv.id, (p) => ({ ...p, isStreaming: false, streamingText: '', liveTools: [] }))
+        setMessages((current) => current.filter((message) => message.id !== userBubble.id))
       }
       toast.error(e instanceof Error ? e.message : 'Failed to send message.')
+      return { accepted: false, conversationId: conv.id }
     }
-  }, [active, materializeDraftConversation, patchLive])
+  }, [active, materializeDraftConversation, patchLive, reconcileActiveTurns])
 
   const abort = useCallback(async () => {
-    if (!active) return
+    if (!active || !editable(active.id)) return
     try {
       await abortAgentTurn(active.id)
+      queueClearVersionRef.current.set(active.id, (queueClearVersionRef.current.get(active.id) ?? 0) + 1)
+      conversationEventVersionRef.current.set(active.id, (conversationEventVersionRef.current.get(active.id) ?? 0) + 1)
       // Preserve the live turn if stopping fails: hiding it would imply that
       // the provider stopped while it can still spend tokens and mutate state.
       patchLive(active.id, () => null)
@@ -1097,7 +1299,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
 
   const editQueuedMessage = useCallback(async (queueId: string, text: string): Promise<'saved' | 'conflict'> => {
     const conv = active
-    if (!conv) return 'conflict'
+    if (!conv || !editable(conv.id) || liveRef.current.get(conv.id)?.queued.find((item) => item.queueId === queueId)?.deliveryMode === 'steer') return 'conflict'
     const r = await editQueuedAgentMessage(conv.id, queueId, text)
     if (r === 'saved') {
       // Optimistic chip update — the agent_queue_edited broadcast is a no-op here.
@@ -1113,16 +1315,46 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     return r
   }, [active, patchLive])
 
-  const wasQueueConsumed = useCallback((queueId: string): boolean => consumedQueueIdsRef.current.has(queueId), [])
+  const steerQueuedMessage = useCallback(async (queueId: string): Promise<'saved' | 'conflict'> => {
+    const conv = active
+    const item = conv && liveRef.current.get(conv.id)?.queued.find((entry) => entry.queueId === queueId)
+    if (!conv || !editable(conv.id) || !item || item.deliveryMode === 'steer') return 'conflict'
+    const result = await steerQueuedAgentMessage(conv.id, queueId)
+    if (result === 'saved') {
+      conversationEventVersionRef.current.set(conv.id, (conversationEventVersionRef.current.get(conv.id) ?? 0) + 1)
+      patchLive(conv.id, (previous) => ({ ...previous, queued: previous.queued.map((entry) => entry.queueId === queueId ? { ...entry, deliveryMode: 'steer' } : entry) }))
+    } else if (activeIdRef.current === conv.id) void hydrateActivePrCards()
+    return result
+  }, [active, patchLive, hydrateActivePrCards])
+
+  const removeQueuedMessage = useCallback(async (queueId: string): Promise<'saved' | 'conflict'> => {
+    const conv = active
+    const item = conv && liveRef.current.get(conv.id)?.queued.find((entry) => entry.queueId === queueId)
+    if (!conv || !editable(conv.id) || !item || item.deliveryMode === 'steer') return 'conflict'
+    const result = await removeQueuedAgentMessage(conv.id, queueId)
+    if (result === 'saved') {
+      consumedQueueIdsRef.current.add(queueId)
+      removedQueueIdsRef.current.add(queueId)
+      conversationEventVersionRef.current.set(conv.id, (conversationEventVersionRef.current.get(conv.id) ?? 0) + 1)
+      patchLive(conv.id, (previous) => ({ ...previous, queued: previous.queued.filter((entry) => entry.queueId !== queueId) }))
+    } else if (activeIdRef.current === conv.id) void hydrateActivePrCards()
+    return result
+  }, [active, patchLive, hydrateActivePrCards])
+
+  const wasQueueConsumed = useCallback((queueId: string): boolean => consumedQueueIdsRef.current.has(queueId) && !removedQueueIdsRef.current.has(queueId), [])
 
   const patchActive = useCallback(async (patch: Parameters<typeof patchAgentConversation>[1]) => {
-    if (!active) return
+    if (!active || !editable(active.id)) return
+    const revision = (metadataVersion.current.get(active.id) ?? 0) + 1
+    metadataVersion.current.set(active.id, revision)
     const updated = await patchAgentConversation(active.id, patch)
-    setActive(updated)
+    if (metadataVersion.current.get(active.id) !== revision) return
+    setActive(current => current?.id === updated.id ? updated : current)
     setConversations((c) => c.map((x) => (x.id === updated.id ? updated : x)))
   }, [active])
 
   const setTier = useCallback(async (level: AgentTierLevel) => {
+    if (!editable(active?.id)) return
     saveLastTierLevel(level) // sticky across missions
     if (active) await patchActive({ tierLevel: level })
     else setDraftTierLevel(level)
@@ -1148,6 +1380,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     else setDraftEffort(effort)
   }, [active, patchActive])
   const setPinnedProject = useCallback(async (projectId: string | null) => {
+    if (secondaryWindow || !editable(active?.id)) return
     // On the EMPTY compose screen there's no conversation yet — record the pick
     // as a draft pin; otherwise patch the live conversation.
     if (active) await patchActive({ pinnedProjectId: projectId })
@@ -1176,7 +1409,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     const previous = lastBoundProjectIdRef.current
     lastBoundProjectIdRef.current = activeProjectId
     if (previous === undefined || previous === activeProjectId) return
-    if (uiMode !== 'agent' || !activeProjectId) return
+    if (secondaryWindow || uiMode !== 'agent' || !activeProjectId) return
     if (!active) {
       setDraftPinnedProjectId(activeProjectId)
       return
@@ -1187,6 +1420,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }, [activeProjectId, uiMode, active, patchActive])
 
   const startNewConversation = useCallback((projectId?: string | null) => {
+    if (secondaryWindow) return
     // An explicit mission action while the Builder skin is up is a clear
     // intent to leave it — exit (abort + reset) so the normal compose screen
     // is actually visible, not hidden behind the builder branch.
@@ -1201,6 +1435,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }, [exitBuilderMode])
 
   const newConversation = useCallback(async (projectId?: string | null) => {
+    if (secondaryWindow) return
     exitBuilderMode() // same intent-to-leave as startNewConversation
     // Explicit arg pins to that project (null ⇒ Home); arg-less preserves the
     // legacy behavior of inheriting the active conversation's pin.
@@ -1211,13 +1446,19 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setMessages([])
   }, [active, exitBuilderMode])
 
-  const selectConversation = useCallback(async (id: string) => {
-    exitBuilderMode() // picking a mission leaves the Builder skin
-    await loadConversation(id)
-  }, [loadConversation, exitBuilderMode])
+  const selectConversation = useCallback(async (id: string, options?: { windowRestore?: boolean; signal?: AbortSignal }) => {
+    if (secondaryWindow && !options?.windowRestore && windowsRef.current.current?.conversationId !== id) return
+    if (!secondaryWindow && !options?.windowRestore && await windowsRef.current.focus(id)) return
+    if (options?.signal?.aborted) throw new DOMException('Window transfer cancelled', 'AbortError')
+    exitBuilderMode()
+    await loadConversation(id, options?.signal)
+    if (options?.windowRestore && uiMode !== 'agent') setVisibility('open')
+  }, [loadConversation, exitBuilderMode, secondaryWindow, uiMode])
 
   const deleteConversation = useCallback(async (id: string) => {
+    if (!editable(id)) return
     await deleteAgentConversation(id)
+    await windowsRef.current.discard(id)
     setConversations((c) => c.filter((x) => x.id !== id))
     setFavoriteConversationIds((prev) => {
       if (!prev.has(id)) return prev
@@ -1236,7 +1477,9 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   /** Rename a conversation. Optimistic: the title updates locally immediately and
    *  reverts on failure. A blank/whitespace title clears back to auto-title. */
   const renameConversation = useCallback(async (id: string, rawTitle: string): Promise<void> => {
+    if (!editable(id)) return
     const title = rawTitle.trim() || null
+    metadataVersion.current.set(id, (metadataVersion.current.get(id) ?? 0) + 1)
     let prev: string | null | undefined
     setConversations((cs) => cs.map((c) => {
       if (c.id === id) { prev = c.title; return { ...c, title } }
@@ -1254,8 +1497,8 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const toggleFavoriteConversation = useCallback((id: string): void => {
-    setFavoriteConversationIds((prev) => {
-      const next = new Set(prev)
+    setFavoriteConversationIds(() => {
+      const next = new Set(loadFavoriteConversationIds())
       if (next.has(id)) next.delete(id)
       else next.add(id)
       saveFavoriteConversationIds(next)
@@ -1281,7 +1524,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     queuedMessages, streamingConversationIds, liveByConversation: liveByConv,
     unreadConversationIds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
-    send, abort, editQueuedMessage, wasQueueConsumed,
+    send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
@@ -1294,7 +1537,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     conversations, active, messages, streamingText, isStreaming, liveTools, turnTools,
     queuedMessages, streamingConversationIds, liveByConv, unreadConversationIds, favoriteConversationIds,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady,
-    send, abort, editQueuedMessage, wasQueueConsumed,
+    send, abort, editQueuedMessage, steerQueuedMessage, removeQueuedMessage, wasQueueConsumed,
     cycleTier, setTier, setProvider, setModel, setPinnedProject,
     newConversation, startNewConversation, materializeDraftConversation, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
@@ -1327,8 +1570,8 @@ const NOOP_AGENT_CHAT: AgentChatContextValue = {
   liveByConversation: new Map<string, AgentConvLive>(),
   favoriteConversationIds: new Set<string>(),
   mcpEnabled: true, enablingMcp: false, enableMcpServer: async () => {}, providersReady: true,
-  send: async () => {}, abort: async () => {},
-  editQueuedMessage: async () => 'conflict', wasQueueConsumed: () => false,
+  send: async () => ({ accepted: false }), abort: async () => {},
+  editQueuedMessage: async () => 'conflict', steerQueuedMessage: async () => 'conflict', removeQueuedMessage: async () => 'conflict', wasQueueConsumed: () => false,
   cycleTier: async () => {}, setTier: async () => {},
   setProvider: async () => {}, setModel: async () => {}, setPinnedProject: async () => {},
   newConversation: async () => {}, startNewConversation: () => {}, materializeDraftConversation: async () => {

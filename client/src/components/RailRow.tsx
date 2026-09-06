@@ -65,9 +65,10 @@ interface RailRowProps {
     action: RailPrDecisionAction,
     expectedDecision: RailPrDecision,
     expectedPrDeliveryId: string,
+    repositoryId?: string,
   ) => Promise<RailPrActResult>
   /** Checks out this rail's delivered PR branch in the user's main repo. */
-  onPrCheckout?: (expectedPrDeliveryId: string) => Promise<RailPrCheckoutResult>
+  onPrCheckout?: (expectedPrDeliveryId: string, repositoryId?: string) => Promise<RailPrCheckoutResult>
   /** Live execution metrics (elapsed/steps/lines) while running — same WS source
    *  as the Jobs view. Null when not running / no data. */
   executionMetric?: import('../context/RailMetricsContext').RailExecMetric | null

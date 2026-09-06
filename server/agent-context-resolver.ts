@@ -4,6 +4,8 @@ import { getProject, listProjects, type ProjectRow } from './desktop-db'
 import type { ProjectContext, ProjectRegistry } from './project-registry'
 import { resolveProjectExecution } from './workspace-resolution'
 import { readStore, resolveTicketStoragePath, type Ticket } from './ticket-store'
+import { getProjectRepositories, resolveProjectRepository } from './project-repositories'
+import { resolveSafePath, isDeniedRelPath } from './code-explorer-router'
 
 export interface AgentContextReference {
   kind: string
@@ -13,6 +15,8 @@ export interface AgentContextReference {
   scope?: {
     projectId?: string | null
     projectName?: string | null
+    repositoryId?: string | null
+    repositoryName?: string | null
   }
   status?: string | null
   metadata?: Record<string, unknown>
@@ -149,6 +153,7 @@ function formatBase(ref: AgentContextReference, index: number): string[] {
   if (ref.scope?.projectName || ref.scope?.projectId) {
     lines.push(`scope: ${safe(ref.scope.projectName ?? ref.scope.projectId, 180)}`)
   }
+  if (ref.scope?.repositoryId) lines.push(`repository.id: ${safe(ref.scope.repositoryId, 180)}`)
   if (ref.status) lines.push(`status: ${safe(ref.status, 80)}`)
   const metadata = metadataLine(ref.metadata)
   if (metadata) lines.push(metadata)
@@ -174,6 +179,8 @@ function formatProjectOverview(
     `project.provider: ${safe(project.provider, 80)}`,
     `project.providers: ${(project.providers ?? [project.provider]).join(', ')}`,
     `project.runtime: ${context ? 'available' : 'unavailable; do not interpret this as a deleted project'}`,
+    `project.repositories: ${JSON.stringify(getProjectRepositories(project).map(repository => ({ id: repository.id, name: repository.name, path: repository.path, isPrimary: repository.isPrimary, kind: repository.kind, available: repository.available })))}`,
+    'repository.scope: One shared project backlog. Files and Git operations require repositoryId when more than one member exists; find/search can discover across members. Reading context does not grant implementation write access. Historical specs without repositoryIds target only the primary.',
   )
   try {
     const tickets = Object.values(readStore(ticketFileFor(project)).tickets)
@@ -233,6 +240,7 @@ function formatTicket(
     `spec.title: ${safe(ticket.title, 240)}`,
     `spec.status: ${ticket.status}`,
     `spec.priority: ${ticket.priority ?? 'none'}`,
+    `spec.repositoryIds: ${JSON.stringify(ticket.repositoryIds ?? (project ? [resolveProjectRepository(project).id] : []))}`,
     `spec.labels: ${(ticket.labels ?? []).join(', ') || 'none'}`,
     `spec.assignee: ${ticket.assignee ?? 'none'}`,
     `spec.prerequisites: ${(ticket.prerequisites ?? []).join(', ') || 'none'}`,
@@ -344,6 +352,24 @@ function formatFallback(ref: AgentContextReference, index: number): string {
   return lines.join('\n')
 }
 
+function formatRepositoryReference(ref: AgentContextReference, index: number, deps: AgentContextResolverDeps): string {
+  const lines = formatBase(ref, index)
+  const { project } = resolveProject(ref, deps)
+  if (!project) return [...lines, 'resolution: unresolved project'].join('\n')
+  const id = ref.scope?.repositoryId ?? (ref.kind === 'repository' ? ref.id : undefined)
+  if (!id && getProjectRepositories(project).length > 1) {
+    return [...lines, 'resolution: repository required for this reference; do not guess the primary', `repositories: ${JSON.stringify(getProjectRepositories(project).map(repository => ({ id: repository.id, name: repository.name })))}`].join('\n')
+  }
+  const repository = resolveProjectRepository(project, id)
+  lines.push(`project.id: ${project.id}`, `repository.id: ${repository.id}`, `repository.name: ${safe(repository.name, 180)}`, `repository.path: ${repository.path}`, `repository.kind: ${repository.kind}`)
+  if (ref.kind === 'file') {
+    const filePath = typeof ref.metadata?.path === 'string' ? ref.metadata.path : ref.id
+    if (!resolveSafePath(repository.path, filePath) || isDeniedRelPath(filePath)) return [...lines, 'resolution: file path is unavailable or outside the allowed source scope'].join('\n')
+    lines.push(`file.path: ${safe(filePath, 600)}`, 'resolution: scoped file reference; use specrails_code(read_file) with this projectId, repositoryId and path for current content')
+  } else lines.push('resolution: scoped repository reference; use specrails_git with this projectId and repositoryId for current Git evidence')
+  return lines.join('\n')
+}
+
 export function buildResolvedAgentContextBlock(
   refs: AgentContextReference[],
   deps: AgentContextResolverDeps,
@@ -351,7 +377,7 @@ export function buildResolvedAgentContextBlock(
   const unique: AgentContextReference[] = []
   const seen = new Set<string>()
   for (const ref of refs.slice(0, 16)) {
-    const key = JSON.stringify([ref.kind, ref.id, projectIdFor(ref, deps.fallbackProjectId)])
+    const key = JSON.stringify([ref.kind, ref.id, projectIdFor(ref, deps.fallbackProjectId), ref.scope?.repositoryId ?? null])
     if (seen.has(key)) continue
     seen.add(key)
     unique.push(ref)
@@ -360,6 +386,12 @@ export function buildResolvedAgentContextBlock(
 
   const sections = unique.map((ref, index) => {
     try {
+      if (ref.scope?.repositoryId) {
+        const { project } = resolveProject(ref, deps)
+        if (!project) throw new Error('Unknown project for repository-scoped reference')
+        resolveProjectRepository(project, ref.scope.repositoryId)
+      }
+      if (['repository', 'file', 'pr', 'commit', 'branch'].includes(ref.kind) || (ref.kind === 'alias' && ref.scope?.repositoryId)) return formatRepositoryReference(ref, index + 1, deps)
       if (ref.kind === 'project' || ref.kind === 'alias') return formatProjectOverview(ref, index + 1, deps)
       if (ref.kind === 'spec') return formatTicket(ref, index + 1, deps)
       if (ref.kind === 'job' || ref.kind === 'trace') return formatJob(ref, index + 1, deps)
@@ -421,7 +453,7 @@ export function buildAgentHistoryBlock(messages: AgentMessage[]): string {
     const record = {
       role: message.role,
       content: clipMultiline(message.content, 3500),
-      ...(message.context_refs.length ? { references: message.context_refs.map((ref) => ({ kind: ref.kind, id: ref.id, projectId: ref.scope?.projectId ?? null })) } : {}),
+      ...(message.context_refs.length ? { references: message.context_refs.map((ref) => ({ kind: ref.kind, id: ref.id, projectId: ref.scope?.projectId ?? null, ...(ref.scope?.repositoryId ? { repositoryId: ref.scope.repositoryId } : {}) })) } : {}),
       ...(message.attachment_ids.length ? { attachmentIds: message.attachment_ids, attachmentNote: 'Historical attachment content is not included.' } : {}),
     }
     const serialized = JSON.stringify(record)

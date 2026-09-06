@@ -1,5 +1,6 @@
 import { useTranslation, Trans } from 'react-i18next'
 import { SHORTCUTS, type Shortcut } from '../hooks/useKeyboardShortcuts'
+import { keyboardLabel } from '../lib/keyboard-label'
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,7 @@ function Kbd({ children }: { children: string }) {
 
 function ShortcutRow({ shortcut }: { shortcut: Shortcut }) {
   const { t } = useTranslation('commands')
-  const keys = shortcut.keys.split(' ')
+  const keys = keyboardLabel(shortcut.keys).split(' ')
   return (
     <div className="flex items-center justify-between py-1.5">
       <span className="text-sm text-muted-foreground">{t(shortcut.descriptionKey)}</span>

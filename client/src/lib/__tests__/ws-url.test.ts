@@ -32,8 +32,8 @@ describe('WS_URL', () => {
     vi.stubGlobal('window', { location: { protocol: 'http:', hostname: 'tauri.localhost', host: 'tauri.localhost', origin: 'http://tauri.localhost' } })
     const { getWsUrl } = await import('../ws-url')
     const { API_ORIGIN } = await import('../origin')
-    expect(getWsUrl('')).toBe('ws://localhost:4200')
-    expect(API_ORIGIN).toBe('http://localhost:4200')
+    expect(getWsUrl('')).toBe('ws://127.0.0.1:4200')
+    expect(API_ORIGIN).toBe('http://127.0.0.1:4200')
   })
 
   it('keeps HTTPS browser deployments on their own secure origin', async () => {
@@ -42,5 +42,19 @@ describe('WS_URL', () => {
     const { API_ORIGIN } = await import('../origin')
     expect(getWsUrl('')).toBe('wss://dashboard.example')
     expect(API_ORIGIN).toBe('')
+  })
+
+  it('honors the same explicit development port for native API and WS', async () => {
+    vi.stubGlobal('window', { __TAURI_INTERNALS__: {}, location: { protocol: 'http:', hostname: 'localhost', host: 'localhost:4301' } })
+    const { getApiOrigin } = await import('../origin')
+    const { getWsUrl } = await import('../ws-url')
+    expect(getApiOrigin('http://127.0.0.1:4300')).toBe('http://127.0.0.1:4300')
+    expect(getWsUrl('ws://127.0.0.1:4300')).toBe('ws://127.0.0.1:4300')
+    expect(getApiOrigin('')).toBe('http://127.0.0.1:4200')
+  })
+
+  it('keeps development browser API requests on the frontend proxy', async () => {
+    const { getApiOrigin } = await import('../origin')
+    expect(getApiOrigin('http://127.0.0.1:4300')).toBe('')
   })
 })

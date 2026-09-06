@@ -6,17 +6,22 @@
  * from coverage; the engine's traversal/decision logic is unit-tested against
  * fake executors in `loop-run-manager.test.ts`.
  */
+import { prepareCoreExecution } from './core-execution'
+import { buildCodexPluginArgs } from './plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { lstatSync, readFileSync, readlinkSync } from 'node:fs'
 import { resolve } from 'node:path'
-import treeKill from 'tree-kill'
+import { treeKillSafe as treeKill, windowsSpawnEnv } from './util/win-spawn'
 import { getAdapter } from './providers'
 import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from './workspace-manager'
 import { ensureClaudeTrusted } from './claude-trust'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { finaliseInvocationResult } from './result-event'
 import { terminalResultError } from './providers/terminal-result'
+import { readClaudeBackgroundTasks } from './providers/claude-background-tasks'
+import { FOREGROUND_RULE } from './loop-constants'
+import type { RunExecutionManifest } from './multi-repo-execution-store'
 import { parseDeciderDecision } from './loop-decider'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
 import { injectRepoMapEnv } from './repo-map'
@@ -29,6 +34,7 @@ import {
   formatProviderCommand,
 } from './providers/runtime'
 import type { LoopExecutors, ShellResult } from './loop-run-manager'
+import { bundledLoopShellInvocation } from './loop-shell-invocation'
 
 // Per-step wall-clock caps so a single hung step can't block the engine's
 // overall deadline check (which only runs between nodes).
@@ -50,8 +56,7 @@ function runShellCommand(
 ): Promise<ShellResult> {
   return new Promise((resolve) => {
     const isWin = process.platform === 'win32'
-    const shell = isWin ? process.env.ComSpec || 'cmd.exe' : '/bin/sh'
-    const args = isWin ? ['/d', '/s', '/c', command] : ['-c', command]
+    const shellEnv = isWin ? windowsSpawnEnv(env) : env
     const start = Date.now()
     let stdout = ''
     let stderr = ''
@@ -59,14 +64,20 @@ function runShellCommand(
 
     let child: ReturnType<typeof spawn>
     try {
-      child = spawn(shell, args, {
+      const bundled = bundledLoopShellInvocation(command)
+      const options = {
         cwd,
-        env,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsVerbatimArguments: isWin,
-      })
-    } catch {
-      resolve({ stdout: '', stderr: 'failed to spawn shell', exitCode: -1, durationMs: 0 })
+        env: shellEnv,
+        stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      }
+      // Node wraps /d /s /c with the required outer quotes. Passing a raw
+      // command ourselves with verbatim argv loses the first executable's quotes.
+      child = bundled ? spawn(bundled.binary, bundled.args, options) : isWin
+        ? spawn(command, { ...options, shell: shellEnv.ComSpec || 'cmd.exe' })
+        : spawn('/bin/sh', ['-c', command], options)
+    } catch (error) {
+      resolve({ stdout: '', stderr: `failed to spawn shell: ${error instanceof Error ? error.message : String(error)}`, exitCode: -1, durationMs: 0 })
       return
     }
     onSpawn?.(child)
@@ -107,12 +118,12 @@ function runShellCommand(
  * app's own draft-PR delivery. Default ON (flag=0/false/off disables). See
  * rail-isolation + the specrails-core SPECRAILS_GIT_AUTO contract.
  */
-function aiStepEnv(env: NodeJS.ProcessEnv, repoDir: string | undefined): NodeJS.ProcessEnv {
-  const base = repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env
+function aiStepEnv(env: NodeJS.ProcessEnv, repoDir: string | undefined, manifest?: RunExecutionManifest): NodeJS.ProcessEnv {
+  const base = { ...env, ...(repoDir ? { SPECRAILS_REPO_DIR: repoDir } : {}), ...(manifest ? { SPECRAILS_EXECUTION_MANIFEST: JSON.stringify(manifest), SPECRAILS_REPOSITORIES: JSON.stringify(manifest.repositories.map((repo) => ({ id: repo.repositoryId, name: repo.name, path: repo.worktreePath }))) } : {}) }
   // Deterministic repo map (zero-AI) so the pipeline's exploration phase
   // starts oriented instead of spending its first turns on `ls`/`find`.
   const withMap = injectRepoMapEnv(base, repoDir)
-  return isRailPrDeliveryEnabled() ? { ...withMap, SPECRAILS_GIT_AUTO: 'false' } : withMap
+  return manifest || isRailPrDeliveryEnabled() ? { ...withMap, SPECRAILS_GIT_AUTO: 'false' } : withMap
 }
 
 /**
@@ -127,9 +138,9 @@ function aiStepEnv(env: NodeJS.ProcessEnv, repoDir: string | undefined): NodeJS.
  *    (and cwd, defensively) to codex's sandbox writable_roots. Harmless
  *    no-op under danger-full-access on iteration 1.
  */
-function aiStepExtraArgs(adapter: ProviderAdapter, cwd: string, repoDir: string | undefined): string[] | undefined {
+function aiStepExtraArgs(adapter: ProviderAdapter, cwd: string, repoDir: string | undefined, manifest?: RunExecutionManifest): string[] | undefined {
   if (!repoDir) return undefined
-  const args = buildProviderRepoAccessArgs(adapter, [repoDir, ...(adapter.id === 'codex' ? [cwd] : [])])
+  const args = buildProviderRepoAccessArgs(adapter, [...new Set([repoDir, ...(manifest?.repositories.map((repo) => repo.worktreePath) ?? []), ...(adapter.id === 'codex' ? [cwd] : [])])])
   return args.length > 0 ? args : undefined
 }
 
@@ -140,6 +151,7 @@ export function createLoopExecutors(
      *  inject core's workspace artifact indirection (and a project relocated
      *  AFTER server start is picked up without a restart). Default process.env. */
     env?: NodeJS.ProcessEnv | (() => NodeJS.ProcessEnv)
+    pluginScope?: () => { stateRoot: string; legacyProviderId: string }
     /** Named rail profiles and global per-agent defaults: resolves the immutable
      *  SPECRAILS_PROFILE_PATH snapshot for AI steps. A null selection opts out;
      *  undefined keeps the existing global/Core default resolution. */
@@ -209,7 +221,7 @@ export function createLoopExecutors(
         return null
       }
     },
-    async runAiStep({ prompt, sessionId, provider, model, effort, profileName, cwd, repoDir, onLine, onRawLine, onSpawn, aiStepTimeoutMs, idleTimeoutMs }) {
+    async runAiStep({ coreRun, prompt, sessionId, provider, model, effort, profileName, cwd, repoDir, executionManifest, onLine, onRawLine, onSpawn, aiStepTimeoutMs, idleTimeoutMs }) {
       const adapter = getAdapter(provider)
       // First iteration spawns headless (rail-job); subsequent iterations resume
       // the session so the agent keeps prior context across iterations.
@@ -219,25 +231,32 @@ export function createLoopExecutors(
       // for the pipeline's I/O exactly like QueueManager: SPECRAILS_REPO_DIR +
       // claude `--add-dir <repoDir>` (see the shared helpers above). Best-effort
       // agent self-heal on Windows.
-      const stepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir), provider, profileName)
-      const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
+      const baseStepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir, executionManifest), provider, profileName)
+      const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv }) : undefined
+      const stepEnv = core?.env ?? baseStepEnv
+      let extraArgs = aiStepExtraArgs(adapter, cwd, repoDir, executionManifest)
+      const pluginScope = adapter.id === 'codex' ? opts.pluginScope?.() : undefined
+      const pluginArgs = buildCodexPluginArgs({ providerId: adapter.id, stateRoot: pluginScope?.stateRoot ?? stepEnv.SPECRAILS_WORKSPACE_DIR ?? cwd, repositoryPath: repoDir ?? cwd, legacyProviderId: pluginScope?.legacyProviderId })
+      if (pluginArgs.length) extraArgs = [...(extraArgs ?? []), ...pluginArgs]
       const effectivePrompt = formatProviderCommand(
         adapter,
-        prompt,
+        [core?.promptPrefix, prompt].filter(Boolean).join('\n\n'),
         cwd,
         sessionId ?? undefined,
       )
       const buildOpts = {
         prompt: effectivePrompt,
+        ...(adapter.id === 'claude' ? { systemPrompt: FOREGROUND_RULE } : {}),
         model,
         sessionId: sessionId ?? undefined,
         reasoning_effort: effort,
+        ...(executionManifest ? { scopedWorkingDirectories: true } : {}),
         extraArgs,
       }
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       // Pre-trust the spawn dir so headless claude honours the overlaid
       // `.claude/settings.json` permissions.allow (else "workspace not trusted").
-      try { ensureClaudeTrusted(adapter.id, [cwd, repoDir]) } catch { /* best-effort */ }
+      try { ensureClaudeTrusted(adapter.id, [cwd, repoDir, ...(executionManifest?.repositories.map((repo) => repo.worktreePath) ?? [])]) } catch { /* best-effort */ }
       // Gemini acknowledges project agents before headless execution. Rails
       // using the loop engine need the same adapter preparation as queue jobs.
       try { adapter.prepareHeadlessSpawn?.(cwd) } catch (err) {
@@ -256,6 +275,7 @@ export function createLoopExecutors(
       // The provider flagged the final `result` as an error (claude
       // `is_error: true` — a usage/rate-limit notice returned AS the reply).
       let resultIsError = false
+      let liveBackgroundTasks: string[] = []
       const effectiveIdleTimeoutMs = idleTimeoutMs ?? inactivityTimeoutMs()
       const wallStartedAt = Date.now()
       const res = await runAiCliInvocation({
@@ -277,7 +297,12 @@ export function createLoopExecutors(
         //    JobStatusPanel activity (LogViewer SKIPS these to avoid dupes).
         //  • display text/tools via onEvent → engine emits `log` lines that
         //    LogViewer actually RENDERS (the visible transcript).
-        onStdoutLine: onRawLine,
+        onStdoutLine: (line) => {
+          if (adapter.id === 'claude') {
+            try { liveBackgroundTasks = readClaudeBackgroundTasks(JSON.parse(line)) ?? liveBackgroundTasks } catch { /* ordinary output */ }
+          }
+          onRawLine?.(line)
+        },
         onEvent: (ev) => {
           if (ev.kind === 'text-delta') { text += ev.text; onLine?.(ev.text) }
           else if (ev.kind === 'tool-use') onLine?.(`🔧 ${ev.name} ${ev.inputPreview ?? ''}`.trim())
@@ -289,6 +314,12 @@ export function createLoopExecutors(
           }
         },
       })
+      // The kill-switch one-shot transport cannot continue a resident parent.
+      // Never certify a clean CLI exit as completed work if its workers were
+      // still pending. Interactive mode can join them in the same session.
+      if (liveBackgroundTasks.length > 0 && !errorText) {
+        errorText = `Agent exited with ${liveBackgroundTasks.length} unfinished background task(s); implementation step is incomplete.`
+      }
       const failed =
         res.spawnFailed ||
         res.timedOut ||
@@ -387,16 +418,18 @@ export function createLoopExecutors(
      * spike-verified on claude 2.1.198). Null ⇒ the engine one-shots the step
      * (non-claude providers, or the kill-switch) — byte-identical legacy.
      */
-    planInteractiveAiStep({ provider, model, effort, profileName, cwd, repoDir, sessionId, aiStepTimeoutMs, idleTimeoutMs }) {
+    planInteractiveAiStep({ coreRun, provider, model, effort, profileName, cwd, repoDir, executionManifest, sessionId, aiStepTimeoutMs, idleTimeoutMs }) {
       if (!isInteractiveJobsEnabled()) return null
       const adapter = getAdapter(provider)
       if (!adapter.capabilities.persistentStdin) return null
-      const stepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir), provider, profileName)
-      const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir)
+      const baseStepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir, executionManifest), provider, profileName)
+      const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv }) : undefined
+      const stepEnv = core?.env ?? baseStepEnv
+      const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir, executionManifest)
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
       // Pre-trust the spawn dir so headless claude honours the overlaid
       // `.claude/settings.json` permissions.allow (else "workspace not trusted").
-      try { ensureClaudeTrusted(adapter.id, [cwd, repoDir]) } catch { /* best-effort */ }
+      try { ensureClaudeTrusted(adapter.id, [cwd, repoDir, ...(executionManifest?.repositories.map((repo) => repo.worktreePath) ?? [])]) } catch { /* best-effort */ }
       try { adapter.prepareHeadlessSpawn?.(cwd) } catch (err) {
         console.warn(`[loop] provider preparation failed: ${(err as Error).message}`)
       }
@@ -410,6 +443,7 @@ export function createLoopExecutors(
         // drops the session id at an iterate-loop's loop-back).
         sessionId: sessionId ?? undefined,
         reasoning_effort: effort,
+        ...(executionManifest ? { scopedWorkingDirectories: true } : {}),
         extraArgs,
       }
       const args = adapter.buildArgs('chat-stream', buildOpts)
@@ -419,6 +453,7 @@ export function createLoopExecutors(
         spec: { binary: adapter.binary, args, cwd, env: buildProviderEnv(adapter, buildOpts, stepEnv) },
         // The loop's ai-step timeout bounds the WHOLE step, interactive
         // included. 0 ⇒ unbounded (the engine skips arming the step timer).
+        ...(core?.promptPrefix ? { promptPrefix: core.promptPrefix } : {}),
         stepTimeoutMs: aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS,
         // Keep the old field for callers that already inspect the plan.
         inactivityTimeoutMs: effectiveIdleTimeoutMs,
@@ -431,15 +466,15 @@ export function createLoopExecutors(
       return runShellCommand(command, repoDir ?? cwd, repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env, timeoutMs ?? SHELL_TIMEOUT_MS, onLine, onSpawn)
     },
 
-    async runDecider({ systemPrompt, userPrompt, provider, model, effort, cwd, repoDir, onRawLine, onSpawn, timeoutMs }) {
+    async runDecider({ systemPrompt, userPrompt, provider, model, effort, cwd, repoDir, executionManifest, onRawLine, onSpawn, timeoutMs }) {
       const adapter = getAdapter(provider)
       let text = ''
       let errorText: string | undefined
       const baseEnv = resolveEnv()
-      const decEnv = repoDir ? { ...baseEnv, SPECRAILS_REPO_DIR: repoDir } : baseEnv
+      const decEnv = aiStepEnv(baseEnv, repoDir, executionManifest)
       // spec-gen is a one-shot, system-prompted invocation (workspace-write on
       // codex, not full-access) — appropriate for a read-only judgment.
-      const buildOpts = { prompt: userPrompt, systemPrompt, model, maxTurns: 1, reasoning_effort: effort, toolPolicy: 'read-only' as const }
+      const buildOpts = { prompt: userPrompt, systemPrompt, model, maxTurns: 1, reasoning_effort: effort, toolPolicy: 'read-only' as const, ...(executionManifest ? { extraArgs: aiStepExtraArgs(adapter, cwd, repoDir, executionManifest) } : {}) }
       const wallStartedAt = Date.now()
       const res = await runAiCliInvocation({
         adapter,

@@ -341,3 +341,9 @@ describe('fence tolerance: json / bare fenced snapshots', () => {
     expect(cutUnterminatedBlock('```json\n{ "port": 1 }\n```\ntail')).toBe('```json\n{ "port": 1 }\n```\ntail')
   })
 })
+
+
+it('retains optional repository scope in milestone specs across blueprint parsing', () => {
+  const result = coerceBlueprint({ blueprintVersion: 1, m1Specs: [{ title: 'Across repos', repositoryIds: ['primary-project', 'api'] }] })
+  expect(result?.m1Specs[0].repositoryIds).toEqual(['primary-project', 'api'])
+})

@@ -11,9 +11,12 @@ import {
 } from '../../lib/provider-capabilities'
 import { modelsForProvider, defaultModelForProvider } from '../../lib/loop-run-models'
 import { isSafeCustomModelAlias } from '../../lib/model-alias'
+import { RepositoryScopeSelector } from '../RepositoryScopeSelector'
+import type { ProjectRepository } from '../../lib/project-repositories'
 import { CustomModelAliasInput } from '../CustomModelAliasInput'
 
 export interface RunModalProject {
+  repositories?: ProjectRepository[]
   id: string
   name: string
   providers?: string[]
@@ -35,7 +38,7 @@ export function LoopRunModal({
   loop: { id: string; name: string } | null
   projects: RunModalProject[]
   onClose: () => void
-  onExecute: (args: { projectId: string; provider?: string; model?: string; effort?: string }) => void
+  onExecute: (args: { projectId: string; provider?: string; model?: string; effort?: string; repositoryIds?: string[] }) => void
 }) {
   const { t } = useTranslation('loops')
   const open = loop !== null
@@ -43,6 +46,7 @@ export function LoopRunModal({
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
   const [effort, setEffort] = useState('')
+  const [repositoryIds, setRepositoryIds] = useState<string[] | undefined>()
 
   const selected = projects.find((p) => p.id === (projectId || projects[0]?.id))
   const providerList = useMemo(() => selected?.providers ?? (selected?.provider ? [selected.provider] : []), [selected])
@@ -66,6 +70,7 @@ export function LoopRunModal({
     if (!pid) return
     onExecute({
       projectId: pid,
+      ...(repositoryIds ? { repositoryIds } : {}),
       provider: providerList.length > 1 ? effectiveProvider : undefined,
       model: modelOptions.length > 0 ? effectiveModel : undefined,
       effort: showEffort ? effectiveEffort : undefined,
@@ -90,7 +95,7 @@ export function LoopRunModal({
                 aria-label={t('run.project')}
                 data-testid="run-project-select"
                 value={projectId || projects[0]?.id}
-                onChange={(e) => { setProjectId(e.target.value); setProvider(''); setModel(''); setEffort('') }}
+                onChange={(e) => { setProjectId(e.target.value); setProvider(''); setModel(''); setEffort(''); setRepositoryIds(undefined) }}
                 className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
               >
                 {projects.map((p) => (
@@ -98,6 +103,8 @@ export function LoopRunModal({
                 ))}
               </select>
             )}
+
+            <RepositoryScopeSelector repositories={selected?.repositories ?? []} value={repositoryIds} onChange={setRepositoryIds} />
 
             {providerList.length > 1 && (
               <>

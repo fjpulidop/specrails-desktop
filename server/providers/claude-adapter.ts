@@ -8,6 +8,7 @@
 
 import { execSync } from 'child_process'
 import path from 'path'
+import { getOpenSpecRuntimePluginArgs } from '../openspec-runtime-plugin'
 import type {
   AdapterEvent,
   DetectionResult,
@@ -111,6 +112,7 @@ function commonFlagsFor(opts: SpawnOptions): string[] {
         ? ['--permission-mode', 'plan', '--safe-mode']
         : []),
     ...toolArgs,
+    ...(toolPolicy === 'default' ? getOpenSpecRuntimePluginArgs() : []),
     '--output-format', 'stream-json',
     '--verbose',
     '--setting-sources',
@@ -506,6 +508,7 @@ export const claudeAdapter = {
     profileEnvSupport: true,
     systemPromptArg: true,
     persistentStdin: true,
+    liveInputTransport: 'claude-stream-json',
     supportsReasoningEffort: true,
     reasoningEfforts: ['low', 'medium', 'high', 'xhigh'], // claude-code --effort tiers
     supportsImageInput: true, // images ride as `@<abs-path>` prompt refs

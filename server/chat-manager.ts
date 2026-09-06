@@ -1,3 +1,4 @@
+import type { ProjectRepository } from './project-repositories'
 import { ChildProcess, type SpawnOptions as NodeSpawnOptions } from 'child_process'
 import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
@@ -10,6 +11,7 @@ import { ensureExploreCwd } from './explore-cwd-manager'
 import { recordInvocation, type Surface, type InvocationStatus } from './ai-invocations'
 import { finaliseInvocationResult } from './result-event'
 import { randomUUID } from 'crypto'
+import { buildCodexPluginArgs } from './plugins/codex-spawn'
 import { parseSpecDraftBlocks, applyBlocks, type ConversationDraftState } from './spec-draft-parser'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import {
@@ -281,6 +283,7 @@ export class ChatManager {
     provider?: ProviderId,
     projectId?: string,
     projectSlug?: string,
+    private readonly projectRepositories?: () => ProjectRepository[],
   ) {
     this._broadcast = broadcast
     this._db = db
@@ -1018,6 +1021,12 @@ export class ChatManager {
       : lightweight
         ? this._buildLightweightSystemPrompt(conversationScope)
         : this._buildSystemPrompt()
+    if (conversation.kind === 'explore') {
+      const repositories = this.projectRepositories?.() ?? []
+      if (repositories.length > 1) {
+        systemPrompt += `\n\nThis logical project shares one backlog across these repositories: ${JSON.stringify(repositories.map(({ id, name, path, isPrimary, kind }) => ({ id, name, path, isPrimary, kind })))}. Use these exact IDs in the optional repositoryIds array of spec-draft blocks to scope a spec to one or several repositories. Missing repositoryIds defaults to primary. Preserve the user's selected scope, describe shared contracts for cross-repository specs, and never invent repository IDs or split a spec merely because it touches several repos.`
+      }
+    }
     if (hasAttachments) systemPrompt = `${systemPrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
 
     const binary = adapter.binary
@@ -1040,6 +1049,9 @@ export class ChatManager {
     const scopeFlags = conversationScope && adapter.id === 'claude'
       ? toolFlagsForScope(conversationScope).args
       : []
+    if (this._cwd && conversation.kind !== 'milestone' && (!conversationScope || conversationScope.mcp)) {
+      scopeFlags.push(...buildCodexPluginArgs({ providerId: adapter.id, stateRoot: this._specrailsRoot() ?? this._cwd, repositoryPath: this._cwd, legacyProviderId: this._adapter.id }))
+    }
     // Inject the user's OWN already-approved MCP servers when scope.userMcp is
     // on. Claude-only via `--mcp-config` (codex reads ~/.codex natively, so
     // buildUserMcpArgs returns []). Independent of the `mcp` toggle (project

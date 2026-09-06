@@ -54,8 +54,10 @@
  * are rejected: the whole point is a pinned, reproducible bundle.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
+import { cp } from 'node:fs/promises'
 import {
   cpSync,
+  constants,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -181,7 +183,7 @@ const STAGED_ENTRIES = [
   'pinned-versions.json',
 ]
 
-function main() {
+async function main() {
   const { version, dest } = parseArgs(process.argv.slice(2))
   const spec = `${PACKAGE}@${version}`
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'bundled-core-'))
@@ -242,7 +244,9 @@ function main() {
         console.log(`[assemble-bundled-core] (optional) ${entry} not present — skipping`)
         continue
       }
-      cpSync(src, path.join(dest, entry), { recursive: true })
+      // Avoid Node native traversal/overwrite bugs on Windows Unicode paths.
+      // FICLONE falls back to a normal copy when cloning is unavailable.
+      cpSync(src, path.join(dest, entry), { filter: () => true, mode: constants.COPYFILE_FICLONE, recursive: true })
     }
 
     // Stage the FULL dependency tree. The package's own node_modules (nested
@@ -250,11 +254,15 @@ function main() {
     // hoisted root tree, then overlay any package-local node_modules.
     cpSync(nodeModules, path.join(dest, 'node_modules'), {
       recursive: true,
+      filter: () => true,
+      mode: constants.COPYFILE_FICLONE,
       verbatimSymlinks: true,
     })
     const pkgLocalModules = path.join(pkgDir, 'node_modules')
     if (existsSync(pkgLocalModules)) {
-      cpSync(pkgLocalModules, path.join(dest, 'node_modules'), {
+      // Merge over hoisted modules through async cp's JS/libuv path. Node's
+      // native synchronous overwrite removes Unicode Windows paths incorrectly.
+      await cp(pkgLocalModules, path.join(dest, 'node_modules'), {
         recursive: true,
         verbatimSymlinks: true,
       })
@@ -313,4 +321,4 @@ function main() {
   }
 }
 
-main()
+await main()

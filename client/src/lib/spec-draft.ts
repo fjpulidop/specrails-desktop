@@ -5,6 +5,7 @@
 export type SpecDraftPriority = 'low' | 'medium' | 'high' | 'critical'
 
 export interface SpecDraft {
+  repositoryIds?: string[]
   title: string
   description: string
   labels: string[]
@@ -18,6 +19,7 @@ export const SPEC_DRAFT_FIELDS = [
   'labels',
   'priority',
   'acceptanceCriteria',
+  'repositoryIds',
 ] as const
 
 export type SpecDraftField = (typeof SPEC_DRAFT_FIELDS)[number]

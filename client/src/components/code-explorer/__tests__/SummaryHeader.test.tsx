@@ -43,4 +43,12 @@ describe('SummaryHeader', () => {
     render(<SummaryHeader path="x" summary={null} stale={false} regenerating={false} generateDisabledReason="binary file" />)
     expect(screen.getByText('Summary unavailable: binary file.')).toBeInTheDocument()
   })
+  it('shows the actual generator, exact date and partial-source caveat', () => {
+    const { container } = render(<SummaryHeader path="src/a.ts" summary={{ summary: 'Partial summary.', generatedAt: '2026-01-01T12:00:00.000Z', generatedBy: { model: 'gpt-small', promptVersion: 2, truncated: true } }} stale={false} regenerating={false} />)
+    expect(screen.getByText('Explained by gpt-small')).toBeInTheDocument()
+    expect(screen.getByText(/Generated from a partial source snapshot/)).toBeInTheDocument()
+    expect(container.querySelector('time')).toHaveAttribute('datetime', '2026-01-01T12:00:00.000Z')
+    expect(container.querySelector('time')?.getAttribute('title')).toBeTruthy()
+  })
+
 })

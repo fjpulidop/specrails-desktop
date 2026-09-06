@@ -48,7 +48,7 @@ export interface RailPrActResult {
   snapshotApplication?: RailPrSnapshotApplication
   /** A concurrent surface currently owns the durable operation lease. */
   busy?: boolean
-  operation?: RailPrDecisionAction | null
+  operation?: RailPrDecisionAction | 'checkout' | null
 }
 
 export interface RailPrCheckoutResult {
@@ -71,9 +71,10 @@ interface RailPrDecisionContextValue {
     action: RailPrDecisionAction,
     expectedDecision: RailPrDecision,
     expectedPrDeliveryId: string,
+    repositoryId?: string,
   ) => Promise<RailPrActResult>
   /** Checkout the rail's delivered PR branch into the user's main repo. */
-  checkout: (railIndex: number, expectedPrDeliveryId: string) => Promise<RailPrCheckoutResult>
+  checkout: (railIndex: number, expectedPrDeliveryId: string, repositoryId?: string) => Promise<RailPrCheckoutResult>
 }
 
 const noopAct = async (): Promise<RailPrActResult> => ({ status: 0, ok: false, error: 'no_provider' })
@@ -395,6 +396,7 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
     action: RailPrDecisionAction,
     expectedDecision: RailPrDecision,
     expectedPrDeliveryId: string,
+    repositoryId?: string,
   ): Promise<RailPrActResult> => {
     const snap = decisionsRef.current.get(railIndex)
     const projectId = projRef.current
@@ -412,7 +414,7 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
       const res = await fetch(`/api/projects/${projectId}/rails/pr-decision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prDeliveryId: snap.prDeliveryId, action, expectedDecision }),
+        body: JSON.stringify({ prDeliveryId: snap.prDeliveryId, action, expectedDecision, ...(repositoryId ? { repositoryId } : {}) }),
       })
       const body = (await res.json().catch(() => ({}))) as Omit<RailPrActResult, 'status' | 'snapshot'> & { snapshot?: unknown }
       const authoritative = coerceRailPrStateSnapshot(body.snapshot)
@@ -441,6 +443,7 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
   const checkout = useCallback(async (
     railIndex: number,
     expectedPrDeliveryId: string,
+    repositoryId?: string,
   ): Promise<RailPrCheckoutResult> => {
     const snap = decisionsRef.current.get(railIndex)
     const projectId = projRef.current
@@ -452,7 +455,7 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
       const res = await fetch(`/api/projects/${projectId}/rails/pr-checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prDeliveryId: snap.prDeliveryId }),
+        body: JSON.stringify({ prDeliveryId: snap.prDeliveryId, ...(repositoryId ? { repositoryId } : {}) }),
       })
       const body = (await res.json().catch(() => ({}))) as Omit<RailPrCheckoutResult, 'status'>
       return { ...body, status: res.status, ok: res.ok && body.ok === true }

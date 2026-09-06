@@ -22,6 +22,7 @@
 
 import { spawn, execFileSync, execFile } from 'child_process'
 import path from 'path'
+import os from 'os'
 import type { ChildProcess, SpawnOptions } from 'child_process'
 import crossSpawn from 'cross-spawn'
 import treeKill from 'tree-kill'
@@ -91,6 +92,14 @@ export function spawnCli(
 export function windowsSpawnEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   if (process.platform !== 'win32') return base
   const env = { ...base }
+  // Windows env names are case-insensitive, even when a caller passes an
+  // ordinary JS object. Avoid conflicting aliases when spawning that object.
+  for (const name of ['SystemRoot', 'windir', 'ComSpec', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP']) {
+    const aliases = Object.keys(env).filter(key => key.toLowerCase() === name.toLowerCase())
+    const value = env[name] || aliases.map(key => env[key]).find(Boolean)
+    for (const key of aliases) if (key !== name) delete env[key]
+    if (value !== undefined) env[name] = value
+  }
   const systemRoot = (env.SystemRoot || env.windir || 'C:\\Windows').replace(/[\\/]$/, '')
   env.SystemRoot = env.SystemRoot || systemRoot
   env.windir = env.windir || systemRoot
@@ -100,11 +109,13 @@ export function windowsSpawnEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.P
   // npm-prefix.js resolver), which reads the user profile via USERPROFILE /
   // APPDATA / HOMEDRIVE+HOMEPATH / TEMP. A GUI-launched, env-stripped sidecar can
   // lack these → `node npm-cli.js --version` fails the same way the .cmd shim did.
-  // Backfill canonical Windows defaults when absent (node.exe itself needs none
-  // of these, which is why node/git probed fine while npm/npx did not).
+  // Query the real account BEFORE ensureWindowsBaseEnv mutates process.env.
+  // Inventing C:\\Users\\Default here redirects os.homedir(), the project
+  // database and provider authentication to another account's directory.
   const userProfile =
     env.USERPROFILE ||
-    (env.HOMEDRIVE && env.HOMEPATH ? `${env.HOMEDRIVE}${env.HOMEPATH}` : 'C:\\Users\\Default')
+    (env.HOMEDRIVE && env.HOMEPATH ? `${env.HOMEDRIVE}${env.HOMEPATH}` : os.homedir())
+  if (!userProfile) throw new Error('Cannot determine the Windows user profile; refusing to select another data directory.')
   env.USERPROFILE = userProfile
   const drive = /^([A-Za-z]:)(.*)$/.exec(userProfile)
   if (drive) {

@@ -207,4 +207,68 @@ describe('ConstructionStory', () => {
     fireEvent.click(screen.getByText('run-abcdef12'))
     expect(onFilterJob).toHaveBeenCalledWith('run-abcdef123456')
   })
+  it('never explains absent evidence, including an older cached paragraph', async () => {
+    global.fetch = mockStoryFetch([entry({ hasPatch: false, summary: 'Legacy explanation', summaryStale: true, evidence: { kind: 'missing', truncated: false } })]) as never
+    render(wrap(<ConstructionStory relPath="src/a.ts" height={200} onOpenTicket={vi.fn()} />))
+    await screen.findByText('Legacy explanation')
+    expect(screen.getByText('No patch evidence was stored for this change.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Refresh explanation' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('story-explain')).not.toBeInTheDocument()
+  })
+
+  it('preserves explanation evidence metadata and supports explicit stale refresh with a budget override', async () => {
+    const bodies: unknown[] = []
+    const onViewDiff = vi.fn()
+    global.fetch = vi.fn(async (_url: RequestInfo | URL, opts?: RequestInit) => {
+      if (opts?.method === 'POST') {
+        bodies.push(JSON.parse(String(opts.body)))
+        return { ok: true, json: async () => bodies.length === 1 ? { skipped: 'budget' } : { ok: true } } as Response
+      }
+      return { ok: true, json: async () => ({ story: [entry({ summary: 'Old explanation', summaryStale: true, summaryGeneratedAt: '2026-01-01T12:00:00.000Z', summaryModel: 'small-model', evidence: { kind: 'diff', truncated: false }, summaryEvidence: { kind: 'excerpt', truncated: true } })] }) } as Response
+    })
+    render(wrap(<ConstructionStory relPath="src/a.ts" height={200} onOpenTicket={vi.fn()} onViewDiff={onViewDiff} />))
+    await screen.findByText('Old explanation')
+    expect(screen.getByText('This explanation uses incomplete patch evidence.')).toBeInTheDocument()
+    expect(screen.getByText('Explained by small-model')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'View recorded change' }))
+    expect(onViewDiff).toHaveBeenCalledWith('run-abcdef123456')
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh explanation' }))
+    await screen.findByRole('button', { name: 'Generate anyway' })
+    fireEvent.click(screen.getByRole('button', { name: 'Generate anyway' }))
+    await waitFor(() => expect(bodies).toEqual([
+      { provenanceId: 1, overrideBudget: false, force: true },
+      { provenanceId: 1, overrideBudget: true, force: true },
+    ]))
+  })
+
+  it('aborts old explain work and never refetches its file after a path switch', async () => {
+    let finish!: (response: Response) => void
+    let signal: AbortSignal | undefined
+    global.fetch = vi.fn((url: RequestInfo | URL, opts?: RequestInit) => {
+      if (opts?.method === 'POST') { signal = opts.signal as AbortSignal; return new Promise<Response>((resolve) => { finish = resolve }) }
+      const isB = String(url).includes('b.ts')
+      return Promise.resolve({ ok: true, json: async () => ({ story: [entry(isB ? { summary: 'File B explanation' } : {})] }) } as Response)
+    })
+    const { rerender } = render(wrap(<ConstructionStory relPath="a.ts" height={200} onOpenTicket={vi.fn()} />))
+    fireEvent.click(await screen.findByTestId('story-explain'))
+    rerender(wrap(<ConstructionStory relPath="b.ts" height={200} onOpenTicket={vi.fn()} />))
+    expect(signal?.aborted).toBe(true)
+    await screen.findByText('File B explanation')
+    await act(async () => finish({ ok: true, json: async () => ({ ok: true }) } as Response))
+    expect(screen.getByText('File B explanation')).toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/story?path=a.ts'))).toHaveLength(1)
+  })
+
+  it('keeps simultaneous main and mission stories subscribed independently', async () => {
+    global.fetch = mockStoryFetch([entry()]) as never
+    const { rerender } = render(wrap(<><ConstructionStory key="main" relPath="src/a.ts" height={200} onOpenTicket={vi.fn()} /><ConstructionStory key="mission" relPath="src/a.ts" height={200} onOpenTicket={vi.fn()} /></>))
+    await waitFor(() => expect(screen.getAllByTestId('story-card')).toHaveLength(2))
+    expect(handlers.size).toBe(2)
+    rerender(wrap(<ConstructionStory key="mission" relPath="src/a.ts" height={200} onOpenTicket={vi.fn()} />))
+    expect(handlers.size).toBe(1)
+    vi.mocked(fetch).mockClear()
+    act(() => { for (const handler of handlers.values()) handler({ type: 'file.provenance_updated', projectId: 'p1', path: 'src/a.ts' }) })
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+  })
+
 })

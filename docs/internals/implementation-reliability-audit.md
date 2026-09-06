@@ -8,6 +8,13 @@ preserving the unfinished Astra catalog changes already on that branch.
 The subsequent startup/update disconnection investigation is documented in
 [Startup and update recovery audit](./startup-recovery-audit.md).
 
+The 2026-09-06 Claude Implement follow-up is documented in
+[Claude implementation reliability](../../openspec/changes/claude-implement-reliability/verification.md).
+It corrects early termination of pending architect tasks, explicitly registers
+the packaged `opsx:*` commands, and makes verification/refinement retain the
+complete frozen multi-repository spec scope. Passing baseline checks cannot
+substitute for implementing the requested behavior.
+
 ## Findings and changes
 
 | Area | Failure found | Resulting behavior |

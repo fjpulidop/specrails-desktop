@@ -6,6 +6,8 @@ import type { DbInstance } from './db'
 import type { ProviderId } from './providers/types'
 import { secureDir, secureDbFile } from './util/secure-fs'
 import { applyNumberedMigrations } from './util/sqlite-migrations'
+import { randomUUID } from 'crypto'
+import { canonicalRepositoryPath, repositoryPathKey, repositoryAvailable, legacyRepositoryKind, inspectRepositoryPath, assertDistinctRepositories, RepositoryValidationError, type ProjectRepository, type ProjectRepositoryInput } from './project-repositories'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,10 +32,12 @@ export interface ProjectRow {
   providers: CliProvider[]
   added_at: string
   last_seen_at: string
+  repositories?: ProjectRepository[]
+  primaryRepositoryId?: string
 }
 
 /** Raw row shape as SQLite returns it (`providers` is the JSON TEXT column). */
-interface ProjectRowRaw extends Omit<ProjectRow, 'providers'> {
+interface ProjectRowRaw extends Omit<ProjectRow, 'providers' | 'repositories' | 'primaryRepositoryId'> {
   providers: string | null
 }
 
@@ -65,8 +69,10 @@ export function setProjectProvidersMirror(fn: (() => string[] | null) | null): v
 
 const PRIMARY_PREFERENCE: readonly CliProvider[] = ['claude', 'codex', 'gemini', 'kimi']
 
-function mapProjectRow(raw: ProjectRowRaw | undefined): ProjectRow | undefined {
+function mapProjectRow(db: DbInstance, raw: ProjectRowRaw | undefined): ProjectRow | undefined {
   if (!raw) return undefined
+  const repositories = listProjectRepositories(db, raw.id)
+  const membership = { repositories, primaryRepositoryId: repositories.find((repository) => repository.isPrimary)?.id }
   const provider = (raw.provider ?? 'claude') as CliProvider
   const stored = parseProviders(raw.providers, provider)
   const detected = _detectedMirrorSupplier?.()
@@ -74,9 +80,9 @@ function mapProjectRow(raw: ProjectRowRaw | undefined): ProjectRow | undefined {
     const mirrored = detected as CliProvider[]
     let primary: CliProvider | undefined = mirrored.includes(provider) ? provider : undefined
     if (!primary) primary = PRIMARY_PREFERENCE.find((p) => mirrored.includes(p)) ?? mirrored[0]
-    return { ...raw, provider: primary, providers: [...mirrored] }
+    return { ...raw, ...membership, provider: primary, providers: [...mirrored] }
   }
-  return { ...raw, provider, providers: stored }
+  return { ...raw, ...membership, provider, providers: stored }
 }
 
 export type AgentStatus = 'idle' | 'busy' | 'offline'
@@ -597,6 +603,59 @@ function applyDesktopMigrations(db: DbInstance): void {
     () => {
       db.exec(`ALTER TABLE blueprint_messages ADD COLUMN intent TEXT;`)
     },
+    // 26: logical projects retain their primary identity and one shared backlog.
+    () => {
+      db.exec(`
+        CREATE TABLE project_repositories (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          path TEXT NOT NULL,
+          canonical_key TEXT NOT NULL,
+          git_identity TEXT,
+          is_primary INTEGER NOT NULL DEFAULT 0 CHECK (is_primary IN (0, 1)),
+          kind TEXT NOT NULL CHECK (kind IN ('git', 'folder')),
+          integration_branch TEXT,
+          added_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(project_id, canonical_key)
+        );
+        CREATE UNIQUE INDEX project_repositories_primary ON project_repositories(project_id) WHERE is_primary = 1;
+        CREATE UNIQUE INDEX project_repositories_git_identity ON project_repositories(project_id, git_identity) WHERE git_identity IS NOT NULL;
+      `)
+      const insert = db.prepare(`INSERT INTO project_repositories (id, project_id, name, path, canonical_key, is_primary, kind, added_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)`)
+      for (const project of db.prepare('SELECT id, name, path, added_at FROM projects').all() as Array<{id: string; name: string; path: string; added_at: string}>) {
+        insert.run(`primary-${project.id}`, project.id, project.name, project.path, repositoryPathKey(canonicalRepositoryPath(project.path)), legacyRepositoryKind(project.path), project.added_at)
+      }
+    },
+    // 27: durable mission inputs. Pending corrections survive a process restart
+    // as visible interrupted user messages, without silently replaying actions.
+    () => {
+      db.exec(`
+        CREATE TABLE agent_inputs (
+          id TEXT PRIMARY KEY,
+          conversation_id TEXT NOT NULL REFERENCES agent_conversations(id) ON DELETE CASCADE,
+          queue_id TEXT NOT NULL,
+          text TEXT NOT NULL,
+          options_json TEXT NOT NULL DEFAULT '{}',
+          enqueue_payload TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'delivered', 'cancelled', 'interrupted')),
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          message_id TEXT REFERENCES agent_messages(id) ON DELETE SET NULL,
+          UNIQUE(conversation_id, queue_id)
+        );
+        CREATE INDEX idx_agent_inputs_pending ON agent_inputs(conversation_id, created_at) WHERE status = 'pending';
+        CREATE UNIQUE INDEX idx_agent_inputs_message ON agent_inputs(message_id) WHERE message_id IS NOT NULL;
+      `)
+    },
+    // 28: provider receipt is independent of transcript settlement. Existing
+    // delivered inputs were accepted, but have no evidence of being read.
+    () => {
+      db.exec(`
+        ALTER TABLE agent_inputs ADD COLUMN receipt TEXT NOT NULL DEFAULT 'sent'
+          CHECK (receipt IN ('sent', 'received', 'read'));
+        UPDATE agent_inputs SET receipt = 'received' WHERE status = 'delivered';
+      `)
+    },
   ]
 
   applyNumberedMigrations(db, migrations)
@@ -635,19 +694,19 @@ export function initDesktopDb(dbPath: string = getDesktopDbPath()): DbInstance {
 export function listProjects(db: DbInstance): ProjectRow[] {
   return (db.prepare(
     'SELECT * FROM projects ORDER BY added_at ASC'
-  ).all() as ProjectRowRaw[]).map((r) => mapProjectRow(r)!)
+  ).all() as ProjectRowRaw[]).map((r) => mapProjectRow(db, r)!)
 }
 
 export function getProject(db: DbInstance, id: string): ProjectRow | undefined {
-  return mapProjectRow(db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRowRaw | undefined)
+  return mapProjectRow(db, db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as ProjectRowRaw | undefined)
 }
 
 export function getProjectBySlug(db: DbInstance, slug: string): ProjectRow | undefined {
-  return mapProjectRow(db.prepare('SELECT * FROM projects WHERE slug = ?').get(slug) as ProjectRowRaw | undefined)
+  return mapProjectRow(db, db.prepare('SELECT * FROM projects WHERE slug = ?').get(slug) as ProjectRowRaw | undefined)
 }
 
 export function getProjectByPath(db: DbInstance, projectPath: string): ProjectRow | undefined {
-  return mapProjectRow(db.prepare('SELECT * FROM projects WHERE path = ?').get(projectPath) as ProjectRowRaw | undefined)
+  return mapProjectRow(db, db.prepare('SELECT * FROM projects WHERE path = ?').get(projectPath) as ProjectRowRaw | undefined)
 }
 
 export function addProject(
@@ -659,6 +718,7 @@ export function addProject(
     path: string
     provider?: CliProvider
     providers?: CliProvider[]
+    repositories?: ProjectRepositoryInput[]
   }
 ): ProjectRow {
   const dbPath = getProjectDbPath(project.slug)
@@ -668,11 +728,68 @@ export function addProject(
       : [project.provider ?? 'claude']
   // Primary provider = explicit override, else the first selected provider.
   const provider = project.provider ?? providers[0]
-  db.prepare(`
-    INSERT INTO projects (id, slug, name, path, db_path, provider, providers)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(project.id, project.slug, project.name, project.path, dbPath, provider, JSON.stringify(providers))
+  // Low-level callers may register unavailable legacy roots. HTTP validates all
+  // roots first; membership and project rows are still committed atomically here.
+  const roots = [inspectRepositoryPath({ path: project.path, name: project.name }, false), ...(project.repositories ?? []).map((input) => inspectRepositoryPath(input))]
+  assertDistinctRepositories(roots)
+  db.transaction(() => {
+    db.prepare(`
+      INSERT INTO projects (id, slug, name, path, db_path, provider, providers)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(project.id, project.slug, project.name, project.path, dbPath, provider, JSON.stringify(providers))
+    const insert = db.prepare(`INSERT INTO project_repositories (id, project_id, name, path, canonical_key, git_identity, is_primary, kind, integration_branch) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    roots.forEach((root, index) => insert.run(index === 0 ? `primary-${project.id}` : randomUUID(), project.id, root.name ?? path.basename(root.path), index === 0 ? project.path : root.path, root.canonicalKey, root.gitIdentity, index === 0 ? 1 : 0, root.kind, root.integrationBranch ?? null))
+  })()
   return getProject(db, project.id) as ProjectRow
+}
+
+interface ProjectRepositoryRaw {
+  id: string; project_id: string; name: string; path: string; is_primary: number
+  kind: 'git' | 'folder'; integration_branch: string | null; added_at: string
+}
+
+export function listProjectRepositories(db: DbInstance, projectId: string): ProjectRepository[] {
+  return (db.prepare('SELECT * FROM project_repositories WHERE project_id = ? ORDER BY is_primary DESC, added_at, rowid').all(projectId) as ProjectRepositoryRaw[]).map((row) => ({
+    id: row.id, projectId: row.project_id, name: row.name, path: row.path,
+    isPrimary: row.is_primary === 1, kind: row.kind, integrationBranch: row.integration_branch,
+    addedAt: row.added_at, available: repositoryAvailable(row.path),
+  }))
+}
+
+export function addProjectRepository(db: DbInstance, projectId: string, input: ProjectRepositoryInput): ProjectRepository {
+  if (!getProject(db, projectId)) throw new RepositoryValidationError('Project not found', 'project_not_found', 404)
+  const root = inspectRepositoryPath(input)
+  const existing = listProjectRepositories(db, projectId).map((repo) => inspectRepositoryPath(repo, false))
+  assertDistinctRepositories([...existing, root])
+  const id = randomUUID()
+  db.prepare(`INSERT INTO project_repositories (id, project_id, name, path, canonical_key, git_identity, kind, integration_branch) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(id, projectId, root.name ?? path.basename(root.path), root.path, root.canonicalKey, root.gitIdentity, root.kind, root.integrationBranch ?? null)
+  return listProjectRepositories(db, projectId).find((repo) => repo.id === id)!
+}
+
+export function updateProjectRepository(db: DbInstance, projectId: string, repositoryId: string, input: Partial<ProjectRepositoryInput>): ProjectRepository {
+  const repositories = listProjectRepositories(db, projectId)
+  const current = repositories.find((repo) => repo.id === repositoryId)
+  if (!current) throw new RepositoryValidationError('Repository does not belong to this project', 'repository_not_found', 404)
+  if (current.isPrimary && input.path !== undefined) throw new RepositoryValidationError('The primary project path cannot be relocated here', 'primary_repository_protected', 409)
+  const next = { ...current, ...input }
+  const root = inspectRepositoryPath(next, input.path !== undefined)
+  if (input.path === undefined && !repositoryAvailable(current.path)) {
+    root.kind = current.kind
+    root.gitIdentity = (db.prepare('SELECT git_identity FROM project_repositories WHERE id = ?').get(repositoryId) as { git_identity: string | null }).git_identity
+  }
+  assertDistinctRepositories([...repositories.filter((repo) => repo.id !== repositoryId).map((repo) => inspectRepositoryPath(repo, false)), root])
+  db.prepare('UPDATE project_repositories SET name = ?, path = ?, canonical_key = ?, git_identity = ?, kind = ?, integration_branch = ? WHERE project_id = ? AND id = ?')
+    .run(root.name ?? current.name, input.path === undefined ? current.path : root.path, root.canonicalKey, root.gitIdentity, root.kind, root.integrationBranch ?? null, projectId, repositoryId)
+  return listProjectRepositories(db, projectId).find((repo) => repo.id === repositoryId)!
+}
+
+/** Removes the association only. Operational reference guards belong to ProjectRegistry. */
+export function removeProjectRepository(db: DbInstance, projectId: string, repositoryId: string): void {
+  const current = listProjectRepositories(db, projectId).find((repo) => repo.id === repositoryId)
+  if (!current) throw new RepositoryValidationError('Repository does not belong to this project', 'repository_not_found', 404)
+  if (current.isPrimary) throw new RepositoryValidationError('The primary repository cannot be removed', 'primary_repository_protected', 409)
+  db.prepare('DELETE FROM project_repositories WHERE project_id = ? AND id = ?').run(projectId, repositoryId)
 }
 
 export function removeProject(db: DbInstance, id: string): void {

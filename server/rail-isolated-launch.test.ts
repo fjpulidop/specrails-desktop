@@ -181,6 +181,21 @@ describe('launchIsolatedRail', () => {
     expect(create).toHaveBeenCalledWith(git, expect.objectContaining({ ticketId: 1, baseRef: 'develop' }))
   })
 
+  it('uses the primary membership integration branch as a fetched setting while an explicit base takes precedence', async () => {
+    const { ctx } = fakeCtx()
+    ctx.project.repositories = [{ id: 'primary', projectId: ctx.project.id, name: 'Primary', path: ctx.project.path, kind: 'git', isPrimary: true, integrationBranch: 'release', addedAt: new Date().toISOString() }]
+    const create = vi.fn(async (_g, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
+    const runner = { run: async (args: string[]) => args[0] === 'symbolic-ref'
+      ? { code: 0, stdout: 'refs/remotes/origin/main\n', stderr: '' } : successfulGitResult(args) }
+    const io: IsolatedLaunchIO = { git: runner, create, remove: vi.fn(async () => {}) }
+    await launchIsolatedRail(input([1], ctx), io)
+    expect(create).toHaveBeenCalledWith(runner, expect.objectContaining({ baseRef: 'origin/release' }))
+    const second = fakeCtx()
+    second.ctx.project.repositories = ctx.project.repositories
+    await launchIsolatedRail({ ...input([2], second.ctx), baseBranch: 'selected-base' }, io)
+    expect(create).toHaveBeenLastCalledWith(runner, expect.objectContaining({ baseRef: 'selected-base' }))
+  })
+
   it('fetch fails → broadcasts rail.fetch_degraded (non-blocking, visible degradation)', async () => {
     const { ctx, broadcast } = fakeCtx()
     const create = vi.fn(async (_g, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))

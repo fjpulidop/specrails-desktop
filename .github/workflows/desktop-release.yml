@@ -3,10 +3,20 @@ name: Desktop Release
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch:  # allows manual trigger from GitHub UI or: gh workflow run desktop-release.yml
+  workflow_dispatch:
+    inputs:
+      validation_only:
+        description: Build, sign, notarize and test artifacts without publishing
+        type: boolean
+        required: true
+        default: true
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   # Exact pin (was floating latest-v22.x resolved at build time) so rebuilding a
@@ -42,38 +52,48 @@ env:
   # pinned-versions.json `openspec`. See scripts/assemble-bundled-openspec.mjs +
   # server/bundled-openspec.ts.
   OPENSPEC_BUNDLE_VERSION: "1.4.1"
-  # Bundle a Chromium build for the embedded browser-capture feature ("Add Spec
-  # from browser"). Default OFF: when unset/false the desktop app falls back to a
-  # Playwright-managed Chromium downloaded on first use (server/chromium-resolver.ts
-  # returns null → Playwright's default). Flip to "true" to ship Chromium inside the
-  # app for an offline-first experience.
-  #
-  # Chromium is shipped as a single OPAQUE, OBFUSCATED blob (chromium.pak), NOT an
-  # unpacked tree. Two reasons:
-  #   1. Tauri's resource bundler dereferences symlinks when copying bundle.resources
-  #      (tauri-apps/tauri#13219), mangling Chromium's versioned *.framework. A single
-  #      file has nothing to dereference.
-  #   2. The notarization service recursively unpacks archives it recognises
-  #      (.zip → .tar.gz → .tar → …) and validates every Mach-O inside; Chromium's ~50
-  #      nested binaries are only ad-hoc-signed by Google, so a plain archive fails
-  #      notarization. chromium.pak is a XOR-transformed chromium.tar.gz — the broken
-  #      gzip/tar magic means the notary treats it as opaque data and inspects nothing,
-  #      so the app notarizes with NO Developer-ID signing of Chromium.
-  # The server reverses the XOR and extracts it on first use; the extracted Chromium
-  # keeps Google's ad-hoc signature (enough to run on arm64) and, being self-extracted,
-  # is not Gatekeeper-quarantined. (Obfuscation, not security: the key is public.)
+  # Chromium remains available offline. The shared assembler preserves framework
+  # symlinks in a normal tar.gz. On macOS, --release requires Developer ID signing,
+  # hardened runtime and successful notarization before packaging; no opaque blobs.
   BUNDLE_CHROMIUM: "true"
 
 jobs:
+  admission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    outputs:
+      publish: ${{ steps.admission.outputs.publish }}
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: 22.22.3
+      - name: Admit exact-source validation or publication after successful CI
+        id: admission
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALIDATION_ONLY: ${{ inputs.validation_only }}
+        run: node scripts/release-policy.mjs desktop-admission
+
   build-macos:
+    needs: admission
+    # Chromium and the enclosing app are notarized separately before publication.
+    timeout-minutes: 120
     runs-on: macos-latest  # Apple Silicon (arm64)
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
-          node-version: 20
+          node-version: 22.22.3
           cache: npm
           # Two npm trees (root + client/) — key the cache on both lockfiles so
           # client-only dependency changes also refresh it.
@@ -82,10 +102,12 @@ jobs:
             client/package-lock.json
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87  # stable
+        with:
+          toolchain: stable
 
       - name: Rust cache
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: "./src-tauri -> target"
 
@@ -264,53 +286,35 @@ jobs:
           rm -rf tmp_uv "${TARBALL}" "${TARBALL}.sha256"
           src-tauri/runtimes/uv/bin/uv --version
 
-      - name: Assemble bundled Chromium (macOS arm64)
-        if: ${{ env.BUNDLE_CHROMIUM == 'true' }}
-        run: |
-          set -euo pipefail
-          # Install the Chromium build pinned to our Playwright version, then pack its
-          # platform folder into a single archive (runtimes/chromium/chromium.tar.gz).
-          # We ship an ARCHIVE, not an unpacked tree, because Tauri's resource copy
-          # dereferences Chromium's framework symlinks and breaks notarization (see the
-          # env comment above). tar -czf preserves the symlinks; the server restores
-          # them by extracting at first use (server/chromium-resolver.ts).
-          npx playwright install chromium
-          EXE=$(node -e "process.stdout.write(require('playwright').chromium.executablePath())")
-          # Walk up to Playwright's platform folder (chrome-mac-arm64 / chrome-mac / …
-          # depending on version) — the dir directly under chromium-<rev>.
-          PLATDIR="$EXE"
-          while [[ "$(basename "$(dirname "$PLATDIR")")" != chromium-* && "$PLATDIR" != "/" ]]; do PLATDIR=$(dirname "$PLATDIR"); done
-          # Sanity: a *.app with a MacOS binary exists before we archive it.
-          APP=$(find "$PLATDIR" -maxdepth 1 -name "*.app" -type d | head -1)
-          test -n "${APP}" && test -n "$(find "${APP}/Contents/MacOS" -type f | head -1)"
-          rm -rf src-tauri/runtimes/chromium
-          mkdir -p src-tauri/runtimes/chromium
-          # Archive the platform folder's CONTENTS (so it extracts back as chrome-mac-arm64/…),
-          # then XOR-obfuscate it to chromium.pak so the notary cannot recurse into it
-          # (it unpacks .tar.gz/.tar and would reject Chromium's ad-hoc-signed binaries).
-          tar -czf /tmp/chromium.tar.gz -C "$(dirname "$PLATDIR")" "$(basename "$PLATDIR")"
-          node scripts/obfuscate-chromium.mjs /tmp/chromium.tar.gz src-tauri/runtimes/chromium/chromium.pak
-          rm -f /tmp/chromium.tar.gz
-          ARCHIVE=src-tauri/runtimes/chromium/chromium.pak
-          test -f "$ARCHIVE"
-          echo "Packed Chromium from ${PLATDIR} → ${ARCHIVE} ($(du -h "$ARCHIVE" | cut -f1))"
-          # Verify the blob round-trips back to a tarball with a discoverable executable.
-          node scripts/obfuscate-chromium.mjs "$ARCHIVE" /tmp/chromium.verify.tar.gz
-          VTMP=$(mktemp -d); tar -xf /tmp/chromium.verify.tar.gz -C "$VTMP"
-          test -n "$(find "$VTMP" -maxdepth 2 -name "*.app" -type d | head -1)"
-          rm -rf "$VTMP" /tmp/chromium.verify.tar.gz
-
       - name: Import codesign certificate
-        uses: apple-actions/import-codesign-certs@v3
+        uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d  # v3
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
 
       - name: Install Apple API key for notarization
+        env:
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         run: |
+          set -euo pipefail
+          [[ "${APPLE_API_KEY}" =~ ^[A-Za-z0-9]+$ ]] || { echo "Invalid Apple API key ID"; exit 1; }
           mkdir -p ~/.appstoreconnect/private_keys/
-          echo "${{ secrets.APPLE_API_KEY_BASE64 }}" | base64 --decode \
-            > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8
+          umask 077
+          printf '%s' "${APPLE_API_KEY_BASE64}" | base64 --decode \
+            > "$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY}.p8"
+
+      - name: Assemble signed and notarized Chromium (macOS arm64)
+        if: ${{ env.BUNDLE_CHROMIUM == 'true' }}
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          export APPLE_API_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY}.p8"
+          npx playwright install chromium
+          node scripts/assemble-chromium.mjs --release
 
       - name: Sign bundled runtimes (macOS arm64)
         env:
@@ -318,8 +322,8 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${APPLE_SIGNING_IDENTITY:-}" ]]; then
-            echo "APPLE_SIGNING_IDENTITY not set — skipping runtimes signing (unsigned local build)."
-            exit 0
+            echo "APPLE_SIGNING_IDENTITY is required for native release and validation builds."
+            exit 1
           fi
           ENT="src-tauri/entitlements.plist"
           # Tauri does NOT codesign bundle.resources binaries, so the bundled node/git
@@ -328,7 +332,7 @@ jobs:
           # entitlements node's V8 needs. Signatures embed in the Mach-O and survive
           # Tauri's copy into the .app, so the assembled bundle notarizes cleanly.
           # Chromium is excluded here — it is a deep app bundle that must be signed
-          # inside-out as bundles (see the dedicated step below), not as loose files.
+          # inside-out as bundles by the assembler above, not as loose files.
           count=0
           while IFS= read -r f; do
             if file "$f" | grep -q "Mach-O"; then
@@ -343,10 +347,6 @@ jobs:
           codesign --verify --strict --verbose=2 src-tauri/runtimes/gh/bin/gh
           codesign --verify --strict --verbose=2 src-tauri/runtimes/uv/bin/uv
 
-      # Chromium is shipped as an opaque chromium.tar.gz archive (see "Assemble bundled
-      # Chromium" above), so it needs NO codesigning — notarization treats archive bytes
-      # as opaque data, and the extracted Chromium keeps Google's ad-hoc signature.
-
       # Stage specrails-core into src-tauri/core/ (offline framework source).
       # Mirrors the runtimes-assembly steps above — a self-contained tree under
       # src-tauri/<name>/ staged BEFORE `tauri build`. Plain JS/text → no codesign.
@@ -358,16 +358,10 @@ jobs:
       - name: Assemble bundled openspec (macOS arm64)
         run: node scripts/assemble-bundled-openspec.mjs "${OPENSPEC_BUNDLE_VERSION}"
 
-      - name: Build desktop app
-        run: npm run build:desktop
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-
       - name: Smoke test bundled runtimes — staging (macOS arm64)
+        env:
+          SPECRAILS_REQUIRE_CHROMIUM_SIGNATURE: "1"
+          SPECRAILS_REQUIRE_CHROMIUM_NOTARIZATION: "1"
         run: |
           set -euo pipefail
           # Fast pre-bundle check against src-tauri/runtimes/ (the in-bundle copy is
@@ -380,7 +374,19 @@ jobs:
           export PATH="$(pwd)/src-tauri/runtimes/node/bin:${CLEAN_PATH}"
           bash scripts/smoke-bundled-runtimes.sh "$(pwd)/src-tauri/runtimes"
 
+      - name: Build desktop app
+        run: npm run build:desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+
       - name: Smoke test bundled runtimes — inside .app (macOS arm64)
+        env:
+          SPECRAILS_REQUIRE_CHROMIUM_SIGNATURE: "1"
+          SPECRAILS_REQUIRE_CHROMIUM_NOTARIZATION: "1"
         run: |
           set -euo pipefail
           APP=$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' | head -n1)
@@ -407,6 +413,15 @@ jobs:
           echo "${OUT}" | grep -q "Specrails app is not running" || { echo "MCP bridge smoke failed; got: ${OUT}"; exit 1; }
           echo "In-bundle smoke test PASSED."
 
+      - name: Upload Chromium signing and notarization diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: chromium-signing-macos
+          path: artifacts/chromium-signing/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload .dmg artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
@@ -427,14 +442,18 @@ jobs:
   # without an accompanying spec update.
   # ---------------------------------------------------------------
   build-windows:
+    needs: admission
+    timeout-minutes: 90
     runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
-          node-version: 20
+          node-version: 22.22.3
           cache: npm
           # Two npm trees (root + client/) — key the cache on both lockfiles so
           # client-only dependency changes also refresh it.
@@ -443,10 +462,12 @@ jobs:
             client/package-lock.json
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87  # stable
+        with:
+          toolchain: stable
 
       - name: Rust cache
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: "./src-tauri -> target"
 
@@ -563,29 +584,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Ship Chromium as a single archive (uniform with macOS — the server extracts
-          # it at first use). Windows has no framework symlinks, but archiving keeps one
-          # runtime code path. Windows 10+ ships bsdtar as `tar`.
           npx playwright install chromium
-          EXE=$(node -e "process.stdout.write(require('playwright').chromium.executablePath().replace(/\\\\/g,'/'))")
-          PLATDIR=$(dirname "$EXE")   # → chrome-win
-          test -n "$(find "$PLATDIR" -maxdepth 1 -name 'chrome.exe' | head -1)"
-          rm -rf src-tauri/runtimes/chromium
-          mkdir -p src-tauri/runtimes/chromium
-          tar -czf /tmp/chromium.tar.gz -C "$(dirname "$PLATDIR")" "$(basename "$PLATDIR")"
-          node scripts/obfuscate-chromium.mjs /tmp/chromium.tar.gz src-tauri/runtimes/chromium/chromium.pak
-          rm -f /tmp/chromium.tar.gz
-          test -f src-tauri/runtimes/chromium/chromium.pak
-          # Round-trip verify (BUG-CI-04): de-obfuscate the SHIPPED .pak, extract it,
-          # and confirm chrome.exe is discoverable — Windows previously only did
-          # `test -f chromium.pak`, so a corrupt/mis-keyed blob shipped unnoticed.
-          VTMP=$(mktemp -d)
-          node scripts/obfuscate-chromium.mjs src-tauri/runtimes/chromium/chromium.pak "${VTMP}/verify.tar.gz"
-          tar -xzf "${VTMP}/verify.tar.gz" -C "${VTMP}"
-          test -n "$(find "${VTMP}" -type f -name 'chrome.exe' | head -1)" \
-            || { echo "ERROR: chromium.pak did not round-trip to a chrome.exe (corrupt/mis-keyed)"; rm -rf "${VTMP}"; exit 1; }
-          rm -rf "${VTMP}"
-          echo "Packed + round-trip-verified Chromium from ${PLATDIR}"
+          node scripts/assemble-chromium.mjs --release
 
       # Stage specrails-core into src-tauri/core/ (offline framework source).
       # Mirrors the runtimes-assembly steps — plain JS/text, no signing.
@@ -690,6 +690,20 @@ jobs:
           if ($out -notmatch "Specrails app is not running") { Write-Error "MCP bridge smoke failed; got: ${out}"; exit 1 }
           Write-Host "Smoke test PASSED."
 
+      - name: Smoke installed NSIS and MSI packages
+        timeout-minutes: 20
+        shell: pwsh
+        env:
+          SPECRAILS_SMOKE_LOG_PATH: ${{ runner.temp }}/specrails-installed-smoke.log
+        run: pwsh scripts/smoke-windows-installers.ps1 -BundlePath src-tauri\target\release\bundle
+
+      - name: Upload installed package smoke log
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: installed-smoke-${{ runner.arch }}
+          path: ${{ runner.temp }}/specrails-installed-smoke.log
+
       - name: Upload Windows installer artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
@@ -709,14 +723,18 @@ jobs:
   # Same v1-unsigned-on-purpose stance as the x64 build.
   # ---------------------------------------------------------------
   build-windows-arm64:
+    needs: admission
+    timeout-minutes: 90
     runs-on: windows-11-arm
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
-          node-version: 20
+          node-version: 22.22.3
           cache: npm
           # Two npm trees (root + client/) — key the cache on both lockfiles so
           # client-only dependency changes also refresh it.
@@ -725,12 +743,13 @@ jobs:
             client/package-lock.json
 
       - name: Install Rust stable (aarch64-pc-windows-msvc)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87  # stable
         with:
+          toolchain: stable
           targets: aarch64-pc-windows-msvc
 
       - name: Rust cache
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2
         with:
           workspaces: "./src-tauri -> target"
           key: arm64
@@ -843,28 +862,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Ship Chromium as a single archive (uniform with macOS/x64 — the server
-          # extracts it at first use). Windows 10+ ships bsdtar as `tar`.
           npx playwright install chromium
-          EXE=$(node -e "process.stdout.write(require('playwright').chromium.executablePath().replace(/\\\\/g,'/'))")
-          PLATDIR=$(dirname "$EXE")   # → chrome-win
-          test -n "$(find "$PLATDIR" -maxdepth 1 -name 'chrome.exe' | head -1)"
-          rm -rf src-tauri/runtimes/chromium
-          mkdir -p src-tauri/runtimes/chromium
-          tar -czf /tmp/chromium.tar.gz -C "$(dirname "$PLATDIR")" "$(basename "$PLATDIR")"
-          node scripts/obfuscate-chromium.mjs /tmp/chromium.tar.gz src-tauri/runtimes/chromium/chromium.pak
-          rm -f /tmp/chromium.tar.gz
-          test -f src-tauri/runtimes/chromium/chromium.pak
-          # Round-trip verify (BUG-CI-04): de-obfuscate the SHIPPED .pak, extract it,
-          # and confirm chrome.exe is discoverable — Windows previously only did
-          # `test -f chromium.pak`, so a corrupt/mis-keyed blob shipped unnoticed.
-          VTMP=$(mktemp -d)
-          node scripts/obfuscate-chromium.mjs src-tauri/runtimes/chromium/chromium.pak "${VTMP}/verify.tar.gz"
-          tar -xzf "${VTMP}/verify.tar.gz" -C "${VTMP}"
-          test -n "$(find "${VTMP}" -type f -name 'chrome.exe' | head -1)" \
-            || { echo "ERROR: chromium.pak did not round-trip to a chrome.exe (corrupt/mis-keyed)"; rm -rf "${VTMP}"; exit 1; }
-          rm -rf "${VTMP}"
-          echo "Packed + round-trip-verified Chromium from ${PLATDIR}"
+          node scripts/assemble-chromium.mjs --release
 
       # Stage specrails-core into src-tauri/core/ (offline framework source).
       # Mirrors the runtimes-assembly steps — plain JS/text, no signing.
@@ -943,6 +942,20 @@ jobs:
           if ($out -notmatch "Specrails app is not running") { Write-Error "MCP bridge smoke failed; got: ${out}"; exit 1 }
           Write-Host "Smoke test PASSED."
 
+      - name: Smoke installed NSIS and MSI packages
+        timeout-minutes: 20
+        shell: pwsh
+        env:
+          SPECRAILS_SMOKE_LOG_PATH: ${{ runner.temp }}/specrails-installed-smoke.log
+        run: pwsh scripts/smoke-windows-installers.ps1 -BundlePath src-tauri\target\release\bundle
+
+      - name: Upload installed package smoke log
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: installed-smoke-${{ runner.arch }}
+          path: ${{ runner.temp }}/specrails-installed-smoke.log
+
       - name: Upload Windows ARM64 installer artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
@@ -953,12 +966,32 @@ jobs:
           if-no-files-found: error
 
   deploy:
-    needs: [build-macos, build-windows, build-windows-arm64]
+    # Validation can upload Actions artifacts, but never reaches either public
+    # publication destination, even if admission output were accidentally changed.
+    if: >-
+      needs.admission.outputs.publish == 'true' &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && inputs.validation_only == false))
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    needs: [admission, build-macos, build-windows, build-windows-arm64]
     runs-on: ubuntu-latest
+    # The shared latest/ channel must not have two overlapping cutovers.
+    concurrency:
+      group: desktop-release-publish
+      cancel-in-progress: false
 
     steps:
+      - name: Check out the release scripts from this tag
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: 22.22.3
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
           # Keep per-job subdirs (dmg-aarch64/, windows-x64/, windows-arm64/)
           # so the rename step can disambiguate the two Windows architectures
@@ -988,19 +1021,12 @@ jobs:
 
       - name: Compute release version
         id: vars
-        run: |
-          set -euo pipefail
-          # github.ref_name is e.g. "v1.30.0" on tag pushes. Strip the leading "v".
-          # For workflow_dispatch the user must dispatch against a v* tag so
-          # the version is unambiguous; we fail fast otherwise.
-          if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-            echo "This workflow must run against a v* tag. Got ref_name=${GITHUB_REF_NAME}"
-            exit 1
-          fi
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          echo "Release version: ${VERSION}"
+        run: node scripts/release-policy.mjs tag
+
+      - name: Refuse an older release replacing the stable download channel
+        env:
+          RELEASE_VERSION: ${{ steps.vars.outputs.version }}
+        run: node scripts/release-policy.mjs latest
 
       - name: Rename installers to canonical filenames
         id: rename
@@ -1155,88 +1181,9 @@ jobs:
 
       - name: Build Tauri updater latest.json
         run: |
-          set -euo pipefail
-          VERSION="${{ steps.vars.outputs.version }}"
-          TAG="${{ steps.vars.outputs.tag }}"
-          RELEASED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-          RELEASE_URL_BASE="https://github.com/fjpulidop/specrails-desktop/releases/download/${TAG}"
-
-          mkdir -p updater
-          platforms='{}'
-
-          add_platform() {
-            local platform="$1"
-            local dir="$2"
-            local pattern="$3"
-            local canonical="$4"
-            local sig
-            local pkg
-            sig="$(find "${dir}" -type f -name "${pattern}.sig" 2>/dev/null | head -n1)"
-            if [[ -z "${sig}" ]]; then
-              echo "Missing updater signature for ${platform}: ${dir}/${pattern}.sig"
-              exit 1
-            fi
-            pkg="${sig%.sig}"
-            if [[ ! -f "${pkg}" ]]; then
-              echo "Missing updater package paired with ${sig}"
-              exit 1
-            fi
-
-            cp "${pkg}" "updater/${canonical}"
-            cp "${sig}" "updater/${canonical}.sig"
-
-            local signature
-            signature="$(tr -d '\r\n' < "${sig}")"
-            local url="${RELEASE_URL_BASE}/${canonical}"
-            platforms="$(jq -c \
-              --arg platform "${platform}" \
-              --arg signature "${signature}" \
-              --arg url "${url}" \
-              '. + {($platform): {signature: $signature, url: $url}}' \
-              <<< "${platforms}")"
-
-            echo "Updater ${platform}: ${canonical}"
-          }
-
-          # Windows updater artifact MUST match the installer users download from
-          # the website (manifest.json → the NSIS `-setup.exe`). Historically the
-          # updater used the `.msi`, so an in-app update ran msiexec over an NSIS
-          # install → MSI and NSIS keep SEPARATE uninstall databases → the old
-          # NSIS copy was never removed and the new MSI copy installed ALONGSIDE
-          # it (two entries, two versions). Prefer the NSIS `-setup.exe` (+ its
-          # updater `.sig`, produced by createUpdaterArtifacts) so install and
-          # update are both NSIS → clean in-place upgrade, no duplicates. Fall
-          # back to the `.msi` ONLY if the NSIS signature is absent, so a config
-          # hiccup never blocks the release nor ships a WORSE updater than today.
-          add_windows_platform() {
-            local platform="$1"
-            local dir="$2"
-            if find "${dir}" -type f -name '*-setup.exe.sig' 2>/dev/null | head -n1 | grep -q .; then
-              add_platform "${platform}" "${dir}" "*-setup.exe" \
-                "specrails-desktop-${VERSION}-${platform}-setup.exe"
-            else
-              echo "::warning::No NSIS -setup.exe.sig found for ${platform} — falling back to the MSI updater artifact. The NSIS/MSI double-install bug is NOT fixed for this release; check bundle.createUpdaterArtifacts + bundle.targets include nsis."
-              add_platform "${platform}" "${dir}" "*.msi" \
-                "specrails-desktop-${VERSION}-${platform}.msi"
-            fi
-          }
-
-          add_platform "darwin-aarch64" "artifacts/dmg-aarch64" "*.app.tar.gz" \
-            "specrails-desktop-${VERSION}-darwin-aarch64.app.tar.gz"
-          add_windows_platform "windows-x86_64" "artifacts/windows-x64"
-          add_windows_platform "windows-aarch64" "artifacts/windows-arm64"
-
-          jq -n \
-            --arg version "${VERSION}" \
-            --arg pub_date "${RELEASED_AT}" \
-            --arg body "Specrails ${VERSION}" \
-            --argjson platforms "${platforms}" \
-            '{version: $version, notes: $body, pub_date: $pub_date, platforms: $platforms}' \
-            > updater/latest.json
-
-          jq empty updater/latest.json
-          cat updater/latest.json
-          ls -la updater/
+          node scripts/build-updater-manifest.mjs artifacts updater \
+            "${{ steps.vars.outputs.version }}" \
+            "https://github.com/fjpulidop/specrails-desktop/releases/download/${{ steps.vars.outputs.tag }}"
 
       - name: Publish Tauri updater assets to GitHub Release
         env:
@@ -1256,12 +1203,13 @@ jobs:
       # per-job subdirectories with raw Tauri filenames stay out so the
       # versioned folder mirrors what consumers expect.
       - name: Deploy versioned installers to Hostinger
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        uses: SamKirkland/FTP-Deploy-Action@a51268f67f6605236975928ae28b0f7e9971d50a  # v4.3.6
         with:
           server: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
           password: ${{ secrets.HOSTINGER_PASSWORD }}
-          protocol: ftp
+          protocol: ftps
+          security: strict
           local-dir: ./artifacts/canonical/
           server-dir: domains/specrails.dev/public_html/downloads/specrails-desktop/${{ steps.vars.outputs.tag }}/
 
@@ -1304,7 +1252,7 @@ jobs:
           # the current installers here — the actual DELE runs in the final step,
           # after the new binaries + manifest are published and verified, so the
           # latest/ channel never references a deleted binary.
-          stale="$(curl -s --ftp-pasv --user "${FTP_USER}:${FTP_PASS}" "ftp://${HOST}/${remote}" --list-only | grep -E '\.(dmg|exe|msi)$' || true)"
+          stale="$(curl --fail --silent --show-error --ssl-reqd --ftp-pasv --user "${FTP_USER}:${FTP_PASS}" "ftp://${HOST}/${remote}" --list-only | grep -E '\.(dmg|exe|msi)$' || true)"
           # Persist the newline-delimited list to a file (avoids GITHUB_OUTPUT
           # multiline quoting pitfalls); the delete step reads it back.
           printf '%s\n' "${stale}" > /tmp/stale-installers.txt
@@ -1330,7 +1278,7 @@ jobs:
             "${{ steps.rename.outputs.msi_x64_path }}" \
             "${{ steps.rename.outputs.exe_arm64_path }}" \
             "${{ steps.rename.outputs.msi_arm64_path }}"; do
-            curl --fail --silent --show-error --ftp-pasv --ftp-create-dirs \
+            curl --fail --silent --show-error --ssl-reqd --ftp-pasv --ftp-create-dirs \
               --user "${FTP_USER}:${FTP_PASS}" \
               -T "${file}" \
               "ftp://${HOST}/${remote}"
@@ -1376,39 +1324,44 @@ jobs:
           remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
           # --ftp-create-dirs is defensive; latest/ should already exist from
           # the previous step but we keep the flag for idempotency.
-          curl --fail --silent --show-error --ftp-pasv --ftp-create-dirs \
+          curl --fail --silent --show-error --ssl-reqd --ftp-pasv --ftp-create-dirs \
             --user "${FTP_USER}:${FTP_PASS}" \
             -T manifest/manifest.json \
-            "ftp://${HOST}/${remote}"
-          echo "Uploaded manifest.json to ${remote}"
+            "ftp://${HOST}/${remote}manifest.json.${GITHUB_RUN_ID}.tmp"
+          curl --fail --silent --show-error --ssl-reqd --ftp-pasv \
+            --user "${FTP_USER}:${FTP_PASS}" \
+            -Q "RNFR ${remote}manifest.json.${GITHUB_RUN_ID}.tmp" \
+            -Q "RNTO ${remote}manifest.json" \
+            "ftp://${HOST}/${remote}" --output /dev/null
+          echo "Atomically replaced manifest.json in ${remote}"
 
-      - name: Verify manifest.json is reachable and valid JSON
+      - name: Verify manifest.json matches the published release
+        id: verify_manifest
         run: |
           set -euo pipefail
           url="https://specrails.dev/downloads/specrails-desktop/latest/manifest.json"
           for i in 1 2 3 4 5 6; do
             if curl --fail --silent --show-error "${url}" -o /tmp/manifest.json; then
-              if jq empty /tmp/manifest.json; then
-                echo "✓ manifest.json reachable and valid"
+              if jq empty /tmp/manifest.json && cmp -s <(jq -S . manifest/manifest.json) <(jq -S . /tmp/manifest.json); then
+                echo "✓ manifest.json reachable and matches this release"
                 cat /tmp/manifest.json
                 exit 0
               fi
             fi
-            echo "  attempt ${i}: manifest.json not yet valid, retrying in 5s..."
+            echo "  attempt ${i}: manifest.json not yet this release, retrying in 5s..."
             sleep 5
           done
-          echo "✗ manifest.json not reachable or invalid"
+          echo "✗ manifest.json not reachable or does not match this release"
           exit 1
 
       # FINAL step of the atomic cutover (BUG-CI-01): only NOW, with the new
       # binaries + manifest published and HTTP-verified, retire the PRIOR
       # installers snapshotted at the start. Excludes any filename the new release
       # re-uploaded under the same name (a same-version rebuild), so we never
-      # delete a binary the live manifest now references. Runs even if a later
-      # step were to fail — these are stale files either way — but stays a no-op
-      # when there was nothing to retire.
+      # delete a binary the live manifest now references. If publication or
+      # verification fails, preserve the previous installers for the live manifest.
       - name: Retire stale installers in latest/ (atomic cutover)
-        if: always()
+        if: ${{ success() && steps.verify_manifest.outcome == 'success' }}
         env:
           HOST: ${{ secrets.HOSTINGER_HOST }}
           FTP_USER: ${{ secrets.HOSTINGER_USER }}
@@ -1443,7 +1396,7 @@ jobs:
               continue
             fi
             echo "Retiring stale: ${f}"
-            curl -s --ftp-pasv --user "${FTP_USER}:${FTP_PASS}" \
+            curl --fail --silent --show-error --ssl-reqd --ftp-pasv --user "${FTP_USER}:${FTP_PASS}" \
               -Q "DELE ${remote}${f}" \
               "ftp://${HOST}/${remote}" || echo "  (DELE failed for ${f}; continuing)"
             deleted=$((deleted+1))

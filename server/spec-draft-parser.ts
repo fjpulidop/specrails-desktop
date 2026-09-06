@@ -8,6 +8,7 @@ const VALID_PRIORITIES = new Set(['low', 'medium', 'high', 'critical'] as const)
 export type SpecDraftPriority = 'low' | 'medium' | 'high' | 'critical'
 
 export interface SpecDraft {
+  repositoryIds?: string[]
   title: string
   description: string
   labels: string[]
@@ -46,6 +47,9 @@ function validateBlock(parsed: unknown): ParsedSpecDraftBlock | null {
 
   if (typeof obj.title === 'string') partial.title = obj.title
   if (typeof obj.description === 'string') partial.description = obj.description
+  if (Array.isArray(obj.repositoryIds) && obj.repositoryIds.length > 0 && obj.repositoryIds.every((id) => typeof id === 'string' && id.trim()) && new Set(obj.repositoryIds).size === obj.repositoryIds.length) {
+    partial.repositoryIds = [...obj.repositoryIds] as string[]
+  }
   const labels = coerceStringArray(obj.labels)
   if (labels) partial.labels = labels
   const ac = coerceStringArray(obj.acceptanceCriteria)
@@ -103,6 +107,7 @@ export function mergeDraft(prev: Partial<SpecDraft>, next: Partial<SpecDraft>): 
   const out: Partial<SpecDraft> = { ...prev }
   if (typeof next.title === 'string' && next.title !== '') out.title = next.title
   if (typeof next.description === 'string' && next.description !== '') out.description = next.description
+  if (Array.isArray(next.repositoryIds) && next.repositoryIds.length > 0 && next.repositoryIds.every((id) => typeof id === 'string' && id.trim()) && new Set(next.repositoryIds).size === next.repositoryIds.length) out.repositoryIds = next.repositoryIds.slice()
   if (Array.isArray(next.labels)) out.labels = next.labels.slice()
   if (Array.isArray(next.acceptanceCriteria)) out.acceptanceCriteria = next.acceptanceCriteria.slice()
   if (next.priority && VALID_PRIORITIES.has(next.priority)) out.priority = next.priority
@@ -133,7 +138,7 @@ export function applyBlocks(
   for (const block of blocks) {
     const before = nextDraft
     nextDraft = mergeDraft(before, block.partial)
-    for (const key of ['title', 'description', 'labels', 'priority', 'acceptanceCriteria'] as const) {
+    for (const key of ['title', 'description', 'labels', 'priority', 'acceptanceCriteria', 'repositoryIds'] as const) {
       if (!shallowEqual(before[key], nextDraft[key])) changed.add(key)
     }
     ready = block.ready

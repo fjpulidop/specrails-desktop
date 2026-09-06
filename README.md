@@ -1,301 +1,148 @@
-<div align="center">
+# Specrails Desktop
 
-# 🚄 specrails-desktop
+[![CI](https://github.com/fjpulidop/specrails-desktop/actions/workflows/ci.yml/badge.svg)](https://github.com/fjpulidop/specrails-desktop/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/specrails-desktop.svg)](https://www.npmjs.com/package/specrails-desktop)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-### The local cockpit for shipping software with AI agents
+Specrails Desktop is a local application for turning software specifications into reviewed implementations. Use a mission conversation to explore and direct work, or organize specs on a board and run them through built-in or custom loops. The app coordinates your installed AI CLIs, Git worktrees, project context and delivery decisions.
 
-**Shape work with Claude, Codex, Gemini, or Kimi → drag specs onto execution rails → watch the pipeline ship — all from one window, on your laptop.**
+[specrails-core](https://github.com/fjpulidop/specrails-core) supplies the provider workflows and agents. Desktop adds the interface, execution lifecycle, history and project management.
 
-[![npm version](https://img.shields.io/npm/v/specrails-desktop?color=4f46e5&label=npm&logo=npm&logoColor=white&style=flat-square)](https://www.npmjs.com/package/specrails-desktop)
-[![license](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
-[![node](https://img.shields.io/badge/node-%E2%89%A520-339933?logo=node.js&logoColor=white&style=flat-square)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white&style=flat-square)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black&style=flat-square)](https://react.dev)
-[![Desktop](https://img.shields.io/badge/Desktop-Tauri-ffc131?logo=tauri&logoColor=black&style=flat-square)](https://tauri.app)
-[![providers](https://img.shields.io/badge/agents-Claude%20%2B%20Codex%20%2B%20Gemini%20%2B%20Kimi-ff7a59?style=flat-square)](#-bring-your-own-agent)
+This README describes the current source tree. Published packages do not include unmerged changes; check the [release notes](https://github.com/fjpulidop/specrails-desktop/releases) for the features in your installed version.
 
-[Quick start](#-quick-start) · [Features](#-what-you-can-do) · [Architecture](#%EF%B8%8F-how-its-built) · [Docs](#-documentation) · [Desktop app](#%EF%B8%8F-desktop-app)
+## Start using Specrails
 
-</div>
+Choose one way to run the app. The native application and npm server both use the local backend; do not start them together on the same port.
 
----
+### Native application
 
-## 🌟 What is this?
+Get an installer from the [official releases](https://github.com/fjpulidop/specrails-desktop/releases). The release pipeline targets macOS Apple Silicon and Windows x64/ARM64. Select an artifact actually present in the release, and check its release notes and platform requirements.
 
-**Specrails Desktop** (`specrails-desktop`) turns *"I'll just let the AI do it"* into a workflow you can **see, steer, and trust**. It's the desktop app for specrails — a local-first dashboard and CLI that sits on top of [**specrails-core**](https://github.com/fjpulidop/specrails-core) and gives you **one window for all your projects**:
+Launch Specrails, install and authenticate at least one supported AI CLI, then add a project. The setup flow checks prerequisites and installs the project's Core artifacts. Provider CLIs and their authentication are separate from the app; they are not bundled model services.
 
-- 💬 Shape a spec in conversation with an AI, or generate one in a single shot.
-- 🛤️ Drag specs onto **execution rails**, pick a **Loop** to run (built-in or your own), and ship — rails run in parallel inside a git-backed project, each isolated in its own worktree.
-- 🤖 Watch the **Architect → Developer → Reviewer → Ship** pipeline stream live — and **talk to the running job**: ask questions or steer it mid-run from the built-in composer.
-- 💰 See available **cost and activity metrics** this week, per provider and
-  ticket; missing native usage (notably Kimi tokens/USD) stays visibly
-  unavailable.
+The native application provides separate mission windows and OS webviews: WebView2 on Windows and WebKit on macOS. See the [Windows validation matrix](docs/platforms/windows-parity.md) for automated coverage and remaining platform acceptance.
 
-> 🔒 **100% local. Single user. No accounts. No telemetry leaves your machine.**
-> Your code stays on your laptop — nothing moves unless **you** spawn an agent against it.
+### npm application in your browser
 
----
+Requires Node.js **20.19.0+**, Git and an authenticated provider CLI. Use a current Node 22 release if your provider CLI requires a newer runtime.
 
-## ✨ What you can do
-
-### 📝 Turn ideas into specs
-
-| | |
-|---|---|
-| 🗣️ **Explore** | Describe what you want in a chat; a **live draft** rebuilds itself every turn. Save it as a *draft ticket* and resume later, or commit when it looks right. First-token latency is tuned to feel electric. |
-| ⚡ **Quick** | Already know what you want? Generate a full spec in one shot — optionally enriched with a **Contract Layer** of exact names, data shapes, invariants, and a file-touch list when the selected provider can enforce the transform's no-tools boundary. Kimi intentionally fails closed for both Quick Spec and Contract Refine; use Explore or the Quick Launcher command instead. |
-| 🌐 **From a website** | *Add Spec → From a website* opens an **embedded browser**. Navigate, hover-select an element or drag a rectangle, and the screenshot + DOM + applied CSS become attachments. The desktop build ships its own Chromium, so it works **offline**. |
-| 💥 **SMASH** | Explode a big epic into a family of sub-specs in one click — children carry short summaries on their cards. This structured transform is unavailable for Kimi. |
-| 🔁 **Continue Editing** | Reopen any draft / todo / backlog spec back in Explore, resuming the original conversation if there was one. Provider-specific AI Edit remains capability-gated; it is unavailable for Kimi. |
-| 🪟 **Compare** | Drag a spec modal to the screen edge → a picker of your todo specs slides in on the other side. Pick one and review them **side by side**, tablet-style. |
-
-### 🚀 Run the pipeline
-
-| | |
-|---|---|
-| 🛤️ **Execution rails** | Each rail is an independent lane. Drag specs in, **pick a Loop**, and press Play. In git-backed projects, rails run in parallel inside isolated per-spec worktrees, so several lanes can build at once without touching your active working tree. Each rail carries its own **agent profile** and provider. |
-| 🔁 **Loops** | A global, visual **Loop Builder** (n8n-style). The built-in loops — **Implement**, **Batch**, **Freestyle** — are what a rail runs by default, or build your own by chaining AI and shell steps. Providers with a safe pure-output boundary can also use a **Loop Decider** to repeat until a goal is met; Kimi runs loops that do not contain a Decider. See [Running pipelines](docs/running-pipelines.md). |
-| 🧩 **Agent profiles** | A per-project, declarative catalog that tells the implement pipeline which agents to run and at what model — snapshotted per job so concurrent rails stay isolated. |
-| 🔀 **Safe PR delivery (ask-first)** | Fresh work runs in an isolated **git worktree** off your designated integration branch (set it in *Settings → Integration branch*). When it finishes, nothing is pushed and no PR exists yet — the specs move to **On Review** and the app **asks you first**: **Create PR** (one combined draft PR across all the specs on the rail) or **Discard** (clean up, specs back to the backlog). If you relaunch a spec that is already in review with an open PR, specrails detects that active PR and continues its head branch instead of starting from the integration branch again. After a PR exists you can **Publish** (open the draft for your team's review) and **Check merge** — once your team merges it in GitHub, the specs flip to Done. specrails **never merges and never touches your working tree**. Projects without git degrade to shared-folder execution with no branch or PR card. Set `SPECRAILS_RAIL_DELIVER_PR=0` to fall back to local integration. |
-| 📡 **Live job detail** | A premium ticket-identity header, live duration ticker, incremental turns/tokens, and authoritative cost on exit. Every Claude job is a **live session**: a chat composer on the job view lets you ask the running agent questions or steer it mid-run — messages queue while it streams, and the job still finishes its plan (Freestyle waits for your explicit **Finalize**; everything else wraps up on its own). |
-| 🔌 **Plugins** | A per-project marketplace of MCP-based integrations (**Serena** semantic code-nav bundled today). Additive by design — installing plugin N+1 never disturbs plugin N. |
-
-### 💸 Track every cent
-
-| | |
-|---|---|
-| 📊 **Analytics** | Every AI invocation that actually runs is recorded for **Claude, Codex, Gemini, and Kimi**. Burn-rate hero, daily timeline, top tickets, model breakdown, cost-vs-turns scatter. Capability-gated Kimi actions that fail before spawn do not create an invocation. |
-| 🧮 **Honest numbers** | Claude cost is provider-billed; **Codex and Gemini costs are estimated** from a local rate-card and clearly flagged with a `~`. Kimi's stream exposes no authoritative token or USD-cost envelope, so those fields remain unavailable rather than appearing as zero. |
-| 📤 **Exports** | One-click CSV/JSON, plus per-ticket spending deep-links. |
-
-### 🛠️ Make it yours
-
-| | |
-|---|---|
-| 🖥️ **Terminal panel** | A real VS-Code-style bottom panel (`Cmd/Ctrl+J`) powered by `node-pty` + xterm.js — WebGL rendering, search, ligatures, image inline, drag-drop paths, and OSC 133 shell integration. |
-| 🎨 **Themes** | Five built-ins — `specrails` (default), `dracula`, `aurora-light`, `obsidian-dark`, `matrix` — applied before React hydrates (no flash). |
-| 🧭 **Code explorer** | A non-developer-friendly file tree + Monaco viewer with plain-language AI summaries and *"touched by AI"* provenance chips where the provider supports that safe transform, plus opt-in **in-app editing of existing files** (overwrite-only — no create/rename, blocks binaries, respects the deny-list/`.gitignore` and a size cap). Kimi file summaries and construction-story AI are disabled. |
-| 💬 **Minimizable chats** | Park an Explore or AI-Edit session into a dock chip and pick it back up later — never lost across refreshes or project switches. |
-
----
-
-## 🤖 Bring your own agent
-
-specrails-desktop registers **Claude Code**, **Codex CLI**, **Gemini CLI**, and **Kimi Code** as first-class providers through a shared `ProviderAdapter` contract. All four are enabled by default; each adapter advertises its real capabilities, so unsupported safety-sensitive actions fail closed instead of silently weakening their policy.
-
-| | 🟣 Claude Code | 🟢 Codex CLI | 🔵 Gemini CLI | 🌙 Kimi Code |
-|---|:---:|:---:|:---:|:---:|
-| Minimum CLI version | none pinned | 0.128.0 | 0.11.0 | 0.27.0 |
-| Native streaming | ✅ | ✅ | ✅ | ✅ JSONL |
-| Native session resume | ✅ | ✅ | ✅ | ✅ after resume hint |
-| Native cost reporting | ✅ | ⚠️ estimated via rate-card | ⚠️ estimated via rate-card | — unavailable |
-| Native OTEL telemetry | ✅ | 🔧 synthesized by the app | ✅ native | — unavailable |
-| Agent profiles on rails | ✅ | — *(forced legacy)* | — *(forced legacy)* | ✅ |
-
-A project's **provider set** is chosen at install (one or more of Claude / Codex / Gemini / Kimi) and is **immutable afterward**; the per-invocation **engine** is picked from that set on capability-compatible surfaces whenever more than one is installed. To disable Gemini (emergency rollback) set `SPECRAILS_GEMINI_BETA=0`; for Codex it's `SPECRAILS_CODEX_BETA=0` (only the exact string `0` disables either).
-
-Kimi is an **external CLI integration**: Desktop detects and spawns the user's authenticated `kimi` executable with `-p --output-format stream-json`. It neither bundles Kimi nor starts `kimi server`/`kimi acp`. See [Using Kimi](docs/kimi.md) for installation, the complete capability matrix, and the deliberate safety gates.
-
----
-
-## 🖼️ How it looks
-
-```
-┌──────────┬───────────────────────────────────────────────────┐
-│          │  Dashboard · Jobs · Analytics · Agents · ⚙        │
-│   Arc    │ ──────────────────────────────────────────────── │
-│  side-   │                                                   │
-│   bar    │   📋 SpecsBoard          │   🛤️  Rails             │
-│          │   (your specs)          │   (execution lanes)     │
-│ projects │                         │                         │
-│  ● proj  │   #1  Login flow ●      │   ▶ Rail 1   #1 #2     │
-│  ○ proj  │   #2  Webhook retry     │     [profile: default]  │
-│          │   #3  Cost limits  ●    │                         │
-│  ➕ Add   │   #4  Draft idea  ✎     │   ▶ Rail 2   running    │
-│          │                         │     [profile: budget]   │
-│   ⚙      │                         │                         │
-└──────────┴───────────────────────────────────────────────────┘
-                 ⌨️  Terminal panel  (Cmd/Ctrl + J)
-```
-
----
-
-## 🚀 Quick start
-
-```bash
-# 1️⃣  Install
+```sh
 npm install -g specrails-desktop
-
-# 2️⃣  Start the app
 specrails-desktop start
-
-# 3️⃣  Add a project from the CLI…
-specrails-desktop add /path/to/your/project
-
-# …or click “➕ Add project” in the dashboard sidebar at
-#   http://127.0.0.1:4200
+specrails-desktop add /absolute/path/to/project
 ```
 
-If a project doesn't have specrails-core yet, a **3-step setup wizard** (Configure → Install → Done) installs it for you — one flow, no tier picker, ~1 minute on a warm cache.
+Open [http://127.0.0.1:4200](http://127.0.0.1:4200). This distribution serves the web interface; installing it does not install the native Tauri application or enable native mission windows.
 
-> 💡 **Prefer a desktop app?** Grab a signed macOS or Windows build — see [Desktop app](#%EF%B8%8F-desktop-app). It bundles the server, so there's no separate `start`.
-
-### 🧑‍💻 The `specrails-desktop` CLI
-
-```bash
-specrails-desktop start | stop | add | remove | list   # manage the app
-specrails-desktop implement #42                         # run a specrails verb
-specrails-desktop --status                              # manager status
-specrails-desktop --project <name|path>                 # target a project
-specrails-desktop --help                                # full reference
+```sh
+specrails-desktop list
+specrails-desktop --status
+specrails-desktop --help
+specrails-desktop stop
 ```
 
-When the app is running, the CLI talks to it over HTTP + WebSocket; when it isn't, it spawns the agent directly — note the offline path always runs `claude` (even for Codex/Gemini/Kimi projects) and records nothing to Analytics. Either way you get streamed logs. (Job history lives in the dashboard **Jobs** page, per project.)
+The CLI also forwards workflow commands to a running server. Its legacy direct fallback runs **Claude** when the server is unavailable and does not record Desktop analytics. Use the running app for provider selection and managed execution.
 
----
+## Working with projects and specs
 
-## 📦 Prerequisites
+| Area | What the current source supports |
+| --- | --- |
+| Specs | Explore an idea in conversation, generate a Quick Spec, refine its contract, or capture a website as context. Structured AI actions are offered only when the provider supports their required tool restrictions. |
+| Missions | Converse with an agent using project, spec and file references. Follow-ups queue by default; explicit **Steer** sends a correction into a running invocation through its supported transport. Delivery and read acknowledgements remain distinct. |
+| Board and rails | Assign specs to execution lanes and select Implement, Batch Implement, SDD Quick, Freestyle or a published custom loop, subject to provider capabilities. Inspect live steps, errors and retry state. |
+| Multiple repositories | One project owns a shared backlog and can include several local repositories. Specs select their affected repositories; execution prepares their worktrees together and presents delivery evidence and actions per repository. |
+| Review and delivery | Inspect recorded changes, create or publish a PR, integrate locally, or check out completed work. Conflicts and stale evidence require resolution; a multi-repo spec completes only when all required deliveries are accepted. |
+| Files | Browse and search by repository, jump to lines, read source, inspect recorded diffs and construction history, and request an AI summary. This is a read-only explorer, not an editor. |
+| Processes and metrics | Use the integrated terminal and inspect retained background-process logs. Track invocation activity and available usage; estimated costs are labelled and unavailable usage is not shown as zero. |
 
-- 🟩 **Node.js 20+**
-- 🤖 **At least one AI CLI** on your `PATH`:
-  - **[Claude Code](https://claude.com/claude-code)** — the `claude` binary, signed in (via Claude subscription login or an `ANTHROPIC_API_KEY`). No minimum version pinned.
-  - **[Codex CLI](https://developers.openai.com/codex)** ≥ 0.128.0 — the `codex` binary. Run `codex login` or set `OPENAI_API_KEY`.
-  - **[Gemini CLI](https://github.com/google-gemini/gemini-cli)** ≥ 0.11.0 — the `gemini` binary, authenticated (set `GEMINI_API_KEY`).
-  - **[Kimi Code](docs/kimi.md)** ≥ 0.27.0 — the external `kimi` binary, authenticated with `kimi login`. The npm distribution needs Node.js ≥ 22.19; Windows also needs Git Bash.
-- 🌿 **git** — required for isolated worktrees, branch-based resume, and PR delivery. Non-git projects still run in shared-folder mode, but no branch or PR card is created.
-- 🔀 *(optional but recommended)* **GitHub CLI (`gh`)** authenticated — required when you want Specrails to create, publish, check, or continue GitHub pull requests for rail deliveries.
-- 🧪 *(optional)* **`uv`** — only if you want the Serena plugin
-- 📦 **specrails-core** ≥ 4.12.0 in the project *(the wizard installs it)* — the shared floor that includes the Kimi `.kimi-code` framework target.
+Additional folders can be added to an existing project in **Project settings → General → Repositories and folders**. Reading a repository does not grant it implementation scope. Secondary folders without Git provide context but cannot be additional implementation targets. See [multi-repository projects](docs/multi-repo-projects.md).
 
-A project's **provider set** is chosen at install time (one or more of Claude / Codex / Gemini / Kimi) and is immutable afterward — you pick a compatible engine per invocation from that set. On macOS the desktop app resolves Homebrew/Volta/nvm paths for you.
+In the native app, the mission header can move a conversation into its own window and reintegrate it. The agent continues in the same backend. Draft and workspace handoffs require acknowledgement; closing a mission window reintegrates it, while closing main hides it to the tray. Quitting the application is a separate shutdown operation. See [detachable mission windows](docs/features/detachable-mission-windows.md).
 
----
+Native mission browsing retains the actual WebKit/WebView2 session, including history and authentication popups. Website-to-spec capture and the browser fallback use Playwright. These paths have different rendering and capture capabilities; availability of bundled runtimes does not make remote websites or model calls work offline.
 
-## 🏗️ How it's built
+## Providers and integrations
 
-A clean **three-layer TypeScript monorepo** — one Express process runs in *Super mode* and manages every project.
+Install and authenticate the provider CLI you intend to use before launching work. The current adapter checks use these minimum versions:
 
-```
-🗄️  server/   Express 5 + WebSocket + SQLite (better-sqlite3)   · the brain
-🎨  client/   React 19 + Vite + Tailwind v4                      · the dashboard
-⌨️  cli/      specrails-desktop command bridge                   · the terminal door
-```
+| Provider | Executable | Adapter minimum | Usage reporting |
+| --- | --- | --- | --- |
+| Claude Code | `claude` | No pinned minimum | Provider-reported cost when present |
+| Codex CLI | `codex` | 0.128.0 | Tokens with estimated cost |
+| Gemini CLI | `gemini` | 0.11.0 | Tokens with estimated cost |
+| Kimi Code | `kimi` | 0.27.0 | Native token/cost totals unavailable |
 
-```
-~/.specrails/
-├── desktop.sqlite                   # project registry
-├── manager.pid                      # running server PID
-└── projects/<slug>/
-    ├── jobs.sqlite                  # per-project DB (jobs, analytics, chats)
-    └── …                            # snapshots, telemetry, terminals, summaries
-```
+A minimum-version check is not a promise that every later CLI release has identical APIs. Features are capability-gated: for example, profiles are available for Claude and Kimi, and Kimi's unsupported no-tools transforms and Loop Deciders are rejected before execution. See [Kimi integration](docs/kimi.md) and the [provider adapter guide](docs/internals/adding-a-provider.md).
 
-**Highlights under the hood:**
+Git is required for isolated worktrees and branch delivery. Authenticated `gh` is needed for GitHub PR operations. Jira, MCP integrations and other external services require their own configuration and credentials. The [Specrails MCP server](docs/mcp.md) exposes project-aware operations to agents; repository-specific operations retain explicit repository identity.
 
-- 🔗 **One WebSocket** multiplexes everything; every project-scoped message carries a `projectId`, injected by a `boundBroadcast` closure — managers need zero changes.
-- 🧱 **Per-project isolation** — each project gets its own SQLite, queue manager, and chat manager.
-- 🖥️ **Terminals** stream over a *dedicated* WebSocket so PTY throughput can't starve the event stream.
-- 🌐 **Embedded browser** via Playwright (CDP capture) for the *"From a website"* flow.
-- 📦 **Desktop** via Tauri, with optionally-bundled Node, Git, and Chromium runtimes so it runs fully offline.
+## Core installation and updates
 
-> 📖 Want the deep dive? CLAUDE.md and [`docs/internals/`](docs/internals/) document the adapter contract, REST surface, migrations, and the OpenSpec workflow.
+Desktop's version, the selected Core executable, the active shared framework and each project's installed artifacts are separate state. The current source supports Core 4 and Core 5; its online installation fallback requests Core 5. Core 5 installs deterministically and does not run the removed `enrich` wizard.
 
----
+The resolver considers compatible managed, bundled, local and externally installed Core packages. An explicit `SPECRAILS_CORE_BIN` takes precedence; ordinary resolution does not silently downgrade an activated framework. Updating an external CLI alone does not refresh every project's copied artifacts.
 
-## 🛠️ Development
+Settings reports these versions separately. A partially refreshed workspace remains pending, blocks new implementations and offers **Finish updating** using the retained package. Read access and conversations remain available. See [Core runtime selection and recovery](docs/internals/core-runtime-updates.md) before diagnosing a version mismatch.
 
-```bash
+## Develop from source
+
+Use **Node 22.22.3** to match the native CI runtime, plus npm and Git. The root package accepts Node 20.19+, but the current Vite client specifically requires **20.19+ on Node 20 or 22.12+ on Node 22 and later**. Node 21 and early Node 22 releases do not satisfy that requirement. Native builds also require Rust and the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/).
+
+```sh
 git clone https://github.com/fjpulidop/specrails-desktop.git
 cd specrails-desktop
-npm install                        # root deps (server + CLI)
-cd client && npm install && cd ..  # client deps (separate tree)
-npm run dev                        # 🚀 server :4200 + client :4201, hot reload
+npm ci
+npm ci --prefix client
+npm run dev
 ```
 
-| Script | What it does |
-|--------|--------------|
-| `npm run dev` | Server (4200) + client (4201) with hot reload |
-| `npm run dev:desktop` | Desktop app (Tauri) in dev mode |
-| `npm run build` | Production build (server + client + CLI) |
-| `npm test` | Vitest suite (server + CLI) + core-compat check |
-| `npm run test:coverage` | Server coverage (mirrors the CI gate) |
-| `npm run test:client` | Client Vitest suite |
-| `npm run ci` | Everything CI runs: typecheck + tests + both coverage gates |
+Web development starts the API on **4200** and Vite on **4201**, with hot reload. These commands use the normal local Specrails data directory; they do not create an isolated test profile.
 
-🛡️ **Coverage is a hard gate** — **70 % global**, **80 % server**, **80 % client**. Local runs must clear the same bars before pushing.
+To develop native features, stop the web development command and any other Specrails instance, then run:
 
-- 🌍 `4200` — Express API + WebSocket
-- ⚡ `4201` — Vite dev server (proxies `/api` and `/hooks` to 4200)
-
----
-
-## 🖥️ Desktop app
-
-Desktop builds for **macOS (Apple Silicon)**, **Windows (x64)**, and **Windows (arm64)** are published at:
-
-> 📥 `https://specrails.dev/downloads/specrails-desktop/latest/`
-
-The macOS build is **signed + notarized**. The Windows installers are **unsigned in v1** — SmartScreen flags them, so click **More info → Run anyway**. (Authenticode signing is a planned follow-up.)
-
-`npm run build:desktop` produces the `.app` / `.dmg` / `.exe`, but does **not** assemble the bundled runtimes — that app falls back to your system PATH and downloads a Playwright Chromium on first use. To build a self-contained app the way CI does (**macOS arm64 only**):
-
-```bash
-# Bundle Node 22 + a relocatable Git, then build
-npm run build:desktop:local
-
-# …and bundle Chromium too, so "Add Spec from a website" works fully offline
-# (one-time ~150 MB Playwright Chromium download)
-BUNDLE_CHROMIUM=true npm run build:desktop:local
+```sh
+npm run dev:desktop
 ```
 
-> ℹ️ Local builds are **unsigned** — Gatekeeper warns; right-click → Open, or `xattr -dr com.apple.quarantine <App>.app`. Signed + notarized installers come only from the `desktop-release` CI workflow.
+Tauri's development hook rebuilds the sidecar and MCP bridge, starts Vite, then opens the native application. Ports **4200 and 4201** must be free. Use the default ports: `SPECRAILS_DEV_SERVER_PORT`, `SPECRAILS_DEV_CLIENT_PORT` and `SPECRAILS_PORT` overrides are for web development and can conflict with Tauri's fixed endpoints.
 
----
+Frontend changes reload through Vite. After backend or MCP changes, restart `npm run dev:desktop` to rebuild their packaged artifacts. Preparation failures stop startup instead of using an old sidecar. The first build may download packaging dependencies; no installer is needed for this development loop.
 
-## 🔒 Security model
+| Command | Purpose |
+| --- | --- |
+| `npm run typecheck` | Check server, CLI, MCP bridge and client types |
+| `npm test` | Server/CLI tests and Core compatibility check |
+| `npm run test:client` | Client tests |
+| `npm run test:scripts` | Test build, packaging and release helpers |
+| `npm run ci` | Type, compatibility, script and coverage checks, then build and package validation |
+| `npm run build` | Build the npm server, client, CLI and MCP bridge |
+| `npm run check:package` | Validate the built npm package payload |
+| `npm run build:desktop` | Build native artifacts from available staged resources |
 
-- 🏠 Binds to `127.0.0.1` only — **do not expose to a network**.
-- 🔑 An app token is **auto-generated on first run** and persisted to `~/.specrails/desktop.token` (mode `0600`). Every `/api/*` route requires it (except `/api/health` and `/api/token`), and WebSocket upgrades carry it as a subprotocol. The browser client fetches it same-origin — there's nothing to configure.
-- 🧷 Parameterised SQL everywhere — never string-interpolated.
-- 🧬 Reserved files in your project (`.mcp.json`, `.specrails/plugins/state.json`, `.specrails/profiles/.user-preferred.json`) are mutated **surgically** — read → modify only owned keys → atomic temp+rename — so adding plugin N+1 never disturbs plugin N.
+`build:desktop` does not assemble a complete release runtime bundle or sign it. `build:desktop:local` assembles local runtimes for macOS ARM64 only. Release resources, signing, platform tests and publication are defined in [CI and releases](docs/ci-cd.md); a local web build does not validate native behavior.
 
----
+## Architecture and data
 
-## 📚 Documentation
+| Directory | Responsibility |
+| --- | --- |
+| `server/` | Express, WebSocket, SQLite, provider execution and project services |
+| `client/` | React interface, mission/board views and workspace tools |
+| `cli/` | Local server management and command bridge |
+| `mcp-bridge/` | stdio-to-server MCP bridge |
+| `src-tauri/` | Native windows, webviews, OS integrations and sidecar lifecycle |
 
-**User guides**
+The default data home is `~/.specrails/`, containing the project registry, per-project history and managed framework/workspace data. Source files remain in their selected repositories. Back up the data home and repositories when preserving a complete working environment. The [architecture reference](docs/internals/architecture.md) describes the service boundaries.
 
-| Guide | What it covers |
-|-------|----------------|
-| 🏁 [Getting started](docs/getting-started.md) | Install, register a project, run your first pipeline |
-| 📝 [Creating specs](docs/creating-specs.md) | Quick vs Explore, drafts, SMASH, Compare, Continue Editing |
-| 🚀 [Running pipelines](docs/running-pipelines.md) | Rails, jobs, agent profiles, plugins |
-| 💰 [Tracking cost](docs/tracking-cost.md) | Analytics, exports, per-ticket spending |
-| 🎨 [Customising the app](docs/customizing.md) | Themes, settings, telemetry, kill switches |
-| ⌨️ [Terminal panel](docs/terminal.md) | Shortcuts, shell integration, drag-and-drop |
-| 🧑‍💻 [CLI reference](docs/cli.md) | Every command grouped by task |
-| 🟢 [Codex notes](docs/codex.md) | Auth, sandbox, estimated-cost caveats, rollback |
-| 🔵 [Gemini notes](docs/gemini.md) | Auth, models, estimated-cost caveats, rollback |
-| 🌙 [Kimi notes](docs/kimi.md) | External CLI setup, `-p` execution, capabilities, models/effort, and safety gates |
+The local server binds to loopback and authenticates API and WebSocket access. Specrails is a single-user application, not a server to expose publicly. Project history is stored locally, but provider CLIs, package installation, update checks, websites and configured integrations can contact external services. Model calls can transmit the context supplied to them and incur provider charges. See [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
 
-**Platform notes** — 🍎 [macOS](docs/platforms/macos.md) · 🪟 [Windows](docs/platforms/windows.md)
+## Further reading
 
-**Extending** — 🧩 [`docs/internals/`](docs/internals/): architecture, REST reference, ops runbook, adding a provider.
+- [User guide](docs/guide/en/getting-started/1-what-is-specrails.md)
+- [Multi-repository projects](docs/multi-repo-projects.md)
+- [Mission background processes and logs](docs/mission-processes.md)
+- [Native browser capture and performance](docs/internals/browser-capture-performance.md)
+- [Review packets](docs/internals/review-packet.md)
+- [Internal documentation](docs/internals/README.md)
+- [Contributing](CONTRIBUTING.md) and [changelog](CHANGELOG.md)
 
----
-
-## ☕ Support
-
-If specrails-desktop saves you time, you can buy me a coffee on **Ko-fi** — it funds the open-source ecosystem. 💜
-
-[![Donate on Ko-fi](https://img.shields.io/badge/Donate-Ko--fi-FF5E5B?logo=kofi&logoColor=white&style=flat-square)](https://ko-fi.com/D1D81Y002C)
-
----
-
-## 📄 License
-
-[MIT](LICENSE) © [Javier Pulido](https://github.com/fjpulidop)
-
-<div align="center">
-<sub>Built with TypeScript, React, Express & a lot of ☕ — and shipped by the agents it orchestrates. 🚄</sub>
-</div>
+Specrails Desktop is available under the [MIT license](LICENSE). Development can be supported through [Ko-fi](https://ko-fi.com/D1D81Y002C).

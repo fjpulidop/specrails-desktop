@@ -97,6 +97,9 @@ export function isPrDecisionAction(v: unknown): v is PrDecisionAction {
 }
 
 export interface PrDecisionDeps {
+  /** Internal authority granted only by the group coordinator after parent admission. */
+  repositoryChildOf?: string
+  repositoryIntegrationBranch?: string
   db: DbInstance
   project: { id: string; slug: string; path: string }
   git: GitRunner
@@ -121,6 +124,7 @@ export interface PrDecisionDeps {
 }
 
 export interface PrDecisionInput {
+  repositoryId?: string
   prDeliveryId: string
   action: PrDecisionAction
   expectedDecision: string
@@ -156,7 +160,7 @@ function ghFailed(r: ExecResult): PrDecisionResult {
  * a PR existed (pushed/local-only → pr_url null). Publish/poll require a real
  * PR URL — a degraded draft only offers retry or discard.
  */
-function actionAllowed(action: PrDecisionAction, row: RailPrDeliveryRow): boolean {
+export function actionAllowed(action: PrDecisionAction, row: RailPrDeliveryRow): boolean {
   switch (action) {
     case 'create-pr':
       return row.decision === 'on_review' ||
@@ -195,6 +199,11 @@ function actionAllowed(action: PrDecisionAction, row: RailPrDeliveryRow): boolea
 export async function executePrDecision(deps: PrDecisionDeps, input: PrDecisionInput): Promise<PrDecisionResult> {
   const row = getPrDelivery(deps.db, input.prDeliveryId)
   if (!row) return { status: 404, body: { error: 'Unknown prDeliveryId' } }
+  if (row.parent_delivery_id && deps.repositoryChildOf !== row.parent_delivery_id) return { status: 409, body: { error: 'repository_delivery_requires_parent', parentDeliveryId: row.parent_delivery_id } }
+  if (!row.parent_delivery_id && row.execution_manifest) {
+    const { executeRepositoryGroupDecision } = await import('./multi-repo-delivery')
+    return executeRepositoryGroupDecision(deps, input)
+  }
 
   // Compare-and-set pre-check: the caller decided against a snapshot — if the
   // row moved on (the other surface answered first), it must reconcile, not act.
@@ -256,6 +265,7 @@ function casTransitionWithTicketEffect(
   patch: PrDeliveryPatch,
   effect: RailPrTicketEffect,
 ): PrDecisionResult | null {
+  if (deps.repositoryChildOf) return casTransition(deps, row, next, patch)
   if (
     row.operation_token &&
     transitionClaimedDecisionWithTicketEffect(
@@ -272,6 +282,7 @@ function applyTerminalTicketEffect(
   terminalDecision: PrDecision,
   cleanupWarnings: string[],
 ): void {
+  if (deps.repositoryChildOf) return
   const result = applyRailPrTicketEffect(deps, row.id)
   if (result.ok) return
   cleanupWarnings.push(`ticket status update pending: ${result.error ?? 'unknown ticket-store error'}`)
@@ -295,6 +306,7 @@ function finalizeTransition(deps: PrDecisionDeps, id: string): PrDeliverySnapsho
     deferredFinalizations.add(id)
     return snap
   }
+  if (deps.repositoryChildOf) return snap
   deps.broadcast(toRailPrStateMessage(deps.project.id, snap))
   if (row.origin_conversation_id) {
     const agent = (deps.agentChat ?? getAgentChatManager)()
@@ -2698,6 +2710,7 @@ const SWEEPABLE_DECISIONS: ReadonlySet<string> = new Set(['on_review', 'pr_draft
  */
 export async function sweepMergedChainAncestors(deps: PrDecisionDeps, mergedRow: RailPrDeliveryRow): Promise<string[]> {
   const swept: string[] = []
+  if (deps.repositoryChildOf) return swept
   let chains: ReturnType<typeof listChainsTouchingDelivery>
   try { chains = listChainsTouchingDelivery(deps.db, mergedRow.id) } catch { return swept }
   for (const chain of chains) {
@@ -2769,6 +2782,7 @@ export async function sweepMergedChainAncestors(deps: PrDecisionDeps, mergedRow:
 /** A discarded delivery that a chain's later chunks build on pauses those
  *  chains (`head_discarded`, head rewound to the previous chunk's branch). */
 function pauseChainsOnDiscard(deps: PrDecisionDeps, row: RailPrDeliveryRow): void {
+  if (deps.repositoryChildOf) return
   try {
     const branchOf = (id: string): string | null => {
       const other = chainGetDelivery(deps.db, id)
@@ -2788,6 +2802,7 @@ function pauseChainsOnDiscard(deps: PrDecisionDeps, row: RailPrDeliveryRow): voi
 /** Local-integration target: a chain-launched (stacked) delivery integrates
  *  into the chain's integration branch, never into its feature base. */
 function mergeLocalTargetBranch(deps: PrDecisionDeps, row: RailPrDeliveryRow): string {
+  if (deps.repositoryChildOf) return deps.repositoryIntegrationBranch ?? row.base_branch
   try {
     for (const chain of listChainsTouchingDelivery(deps.db, row.id)) {
       if (chain.integration_branch) return chain.integration_branch

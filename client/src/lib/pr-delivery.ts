@@ -19,7 +19,7 @@ const DELIVERY_OUTCOMES: ReadonlySet<string> = new Set([
   'retryable_failure', 'blocked', 'not_started', 'unknown',
 ])
 const OPERATIONS: ReadonlySet<string> = new Set([
-  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry',
+  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry', 'checkout',
 ])
 const STATUS_CODES: ReadonlySet<string> = new Set([
   'implementation_running', 'implementation_failed', 'ready_for_review',
@@ -161,6 +161,24 @@ export function coerceRailPrStateSnapshot(v: unknown, fallbackRailIndex?: number
       ? o.safetyArchives.filter((archive): archive is string => typeof archive === 'string' && archive.length > 0)
       : [],
     units,
+    executionManifest: o.executionManifest && typeof o.executionManifest === 'object' && (o.executionManifest as {version?: unknown}).version === 1
+      ? o.executionManifest as RailPrStateSnapshot['executionManifest'] : undefined,
+    repositoryDeliveries: Array.isArray(o.repositoryDeliveries) ? o.repositoryDeliveries.slice(0, 100).flatMap((value) => {
+      if (!value || typeof value !== 'object') return []
+      const repo = value as Record<string, unknown>
+      if (typeof repo.repositoryId !== 'string' || typeof repo.deliveryId !== 'string' || typeof repo.name !== 'string' || typeof repo.path !== 'string') return []
+      const child = coerceRailPrStateSnapshot({ ...repo, prDeliveryId: repo.deliveryId, repositoryDeliveries: undefined }, railIndex)
+      if (!child) return []
+      return [{
+        repositoryId: repo.repositoryId, deliveryId: repo.deliveryId, name: repo.name, path: repo.path,
+        baseBranch: child.baseBranch, ...(asString(repo.integrationBranch) ? { integrationBranch: asString(repo.integrationBranch)! } : {}),
+        branch: child.branch, deliverySha: child.deliverySha ?? null,
+        decision: child.decision, implementationOutcome: child.implementationOutcome ?? 'unknown', deliveryOutcome: child.deliveryOutcome ?? 'unknown',
+        statusCode: child.statusCode ?? null, statusDetail: child.statusDetail ?? null,
+        prUrl: child.prUrl, prNumber: child.prNumber, runIds: child.runIds,
+        worktreeIds: Array.isArray(repo.worktreeIds) ? repo.worktreeIds.filter((id): id is string => typeof id === 'string') : [],
+      }]
+    }) : undefined,
   }
 }
 

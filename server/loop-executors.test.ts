@@ -27,6 +27,7 @@ vi.mock('./providers', () => ({ getAdapter }))
 vi.mock('./workspace-manager', () => ({ ensureFrameworkAgents }))
 vi.mock('./result-event', () => ({ finaliseInvocationResult }))
 
+import type { RunExecutionManifest } from './multi-repo-execution-store'
 import { createLoopExecutors } from './loop-executors'
 
 function fakeAdapter(id: string) {
@@ -81,6 +82,7 @@ async function callStep(
 }
 
 describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
+  afterEach(() => { vi.unstubAllEnvs() })
   beforeEach(() => {
     runAiCliInvocation.mockReset()
     getAdapter.mockReset()
@@ -104,6 +106,55 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
       sessionId: 'sid',
       stderrTail: '',
     })
+  })
+
+  it.each(['1', '0'])('gives coordinated AI and Decider the same selected worktrees and app-owned delivery with legacy PR mode=%s', async (legacyMode) => {
+    vi.stubEnv('SPECRAILS_RAIL_DELIVER_PR', legacyMode)
+    const manifest: RunExecutionManifest = {
+      version: 1, groupId: 'g', projectId: 'p', primaryRepositoryId: 'backend', artifactRepositoryId: 'backend',
+      selectedRepositoryIds: ['backend', 'frontend'], repositories: ['backend', 'frontend'].map((name) => ({
+        repositoryId: name, name, sourcePath: `/source/${name}`, gitCommonDir: `/source/${name}/.git`,
+        baseBranch: 'main', baseSha: 'a'.repeat(40), worktreePath: `/work/${name}`, branch: 'feature', worktreeId: name,
+      })),
+    }
+    getAdapter.mockReturnValue(fakeAdapter('codex'))
+    const ex = createLoopExecutors({ env: {} })
+    await ex.runAiStep({ prompt: 'implement both', provider: 'codex', model: 'm', cwd: '/work/backend', repoDir: '/work/backend', executionManifest: manifest })
+    await ex.runDecider({ systemPrompt: 'verify', userPrompt: 'both repositories', provider: 'codex', model: 'm', cwd: '/work/backend', repoDir: '/work/backend', executionManifest: manifest })
+    const calls = runAiCliInvocation.mock.calls.map(([input]) => input)
+    expect(calls).toHaveLength(2)
+    expect(calls[0].buildOpts.scopedWorkingDirectories).toBe(true)
+    expect(calls[1].buildOpts.toolPolicy).toBe('read-only')
+    for (const call of calls) {
+      expect(call.buildOpts.extraArgs).toEqual(['-c', 'sandbox_workspace_write.writable_roots=["/work/backend", "/work/frontend"]'])
+      expect(call.env.SPECRAILS_REPO_DIR).toBe('/work/backend')
+      expect(call.env.SPECRAILS_GIT_AUTO).toBe('false')
+      expect(JSON.parse(call.env.SPECRAILS_REPOSITORIES).map((repo: { path: string }) => repo.path)).toEqual(['/work/backend', '/work/frontend'])
+    }
+  })
+
+  it.each([true, false])('one-shot Claude does not certify orphaned workers; roster cleared=%s', async (cleared) => {
+    getAdapter.mockReturnValue(fakeAdapter('claude'))
+    runAiCliInvocation.mockImplementationOnce(async (input) => {
+      input.onStdoutLine?.(JSON.stringify({ type: 'system', subtype: 'background_tasks_changed', tasks: [{ task_id: 'architect-1' }] }))
+      if (cleared) input.onStdoutLine?.(JSON.stringify({ type: 'system', subtype: 'background_tasks_changed', tasks: [] }))
+      return { code: 0, spawnFailed: false, events: [], sessionId: 'sid', stderrTail: '' }
+    })
+    const result = await createLoopExecutors({ env: {} }).runAiStep({ prompt: '/specrails:implement #1 --yes', provider: 'claude', model: 'sonnet', cwd: '/repo' })
+    expect(result.failed).toBe(!cleared)
+    if (!cleared) expect(result.errorText).toContain('unfinished background task')
+    expect(runAiCliInvocation.mock.calls[0][0].buildOpts.systemPrompt).toContain('command and subagent')
+    expect(runAiCliInvocation.mock.calls[0][0].buildOpts.prompt).toBe('/specrails:implement #1 --yes')
+  })
+
+  it('one-shot Claude ignores explicitly ambient watchers in the completion gate', async () => {
+    getAdapter.mockReturnValue(fakeAdapter('claude'))
+    runAiCliInvocation.mockImplementationOnce(async (input) => {
+      input.onStdoutLine?.(JSON.stringify({ type: 'system', subtype: 'background_tasks_changed', tasks: [{ task_id: 'watcher', ambient: true }] }))
+      return { code: 0, spawnFailed: false, events: [], sessionId: 'sid', stderrTail: '' }
+    })
+    const result = await createLoopExecutors({ env: {} }).runAiStep({ prompt: 'implement', provider: 'claude', model: 'sonnet', cwd: '/repo' })
+    expect(result.failed).toBe(false)
   })
 
   it('codex relocated → adds repo + cwd to sandbox writable_roots', async () => {

@@ -39,10 +39,14 @@ interface SockState {
 
 // The topic NAME 'hub' is part of the mobile wire contract (the phone
 // subscribes to it) — mobile-app v1 wire compat, do not rename the topic.
-type TopicName = 'queue' | 'phase' | 'tickets' | 'rails' | 'spending' | 'activity' | 'alerts' | 'chat'
+type TopicName = 'queue' | 'phase' | 'tickets' | 'rails' | 'spending' | 'activity' | 'alerts' | 'chat' | 'missions'
 
 function topicFor(type: string): TopicName | 'jobtail' | 'hub' | null {
   switch (type) {
+    case 'agent_stream': case 'agent_done': case 'agent_partial': case 'agent_error': case 'agent_title':
+    case 'agent_tool': case 'agent_tool_result': case 'agent_queued': case 'agent_dequeued': case 'agent_steered':
+    case 'agent_queue_edited': case 'agent_queue_removed': case 'agent_queue_cleared': case 'agent_input_receipt':
+    case 'agent_pr_decision': case 'background_process.started': case 'background_process.updated': case 'background_process.exited': return 'missions'
     case 'queue': return 'queue'
     case 'phase': return 'phase'
     case 'ticket_created':
@@ -130,10 +134,12 @@ export class MobileWsBridge {
   // it so a companion can only subscribe to projects it was granted. Default
   // resolver (undefined) keeps every device unrestricted — byte-identical legacy.
   private _allowedProjectsFor: (deviceId: string) => Set<string> | null
+  private _missionProjectFor: (conversationId: string) => string | null
 
-  constructor(opts: { clock?: () => number; allowedProjectsFor?: (deviceId: string) => Set<string> | null } = {}) {
+  constructor(opts: { clock?: () => number; allowedProjectsFor?: (deviceId: string) => Set<string> | null; missionProjectFor?: (conversationId: string) => string | null } = {}) {
     this._clock = opts.clock ?? (() => Date.now())
     this._allowedProjectsFor = opts.allowedProjectsFor ?? (() => null)
+    this._missionProjectFor = opts.missionProjectFor ?? (() => null)
   }
 
   start(): void {
@@ -230,10 +236,27 @@ export class MobileWsBridge {
     const topic = topicFor(msg.type)
     if (!topic) return
     for (const s of this._socks) {
+      const allowed = this._allowedProjectsFor(s.deviceId)
+      if (topic === 'missions') {
+        if (allowed !== null || !s.topics.has('missions')) continue
+        const value = msg as unknown as Record<string, unknown>
+        const process = value.process as { chatId?: string } | undefined
+        const cid = typeof value.conversationId === 'string' ? value.conversationId : process?.chatId
+        const projectId = cid ? this._missionProjectFor(cid) : null
+        if (!projectId || !s.projects.has(projectId)) continue
+        // The snapshot is authoritative. Events are bounded invalidation hints;
+        // never stream tool inputs/results or arbitrary provider payloads.
+        this.send(s, redact({ type: 'mission.updated', projectId, conversationId: cid, event: msg.type, timestamp: value.timestamp,
+          ...(msg.type === 'agent_stream' ? { delta: String(value.delta ?? '').slice(0, 16_000) } : {}),
+          ...(msg.type === 'agent_tool' ? { tool: String(value.tool ?? '').slice(0, 100) } : {}) }))
+        continue
+      }
       if (topic === 'hub') {
         // App-level (project registry): always forward, but translate to the
         // legacy mobile wire types and redact (the projects payload carries `path`).
-        this.send(s, redact(toMobileWire(msg)))
+        if (msg.type === 'desktop.projects') this.send(s, redact(toMobileWire({ ...msg, projects: allowed === null ? msg.projects : msg.projects.filter(project => allowed.has(project.id)) })))
+        else if (msg.type === 'desktop.project_added') { if (allowed === null || allowed.has(msg.project.id)) this.send(s, redact(toMobileWire(msg))) }
+        else if (msg.type === 'desktop.project_removed' && (allowed === null || allowed.has(msg.projectId))) this.send(s, redact(toMobileWire(msg)))
         continue
       }
       // App-level desktop budget alert: deliver to subscribers holding the
@@ -242,12 +265,12 @@ export class MobileWsBridge {
       // topic gate like every other delivery — a device that never subscribed to
       // `alerts` (topics init empty) must NOT receive these frames (BUG-MOBILE-05).
       if (topic === 'alerts' && msg.type === 'desktop_daily_budget_exceeded') {
-        if (s.topics.has('alerts')) this.send(s, redact(toMobileWire(msg)))
+        if (allowed === null && s.topics.has('alerts')) this.send(s, redact(toMobileWire(msg)))
         continue
       }
 
       const projectId = (msg as { projectId?: string }).projectId
-      if (!projectId || !s.projects.has(projectId)) continue
+      if (!projectId || !s.projects.has(projectId) || (allowed !== null && !allowed.has(projectId))) continue
 
       if (topic === 'jobtail') {
         if (!s.watchedJob || s.watchedJob.projectId !== projectId) continue
@@ -281,7 +304,8 @@ export class MobileWsBridge {
   private flushLogs(): void {
     for (const s of this._socks) {
       for (const [jobId, lines] of s.logBuf) {
-        if (lines.length === 0) continue
+        const allowed = this._allowedProjectsFor(s.deviceId)
+        if (lines.length === 0 || !s.watchedJob || s.watchedJob.jobId !== jobId || (allowed !== null && !allowed.has(s.watchedJob.projectId))) continue
         const dropped = s.logDropped.get(jobId) ?? 0
         this.send(s, { type: 'log_batch', jobId, lines, dropped })
       }

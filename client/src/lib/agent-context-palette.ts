@@ -24,6 +24,8 @@ export interface AgentContextChip {
   status?: string | null
   projectId?: string | null
   projectName?: string | null
+  repositoryId?: string | null
+  repositoryName?: string | null
   metadata?: Record<string, unknown>
 }
 
@@ -35,6 +37,8 @@ export interface AgentContextReference {
   scope?: {
     projectId?: string | null
     projectName?: string | null
+    repositoryId?: string | null
+    repositoryName?: string | null
   }
   status?: string | null
   metadata?: Record<string, unknown>
@@ -61,6 +65,21 @@ export interface AgentPaletteItem {
   tierLevel?: AgentTierLevel
   risk?: 'cost' | 'destructive'
   keywords?: string[]
+}
+
+export function discoveredFileItems(project: Pick<DesktopProject, 'id' | 'name'>, matches: Array<{ path: string; repositoryId: string; repositoryName: string }>): AgentPaletteItem[] {
+  return matches.map((match) => ({
+    id: `file:${project.id}:${match.repositoryId}:${match.path}`,
+    mode: 'reference', title: match.path, subtitle: match.repositoryName,
+    group: 'Files', icon: 'file', keywords: [match.path, match.repositoryName],
+    chip: {
+      kind: 'file', id: match.path, label: `${match.repositoryName} · ${match.path}`,
+      token: `@${match.repositoryName}/${match.path}`,
+      projectId: project.id, projectName: project.name,
+      repositoryId: match.repositoryId, repositoryName: match.repositoryName,
+      metadata: { path: match.path },
+    },
+  }))
 }
 
 export interface PaletteSourceState {
@@ -99,8 +118,8 @@ export function detectAgentPaletteTrigger(text: string, caret = text.length): Ag
   return null
 }
 
-export function chipKey(chip: Pick<AgentContextChip, 'kind' | 'id'>): string {
-  return `${chip.kind}:${chip.id}`
+export function chipKey(chip: Pick<AgentContextChip, 'kind' | 'id' | 'repositoryId'>): string {
+  return `${chip.kind}:${chip.repositoryId ? `${chip.repositoryId}:` : ''}${chip.id}`
 }
 
 export function toContextReference(chip: AgentContextChip): AgentContextReference {
@@ -112,6 +131,7 @@ export function toContextReference(chip: AgentContextChip): AgentContextReferenc
     scope: {
       projectId: chip.projectId ?? null,
       projectName: chip.projectName ?? null,
+      ...(chip.repositoryId ? { repositoryId: chip.repositoryId, repositoryName: chip.repositoryName } : {}),
     },
     status: chip.status ?? null,
     metadata: chip.metadata,
@@ -125,7 +145,8 @@ export function buildAgentContextBlock(refs: AgentContextReference[]): string {
       ? ` project=${ref.scope?.projectName ?? ref.scope?.projectId}`
       : ''
     const status = ref.status ? ` status=${ref.status}` : ''
-    return `- ${ref.token}: kind=${ref.kind} id=${ref.id} label="${ref.label}"${scope}${status}`
+    const repository = ref.scope?.repositoryId ? ` repositoryId=${ref.scope.repositoryId}` : ''
+    return `- ${ref.token}: kind=${ref.kind} id=${ref.id} label="${ref.label}"${scope}${repository}${status}`
   })
   return `## Resolved Specrails Context\n\n${lines.join('\n')}`
 }

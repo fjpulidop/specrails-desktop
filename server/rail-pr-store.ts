@@ -12,6 +12,7 @@ import type { OverlayCleanupEvidence } from './worktree-overlay'
 import type { DeliverySettleEvidence } from './delivery-evidence'
 import type { PrDecisionCardEnvelope, RailPrStateMessage } from './types'
 import { newId } from './ids'
+import { readExecutionManifest, type RunExecutionManifest, type RepositoryDeliverySnapshot } from './multi-repo-execution-store'
 
 /**
  * `decision` is the user/action lifecycle only. Execution truth and delivery
@@ -82,10 +83,11 @@ export type PrDeliveryStatusCode =
   | 'superseded'
   | 'cleanup_incomplete'
 
-export type PrDecisionOperation = 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry'
+export type PrDecisionOperation = 'checkout' | 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry'
 
 /** Per-unit branch record captured at build-settle (mirrors rail-pr-delivery's DeliverBranch). */
 export interface DeliverBranchRecord {
+  repositoryId?: string
   ticketId: number
   branch: string
   /** Legacy delivery-eligibility bit retained for older decision code/wire consumers. */
@@ -174,6 +176,11 @@ export function isTerminalPrDecision(s: string): boolean {
 }
 
 export interface RailPrDeliveryRow {
+  parent_delivery_id?: string | null
+  repository_id?: string | null
+  repository_path?: string | null
+  execution_manifest?: string | null
+  repository_deliveries?: string
   id: string
   rail_index: number
   loop_id: string | null
@@ -229,6 +236,9 @@ export interface RailPrDeliveryRow {
 }
 
 export interface CreatePrDeliveryInput {
+  parentDeliveryId?: string | null
+  repositoryId?: string | null
+  repositoryPath?: string | null
   /** Row uuid; generated when omitted. */
   id?: string
   railIndex: number
@@ -261,9 +271,9 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
        loop_name, origin_surface, origin_conversation_id,
        implementation_outcome, delivery_outcome, status_code,
        is_continuation, supersedes_delivery_id, spec_snapshot,
-       revision_note, revision_of
+       revision_note, revision_of, parent_delivery_id, repository_id, repository_path
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', 'pending',
-       'implementation_running', ?, ?, ?, ?, ?)`
+       'implementation_running', ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.railIndex,
@@ -281,6 +291,9 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
       : null,
     input.revisionNote ? boundRevisionNote(input.revisionNote) : null,
     input.revisionOf ?? null,
+    input.parentDeliveryId ?? null,
+    input.repositoryId ?? null,
+    input.repositoryPath ?? null,
   )
   return getPrDelivery(db, id)!
 }
@@ -322,6 +335,11 @@ export function createPrDeliveryGeneration(
   expectedActive: { id: string; decision: PrDecision } | null,
 ): { delivery: RailPrDeliveryRow; superseded: SupersededPrDelivery | null } {
   return db.transaction(() => {
+    if (input.parentDeliveryId) {
+      const parent = getPrDelivery(db, input.parentDeliveryId)
+      if (!parent || parent.decision !== 'building' || parent.parent_delivery_id) throw new PrDeliveryGenerationConflict(parent?.id ?? null)
+      return { delivery: createPrDelivery(db, input), superseded: null }
+    }
     const current = getActivePrDeliveryByRail(db, input.railIndex)
     if (expectedActive === null) {
       if (current) throw new PrDeliveryGenerationConflict(current.id)
@@ -398,7 +416,7 @@ export function getActivePrDeliveryByRail(db: DbInstance, railIndex: number): Ra
   return db
     .prepare(
       `SELECT * FROM rail_pr_deliveries
-       WHERE rail_index = ? AND decision NOT IN ('completed','merged','discarded','superseded')
+       WHERE parent_delivery_id IS NULL AND rail_index = ? AND decision NOT IN ('completed','merged','discarded','superseded')
        ORDER BY created_at DESC, rowid DESC LIMIT 1`
     )
     .get(railIndex) as RailPrDeliveryRow | undefined
@@ -409,7 +427,7 @@ export function listActivePrDeliveries(db: DbInstance): RailPrDeliveryRow[] {
   return db
     .prepare(
       `SELECT * FROM rail_pr_deliveries
-       WHERE decision NOT IN ('completed','merged','discarded','superseded')
+       WHERE parent_delivery_id IS NULL AND decision NOT IN ('completed','merged','discarded','superseded')
        ORDER BY rail_index, created_at DESC, rowid DESC`
     )
     .all() as RailPrDeliveryRow[]
@@ -422,7 +440,7 @@ export function listTerminalPrDeliveries(db: DbInstance): RailPrDeliveryRow[] {
   return db
     .prepare(
       `SELECT * FROM rail_pr_deliveries
-       WHERE decision IN ('completed','merged','discarded','superseded')
+       WHERE parent_delivery_id IS NULL AND decision IN ('completed','merged','discarded','superseded')
        ORDER BY created_at DESC, rowid DESC`
     )
     .all() as RailPrDeliveryRow[]
@@ -477,14 +495,15 @@ export function listOriginLinkedPrDeliveries(db: DbInstance): RailPrDeliveryRow[
  */
 export function reconcileFailedBuildingPrDeliveries(
   db: DbInstance,
-  opts: { startup?: boolean } = {},
+  opts: { startup?: boolean; repositoryPath?: string; legacyRepositoryPath?: string } = {},
 ): RailPrDeliveryRow[] {
   const rows = db
-    .prepare(`SELECT * FROM rail_pr_deliveries WHERE decision = 'building' ORDER BY created_at ASC, rowid ASC`)
+    .prepare(`SELECT * FROM rail_pr_deliveries WHERE decision = 'building' AND (execution_manifest IS NULL OR parent_delivery_id IS NOT NULL) ORDER BY created_at ASC, rowid ASC`)
     .all() as RailPrDeliveryRow[]
   const reconciled: RailPrDeliveryRow[] = []
 
   for (const row of rows) {
+    if (opts.repositoryPath && (row.repository_path ?? opts.legacyRepositoryPath) !== opts.repositoryPath) continue
     const runIds = parseJsonArray<string>(row.run_ids ?? '[]')
     if (runIds.length === 0) {
       if (!opts.startup) continue
@@ -535,9 +554,9 @@ export function reconcileFailedBuildingPrDeliveries(
     const worktrees = db.prepare(`
       SELECT id, ticket_id, run_id, branch, merge_state
         FROM rail_worktrees
-       WHERE run_id IN (${placeholdersForWorktrees})
+       WHERE run_id IN (${placeholdersForWorktrees}) AND repository_id IS ?
        ORDER BY created_at ASC, rowid ASC
-    `).all(...uniqueRunIds) as Array<{
+    `).all(...uniqueRunIds, row.repository_id ?? null) as Array<{
       id: string
       ticket_id: number
       run_id: string | null
@@ -590,6 +609,8 @@ export function reconcileFailedBuildingPrDeliveries(
 
 /** Optional column updates riding a decision transition. */
 export interface PrDeliveryPatch {
+  executionManifest?: RunExecutionManifest | null
+  repositoryDeliveries?: RepositoryDeliverySnapshot[]
   branch?: string | null
   prUrl?: string | null
   prNumber?: number | null
@@ -617,6 +638,8 @@ export interface PrDeliveryPatch {
 // them to prevent any future caller injecting SQL via an object key (values
 // are always parameterized). Mirrors loop-runs-store's COUNTER_COLUMNS.
 const PATCH_COLUMNS: Record<keyof PrDeliveryPatch, string> = {
+  executionManifest: 'execution_manifest',
+  repositoryDeliveries: 'repository_deliveries',
   branch: 'branch',
   prUrl: 'pr_url',
   prNumber: 'pr_number',
@@ -646,7 +669,7 @@ function patchValue(key: keyof PrDeliveryPatch, patch: PrDeliveryPatch): string 
   if (key === 'safetyArchives') return JSON.stringify(normalizeSafetyArchives(raw as string[]))
   if (key === 'statusDetail') return raw == null ? null : boundPrDiagnostic(String(raw))
   if (key === 'isContinuation') return raw ? 1 : 0
-  if (key === 'settleEvidence') return raw == null ? null : JSON.stringify(raw)
+  if (key === 'settleEvidence' || key === 'executionManifest' || key === 'repositoryDeliveries') return raw == null ? null : JSON.stringify(raw)
   return raw as string | number | null
 }
 
@@ -834,6 +857,8 @@ export function clearOrphanedPrDeliveryOperations(db: DbInstance): number {
  * rail.pr_state broadcast and the GET /rails prDeliveries record carry.
  */
 export interface PrDeliverySnapshot {
+  executionManifest?: RunExecutionManifest | null
+  repositoryDeliveries?: RepositoryDeliverySnapshot[]
   id: string
   railIndex: number
   loopId: string | null
@@ -881,6 +906,7 @@ function parseJsonArray<T>(raw: string): T[] {
 export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot {
   const units = parseJsonArray<DeliverBranchRecord>(row.branches)
   return {
+    ...(row.execution_manifest ? { executionManifest: readExecutionManifest(row.execution_manifest), repositoryDeliveries: parseJsonArray<RepositoryDeliverySnapshot>(row.repository_deliveries ?? '[]') } : {}),
     id: row.id,
     railIndex: row.rail_index,
     loopId: row.loop_id,
@@ -932,6 +958,7 @@ export function toRailPrStateMessage(projectId: string, snap: PrDeliverySnapshot
     prDeliveryId: snap.id,
     railKey: snap.railKey,
     ticketIds: snap.ticketIds,
+    ...(snap.executionManifest ? { executionManifest: snap.executionManifest, repositoryDeliveries: snap.repositoryDeliveries } : {}),
     baseBranch: snap.baseBranch,
     branch: snap.branch,
     prUrl: snap.prUrl,
@@ -971,6 +998,7 @@ export function toPrDecisionCardEnvelope(projectId: string, snap: PrDeliverySnap
     projectId,
     baseBranch: snap.baseBranch,
     ticketIds: snap.ticketIds,
+    ...(snap.executionManifest ? { executionManifest: snap.executionManifest, repositoryDeliveries: snap.repositoryDeliveries } : {}),
     decision: snap.decision,
     implementationOutcome: snap.implementationOutcome,
     deliveryOutcome: snap.deliveryOutcome,

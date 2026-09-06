@@ -22,7 +22,7 @@ import { randomUUID } from 'crypto'
 import type { DbInstance } from './db'
 import { mirrorProjectEntry, resolveArtifacts, resolveHome } from './artifact-registry'
 import { installConfigPath, installConfigPathForProvider, type InstallConfigProject } from './install-config-path'
-import { getBundledCoreCli, getBundledCoreVersion } from './bundled-core'
+import { getCoreRuntimeStatus } from './core-runtime'
 import { resolveBundledNodeExe } from './path-resolver'
 import { spawnBundledCoreInit, assembleProjectOffline } from './offline-assemble'
 import { FrameworkManager } from './framework-manager'
@@ -723,21 +723,22 @@ async function validateCoreContract(): Promise<void> {
     return
   }
 
-  let contract: { checkpoints?: string[]; commands?: string[] }
+  let contract: { schemaVersion?: string; checkpoints?: string[] | Record<string, string>; commands?: string[] }
   try {
     const raw = require('fs').readFileSync(contractPath, 'utf-8') as string
-    contract = JSON.parse(raw) as { checkpoints?: string[]; commands?: string[] }
+    contract = JSON.parse(raw) as typeof contract
   } catch {
     console.debug('[Specrails] integration-contract.json failed to parse — using runtime defaults')
     return
   }
 
   if (contract.checkpoints) {
-    const missingCheckpoints = contract.checkpoints.filter(
+    const keys = Array.isArray(contract.checkpoints) ? contract.checkpoints : Object.keys(contract.checkpoints)
+    const missingCheckpoints = keys.filter(
       (c) => !CHECKPOINTS.some((cp) => cp.key === c)
     )
-    const extraCheckpoints = CHECKPOINTS
-      .filter((cp) => !contract.checkpoints!.includes(cp.key))
+    const extraCheckpoints = Number(contract.schemaVersion?.split('.')[0] ?? 0) >= 4 ? [] : CHECKPOINTS
+      .filter((cp) => !keys.includes(cp.key))
       .map((cp) => cp.key)
 
     if (missingCheckpoints.length > 0 || extraCheckpoints.length > 0) {
@@ -1008,7 +1009,12 @@ export class SetupManager {
     // assemble by symlink; openspec init is the only remaining network step) —
     // NO `npx specrails-core` round-trip. When NO bundled core is present we fall
     // through to the legacy npx probe + spawn, byte-identical to today.
-    const useBundledCore = getBundledCoreCli() !== null
+    const selectedCore = getCoreRuntimeStatus()
+    if (selectedCore.error) {
+      this._broadcast({ type: 'setup_error', projectId, error: selectedCore.error })
+      return
+    }
+    const useBundledCore = selectedCore.runtime !== null
 
     if (useBundledCore) {
       // Materialize the framework for the selected provider (idempotent). The
@@ -1021,7 +1027,7 @@ export class SetupManager {
         const fm = new FrameworkManager({
           broadcast: (msg) => this._broadcast(msg as unknown as WsMessage),
         })
-        const mat = fm.materialize(getBundledCoreVersion() ?? undefined, [provider])
+        const mat = fm.materialize(undefined, [provider])
         if (mat.ran && mat.errors.length > 0) {
           console.warn(
             `[SetupManager] framework materialize had errors: ${mat.errors.map((e) => `${e.provider}: ${e.message}`).join('; ')}`,
@@ -1075,7 +1081,7 @@ export class SetupManager {
     if (useBundledCore) {
       diagHeader.push(
         `[diag] node=${resolveBundledNodeExe() ?? process.execPath}`,
-        `[diag] cli=${getBundledCoreCli() ?? '<none>'}`,
+        `[diag] cli=${selectedCore.runtime?.cli ?? '<none>'}`,
         `[diag] cwd=${projectPath}`,
         `[diag] args=${initArgs.join(' ')}`,
         `[diag] SPECRAILS_BUNDLED_RUNTIMES_PATH=${process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH ?? '<unset>'}`,
@@ -1189,9 +1195,35 @@ export class SetupManager {
     })
   }
 
+  private _completeDeterministicSetup(projectId: string, projectPath: string, provider?: ProviderId): boolean {
+    const root = this._artifactRoot(projectId, projectPath)
+    let installedVersion: string | null = null
+    try {
+      const marker = join(root, '.specrails', 'specrails-version')
+      if (existsSync(marker)) installedVersion = readFileSync(marker, 'utf8').trim()
+    } catch { /* not installed */ }
+    const runtime = getCoreRuntimeStatus().runtime
+    if (!(Number((installedVersion ?? runtime?.version ?? '0').split('.')[0]) >= 5)) return false
+    const validation = validateInstalledCore(root)
+    const selectedProvider = provider ?? this._projectProviders.get(projectId) ?? 'claude'
+    const summary = computeSummary(root, 'quick', selectedProvider)
+    if (!validation.ok || !installedVersion || summary.agents < 3 || summary.specrailsCommands < 1) {
+      this._broadcast({ type: 'setup_error', projectId, error: 'Core 5 uses deterministic installation. Run project installation to repair its framework; enrichment is no longer supported.' })
+      return true
+    }
+    if (provider) this._projectProviders.set(projectId, provider)
+    this._projectTiers.set(projectId, 'quick')
+    this._initCheckpoints(projectId)
+    this._syncFilesystemCheckpoints(projectId, projectPath)
+    this._broadcast({ type: 'setup_complete', projectId, summary })
+    this._onSetupDone?.(projectId)
+    return true
+  }
+
   // ─── Enrich: claude -p "/specrails:enrich --from-config" ────────────────────
 
   startEnrich(projectId: string, projectPath: string, provider?: ProviderId, projectName?: string): void {
+    if (this._completeDeterministicSetup(projectId, projectPath, provider)) return
     this._abortedProjects.delete(projectId) // fresh run — clear any prior abort flag
     if (this._setupProcesses.has(projectId)) {
       console.warn(`[SetupManager] enrich already running for ${projectId}`)
@@ -1245,6 +1277,7 @@ export class SetupManager {
   }
 
   resumeEnrich(projectId: string, projectPath: string, sessionId: string, userMessage: string, provider?: ProviderId): void {
+    if (this._completeDeterministicSetup(projectId, projectPath, provider)) return
     if (this._setupProcesses.has(projectId)) {
       console.warn(`[SetupManager] enrich already running for ${projectId}`)
       return

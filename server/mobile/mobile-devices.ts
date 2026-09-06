@@ -40,21 +40,22 @@ export function _resetAclColumnCacheForTests(): void {
 }
 
 /** The set of project ids this device may access, or `null` when unrestricted
- *  (all projects). A malformed/empty stored value is treated as unrestricted to
- *  preserve legacy behaviour — restriction is opt-in. */
+ *  (all projects). Only the legacy NULL/unset value grants all projects;
+ *  malformed persisted restrictions fail closed. */
 export function getAllowedProjects(db: DbInstance, deviceId: string): Set<string> | null {
   ensureAclColumn(db)
   const row = db
     .prepare('SELECT allowed_projects FROM mobile_devices WHERE id = ?')
     .get(deviceId) as { allowed_projects: string | null } | undefined
-  if (!row || row.allowed_projects == null || row.allowed_projects === '') return null
+  if (!row) return new Set()
+  if (row.allowed_projects == null || row.allowed_projects === '') return null
   try {
     const parsed = JSON.parse(row.allowed_projects) as unknown
-    if (!Array.isArray(parsed)) return null
-    const ids = parsed.filter((x): x is string => typeof x === 'string')
-    return ids.length > 0 ? new Set(ids) : null
+    if (!Array.isArray(parsed)) return new Set()
+    if (parsed.some(x => typeof x !== 'string')) return new Set()
+    return new Set(parsed)
   } catch {
-    return null
+    return new Set()
   }
 }
 

@@ -1,4 +1,12 @@
 {
+  "network": {
+    "htmlResponse": "L’API a renvoyé une page web au lieu de JSON. Vérifiez que le serveur Specrails fonctionne et que le port de l’API est correct.",
+    "invalidResponse": "L’API Specrails a renvoyé une réponse non valide.",
+    "endpointUnavailable": "Ce point d’accès API est indisponible. Vérifiez que les versions du client et du serveur Specrails correspondent.",
+    "httpError": "L’API Specrails a renvoyé HTTP {{status}}.",
+    "requestFailed": "Impossible de joindre le serveur Specrails.",
+    "deliveryUnconfirmed": "La réception du message n’a pas pu être confirmée. Votre brouillon est conservé et ne sera pas renvoyé automatiquement."
+  },
   "actions": {
     "save": "Enregistrer",
     "cancel": "Annuler",
@@ -91,5 +99,45 @@
       "w": "Redimensionner — bord gauche"
     },
     "resetPosition": "Réinitialiser la position"
+  },
+  "repositories": {
+    "title": "Dépôts et dossiers",
+    "additional": "Dossiers supplémentaires",
+    "sharedBacklog": "Un projet, un backlog partagé. Chaque spec peut cibler un ou plusieurs dépôts.",
+    "folderNumber": "Dossier {{number}}",
+    "removeFolder": "Retirer le dossier",
+    "addFolder": "Ajouter un dossier",
+    "primary": "Principal",
+    "contextOnly": "Contexte uniquement",
+    "unavailable": "Indisponible",
+    "detach": "Dissocier",
+    "detachHint": "La dissociation retire uniquement le lien. Les fichiers restent sur le disque. Les specs et les livraisons inachevées doivent d’abord libérer leurs références.",
+    "name": "Nom",
+    "path": "Chemin du dossier",
+    "browse": "Choisir un dossier",
+    "integrationBranch": "Branche d’intégration",
+    "branchDefault": "Utiliser la branche par défaut du dépôt",
+    "specScope": "Dépôts de cette spec",
+    "scopeHint": "Sélectionnez les dépôts que cette spec peut modifier. Les autres dossiers restent disponibles comme contexte.",
+    "invalidSelection": "Un dépôt sélectionné n’est plus enregistré. Mettez à jour la sélection avant d’enregistrer.",
+    "shellTarget": "Dépôt de cette commande",
+    "shellDefault": "Dépôt d’exécution (exécutions avec un seul dépôt)",
+    "shellHint": "Obligatoire lorsqu’une exécution concerne plusieurs dépôts.",
+    "select": "Dépôt",
+    "all": "Tous les dépôts"
+  },
+  "repositoryDelivery": {
+    "building": "Implémentation en cours",
+    "on_review": "Prête pour la revue",
+    "no_changes": "Aucune modification",
+    "pr_draft": "Brouillon de PR",
+    "pr_ready": "PR prête",
+    "pr_closed": "PR fermée",
+    "completed": "Terminée",
+    "merged": "Intégrée",
+    "discarded": "Abandonnée",
+    "superseded": "Remplacée",
+    "implementation_failed": "Échec de l’implémentation",
+    "pr_failed": "Échec de la livraison"
   }
 }

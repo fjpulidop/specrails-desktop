@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+import { syncBuiltinESMExports } from 'node:module'
 
 // ─── Mock the adapter registry so no real CLI is probed ──────────────────────
 
@@ -43,6 +47,60 @@ import type { CliProvider } from './desktop-db'
 
 const installed = async () => ({ installed: true, executable: true, version: '1.0.0' })
 const missing = async () => ({ installed: false, executable: false })
+
+describe('Codex authentication presence follows the invocation home', () => {
+  let root: string
+  let authHome: string
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-auth-probe-'))
+    authHome = path.join(root, 'Codex José Login')
+    fs.mkdirSync(authHome)
+    vi.spyOn(os, 'homedir').mockReturnValue(root)
+    syncBuiltinESMExports()
+    vi.stubEnv('CODEX_HOME', authHome)
+    mocks.adapters.push(mocks.makeAdapter('codex', installed))
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    syncBuiltinESMExports()
+    vi.unstubAllEnvs()
+    fs.rmSync(root, { recursive: true, force: true })
+  })
+  it('recognizes an accessible auth file in the custom home without reading it', async () => {
+    fs.writeFileSync(path.join(authHome, 'auth.json'), 'synthetic fixture; never credential contents')
+    const read = vi.spyOn(fs, 'readFileSync')
+    syncBuiltinESMExports()
+    expect((await getDetectionSnapshot()).providers.codex.authState).toBe('authenticated')
+    expect(read.mock.calls.some(([file]) => file === path.join(authHome, 'auth.json'))).toBe(false)
+  })
+  it('does not claim the default home login applies when a different override is empty', async () => {
+    fs.mkdirSync(path.join(root, '.codex'))
+    fs.writeFileSync(path.join(root, '.codex', 'auth.json'), '{}')
+    expect((await getDetectionSnapshot()).providers.codex.authState).toBe('unauthenticated')
+    vi.stubEnv('CODEX_HOME', '')
+    expect((await getDetectionSnapshot({ refresh: true })).providers.codex.authState).toBe('authenticated')
+  })
+  it('keeps uncertain relative or unreadable locations unknown without disabling the provider', async () => {
+    vi.stubEnv('CODEX_HOME', 'relative-login')
+    expect((await getDetectionSnapshot()).providers.codex.authState).toBe('unknown')
+    vi.stubEnv('CODEX_HOME', authHome)
+    fs.mkdirSync(path.join(authHome, 'auth.json')) // present but not a readable credential file
+    const result = (await getDetectionSnapshot({ refresh: true })).providers.codex
+    expect(result.authState).toBe('unknown')
+    expect(result.usable).toBe(true)
+  })
+  it('reports inaccessible credentials as unknown instead of claiming a login is missing', async () => {
+    const authFile = path.join(authHome, 'auth.json')
+    fs.writeFileSync(authFile, '{}')
+    const access = fs.accessSync
+    vi.spyOn(fs, 'accessSync').mockImplementation((file, mode) => {
+      if (file === authFile) throw Object.assign(new Error('Access denied'), { code: 'EACCES' })
+      access(file, mode)
+    })
+    syncBuiltinESMExports()
+    expect((await getDetectionSnapshot()).providers.codex.authState).toBe('unknown')
+  })
+})
 
 beforeEach(() => {
   _resetDetectionForTests()

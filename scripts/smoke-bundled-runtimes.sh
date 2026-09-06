@@ -68,60 +68,13 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 "${GIT}" -C "${T}" help -a >/dev/null   # proves libexec/git-core resolves
 rm -rf "${T}"
 
-# Optional: bundled Chromium for the browser-capture feature. Only validated when
-# present (it is bundled solely when BUNDLE_CHROMIUM=true in the release workflow);
-# otherwise the feature falls back to a Playwright-managed Chromium at runtime.
-#
-# IMPORTANT (BUG-CI-04): Chromium ships as a SINGLE OPAQUE, OBFUSCATED blob
-# (chromium/chromium.pak — a XOR-transformed chromium.tar.gz; see the env comment
-# in desktop-release.yml + scripts/obfuscate-chromium.mjs), NOT an unpacked tree.
-# The previous probe `find`-ed for an unpacked *.app/chrome/chrome.exe tree that
-# NEVER matches the shipped .pak, so it silently skipped validation — a
-# broken/truncated/mis-keyed .pak shipped in signed releases with no CI signal.
-# We now de-obfuscate the SHIPPED .pak (reversing the exact XOR the runtime uses),
-# extract it, locate the executable, and run a headless --dump-dom against the
-# extracted Chromium — proving the bundled blob round-trips to a runnable browser.
+# Validate the actual shipped Chromium payload in an isolated temporary tree.
+# macOS release callers require Developer ID signing and notarization through
+# the corresponding SPECRAILS_REQUIRE_CHROMIUM_* environment variables. The
+# functional probe uses Playwright with the sandbox enabled on macOS/Windows.
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
-OBFUSCATE="${SCRIPT_DIR}/obfuscate-chromium.mjs"
-PAK="${RT}/chromium/chromium.pak"
-
-if [[ -f "${PAK}" ]]; then
-  echo "=== validating shipped chromium.pak: ${PAK} ==="
-  if [[ ! -f "${OBFUSCATE}" ]]; then
-    echo "ERROR: cannot find obfuscate-chromium.mjs at ${OBFUSCATE} to decode the .pak"
-    exit 1
-  fi
-  CHROMIUM_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t smokechromium)"
-  # 1. Reverse the XOR (the transform is symmetric) → chromium.tar.gz.
-  "${NODE}" "${OBFUSCATE}" "${PAK}" "${CHROMIUM_TMP}/chromium.tar.gz" >/dev/null \
-    || { echo "ERROR: failed to de-obfuscate ${PAK}"; rm -rf "${CHROMIUM_TMP}"; exit 1; }
-  # 2. Extract the recovered archive (Windows 10+ ships bsdtar as `tar`).
-  mkdir -p "${CHROMIUM_TMP}/extracted"
-  tar -xzf "${CHROMIUM_TMP}/chromium.tar.gz" -C "${CHROMIUM_TMP}/extracted" \
-    || { echo "ERROR: chromium.pak did not decode to a valid tar.gz (corrupt/truncated/mis-keyed)"; rm -rf "${CHROMIUM_TMP}"; exit 1; }
-  # 3. Locate the executable (Playwright's layout varies: a macOS *.app binary, or
-  #    chrome.exe / chrome / chromium on Windows / Linux).
-  CHROMIUM=$(find "${CHROMIUM_TMP}/extracted" -path "*.app/Contents/MacOS/*" -type f 2>/dev/null | head -1)
-  if [[ -z "${CHROMIUM}" ]]; then
-    CHROMIUM=$(find "${CHROMIUM_TMP}/extracted" -type f \( -name "chrome.exe" -o -name "chrome" -o -name "chromium" \) 2>/dev/null | head -1)
-  fi
-  if [[ -z "${CHROMIUM}" ]]; then
-    echo "ERROR: extracted chromium.pak contains no chrome executable"
-    rm -rf "${CHROMIUM_TMP}"; exit 1
-  fi
-  chmod +x "${CHROMIUM}" 2>/dev/null || true
-  # 4. Functional headless probe against the extracted Chromium.
-  echo "chromium: $("${CHROMIUM}" --version 2>&1 | head -n1)"
-  "${CHROMIUM}" --headless=new --no-sandbox --dump-dom about:blank >/dev/null 2>&1 \
-    || "${CHROMIUM}" --headless --no-sandbox --dump-dom about:blank >/dev/null 2>&1 \
-    || { echo "ERROR: bundled chromium (from .pak) failed to render about:blank"; rm -rf "${CHROMIUM_TMP}"; exit 1; }
-  rm -rf "${CHROMIUM_TMP}"
-  echo "chromium.pak round-trip + headless probe OK"
-elif [[ -d "${RT}/chromium" ]]; then
-  # Defensive: a chromium/ dir with NO .pak means the obfuscated bundle is missing
-  # — fail loudly rather than silently skipping (the old behaviour).
-  echo "ERROR: ${RT}/chromium exists but ${PAK} is missing — chromium bundle is broken"
-  exit 1
+if [[ -d "${RT}/chromium" || "${SPECRAILS_REQUIRE_CHROMIUM_SIGNATURE:-0}" == "1" || "${SPECRAILS_REQUIRE_CHROMIUM_NOTARIZATION:-0}" == "1" ]]; then
+  "${NODE}" "${SCRIPT_DIR}/verify-chromium-bundle.mjs" "${RT}"
 fi
 
 echo "Smoke test PASSED for ${RT}"

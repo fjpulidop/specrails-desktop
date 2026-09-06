@@ -168,15 +168,8 @@ bash('Download and verify uv (macOS arm64)', `
 if (process.env.BUNDLE_CHROMIUM === 'true') {
   bash('Bundle Chromium (macOS arm64)', `
     npx playwright install chromium
-    EXE=$(node -e "process.stdout.write(require('playwright').chromium.executablePath())")
-    PLATDIR="\${EXE}"
-    while [[ "$(basename "$(dirname "\${PLATDIR}")")" != chromium-* && "\${PLATDIR}" != "/" ]]; do PLATDIR=$(dirname "\${PLATDIR}"); done
-    rm -rf src-tauri/runtimes/chromium
-    mkdir -p src-tauri/runtimes/chromium
-    cp -R "\${PLATDIR}" "src-tauri/runtimes/chromium/$(basename "\${PLATDIR}")"
-    APP=$(find src-tauri/runtimes/chromium -maxdepth 2 -name "*.app" -type d | head -1)
-    test -n "\${APP}" && test -n "$(find "\${APP}/Contents/MacOS" -type f | head -1)"
-    echo "Bundled Chromium from \${PLATDIR} (app: \${APP})"
+    node scripts/assemble-chromium.mjs
+    test -s src-tauri/runtimes/chromium/chromium.tar.gz
   `);
 }
 

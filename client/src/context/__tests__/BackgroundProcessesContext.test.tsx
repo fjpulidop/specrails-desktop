@@ -1,106 +1,267 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, render, waitFor } from '@testing-library/react'
-import { BackgroundProcessesProvider, useBackgroundProcesses } from '../BackgroundProcessesContext'
+import { act, cleanup, render, waitFor } from '@testing-library/react'
+import { BACKGROUND_STOP_CONFIRMATION_MS, BACKGROUND_TERMINAL_RETENTION_MS, BackgroundProcessesProvider, useBackgroundProcesses } from '../BackgroundProcessesContext'
+import type { BackgroundProcess } from '../../types'
 
 let capturedHandler: ((data: unknown) => void) | null = null
-vi.mock('../../hooks/useSharedWebSocket', () => ({
-  useSharedWebSocket: () => ({
-    registerHandler: (_id: string, fn: (data: unknown) => void) => { capturedHandler = fn },
-    unregisterHandler: () => { capturedHandler = null },
-  }),
-}))
-
-vi.mock('../AgentChatContext', () => ({
-  useAgentChat: () => ({
-    active: { id: 'chat-1', pinned_project_id: 'proj-1' },
-    draftPinnedProjectId: null,
-  }),
-}))
-
-vi.mock('../../hooks/useDesktop', () => ({
-  useDesktop: () => ({ activeProjectId: 'proj-1' }),
-}))
-
-let latest = { labels: '', kill: async (_pid: number) => undefined as void }
-function Probe() {
-  const ctx = useBackgroundProcesses()
-  latest = {
-    labels: ctx.processes.map((p) => `${p.pid}:${p.command}:${p.status}`).join('|'),
-    kill: ctx.kill,
-  }
-  return <div data-testid="processes">{latest.labels}</div>
-}
-
-function send(msg: unknown) {
-  act(() => { capturedHandler?.(msg) })
-}
-
-beforeEach(() => {
-  capturedHandler = null
-  latest = { labels: '', kill: async (_pid: number) => undefined }
-  global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ processes: [] }) }) as unknown as typeof fetch
-})
-
-afterEach(() => {
-  vi.useRealTimers()
-})
+let connectionStatus = 'connected'
+let active = { id: 'chat-1', pinned_project_id: 'proj-1' }
+const registerHandler = (_id: string, fn: (data: unknown) => void) => { capturedHandler = fn }
+const unregisterHandler = () => { capturedHandler = null }
+vi.mock('../../hooks/useSharedWebSocket', () => ({ useSharedWebSocket: () => ({ registerHandler, unregisterHandler, connectionStatus }) }))
+vi.mock('../AgentChatContext', () => ({ useAgentChat: () => ({ active, draftPinnedProjectId: null }) }))
+vi.mock('../../hooks/useDesktop', () => ({ useDesktop: () => ({ activeProjectId: 'proj-1' }) }))
+let latest: ReturnType<typeof useBackgroundProcesses>
+function Probe() { latest = useBackgroundProcesses(); return <div>{latest.processes.map(p => `${p.processId}:${p.status}`).join('|')}</div> }
+const tree = () => <BackgroundProcessesProvider><Probe /></BackgroundProcessesProvider>
+const process = (patch: Partial<BackgroundProcess> = {}): BackgroundProcess => ({ processId: 'execution-1', pid: 77, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'running', chatId: 'chat-1', projectId: 'proj-1', ...patch })
+const response = (body: unknown, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response
+function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r }); return { promise, resolve } }
+function send(value: BackgroundProcess, type = 'background_process.started') { act(() => capturedHandler?.({ type, projectId: value.projectId, process: value })) }
+async function mount() { const result = render(tree()); await act(async () => {}); return result }
+beforeEach(() => { capturedHandler = null; connectionStatus = 'connected'; active = { id: 'chat-1', pinned_project_id: 'proj-1' }; vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ processes: [] }))) })
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('BackgroundProcessesProvider', () => {
-  it('hydrates active processes after a browser refresh', async () => {
-    vi.mocked(global.fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        processes: [
-          { pid: 99, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'running', chatId: 'chat-1', projectId: 'proj-1' },
-        ],
-      }),
-    } as Response)
-
-    render(<BackgroundProcessesProvider><Probe /></BackgroundProcessesProvider>)
-
-    await waitFor(() => {
-      expect(latest.labels).toBe('99:npm run dev:running')
-    })
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/projects/proj-1/background-processes?chatId=chat-1'))
+  it('hydrates scoped running and recently finished processes after a refresh', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(response({ processes: [process(), process({ processId: 'done', status: 'exited', endedAt: 50 })] }))
+    await mount()
+    expect(latest.processes.map(p => p.status)).toEqual(['running'])
+    expect(latest.history.map(p => p.status)).toEqual(['running', 'exited'])
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/projects/proj-1/background-processes?chatId=chat-1&includeFinished=true'), { signal: expect.any(AbortSignal) })
   })
-
-  it('filters process events by active project/chat and preserves append order', () => {
-    render(<BackgroundProcessesProvider><Probe /></BackgroundProcessesProvider>)
-    send({ type: 'background_process.started', projectId: 'proj-1', process: { pid: 1, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'running', chatId: 'chat-1', projectId: 'proj-1' } })
-    send({ type: 'background_process.started', projectId: 'proj-2', process: { pid: 2, command: 'vite', cwd: '/repo', startedAt: 11, status: 'running', chatId: 'chat-1', projectId: 'proj-2' } })
-    send({ type: 'background_process.started', projectId: 'proj-1', process: { pid: 3, command: 'npm test', cwd: '/repo', startedAt: 12, status: 'running', chatId: 'chat-2', projectId: 'proj-1' } })
-    send({ type: 'background_process.started', projectId: 'proj-1', process: { pid: 4, command: 'npm run watch', cwd: '/repo', startedAt: 13, status: 'running', chatId: 'chat-1', projectId: 'proj-1' } })
-
-    expect(latest.labels).toBe('1:npm run dev:running|4:npm run watch:running')
-
-    send({ type: 'background_process.exited', projectId: 'proj-1', process: { pid: 1, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'exited', chatId: 'chat-1', projectId: 'proj-1', exitCode: 0 } })
-    expect(latest.labels).toBe('1:npm run dev:exited|4:npm run watch:running')
+  it('isolates the same PID across owners and execution IDs while preserving order', async () => {
+    await mount()
+    send(process()); send(process({ projectId: 'proj-2' })); send(process({ chatId: 'chat-2' })); send(process({ processId: 'execution-2', startedAt: 20 }))
+    send(process({ status: 'stopping' }), 'background_process.updated')
+    expect(latest.processes.map(p => [p.processId, p.status])).toEqual([['execution-1', 'stopping'], ['execution-2', 'running']])
+    act(() => capturedHandler?.({ type: 'background_process.started', projectId: 'wrong', process: process({ processId: 'wrong' }) }))
+    expect(latest.processes).toHaveLength(2)
   })
-
-  it('keeps failed/exited processes visible briefly but removes killed processes immediately', () => {
+  it('does not let an older hydration overwrite a WS exit or discard a newly started process', async () => {
+    const snapshot = deferred<Response>(); vi.mocked(fetch).mockReturnValueOnce(snapshot.promise); render(tree())
+    send(process({ status: 'exited' }), 'background_process.exited'); send(process({ processId: 'new', startedAt: 20 }))
+    await act(async () => snapshot.resolve(response({ processes: [process()] })))
+    expect(latest.processes.map(p => [p.processId, p.status])).toEqual([['execution-1', 'exited'], ['new', 'running']])
+  })
+  it('reconciles a successful empty snapshot on reconnect after preserving entries while offline', async () => {
+    const view = await mount(); send(process()); send(process({ processId: 'done', status: 'killed' }), 'background_process.exited')
+    connectionStatus = 'connecting'; vi.mocked(fetch).mockRejectedValueOnce(new Error('offline')); view.rerender(tree()); await act(async () => {})
+    expect(latest.processes).toHaveLength(2)
+    connectionStatus = 'connected'; view.rerender(tree())
+    await waitFor(() => expect(latest.processes).toEqual([]))
+    expect(latest.history).toEqual([])
+    expect(fetch).toHaveBeenCalledTimes(3)
+  })
+  it('ignores previous conversation hydration and uses the captured owner for Stop after switching', async () => {
+    const old = deferred<Response>(); vi.mocked(fetch).mockReturnValueOnce(old.promise); const view = render(tree()); const oldProcess = process(); send(oldProcess)
+    active = { id: 'chat-2', pinned_project_id: 'proj-2' }
+    vi.mocked(fetch).mockResolvedValueOnce(response({ processes: [process({ projectId: 'proj-2', chatId: 'chat-2', processId: 'other' })] }))
+    view.rerender(tree()); await act(async () => {}); await act(async () => old.resolve(response({ processes: [oldProcess] })))
+    expect(latest.processes.map(p => p.processId)).toEqual(['other'])
+    vi.mocked(fetch).mockResolvedValueOnce(response({ ok: true, process: { ...oldProcess, status: 'stopping' } }, 202))
+    await act(async () => latest.kill(oldProcess))
+    expect(fetch).toHaveBeenLastCalledWith(expect.stringContaining('/api/projects/proj-1/background-processes/77?chatId=chat-1&processId=execution-1'), { method: 'DELETE', signal: expect.any(AbortSignal) })
+    expect(latest.processes[0].status).toBe('running')
+  })
+  it('retains all terminal executions for logs without letting their timers remove a reused PID', async () => {
+    vi.useFakeTimers(); await mount()
+    send(process({ status: 'killed' }), 'background_process.exited'); send(process({ processId: 'failed', pid: 88, status: 'failed' }), 'background_process.exited'); send(process({ processId: 'exited', pid: 99, status: 'exited' }), 'background_process.exited'); send(process({ processId: 'replacement', startedAt: 20 }))
+    act(() => vi.advanceTimersByTime(BACKGROUND_TERMINAL_RETENTION_MS - 1)); expect(latest.processes).toHaveLength(4)
+    act(() => vi.advanceTimersByTime(1)); expect(latest.processes.map(p => p.processId)).toEqual(['replacement'])
+    expect(latest.history).toHaveLength(4)
+    send(process({ status: 'killed' }), 'background_process.exited'); expect(latest.processes.map(p => p.processId)).toEqual(['replacement'])
+  })
+  it('shows stopping, coalesces repeated requests, and waits for lifecycle confirmation', async () => {
+    await mount(); const target = process(); send(target); const stop = deferred<Response>(); vi.mocked(fetch).mockReturnValueOnce(stop.promise)
+    let first!: Promise<void>; let second!: Promise<void>
+    act(() => { first = latest.kill(target); second = latest.kill(target) })
+    expect(second).toBe(first); expect(latest.processes[0].status).toBe('stopping'); expect(fetch).toHaveBeenCalledTimes(2)
+    await act(async () => { stop.resolve(response({ ok: true, process: { ...target, status: 'stopping' } }, 202)); await first })
+    expect(latest.processes[0].status).toBe('stopping')
+    const endedAt = Date.now()
+    send({ ...target, status: 'killed', endedAt }, 'background_process.exited'); expect(latest.processes[0]).toMatchObject({ status: 'killed', endedAt })
+  })
+  it('restores running state and exposes HTTP failure for a retry', async () => {
+    await mount(); const target = process(); send(target)
+    vi.mocked(fetch).mockResolvedValueOnce(response({ error: 'Permission denied' }, 500))
+    await act(async () => { await expect(latest.kill(target)).rejects.toThrow('Permission denied') })
+    expect(latest.processes[0]).toMatchObject({ status: 'running', stopError: 'Permission denied' })
+    vi.mocked(fetch).mockResolvedValueOnce(response({ ok: true, process: { ...target, status: 'killed' } }))
+    await act(async () => latest.kill(target)); expect(latest.processes[0].status).toBe('killed'); expect(latest.processes[0].stopError).toBeUndefined()
+  })
+  it('keeps a server stopping error visible and allows retrying that same execution', async () => {
+    await mount()
+    const target = process()
+    send(target)
+    const stop = deferred<Response>()
+    vi.mocked(fetch).mockReturnValueOnce(stop.promise)
+    let request!: Promise<void>
+    act(() => { request = latest.kill(target) })
+    const outcome = request.catch(() => undefined)
+    send({ ...target, status: 'stopping', error: 'Could not signal process group' }, 'background_process.updated')
+    await act(async () => { stop.resolve(response({ error: 'Could not signal process group' }, 500)); await outcome })
+    expect(latest.processes[0]).toMatchObject({ status: 'stopping', error: 'Could not signal process group' })
+    vi.mocked(fetch).mockResolvedValueOnce(response({ ok: true, process: { ...target, status: 'stopping' } }, 202))
+    await act(async () => latest.kill(latest.processes[0]))
+    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(latest.processes[0]).toMatchObject({ status: 'stopping' })
+    expect(latest.processes[0].error).toBeUndefined()
+    expect(latest.processes[0].stopError).toBeUndefined()
+  })
+  it.each([200, 500])('preserves a WS terminal event against late Stop HTTP %s', async status => {
+    await mount(); const target = process(); send(target); const stop = deferred<Response>(); vi.mocked(fetch).mockReturnValueOnce(stop.promise)
+    let request!: Promise<void>; act(() => { request = latest.kill(target) }); const outcome = request.catch(() => undefined)
+    send({ ...target, status: 'exited', exitCode: 0 }, 'background_process.exited')
+    await act(async () => { stop.resolve(response({ ok: true, process: { ...target, status: 'stopping' }, error: 'Too late' }, status)); await outcome })
+    expect(latest.processes[0]).toMatchObject({ status: 'exited', exitCode: 0 }); expect(latest.processes[0].stopError).toBeUndefined()
+  })
+  it.each([true, false])('does not undo an in-flight Stop with a focus snapshot (listed: %s)', async listed => {
+    await mount(); const target = process(); send(target); const stop = deferred<Response>(); vi.mocked(fetch).mockReturnValueOnce(stop.promise)
+    let request!: Promise<void>; act(() => { request = latest.kill(target) })
+    vi.mocked(fetch).mockResolvedValueOnce(response({ processes: listed ? [target] : [] })); act(() => window.dispatchEvent(new Event('focus'))); await act(async () => {})
+    expect(latest.processes[0].status).toBe('stopping')
+    await act(async () => { stop.resolve(response({ ok: true, process: { ...target, status: 'killed' } })); await request }); expect(latest.processes[0].status).toBe('killed')
+  })
+  it('rejects an unavailable or ambiguous numeric PID without sending an unsafe request', async () => {
+    await mount(); await expect(latest.kill(77)).rejects.toThrow('no longer available'); send(process()); send(process({ processId: 'other', startedAt: 11 }))
+    await expect(latest.kill(77)).rejects.toThrow('no longer available'); expect(fetch).toHaveBeenCalledTimes(1)
+  })
+  it('reconciles a confirmed Stop when its terminal WebSocket event is lost', async () => {
     vi.useFakeTimers()
-    render(<BackgroundProcessesProvider><Probe /></BackgroundProcessesProvider>)
-
-    send({ type: 'background_process.started', projectId: 'proj-1', process: { pid: 77, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'running', chatId: 'chat-1', projectId: 'proj-1' } })
-    send({ type: 'background_process.exited', projectId: 'proj-1', process: { pid: 77, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'failed', chatId: 'chat-1', projectId: 'proj-1', exitCode: 1 } })
-    expect(latest.labels).toBe('77:npm run dev:failed')
-
-    act(() => { vi.advanceTimersByTime(7999) })
-    expect(latest.labels).toBe('77:npm run dev:failed')
-    act(() => { vi.advanceTimersByTime(1) })
-    expect(latest.labels).toBe('')
-
-    send({ type: 'background_process.started', projectId: 'proj-1', process: { pid: 88, command: 'vite', cwd: '/repo', startedAt: 10, status: 'running', chatId: 'chat-1', projectId: 'proj-1' } })
-    send({ type: 'background_process.exited', projectId: 'proj-1', process: { pid: 88, command: 'vite', cwd: '/repo', startedAt: 10, status: 'killed', chatId: 'chat-1', projectId: 'proj-1', signal: 'SIGTERM' } })
-    expect(latest.labels).toBe('')
+    await mount()
+    const target = process()
+    send(target)
+    vi.mocked(fetch).mockResolvedValueOnce(response({ ok: true, process: { ...target, status: 'stopping' } }, 202))
+    await act(async () => latest.kill(target))
+    vi.mocked(fetch).mockResolvedValueOnce(response({ processes: [{ ...target, status: 'killed' }] }))
+    await act(async () => vi.advanceTimersByTimeAsync(2000))
+    expect(latest.processes[0].status).toBe('killed')
+    const calls = vi.mocked(fetch).mock.calls.length
+    await act(async () => vi.advanceTimersByTimeAsync(20_000))
+    expect(fetch).toHaveBeenCalledTimes(calls)
   })
-
-  it('kills through the project-scoped API without confirmation state', async () => {
-    render(<BackgroundProcessesProvider><Probe /></BackgroundProcessesProvider>)
-    await latest.kill(77)
-    expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/projects/proj-1/background-processes/77?chatId=chat-1'),
-      { method: 'DELETE' },
-    )
+  it.each(['background_process.started', 'background_process.updated'])('keeps Stop confirmation alive after a delayed %s running event', async type => {
+    vi.useFakeTimers()
+    await mount()
+    const target = process()
+    send(target)
+    const stop = deferred<Response>()
+    vi.mocked(fetch).mockReturnValueOnce(stop.promise)
+    let request!: Promise<void>
+    act(() => { request = latest.kill(target) })
+    send(target, type)
+    expect(latest.processes[0].status).toBe('stopping')
+    await act(async () => { stop.resolve(response({ ok: true, process: { ...target, status: 'stopping' } }, 202)); await request })
+    expect(latest.processes[0].status).toBe('stopping')
+    vi.mocked(fetch).mockResolvedValueOnce(response({ processes: [{ ...target, status: 'killed' }] }))
+    await act(async () => vi.advanceTimersByTimeAsync(2000))
+    expect(latest.processes[0].status).toBe('killed')
+  })
+  it('bounds Stop polling and offers retry if the process never confirms termination', async () => {
+    vi.useFakeTimers()
+    await mount()
+    const target = process()
+    send(target)
+    vi.mocked(fetch).mockResolvedValueOnce(response({ ok: true, process: { ...target, status: 'stopping' } }, 202))
+    await act(async () => latest.kill(target))
+    vi.mocked(fetch).mockResolvedValue(response({ processes: [{ ...target, status: 'stopping' }] }))
+    for (let index = 0; index < 7; index++) await act(async () => vi.advanceTimersByTimeAsync(2000))
+    await act(async () => vi.advanceTimersByTimeAsync(1000))
+    expect(latest.processes[0]).toMatchObject({ status: 'stopping', stopError: expect.stringContaining('retry') })
+    const calls = vi.mocked(fetch).mock.calls.length
+    await act(async () => vi.advanceTimersByTimeAsync(20_000))
+    expect(fetch).toHaveBeenCalledTimes(calls)
+    vi.mocked(fetch).mockResolvedValueOnce(response({ ok: true, process: { ...target, status: 'stopping' } }, 202))
+    await act(async () => latest.kill(target))
+    expect(latest.processes[0].stopError).toBeUndefined()
+    await act(async () => vi.advanceTimersByTimeAsync(2000))
+    expect(fetch).toHaveBeenCalledTimes(calls + 2)
+  })
+  it('times out a hung Stop request so the UI can retry instead of remaining locked', async () => {
+    vi.useFakeTimers()
+    await mount()
+    const target = process()
+    send(target)
+    vi.mocked(fetch).mockImplementationOnce((_url, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new Error('AbortError')))
+    }))
+    let result!: Promise<void>
+    act(() => { result = latest.kill(target) })
+    const outcome = result.catch(() => undefined)
+    vi.mocked(fetch).mockResolvedValue(response({ processes: [target] }))
+    for (let index = 0; index < 7; index++) await act(async () => vi.advanceTimersByTimeAsync(2000))
+    await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_STOP_CONFIRMATION_MS - 14_000); await outcome })
+    expect(latest.processes[0].stopError).toContain('timed out')
+    vi.mocked(fetch).mockResolvedValueOnce(response({ ok: true, process: { ...target, status: 'killed' } }))
+    await act(async () => latest.kill(target))
+    expect(latest.processes[0].status).toBe('killed')
+  })
+  it('reconciles a network failure that actually reached the server and cleans polling on unmount', async () => {
+    vi.useFakeTimers()
+    const view = await mount()
+    const target = process()
+    send(target)
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('network interrupted'))
+    await act(async () => { await expect(latest.kill(target)).rejects.toThrow('network interrupted') })
+    vi.mocked(fetch).mockResolvedValueOnce(response({ processes: [{ ...target, status: 'killed' }] }))
+    await act(async () => vi.advanceTimersByTimeAsync(2000))
+    expect(latest.processes[0].status).toBe('killed')
+    view.unmount()
+    const calls = vi.mocked(fetch).mock.calls.length
+    await act(async () => vi.advanceTimersByTimeAsync(30_000))
+    expect(fetch).toHaveBeenCalledTimes(calls)
+  })
+  it('treats a terminal target as idempotent without sending another Stop', async () => {
+    await mount(); send(process({ status: 'exited' }), 'background_process.exited'); await latest.kill(process()); expect(fetch).toHaveBeenCalledTimes(1)
+  })
+  it('restores durable history after remount without reviving old chips or recovered PIDs', async () => {
+    const archived = process({ status: 'interrupted', recoveredAt: Date.now() - 600_000 })
+    vi.mocked(fetch).mockResolvedValue(response({ processes: [archived] }))
+    const first = await mount()
+    expect(latest.processes).toEqual([])
+    expect(latest.history).toEqual([expect.objectContaining(archived)])
+    first.unmount()
+    await mount()
+    expect(latest.processes).toEqual([])
+    expect(latest.history).toHaveLength(1)
+    const calls = vi.mocked(fetch).mock.calls.length
+    await latest.kill(archived)
+    expect(fetch).toHaveBeenCalledTimes(calls)
+  })
+  it('uses the original end time for the chip window after reload', async () => {
+    vi.useFakeTimers()
+    const archived = process({ status: 'exited', endedAt: Date.now() - 119_000 })
+    vi.mocked(fetch).mockResolvedValue(response({ processes: [archived] }))
+    await mount()
+    expect(latest.processes).toHaveLength(1)
+    act(() => vi.advanceTimersByTime(1000))
+    expect(latest.processes).toEqual([])
+    expect(latest.history).toHaveLength(1)
+  })
+  it('keeps saved entries visible on a failed history refresh and exposes a retry', async () => {
+    const archived = process({ status: 'exited', endedAt: Date.now() - 600_000 })
+    vi.mocked(fetch).mockResolvedValueOnce(response({ processes: [archived] }))
+    await mount()
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('offline'))
+    await act(async () => latest.refreshHistory())
+    expect(latest.history).toHaveLength(1)
+    expect(latest.historyError).toBe('offline')
+    expect(latest.historyLoading).toBe(false)
+    vi.mocked(fetch).mockResolvedValueOnce(response({ processes: [archived, process({ processId: 'new' })] }))
+    await act(async () => latest.refreshHistory())
+    expect(latest.history).toHaveLength(2)
+    expect(latest.historyError).toBeNull()
+  })
+  it('removes pruned durable executions on a successful full history refresh', async () => {
+    const archived = process({ status: 'exited', endedAt: Date.now() - 600_000 })
+    const live = process({ processId: 'live' })
+    vi.mocked(fetch).mockResolvedValueOnce(response({ processes: [archived, live] }))
+    await mount()
+    expect(latest.history).toHaveLength(2)
+    vi.mocked(fetch).mockResolvedValueOnce(response({ processes: [live] }))
+    await act(async () => latest.refreshHistory())
+    expect(latest.history.map(p => p.processId)).toEqual(['live'])
+    expect(latest.processes.map(p => p.processId)).toEqual(['live'])
   })
 })

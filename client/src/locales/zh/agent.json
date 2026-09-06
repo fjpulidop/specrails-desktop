@@ -42,18 +42,36 @@
     "hint": "浏览提示历史 — 输入以编辑，↑↓ 导航"
   },
   "queue": {
-    "queued": "排队中",
-    "send": "发送到队列",
-    "sendHint": "智能体仍在工作——此消息将排队并在之后执行",
-    "placeholder": "智能体工作时可继续输入——消息将排队…"
+    "queued": "已排队",
+    "send": "发送消息",
+    "sendHint": "排队等待下一轮。点击队列中消息的“调整方向”，即可在不中断模型的情况下发送。",
+    "placeholder": "向队列添加消息…",
+    "delivered": "已送达智能体",
+    "interrupted": "送达未确认",
+    "cancelled": "送达前取消",
+    "steer": "调整方向",
+    "steerHint": "在不中断模型的情况下发送",
+    "steering": "正在发送给智能体…",
+    "remove": "删除队列中的消息",
+    "more": "消息选项",
+    "edit": "编辑",
+    "actionConflict": "该消息正在送达或已不在队列中。",
+    "actionFailed": "无法更新队列中的消息，请重试。"
+  },
+  "receipt": {
+    "sent": "已发送给智能体",
+    "received": "已送达智能体",
+    "read": "智能体已读",
+    "interrupted": "送达未确认",
+    "cancelled": "送达前取消"
   },
   "queueEdit": {
-    "editing": "正在编辑排队消息 {{n}}/{{m}}",
+    "editing": "正在编辑第 {{n}} 条待送达消息，共 {{m}} 条",
     "hint": "↑↓ 导航 · 回车保存 · Esc 取消",
-    "save": "保存排队消息",
+    "save": "保存待送达消息",
     "cancel": "取消编辑",
-    "dispatched": "该排队消息已发送——你的文本已保留为草稿",
-    "saveFailed": "无法保存排队消息"
+    "dispatched": "该消息已送达；你的文本已保留为草稿",
+    "saveFailed": "无法保存待送达消息"
   },
   "git": {
     "branch": "分支",
@@ -66,7 +84,12 @@
     "noMatches": "没有匹配的分支",
     "worktrees": "工作树",
     "worktreePathCopied": "已复制工作树路径",
-    "copyWorktreePath": "复制工作树路径"
+    "copyWorktreePath": "复制工作树路径",
+    "repository": "仓库",
+    "repositoryUnavailable": "仓库不可用",
+    "loadFailed": "Git 状态不可用",
+    "notGit": "上下文文件夹 · 无 Git",
+    "retry": "重试"
   },
   "provider": {
     "label": "提供方",
@@ -479,5 +502,77 @@
     "copyFailed": "无法复制日志",
     "openLog": "查看执行日志",
     "close": "关闭"
+  },
+  "backgroundProcess": {
+    "open": "查看 {{command}} 的日志",
+    "logsTitle": "进程日志",
+    "logsDescription": "此进程的实时输出和已保存的历史。",
+    "close": "关闭日志",
+    "command": "命令",
+    "directory": "目录",
+    "exitCode": "退出码：{{code}}",
+    "signal": "信号：{{signal}}",
+    "search": "搜索日志…",
+    "source": "输出来源",
+    "allSources": "全部输出",
+    "pause": "暂停",
+    "resume": "继续",
+    "follow": "跟随",
+    "copy": "复制可见日志",
+    "download": "下载可见日志",
+    "stop": "停止进程",
+    "stopCommand": "停止 {{command}}",
+    "stopFailed": "无法停止进程，请重试。",
+    "truncated": "仅显示有限的日志窗口，较早的输出或过长的行可能被省略。复制和下载仅包含当前视图。",
+    "paused": "视图已暂停，进程仍在运行。",
+    "loadFailed": "无法加载日志，可能已超过保留期限。已加载的输出仍然可见。",
+    "retry": "重试",
+    "copied": "已复制可见日志。",
+    "exportFailed": "无法导出日志，请重试。",
+    "output": "进程输出",
+    "loading": "正在加载日志…",
+    "noMatches": "没有匹配的输出。",
+    "empty": "暂无输出。",
+    "lineCount": "{{count}} / {{total}} 行",
+    "exportHint": "导出仅包含当前筛选结果和保留的输出。",
+    "status": {
+      "starting": "启动中",
+      "running": "运行中",
+      "stopping": "正在停止",
+      "exited": "已退出",
+      "killed": "已停止",
+      "failed": "失败",
+      "interrupted": "已断开"
+    },
+    "repository": "仓库",
+    "history": {
+      "button": "进程",
+      "title": "任务进程",
+      "open": "查看进程历史",
+      "description": "查看正在运行的进程和之前执行时保存的日志。",
+      "search": "搜索命令或仓库…",
+      "refresh": "刷新历史",
+      "close": "关闭进程历史",
+      "back": "返回进程列表",
+      "loading": "正在加载进程历史…",
+      "empty": "此任务尚无进程记录。",
+      "noMatches": "没有匹配的进程。",
+      "loadFailed": "无法加载进程历史。已加载的记录仍然可用。",
+      "showMore": "显示更多",
+      "count": "进程数：{{count}}"
+    },
+    "interruptedHint": "Specrails 已停止监控此进程。其在操作系统中的状态未知；已保存的日志仍然可用。",
+    "persistenceFailed": "无法保存进程历史。现有输出仍然可见。"
+  },
+  "window": {
+    "detach": "在独立窗口中打开",
+    "attach": "返回主窗口",
+    "detached": "此任务已在另一个窗口中打开。",
+    "focus": "显示任务窗口",
+    "loading": "正在移动任务…",
+    "failed": "无法移动此任务。草稿已保留。",
+    "dismiss": "关闭提示",
+    "wrongMission": "请先打开此任务，再移动窗口。",
+    "finishPending": "请先完成当前操作，或保存或取消消息或截图，再移动任务。"
   }
 }

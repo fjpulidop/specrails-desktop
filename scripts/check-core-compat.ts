@@ -55,14 +55,11 @@ async function main(): Promise<void> {
   }
 
   if (hasErrors) {
-    // Contracts at schemaVersion >= 3 introduced a checkpoint-key rename across
-    // the entire installer flow. Detecting drift remains useful, but a hard
-    // failure blocks every test run until the app is aligned by hand — that
-    // alignment is tracked as a separate piece of work. Degrade to a warning
-    // when the contract is on the new schema; v1/v2 contracts still hard-fail
-    // so we catch silent drift on the older shape.
+    // Keep the historical schema-3 checkpoint rename tolerance for older Core.
+    // Schema 4 describes the supported deterministic lifecycle and must match;
+    // a mismatch there is a real integration regression, not a warning.
     const schemaMajor = Number.parseInt(String(result.contractSchemaVersion ?? '0').split('.')[0], 10)
-    if (Number.isFinite(schemaMajor) && schemaMajor >= 3) {
+    if (schemaMajor === 3) {
       console.warn(
         '[check-core-compat] ⚠ Contract mismatch on schemaVersion '
           + `${result.contractSchemaVersion ?? '?'} — treated as a warning. Update desktop constants to match specrails-core.`

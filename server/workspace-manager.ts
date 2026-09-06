@@ -1,22 +1,11 @@
 import fs from 'fs'
+import { assertWorkspaceCoreReady } from './core-update-state'
 import path from 'path'
 
-import { FrameworkManager, frameworkRoot } from './framework-manager'
+import { FrameworkManager, frameworkRoot, readCurrentFrameworkVersion } from './framework-manager'
 import { migrateWorkspaceToSymlinks } from './framework-migration'
 import { resolveHome } from './artifact-registry'
 import { mergeSpecrailsIntoWorkspaceMcp } from './agent-mcp-config'
-
-/** Highest-first semver-ish sort for framework version dir names. */
-function compareFrameworkVersionDesc(a: string, b: string): number {
-  const pa = a.split('.').map((n) => parseInt(n, 10))
-  const pb = b.split('.').map((n) => parseInt(n, 10))
-  for (let i = 0; i < 3; i++) {
-    const x = pa[i] ?? 0
-    const y = pb[i] ?? 0
-    if (x !== y) return y - x
-  }
-  return 0
-}
 
 /**
  * Windows repair: ensure the workspace's `<providerDir>/agents` holds the
@@ -39,24 +28,11 @@ function compareFrameworkVersionDesc(a: string, b: string): number {
  * byte-identical). Additive (never touches user `custom-*.md`) + idempotent.
  * Returns the number of agents copied.
  */
-/** Newest REAL framework version dir under the root — resolved by LISTING (not
- *  via the `current` junction, which is the very thing that may be untraversable
- *  on Windows). Null when the framework isn't materialized. */
-function newestFrameworkVersion(root: string): string | null {
-  try {
-    return fs
-      .readdirSync(root)
-      .filter((n) => /^\d+\.\d+\.\d+$/.test(n))
-      .sort(compareFrameworkVersionDesc)[0] ?? null
-  } catch {
-    return null
-  }
-}
-
 export function ensureFrameworkAgents(workspaceDir: string, providerDir: string, home?: string): number {
+  assertWorkspaceCoreReady(workspaceDir, home)
   if (process.platform !== 'win32') return 0
   const root = frameworkRoot(home)
-  const version = newestFrameworkVersion(root)
+  const version = readCurrentFrameworkVersion(home)
   if (!version) return 0
   const src = path.join(root, version, providerDir, 'agents')
   let entries: string[]
@@ -154,9 +130,10 @@ function hasReadableFrameworkContent(dest: string): boolean {
  * idempotent. Returns the number of repaired subtrees/managed skill children.
  */
 export function ensureFrameworkCommandSubtrees(workspaceDir: string, providerDir: string, home?: string): number {
+  assertWorkspaceCoreReady(workspaceDir, home)
   if (process.platform !== 'win32') return 0
   const root = frameworkRoot(home)
-  const version = newestFrameworkVersion(root)
+  const version = readCurrentFrameworkVersion(home)
   if (!version) return 0
   let healed = 0
   const dirLinkedSubtrees =
@@ -178,7 +155,9 @@ export function ensureFrameworkCommandSubtrees(workspaceDir: string, providerDir
 
     try {
       fs.mkdirSync(path.dirname(dest), { recursive: true })
-      fs.cpSync(src, dest, { recursive: true })
+      // JS traversal avoids Node 22's native Unicode directory-copy failure on
+      // Windows (nodejs/node#61878). The missing subtree is a fresh destination.
+      fs.cpSync(src, dest, { recursive: true, filter: () => true, mode: fs.constants.COPYFILE_FICLONE })
       healed += 1
     } catch {
       /* best-effort per subtree — a copy failure must never abort the spawn */
@@ -220,7 +199,7 @@ export function ensureFrameworkCommandSubtrees(workspaceDir: string, providerDir
 
     try {
       fs.mkdirSync(path.dirname(dest), { recursive: true })
-      fs.cpSync(src, dest, { recursive: true })
+      fs.cpSync(src, dest, { recursive: true, filter: () => true, mode: fs.constants.COPYFILE_FICLONE })
       healed += 1
     } catch {
       /* best-effort per skill — one failure must never abort the spawn */

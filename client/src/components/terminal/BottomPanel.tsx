@@ -137,6 +137,7 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
       if (!panel || !activeId || state.visibility === 'hidden') return null
       return {
         viewportEl: panel,
+        shell: t.getShell?.(activeId),
         writeText: (text: string) => {
           if (t.writeToSession(activeId, text)) return true
           const term = t.getTerminalInstance(activeId)

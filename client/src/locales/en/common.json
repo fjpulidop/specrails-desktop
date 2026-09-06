@@ -1,4 +1,12 @@
 {
+  "network": {
+    "htmlResponse": "The API returned a web page instead of JSON. Check that the Specrails backend is running and the API port is correct.",
+    "invalidResponse": "The Specrails API returned an invalid response.",
+    "endpointUnavailable": "This API endpoint is unavailable. Check that the Specrails frontend and backend versions match.",
+    "httpError": "The Specrails API returned HTTP {{status}}.",
+    "requestFailed": "Could not reach the Specrails backend.",
+    "deliveryUnconfirmed": "Message delivery could not be confirmed. Your draft is kept and will not be resent automatically."
+  },
   "actions": {
     "save": "Save",
     "cancel": "Cancel",
@@ -91,5 +99,45 @@
       "w": "Resize modal — left edge"
     },
     "resetPosition": "Reset modal position"
+  },
+  "repositories": {
+    "title": "Repositories and folders",
+    "additional": "Additional folders",
+    "sharedBacklog": "One project, one shared backlog. Specs can select one or several repositories.",
+    "folderNumber": "Folder {{number}}",
+    "removeFolder": "Remove folder",
+    "addFolder": "Add folder",
+    "primary": "Primary",
+    "contextOnly": "Context only",
+    "unavailable": "Unavailable",
+    "detach": "Detach",
+    "detachHint": "Detaching removes the association only. Files stay on disk. Specs and unfinished deliveries must release their references first.",
+    "name": "Name",
+    "path": "Folder path",
+    "browse": "Choose folder",
+    "integrationBranch": "Integration branch",
+    "branchDefault": "Use repository default",
+    "specScope": "Repositories for this spec",
+    "scopeHint": "Select the repositories this spec can change. Unselected folders remain available for context.",
+    "invalidSelection": "A selected repository is no longer registered. Update the selection before saving.",
+    "shellTarget": "Repository for this command",
+    "shellDefault": "Run repository (single-repository runs)",
+    "shellHint": "Required when a run affects several repositories.",
+    "select": "Repository",
+    "all": "All repositories"
+  },
+  "repositoryDelivery": {
+    "building": "Building",
+    "on_review": "Ready for review",
+    "no_changes": "No changes",
+    "pr_draft": "Draft PR",
+    "pr_ready": "Ready PR",
+    "pr_closed": "PR closed",
+    "completed": "Completed",
+    "merged": "Integrated",
+    "discarded": "Discarded",
+    "superseded": "Superseded",
+    "implementation_failed": "Implementation failed",
+    "pr_failed": "Delivery failed"
   }
 }

@@ -232,7 +232,18 @@
     "toastDone": "Specrails Core mis à jour vers {{version}}",
     "toastError": "Échec de la mise à jour du core : {{message}}",
     "toastUpToDate": "Specrails Core est à jour",
-    "toastCheckFailed": "Échec de la vérification : {{message}}"
+    "toastCheckFailed": "Échec de la vérification : {{message}}",
+    "loadFailed": "Impossible de charger l’état de Core. Réessayer",
+    "runtime": "Moteur : {{version}}",
+    "bundled": "Inclus dans Desktop : {{version}}",
+    "sources": {
+      "override": "Sélection explicite",
+      "managed": "Géré par Desktop",
+      "bundled": "Inclus dans Desktop",
+      "local": "Paquet local",
+      "global": "CLI externe"
+    },
+    "repair": "Terminer la mise à jour {{version}}"
   },
   "appUpdate": {
     "heading": "Specrails Desktop",

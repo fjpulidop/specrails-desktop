@@ -1,10 +1,12 @@
+import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTerminals } from '../../context/TerminalsContext'
 import { TerminalSearchOverlay } from './TerminalSearchOverlay'
 import { TerminalContextMenu } from './TerminalContextMenu'
 import { revealItemInDir, isTauri } from '../../lib/tauri-shell'
 import { saveScrollbackToFile } from '../../lib/save-scrollback'
-import { quotePathList } from '../../lib/shell-quote'
+import { quotePathList, windowsShellHint } from '../../lib/shell-quote'
 import { writeClipboardText } from '../../lib/tauri-clipboard'
 import { PromptGutter } from './PromptGutter'
 import { CommandTimingBadge } from './CommandTimingBadge'
@@ -24,6 +26,7 @@ interface TerminalViewportProps {
  * is the "settle" signal, and the debounced fit is the catch-all.
  */
 export function TerminalViewport({ activeId }: TerminalViewportProps) {
+  const { t } = useTranslation('terminal')
   const slotRef = useRef<HTMLDivElement | null>(null)
   const terminals = useTerminals()
   const [searchOpen, setSearchOpen] = useState(false)
@@ -63,8 +66,9 @@ export function TerminalViewport({ activeId }: TerminalViewportProps) {
       .filter((path): path is string => Boolean(path))
     if (paths.length === 0) return false
     const isWindows = typeof navigator !== 'undefined' && /Win/i.test(navigator.platform || '')
-    return writeToActiveTerminal(quotePathList(paths, isWindows))
-  }, [term, writeToActiveTerminal])
+    try { return writeToActiveTerminal(quotePathList(paths, isWindows, windowsShellHint(activeId ? terminals.getShell?.(activeId) : null))) }
+    catch { toast.error(t('errors.pathPasteUnsafe')); return false }
+  }, [term, writeToActiveTerminal, activeId, terminals, t])
 
   const handleContextMenu = useCallback((ev: React.MouseEvent) => {
     // Always preventDefault so the WebView's native contextmenu does not show.
@@ -89,7 +93,8 @@ export function TerminalViewport({ activeId }: TerminalViewportProps) {
         ev.preventDefault()
         ev.stopPropagation()
         const isWindows = typeof navigator !== 'undefined' && /Win/i.test(navigator.platform || '')
-        writeToActiveTerminal(quotePathList(paths, isWindows))
+        try { writeToActiveTerminal(quotePathList(paths, isWindows, windowsShellHint(activeId ? terminals.getShell?.(activeId) : null))) }
+        catch { toast.error(t('errors.pathPasteUnsafe')) }
         return
       }
     }
@@ -98,7 +103,7 @@ export function TerminalViewport({ activeId }: TerminalViewportProps) {
     ev.preventDefault()
     ev.stopPropagation()
     writeToActiveTerminal(text)
-  }, [term, writeToActiveTerminal])
+  }, [term, writeToActiveTerminal, activeId, terminals, t])
 
   const handleCopy = useCallback((ev: React.ClipboardEvent<HTMLDivElement>) => {
     if (!term) return
@@ -212,8 +217,8 @@ export function TerminalViewport({ activeId }: TerminalViewportProps) {
           hasReveal={tauri}
           onClose={() => setMenu(null)}
           onOpenSearch={() => setSearchOpen(true)}
-          onReveal={(p) => { void revealItemInDir(p) }}
-          onSaveScrollback={() => { if (term) void saveScrollbackToFile(term) }}
+          onReveal={(p) => { void revealItemInDir(p).catch(() => toast.error(t('errors.nativeActionFailed'))) }}
+          onSaveScrollback={() => { if (term) void saveScrollbackToFile(term).catch(() => toast.error(t('errors.nativeActionFailed'))) }}
         />
       )}
     </div>

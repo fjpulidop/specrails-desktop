@@ -9,12 +9,16 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [tailwindcss(), react()],
     define: {
+      __API_ORIGIN__: mode === 'development'
+        ? JSON.stringify(devPorts.serverOrigin)
+        : JSON.stringify(''),
       __WS_URL__: mode === 'development'
         ? JSON.stringify(devPorts.wsUrl)
         : JSON.stringify(''),
     },
     server: {
       port: devPorts.clientPort,
+      strictPort: true,
       proxy: {
         '/api': devPorts.serverOrigin,
         '/hooks': devPorts.serverOrigin,

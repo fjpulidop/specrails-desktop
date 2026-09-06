@@ -78,9 +78,8 @@ describe('FileStoryManager.explain', () => {
     // Prompt composition: spec title + kind + diff.
     const input = generate.mock.calls[0][0] as { relPath: string; contents: string }
     expect(input.relPath).toBe('src/app.ts')
-    expect(input.contents).toContain('Spec: Login screen')
-    expect(input.contents).toContain('Change kind: modified')
-    expect(input.contents).toContain('+const added = true')
+    expect(JSON.parse(input.contents)).toMatchObject({ ticket: { currentTitle: 'Login screen' }, changeKind: 'modified', evidence: { kind: 'diff', truncated: false } })
+    expect(JSON.parse(input.contents).patch).toContain('+const added = true')
 
     // Persisted.
     expect(getContribution(db, provenanceId)?.summary).toBe('This change added the login button.')
@@ -162,13 +161,12 @@ describe('FileStoryManager.explain', () => {
     expect(generate).toHaveBeenCalledTimes(1)
   })
 
-  it('composes an honest prompt when no patch was stored', async () => {
+  it('does not generate an explanation without stored patch evidence', async () => {
     const provenanceId = seedIntervention(false)
     const generate = vi.fn(async () => GEN_OUT)
     const mgr = makeManager({ generate })
-    expect(await mgr.explain({ projectId: 'p1', relPath: 'src/app.ts', provenanceId })).toBe('generated')
-    const input = generate.mock.calls[0][0] as { contents: string }
-    expect(input.contents).toContain('Diff: (not stored for this change)')
+    expect(await mgr.explain({ projectId: 'p1', relPath: 'src/app.ts', provenanceId })).toBe('skipped:no-evidence')
+    expect(generate).not.toHaveBeenCalled()
   })
 
   it('bounds a runaway generated paragraph', async () => {

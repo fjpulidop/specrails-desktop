@@ -1,4 +1,12 @@
 {
+  "network": {
+    "htmlResponse": "API 返回了网页，而非 JSON。请确认 Specrails 后端正在运行，且 API 端口正确。",
+    "invalidResponse": "Specrails API 返回了无效响应。",
+    "endpointUnavailable": "此 API 端点不可用。请确认 Specrails 前端与后端版本一致。",
+    "httpError": "Specrails API 返回了 HTTP {{status}}。",
+    "requestFailed": "无法连接 Specrails 后端。",
+    "deliveryUnconfirmed": "无法确认消息是否送达。草稿已保留，不会自动重新发送。"
+  },
   "actions": {
     "save": "保存",
     "cancel": "取消",
@@ -91,5 +99,45 @@
       "w": "调整大小 — 左边"
     },
     "resetPosition": "重置位置"
+  },
+  "repositories": {
+    "title": "仓库和文件夹",
+    "additional": "附加文件夹",
+    "sharedBacklog": "一个项目，共享一个待办列表。每个 spec 可以选择一个或多个仓库。",
+    "folderNumber": "文件夹 {{number}}",
+    "removeFolder": "移除文件夹",
+    "addFolder": "添加文件夹",
+    "primary": "主仓库",
+    "contextOnly": "仅供上下文使用",
+    "unavailable": "不可用",
+    "detach": "解除关联",
+    "detachHint": "解除关联仅移除关联关系，文件仍保留在磁盘上。必须先移除 spec 和未完成交付对该仓库的引用。",
+    "name": "名称",
+    "path": "文件夹路径",
+    "browse": "选择文件夹",
+    "integrationBranch": "集成分支",
+    "branchDefault": "使用仓库默认分支",
+    "specScope": "此 spec 的仓库",
+    "scopeHint": "选择此 spec 可以修改的仓库。未选中的文件夹仍可作为上下文使用。",
+    "invalidSelection": "所选仓库已取消注册。请更新选择后再保存。",
+    "shellTarget": "此命令的仓库",
+    "shellDefault": "运行仓库（仅涉及一个仓库的运行）",
+    "shellHint": "运行涉及多个仓库时为必填项。",
+    "select": "仓库",
+    "all": "所有仓库"
+  },
+  "repositoryDelivery": {
+    "building": "实现中",
+    "on_review": "待审查",
+    "no_changes": "无更改",
+    "pr_draft": "PR 草稿",
+    "pr_ready": "PR 已就绪",
+    "pr_closed": "PR 已关闭",
+    "completed": "已完成",
+    "merged": "已集成",
+    "discarded": "已丢弃",
+    "superseded": "已取代",
+    "implementation_failed": "实现失败",
+    "pr_failed": "交付失败"
   }
 }

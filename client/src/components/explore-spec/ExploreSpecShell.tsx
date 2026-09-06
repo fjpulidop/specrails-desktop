@@ -90,6 +90,7 @@ export interface ExploreSpecShellProps {
     description: string
     priority: 'low' | 'medium' | 'high' | 'critical'
     labels: string[]
+    repositoryIds?: string[]
     acceptanceCriteria: string[]
   }>
   onClose: () => void
@@ -109,6 +110,7 @@ export interface ExploreSpecShellProps {
       description: string
       priority: 'low' | 'medium' | 'high' | 'critical'
       labels: string[]
+    repositoryIds?: string[]
       acceptanceCriteria: string[]
     }>
   }) => void
@@ -133,6 +135,7 @@ export interface EditTicketSeed {
   title: string
   description: string
   labels: string[]
+  repositoryIds?: string[]
   priority: 'low' | 'medium' | 'high' | 'critical' | null
   acceptanceCriteria: string[]
   /** Current ticket status. When `'draft'`, the primary commit PUBLISHES the
@@ -458,6 +461,7 @@ export function ExploreSpecShell({
           title: editTicket.title,
           description: editTicket.description,
           labels: editTicket.labels,
+          repositoryIds: editTicket.repositoryIds,
           priority: editTicket.priority ?? 'medium',
           acceptanceCriteria: editTicket.acceptanceCriteria,
         }
@@ -489,6 +493,7 @@ export function ExploreSpecShell({
     if (o.description && o.description.trim()) setField('description', o.description)
     if (o.priority && o.priority !== 'medium') setField('priority', o.priority)
     if (o.labels && o.labels.length > 0) setField('labels', o.labels)
+    if (o.repositoryIds?.length) setField('repositoryIds', o.repositoryIds)
     const criteria = o.acceptanceCriteria?.filter((c) => c.trim().length > 0) ?? []
     if (criteria.length > 0) setField('acceptanceCriteria', criteria)
   }, [seedDraftOverrides, setField, editTicket])
@@ -632,6 +637,7 @@ export function ExploreSpecShell({
         title: draft.title?.trim() || undefined,
         description: draft.description || undefined,
         labels: draft.labels,
+        ...(draft.repositoryIds ? { repositoryIds: draft.repositoryIds } : {}),
       }
       if (editTicket) body.editTicketId = editTicket.id
       const res = await fetch(`${getApiBase()}/tickets/save-as-draft`, {
@@ -651,7 +657,7 @@ export function ExploreSpecShell({
       toast.error(t('shell.toasts.draftNetworkError'))
       return false
     }
-  }, [conversationId, activeProjectId, draft.title, draft.description, draft.labels, editTicket, t])
+  }, [conversationId, activeProjectId, draft.title, draft.description, draft.labels, draft.repositoryIds, editTicket, t])
 
   const handleCreate = useCallback(async () => {
     if (isCreating) return
@@ -674,6 +680,7 @@ export function ExploreSpecShell({
             title: draft.title.trim(),
             description: draft.description,
             labels: draft.labels,
+        ...(draft.repositoryIds ? { repositoryIds: draft.repositoryIds } : {}),
             priority: draft.priority,
             acceptanceCriteria: draft.acceptanceCriteria.filter((c) => c.trim().length > 0),
           }),
@@ -696,6 +703,7 @@ export function ExploreSpecShell({
           title: draft.title.trim(),
           description: draft.description,
           labels: draft.labels,
+        ...(draft.repositoryIds ? { repositoryIds: draft.repositoryIds } : {}),
           priority: draft.priority,
           acceptanceCriteria: draft.acceptanceCriteria.filter((c) => c.trim().length > 0),
           // Server migrates pendingSpecId/<id>/* → ticket/<realId>/* so the
@@ -757,10 +765,11 @@ export function ExploreSpecShell({
         description: draft.description,
         priority: draft.priority,
         labels: draft.labels,
+        ...(draft.repositoryIds ? { repositoryIds: draft.repositoryIds } : {}),
         acceptanceCriteria: draft.acceptanceCriteria,
       },
     })
-  }, [conversationId, draft.title, draft.description, draft.priority, draft.labels, draft.acceptanceCriteria, composerText])
+  }, [conversationId, draft.title, draft.description, draft.priority, draft.labels, draft.acceptanceCriteria, draft.repositoryIds, composerText])
 
   const macPadLeft = isMacTauriOverlay() ? 'pl-[88px]' : 'pl-4'
 
@@ -1128,6 +1137,7 @@ export function ExploreSpecShell({
                 title: editTicket.title,
                 description: editTicket.description,
                 labels: editTicket.labels,
+          repositoryIds: editTicket.repositoryIds,
                 priority: editTicket.priority,
                 acceptanceCriteria: editTicket.acceptanceCriteria,
               }

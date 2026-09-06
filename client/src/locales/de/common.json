@@ -1,4 +1,12 @@
 {
+  "network": {
+    "htmlResponse": "Die API hat eine Webseite statt JSON zurückgegeben. Prüfe, ob der Specrails-Server läuft und der API-Port stimmt.",
+    "invalidResponse": "Die Specrails-API hat eine ungültige Antwort zurückgegeben.",
+    "endpointUnavailable": "Dieser API-Endpunkt ist nicht verfügbar. Prüfe, ob die Versionen von Specrails-Client und -Server übereinstimmen.",
+    "httpError": "Die Specrails-API hat HTTP {{status}} zurückgegeben.",
+    "requestFailed": "Der Specrails-Server konnte nicht erreicht werden.",
+    "deliveryUnconfirmed": "Die Zustellung der Nachricht konnte nicht bestätigt werden. Dein Entwurf bleibt erhalten und wird nicht automatisch erneut gesendet."
+  },
   "actions": {
     "save": "Speichern",
     "cancel": "Abbrechen",
@@ -91,5 +99,45 @@
       "w": "Größe ändern — linke Kante"
     },
     "resetPosition": "Position zurücksetzen"
+  },
+  "repositories": {
+    "title": "Repositorys und Ordner",
+    "additional": "Zusätzliche Ordner",
+    "sharedBacklog": "Ein Projekt, ein gemeinsames Backlog. Specs können ein oder mehrere Repositorys auswählen.",
+    "folderNumber": "Ordner {{number}}",
+    "removeFolder": "Ordner entfernen",
+    "addFolder": "Ordner hinzufügen",
+    "primary": "Primär",
+    "contextOnly": "Nur Kontext",
+    "unavailable": "Nicht verfügbar",
+    "detach": "Verknüpfung lösen",
+    "detachHint": "Es wird nur die Verknüpfung entfernt. Die Dateien bleiben auf dem Datenträger. Referenzen von Specs und noch offenen Lieferungen müssen zuerst entfernt werden.",
+    "name": "Name",
+    "path": "Ordnerpfad",
+    "browse": "Ordner auswählen",
+    "integrationBranch": "Integrationsbranch",
+    "branchDefault": "Standardbranch des Repositorys verwenden",
+    "specScope": "Repositorys für diese Spec",
+    "scopeHint": "Wähle die Repositorys aus, die diese Spec ändern darf. Nicht ausgewählte Ordner bleiben als Kontext verfügbar.",
+    "invalidSelection": "Ein ausgewähltes Repository ist nicht mehr registriert. Aktualisiere die Auswahl vor dem Speichern.",
+    "shellTarget": "Repository für diesen Befehl",
+    "shellDefault": "Ausführungsrepository (Ausführungen mit einem Repository)",
+    "shellHint": "Erforderlich, wenn eine Ausführung mehrere Repositorys betrifft.",
+    "select": "Repository",
+    "all": "Alle Repositorys"
+  },
+  "repositoryDelivery": {
+    "building": "Implementierung läuft",
+    "on_review": "Bereit zur Überprüfung",
+    "no_changes": "Keine Änderungen",
+    "pr_draft": "PR-Entwurf",
+    "pr_ready": "PR bereit",
+    "pr_closed": "PR geschlossen",
+    "completed": "Abgeschlossen",
+    "merged": "Integriert",
+    "discarded": "Verworfen",
+    "superseded": "Ersetzt",
+    "implementation_failed": "Implementierung fehlgeschlagen",
+    "pr_failed": "Lieferung fehlgeschlagen"
   }
 }

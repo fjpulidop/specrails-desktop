@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+
+const testOriginalPath = process.env.PATH
+beforeEach(() => { process.env.PATH = '' })
+afterEach(() => { process.env.PATH = testOriginalPath })
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -8,6 +12,7 @@ import type { ChildProcess } from 'child_process'
 import { assembleProjectOffline, canAssembleProject, hasOfflineCore } from './offline-assemble'
 import { resolveArtifacts } from './artifact-registry'
 import { workspacePathFor } from './workspace-manager'
+import { installConfigPathForProvider } from './install-config-path'
 
 let priorHome: string | undefined
 let homeDir: string
@@ -62,6 +67,15 @@ function installConfigs(
 }
 
 describe('assembleProjectOffline', () => {
+  it('preserves existing provider configuration when refreshing an installed workspace', async () => {
+    const config = installConfigPathForProvider({ slug: 'my-app', path: repoDir }, 'claude')
+    fs.mkdirSync(path.dirname(config), { recursive: true })
+    const original = 'version: 1\nprovider: claude\n# custom project settings\nagents:\n  selected: [custom-reviewer]\n'
+    fs.writeFileSync(config, original)
+    const init = fakeInit()
+    await assembleProjectOffline({ projectPath: repoDir, slug: 'my-app', desktopProjectId: 'proj-1', providers: ['claude'], preserveExistingConfig: true, io: { spawnInit: init.spawn as never, materialize: vi.fn() } })
+    expect(fs.readFileSync(config, 'utf8')).toBe(original)
+  })
   it('mirrors the registry, writes per-provider configs and runs one init per provider', async () => {
     const init = fakeInit(0)
     await assembleProjectOffline({

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
-import { apiCall, originConversationDefaults, projectPath } from './types'
+import { apiCall, originConversationDefaults, projectPath, repositoryPath } from './types'
 import { checkSpecFraming, recordSpecCommitted } from '../../agent-spec-framing'
 
 // Mirror of the McpTier union (mcp-tiers) — `./types` re-imports but does not
@@ -99,6 +99,8 @@ export function specsTools(): McpToolSpec[] {
           ])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
+        repositoryIds: z.array(z.string().min(1)).min(1).max(50).optional().describe('Affected repositories for this shared spec. Nonempty unique membership IDs from this project. Omission preserves existing scope; historical specs default to primary only.'),
+        repositoryId: z.string().min(1).optional().describe('files_touched only: repository to inspect; required for multi-repository projects.'),
 
         // ── Ticket identity ──────────────────────────────────────────────
         id: z
@@ -215,6 +217,7 @@ export function specsTools(): McpToolSpec[] {
           attachmentIds: args.attachmentIds,
           pendingSpecId: args.pendingSpecId,
           createLocal: args.createLocal,
+          ...(args.repositoryIds === undefined ? {} : { repositoryIds: args.repositoryIds }),
         })
 
         switch (action) {
@@ -235,6 +238,7 @@ export function specsTools(): McpToolSpec[] {
               status: ticket.status,
               priority: ticket.priority,
               labels: ticket.labels,
+              ...(ticket.repositoryIds === undefined ? {} : { repositoryIds: ticket.repositoryIds }),
               shortSummary: ticket.short_summary ?? ticket.shortSummary ?? null,
               updatedAt: ticket.updated_at ?? ticket.updatedAt,
             }))
@@ -257,7 +261,7 @@ export function specsTools(): McpToolSpec[] {
           case 'spending_summary':
             return apiCall(ctx, 'GET', `${base}/tickets/${requireId()}/spending-summary`)
           case 'files_touched':
-            return apiCall(ctx, 'GET', `${base}/code/provenance?ticketId=${requireId()}`)
+            return apiCall(ctx, 'GET', `${repositoryPath(ctx, args.projectId as string | undefined, args.repositoryId as string | undefined)}/code/provenance?ticketId=${requireId()}`)
           case 'list_attachments': {
             const ticketId = args.ticketId as string | undefined
             if (!ticketId) throw new Error('list_attachments requires a "ticketId" (numeric id or UUID).')
@@ -320,6 +324,7 @@ export function specsTools(): McpToolSpec[] {
               metadata: args.metadata,
               acceptanceCriteria: args.acceptanceCriteria,
               short_summary: args.short_summary,
+              ...(args.repositoryIds === undefined ? {} : { repositoryIds: args.repositoryIds }),
             })
           case 'from_prompt':
             return apiCall(ctx, 'POST', `${base}/tickets/from-prompt`, {
@@ -328,6 +333,7 @@ export function specsTools(): McpToolSpec[] {
               labels: args.labels,
               priority: args.priority,
               structured: args.structured,
+              ...(args.repositoryIds === undefined ? {} : { repositoryIds: args.repositoryIds }),
               pendingSpecId: args.pendingSpecId,
             })
           case 'save_draft': {
@@ -338,6 +344,7 @@ export function specsTools(): McpToolSpec[] {
               description: args.description,
               labels: args.labels,
               editTicketId: args.editTicketId,
+              ...(args.repositoryIds === undefined ? {} : { repositoryIds: args.repositoryIds }),
             })
           }
           case 'commit_draft': {
@@ -382,6 +389,7 @@ export function specsTools(): McpToolSpec[] {
               prerequisites: args.prerequisites,
               metadata: args.metadata,
               createLocal: args.createLocal,
+              ...(args.repositoryIds === undefined ? {} : { repositoryIds: args.repositoryIds }),
               contractRefine,
               agentProvider,
             })

@@ -7,7 +7,9 @@ import {
   readWorkspaceFrameworkVersion,
   reseedStaleWorkspaces,
   type ReseedProject,
+  assertWorkspaceCoreReady,
 } from './framework-reseed'
+import { coreUpdatePendingPath } from './core-update-state'
 import { workspacePathFor } from './workspace-manager'
 
 let priorHome: string | undefined
@@ -52,6 +54,43 @@ describe('isFrameworkAutoswapEnabled', () => {
 })
 
 describe('reseedStaleWorkspaces', () => {
+  it('blocks every affected workspace before the first asynchronous assembly and retains failed guards', async () => {
+    const first = seedWorkspace('one', '4.12.0')
+    const second = seedWorkspace('two', '4.12.0', { mcp: '{"keep":true}' })
+    const results = await reseedStaleWorkspaces([project('one'), project('two')], '5.0.0', {
+      assemble: async p => {
+        if (p.slug === 'one') {
+          expect(() => assertWorkspaceCoreReady(first)).toThrow(/unfinished Core update/)
+          expect(() => assertWorkspaceCoreReady(second)).toThrow(/unfinished Core update/)
+          fs.writeFileSync(path.join(first, '.specrails', 'specrails-version'), '5.0.0')
+        } else {
+          fs.writeFileSync(path.join(second, '.mcp.json'), '{}')
+          throw new Error('fixture failure')
+        }
+      },
+    })
+    expect(results[0].reseeded).toBe(true)
+    expect(results[1].error).toContain('fixture failure')
+    expect(() => assertWorkspaceCoreReady(first)).not.toThrow()
+    expect(fs.existsSync(coreUpdatePendingPath(second))).toBe(true)
+    expect(fs.readFileSync(path.join(second, '.mcp.json'), 'utf8')).toBe('{"keep":true}')
+  })
+
+  it('does not clear the pending marker when an assembly exits without updating its version', async () => {
+    const ws = seedWorkspace('stale', '4.12.0')
+    const result = await reseedStaleWorkspaces([project('stale')], '5.0.0', { assemble: async () => {} })
+    expect(result[0].error).toMatch(/expected workspace version/)
+    expect(() => assertWorkspaceCoreReady(ws)).toThrow()
+  })
+  it('uses durable global recovery state when a workspace marker could not be written', () => {
+    const ws = seedWorkspace('readonly-fixture', '4.12.0')
+    const core = path.join(homeDir, '.specrails', 'core')
+    fs.mkdirSync(core, { recursive: true })
+    fs.writeFileSync(path.join(core, 'update-status.json'), '{"pendingVersion":"5.0.0"}')
+    expect(() => assertWorkspaceCoreReady(ws)).toThrow(/unfinished Core update/)
+    fs.writeFileSync(path.join(ws, '.specrails', 'specrails-version'), '5.0.0')
+    expect(() => assertWorkspaceCoreReady(ws)).not.toThrow()
+  })
   it('re-seeds only workspaces whose recorded version differs from current', async () => {
     seedWorkspace('stale', '4.12.0')
     seedWorkspace('fresh', '5.0.0')

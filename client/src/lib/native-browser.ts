@@ -18,7 +18,7 @@ export interface PaneBounds {
 
 export interface NativeBrowserEvent {
   ownerId: string
-  kind: 'nav' | 'load-started' | 'load-finished' | 'title' | 'closed' | 'popup-error' | 'popup-opened'
+  kind: 'resume' | 'nav' | 'load-started' | 'load-finished' | 'title' | 'closed' | 'popup-error' | 'popup-opened'
   url?: string | null
   title?: string | null
 }

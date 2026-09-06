@@ -1,12 +1,21 @@
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'zombie_terminated' | 'skipped'
 
-export type BackgroundProcessStatus = 'starting' | 'running' | 'exited' | 'killed' | 'failed'
+export type BackgroundProcessStatus = 'starting' | 'running' | 'stopping' | 'exited' | 'killed' | 'failed' | 'interrupted'
 
 export interface BackgroundProcess {
+  /** Stable execution identity; optional only for older server payloads. */
+  processId?: string
   pid: number
   command: string
   cwd: string
   startedAt: number
+  endedAt?: number
+  stopRequestedAt?: number
+  error?: string
+  repositoryId?: string
+  repositoryName?: string
+  recoveredAt?: number
+  persistenceError?: string
   status: BackgroundProcessStatus
   chatId: string
   projectId: string
@@ -354,6 +363,8 @@ export interface RailPrUnitOutcome {
  * `prDeliveries` and updated by every `rail.pr_state` broadcast.
  */
 export interface RailPrStateSnapshot {
+  executionManifest?: import('./types/multi-repo').RunExecutionManifest | null
+  repositoryDeliveries?: import('./types/multi-repo').RepositoryDeliverySnapshot[]
   prDeliveryId: string
   railIndex: number
   railKey: string
@@ -380,7 +391,7 @@ export interface RailPrStateSnapshot {
    * referenced replacement failed before allocation completed. */
   restoredFromDeliveryId?: string | null
   /** Leased in-flight decision-side effect owned by another surface/process. */
-  operation?: RailPrDecisionAction | null
+  operation?: RailPrDecisionAction | 'checkout' | null
   /** Bounded cleanup failures that remain after a terminal action. */
   cleanupWarnings?: string[]
   /** Persistent same-filesystem overlay archives retained outside the PR so
@@ -420,6 +431,7 @@ export interface Attachment {
 }
 
 export interface LocalTicket {
+  repositoryIds?: string[]
   id: number
   title: string
   description: string
@@ -568,6 +580,7 @@ export interface AcceptCapability {
 }
 
 export interface ReviewPacketResponse {
+  repositoryId?: string | null
   packet: ReviewPacket
   acceptCapability: AcceptCapability
   snapshot: unknown

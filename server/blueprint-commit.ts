@@ -214,6 +214,9 @@ export function createBlueprintCommitRunner(deps: BlueprintCommitDeps): Blueprin
       return { ok: false, error: 'm1_specs_over_cap', detail: `max ${M1_SPECS_MAX}` }
     }
     const rawBlueprint = input.blueprint as Record<string, unknown>
+    if (Array.isArray(rawBlueprint.m1Specs) && rawBlueprint.m1Specs.some((spec) => spec && typeof spec === 'object' && Object.prototype.hasOwnProperty.call(spec, 'repositoryIds'))) {
+      return { ok: false, error: 'invalid_repository_ids', detail: 'A new Builder project uses its primary repository. Add repository scope after the project and its repository IDs exist.' }
+    }
     const quality = analyzeBuilderSpecBatch(
       {
         specsComplete: rawBlueprint.specsComplete,

@@ -10,6 +10,7 @@ import {
   ExternalLink, Loader2, CheckCircle2, Ticket, ScrollText, Play, Square, RotateCcw, FolderOpen, Eye,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { RepositoryDeliveries } from '../RepositoryDeliveries'
 import { useDesktop } from '../../hooks/useDesktop'
 import { useWebViewModal } from '../../context/WebViewModalContext'
 import { useAgentRefActions } from '../../hooks/useAgentRefActions'
@@ -275,6 +276,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
   const [stoppingRunId, setStoppingRunId] = useState<string | null>(null)
 
   const { decision, prUrl, prState } = envelope
+  const hasRepositoryDeliveries = Boolean(envelope.repositoryDeliveries?.length)
   const presentation = derivePrDeliveryPresentation(envelope)
   const interruptedOperationDetail = isInterruptedPrDeliveryOperation(envelope.statusCode, envelope.statusDetail)
   const recoveredInterruptedOperation = envelope.operation == null && interruptedOperationDetail
@@ -328,14 +330,18 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
     }
   }
 
-  const act = async (action: AgentPrDecisionAction) => {
+  const act = async (action: AgentPrDecisionAction, repositoryId?: string) => {
     if (checkingOut || busy || envelope.operation) return
+    if (hasRepositoryDeliveries && !repositoryId && ['create-pr', 'merge-local', 'publish', 'poll-merge', 'reopen', 'acknowledge-no-changes'].includes(action)) return
+    const repository = envelope.repositoryDeliveries?.find((item) => item.repositoryId === repositoryId)
+    const targetBase = repository?.integrationBranch ?? repository?.baseBranch ?? envelope.baseBranch
     setBusy(action)
     try {
       const r = await postRailPrDecision(envelope.projectId, {
         prDeliveryId: envelope.prDeliveryId,
         action,
         expectedDecision: decision,
+        ...(repositoryId ? { repositoryId } : {}),
       })
       let snapshotApplication: ReturnType<typeof applyPrDecisionSnapshot> | null = null
       if (r.snapshot) {
@@ -361,8 +367,8 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
       } else if (r.kind === 'blocked') {
         // merge-local precondition — user-fixable, name exactly what to fix.
         toast.warning(r.reason === 'dirty'
-          ? t('prCard.mergeLocalBlockedDirty', { base: r.base || envelope.baseBranch })
-          : t('prCard.mergeLocalBlockedBranch', { base: r.base || envelope.baseBranch, current: r.current ?? '?' }))
+          ? t('prCard.mergeLocalBlockedDirty', { base: r.base || targetBase })
+          : t('prCard.mergeLocalBlockedBranch', { base: r.base || targetBase, current: r.current ?? '?' }))
       } else if (r.kind === 'failed') {
         toast.error(t('prCard.actionFailed'), { description: r.detail })
       } else if (r.kind === 'ok' && action === 'recover-and-retry') {
@@ -389,7 +395,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
       } else if (action === 'poll-merge' && !r.merged && r.decision !== 'pr_closed') {
         toast.info(t('prCard.notMergedYet'))
       } else if (action === 'merge-local' && r.kind === 'ok' && r.decision === 'merged') {
-        toast.success(t('prCard.mergedLocally', { base: envelope.baseBranch }))
+        toast.success(t('prCard.mergedLocally', { base: targetBase }))
       }
       // Repo-mutating decisions (branch created/pushed, branches deleted,
       // local merge commit) → git-state surfaces refresh immediately.
@@ -403,11 +409,12 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
     }
   }
 
-  const checkoutPrBranch = async () => {
+  const checkoutPrBranch = async (repositoryId?: string) => {
+    if (hasRepositoryDeliveries && !repositoryId) return
     if (busy || checkingOut || envelope.operation) return
     setCheckingOut(true)
     try {
-      const r = await postRailPrCheckout(envelope.projectId, envelope.prDeliveryId)
+      const r = await (repositoryId ? postRailPrCheckout(envelope.projectId, envelope.prDeliveryId, repositoryId) : postRailPrCheckout(envelope.projectId, envelope.prDeliveryId))
       if (r.kind === 'ok') {
         toast.success(t('prCard.checkoutSuccess', { branch: r.branch ?? prDeliveryCheckoutBranch(envelope) ?? '' }))
         if (r.cleanupWarnings.length > 0) {
@@ -646,7 +653,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
   const shouldAnnounce = Boolean(envelope.operation) || recoveredInterruptedOperation || presentation.partial || presentation.deliveryBlocked || presentation.retryablePush || presentation.retryablePrCreation || presentation.closed || presentation.implementationFailed
   const spinner = <Loader2 className="h-3 w-3 animate-spin" />
 
-  const primaryAction = (action: AgentPrDecisionAction, label: string) => (
+  const primaryAction = (action: AgentPrDecisionAction, label: string) => !hasRepositoryDeliveries && (
     <button type="button" onClick={() => void act(action)} disabled={anyBusy} data-agent-interactive className={primaryBtn}>
       {busy === action && spinner}
       {label}
@@ -661,7 +668,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
     : null
 
   const checkoutBranch = prDeliveryCheckoutBranch(envelope)
-  const checkoutAction = checkoutBranch && (
+  const checkoutAction = checkoutBranch && !hasRepositoryDeliveries && (
     <button
       type="button"
       onClick={() => void checkoutPrBranch()}
@@ -709,7 +716,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
   )
 
   // Remote-less acceptance (no PR exists yet): merge into the base locally.
-  const mergeLocalAction = (
+  const mergeLocalAction = !hasRepositoryDeliveries && (
     <button
       type="button"
       onClick={() => setConfirmingMergeLocal(true)}
@@ -745,7 +752,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
     </button>
   )
 
-  const acknowledgeNoChangesAction = (
+  const acknowledgeNoChangesAction = !hasRepositoryDeliveries && (
     <button type="button" onClick={() => setConfirmingNoChangesDone(true)} disabled={anyBusy} data-agent-interactive className={primaryBtn}>
       {busy === 'acknowledge-no-changes' && spinner}
       {t('prCard.markDone')}
@@ -807,16 +814,19 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
         </span>
       </div>
 
+      <RepositoryDeliveries deliveryId={envelope.prDeliveryId} repositories={envelope.repositoryDeliveries}
+        busy={!!busy || checkingOut || !!envelope.operation} onAct={act} onCheckout={checkoutPrBranch} />
+
       {/* Body: base-branch chip + spec count + PR link */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span
+        {!hasRepositoryDeliveries && <span
           title={t('prCard.base')}
           className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 font-mono text-[11px] text-foreground/70"
         >
           <GitBranch className="h-3 w-3 text-accent-primary/70" />
           {'→ '}
           {envelope.baseBranch}
-        </span>
+        </span>}
         <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface/60 px-2 py-0.5 text-[11px] text-foreground/70">
           <Ticket className="h-3 w-3 text-accent-secondary/80" />
           {t('prCard.specCount', { count: envelope.ticketIds.length })}
@@ -1071,7 +1081,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
             </p>
           )}
       </motion.div>
-      <Dialog open={confirmingMergeLocal} onOpenChange={setConfirmingMergeLocal}>
+      <Dialog open={!hasRepositoryDeliveries && confirmingMergeLocal} onOpenChange={setConfirmingMergeLocal}>
         <DialogContent className="max-w-sm" data-testid="agent-pr-merge-local-confirm">
           <DialogHeader>
             <DialogTitle>{t('prCard.confirm.mergeLocalTitle')}</DialogTitle>
@@ -1150,7 +1160,7 @@ export function AgentPrDecisionCard({ envelope: envelopeProp }: { envelope: Agen
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={confirmingNoChangesDone} onOpenChange={setConfirmingNoChangesDone}>
+      <Dialog open={!hasRepositoryDeliveries && confirmingNoChangesDone} onOpenChange={setConfirmingNoChangesDone}>
         <DialogContent className="max-w-sm" data-testid="agent-pr-no-changes-done-confirm">
           <DialogHeader>
             <DialogTitle>{t('prCard.confirm.noChangesDoneTitle')}</DialogTitle>

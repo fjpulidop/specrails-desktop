@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useId, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ChevronDown, ChevronUp, FileMinus2, FilePlus2, FileText, GitCommitHorizontal } from 'lucide-react'
-import { getApiBase } from '../../lib/api'
+import { useCodeRepository, matchesCodeRepository } from './CodeRepositoryContext'
 import { providerSupportsPureOutput } from '../../lib/provider-capabilities'
 import { useDesktop } from '../../hooks/useDesktop'
 import { useSharedWebSocket } from '../../hooks/useSharedWebSocket'
@@ -14,6 +14,7 @@ import { CodeViewerMonaco } from './CodeViewerMonaco'
 import { SummaryHeader, type SummaryPayload } from './SummaryHeader'
 import { MarkdownPreview } from './MarkdownPreview'
 import { ConstructionStory } from './ConstructionStory'
+import { RecordedDiff } from './RecordedDiff'
 
 function isMarkdown(relPath: string, language?: string): boolean {
   if (language === 'markdown' || language === 'md') return true
@@ -22,6 +23,9 @@ function isMarkdown(relPath: string, language?: string): boolean {
 
 interface FileViewerProps {
   relPath: string
+  initialLine?: number
+  initialJobId?: string | null
+  compact?: boolean
   onFilterJob?: (jobId: string) => void
   onSummaryActionChange?: (action: SummaryAction | null) => void
   onCopyPathActionChange?: (action: CopyPathAction | null) => void
@@ -125,14 +129,19 @@ function saveSummaryCollapsed(projectId: string | null, collapsed: boolean): voi
   try { localStorage.setItem(key, collapsed ? 'true' : 'false') } catch { /* ignore */ }
 }
 
-function loadHistoryCollapsed(projectId: string | null): boolean {
-  const key = historyCollapsedKey(projectId)
-  if (!key) return false
-  try { return localStorage.getItem(key) === 'true' } catch { return false }
+function loadHistoryCollapsed(projectId: string | null, compact = false): boolean {
+  const base = historyCollapsedKey(projectId)
+  if (!base) return compact
+  const key = compact ? base + ':compact' : base
+  try {
+    const stored = localStorage.getItem(key)
+    return stored === null ? compact : stored === 'true'
+  } catch { return compact }
 }
 
-function saveHistoryCollapsed(projectId: string | null, collapsed: boolean): void {
-  const key = historyCollapsedKey(projectId)
+function saveHistoryCollapsed(projectId: string | null, collapsed: boolean, compact = false): void {
+  const base = historyCollapsedKey(projectId)
+  const key = base && compact ? base + ':compact' : base
   if (!key) return
   try { localStorage.setItem(key, collapsed ? 'true' : 'false') } catch { /* ignore */ }
 }
@@ -142,22 +151,54 @@ function clampHistoryHeight(height: number, containerHeight: number): number {
   return Math.min(Math.max(height, MIN_HISTORY_HEIGHT), max)
 }
 
-export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopyPathActionChange }: FileViewerProps) {
+export function FileViewer(props: FileViewerProps) {
+  const { activeProjectId } = useDesktop()
+  const scope = useCodeRepository()
+  // Remount on identity changes: old bytes never appear beneath a new path.
+  const key = JSON.stringify([activeProjectId, scope.apiBase, scope.repositoryId, scope.repositoryPath, props.relPath, props.initialJobId])
+  return <FileViewerInner key={key} {...props} />
+}
+
+function FileViewerInner({ relPath, initialLine, initialJobId, compact = false, onFilterJob, onSummaryActionChange, onCopyPathActionChange }: FileViewerProps) {
   const { t } = useTranslation('code')
+  const repositoryScope = useCodeRepository()
+  const { apiBase, repositoryId } = repositoryScope
   const { activeProjectId, projects } = useDesktop()
   const activeProvider = projects.find((project) => project.id === activeProjectId)?.provider
   const aiTransformsAvailable = providerSupportsPureOutput(activeProvider)
   const { openTicketDetail } = useTicketDetailModal()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
+  const instanceId = useId()
   const budgetModal = useMovableResizableModal({ allowMove: false })
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const [file, setFile] = useState<FileResponse | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const alive = useRef(true)
+  const readController = useRef<AbortController | null>(null)
+  const postControllers = useRef(new Set<AbortController>())
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+      readController.current?.abort()
+      for (const controller of postControllers.current) controller.abort()
+      postControllers.current.clear()
+    }
+  }, [])
+  const [recordedJobId, setRecordedJobId] = useState(initialJobId ?? null)
+  const [viewMode, setViewMode] = useState<'source' | 'recorded'>(initialJobId ? 'recorded' : 'source')
+  useEffect(() => {
+    setRecordedJobId(initialJobId ?? null)
+    setViewMode(initialJobId ? 'recorded' : 'source')
+  }, [initialJobId])
+  useEffect(() => { if (initialLine && !initialJobId) setViewMode('source') }, [initialLine, initialJobId])
+  const showRecorded = useCallback((jobId: string) => { setRecordedJobId(jobId); setViewMode('recorded') }, [])
   const [loading, setLoading] = useState(true)
   const [regenerating, setRegenerating] = useState(false)
   const [budgetPromptOpen, setBudgetPromptOpen] = useState(false)
   const [summaryCollapsed, setSummaryCollapsed] = useState(() => loadSummaryCollapsed(activeProjectId))
   const [historyHeight, setHistoryHeight] = useState(() => loadHistoryHeight(activeProjectId))
-  const [historyCollapsed, setHistoryCollapsed] = useState(() => loadHistoryCollapsed(activeProjectId))
+  const [historyCollapsed, setHistoryCollapsed] = useState(() => loadHistoryCollapsed(activeProjectId, compact))
   const [historyMode, setHistoryMode] = useState<HistoryMode>(() => loadHistoryMode(activeProjectId))
 
   const activeProjectIdRef = useRef(activeProjectId)
@@ -169,9 +210,9 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
     const height = viewerRef.current?.clientHeight || window.innerHeight
     setSummaryCollapsed(loadSummaryCollapsed(activeProjectId))
     setHistoryHeight(clampHistoryHeight(loadHistoryHeight(activeProjectId), height))
-    setHistoryCollapsed(loadHistoryCollapsed(activeProjectId))
+    setHistoryCollapsed(loadHistoryCollapsed(activeProjectId, compact))
     setHistoryMode(loadHistoryMode(activeProjectId))
-  }, [activeProjectId])
+  }, [activeProjectId, compact])
 
   const beginHistoryResize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const startY = e.clientY
@@ -215,10 +256,10 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
   const toggleHistoryCollapsed = useCallback(() => {
     setHistoryCollapsed((prev) => {
       const next = !prev
-      saveHistoryCollapsed(activeProjectId, next)
+      saveHistoryCollapsed(activeProjectId, next, compact)
       return next
     })
-  }, [activeProjectId])
+  }, [activeProjectId, compact])
 
   const changeHistoryMode = useCallback((mode: HistoryMode) => {
     setHistoryMode(mode)
@@ -226,48 +267,55 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
   }, [activeProjectId])
 
   useEffect(() => {
-    setRegenerating(false)
-    setBudgetPromptOpen(false)
-    setMarkdownMode('preview')
-    setEditing(false) // switching files exits edit mode (discards the unsaved draft)
-  }, [relPath])
+    setMarkdownMode(initialLine ? 'raw' : 'preview')
+  }, [relPath, initialLine])
 
   const reqIdRef = useRef(0)
   const fetchFile = useCallback(async () => {
     // Monotonic request id: a slower fetch for a previously-selected file can
     // resolve after a newer one — ignore any response that is no longer current
     // so the viewer never shows the wrong file's content.
+    if (!alive.current) return
     const myReq = ++reqIdRef.current
+    readController.current?.abort()
+    const controller = new AbortController()
+    readController.current = controller
     setLoading(true)
+    setLoadFailed(false)
     try {
-      const res = await fetch(`${getApiBase()}/code/file?path=${encodeURIComponent(relPath)}`)
-      if (myReq !== reqIdRef.current) return
+      const res = await fetch(`${apiBase}/code/file?path=${encodeURIComponent(relPath)}`, { signal: controller.signal })
+      if (!alive.current || controller.signal.aborted || myReq !== reqIdRef.current) return
       if (!res.ok) {
-        setFile(null)
+        setLoadFailed(true)
         return
       }
       const json = (await res.json()) as FileResponse
-      if (myReq !== reqIdRef.current) return
+      if (!alive.current || controller.signal.aborted || myReq !== reqIdRef.current) return
       setFile(json)
     } catch {
-      if (myReq === reqIdRef.current) setFile(null)
+      if (alive.current && !controller.signal.aborted && myReq === reqIdRef.current) setLoadFailed(true)
     } finally {
-      if (myReq === reqIdRef.current) setLoading(false)
+      if (alive.current && !controller.signal.aborted && myReq === reqIdRef.current) setLoading(false)
     }
     // activeProjectId: getApiBase() is project-scoped, so a project switch (with
     // the same relPath) must refetch against the new project.
-  }, [relPath, activeProjectId])
+  }, [relPath, activeProjectId, apiBase])
 
-  useEffect(() => { fetchFile() }, [fetchFile])
+  useEffect(() => { void fetchFile() }, [fetchFile])
+  useEffect(() => {
+    const refresh = () => { void fetchFile() }
+    window.addEventListener('focus', refresh)
+    return () => window.removeEventListener('focus', refresh)
+  }, [fetchFile])
 
   useEffect(() => {
     if (!activeProjectId) return
-    const id = `code-file-${activeProjectId}`
+    const id = `code-file-${activeProjectId}-${repositoryId ?? 'primary'}-${instanceId}`
     registerHandler(id, (raw) => {
-      const msg = raw as { type?: string; projectId?: string; path?: string; reason?: string }
-      if (msg.projectId !== activeProjectIdRef.current) return
-      if (msg.type === 'file.summary_updated' && msg.path === relPathRef.current) {
-        setRegenerating(false)
+      const msg = raw as { type?: string; repositoryId?: string; projectId?: string; path?: string; reason?: string }
+      if (msg.projectId !== activeProjectIdRef.current || !matchesCodeRepository(msg.repositoryId, repositoryScope)) return
+      if ((msg.type === 'file.summary_updated' || msg.type === 'file.provenance_updated' || msg.type === 'file.content_updated') && msg.path === relPathRef.current) {
+        if (msg.type === 'file.summary_updated') setRegenerating(false)
         fetchFile()
       } else if (msg.type === 'file.summary_failed' && msg.path === relPathRef.current) {
         toast.error(msg.reason ?? t('summary.generationFailed'))
@@ -278,21 +326,25 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
       }
     })
     return () => unregisterHandler(id)
-  }, [activeProjectId, registerHandler, unregisterHandler, fetchFile, t])
+  }, [instanceId, apiBase, repositoryId, activeProjectId, registerHandler, unregisterHandler, fetchFile, t])
 
   const handleRegenerate = useCallback(async (overrideBudget: boolean) => {
-    if (!aiTransformsAvailable) return
+    if (!aiTransformsAvailable || !alive.current || postControllers.current.size > 0) return
+    const controller = new AbortController()
+    postControllers.current.add(controller)
     setRegenerating(true)
     try {
       const res = await fetch(
-        `${getApiBase()}/code/file/regenerate-summary?path=${encodeURIComponent(relPath)}`,
+        `${apiBase}/code/file/regenerate-summary?path=${encodeURIComponent(relPath)}`,
         {
           method: 'POST',
+          signal: controller.signal,
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ overrideBudget }),
         },
       )
       const json = await res.json().catch(() => ({})) as { skipped?: string }
+      if (!alive.current || controller.signal.aborted) return
       if (!res.ok) {
         setRegenerating(false)
         const skipped = typeof json.skipped === 'string' ? json.skipped : null
@@ -312,11 +364,13 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
         return
       }
       await fetchFile()
-      setRegenerating(false)
+      if (alive.current && !controller.signal.aborted) setRegenerating(false)
     } catch {
-      setRegenerating(false)
-      toast.error(t('summary.generationFailed'))
-    }
+      if (alive.current && !controller.signal.aborted) {
+        setRegenerating(false)
+        toast.error(t('summary.generationFailed'))
+      }
+    } finally { postControllers.current.delete(controller) }
   }, [aiTransformsAvailable, fetchFile, relPath, t])
 
   const copyAbsolutePath = useCallback(async () => {
@@ -325,7 +379,8 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
       // writeText rejects ASYNC (insecure origin, unfocused doc, Tauri webview);
       // await so a failure doesn't leak an unhandled rejection AND so the success
       // toast only fires when the clipboard actually received the path.
-      await navigator.clipboard?.writeText(abs)
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
+      await navigator.clipboard.writeText(abs)
       toast.success(t('viewer.pathCopied'))
     } catch {
       toast.error(t('viewer.copyPathFailed'))
@@ -334,48 +389,13 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
 
   // Hook order must be stable across renders — declare BEFORE any early return.
   const markdown = useMemo(() => isMarkdown(relPath, file?.language), [relPath, file?.language])
-  const [markdownMode, setMarkdownMode] = useState<'preview' | 'raw'>('preview')
-
-  // In-app editing (v1): toggle an editable Monaco over the current text file.
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [saving, setSaving] = useState(false)
-  const editable = file?.content !== undefined && !file.binary && !file.tooLarge && file.reason !== 'not-found'
-
-  const startEditing = useCallback(() => {
-    setDraft(file?.content ?? '')
-    setMarkdownMode('raw') // edit the source, not the rendered preview
-    setEditing(true)
-  }, [file])
-
-  const handleSave = useCallback(async () => {
-    setSaving(true)
-    try {
-      const res = await fetch(`${getApiBase()}/code/file`, {
-        method: 'PUT',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ path: relPath, content: draft }),
-      })
-      if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string }
-        toast.error(j.error ?? t('viewer.saveFailed'))
-        return
-      }
-      toast.success(t('viewer.saved'))
-      setEditing(false)
-      fetchFile() // refresh content + summaryStale
-    } catch {
-      toast.error(t('viewer.saveFailed'))
-    } finally {
-      setSaving(false)
-    }
-  }, [relPath, draft, t, fetchFile])
+  const [markdownMode, setMarkdownMode] = useState<'preview' | 'raw'>(initialLine ? 'raw' : 'preview')
 
   const summary = file?.summary ?? null
   const stale = !!file?.summaryStale
   const provenance = file?.provenance ?? []
   const missing = file?.reason === 'not-found'
-  const summaryDisabledReason = !aiTransformsAvailable
+  const summaryDisabledReason = !file ? t('reader.sourceUnavailable', { defaultValue: 'source unavailable' }) : !aiTransformsAvailable
     ? t('summary.reason.providerNoPureOutput')
     : missing
       ? t('summary.reason.missing')
@@ -387,7 +407,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
 
   useEffect(() => {
     if (!onSummaryActionChange) return
-    if (loading && !file) {
+    if (viewMode === 'recorded' || (loading && !file)) {
       onSummaryActionChange(null)
       return
     }
@@ -398,7 +418,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
       onClick: () => handleRegenerate(false),
     })
     return () => onSummaryActionChange(null)
-  }, [file, handleRegenerate, loading, onSummaryActionChange, regenerating, summary, summaryDisabledReason])
+  }, [file, handleRegenerate, loading, onSummaryActionChange, regenerating, summary, summaryDisabledReason, viewMode])
 
   useEffect(() => {
     if (!onCopyPathActionChange) return
@@ -410,7 +430,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
     return () => onCopyPathActionChange(null)
   }, [copyAbsolutePath, file, loading, onCopyPathActionChange])
 
-  if (loading && !file) {
+  if (viewMode === 'source' && loading && !file) {
     return (
       <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground animate-pulse">
         {t('viewer.loadingFile')}
@@ -420,7 +440,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
 
   return (
     <div ref={viewerRef} className="flex flex-col h-full" data-testid="file-viewer">
-      {summaryCollapsed ? (
+      {viewMode === 'source' && (summaryCollapsed ? (
         <div className="flex h-8 shrink-0 items-center justify-between border-b border-border bg-surface px-4" data-testid="summary-header-collapsed">
           <span className="truncate text-xs text-muted-foreground">{relPath}</span>
           <button
@@ -441,10 +461,12 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
           generateDisabledReason={summaryDisabledReason}
           onCollapse={toggleSummaryCollapsed}
         />
-      )}
-      <div className="px-4 py-1 border-b border-border flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          {markdown && file?.content !== undefined && !file.binary && !file.tooLarge && (
+      ))}
+      <div className="px-4 py-1 border-b border-border flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <button aria-pressed={viewMode === 'source'} onClick={() => setViewMode('source')} className="rounded px-2 py-1 text-xs hover:bg-muted">{t('reader.currentFile', { defaultValue: 'Current file' })}</button>
+          {recordedJobId && <button aria-pressed={viewMode === 'recorded'} onClick={() => setViewMode('recorded')} className="rounded px-2 py-1 text-xs hover:bg-muted">{t('reader.recordedChange', { defaultValue: 'Recorded change' })}</button>}
+          {viewMode === 'source' && markdown && file?.content !== undefined && !file.binary && !file.tooLarge && (
             <div className="flex items-center gap-1 text-[11px]" role="group" aria-label={t('viewer.markdownViewMode')}>
               <button
                 type="button"
@@ -473,40 +495,18 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 text-[11px] shrink-0">
-          {editable && !editing && (
-            <button
-              type="button"
-              onClick={startEditing}
-              className="px-2 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            >
-              {t('viewer.edit')}
-            </button>
-          )}
-          {editing && (
-            <>
-              <button
-                type="button"
-                onClick={() => setEditing(false)}
-                disabled={saving}
-                className="px-2 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-50"
-              >
-                {t('actions.cancel', { ns: 'common' })}
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="px-2 py-1 rounded-md bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30 disabled:opacity-50"
-              >
-                {saving ? t('viewer.saving') : t('viewer.save')}
-              </button>
-            </>
-          )}
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          {file?.language && <span>{file.language}</span>}
+          {typeof file?.sizeBytes === 'number' && <span>{(file.sizeBytes / 1024).toFixed(1)} KB</span>}
+          <button disabled={loading} onClick={() => { void fetchFile() }} className="rounded px-2 py-1 hover:bg-muted disabled:opacity-50">{t('reader.refresh', { defaultValue: 'Refresh source' })}</button>
         </div>
       </div>
-      <div className="flex-1 overflow-hidden">
-        {missing ? (
+      {loadFailed && <div role="alert" className="border-b border-border px-4 py-2 text-xs">
+        {t('reader.sourceFailed', { defaultValue: 'Could not refresh the current file. Any displayed source is the last successful read.' })}
+        <button className="ml-2 underline" onClick={() => { void fetchFile() }}>{t('reader.retry', { defaultValue: 'Retry' })}</button>
+      </div>}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {viewMode === 'recorded' && recordedJobId ? <div className="h-full overflow-auto p-3"><RecordedDiff path={relPath} jobId={recordedJobId} /></div> : missing ? (
           <div className="h-full flex items-center justify-center text-sm text-muted-foreground" data-testid="file-missing">
             {t('viewer.missingFile')}
           </div>
@@ -519,14 +519,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
             {t('viewer.tooLarge', { size: Math.round((file.sizeBytes ?? 0) / 1024 / 1024) })}
           </div>
         ) : file?.content !== undefined ? (
-          editing ? (
-            <CodeViewerMonaco
-              content={draft}
-              language={file.language ?? 'plaintext'}
-              readOnly={false}
-              onChange={setDraft}
-            />
-          ) : markdown && markdownMode === 'preview' ? (
+          markdown && markdownMode === 'preview' ? (
             <div
               className="h-full overflow-auto px-6 py-4 prose prose-invert prose-sm max-w-none prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-pre:bg-muted/40 prose-pre:rounded-md prose-code:before:content-none prose-code:after:content-none"
               data-testid="markdown-preview"
@@ -534,7 +527,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
               <MarkdownPreview content={file.content} />
             </div>
           ) : (
-            <CodeViewerMonaco content={file.content} language={file.language ?? 'plaintext'} />
+            <CodeViewerMonaco content={file.content} language={file.language ?? 'plaintext'} initialLine={initialLine} />
           )
         ) : (
           <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
@@ -611,6 +604,7 @@ export function FileViewer({ relPath, onFilterJob, onSummaryActionChange, onCopy
                 height={historyHeight}
                 onOpenTicket={openTicketDetail}
                 onFilterJob={onFilterJob}
+                onViewDiff={showRecorded}
               />
             ) : (
               <ProvenanceTimeline
@@ -677,31 +671,8 @@ function ProvenanceTimeline({
 }) {
   const { t } = useTranslation('code')
   const [openDiffKey, setOpenDiffKey] = useState<string | null>(null)
-  const [diffs, setDiffs] = useState<Record<string, { patch: string; truncated: boolean } | 'missing' | 'loading'>>({})
   if (rows.length === 0) return null
-
-  async function toggleDiff(row: ProvenanceRow, key: string) {
-    if (openDiffKey === key) {
-      setOpenDiffKey(null)
-      return
-    }
-    setOpenDiffKey(key)
-    if (!row.jobId || diffs[key]) return
-    setDiffs((prev) => ({ ...prev, [key]: 'loading' }))
-    try {
-      const params = new URLSearchParams({ jobId: row.jobId, path: row.path })
-      const res = await fetch(`${getApiBase()}/code/diff?${params.toString()}`)
-      if (res.status === 404) {
-        setDiffs((prev) => ({ ...prev, [key]: 'missing' }))
-        return
-      }
-      if (!res.ok) throw new Error('diff failed')
-      const json = await res.json() as { patch?: string; truncated?: boolean }
-      setDiffs((prev) => ({ ...prev, [key]: { patch: json.patch ?? '', truncated: json.truncated === true } }))
-    } catch {
-      setDiffs((prev) => ({ ...prev, [key]: 'missing' }))
-    }
-  }
+  function toggleDiff(_row: ProvenanceRow, key: string) { setOpenDiffKey((current) => current === key ? null : key) }
 
   return (
     <div
@@ -714,7 +685,6 @@ function ProvenanceTimeline({
           const Icon = row.kind === 'created' ? FilePlus2 : row.kind === 'deleted' ? FileMinus2 : FileText
           const job = row.jobId ? (row.jobId.length > 12 ? row.jobId.slice(0, 12) : row.jobId) : t('history.unknownJob')
           const diffKey = `${row.jobId ?? 'job'}:${row.path}:${row.at}:${index}`
-          const diffState = diffs[diffKey]
           return (
             <div key={diffKey} className="rounded-md hover:bg-muted/40">
               <div className="grid grid-cols-[minmax(72px,auto)_minmax(0,1fr)_auto] items-center gap-2 text-xs px-2 py-1.5">
@@ -762,18 +732,7 @@ function ProvenanceTimeline({
               </div>
               {openDiffKey === diffKey && (
                 <div className="px-2 pb-2">
-                  {diffState === 'loading' ? (
-                    <div className="rounded-md bg-muted/35 px-2 py-2 text-[11px] text-muted-foreground">{t('history.loadingDiff')}</div>
-                  ) : diffState === 'missing' || !diffState ? (
-                    <div className="rounded-md bg-muted/35 px-2 py-2 text-[11px] text-muted-foreground">
-                      {t('history.diffUnavailable')}
-                    </div>
-                  ) : (
-                    <pre className="max-h-72 overflow-auto rounded-md bg-muted/50 px-2 py-2 font-mono text-[11px] leading-relaxed text-foreground/85">
-                      {diffState.patch}
-                      {diffState.truncated ? `\n${t('history.diffTruncated')}` : ''}
-                    </pre>
-                  )}
+                  {row.jobId && <RecordedDiff path={row.path} jobId={row.jobId} />}
                 </div>
               )}
             </div>

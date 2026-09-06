@@ -5,6 +5,9 @@ import os from 'os'
 import Database from 'better-sqlite3'
 import * as projectDb from './db'
 import { TicketWatcher } from './ticket-watcher'
+import { mutateStore as mutateRepositoryTickets, resolveTicketStoragePath as repositoryTicketPath } from './ticket-store'
+import { resolveProjectExecution as repositoryExecution } from './workspace-resolution'
+import { ChatManager as MockedChatManager } from './chat-manager'
 
 // Mock all managers before importing
 vi.mock('./queue-manager', () => {
@@ -117,6 +120,60 @@ describe('ProjectRegistry', () => {
     if (prevRegistryHome !== undefined) process.env.SPECRAILS_REGISTRY_HOME = prevRegistryHome
     else delete process.env.SPECRAILS_REGISTRY_HOME
     fs.rmSync(registryHome, { recursive: true, force: true })
+  })
+
+  describe('repository membership lifecycle', () => {
+    function makeMembershipProject() {
+      const primary = path.join(registryHome, 'app'), secondary = path.join(registryHome, 'api')
+      fs.mkdirSync(primary); fs.mkdirSync(secondary)
+      const context = registry.addProject({ id: 'membership', slug: 'membership', name: 'Membership', path: primary })
+      const repository = registry.addRepository(context.project.id, { path: secondary })
+      return { context, repository }
+    }
+    function ticketsPath(context: ProjectContext) {
+      const execution = repositoryExecution(context.project)
+      return execution.relocated ? execution.ticketsPath : repositoryTicketPath(context.project.path)
+    }
+
+    it('refreshes the existing project object and closures while preserving primary artifact registration', () => {
+      const { context, repository } = makeMembershipProject()
+      const project = context.project, watcher = context.ticketWatcher, chat = context.chatManager
+      const registryBefore = fs.readFileSync(path.join(registryHome, '.specrails', 'registry.json'), 'utf8')
+      registry.updateRepository(project.id, repository.id, { name: 'Backend', integrationBranch: 'develop' })
+      expect(registry.getContext(project.id)?.project).toBe(project)
+      expect(context.ticketWatcher).toBe(watcher); expect(context.chatManager).toBe(chat)
+      expect(context.project.repositories?.find((repo) => repo.id === repository.id)?.name).toBe('Backend')
+      const supplier = vi.mocked(MockedChatManager).mock.calls.at(-1)?.[7]
+      expect(supplier?.()).toEqual(context.project.repositories)
+      expect(fs.readFileSync(path.join(registryHome, '.specrails', 'registry.json'), 'utf8')).toBe(registryBefore)
+      expect(registry.getContextByPath(path.join(repository.path, 'src'), project.id)).toBe(context)
+      registry.removeRepository(project.id, repository.id)
+      expect(context.project.repositories).toHaveLength(1)
+      expect(fs.existsSync(repository.path)).toBe(true)
+    })
+
+    it('blocks secondary removal and relocation while any spec references it; getTicketSpec retains scope', () => {
+      const { context, repository } = makeMembershipProject()
+      mutateRepositoryTickets(ticketsPath(context), (store) => { store.tickets['1'] = { id: 1, title: 'Cross repo', repositoryIds: [repository.id], status: 'done', metadata: {} } as any })
+      expect(context.getTicketSpec(1)?.repositoryIds).toEqual([repository.id])
+      expect(() => registry.removeRepository(context.project.id, repository.id)).toThrow('referenced')
+      expect(() => registry.updateRepository(context.project.id, repository.id, { path: path.join(registryHome, 'new') })).toThrow('referenced')
+      expect(registry.updateRepository(context.project.id, repository.id, { path: repository.path, name: 'Renamed API' }).name).toBe('Renamed API')
+      expect(context.project.repositories).toHaveLength(2)
+    })
+
+    it('blocks active frozen execution and pending delivery references before cleanup', () => {
+      const { context, repository } = makeMembershipProject()
+      createLoopRun(context.db, { id: 'active-membership', projectId: context.project.id, loopId: 'custom', iterationLimit: 1, startedAt: new Date().toISOString() })
+      context.db.prepare('UPDATE loop_runs SET execution_manifest = ? WHERE id = ?').run(JSON.stringify({ version: 1, repositories: [], selectedRepositoryIds: [repository.id] }), 'active-membership')
+      expect(() => registry.removeRepository(context.project.id, repository.id)).toThrow('referenced')
+      context.db.prepare("UPDATE loop_runs SET status = 'completed' WHERE id = ?").run('active-membership')
+      createPrDelivery(context.db, { id: 'pending-membership', originSurface: 'rails', repositoryId: repository.id, railIndex: 0, railKey: 'membership-0', ticketIds: [], baseBranch: 'main', loopName: 'Implement' })
+      expect(() => registry.removeRepository(context.project.id, repository.id)).toThrow('referenced')
+      context.db.prepare("UPDATE rail_pr_deliveries SET decision = 'discarded' WHERE id = ?").run('pending-membership')
+      registry.removeRepository(context.project.id, repository.id)
+      expect(context.project.repositories).toHaveLength(1)
+    })
   })
 
   // ─── Constructor ────────────────────────────────────────────────────────────

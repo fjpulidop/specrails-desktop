@@ -29,6 +29,8 @@ export type SpawnAction =
 export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra'
 
 export interface SpawnOptions {
+  /** Scoped coordinated runs must keep the workspace sandbox on, including first rail invocation. */
+  scopedWorkingDirectories?: boolean
   prompt: string
   systemPrompt?: string
   model: string
@@ -153,6 +155,9 @@ export interface ProviderCapabilities {
    * respawning per turn. Optional — absent/false means spawn-per-turn only.
    */
   persistentStdin?: boolean
+  /** Native mission input transport. The provider accepts updates during an
+   * active invocation; MCP-boundary delivery remains the fallback elsewhere. */
+  liveInputTransport?: 'claude-stream-json' | 'codex-app-server'
   /**
    * Provider honours `SpawnOptions.reasoning_effort` via a per-invocation knob:
    * claude with the native `--effort <level>` flag, codex with

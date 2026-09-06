@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { apiCall, getActiveProject, type McpToolSpec } from './types'
 import { serializeProject } from './projects'
+import { getProjectRepositories, resolveProjectRepository } from '../../project-repositories'
 
 const SECTIONS = ['overview', 'backlog', 'runs', 'git', 'blueprint'] as const
 type Section = typeof SECTIONS[number]
@@ -39,6 +40,7 @@ export function contextTools(): McpToolSpec[] {
     tier: 'read',
     inputSchema: {
       projectId: z.string().optional().describe('Project id; defaults to the mission pin or this MCP session selection'),
+      repositoryId: z.string().min(1).optional().describe('Optional repository to inspect in the Git section; omitted returns a bounded overview of every member.'),
       sections: z.array(z.enum(SECTIONS)).min(1).max(SECTIONS.length).optional().describe('Sections to refresh; default all. Select only the sections relevant to the current question.'),
       limit: z.number().int().min(1).max(30).optional().describe('Maximum items per list, default 10; counts cover the full returned source'),
     },
@@ -48,6 +50,7 @@ export function contextTools(): McpToolSpec[] {
       const project = ctx.registry.getProjectRow(projectId)
       if (!project) throw new Error(`Unknown projectId "${projectId}". Use specrails_projects(list).`)
       const base = `/projects/${encodeURIComponent(project.id)}`
+      const selectedRepository = args.repositoryId === undefined ? undefined : resolveProjectRepository(project, args.repositoryId as string)
       const limit = typeof args.limit === 'number' ? args.limit : 10
       const sections = [...new Set((args.sections ?? SECTIONS) as Section[])]
       const probe = async (source: string, projectData: (data: unknown) => unknown) => {
@@ -76,7 +79,7 @@ export function contextTools(): McpToolSpec[] {
             }
             return {
               total: tickets.length, revision: data.revision, statusCounts,
-              recent: tickets.slice(0, limit).map(ticket => pick(ticket, ['id', 'title', 'short_summary', 'status', 'priority', 'labels', 'needs_review', 'updated_at'], limit)),
+              recent: tickets.slice(0, limit).map(ticket => pick(ticket, ['id', 'title', 'short_summary', 'status', 'priority', 'labels', 'repositoryIds', 'needs_review', 'updated_at'], limit)),
               truncated: tickets.length > limit,
               next: 'specrails_specs(list/get) for full descriptions, acceptance criteria and filtered backlog',
             }
@@ -90,7 +93,7 @@ export function contextTools(): McpToolSpec[] {
                 rails: rails.slice(0, limit).map(rail => pick(rail, ['railIndex', 'name', 'mode', 'aiEngine', 'profileName', 'ticketIds'], limit)),
                 activeJobs: compact(data.activeJobs, limit), activeLoopRuns: compact(data.activeLoopRuns, limit),
                 prDeliveries: Object.fromEntries(Object.entries(record(data.prDeliveries)).slice(0, 12).map(([index, delivery]) =>
-                  [index, pick(delivery, ['id', 'railIndex', 'ticketIds', 'branch', 'prUrl', 'prState', 'decision', 'implementationOutcome', 'deliveryOutcome', 'statusCode', 'statusDetail', 'deliverySha', 'operation', 'updatedAt'], limit)])),
+                  [index, pick(delivery, ['id', 'railIndex', 'ticketIds', 'branch', 'prUrl', 'prState', 'decision', 'implementationOutcome', 'deliveryOutcome', 'statusCode', 'statusDetail', 'deliverySha', 'operation', 'executionManifest', 'repositoryDeliveries', 'updatedAt'], limit)])),
                 total: rails.length, truncated: rails.length > limit,
                 next: 'specrails_rails(list/review_packet), specrails_jobs(get), specrails_loops(run_get)',
               }
@@ -104,16 +107,25 @@ export function contextTools(): McpToolSpec[] {
             })])
             return [section, { rails, jobs }]
           }
-          case 'git': return [section, await probe(`${base}/git`, value => {
+          case 'git': {
+            const members = selectedRepository ? [selectedRepository] : getProjectRepositories(project)
+            const projectGit = (value: unknown) => {
             const data = record(value)
             if (typeof data.git !== 'boolean') throw new Error('Invalid Git response; repository state is unknown.')
             return {
-              ...pick(data, ['git', 'branch', 'detached', 'dirty', 'lastCommit', 'worktrees'], limit),
+              ...pick(data, ['git', 'repositoryId', 'branch', 'detached', 'dirty', 'lastCommit', 'worktrees'], limit),
               worktreeCount: rows(data.worktrees).length,
               truncated: rows(data.worktrees).length > limit,
               next: 'specrails_git(info/status/diff) for details; delivery acceptance belongs to the verified review flow',
             }
-          })]
+            }
+            if (!selectedRepository && members.length === 1) return [section, await probe(`${base}/git`, projectGit)]
+            const results = await Promise.all(members.slice(0, limit).map(async repository => ({
+              repositoryId: repository.id, name: repository.name, kind: repository.kind,
+              ...await probe(`${base}/repositories/${encodeURIComponent(repository.id)}/git`, projectGit),
+            })))
+            return [section, { status: 'ok', source: 'project repository inventory', data: { repositories: results, total: members.length, truncated: members.length > limit } }]
+          }
           case 'blueprint': return [section, await probe(`${base}/blueprint`, value => {
             const blueprint = record(value).blueprint
             if (!blueprint || typeof blueprint !== 'object') throw new Error('No product blueprint is available.')
