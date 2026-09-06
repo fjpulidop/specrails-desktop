@@ -6,6 +6,7 @@ import path from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { fileURLToPath } from 'node:url'
 import { browserLaunchOptions, discoverBrowser, parseArguments, probeBrowser, runCommand, validateArchiveNames, validateExtractedTree, verifyChromiumBundle } from './verify-chromium-bundle.mjs'
+import { validateWindowsArchiveTypes } from '../server/chromium-archive.cjs'
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-chromium-test-'))
@@ -44,6 +45,22 @@ test('macOS and Windows launch explicitly enable the sandbox without unsafe over
 test('archive admission rejects traversal, absolute paths, Windows drives and empty listings', () => {
   validateArchiveNames('./chrome-mac/\n./chrome-mac/Google Chrome for Testing.app/Contents/Info.plist\n')
   for (const name of ['', '../secret', 'a/../secret', '/secret', 'C:/secret', 'a\\secret', 'a\x00b']) assert.throws(() => validateArchiveNames(name))
+})
+
+test('Windows admission uses the fixed entry type, not locale-dependent owners, dates or link text', () => {
+  validateWindowsArchiveTypes('-rw-r--r--  0 propriétaire groupe 42 sept. 6 2026 chrome.exe\ndrwxr-xr-x 0 owner group 0 Jan 1 1970 folder/\n')
+  for (const listing of ['', 'lrwxrwxrwx 0 owner group 0 Jan 1 1970 symlink -> external', 'hrw-r--r-- 0 owner group 0 Jan 1 1970 hardlink link to external', 'brw-r--r-- 0 owner group 0 Jan 1 1970 device', '?rw-r--r-- 0 owner group 0 Jan 1 1970 unknown']) {
+    assert.throws(() => validateWindowsArchiveTypes(listing))
+  }
+})
+
+test('Windows archive names reject filesystem aliases, ADS and device names before extraction', () => {
+  validateArchiveNames('./\n./chrome-win64/\n./chrome-win64/chrome.exe\n./chrome-win64/resources.pak\n', { platform: 'win32' })
+  for (const name of ['dir/file:stream', 'dir/.. /escape', 'dir/final.', 'dir/final ', 'dir/CON', 'dir/nul.txt', 'AUX.log', 'dir/COM1.exe', 'dir/LPT9', 'dir/com¹.txt', 'dir/NUL .txt', 'CONOUT$.txt', 'dir/question?.txt']) {
+    assert.throws(() => validateArchiveNames(name, { platform: 'win32' }), /Windows Chromium archive path/)
+  }
+  // These POSIX filenames must not be banned by the Windows-only alias policy.
+  validateArchiveNames('framework/version:1\nframework/AUX.txt\nframework/final.\n', { platform: 'darwin' })
 })
 
 test('application discovery reads CFBundleExecutable and never selects nested helper apps', async () => {
@@ -129,6 +146,25 @@ test('real transparent archive extraction prefers tar.gz over a stale legacy pak
   } finally { f.cleanup() }
 })
 
+test('caller TAR_OPTIONS cannot inject arguments into admission or extraction', async () => {
+  const f = fixture(), prior = process.env.TAR_OPTIONS
+  try {
+    write(f.root, 'chromium/chromium.tar', tarBytes([{ name: 'chrome-win/chrome.exe', data: 'fixture' }]))
+    process.env.TAR_OPTIONS = '--absolute-names --unlink-first'
+    const tar = process.platform === 'win32' ? 'tar.exe' : '/usr/bin/tar'
+    const calls = []
+    await verifyChromiumBundle(f.root, { platform: 'win32', run: (cmd, args, options) => {
+      calls.push(args[0]); assert.equal(options.env.TAR_OPTIONS, undefined)
+      return runCommand(cmd === 'tar.exe' ? tar : cmd, args, options)
+    }, probe: async () => ({}) })
+    assert.deepEqual(calls, ['-tf', '-tvf', '-xf'])
+  } finally {
+    if (prior === undefined) delete process.env.TAR_OPTIONS
+    else process.env.TAR_OPTIONS = prior
+    f.cleanup()
+  }
+})
+
 test('empty or missing bundles fail instead of silently reporting success', async () => {
   const f = fixture()
   try {
@@ -190,6 +226,49 @@ function tarBytes(entries) {
     chunks.push(header, data, Buffer.alloc((512 - data.length % 512) % 512))
   }
   return Buffer.concat([...chunks, Buffer.alloc(1024)])
+}
+
+function paxRecord(key, value) {
+  const body = ` ${key}=${value}\n`
+  let size = Buffer.byteLength(body) + 1
+  while (size !== Buffer.byteLength(body) + String(size).length) size = Buffer.byteLength(body) + String(size).length
+  return `${size}${body}`
+}
+
+for (const encoding of ['ustar', 'pax', 'gnu']) {
+  for (const type of ['1', '2']) {
+    test(`Windows preflight rejects ${encoding} ${type === '1' ? 'hardlinks' : 'symlinks'} before extraction or external mutation`, async () => {
+      const f = fixture()
+      try {
+        const rt = path.join(f.root, 'runtime'), outside = path.join(f.root, 'outside')
+        fs.mkdirSync(outside)
+        const existing = path.join(outside, 'existing.txt')
+        fs.writeFileSync(existing, 'preserve original')
+        const target = type === '1' ? existing : outside
+        const name = encoding === 'ustar' ? 'jump' : `safe-${'long-name-'.repeat(14)}`
+        const extensions = encoding === 'pax'
+          ? [{ name: 'PaxHeader', type: 'x', data: paxRecord('path', name) + paxRecord('linkpath', target) }]
+          : encoding === 'gnu'
+            ? [{ name: '././@LongLink', type: 'L', data: `${name}\0` }, { name: '././@LongLink', type: 'K', data: `${target}\0` }]
+            : []
+        write(rt, 'chromium/chromium.tar', tarBytes([...extensions, { name: encoding === 'ustar' ? name : 'placeholder', type, link: encoding === 'ustar' ? target : 'placeholder' }, { name: 'jump/escaped.txt', data: 'must not escape' }]))
+        const tar = process.platform === 'win32' ? 'tar.exe' : '/usr/bin/tar'
+        const calls = []
+        await assert.rejects(verifyChromiumBundle(rt, { platform: 'win32',
+          run: (cmd, args, options) => {
+            calls.push(args[0])
+            assert.notEqual(args[0], '-xf', 'unsafe archive reached the extraction command')
+            assert.equal(options.env.LC_ALL, 'C')
+            return runCommand(cmd === 'tar.exe' ? tar : cmd, args, options)
+          },
+          probe: () => assert.fail('unsafe archive reached browser launch'),
+        }), /only regular files and directories/)
+        assert.deepEqual(calls, ['-tf', '-tvf'])
+        assert.equal(fs.readFileSync(existing, 'utf8'), 'preserve original')
+        assert.deepEqual(fs.readdirSync(outside), ['existing.txt'])
+      } finally { f.cleanup() }
+    })
+  }
 }
 
 test('system extraction cannot write through an archive symlink outside its temporary tree', async () => {

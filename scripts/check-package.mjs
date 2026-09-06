@@ -13,6 +13,7 @@ export const REQUIRED_FILES = [
   'mcp-bridge/dist/specrails-mcp.js',
   'server/dist/schemas/profile.v1.json', 'server/dist/schemas/file-summary.v1.json',
   'server/dist/openspec-runtime-plugin-commands.json',
+  'server/dist/chromium-archive.cjs',
   'server/dist/plugins/serena/templates/instructions.md',
   ...['bash-shim.bash', 'zsh-shim.zsh', 'fish-shim.fish', 'powershell-shim.ps1'].map(name => `server/dist/shell-integration/${name}`),
 ]
@@ -71,6 +72,8 @@ export function checkPackage(root, output) {
     // fallback cannot conceal omitted MCP or shell-integration resources.
     const probe = `const assert=require('node:assert/strict'); const path=require('node:path');
       const root=process.argv[1];
+      const {validateWindowsArchiveTypes}=require(path.join(root,'server/dist/chromium-archive.cjs'));
+      assert.throws(()=>validateWindowsArchiveTypes('lrwxrwxrwx 0 root root 0 Jan 1 1970 escape -> /outside'));
       const {resolveBridgeScript}=require(path.join(root,'server/dist/agent-mcp-config.js'));
       assert.equal(resolveBridgeScript(),path.join(root,'mcp-bridge/dist/specrails-mcp.js'));
       const {locateBundledShim}=require(path.join(root,'server/dist/terminal-shell-integration.js'));

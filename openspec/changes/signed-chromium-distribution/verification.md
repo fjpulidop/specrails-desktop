@@ -28,3 +28,9 @@ The macOS job must successfully sign every browser component, receive `Accepted`
 Windows x64/ARM64 must pass their hosted archive and installed-application checks. New archives preserve upstream Authenticode bytes; this change does not introduce installer signing or claim a local Windows run.
 
 Diagnostics include the browser notary submission ID, service result/log and verified archive receipt under `artifacts/chromium-signing/`. They exclude signing certificates and API private keys. A failed or timed-out submission remains a failure; do not bypass the gate or reintroduce archive encoding to obtain a green release.
+
+## Hosted Windows regression follow-up
+
+The first PR run demonstrated that Windows system tar can write through an archive-created symlink before post-extraction validation. Archive admission now runs before extraction in both the distribution verifier and the installed runtime. A shared, shipped module rejects Windows links and special entries after tar resolves PAX/GNU metadata, rejects Windows path aliases, and removes inherited TAR_OPTIONS. macOS internal framework links remain supported and the extracted tree is checked before discovery/publication.
+
+Real ustar, PAX and GNU symlink/hardlink fixtures prove rejection before extraction; a runtime fixture verifies that external files and the prior browser cache/receipt remain unchanged. The complete script suite passed 74 tests, resolver/launcher regressions passed 28 tests, TypeScript passed, and the real production package check loaded the shared validator from the installed tarball. Hosted Windows validation is rerun on the follow-up commit.

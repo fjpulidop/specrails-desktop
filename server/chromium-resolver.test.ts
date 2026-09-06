@@ -78,6 +78,30 @@ describe('chromium-resolver', () => {
     return pak
   }
 
+  // Build adversarial archives without requiring Windows symlink privileges.
+  function rawArchive(entries: Array<{ name: string; type?: string; link?: string; data?: string }>): Buffer {
+    const blocks: Buffer[] = []
+    for (const entry of entries) {
+      const header = Buffer.alloc(512)
+      const data = Buffer.from(entry.data ?? '')
+      const write = (value: string, offset: number, size: number) => header.write(value, offset, size, 'utf8')
+      write(entry.name, 0, 100)
+      write('0000755\0', 100, 8)
+      write('0000000\0', 108, 8)
+      write('0000000\0', 116, 8)
+      write(`${data.length.toString(8).padStart(11, '0')}\0`, 124, 12)
+      write('00000000000\0', 136, 12)
+      header.fill(32, 148, 156)
+      write(entry.type ?? '0', 156, 1)
+      write(entry.link ?? '', 157, 100)
+      write('ustar\0', 257, 6)
+      write('00', 263, 2)
+      write(`${header.reduce((sum, byte) => sum + byte, 0).toString(8).padStart(6, '0')}\0 `, 148, 8)
+      blocks.push(header, data, Buffer.alloc((512 - data.length % 512) % 512))
+    }
+    return Buffer.concat([...blocks, Buffer.alloc(1024)])
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chromium-resolver-'))
@@ -328,6 +352,31 @@ describe('chromium-resolver', () => {
     expect(fs.readFileSync(path.join(cache, '.source'), 'utf8')).toBe(marker)
     vi.restoreAllMocks()
     expect(fs.readFileSync((await resolveBundledChromiumExecutable())!, 'utf8')).toBe('new browser')
+  })
+
+  it('rejects archive link escapes without writing outside the cache or replacing a working browser', async () => {
+    process.env.SPECRAILS_IS_DESKTOP = '1'
+    process.env.SPECRAILS_BUNDLED_RUNTIMES_PATH = tmp
+    makeArchive(tmp, 'working browser')
+    const executable = await resolveBundledChromiumExecutable()
+    expect(executable).toBeTruthy()
+    const cache = process.env.SPECRAILS_CHROMIUM_CACHE_DIR!
+    const marker = fs.readFileSync(path.join(cache, '.source'), 'utf8')
+    const outside = path.join(tmp, 'outside')
+    fs.mkdirSync(outside)
+    fs.writeFileSync(path.join(outside, 'keep.txt'), 'untouched')
+    fs.rmSync(path.join(tmp, 'chromium', 'chromium.tar.gz'))
+    fs.writeFileSync(path.join(tmp, 'chromium', 'chromium.tar'), rawArchive([
+      { name: 'jump', type: '2', link: '../outside' },
+      { name: 'jump/escaped.txt', data: 'must not escape' },
+    ]))
+
+    expect(await resolveBundledChromiumExecutable()).toBeNull()
+    expect(fs.readdirSync(outside)).toEqual(['keep.txt'])
+    expect(fs.readFileSync(path.join(outside, 'keep.txt'), 'utf8')).toBe('untouched')
+    expect(fs.readFileSync(executable!, 'utf8')).toBe('working browser')
+    expect(fs.readFileSync(path.join(cache, '.source'), 'utf8')).toBe(marker)
+    expect(fs.readdirSync(tmp).filter(entry => entry.startsWith('cache.tmp-'))).toEqual([])
   })
 
   it.skipIf(process.platform === 'win32')('preserves the framework symlinks inside a transparent archive', async () => {

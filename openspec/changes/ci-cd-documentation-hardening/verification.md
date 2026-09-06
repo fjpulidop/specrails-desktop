@@ -42,3 +42,7 @@ The initial audit recorded a separate Chromium distribution-signing finding. Its
 - OpenSpec: `openspec validate ci-cd-documentation-hardening --strict`.
 
 Release and recovery procedures are documented in [Desktop CI/CD](../../../docs/ci-cd.md) and Core's `docs/ci-cd.md`. The npm `E404` observed in Desktop's prior hosted publication remains an account/authorization check; this audit does not infer a specific credential cause from that response.
+
+## Native popup smoke follow-up
+
+The hosted macOS popup test exhausted one five-second JavaScript deadline while synchronously constructing nine native windows. The fixture now fills eight concurrent slots one at a time, waiting for each native window, and then attempts the ninth. It retains the original per-operation deadline and explicitly requires a new denial event, checks slot release/retry and verifies owner isolation. The real macOS native smoke passed all OAuth-style opener/cookie/postMessage, IPC denial, close, limit and teardown scenarios after this change; no product popup limit or global timeout was relaxed.

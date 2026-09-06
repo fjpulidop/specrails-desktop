@@ -4,6 +4,7 @@ import path from 'path'
 import { spawn } from 'child_process'
 import { Transform } from 'stream'
 import { pipeline } from 'stream/promises'
+import { validateChromiumArchive, validateChromiumTree } from './chromium-archive.cjs'
 
 /**
  * Discover bundled Chromium, extracting its distribution archive when necessary.
@@ -154,12 +155,13 @@ function tarBinary(): string {
   return 'tar'
 }
 
-/** Extract `archivePath` into `destDir` using the system tar (auto-detects gzip). */
+/** Extract a preflight-validated archive using the system tar (auto-detects gzip). */
 function runTarExtract(archivePath: string, destDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
     // Apple tar must restore the metadata carrying the stapled ticket. These
     // caller overrides are appropriate for source copies, not signed bundles.
     const env = { ...process.env }
+    delete env.TAR_OPTIONS
     delete env.COPYFILE_DISABLE
     delete env.COPY_EXTENDED_ATTRIBUTES_DISABLE
     const child = spawn(tarBinary(), ['-xf', archivePath, '-C', destDir], { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, env })
@@ -211,7 +213,11 @@ async function extractAndDiscover(archivePath: string, identity: string, destRoo
       await deobfuscate(archivePath, decodedTar)
       tarSource = decodedTar
     }
+    // Windows tar can follow an archive-created link before a post-extraction
+    // check runs. Validate the complete archive before allowing any writes.
+    await validateChromiumArchive(tarSource)
     await runTarExtract(tarSource, tmpDir)
+    validateChromiumTree(tmpDir)
     const exeInTmp = discoverChromiumExecutable(tmpDir)
     if (!exeInTmp) throw new Error('no chromium executable found after extraction')
     try { fs.chmodSync(exeInTmp, 0o755) } catch { /* perms best-effort */ }

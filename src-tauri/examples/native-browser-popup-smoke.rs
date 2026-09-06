@@ -189,13 +189,23 @@ async fn run(app: tauri::AppHandle, port: u16, other: u16) -> Result<(), String>
 
     // Saturate only temporary about:blank windows. Errors intentionally contain
     // no navigation URL, raw engine error or OAuth parameters.
-    evaluate(&pane,"window.many=[];for(let i=0;i<9;i++)many.push(window.open('about:blank','limited-'+i));return true;").await?;
+    // Keep all eight windows open, but give each native construction its own
+    // normal script deadline. Nine synchronous window creations in a single
+    // evaluate call measured the hosted runner's throughput, not the slot limit.
+    evaluate(&pane,"window.many=[];return true;").await?;
+    for index in 0..8 {
+        evaluate(&pane, &format!("many.push(window.open('about:blank','limited-{index}'));return true;"))
+            .await.map_err(|error| format!("opening popup slot {}: {error}", index + 1))?;
+        popup_count(&app, &owner, index + 1).await?;
+    }
+    let prior_errors = events.lock().unwrap().iter().filter(|event|event["kind"]=="popup-error").count();
+    evaluate(&pane,"many.push(window.open('about:blank','limited-8'));return true;").await?;
     // WebView2 resolves NewWindowRequested asynchronously: a denied request can
     // initially return a WindowProxy which becomes closed after the deferral.
     eventually(&pane,"many.filter(window=>window && !window.closed).length===8").await?;
     popup_count(&app,&owner,8).await?;
     let error_count = events.lock().unwrap().iter().filter(|event|event["kind"]=="popup-error").count();
-    assert!(error_count>=1);
+    assert!(error_count>prior_errors,"ninth concurrent popup did not emit a denial event");
     for event in events.lock().unwrap().iter() { assert!(event["url"].is_null());assert!(event["title"].is_null());assert_eq!(event["ownerId"],owner); }
     close_popups(&app,&owner).await?;
     evaluate(&pane,"window.retry=window.open('about:blank','retry');return !!retry;").await?;

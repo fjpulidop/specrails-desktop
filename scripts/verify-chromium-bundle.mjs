@@ -7,10 +7,13 @@ import { spawn } from 'node:child_process'
 import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
+import { validateArchiveNames, validateChromiumArchive, validateChromiumTree } from '../server/chromium-archive.cjs'
+
+export { validateArchiveNames }
+export const validateExtractedTree = validateChromiumTree
 
 const ARCHIVES = ['chromium.tar.gz', 'chromium.tar', 'chromium.pak']
 const KEY = Buffer.from('specrails-desktop-chromium-pack-v1')
-const MAX_ENTRIES = 100_000
 const MAX_DEPTH = 24
 
 export function parseArguments(argv, env = process.env) {
@@ -57,35 +60,6 @@ export function runCommand(binary, args, { timeout = 180_000, maxBytes = 12 * 10
 function inside(root, candidate) {
   const relative = path.relative(root, candidate)
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))
-}
-
-export function validateArchiveNames(listing) {
-  const names = listing.split(/\r?\n/).filter(Boolean)
-  assert(names.length > 0 && names.length <= MAX_ENTRIES, 'Chromium archive is empty or exceeds its entry limit.')
-  for (const name of names) {
-    assert(!/^[\\/]|^[A-Za-z]:|[\x00-\x1f\x7f]/.test(name) && !name.includes('\\') && !name.split('/').includes('..'), `Unsafe Chromium archive path: ${name}`)
-  }
-}
-
-/** Reject executable/link escapes before discovery, including symlink chains.
- * System tar's default secure extraction rejects writes through archive-created
- * symlinks; never pass -P/--absolute-names. Name admission also precedes extraction.
- */
-export function validateExtractedTree(root) {
-  const realRoot = fs.realpathSync(root)
-  let count = 0
-  const walk = (directory, depth) => {
-    assert(depth <= MAX_DEPTH, 'Chromium tree exceeds its depth limit.')
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      assert(++count <= MAX_ENTRIES, 'Chromium tree exceeds its entry limit.')
-      const file = path.join(directory, entry.name)
-      if (entry.isSymbolicLink()) {
-        assert(inside(realRoot, fs.realpathSync(file)), `Chromium link escapes the extracted tree: ${file}`)
-      } else if (entry.isDirectory()) walk(file, depth + 1)
-      else assert(entry.isFile(), `Unsupported Chromium entry: ${file}`)
-    }
-  }
-  walk(realRoot, 0)
 }
 
 export async function discoverBrowser(root, { platform = process.platform, run = runCommand } = {}) {
@@ -198,8 +172,9 @@ export async function verifyChromiumBundle(runtimes, options = {}) {
         archive = decoded
       }
       const tar = platform === 'win32' ? 'tar.exe' : '/usr/bin/tar'
-      validateArchiveNames(await run(tar, ['-tf', archive]))
+      await validateChromiumArchive(archive, { platform, run })
       const env = { ...process.env }
+      delete env.TAR_OPTIONS
       delete env.COPYFILE_DISABLE
       delete env.COPY_EXTENDED_ATTRIBUTES_DISABLE
       await run(tar, ['-xf', archive, '-C', extracted, '--no-same-owner'], { env })

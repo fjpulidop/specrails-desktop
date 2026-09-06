@@ -9,6 +9,7 @@ export const SERVER_ASSETS = [
   'schemas',
   'plugins/serena/templates',
   'openspec-runtime-plugin-commands.json',
+  'chromium-archive.cjs',
 ]
 
 export function copyServerAssets(root) {

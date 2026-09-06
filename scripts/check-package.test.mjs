@@ -28,13 +28,13 @@ test('copies runtime resources beside emitted modules and fails if a source reso
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-asset-test-'))
   try {
     for (const entry of SERVER_ASSETS) {
-      const file = entry.endsWith('.json') ? entry : `${entry}/fixture.txt`
+      const file = /\.(json|cjs)$/.test(entry) ? entry : `${entry}/fixture.txt`
       fs.mkdirSync(path.dirname(path.join(root, 'server', file)), { recursive: true })
       fs.writeFileSync(path.join(root, 'server', file), file)
     }
     copyServerAssets(root)
     for (const entry of SERVER_ASSETS) {
-      const file = entry.endsWith('.json') ? entry : `${entry}/fixture.txt`
+      const file = /\.(json|cjs)$/.test(entry) ? entry : `${entry}/fixture.txt`
       assert.equal(fs.readFileSync(path.join(root, 'server', 'dist', file), 'utf8'), file)
     }
     fs.rmSync(path.join(root, 'server', SERVER_ASSETS[0]), { recursive: true })
