@@ -6,10 +6,12 @@ import net from 'net'
 import dns from 'dns'
 import type { WsMessage } from './types'
 import type { ProjectRegistry } from './project-registry'
+import { RepositoryValidationError, inspectRepositoryPath, assertDistinctRepositories, getProjectRepositories, resolveRepositoryProject, type ProjectRepositoryInput } from './project-repositories'
 import { getDesktopSetting, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook, getProjectSetupSession } from './desktop-db'
 import type { WebhookEvent } from './desktop-db'
 import { WebhookManager } from './webhook-manager'
 import { CoreUpdateManager } from './core-update-manager'
+import { reseedStaleWorkspaces } from './framework-reseed'
 import { createSpecrailsTechClient } from './specrails-tech-client'
 import {
   checkCoreCompat,
@@ -491,7 +493,7 @@ export function createDesktopRouter(
 
   // POST /api/projects — register a new project by path
   router.post('/projects', async (req, res) => {
-    const { path: projectPath, name, provider, providers: providersRaw } = req.body ?? {}
+    const { path: projectPath, name, provider, providers: providersRaw, repositories: repositoriesRaw } = req.body ?? {}
     if (!projectPath || typeof projectPath !== 'string') {
       res.status(400).json({ error: 'path is required' })
       return
@@ -584,6 +586,17 @@ export function createDesktopRouter(
     }
 
     const canonicalPath = canonicalizePath(resolvedPath)
+    let repositories: ProjectRepositoryInput[] = []
+    try {
+      if (repositoriesRaw !== undefined && !Array.isArray(repositoriesRaw)) throw new RepositoryValidationError('repositories must be an array')
+      repositories = (repositoriesRaw ?? []).map((input: ProjectRepositoryInput) => inspectRepositoryPath(input))
+      const primary = inspectRepositoryPath({ path: canonicalPath })
+      assertDistinctRepositories([primary, ...repositories.map((input) => inspectRepositoryPath(input))])
+      if (repositories.some((repository) => !isPathSafe(repository.path))) throw new RepositoryValidationError('Registering system directories is not allowed')
+    } catch (err) {
+      if (err instanceof RepositoryValidationError) { res.status(err.status).json({ error: err.message, code: err.code }); return }
+      throw err
+    }
 
     // LOW-04: Reject registration of system-critical directories
     if (!isPathSafe(canonicalPath)) {
@@ -610,6 +623,7 @@ export function createDesktopRouter(
         path: canonicalPath,
         provider: providers[0],
         providers,
+        repositories,
       })
       broadcast({
         type: 'desktop.project_added',
@@ -633,13 +647,58 @@ export function createDesktopRouter(
     } catch (err) {
       const message = (err as Error).message ?? ''
       // SQLite UNIQUE constraint violation means path or slug already registered
-      if (message.includes('UNIQUE')) {
+      if (err instanceof RepositoryValidationError) {
+        res.status(err.status).json({ error: err.message, code: err.code, details: err.details })
+      } else if (message.includes('UNIQUE')) {
         res.status(409).json({ error: 'A project with this path is already registered' })
       } else {
         console.error('[desktop] add project error:', err)
         res.status(500).json({ error: 'Failed to register project' })
       }
     }
+  })
+
+  // The logical project keeps one backlog; these routes only edit membership.
+  const sendRepositoryError = (err: unknown, res: import('express').Response): void => {
+    if (err instanceof RepositoryValidationError) res.status(err.status).json({ error: err.message, code: err.code, details: err.details })
+    else { console.error('[desktop] repository operation failed:', err); res.status(500).json({ error: 'Could not update project repositories' }) }
+  }
+  const broadcastRepositories = (): void => broadcast({ type: 'desktop.projects', projects: listProjects(registry.desktopDb), timestamp: new Date().toISOString() })
+  router.get('/projects/:projectId/repositories', (req, res) => {
+    const project = listProjects(registry.desktopDb).find((item) => item.id === req.params.projectId)
+    if (!project) { res.status(404).json({ error: 'Project not found' }); return }
+    res.json({ repositories: getProjectRepositories(project), primaryRepositoryId: project.primaryRepositoryId })
+  })
+  router.post('/projects/:projectId/repositories', (req, res) => {
+    try {
+      const input = inspectRepositoryPath(req.body)
+      if (!isPathSafe(input.path)) throw new RepositoryValidationError('Registering system directories is not allowed')
+      const repository = registry.addRepository(req.params.projectId as string, input)
+      broadcastRepositories()
+      res.status(201).json({ repository, project: registry.getProjectRow(req.params.projectId as string) })
+    } catch (err) { sendRepositoryError(err, res) }
+  })
+  router.patch('/projects/:projectId/repositories/:repositoryId', (req, res) => {
+    try {
+      const body = req.body ?? {}
+      const input: Partial<ProjectRepositoryInput> = {}
+      for (const key of ['path', 'name', 'integrationBranch'] as const) if (Object.prototype.hasOwnProperty.call(body, key)) Object.assign(input, { [key]: body[key] })
+      if (input.path !== undefined) {
+        const inspected = inspectRepositoryPath(input as ProjectRepositoryInput)
+        if (!isPathSafe(inspected.path)) throw new RepositoryValidationError('Registering system directories is not allowed')
+        input.path = inspected.path
+      }
+      const repository = registry.updateRepository(req.params.projectId as string, req.params.repositoryId as string, input)
+      broadcastRepositories()
+      res.json({ repository, project: registry.getProjectRow(req.params.projectId as string) })
+    } catch (err) { sendRepositoryError(err, res) }
+  })
+  router.delete('/projects/:projectId/repositories/:repositoryId', (req, res) => {
+    try {
+      registry.removeRepository(req.params.projectId as string, req.params.repositoryId as string)
+      broadcastRepositories()
+      res.json({ ok: true, project: registry.getProjectRow(req.params.projectId as string) })
+    } catch (err) { sendRepositoryError(err, res) }
   })
 
   // POST /api/projects/:id/assemble-retry — re-run the silent workspace
@@ -725,15 +784,15 @@ export function createDesktopRouter(
       return
     }
 
-    const resolvedPath = canonicalizePath(path.resolve(queryPath))
-    const ctx = registry.getContextByPath(resolvedPath)
-    if (!ctx) {
-      res.status(404).json({ error: 'No project registered for this path' })
-      return
-    }
-
-    registry.touchProject(ctx.project.id)
-    res.json({ project: ctx.project })
+    try {
+      const projectId = typeof req.query.projectId === 'string' ? req.query.projectId : undefined
+      const project = resolveRepositoryProject(listProjects(registry.desktopDb), queryPath, projectId)
+      if (!project) { res.status(404).json({ error: 'No project registered for this path' }); return }
+      const context = registry.getContext(project.id)
+      if (!context) { res.status(503).json({ error: 'Project is registered but unavailable', code: 'project_unavailable', project }); return }
+      registry.touchProject(project.id)
+      res.json({ project: context.project })
+    } catch (err) { sendRepositoryError(err, res) }
   })
 
   // GET /api/settings — get app-level settings
@@ -1267,6 +1326,11 @@ export function createDesktopRouter(
     // and not members of the WsMessage union; cast at this single boundary.
     broadcast: (msg) => broadcast(msg as unknown as WsMessage),
     providers: () => registry.installedProvidersUnion(),
+    reseed: version => reseedStaleWorkspaces(registry.listContexts().map(context => ({
+      id: context.project.id,
+      slug: context.project.slug,
+      path: context.project.path,
+    })), version),
   })
 
   // GET /api/core-update/status — current/bundled/latest versions, no network.

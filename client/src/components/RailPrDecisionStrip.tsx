@@ -17,6 +17,7 @@ import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '
 import type { RailPrActResult, RailPrCheckoutResult } from '../context/RailPrDecisionContext'
 import { derivePrDeliveryPresentation, isInterruptedPrDeliveryOperation, isKnownPrDeliveryStatusCode, prDeliveryCheckoutBranch } from '../lib/pr-delivery'
 import { isTauri, revealItemInDir } from '../lib/tauri-shell'
+import { RepositoryDeliveries } from './RepositoryDeliveries'
 import { useDesktop } from '../hooks/useDesktop'
 import { useStackedHeadDeliveryIds } from '../hooks/useMilestoneProgress'
 
@@ -28,9 +29,10 @@ interface RailPrDecisionStripProps {
     action: RailPrDecisionAction,
     expectedDecision: RailPrDecision,
     expectedPrDeliveryId: string,
+    repositoryId?: string,
   ) => Promise<RailPrActResult>
   /** Checks out this delivery's PR branch in the user's main repo. */
-  checkout?: (expectedPrDeliveryId: string) => Promise<RailPrCheckoutResult>
+  checkout?: (expectedPrDeliveryId: string, repositoryId?: string) => Promise<RailPrCheckoutResult>
 }
 
 type ConfirmationKind = 'merge-local' | 'discard' | 'dismiss' | 'discard-local' | 'no-changes-done' | 'refine' | 'recover-and-retry'
@@ -51,6 +53,8 @@ interface PendingConfirmation {
 export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPrDecisionStripProps) {
   const { t } = useTranslation('dashboard')
   const navigate = useNavigate()
+  const { activeProjectId: stripProjectId } = useDesktop()
+  const stackedHeads = useStackedHeadDeliveryIds(stripProjectId)
   const [inFlight, setInFlight] = useState<RailPrDecisionAction | null>(null)
   const [checkingOut, setCheckingOut] = useState(false)
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null)
@@ -71,6 +75,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   }, [decision.prDeliveryId])
 
   const d = decision.decision
+  const hasRepositoryDeliveries = Boolean(decision.repositoryDeliveries?.length)
   const presentation = derivePrDeliveryPresentation(decision)
   const interruptedOperationDetail = isInterruptedPrDeliveryOperation(decision.statusCode, decision.statusDetail)
   const recoveredInterruptedOperation = decision.operation == null && interruptedOperationDetail
@@ -104,6 +109,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const compact = density === 'compact'
 
   const confirmationIsOpen = (kind: ConfirmationKind): boolean => (
+    !(hasRepositoryDeliveries && (kind === 'merge-local' || kind === 'no-changes-done')) &&
     confirmation?.kind === kind && confirmation.prDeliveryId === decision.prDeliveryId
   )
   const openConfirmation = (kind: ConfirmationKind): void => {
@@ -127,16 +133,20 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     action: RailPrDecisionAction,
     expected: RailPrDecision,
     expectedDeliveryId = decision.prDeliveryId,
+    repositoryId?: string,
   ) {
+    if (hasRepositoryDeliveries && !repositoryId && ['create-pr', 'merge-local', 'publish', 'poll-merge', 'reopen', 'acknowledge-no-changes'].includes(action)) return
     if (
       !mountedRef.current ||
       expectedDeliveryId !== decision.prDeliveryId ||
       expectedDeliveryId !== currentDeliveryIdRef.current ||
       inFlight || checkingOut || decision.operation
     ) return
+    const repository = decision.repositoryDeliveries?.find((item) => item.repositoryId === repositoryId)
+    const targetBase = repository?.integrationBranch ?? repository?.baseBranch ?? decision.baseBranch
     setInFlight(action)
     try {
-      const res = await act(action, expected, expectedDeliveryId)
+      const res = await (repositoryId ? act(action, expected, expectedDeliveryId, repositoryId) : act(action, expected, expectedDeliveryId))
       if (!mountedRef.current || currentDeliveryIdRef.current !== expectedDeliveryId) return
       if (res.status === 409) {
         if (res.error === 'project_recovery_in_progress') {
@@ -151,8 +161,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         // exactly what to fix (checkout the base / clean the tree) and stop.
         if (res.error === 'merge_local_blocked' && (res.reason === 'dirty' || res.reason === 'wrong_branch')) {
           toast.warning(res.reason === 'dirty'
-            ? t('railPr.mergeLocalBlockedDirty', { base: res.base ?? decision.baseBranch })
-            : t('railPr.mergeLocalBlockedBranch', { base: res.base ?? decision.baseBranch, current: res.current ?? '?' }))
+            ? t('railPr.mergeLocalBlockedDirty', { base: res.base ?? targetBase })
+            : t('railPr.mergeLocalBlockedBranch', { base: res.base ?? targetBase, current: res.current ?? '?' }))
           return
         }
         // A concurrent answer (other surface / other client) won — the
@@ -186,7 +196,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         toast.info(t('railPr.notMergedYet'))
       }
       if (action === 'merge-local' && res.decision === 'merged') {
-        toast.success(t('railPr.mergedLocally', { base: decision.baseBranch }))
+        toast.success(t('railPr.mergedLocally', { base: targetBase }))
       }
       if (action === 'recover-and-retry') {
         if (res.deliveryVerified) {
@@ -232,12 +242,13 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     }
   }
 
-  async function runCheckout() {
+  async function runCheckout(repositoryId?: string) {
+    if (hasRepositoryDeliveries && !repositoryId) return
     if (!mountedRef.current || !checkout || inFlight || checkingOut || decision.operation) return
     const expectedDeliveryId = decision.prDeliveryId
     setCheckingOut(true)
     try {
-      const res = await checkout(expectedDeliveryId)
+      const res = await (repositoryId ? checkout(expectedDeliveryId, repositoryId) : checkout(expectedDeliveryId))
       if (!mountedRef.current || currentDeliveryIdRef.current !== expectedDeliveryId) return
       if (!res.ok) {
         if (res.status === 409 && res.error === 'project_recovery_in_progress') {
@@ -308,8 +319,6 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const busy = inFlight !== null || checkingOut || decision.operation != null
   // A later milestone chunk was stacked on this delivery (premium-milestone-
   // progress): discarding it pauses the chain — say so before the click.
-  const { activeProjectId: stripProjectId } = useDesktop()
-  const stackedHeads = useStackedHeadDeliveryIds(stripProjectId)
   const isStackedHead = stackedHeads.has(decision.prDeliveryId)
   const discardTitle = d === 'implementation_failed' ? t('railPr.implementationFailedHint') : t('railPr.discardTooltip')
 
@@ -357,7 +366,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   // Remote-less acceptance: integrate the delivered branches into the base
   // branch locally. Offered wherever no real PR exists yet (on_review,
   // degraded draft, pr_failed) — the GitHub-less journey's way to say "yes".
-  const mergeLocalBtn = (
+  const mergeLocalBtn = !hasRepositoryDeliveries && (
     <button
       type="button"
       data-testid="rail-pr-merge-local"
@@ -380,7 +389,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     testId: string,
     title?: string,
     icon?: React.ReactNode,
-  ) => (
+  ) => !hasRepositoryDeliveries && (
     <button
       type="button"
       data-testid={testId}
@@ -413,7 +422,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   ) : null
 
   const checkoutBranch = prDeliveryCheckoutBranch(decision)
-  const checkoutBtn = checkout && checkoutBranch ? (
+  const checkoutBtn = checkout && checkoutBranch && !hasRepositoryDeliveries ? (
     <button
       type="button"
       data-testid="rail-pr-checkout"
@@ -522,7 +531,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     </button>
   )
 
-  const acknowledgeNoChangesBtn = (
+  const acknowledgeNoChangesBtn = !hasRepositoryDeliveries && (
     <button
       type="button"
       data-testid="rail-pr-no-changes-done"
@@ -774,6 +783,9 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       onClick={(e) => e.stopPropagation()}
     >
       {announcement && <span role="status" aria-live="polite" aria-label={announcement} className="sr-only" />}
+      <RepositoryDeliveries deliveryId={decision.prDeliveryId} repositories={decision.repositoryDeliveries} busy={busy}
+        onAct={(action, repositoryId) => run(action, decision.decision, decision.prDeliveryId, repositoryId)}
+        onCheckout={checkout ? runCheckout : undefined} />
       {pill}
       {decision.operation && (
         <span className={`${pillBase} border-accent-info/30 bg-accent-info/10 text-accent-info`} data-testid="rail-pr-operation">

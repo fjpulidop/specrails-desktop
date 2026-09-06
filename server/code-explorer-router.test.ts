@@ -9,6 +9,7 @@ import { initDb, type DbInstance } from './db'
 import { createCodeExplorerRouter, rankFindMatches } from './code-explorer-router'
 import {
   writeSummary,
+  CURRENT_PROMPT_VERSION,
   computeFileHash,
   summaryFilePath,
 } from './file-summary-manager'
@@ -21,7 +22,7 @@ async function storeSummary(rel: string, fileHash: string): Promise<void> {
     summary: 'A summary.',
     language: 'en',
     generatedAt: '2026-05-22T00:00:00.000Z',
-    generatedBy: { model: 'claude-haiku-4-5', promptVersion: 1 },
+    generatedBy: { model: 'claude-haiku-4-5', promptVersion: CURRENT_PROMPT_VERSION },
     triggeredBy: { kind: 'user', id: 'manual', ticketId: null },
   })
 }
@@ -63,6 +64,7 @@ afterEach(() => {
   db.close()
   delete process.env.SPECRAILS_CODE_EXPLORER
   vi.unstubAllEnvs()
+  vi.restoreAllMocks()
 })
 
 describe('feature-flag gating', () => {
@@ -345,6 +347,84 @@ describe('PUT /file (in-app editing)', () => {
 })
 
 describe('GET /tree pagination', () => {
+  it('pins continuation to its original paths after cache expiry and a changed checkout', async () => {
+    let now = 10_000
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    for (const name of ['a.ts', 'b.ts', 'c.ts']) fs.writeFileSync(path.join(projectPath, name), name)
+    const first = await request(app).get('/api/projects/proj-test/code/tree').query({ filter: 'all', limit: 1 })
+    expect(first.body.entries.map((entry: { path: string }) => entry.path)).toEqual(['a.ts'])
+    now += 6_000 // The discovery cache has expired; this cursor must not use its replacement.
+    fs.writeFileSync(path.join(projectPath, '0-new.ts'), 'new')
+    fs.unlinkSync(path.join(projectPath, 'b.ts'))
+    const fresh = await request(app).get('/api/projects/proj-test/code/tree').query({ filter: 'all', limit: 1 })
+    expect(fresh.body.entries.map((entry: { path: string }) => entry.path)).toEqual(['0-new.ts'])
+    const rest = await request(app).get('/api/projects/proj-test/code/tree').query({ filter: 'all', limit: 2, cursor: first.body.nextCursor })
+    expect(rest.status).toBe(200)
+    expect(rest.body.entries.map((entry: { path: string }) => entry.path)).toEqual(['b.ts', 'c.ts'])
+    expect(rest.body.nextCursor).toBeNull()
+    expect(rest.body.scan.cache).toBe('snapshot')
+  })
+
+  it('pins touched-file membership when a job records additional paths between pages', async () => {
+    const insert = db.prepare("INSERT INTO file_provenance (file_path, ticket_id, job_id, kind, at) VALUES (?, 7, 'run', 'modified', 1)")
+    for (const name of ['a.ts', 'b.ts']) insert.run(name)
+    const first = await request(app).get('/api/projects/proj-test/code/tree').query({ filter: 'touched-by-ai', ticketId: 7, limit: 1, withProvenance: 1 })
+    insert.run('0-new.ts')
+    const next = await request(app).get('/api/projects/proj-test/code/tree').query({ filter: 'touched-by-ai', ticketId: 7, limit: 1, withProvenance: 1, cursor: first.body.nextCursor })
+    expect(next.body.entries.map((entry: { path: string }) => entry.path)).toEqual(['b.ts'])
+    expect(next.body.nextCursor).toBeNull()
+  })
+
+  it('rejects expired, evicted and offset-only cursors with an explicit retry response', async () => {
+    let now = 10_000
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    for (const name of ['a.ts', 'b.ts']) fs.writeFileSync(path.join(projectPath, name), name)
+    const query = { filter: 'all', limit: 1 }
+    const first = await request(app).get('/api/projects/proj-test/code/tree').query(query)
+    now += 120_000
+    const expired = await request(app).get('/api/projects/proj-test/code/tree').query({ ...query, cursor: first.body.nextCursor })
+    expect(expired.status).toBe(409)
+    expect(expired.body).toEqual({ error: 'tree_snapshot_expired', retryable: true })
+    const retained = await request(app).get('/api/projects/proj-test/code/tree').query(query)
+    for (let i = 0; i < 4; i++) await request(app).get('/api/projects/proj-test/code/tree').query(query)
+    const evicted = await request(app).get('/api/projects/proj-test/code/tree').query({ ...query, cursor: retained.body.nextCursor })
+    expect(evicted.status).toBe(409)
+    const legacy = Buffer.from(JSON.stringify({ skip: 1 })).toString('base64')
+    expect((await request(app).get('/api/projects/proj-test/code/tree').query({ ...query, cursor: legacy })).body).toEqual({ error: 'tree_snapshot_expired', retryable: true })
+  })
+
+  it('binds cursors to filters, provenance mode and the mounted repository', async () => {
+    for (const name of ['a.ts', 'b.ts']) fs.writeFileSync(path.join(projectPath, name), name)
+    const first = await request(app).get('/api/projects/proj-test/code/tree').query({ filter: 'all', limit: 1 })
+    for (const filter of [{ filter: 'touched-by-ai' }, { filter: 'all', withProvenance: 1 }]) {
+      const changed = await request(app).get('/api/projects/proj-test/code/tree').query({ ...filter, cursor: first.body.nextCursor })
+      expect(changed.status).toBe(400)
+      expect(changed.body.error).toBe('tree_cursor_scope_mismatch')
+    }
+    const another = express().use('/code', createCodeExplorerRouter({ db, projectId: 'other-project', projectPath, broadcast: vi.fn(), fileSummaryManager: { enqueue: vi.fn(), attachWatcher: vi.fn() }, aiTransformProvider: 'claude' }))
+    expect((await request(another).get('/code/tree').query({ filter: 'all', cursor: first.body.nextCursor })).status).toBe(409)
+    expect((await request(app).get('/api/projects/proj-test/code/tree').query({ filter: 'all', cursor: 'garbage' })).status).toBe(400)
+    expect((await request(app).get('/api/projects/proj-test/code/tree').query({ filter: 'unexpected' })).status).toBe(400)
+  })
+
+  it('rechecks changed ignore policy without shifting snapshot offsets or leaking directory badges', async () => {
+    execFileSync('git', ['init', '-q'], { cwd: projectPath })
+    fs.mkdirSync(path.join(projectPath, 'src'))
+    for (const name of ['public.ts', 'secret.ts']) fs.writeFileSync(path.join(projectPath, 'src', name), name)
+    const insert = db.prepare("INSERT INTO file_provenance (file_path, ticket_id, job_id, kind, at) VALUES (?, ?, 'run', 'modified', 1)")
+    insert.run('src/public.ts', 7)
+    insert.run('src/secret.ts', 99)
+    const first = await request(app).get('/api/projects/proj-test/code/tree').query({ filter: 'touched-by-ai', withProvenance: 1, limit: 1 })
+    expect(first.body.entries[0].path).toBe('src')
+    fs.writeFileSync(path.join(projectPath, '.gitignore'), 'src/secret.ts\n')
+    const rest = await request(app).get('/api/projects/proj-test/code/tree').query({ filter: 'touched-by-ai', withProvenance: 1, cursor: first.body.nextCursor })
+    expect(rest.body.entries.map((entry: { path: string }) => entry.path)).toEqual(['src/public.ts'])
+    expect(rest.body.nextCursor).toBeNull()
+    const refresh = await request(app).get('/api/projects/proj-test/code/tree').query({ filter: 'touched-by-ai', withProvenance: 1, limit: 1 })
+    expect(refresh.body.entries[0].provenance.rows.map((row: { path: string }) => row.path)).toEqual(['src/public.ts'])
+    expect(refresh.body.entries[0].provenance.modifiedByTicketIds).toEqual([7])
+  })
+
   it('returns entries up to 2000 and produces a stable cursor', async () => {
     for (let i = 0; i < 25; i++) {
       fs.writeFileSync(path.join(projectPath, `f${i.toString().padStart(2, '0')}.txt`), 'x')
@@ -634,6 +714,21 @@ describe('GET /summary', () => {
 })
 
 describe('summary staleness', () => {
+  it('marks identical source stale when explanation language or prompt version changed', async () => {
+    fs.writeFileSync(path.join(projectPath, 'hello.ts'), 'export const x = 1\n', 'utf8')
+    const hash = await computeFileHash(path.join(projectPath, 'hello.ts'))
+    await storeSummary('hello.ts', hash)
+    const target = summaryFilePath(projectPath, 'hello.ts')
+    const summary = JSON.parse(fs.readFileSync(target, 'utf8'))
+    summary.language = 'es'
+    fs.writeFileSync(target, JSON.stringify(summary))
+    expect((await request(app).get('/api/projects/proj-test/code/summary?path=hello.ts')).body.summaryStale).toBe(true)
+    summary.language = 'en'
+    summary.generatedBy.promptVersion = CURRENT_PROMPT_VERSION - 1
+    fs.writeFileSync(target, JSON.stringify(summary))
+    expect((await request(app).get('/api/projects/proj-test/code/file?path=hello.ts')).body.summaryStale).toBe(true)
+  })
+
   it('reports summaryStale=false for a matching hash and true after the file changes', async () => {
     fs.writeFileSync(path.join(projectPath, 'hello.ts'), 'export const x = 1\n', 'utf8')
     const hash = await computeFileHash(path.join(projectPath, 'hello.ts'))
@@ -813,6 +908,16 @@ describe('security: deny-list + gitignore', () => {
     const paths = (tree.body.entries as Array<{ path: string }>).map((e) => e.path)
     expect(paths).toContain('public.ts')
     expect(paths).not.toContain('secret.txt')
+
+    const insert = db.prepare("INSERT INTO file_provenance (file_path, ticket_id, job_id, kind, at) VALUES (?, 7, 'run', 'modified', 1)")
+    for (const relative of ['secret.txt', '.env', 'public.ts', 'missing.ts']) insert.run(relative)
+    const activity = await request(app).get('/api/projects/proj-test/code/activity?ticketId=7')
+    expect(activity.body.entries.map((entry: { path: string }) => entry.path).sort()).toEqual(['missing.ts', 'public.ts'])
+    for (const filter of ['ticketId=7', 'jobId=run']) {
+      const provenance = await request(app).get(`/api/projects/proj-test/code/provenance?${filter}`)
+      expect(provenance.body.map((entry: { path: string }) => entry.path).sort()).toEqual(['missing.ts', 'public.ts'])
+    }
+    expect((await request(app).get('/api/projects/proj-test/code/provenance?path=secret.txt')).body).toEqual([])
   })
 
   it('applies the deny-list to GET /provenance?path so touched-secret metadata never leaks', async () => {

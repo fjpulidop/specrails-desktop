@@ -1,147 +1,108 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type * as Monaco from 'monaco-editor'
 import { useTranslation } from 'react-i18next'
 import { useActiveTheme } from '../../context/ThemeContext'
 import { ensureMonacoEnvironment, defineMonacoThemeFor } from '../../lib/monaco-setup'
 
-interface InnerProps {
+export interface CodeViewerMonacoProps {
   content: string
   language: string
-  readOnly: boolean
-  onChange?: (value: string) => void
+  initialLine?: number
 }
 
-function InnerEditor({ content, language, readOnly, onChange }: InnerProps) {
+/** Source exploration only: model edits and server writes are never enabled. */
+export function CodeViewerMonaco({ content, language, initialLine }: CodeViewerMonacoProps) {
   const { t } = useTranslation('code')
   const theme = useActiveTheme()
   const hostRef = useRef<HTMLDivElement | null>(null)
-  const editorRef = useRef<unknown>(null)
-  const monacoRef = useRef<typeof import('monaco-editor') | null>(null)
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
+  const monacoRef = useRef<typeof Monaco | null>(null)
+  const [ready, setReady] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  const [loadRevision, setLoadRevision] = useState(0)
+  const [wrap, setWrap] = useState(false)
+  const [lineInput, setLineInput] = useState('')
+  const current = useRef({ content, language, theme, initialLine, wrap })
+  current.current = { content, language, theme, initialLine, wrap }
 
-  // The create effect runs once but monaco-editor loads ASYNC. Read the latest
-  // content/language/theme/readOnly/onChange from refs at create time so a file
-  // switched (or theme/mode changed) before the chunk resolved is not rendered
-  // with stale initial values — the update effects below no-op while editorRef
-  // is still null.
-  const contentRef = useRef(content)
-  const languageRef = useRef(language)
-  const themeRef = useRef(theme)
-  const readOnlyRef = useRef(readOnly)
-  const onChangeRef = useRef(onChange)
-  useEffect(() => { contentRef.current = content }, [content])
-  useEffect(() => { languageRef.current = language }, [language])
-  useEffect(() => { themeRef.current = theme }, [theme])
-  useEffect(() => { readOnlyRef.current = readOnly }, [readOnly])
-  useEffect(() => { onChangeRef.current = onChange }, [onChange])
+  const reveal = (requested: number | undefined, focus = false) => {
+    const editor = editorRef.current
+    const model = editor?.getModel()
+    if (!editor || !model || !Number.isFinite(requested) || requested! < 1) return
+    const line = Math.min(model.getLineCount(), Math.max(1, Math.floor(requested!)))
+    editor.setSelection({ startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: model.getLineMaxColumn(line) })
+    editor.revealLineInCenter(line)
+    if (focus) editor.focus()
+  }
 
   useEffect(() => {
     let disposed = false
+    setReady(false); setLoadError(false)
     ensureMonacoEnvironment()
-    import('monaco-editor').then((monaco) => {
+    void import('monaco-editor').then((monaco) => {
       if (disposed || !hostRef.current) return
       monacoRef.current = monaco
-      const monacoTheme = defineMonacoThemeFor(monaco, themeRef.current)
+      const values = current.current
       const editor = monaco.editor.create(hostRef.current, {
-        value: contentRef.current,
-        language: languageRef.current,
-        readOnly: readOnlyRef.current,
-        theme: monacoTheme,
+        value: values.content,
+        language: values.language,
+        readOnly: true,
+        domReadOnly: true,
+        theme: defineMonacoThemeFor(monaco, values.theme),
         minimap: { enabled: false },
         lineNumbers: 'on',
         scrollBeyondLastLine: false,
         automaticLayout: true,
+        renderValidationDecorations: 'off',
+        wordWrap: values.wrap ? 'on' : 'off',
         fontSize: 13,
       })
-      // Emit edits back to the owner (edit mode). Reading via getValue keeps the
-      // editor uncontrolled, so the parent's echo of the same draft never resets
-      // the cursor (the setValue effect below is guarded on inequality).
-      editor.onDidChangeModelContent(() => {
-        onChangeRef.current?.(editor.getValue())
-      })
       editorRef.current = editor
-    }).catch(() => {
-      // Stale chunk after a deploy / network blip / worker failure: surface an
-      // error + reload affordance instead of a permanently blank pane plus an
-      // unhandled promise rejection.
-      if (!disposed) setLoadError(true)
-    })
+      reveal(values.initialLine)
+      setReady(true)
+    }).catch(() => { if (!disposed) setLoadError(true) })
     return () => {
       disposed = true
-      const editor = editorRef.current as { dispose?: () => void } | null
-      editor?.dispose?.()
+      const model = editorRef.current?.getModel()
+      editorRef.current?.dispose()
+      model?.dispose()
       editorRef.current = null
+      monacoRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [loadRevision])
 
   useEffect(() => {
-    const editor = editorRef.current as { setValue?: (v: string) => void; getValue?: () => string } | null
-    // Only overwrite when the incoming content genuinely differs (a fresh file
-    // load), NOT when it is the editor echoing the user's own keystrokes back.
-    if (editor && editor.getValue?.() !== content) editor.setValue?.(content)
+    const editor = editorRef.current
+    if (editor && editor.getValue() !== content) editor.setValue(content)
   }, [content])
-
   useEffect(() => {
-    const editor = editorRef.current as { updateOptions?: (o: { readOnly: boolean }) => void } | null
-    editor?.updateOptions?.({ readOnly })
-  }, [readOnly])
-
-  useEffect(() => {
-    const monaco = monacoRef.current
-    const editor = editorRef.current as { getModel?: () => unknown } | null
-    if (!monaco || !editor) return
-    const model = editor.getModel?.() as { uri?: unknown } | null
-    if (model) monaco.editor.setModelLanguage(model as never, language)
+    const model = editorRef.current?.getModel()
+    if (model && monacoRef.current) monacoRef.current.editor.setModelLanguage(model, language)
   }, [language])
-
   useEffect(() => {
     const monaco = monacoRef.current
-    if (!monaco) return
-    const monacoTheme = defineMonacoThemeFor(monaco, theme)
-    monaco.editor.setTheme(monacoTheme)
+    if (monaco) monaco.editor.setTheme(defineMonacoThemeFor(monaco, theme))
   }, [theme])
+  useEffect(() => { reveal(initialLine) }, [initialLine, ready])
+  useEffect(() => { editorRef.current?.updateOptions({ wordWrap: wrap ? 'on' : 'off' }) }, [wrap])
 
-  if (loadError) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground" data-testid="monaco-load-error">
-        <span>{t('monaco.loadFailed')}</span>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="rounded-md bg-accent-primary/15 px-3 py-1 text-xs text-accent-primary hover:bg-accent-primary/25"
-        >
-          {t('monaco.reload')}
-        </button>
-      </div>
-    )
-  }
-  return <div ref={hostRef} className="w-full h-full" data-testid="monaco-host" />
-}
-
-const LazyInner = lazy(async () => ({ default: InnerEditor }))
-
-export interface CodeViewerMonacoProps {
-  content: string
-  language: string
-  /** Read-only by default; pass false to enable in-app editing. */
-  readOnly?: boolean
-  /** Called with the full editor value on every edit (edit mode only). */
-  onChange?: (value: string) => void
-}
-
-export function CodeViewerMonaco({ content, language, readOnly = true, onChange }: CodeViewerMonacoProps) {
-  const { t } = useTranslation('code')
-  return (
-    <Suspense
-      fallback={
-        <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground animate-pulse">
-          {t('monaco.loadingEditor')}
-        </div>
-      }
-    >
-      <LazyInner content={content} language={language} readOnly={readOnly} onChange={onChange} />
-    </Suspense>
-  )
+  return <div className="flex h-full min-h-0 flex-col">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-muted/20 px-3 py-1 text-xs">
+      <button type="button" disabled={!ready} className="rounded px-2 py-1 hover:bg-muted disabled:opacity-50" onClick={() => { void editorRef.current?.getAction('actions.find')?.run() }}>{t('reader.find', { defaultValue: 'Find in file' })}</button>
+      <button type="button" disabled={!ready} aria-pressed={wrap} className="rounded px-2 py-1 hover:bg-muted disabled:opacity-50" onClick={() => setWrap((value) => !value)}>{t('reader.wrap', { defaultValue: 'Wrap lines' })}</button>
+      <form className="ml-auto flex items-center gap-1" onSubmit={(event) => { event.preventDefault(); reveal(Number(lineInput), true) }}>
+        <input type="number" min={1} step={1} aria-label={t('reader.line', { defaultValue: 'Line number' })} placeholder="#" title={t('reader.line', { defaultValue: 'Line number' })} value={lineInput} onChange={(event) => setLineInput(event.target.value)} className="w-28 rounded border border-border bg-background px-2 py-1" />
+        <button type="submit" disabled={!ready || !Number.isInteger(Number(lineInput)) || Number(lineInput) < 1} className="rounded px-2 py-1 hover:bg-muted disabled:opacity-50">{t('reader.go', { defaultValue: 'Go' })}</button>
+      </form>
+    </div>
+    {loadError ? <div className="flex flex-1 flex-col items-center justify-center gap-2 text-sm text-muted-foreground" data-testid="monaco-load-error">
+      <span>{t('monaco.loadFailed')}</span>
+      <button onClick={() => setLoadRevision((value) => value + 1)} className="rounded border px-3 py-1">{t('reader.retry', { defaultValue: 'Retry' })}</button>
+    </div> : <div className="relative min-h-0 flex-1">
+      {!ready && <div role="status" className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">{t('reader.loading', { defaultValue: 'Loading source viewer…' })}</div>}
+      <div ref={hostRef} className="h-full w-full" data-testid="monaco-host" />
+    </div>}
+  </div>
 }
 
 export default CodeViewerMonaco

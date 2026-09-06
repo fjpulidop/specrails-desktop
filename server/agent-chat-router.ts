@@ -21,7 +21,8 @@ import {
   MISSION_SEARCH_DEFAULT_LIMIT,
   MISSION_SEARCH_MAX_LIMIT,
 } from './agent-store'
-import { killBackgroundProcessesForChat } from './transient-children'
+import { killBackgroundProcessesForChat, purgeBackgroundProcessHistory } from './transient-children'
+import { decorateAgentInputMessages, getAgentInput, AgentInputConflictError, AgentInputLimitError } from './agent-input-store'
 
 // ─── Agent chat REST surface (/api/agent) ─────────────────────────────────────
 //
@@ -95,13 +96,15 @@ function sanitizeContextRefs(value: unknown): AgentContextReference[] {
     const scopeRaw = row.scope && typeof row.scope === 'object' ? row.scope as Record<string, unknown> : null
     const projectId = cleanContextString(scopeRaw?.projectId, 160)
     const projectName = cleanContextString(scopeRaw?.projectName, 180)
+    const repositoryId = cleanContextString(scopeRaw?.repositoryId, 160)
+    const repositoryName = cleanContextString(scopeRaw?.repositoryName, 180)
     const status = cleanContextString(row.status, 80)
     refs.push({
       kind,
       id,
       label,
       token,
-      scope: projectId || projectName ? { projectId, projectName } : undefined,
+      scope: projectId || projectName || repositoryId || repositoryName ? { projectId, projectName, repositoryId, repositoryName } : undefined,
       status,
       metadata: cleanContextMetadata(row.metadata),
     })
@@ -227,7 +230,12 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       res.status(404).json({ error: 'Unknown conversation' })
       return
     }
-    res.json({ conversation, messages: listAgentMessages(desktopDb, conversation.id) })
+    res.json({
+      conversation,
+      messages: decorateAgentInputMessages(desktopDb, listAgentMessages(desktopDb, conversation.id)),
+      pendingMessages: manager.pendingMessages(conversation.id),
+      live: manager.conversationLive(conversation.id),
+    })
   })
 
   router.patch('/conversations/:id', (req: Request, res: Response) => {
@@ -304,6 +312,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     const id = String(req.params.id)
     manager.abort(id)
     killBackgroundProcessesForChat(id)
+    purgeBackgroundProcessHistory({ chatId: id })
     deleteAgentConversation(desktopDb, id)
     // Cascade-remove the conversation's attachment directory (best-effort).
     void attachmentManager.deleteAllAgent(id).catch((e) =>
@@ -430,24 +439,54 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     }
     const tierLevel = body.tierLevel !== undefined ? normalizeLevel(body.tierLevel) : undefined
     const model = typeof body.model === 'string' ? body.model : undefined
+    if (body.deliveryMode !== undefined && body.deliveryMode !== 'queue' && body.deliveryMode !== 'steer') {
+      res.status(400).json({ error: 'deliveryMode must be queue or steer' })
+      return
+    }
+    const deliveryMode = body.deliveryMode as 'queue' | 'steer' | undefined
     let attachmentIds: string[] = []
     const rawAtt = body.attachments
     if (rawAtt && typeof rawAtt === 'object' && Array.isArray((rawAtt as { ids?: unknown }).ids)) {
       attachmentIds = ((rawAtt as { ids: unknown[] }).ids).filter((x): x is string => typeof x === 'string')
     }
     const queueId = typeof body.queueId === 'string' ? body.queueId : null
+    if (queueId !== null && (!queueId.trim() || queueId.length > 200)) {
+      res.status(400).json({ error: 'queueId must be a nonempty message ID of at most 200 characters' })
+      return
+    }
     const contextRefs = sanitizeContextRefs(body.contextRefs)
     // Fire-and-forget: the turn streams over WS. Persist the chosen tier first so
     // a refresh mid-turn restores the right level.
-    if (tierLevel !== undefined) updateAgentConversation(desktopDb, conversation.id, { tier_level: tierLevel })
     // isBusy here and sendMessage's own busy/enqueue branch run in the same
     // synchronous frame (the enqueue happens before sendMessage's first await),
     // so the flag the client gets always matches what actually happened.
     const queued = manager.isBusy(conversation.id)
-    void manager.sendMessage(conversation.id, text, { tierLevel, model, attachmentIds, queueId, contextRefs }).catch((e) =>
-      console.error('[agent-chat] send failed:', e),
-    )
-    res.status(202).json({ accepted: true, queued })
+    try {
+      const previous = queueId ? getAgentInput(desktopDb, conversation.id, queueId) : undefined
+      void manager.sendMessage(conversation.id, text, { tierLevel, model, attachmentIds, queueId, contextRefs, deliveryMode }).catch((e) =>
+        console.error('[agent-chat] send failed:', e),
+      )
+      if (tierLevel !== undefined) updateAgentConversation(desktopDb, conversation.id, { tier_level: tierLevel })
+      const input = queueId ? getAgentInput(desktopDb, conversation.id, queueId) : undefined
+      const pending = manager.pendingMessages(conversation.id).find((item) => item.queueId === queueId)
+      const stillQueued = input ? input.status === 'pending' && pending !== undefined : queued
+      const message = input?.messageId
+        ? decorateAgentInputMessages(desktopDb, listAgentMessages(desktopDb, conversation.id).filter((item) => item.id === input.messageId))[0]
+        : undefined
+      res.status(202).json({
+        accepted: true, queued: stillQueued,
+        ...(stillQueued ? { deliveryMode: pending?.deliveryMode ?? input?.options.deliveryMode ?? deliveryMode ?? 'queue' } : {}),
+        ...(previous ? { duplicate: true } : {}),
+        ...(input?.status === 'cancelled' && !input.messageId ? { removed: true } : {}),
+        ...(message ? { message } : {}),
+      })
+    } catch (err) {
+      if (err instanceof AgentInputConflictError || err instanceof AgentInputLimitError) {
+        res.status(err instanceof AgentInputLimitError ? 429 : 409).json({ error: err.message })
+        return
+      }
+      throw err
+    }
   })
 
   // Edit a still-queued (not yet dispatched) message in place. 409 when the
@@ -467,6 +506,32 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     }
     const edited = manager.editQueued(conversation.id, String(req.params.queueId), text)
     if (!edited) {
+      res.status(409).json({ error: 'Message already dispatched' })
+      return
+    }
+    res.json({ ok: true })
+  })
+
+  router.post('/conversations/:id/queue/:queueId/steer', (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation) {
+      res.status(404).json({ error: 'Unknown conversation' })
+      return
+    }
+    if (!manager.steerQueued(conversation.id, String(req.params.queueId))) {
+      res.status(409).json({ error: 'Message already dispatched' })
+      return
+    }
+    res.json({ ok: true })
+  })
+
+  router.delete('/conversations/:id/queue/:queueId', (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation) {
+      res.status(404).json({ error: 'Unknown conversation' })
+      return
+    }
+    if (!manager.removeQueued(conversation.id, String(req.params.queueId))) {
       res.status(409).json({ error: 'Message already dispatched' })
       return
     }

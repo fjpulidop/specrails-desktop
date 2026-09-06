@@ -1,55 +1,14 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
-import { apiCall, projectPath, originConversationDefaults, requireProject } from './types'
-import path from 'path'
-import { startBackgroundProcess, killOwnedBackgroundProcess, getBackgroundProcessLogs } from '../../transient-children'
-import type { WsMessage } from '../../types'
-import type { ProjectContext } from '../../project-registry'
-import { listActiveLoopRuns } from '../../loop-runs-store'
-
-function resolveBackgroundCwd(projectRoot: string, cwd: string | undefined): string {
-  const resolved = path.resolve(projectRoot, cwd && cwd.trim() ? cwd : '.')
-  const root = path.resolve(projectRoot)
-  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
-    throw new Error('background_start cwd must stay within the selected project.')
-  }
-  return resolved
-}
+import { apiCall, projectPath, originConversationDefaults, requireProject, requireRepository } from './types'
+import { startBackgroundProcess, getBackgroundProcessLogs, listBackgroundProcesses } from '../../transient-children'
+import { resolveBackgroundCwd, backgroundProcessHooks, backgroundStartBusyReason, stopOwnedBackgroundProcess } from '../../background-process-service'
 
 function requireFirstPartyConversation(ctx: Parameters<McpToolSpec['handler']>[0], action: string): string {
   if (!ctx.firstPartyAgent || !ctx.originConversationId) {
     throw new Error(`${action} is available only to an authenticated in-app agent turn.`)
   }
   return ctx.originConversationId
-}
-
-function backgroundHooks(broadcast: (msg: WsMessage) => void) {
-  return {
-    onStarted: (process: import('../../transient-children').BackgroundProcess) => broadcast({
-      type: 'background_process.started',
-      process,
-      projectId: process.projectId,
-      timestamp: new Date().toISOString(),
-    }),
-    onExited: (process: import('../../transient-children').BackgroundProcess) => broadcast({
-      type: 'background_process.exited',
-      process,
-      projectId: process.projectId,
-      timestamp: new Date().toISOString(),
-    }),
-  }
-}
-
-function backgroundStartBusyReason(projectCtx: ProjectContext): string | null {
-  const activeJobId = typeof projectCtx.queueManager?.getActiveJobId === 'function' ? projectCtx.queueManager.getActiveJobId() : null
-  if (activeJobId) return `job ${activeJobId} is still running`
-  try {
-    const activeLoops = listActiveLoopRuns(projectCtx.db, projectCtx.project.id)
-    if (activeLoops.length > 0) return `loop run ${activeLoops[0].id} is still running`
-  } catch {
-    // Some unit harnesses stub the DB narrowly; absence of loop metadata is not a blocker.
-  }
-  return null
 }
 
 /**
@@ -69,8 +28,8 @@ export function jobsTools(): McpToolSpec[] {
       title: 'Jobs & Queue',
       description:
         'Manage a project\'s AI-pipeline job queue and individual jobs. ' +
-        'Actions: list, get, queue, spawn (ai-spawn — enqueues an arbitrary slash-command job, returns {jobId,position}, async; from the in-app agent chat the engine defaults to your conversation\'s provider — pass aiEngine to override), ' +
-        'background_start (in-app-agent-only destructive shell command tied to the authenticated chat; requires confirmed:true after explicit user confirmation), background_logs, background_kill (in-app-agent-only destructive), ' +
+        'Actions: list, get, queue, spawn (ai-spawn — enqueues a direct slash-command job in the primary repository only, returns {jobId,position}, async; repositoryId is required for multi-repository projects; use specrails_rails launch for spec implementations or specrails_loops run for coordinated secondary/multi-repository work; from the in-app agent chat the engine defaults to your conversation\'s provider — pass aiEngine to override), ' +
+        'background_start (in-app-agent-only destructive shell command tied to the authenticated chat; requires confirmed:true after explicit user confirmation), background_list (read scoped running/recent applications), background_logs (read bounded stdout/stderr and actual lifecycle), background_kill (in-app-agent-only destructive; stopping is not yet stopped), ' +
         'cancel (destructive — requests cancellation of a running/queued job; it does not delete terminal history), ' +
         'purge (destructive — bulk-delete persisted job rows in a date range), ' +
         'pause / resume (queue), reorder (queued-job order), priority (change a queued job\'s priority), ' +
@@ -114,6 +73,7 @@ export function jobsTools(): McpToolSpec[] {
             'interactive_turn',
             'finalize',
             'background_start',
+            'background_list',
             'background_logs',
             'background_kill',
           ])
@@ -126,7 +86,7 @@ export function jobsTools(): McpToolSpec[] {
           .describe('Job id (for get / cancel / priority / diagnostic / interactive_turn / finalize)'),
         // ── list / export pagination + filters ──
         limit: z.number().int().positive().max(200).optional().describe('Page size for list (1-200, default 50) / activity (1-100, default 50); background_logs returns the last N buffered log lines'),
-        offset: z.number().int().nonnegative().optional().describe('Page offset for list'),
+        offset: z.number().int().nonnegative().optional().describe('Page offset for list/background_list'),
         eventLimit: z.number().int().positive().max(200).optional().describe('get: maximum persisted events to return (default 50, latest events by default)'),
         eventOffset: z.number().int().nonnegative().optional().describe('get: chronological event offset; omit for the latest eventLimit events'),
         status: z.string().optional().describe('Filter by job status (list)'),
@@ -134,7 +94,7 @@ export function jobsTools(): McpToolSpec[] {
         to: z.string().optional().describe('ISO date upper bound (list / export / purge)'),
         before: z.string().optional().describe('Activity cursor: return rows before this timestamp'),
         // ── spawn (rail-bypass enqueue) ──
-        command: z.string().optional().describe('Slash-command to enqueue (spawn), e.g. "/specrails:implement #5 --yes"'),
+        command: z.string().optional().describe('Direct slash-command to enqueue in the primary repository (spawn), or shell command (background_start). Implement backlog specs through specrails_rails launch to retain isolation and delivery tracking.'),
         priority: z
           .enum(['low', 'normal', 'high', 'critical'])
           .optional()
@@ -156,8 +116,11 @@ export function jobsTools(): McpToolSpec[] {
         // ── interactive_turn ──
         text: z.string().optional().describe('Prompt text for interactive_turn'),
         chatId: z.string().optional().describe('Conversation id for background_logs ownership. background_start/background_kill ignore this field and use the authenticated in-app capability.'),
-        cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected project root'),
+        repositoryId: z.string().min(1).optional().describe('spawn/background_start: repository membership ID; required when the project has several repositories. spawn accepts only the primary repository; use specrails_rails launch or specrails_loops run for other repositories.'),
+        cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected repository root'),
         pid: z.number().int().positive().optional().describe('Background process pid for background_logs/background_kill'),
+        processId: z.string().min(1).max(200).optional().describe('Background execution UUID returned by background_start/list. Pass with pid on logs/kill to avoid targeting a reused PID.'),
+        includeFinished: z.boolean().optional().describe('background_list: include persisted completed/disconnected executions (default true). Active applications are listed first; use limit/offset for older history.'),
         confirmed: z.boolean().optional().describe('background_start only: must be true after explicit user confirmation for this exact command'),
         allowWhileBusy: z.boolean().optional().describe('background_start only: override active job/loop guard after explicit user confirmation'),
         // ── export ──
@@ -205,6 +168,10 @@ export function jobsTools(): McpToolSpec[] {
           case 'spawn': {
             const command = args.command as string | undefined
             if (!command || !command.trim()) throw new Error('spawn requires a "command".')
+            const repository = requireRepository(ctx, args.projectId as string | undefined, args.repositoryId as string | undefined)
+            if (!repository.isPrimary) {
+              throw new Error('spawn supports only the primary repository. Use specrails_rails(action:"launch", repositoryIds:[...]) for spec implementations or specrails_loops(action:"run", repositoryIds:[...]) for coordinated secondary/multi-repository work.')
+            }
             // Engine default (STRUCTURAL, never prompt-dependent): a spawn
             // driven by the in-app agent without an explicit aiEngine runs on
             // the LAUNCHING CONVERSATION's provider — not silently on the
@@ -227,7 +194,7 @@ export function jobsTools(): McpToolSpec[] {
             })
             return {
               ...(r as Record<string, unknown>),
-              hint: 'Spawned a direct AI CLI job (incurs token cost; bypasses rail isolation and delivery cards). Use specrails_watch(ref:jobId, kind:"job") or specrails_jobs(get, jobId) to read completion. For spec implementations and delivery revisions, use specrails_rails(launch) instead.',
+              hint: 'Spawned a direct AI CLI job in the primary repository (incurs token cost; bypasses rail isolation and delivery cards). Use specrails_watch(ref:jobId, kind:"job") or specrails_jobs(get, jobId) to read completion. For spec implementations and delivery revisions, use specrails_rails(launch); for coordinated secondary/multi-repository loops, use specrails_loops(run).',
             }
           }
 
@@ -363,30 +330,50 @@ export function jobsTools(): McpToolSpec[] {
             if (busyReason && args.allowWhileBusy !== true) {
               throw new Error(`background_start refused because ${busyReason}. Wait for it to finish, or pass allowWhileBusy:true only after explicit user confirmation.`)
             }
-            const cwd = resolveBackgroundCwd(projectCtx.project.path, args.cwd as string | undefined)
+            const repository = requireRepository(ctx, args.projectId as string | undefined, args.repositoryId as string | undefined)
+            const cwd = resolveBackgroundCwd(repository.path, args.cwd as string | undefined)
             const process = startBackgroundProcess(
               command.trim(),
               cwd,
               chatId.trim(),
               projectCtx.project.id,
-              backgroundHooks(ctx.broadcast),
+              backgroundProcessHooks(ctx.broadcast),
+              { repositoryId: repository.id, repositoryName: repository.name },
             )
-            return { ok: true, process }
+            return { ok: true, repositoryId: repository.id, process,
+              hint: 'Application command accepted, not proof of readiness. Preserve pid and processId; inspect background_logs now for the listening URL or startup failure as part of this launch, without asking for another permission to read. The user can inspect persisted logs from its chip or mission process history.' }
+          }
+
+          case 'background_list': {
+            const chatId = ctx.firstPartyAgent ? requireFirstPartyConversation(ctx, 'background_list') : args.chatId as string | undefined
+            if (!chatId?.trim()) throw new Error('background_list requires a "chatId".')
+            const projectCtx = requireProject(ctx, args.projectId as string | undefined)
+            const terminal = new Set(['exited', 'killed', 'failed', 'interrupted'])
+            const processes = listBackgroundProcesses({ projectId: projectCtx.project.id, chatId: chatId.trim(), includeFinished: args.includeFinished !== false })
+              .sort((a, b) => Number(terminal.has(a.status)) - Number(terminal.has(b.status)) || b.startedAt - a.startedAt)
+            const limit = typeof args.limit === 'number' && Number.isFinite(args.limit) ? Math.min(200, Math.max(1, Math.floor(args.limit))) : 50
+            const offset = typeof args.offset === 'number' && Number.isFinite(args.offset) ? Math.max(0, Math.floor(args.offset)) : 0
+            return { processes: processes.slice(offset, offset + limit), total: processes.length, offset, limit, hasMore: offset + limit < processes.length,
+              ...(Number.isSafeInteger(ctx.desktopPort) && ctx.desktopPort > 0 ? { specrailsApi: { host: '127.0.0.1', port: ctx.desktopPort } } : {}),
+              hint: 'History includes persisted executions. interrupted means supervision ended after restart; current OS state is unknown and the historical PID cannot be signalled. Keep application ports separate from the Specrails API. Inspect persisted failure logs before proposing another launch.' }
           }
 
           case 'background_kill': {
             const pid = args.pid as number | undefined
-            if (typeof pid !== 'number' || !Number.isFinite(pid)) throw new Error('background_kill requires a numeric "pid".')
+            if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 0) throw new Error('background_kill requires a positive integer "pid".')
             const chatId = requireFirstPartyConversation(ctx, 'background_kill')
             const projectCtx = requireProject(ctx, args.projectId as string | undefined)
-            const killed = killOwnedBackgroundProcess(pid, { projectId: projectCtx.project.id, chatId: chatId.trim() })
-            if (!killed) throw new Error('background_kill requires a registered pid in the same project/chat.')
-            return { ok: true, pid, status: 'killing' }
+            const process = stopOwnedBackgroundProcess(pid, { projectId: projectCtx.project.id, chatId: chatId.trim(),
+              ...(typeof args.processId === 'string' ? { processId: args.processId } : {}) })
+            if (!process) throw new Error('background_kill requires a registered execution in the same project/chat.')
+            if (process.error && !['stopping', 'exited', 'killed', 'failed'].includes(process.status)) throw new Error(process.error)
+            return { ok: true, pid, process, status: process.status,
+              hint: process.status === 'stopping' ? 'Stop requested; inspect background_list or background_logs until terminal before reporting the application stopped.' : 'Inspect the returned terminal status and retained logs.' }
           }
 
           case 'background_logs': {
             const pid = args.pid as number | undefined
-            if (typeof pid !== 'number' || !Number.isFinite(pid)) throw new Error('background_logs requires a numeric "pid".')
+            if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 0) throw new Error('background_logs requires a positive integer "pid".')
             // A first-party turn is confined to its authenticated conversation
             // for reads as well as start/kill. External read-tier clients still
             // supply chatId explicitly because they have no agent capability.
@@ -395,10 +382,11 @@ export function jobsTools(): McpToolSpec[] {
               : (args.chatId as string | undefined)
             if (!chatId || !chatId.trim()) throw new Error('background_logs requires a "chatId".')
             const projectCtx = requireProject(ctx, args.projectId as string | undefined)
-            const limit = typeof args.limit === 'number' && Number.isFinite(args.limit) ? args.limit : undefined
+            const limit = typeof args.limit === 'number' && Number.isFinite(args.limit) ? Math.min(200, Math.max(1, Math.floor(args.limit))) : 100
             const logs = getBackgroundProcessLogs(pid, {
               projectId: projectCtx.project.id,
               chatId: chatId.trim(),
+              ...(typeof args.processId === 'string' ? { processId: args.processId } : {}),
               ...(limit !== undefined ? { limit } : {}),
             })
             if (!logs) throw new Error('background_logs requires a registered pid in the same project/chat; logs may have expired.')
@@ -407,7 +395,7 @@ export function jobsTools(): McpToolSpec[] {
               ...logs,
               hint: logs.lines.length > 0
                 ? 'Inspect stdout/stderr to explain why the background process exited or failed.'
-                : 'No stdout/stderr lines have been captured yet; the process may not have emitted newline-terminated output.',
+                : 'No stdout/stderr output has been captured yet. Check the returned process status; empty logs do not prove application readiness.',
             }
           }
 

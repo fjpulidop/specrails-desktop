@@ -28,7 +28,7 @@ const RIGHT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned
  * reads as the same family. Browser / Terminal / Files are disabled when there
  * is no active project (each tool is project-scoped).
  */
-export function AgentWorkspaceSidebar() {
+export function AgentWorkspaceSidebar({ missionOnly = false }: { missionOnly?: boolean } = {}) {
   const { t } = useTranslation('agent')
   const { t: tNav } = useTranslation('nav')
   const { t: tBuilder } = useTranslation('builder')
@@ -163,7 +163,7 @@ export function AgentWorkspaceSidebar() {
         </AnimatePresence>
       ) : (
       <nav className="flex-1 py-2 px-1.5 space-y-0.5">
-        <BuilderSidebarEntry expanded={expanded} />
+        {!missionOnly && <BuilderSidebarEntry expanded={expanded} />}
         {tools.map(({ key, icon: Icon, label, onClick, disabled, disabledTitle }) => (
           <button
             key={key}

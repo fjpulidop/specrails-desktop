@@ -1,4 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+const testOriginalPath = process.env.PATH
+beforeEach(() => { process.env.PATH = '' })
+afterEach(() => { process.env.PATH = testOriginalPath })
 import path from 'path'
 import os from 'os'
 import fs from 'fs'
@@ -124,6 +128,21 @@ describe('checkCoreCompat', () => {
     expect(result.supportedProviders).toEqual(['claude', 'codex', 'kimi'])
     expect(coreCompatSupportsProvider(result, 'kimi')).toBe(true)
     expect(coreCompatSupportsProvider(result, 'gemini')).toBe(false)
+  })
+
+  it('accepts Core 5 deterministic installation for all providers without enrich', async () => {
+    const providers = Object.fromEntries(['claude', 'codex', 'gemini', 'kimi'].map(provider => [provider, {
+      initCommand: 'init', updateCommand: 'update',
+      cli: { initArgs: ['init', '--yes', '--provider', provider], updateArgs: ['update', '--provider', provider],
+        ...(provider === 'kimi' ? { providerBinary: 'kimi', skillRunner: '.kimi-code/specrails/run-skill.mjs', workflowArgs: ['.kimi-code/specrails/run-skill.mjs', '--skill', '<id>'] } : {}) },
+      workflows: { implement: 'implement', 'batch-implement': 'batch-implement', retry: 'retry' },
+    }]))
+    setupContractInTmpDir({ schemaVersion: '4.0', coreVersion: '5.0.0', lifecycle: { mode: 'deterministic', requiresEnrich: false },
+      providers, checkpoints: { base_install: 'Installed', agent_generation: 'Placed', command_generation: 'Verified' } }, tmpDir)
+    const result = await checkCoreCompat()
+    expect(result.compatible).toBe(true)
+    expect(result.extraCheckpoints).toEqual([])
+    expect(result.supportedProviders).toEqual(['claude', 'codex', 'gemini', 'kimi'])
   })
 
   it('rejects empty or runner-less Kimi provider declarations', async () => {

@@ -10,6 +10,7 @@ import { McpServerManager } from './mcp-server'
 import { AGENT_CAPABILITY_HEADER, AGENT_TIER_HEADER } from '../agent-tier'
 import { _resetAgentCapabilitiesForTest, mintAgentCapability, revokeAgentCapability } from './agent-capability'
 import { RecoveringHttpTransport } from '../../mcp-bridge/src/http-transport'
+import { registerAgentSteering, notifyAgentSteering } from '../agent-steering'
 
 // A minimal ProjectRegistry stub: the MCP core only needs desktopDb + the
 // project lookup methods. No real projects are required for these tests.
@@ -203,6 +204,44 @@ describe('McpServerManager (embedded MCP server)', () => {
     expect(text).toContain('Specrails')
     expect(result.isError).toBeFalsy()
     await client.close()
+  })
+
+  it('delivers and acknowledges mission updates across authenticated transport sessions without leaking to external clients', async () => {
+    const capability = mintAgentCapability({ conversationId: 'steered-mission', tierLevel: 0 })
+    let consumed = 0
+    const image = { type: 'image' as const, data: 'aW1hZ2U=', mimeType: 'image/png' }
+    const dispose = registerAgentSteering(db, capability, async () => {
+      consumed++
+      return { content: 'Follow-up from the mission user.', images: [image] }
+    })
+    const clients = [new Client({ name: 'mission-a', version: '1' }), new Client({ name: 'mission-b', version: '1' })]
+    const external = await connectClient(url)
+    try {
+      await Promise.all(clients.map(client => client.connect(new StreamableHTTPClientTransport(url, {
+        requestInit: { headers: { [AGENT_CAPABILITY_HEADER]: capability } },
+      }))))
+      notifyAgentSteering(db, capability)
+      const replies = await Promise.all(clients.map(client => client.callTool({ name: 'specrails_guide', arguments: {} })))
+      for (const reply of replies) {
+        expect(reply.isError).toBe(true)
+        expect(JSON.stringify(reply)).toContain('tool_not_executed')
+        expect(JSON.stringify(reply)).toContain('Follow-up from the mission user.')
+        expect(reply.content).toContainEqual(image)
+        expect(JSON.stringify(reply)).not.toContain(capability)
+      }
+      expect(consumed).toBe(1)
+      const outsider = await external.callTool({ name: 'specrails_guide', arguments: {} })
+      expect(JSON.stringify(outsider)).not.toContain('Follow-up from the mission user.')
+      expect((await external.callTool({ name: 'specrails_mission', arguments: { action: 'acknowledge_updates', revision: 1 } })).isError).toBe(true)
+      const acknowledged = await clients[1].callTool({ name: 'specrails_mission', arguments: { action: 'acknowledge_updates', revision: 1 } })
+      expect(acknowledged.isError).toBeUndefined()
+      const resumed = await clients[0].callTool({ name: 'specrails_guide', arguments: {} })
+      expect(resumed.isError).toBeUndefined()
+      expect(JSON.stringify(resumed)).not.toContain('Follow-up from the mission user.')
+    } finally {
+      dispose()
+      await Promise.all([...clients, external].map(client => client.close()))
+    }
   })
 
   it('exposes resources including the guide', async () => {

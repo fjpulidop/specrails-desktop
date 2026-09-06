@@ -25,6 +25,7 @@ import {
 } from './file-provenance'
 import { finaliseInvocationResult } from './result-event'
 import { randomUUID } from 'crypto'
+import { buildCodexPluginArgs } from './plugins/codex-spawn'
 import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } from './providers'
 import {
   buildProviderEnv,
@@ -2663,6 +2664,7 @@ export class QueueManager {
     const railExtraArgs = execution.relocated
       ? buildProviderRepoAccessArgs(adapter, [execution.repoDir])
       : []
+    railExtraArgs.push(...buildCodexPluginArgs({ providerId: adapter.id, stateRoot: execution.cwd, repositoryPath: execution.repoDir, legacyProviderId: this._adapter.id }))
     // Resolve agent profile (if any) and snapshot per-job before spawn.
     // Super mode only (projectId + projectSlug + cwd all present).
     // Skipped when the adapter does not honour `SPECRAILS_PROFILE_PATH` AND

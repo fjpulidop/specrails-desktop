@@ -1,253 +1,193 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ExternalLink, FileMinus2, FilePlus2, FileText, Filter, RotateCw, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ChevronRight, ExternalLink, FileMinus2, FilePlus2, FileText, Files, Filter, FolderSearch, History, PanelLeftClose, PanelLeftOpen, RotateCw, Search, X } from 'lucide-react'
 import { FileTree } from '../components/code-explorer/FileTree'
 import { FileViewer, type CopyPathAction, type SummaryAction } from '../components/code-explorer/FileViewer'
+import { CodeSearch } from '../components/code-explorer/CodeSearch'
+import { CodeActivity } from '../components/code-explorer/CodeActivity'
+import { positiveLine, type ExplorerLocation, type ExplorerMode } from '../components/code-explorer/explorer-types'
 import { getApiBase } from '../lib/api'
+import { projectRepositories, repositoryApiBase } from '../lib/project-repositories'
+import { CodeRepositoryContext, useCodeRepository } from '../components/code-explorer/CodeRepositoryContext'
 import { useDesktop } from '../hooks/useDesktop'
 
 type ProvenanceKind = 'created' | 'modified' | 'deleted'
-
-interface ProvenanceRow {
-  path: string
-  ticketId: number | null
-  jobId: string | null
-  kind: ProvenanceKind
-  at: number
-}
-
+interface ProvenanceRow { path: string; ticketId: number | null; jobId: string | null; kind: ProvenanceKind; at: number }
 const DEFAULT_TREE_WIDTH = 320
 const MIN_TREE_WIDTH = 240
-const MIN_MAIN_WIDTH = 520
-
-function treeWidthKey(projectId: string | null): string | null {
-  return projectId ? `specrails-desktop:code-tree-width:${projectId}` : null
-}
-
+const MIN_MAIN_WIDTH = 420
+const COMPACT_WIDTH = 760
+const widthKey = (projectId: string | null) => `specrails-desktop:code-tree-width:${projectId}`
 function loadTreeWidth(projectId: string | null): number {
-  const key = treeWidthKey(projectId)
-  if (!key) return DEFAULT_TREE_WIDTH
-  try {
-    const raw = localStorage.getItem(key)
-    const parsed = raw ? Number(raw) : NaN
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TREE_WIDTH
-  } catch {
-    return DEFAULT_TREE_WIDTH
-  }
+  try { const value = Number(localStorage.getItem(widthKey(projectId))); return value > 0 && Number.isFinite(value) ? value : DEFAULT_TREE_WIDTH } catch { return DEFAULT_TREE_WIDTH }
 }
-
-function saveTreeWidth(projectId: string | null, width: number): void {
-  const key = treeWidthKey(projectId)
-  if (!key) return
-  try { localStorage.setItem(key, String(Math.round(width))) } catch { /* ignore */ }
+function saveTreeWidth(projectId: string | null, width: number) {
+  if (projectId) try { localStorage.setItem(widthKey(projectId), String(Math.round(width))) } catch { /* optional preference */ }
 }
-
-function clampTreeWidth(width: number, containerWidth: number): number {
-  const max = Math.max(MIN_TREE_WIDTH, containerWidth - MIN_MAIN_WIDTH)
-  return Math.min(Math.max(width, MIN_TREE_WIDTH), max)
-}
+function clampTreeWidth(width: number, containerWidth: number) { return Math.min(Math.max(width, MIN_TREE_WIDTH), Math.max(MIN_TREE_WIDTH, containerWidth - MIN_MAIN_WIDTH)) }
 
 export interface CodePageProps {
-  /** When embedded (Agent-Mode Files split pane), CodePage is controlled: it
-   *  never navigates to /code and never reads/writes the URL — selection +
-   *  provenance filters live in local state (seeded by `initialPath`) and file
-   *  opens report via `onSelectedPathChange`. */
   embedded?: boolean
   initialPath?: string | null
+  initialRepositoryId?: string | null
+  onRepositoryChange?: (repositoryId: string) => void
   onSelectedPathChange?: (path: string | null) => void
 }
 
-export default function CodePage({ embedded = false, initialPath = null, onSelectedPathChange }: CodePageProps = {}) {
-  const { t } = useTranslation('code')
+export default function CodePage(props: CodePageProps = {}) {
   const { activeProjectId } = useDesktop()
-  const [searchParams] = useSearchParams()
+  return <CodeWorkspace key={activeProjectId ?? 'no-project'} {...props} />
+}
+
+function CodeWorkspace({ embedded = false, initialPath = null, initialRepositoryId, onRepositoryChange, onSelectedPathChange }: CodePageProps) {
+  const { t } = useTranslation('code')
+  const { t: tc } = useTranslation('common')
+  const { activeProjectId, projects } = useDesktop()
+  const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const initial = embedded ? initialPath : searchParams.get('path')
-  const [relPath, setRelPathState] = useState<string | null>(initial)
-  const setRelPath = useCallback((p: string | null) => {
-    setRelPathState(p)
-    onSelectedPathChange?.(p)
-  }, [onSelectedPathChange])
+  const project = projects?.find(item => item.id === activeProjectId)
+  const repositories = useMemo(() => projectRepositories(project), [project])
+  const [history, setHistory] = useState<{ entries: ExplorerLocation[]; index: number }>(() => ({ entries: [{ repositoryId: initialRepositoryId ?? undefined, path: initialPath }], index: 0 }))
+  const location: ExplorerLocation = embedded ? history.entries[history.index] : {
+    repositoryId: params.get('repositoryId') ?? undefined,
+    path: params.get('path'), line: positiveLine(params.get('line')), changeJobId: params.get('changeJobId'),
+  }
+  const repository = location.repositoryId ? repositories.find(item => item.id === location.repositoryId) : repositories.find(item => item.isPrimary)
+  const invalid = !!location.repositoryId && !!project && !repository
+  const scope = useMemo(() => ({ apiBase: activeProjectId ? repositoryApiBase(activeProjectId, repository?.id) : getApiBase(), repositoryId: repository?.id, repositoryPath: repository?.path, isPrimary: repository?.isPrimary }), [activeProjectId, repository?.id, repository?.path, repository?.isPrimary])
+  const identity = JSON.stringify([activeProjectId, repository?.id, repository?.path])
+  const [mode, setMode] = useState<ExplorerMode>('files')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [compact, setCompact] = useState(embedded)
+  const [treeWidth, setTreeWidth] = useState(() => loadTreeWidth(activeProjectId))
   const [summaryAction, setSummaryAction] = useState<SummaryAction | null>(null)
   const [copyPathAction, setCopyPathAction] = useState<CopyPathAction | null>(null)
-  const [treeWidth, setTreeWidth] = useState(() => loadTreeWidth(activeProjectId))
-  // Provenance filters: route-driven normally, local state when embedded.
-  const [embJobId, setEmbJobId] = useState<string | null>(null)
-  const [embTicketId, setEmbTicketId] = useState<number | null>(null)
-  const jobId = embedded ? embJobId : searchParams.get('jobId')
-  const ticketId = useMemo(() => {
-    if (embedded) return embTicketId
-    const raw = searchParams.get('ticketId')
-    if (!raw) return null
-    const n = Number(raw)
-    return Number.isInteger(n) && n > 0 ? n : null
-  }, [embedded, embTicketId, searchParams])
-  const [ticketInput, setTicketInput] = useState(ticketId != null ? String(ticketId) : '')
+  const [embFilter, setEmbFilter] = useState<{ jobId?: string; ticketId?: number }>({})
+  const jobId = embedded ? embFilter.jobId ?? null : params.get('jobId')
+  const ticketId = embedded ? embFilter.ticketId ?? null : positiveLine(params.get('ticketId')) ?? null
+  const [ticketInput, setTicketInput] = useState(ticketId ? String(ticketId) : '')
+  const containerRef = useRef<HTMLDivElement>(null)
+  const resizeCleanup = useRef<(() => void) | null>(null)
 
+  useEffect(() => { setTicketInput(ticketId ? String(ticketId) : '') }, [ticketId])
   useEffect(() => {
-    if (embedded) return
-    const next = searchParams.get('path')
-    if (next !== relPath) setRelPathState(next)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, embedded])
-
-  useEffect(() => {
-    setTicketInput(ticketId != null ? String(ticketId) : '')
-  }, [ticketId])
-
-  useEffect(() => {
-    const width = containerRef.current?.clientWidth || window.innerWidth
-    setTreeWidth(clampTreeWidth(loadTreeWidth(activeProjectId), width))
-  }, [activeProjectId])
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width
-      if (typeof width !== 'number') return
-      setTreeWidth((prev) => clampTreeWidth(prev, width))
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
+    const element = containerRef.current
+    if (!element) return
+    const measure = (width: number) => {
+      if (!width) return
+      setCompact(width < COMPACT_WIDTH)
+      setTreeWidth(previous => clampTreeWidth(previous, width))
+    }
+    measure(element.clientWidth)
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(entries => measure(entries[0]?.contentRect.width ?? 0))
+    observer.observe(element)
+    return () => observer.disconnect()
   }, [])
+  useEffect(() => () => resizeCleanup.current?.(), [])
+  useEffect(() => { if (compact && location.path) setSidebarOpen(false) }, [compact, location.path])
 
-  const beginTreeResize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const startX = e.clientX
-    const startWidth = treeWidth
-    const containerWidth = containerRef.current?.clientWidth || window.innerWidth
-    const target = e.currentTarget
-    try { target.setPointerCapture(e.pointerId) } catch { /* ignore */ }
-    function onMove(ev: PointerEvent) {
-      setTreeWidth(clampTreeWidth(startWidth + (ev.clientX - startX), containerWidth))
-    }
-    function onUp() {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
-      setTreeWidth((prev) => {
-        const next = clampTreeWidth(prev, containerWidth)
-        saveTreeWidth(activeProjectId, next)
-        return next
-      })
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
-  }, [activeProjectId, treeWidth])
-
-  const resetTreeWidth = useCallback(() => {
-    const width = containerRef.current?.clientWidth || window.innerWidth
-    const next = clampTreeWidth(DEFAULT_TREE_WIDTH, width)
-    setTreeWidth(next)
-    saveTreeWidth(activeProjectId, next)
-  }, [activeProjectId])
-
-  const onOpenFile = useCallback((p: string) => {
-    setRelPath(p)
-    if (embedded) return
-    const params = new URLSearchParams(searchParams)
-    params.set('path', p)
-    navigate({ pathname: '/code', search: `?${params.toString()}` }, { replace: true })
-  }, [embedded, navigate, searchParams, setRelPath])
-
-  const onFilterJob = useCallback((nextJobId: string) => {
+  const openLocation = useCallback((target: ExplorerLocation) => {
+    const next = { ...target, repositoryId: target.repositoryId ?? repository?.id }
+    const switchingRepository = next.repositoryId !== repository?.id
     if (embedded) {
-      setEmbJobId(nextJobId)
-      setEmbTicketId(null)
-      return
+      setHistory(previous => ({ entries: [...previous.entries.slice(0, previous.index + 1), next], index: previous.index + 1 }))
+      if (switchingRepository) setEmbFilter({})
+    } else {
+      const nextParams = new URLSearchParams(params)
+      for (const key of ['path', 'line', 'changeJobId']) nextParams.delete(key)
+      if (next.repositoryId) nextParams.set('repositoryId', next.repositoryId)
+      if (next.path) nextParams.set('path', next.path)
+      if (next.line) nextParams.set('line', String(next.line))
+      if (next.changeJobId) nextParams.set('changeJobId', next.changeJobId)
+      if (switchingRepository) { nextParams.delete('jobId'); nextParams.delete('ticketId') }
+      setParams(nextParams)
     }
-    const params = new URLSearchParams(searchParams)
-    params.set('jobId', nextJobId)
-    params.delete('ticketId')
-    navigate({ pathname: '/code', search: `?${params.toString()}` }, { replace: true })
-  }, [embedded, navigate, searchParams])
+    onSelectedPathChange?.(next.path)
+    if (next.repositoryId) onRepositoryChange?.(next.repositoryId)
+    if (compact && next.path) setSidebarOpen(false)
+  }, [embedded, repository?.id, params, setParams, onSelectedPathChange, onRepositoryChange, compact])
 
-  const clearProvenanceFilter = useCallback(() => {
-    if (embedded) {
-      setEmbJobId(null)
-      setEmbTicketId(null)
-      return
+  const moveHistory = (delta: number) => {
+    if (!embedded) { navigate(delta); return }
+    const index = history.index + delta
+    const next = history.entries[index]
+    if (!next) return
+    const nextRepositoryId = next.repositoryId ?? repositories.find(item => item.isPrimary)?.id
+    if (nextRepositoryId !== repository?.id) setEmbFilter({})
+    setHistory({ ...history, index })
+    onSelectedPathChange?.(next.path)
+    if (nextRepositoryId) onRepositoryChange?.(nextRepositoryId)
+  }
+  const filterBy = useCallback((next: { jobId?: string; ticketId?: number }) => {
+    if (embedded) setEmbFilter(next)
+    else {
+      const nextParams = new URLSearchParams(params)
+      nextParams.delete('jobId'); nextParams.delete('ticketId')
+      if (next.jobId) nextParams.set('jobId', next.jobId)
+      if (next.ticketId) nextParams.set('ticketId', String(next.ticketId))
+      setParams(nextParams)
     }
-    const params = new URLSearchParams(searchParams)
-    params.delete('jobId')
-    params.delete('ticketId')
-    navigate({ pathname: '/code', search: params.toString() ? `?${params.toString()}` : '' }, { replace: true })
-  }, [embedded, navigate, searchParams])
+  }, [embedded, params, setParams])
+  const onFilterJob = useCallback((id: string) => { filterBy({ jobId: id }); setMode('activity'); setSidebarOpen(true) }, [filterBy])
+  const beginResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    resizeCleanup.current?.()
+    const startX = event.clientX, startWidth = treeWidth
+    let latest = treeWidth
+    const move = (e: PointerEvent) => { latest = clampTreeWidth(startWidth + e.clientX - startX, containerRef.current?.clientWidth || window.innerWidth); setTreeWidth(latest) }
+    const finish = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', finish); window.removeEventListener('pointercancel', finish); saveTreeWidth(activeProjectId, latest); resizeCleanup.current = null }
+    resizeCleanup.current = finish
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', finish); window.addEventListener('pointercancel', finish)
+  }
+  const showSidebar = sidebarOpen || !location.path
+  const showReader = !compact || !showSidebar
+  const breadcrumb = location.path?.split('/') ?? []
 
-  const applyTicketFilter = useCallback((value: string) => {
-    const n = Number(value.trim())
-    if (!Number.isInteger(n) || n <= 0) {
-      clearProvenanceFilter()
-      return
-    }
-    if (embedded) {
-      setEmbTicketId(n)
-      setEmbJobId(null)
-      return
-    }
-    const params = new URLSearchParams(searchParams)
-    params.set('ticketId', String(n))
-    params.delete('jobId')
-    navigate({ pathname: '/code', search: `?${params.toString()}` }, { replace: true })
-  }, [clearProvenanceFilter, embedded, navigate, searchParams])
-
-  return (
-    <div ref={containerRef} className="flex h-full w-full" data-testid="code-page">
-      <aside className="overflow-hidden flex flex-col shrink-0" style={{ width: treeWidth }}>
-        <FileTree
-          key={activeProjectId ?? 'no-project'}
-          onOpenFile={onOpenFile}
-          selectedPath={relPath}
-          filterJobId={jobId}
-          filterTicketId={ticketId}
-        />
-      </aside>
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label={t('page.resizeFileTree')}
-        onPointerDown={beginTreeResize}
-        onDoubleClick={resetTreeWidth}
-        className="relative w-1.5 shrink-0 cursor-col-resize select-none touch-none border-x border-border/40 hover:bg-accent-primary/20 focus-visible:outline-none focus-visible:bg-accent-primary/30"
-        title={t('resizer.hint')}
-        data-testid="code-tree-resizer"
-      />
-      <main className="flex-1 overflow-hidden flex flex-col">
-        <CodeProvenanceToolbar
-          jobId={jobId}
-          ticketId={ticketId}
-          ticketInput={ticketInput}
-          onTicketInputChange={setTicketInput}
-          onApplyTicket={applyTicketFilter}
-          onClear={clearProvenanceFilter}
-          summaryAction={summaryAction}
-          copyPathAction={copyPathAction}
-        />
-        {(jobId || ticketId) && (
-          <ProvenanceResultPanel
-            jobId={jobId}
-            ticketId={ticketId}
-            onOpenFile={onOpenFile}
-          />
-        )}
-        {relPath ? (
-          <FileViewer
-            relPath={relPath}
-            onFilterJob={onFilterJob}
-            onSummaryActionChange={setSummaryAction}
-            onCopyPathActionChange={setCopyPathAction}
-          />
-        ) : (
-          <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-            {t('page.selectFile')}
-          </div>
-        )}
-      </main>
+  return <CodeRepositoryContext.Provider value={scope}>
+    <div ref={containerRef} className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden" data-testid="code-page" data-compact={compact}>
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-card/30 px-3 py-2">
+        <div className="flex items-center gap-0.5">
+          <button type="button" aria-label={t('explore.back')} title={t('explore.back')} onClick={() => moveHistory(-1)} disabled={embedded && history.index === 0} className="rounded p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-30"><ArrowLeft className="h-3.5 w-3.5" /></button>
+          <button type="button" aria-label={t('explore.forward')} title={t('explore.forward')} onClick={() => moveHistory(1)} disabled={embedded && history.index === history.entries.length - 1} className="rounded p-1.5 text-muted-foreground hover:bg-muted disabled:opacity-30"><ArrowRight className="h-3.5 w-3.5" /></button>
+          {location.path && <button type="button" aria-label={t(showSidebar ? 'explore.hideNavigation' : 'explore.showNavigation')} title={t(showSidebar ? 'explore.hideNavigation' : 'explore.showNavigation')} onClick={() => setSidebarOpen(!showSidebar)} className="rounded p-1.5 text-muted-foreground hover:bg-muted">{showSidebar ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}</button>}
+        </div>
+        {repositories.length > 0 && <select aria-label={tc('repositories.select')} className="max-w-full min-w-0 rounded-md border border-border bg-background px-2 py-1 text-xs" value={repository?.id ?? location.repositoryId ?? ''} onChange={event => openLocation({ repositoryId: event.target.value, path: null })}>
+          {invalid && <option value={location.repositoryId}>{tc('repositories.unavailable')}</option>}
+          {repositories.map(item => <option key={item.id} value={item.id}>{item.name}{item.isPrimary ? ` · ${tc('repositories.primary')}` : ''}</option>)}
+        </select>}
+        <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground" title={repository?.path}>{repository?.path}</span>
+      </header>
+      {invalid ? <p role="alert" className="p-4 text-sm text-destructive">{tc('repositories.invalidSelection')}</p> : <div className="flex min-h-0 flex-1 overflow-hidden">
+        {<aside hidden={!showSidebar} className={`${showSidebar ? 'flex' : 'hidden'} min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-card/15`} style={{ width: compact ? '100%' : treeWidth }} aria-label={t('explore.navigation')}>
+          <nav className="flex shrink-0 gap-0.5 border-b border-border px-2 pt-2" aria-label={t('explore.views')}>
+            {([{ mode: 'files', Icon: Files }, { mode: 'search', Icon: Search }, { mode: 'activity', Icon: History }] as const).map(({ mode: value, Icon }) => <button key={value} type="button" aria-pressed={mode === value} onClick={() => setMode(value)} className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 border-b-2 px-1 py-2 text-xs ${mode === value ? 'border-accent-primary text-accent-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}><Icon className="h-3.5 w-3.5 shrink-0" />{t(`explore.${value}`)}</button>)}
+          </nav>
+          <div className={mode === 'files' ? 'min-h-0 flex-1' : 'hidden'}><FileTree key={identity} selectedPath={location.path} onOpenFile={path => openLocation({ path })} filterJobId={jobId} filterTicketId={ticketId} /></div>
+          {activeProjectId && <div className={mode === 'search' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><CodeSearch active={mode === 'search' && showSidebar} projectId={activeProjectId} repositoryName={repository?.name} multipleRepositories={repositories.length > 1} onOpen={openLocation} /></div>}
+          {mode === 'activity' && activeProjectId && <CodeActivity projectId={activeProjectId} repositoryName={repository?.name} multipleRepositories={repositories.length > 1} jobId={jobId} ticketId={ticketId} onOpen={openLocation} />}
+        </aside>}
+        {showSidebar && !compact && <div role="separator" aria-orientation="vertical" aria-label={t('page.resizeFileTree')} onPointerDown={beginResize} onDoubleClick={() => { const next = clampTreeWidth(DEFAULT_TREE_WIDTH, containerRef.current?.clientWidth || window.innerWidth); setTreeWidth(next); saveTreeWidth(activeProjectId, next) }} className="w-1.5 shrink-0 cursor-col-resize touch-none select-none border-x border-border/40 hover:bg-accent-primary/20" title={t('resizer.hint')} data-testid="code-tree-resizer" />}
+        {<main hidden={!showReader} className={`${showReader ? 'flex' : 'hidden'} min-h-0 min-w-0 flex-1 flex-col overflow-hidden`}>
+          {location.path && <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border/60 px-3 py-2 text-[11px]" aria-label={t('explore.breadcrumb')}>
+            <FileText className="mr-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            {breadcrumb.map((part, index) => <span key={index} className={`flex shrink-0 items-center gap-1 ${index === breadcrumb.length - 1 ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>{index > 0 && <ChevronRight className="h-3 w-3" />}{part}</span>)}
+            {location.line && <span className="ml-1 shrink-0 text-accent-primary">:{location.line}</span>}
+          </div>}
+          <CodeProvenanceToolbar jobId={jobId} ticketId={ticketId} ticketInput={ticketInput} onTicketInputChange={setTicketInput} onApplyTicket={value => filterBy({ ticketId: positiveLine(value.trim()) })} onClear={() => filterBy({})} summaryAction={location.path ? summaryAction : null} copyPathAction={location.path ? copyPathAction : null} />
+          {(jobId || ticketId) && <ProvenanceResultPanel key={`${identity}:${jobId}:${ticketId}`} jobId={jobId} ticketId={ticketId} onOpenFile={path => openLocation({ path, changeJobId: jobId })} />}
+          {location.path ? <FileViewer key={`${identity}:${location.path}`} compact={compact} relPath={location.path} initialLine={location.line} initialJobId={location.changeJobId} onFilterJob={onFilterJob} onSummaryActionChange={setSummaryAction} onCopyPathActionChange={setCopyPathAction} /> : <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-6">
+            <div className="max-w-sm space-y-4 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-primary/20 bg-accent-primary/10 text-accent-primary"><FolderSearch className="h-7 w-7" /></div>
+              <div><h1 className="text-lg font-semibold">{t('explore.welcome')}</h1><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t('explore.description')}</p></div>
+              <div className="flex flex-wrap justify-center gap-2"><button type="button" onClick={() => { setMode('search'); setSidebarOpen(true) }} className="rounded-lg bg-accent-primary/15 px-3 py-2 text-xs text-accent-primary">{t('explore.findCode')}</button><button type="button" onClick={() => { setMode('activity'); setSidebarOpen(true) }} className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground">{t('explore.viewActivity')}</button></div>
+              <p className="text-[11px] leading-relaxed text-muted-foreground/80">{t('explore.sourceHint')}</p>
+            </div>
+          </div>}
+        </main>}
+      </div>}
     </div>
-  )
+  </CodeRepositoryContext.Provider>
 }
 
 function CodeProvenanceToolbar({
@@ -364,21 +304,32 @@ function ProvenanceResultPanel({
   onOpenFile: (path: string) => void
 }) {
   const { t } = useTranslation('code')
+  const { apiBase } = useCodeRepository()
   const [rows, setRows] = useState<ProvenanceRow[] | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [partial, setPartial] = useState(false)
+  const [retry, setRetry] = useState(0)
 
   useEffect(() => {
-    let cancelled = false
-    const params = new URLSearchParams()
+    const controller = new AbortController()
+    setRows(null); setFailed(false); setPartial(false)
+    const params = new URLSearchParams({ limit: '100' })
     if (jobId) params.set('jobId', jobId)
     if (ticketId) params.set('ticketId', String(ticketId))
-    fetch(`${getApiBase()}/code/provenance?${params.toString()}`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => {
-        if (!cancelled) setRows(Array.isArray(data) ? data as ProvenanceRow[] : [])
+    fetch(`${apiBase}/code/activity?${params}`, { signal: controller.signal })
+      .then(async response => { if (!response.ok) throw new Error('activity_failed'); return response.json() })
+      .then((data: { entries: ProvenanceRow[]; nextCursor?: string | null; truncated?: boolean }) => {
+        if (controller.signal.aborted) return
+        if (!Array.isArray(data.entries)) throw new Error('invalid_activity_response')
+        // Show each file once, using its latest intervention in this scope.
+        const unique = new Map<string, ProvenanceRow>()
+        for (const row of data.entries) if (!unique.has(row.path)) unique.set(row.path, row)
+        setRows([...unique.values()])
+        setPartial(!!data.nextCursor || data.truncated === true)
       })
-      .catch(() => { if (!cancelled) setRows([]) })
-    return () => { cancelled = true }
-  }, [jobId, ticketId])
+      .catch(() => { if (!controller.signal.aborted) setFailed(true) })
+    return () => controller.abort()
+  }, [jobId, ticketId, apiBase, retry])
 
   const grouped = useMemo(() => {
     const source = rows ?? []
@@ -393,12 +344,15 @@ function ProvenanceResultPanel({
   const title = jobId ? t('provenancePanel.jobTitle', { jobId }) : t('provenancePanel.specTitle', { ticketId })
 
   return (
-    <section className="border-b border-border bg-card/35 px-4 py-3" data-testid="provenance-result-panel">
+    <section className="max-h-52 shrink-0 overflow-auto border-b border-border bg-card/35 px-4 py-3" data-testid="provenance-result-panel">
+      {failed && <p role="alert" className="mb-2 text-xs">{t('activity.failed')} <button type="button" className="text-accent-primary underline" onClick={() => setRetry(value => value + 1)}>{t('explore.retry')}</button></p>}
+      {!rows && !failed && <p role="status" className="mb-2 text-xs text-muted-foreground">{t('activity.loading')}</p>}
+      {partial && <p role="status" className="mb-2 text-xs text-amber-600 dark:text-amber-400">{t('activity.partial')}</p>}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold truncate">{title}</h2>
-            <span className="text-[11px] text-muted-foreground">{t('provenancePanel.touchedFiles', { count: total })}</span>
+            <span className="text-[11px] text-muted-foreground">{rows ? t('provenancePanel.touchedFiles', { count: total }) : '—'}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             <ResultGroup label={t('action.added')} rows={grouped.created} icon="created" onOpenFile={onOpenFile} />

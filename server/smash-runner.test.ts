@@ -197,6 +197,17 @@ describe('checkSmashEligibility', () => {
 // ─── applySmashToStore + undo + delete-children ──────────────────────────────
 
 describe('applySmashToStore', () => {
+  it('inherits the parent repository scope for every child without changing it on undo', () => {
+    seedTicket(projectPath, { id: 1 })
+    const filePath = resolveTicketStoragePath(projectPath)
+    mutateStore(filePath, (store) => { store.tickets['1'].repositoryIds = ['primary-project', 'api'] })
+    const result = applySmashToStore(filePath, 1, [{ title: 'Child', description: 'd', priority: 'high', executionOrder: 1, rationale: 'r' }], '2026-05-16T12:00:00Z', 'sr-specs-smash')
+    expect(result.children[0].repositoryIds).toEqual(['primary-project', 'api'])
+    expect(readStore(filePath).tickets['2'].repositoryIds).toEqual(['primary-project', 'api'])
+    applySmashUndo(filePath, 1, '2026-05-16T12:00:00Z', '2026-05-16T12:00:30Z')
+    expect(readStore(filePath).tickets['1'].repositoryIds).toEqual(['primary-project', 'api'])
+  })
+
   it('flips épica and inserts ordered children atomically', () => {
     seedTicket(projectPath, { id: 1 })
     const filePath = resolveTicketStoragePath(projectPath)

@@ -4,6 +4,7 @@
   "version": "../package.json",
   "identifier": "sh.specrails.hub",
   "build": {
+    "beforeDevCommand": "npm run dev:desktop:prepare",
     "frontendDist": "../client/dist",
     "devUrl": "http://localhost:4201"
   },
@@ -49,6 +50,9 @@
       "openspec/**/*",
       "../docs/guide/**/*"
     ],
+    "windows": {
+      "webviewInstallMode": { "type": "offlineInstaller", "silent": true }
+    },
     "macOS": {
       "entitlements": "./entitlements.plist"
     }

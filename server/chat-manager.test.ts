@@ -396,6 +396,28 @@ describe('ChatManager', () => {
       expect(opts.env.SPECRAILS_REPO_DIR).toBe(repo)
     })
 
+    it('provides exact project repository IDs to Explore and preserves the streamed spec selection', async () => {
+      seedRelocated('acme')
+      const repositories: import('./project-repositories').ProjectRepository[] = [
+        { id: 'primary-p1', projectId: 'p1', name: 'App', path: repo, isPrimary: true, kind: 'git', integrationBranch: null, addedAt: '' },
+        { id: 'api', projectId: 'p1', name: 'API', path: '/context-api', isPrimary: false, kind: 'git', integrationBranch: 'develop', addedAt: '' },
+      ]
+      const manager = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme', () => repositories)
+      createConversation(db, { id: 'exp-membership', model: 'sonnet', kind: 'explore', contextScope: MCP_SCOPE })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      const sendPromise = manager.sendMessage('exp-membership', 'A change across both repos', { lightweight: true })
+      pushLine(child, assistantEvent('```spec-draft\n{"title":"Both repos","repositoryIds":["primary-p1","api"]}\n```'))
+      pushLine(child, resultEvent('membership-session'))
+      await finishProcess(child, 0); await sendPromise
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      const prompt = args[args.indexOf('--system-prompt') + 1]
+      expect(prompt).toContain('one backlog')
+      expect(prompt).toContain('"id":"api"')
+      expect(prompt).toContain('repositoryIds')
+      expect(manager.getSpecDraftState('exp-membership')?.draft.repositoryIds).toEqual(['primary-p1', 'api'])
+    })
+
     it('RELOCATED explore + stale repo-cwd session: retries fresh once in the workspace with bounded history', async () => {
       const ws = seedRelocated('acme')
       const cmReloc = new ChatManager(broadcast, db, repo, 'Acme', 'claude', 'p1', 'acme')

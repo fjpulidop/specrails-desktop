@@ -74,6 +74,7 @@ const draftStateRef = {
   value: {
     draft: {
       title: 'A draft title',
+      repositoryIds: ['primary-proj-1', 'api'],
       description: 'Problem body',
       labels: ['ui'],
       priority: 'medium' as const,
@@ -199,6 +200,7 @@ describe('ExploreSpecShell — publish vs update on Continue Editing', () => {
     )!
     const body = JSON.parse((call[1] as RequestInit).body as string) as Record<string, unknown>
     expect(body).toHaveProperty('draftTicketId', 42)
+    expect(body.repositoryIds).toEqual(['primary-proj-1', 'api'])
     expect(body).toHaveProperty('title', 'A draft title')
 
     // Must NOT PATCH the ticket in place — that would leave it a draft.

@@ -1,18 +1,26 @@
-//! Real WKWebView OAuth mechanics, using only loopback fixtures and an ephemeral
+//! Real WKWebView/WebView2 OAuth mechanics, using only loopback fixtures and an ephemeral
 //! browser session. No Specrails sidecar, user database, credentials or accounts.
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
 #[allow(dead_code)]
 #[path = "../src/browser.rs"]
 mod browser;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
 #[path = "../src/invoke_guard.rs"]
 mod invoke_guard;
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
+#[allow(dead_code)]
+#[path = "../src/mission_windows.rs"]
+mod mission_windows;
+#[cfg(any(target_os = "macos", windows))]
 mod fixture_app {
 use super::{browser, invoke_guard};
+#[cfg(target_os = "macos")]
 use block2::RcBlock;
+#[cfg(target_os = "macos")]
 use objc2::runtime::AnyObject;
+#[cfg(target_os = "macos")]
 use objc2_foundation::{NSError, NSString};
+#[cfg(target_os = "macos")]
 use objc2_web_kit::WKWebView;
 use serde_json::{json, Value};
 use std::{io::{Read, Write}, net::TcpListener, time::Duration, sync::{Arc, Mutex, atomic::{AtomicI32, Ordering}}};
@@ -44,6 +52,7 @@ fn fixture() -> u16 {
     port
 }
 
+#[cfg(target_os = "macos")]
 async fn evaluate(view: &Webview, source: &str) -> Result<Value, String> {
     let source = format!("JSON.stringify((()=>{{{source}}})())");
     let (send, mut receive) = tokio::sync::mpsc::channel(1);
@@ -60,6 +69,27 @@ async fn evaluate(view: &Webview, source: &str) -> Result<Value, String> {
     tokio::time::timeout(Duration::from_secs(5), receive.recv()).await.map_err(|_|"script timeout")?.ok_or("script channel closed")?
 }
 
+#[cfg(windows)]
+async fn evaluate(view: &Webview, source: &str) -> Result<Value, String> {
+    let source = format!("JSON.stringify((()=>{{{source}}})())");
+    let (send, mut receive) = tokio::sync::mpsc::channel(1);
+    view.with_webview(move |platform| unsafe {
+        let callback_send = send.clone();
+        let handler = webview2_com::ExecuteScriptCompletedHandler::create(Box::new(move |status, text| {
+            let result = status.map_err(|_| "fixture script failed".to_string()).and_then(|_| {
+                let text: String = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+                serde_json::from_str(&text).map_err(|e| e.to_string())
+            });
+            let _ = callback_send.try_send(result);
+            Ok(())
+        }));
+        if platform.controller().CoreWebView2().and_then(|view| view.ExecuteScript(&windows::core::HSTRING::from(source), &handler)).is_err() {
+            let _ = send.try_send(Err("fixture script could not start".to_string()));
+        }
+    }).map_err(|e| e.to_string())?;
+    tokio::time::timeout(Duration::from_secs(5), receive.recv()).await.map_err(|_| "script timeout")?.ok_or("script channel closed")?
+}
+
 async fn eventually(view: &Webview, expression: &str) -> Result<Value, String> {
     for _ in 0..100 {
         let value = evaluate(view, &format!("return ({expression});")).await?;
@@ -70,9 +100,17 @@ async fn eventually(view: &Webview, expression: &str) -> Result<Value, String> {
 }
 
 fn popup_windows(app: &tauri::AppHandle, owner: &str) -> Vec<tauri::WebviewWindow> {
-    let prefix = format!("native-browser-{owner}-popup-");
-    app.webview_windows().into_iter().filter(|(label, _)| label.starts_with(&prefix)).map(|(_, window)| window).collect()
+    let marker = format!("-{owner}-popup-");
+    app.webview_windows().into_iter().filter(|(label, _)| label.rsplit_once(&marker).is_some_and(|(_, tail)| !tail.is_empty() && tail.bytes().all(|byte|byte.is_ascii_digit()))).map(|(_, window)| window).collect()
 }
+async fn popup_count(app: &tauri::AppHandle, owner: &str, count: usize) -> Result<(), String> {
+    for _ in 0..100 {
+        if popup_windows(app, owner).len() == count { return Ok(()); }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    Err(format!("expected {count} popup windows, found {}", popup_windows(app, owner).len()))
+}
+
 async fn no_popups(app: &tauri::AppHandle, owner: &str) -> Result<(), String> {
     for _ in 0..100 {
         if popup_windows(app, owner).is_empty() { return Ok(()); }
@@ -99,7 +137,7 @@ async fn run(app: tauri::AppHandle, port: u16, other: u16) -> Result<(), String>
     });
     let bounds = browser::PaneBounds {x:0.0,y:40.0,width:800.0,height:550.0};
     browser::browser_open_smoke(app.clone(), owner.clone(), origin.clone(), bounds).await?;
-    let pane = app.get_webview(&format!("native-browser-{owner}")).ok_or("pane missing")?;
+    let pane = browser::browser_pane_for_window(&app,"main",&owner)?;
     eventually(&pane,"document.title==='Popup fixture'").await?;
     // Okta-style async SDK work before opening; WebKit must still call the
     // native handler after a Promise/timer, without a second user click.
@@ -123,7 +161,7 @@ async fn run(app: tauri::AppHandle, port: u16, other: u16) -> Result<(), String>
     evaluate(popup.as_ref(), &format!("window.messages=[];addEventListener('message',e=>messages.push(e.data));Promise.resolve().then(()=>setTimeout(()=>{{window.second=window.open({},'second');window.__secondOpened=!!second;}},60));return true;", json!(format!("{origin}/callback")))).await?;
     eventually(popup.as_ref(),"window.__secondOpened===true").await?;
     eventually(popup.as_ref(),"messages.some(m=>m.type==='authenticated')").await?;
-    assert_eq!(popup_windows(&app,&owner).len(),2);
+    popup_count(&app,&owner,2).await?;
     close_popups(&app,&owner).await?;
     assert!(app.get_window("main").is_some() && app.get_webview("main").is_some());
     eventually(&pane,"auth.closed").await?;
@@ -131,7 +169,7 @@ async fn run(app: tauri::AppHandle, port: u16, other: u16) -> Result<(), String>
 
     evaluate(&pane,&format!("const link=document.createElement('a');link.href={};link.target='_blank';link.rel='opener';document.body.append(link);link.click();return true;",json!(format!("{other_origin}/callback")))).await?;
     eventually(&pane,"messages.filter(m=>m.data.type==='authenticated').length===2").await?;
-    assert_eq!(popup_windows(&app,&owner).len(),1);
+    popup_count(&app,&owner,1).await?;
     close_popups(&app,&owner).await?;
     println!("PASS target=_blank keeps source page and opens a real related window");
 
@@ -151,29 +189,32 @@ async fn run(app: tauri::AppHandle, port: u16, other: u16) -> Result<(), String>
 
     // Saturate only temporary about:blank windows. Errors intentionally contain
     // no navigation URL, raw engine error or OAuth parameters.
-    let opened = evaluate(&pane,"window.many=[];for(let i=0;i<9;i++)many.push(window.open('about:blank','limited-'+i));return many.map(Boolean);").await?;
-    assert_eq!(opened.as_array().unwrap().iter().filter(|value|**value==true).count(),8);
-    assert_eq!(popup_windows(&app,&owner).len(),8);
+    evaluate(&pane,"window.many=[];for(let i=0;i<9;i++)many.push(window.open('about:blank','limited-'+i));return true;").await?;
+    // WebView2 resolves NewWindowRequested asynchronously: a denied request can
+    // initially return a WindowProxy which becomes closed after the deferral.
+    eventually(&pane,"many.filter(window=>window && !window.closed).length===8").await?;
+    popup_count(&app,&owner,8).await?;
     let error_count = events.lock().unwrap().iter().filter(|event|event["kind"]=="popup-error").count();
     assert!(error_count>=1);
     for event in events.lock().unwrap().iter() { assert!(event["url"].is_null());assert!(event["title"].is_null());assert_eq!(event["ownerId"],owner); }
     close_popups(&app,&owner).await?;
     evaluate(&pane,"window.retry=window.open('about:blank','retry');return !!retry;").await?;
-    assert_eq!(popup_windows(&app,&owner).len(),1);
+    popup_count(&app,&owner,1).await?;
     assert_eq!(events.lock().unwrap().last().unwrap()["kind"],"popup-opened");
     println!("PASS popup limit, slot release, retry and token-free error/recovery events");
 
     // An owner whose name starts with an old popup prefix must remain isolated.
     let newer = format!("{owner}-popup-newer");
     browser::browser_open_smoke(app.clone(),newer.clone(),origin,bounds).await?;
-    let newer_pane = app.get_webview(&format!("native-browser-{newer}")).ok_or("newer pane missing")?;
+    let newer_pane = browser::browser_pane_for_window(&app,"main",&newer)?;
     eventually(&newer_pane,"document.title==='Popup fixture'").await?;
     assert_eq!(evaluate(&newer_pane,"return document.cookie.includes('fixture_session=authenticated');").await?,false,"new ephemeral pane must not reuse the previous cookie store");
     evaluate(&newer_pane,"window.auth=window.open('about:blank','new-owner-auth');return !!auth;").await?;
-    browser::browser_close(app.clone(),owner.clone()).await?;
-    browser::browser_hide(app.clone(),owner).await?;
+    popup_count(&app,&newer,1).await?;
+    browser::browser_close(app.clone(), app.get_webview("main").ok_or("main interface missing")?, owner.clone()).await?;
+    browser::browser_hide(app.clone(), app.get_webview("main").ok_or("main interface missing")?, owner).await?;
     assert_eq!(popup_windows(&app,&newer).len(),1,"stale owner cleanup closed a newer owner's popup");
-    browser::browser_close(app.clone(),newer.clone()).await?;
+    browser::browser_close(app.clone(), app.get_webview("main").ok_or("main interface missing")?, newer.clone()).await?;
     no_popups(&app,&newer).await?;
     assert!(app.get_window("main").is_some() && app.get_webview("main").is_some());
     println!("PASS exact owner isolation and teardown of all owned satellites");
@@ -197,14 +238,14 @@ pub fn main() {
             });
             Ok(())
         }).build(context).unwrap();
-    app.run(|_,_|{});
+    app.run(|_, event| { if matches!(event, tauri::RunEvent::Exit) { std::process::exit(EXIT_CODE.load(Ordering::Relaxed)); } });
     std::process::exit(EXIT_CODE.load(Ordering::Relaxed));
 }
 
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", windows))]
 fn main() { fixture_app::main(); }
 
-#[cfg(not(target_os = "macos"))]
-fn main() { eprintln!("This WKWebView smoke requires macOS."); std::process::exit(2); }
+#[cfg(not(any(target_os = "macos", windows)))]
+fn main() { eprintln!("This native browser smoke requires macOS or Windows."); std::process::exit(2); }

@@ -18,6 +18,9 @@ import { listAdapters } from './providers'
 import { workspacePathFor } from './workspace-manager'
 import { isWorkspacePopulated } from './workspace-resolution'
 import { assembleProjectOffline } from './offline-assemble'
+import { resolveCoreRuntime } from './core-runtime'
+import { coreUpdatePendingPath } from './core-update-state'
+export { assertWorkspaceCoreReady } from './core-update-state'
 
 export function isFrameworkAutoswapEnabled(): boolean {
   const v = (process.env.SPECRAILS_FRAMEWORK_AUTOSWAP ?? '').toLowerCase()
@@ -73,16 +76,32 @@ export async function reseedStaleWorkspaces(
 ): Promise<ReseedResult[]> {
   const results: ReseedResult[] = []
   if (!currentVersion) return results
+  // Mark every affected workspace before yielding for the first install. A
+  // later project must not launch against mixed templates while earlier ones
+  // are still being refreshed.
+  const pendingErrors = new Map<string, string>()
+  for (const project of projects) {
+    const workspace = workspacePathFor(project.slug)
+    if (!isWorkspacePopulated(workspace)) continue
+    if (readWorkspaceFrameworkVersion(project.slug) === currentVersion && !fs.existsSync(coreUpdatePendingPath(workspace))) continue
+    try {
+      fs.mkdirSync(path.dirname(coreUpdatePendingPath(workspace)), { recursive: true })
+      fs.writeFileSync(coreUpdatePendingPath(workspace), JSON.stringify({ version: currentVersion, projectId: project.id }), { mode: 0o600 })
+    } catch (error) { pendingErrors.set(project.id, `Could not mark the workspace for Core refresh: ${String(error)}`) }
+  }
 
   const assemble = io?.assemble
     ?? (async (p: ReseedProject, providers: string[]) => {
-      await assembleProjectOffline({
+      const results = await assembleProjectOffline({
         projectPath: p.path,
         slug: p.slug,
         desktopProjectId: p.id,
         providers,
         continueOnError: true,
+        preserveExistingConfig: true,
       })
+      const failed = results.filter(result => !result.ok)
+      if (failed.length) throw new Error(failed.map(result => `${result.provider}: ${result.error}`).join('; '))
     })
 
   for (const project of projects) {
@@ -92,7 +111,7 @@ export async function reseedStaleWorkspaces(
       continue
     }
     const recorded = readWorkspaceFrameworkVersion(project.slug)
-    if (recorded === currentVersion) {
+    if (recorded === currentVersion && !fs.existsSync(coreUpdatePendingPath(workspace))) {
       results.push({ projectId: project.id, reseeded: false, skippedReason: 'up-to-date' })
       continue
     }
@@ -110,16 +129,21 @@ export async function reseedStaleWorkspaces(
     } catch { /* absent */ }
 
     try {
+      if (pendingErrors.has(project.id)) throw new Error(pendingErrors.get(project.id))
       await assemble(project, providers)
-      if (mcpBefore !== null) {
-        let mcpAfter: string | null = null
-        try {
-          mcpAfter = fs.readFileSync(mcpPath, 'utf-8')
-        } catch { /* deleted by assemble */ }
-        if (mcpAfter !== mcpBefore) fs.writeFileSync(mcpPath, mcpBefore, 'utf-8')
+      if (readWorkspaceFrameworkVersion(project.slug) !== currentVersion) throw new Error('Core assembly did not publish the expected workspace version.')
+      // Published Core 5 installations before the execution contract remain
+      // valid. Require the helper only when the selected package declares it.
+      if (!io?.assemble) {
+        const runtime = resolveCoreRuntime()
+        if (runtime) {
+          const contractPath = path.join(runtime.root, 'integration-contract.json')
+          let required: unknown
+          try { required = JSON.parse(fs.readFileSync(contractPath, 'utf8')).execution?.runtime } catch { /* legacy contract */ }
+          if (typeof required === 'string' && required && !fs.existsSync(path.join(workspace, required))) throw new Error('Core assembly did not install its declared execution runtime.')
+        }
       }
       results.push({ projectId: project.id, reseeded: true })
-      console.log(`[framework-reseed] ${project.slug}: ${recorded ?? '(none)'} → ${currentVersion}`)
     } catch (err) {
       results.push({
         projectId: project.id,
@@ -127,6 +151,31 @@ export async function reseedStaleWorkspaces(
         error: err instanceof Error ? err.message : String(err),
       })
       console.warn(`[framework-reseed] ${project.slug} failed (non-fatal):`, err)
+    } finally {
+      if (mcpBefore !== null) {
+        let mcpAfter: string | null = null
+        try {
+          mcpAfter = fs.readFileSync(mcpPath, 'utf-8')
+        } catch { /* deleted by assemble */ }
+        if (mcpAfter !== mcpBefore) {
+          try { fs.writeFileSync(mcpPath, mcpBefore, 'utf-8') }
+          catch (error) {
+            const result = results[results.length - 1]!
+            result.reseeded = false
+            result.error = `Could not restore the project's MCP configuration: ${String(error)}`
+          }
+        }
+      }
+      const result = results[results.length - 1]!
+      if (result.reseeded) {
+        try {
+          fs.rmSync(coreUpdatePendingPath(workspace), { force: true })
+          console.log(`[framework-reseed] ${project.slug}: ${recorded ?? '(none)'} → ${currentVersion}`)
+        } catch (error) {
+          result.reseeded = false
+          result.error = `Could not finalize the Core refresh: ${String(error)}`
+        }
+      }
     }
   }
   return results

@@ -124,6 +124,12 @@ beforeEach(() => {
   wsHandler = null
   vi.clearAllMocks()
   sessionStorage.clear()
+  // The composer now reports an invalid Git response explicitly. Supply its
+  // read-only contract so a Git retry button cannot masquerade as a PR action.
+  vi.mocked(fetch).mockImplementation(async (url) => ({
+    ok: true, status: 200,
+    json: async () => String(url).endsWith('/git') ? { git: false, repositoryId: 'primary-p1' } : {},
+  }) as Response)
   vi.mocked(agentApi.listAgentConversations).mockResolvedValue([conv])
   vi.mocked(agentApi.createAgentConversation).mockResolvedValue(conv)
   vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: conv, messages: [] })

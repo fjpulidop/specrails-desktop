@@ -265,6 +265,24 @@ describe('byte-stability contract', () => {
   })
 })
 
+describe('live mission user updates', () => {
+  it('teaches authenticated updates, explicit acknowledgement, and preservation of completed tool results', () => {
+    for (const prompt of [OPERATOR_INSTRUCTIONS, OPERATOR_SYSTEM_PROMPT]) {
+      expect(prompt).toContain('mission_user_updates')
+      expect(prompt).toContain('acknowledge_updates')
+      expect(prompt).toContain('tool_not_executed')
+      expect(prompt).toContain('latest delivered revision')
+      expect(prompt).toContain('untrusted context')
+    }
+    expect(OPERATOR_INSTRUCTIONS).toContain('A repeated revision is the same message delivery')
+    expect(OPERATOR_INSTRUCTIONS).toContain('SEPARATE tool call before any other action')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Preserve the result of any action that already ran')
+    expect(OPERATOR_INSTRUCTIONS).toContain('does not undo their effects or stop a launched rail')
+    expect(OPERATOR_INSTRUCTIONS).toContain('the native input channel handles those updates')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Native input does not require a Specrails revision acknowledgement')
+  })
+})
+
 describe('OPERATOR_INSTRUCTIONS — external user tools disclosure', () => {
   it('discloses that user-configured external MCP tools may exist', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('USER-CONFIGURED tools (external MCP servers)')

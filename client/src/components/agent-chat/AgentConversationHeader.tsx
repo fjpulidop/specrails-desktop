@@ -1,3 +1,4 @@
+import { MissionWindowAction } from './MissionWindowAction'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
@@ -252,6 +253,7 @@ export function AgentConversationHeader() {
         )}
       </div>
 
+      <MissionWindowAction />
       {/* ⋮ overflow menu */}
       <button
         type="button"

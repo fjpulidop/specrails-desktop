@@ -76,6 +76,7 @@ const SKIP_GIT_CHECK = '--skip-git-repo-check' as const
 
 function sandboxFlags(opts: SpawnOptions, rail = false): string[] {
   if (opts.toolPolicy === 'read-only') return ['--sandbox', 'read-only']
+  if (opts.scopedWorkingDirectories) return [...SANDBOX_FLAGS]
   return rail ? [...RAIL_SANDBOX_FLAGS] : [...SANDBOX_FLAGS]
 }
 
@@ -357,6 +358,7 @@ export const codexAdapter = {
   instructionsFilename: 'AGENTS.md',
   mcpRegistration: 'cli-add',
   capabilities: {
+    liveInputTransport: 'codex-app-server',
     nativeResume: true,
     nativeStreamJson: true,
     nativeCostUsd: false,

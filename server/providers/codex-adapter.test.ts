@@ -484,3 +484,13 @@ describe('codexAdapter — fixture directory invariants', () => {
     expect(dirs).toContain(_CODEX_MIN_VERSION)
   })
 })
+
+
+describe('coordinated workspace scope', () => {
+  it('keeps the workspace sandbox on for the first scoped rail invocation', () => {
+    const args = codexAdapter.buildArgs('rail-job', { prompt: 'implement', model: 'gpt-6-astra', scopedWorkingDirectories: true })
+    expect(args).toContain('workspace-write')
+    expect(args).not.toContain('danger-full-access')
+    expect(codexAdapter.buildArgs('rail-job', { prompt: 'legacy', model: 'gpt-6-astra' })).toContain('danger-full-access')
+  })
+})

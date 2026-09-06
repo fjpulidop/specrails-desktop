@@ -1,3 +1,4 @@
+import { keyboardLabel } from '../lib/keyboard-label'
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -606,7 +607,7 @@ export function ArcSidebar({
               : 'text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50'
           )}
           aria-label={pinLabel}
-          title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: '⌥⌘B' })}
+          title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌥⌘B') })}
         >
           <PanelLeft className="w-4 h-4" />
         </button>

@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FileTree } from '../FileTree'
+import { purgeProjectCache } from '../../../hooks/useProjectCache'
 import { SharedWebSocketContext } from '../../../hooks/useSharedWebSocket'
 
 const openTicketDetail = vi.fn()
@@ -26,6 +27,9 @@ function wrap(ui: React.ReactNode) {
 }
 
 beforeEach(() => {
+  localStorage.clear()
+  purgeProjectCache('p1')
+  HTMLElement.prototype.scrollTo = vi.fn()
   openTicketDetail.mockClear()
   fakeWs.registerHandler.mockClear()
   fakeWs.unregisterHandler.mockClear()
@@ -35,6 +39,7 @@ describe('FileTree', () => {
   it('renders empty-state CTA when no entries on touched-by-ai filter', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ entries: [] }) }) as never
     render(wrap(<FileTree onOpenFile={() => {}} selectedPath={null} />))
+    fireEvent.click(screen.getByText('Touched by AI'))
     await waitFor(() => {
       expect(screen.getByText(/No AI-touched files/)).toBeInTheDocument()
     })
@@ -113,5 +118,62 @@ describe('FileTree', () => {
     await waitFor(() => {
       expect((screen.getByText('All files') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true')
     })
+  })
+})
+
+describe('FileTree exploration reliability', () => {
+  it('defaults to all files for a project with no AI history', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ entries: [{ path: 'README.md', kind: 'file' }] }) })
+    render(wrap(<FileTree onOpenFile={() => {}} selectedPath={null} />))
+    expect(await screen.findByText('README.md')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'All files' })).toHaveAttribute('aria-pressed', 'true')
+    expect(String(vi.mocked(fetch).mock.calls[0][0])).toContain('filter=all')
+  })
+
+  it('shows a failed page as an error and retries instead of reporting an empty repository', async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({ ok: false, status: 503 }).mockResolvedValue({ ok: true, json: async () => ({ entries: [{ path: 'recovered.ts', kind: 'file' }] }) })
+    render(wrap(<FileTree onOpenFile={() => {}} selectedPath={null} />))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load the file tree')
+    expect(screen.queryByText('No files.')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByText('recovered.ts')).toBeInTheDocument()
+  })
+
+  it('reports a truncated scan and repeated cursors without looping or hiding the limit', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ entries: [{ path: 'partial.ts', kind: 'file' }], nextCursor: 'repeat', truncated: true }) })
+    render(wrap(<FileTree onOpenFile={() => {}} selectedPath={null} />))
+    expect(await screen.findByText('partial.ts')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Partial file tree')
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('navigates the virtual tree with arrows and opens the focused file', async () => {
+    const onOpen = vi.fn()
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ entries: [
+      { path: 'src', kind: 'dir' }, { path: 'src/a.ts', kind: 'file' }, { path: 'src/b.ts', kind: 'file' },
+    ] }) })
+    render(wrap(<FileTree onOpenFile={onOpen} selectedPath={null} />))
+    const tree = await screen.findByRole('tree')
+    fireEvent.keyDown(tree, { key: 'ArrowDown' })
+    fireEvent.keyDown(tree, { key: 'Enter' })
+    expect(onOpen).toHaveBeenCalledWith('src/a.ts')
+    fireEvent.keyDown(tree, { key: 'End' })
+    fireEvent.keyDown(tree, { key: 'Enter' })
+    expect(onOpen).toHaveBeenLastCalledWith('src/b.ts')
+    fireEvent.keyDown(tree, { key: 'ArrowLeft' })
+    expect(screen.getByTestId('file-tree-row-src')).toHaveAttribute('id', tree.getAttribute('aria-activedescendant'))
+  })
+
+  it('cancels a paged request when the tree unmounts', async () => {
+    let finish!: (value: unknown) => void
+    global.fetch = vi.fn().mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const view = render(wrap(<FileTree onOpenFile={() => {}} selectedPath={null} />))
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+    const signal = vi.mocked(fetch).mock.calls[0][1]?.signal
+    view.unmount()
+    expect(signal?.aborted).toBe(true)
+    finish({ ok: true, json: async () => ({ entries: [], nextCursor: 'page-2' }) })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 })

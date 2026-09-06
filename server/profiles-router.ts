@@ -1,4 +1,5 @@
 import fs from 'fs'
+import { readProjectCoreVersion } from './core-runtime'
 import path from 'path'
 import { Router, Request, Response } from 'express'
 import type { ProjectContext } from './project-registry'
@@ -432,21 +433,7 @@ export function createProfilesRouter(): Router {
     try {
       const { project } = ctx(req)
       const root = specRoot(project)
-      const candidates = [
-        path.join(root, '.specrails', 'specrails-version'),
-        path.join(project.path, '.specrails-version'),
-      ]
-      let version: string | null = null
-      for (const p of candidates) {
-        if (fs.existsSync(p)) {
-          try {
-            version = fs.readFileSync(p, 'utf8').trim()
-          } catch {
-            // ignore
-          }
-          if (version) break
-        }
-      }
+      const { version, providerVersions, recordedVersion, mixed } = readProjectCoreVersion(root, project.path)
       // Minimum version required for profile-aware implement
       const REQUIRED = '4.1.0'
       let profileAware = false
@@ -460,7 +447,7 @@ export function createProfilesRouter(): Router {
             (ma === rma && mi === rmi && pa >= rpa)
         }
       }
-      res.json({ version, required: REQUIRED, profileAware })
+      res.json({ version, required: REQUIRED, profileAware, providerVersions, recordedVersion, mixed })
     } catch (err) {
       handleError(res, err)
     }

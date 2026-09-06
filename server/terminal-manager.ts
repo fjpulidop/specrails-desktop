@@ -302,7 +302,7 @@ export class TerminalManager {
       opts.settings ?? { shellIntegrationEnabled: false },
     )
     for (const [k, v] of Object.entries(shellIntegration.env)) env[k] = v
-    const args = shellIntegration.args.length > 0
+    const args = shellIntegration.replaceArgs ? shellIntegration.args : shellIntegration.args.length > 0
       ? [...shellIntegration.args, ...baseArgs]
       : baseArgs
 

@@ -57,7 +57,9 @@
     "invalidName": "Nom de terminal invalide.",
     "openFailed": "Échec de l'ouverture du terminal.",
     "serverUnreachable": "Impossible de joindre le serveur pour ouvrir un terminal.",
-    "exitedImmediately": "Le terminal s'est fermé immédiatement — le shell n'a peut-être pas pu démarrer. Si cela se reproduit, redémarrez l'application."
+    "exitedImmediately": "Le terminal s'est fermé immédiatement — le shell n'a peut-être pas pu démarrer. Si cela se reproduit, redémarrez l'application.",
+    "nativeActionFailed": "L’action de bureau n’a pas pu être effectuée.",
+    "pathPasteUnsafe": "Ce chemin ne peut pas être collé en toute sécurité dans cmd.exe. Utilisez un terminal PowerShell."
   },
   "session": {
     "processExited": "[processus terminé]",

@@ -57,7 +57,9 @@
     "invalidName": "终端名称无效。",
     "openFailed": "打开终端失败。",
     "serverUnreachable": "无法连接服务器以打开终端。",
-    "exitedImmediately": "终端立即退出 — Shell 可能启动失败。如果持续发生，请重启应用。"
+    "exitedImmediately": "终端立即退出 — Shell 可能启动失败。如果持续发生，请重启应用。",
+    "nativeActionFailed": "无法完成桌面操作。",
+    "pathPasteUnsafe": "此路径无法安全地粘贴到 cmd.exe。请使用 PowerShell 终端。"
   },
   "session": {
     "processExited": "[进程已退出]",

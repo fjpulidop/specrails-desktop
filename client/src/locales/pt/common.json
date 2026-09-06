@@ -1,4 +1,12 @@
 {
+  "network": {
+    "htmlResponse": "A API devolveu uma página web em vez de JSON. Verifique se o servidor Specrails está ativo e se a porta da API está correta.",
+    "invalidResponse": "A API do Specrails devolveu uma resposta inválida.",
+    "endpointUnavailable": "Este endpoint da API não está disponível. Verifique se as versões do cliente e do servidor Specrails coincidem.",
+    "httpError": "A API do Specrails devolveu HTTP {{status}}.",
+    "requestFailed": "Não foi possível contactar o servidor Specrails.",
+    "deliveryUnconfirmed": "Não foi possível confirmar a entrega da mensagem. O rascunho foi guardado e não será reenviado automaticamente."
+  },
   "actions": {
     "save": "Guardar",
     "cancel": "Cancelar",
@@ -91,5 +99,45 @@
       "w": "Redimensionar — borda esquerda"
     },
     "resetPosition": "Repor posição"
+  },
+  "repositories": {
+    "title": "Repositórios e pastas",
+    "additional": "Pastas adicionais",
+    "sharedBacklog": "Um projeto, um backlog compartilhado. Cada spec pode selecionar um ou vários repositórios.",
+    "folderNumber": "Pasta {{number}}",
+    "removeFolder": "Remover pasta",
+    "addFolder": "Adicionar pasta",
+    "primary": "Principal",
+    "contextOnly": "Apenas contexto",
+    "unavailable": "Indisponível",
+    "detach": "Desvincular",
+    "detachHint": "Desvincular remove apenas a associação. Os arquivos permanecem no disco. As specs e as entregas pendentes devem liberar suas referências primeiro.",
+    "name": "Nome",
+    "path": "Caminho da pasta",
+    "browse": "Escolher pasta",
+    "integrationBranch": "Branch de integração",
+    "branchDefault": "Usar o branch padrão do repositório",
+    "specScope": "Repositórios desta spec",
+    "scopeHint": "Selecione os repositórios que esta spec pode modificar. As outras pastas continuam disponíveis como contexto.",
+    "invalidSelection": "Um repositório selecionado não está mais registrado. Atualize a seleção antes de salvar.",
+    "shellTarget": "Repositório deste comando",
+    "shellDefault": "Repositório de execução (execuções com um único repositório)",
+    "shellHint": "Obrigatório quando uma execução afeta vários repositórios.",
+    "select": "Repositório",
+    "all": "Todos os repositórios"
+  },
+  "repositoryDelivery": {
+    "building": "Implementação em andamento",
+    "on_review": "Pronta para revisão",
+    "no_changes": "Sem alterações",
+    "pr_draft": "Rascunho de PR",
+    "pr_ready": "PR pronta",
+    "pr_closed": "PR fechada",
+    "completed": "Concluída",
+    "merged": "Integrada",
+    "discarded": "Descartada",
+    "superseded": "Substituída",
+    "implementation_failed": "Falha na implementação",
+    "pr_failed": "Falha na entrega"
   }
 }

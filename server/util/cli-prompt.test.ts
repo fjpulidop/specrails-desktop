@@ -30,6 +30,7 @@ import {
   parseNpmCmdShimEntry,
 } from './cli-prompt'
 import { resolveWindowsBinary, spawnCli } from './win-spawn'
+import { getOpenSpecRuntimePluginArgs } from '../openspec-runtime-plugin'
 import {
   headroomRoutedChildCount,
   setHeadroomRoutingState,
@@ -40,6 +41,24 @@ afterEach(() => {
 })
 
 describe('transformClaudeArgsForWindows', () => {
+  it('refuses a corrupt managed plugin before any real process spawn', () => {
+    const root = mkdtempSync(join(tmpdir(), 'specrails-opsx-preflight-'))
+    const originalHome = process.env.SPECRAILS_REGISTRY_HOME
+    process.env.SPECRAILS_REGISTRY_HOME = root
+    // A file blocking the private cache directory simulates a filesystem error.
+    writeFileSync(join(root, '.specrails'), 'fixture corruption')
+    vi.mocked(spawnCli).mockClear()
+    try {
+      expect(() => spawnAiCli('claude', getOpenSpecRuntimePluginArgs())).toThrow('No AI process was started')
+      expect(() => spawnAiCli('/fixture/custom-claude', getOpenSpecRuntimePluginArgs())).toThrow('No AI process was started')
+      expect(spawnCli).not.toHaveBeenCalled()
+    } finally {
+      if (originalHome === undefined) delete process.env.SPECRAILS_REGISTRY_HOME
+      else process.env.SPECRAILS_REGISTRY_HOME = originalHome
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it('returns args unchanged when no prompt flags are present', () => {
     const args = ['--dangerously-skip-permissions', '--verbose']
     const out = transformClaudeArgsForWindows(args)

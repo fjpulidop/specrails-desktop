@@ -931,3 +931,17 @@ describe('raw jira_status persistence', () => {
     expect(t2.jira_status).toBe('Done')
   })
 })
+
+
+describe('project-owned repository scope', () => {
+  it('retains repository selections and local IDs when Jira overwrites issue-owned fields', () => {
+    const existing = mapIssueToTicket(makeIssue(), 7, makeConn())
+    existing.repositoryIds = ['primary-proj-1', 'api']
+    const next = mapIssueToTicket(makeIssue({ summary: 'Updated in Jira' }), 7, makeConn(), existing)
+    expect(next.id).toBe(7)
+    expect(next.title).toBe('Updated in Jira')
+    expect(next.repositoryIds).toEqual(existing.repositoryIds)
+    expect(next.repositoryIds).not.toBe(existing.repositoryIds)
+    expect(mapIssueToTicket(makeIssue(), 8, makeConn()).repositoryIds).toBeUndefined()
+  })
+})

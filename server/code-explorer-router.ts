@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { spawn } from 'child_process'
 import { Router, Request, Response } from 'express'
 import type { DbInstance } from './db'
@@ -11,11 +11,13 @@ import {
   listProvenanceByPath,
   listProvenanceByTicket,
   getProvenanceDiff,
+  GIT_EXEC_ENV,
   type ProvenanceRow,
 } from './file-provenance'
 import {
   readSummary,
   computeFileHash,
+  isSummaryMetadataStale,
   pathHash,
   summariesDir,
   type FileSummaryManager,
@@ -23,7 +25,10 @@ import {
 } from './file-summary-manager'
 import { getFileStory, type TicketSpecLookup } from './file-story'
 import type { FileStoryManager } from './file-story-manager'
+import { provenanceRepositoryFilter, type ProvenanceRepositoryScope } from './project-repository-provenance'
 import { getAdapter, pureOutputToolPolicy } from './providers'
+import { legacyRepositoryKind } from './project-repositories'
+import { listCodeActivity, parseCodeActivityQuery, CodeActivityQueryError, type CodeActivityPathFilter } from './code-activity'
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -46,7 +51,7 @@ const MAX_SEARCH_MS = 2_000
 
 /** Read a regular file through one descriptor with a hard byte ceiling, even
  * if a writer grows it after stat. Never interpret a truncated read as text. */
-async function readBoundedSource(abs: string, maxBytes: number): Promise<Buffer | 'too-large' | 'not-file'> {
+export async function readBoundedSource(abs: string, maxBytes: number): Promise<Buffer | 'too-large' | 'not-file'> {
   const before = await fs.promises.stat(abs)
   if (!before.isFile()) return 'not-file'
   if (before.size > maxBytes) return 'too-large'
@@ -100,7 +105,7 @@ function isDenied(entryName: string): boolean {
 // Apply the deny-list to ANY segment of a relative path so the policy is the
 // single source of truth across every surface (tree walk, touched-by-ai list,
 // and the content endpoints) — not just the top-level `all` walk.
-function isDeniedRelPath(rel: string): boolean {
+export function isDeniedRelPath(rel: string): boolean {
   return rel.split(/[\\/]/).filter((segment) => segment !== '' && segment !== '.').some(isDenied)
 }
 
@@ -117,32 +122,51 @@ function normalizeRel(rel: string): string {
 // paths reported, so the deny-list remains the only filter. `check-ignore` exits
 // 1 ("none ignored") which execFileSync throws on — the matched list still lands
 // on stdout, so both branches read stdout.
-async function gitIgnoredSet(projectPath: string, relPaths: string[], maxDurationMs = Number.POSITIVE_INFINITY): Promise<Set<string>> {
+export async function gitIgnoredSet(projectPath: string, relPaths: string[], maxDurationMs = Number.POSITIVE_INFINITY): Promise<Set<string> & { incomplete?: boolean }> {
   if (relPaths.length === 0) return new Set()
-  const ignored = new Set<string>()
+  if (legacyRepositoryKind(projectPath) === 'folder') return new Set()
+  const ignored: Set<string> & { incomplete?: boolean } = new Set()
+  const excludeUnverified = (offset: number) => {
+    ignored.incomplete = true
+    for (const rel of relPaths.slice(offset)) ignored.add(rel)
+  }
   const deadline = Date.now() + maxDurationMs
   for (let offset = 0; offset < relPaths.length; offset += GIT_IGNORE_CHUNK) {
-    if (Date.now() >= deadline) break
+    if (Date.now() >= deadline) { excludeUnverified(offset); break }
     const chunk = relPaths.slice(offset, offset + GIT_IGNORE_CHUNK)
-    let out = ''
-    out = await new Promise<string>((resolve) => {
+    const result = await new Promise<{ stdout: string; complete: boolean }>((resolve) => {
       let stdout = ''
       let settled = false
-      const child = spawn('git', ['check-ignore', '--stdin', '-z'], { cwd: projectPath, stdio: ['pipe', 'pipe', 'ignore'] })
-      const finish = () => { if (!settled) { settled = true; resolve(stdout) } }
-      const timer = setTimeout(() => { try { child.kill('SIGTERM') } catch { /* gone */ }; finish() }, Math.min(5_000, Math.max(1, deadline - Date.now())))
+      let overflow = false
+      const child = spawn('git', ['check-ignore', '--stdin', '-z'], { cwd: projectPath, stdio: ['pipe', 'pipe', 'ignore'], env: GIT_EXEC_ENV })
+      const finish = (complete: boolean) => { if (!settled) { settled = true; resolve({ stdout, complete: complete && !overflow }) } }
+      const timer = setTimeout(() => { try { child.kill('SIGTERM') } catch { /* gone */ }; finish(false) }, Math.min(5_000, Math.max(1, deadline - Date.now())))
       timer.unref?.()
       child.stdout?.on('data', (data: Buffer) => {
         if (stdout.length < 4 * 1024 * 1024) stdout += data.toString('utf8')
+        else overflow = true
       })
-      child.once('error', () => { clearTimeout(timer); finish() })
-      child.once('close', () => { clearTimeout(timer); finish() })
+      child.once('error', () => { clearTimeout(timer); finish(false) })
+      child.once('close', code => { clearTimeout(timer); finish(code === 0 || code === 1) })
       child.stdin?.on('error', () => { /* git may exit before reading stdin */ })
       child.stdin?.end(chunk.join('\0') + '\0')
     })
-    for (const rel of out.split('\0')) if (rel) ignored.add(rel)
+    if (!result.complete) { excludeUnverified(offset); break }
+    for (const rel of result.stdout.split('\0')) if (rel) ignored.add(rel)
   }
   return ignored
+}
+
+/** One policy for current source and historical metadata. Missing files remain
+ * eligible; unavailable roots or unverified ignore rules fail closed explicitly. */
+export const filterCodeExplorerActivityPaths: CodeActivityPathFilter = async (repository, paths, remainingMs) => {
+  try {
+    if (!(await fs.promises.stat(repository.path)).isDirectory()) throw new Error('not a directory')
+  } catch { return { allowed: new Set(), unavailable: true } }
+  const candidates = paths.filter(rel => !isDeniedRelPath(rel) && resolveSafePath(repository.path, rel) !== null)
+  const normalized = candidates.map(normalizeRel)
+  const ignored = await gitIgnoredSet(repository.path, normalized, remainingMs)
+  return { allowed: new Set(candidates.filter((_, index) => !ignored.has(normalized[index]))), incomplete: ignored.incomplete }
 }
 
 async function isGitIgnored(projectPath: string, relPath: string): Promise<boolean> {
@@ -176,20 +200,22 @@ function languageForExt(ext: string): string {
   }
 }
 
-function decodeCursor(raw: string | undefined): { skip: number } {
-  if (!raw) return { skip: 0 }
+interface TreeCursor { v: 2; snapshot: string; skip: number }
+function decodeCursor(raw: unknown): TreeCursor | 'expired' | null {
+  if (raw === undefined) return null
+  if (typeof raw !== 'string' || raw.length > 1024) throw new Error('invalid_tree_cursor')
   try {
-    const json = Buffer.from(raw, 'base64').toString('utf8')
-    const parsed = JSON.parse(json) as { skip?: number }
-    if (typeof parsed.skip === 'number' && parsed.skip >= 0) return { skip: parsed.skip }
-  } catch {
-    // fall through to default
-  }
-  return { skip: 0 }
+    const parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')) as Partial<TreeCursor>
+    // Offset-only cursors from an older server cannot identify their original
+    // list. Ask the caller to refresh instead of silently mixing snapshots.
+    if (parsed.v === undefined && Number.isSafeInteger(parsed.skip)) return 'expired'
+    if (parsed.v === 2 && typeof parsed.snapshot === 'string' && /^[a-f0-9-]{36}$/.test(parsed.snapshot) &&
+      Number.isSafeInteger(parsed.skip) && parsed.skip! > 0) return parsed as TreeCursor
+  } catch { /* Invalid input is never treated as page zero. */ }
+  throw new Error('invalid_tree_cursor')
 }
-
-function encodeCursor(skip: number): string {
-  return Buffer.from(JSON.stringify({ skip }), 'utf8').toString('base64')
+function encodeCursor(snapshot: string, skip: number): string {
+  return Buffer.from(JSON.stringify({ v: 2, snapshot, skip } satisfies TreeCursor), 'utf8').toString('base64url')
 }
 
 interface TreeEntryProvenance {
@@ -293,9 +319,11 @@ function parseNonEmptyString(raw: unknown): string | null {
 function listTouchedRows(
   db: DbInstance,
   filters: { ticketId?: number | null; jobId?: string | null; path?: string | null },
+  repository?: ProvenanceRepositoryScope,
 ): ProvenanceRow[] {
-  const where: string[] = []
-  const args: Array<string | number> = []
+  const scope = provenanceRepositoryFilter(db, repository)
+  const where: string[] = [scope.sql]
+  const args: Array<string | number> = [...scope.params]
   if (filters.ticketId != null) {
     where.push('ticket_id = ?')
     args.push(filters.ticketId)
@@ -377,10 +405,10 @@ function positiveEnvInt(name: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
-async function listAllEntries(projectPath: string): Promise<TreeScanResult> {
+export async function listAllEntries(projectPath: string, budget?: { maxEntries: number; maxDurationMs: number }): Promise<TreeScanResult> {
   const started = Date.now()
-  const maxEntries = positiveEnvInt('SPECRAILS_CODE_TREE_MAX_ENTRIES', DEFAULT_MAX_TREE_ENTRIES)
-  const maxMs = positiveEnvInt('SPECRAILS_CODE_TREE_MAX_MS', DEFAULT_TREE_SCAN_MS)
+  const maxEntries = Math.min(positiveEnvInt('SPECRAILS_CODE_TREE_MAX_ENTRIES', DEFAULT_MAX_TREE_ENTRIES), budget?.maxEntries ?? Infinity)
+  const maxMs = Math.min(positiveEnvInt('SPECRAILS_CODE_TREE_MAX_MS', DEFAULT_TREE_SCAN_MS), budget?.maxDurationMs ?? Infinity)
   const out: Array<{ rel: string; isDir: boolean; size: number | null; mtime: number | null }> = []
   const stack: string[] = [projectPath]
   let visited = 0
@@ -427,7 +455,8 @@ async function listAllEntries(projectPath: string): Promise<TreeScanResult> {
   // Directories are kept — git can't report an ignored dir without its files, and
   // an empty dir node is harmless; its ignored children are already filtered.
   const files = out.filter((e) => !e.isDir).map((e) => e.rel)
-  const ignored = await gitIgnoredSet(projectPath, files)
+  const ignored = await gitIgnoredSet(projectPath, files, budget ? Math.max(1, maxMs - (Date.now() - started)) : Infinity)
+  if (ignored.incomplete) reason ??= 'read-errors'
   const filtered = ignored.size > 0 ? out.filter((e) => e.isDir || !ignored.has(e.rel)) : out
   filtered.sort((a, b) => a.rel.localeCompare(b.rel))
   return {
@@ -453,7 +482,8 @@ async function listTouchedEntries(
   // not deny-listed never surfaces its path / ticket-attribution / mtime. One
   // batched git check-ignore over the not-already-denied touched files.
   const candidateFiles = [...rowsByPath.keys()].filter((p) => !isDeniedRelPath(p))
-  const ignored = await gitIgnoredSet(projectPath, candidateFiles)
+  const ignored = await gitIgnoredSet(projectPath, candidateFiles, DEFAULT_TREE_SCAN_MS)
+  if (ignored.incomplete) throw new Error('tree_policy_unavailable')
 
   for (const filePath of rowsByPath.keys()) {
     // Keep touched-by-ai consistent with the `all` tree (and never surface
@@ -514,10 +544,13 @@ export interface CodeExplorerDeps {
   /** The user's repo. Source files + the file tree are ALWAYS read from here. */
   projectPath: string
   projectId: string
+  repositoryId?: string
+  repositoryName?: string
+  includeLegacyProvenance?: boolean
   broadcast: (msg: WsMessage) => void
-  fileSummaryManager: Pick<FileSummaryManager, 'enqueue' | 'attachWatcher'>
-  listProvenanceByPath?: (db: DbInstance, projectId: string, filePath: string) => ProvenanceRow[]
-  listProvenanceByTicket?: (db: DbInstance, projectId: string, ticketId: number) => ProvenanceRow[]
+  fileSummaryManager: Pick<FileSummaryManager, 'enqueue' | 'attachWatcher'> & Partial<Pick<FileSummaryManager, 'getLanguage'>>
+  listProvenanceByPath?: typeof listProvenanceByPath
+  listProvenanceByTicket?: typeof listProvenanceByTicket
   /** Relocate-artifacts: where summary JSON lives (workspace when relocated,
    *  else === projectPath). Resolved per-call so a workspace that becomes
    *  populated mid-session is picked up. Defaults to `projectPath`. */
@@ -527,7 +560,7 @@ export interface CodeExplorerDeps {
   getTicketSpec?: TicketSpecLookup
   /** Construction story: the budget-gated per-intervention AI contribution
    *  generator. Optional — POST /file/story/explain 404s without it. */
-  fileStoryManager?: Pick<FileStoryManager, 'explain'>
+  fileStoryManager?: Pick<FileStoryManager, 'explain'> & Partial<Pick<FileStoryManager, 'getLanguage'>>
   /** Primary provider used by both Code Explorer AI transforms. The server
    *  adapter is authoritative; client-side visibility is only a convenience. */
   aiTransformProvider: string
@@ -535,6 +568,24 @@ export interface CodeExplorerDeps {
 
 export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
   const router = Router({ mergeParams: true })
+  const repository = deps.repositoryId ? { repositoryId: deps.repositoryId, includeLegacy: deps.includeLegacyProvenance === true } : undefined
+  if (deps.repositoryId) {
+    router.use((_req, res, next) => {
+      const json = res.json.bind(res)
+      const identify = (item: unknown): unknown => item && typeof item === 'object'
+        ? { ...item, repositoryId: deps.repositoryId } : item
+      res.json = (body: unknown) => {
+        if (Array.isArray(body)) return json(body.map(identify))
+        if (!body || typeof body !== 'object') return json(body)
+        const result = { ...body, repositoryId: deps.repositoryId } as Record<string, unknown>
+        for (const key of ['entries', 'matches', 'provenance', 'story']) {
+          if (Array.isArray(result[key])) result[key] = (result[key] as unknown[]).map(identify)
+        }
+        return json(result)
+      }
+      next()
+    })
+  }
 
   const listByPath = deps.listProvenanceByPath ?? listProvenanceByPath
   const listByTicket = deps.listProvenanceByTicket ?? listProvenanceByTicket
@@ -555,14 +606,20 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     return false
   }
 
-  // Short-TTL per-project cache so paginating a large `all` tree reuses ONE
-  // synchronous filesystem walk instead of re-walking (and re-statting) on every
-  // page — the cursor only slices an already-materialized array. Also caches the
-  // one-readdir summary-hash set. 5s is long enough for a pagination burst and
-  // short enough that tree edits surface promptly.
+  // Short-lived discovery cache deduplicates initial tree/find/search scans.
+  // Separate bounded path snapshots keep tree pagination stable after this
+  // cache expires. Provenance and summaries are enriched per page, not retained
+  // as unbounded copies inside every snapshot.
   const WALK_CACHE_TTL_MS = 5000
   const allEntriesCache = new Map<string, { at: number; scan: TreeScanResult }>()
   const allEntriesInFlight = new Map<string, Promise<TreeScanResult>>()
+  const TREE_SNAPSHOT_TTL_MS = 120_000
+  const MAX_TREE_SNAPSHOTS = 4
+  type TreeSnapshot = {
+    id: string; scope: string; createdAt: number; entries: TreeScanResult['entries']
+    scanMeta: Omit<TreeScanResult, 'entries'> | null
+  }
+  const treeSnapshots = new Map<string, TreeSnapshot>()
   let watcherScheduled = false
   let summaryHashCache: { at: number; set: Set<string> } | null = null
   const nowMs = () => Date.now()
@@ -616,7 +673,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       watcherScheduled = true
       setImmediate(() => {
         try {
-          deps.fileSummaryManager.attachWatcher(deps.projectId, deps.projectPath, summaryRoot())
+          deps.fileSummaryManager.attachWatcher(deps.projectId, deps.projectPath, summaryRoot(), deps.repositoryId)
         } catch (err) {
           console.warn('[code-explorer] watcher startup failed', JSON.stringify({
             projectId: deps.projectId,
@@ -629,81 +686,122 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
   })
 
   router.get('/tree', async (req: Request, res: Response) => {
-    const filter = (req.query.filter as string | undefined) ?? 'touched-by-ai'
+    const filter = req.query.filter ?? 'touched-by-ai'
+    if (filter !== 'all' && filter !== 'touched-by-ai') {
+      res.status(400).json({ error: 'invalid_tree_filter' }); return
+    }
     const withProvenance = req.query.withProvenance === '1' || req.query.withProvenance === 'true'
-    const { skip } = decodeCursor(req.query.cursor as string | undefined)
     const requestedLimit = parsePositiveInt(req.query.limit)
     const pageLimit = Math.min(requestedLimit ?? MAX_TREE_PAGE, MAX_TREE_PAGE)
     const ticketId = parsePositiveInt(req.query.ticketId)
     const jobId = parseNonEmptyString(req.query.jobId)
-
-    let entries: Array<{ rel: string; isDir: boolean; size: number | null; mtime: number | null }>
-    let scanMeta: Omit<TreeScanResult, 'entries'> | null = null
-    let cache: 'hit' | 'shared' | 'miss' | null = null
+    if ((req.query.ticketId !== undefined && ticketId === null) || (req.query.jobId !== undefined && jobId === null)) {
+      res.status(400).json({ error: 'invalid_tree_scope' }); return
+    }
+    const scope = JSON.stringify([deps.projectId, deps.repositoryId, deps.projectPath, filter, withProvenance,
+      filter === 'touched-by-ai' ? ticketId : null, filter === 'touched-by-ai' ? jobId : null])
+    let cursor: TreeCursor | 'expired' | null
+    try { cursor = decodeCursor(req.query.cursor) } catch {
+      res.status(400).json({ error: 'invalid_tree_cursor' }); return
+    }
+    for (const [id, snapshot] of treeSnapshots) {
+      if (nowMs() - snapshot.createdAt >= TREE_SNAPSHOT_TTL_MS) treeSnapshots.delete(id)
+    }
+    let snapshot = cursor && cursor !== 'expired' ? treeSnapshots.get(cursor.snapshot) : undefined
+    if (cursor && (cursor === 'expired' || !snapshot)) {
+      res.status(409).json({ error: 'tree_snapshot_expired', retryable: true }); return
+    }
+    if (snapshot && snapshot.scope !== scope) {
+      res.status(400).json({ error: 'tree_cursor_scope_mismatch' }); return
+    }
+    const skip = cursor ? cursor.skip : 0
+    if (snapshot && skip >= snapshot.entries.length) {
+      res.status(400).json({ error: 'invalid_tree_cursor' }); return
+    }
     const touchedRowsByPath = new Map<string, ProvenanceRow[]>()
-    if (filter === 'touched-by-ai') {
-      const rows = listTouchedRows(deps.db, { ticketId, jobId })
+    // Initial touched discovery needs the complete filtered file set. Later
+    // pages re-enrich the frozen paths without recomputing their positions.
+    if ((filter === 'touched-by-ai' && !snapshot) || withProvenance) {
+      const rows = listTouchedRows(deps.db, filter === 'touched-by-ai' ? { ticketId, jobId } : {}, repository)
       for (const row of rows) {
         const existing = touchedRowsByPath.get(row.file_path)
         if (existing) existing.push(row)
         else touchedRowsByPath.set(row.file_path, [row])
       }
-      entries = await listTouchedEntries(deps.projectPath, touchedRowsByPath)
-    } else {
-      const result = await getAllEntriesCached()
-      entries = result.scan.entries
-      cache = result.cache
-      scanMeta = result.scan
-      // Batch-load ALL provenance once instead of a per-entry SQL query (N+1).
-      if (withProvenance) {
-        for (const row of listTouchedRows(deps.db, {})) {
-          const existing = touchedRowsByPath.get(row.file_path)
-          if (existing) existing.push(row)
-          else touchedRowsByPath.set(row.file_path, [row])
+    }
+    let cache: 'hit' | 'shared' | 'miss' | 'snapshot' | null = snapshot ? 'snapshot' : null
+    if (!snapshot) {
+      let entries: TreeScanResult['entries']
+      let scanMeta: Omit<TreeScanResult, 'entries'> | null = null
+      if (filter === 'touched-by-ai') {
+        try { entries = await listTouchedEntries(deps.projectPath, touchedRowsByPath) } catch {
+          res.status(503).json({ error: 'tree_policy_unavailable', retryable: true }); return
+        }
+        if (entries.length > DEFAULT_MAX_TREE_ENTRIES) {
+          scanMeta = { truncated: true, reason: 'entry-limit', visited: entries.length, durationMs: 0,
+            maxEntries: DEFAULT_MAX_TREE_ENTRIES, maxDurationMs: DEFAULT_TREE_SCAN_MS }
+        }
+      } else {
+        const result = await getAllEntriesCached()
+        entries = result.scan.entries
+        cache = result.cache
+        const { entries: _entries, ...metadata } = result.scan
+        scanMeta = metadata
+        if (entries.length > DEFAULT_MAX_TREE_ENTRIES) {
+          scanMeta = { ...metadata, truncated: true, reason: 'entry-limit', maxEntries: DEFAULT_MAX_TREE_ENTRIES }
+        }
+      }
+      snapshot = { id: randomUUID(), scope, createdAt: nowMs(), entries: entries.slice(0, DEFAULT_MAX_TREE_ENTRIES), scanMeta }
+      if (snapshot.entries.length > pageLimit) {
+        while (treeSnapshots.size >= MAX_TREE_SNAPSHOTS) treeSnapshots.delete(treeSnapshots.keys().next().value!)
+        treeSnapshots.set(snapshot.id, snapshot)
+      }
+    }
+    const candidates = snapshot.entries.slice(skip, skip + pageLimit)
+    const nextCursor = skip + candidates.length < snapshot.entries.length ? encodeCursor(snapshot.id, skip + candidates.length) : null
+    // The cursor preserves position, never access: recheck current exclusions
+    // and symlink boundaries. Directory badges must not leak excluded child
+    // provenance through their aggregate rows either.
+    const policyPaths = new Set(candidates.map(entry => entry.rel))
+    if (withProvenance && filter === 'touched-by-ai') {
+      const directories = new Set(candidates.filter(entry => entry.isDir).map(entry => entry.rel))
+      for (const entry of snapshot.entries) {
+        if (entry.isDir) continue
+        const parts = entry.rel.split('/')
+        while (parts.length > 1) {
+          parts.pop()
+          if (directories.has(parts.join('/'))) { policyPaths.add(entry.rel); break }
         }
       }
     }
-
-    const page = entries.slice(skip, skip + pageLimit)
-    const nextCursor = skip + page.length < entries.length ? encodeCursor(skip + page.length) : null
-
-    // Read the summaries dir ONCE into a Set of path-hashes instead of opening +
-    // parsing a JSON file per entry just to test existence (cached per project).
+    const visibility = await filterCodeExplorerActivityPaths({
+      id: deps.repositoryId ?? `primary-${deps.projectId}`, projectId: deps.projectId,
+      name: deps.repositoryName ?? path.basename(deps.projectPath), path: deps.projectPath,
+      isPrimary: deps.includeLegacyProvenance !== false, kind: legacyRepositoryKind(deps.projectPath), integrationBranch: null, addedAt: '',
+    }, [...policyPaths], DEFAULT_TREE_SCAN_MS)
+    if (visibility.unavailable || visibility.incomplete) {
+      res.status(503).json({ error: 'tree_policy_unavailable', retryable: true }); return
+    }
+    for (const filePath of touchedRowsByPath.keys()) {
+      if (!visibility.allowed.has(filePath)) touchedRowsByPath.delete(filePath)
+    }
     const summaryHashes = getSummaryHashesCached()
-
-    const out: TreeEntry[] = page.map((e) => {
+    const out: TreeEntry[] = candidates.filter(entry => visibility.allowed.has(entry.rel)).map((e) => {
       const isTouchedDir = filter === 'touched-by-ai' && e.isDir
       const rawRows = withProvenance && !isTouchedDir ? (touchedRowsByPath.get(e.rel) ?? []) : []
       const provenance = withProvenance && isTouchedDir
         ? rollupDirectoryProvenance(touchedRowsByPath, e.rel)
         : rollupProvenance(rawRows)
-      return {
-        path: e.rel,
-        kind: e.isDir ? 'dir' : 'file',
-        sizeBytes: e.size,
-        hasSummary: !e.isDir && summaryHashes.has(pathHash(e.rel)),
-        provenance,
-        lastModifiedAt: e.mtime,
-      }
+      return { path: e.rel, kind: e.isDir ? 'dir' : 'file', sizeBytes: e.size,
+        hasSummary: !e.isDir && summaryHashes.has(pathHash(e.rel)), provenance, lastModifiedAt: e.mtime }
     })
-
+    const scanMeta = snapshot.scanMeta
     res.json({
-      entries: out.map((entry) => ({
-        ...entry,
-        provenance: treeProvenanceToJson(entry.provenance),
-      })),
-      nextCursor,
+      entries: out.map(entry => ({ ...entry, provenance: treeProvenanceToJson(entry.provenance) })), nextCursor,
       ...(scanMeta ? {
-        truncated: scanMeta.truncated,
-        truncationReason: scanMeta.reason,
-        scan: {
-          visited: scanMeta.visited,
-          durationMs: scanMeta.durationMs,
-          maxEntries: scanMeta.maxEntries,
-          maxDurationMs: scanMeta.maxDurationMs,
-          retryable: scanMeta.truncated,
-          cache,
-        },
+        truncated: scanMeta.truncated, truncationReason: scanMeta.reason,
+        scan: { visited: scanMeta.visited, durationMs: scanMeta.durationMs, maxEntries: scanMeta.maxEntries,
+          maxDurationMs: scanMeta.maxDurationMs, retryable: scanMeta.truncated, cache },
       } : {}),
     })
   })
@@ -784,6 +882,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     // The tree is cached. Revalidate ignore rules for this request so adding a
     // .gitignore cannot leak newly excluded content during the cache TTL.
     const ignored = await gitIgnoredSet(deps.projectPath, candidates.slice(0, maxFiles).map((entry) => entry.rel), maxMs)
+    if (ignored.incomplete) reasons.add('ignore-rules-unavailable')
     search: for (const entry of candidates) {
       if (Date.now() - started >= maxMs) { reasons.add('time-limit'); break }
       if (scannedFiles >= maxFiles) { reasons.add('file-limit'); break }
@@ -919,7 +1018,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       // Honour the staleness scenario: even if content is unavailable, return
       // the existing summary so the client can render a "not found" banner.
       const summary = readSummary(summaryRoot(), rel)
-      const provenance = listByPath(deps.db, deps.projectId, rel)
+      const provenance = listByPath(deps.db, deps.projectId, rel, repository)
       if (summary || provenance.length > 0) {
         res.json({
           content: null,
@@ -942,7 +1041,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       res.json({
         tooLarge: true,
         sizeBytes: stat.size,
-        provenance: provenanceRowsToJson(listByPath(deps.db, deps.projectId, rel)),
+        provenance: provenanceRowsToJson(listByPath(deps.db, deps.projectId, rel, repository)),
         summary: readSummary(summaryRoot(), rel),
         absolutePath: abs,
       })
@@ -968,7 +1067,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
         binary: true,
         sizeBytes: stat.size,
         mime: 'application/octet-stream',
-        provenance: provenanceRowsToJson(listByPath(deps.db, deps.projectId, rel)),
+        provenance: provenanceRowsToJson(listByPath(deps.db, deps.projectId, rel, repository)),
         summary: readSummary(summaryRoot(), rel),
         absolutePath: abs,
       })
@@ -984,12 +1083,12 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     }
 
     const summary = readSummary(summaryRoot(), rel)
-    const summaryStale = await computeStaleness(abs, summary)
+    const summaryStale = await computeStaleness(abs, summary, deps.fileSummaryManager.getLanguage?.() ?? 'en')
     res.json({
       content,
       encoding: 'utf-8',
       language: languageForExt(path.extname(rel)),
-      provenance: provenanceRowsToJson(listByPath(deps.db, deps.projectId, rel)),
+      provenance: provenanceRowsToJson(listByPath(deps.db, deps.projectId, rel, repository)),
       summary,
       summaryStale,
       absolutePath: abs,
@@ -1098,7 +1197,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     }
     let summaryStale = false
     try {
-      summaryStale = await computeStaleness(guard, summary)
+      summaryStale = await computeStaleness(guard, summary, deps.fileSummaryManager.getLanguage?.() ?? 'en')
     } catch {
       summaryStale = true
     }
@@ -1130,7 +1229,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       res.status(403).json({ error: 'path is gitignored' })
       return
     }
-    res.json({ path: rel, story: getFileStory(deps.db, rel, deps.getTicketSpec) })
+    res.json({ path: rel, story: getFileStory(deps.db, rel, deps.getTicketSpec, repository, deps.fileStoryManager?.getLanguage?.()) })
   })
 
   // Construction story: generate (budget-gated) the plain-language "what this
@@ -1162,7 +1261,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       res.status(404).json({ error: 'story generation not available' })
       return
     }
-    const body = (req.body ?? {}) as { provenanceId?: unknown; overrideBudget?: unknown }
+    const body = (req.body ?? {}) as { provenanceId?: unknown; overrideBudget?: unknown; force?: unknown }
     const provenanceId = typeof body.provenanceId === 'number' && Number.isInteger(body.provenanceId) && body.provenanceId > 0
       ? body.provenanceId
       : null
@@ -1173,8 +1272,10 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     try {
       const result = await deps.fileStoryManager.explain({
         projectId: deps.projectId,
+        ...(repository ? { repository } : {}),
         relPath: rel,
         provenanceId,
+        force: body.force === true,
         overrideBudget: body.overrideBudget === true,
       })
       if (result === 'generated') {
@@ -1186,6 +1287,10 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
         // (mirrors /file/regenerate-summary).
         res.status(200).json({ skipped: 'budget' })
         return
+      }
+      if (result === 'skipped:hash') { res.json({ ok: true, reused: true }); return }
+      if (result === 'skipped:no-evidence' || result === 'skipped:ttl') {
+        res.json({ skipped: result.slice('skipped:'.length) }); return
       }
       if (result === 'skipped:not-found') {
         res.status(404).json({ error: 'intervention not found for this file' })
@@ -1259,6 +1364,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
         summaryRoot: summaryRoot(),
         projectId: deps.projectId,
         projectSlug: deps.projectId,
+        ...(deps.repositoryId ? { repositoryId: deps.repositoryId } : {}),
         relPath: rel,
         triggeredBy: { kind: 'user', id: 'manual', ticketId: null },
         overrideBudget: body.overrideBudget === true,
@@ -1297,6 +1403,20 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
     }
   })
 
+  router.get('/activity', async (req: Request, res: Response) => {
+    const id = deps.repositoryId ?? `primary-${deps.projectId}`
+    try {
+      res.json(await listCodeActivity(deps.db, {
+        id: deps.projectId, path: deps.projectPath,
+        repositories: [{ id, projectId: deps.projectId, name: deps.repositoryName ?? path.basename(deps.projectPath),
+          path: deps.projectPath, isPrimary: deps.repositoryId ? deps.includeLegacyProvenance === true : true,
+          kind: legacyRepositoryKind(deps.projectPath), integrationBranch: null, addedAt: '' }],
+      }, parseCodeActivityQuery(req.query, id), filterCodeExplorerActivityPaths))
+    } catch (err) {
+      res.status(err instanceof CodeActivityQueryError ? err.status : 500).json({ error: err instanceof CodeActivityQueryError ? err.message : 'activity_unavailable' })
+    }
+  })
+
   router.get('/provenance', async (req: Request, res: Response) => {
     const ticketId = parsePositiveInt(req.query.ticketId)
     const jobId = parseNonEmptyString(req.query.jobId)
@@ -1323,11 +1443,18 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       return
     }
     const rows = ticketId != null && !jobId && !relPath
-      ? listByTicket(deps.db, deps.projectId, ticketId)
-      : listTouchedRows(deps.db, { ticketId, jobId, path: relPath ? normalizeRel(relPath) : relPath })
-    res.json(
-      provenanceRowsToJson(rows),
-    )
+      ? listByTicket(deps.db, deps.projectId, ticketId, repository)
+      : listTouchedRows(deps.db, { ticketId, jobId, path: relPath ? normalizeRel(relPath) : relPath }, repository)
+    const visibility = await filterCodeExplorerActivityPaths({
+      id: deps.repositoryId ?? `primary-${deps.projectId}`, projectId: deps.projectId,
+      name: deps.repositoryName ?? path.basename(deps.projectPath), path: deps.projectPath,
+      isPrimary: deps.includeLegacyProvenance !== false, kind: legacyRepositoryKind(deps.projectPath), integrationBranch: null, addedAt: '',
+    }, [...new Set(rows.map(row => row.file_path))], 2_000)
+    if (visibility.unavailable || visibility.incomplete) {
+      res.status(503).json({ error: 'provenance_policy_unavailable' })
+      return
+    }
+    res.json(provenanceRowsToJson(rows.filter(row => visibility.allowed.has(row.file_path))))
   })
 
   router.get('/diff', async (req: Request, res: Response) => {
@@ -1355,7 +1482,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
       res.status(403).json({ error: 'path is gitignored' })
       return
     }
-    const diff = getProvenanceDiff(deps.db, deps.projectId, jobId, rel)
+    const diff = getProvenanceDiff(deps.db, deps.projectId, jobId, rel, repository)
     if (!diff) {
       res.status(404).json({ error: 'diff not available' })
       return
@@ -1366,7 +1493,7 @@ export function createCodeExplorerRouter(deps: CodeExplorerDeps): Router {
   return router
 }
 
-function resolveSafePath(projectPath: string, relPath: string): string | null {
+export function resolveSafePath(projectPath: string, relPath: string): string | null {
   // Reject absolute paths and any path with explicit traversal segments before
   // we ever hit the filesystem. resolve() can collapse `..` legally so we still
   // verify the prefix below.
@@ -1412,8 +1539,9 @@ function resolveSafePath(projectPath: string, relPath: string): string | null {
   }
 }
 
-async function computeStaleness(abs: string, summary: SummaryPayload | null): Promise<boolean> {
+async function computeStaleness(abs: string, summary: SummaryPayload | null, language: 'en' | 'es'): Promise<boolean> {
   if (!summary) return false
+  if (isSummaryMetadataStale(summary, language)) return true
   try {
     const currentHash = await computeFileHash(abs)
     return currentHash !== summary.fileHash

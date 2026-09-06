@@ -11,6 +11,7 @@ import {
   DialogDescription,
 } from '../ui/dialog'
 import { TerminalSettingsSection } from './TerminalSettingsSection'
+import { ProjectRepositoriesSection } from './ProjectRepositoriesSection'
 import {
   ProjectTelemetrySection,
   ProjectPrePromptsSection,
@@ -83,6 +84,7 @@ export function ProjectSettingsDialog({ open, onClose }: { open: boolean; onClos
               so switching sections never resizes the modal. */}
           <div className="min-w-0 flex-1 overflow-y-auto pr-1">
             <div className={paneCls('general')}>
+              <ProjectRepositoriesSection />
               <ProjectPrePromptsSection />
             </div>
             <div className={paneCls('branch')}>

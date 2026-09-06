@@ -78,6 +78,7 @@ import * as agentApi from '../../../lib/agent-api'
 import type { AgentPrDecisionEnvelope, AgentMessage as ApiAgentMessage } from '../../../lib/agent-api'
 import { AgentChatProvider, useAgentChat } from '../../../context/AgentChatContext'
 import { AgentPrDecisionCard } from '../AgentPrDecisionCard'
+import type { RepositoryDeliverySnapshot } from '../../../types/multi-repo'
 
 const env = (over: Partial<AgentPrDecisionEnvelope> = {}): AgentPrDecisionEnvelope => ({
   kind: 'pr_decision',
@@ -672,6 +673,32 @@ describe('AgentPrDecisionCard states', () => {
 
 // ── AgentPrDecisionCard: actions ──────────────────────────────────────────────
 describe('AgentPrDecisionCard actions', () => {
+  it('shows only repository-scoped delivery actions and confirms the selected destination', async () => {
+    const repositories: RepositoryDeliverySnapshot[] = ['web', 'api'].map((repositoryId) => ({
+      repositoryId, name: repositoryId, path: `/repos/${repositoryId}`, deliveryId: `child-${repositoryId}`,
+      branch: `feature-${repositoryId}`, baseBranch: 'previous-chunk', integrationBranch: `${repositoryId}-main`,
+      deliverySha: 'a'.repeat(40), decision: 'on_review', implementationOutcome: 'succeeded', deliveryOutcome: 'ready',
+      statusCode: null, statusDetail: null, prUrl: null, prNumber: null, worktreeIds: [], runIds: [],
+    }))
+    global.fetch = vi.fn(async () => httpRes(200, { ok: true, decision: 'merged' })) as unknown as typeof fetch
+    render(<AgentPrDecisionCard envelope={env({ projectId: 'p2', baseBranch: 'unrelated-parent-base', repositoryDeliveries: repositories })} />)
+    expect(screen.queryByTestId('agent-pr-merge-local')).toBeNull()
+    expect(screen.queryByTestId('agent-pr-checkout')).toBeNull()
+    expect(screen.queryByText(/unrelated-parent-base/)).toBeNull()
+    expect(screen.getAllByRole('button', { name: 'Create PR' })).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: 'Integrate locally' })).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeInTheDocument()
+    fireEvent.click(within(screen.getByRole('region', { name: 'api' })).getByRole('button', { name: 'Integrate locally' }))
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByText(/api-main/)).toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).includes('/pr-decision'))).toHaveLength(0)
+    await act(async () => { fireEvent.click(dialog.getByRole('button', { name: 'Confirm' })) })
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p2/rails/pr-decision', expect.objectContaining({
+      body: JSON.stringify({ prDeliveryId: 'd1', action: 'merge-local', expectedDecision: 'on_review', repositoryId: 'api' }),
+    }))
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('api-main'))
+  })
+
   it('Create PR posts to the CARD project (not the active one) and disables while in flight', async () => {
     let resolveFetch!: (v: unknown) => void
     global.fetch = vi.fn(() => new Promise((r) => { resolveFetch = r })) as unknown as typeof fetch

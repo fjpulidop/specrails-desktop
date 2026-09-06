@@ -244,6 +244,15 @@ describe('project-router', () => {
   // ─── Project Builder: milestone ticket provenance ─────────────────────────
 
   describe('POST /:projectId/blueprint/commit-milestone', () => {
+    it('rejects foreign repository IDs before writing any milestone specs', async () => {
+      const context = makeContext(db)
+      const { app } = createApp(new Map([['proj-1', context]]))
+      const response = await request(app).post('/api/projects/proj-1/blueprint/commit-milestone').send({ milestoneId: 'm2', specsComplete: true, specs: [premiumSpec(0, { repositoryIds: ['foreign'] })] })
+      expect(response.status).toBe(400)
+      expect(response.body.code).toBe('invalid_repository_ids')
+      expect(context.broadcast).not.toHaveBeenCalled()
+    })
+
     let repoDir: string
     let registryHome: string
     let priorRegistryHome: string | undefined
@@ -308,11 +317,13 @@ describe('project-router', () => {
             shortSummary: 'Show actionable progress reports.',
             priority: 'high',
             labels: ['analytics', 'M2'],
+            repositoryIds: ['primary-proj-1'],
           })],
         })
 
       expect(response.status).toBe(201)
       expect(response.body.insertedIds).toHaveLength(1)
+      expect(readStore(entry.ticketsPath).tickets[String(response.body.insertedIds[0])].repositoryIds).toEqual(['primary-proj-1'])
       const ticket = readStore(entry.ticketsPath).tickets[String(response.body.insertedIds[0])]
       expect(ticket).toMatchObject({
         title: 'Add reports',

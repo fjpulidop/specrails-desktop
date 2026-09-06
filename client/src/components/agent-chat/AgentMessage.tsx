@@ -17,6 +17,7 @@ import { AgentProblemFrameCard, AgentProblemFramePending } from './AgentProblemF
 import { parseAgentRefHref, remarkAgentRefs, type AgentRefTarget } from '../../lib/agent-refs'
 import { fetchAgentAttachmentBlob, type AgentAttachment, type AgentContextReference } from '../../lib/agent-api'
 import { AgentRefChip } from './AgentRefChip'
+import { AgentDeliveryReceipt } from './AgentDeliveryReceipt'
 
 // Token-based markdown styling — works across ALL themes (no prose-invert, which
 // would break light themes). Tables, bold, code, lists, blockquotes, links.
@@ -280,7 +281,7 @@ function AgentAttachmentDialog({
   return createPortal(dialog, document.body)
 }
 
-function AgentAttachmentChips({
+export function AgentAttachmentChips({
   conversationId,
   attachments,
 }: {
@@ -426,12 +427,14 @@ interface Props {
   contextRefs?: AgentContextReference[]
   /** Attachments persisted with a user message. */
   attachments?: AgentAttachment[]
+  deliveryStatus?: 'delivered' | 'interrupted' | 'cancelled'
+  deliveryReceipt?: 'sent' | 'received' | 'read'
   /** Conversation id needed to fetch the attachment blob for preview/download. */
   conversationId?: string
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
-export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId }: Props) {
+export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt }: Props) {
   const isUser = role === 'user'
   const { openWebView, canOpenWebView } = useWebViewModal()
 
@@ -486,6 +489,7 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
           <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-border/50 bg-foreground/[0.06] px-3.5 py-2 text-sm text-foreground">
             <AgentContextInlineTokens content={content} contextRefs={contextRefs} />
             <AgentAttachmentChips conversationId={conversationId} attachments={attachments} />
+            {(deliveryStatus || deliveryReceipt) && <div className="mt-1 flex justify-end"><AgentDeliveryReceipt receipt={deliveryReceipt} status={deliveryStatus} /></div>}
           </div>
         </div>
         {createdAt && (

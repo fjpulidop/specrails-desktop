@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
-import { apiCall, projectPath } from './types'
+import { apiCall, repositoryPath } from './types'
 import { GIT_DIAGNOSTIC_ACTIONS, gitDiagnosticHelp, isGitDiagnosticAction } from '../../git-diagnostics'
 
 /**
@@ -34,10 +34,11 @@ export function gitTools(): McpToolSpec[] {
           .enum(['info', 'pull_request', ...GIT_DIAGNOSTIC_ACTIONS])
           .describe('Which read-only diagnostic to run'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
+        repositoryId: z.string().min(1).optional().describe('Repository membership ID. Required when the project has more than one repository; discover IDs with specrails_projects(get).'),
         prNumber: z.number().int().positive().optional().describe('Exact pull request number (required for pull_request)'),
       },
       async handler(ctx, args) {
-        const base = projectPath(ctx, args.projectId as string | undefined)
+        const base = repositoryPath(ctx, args.projectId as string | undefined, args.repositoryId as string | undefined)
         const action = args.action as string
         if (action === 'info') return apiCall(ctx, 'GET', `${base}/git`)
         if (action === 'pull_request') {

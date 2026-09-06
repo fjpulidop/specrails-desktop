@@ -53,13 +53,17 @@ import { FrameworkManager } from './framework-manager'
 import { withFileLock } from './artifact-registry'
 import { resolveStartupPath, augmentPathFromLoginShell, augmentAuthEnvFromLoginShell, getPathDiagnostic, ensureWindowsBaseEnv } from './path-resolver'
 import { resolveServerPort } from './dev-ports'
+import { apiNotFound } from './api-not-found'
 import { beginAppProcessQuiescence } from './process-admission'
+import { consumeHostControlToken, createHostControlRouter } from './host-control'
+import { awaitBackgroundProcessesStopped, initializeBackgroundProcessPersistence, closeBackgroundProcessPersistence } from './transient-children'
 // Side-effect import: registers every bundled ProviderAdapter (claude, codex,
 // future providers) so `getAdapter`/`hasAdapter`/`listAdapters` are populated
 // before any manager constructs a project context. See
 // openspec/changes/add-multi-provider-support/specs/multi-provider-architecture/spec.md.
 import './providers'
 
+const hostControlToken = consumeHostControlToken()
 const inheritedPathBeforeResolve = (process.env.PATH ?? '').split(process.platform === 'win32' ? ';' : ':').filter(Boolean).length
 // Backfill SystemRoot/ComSpec/etc into process.env BEFORE anything spawns, so a
 // stripped GUI-launch sidecar env never breaks cmd.exe-mediated spawns (PTY,
@@ -179,6 +183,7 @@ function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
 }
 
 app.use(corsMiddleware)
+app.use('/api/host', createHostControlRouter({ token: hostControlToken, onShutdown: shutdown }))
 
 // Provider traffic uses the desktop listener as a stable relay. Mount before
 // every body parser so large/streaming request bodies and Codex event streams
@@ -544,6 +549,13 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
 
 {
   const registry = new ProjectRegistry(broadcast, undefined, port)
+  try {
+    initializeBackgroundProcessPersistence(path.join(path.dirname(registry.desktopDb.name), 'background-processes.sqlite'))
+  } catch (error) {
+    // A log-store failure must not take mission chat or the project catalog
+    // offline. New background launches report the persistence error directly.
+    console.error('[background-process] persistent history unavailable:', error)
+  }
   registry.loadAll()
   _registry = registry
   _getProjectCount = () => registry.listProjects().length
@@ -753,6 +765,8 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 
 // ─── Serve built React client (production) ────────────────────────────────────
 
+app.use(['/api', '/hooks'], apiNotFound)
+
 const clientDist = path.resolve(__dirname, '../../client/dist')
 if (fs.existsSync(clientDist)) {
   app.use(express.static(clientDist))
@@ -826,6 +840,13 @@ async function shutdown(): Promise<void> {
     Promise.resolve().then(() => _agentChatManager?.shutdown()),
     Promise.resolve().then(() => _blueprintChatManager?.shutdown()),
   ])
+  // The shell can exit before its application descendants. Keep the event
+  // loop alive for the owned-group escalation before server.close exits us.
+  const remainingBackground = await awaitBackgroundProcessesStopped(6000)
+  if (remainingBackground.length) console.error('[shutdown] background applications still alive after stop deadline:',
+    remainingBackground.map(({ pid, processId, error }) => ({ pid, processId, error })))
+  try { closeBackgroundProcessPersistence() }
+  catch (error) { console.error('[shutdown] background process history could not be flushed:', error) }
   try {
     await _headroomManager?.shutdown()
   } catch { /* ignore */ }

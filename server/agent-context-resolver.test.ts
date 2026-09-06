@@ -84,6 +84,25 @@ describe('agent project context isolation', () => {
     expect(block.match(/spec.id: #1/g)).toHaveLength(2)
   })
 
+  it('preserves same-path file references across repositories and refuses foreign repository scopes', () => {
+    const project = projects[0]
+    project.repositories = ['frontend', 'backend'].map((id, index) => {
+      const directory = path.join(home, id)
+      fs.mkdirSync(directory)
+      fs.writeFileSync(path.join(directory, 'index.ts'), id)
+      return { id, projectId: project.id, path: directory, name: id, kind: 'folder', isPrimary: index === 0, addedAt: '', integrationBranch: null }
+    })
+    const refs = project.repositories.map(repository => ({ kind: 'file', id: 'index.ts', label: 'index.ts', token: '@index.ts', scope: { projectId: project.id, repositoryId: repository.id } }))
+    const block = buildResolvedAgentContextBlock(refs, { desktopDb, registry })
+    expect(block.match(/resolution: scoped file reference/g)).toHaveLength(2)
+    expect(block).toContain('repository.name: backend')
+    const foreign = buildResolvedAgentContextBlock([{ ...refs[0], scope: { projectId: 'a', repositoryId: 'foreign' } }], { desktopDb, registry })
+    expect(foreign).toContain('resolution_error: Repository does not belong')
+    const ambiguous = buildResolvedAgentContextBlock([{ ...refs[0], scope: { projectId: 'a' } }], { desktopDb, registry })
+    expect(ambiguous).toContain('repository required')
+    expect(buildAgentProjectContextBlock({ desktopDb, registry, fallbackProjectId: 'a' })).toContain('Historical specs without repositoryIds target only the primary')
+  })
+
   it('does not cross project boundaries for jobs or parse malformed spec ids as valid numbers', () => {
     createJob(contexts[1].db, { id: 'job-1', command: 'B-only command', started_at: '2026-01-01' })
     const job = buildResolvedAgentContextBlock([{ ...ref('a'), kind: 'job', id: 'job-1' }], { desktopDb, registry })
@@ -124,11 +143,12 @@ describe('agent fresh-session history', () => {
     const messages = Array.from({ length: 20 }, (_, i) => ({
       id: String(i), conversation_id: 'conversation', role: i % 2 ? 'assistant' : 'user',
       content: `${i} ${'x'.repeat(5000)}`, created_at: '', attachment_ids: i === 19 ? ['attachment-19'] : [],
-      context_refs: i === 19 ? [{ kind: 'spec', id: '1', label: '#1', token: '#1', scope: { projectId: 'b' } }] : [],
+      context_refs: i === 19 ? [{ kind: 'spec', id: '1', label: '#1', token: '#1', scope: { projectId: 'b', repositoryId: 'backend' } }] : [],
     } as AgentMessage))
     const block = buildAgentHistoryBlock(messages)
     expect(block).toContain('19 xxx')
     expect(block).toContain('"projectId":"b"')
+    expect(block).toContain('"repositoryId":"backend"')
     expect(block).toContain('Historical attachment content is not included.')
     expect(block).toContain('do not repeat completed actions')
     expect(block).toContain('earlier content may be omitted')

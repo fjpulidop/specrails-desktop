@@ -11,8 +11,10 @@
  *
  * Spec: openspec/changes/loop-builder/specs/loop-execution/spec.md
  */
+import type { CoreRunInput } from './core-execution'
+import { executionManifestPrompt, type RunExecutionManifest } from './multi-repo-execution-store'
 import type { ChildProcess } from 'node:child_process'
-import treeKill from 'tree-kill'
+import { treeKillSafe as treeKill } from './util/win-spawn'
 import { createJob, appendEvent, markJobInteractive, accumulateInteractiveTurn, type DbInstance, type InteractiveTurnUsage } from './db'
 import {
   InteractiveJobSession,
@@ -30,6 +32,7 @@ import {
   findStartNode,
   successors,
   interpolateSpec,
+  assertLoopShellRepositoryScope,
 } from './loop-graph'
 import { expandCommands } from './loop-command-catalog'
 import { BUILTIN_CONSTANTS, resolveConstants } from './loop-constants'
@@ -145,12 +148,14 @@ export type LoopSpawnSink = (child: ChildProcess) => void
 /** Input for the optional interactive-plan builder (mirrors runAiStep's spawn
  *  context — everything the one-shot path derives its cwd/env/argv from). */
 export interface InteractivePlanInput {
+  coreRun?: CoreRunInput
   provider: string
   model: string
   effort?: ReasoningEffort
   profileName?: string | null
   cwd: string
   repoDir?: string
+  executionManifest?: RunExecutionManifest
   /** Resume a prior step's session (mid-pass continuity — the interactive
    *  equivalent of the one-shot path's chat-resume). Absent on a fresh pass. */
   sessionId?: string
@@ -167,6 +172,8 @@ export interface InteractivePlanInput {
  *  InteractiveJobSession lifecycle: step timeout, turn routing, settle → step
  *  result). `spawn` is the tests' injection seam, exactly like the session's. */
 export interface InteractiveAiStepPlan {
+  /** Host-validated Core verification evidence for this step. */
+  promptPrefix?: string
   adapter: ProviderAdapter
   spec: InteractiveSpawnSpec
   /** Wall-clock bound for the WHOLE step, user turns included. On expiry the
@@ -185,6 +192,7 @@ export interface InteractiveAiStepPlan {
 
 export interface LoopExecutors {
   runAiStep(input: {
+    coreRun?: CoreRunInput
     prompt: string
     sessionId?: string
     provider: string
@@ -193,6 +201,7 @@ export interface LoopExecutors {
     profileName?: string | null
     cwd: string
     repoDir?: string
+  executionManifest?: RunExecutionManifest
     onLine?: LoopLogSink
     onRawLine?: (line: string) => void
     onSpawn?: LoopSpawnSink
@@ -216,6 +225,7 @@ export interface LoopExecutors {
     effort?: ReasoningEffort
     cwd: string
     repoDir?: string
+  executionManifest?: RunExecutionManifest
     onLine?: LoopLogSink
     onRawLine?: (line: string) => void
     onSpawn?: LoopSpawnSink
@@ -245,7 +255,10 @@ export interface LoopRunRequest {
   /** The repo dir when relocated (→ SPECRAILS_REPO_DIR + claude `--add-dir`), so
    *  native core slash commands run against the real repo. Undefined = legacy. */
   repoDir?: string
+  executionManifest?: RunExecutionManifest
   railIndex?: number | null
+  /** Registered identity for a legacy single-repository run without a manifest. */
+  repositoryId?: string
   ticketId?: number | null
   spec?: LoopSpec
   /** Launch-captured terminal destination. Persisted before any provider spawn
@@ -459,7 +472,7 @@ const RUN_TOKEN_RE = /\{\{\s*run\.(\w+)\s*\}\}/g
 /** First ACTIVE `openspec/changes/<id>` path mentioned in a step's output.
  *  Archive paths (`openspec/changes/archive/...`) are historical destinations,
  *  not runnable change ids for later `{{run.changeId}}` commands. */
-const CHANGE_ID_RE = /openspec\/changes\/(?!archive(?:\/|$))([A-Za-z0-9._-]+)(?=\/|\s|$)/g
+const CHANGE_ID_RE = /openspec[\\/]+changes[\\/]+(?!archive(?:[\\/]|$))([A-Za-z0-9._-]+)(?=[\\/]|\s|$)/g
 
 /** Replace `{{run.<name>}}` with the captured value; uncaptured → '' (never a
  *  leaked literal token). Applied AFTER `{{cmd:*}}` and `{{spec.*}}`. */
@@ -929,6 +942,21 @@ export class LoopRunManager {
   }
 
   async run(req: LoopRunRequest): Promise<LoopRunResult> {
+    // Later fresh steps must verify the admitted spec, even if its caller or
+    // backlog changes while the implementation is running.
+    req = { ...req, graph: structuredClone(req.graph) }
+    if (req.spec) req = { ...req, spec: structuredClone(req.spec) }
+    if (req.executionManifest) req = { ...req, executionManifest: structuredClone(req.executionManifest) }
+    assertLoopShellRepositoryScope(req.graph, req.executionManifest?.selectedRepositoryIds ?? (req.repositoryId ? [req.repositoryId] : []))
+    if (req.executionManifest) {
+      for (const node of req.graph.nodes) {
+        if (node.type !== 'shell') continue
+        const repositoryId = node.data?.repositoryId
+        if (typeof repositoryId !== 'string' || !req.executionManifest.repositories.some((repo) => repo.repositoryId === repositoryId)) {
+          throw new Error(`Shell step ${node.id} requires an explicit selected repositoryId for this execution`)
+        }
+      }
+    }
     if (this._disposed) throw new Error('LoopRunManager is shut down')
     const adapter = getAdapter(req.provider)
     // A Decider is a structured, read-only judgment over repository state.
@@ -997,6 +1025,7 @@ export class LoopRunManager {
         iterationLimit: maxIterations,
         startedAt: launchStartedAt,
       })
+      if (req.executionManifest) this.db.prepare('UPDATE loop_runs SET execution_manifest = ? WHERE id = ?').run(JSON.stringify(req.executionManifest), runId)
       createJob(this.db, {
         id: runId,
         command: jobCommand,
@@ -1468,7 +1497,7 @@ export class LoopRunManager {
               ),
               constMap
             )
-            const base = withReviewContinuationContext(expanded, rawTemplate, req.spec)
+            const base = [executionManifestPrompt(req.executionManifest), withReviewContinuationContext(expanded, rawTemplate, req.spec)].filter(Boolean).join('\n\n')
             // Inject the cross-iteration history only when there's no live session
             // to carry it (a fresh pass) OR right after a Decider 'continue' (so the
             // step sees the verdict). A mid-body resumed step already has it.
@@ -1503,13 +1532,15 @@ export class LoopRunManager {
               const effectiveTimeoutMs = Number.isFinite(remainingMs)
                 ? Math.max(1, Math.min(aiStepTimeoutMs === 0 ? Infinity : (aiStepTimeoutMs ?? 15 * 60_000), remainingMs))
                 : aiStepTimeoutMs
+              const coreRun: CoreRunInput = { runId, spec: req.spec, goal: req.spec ? undefined : JSON.stringify({ loop: req.loopName, graph: req.graph }), repositoryId: req.repositoryId, verificationStep: node.data?.requireVerificationPass === true || /\{\{\s*cmd:(?:verify|revision-verify|opsx:verify)\s*\}\}/.test(rawTemplate) }
               const interactivePlan = this.executors.planInteractiveAiStep?.({
+                coreRun,
                 provider: nodeProvider,
                 model: nodeModel,
                 effort: nodeEffort,
                 profileName: req.profileName,
                 cwd: req.cwd,
-                repoDir: req.repoDir,
+                repoDir: req.repoDir, executionManifest: req.executionManifest,
                 sessionId,
                 aiStepTimeoutMs: effectiveTimeoutMs,
                 idleTimeoutMs,
@@ -1519,12 +1550,12 @@ export class LoopRunManager {
                     runId,
                     projectId: req.projectId,
                     plan: interactivePlan,
-                    prompt,
+                    prompt: [interactivePlan.promptPrefix, prompt].filter(Boolean).join('\n\n'),
                     fallbackModel: nodeModel,
                     nextEventSeq: takeSeq,
                     recoveryStepKey: aiRecoveryKey,
                   })
-                : this.executors.runAiStep({ prompt, sessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, profileName: req.profileName, cwd: req.cwd, repoDir: req.repoDir, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs: effectiveTimeoutMs, idleTimeoutMs })
+                : this.executors.runAiStep({ coreRun, prompt, sessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, profileName: req.profileName, cwd: req.cwd, repoDir: req.repoDir, executionManifest: req.executionManifest, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs: effectiveTimeoutMs, idleTimeoutMs })
             }
             let res = await runAttempt(aiSessionId)
             if (this._disposed) return neverAfterDispose()
@@ -1729,7 +1760,8 @@ export class LoopRunManager {
             const command = resolveConstants(resolveRunVars(interpolateSpec(String(node.data?.command ?? ''), req.spec), runVars), constMap)
             emitStep('shell', `⚡ ${nodeLabel || 'Shell'}`, node.id, iteration + 1)
             logLine(`$ ${command}`)
-            const sh = await this.executors.runShell({ command, cwd: req.cwd, repoDir: req.repoDir, timeoutMs: Math.min(10 * 60_000, Math.max(1, deadline - this.now())), onLine: logLine, onSpawn: (c) => this._activeChild.set(runId, c) })
+            const shellRepo = req.executionManifest?.repositories.find((repo) => repo.repositoryId === node.data?.repositoryId)?.worktreePath ?? req.repoDir
+            const sh = await this.executors.runShell({ command, cwd: req.executionManifest ? shellRepo ?? req.cwd : req.cwd, repoDir: shellRepo, timeoutMs: Math.min(10 * 60_000, Math.max(1, deadline - this.now())), onLine: logLine, onSpawn: (c) => this._activeChild.set(runId, c) })
             if (this._disposed) return neverAfterDispose()
             this._activeChild.delete(runId)
             logLine(`(exit ${sh.exitCode})`)
@@ -1762,12 +1794,12 @@ export class LoopRunManager {
               systemPrompt: buildDeciderSystemPrompt(),
               // Give the Decider the spec so it can verify completeness against the
               // FULL scope instead of trusting a step's self-reported success.
-              userPrompt: buildDeciderUserPrompt({ goal, history, spec: req.spec }),
+              userPrompt: [executionManifestPrompt(req.executionManifest), buildDeciderUserPrompt({ goal, history, spec: req.spec })].filter(Boolean).join('\n\n'),
               provider: nodeProvider,
               model: nodeModel,
               effort: nodeEffort,
               cwd: req.cwd,
-              repoDir: req.repoDir,
+              repoDir: req.repoDir, executionManifest: req.executionManifest,
               onLine: logLine,
               onRawLine,
               onSpawn: (c) => this._activeChild.set(runId, c),
@@ -1854,8 +1886,9 @@ export class LoopRunManager {
             // (e.g. verify keeps passing a baseline while the feature is never
             // written) — abort `stalled` rather than cycle to the cap.
             if (dec.continue && this.executors.repoStateHash) {
-              const dir = req.repoDir ?? req.cwd
-              const hash = this.executors.repoStateHash(dir)
+              const dirs = req.executionManifest?.repositories.map((repo) => repo.worktreePath) ?? [req.repoDir ?? req.cwd]
+              const hashes = dirs.map((dir) => this.executors.repoStateHash!(dir))
+              const hash = hashes.some((value) => value === null) ? null : JSON.stringify(hashes)
               // null = couldn't read the tree → skip (never let null match null).
               if (hash !== null) {
                 if (hash === lastRepoHash) {
@@ -2198,7 +2231,7 @@ export class LoopRunManager {
             zeroWork: info.zeroWork,
             errorText: failed
               ? (info.reason === 'crashed'
-                  ? (stalled ? AI_STEP_STALLED_ERROR : timedOut ? AI_STEP_TIMEOUT_ERROR : 'interactive step session crashed')
+                  ? (stalled ? AI_STEP_STALLED_ERROR : timedOut ? AI_STEP_TIMEOUT_ERROR : info.resultIsError && info.resultText ? info.resultText : 'interactive step session crashed')
                   : info.zeroWork
                     ? `zero work performed — the command never ran${info.resultText ? `: ${info.resultText}` : ''}`
                     : `provider returned an error result${info.resultText ? ` — ${info.resultText}` : ''}`)

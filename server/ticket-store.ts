@@ -16,6 +16,8 @@ export interface Attachment {
 }
 
 export interface Ticket {
+  /** Omitted legacy scope means the primary repository of the logical project. */
+  repositoryIds?: string[]
   id: number
   title: string
   description: string

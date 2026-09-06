@@ -13,7 +13,7 @@
 
 import type { ChildProcess } from 'node:child_process'
 import { createInterface } from 'node:readline'
-import treeKill from 'tree-kill'
+import { treeKillSafe as treeKill } from './util/win-spawn'
 import { spawnAiCli } from './util/cli-prompt'
 import { buildProviderEnv, parseStreamEvents } from './providers/runtime'
 import type { ProviderAdapter, AdapterEvent, SpawnAction, SpawnOptions } from './providers/types'

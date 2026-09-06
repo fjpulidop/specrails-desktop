@@ -79,10 +79,10 @@ describe('composeShellIntegrationSpawn', () => {
     expect(got.shimDir).toBeNull()
   })
 
-  it('PowerShell: returns -NoLogo -NoExit -File and writes profile.ps1', () => {
+  it('PowerShell: permits only the generated process profile and leaves no engine arguments after -File', () => {
     const got = composeShellIntegrationSpawn('C:\\Program Files\\PowerShell\\7\\pwsh.exe', 's4', 'proj', ENABLED)
-    expect(got.args.slice(0, 3)).toEqual(['-NoLogo', '-NoExit', '-File'])
-    expect(got.args[3]).toBe(got.shimPath)
+    expect(got.args).toEqual(['-NoLogo', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', got.shimPath])
+    expect(got.replaceArgs).toBe(true)
     expect(fs.readFileSync(got.shimPath!, 'utf-8')).toMatch(/powershell-shim\.ps1/)
   })
 

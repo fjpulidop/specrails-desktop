@@ -60,7 +60,7 @@ export type ChainIoFailure = { ok: false; status: number; error: string; detail?
 export interface MilestoneChainIO {
   createRail(name: string): Promise<{ ok: true; railIndex: number } | ChainIoFailure>
   assignTickets(railIndex: number, ticketIds: number[]): Promise<{ ok: true } | ChainIoFailure>
-  launch(railIndex: number, body: { mode: 'batch-implement'; baseBranch?: string }): Promise<{ ok: true; loopRunIds: string[] } | ChainIoFailure>
+  launch(railIndex: number, body: { mode: 'batch-implement'; baseBranch?: string; baseDeliveryIds?: string[] }): Promise<{ ok: true; loopRunIds: string[] } | ChainIoFailure>
   /** Newest non-terminal delivery on the rail (read right after a launch). */
   activeDeliveryForRail(railIndex: number): PrDeliverySnapshot | null
   /** A rail already carrying this chain-rail name (e.g. from a previous chain
@@ -149,7 +149,7 @@ export class MilestoneChainManager {
 
   /** Create → assign → launch ONE chunk on a fresh rail — or, for a retry,
    *  on the rail the failed attempt used when nothing undecided sits on it. */
-  private async launchChunk(n: number, chunks: number[][], chunkIndex: number, baseBranch: string | null, reuseRailIndex: number | null = null): Promise<LaunchedChunk> {
+  private async launchChunk(n: number, chunks: number[][], chunkIndex: number, baseBranch: string | null, reuseRailIndex: number | null = null, baseDeliveryIds?: string[]): Promise<LaunchedChunk> {
     const ticketIds = chunks[chunkIndex]
     let railIndex: number
     const name = chainRailName(n, chunkIndex, chunks.length)
@@ -165,7 +165,7 @@ export class MilestoneChainManager {
     }
     const assigned = await this.io.assignTickets(railIndex, ticketIds)
     if (!assigned.ok) return assigned
-    const launched = await this.io.launch(railIndex, { mode: 'batch-implement', ...(baseBranch ? { baseBranch } : {}) })
+    const launched = await this.io.launch(railIndex, { mode: 'batch-implement', ...(baseDeliveryIds?.length ? { baseDeliveryIds } : baseBranch ? { baseBranch } : {}) })
     if (!launched.ok) return launched
     const delivery = this.io.activeDeliveryForRail(railIndex)
     return {
@@ -301,13 +301,15 @@ export class MilestoneChainManager {
       }
       return
     }
-    if (head && !(await this.branchExistsSafe(head))) {
+    const earlierDeliveries = parseLaunched(row).filter((entry) => entry.chunk <= chunkIndex && entry.deliveryId).map((entry) => entry.deliveryId!)
+    const multiRepositoryHistory = earlierDeliveries.some((id) => this.io.getDelivery(id)?.executionManifest)
+    if (!multiRepositoryHistory && head && !(await this.branchExistsSafe(head))) {
       this.pause(row, 'head_missing', { headBranch: head })
       return
     }
     updateChain(this.db, row.id, row.status, { status: 'waiting', headBranch: head, pauseReason: null }, this.now())
     const reuse = chunkIndex < row.next_chunk ? this.reusableRailFor(row, chunkIndex) : null
-    const r = await this.launchChunk(row.milestone_n, chunks, chunkIndex, head, reuse)
+    const r = await this.launchChunk(row.milestone_n, chunks, chunkIndex, head, reuse, multiRepositoryHistory ? earlierDeliveries : undefined)
     const current = getChain(this.db, chainId)
     if (!current || !isActiveChainStatus(current.status)) return
     if (!r.ok) {
@@ -356,7 +358,7 @@ export class MilestoneChainManager {
       if (row.current_delivery_id !== snap.id) continue
       if (snap.decision === 'building') continue
       if (SUCCESS_DECISIONS.has(snap.decision)) {
-        const delivered = snap.decision === 'no_changes'
+        const delivered = snap.executionManifest ? null : snap.decision === 'no_changes'
           ? row.head_branch
           : (snap.branch ?? snap.units.find((u) => u.succeeded && u.branch)?.branch ?? row.head_branch)
         if (row.status === 'running') {

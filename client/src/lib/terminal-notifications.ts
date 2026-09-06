@@ -1,4 +1,4 @@
-import { isTauri, _tauriDynImport as dynImport } from './tauri-shell'
+import { isTauri } from './tauri-shell'
 import i18n from './i18n'
 
 interface NotifyArgs {
@@ -31,20 +31,10 @@ export async function notifyCommandFinished(sessionId: string, args: NotifyArgs)
 
   if (isTauri()) {
     try {
-      const mod = await dynImport('@tauri-apps/plugin-notification') as null | {
-        sendNotification?: (opts: { title: string; body: string }) => Promise<void>
-        isPermissionGranted?: () => Promise<boolean>
-        requestPermission?: () => Promise<string>
-      }
-      if (mod?.sendNotification) {
-        let granted = (await mod.isPermissionGranted?.()) ?? true
-        if (!granted) {
-          const perm = await mod.requestPermission?.()
-          granted = perm === 'granted'
-        }
-        if (granted) { await mod.sendNotification({ title, body }); return }
-      }
-    } catch { /* fall through */ }
+      const { invoke } = await import('@tauri-apps/api/core')
+      await invoke('desktop_notify', { title, body })
+    } catch { /* Notification policy must never interrupt the terminal. */ }
+    return
   }
 
   // Browser fallback.

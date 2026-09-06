@@ -56,6 +56,7 @@
     }
   },
   "editor": {
+    "responsiveHint": "Les annotations s’appliquent à l’image affichée. Les autres tailles d’écran restent inchangées.",
     "tools": {
       "arrow": "Flèche (A)",
       "box": "Rectangle (R)",

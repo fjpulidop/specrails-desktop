@@ -345,3 +345,15 @@ describe('geminiAdapter.detectInstalled', () => {
     expect(await geminiAdapter.detectInstalled()).toEqual({ installed: true, executable: false })
   })
 })
+
+
+describe('coordinated workspace scope', () => {
+  it('includes each selected repository in first and resumed provider workspaces', () => {
+    const extraArgs = geminiAdapter.buildRepoAccessArgs(['/work/backend', '/work/front end'])
+    expect(extraArgs).toEqual(['--include-directories', '/work/backend', '--include-directories', '/work/front end'])
+    for (const action of ['rail-job', 'chat-resume'] as const) {
+      const args = geminiAdapter.buildArgs(action, { prompt: 'implement', model: 'gemini-3.5-flash', sessionId: 's', extraArgs })
+      expect(args.slice(-extraArgs.length)).toEqual(extraArgs)
+    }
+  })
+})

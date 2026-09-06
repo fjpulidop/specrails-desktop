@@ -4,9 +4,10 @@
 
 ## Supported configurations
 
-- **Windows 10** (1809 or newer) and **Windows 11**.
+- **Windows 10 x64** (1809 or newer) and **Windows 11 x64/ARM64**.
 - Both **x64** and **ARM64** are first-class targets — each release publishes native installers for both architectures.
-- The terminal panel uses ConPTY, which requires **Windows 10 1809+** (always available on Windows 11).
+- The terminal panel uses ConPTY on supported Windows builds and ships the node-pty WinPTY fallback for older Windows 10 builds.
+- The installer embeds the evergreen WebView2 offline installer, so provisioning the app webview does not require a network connection.
 
 ## Installation
 
@@ -65,18 +66,15 @@ user-managed. See [Kimi](../kimi.md), [Codex](../codex.md), and
 
 The desktop app self-updates via the Tauri updater plugin. It checks a GitHub Releases `latest.json` endpoint and, on Windows, applies updates with `installMode: "passive"` — the update runs with a minimal progress UI and the app relaunches into the new version.
 
-Note that updates are delivered as the **MSI** (verified by an embedded **minisign** signature the updater checks before applying), not the NSIS `-setup.exe` used for first install. Because the installers are not Authenticode-signed, an applied update may still surface the same SmartScreen prompt; click **More info → Run anyway** as during the first install.
+Updates preserve the installation format: NSIS installs receive a signed `-setup.exe` updater artifact, and MSI installs receive a signed `.msi` artifact for the same architecture. The signatures are Tauri/minisign integrity signatures, separate from Authenticode signing. An incomplete installer/signature pair blocks publication; the release no longer silently substitutes MSI for NSIS.
+
+Normal quit and updates request an authenticated graceful shutdown of the owned sidecar first, giving processes and persistent logs time to close before a bounded force-stop fallback.
 
 ## Setup wizard
 
-When you add a project, the setup wizard runs `npx specrails-core@^4.12.0 init --from-config` under the hood (the full spawn is `npx --yes --prefer-online specrails-core@^4.12.0 init --yes --from-config <tempPath>`, with the app writing a temporary `install-config.yaml`). The wizard has three steps — **Configure / Install / Done**.
+Adding a project assembles the framework from the bundled or newer compatible activated core. The installed app includes the Node-native core and OpenSpec resources, so normal project setup does not require a separate core installation. Core updates preserve the previous active framework if switching the Windows junction fails.
 
-There are two distinct version floors to be aware of:
-
-- The app **installs** `specrails-core@^4.12.0` — the major-pinned range it ships (4.12.0 is the release that adds the Kimi provider target). The exact package spec is the `CORE_PACKAGE_SPEC` constant in `server/core-package.ts`, so it stays verifiable in one place. You need internet access at install time so `npx` can resolve it.
-- The minimum it will **accept** at runtime is **specrails-core ≥ 4.1.0** — the Node-native installer floor (`MIN_NODE_NATIVE_CORE_VERSION`). Anything below that is a legacy bash/python3 installer and cannot run on Windows without WSL.
-
-You can point the app at a local or linked build with the `SPECRAILS_CORE_BIN` environment variable (it overrides the `npx` spec above).
+Online fallback uses the range in `server/core-package.ts` (currently `specrails-core@^5.0.0`). Runtime selection and the activated version are shared with the Settings view so a restart cannot silently downgrade a newer working core. `SPECRAILS_CORE_BIN` remains available for a deliberately selected local core executable. Legacy pre-4.1 bash/Python installers are not used for Windows setup.
 
 Reserved paths (`.specrails/profiles/**`, `.claude/agents/custom-*.md`) are preserved across re-runs per the contract documented in [specrails-core's README](https://github.com/fjpulidop/specrails-core#reserved-paths).
 
@@ -87,7 +85,7 @@ Reserved paths (`.specrails/profiles/**`, `.claude/agents/custom-*.md`) are pres
 
 ## Known limitations
 
-- **Terminal panel shell**: the bottom terminal panel auto-prefers **PowerShell 7 (`pwsh.exe`)** when it is on your `PATH`, then falls back to Windows PowerShell (`powershell.exe`), and finally `COMSPEC`/`cmd.exe`. Set the `SHELL` environment variable to override the platform default with any shell you prefer. Per-session shell selection is not yet exposed in the UI.
+- **Terminal panel shell**: the bottom terminal panel auto-prefers **PowerShell 7 (`pwsh.exe`)** when it is on your `PATH`, then falls back to Windows PowerShell (`powershell.exe`), and finally `COMSPEC`/`cmd.exe`. Unix `SHELL` values inherited from Git Bash are ignored on Windows. Per-session shell selection is not yet exposed in the UI. File drops use the actual session shell; paths that cmd.exe would expand cannot be pasted as if they were literal paths.
 - **Port 4200** must be free on launch. The app binds `127.0.0.1:4200` for its API + WebSocket. If another process holds it, the app shows a native **Specrails — Port Conflict** dialog and exits. When you need to investigate, two files under `%USERPROFILE%\.specrails\` help: `desktop.log` (the embedded server's log output) and `manager.pid` (the running server's process ID).
 - **Custom window chrome**: the app uses a frameless window with a custom titlebar; the min/max/close controls are rendered by the app.
 - **Code signing**: Windows builds are unsigned in v1 (see SmartScreen above). Authenticode signing is deferred to a later release.
@@ -98,3 +96,7 @@ Reserved paths (`.specrails/profiles/**`, `.claude/agents/custom-*.md`) are pres
 - [Getting started](../getting-started.md) — first run, adding a project, the dashboard tour.
 - [Codex provider setup](../codex.md), [Gemini provider setup](../gemini.md), and [Kimi provider setup](../kimi.md) — installing and configuring the provider CLIs.
 - [CLI reference](../cli.md) — driving Specrails from the command line.
+
+## Verification
+
+See [Windows parity audit](./windows-parity.md) for coverage, automated release gates and the real-device checks still required before making a compatibility claim. The source CI runs on Windows x64 and ARM64. Desktop Release installs both NSIS and MSI packages in temporary paths with spaces and exercises the installed server, database, repository browsing, PTY input/output/stop, graceful shutdown and restart.

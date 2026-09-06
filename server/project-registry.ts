@@ -3,6 +3,8 @@ import fs from 'fs'
 import os from 'os'
 import type { DbInstance } from './db'
 import { initDb } from './db'
+import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidationError, type ProjectRepositoryInput, type ProjectRepository, getProjectRepositories, canonicalRepositoryPath, repositoryPathKey } from './project-repositories'
+import { getRepositoryExecutionReferences } from './multi-repo-execution-store'
 import { QueueManager } from './queue-manager'
 import { createLoopProfilePathResolver, resolveAgentDefaults } from './agent-defaults'
 import { ChatManager } from './chat-manager'
@@ -21,7 +23,7 @@ import { BrowserCaptureManager } from './browser-capture-manager'
 import { SharedBrowserContextPool } from './browser-context-pool'
 import { removeExploreCwd } from './explore-cwd-manager'
 import { dropPhaseScope } from './hooks'
-import { killTransientChildren } from './transient-children'
+import { killTransientChildren, purgeBackgroundProcessHistory } from './transient-children'
 import { dropBlobStatesForProject } from './telemetry-receiver'
 import {
   mirrorProjectEntryWithPrevious,
@@ -72,7 +74,9 @@ import {
   addProject as addProjectToDesktopDb,
   removeProject as removeProjectFromDesktopDb,
   getProject,
-  getProjectByPath,
+  addProjectRepository as addRepositoryToDesktopDb,
+  updateProjectRepository as updateRepositoryInDesktopDb,
+  removeProjectRepository as removeRepositoryFromDesktopDb,
   touchProject,
   setProjectSetupSession,
   clearProjectSetupSession,
@@ -305,6 +309,7 @@ export class ProjectRegistry {
     path: string
     provider?: CliProvider
     providers?: CliProvider[]
+    repositories?: ProjectRepositoryInput[]
   }): ProjectContext {
     const row = addProjectToDesktopDb(this._desktopDb, opts)
     let previousRegistryEntry: ProjectEntry | undefined
@@ -381,6 +386,9 @@ export class ProjectRegistry {
         // deleting the data dir here would make that effect unrecoverable.
         throw new Error('Project removal deferred: terminal job recovery is still pending')
       }
+      // Persistent history must be removable before deleting project databases
+      // or directories; a storage failure leaves the registered data retryable.
+      purgeBackgroundProcessHistory({ projectId: id })
       try { ctx.chatManager.shutdown() } catch { /* ignore */ }
       // Loop engine teardown: dispose any resident interactive step sessions
       // (SIGTERM, no settle) + kill in-flight one-shot loop children — BEFORE
@@ -420,6 +428,8 @@ export class ProjectRegistry {
       // Close the DB connection BEFORE removing the project's data dir below.
       try { ctx.db.close() } catch { /* ignore */ }
       this._contexts.delete(id)
+    } else {
+      purgeBackgroundProcessHistory({ projectId: id })
     }
     // B54: remove the ENTIRE app-managed data dir even when context hydration
     // failed. The persisted row is authoritative for registered-but-not-loaded
@@ -467,10 +477,75 @@ export class ProjectRegistry {
     return this._contexts.get(id)
   }
 
-  getContextByPath(projectPath: string): ProjectContext | undefined {
-    const row = getProjectByPath(this._desktopDb, projectPath)
+  getContextByPath(projectPath: string, projectId?: string): ProjectContext | undefined {
+    const row = resolveRepositoryProject(listProjects(this._desktopDb), projectPath, projectId)
     if (!row) return undefined
     return this._contexts.get(row.id)
+  }
+
+  /** Preserve manager closures and shared stores when the repository catalog changes. */
+  refreshProjectRepositories(projectId: string): ProjectRow {
+    const row = getProject(this._desktopDb, projectId)
+    if (!row) throw new RepositoryValidationError('Project not found', 'project_not_found', 404)
+    const context = this._contexts.get(projectId)
+    if (context) {
+      for (const previous of getProjectRepositories(context.project)) {
+        const next = getProjectRepositories(row).find((repository) => repository.id === previous.id)
+        if (!next || next.path !== previous.path) {
+          try { context.fileSummaryManager.detachWatcher(projectId, previous.id) } catch (err) {
+            console.warn('[project-registry] repository watcher cleanup failed:', err)
+          }
+        }
+      }
+      Object.assign(context.project, row)
+    }
+    const failed = this._failedProjects.get(projectId)
+    if (failed) Object.assign(failed.project, row)
+    return context?.project ?? row
+  }
+
+  addRepository(projectId: string, input: ProjectRepositoryInput): ProjectRepository {
+    const repository = addRepositoryToDesktopDb(this._desktopDb, projectId, input)
+    this.refreshProjectRepositories(projectId)
+    return repository
+  }
+
+  updateRepository(projectId: string, repositoryId: string, input: Partial<ProjectRepositoryInput>): ProjectRepository {
+    if (input.path !== undefined) {
+      const project = getProject(this._desktopDb, projectId)
+      if (!project) throw new RepositoryValidationError('Project not found', 'project_not_found', 404)
+      const current = resolveProjectRepository(project, repositoryId)
+      if (!current.isPrimary && repositoryPathKey(canonicalRepositoryPath(input.path)) === repositoryPathKey(canonicalRepositoryPath(current.path))) {
+        input = { ...input }
+        delete input.path
+      }
+    }
+    if (input.path !== undefined) this._assertRepositoryUnreferenced(projectId, repositoryId)
+    const repository = updateRepositoryInDesktopDb(this._desktopDb, projectId, repositoryId, input)
+    this.refreshProjectRepositories(projectId)
+    return repository
+  }
+
+  removeRepository(projectId: string, repositoryId: string): void {
+    this._assertRepositoryUnreferenced(projectId, repositoryId)
+    removeRepositoryFromDesktopDb(this._desktopDb, projectId, repositoryId)
+    this.refreshProjectRepositories(projectId)
+  }
+
+  private _assertRepositoryUnreferenced(projectId: string, repositoryId: string): void {
+    const project = getProject(this._desktopDb, projectId)
+    if (!project) throw new RepositoryValidationError('Project not found', 'project_not_found', 404)
+    const repository = resolveProjectRepository(project, repositoryId)
+    if (repository.isPrimary) throw new RepositoryValidationError('The primary repository cannot be removed or relocated here', 'primary_repository_protected', 409)
+    const context = this._contexts.get(projectId)
+    if (!context) throw new RepositoryValidationError('Load this project before removing or relocating a repository', 'project_unavailable', 503)
+    const execution = resolveProjectExecution({ slug: project.slug, path: project.path })
+    const store = readStore(execution.relocated ? execution.ticketsPath : resolveTicketStoragePath(project.path))
+    const ticketIds = Object.values(store.tickets).filter((ticket) => ticket.repositoryIds?.includes(repositoryId)).map((ticket) => ticket.id)
+    const references = getRepositoryExecutionReferences(context.db, repositoryId)
+    if (ticketIds.length || references.runIds.length || references.deliveryIds.length) {
+      throw new RepositoryValidationError('Repository is referenced by specs, runs or pending deliveries', 'repository_in_use', 409, { ticketIds, ...references })
+    }
   }
 
   listContexts(): ProjectContext[] {
@@ -896,7 +971,7 @@ export class ProjectRegistry {
         }
       },
     })
-    const chatManager = new ChatManager(boundBroadcast, db, project.path, project.name, project.provider ?? 'claude', project.id, project.slug)
+    const chatManager = new ChatManager(boundBroadcast, db, project.path, project.name, project.provider ?? 'claude', project.id, project.slug, () => getProjectRepositories(project))
     const setupManager = new SetupManager(
       boundBroadcast,
       (pid, sid) => setProjectSetupSession(this._desktopDb, pid, sid),
@@ -1019,6 +1094,7 @@ export class ProjectRegistry {
     // byte-identical except for the explicit per-project passthrough overlay.
     // See resolveLoopBaseEnv.
     const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
+      pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
       env: () => resolveLoopBaseEnv(
         { slug: project.slug, path: project.path },
         undefined,
@@ -1055,6 +1131,7 @@ export class ProjectRegistry {
           status: t.status,
           priority: t.priority,
           labels: t.labels,
+          repositoryIds: t.repositoryIds,
           jira_key: t.jira_key ?? null,
           jira_url: t.jira_url ?? null,
           openspecChangeName: typeof t.metadata?.openspecChangeName === 'string' ? t.metadata.openspecChangeName : undefined,

@@ -56,6 +56,7 @@
     }
   },
   "editor": {
+    "responsiveHint": "标注仅应用于当前显示的图片。其他屏幕尺寸的图片保持不变。",
     "tools": {
       "arrow": "箭头 (A)",
       "box": "方框 (R)",

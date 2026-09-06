@@ -25,6 +25,7 @@ import { canRefineTicket } from '../lib/ticket-refine'
 import { genPendingSpecId } from '../lib/pending-spec-id'
 import { useWebViewModal } from '../context/WebViewModalContext'
 import { useDesktop } from '../hooks/useDesktop'
+import { RepositoryScopeSelector } from './RepositoryScopeSelector'
 import { SmashActions } from './specs-smash/SmashActions'
 import { EpicBreadcrumb } from './specs-smash/EpicChildrenSection'
 import { EpicFamilySidebar } from './specs-smash/EpicFamilySidebar'
@@ -88,7 +89,7 @@ interface TicketDetailModalProps {
   onClose: () => void
   /** Navigation hook: open a different ticket inside the same modal stack. */
   onOpenTicket?: (ticketId: number) => void
-  onSave: (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels'>>) => Promise<boolean>
+  onSave: (ticketId: number, fields: Partial<Pick<LocalTicket, 'title' | 'description' | 'status' | 'priority' | 'labels' | 'repositoryIds'>>) => Promise<boolean>
   onDelete: (ticketId: number) => Promise<boolean>
   /** Rails available in the project — drives the Move-to-Rail popover. */
   rails?: RailState[]
@@ -151,6 +152,7 @@ export function TicketDetailModal({
   const [description, setDescription] = useState(ticket.description)
   const [priority, setPriority] = useState<TicketPriority>(ticket.priority ?? 'medium')
   const [labels, setLabels] = useState<string[]>([...(ticket.labels ?? [])])
+  const [repositoryIds, setRepositoryIds] = useState(ticket.repositoryIds)
 
   // Edit mode toggles
   const [editingTitle, setEditingTitle] = useState(false)
@@ -225,9 +227,10 @@ export function TicketDetailModal({
       title !== ticket.title ||
       description !== ticket.description ||
       priority !== ticket.priority ||
-      JSON.stringify(labels) !== JSON.stringify(ticket.labels)
+      JSON.stringify(labels) !== JSON.stringify(ticket.labels) ||
+      JSON.stringify(repositoryIds) !== JSON.stringify(ticket.repositoryIds)
     )
-  }, [title, description, priority, labels, ticket])
+  }, [title, description, priority, labels, repositoryIds, ticket])
 
   // Focus on edit start
   useEffect(() => {
@@ -281,11 +284,12 @@ export function TicketDetailModal({
   }, [])
 
   const handleSave = useCallback(async () => {
-    const changes: Partial<Pick<LocalTicket, 'title' | 'description' | 'priority' | 'labels'>> = {}
+    const changes: Partial<Pick<LocalTicket, 'title' | 'description' | 'priority' | 'labels' | 'repositoryIds'>> = {}
     if (title !== ticket.title) changes.title = title
     if (description !== ticket.description) changes.description = description
     if (priority !== ticket.priority) changes.priority = priority
     if (JSON.stringify(labels) !== JSON.stringify(ticket.labels)) changes.labels = labels
+    if (JSON.stringify(repositoryIds) !== JSON.stringify(ticket.repositoryIds)) changes.repositoryIds = repositoryIds
 
     if (Object.keys(changes).length === 0) {
       onClose()
@@ -302,7 +306,7 @@ export function TicketDetailModal({
     } else {
       toast.error(t('detailModal.toast.updateFailed'))
     }
-  }, [title, description, priority, labels, ticket, onSave, onClose, t])
+  }, [title, description, priority, labels, repositoryIds, ticket, onSave, onClose, t])
 
   const handleDelete = useCallback(async () => {
     if (deleting) return
@@ -486,7 +490,7 @@ export function TicketDetailModal({
             </div>
           )}
 
-          <ContinueEditingButton ticket={ticket} title={title} description={description} priority={priority} labels={labels} onClose={onClose} />
+          <ContinueEditingButton ticket={ticket} title={title} description={description} priority={priority} labels={labels} repositoryIds={repositoryIds} onClose={onClose} />
 
           {rails && (onMoveToRail || onRemoveFromRail) && (
             <RailAssignmentButton
@@ -707,6 +711,8 @@ export function TicketDetailModal({
                   ))}
                 </select>
               </div>
+
+              <RepositoryScopeSelector value={repositoryIds} onChange={setRepositoryIds} disabled={saving} />
 
               {/* Labels */}
               <div>
@@ -965,6 +971,7 @@ interface ContinueEditingButtonProps {
   description: string
   priority: TicketPriority
   labels: string[]
+  repositoryIds?: string[]
   onClose: () => void
 }
 
@@ -983,7 +990,7 @@ interface ContinueEditingButtonProps {
  * Hidden for non-Jira `in_progress`/`done` and any `cancelled` ticket.
  * See openspec/changes/replace-ai-edit-with-continue-editing/design.md D1+D8.
  */
-function ContinueEditingButton({ ticket, title, description, priority, labels, onClose }: ContinueEditingButtonProps) {
+function ContinueEditingButton({ ticket, title, description, priority, labels, repositoryIds, onClose }: ContinueEditingButtonProps) {
   const { t } = useTranslation('tickets')
   const { triggerResume } = useMinimizedChats()
   const { activeProjectId } = useDesktop()
@@ -1016,6 +1023,7 @@ function ContinueEditingButton({ ticket, title, description, priority, labels, o
           description: body,
           labels,
           priority,
+          repositoryIds,
           acceptanceCriteria: criteria,
           // Drives publish-vs-update on commit: a draft PUBLISHES (flips to a
           // real spec), a live spec PATCHes in place. See ExploreSpecShell.

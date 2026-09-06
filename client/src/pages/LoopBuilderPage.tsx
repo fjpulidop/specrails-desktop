@@ -23,6 +23,8 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { ArrowLeft, Save, Upload, Trash2, Play, Terminal, Brain, GitBranch, Flag, Square, Plus, Info, MoveVertical, MoveHorizontal, Grid3x3, RotateCcw, Settings, AlertTriangle, Eye } from 'lucide-react'
+import { useDesktop } from '../hooks/useDesktop'
+import { projectRepositories } from '../lib/project-repositories'
 import { useActiveTheme } from '../context/ThemeContext'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../components/ui/tooltip'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog'
@@ -822,6 +824,8 @@ function NodeInspector({
   onManageConstants: () => void
 }) {
   const { t } = useTranslation('loops')
+  const { activeProjectId, projects } = useDesktop()
+  const repositories = projectRepositories(projects.find((project) => project.id === activeProjectId))
   const kind = data.kind
   const field = 'block text-[10px] font-medium text-muted-foreground mb-1'
   const input = 'w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40'
@@ -888,6 +892,15 @@ function NodeInspector({
         <div>
           <label className={field}>{t('builder.inspector.command')}</label>
           <input className={input} value={String(data.command ?? '')} onChange={(e) => onChange({ command: e.target.value })} placeholder="npm test" />
+          <label className={`${field} mt-3`}>
+            {t('common:repositories.shellTarget')}
+            <select className={input} value={String(data.repositoryId ?? '')} onChange={(event) => onChange({ repositoryId: event.target.value || undefined })}>
+              <option value="">{t('common:repositories.shellDefault')}</option>
+              {repositories.filter((repository) => repository.kind === 'git').map((repository) => <option key={repository.id} value={repository.id}>{repository.name}</option>)}
+              {!!data.repositoryId && !repositories.some((repository) => repository.id === data.repositoryId) && <option value={String(data.repositoryId)}>{String(data.repositoryId)}</option>}
+            </select>
+          </label>
+          <p className="text-xs text-muted-foreground">{t('common:repositories.shellHint')}</p>
         </div>
       )}
 

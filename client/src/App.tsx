@@ -1,3 +1,8 @@
+import { MissionWindowsProvider } from './context/MissionWindowsContext'
+import { isMissionWindowRoute } from './lib/mission-windows'
+import { MissionWindowBindings } from './components/agent-chat/MissionWindowBindings'
+import { MissionWindowSurface } from './components/agent-chat/MissionWindowSurface'
+import { MissionWindowError } from './components/agent-chat/MissionWindowAction'
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, lazy, Suspense }from 'react'
 import { createPortal } from 'react-dom'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
@@ -679,8 +684,13 @@ function ThemedToaster() {
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 
-export default function App() {
+function MainDesktopUpdateNotifier() {
   useDesktopUpdateNotifier()
+  return null
+}
+
+export default function App() {
+  const secondary = isMissionWindowRoute()
   useSuppressNativeContextMenu()
 
   return (
@@ -708,8 +718,9 @@ export default function App() {
                 renders the matching effect or nothing. See
                 `components/theme-effects/ThemeEffectLayer.tsx`. */}
             <ThemeEffectLayer />
-            <DesktopProvider>
-              <UiModeProvider>
+            <DesktopProvider isolated={secondary}>
+              <UiModeProvider initialMode={secondary ? 'agent' : undefined} persist={!secondary}>
+              {!secondary && <MainDesktopUpdateNotifier />}
               {/* Custom frameless titlebar inside DesktopProvider so it can read active project */}
               <TitleBar />
               <SpecGenTrackerProvider>
@@ -725,17 +736,21 @@ export default function App() {
                           JSX, next to {children}) also sees the real workspace
                           context — its composer must adopt browser captures. */}
                       <AgentWorkspaceProvider>
+                      <MissionWindowsProvider secondary={secondary}>
                       <AgentChatProvider>
                         <BackgroundProcessesProvider>
                         <TicketDetailModalProvider>
                           <WebViewModalProvider>
-                            <DesktopApp />
+                            <MissionWindowBindings />
+                            <MissionWindowError />
+                            {secondary ? <MissionWindowSurface /> : <DesktopApp />}
                             <AgentBrowserCaptureHost />
                             <ThemedToaster />
                           </WebViewModalProvider>
                         </TicketDetailModalProvider>
                         </BackgroundProcessesProvider>
                       </AgentChatProvider>
+                      </MissionWindowsProvider>
                       </AgentWorkspaceProvider>
                     </MinimizedChatsProvider>
                     </RailPrDecisionProviderWithDesktop>

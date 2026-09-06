@@ -44,6 +44,11 @@ import { isValidBranchName } from './integration-branch'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from './rail-worktree-release'
 import { checkoutProjectReviewBranch, getProjectGitInfo, inspectProjectCheckoutCleanliness } from './project-git'
 import { defaultExec } from './pr-publisher'
+import { getProjectRepositories, resolveProjectRepository, validateTicketRepositoryIds, RepositoryValidationError } from './project-repositories'
+import { checkoutRepositoryDelivery } from './multi-repo-checkout'
+import { resolveRepositoryDeliveryBases } from './multi-repo-bases'
+import { listRepositoryDeliveries } from './multi-repo-execution'
+import { readExecutionManifest } from './multi-repo-execution-store'
 import { newId } from './ids'
 import { withRepoLock } from './repo-lock'
 import { getAgentChatManager } from './agent-chat-registry'
@@ -61,7 +66,10 @@ declare module 'express-serve-static-core' {
 const VALID_MODES = new Set(['implement', 'batch-implement', 'freestyle', 'loop'])
 function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: number[]): boolean {
   if (delivery.decision !== 'pr_draft' && delivery.decision !== 'pr_ready') return false
-  if (!delivery.prUrl || !delivery.branch || !delivery.deliverySha || delivery.prState !== 'pr-created') return false
+  if (delivery.executionManifest && delivery.repositoryDeliveries?.length) {
+    const active = delivery.repositoryDeliveries.filter((repository) => !['merged', 'completed', 'no_changes'].includes(repository.decision))
+    if (!active.length || active.some((repository) => !repository.prUrl || !repository.branch || !repository.deliverySha)) return false
+  } else if (!delivery.prUrl || !delivery.branch || !delivery.deliverySha || delivery.prState !== 'pr-created') return false
   const covered = new Set(delivery.ticketIds)
   const requested = new Set(ticketIds)
   return requested.size > 0 && requested.size === covered.size && [...requested].every((id) => covered.has(id))
@@ -431,7 +439,7 @@ export function createRailsRouter(): Router {
     }
 
     let { mode = 'implement' } = req.body ?? {}
-    const { profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch } = req.body ?? {}
+    const { repositoryIds: rawRepositoryIds, baseDeliveryIds, profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch } = req.body ?? {}
     // Revision launch (nontech-review-experience Wave 3): the user asked for a
     // change to a delivery that is already awaiting their decision. Shape is
     // validated here; the narrow guard exemption is enforced below.
@@ -546,6 +554,31 @@ export function createRailsRouter(): Router {
     if (rail.ticketIds.length === 0) {
       res.status(400).json({ error: 'Rail has no tickets assigned' }); return
     }
+
+    let repositoryIds: string[]
+    const primaryRepository = getProjectRepositories(c.project).find((repository) => repository.isPrimary)!
+    try {
+      const requiredRepositoryIds = [...new Set(rail.ticketIds.flatMap((id) =>
+        validateTicketRepositoryIds(c.project, c.getTicketSpec?.(id)?.repositoryIds) ?? [primaryRepository.id],
+      ))]
+      repositoryIds = validateTicketRepositoryIds(c.project, rawRepositoryIds) ?? requiredRepositoryIds
+      const missing = requiredRepositoryIds.filter((id) => !repositoryIds.includes(id))
+      if (missing.length) {
+        res.status(400).json({ error: 'repository_scope_incomplete', missingRepositoryIds: missing,
+          detail: 'The launch must include every repository required by its specs. Edit the spec scope first if its implementation targets have changed.' }); return
+      }
+    } catch (error) {
+      res.status(error instanceof RepositoryValidationError ? error.status : 400).json({ error: error instanceof Error ? error.message : 'Invalid repository selection' }); return
+    }
+    let repositoryBases: Awaited<ReturnType<typeof resolveRepositoryDeliveryBases>> | undefined
+    if (baseDeliveryIds !== undefined) {
+      try {
+        repositoryBases = await resolveRepositoryDeliveryBases(c.db, c.project, repositoryIds, baseDeliveryIds, defaultGitRunner)
+        baseBranch = repositoryBases.repositoryBaseBranches[primaryRepository.id] ?? baseBranch
+      } catch (error) { res.status(409).json({ error: 'invalid_repository_base', detail: error instanceof Error ? error.message : String(error) }); return }
+    }
+    const requiresRepositoryIsolation = repositoryIds.length !== 1 || repositoryIds[0] !== primaryRepository.id
+    if (requiresRepositoryIsolation && !isLoopsEnabled()) { res.status(409).json({ error: 'repository_isolation_required' }); return }
 
     // Per-rail spec cap: a single launch may carry at most
     // MAX_TICKETS_PER_RAIL_LAUNCH specs — bigger batches must be chunked
@@ -776,11 +809,20 @@ export function createRailsRouter(): Router {
           if (pendingSnapshot && typeof targetPrNumber === 'number' && pendingSnapshot.prNumber !== targetPrNumber) {
             res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return
           }
+          if (pendingSnapshot?.executionManifest) {
+            const previousIds = pendingSnapshot.executionManifest.selectedRepositoryIds
+            if (previousIds.length !== repositoryIds.length || previousIds.some((id) => !repositoryIds.includes(id))) {
+              res.status(409).json({ error: 'delivery_repository_scope_changed', detail: 'A follow-up must retain the delivered repository scope.' }); return
+            }
+          }
           continuablePrDelivery = pendingSnapshot
         }
         const useIsolation = isolationApplies({
           loopsEnabled: isLoopsEnabled(), scope, ticketCount: rail.ticketIds.length, readOnly: loopReadOnly,
         })
+        if (requiresRepositoryIsolation && !useIsolation) {
+          res.status(409).json({ error: 'repository_isolation_required', detail: 'Selected repositories require worktree isolation for this loop.' }); return
+        }
         if (typeof targetPrNumber === 'number' && !useIsolation) {
           res.status(400).json({ error: 'target_pr_requires_pr_mode', detail: 'targetPrNumber requires an isolated (worktree) launch; this launch would run in the shared checkout' }); return
         }
@@ -798,7 +840,7 @@ export function createRailsRouter(): Router {
         if (useIsolation) {
           // Worktree isolation needs a git repo WITH at least one commit (an
           // unborn HEAD can't be branched). Fall back (with a message) otherwise.
-          const status = await repoIsolationStatus(defaultGitRunner, c.project.path)
+          const status = requiresRepositoryIsolation ? 'ok' : await repoIsolationStatus(defaultGitRunner, c.project.path)
           if (status !== 'ok') {
             if (baseBranch) {
               res.status(400).json({ error: 'base_branch_requires_isolation', detail: `baseBranch requires worktree isolation, which is unavailable (${status})` }); return
@@ -830,13 +872,14 @@ export function createRailsRouter(): Router {
             }
             try {
               const ids = await launchIsolatedRail({
-                ctx: c, railIndex, ticketIds: [...rail.ticketIds], loopId, loopName, loopGraph,
+                ctx: c, railIndex, ticketIds: [...rail.ticketIds], repositoryIds, ...repositoryBases, loopId, loopName, loopGraph,
                 provider: loopProvider, model: loopModel, effort, scope,
                 profileName: resolvedProfile,
                 originSurface: originSurface ?? 'dashboard',
                 originConversationId: originConversationId ?? null,
                 ...(baseBranch ? { baseBranch } : {}),
-                ...(continuablePrDelivery ? {
+                ...(continuablePrDelivery?.executionManifest && !revisionRequest ? { repositoryContinuation: { deliveryId: continuablePrDelivery.id, decision: continuablePrDelivery.decision as PrDecision } } : {}),
+                ...(continuablePrDelivery && !continuablePrDelivery.executionManifest ? {
                   requiredPrContinuation: {
                     deliveryId: continuablePrDelivery.id,
                     decision: continuablePrDelivery.decision as 'pr_draft' | 'pr_ready',
@@ -1151,14 +1194,25 @@ export function createRailsRouter(): Router {
   router.get('/pr-deliveries/:prDeliveryId/packet', async (req: Request, res: Response) => {
     if (!isReviewPacketEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
     const c = ctx(req)
-    const row = getPrDelivery(c.db, req.params.prDeliveryId as string)
+    let row = getPrDelivery(c.db, req.params.prDeliveryId as string)
     if (!row) { res.status(404).json({ error: 'Delivery not found' }); return }
     try {
-      const packet = composeReviewPacket({ db: c.db, row })
+      const parent = row.parent_delivery_id ? getPrDelivery(c.db, row.parent_delivery_id) : row
+      if (!parent) { res.status(404).json({ error: 'Delivery group not found' }); return }
+      const repositoryId = req.query.repositoryId
+      if (repositoryId !== undefined && (typeof repositoryId !== 'string' || !repositoryId)) { res.status(400).json({ error: 'Invalid repositoryId' }); return }
+      if (repositoryId) {
+        row = listRepositoryDeliveries(c.db, parent.id).find((child) => child.repository_id === repositoryId)
+        if (!row) { res.status(404).json({ error: 'Repository not in this delivery' }); return }
+      }
+      const manifest = readExecutionManifest(parent.execution_manifest)
+      const frozenRepository = row.repository_id ? manifest?.repositories.find((repository) => repository.repositoryId === row!.repository_id && repository.sourcePath === row!.repository_path) : undefined
+      if (row.parent_delivery_id && !frozenRepository) { res.status(409).json({ error: 'Repository delivery has no frozen source path' }); return }
+      const packet = composeReviewPacket({ db: c.db, row, ...(frozenRepository ? { repositoryId: frozenRepository.repositoryId, includeLegacyProvenance: frozenRepository.repositoryId === manifest?.primaryRepositoryId } : {}) })
       // Capability probes are read-only and offline; a failure degrades to the
       // confirm-gated local path rather than blocking the packet.
-      const acceptCapability = await resolveAcceptCapability({ repoDir: c.project.path, exec: defaultExec })
-      res.json({ packet, acceptCapability, snapshot: toPrDeliverySnapshot(row) })
+      const acceptCapability = await resolveAcceptCapability({ repoDir: frozenRepository?.sourcePath ?? c.project.path, exec: defaultExec })
+      res.json({ packet, acceptCapability, snapshot: toPrDeliverySnapshot(parent), repositoryId: frozenRepository?.repositoryId ?? null })
     } catch (err) {
       console.error('[rails-router] packet composition failed:', err)
       res.status(500).json({ error: 'packet composition failed', detail: (err as Error).message })
@@ -1175,7 +1229,8 @@ export function createRailsRouter(): Router {
   // specrails never merges — the engineer owns the merge.
   router.post('/pr-decision', async (req: Request, res: Response) => {
     const c = ctx(req)
-    const { prDeliveryId, action, expectedDecision } = req.body ?? {}
+    const { prDeliveryId, action, expectedDecision, repositoryId } = req.body ?? {}
+    if (repositoryId !== undefined && (typeof repositoryId !== 'string' || !repositoryId)) { res.status(400).json({ error: 'repositoryId must be a nonempty string' }); return }
     if (typeof prDeliveryId !== 'string' || !prDeliveryId) {
       res.status(400).json({ error: 'prDeliveryId is required' }); return
     }
@@ -1186,6 +1241,10 @@ export function createRailsRouter(): Router {
       res.status(400).json({ error: 'expectedDecision is required' }); return
     }
     try {
+      const targetDelivery = getPrDelivery(c.db, prDeliveryId)
+      if (repositoryId && targetDelivery && !targetDelivery.execution_manifest && !resolveProjectRepository(c.project, repositoryId).isPrimary) {
+        res.status(400).json({ error: 'Repository is not part of this delivery' }); return
+      }
       const admission = captureProcessAdmission(c.project.id)
       const execute = () => {
         admission.assertCurrent()
@@ -1197,13 +1256,13 @@ export function createRailsRouter(): Router {
           broadcast: c.broadcast,
           jiraSyncManager: c.jiraSyncManager,
           assertAdmission: () => admission.assertCurrent(),
-        }, { prDeliveryId, action, expectedDecision })
+        }, { prDeliveryId, action, expectedDecision, repositoryId })
       }
       // Every decision that can touch refs/worktrees shares the same project
       // mutex as startup reconciliation, launch allocation and checkout. Local
       // merge already acquires it internally to keep its guarded read/advance
       // sequence atomic, so avoid nesting that non-reentrant lock.
-      const result = action === 'merge-local'
+      const result = action === 'merge-local' || !!getPrDelivery(c.db, prDeliveryId)?.execution_manifest
         ? await execute()
         : await withRepoLock(c.project.path, execute)
       // The durable row is authoritative. Return its post-action snapshot even
@@ -1218,6 +1277,7 @@ export function createRailsRouter(): Router {
       if (err instanceof ProcessAdmissionClosedError) {
         res.status(409).json({ error: 'project_recovery_in_progress' }); return
       }
+      if (err instanceof RepositoryValidationError) { res.status(err.status).json({ error: err.message }); return }
       console.error('[rails-router] pr-decision error:', err)
       res.status(500).json({ error: 'pr-decision failed', detail: (err as Error).message })
     }
@@ -1247,6 +1307,13 @@ export function createRailsRouter(): Router {
     if (!row) {
       res.status(404).json({ error: 'Unknown prDeliveryId' }); return
     }
+    if (!row.execution_manifest && req.body?.repositoryId !== undefined) {
+      try {
+        if (typeof req.body.repositoryId !== 'string' || !resolveProjectRepository(c.project, req.body.repositoryId).isPrimary) {
+          res.status(400).json({ error: 'Repository is not part of this delivery' }); return
+        }
+      } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid repositoryId' }); return }
+    }
     const active = getActivePrDeliveryByRail(c.db, row.rail_index)
     if (!active || active.id !== row.id) {
       res.status(409).json({
@@ -1254,6 +1321,24 @@ export function createRailsRouter(): Router {
         current: active?.decision ?? null,
         currentPrDeliveryId: active?.id ?? null,
       }); return
+    }
+    if (row.execution_manifest) {
+      const repositoryId = req.body?.repositoryId
+      if (repositoryId !== undefined && (typeof repositoryId !== 'string' || !repositoryId)) { res.status(400).json({ error: 'repositoryId must be a nonempty string' }); return }
+      try {
+      const outcome = await checkoutRepositoryDelivery({
+        db: c.db, project: c.project, git: defaultGitRunner, exec: defaultExec,
+        broadcast: c.broadcast, jiraSyncManager: c.jiraSyncManager,
+        assertAdmission: () => admission.assertCurrent(),
+      }, { prDeliveryId, repositoryId })
+      res.status(outcome.status).json(outcome.body)
+      } catch (error) {
+        res.status(error instanceof ProcessAdmissionClosedError ? 409 : 500).json({
+          error: error instanceof ProcessAdmissionClosedError ? 'project_recovery_in_progress' : 'pr-checkout failed',
+          detail: error instanceof Error ? error.message : String(error),
+        })
+      }
+      return
     }
     const snap = toPrDeliverySnapshot(row)
     const checkoutBlock = prDeliveryCheckoutBlock(snap)

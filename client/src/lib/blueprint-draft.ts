@@ -38,6 +38,7 @@ export interface BlueprintMilestone {
 }
 
 export interface BlueprintM1Spec {
+  repositoryIds?: string[]
   kind: BlueprintSpecKind
   title: string
   shortSummary: string
@@ -145,6 +146,9 @@ function coerceM1Specs(value: unknown): BlueprintM1Spec[] {
     }
     if (typeof obj.dependsOnIndex === 'number' && Number.isInteger(obj.dependsOnIndex) && obj.dependsOnIndex >= 0) {
       spec.dependsOnIndex = obj.dependsOnIndex
+    }
+    if (Array.isArray(obj.repositoryIds) && obj.repositoryIds.length > 0 && obj.repositoryIds.every((id) => typeof id === 'string' && id.trim()) && new Set(obj.repositoryIds).size === obj.repositoryIds.length) {
+      spec.repositoryIds = [...obj.repositoryIds] as string[]
     }
     out.push(spec)
   }

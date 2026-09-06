@@ -40,8 +40,8 @@ export const serenaManifest: PluginManifest = {
         ],
       },
     },
-    // codex: cli-add via `codex mcp add` with per-project CODEX_HOME.
-    // Same `uvx ...` command; the adapter just registers it differently.
+    // Codex records installation in its per-project home; actual invocations
+    // receive this descriptor as -c overrides and retain the user's auth home.
     codex: {
       mcpEntry: {
         command: 'uvx',

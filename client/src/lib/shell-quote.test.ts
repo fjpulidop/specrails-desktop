@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { quotePosix, quoteWindowsCmd, quoteWindowsPowerShell, quoteForHost, quotePathList } from './shell-quote'
+import { quotePosix, quoteWindowsCmd, quoteWindowsPowerShell, quoteForHost, quotePathList, windowsShellHint } from './shell-quote'
 
 describe('quotePosix', () => {
   it('quotes a plain path', () => {
@@ -21,12 +21,13 @@ describe('quoteWindowsCmd', () => {
   it('double-quotes a plain path', () => {
     expect(quoteWindowsCmd('C:\\Users\\me\\file.txt')).toBe(`"C:\\Users\\me\\file.txt"`)
   })
-  it('escapes inner double quotes by doubling', () => {
-    expect(quoteWindowsCmd('C:\\foo\\"bar".txt')).toBe(`"C:\\foo\\""bar"".txt"`)
+  it('rejects quotes, variable expansion and line controls instead of executing or corrupting paths', () => {
+    for (const path of ['C:\\foo\\"bar".txt', 'foo%PATH%bar', 'foo!PATH!bar', 'a\nb', 'a\rb']) {
+      expect(() => quoteWindowsCmd(path)).toThrow('unsafe-cmd-path')
+    }
   })
-  it('escapes percent and caret', () => {
-    expect(quoteWindowsCmd('foo%PATH%bar')).toBe(`"foo^%PATH^%bar"`)
-    expect(quoteWindowsCmd('hello^world')).toBe(`"hello^^world"`)
+  it('preserves quoted literal caret and ampersand characters', () => {
+    expect(quoteWindowsCmd('hello^world & friends')).toBe(`"hello^world & friends"`)
   })
   it('handles paths with spaces and parens', () => {
     expect(quoteWindowsCmd('C:\\Program Files (x86)\\foo'))
@@ -73,8 +74,7 @@ describe('quoteForHost / quotePathList', () => {
     it("cmd hint routes Windows quoting to quoteWindowsCmd (literal double quotes)", () => {
       expect(quoteForHost('C:\\Program Files (x86)\\foo', true, 'cmd'))
         .toBe(`"C:\\Program Files (x86)\\foo"`)
-      // cmd metacharacters get caret/double escaping, not single-quote wrapping.
-      expect(quoteForHost('foo%PATH%bar', true, 'cmd')).toBe(`"foo^%PATH^%bar"`)
+      expect(() => quoteForHost('foo%PATH%bar', true, 'cmd')).toThrow('unsafe-cmd-path')
     })
 
     it('hint is ignored on non-Windows (always POSIX)', () => {
@@ -88,5 +88,12 @@ describe('quoteForHost / quotePathList', () => {
       expect(quotePathList(['C:\\a b'], true)).toBe(`'C:\\a b'`)
       expect(quotePathList(['C:\\a b'], true, 'powershell')).toBe(`'C:\\a b'`)
     })
+  })
+})
+
+describe('windowsShellHint', () => {
+  it('uses the actual terminal executable and handles case and separators', () => {
+    for (const shell of ['cmd', 'CMD.EXE', 'C:\\Windows\\System32\\cmd.exe', 'C:/Windows/cmd.exe']) expect(windowsShellHint(shell)).toBe('cmd')
+    for (const shell of [null, undefined, 'powershell.exe', 'C:\\Program Files\\PowerShell\\7\\pwsh.exe', 'notcmd.exe']) expect(windowsShellHint(shell)).toBe('powershell')
   })
 })

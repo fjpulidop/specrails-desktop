@@ -8,10 +8,12 @@ vi.mock('./types', async (load) => ({
 }))
 import { apiCall, type McpToolContext } from './types'
 import { codeTools } from './code'
+import { gitTools } from './git'
 
 describe('specrails_code bounded reads and source search', () => {
   const tool = codeTools()[0]
-  const ctx = {} as McpToolContext
+  const project = { id: 'p1', name: 'Project', path: '/tmp/mcp-code-unit-project' }
+  const ctx = { requestProjectId: 'p1', registry: { getContext: () => ({ project }), getProjectRow: () => project } } as unknown as McpToolContext
   beforeEach(() => { vi.mocked(apiCall).mockReset(); vi.mocked(apiCall).mockResolvedValue({ content: 'source' }) })
 
   it('exports valid SDK discovery schemas for search and guarded page continuation', () => {
@@ -57,5 +59,30 @@ describe('specrails_code bounded reads and source search', () => {
   it('preserves the not-found hint with paginated file reads', async () => {
     vi.mocked(apiCall).mockRejectedValue(new Error('API GET /projects/p1/code/file → 404: {"error":"file not found"}'))
     await expect(tool.handler(ctx, { action: 'read_file', path: 'detail/File.ts' })).rejects.toThrow('specrails_code(action: "find", query: "File.ts")')
+  })
+
+  const multiple = () => {
+    const row = { ...project, repositories: ['frontend', 'backend'].map((id, index) => ({ id, projectId: 'p1', name: id, path: `/tmp/${id}`, kind: 'git', isPrimary: index === 0, addedAt: '', integrationBranch: null })) }
+    return { ...ctx, registry: { getContext: () => ({ project: row }), getProjectRow: () => row } } as unknown as McpToolContext
+  }
+
+  it('requires a repository for specific code and Git reads and rejects a foreign ID before an API request', async () => {
+    for (const action of ['tree', 'read_file', 'summary', 'regenerate_summary', 'provenance', 'diff']) {
+      await expect(tool.handler(multiple(), { action, path: 'index.ts', jobId: 'run' })).rejects.toThrow('repository_required')
+    }
+    await expect(gitTools()[0].handler(multiple(), { action: 'info' })).rejects.toThrow('repository_required')
+    await expect(tool.handler(multiple(), { action: 'read_file', path: 'index.ts', repositoryId: 'another-project-repo' })).rejects.toThrow('does not belong')
+    expect(apiCall).not.toHaveBeenCalled()
+  })
+
+  it('uses project-wide discovery then preserves repository identity for a selected read', async () => {
+    const context = multiple()
+    vi.mocked(apiCall).mockResolvedValue({ matches: [{ path: 'src/index.ts', repositoryId: 'backend' }] })
+    await tool.handler(context, { action: 'find', query: 'index.ts', limit: 5 })
+    expect(apiCall).toHaveBeenLastCalledWith(context, 'GET', '/projects/p1/code/discover?kind=find&q=index.ts&limit=5')
+    await tool.handler(context, { action: 'read_file', path: 'src/index.ts', repositoryId: 'backend' })
+    expect(vi.mocked(apiCall).mock.calls.at(-1)?.[2]).toBe('/projects/p1/repositories/backend/code/file?path=src%2Findex.ts&startLine=1&endLine=200')
+    await gitTools()[0].handler(context, { action: 'info', repositoryId: 'backend' })
+    expect(apiCall).toHaveBeenLastCalledWith(context, 'GET', '/projects/p1/repositories/backend/git')
   })
 })

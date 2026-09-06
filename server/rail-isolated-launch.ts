@@ -36,6 +36,8 @@ import { getJobEvents, getProjectSettings } from './db'
 import { harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
 import { resolveIntegrationBranch, fetchOrigin, resolveWorktreeBaseRef, type ResolvedIntegrationBranch } from './integration-branch'
 import { withRepoLock } from './repo-lock'
+import { getProjectRepositories } from './project-repositories'
+import { readExecutionManifest } from './multi-repo-execution-store'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
 import {
   appendPrDeliverySafetyArchive, createPrDeliveryGeneration, failPrDeliveryAndRestoreSuperseded,
@@ -76,11 +78,27 @@ import {
   type UnreachableRecoveryScan,
 } from './rail-pr-recovery-git'
 import type { BranchToMerge } from './merge-manager'
-import type { LoopGraph } from './loop-graph'
+import { assertLoopShellRepositoryScope, type LoopGraph } from './loop-graph'
 import type { ProjectContext } from './project-registry'
 import type { ReasoningEffort } from './providers/types'
 
 export interface IsolatedLaunchInput {
+  /** Registered write targets. When omitted, use the specs' targets, then primary. */
+  repositoryIds?: string[]
+  repositoryContinuation?: { deliveryId: string; decision: PrDecision }
+  repositoryBaseBranches?: Record<string, string>
+  repositoryBaseShas?: Record<string, string>
+  /** Internal per-repository leg of one coordinated execution. Never accepted from HTTP. */
+  repositoryExecution?: {
+    parentDeliveryId: string
+    repositoryId: string
+    runIds: Map<number, string>
+    primary: boolean
+    revisionBranches?: Map<number, { branch: string; sha: string }>
+    isAborted?: () => boolean
+    expectedBaseSha?: string
+    onSettled: (deliveryId: string | null) => void
+  }
   profileName?: string | null
   ctx: ProjectContext
   railIndex: number
@@ -537,6 +555,26 @@ function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
  */
 export async function launchIsolatedRail(input: IsolatedLaunchInput, io: IsolatedLaunchIO = {}): Promise<string[]> {
   const { ctx, railIndex, ticketIds, loopId, loopName, loopGraph, provider, model, effort } = input
+  let expectedRepositoryBaseSha = input.repositoryExecution?.expectedBaseSha
+  let singleRepositoryId = input.repositoryExecution?.repositoryId
+  if (!input.repositoryExecution) {
+    const members = getProjectRepositories(ctx.project)
+    const primary = members.find((repo) => repo.isPrimary) ?? members[0]
+    const selected = input.repositoryIds ?? (ticketIds.length === 0 && primary ? [primary.id] : [...new Set(ticketIds.flatMap((id) => {
+      const ids = (ctx.getTicketSpec(id) as { repositoryIds?: string[] } | undefined)?.repositoryIds
+      return ids?.length ? ids : primary ? [primary.id] : []
+    }))])
+    assertLoopShellRepositoryScope(loopGraph, selected)
+    if (primary && selected.length === 1 && selected[0] === primary.id) {
+      input = { ...input, baseBranch: input.repositoryBaseBranches?.[primary.id] ?? input.baseBranch }
+      singleRepositoryId = primary.id
+      expectedRepositoryBaseSha = input.repositoryBaseShas?.[primary.id]
+    }
+    if (selected.length !== 1 || selected[0] !== primary?.id) {
+      const { launchMultiRepositoryRail } = await import('./multi-repo-execution')
+      return launchMultiRepositoryRail({ ...input, repositoryIds: selected }, io)
+    }
+  }
   const git = io.git ?? defaultGitRunner
   const exec = io.exec ?? defaultExec
   const create = io.create ?? createWorktree
@@ -545,7 +583,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const resolveExecution = io.resolveExecution ?? resolveProjectExecution
   const baseRepo = ctx.project.path
   const slug = ctx.project.slug
-  const worktreesRoot = path.join(resolveHome(), '.specrails', 'projects', slug, 'worktrees')
+  const worktreesRoot = path.join(resolveHome(), '.specrails', 'projects', slug, 'worktrees', ...(input.repositoryExecution ? [input.repositoryExecution.repositoryId] : []))
   // A revision run is seeded with a full briefing (the instruction PLUS the
   // frozen spec, the branch that carries the work and what the previous run
   // actually reported) rather than the bare sentence — the run starts a FRESH
@@ -560,7 +598,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     : loadConstantMap(ctx.desktopDb)
   // Capture the PR-delivery mode ONCE at launch entry so a mid-flight env flip
   // can never split one launch across the two delivery paths.
-  const prMode = isRailPrDeliveryEnabled()
+  const prMode = Boolean(input.repositoryExecution) || isRailPrDeliveryEnabled()
 
   // Ask-first PR delivery (safe-pr-review-flow): persist the authoritative
   // decision row UP FRONT (decision='building') — so the origin link survives
@@ -619,7 +657,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // unit per ticket. The branch/ledger key is the unit's primary (first) ticket.
   const scope = input.scope ?? 'per-ticket'
   let units: { ticketId: number; ticketIds: number[] }[] =
-    scope === 'all'
+    input.repositoryExecution && ticketIds.length === 0 ? [{ ticketId: 0, ticketIds: [] }] : scope === 'all'
       ? [{ ticketId: ticketIds[0], ticketIds: [...ticketIds] }]
       : ticketIds.map((id) => ({ ticketId: id, ticketIds: [id] }))
 
@@ -691,10 +729,12 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   // Resolve the project's designated integration branch ONCE, and branch every
   // ticket's worktree off it (not the ambient HEAD). Empty setting → auto-resolve
   // (repo default → HEAD fallback). See server/integration-branch.ts.
+  const executionRepository = getProjectRepositories(ctx.project).find((repo) => input.repositoryExecution
+    ? repo.id === input.repositoryExecution.repositoryId : repo.isPrimary)
   integration = await resolveIntegrationBranch(git, {
     repoDir: baseRepo,
     explicit: input.baseBranch ?? undefined,
-    projectSetting: getProjectSettings(ctx.db).integrationBranch,
+    projectSetting: executionRepository?.integrationBranch ?? (input.repositoryExecution && !input.repositoryExecution.primary ? undefined : getProjectSettings(ctx.db).integrationBranch),
   })
 
   // Prefer the freshly-fetched remote-tracking ref (origin/<branch>) over the
@@ -805,6 +845,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
 
   if (prMode) {
     const generation = createPrDeliveryGeneration(ctx.db, {
+      parentDeliveryId: input.repositoryExecution?.parentDeliveryId,
+      repositoryId: input.repositoryExecution?.repositoryId,
+      repositoryPath: input.repositoryExecution ? baseRepo : undefined,
       railIndex,
       loopId,
       railKey: `${railIndex}-${loopId}`,
@@ -862,6 +905,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const takenBranches = await listLocalBranches(git, baseRepo)
   const preexistingBranches = new Set(takenBranches)
   const unitBranchName = (ticketId: number): { branch: string; ownership: AllocatedRun['branchOwnership'] } => {
+    const revisionBranch = input.repositoryExecution?.revisionBranches?.get(ticketId)
+    if (revisionBranch) return { branch: revisionBranch.branch, ownership: 'preexisting' }
     const continuation = launchContinuation && continuationTargets.get(ticketId)
     if (continuation) {
       takenBranches.add(continuation.branch)
@@ -869,7 +914,10 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     }
     const preferred = ticketBranchName(unitNamingInput(ctx, ticketId))
     const branch = resolveCollisionFreeName(preferred, {
-      taken: (name) => takenBranches.has(name) && !railWorktreeBranchExistsForTicket(ctx.db, ticketId, name),
+      // A grouped run can reuse a branch only through the exact revision/PR
+      // evidence above. An accepted predecessor may now lag the integration
+      // branch, so ordinary grouped allocations must start a fresh branch.
+      taken: (name) => takenBranches.has(name) && (Boolean(input.repositoryExecution) || !railWorktreeBranchExistsForTicket(ctx.db, ticketId, name)),
       reserved: [integration.branch],
     }) ?? worktreeBranch(slug, ticketId)
     takenBranches.add(branch)
@@ -885,12 +933,19 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       let worktreeOwnership: AllocatedRun['worktreeOwnership'] = 'created'
       let initialSha: string | null = null
       try {
+        const revisionBranch = input.repositoryExecution?.revisionBranches?.get(unit.ticketId)
+        if (revisionBranch) {
+          const observed = await git.run(['rev-parse', '--verify', `refs/heads/${revisionBranch.branch}`], baseRepo)
+          if (observed.code !== 0 || observed.stdout.trim() !== revisionBranch.sha) {
+            throw new Error(`Revision branch ${revisionBranch.branch} no longer matches its recorded delivery commit`)
+          }
+        }
         handle = await create(git, {
           repoDir: baseRepo,
           worktreesRoot,
           slug,
           ticketId: unit.ticketId,
-          baseRef: continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
+          baseRef: revisionBranch?.sha ?? continuationTarget?.baseRef ?? worktreeBaseRef.baseRef,
           branch: branchPlan.branch,
           refreshFromBaseRef: Boolean(continuationTarget?.baseRef),
         })
@@ -908,6 +963,10 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
           )
         } else {
           initialSha = await readHeadSha(git, handle.worktreePath)
+          if (expectedRepositoryBaseSha && initialSha !== expectedRepositoryBaseSha) throw new Error('The repository base changed before its worktree could be frozen')
+          if (revisionBranch && (handle.branch !== revisionBranch.branch || initialSha !== revisionBranch.sha)) {
+            throw new Error(`Revision checkout does not expose the exact recorded branch ${revisionBranch.branch}`)
+          }
         }
 
         // Per-run overlay: merge-link the framework surface the checkout didn't
@@ -960,10 +1019,12 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
             console.warn(`[rail-isolated] provenance snapshot failed: ${(err as Error).message}`)
           }
         }
-        const runId = newId()
+        const runId = input.repositoryExecution?.runIds.get(unit.ticketId) ?? newId()
         const ledgerId = newId()
         createRailWorktree(ctx.db, {
           id: ledgerId, railIndex, ticketId: unit.ticketId, runId,
+          repositoryId: input.repositoryExecution?.repositoryId,
+          repositoryPath: input.repositoryExecution ? baseRepo : undefined,
           branch: handle.branch, worktreePath: handle.worktreePath,
         })
         allocated.push({
@@ -1064,6 +1125,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         runId: a.runId,
         ticketId: a.ticketId,
         repoDir: a.handle.worktreePath,
+        repositoryId: input.repositoryExecution?.repositoryId,
         snapshot: a.provenanceSnapshot,
         broadcast: (msg) => ctx.broadcast(msg),
       })
@@ -1101,6 +1163,17 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       console.error(`[rail-isolated] loop run ${a.runId} rejected: ${engineFailure}`)
     }
 
+    if (input.repositoryExecution?.isAborted?.()) {
+      // The coordinator never started. Do not commit incidental edits or
+      // release a mount borrowed from a previous delivery while rolling back.
+      const finalSha = await readHeadSha(git, a.handle.worktreePath)
+      if (a.worktreeOwnership !== 'created') markWorktree(a, 'needs-review')
+      return {
+        run: a, implementationOutcome: 'failed', deliveryOutcome: 'not_started',
+        initialSha: a.initialSha, finalSha, changed: Boolean(finalSha && a.initialSha !== finalSha),
+        safeToRelease: a.worktreeOwnership === 'created' && finalSha !== null && finalSha === a.initialSha,
+      }
+    }
     const implementationOutcome = actualOutcome === 'success' ? 'succeeded' as const : 'failed' as const
     recordRunProvenance(a)
 
@@ -1293,15 +1366,16 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     const enginePromise = ctx.loopRunManager.run({
         runId: a.runId, loopId, loopName, graph: loopGraph, projectId: ctx.project.id,
         cwd: a.handle.worktreePath, repoDir: a.handle.worktreePath,
+        repositoryId: singleRepositoryId,
         isolation: { branch: a.handle.branch, worktreePath: a.handle.worktreePath },
-        railIndex, ticketId: a.ticketId,
+        railIndex, ticketId: a.ticketIds.length ? a.ticketId : null,
         spec: {
           ...spec,
           ticketIds: a.ticketIds,
           ...(a.ticketIds.length > 1 ? {
             tickets: a.ticketIds.map((id) => {
               const ticket = ctx.getTicketSpec(id)
-              return { id, title: ticket?.title, description: ticket?.description }
+              return { id, title: ticket?.title, description: ticket?.description, repositoryIds: ticket?.repositoryIds }
             }),
           } : {}),
         },
@@ -1808,7 +1882,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       broadcastPrState()
       syncOriginCard('update')
     }
-  })
+  }).finally(() => { input.repositoryExecution?.onSettled(prDeliveryId) })
 
   return allocated.map((a) => a.runId)
 }
@@ -1933,13 +2007,29 @@ export async function reconcileRailWorktrees(
     exec?: Exec
     remove?: typeof removeWorktree
     onDeliveryRecovered?: (deliveryId: string) => void
+    repositoryOnly?: boolean
+    primaryRepoDir?: string
   } = {}
 ): Promise<number> {
   const git = io.git ?? defaultGitRunner
   const exec = io.exec ?? defaultExec
   const remove = io.remove ?? removeWorktree
+  if (!io.repositoryOnly) {
+    const paths = db.prepare('SELECT DISTINCT repository_path FROM rail_worktrees WHERE repository_path IS NOT NULL UNION SELECT DISTINCT repository_path FROM rail_pr_deliveries WHERE repository_path IS NOT NULL').all() as Array<{ repository_path: string }>
+    if (paths.length) {
+      let count = 0
+      for (const target of [...new Set([repoDir, ...paths.map((row) => row.repository_path)])]) {
+        count += await reconcileRailWorktrees(db, target, { ...io, repositoryOnly: true, primaryRepoDir: repoDir })
+      }
+      const { refreshRepositoryDeliveryGroup } = await import('./multi-repo-execution')
+      const groups = db.prepare('SELECT id FROM rail_pr_deliveries WHERE parent_delivery_id IS NULL AND execution_manifest IS NOT NULL').all() as Array<{ id: string }>
+      for (const group of groups) { refreshRepositoryDeliveryGroup(db, group.id, { startup: true }); io.onDeliveryRecovered?.(group.id) }
+      return count
+    }
+  }
+  const belongsHere = (row: { repository_path?: string | null }): boolean => (row.repository_path ?? io.primaryRepoDir ?? repoDir) === repoDir
   return withRepoLock(repoDir, async () => {
-    const stuck = listNonTerminalRailWorktrees(db)
+    const stuck = listNonTerminalRailWorktrees(db).filter(belongsHere)
     const autoReleaseWorktreeIds = new Set<string>()
     const settledDeliveries = db.prepare(`
       SELECT decision, delivery_outcome, worktree_ids FROM rail_pr_deliveries
@@ -2011,7 +2101,37 @@ export async function reconcileRailWorktrees(
       updateRailWorktreeState(db, row.id, 'needs-review')
     }
 
-    const recovered = reconcileFailedBuildingPrDeliveries(db, { startup: true })
+    const recovered = reconcileFailedBuildingPrDeliveries(db, { startup: true, repositoryPath: repoDir, legacyRepositoryPath: io.primaryRepoDir ?? repoDir })
+    // Multi-repository recovery must not conflate the same run/branch names
+    // across object stores. Promote only a clean unchanged base or an exact
+    // app-marked settlement commit; retain uncertain work for explicit revision.
+    for (const delivery of recovered) {
+      const manifest = readExecutionManifest(delivery.execution_manifest)
+      if (!delivery.parent_delivery_id || !manifest || delivery.pr_url || delivery.implementation_outcome !== 'succeeded') continue
+      const units = toPrDeliverySnapshot(delivery).branches
+      const recoveredUnits = await Promise.all(units.map(async (unit): Promise<DeliverBranchRecord> => {
+        const ledger = stuck.find((row) => row.run_id === unit.runId && row.branch === unit.branch)
+        const snapshot = manifest.repositories.find((repo) => repo.worktreeId === ledger?.id)
+        const sha = unit.runId ? verifiedShaByRun.get(unit.runId) : undefined
+        const proven = Boolean(snapshot && sha && (sha === snapshot.baseSha || await commitCarriesRunMarker(git, repoDir, sha, unit.runId!)))
+        const noChanges = proven && sha === snapshot!.baseSha
+        return {
+          ...unit, repositoryId: delivery.repository_id ?? undefined,
+          succeeded: proven && !noChanges, initialSha: snapshot?.baseSha ?? null, finalSha: proven ? sha! : null,
+          changed: proven ? !noChanges : undefined, worktreePath: ledger?.worktree_path,
+          branchOwnership: 'preexisting', deliveryOutcome: proven ? noChanges ? 'no_changes' : 'ready' : 'blocked',
+          failureCode: proven ? null : 'settlement_interrupted',
+        }
+      }))
+      const ready = recoveredUnits.filter((unit) => unit.deliveryOutcome === 'ready').length
+      const unchanged = recoveredUnits.length > 0 && recoveredUnits.every((unit) => unit.deliveryOutcome === 'no_changes')
+      const blocked = recoveredUnits.some((unit) => unit.deliveryOutcome === 'blocked')
+      const next: PrDecision = blocked ? 'pr_failed' : unchanged ? 'no_changes' : ready ? 'on_review' : 'pr_failed'
+      transitionDecision(db, delivery.id, delivery.decision, next, {
+        branches: recoveredUnits, deliveryOutcome: blocked ? 'blocked' : unchanged ? 'no_changes' : 'ready',
+        statusCode: blocked ? 'settlement_interrupted' : unchanged ? 'no_changes' : 'ready_for_review',
+      })
+    }
     // Migration 49 repairs legacy false implementation failures before Git is
     // available. Revisit those already-pr_failed rows here: if their own
     // durable run/worktree ledger proves one exact clean object, the card can
@@ -2072,6 +2192,7 @@ export async function reconcileRailWorktrees(
       return recoveryProtectionScan
     }
     for (const delivery of recoveryCandidates) {
+      if (!belongsHere(delivery)) continue
       if (!['succeeded', 'partially_succeeded'].includes(delivery.implementation_outcome)) continue
       // Exact-SHA promotion here is specifically an existing-PR retry. A fresh
       // recovered generation remains on_review/ready and follows normal draft

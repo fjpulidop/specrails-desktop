@@ -12,6 +12,12 @@ interface CoreUpdateStatus {
   updateAvailable: boolean
   updating: boolean
   lastCheckedAt: number | null
+  runtimeVersion?: string | null
+  runtimeSource?: 'override' | 'managed' | 'bundled' | 'local' | 'global' | null
+  frameworkVersion?: string | null
+  runtimeError?: string | null
+  pendingVersion?: string | null
+  migrationError?: string | null
 }
 
 type ProgressPhase = 'downloading' | 'materializing' | 'done' | 'error' | null
@@ -29,22 +35,32 @@ export function CoreUpdateSection() {
   const [status, setStatus] = useState<CoreUpdateStatus | null>(null)
   const [checking, setChecking] = useState(false)
   const [phase, setPhase] = useState<ProgressPhase>(null)
+  const [loadError, setLoadError] = useState(false)
+  const requestGeneration = useRef(0)
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const refresh = useCallback(async (): Promise<CoreUpdateStatus | null> => {
+    const generation = ++requestGeneration.current
     try {
       const res = await fetch('/api/core-update/status')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = (await res.json()) as CoreUpdateStatus
+      if (generation !== requestGeneration.current) return null
       setStatus(data)
+      setLoadError(false)
+      if (!data.updating) setPhase(null)
       return data
     } catch {
-      setStatus((prev) => prev ?? null)
+      if (generation === requestGeneration.current) setLoadError(true)
       return null
     }
   }, [])
 
   useEffect(() => {
     void refresh()
+    const focus = () => { void refresh() }
+    window.addEventListener('focus', focus)
+    return () => { requestGeneration.current++; window.removeEventListener('focus', focus) }
   }, [refresh])
 
   // Stream update progress (app-level message — reaches every handler).
@@ -53,29 +69,37 @@ export function CoreUpdateSection() {
   useEffect(() => {
     const handler = (raw: unknown): void => {
       const msg = raw as Record<string, unknown>
+      if (msg.type === 'framework.updated') { void refreshRef.current(); return }
       if (msg.type !== 'core_update.progress') return
       const p = msg.phase as ProgressPhase
       setPhase(p)
       if (p === 'done') {
         toast.success(t('coreUpdate.toastDone', { version: String(msg.version ?? '') }))
         void refreshRef.current()
-        setTimeout(() => setPhase(null), 2500)
+        if (resetTimer.current) clearTimeout(resetTimer.current)
+        resetTimer.current = setTimeout(() => setPhase(null), 2500)
       } else if (p === 'error') {
         toast.error(t('coreUpdate.toastError', { message: String(msg.message ?? '') }))
         void refreshRef.current()
-        setTimeout(() => setPhase(null), 4000)
+        if (resetTimer.current) clearTimeout(resetTimer.current)
+        resetTimer.current = setTimeout(() => setPhase(null), 4000)
       }
     }
     registerHandler('core-update', handler)
-    return () => unregisterHandler('core-update')
+    return () => {
+      unregisterHandler('core-update')
+      if (resetTimer.current) clearTimeout(resetTimer.current)
+    }
   }, [registerHandler, unregisterHandler, t])
 
   const onCheck = useCallback(async (): Promise<void> => {
+    const generation = ++requestGeneration.current
     setChecking(true)
     try {
       const res = await fetch('/api/core-update/check', { method: 'POST' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = (await res.json()) as CoreUpdateStatus
+      if (generation !== requestGeneration.current) return
       setStatus(data)
       if (!data.updateAvailable) toast.success(t('coreUpdate.toastUpToDate'))
     } catch (err) {
@@ -84,6 +108,14 @@ export function CoreUpdateSection() {
       setChecking(false)
     }
   }, [t])
+
+  // Recover from a missed completion event or a reconnect during installation.
+  const busy = phase === 'downloading' || phase === 'materializing' || Boolean(status?.updating)
+  useEffect(() => {
+    if (!busy) return
+    const timer = setInterval(() => { void refresh() }, 1500)
+    return () => clearInterval(timer)
+  }, [busy, refresh])
 
   const onUpdate = useCallback(async (): Promise<void> => {
     setPhase('downloading')
@@ -101,11 +133,12 @@ export function CoreUpdateSection() {
   }, [t])
 
   if (!status) {
+    if (loadError) return <button type="button" onClick={() => { void refresh() }} className="text-xs text-destructive">{t('coreUpdate.loadFailed')}</button>
     return <div className="h-20 bg-muted/30 rounded-lg animate-pulse" />
   }
 
-  const busy = phase === 'downloading' || phase === 'materializing' || status.updating
   const current = status.currentVersion ?? '—'
+  const target = status.pendingVersion ?? status.latestVersion
 
   return (
     <div className="space-y-2">
@@ -123,6 +156,15 @@ export function CoreUpdateSection() {
                   {t('coreUpdate.installed')}{' '}
                   <span className="font-semibold tabular-nums">{current}</span>
                 </p>
+                {status.runtimeVersion && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {t('coreUpdate.runtime', { version: status.runtimeVersion })}
+                    {status.runtimeSource ? ` · ${t(`coreUpdate.sources.${status.runtimeSource}`)}` : ''}
+                  </p>
+                )}
+                {status.bundledVersion && status.bundledVersion !== status.runtimeVersion && (
+                  <p className="text-[10px] text-muted-foreground">{t('coreUpdate.bundled', { version: status.bundledVersion })}</p>
+                )}
                 <p className="text-[10px] text-muted-foreground/70 truncate">
                   {status.updateAvailable && status.latestVersion
                     ? t('coreUpdate.updateAvailable', { version: status.latestVersion })
@@ -131,7 +173,7 @@ export function CoreUpdateSection() {
                       : t('coreUpdate.neverChecked')}
                 </p>
               </div>
-              {status.updateAvailable && status.latestVersion ? (
+              {status.updateAvailable && target ? (
                 <button
                   type="button"
                   onClick={onUpdate}
@@ -141,7 +183,7 @@ export function CoreUpdateSection() {
                   {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                   {busy
                     ? t(phase === 'materializing' ? 'coreUpdate.materializing' : 'coreUpdate.downloading')
-                    : t('coreUpdate.update', { version: status.latestVersion })}
+                    : status.pendingVersion ? t('coreUpdate.repair', { version: target }) : t('coreUpdate.update', { version: target })}
                 </button>
               ) : (
                 <button
@@ -161,6 +203,9 @@ export function CoreUpdateSection() {
                 </button>
               )}
             </div>
+            {status.runtimeError && <p role="alert" className="text-xs text-destructive">{status.runtimeError}</p>}
+            {status.migrationError && <p role="alert" className="text-xs text-destructive">{status.migrationError}</p>}
+            {loadError && <button type="button" className="text-xs text-destructive" onClick={() => { void refresh() }}>{t('coreUpdate.loadFailed')}</button>}
             <p className="text-[10px] text-muted-foreground/70">{t('coreUpdate.affectsAll')}</p>
           </>
         )}

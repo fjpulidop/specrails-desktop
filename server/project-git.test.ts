@@ -238,7 +238,7 @@ describe('git routes', () => {
     const router = Router()
     registerGitRoutes({
       router,
-      ctx: () => ({ project: { path: repoDir } }),
+      ctx: () => ({ project: { id: 'p1', path: repoDir } }),
       exec,
       registry: {},
       ticketPath: () => '',
@@ -294,7 +294,7 @@ describe('git routes', () => {
     }
     const r = await req(makeApp(repo, exec), 'GET', '/api/projects/p1/git/pull-requests/515')
     expect(r.status).toBe(200)
-    expect(r.body).toEqual({ prNumber: 515, url: 'https://github.com/o/r/pull/515' })
+    expect(r.body).toEqual({ prNumber: 515, url: 'https://github.com/o/r/pull/515', repositoryId: 'primary-p1' })
     expect(exec.run).toHaveBeenCalledWith('gh', ['pr', 'view', '515', '--json', 'url'], repo)
   })
 

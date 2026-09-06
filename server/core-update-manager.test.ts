@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync, existsSync, realpathSync } from 'fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync, existsSync, realpathSync, readdirSync, readFileSync } from 'fs'
 import os from 'os'
 import path from 'path'
+import { spawnSync } from 'child_process'
 
 import { CoreUpdateManager } from './core-update-manager'
 import { frameworkRoot, readCurrentFrameworkVersion } from './framework-manager'
+import { managedCoreRoot, resolveCoreRuntime } from './core-runtime'
 
 /** Minimal fake of core's compiled CLI — enough for install-framework + swap-current. */
 const FAKE_CLI = `
@@ -79,6 +81,13 @@ describe('CoreUpdateManager', () => {
   })
 
   describe('checkForUpdate', () => {
+    it('retains the last registry result offline after a fresh manager is constructed', async () => {
+      bundle('4.12.0')
+      await new CoreUpdateManager({ home, fetchLatest: async () => '5.0.0' }).checkForUpdate()
+      const restarted = new CoreUpdateManager({ home, fetchLatest: async () => { throw new Error('offline') } })
+      await expect(restarted.checkForUpdate()).rejects.toThrow('offline')
+      expect(restarted.getStatus()).toMatchObject({ currentVersion: '4.12.0', latestVersion: '5.0.0', updateAvailable: true })
+    })
     it('caches the latest version and computes updateAvailable', async () => {
       bundle('4.8.0')
       const m = new CoreUpdateManager({ home, fetchLatest: async () => '4.9.0' })
@@ -155,6 +164,95 @@ describe('CoreUpdateManager', () => {
       expect(phases).toContain('materializing')
       expect(phases).toContain('done')
       expect(events.some((e) => e.type === 'framework.updated' && e.version === '4.9.0')).toBe(true)
+    })
+
+    it('keeps the full runtime across a real Node restart and uses it for offline materialization', async () => {
+      bundle('4.12.0')
+      const statuses: boolean[] = []
+      const manager = new CoreUpdateManager({
+        home,
+        npmInstall: (spec, cwd) => {
+          stagingInstaller('5.0.0', `require('retained-dependency');\n${FAKE_CLI}`)(spec, cwd)
+          const dependency = path.join(cwd, 'node_modules', 'retained-dependency')
+          mkdirSync(dependency, { recursive: true })
+          writeFileSync(path.join(dependency, 'index.js'), 'module.exports = true')
+        },
+        broadcast: event => { if (event.type === 'core_update.progress' && event.phase === 'done') statuses.push(manager.getStatus().updating) },
+      })
+      expect(await manager.update('5.0.0')).toEqual({ ok: true, version: '5.0.0' })
+      expect(statuses).toEqual([false])
+      const entry = path.resolve('server/core-runtime.ts')
+      const framework = path.resolve('server/framework-manager.ts')
+      const script = `const { resolveCoreRuntime } = require(${JSON.stringify(entry)}); const { FrameworkManager } = require(${JSON.stringify(framework)}); const home=${JSON.stringify(home)}; const runtime=resolveCoreRuntime(home); const fm=new FrameworkManager({home}); const boot=fm.versionCheck(['claude']); const materialized=fm.materialize(undefined,['codex']); process.stdout.write(JSON.stringify({runtime,boot,materialized}));`
+      const child = spawnSync(process.execPath, ['--import', 'tsx', '-e', script], {
+        encoding: 'utf8', timeout: 20_000,
+        env: { ...process.env, SPECRAILS_BUNDLED_CORE_PATH: bundledCore, SPECRAILS_CORE_BIN: '', SPECRAILS_REGISTRY_HOME: home },
+      })
+      expect(child.status, child.stderr).toBe(0)
+      const result = JSON.parse(child.stdout)
+      expect(result.runtime).toMatchObject({ version: '5.0.0', source: 'managed' })
+      expect(result.boot).toEqual({ swapped: false, version: '5.0.0' })
+      expect(result.materialized.errors).toEqual([])
+      expect(result.materialized.providers).toEqual(['codex'])
+      expect(new CoreUpdateManager({ home }).getStatus()).toMatchObject({ currentVersion: '5.0.0', runtimeVersion: '5.0.0', runtimeSource: 'managed', bundledVersion: '4.12.0' })
+    })
+
+    it('does not publish a downloaded package with the wrong version', async () => {
+      bundle('4.12.0')
+      const manager = new CoreUpdateManager({ home, npmInstall: stagingInstaller('5.1.0') })
+      expect(await manager.update('5.0.0')).toMatchObject({ ok: false, error: expect.stringMatching(/does not match/) })
+      expect(resolveCoreRuntime(home)?.version).toBe('4.12.0')
+      expect(readCurrentFrameworkVersion(home)).toBeNull()
+    })
+    it('repairs an incomplete retained package automatically while retaining its old contents', async () => {
+      bundle('4.12.0')
+      const destination = path.join(managedCoreRoot(home), '5.0.0')
+      mkdirSync(destination, { recursive: true })
+      writeFileSync(path.join(destination, 'previous-evidence.txt'), 'retain this failed stage')
+      const manager = new CoreUpdateManager({ home, npmInstall: stagingInstaller('5.0.0') })
+      expect(await manager.update('5.0.0')).toEqual({ ok: true, version: '5.0.0' })
+      const backup = readdirSync(managedCoreRoot(home)).find(name => name.startsWith('.previous-5.0.0-'))!
+      expect(readFileSync(path.join(managedCoreRoot(home), backup, 'installation', 'previous-evidence.txt'), 'utf8')).toBe('retain this failed stage')
+    })
+    it('does not move current if recovery metadata cannot be persisted', async () => {
+      bundle('4.12.0')
+      const fw = frameworkRoot(home)
+      mkdirSync(path.join(fw, '4.12.0'), { recursive: true })
+      symlinkSync('4.12.0', path.join(fw, 'current'))
+      mkdirSync(path.join(managedCoreRoot(home), 'update-status.json'), { recursive: true })
+      let reseeded = false
+      const manager = new CoreUpdateManager({ home, npmInstall: stagingInstaller('5.0.0'), reseed: async () => { reseeded = true; return [] } })
+      expect(await manager.update('5.0.0')).toMatchObject({ ok: false, error: expect.stringMatching(/persist Core update recovery state/) })
+      expect(readCurrentFrameworkVersion(home)).toBe('4.12.0')
+      expect(reseeded).toBe(false)
+    })
+    it('does not replace a newer registry-latest result with the explicitly installed version', async () => {
+      bundle('4.12.0')
+      const manager = new CoreUpdateManager({ home, npmInstall: stagingInstaller('5.0.0'), fetchLatest: async () => '5.1.0' })
+      await manager.checkForUpdate()
+      const checkedAt = manager.getStatus().lastCheckedAt
+      expect((await manager.update('5.0.0')).ok).toBe(true)
+      expect(manager.getStatus()).toMatchObject({ latestVersion: '5.1.0', currentVersion: '5.0.0', updateAvailable: true, lastCheckedAt: checkedAt })
+    })
+
+    it('persists partial project refresh and retries it offline after restart without reporting premature success', async () => {
+      bundle('4.12.0')
+      const events: string[] = []
+      const manager = new CoreUpdateManager({
+        home, npmInstall: stagingInstaller('5.0.0'),
+        reseed: async () => [{ projectId: 'fixture-project', error: 'copy failed' }],
+        broadcast: event => { if (event.phase) events.push(String(event.phase)) },
+      })
+      expect(await manager.update('5.0.0')).toMatchObject({ ok: false, error: expect.stringMatching(/fixture-project/) })
+      expect(events).not.toContain('done')
+      const restarted = new CoreUpdateManager({
+        home,
+        npmInstall: () => { throw new Error('network must not be used for repair') },
+        reseed: async () => [{ projectId: 'fixture-project' }],
+      })
+      expect(restarted.getStatus()).toMatchObject({ pendingVersion: '5.0.0', updateAvailable: true, currentVersion: '5.0.0' })
+      expect(await restarted.update()).toEqual({ ok: true, version: '5.0.0' })
+      expect(restarted.getStatus()).toMatchObject({ pendingVersion: null, migrationError: null, updating: false })
     })
 
     it('stages the download under a fully realpathed tmp dir (symlinked macOS /var/folders)', async () => {

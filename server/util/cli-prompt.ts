@@ -23,7 +23,8 @@
 // launched with Node directly. POSIX is unchanged byte-for-byte.
 
 import type { ChildProcess, SpawnOptions, StdioOptions } from 'child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { resolveWindowsBinary, spawnCli } from './win-spawn'
 import {
@@ -32,6 +33,8 @@ import {
   withHeadroomSpawnEnv,
 } from '../headroom-routing'
 import { assertProcessAdmission } from '../process-admission'
+import { ensureOpenSpecRuntimePluginForArgs } from '../openspec-runtime-plugin'
+import { withWindowsProviderShell } from './windows-provider-shell'
 
 // Per-call (not a frozen module const) so a test can flip the platform with a
 // `process.platform` spy without re-importing this module — which removes a
@@ -138,8 +141,8 @@ export function transformCodexArgsForWindows(args: string[]): WindowsTransform {
     }
     i += 1
   }
-  if (stdin === null || !stdin.includes('\n')) {
-    // Single-line prompts pass through cmd.exe fine — keep argv to
+  if (stdin === null || (!/[\r\n]/.test(stdin) && estimatedWindowsArgvChars('codex', args) < 7000)) {
+    // Short single-line prompts pass through cmd.exe fine — keep argv to
     // dodge any codex versions that don't recognise `-` as stdin.
     if (stdin !== null && promptReplacedIdx >= 0) {
       out[promptReplacedIdx] = stdin
@@ -175,6 +178,8 @@ export function ensureStdinPipe(stdio: StdioOptions | undefined): StdioOptions {
  */
 export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildProcess {
   assertProcessAdmission()
+  ensureOpenSpecRuntimePluginForArgs(args)
+  options = withWindowsProviderShell('claude', options)
   options = withHeadroomSpawnEnv('claude', options)
   let child: ChildProcess
   if (!isWin()) {
@@ -183,6 +188,29 @@ export function spawnClaude(args: string[], options: SpawnOptions = {}): ChildPr
     return child
   }
   /* c8 ignore start -- Windows-only branch; coverage runs on Linux/macOS */
+  if (args.some((arg, index) => arg === '--input-format' && args[index + 1] === 'stream-json')) {
+    // Resident sessions own stdin for JSON frames. Folding the system prompt
+    // into stdin both corrupts that protocol and closes it before the first turn.
+    let directory: string | undefined
+    const cleanup = () => { if (directory) { try { rmSync(directory, { recursive: true, force: true }) } catch { /* best effort */ } } }
+    try {
+      const streamArgs = [...args]
+      for (let index = 0; index < streamArgs.length; index++) {
+        if (!['--system-prompt', '--append-system-prompt'].includes(streamArgs[index])) continue
+        const value = streamArgs[index + 1]
+        if (value === undefined) throw new Error('claude_stream_system_prompt_missing')
+        directory ??= mkdtempSync(path.join(tmpdir(), 'specrails-claude-stream-'))
+        const file = path.join(directory, `prompt-${index}.txt`)
+        writeFileSync(file, value, { encoding: 'utf8', mode: 0o600 })
+        streamArgs[index] += '-file'
+        streamArgs[++index] = file
+      }
+      child = spawnCli('claude', streamArgs, options)
+      if (directory) { child.once('error', cleanup); child.once('close', cleanup) }
+      registerHeadroomRoutedChild('claude', options.env, child)
+      return child
+    } catch (error) { cleanup(); throw error }
+  }
   const { args: winArgs, stdinPayload } = transformClaudeArgsForWindows(args)
   if (stdinPayload === null) {
     child = spawnCli('claude', winArgs, options)
@@ -239,8 +267,8 @@ export function spawnCodex(args: string[], options: SpawnOptions = {}): ChildPro
  * call) when the project dir is not a "trusted folder" — the documented escape
  * hatch for headless/automated environments. Validated empirically: without it,
  * a headless `gemini -p` run executes zero tool calls and the rail does nothing.
- * No multi-line argv quirk (the prompt rides on a single `-p` value), so the
- * Windows path is identical to POSIX.
+ * Windows sends the prompt through Gemini's headless stdin transport so cmd.exe
+ * cannot split multiline text or reject a long command line.
  */
 // Gemini auth env vars. Forwarded from `process.env` into the spawn env when
 // present so a caller that narrows the env (or a relocated spawn) still carries
@@ -262,7 +290,25 @@ export function spawnGemini(args: string[], options: SpawnOptions = {}): ChildPr
   for (const key of GEMINI_AUTH_ENV_VARS) {
     if (process.env[key] && env[key] === undefined) env[key] = process.env[key]
   }
-  return spawnCli('gemini', args, { ...options, env })
+  const promptIndex = args.findIndex((arg) => arg === '-p' || arg === '--prompt')
+  if (!isWin() || promptIndex < 0 || args[promptIndex + 1] === undefined) {
+    return spawnCli('gemini', args, { ...options, env })
+  }
+  const prompt = args[promptIndex + 1]
+  // Gemini headless bounds stdin at 8 MiB and otherwise silently truncates it.
+  if (Buffer.byteLength(prompt, 'utf8') > 8 * 1024 * 1024) throw new Error('gemini_windows_prompt_too_large: headless stdin is limited to 8 MiB.')
+  const forwarded = [...args]
+  forwarded.splice(promptIndex, 2)
+  const child = spawnCli('gemini', forwarded, { ...options, env, stdio: ensureStdinPipe(options.stdio) })
+  if (!child.stdin) {
+    try { child.kill('SIGTERM') } catch { /* already gone */ }
+    throw new Error('gemini_windows_prompt_stdin_unavailable')
+  }
+  child.stdin.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code !== 'EPIPE') { try { child.kill('SIGTERM') } catch { /* already gone */ } }
+  })
+  child.stdin.end(prompt)
+  return child
 }
 
 /**
@@ -312,6 +358,7 @@ function estimatedWindowsArgvChars(binary: string, args: readonly string[]): num
 
 export function spawnKimi(args: string[], options: SpawnOptions = {}): ChildProcess {
   assertProcessAdmission()
+  options = withWindowsProviderShell('kimi', options)
   if (!isWin()) return spawnCli('kimi', args, options)
 
   /* c8 ignore start -- Windows-only branch; unit tests force process.platform */
@@ -407,5 +454,8 @@ export function spawnAiCli(
   if (binary === 'codex') return spawnCodex(args, options)
   if (binary === 'gemini') return spawnGemini(args, options)
   if (binary === 'kimi') return spawnKimi(args, options)
+  // An explicitly selected Claude executable can be an absolute path/shim.
+  // Its adapter still supplies the same exact managed-plugin argv contract.
+  ensureOpenSpecRuntimePluginForArgs(args)
   return spawnCli(binary, args, options)
 }

@@ -41,6 +41,25 @@ describe('useSpecDraftStream', () => {
     )
   })
 
+  it('hydrates repository scope, preserves a manual saved selection and resumes updates after the next turn', async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true, json: async () => ({ draft: { title: 'Hydrated', repositoryIds: ['primary-project'] }, ready: true, chips: [] }) } as Response)
+    const { result, rerender } = renderHook(({ id }) => useSpecDraftStream(id, { repositoryIds: ['api', 'web'] }), { wrapper: wrapper(ws), initialProps: { id: 'conv-1' } })
+    await act(async () => {})
+    expect(result.current.draft.title).toBe('Hydrated')
+    expect(result.current.draft.repositoryIds).toEqual(['api', 'web'])
+    act(() => ws.emit({ type: 'spec_draft.update', conversationId: 'conv-1', draft: { repositoryIds: ['primary-project'] }, ready: true, chips: [], changedFields: ['repositoryIds'], timestamp: '' }))
+    expect(result.current.draft.repositoryIds).toEqual(['api', 'web'])
+    act(() => result.current.clearManualOverrides())
+    act(() => ws.emit({ type: 'spec_draft.update', conversationId: 'conv-1', draft: { repositoryIds: ['api'] }, ready: true, chips: [], changedFields: ['repositoryIds'], timestamp: '' }))
+    expect(result.current.draft.repositoryIds).toEqual(['api'])
+    expect(result.current.lastChangedFields).toContain('repositoryIds')
+    act(() => ws.emit({ type: 'spec_draft.update', conversationId: 'conv-1', draft: { title: 'Partial update' }, ready: true, chips: [], changedFields: ['title'], timestamp: '' }))
+    expect(result.current.draft.repositoryIds).toEqual(['api'])
+    rerender({ id: 'conv-2' })
+    await act(async () => {})
+    expect(result.current.draft.repositoryIds).toEqual(['api', 'web'])
+  })
+
   it('returns defaults before any update', () => {
     const { result } = renderHook(() => useSpecDraftStream('conv-1'), { wrapper: wrapper(ws) })
     expect(result.current.draft.title).toBe('')

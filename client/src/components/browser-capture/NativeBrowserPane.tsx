@@ -27,7 +27,22 @@ import {
 } from '../../lib/native-browser'
 import { openExternalUrl } from '../../lib/tauri-shell'
 
+// A supplied owner survives renderer handoff. Effect cleanup must not close a
+// newer StrictMode/re-mounted lease of that same native webview.
+const paneLeases = new Map<string, symbol>()
+const paneOperations = new Map<string, Promise<unknown>>()
+function sequencePaneOperation<T>(ownerId: string, operation: () => Promise<T>): Promise<T> {
+  const next = (paneOperations.get(ownerId) ?? Promise.resolve()).catch(() => {}).then(operation)
+  paneOperations.set(ownerId, next)
+  void next.finally(() => { if (paneOperations.get(ownerId) === next) paneOperations.delete(ownerId) }).catch(() => {})
+  return next
+}
+
 interface NativeBrowserModalProps {
+  ownerId?: string
+  leaseRevision?: number
+  onBusyChange?: (busy: boolean) => void
+  transferError?: string | null
   /** URL to open. */
   url: string
   onClose: () => void
@@ -53,7 +68,7 @@ interface NativeBrowserModalProps {
  * Lifecycle and geometry are exercised with IPC fakes; actual native rendering
  * and Retina snapshots are checked in the macOS smoke fixture.
  */
-export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCaptured, confirmLabel, selectLabel }: NativeBrowserModalProps) {
+export function NativeBrowserModal({ ownerId: suppliedOwnerId, leaseRevision = 0, onBusyChange, transferError, url, onClose, onFallback, onUrlChange, onCaptured, confirmLabel, selectLabel }: NativeBrowserModalProps) {
   const { t } = useTranslation('browser')
   const holeRef = useRef<HTMLDivElement | null>(null)
   const addressFocusedRef = useRef(false)
@@ -67,9 +82,14 @@ export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCa
   const [selection, setSelection] = useState<NativeBrowserSelection | null>(null)
   const [capturing, setCapturing] = useState(false)
   const [preview, setPreview] = useState<NativeBrowserCapture | null>(null)
+  useEffect(() => {
+    onBusyChange?.(selecting || selection !== null || capturing || preview !== null)
+    return () => { onBusyChange?.(false) }
+  }, [onBusyChange, selecting, selection, capturing, preview])
   const zoomRef = useRef(1)
   const ownerRef = useRef<string | null>(null)
   const readyRef = useRef(false)
+  const capturingRef = useRef(false)
   const previewRef = useRef(false)
   const lastBounds = useRef<PaneBounds | null>(null)
   const requestedUrl = useRef(url)
@@ -93,7 +113,16 @@ export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCa
     let raf = 0
     let observer: ResizeObserver | null = null
     // Each effect lifetime needs its own owner, including StrictMode replay.
-    const ownerId = crypto.randomUUID()
+    const ownerId = suppliedOwnerId ?? crypto.randomUUID()
+    const lease = Symbol(ownerId)
+    paneLeases.set(ownerId, lease)
+    const release = () => {
+      void sequencePaneOperation(ownerId, async () => {
+        if (paneLeases.get(ownerId) !== lease) return
+        paneLeases.delete(ownerId)
+        await nativeBrowser.close(ownerId)
+      }).catch(() => {})
+    }
     ownerRef.current = ownerId
     readyRef.current = false
     setReady(false)
@@ -102,7 +131,7 @@ export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCa
       if (disposed || raf) return
       raf = requestAnimationFrame(() => {
         raf = 0
-        if (!readyRef.current || previewRef.current) return
+        if (!readyRef.current || previewRef.current || capturingRef.current) return
         const rect = holeRef.current?.getBoundingClientRect()
         if (!rect || rect.width <= 0 || rect.height <= 0) return
         const bounds = rectToBounds(rect)
@@ -116,6 +145,16 @@ export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCa
       try {
         const disposeListener = await nativeBrowser.onEvent(ownerId, (e: NativeBrowserEvent) => {
           if (disposed) return
+          if (e.kind === 'resume') {
+            // A parked session is visible only when its matching UI is still
+            // mounted. Otherwise it must stay hidden behind the workspace.
+            if (!previewRef.current && !capturingRef.current) void sequencePaneOperation(ownerId, async () => {
+              if (disposed || paneLeases.get(ownerId) !== lease || previewRef.current || capturingRef.current) return
+              const rect = holeRef.current?.getBoundingClientRect()
+              if (rect) await nativeBrowser.open(ownerId, e.url ?? requestedUrl.current, rectToBounds(rect))
+            }).catch(cause => { if (!disposed) setError(String(cause)) })
+            return
+          }
           if (e.kind === 'nav' && e.url) {
             setCurrentUrl(e.url)
             propsRef.current.onUrlChange?.(e.url)
@@ -141,11 +180,14 @@ export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCa
         if (!rect) throw new Error('hole not measurable')
         requestedUrl.current = normalizeAddress(propsRef.current.url) ?? 'about:blank'
         lastBounds.current = rectToBounds(rect)
-        await nativeBrowser.open(ownerId, requestedUrl.current, lastBounds.current)
-        if (disposed) {
-          void nativeBrowser.close(ownerId).catch(() => {})
-          return
-        }
+        const bounds = lastBounds.current
+        const opened = await sequencePaneOperation(ownerId, async () => {
+          if (disposed || paneLeases.get(ownerId) !== lease) return false
+          await nativeBrowser.open(ownerId, requestedUrl.current, bounds)
+          return true
+        })
+        if (!opened) return
+        if (disposed) { release(); return }
         readyRef.current = true
         setReady(true)
         observer = new ResizeObserver(scheduleBounds)
@@ -170,10 +212,11 @@ export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCa
       window.visualViewport?.removeEventListener('scroll', scheduleBounds)
       unlisten?.()
       if (ownerRef.current === ownerId) { ownerRef.current = null; readyRef.current = false }
-      void nativeBrowser.close(ownerId).catch(() => {})
+      release()
     }
+    // URL changes navigate the same pane; only identity changes replace it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [suppliedOwnerId, leaseRevision])
 
   useEffect(() => {
     const normalized = normalizeAddress(url) ?? 'about:blank'
@@ -182,6 +225,30 @@ export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCa
     setAddressValue(normalized)
     void run(ownerId => nativeBrowser.navigate(ownerId, normalized))
   }, [url, ready, run])
+
+  const capture = useCallback(async (selectionOnly: boolean) => {
+    const ownerId = ownerRef.current
+    if (!ownerId || !readyRef.current || capturingRef.current) return
+    capturingRef.current = true
+    setCapturing(true)
+    setError(null)
+    try {
+      const result = await nativeBrowser.capture(ownerId, selectionOnly)
+      if (ownerRef.current !== ownerId) return
+      // Native child surfaces render above HTML. Hide the exact captured pane
+      // before mounting the annotation editor, preserving its page and cookies.
+      await nativeBrowser.hide(ownerId)
+      if (ownerRef.current !== ownerId) return
+      previewRef.current = true
+      setSelecting(false)
+      setPreview(result)
+    } catch (cause) {
+      if (ownerRef.current === ownerId) setError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      capturingRef.current = false
+      if (ownerRef.current === ownerId) setCapturing(false)
+    }
+  }, [])
 
   // Poll only while selecting, with at most one native query in flight. Page
   // content has no application IPC; the host reads the fixed picker's result.
@@ -199,6 +266,9 @@ export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCa
           if (disposed || ownerRef.current !== ownerId) return
           setSelection(picked)
           setSelecting(false)
+          // Picking an element completes selection. Do not require an extra
+          // Capture selection click before the expected annotation step.
+          await capture(true)
           return
         }
       } catch (cause) {
@@ -219,7 +289,7 @@ export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCa
     }
     void poll()
     return () => { disposed = true; clearTimeout(timer) }
-  }, [selecting, ready])
+  }, [selecting, ready, capture])
 
   const toggleSelection = async () => {
     await run(async ownerId => {
@@ -227,19 +297,6 @@ export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCa
       setSelection(null)
       setSelecting(!selecting)
     })
-  }
-
-  const capture = async () => {
-    if (capturing) return
-    setCapturing(true)
-    await run(async ownerId => {
-      const result = await nativeBrowser.capture(ownerId, selection !== null)
-      if (ownerRef.current !== ownerId) return
-      await nativeBrowser.hide(ownerId)
-      setSelecting(false)
-      setPreview(result)
-    })
-    setCapturing(false)
   }
 
   const returnToPage = async () => {
@@ -361,13 +418,13 @@ export function NativeBrowserModal({ url, onClose, onFallback, onUrlChange, onCa
             <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
               {selecting ? t('native.selectHint') : selection?.selector}
             </span>
-            <Button variant="secondary" size="sm" disabled={!ready || capturing || selecting || currentUrl === 'about:blank'} onClick={() => void capture()}>
+            <Button variant="secondary" size="sm" disabled={!ready || capturing || selecting || currentUrl === 'about:blank'} onClick={() => void capture(selection !== null)}>
               <Camera className="mr-1.5 h-3.5 w-3.5" />{capturing ? t('native.capturing') : selection ? t('native.captureSelection') : t('native.capturePage')}
             </Button>
           </div>
         )}
         </>}
-        {error && <div role="alert" className="border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive shrink-0">{error}</div>}
+        {(error || transferError) && <div role="alert" className="border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive shrink-0">{error || transferError}</div>}
 
         {preview && onCaptured && (
           <ImageAnnotationEditor

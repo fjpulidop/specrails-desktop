@@ -114,6 +114,28 @@ describe('ImageAnnotationEditor', () => {
 })
 
 describe('AnnotationEditor capture storage wrapper', () => {
+  it('replaces the canonical breakpoint with the annotated image and retains other responsive references', async () => {
+    mockCanvas()
+    const onConfirm = vi.fn()
+    const screenshot = { id: 'raw', filename: 'desktop.png' }
+    const mobile = { attachment: { id: 'mobile' }, dataUrl: ORIGINAL, viewport: { width: 375, height: 667 } }
+    const result = {
+      screenshot, screenshotDataUrl: ORIGINAL,
+      breakpoints: { desktop: { attachment: screenshot, dataUrl: ORIGINAL, viewport: { width: 1280, height: 800 } }, mobile },
+    } as unknown as CaptureResult
+    upload.mockResolvedValue({ id: 'annotated' })
+    render(<AnnotationEditor result={result} pendingSpecId="pending-a" onConfirm={onConfirm} onReselect={vi.fn()} onCancel={vi.fn()} />)
+    loadImage()
+    addRedaction()
+    fireEvent.click(screen.getByTestId('annotation-confirm'))
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1))
+    const augmented = onConfirm.mock.calls[0][0] as CaptureResult
+    expect(augmented.breakpoints?.desktop).toEqual({ attachment: { id: 'annotated' }, dataUrl: ANNOTATED, viewport: { width: 1280, height: 800 } })
+    expect(augmented.breakpoints?.mobile).toBe(mobile)
+    expect(augmented.rawScreenshot).toBe(screenshot)
+    expect(result.breakpoints?.desktop.attachment).toBe(screenshot)
+  })
+
   it('only confirms the annotated attachment after an upload succeeds, retaining a failed redaction for retry', async () => {
     mockCanvas()
     const onConfirm = vi.fn()

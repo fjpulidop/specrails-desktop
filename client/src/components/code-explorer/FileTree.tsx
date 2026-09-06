@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Folder, FolderOpen, File as FileIcon, ChevronRight, ChevronDown, GitCommitHorizontal } from 'lucide-react'
+import { Folder, FolderOpen, File as FileIcon, ChevronRight, ChevronDown, GitCommitHorizontal, RefreshCw } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { getApiBase } from '../../lib/api'
+import { useCodeRepository, matchesCodeRepository } from './CodeRepositoryContext'
 import { useProjectCache } from '../../hooks/useProjectCache'
 import { useTicketDetailModal } from '../../context/TicketDetailModalContext'
 import { useDesktop } from '../../hooks/useDesktop'
@@ -73,30 +73,35 @@ function ancestorHidden(path: string, collapsed: Set<string>): boolean {
 
 export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId }: FileTreeProps) {
   const { t } = useTranslation('code')
+  const instanceId = useId()
+  const repositoryScope = useCodeRepository()
+  const { apiBase, repositoryId, repositoryPath } = repositoryScope
   const { activeProjectId } = useDesktop()
   const { openTicketDetail } = useTicketDetailModal()
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
 
   const [filter, setFilter] = useState<FilterMode>(() => {
-    if (!activeProjectId) return 'touched-by-ai'
+    if (!activeProjectId) return 'all'
     try {
-      const stored = localStorage.getItem(FILTER_LS_KEY(activeProjectId))
+      const stored = localStorage.getItem(FILTER_LS_KEY(`${activeProjectId}:${repositoryId ?? 'primary'}`))
       if (stored === 'all' || stored === 'touched-by-ai') return stored
     } catch { /* ignore */ }
-    return 'touched-by-ai'
+    return 'all'
   })
 
   useEffect(() => {
     if (!activeProjectId) return
-    try { localStorage.setItem(FILTER_LS_KEY(activeProjectId), filter) } catch { /* ignore */ }
-  }, [filter, activeProjectId])
+    try { localStorage.setItem(FILTER_LS_KEY(`${activeProjectId}:${repositoryId ?? 'primary'}`), filter) } catch { /* ignore */ }
+  }, [filter, activeProjectId, repositoryId])
+
+  useEffect(() => { if (filterJobId || filterTicketId) setFilter('touched-by-ai') }, [filterJobId, filterTicketId])
 
   // Folder collapse state — set of folder paths that are collapsed.
   // Default: all expanded. Persisted per project so reload restores choices.
   const [collapsed, setCollapsed] = useState<Set<string>>(() => {
     if (!activeProjectId) return new Set()
     try {
-      const raw = localStorage.getItem(COLLAPSED_LS_KEY(activeProjectId))
+      const raw = localStorage.getItem(COLLAPSED_LS_KEY(`${activeProjectId}:${repositoryId ?? 'primary'}`))
       if (!raw) return new Set()
       const arr = JSON.parse(raw) as unknown
       if (Array.isArray(arr)) return new Set(arr.filter((x): x is string => typeof x === 'string'))
@@ -106,8 +111,8 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
 
   useEffect(() => {
     if (!activeProjectId) return
-    try { localStorage.setItem(COLLAPSED_LS_KEY(activeProjectId), JSON.stringify([...collapsed])) } catch { /* ignore */ }
-  }, [collapsed, activeProjectId])
+    try { localStorage.setItem(COLLAPSED_LS_KEY(`${activeProjectId}:${repositoryId ?? 'primary'}`), JSON.stringify([...collapsed])) } catch { /* ignore */ }
+  }, [collapsed, activeProjectId, repositoryId])
 
   const toggleFolder = useCallback((folderPath: string) => {
     setCollapsed((prev) => {
@@ -125,49 +130,55 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
   const scopeKey = filter === 'touched-by-ai'
     ? `${filterJobId ?? 'all-jobs'}:${filterTicketId ?? 'all-specs'}`
     : 'all'
-  const namespace = `code-tree:${filter}:${scopeKey}`
-  const fetcher = useCallback(async (): Promise<TreeEntry[]> => {
-    // Follow server pagination (cursor) to completion — the tree is capped at
-    // 2000 entries PER PAGE; without this loop everything after the first page is
-    // silently lost on large repos. MAX_PAGES bounds a pathological response.
-    const MAX_PAGES = 100
-    const all: TreeEntry[] = []
+  const namespace = `code-tree-v2:${JSON.stringify([repositoryId, repositoryPath, filter, scopeKey])}`
+  const fetcher = useCallback(async ({ signal }: { signal: AbortSignal }): Promise<{ entries: TreeEntry[]; partial: boolean }> => {
+    const all = new Map<string, TreeEntry>()
+    const cursors = new Set<string>()
     let cursor: string | null = null
-    for (let page = 0; page < MAX_PAGES; page += 1) {
+    let partial = false
+    for (let page = 0; page < 20; page += 1) {
+      signal.throwIfAborted()
       const params = new URLSearchParams({ withProvenance: '1', filter })
       if (filter === 'touched-by-ai' && filterJobId) params.set('jobId', filterJobId)
       if (filter === 'touched-by-ai' && typeof filterTicketId === 'number') params.set('ticketId', String(filterTicketId))
       if (cursor) params.set('cursor', cursor)
-      const res = await fetch(`${getApiBase()}/code/tree?${params.toString()}`)
-      if (!res.ok) break
-      const json = await res.json().catch(() => ({})) as { entries?: TreeEntry[]; nextCursor?: string | null }
-      if (Array.isArray(json.entries)) all.push(...json.entries)
-      if (!json.nextCursor) break
-      cursor = json.nextCursor
+      const res = await fetch(`${apiBase}/code/tree?${params}`, { signal })
+      if (!res.ok) throw new Error('tree_request_failed')
+      const json = await res.json() as { entries: TreeEntry[]; nextCursor?: string | null; truncated?: boolean }
+      signal.throwIfAborted()
+      if (!Array.isArray(json.entries)) throw new Error('invalid_tree_response')
+      for (const entry of json.entries) all.set(entry.path, entry)
+      partial ||= json.truncated === true
+      cursor = json.nextCursor ?? null
+      if (!cursor) break
+      if (cursors.has(cursor) || all.size >= 20_000) { partial = true; break }
+      cursors.add(cursor)
     }
-    return all
-  }, [filter, filterJobId, filterTicketId])
+    return { entries: [...all.values()].slice(0, 20_000), partial: partial || !!cursor }
+  }, [filter, filterJobId, filterTicketId, apiBase])
 
-  const { data: entries, refresh, isFirstLoad } = useProjectCache<TreeEntry[]>({
+  const { data, refresh, isFirstLoad, isLoading, error } = useProjectCache({
     namespace,
     projectId: activeProjectId,
-    initialValue: [],
+    initialValue: { entries: [] as TreeEntry[], partial: false },
     fetcher,
   })
+  const entries = data.entries
 
   const activeProjectIdRef = useRef(activeProjectId)
   useEffect(() => { activeProjectIdRef.current = activeProjectId }, [activeProjectId])
 
   useEffect(() => {
     if (!activeProjectId) return
-    const handlerId = `code-tree-${activeProjectId}`
+    const handlerId = `code-tree-${instanceId}-${activeProjectId}-${repositoryId ?? 'primary'}`
+    let timer: ReturnType<typeof setTimeout> | undefined
     registerHandler(handlerId, (raw) => {
-      const msg = raw as { type?: string; projectId?: string }
-      if (msg.projectId !== activeProjectIdRef.current) return
-      if (msg.type === 'file.provenance_updated') refresh()
+      const msg = raw as { type?: string; repositoryId?: string; projectId?: string }
+      if (msg.projectId !== activeProjectIdRef.current || !matchesCodeRepository(msg.repositoryId, repositoryScope)) return
+      if (msg.type === 'file.provenance_updated') { clearTimeout(timer); timer = setTimeout(() => { void refresh() }, 150) }
     })
-    return () => unregisterHandler(handlerId)
-  }, [activeProjectId, registerHandler, unregisterHandler, refresh])
+    return () => { clearTimeout(timer); unregisterHandler(handlerId) }
+  }, [apiBase, repositoryId, activeProjectId, registerHandler, unregisterHandler, refresh, instanceId])
 
   const parentRef = useRef<HTMLDivElement | null>(null)
   const rows = useMemo(
@@ -203,6 +214,51 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
       return () => {}
     },
   })
+
+  const treeId = useId()
+  const [focusedPath, setFocusedPath] = useState<string | null>(selectedPath)
+  const activeIndex = Math.max(0, rows.findIndex(row => row.path === focusedPath))
+  useEffect(() => {
+    if (!selectedPath) return
+    setFocusedPath(selectedPath)
+    setCollapsed(previous => {
+      const next = new Set(previous)
+      const parts = selectedPath.split('/')
+      for (let index = 1; index < parts.length; index++) next.delete(parts.slice(0, index).join('/'))
+      return next
+    })
+  }, [selectedPath])
+  const revealedPath = useRef<string | null>(null)
+  useEffect(() => {
+    if (!selectedPath || revealedPath.current === selectedPath) return
+    const index = rows.findIndex(row => row.path === selectedPath)
+    if (index >= 0) { virtualizer.scrollToIndex(index, { align: 'auto' }); revealedPath.current = selectedPath }
+  }, [selectedPath, rows, virtualizer])
+  const keyboardNavigate = (event: React.KeyboardEvent, index: number) => {
+    const entry = rows[index]
+    if (!entry) return
+    let next = index
+    switch (event.key) {
+      case 'ArrowDown': next = Math.min(rows.length - 1, index + 1); break
+      case 'ArrowUp': next = Math.max(0, index - 1); break
+      case 'Home': next = 0; break
+      case 'End': next = rows.length - 1; break
+      case 'ArrowRight':
+        if (entry.kind === 'dir' && collapsed.has(entry.path)) toggleFolder(entry.path)
+        else if (entry.kind === 'dir') next = Math.min(rows.length - 1, index + 1)
+        break
+      case 'ArrowLeft': {
+        if (entry.kind === 'dir' && !collapsed.has(entry.path)) toggleFolder(entry.path)
+        else { const parent = entry.path.split('/').slice(0, -1).join('/'); const parentIndex = rows.findIndex(row => row.path === parent); if (parentIndex >= 0) next = parentIndex }
+        break
+      }
+      case 'Enter': case ' ': if (entry.kind === 'dir') toggleFolder(entry.path); else onOpenFile(entry.path); break
+      default: return
+    }
+    event.preventDefault(); event.stopPropagation()
+    setFocusedPath(rows[next].path)
+    if (next !== index) virtualizer.scrollToIndex(next, { align: 'auto' })
+  }
 
   const isEmpty = rows.length === 0
   const touchedFileCount = useMemo(
@@ -241,6 +297,7 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
             {t('tree.allFiles')}
           </button>
           <div className="flex-1" />
+          <button type="button" onClick={() => { void refresh() }} disabled={isLoading} aria-label={t('explore.refresh')} title={t('explore.refresh')} className="rounded p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"><RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} /></button>
           <button
             type="button"
             onClick={collapseAll}
@@ -267,7 +324,9 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
         )}
       </div>
 
-      {isEmpty && isFirstLoad ? (
+      {error && <div role="alert" className="space-y-1 border-b border-border p-3 text-xs"><p>{t('tree.loadFailed')}</p><button type="button" onClick={() => { void refresh() }} className="text-accent-primary underline">{t('explore.retry')}</button></div>}
+      {data.partial && <p role="status" className="border-b border-border p-3 text-xs text-amber-600 dark:text-amber-400">{t('tree.partial')}</p>}
+      {isEmpty && error ? null : isEmpty && isFirstLoad ? (
         <div className="flex-1 flex items-center justify-center px-4 text-center" data-testid="file-tree-loading">
           <p className="text-xs text-muted-foreground animate-pulse">{t('tree.loadingFiles')}</p>
         </div>
@@ -289,7 +348,7 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
           {t('tree.noFiles')}
         </div>
       ) : (
-        <div ref={parentRef} className="flex-1 overflow-auto" data-testid="file-tree-scroller">
+        <div ref={parentRef} className="min-h-0 flex-1 overflow-auto outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-primary/50" data-testid="file-tree-scroller" role="tree" tabIndex={0} aria-label={t('explore.files')} aria-activedescendant={rows[activeIndex] ? `${treeId}-${activeIndex}` : undefined} onKeyDown={event => { if (event.target === event.currentTarget) keyboardNavigate(event, activeIndex) }}>
           <div
             style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}
           >
@@ -318,21 +377,22 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
                   }}
                   className={cn(
                     'flex items-center gap-2 px-2 text-xs cursor-pointer hover:bg-muted/50',
-                    isSelected && 'bg-muted text-foreground',
+                    isSelected && 'bg-accent-primary/10 text-foreground',
+                    entry.path === focusedPath && 'ring-1 ring-inset ring-accent-primary/30',
                   )}
                   onClick={() => {
+                    setFocusedPath(entry.path)
+                    parentRef.current?.focus({ preventScroll: true })
                     if (isFolder) toggleFolder(entry.path)
                     else onOpenFile(entry.path)
                   }}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget) return
-                    if (e.key !== 'Enter' && e.key !== ' ') return
-                    e.preventDefault()
-                    if (isFolder) toggleFolder(entry.path)
-                    else onOpenFile(entry.path)
-                  }}
-                  role="button"
-                  tabIndex={0}
+                  onKeyDown={(event) => { if (event.target === event.currentTarget) keyboardNavigate(event, vi.index) }}
+                  role="treeitem"
+                  id={`${treeId}-${vi.index}`}
+                  tabIndex={-1}
+                  aria-level={depthOf(entry.path) + 1}
+                  aria-selected={isSelected}
+                  title={entry.path}
                   aria-expanded={isFolder ? !isCollapsed : undefined}
                   data-testid={`file-tree-row-${entry.path}`}
                 >
@@ -366,10 +426,10 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
                     {!isFolder && latestAction && (
                       <span
                         className={cn(
-                          'text-[10px] px-1.5 py-0.5 rounded',
-                          latest?.kind === 'created' && 'bg-accent-success/15 text-accent-success',
-                          latest?.kind === 'modified' && 'bg-accent-info/15 text-accent-info',
-                          latest?.kind === 'deleted' && 'bg-destructive/15 text-destructive',
+                          'h-1.5 w-1.5 rounded-full',
+                          latest?.kind === 'created' && 'bg-accent-success',
+                          latest?.kind === 'modified' && 'bg-accent-info',
+                          latest?.kind === 'deleted' && 'bg-destructive',
                         )}
                         title={
                           latest?.kind === 'created'
@@ -379,16 +439,16 @@ export function FileTree({ onOpenFile, selectedPath, filterJobId, filterTicketId
                               : t('tree.latestTitleModified')
                         }
                       >
-                        {t(`action.${latestAction}`)}
+                        <span className="sr-only">{t(`action.${latestAction}`)}</span>
                       </span>
                     )}
                     {!isFolder && jobLabel && (
                       <span
-                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground font-mono"
+                        className="inline-flex items-center px-0.5 text-muted-foreground"
                         title={t('tree.jobTitle', { jobId: latest?.jobId ?? '' })}
                       >
                         <GitCommitHorizontal className="h-3 w-3" />
-                        {jobLabel}
+                        <span className="sr-only">{jobLabel}</span>
                       </span>
                     )}
                     {!isFolder && typeof createdBy === 'number' && (

@@ -1,5 +1,5 @@
 import type { Terminal } from '@xterm/xterm'
-import { isTauri, _tauriDynImport as dynImport } from './tauri-shell'
+import { isTauri } from './tauri-shell'
 
 export async function saveScrollbackToFile(term: Terminal, suggestedName = 'terminal-scrollback.txt'): Promise<void> {
   const buffer = term.buffer.active
@@ -11,21 +11,11 @@ export async function saveScrollbackToFile(term: Terminal, suggestedName = 'term
   const blob = lines.join('\n')
 
   if (isTauri()) {
-    try {
-      const dialog = await import('@tauri-apps/plugin-dialog')
-      const path = await dialog.save({ defaultPath: suggestedName })
-      if (!path) return
-      // fs writeTextFile via the official plugin if available; fall back to the @tauri-apps/api fs.
-      try {
-        const fs = await dynImport('@tauri-apps/plugin-fs') as { writeTextFile?: (p: string, c: string) => Promise<void> } | null
-        if (fs?.writeTextFile) { await fs.writeTextFile(path, blob); return }
-      } catch { /* ignore */ }
-      try {
-        const fs = await dynImport('@tauri-apps/api/fs') as { writeTextFile?: (opts: { path: string; contents: string }) => Promise<void> } | null
-        await fs?.writeTextFile?.({ path, contents: blob })
-      } catch { /* ignore */ }
-      return
-    } catch { /* fall through to browser path */ }
+    const { invoke } = await import('@tauri-apps/api/core')
+    // The host owns the save dialog and writes only the user-selected file. No
+    // unrestricted filesystem capability is exposed to page JavaScript.
+    await invoke('desktop_save_text', { suggestedName, text: blob })
+    return
   }
 
   // Browser fallback: trigger an anchor download.

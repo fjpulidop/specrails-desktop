@@ -12,21 +12,13 @@ export function quotePosix(path: string): string {
   return `'${path.replace(/'/g, `'\\''`)}'`
 }
 
-/**
- * Windows cmd.exe ONLY: wrap in double quotes; escape inner double quotes by
- * doubling (`""`) and caret-escape cmd metacharacters (`%`, `^`).
- *
- * ⚠️ NOT safe for PowerShell (M3): inside a PowerShell double-quoted string,
- * `$(...)` and backtick are interpolated, so a path like `$(calc.exe).txt` would
- * execute once the line reaches the prompt. Use `quoteWindowsPowerShell` for
- * PowerShell. Retained only for callers that KNOW the target shell is cmd.exe.
- */
+/** cmd.exe expands %variables% and (with /V:ON) !variables! even within
+ * quotes. These cannot safely be represented as a pasted literal independently
+ * of prompt state. Reject them instead of silently changing the path. Carets
+ * inside quotes are already literal; doubling would corrupt real filenames. */
 export function quoteWindowsCmd(path: string): string {
-  const escaped = path
-    .replace(/\^/g, '^^')
-    .replace(/%/g, '^%')
-    .replace(/"/g, '""')
-  return `"${escaped}"`
+  if (/[\x00-\x1f"%!]/.test(path)) throw new Error('unsafe-cmd-path')
+  return '"' + path + '"'
 }
 
 /**
@@ -74,4 +66,9 @@ export function quotePathList(
   shellHint: WindowsShellHint = 'powershell',
 ): string {
   return paths.map((p) => quoteForHost(p, isWindows, shellHint)).join(' ')
+}
+
+/** The shell executable is supplied by the backend that actually spawned it. */
+export function windowsShellHint(shell: string | null | undefined): WindowsShellHint {
+  return /(?:^|[\\/])cmd(?:\.exe)?$/i.test(shell ?? '') ? 'cmd' : 'powershell'
 }

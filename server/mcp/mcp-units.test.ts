@@ -6,6 +6,8 @@ vi.mock('../transient-children', () => ({
   killBackgroundProcess: vi.fn(),
   killOwnedBackgroundProcess: vi.fn(),
   getBackgroundProcessLogs: vi.fn(),
+  getBackgroundProcess: vi.fn(),
+  listBackgroundProcesses: vi.fn(),
 }))
 import { initDesktopDb, getDesktopSetting, setDesktopSetting, type DbInstance } from '../desktop-db'
 import type { ProjectRegistry, ProjectContext } from '../project-registry'
@@ -20,7 +22,7 @@ import {
 import { isMcpEnabled, isTierEnabled, tierLabel, tierRefusalMessage, TIER_SETTING_KEY } from './mcp-tiers'
 import { buildToolSpecs } from './tools/catalog'
 import type { McpToolContext, McpToolSpec } from './tools/types'
-import { startBackgroundProcess, killOwnedBackgroundProcess, getBackgroundProcessLogs } from '../transient-children'
+import { startBackgroundProcess, killOwnedBackgroundProcess, getBackgroundProcessLogs, getBackgroundProcess, listBackgroundProcesses } from '../transient-children'
 
 function makeRegistry(db: DbInstance, contexts: Partial<ProjectContext>[] = []): ProjectRegistry {
   const ctxs = contexts as ProjectContext[]
@@ -251,6 +253,29 @@ describe('tool handlers', () => {
     await expect(async () => t.handler(ctx, { path: '/nope' })).rejects.toThrow(/No project registered/)
   })
 
+  it('paginates durable background history with live apps first and refuses recovered PID stops', async () => {
+    const t = tool('specrails_jobs')
+    const ctx = { ...makeCtx(db, [{ project: { id: 'p1', name: 'One', path: '/tmp/one' } as ProjectContext['project'] }]),
+      firstPartyAgent: true, originConversationId: 'c-origin' }
+    const base = { pid: 123, command: 'npm run dev', cwd: '/tmp/one', chatId: 'c-origin', projectId: 'p1' }
+    const recovered = { ...base, processId: 'disconnected', startedAt: 20, status: 'interrupted' as const, recoveredAt: 40 }
+    vi.mocked(listBackgroundProcesses).mockReturnValue([
+      { ...base, processId: 'recent-failure', startedAt: 30, status: 'failed' },
+      recovered,
+      { ...base, pid: 124, processId: 'still-running', startedAt: 10, status: 'running' },
+    ])
+    const first = await t.handler(ctx, { action: 'background_list', projectId: 'p1', limit: 2 }) as { processes: Array<{ processId: string }> }
+    expect(first).toMatchObject({ total: 3, offset: 0, limit: 2, hasMore: true, specrailsApi: { host: '127.0.0.1', port: 4200 } })
+    expect(first.processes.map(p => p.processId)).toEqual(['still-running', 'recent-failure'])
+    const next = await t.handler(ctx, { action: 'background_list', projectId: 'p1', limit: 2, offset: 2 }) as { processes: Array<{ processId: string }> }
+    expect(next.processes.map(p => p.processId)).toEqual(['disconnected'])
+    expect(next).toMatchObject({ hasMore: false })
+    vi.mocked(getBackgroundProcess).mockReturnValue(recovered)
+    const signalsBefore = vi.mocked(killOwnedBackgroundProcess).mock.calls.length
+    await expect(t.handler(ctx, { action: 'background_kill', projectId: 'p1', pid: 123, processId: 'disconnected' })).rejects.toThrow(/current OS state is unknown/)
+    expect(killOwnedBackgroundProcess).toHaveBeenCalledTimes(signalsBefore)
+  })
+
   it('specrails_jobs background actions validate ownership, cwd, tier, and broadcasts', async () => {
     const t = tool('specrails_jobs')
     const tierFn = t.tier as (a: Record<string, unknown>) => string
@@ -266,6 +291,7 @@ describe('tool handlers', () => {
     vi.mocked(startBackgroundProcess).mockImplementation((command: string, cwd: string, chatId: string, projectId: string, hooks: any) => {
       const proc = {
         pid: 123,
+        processId: 'exec-123',
         command,
         cwd,
         startedAt: 10,
@@ -277,9 +303,11 @@ describe('tool handlers', () => {
       return proc
     })
     vi.mocked(killOwnedBackgroundProcess).mockReturnValue(true)
+    vi.mocked(getBackgroundProcess).mockReturnValue({ pid: 123, processId: 'exec-123', command: 'npm run dev', cwd: '/tmp/one', startedAt: 10, status: 'running', chatId: 'c-origin', projectId: 'p1' })
     vi.mocked(getBackgroundProcessLogs).mockReturnValue({
       process: {
         pid: 123,
+        processId: 'exec-123',
         command: 'npm run dev',
         cwd: '/tmp/one',
         startedAt: 10,
@@ -289,14 +317,15 @@ describe('tool handlers', () => {
         exitCode: 1,
       },
       lines: [
-        { at: 11, source: 'stdout', line: 'starting' },
-        { at: 12, source: 'stderr', line: 'error: missing script dev' },
+        { sequence: 1, at: 11, source: 'stdout', line: 'starting' },
+        { sequence: 2, at: 12, source: 'stderr', line: 'error: missing script dev' },
       ],
       truncated: false,
       droppedLines: 0,
       maxLines: 500,
       maxLineChars: 1000,
       retentionMs: 600000,
+      nextSequence: 2,
     })
 
     await expect(async () => t.handler(ctx, { action: 'background_start', projectId: 'p1', command: 'npm run dev', chatId: 'c1' })).rejects.toThrow(/confirmed/)
@@ -375,6 +404,16 @@ describe('tool handlers', () => {
     const killed = await t.handler(originCtx, { action: 'background_kill', projectId: 'p1', pid: 123 }) as { ok: boolean }
     expect(killed.ok).toBe(true)
     expect(killOwnedBackgroundProcess).toHaveBeenCalledWith(123, { projectId: 'p1', chatId: 'c-origin' })
+
+    // Read-only discovery still uses the authenticated mission, not a supplied chat.
+    vi.mocked(listBackgroundProcesses).mockReturnValue([])
+    const discovered = await t.handler(originCtx, { action: 'background_list', projectId: 'p1', chatId: 'foreign' })
+    expect(discovered).toMatchObject({ processes: [], total: 0, limit: 50, offset: 0, hasMore: false })
+    expect(listBackgroundProcesses).toHaveBeenCalledWith({ projectId: 'p1', chatId: 'c-origin', includeFinished: true })
+    expect(tierFn({ action: 'background_list' })).toBe('read')
+    const calls = vi.mocked(killOwnedBackgroundProcess).mock.calls.length
+    await expect(t.handler(originCtx, { action: 'background_kill', projectId: 'p1', pid: 123, processId: 'stale' })).rejects.toThrow(/registered execution/)
+    expect(killOwnedBackgroundProcess).toHaveBeenCalledTimes(calls)
 
     expect(tierFn({ action: 'background_logs' })).toBe('read')
     const logs = await t.handler(originCtx, {

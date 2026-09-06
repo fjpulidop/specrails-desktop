@@ -12,9 +12,9 @@
  *  · A state the three verbs cannot describe honestly renders the existing
  *    fine-grained controls instead (see packet-verbs' fineControlOnly).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useStackedHeadDeliveryIds } from '../hooks/useMilestoneProgress'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle, ArrowLeft, Ban, Check, ChevronDown, ChevronRight,
@@ -24,7 +24,8 @@ import { getApiBase } from '../lib/api'
 import { useDesktop } from '../hooks/useDesktop'
 import { useRailPrDecisions } from '../context/RailPrDecisionContext'
 import { useTicketDetailModal } from '../context/TicketDetailModalContext'
-import { derivePrDeliveryPresentation } from '../lib/pr-delivery'
+import { RepositoryDeliveries } from '../components/RepositoryDeliveries'
+import { coerceRailPrStateSnapshot, derivePrDeliveryPresentation } from '../lib/pr-delivery'
 import { packetVerbAction, resolvePacketVerbs, type PacketVerb } from '../lib/packet-verbs'
 import { notifyGitChanged } from '../lib/git-refresh'
 import type {
@@ -101,16 +102,30 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   const prDeliveryId = props.prDeliveryId ?? params.prDeliveryId
   const { t } = useTranslation(['packet', 'common'])
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const repositoryId = searchParams.get('repositoryId')
+  const requestRevision = useRef(0)
   const goBack = props.onClose ?? (() => navigate('/'))
   const { activeProjectId } = useDesktop()
   const stackedHeads = useStackedHeadDeliveryIds(activeProjectId)
   const isStackedHead = prDeliveryId ? stackedHeads.has(prDeliveryId) : false
-  const { act } = useRailPrDecisions()
+  const { act, checkout } = useRailPrDecisions()
   const { openTicketDetail } = useTicketDetailModal()
 
-  const [data, setData] = useState<ReviewPacketResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const scopeKey = JSON.stringify([activeProjectId, prDeliveryId, repositoryId])
+  const scopeRef = useRef({ key: scopeKey, epoch: 0 })
+  if (scopeRef.current.key !== scopeKey) scopeRef.current = { key: scopeKey, epoch: scopeRef.current.epoch + 1 }
+  const scopeEpoch = scopeRef.current.epoch
+  const mountedRef = useRef(true)
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false } }, [])
+  const isCurrentScope = useCallback(() => mountedRef.current && scopeRef.current.key === scopeKey && scopeRef.current.epoch === scopeEpoch, [scopeKey, scopeEpoch])
+  const [loaded, setLoaded] = useState<{ key: string; epoch: number; data: ReviewPacketResponse | null; loading: boolean; error: string | null } | null>(null)
+  // A response is evidence for exactly one project, generation and repository.
+  // Hide it synchronously on a scope change, before the next effect can run.
+  const currentLoaded = loaded?.key === scopeKey && loaded.epoch === scopeEpoch ? loaded : null
+  const data = currentLoaded?.data ?? null
+  const loading = currentLoaded?.loading ?? true
+  const error = currentLoaded?.error ?? null
   const [pending, setPending] = useState<PacketVerb | null>(null)
   const [confirmIrreversible, setConfirmIrreversible] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -120,27 +135,41 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   const [askingChanges, setAskingChanges] = useState(false)
 
   const load = useCallback(async () => {
-    if (!prDeliveryId || !activeProjectId) return
-    setLoading(true)
+    // An old action may finish after the user changes scope. Its captured load
+    // must not even invalidate the newer scope's in-flight request.
+    if (!prDeliveryId || !activeProjectId || !isCurrentScope()) return
+    const revision = ++requestRevision.current
+    const requestIsCurrent = () => isCurrentScope() && requestRevision.current === revision
+    setLoaded((previous) => ({ key: scopeKey, epoch: scopeEpoch,
+      data: previous?.key === scopeKey && previous.epoch === scopeEpoch ? previous.data : null,
+      loading: true, error: null }))
     try {
-      const res = await fetch(`${getApiBase()}/rails/pr-deliveries/${prDeliveryId}/packet`)
+      const query = repositoryId ? `?repositoryId=${encodeURIComponent(repositoryId)}` : ''
+      const res = await fetch(`${getApiBase()}/rails/pr-deliveries/${prDeliveryId}/packet${query}`)
+      if (!requestIsCurrent()) return
       if (!res.ok) {
-        setError(res.status === 404 ? 'notFound' : 'loadFailed')
-        setData(null)
+        setLoaded({ key: scopeKey, epoch: scopeEpoch, data: null, loading: false, error: res.status === 404 ? 'notFound' : 'loadFailed' })
         return
       }
-      setData(await res.json() as ReviewPacketResponse)
-      setError(null)
+      const next = await res.json() as ReviewPacketResponse
+      if (!requestIsCurrent()) return
+      setLoaded({ key: scopeKey, epoch: scopeEpoch, data: next, loading: false, error: null })
     } catch {
-      setError('loadFailed')
-    } finally {
-      setLoading(false)
+      if (!requestIsCurrent()) return
+      setLoaded({ key: scopeKey, epoch: scopeEpoch, data: null, loading: false, error: 'loadFailed' })
     }
-  }, [prDeliveryId, activeProjectId])
+  }, [prDeliveryId, activeProjectId, repositoryId, scopeKey, scopeEpoch, isCurrentScope])
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+    setConfirmIrreversible(false); setAskingChanges(false); setPending(null)
+    setActionError(null); setRevisionError(null); setRevising(false); setRevisionNote('')
+    return () => { requestRevision.current++ }
+  }, [load])
+  const delivery = useMemo(() => coerceRailPrStateSnapshot(data?.snapshot), [data?.snapshot])
 
   const packet: ReviewPacket | null = data?.packet ?? null
+  const operationBusy = loading || pending !== null || revising || !!delivery?.operation
   const capability: AcceptCapability | null = data?.acceptCapability ?? null
 
   const verbs = useMemo(() => {
@@ -162,13 +191,14 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   }, [packet, capability])
 
   const runVerb = useCallback(async (verb: PacketVerb) => {
-    if (!packet || !verbs) return
+    if (!packet || !verbs || operationBusy || !isCurrentScope()) return
     const action = packetVerbAction(verb, verbs)
     if (!action) return
     setActionError(null)
     setPending(verb)
     try {
-      const result = await act(packet.railIndex, action, packet.decision, packet.prDeliveryId)
+      const result = await (repositoryId && delivery ? act(delivery.railIndex, action, delivery.decision, delivery.prDeliveryId, repositoryId) : act(packet.railIndex, action, packet.decision, packet.prDeliveryId))
+      if (!isCurrentScope()) return
       if (!result.ok) {
         setActionError(result.status === 409 && result.error === 'stale_decision' ? 'alreadyResolved' : 'actionFailed')
       } else {
@@ -176,10 +206,9 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       }
       await load()
     } finally {
-      setPending(null)
-      setConfirmIrreversible(false)
+      if (isCurrentScope()) { setPending(null); setConfirmIrreversible(false) }
     }
-  }, [act, activeProjectId, load, packet, verbs])
+  }, [act, activeProjectId, load, packet, verbs, delivery, repositoryId, operationBusy, isCurrentScope])
 
   /**
    * "Ask for changes" launches the Architect-less revision loop against THIS
@@ -188,7 +217,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
    * rather than appending work to branches nobody is reviewing any more.
    */
   const submitRevision = useCallback(async () => {
-    if (!packet || !revisionNote.trim() || !activeProjectId) return
+    if (!packet || !revisionNote.trim() || !activeProjectId || operationBusy || !isCurrentScope()) return
     setRevisionError(null)
     setRevising(true)
     try {
@@ -196,12 +225,15 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          revisionOfDeliveryId: packet.prDeliveryId,
+          revisionOfDeliveryId: delivery?.prDeliveryId ?? packet.prDeliveryId,
           revisionNote: revisionNote.trim(),
+          ...(delivery?.executionManifest ? { repositoryIds: delivery.executionManifest.selectedRepositoryIds } : {}),
         }),
       })
+      if (!isCurrentScope()) return
       if (!res.ok) {
         const body = await res.json().catch(() => null) as { error?: string } | null
+        if (!isCurrentScope()) return
         setRevisionError(body?.error === 'invalid_revision_target' ? 'revisionStale' : 'revisionFailed')
         return
       }
@@ -211,11 +243,11 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       setAskingChanges(false)
       await load()
     } catch {
-      setRevisionError('revisionFailed')
+      if (isCurrentScope()) setRevisionError('revisionFailed')
     } finally {
-      setRevising(false)
+      if (isCurrentScope()) setRevising(false)
     }
-  }, [activeProjectId, load, packet, revisionNote])
+  }, [activeProjectId, load, packet, revisionNote, delivery, operationBusy, isCurrentScope])
 
   if (loading && !packet) {
     return (
@@ -262,6 +294,41 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         <ArrowLeft className="size-3.5" aria-hidden />
         {t('backToBoard')}
       </button>
+
+      {delivery?.repositoryDeliveries?.length ? <>
+        <label className="flex items-center gap-2 text-xs">{t('common:repositories.select')}
+          <select value={repositoryId ?? ''} onChange={(event) => {
+            const next = new URLSearchParams(searchParams)
+            if (event.target.value) next.set('repositoryId', event.target.value)
+            else next.delete('repositoryId')
+            setSearchParams(next, { replace: true })
+          }} className="rounded border border-border bg-background px-2 py-1">
+            <option value="">{t('common:repositories.all')}</option>
+            {delivery.repositoryDeliveries.map((repository) => <option key={repository.repositoryId} value={repository.repositoryId}>{repository.name}</option>)}
+          </select>
+        </label>
+        <RepositoryDeliveries deliveryId={delivery.prDeliveryId} repositories={delivery.repositoryDeliveries} busy={operationBusy}
+          onAct={async (action, id) => {
+            if (operationBusy || !isCurrentScope()) return
+            setPending('accept')
+            try {
+              const result = await act(delivery.railIndex, action, delivery.decision, delivery.prDeliveryId, id)
+              if (!isCurrentScope()) return
+              if (!result.ok) setActionError('actionFailed')
+              await load()
+            } finally { if (isCurrentScope()) setPending(null) }
+          }}
+          onCheckout={async (id) => {
+            if (operationBusy || !isCurrentScope()) return
+            setPending('accept')
+            try {
+              const result = await checkout(delivery.railIndex, delivery.prDeliveryId, id)
+              if (!isCurrentScope()) return
+              if (!result.ok) setActionError('actionFailed')
+              await load()
+            } finally { if (isCurrentScope()) setPending(null) }
+          }} />
+      </> : null}
 
       {/* ── Above the fold: verdict, confidence, decision ──────────────────── */}
       <div className="rounded-xl border border-border/70 bg-surface/60 p-5 shadow-sm">
@@ -317,7 +384,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           <p className="mt-4 text-sm text-muted-foreground">{t('alreadyResolved')}</p>
         ) : (
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            {verbs.verbs.includes('accept') ? (
+            {verbs.verbs.includes('accept') && (!delivery?.repositoryDeliveries?.length || repositoryId) ? (
               confirmIrreversible ? (
                 <div className="flex w-full flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
                   <p className="text-xs text-foreground">{t('accept.irreversibleWarning')}</p>
@@ -325,7 +392,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                     <button
                       type="button"
                       onClick={() => void runVerb('accept')}
-                      disabled={pending !== null}
+                      disabled={operationBusy}
                       className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
                       data-testid="packet-accept-confirm"
                     >
@@ -347,7 +414,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                     if (verbs.requiresIrreversibleConfirm) setConfirmIrreversible(true)
                     else void runVerb('accept')
                   }}
-                  disabled={pending !== null}
+                  disabled={operationBusy}
                   className="inline-flex items-center gap-1.5 rounded-md bg-accent-success px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
                   data-testid="packet-accept"
                 >
@@ -361,7 +428,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               <button
                 type="button"
                 onClick={() => setAskingChanges((v) => !v)}
-                disabled={pending !== null || revising}
+                disabled={operationBusy || revising}
                 aria-expanded={askingChanges}
                 className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-surface disabled:opacity-50"
                 data-testid="packet-request-changes"
@@ -375,7 +442,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               <button
                 type="button"
                 onClick={() => void runVerb('discard')}
-                disabled={pending !== null}
+                disabled={operationBusy}
                 className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-surface disabled:opacity-50"
                 data-testid="packet-discard"
               >
@@ -413,7 +480,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
               <button
                 type="button"
                 onClick={() => void submitRevision()}
-                disabled={revising || revisionNote.trim().length === 0}
+                disabled={operationBusy || revisionNote.trim().length === 0}
                 className="inline-flex items-center gap-1.5 rounded-md bg-accent-primary px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
                 data-testid="packet-revision-submit"
               >

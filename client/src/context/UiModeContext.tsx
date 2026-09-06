@@ -33,23 +33,23 @@ function writeStored(m: UiMode): void {
 
 const UiModeContext = createContext<UiModeContextValue | null>(null)
 
-export function UiModeProvider({ children }: { children: ReactNode }) {
-  const [uiMode, setUiModeState] = useState<UiMode>(readStored)
+export function UiModeProvider({ children, initialMode, persist = true }: { children: ReactNode; initialMode?: UiMode; persist?: boolean }) {
+  const [uiMode, setUiModeState] = useState<UiMode>(() => initialMode ?? readStored())
 
   const setUiMode = useCallback((m: UiMode) => {
     if (!FEATURE_AGENT_MODE) return
     setUiModeState(m)
-    writeStored(m)
-  }, [])
+    if (persist) writeStored(m)
+  }, [persist])
 
   const toggleUiMode = useCallback(() => {
     setUiModeState((cur) => {
       if (!FEATURE_AGENT_MODE) return 'kanban'
       const next: UiMode = cur === 'kanban' ? 'agent' : 'kanban'
-      writeStored(next)
+      if (persist) writeStored(next)
       return next
     })
-  }, [])
+  }, [persist])
 
   const value = useMemo(
     () => ({ uiMode, setUiMode, toggleUiMode }),

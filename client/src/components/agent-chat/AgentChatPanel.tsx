@@ -1,3 +1,4 @@
+import { MissionWindowAction } from './MissionWindowAction'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
@@ -99,6 +100,7 @@ export function AgentChatPanel() {
                 <Plus className="h-4 w-4" />
               </button>
             )}
+            <MissionWindowAction />
             <button type="button" onClick={() => setMaximized((m) => !m)} aria-label={maximized ? t('restore') : t('maximize')} title={maximized ? t('restore') : t('maximize')} data-agent-interactive className="rounded-md p-1 text-foreground/60 hover:bg-surface hover:text-foreground">
               {maximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>

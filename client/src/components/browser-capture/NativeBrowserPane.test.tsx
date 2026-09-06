@@ -79,7 +79,50 @@ describe('NativeBrowserModal lifecycle', () => {
     expect(native.close).toHaveBeenCalledWith(oldOwner)
     expect(native.close).not.toHaveBeenCalledWith(liveOwner)
     unmount()
-    expect(native.close).toHaveBeenCalledWith(liveOwner)
+    await waitFor(() => expect(native.close).toHaveBeenCalledWith(liveOwner))
+  })
+
+  it('adopts the transferred owner through StrictMode without closing its live lease', async () => {
+    const { unmount } = render(<StrictMode><NativeBrowserModal {...openProps()} ownerId="transferred-pane" /></StrictMode>)
+    expect(await ready()).toBe('transferred-pane')
+    expect(native.open).toHaveBeenCalledTimes(1)
+    expect(native.close).not.toHaveBeenCalledWith('transferred-pane')
+    unmount()
+    await waitFor(() => expect(native.close).toHaveBeenCalledExactlyOnceWith('transferred-pane'))
+  })
+
+  it('readopts a rolled-back session without closing it on revision cleanup', async () => {
+    const props = openProps()
+    const { rerender } = render(<NativeBrowserModal {...props} ownerId="rollback-pane" leaseRevision={1} />)
+    await ready()
+    rerender(<NativeBrowserModal {...props} ownerId="rollback-pane" leaseRevision={2} />)
+    await waitFor(() => expect(native.open).toHaveBeenCalledTimes(2))
+    expect(native.close).not.toHaveBeenCalledWith('rollback-pane')
+  })
+
+  it('only resumes a parked pane while its matching UI lease remains mounted', async () => {
+    const { unmount } = render(<NativeBrowserModal {...openProps()} ownerId="parked-pane" />)
+    const owner = await ready()
+    const handler = events.get(owner)!
+    act(() => { handler({ ownerId: owner, kind: 'resume', url: 'https://retained.test/' }) })
+    await waitFor(() => expect(native.open).toHaveBeenCalledTimes(2))
+    unmount()
+    act(() => { handler({ ownerId: owner, kind: 'resume', url: 'https://retained.test/' }) })
+    await act(async () => {})
+    expect(native.open).toHaveBeenCalledTimes(2)
+  })
+
+  it('serializes re-adoption behind an older pending opening of the same owner', async () => {
+    let finish!: () => void
+    native.open.mockReturnValueOnce(new Promise<void>(resolve => { finish = resolve }))
+    const first = render(<NativeBrowserModal {...openProps()} ownerId="same-pane" />)
+    await waitFor(() => expect(native.open).toHaveBeenCalledTimes(1))
+    first.unmount()
+    render(<NativeBrowserModal {...openProps()} ownerId="same-pane" />)
+    await act(async () => { finish() })
+    await ready()
+    expect(native.open).toHaveBeenCalledTimes(2)
+    expect(native.close).not.toHaveBeenCalledWith('same-pane')
   })
 
   it('closes only the old owner when an earlier open resolves after a new modal is ready', async () => {
@@ -163,17 +206,51 @@ describe('NativeBrowserModal capture', () => {
     expect(native.navigate).not.toHaveBeenCalled()
   })
 
-  it('captures the element picked in the native page', async () => {
+  it('opens annotation immediately after picking the native element without delivering until confirmation', async () => {
     const picked = { selector: 'main > button', tagName: 'BUTTON', text: 'Save', rect: { x: 10, y: 20, width: 100, height: 30 } }
     native.selection.mockResolvedValueOnce(picked)
+    const onCaptured = vi.fn()
+    render(<NativeBrowserModal {...openProps()} onCaptured={onCaptured} />)
+    const owner = await ready()
+    fireEvent.click(screen.getByRole('button', { name: 'Select element' }))
+    await screen.findByTestId('annotation-confirm')
+    expect(native.setSelectMode).toHaveBeenCalledWith(owner, true)
+    expect(native.setSelectMode).toHaveBeenCalledWith(owner, false)
+    expect(native.capture).toHaveBeenCalledExactlyOnceWith(owner, true)
+    expect(native.hide).toHaveBeenCalledWith(owner)
+    expect(native.setSelectMode.mock.invocationCallOrder[1]).toBeLessThan(native.capture.mock.invocationCallOrder[0])
+    expect(onCaptured).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('annotation-confirm'))
+    await waitFor(() => expect(onCaptured).toHaveBeenCalledExactlyOnceWith(snapshot))
+  })
+
+  it('retains the picked element for retry when automatic native capture fails', async () => {
+    native.selection.mockResolvedValueOnce({ selector: '#picked', tagName: 'DIV', text: '', rect: { x: 10, y: 20, width: 100, height: 30 } })
+    native.capture.mockRejectedValueOnce(new Error('Snapshot failed')).mockResolvedValueOnce(snapshot)
     render(<NativeBrowserModal {...openProps()} onCaptured={vi.fn()} />)
     const owner = await ready()
     fireEvent.click(screen.getByRole('button', { name: 'Select element' }))
-    await screen.findByRole('button', { name: 'Capture selection' })
-    expect(native.setSelectMode).toHaveBeenCalledWith(owner, true)
-    expect(native.setSelectMode).toHaveBeenCalledWith(owner, false)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Snapshot failed')
+    expect(native.hide).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Capture selection' }))
-    await waitFor(() => expect(native.capture).toHaveBeenCalledWith(owner, true))
+    await screen.findByTestId('annotation-confirm')
+    expect(native.capture.mock.calls).toEqual([[owner, true], [owner, true]])
+  })
+
+  it('waits for the native pane to be hidden and ignores resume while entering annotation', async () => {
+    let hidden!: () => void
+    native.hide.mockReturnValue(new Promise<void>(resolve => { hidden = resolve }))
+    const props = openProps()
+    render(<NativeBrowserModal {...props} onCaptured={vi.fn()} />)
+    const owner = await ready()
+    fireEvent.click(screen.getByRole('button', { name: 'Capture page' }))
+    await waitFor(() => expect(native.hide).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId('annotation-confirm')).not.toBeInTheDocument()
+    act(() => { events.get(owner)!({ ownerId: owner, kind: 'resume' }) })
+    await act(async () => { hidden() })
+    await screen.findByTestId('annotation-confirm')
+    expect(native.open).toHaveBeenCalledTimes(1)
+    expect(props.onFallback).not.toHaveBeenCalled()
   })
 
   it('keeps a failed native capture in the same browser instead of falling back to another profile', async () => {

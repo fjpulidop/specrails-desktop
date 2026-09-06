@@ -18,6 +18,8 @@ export function isTerminalMergeState(s: string): boolean {
 }
 
 export interface RailWorktreeRow {
+  repository_id?: string | null
+  repository_path?: string | null
   id: string
   rail_index: number
   ticket_id: number
@@ -31,6 +33,8 @@ export interface RailWorktreeRow {
 }
 
 export interface CreateRailWorktreeInput {
+  repositoryId?: string | null
+  repositoryPath?: string | null
   id: string
   railIndex: number
   ticketId: number
@@ -43,8 +47,8 @@ export interface CreateRailWorktreeInput {
 
 export function createRailWorktree(db: DbInstance, input: CreateRailWorktreeInput): RailWorktreeRow {
   db.prepare(
-    `INSERT INTO rail_worktrees (id, rail_index, ticket_id, run_id, branch, worktree_path, overlay_path, merge_state)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO rail_worktrees (id, rail_index, ticket_id, run_id, branch, worktree_path, overlay_path, merge_state, repository_id, repository_path)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     input.id,
     input.railIndex,
@@ -53,7 +57,9 @@ export function createRailWorktree(db: DbInstance, input: CreateRailWorktreeInpu
     input.branch,
     input.worktreePath,
     input.overlayPath ?? null,
-    input.mergeState ?? 'building'
+    input.mergeState ?? 'building',
+    input.repositoryId ?? null,
+    input.repositoryPath ?? null
   )
   return getRailWorktree(db, input.id)!
 }
@@ -112,9 +118,9 @@ export function listRailWorktreesForTicket(db: DbInstance, ticketId: number): Ra
 /** True when a prior rail allocation for this ticket used exactly this branch —
  *  i.e. an existing branch of that name is OURS to resume (partial work from a
  *  stopped run), not a foreign collision to suffix away from. */
-export function railWorktreeBranchExistsForTicket(db: DbInstance, ticketId: number, branch: string): boolean {
+export function railWorktreeBranchExistsForTicket(db: DbInstance, ticketId: number, branch: string, repositoryId?: string): boolean {
   return (
-    db.prepare('SELECT 1 FROM rail_worktrees WHERE ticket_id = ? AND branch = ? LIMIT 1').get(ticketId, branch) !==
+    db.prepare('SELECT 1 FROM rail_worktrees WHERE ticket_id = ? AND branch = ? AND repository_id IS ? LIMIT 1').get(ticketId, branch, repositoryId ?? null) !==
     undefined
   )
 }

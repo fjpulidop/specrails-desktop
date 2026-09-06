@@ -7,6 +7,8 @@ import type { TerminalSettings } from './terminal-settings'
 export interface ShellIntegrationSpawn {
   /** Args to inject ahead of the existing arg list (or replace, depending on shell). */
   args: string[]
+  /** Some engines treat every argument after their script path as script input. */
+  replaceArgs?: boolean
   /** Env vars to merge into the child env. */
   env: Record<string, string>
   /** Directory containing per-session generated artefacts (chmod 600). null when integration is disabled or shell is unsupported. */
@@ -152,7 +154,10 @@ export function composeShellIntegrationSpawn(
     const shimContent = `# Specrails auto-generated PowerShell profile — do not edit\n. '${bundled.replace(/'/g, "''")}'\n`
     writeFile(shimPath, shimContent)
     return {
-      args: ['-NoLogo', '-NoExit', '-File', shimPath],
+      // A process-only policy permits our generated local profile under the
+      // default Restricted policy; machine/user Group Policy still takes priority.
+      args: ['-NoLogo', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', shimPath],
+      replaceArgs: true,
       env: {},
       shimDir,
       shimPath,

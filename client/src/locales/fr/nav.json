@@ -70,7 +70,8 @@
     "searchPlaceholder": "Rechercher…",
     "minimizeWindow": "Réduire la fenêtre",
     "maximizeWindow": "Agrandir la fenêtre",
-    "closeWindow": "Fermer la fenêtre"
+    "closeWindow": "Fermer la fenêtre",
+    "restoreWindow": "Restaurer la fenêtre"
   },
   "costAlerts": {
     "costAlertTitle": "Alerte de coût",

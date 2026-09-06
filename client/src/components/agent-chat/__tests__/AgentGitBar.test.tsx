@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import type { DesktopProject } from '../../../hooks/useDesktop'
+
+let fixtureProjects: DesktopProject[] = []
+vi.mock('../../../hooks/useDesktop', () => ({ useDesktop: () => ({ projects: fixtureProjects }) }))
 
 const toastError = vi.fn()
 const toastSuccess = vi.fn()
@@ -32,16 +36,130 @@ function mockFetchSequence(handlers: Array<(url: string, init?: RequestInit) => 
 }
 
 async function openDropdown() {
-  const trigger = await screen.findByLabelText('Branch')
+  const trigger = await screen.findByRole('button', { name: 'Branch' })
   fireEvent.click(trigger)
   return trigger
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  fixtureProjects = []
 })
 
 describe('AgentGitBar', () => {
+  const multiProject = (): DesktopProject => ({ id: 'p1', name: 'Shared product', path: '/app', repositories: ['app', 'api', 'docs'].map((id, index) => ({ id, projectId: 'p1', name: id, path: `/${id}`, isPrimary: index === 0, kind: id === 'docs' ? 'folder' : 'git', integrationBranch: null, addedAt: '' })) } as DesktopProject)
+  const chooseRepository = (name: string) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Repository' }))
+    fireEvent.click(screen.getByRole('option', { name }))
+  }
+
+  it('shows each selected repository branch and sends its ID with checkout', async () => {
+    fixtureProjects = [multiProject()]
+    global.fetch = vi.fn(async (url, init) => {
+      const member = String(url).includes('/api/git') ? 'api' : 'app'
+      if (init?.method === 'POST') expect(JSON.parse(String(init.body))).toEqual({ branch: 'feature', repositoryId: 'api' })
+      return { ok: true, json: async () => ({ ...INFO, repositoryId: member, branch: init?.method === 'POST' ? 'feature' : `${member}-main` }) }
+    }) as unknown as typeof fetch
+    render(<AgentGitBar projectId="p1" />)
+    expect(await screen.findByRole('button', { name: 'Branch' })).toHaveTextContent('app-main')
+    chooseRepository('api')
+    expect(await screen.findByRole('button', { name: 'Branch' })).toHaveTextContent('api-main')
+    await openDropdown()
+    fireEvent.click(screen.getByRole('option', { name: /feature/ }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Branch' })).toHaveTextContent('feature'))
+    expect(global.fetch).toHaveBeenLastCalledWith('/api/projects/p1/repositories/api/git/checkout', expect.objectContaining({ method: 'POST' }))
+  })
+
+  it('keeps the repository picker available for a non-Git folder without stale branch actions', async () => {
+    fixtureProjects = [multiProject()]
+    global.fetch = vi.fn(async url => ({ ok: true, json: async () => String(url).includes('/docs/git') ? { git: false, repositoryId: 'docs' } : { ...INFO, repositoryId: 'app' } })) as unknown as typeof fetch
+    render(<AgentGitBar projectId="p1" />)
+    await screen.findByRole('button', { name: 'Branch' })
+    chooseRepository('docs')
+    expect(await screen.findByText('Context folder · no Git')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Branch' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Repository')).toHaveTextContent('docs')
+  })
+
+  it('rejects stale reads after selecting another member and returning to the original member', async () => {
+    fixtureProjects = [multiProject()]
+    let finishOld!: (value: unknown) => void
+    global.fetch = vi.fn()
+      .mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve }))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ...INFO, repositoryId: 'api', branch: 'api-main' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ...INFO, repositoryId: 'app', branch: 'fresh-main' }) })
+    render(<AgentGitBar projectId="p1" />)
+    chooseRepository('api')
+    expect(await screen.findByRole('button', { name: 'Branch' })).toHaveTextContent('api-main')
+    chooseRepository('app')
+    expect(await screen.findByRole('button', { name: 'Branch' })).toHaveTextContent('fresh-main')
+    await act(async () => { finishOld({ ok: true, json: async () => ({ ...INFO, repositoryId: 'app' }) }) })
+    expect(screen.getByRole('button', { name: 'Branch' })).toHaveTextContent('fresh-main')
+  })
+
+  it('does not substitute primary when the selected repository disappears', async () => {
+    fixtureProjects = [multiProject()]
+    global.fetch = vi.fn(async url => {
+      const member = String(url).includes('/api/git') ? 'api' : 'app'
+      return { ok: true, json: async () => ({ ...INFO, repositoryId: member }) }
+    }) as unknown as typeof fetch
+    const view = render(<AgentGitBar projectId="p1" />)
+    await screen.findByRole('button', { name: 'Branch' })
+    chooseRepository('api')
+    await screen.findByRole('button', { name: 'Branch' })
+    fixtureProjects = [{ ...fixtureProjects[0], repositories: [fixtureProjects[0].repositories![0]] }]
+    vi.mocked(fetch).mockResolvedValue({ ok: false, json: async () => ({ error: 'repository_not_found' }) } as Response)
+    view.rerender(<AgentGitBar projectId="p1" />)
+    expect(await screen.findByText('Git state unavailable')).toBeInTheDocument()
+    expect(screen.getByLabelText('Repository')).toHaveTextContent('Repository unavailable')
+    expect(screen.queryByRole('button', { name: 'Branch' })).not.toBeInTheDocument()
+    expect(global.fetch).toHaveBeenLastCalledWith('/api/projects/p1/repositories/api/git', expect.anything())
+  })
+
+  it('rejects mismatched repository payloads and allows retry without enabling checkout', async () => {
+    fixtureProjects = [multiProject()]
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ...INFO, repositoryId: 'foreign' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ...INFO, repositoryId: 'app' }) })
+    render(<AgentGitBar projectId="p1" />)
+    await screen.findByText('Git state unavailable')
+    expect(screen.queryByRole('button', { name: 'Branch' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(await screen.findByRole('button', { name: 'Branch' })).toHaveTextContent('main')
+  })
+
+  it('ignores a stale same-ID response after its registered path changes', async () => {
+    fixtureProjects = [multiProject()]
+    let finishOld!: (value: unknown) => void
+    global.fetch = vi.fn()
+      .mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve }))
+      .mockResolvedValue({ ok: true, json: async () => ({ ...INFO, repositoryId: 'app', branch: 'moved-main' }) })
+    const view = render(<AgentGitBar projectId="p1" />)
+    fixtureProjects = [{ ...fixtureProjects[0], repositories: fixtureProjects[0].repositories!.map(repository => ({ ...repository, path: `${repository.path}-moved` })) }]
+    view.rerender(<AgentGitBar projectId="p1" />)
+    expect(await screen.findByRole('button', { name: 'Branch' })).toHaveTextContent('moved-main')
+    await act(async () => { finishOld({ ok: true, json: async () => ({ ...INFO, repositoryId: 'app' }) }) })
+    expect(screen.getByRole('button', { name: 'Branch' })).toHaveTextContent('moved-main')
+  })
+
+  it('does not apply a late checkout after leaving and returning to its project', async () => {
+    let finishCheckout!: (value: unknown) => void
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => INFO })
+      .mockImplementationOnce(() => new Promise(resolve => { finishCheckout = resolve }))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ...INFO, branch: 'other-project' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ ...INFO, branch: 'fresh-project-state' }) })
+    const view = render(<AgentGitBar projectId="p1" />)
+    await openDropdown()
+    fireEvent.click(screen.getByRole('option', { name: /feature/ }))
+    view.rerender(<AgentGitBar projectId="p2" />)
+    expect(await screen.findByRole('button', { name: 'Branch' })).toHaveTextContent('other-project')
+    view.rerender(<AgentGitBar projectId="p1" />)
+    expect(await screen.findByRole('button', { name: 'Branch' })).toHaveTextContent('fresh-project-state')
+    await act(async () => { finishCheckout({ ok: true, json: async () => ({ ...INFO, branch: 'feature' }) }) })
+    expect(screen.getByRole('button', { name: 'Branch' })).toHaveTextContent('fresh-project-state')
+    expect(toastSuccess).not.toHaveBeenCalled()
+  })
   it('ignores a previous project response after the mission changes project', async () => {
     let finishOld!: (response: unknown) => void
     global.fetch = vi.fn()
@@ -49,9 +167,9 @@ describe('AgentGitBar', () => {
       .mockResolvedValue({ ok: true, json: async () => ({ ...INFO, branch: 'second-project' }) })
     const view = render(<AgentGitBar projectId="p1" />)
     view.rerender(<AgentGitBar projectId="p2" />)
-    expect(await screen.findByLabelText('Branch')).toHaveTextContent('second-project')
+    expect(await screen.findByRole('button', { name: 'Branch' })).toHaveTextContent('second-project')
     await act(async () => { finishOld({ ok: true, json: async () => INFO }) })
-    expect(screen.getByLabelText('Branch')).toHaveTextContent('second-project')
+    expect(screen.getByRole('button', { name: 'Branch' })).toHaveTextContent('second-project')
   })
 
   it('ignores an old status read that settles after checkout', async () => {
@@ -61,18 +179,18 @@ describe('AgentGitBar', () => {
       .mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve }))
       .mockResolvedValueOnce({ ok: true, json: async () => ({ ...INFO, branch: 'feature' }) })
     render(<AgentGitBar projectId="p1" />)
-    await screen.findByLabelText('Branch')
+    await screen.findByRole('button', { name: 'Branch' })
     act(() => notifyGitChanged('p1'))
     await openDropdown()
     await act(async () => { fireEvent.click(screen.getByRole('option', { name: /feature/ })) })
-    expect(screen.getByLabelText('Branch')).toHaveTextContent('feature')
+    expect(screen.getByRole('button', { name: 'Branch' })).toHaveTextContent('feature')
     await act(async () => { finishOld({ ok: true, json: async () => INFO }) })
-    expect(screen.getByLabelText('Branch')).toHaveTextContent('feature')
+    expect(screen.getByRole('button', { name: 'Branch' })).toHaveTextContent('feature')
   })
   it('renders the themed branch trigger and the last commit', async () => {
     mockFetchSequence([() => ({ body: INFO })])
     render(<AgentGitBar projectId="p1" />)
-    const trigger = await screen.findByLabelText('Branch')
+    const trigger = await screen.findByRole('button', { name: 'Branch' })
     expect(trigger.textContent).toContain('main')
     expect(screen.getByText('abc1234')).toBeInTheDocument()
     expect(screen.getByText(/fix: last commit subject/)).toBeInTheDocument()
@@ -87,7 +205,7 @@ describe('AgentGitBar', () => {
       () => ({ body: { ...INFO, branch: 'feature' } }),
     ])
     render(<AgentGitBar projectId="p1" />)
-    const trigger = await screen.findByLabelText('Branch')
+    const trigger = await screen.findByRole('button', { name: 'Branch' })
     await waitFor(() => expect(trigger.textContent).toContain('main'))
 
     // A mutation in ANOTHER project must not trigger a refetch here.
@@ -131,7 +249,7 @@ describe('AgentGitBar', () => {
     fireEvent.change(screen.getByLabelText('Search branches…'), { target: { value: 'feat' } })
     expect(screen.getAllByRole('option')).toHaveLength(1)
     await act(async () => { fireEvent.click(screen.getByRole('option', { name: /feature/ })) })
-    await waitFor(() => expect(screen.getByLabelText('Branch').textContent).toContain('feature'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Branch' }).textContent).toContain('feature'))
     expect(screen.getByText('def5678')).toBeInTheDocument()
     expect(toastSuccess).toHaveBeenCalled()
   })
@@ -149,14 +267,14 @@ describe('AgentGitBar', () => {
       description: 'Your local changes would be overwritten by checkout',
     }))
     // Controlled by server truth — never left showing a branch we are not on.
-    await waitFor(() => expect(screen.getByLabelText('Branch').textContent).toContain('main'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Branch' }).textContent).toContain('main'))
     expect(global.fetch).toHaveBeenCalledTimes(3) // info + checkout + resync
   })
 
   it('shows the detached label when HEAD is detached', async () => {
     mockFetchSequence([() => ({ body: { ...INFO, branch: null, detached: true } })])
     render(<AgentGitBar projectId="p1" />)
-    const trigger = await screen.findByLabelText('Branch')
+    const trigger = await screen.findByRole('button', { name: 'Branch' })
     expect(trigger.textContent).toContain('(detached)')
   })
 

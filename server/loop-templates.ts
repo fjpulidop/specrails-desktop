@@ -243,7 +243,7 @@ const OPSX_VERIFY_PROMPT = [
 ].join('\n')
 
 const OPSX_DECIDER_GOAL =
-  'The verify step reported {{const:VERIFICATION_PASS}} — the implementation fully matches the active OpenSpec artifacts for ticket "{{spec.title}}" and nothing required is missing.'
+  'Stop only when the latest verify step reports {{const:VERIFICATION_PASS}} and evidence shows the implementation fully matches the active OpenSpec artifacts for ticket "{{spec.title}}" across every required repository, with nothing required missing. Green baseline checks or completed design artifacts alone do not prove implementation.'
 
 /** The OpenSpec-lifecycle graph (see comment above). Exported for unit testing. */
 export function opsxLifecycleGraph(): LoopGraph {

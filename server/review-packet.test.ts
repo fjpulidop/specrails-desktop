@@ -45,10 +45,10 @@ function evidence(over: Partial<DeliverySettleEvidence['units'][number]> = {}, h
   }
 }
 
-function churn(rows: Array<{ path: string; added?: number; removed?: number; runId?: string }>): void {
-  let id = 0
+function churn(rows: Array<{ path: string; added?: number; removed?: number; runId?: string; repositoryId?: string }>): void {
   for (const row of rows) {
-    id += 1
+    const id = db.prepare('INSERT INTO file_provenance(file_path, job_id, kind, at, repository_id) VALUES (?, ?, ?, ?, ?)')
+      .run(row.path, row.runId ?? 'run-1', 'modified', 1, row.repositoryId ?? null).lastInsertRowid
     db.prepare(`
       INSERT INTO file_story_contributions (provenance_id, job_id, file_path, added_lines, removed_lines)
       VALUES (?, ?, ?, ?, ?)
@@ -116,6 +116,29 @@ describe('selectVariant', () => {
 })
 
 describe('composeReviewPacket — success variant', () => {
+  it('counts same-path files in different repositories separately for a shared coordinator run', () => {
+    churn([{ path: 'src/index.ts', repositoryId: 'app', added: 3 }, { path: 'src/index.ts', repositoryId: 'api', added: 7 }])
+    const packet = delivery()
+    expect(packet.proof.find(proof => proof.code === 'proof.filesChanged')?.values).toMatchObject({ files: 2, added: 10 })
+    expect(packet.sections[0].churn?.filesTouched).toBe(2)
+    const api = composeReviewPacket({ db, row: getPrDelivery(db, 'del-1')!, repositoryId: 'api' })
+    expect(api.repositoryId).toBe('api')
+    expect(api.proof.find(proof => proof.code === 'proof.filesChanged')?.values).toMatchObject({ files: 1, added: 7 })
+    expect(api.sections[0].churn?.filesTouched).toBe(1)
+  })
+
+  it('includes historical primary churn only on an explicit primary legacy scope', () => {
+    churn([{ path: 'legacy.ts', added: 11 }, { path: 'src/index.ts', repositoryId: 'api', added: 7 }])
+    delivery()
+    const row = getPrDelivery(db, 'del-1')!
+    const noLegacy = composeReviewPacket({ db, row, repositoryId: 'app' })
+    expect(noLegacy.proof.some(proof => proof.code === 'proof.filesChanged')).toBe(false)
+    const primary = composeReviewPacket({ db, row, repositoryId: 'app', includeLegacyProvenance: true })
+    expect(primary.proof.find(proof => proof.code === 'proof.filesChanged')?.values).toMatchObject({ files: 1, added: 11 })
+    const api = composeReviewPacket({ db, row: { ...row, repository_id: 'api' } })
+    expect(api.proof.find(proof => proof.code === 'proof.filesChanged')?.values).toMatchObject({ files: 1, added: 7 })
+  })
+
   it('renders what was asked from the LAUNCH snapshot', () => {
     churn([{ path: 'src/auth.ts' }, { path: 'src/auth.test.ts' }])
     const packet = delivery()

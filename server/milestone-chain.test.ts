@@ -32,7 +32,7 @@ function snap(over: Partial<PrDeliverySnapshot> & { id: string; railIndex: numbe
 
 interface Fake {
   io: MilestoneChainIO
-  launches: Array<{ railIndex: number; body: { mode: string; baseBranch?: string } }>
+  launches: Array<{ railIndex: number; body: { mode: string; baseBranch?: string; baseDeliveryIds?: string[] } }>
   rails: string[]
   deliveries: Map<string, PrDeliverySnapshot>
   deliveryByRail: Map<number, string>
@@ -116,6 +116,26 @@ describe('chunking + naming', () => {
 })
 
 describe('MilestoneChainManager — sequential', () => {
+  it('stacks grouped chunks from durable delivery history after restart without guessing a primary branch', async () => {
+    const f = fake()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    await mgr.start(1, 'sequential')
+    const first = f.deliveries.get('d-3')!
+    f.deliveries.set(first.id, { ...first, executionManifest: {
+      version: 1, groupId: first.id, projectId: 'p1', primaryRepositoryId: 'web', artifactRepositoryId: 'api',
+      selectedRepositoryIds: ['api'], repositories: [],
+    } })
+    // This branch exists in the API repo only; the primary repo lookup would fail.
+    settle(f, mgr, 3, 'on_review', null)
+    await flush()
+    expect(f.launches[1].body).toEqual({ mode: 'batch-implement', baseDeliveryIds: ['d-3'] })
+    const restored = new MilestoneChainManager(db, 'p1', f.io)
+    settle(f, restored, 4, 'no_changes', null)
+    await flush()
+    expect(f.launches[2].body).toEqual({ mode: 'batch-implement', baseDeliveryIds: ['d-3', 'd-4'] })
+    expect(getChain(db, listChains(db)[0].id)?.head_branch).toBeNull()
+  })
+
   it('start launches ONLY chunk 1, records the row, 409s a second start', async () => {
     const f = fake()
     const mgr = new MilestoneChainManager(db, 'p1', f.io)

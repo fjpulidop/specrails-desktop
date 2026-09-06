@@ -1,4 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+
+const testOriginalPath = process.env.PATH
+beforeEach(() => { process.env.PATH = '' })
+afterEach(() => { process.env.PATH = testOriginalPath })
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import os from 'os'
 import path from 'path'

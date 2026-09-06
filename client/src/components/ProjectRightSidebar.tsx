@@ -1,3 +1,4 @@
+import { keyboardLabel } from '../lib/keyboard-label'
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -65,7 +66,7 @@ export function ProjectRightSidebar() {
               : 'text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50'
           )}
           aria-label={pinLabel}
-          title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: '⌘B' })}
+          title={t('sidebarPin.withShortcut', { label: pinLabel, shortcut: keyboardLabel('⌘B') })}
         >
           <PanelRight className="w-4 h-4" />
         </button>

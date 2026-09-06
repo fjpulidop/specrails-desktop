@@ -43,13 +43,15 @@ describe('agent-api', () => {
     const del = mockFetch(undefined)
     await api.deleteAgentConversation('c1')
     expect(del).toHaveBeenCalledWith(expect.stringContaining('/c1'), expect.objectContaining({ method: 'DELETE' }))
-    const send = mockFetch(undefined)
+    const send = mockFetch({ accepted: true, queued: false })
     expect(await api.sendAgentMessage('c1', 'hi', { tierLevel: 2 })).toEqual({ queued: false })
     expect(send).toHaveBeenCalledWith(expect.stringContaining('/c1/send'), expect.objectContaining({ method: 'POST' }))
     const sendQueued = mockFetch({ accepted: true, queued: true })
     expect(await api.sendAgentMessage('c1', 'later', { queueId: 'q-1' })).toEqual({ queued: true })
     const [, init] = sendQueued.mock.calls[0] as [string, RequestInit]
     expect(JSON.parse(String(init.body))).toMatchObject({ text: 'later', queueId: 'q-1' })
+    mockFetch({ accepted: true, queued: true, deliveryMode: 'steer' })
+    expect(await api.sendAgentMessage('c1', 'steer', { queueId: 'q-2', attachments: { ids: ['a1'] } })).toEqual({ queued: true, deliveryMode: 'steer' })
     const ab = mockFetch(undefined)
     await api.abortAgentTurn('c1')
     expect(ab).toHaveBeenCalledWith(expect.stringContaining('/c1/abort'), expect.objectContaining({ method: 'POST' }))
@@ -63,9 +65,52 @@ describe('agent-api', () => {
     expect(en).toHaveBeenCalledWith(expect.stringContaining('/api/mcp-admin/enable'), expect.objectContaining({ method: 'POST' }))
   })
 
+  it('retains the default queue delivery mode returned by the server', async () => {
+    mockFetch({ accepted: true, queued: true, deliveryMode: 'queue' })
+    expect(await api.sendAgentMessage('c1', 'next turn')).toEqual({ queued: true, deliveryMode: 'queue' })
+  })
+
+  it('preserves a removed input tombstone on an idempotent send retry', async () => {
+    mockFetch({ accepted: true, queued: false, duplicate: true, removed: true })
+    expect(await api.sendAgentMessage('c1', 'deleted input', { queueId: 'removed-input' })).toEqual({ queued: false, duplicate: true, removed: true })
+  })
+
+  it.each([
+    ['steer', api.steerQueuedAgentMessage, 'POST', '/steer'],
+    ['remove', api.removeQueuedAgentMessage, 'DELETE', ''],
+  ] as const)('%s targets one encoded queued message and preserves conflicts and failures', async (_label, action, method, suffix) => {
+    const request = mockFetch({ ok: true })
+    expect(await action('conversation/a', 'queue/id')).toBe('saved')
+    expect(request).toHaveBeenCalledWith(expect.stringContaining(`/conversations/conversation%2Fa/queue/queue%2Fid${suffix}`), { method })
+    mockFetch({ error: 'already_delivering' }, false, 409)
+    expect(await action('c1', 'q1')).toBe('conflict')
+    mockFetch({ error: 'offline' }, false, 503)
+    await expect(action('c1', 'q1')).rejects.toThrow('offline')
+  })
+
   it('throws on a non-ok response', async () => {
     mockFetch({ error: 'boom' }, false, 500)
     await expect(api.listAgentConversations()).rejects.toThrow('boom')
+  })
+
+  it.each([200, 404, 502])('reports an HTML API response (%s) without page contents or resending a message', async (status) => {
+    const fetch = vi.fn(async () => new Response('<!DOCTYPE html><h1>Other app secret</h1>', { status, headers: { 'Content-Type': 'text/html' } }))
+    vi.stubGlobal('fetch', fetch)
+    await expect(api.sendAgentMessage('c1', 'keep this draft', { queueId: 'stable-input' })).rejects.toThrow(/web page instead of JSON.*draft is kept/)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch.mock.calls[0]).toEqual([expect.stringContaining('/c1/send'), expect.objectContaining({ body: JSON.stringify({ text: 'keep this draft', queueId: 'stable-input' }) })])
+  })
+
+  it.each([undefined, {}, { accepted: false, queued: false }, { accepted: true }, { accepted: true, queued: 'false' }])('requires an explicit valid admission acknowledgement: %j', async (body) => {
+    const fetch = mockFetch(body)
+    await expect(api.sendAgentMessage('c1', 'pending')).rejects.toThrow('delivery could not be confirmed')
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not claim delivery decisions or checkout succeeded when another frontend returns HTML200', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<!DOCTYPE html><h1>Frontend</h1>', { status: 200 })))
+    expect(await api.postRailPrDecision('p1', { prDeliveryId: 'd1', action: 'merge-local', expectedDecision: 'on_review' })).toMatchObject({ kind: 'failed', detail: expect.stringContaining('web page instead of JSON') })
+    expect(await api.postRailPrCheckout('p1', 'd1')).toMatchObject({ kind: 'failed', error: 'invalid_api_response' })
   })
 
   it.each([

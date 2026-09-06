@@ -232,7 +232,18 @@
     "toastDone": "Specrails Core を {{version}} に更新しました",
     "toastError": "コアの更新に失敗しました: {{message}}",
     "toastUpToDate": "Specrails Core は最新です",
-    "toastCheckFailed": "更新の確認に失敗しました: {{message}}"
+    "toastCheckFailed": "更新の確認に失敗しました: {{message}}",
+    "loadFailed": "Core の状態を更新できませんでした。再試行",
+    "runtime": "ランタイム: {{version}}",
+    "bundled": "Desktop 同梱: {{version}}",
+    "sources": {
+      "override": "明示的な指定",
+      "managed": "Desktop が管理",
+      "bundled": "Desktop 同梱",
+      "local": "ローカルパッケージ",
+      "global": "外部 CLI"
+    },
+    "repair": "{{version}} への更新を完了"
   },
   "appUpdate": {
     "heading": "Specrails Desktop",

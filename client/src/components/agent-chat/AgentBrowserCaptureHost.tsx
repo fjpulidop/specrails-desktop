@@ -1,3 +1,4 @@
+import { useMissionWindows } from '../../context/MissionWindowsContext'
 import { lazy, Suspense } from 'react'
 import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
 import { useAgentChat } from '../../context/AgentChatContext'
@@ -17,8 +18,10 @@ const AgentBrowserCapture = lazy(() =>
 export function AgentBrowserCaptureHost() {
   const { browserOpen } = useAgentWorkspace()
   const { active } = useAgentChat()
+  const windows = useMissionWindows()
+  const external = !windows.current && windows.transfers.some(item => item.conversationId === active?.id && item.state === 'detached')
   const { activeProjectId } = useDesktop()
-  if (!browserOpen || !activeProjectId) return null
+  if (!browserOpen || !activeProjectId || external) return null
   return (
     <Suspense fallback={null}>
       <AgentBrowserCapture projectId={activeProjectId} conversationId={active?.id ?? null} />

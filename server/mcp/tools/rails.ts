@@ -59,6 +59,8 @@ export function railsTools(): McpToolSpec[] {
           .enum(['list', 'pr_candidates', 'review_packet', 'create_rail', 'set_tickets', 'set_profile', 'set_engine', 'set_name', 'launch', 'launch_all', 'stop'])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
+        repositoryIds: z.array(z.string().min(1)).min(1).max(50).optional().describe('launch only: explicit affected repository memberships for the coordinated run; must include every repository required by the assigned specs. Omission uses the assigned specs\' repository selections.'),
+        repositoryId: z.string().min(1).optional().describe('review_packet only: member of a grouped delivery to inspect; omission returns the public parent with grouped outcomes.'),
         railIndex: z
           .number()
           .int()
@@ -152,7 +154,8 @@ export function railsTools(): McpToolSpec[] {
             if (typeof args.prDeliveryId !== 'string' || !args.prDeliveryId.trim()) {
               throw new Error('review_packet requires "prDeliveryId" from list/prDeliveries.')
             }
-            return apiCall(ctx, 'GET', `${base}/pr-deliveries/${encodeURIComponent(args.prDeliveryId)}/packet`)
+            const query = args.repositoryId === undefined ? '' : `?${new URLSearchParams({ repositoryId: args.repositoryId as string })}`
+            return apiCall(ctx, 'GET', `${base}/pr-deliveries/${encodeURIComponent(args.prDeliveryId)}/packet${query}`)
           }
 
           case 'create_rail': {
@@ -223,6 +226,7 @@ export function railsTools(): McpToolSpec[] {
             if (args.loopId !== undefined) body.loopId = args.loopId as string
             if (args.reasoning_effort !== undefined) body.reasoning_effort = args.reasoning_effort as string
             if (args.targetPrNumber !== undefined) body.targetPrNumber = args.targetPrNumber as number
+            if (args.repositoryIds !== undefined) body.repositoryIds = args.repositoryIds
             if (args.baseBranch !== undefined) body.baseBranch = args.baseBranch as string
             // Revision of a delivery already awaiting the user's decision: the
             // ONE launch allowed against an undecided delivery. The route

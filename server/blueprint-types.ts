@@ -40,6 +40,8 @@ export interface BlueprintMilestone {
 }
 
 export interface BlueprintM1Spec {
+  /** Existing-project milestone specs may target several project members. */
+  repositoryIds?: string[]
   kind: BlueprintSpecKind
   title: string
   shortSummary: string

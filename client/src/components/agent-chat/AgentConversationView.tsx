@@ -1,7 +1,10 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { useMissionWindows } from '../../context/MissionWindowsContext'
+import { readMissionScroll, saveMissionScroll, useMissionViewRevision } from '../../lib/mission-view-state'
+import { ExternalLink } from 'lucide-react'
+import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'motion/react'
-import { Bot, ShieldAlert, PackageOpen, Clock, Pin } from 'lucide-react'
+import { Bot, ShieldAlert, PackageOpen, Pin } from 'lucide-react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useActiveTheme } from '../../context/ThemeContext'
 import { useSmoothStream } from '../explore-spec/useSmoothStream'
@@ -10,7 +13,8 @@ import { listAgentAttachments, type AgentAttachment } from '../../lib/agent-api'
 import type { AgentRefTarget } from '../../lib/agent-refs'
 import { AgentActivityChip } from './AgentActivityChip'
 import { AgentActivityLogModal } from './AgentActivityLogModal'
-import { AgentContextInlineTokens, AgentMessage } from './AgentMessage'
+import { AgentMessage } from './AgentMessage'
+import { AgentQueuedMessage } from './AgentQueuedMessage'
 import { AgentComposer } from './AgentComposer'
 import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
@@ -57,6 +61,28 @@ function isSilentSystemRow(content: string): boolean {
 
 export function AgentConversationView({ variant }: { variant: 'floating' | 'inline' }) {
   const { t } = useTranslation('agent')
+  const { active } = useAgentChat()
+  const windows = useMissionWindows()
+  const revision = useMissionViewRevision(active?.id ?? '__new-mission__')
+  const transfer = windows.transfers.find(item => item.conversationId === active?.id)
+  if (active && !windows.current && transfer?.state === 'detached') return (
+    <div className="flex h-full flex-col">
+      {variant === 'inline' && <AgentConversationHeader />}
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+        <ExternalLink className="h-8 w-8 text-accent-primary" />
+        <p className="text-sm text-muted-foreground">{t('window.detached')}</p>
+        <button type="button" onClick={() => { void windows.focus(active.id) }} className="rounded-md bg-accent-primary px-4 py-2 text-sm text-white">{t('window.focus')}</button>
+      </div>
+    </div>
+  )
+  const frozen = !!active && !windows.isEditable(active.id)
+  return <div className="relative flex h-full min-h-0 flex-col" inert={frozen || undefined} aria-busy={frozen || undefined}>
+    <AgentConversationContent key={`${active?.id ?? '__new-mission__'}:${revision}`} variant={variant} />
+  </div>
+}
+
+function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' }) {
+  const { t } = useTranslation('agent')
   const {
     active, messages, streamingText, isStreaming, liveTools, turnTools, queuedMessages,
     mcpEnabled, enablingMcp, enableMcpServer, providersReady, cycleTier, send,
@@ -65,6 +91,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
   // shows the LIVE turn's tools; after settle it keeps showing the finished
   // turn's activity (turnTools) so an open modal never blanks at agent_done.
   const [activityOpen, setActivityOpen] = useState(false)
+  const [queueEditRequest, setQueueEditRequest] = useState<{ conversationId: string; queueId: string; revision: number }>()
   const activityTools = liveTools.length > 0 ? liveTools : turnTools
   const scrollRef = useRef<HTMLDivElement>(null)
   const smoothed = useSmoothStream(streamingText, isStreaming)
@@ -81,8 +108,9 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
     for (const message of messages) {
       for (const id of message.attachment_ids ?? []) ids.add(id)
     }
+    for (const message of queuedMessages) for (const id of message.attachmentIds ?? []) ids.add(id)
     return [...ids].sort()
-  }, [messages])
+  }, [messages, queuedMessages])
   const messageAttachmentKey = messageAttachmentIds.join('\0')
   useEffect(() => {
     const ids = messageAttachmentKey ? messageAttachmentKey.split('\0') : []
@@ -121,11 +149,20 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
   const prCards = useMemo(() => derivePrCards(messages), [messages])
 
   // Stick-to-bottom: only auto-scroll while the user is already near the bottom.
-  const pinnedRef = useRef(true)
+  const savedScroll = active ? readMissionScroll(active.id) : null
+  const pinnedRef = useRef(savedScroll?.atBottom ?? true)
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (el && savedScroll) el.scrollTop = savedScroll.atBottom ? el.scrollHeight : savedScroll.top
+    return () => {
+      if (el && active) saveMissionScroll(active.id, { top: el.scrollTop, atBottom: pinnedRef.current })
+    }
+  }, [active?.id])
   const onMessagesScroll = () => {
     const el = scrollRef.current
     if (!el) return
     pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+    if (active) saveMissionScroll(active.id, { top: el.scrollTop, atBottom: pinnedRef.current })
   }
   useEffect(() => {
     if (!pinnedRef.current) return
@@ -245,6 +282,8 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
                 refsProjectId={refsProjectId}
                 onOpenRef={onOpenRef}
                 contextRefs={m.context_refs}
+                deliveryStatus={m.delivery_status}
+                deliveryReceipt={m.delivery_receipt}
                 conversationId={m.conversation_id}
                 attachments={(m.attachment_ids ?? []).map((id) => attachmentById.get(id)).filter((att): att is AgentAttachment => !!att)}
               />
@@ -264,15 +303,9 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
           {queuedMessages.length > 0 && (
             <div className="space-y-2" data-testid="agent-queued-messages">
               {queuedMessages.map((q) => (
-                <div key={q.queueId} className="flex justify-end">
-                  <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-sm border border-dashed border-border/70 bg-foreground/[0.03] px-3.5 py-2 text-sm text-foreground/60">
-                    <span className="mb-0.5 flex items-center justify-end gap-1 text-[10px] font-medium uppercase tracking-wide text-foreground/45">
-                      <Clock className="h-3 w-3" />
-                      {t('queue.queued')}
-                    </span>
-                    <AgentContextInlineTokens content={q.text} contextRefs={q.contextRefs} />
-                  </div>
-                </div>
+                <AgentQueuedMessage key={`${active?.id}:${q.queueId}`} item={q} conversationId={active?.id}
+                  onEdit={(queueId) => { if (active) setQueueEditRequest((previous) => ({ conversationId: active.id, queueId, revision: (previous?.revision ?? 0) + 1 })) }}
+                  attachments={(q.attachmentIds ?? []).map((id) => attachmentById.get(id)).filter((att): att is AgentAttachment => !!att)} />
               ))}
             </div>
           )}
@@ -306,7 +339,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
                   WHOLE composer card while the agent thinks / writes — same
                   outer-edge treatment as the Builder's hero card. */}
               <AgentThinkingHalo active={isStreaming} radius="1rem" inset={-3} />
-              <AgentComposer />
+              <AgentComposer queueEditRequest={queueEditRequest} />
             </motion.div>
           </div>
         ) : (
@@ -314,7 +347,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
             <AgentThinkingHalo active={isStreaming} radius="0.75rem" inset={-2} />
             {/* Kanban floating panel: the project selector lives in the panel
                 HEADER (next to the Agent title), so the composer hides its own. */}
-            <AgentComposer hideProjectSelector />
+            <AgentComposer hideProjectSelector queueEditRequest={queueEditRequest} />
           </div>
         )}
       </div>

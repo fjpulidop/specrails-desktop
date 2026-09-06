@@ -193,12 +193,12 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
   // Launch a ticket-less loop standalone against a chosen project, then jump to
   // its job log (switching the active project to that target).
   const handleRunExecute = useCallback(
-    async ({ projectId, provider, model, effort }: { projectId: string; provider?: string; model?: string; effort?: string }) => {
+    async ({ projectId, provider, model, effort, repositoryIds }: { projectId: string; provider?: string; model?: string; effort?: string; repositoryIds?: string[] }) => {
       const loop = runLoop
       if (!loop) return
       setRunLoop(null)
       try {
-        const { loopRunId } = await loopsApi.runStandalone(projectId, loop.id, { aiEngine: provider, model, reasoning_effort: effort })
+        const { loopRunId } = await loopsApi.runStandalone(projectId, loop.id, { aiEngine: provider, model, reasoning_effort: effort, ...(repositoryIds ? { repositoryIds } : {}) })
         setActiveProjectId(projectId)
         navigate(`/jobs/${loopRunId}`)
         toast.success(t('run.launched', { name: loop.name }))
@@ -588,7 +588,7 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
       {/* Standalone Run for a ticket-less loop (pick a project + provider/effort). */}
       <LoopRunModal
         loop={runLoop ? { id: runLoop.id, name: runLoop.name } : null}
-        projects={projects.map((p) => ({ id: p.id, name: p.name, providers: projectProviders(p) }))}
+        projects={projects.map((p) => ({ id: p.id, name: p.name, providers: projectProviders(p), repositories: p.repositories }))}
         onClose={() => setRunLoop(null)}
         onExecute={handleRunExecute}
       />

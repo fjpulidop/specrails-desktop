@@ -154,7 +154,7 @@ describe('TerminalsContext', () => {
         return {
           ok: true,
           json: async () => ({
-            session: { id: 'sess-1', projectId: 'proj-A', name: 'zsh', cols: 80, rows: 24, createdAt: 1 },
+            session: { id: 'sess-1', projectId: 'proj-A', name: 'cmd', shell: 'C:\\Windows\\System32\\cmd.exe', cwd: 'C:\\project', cols: 80, rows: 24, createdAt: 1 },
           }),
         }
       }
@@ -165,6 +165,9 @@ describe('TerminalsContext', () => {
     const state = captured.ctx!.getState('proj-A')
     expect(state.sessions.map((s) => s.id)).toEqual(['sess-1'])
     expect(state.activeId).toBe('sess-1')
+    expect(captured.ctx!.getShell('sess-1')).toBe('C:\\Windows\\System32\\cmd.exe')
+    expect(captured.ctx!.getCwd('sess-1')).toBe('C:\\project')
+    expect(captured.ctx!.getShell('unknown')).toBeNull()
   })
 
   it('disposeProject clears state and localStorage for that project', () => {

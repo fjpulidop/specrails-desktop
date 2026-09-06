@@ -8,6 +8,8 @@ import {
   type AgentComposerReferenceDraft,
   migrateNewMissionComposerDrafts,
   __clearComposerDrafts,
+  captureComposerDraft, restoreComposerDraft, persistComposerDraft, recoverComposerDraft, clearComposerDraftRecovery,
+  composerSubmissionIds,
 } from '../agent-composer-drafts'
 
 const att = (id: string): AgentAttachment => ({ id, filename: `${id}.png`, mimeType: 'image/png', size: 10 } as AgentAttachment)
@@ -16,6 +18,79 @@ const ref = (id = '1', start = 17): AgentComposerReferenceDraft => ({
   start,
   end: start + id.length + 1,
   chip: { kind: 'spec', id, label: `Spec ${id}`, token: `#${id}`, projectId: 'p1' },
+})
+
+describe('mission window draft recovery', () => {
+  it('copies exact offsets and attachment metadata without sharing live objects', () => {
+    const draft = { text: 'implementemos el #1', references: [ref()], attachments: [att('a1')] }
+    restoreComposerDraft('c1', draft)
+    draft.references[0].chip.label = 'mutated externally'
+    const captured = captureComposerDraft('c1')
+    expect(captured.references[0].chip.label).toBe('Spec 1')
+    captured.references[0].start = 0
+    expect(composerReferenceDrafts.get('c1')?.[0].start).toBe(17)
+  })
+
+  it('recovers a renderer reload but never replaces a newer in-memory draft', () => {
+    restoreComposerDraft('c1', { text: 'saved', references: [], attachments: [att('a1')] })
+    composerDrafts.clear(); composerAttachmentDrafts.clear(); composerReferenceDrafts.clear()
+    expect(recoverComposerDraft('c1')).toBe(true)
+    expect(captureComposerDraft('c1')).toEqual({ text: 'saved', references: [], attachments: [att('a1')] })
+    composerDrafts.set('c1', 'newer')
+    expect(recoverComposerDraft('c1')).toBe(true)
+    expect(composerDrafts.get('c1')).toBe('newer')
+  })
+
+  it('persists a cleared draft so an old detached-window snapshot cannot resurrect a sent message', () => {
+    restoreComposerDraft('c1', { text: 'sent now', references: [], attachments: [] })
+    composerDrafts.delete('c1'); composerReferenceDrafts.delete('c1'); composerAttachmentDrafts.delete('c1')
+    expect(persistComposerDraft('c1')).toBe(true)
+    expect(recoverComposerDraft('c1')).toBe(true)
+    expect(composerDrafts.get('c1')).toBe('')
+  })
+
+  it('rejects malformed/cross-position recovery and clears only the chosen mission', () => {
+    restoreComposerDraft('c1', { text: 'one', references: [], attachments: [] })
+    restoreComposerDraft('c2', { text: 'two', references: [], attachments: [] })
+    clearComposerDraftRecovery('c1')
+    composerDrafts.clear(); composerAttachmentDrafts.clear(); composerReferenceDrafts.clear()
+    expect(recoverComposerDraft('c1')).toBe(false)
+    expect(recoverComposerDraft('c2')).toBe(true)
+    sessionStorage.setItem('specrails:mission-draft:v1:broken', JSON.stringify({ version: 1, text: 'tiny', references: [ref()], attachments: [] }))
+    expect(recoverComposerDraft('broken')).toBe(false)
+  })
+
+  it('keeps oversized drafts usable in memory without silently truncating recovery', () => {
+    composerDrafts.set('c1', '漢'.repeat(800_000))
+    expect(persistComposerDraft('c1')).toBe(false)
+    expect(composerDrafts.get('c1')).toHaveLength(800_000)
+    expect(sessionStorage.getItem('specrails:mission-draft:v1:c1')).toBeNull()
+  })
+
+  it('carries uncertain-send identity through handoff and renderer reload, then clears it with the accepted draft', () => {
+    const submission = { signature: '["pending",{}]', queueId: 'q-original-request' }
+    restoreComposerDraft('c1', { text: 'pending', references: [], attachments: [], submission })
+    expect(captureComposerDraft('c1').submission).toEqual(submission)
+    composerDrafts.clear(); composerAttachmentDrafts.clear(); composerReferenceDrafts.clear(); composerSubmissionIds.clear()
+    expect(recoverComposerDraft('c1')).toBe(true)
+    expect(composerSubmissionIds.get('c1')).toEqual(submission)
+    restoreComposerDraft('c1', { text: '', references: [], attachments: [] })
+    expect(composerSubmissionIds.has('c1')).toBe(false)
+  })
+
+  it('migrates the new-mission retry identity only with its matching text', () => {
+    composerDrafts.set(NEW_MISSION_DRAFT_KEY, 'pending')
+    composerSubmissionIds.set(NEW_MISSION_DRAFT_KEY, { signature: 'pending-signature', queueId: 'q-1' })
+    persistComposerDraft(NEW_MISSION_DRAFT_KEY)
+    migrateNewMissionComposerDrafts('c1')
+    expect(composerSubmissionIds.get('c1')?.queueId).toBe('q-1')
+    expect(composerSubmissionIds.has(NEW_MISSION_DRAFT_KEY)).toBe(false)
+    expect(recoverComposerDraft(NEW_MISSION_DRAFT_KEY)).toBe(false)
+    composerDrafts.set(NEW_MISSION_DRAFT_KEY, 'different')
+    composerSubmissionIds.set(NEW_MISSION_DRAFT_KEY, { signature: 'different-signature', queueId: 'q-2' })
+    migrateNewMissionComposerDrafts('c1')
+    expect(composerSubmissionIds.get('c1')?.queueId).toBe('q-1')
+  })
 })
 
 afterEach(() => {

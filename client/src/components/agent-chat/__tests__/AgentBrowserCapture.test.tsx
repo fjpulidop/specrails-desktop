@@ -1,3 +1,4 @@
+import { missionTransferBlocked } from '../../../lib/mission-view-state'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import type { CaptureResult } from '../../../lib/browser-capture'
@@ -10,8 +11,9 @@ vi.mock('sonner', () => ({
 
 const closeBrowser = vi.fn()
 const queueCapture = vi.fn()
+const setBrowserUrl = vi.fn()
 vi.mock('../../../context/AgentWorkspaceContext', () => ({
-  useAgentWorkspace: () => ({ closeBrowser, queueCapture }),
+  useAgentWorkspace: () => ({ closeBrowser, queueCapture, setBrowserUrl, browserOwnerId: 'mission-browser', browserUrl: null }),
 }))
 
 const materializeDraftConversation = vi.fn()
@@ -32,6 +34,8 @@ vi.mock('../../../lib/native-browser', () => ({
 
 let nativeProps: {
   url: string
+  ownerId?: string
+  onBusyChange: (busy: boolean) => void
   onCaptured: (result: { screenshotDataUrl: string }) => Promise<void>
   onFallback: () => void
   onUrlChange: (url: string) => void
@@ -195,4 +199,19 @@ describe('AgentBrowserCapture', () => {
     await waitFor(() => expect(modalProps).not.toBeNull())
     expect(screen.queryByTestId('native-browser-fixture')).not.toBeInTheDocument()
   })
+})
+
+
+it('retains the transferred browser identity and prevents losing unfinished capture work', async () => {
+  nativeAvailable.mockResolvedValue(true)
+  const { unmount } = render(<AgentBrowserCapture projectId="p1" conversationId="capture-mission" />)
+  await screen.findByTestId('native-browser-fixture')
+  expect(nativeProps?.ownerId).toBe('mission-browser')
+  act(() => { nativeProps!.onBusyChange(true) })
+  expect(missionTransferBlocked('capture-mission')).toBe(true)
+  act(() => { nativeProps!.onBusyChange(false) })
+  expect(missionTransferBlocked('capture-mission')).toBe(false)
+  act(() => { nativeProps!.onBusyChange(true) })
+  unmount()
+  expect(missionTransferBlocked('capture-mission')).toBe(false)
 })

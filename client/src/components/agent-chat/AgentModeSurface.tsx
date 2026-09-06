@@ -1,3 +1,5 @@
+import { useMissionWindows } from '../../context/MissionWindowsContext'
+import { useMissionViewRevision } from '../../lib/mission-view-state'
 import { Suspense, lazy, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, MotionConfig } from 'motion/react'
@@ -31,6 +33,9 @@ export function AgentModeSurface() {
   const { active, refreshConversations, builderMode } = useAgentChat()
  const { codePaneOpen, jobsPaneOpen, analyticsPaneOpen } = useAgentWorkspace()
   const { activeProjectId } = useDesktop()
+  const windows = useMissionWindows()
+  const revision = useMissionViewRevision(active?.id ?? '__new-mission__')
+  const external = !windows.current && windows.transfers.some(item => item.conversationId === active?.id && item.state === 'detached')
   const activeTheme = useActiveTheme()
   const isGalaxy = activeTheme.id === 'galaxy'
   // Code Rain gets a themed empty-state title.
@@ -44,9 +49,9 @@ export function AgentModeSurface() {
   // The inline Code pane can accompany BOTH the EMPTY composer and an ACTIVE
   // thread — it only needs an active project (its own store is per-conversation,
   // falling back to a Home key when no conversation is open yet).
-  const showCode = codePaneOpen && !!activeProjectId
-  const showJobs = jobsPaneOpen && !!activeProjectId
-  const showAnalytics = analyticsPaneOpen && !!activeProjectId
+  const showCode = codePaneOpen && !!activeProjectId && !external
+  const showJobs = jobsPaneOpen && !!activeProjectId && !external
+  const showAnalytics = analyticsPaneOpen && !!activeProjectId && !external
 
   return (
     <MotionConfig reducedMotion="user">
@@ -111,7 +116,7 @@ export function AgentModeSurface() {
 
       {showCode && (
         <Suspense fallback={<div className="w-[520px] border-l border-border" />}>
-          <AgentModeCodePane projectId={activeProjectId!} conversationId={active?.id ?? '__home__'} />
+          <AgentModeCodePane key={`${active?.id}:${revision}`} projectId={activeProjectId!} conversationId={active?.id ?? '__home__'} />
         </Suspense>
       )}
 

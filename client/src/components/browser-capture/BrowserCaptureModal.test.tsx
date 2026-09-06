@@ -102,20 +102,69 @@ describe('BrowserCaptureModal capture destination', () => {
     expect(session.capture).toHaveBeenCalledTimes(1)
   })
 
-  it('waits for all-breakpoint uploads and shows a recoverable error without closing on rejection', async () => {
+  it('opens annotation for all-breakpoint captures and waits for explicit confirmation before uploading', async () => {
     const callbacks = props()
     let reject!: (cause: Error) => void
     callbacks.onCaptured.mockReturnValue(new Promise<void>((_, fail) => { reject = fail }))
     render(<BrowserCaptureModal {...callbacks} />)
     fireEvent.click(screen.getByRole('button', { name: 'Capture at all screen sizes' }))
     selectRegion()
+    fireEvent.click(await screen.findByTestId('annotation-confirm'))
     await waitFor(() => expect(callbacks.onCaptured).toHaveBeenCalledExactlyOnceWith(result))
     expect(callbacks.onClose).not.toHaveBeenCalled()
-    expect(screen.getByTestId('browser-select-toggle')).toBeDisabled()
+    expect(screen.getByTestId('annotation-confirm')).toBeDisabled()
     await act(async () => { reject(new Error('upload offline')) })
-    expect(screen.getByRole('alert')).toHaveTextContent('upload offline')
+    expect(screen.getByRole('alert')).toHaveTextContent('Capture failed')
     expect(callbacks.onClose).not.toHaveBeenCalled()
-    expect(screen.getByTestId('browser-select-toggle')).toBeEnabled()
+    expect(screen.getByTestId('annotation-confirm')).toBeEnabled()
+    expect(session.captureBreakpoints).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([false, true])('does not deliver a drag capture before annotation confirmation (all sizes: %s)', async (allSizes) => {
+    const callbacks = props()
+    render(<BrowserCaptureModal {...callbacks} />)
+    if (allSizes) fireEvent.click(screen.getByRole('button', { name: 'Capture at all screen sizes' }))
+    fireEvent.click(screen.getByTestId('browser-select-toggle'))
+    const layer = session.canvasRef.current!.nextElementSibling!
+    fireEvent.pointerDown(layer, { clientX: 30, clientY: 40, pointerId: 1 })
+    fireEvent.pointerMove(layer, { clientX: 330, clientY: 240, pointerId: 1 })
+    fireEvent.pointerUp(layer, { clientX: 330, clientY: 240, pointerId: 1 })
+    await screen.findByTestId('annotation-confirm')
+    expect(callbacks.onCaptured).not.toHaveBeenCalled()
+    expect(callbacks.onClose).not.toHaveBeenCalled()
+    expect((allSizes ? session.captureBreakpoints : session.capture).mock.calls[0][0]).toEqual({ x: 30, y: 40, width: 300, height: 200 })
+    fireEvent.click(screen.getByTestId('annotation-confirm'))
+    await waitFor(() => expect(callbacks.onCaptured).toHaveBeenCalledExactlyOnceWith(result))
+  })
+
+  it('lets the dirty editor decide Escape and ignores backdrop clicks instead of discarding markup', async () => {
+    const callbacks = props()
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    render(<BrowserCaptureModal {...callbacks} />)
+    selectRegion()
+    await screen.findByTestId('annotation-confirm')
+    // Step badges do not require canvas flattening to create a dirty annotation.
+    fireEvent.click(screen.getByRole('button', { name: /Step number/ }))
+    fireEvent.pointerDown(screen.getByRole('img').parentElement!.querySelector('svg')!, { clientX: 50, clientY: 60, pointerId: 1 })
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(window.confirm).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('dialog').parentElement!)
+    expect(callbacks.onClose).not.toHaveBeenCalled()
+    expect(callbacks.onCaptured).not.toHaveBeenCalled()
+    expect(screen.getByTestId('annotation-confirm')).toBeInTheDocument()
+  })
+
+  it('does not close the parent on Escape while an attachment is being saved', async () => {
+    const callbacks = props()
+    let finish!: () => void
+    callbacks.onCaptured.mockReturnValue(new Promise<void>(resolve => { finish = resolve }))
+    render(<BrowserCaptureModal {...callbacks} />)
+    selectRegion()
+    fireEvent.click(await screen.findByTestId('annotation-confirm'))
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(callbacks.onClose).not.toHaveBeenCalled()
+    await act(async () => { finish() })
+    expect(callbacks.onClose).toHaveBeenCalledTimes(1)
   })
 
   it('captures one selection only once under StrictMode', async () => {

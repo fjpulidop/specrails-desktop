@@ -88,7 +88,8 @@ export function watchTool(): McpToolSpec {
       'Use kind:"job" or kind:"loop_run" for durable recovery: reads current state immediately, then every 5s, including operations that finished before this call. UUID refs auto-detect jobs/loop runs. ' +
       'Default untilMs 120000 is often shorter than a rail run (max 600000). ' +
       'settled means terminal, NOT necessarily successful; inspect terminalEvent.status/outcome. Events are bounded/truncated to protect context; other operation kinds only observe future events. ' +
-      'settled:false with reason:"timeout" means TIMEOUT, not failure — re-watch or poll the domain read. Cancellation stops waiting without stopping the operation.',
+      'settled:false with reason:"timeout" means TIMEOUT, not failure — re-watch or poll the domain read. Cancellation stops waiting without stopping the operation. ' +
+      'A new message in the owning mission ends only this wait immediately with reason:"user_update" so the agent can incorporate it; the underlying job/rail keeps running.',
     tier: 'read',
     inputSchema: {
       projectId: z
@@ -125,6 +126,7 @@ export function watchTool(): McpToolSpec {
         let poller: NodeJS.Timeout | undefined
         let timer: NodeJS.Timeout | undefined
         let unsub = () => {}
+        let unsubMission = () => {}
         const addEvent = (msg: WsMessage) => {
           if (done) return
           const entry = boundedEvent(msg)
@@ -144,6 +146,7 @@ export function watchTool(): McpToolSpec {
           clearTimeout(timer)
           if (poller) clearInterval(poller)
           unsub()
+          unsubMission()
           ctx.signal?.removeEventListener('abort', aborted)
           resolve({
             settled,
@@ -153,7 +156,10 @@ export function watchTool(): McpToolSpec {
             eventCount,
             terminalEvent: settled ? events[events.length - 1]?.event ?? null : null,
             events: events.map((entry) => entry.event),
-            ...(settled ? {} : { suggestion: reason === 'canceled'
+            ...(reason === 'user_update' ? { operationStopped: false } : {}),
+            ...(settled ? {} : { suggestion: reason === 'user_update'
+              ? 'Waiting ended because the user updated this mission; the operation was NOT stopped and may still be running. Incorporate the user instructions received through the active mission input channel, then decide the next action from current state.'
+              : reason === 'canceled'
               ? 'Waiting was canceled; the operation was not stopped. Read its current state before deciding the next action.'
               : TIMEOUT_SUGGESTION }),
           })
@@ -174,6 +180,12 @@ export function watchTool(): McpToolSpec {
           if (kind === 'job' && type !== 'job.finalized' && !type.startsWith('rail.job_')) return
           if (isTerminal(type)) finish(true, `terminal:${type}`)
         })
+        if (ctx.onMissionInput) {
+          unsubMission = ctx.onMissionInput(() => finish(false, 'user_update'))
+          // Registration can synchronously report an already-pending input.
+          // finish then ran before its disposer was assigned; release it now.
+          if (done) { unsubMission(); return }
+        }
 
         // Subscribe BEFORE reading durable state, closing the fast-completion
         // race. Never overlap reads or let a late response resurrect this wait.

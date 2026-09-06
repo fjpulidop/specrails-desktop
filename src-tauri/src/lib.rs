@@ -1,6 +1,8 @@
 mod browser;
+mod desktop_actions;
 mod invoke_guard;
 mod backend_health;
+mod mission_windows;
 
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,9 +12,31 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
 use tauri::Emitter;
-use tauri::{RunEvent, WindowEvent};
+use tauri::RunEvent;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_shell::ShellExt;
+
+static HOST_CONTROL_TOKEN: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+#[cfg(windows)]
+static SIDECAR_CREATION_TIME: std::sync::OnceLock<Option<(u32, u64)>> = std::sync::OnceLock::new();
+
+fn host_control_token() -> &'static str {
+    HOST_CONTROL_TOKEN.get_or_init(|| {
+        use rand::RngCore;
+        let mut bytes = [0u8; 32];
+        rand::rngs::OsRng.fill_bytes(&mut bytes);
+        bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    })
+}
+
+/// Console utilities must not flash a console above the frameless desktop app.
+#[cfg(windows)]
+fn windows_command(program: &str) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    let mut command = std::process::Command::new(program);
+    command.creation_flags(0x08000000);
+    command
+}
 
 const SERVER_PORT: u16 = 4200;
 const HEALTH_URL: &str = "http://127.0.0.1:4200/api/health";
@@ -86,13 +110,35 @@ fn pid_is_sidecar(pid: u32) -> bool {
 }
 
 #[cfg(windows)]
+fn process_creation_time(pid: u32) -> Option<u64> {
+    use windows::Win32::{Foundation::{CloseHandle, FILETIME}, System::Threading::{OpenProcess, GetProcessTimes, PROCESS_QUERY_LIMITED_INFORMATION}};
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let mut creation = FILETIME::default();
+        let mut exit = FILETIME::default();
+        let mut kernel = FILETIME::default();
+        let mut user = FILETIME::default();
+        let result = GetProcessTimes(handle, &mut creation, &mut exit, &mut kernel, &mut user);
+        let _ = CloseHandle(handle);
+        result.ok()?;
+        Some((u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime))
+    }
+}
+
+#[cfg(any(windows, test))]
+fn same_process_generation(expected: Option<(u32, u64)>, pid: u32, observed: Option<u64>) -> bool {
+    expected.is_some_and(|(expected_pid, created)| expected_pid == pid && observed == Some(created))
+}
+
+#[cfg(windows)]
 fn pid_is_sidecar(pid: u32) -> bool {
-    use std::process::Command;
+    let expected = SIDECAR_CREATION_TIME.get().copied().flatten();
+    if !same_process_generation(expected, pid, process_creation_time(pid)) { return false; }
     // `tasklist /FI "PID eq <pid>" /FO CSV /NH` yields a CSV row whose first
     // field is the image name. We confirm both that the PID is alive (a row is
     // returned) and that its image name matches the sidecar before tree-killing,
     // so a recycled PID for unrelated software is never force-killed.
-    let out = Command::new("tasklist")
+    let out = windows_command("tasklist")
         .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
         .output()
         .ok();
@@ -102,7 +148,7 @@ fn pid_is_sidecar(pid: u32) -> bool {
     };
     // No matching task prints an INFO line. A generic `.exe` suffix is not
     // identity evidence: it used to authorize killing any recycled Windows PID.
-    sidecar_tasklist_matches(&row, pid)
+    sidecar_tasklist_matches(&row, pid) && same_process_generation(expected, pid, process_creation_time(pid))
 }
 
 /// Kill a child process — SIGTERM on Unix with SIGKILL fallback, taskkill on Windows.
@@ -122,8 +168,9 @@ fn terminate_process(pid: u32) {
         .args(["-TERM", &pid.to_string()])
         .output();
 
-    // Wait up to 5s for graceful exit, then SIGKILL
-    let deadline = Instant::now() + Duration::from_secs(5);
+    // Allow the server's bounded application-process drain (6s), followed by
+    // proxy/socket cleanup, before force-killing the sidecar itself.
+    let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         std::thread::sleep(Duration::from_millis(200));
         // Check if still alive by sending signal 0
@@ -149,33 +196,45 @@ fn terminate_process(pid: u32) {
     }
 }
 
+#[cfg(any(windows, test))]
+fn shutdown_acknowledged(body: &str, pid: u32) -> bool {
+    if body.len() > 1024 { return false; }
+    serde_json::from_str::<serde_json::Value>(body).ok().is_some_and(|body| {
+        body.get("ok") == Some(&serde_json::Value::Bool(true)) && body.get("pid").and_then(serde_json::Value::as_u64) == Some(u64::from(pid))
+    })
+}
+
 #[cfg(windows)]
 fn terminate_process(pid: u32) {
-    use std::process::Command;
-    // Identity gate: never force-kill a recycled/unrelated PID's whole tree.
-    if !pid_is_sidecar(pid) {
-        return;
+    if !pid_is_sidecar(pid) { return; }
+    // Windows signals cannot drain Node. Ask the owned process over the private
+    // host channel, then retain the identity-gated tree kill as a deadline.
+    let accepted = reqwest::blocking::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(2)).build().ok()
+        .and_then(|client| client.post(format!("http://127.0.0.1:{SERVER_PORT}/api/host/shutdown"))
+            .header("X-Specrails-Host-Token", host_control_token()).send().ok())
+        .filter(|response| response.status() == reqwest::StatusCode::ACCEPTED)
+        .and_then(|response| {
+            use std::io::Read;
+            let mut body = String::new();
+            response.take(1025).read_to_string(&mut body).ok().map(|_| body)
+        })
+        .map(|body| shutdown_acknowledged(&body, pid))
+        .unwrap_or(false);
+    if !accepted {
+        // The server may have started draining before the HTTP acknowledgement
+        // was lost. Never turn an uncertain response into an immediate kill.
+        eprintln!("[sidecar] Graceful shutdown was not acknowledged; waiting before fallback.");
     }
-    // Windows Node cannot catch a graceful termination signal (taskkill /F issues
-    // a non-catchable TerminateProcess), so there is no point POSTing to a
-    // shutdown route. Kill the whole process tree (/T) so the node sidecar AND its
-    // children (claude/codex rails, node-pty shells) are reaped — without /T the
-    // node process dies but its children are orphaned and keep file/DB locks.
-    let _ = Command::new("taskkill")
-        .args(["/PID", &pid.to_string(), "/T", "/F"])
-        .output();
-
-    // Best-effort wait so the caller can rely on port 4200 having been released.
+    let deadline = Instant::now() + Duration::from_secs(12);
+    while Instant::now() < deadline {
+        if !pid_is_sidecar(pid) { return; }
+        std::thread::sleep(Duration::from_millis(150));
+    }
+    if !pid_is_sidecar(pid) { return; }
+    let _ = windows_command("taskkill").args(["/PID", &pid.to_string(), "/T", "/F"]).output();
     let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-        let alive = Command::new("tasklist")
-            .args(["/FI", &format!("PID eq {}", pid), "/NH"])
-            .output()
-            .map(|o| String::from_utf8_lossy(&o.stdout).contains(&pid.to_string()))
-            .unwrap_or(false);
-        if !alive || Instant::now() >= deadline {
-            break;
-        }
+    while Instant::now() < deadline {
+        if !pid_is_sidecar(pid) { break; }
         std::thread::sleep(Duration::from_millis(150));
     }
 }
@@ -338,9 +397,23 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(|invoke| invoke_guard::dispatch(invoke, tauri::generate_handler![
             restart_app,
             set_tray_labels,
+            desktop_actions::desktop_reveal_path,
+            desktop_actions::desktop_save_text,
+            desktop_actions::desktop_notify,
+            mission_windows::mission_windows_supported,
+            mission_windows::mission_windows_list,
+            mission_windows::mission_window_current,
+            mission_windows::mission_window_detach,
+            mission_windows::mission_window_ready,
+            mission_windows::mission_window_attach,
+            mission_windows::mission_window_ack,
+            mission_windows::mission_window_cancel,
+            mission_windows::mission_window_focus,
+            mission_windows::mission_window_discard,
             browser::browser_supported,
             browser::browser_open,
             browser::browser_navigate,
@@ -475,7 +548,8 @@ pub fn run() {
                         .blocking_show();
                     error
                 })?
-                .args([&parent_pid_arg]);
+                .args([&parent_pid_arg])
+                .env("SPECRAILS_HOST_CONTROL_TOKEN", host_control_token());
             let sidecar = if has_runtimes {
                 // Bundled node/git win: server/path-resolver.ts prepends the bundled bin
                 // dirs ahead of the macOS login-shell PATH set below, so a system
@@ -663,6 +737,8 @@ pub fn run() {
                 })?;
 
             let pid = child.pid();
+            #[cfg(windows)]
+            let _ = SIDECAR_CREATION_TIME.set(process_creation_time(pid).map(|created| (pid, created)));
             *sidecar_pid.lock().unwrap() = Some(pid);
 
             // Drain sidecar stdout/stderr to prevent pipe buffer blocking.
@@ -754,29 +830,9 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            // Closing the window now MINIMIZES TO TRAY instead of quitting: the
-            // close is prevented and the window hidden, so the `specrails-server`
-            // sidecar keeps running and the tray item can reopen it. Sidecar
-            // termination moved to the tray "Exit" path and the true-quit
-            // `RunEvent::ExitRequested` hook below.
-            //
-            // Reopening the hidden window is per-platform, because a hidden
-            // window is reachable differently on each OS:
-            //  - macOS: the app keeps its Dock icon, so clicking it never
-            //    launches a second process — it raises
-            //    `applicationShouldHandleReopen`, handled as `RunEvent::Reopen`
-            //    in the run loop below.
-            //  - Windows: a hidden window has no taskbar button, so the user
-            //    necessarily relaunches from the taskbar/Start shortcut. The
-            //    `tauri_plugin_single_instance` callback registered above
-            //    intercepts that launch and calls `show_main_window` on the
-            //    existing instance, so no second sidecar is ever spawned.
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
-            }
-        })
+        // Main closes to tray; missions reintegrate after restoration ACK;
+        // browser popup windows actually close and release their owner slot.
+        .on_window_event(mission_windows::handle_window_event)
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app_handle, event| {
@@ -807,6 +863,33 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn private_shutdown_ack_requires_exact_process_identity() {
+        assert!(shutdown_acknowledged(r#"{"ok":true,"pid":42}"#, 42));
+        for body in [r#"{"ok":true,"pid":43}"#, r#"{"ok":false,"pid":42}"#, r#"{"ok":true}"#, "<html>unrelated server</html>"] {
+            assert!(!shutdown_acknowledged(body, 42));
+        }
+        assert!(!shutdown_acknowledged(&" ".repeat(1025), 42));
+    }
+
+    #[test]
+    fn host_secret_is_stable_for_this_generation_and_header_safe() {
+        let value = host_control_token();
+        assert_eq!(value.len(), 64);
+        assert!(value.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        assert_eq!(value, host_control_token());
+    }
+
+    #[test]
+    fn same_image_and_recycled_pid_are_not_the_spawned_process_generation() {
+        assert!(same_process_generation(Some((42, 100)), 42, Some(100)));
+        assert!(!same_process_generation(Some((42, 100)), 42, Some(101)));
+        assert!(!same_process_generation(Some((42, 100)), 43, Some(100)));
+        assert!(!same_process_generation(None, 42, Some(100)));
+        assert!(!same_process_generation(Some((42, 100)), 42, None));
+    }
+
 
     #[test]
     fn sidecar_identity_requires_its_image_and_exact_parent_handshake() {

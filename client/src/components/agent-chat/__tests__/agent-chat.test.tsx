@@ -56,6 +56,8 @@ vi.mock('../../../lib/agent-api', async (orig) => {
     fetchAgentAttachmentBlob: vi.fn(async () => new Blob(['x'], { type: 'application/octet-stream' })),
     abortAgentTurn: vi.fn(async () => {}),
     editQueuedAgentMessage: vi.fn(async () => 'saved' as const),
+    steerQueuedAgentMessage: vi.fn(async () => 'saved' as const),
+    removeQueuedAgentMessage: vi.fn(async () => 'saved' as const),
     getMcpStatus: vi.fn(async () => ({ enabled: true, running: true })),
     enableMcp: vi.fn(async () => {}),
     getAgentModels: vi.fn(async (p: string) => ({
@@ -108,6 +110,8 @@ beforeEach(() => {
   vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv, messages: [] })
   vi.mocked(agentApi.getMcpStatus).mockResolvedValue({ enabled: true, running: true })
   vi.mocked(agentApi.editQueuedAgentMessage).mockResolvedValue('saved')
+  vi.mocked(agentApi.steerQueuedAgentMessage).mockResolvedValue('saved')
+  vi.mocked(agentApi.removeQueuedAgentMessage).mockResolvedValue('saved')
   vi.mocked(agentApi.uploadAgentAttachment).mockImplementation(async (_conversationId: string, file: File) => ({
     id: 'att-1',
     filename: file.name,
@@ -309,6 +313,15 @@ describe('AgentActivityChip', () => {
 
 // ── AgentMessage (markdown + copy) ────────────────────────────────────────────
 describe('AgentMessage', () => {
+  it.each([
+    ['delivered', 'Delivered to agent'],
+    ['interrupted', 'Delivery unconfirmed'],
+    ['cancelled', 'Cancelled before delivery'],
+  ] as const)('renders %s input status without implying its instructions were applied', (status, label) => {
+    render(<AgentMessage role="user" content="Change the approach" deliveryStatus={status} />)
+    expect(screen.getByTestId('agent-delivery-receipt')).toHaveAttribute('title', label)
+    expect(screen.getByTestId('agent-delivery-receipt').textContent).toBe('')
+  })
   it('renders a plain user bubble with a copy button', () => {
     render(<AgentMessage role="user" content="hola mundo" />)
     expect(screen.getByText('hola mundo')).toBeInTheDocument()
@@ -562,6 +575,8 @@ function Harness() {
       </span>
       <span data-testid="queued">{a.queuedMessages.length}</span>
       <span data-testid="queued-texts">{a.queuedMessages.map((q) => q.text).join('|')}</span>
+      <span data-testid="queued-data">{JSON.stringify(a.queuedMessages)}</span>
+      <span data-testid="transcript-data">{JSON.stringify(a.messages)}</span>
       <span data-testid="live-ids">{[...a.streamingConversationIds].sort().join(',')}</span>
       <span data-testid="mcp">{String(a.mcpEnabled)}</span>
       <span data-testid="tier">{a.active?.tier_level ?? -1}</span>
@@ -840,6 +855,217 @@ describe('AgentChatProvider', () => {
     expect(screen.getByTestId('streaming').textContent).toBe('true')
   })
 
+  it('delivers steering between assistant segments without resetting active tools or duplicating acknowledgements', async () => {
+    vi.mocked(agentApi.sendAgentMessage).mockResolvedValue({ queued: false })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    const refs = [{ kind: 'spec', id: '12', token: '#12', label: 'Shared contract', scope: { projectId: 'p1', repositoryId: 'api' } }]
+    await act(async () => {
+      wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'First plan' })
+      wsHandler!({ type: 'agent_tool', conversationId: 'c1', tool: 'specrails_code', toolId: 'tool-1' })
+      wsHandler!({ type: 'agent_queued', conversationId: 'c1', queueId: 'q-steer', text: 'Adjust #12', contextRefs: refs, attachmentIds: ['att-1'], deliveryMode: 'steer' })
+    })
+    expect(screen.getByTestId('queued-data')).toHaveTextContent('att-1')
+    const delivered = { type: 'agent_steered', conversationId: 'c1', queueId: 'q-steer', messageId: 'user-steer', text: 'Adjust #12', contextRefs: refs, attachmentIds: ['att-1'], timestamp: '2026-09-05T20:00:00Z', assistantSegment: { id: 'segment-1', content: 'First plan', created_at: '2026-09-05T19:59:59Z' } }
+    await act(async () => { wsHandler!(delivered) })
+    expect(screen.getByTestId('queued')).toHaveTextContent('0')
+    expect(screen.getByTestId('streaming')).toHaveTextContent('true')
+    expect(screen.getByTestId('tools')).toHaveTextContent('1')
+    expect(screen.getByTestId('stream')).toHaveTextContent('')
+    let transcript = JSON.parse(screen.getByTestId('transcript-data').textContent!)
+    expect(transcript.map((row: agentApi.AgentMessage) => row.content)).toEqual(['hi', 'First plan', 'Adjust #12'])
+    expect(transcript.at(-1)).toMatchObject({ id: 'user-steer', delivery_status: 'delivered', context_refs: refs, attachment_ids: ['att-1'] })
+    await act(async () => {
+      wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Updated plan' })
+      wsHandler!({ type: 'agent_tool_result', conversationId: 'c1', toolId: 'tool-1', output: 'preserved result' })
+      wsHandler!(delivered)
+      wsHandler!({ type: 'agent_queued', conversationId: 'c1', queueId: 'q-steer', text: 'late queue echo' })
+    })
+    expect(screen.getByTestId('stream')).toHaveTextContent('Updated plan')
+    expect(screen.getByTestId('tool-detail')).toHaveTextContent('preserved result')
+    expect(screen.getByTestId('queued')).toHaveTextContent('0')
+    await act(async () => {
+      wsHandler!({ type: 'agent_done', conversationId: 'c1', messageId: 'segment-2', fullText: 'Updated plan' })
+      wsHandler!({ type: 'agent_done', conversationId: 'c1', messageId: 'segment-2', fullText: 'Updated plan' })
+      wsHandler!({ type: 'agent_done', conversationId: 'c1', fullText: '' })
+    })
+    transcript = JSON.parse(screen.getByTestId('transcript-data').textContent!)
+    expect(transcript.map((row: agentApi.AgentMessage) => row.content)).toEqual(['hi', 'First plan', 'Adjust #12', 'Updated plan'])
+  })
+
+  it('does not resurrect a pending chip when delivery beats the HTTP response', async () => {
+    let respond!: (value: { queued: boolean; deliveryMode: 'steer' }) => void
+    vi.mocked(agentApi.sendAgentMessage).mockImplementationOnce(() => new Promise((resolve) => { respond = resolve }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    const queueId = vi.mocked(agentApi.sendAgentMessage).mock.calls[0][2]!.queueId
+    await act(async () => {
+      wsHandler!({ type: 'agent_steered', conversationId: 'c1', queueId, messageId: 'delivered-first', text: 'hi' })
+      respond({ queued: true, deliveryMode: 'steer' })
+    })
+    expect(screen.getByTestId('queued')).toHaveTextContent('0')
+    expect(JSON.parse(screen.getByTestId('transcript-data').textContent!).map((row: agentApi.AgentMessage) => row.id)).toEqual(['delivered-first'])
+  })
+
+  it('preserves cancelled pending input and attachments when Stop beats the HTTP response', async () => {
+    let respond!: (value: { queued: boolean }) => void
+    vi.mocked(agentApi.sendAgentMessage).mockImplementationOnce(() => new Promise((resolve) => { respond = resolve }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    const cancelled = { id: 'cancelled-input', conversation_id: 'c1', role: 'user', content: 'hi', attachment_ids: ['a1'], context_refs: [], created_at: '', delivery_status: 'cancelled' }
+    await act(async () => {
+      wsHandler!({ type: 'agent_queue_cleared', conversationId: 'c1', messages: [cancelled] })
+      respond({ queued: true })
+    })
+    expect(screen.getByTestId('queued')).toHaveTextContent('0')
+    expect(JSON.parse(screen.getByTestId('transcript-data').textContent!)).toEqual([cancelled])
+  })
+
+  it('rehydrates pending text, references, attachments and current assistant segment after reload', async () => {
+    const pending = [{ queueId: 'persisted-pending', text: 'Consider #12', attachmentIds: ['saved-attachment'], contextRefs: [{ kind: 'spec', id: '12', token: '#12' }], deliveryMode: 'steer' as const }]
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([api.conv])
+    vi.mocked(agentApi.getAgentConversation).mockResolvedValue({ conversation: api.conv, messages: [], pendingMessages: pending, live: { isStreaming: true, streamingText: 'Restored progress' } })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    expect(screen.getByTestId('stream')).toHaveTextContent('Restored progress')
+    expect(screen.getByTestId('streaming')).toHaveTextContent('true')
+    expect(JSON.parse(screen.getByTestId('queued-data').textContent!)).toEqual(pending)
+    expect(agentApi.sendAgentMessage).not.toHaveBeenCalled()
+  })
+
+  it('does not let a stale conversation snapshot restore delivered input or erase newer output', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { wsHandler!({ type: 'agent_queued', conversationId: 'c1', queueId: 'stale-q', text: 'Correction' }) })
+    let resolveSnapshot!: (snapshot: agentApi.AgentConversationSnapshot) => void
+    vi.mocked(agentApi.getAgentConversation).mockImplementationOnce(() => new Promise((resolve) => { resolveSnapshot = resolve }))
+    await act(async () => { fireEvent.click(screen.getByText('go-c1')) })
+    await act(async () => {
+      wsHandler!({ type: 'agent_steered', conversationId: 'c1', queueId: 'stale-q', messageId: 'current-user', text: 'Correction', assistantSegment: { id: 'current-assistant', content: 'Before correction', created_at: '' } })
+      wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'After correction' })
+      resolveSnapshot({ conversation: api.conv, messages: [], pendingMessages: [{ queueId: 'stale-q', text: 'Correction' }], live: { isStreaming: true, streamingText: 'Stale progress' } })
+    })
+    expect(screen.getByTestId('queued')).toHaveTextContent('0')
+    expect(screen.getByTestId('stream')).toHaveTextContent('After correction')
+    expect(JSON.parse(screen.getByTestId('transcript-data').textContent!).map((row: agentApi.AgentMessage) => row.id)).toEqual(['current-assistant', 'current-user'])
+  })
+
+  it('keeps background steering isolated and restores its ordered transcript when switching back', async () => {
+    vi.mocked(agentApi.getAgentConversation).mockImplementation(async (id) => ({ conversation: { ...api.conv, id }, messages: [] }))
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('go-c2')) })
+    await act(async () => {
+      wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Original approach' })
+      wsHandler!({ type: 'agent_steered', conversationId: 'c1', queueId: 'background-input', messageId: 'background-user', text: 'Change approach', attachmentIds: ['a1'], assistantSegment: { id: 'background-segment', content: 'Original approach', created_at: '' } })
+      wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'New approach' })
+    })
+    expect(screen.getByTestId('msgs')).toHaveTextContent('0')
+    expect(screen.getByTestId('stream')).toHaveTextContent('')
+    await act(async () => { fireEvent.click(screen.getByText('go-c1')) })
+    expect(JSON.parse(screen.getByTestId('transcript-data').textContent!).map((row: agentApi.AgentMessage) => row.content)).toEqual(['Original approach', 'Change approach'])
+    expect(screen.getByTestId('stream')).toHaveTextContent('New approach')
+  })
+
+  it('opens empty process history without sending or replacing a saved mission draft', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('go-c1')) })
+    const box = screen.getByRole('textbox')
+    inputEditor(box, 'Keep this unsent instruction')
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'View process history' })) })
+    expect(screen.getByTestId('background-process-history-modal')).toBeInTheDocument()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Close process history' })) })
+    expect(screen.queryByTestId('background-process-history-modal')).not.toBeInTheDocument()
+    expect(editorText(screen.getByRole('textbox'))).toBe('Keep this unsent instruction')
+    expect(agentApi.sendAgentMessage).not.toHaveBeenCalled()
+  })
+
+  it.each(['admission error', 'HTML response', 'missing acknowledgement'])('preserves a busy submission after %s with its attachments and refs, then retries the same admission ID', async (failure) => {
+    vi.mocked(agentApi.sendAgentMessage).mockResolvedValue({ queued: false })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    const box = screen.getByRole('textbox', { name: 'Add a message to the queue…' })
+    inputEditor(box, 'change @deck')
+    await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
+    await act(async () => {
+      fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [new File(['requirements'], 'brief.txt', { type: 'text/plain' })] } })
+    })
+    if (failure === 'admission error') {
+      vi.mocked(agentApi.sendAgentMessage).mockRejectedValueOnce(new Error('Admission temporarily unavailable'))
+    } else {
+      const actual = await vi.importActual<typeof agentApi>('../../../lib/agent-api')
+      vi.mocked(agentApi.sendAgentMessage).mockImplementationOnce(actual.sendAgentMessage)
+      vi.mocked(global.fetch).mockResolvedValueOnce(new Response(failure === 'HTML response' ? '<!DOCTYPE html><h1>Another application</h1>' : '{}', { status: 200 }))
+    }
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    expect(editorText(box)).toBe('change @deckdex')
+    expect(box.querySelector('[data-inline-reference]')).toHaveAttribute('data-token', '@deckdex')
+    expect(screen.getByText('brief.txt')).toBeInTheDocument()
+    expect(screen.getByTestId('queued')).toHaveTextContent('0')
+    expect(screen.getByTestId('streaming')).toHaveTextContent('true')
+    expect(agentApi.sendAgentMessage).toHaveBeenCalledTimes(2)
+    if (failure !== 'admission error') {
+      expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('draft is kept'))
+      expect(toast.error).not.toHaveBeenCalledWith(expect.stringContaining('<!DOCTYPE'))
+    }
+    const failed = vi.mocked(agentApi.sendAgentMessage).mock.calls[1][2]!
+    const canonical = { id: 'retry-user', conversation_id: 'c1', role: 'user' as const, content: 'change @deckdex', created_at: '', delivery_status: 'delivered' as const, attachment_ids: ['att-1'], context_refs: failed.contextRefs }
+    vi.mocked(agentApi.sendAgentMessage).mockResolvedValueOnce({ queued: false, message: canonical })
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[2][2]).toMatchObject({ queueId: failed.queueId, attachments: { ids: ['att-1'] }, contextRefs: failed.contextRefs })
+    expect(editorText(box)).toBe('')
+    expect(screen.getByTestId('queued')).toHaveTextContent('0')
+    expect(JSON.parse(screen.getByTestId('transcript-data').textContent!).at(-1)).toEqual(canonical)
+  })
+
+  it('upserts a retry in its existing FIFO slot when a late queued event follows an ambiguous failure', async () => {
+    vi.mocked(agentApi.sendAgentMessage).mockResolvedValue({ queued: false })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    const box = screen.getByRole('textbox', { name: 'Add a message to the queue…' })
+    inputEditor(box, 'Keep the public API stable')
+    vi.mocked(agentApi.sendAgentMessage).mockRejectedValueOnce(new Error('Response interrupted'))
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    const queueId = vi.mocked(agentApi.sendAgentMessage).mock.calls[1][2]!.queueId
+    await act(async () => {
+      wsHandler!({ type: 'agent_queued', conversationId: 'c1', queueId: 'earlier-input', text: 'Earlier instruction' })
+      wsHandler!({ type: 'agent_queued', conversationId: 'c1', queueId, text: 'Keep the public API stable', timestamp: '2026-09-05T20:00:00Z' })
+      wsHandler!({ type: 'agent_queued', conversationId: 'c1', queueId: 'later-input', text: 'Later instruction' })
+    })
+    vi.mocked(agentApi.sendAgentMessage).mockResolvedValueOnce({ queued: true, duplicate: true, deliveryMode: 'steer' })
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    expect(vi.mocked(agentApi.sendAgentMessage).mock.calls[2][2]!.queueId).toBe(queueId)
+    const pending = JSON.parse(screen.getByTestId('queued-data').textContent!)
+    expect(pending.map((item: agentApi.AgentPendingMessage) => item.queueId)).toEqual(['earlier-input', queueId, 'later-input'])
+    expect(pending[1].timestamp).toBe('2026-09-05T20:00:00Z')
+    expect(editorText(box)).toBe('')
+  })
+
+  it('inserts a flushed segment before a canonical HTTP user acknowledgement that arrived first', async () => {
+    vi.mocked(agentApi.sendAgentMessage).mockResolvedValue({ queued: false })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('send')) })
+    await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Before correction' }) })
+    vi.mocked(agentApi.sendAgentMessage).mockResolvedValueOnce({ queued: false, message: { id: 'http-user', conversation_id: 'c1', role: 'user', content: 'extra', created_at: '', delivery_status: 'delivered' } })
+    await act(async () => { fireEvent.click(screen.getByText('send-extra')) })
+    expect(screen.getByTestId('stream')).toHaveTextContent('Before correction')
+    const queueId = vi.mocked(agentApi.sendAgentMessage).mock.calls[1][2]!.queueId
+    await act(async () => {
+      wsHandler!({ type: 'agent_steered', conversationId: 'c1', queueId, messageId: 'http-user', text: 'extra', assistantSegment: { id: 'http-segment', content: 'Before correction', created_at: '' } })
+      wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'After correction' })
+    })
+    expect(JSON.parse(screen.getByTestId('transcript-data').textContent!).map((row: agentApi.AgentMessage) => row.content)).toEqual(['hi', 'Before correction', 'extra'])
+    expect(screen.getByTestId('stream')).toHaveTextContent('After correction')
+    expect(screen.getByTestId('queued')).toHaveTextContent('0')
+  })
+
   it('abort drops the queued chips immediately', async () => {
     vi.mocked(agentApi.sendAgentMessage)
       .mockResolvedValueOnce({ queued: false })
@@ -913,22 +1139,22 @@ describe('AgentChatProvider', () => {
     expect(screen.getByTestId('msgs').textContent).toBe('1') // deduped
   })
 
-  it('composer tri-state: red stop only with an empty box; typing flips to queue-send', async () => {
+  it('keeps Stop available independently from sending a steering message', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
     await waitFor(() => expect(agentApi.createAgentConversation).toHaveBeenCalled())
     // Start a turn → streaming, box empty → red Stop.
     await act(async () => { fireEvent.click(screen.getByText('send')) })
     expect(screen.getByLabelText('Stop')).toBeInTheDocument()
-    const box = screen.getByRole('textbox', { name: 'Add more while the agent works — it will queue…' })
-    // Typing mid-stream → third state: send-to-queue (Stop hidden).
+    const box = screen.getByRole('textbox', { name: 'Add a message to the queue…' })
+    // Typing enables Send without hiding Stop.
     inputEditor(box, 'follow-up')
-    expect(screen.queryByLabelText('Stop')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Send to queue')).toBeInTheDocument()
+    expect(screen.getByLabelText('Stop')).toBeInTheDocument()
+    expect(screen.getByLabelText('Send message')).toBeInTheDocument()
     // Clearing the box restores the red Stop.
     inputEditor(box, '')
     expect(screen.getByLabelText('Stop')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Send to queue')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Send message')).toBeDisabled()
   })
 
   it('a typed-but-unsent draft SURVIVES unmounting the composer (Mission⇄Board switch)', async () => {
@@ -1225,7 +1451,7 @@ describe('AgentComposer queue-edit mode', () => {
     await act(async () => { fireEvent.click(screen.getByText('open')) })
     await act(async () => { fireEvent.click(screen.getByText('send')) })
     await act(async () => { wsHandler!({ type: 'agent_stream', conversationId: 'c1', delta: 'Working…' }) })
-    const box = screen.getByRole('textbox', { name: 'Add more while the agent works — it will queue…' })
+    const box = screen.getByRole('textbox', { name: 'Add a message to the queue…' })
     for (const t of texts) {
       inputEditor(box, t)
       await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
@@ -1238,12 +1464,86 @@ describe('AgentComposer queue-edit mode', () => {
     return (vi.mocked(agentApi.sendAgentMessage).mock.calls[n][2] as { queueId: string }).queueId
   }
 
+  it('queues Enter by default and exposes Steer, delete and the Edit menu for each pending message', async () => {
+    await openWithQueuedMessages(['first queued', 'second queued'])
+    const rows = screen.getAllByTestId('agent-queued-message')
+    expect(rows).toHaveLength(2)
+    expect(JSON.parse(screen.getByTestId('queued-data').textContent!).map((item: agentApi.AgentPendingMessage) => item.deliveryMode)).toEqual(['queue', 'queue'])
+    expect(agentApi.steerQueuedAgentMessage).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Stop')).toBeInTheDocument()
+    expect(within(rows[0]).getByRole('button', { name: 'Steer' })).toHaveAttribute('title', 'Submit without interrupting the model')
+    expect(within(rows[0]).getByRole('button', { name: 'Delete queued message' })).toBeEnabled()
+    expect(within(rows[0]).getByRole('button', { name: 'Message options' })).toBeEnabled()
+    await act(async () => { fireEvent.click(within(rows[1]).getByRole('button', { name: 'Steer' })) })
+    expect(agentApi.steerQueuedAgentMessage).toHaveBeenCalledWith('c1', queueIdOf(2))
+    expect(within(rows[1]).getByTestId('agent-delivery-receipt')).toHaveAttribute('data-receipt', 'sent')
+    expect(within(rows[1]).getByRole('button', { name: 'Steer' })).toBeDisabled()
+    expect(within(rows[1]).getByRole('button', { name: 'Delete queued message' })).toBeDisabled()
+    expect(within(rows[1]).getByRole('button', { name: 'Message options' })).toBeDisabled()
+    expect(within(rows[0]).getByRole('button', { name: 'Steer' })).toBeEnabled()
+    expect(agentApi.abortAgentTurn).not.toHaveBeenCalled()
+  })
+
+  it('edits the chosen queued message from its menu using the composer without losing an existing draft', async () => {
+    const box = await openWithQueuedMessages(['first queued', 'second queued'])
+    inputEditor(box, 'Unsent draft')
+    const first = screen.getAllByTestId('agent-queued-message')[0]
+    fireEvent.click(within(first).getByRole('button', { name: 'Message options' }))
+    fireEvent.click(within(first).getByRole('menuitem', { name: 'Edit' }))
+    expect(editorText(box)).toBe('first queued')
+    await waitFor(() => expect(document.activeElement).toBe(box))
+    inputEditor(box, 'Edited first message')
+    await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
+    expect(agentApi.editQueuedAgentMessage).toHaveBeenCalledWith('c1', queueIdOf(1), 'Edited first message')
+    expect(editorText(box)).toBe('Unsent draft')
+    expect(screen.getByTestId('queued-texts')).toHaveTextContent('Edited first message|second queued')
+  })
+
+  it('keeps dirty menu edits as a draft if another window promotes that message', async () => {
+    const box = await openWithQueuedMessages(['queued instruction'])
+    const row = screen.getByTestId('agent-queued-message')
+    fireEvent.click(within(row).getByRole('button', { name: 'Message options' }))
+    fireEvent.click(within(row).getByRole('menuitem', { name: 'Edit' }))
+    inputEditor(box, 'Unsent revised instruction')
+    await act(async () => { wsHandler!({ type: 'agent_queue_edited', conversationId: 'c1', queueId: queueIdOf(1), deliveryMode: 'steer' }) })
+    expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+    expect(editorText(box)).toBe('Unsent revised instruction')
+    expect(agentApi.editQueuedAgentMessage).not.toHaveBeenCalled()
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+  })
+
+  it('removes only the chosen queued message and ignores a late admission echo without creating a user bubble', async () => {
+    await openWithQueuedMessages(['first queued', 'second queued'])
+    const removedId = queueIdOf(1)
+    const row = screen.getAllByTestId('agent-queued-message')[0]
+    await act(async () => { fireEvent.click(within(row).getByRole('button', { name: 'Delete queued message' })) })
+    expect(agentApi.removeQueuedAgentMessage).toHaveBeenCalledWith('c1', removedId)
+    await act(async () => { wsHandler!({ type: 'agent_queued', conversationId: 'c1', queueId: removedId, text: 'first queued', deliveryMode: 'queue' }) })
+    expect(screen.getByTestId('queued-texts')).toHaveTextContent('second queued')
+    expect(screen.getByTestId('queued-texts')).not.toHaveTextContent('first queued')
+    expect(JSON.parse(screen.getByTestId('transcript-data').textContent!).map((item: agentApi.AgentMessage) => item.content)).toEqual(['hi'])
+    expect(screen.getByTestId('streaming')).toHaveTextContent('true')
+  })
+
+  it('preserves the queue and enables retry after a failed Steer or delete request', async () => {
+    await openWithQueuedMessages(['keep this'])
+    const row = screen.getByTestId('agent-queued-message')
+    vi.mocked(agentApi.steerQueuedAgentMessage).mockRejectedValueOnce(new Error('offline'))
+    await act(async () => { fireEvent.click(within(row).getByRole('button', { name: 'Steer' })) })
+    expect(within(row).getByRole('button', { name: 'Steer' })).toBeEnabled()
+    vi.mocked(agentApi.removeQueuedAgentMessage).mockRejectedValueOnce(new Error('offline'))
+    await act(async () => { fireEvent.click(within(row).getByRole('button', { name: 'Delete queued message' })) })
+    expect(screen.getByTestId('queued-texts')).toHaveTextContent('keep this')
+    expect(toast.error).toHaveBeenCalledWith('Could not update the queued message. Try again.')
+  })
+
   it('↑ enters queue-edit at the LAST queued item; ↑/↓ move through slots; ↓ past the newest exits', async () => {
     const box = await openWithQueuedMessages(['first queued', 'second queued'])
     // ↑ from the empty box → the QUEUE takes precedence over prompt history.
     fireEvent.keyDown(box, { key: 'ArrowUp' })
     expect(editorText(box)).toBe('second queued')
-    expect(screen.getByTestId('queue-edit-chip').textContent).toContain('Editing queued message 2 of 2')
+    expect(screen.getByTestId('queue-edit-chip').textContent).toContain('Editing pending message 2 of 2')
     // ↑ at caret start (pristine) → older slot.
     selectEditor(box, 0)
     fireEvent.keyDown(box, { key: 'ArrowUp' })
@@ -1306,7 +1606,7 @@ describe('AgentComposer queue-edit mode', () => {
     fireEvent.keyDown(box, { key: 'ArrowUp' })
     inputEditor(box, 'edited too late')
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
-    expect(toast.info).toHaveBeenCalledWith('That queued message was already sent — your text is kept as a draft')
+    expect(toast.info).toHaveBeenCalledWith('That message was already delivered — your text is kept as a draft')
     expect(editorText(box)).toBe('edited too late') // NOTHING lost
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
   })
@@ -1317,7 +1617,7 @@ describe('AgentComposer queue-edit mode', () => {
     fireEvent.keyDown(box, { key: 'ArrowUp' })
     inputEditor(box, 'fragile edited')
     await act(async () => { fireEvent.keyDown(box, { key: 'Enter' }) })
-    expect(toast.error).toHaveBeenCalledWith("Couldn't save the queued message")
+    expect(toast.error).toHaveBeenCalledWith("Couldn’t save the pending message")
     expect(editorText(box)).toBe('fragile edited')
     expect(screen.getByTestId('queue-edit-chip')).toBeInTheDocument() // still editing — Enter retries
   })
@@ -1329,9 +1629,24 @@ describe('AgentComposer queue-edit mode', () => {
     await act(async () => {
       wsHandler!({ type: 'agent_dequeued', conversationId: 'c1', queueId: queueIdOf(1), text: 'about to go' })
     })
-    expect(toast.info).toHaveBeenCalledWith('That queued message was already sent — your text is kept as a draft')
+    expect(toast.info).toHaveBeenCalledWith('That message was already delivered — your text is kept as a draft')
     expect(editorText(box)).toBe('dirty edit in progress') // nothing lost
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+  })
+
+  it('delivered steering becomes immutable while dirty edits remain a draft and Stop stays available', async () => {
+    const box = await openWithQueuedMessages(['correct this'])
+    fireEvent.keyDown(box, { key: 'ArrowUp' })
+    inputEditor(box, 'dirty correction')
+    expect(screen.getByLabelText('Stop')).toBeInTheDocument()
+    await act(async () => {
+      wsHandler!({ type: 'agent_steered', conversationId: 'c1', queueId: queueIdOf(1), messageId: 'delivered-edit', text: 'correct this' })
+    })
+    expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()
+    expect(editorText(box)).toBe('dirty correction')
+    expect(agentApi.editQueuedAgentMessage).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Stop')).toBeInTheDocument()
+    expect(toast.info).toHaveBeenCalledWith('That message was already delivered — your text is kept as a draft')
   })
 
   it('queue cleared (Stop) while editing pristine exits silently and restores the stashed draft', async () => {
@@ -1357,7 +1672,7 @@ describe('AgentComposer queue-edit mode', () => {
     await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
 
     await act(async () => { fireEvent.click(screen.getByText('go-c1')) })
-    const firstEditor = screen.getByRole('textbox', { name: 'Add more while the agent works — it will queue…' })
+    const firstEditor = screen.getByRole('textbox', { name: 'Add a message to the queue…' })
     fireEvent.keyDown(firstEditor, { key: 'ArrowUp' })
     expect(screen.getByTestId('queue-edit-chip')).toBeInTheDocument()
     await act(async () => { fireEvent.click(screen.getByText('go-c2')) })

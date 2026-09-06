@@ -12,6 +12,7 @@ import { RichAttachmentEditor, type RichAttachmentEditorHandle } from './RichAtt
 import { SpecModelPicker, useDefaultSpecModel } from './explore-spec/SpecModelPicker'
 import { AiEngineSelector } from './AiEngineSelector'
 import type { LocalTicket, TicketPriority } from '../types'
+import { RepositoryScopeSelector } from './RepositoryScopeSelector'
 import { ContextScopeChecks } from './ContextScopeChecks'
 import { ContextScopeSlider } from './ContextScopeSlider'
 import {
@@ -61,6 +62,7 @@ const RAW_PRIORITY_CLASS: Record<TicketPriority, string> = {
 const RAW_PRIORITY_ORDER: readonly TicketPriority[] = ['critical', 'high', 'medium', 'low']
 
 export interface ExploreLaunchPayload {
+  repositoryIds?: string[]
   idea: string
   pendingSpecId: string
   initialAttachmentIds: string[]
@@ -121,6 +123,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
   const [title, setTitle] = useState('')
   const titleTouchedRef = useRef(false)
   const [priority, setPriority] = useState<TicketPriority>('medium')
+  const [repositoryIds, setRepositoryIds] = useState<string[] | undefined>()
   const [labels, setLabels] = useState<string[]>([])
 
   // AI Engine (multi-provider). null until the first fetch resolves the
@@ -237,6 +240,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
       setTitle('')
       setPriority('medium')
       setLabels([])
+      setRepositoryIds(undefined)
       submittedRef.current = false
       scopeTouchedRef.current = false
       titleTouchedRef.current = false
@@ -354,6 +358,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
             labels: labels.length > 0 ? labels : undefined,
             priority,
             structured: false,
+            ...(repositoryIds ? { repositoryIds } : {}),
             attachmentIds: rawAttachmentIds,
             pendingSpecId,
           }),
@@ -393,6 +398,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
         model: model!,
         provider: effectiveProvider ?? undefined,
         contextScope: effectiveScope,
+        ...(repositoryIds ? { repositoryIds } : {}),
       })
       onClose()
       return
@@ -425,6 +431,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
           body: JSON.stringify({
             idea, attachmentIds, pendingSpecId, model: model ?? undefined,
             aiEngine: effectiveProvider ?? undefined,
+            ...(repositoryIds ? { repositoryIds } : {}),
             contextScope: {
               specrails: effectiveScope.specrails,
               openspec: effectiveScope.openspec,
@@ -450,7 +457,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
     } finally {
       setIsSubmitting(false)
     }
-  }, [mode, tickets, tracker, pendingSpecId, onClose, onExploreLaunch, model, quickRefine, effectiveScope, effectiveProvider, quickAvailable, captures, title, priority, labels, t])
+  }, [mode, tickets, tracker, pendingSpecId, onClose, onExploreLaunch, model, quickRefine, effectiveScope, effectiveProvider, quickAvailable, captures, title, priority, labels, repositoryIds, t])
 
   return (
     <>
@@ -523,6 +530,8 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
                 />
               </div>
             )}
+
+            <RepositoryScopeSelector value={repositoryIds} onChange={setRepositoryIds} disabled={isSubmitting} />
 
             {mode === 'free' && (
               <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-150">

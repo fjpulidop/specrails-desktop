@@ -10,6 +10,8 @@ import { createInternalApi } from '../../internal-api'
 import { AGENT_CAPABILITY_HEADER, levelAllowsTier, type AgentTierLevel } from '../../agent-tier'
 import { getAgentConversation } from '../../agent-store'
 import { verifyAgentCapability } from '../agent-capability'
+import { getProjectRepositories, resolveProjectRepository, type ProjectRepository } from '../../project-repositories'
+import { acknowledgeAgentSteering, acknowledgeAgentInputsRead, onAgentSteering, runWithAgentSteering } from '../../agent-steering'
 
 export type { McpTier } from '../mcp-tiers'
 
@@ -53,6 +55,11 @@ export interface McpToolContext {
   sessionState?: { activeProjectId: string | null }
   /** SDK cancellation for this request; never stored in the session context. */
   signal?: AbortSignal
+  /** Request-bound closure; never accepts a conversation id or exposes a bearer. */
+  acknowledgeAgentUpdates?: (revision: number) => unknown
+  acknowledgeAgentInputsRead?: (inputIds: string[]) => unknown
+  /** Authenticated turn-scoped notification; only read-only waits may yield early. */
+  onMissionInput?: (listener: () => void) => () => void
 }
 
 export class McpApiError extends Error {
@@ -100,6 +107,25 @@ export async function apiCall(
 /** Convenience: build the `/projects/<id>` path prefix for a resolved project. */
 export function projectPath(ctx: McpToolContext, projectId: string | undefined): string {
   return `/projects/${requireProject(ctx, projectId).project.id}`
+}
+
+/** Repository identity is relative to the resolved project, never a free path
+ * or another project's membership. MCP requires a choice where a file/Git
+ * operation could otherwise silently target the primary. */
+export function requireRepository(ctx: McpToolContext, projectId?: string, repositoryId?: string): ProjectRepository {
+  const { project } = requireProject(ctx, projectId)
+  const repositories = getProjectRepositories(project)
+  if (repositoryId === undefined && repositories.length > 1) {
+    const data = { error: 'repository_required', projectId: project.id, repositories }
+    throw new McpApiError(`Provide repositoryId for this multi-repository project: ${JSON.stringify(data)}`, 400, data)
+  }
+  return resolveProjectRepository(project, repositoryId)
+}
+
+export function repositoryPath(ctx: McpToolContext, projectId?: string, repositoryId?: string): string {
+  const repository = requireRepository(ctx, projectId, repositoryId)
+  const base = `/projects/${encodeURIComponent(repository.projectId)}`
+  return repositoryId === undefined ? base : `${base}/repositories/${encodeURIComponent(repository.id)}`
 }
 
 /**
@@ -290,13 +316,27 @@ export function registerTieredTool(server: McpServer, ctx: McpToolContext, spec:
       if (!toolTierAllowed(callCtx, tier)) {
         return errorResult(tierRefusalMessage(tier))
       }
-      try {
-        const data = await spec.handler(callCtx, args ?? {})
-        if (tier !== 'read') emitMcpActivity(callCtx, spec, args ?? {}, tier)
-        return toResult(data)
-      } catch (err) {
-        return errorResult(err instanceof Error ? err.message : String(err))
+      const operation = async (): Promise<CallToolResult> => {
+        try {
+          const data = await spec.handler(callCtx, args ?? {})
+          if (tier !== 'read') emitMcpActivity(callCtx, spec, args ?? {}, tier)
+          return toResult(data)
+        } catch (err) {
+          return errorResult(err instanceof Error ? err.message : String(err))
+        }
       }
+      if (capability && typeof suppliedCapability === 'string') {
+        callCtx.acknowledgeAgentUpdates = revision => acknowledgeAgentSteering(ctx.desktopDb, suppliedCapability, revision)
+        callCtx.acknowledgeAgentInputsRead = inputIds => acknowledgeAgentInputsRead(ctx.desktopDb, suppliedCapability, inputIds)
+        callCtx.onMissionInput = listener => onAgentSteering(ctx.desktopDb, suppliedCapability, listener)
+        return runWithAgentSteering(ctx.desktopDb, suppliedCapability, extra?.signal, operation, {
+          acknowledgement: spec.name === 'specrails_mission' && args?.action === 'acknowledge_updates',
+        })
+      }
+      callCtx.acknowledgeAgentUpdates = undefined
+      callCtx.acknowledgeAgentInputsRead = undefined
+      callCtx.onMissionInput = undefined
+      return operation()
     },
   )
 }

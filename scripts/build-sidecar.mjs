@@ -18,6 +18,7 @@ import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import fs from 'node:fs'
 import path from 'node:path'
+import { stageWindowsPty } from './stage-windows-pty.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -443,6 +444,9 @@ async function main() {
   // node-pty's prebuilds occasionally lose the +x bit during extraction — restore it
   // for spawn-helper so posix_spawnp succeeds at runtime.
   ensureSpawnHelperExecutable(nodePtyDest)
+  if (keepPrebuild?.startsWith('win32-')) {
+    stageWindowsPty(nodePtyDest, keepPrebuild.slice('win32-'.length))
+  }
   // Also copy pty.node to BINARIES_DIR root for the Module._resolveFilename redirect path.
   const ptyAddonSrc = resolvePtyAddonForTriple(triple, nodePtySrc)
   const ptyAddonDest = path.join(BINARIES_DIR, 'pty.node')

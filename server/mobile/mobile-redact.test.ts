@@ -1,8 +1,24 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import os from 'os'
 import { redact, stripHome, scrubAbsolutePaths } from './mobile-redact'
 
+afterEach(() => { vi.restoreAllMocks() })
+
 describe('mobile-redact', () => {
+  it('recognizes Windows HOME case and separator variants, including spaced profile names', () => {
+    vi.spyOn(os, 'homedir').mockReturnValue('C:\\Users\\José Smith')
+    expect(stripHome('at c:/users/JOSÉ smith/projects/app')).toBe('at ~/projects/app')
+    expect(stripHome('"C:\\USERS\\José Smith\\My Project"')).toBe('"~\\My Project"')
+    expect(stripHome('C:\\Users\\José Smithson\\secret')).toBe('C:\\Users\\José Smithson\\secret')
+    expect(redact({ detail: 'C:\\Users\\José Smithson\\secret' })).toEqual({ detail: '[path]' })
+  })
+
+  it('recognizes UNC HOME without changing ordinary prose or URL paths', () => {
+    vi.spyOn(os, 'homedir').mockReturnValue('\\\\server\\Profiles\\Jane Doe')
+    expect(stripHome('\\\\SERVER\\profiles\\JANE DOE\\project')).toBe('~\\project')
+    expect(scrubAbsolutePaths('see https://example.com/a/b and /specrails:implement #2')).toBe('see https://example.com/a/b and /specrails:implement #2')
+  })
+
   it('strips the home dir from strings', () => {
     const home = os.homedir()
     expect(stripHome(`${home}/repos/x`)).toBe('~/repos/x')
@@ -54,6 +70,18 @@ describe('mobile-redact', () => {
       expect(scrubAbsolutePaths('C:\\Users\\bob\\repo')).toBe('[path]')
       expect(scrubAbsolutePaths('D:/code/project')).toBe('[path]')
       expect(scrubAbsolutePaths('\\\\server\\share\\x')).toBe('[path]')
+    })
+
+    it.each(['"', "'", '`'])('scrubs a whole quoted Windows path, including spaced filenames, with %s delimiters', (quote) => {
+      const input = `failed opening ${quote}D:\\Work Projects\\Private Client\\invoice draft.txt${quote}: access denied`
+      expect(scrubAbsolutePaths(input)).toBe(`failed opening ${quote}[path]${quote}: access denied`)
+      expect(scrubAbsolutePaths(`${quote}\\\\fileserver\\Team Share\\Private Folder\\file name.txt${quote}`)).toBe(`${quote}[path]${quote}`)
+    })
+
+    it('scrubs unquoted spaced intermediate components while retaining following error text', () => {
+      expect(scrubAbsolutePaths('cannot open C:\\Work Projects\\secret\\file.ts (missing)')).toBe('cannot open [path] (missing)')
+      expect(scrubAbsolutePaths('D:/Work Projects/secret/file.ts and ordinary prose')).toBe('[path] and ordinary prose')
+      expect(scrubAbsolutePaths('\\\\fileserver\\Team Share\\file.txt is missing')).toBe('[path] is missing')
     })
 
     it('preserves URLs, slash-commands, and bare slashes', () => {

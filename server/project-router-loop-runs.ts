@@ -6,7 +6,7 @@
  * via `ai_invocations` (`surface='loop'`).
  */
 import type { Request, Response } from 'express'
-import { validateLoopGraph } from './loop-graph'
+import { validateLoopGraph, assertLoopShellRepositoryScope } from './loop-graph'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './loops-store'
@@ -22,6 +22,12 @@ import { resolveProjectExecution } from './workspace-resolution'
 import { referencesUnsupportedProviderCommand } from './loop-command-catalog'
 import { newId } from './ids'
 import type { ReasoningEffort } from './providers/types'
+import { getProjectRepositories, validateTicketRepositoryIds, RepositoryValidationError } from './project-repositories'
+import { launchMultiRepositoryRail } from './multi-repo-execution'
+import { getRails, getRail, createRail, deleteRail, MAX_RAILS } from './rails-store'
+import { getActivePrDeliveryByRail } from './rail-pr-store'
+import { isolationApplies } from './rail-isolation'
+import { assertProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
 
 export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
   const { router, ctx } = deps
@@ -67,7 +73,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     res.json({ range, minSamples: MIN_DURATION_SAMPLES })
   })
 
-  router.post('/:projectId/loop-runs', (req: Request, res: Response) => {
+  router.post('/:projectId/loop-runs', async (req: Request, res: Response) => {
     if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
     const c = ctx(req)
     const body = req.body ?? {}
@@ -147,6 +153,54 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     ) {
       effort = globalAgentDefaults.pipelineEffort as ReasoningEffort
     }
+    let repositoryIds: string[]
+    const primary = getProjectRepositories(c.project).find((repository) => repository.isPrimary)!
+    try {
+      repositoryIds = validateTicketRepositoryIds(c.project, body.repositoryIds) ?? [primary.id]
+      assertLoopShellRepositoryScope(loop.graph, repositoryIds)
+      assertProcessAdmission(c.project.id)
+    } catch (error) {
+      res.status(error instanceof RepositoryValidationError ? error.status : error instanceof ProcessAdmissionClosedError ? 409 : 400).json({ error: error instanceof Error ? error.message : 'Invalid repository scope' }); return
+    }
+    if (repositoryIds.length !== 1 || repositoryIds[0] !== primary.id) {
+      if (!isolationApplies({ loopsEnabled: true, scope: 'all', ticketCount: 1, readOnly: false })) {
+        res.status(409).json({ error: 'repository_isolation_required' }); return
+      }
+      // A real empty rail makes the grouped delivery reviewable from the board
+      // without manufacturing a spec for a ticket-less loop.
+      const rails = getRails(c.db)
+      const used = new Set([...c.railJobs.values(), ...c.railLoopRuns.values()].map((run) => run.railIndex))
+      let rail = rails.find((candidate) => candidate.ticketIds.length === 0 && !used.has(candidate.railIndex) && !getActivePrDeliveryByRail(c.db, candidate.railIndex))
+      let created = false
+      if (!rail) {
+        if (rails.length >= MAX_RAILS) { res.status(409).json({ error: 'no_available_rail', detail: 'Finish a pending rail delivery before launching another isolated loop.' }); return }
+        rail = createRail(c.db, loop.name)
+        created = true
+      }
+      const reservationId = `preparing-${newId()}`
+      c.railLoopRuns.set(reservationId, { railIndex: rail.railIndex, ticketIds: [], requiresTerminalIntent: true })
+      try {
+        let prDeliveryId: string | undefined
+        const ids = await launchMultiRepositoryRail({
+          ctx: c, railIndex: rail.railIndex, ticketIds: [], repositoryIds, scope: 'all',
+          loopId, loopName: loop.name, loopGraph: loop.graph, provider, model, effort,
+          onPrDeliveryCreated: (id) => { prDeliveryId = id },
+        })
+        res.status(202).json({ loopRunId: ids[0], railIndex: rail.railIndex, prDeliveryId, isolated: true })
+      } catch (error) {
+        if (created && !getActivePrDeliveryByRail(c.db, rail.railIndex)) deleteRail(c.db, rail.railIndex)
+        res.status(409).json({ error: 'repository_launch_failed', detail: error instanceof Error ? error.message : String(error) })
+      } finally {
+        c.railLoopRuns.delete(reservationId)
+        if (created && getRails(c.db).some((candidate) => candidate.railIndex === rail.railIndex)) {
+          const current = getRail(c.db, rail.railIndex)
+          c.broadcast({ type: 'rail.updated', projectId: c.project.id, railIndex: current.railIndex,
+            changed: 'name', ticketIds: current.ticketIds, name: current.name ?? null,
+            mode: current.mode, profileName: current.profileName ?? null, aiEngine: current.aiEngine ?? null })
+        }
+      }
+      return
+    }
     const exec = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
     const runId = newId()
     c.loopRunManager
@@ -156,6 +210,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
         loopName: loop.name,
         graph: loop.graph,
         projectId: c.project.id,
+        repositoryId: primary.id,
         cwd: exec.cwd,
         repoDir: exec.relocated ? exec.repoDir : undefined,
         railIndex: null,

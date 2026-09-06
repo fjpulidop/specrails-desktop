@@ -55,6 +55,11 @@ describe('opsx magic commands', () => {
 
 // ── run-scoped capture (loop-execution) ──────────────────────────────────────
 describe('extractChangeId', () => {
+  it('recognises native and JSON-escaped Windows artifact paths without treating archive as a change', () => {
+    expect(extractChangeId(String.raw`Created C:\Users\Ana\repos\app\openspec\changes\add-login\tasks.md`)).toBe('add-login')
+    expect(extractChangeId(JSON.stringify({ path: String.raw`C:\repos\app\openspec\changes\add-login\tasks.md` }))).toBe('add-login')
+    expect(extractChangeId(String.raw`C:\repos\app\openspec\changes\archive\old\tasks.md`)).toBeUndefined()
+  })
   it('captures the id from an openspec/changes path', () => {
     expect(extractChangeId('Created change at openspec/changes/my-change/')).toBe('my-change')
   })

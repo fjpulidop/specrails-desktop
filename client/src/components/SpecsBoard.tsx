@@ -87,6 +87,7 @@ interface DraftOverrides {
   priority?: 'low' | 'medium' | 'high' | 'critical'
   labels?: string[]
   acceptanceCriteria?: string[]
+  repositoryIds?: string[]
 }
 
 interface ExploreState {
@@ -122,6 +123,7 @@ interface ExploreState {
     labels: string[]
     priority: 'low' | 'medium' | 'high' | 'critical' | null
     acceptanceCriteria: string[]
+    repositoryIds?: string[]
     /** Current ticket status. `'draft'` makes the shell PUBLISH on commit
      *  (flip draft → real spec) instead of PATCHing in place. Optional for
      *  backward-compat; absent ⇒ treated as a real-spec edit. */
@@ -136,6 +138,7 @@ function hasOverrides(o: DraftOverrides): boolean {
   if (o.description?.trim()) return true
   if (o.priority && o.priority !== 'medium') return true
   if (o.labels && o.labels.length > 0) return true
+  if (o.repositoryIds?.length) return true
   if (o.acceptanceCriteria && o.acceptanceCriteria.some((c) => c.trim())) return true
   return false
 }
@@ -486,6 +489,7 @@ export function SpecsBoard({
     setExplore({
       projectId: activeProjectId,
       idea: payload.idea,
+      seedDraftOverrides: payload.repositoryIds ? { repositoryIds: payload.repositoryIds } : undefined,
       pendingSpecId: payload.pendingSpecId,
       initialAttachmentIds: payload.initialAttachmentIds,
       initialModel: payload.model,

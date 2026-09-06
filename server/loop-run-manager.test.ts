@@ -1198,6 +1198,30 @@ describe('LoopRunManager interactive ai-steps', () => {
     ])
   })
 
+  it('does not start verification until the original architect is joined, recording one implementation step', async () => {
+    const { executors, children } = interactiveExecutors()
+    const p = manager(executors).run({ ...baseReq(), runId: 'pending-architect', graph: twoStepGraph('a1') })
+    await waitFor(() => children.length === 1, 'implementation child')
+    children[0].stdout.push(JSON.stringify({ type: 'system', subtype: 'background_tasks_changed', tasks: [{ task_id: 'architect-1', description: 'Design filter-vets-by-specialty' }] }) + '\n')
+    children[0].stdout.push(resultFrame({ result: 'Architect resumed. Waiting for output.' }))
+    await waitFor(() => children[0].stdinWrites.length === 2, 'foreground collection continuation')
+    expect(children).toHaveLength(1)
+    expect(children[0].killed).toBe(false)
+    expect(getJob(db, 'pending-architect')!.status).toBe('running')
+    expect(db.prepare('SELECT COUNT(*) AS n FROM ai_invocations WHERE loop_run_id = ?').get('pending-architect')).toEqual({ n: 0 })
+
+    children[0].stdout.push(JSON.stringify({ type: 'system', subtype: 'background_tasks_changed', tasks: [] }) + '\n')
+    children[0].stdout.push(resultFrame({ result: 'Feature implemented in both repositories.', total_cost_usd: 0.13, num_turns: 8 }))
+    await waitFor(() => children.length === 2, 'verification child')
+    const implementation = db.prepare('SELECT status, total_cost_usd, num_turns FROM ai_invocations WHERE loop_run_id = ?').all('pending-architect')
+    expect(implementation).toEqual([{ status: 'success', total_cost_usd: 0.13, num_turns: 8 }])
+    children[1].stdout.push(resultFrame({ result: 'VERIFICATION: PASS' }))
+    const result = await p
+    expect(result.outcome).toBe('success')
+    expect(result.totalCostUsd).toBeCloseTo(0.181)
+    expect(getJob(db, result.runId)).toMatchObject({ total_cost_usd: 0.181, tokens_in: 300 })
+  })
+
   it('releases an untimed factory step when its interactive child remains silent', async () => {
     const { executors, children } = interactiveExecutors({ stepTimeoutMs: 0, inactivityTimeoutMs: 25 })
     const mgr = manager(executors)
@@ -2734,5 +2758,44 @@ describe('LoopRunManager idle stall (premium-milestone-progress)', () => {
     await mgr.run({ ...baseReq(), graph: stallGraph() })
     const call = (ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls[0][0] as { idleTimeoutMs?: number }
     expect(call.idleTimeoutMs).toBe(0)
+  })
+})
+
+
+describe('coordinated repository verification', () => {
+  it('rejects an explicit shell target outside a legacy single-repository run before any executor starts', async () => {
+    const ex = makeExecutors()
+    const graph = loopGraph()
+    for (const node of graph.nodes) if (node.type === 'shell') node.data = { ...node.data, repositoryId: 'frontend' }
+    await expect(manager(ex).run({ ...baseReq(), graph, repositoryId: 'backend' })).rejects.toThrow('outside this launch')
+    expect(ex.runAiStep).not.toHaveBeenCalled()
+    expect(ex.runShell).not.toHaveBeenCalled()
+    const valid = await manager(ex).run({ ...baseReq(), graph, repositoryId: 'frontend' })
+    expect(valid.outcome).toBe('success')
+  })
+
+  it('counts progress in a secondary repository and gives the Decider the complete scope', async () => {
+    let secondaryHash = 0
+    const ex = makeExecutors({
+      repoStateHash: vi.fn((dir) => dir === '/work/frontend' ? String(++secondaryHash) : 'unchanged-primary'),
+      runDecider: vi.fn()
+        .mockResolvedValueOnce({ continue: true, parsed: true, reasoning: 'continue' })
+        .mockResolvedValueOnce({ continue: true, parsed: true, reasoning: 'continue' })
+        .mockResolvedValueOnce({ continue: true, parsed: true, reasoning: 'continue' })
+        .mockResolvedValue({ continue: false, parsed: true, reasoning: 'all verified' }),
+    })
+    const graph = loopGraph()
+    for (const node of graph.nodes) if (node.type === 'shell') node.data = { ...node.data, repositoryId: 'backend' }
+    const executionManifest = {
+      version: 1 as const, groupId: 'group', projectId: 'p1', primaryRepositoryId: 'backend', artifactRepositoryId: 'backend', selectedRepositoryIds: ['backend', 'frontend'],
+      repositories: ['backend', 'frontend'].map((name) => ({ repositoryId: name, name, sourcePath: `/source/${name}`, gitCommonDir: `/source/${name}/.git`, baseBranch: 'main', baseSha: 'a'.repeat(40), worktreePath: `/work/${name}`, branch: 'feature', worktreeId: name })),
+    }
+    const result = await manager(ex).run({ ...baseReq(), graph, cwd: '/work/backend', repoDir: '/work/backend', executionManifest })
+    expect(result.outcome).toBe('success')
+    expect(ex.runAiStep).toHaveBeenCalledTimes(4)
+    expect(ex.repoStateHash).toHaveBeenCalledWith('/work/backend')
+    expect(ex.repoStateHash).toHaveBeenCalledWith('/work/frontend')
+    expect(ex.runDecider).toHaveBeenCalledWith(expect.objectContaining({ executionManifest, userPrompt: expect.stringContaining('/work/frontend') }))
+    expect(ex.runShell).toHaveBeenCalledWith(expect.objectContaining({ cwd: '/work/backend', repoDir: '/work/backend' }))
   })
 })

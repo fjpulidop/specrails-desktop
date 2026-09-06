@@ -43,11 +43,13 @@ describe('factory loops', () => {
   })
 
   it('factory goals describe an exit condition, not a claimed verification result', () => {
-    for (const f of FACTORY_LOOPS.filter((loop) => loop.mode !== 'loop')) {
+    for (const f of FACTORY_LOOPS) {
       const decider = f.graph.nodes.find((n) => n.type === 'decider')!
       const goal = String(decider.data?.goal ?? '')
       expect(goal, f.id).toContain('Stop only when')
       expect(goal, f.id).not.toMatch(/^The verification step reported/)
+      expect(goal, f.id).not.toMatch(/^The verify step reported/)
+      expect(goal, f.id).toContain('baseline')
     }
   })
 

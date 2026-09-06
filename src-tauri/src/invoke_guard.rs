@@ -4,11 +4,13 @@
 //! must never call any host command, even though they share the main NSWindow.
 use tauri::{ipc::Invoke, Runtime};
 
+#[cfg(test)]
 fn is_main_interface(label: &str) -> bool { label == "main" }
 
 pub fn dispatch<R: Runtime>(invoke: Invoke<R>, handler: impl FnOnce(Invoke<R>) -> bool) -> bool {
-    if !is_main_interface(invoke.message.webview_ref().label()) {
-        invoke.resolver.reject("App commands are only available to the main Specrails interface");
+    let caller = invoke.message.webview_ref();
+    if caller.label() != caller.window().label() || !crate::mission_windows::permits_command(caller.label(), invoke.message.command()) {
+        invoke.resolver.reject("This command is not available to this Specrails interface");
         return true;
     }
     handler(invoke)

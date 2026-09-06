@@ -4,6 +4,9 @@ import Database from 'better-sqlite3'
 import type { JobRow, EventRow, StatsRow, JobStatus, JobPriority, JobOwner, ChatConversationRow, ChatMessageRow, ActivityItem } from './types'
 import { secureDir, secureDbFile } from './util/secure-fs'
 import { applyNumberedMigrations } from './util/sqlite-migrations'
+import { migrateMultiRepoExecution } from './multi-repo-execution-store'
+import { migrateRepositoryProvenance } from './project-repository-provenance'
+import { migrateFileStoryMetadata } from './file-story'
 
 // ─── Proposal types ───────────────────────────────────────────────────────────
 
@@ -1690,6 +1693,12 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_milestone_chains_status ON milestone_launch_chains(status);
     `)
   },
+  // Migration 59: coordinated repository execution and grouped delivery.
+  migrateMultiRepoExecution,
+  // Migration 60: repository-scoped provenance and code identity.
+  migrateRepositoryProvenance,
+  // Migration 61: version and evidence identity of recorded-change explanations.
+  migrateFileStoryMetadata,
 ]
 
 function applyMigrations(db: DbInstance): void {

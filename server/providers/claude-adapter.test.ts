@@ -10,10 +10,35 @@ vi.mock('child_process', async () => {
 import { execSync } from 'child_process'
 import { claudeAdapter, _normaliseClaudeModel, _resolveClaudeSpawnModel, isClaudeNotificationResultFrame } from './claude-adapter'
 import type { AdapterEvent } from './types'
+import { getOpenSpecRuntimePluginArgs } from '../openspec-runtime-plugin'
 
 const mockExec = vi.mocked(execSync)
 
 const FIXTURES = join(__dirname, '__fixtures__', 'claude')
+
+describe('Claude managed OpenSpec command registration', () => {
+  it.each(['rail-job', 'chat-turn', 'chat-resume', 'chat-stream'] as const)('loads the same app-owned opsx namespace for %s without user plugins', action => {
+    const args = claudeAdapter.buildArgs(action, { prompt: '', sessionId: 'fixture-session', model: 'sonnet' })
+    const expected = getOpenSpecRuntimePluginArgs()
+    expect(args.slice(args.indexOf('--plugin-dir'), args.indexOf('--plugin-dir') + 2)).toEqual(expected)
+    expect(args[args.indexOf('--setting-sources') + 1]).toBe('project,local')
+  })
+
+  it.each(['none', 'read-only'] as const)('does not enable runtime plugins for %s tooling', toolPolicy => {
+    expect(claudeAdapter.buildArgs('chat-turn', { prompt: 'inspect', toolPolicy })).not.toContain('--plugin-dir')
+  })
+
+  it('preserves provider options, additional MCPs and caller plugin arguments alongside opsx', () => {
+    const extras = ['--plugin-dir', '/fixture/approved-plugin', '--mcp-config', '/fixture/mcp.json', '--add-dir', '/fixture/repo']
+    const args = claudeAdapter.buildArgs('rail-job', { prompt: '/specrails:implement #1 --yes', model: 'opus', reasoning_effort: 'max', loadUserEnv: true, extraArgs: extras })
+    expect(args[args.indexOf('--model') + 1]).toBe('claude-opus-5')
+    expect(args[args.indexOf('--effort') + 1]).toBe('max')
+    expect(args[args.indexOf('--setting-sources') + 1]).toBe('user,project,local')
+    expect(args[args.indexOf('-p') + 1]).toBe('/specrails:implement #1 --yes')
+    expect(args.slice(-extras.length)).toEqual(extras)
+    expect(args.filter(value => value === '--plugin-dir')).toHaveLength(2)
+  })
+})
 
 function parseFixture(name: string): AdapterEvent[] {
   const raw = readFileSync(join(FIXTURES, name), 'utf8')
@@ -129,6 +154,7 @@ describe('claudeAdapter.buildArgs', () => {
       '--model', 'sonnet',
       '--dangerously-skip-permissions',
       '--tools', 'default',
+      ...getOpenSpecRuntimePluginArgs(),
       '--output-format', 'stream-json',
       '--verbose',
       '--setting-sources', 'project,local',

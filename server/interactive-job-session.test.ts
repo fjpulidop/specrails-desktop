@@ -115,6 +115,7 @@ describe('InteractiveJobSession', () => {
     h = setup('terminal-error', { settleMode: 'auto' })
     h.session.start({ binary: 'claude', args: [] }, 'implement')
     h.session.send('queued follow-up')
+    h.child.stdout.push(backgroundTasksFrame([{ task_id: 'architect-1' }]))
     h.child.stdout.push(resultFrame({ ...error, result: 'VERIFICATION: PASS' }))
     await tick()
     expect(h.settled).toHaveLength(1)
@@ -966,7 +967,7 @@ function notificationResultFrame(): string {
   }) + '\n'
 }
 
-function backgroundTasksFrame(tasks: Array<{ task_id: string; task_type?: string; description?: string }>): string {
+function backgroundTasksFrame(tasks: Array<{ task_id: string; task_type?: string; description?: string; ambient?: boolean }>): string {
   return JSON.stringify({ type: 'system', subtype: 'background_tasks_changed', tasks }) + '\n'
 }
 
@@ -1015,29 +1016,175 @@ describe('InteractiveJobSession — notification turns and orphaned background t
     expect(h.session.isStreaming()).toBe(false)
   })
 
-  it('auto mode: quiescence with background tasks still running surfaces a stderr note naming them', async () => {
+  it('auto mode: keeps the parent alive and collects unfinished workers before settling', async () => {
     const h = setup('job-bg-1', { settleMode: 'auto' })
-    h.session.start({ binary: 'claude', args: [] }, 'verify')
+    h.session.start({ binary: 'claude', args: [] }, '/specrails:implement #1 --yes')
     h.child.stdout.push(backgroundTasksFrame([
-      { task_id: 'bnlvumgrm', task_type: 'local_bash', description: 'Run full CI chain in background' },
-      { task_id: 'b6d2i2lyo', task_type: 'local_bash' },
+      { task_id: 'architect-1', task_type: 'local_agent', description: 'Design filter-vets-by-specialty' },
+      { task_id: 'build-1', task_type: 'local_bash' },
     ]))
-    h.child.stdout.push(resultFrame({ result: "Waiting on the CI chain to finish; I'll deliver the final verdict line when it lands." }))
+    const waitingResult = resultFrame({ result: 'Architect resumed. Waiting for its output.' })
+    h.child.stdout.push(waitingResult)
     await tick(); await tick()
 
-    expect(h.settled.length).toBe(1) // still settles — the reply IS the step's end
-    const note = h.broadcasts.find(
-      (m) => m.type === 'log' && (m as any).source === 'stderr' && (m as any).line?.includes('background task(s) still running'),
-    ) as { line: string } | undefined
-    expect(note).toBeTruthy()
-    expect(note!.line).toContain('2 background task(s)')
-    expect(note!.line).toContain('Run full CI chain in background')
-    expect(note!.line).toContain('b6d2i2lyo') // no description → task id
-    // Persisted too, so a reload of the job log keeps the explanation.
-    const persisted = h.db
-      .prepare(`SELECT payload FROM events WHERE job_id = ? AND event_type = 'log' AND source = 'stderr'`)
-      .all('job-bg-1') as Array<{ payload: string }>
-    expect(persisted.some((r) => r.payload.includes('background task(s) still running'))).toBe(true)
+    expect(h.settled).toHaveLength(0)
+    expect(h.child.stdinEnded).toBe(false)
+    expect(h.child.treeKillSignals).toEqual([])
+    expect(h.child.stdinWrites).toHaveLength(2)
+    expect(h.child.stdinWrites[1]).toContain('architect-1')
+    expect(h.child.stdinWrites[1]).toContain('TaskOutput with block=true')
+    expect(h.child.stdinWrites[1]).toContain('original request')
+    expect(h.session.isStreaming()).toBe(true)
+    expect(h.broadcasts.filter((m) => m.type === 'job.turn_user')).toHaveLength(1)
+    const persisted = h.db.prepare("SELECT payload FROM events WHERE job_id = ? AND event_type = 'log'").all('job-bg-1') as Array<{ payload: string }>
+    expect(persisted.some((r) => r.payload.includes('continuing the same agent'))).toBe(true)
+
+    // A duplicate prior result and a CLI-internal notification must not close
+    // the newly armed collection turn or charge its prior result twice.
+    h.child.stdout.push(waitingResult)
+    h.child.stdout.push(notificationResultFrame())
+    await tick()
+    expect(h.settled).toHaveLength(0)
+    expect(h.session.getTotals().total_cost_usd).toBe(0.05)
+
+    h.child.stdout.push(backgroundTasksFrame([]))
+    h.child.stdout.push(resultFrame({ result: 'Implemented Front and Back; checks passed.', total_cost_usd: 0.12, num_turns: 8 }))
+    await tick(); await tick()
+    expect(h.settled).toHaveLength(1)
+    expect(h.settled[0]).toMatchObject({ reason: 'finalized', resultText: 'Implemented Front and Back; checks passed.', totals: { total_cost_usd: 0.12, num_turns: 8, tokens_in: 200 } })
+  })
+
+  it('settles local spawn preparation failure without leaking a session or counting work', () => {
+    const h = setup('bg-preflight', { settleMode: 'auto', spawn: (() => { throw new Error('managed OpenSpec plugin unavailable') }) as any })
+    expect(() => h.session.start({ binary: 'claude', args: [] }, 'implement')).not.toThrow()
+    expect(h.settled).toHaveLength(1)
+    expect(h.settled[0]).toMatchObject({ reason: 'crashed', zeroWork: true, resultIsError: true, totals: { total_cost_usd: 0, num_turns: 0 } })
+    expect(h.settled[0].resultText).toContain('managed OpenSpec plugin unavailable')
+    expect(h.session.send('retry')).toBe(false)
+  })
+
+  it('does not wait for ambient live-update watchers after real workers finish', async () => {
+    const h = setup('bg-ambient', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    h.child.stdout.push(backgroundTasksFrame([{ task_id: 'watcher-1', ambient: true }, { task_id: 'architect-1', ambient: false }]))
+    h.child.stdout.push(resultFrame({ result: 'Waiting for design' }))
+    await tick(); await tick()
+    expect(h.child.stdinWrites[1]).toContain('architect-1')
+    expect(h.child.stdinWrites[1]).not.toContain('watcher-1')
+    h.child.stdout.push(backgroundTasksFrame([{ task_id: 'watcher-1', ambient: true }]))
+    h.child.stdout.push(resultFrame({ result: 'Implementation verified', num_turns: 5, total_cost_usd: 0.08 }))
+    await tick(); await tick()
+    expect(h.settled).toHaveLength(1)
+    expect(h.settled[0].reason).toBe('finalized')
+  })
+
+  it('injects the foreground rule in system context without changing slash command arguments', () => {
+    const child = makeFakeChild()
+    const spawn = vi.fn(() => child)
+    const h = setup('bg-system', { settleMode: 'auto', spawn: spawn as any })
+    h.session.start({ binary: 'claude', args: ['--append-system-prompt', 'Keep repo scope'] }, '/specrails:implement #1 --yes')
+    const args = (spawn.mock.calls[0] as unknown as [string, string[]])[1]
+    expect(args.filter((x) => x === '--append-system-prompt')).toHaveLength(1)
+    expect(args[1]).toContain('Keep repo scope')
+    expect(args[1]).toContain('command and subagent')
+    expect(JSON.parse(child.stdinWrites[0]).message.content).toBe('/specrails:implement #1 --yes')
+    h.session.dispose()
+  })
+
+  it('fails instead of advancing when the same worker is repeatedly left unfinished', async () => {
+    const h = setup('bg-bound', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    h.child.stdout.push(backgroundTasksFrame([{ task_id: 'architect-1' }]))
+    for (let i = 1; i <= 4; i++) {
+      h.child.stdout.push(resultFrame({ result: `Still waiting ${i}`, num_turns: i, total_cost_usd: i * 0.05 }))
+      await tick(); await tick()
+    }
+    expect(h.child.stdinWrites).toHaveLength(4) // original + 3 bounded continuations
+    expect(h.settled).toHaveLength(1)
+    expect(h.settled[0]).toMatchObject({ reason: 'crashed', resultIsError: true, totals: { total_cost_usd: 0.2, num_turns: 4 } })
+    expect(h.settled[0].resultText).toContain('step is incomplete')
+  })
+
+  it('allows user input and explicit cancellation during collection without orphan-success', async () => {
+    const h = setup('bg-user', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    h.child.stdout.push(backgroundTasksFrame([{ task_id: 'architect-1' }]))
+    h.session.send('Include Front and Back')
+    h.child.stdout.push(resultFrame({ result: 'Waiting' }))
+    await tick(); await tick()
+    expect(JSON.parse(h.child.stdinWrites[1]).message.content).toBe('Include Front and Back')
+    h.child.stdout.push(resultFrame({ result: 'Still waiting', num_turns: 4 }))
+    await tick(); await tick()
+    expect(h.child.stdinWrites[2]).toContain('collect')
+    h.session.abort('User canceled the loop')
+    expect(h.settled).toHaveLength(1)
+    expect(h.settled[0].reason).toBe('crashed')
+    expect(h.child.treeKillSignals).toContain('SIGTERM')
+  })
+
+  it('Stop wins before continuation dispatch even when the child ignores SIGTERM', async () => {
+    const killTree = vi.fn((_pid, _signal, callback) => { callback?.() })
+    const h = setup('bg-stop-race', { settleMode: 'auto', killTree })
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    ;(h.session as any)._handleStdoutLine(backgroundTasksFrame([{ task_id: 'architect-1' }]).trim())
+    ;(h.session as any)._handleStdoutLine(resultFrame({ result: 'Waiting' }).trim())
+    h.session.abort('Stop')
+    expect(h.session.send('new user input')).toBe(false)
+    await tick(); await tick()
+    expect(h.child.stdinWrites).toHaveLength(1)
+    expect(h.settled).toHaveLength(0) // root is still shutting down
+    h.child.emit('close', 0)
+    expect(h.settled[0].reason).toBe('crashed')
+  })
+
+  it('uses a same-chunk empty roster after the result before deciding to continue', async () => {
+    const h = setup('bg-roster-race', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    h.child.stdout.push(backgroundTasksFrame([{ task_id: 'architect-1' }]) + resultFrame({ result: 'Implementation complete' }) + backgroundTasksFrame([]))
+    await tick(); await tick()
+    expect(h.child.stdinWrites).toHaveLength(1)
+    expect(h.settled[0].reason).toBe('finalized')
+  })
+
+  it('enforces an absolute bound even when new workers replace completed cohorts', async () => {
+    const h = setup('bg-total-bound', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    for (let i = 1; i <= 13; i++) {
+      h.child.stdout.push(backgroundTasksFrame([]))
+      h.child.stdout.push(backgroundTasksFrame([{ task_id: `worker-${i}` }]))
+      h.child.stdout.push(resultFrame({ result: `Waiting ${i}`, num_turns: i, total_cost_usd: i * 0.05 }))
+      await tick(); await tick()
+    }
+    expect(h.child.stdinWrites).toHaveLength(13)
+    expect(h.settled).toHaveLength(1)
+    expect(h.settled[0]).toMatchObject({ reason: 'crashed', resultIsError: true })
+    expect(h.settled[0].resultText).toContain('after 12 collection requests')
+  })
+
+  it('does not assume malformed rosters mean all workers finished', async () => {
+    const h = setup('bg-malformed', { settleMode: 'auto' })
+    h.session.start({ binary: 'claude', args: [] }, 'implement')
+    h.child.stdout.push(backgroundTasksFrame([{ task_id: 'architect-1' }]))
+    h.child.stdout.push(JSON.stringify({ type: 'system', subtype: 'background_tasks_changed', tasks: null }) + '\n')
+    h.child.stdout.push(resultFrame({ result: 'Waiting' }))
+    await tick(); await tick()
+    expect(h.settled).toHaveLength(0)
+    expect(h.child.stdinWrites[1]).toContain('architect-1')
+    h.session.dispose()
+  })
+
+  it('keeps idle timeout effective while collecting a silent worker', () => {
+    vi.useFakeTimers()
+    try {
+      const h = setup('bg-timeout', { settleMode: 'auto', zombieTimeoutMs: 100 })
+      h.session.start({ binary: 'claude', args: [] }, 'implement')
+      // Emit lines directly so fake timers need not drive Readable internals.
+      ;(h.session as any)._handleStdoutLine(backgroundTasksFrame([{ task_id: 'architect-1' }]).trim())
+      ;(h.session as any)._handleStdoutLine(resultFrame({ result: 'Waiting' }).trim())
+      vi.advanceTimersByTime(101)
+      expect(h.settled).toHaveLength(1)
+      expect(h.settled[0].reason).toBe('crashed')
+    } finally { vi.useRealTimers() }
   })
 
   it('auto mode: no note once the roster reports no background tasks left', async () => {

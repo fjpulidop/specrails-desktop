@@ -23,6 +23,7 @@ function routeFetch(map: Record<string, Resp | Resp[]>) {
   global.fetch = vi.fn().mockImplementation((url: string) => {
     const key = Object.keys(map).find((k) => String(url).includes(k))
     if (!key) return Promise.reject(new Error(`unmapped ${url}`))
+    counters[key] ??= 0
     const entry = map[key]
     const r = Array.isArray(entry) ? entry[counters[key]++] ?? entry[entry.length - 1] : entry
     return Promise.resolve({ ok: r.ok, status: r.status ?? (r.ok ? 200 : 500), json: async () => r.body })
@@ -47,6 +48,49 @@ beforeEach(() => {
 })
 
 describe('CoreUpdateSection', () => {
+  it('distinguishes the active framework, selected runtime and older bundled version', async () => {
+    routeFetch({ '/core-update/status': { ok: true, body: STATUS({ currentVersion: '5.0.0', runtimeVersion: '5.0.1', runtimeSource: 'global', bundledVersion: '4.12.0' }) } })
+    render(<CoreUpdateSection />)
+    expect(await screen.findByText('5.0.0')).toBeTruthy()
+    expect(screen.getByText(/Runtime: 5.0.1/)).toBeTruthy()
+    expect(screen.getByText(/External CLI/)).toBeTruthy()
+    expect(screen.getByText('Included in Desktop: 4.12.0')).toBeTruthy()
+  })
+
+  it('does not let an old status response overwrite a completed update', async () => {
+    let finishOld!: (response: unknown) => void
+    global.fetch = vi.fn()
+      .mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve }))
+      .mockResolvedValue({ ok: true, json: async () => STATUS({ currentVersion: '5.0.0' }) }) as never
+    render(<CoreUpdateSection />)
+    await waitFor(() => expect(wsHandler).toBeTypeOf('function'))
+    act(() => wsHandler?.({ type: 'framework.updated', version: '5.0.0' }))
+    await screen.findByText('5.0.0')
+    await act(async () => finishOld({ ok: true, json: async () => STATUS() }))
+    expect(screen.queryByText('4.8.0')).toBeNull()
+    expect(screen.getByText('5.0.0')).toBeTruthy()
+  })
+
+  it('offers an offline repair for a persisted partial project update', async () => {
+    routeFetch({
+      '/core-update/status': { ok: true, body: STATUS({ currentVersion: '5.0.0', pendingVersion: '5.0.0', migrationError: 'Project fixture requires repair', updateAvailable: true, latestVersion: null }) },
+      '/core-update/update': { ok: true, status: 202, body: { accepted: true } },
+    })
+    render(<CoreUpdateSection />)
+    fireEvent.click(await screen.findByText('Finish updating 5.0.0'))
+    expect(screen.getByRole('alert').textContent).toContain('requires repair')
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/core-update/update', expect.objectContaining({ method: 'POST' })))
+  })
+
+  it('shows a retry action when initial status loading fails', async () => {
+    routeFetch({ '/core-update/status': [
+      { ok: false, status: 500, body: {} },
+      { ok: true, body: STATUS() },
+    ] })
+    render(<CoreUpdateSection />)
+    fireEvent.click(await screen.findByText('Could not refresh Core status. Retry'))
+    expect(await screen.findByText('4.8.0')).toBeTruthy()
+  })
   it('renders unavailable note when no bundled core', async () => {
     routeFetch({ '/core-update/status': { ok: true, body: STATUS({ available: false, currentVersion: null, bundledVersion: null }) } })
     render(<CoreUpdateSection />)

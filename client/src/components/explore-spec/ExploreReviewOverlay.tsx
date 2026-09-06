@@ -2,6 +2,8 @@ import { useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Check, ChevronRight } from 'lucide-react'
+import { useDesktop } from '../../hooks/useDesktop'
+import { projectRepositories } from '../../lib/project-repositories'
 import { Button } from '../ui/button'
 import { wordDiff, arrayDiff, type DiffSegment, type ArrayDiffEntry } from './diff-utils'
 
@@ -9,6 +11,7 @@ export interface ReviewBaseline {
   title: string
   description: string
   labels: string[]
+  repositoryIds?: string[]
   priority: 'low' | 'medium' | 'high' | 'critical' | null
   acceptanceCriteria: string[]
 }
@@ -17,6 +20,7 @@ export interface ReviewProposed {
   title: string
   description: string
   labels: string[]
+  repositoryIds?: string[]
   priority: 'low' | 'medium' | 'high' | 'critical' | null
   acceptanceCriteria: string[]
 }
@@ -50,6 +54,11 @@ interface Props {
  */
 export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 'create', onBack, onCommit }: Props) {
   const { t } = useTranslation('explore')
+  const { activeProjectId, projects } = useDesktop()
+  const repositories = projectRepositories(projects.find((project) => project.id === activeProjectId))
+  const primaryIds = repositories.filter((repository) => repository.isPrimary).map((repository) => repository.id)
+  const repositoryNames = (ids: string[]) => ids.map((id) => repositories.find((repository) => repository.id === id)?.name ?? id)
+  const repositoryDiff = arrayDiff(repositoryNames(baseline.repositoryIds ?? primaryIds), repositoryNames(proposed.repositoryIds ?? primaryIds))
   const titleDiff = useMemo(() => wordDiff(baseline.title, proposed.title), [baseline.title, proposed.title])
   const descDiff = useMemo(() => wordDiff(baseline.description, proposed.description), [baseline.description, proposed.description])
   const labelsDiff = useMemo(() => arrayDiff(baseline.labels, proposed.labels), [baseline.labels, proposed.labels])
@@ -116,6 +125,10 @@ export function ExploreReviewOverlay({ baseline, proposed, isCommitting, mode = 
               </div>
             </section>
 
+            {repositories.length > 1 && <section className="space-y-2" data-testid="review-repositories">
+              <FieldHeader label={t('common:repositories.specScope')} />
+              <div className="flex flex-wrap gap-2">{repositoryDiff.ordered.map((entry, index) => <DiffChip key={index} entry={entry} />)}</div>
+            </section>}
             <section data-testid="review-labels" className="space-y-2">
               <FieldHeader label={t('reviewOverlay.labelsLabel')} />
               {labelsDiff.ordered.length === 0 ? (

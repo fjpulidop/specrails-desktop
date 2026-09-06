@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { SendHorizontal, History, Square, X, Clock, Check, Pencil, Bot, Gauge } from 'lucide-react'
+import { SendHorizontal, History, Square, X, Check, Pencil, Bot, Gauge, Terminal } from 'lucide-react'
 import { useAgentChat } from '../../context/AgentChatContext'
 import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
 import { useBackgroundProcesses } from '../../context/BackgroundProcessesContext'
 import { useDesktop } from '../../hooks/useDesktop'
+import { blockMissionTransfer } from '../../lib/mission-view-state'
+import { useMissionWindows } from '../../context/MissionWindowsContext'
 import { API_ORIGIN } from '../../lib/origin'
 import { uploadAgentAttachment, deleteAgentAttachment, type AgentAttachment } from '../../lib/agent-api'
 import {
+  recoverComposerDraft,
+  persistComposerDraft,
+  composerSubmissionIds,
   composerDrafts,
   composerAttachmentDrafts,
   composerReferenceDrafts,
@@ -19,6 +24,7 @@ import { isBrowserCaptureEnabled } from '../../lib/browser-capture'
 import { AgentComposerAttachmentChip } from './AgentComposerAttachmentChip'
 import {
   buildPaletteItems,
+  discoveredFileItems,
   buildNoResultPaletteItems,
   chipKey,
   detectAgentPaletteTrigger,
@@ -29,7 +35,7 @@ import {
   type AgentPaletteMode,
   type AgentPaletteTrigger,
 } from '../../lib/agent-context-palette'
-import type { JobSummary, LocalTicket } from '../../types'
+import type { BackgroundProcess, JobSummary, LocalTicket } from '../../types'
 import { AgentProjectSelector } from './AgentProjectSelector'
 import { AgentTierChip } from './AgentTierChip'
 import { AgentModelSelector } from './AgentModelSelector'
@@ -38,7 +44,10 @@ import { useAgentProviderCatalog } from './useAgentProviderCatalog'
 import { AgentGitBar } from './AgentGitBar'
 import { AgentContextPalette, AgentPlusMenu } from './AgentContextPalette'
 import { AgentComposerEditor, type AgentComposerEditorHandle, type AgentInlineReference } from './AgentComposerEditor'
-import { BackgroundProcessChip, type BackgroundProcessAccent } from '../BackgroundProcessChip'
+import { BackgroundProcessChip, isBackgroundProcessFinished, type BackgroundProcessAccent } from '../BackgroundProcessChip'
+import { BackgroundProcessLogsModal } from '../BackgroundProcessLogsModal'
+import { BackgroundProcessHistoryModal } from '../BackgroundProcessHistoryModal'
+import { backgroundProcessKey } from '../../lib/background-processes-api'
 import { useAvailableProviders } from '../../hooks/useAvailableProviders'
 import { reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../lib/provider-capabilities'
 
@@ -76,24 +85,37 @@ export { __clearComposerDrafts } from '../../lib/agent-composer-drafts'
 export function AgentComposer({
   autoFocus = false,
   hideProjectSelector = false,
+  queueEditRequest,
 }: {
   autoFocus?: boolean
   /** Kanban floating panel: its window header carries the project selector
    *  (next to the Agent title), so the composer's own copy is hidden. Agent
    *  Mode keeps the composer selector on the EMPTY compose screen. */
   hideProjectSelector?: boolean
+  queueEditRequest?: { conversationId: string; queueId: string; revision: number }
 }) {
   const { t } = useTranslation('agent')
   const {
     active, messages, conversations, isStreaming, providersReady, draftPinnedProjectId,
     draftProvider, draftModel, draftTierLevel, draftEffort, setEffort,
     send, abort, cycleTier, setProvider, setModel, setPinnedProject, materializeDraftConversation,
-    queuedMessages, editQueuedMessage, wasQueueConsumed,
+    queuedMessages: allQueuedMessages, editQueuedMessage, wasQueueConsumed,
   } = useAgentChat()
+  const queuedMessages = useMemo(() => allQueuedMessages.filter((item) => item.deliveryMode !== 'steer'), [allQueuedMessages])
   const { pendingCaptures, consumePendingCaptures, openBrowser } = useAgentWorkspace()
-  const { processes: backgroundProcesses, kill: killBackgroundProcess } = useBackgroundProcesses()
+  const { processes: backgroundProcesses, history: backgroundProcessHistory = backgroundProcesses, historyLoading = false, historyError = null, refreshHistory, kill: killBackgroundProcess } = useBackgroundProcesses()
+  const [selectedProcess, setSelectedProcess] = useState<BackgroundProcess | null>(null)
+  const [processHistoryScope, setProcessHistoryScope] = useState<{ chatId: string; projectId: string } | null>(null)
+  const compactProcesses = useMemo(() => [...backgroundProcesses].sort((a, b) => Number(isBackgroundProcessFinished(a)) - Number(isBackgroundProcessFinished(b)) || b.startedAt - a.startedAt).slice(0, 4), [backgroundProcesses])
   const { projects, activeProjectId } = useDesktop()
+  const backgroundProjectId = active?.pinned_project_id ?? draftPinnedProjectId ?? activeProjectId
   const draftKey = active?.id ?? NEW_MISSION_DRAFT_KEY
+  const missionWindows = useMissionWindows()
+  const recoveredKey = useRef<string | null>(null)
+  if (recoveredKey.current !== draftKey) {
+    recoverComposerDraft(draftKey)
+    recoveredKey.current = draftKey
+  }
   const [inputState, updateInputState] = useState(() => ({ draftKey, value: composerDrafts.get(draftKey) ?? '' }))
   const [referenceState, updateReferenceState] = useState(() => ({ draftKey, value: composerReferenceDrafts.get(draftKey) ?? [] }))
   // A newly keyed editor must receive its own draft on its very first render,
@@ -111,6 +133,7 @@ export function AgentComposer({
     else composerDrafts.delete(draftKey)
     if (v && refs.length) composerReferenceDrafts.set(draftKey, refs)
     else composerReferenceDrafts.delete(draftKey)
+    persistComposerDraft(draftKey)
   }
   const [histIndex, setHistIndex] = useState<number | null>(null)
   const [attached, setAttached] = useState<AgentAttachment[]>(() => composerAttachmentDrafts.get(draftKey) ?? [])
@@ -124,12 +147,15 @@ export function AgentComposer({
     const next = typeof updater === 'function' ? updater(prev) : updater
     if (next.length > 0) composerAttachmentDrafts.set(key, next)
     else composerAttachmentDrafts.delete(key)
+    persistComposerDraft(key)
     const currentKey = attachmentDraftKeyRef.current
     if (currentKey === key || (currentKey === NEW_MISSION_DRAFT_KEY && key !== NEW_MISSION_DRAFT_KEY)) {
       setAttached(next)
     }
   }
   const [uploading, setUploading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const editorRef = useRef<AgentComposerEditorHandle | null>(null)
   // Keep each occurrence in the editor, but send entity metadata once. Scope
@@ -163,10 +189,13 @@ export function AgentComposer({
   const editIdx = editingQueueId === null ? -1 : queuedMessages.findIndex((q) => q.queueId === editingQueueId)
   const editingItem = editIdx >= 0 ? queuedMessages[editIdx] : null
   const inQueueEdit = editingQueueId !== null && inputState.draftKey === draftKey
-  const blocked = providersReady === false
+  useEffect(() => {
+    if (uploading || submitting || inQueueEdit) return blockMissionTransfer(draftKey)
+  }, [draftKey, uploading, submitting, inQueueEdit])
+  const blocked = providersReady === false || (active ? !missionWindows.isEditable(active.id) : !!missionWindows.current)
   // Attachments upload to a conversation-keyed endpoint. On the EMPTY compose
   // screen we materialise the draft conversation just before the upload.
-  const canAttach = !blocked
+  const canAttach = !blocked && !inQueueEdit
   const provider = active?.provider ?? draftProvider
   const { availableIds: discoveredProviders } = useAvailableProviders()
   const selectableProviders = useMemo(
@@ -177,6 +206,25 @@ export function AgentComposer({
   // EMPTY compose screen) — never the app's active project.
   const gitProjectId = active ? active.pinned_project_id : draftPinnedProjectId
   const pinnedProjectId = gitProjectId
+
+  const fileQuery = paletteTrigger?.mode === 'reference' ? paletteTrigger.query.trim() : ''
+  const fileQueryKey = `${pinnedProjectId ?? ''}:${fileQuery}`
+  const [fileResults, setFileResults] = useState<{ key: string; items: AgentPaletteItem[] }>({ key: '', items: [] })
+  useEffect(() => {
+    const project = projects.find((item) => item.id === pinnedProjectId)
+    if (!project || fileQuery.length < 2) return
+    const request = new AbortController()
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams({ kind: 'find', q: fileQuery, limit: '20' })
+      void fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(project.id)}/code/discover?${params}`, { signal: request.signal })
+        .then(async (response) => {
+          if (!response.ok) return
+          const data = await response.json() as { matches?: Array<{ path: string; repositoryId: string; repositoryName: string }> }
+          if (!request.signal.aborted) setFileResults({ key: fileQueryKey, items: discoveredFileItems(project, data.matches ?? []) })
+        }).catch(() => { /* Local palette entries remain available. */ })
+    }, 180)
+    return () => { clearTimeout(timer); request.abort() }
+  }, [pinnedProjectId, projects, fileQuery, fileQueryKey])
 
   const paletteSource = useMemo(() => ({
     projects,
@@ -189,8 +237,8 @@ export function AgentComposer({
     chips: contextChips,
   }), [projects, conversations, active, pinnedProjectId, activeProjectId, scopedTickets, scopedJobs, contextChips])
   const paletteItems = useMemo(
-    () => (paletteTrigger ? buildPaletteItems(paletteTrigger.mode, paletteSource) : []),
-    [paletteTrigger, paletteSource],
+    () => (paletteTrigger ? [...buildPaletteItems(paletteTrigger.mode, paletteSource), ...(paletteTrigger.mode === 'reference' && fileQuery.length >= 2 && fileResults.key === fileQueryKey ? fileResults.items : [])] : []),
+    [paletteTrigger, paletteSource, fileResults, fileQueryKey, fileQuery],
   )
   const visiblePaletteItems = useMemo(
     () => {
@@ -206,6 +254,7 @@ export function AgentComposer({
   const backgroundAccentVariants: BackgroundProcessAccent[] = ['accent-primary', 'accent-info', 'accent-highlight']
 
   const activeId = active?.id ?? null
+  useEffect(() => { setSelectedProcess(null); setProcessHistoryScope(null) }, [activeId, backgroundProjectId])
   // The composer survives conversation switches (no key/remount): pending chips
   // are keyed to the conversation they were uploaded to (foreign ids silently
   // no-op server-side) and a stale histIndex could index past the new history.
@@ -411,6 +460,16 @@ export function AgentComposer({
     setHistIndex(null)
     selectQueueSlot(i)
   }
+  useEffect(() => {
+    if (!queueEditRequest || queueEditRequest.conversationId !== active?.id) return
+    const index = queuedMessages.findIndex((item) => item.queueId === queueEditRequest.queueId)
+    if (index < 0) return
+    if (inQueueEdit) selectQueueSlot(index)
+    else enterQueueEdit(index)
+    focusEditorAt(queuedMessages[index].text.length)
+    // Only a new menu selection should replace editor text, never a stream tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queueEditRequest])
   /** Leave the mode. 'restore' brings back the stashed draft; 'keep' promotes
    *  the current text to the draft (never-lose-input on conflict/drain). */
   const exitQueueEdit = (mode: 'restore' | 'keep', text?: string): void => {
@@ -446,21 +505,51 @@ export function AgentComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingQueueId, queuedMessages, inQueueEdit])
 
-  const submit = () => {
+  const submit = async () => {
     // Text is required (server contract: 400 on empty text) — an attachment-only
     // submit must NOT clear the chips into a silently-dropped turn.
-    if (blocked || !hasDraft) return
+    if (blocked || !hasDraft || submittingRef.current) return
     const textForTurn = input.trim() || contextChips.map((chip) => chip.token).join(' ')
     const opts = {
       ...(attached.length ? { attachmentIds: attached.map((a) => a.id) } : {}),
       ...(contextChips.length ? { contextRefs: contextChips.map(toContextReference) } : {}),
     }
-    void send(textForTurn, attached.length || contextChips.length ? opts : undefined)
-    setInput('')
-    setAttachmentDraft(draftKey, [])
-    setPaletteTrigger(null)
-    setPlusOpen(false)
-    setHistIndex(null)
+    const signature = JSON.stringify([textForTurn, opts])
+    const previous = composerSubmissionIds.get(draftKey)
+    const requestIdentity = previous?.signature === signature ? previous : { signature, queueId: `q-${crypto.randomUUID()}` }
+    composerSubmissionIds.set(draftKey, requestIdentity)
+    persistComposerDraft(draftKey)
+    submittingRef.current = true
+    setSubmitting(true)
+    try {
+      const result = await send(textForTurn, { ...opts, queueId: requestIdentity.queueId })
+      const targetKey = result.conversationId ?? draftKey
+      if (targetKey !== draftKey) composerSubmissionIds.set(targetKey, requestIdentity)
+      if (!result.accepted) return
+      composerSubmissionIds.delete(draftKey)
+      composerSubmissionIds.delete(targetKey)
+      // Typing or switching conversations during admission must not erase the
+      // next draft. Only clear the exact successfully accepted payload.
+      const currentText = composerDrafts.get(targetKey) ?? ''
+      const currentAttachments = (composerAttachmentDrafts.get(targetKey) ?? []).map((item) => item.id)
+      const currentRefs = composerReferenceDrafts.get(targetKey) ?? []
+      if (currentText !== input || JSON.stringify(currentAttachments) !== JSON.stringify(attached.map((item) => item.id)) || JSON.stringify(currentRefs) !== JSON.stringify(inlineReferences)) return
+      composerDrafts.delete(targetKey)
+      composerReferenceDrafts.delete(targetKey)
+      setAttachmentDraft(targetKey, [])
+      if (attachmentDraftKeyRef.current === targetKey) {
+        updateInputState({ draftKey: targetKey, value: '' })
+        updateReferenceState({ draftKey: targetKey, value: [] })
+        setPaletteTrigger(null)
+        setPlusOpen(false)
+        setHistIndex(null)
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('queueEdit.saveFailed'))
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
+    }
   }
   const recall = (i: number) => {
     if (history[i] === undefined) {
@@ -673,14 +762,16 @@ export function AgentComposer({
           ))}
         </div>
       )}
-      {backgroundProcesses.length > 0 && (
-        <div className="mb-1.5 flex flex-wrap gap-1.5">
-          {backgroundProcesses.map((process, index) => (
+      {(backgroundProcesses.length > 0 || activeId && backgroundProjectId) && (
+        <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+          {activeId && backgroundProjectId && <button type="button" onClick={() => setProcessHistoryScope({ chatId: activeId, projectId: backgroundProjectId })} aria-label={t('backgroundProcess.history.open')} className="inline-flex items-center gap-1.5 rounded-lg border border-border/50 px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"><Terminal className="h-3 w-3" aria-hidden />{t('backgroundProcess.history.button')}{backgroundProcessHistory.length > 0 && <span className="font-mono text-[10px]">{backgroundProcessHistory.length}</span>}</button>}
+          {compactProcesses.map((process, index) => (
             <BackgroundProcessChip
-              key={process.pid}
+              key={backgroundProcessKey(process)}
               process={process}
               accentVariant={backgroundAccentVariants[index % backgroundAccentVariants.length]}
-              onKill={(pid) => void killBackgroundProcess(pid)}
+              onKill={killBackgroundProcess}
+              onOpen={setSelectedProcess}
             />
           ))}
         </div>
@@ -722,7 +813,7 @@ export function AgentComposer({
             />
           </>
         )}
-        <AgentPlusMenu
+        {!inQueueEdit && <AgentPlusMenu
           open={plusOpen}
           canAttach={canAttach}
           uploading={uploading}
@@ -741,7 +832,7 @@ export function AgentComposer({
             setPlusOpen(false)
             openBrowser()
           }}
-        />
+        />}
         <div className="min-w-0 flex-1">
           <AgentComposerEditor
             key={draftKey}
@@ -780,10 +871,13 @@ export function AgentComposer({
             }`}
           />
         </div>
-        {/* Tri-state action: idle → send; streaming + empty box → red stop;
-            streaming + text → "send to queue" (the agent keeps working, the
-            message parks behind the in-flight turn). Queue-edit mode overrides
-            all three: the action is SAVE-in-place (Enter), never a new send. */}
+        {/* Stop remains separate from Send/Save so typing never hides it. */}
+        {isStreaming && (
+          <button type="button" onClick={() => void abort()} aria-label={t('stop')} title={t('stop')}
+            className="rounded-lg bg-destructive p-1.5 text-white transition-colors hover:opacity-90">
+            <Square className="h-4 w-4" fill="currentColor" />
+          </button>
+        )}
         {inQueueEdit ? (
           <button
             type="button"
@@ -795,35 +889,22 @@ export function AgentComposer({
           >
             <Check className="h-4 w-4" />
           </button>
-        ) : isStreaming && !hasDraft ? (
-          <button
-            type="button"
-            onClick={() => void abort()}
-            aria-label={t('stop')}
-            title={t('stop')}
-            className="rounded-lg bg-destructive p-1.5 text-white transition-colors hover:opacity-90"
-          >
-            <Square className="h-4 w-4" fill="currentColor" />
-          </button>
         ) : isStreaming ? (
           <button
             type="button"
             onClick={submit}
-            disabled={blocked}
+            disabled={blocked || !hasDraft || submitting}
             aria-label={t('queue.send')}
             title={t('queue.sendHint')}
             className="relative rounded-lg bg-accent-info p-1.5 text-white transition-colors hover:opacity-90"
           >
             <SendHorizontal className="h-4 w-4" />
-            <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-background ring-1 ring-border">
-              <Clock className="h-2.5 w-2.5 text-accent-info" />
-            </span>
           </button>
         ) : (
           <button
             type="button"
             onClick={submit}
-            disabled={blocked || !hasDraft}
+            disabled={blocked || !hasDraft || submitting}
             aria-label={t('send')}
             className="rounded-lg bg-accent-primary p-1.5 text-white transition-opacity disabled:opacity-40"
           >
@@ -834,6 +915,16 @@ export function AgentComposer({
       {/* Git strip: current branch (switchable) + last commit of the mission's
           pinned project. Hidden without a project or outside a git repo. */}
       {gitProjectId && <AgentGitBar projectId={gitProjectId} />}
+      {selectedProcess && selectedProcess.chatId === activeId && selectedProcess.projectId === backgroundProjectId && (
+        <BackgroundProcessLogsModal
+          process={backgroundProcessHistory.find(process => backgroundProcessKey(process) === backgroundProcessKey(selectedProcess)) ?? selectedProcess}
+          onClose={() => setSelectedProcess(null)}
+          onKill={killBackgroundProcess}
+        />
+      )}
+      {processHistoryScope && processHistoryScope.chatId === activeId && processHistoryScope.projectId === backgroundProjectId && (
+        <BackgroundProcessHistoryModal processes={backgroundProcessHistory} loading={historyLoading} error={historyError} onRefresh={refreshHistory} onClose={() => setProcessHistoryScope(null)} onKill={killBackgroundProcess} />
+      )}
     </div>
   )
 }

@@ -119,6 +119,23 @@ describe('FeatureProposalModal', () => {
     expect(mockStartProposal).toHaveBeenCalledWith('Build a dashboard')
   })
 
+  it('submits an idea with Ctrl+Enter on Windows', async () => {
+    render(<FeatureProposalModal open={true} onClose={onClose} />)
+    const input = await screen.findByLabelText('Feature idea')
+    fireEvent.change(input, { target: { value: 'Build a dashboard' } })
+    fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true })
+    expect(mockStartProposal).toHaveBeenCalledWith('Build a dashboard')
+  })
+
+  it('submits refinement with Ctrl+Enter on Windows', async () => {
+    mockProposalState = { ...mockProposalState, status: 'review' }
+    render(<FeatureProposalModal open={true} onClose={onClose} />)
+    const input = await screen.findByLabelText('Refinement feedback')
+    fireEvent.change(input, { target: { value: 'Make it simpler' } })
+    fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true })
+    expect(mockSendRefinement).toHaveBeenCalledWith('Make it simpler')
+  })
+
   it('calls onClose when Cancel is clicked in idle state', async () => {
     render(<FeatureProposalModal open={true} onClose={onClose} />)
     await waitFor(() => expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument())

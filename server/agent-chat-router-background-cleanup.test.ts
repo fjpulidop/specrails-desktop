@@ -5,10 +5,11 @@ import { initDesktopDb, type DbInstance } from './desktop-db'
 import { createAgentConversation, getAgentConversation } from './agent-store'
 import { createAgentChatRouter } from './agent-chat-router'
 import type { AgentChatManager } from './agent-chat-manager'
-import { killBackgroundProcessesForChat } from './transient-children'
+import { killBackgroundProcessesForChat, purgeBackgroundProcessHistory } from './transient-children'
 
 vi.mock('./transient-children', () => ({
   killBackgroundProcessesForChat: vi.fn(),
+  purgeBackgroundProcessHistory: vi.fn(),
 }))
 
 let db: DbInstance
@@ -16,6 +17,7 @@ let db: DbInstance
 beforeEach(() => {
   db = initDesktopDb(':memory:')
   vi.mocked(killBackgroundProcessesForChat).mockReset()
+  vi.mocked(purgeBackgroundProcessHistory).mockReset()
 })
 
 afterEach(() => {
@@ -37,5 +39,6 @@ it('kills background chip processes when deleting their owning agent conversatio
   expect(res.status).toBe(200)
   expect(abort).toHaveBeenCalledWith(conversation.id)
   expect(killBackgroundProcessesForChat).toHaveBeenCalledWith(conversation.id)
+  expect(purgeBackgroundProcessHistory).toHaveBeenCalledWith({ chatId: conversation.id })
   expect(getAgentConversation(db, conversation.id)).toBeUndefined()
 })

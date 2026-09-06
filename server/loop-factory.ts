@@ -37,7 +37,7 @@ export interface FactoryLoop {
   graph: LoopGraph
 }
 
-const GREEN_GOAL = 'Stop only when the latest verification step reports {{const:VERIFICATION_PASS}} and the history proves the spec is implemented with all required tests/build checks passing.'
+const GREEN_GOAL = 'Stop only when the latest verification step reports {{const:VERIFICATION_PASS}} and the history proves every acceptance criterion is implemented across all required tickets and repositories, with the relevant behavioral checks and configured tests/build passing. Green baseline checks, setup, or planning alone do not prove completion.'
 
 // Factory loops run the WHOLE architect→developer→reviewer pipeline inside a
 // single AI step (`/specrails:implement` etc.), so no fixed wall-clock budget is
@@ -65,7 +65,7 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
   {
     id: 'factory:implement',
     name: 'Implement',
-    description: 'Fully autonomous: implement the spec, verify, and refine (fix) on failure — looping until all tests pass.',
+    description: 'Implement the spec, verify its acceptance criteria and project checks, then complete missing work or fix defects until the full change passes.',
     mode: 'implement',
     graph: fixLoopGraph(['{{cmd:implement}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
   },

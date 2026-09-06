@@ -1,3 +1,6 @@
+// These fixtures exercise the CLI/MCP fallback; native protocols have dedicated integration suites.
+vi.mock('./providers/live-session', () => ({ nativeLiveSessionRunner: () => undefined }))
+
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import express from 'express'
 import { initDesktopDb, setDesktopSetting, type DbInstance } from './desktop-db'
@@ -38,6 +41,7 @@ import { MobileEventBus } from './mobile/mobile-event-bus'
 import type { ProjectRegistry } from './project-registry'
 import { _resetAgentCapabilitiesForTest, mintAgentCapability } from './mcp/agent-capability'
 import fs from 'fs'
+import { getAgentInput } from './agent-input-store'
 import os from 'os'
 
 // ── agent-tier (pure ladder) ──────────────────────────────────────────────────
@@ -367,7 +371,11 @@ import type { AgentChatManager } from './agent-chat-manager'
 function makeApp(db: DbInstance, manager: Partial<AgentChatManager>) {
   const app = express()
   app.use(express.json())
-  app.use('/api/agent', createAgentChatRouter({ manager: manager as AgentChatManager, desktopDb: db }))
+  app.use('/api/agent', createAgentChatRouter({ manager: {
+    pendingMessages: () => [],
+    conversationLive: () => ({ isStreaming: false, streamingText: '', startedAt: undefined }),
+    ...manager,
+  } as AgentChatManager, desktopDb: db }))
   return app
 }
 
@@ -624,6 +632,71 @@ describe('agent-chat-router', () => {
   })
 })
 
+describe('mission queue action routes', () => {
+  // Exercise real route handlers against a manager contract without binding a
+  // socket or starting a provider. Other router tests cover HTTP middleware.
+  function fixture(manager: Partial<AgentChatManager>) {
+    const db = initDesktopDb(':memory:')
+    const conversation = createAgentConversation(db)
+    const router = createAgentChatRouter({ manager: {
+      pendingMessages: () => [], isBusy: () => true, ...manager,
+    } as AgentChatManager, desktopDb: db })
+    const invoke = (method: string, path: string, params: Record<string, string>, body?: unknown) => {
+      const layer = router.stack.find(layer => layer.route?.path === path && layer.route.methods[method])
+      expect(layer).toBeDefined()
+      const result = { status: 200, body: undefined as any }
+      const response = {
+        status(status: number) { result.status = status; return response },
+        json(value: unknown) { result.body = value; return response },
+      }
+      layer!.route.stack.at(-1)!.handle({ params, body }, response, (error?: unknown) => { if (error) throw error })
+      return result
+    }
+    return { db, id: conversation.id, invoke }
+  }
+
+  it.each([
+    ['post', '/conversations/:id/queue/:queueId/steer', 'steerQueued'],
+    ['delete', '/conversations/:id/queue/:queueId', 'removeQueued'],
+  ] as const)('%s %s reports 404, success and claimed input conflicts without dispatching another message', (method, path, action) => {
+    const handler = vi.fn(() => true), send = vi.fn(async () => {})
+    const f = fixture({ [action]: handler, sendMessage: send })
+    try {
+      expect(f.invoke(method, path, { id: 'missing', queueId: 'q1' }).status).toBe(404)
+      expect(handler).not.toHaveBeenCalled()
+      expect(f.invoke(method, path, { id: f.id, queueId: 'q1' })).toEqual({ status: 200, body: { ok: true } })
+      expect(handler).toHaveBeenCalledWith(f.id, 'q1')
+      handler.mockReturnValue(false)
+      expect(f.invoke(method, path, { id: f.id, queueId: 'q1' })).toEqual({ status: 409, body: { error: 'Message already dispatched' } })
+      expect(send).not.toHaveBeenCalled()
+    } finally { f.db.close() }
+  })
+
+  it('validates and forwards send mode while defaulting an ordinary busy send to queue', () => {
+    const send = vi.fn(async () => {})
+    const f = fixture({ sendMessage: send })
+    try {
+      const endpoint = '/conversations/:id/send', params = { id: f.id }
+      for (const deliveryMode of [null, 'now', 1, {}]) {
+        expect(f.invoke('post', endpoint, params, { text: 'Request.', deliveryMode }).status).toBe(400)
+      }
+      expect(send).not.toHaveBeenCalled()
+      expect(f.invoke('post', endpoint, params, { text: 'Queued request.', queueId: 'normal' })).toMatchObject({ status: 202, body: { queued: true, deliveryMode: 'queue' } })
+      const steered = f.invoke('post', endpoint, params, { text: 'Steered request.', queueId: 'urgent', deliveryMode: 'steer', attachments: { ids: ['image'] } })
+      expect(steered).toMatchObject({ status: 202, body: { queued: true, deliveryMode: 'steer' } })
+      expect(send).toHaveBeenLastCalledWith(f.id, 'Steered request.', expect.objectContaining({ deliveryMode: 'steer', queueId: 'urgent', attachmentIds: ['image'] }))
+    } finally { f.db.close() }
+  })
+
+  it('reports the current mode from the pending entry when an original queue submission is retried after promotion', () => {
+    const send = vi.fn(async () => {})
+    const f = fixture({ sendMessage: send, pendingMessages: () => [{ queueId: 'promoted', text: 'Request.', deliveryMode: 'steer', timestamp: 'original', attachmentIds: [], contextRefs: [] }] })
+    try {
+      expect(f.invoke('post', '/conversations/:id/send', { id: f.id }, { text: 'Request.', queueId: 'promoted', deliveryMode: 'queue' })).toMatchObject({ status: 202, body: { queued: true, deliveryMode: 'steer' } })
+    } finally { f.db.close() }
+  })
+})
+
 // ── AgentChatManager (mock the spawn core) ────────────────────────────────────
 import type { InvocationResult } from './spawn-lifecycle'
 import type { AdapterEvent } from './providers/types'
@@ -799,7 +872,8 @@ describe('AgentChatManager', () => {
     await first
     expect(calls).toBe(1) // the queued turn was discarded, never spawned
     expect(events.some((e) => e.type === 'agent_dequeued')).toBe(false)
-    expect(listAgentMessages(db, c.id).some((m) => m.content === 'two')).toBe(false)
+    expect(listAgentMessages(db, c.id).some((m) => m.content === 'two')).toBe(true)
+    expect(getAgentInput(db, c.id, 'q-88')?.status).toBe('cancelled')
   })
 
   it('errors on unknown conversation', async () => {
@@ -918,9 +992,9 @@ describe('AgentChatManager', () => {
   })
 
   it.each([
-    [],
-    [{ kind: 'tool-use', name: 'specrails_rails', inputPreview: 'launch' }, { kind: 'error', message: 'session id not found' }],
-  ] as AdapterEvent[][])('does not replay an empty resume with no stale evidence or after tool execution (%j)', async (streamEvents) => {
+    { streamEvents: [] },
+    { streamEvents: [{ kind: 'tool-use', name: 'specrails_rails', inputPreview: 'launch' }, { kind: 'error', message: 'session id not found' }] },
+  ] as Array<{ streamEvents: AdapterEvent[] }>)('does not replay an empty resume with no stale evidence or after tool execution (%j)', async ({ streamEvents }) => {
     const c = createAgentConversation(db, { provider: 'claude' })
     updateAgentConversation(db, c.id, { session_id: 'native-session' })
     fakeRun(streamEvents, 1)

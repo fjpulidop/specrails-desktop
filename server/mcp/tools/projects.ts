@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import path from 'node:path'
 import type { ProjectRow } from '../../desktop-db'
 import type { McpToolSpec } from './types'
 import { getActiveProject } from './types'
+import { canonicalRepositoryPath, getProjectRepositories, repositoryPathKey } from '../../project-repositories'
 
 export function serializeProject(p: ProjectRow): Record<string, unknown> {
   return {
@@ -10,6 +10,8 @@ export function serializeProject(p: ProjectRow): Record<string, unknown> {
     slug: p.slug,
     name: p.name,
     path: p.path,
+    primaryRepositoryId: getProjectRepositories(p).find(repository => repository.isPrimary)?.id,
+    repositories: getProjectRepositories(p),
     provider: p.provider,
     providers: p.providers,
     addedAt: p.added_at,
@@ -47,8 +49,14 @@ export function projectsTools(): McpToolSpec[] {
           case 'resolve': {
             const p = args.path as string | undefined
             if (!p) throw new Error('resolve requires a "path".')
-            const project = ctx.registry.listProjects().find(row => path.resolve(row.path) === path.resolve(p))
-            return project ? { ...serializeProject(project), available: !!ctx.registry.getContext(project.id) } : { resolved: false }
+            const selected = args.projectId as string | undefined
+            const key = repositoryPathKey(canonicalRepositoryPath(p))
+            const matches = ctx.registry.listProjects().filter(row => !selected || row.id === selected).flatMap(project =>
+              getProjectRepositories(project).filter(repository => repositoryPathKey(canonicalRepositoryPath(repository.path)) === key)
+                .map(repository => ({ project, repository })))
+            if (matches.length > 1) return { resolved: false, ambiguous: true, matches: matches.map(({ project, repository }) => ({ projectId: project.id, projectName: project.name, repositoryId: repository.id, repositoryName: repository.name })) }
+            const match = matches[0]
+            return match ? { ...serializeProject(match.project), repositoryId: match.repository.id, available: !!ctx.registry.getContext(match.project.id) } : { resolved: false }
           }
           case 'unregister': {
             const id = args.projectId as string | undefined

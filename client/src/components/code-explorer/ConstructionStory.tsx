@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useId, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { FileMinus2, FilePlus2, FileText, Sparkles } from 'lucide-react'
-import { getApiBase } from '../../lib/api'
+import { RecordedDiff } from './RecordedDiff'
+import { useCodeRepository, matchesCodeRepository } from './CodeRepositoryContext'
 import { providerSupportsPureOutput } from '../../lib/provider-capabilities'
 import { useDesktop } from '../../hooks/useDesktop'
 import { useSharedWebSocket } from '../../hooks/useSharedWebSocket'
@@ -19,6 +20,11 @@ export interface StoryEntry {
   summary: string | null
   summaryModel: string | null
   summaryGeneratedAt: string | null
+  summaryLanguage?: 'en' | 'es'
+  summaryPromptVersion?: number
+  summaryStale?: boolean
+  evidence?: { kind: 'diff' | 'excerpt' | 'missing'; truncated: boolean }
+  summaryEvidence?: { kind: 'diff' | 'excerpt' | 'missing'; truncated: boolean } | null
   ticket: { id: number; title: string | null; status: string | null } | null
 }
 
@@ -27,6 +33,7 @@ interface ConstructionStoryProps {
   height: number
   onOpenTicket: (ticketId: number) => void
   onFilterJob?: (jobId: string) => void
+  onViewDiff?: (jobId: string) => void
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -48,14 +55,36 @@ function kindIcon(kind: StoryEntry['kind']) {
  * per-intervention paragraph (budget-gated, on demand via the Explain button),
  * then an honest fallback (kind + spec + date — never an invented claim).
  */
-export function ConstructionStory({ relPath, height, onOpenTicket, onFilterJob }: ConstructionStoryProps) {
+export function ConstructionStory(props: ConstructionStoryProps) {
+  const scope = useCodeRepository()
+  const { activeProjectId } = useDesktop()
+  const key = JSON.stringify([activeProjectId, scope.apiBase, scope.repositoryPath, props.relPath])
+  return <ConstructionStoryInner key={key} {...props} />
+}
+
+function ConstructionStoryInner({ relPath, height, onOpenTicket, onFilterJob, onViewDiff }: ConstructionStoryProps) {
   const { t } = useTranslation('code')
+  const repositoryScope = useCodeRepository()
+  const { apiBase, repositoryId } = repositoryScope
   const { activeProjectId, projects } = useDesktop()
   const activeProvider = projects.find((project) => project.id === activeProjectId)?.provider
   const aiTransformsAvailable = providerSupportsPureOutput(activeProvider)
   const { registerHandler, unregisterHandler } = useSharedWebSocket()
+  const instanceId = useId()
   const [story, setStory] = useState<StoryEntry[] | null>(null)
   const [failed, setFailed] = useState(false)
+  const alive = useRef(true)
+  const readController = useRef<AbortController | null>(null)
+  const postControllers = useRef(new Map<number, AbortController>())
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+      readController.current?.abort()
+      for (const controller of postControllers.current.values()) controller.abort()
+      postControllers.current.clear()
+    }
+  }, [])
   // Per-card explain state: 'busy' while generating, 'budget' when the monthly
   // cap was hit (card shows the inline "Generate anyway" override).
   const [explainState, setExplainState] = useState<Record<number, 'busy' | 'budget'>>({})
@@ -67,27 +96,31 @@ export function ConstructionStory({ relPath, height, onOpenTicket, onFilterJob }
 
   const reqIdRef = useRef(0)
   const fetchStory = useCallback(async () => {
+    if (!alive.current) return
     const myReq = ++reqIdRef.current
+    readController.current?.abort()
+    const controller = new AbortController()
+    readController.current = controller
     try {
-      const res = await fetch(`${getApiBase()}/code/file/story?path=${encodeURIComponent(relPath)}`)
-      if (myReq !== reqIdRef.current) return
+      const res = await fetch(`${apiBase}/code/file/story?path=${encodeURIComponent(relPath)}`, { signal: controller.signal })
+      if (!alive.current || controller.signal.aborted || myReq !== reqIdRef.current) return
       if (!res.ok) {
         setStory([])
         setFailed(true)
         return
       }
       const json = (await res.json()) as { story?: StoryEntry[] }
-      if (myReq !== reqIdRef.current) return
+      if (!alive.current || controller.signal.aborted || myReq !== reqIdRef.current) return
       setStory(Array.isArray(json.story) ? json.story : [])
       setFailed(false)
     } catch {
-      if (myReq === reqIdRef.current) {
+      if (alive.current && !controller.signal.aborted && myReq === reqIdRef.current) {
         setStory([])
         setFailed(true)
       }
     }
     // activeProjectId: getApiBase() is project-scoped — refetch on switch.
-  }, [relPath, activeProjectId])
+  }, [relPath, activeProjectId, apiBase])
 
   useEffect(() => {
     setStory(null)
@@ -97,31 +130,35 @@ export function ConstructionStory({ relPath, height, onOpenTicket, onFilterJob }
 
   useEffect(() => {
     if (!activeProjectId) return
-    const id = `code-story-${activeProjectId}`
+    const id = `code-story-${activeProjectId}-${repositoryId ?? 'primary'}-${instanceId}`
     registerHandler(id, (raw) => {
-      const msg = raw as { type?: string; projectId?: string; path?: string }
-      if (msg.projectId !== activeProjectIdRef.current) return
+      const msg = raw as { type?: string; repositoryId?: string; projectId?: string; path?: string }
+      if (msg.projectId !== activeProjectIdRef.current || !matchesCodeRepository(msg.repositoryId, repositoryScope)) return
       if (msg.path !== relPathRef.current) return
       if (msg.type === 'file.story_updated' || msg.type === 'file.provenance_updated') {
         void fetchStory()
       }
     })
     return () => unregisterHandler(id)
-  }, [activeProjectId, registerHandler, unregisterHandler, fetchStory])
+  }, [instanceId, apiBase, repositoryId, activeProjectId, registerHandler, unregisterHandler, fetchStory])
 
   const explain = useCallback(async (entry: StoryEntry, overrideBudget: boolean) => {
-    if (!aiTransformsAvailable) return
+    if (!aiTransformsAvailable || !alive.current || !entry.hasPatch || entry.evidence?.kind === 'missing' || postControllers.current.has(entry.provenanceId)) return
+    const controller = new AbortController()
+    postControllers.current.set(entry.provenanceId, controller)
     setExplainState((prev) => ({ ...prev, [entry.provenanceId]: 'busy' }))
     try {
       const res = await fetch(
-        `${getApiBase()}/code/file/story/explain?path=${encodeURIComponent(relPath)}`,
+        `${apiBase}/code/file/story/explain?path=${encodeURIComponent(relPath)}`,
         {
           method: 'POST',
+          signal: controller.signal,
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ provenanceId: entry.provenanceId, overrideBudget }),
+          body: JSON.stringify({ provenanceId: entry.provenanceId, overrideBudget, ...(entry.summaryStale ? { force: true } : {}) }),
         },
       )
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; skipped?: string }
+      if (!alive.current || controller.signal.aborted) return
       if (json.skipped === 'budget') {
         setExplainState((prev) => ({ ...prev, [entry.provenanceId]: 'budget' }))
         return
@@ -136,19 +173,21 @@ export function ConstructionStory({ relPath, height, onOpenTicket, onFilterJob }
         return
       }
       await fetchStory()
+      if (!alive.current || controller.signal.aborted) return
       setExplainState((prev) => {
         const next = { ...prev }
         delete next[entry.provenanceId]
         return next
       })
     } catch {
+      if (!alive.current || controller.signal.aborted) return
       toast.error(t('story.explainFailed'))
       setExplainState((prev) => {
         const next = { ...prev }
         delete next[entry.provenanceId]
         return next
       })
-    }
+    } finally { postControllers.current.delete(entry.provenanceId) }
   }, [aiTransformsAvailable, fetchStory, relPath, t])
 
   return (
@@ -161,7 +200,7 @@ export function ConstructionStory({ relPath, height, onOpenTicket, onFilterJob }
         {story === null ? (
           <div className="text-[11px] text-muted-foreground animate-pulse py-2">{t('story.loading')}</div>
         ) : failed ? (
-          <div className="text-[11px] text-muted-foreground py-2" data-testid="story-failed">{t('story.loadFailed')}</div>
+          <div className="text-[11px] text-muted-foreground py-2" data-testid="story-failed" role="alert">{t('story.loadFailed')} <button className="ml-2 underline" onClick={() => { void fetchStory() }}>{t('reader.retry', { defaultValue: 'Retry' })}</button></div>
         ) : story.length === 0 ? (
           <div className="text-[11px] text-muted-foreground py-2" data-testid="story-empty">{t('story.empty')}</div>
         ) : (
@@ -171,7 +210,9 @@ export function ConstructionStory({ relPath, height, onOpenTicket, onFilterJob }
                 key={entry.provenanceId}
                 entry={entry}
                 state={explainState[entry.provenanceId]}
-                canExplain={aiTransformsAvailable}
+                canExplain={aiTransformsAvailable && entry.hasPatch && entry.evidence?.kind !== 'missing'}
+                path={relPath}
+                onViewDiff={onViewDiff}
                 onOpenTicket={onOpenTicket}
                 onFilterJob={onFilterJob}
                 onExplain={(override) => { void explain(entry, override) }}
@@ -188,6 +229,8 @@ function StoryCard({
   entry,
   state,
   canExplain,
+  path,
+  onViewDiff,
   onOpenTicket,
   onFilterJob,
   onExplain,
@@ -195,11 +238,14 @@ function StoryCard({
   entry: StoryEntry
   state: 'busy' | 'budget' | undefined
   canExplain: boolean
+  path: string
+  onViewDiff?: (jobId: string) => void
   onOpenTicket: (ticketId: number) => void
   onFilterJob?: (jobId: string) => void
   onExplain: (overrideBudget: boolean) => void
 }) {
   const { t } = useTranslation('code')
+  const [diffOpen, setDiffOpen] = useState(false)
   const Icon = kindIcon(entry.kind)
   const status = entry.ticket?.status ?? null
   const specLabel = entry.ticket?.title
@@ -260,7 +306,12 @@ function StoryCard({
         <div className="mt-1.5">
           {entry.summary ? (
             <>
+              {entry.summaryStale && <span className="text-[10px] text-accent-warning">{t('summary.stale')}</span>}
               <p className="text-sm leading-relaxed text-foreground/90" data-testid="story-contribution">{entry.summary}</p>
+              {entry.summaryGeneratedAt && <time className="mt-1 block text-[10px] text-muted-foreground" dateTime={entry.summaryGeneratedAt}>{new Date(entry.summaryGeneratedAt).toLocaleString()}</time>}
+              {entry.summaryStale && canExplain && (state === 'budget'
+                ? <span className="mt-1 inline-flex items-center gap-2 text-[11px] text-accent-warning"><span>{t('story.budgetReached')}</span><button className="rounded border px-2 py-1" onClick={() => onExplain(true)}>{t('story.generateAnyway')}</button></span>
+                : <button disabled={state === 'busy'} className="mt-1 rounded border px-2 py-1 text-[11px]" onClick={() => onExplain(false)}>{state === 'busy' ? t('story.explaining') : t('reader.regenerateExplanation', { defaultValue: 'Refresh explanation' })}</button>)}
               {entry.summaryModel && (
                 <p className="mt-1 text-[10px] text-muted-foreground/80">{t('story.explainedBy', { model: entry.summaryModel })}</p>
               )}
@@ -275,7 +326,7 @@ function StoryCard({
                   className="text-[10px] text-muted-foreground"
                   data-testid="story-explain-unavailable"
                 >
-                  {t('story.explainUnavailable')}
+                  {!entry.hasPatch || entry.evidence?.kind === 'missing' ? t('reader.noEvidence', { defaultValue: 'No patch evidence was stored for this change.' }) : t('story.explainUnavailable')}
                 </span>
               ) : state === 'budget' ? (
                 <span className="inline-flex items-center gap-1.5">
@@ -303,6 +354,12 @@ function StoryCard({
             </div>
           )}
         </div>
+        {entry.summary && (!entry.hasPatch || entry.evidence?.kind === 'missing') && <p className="mt-2 text-[10px] text-accent-warning">{t('reader.noEvidence', { defaultValue: 'No patch evidence was stored for this change.' })}</p>}
+        {(entry.summaryEvidence?.truncated ?? entry.evidence?.truncated) && <p className="mt-2 text-[10px] text-accent-warning">{t('reader.excerptEvidence', { defaultValue: 'This explanation uses incomplete patch evidence.' })}</p>}
+        {entry.jobId && <div className="mt-2">
+          <button className="rounded border px-2 py-1 text-[11px]" onClick={() => { if (onViewDiff) onViewDiff(entry.jobId!); else setDiffOpen((value) => !value) }}>{t('reader.viewPatch', { defaultValue: 'View recorded change' })}</button>
+          {diffOpen && <div className="mt-2"><RecordedDiff path={path} jobId={entry.jobId} /></div>}
+        </div>}
         {entry.jobId && onFilterJob && (
           <footer className="mt-1.5">
             <button

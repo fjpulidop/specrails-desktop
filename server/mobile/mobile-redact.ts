@@ -13,7 +13,8 @@ import os from 'os'
 //
 // Applied to EVERY proxied REST JSON body and EVERY outbound WS payload.
 
-const SENSITIVE_KEYS = new Set(['path', 'db_path', 'dbPath', 'absolutePath', 'cwd', 'filePath', 'projectPath'])
+const SENSITIVE_KEYS = new Set(['path', 'db_path', 'dbPath', 'absolutePath', 'cwd', 'filePath', 'projectPath',
+  'token', 'token_hash', 'session_id', 'authorization', 'apiKey', 'api_key', 'password', 'secret', 'privateKey', 'private_key', 'env', 'environment'])
 
 const ABS_PATH_PLACEHOLDER = '[path]'
 
@@ -31,6 +32,12 @@ const ABS_PATH_PLACEHOLDER = '[path]'
 const ABS_PATH_RE =
   /(^|[\s"'`(=:,])([A-Za-z]:[\\/][^\s"'`)]*|\\\\[^\s"'`)]+|\/[^\s"'`)/]+\/[^\s"'`)]*)/g
 
+// Quotes bound the complete path, including a final filename with spaces.
+// Without quotes, spaces are reliable only inside components followed by a
+// separator; leave trailing prose intact rather than guessing its endpoint.
+const QUOTED_WINDOWS_PATH_RE = /(["'`])((?:[A-Za-z]:[\\/]|\\\\)[^\r\n]*?)\1/g
+const WINDOWS_COMPONENT_PATH_RE = /(^|[\s"'`(=:,])((?:[A-Za-z]:[\\/]|\\\\)(?:[^\\/\r\n"'`()<>|:;,!?]*[\\/])*[^\s\\/"'`()<>|:;,!?]*)/g
+
 function homeDir(): string {
   try {
     return os.homedir()
@@ -44,7 +51,12 @@ function homeDir(): string {
 export function stripHome(s: string): string {
   const home = homeDir()
   if (!home) return s
-  return s.split(home).join('~')
+  const windowsHome = /^[A-Za-z]:[\\/]|^\\\\/.test(home)
+  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = windowsHome ? home.split(/[\\/]/).map(escape).join('[\\\\/]') : escape(home)
+  // A different account whose name merely starts with ours is not our HOME.
+  const boundary = '(?=$|[\\\\/\\s"\'`),;:])'
+  return s.replace(new RegExp(pattern + boundary, windowsHome || process.platform === 'win32' ? 'gi' : 'g'), '~')
 }
 
 /** Replace absolute-path tokens (POSIX `/…`, Windows `X:\…`, UNC `\\…`) with a
@@ -53,7 +65,10 @@ export function stripHome(s: string): string {
 export function scrubAbsolutePaths(s: string): string {
   // Keep the matched leading delimiter, replace the path token with the
   // placeholder. URLs (`://`) are excluded by the path-branch char classes.
-  return s.replace(ABS_PATH_RE, (_m, lead: string) => `${lead}${ABS_PATH_PLACEHOLDER}`)
+  return s
+    .replace(QUOTED_WINDOWS_PATH_RE, (_match, quote: string) => `${quote}${ABS_PATH_PLACEHOLDER}${quote}`)
+    .replace(WINDOWS_COMPONENT_PATH_RE, (_match, lead: string) => `${lead}${ABS_PATH_PLACEHOLDER}`)
+    .replace(ABS_PATH_RE, (_match, lead: string) => `${lead}${ABS_PATH_PLACEHOLDER}`)
 }
 
 function scrubString(s: string): string {

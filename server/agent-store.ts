@@ -48,6 +48,8 @@ export interface AgentMessageContextRef {
   scope?: {
     projectId?: string | null
     projectName?: string | null
+    repositoryId?: string | null
+    repositoryName?: string | null
   }
   status?: string | null
   metadata?: Record<string, unknown>

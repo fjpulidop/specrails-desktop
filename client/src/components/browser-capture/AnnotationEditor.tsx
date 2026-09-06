@@ -42,6 +42,8 @@ export interface AnnotatedImage {
 
 export interface ImageAnnotationEditorProps {
   screenshotDataUrl: string
+  /** Responsive captures show one canonical bitmap; other sizes are references. */
+  responsive?: boolean
   macOverlay?: boolean
   confirmLabel?: string
   onConfirm: (image: AnnotatedImage) => void | Promise<void>
@@ -66,9 +68,19 @@ export function AnnotationEditor({ result, pendingSpecId, onConfirm, ...props }:
       screenshot: attachment,
       screenshotDataUrl: image.screenshotDataUrl,
       annotations: image.annotations,
+      // Responsive callers attach the breakpoint list, not `screenshot` alone.
+      // Replace the matching canonical entry too, since the original image may
+      // be deleted by the caller after this handoff. Other sizes remain intact.
+      ...(result.breakpoints ? { breakpoints: Object.fromEntries(
+        Object.entries(result.breakpoints).map(([key, breakpoint]) => [key,
+          breakpoint.attachment.id === result.screenshot.id
+            ? { ...breakpoint, attachment, dataUrl: image.screenshotDataUrl }
+            : breakpoint,
+        ]),
+      ) } : {}),
     })
   }, [onConfirm, pendingSpecId, result])
-  return <ImageAnnotationEditor {...props} screenshotDataUrl={result.screenshotDataUrl} onConfirm={confirmImage} />
+  return <ImageAnnotationEditor {...props} responsive={Object.keys(result.breakpoints ?? {}).length > 1} screenshotDataUrl={result.screenshotDataUrl} onConfirm={confirmImage} />
 }
 
 // A tight, high-contrast palette (concrete hex — canvas fillStyle can't read CSS
@@ -98,7 +110,7 @@ const newId = () => `a${++idSeq}-${Date.now().toString(36)}`
  * coverage — canvas + pointer drag is not exercisable under jsdom; the model and
  * geometry live in `lib/annotations.ts` and are unit-tested.
  */
-export function ImageAnnotationEditor({ screenshotDataUrl, macOverlay, confirmLabel, onConfirm, onReselect, onCancel }: ImageAnnotationEditorProps) {
+export function ImageAnnotationEditor({ screenshotDataUrl, responsive, macOverlay, confirmLabel, onConfirm, onReselect, onCancel }: ImageAnnotationEditorProps) {
   const { t } = useTranslation('browser')
   const [state, dispatch] = useReducer(annotationReducer, initialEditorState)
   const [tool, setTool] = useState<AnnotationTool>('arrow')
@@ -321,6 +333,8 @@ export function ImageAnnotationEditor({ screenshotDataUrl, macOverlay, confirmLa
           <Redo2 className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {responsive && <p className="shrink-0 max-w-prose text-center text-xs text-muted-foreground">{t('editor.responsiveHint')}</p>}
 
       {/* Frozen bitmap + overlay */}
       <div ref={imageAreaRef} className="relative flex-1 min-h-0 w-full flex items-center justify-center">

@@ -1,6 +1,7 @@
 // Domain routes extracted from project-router.ts (tickets).
 // Registered on the shared router by createProjectRouter — behaviour-preserving.
 import fs from 'fs'
+import { validateTicketRepositoryIds, RepositoryValidationError, getProjectRepositories } from './project-repositories'
 import path from 'path'
 import { Router, Request, Response, NextFunction } from 'express'
 import { newId as uuidv4 } from './ids'
@@ -197,6 +198,23 @@ async function maybePromoteSpecToJira(
 
 export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
   const { router, registry, ctx, ticketPath } = deps
+  // Validate scope at every authoring boundary before writes, uploads or AI.
+  const validateRepositoryScope = (req: Request, res: Response, next: NextFunction): void => {
+    try {
+      res.locals.repositoryIds = validateTicketRepositoryIds(ctx(req).project, req.body?.repositoryIds)
+      next()
+    } catch (err) {
+      if (err instanceof RepositoryValidationError) res.status(err.status).json({ error: err.message, code: err.code })
+      else next(err)
+    }
+  }
+  router.post(['/:projectId/tickets', '/:projectId/tickets/generate-spec', '/:projectId/tickets/save-as-draft', '/:projectId/tickets/from-draft', '/:projectId/tickets/from-prompt'], validateRepositoryScope)
+  router.patch('/:projectId/tickets/:id', validateRepositoryScope)
+  const repositoryScope = (req: Request, res: Response): { repositoryIds?: string[] } => {
+    // Generation can outlive a membership change; validate again when saving.
+    const ids = validateTicketRepositoryIds(ctx(req).project, res.locals.repositoryIds)
+    return ids === undefined ? {} : { repositoryIds: ids }
+  }
   // ─── Tickets ──────────────────────────────────────────────────────────────────
 
   /** Resolve the ticket storage file path for a project */
@@ -399,6 +417,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
 
     if (hasAttachments) baseSystemPrompt = `${baseSystemPrompt}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
 
+    const selectedIds = res.locals.repositoryIds as string[] | undefined
+    if (getProjectRepositories(project).length > 1) {
+      baseSystemPrompt += `\n\nThis logical project has one shared backlog across these repositories: ${JSON.stringify(getProjectRepositories(project).map(({ id, name, path, isPrimary, kind }) => ({ id, name, path, isPrimary, kind })))}.\nThis spec targets repository IDs: ${JSON.stringify(selectedIds ?? [getProjectRepositories(project).find((repo) => repo.isPrimary)!.id])}. Describe cross-repository contracts when selected; do not create separate tickets per repository.`
+    }
     const systemPrompt = baseSystemPrompt
     const userPrompt = baseUserPrompt
 
@@ -586,6 +608,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           const store = mutateStore(filePath, (s) => {
             const id = s.next_id++
             const ticket: import('./ticket-store').Ticket = {
+              ...repositoryScope(req, res),
               id,
               title: specTitle,
               description,
@@ -790,6 +813,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
             return
           }
           const title = providedTitle || target.title || generateAutoTitle(messages.map((m) => ({ role: m.role, content: m.content ?? '' })))
+          Object.assign(target, repositoryScope(req, res))
           target.title = title
           if (description) target.description = description
           if (labels.length > 0) target.labels = labels
@@ -817,6 +841,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         const existing = anyExisting && anyExisting.status === 'draft' ? anyExisting : undefined
         const title = providedTitle || existing?.title || generateAutoTitle(messages.map((m) => ({ role: m.role, content: m.content ?? '' })))
         if (existing) {
+          Object.assign(existing, repositoryScope(req, res))
           existing.title = title
           if (description) existing.description = description
           if (labels.length > 0) existing.labels = labels
@@ -826,6 +851,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         }
         const id = s.next_id++
         const ticket: Ticket = {
+          ...repositoryScope(req, res),
           id,
           title,
           description,
@@ -992,6 +1018,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
           if (labels.length > 0) flipTarget.labels = labels
           // PATCH-route semantics: apply only when the field was supplied;
           // metadata merges keys instead of replacing the object.
+          Object.assign(flipTarget, repositoryScope(req, res))
           if (hasAssignee) flipTarget.assignee = assignee
           if (hasPrerequisites) flipTarget.prerequisites = prerequisites
           if (hasMetadata) flipTarget.metadata = { ...flipTarget.metadata, ...metadata }
@@ -1024,6 +1051,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         // Legacy: insert new ticket
         const id = s.next_id++
         const ticket: Ticket = {
+          ...repositoryScope(req, res),
           id,
           title: rawTitle,
           description: descriptionForStore,
@@ -1249,6 +1277,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       const store = mutateStore(filePath, (s) => {
         const id = s.next_id++
         const ticket: Ticket = {
+          ...repositoryScope(req, res),
           id,
           title,
           description,
@@ -1579,6 +1608,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       const store = mutateStore(filePath, (s) => {
         const id = s.next_id++
         const ticket: Ticket = {
+          ...repositoryScope(req, res),
           id,
           title: title.trim(),
           description: typeof description === 'string' ? description : '',
@@ -1645,6 +1675,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         const nextPriority = priority === undefined ? ticket.priority : (priority === null ? null : priority)
         const err = validatePriorityForStatus(nextStatus, nextPriority as never)
         if (err) { validationError = err; return }
+        Object.assign(ticket, repositoryScope(req, res))
         if (title !== undefined) ticket.title = title.trim()
         if (description !== undefined) ticket.description = description
         if (acceptanceCriteria !== undefined) {

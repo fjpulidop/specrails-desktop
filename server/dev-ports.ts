@@ -28,12 +28,17 @@ export function resolveWebDevPorts(env: EnvLike = process.env): {
   serverOrigin: string
   wsUrl: string
 } {
-  const serverPort = parseDevPort(env.SPECRAILS_DEV_SERVER_PORT, DEFAULT_DEV_SERVER_PORT)
+  const serverPort = resolveServerPort([], env)
   const clientPort = parseDevPort(env.SPECRAILS_DEV_CLIENT_PORT, DEFAULT_DEV_CLIENT_PORT)
+  if (serverPort === clientPort) {
+    throw new Error('SPECRAILS_DEV_CLIENT_PORT must differ from the Specrails API port (SPECRAILS_DEV_SERVER_PORT or SPECRAILS_PORT).')
+  }
   return {
     serverPort,
     clientPort,
-    serverOrigin: `http://localhost:${serverPort}`,
-    wsUrl: `ws://localhost:${serverPort}`,
+    // index.ts binds IPv4 loopback. localhost can resolve to another app on ::1
+    // using the same numeric port, including a frontend returning HTML for /api.
+    serverOrigin: `http://127.0.0.1:${serverPort}`,
+    wsUrl: `ws://127.0.0.1:${serverPort}`,
   }
 }

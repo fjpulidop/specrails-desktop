@@ -146,7 +146,7 @@ export function FeatureProposalModal({ open, onClose }: FeatureProposalModalProp
                 value={idea}
                 onChange={(e) => setIdea(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.metaKey) { e.preventDefault(); handleExplore() }
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleExplore() }
                 }}
               />
               <p className="text-[10px] text-muted-foreground">{t('featureProposal.cmdEnterToSubmit')}</p>
@@ -231,7 +231,7 @@ export function FeatureProposalModal({ open, onClose }: FeatureProposalModalProp
                     value={refinementInput}
                     onChange={(e) => setRefinementInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && e.metaKey) { e.preventDefault(); handleRefine() }
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleRefine() }
                     }}
                   />
                   <Button

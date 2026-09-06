@@ -38,6 +38,7 @@ export interface EnqueueRequest {
    *  differs from `projectPath` (the workspace `.gitignore` is app-owned). */
   summaryRoot?: string
   projectId: string
+  repositoryId?: string
   projectSlug: string
   relPath: string
   triggeredBy: SummaryPayload['triggeredBy']
@@ -49,6 +50,7 @@ export interface EnqueueRequest {
 }
 
 export interface GenerateInput {
+  repositoryId?: string
   relPath: string
   contents: string
   truncated: boolean
@@ -102,7 +104,7 @@ export interface FileSummaryOpts {
   maxJobCounters?: number
 }
 
-type EnqueueResult =
+export type EnqueueResult =
   | 'enqueued'
   | 'failed'
   | 'skipped:hash'
@@ -114,7 +116,7 @@ type EnqueueResult =
 const SUMMARIES_REL = path.join('.specrails', 'file-summaries')
 // Current summary prompt version. Bump when buildSystemPrompt changes materially
 // so existing summaries are treated as stale and regenerated on next request.
-const CURRENT_PROMPT_VERSION = 1
+export const CURRENT_PROMPT_VERSION = 2
 // Defensive bound on the per-job counter map so it cannot grow without limit
 // across a long-lived app session (the per-job cap is best-effort).
 const MAX_JOB_COUNTERS = 2000
@@ -157,11 +159,28 @@ function getSummaryValidator(): ValidateFunction<SummaryPayload> {
 /** True when `payload` conforms to file-summary.v1.json (with the maxLength
  *  bound on `summary`). Exported so callers/tests can pre-validate. */
 export function isValidSummaryPayload(payload: unknown): payload is SummaryPayload {
-  return getSummaryValidator()(payload) === true
+  if (getSummaryValidator()(payload) !== true) return false
+  const summary = payload as SummaryPayload
+  return summary.summary.trim().length > 0 && Number.isFinite(Date.parse(summary.generatedAt))
+}
+
+/** Legacy caches remain readable, but new prompts/language require regeneration. */
+export function isSummaryMetadataStale(summary: SummaryPayload, language: SummaryLanguage): boolean {
+  return summary.language !== language || summary.generatedBy.promptVersion !== CURRENT_PROMPT_VERSION
 }
 
 export function summariesDir(projectPath: string): string {
   return path.join(projectPath, SUMMARIES_REL)
+}
+
+/** Secondary artifacts belong to the logical project's workspace, never to a
+ * member's own Core registry/backlog. The primary keeps its historical layout. */
+export function repositorySummaryRoot(artifactRoot: string, repository: { id: string; isPrimary: boolean }): string {
+  return repository.isPrimary ? artifactRoot : path.join(artifactRoot, '.specrails', 'repository-context', pathHash(repository.id))
+}
+
+function repositoryKey(projectId: string, repositoryId?: string): string {
+  return JSON.stringify([projectId, repositoryId ?? null])
 }
 
 export function pathHash(relPath: string): string {
@@ -170,6 +189,29 @@ export function pathHash(relPath: string): string {
 
 export function summaryFilePath(projectPath: string, relPath: string): string {
   return path.join(summariesDir(projectPath), `${pathHash(relPath)}.json`)
+}
+
+/** Revalidate the queued target and bound reads before handing any bytes to AI. */
+function readSourceSnapshot(projectPath: string, relPath: string): Buffer {
+  const root = fs.realpathSync(projectPath)
+  const absolute = fs.realpathSync(path.resolve(root, relPath))
+  const relative = path.relative(root, absolute)
+  if (!relative || relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) throw new Error('Source escapes repository')
+  const fd = fs.openSync(absolute, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0))
+  try {
+    const maximum = 2 * 1024 * 1024
+    const metadata = fs.fstatSync(fd)
+    if (!metadata.isFile() || metadata.size > maximum) throw new Error('Source is not a supported file')
+    const bytes = Buffer.alloc(Math.min(maximum + 1, metadata.size + 1))
+    let length = 0
+    while (length < bytes.length) {
+      const read = fs.readSync(fd, bytes, length, bytes.length - length, null)
+      if (!read) break
+      length += read
+    }
+    if (length > metadata.size || length > maximum || bytes.subarray(0, Math.min(length, 8192)).includes(0)) throw new Error('Source changed size or is binary')
+    return bytes.subarray(0, length)
+  } finally { fs.closeSync(fd) }
 }
 
 export async function computeFileHash(absolutePath: string): Promise<string> {
@@ -186,12 +228,14 @@ export async function computeFileHash(absolutePath: string): Promise<string> {
 export function readSummary(projectPath: string, relPath: string): SummaryPayload | null {
   const file = summaryFilePath(projectPath, relPath)
   try {
+    const metadata = fs.lstatSync(file)
+    if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size > 128 * 1024) return null
     const raw = fs.readFileSync(file, 'utf8')
     const parsed = JSON.parse(raw) as unknown
     // Validate against file-summary.v1.json. A corrupt / hand-edited /
     // cross-version / oversized summary is treated as ABSENT (null) instead of
     // being trusted and surfaced verbatim — so the next request regenerates it.
-    if (!isValidSummaryPayload(parsed)) return null
+    if (!isValidSummaryPayload(parsed) || parsed.path !== relPath) return null
     return parsed
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
@@ -209,7 +253,7 @@ export function writeSummary(
 ): void {
   // Reject a non-conformant payload before it ever lands on disk so the
   // documented "schema validated" invariant is real, not aspirational.
-  if (!isValidSummaryPayload(payload)) {
+  if (!isValidSummaryPayload(payload) || payload.path !== relPath) {
     throw new Error('writeSummary: payload failed file-summary.v1 schema validation')
   }
   const dir = summariesDir(summaryRoot)
@@ -284,12 +328,19 @@ export function sweepOrphans(
   return { deleted, remaining }
 }
 
+export interface ExplanationTaskRequest {
+  projectId: string
+  repositoryId?: string
+  relPath: string
+  overrideBudget?: boolean
+  jobId?: string
+}
+
 interface QueueEntry {
-  req: EnqueueRequest
+  req: ExplanationTaskRequest
   enqueuedAt: number
-  /** Content hash computed at enqueue time, carried on the entry so the worker
-   *  never has to recompute it — and never picks up another entry's hash. */
-  newHash: string
+  run: (signal: AbortSignal) => Promise<EnqueueResult>
+  skipped: (reason: FileSummarySkippedMessage['reason']) => void
   resolve: (r: EnqueueResult) => void
   reject: (err: Error) => void
 }
@@ -309,6 +360,8 @@ interface WatcherState {
    *  several chunks / temp-file renames) marks stale ONCE — the successor of
    *  chokidar's awaitWriteFinish. */
   timers: Map<string, ReturnType<typeof setTimeout>>
+  retryAfter?: number
+  restarts?: number
 }
 
 /** Trailing debounce applied to source-change events before the stale check. */
@@ -415,22 +468,23 @@ export class FileSummaryManager {
   // NOT async: returning the in-flight promise verbatim is what makes the dedupe
   // a true coalesce (the second caller gets the SAME promise, not a wrapper).
   enqueue(req: EnqueueRequest): Promise<EnqueueResult> {
+    if (this._disposed) return Promise.resolve('skipped:not-found')
     // Per-(project,relPath) in-flight dedupe: a second enqueue for the same file
     // while one is still running coalesces onto the first promise, so the
     // provider is spawned once and ai_invocations is billed once (fixes
     // concurrent-regenerate double-billing across tabs/clients).
-    const dedupeKey = `${req.projectId}:${req.relPath}`
+    const dedupeKey = JSON.stringify([req.projectId, req.repositoryId ?? null, req.relPath])
     const existing = this.inFlightByKey.get(dedupeKey)
     if (existing) return existing
-    const p = this._enqueueInner(req)
-    this.inFlightByKey.set(dedupeKey, p)
-    void p.catch(() => undefined).finally(() => {
+    const p = this._enqueueInner(req).finally(() => {
       if (this.inFlightByKey.get(dedupeKey) === p) this.inFlightByKey.delete(dedupeKey)
     })
+    this.inFlightByKey.set(dedupeKey, p)
     return p
   }
 
   private async _enqueueInner(req: EnqueueRequest): Promise<EnqueueResult> {
+    if (this._disposed) return 'skipped:not-found'
     const absolutePath = path.join(req.projectPath, req.relPath)
 
     // Step 1: file readability check.
@@ -442,7 +496,9 @@ export class FileSummaryManager {
         return 'skipped:not-found'
       }
       newHash = await computeFileHash(absolutePath)
+      if (this._disposed) return 'skipped:not-found'
     } catch {
+      if (this._disposed) return 'skipped:not-found'
       this.emitSkipped(req, 'not-found')
       return 'skipped:not-found'
     }
@@ -462,7 +518,7 @@ export class FileSummaryManager {
       existing.language === currentLang &&
       existing.generatedBy?.promptVersion === CURRENT_PROMPT_VERSION
     ) {
-      this.deps.broadcast(buildSummaryUpdated(req.projectId, existing, false))
+      this.deps.broadcast(buildSummaryUpdated(req.projectId, existing, false, req.repositoryId))
       return 'skipped:hash'
     }
 
@@ -492,21 +548,29 @@ export class FileSummaryManager {
       }
     }
 
-    // Step 5: enqueue or run.
-    const result = await new Promise<EnqueueResult>((resolve, reject) => {
-      const entry: QueueEntry = {
-        req: { ...req },
-        enqueuedAt: (this.deps.now ?? Date.now)(),
-        newHash,
-        resolve,
-        reject,
-      }
-      const queue = this.queues.get(req.projectId) ?? []
-      queue.push(entry)
+    // Hash was only an admission/cache optimization. The worker snapshots fresh
+    // bytes and hashes exactly those bytes when its queue slot actually starts.
+    return this.queueTask(req, (signal) => this.runOne(req, signal), (reason) => this.emitSkipped(req, reason))
+  }
+
+  getLanguage(): SummaryLanguage { return this.deps.language?.() ?? 'en' }
+
+  /** Stories share this manager's project/app concurrency, spend reservations
+   * and disposal. Only the task itself records its billable usage. */
+  scheduleTask(req: ExplanationTaskRequest, task: (signal: AbortSignal) => Promise<boolean>): Promise<EnqueueResult> {
+    return this.queueTask(req, async (signal) => await task(signal) ? 'enqueued' : 'failed', () => {})
+  }
+
+  private queueTask(req: ExplanationTaskRequest, run: QueueEntry['run'], skipped: QueueEntry['skipped']): Promise<EnqueueResult> {
+    if (this._disposed) return Promise.resolve('skipped:not-found')
+    const queue = this.queues.get(req.projectId) ?? []
+    // Bound retained request/context memory even when provider capacity stalls.
+    if (queue.length >= 200) return Promise.resolve('failed')
+    return new Promise<EnqueueResult>((resolve, reject) => {
+      queue.push({ req: { ...req }, enqueuedAt: (this.deps.now ?? Date.now)(), run, skipped, resolve, reject })
       this.queues.set(req.projectId, queue)
       this.pump(req.projectId)
     })
-    return result
   }
 
   // Recorded month-to-date spend PLUS the optimistically-reserved spend of
@@ -538,8 +602,7 @@ export class FileSummaryManager {
       // TTL drop before starting. Distinct 'skipped:ttl' (not 'skipped:hash') so
       // the regenerate route can tell the user it was dropped, not silently 202.
       if (now - entry.enqueuedAt > this.queueTtlMs) {
-        this.emitSkipped(entry.req, 'ttl')
-        entry.resolve('skipped:ttl')
+        this.skipEntry(entry, 'ttl')
         continue
       }
       // Budget re-check at dequeue: an entry that crossed the monthly cap while
@@ -551,8 +614,7 @@ export class FileSummaryManager {
         const spend = this.effectiveSpend(entry.req.projectId)
         const budget = this.deps.monthlyBudgetUsd()
         if (spend >= budget) {
-          this.emitSkipped(entry.req, 'budget')
-          entry.resolve('skipped:budget')
+          this.skipEntry(entry, 'budget')
           continue
         }
       }
@@ -562,8 +624,7 @@ export class FileSummaryManager {
       if (entry.req.jobId) {
         const count = this.jobCounter.get(entry.req.jobId) ?? 0
         if (count >= this.perJobCap) {
-          this.emitSkipped(entry.req, 'per-job-cap')
-          entry.resolve('skipped:per-job-cap')
+          this.skipEntry(entry, 'per-job-cap')
           continue
         }
         if (!this.jobCounter.has(entry.req.jobId) && this.jobCounter.size >= this.maxJobCounters) {
@@ -580,7 +641,8 @@ export class FileSummaryManager {
       // landed in the DB (or the generation failed/was skipped).
       if (!entry.req.overrideBudget) this.reserveSpend(projectId)
       const reservedSpend = !entry.req.overrideBudget
-      const p = this.runOne(entry)
+      const p = this.runEntry(entry)
+        .then(entry.resolve)
         .catch((err) => entry.reject(err))
         .finally(() => {
           if (reservedSpend) this.releaseSpend(projectId)
@@ -606,22 +668,33 @@ export class FileSummaryManager {
     for (const pid of [...this.queues.keys()]) this.pump(pid)
   }
 
-  private async runOne(entry: QueueEntry): Promise<void> {
-    const { req } = entry
+  private skipEntry(entry: QueueEntry, reason: FileSummarySkippedMessage['reason']): void {
+    try { entry.skipped(reason) } catch { /* a closed WS transport cannot strand a request */ }
+    entry.resolve(`skipped:${reason}`)
+  }
+
+  private async runEntry(entry: QueueEntry): Promise<EnqueueResult> {
+    const controller = new AbortController()
+    this.activeControllers.add(controller)
+    try {
+      const result = await entry.run(controller.signal)
+      return controller.signal.aborted ? 'failed' : result
+    }
+    finally { this.activeControllers.delete(controller) }
+  }
+
+  private async runOne(req: EnqueueRequest, signal: AbortSignal): Promise<EnqueueResult> {
     const absolutePath = path.join(req.projectPath, req.relPath)
     const startedIso = new Date((this.deps.now ?? Date.now)()).toISOString()
-
     let contents: string
     let fileHash: string
     try {
-      contents = fs.readFileSync(absolutePath, 'utf8')
-      // Use the hash captured for THIS entry at enqueue time (never another
-      // entry's). Fall back to a recompute only if it was somehow not set.
-      fileHash = entry.newHash || (await computeFileHash(absolutePath))
+      const snapshot = readSourceSnapshot(req.projectPath, req.relPath)
+      contents = snapshot.toString('utf8')
+      fileHash = createHash('sha256').update(snapshot).digest('hex')
     } catch {
       this.emitSkipped(req, 'not-found')
-      entry.resolve('skipped:not-found')
-      return
+      return 'skipped:not-found'
     }
 
     const tokens = Math.ceil(contents.length / TOKEN_CHARS_PER_TOKEN)
@@ -635,20 +708,18 @@ export class FileSummaryManager {
     }
 
     const lang: SummaryLanguage = (this.deps.language?.() ?? 'en')
-    const controller = new AbortController()
-    this.activeControllers.add(controller)
     try {
       const out = await this.deps.generate({
         relPath: req.relPath,
+        repositoryId: req.repositoryId,
         contents: promptContents,
         truncated,
         language: lang,
-      }, controller.signal)
+      }, signal)
       // The project may have been removed (and its DB closed) while the provider
       // ran. Skip all DB/disk/broadcast work so we never touch a closed handle.
       if (this._disposed) {
-        entry.resolve('failed')
-        return
+        return 'failed'
       }
       // Cap a runaway LLM summary at the schema bound so writeSummary's
       // validation never rejects a real generation (it would otherwise throw and
@@ -671,7 +742,7 @@ export class FileSummaryManager {
       const summaryRoot = req.summaryRoot ?? req.projectPath
       writeSummary(summaryRoot, req.relPath, payload, summaryRoot === req.projectPath)
       // Keep the watcher's negative-cache a correct superset.
-      this.knownSummaries.get(req.projectId)?.add(req.relPath)
+      this.knownSummaries.get(repositoryKey(req.projectId, req.repositoryId))?.add(req.relPath)
 
       try {
         recordInvocation(this.deps.db, {
@@ -700,14 +771,16 @@ export class FileSummaryManager {
         // spending under-counts with no trace.
         console.error('[file-summary] recordInvocation (success) failed:', err)
       }
-      this.deps.broadcast(buildSummaryUpdated(req.projectId, payload, false))
+      let stale = isSummaryMetadataStale(payload, this.getLanguage())
+      try { stale ||= await computeFileHash(absolutePath) !== fileHash } catch { stale = true }
+      if (this._disposed || signal.aborted) return 'failed'
+      this.deps.broadcast(buildSummaryUpdated(req.projectId, payload, stale, req.repositoryId))
       this.deps.broadcast({ type: 'spending.invalidated', projectId: req.projectId })
-      entry.resolve('enqueued')
+      return 'enqueued'
     } catch (err) {
       // Disposed mid-flight (project removed) — DB is closed; skip all writes.
       if (this._disposed) {
-        entry.resolve('failed')
-        return
+        return 'failed'
       }
       const reason = err instanceof Error ? err.message : String(err)
       // A timeout/abort kills the child AFTER the provider may have billed tokens.
@@ -744,24 +817,23 @@ export class FileSummaryManager {
       const failedMsg: FileSummaryFailedMessage = {
         type: 'file.summary_failed',
         projectId: req.projectId,
+        ...(req.repositoryId ? { repositoryId: req.repositoryId } : {}),
         path: req.relPath,
         reason,
       }
       this.deps.broadcast(failedMsg)
       // Resolve with 'failed' (not 'enqueued') so a caller awaiting enqueue()
       // can distinguish a failed generation from a successful one.
-      entry.resolve('failed')
-    } finally {
-      this.activeControllers.delete(controller)
+      return 'failed'
     }
   }
 
   /** `summaryRoot` (relocate-artifacts) is where the summary JSON lives — the
    *  workspace when relocated, else === projectPath. */
-  markStale(projectPath: string, projectId: string, relPath: string, summaryRoot?: string): void {
+  markStale(projectPath: string, projectId: string, relPath: string, summaryRoot?: string, repositoryId?: string): void {
     const existing = readSummary(summaryRoot ?? projectPath, relPath)
     if (!existing) return
-    this.deps.broadcast(buildSummaryUpdated(projectId, existing, true))
+    this.deps.broadcast(buildSummaryUpdated(projectId, existing, true, repositoryId))
   }
 
   /**
@@ -776,10 +848,21 @@ export class FileSummaryManager {
    * project attached in `degraded` status, so later Code-Explorer requests do
    * not retry a doomed recursive watch on every hit.
    */
-  attachWatcher(projectId: string, projectPath: string, summaryRoot?: string): void {
-    if (this.watchers.has(projectId)) return
+  attachWatcher(projectId: string, projectPath: string, summaryRoot?: string, repositoryId?: string): void {
+    if (this._disposed) return
+    const key = repositoryKey(projectId, repositoryId)
+    const previous = this.watchers.get(key)
+    if (previous) {
+      // ReadDirectoryChangesW dies with EPERM when its root is removed. An
+      // explicit explorer request may reattach after it reappears, with a
+      // cooldown and a hard limit; resource exhaustion never retries here.
+      if (previous.status !== 'degraded' || previous.retryAfter === undefined ||
+          Date.now() < previous.retryAfter || (previous.restarts ?? 0) >= 3) return
+      try { if (!fs.statSync(projectPath).isDirectory()) return } catch { return }
+      this.closeWatcherState(previous)
+    }
     const sumRoot = summaryRoot ?? projectPath
-    this.knownSummaries.set(projectId, this.scanKnownSummaries(sumRoot))
+    this.knownSummaries.set(key, this.scanKnownSummaries(sumRoot))
     // Reclaim summary JSON files whose source file was renamed/deleted since the
     // last session. Runs once per project per session (attachWatcher is
     // idempotent) and is capped at 200/pass inside sweepOrphans. The watcher
@@ -789,10 +872,10 @@ export class FileSummaryManager {
     try { sweepOrphans(sumRoot, undefined, projectPath) } catch { /* best effort */ }
     // Registered BEFORE the watch is created so a failed start still counts as
     // attached (degraded) — idempotency is what stops a retry storm.
-    const state: WatcherState = { projectPath, status: 'degraded', close: () => {}, timers: new Map() }
-    this.watchers.set(projectId, state)
+    const state: WatcherState = { projectPath, status: 'degraded', close: () => {}, timers: new Map(), restarts: previous ? (previous.restarts ?? 0) + 1 : 0 }
+    this.watchers.set(key, state)
     const engine = this.deps.watchEngine ?? resolveWatchEngine()
-    const onChange = (raw: string | Buffer | null): void => this.onSourceChanged(projectId, state, raw, sumRoot)
+    const onChange = (raw: string | Buffer | null): void => this.onSourceChanged(projectId, state, raw, sumRoot, repositoryId)
     const onError = (err: unknown): void => this.onWatcherError(projectId, state, err)
     try {
       state.close = engine === 'native'
@@ -805,8 +888,8 @@ export class FileSummaryManager {
   }
 
   /** Current watcher status for a project, or null when never attached. */
-  watcherStatus(projectId: string): WatcherStatus | null {
-    return this.watchers.get(projectId)?.status ?? null
+  watcherStatus(projectId: string, repositoryId?: string): WatcherStatus | null {
+    return this.watchers.get(repositoryKey(projectId, repositoryId))?.status ?? null
   }
 
   /** One kernel-level recursive watch for the whole tree (FSEvents on macOS,
@@ -855,7 +938,7 @@ export class FileSummaryManager {
   /** Shared change funnel for both engines: normalise to a POSIX relpath, drop
    *  build/dep/dot trees and files that provably have no summary, then debounce
    *  per path before the (hash-checked) stale mark. */
-  private onSourceChanged(projectId: string, state: WatcherState, raw: string | Buffer | null, sumRoot: string): void {
+  private onSourceChanged(projectId: string, state: WatcherState, raw: string | Buffer | null, sumRoot: string, repositoryId?: string): void {
     if (raw == null || this._disposed || state.status === 'degraded') return
     const name = typeof raw === 'string' ? raw : raw.toString()
     // Native engines report paths relative to the watched root (Windows with
@@ -868,13 +951,13 @@ export class FileSummaryManager {
     if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return
     if (isInBuildDir(rel)) return
     // Skip the disk hits when this file provably has no summary.
-    const known = this.knownSummaries.get(projectId)
+    const known = this.knownSummaries.get(repositoryKey(projectId, repositoryId))
     if (known && !known.has(rel)) return
     const pending = state.timers.get(rel)
     if (pending) clearTimeout(pending)
     const timer = setTimeout(() => {
       state.timers.delete(rel)
-      void this.markStaleIfChanged(state.projectPath, projectId, rel, sumRoot)
+      void this.markStaleIfChanged(state.projectPath, projectId, rel, sumRoot, repositoryId)
     }, WATCH_DEBOUNCE_MS)
     timer.unref?.()
     state.timers.set(rel, timer)
@@ -885,18 +968,23 @@ export class FileSummaryManager {
    *  unchanged, an editor's temp-file dance, or a replayed/coalesced kernel
    *  event must not flag a still-valid summary. A source that vanished IS
    *  stale — the summary describes a file that is gone. */
-  private async markStaleIfChanged(projectPath: string, projectId: string, rel: string, sumRoot: string): Promise<void> {
+  private async markStaleIfChanged(projectPath: string, projectId: string, rel: string, sumRoot: string, repositoryId?: string): Promise<void> {
     const existing = readSummary(sumRoot, rel)
     if (!existing) return
     let hash: string | null = null
     try { hash = await computeFileHash(path.join(projectPath, rel)) } catch { hash = null }
     if (hash !== null && hash === existing.fileHash) return
     if (this._disposed) return
-    this.deps.broadcast(buildSummaryUpdated(projectId, existing, true))
+    this.deps.broadcast(buildSummaryUpdated(projectId, existing, true, repositoryId))
   }
 
   private onWatcherError(projectId: string, state: WatcherState, err: unknown): void {
     const code = errnoCode(err)
+    if (state.status === 'native' && (code === 'EPERM' || code === 'EACCES')) {
+      state.retryAfter = Date.now() + 30_000
+      this.degradeWatcher(projectId, state, err, 'runtime')
+      return
+    }
     if (code && !WATCHER_EXHAUSTION_CODES.has(code) && state.status !== 'degraded') {
       // Transient and local (a dir vanished mid-scan, a permission hiccup on
       // one subtree): keep watching, just log.
@@ -907,7 +995,8 @@ export class FileSummaryManager {
   }
 
   /** Release the watcher (and, with it, every fd/watch it holds) and park the
-   *  project in degraded mode. Logged once — never thrown, never re-armed. */
+   *  project in degraded mode. Logged once; only a terminated native root
+   *  watcher may be reattached by a later explicit request after cooldown. */
   private degradeWatcher(projectId: string, state: WatcherState, err: unknown, phase: 'start' | 'runtime'): void {
     const alreadyDegraded = state.status === 'degraded' && phase === 'runtime'
     state.status = 'degraded'
@@ -943,12 +1032,13 @@ export class FileSummaryManager {
     return set
   }
 
-  detachWatcher(projectId: string): void {
-    const state = this.watchers.get(projectId)
+  detachWatcher(projectId: string, repositoryId?: string): void {
+    const key = repositoryKey(projectId, repositoryId)
+    const state = this.watchers.get(key)
     if (!state) return
     this.closeWatcherState(state)
-    this.watchers.delete(projectId)
-    this.knownSummaries.delete(projectId)
+    this.watchers.delete(key)
+    this.knownSummaries.delete(key)
   }
 
   /** Full teardown for a single manager: stop accepting work, abort any in-flight
@@ -968,7 +1058,7 @@ export class FileSummaryManager {
     // Reject still-queued entries so awaiting callers settle (skipped, not hung).
     for (const [, queue] of this.queues) {
       for (const entry of queue) {
-        try { this.emitSkipped(entry.req, 'not-found'); entry.resolve('skipped:not-found') } catch { /* best effort */ }
+        this.skipEntry(entry, 'not-found')
       }
     }
     this.queues.clear()
@@ -989,7 +1079,8 @@ export class FileSummaryManager {
   async flush(): Promise<void> {
     // Drain until no pending work remains.
     while (this.pending.size > 0 || this.hasQueued()) {
-      await Promise.allSettled(Array.from(this.pending))
+      if (this.pending.size > 0) await Promise.allSettled(Array.from(this.pending))
+      else await new Promise(resolve => setTimeout(resolve, 0)) // let another manager release the shared slot
     }
   }
 
@@ -1002,6 +1093,7 @@ export class FileSummaryManager {
     const msg: FileSummarySkippedMessage = {
       type: 'file.summary_skipped',
       projectId: req.projectId,
+      ...(req.repositoryId ? { repositoryId: req.repositoryId } : {}),
       path: req.relPath,
       reason,
     }
@@ -1013,10 +1105,12 @@ function buildSummaryUpdated(
   projectId: string,
   payload: SummaryPayload,
   stale: boolean,
+  repositoryId?: string,
 ): WsMessage {
   const msg: FileSummaryUpdatedMessage = {
     type: 'file.summary_updated',
     projectId,
+    ...(repositoryId ? { repositoryId } : {}),
     path: payload.path,
     summaryAvailable: true,
     stale,

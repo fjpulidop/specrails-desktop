@@ -45,7 +45,7 @@ vi.mock('./specrails-tech-client', () => ({
 import { createDesktopRouter } from './desktop-router'
 import { checkCoreCompat, detectAvailableCLIs } from './core-compat'
 import { kimiAdapter } from './providers'
-import { initDesktopDb, addProject, removeProject as removeProjectFromDesktopDb, getProject, getDesktopSetting, setDesktopSetting, addAgent, getAgent, addWebhook } from './desktop-db'
+import { initDesktopDb, addProject, removeProject as removeProjectFromDesktopDb, getProject, getDesktopSetting, setDesktopSetting, addAgent, getAgent, addWebhook, addProjectRepository, updateProjectRepository, removeProjectRepository } from './desktop-db'
 import { initDb } from './db'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import type { WsMessage } from './types'
@@ -78,6 +78,20 @@ function createMockRegistry(desktopDb: DbInstance) {
       contexts.set(opts.id, ctx)
       return ctx
     }),
+    addRepository: vi.fn((projectId: string, input: any) => {
+      const repository = addProjectRepository(desktopDb, projectId, input)
+      Object.assign(contexts.get(projectId).project, getProject(desktopDb, projectId))
+      return repository
+    }),
+    updateRepository: vi.fn((projectId: string, repositoryId: string, input: any) => {
+      const repository = updateProjectRepository(desktopDb, projectId, repositoryId, input)
+      Object.assign(contexts.get(projectId).project, getProject(desktopDb, projectId))
+      return repository
+    }),
+    removeRepository: vi.fn((projectId: string, repositoryId: string) => {
+      removeProjectRepository(desktopDb, projectId, repositoryId)
+      Object.assign(contexts.get(projectId).project, getProject(desktopDb, projectId))
+    }),
     removeProject: vi.fn((id: string) => {
       contexts.delete(id)
       removeProjectFromDesktopDb(desktopDb, id)
@@ -108,6 +122,7 @@ describe('desktop-router', () => {
     // Spy on fs.existsSync so the router's `fs.existsSync(resolvedPath)` is intercepted
     existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true)
     realpathSyncSpy = vi.spyOn(fs, 'realpathSync').mockImplementation((p: fs.PathLike) => String(p))
+    vi.spyOn(fs, 'statSync').mockReturnValue({ isDirectory: () => true } as fs.Stats)
     // BUG-WEBHOOK-01: webhook create/update now DNS-resolves the host to block
     // rebinding SSRF. Default the lookup to a public IP so existing tests using
     // `example.com` stay hermetic (no real network); rebinding tests override.
@@ -144,6 +159,47 @@ describe('desktop-router', () => {
       expect(res.status).toBe(200)
       expect(res.body.projects).toHaveLength(1)
       expect(res.body.projects[0].slug).toBe('proj-1')
+    })
+  })
+
+  describe('multi-repository API', () => {
+    it('creates all roots atomically and edits only membership through CRUD', async () => {
+      const { app, broadcast } = createApp()
+      const created = await request(app).post('/api/projects').send({ path: '/projects/app', repositories: [{ path: '/projects/api', name: 'API' }] })
+      expect(created.status).toBe(201)
+      const project = created.body.project
+      expect(project.repositories).toHaveLength(2)
+      expect(project.primaryRepositoryId).toBe(`primary-${project.id}`)
+      const listed = await request(app).get(`/api/projects/${project.id}/repositories`)
+      expect(listed.body.repositories).toEqual(project.repositories)
+      const member = await request(app).post(`/api/projects/${project.id}/repositories`).send({ path: '/projects/shared', name: 'Shared' })
+      expect(member.status).toBe(201); expect(member.body.project.repositories).toHaveLength(3)
+      const edited = await request(app).patch(`/api/projects/${project.id}/repositories/${member.body.repository.id}`).send({ name: 'Renamed', integrationBranch: 'develop' })
+      expect(edited.status).toBe(200); expect(edited.body.repository.name).toBe('Renamed')
+      const protectedPrimary = await request(app).delete(`/api/projects/${project.id}/repositories/${project.primaryRepositoryId}`)
+      expect(protectedPrimary.status).toBe(409)
+      const removed = await request(app).delete(`/api/projects/${project.id}/repositories/${member.body.repository.id}`)
+      expect(removed.status).toBe(200); expect(removed.body.project.repositories).toHaveLength(2)
+      expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'desktop.projects' }))
+    })
+
+    it.each([{ repositories: 'invalid' }, { repositories: [{ path: '/projects/app/subdir' }] }, { repositories: [{ path: '/etc' }] }])('rejects invalid roots without registering a partial project: %j', async (extra) => {
+      const { app } = createApp()
+      const result = await request(app).post('/api/projects').send({ path: '/projects/app', ...extra })
+      expect([400, 409]).toContain(result.status)
+      expect((await request(app).get('/api/projects')).body.projects).toEqual([])
+    })
+
+    it('requires projectId for ambiguous secondary paths and honors an explicit logical project', async () => {
+      const { app } = createApp()
+      const a = (await request(app).post('/api/projects').send({ path: '/projects/a', repositories: [{ path: '/projects/shared' }] })).body.project
+      const b = (await request(app).post('/api/projects').send({ path: '/projects/b', repositories: [{ path: '/projects/shared' }] })).body.project
+      const ambiguous = await request(app).get('/api/resolve').query({ path: '/projects/shared/src' })
+      expect(ambiguous.status).toBe(409); expect(ambiguous.body.code).toBe('ambiguous_project_path')
+      const resolved = await request(app).get('/api/resolve').query({ path: '/projects/shared/src', projectId: b.id })
+      expect(resolved.status).toBe(200); expect(resolved.body.project.id).toBe(b.id)
+      const unregistered = await request(app).get('/api/resolve').query({ path: '/projects/elsewhere', projectId: a.id })
+      expect(unregistered.status).toBe(404)
     })
   })
 

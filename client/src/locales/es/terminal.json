@@ -57,7 +57,9 @@
     "invalidName": "Nombre de terminal no válido.",
     "openFailed": "No se pudo abrir el terminal.",
     "serverUnreachable": "No se pudo contactar con el servidor para abrir un terminal.",
-    "exitedImmediately": "El terminal terminó de inmediato — puede que el shell no haya podido iniciarse. Si sigue ocurriendo, reinicia la aplicación."
+    "exitedImmediately": "El terminal terminó de inmediato — puede que el shell no haya podido iniciarse. Si sigue ocurriendo, reinicia la aplicación.",
+    "nativeActionFailed": "No se pudo completar la acción de escritorio.",
+    "pathPasteUnsafe": "Esta ruta no se puede pegar de forma segura en cmd.exe. Usa una terminal de PowerShell."
   },
   "session": {
     "processExited": "[proceso terminado]",

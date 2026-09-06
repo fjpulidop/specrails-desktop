@@ -1,3 +1,4 @@
+import { keyboardLabel } from '../lib/keyboard-label'
 import { PanelLeft, PanelRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../lib/utils'
@@ -69,14 +70,14 @@ export function ProjectNavbar() {
           mode={leftMode}
           onToggle={cycleLeftMode}
           label={t(LEFT_LABEL_KEY[leftMode])}
-          shortcut="⌥⌘B"
+          shortcut={keyboardLabel('⌥⌘B')}
           icon={PanelLeft}
         />
         <SidebarButton
           mode={rightMode}
           onToggle={cycleRightMode}
           label={t(RIGHT_LABEL_KEY[rightMode])}
-          shortcut="⌘B"
+          shortcut={keyboardLabel('⌘B')}
           icon={PanelRight}
         />
       </nav>

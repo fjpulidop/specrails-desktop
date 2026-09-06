@@ -42,18 +42,36 @@
     "hint": "Parcours de l'historique — tapez pour modifier, ↑↓ pour naviguer"
   },
   "queue": {
-    "queued": "En file",
-    "send": "Envoyer dans la file",
-    "sendHint": "L'agent travaille encore — ce message sera mis en file puis traité",
-    "placeholder": "Ajoutez-en pendant que l'agent travaille — mis en file…"
+    "queued": "En file d’attente",
+    "send": "Envoyer le message",
+    "sendHint": "Ajouté à la file pour le prochain tour. Choisissez « Orienter » sur un message en attente pour l’envoyer sans interrompre le modèle.",
+    "placeholder": "Ajouter un message à la file…",
+    "delivered": "Transmis à l’agent",
+    "interrupted": "Transmission non confirmée",
+    "cancelled": "Annulé avant transmission",
+    "steer": "Orienter",
+    "steerHint": "Envoyer sans interrompre le modèle",
+    "steering": "Envoi à l’agent…",
+    "remove": "Supprimer le message de la file",
+    "more": "Options du message",
+    "edit": "Modifier",
+    "actionConflict": "Ce message est déjà en cours de transmission ou n’est plus dans la file.",
+    "actionFailed": "Impossible de modifier le message en attente. Réessayez."
+  },
+  "receipt": {
+    "sent": "Envoyé à l’agent",
+    "received": "Transmis à l’agent",
+    "read": "Lu par l’agent",
+    "interrupted": "Transmission non confirmée",
+    "cancelled": "Annulé avant transmission"
   },
   "queueEdit": {
-    "editing": "Modification du message en file {{n}} sur {{m}}",
+    "editing": "Modification du message en attente {{n}} sur {{m}}",
     "hint": "↑↓ pour naviguer · Entrée enregistre · Échap annule",
-    "save": "Enregistrer le message en file",
+    "save": "Enregistrer le message en attente",
     "cancel": "Annuler la modification",
-    "dispatched": "Ce message en file a déjà été envoyé — votre texte est conservé comme brouillon",
-    "saveFailed": "Impossible d'enregistrer le message en file"
+    "dispatched": "Ce message a déjà été transmis ; votre texte est conservé comme brouillon",
+    "saveFailed": "Impossible d’enregistrer le message en attente"
   },
   "git": {
     "branch": "Branche",
@@ -66,7 +84,12 @@
     "noMatches": "Aucune branche ne correspond",
     "worktrees": "Worktrees",
     "worktreePathCopied": "Chemin du worktree copié",
-    "copyWorktreePath": "Copier le chemin du worktree"
+    "copyWorktreePath": "Copier le chemin du worktree",
+    "repository": "Dépôt",
+    "repositoryUnavailable": "Dépôt indisponible",
+    "loadFailed": "État Git indisponible",
+    "notGit": "Dossier de contexte · sans Git",
+    "retry": "Réessayer"
   },
   "provider": {
     "label": "Fournisseur",
@@ -479,5 +502,77 @@
     "copyFailed": "Impossible de copier le journal",
     "openLog": "Voir le journal d'exécution",
     "close": "Fermer"
+  },
+  "backgroundProcess": {
+    "open": "Voir les logs de {{command}}",
+    "logsTitle": "Logs du processus",
+    "logsDescription": "Sortie en direct et historique enregistré de ce processus.",
+    "close": "Fermer les logs",
+    "command": "Commande",
+    "directory": "Répertoire",
+    "exitCode": "Code de sortie : {{code}}",
+    "signal": "Signal : {{signal}}",
+    "search": "Rechercher dans les logs…",
+    "source": "Source de sortie",
+    "allSources": "Toutes les sorties",
+    "pause": "Pause",
+    "resume": "Reprendre",
+    "follow": "Suivre",
+    "copy": "Copier les logs visibles",
+    "download": "Télécharger les logs visibles",
+    "stop": "Arrêter le processus",
+    "stopCommand": "Arrêter {{command}}",
+    "stopFailed": "Impossible d’arrêter le processus. Réessayez.",
+    "truncated": "La fenêtre de logs est limitée. Des sorties anciennes ou des lignes longues peuvent être omises. La copie et le téléchargement incluent seulement cette vue.",
+    "paused": "Vue en pause. Le processus continue.",
+    "loadFailed": "Impossible de charger les logs. Leur durée de conservation a peut-être expiré ; la sortie déjà chargée reste visible.",
+    "retry": "Réessayer",
+    "copied": "Logs visibles copiés.",
+    "exportFailed": "Impossible d’exporter les logs. Réessayez.",
+    "output": "Sortie du processus",
+    "loading": "Chargement des logs…",
+    "noMatches": "Aucune sortie correspondante.",
+    "empty": "Aucune sortie pour le moment.",
+    "lineCount": "{{count}} lignes sur {{total}}",
+    "exportHint": "L’export inclut seulement le filtre actuel et la sortie conservée.",
+    "status": {
+      "starting": "Démarrage",
+      "running": "En cours",
+      "stopping": "Arrêt en cours",
+      "exited": "Terminé",
+      "killed": "Arrêté",
+      "failed": "Échec",
+      "interrupted": "Déconnecté"
+    },
+    "repository": "Dépôt",
+    "history": {
+      "button": "Processus",
+      "title": "Processus de la mission",
+      "open": "Voir l’historique des processus",
+      "description": "Consultez les processus actifs et les journaux enregistrés des exécutions précédentes.",
+      "search": "Rechercher une commande ou un dépôt…",
+      "refresh": "Actualiser l’historique",
+      "close": "Fermer l’historique des processus",
+      "back": "Retour aux processus",
+      "loading": "Chargement de l’historique…",
+      "empty": "Aucun processus n’a encore été enregistré pour cette mission.",
+      "noMatches": "Aucun processus correspondant.",
+      "loadFailed": "Impossible de charger l’historique. Les entrées déjà chargées restent disponibles.",
+      "showMore": "Afficher plus",
+      "count": "Processus : {{count}}"
+    },
+    "interruptedHint": "Specrails ne supervise plus ce processus. Son état dans le système d’exploitation est inconnu ; les journaux enregistrés restent disponibles.",
+    "persistenceFailed": "L’historique du processus n’a pas pu être enregistré. La sortie disponible reste visible."
+  },
+  "window": {
+    "detach": "Ouvrir dans une fenêtre séparée",
+    "attach": "Revenir à la fenêtre principale",
+    "detached": "Cette mission est ouverte dans une autre fenêtre.",
+    "focus": "Afficher la fenêtre de la mission",
+    "loading": "Déplacement de la mission…",
+    "failed": "Impossible de déplacer cette mission. Votre brouillon est conservé.",
+    "dismiss": "Fermer",
+    "wrongMission": "Ouvrez cette mission avant de la déplacer.",
+    "finishPending": "Terminez l’opération en cours, ou enregistrez ou annulez le message ou la capture avant de déplacer la mission."
   }
 }

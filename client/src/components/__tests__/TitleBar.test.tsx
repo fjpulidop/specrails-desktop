@@ -1,10 +1,12 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { TitleBar } from '../TitleBar'
 
 const mocks = vi.hoisted(() => ({
   minimize: vi.fn(),
+  isMaximized: vi.fn(),
+  onResized: vi.fn(),
   toggleMaximize: vi.fn(),
   close: vi.fn(),
   useDesktop: vi.fn(),
@@ -13,6 +15,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({
     minimize: mocks.minimize,
+    isMaximized: mocks.isMaximized,
+    onResized: mocks.onResized,
     toggleMaximize: mocks.toggleMaximize,
     close: mocks.close,
   }),
@@ -25,6 +29,8 @@ vi.mock('../../hooks/useDesktop', () => ({
 describe('TitleBar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.isMaximized.mockResolvedValue(false)
+    mocks.onResized.mockResolvedValue(() => {})
     mocks.useDesktop.mockReturnValue({
       projects: [{ id: 'p1', name: 'Project One' }],
       activeProjectId: 'p1',
@@ -48,6 +54,26 @@ describe('TitleBar', () => {
     expect(screen.getByLabelText('Search (⌘K)')).toHaveStyle({
       color: 'var(--color-foreground)',
     })
+  })
+
+  it('updates Windows maximize/restore controls after native resize and acts on this window', async () => {
+    Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
+    let resized!: () => void
+    const unlisten = vi.fn()
+    mocks.onResized.mockImplementation(async (handler: () => void) => { resized = handler; return unlisten })
+    const { unmount } = render(<TitleBar />)
+    await waitFor(() => expect(mocks.isMaximized).toHaveBeenCalled())
+    fireEvent.click(screen.getByLabelText('Maximize window'))
+    expect(mocks.toggleMaximize).toHaveBeenCalledTimes(1)
+    mocks.isMaximized.mockResolvedValue(true)
+    await act(async () => { resized() })
+    expect(screen.getByLabelText('Restore window')).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Minimize window'))
+    fireEvent.click(screen.getByLabelText('Close window'))
+    expect(mocks.minimize).toHaveBeenCalledTimes(1)
+    expect(mocks.close).toHaveBeenCalledTimes(1)
+    unmount()
+    expect(unlisten).toHaveBeenCalledTimes(1)
   })
 
   it('uses theme tokens for default window controls', () => {

@@ -278,6 +278,32 @@ describe('FrameworkManager', () => {
   })
 
   describe('swapCurrent failure', () => {
+    it.each(['link', 'copy'] as const)('restores a %s current after Core removes it and fails publication', (layout) => {
+      installFakeCore('5.0.0')
+      const fm = new FrameworkManager({ home })
+      fm.materialize('5.0.0', ['claude'])
+      fm.swapCurrent('5.0.0')
+      const current = path.join(frameworkRoot(home), 'current')
+      if (layout === 'copy') {
+        rmSync(current)
+        mkdirSync(current)
+        writeFileSync(path.join(current, '.framework-stamp.claude.json'), JSON.stringify({ version: '5.0.0' }))
+        writeFileSync(path.join(current, 'keep.txt'), 'original copied framework')
+      }
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), `
+        const fs = require('fs'), path = require('path');
+        const fw = process.argv[process.argv.indexOf('--framework-dir') + 1];
+        fs.rmSync(path.join(fw, 'current'), { recursive: true, force: true });
+        process.stderr.write('EPERM: publication denied'); process.exit(41);
+      `)
+      const result = fm.swapCurrentDetailed('5.1.0')
+      expect(result.ok).toBe(false)
+      expect(result.detail).toContain('previous framework 5.0.0 restored')
+      expect(readCurrentFrameworkVersion(home)).toBe('5.0.0')
+      if (layout === 'copy') expect(readFileSync(path.join(current, 'keep.txt'), 'utf8')).toBe('original copied framework')
+      else expect(readFileSync(path.join(current, '.claude', 'agents', 'sr-architect.md'), 'utf8')).toBe('# arch')
+    })
+
     it('returns false when the install-framework re-run fails', () => {
       installFakeCore('5.0.0')
       const fm = new FrameworkManager({ home })

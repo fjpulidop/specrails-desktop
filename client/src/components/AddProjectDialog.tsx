@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { FolderOpen } from 'lucide-react'
+import { FolderOpen, Plus, X } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 
@@ -37,6 +37,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
   const [step, setStep] = useState<'choose' | 'existing'>(chooserEnabled ? 'choose' : 'existing')
   const [projectPath, setProjectPath] = useState('')
   const [projectName, setProjectName] = useState('')
+  const [additionalPaths, setAdditionalPaths] = useState<string[]>([])
   const [isAdding, setIsAdding] = useState(false)
   // Providers are auto-detected server-side (global-core-zero-friction) — the
   // dialog only surfaces a warning when nothing is detected. Registration is
@@ -87,7 +88,10 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
     try {
       // No provider selection: the server registers with the detected set and
       // assembles the workspace silently in the background (no wizard).
-      const data = await addProject(trimmedPath, projectName.trim() || undefined)
+      const roots = additionalPaths.map((path) => ({ path: path.trim() })).filter((root) => root.path)
+      const data = roots.length
+        ? await addProject(trimmedPath, projectName.trim() || undefined, undefined, roots)
+        : await addProject(trimmedPath, projectName.trim() || undefined)
       if (!data) return
       toast.success(t('addProject.toasts.registered', { name: data.project.name }))
       resetAndClose()
@@ -101,6 +105,7 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
   function resetAndClose() {
     setProjectPath('')
     setProjectName('')
+    setAdditionalPaths([])
     setStep(chooserEnabled ? 'choose' : 'existing')
     onClose()
   }
@@ -240,10 +245,35 @@ export function AddProjectDialog({ open, onClose, onOpenBuilder }: AddProjectDia
             </p>
           </div>
 
+          <fieldset className="space-y-2" disabled={isAdding}>
+            <legend className="text-xs font-medium">{t('common:repositories.additional')}</legend>
+            <p className="text-xs text-muted-foreground">{t('common:repositories.sharedBacklog')}</p>
+            {additionalPaths.map((path, index) => (
+              <div key={index} className="flex gap-2">
+                <Input aria-label={t('common:repositories.folderNumber', { number: index + 2 })} value={path}
+                  placeholder={t('addProject.pathPlaceholder')}
+                  onChange={(event) => setAdditionalPaths((paths) => paths.map((value, i) => i === index ? event.target.value : value))} />
+                <Button type="button" variant="ghost" size="icon" aria-label={t('common:repositories.removeFolder')}
+                  onClick={() => setAdditionalPaths((paths) => paths.filter((_, i) => i !== index))}><X className="h-4 w-4" /></Button>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={async () => {
+              if (IS_TAURI) {
+                try {
+                  const { open } = await import('@tauri-apps/plugin-dialog')
+                  const selected = await open({ directory: true, multiple: true })
+                  if (selected) setAdditionalPaths((paths) => [...paths, ...(Array.isArray(selected) ? selected : [selected])])
+                  return
+                } catch { /* Manual entry remains available. */ }
+              }
+              setAdditionalPaths((paths) => [...paths, ''])
+            }}><Plus className="mr-1 h-3.5 w-3.5" />{t('common:repositories.addFolder')}</Button>
+          </fieldset>
+
         </div>
 
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose} disabled={isAdding}>
+          <Button variant="outline" size="sm" onClick={resetAndClose} disabled={isAdding}>
             {t('common:actions.cancel')}
           </Button>
           <Button

@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { CHECKPOINTS } from './setup-manager'
 import { getBundledCoreRoot } from './bundled-core'
+import { getCoreRuntimeStatus } from './core-runtime'
 
 // Windows has no `which`; probe PATH via `where` instead.
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
@@ -24,8 +25,11 @@ const DESKTOP_KNOWN_COMMANDS = new Set([
 // v2.0: cli.claude / cli.codex (per-provider objects) + specrailsDir
 // v3.0: providers/modelPresets/legacyCompat top-level; checkpoints is now an
 //       object (key â description); `commands` field dropped from the contract
+// v4.0: deterministic init/update lifecycle, provider workflows and local runtime;
+//       removed enrichment is no longer required to prove provider support.
 interface IntegrationContract {
   schemaVersion: string
+  lifecycle?: { mode?: string; requiresEnrich?: boolean }
   coreVersion?: string
   // Legacy field name frozen in the external specrails-core contract file —
   // do not rename (specrails-core wire compat).
@@ -71,6 +75,18 @@ function isStringArray(value: unknown): value is string[] {
  */
 function isRenderedProviderContract(provider: string, value: unknown): boolean {
   if (!isRecord(value)) return false
+  // Core 5 has a deterministic installer. Enrichment no longer exists and is
+  // therefore not evidence of provider availability on this contract shape.
+  if (value.initCommand === 'init' && value.updateCommand === 'update') {
+    if (!isRecord(value.cli) || !isRecord(value.workflows)) return false
+    if (!isStringArray(value.cli.initArgs) || !isStringArray(value.cli.updateArgs)
+      || !value.cli.initArgs.includes('init') || !value.cli.updateArgs.includes('update')) return false
+    const workflows = value.workflows
+    if (!['implement', 'batch-implement', 'retry'].every(name => typeof workflows[name] === 'string' && workflows[name])) return false
+    return provider !== 'kimi' || (value.cli.providerBinary === 'kimi'
+      && value.cli.skillRunner === '.kimi-code/specrails/run-skill.mjs'
+      && isStringArray(value.cli.workflowArgs) && value.cli.workflowArgs.includes(value.cli.skillRunner))
+  }
   if (
     typeof value.enrichCommand !== 'string' ||
     value.enrichCommand.length === 0 ||
@@ -108,6 +124,13 @@ export interface CoreCompatResult {
 }
 
 export async function findCoreContract(): Promise<string | null> {
+  const selected = getCoreRuntimeStatus()
+  if (selected.runtime) {
+    const contract = path.join(selected.runtime.root, 'integration-contract.json')
+    return fs.existsSync(contract) ? contract : null
+  }
+  // A broken selected runtime must not advertise a different package's contract.
+  if (selected.error) return null
   // Strategy 1: the packaged Desktop's bundled Core is authoritative.
   const bundledRoot = getBundledCoreRoot()
   if (bundledRoot) {
@@ -268,7 +291,10 @@ export async function checkCoreCompat(): Promise<CoreCompatResult> {
         : [])
 
   const missingCheckpoints = contractCheckpoints.filter((c) => !desktopCheckpointKeys.includes(c))
-  const extraCheckpoints = desktopCheckpointKeys.filter((k) => !contractCheckpoints.includes(k))
+  const deterministic = contract.lifecycle?.mode === 'deterministic' && contract.lifecycle.requiresEnrich === false
+  // Supporting legacy installation checkpoints is compatible with Core 5;
+  // demanding them from a deterministic installer would recreate enrich.
+  const extraCheckpoints = deterministic ? [] : desktopCheckpointKeys.filter((k) => !contractCheckpoints.includes(k))
 
   // v3 dropped the `commands` field from the contract â when absent, the
   // command-set check is a no-op (cannot prove drift either way).

@@ -24,7 +24,10 @@ export interface LoopNode {
   /** Canvas position (used by the builder; ignored by the engine). */
   position: { x: number; y: number }
   /** Node-type-specific config (prompt/model/effort, command, goal, …). */
-  data?: Record<string, unknown>
+  data?: Record<string, unknown> & {
+    /** Shell steps in a multi-repository execution must name a selected repository. */
+    repositoryId?: string
+  }
 }
 
 export interface LoopEdge {
@@ -67,6 +70,16 @@ export interface LoopGraph {
   nodes: LoopNode[]
   edges: LoopEdge[]
   config: LoopGraphConfig
+}
+
+/** A named shell target must never silently fall back to another checkout. */
+export function assertLoopShellRepositoryScope(graph: LoopGraph, repositoryIds: readonly string[]): void {
+  for (const node of graph.nodes) {
+    const target = node.type === 'shell' ? node.data?.repositoryId : undefined
+    if (target !== undefined && (typeof target !== 'string' || !repositoryIds.includes(target))) {
+      throw new Error(`Shell step ${node.id} targets a repository outside this launch`)
+    }
+  }
 }
 
 export type GraphValidationCode =
@@ -133,6 +146,13 @@ export function validateLoopGraph(graph: LoopGraph): GraphValidationResult {
     for (const item of items) {
       if (ids.has(item.id)) errors.push({ code, message: `Duplicate ${code === 'DUPLICATE_NODE' ? 'node' : 'edge'} id "${item.id}".` })
       ids.add(item.id)
+    }
+  }
+
+  for (const node of nodes) {
+    if (node.type === 'shell' && node.data?.repositoryId !== undefined &&
+      (typeof node.data.repositoryId !== 'string' || !node.data.repositoryId.trim())) {
+      errors.push({ code: 'INVALID_NODE', nodeId: node.id, message: 'A shell repositoryId must be a non-empty registered repository id.' })
     }
   }
 
@@ -272,11 +292,12 @@ export function successors(graph: LoopGraph, nodeId: string): LoopNode[] {
  */
 /** The spec (local ticket) fields a loop prompt can reference via `{{spec.*}}`. */
 export interface LoopSpec {
+  repositoryIds?: string[]
   id?: number
   /** All ticket ids this run targets (for `{{spec.ids}}` → `#1 #2 #3`). */
   ticketIds?: number[]
   /** Exact specs covered by an all-ticket run, for independent verification. */
-  tickets?: Array<{ id: number; title?: string; description?: string }>
+  tickets?: Array<{ id: number; title?: string; description?: string; repositoryIds?: string[] }>
   title?: string
   description?: string
   status?: string
@@ -309,6 +330,27 @@ export function loopNeedsTicket(graph: LoopGraph | undefined): boolean {
 
 export function interpolateSpec(text: string, spec?: LoopSpec): string {
   return text.replace(/\{\{\s*spec\.(\w+)\s*\}\}/g, (_match, key: string) => {
+    if (key === 'scope') {
+      if (!spec) return ''
+      const changeName = typeof spec.openspecChangeName === 'string' ? spec.openspecChangeName.trim()
+        : typeof spec.metadata?.openspecChangeName === 'string' ? spec.metadata.openspecChangeName.trim() : undefined
+      // Explicit task data, not arbitrary metadata or injected template code.
+      // Preserve all batch descriptions so later fresh verification/repair
+      // sessions do not have to reconstruct acceptance scope from short logs.
+      const scope = JSON.stringify({
+        id: spec.id,
+        ticketIds: spec.ticketIds,
+        title: spec.title,
+        description: spec.description,
+        repositoryIds: spec.repositoryIds,
+        openspecChangeName: changeName || undefined,
+        tickets: spec.tickets?.map(ticket => ({ id: ticket.id, title: ticket.title, description: ticket.description, repositoryIds: ticket.repositoryIds })),
+      }, null, 2)
+      if (scope === '{}') return ''
+      // Constants/run-vars expand after spec data. Escape their delimiters
+      // inside JSON strings, along with the surrounding data block delimiter.
+      return scope.replace(/\{\{/g, '\\u007b\\u007b').replace(/\}\}/g, '\\u007d\\u007d').replace(/</g, '\\u003c').replace(/>/g, '\\u003e')
+    }
     // `{{spec.ids}}` → all rail ticket ids as `#1 #2 #3` (used by implement/batch).
     if (key === 'ids') {
       const ids = spec?.ticketIds ?? (spec?.id != null ? [spec.id] : [])

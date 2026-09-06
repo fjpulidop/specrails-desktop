@@ -364,6 +364,7 @@ export function applySmashToStore(
       const id = s.next_id++
       const description = composeChildDescription(child)
       const ticket: Ticket = {
+        ...(target.repositoryIds ? { repositoryIds: [...target.repositoryIds] } : {}),
         id,
         title: child.title,
         description,

@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog'
 import { Button } from './ui/button'
 import type { TicketStatus, TicketPriority } from '../types'
+import { RepositoryScopeSelector } from './RepositoryScopeSelector'
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,7 @@ interface CreateTicketModalProps {
     status?: TicketStatus
     priority?: TicketPriority
     labels?: string[]
+    repositoryIds?: string[]
   }) => Promise<boolean>
 }
 
@@ -30,6 +32,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
   const [status, setStatus] = useState<TicketStatus>('todo')
   const [priority, setPriority] = useState<TicketPriority>('medium')
   const [labels, setLabels] = useState<string[]>([])
+  const [repositoryIds, setRepositoryIds] = useState<string[] | undefined>()
   const [labelInput, setLabelInput] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -51,6 +54,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
       setStatus('todo')
       setPriority('medium')
       setLabels([])
+      setRepositoryIds(undefined)
       setLabelInput('')
     }
   }, [open])
@@ -80,6 +84,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
       status,
       priority,
       labels: labels.length > 0 ? labels : undefined,
+      ...(repositoryIds ? { repositoryIds } : {}),
     })
     setSaving(false)
     if (ok) {
@@ -88,7 +93,7 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
     } else {
       toast.error(t('createModal.toast.createFailed'))
     }
-  }, [title, description, status, priority, labels, onCreate, onClose, t])
+  }, [title, description, status, priority, labels, repositoryIds, onCreate, onClose, t])
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -163,6 +168,8 @@ export function CreateTicketModal({ open, allLabels, onClose, onCreate }: Create
               </select>
             </div>
           </div>
+
+          <RepositoryScopeSelector value={repositoryIds} onChange={setRepositoryIds} disabled={saving} />
 
           {/* Labels */}
           <div>
