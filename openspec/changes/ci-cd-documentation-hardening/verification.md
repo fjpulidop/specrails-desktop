@@ -57,3 +57,5 @@ The Windows filesystem worker also exited during a directory copy under a Unicod
 Independent Windows/macOS checks now continue after another check fails, provided their install/build prerequisites succeeded. There is no `continue-on-error`: any failing check still fails its job. This exposes multiple regressions in one run instead of hiding later checks behind the first failure.
 
 The native mission-window smoke waits for confirmed popup destruction and main-window hiding, replacing fixed 100 ms sleeps with bounded state checks. Local native macOS validation passed with the original assertions intact.
+
+The hosted Windows build also exposed an outdated `BOOL` path in the multiwindow fixture. It now uses `windows::core::BOOL`, matching the locked `windows` 0.61 and WebView2 `IsVisible` signature. Local native-example compilation passed; the Windows matrix validates the platform-gated code and its real visibility assertions.

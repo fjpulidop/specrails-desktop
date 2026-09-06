@@ -78,7 +78,7 @@ async fn pane_visible(view: &Webview) -> Result<bool, String> {
         };
         #[cfg(windows)]
         let result = {
-            let mut visible = windows::Win32::Foundation::BOOL::default();
+            let mut visible = windows::core::BOOL::default();
             platform.controller().IsVisible(&mut visible).map(|_| visible.as_bool()).map_err(|error| error.to_string())
         };
         let _ = send.send(result);
