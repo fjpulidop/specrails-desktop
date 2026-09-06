@@ -54,6 +54,7 @@
  * are rejected: the whole point is a pinned, reproducible bundle.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
+import { cp } from 'node:fs/promises'
 import {
   cpSync,
   constants,
@@ -182,7 +183,7 @@ const STAGED_ENTRIES = [
   'pinned-versions.json',
 ]
 
-function main() {
+async function main() {
   const { version, dest } = parseArgs(process.argv.slice(2))
   const spec = `${PACKAGE}@${version}`
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'bundled-core-'))
@@ -259,10 +260,10 @@ function main() {
     })
     const pkgLocalModules = path.join(pkgDir, 'node_modules')
     if (existsSync(pkgLocalModules)) {
-      cpSync(pkgLocalModules, path.join(dest, 'node_modules'), {
+      // Merge over hoisted modules through async cp's JS/libuv path. Node's
+      // native synchronous overwrite removes Unicode Windows paths incorrectly.
+      await cp(pkgLocalModules, path.join(dest, 'node_modules'), {
         recursive: true,
-        filter: () => true,
-        mode: constants.COPYFILE_FICLONE,
         verbatimSymlinks: true,
       })
     }
@@ -320,4 +321,4 @@ function main() {
   }
 }
 
-main()
+await main()

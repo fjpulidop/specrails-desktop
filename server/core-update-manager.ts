@@ -188,8 +188,8 @@ export class CoreUpdateManager {
       if (readCoreRuntime(retained, 'managed')?.version === requested) {
         // A project migration retry can finish fully offline.
         // Force JS traversal: Node 22's native directory copy mishandles Unicode
-        // Windows profiles (nodejs/node#61878); non-forced clone mode also keeps
-        // overwritten files on libuv's Unicode-safe copy path.
+        // Windows profiles (nodejs/node#61878). Both copy targets are fresh
+        // staging directories, so native file replacement is avoided too.
         fs.cpSync(path.dirname(path.dirname(retained)), tmp, { recursive: true, filter: () => true, mode: fs.constants.COPYFILE_FICLONE })
       } else {
         this.npmInstallFn(`${CORE_PACKAGE}@${requested}`, tmp)

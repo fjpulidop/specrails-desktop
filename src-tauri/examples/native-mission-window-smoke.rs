@@ -20,6 +20,16 @@ impl<R: Runtime> Assets<R> for FixtureAssets {
     fn csp_hashes(&self, _: &AssetKey) -> Box<dyn Iterator<Item=CspHash<'_>> + '_> { Box::new(std::iter::empty()) }
 }
 fn snapshot(id: &str, project: Option<&str>, text: &str) -> Value { json!({"version":1,"projectId":project,"conversationId":id,"composer":{"text":text,"references":[],"attachments":[]},"workspace":{},"capturedAt":1}) }
+async fn await_window_state(message: &str, condition: impl Fn() -> Result<bool, String>) -> Result<(), String> {
+    // Tauri close/hide enqueue work on the UI event loop; a successful command
+    // does not mean its native window event has already been processed.
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            if condition()? { return Ok::<(), String>(()); }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    }).await.map_err(|_| message.to_string())?
+}
 async fn run(app: tauri::AppHandle) -> Result<(), String> {
     let main=app.get_webview_window("main").ok_or("main missing")?;
     let main_view=app.get_webview("main").ok_or("main webview missing")?;
@@ -83,9 +93,10 @@ async fn run(app: tauri::AppHandle) -> Result<(), String> {
     println!("PASS timeout rollback retains source snapshots and rejects delayed acknowledgements");
 
     let popup=WebviewWindowBuilder::new(&app,"fixture-popup",WebviewUrl::External("about:blank".parse().unwrap())).incognito(true).build().map_err(|e|e.to_string())?;
-    popup.close().map_err(|e|e.to_string())?; tokio::time::sleep(Duration::from_millis(100)).await;
-    assert!(app.get_webview_window("fixture-popup").is_none(),"production close classification must destroy popups");
-    main.close().map_err(|e|e.to_string())?; tokio::time::sleep(Duration::from_millis(100)).await;
+    popup.close().map_err(|e|e.to_string())?;
+    await_window_state("production close classification must destroy popups", || Ok(app.get_webview_window("fixture-popup").is_none())).await?;
+    main.close().map_err(|e|e.to_string())?;
+    await_window_state("main close must hide the window", || main.is_visible().map(|visible| !visible).map_err(|e|e.to_string())).await?;
     assert!(app.get_webview_window("main").is_some()); assert!(!main.is_visible().map_err(|e|e.to_string())?);
     main.show().map_err(|e|e.to_string())?;
     mission_windows::mission_window_discard(app.clone(),main_view,"conversation-home".into()).await?;

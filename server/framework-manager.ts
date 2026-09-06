@@ -211,8 +211,8 @@ export class FrameworkManager {
           fs.cpSync(current, backup, {
             recursive: true, dereference: false, verbatimSymlinks: true,
             // Node 22's native recursive-copy fast path mishandles Unicode on
-            // Windows (nodejs/node#61878). The filter selects JS traversal and
-            // non-forced clone mode uses libuv for any overwritten file too.
+            // Windows (nodejs/node#61878). Use JS traversal into the fresh backup
+            // so neither native directory copy nor file replacement is used.
             filter: () => true, mode: fs.constants.COPYFILE_FICLONE,
           })
         }

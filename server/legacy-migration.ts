@@ -227,8 +227,8 @@ function moveOverwriting(src: string, dest: string): void {
     fs.renameSync(src, dest)
   } catch {
     // Cross-device fallback. JS traversal avoids Node 22's native Unicode copy
-    // failure on Windows (nodejs/node#61878); non-forced clone mode protects file
-    // overwrites too, before removing the source state.
+    // failure on Windows (nodejs/node#61878). The destination is cleared before
+    // this copy; remove the source state only after copying succeeds.
     fs.cpSync(src, dest, { recursive: true, filter: () => true, mode: fs.constants.COPYFILE_FICLONE })
     fs.rmSync(src, { recursive: true, force: true })
   }

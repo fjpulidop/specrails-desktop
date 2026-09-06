@@ -156,7 +156,7 @@ export function ensureFrameworkCommandSubtrees(workspaceDir: string, providerDir
     try {
       fs.mkdirSync(path.dirname(dest), { recursive: true })
       // JS traversal avoids Node 22's native Unicode directory-copy failure on
-      // Windows (nodejs/node#61878); non-forced clone mode also protects overwrites.
+      // Windows (nodejs/node#61878). The missing subtree is a fresh destination.
       fs.cpSync(src, dest, { recursive: true, filter: () => true, mode: fs.constants.COPYFILE_FICLONE })
       healed += 1
     } catch {
