@@ -47,6 +47,8 @@ cargo run --locked --example native-browser-popup-smoke --features native-browse
 
 For a source-only checkout without assembled desktop resources, set `TAURI_CONFIG` to `{"bundle":{"active":false,"externalBin":[],"resources":[]}}`, as CI does. These are interactive native tests; they require an OS desktop session.
 
+On Windows the examples embed `src-tauri/examples/windows-app.manifest` (Common Controls v6) through `build.rs`. tauri-build only gives that manifest to the package binaries, and without it the loader refuses the example executable with `STATUS_ENTRYPOINT_NOT_FOUND` (0xC0000139): tao/wry import `SetWindowSubclass` by name, which comctl32 5.82 does not export. CI runs each fixture through `scripts/run-native-smoke.ps1`, which reports the process's own exit code, echoes its output and prints the PE subsystem, WebView2 runtime and DLL dependents when a run needs diagnosis.
+
 ## Limits and remaining platform acceptance
 
 - At most 16 detached missions and a 2 MiB transfer snapshot. Oversized state is rejected without truncating unsent work.
