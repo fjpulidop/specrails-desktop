@@ -39,14 +39,20 @@ async fn run(app: tauri::AppHandle) -> Result<(), String> {
     // Exercise the actual renderer IPC identity, not only Rust helper calls.
     // The denied command cannot restart anything: the fixture has no backend
     // and production's invoke guard rejects it before dispatching a handler.
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    a.eval("(async()=>{try{const i=window.__TAURI_INTERNALS__.invoke;const supported=await i('mission_windows_supported');const state=await i('mission_window_current');let denied=false;try{await i('restart_app')}catch(e){denied=String(e).includes('not available')}location.hash=supported&&state.conversationId==='conversation-a'&&denied?'native-ipc-ok':'native-ipc-failed'}catch(e){location.hash='native-ipc-error'}})()").map_err(|e|e.to_string())?;
-    let mut ipc_ok=false;
-    for _ in 0..60 {
-        if a.url().map_err(|e|e.to_string())?.fragment()==Some("native-ipc-ok") {ipc_ok=true;break;}
-        tokio::time::sleep(Duration::from_millis(50)).await;
+    // WebView2 creates the hidden window's mission document later than WebKit,
+    // and a fixed delay ran the probe on the initial blank page whose hash the
+    // real navigation then discarded. Re-issue it until the mission document
+    // itself has answered: the script only runs on that document, once.
+    let probe="(async()=>{if(!location.search.includes('missionWindow=1')||!window.__TAURI_INTERNALS__||window.__nativeIpcProbe)return;window.__nativeIpcProbe=true;try{const i=window.__TAURI_INTERNALS__.invoke;const supported=await i('mission_windows_supported');const state=await i('mission_window_current');let denied=false;try{await i('restart_app')}catch(e){denied=String(e).includes('not available')}location.hash=supported&&state.conversationId==='conversation-a'&&denied?'native-ipc-ok':'native-ipc-failed'}catch(e){location.hash='native-ipc-error'}})()";
+    let mut ipc=None; let mut last_url=String::new();
+    for _ in 0..75 {
+        a.eval(probe).map_err(|e|e.to_string())?;
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        let url=a.url().map_err(|e|e.to_string())?;
+        last_url=url.to_string();
+        if let Some(fragment)=url.fragment().filter(|fragment| fragment.starts_with("native-ipc-")) { ipc=Some(fragment.to_string()); break; }
     }
-    assert!(ipc_ok,"registered mission must load the application origin, obtain only its context and be denied restart IPC");
+    assert_eq!(ipc.as_deref(),Some("native-ipc-ok"),"registered mission must load the application origin, obtain only its context and be denied restart IPC (last URL: {last_url})");
     let duplicate=mission_windows::detach(&app,Some("project-a".into()),"conversation-a".into(),snapshot("conversation-a",Some("project-a"),"must not overwrite")).await?;
     assert_eq!(duplicate.window_label,first.window_label); assert_eq!(duplicate.snapshot,first.snapshot);
     let home=mission_windows::detach(&app,None,"conversation-home".into(),snapshot("conversation-home",None,"Home draft")).await?;
