@@ -117,9 +117,6 @@ jobs:
           server/background-windows-bootstrap.test.ts server/background-windows-job-control.test.ts
           server/loop-executors-shell.test.ts
           server/mobile/mobile-redact.test.ts server/provider-detection.test.ts
-      - name: Client regressions on Windows
-        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
-        run: npm run test:client -- --maxWorkers=2
       - id: production-build
         if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
         run: npm run build
@@ -167,6 +164,10 @@ jobs:
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
         run: .\target\debug\examples\native-browser-multiwindow-smoke.exe
+      # Native platform checks report first; retain the complete client suite.
+      - name: Client regressions on Windows
+        if: ${{ !cancelled() && steps.root-dependencies.outcome == 'success' && steps.client-dependencies.outcome == 'success' }}
+        run: npm run test:client -- --maxWorkers=2
 
   # These fixtures use local/in-memory pages and temporary native profiles.
   # They do not start a sidecar, read a user database or call an AI provider.
