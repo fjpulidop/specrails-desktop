@@ -91,9 +91,17 @@ async fn evaluate(view: &Webview, source: &str) -> Result<Value, String> {
 }
 
 async fn eventually(view: &Webview, expression: &str) -> Result<Value, String> {
-    for _ in 0..100 {
-        let value = evaluate(view, &format!("return ({expression});")).await?;
-        if value != Value::Null && value != Value::Bool(false) { return Ok(value); }
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    while std::time::Instant::now() < deadline {
+        // A poll is a pure read. WebKit can hold one completion for seconds
+        // while it constructs a popup the page opened at that moment; the next
+        // poll observes the same state, so a held completion is not a failure.
+        match evaluate(view, &format!("return ({expression});")).await {
+            Ok(value) if value != Value::Null && value != Value::Bool(false) => return Ok(value),
+            Ok(_) => {}
+            Err(error) if error == "script timeout" => eprintln!("poll completion held up, retrying: {expression}"),
+            Err(error) => return Err(format!("{error} while polling: {expression}")),
+        }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
     Err(format!("condition timed out: {expression}"))
@@ -186,29 +194,32 @@ async fn run(app: tauri::AppHandle, port: u16, other: u16) -> Result<(), String>
     println!("PASS remote popup cannot invoke harmless app command");
 
     evaluate(popup.as_ref(), &format!("window.messages=[];addEventListener('message',e=>messages.push(e.data));Promise.resolve().then(()=>setTimeout(()=>{{window.second=window.open({},'second');window.__secondOpened=!!second;}},60));return true;", json!(format!("{origin}/callback")))).await?;
+    // Wait for the native window first: a script evaluated while WebKit is
+    // still constructing the popup has its completion held up for seconds.
+    popup_count(&app,&owner,2).await?;
     eventually(popup.as_ref(),"window.__secondOpened===true").await?;
     eventually(popup.as_ref(),"messages.some(m=>m.type==='authenticated')").await?;
-    popup_count(&app,&owner,2).await?;
     close_popups(&app,&owner).await?;
     assert!(app.get_window("main").is_some() && app.get_webview("main").is_some());
     eventually(&pane,"auth.closed").await?;
     println!("PASS chained popup, delegated Wry creation, native window.close and opener.closed");
 
-    evaluate(&pane,&format!("const link=document.createElement('a');link.href={};link.target='_blank';link.rel='opener';document.body.append(link);link.click();return true;",json!(format!("{other_origin}/callback")))).await?;
-    eventually(&pane,"messages.filter(m=>m.data.type==='authenticated').length===2").await?;
+    evaluate(&pane,&format!("const link=document.createElement('a');link.href={};link.target='_blank';link.rel='opener';document.body.append(link);setTimeout(()=>link.click(),0);return true;",json!(format!("{other_origin}/callback")))).await?;
     popup_count(&app,&owner,1).await?;
+    eventually(&pane,"messages.filter(m=>m.data.type==='authenticated').length===2").await?;
     close_popups(&app,&owner).await?;
     println!("PASS target=_blank keeps source page and opens a real related window");
 
     evaluate(&pane,&format!("window.frame=document.createElement('iframe');frame.src={};frame.onload=()=>window.frameReady=true;document.body.append(frame);return true;",json!(format!("{other_origin}/frame")))).await?;
     eventually(&pane,"window.frameReady===true").await?;
     evaluate(&pane,&format!("frame.contentWindow.postMessage({{type:'open-auth',url:{}}},{});return true;",json!(format!("{origin}/callback")),json!(other_origin))).await?;
+    popup_count(&app,&owner,1).await?;
     eventually(&pane,"messages.some(m=>m.data.type==='iframe-opened'&&m.data.opened)").await?;
     eventually(&pane,"messages.some(m=>m.data.type==='iframe-authenticated')").await?;
     close_popups(&app,&owner).await?;
     println!("PASS cross-origin iframe opener and postMessage callback");
 
-    evaluate(&pane,&format!("window.quick=window.open({},'immediate');return true;",json!(format!("{origin}/immediate")))).await?;
+    evaluate(&pane,&format!("setTimeout(()=>{{window.quick=window.open({},'immediate');}},0);return true;",json!(format!("{origin}/immediate")))).await?;
     eventually(&pane,"messages.some(m=>m.data.type==='immediate')").await?;
     no_popups(&app,&owner).await?;
     eventually(&pane,"quick.closed").await?;

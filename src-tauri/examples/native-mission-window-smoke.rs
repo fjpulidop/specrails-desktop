@@ -33,6 +33,14 @@ async fn await_window_state(message: &str, condition: impl Fn() -> Result<bool, 
 async fn run(app: tauri::AppHandle) -> Result<(), String> {
     let main=app.get_webview_window("main").ok_or("main missing")?;
     let main_view=app.get_webview("main").ok_or("main webview missing")?;
+    // detach derives the only navigable origin from the main window's URL.
+    // WebView2 reports the initial about:blank until the first navigation has
+    // committed, so a mission opened before that could never load its page.
+    let origin_deadline=std::time::Instant::now()+Duration::from_secs(30);
+    while main.url().map_err(|e| e.to_string())?.scheme()=="about" {
+        if std::time::Instant::now()>origin_deadline { return Err("main interface did not commit the application origin".into()); }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
     let first=mission_windows::detach(&app,Some("project-a".into()),"conversation-a".into(),snapshot("conversation-a",Some("project-a"),"draft A #1")).await?;
     let a=app.get_webview_window(&first.window_label).ok_or("child missing")?;
     assert!(!a.is_visible().map_err(|e| e.to_string())?, "unacknowledged destination stays hidden");
