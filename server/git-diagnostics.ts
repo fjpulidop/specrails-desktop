@@ -1,5 +1,5 @@
 import { execFile } from 'child_process'
-import { GIT_EXEC_ENV } from './file-provenance'
+import { gitExecEnv } from './file-provenance'
 import { windowsSpawnEnv } from './util/win-spawn'
 
 /**
@@ -12,7 +12,7 @@ import { windowsSpawnEnv } from './util/win-spawn'
  * SAFETY: the command list is a FIXED ALLOWLIST — the caller only picks an
  * action name, never arguments, so no flag/ref/path can be smuggled in. Every
  * command is read-only (no push/commit/checkout/pr-create). git runs with the
- * hardened `GIT_EXEC_ENV` (hostile-repo config stripped, prompts disabled); gh
+ * hardened `gitExecEnv()` (hostile-repo config stripped, prompts disabled); gh
  * runs with the normal env so it finds the user's `~/.config/gh` auth and the
  * bundled `gh` on PATH.
  */
@@ -59,7 +59,7 @@ const defaultExec: DiagnosticExec = (cmd, args, cwd) =>
   new Promise((resolve) => {
     // git: hardened, cwd-pinned env. gh: user env (needs ~/.config/gh auth) with
     // the Windows shell-critical vars guaranteed present.
-    const env = cmd === 'gh' ? windowsSpawnEnv() : GIT_EXEC_ENV
+    const env = cmd === 'gh' ? windowsSpawnEnv() : gitExecEnv()
     execFile(
       cmd, args,
       { cwd, env, timeout: 15_000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },

@@ -1,5 +1,5 @@
 import { execFile } from 'child_process'
-import { GIT_EXEC_ENV } from './file-provenance'
+import { gitExecEnv } from './file-provenance'
 import { isValidBranchName } from './integration-branch'
 
 // ─── Project git info + branch switch (Agent-Mode git bar) ────────────────────
@@ -19,7 +19,7 @@ function git(repoDir: string, args: string[]): Promise<string> {
     execFile(
       'git',
       args,
-      { cwd: repoDir, env: GIT_EXEC_ENV, timeout: GIT_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER, windowsHide: true },
+      { cwd: repoDir, env: gitExecEnv(), timeout: GIT_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER, windowsHide: true },
       (err, stdout, stderr) => {
         if (err) {
           const detail = String(stderr || err.message).trim()

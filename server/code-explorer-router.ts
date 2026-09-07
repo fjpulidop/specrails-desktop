@@ -11,7 +11,7 @@ import {
   listProvenanceByPath,
   listProvenanceByTicket,
   getProvenanceDiff,
-  GIT_EXEC_ENV,
+  gitExecEnv,
   type ProvenanceRow,
 } from './file-provenance'
 import {
@@ -138,7 +138,7 @@ export async function gitIgnoredSet(projectPath: string, relPaths: string[], max
       let stdout = ''
       let settled = false
       let overflow = false
-      const child = spawn('git', ['check-ignore', '--stdin', '-z'], { cwd: projectPath, stdio: ['pipe', 'pipe', 'ignore'], env: GIT_EXEC_ENV })
+      const child = spawn('git', ['check-ignore', '--stdin', '-z'], { cwd: projectPath, stdio: ['pipe', 'pipe', 'ignore'], env: gitExecEnv() })
       const finish = (complete: boolean) => { if (!settled) { settled = true; resolve({ stdout, complete: complete && !overflow }) } }
       const timer = setTimeout(() => { try { child.kill('SIGTERM') } catch { /* gone */ }; finish(false) }, Math.min(5_000, Math.max(1, deadline - Date.now())))
       timer.unref?.()

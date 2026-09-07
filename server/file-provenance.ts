@@ -40,9 +40,13 @@ const GIT_MAX_BUFFER = 16 * 1024 * 1024
 // the on-demand diff patches beyond this cap are skipped (the UI shows "diff
 // unavailable" for them). Mirrors the existing large-job warn threshold (50).
 const MAX_PATCH_FILES = 50
-// Exported: project-git.ts (the Agent-Mode git bar) runs the same cwd-scoped
-// git calls and needs the identical hostile-repo hardening.
-export const GIT_EXEC_ENV = (() => {
+// Exported: project-git.ts (the Agent-Mode git bar), the code explorer and the
+// git diagnostics run the same cwd-scoped git calls and need the identical
+// hostile-repo hardening. Computed PER CALL, never at module load: the startup
+// path resolver prepends the bundled git directory to process.env.PATH after
+// this module was imported, and a snapshot taken earlier could not find git in
+// a packaged app without a system git — every guard then failed closed.
+export function gitExecEnv(): NodeJS.ProcessEnv {
   // Inherit the parent env but STRIP git-location vars. If the app process (or a
   // parent) ever exports GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE, every cwd-scoped
   // git call below would silently operate on that repo instead of the project —
@@ -67,7 +71,7 @@ export const GIT_EXEC_ENV = (() => {
   env.GIT_CONFIG_NOSYSTEM = '1'
   env.GIT_CONFIG_PARAMETERS = "'core.fsmonitor=false' 'core.hooksPath=/dev/null' 'protocol.ext.allow=user'"
   return env
-})()
+}
 
 export interface WorkingTreeSnapshot {
   /** `git stash create` ref, or '' when the tree was clean / git failed. */
@@ -91,7 +95,7 @@ export function resolveHeadSha(cwd: string): string {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: GIT_TIMEOUT_MS,
       maxBuffer: GIT_MAX_BUFFER,
-      env: GIT_EXEC_ENV,
+      env: gitExecEnv(),
     })
     return out.trim()
   } catch {
@@ -109,7 +113,7 @@ export function listUntracked(cwd: string): string[] {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: GIT_TIMEOUT_MS,
       maxBuffer: GIT_MAX_BUFFER,
-      env: GIT_EXEC_ENV,
+      env: gitExecEnv(),
     })
     return out.split('\0').filter((p) => p.length > 0)
   } catch {
@@ -126,7 +130,7 @@ export function snapshotWorkingTree(cwd: string): WorkingTreeSnapshot {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: GIT_TIMEOUT_MS,
       maxBuffer: GIT_MAX_BUFFER,
-      env: GIT_EXEC_ENV,
+      env: gitExecEnv(),
     })
     ref = out.trim()
   } catch (err) {
@@ -165,7 +169,7 @@ export function diffAgainstSnapshot(
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: GIT_TIMEOUT_MS,
       maxBuffer: GIT_MAX_BUFFER,
-      env: GIT_EXEC_ENV,
+      env: gitExecEnv(),
     })
   } catch {
     out = ''
@@ -338,7 +342,7 @@ export function collectDiffPatches(cwd: string, snapshotRef: string, diff: DiffE
         stdio: ['ignore', 'pipe', 'pipe'],
         maxBuffer: MAX_PATCH_BYTES + 64 * 1024,
         timeout: GIT_TIMEOUT_MS,
-        env: GIT_EXEC_ENV,
+        env: gitExecEnv(),
       })
     } catch (err) {
       patch = ((err as { stdout?: string }).stdout ?? '').toString()

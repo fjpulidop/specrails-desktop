@@ -41,7 +41,7 @@ export function createBoundedExec(timeoutMs = PR_COMMAND_TIMEOUT_MS): Exec {
       // `windowsSpawnEnv()` backfills SystemRoot / ComSpec / USERPROFILE, which a
       // GUI-launched / pkg-stripped Windows sidecar can lack — without them the
       // `git`/`gh` child (and the `sh -c` the `!gh …` credential helper runs) can
-      // fail to start. NOT `GIT_EXEC_ENV`: that hardened env disables credentials
+      // fail to start. NOT `gitExecEnv()`: that hardened env disables credentials
       // (GIT_ASKPASS=echo / GIT_TERMINAL_PROMPT=0), which the push must keep. No-op
       // on POSIX (returns process.env), so mac/Linux behaviour is byte-identical.
       const env = windowsSpawnEnv()
