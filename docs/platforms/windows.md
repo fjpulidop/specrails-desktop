@@ -99,4 +99,4 @@ Reserved paths (`.specrails/profiles/**`, `.claude/agents/custom-*.md`) are pres
 
 ## Verification
 
-See [Windows parity audit](./windows-parity.md) for coverage, automated release gates and the real-device checks still required before making a compatibility claim. The source CI runs on Windows x64 and ARM64. Desktop Release installs both NSIS and MSI packages in temporary paths with spaces and exercises the installed server, database, repository browsing, PTY input/output/stop, graceful shutdown and restart.
+See [Windows parity audit](./windows-parity.md) for coverage, automated release gates and the real-device checks still required before making a compatibility claim. The source checks run on Windows x64 for every change and on ARM64 for pushes to `main` (`windows-parity.yml`, separate from the release-gating CI). Desktop Release installs both NSIS and MSI packages in temporary paths with spaces and exercises the installed server, database, repository browsing, PTY input/output/stop, graceful shutdown and restart.
