@@ -34,7 +34,10 @@ export function validatePackageInventory(info, expected) {
 }
 
 function run(command, args, cwd, env = process.env) {
-  const result = spawnSync(command, args, { cwd, env, encoding: 'utf8', timeout: 180_000, maxBuffer: 16 * 1024 * 1024 })
+  // A safety limit, not a performance budget: the consumer install of the
+  // packed tarball (1000+ files, native dependencies) has exceeded three
+  // minutes on a loaded Windows runner without anything being wrong.
+  const result = spawnSync(command, args, { cwd, env, encoding: 'utf8', timeout: 600_000, maxBuffer: 16 * 1024 * 1024 })
   if (result.error) throw result.error
   if (result.status !== 0) throw new Error(`${path.basename(command)} exited ${result.status}:\n${result.stderr || result.stdout}`)
   return result.stdout

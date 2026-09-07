@@ -7,7 +7,9 @@ name: Windows parity
 
 on:
   push:
-    branches: ["**"]
+    # Branch pushes already get the pull_request run; a second, concurrent
+    # Windows job per push only added runner contention and timeouts.
+    branches: [main]
   pull_request:
     branches: [main]
   merge_group:
