@@ -24,11 +24,11 @@ Specrails supports **four AI providers**: Anthropic's
 |---|---|---|
 | `gemini` CLI ≥ 0.11.0 | Earlier versions lack `--output-format stream-json` + headless `--resume`, which the app relies on | `npm i -g @google/gemini-cli` · check with `gemini --version` |
 | A Gemini API key | The app spawns Gemini headlessly, so it needs non-interactive auth | Set `GEMINI_API_KEY` to a paid Gemini Developer API key from [Google AI Studio](https://aistudio.google.com/apikey) |
-| `specrails-core` ≥ 4.8.0 in the project | 4.8.0 ships the Gemini provider target (`.gemini/` commands + agents) that the rails pipeline needs | The current Add-Project install flow uses `specrails-core@^4.12.0` automatically |
+| `specrails-core` ≥ 4.8.0 in the project | 4.8.0 ships the Gemini provider target (`.gemini/` commands + agents) that the rails pipeline needs | The current Add-Project install flow uses `specrails-core@^5.1.0` automatically |
 | `git`, `node`, `npm`, `npx` | Same as Claude — needed for `specrails-core init` | Use your usual installer |
 
 > **Two different minimums.** The `gemini` **binary** floor is **0.11.0**.
-> The current Desktop `specrails-core` **package** floor is **4.12.0** (a
+> The current Desktop `specrails-core` **package** floor is **5.1.0** (a
 > single shared version for all providers, including Kimi). They are separate
 > things — the binary on your
 > machine vs. the artifacts installed into the project.
@@ -52,7 +52,7 @@ the Gemini provider checkbox with a "not found" hint when the binary isn't on
    project](#running-multiple-providers-in-one-project)). The first provider
    you select becomes the project default.
 4. Submit. The app writes `.specrails/install-config.yaml` and spawns
-   `npx --yes --prefer-online specrails-core@^4.12.0 init --yes --from-config <file>`.
+   `npx --yes --prefer-online specrails-core@^5.1.0 init --yes --from-config <file>`.
    The install produces the `.gemini/` artifacts (commands + `sr-*` agents),
    plus a `GEMINI.md` instructions file.
 

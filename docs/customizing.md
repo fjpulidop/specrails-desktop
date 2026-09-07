@@ -148,7 +148,7 @@ Most settings live in the UI. A few app-level switches are env-only because they
 
 | Variable | Effect |
 |----------|--------|
-| `SPECRAILS_CORE_BIN` | Override the `specrails-core` binary (default: `npx --yes --prefer-online specrails-core@^4.12.0` — the 4.12.0 floor is the release that ships the Kimi provider target) |
+| `SPECRAILS_CORE_BIN` | Override the `specrails-core` binary (default: `npx --yes --prefer-online specrails-core@^5.1.0` — the 5.1.0 floor is the release that quotes the command path in its Windows shell runner, so OpenSpec init works from an install directory with spaces; it is also the version bundled with the app) |
 | `SPECRAILS_TECH_URL` | Override the specrails-tech proxy base URL |
 | `SPECRAILS_AGENTS_SECTION=false` | Hide the Agents section from every project |
 | `SPECRAILS_PLUGINS_SECTION=false` | Hide the Integrations section from every project |
