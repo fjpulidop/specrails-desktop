@@ -113,7 +113,10 @@ try {
   terminalSocket.send(JSON.stringify({ type: 'write', data: `${isPowerShell ? '& ' : ''}${[node, helper, receipt].map(quote).join(' ')}\r` }))
   const started = await until(() => fs.existsSync(receipt) && JSON.parse(fs.readFileSync(receipt, 'utf8')), 'Installed PTY did not execute input')
   helperPid = started.pid
-  assert.equal(path.resolve(started.cwd).toLowerCase(), repository.toLowerCase())
+  // os.tmpdir() on hosted runners is an 8.3 short path (RUNNER~1) while the
+  // PTY reports the real long path; compare canonical forms, not spellings.
+  const canonical = target => fs.realpathSync.native(target).toLowerCase()
+  assert.equal(canonical(started.cwd), canonical(repository))
   await until(() => output.includes('SPECRAILS_NATIVE_PTY_OK'), 'PTY output was not delivered')
   await api(`/projects/${id}/terminals/${session.id}`, { method: 'DELETE' })
   await until(() => !running(helperPid), 'Closing terminal left its Node process alive', 15_000)
