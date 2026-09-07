@@ -46,9 +46,9 @@ binary isn't on `PATH`; it shows install commands if you click "More info".
    The first provider you select becomes the project default.
 4. Submit. The app writes `.specrails/install-config.yaml` (with
    `provider: codex` and `tier: quick` as YAML keys) and spawns
-   `npx --yes --prefer-online specrails-core@^4.12.0 init --yes --from-config <file>`
+   `npx --yes --prefer-online specrails-core@^5.1.0 init --yes --from-config <file>`
    — the provider and tier live in the YAML, not as CLI flags. (The app
-   pins `specrails-core@^4.12.0`; that floor is the version that ships the
+   pins `specrails-core@^5.1.0`; that floor is the version that ships the
    current provider targets, including Kimi and the Codex skill set.) The install
    produces:
    - `.codex/config.toml` — model, reasoning effort, sandbox mode, and
