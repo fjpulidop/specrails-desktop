@@ -41,14 +41,24 @@ export function collectSymlinks(directory) {
   return links.sort((a, b) => a[0].localeCompare(b[0]))
 }
 
-export function archiveChromiumPlatform(source, archive, { run = runMacTool } = {}) {
+/** The archiver must understand native paths. Under Git Bash on Windows the
+ * first `tar` on PATH is MSYS GNU tar, which reads `C:\...` as a remote
+ * `host:file` ("Cannot connect to C: resolve failed"); the system bsdtar in
+ * System32 handles drive letters and is the same tool the app extracts with. */
+export function tarExecutable(platform = process.platform, env = process.env) {
+  if (platform === 'darwin') return '/usr/bin/tar'
+  if (platform === 'win32') return path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe')
+  return 'tar'
+}
+
+export function archiveChromiumPlatform(source, archive, { run = runMacTool, platform = process.platform } = {}) {
   // No -h/--dereference: preserving Versions/Current and framework aliases is
   // essential to retaining the code signature. Apple tar also retains the
   // stapled ticket metadata; extraction verification confirms it survived.
   const environment = { ...process.env }
   delete environment.COPYFILE_DISABLE
   delete environment.COPY_EXTENDED_ATTRIBUTES_DISABLE
-  run(process.platform === 'darwin' ? '/usr/bin/tar' : 'tar', ['-czf', archive, '-C', path.dirname(source), path.basename(source)], { timeout: 300_000, env: environment })
+  run(tarExecutable(platform), ['-czf', archive, '-C', path.dirname(source), path.basename(source)], { timeout: 300_000, env: environment })
 }
 
 export function installChromiumArchive(archive, output) {
@@ -101,7 +111,7 @@ export function assembleChromium({ release = false, output = path.resolve('src-t
     archiveChromiumPlatform(staged, archive)
     const extracted = path.join(temp, 'extracted')
     fs.mkdirSync(extracted)
-    runMacTool(platform === 'darwin' ? '/usr/bin/tar' : 'tar', ['-xzf', archive, '-C', extracted], { timeout: 300_000 })
+    runMacTool(tarExecutable(platform), ['-xzf', archive, '-C', extracted], { timeout: 300_000 })
     const restored = path.join(extracted, path.basename(source))
     if (JSON.stringify(links) !== JSON.stringify(collectSymlinks(restored))) throw new Error('Chromium archive round-trip changed framework symlinks')
     if (!fs.existsSync(path.join(restored, path.relative(source, sourceExecutable)))) throw new Error('Chromium executable did not survive archive extraction')
