@@ -903,7 +903,12 @@ export class SetupManager {
       providers: list,
       continueOnError: true,
       onProviderStart: (p) => emit(p, 'running'),
-      onProviderResult: (r) => emit(r.provider, r.ok ? 'done' : 'failed', r.error),
+      onProviderResult: (r) => {
+        // The WS event carries the reason to the app; the server log must too,
+        // or a packaged-app failure (installer smoke, support bundle) is blind.
+        if (!r.ok) console.warn(`[SetupManager] silent assemble: ${r.provider} failed for ${projectId}: ${r.error ?? 'unknown error'}`)
+        emit(r.provider, r.ok ? 'done' : 'failed', r.error)
+      },
     })
       .then((results) => {
         const failed = results.filter((r) => !r.ok).map((r) => r.provider)
