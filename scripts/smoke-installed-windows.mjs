@@ -36,6 +36,9 @@ const env = { ...process.env, USERPROFILE: profile, HOME: profile, APPDATA: path
   SPECRAILS_BUNDLED_MCP_BRIDGE_PATH: path.join(install, 'binaries', 'specrails-mcp.js'),
   SPECRAILS_HOST_CONTROL_TOKEN: controlToken, SPECRAILS_REGISTRY_HOME: profile,
   SPECRAILS_FRAMEWORK_AUTOSWAP: 'false', SPECRAILS_LEGACY_MIGRATION: 'false', SPECRAILS_DEV_SERVER_PORT: String(port),
+  // The bundled Core's init asserts provider authentication (exit 40 without a
+  // Claude login). A runner has none by design; the assemble itself is offline.
+  SPECRAILS_SKIP_PREREQS: '1',
   GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: path.join(profile, 'absent.gitconfig') }
 delete env.NODE_OPTIONS
 for (const directory of [env.APPDATA, env.LOCALAPPDATA]) fs.mkdirSync(directory, { recursive: true })
