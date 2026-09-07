@@ -83,18 +83,42 @@ jobs:
       - name: Validate the downloaded package and avoid duplicate publication
         id: package
         run: node scripts/release-policy.mjs npm-status
-      - name: Check configured npm publishing credentials
+      # Two credentials, one preferred. npm trusted publishing exchanges this
+      # job's OIDC identity (id-token: write) for a short-lived publish grant:
+      # no stored token, nothing that expires or needs 2FA bypass. It needs
+      # npm >= 11.5.1 (Node 22 ships 10.x) and the package's trusted publisher
+      # to name this repository and workflow file on npmjs.com. Until that is
+      # configured, a stored NPM_TOKEN keeps working: when the secret is set it
+      # is used, when it is empty the job publishes through OIDC.
+      - name: Select the npm credential
+        id: credential
         if: steps.package.outputs.published != 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          test -n "${NODE_AUTH_TOKEN}" || { echo "NPM_TOKEN is missing. Configure a token authorized to publish specrails-desktop."; exit 1; }
+          if [ -n "${NODE_AUTH_TOKEN}" ]; then echo "mode=token" >> "$GITHUB_OUTPUT"; else echo "mode=oidc" >> "$GITHUB_OUTPUT"; fi
+      - name: Install an npm that supports trusted publishing
+        if: steps.package.outputs.published != 'true' && steps.credential.outputs.mode == 'oidc'
+        run: |
+          npm install -g npm@11
+          npm --version
+          # setup-node's registry-url adds an _authToken line that reads an
+          # empty NODE_AUTH_TOKEN; drop it so npm negotiates OIDC instead.
+          npm config delete //registry.npmjs.org/:_authToken --location=user || true
+      - name: Check configured npm publishing credentials
+        if: steps.package.outputs.published != 'true' && steps.credential.outputs.mode == 'token'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
           npm whoami --registry=https://registry.npmjs.org > /dev/null || {
             echo "npm authentication failed. Verify NPM_TOKEN and package publish permissions; provenance does not grant registry access."
             exit 1
           }
-      - name: Publish only the verified tarball
-        if: steps.package.outputs.published != 'true'
+      - name: Publish only the verified tarball (stored token)
+        if: steps.package.outputs.published != 'true' && steps.credential.outputs.mode == 'token'
         run: npm publish artifacts/npm/*.tgz --provenance --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish only the verified tarball (trusted publishing)
+        if: steps.package.outputs.published != 'true' && steps.credential.outputs.mode == 'oidc'
+        run: npm publish artifacts/npm/*.tgz --provenance --access public --ignore-scripts
