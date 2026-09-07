@@ -36,6 +36,9 @@ const env = { ...process.env, USERPROFILE: profile, HOME: profile, APPDATA: path
   SPECRAILS_BUNDLED_MCP_BRIDGE_PATH: path.join(install, 'binaries', 'specrails-mcp.js'),
   SPECRAILS_HOST_CONTROL_TOKEN: controlToken, SPECRAILS_REGISTRY_HOME: profile,
   SPECRAILS_FRAMEWORK_AUTOSWAP: 'false', SPECRAILS_LEGACY_MIGRATION: 'false', SPECRAILS_DEV_SERVER_PORT: String(port),
+  // The bundled Core's init asserts provider authentication (exit 40 without a
+  // Claude login). A runner has none by design; the assemble itself is offline.
+  SPECRAILS_SKIP_PREREQS: '1',
   GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: path.join(profile, 'absent.gitconfig') }
 delete env.NODE_OPTIONS
 for (const directory of [env.APPDATA, env.LOCALAPPDATA]) fs.mkdirSync(directory, { recursive: true })
@@ -110,7 +113,10 @@ try {
   terminalSocket.send(JSON.stringify({ type: 'write', data: `${isPowerShell ? '& ' : ''}${[node, helper, receipt].map(quote).join(' ')}\r` }))
   const started = await until(() => fs.existsSync(receipt) && JSON.parse(fs.readFileSync(receipt, 'utf8')), 'Installed PTY did not execute input')
   helperPid = started.pid
-  assert.equal(path.resolve(started.cwd).toLowerCase(), repository.toLowerCase())
+  // os.tmpdir() on hosted runners is an 8.3 short path (RUNNER~1) while the
+  // PTY reports the real long path; compare canonical forms, not spellings.
+  const canonical = target => fs.realpathSync.native(target).toLowerCase()
+  assert.equal(canonical(started.cwd), canonical(repository))
   await until(() => output.includes('SPECRAILS_NATIVE_PTY_OK'), 'PTY output was not delivered')
   await api(`/projects/${id}/terminals/${session.id}`, { method: 'DELETE' })
   await until(() => !running(helperPid), 'Closing terminal left its Node process alive', 15_000)

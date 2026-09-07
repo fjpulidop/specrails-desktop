@@ -14,8 +14,7 @@ import {
   resolveShellFor,
   shellArgs,
   TERMINAL_SCROLLBACK_BYTES,
-  TERMINAL_MAX_PER_PROJECT,
-} from './terminal-manager'
+  TERMINAL_MAX_PER_PROJECT, killTerminalTree } from './terminal-manager'
 
 // ─── Fake WebSocket ───────────────────────────────────────────────────────────
 
@@ -511,4 +510,18 @@ describe('TerminalManager: shell-integration wiring', () => {
     m.kill('p1', meta.id)
     await sleep(100)
   }, 10_000)
+})
+
+describe('killTerminalTree', () => {
+  it('kills the shell process tree on win32 only, never elsewhere', () => {
+    const calls: Array<[number, string | undefined]> = []
+    const kill = (pid: number, signal: string | undefined) => { calls.push([pid, signal]) }
+    expect(killTerminalTree(1234, 'win32', kill)).toBe(true)
+    expect(calls).toEqual([[1234, 'SIGKILL']])
+    expect(killTerminalTree(1234, 'darwin', kill)).toBe(false)
+    expect(killTerminalTree(1234, 'linux', kill)).toBe(false)
+    expect(killTerminalTree(undefined, 'win32', kill)).toBe(false)
+    expect(killTerminalTree(0, 'win32', kill)).toBe(false)
+    expect(calls).toHaveLength(1)
+  })
 })

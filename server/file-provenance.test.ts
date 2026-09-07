@@ -5,6 +5,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import Database from 'better-sqlite3'
 import type { DbInstance } from './db'
+import { gitExecEnv } from './file-provenance'
 import {
   snapshotWorkingTree,
   resolveHeadSha,
@@ -440,5 +441,21 @@ describe('broadcastProvenanceUpdated', () => {
     const rows = recordProvenanceForJob(db, 'p1', 'j1', 1, [], 1)
     for (const r of rows) broadcastProvenanceUpdated(broadcast, 'p1', r)
     expect(broadcast).not.toHaveBeenCalled()
+  })
+})
+
+describe('gitExecEnv', () => {
+  it('reads PATH at call time so the startup resolver\'s bundled git is found', () => {
+    const before = process.env.PATH
+    try {
+      process.env.PATH = `/bundled/git/bin${process.platform === 'win32' ? ';' : ':'}${before ?? ''}`
+      const env = gitExecEnv()
+      expect(env.PATH?.startsWith('/bundled/git/bin')).toBe(true)
+      expect(env.GIT_TERMINAL_PROMPT).toBe('0')
+      expect(env.GIT_CONFIG_NOSYSTEM).toBe('1')
+      expect(env.GIT_DIR).toBeUndefined()
+    } finally {
+      process.env.PATH = before
+    }
   })
 })
