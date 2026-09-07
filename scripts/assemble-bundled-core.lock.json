@@ -8,7 +8,7 @@
       "name": "bundled-core-stage",
       "version": "0.0.0",
       "dependencies": {
-        "specrails-core": "4.12.0"
+        "specrails-core": "4.12.1"
       }
     },
     "node_modules/@inquirer/ansi": {
@@ -437,9 +437,9 @@
       "license": "MIT"
     },
     "node_modules/fast-uri": {
-      "version": "3.1.3",
-      "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.3.tgz",
-      "integrity": "sha512-i70LwGWUduXqzicKXWshooq+sWL1K3WUU5rKZNG/0i3a1OSoX3HqhH5WbWwTmqWfor4urUakGPiRQcleRZTwOg==",
+      "version": "3.1.7",
+      "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.7.tgz",
+      "integrity": "sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg==",
       "funding": [
         {
           "type": "github",
@@ -453,9 +453,9 @@
       "license": "BSD-3-Clause"
     },
     "node_modules/iconv-lite": {
-      "version": "0.7.2",
-      "resolved": "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.7.2.tgz",
-      "integrity": "sha512-im9DjEDQ55s9fL4EYzOAv0yMqmMBSZp6G0VvFyTMPKWxiSBHUj9NW/qqLmXUwXrrM7AvqSlTCfvqRb0cM8yYqw==",
+      "version": "0.7.3",
+      "resolved": "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.7.3.tgz",
+      "integrity": "sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ==",
       "license": "MIT",
       "dependencies": {
         "safer-buffer": ">= 2.1.2 < 3.0.0"
@@ -478,9 +478,9 @@
       }
     },
     "node_modules/js-yaml": {
-      "version": "4.3.0",
-      "resolved": "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.0.tgz",
-      "integrity": "sha512-1td788aAnnZ5qs7V2QIRl1owjtYpbKt749Y3xauqQgwIIGF/xXWz1wMTEBx5O3LK3lXLVuqXPdPxj2BoFHaW9Q==",
+      "version": "4.3.2",
+      "resolved": "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.2.tgz",
+      "integrity": "sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA==",
       "funding": [
         {
           "type": "github",
@@ -548,9 +548,9 @@
       }
     },
     "node_modules/specrails-core": {
-      "version": "4.12.0",
-      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-4.12.0.tgz",
-      "integrity": "sha512-Srb0XI2WkUFATtG6vfXOVBW59qsOX4gDeWI27JfksftpCqzrTIAMDl4dAk6QfXNdjtcdJ89xxdIThUNFBE68BQ==",
+      "version": "4.12.1",
+      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-4.12.1.tgz",
+      "integrity": "sha512-vdpmpA2KK/ZNLxawhatOE8kEAsQa03F1jh15PvSylkdIZTpUJPltNp2KfrZIWEhpdiW+IjzlLRdBU9CxxZ9gig==",
       "license": "MIT",
       "dependencies": {
         "@inquirer/prompts": "^7.0.0",
