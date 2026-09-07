@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.42.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.42.1...v2.42.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* **release:** make the installed Windows smoke assemble on a runner and log assemble failures ([#637](https://github.com/fjpulidop/specrails-desktop/issues/637)) ([c9c29e3](https://github.com/fjpulidop/specrails-desktop/commit/c9c29e308b832e9c7f59cec6f07bc3ab72ed40ea))
+
 ## [2.42.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.42.0...v2.42.1) (2026-09-07)
 
 
