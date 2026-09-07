@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.42.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.41.0...v2.42.0) (2026-09-07)
+
+
+### Features
+
+* coordinate multi-repo missions and harden native execution ([#608](https://github.com/fjpulidop/specrails-desktop/issues/608)) ([aa56c8f](https://github.com/fjpulidop/specrails-desktop/commit/aa56c8f6816e30b842c8c0b4fbe04cfeee7f68c0))
+
 ## [2.41.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.40.0...v2.41.0) (2026-09-05)
 
 
