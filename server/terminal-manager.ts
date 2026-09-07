@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { spawn as ptySpawn, type IPty } from 'node-pty'
 import { newId as uuidv4 } from './ids'
-import { windowsSpawnEnv } from './util/win-spawn'
+import { windowsSpawnEnv, treeKillSafe } from './util/win-spawn'
 import type { WebSocket } from 'ws'
 import type { DbInstance } from './db'
 import { OscParser, type OscMarkEvent } from './terminal-osc-parser'
@@ -21,6 +21,25 @@ import type { TerminalSettings } from './terminal-settings'
 
 export const TERMINAL_SCROLLBACK_BYTES = 262_144
 export const TERMINAL_KILL_GRACE_MS = 2_000
+
+/**
+ * Windows: node-pty ends a ConPTY session by enumerating the pseudo console's
+ * processes through a helper it starts with `process.execPath`. In the
+ * packaged sidecar that path is the sidecar binary itself, so the helper never
+ * runs, only the shell is terminated and whatever the shell started (a dev
+ * server, a watcher) survives the closed terminal. Kill the shell's process
+ * tree ourselves (`taskkill /T /F` through tree-kill). No-op elsewhere: the
+ * POSIX pty closes its process group.
+ */
+export function killTerminalTree(
+  pid: number | undefined,
+  platform: NodeJS.Platform = process.platform,
+  kill: (pid: number, signal: string | undefined, callback?: (err?: Error) => void) => void = treeKillSafe,
+): boolean {
+  if (platform !== 'win32' || !pid || !Number.isInteger(pid) || pid <= 0) return false
+  kill(pid, 'SIGKILL')
+  return true
+}
 export const TERMINAL_MAX_PER_PROJECT = 10
 export const TERMINAL_NAME_MAX = 64
 export const TERMINAL_DEFAULT_COLS = 80
@@ -484,11 +503,13 @@ export class TerminalManager {
   async shutdown(): Promise<void> {
     const all = Array.from(this.sessions.values())
     for (const s of all) {
+      killTerminalTree(s.pty.pid)
       try { s.pty.kill('SIGTERM') } catch { /* ignore */ }
     }
     await new Promise((r) => setTimeout(r, TERMINAL_KILL_GRACE_MS))
     for (const s of Array.from(this.sessions.values())) {
-      try { s.pty.kill('SIGKILL') } catch { /* ignore */ }
+      killTerminalTree(s.pty.pid)
+          try { s.pty.kill('SIGKILL') } catch { /* ignore */ }
       this.removeFromRegistry(s)
     }
     for (const timer of this.tombstoneTimers.values()) clearTimeout(timer)
@@ -565,9 +586,11 @@ export class TerminalManager {
     if (!this.sessions.has(s.id)) return
     this.detachFromRegistry(s)
     if (!s.exited) {
+      killTerminalTree(s.pty.pid)
       try { s.pty.kill('SIGTERM') } catch { /* ignore */ }
       s.killTimer = setTimeout(() => {
         if (!s.exited) {
+          killTerminalTree(s.pty.pid)
           try { s.pty.kill('SIGKILL') } catch { /* ignore */ }
         }
       }, TERMINAL_KILL_GRACE_MS)
