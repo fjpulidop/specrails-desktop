@@ -52,8 +52,11 @@ async fn run(app: tauri::AppHandle) -> Result<(), String> {
     // real navigation then discarded. Re-issue it until the mission document
     // itself has answered: the script only runs on that document, once.
     let probe="(async()=>{if(!location.search.includes('missionWindow=1')||!window.__TAURI_INTERNALS__||window.__nativeIpcProbe)return;window.__nativeIpcProbe=true;try{const i=window.__TAURI_INTERNALS__.invoke;const supported=await i('mission_windows_supported');const state=await i('mission_window_current');let denied=false;try{await i('restart_app')}catch(e){denied=String(e).includes('not available')}location.hash=supported&&state.conversationId==='conversation-a'&&denied?'native-ipc-ok':'native-ipc-failed'}catch(e){location.hash='native-ipc-error'}})()";
+    // A hidden WebView2 window navigates at background priority; on a loaded
+    // runner the mission document took over 15 s to exist. The loop stops as
+    // soon as the document answers, so a generous budget costs nothing.
     let mut ipc=None; let mut last_url=String::new();
-    for _ in 0..75 {
+    for _ in 0..300 {
         a.eval(probe).map_err(|e|e.to_string())?;
         tokio::time::sleep(Duration::from_millis(200)).await;
         let url=a.url().map_err(|e|e.to_string())?;
