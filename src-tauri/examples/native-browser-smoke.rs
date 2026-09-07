@@ -43,6 +43,23 @@ fn main() {
     std::process::exit(EXIT_CODE.load(Ordering::Relaxed));
 }
 
+/// WebView2 applies a zoom factor asynchronously: a capture taken right after
+/// `browser_zoom` can still render at the previous scale, or fail while the
+/// scale is mid-change. Capture until the measured scale is the expected one.
+async fn capture_at_scale(app: &tauri::AppHandle, owner: &str, expected: f64) -> Result<browser::NativeCapture, String> {
+    let mut last = None;
+    for _ in 0..50 {
+        match browser::browser_capture(app.clone(), app.get_webview("main").ok_or("main interface missing")?, owner.to_string(), true).await {
+            Ok(capture) if (capture.viewport.device_scale_factor - expected).abs() < 0.02 => return Ok(capture),
+            Ok(capture) => last = Some(capture.viewport.device_scale_factor),
+            Err(error) if error.contains("scale changed") => {}
+            Err(error) => return Err(error),
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    Err(format!("native browser zoom did not settle at scale {expected:.2} (last measured {last:?})"))
+}
+
 async fn run(app: tauri::AppHandle, port: u16) -> Result<(), String> {
     assert!(browser::browser_supported());
     assert!(browser::browser_capture_supported());
@@ -94,11 +111,13 @@ async fn run(app: tauri::AppHandle, port: u16) -> Result<(), String> {
     assert_eq!(capture.element.as_ref().unwrap().selector, "#target");
     std::fs::write(output.join("selection.json"), serde_json::to_vec(&capture).unwrap()).map_err(|e| e.to_string())?;
     browser::browser_zoom(app.clone(), app.get_webview("main").ok_or("main interface missing")?, owner.clone(), 1.5).await?;
-    let zoomed = browser::browser_capture(app.clone(), app.get_webview("main").ok_or("main interface missing")?, owner.clone(), true).await?;
+    // The settled scale must be the backing scale times the zoom: physical
+    // resolution preserved, DPR applied once.
+    let zoomed = capture_at_scale(&app, &owner, backing_scale * 1.5).await?;
     assert!(zoomed.viewport.device_scale_factor > capture.viewport.device_scale_factor);
-    assert!((zoomed.viewport.device_scale_factor - backing_scale * 1.5).abs() < 0.02, "zoom must preserve physical resolution without applying DPR twice");
     std::fs::write(output.join("zoomed.json"), serde_json::to_vec(&zoomed).unwrap()).map_err(|e| e.to_string())?;
     browser::browser_zoom(app.clone(), app.get_webview("main").ok_or("main interface missing")?, owner.clone(), 1.0).await?;
+    capture_at_scale(&app, &owner, backing_scale).await?;
     pane.eval("{const host=document.createElement('div');host.id='shadow-host';host.style.cssText='position:absolute;left:420px;top:80px';host.attachShadow({mode:'open'}).innerHTML='<button id=shadow-child style=\"width:220px;height:90px;background:green\">Shadow child</button>';document.body.append(host);}").map_err(|e|e.to_string())?;
     browser::browser_set_select_mode(app.clone(), app.get_webview("main").ok_or("main interface missing")?, owner.clone(), true).await?;
     pane.eval("document.querySelector('#shadow-host').shadowRoot.querySelector('#shadow-child').dispatchEvent(new MouseEvent('click',{bubbles:true,composed:true,cancelable:true,clientX:450,clientY:110}))").map_err(|e|e.to_string())?;
