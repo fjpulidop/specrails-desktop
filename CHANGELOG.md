@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.42.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.42.0...v2.42.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **ci:** run Windows parity in its own workflow so releases stop waiting on it ([#634](https://github.com/fjpulidop/specrails-desktop/issues/634)) ([3323f54](https://github.com/fjpulidop/specrails-desktop/commit/3323f54b012b630e2a91df0d8319be868ad8121c))
+* **release:** archive bundled Chromium on Windows with the system bsdtar ([#633](https://github.com/fjpulidop/specrails-desktop/issues/633)) ([5d672ec](https://github.com/fjpulidop/specrails-desktop/commit/5d672ec896b58a30d143fb4e22dbbe8eeac79e75))
+
 ## [2.42.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.41.0...v2.42.0) (2026-09-07)
 
 
