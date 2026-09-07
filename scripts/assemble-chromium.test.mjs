@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { archiveChromiumPlatform, collectSymlinks, playwrightPlatformDirectory, topLevelMacApp, installChromiumArchive } from './assemble-chromium.mjs'
+import { archiveChromiumPlatform, collectSymlinks, playwrightPlatformDirectory, topLevelMacApp, installChromiumArchive, tarExecutable } from './assemble-chromium.mjs'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
@@ -39,6 +39,18 @@ test('transparent archive round-trip preserves framework symlinks and file bytes
   assert.equal(result.status, 0, result.stderr)
   assert.deepEqual(collectSymlinks(path.join(out, 'platform folder')), collectSymlinks(source))
   assert.equal(fs.readFileSync(path.join(out, 'platform folder/Test.framework/binary'), 'utf8'), 'fixture payload')
+})
+
+test('Windows archives use the system bsdtar, never a PATH tar that reads C: as a remote host', () => {
+  assert.equal(tarExecutable('win32', { SystemRoot: 'D:\\WINDOWS' }), 'D:\\WINDOWS\\System32\\tar.exe')
+  assert.equal(tarExecutable('win32', {}), 'C:\\Windows\\System32\\tar.exe')
+  assert.equal(tarExecutable('darwin'), '/usr/bin/tar')
+  assert.equal(tarExecutable('linux'), 'tar')
+  const calls = []
+  archiveChromiumPlatform('C:\\stage\\chrome-win64', 'C:\\temp\\chromium.tar.gz', { platform: 'win32', run: (command, args) => calls.push([command, args]) })
+  assert.equal(calls.length, 1)
+  assert.match(calls[0][0], /[\\/]System32[\\/]tar\.exe$/)
+  assert.deepEqual(calls[0][1].slice(0, 2), ['-czf', 'C:\\temp\\chromium.tar.gz'])
 })
 
 test('ambiguous top-level browser apps cannot select an arbitrary executable', (t) => {
