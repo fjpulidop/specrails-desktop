@@ -47,6 +47,19 @@ $logDir = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::Ge
 $stdoutLog = Join-Path $logDir "$name.stdout.log"
 $stderrLog = Join-Path $logDir "$name.stderr.log"
 $env:RUST_BACKTRACE = '1'
+
+# A native crash (0xC0000005 and friends) prints nothing: only a dump carries
+# the stack. Ask Windows Error Reporting for a minidump of this executable
+# (issue #638); the workflow uploads the folder when it exists. Best-effort:
+# needs HKLM write access, which hosted runners have.
+$dumpDir = Join-Path $logDir 'native-smoke-dumps'
+try {
+  $werKey = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\$([System.IO.Path]::GetFileName($exe))"
+  New-Item -Path $werKey -Force | Out-Null
+  New-ItemProperty -Path $werKey -Name DumpFolder -Value $dumpDir -PropertyType ExpandString -Force | Out-Null
+  New-ItemProperty -Path $werKey -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
+  New-ItemProperty -Path $werKey -Name DumpCount -Value 3 -PropertyType DWord -Force | Out-Null
+} catch { Write-Host "crash dump capture unavailable: $($_.Exception.Message)" }
 $watch = [System.Diagnostics.Stopwatch]::StartNew()
 $process = Start-Process -FilePath $exe -WorkingDirectory (Get-Location).Path -NoNewWindow -Wait -PassThru `
   -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
@@ -57,6 +70,16 @@ foreach ($log in @($stdoutLog, $stderrLog)) {
   if (Test-Path $log) {
     $text = Get-Content -Raw $log
     if ($text) { Write-Host "--- $([System.IO.Path]::GetFileName($log)) ---"; Write-Host $text.TrimEnd() }
+  }
+}
+if (Test-Path $dumpDir) {
+  $dumps = @(Get-ChildItem -Path $dumpDir -Filter "$name*.dmp" -ErrorAction SilentlyContinue)
+  if ($dumps.Count -gt 0) {
+    foreach ($dump in $dumps) { Write-Host ("crash dump: {0} ({1:N0} bytes)" -f $dump.FullName, $dump.Length) }
+    # The dump references the fixture's PDB by GUID; keep it next to the dump
+    # so the artifact symbolizes offline in WinDbg.
+    $pdb = [System.IO.Path]::ChangeExtension($exe, '.pdb')
+    if (Test-Path $pdb) { Copy-Item -Path $pdb -Destination $dumpDir -Force }
   }
 }
 exit $code

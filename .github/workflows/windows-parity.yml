@@ -123,3 +123,13 @@ jobs:
         env:
           TAURI_CONFIG: '{"bundle":{"active":false,"externalBin":[],"resources":[]}}'
         run: pwsh ..\scripts\run-native-smoke.ps1 -Exe .\target\debug\examples\native-browser-multiwindow-smoke.exe
+      # Minidumps written by Windows Error Reporting for a fixture that died
+      # with a native exception (issue #638), plus the matching PDB.
+      - name: Upload native smoke crash dumps
+        if: ${{ always() && steps.native-build.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: native-smoke-dumps-${{ matrix.os }}
+          path: ${{ runner.temp }}/native-smoke-dumps/
+          if-no-files-found: ignore
+          retention-days: 7
