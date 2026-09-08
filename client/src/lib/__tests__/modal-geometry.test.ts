@@ -26,6 +26,19 @@ const BOUNDS = { minWidth: 320, minHeight: 200 }
 const G: ModalGeometry = { x: 100, y: 100, w: 400, h: 300 }
 
 describe('modal-geometry', () => {
+  it('keeps restored, moved and maximized desktop panels below native controls', () => {
+    const desktop = { ...VP, topInset: 44 }
+    const restored = clampPosition({ x: 0, y: 0, w: 1600, h: 1200 }, desktop)
+    expect(restored.y).toBe(44)
+    expect(restored.y + restored.h).toBeLessThanOrEqual(VP.height - VIEWPORT_MARGIN)
+    expect(computeMove(G, 0, -1000, desktop).y).toBe(44)
+    for (const grip of GRIP_POSITIONS) {
+      const resized = computeResizeExtreme(G, grip, 'max', desktop, BOUNDS)
+      expect(resized.y).toBeGreaterThanOrEqual(44)
+      expect(resized.y + resized.h).toBeLessThanOrEqual(VP.height - VIEWPORT_MARGIN)
+    }
+  })
+
   it('exposes all eight grips', () => {
     expect(GRIP_POSITIONS).toHaveLength(8)
     expect(new Set(GRIP_POSITIONS).size).toBe(8)

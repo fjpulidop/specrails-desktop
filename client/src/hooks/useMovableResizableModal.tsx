@@ -17,6 +17,8 @@ import {
   type Viewport,
 } from '../lib/modal-geometry'
 
+import { modalTitleBarInset } from '../lib/modal-safe-area'
+
 const KEY_STEP = 16
 const KEY_STEP_LARGE = 64
 /**
@@ -82,7 +84,8 @@ type DragState =
 
 function readViewport(): Viewport {
   if (typeof window === 'undefined') return { width: 0, height: 0 }
-  return { width: window.innerWidth, height: window.innerHeight }
+  const titleBar = modalTitleBarInset()
+  return { width: window.innerWidth, height: window.innerHeight, topInset: titleBar ? titleBar + 16 : 0 }
 }
 
 const INTERACTIVE_SELECTOR = 'button, input, textarea, select, a, [role="button"], [contenteditable="true"]'

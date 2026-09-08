@@ -25,6 +25,13 @@ Previous framework versions are retained. Windows repair reads the activated
 version instead of choosing the highest directory, which could be an unfinished
 stage.
 
+Before a Windows rail starts, command repair also checks the `specrails`
+namespace inside populated, real command directories. Missing command files and
+dangling links are filled from that activated version even when OpenSpec or
+custom commands are already present. Existing files and live links are preserved;
+the repair does not write through a live link into another tree. This repair is
+disabled on macOS and Linux.
+
 Changing the shared pointer does not update copied project files. The update
 therefore waits for all affected workspaces to be assembled again. Existing
 provider installation configuration and MCP configuration are preserved. A

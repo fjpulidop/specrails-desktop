@@ -201,13 +201,8 @@ export function fixLoopGraph(
 }
 
 // ── OpenSpec lifecycle loop ──────────────────────────────────────────────────
-// A hand-authored graph (NOT a PortSpec) because it combines an AI-step spine, a
-// Decider, a `shell` archive node, AND a terminal action on the Decider's `stop`
-// branch — a shape the stock aiLoopGraph/fixLoopGraph builders do not produce.
-// Per iteration: opsx:ff → opsx:apply → opsx:verify → Decider. The Decider stops
-// when verify reports PASS (→ unattended `openspec archive <id> -y` shell node);
-// otherwise it loops back to opsx:ff, which AMENDS the same change ({{run.changeId}}
-// captured by the engine from ff's first-pass output) using the gaps verify found.
+// Lightweight lifecycle: prepare → apply/test → validate artifacts → archive.
+// CLI validation checks OpenSpec artifacts; Apply owns code tests and corrections.
 const OPSX_FF_PROMPT = [
   '{{cmd:opsx:ff}} {{spec.title}}',
   '',
@@ -215,7 +210,7 @@ const OPSX_FF_PROMPT = [
   '',
   'Structured OpenSpec target from the local ticket metadata: "{{spec.openspecChangeName}}". If this value is non-blank, CONTINUE that exact OpenSpec change and do NOT create a duplicate change for the same follow-up. If it is blank and no run change id exists, create a new OpenSpec change from this ticket and generate all required artifacts.',
   '',
-  'If a run change id appears here — "{{run.changeId}}" — an OpenSpec change for this ticket already exists: CONTINUE that change (do NOT create a new one) and address only what the verification reported as still missing (see the context below).',
+  'If a run change id appears here — "{{run.changeId}}" — an OpenSpec change for this ticket already exists: CONTINUE that change (do NOT create a new one) and complete its remaining work.',
   '',
   'OpenSpec artifacts are authoritative. If the requested implementation changes requirements, acceptance criteria, design decisions, APIs, states, data models, or invariants, amend the relevant OpenSpec artifacts before any code changes.',
   '',
@@ -229,21 +224,10 @@ const OPSX_APPLY_PROMPT = [
   '',
   'Before editing code, confirm the active OpenSpec artifacts already describe the contract being implemented. If implementation requires changing requirements, acceptance criteria, design decisions, APIs, states, data models, or invariants, stop code work and amend the OpenSpec artifacts first.',
   '',
+  'Run the relevant tests and configured checks for the changed behavior, correct failures, and confirm every required task and acceptance criterion is implemented. This step owns code verification; the later CLI validate only checks OpenSpec artifacts. Do not archive here.',
+  'Finish with exactly `{{const:VERIFICATION_PASS}}` only after implementation and relevant checks succeed. Otherwise finish with `{{const:VERIFICATION_FAIL}} — <remaining work or failed checks>`.',
   'Run fully unattended: decide and keep momentum, never pause to ask. If you hit an ambiguity or blocker, make the most reasonable choice, implement it, and continue.',
 ].join('\n')
-
-const OPSX_VERIFY_PROMPT = [
-  '{{cmd:opsx:verify}}',
-  '',
-  'Verify the active OpenSpec change against its specs, design, and tasks for ticket "{{spec.title}}". Be strict and honest — inspect the REAL code and tests, not any step\'s self-report.',
-  '',
-  'Report FAIL if the implementation diverges from the active OpenSpec artifacts, or if code changed requirements, acceptance criteria, design decisions, APIs, states, data models, or invariants without corresponding artifact amendments.',
-  '',
-  'Finish with a clear final line: exactly `{{const:VERIFICATION_PASS}}` when the change fully matches the ticket with nothing required missing, or `{{const:VERIFICATION_FAIL}} — <what is still missing>` otherwise.',
-].join('\n')
-
-const OPSX_DECIDER_GOAL =
-  'Stop only when the latest verify step reports {{const:VERIFICATION_PASS}} and evidence shows the implementation fully matches the active OpenSpec artifacts for ticket "{{spec.title}}" across every required repository, with nothing required missing. Green baseline checks or completed design artifacts alone do not prove implementation.'
 
 /** The OpenSpec-lifecycle graph (see comment above). Exported for unit testing. */
 export function opsxLifecycleGraph(): LoopGraph {
@@ -251,29 +235,23 @@ export function opsxLifecycleGraph(): LoopGraph {
     nodes: [
       { id: 'start', type: 'start', position: { x: COL_X, y: 0 } },
       { id: 'ff', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 1 }, data: { label: 'opsx:ff', prompt: OPSX_FF_PROMPT } },
-      { id: 'apply', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 2 }, data: { label: 'opsx:apply', prompt: OPSX_APPLY_PROMPT } },
-      { id: 'verify', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 3 }, data: { label: 'opsx:verify', prompt: OPSX_VERIFY_PROMPT, requireVerificationPass: true } },
-      { id: 'decide', type: 'decider', position: { x: COL_X, y: ROW_GAP * 4 }, data: { goal: OPSX_DECIDER_GOAL } },
+      { id: 'apply', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 2 }, data: { label: 'opsx:apply', prompt: OPSX_APPLY_PROMPT, requireVerificationPass: true, stopOnFailure: true } },
+      { id: 'validate', type: 'shell', position: { x: COL_X, y: ROW_GAP * 3 }, data: { label: 'validate', stopOnFailure: true, command: 'openspec validate {{run.changeId}} --type change --strict --no-interactive', requireRunVars: ['changeId'] } },
       // Unattended archive: deterministic CLI, no AI, no prompt. `requireRunVars`
       // makes the engine REFUSE to run if no change id was captured (never archive
       // an unknown change); `openspec archive -y` syncs the main specs by default.
-      { id: 'archive', type: 'shell', position: { x: COL_X, y: ROW_GAP * 5 }, data: { label: 'archive', command: 'openspec archive {{run.changeId}} -y', requireRunVars: ['changeId'] } },
-      { id: 'done', type: 'end', position: { x: COL_X, y: ROW_GAP * 6 }, data: { outcome: 'success' } },
+      { id: 'archive', type: 'shell', position: { x: COL_X, y: ROW_GAP * 4 }, data: { label: 'archive', command: 'openspec archive {{run.changeId}} -y', requireRunVars: ['changeId'] } },
+      { id: 'done', type: 'end', position: { x: COL_X, y: ROW_GAP * 5 }, data: { outcome: 'success' } },
     ],
     edges: [
       { id: 'e-start', source: 'start', target: 'ff' },
       { id: 'e-ff', source: 'ff', target: 'apply' },
-      { id: 'e-apply', source: 'apply', target: 'verify' },
-      { id: 'e-verify', source: 'verify', target: 'decide' },
-      // not-done (verify FAIL) → loop back to ff (firstStepId ⇒ session resets, the
-      // pass re-reads disk; verify's gaps ride in the injected history).
-      { id: 'e-continue', source: 'decide', target: 'ff', branch: 'continue' },
-      // done (verify PASS) → archive then end.
-      { id: 'e-stop', source: 'decide', target: 'archive', branch: 'stop' },
+      { id: 'e-apply', source: 'apply', target: 'validate' },
+      { id: 'e-validate', source: 'validate', target: 'archive' },
       { id: 'e-archive', source: 'archive', target: 'done' },
     ],
-    // At most 3 full lifecycle passes guard a never-satisfied verify. Like the
-    // other built-in loops the run is UNTIMED (0 = no timeout) — apply can
+    // This linear lifecycle has no retry cycle. Like the other built-ins,
+    // the run is UNTIMED (0 = no timeout) — apply can
     // implement a whole change and must never be killed mid-flight.
     config: { maxIterations: 3, timeoutMinutes: 0, aiStepTimeoutMinutes: 0 },
   }
@@ -283,7 +261,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
   {
     id: 'opsx-lifecycle',
     name: 'OpenSpec Lifecycle',
-    description: 'Single-agent, ticket-to-archive OpenSpec lifecycle: generate artifacts (opsx:ff) → implement (opsx:apply) → verify (opsx:verify); on a FAIL verdict loop back to amend the SAME change, on PASS archive it unattended. The artifact-centric counterpart to the implement pipeline. Claude-first — codex/gemini fall back to a generic prompt until OpenSpec ships their native opsx commands.',
+    description: 'Lightweight ticket-to-archive OpenSpec lifecycle: generate artifacts, implement and test, validate the change through the CLI, then archive it unattended. The artifact-centric counterpart to the implement pipeline. Claude-first — codex/gemini fall back to a generic prompt until OpenSpec ships their native opsx commands.',
     category: 'Automation',
     tags: ['Automation', 'openspec', 'lifecycle'],
     graph: opsxLifecycleGraph(),

@@ -660,8 +660,8 @@ export function createRailsRouter(): Router {
       // one app-driven LoopRun per ticket (mirrors freestyle's per-ticket model).
       // Drives raw prompts via the LoopRunManager — NO queue job, NO slash command.
       // rails-as-loops: a chosen loop (factory OR custom) runs through the
-      // LoopRunManager when Loops are enabled — so factory loops get their
-      // autonomous verify→fix loop too. (Loops off / no loopId → the legacy
+      // LoopRunManager when Loops are enabled, using the current factory graph.
+      // Implement/batch delegate their complete cycle to Core. (Loops off / no loopId → the legacy
       // bare-mode QueueManager path below; `mode` is the derived factory mode.)
       if (isLoopsEnabled() && typeof loopId === 'string' && loopId) {
         let loopGraph: LoopGraph

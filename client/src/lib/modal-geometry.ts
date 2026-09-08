@@ -22,6 +22,7 @@ export type GripPosition = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 export const GRIP_POSITIONS: GripPosition[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']
 
 export interface Viewport {
+  topInset?: number
   width: number
   height: number
 }
@@ -69,7 +70,7 @@ function clamp(value: number, lo: number, hi: number): number {
 export function clampSize(w: number, h: number, vp: Viewport, bounds: SizeBounds): { w: number; h: number } {
   return {
     w: clamp(w, bounds.minWidth, vp.width - VIEWPORT_MARGIN),
-    h: clamp(h, bounds.minHeight, vp.height - VIEWPORT_MARGIN),
+    h: clamp(h, bounds.minHeight, vp.height - (vp.topInset ?? 0) - VIEWPORT_MARGIN),
   }
 }
 
@@ -80,6 +81,15 @@ export function clampSize(w: number, h: number, vp: Viewport, bounds: SizeBounds
  * `HEADER_MIN_VISIBLE_H` px showing.
  */
 export function clampPosition(g: ModalGeometry, vp: Viewport): ModalGeometry {
+  if (vp.topInset) {
+    const w = Math.min(g.w, Math.max(1, vp.width - VIEWPORT_MARGIN))
+    const h = Math.min(g.h, Math.max(1, vp.height - vp.topInset - VIEWPORT_MARGIN))
+    return {
+      w, h,
+      x: clamp(g.x, VIEWPORT_MARGIN / 2, Math.max(VIEWPORT_MARGIN / 2, vp.width - w - VIEWPORT_MARGIN / 2)),
+      y: clamp(g.y, vp.topInset, Math.max(vp.topInset, vp.height - h - VIEWPORT_MARGIN)),
+    }
+  }
   const x = clamp(g.x, HEADER_MIN_VISIBLE_W - g.w, vp.width - g.w)
   const y = clamp(g.y, 0, Math.max(0, vp.height - HEADER_MIN_VISIBLE_H))
   return { ...g, x, y }
@@ -132,7 +142,7 @@ export function computeResizeExtreme(
   const horizontal = edges.left || edges.right
   const vertical = edges.top || edges.bottom
   const targetW = horizontal ? (extreme === 'min' ? bounds.minWidth : vp.width - VIEWPORT_MARGIN) : startGeom.w
-  const targetH = vertical ? (extreme === 'min' ? bounds.minHeight : vp.height - VIEWPORT_MARGIN) : startGeom.h
+  const targetH = vertical ? (extreme === 'min' ? bounds.minHeight : vp.height - (vp.topInset ?? 0) - VIEWPORT_MARGIN) : startGeom.h
   const right = startGeom.x + startGeom.w
   const bottom = startGeom.y + startGeom.h
   const sized = clampSize(targetW, targetH, vp, bounds)
@@ -158,7 +168,7 @@ export function centerGeom(rect: { width: number; height: number }, vp: Viewport
     w: rect.width,
     h: rect.height,
     x: Math.round((vp.width - rect.width) / 2),
-    y: Math.round((vp.height - rect.height) / 2),
+    y: Math.max(vp.topInset ?? 0, Math.round(((vp.topInset ?? 0) + vp.height - rect.height) / 2)),
   }
 }
 

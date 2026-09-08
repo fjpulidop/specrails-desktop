@@ -16,7 +16,7 @@ function frozenScope(prompt: string): LoopSpec {
 }
 
 describe('implementation recovery from a setup-only first step', () => {
-  it.each(['factory:implement', 'factory:batch', 'factory:freestyle'])('%s repairs missing behavior after green baseline checks without accepting a premature STOP', async factoryId => {
+  it.each(['factory:freestyle'])('%s repairs missing behavior after green baseline checks without accepting a premature STOP', async factoryId => {
     const db = initDb(':memory:'); opened.push(db)
     const longDescription = 'Front requirement. '.repeat(250) + 'Accept a specialty filter and preserve the selected option.'
     const spec: LoopSpec = {
@@ -103,5 +103,33 @@ describe('implementation recovery from a setup-only first step', () => {
     expect(prompt).not.toContain('MUTATE THE GATE')
     expect(frozenScope(prompt).description).toBe(description)
     expect(prompt.match(/<\/specrails-frozen-spec>/g)).toHaveLength(1)
+  })
+})
+
+
+describe('Core implementation factories delegate the complete pipeline once', () => {
+  it.each([
+    ['factory:implement', false], ['factory:batch', false],
+    ['factory:implement', true], ['factory:batch', true],
+  ] as const)('%s preserves the Core execution result (failed=%s) without a Desktop review cycle', async (factoryId, failed) => {
+    const db = initDb(':memory:'); opened.push(db)
+    const runAiStep = vi.fn(async (_input: Parameters<LoopExecutors['runAiStep']>[0]) => ({
+      text: failed ? 'Core process failed.' : 'Core completed implementation, review and tests.',
+      failed, tokens: 100,
+    }))
+    const runDecider = vi.fn()
+    const runShell = vi.fn()
+    const result = await new LoopRunManager(db, () => undefined, { runAiStep, runDecider, runShell }, () => 1000).run({
+      loopId: factoryId, graph: getFactoryLoop(factoryId)!.graph,
+      projectId: 'test-project', cwd: '/fixture/no-execution', ticketId: 1,
+      spec: { id: 1, ticketIds: [1, 2], title: 'Feature', description: 'Implement the requested behavior.' },
+      provider: 'claude', model: 'sonnet',
+    })
+    expect(result.outcome).toBe(failed ? 'failed' : 'success')
+    expect(runAiStep).toHaveBeenCalledOnce()
+    const prompt = vi.mocked(runAiStep).mock.calls[0]?.[0]?.prompt
+    expect(prompt).toContain(factoryId === 'factory:batch' ? '/specrails:batch-implement' : '/specrails:implement')
+    expect(runDecider).not.toHaveBeenCalled()
+    expect(runShell).not.toHaveBeenCalled()
   })
 })

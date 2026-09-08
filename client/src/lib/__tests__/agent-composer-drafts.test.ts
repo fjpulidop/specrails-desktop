@@ -10,6 +10,9 @@ import {
   __clearComposerDrafts,
   captureComposerDraft, restoreComposerDraft, persistComposerDraft, recoverComposerDraft, clearComposerDraftRecovery,
   composerSubmissionIds,
+  writeComposerDraft, setComposerAttachments, setComposerSubmission,
+  clearSubmittedComposerDraft, restoreSubmittedComposerDraft,
+  subscribeComposerDrafts as subscribeForTest, composerDraftRevision as revisionOf,
 } from '../agent-composer-drafts'
 
 const att = (id: string): AgentAttachment => ({ id, filename: `${id}.png`, mimeType: 'image/png', size: 10 } as AgentAttachment)
@@ -245,5 +248,110 @@ describe('migrateNewMissionComposerDrafts', () => {
     expect(composerDrafts.size).toBe(0)
     expect(composerReferenceDrafts.size).toBe(0)
     expect(composerAttachmentDrafts.size).toBe(0)
+  })
+})
+
+describe('draft store change notification', () => {
+  afterEach(() => { __clearComposerDrafts() })
+
+  it('notifies on every mutation kind and bumps only the touched key', () => {
+    const seen: number[] = []
+    const stop = subscribeForTest(() => seen.push(revisionOf('c1')))
+
+    writeComposerDraft('c1', 'hola', [])
+    expect(seen.at(-1)).toBe(1)
+
+    setComposerAttachments('c1', [att('a1')])
+    expect(seen.at(-1)).toBe(2)
+
+    // A sibling key's mutation still fires the shared listener, but c1's own
+    // revision must not move — its snapshot stays stable so React can bail out.
+    writeComposerDraft('c2', 'otra', [])
+    expect(seen.at(-1)).toBe(2)
+    expect(revisionOf('c2')).toBe(1)
+
+    restoreComposerDraft('c1', { text: 'x', references: [], attachments: [] })
+    expect(revisionOf('c1')).toBe(3)
+
+    stop()
+    writeComposerDraft('c1', 'after unsubscribe', [])
+    expect(seen).toHaveLength(4)
+  })
+
+  it('notifies both keys when the new-mission draft migrates', () => {
+    writeComposerDraft(NEW_MISSION_DRAFT_KEY, 'idea', [])
+    const before = { source: revisionOf(NEW_MISSION_DRAFT_KEY), target: revisionOf('c9') }
+    migrateNewMissionComposerDrafts('c9')
+    expect(revisionOf(NEW_MISSION_DRAFT_KEY)).toBe(before.source + 1)
+    expect(revisionOf('c9')).toBe(before.target + 1)
+    expect(composerDrafts.get('c9')).toBe('idea')
+  })
+
+  it('the retry identity is bookkeeping, so it never re-renders the composer', () => {
+    const at = revisionOf('c1')
+    setComposerSubmission('c1', { signature: 's', queueId: 'q1' })
+    expect(composerSubmissionIds.get('c1')).toEqual({ signature: 's', queueId: 'q1' })
+    expect(revisionOf('c1')).toBe(at)
+  })
+})
+
+describe('clear/restore around a submitted turn', () => {
+  afterEach(() => { __clearComposerDrafts() })
+
+  const submitted = { text: 'enviado', references: [ref()], attachments: [att('a1')], submission: { signature: 's', queueId: 'q1' } }
+
+  const seedSubmitted = (key: string): void => {
+    writeComposerDraft(key, submitted.text, submitted.references)
+    setComposerAttachments(key, submitted.attachments)
+    setComposerSubmission(key, submitted.submission)
+  }
+
+  it('clears the exact submitted payload', () => {
+    seedSubmitted('c1')
+    expect(clearSubmittedComposerDraft('c1', submitted)).toBe(true)
+    expect(composerDrafts.get('c1')).toBeUndefined()
+    expect(composerReferenceDrafts.get('c1')).toBeUndefined()
+    expect(composerAttachmentDrafts.get('c1')).toBeUndefined()
+  })
+
+  it('refuses to clear a draft the user typed while the send was in flight', () => {
+    seedSubmitted('c1')
+    writeComposerDraft('c1', 'siguiente prompt', [])
+    expect(clearSubmittedComposerDraft('c1', submitted)).toBe(false)
+    expect(composerDrafts.get('c1')).toBe('siguiente prompt')
+  })
+
+  it('restores a rejected payload with its retry identity', () => {
+    seedSubmitted('c1')
+    clearSubmittedComposerDraft('c1', submitted)
+    setComposerSubmission('c1', null)
+    expect(restoreSubmittedComposerDraft('c1', submitted)).toBe(true)
+    expect(composerDrafts.get('c1')).toBe('enviado')
+    expect(composerReferenceDrafts.get('c1')).toEqual(submitted.references)
+    expect(composerAttachmentDrafts.get('c1')?.map((a) => a.id)).toEqual(['a1'])
+    // Without the identity a retry would be delivered a second time.
+    expect(composerSubmissionIds.get('c1')).toEqual(submitted.submission)
+  })
+
+  it('restores into the conversation the turn actually materialized into', () => {
+    seedSubmitted(NEW_MISSION_DRAFT_KEY)
+    clearSubmittedComposerDraft(NEW_MISSION_DRAFT_KEY, submitted)
+    // Materialization found nothing to carry over — the slot is clean.
+    migrateNewMissionComposerDrafts('c-new')
+    expect(composerDrafts.get('c-new')).toBeUndefined()
+    expect(restoreSubmittedComposerDraft('c-new', submitted)).toBe(true)
+    expect(composerDrafts.get('c-new')).toBe('enviado')
+  })
+
+  it('never overwrites newer work on restore', () => {
+    writeComposerDraft('c1', 'lo que estoy escribiendo ahora', [])
+    expect(restoreSubmittedComposerDraft('c1', submitted)).toBe(false)
+    expect(composerDrafts.get('c1')).toBe('lo que estoy escribiendo ahora')
+  })
+
+  it('is idempotent when the payload is already back in place', () => {
+    seedSubmitted('c1')
+    expect(restoreSubmittedComposerDraft('c1', submitted)).toBe(true)
+    expect(composerDrafts.get('c1')).toBe('enviado')
   })
 })

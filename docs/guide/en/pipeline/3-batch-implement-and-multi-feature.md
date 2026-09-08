@@ -12,6 +12,17 @@ The simplest way to run a pile of specs from one rail is **Batch** mode:
 
 The rail launches **one** `/specrails:batch-implement` job that works through every assigned spec. Monitor it like any other job on the Jobs page — it's a single job covering the whole set, not one job per spec.
 
+The built-in Implement and Batch Implement graphs are **Start → Core command → End**.
+Core owns implementation, review, verification and corrections; Desktop does not
+append another Verify, Loop Decider or Fix cycle. Existing custom forks keep
+their saved steps. Freestyle and Revision retain their own verification cycles.
+
+SDD Quick (OpenSpec) uses **Start → prepare artifacts → apply and test → CLI
+validate → CLI archive → End**. Apply handles code checks and corrections;
+`openspec validate` checks the change artifacts before archiving. There is no
+separate AI Verify or Loop Decider. Failed implementation checks or CLI validation
+stop the run before archive. This lightweight path has no independent AI review.
+
 Batch mode is still the cleanest way to *sequence* related specs because it keeps their dependency order inside one rail. If the specs are independent, you can also spread them across several rails: git-backed rails run in parallel and each one gets its own isolated worktree.
 
 ### Implement vs Batch — which mode?

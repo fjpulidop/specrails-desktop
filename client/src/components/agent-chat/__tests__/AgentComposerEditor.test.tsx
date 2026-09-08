@@ -30,6 +30,19 @@ function mount(value = 'implementemos el #1 después', references = [reference(1
 }
 
 describe('AgentComposerEditor', () => {
+  it('does not resurrect sent text when composition ends after an external clear', () => {
+    const onChange = vi.fn()
+    const props = { references: [], onChange, onSelect: vi.fn(), onKeyDown: vi.fn(), onPaste: vi.fn() }
+    const { rerender } = render(<AgentComposerEditor {...props} value="Mensaje" />)
+    const box = screen.getByRole('textbox')
+    fireEvent.compositionStart(box)
+    box.textContent = 'Mensaje nuevo'
+    rerender(<AgentComposerEditor {...props} value="" />)
+    fireEvent.compositionEnd(box)
+    expect(box.textContent).toBe('')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it('renders pills between the text on either side and serializes their tokens only', () => {
     const { box, ref } = mount()
     expect(box.childNodes[0].textContent?.replace(/\u200b/g, '')).toBe('implementemos el ')
