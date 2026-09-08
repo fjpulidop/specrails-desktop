@@ -181,6 +181,42 @@ describe('workspace-manager', () => {
       expect(fs.readFileSync(path.join(claudeDir, 'commands', 'specrails', 'implement.md'), 'utf8')).toBe('# implement\n')
     })
 
+    it.each(['missing namespace', 'broken namespace', 'missing file', 'broken file'])('repairs implement with other commands present: %s', (shape) => {
+      win32()
+      seedSubtrees()
+      const ws = workspacePathFor('partial', home)
+      const commands = path.join(ws, '.claude', 'commands')
+      const namespace = path.join(commands, 'specrails')
+      fs.mkdirSync(path.join(commands, 'opsx'), { recursive: true })
+      fs.writeFileSync(path.join(commands, 'opsx', 'apply.md'), '# keep OpenSpec')
+      if (shape === 'broken namespace') fs.symlinkSync(path.join(home, 'absent'), namespace, 'junction')
+      if (shape.endsWith('file')) {
+        fs.mkdirSync(namespace)
+        fs.writeFileSync(path.join(namespace, 'custom.md'), '# keep custom')
+        if (shape === 'broken file') fs.symlinkSync(path.join(home, 'absent.md'), path.join(namespace, 'implement.md'))
+      }
+      ensureFrameworkCommandSubtrees(ws, '.claude', home)
+      expect(fs.readFileSync(path.join(namespace, 'implement.md'), 'utf8')).toBe('# implement\n')
+      expect(fs.readFileSync(path.join(commands, 'opsx', 'apply.md'), 'utf8')).toBe('# keep OpenSpec')
+      if (shape.endsWith('file')) expect(fs.readFileSync(path.join(namespace, 'custom.md'), 'utf8')).toBe('# keep custom')
+      expect(ensureFrameworkCommandSubtrees(ws, '.claude', home)).toBe(0)
+    })
+
+    it('never fills missing commands through a live namespace link', () => {
+      win32()
+      seedSubtrees()
+      const ws = workspacePathFor('linked', home)
+      const commands = path.join(ws, '.claude', 'commands')
+      const custom = path.join(home, 'custom-commands')
+      fs.mkdirSync(commands, { recursive: true })
+      fs.mkdirSync(custom)
+      fs.writeFileSync(path.join(custom, 'custom.md'), '# keep')
+      fs.symlinkSync(custom, path.join(commands, 'specrails'), 'junction')
+      ensureFrameworkCommandSubtrees(ws, '.claude', home)
+      expect(fs.readdirSync(custom)).toEqual(['custom.md'])
+      expect(fs.lstatSync(path.join(commands, 'specrails')).isSymbolicLink()).toBe(true)
+    })
+
     it('leaves an already-populated dir untouched (idempotent, never deletes through a working link)', () => {
       win32()
       seedSubtrees()
@@ -247,8 +283,8 @@ describe('workspace-manager', () => {
       expect(ensureFrameworkCommandSubtrees(ws, '.kimi-code', home)).toBe(0)
     })
 
-    it('is a NO-OP on POSIX (assemble symlinks resolve normally)', () => {
-      Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+    it.each(['darwin', 'linux'])('is a NO-OP on %s (assemble symlinks resolve normally)', (platform) => {
+      Object.defineProperty(process, 'platform', { value: platform, configurable: true })
       seedSubtrees()
       const ws = workspacePathFor('acme', home)
       expect(ensureFrameworkCommandSubtrees(ws, '.claude', home)).toBe(0)

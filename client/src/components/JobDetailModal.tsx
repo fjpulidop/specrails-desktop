@@ -1,3 +1,4 @@
+import { modalOverlayStyle } from '../lib/modal-safe-area'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDistanceToNow } from 'date-fns'
@@ -259,7 +260,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
     // Agent-Mode surface bypasses ProjectLayout) — without it Radix throws and
     // blanks the whole app on open.
     <TooltipProvider delayDuration={400}>
-    <div className="fixed inset-0 z-[65] flex items-stretch justify-center">
+    <div style={modalOverlayStyle()} className="fixed inset-0 z-[65] flex items-stretch justify-center p-[clamp(12px,2vmin,24px)]">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -269,7 +270,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
       {/* Panel */}
       <div
         ref={panelRef}
-        className="relative w-full m-3 rounded-xl glass-card border border-border/30 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
+        className="relative w-full min-w-0 rounded-xl glass-card border border-border/30 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
         style={panelStyle}
       >
         {/* Header */}

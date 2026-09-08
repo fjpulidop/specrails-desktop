@@ -105,6 +105,38 @@ function hasReadableFrameworkContent(dest: string): boolean {
   }
 }
 
+/** Fill only missing framework command entries in a merged, real directory.
+ * Never overwrite user files or write through a live link into another tree. */
+function repairMissingCommands(src: string, dest: string): boolean {
+  try {
+    const source = fs.lstatSync(src)
+    if (source.isSymbolicLink() || (!source.isDirectory() && !source.isFile())) return false
+    let target: fs.Stats | undefined
+    try { target = fs.lstatSync(dest) } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return false
+    }
+    if (target?.isSymbolicLink()) {
+      try { fs.statSync(dest); return false } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return false
+      }
+      fs.unlinkSync(dest)
+      target = undefined
+    }
+    if (source.isFile()) {
+      if (target) return false
+      fs.copyFileSync(src, dest, fs.constants.COPYFILE_EXCL)
+      return true
+    }
+    if (target && !target.isDirectory()) return false
+    if (!target) fs.mkdirSync(dest, { recursive: true })
+    let repaired = false
+    for (const name of fs.readdirSync(src)) {
+      repaired = repairMissingCommands(path.join(src, name), path.join(dest, name)) || repaired
+    }
+    return repaired
+  } catch { return false /* one inaccessible entry must not prevent other repairs */ }
+}
+
 /**
  * Windows repair for provider-owned framework links — the sibling of
  * `ensureFrameworkAgents`.
@@ -125,8 +157,8 @@ function hasReadableFrameworkContent(dest: string): boolean {
  * removed.
  *
  * SAFETY: only heals a managed destination when it is missing, unreadable, or
- * empty. A destination that lists content is left untouched, so a working
- * symlink's real target is never deleted through. NO-OP on POSIX. Best-effort +
+ * empty. In a populated real commands directory, missing specrails entries are
+ * filled individually; existing files and live links stay untouched. NO-OP on POSIX. Best-effort +
  * idempotent. Returns the number of repaired subtrees/managed skill children.
  */
 export function ensureFrameworkCommandSubtrees(workspaceDir: string, providerDir: string, home?: string): number {
@@ -150,7 +182,11 @@ export function ensureFrameworkCommandSubtrees(workspaceDir: string, providerDir
     if (srcEntries.length === 0) continue
 
     const dest = path.join(workspaceDir, providerDir, subtree)
-    if (hasReadableFrameworkContent(dest)) continue
+    if (hasReadableFrameworkContent(dest)) {
+      if (subtree === 'commands' && !fs.lstatSync(dest).isSymbolicLink()
+        && repairMissingCommands(path.join(src, 'specrails'), path.join(dest, 'specrails'))) healed += 1
+      continue
+    }
     removeBrokenFrameworkDestination(dest)
 
     try {

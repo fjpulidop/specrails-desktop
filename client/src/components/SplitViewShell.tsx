@@ -1,3 +1,4 @@
+import { modalOverlayStyle } from '../lib/modal-safe-area'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { TicketDetailModal } from './TicketDetailModal'
@@ -172,6 +173,7 @@ export function SplitViewShell({
     <div
       ref={containerRef}
       data-testid="split-view-shell"
+      style={modalOverlayStyle()}
       className="fixed inset-0 z-[68] flex"
       onClick={handleBackdropClick}
     >

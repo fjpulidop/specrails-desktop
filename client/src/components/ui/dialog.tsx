@@ -1,3 +1,4 @@
+import { modalDialogStyle, modalOverlayStyle } from '../../lib/modal-safe-area'
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useTranslation } from 'react-i18next'
@@ -27,6 +28,7 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
+    style={modalOverlayStyle()}
     className={cn(
       'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className
@@ -64,15 +66,15 @@ const DialogContent = React.forwardRef<
   const mergedRef = useMergedRef(ref, panelRef)
 
   if (!movableResizable) {
-    // Default path — byte-identical to the original markup.
+    // Center within the usable window area, below desktop controls.
     return (
       <DialogPortal>
         <DialogOverlay />
         <DialogPrimitive.Content
           ref={ref}
-          style={style}
+          style={{ ...style, ...modalDialogStyle() }}
           className={cn(
-            'fixed left-[50%] top-[50%] z-50 grid w-full max-w-2xl max-h-[85vh] translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/30 bg-popover p-6 shadow-xl backdrop-blur-md duration-200 overflow-y-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-xl',
+            'fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-32px)] max-w-2xl max-h-[85vh] translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/30 bg-popover p-6 shadow-xl backdrop-blur-md duration-200 overflow-y-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-xl',
             className
           )}
           {...props}
@@ -93,9 +95,9 @@ const DialogContent = React.forwardRef<
       <DialogOverlay />
       <DialogPrimitive.Content
         ref={mergedRef}
-        style={{ ...style, ...panelStyle }}
+        style={{ ...style, ...modalDialogStyle(), ...panelStyle }}
         className={cn(
-          'fixed left-[50%] top-[50%] z-50 grid w-full max-w-2xl max-h-[85vh] translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/30 bg-popover p-6 shadow-xl backdrop-blur-md duration-200 overflow-y-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-xl',
+          'fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-32px)] max-w-2xl max-h-[85vh] translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/30 bg-popover p-6 shadow-xl backdrop-blur-md duration-200 overflow-y-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-xl',
           className
         )}
         {...props}

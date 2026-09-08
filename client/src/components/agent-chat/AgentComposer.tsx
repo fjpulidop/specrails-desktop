@@ -12,13 +12,19 @@ import { API_ORIGIN } from '../../lib/origin'
 import { uploadAgentAttachment, deleteAgentAttachment, type AgentAttachment } from '../../lib/agent-api'
 import {
   recoverComposerDraft,
-  persistComposerDraft,
   composerSubmissionIds,
   composerDrafts,
   composerAttachmentDrafts,
   composerReferenceDrafts,
   migrateNewMissionComposerDrafts,
+  useComposerDraftRevision,
+  writeComposerDraft,
+  setComposerAttachments,
+  setComposerSubmission,
+  clearSubmittedComposerDraft,
+  restoreSubmittedComposerDraft,
   NEW_MISSION_DRAFT_KEY,
+  type AgentComposerDraftSnapshot,
 } from '../../lib/agent-composer-drafts'
 import { isBrowserCaptureEnabled } from '../../lib/browser-capture'
 import { AgentComposerAttachmentChip } from './AgentComposerAttachmentChip'
@@ -75,6 +81,12 @@ function replaceInlineRange(
 // the empty compose screen — never loses the typed draft).
 export { __clearComposerDrafts } from '../../lib/agent-composer-drafts'
 
+// Stable empties: the composer reads these straight out of the store during
+// render, so a fresh [] per render would churn every memo and effect that
+// depends on the reference list or the attachment list.
+const EMPTY_REFERENCES: AgentInlineReference[] = []
+const EMPTY_ATTACHMENTS: AgentAttachment[] = []
+
 /**
  * Shared agent composer — controls row (project · provider · model · effort · tier),
  * prompt-history editor, send/stop. Context-driven so the floating panel and
@@ -116,42 +128,30 @@ export function AgentComposer({
     recoverComposerDraft(draftKey)
     recoveredKey.current = draftKey
   }
-  const [inputState, updateInputState] = useState(() => ({ draftKey, value: composerDrafts.get(draftKey) ?? '' }))
-  const [referenceState, updateReferenceState] = useState(() => ({ draftKey, value: composerReferenceDrafts.get(draftKey) ?? [] }))
-  // A newly keyed editor must receive its own draft on its very first render,
-  // before the conversation-switch effect runs, including its undo baseline.
-  const input = inputState.draftKey === draftKey ? inputState.value : composerDrafts.get(draftKey) ?? ''
-  const inlineReferences = referenceState.draftKey === draftKey ? referenceState.value : composerReferenceDrafts.get(draftKey) ?? []
-  const setInputState = (value: string): void => updateInputState({ draftKey, value })
-  const setInlineReferences = (value: AgentInlineReference[]): void => updateReferenceState({ draftKey, value })
+  // The composer UNMOUNTS mid-send (the EMPTY→ACTIVE branch swap in
+  // AgentModeSurface, the `active?.id` remount key in AgentConversationView),
+  // so what is on screen must come from the SHARED store rather than from state
+  // seeded at mount: a clear issued by an instance that is already gone still
+  // has to reach whichever composer replaced it.
+  useComposerDraftRevision(draftKey)
+  // Queue-edit shows a QUEUED message, deliberately outside the draft store
+  // (the store keeps holding the real draft as the stash). It is the one local
+  // override of the stored value, and it belongs to the key it was opened on.
+  const [queueEdit, setQueueEdit] = useState<{ key: string; queueId: string; text: string } | null>(null)
+  const activeQueueEdit = queueEdit && queueEdit.key === draftKey ? queueEdit : null
+  const input = activeQueueEdit ? activeQueueEdit.text : composerDrafts.get(draftKey) ?? ''
+  const inlineReferences = activeQueueEdit ? EMPTY_REFERENCES : composerReferenceDrafts.get(draftKey) ?? EMPTY_REFERENCES
+  const attached = composerAttachmentDrafts.get(draftKey) ?? EMPTY_ATTACHMENTS
   // Every keystroke mirrors into the session draft store so an unmount
   // (mode switch, panel close) never loses a typed-but-unsent prompt.
-  const setInput = (v: string, refs: AgentInlineReference[] = []): void => {
-    setInputState(v)
-    setInlineReferences(refs)
-    if (v) composerDrafts.set(draftKey, v)
-    else composerDrafts.delete(draftKey)
-    if (v && refs.length) composerReferenceDrafts.set(draftKey, refs)
-    else composerReferenceDrafts.delete(draftKey)
-    persistComposerDraft(draftKey)
-  }
+  const setInput = (v: string, refs: AgentInlineReference[] = []): void => writeComposerDraft(draftKey, v, refs)
   const [histIndex, setHistIndex] = useState<number | null>(null)
-  const [attached, setAttached] = useState<AgentAttachment[]>(() => composerAttachmentDrafts.get(draftKey) ?? [])
-  const attachmentDraftKeyRef = useRef(draftKey)
-  attachmentDraftKeyRef.current = draftKey
   const setAttachmentDraft = (
     key: string,
     updater: AgentAttachment[] | ((prev: AgentAttachment[]) => AgentAttachment[]),
   ): void => {
-    const prev = composerAttachmentDrafts.get(key) ?? []
-    const next = typeof updater === 'function' ? updater(prev) : updater
-    if (next.length > 0) composerAttachmentDrafts.set(key, next)
-    else composerAttachmentDrafts.delete(key)
-    persistComposerDraft(key)
-    const currentKey = attachmentDraftKeyRef.current
-    if (currentKey === key || (currentKey === NEW_MISSION_DRAFT_KEY && key !== NEW_MISSION_DRAFT_KEY)) {
-      setAttached(next)
-    }
+    const prev = composerAttachmentDrafts.get(key) ?? EMPTY_ATTACHMENTS
+    setComposerAttachments(key, typeof updater === 'function' ? updater(prev) : updater)
   }
   const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -178,17 +178,13 @@ export function AgentComposer({
   // QUEUE, not the prompt history: "the last thing we wrote" is the queued
   // message, so ↑ recalls it for in-place editing. History nav resumes as soon
   // as the queue drains. Tracked by queueId (indices shift as the head drains).
-  const [editingQueueId, setEditingQueueId] = useState<string | null>(null)
-  // The unsent draft stashed when entering the mode — restored on exit. The
-  // session draft store keeps holding it, so an unmount mid-edit loses only the
-  // in-progress edit (the queued message itself is untouched server-side).
-  const stashedDraftRef = useRef('')
+  const editingQueueId = activeQueueEdit?.queueId ?? null
   // The slot's text at selection time: dirty-detection that survives the slot
   // vanishing mid-edit (drain race).
   const editBaseTextRef = useRef('')
   const editIdx = editingQueueId === null ? -1 : queuedMessages.findIndex((q) => q.queueId === editingQueueId)
   const editingItem = editIdx >= 0 ? queuedMessages[editIdx] : null
-  const inQueueEdit = editingQueueId !== null && inputState.draftKey === draftKey
+  const inQueueEdit = activeQueueEdit !== null
   useEffect(() => {
     if (uploading || submitting || inQueueEdit) return blockMissionTransfer(draftKey)
   }, [draftKey, uploading, submitting, inQueueEdit])
@@ -259,17 +255,13 @@ export function AgentComposer({
   // are keyed to the conversation they were uploaded to (foreign ids silently
   // no-op server-side) and a stale histIndex could index past the new history.
   useEffect(() => {
-    setAttached(composerAttachmentDrafts.get(activeId ?? NEW_MISSION_DRAFT_KEY) ?? [])
     setHistIndex(null)
     setPaletteTrigger(null)
     setPlusOpen(false)
-    setInlineReferences(composerReferenceDrafts.get(activeId ?? NEW_MISSION_DRAFT_KEY) ?? [])
     // A queue-edit in progress belongs to the previous conversation — drop it
-    // (the queued message is untouched server-side; the draft store below still
-    // holds the stashed draft, which is exactly what gets restored).
-    setEditingQueueId(null)
-    // Restore the target conversation's own unsent draft (or the new-mission one).
-    setInputState(composerDrafts.get(activeId ?? NEW_MISSION_DRAFT_KEY) ?? '')
+    // (the queued message is untouched server-side; the draft store still holds
+    // the stashed draft, which the subscribed read below restores by itself).
+    setQueueEdit(null)
   }, [activeId])
 
   useEffect(() => {
@@ -345,14 +337,9 @@ export function AgentComposer({
       ? configuredEffort
       : defaultReasoningEffortForProvider(provider, effectiveModel) ?? ''
 
+  /** The migration itself notifies both keys, so every mounted composer follows. */
   const adoptNewMissionDrafts = (conversationId: string): void => {
     migrateNewMissionComposerDrafts(conversationId)
-    const currentKey = attachmentDraftKeyRef.current
-    if (currentKey === conversationId || currentKey === NEW_MISSION_DRAFT_KEY) {
-      setInputState(composerDrafts.get(conversationId) ?? '')
-      setInlineReferences(composerReferenceDrafts.get(conversationId) ?? [])
-    }
-    setAttachmentDraft(conversationId, composerAttachmentDrafts.get(conversationId) ?? [])
   }
 
   const uploadFiles = async (files: File[]) => {
@@ -449,14 +436,14 @@ export function AgentComposer({
   const selectQueueSlot = (i: number): void => {
     const item = queuedMessages[i]
     if (!item) return
-    setEditingQueueId(item.queueId)
     editBaseTextRef.current = item.text
-    setInputState(item.text) // NOT setInput — the draft store keeps the stash
+    // NOT setInput — the draft store keeps holding the real draft as the stash.
+    setQueueEdit({ key: draftKey, queueId: item.queueId, text: item.text })
   }
   const enterQueueEdit = (i: number): void => {
     // Entering from history browsing: the real draft was '' (history nav only
-    // starts from an empty box) — stash that, not the recalled history entry.
-    stashedDraftRef.current = inHistory ? '' : input
+    // starts from an empty box), so the stash the store must hold is ''.
+    if (inHistory) setInput('')
     setHistIndex(null)
     selectQueueSlot(i)
   }
@@ -473,9 +460,10 @@ export function AgentComposer({
   /** Leave the mode. 'restore' brings back the stashed draft; 'keep' promotes
    *  the current text to the draft (never-lose-input on conflict/drain). */
   const exitQueueEdit = (mode: 'restore' | 'keep', text?: string): void => {
-    setEditingQueueId(null)
-    if (mode === 'keep') setInput(text ?? input)
-    else setInputState(stashedDraftRef.current)
+    const edited = text ?? input
+    setQueueEdit(null)
+    // 'restore' just drops the override — the store still holds the stash.
+    if (mode === 'keep') setInput(edited)
   }
   const saveQueueEdit = async (): Promise<void> => {
     const item = editingItem
@@ -498,9 +486,9 @@ export function AgentComposer({
   // Drain race: the slot being edited left the queue (its turn started, or the
   // queue was cleared by Stop). Exit gracefully — dirty edits become the draft.
   useEffect(() => {
-    if (!inQueueEdit || queuedMessages.some((q) => q.queueId === editingQueueId)) return
+    if (!activeQueueEdit || queuedMessages.some((q) => q.queueId === activeQueueEdit.queueId)) return
     const dirty = input !== editBaseTextRef.current
-    if (wasQueueConsumed(editingQueueId)) toast.info(t('queueEdit.dispatched'))
+    if (wasQueueConsumed(activeQueueEdit.queueId)) toast.info(t('queueEdit.dispatched'))
     exitQueueEdit(dirty ? 'keep' : 'restore')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingQueueId, queuedMessages, inQueueEdit])
@@ -517,34 +505,41 @@ export function AgentComposer({
     const signature = JSON.stringify([textForTurn, opts])
     const previous = composerSubmissionIds.get(draftKey)
     const requestIdentity = previous?.signature === signature ? previous : { signature, queueId: `q-${crypto.randomUUID()}` }
-    composerSubmissionIds.set(draftKey, requestIdentity)
-    persistComposerDraft(draftKey)
+    // Exactly what is being handed to the turn — the unit that gets cleared now
+    // and handed back verbatim if the send is rejected.
+    const submitted: AgentComposerDraftSnapshot = {
+      text: input,
+      references: inlineReferences,
+      attachments: attached,
+      submission: requestIdentity,
+    }
+    setComposerSubmission(draftKey, requestIdentity)
+    // Clear BEFORE awaiting: the box must empty in the same beat the user bubble
+    // appears, and a new mission materializing mid-send must find nothing left to
+    // migrate into the conversation it creates (which is what used to resurrect
+    // the text under the new key, in a composer this closure no longer owns).
+    clearSubmittedComposerDraft(draftKey, submitted)
+    setPaletteTrigger(null)
+    setPlusOpen(false)
+    setHistIndex(null)
     submittingRef.current = true
     setSubmitting(true)
     try {
       const result = await send(textForTurn, { ...opts, queueId: requestIdentity.queueId })
+      // A materialized mission owns the draft from here on: rejection restores
+      // into the conversation the turn actually reached, not the sentinel slot.
       const targetKey = result.conversationId ?? draftKey
-      if (targetKey !== draftKey) composerSubmissionIds.set(targetKey, requestIdentity)
-      if (!result.accepted) return
-      composerSubmissionIds.delete(draftKey)
-      composerSubmissionIds.delete(targetKey)
-      // Typing or switching conversations during admission must not erase the
-      // next draft. Only clear the exact successfully accepted payload.
-      const currentText = composerDrafts.get(targetKey) ?? ''
-      const currentAttachments = (composerAttachmentDrafts.get(targetKey) ?? []).map((item) => item.id)
-      const currentRefs = composerReferenceDrafts.get(targetKey) ?? []
-      if (currentText !== input || JSON.stringify(currentAttachments) !== JSON.stringify(attached.map((item) => item.id)) || JSON.stringify(currentRefs) !== JSON.stringify(inlineReferences)) return
-      composerDrafts.delete(targetKey)
-      composerReferenceDrafts.delete(targetKey)
-      setAttachmentDraft(targetKey, [])
-      if (attachmentDraftKeyRef.current === targetKey) {
-        updateInputState({ draftKey: targetKey, value: '' })
-        updateReferenceState({ draftKey: targetKey, value: [] })
-        setPaletteTrigger(null)
-        setPlusOpen(false)
-        setHistIndex(null)
+      if (!result.accepted) {
+        setComposerSubmission(targetKey, requestIdentity)
+        restoreSubmittedComposerDraft(targetKey, submitted)
+        return
       }
+      // The synchronous clear happened before materialization. Anything now
+      // in the destination belongs to a later edit, even if its text matches.
+      setComposerSubmission(draftKey, null)
+      setComposerSubmission(targetKey, null)
     } catch (error) {
+      restoreSubmittedComposerDraft(draftKey, submitted)
       toast.error(error instanceof Error ? error.message : t('queueEdit.saveFailed'))
     } finally {
       submittingRef.current = false
@@ -845,7 +840,7 @@ export function AgentComposer({
               // (it still holds the stashed draft) and stay in the mode — Enter
               // saves, Esc cancels.
               if (inQueueEdit) {
-                setInputState(value)
+                setQueueEdit((current) => (current ? { ...current, text: value } : current))
                 return
               }
               if (inHistory) setHistIndex(null)

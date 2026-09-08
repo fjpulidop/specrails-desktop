@@ -256,6 +256,7 @@ export const AgentComposerEditor = forwardRef<AgentComposerEditorHandle, AgentCo
   propsRef.current = props
   const knownReferences = useRef(new Map<string, AgentContextChip>())
   const composing = useRef(false)
+  const compositionBase = useRef<{ value: string; references: AgentInlineReference[] } | null>(null)
   const lastSelection = useRef<[number, number]>([props.value.length, props.value.length])
   const renderedReferences = useRef<AgentInlineReference[]>([])
   const renderedRemoveLabel = useRef('')
@@ -455,8 +456,27 @@ export const AgentComposerEditor = forwardRef<AgentComposerEditorHandle, AgentCo
       title={props.title}
       className={`whitespace-pre-wrap break-words outline-none data-[empty=true]:before:pointer-events-none data-[empty=true]:before:text-foreground/35 data-[empty=true]:before:content-[attr(data-placeholder)] ${props.className ?? ''}`}
       onInput={(event) => reportInput((event.nativeEvent as InputEvent).inputType || 'insertText')}
-      onCompositionStart={() => { composing.current = true }}
-      onCompositionEnd={() => { composing.current = false; reportInput('insertCompositionText') }}
+      onCompositionStart={() => {
+        composing.current = true
+        compositionBase.current = { value: propsRef.current.value, references: propsRef.current.references }
+      }}
+      onCompositionEnd={() => {
+        composing.current = false
+        const base = compositionBase.current
+        compositionBase.current = null
+        const current = propsRef.current
+        // A send or draft restore can arrive while the browser is composing.
+        // Honor that external update before a late input event republishes the
+        // old editable DOM into the draft store.
+        if (base && (base.value !== current.value || !sameReferences(base.references, current.references))) {
+          const references = validReferences(current.value, current.references)
+          const selection: [number, number] = [current.value.length, current.value.length]
+          recordHistory({ value: current.value, references, selection }, 'external')
+          paint(current.value, references, rootRef.current?.ownerDocument.activeElement === rootRef.current ? selection : null)
+          return
+        }
+        reportInput('insertCompositionText')
+      }}
       onKeyUp={reportSelection}
       onMouseUp={reportSelection}
       onMouseDown={(event) => {

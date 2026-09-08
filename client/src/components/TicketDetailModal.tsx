@@ -1,3 +1,4 @@
+import { modalOverlayStyle } from '../lib/modal-safe-area'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
@@ -417,7 +418,7 @@ export function TicketDetailModal({
         className={
           embedded
             ? 'relative w-full h-full rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col overflow-hidden'
-            : 'relative w-full max-w-[67rem] m-4 rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col animate-in fade-in zoom-in-95 duration-200 h-[90vh]'
+            : 'relative w-full max-w-[67rem] m-4 rounded-xl bg-card border border-border/40 shadow-2xl shadow-black/50 flex flex-col animate-in fade-in zoom-in-95 duration-200 h-[90vh] max-h-[calc(100%-2rem)]'
         }
         style={{
           ...(dragOffset !== 0
@@ -944,7 +945,7 @@ export function TicketDetailModal({
     // Still below the MinimizedChatsDock (z-[70]) and browser-capture (z-[80]).
     // Portalled to document.body so it escapes the #root stacking context
     // (position:relative + z-index:0) and can layer against body-portalled modals.
-    <div className="fixed inset-0 z-[68] flex items-center justify-center">
+    <div style={modalOverlayStyle()} className="fixed inset-0 z-[68] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/70" onClick={guardBackdrop(onClose)} />
       {panel}
       <ResizeGrips handles={resizeHandles} />

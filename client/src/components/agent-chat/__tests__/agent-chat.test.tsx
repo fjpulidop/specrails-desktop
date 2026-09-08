@@ -133,87 +133,7 @@ beforeEach(() => {
 })
 
 
-/** Read the editable document as the user-facing tokens, without the pill's label
- *  or remove-button text becoming part of the message. */
-function editorText(editor: HTMLElement): string {
-  const document = editor.cloneNode(true) as HTMLElement
-  document.querySelectorAll<HTMLElement>('[data-inline-reference]').forEach((pill) => {
-    pill.replaceWith(pill.dataset.token ?? '')
-  })
-  return visibleNodeText(document)
-}
-
-function visibleNodeText(node: Node | null): string {
-  return (node?.textContent ?? '').replace(/\u200b/g, '')
-}
-
-/** Place a real DOM caret at a token-aware offset. Atomic pills occupy the
- *  length of their token; a caret can only sit before or after a pill. */
-function selectEditor(editor: HTMLElement, offset: number, report = true): void {
-  editor.focus()
-  const range = document.createRange()
-  let remaining = offset
-  let placed = false
-  const visit = (node: Node): void => {
-    if (placed) return
-    if (node instanceof HTMLElement && node.hasAttribute('data-inline-reference')) {
-      const size = (node.dataset.token ?? '').length
-      if (remaining <= size) {
-        if (remaining === 0) range.setStartBefore(node)
-        else if (node.nextSibling?.nodeType === Node.TEXT_NODE && node.nextSibling.textContent?.startsWith('\u200b')) {
-          range.setStart(node.nextSibling, 1)
-        } else range.setStartAfter(node)
-        placed = true
-      } else remaining -= size
-      return
-    }
-    if (node.nodeType === Node.TEXT_NODE) {
-      const raw = node.textContent ?? ''
-      const length = visibleNodeText(node).length
-      if (remaining <= length) {
-        let rawOffset = 0
-        let plainOffset = 0
-        while (rawOffset < raw.length && (plainOffset < remaining || raw[rawOffset] === '\u200b')) {
-          if (raw[rawOffset] !== '\u200b') plainOffset += 1
-          rawOffset += 1
-        }
-        range.setStart(node, rawOffset)
-        placed = true
-      } else remaining -= length
-      return
-    }
-    node.childNodes.forEach(visit)
-  }
-  visit(editor)
-  if (!placed) {
-    range.selectNodeContents(editor)
-    range.collapse(false)
-  }
-  range.collapse(true)
-  const selection = window.getSelection()!
-  selection.removeAllRanges()
-  selection.addRange(range)
-  if (report) fireEvent(document, new Event('selectionchange'))
-}
-
-function inputEditor(editor: HTMLElement, text: string, caret = text.length): void {
-  editor.textContent = text
-  selectEditor(editor, caret, false)
-  fireEvent.input(editor, { inputType: 'insertText' })
-}
-
-function insertEditorText(editor: HTMLElement, text: string): void {
-  const selection = window.getSelection()!
-  const range = selection.getRangeAt(0)
-  const node = document.createTextNode(text)
-  range.deleteContents()
-  range.insertNode(node)
-  range.setStart(node, text.length)
-  range.collapse(true)
-  selection.removeAllRanges()
-  selection.addRange(range)
-  fireEvent.input(editor, { inputType: 'insertText', data: text })
-}
+import { editorText, inputEditor, insertEditorText, selectEditor, visibleNodeText } from './editor-harness'
 
 // ── AgentTierChip ─────────────────────────────────────────────────────────────
 describe('AgentTierChip', () => {
@@ -1169,8 +1089,15 @@ describe('AgentChatProvider', () => {
     await act(async () => { fireEvent.click(screen.getByText('open')) })
     const box2 = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
     expect(editorText(box2)).toBe('idea a medio escribir')
-    // Sending clears the stored draft — a fresh mount starts empty again.
+    // Sending clears the stored draft AT SUBMIT — the box must not keep showing
+    // the prompt while the turn is still being delivered.
+    let release!: () => void
+    vi.mocked(agentApi.sendAgentMessage).mockImplementationOnce(
+      () => new Promise((resolve) => { release = () => resolve({ queued: false }) }),
+    )
     await act(async () => { fireEvent.keyDown(box2, { key: 'Enter' }) })
+    expect(editorText(box2)).toBe('')
+    await act(async () => { release() })
     expect(editorText(box2)).toBe('')
   })
 
