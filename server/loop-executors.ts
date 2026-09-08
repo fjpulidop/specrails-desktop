@@ -32,6 +32,7 @@ import {
   buildProviderEnv,
   buildProviderRepoAccessArgs,
   formatProviderCommand,
+  pureOutputToolPolicy,
 } from './providers/runtime'
 import type { LoopExecutors, ShellResult } from './loop-run-manager'
 import { bundledLoopShellInvocation } from './loop-shell-invocation'
@@ -474,7 +475,20 @@ export function createLoopExecutors(
       const decEnv = aiStepEnv(baseEnv, repoDir, executionManifest)
       // spec-gen is a one-shot, system-prompted invocation (workspace-write on
       // codex, not full-access) — appropriate for a read-only judgment.
-      const buildOpts = { prompt: userPrompt, systemPrompt, model, maxTurns: 1, reasoning_effort: effort, toolPolicy: 'read-only' as const, ...(executionManifest ? { extraArgs: aiStepExtraArgs(adapter, cwd, repoDir, executionManifest) } : {}) }
+      //
+      // The Decider judges the goal from the prompt it is GIVEN (goal + spec +
+      // iteration history) and must answer with a single JSON object, so it
+      // needs no tools. Granting them was actively harmful on claude: with
+      // `--max-turns 1`, one Read/Grep call consumes the whole turn budget and
+      // the run ends `error_max_turns` BEFORE the verdict is emitted. A failed
+      // Decider invocation is forced to `continue` below, so every such run
+      // silently discarded a real STOP verdict and burned another iteration.
+      // `pureOutputToolPolicy` picks the tightest boundary the CLI enforces:
+      // 'none' on claude, 'read-only' on codex/gemini (byte-identical to the
+      // previous behaviour there). The null case is unreachable — `run()`
+      // rejects a decider graph whose provider cannot enforce 'read-only'.
+      const toolPolicy = pureOutputToolPolicy(adapter) ?? 'read-only'
+      const buildOpts = { prompt: userPrompt, systemPrompt, model, maxTurns: 1, reasoning_effort: effort, toolPolicy, ...(executionManifest ? { extraArgs: aiStepExtraArgs(adapter, cwd, repoDir, executionManifest) } : {}) }
       const wallStartedAt = Date.now()
       const res = await runAiCliInvocation({
         adapter,

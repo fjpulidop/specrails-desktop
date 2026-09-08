@@ -314,3 +314,56 @@ delivery row — stranded uncommitted work. Loops disabled ⇒ the legacy QueueM
 unchanged. Relatedly, the agent-chat operator prompt gained the ask-confirmation-once
 turn-discipline rule (`server/agent-operator-prompt.ts`): a confirmation question is asked
 exactly once and ends the reply — the answer arrives as the next user message.
+
+## Decider starved by its own tool budget (2026-09-07)
+
+A two-repo `factory:implement` run (pipeline run `47b9a423`) finished its work, and the
+verify step answered `VERIFICATION: PASS` with a freshly re-run receipt across both
+repositories. The loop continued anyway. The Decider step's log line was the tell:
+
+```
+Decision: continue — error_max_turns: Reached maximum number of turns (1)
+```
+
+That is not a verdict. The Decider never emitted one — it died before answering, and the
+executor's fail-open default did the rest.
+
+- **The starvation.** `runDecider` spawned with `maxTurns: 1` *and* `toolPolicy:
+  'read-only'`, which on claude is `--tools Read,Grep,Glob` **plus `--permission-mode plan
+  --safe-mode`**. One tool call — a repo read, or plan mode's own exit call — consumes the
+  single allowed turn, so the run ends `error_max_turns` **before** the JSON verdict is
+  produced. Nothing about it is intermittent: a Decider that touches any tool can never
+  answer. The step burned 2 turns and ~$0.09 to say nothing.
+- **Reproduced across loops and tiers.** A `SDD Quick (OpenSpec)` run on claude/**sonnet**
+  showed the identical signature — every Decider step `2 turns`, ~7 s, `Decision: continue
+  — error_max_turns`. Its verify step reported `VERIFICATION: PASS` twice, and the loop
+  still cycled `opsx:ff → opsx:apply → opsx:verify` for two full iterations (the fix steps
+  correctly finding nothing to do and saying so) until the user cancelled it. So the bug is
+  not model-, tier- or loop-specific: it is every Decider on claude.
+- **Why it became a `continue`.** A failed Decider invocation is deliberately forced to
+  `{ continue: true, parsed: false }` — a streamed verdict from an interrupted run is not
+  an authoritative completion gate, and `maxIterations`/`timeout` are the hard stop. Sound
+  in isolation, but combined with the starvation above it meant *every* such run silently
+  discarded a real STOP and paid for another iteration: here a fix step that invented work
+  (tautological cascade tests, a mutation probe, a wrong conclusion, then a full revert)
+  plus a second full re-verification, for no change to the delivered candidate.
+- **The fix.** The Decider judges from the prompt it is GIVEN (goal + spec + iteration
+  history) and must answer with one JSON object, so it needs no tools at all.
+  `runDecider` now picks the tightest boundary the CLI enforces via
+  `pureOutputToolPolicy(adapter)`: `'none'` on claude (`--tools __none__`, no approval
+  bypass needed), `'read-only'` on codex/gemini — byte-identical there, since neither has
+  a native no-tools mode. The null case is unreachable: `LoopRunManager.run` already
+  rejects a decider-bearing graph whose provider cannot enforce `read-only` natively
+  (kimi), before allocating or persisting the run. `'none'` also drops the plan-mode flags
+  (the adapter attaches them only to `read-only`), removing the second way the single turn
+  could be consumed. This aligns the Decider with the repo's other single-turn spawns —
+  `file-summary-generator.ts` and both `contract-refine-runner.ts` invocations already
+  resolve a pure-output policy rather than hardcoding `read-only`; the Decider was the last
+  one left with tools it could not afford to use.
+- **Deliberately NOT changed:** the fail-open `continue` on a genuinely failed Decider
+  (timeout, spawn failure, non-zero exit, provider limit). The starvation was the bug; the
+  default is the safety net, and with tools gone it stops firing on every healthy run.
+- **Adjacent, still open:** the verify step re-ran the full cross-repository suite each
+  iteration because the Core receipt is invalidated per session (*"Verification environment
+  changed: ./mvnw / npm"*) even when the candidate hash is identical. That is a receipt
+  env-hash question in specrails-core, not a desktop one.
