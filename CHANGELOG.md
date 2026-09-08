@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.43.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.43.1...v2.43.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* **desktop:** mission input, Windows rails, modal bounds and simpler loops ([#646](https://github.com/fjpulidop/specrails-desktop/issues/646)) ([8bc8492](https://github.com/fjpulidop/specrails-desktop/commit/8bc8492134dd4381826d6a13f40174fc20243317))
+
 ## [2.43.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.43.0...v2.43.1) (2026-09-08)
 
 
