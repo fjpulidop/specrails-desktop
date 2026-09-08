@@ -47,6 +47,12 @@ function fakeAdapter(id: string) {
     projectDirName: `.${id}`,
     buildArgs: vi.fn(() => []),
     buildRepoAccessArgs,
+    // Mirrors the real adapters: only claude enforces a native no-tools mode,
+    // codex/gemini enforce read-only, kimi enforces neither.
+    capabilities: {
+      toolPolicies:
+        id === 'claude' ? ['none', 'read-only'] : id === 'kimi' ? [] : ['read-only'],
+    },
     ...(id === 'kimi'
       ? {
           formatCoreCommand: (command: string, cwd?: string) =>
@@ -275,6 +281,26 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
     const result = await createLoopExecutors({ env: {} }).runAiStep({ prompt: 'verify', provider: 'claude', model: 'm', cwd: '/repo' })
     expect(result).toMatchObject({ failed: true, cost: 0.25, tokensIn: 123, tokensOut: 456 })
     expect(result.errorText).toBeTruthy()
+  })
+
+  // The Decider judges from the prompt it is given and answers with one JSON
+  // object. On claude it used to be spawned with `--tools Read,Grep,Glob` AND
+  // `--max-turns 1`, so a single tool call ended the run `error_max_turns`
+  // before any verdict — and a failed Decider is forced to `continue`, so a
+  // real STOP was discarded and the loop burned another (paid) iteration.
+  it.each([
+    { provider: 'claude', expected: 'none' },
+    { provider: 'codex', expected: 'read-only' },
+    { provider: 'gemini', expected: 'read-only' },
+  ])('spawns the Decider under the tightest boundary $provider enforces, with no room to burn its single turn on a tool call', async ({ provider, expected }) => {
+    getAdapter.mockReturnValue(fakeAdapter(provider))
+    runAiCliInvocation.mockImplementation(async (hooks: { onEvent: (ev: unknown) => void }) => {
+      hooks.onEvent({ kind: 'text-delta', text: '{"action":"stop","reasoning":"goal met"}' })
+      return { code: 0, events: [], spawnFailed: false, stderrTail: '' }
+    })
+    const result = await createLoopExecutors({ env: {} }).runDecider({ systemPrompt: 'judge', userPrompt: 'verify', provider, model: 'm', cwd: '/repo' })
+    expect(runAiCliInvocation.mock.calls[0][0].buildOpts).toMatchObject({ toolPolicy: expected, maxTurns: 1 })
+    expect(result).toMatchObject({ continue: false, parsed: true })
   })
 
   it('rejects STOP from a Decider whose result ends in error even when its process exits cleanly', async () => {
