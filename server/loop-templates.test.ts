@@ -69,14 +69,15 @@ describe('loop templates', () => {
   })
 
   it('verification is agent-driven — NO template hardcodes a Shell node (except the opsx-lifecycle archive)', () => {
-    // The opsx-lifecycle template intentionally uses ONE shell node for the
+    // The opsx-lifecycle template intentionally uses shell nodes for validation and the
     // deterministic, unattended `openspec archive -y` close — a CLI call, not test
     // verification (which stays agent-driven everywhere). Exempt it precisely.
     for (const tpl of LOOP_TEMPLATES) {
       if (tpl.id === 'opsx-lifecycle') {
         const shells = tpl.graph.nodes.filter((n) => n.type === 'shell')
-        expect(shells.length).toBe(1)
-        expect(String(shells[0].data?.command)).toContain('openspec archive')
+        expect(shells.length).toBe(2)
+        expect(String(shells[0].data?.command)).toContain('openspec validate')
+        expect(String(shells[1].data?.command)).toContain('openspec archive')
         continue
       }
       expect(tpl.graph.nodes.some((n) => n.type === 'shell'), `${tpl.id} should not use a Shell node`).toBe(false)

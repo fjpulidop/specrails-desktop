@@ -98,14 +98,14 @@ describe('opsx-lifecycle template', () => {
   it('has a valid graph', () => {
     expect(validateLoopGraph(opsxLifecycleGraph()).valid).toBe(true)
   })
-  it('contains the lifecycle steps (ff → apply → verify → decider → archive shell → end)', () => {
+  it('contains the lifecycle steps (ff → apply/test → validate shell → archive shell → end)', () => {
     const g = opsxLifecycleGraph()
     const prompts = g.nodes.filter((n) => n.type === 'ai-step').map((n) => String(n.data?.prompt))
     expect(prompts.some((p) => p.includes('{{cmd:opsx:ff}}'))).toBe(true)
     expect(prompts.some((p) => p.includes('{{cmd:opsx:apply}}'))).toBe(true)
-    expect(prompts.some((p) => p.includes('{{cmd:opsx:verify}}'))).toBe(true)
-    expect(g.nodes.some((n) => n.type === 'decider')).toBe(true)
-    const shell = g.nodes.find((n) => n.type === 'shell')
+    expect(prompts.some((p) => p.includes('{{cmd:opsx:verify}}'))).toBe(false)
+    expect(g.nodes.some((n) => n.type === 'decider')).toBe(false)
+    const shell = g.nodes.find((n) => n.id === 'archive')
     expect(shell?.data?.command).toContain('openspec archive {{run.changeId}} -y')
     expect(shell?.data?.requireRunVars).toEqual(['changeId'])
     expect(g.nodes.some((n) => n.type === 'end')).toBe(true)
@@ -143,14 +143,13 @@ describe('opsx-lifecycle template', () => {
     expect(apply).toContain('amend the OpenSpec artifacts first')
   })
 
-  it('verify prompt fails OpenSpec contract drift', () => {
-    const g = opsxLifecycleGraph()
-    const verify = String(g.nodes.find((n) => n.id === 'verify')?.data?.prompt ?? '')
-    const decider = String(g.nodes.find((n) => n.id === 'decide')?.data?.goal ?? '')
-    expect(verify).toContain('Report FAIL if the implementation diverges from the active OpenSpec artifacts')
-    expect(verify).toContain('{{const:VERIFICATION_FAIL}}')
-    expect(decider).toContain('active OpenSpec artifacts')
+  it('apply owns testing and cannot advance without reporting success', () => {
+    const apply = opsxLifecycleGraph().nodes.find((n) => n.id === 'apply')!
+    expect(apply.data?.requireVerificationPass).toBe(true)
+    expect(String(apply.data?.prompt)).toContain('Run the relevant tests')
+    expect(String(apply.data?.prompt)).toContain('{{const:VERIFICATION_FAIL}}')
   })
+
 })
 
 // ── engine integration: run the real template graph ──────────────────────────
@@ -190,7 +189,7 @@ function aiStepMock(opts: { ffEmitsChangeId?: boolean } = {}) {
     const isFf = input.prompt.includes('/opsx:ff')
     const text = isFf && ffEmits
       ? 'Created change at openspec/changes/my-change/ — generated artifacts.'
-      : input.prompt.includes('/opsx:verify') ? 'VERIFICATION: PASS' : 'did the work'
+      : input.prompt.includes('/opsx:apply') ? 'VERIFICATION: PASS' : 'did the work'
     return { text, sessionId: 's1', cost: 0.01, tokens: 100, provider: 'claude', model: 'sonnet' }
   })
   return { fn, prompts }
@@ -206,31 +205,33 @@ describe('opsx-lifecycle run (engine integration)', () => {
     const res = await manager(ex).run(baseReq())
 
     expect(res.outcome).toBe('success')
-    expect(runShell).toHaveBeenCalledTimes(1)
-    expect(runShell.mock.calls[0][0].command).toBe('openspec archive my-change -y')
+    expect(runShell).toHaveBeenCalledTimes(2)
+    expect(ai.fn).toHaveBeenCalledTimes(2)
+    expect(runDecider).not.toHaveBeenCalled()
+    expect(runShell.mock.calls[0][0].command).toBe('openspec validate my-change --type change --strict --no-interactive')
+    expect(runShell.mock.calls[1][0].command).toBe('openspec archive my-change -y')
   })
 
-  it('FAIL then PASS → loops back to ff (same change id) and finally archives', async () => {
+  it('failed CLI validation stops before archive without calling a decider', async () => {
     const ai = aiStepMock()
-    const runShell = vi.fn(async () => ({ stdout: 'archived', stderr: '', exitCode: 0, durationMs: 5 }))
-    // First decider: FAIL (continue → loop back). Second: PASS (stop → archive).
+    const runShell = vi.fn(async () => ({ stdout: '', stderr: 'Invalid spec', exitCode: 1 }))
     const runDecider = vi.fn()
-      .mockResolvedValueOnce({ continue: true, reasoning: 'missing X', parsed: true })
-      .mockResolvedValueOnce({ continue: false, reasoning: 'now complete', parsed: true })
-    const ex: LoopExecutors = { runAiStep: ai.fn, runShell, runDecider }
+    const res = await manager({ runAiStep: ai.fn, runShell, runDecider }).run(baseReq())
+    expect(res.outcome).toBe('failed')
+    expect(runShell).toHaveBeenCalledTimes(1)
+    expect(runShell.mock.calls[0][0].command).toContain('openspec validate my-change')
+    expect(runDecider).not.toHaveBeenCalled()
+  })
 
-    const res = await manager(ex).run(baseReq())
-
-    expect(res.outcome).toBe('success')
-    expect(runDecider).toHaveBeenCalledTimes(2)
-    // ff ran twice (initial + loop-back).
-    const ffPrompts = ai.prompts.filter((p) => p.includes('/opsx:ff'))
-    expect(ffPrompts.length).toBe(2)
-    // The second ff names the captured change id (continue the SAME change) and
-    // carries the cross-iteration context (verify's gaps).
-    expect(ffPrompts[1]).toContain('my-change')
-    expect(ffPrompts[1]).toContain('Context from previous iterations')
-    expect(runShell.mock.calls[0][0].command).toBe('openspec archive my-change -y')
+  it('failed Apply tests stop before validation and archive', async () => {
+    const ai = aiStepMock()
+    ai.fn.mockResolvedValueOnce({ text: 'Created openspec/changes/my-change/', sessionId: 's1', cost: 0, tokens: 1, provider: 'claude', model: 'sonnet' })
+      .mockResolvedValueOnce({ text: 'VERIFICATION: FAIL — tests failed', sessionId: 's1', cost: 0, tokens: 1, provider: 'claude', model: 'sonnet' })
+    const runShell = vi.fn()
+    const runDecider = vi.fn()
+    const res = await manager({ runAiStep: ai.fn, runShell, runDecider }).run(baseReq())
+    expect(res.outcome).toBe('failed')
+    expect(runShell).not.toHaveBeenCalled()
   })
 
   it('archive guard: no change id captured → refuses to archive and fails', async () => {

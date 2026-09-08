@@ -4,6 +4,16 @@ import { validateLoopGraph } from './loop-graph'
 import { assertDeciderBranches } from './loop-templates.test'
 
 describe('factory loops', () => {
+  it.each([['factory:implement', 'implement'], ['factory:batch', 'batch']])('%s runs its Core command once and ends without extra AI gates', (id, command) => {
+    const graph = getFactoryLoop(id)!.graph
+    expect(graph.nodes.map((node) => node.type)).toEqual(['start', 'ai-step', 'end'])
+    expect(graph.nodes[1].data?.prompt).toBe(`{{cmd:${command}}}`)
+    expect(graph.nodes[2].data?.outcome).toBe('success')
+    expect(graph.edges.map(({ source, target }) => [source, target])).toEqual([
+      ['start', 'main-1'], ['main-1', 'done'],
+    ])
+  })
+
   it('ships implement / batch / freestyle mapped to canonical rail modes + the graph-native openspec loop', () => {
     expect(FACTORY_LOOPS.map((f) => f.id)).toEqual([
       'factory:implement', 'factory:batch', 'factory:freestyle',
@@ -35,16 +45,18 @@ describe('factory loops', () => {
     for (const f of FACTORY_LOOPS) assertDeciderBranches(f.id, f.graph)
   })
 
-  it('every factory loop uses the built-in {{const:VERIFICATION_PASS}} in its Decider goal', () => {
+  it('every factory Decider uses the built-in {{const:VERIFICATION_PASS}} in its goal', () => {
     for (const f of FACTORY_LOOPS) {
-      const decider = f.graph.nodes.find((n) => n.type === 'decider')!
+      const decider = f.graph.nodes.find((n) => n.type === 'decider')
+      if (!decider) continue
       expect(String(decider.data?.goal), f.id).toContain('{{const:VERIFICATION_PASS}}')
     }
   })
 
   it('factory goals describe an exit condition, not a claimed verification result', () => {
     for (const f of FACTORY_LOOPS) {
-      const decider = f.graph.nodes.find((n) => n.type === 'decider')!
+      const decider = f.graph.nodes.find((n) => n.type === 'decider')
+      if (!decider) continue
       const goal = String(decider.data?.goal ?? '')
       expect(goal, f.id).toContain('Stop only when')
       expect(goal, f.id).not.toMatch(/^The verification step reported/)
@@ -53,11 +65,11 @@ describe('factory loops', () => {
     }
   })
 
-  it('the implement factory loop is an autonomous implement → verify → fix loop', () => {
-    const prompts = getFactoryLoop('factory:implement')!.graph.nodes
+  it('freestyle retains its verify → fix cycle', () => {
+    const prompts = getFactoryLoop('factory:freestyle')!.graph.nodes
       .filter((n) => n.type === 'ai-step')
       .map((n) => String(n.data?.prompt))
-    expect(prompts[0]).toContain('{{cmd:implement}}')
+    expect(prompts[0]).toContain('{{cmd:freestyle}}')
     expect(prompts.some((p) => p.includes('{{cmd:verify}}'))).toBe(true)
     expect(prompts.some((p) => p.includes('{{cmd:fix}}'))).toBe(true) // refinement on failure
   })
@@ -152,8 +164,8 @@ describe('factory revision loop (nontech-review-experience)', () => {
     expect((main?.data as { freshSession?: boolean })?.freshSession).toBeUndefined()
   })
 
-  it('leaves every other factory loop on the generic verify gate', () => {
-    for (const id of ['factory:implement', 'factory:batch', 'factory:freestyle']) {
+  it('leaves freestyle on the generic verify gate', () => {
+    for (const id of ['factory:freestyle']) {
       const graph = getFactoryLoop(id)!.graph
       const verify = graph.nodes.find((n) => n.id === 'verify')
       expect(String((verify?.data as { prompt?: string })?.prompt)).toBe('{{cmd:verify}}')

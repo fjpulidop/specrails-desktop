@@ -49,10 +49,30 @@ const FACTORY_MAX_ITERATIONS = 12
 const FACTORY_LOOP_TIMEOUT_MIN = 0
 const FACTORY_AI_STEP_TIMEOUT_MIN = 0
 
+/** Core owns the complete implementation/review cycle. Desktop runs it once. */
+function coreImplementationGraph(command: 'implement' | 'batch'): LoopGraph {
+  return {
+    nodes: [
+      { id: 'start', type: 'start', position: { x: 0, y: 0 } },
+      { id: 'main-1', type: 'ai-step', position: { x: 0, y: 110 }, data: { prompt: `{{cmd:${command}}}` } },
+      { id: 'done', type: 'end', position: { x: 0, y: 220 }, data: { outcome: 'success' } },
+    ],
+    edges: [
+      { id: 'e-start', source: 'start', target: 'main-1' },
+      { id: 'e-main-1', source: 'main-1', target: 'done' },
+    ],
+    config: {
+      maxIterations: FACTORY_MAX_ITERATIONS,
+      timeoutMinutes: FACTORY_LOOP_TIMEOUT_MIN,
+      aiStepTimeoutMinutes: FACTORY_AI_STEP_TIMEOUT_MIN,
+    },
+  }
+}
+
 const SDD_QUICK_OPENSPEC_FACTORY: FactoryLoop = {
   id: 'factory:sdd-quick-openspec',
   name: 'SDD Quick (OpenSpec)',
-  description: 'Quick spec-driven OpenSpec lifecycle for small contract-governed changes: amend artifacts, apply, verify, and archive only after PASS.',
+  description: 'Quick spec-driven OpenSpec lifecycle for small contract-governed changes: prepare artifacts, apply and test, validate through the CLI, then archive.',
   mode: 'loop',
   graph: opsxLifecycleGraph(),
 }
@@ -65,16 +85,16 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
   {
     id: 'factory:implement',
     name: 'Implement',
-    description: 'Implement the spec, verify its acceptance criteria and project checks, then complete missing work or fix defects until the full change passes.',
+    description: 'Run the Core implementation pipeline for the spec. Core owns implementation, review, verification and corrections.',
     mode: 'implement',
-    graph: fixLoopGraph(['{{cmd:implement}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
+    graph: coreImplementationGraph('implement'),
   },
   {
     id: 'factory:batch',
     name: 'Batch Implement',
-    description: 'Batch-implement all the rail\'s tickets at once, then verify + refine on failure until green.',
+    description: 'Run the Core batch implementation pipeline for all the rail\'s tickets. Core owns implementation, review, verification and corrections across the batch.',
     mode: 'batch-implement',
-    graph: fixLoopGraph(['{{cmd:batch}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
+    graph: coreImplementationGraph('batch'),
   },
   {
     id: 'factory:freestyle',

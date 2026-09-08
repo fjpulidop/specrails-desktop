@@ -1685,6 +1685,13 @@ export class LoopRunManager {
             // session — plus zero-work); no exit code is exposed by the AI
             // executors → null.
             emitStepEnd({ status: stepFailed ? 'failed' : 'ok', durationMs: res.durationMs })
+            // Linear workflows may forbid later actions (such as archive) after
+            // a failed step. Verify/fix loops keep their existing recovery path.
+            if (node.data?.stopOnFailure === true && stepFailed) {
+              outcome = 'failed'
+              settled = true
+              break
+            }
             // Only carry forward the session of a step that actually ran — a
             // hard-failed turn (codex still emits thread.started before its error)
             // would otherwise make the next step `--resume` a dead session.
@@ -1775,6 +1782,11 @@ export class LoopRunManager {
               totalDurationMs: totalDuration,
             })
             history.push(`Shell \`${command}\` exit=${sh.exitCode}: ${truncate(sh.stdout || sh.stderr)}`)
+            if (node.data?.stopOnFailure === true && sh.exitCode !== 0) {
+              outcome = 'failed'
+              settled = true
+              break
+            }
             nodeId = succs[0]?.id
             break
           }
