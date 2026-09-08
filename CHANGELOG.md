@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.43.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.43.0...v2.43.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **loops:** stop the Loop Decider starving on its own tool budget ([#644](https://github.com/fjpulidop/specrails-desktop/issues/644)) ([ae22007](https://github.com/fjpulidop/specrails-desktop/commit/ae22007bc0c6d1f5efaf542c418867098345b01a))
+
 ## [2.43.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.42.2...v2.43.0) (2026-09-07)
 
 
