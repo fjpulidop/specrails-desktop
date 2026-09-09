@@ -172,7 +172,7 @@ registration; no token belongs in the stdio configuration.
 
 ### For agents only — Claude, Codex, Kimi and Gemini
 
-Follow the [agent connection runbook](agents/mcp.md) ([Español](agents/mcp.es.md))
+Follow the [agent connection runbook](agents/mcp.md)
 for executable discovery, client-specific registration, real read-only verification
 and troubleshooting. It distinguishes saved configuration, bridge connectivity
 and tools available in the current conversation.

@@ -10,7 +10,7 @@ If you're contributing to the app itself or building on its API, head over to [`
 
 ## Exclusively for agents
 
-When asked to connect to Specrails MCP, read [the agent runbook](agents/mcp.md) ([Español](agents/mcp.es.md)). It covers Claude, Codex, Kimi and Gemini, preserves existing servers and requires a real read-only verification.
+When asked to connect to Specrails MCP, read [the agent runbook](agents/mcp.md). It covers Claude, Codex, Kimi and Gemini, preserves existing servers and requires a real read-only verification.
 
 ## Start here
 
