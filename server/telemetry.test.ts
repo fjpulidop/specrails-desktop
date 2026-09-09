@@ -76,10 +76,10 @@ describe('readCurrentFrameworkVersion (queue-manager OTEL framework_version sour
 // ─── Project settings ─────────────────────────────────────────────────────────
 
 describe('getProjectSettings / updateProjectSettings', () => {
-  it('defaults pipelineTelemetryEnabled to false', () => {
+  it('defaults pipelineTelemetryEnabled to true', () => {
     const db = makeDb()
     const settings = getProjectSettings(db)
-    expect(settings.pipelineTelemetryEnabled).toBe(false)
+    expect(settings.pipelineTelemetryEnabled).toBe(true)
   })
 
   it('persists the toggle when updated to true', () => {
@@ -116,7 +116,7 @@ describe('getProjectSettings / updateProjectSettings', () => {
   it('does not affect pipelineTelemetryEnabled when only orchestratorModel updated', () => {
     const db = makeDb()
     updateProjectSettings(db, { orchestratorModel: 'opus' })
-    expect(getProjectSettings(db).pipelineTelemetryEnabled).toBe(false)
+    expect(getProjectSettings(db).pipelineTelemetryEnabled).toBe(true)
   })
 
   it('defaults prePrompt to an empty string', () => {

@@ -13,7 +13,7 @@
   },
   "telemetry": {
     "title": "流水线遥测",
-    "description": "采集 token 用量、阶段耗时和子 Agent 活动以供诊断导出。默认关闭。",
+    "description": "采集 token 用量、阶段耗时和子 Agent 活动以供诊断导出。默认开启。",
     "toggleLabel": "启用流水线遥测",
     "toggleDescription": "开启后，流水线任务的 OTEL 数据将在本地采集。在任意任务卡片上使用<mono>导出诊断</mono>按钮即可下载。",
     "enabled": "已启用流水线遥测",

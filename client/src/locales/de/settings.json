@@ -13,7 +13,7 @@
   },
   "telemetry": {
     "title": "Pipeline-Telemetrie",
-    "description": "Erfasst Token-Verbrauch, Phasendauern und Subagent-Aktivität für den Diagnose-Export. Standardmäßig aus.",
+    "description": "Erfasst Token-Verbrauch, Phasendauern und Subagent-Aktivität für den Diagnose-Export. Standardmäßig an.",
     "toggleLabel": "Pipeline-Telemetrie aktivieren",
     "toggleDescription": "Wenn aktiviert, werden OTEL-Daten aus Pipeline-Jobs lokal erfasst. Verwenden Sie zum Herunterladen die Schaltfläche <mono>Diagnose exportieren</mono> auf einer beliebigen Job-Karte.",
     "enabled": "Pipeline-Telemetrie aktiviert",

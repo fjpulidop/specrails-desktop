@@ -27,11 +27,11 @@ function SectionSkeleton() {
   return <div className="h-32 animate-pulse rounded-lg bg-muted/30" data-testid="section-skeleton" />
 }
 
-/** Pipeline telemetry opt-in toggle (Super mode only — enforced by callers). */
+/** Pipeline telemetry toggle (Super mode only — enforced by callers). */
 export function ProjectTelemetrySection() {
   const { t } = useTranslation('settings')
   const { activeProjectId } = useDesktop()
-  const [telemetryEnabled, setTelemetryEnabled] = useState(false)
+  const [telemetryEnabled, setTelemetryEnabled] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
@@ -42,7 +42,7 @@ export function ProjectTelemetrySection() {
     fetch(`${getApiBase()}/settings`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: ProjectSettingsPayload | null) => {
-        if (!cancelled && data) setTelemetryEnabled(data.pipelineTelemetryEnabled ?? false)
+        if (!cancelled && data) setTelemetryEnabled(data.pipelineTelemetryEnabled ?? true)
       })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoaded(true) })

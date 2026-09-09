@@ -2468,7 +2468,7 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
     `SELECT value FROM queue_state WHERE key = 'config.worktree_env_passthrough'`
   ).get() as { value: string } | undefined
   return {
-    pipelineTelemetryEnabled: telemetryRow?.value === 'true',
+    pipelineTelemetryEnabled: telemetryRow?.value !== 'false',
     orchestratorModel: modelRow?.value ?? 'sonnet',
     orchestratorModelExplicit: modelRow?.value !== undefined,
     prePrompt: prePromptRow?.value ?? '',

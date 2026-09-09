@@ -1,6 +1,6 @@
 # Telemetria della pipeline e diagnostica
 
-Quando un job della pipeline non va come ti aspettavi, la telemetria ti offre un resoconto dettagliato e dietro le quinte di ciò che la AI CLI ha realmente fatto. È **disattivata per impostazione predefinita** e completamente opzionale, per ogni progetto — attivala solo quando ti serve.
+La telemetria registra i dati diagnostici della pipeline in locale. È **attivata per impostazione predefinita** nei progetti senza una preferenza salvata. Puoi disattivarla per progetto; le scelte salvate esplicitamente vengono rispettate.
 
 ## Cos'è
 

@@ -1,6 +1,6 @@
 # Pipeline telemetry & diagnostics
 
-When a pipeline job doesn't go the way you expected, telemetry gives you a detailed, behind-the-scenes record of what the AI CLI actually did. It's **off by default** and entirely opt-in, per project — turn it on only when you want it.
+Telemetry records pipeline diagnostics locally. It is **on by default** for projects without a saved preference. You can turn it off per project; an explicitly saved choice is preserved.
 
 ## What it is
 

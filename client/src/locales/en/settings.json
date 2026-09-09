@@ -13,7 +13,7 @@
   },
   "telemetry": {
     "title": "Pipeline Telemetry",
-    "description": "Capture token usage, phase durations, and subagent activity for diagnostic export. Off by default.",
+    "description": "Capture token usage, phase durations, and subagent activity for diagnostic export. On by default.",
     "toggleLabel": "Enable pipeline telemetry",
     "toggleDescription": "When on, OTEL data from pipeline jobs is captured locally. Use the <mono>Export diagnostic</mono> button on any job card to download.",
     "enabled": "Pipeline telemetry enabled",
