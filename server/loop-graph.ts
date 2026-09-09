@@ -292,12 +292,13 @@ export function successors(graph: LoopGraph, nodeId: string): LoopNode[] {
  */
 /** The spec (local ticket) fields a loop prompt can reference via `{{spec.*}}`. */
 export interface LoopSpec {
+  acceptanceCriteria?: string[]
   repositoryIds?: string[]
   id?: number
   /** All ticket ids this run targets (for `{{spec.ids}}` → `#1 #2 #3`). */
   ticketIds?: number[]
   /** Exact specs covered by an all-ticket run, for independent verification. */
-  tickets?: Array<{ id: number; title?: string; description?: string; repositoryIds?: string[] }>
+  tickets?: Array<{ id: number; title?: string; description?: string; repositoryIds?: string[]; acceptanceCriteria?: string[] }>
   title?: string
   description?: string
   status?: string
@@ -342,9 +343,10 @@ export function interpolateSpec(text: string, spec?: LoopSpec): string {
         ticketIds: spec.ticketIds,
         title: spec.title,
         description: spec.description,
+        acceptanceCriteria: spec.acceptanceCriteria,
         repositoryIds: spec.repositoryIds,
         openspecChangeName: changeName || undefined,
-        tickets: spec.tickets?.map(ticket => ({ id: ticket.id, title: ticket.title, description: ticket.description, repositoryIds: ticket.repositoryIds })),
+        tickets: spec.tickets?.map(ticket => ({ id: ticket.id, title: ticket.title, description: ticket.description, acceptanceCriteria: ticket.acceptanceCriteria, repositoryIds: ticket.repositoryIds })),
       }, null, 2)
       if (scope === '{}') return ''
       // Constants/run-vars expand after spec data. Escape their delimiters

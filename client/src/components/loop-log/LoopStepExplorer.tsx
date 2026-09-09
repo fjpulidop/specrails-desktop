@@ -29,6 +29,7 @@ import {
   segmentStatus,
   type LoopLogModel,
 } from './loop-log-model'
+import { LoopCompletionSummary } from './LoopCompletionSummary'
 import { LoopOverviewStrip } from './LoopOverviewStrip'
 import { LoopStepSection, LoopSetupSection, SETUP_KEY } from './LoopStepSection'
 import { useLogTicketActions } from '../../hooks/useLogTicketActions'
@@ -305,6 +306,7 @@ export function LoopStepExplorer({
       </div>
 
       {/* Overview strip — the loop's live circuit */}
+      {model.completion && <LoopCompletionSummary result={model.completion} />}
       <LoopOverviewStrip
         chips={chips}
         iteration={iterationInfo}

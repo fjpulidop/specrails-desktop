@@ -1,0 +1,8 @@
+# Specrails Desktop — for agents
+
+> When asked to connect to Specrails MCP, read the agent runbook before changing client configuration.
+
+- [Connection runbook: Claude, Codex, Kimi and Gemini](docs/agents/mcp.md)
+- [MCP surface and permissions](docs/mcp.md)
+
+The runbooks cover the bridge bundled with Desktop, not the legacy standalone npm hub. Preserve existing servers; verify initialize, tools/list and a read-only project list. Never include tokens in reports.

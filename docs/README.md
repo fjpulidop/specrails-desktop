@@ -8,6 +8,10 @@ project and choose which engine runs each task.
 
 If you're contributing to the app itself or building on its API, head over to [`internals/`](internals/) for the technical deep dive.
 
+## Exclusively for agents
+
+When asked to connect to Specrails MCP, read [the agent runbook](agents/mcp.md). It covers Claude, Codex, Kimi and Gemini, preserves existing servers and requires a real read-only verification.
+
 ## Start here
 
 1. [Getting started](getting-started.md) — install the app, register your first project, run your first pipeline. ~10 minutes.
@@ -27,7 +31,7 @@ If you're contributing to the app itself or building on its API, head over to [`
 | [Tracking cost](tracking-cost.md) | …you want to see what AI is costing you and which specs are the most expensive |
 | [Customising the app](customizing.md) | …you want to change theme, configure settings, set a budget, or turn on telemetry |
 | [Terminal panel](terminal.md) | …you want to use the built-in terminal: shortcuts, shell integration, drag-and-drop |
-| [MCP server](mcp.md) | …you want to drive the app from an MCP client (Claude Desktop, Cursor, your own agent) |
+| [MCP server](mcp.md) | …you want to drive the app from an MCP client (Codex, Claude Desktop, Cursor, your own agent) |
 | [CLI reference](cli.md) | …you want to drive specrails-desktop from the terminal instead of (or alongside) the dashboard |
 
 ## Platform-specific notes
@@ -51,6 +55,7 @@ If you're contributing to the app itself or building on its API, head over to [`
 - **"How much did I spend last week?"** → [Tracking cost](tracking-cost.md)
 - **"How do I change the theme?"** → [Customising the app › Themes](customizing.md#themes)
 - **"How do I set a daily budget?"** → [Customising the app › Budget](customizing.md#budget)
+- **"How do I connect Codex CLI or the desktop app?"** → [Codex MCP setup and verification](agents/mcp.md)
 - **"How do I connect an MCP client (Claude Desktop / Cursor)?"** → [MCP server](mcp.md#connecting-a-client)
 
 ## Internals

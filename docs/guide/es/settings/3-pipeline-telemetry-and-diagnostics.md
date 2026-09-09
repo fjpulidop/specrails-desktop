@@ -44,3 +44,13 @@ Este es el paquete que conviene tener a mano cuando quieres entender una ejecuci
 ## Cómo desactivarla
 
 Vuelve a apagar el interruptor cuando quieras. Los nuevos jobs dejan de registrar de inmediato. Lo que ya se capturó se mantiene en disco hasta que se compacta o eliminas el proyecto: nada se envía a ninguna parte ni se pierde a tus espaldas.
+
+
+## Evidencia al finalizar
+
+El historial del loop conserva el resultado final independientemente de la telemetría
+opcional del proveedor. Separa ejecución, aceptación de Core y entrega, y distingue
+pasos, evaluaciones del decider y turnos del agente. Los tiempos e intentos por fase
+proceden del registro de Core; no se deduce un coste por fase a partir del total. Con
+runtimes antiguos, la evidencia queda como no disponible. Consulta el resultado de
+Implement en la guía de ejecución por lotes.

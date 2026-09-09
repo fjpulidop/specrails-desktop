@@ -82,3 +82,33 @@ No hay límite global de concurrencia que ajustar. Abre los proyectos o rails qu
 - [Rails y jobs](rails-and-jobs) — el modelo de cola en profundidad.
 - [La vista de detalle del job](the-job-detail-view) — mira un batch ejecutarse en vivo.
 - [Elegir un motor por rail](picking-an-engine-per-rail) — Batch corre en cualquier proveedor; Freestyle está disponible con Claude y Kimi.
+
+
+## Interpretar el resultado de Implement
+
+Con un runtime de Core que admita evidencia de aceptación, el resultado muestra cuatro
+estados separados: implementación, validación, archivo y entrega. «Verificada con
+excepciones» conserva las interpretaciones aceptadas y los checks complementarios
+fallidos o no disponibles. «Pendiente del host» indica que Core no ha realizado la
+entrega que corresponde al host, aunque el cambio ya esté archivado.
+
+Abre **Evidencia, excepciones y tiempos por fase** para consultar decisiones,
+referencias de aprobación, alcance y limitaciones de las mediciones, conclusiones de
+revisión y tiempos registrados. Los checks obligatorios fallidos y los requisitos
+sin resolver bloquean la aceptación. Un benchmark de Node no demuestra el rendimiento
+de renderizado del navegador. Los cambios materiales requieren autorización previa
+del usuario o del host; el reviewer puede aceptar interpretaciones menores dejando
+constancia de su motivo e impacto.
+
+El éxito de ejecución describe el proceso. Si el runtime informa de implementación
+incompleta o validación bloqueada/pendiente, Desktop cierra el run como bloqueado y
+no completa sus tickets. Con runtimes antiguos o no disponibles, la evidencia aparece
+como no disponible: el éxito del proceso por sí solo no prueba la aceptación.
+El resultado se registra al terminar; no revalida modificaciones posteriores.
+
+Los contadores distinguen pasos ejecutados, evaluaciones del decider y turnos del
+agente. Un Implement integrado puede tener un paso, cero evaluaciones y muchos turnos.
+Se muestran tiempos e intentos por fase de Core cuando están registrados; el coste por
+fase no está disponible porque el consumo se atribuye a pasos del loop. Los receipts
+completos se reutilizan mientras sus entradas sigan vigentes: cada fase no necesita
+repetir la misma suite completa.

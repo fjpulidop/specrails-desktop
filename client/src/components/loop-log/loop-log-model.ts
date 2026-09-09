@@ -1,3 +1,4 @@
+import { parseLoopCompletion, type LoopCompletion } from './completion-model'
 /**
  * Loop-step log model — pure grouping/derivation logic for the premium
  * loop-step explorer. Segments the SAME parsed line model LogViewer produces
@@ -79,6 +80,7 @@ export interface LoopStepSegment {
 }
 
 export interface LoopLogModel {
+  completion?: LoopCompletion | null
   graphMeta: LoopGraphMeta | null
   /** Lines seen before the first loop_step (run banner, worktree notice…). */
   setup: FormattedLine[]
@@ -151,6 +153,7 @@ export function nodeKeyForSegment(seg: LoopStepSegment): string {
 export function groupByLoopStep(events: EventRow[]): LoopLogModel {
   let graphMeta: LoopGraphMeta | null = null
   let maxIteration = 0
+  let completion: LoopCompletion | null = null
 
   // buckets[0] = setup; buckets[i+1] pairs segMetas[i]
   const buckets: FormattedLine[][] = [[]]
@@ -162,6 +165,11 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
 
   for (let idx = 0; idx < events.length; idx++) {
     const ev = events[idx]
+
+    if (ev.event_type === 'loop_completion') {
+      completion = parseLoopCompletion(parsePayload(ev.payload))
+      continue
+    }
 
     if (ev.event_type === 'loop_graph') {
       const p = parsePayload(ev.payload)
@@ -256,7 +264,7 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
   }))
   const totalLines = setup.length + segments.reduce((n, s) => n + s.lines.length, 0)
 
-  return { graphMeta, setup, segments, maxIteration, totalLines }
+  return { graphMeta, setup, segments, maxIteration, totalLines, ...(completion ? { completion } : {}) }
 }
 
 // ─── Status derivation ────────────────────────────────────────────────────────

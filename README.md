@@ -74,7 +74,7 @@ Install and authenticate the provider CLI you intend to use before launching wor
 
 A minimum-version check is not a promise that every later CLI release has identical APIs. Features are capability-gated: for example, profiles are available for Claude and Kimi, and Kimi's unsupported no-tools transforms and Loop Deciders are rejected before execution. See [Kimi integration](docs/kimi.md) and the [provider adapter guide](docs/internals/adding-a-provider.md).
 
-Git is required for isolated worktrees and branch delivery. Authenticated `gh` is needed for GitHub PR operations. Jira, MCP integrations and other external services require their own configuration and credentials. The [Specrails MCP server](docs/mcp.md) exposes project-aware operations to agents; repository-specific operations retain explicit repository identity.
+Git is required for isolated worktrees and branch delivery. Authenticated `gh` is needed for GitHub PR operations. Jira, MCP integrations and other external services require their own configuration and credentials. Agents asked to connect should follow the [dedicated agent instructions](docs/agents/mcp.md). The [Specrails MCP server](docs/mcp.md) exposes project-aware operations to agents; repository-specific operations retain explicit repository identity.
 
 ## Core installation and updates
 

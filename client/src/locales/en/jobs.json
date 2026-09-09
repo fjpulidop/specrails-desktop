@@ -292,5 +292,41 @@
     "completed": "Completed",
     "turns_one": "{{count}} turn",
     "turns_other": "{{count}} turns"
+  },
+  "completion": {
+    "title": "Run result",
+    "execution": "Execution",
+    "implementation": "Implementation",
+    "validation": "Validation",
+    "archive": "Archive",
+    "delivery": "Delivery",
+    "counters": "Steps: {{steps}} · Decider evaluations: {{evaluations}} · Agent turns: {{turns}}",
+    "unavailable": "Unavailable",
+    "evidence": "Evidence, exceptions and phase timings",
+    "snapshot": "Recorded at completion: {{change}} · {{at}}",
+    "acceptedBy": "Accepted by {{by}}",
+    "required": "Required",
+    "supplementary": "Supplementary",
+    "attempts": "Attempts: {{count}}",
+    "phaseCostUnavailable": "Cost per Core phase is unavailable; provider usage is attributed to loop steps.",
+    "noCoreEvidence": "Acceptance evidence unavailable. Execution success alone does not confirm ticket completion.",
+    "status": {
+      "success": "Succeeded",
+      "failed": "Failed",
+      "blocked": "Blocked",
+      "stopped": "Stopped",
+      "stalled": "Stalled",
+      "complete": "Complete",
+      "incomplete": "Incomplete",
+      "verified": "Verified",
+      "with-exceptions": "Verified with exceptions",
+      "pending": "Pending",
+      "pending-host": "Pending host delivery",
+      "done": "Done",
+      "running": "Running",
+      "skipped": "Skipped",
+      "passed": "Passed",
+      "unavailable": "Unavailable"
+    }
   }
 }

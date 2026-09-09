@@ -19,38 +19,11 @@ You stay in control of *what* an external AI may do through a set of permission 
 
 All four tiers are granted out of the box, so a connected assistant can drive the whole app right away. Untick any tier you'd rather keep to yourself; if your assistant then tries something that tier covers, Specrails refuses with a clear message telling you which tier to switch back on.
 
-## Connecting your assistant
+## For agents only: connect your client
 
-The panel shows a ready-to-paste configuration block. The simplest, universal path is the bundled **bridge** (`specrails-mcp`): your assistant runs it, and it relays to Specrails for you. The bridge reads the access token locally, so **the token never appears in your assistant's config**.
+When a person asks an agent to connect, read the [dedicated MCP connection runbook](../../../agents/mcp.md). It covers Claude Code, Codex CLI and desktop, Kimi Code and Gemini CLI: locate the bundled bridge, preserve existing configuration, verify the real connection and diagnose failures. The web version is plain Markdown and needs no JavaScript.
 
-In a client like Claude Desktop or Cursor, the config looks like:
-
-```json
-{ "mcpServers": { "specrails": { "command": "specrails-mcp" } } }
-```
-
-Clients that support remote HTTP MCP servers can instead point straight at `http://127.0.0.1:4200/api/mcp` with the token from the panel.
-
-### From the terminal: Claude Code, Gemini CLI, Codex CLI
-
-Copy your token from **Settings ▸ MCP ▸ Copy token**, then:
-
-```bash
-# Claude Code
-claude mcp add --transport http specrails http://localhost:4200/api/mcp \
-  --header "X-Desktop-Token: <your token>"
-
-# Gemini CLI
-gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
-  --header "X-Desktop-Token: <your token>"
-
-# Codex CLI (stdio — register the bridge command shown in Settings ▸ MCP)
-codex mcp add specrails -- <bridge command from Settings ▸ MCP>
-```
-
-The `Authorization: Bearer <token>` header works too. If you changed the app port, swap `4200` for yours.
-
-Once connected, your assistant sees **22 tools** covering the whole app — projects, specs, rails and jobs, chat/Explore, agents, plugins, Jira, loops, the code explorer, analytics, settings — including a built-in **guide** tool it reads first so it understands how Specrails works without you explaining anything.
+Keep Specrails running and open **Settings ▸ MCP ▸ Copy client config**. Some versions return only `specrails-mcp`, which may not be on PATH; the runbook explains how to locate the actual executable and script. The bridge reads the token locally, so no token belongs in client configuration. Registration alone is not proof of connection: complete `initialize`, `tools/list`, and a read-only `specrails_projects` call with `{"action":"list"}`.
 
 Before acting, the assistant can use `specrails_context` for a current briefing on the project, specs, runs and Git state. Unavailable sections are reported explicitly; they do not mean the project is empty. `specrails_code(search)` finds source text, and `read_file` reads specific line ranges with continuation information when more content remains.
 

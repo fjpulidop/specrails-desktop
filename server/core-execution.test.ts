@@ -92,3 +92,12 @@ describe('Core receipt bridge', () => {
     expect(coreVerificationContext('/context.json', cwd, process.env, 'run')).toBe('')
   })
 })
+
+
+it('preserves explicit acceptance criteria in single and batch frozen contexts', () => {
+  const { cwd, front } = fixture()
+  const first = prepareCoreExecution({ cwd, repoDir: front, env: {}, run: { runId: 'criteria-single', spec: { id: 1, description: 'Visuals', acceptanceCriteria: ['Readable at peak'] } } })
+  expect(JSON.parse(readFileSync(first.contextPath, 'utf8')).specs[0].acceptanceCriteria).toEqual(['Readable at peak'])
+  const batch = prepareCoreExecution({ cwd, repoDir: front, env: {}, run: { runId: 'criteria-batch', spec: { tickets: [{ id: 1, acceptanceCriteria: ['First'] }, { id: 2, acceptanceCriteria: ['Second'] }] } } })
+  expect(JSON.parse(readFileSync(batch.contextPath, 'utf8')).specs.map((spec: { acceptanceCriteria: string[] }) => spec.acceptanceCriteria)).toEqual([['First'], ['Second']])
+})
