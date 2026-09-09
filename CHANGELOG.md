@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.44.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.43.2...v2.44.0) (2026-09-09)
+
+
+### Features
+
+* show implementation acceptance and document agent MCP connections ([#648](https://github.com/fjpulidop/specrails-desktop/issues/648)) ([6951f2f](https://github.com/fjpulidop/specrails-desktop/commit/6951f2f84bc57cdc92167eb8f987d3ef4ab02eba))
+
+
+### Bug Fixes
+
+* bundle specrails-core 5.2.1 ([#650](https://github.com/fjpulidop/specrails-desktop/issues/650)) ([80ff7b1](https://github.com/fjpulidop/specrails-desktop/commit/80ff7b1ca170c8b1e7f5a8e7f240622486eb686f))
+
 ## [2.43.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.43.1...v2.43.2) (2026-09-08)
 
 
