@@ -1,6 +1,6 @@
 # Pipeline-Telemetrie & Diagnose
 
-Wenn ein Pipeline-Job nicht so läuft, wie du es erwartet hast, liefert dir die Telemetrie eine detaillierte Aufzeichnung dessen, was die AI-CLI hinter den Kulissen tatsächlich getan hat. Sie ist **standardmäßig aus** und vollständig optional, pro Projekt – aktiviere sie nur dann, wenn du sie wirklich willst.
+Die Telemetrie zeichnet Pipeline-Diagnosen lokal auf. Sie ist für Projekte ohne gespeicherte Einstellung **standardmäßig aktiviert**. Du kannst sie pro Projekt deaktivieren; ausdrücklich gespeicherte Einstellungen bleiben erhalten.
 
 ## Was es ist
 

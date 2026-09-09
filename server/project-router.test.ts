@@ -2895,7 +2895,7 @@ describe('project-router', () => {
       const { app } = createApp(new Map([['proj-1', ctx]]))
       const res = await request(app).get('/api/projects/proj-1/settings')
       expect(res.status).toBe(200)
-      expect(res.body.pipelineTelemetryEnabled).toBe(false)
+      expect(res.body.pipelineTelemetryEnabled).toBe(true)
       expect(res.body.orchestratorModel).toBe('sonnet')
       expect(res.body.prePrompt).toBe('')
       expect(res.body.worktreeEnvPassthrough).toEqual([])

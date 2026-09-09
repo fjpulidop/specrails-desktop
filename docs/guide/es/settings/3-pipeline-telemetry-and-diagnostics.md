@@ -1,6 +1,6 @@
 # Telemetría del pipeline y diagnósticos
 
-Cuando un job del pipeline no sale como esperabas, la telemetría te ofrece un registro detallado, entre bambalinas, de lo que el CLI de IA hizo en realidad. Está **desactivada por defecto** y es totalmente opcional, por proyecto: actívala solo cuando la quieras.
+La telemetría registra los diagnósticos del pipeline en local. Está **activada por defecto** en los proyectos sin una preferencia guardada. Puedes desactivarla por proyecto; se respeta cualquier elección guardada explícitamente.
 
 ## Qué es
 

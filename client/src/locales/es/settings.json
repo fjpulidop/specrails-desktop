@@ -13,7 +13,7 @@
   },
   "telemetry": {
     "title": "Telemetría del pipeline",
-    "description": "Captura el uso de tokens, la duración de las fases y la actividad de los subagentes para exportar diagnósticos. Desactivada por defecto.",
+    "description": "Captura el uso de tokens, la duración de las fases y la actividad de los subagentes para exportar diagnósticos. Activada por defecto.",
     "toggleLabel": "Activar telemetría del pipeline",
     "toggleDescription": "Cuando está activa, los datos OTEL de los jobs del pipeline se capturan en local. Usa el botón <mono>Exportar diagnóstico</mono> en cualquier tarjeta de job para descargarlos.",
     "enabled": "Telemetría del pipeline activada",

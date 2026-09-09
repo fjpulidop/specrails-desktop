@@ -1,6 +1,6 @@
 # Telemetria do pipeline e diagnóstico
 
-Quando um job do pipeline não corre como esperava, a telemetria dá-lhe um registo detalhado, dos bastidores, do que a CLI de IA fez de facto. Está **desativada por omissão** e é totalmente opcional, por projeto — ative-a apenas quando quiser.
+A telemetria regista os diagnósticos do pipeline localmente. Está **ativada por omissão** nos projetos sem uma preferência guardada. Pode desativá-la por projeto; as escolhas guardadas explicitamente são respeitadas.
 
 ## O que é
 
