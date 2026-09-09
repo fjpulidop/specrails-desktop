@@ -1,20 +1,20 @@
 # The Specrails MCP server
 
 Specrails Desktop can expose itself to **any MCP client** — Claude Desktop,
-Claude Code, Cursor, or your own agent — as a local
+Claude Code, Codex, Cursor, or your own agent — as a local
 [Model Context Protocol](https://modelcontextprotocol.io) server. A connected
 agent can drive the whole dashboard: list your projects, read and
 create specs, launch the AI pipeline, watch jobs settle, inspect analytics, and
-more — through 22 tools with discoverable action schemas.
+more — through a versioned tool catalog with discoverable action schemas.
 
 > **Just want to get going?** Open **Settings ▸ MCP**, click **Copy client
-> config**, and paste it into your MCP client. MCP and all four permission tiers
+> config**, then follow the [client-specific agent runbook](agents/mcp.md).
+> MCP and all four permission tiers
 > are on by default. Disable **Write**, **AI-spawn**, or **Destructive** there
 > to restrict external clients. Existing disabled settings survive upgrades.
 
 This is the **app talking to an outside agent** — the opposite direction from
-the [Serena plugin](running-pipelines.md#plugins) or
-`codex mcp add`, where Specrails *consumes* an MCP server. Here Specrails *is*
+the [Serena plugin](running-pipelines.md#plugins), where Specrails *consumes* an MCP server. Here Specrails *is*
 the server.
 
 The MCP server is **on by default** and entirely local: it listens only on
@@ -28,7 +28,7 @@ When enabled, the server registers a compact catalog of **domain-facade tools**
 plus a few **meta tools**, a set of read-only **resources**, and a self-contained
 **guide** an LLM can read to learn the platform with no prior knowledge.
 
-### Tools (22)
+### Tools
 
 Each domain is a single tool with an `action` enum, rather than dozens of
 narrow tools — so the catalog stays small and an agent discovers actions by
@@ -166,23 +166,16 @@ stdio from your client to the embedded HTTP server on loopback — and it reads
 the scoped token from `~/.specrails/mcp.token` **locally**, so the token never
 appears in your client's config file.
 
-A typical client config looks like:
+Use **Copy client config** as a starting point. Some versions return only
+`specrails-mcp`, which may not be on PATH. Follow the linked agent runbook for path discovery and client-specific
+registration; no token belongs in the stdio configuration.
 
-```json
-{
-  "mcpServers": {
-    "specrails": {
-      "command": "specrails-mcp"
-    }
-  }
-}
-```
+### For agents only — Claude, Codex, Kimi and Gemini
 
-Use the exact command/path from the panel's **Copy client config** button — it
-fills in the path to the bundled bridge for your platform. No token, no URL, no
-port to manage; the bridge handles all of it. If the Specrails app isn't
-running, the bridge replies with a clear *"Specrails app is not running. Start
-the Specrails Desktop app, then retry."* rather than a cryptic connection error.
+Follow the [agent connection runbook](agents/mcp.md) ([Español](agents/mcp.es.md))
+for executable discovery, client-specific registration, real read-only verification
+and troubleshooting. It distinguishes saved configuration, bridge connectivity
+and tools available in the current conversation.
 
 ### Option B — the direct HTTP URL (remote-HTTP clients)
 
@@ -206,30 +199,6 @@ request that doesn't originate from `127.0.0.1`, so this path is for local
 HTTP-capable clients, not for exposing Specrails on a network. (`4200` is the
 default app port; if you've changed it, the panel's config reflects the real
 one.)
-
-#### One-liners for the common CLIs
-
-**Claude Code** (HTTP transport):
-
-```bash
-claude mcp add --transport http specrails http://localhost:4200/api/mcp \
-  --header "X-Desktop-Token: <your mcp token>"
-```
-
-**Gemini CLI** (HTTP transport — same shape):
-
-```bash
-gemini mcp add --transport http specrails http://localhost:4200/api/mcp \
-  --header "X-Desktop-Token: <your mcp token>"
-```
-
-**Codex CLI** (stdio — register the bundled bridge; copy the exact bridge
-command from **Settings ▸ MCP ▸ Copy config**, it embeds the app's bundled
-Node + script path):
-
-```bash
-codex mcp add specrails -- <bridge command from Settings ▸ MCP>
-```
 
 ## Security model
 
@@ -316,8 +285,8 @@ extra tiers.
 
 **`401 Unauthorized: invalid MCP token`** (direct-HTTP path) — the bearer token
 is wrong or stale. Re-copy it from **Settings ▸ MCP ▸ Copy token**, or
-**Regenerate token** and update your client. The stdio bridge avoids this
-entirely (it reads the token locally).
+**Regenerate token** and update your client. The stdio bridge reads the current token locally; check the OS user and
+token-file access if it also reports an authentication failure.
 
 **The agent assumed a rail succeeded but it didn't** — cost-incurring actions
 return a reference, not a result. The agent must call `specrails_watch` with the
@@ -326,7 +295,8 @@ returned `jobId`/`requestId` to get the real outcome. This is documented in
 
 **Connection refused on `:4200`** — that's the default app port. If you changed
 the port in Settings, use the URL from **Copy client config**, which reflects
-the real port. The bridge resolves the port automatically.
+the real port. Set `SPECRAILS_MCP_PORT` in the bridge environment for a custom port;
+it defaults to `4200` and does not discover arbitrary ports automatically.
 
 ## See also
 

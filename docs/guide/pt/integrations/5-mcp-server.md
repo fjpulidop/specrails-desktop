@@ -1,5 +1,7 @@
 # Controlar o Specrails a partir de qualquer IA (servidor MCP)
 
+> **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude, Codex, Kimi and Gemini. It includes verified bridge discovery, registration and read-only checks.
+
 O Specrails pode expor-se **a si próprio** a qualquer assistente de IA que fale o [Model Context Protocol](https://modelcontextprotocol.io) — Claude Desktop, Claude Code, Cursor, Cline ou o seu próprio agente. Ative-o, aponte o seu assistente para o Specrails e poderá conduzir a app inteira conversando: *"lista os meus projetos", "cria uma spec para login social no projeto da API", "lança o rail 0 e avisa-me quando terminar", "quanto gastei esta semana?"*. O seu assistente invoca as ferramentas do Specrails nos bastidores em vez de ser você a clicar por toda a parte.
 
 Este é o sentido oposto das funcionalidades de plugins e "Os meus MCPs aprovados": essas permitem que o Specrails *use* outros servidores MCP; esta permite que outras apps usem o **Specrails**.

@@ -1,5 +1,7 @@
 # 从任意 AI 操控 Specrails（MCP 服务器）
 
+> **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude, Codex, Kimi and Gemini. It includes verified bridge discovery, registration and read-only checks.
+
 Specrails 可以把**自己**暴露给任何会说 [Model Context Protocol](https://modelcontextprotocol.io) 的 AI 助手——Claude Desktop、Claude Code、Cursor、Cline，或者你自己的 agent。打开这个功能，把你的助手指向 Specrails，你就能靠聊天来驱动整个应用：*「列出我的项目」「在 API 项目里为社交登录创建一份规格」「启动 rail 0，跑完了告诉我」「我这周花了多少钱？」*。你的助手会在幕后调用 Specrails 的工具，而不用你点来点去。
 
 这和插件以及「My approved MCPs」功能的方向正好相反：那些功能是让 Specrails 去*使用*别的 MCP 服务器；而这个功能是让别的应用来使用 **Specrails**。
