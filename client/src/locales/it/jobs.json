@@ -292,5 +292,41 @@
     "completed": "Completato",
     "turns_one": "{{count}} turno",
     "turns_other": "{{count}} turni"
+  },
+  "completion": {
+    "title": "Risultato dell’esecuzione",
+    "execution": "Esecuzione",
+    "implementation": "Implementazione",
+    "validation": "Validazione",
+    "archive": "Archiviazione",
+    "delivery": "Consegna",
+    "counters": "Passaggi: {{steps}} · Valutazioni: {{evaluations}} · Turni dell’agente: {{turns}}",
+    "unavailable": "Non disponibile",
+    "evidence": "Prove, eccezioni e tempi per fase",
+    "snapshot": "Registrato al completamento: {{change}} · {{at}}",
+    "acceptedBy": "Accettato da {{by}}",
+    "required": "Obbligatorio",
+    "supplementary": "Supplementare",
+    "attempts": "Tentativi: {{count}}",
+    "phaseCostUnavailable": "Il costo per fase di Core non è disponibile; il consumo del fornitore è attribuito ai passaggi del ciclo.",
+    "noCoreEvidence": "Prove di accettazione non disponibili. Il successo dell’esecuzione da solo non conferma il completamento del ticket.",
+    "status": {
+      "success": "Riuscita",
+      "failed": "Fallita",
+      "blocked": "Bloccata",
+      "stopped": "Interrotta",
+      "stalled": "Senza progressi",
+      "complete": "Completa",
+      "incomplete": "Incompleta",
+      "verified": "Verificata",
+      "with-exceptions": "Verificata con eccezioni",
+      "pending": "In attesa",
+      "pending-host": "Consegna dell’host in attesa",
+      "done": "Completato",
+      "running": "In corso",
+      "skipped": "Saltato",
+      "passed": "Superato",
+      "unavailable": "Non disponibile"
+    }
   }
 }

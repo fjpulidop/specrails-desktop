@@ -292,5 +292,41 @@
     "completed": "Terminé",
     "turns_one": "{{count}} tour",
     "turns_other": "{{count}} tours"
+  },
+  "completion": {
+    "title": "Résultat de l’exécution",
+    "execution": "Exécution",
+    "implementation": "Implémentation",
+    "validation": "Validation",
+    "archive": "Archivage",
+    "delivery": "Livraison",
+    "counters": "Étapes : {{steps}} · Évaluations : {{evaluations}} · Tours de l’agent : {{turns}}",
+    "unavailable": "Indisponible",
+    "evidence": "Preuves, exceptions et durées des phases",
+    "snapshot": "Enregistré à la fin : {{change}} · {{at}}",
+    "acceptedBy": "Accepté par {{by}}",
+    "required": "Obligatoire",
+    "supplementary": "Complémentaire",
+    "attempts": "Tentatives : {{count}}",
+    "phaseCostUnavailable": "Le coût par phase Core est indisponible ; la consommation du fournisseur est attribuée aux étapes de la boucle.",
+    "noCoreEvidence": "Preuves d’acceptation indisponibles. Une exécution réussie ne confirme pas à elle seule que le ticket est terminé.",
+    "status": {
+      "success": "Réussie",
+      "failed": "Échouée",
+      "blocked": "Bloquée",
+      "stopped": "Arrêtée",
+      "stalled": "Sans progression",
+      "complete": "Terminée",
+      "incomplete": "Incomplète",
+      "verified": "Vérifiée",
+      "with-exceptions": "Vérifiée avec exceptions",
+      "pending": "En attente",
+      "pending-host": "Livraison par l’hôte en attente",
+      "done": "Terminé",
+      "running": "En cours",
+      "skipped": "Ignoré",
+      "passed": "Réussi",
+      "unavailable": "Indisponible"
+    }
   }
 }

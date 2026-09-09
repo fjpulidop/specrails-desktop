@@ -44,3 +44,12 @@ This is the bundle to grab when you want to understand a tricky run, keep a reco
 ## Turning it off
 
 Flip the toggle back off any time. New jobs stop recording immediately. Anything already captured stays on disk until it's compacted or you remove the project — nothing is sent anywhere or lost behind your back.
+
+
+## Completion evidence
+
+Loop history stores a terminal result independently of optional provider telemetry.
+It separates process execution from Core acceptance and delivery, and distinguishes
+steps, decider evaluations and agent turns. Phase durations and attempts come from
+Core's journal; no per-phase cost is inferred from the total. Older runtimes keep
+acceptance evidence unavailable. See the implementation result in the batch guide.

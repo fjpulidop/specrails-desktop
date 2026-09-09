@@ -11,6 +11,7 @@
  *
  * Spec: openspec/changes/loop-builder/specs/loop-execution/spec.md
  */
+import type { CoreCompletionSnapshot } from './core-completion'
 import type { CoreRunInput } from './core-execution'
 import { executionManifestPrompt, type RunExecutionManifest } from './multi-repo-execution-store'
 import type { ChildProcess } from 'node:child_process'
@@ -191,6 +192,7 @@ export interface InteractiveAiStepPlan {
 }
 
 export interface LoopExecutors {
+  readCoreCompletion?(runId: string): Promise<CoreCompletionSnapshot | null>
   runAiStep(input: {
     coreRun?: CoreRunInput
     prompt: string
@@ -2040,6 +2042,18 @@ export class LoopRunManager {
         (usageTelemetryAvailable ? `cost=$${totalCost.toFixed(4)}` : 'usage=unavailable'),
     )
 
+    // Execution and acceptance are separate facts. Persist the runtime's own
+    // terminal snapshot alongside counters so history does not depend on prose.
+    let coreCompletion: CoreCompletionSnapshot | null = null
+    try { coreCompletion = await this.executors.readCoreCompletion?.(runId) ?? null } catch { /* old/unavailable runtime */ }
+    const executionOutcome = outcome
+    if (outcome === 'success' && coreCompletion && (coreCompletion.completion.implementation !== 'complete' || !['verified', 'with-exceptions'].includes(coreCompletion.completion.validation))) outcome = 'blocked'
+    emitRunEvent('loop_completion', {
+      version: 1, execution: executionOutcome, steps: stepNum, deciderEvaluations: iteration,
+      turns: finalJobUsage.numTurns, costUsd: usageTelemetryAvailable ? totalCost : null,
+      costUncertain, core: coreCompletion,
+    })
+
     // Settle the backing job so the Jobs list + JobDetail reflect the final
     // status, and emit job.finalized so an open JobDetail re-fetches + stops the
     // live stream (mirrors QueueManager).
@@ -2054,11 +2068,12 @@ export class LoopRunManager {
     // is a lower bound, not exact. Providers without usage telemetry get an
     // explicit unavailable marker, never a fabricated "$0.0000".
     logLine(
-      `\n■ Loop finished: ${outcome} — ${iteration} iteration${iteration === 1 ? '' : 's'}, ` +
+      `\n■ Loop execution finished: ${executionOutcome} — ${stepNum} step${stepNum === 1 ? '' : 's'}, ${iteration} decider evaluation${iteration === 1 ? '' : 's'}, ${finalJobUsage.numTurns ?? 'unknown'} agent turns, ` +
         (usageTelemetryAvailable
           ? `${costUncertain ? '≥ ' : ''}$${totalCost.toFixed(4)}`
           : 'usage/cost unavailable'),
     )
+    if (coreCompletion) logLine(`Core result: implementation=${coreCompletion.completion.implementation}; validation=${coreCompletion.completion.validation}; archive=${coreCompletion.completion.archive}; delivery=${coreCompletion.completion.delivery}`)
     const finishedAt = new Date(this.now()).toISOString()
     finishLoopRunAndJob(this.db, runId, {
       outcome,

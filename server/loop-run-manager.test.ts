@@ -238,14 +238,14 @@ describe('LoopRunManager honest cost (unpriced step → lower bound)', () => {
     // Per-occurrence honesty warning surfaced in the run log.
     expect(broadcasts.some((m) => m.type === 'log' && /Step cost unknown/.test((m as { line: string }).line))).toBe(true)
     // Final total rendered as a lower bound (only the decider's $0.001 is priced).
-    expect(broadcasts.some((m) => m.type === 'log' && /Loop finished:.*≥ \$0\.0010/.test((m as { line: string }).line))).toBe(true)
+    expect(broadcasts.some((m) => m.type === 'log' && /Loop execution finished:.*≥ \$0\.0010/.test((m as { line: string }).line))).toBe(true)
     expect(res.totalCostUsd).toBeCloseTo(0.001, 5)
   })
 
   it('does NOT flag the total when every cost-bearing step reports a price', async () => {
     const res = await manager(makeExecutors()).run(baseReq())
     expect(broadcasts.some((m) => m.type === 'log' && /Step cost unknown/.test((m as { line: string }).line))).toBe(false)
-    expect(broadcasts.some((m) => m.type === 'log' && /Loop finished:.*≥/.test((m as { line: string }).line))).toBe(false)
+    expect(broadcasts.some((m) => m.type === 'log' && /Loop execution finished:.*≥/.test((m as { line: string }).line))).toBe(false)
   })
 
   it('keeps Kimi usage null and disables an unverifiable maxCostUsd guard', async () => {
@@ -301,8 +301,8 @@ describe('LoopRunManager honest cost (unpriced step → lower bound)', () => {
       .map((message) => (message as { line: string }).line)
     expect(lines.some((line) => /usage totals will remain unavailable/i.test(line))).toBe(true)
     expect(lines.some((line) => /maxCostUsd guard is disabled/i.test(line))).toBe(true)
-    expect(lines.some((line) => /Loop finished:.*usage\/cost unavailable/i.test(line))).toBe(true)
-    expect(lines.some((line) => /Loop finished:.*\$0\.0000/i.test(line))).toBe(false)
+    expect(lines.some((line) => /Loop execution finished:.*usage\/cost unavailable/i.test(line))).toBe(true)
+    expect(lines.some((line) => /Loop execution finished:.*\$0\.0000/i.test(line))).toBe(false)
   })
 
   it('rejects a Kimi Decider before persisting or invoking any executor', async () => {
@@ -2797,5 +2797,32 @@ describe('coordinated repository verification', () => {
     expect(ex.repoStateHash).toHaveBeenCalledWith('/work/frontend')
     expect(ex.runDecider).toHaveBeenCalledWith(expect.objectContaining({ executionManifest, userPrompt: expect.stringContaining('/work/frontend') }))
     expect(ex.runShell).toHaveBeenCalledWith(expect.objectContaining({ cwd: '/work/backend', repoDir: '/work/backend' }))
+  })
+})
+
+
+describe('terminal acceptance evidence', () => {
+  it('records one AI step and zero decider evaluations without calling them zero work', async () => {
+    const graph = loopGraph()
+    graph.nodes = graph.nodes.filter(node => node.type !== 'decider' && node.type !== 'shell')
+    graph.edges = [{ id: 'first', source: 's', target: 'ai' }, { id: 'last', source: 'ai', target: 'e' }]
+    const result = await manager(makeExecutors()).run({ ...baseReq(), graph })
+    const events = getJobEvents(db, result.runId)
+    const completion = JSON.parse(events.find(event => event.event_type === 'loop_completion')!.payload)
+    expect(completion).toMatchObject({ execution: 'success', steps: 1, deciderEvaluations: 0, core: null })
+    expect(events.some(event => event.payload.includes('1 step, 0 decider evaluations'))).toBe(true)
+  })
+  it.each(['blocked', 'with-exceptions'] as const)('keeps execution distinct from %s acceptance and host delivery', async validation => {
+    const readCoreCompletion = vi.fn(async () => ({
+      change: 'visuals', recordedAt: '2026-09-09T10:00:00Z',
+      completion: { implementation: 'complete' as const, validation, archive: 'done' as const, delivery: 'pending-host' as const, reasons: validation === 'blocked' ? ['Required browser check failed'] : [] },
+      exceptions: [], checks: [], findings: [], phases: [],
+    }))
+    const result = await manager(makeExecutors({ readCoreCompletion })).run(baseReq())
+    expect(result.outcome).toBe(validation === 'blocked' ? 'blocked' : 'success')
+    expect(readCoreCompletion).toHaveBeenCalledWith(result.runId)
+    const event = getJobEvents(db, result.runId).find(event => event.event_type === 'loop_completion')!
+    expect(JSON.parse(event.payload)).toMatchObject({ execution: 'success', core: { completion: { validation, delivery: 'pending-host' } } })
+    expect(getLoopRun(db, result.runId)?.final_outcome).toBe(result.outcome)
   })
 })

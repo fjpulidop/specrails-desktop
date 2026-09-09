@@ -23,7 +23,7 @@ interface CoreContext {
   artifactRepositoryId: string
   repositories: Array<{ id: string; name: string; path: string; baseSha?: string }>
   ownership: { git: 'host' | 'core'; backlog: 'host'; worktrees: 'host' }
-  specs: Array<{ id: string | number; title: string; description: string; repositoryIds?: string[] }>
+  specs: Array<{ id: string | number; title: string; description: string; repositoryIds?: string[]; acceptanceCriteria?: string[] }>
 }
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
@@ -57,12 +57,13 @@ export function prepareCoreExecution(input: {
   const artifactRepositoryId = manifest?.artifactRepositoryId ?? repositories[0]!.id
   const artifactRepo = repositories.find(repo => repo.id === artifactRepositoryId)
   if (!artifactRepo) throw new Error('Core artifact repository is outside the run scope')
-  const rawTickets: Array<{ id: string | number; title?: string; description?: string; repositoryIds?: string[] }> = run.spec?.tickets?.length ? run.spec.tickets : run.spec ? [{
+  const rawTickets: Array<{ id: string | number; title?: string; description?: string; repositoryIds?: string[]; acceptanceCriteria?: string[] }> = run.spec?.tickets?.length ? run.spec.tickets : run.spec ? [{
     id: run.spec.id ?? run.spec.ticketIds?.[0] ?? 'goal', title: run.spec.title,
-    description: run.spec.description, repositoryIds: run.spec.repositoryIds,
+    description: run.spec.description, acceptanceCriteria: run.spec.acceptanceCriteria, repositoryIds: run.spec.repositoryIds,
   }] : run.goal ? [{ id: 'goal', title: 'Loop goal', description: run.goal }] : []
   const specs = rawTickets.map(ticket => ({
     id: ticket.id, title: ticket.title ?? '', description: ticket.description ?? '',
+    ...(ticket.acceptanceCriteria ? { acceptanceCriteria: [...ticket.acceptanceCriteria] } : {}),
     ...(ticket.repositoryIds ? { repositoryIds: [...ticket.repositoryIds] } : {}),
   }))
   if (specs.some(spec => spec.repositoryIds?.some(id => !repositories.some(repo => repo.id === id)))) {

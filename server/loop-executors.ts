@@ -6,6 +6,7 @@
  * from coverage; the engine's traversal/decision logic is unit-tested against
  * fake executors in `loop-run-manager.test.ts`.
  */
+import { readCoreCompletion } from './core-completion'
 import { prepareCoreExecution } from './core-execution'
 import { buildCodexPluginArgs } from './plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
@@ -184,7 +185,13 @@ export function createLoopExecutors(
       return env
     }
   }
+  const completionContexts = new Map<string, { cwd: string; contextPath: string; env: NodeJS.ProcessEnv; runId: string }>()
   return {
+    async readCoreCompletion(runId) {
+      const context = completionContexts.get(runId)
+      completionContexts.delete(runId)
+      return context ? readCoreCompletion(context) : null
+    },
     // Cheap working-tree fingerprint for the engine's non-convergence guard:
     // HEAD, tracked diffs and untracked file contents, hashed. Status/path names
     // alone stay identical while a fixer keeps improving the same files.
@@ -277,6 +284,8 @@ export function createLoopExecutors(
       // `is_error: true` — a usage/rate-limit notice returned AS the reply).
       let resultIsError = false
       let liveBackgroundTasks: string[] = []
+      const providerEnv = buildProviderEnv(adapter, buildOpts, stepEnv)
+      if (core && coreRun) completionContexts.set(coreRun.runId, { cwd, contextPath: core.contextPath, env: providerEnv, runId: coreRun.runId })
       const effectiveIdleTimeoutMs = idleTimeoutMs ?? inactivityTimeoutMs()
       const wallStartedAt = Date.now()
       const res = await runAiCliInvocation({
@@ -284,7 +293,7 @@ export function createLoopExecutors(
         action,
         buildOpts,
         cwd,
-        env: buildProviderEnv(adapter, buildOpts, stepEnv),
+        env: providerEnv,
         // 0 ⇒ watchdog disabled (factory loops run untimed; the loop's
         // maxIterations / cost cap remain the runaway guards).
         timeoutMs: (aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS) > 0 ? (aiStepTimeoutMs ?? AI_STEP_TIMEOUT_MS) : undefined,
@@ -448,10 +457,12 @@ export function createLoopExecutors(
         extraArgs,
       }
       const args = adapter.buildArgs('chat-stream', buildOpts)
+      const providerEnv = buildProviderEnv(adapter, buildOpts, stepEnv)
+      if (core && coreRun) completionContexts.set(coreRun.runId, { cwd, contextPath: core.contextPath, env: providerEnv, runId: coreRun.runId })
       const effectiveIdleTimeoutMs = idleTimeoutMs ?? inactivityTimeoutMs()
       return {
         adapter,
-        spec: { binary: adapter.binary, args, cwd, env: buildProviderEnv(adapter, buildOpts, stepEnv) },
+        spec: { binary: adapter.binary, args, cwd, env: providerEnv },
         // The loop's ai-step timeout bounds the WHOLE step, interactive
         // included. 0 ⇒ unbounded (the engine skips arming the step timer).
         ...(core?.promptPrefix ? { promptPrefix: core.promptPrefix } : {}),

@@ -292,5 +292,41 @@
     "completed": "Abgeschlossen",
     "turns_one": "{{count}} Turn",
     "turns_other": "{{count}} Turns"
+  },
+  "completion": {
+    "title": "Ausführungsergebnis",
+    "execution": "Ausführung",
+    "implementation": "Implementierung",
+    "validation": "Validierung",
+    "archive": "Archivierung",
+    "delivery": "Auslieferung",
+    "counters": "Schritte: {{steps}} · Auswertungen: {{evaluations}} · Agentenrunden: {{turns}}",
+    "unavailable": "Nicht verfügbar",
+    "evidence": "Nachweise, Ausnahmen und Phasenzeiten",
+    "snapshot": "Bei Abschluss erfasst: {{change}} · {{at}}",
+    "acceptedBy": "Akzeptiert von {{by}}",
+    "required": "Erforderlich",
+    "supplementary": "Ergänzend",
+    "attempts": "Versuche: {{count}}",
+    "phaseCostUnavailable": "Kosten pro Core-Phase sind nicht verfügbar; der Anbieterverbrauch wird Schleifenschritten zugeordnet.",
+    "noCoreEvidence": "Abnahmenachweise sind nicht verfügbar. Eine erfolgreiche Ausführung allein bestätigt keinen abgeschlossenen Vorgang.",
+    "status": {
+      "success": "Erfolgreich",
+      "failed": "Fehlgeschlagen",
+      "blocked": "Blockiert",
+      "stopped": "Gestoppt",
+      "stalled": "Ohne Fortschritt",
+      "complete": "Abgeschlossen",
+      "incomplete": "Unvollständig",
+      "verified": "Verifiziert",
+      "with-exceptions": "Mit Ausnahmen verifiziert",
+      "pending": "Ausstehend",
+      "pending-host": "Auslieferung durch Host ausstehend",
+      "done": "Abgeschlossen",
+      "running": "Läuft",
+      "skipped": "Übersprungen",
+      "passed": "Bestanden",
+      "unavailable": "Nicht verfügbar"
+    }
   }
 }

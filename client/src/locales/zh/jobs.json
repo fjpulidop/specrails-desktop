@@ -292,5 +292,41 @@
     "completed": "已完成",
     "turns_one": "{{count}} 轮",
     "turns_other": "{{count}} 轮"
+  },
+  "completion": {
+    "title": "运行结果",
+    "execution": "执行",
+    "implementation": "实现",
+    "validation": "验证",
+    "archive": "归档",
+    "delivery": "交付",
+    "counters": "{{steps}} 个步骤 · {{evaluations}} 次决策评估 · {{turns}} 轮代理对话",
+    "unavailable": "不可用",
+    "evidence": "证据、例外和阶段耗时",
+    "snapshot": "完成时记录：{{change}} · {{at}}",
+    "acceptedBy": "由 {{by}} 接受",
+    "required": "必需",
+    "supplementary": "补充",
+    "attempts": "{{count}} 次尝试",
+    "phaseCostUnavailable": "Core 各阶段成本不可用；供应商用量归属于循环步骤。",
+    "noCoreEvidence": "验收证据不可用。执行成功本身并不代表工单已完成。",
+    "status": {
+      "success": "成功",
+      "failed": "失败",
+      "blocked": "已阻塞",
+      "stopped": "已停止",
+      "stalled": "无进展",
+      "complete": "已完成",
+      "incomplete": "未完成",
+      "verified": "已验证",
+      "with-exceptions": "已验证（含例外）",
+      "pending": "待处理",
+      "pending-host": "等待宿主交付",
+      "done": "已完成",
+      "running": "进行中",
+      "skipped": "已跳过",
+      "passed": "通过",
+      "unavailable": "不可用"
+    }
   }
 }

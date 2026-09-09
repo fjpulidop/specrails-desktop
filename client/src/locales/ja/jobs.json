@@ -292,5 +292,41 @@
     "completed": "完了",
     "turns_one": "{{count}} ターン",
     "turns_other": "{{count}} ターン"
+  },
+  "completion": {
+    "title": "実行結果",
+    "execution": "実行",
+    "implementation": "実装",
+    "validation": "検証",
+    "archive": "アーカイブ",
+    "delivery": "引き渡し",
+    "counters": "{{steps}} ステップ · {{evaluations}} 回の判定 · エージェント {{turns}} ターン",
+    "unavailable": "利用不可",
+    "evidence": "証拠、例外、フェーズの所要時間",
+    "snapshot": "完了時の記録：{{change}} · {{at}}",
+    "acceptedBy": "承認者：{{by}}",
+    "required": "必須",
+    "supplementary": "補足",
+    "attempts": "{{count}} 回の試行",
+    "phaseCostUnavailable": "Core のフェーズ別コストは利用できません。プロバイダー使用量はループのステップに割り当てられます。",
+    "noCoreEvidence": "受け入れの証拠は利用できません。実行の成功だけではチケットの完了を確認できません。",
+    "status": {
+      "success": "成功",
+      "failed": "失敗",
+      "blocked": "ブロック",
+      "stopped": "停止",
+      "stalled": "進展なし",
+      "complete": "完了",
+      "incomplete": "未完了",
+      "verified": "検証済み",
+      "with-exceptions": "例外付きで検証済み",
+      "pending": "保留",
+      "pending-host": "ホストの引き渡し待ち",
+      "done": "完了",
+      "running": "実行中",
+      "skipped": "スキップ",
+      "passed": "合格",
+      "unavailable": "利用不可"
+    }
   }
 }
