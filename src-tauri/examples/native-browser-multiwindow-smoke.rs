@@ -30,7 +30,7 @@ fn server() -> u16 {
     port
 }
 #[cfg(target_os = "macos")]
-async fn evaluate(view: &Webview, source: &str) -> Result<Value, String> {
+async fn evaluate_once(view: &Webview, source: &str) -> Result<Value, String> {
     let source = format!("JSON.stringify((()=>{{{source}}})())");
     let (send, mut receive) = tokio::sync::mpsc::channel(1);
     view.with_webview(move |platform| unsafe {
@@ -47,7 +47,7 @@ async fn evaluate(view: &Webview, source: &str) -> Result<Value, String> {
 }
 
 #[cfg(windows)]
-async fn evaluate(view: &Webview, source: &str) -> Result<Value, String> {
+async fn evaluate_once(view: &Webview, source: &str) -> Result<Value, String> {
     let source = format!("JSON.stringify((()=>{{{source}}})())");
     let (send, mut receive) = tokio::sync::mpsc::channel(1);
     view.with_webview(move |platform| unsafe {
@@ -65,6 +65,13 @@ async fn evaluate(view: &Webview, source: &str) -> Result<Value, String> {
         }
     }).map_err(|e| e.to_string())?;
     tokio::time::timeout(Duration::from_secs(5), receive.recv()).await.map_err(|_| "script timeout")?.ok_or("script channel closed")?
+}
+
+// Mutating scripts are submitted once: replaying window.open after a delayed
+// completion could create a second popup and hide an ownership regression.
+async fn evaluate(view: &Webview, source: &str) -> Result<Value, String> {
+    evaluate_once(view, source).await
+        .map_err(|error| format!("{error} in [{}] while evaluating: {source}", view.label()))
 }
 
 async fn pane_visible(view: &Webview) -> Result<bool, String> {
@@ -87,12 +94,24 @@ async fn pane_visible(view: &Webview) -> Result<bool, String> {
 }
 
 async fn eventually(view: &Webview, expression: &str) -> Result<Value, String> {
-    for _ in 0..100 {
-        let value = evaluate(view, &format!("return ({expression});")).await?;
-        if value != Value::Null && value != Value::Bool(false) { return Ok(value); }
-        tokio::time::sleep(Duration::from_millis(50)).await;
+    // Match the popup smoke: WebKit may delay a completion while constructing
+    // native popup windows. Only these read-only probes are safe to retry.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    while tokio::time::Instant::now() < deadline {
+        let source = format!("return ({expression});");
+        let probe = evaluate_once(view, &source);
+        match tokio::time::timeout_at(deadline, probe).await {
+            Ok(Ok(value)) if value != Value::Null && value != Value::Bool(false) => return Ok(value),
+            Ok(Ok(_)) => {}
+            Ok(Err(error)) if error == "script timeout" => {
+                eprintln!("poll completion delayed in [{}], retrying: {expression}", view.label());
+            }
+            Ok(Err(error)) => return Err(format!("{error} in [{}] while polling: {expression}", view.label())),
+            Err(_) => break,
+        }
+        tokio::time::sleep_until((tokio::time::Instant::now() + Duration::from_millis(50)).min(deadline)).await;
     }
-    Err(format!("condition timed out: {expression}"))
+    Err(format!("condition timed out in [{}]: {expression}", view.label()))
 }
 
 
