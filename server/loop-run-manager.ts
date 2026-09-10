@@ -12,7 +12,7 @@
  * Spec: openspec/changes/loop-builder/specs/loop-execution/spec.md
  */
 import type { CoreCompletionSnapshot } from './core-completion'
-import type { CoreRunInput } from './core-execution'
+import type { CoreCompletionCheck, CoreRunInput } from './core-execution'
 import { executionManifestPrompt, type RunExecutionManifest } from './multi-repo-execution-store'
 import type { ChildProcess } from 'node:child_process'
 import { treeKillSafe as treeKill } from './util/win-spawn'
@@ -218,6 +218,8 @@ export interface LoopExecutors {
    *  stdin (claude); return null/undefined (or omit the method) to run the step
    *  through the one-shot `runAiStep` — byte-identical legacy behaviour. */
   planInteractiveAiStep?(input: InteractivePlanInput): InteractiveAiStepPlan | null
+  /** Installed Core's deterministic completion gate, shared by both transports. */
+  validateCoreCompletion?(input: InteractivePlanInput & { coreRun: CoreRunInput }): CoreCompletionCheck
   runShell(input: { command: string; cwd: string; repoDir?: string; timeoutMs?: number; onLine?: LoopLogSink; onSpawn?: LoopSpawnSink }): Promise<ShellResult>
   runDecider(input: {
     systemPrompt: string
@@ -1489,6 +1491,8 @@ export class LoopRunManager {
             // --yes`, codex `$implement #<id> --yes`) — then resolve `{{spec.*}}`
             // data tokens and finally `{{const:*}}` library constants.
             const rawTemplate = String(node.data?.prompt ?? '')
+            const requiresCoreCompletion = /\{\{\s*cmd:(?:implement|batch)\s*\}\}/.test(rawTemplate)
+              || /^\s*(?:\/specrails:|\/skill:specrails-|\$)(?:implement|batch-implement)(?:\s|$)/.test(rawTemplate)
             const expanded = resolveConstants(
               resolveRunVars(
                 interpolateSpec(
@@ -1656,6 +1660,19 @@ export class LoopRunManager {
               outcome = 'stalled'
               settled = true
               break
+            }
+            if (!res.failed && !zeroWork && !this._cancelled.has(runId)
+              && requiresCoreCompletion
+              && this.executors.validateCoreCompletion) {
+              const completion = this.executors.validateCoreCompletion({
+                coreRun: { runId, spec: req.spec, goal: req.spec ? undefined : JSON.stringify({ loop: req.loopName, graph: req.graph }), repositoryId: req.repositoryId },
+                provider: nodeProvider, model: nodeModel, effort: nodeEffort, profileName: req.profileName,
+                cwd: req.cwd, repoDir: req.repoDir, executionManifest: req.executionManifest,
+              })
+              if (!completion.valid) {
+                res = { ...res, failed: true, errorText: completion.reason ?? 'Core implementation is incomplete' }
+                logLine(`✖ ${res.errorText}`, 'stderr')
+              }
             }
             const blockedReason = aiStepBlockedReason(res.text)
             const requiresVerification = node.data?.requireVerificationPass === true
@@ -2037,17 +2054,16 @@ export class LoopRunManager {
       console.error(`[loop] staged accounting reconciliation failed for ${runId}:`, err)
     }
 
-    console.log(
-      `[loop] settle run=${runId} outcome=${outcome} iterations=${iteration} ` +
-        (usageTelemetryAvailable ? `cost=$${totalCost.toFixed(4)}` : 'usage=unavailable'),
-    )
-
     // Execution and acceptance are separate facts. Persist the runtime's own
     // terminal snapshot alongside counters so history does not depend on prose.
     let coreCompletion: CoreCompletionSnapshot | null = null
     try { coreCompletion = await this.executors.readCoreCompletion?.(runId) ?? null } catch { /* old/unavailable runtime */ }
     const executionOutcome = outcome
     if (outcome === 'success' && coreCompletion && (coreCompletion.completion.implementation !== 'complete' || !['verified', 'with-exceptions'].includes(coreCompletion.completion.validation))) outcome = 'blocked'
+    console.log(
+      `[loop] settle run=${runId} outcome=${outcome} iterations=${iteration} ` +
+        (usageTelemetryAvailable ? `cost=$${totalCost.toFixed(4)}` : 'usage=unavailable'),
+    )
     emitRunEvent('loop_completion', {
       version: 1, execution: executionOutcome, steps: stepNum, deciderEvaluations: iteration,
       turns: finalJobUsage.numTurns, costUsd: usageTelemetryAvailable ? totalCost : null,
@@ -2068,7 +2084,7 @@ export class LoopRunManager {
     // is a lower bound, not exact. Providers without usage telemetry get an
     // explicit unavailable marker, never a fabricated "$0.0000".
     logLine(
-      `\n■ Loop execution finished: ${executionOutcome} — ${stepNum} step${stepNum === 1 ? '' : 's'}, ${iteration} decider evaluation${iteration === 1 ? '' : 's'}, ${finalJobUsage.numTurns ?? 'unknown'} agent turns, ` +
+      `\n■ Loop execution finished: ${outcome} — ${stepNum} step${stepNum === 1 ? '' : 's'}, ${iteration} decider evaluation${iteration === 1 ? '' : 's'}, ${finalJobUsage.numTurns ?? 'unknown'} agent turns, ` +
         (usageTelemetryAvailable
           ? `${costUncertain ? '≥ ' : ''}$${totalCost.toFixed(4)}`
           : 'usage/cost unavailable'),

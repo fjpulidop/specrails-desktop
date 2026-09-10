@@ -193,7 +193,7 @@ describe('CoreUpdateManager', () => {
       expect(result.runtime).toMatchObject({ version: '5.0.0', source: 'managed' })
       expect(result.boot).toEqual({ swapped: false, version: '5.0.0' })
       expect(result.materialized.errors).toEqual([])
-      expect(result.materialized.providers).toEqual(['codex'])
+      expect(result.materialized.providers).toEqual(['codex', 'claude'])
       expect(new CoreUpdateManager({ home }).getStatus()).toMatchObject({ currentVersion: '5.0.0', runtimeVersion: '5.0.0', runtimeSource: 'managed', bundledVersion: '4.12.0' })
     })
 

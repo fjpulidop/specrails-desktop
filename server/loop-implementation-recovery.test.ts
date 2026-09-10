@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { initDb, getJobEvents, type DbInstance } from './db'
+import { initDb, getJob, getJobEvents, type DbInstance } from './db'
 import { LoopRunManager, type LoopExecutors } from './loop-run-manager'
 import { getFactoryLoop } from './loop-factory'
 import { fixLoopGraph } from './loop-templates'
 import { expandCommands } from './loop-command-catalog'
 import { interpolateSpec, type LoopSpec } from './loop-graph'
 import { resolveConstants, BUILTIN_CONSTANTS } from './loop-constants'
+import { getLoopRun } from './loop-runs-store'
 
 const opened: DbInstance[] = []
 afterEach(() => { for (const db of opened.splice(0)) db.close() })
@@ -108,6 +109,38 @@ describe('implementation recovery from a setup-only first step', () => {
 
 
 describe('Core implementation factories delegate the complete pipeline once', () => {
+  it.each([
+    ['factory:implement', '{{cmd:implement}}'], ['factory:batch', '{{cmd:batch}}'],
+    ['factory:implement', '/specrails:implement #1 --yes'], ['factory:batch', '/specrails:batch-implement #1 --yes'],
+    ['factory:implement', '$implement #1 --yes'], ['factory:batch', '$batch-implement #1 --yes'],
+    ['factory:implement', '/skill:specrails-implement #1 --yes'], ['factory:batch', '/skill:specrails-batch-implement #1 --yes'],
+  ])('%s persists failure for %s when Core blocks a successful provider turn', async (factoryId, prompt) => {
+    const db = initDb(':memory:'); opened.push(db)
+    const validateCoreCompletion = vi.fn((_input: Parameters<NonNullable<LoopExecutors['validateCoreCompletion']>>[0]) => ({ valid: false, reason: 'Core completion blocked: validation=blocked; Verification environment changed: npm' }))
+    const executors: LoopExecutors = {
+      runAiStep: vi.fn(async () => ({ text: 'Implementation complete. All tests pass. VERIFICATION: PASS', tokens: 100 })),
+      runDecider: vi.fn(), runShell: vi.fn(), validateCoreCompletion,
+    }
+    const graph = structuredClone(getFactoryLoop(factoryId)!.graph)
+    graph.nodes[1].data = { prompt }
+    const result = await new LoopRunManager(db, () => undefined, executors, () => 1000).run({
+      loopId: factoryId, graph,
+      projectId: 'test-project', cwd: '/fixture/no-execution', ticketId: 1,
+      spec: { id: 1, title: 'Feature', description: 'Implement the requested behavior.' },
+      provider: 'claude', model: 'sonnet',
+    })
+    expect(validateCoreCompletion).toHaveBeenCalledOnce()
+    expect(validateCoreCompletion.mock.calls[0]?.[0]).toMatchObject({ coreRun: { runId: result.runId, spec: { id: 1 } }, provider: 'claude', cwd: '/fixture/no-execution' })
+    expect(result.outcome).toBe('failed')
+    expect(getLoopRun(db, result.runId)?.final_outcome).toBe('failed')
+    expect(getJob(db, result.runId)?.status).toBe('failed')
+    const events = getJobEvents(db, result.runId)
+    expect(events.some(event => event.payload.includes('Verification environment changed: npm'))).toBe(true)
+    expect(events.filter(event => event.event_type === 'loop_step_end').map(event => JSON.parse(event.payload).status)).toEqual(['failed'])
+    expect(executors.runAiStep).toHaveBeenCalledOnce()
+    expect(executors.runDecider).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['factory:implement', false], ['factory:batch', false],
     ['factory:implement', true], ['factory:batch', true],

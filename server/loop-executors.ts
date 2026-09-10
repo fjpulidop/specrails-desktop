@@ -7,7 +7,7 @@
  * fake executors in `loop-run-manager.test.ts`.
  */
 import { readCoreCompletion } from './core-completion'
-import { prepareCoreExecution } from './core-execution'
+import { checkCoreCompletion, prepareCoreExecution } from './core-execution'
 import { buildCodexPluginArgs } from './plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -471,6 +471,13 @@ export function createLoopExecutors(
         inactivityTimeoutMs: effectiveIdleTimeoutMs,
         ...(effectiveIdleTimeoutMs > 0 ? { idleTimeoutMs: effectiveIdleTimeoutMs } : {}),
       }
+    },
+
+    validateCoreCompletion({ coreRun, provider, model, effort, profileName, cwd, repoDir, executionManifest }) {
+      const baseStepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir, executionManifest), provider, profileName)
+      const core = prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv })
+      const env = buildProviderEnv(getAdapter(provider), { prompt: '', model, reasoning_effort: effort }, core.env)
+      return checkCoreCompletion(core.contextPath, cwd, env, coreRun.runId)
     },
 
     async runShell({ command, cwd, repoDir, onLine, onSpawn, timeoutMs }) {

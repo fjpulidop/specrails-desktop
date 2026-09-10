@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto'
 
 import { resolveCoreRuntime, readCoreRuntime, frameworkRoot, readCurrentFrameworkVersion } from './core-runtime'
 export { frameworkRoot, readCurrentFrameworkVersion } from './core-runtime'
-import { atomicWrite } from './artifact-registry'
+import { atomicWrite, readRegistryOrEmpty } from './artifact-registry'
 import { isNewer } from './semver-lite'
 import { resolveBundledNodeExe } from './path-resolver'
 
@@ -83,6 +83,28 @@ function realpathOrSelf(p: string): string {
   }
 }
 
+/** Match Core's swap-current provider requirement: a project removed from the
+ * Desktop catalog can still have live links through current. A subtree OR its
+ * completion stamp is enough to require that provider in the next version. */
+function requiredFrameworkProviders(fwDir: string, requested: string[], home?: string): string[] {
+  const directories: Record<string, string> = {
+    claude: '.claude', codex: '.codex', gemini: '.gemini', kimi: '.kimi-code',
+  }
+  const required = new Set(requested)
+  for (const entry of Object.values(readRegistryOrEmpty(home).projects)) {
+    for (const provider of [...(entry.providers ?? []), entry.primaryProvider]) {
+      if (Object.hasOwn(directories, provider)) required.add(provider)
+    }
+  }
+  for (const [provider, directory] of Object.entries(directories)) {
+    if (fs.existsSync(path.join(fwDir, 'current', directory))
+      || fs.existsSync(path.join(fwDir, 'current', `.framework-stamp${directory}.json`))) {
+      required.add(provider)
+    }
+  }
+  return [...required]
+}
+
 export class FrameworkManager {
   private readonly home?: string
   private readonly broadcast?: FrameworkBroadcast
@@ -147,7 +169,7 @@ export class FrameworkManager {
 
     const errors: MaterializeResult['errors'] = []
     const done: string[] = []
-    for (const provider of dedupe(providers)) {
+    for (const provider of requiredFrameworkProviders(fwDir, providers, this.home)) {
       const res = spawnSync(
         nodeInterpreter(),
         [
@@ -390,10 +412,6 @@ export class FrameworkManager {
     if (coreRoot) env.SPECRAILS_CORE_SCRIPT_DIR = coreRoot
     return env
   }
-}
-
-function dedupe(values: string[]): string[] {
-  return Array.from(new Set(values))
 }
 
 // Re-export atomicWrite for symmetry (the atomic swap is delegated to core's
