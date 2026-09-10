@@ -14,6 +14,11 @@ export interface CoreRunInput {
   goal?: string
 }
 
+export interface CoreCompletionCheck {
+  valid: boolean
+  reason?: string
+}
+
 interface CoreContext {
   schemaVersion: 1
   runId: string
@@ -119,4 +124,46 @@ export function coreVerificationContext(contextPath: string, cwd: string, env: N
       'You may reuse these successful commands while inspecting every acceptance criterion and cross-repository contract. Before reporting PASS, validate again with the installed pipeline runtime status using SPECRAILS_EXECUTION_CONTEXT. If you edit files, change configuration/environment, need uncovered behavioral checks, or the receipt is no longer valid, run the affected checks and refresh the full receipt. Do not repeat an unchanged complete verification merely because a new loop step started.',
     ].join('\n')
   } catch { return '' }
+}
+
+/** A successful provider turn is not a completed implementation. Ask Core to
+ * revalidate the journal on disk before Desktop accepts the implementation step,
+ * including when an agent claims PASS after its final receipt went stale. */
+export function checkCoreCompletion(contextPath: string, cwd: string, env: NodeJS.ProcessEnv, runId: string): CoreCompletionCheck {
+  const helper = join(cwd, '.specrails', 'runtime', 'pipeline.mjs')
+  if (!existsSync(helper)) return { valid: false, reason: 'Core completion cannot be validated: pipeline runtime is missing' }
+  try {
+    const stdout = execFileSync(resolveBundledNodeExe() ?? process.execPath, [helper, 'status', '--context', contextPath], {
+      cwd, env, encoding: 'utf8', timeout: 15_000, maxBuffer: 4 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const status = JSON.parse(stdout) as {
+      schemaVersion?: number; runId?: string; resumePhase?: string | null
+      phases?: Record<string, { status?: string }>
+      completion?: { implementation?: string; validation?: string; archive?: string; delivery?: string; reasons?: string[] }
+      verification?: { valid?: boolean; reasons?: string[]; receipt?: { kind?: string; commands?: Array<{ exitCode?: number }> } }
+    }
+    if (status.schemaVersion !== 1 || status.runId !== runId) return { valid: false, reason: 'Core completion returned an invalid or mismatched run identity' }
+    const reasons: string[] = []
+    // Core 5.1 exposes phases/verification; newer runtimes also provide an
+    // explicit completion verdict. Never override a newer blocked verdict with
+    // older phase statuses or an agent-authored summary.
+    if (status.completion) {
+      for (const [key, expected] of [['implementation', 'complete'], ['archive', 'done']] as const) {
+        if (status.completion[key] !== expected) reasons.push(`${key}=${status.completion[key] ?? 'missing'}`)
+      }
+      if (!['verified', 'with-exceptions'].includes(status.completion.validation ?? '')) reasons.push(`validation=${status.completion.validation ?? 'missing'}`)
+      if (reasons.length) reasons.push(...(status.completion.reasons ?? []))
+    }
+    for (const phase of ['architect', 'developer', 'reviewer', 'archive']) {
+      if (status.phases?.[phase]?.status !== 'done') reasons.push(`${phase} phase is incomplete`)
+    }
+    if (status.resumePhase && ['architect', 'developer', 'reviewer', 'archive'].includes(status.resumePhase)) reasons.push(`resume from ${status.resumePhase}`)
+    const receipt = status.verification?.receipt
+    if (status.verification?.valid !== true || receipt?.kind !== 'full' || !receipt.commands?.length || receipt.commands.some(command => command.exitCode !== 0)) {
+      reasons.push(...(status.verification?.reasons?.length ? status.verification.reasons : ['No valid full verification receipt']))
+    }
+    return reasons.length ? { valid: false, reason: `Core completion blocked: ${[...new Set(reasons)].join('; ')}` } : { valid: true }
+  } catch {
+    return { valid: false, reason: 'Core completion cannot be validated: pipeline status failed or returned invalid JSON' }
+  }
 }

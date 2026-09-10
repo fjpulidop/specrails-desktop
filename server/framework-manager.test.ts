@@ -38,7 +38,8 @@ function arg(name) {
   return i >= 0 ? process.argv[i + 1] : undefined
 }
 const sub = process.argv[2]
-const providerDirFor = (p) => p === 'codex' ? '.codex' : p === 'gemini' ? '.gemini' : '.claude'
+const providerDirs = { claude: '.claude', codex: '.codex', gemini: '.gemini', kimi: '.kimi-code' }
+const providerDirFor = (p) => providerDirs[p] || '.claude'
 function swap(fw, version) {
   const cur = path.join(fw, 'current')
   try { fs.unlinkSync(cur) } catch {}
@@ -50,6 +51,7 @@ if (sub === 'install-framework') {
   const dir = path.join(fw, version, pd, 'agents')
   fs.mkdirSync(dir, { recursive: true })
   fs.writeFileSync(path.join(dir, 'sr-architect.md'), '# arch')
+  fs.writeFileSync(path.join(fw, version, '.framework-stamp' + pd + '.json'), JSON.stringify({ version, provider }))
   // current → version (relative symlink swap, atomic-ish) UNLESS --no-swap.
   if (!process.argv.includes('--no-swap')) swap(fw, version)
   process.exit(0)
@@ -57,6 +59,16 @@ if (sub === 'install-framework') {
   const fw = arg('framework-dir'); const version = arg('version')
   // Defence: only swap to a materialized version (mirrors core's guard).
   if (!fs.existsSync(path.join(fw, version))) process.exit(41)
+  // Core also requires every provider represented by current, even when the
+  // Desktop project catalog no longer lists a project using that provider.
+  for (const pd of Object.values(providerDirs)) {
+    if (fs.existsSync(path.join(fw, 'current', pd)) || fs.existsSync(path.join(fw, 'current', '.framework-stamp' + pd + '.json'))) {
+      if (!fs.existsSync(path.join(fw, version, pd)) || !fs.existsSync(path.join(fw, version, '.framework-stamp' + pd + '.json'))) {
+        process.stderr.write('framework is incomplete: missing ' + pd)
+        process.exit(41)
+      }
+    }
+  }
   swap(fw, version)
   process.exit(0)
 } else if (sub === 'assemble') {
@@ -165,6 +177,33 @@ describe('FrameworkManager', () => {
       expect(existsSync(path.join(fw, '5.0.0', '.gemini', 'agents'))).toBe(true)
     })
 
+    it.each(['subtree', 'stamp'] as const)('carries a provider represented only by a current %s into materialization', (representation) => {
+      installFakeCore('5.2.2')
+      const current = path.join(frameworkRoot(home), 'current')
+      mkdirSync(current, { recursive: true })
+      if (representation === 'subtree') mkdirSync(path.join(current, '.kimi-code'))
+      else writeFileSync(path.join(current, '.framework-stamp.kimi-code.json'), JSON.stringify({ version: '5.2.1', provider: 'kimi' }))
+      const fm = new FrameworkManager({ home })
+      const result = fm.materialize('5.2.2', ['claude'])
+      expect(result.providers).toEqual(['claude', 'kimi'])
+      expect(result.errors).toEqual([])
+      expect(existsSync(path.join(frameworkRoot(home), '5.2.2', '.kimi-code', 'agents'))).toBe(true)
+      // Materialization alone never publishes a new version.
+      expect(lstatSync(current).isDirectory()).toBe(true)
+    })
+
+    it('includes providers recorded by Core standalone projects outside the Desktop catalog', () => {
+      installFakeCore('5.2.2')
+      const specrails = path.join(home, '.specrails')
+      mkdirSync(specrails, { recursive: true })
+      writeFileSync(path.join(specrails, 'registry.json'), JSON.stringify({ schemaVersion: 1, projects: {
+        '/standalone': { providers: ['kimi', 'unknown-provider'], primaryProvider: 'gemini' },
+      } }))
+      const result = new FrameworkManager({ home }).materialize('5.2.2', ['claude', 'claude'])
+      expect(result.providers).toEqual(['claude', 'kimi', 'gemini'])
+      expect(result.errors).toEqual([])
+    })
+
     it('records a per-provider error when the CLI exits non-zero', () => {
       installFakeCore('5.0.0')
       const fm = new FrameworkManager({ home })
@@ -205,6 +244,23 @@ describe('FrameworkManager', () => {
   })
 
   describe('versionCheck', () => {
+    it('activates an app update when a provider remains in current after disappearing from the Desktop catalog', () => {
+      installFakeCore('5.2.1')
+      const broadcast = vi.fn()
+      const fm = new FrameworkManager({ home, broadcast })
+      expect(fm.versionCheck(['claude', 'codex', 'gemini', 'kimi']).swapped).toBe(true)
+      const linked = path.join(home, 'existing-kimi-agent.md')
+      symlinkSync(path.join(frameworkRoot(home), 'current', '.kimi-code', 'agents', 'sr-architect.md'), linked)
+      installFakeCore('5.2.2')
+      broadcast.mockClear()
+
+      expect(fm.versionCheck(['claude', 'codex', 'gemini'])).toEqual({ swapped: true, version: '5.2.2' })
+      expect(readCurrentFrameworkVersion(home)).toBe('5.2.2')
+      expect(readFileSync(linked, 'utf8')).toBe('# arch')
+      expect(realpathSync(linked)).toContain(`${path.sep}5.2.2${path.sep}`)
+      expect(broadcast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'framework.update_failed' }))
+    })
+
     it('materializes + swaps + broadcasts when current differs from bundled', () => {
       installFakeCore('5.0.0')
       const broadcast = vi.fn()
@@ -336,6 +392,25 @@ describe('FrameworkManager', () => {
   })
 
   describe('versionCheck when materialize fails', () => {
+    it('keeps the active framework when materializing a provider retained from current fails', () => {
+      installFakeCore('5.2.1')
+      const broadcast = vi.fn()
+      const fm = new FrameworkManager({ home, broadcast })
+      expect(fm.versionCheck(['claude', 'kimi']).swapped).toBe(true)
+      installFakeCore('5.2.2')
+      const failure = `if (process.argv[2] === 'install-framework' && process.argv[process.argv.indexOf('--provider') + 1] === 'kimi') { process.stderr.write('kimi materialization failed'); process.exit(41) }\n`
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), failure + FAKE_CLI)
+      broadcast.mockClear()
+
+      expect(fm.versionCheck(['claude'])).toEqual({ swapped: false, version: '5.2.1' })
+      expect(readCurrentFrameworkVersion(home)).toBe('5.2.1')
+      expect(readFileSync(path.join(frameworkRoot(home), 'current', '.kimi-code', 'agents', 'sr-architect.md'), 'utf8')).toBe('# arch')
+      expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'framework.update_failed', errors: [{ provider: 'kimi', message: 'kimi materialization failed' }],
+      }))
+      expect(broadcast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'framework.updated' }))
+    })
+
     it('does not swap + emits framework.update_failed when a provider errors', () => {
       installFakeCore('5.0.0')
       // Break the CLI before any materialize so versionCheck's materialize errors.

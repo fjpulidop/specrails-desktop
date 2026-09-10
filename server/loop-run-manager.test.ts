@@ -1184,6 +1184,21 @@ function singleInteractiveGraph(aiStepTimeoutMinutes?: number): LoopGraph {
 }
 
 describe('LoopRunManager interactive ai-steps', () => {
+  it('rejects Core-blocked completion after a successful interactive provider result', async () => {
+    const validateCoreCompletion = vi.fn(() => ({ valid: false, reason: 'Core completion blocked: validation=blocked' }))
+    const { executors, children } = interactiveExecutors({ over: { validateCoreCompletion } })
+    const graph = singleInteractiveGraph()
+    graph.nodes[1].data = { prompt: '{{cmd:implement}}' }
+    const p = manager(executors).run({ ...baseReq(), runId: 'core-blocked-interactive', graph })
+    await waitFor(() => children.length === 1, 'interactive child')
+    children[0].stdout.push(resultFrame({ result: 'Implementation complete. VERIFICATION: PASS' }))
+    const result = await p
+    expect(validateCoreCompletion).toHaveBeenCalledOnce()
+    expect(result.outcome).toBe('failed')
+    expect(getJob(db, result.runId)).toMatchObject({ status: 'failed', total_cost_usd: 0.05 })
+    expect(db.prepare('SELECT status FROM ai_invocations WHERE loop_run_id = ?').all(result.runId)).toEqual([{ status: 'failed' }])
+  })
+
   it('fails the run on a terminal provider error after PASS while accounting its usage exactly once', async () => {
     const { executors, children } = interactiveExecutors()
     const p = manager(executors).run({ ...baseReq(), runId: 'failed-terminal-result', graph: singleInteractiveGraph() })
@@ -2820,6 +2835,9 @@ describe('terminal acceptance evidence', () => {
     }))
     const result = await manager(makeExecutors({ readCoreCompletion })).run(baseReq())
     expect(result.outcome).toBe(validation === 'blocked' ? 'blocked' : 'success')
+    const terminalLog = getJobEvents(db, result.runId).filter(event => event.payload.includes('Loop execution finished:'))
+    expect(terminalLog).toHaveLength(1)
+    expect(terminalLog[0]!.payload).toContain(`Loop execution finished: ${result.outcome}`)
     expect(readCoreCompletion).toHaveBeenCalledWith(result.runId)
     const event = getJobEvents(db, result.runId).find(event => event.event_type === 'loop_completion')!
     expect(JSON.parse(event.payload)).toMatchObject({ execution: 'success', core: { completion: { validation, delivery: 'pending-host' } } })

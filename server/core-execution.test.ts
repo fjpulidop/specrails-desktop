@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
-import { coreVerificationContext, prepareCoreExecution } from './core-execution'
+import { checkCoreCompletion, coreVerificationContext, prepareCoreExecution } from './core-execution'
 import type { RunExecutionManifest } from './multi-repo-execution-store'
 
 vi.mock('./path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath }))
@@ -100,4 +100,64 @@ it('preserves explicit acceptance criteria in single and batch frozen contexts',
   expect(JSON.parse(readFileSync(first.contextPath, 'utf8')).specs[0].acceptanceCriteria).toEqual(['Readable at peak'])
   const batch = prepareCoreExecution({ cwd, repoDir: front, env: {}, run: { runId: 'criteria-batch', spec: { tickets: [{ id: 1, acceptanceCriteria: ['First'] }, { id: 2, acceptanceCriteria: ['Second'] }] } } })
   expect(JSON.parse(readFileSync(batch.contextPath, 'utf8')).specs.map((spec: { acceptanceCriteria: string[] }) => spec.acceptanceCriteria)).toEqual([['First'], ['Second']])
+})
+
+describe('Core implementation completion gate', () => {
+  const complete = {
+    schemaVersion: 1, runId: 'run', resumePhase: 'ship',
+    phases: Object.fromEntries(['architect', 'developer', 'reviewer', 'archive'].map(phase => [phase, { status: 'done' }])),
+    completion: { implementation: 'complete', validation: 'verified', archive: 'done', delivery: 'pending-host' },
+    verification: { valid: true, receipt: { kind: 'full', commands: [{ exitCode: 0 }] } },
+  }
+  function check(status: unknown) {
+    const { cwd } = fixture()
+    const runtime = join(cwd, '.specrails', 'runtime'); mkdirSync(runtime, { recursive: true })
+    writeFileSync(join(runtime, 'pipeline.mjs'), `process.stdout.write(${JSON.stringify(JSON.stringify(status))})`)
+    return checkCoreCompletion('/context.json', cwd, process.env, 'run')
+  }
+  it('accepts verified implementation before host-owned delivery', () => {
+    expect(check(complete)).toEqual({ valid: true })
+  })
+  it('preserves Core-approved acceptance exceptions', () => {
+    expect(check({ ...complete, completion: { ...complete.completion, validation: 'with-exceptions' } })).toEqual({ valid: true })
+  })
+  it('supports the Core 5.1 phases and receipt contract', () => {
+    const { completion: _completion, ...legacy } = complete
+    expect(check(legacy)).toEqual({ valid: true })
+  })
+  it('rejects the archived Tetris case when the final environment check is blocked', () => {
+    const result = check({
+      ...complete, resumePhase: 'reviewer',
+      completion: { ...complete.completion, validation: 'blocked' },
+      verification: { ...complete.verification, valid: false, reasons: ['Verification environment changed: npm'] },
+    })
+    expect(result.valid).toBe(false)
+    expect(result.reason).toContain('validation=blocked')
+    expect(result.reason).toContain('Verification environment changed: npm')
+  })
+  it.each([
+    { ...complete, runId: 'another' },
+    { ...complete, schemaVersion: 2 },
+    { ...complete, completion: { ...complete.completion, implementation: 'incomplete' } },
+    { ...complete, completion: { ...complete.completion, validation: 'pending' } },
+    { ...complete, completion: { ...complete.completion, archive: 'pending' } },
+    { ...complete, phases: { ...complete.phases, developer: { status: 'running' } } },
+    { ...complete, resumePhase: 'reviewer' },
+    { ...complete, verification: { ...complete.verification, valid: false } },
+    { ...complete, verification: { valid: true, receipt: { kind: 'scoped', commands: [{ exitCode: 0 }] } } },
+    { ...complete, verification: { valid: true, receipt: { kind: 'full', commands: [] } } },
+    { ...complete, verification: { valid: true, receipt: { kind: 'full', commands: [{ exitCode: 1 }] } } },
+    { ...complete, verification: undefined },
+    null,
+  ])('rejects incomplete or inconsistent runtime evidence %#', status => {
+    expect(check(status).valid).toBe(false)
+  })
+  it.each(['missing', 'invalid-json', 'exit-error'])('fails closed when runtime status is %s', mode => {
+    const { cwd } = fixture()
+    if (mode !== 'missing') {
+      const runtime = join(cwd, '.specrails', 'runtime'); mkdirSync(runtime, { recursive: true })
+      writeFileSync(join(runtime, 'pipeline.mjs'), mode === 'invalid-json' ? 'console.log("broken")' : 'process.exit(1)')
+    }
+    expect(checkCoreCompletion('/context.json', cwd, process.env, 'run').valid).toBe(false)
+  })
 })
