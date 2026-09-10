@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.44.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.44.0...v2.44.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* enable pipeline telemetry by default and bundle core 5.2.2 ([#651](https://github.com/fjpulidop/specrails-desktop/issues/651)) ([1f5b327](https://github.com/fjpulidop/specrails-desktop/commit/1f5b3273dc7aafaf4027107e688e4a1e4fd187d9))
+
 ## [2.44.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.43.2...v2.44.0) (2026-09-09)
 
 
