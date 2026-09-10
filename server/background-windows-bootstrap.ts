@@ -9,6 +9,10 @@ import { windowsSpawnEnv } from './util/win-spawn'
 import type { BackgroundProcessControl } from './background-process-control'
 import { WINDOWS_JOB_SUPERVISOR } from './windows-job-supervisor'
 
+// PowerShell startup and Add-Type compilation can exceed 15s on cold Windows
+// ARM runners. Keep preparation bounded without admitting any application code.
+export const WINDOWS_JOB_PREPARATION_TIMEOUT_MS = 60_000
+
 // Keep the owned Windows root alive until its creation identity is captured.
 // User commands never enter argv and cannot start before the parent opens stdin.
 export const WINDOWS_BACKGROUND_BOOTSTRAP = String.raw`
@@ -101,9 +105,9 @@ export function spawnWindowsBackgroundBootstrap(command: string, cwd: string): W
   })
   server.on('error', error => { fail(error); try { child?.kill() } catch { /* no child */ } })
   const startupTimer = setTimeout(() => {
-    fail(new Error('Windows job containment preparation timed out; no application was admitted.'))
+    fail(new Error(`Windows job containment preparation timed out after ${WINDOWS_JOB_PREPARATION_TIMEOUT_MS}ms (${socket ? 'control pipe connected, awaiting job assignment' : 'awaiting supervisor control pipe'}); no application was admitted.`))
     try { child?.kill() } catch { /* already gone */ }
-  }, 15_000)
+  }, WINDOWS_JOB_PREPARATION_TIMEOUT_MS)
   startupTimer.unref?.()
   const cleanup = () => {
     clearTimeout(startupTimer)

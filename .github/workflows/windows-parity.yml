@@ -133,3 +133,24 @@ jobs:
           path: ${{ runner.temp }}/native-smoke-dumps/
           if-no-files-found: ignore
           retention-days: 7
+
+  # Exercise the ARM containment regression before merge, without repeating the
+  # complete Rust/WebView build that already runs on main.
+  arm-background-containment:
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    runs-on: windows-11-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 22.22.3
+          cache: npm
+      - run: npm ci
+      - name: Native ARM background containment (no retries)
+        run: >-
+          node node_modules/vitest/vitest.mjs run --maxWorkers=2
+          server/windows-background-containment.integration.test.ts
+          server/background-windows-bootstrap.test.ts server/background-windows-job-control.test.ts

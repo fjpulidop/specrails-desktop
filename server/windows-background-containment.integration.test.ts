@@ -12,6 +12,8 @@ import {
   type BackgroundProcess,
 } from './transient-children'
 
+import { WINDOWS_JOB_PREPARATION_TIMEOUT_MS } from './background-windows-bootstrap'
+
 interface Fixture {
   directory: string
   app?: BackgroundProcess
@@ -73,7 +75,7 @@ setTimeout(() => process.exit(99), 60000).unref();
     onExited(process) { exits.push({ process, serverWasAlive: fixture.serverPid ? alive(fixture.serverPid) : false }) },
   })
   try {
-    const wrapper = await until(() => JSON.parse(readFileSync(wrapperReceipt, 'utf8')) as { pid: number; shellPid: number; serverPid: number }, 'Fast wrapper did not execute')
+    const wrapper = await until(() => JSON.parse(readFileSync(wrapperReceipt, 'utf8')) as { pid: number; shellPid: number; serverPid: number }, 'Fast wrapper did not execute', WINDOWS_JOB_PREPARATION_TIMEOUT_MS + 15_000)
     fixture.serverPid = wrapper.serverPid
     const server = await until(() => JSON.parse(readFileSync(serverReceipt, 'utf8')) as { pid: number; parentPid: number; port: number }, 'Fixture server did not become ready')
     expect(server.pid).toBe(wrapper.serverPid)
@@ -110,7 +112,7 @@ describe.skipIf(process.platform !== 'win32')('Windows background Job Object con
     expect(exits).toHaveLength(1)
     expect(exits[0]).toMatchObject({ process: { processId: fixture.app!.processId, status: 'killed' }, serverWasAlive: false })
     expect(await portIsAvailable(server.port)).toBe(true)
-  }, 30_000)
+  }, WINDOWS_JOB_PREPARATION_TIMEOUT_MS + 90_000)
 
   it('kills the remaining server and reports failure if its sole Job supervisor is terminated unexpectedly', async () => {
     const { fixture, server, exits } = await runningOrphanFixture()
@@ -124,5 +126,5 @@ describe.skipIf(process.platform !== 'win32')('Windows background Job Object con
     expect(exits[0]).toMatchObject({ process: { processId: fixture.app!.processId, status: 'failed' }, serverWasAlive: false })
     expect(exits[0].process.error).toMatch(/supervisor/i)
     expect(await portIsAvailable(server.port)).toBe(true)
-  }, 30_000)
+  }, WINDOWS_JOB_PREPARATION_TIMEOUT_MS + 90_000)
 })

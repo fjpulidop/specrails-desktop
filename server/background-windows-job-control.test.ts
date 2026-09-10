@@ -11,7 +11,7 @@ vi.mock('./path-resolver', () => ({ resolveBundledNodeExe: () => process.execPat
 vi.mock('./util/win-spawn', () => ({ windowsSpawnEnv: () => ({ SystemRoot: 'C:\\Windows' }) }))
 import { createServer } from 'node:net'
 import { spawn } from 'child_process'
-import { spawnWindowsBackgroundBootstrap } from './background-windows-bootstrap'
+import { spawnWindowsBackgroundBootstrap, WINDOWS_JOB_PREPARATION_TIMEOUT_MS } from './background-windows-bootstrap'
 
 let accept!: (socket: Socket) => void
 let child: ChildProcess & { kill: ReturnType<typeof vi.fn> }
@@ -85,16 +85,34 @@ describe('Windows kernel Job control channel', () => {
     expect(spawn).not.toHaveBeenCalled()
   })
 
+  it('allows cold supervisor preparation beyond 15 seconds while keeping admission gated', async () => {
+    vi.useFakeTimers()
+    const app = spawnWindowsBackgroundBootstrap('fixture', '/fixture')
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(child.kill).not.toHaveBeenCalled()
+    expect(() => app.start()).toThrow('not assigned')
+    expect(app.hasLaunched()).toBe(false)
+    accept(socket); socket.emit('data', 'ready\n')
+    await app.control!.ready
+    app.start()
+    expect(socket.write).toHaveBeenCalledWith(`start\t${Buffer.from('fixture').toString('base64')}\n`)
+    await vi.advanceTimersByTimeAsync(WINDOWS_JOB_PREPARATION_TIMEOUT_MS)
+    expect(child.kill).not.toHaveBeenCalled()
+  })
+
   it('bounds preparation time and cleans private scripts after failed supervisor exit', async () => {
     vi.useFakeTimers()
     const app = spawnWindowsBackgroundBootstrap('fixture', '/fixture')
     const rejected = expect(app.control!.ready).rejects.toThrow('preparation timed out')
     const args = vi.mocked(spawn).mock.calls[0][1] as string[]
     const script = args[args.indexOf('-File') + 1]
-    await vi.advanceTimersByTimeAsync(15_000)
+    await vi.advanceTimersByTimeAsync(WINDOWS_JOB_PREPARATION_TIMEOUT_MS)
     await rejected
     expect(child.kill).toHaveBeenCalledOnce()
     expect(app.hasLaunched()).toBe(false)
+    accept(socket); socket.emit('data', 'ready\n')
+    expect(() => app.start()).toThrow('preparation timed out')
+    expect(socket.write).not.toHaveBeenCalled()
     child.emit('close', 125, null)
     expect(existsSync(script)).toBe(false)
   })
