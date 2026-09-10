@@ -5,6 +5,16 @@ success while Core reported `implementation=complete`, `validation=blocked`,
 `archive=done`, and `delivery=pending-host`. The repository's 127 tests passed;
 inspection rejected the receipt with `Verification environment changed: npm`.
 
+A second Windows execution reproduced the same terminal contradiction after
+the coordinator reported successful unit and browser checks, completed archive,
+and skipped host-owned shipping/CI phases. It refreshed verification and moved
+archive execution into the coordinator's session to avoid handoff drift, but
+the host still reported blocked validation. This corroborates the cross-process
+failure pattern; the transcript alone does not identify the differing variables
+or establish a cloud-synced project path as the cause. Runtime diagnostics now
+report added/removed environment key names without values. If only values differ,
+the aggregate hash cannot identify the individual key.
+
 Three independent problems made recovery unreliable:
 
 1. The installed app bundled Core 5.2.2, but `framework/current` still resolved to
