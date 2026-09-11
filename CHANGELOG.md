@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.44.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.44.1...v2.44.2) (2026-09-11)
+
+
+### Bug Fixes
+
+* **desktop:** validate loop completion and retain framework providers ([#654](https://github.com/fjpulidop/specrails-desktop/issues/654)) ([2241561](https://github.com/fjpulidop/specrails-desktop/commit/224156144f2cb557681c1fd838cdabc802f7ead3))
+* **windows:** allow bounded cold supervisor startup on ARM ([#655](https://github.com/fjpulidop/specrails-desktop/issues/655)) ([51e86b7](https://github.com/fjpulidop/specrails-desktop/commit/51e86b7971f2993265d15843ad8b567dc7ad0848))
+
 ## [2.44.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.44.0...v2.44.1) (2026-09-10)
 
 
