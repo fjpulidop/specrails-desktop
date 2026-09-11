@@ -1,3 +1,4 @@
+import { shutdownAgentRuntimeControls } from './agent-runtime-controls-router'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
@@ -393,6 +394,7 @@ export class ProjectRegistry {
       // Loop engine teardown: dispose any resident interactive step sessions
       // (SIGTERM, no settle) + kill in-flight one-shot loop children — BEFORE
       // db.close() so a late close handler can't write to the closed handle.
+      try { shutdownAgentRuntimeControls(ctx) } catch { /* ignore */ }
       try { ctx.loopRunManager.shutdown() } catch { /* ignore */ }
       try { ctx.setupManager.abort(id) } catch { /* ignore */ }
       // Kill untracked fire-and-forget children (Quick spec-gen) for this project.
@@ -567,6 +569,7 @@ export class ProjectRegistry {
       try { ctx.chatManager.shutdown() } catch { /* ignore */ }
       // Loop engine: dispose resident interactive step sessions + kill in-flight
       // one-shot loop children so a quit mid-run doesn't orphan claude processes.
+      try { shutdownAgentRuntimeControls(ctx) } catch { /* ignore */ }
       try { ctx.loopRunManager.shutdown() } catch { /* ignore */ }
       // Install/enrich wizard children + the 3s install poll interval are NOT
       // torn down by the spawner shutdowns above — mirror removeProject()'s

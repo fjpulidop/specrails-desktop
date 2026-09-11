@@ -1,0 +1,106 @@
+{
+  "title": "Agent runtime",
+  "description": "Architect, developer and reviewer run as separate phases with deterministic verification in between. Pick a provider per role; everything else has a working default.",
+  "loading": "Loading runtime settings…",
+  "loadFailed": "Could not load runtime settings. Retry before making changes.",
+  "retry": "Retry",
+  "enabled": "Use the agent runtime for implementation",
+  "enableHint": "Saving does not start agents. Implementations of this project use the runtime once enabled; disabled projects keep their current execution mode.",
+  "unavailable": "This Core installation does not include the agent runtime. Update Core before enabling it; you can prepare settings while disabled.",
+  "save": "Save runtime settings",
+  "saving": "Saving…",
+  "saved": "Runtime settings saved",
+  "saveFailed": "Could not save runtime settings.",
+  "approvalBeforeArchive": "Pause for approval before completing the workflow",
+  "providers": {
+    "title": "Providers",
+    "hint": "CLI providers use their existing login. API providers accept an environment variable name only, never an API key. Local endpoints can leave it blank. Assign another provider to a role before removing its current provider.",
+    "entry": "Provider {{index}}",
+    "id": "Provider ID",
+    "kind": "Connection type",
+    "cli": "Installed coding CLI",
+    "compatible": "OpenAI-compatible endpoint",
+    "command": "Coding CLI",
+    "baseUrl": "API base URL",
+    "apiKeyEnv": "API key environment variable (optional)",
+    "remove": "Remove provider",
+    "addCli": "Add CLI provider",
+    "addLocal": "Add local / API provider",
+    "show": "Show provider connections",
+    "hide": "Hide provider connections"
+  },
+  "cliNames": {
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini",
+    "kimi": "Kimi"
+  },
+  "roles": {
+    "architect": "Architect",
+    "developer": "Developer",
+    "reviewer": "Reviewer",
+    "verify": "Verification",
+    "archive": "Completion"
+  },
+  "agents": {
+    "title": "Role assignments",
+    "hint": "Each role runs its own provider session. Leave the model on its default unless you need a specific one. Turns are the number of tool calls a role may make (default {{turns}}).",
+    "provider": "Provider",
+    "model": "Model",
+    "modelPlaceholder": "Model ID or CLI default",
+    "maxTurns": "Maximum turns (default {{turns}})",
+    "defaultModel": "Default ({{model}})"
+  },
+  "limits": {
+    "title": "Workflow limits",
+    "hint": "Empty fields use Core defaults: {{attempts}} developer attempts and {{minutes}} minutes per workflow. Token and USD caps are optional; USD caps require Claude for every AI role.",
+    "maxAttempts": "Maximum developer attempts (default {{attempts}})",
+    "timeoutMinutes": "Timeout in minutes (default {{minutes}})",
+    "maxTokens": "Maximum tokens",
+    "maxCostUsd": "Maximum cost (USD)",
+    "unlimited": "No limit"
+  },
+  "verification": {
+    "title": "Verification commands",
+    "hint": "Optional. These run after the developer finishes and their failures go back to the developer. Leave the list empty and the architect proposes the project's own checks on each run; repositories without any automated check are still reviewed.",
+    "detect": "Detect project checks",
+    "detecting": "Detecting…",
+    "detected": "Filled in from the checks this project already defines.",
+    "nothingDetected": "No test, type-check or build command was found. That is fine: the architect proposes checks at run time when possible.",
+    "detectFailed": "Could not inspect the project repositories.",
+    "repository": "Repository",
+    "command": "Command",
+    "reason": "Detected from {{reason}}",
+    "remove": "Remove",
+    "add": "Add command",
+    "invalidLine": "Verification command is empty or has an unterminated quote: {{line}}"
+  },
+  "runs": {
+    "title": "Saved executions",
+    "refresh": "Refresh",
+    "hint": "Continue in the original worktree with the frozen scope and settings; progress appears in that job's log. This does not publish or restart Desktop delivery. Active rail executions are stopped from their job controls.",
+    "empty": "No saved runtime executions.",
+    "loadFailed": "Could not load saved executions.",
+    "actionFailed": "Could not update this execution.",
+    "phase": "Next phase: {{phase}}",
+    "approve": "Approve completion",
+    "recover": "Recover interrupted phase",
+    "resume": "Resume",
+    "cancel": "Cancel continuation",
+    "status": {
+      "running": "Continuing…",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "blocked": "Blocked",
+      "paused": "Paused",
+      "cancelled": "Cancelled",
+      "interrupted": "Interrupted",
+      "unavailable": "Unavailable"
+    }
+  },
+  "roleHints": {
+    "architect": "Reads the code and writes the proposal, design, tasks and spec. Read-only.",
+    "developer": "Implements the tasks with tests. Can edit files and run commands inside the CLI sandbox.",
+    "reviewer": "Checks the result against the spec and the verification evidence. Read-only."
+  }
+}

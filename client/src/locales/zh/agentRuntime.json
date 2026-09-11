@@ -1,0 +1,106 @@
+{
+  "title": "代理运行引擎",
+  "description": "架构师、开发者和审阅者作为独立阶段运行，中间进行确定性验证。为每个角色选择提供商即可，其余都有可用的默认值。",
+  "loading": "正在加载运行设置…",
+  "loadFailed": "无法加载运行设置。请先重试再修改。",
+  "retry": "重试",
+  "enabled": "使用代理运行引擎进行实现",
+  "enableHint": "保存不会启动代理。启用后，此项目的实现将使用运行引擎；停用的项目保留当前执行模式。",
+  "unavailable": "当前 Core 安装不包含代理运行引擎。启用前请更新 Core；停用时仍可提前配置。",
+  "save": "保存运行设置",
+  "saving": "正在保存…",
+  "saved": "运行设置已保存",
+  "saveFailed": "无法保存运行设置。",
+  "approvalBeforeArchive": "完成工作流前暂停并等待批准",
+  "providers": {
+    "title": "提供商",
+    "hint": "CLI 提供商使用现有登录。API 仅接受环境变量名称，请勿输入密钥。本地端点可留空。删除提供商前，请先重新分配使用它的角色。",
+    "entry": "提供商 {{index}}",
+    "id": "提供商 ID",
+    "kind": "连接类型",
+    "cli": "已安装的编程 CLI",
+    "compatible": "兼容 OpenAI 的端点",
+    "command": "编程 CLI",
+    "baseUrl": "API 基础 URL",
+    "apiKeyEnv": "API 密钥环境变量（可选）",
+    "remove": "移除提供商",
+    "addCli": "添加 CLI 提供商",
+    "addLocal": "添加本地 / API 提供商",
+    "show": "显示提供商连接",
+    "hide": "隐藏提供商连接"
+  },
+  "cliNames": {
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini",
+    "kimi": "Kimi"
+  },
+  "roles": {
+    "architect": "架构师",
+    "developer": "开发者",
+    "reviewer": "审查者",
+    "verify": "验证",
+    "archive": "完成"
+  },
+  "agents": {
+    "title": "角色分配",
+    "hint": "每个角色使用各自的提供商会话。除非需要特定模型，否则保持默认。轮数是角色可进行的工具调用次数（默认 {{turns}}）。",
+    "provider": "提供商",
+    "model": "模型",
+    "modelPlaceholder": "模型 ID 或 CLI 默认值",
+    "maxTurns": "最大轮数（默认 {{turns}}）",
+    "defaultModel": "默认（{{model}}）"
+  },
+  "limits": {
+    "title": "工作流限制",
+    "hint": "空字段使用 Core 默认值：开发者尝试 {{attempts}} 次，每个工作流 {{minutes}} 分钟。令牌和 USD 上限可选；USD 上限要求所有 AI 角色使用 Claude。",
+    "maxAttempts": "开发者最大尝试次数（默认 {{attempts}}）",
+    "timeoutMinutes": "超时（分钟，默认 {{minutes}}）",
+    "maxTokens": "最大令牌数",
+    "maxCostUsd": "最大成本（USD）",
+    "unlimited": "无限制"
+  },
+  "verification": {
+    "title": "验证命令",
+    "hint": "可选。在开发者完成后运行，失败会返回给开发者。留空时，架构师会在每次运行时提出项目自身的检查；没有自动检查的仓库仍会被审阅。",
+    "detect": "检测项目检查",
+    "detecting": "检测中…",
+    "detected": "已根据此项目已定义的检查填写。",
+    "nothingDetected": "未找到测试、类型检查或构建命令。没关系：架构师会在可能时于运行时提出检查。",
+    "detectFailed": "无法检查项目仓库。",
+    "repository": "仓库",
+    "command": "命令",
+    "reason": "检测自 {{reason}}",
+    "remove": "移除",
+    "add": "添加命令",
+    "invalidLine": "验证命令为空或引号未闭合：{{line}}"
+  },
+  "runs": {
+    "title": "已保存的执行",
+    "refresh": "刷新",
+    "hint": "在原始工作树中使用冻结的范围和设置继续执行，进度显示在该任务的日志中。此操作不会发布或重启 Desktop 交付。请从任务控件停止活动中的执行。",
+    "empty": "没有已保存的执行。",
+    "loadFailed": "无法加载已保存的执行。",
+    "actionFailed": "无法更新此执行。",
+    "phase": "下一阶段：{{phase}}",
+    "approve": "批准完成",
+    "recover": "恢复中断阶段",
+    "resume": "继续",
+    "cancel": "取消继续执行",
+    "status": {
+      "running": "继续中…",
+      "succeeded": "成功",
+      "failed": "失败",
+      "blocked": "已阻止",
+      "paused": "已暂停",
+      "cancelled": "已取消",
+      "interrupted": "已中断",
+      "unavailable": "不可用"
+    }
+  },
+  "roleHints": {
+    "architect": "阅读代码并撰写提案、设计、任务和规范。只读。",
+    "developer": "带测试地实现任务。可在 CLI 沙箱内编辑文件并运行命令。",
+    "reviewer": "对照规范和验证证据检查结果。只读。"
+  }
+}

@@ -60,7 +60,16 @@
     "readingFiles": "{{files}} 個のファイルを読んでいます（{{names}}…）",
     "editingFiles": "{{files}} 個のファイルを変更しています（{{names}}…）",
     "delegating": "{{target}} に引き継いでいます",
-    "delegatingBare": "担当に引き継いでいます"
+    "delegatingBare": "担当に引き継いでいます",
+    "phase": {
+      "architect": "変更を設計中（アーキテクト）",
+      "developer": "変更を実装中（デベロッパー）",
+      "verify": "検証コマンドを実行中",
+      "reviewer": "実装をレビュー中（レビュアー）",
+      "archive": "レビュー済みの変更をアーカイブ中",
+      "stopped": "実行エンジンが停止しました: {{target}}",
+      "corrections": "修正をデベロッパーに差し戻し中"
+    }
   },
   "repeats": "×{{count}}"
 }

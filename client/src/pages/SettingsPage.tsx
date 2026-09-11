@@ -6,6 +6,7 @@ import { useDesktop } from '../hooks/useDesktop'
 import type { ProjectConfig } from '../types'
 import { TerminalSettingsSection } from '../components/settings/TerminalSettingsSection'
 import { ProjectRepositoriesSection } from '../components/settings/ProjectRepositoriesSection'
+import { AgentRuntimeSettingsSection } from '../components/settings/AgentRuntimeSettingsSection'
 import {
   ProjectTelemetrySection,
   ProjectPrePromptsSection,
@@ -109,6 +110,8 @@ export default function SettingsPage() {
       <ProjectPrePromptsSection />
 
       <ProjectRepositoriesSection />
+
+      <AgentRuntimeSettingsSection />
 
       <ProjectIntegrationBranchSection />
 

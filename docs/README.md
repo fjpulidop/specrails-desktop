@@ -25,6 +25,7 @@ When asked to connect to Specrails MCP, read [the agent runbook](agents/mcp.md).
 | [Messages during a mission](agent-live-steering.md) | …you want to give the agent new instructions while it is working |
 | [Mission applications and process logs](mission-processes.md) | …you want to launch an application, stop it reliably or inspect its output |
 | [Running pipelines](running-pipelines.md) | …you want to launch the AI pipeline against a spec, manage rails, pick agent profiles, or install plugins |
+| [Programmatic agent runtime](internals/programmatic-agent-runtime.md) | …you want separate phases, a provider per role, a local model, or explicit workflow recovery |
 | [Using Codex](codex.md) | …you added a project with OpenAI's Codex CLI instead of (or alongside) Claude |
 | [Using Gemini](gemini.md) | …you added a project with Google's Gemini CLI instead of (or alongside) Claude, Codex, or Kimi |
 | [Using Kimi](kimi.md) | …you want Kimi Code setup, models/effort, session behavior, MCP, and native limitations |

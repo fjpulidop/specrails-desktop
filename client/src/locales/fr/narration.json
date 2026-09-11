@@ -60,7 +60,16 @@
     "readingFiles": "Lecture de {{files}} fichiers ({{names}}…)",
     "editingFiles": "Modification de {{files}} fichiers ({{names}}…)",
     "delegating": "Transmission au {{target}}",
-    "delegatingBare": "Transmission à un spécialiste"
+    "delegatingBare": "Transmission à un spécialiste",
+    "phase": {
+      "architect": "Conception du changement (architecte)",
+      "developer": "Implémentation du changement (développeur)",
+      "verify": "Exécution des commandes de vérification",
+      "reviewer": "Relecture de l’implémentation (relecteur)",
+      "archive": "Archivage du changement relu",
+      "stopped": "Le moteur s’est arrêté : {{target}}",
+      "corrections": "Renvoi des corrections au développeur"
+    }
   },
   "repeats": "×{{count}}"
 }

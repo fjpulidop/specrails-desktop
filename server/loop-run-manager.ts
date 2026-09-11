@@ -60,6 +60,7 @@ import { recordInvocation } from './ai-invocations'
 import { classifyProviderLimit, describeProviderLimit, type ProviderLimit } from './provider-limit'
 import { newId } from './ids'
 import { getAdapter, requireToolPolicy } from './providers'
+import { parseProgrammaticUsage } from './agent-runtime-accounting'
 import { parseStreamEvents } from './providers/runtime'
 import { finaliseInvocationResult } from './result-event'
 import { claimRailTickets, claimTicketOutcomeOwners } from './rails-store'
@@ -513,6 +514,14 @@ type LoopRecordedResult = {
   failed?: boolean
 }
 
+function programmaticUsageAvailability(db: DbInstance, runId: string): { present: boolean; costUnknown: boolean; tokensInUnknown: boolean; tokensOutUnknown: boolean } {
+  const row = db.prepare(`SELECT COUNT(*) AS count,
+    MAX(total_cost_usd IS NULL) AS cost_unknown,
+    MAX(tokens_in IS NULL) AS input_unknown, MAX(tokens_out IS NULL) AS output_unknown
+    FROM ai_invocations WHERE surface = 'loop' AND loop_run_id = ? AND provider = 'agent-runtime'`).get(runId) as { count: number; cost_unknown: number | null; input_unknown: number | null; output_unknown: number | null }
+  return { present: row.count > 0, costUnknown: Boolean(row.cost_unknown), tokensInUnknown: Boolean(row.input_unknown), tokensOutUnknown: Boolean(row.output_unknown) }
+}
+
 function insertLoopInvocation(
   db: DbInstance,
   payload: LoopStepRecoveryPayload,
@@ -580,8 +589,8 @@ function insertLoopInvocation(
     cost: number; tokens_in: number; tokens_out: number
     cache_read: number; cache_create: number; duration: number; turns: number
   }
-  const usageTelemetryAvailable =
-    getAdapter(payload.provider).capabilities.reportsUsage !== false
+  const runtimeUsage = programmaticUsageAvailability(db, payload.runId)
+  const usageTelemetryAvailable = runtimeUsage.present || getAdapter(payload.provider).capabilities.reportsUsage !== false
   db.prepare(`
     UPDATE jobs
        SET total_cost_usd = ?, tokens_in = ?, tokens_out = ?,
@@ -589,13 +598,13 @@ function insertLoopInvocation(
            duration_ms = ?, num_turns = ?
      WHERE id = ? AND owner = 'loop'
   `).run(
-    usageTelemetryAvailable ? aggregate.cost : null,
-    usageTelemetryAvailable ? aggregate.tokens_in : null,
-    usageTelemetryAvailable ? aggregate.tokens_out : null,
-    usageTelemetryAvailable ? aggregate.cache_read : null,
-    usageTelemetryAvailable ? aggregate.cache_create : null,
+    usageTelemetryAvailable && !runtimeUsage.costUnknown ? aggregate.cost : null,
+    usageTelemetryAvailable && !runtimeUsage.tokensInUnknown ? aggregate.tokens_in : null,
+    usageTelemetryAvailable && !runtimeUsage.tokensOutUnknown ? aggregate.tokens_out : null,
+    usageTelemetryAvailable && !runtimeUsage.present ? aggregate.cache_read : null,
+    usageTelemetryAvailable && !runtimeUsage.present ? aggregate.cache_create : null,
     aggregate.duration,
-    usageTelemetryAvailable ? aggregate.turns : null,
+    usageTelemetryAvailable && !runtimeUsage.present ? aggregate.turns : null,
     payload.runId,
   )
 }
@@ -676,6 +685,22 @@ export function recoverOrphanLoopStepAccounting(
     `).all(payload.runId, payload.completedEventSeq ?? -1) as Array<{
       seq: number; event_type: string; payload: string
     }>
+    const programmatic = parseProgrammaticUsage(rawRows.map(row => row.payload)) ?? (payload.provider === 'agent-runtime'
+      ? { provider: 'agent-runtime' as const, model: 'per-role' as const, estimated: true, failed: true }
+      : undefined)
+    if (programmatic) {
+      const durationMs = boundedInflightDurationMs(payload, finishedAt)
+      const didRecover = completeLoopStepRecovery(db, payload.runId, payload.stepKey, stable => {
+        insertLoopInvocation(db, stable, { ...programmatic, durationMs }, finishedAt)
+        const aggregate = readLoopJobUsage(db, payload.runId)
+        const duration = (payload.loopDurationBaseline ?? 0) + durationMs
+        db.prepare(`UPDATE loop_runs SET total_cost_usd = ?, total_tokens = ?, total_duration_ms = ?, iteration_count = MAX(iteration_count, COALESCE(?, iteration_count)) WHERE id = ?`)
+          .run(aggregate.totalCostUsd, aggregate.tokensIn + aggregate.tokensOut, duration, stable.iterationCount ?? null, payload.runId)
+        db.prepare(`UPDATE jobs SET duration_ms = ? WHERE id = ? AND owner = 'loop'`).run(duration, payload.runId)
+      })
+      if (didRecover) recovered += 1
+      continue
+    }
     const adapter = getAdapter(payload.provider as Parameters<typeof getAdapter>[0])
     const usageTelemetryAvailable = adapter.capabilities.reportsUsage !== false
     const events = rawRows
@@ -969,7 +994,7 @@ export class LoopRunManager {
     if (req.graph.nodes.some((node) => node.type === 'decider')) {
       requireToolPolicy(adapter, 'read-only')
     }
-    const usageTelemetryAvailable = adapter.capabilities.reportsUsage !== false
+    let usageTelemetryAvailable = adapter.capabilities.reportsUsage !== false
     const neverAfterDispose = (): Promise<LoopRunResult> => new Promise(() => { /* startup recovery owns settlement */ })
     const runId = req.runId ?? newId()
     const maxIterations = req.graph.config.maxIterations
@@ -1260,12 +1285,11 @@ export class LoopRunManager {
       startedAt: string,
       stepKey?: string,
     ) => {
+      if (r.provider === 'agent-runtime') usageTelemetryAvailable = true
       if (usageTelemetryAvailable) totalCost += r.cost ?? 0
-      // A cost-bearing step that produced work (tokens) or hard-failed but reports
-      // no priced cost → its real spend is missing from the total. The common case
-      // is a claude step killed by timeout before its terminal `result` event:
-      // tokens streamed, but cost (and tokens) are dropped, so the step bills $0.
-      // Flag the run total as a lower bound and say so, per occurrence.
+      // Missing pricing does not identify the failure cause or prove zero spend:
+      // providers can omit billing after a successful call or reject a request
+      // before model work starts. Retain known costs and flag the incomplete sum.
       const costBearingButUnpriced =
         usageTelemetryAvailable
         && r.cost == null
@@ -1274,7 +1298,7 @@ export class LoopRunManager {
         costUncertain = true
         costUnknownWarned = true // this line already carries the cap caveat below
         logLine(
-          `⚠️ Step cost unknown — the process ended before billing (timeout/crash), so it counts as $0. The loop total is a lower bound.${maxCostUsd !== undefined ? ' The cost cap may under-count.' : ''}`,
+          `⚠️ Step cost unknown — this step did not report a priced cost. The reported loop total includes known costs only.${maxCostUsd !== undefined ? ' The cost cap may under-count.' : ''}`,
           'stderr',
         )
       }
@@ -1491,7 +1515,7 @@ export class LoopRunManager {
             // --yes`, codex `$implement #<id> --yes`) — then resolve `{{spec.*}}`
             // data tokens and finally `{{const:*}}` library constants.
             const rawTemplate = String(node.data?.prompt ?? '')
-            const requiresCoreCompletion = /\{\{\s*cmd:(?:implement|batch)\s*\}\}/.test(rawTemplate)
+            const requiresCoreCompletion = node.data?.operation === 'core-implementation' || /\{\{\s*cmd:(?:implement|batch)\s*\}\}/.test(rawTemplate)
               || /^\s*(?:\/specrails:|\/skill:specrails-|\$)(?:implement|batch-implement)(?:\s|$)/.test(rawTemplate)
             const expanded = resolveConstants(
               resolveRunVars(
@@ -1538,7 +1562,7 @@ export class LoopRunManager {
               const effectiveTimeoutMs = Number.isFinite(remainingMs)
                 ? Math.max(1, Math.min(aiStepTimeoutMs === 0 ? Infinity : (aiStepTimeoutMs ?? 15 * 60_000), remainingMs))
                 : aiStepTimeoutMs
-              const coreRun: CoreRunInput = { runId, spec: req.spec, goal: req.spec ? undefined : JSON.stringify({ loop: req.loopName, graph: req.graph }), repositoryId: req.repositoryId, verificationStep: node.data?.requireVerificationPass === true || /\{\{\s*cmd:(?:verify|revision-verify|opsx:verify)\s*\}\}/.test(rawTemplate) }
+              const coreRun: CoreRunInput = { runId, implementation: requiresCoreCompletion, spec: req.spec, goal: req.spec ? undefined : JSON.stringify({ loop: req.loopName, graph: req.graph }), repositoryId: req.repositoryId, verificationStep: node.data?.requireVerificationPass === true || /\{\{\s*cmd:(?:verify|revision-verify|opsx:verify)\s*\}\}/.test(rawTemplate) }
               const interactivePlan = this.executors.planInteractiveAiStep?.({
                 coreRun,
                 provider: nodeProvider,
@@ -1687,15 +1711,21 @@ export class LoopRunManager {
                 ? `blocked — ${blockedReason}`
               : verificationFailed
                 ? 'verification did not finish with VERIFICATION: PASS'
-              : undefined)
-            if (verificationFailed && !blockedReason) logLine(`✖ ${stepErrorText}`, 'stderr')
+              : res.failed ? 'provider invocation failed without a reported reason' : undefined)
             // Make the failure reason land visibly INSIDE the step's log
             // segment (the interactive session already surfaced its own note at
             // settle; the Template/Command flat-log lines are gone, so without
             // this the one-shot `Unknown command:` text would never be seen).
             if (oneShotZeroWork) {
               logLine(`✖ Zero work performed — the command never ran${res.text.trim() ? `: ${res.text.trim()}` : ''}`, 'stderr')
+            } else if (stepFailed && stepErrorText) {
+              // Executors can return a structured failure without streaming any
+              // text (configuration rejection, missing CLI, provider startup).
+              // Persist its reason before the step closes, including early stops.
+              logLine(`✖ ${stepErrorText}`, 'stderr')
             }
+            record(`loop:${runId}`, { ...res, failed: stepFailed }, aiStepStart, aiRecoveryKey)
+            this._activeStepRecovery.delete(runId)
             // Step tail marker — after the step's last streamed output (both the
             // one-shot and interactive paths have fully persisted their frames by
             // here: the session resolves inside onSettle, past its final writes).
@@ -1717,8 +1747,6 @@ export class LoopRunManager {
             if (res.sessionId && (!stepFailed || (blockedReason !== null && !res.failed && !zeroWork))) aiSessionId = res.sessionId
             else if (stepFailed) aiSessionId = undefined
             history.push(`AI Step${stepFailed ? ` FAILED (${stepErrorText ?? 'provider invocation failed'})` : ''}: ${truncate(res.text)}`)
-            record(`loop:${runId}`, { ...res, failed: stepFailed }, aiStepStart, aiRecoveryKey)
-            this._activeStepRecovery.delete(runId)
             if (blockedReason) {
               const decision = await awaitHumanDecision(blockedReason)
               if (decision.action === 'stop') {
@@ -1998,6 +2026,7 @@ export class LoopRunManager {
     // dispose (shutdown/project removal), where this code never runs.
     emitStepEnd({ status: 'failed' })
 
+    let runtimeUsage = { present: false, costUnknown: false, tokensInUnknown: false, tokensOutUnknown: false }
     // A traversal exception can bypass record(). Reconcile the staged step
     // BEFORE writing aggregate job totals, while its jobs baseline is still
     // valid. If reconciliation itself fails, finishLoopRunAndJob detects the
@@ -2009,6 +2038,8 @@ export class LoopRunManager {
         runId,
       )
       this._activeStepRecovery.delete(runId)
+      runtimeUsage = programmaticUsageAvailability(this.db, runId)
+      usageTelemetryAvailable ||= runtimeUsage.present
       const aggregate = this.db.prepare(`
         SELECT COALESCE(SUM(total_cost_usd), 0) AS cost,
                COALESCE(SUM(tokens_in), 0) AS tokens_in,
@@ -2043,11 +2074,11 @@ export class LoopRunManager {
       }
       if (usageTelemetryAvailable) {
         finalJobUsage = {
-          tokensIn: aggregate.tokens_in,
-          tokensOut: aggregate.tokens_out,
-          tokensCacheRead: aggregate.cache_read,
-          tokensCacheCreate: aggregate.cache_create,
-          numTurns: aggregate.turns,
+          tokensIn: runtimeUsage.tokensInUnknown ? null : aggregate.tokens_in,
+          tokensOut: runtimeUsage.tokensOutUnknown ? null : aggregate.tokens_out,
+          tokensCacheRead: runtimeUsage.present ? null : aggregate.cache_read,
+          tokensCacheCreate: runtimeUsage.present ? null : aggregate.cache_create,
+          numTurns: runtimeUsage.present ? null : aggregate.turns,
         }
       }
     } catch (err) {
@@ -2060,9 +2091,10 @@ export class LoopRunManager {
     try { coreCompletion = await this.executors.readCoreCompletion?.(runId) ?? null } catch { /* old/unavailable runtime */ }
     const executionOutcome = outcome
     if (outcome === 'success' && coreCompletion && (coreCompletion.completion.implementation !== 'complete' || !['verified', 'with-exceptions'].includes(coreCompletion.completion.validation))) outcome = 'blocked'
+    const costAvailable = usageTelemetryAvailable && !runtimeUsage.costUnknown
     console.log(
       `[loop] settle run=${runId} outcome=${outcome} iterations=${iteration} ` +
-        (usageTelemetryAvailable ? `cost=$${totalCost.toFixed(4)}` : 'usage=unavailable'),
+        (costAvailable ? `cost=$${totalCost.toFixed(4)}` : 'cost=unavailable'),
     )
     emitRunEvent('loop_completion', {
       version: 1, execution: executionOutcome, steps: stepNum, deciderEvaluations: iteration,
@@ -2085,7 +2117,7 @@ export class LoopRunManager {
     // explicit unavailable marker, never a fabricated "$0.0000".
     logLine(
       `\n■ Loop execution finished: ${outcome} — ${stepNum} step${stepNum === 1 ? '' : 's'}, ${iteration} decider evaluation${iteration === 1 ? '' : 's'}, ${finalJobUsage.numTurns ?? 'unknown'} agent turns, ` +
-        (usageTelemetryAvailable
+        (costAvailable
           ? `${costUncertain ? '≥ ' : ''}$${totalCost.toFixed(4)}`
           : 'usage/cost unavailable'),
     )
@@ -2105,7 +2137,7 @@ export class LoopRunManager {
       job: {
         exitCode: outcome === 'success' ? 0 : 1,
         status: jobStatus,
-        totalCostUsd: usageTelemetryAvailable ? totalCost : null,
+        totalCostUsd: costAvailable ? totalCost : null,
         tokensIn: finalJobUsage.tokensIn,
         tokensOut: finalJobUsage.tokensOut,
         tokensCacheRead: finalJobUsage.tokensCacheRead,
@@ -2126,7 +2158,7 @@ export class LoopRunManager {
         tokens_out: finalJobUsage.tokensOut,
         tokens_cache_read: finalJobUsage.tokensCacheRead,
         tokens_cache_create: finalJobUsage.tokensCacheCreate,
-        total_cost_usd: usageTelemetryAvailable ? totalCost : null,
+        total_cost_usd: costAvailable ? totalCost : null,
         num_turns: finalJobUsage.numTurns,
       },
       timestamp: new Date(this.now()).toISOString(),
@@ -2144,7 +2176,7 @@ export class LoopRunManager {
       runId,
       outcome,
       iterations: iteration,
-      totalCostUsd: usageTelemetryAvailable ? totalCost : null,
+      totalCostUsd: costAvailable ? totalCost : null,
       ...(outcome === 'stalled' && stallReason ? { stallReason } : {}),
       ...(providerLimitHit ? { providerLimit: providerLimitHit } : {}),
     }

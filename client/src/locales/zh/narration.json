@@ -60,7 +60,16 @@
     "readingFiles": "正在读取 {{files}} 个文件（{{names}}…）",
     "editingFiles": "正在修改 {{files}} 个文件（{{names}}…）",
     "delegating": "移交给 {{target}}",
-    "delegatingBare": "移交给专家"
+    "delegatingBare": "移交给专家",
+    "phase": {
+      "architect": "设计变更（架构师）",
+      "developer": "实现变更（开发者）",
+      "verify": "运行验证命令",
+      "reviewer": "审阅实现（审阅者）",
+      "archive": "归档已审阅的变更",
+      "stopped": "运行引擎已停止：{{target}}",
+      "corrections": "将修正返回给开发者"
+    }
   },
   "repeats": "×{{count}}"
 }

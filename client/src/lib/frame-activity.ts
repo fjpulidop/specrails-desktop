@@ -85,6 +85,17 @@ export interface FrameActivity {
   stepCount?: number
 }
 
+/** Gemini/Codex/Kimi tool names arrive through Core unchanged; fold them onto the claude vocabulary mapTool understands. */
+function runtimeToolName(tool: string): string {
+  const name = tool.toLowerCase()
+  if (['read_file', 'read_many_files', 'readfile', 'view'].includes(name)) return 'read'
+  if (['write_file', 'writefile'].includes(name)) return 'write'
+  if (['replace', 'edit_file', 'apply_patch', 'file_change', 'str_replace'].includes(name)) return 'edit'
+  if (['grep_search', 'list_directory', 'list_files', 'glob', 'find'].includes(name)) return 'search'
+  if (['run_shell_command', 'shell', 'command_execution', 'local_shell_call', 'bash', 'terminal'].includes(name)) return 'bash'
+  return tool
+}
+
 export function mapTool(name: unknown, input: Record<string, unknown> | undefined): FrameActivity {
   const inp = input ?? {}
   const file = basename(inp.file_path ?? inp.path)
@@ -200,6 +211,21 @@ export function deriveFrameActivity(ev: EventRow): FrameActivity {
     return mapTool(parsed.name, parsed.input as Record<string, unknown> | undefined)
   }
 
+  // ── Specrails Core agent runtime ──
+  // Core forwards one `agent-event` per role action: tool-start carries the
+  // tool name and a short target (a path or a command), text carries prose.
+  if (t === 'agent-event') {
+    const event = parsed.event as { kind?: unknown; tool?: unknown; detail?: unknown; text?: unknown } | undefined
+    if (event?.kind === 'tool-start' && typeof event.tool === 'string') {
+      const detail = typeof event.detail === 'string' ? event.detail : undefined
+      const name = event.tool.toLowerCase()
+      const input = detail === undefined ? {} : ['bash', 'shell'].includes(name) ? { command: detail } : ['grep', 'glob', 'search', 'grep_search', 'websearch'].includes(name) ? { pattern: detail } : { file_path: detail }
+      return mapTool(runtimeToolName(event.tool), input)
+    }
+    if (event?.kind === 'text' && typeof event.text === 'string' && event.text.trim()) return { step: true, actionKey: 'thinking' }
+    return { step: false }
+  }
+
   // ── Codex exec --json ──
   if (t === 'item.completed') {
     const item = parsed.item as Record<string, unknown> | undefined
@@ -254,6 +280,12 @@ export function commandFromEvent(ev: EventRow): string {
       const command = input?.command
       if (command) return fullCommand(command)
     }
+    return ''
+  }
+
+  if (ev.event_type === 'agent-event') {
+    const event = parsed.event as { kind?: unknown; tool?: unknown; detail?: unknown } | undefined
+    if (event?.kind === 'tool-start' && typeof event.tool === 'string' && runtimeToolName(event.tool) === 'bash' && typeof event.detail === 'string') return fullCommand(event.detail)
     return ''
   }
 

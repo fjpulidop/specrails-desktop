@@ -145,14 +145,22 @@ function normalizeRequestedVersion(raw) {
 
 function parseArgs(argv) {
   let requested = null
+  let source = null
   let dest = path.join(repoRoot, 'src-tauri', 'core')
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--dest') {
       dest = path.resolve(argv[++i])
+    } else if (a === '--source') {
+      if (!argv[i + 1]) throw new Error('--source requires a Core checkout path')
+      source = path.resolve(argv[++i])
     } else if (!a.startsWith('-')) {
       requested = a
     }
+  }
+  if (source) {
+    if (requested) throw new Error('Choose an integrity-locked registry version or --source, not both')
+    return { source, dest }
   }
   const locked = lockedVersion()
   if (requested !== null) {
@@ -184,7 +192,8 @@ const STAGED_ENTRIES = [
 ]
 
 async function main() {
-  const { version, dest } = parseArgs(process.argv.slice(2))
+  const { version, dest, source } = parseArgs(process.argv.slice(2))
+  if (source) { (await import('./assemble-core-source.mjs')).assembleCoreSource(source, dest); return }
   const spec = `${PACKAGE}@${version}`
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'bundled-core-'))
   try {

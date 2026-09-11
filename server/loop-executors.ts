@@ -8,11 +8,12 @@
  */
 import { readCoreCompletion } from './core-completion'
 import { checkCoreCompletion, prepareCoreExecution } from './core-execution'
+import { runAgentRuntimeInvocation, runtimeChangeName, selectAgentRuntime } from './agent-runtime-bridge'
 import { buildCodexPluginArgs } from './plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { lstatSync, readFileSync, readlinkSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { treeKillSafe as treeKill, windowsSpawnEnv } from './util/win-spawn'
 import { getAdapter } from './providers'
 import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from './workspace-manager'
@@ -47,6 +48,7 @@ const SHELL_OUTPUT_CAP = 256 * 1024
 // Match the queue's idle budget: a long implementation may keep running while
 // producing output; a silent, wedged CLI must eventually release its rail.
 const DEFAULT_INACTIVITY_TIMEOUT_MS = 30 * 60_000
+const existsRuntimeRequest = (contextPath: string): boolean => existsSync(join(dirname(contextPath), 'agent-runtime-request.json'))
 
 function runShellCommand(
   command: string,
@@ -128,6 +130,17 @@ function aiStepEnv(env: NodeJS.ProcessEnv, repoDir: string | undefined, manifest
   return manifest || isRailPrDeliveryEnabled() ? { ...withMap, SPECRAILS_GIT_AUTO: 'false' } : withMap
 }
 
+function programmaticStepEnv(env: NodeJS.ProcessEnv, repoDir?: string, manifest?: RunExecutionManifest): NodeJS.ProcessEnv {
+  const result = aiStepEnv(env, repoDir, manifest)
+  delete result.SPECRAILS_PROFILE_PATH
+  return result
+}
+
+function runtimeContextPath(cwd: string, runId: string, env: NodeJS.ProcessEnv): string {
+  const root = env.SPECRAILS_TICKETS_PATH ? dirname(dirname(env.SPECRAILS_TICKETS_PATH)) : cwd
+  return join(root, '.specrails', 'pipeline', runId, 'desktop-context.json')
+}
+
 /**
  * Relocated cwd is the workspace; the source repo is reached via the
  * `./project` symlink + SPECRAILS_REPO_DIR. Each provider must be told the
@@ -186,6 +199,7 @@ export function createLoopExecutors(
     }
   }
   const completionContexts = new Map<string, { cwd: string; contextPath: string; env: NodeJS.ProcessEnv; runId: string }>()
+  const runtimeConfigPath = (cwd: string): string => join(opts.pluginScope?.().stateRoot ?? cwd, '.specrails', 'agent-runtime.json')
   return {
     async readCoreCompletion(runId) {
       const context = completionContexts.get(runId)
@@ -239,9 +253,26 @@ export function createLoopExecutors(
       // for the pipeline's I/O exactly like QueueManager: SPECRAILS_REPO_DIR +
       // claude `--add-dir <repoDir>` (see the shared helpers above). Best-effort
       // agent self-heal on Windows.
-      const baseStepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir, executionManifest), provider, profileName)
+      const baseEnv = resolveEnv()
+      const existingContext = coreRun ? runtimeContextPath(cwd, coreRun.runId, baseEnv) : undefined
+      const programmatic = coreRun && existingContext && ((coreRun.implementation && selectAgentRuntime(runtimeConfigPath(cwd), existingContext)) || (coreRun.verificationStep && existsRuntimeRequest(existingContext)))
+      const baseStepEnv = programmatic ? programmaticStepEnv(baseEnv, repoDir, executionManifest) : withProfileEnv(aiStepEnv(baseEnv, repoDir, executionManifest), provider, profileName)
       const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv }) : undefined
       const stepEnv = core?.env ?? baseStepEnv
+      if (coreRun?.implementation && core && selectAgentRuntime(runtimeConfigPath(cwd), core.contextPath)) {
+        const admitted = existsRuntimeRequest(core.contextPath)
+        // Repeated implementation nodes may validate completed work, but may
+        // never silently replay an interrupted mutating phase.
+        return runAgentRuntimeInvocation({
+          contextPath: core.contextPath, cwd, env: { ...programmaticStepEnv(resolveEnv(), repoDir, executionManifest), SPECRAILS_EXECUTION_CONTEXT: core.contextPath }, configPath: runtimeConfigPath(cwd),
+          change: runtimeChangeName(coreRun.runId), resume: admitted,
+          onLine, onRawLine, onSpawn, timeoutMs: aiStepTimeoutMs,
+        })
+      }
+      if (coreRun?.verificationStep && core && existsRuntimeRequest(core.contextPath)) {
+        const checked = checkCoreCompletion(core.contextPath, cwd, { ...programmaticStepEnv(resolveEnv(), repoDir, executionManifest), SPECRAILS_EXECUTION_CONTEXT: core.contextPath }, coreRun.runId)
+        return { text: checked.valid ? 'VERIFICATION: PASS — Core verified the exact implementation and review.' : checked.reason ?? 'Core verification failed', failed: !checked.valid, errorText: checked.reason, provider: 'agent-runtime', model: 'deterministic-verification', cost: 0, tokensIn: 0, tokensOut: 0, tokens: 0, estimated: false, durationMs: 0 }
+      }
       let extraArgs = aiStepExtraArgs(adapter, cwd, repoDir, executionManifest)
       const pluginScope = adapter.id === 'codex' ? opts.pluginScope?.() : undefined
       const pluginArgs = buildCodexPluginArgs({ providerId: adapter.id, stateRoot: pluginScope?.stateRoot ?? stepEnv.SPECRAILS_WORKSPACE_DIR ?? cwd, repositoryPath: repoDir ?? cwd, legacyProviderId: pluginScope?.legacyProviderId })
@@ -429,6 +460,12 @@ export function createLoopExecutors(
      * (non-claude providers, or the kill-switch) — byte-identical legacy.
      */
     planInteractiveAiStep({ coreRun, provider, model, effort, profileName, cwd, repoDir, executionManifest, sessionId, aiStepTimeoutMs, idleTimeoutMs }) {
+      if (coreRun?.implementation || coreRun?.verificationStep) {
+        const env = resolveEnv()
+        const root = env.SPECRAILS_TICKETS_PATH ? dirname(dirname(env.SPECRAILS_TICKETS_PATH)) : cwd
+        const contextPath = join(root, '.specrails', 'pipeline', coreRun.runId, 'desktop-context.json')
+        if ((coreRun.implementation && selectAgentRuntime(runtimeConfigPath(cwd), contextPath)) || existsRuntimeRequest(contextPath)) return null
+      }
       if (!isInteractiveJobsEnabled()) return null
       const adapter = getAdapter(provider)
       if (!adapter.capabilities.persistentStdin) return null
@@ -474,8 +511,11 @@ export function createLoopExecutors(
     },
 
     validateCoreCompletion({ coreRun, provider, model, effort, profileName, cwd, repoDir, executionManifest }) {
-      const baseStepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir, executionManifest), provider, profileName)
+      const baseEnv = resolveEnv()
+      const programmatic = existsRuntimeRequest(runtimeContextPath(cwd, coreRun.runId, baseEnv))
+      const baseStepEnv = programmatic ? programmaticStepEnv(baseEnv, repoDir, executionManifest) : withProfileEnv(aiStepEnv(baseEnv, repoDir, executionManifest), provider, profileName)
       const core = prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv })
+      if (existsRuntimeRequest(core.contextPath)) return checkCoreCompletion(core.contextPath, cwd, { ...programmaticStepEnv(resolveEnv(), repoDir, executionManifest), SPECRAILS_EXECUTION_CONTEXT: core.contextPath }, coreRun.runId)
       const env = buildProviderEnv(getAdapter(provider), { prompt: '', model, reasoning_effort: effort }, core.env)
       return checkCoreCompletion(core.contextPath, cwd, env, coreRun.runId)
     },

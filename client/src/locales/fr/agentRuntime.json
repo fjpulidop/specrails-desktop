@@ -1,0 +1,106 @@
+{
+  "title": "Moteur d’agents",
+  "description": "Architecte, développeur et relecteur s’exécutent en phases séparées avec une vérification déterministe entre elles. Choisissez un fournisseur par rôle ; tout le reste a une valeur par défaut qui fonctionne.",
+  "loading": "Chargement des paramètres…",
+  "loadFailed": "Impossible de charger les paramètres. Réessayez avant de les modifier.",
+  "retry": "Réessayer",
+  "enabled": "Utiliser le moteur d’agents pour implémenter",
+  "enableHint": "Enregistrer ne lance aucun agent. Une fois activé, les implémentations de ce projet utilisent le moteur ; les projets désactivés conservent leur mode actuel.",
+  "unavailable": "Cette installation de Core ne contient pas le moteur d’agents. Mettez Core à jour avant de l’activer ; vous pouvez préparer les paramètres en attendant.",
+  "save": "Enregistrer les paramètres",
+  "saving": "Enregistrement…",
+  "saved": "Paramètres enregistrés",
+  "saveFailed": "Impossible d’enregistrer les paramètres.",
+  "approvalBeforeArchive": "Demander une approbation avant de terminer le workflow",
+  "providers": {
+    "title": "Fournisseurs",
+    "hint": "Les CLI utilisent leur connexion existante. Pour les API, indiquez uniquement un nom de variable d’environnement, jamais une clé. Il peut rester vide en local. Réaffectez les rôles avant de supprimer leur fournisseur.",
+    "entry": "Fournisseur {{index}}",
+    "id": "ID du fournisseur",
+    "kind": "Type de connexion",
+    "cli": "CLI de programmation installé",
+    "compatible": "API compatible OpenAI",
+    "command": "CLI de programmation",
+    "baseUrl": "URL de base de l’API",
+    "apiKeyEnv": "Variable d’environnement de la clé (facultative)",
+    "remove": "Supprimer le fournisseur",
+    "addCli": "Ajouter un fournisseur CLI",
+    "addLocal": "Ajouter un fournisseur local / API",
+    "show": "Afficher les connexions aux fournisseurs",
+    "hide": "Masquer les connexions aux fournisseurs"
+  },
+  "cliNames": {
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini",
+    "kimi": "Kimi"
+  },
+  "roles": {
+    "architect": "Architecte",
+    "developer": "Développeur",
+    "reviewer": "Réviseur",
+    "verify": "Vérification",
+    "archive": "Finalisation"
+  },
+  "agents": {
+    "title": "Attribution des rôles",
+    "hint": "Chaque rôle exécute sa propre session du fournisseur. Laissez le modèle par défaut sauf besoin précis. Les tours sont les appels d’outils qu’un rôle peut faire (par défaut {{turns}}).",
+    "provider": "Fournisseur",
+    "model": "Modèle",
+    "modelPlaceholder": "ID du modèle ou modèle par défaut du CLI",
+    "maxTurns": "Nombre maximal de tours (par défaut {{turns}})",
+    "defaultModel": "Par défaut ({{model}})"
+  },
+  "limits": {
+    "title": "Limites du workflow",
+    "hint": "Les champs vides utilisent les valeurs de Core : {{attempts}} tentatives du développeur et {{minutes}} minutes par workflow. Les plafonds de jetons et USD sont facultatifs ; un plafond USD exige Claude pour chaque rôle IA.",
+    "maxAttempts": "Tentatives maximales du développeur (par défaut {{attempts}})",
+    "timeoutMinutes": "Délai en minutes (par défaut {{minutes}})",
+    "maxTokens": "Jetons maximum",
+    "maxCostUsd": "Coût maximum (USD)",
+    "unlimited": "Sans limite"
+  },
+  "verification": {
+    "title": "Commandes de vérification",
+    "hint": "Facultatif. Elles s’exécutent quand le développeur a terminé et leurs échecs lui reviennent. Liste vide : l’architecte propose les vérifications propres au projet à chaque exécution ; les dépôts sans vérification automatique sont quand même relus.",
+    "detect": "Détecter les vérifications du projet",
+    "detecting": "Détection…",
+    "detected": "Rempli avec les vérifications que ce projet définit déjà.",
+    "nothingDetected": "Aucune commande de test, de vérification de types ou de build trouvée. Ce n’est pas grave : l’architecte propose des vérifications à chaque exécution quand c’est possible.",
+    "detectFailed": "Impossible d’inspecter les dépôts du projet.",
+    "repository": "Dépôt",
+    "command": "Commande",
+    "reason": "Détecté depuis {{reason}}",
+    "remove": "Retirer",
+    "add": "Ajouter une commande",
+    "invalidLine": "Commande de vérification vide ou guillemet non fermé : {{line}}"
+  },
+  "runs": {
+    "title": "Exécutions enregistrées",
+    "refresh": "Actualiser",
+    "hint": "Continue dans le worktree d’origine avec le périmètre et les paramètres enregistrés ; la progression apparaît dans le journal de ce job. Ne publie pas et ne relance pas la livraison Desktop. Les exécutions actives s’arrêtent depuis les contrôles du job.",
+    "empty": "Aucune exécution enregistrée.",
+    "loadFailed": "Impossible de charger les exécutions.",
+    "actionFailed": "Impossible de mettre à jour cette exécution.",
+    "phase": "Phase suivante : {{phase}}",
+    "approve": "Approuver la fin",
+    "recover": "Récupérer la phase interrompue",
+    "resume": "Reprendre",
+    "cancel": "Annuler la reprise",
+    "status": {
+      "running": "Reprise en cours…",
+      "succeeded": "Réussi",
+      "failed": "Échec",
+      "blocked": "Bloqué",
+      "paused": "En pause",
+      "cancelled": "Annulé",
+      "interrupted": "Interrompu",
+      "unavailable": "Indisponible"
+    }
+  },
+  "roleHints": {
+    "architect": "Lit le code et rédige la proposition, la conception, les tâches et la spec. Lecture seule.",
+    "developer": "Implémente les tâches avec des tests. Peut modifier des fichiers et exécuter des commandes dans le bac à sable du CLI.",
+    "reviewer": "Vérifie le résultat par rapport à la spec et aux preuves de vérification. Lecture seule."
+  }
+}

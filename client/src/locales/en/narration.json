@@ -60,7 +60,16 @@
     "readingFiles": "Reading {{files}} files ({{names}}…)",
     "editingFiles": "Changing {{files}} files ({{names}}…)",
     "delegating": "Handing off to the {{target}}",
-    "delegatingBare": "Handing off to a specialist"
+    "delegatingBare": "Handing off to a specialist",
+    "phase": {
+      "architect": "Designing the change (architect)",
+      "developer": "Implementing the change (developer)",
+      "verify": "Running the verification commands",
+      "reviewer": "Reviewing the implementation (reviewer)",
+      "archive": "Archiving the reviewed change",
+      "stopped": "The runtime stopped: {{target}}",
+      "corrections": "Sending corrections back to the developer"
+    }
   },
   "repeats": "×{{count}}"
 }

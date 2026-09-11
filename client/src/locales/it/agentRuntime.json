@@ -1,0 +1,106 @@
+{
+  "title": "Motore degli agenti",
+  "description": "Architetto, sviluppatore e revisore girano come fasi separate con verifica deterministica in mezzo. Scegli un fornitore per ruolo; tutto il resto ha un valore predefinito funzionante.",
+  "loading": "Caricamento delle impostazioni…",
+  "loadFailed": "Impossibile caricare le impostazioni. Riprova prima di modificarle.",
+  "retry": "Riprova",
+  "enabled": "Usa il motore degli agenti per implementare",
+  "enableHint": "Salvare non avvia agenti. Una volta attivo, le implementazioni di questo progetto usano il motore; i progetti disattivati mantengono la modalità attuale.",
+  "unavailable": "Questa installazione di Core non include il motore degli agenti. Aggiorna Core prima di attivarlo; puoi preparare le impostazioni mentre è disattivato.",
+  "save": "Salva impostazioni",
+  "saving": "Salvataggio…",
+  "saved": "Impostazioni salvate",
+  "saveFailed": "Impossibile salvare le impostazioni.",
+  "approvalBeforeArchive": "Richiedi approvazione prima di completare il flusso",
+  "providers": {
+    "title": "Fornitori",
+    "hint": "I CLI usano l’accesso esistente. Le API accettano solo il nome di una variabile d’ambiente, mai la chiave. Per servizi locali può restare vuoto. Riassegna i ruoli prima di rimuovere il fornitore.",
+    "entry": "Fornitore {{index}}",
+    "id": "ID del fornitore",
+    "kind": "Tipo di connessione",
+    "cli": "CLI di programmazione installato",
+    "compatible": "Endpoint compatibile con OpenAI",
+    "command": "CLI di programmazione",
+    "baseUrl": "URL base dell’API",
+    "apiKeyEnv": "Variabile d’ambiente della chiave (facoltativa)",
+    "remove": "Rimuovi fornitore",
+    "addCli": "Aggiungi fornitore CLI",
+    "addLocal": "Aggiungi fornitore locale / API",
+    "show": "Mostra connessioni dei fornitori",
+    "hide": "Nascondi connessioni dei fornitori"
+  },
+  "cliNames": {
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini",
+    "kimi": "Kimi"
+  },
+  "roles": {
+    "architect": "Architetto",
+    "developer": "Sviluppatore",
+    "reviewer": "Revisore",
+    "verify": "Verifica",
+    "archive": "Completamento"
+  },
+  "agents": {
+    "title": "Assegnazione dei ruoli",
+    "hint": "Ogni ruolo esegue la propria sessione del fornitore. Lascia il modello predefinito salvo esigenze specifiche. I turni sono le chiamate agli strumenti che un ruolo può fare (predefinito {{turns}}).",
+    "provider": "Fornitore",
+    "model": "Modello",
+    "modelPlaceholder": "ID del modello o predefinito del CLI",
+    "maxTurns": "Numero massimo di turni (predefinito {{turns}})",
+    "defaultModel": "Predefinito ({{model}})"
+  },
+  "limits": {
+    "title": "Limiti del flusso",
+    "hint": "I campi vuoti usano i valori di Core: {{attempts}} tentativi dello sviluppatore e {{minutes}} minuti per flusso. I limiti di token e USD sono facoltativi; il limite in USD richiede Claude per ogni ruolo IA.",
+    "maxAttempts": "Tentativi massimi dello sviluppatore (predefinito {{attempts}})",
+    "timeoutMinutes": "Timeout in minuti (predefinito {{minutes}})",
+    "maxTokens": "Token massimi",
+    "maxCostUsd": "Costo massimo (USD)",
+    "unlimited": "Nessun limite"
+  },
+  "verification": {
+    "title": "Comandi di verifica",
+    "hint": "Facoltativo. Vengono eseguiti quando lo sviluppatore termina e i fallimenti tornano allo sviluppatore. Lista vuota: l’architetto propone i controlli propri del progetto a ogni esecuzione; i repository senza controllo automatico vengono comunque revisionati.",
+    "detect": "Rileva i controlli del progetto",
+    "detecting": "Rilevamento…",
+    "detected": "Compilato con i controlli che questo progetto già definisce.",
+    "nothingDetected": "Nessun comando di test, controllo tipi o build trovato. Va bene: l’architetto propone controlli a ogni esecuzione quando possibile.",
+    "detectFailed": "Impossibile ispezionare i repository del progetto.",
+    "repository": "Repository",
+    "command": "Comando",
+    "reason": "Rilevato da {{reason}}",
+    "remove": "Rimuovi",
+    "add": "Aggiungi comando",
+    "invalidLine": "Comando di verifica vuoto o con virgolette non chiuse: {{line}}"
+  },
+  "runs": {
+    "title": "Esecuzioni salvate",
+    "refresh": "Aggiorna",
+    "hint": "Continua nel worktree originale con ambito e impostazioni salvati; l’avanzamento compare nel log di quel job. Non pubblica né riavvia la consegna Desktop. Le esecuzioni attive si fermano dai controlli del job.",
+    "empty": "Nessuna esecuzione salvata.",
+    "loadFailed": "Impossibile caricare le esecuzioni.",
+    "actionFailed": "Impossibile aggiornare questa esecuzione.",
+    "phase": "Prossima fase: {{phase}}",
+    "approve": "Approva completamento",
+    "recover": "Recupera fase interrotta",
+    "resume": "Riprendi",
+    "cancel": "Annulla continuazione",
+    "status": {
+      "running": "Continuazione in corso…",
+      "succeeded": "Riuscito",
+      "failed": "Fallito",
+      "blocked": "Bloccato",
+      "paused": "In pausa",
+      "cancelled": "Annullato",
+      "interrupted": "Interrotto",
+      "unavailable": "Non disponibile"
+    }
+  },
+  "roleHints": {
+    "architect": "Legge il codice e scrive proposta, design, attività e spec. Sola lettura.",
+    "developer": "Implementa le attività con i test. Può modificare file ed eseguire comandi nella sandbox del CLI.",
+    "reviewer": "Controlla il risultato rispetto alla spec e alle prove di verifica. Sola lettura."
+  }
+}

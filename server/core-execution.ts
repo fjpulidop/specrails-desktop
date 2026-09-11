@@ -3,14 +3,19 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from
 import { basename, dirname, join, resolve } from 'node:path'
 import type { LoopSpec } from './loop-graph'
 import type { RunExecutionManifest } from './multi-repo-execution-store'
-import { resolveBundledNodeExe } from './path-resolver'
+import { resolveCoreNodeRuntime } from './core-node-runtime'
 import { assertWorkspaceCoreReady } from './core-update-state'
+import { findCoreAgentRuntimeCli } from './agent-runtime-loader'
 
 export interface CoreRunInput {
   runId: string
+  /** Legacy single-repository admission uses the same stable membership ID as the project API. */
+  projectId?: string
   repositoryId?: string
   spec?: LoopSpec
   verificationStep?: boolean
+  /** The host graph selected implementation; do not infer orchestration from generated model text. */
+  implementation?: boolean
   goal?: string
 }
 
@@ -57,7 +62,7 @@ export function prepareCoreExecution(input: {
   assertWorkspaceCoreReady(cwd)
   const repositories = manifest
     ? manifest.repositories.map(repo => ({ id: repo.repositoryId, name: repo.name, path: realpathSync(repo.worktreePath), baseSha: repo.baseSha }))
-    : [{ id: run.repositoryId ?? (run.spec?.repositoryIds?.length === 1 ? run.spec.repositoryIds[0]! : 'primary'), name: basename(input.repoDir ?? cwd), path: realpathSync(input.repoDir ?? cwd) }]
+    : [{ id: run.repositoryId ?? (run.spec?.repositoryIds?.length === 1 ? run.spec.repositoryIds[0]! : run.projectId ? `primary-${run.projectId}` : 'primary'), name: basename(input.repoDir ?? cwd), path: realpathSync(input.repoDir ?? cwd) }]
   if (!repositories.length || repositories.some(repo => !SAFE_ID.test(repo.id))) throw new Error('Invalid Core repository scope')
   const artifactRepositoryId = manifest?.artifactRepositoryId ?? repositories[0]!.id
   const artifactRepo = repositories.find(repo => repo.id === artifactRepositoryId)
@@ -107,7 +112,7 @@ export function coreVerificationContext(contextPath: string, cwd: string, env: N
   const helper = join(cwd, '.specrails', 'runtime', 'pipeline.mjs')
   if (!existsSync(helper)) return ''
   try {
-    const stdout = execFileSync(resolveBundledNodeExe() ?? process.execPath, [helper, 'status', '--context', contextPath], {
+    const stdout = execFileSync(resolveCoreNodeRuntime(), [helper, 'status', '--context', contextPath], {
       cwd, env, encoding: 'utf8', timeout: 15_000, maxBuffer: 4 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
     })
     const status = JSON.parse(stdout) as {
@@ -130,17 +135,20 @@ export function coreVerificationContext(contextPath: string, cwd: string, env: N
  * revalidate the journal on disk before Desktop accepts the implementation step,
  * including when an agent claims PASS after its final receipt went stale. */
 export function checkCoreCompletion(contextPath: string, cwd: string, env: NodeJS.ProcessEnv, runId: string): CoreCompletionCheck {
-  const helper = join(cwd, '.specrails', 'runtime', 'pipeline.mjs')
-  if (!existsSync(helper)) return { valid: false, reason: 'Core completion cannot be validated: pipeline runtime is missing' }
+  const programmatic = existsSync(join(dirname(contextPath), 'agent-runtime-request.json'))
+  const helper = programmatic ? findCoreAgentRuntimeCli() : join(cwd, '.specrails', 'runtime', 'pipeline.mjs')
+  if (!helper || !existsSync(helper)) return { valid: false, reason: 'Core completion cannot be validated: pipeline runtime is missing' }
   try {
-    const stdout = execFileSync(resolveBundledNodeExe() ?? process.execPath, [helper, 'status', '--context', contextPath], {
+    const stdout = execFileSync(resolveCoreNodeRuntime(), [helper, 'status', '--context', contextPath, ...(programmatic ? ['--compact'] : [])], {
       cwd, env, encoding: 'utf8', timeout: 15_000, maxBuffer: 4 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
     })
-    const status = JSON.parse(stdout) as {
+    const payload = JSON.parse(stdout)
+    if (programmatic && payload.state?.status !== 'succeeded') return { valid: false, reason: 'Programmatic workflow has not completed successfully' }
+    const status = (programmatic ? payload.pipeline : payload) as {
       schemaVersion?: number; runId?: string; resumePhase?: string | null
       phases?: Record<string, { status?: string }>
       completion?: { implementation?: string; validation?: string; archive?: string; delivery?: string; reasons?: string[] }
-      verification?: { valid?: boolean; reasons?: string[]; receipt?: { kind?: string; commands?: Array<{ exitCode?: number }> } }
+      verification?: { valid?: boolean; reasons?: string[]; receipt?: { kind?: string; commands?: Array<{ exitCode?: number }>; unverifiedRepositories?: string[] } }
     }
     if (status.schemaVersion !== 1 || status.runId !== runId) return { valid: false, reason: 'Core completion returned an invalid or mismatched run identity' }
     const reasons: string[] = []
@@ -159,7 +167,11 @@ export function checkCoreCompletion(contextPath: string, cwd: string, env: NodeJ
     }
     if (status.resumePhase && ['architect', 'developer', 'reviewer', 'archive'].includes(status.resumePhase)) reasons.push(`resume from ${status.resumePhase}`)
     const receipt = status.verification?.receipt
-    if (status.verification?.valid !== true || receipt?.kind !== 'full' || !receipt.commands?.length || receipt.commands.some(command => command.exitCode !== 0)) {
+    // A full receipt may explicitly record repositories without any automated
+    // check (the runtime admits them); an empty command list without that record
+    // is still no evidence.
+    const admittedWithoutCommands = Array.isArray(receipt?.unverifiedRepositories) && receipt.unverifiedRepositories.length > 0
+    if (status.verification?.valid !== true || receipt?.kind !== 'full' || !Array.isArray(receipt.commands) || (!receipt.commands.length && !admittedWithoutCommands) || receipt.commands.some(command => command.exitCode !== 0)) {
       reasons.push(...(status.verification?.reasons?.length ? status.verification.reasons : ['No valid full verification receipt']))
     }
     return reasons.length ? { valid: false, reason: `Core completion blocked: ${[...new Set(reasons)].join('; ')}` } : { valid: true }

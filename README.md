@@ -8,6 +8,8 @@ Specrails Desktop is a local application for turning software specifications int
 
 [specrails-core](https://github.com/fjpulidop/specrails-core) supplies the provider workflows and agents. Desktop adds the interface, execution lifecycle, history and project management.
 
+Projects can opt into the [programmatic agent runtime](docs/internals/programmatic-agent-runtime.md) to run Core's explicit phases with per-role Claude, Codex, Gemini, Kimi or local/API providers. The source feature requires a paired Core build; the guide covers setup, recovery and delivery ownership.
+
 This README describes the current source tree. Published packages do not include unmerged changes; check the [release notes](https://github.com/fjpulidop/specrails-desktop/releases) for the features in your installed version.
 
 ## Start using Specrails

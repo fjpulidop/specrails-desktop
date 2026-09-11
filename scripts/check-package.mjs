@@ -12,6 +12,9 @@ export const REQUIRED_FILES = [
   'server/dist/index.js', 'client/dist/index.html',
   'mcp-bridge/dist/specrails-mcp.js',
   'server/dist/schemas/profile.v1.json', 'server/dist/schemas/file-summary.v1.json',
+  'server/dist/schemas/agent-runtime.schema.json',
+  'server/dist/agent-runtime-loader.js', 'server/dist/agent-runtime-bridge.js', 'server/dist/agent-runtime-controls.js',
+  'server/dist/core-node-runtime.js',
   'server/dist/openspec-runtime-plugin-commands.json',
   'server/dist/chromium-archive.cjs',
   'server/dist/plugins/serena/templates/instructions.md',
@@ -75,6 +78,11 @@ export function checkPackage(root, output) {
     // fallback cannot conceal omitted MCP or shell-integration resources.
     const probe = `const assert=require('node:assert/strict'); const path=require('node:path');
       const root=process.argv[1];
+      const {resolveCoreNodeRuntime}=require(path.join(root,'server/dist/core-node-runtime.js'));
+      assert.equal(resolveCoreNodeRuntime(),process.execPath);
+      process.pkg={entrypoint:'/snapshot/server/index.js'};
+      assert.equal(resolveCoreNodeRuntime(),'node');
+      delete process.pkg;
       const {validateWindowsArchiveTypes}=require(path.join(root,'server/dist/chromium-archive.cjs'));
       assert.throws(()=>validateWindowsArchiveTypes('lrwxrwxrwx 0 root root 0 Jan 1 1970 escape -> /outside'));
       const {resolveBridgeScript}=require(path.join(root,'server/dist/agent-mcp-config.js'));
@@ -84,8 +92,33 @@ export function checkPackage(root, output) {
         assert.equal(locateBundledShim(name),path.join(root,'server/dist/shell-integration',name));`
     const env = { ...process.env }
     delete env.SPECRAILS_BUNDLED_MCP_BRIDGE_PATH
+    delete env.SPECRAILS_BUNDLED_RUNTIMES_PATH
     delete env.NODE_PATH
     run(process.execPath, ['-e', probe, installed], consumer, env)
+    // The emitted server is CommonJS while Core is ESM. Exercise the actual
+    // installed loader against an external ordinary-Node CLI boundary.
+    const coreFixture = path.join(temporary, 'Core runtime with spaces')
+    fs.mkdirSync(coreFixture)
+    fs.writeFileSync(path.join(coreFixture, 'index.js'), '')
+    fs.writeFileSync(path.join(coreFixture, 'cli.js'), `
+      if(process.argv[2] === 'api') console.log(JSON.stringify({type:'runtime-api',apiVersion:1,coreVersion:'fixture'}));
+      else if(process.argv[2] === 'validate' && process.argv.includes('--stdin')) {
+        const value=JSON.parse(require('node:fs').readFileSync(0,'utf8'));
+        if(value.schemaVersion!==1)process.exit(2);
+        console.log(JSON.stringify({type:'runtime-config-valid',schemaVersion:1}));
+      } else process.exit(3);
+    `)
+    run(process.execPath, ['-e', `
+      const path=require('node:path');
+      process.env.SPECRAILS_CORE_RUNTIME_PATH=process.argv[2];
+      const loader=require(path.join(process.argv[1],'server/dist/agent-runtime-loader.js'));
+      loader.loadCoreAgentRuntime().then(async api=>{
+        api.validateRuntimeConfig({schemaVersion:1});
+        process.pkg={entrypoint:'/snapshot/server/index.js'};
+        const packaged=await loader.loadCoreAgentRuntime();
+        packaged.validateRuntimeConfig({schemaVersion:1});
+      }).catch(error=>{console.error(error);process.exitCode=1});
+    `, installed, path.join(coreFixture, 'index.js')], consumer, env)
     const report = { name: info.name, version: info.version, filename: info.filename, integrity: info.integrity, sha256: createHash('sha256').update(bytes).digest('hex') }
     if (output) {
       fs.mkdirSync(output, { recursive: true })

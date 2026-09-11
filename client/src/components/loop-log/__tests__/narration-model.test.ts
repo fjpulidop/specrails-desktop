@@ -619,3 +619,49 @@ describe('buildNarration — idle stalls (loop-step-idle)', () => {
     expect(model.milestones.find((m) => m.kind === 'step-end')!.values.idleMinutes).toBe(1)
   })
 })
+
+describe('buildNarration — Specrails Core agent runtime', () => {
+  const runtime = (type: string, over: Record<string, unknown> = {}) => ev('workflow-event', { event: { type, ...over } })
+  const runtimeTool = (role: string, tool: string, detail: string) => ev('agent-event', { role, event: { kind: 'tool-start', tool, detail } })
+
+  it('narrates each runtime phase as a structural milestone and folds tool activity into it', () => {
+    const model = buildNarration({
+      events: [
+        step(1, 'Implement'),
+        runtime('workflow_started'),
+        runtime('step_started', { stepId: 'architect' }),
+        runtimeTool('architect', 'Read', 'math.js'),
+        runtime('step_succeeded', { stepId: 'architect' }),
+        runtime('step_started', { stepId: 'developer' }),
+        runtimeTool('developer', 'Bash', 'npm test'),
+        runtime('step_started', { stepId: 'verify' }),
+        runtime('step_started', { stepId: 'reviewer' }),
+        runtime('step_started', { stepId: 'archive' }),
+        runtime('workflow_succeeded'),
+        stepEnd(1),
+      ],
+      settled: true,
+    })
+    expect(codes(model.milestones)).toEqual([
+      'step.start', 'activity.phase.architect', 'activity.reading', 'activity.phase.developer', 'activity.testing',
+      'activity.phase.verify', 'activity.phase.reviewer', 'activity.phase.archive', 'step.doneTimed',
+    ])
+  })
+
+  it('names a second developer visit as corrections and a stopped workflow with Core’s structural reason', () => {
+    const model = buildNarration({
+      events: [
+        step(1, 'Implement'),
+        runtime('step_started', { stepId: 'developer' }),
+        runtime('step_started', { stepId: 'verify' }),
+        runtime('step_started', { stepId: 'developer' }),
+        runtime('workflow_blocked', { message: 'Implementation correction limit reached' }),
+        stepEnd(1, { status: 'failed' }),
+      ],
+      settled: true,
+    })
+    expect(codes(model.milestones)).toEqual(['step.start', 'activity.phase.developer', 'activity.phase.verify', 'activity.phase.corrections', 'activity.phase.stopped', 'step.failed'])
+    const stopped = model.milestones.find((m) => m.code === 'activity.phase.stopped')
+    expect(stopped).toMatchObject({ tone: 'bad', values: { target: 'Implementation correction limit reached' } })
+  })
+})

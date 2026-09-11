@@ -266,7 +266,8 @@
       "environment": "Ambiente",
       "budget": "Orçamento",
       "telemetry": "Telemetria",
-      "terminal": "Terminal"
+      "terminal": "Terminal",
+      "agentRuntime": "Motor de agentes"
     }
   },
   "integrationBranch": {

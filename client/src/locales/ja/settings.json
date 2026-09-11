@@ -266,7 +266,8 @@
       "environment": "環境",
       "budget": "予算",
       "telemetry": "テレメトリ",
-      "terminal": "ターミナル"
+      "terminal": "ターミナル",
+      "agentRuntime": "エージェント実行エンジン"
     }
   },
   "integrationBranch": {
