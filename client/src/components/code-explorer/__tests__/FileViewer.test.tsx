@@ -174,7 +174,10 @@ describe('FileViewer', () => {
     const summaryAction = captureSummaryAction()
     const { rerender } = render(wrap(<FileViewer relPath="a.ts" onSummaryActionChange={summaryAction.onChange} />))
     await screen.findByText('source A')
-    act(() => { void summaryAction.get()?.onClick() })
+    // Source rendering can precede the effect that publishes the toolbar action.
+    // Wait for that action, then invoke it once outside waitFor.
+    await waitFor(() => expect(summaryAction.get()).not.toBeNull())
+    act(() => { summaryAction.get()!.onClick() })
     expect(finishSummary).toBeTypeOf('function')
     rerender(wrap(<FileViewer relPath="b.ts" onSummaryActionChange={summaryAction.onChange} />))
     expect(screen.queryByText('source A')).not.toBeInTheDocument()
