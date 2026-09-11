@@ -3,9 +3,7 @@
 ## Purpose
 
 Read-only **Code** section per project for non-developers: virtualised file tree with provenance chips, Monaco viewer with AI summary header. Gated behind `VITE_FEATURE_CODE_EXPLORER` (client) and `SPECRAILS_CODE_EXPLORER` (server).
-
 ## Requirements
-
 ### Requirement: Code section sidebar entry and route
 
 The app SHALL render a **Code** entry in the project's left sidebar (`ProjectLayout`) that navigates to the route `/code` for the active project, gated behind the client feature flag `VITE_FEATURE_CODE_EXPLORER` and the server feature flag `SPECRAILS_CODE_EXPLORER`.
@@ -32,14 +30,14 @@ The app SHALL render a **Code** entry in the project's left sidebar (`ProjectLay
 
 ### Requirement: File tree with provenance badges and filters
 
-The Code page SHALL render a virtualised file tree on the left with chip badges showing the tickets that created and/or modified each file, with a filter toggle that defaults to **Tocado por IA** (only files with provenance entries) and can be switched to **All files**. Repository enumeration SHALL be asynchronous, bounded, symlink-safe, and unable to monopolize the desktop server's HTTP or WebSocket control plane.
+The Code page SHALL render a virtualised file tree on the left with chip badges showing the tickets that created and/or modified each file, with a filter toggle that defaults to **All files** (with **Tocado por IA** available for recorded changes) and can be switched to **Tocado por IA**. Repository enumeration SHALL be asynchronous, bounded, symlink-safe, and unable to monopolize the desktop server's HTTP or WebSocket control plane.
 
-#### Scenario: Default filter shows only AI-touched files
+#### Scenario: Default filter makes a new repository explorable
 
 - **WHEN** the user navigates to `/code` for the first time in a project
-- **THEN** the tree filter MUST default to **Tocado por IA**
-- **AND** the tree MUST only display files for which `file_provenance` has at least one row in the active project
-- **AND** an empty tree MUST show copy that mentions running a job and offers the **All files** switch
+- **THEN** the tree filter MUST default to **All files**
+- **AND** the tree MUST display eligible files even when no provenance has been recorded
+- **AND** an empty AI-touched tree MUST explain the filter and offer the **All files** switch
 
 #### Scenario: All-files filter shows the full repo with deny-list applied
 
@@ -166,22 +164,60 @@ The Code page SHALL subscribe to `file.provenance_updated`, `file.summary_update
 
 ### Requirement: TicketDetailModal lists files touched by the ticket
 
-The `TicketDetailModal` SHALL include a "Files touched by this ticket" section listing files from `file_provenance` for the modal's ticket, with each entry navigating to that file in the Code section on click.
+The `TicketDetailModal` SHALL include a "Files touched by this ticket" section listing files from `file_provenance` for the modal's ticket across all project repositories, with each entry navigating to that file in the Code section on click.
 
 #### Scenario: Files section renders when provenance exists
 
 - **WHEN** the user opens `TicketDetailModal` for a ticket with at least one row in `file_provenance`
 - **THEN** the modal MUST render a "Files touched by this ticket" section
-- **AND** each file row MUST show the path and the kind (`created` or `modified`)
+- **AND** each file row MUST show repository identity, the path and the change kind
 
 #### Scenario: Clicking a file navigates to the Code viewer
 
 - **WHEN** the user clicks a file row in the modal
 - **THEN** the app MUST navigate to `/code` for the active project
-- **AND** the Code page MUST open that file in the viewer
+- **AND** the Code page MUST open that file in its recorded repository in the viewer
 - **AND** the modal MUST close
 
 #### Scenario: Files section is hidden when no provenance exists
 
 - **WHEN** the user opens `TicketDetailModal` for a ticket with no provenance rows
 - **THEN** the modal MUST NOT render the "Files touched by this ticket" section
+
+### Requirement: Reader requests retain identity
+Source, summary and history requests SHALL be scoped to project, repository and path and SHALL NOT overwrite a newer selection.
+
+#### Scenario: Generation finishes after navigation
+- **WHEN** summary or story generation for file A completes after opening B
+- **THEN** the UI MUST continue displaying B and MUST NOT refetch A into B's reader
+
+#### Scenario: Tree scan fails or reaches a bound
+- **WHEN** a tree page fails or discovery is truncated
+- **THEN** the UI MUST show an error/retry or explicit partial-result state and MUST NOT silently show an apparently complete empty tree
+
+### Requirement: Repository-scoped code identity
+Code Explorer, Git reads, provenance and summaries SHALL distinguish files by repository identity as well as relative path. Existing primary REST routes SHALL remain compatible, and explicit repository routes SHALL enforce membership and root containment.
+
+#### Scenario: Identical relative file paths
+- **WHEN** two members both contain `src/index.ts`
+- **THEN** their content, summaries, provenance and cached scans SHALL remain separate
+
+#### Scenario: Select a repository in Code Explorer
+- **WHEN** the user changes the selected repository
+- **THEN** the tree and selected file SHALL resolve within that member without displaying a stale file from another repository
+
+### Requirement: Project-wide mission discovery
+The mission agent and MCP SHALL expose the project repository inventory. Bounded search SHALL be able to discover across members under one aggregate limit, and results and saved file/Git references SHALL carry `repositoryId`. Specific file or Git operations in multi-repository MCP context SHALL require an unambiguous member.
+
+#### Scenario: Discover a backend file
+- **WHEN** the mission searches the shared project for a symbol found in a secondary repository
+- **THEN** results SHALL include that repository ID and allow a subsequent scoped read without creating another project
+
+#### Scenario: Ambiguous read
+- **WHEN** a multi-repository mission requests a relative file without identifying its repository
+- **THEN** the tool SHALL request an explicit member through a structured error and inventory rather than guess
+
+#### Scenario: Restore a saved reference
+- **WHEN** a mission draft containing a file reference is restored
+- **THEN** the reference SHALL retain its original project and repository identity
+

@@ -2,7 +2,6 @@
 
 ## Purpose
 Defines the desktop release publishing contract for stable latest downloads, versioned archival URLs, and release manifests across supported platforms.
-
 ## Requirements
 ### Requirement: Stable "latest" download URL for macOS build
 The system SHALL publish the most recent signed and notarised `.dmg` for specrails-desktop to a stable, version-independent URL at `https://specrails.dev/downloads/specrails-desktop/latest/`. The file SHALL be the same signed and notarised artifact that is published to the versioned folder for the corresponding tag.
@@ -125,3 +124,22 @@ The Windows installer filenames published to both `latest/` and `v<version>/` SH
 #### Scenario: MSI filename contains semver and arch
 - **WHEN** the release for tag `v<version>` publishes
 - **THEN** the MSI filename matches the regular expression `^specrails-desktop-\d+\.\d+\.\d+-x64\.msi$` and the captured version equals the release version
+
+### Requirement: Windows updates retain installer format
+The Tauri update manifest SHALL provide NSIS and MSI entries for both Windows architectures. Each entry SHALL reference a non-empty paired installer and signature. Missing artifacts SHALL fail publication instead of substituting a different installer format.
+
+#### Scenario: MSI installation checks for an update
+- **WHEN** an MSI-installed app resolves its platform update
+- **THEN** it receives the MSI update for its architecture
+
+#### Scenario: NSIS artifact is missing
+- **WHEN** release inputs omit an NSIS installer or its signature
+- **THEN** update manifest generation fails before publishing a new latest manifest
+
+### Requirement: Windows installed package is smoke tested
+The release workflow SHALL install and exercise Windows packages on both architectures before publishing their artifacts, validating sidecar startup, database/API access, native terminal dependencies and bundled runtimes. Installers SHALL provision WebView2 when absent.
+
+#### Scenario: Native dependency is omitted from the package
+- **WHEN** the installed package cannot load its database or terminal dependency
+- **THEN** the Windows release smoke fails and prevents publication
+

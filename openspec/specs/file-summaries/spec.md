@@ -3,9 +3,7 @@
 ## Purpose
 
 AI-generated plain-language summaries of files in a project, hash-gated against re-generation and budgeted against monthly app-wide spend. Powers the Code section's file viewer header.
-
 ## Requirements
-
 ### Requirement: Summary persistence layout
 
 The app SHALL persist per-file AI summaries as JSON files under `<project>/.specrails/file-summaries/<sha256-of-relative-path>.json`, each conforming to a versioned schema with fields `schemaVersion`, `path`, `fileHash`, `summary`, `language`, `generatedAt`, `generatedBy`, and `triggeredBy`.
@@ -220,3 +218,25 @@ On every Code section open, the app SHALL run an idle sweep that removes summary
 - **WHEN** the sweep finds 500 orphan summaries in one pass
 - **THEN** the sweep MUST delete at most 200
 - **AND** the remaining 300 MUST be picked up by the next sweep
+
+### Requirement: Explanations are bound to evidence and lifecycle
+Summary generation SHALL use the hash of the source bytes actually sent to the provider, expose model/date/truncation and freshness, and reject provider error results. Story generation SHALL disclose incomplete patch evidence and SHALL NOT invent explanations when evidence is absent.
+
+#### Scenario: Source changes while queued or running
+- **WHEN** source bytes change before or during generation
+- **THEN** the persisted hash MUST match the supplied snapshot
+- **AND** the resulting freshness state MUST reflect the current source
+
+#### Scenario: Project closes during generation
+- **WHEN** the project or manager is disposed
+- **THEN** queued requests MUST settle and active provider processes MUST be cancelled
+- **AND** late results MUST NOT access a closed database
+
+#### Scenario: Concurrent explanations near the spending limit
+- **WHEN** several summary/story requests arrive together
+- **THEN** generation MUST obey bounded concurrency and shared spending checks
+
+#### Scenario: Provider returns an error with exit code zero
+- **WHEN** a provider event reports an error result
+- **THEN** the text MUST NOT be persisted as a successful explanation
+
