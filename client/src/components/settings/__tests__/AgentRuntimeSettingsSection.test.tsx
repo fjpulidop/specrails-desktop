@@ -16,10 +16,11 @@ const defaults = (): AgentRuntimeConfig => ({
 const snapshot = (config = defaults(), runtimeAvailable = true, configured = false) => ({ config, configured, runtimeAvailable })
 const response = (data: unknown, ok = true) => ({ ok, json: async () => data }) as Response
 const suggestions = { repositories: [{ id: 'primary-p1', name: 'App' }], suggestions: [{ repositoryId: 'primary-p1', command: 'npm', args: ['test'], reason: 'package.json test script "test"' }] }
-function mockServer(options: { configured?: boolean; config?: AgentRuntimeConfig; suggestions?: unknown; runtimeAvailable?: boolean } = {}) {
+function mockServer(options: { configured?: boolean; config?: AgentRuntimeConfig; suggestions?: unknown; runtimeAvailable?: boolean; save?: (init: RequestInit) => Promise<Response> } = {}) {
   global.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
     if (String(url).endsWith('/verification-suggestions')) return response(options.suggestions ?? suggestions)
     if (String(url).endsWith('/agent-runtime/runs')) return response({ runs: [] })
+    if (init?.method === 'PUT' && options.save) return options.save(init)
     if (init?.method === 'PUT') return response(snapshot(JSON.parse(String(init.body)) as AgentRuntimeConfig, options.runtimeAvailable ?? true, true))
     return response(snapshot(options.config ?? defaults(), options.runtimeAvailable ?? true, options.configured ?? false))
   })
@@ -134,16 +135,17 @@ describe('AgentRuntimeSettingsSection', () => {
 
   it('reports server validation errors without losing the draft and offers load retry', async () => {
     const user = userEvent.setup()
-    mockServer({ configured: true })
+    const save = vi.fn<() => Promise<Response>>()
+    mockServer({ configured: true, save })
     const view = render(<AgentRuntimeSettingsSection />)
     await screen.findByLabelText('Use the agent runtime for implementation')
-    vi.mocked(fetch).mockResolvedValueOnce(response({ message: 'Role developer requires a model' }, false))
+    save.mockResolvedValueOnce(response({ message: 'Role developer requires a model' }, false))
     await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Role developer requires a model')
-    vi.mocked(fetch).mockResolvedValueOnce(response({ error: 'invalid_runtime_config' }, false))
+    save.mockResolvedValueOnce(response({ error: 'invalid_runtime_config' }, false))
     await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('invalid_runtime_config')
-    vi.mocked(fetch).mockRejectedValueOnce(new Error('Network offline'))
+    save.mockRejectedValueOnce(new Error('Network offline'))
     await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Network offline')
 
