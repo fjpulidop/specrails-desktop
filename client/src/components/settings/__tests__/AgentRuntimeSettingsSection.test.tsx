@@ -160,11 +160,10 @@ describe('AgentRuntimeSettingsSection', () => {
 
   it('binds pending saves to their project and ignores a response after switching projects', async () => {
     const user = userEvent.setup()
-    mockServer({ configured: true })
+    let finish!: (response: Response) => void
+    mockServer({ configured: true, save: () => new Promise((resolve) => { finish = resolve }) })
     const { rerender } = render(<AgentRuntimeSettingsSection />)
     await screen.findByLabelText('Use the agent runtime for implementation')
-    let finish!: (response: Response) => void
-    vi.mocked(fetch).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
     await user.click(screen.getByLabelText('Use the agent runtime for implementation'))
     await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
