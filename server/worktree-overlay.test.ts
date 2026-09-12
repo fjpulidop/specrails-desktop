@@ -41,6 +41,28 @@ function seedWorkspaceSource(): void {
 }
 
 describe('applyWorktreeOverlay — relocated workspace source', () => {
+  it('refreshes only overlay-owned legacy instructions and preserves project text', () => {
+    const old = 'User guidance before\n<!-- specrails-managed:start -->Use .codex/skills/sr-* for implement<!-- specrails-managed:end -->\nUser guidance after'
+    write(source, 'CLAUDE.md', old)
+    const first = apply()
+    const updated = fs.readFileSync(path.join(wt, 'CLAUDE.md'), 'utf8')
+    expect(updated).toContain('User guidance before')
+    expect(updated).toContain('User guidance after')
+    expect(updated).toContain('Specrails agent runtime')
+    expect(updated).not.toContain('skills/sr-*')
+    expect(first.createdPaths).toContain('CLAUDE.md')
+    apply()
+    expect(fs.readFileSync(path.join(wt, 'CLAUDE.md'), 'utf8')).toBe(updated)
+  })
+
+  it('never rewrites a checkout-owned managed instruction block', () => {
+    const text = '<!-- specrails-managed:start -->Project .codex/skills/sr-*<!-- specrails-managed:end -->'
+    write(wt, 'CLAUDE.md', text)
+    write(source, 'CLAUDE.md', 'workspace')
+    apply()
+    expect(fs.readFileSync(path.join(wt, 'CLAUDE.md'), 'utf8')).toBe(text)
+  })
+
   it('links the framework surface the checkout lacks; whole-dir links where absent', () => {
     seedWorkspaceSource()
     // The checkout tracks only .claude/commands/opsx (the myproject shape).
