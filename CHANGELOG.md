@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.45.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.44.2...v2.45.0) (2026-09-12)
+
+
+### Features
+
+* **agent-runtime:** programmatic runtime with Core's LangGraph contract ([#658](https://github.com/fjpulidop/specrails-desktop/issues/658)) ([016e90b](https://github.com/fjpulidop/specrails-desktop/commit/016e90ba1f5285397f6c4b98af1c5743008f3dde))
+
 ## [2.44.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.44.1...v2.44.2) (2026-09-11)
 
 
