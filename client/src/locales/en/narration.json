@@ -24,7 +24,8 @@
     },
     "stalled": "Step {{step}} stalled — no activity for {{idleMinutes}} min, so the app stopped it",
     "startResume": "Step {{step}}: {{title}} — resuming after a stall",
-    "providerLimit": "Step {{step}} stopped — the provider's usage limit was reached"
+    "providerLimit": "Step {{step}} stopped — the provider's usage limit was reached",
+    "recovered": "Step {{step}} completed after resuming"
   },
   "decision": {
     "another": "Not done yet — going round again",
@@ -68,7 +69,8 @@
       "reviewer": "Reviewing the implementation (reviewer)",
       "archive": "Archiving the reviewed change",
       "stopped": "The runtime stopped: {{target}}",
-      "corrections": "Sending corrections back to the developer"
+      "corrections": "Sending corrections back to the developer",
+      "resumed": "Resuming the saved execution"
     }
   },
   "repeats": "×{{count}}"

@@ -16,7 +16,7 @@ describe('completion summary', () => {
     render(<LoopCompletionSummary result={result} />)
     expect(screen.getByText('Verified with exceptions')).toBeInTheDocument()
     expect(screen.getByText('Pending host delivery')).toBeInTheDocument()
-    expect(screen.getByText(/Steps: 1 · Decider evaluations: 0 · Agent turns: 50/)).toBeInTheDocument()
+    expect(screen.queryByText(/Decider evaluations:/)).not.toBeInTheDocument()
     expect(screen.getByText(/Node does not measure GPU/)).toBeInTheDocument()
     expect(screen.getByText(/Ticket decision/)).toBeInTheDocument()
   })

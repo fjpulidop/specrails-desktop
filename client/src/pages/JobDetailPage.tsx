@@ -227,6 +227,7 @@ export default function JobDetailPage() {
       enqueuePending(syntheticEvent)
     } else if (
       (msg.type === 'job.finalized' && msg.jobId === id)
+      || (msg.type === 'runtime.continuation' && msg.jobId === id)
       || (msg.type === 'job.interactive' && msg.jobId === id)
       || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed') && msg.loopRunId === id)
     ) {
@@ -557,6 +558,7 @@ export default function JobDetailPage() {
       </div>
 
       {/* Status panel — running, completed, or failed */}
+      {activeProjectId && id && <AgentRuntimeRuns projectId={activeProjectId} jobId={id} contextual />}
       {(job.status === 'running' ||
         job.status === 'completed' ||
         job.status === 'failed') && (
@@ -632,3 +634,4 @@ export default function JobDetailPage() {
     </div>
   )
 }
+import { AgentRuntimeRuns } from '../components/settings/AgentRuntimeRuns'

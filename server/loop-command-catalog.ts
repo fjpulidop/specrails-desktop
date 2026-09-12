@@ -94,14 +94,14 @@ export const LOOP_COMMANDS: LoopCommand[] = [
   {
     name: 'implement',
     label: 'implement',
-    description: "Run the specrails implement pipeline (architect → developer → reviewer) over the rail's tickets, via the native /specrails:implement command.",
+    description: "Run Core’s programmatic agent workflow (architect → developer → verification → reviewer → archive) over the rail's tickets.",
     coreCommand: 'implement',
     ticketScope: 'all',
   },
   {
     name: 'batch',
     label: 'batch',
-    description: "Run the batch-implement pipeline over ALL the rail's tickets in one pass (parallel internally).",
+    description: "Run all selected tickets as one frozen candidate through Core’s programmatic agent workflow.",
     coreCommand: 'batch-implement',
     ticketScope: 'all',
   },

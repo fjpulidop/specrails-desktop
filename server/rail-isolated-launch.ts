@@ -89,6 +89,8 @@ export interface IsolatedLaunchInput {
   repositoryContinuation?: { deliveryId: string; decision: PrDecision }
   repositoryBaseBranches?: Record<string, string>
   repositoryBaseShas?: Record<string, string>
+  /** Internal owner of runtime state when this launch is a repository child. */
+  runtimeStateProject?: { path: string; slug?: string }
   /** Internal per-repository leg of one coordinated execution. Never accepted from HTTP. */
   repositoryExecution?: {
     parentDeliveryId: string
@@ -1189,7 +1191,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     // A paused/interrupted programmatic workflow owns unfinished changes and
     // verification evidence in this exact mount. Keep them available for
     // explicit Core recovery, including a currently clean worktree.
-    if (implementationOutcome === 'failed' && hasAgentRuntimeRequest(ctx.project, a.runId)) {
+    if (implementationOutcome === 'failed' && hasAgentRuntimeRequest(input.runtimeStateProject ?? ctx.project, a.runId)) {
       markWorktree(a, 'needs-review')
       return {
         run: a, implementationOutcome, deliveryOutcome: 'blocked',

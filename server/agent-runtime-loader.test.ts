@@ -78,3 +78,10 @@ it('resolves an installed package export before development fallback', () => {
   const entry = file('consumer/node_modules/specrails-core/entry.js')
   expect(findCoreAgentRuntimeEntry()).toBe(realpathSync(entry))
 })
+
+it('loads the prompt catalog from the selected Core CLI', async () => {
+  const entry = file('catalog/index.js')
+  vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', entry)
+  file('catalog/cli.js', `console.log(JSON.stringify(process.argv[2] === 'api' ? {type:'runtime-api',apiVersion:1} : {type:'runtime-role-prompts',defaults:{architect:'Plan',developer:'Implement',reviewer:'Review'}}))`)
+  expect((await loadCoreAgentRuntime()).rolePromptDefaults()).toEqual({ architect: 'Plan', developer: 'Implement', reviewer: 'Review' })
+})

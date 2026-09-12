@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { useDesktop } from '../hooks/useDesktop'
+import { AgentRuntimeRuns } from './settings/AgentRuntimeRuns'
 import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { GripVertical, Trash2, ArrowLeft } from 'lucide-react'
@@ -111,6 +113,7 @@ export function RailRow({
   onTicketMoveToSpecs,
 }: RailRowProps) {
   const { t } = useTranslation('dashboard')
+  const { activeProjectId } = useDesktop()
   // Server rail index for identity-keyed endpoints (pr-candidates). Null for
   // exotic/test ids — the target-PR selector simply doesn't render then.
   const serverRailIdx = railIndexFromId(id)
@@ -503,6 +506,7 @@ export function RailRow({
           </div>
         )}
 
+        {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
         {/* Ask-first PR decision strip (safe-pr-review-flow) */}
         {prDecision && onPrDecision && (
           <div className="mt-1">
@@ -669,6 +673,7 @@ export function RailRow({
             </div>
           )}
 
+          {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
           {/* Ask-first PR decision strip (safe-pr-review-flow) */}
           {prDecision && onPrDecision && (
             <div className="px-3 pb-1.5">

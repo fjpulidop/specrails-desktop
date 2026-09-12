@@ -1,4 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
+import { AgentRuntimeRuns } from '../components/settings/AgentRuntimeRuns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { toast } from 'sonner'
@@ -31,6 +33,8 @@ function projectApiBase(projectId: string): string {
 }
 
 export default function JobsPage() {
+  const [showRuntimeHistory, setShowRuntimeHistory] = useState(false)
+  const { registerHandler, unregisterHandler } = useSharedWebSocket()
   const { t } = useTranslation('jobs')
   const { activeProjectId } = useDesktop()
   const { recentJobs } = usePipeline(activeProjectId)
@@ -53,6 +57,13 @@ export default function JobsPage() {
     },
     pollInterval: 10_000,
   })
+  useEffect(() => {
+    registerHandler('jobs-runtime-continuation', (message: unknown) => {
+      const event = message as { type?: string; projectId?: string }
+      if (event.type === 'runtime.continuation' && event.projectId === activeProjectId) void refreshJobs()
+    })
+    return () => unregisterHandler('jobs-runtime-continuation')
+  }, [activeProjectId, refreshJobs, registerHandler, unregisterHandler])
 
   const {
     data: proposals,
@@ -132,6 +143,10 @@ export default function JobsPage() {
         />
       </div>
 
+      {activeProjectId && <details className="mb-4 rounded-lg border border-border" onToggle={event => setShowRuntimeHistory(event.currentTarget.open)}>
+        <summary className="cursor-pointer p-3 text-sm">{t('agentRuntime:runs.title')}</summary>
+        {showRuntimeHistory && <AgentRuntimeRuns projectId={activeProjectId} />}
+      </details>}
       <RecentJobs
         jobs={jobs}
         isLoading={jobsFirstLoad || proposalsFirstLoad || jobsRefreshing || proposalsRefreshing}

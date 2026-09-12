@@ -47,10 +47,16 @@ export function assembleCoreSource(source, destination) {
     cpSync(path.join(temp, 'node_modules'), path.join(stage, 'node_modules'), { recursive: true, verbatimSymlinks: true, filter: () => true })
     pruneBins(path.join(stage, 'node_modules'))
     const smoke = spawnSync(process.execPath, ['--input-type=module', '-e',
-      'import {pathToFileURL} from "node:url"; const r=await import(pathToFileURL(process.argv[1]).href); if(r.RUNTIME_API_VERSION!==1)throw Error("runtime API mismatch"); const state=await r.runWorkflow({directory:process.argv[2],runId:"bundle-smoke",input:null,workflow:{id:"smoke",version:"1",steps:[{id:"check",execute:async()=>({status:"succeeded",usage:{costUsd:0,inputTokens:0,outputTokens:0}})}]}}); if(state.status!=="succeeded")throw Error("workflow smoke failed");',
+      'import {pathToFileURL} from "node:url"; import {Annotation} from "@langchain/langgraph"; const r=await import(pathToFileURL(process.argv[1]).href); if(r.RUNTIME_API_VERSION!==1)throw Error("runtime API mismatch"); const state=await r.runWorkflow({directory:process.argv[2],runId:"bundle-smoke",input:null,workflow:{id:"smoke",version:"1",schema:Annotation.Root({}),entry:"check",nodes:{check:{ends:[],run:async()=>({status:"succeeded",usage:{costUsd:0,inputTokens:0,outputTokens:0}})}}}}); if(state.status!=="succeeded")throw Error("workflow smoke failed");',
       path.join(stage, 'dist/agent-runtime/index.js'), path.join(temp, 'smoke-state'),
     ], { cwd: stage, encoding: 'utf8', timeout: 60_000 })
     if (smoke.error || smoke.status !== 0) throw new Error('Core runtime bundle smoke failed: ' + (smoke.error?.message ?? smoke.stderr))
+    // Exercise the pinned external framework from the shipped dependency tree, with no model or network.
+    const openspecSmoke = spawnSync(process.execPath, ['--input-type=module', '-e',
+      'import {pathToFileURL} from "node:url"; import {mkdirSync} from "node:fs"; const r=await import(pathToFileURL(process.argv[1]).href); const root=process.argv[2]; mkdirSync(root); const state=root+"/.state"; const prepared=r.prepareOpenSpec(root,"bundle-openspec",state); const tools=new r.OpenSpecTools(r.roleOpenSpecContext(prepared,root,"bundle-openspec",state,"architect","codex")); await tools.execute({action:"load_skill"}); await tools.execute({action:"new"}); const status=await tools.status(); if(status.schemaName!=="spec-driven"||status.isComplete)throw Error("OpenSpec bundle smoke failed");',
+      path.join(stage, 'dist/agent-runtime/openspec.js'), path.join(temp, 'openspec-smoke'),
+    ], { cwd: stage, encoding: 'utf8', timeout: 60000 })
+    if (openspecSmoke.error || openspecSmoke.status !== 0) throw new Error('Bundled OpenSpec smoke failed: ' + (openspecSmoke.error?.message ?? openspecSmoke.stderr))
     writeFileSync(path.join(stage, 'source-bundle.json'), JSON.stringify({ schemaVersion: 1, coreVersion: pkg.version, runtimeApiVersion: 1, packageLockSha256: createHash('sha256').update(lockText).digest('hex') }, null, 2) + '\n')
     rmSync(destination, { recursive: true, force: true })
     mkdirSync(destination, { recursive: true })

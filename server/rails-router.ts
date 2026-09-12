@@ -1171,7 +1171,7 @@ export function createRailsRouter(): Router {
     // (so we deliberately do NOT delete railLoopRuns here).
     for (const runId of targetLoopRunIds) {
       try {
-        c.loopRunManager.cancel(runId)
+        if (!cancelRuntimeContinuation(c, runId)) c.loopRunManager.cancel(runId)
         canceledCount++
       } catch (err) {
         console.warn(`[rails-router] stop: loop cancel(${runId}) failed: ${(err as Error).message}`)
@@ -1457,3 +1457,4 @@ export function createRailsRouter(): Router {
 
   return router
 }
+import { cancelRuntimeContinuation } from './agent-runtime-controls-router'

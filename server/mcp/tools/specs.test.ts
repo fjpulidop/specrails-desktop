@@ -171,6 +171,14 @@ describe('specrails_specs facade', () => {
     expect(r.hint).toContain('ticket_updated')
   })
 
+  it.each(['claude', 'codex'])('forwards the explicitly requested %s contract-refine provider', async (aiEngine) => {
+    await spec.handler(ctx, { action: 'contract_refine', projectId: 'p1', id: 5, aiEngine })
+    expect(lastBody()).toEqual({ aiEngine })
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toContain('/tickets/5/contract-refine')
+    expect(spec.description).toContain('Contract Layer — Claude or Codex')
+    expect(spec.description).toContain('pass numeric id, not ticketId')
+  })
+
   it('the generic watch hint no longer promises contract-refine settles via watch', async () => {
     const r = (await spec.handler(ctx, { action: 'generate', projectId: 'p1', idea: 'x' })) as { hint: string }
     expect(r.hint).not.toContain('contract_refine')

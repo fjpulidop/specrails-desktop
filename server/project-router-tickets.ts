@@ -46,6 +46,7 @@ import {
   buildProviderEnv,
   parseStreamEvents,
   pureOutputToolPolicy,
+  supportsContractRefine,
   supportsToolPolicy,
 } from './providers/runtime'
 import { getSpending, getInvocations, parseSpendingFilters } from './spending'
@@ -334,7 +335,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     const rawScope = req.body?.contextScope
     // Contract Layer is available only when the selected adapter advertises a
     // safe structured-action implementation.
-    const quickContractRefine = getAdapter(provider).capabilities.structuredActions !== true
+    const quickContractRefine = !supportsContractRefine(getAdapter(provider))
       ? false
       : typeof req.body?.contractRefine === 'boolean'
       ? req.body.contractRefine
@@ -1145,7 +1146,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         conversationId &&
         created &&
         convoProvider &&
-        getAdapter(convoProvider).capabilities.structuredActions === true
+        supportsContractRefine(getAdapter(convoProvider))
       ) {
         const createdTicketId = created.id
         const convoId = conversationId
@@ -1186,7 +1187,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         const requestedAgentProvider = typeof body.agentProvider === 'string' ? body.agentProvider : null
         const providerCheck = validateRequestedProvider(project, requestedAgentProvider)
         const refineProvider = providerCheck.ok ? providerCheck.provider : null
-        if (refineProvider && getAdapter(refineProvider).capabilities.structuredActions === true) {
+        if (refineProvider && supportsContractRefine(getAdapter(refineProvider))) {
           const refineTicketId = created.id
           const refineTitle = created.title
           const refineDescription = created.description
@@ -1363,7 +1364,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         res.status(refineProviderCheck.status).json({ error: refineProviderCheck.error }); return
       }
       const refineProvider = refineProviderCheck.provider
-      if (getAdapter(refineProvider).capabilities.structuredActions !== true) {
+      if (!supportsContractRefine(getAdapter(refineProvider))) {
         res.status(409).json({ error: `contract_refine_unsupported_for_${refineProvider}` }); return
       }
       if (!ticket.origin_conversation_id) {

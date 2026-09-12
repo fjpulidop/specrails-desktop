@@ -24,7 +24,8 @@
     },
     "stalled": "O passo {{step}} travou — sem atividade durante {{idleMinutes}} min, por isso a app parou-o",
     "startResume": "Passo {{step}}: {{title}} — a retomar após travar",
-    "providerLimit": "Passo {{step}} parado — o limite de utilização do fornecedor foi atingido"
+    "providerLimit": "Passo {{step}} parado — o limite de utilização do fornecedor foi atingido",
+    "recovered": "Passo {{step}} concluído após retomar"
   },
   "decision": {
     "another": "Ainda não está — outra volta",
@@ -68,7 +69,8 @@
       "reviewer": "A rever a implementação (revisor)",
       "archive": "A arquivar a alteração revista",
       "stopped": "O motor parou: {{target}}",
-      "corrections": "A devolver correções ao programador"
+      "corrections": "A devolver correções ao programador",
+      "resumed": "Retomando a execução guardada"
     }
   },
   "repeats": "×{{count}}"

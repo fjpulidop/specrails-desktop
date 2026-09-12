@@ -2384,12 +2384,13 @@ describe('launchIsolatedRail — failed-implementation cleanup (0 succeeded)', (
   const okCreate = () =>
     vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
 
-  it('preserves an admitted paused or failed agent-runtime worktree even when its checkout is clean', async () => {
+  it.each([false, true])('preserves an admitted failed runtime worktree with parent-owned state: %s', async (parentOwned) => {
     const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-settlement-'))
+    const stateRoot = parentOwned ? path.join(repoDir, 'parent-workspace') : repoDir
     const worktreePath = path.join(repoDir, 'retained-worktree')
     fs.mkdirSync(worktreePath)
     const { ctx, db } = fakeCtx((req) => {
-      const admission = path.join(repoDir, '.specrails', 'pipeline', req.runId)
+      const admission = path.join(stateRoot, '.specrails', 'pipeline', req.runId)
       fs.mkdirSync(admission, { recursive: true })
       fs.writeFileSync(path.join(admission, 'agent-runtime-request.json'), JSON.stringify({ runId: req.runId }))
       return settlingRun('failure')(req)
@@ -2397,7 +2398,7 @@ describe('launchIsolatedRail — failed-implementation cleanup (0 succeeded)', (
     ctx.project.path = repoDir
     const remove = vi.fn(async () => {})
     try {
-      await launchIsolatedRail(input([1], ctx), {
+      await launchIsolatedRail({ ...input([1], ctx), ...(parentOwned ? { runtimeStateProject: { path: stateRoot } } : {}) }, {
         git: gitOk(), remove,
         create: vi.fn(async () => ({ branch: 'codex/runtime-recovery', worktreePath })),
         overlay: vi.fn(() => ({ createdPaths: [], cleanupEvidence: [], warnings: [] })),

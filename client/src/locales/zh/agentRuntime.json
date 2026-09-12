@@ -4,8 +4,6 @@
   "loading": "正在加载运行设置…",
   "loadFailed": "无法加载运行设置。请先重试再修改。",
   "retry": "重试",
-  "enabled": "使用代理运行引擎进行实现",
-  "enableHint": "保存不会启动代理。启用后，此项目的实现将使用运行引擎；停用的项目保留当前执行模式。",
   "unavailable": "当前 Core 安装不包含代理运行引擎。启用前请更新 Core；停用时仍可提前配置。",
   "save": "保存运行设置",
   "saving": "正在保存…",
@@ -27,7 +25,9 @@
     "addCli": "添加 CLI 提供商",
     "addLocal": "添加本地 / API 提供商",
     "show": "显示提供商连接",
-    "hide": "隐藏提供商连接"
+    "hide": "隐藏提供商连接",
+    "globalTitle": "提供商连接",
+    "globalHint": "这些连接可供所有项目使用。在项目设置中为角色分配提供商和模型。更改适用于新的执行。"
   },
   "cliNames": {
     "claude": "Claude",
@@ -44,7 +44,7 @@
   },
   "agents": {
     "title": "角色分配",
-    "hint": "每个角色使用各自的提供商会话。除非需要特定模型，否则保持默认。轮数是角色可进行的工具调用次数（默认 {{turns}}）。",
+    "hint": "每个角色可以使用不同的提供商和模型。在常规设置 → Specrails Agents中管理连接。默认每个代理最多{{turns}}轮。",
     "provider": "提供商",
     "model": "模型",
     "modelPlaceholder": "模型 ID 或 CLI 默认值",
@@ -100,7 +100,12 @@
     "question": "架构师提问:",
     "answerLabel": "你的回答",
     "answerPlaceholder": "回答该问题后,架构师将据此继续。",
-    "answer": "回答并继续"
+    "answer": "回答并继续",
+    "viewLog": "查看任务日志",
+    "implementation": "实现",
+    "preserveProgress": "从所示阶段继续，保留已有工作和保存的设置。",
+    "reviewDelivery": "实现已完成。交付前请在任务日志中检查结果；本次继续执行未发布结果。",
+    "prepareDelivery": "准备交付"
   },
   "roleHints": {
     "architect": "阅读代码并撰写提案、设计、任务和规范。只读。",
@@ -125,5 +130,24 @@
     "onLowConfidence": "置信度低时",
     "ask": "询问(带问题暂停)",
     "proceed": "基于已声明的假设继续"
+  },
+  "metrics": {
+    "title": "用量与时间",
+    "hint": "包含修正和失败的调用。代理时间包含工具执行时间。缓存令牌属于输入令牌的一部分。",
+    "unknown": "不可用",
+    "duration": "执行时间",
+    "agentTime": "代理时间",
+    "cost": "已报告费用",
+    "providerCalls": "代理调用",
+    "toolCalls": "工具调用",
+    "input": "输入令牌",
+    "output": "输出令牌",
+    "uncached": "未缓存输入",
+    "cacheRead": "缓存读取",
+    "cacheWrite": "缓存写入",
+    "partial": "部分尝试没有详细测量数据。",
+    "phases": "各阶段用量",
+    "phase": "阶段",
+    "attempts": "尝试次数"
   }
 }

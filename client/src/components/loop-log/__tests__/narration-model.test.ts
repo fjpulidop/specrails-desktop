@@ -623,6 +623,28 @@ describe('buildNarration — idle stalls (loop-step-idle)', () => {
 describe('buildNarration — Specrails Core agent runtime', () => {
   const runtime = (type: string, over: Record<string, unknown> = {}) => ev('workflow-event', { event: { type, ...over } })
   const runtimeTool = (role: string, tool: string, detail: string) => ev('agent-event', { role, event: { kind: 'tool-start', tool, detail } })
+  it('keeps phase visits separate and narrates recovery without treating it as review feedback', () => {
+    const model = buildNarration({ events: [
+      step(1, 'AI Step (claude/sonnet)'),
+      runtime('step_started', { stepId: 'developer' }),
+      runtimeTool('developer', 'Bash', 'python3 script.py'),
+      runtimeTool('developer', 'Bash', 'runtime-internal;'),
+      stepEnd(1, { status: 'failed' }),
+      runtime('workflow_resumed'),
+      runtime('step_started', { stepId: 'developer' }),
+      runtimeTool('developer', 'Bash', 'python3 script.py'),
+      runtime('step_started', { stepId: 'verify' }),
+      runtime('step_started', { stepId: 'developer' }),
+      stepEnd(1, { status: 'ok', recovered: true }),
+    ], settled: true })
+    expect(codes(model.milestones)).toEqual([
+      'step.start', 'activity.phase.developer', 'activity.runningBare', 'step.failed',
+      'activity.phase.resumed', 'activity.phase.developer', 'activity.runningBare',
+      'activity.phase.verify', 'activity.phase.corrections', 'step.recovered',
+    ])
+    expect(model.milestones[0].values.title).toBe('AI Step (claude/sonnet)')
+    expect(model.milestones[0].values.roleCode).toBeUndefined()
+  })
 
   it('narrates each runtime phase as a structural milestone and folds tool activity into it', () => {
     const model = buildNarration({
@@ -665,3 +687,11 @@ describe('buildNarration — Specrails Core agent runtime', () => {
     expect(stopped).toMatchObject({ tone: 'bad', values: { target: 'Implementation correction limit reached' } })
   })
 })
+
+ it('keeps identical file activity in separate repository groups', () => {
+   const read = (name: string) => ev('agent-event', { role: 'developer', repositories: [{ id: name, name }], event: { kind: 'tool-start', tool: 'Read', detail: 'src/app.ts' } })
+   const model = buildNarration({ events: [read('Front'), read('Back'), read('Front')], settled: false })
+   expect(model.milestones).toHaveLength(2)
+   expect(model.milestones.map(item => item.values.repository)).toEqual(['Front', 'Back'])
+   expect(model.milestones[0].values.repeats).toBe(2)
+ })

@@ -3,6 +3,8 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseCoreCompletion, readCoreCompletion } from './core-completion'
+import { findCoreAgentRuntimeCli } from './agent-runtime-loader'
+vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: vi.fn() }))
 vi.mock('./path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath }))
 const roots: string[] = []
 afterEach(() => roots.splice(0).forEach(root => rmSync(root, { recursive: true, force: true })))
@@ -16,6 +18,17 @@ const valid = {
   } },
 }
 describe('runtime completion bridge', () => {
+  it('reads programmatic acceptance evidence from the runtime pipeline envelope', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'core-programmatic-completion-')); roots.push(root)
+    const runtime = join(root, 'runtime.mjs')
+    writeFileSync(join(root, 'agent-runtime-request.json'), '{}')
+    writeFileSync(runtime, `process.stdout.write(${JSON.stringify(JSON.stringify({ pipeline: valid }))})`)
+    vi.mocked(findCoreAgentRuntimeCli).mockReturnValue(runtime)
+    const result = await readCoreCompletion({ cwd: root, contextPath: join(root, 'context.json'), runId: 'run', env: process.env })
+    expect(result?.completion.validation).toBe('with-exceptions')
+    expect(result?.checks).toHaveLength(1)
+    expect(result?.exceptions[0]?.approvalEvidence).toBe('Ticket decision')
+  })
   it('preserves exception decisions, measurement limitations and nullable phase metrics', () => {
     const result = parseCoreCompletion(valid, 'run')!
     expect(result.completion.validation).toBe('with-exceptions')

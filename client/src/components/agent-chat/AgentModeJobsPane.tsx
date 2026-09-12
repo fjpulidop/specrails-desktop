@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
 import { Maximize2, Minimize2, X, Loader2, Briefcase } from 'lucide-react'
-import { getApiBase } from '../../lib/api'
+import { repositoryApiBase } from '../../lib/project-repositories'
 import { getDateFnsLocale } from '../../lib/i18n'
 import { cn } from '../../lib/utils'
 import { useAgentWorkspace } from '../../context/AgentWorkspaceContext'
@@ -47,7 +47,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
     projectId,
     initialValue: [],
     fetcher: async () => {
-      const res = await fetch(`${getApiBase()}/jobs?limit=50`)
+      const res = await fetch(`${repositoryApiBase(projectId)}/jobs?limit=50`)
       if (!res.ok) return []
       const data = await res.json() as { jobs: JobSummary[] }
       return data.jobs
@@ -184,7 +184,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
       </div>
 
       {detailJobId && (
-        <JobDetailModal jobId={detailJobId} onClose={() => setDetailJobId(null)} />
+        <JobDetailModal jobId={detailJobId} projectId={projectId} onClose={() => setDetailJobId(null)} />
       )}
     </div>
   )

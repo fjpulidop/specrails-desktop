@@ -297,6 +297,7 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
       }
       await launchIsolatedRail({
         ...input, ctx: childCtx, scope: effectiveScope, loopGraph: graph,
+        runtimeStateProject: ctx.project,
         revision: input.revision && previous ? { ...input.revision, ofDeliveryId: previous.id, decision: previous.decision } : undefined,
         requiredPrContinuation: continuation,
         explicitPrTarget: continuation?.prNumber ? { prNumber: continuation.prNumber } : input.explicitPrTarget,

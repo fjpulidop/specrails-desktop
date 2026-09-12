@@ -4,8 +4,6 @@
   "loading": "Chargement des paramètres…",
   "loadFailed": "Impossible de charger les paramètres. Réessayez avant de les modifier.",
   "retry": "Réessayer",
-  "enabled": "Utiliser le moteur d’agents pour implémenter",
-  "enableHint": "Enregistrer ne lance aucun agent. Une fois activé, les implémentations de ce projet utilisent le moteur ; les projets désactivés conservent leur mode actuel.",
   "unavailable": "Cette installation de Core ne contient pas le moteur d’agents. Mettez Core à jour avant de l’activer ; vous pouvez préparer les paramètres en attendant.",
   "save": "Enregistrer les paramètres",
   "saving": "Enregistrement…",
@@ -27,7 +25,9 @@
     "addCli": "Ajouter un fournisseur CLI",
     "addLocal": "Ajouter un fournisseur local / API",
     "show": "Afficher les connexions aux fournisseurs",
-    "hide": "Masquer les connexions aux fournisseurs"
+    "hide": "Masquer les connexions aux fournisseurs",
+    "globalTitle": "Connexions des fournisseurs",
+    "globalHint": "Ces connexions sont disponibles pour tous les projets. Attribuez les fournisseurs et modèles aux rôles dans les paramètres du projet. Les changements s’appliquent aux nouvelles exécutions."
   },
   "cliNames": {
     "claude": "Claude",
@@ -44,7 +44,7 @@
   },
   "agents": {
     "title": "Attribution des rôles",
-    "hint": "Chaque rôle exécute sa propre session du fournisseur. Laissez le modèle par défaut sauf besoin précis. Les tours sont les appels d’outils qu’un rôle peut faire (par défaut {{turns}}).",
+    "hint": "Chaque rôle peut utiliser un fournisseur et un modèle différents. Connexions : Paramètres généraux → Specrails Agents. Limite par défaut : {{turns}} tours par agent.",
     "provider": "Fournisseur",
     "model": "Modèle",
     "modelPlaceholder": "ID du modèle ou modèle par défaut du CLI",
@@ -100,7 +100,12 @@
     "question": "L'architecte demande :",
     "answerLabel": "Votre réponse",
     "answerPlaceholder": "Répondez à la question ; l'architecte poursuit avec elle.",
-    "answer": "Répondre et reprendre"
+    "answer": "Répondre et reprendre",
+    "viewLog": "Voir le journal du job",
+    "implementation": "Implémentation",
+    "preserveProgress": "Reprendre à la phase indiquée en conservant le travail et les paramètres enregistrés.",
+    "reviewDelivery": "Implémentation terminée. Vérifiez le résultat dans le journal avant la livraison ; cette reprise ne l’a pas publié.",
+    "prepareDelivery": "Préparer la livraison"
   },
   "roleHints": {
     "architect": "Lit le code et rédige la proposition, la conception, les tâches et la spec. Lecture seule.",
@@ -125,5 +130,24 @@
     "onLowConfidence": "En cas de faible confiance",
     "ask": "Demander (pause avec la question)",
     "proceed": "Continuer sur des hypothèses explicites"
+  },
+  "metrics": {
+    "title": "Consommation et durée",
+    "hint": "Inclut les corrections et les appels échoués. La durée des agents inclut les outils. Les tokens en cache font partie des tokens en entrée.",
+    "unknown": "Indisponible",
+    "duration": "Durée d’exécution",
+    "agentTime": "Durée des agents",
+    "cost": "Coût déclaré",
+    "providerCalls": "Appels aux agents",
+    "toolCalls": "Appels aux outils",
+    "input": "Tokens en entrée",
+    "output": "Tokens en sortie",
+    "uncached": "Entrée sans cache",
+    "cacheRead": "Lectures du cache",
+    "cacheWrite": "Écritures du cache",
+    "partial": "Certains essais ne disposent pas de mesures détaillées.",
+    "phases": "Consommation par phase",
+    "phase": "Phase",
+    "attempts": "Essais"
   }
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RunExecutionManifest } from './multi-repo-execution-store'
 import type { RuntimeConfig } from './agent-runtime-settings'
@@ -49,6 +49,7 @@ function manifest(): RunExecutionManifest {
 }
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'runtime integration spaces '))
+  vi.spyOn(os, 'homedir').mockImplementation(() => join(root, 'home'))
   workspace = join(root, 'project state'); worktree = join(root, 'Core worktree'); secondWorktree = join(root, 'Desktop worktree')
   for (const directory of [join(workspace, '.specrails'), worktree, secondWorktree]) mkdirSync(directory, { recursive: true })
   configPath = join(workspace, '.specrails', 'agent-runtime.json')
@@ -78,7 +79,7 @@ if(args[0]==='status'){
   vi.stubEnv('SPECRAILS_INTERACTIVE_JOBS', 'true')
   vi.stubEnv('SPECRAILS_RAIL_DELIVER_PR', 'true')
 })
-afterEach(() => { for (const db of databases.splice(0)) db.close(); vi.unstubAllEnvs(); fixture.cli = null; rmSync(root, { recursive: true, force: true }) })
+afterEach(() => { vi.restoreAllMocks(); for (const db of databases.splice(0)) db.close(); vi.unstubAllEnvs(); fixture.cli = null; rmSync(root, { recursive: true, force: true }) })
 
 describe('Desktop implementation routing into the Core agent runtime', () => {
   it.each(['claude', 'codex', 'gemini', 'kimi'])('routes enabled %s rails through Core with frozen scope and no platform invocation', async provider => {
@@ -88,14 +89,18 @@ describe('Desktop implementation routing into the Core agent runtime', () => {
     expect(fixture.legacy).not.toHaveBeenCalled(); expect(fixture.framework).not.toHaveBeenCalled()
     expect(onSpawn).toHaveBeenCalledOnce(); expect(onLine).toHaveBeenCalledWith('[runtime] step_started: architect\n')
     const call = invocations()[0]
-    expect(call.args).toContain(configPath)
+    expect(call.args).toContain(join(realpathSync(workspace), '.specrails', 'pipeline', runId, 'desktop-runtime-config.json'))
     expect(call.context).toMatchObject({ runId, artifactRoot: realpathSync(worktree), backlogRoot: realpathSync(workspace), ownership: { git: 'host', backlog: 'host', worktrees: 'host' }, repositories: [{ id: 'core', path: realpathSync(worktree) }], specs: [{ id: 42, title: 'Build runtime' }] })
     const host = readFileSync(join(workspace, '.specrails', 'pipeline', runId, 'desktop-runtime-host.json'), 'utf8')
     expect(host).not.toContain('not-for-checkpoints')
   })
   it('uses artifact-root configuration while preserving every registered worktree and frozen ticket target', async () => {
     const executionManifest = manifest()
+    const checks = [{ repositoryId: 'core', command: 'npm', args: ['test'] }, { repositoryId: 'desktop', command: 'npm', args: ['run', 'lint'] }]
+    writeFileSync(configPath, JSON.stringify({ ...config(), verification: checks }))
     await executors().runAiStep({ ...step(), executionManifest })
+    const args = invocations()[0].args as string[]
+    expect(JSON.parse(readFileSync(args[args.indexOf('--config') + 1], 'utf8')).verification).toEqual(checks)
     expect(invocations()[0].context).toMatchObject({ artifactRoot: realpathSync(secondWorktree), artifactRepositoryId: 'desktop', repositories: [
       { id: 'core', path: realpathSync(worktree), baseSha: 'a'.repeat(40) }, { id: 'desktop', path: realpathSync(secondWorktree), baseSha: 'b'.repeat(40) },
     ], specs: [{ repositoryIds: ['core'] }] })
@@ -103,13 +108,13 @@ describe('Desktop implementation routing into the Core agent runtime', () => {
     await expect(executors().runAiStep({ ...step(), executionManifest: changed })).rejects.toThrow('context changed')
     expect(invocations()).toHaveLength(1)
   })
-  it('preserves legacy execution only when runtime is disabled or implementation was not selected', async () => {
+  it('uses the runtime regardless of the retired toggle and preserves generic AI steps', async () => {
     writeConfig(false)
-    expect((await executors().runAiStep(step())).provider).toBe('claude')
-    expect(fixture.legacy).toHaveBeenCalledOnce(); expect(invocations()).toEqual([])
+    expect((await executors().runAiStep(step())).provider).toBe('agent-runtime')
+    expect(fixture.legacy).not.toHaveBeenCalled(); expect(invocations()).toHaveLength(1)
     writeConfig(true)
     await executors().runAiStep({ ...step(), coreRun: { ...step().coreRun, implementation: false } })
-    expect(fixture.legacy).toHaveBeenCalledTimes(2); expect(invocations()).toEqual([])
+    expect(fixture.legacy).toHaveBeenCalledOnce(); expect(invocations()).toHaveLength(1)
   })
   it('disables resident whole-pipeline sessions and ignores obsolete legacy profile selection for runtime roles', async () => {
     const profilePathFor = vi.fn(() => { throw new Error('Obsolete legacy profile must not be loaded') })
@@ -162,7 +167,7 @@ describe('Desktop implementation routing into the Core agent runtime', () => {
     const manager = new LoopRunManager(db, () => {}, executors())
     const result = await manager.run({ runId, loopId: 'factory:implement', loopName: 'Implement', graph, projectId: 'project', cwd: worktree, repoDir: worktree, provider: 'claude', model: 'sonnet', repositoryId: 'core', spec: { id: 42, title: 'Build runtime', description: 'Acceptance criteria', repositoryIds: ['core'] } })
     expect(result.outcome).toBe('success')
-    expect(invocations().map(call => (call.args as string[])[0])).toEqual(['run', 'status'])
+    expect(invocations().map(call => (call.args as string[])[0])).toEqual(['run', 'status', 'status'])
     expect(fixture.legacy).not.toHaveBeenCalled()
   })
 })
