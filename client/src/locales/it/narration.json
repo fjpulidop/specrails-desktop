@@ -60,7 +60,16 @@
     "readingFiles": "Sta leggendo {{files}} file ({{names}}…)",
     "editingFiles": "Sta modificando {{files}} file ({{names}}…)",
     "delegating": "Passa il lavoro al {{target}}",
-    "delegatingBare": "Passa il lavoro a uno specialista"
+    "delegatingBare": "Passa il lavoro a uno specialista",
+    "phase": {
+      "architect": "Progettazione della modifica (architetto)",
+      "developer": "Implementazione della modifica (sviluppatore)",
+      "verify": "Esecuzione dei comandi di verifica",
+      "reviewer": "Revisione dell’implementazione (revisore)",
+      "archive": "Archiviazione della modifica revisionata",
+      "stopped": "Il motore si è fermato: {{target}}",
+      "corrections": "Correzioni rinviate allo sviluppatore"
+    }
   },
   "repeats": "×{{count}}"
 }

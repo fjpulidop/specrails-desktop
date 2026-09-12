@@ -13,6 +13,8 @@ If you're a user looking for **how do I do X?** docs, head back to the [user gui
 | [configuration.md](configuration.md) | Settings, env vars, kill switches, advanced flags |
 | [operations-runbook.md](operations-runbook.md) | Start/stop, port conflicts, recovery procedures, backups |
 | [core-runtime-updates.md](core-runtime-updates.md) | Core runtime discovery, durable package updates, version reporting and recovery after partial workspace refresh |
+| [programmatic-agent-runtime.md](programmatic-agent-runtime.md) | Paired Core build, per-role providers/local models, project settings, saved execution recovery and delivery boundaries |
+| [programmatic-agent-runtime-validation.md](programmatic-agent-runtime-validation.md) | Paired implementation test results, packaging evidence and release limitations |
 | [openspec-workflow.md](openspec-workflow.md) | `opsx:*` change lifecycle — used by the app itself for structured change management |
 | [adding-a-provider.md](adding-a-provider.md) | How to add a new AI CLI: one adapter file plus one entry in the registry |
 | [profiles.md](profiles.md) | Agent profiles quick start: open the Agents section, pick a profile per rail at launch, author custom agents in Agent Studio. For the true file-format and snapshotting internals, read `server/profile-manager.ts` and the profile-manager section of `CLAUDE.md` |

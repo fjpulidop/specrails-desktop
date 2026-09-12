@@ -60,7 +60,16 @@
     "readingFiles": "Leyendo {{files}} archivos ({{names}}…)",
     "editingFiles": "Cambiando {{files}} archivos ({{names}}…)",
     "delegating": "Pasando el trabajo al {{target}}",
-    "delegatingBare": "Pasando el trabajo a un especialista"
+    "delegatingBare": "Pasando el trabajo a un especialista",
+    "phase": {
+      "architect": "Diseñando el cambio (arquitecto)",
+      "developer": "Implementando el cambio (desarrollador)",
+      "verify": "Ejecutando los comandos de verificación",
+      "reviewer": "Revisando la implementación (revisor)",
+      "archive": "Archivando el cambio revisado",
+      "stopped": "El motor se detuvo: {{target}}",
+      "corrections": "Devolviendo correcciones al desarrollador"
+    }
   },
   "repeats": "×{{count}}"
 }

@@ -981,6 +981,7 @@ export function createRailsRouter(): Router {
               loopName,
               graph: loopGraph,
               projectId: c.project.id,
+              repositoryId: primaryRepository.id,
               cwd: loopExec.cwd,
               repoDir: loopExec.relocated ? loopExec.repoDir : undefined,
               railIndex,

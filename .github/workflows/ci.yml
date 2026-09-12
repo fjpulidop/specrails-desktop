@@ -69,6 +69,40 @@ jobs:
       - name: Smoke bundled Core relocation for every provider
         run: pwsh scripts/smoke-bundled-core-windows.ps1 -CorePath src-tauri\core -Node node
 
+  # Runtime fixtures use temporary projects, SQLite and ordinary Node fake CLIs.
+  # All Claude/Codex/Gemini/Kimi and local-provider paths run without AI calls.
+  agent-runtime-portability:
+    name: Agent runtime (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install runtime test dependencies
+        run: npm ci
+      - name: Test provider routing, configuration, recovery and accounting offline
+        run: >-
+          npx vitest run --maxWorkers=1
+          server/core-node-runtime.test.ts
+          server/agent-runtime-loader.test.ts
+          server/agent-runtime-bridge.test.ts
+          server/agent-runtime-settings.test.ts
+          server/agent-runtime-verification-suggestions.test.ts
+          server/agent-runtime-controls.test.ts
+          server/agent-runtime-accounting.test.ts
+          server/agent-runtime-integration.test.ts
+          server/loop-runtime-accounting.test.ts
+
   # These fixtures use local/in-memory pages and temporary native profiles.
   # They do not start a sidecar, read a user database or call an AI provider.
   native-macos:

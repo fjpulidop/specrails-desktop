@@ -1,0 +1,129 @@
+{
+  "title": "Agenten-Laufzeit",
+  "description": "Architekt, Entwickler und Reviewer laufen als getrennte Phasen mit deterministischer Verifikation dazwischen. Wähle pro Rolle einen Anbieter; alles andere hat funktionierende Standardwerte.",
+  "loading": "Einstellungen werden geladen…",
+  "loadFailed": "Einstellungen konnten nicht geladen werden. Vor Änderungen erneut versuchen.",
+  "retry": "Erneut versuchen",
+  "enabled": "Agenten-Laufzeit für die Implementierung verwenden",
+  "enableHint": "Speichern startet keine Agenten. Nach der Aktivierung nutzen Implementierungen dieses Projekts die Laufzeit; deaktivierte Projekte behalten ihren bisherigen Ausführungsmodus.",
+  "unavailable": "Diese Core-Installation enthält die Agenten-Laufzeit nicht. Aktualisieren Sie Core vor der Aktivierung. Die Einstellungen können Sie bereits vorbereiten.",
+  "save": "Laufzeit-Einstellungen speichern",
+  "saving": "Wird gespeichert…",
+  "saved": "Einstellungen gespeichert",
+  "saveFailed": "Einstellungen konnten nicht gespeichert werden.",
+  "approvalBeforeArchive": "Vor Abschluss des Workflows auf Freigabe warten",
+  "providers": {
+    "title": "Anbieter",
+    "hint": "CLI-Anbieter nutzen die bestehende Anmeldung. APIs akzeptieren nur den Namen einer Umgebungsvariablen, niemals den Schlüssel selbst. Lokal kann er leer bleiben. Rollen vor dem Entfernen ihres Anbieters neu zuweisen.",
+    "entry": "Anbieter {{index}}",
+    "id": "Anbieter-ID",
+    "kind": "Verbindungstyp",
+    "cli": "Installierte Programmier-CLI",
+    "compatible": "OpenAI-kompatibler Endpunkt",
+    "command": "Programmier-CLI",
+    "baseUrl": "API-Basis-URL",
+    "apiKeyEnv": "Umgebungsvariable für API-Schlüssel (optional)",
+    "remove": "Anbieter entfernen",
+    "addCli": "CLI-Anbieter hinzufügen",
+    "addLocal": "Lokalen / API-Anbieter hinzufügen",
+    "show": "Anbieterverbindungen anzeigen",
+    "hide": "Anbieterverbindungen ausblenden"
+  },
+  "cliNames": {
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini",
+    "kimi": "Kimi"
+  },
+  "roles": {
+    "architect": "Architekt",
+    "developer": "Entwickler",
+    "reviewer": "Prüfer",
+    "verify": "Prüfung",
+    "archive": "Abschluss"
+  },
+  "agents": {
+    "title": "Rollenzuweisungen",
+    "hint": "Jede Rolle läuft in einer eigenen Anbieter-Sitzung. Lass das Modell auf dem Standard, sofern du kein bestimmtes brauchst. Runden sind die Werkzeugaufrufe, die eine Rolle machen darf (Standard {{turns}}).",
+    "provider": "Anbieter",
+    "model": "Modell",
+    "modelPlaceholder": "Modell-ID oder CLI-Standard",
+    "maxTurns": "Maximale Runden (Standard {{turns}})",
+    "defaultModel": "Standard ({{model}})"
+  },
+  "limits": {
+    "title": "Workflow-Limits",
+    "hint": "Leere Felder verwenden die Core-Standards: {{attempts}} Entwicklerversuche und {{minutes}} Minuten pro Workflow. Token- und USD-Obergrenzen sind optional; USD-Obergrenzen erfordern Claude für jede KI-Rolle.",
+    "maxAttempts": "Maximale Entwicklerversuche (Standard {{attempts}})",
+    "timeoutMinutes": "Zeitlimit in Minuten (Standard {{minutes}})",
+    "maxTokens": "Maximale Tokens",
+    "maxCostUsd": "Maximale Kosten (USD)",
+    "unlimited": "Kein Limit"
+  },
+  "verification": {
+    "title": "Verifikationsbefehle",
+    "hint": "Optional. Sie laufen, nachdem der Entwickler fertig ist; Fehler gehen an den Entwickler zurück. Bleibt die Liste leer, schlägt der Architekt bei jedem Lauf die projekteigenen Prüfungen vor; Repositories ohne automatische Prüfung werden trotzdem reviewt.",
+    "detect": "Projektprüfungen erkennen",
+    "detecting": "Erkenne…",
+    "detected": "Ausgefüllt mit den Prüfungen, die dieses Projekt bereits definiert.",
+    "nothingDetected": "Kein Test-, Typprüfungs- oder Build-Befehl gefunden. Kein Problem: der Architekt schlägt bei jedem Lauf Prüfungen vor, wenn möglich.",
+    "detectFailed": "Die Projekt-Repositories konnten nicht untersucht werden.",
+    "repository": "Repository",
+    "command": "Befehl",
+    "reason": "Erkannt aus {{reason}}",
+    "remove": "Entfernen",
+    "add": "Befehl hinzufügen",
+    "invalidLine": "Verifikationsbefehl ist leer oder hat ein nicht geschlossenes Anführungszeichen: {{line}}"
+  },
+  "runs": {
+    "title": "Gespeicherte Ausführungen",
+    "refresh": "Aktualisieren",
+    "hint": "Setzt im ursprünglichen Worktree mit gespeichertem Umfang und Einstellungen fort; der Fortschritt erscheint im Protokoll dieses Jobs. Es wird nichts veröffentlicht und keine Desktop-Auslieferung neu gestartet. Aktive Rail-Ausführungen werden über ihre Job-Steuerung gestoppt.",
+    "empty": "Keine gespeicherten Ausführungen.",
+    "loadFailed": "Ausführungen konnten nicht geladen werden.",
+    "actionFailed": "Ausführung konnte nicht aktualisiert werden.",
+    "phase": "Nächste Phase: {{phase}}",
+    "approve": "Abschluss freigeben",
+    "recover": "Unterbrochene Phase wiederherstellen",
+    "resume": "Fortsetzen",
+    "cancel": "Fortsetzung abbrechen",
+    "status": {
+      "running": "Wird fortgesetzt…",
+      "succeeded": "Erfolgreich",
+      "failed": "Fehlgeschlagen",
+      "blocked": "Blockiert",
+      "paused": "Pausiert",
+      "cancelled": "Abgebrochen",
+      "interrupted": "Unterbrochen",
+      "unavailable": "Nicht verfügbar"
+    },
+    "question": "Der Architekt fragt:",
+    "answerLabel": "Ihre Antwort",
+    "answerPlaceholder": "Beantworten Sie die Frage; der Architekt macht damit weiter.",
+    "answer": "Antworten und fortsetzen"
+  },
+  "roleHints": {
+    "architect": "Liest den Code und schreibt Vorschlag, Design, Aufgaben und Spezifikation. Nur lesend.",
+    "developer": "Setzt die Aufgaben mit Tests um. Darf Dateien bearbeiten und Befehle in der CLI-Sandbox ausführen.",
+    "reviewer": "Prüft das Ergebnis gegen Spezifikation und Verifikationsnachweise. Nur lesend."
+  },
+  "review": {
+    "title": "Review-Schwelle",
+    "hint": "Leere Felder verwenden Cores Schwelle. Werte können sie nur anheben: Gesamtwert mindestens {{score}}, Sicherheit mindestens {{security}}, andere Aspekte mindestens {{aspect}}.",
+    "minScore": "Mindestgesamtwert (Standard {{score}})",
+    "aspects": {
+      "type_correctness": "Typkorrektheit (Standard {{score}})",
+      "pattern_adherence": "Mustertreue (Standard {{score}})",
+      "test_coverage": "Testabdeckung (Standard {{score}})",
+      "security": "Sicherheit (Standard {{score}})",
+      "architectural_alignment": "Architekturkonformität (Standard {{score}})"
+    }
+  },
+  "architect": {
+    "title": "Zuversicht des Architekten",
+    "hint": "Nach einem autonomen Untersuchungsdurchlauf pausiert ein weiterhin unsicherer Entwurf mit der Frage des Architekten oder fährt mit benannten Annahmen fort.",
+    "onLowConfidence": "Bei geringer Zuversicht",
+    "ask": "Fragen (mit der Frage pausieren)",
+    "proceed": "Mit benannten Annahmen fortfahren"
+  }
+}

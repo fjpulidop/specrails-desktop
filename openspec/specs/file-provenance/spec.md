@@ -3,9 +3,7 @@
 ## Purpose
 
 Per-project ledger linking files in the working tree to the tickets and jobs that created or modified them, surfaced by the Code section and `TicketDetailModal`.
-
 ## Requirements
-
 ### Requirement: Provenance table schema and persistence
 
 The app SHALL persist file⇄ticket provenance in a per-project SQLite table `file_provenance` with columns `(id, file_path, ticket_id, job_id, kind, at)`, indexed on `(file_path)`, `(ticket_id)`, and `(at DESC)`. The `kind` column SHALL be constrained to one of `'created'`, `'modified'`, `'deleted'`.
@@ -108,3 +106,19 @@ The app SHALL broadcast a `file.provenance_updated` WebSocket event scoped by `p
 - **WHEN** the hook inserts three rows during a single post-job pass
 - **THEN** the server MUST emit three separate `file.provenance_updated` events
 - **AND** the events MAY be coalesced into one frame at the transport layer
+
+### Requirement: Bounded repository-aware activity
+The server SHALL expose bounded recorded activity with stable repository/run/spec/path identity and SHALL apply the same path exclusions to aggregate activity and provenance as to file reads.
+
+#### Scenario: Spec touches two repositories
+- **WHEN** a spec has recorded changes in two project memberships
+- **THEN** its files listing MUST include both repositories without conflating identical relative paths
+
+#### Scenario: Excluded path in stored provenance
+- **WHEN** aggregate activity or provenance includes a path excluded by explorer policy
+- **THEN** that path MUST NOT be exposed by the listing
+
+#### Scenario: Large activity history
+- **WHEN** recorded history exceeds a page limit
+- **THEN** the endpoint MUST return bounded results and explicit continuation or truncation metadata
+

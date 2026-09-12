@@ -64,3 +64,23 @@ describe('mapTool', () => {
     expect(mapTool('Unknown', {})).toMatchObject({ actionKey: 'working' })
   })
 })
+
+describe('deriveFrameActivity — Specrails Core agent runtime events', () => {
+  it('maps runtime tool-start events onto the shared activity vocabulary', () => {
+    expect(deriveFrameActivity(ev('agent-event', { role: 'developer', event: { kind: 'tool-start', tool: 'Read', detail: 'src/app.ts' } })))
+      .toMatchObject({ step: true, actionKey: 'reading', actionArg: 'app.ts' })
+    expect(deriveFrameActivity(ev('agent-event', { role: 'developer', event: { kind: 'tool-start', tool: 'Bash', detail: 'npm test' } })))
+      .toMatchObject({ step: true, actionKey: 'running', actionArg: 'npm' })
+    expect(deriveFrameActivity(ev('agent-event', { role: 'architect', event: { kind: 'tool-start', tool: 'grep_search', detail: 'multiply' } })))
+      .toMatchObject({ step: true, actionKey: 'searching', actionArg: 'multiply' })
+    expect(deriveFrameActivity(ev('agent-event', { role: 'developer', event: { kind: 'tool-start', tool: 'write_file', detail: 'math.js' } })))
+      .toMatchObject({ step: true, actionKey: 'writing', actionArg: 'math.js' })
+    expect(deriveFrameActivity(ev('agent-event', { role: 'developer', event: { kind: 'tool-start', tool: 'shell', detail: 'cargo test' } })))
+      .toMatchObject({ step: true, actionKey: 'running', actionArg: 'cargo' })
+  })
+  it('counts runtime prose as thinking and ignores usage frames', () => {
+    expect(deriveFrameActivity(ev('agent-event', { role: 'reviewer', event: { kind: 'text', text: 'Inspecting.' } }))).toMatchObject({ step: true, actionKey: 'thinking' })
+    expect(deriveFrameActivity(ev('agent-event', { role: 'reviewer', event: { kind: 'usage', usage: {} } })).step).toBe(false)
+    expect(deriveFrameActivity(ev('workflow-event', { event: { type: 'step_started', stepId: 'architect' } })).step).toBe(false)
+  })
+})

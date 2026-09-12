@@ -1,0 +1,129 @@
+{
+  "title": "Motor de agentes",
+  "description": "Arquiteto, programador e revisor correm como fases separadas com verificação determinista entre elas. Escolha um fornecedor por função; tudo o resto tem um valor por defeito que funciona.",
+  "loading": "A carregar configurações…",
+  "loadFailed": "Não foi possível carregar as configurações. Tente novamente antes de alterar.",
+  "retry": "Tentar novamente",
+  "enabled": "Usar o motor de agentes na implementação",
+  "enableHint": "Guardar não inicia agentes. Depois de ativado, as implementações deste projeto usam o motor; os projetos desativados mantêm o modo atual.",
+  "unavailable": "Esta instalação do Core não inclui o motor de agentes. Atualize o Core antes de ativar; pode preparar as configurações enquanto está desativado.",
+  "save": "Guardar configurações",
+  "saving": "A guardar…",
+  "saved": "Configurações guardadas",
+  "saveFailed": "Não foi possível guardar as configurações.",
+  "approvalBeforeArchive": "Pausar para aprovação antes de concluir o fluxo",
+  "providers": {
+    "title": "Fornecedores",
+    "hint": "Os CLI usam a sessão existente. As API aceitam apenas o nome da variável de ambiente, nunca a chave. Em serviços locais, pode ficar vazio. Reatribua as funções antes de remover o fornecedor.",
+    "entry": "Fornecedor {{index}}",
+    "id": "ID do fornecedor",
+    "kind": "Tipo de ligação",
+    "cli": "CLI de programação instalado",
+    "compatible": "Endpoint compatível com OpenAI",
+    "command": "CLI de programação",
+    "baseUrl": "URL base da API",
+    "apiKeyEnv": "Variável de ambiente da chave (opcional)",
+    "remove": "Remover fornecedor",
+    "addCli": "Adicionar fornecedor CLI",
+    "addLocal": "Adicionar fornecedor local / API",
+    "show": "Mostrar ligações a fornecedores",
+    "hide": "Ocultar ligações a fornecedores"
+  },
+  "cliNames": {
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini",
+    "kimi": "Kimi"
+  },
+  "roles": {
+    "architect": "Arquiteto",
+    "developer": "Desenvolvedor",
+    "reviewer": "Revisor",
+    "verify": "Verificação",
+    "archive": "Conclusão"
+  },
+  "agents": {
+    "title": "Atribuição de funções",
+    "hint": "Cada função executa a sua própria sessão do fornecedor. Deixe o modelo no valor por defeito salvo necessidade específica. Os turnos são as chamadas a ferramentas que uma função pode fazer (por defeito {{turns}}).",
+    "provider": "Fornecedor",
+    "model": "Modelo",
+    "modelPlaceholder": "ID do modelo ou padrão do CLI",
+    "maxTurns": "Máximo de turnos (por defeito {{turns}})",
+    "defaultModel": "Por defeito ({{model}})"
+  },
+  "limits": {
+    "title": "Limites do fluxo",
+    "hint": "Os campos vazios usam os valores do Core: {{attempts}} tentativas do programador e {{minutes}} minutos por fluxo. Os limites de tokens e USD são opcionais; o limite em USD exige Claude em todas as funções de IA.",
+    "maxAttempts": "Máximo de tentativas do programador (por defeito {{attempts}})",
+    "timeoutMinutes": "Tempo limite em minutos (por defeito {{minutes}})",
+    "maxTokens": "Máximo de tokens",
+    "maxCostUsd": "Custo máximo (USD)",
+    "unlimited": "Sem limite"
+  },
+  "verification": {
+    "title": "Comandos de verificação",
+    "hint": "Opcional. Correm quando o programador termina e as falhas voltam ao programador. Com a lista vazia, o arquiteto propõe as verificações do próprio projeto em cada execução; os repositórios sem verificação automática são revistos na mesma.",
+    "detect": "Detetar verificações do projeto",
+    "detecting": "A detetar…",
+    "detected": "Preenchido com as verificações que este projeto já define.",
+    "nothingDetected": "Não foi encontrado nenhum comando de teste, verificação de tipos ou build. Não há problema: o arquiteto propõe verificações em cada execução quando possível.",
+    "detectFailed": "Não foi possível inspecionar os repositórios do projeto.",
+    "repository": "Repositório",
+    "command": "Comando",
+    "reason": "Detetado em {{reason}}",
+    "remove": "Remover",
+    "add": "Adicionar comando",
+    "invalidLine": "Comando de verificação vazio ou com aspas por fechar: {{line}}"
+  },
+  "runs": {
+    "title": "Execuções guardadas",
+    "refresh": "Atualizar",
+    "hint": "Continua no worktree original com o âmbito e as configurações guardadas; o progresso aparece no registo desse trabalho. Não publica nem reinicia a entrega do Desktop. As execuções ativas param a partir dos controlos do trabalho.",
+    "empty": "Não há execuções guardadas.",
+    "loadFailed": "Não foi possível carregar as execuções.",
+    "actionFailed": "Não foi possível atualizar esta execução.",
+    "phase": "Próxima fase: {{phase}}",
+    "approve": "Aprovar conclusão",
+    "recover": "Recuperar fase interrompida",
+    "resume": "Retomar",
+    "cancel": "Cancelar continuação",
+    "status": {
+      "running": "A continuar…",
+      "succeeded": "Concluído",
+      "failed": "Falhou",
+      "blocked": "Bloqueado",
+      "paused": "Em pausa",
+      "cancelled": "Cancelado",
+      "interrupted": "Interrompido",
+      "unavailable": "Indisponível"
+    },
+    "question": "O arquiteto pergunta:",
+    "answerLabel": "A sua resposta",
+    "answerPlaceholder": "Responda à pergunta; o arquiteto continua com ela.",
+    "answer": "Responder e retomar"
+  },
+  "roleHints": {
+    "architect": "Lê o código e escreve a proposta, o design, as tarefas e a spec. Só leitura.",
+    "developer": "Implementa as tarefas com testes. Pode editar ficheiros e executar comandos na sandbox do CLI.",
+    "reviewer": "Confere o resultado com a spec e a evidência de verificação. Só leitura."
+  },
+  "review": {
+    "title": "Limite de revisão",
+    "hint": "Campos vazios usam o limite do Core. Os valores só podem elevá-lo: pontuação geral de pelo menos {{score}}, segurança de pelo menos {{security}}, outros aspetos de pelo menos {{aspect}}.",
+    "minScore": "Pontuação geral mínima (padrão {{score}})",
+    "aspects": {
+      "type_correctness": "Correção de tipos (padrão {{score}})",
+      "pattern_adherence": "Aderência a padrões (padrão {{score}})",
+      "test_coverage": "Cobertura de testes (padrão {{score}})",
+      "security": "Segurança (padrão {{score}})",
+      "architectural_alignment": "Alinhamento arquitetural (padrão {{score}})"
+    }
+  },
+  "architect": {
+    "title": "Confiança do arquiteto",
+    "hint": "Após uma passagem de investigação autónoma, um design ainda com baixa confiança pausa com a pergunta do arquiteto ou prossegue com suposições declaradas.",
+    "onLowConfidence": "Com baixa confiança",
+    "ask": "Perguntar (pausar com a pergunta)",
+    "proceed": "Prosseguir com suposições declaradas"
+  }
+}

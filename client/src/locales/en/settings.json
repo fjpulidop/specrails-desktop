@@ -266,7 +266,8 @@
       "environment": "Environment",
       "budget": "Budget",
       "telemetry": "Telemetry",
-      "terminal": "Terminal"
+      "terminal": "Terminal",
+      "agentRuntime": "Agent runtime"
     }
   },
   "integrationBranch": {

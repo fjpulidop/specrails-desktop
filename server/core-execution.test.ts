@@ -20,6 +20,21 @@ function manifest(front: string, back: string): RunExecutionManifest {
   })) }
 }
 describe('Core execution context', () => {
+  it('uses the registered primary identity for a project run without an explicit repository selector', () => {
+    const { cwd, front } = fixture()
+    const input = { cwd, repoDir: front, env: {}, run: { runId: 'factory-primary', projectId: 'project-123', spec: { id: 7, description: 'Ordinary single-repository factory run' } } }
+    const prepared = prepareCoreExecution(input)
+    const context = JSON.parse(readFileSync(prepared.contextPath, 'utf8'))
+    expect(context).toMatchObject({ artifactRepositoryId: 'primary-project-123', repositories: [{ id: 'primary-project-123', path: front }] })
+    expect(prepareCoreExecution(input).contextPath).toBe(prepared.contextPath)
+  })
+  it('keeps explicit selected and frozen spec identities ahead of the project primary fallback', () => {
+    const { cwd, front } = fixture()
+    const explicit = prepareCoreExecution({ cwd, repoDir: front, env: {}, run: { runId: 'explicit-repository', projectId: 'project-123', repositoryId: 'secondary' } })
+    const frozen = prepareCoreExecution({ cwd, repoDir: front, env: {}, run: { runId: 'frozen-repository', projectId: 'project-123', spec: { id: 7, repositoryIds: ['secondary'] } } })
+    expect(JSON.parse(readFileSync(explicit.contextPath, 'utf8')).artifactRepositoryId).toBe('secondary')
+    expect(JSON.parse(readFileSync(frozen.contextPath, 'utf8')).artifactRepositoryId).toBe('secondary')
+  })
   it('freezes shared backlog and selected worktrees independently from the artifact repository', () => {
     const { cwd, front, back } = fixture()
     const result = prepareCoreExecution({ cwd, repoDir: front, manifest: manifest(front, back), env: { SPECRAILS_GIT_AUTO: 'false', SPECRAILS_TICKETS_PATH: join(cwd, '.specrails', 'local-tickets.json') }, run: { runId: 'run-1', spec: { id: 7, title: 'Shared API', description: 'Implement and verify front and back', repositoryIds: ['front', 'back'] } } })
@@ -124,6 +139,11 @@ describe('Core implementation completion gate', () => {
   it('supports the Core 5.1 phases and receipt contract', () => {
     const { completion: _completion, ...legacy } = complete
     expect(check(legacy)).toEqual({ valid: true })
+  })
+  it('accepts a full receipt that explicitly records repositories without automated checks', () => {
+    expect(check({ ...complete, verification: { valid: true, receipt: { kind: 'full', commands: [], unverifiedRepositories: ['docs'] } } })).toEqual({ valid: true })
+    expect(check({ ...complete, verification: { valid: true, receipt: { kind: 'full', commands: [{ exitCode: 0 }], unverifiedRepositories: ['docs'] } } })).toEqual({ valid: true })
+    expect(check({ ...complete, verification: { valid: true, receipt: { kind: 'full', commands: [], unverifiedRepositories: [] } } }).valid).toBe(false)
   })
   it('rejects the archived Tetris case when the final environment check is blocked', () => {
     const result = check({

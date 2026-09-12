@@ -175,6 +175,9 @@ function pushActivity(
   })
 }
 
+/** Phase ids Core's programmatic runtime emits; each has copy under `activity.phase.*`. */
+const RUNTIME_PHASES = new Set(['architect', 'developer', 'verify', 'reviewer', 'archive'])
+
 /** How many example file names a folded file-activity line names. */
 const FILE_EXAMPLES = 3
 
@@ -242,6 +245,7 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
   const steps = new Map<number, StepInfo>()
   let currentStep: number | null = null
   let sawLoopStructure = false
+  let runtimeDeveloperSeen = false
 
   for (const event of events) {
     if (event.event_type === 'loop_graph') {
@@ -341,6 +345,28 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
           stepIndex: index,
           tone: decision === 'continue' ? 'neutral' : 'good',
         })
+      }
+      continue
+    }
+
+    // Core's agent runtime reports its own phases (architect → developer →
+    // verify → reviewer → archive) as structural events: the phase is a fact,
+    // not a claim, so it earns a milestone even though no tool ran yet.
+    if (event.event_type === 'workflow-event') {
+      const payload = parsePayload(event.payload)
+      const inner = payload.event && typeof payload.event === 'object' && !Array.isArray(payload.event) ? payload.event as Record<string, unknown> : {}
+      const type = asString(inner.type)
+      const stepId = asString(inner.stepId)
+      if (type === 'step_started' && stepId && RUNTIME_PHASES.has(stepId)) {
+        // A second developer visit only happens when verification or review sent
+        // corrections back: say that, instead of repeating "implementing".
+        const corrections = stepId === 'developer' && runtimeDeveloperSeen
+        if (stepId === 'developer') runtimeDeveloperSeen = true
+        pushActivity(milestones, event.seq, currentStep, 'intent', corrections ? 'activity.phase.corrections' : `activity.phase.${stepId}`)
+      }
+      else if ((type === 'step_succeeded' && stepId === 'verify' && typeof inner.message !== 'string') || type === 'step_blocked') { /* covered by the next phase start or the workflow outcome */ }
+      else if (type === 'workflow_failed' || type === 'workflow_blocked' || type === 'workflow_cancelled') {
+        milestones.push({ seq: event.seq, kind: 'activity', code: 'activity.phase.stopped', values: { action: 'intent', target: asString(inner.message) ?? type, repeats: 1 }, stepIndex: currentStep, tone: 'bad' })
       }
       continue
     }

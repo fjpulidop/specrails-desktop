@@ -1,0 +1,129 @@
+{
+  "title": "Motor de agentes",
+  "description": "Arquitecto, desarrollador y revisor se ejecutan como fases separadas con verificación determinista entre ellas. Elige un proveedor por rol; todo lo demás tiene un valor por defecto que funciona.",
+  "loading": "Cargando configuración…",
+  "loadFailed": "No se pudo cargar la configuración. Reintenta antes de modificarla.",
+  "retry": "Reintentar",
+  "enabled": "Usar el motor de agentes para implementar",
+  "enableHint": "Guardar no inicia agentes. Al activarlo, las implementaciones de este proyecto usan el motor; los proyectos desactivados conservan su modo de ejecución actual.",
+  "unavailable": "Esta instalación de Core no incluye el motor de agentes. Actualiza Core antes de activarlo; puedes preparar la configuración mientras está desactivado.",
+  "save": "Guardar configuración",
+  "saving": "Guardando…",
+  "saved": "Configuración guardada",
+  "saveFailed": "No se pudo guardar la configuración.",
+  "approvalBeforeArchive": "Pausar para aprobación antes de completar el flujo",
+  "providers": {
+    "title": "Proveedores",
+    "hint": "Los proveedores CLI usan su sesión existente. Los proveedores API solo aceptan el nombre de una variable de entorno, nunca una clave. Los servicios locales pueden dejarlo vacío. Asigna otro proveedor al rol antes de eliminar el actual.",
+    "entry": "Proveedor {{index}}",
+    "id": "ID del proveedor",
+    "kind": "Tipo de conexión",
+    "cli": "CLI de programación instalado",
+    "compatible": "API compatible con OpenAI",
+    "command": "CLI de programación",
+    "baseUrl": "URL base de la API",
+    "apiKeyEnv": "Variable de entorno de la clave (opcional)",
+    "remove": "Eliminar proveedor",
+    "addCli": "Añadir proveedor CLI",
+    "addLocal": "Añadir proveedor local / API",
+    "show": "Mostrar conexiones de proveedores",
+    "hide": "Ocultar conexiones de proveedores"
+  },
+  "cliNames": {
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini",
+    "kimi": "Kimi"
+  },
+  "roles": {
+    "architect": "Arquitecto",
+    "developer": "Desarrollador",
+    "reviewer": "Revisor",
+    "verify": "Verificación",
+    "archive": "Finalización"
+  },
+  "agents": {
+    "title": "Asignación de roles",
+    "hint": "Cada rol ejecuta su propia sesión del proveedor. Deja el modelo en el predeterminado salvo que necesites uno concreto. Los turnos son las llamadas a herramientas que puede hacer un rol (por defecto {{turns}}).",
+    "provider": "Proveedor",
+    "model": "Modelo",
+    "modelPlaceholder": "ID del modelo o predeterminado del CLI",
+    "maxTurns": "Máximo de turnos (por defecto {{turns}})",
+    "defaultModel": "Predeterminado ({{model}})"
+  },
+  "limits": {
+    "title": "Límites del flujo",
+    "hint": "Los campos vacíos usan los valores de Core: {{attempts}} intentos del desarrollador y {{minutes}} minutos por flujo. Los topes de tokens y USD son opcionales; el tope en USD requiere Claude en todos los roles.",
+    "maxAttempts": "Máximo de intentos del desarrollador (por defecto {{attempts}})",
+    "timeoutMinutes": "Tiempo máximo en minutos (por defecto {{minutes}})",
+    "maxTokens": "Máximo de tokens",
+    "maxCostUsd": "Coste máximo (USD)",
+    "unlimited": "Sin límite"
+  },
+  "verification": {
+    "title": "Comandos de verificación",
+    "hint": "Opcional. Se ejecutan cuando el desarrollador termina y sus fallos vuelven al desarrollador. Si dejas la lista vacía, el arquitecto propone las comprobaciones propias del proyecto en cada ejecución; los repositorios sin comprobación automática se revisan igualmente.",
+    "detect": "Detectar comprobaciones del proyecto",
+    "detecting": "Detectando…",
+    "detected": "Rellenado con las comprobaciones que este proyecto ya define.",
+    "nothingDetected": "No se encontró ningún comando de test, comprobación de tipos o build. No pasa nada: el arquitecto propone comprobaciones en cada ejecución cuando es posible.",
+    "detectFailed": "No se pudieron inspeccionar los repositorios del proyecto.",
+    "repository": "Repositorio",
+    "command": "Comando",
+    "reason": "Detectado en {{reason}}",
+    "remove": "Eliminar",
+    "add": "Añadir comando",
+    "invalidLine": "El comando de verificación está vacío o tiene comillas sin cerrar: {{line}}"
+  },
+  "runs": {
+    "title": "Ejecuciones guardadas",
+    "refresh": "Actualizar",
+    "hint": "Continúa en el worktree original con el alcance y la configuración guardados; el progreso aparece en el registro de ese trabajo. No publica ni reinicia la entrega de Desktop. Las ejecuciones activas se detienen desde sus controles de trabajo.",
+    "empty": "No hay ejecuciones guardadas.",
+    "loadFailed": "No se pudieron cargar las ejecuciones.",
+    "actionFailed": "No se pudo actualizar esta ejecución.",
+    "phase": "Siguiente fase: {{phase}}",
+    "approve": "Aprobar finalización",
+    "recover": "Recuperar fase interrumpida",
+    "resume": "Reanudar",
+    "cancel": "Cancelar continuación",
+    "status": {
+      "running": "Continuando…",
+      "succeeded": "Completado",
+      "failed": "Fallido",
+      "blocked": "Bloqueado",
+      "paused": "En pausa",
+      "cancelled": "Cancelado",
+      "interrupted": "Interrumpido",
+      "unavailable": "No disponible"
+    },
+    "question": "El arquitecto pregunta:",
+    "answerLabel": "Tu respuesta",
+    "answerPlaceholder": "Responde a la pregunta; el arquitecto continúa con ella.",
+    "answer": "Responder y reanudar"
+  },
+  "roleHints": {
+    "architect": "Lee el código y escribe la propuesta, el diseño, las tareas y la spec. Solo lectura.",
+    "developer": "Implementa las tareas con tests. Puede editar archivos y ejecutar comandos dentro del sandbox del CLI.",
+    "reviewer": "Comprueba el resultado contra la spec y la evidencia de verificación. Solo lectura."
+  },
+  "review": {
+    "title": "Umbral de revisión",
+    "hint": "Los campos vacíos usan el umbral de Core. Los valores solo pueden elevarlo: puntuación global mínima {{score}}, seguridad mínima {{security}}, resto de aspectos mínimo {{aspect}}.",
+    "minScore": "Puntuación global mínima (por defecto {{score}})",
+    "aspects": {
+      "type_correctness": "Corrección de tipos (por defecto {{score}})",
+      "pattern_adherence": "Adhesión a patrones (por defecto {{score}})",
+      "test_coverage": "Cobertura de pruebas (por defecto {{score}})",
+      "security": "Seguridad (por defecto {{score}})",
+      "architectural_alignment": "Alineación arquitectónica (por defecto {{score}})"
+    }
+  },
+  "architect": {
+    "title": "Confianza del arquitecto",
+    "hint": "Tras una pasada de investigación autónoma, un diseño con confianza aún baja se pausa con la pregunta del arquitecto o continúa con supuestos declarados.",
+    "onLowConfidence": "Con confianza baja",
+    "ask": "Preguntar (pausar con la pregunta)",
+    "proceed": "Continuar con supuestos declarados"
+  }
+}

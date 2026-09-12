@@ -60,7 +60,16 @@
     "readingFiles": "Liest {{files}} Dateien ({{names}}…)",
     "editingFiles": "Ändert {{files}} Dateien ({{names}}…)",
     "delegating": "Übergibt an {{target}}",
-    "delegatingBare": "Übergibt an einen Spezialisten"
+    "delegatingBare": "Übergibt an einen Spezialisten",
+    "phase": {
+      "architect": "Entwurf der Änderung (Architekt)",
+      "developer": "Umsetzung der Änderung (Entwickler)",
+      "verify": "Ausführen der Verifikationsbefehle",
+      "reviewer": "Prüfung der Umsetzung (Reviewer)",
+      "archive": "Archivierung der geprüften Änderung",
+      "stopped": "Die Laufzeit wurde gestoppt: {{target}}",
+      "corrections": "Korrekturen gehen an den Entwickler zurück"
+    }
   },
   "repeats": "×{{count}}"
 }

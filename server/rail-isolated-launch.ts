@@ -28,6 +28,7 @@ import { resolveHome } from './artifact-registry'
 import { newId } from './ids'
 import { loadConstantMap } from './loop-constants'
 import { defaultGitRunner, createWorktree, removeWorktree, commitWorktreeAndVerify, listLocalBranches, listWorktrees, worktreeBranch, PR_NEVER_STAGE_PATHSPEC_ROOTS, type GitRunner, type WorktreeHandle, type CommitWorktreeResult } from './worktree-manager'
+import { hasAgentRuntimeRequest } from './agent-runtime-paths'
 import { createRailWorktree, updateRailWorktreeState, listNonTerminalRailWorktrees, railWorktreeBranchExistsForTicket, getRailWorktree, isTerminalMergeState } from './rail-worktrees-store'
 import { ticketBranchName, ticketRef, resolveCollisionFreeName, type TicketNamingInput } from './pr-naming'
 import { getLinkByLocalId } from './jira/jira-db'
@@ -1185,6 +1186,20 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       console.error(`[rail-isolated] terminal callback failed for ${a.runId}: ${callbackFailure}`)
     }
 
+    // A paused/interrupted programmatic workflow owns unfinished changes and
+    // verification evidence in this exact mount. Keep them available for
+    // explicit Core recovery, including a currently clean worktree.
+    if (implementationOutcome === 'failed' && hasAgentRuntimeRequest(ctx.project, a.runId)) {
+      markWorktree(a, 'needs-review')
+      return {
+        run: a, implementationOutcome, deliveryOutcome: 'blocked',
+        initialSha: a.initialSha, finalSha: await readHeadSha(git, a.handle.worktreePath),
+        failureCode: 'settlement_interrupted',
+        failureDetail: 'Programmatic workflow needs attention. Resume it from Agent Runtime settings in its original worktree.',
+        safeToRelease: false,
+      }
+    }
+
     // The engine may have edited a copied overlay file. Re-authenticate only
     // automatic-cleanup authority. Allocation-time paths remain conservative
     // NEVER-COMMIT exclusions, while a modified copy is preserved in the
@@ -2051,6 +2066,10 @@ export async function reconcileRailWorktrees(
             | { status: string; final_outcome: string | null }
             | undefined
         : undefined
+      if (row.run_id && run?.final_outcome !== 'success' && hasAgentRuntimeRequest({ path: io.primaryRepoDir ?? repoDir }, row.run_id)) {
+        updateRailWorktreeState(db, row.id, 'needs-review')
+        continue
+      }
       const inspection = await inspectRecoveryWorktree(git, repoDir, row)
 
       if (run?.status === 'completed' && run.final_outcome === 'success') {

@@ -27,6 +27,8 @@ export interface LoopNode {
   data?: Record<string, unknown> & {
     /** Shell steps in a multi-repository execution must name a selected repository. */
     repositoryId?: string
+    /** Explicit host operation. The prompt remains only for legacy transports. */
+    operation?: 'core-implementation'
   }
 }
 

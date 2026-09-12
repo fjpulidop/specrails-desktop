@@ -54,7 +54,7 @@ function coreImplementationGraph(command: 'implement' | 'batch'): LoopGraph {
   return {
     nodes: [
       { id: 'start', type: 'start', position: { x: 0, y: 0 } },
-      { id: 'main-1', type: 'ai-step', position: { x: 0, y: 110 }, data: { prompt: `{{cmd:${command}}}` } },
+      { id: 'main-1', type: 'ai-step', position: { x: 0, y: 110 }, data: { operation: 'core-implementation', prompt: `{{cmd:${command}}}` } },
       { id: 'done', type: 'end', position: { x: 0, y: 220 }, data: { outcome: 'success' } },
     ],
     edges: [

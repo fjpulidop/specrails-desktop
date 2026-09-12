@@ -106,8 +106,12 @@ import {
   resolveDefaultSpecModel,
 } from './project-router-helpers'
 import { installConfigPath } from './install-config-path'
+import { registerAgentRuntimeSettingsRoutes } from './agent-runtime-settings-router'
+import { registerAgentRuntimeControlRoutes } from './agent-runtime-controls-router'
 
 export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
+  registerAgentRuntimeSettingsRoutes(deps)
+  registerAgentRuntimeControlRoutes(deps)
   const { router, registry, ctx, ticketPath } = deps
   // ─── Project settings (pipeline telemetry) ───────────────────────────────────
 

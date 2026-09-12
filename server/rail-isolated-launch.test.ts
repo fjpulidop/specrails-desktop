@@ -2384,6 +2384,32 @@ describe('launchIsolatedRail — failed-implementation cleanup (0 succeeded)', (
   const okCreate = () =>
     vi.fn(async (_g: unknown, { ticketId }: { ticketId: number }) => ({ branch: `sr/p/ticket-${ticketId}`, worktreePath: `/wt/ticket-${ticketId}` }))
 
+  it('preserves an admitted paused or failed agent-runtime worktree even when its checkout is clean', async () => {
+    const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-settlement-'))
+    const worktreePath = path.join(repoDir, 'retained-worktree')
+    fs.mkdirSync(worktreePath)
+    const { ctx, db } = fakeCtx((req) => {
+      const admission = path.join(repoDir, '.specrails', 'pipeline', req.runId)
+      fs.mkdirSync(admission, { recursive: true })
+      fs.writeFileSync(path.join(admission, 'agent-runtime-request.json'), JSON.stringify({ runId: req.runId }))
+      return settlingRun('failure')(req)
+    })
+    ctx.project.path = repoDir
+    const remove = vi.fn(async () => {})
+    try {
+      await launchIsolatedRail(input([1], ctx), {
+        git: gitOk(), remove,
+        create: vi.fn(async () => ({ branch: 'codex/runtime-recovery', worktreePath })),
+        overlay: vi.fn(() => ({ createdPaths: [], cleanupEvidence: [], warnings: [] })),
+      })
+      await vi.waitFor(() => expect(getActivePrDeliveryByRail(db, 0)?.decision).toBe('implementation_failed'))
+      expect(listRailWorktrees(db, 0)[0].merge_state).toBe('needs-review')
+      expect(remove).not.toHaveBeenCalled()
+      expect(fs.existsSync(worktreePath)).toBe(true)
+      expect(getActivePrDeliveryByRail(db, 0)!.status_detail).toContain('Agent Runtime')
+    } finally { db.close(); fs.rmSync(repoDir, { recursive: true, force: true }) }
+  })
+
   it('unmounts every worktree at the failed-implementation settle (branches KEPT for resume; ledger terminal)', async () => {
     const { ctx, db } = fakeCtx(settlingRun('failure'))
     const remove = vi.fn(async () => {})
@@ -2649,6 +2675,26 @@ describe('launchIsolatedRail — Code-Explorer provenance (construction story se
 })
 
 describe('reconcileRailWorktrees (startup sweep)', () => {
+  it('retains a clean failed agent-runtime mount at startup for explicit checkpoint recovery', async () => {
+    const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-startup-'))
+    const worktreePath = path.join(repoDir, 'retained-worktree')
+    const runId = 'agent-runtime-recovery'
+    const admission = path.join(repoDir, '.specrails', 'pipeline', runId)
+    fs.mkdirSync(admission, { recursive: true }); fs.mkdirSync(worktreePath)
+    fs.writeFileSync(path.join(admission, 'agent-runtime-request.json'), JSON.stringify({ runId }))
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: runId, projectId: 'proj', loopId: 'factory:implement', iterationLimit: 3, startedAt: new Date().toISOString() })
+    db.prepare("UPDATE loop_runs SET status = 'failed', final_outcome = 'failure' WHERE id = ?").run(runId)
+    const worktree = createRailWorktree(db, { id: 'runtime-worktree', railIndex: 0, ticketId: 1, runId, branch: 'codex/runtime-recovery', worktreePath })
+    const remove = vi.fn(async () => {})
+    try {
+      await reconcileRailWorktrees(db, repoDir, { git: { run: async (args) => successfulGitResult(args) }, remove })
+      expect(getRailWorktree(db, worktree.id)?.merge_state).toBe('needs-review')
+      expect(remove).not.toHaveBeenCalled()
+      expect(fs.existsSync(worktreePath)).toBe(true)
+    } finally { db.close(); fs.rmSync(repoDir, { recursive: true, force: true }) }
+  })
+
   const seedInterruptedDelivery = (dirty: boolean) => {
     const db = initDb(':memory:')
     const runId = 'recovery-run'
