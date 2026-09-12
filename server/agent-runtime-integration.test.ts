@@ -6,7 +6,7 @@ import type { RunExecutionManifest } from './multi-repo-execution-store'
 import type { RuntimeConfig } from './agent-runtime-settings'
 
 const fixture = vi.hoisted(() => ({ cli: null as string | null, legacy: vi.fn(), framework: vi.fn() }))
-vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: () => fixture.cli }))
+vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ rolePromptDefaults: () => ({ architect: 'Plan', developer: 'Implement', reviewer: 'Review' }) }) }))
 vi.mock('./path-resolver', async () => ({ ...await vi.importActual<typeof import('./path-resolver')>('./path-resolver'), resolveBundledNodeExe: () => process.execPath }))
 vi.mock('./spawn-lifecycle', () => ({ runAiCliInvocation: fixture.legacy }))
 vi.mock('./workspace-manager', () => ({ ensureFrameworkAgents: fixture.framework, ensureFrameworkCommandSubtrees: fixture.framework }))
