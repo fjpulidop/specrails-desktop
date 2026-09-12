@@ -149,5 +149,19 @@
     "phases": "Verbrauch nach Phase",
     "phase": "Phase",
     "attempts": "Versuche"
+  },
+  "prompts": {
+    "title": "Prompts der Agentenrollen",
+    "description": "Anweisungen für jede Rolle anzeigen und bearbeiten. Sie gelten für alle Projekte und Anbieter; Änderungen gelten für neue Jobs. Fortgesetzte Jobs behalten ihre ursprünglichen Prompts.",
+    "definition": "Definition für {{role}}",
+    "default": "Werkseinstellung",
+    "custom": "Angepasst",
+    "restore": "Standard wiederherstellen",
+    "contracts": "Spec-Kontext, OpenSpec-Workflow und erforderliches Antwortformat werden automatisch ergänzt und hier nicht bearbeitet.",
+    "invalid": "Jede Definition muss 1–20.000 Zeichen mit nicht leerem Text und ohne Nullbytes enthalten.",
+    "saved": "Rollen-Prompts gespeichert",
+    "unsaved": "Ungespeicherte Änderungen",
+    "discard": "Änderungen verwerfen",
+    "save": "Prompts speichern"
   }
 }

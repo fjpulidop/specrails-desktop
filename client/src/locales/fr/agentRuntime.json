@@ -149,5 +149,19 @@
     "phases": "Consommation par phase",
     "phase": "Phase",
     "attempts": "Essais"
+  },
+  "prompts": {
+    "title": "Prompts des rôles des agents",
+    "description": "Consultez et modifiez les instructions de chaque rôle. Elles sont partagées par tous les projets et fournisseurs ; les modifications s’appliquent aux nouveaux travaux. Les travaux repris conservent leurs prompts d’origine.",
+    "definition": "Définition de {{role}}",
+    "default": "Valeur par défaut",
+    "custom": "Personnalisé",
+    "restore": "Rétablir la valeur par défaut",
+    "contracts": "Le contexte de la spec, le workflow OpenSpec et le format de réponse requis sont ajoutés automatiquement et ne sont pas modifiables ici.",
+    "invalid": "Chaque définition doit contenir entre 1 et 20 000 caractères, du texte non vide et aucun octet nul.",
+    "saved": "Prompts des rôles enregistrés",
+    "unsaved": "Modifications non enregistrées",
+    "discard": "Annuler les modifications",
+    "save": "Enregistrer les prompts"
   }
 }

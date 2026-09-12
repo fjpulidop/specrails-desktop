@@ -149,5 +149,19 @@
     "phases": "Consumo por fase",
     "phase": "Fase",
     "attempts": "Tentativas"
+  },
+  "prompts": {
+    "title": "Prompts dos papéis dos agentes",
+    "description": "Veja e edite as instruções de cada papel. São partilhadas por todos os projetos e fornecedores; as alterações aplicam-se a novos trabalhos. Os trabalhos retomados mantêm os prompts originais.",
+    "definition": "Definição de {{role}}",
+    "default": "Predefinição de fábrica",
+    "custom": "Personalizado",
+    "restore": "Restaurar predefinição",
+    "contracts": "O contexto da spec, o fluxo OpenSpec e o formato de resposta obrigatório são adicionados automaticamente e não são editados aqui.",
+    "invalid": "Cada definição deve conter entre 1 e 20.000 caracteres, com texto não vazio e sem bytes nulos.",
+    "saved": "Prompts dos papéis guardados",
+    "unsaved": "Alterações por guardar",
+    "discard": "Descartar alterações",
+    "save": "Guardar prompts"
   }
 }

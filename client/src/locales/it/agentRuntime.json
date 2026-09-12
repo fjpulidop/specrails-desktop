@@ -149,5 +149,19 @@
     "phases": "Consumo per fase",
     "phase": "Fase",
     "attempts": "Tentativi"
+  },
+  "prompts": {
+    "title": "Prompt dei ruoli degli agenti",
+    "description": "Visualizza e modifica le istruzioni di ogni ruolo. Sono condivise da tutti i progetti e provider; le modifiche si applicano ai nuovi lavori. I lavori ripresi mantengono i prompt originali.",
+    "definition": "Definizione di {{role}}",
+    "default": "Impostazione predefinita",
+    "custom": "Personalizzato",
+    "restore": "Ripristina predefinito",
+    "contracts": "Il contesto della spec, il workflow OpenSpec e il formato di risposta richiesto vengono aggiunti automaticamente e non sono modificabili qui.",
+    "invalid": "Ogni definizione deve contenere da 1 a 20.000 caratteri, con testo non vuoto e senza byte nulli.",
+    "saved": "Prompt dei ruoli salvati",
+    "unsaved": "Modifiche non salvate",
+    "discard": "Scarta modifiche",
+    "save": "Salva prompt"
   }
 }
