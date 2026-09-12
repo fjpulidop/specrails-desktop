@@ -28,8 +28,8 @@ vi.mock('../../../hooks/useProjectCache', () => ({
 
 // The real modal has its own test suite — a stub proves the pane wires jobId/onClose.
 vi.mock('../../JobDetailModal', () => ({
-  JobDetailModal: ({ jobId, onClose }: { jobId: string; onClose: () => void }) => (
-    <div data-testid="job-modal">
+  JobDetailModal: ({ jobId, projectId, onClose }: { jobId: string; projectId: string; onClose: () => void }) => (
+    <div data-testid="job-modal" data-project-id={projectId}>
       <span>{jobId}</span>
       <button onClick={onClose}>close-modal</button>
     </div>
@@ -49,10 +49,10 @@ beforeEach(() => {
   mockFirstLoad = false
 })
 
-function renderPane() {
+function renderPane(projectId = 'p1') {
   return render(
     <AgentWorkspaceProvider>
-      <AgentModeJobsPane projectId="p1" />
+      <AgentModeJobsPane projectId={projectId} />
     </AgentWorkspaceProvider>,
   )
 }
@@ -72,10 +72,11 @@ describe('AgentModeJobsPane', () => {
 
   it('opens the near-fullscreen execution modal on job click and closes it', () => {
     mockJobs = [job('j-42', 'running', '/specrails:implement #7')]
-    renderPane()
+    renderPane('mission-project')
     expect(screen.queryByTestId('job-modal')).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('/specrails:implement #7'))
     expect(screen.getByTestId('job-modal')).toBeInTheDocument()
+    expect(screen.getByTestId('job-modal')).toHaveAttribute('data-project-id', 'mission-project')
     expect(screen.getByText('j-42')).toBeInTheDocument()
     fireEvent.click(screen.getByText('close-modal'))
     expect(screen.queryByTestId('job-modal')).not.toBeInTheDocument()

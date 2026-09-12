@@ -1,3 +1,4 @@
+import { RuntimeRolePrompts } from '../components/settings/RuntimeRolePrompts'
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useTranslation, Trans } from 'react-i18next'
@@ -6,7 +7,7 @@ import { EffectsSection } from '../components/settings/EffectsSection'
 import { AppearanceSection } from '../components/settings/AppearanceSection'
 import { LanguageSection } from '../components/settings/LanguageSection'
 import { CodeSectionSettings } from '../components/settings/CodeSectionSettings'
-import { SpecrailsAgentsSection } from '../components/settings/SpecrailsAgentsSection'
+import { RuntimeProviderConnections } from '../components/settings/RuntimeProviderConnections'
 import { CoreUpdateSection } from '../components/settings/CoreUpdateSection'
 import { AppUpdateSection } from '../components/settings/AppUpdateSection'
 import { MobileAccessSection } from '../components/settings/MobileAccessSection'
@@ -372,7 +373,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
             </div>
 
             <div className={paneCls('specrailsAgents')}>
-            <SpecrailsAgentsSection />
+            <RuntimeProviderConnections />
+            <div className="mt-6"><RuntimeRolePrompts /></div>
             </div>
 
             <div className={paneCls('code')}>

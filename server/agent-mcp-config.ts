@@ -270,6 +270,11 @@ function codexMcpOverrides(entry: AgentMcpEntry): string[] {
   const args: string[] = [
     ...c(`mcp_servers.specrails.command=${JSON.stringify(entry.command)}`),
     ...c(`mcp_servers.specrails.args=[${entry.args.map((a) => JSON.stringify(a)).join(', ')}]`),
+    // This invocation owns a server-minted capability. Specrails authorizes
+    // each action against its mission tier; Codex's tool-level prompt cannot
+    // distinguish facade reads from writes and fails under approvalPolicy=never.
+    // Keep this scoped to the internal bridge, never external MCP servers.
+    ...c('mcp_servers.specrails.default_tools_approval_mode="approve"'),
   ]
   for (const [k, v] of Object.entries(entry.env)) {
     args.push(...c(`mcp_servers.specrails.env.${k}=${JSON.stringify(v)}`))

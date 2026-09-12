@@ -1,7 +1,7 @@
 /**
  * Contract Refine Runner
  *
- * Standalone runner that spawns a single Claude turn to produce the
+ * Standalone runner that spawns a single provider turn to produce the
  * Contract Layer for a just-committed Explore Spec ticket. Lives outside the
  * ChatManager lifecycle for now (design.md D3 — "thin sibling helper" option):
  * the refine is fire-and-forget with a 60 s budget per invocation and no
@@ -18,7 +18,7 @@ import treeKill from 'tree-kill'
 import { spawnAiCli } from './util/cli-prompt'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { getAdapter, type AdapterEvent, type ProviderAdapter, type SpawnOptions } from './providers'
-import { buildProviderEnv } from './providers/runtime'
+import { buildProviderEnv, pureOutputToolPolicy, requireToolPolicy, supportsContractRefine } from './providers/runtime'
 import {
   buildContractRefineSystemPrompt,
   parseContractLayerBlock,
@@ -135,13 +135,13 @@ function buildRefineArgs(
     model,
     systemPrompt: foldForResume ? undefined : systemPrompt,
     sessionId,
-    toolPolicy: 'none',
+    toolPolicy: pureOutputToolPolicy(adapter) ?? requireToolPolicy(adapter, 'none'),
     maxTurns: 1,
   }
   return { args: adapter.buildArgs(action, options), options }
 }
 
-/** Build the pure-output, no-resume invocation used by Quick Refine and by the
+/** Build the restricted pure-output, no-resume invocation used by Quick Refine and by the
  * one-time compatibility recovery for cwd-scoped Explore sessions. */
 function buildFreshRefineArgs(
   adapter: ProviderAdapter,
@@ -165,7 +165,7 @@ function buildFreshRefineArgs(
     prompt: CONTRACT_MARKER_USER_MESSAGE,
     model,
     systemPrompt,
-    toolPolicy: 'none',
+    toolPolicy: pureOutputToolPolicy(adapter) ?? requireToolPolicy(adapter, 'none'),
     maxTurns: 1,
   }
   return { args: adapter.buildArgs('spec-gen', options), options }
@@ -432,8 +432,8 @@ export async function runContractRefine(
   }
 
   const adapter = getAdapter(conversation.provider ?? deps.providerId ?? 'claude')
-  if (adapter.capabilities.structuredActions !== true) {
-    console.log(`[contract-refine-runner] skip: provider '${adapter.id}' does not support structured actions`)
+  if (!supportsContractRefine(adapter)) {
+    console.log(`[contract-refine-runner] skip: provider '${adapter.id}' does not support contract refinement`)
     return { ok: false, reason: 'provider-unsupported', ticketId, conversationId }
   }
 
@@ -702,7 +702,7 @@ export async function runContractRefineForQuick(
   }
   const admission = captureProcessAdmission(deps.projectId)
   const adapter = getAdapter(deps.providerId ?? 'claude')
-  if (adapter.capabilities.structuredActions !== true) {
+  if (!supportsContractRefine(adapter)) {
     return { ok: false, reason: 'provider-unsupported', ticketId, conversationId: '' }
   }
   const resolvedModel = model ?? adapter.defaultModel()

@@ -1,6 +1,7 @@
 // Domain routes extracted from project-router.ts (jobs).
 // Registered on the shared router by createProjectRouter — behaviour-preserving.
 import fs from 'fs'
+import { isRuntimeContinuationActive, cancelRuntimeContinuation, activeRuntimeContinuationIds } from './agent-runtime-controls-router'
 import path from 'path'
 import { Router, Request, Response, NextFunction } from 'express'
 import { newId as uuidv4 } from './ids'
@@ -362,6 +363,7 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   router.post('/:projectId/jobs/:id/cancel', (req: Request, res: Response) => {
     const id = req.params.id as string
     const c = ctx(req)
+    if (cancelRuntimeContinuation(c, id)) { res.json({ ok: true, status: 'canceling' }); return }
     // A loop run is backed by a job row but is NOT a QueueManager job — it is
     // driven by the LoopRunManager. Cancel it through the engine (which settles
     // it 'stopped' → finishJob('canceled') + releases the rail's tickets).
@@ -544,13 +546,14 @@ const accepted = c.queueManager.sendInteractiveTurn(jobId, text)
     const from = req.query.from as string | undefined
     const to = req.query.to as string | undefined
     const { db } = ctx(req)
-    const result = listUnifiedJobs(db, { limit, offset, status, from, to })
+    const result = listUnifiedJobs(db, { limit, offset, status, from, to, activeRuntimeIds: activeRuntimeContinuationIds(ctx(req)) })
 
     // Annotate each job with hasTelemetry so the client can show the
     // Export diagnostic button without an extra round trip.
     const jobsWithTelemetry = getJobsWithTelemetry(db)
     const annotatedJobs = result.jobs.map((j) => ({
       ...j,
+      ...(isRuntimeContinuationActive(ctx(req), j.id) ? { status: 'running', finished_at: null } : {}),
       hasTelemetry: jobsWithTelemetry.has(j.id),
     }))
 
@@ -732,7 +735,7 @@ const loopStepActive = c.loopRunManager?.isInteractiveJob?.(jobId) ?? false
 interactiveAcceptingTurns = qmMode !== null || loopStepActive || loopPaused
 interactiveSettleMode = qmMode ?? ((loopStepActive || loopPaused || loopRun) ? 'auto' : null)
 }
-const annotated = { ...job, hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason }
+const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status: 'running', finished_at: null } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason }
     res.json({ job: annotated, events, phaseDefinitions })
   })
 

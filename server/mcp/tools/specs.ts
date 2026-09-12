@@ -65,7 +65,8 @@ export function specsTools(): McpToolSpec[] {
         '— pass contractRefine: false to skip it, e.g. when the user declined it), ' +
         'generate (same as create but takes a pre-formed idea string; both accept contextScope/attachments/createLocal), ' +
         'ai_edit (ai-spawn, AI-edit a ticket title+description), ' +
-        'cancel_ai_edit (abort an in-flight ai-edit), contract_refine (ai-spawn, append/re-fire a Contract Layer — Claude-only; ' +
+        'cancel_ai_edit (abort an in-flight ai-edit), contract_refine (ai-spawn, append/re-fire a Contract Layer — Claude or Codex; ' +
+        'pass numeric id, not ticketId; optional aiEngine selects the provider for origin-less specs, while Explore specs retain their origin provider; ' +
         'works on Explore-origin AND agent-authored/Quick specs), ' +
         'smash (ai-spawn, decompose a spec into N child sub-specs under an epic — Claude-only), ' +
         'smash_undo (destructive, reverse a prior SMASH), delete_epic_children (destructive, delete all children of an epic), ' +
@@ -161,7 +162,7 @@ export function specsTools(): McpToolSpec[] {
         aiEngine: z
           .string()
           .optional()
-          .describe('create/generate: provider/engine override (must be an installed provider; defaults to primary)'),
+          .describe('create/generate/contract_refine: provider/engine override (must be installed; contract_refine cannot switch an Explore-origin provider)'),
         contextScope: z
           .record(z.unknown())
           .optional()
@@ -169,7 +170,7 @@ export function specsTools(): McpToolSpec[] {
         contractRefine: z
           .boolean()
           .optional()
-          .describe('create/generate/commit_draft: enrich the spec with a Contract Layer post-persist (Claude-only). DEFAULTS TO TRUE — pass false to opt out (e.g. the user asked for no contract layer)'),
+          .describe('create/generate/commit_draft: enrich the spec with a Contract Layer post-persist (Claude or Codex). DEFAULTS TO TRUE — pass false to opt out (e.g. the user asked for no contract layer)'),
         attachmentIds: z.array(z.string()).optional().describe('create/generate/ai_edit: attachment ids (create/generate require pendingSpecId)'),
 
         // ── ai_edit ──────────────────────────────────────────────────────
@@ -440,7 +441,9 @@ export function specsTools(): McpToolSpec[] {
             return { ...(r as Record<string, unknown>), hint: WATCH_HINT }
           }
           case 'contract_refine': {
-            const r = await apiCall(ctx, 'POST', `${base}/tickets/${requireId()}/contract-refine`)
+            const r = await apiCall(ctx, 'POST', `${base}/tickets/${requireId()}/contract-refine`, {
+              aiEngine: args.aiEngine,
+            })
             return { ...(r as Record<string, unknown>), hint: CONTRACT_REFINE_HINT }
           }
           case 'smash': {

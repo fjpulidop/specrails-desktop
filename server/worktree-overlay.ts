@@ -262,7 +262,12 @@ export function captureOverlayCleanupEvidence(
     } else {
       const destinationDigest = dereferencedDigest(destination)
       if (!destinationDigest) continue
-      if (!sources.some((source) => dereferencedDigest(source) === destinationDigest)) continue
+      if (!sources.some((source) => {
+        if (dereferencedDigest(source) === destinationDigest) return true
+        // A bootstrap refresh is still an exact, reproducible source copy.
+        if (rel !== input.instructionsFilename || !destinationStat.isFile()) return false
+        try { return fs.readFileSync(destination, 'utf8') === refreshLegacyInstructions(fs.readFileSync(source, 'utf8')) } catch { return false }
+      })) continue
     }
     const fingerprint = fingerprintOverlayCleanupPath(destination)
     if (!fingerprint) continue
@@ -542,6 +547,13 @@ function mergeChildren(
   }
 }
 
+function refreshLegacyInstructions(text: string): string {
+  return text.replace(/<!-- specrails-managed:start -->[\s\S]*?<!-- specrails-managed:end -->/g, block => {
+    if (!block.includes('skills/sr-*')) return block
+    return '<!-- specrails-managed:start -->\n\n# Specrails agent runtime\n\nFollow the frozen repository scope and official OpenSpec workflow supplied for your role. The host coordinates architect, developer, verification and reviewer; do not launch nested implement or batch-implement orchestration. Read project README, manifests, contracts and relevant nested instructions. Report incomplete tasks and permission blockers with their repository and path.\n\n<!-- specrails-managed:end -->'
+  })
+}
+
 /** Copy `src` → `dest` only when `dest` does not exist. Records `rel`. */
 function copyIfAbsent(src: string, dest: string, rel: string, created: string[], warnings: string[]): void {
   if (!fs.existsSync(src)) return
@@ -648,6 +660,17 @@ export function applyWorktreeOverlay(input: WorktreeOverlayInput): WorktreeOverl
         created,
         warnings,
       )
+    }
+    // Refresh only overlay-owned legacy bootstrap blocks. Project-authored
+    // instructions and text outside the managed block remain untouched.
+    if (created.includes(instructionsFilename) || priorOwned.has(instructionsFilename)) {
+      const dest = path.join(worktreePath, instructionsFilename)
+      const stat = lstatSafe(dest)
+      if (stat?.isFile() && !stat.isSymbolicLink()) {
+        const text = fs.readFileSync(dest, 'utf8')
+        const next = refreshLegacyInstructions(text)
+        if (next !== text) fs.writeFileSync(dest, next)
+      }
     }
   } catch (err) {
     warnings.push(`overlay failed: ${errMsg(err)}`)

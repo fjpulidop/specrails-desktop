@@ -24,7 +24,8 @@
     },
     "stalled": "第 {{step}} 步停滞：{{idleMinutes}} 分钟无活动，应用已将其停止",
     "startResume": "第 {{step}} 步：{{title}}——停滞后恢复",
-    "providerLimit": "步骤 {{step}} 已停止 — 已达到提供商用量限额"
+    "providerLimit": "步骤 {{step}} 已停止 — 已达到提供商用量限额",
+    "recovered": "恢复后步骤 {{step}} 已完成"
   },
   "decision": {
     "another": "还没完成 — 再来一轮",
@@ -68,7 +69,8 @@
       "reviewer": "审阅实现（审阅者）",
       "archive": "归档已审阅的变更",
       "stopped": "运行引擎已停止：{{target}}",
-      "corrections": "将修正返回给开发者"
+      "corrections": "将修正返回给开发者",
+      "resumed": "正在恢复已保存的执行"
     }
   },
   "repeats": "×{{count}}"

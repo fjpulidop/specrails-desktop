@@ -8,6 +8,7 @@ import { windowsSpawnEnv } from './util/win-spawn'
 
 export interface CoreAgentRuntimeModule {
   RUNTIME_API_VERSION: number
+  rolePromptDefaults(): Record<'architect' | 'developer' | 'reviewer', string>
   validateRuntimeConfig(input: unknown): unknown
   [key: string]: unknown
 }
@@ -65,6 +66,11 @@ export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
   }
   return {
     RUNTIME_API_VERSION: 1,
+    rolePromptDefaults() {
+      const result = JSON.parse(invoke(['prompts']))
+      if (result.type !== 'runtime-role-prompts' || !['architect', 'developer', 'reviewer'].every(role => typeof result.defaults?.[role] === 'string' && result.defaults[role].trim())) throw new Error('Core role prompt catalog is unavailable. Update the paired Core bundle.')
+      return result.defaults
+    },
     validateRuntimeConfig(input: unknown): unknown {
       const result = JSON.parse(invoke(['validate', '--stdin'], JSON.stringify(input))) as { type?: string }
       if (result.type !== 'runtime-config-valid') throw new Error('Core did not validate the runtime configuration')

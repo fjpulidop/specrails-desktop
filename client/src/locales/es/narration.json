@@ -24,7 +24,8 @@
     },
     "stalled": "El paso {{step}} se atascó: sin actividad durante {{idleMinutes}} min, así que la app lo detuvo",
     "startResume": "Paso {{step}}: {{title}} — reanudando tras un atasco",
-    "providerLimit": "Paso {{step}} detenido — se alcanzó el límite de uso del proveedor"
+    "providerLimit": "Paso {{step}} detenido — se alcanzó el límite de uso del proveedor",
+    "recovered": "Paso {{step}} completado tras reanudar"
   },
   "decision": {
     "another": "Aún no está — otra vuelta",
@@ -68,7 +69,8 @@
       "reviewer": "Revisando la implementación (revisor)",
       "archive": "Archivando el cambio revisado",
       "stopped": "El motor se detuvo: {{target}}",
-      "corrections": "Devolviendo correcciones al desarrollador"
+      "corrections": "Devolviendo correcciones al desarrollador",
+      "resumed": "Reanudando la ejecución guardada"
     }
   },
   "repeats": "×{{count}}"

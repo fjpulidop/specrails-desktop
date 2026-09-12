@@ -64,6 +64,12 @@ export function pureOutputToolPolicy(
   return null
 }
 
+/** Contract extraction also supports Codex's enforced read-only transform. */
+export function supportsContractRefine(adapter: ProviderAdapter): boolean {
+  return adapter.capabilities.structuredActions === true
+    || (adapter.id === 'codex' && pureOutputToolPolicy(adapter) !== null)
+}
+
 /** Throw a stable, provider-identifying error for an unsupported boundary. */
 export function requireToolPolicy(
   adapter: ProviderAdapter,

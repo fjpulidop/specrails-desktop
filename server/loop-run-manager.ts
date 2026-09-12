@@ -1539,7 +1539,7 @@ export class LoopRunManager {
             // were noise once the step explorer landed; the log now opens on real
             // output). `template` is omitted when rendering changed nothing (a
             // plain free-text prompt would just duplicate `command`).
-            const stepTitle = `🤖 ${nodeLabel || 'AI Step'} (${nodeProvider}/${nodeModel}${nodeEffort ? `, effort: ${nodeEffort}` : ''})`
+            const stepTitle = requiresCoreCompletion ? '🤖 Implementation (agent runtime)' : `🤖 ${nodeLabel || 'AI Step'} (${nodeProvider}/${nodeModel}${nodeEffort ? `, effort: ${nodeEffort}` : ''})`
             const stepDetail: Pick<LoopStepEventPayload, 'template' | 'command'> = {
               ...(rawTemplate && rawTemplate !== base ? { template: capText(rawTemplate, STEP_TEMPLATE_CAP) } : {}),
               ...(base ? { command: capText(base, STEP_COMMAND_CAP) } : {}),
@@ -2116,7 +2116,7 @@ export class LoopRunManager {
     // is a lower bound, not exact. Providers without usage telemetry get an
     // explicit unavailable marker, never a fabricated "$0.0000".
     logLine(
-      `\n■ Loop execution finished: ${outcome} — ${stepNum} step${stepNum === 1 ? '' : 's'}, ${iteration} decider evaluation${iteration === 1 ? '' : 's'}, ${finalJobUsage.numTurns ?? 'unknown'} agent turns, ` +
+      `\n■ Loop execution finished: ${outcome} — ` +
         (costAvailable
           ? `${costUncertain ? '≥ ' : ''}$${totalCost.toFixed(4)}`
           : 'usage/cost unavailable'),

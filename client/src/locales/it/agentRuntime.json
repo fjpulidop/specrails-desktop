@@ -4,8 +4,6 @@
   "loading": "Caricamento delle impostazioni…",
   "loadFailed": "Impossibile caricare le impostazioni. Riprova prima di modificarle.",
   "retry": "Riprova",
-  "enabled": "Usa il motore degli agenti per implementare",
-  "enableHint": "Salvare non avvia agenti. Una volta attivo, le implementazioni di questo progetto usano il motore; i progetti disattivati mantengono la modalità attuale.",
   "unavailable": "Questa installazione di Core non include il motore degli agenti. Aggiorna Core prima di attivarlo; puoi preparare le impostazioni mentre è disattivato.",
   "save": "Salva impostazioni",
   "saving": "Salvataggio…",
@@ -27,7 +25,9 @@
     "addCli": "Aggiungi fornitore CLI",
     "addLocal": "Aggiungi fornitore locale / API",
     "show": "Mostra connessioni dei fornitori",
-    "hide": "Nascondi connessioni dei fornitori"
+    "hide": "Nascondi connessioni dei fornitori",
+    "globalTitle": "Connessioni dei provider",
+    "globalHint": "Queste connessioni sono disponibili per tutti i progetti. Assegna provider e modelli ai ruoli nelle impostazioni del progetto. Le modifiche si applicano alle nuove esecuzioni."
   },
   "cliNames": {
     "claude": "Claude",
@@ -44,7 +44,7 @@
   },
   "agents": {
     "title": "Assegnazione dei ruoli",
-    "hint": "Ogni ruolo esegue la propria sessione del fornitore. Lascia il modello predefinito salvo esigenze specifiche. I turni sono le chiamate agli strumenti che un ruolo può fare (predefinito {{turns}}).",
+    "hint": "Ogni ruolo può usare un provider e un modello diversi. Connessioni: Impostazioni generali → Specrails Agents. Limite predefinito: {{turns}} turni per agente.",
     "provider": "Fornitore",
     "model": "Modello",
     "modelPlaceholder": "ID del modello o predefinito del CLI",
@@ -100,7 +100,12 @@
     "question": "L'architetto chiede:",
     "answerLabel": "La tua risposta",
     "answerPlaceholder": "Rispondi alla domanda; l'architetto prosegue con essa.",
-    "answer": "Rispondi e riprendi"
+    "answer": "Rispondi e riprendi",
+    "viewLog": "Visualizza log del job",
+    "implementation": "Implementazione",
+    "preserveProgress": "Riprendi dalla fase indicata, conservando il lavoro e le impostazioni salvate.",
+    "reviewDelivery": "Implementazione completata. Controlla il risultato nel log prima della consegna; questa ripresa non lo ha pubblicato.",
+    "prepareDelivery": "Prepara consegna"
   },
   "roleHints": {
     "architect": "Legge il codice e scrive proposta, design, attività e spec. Sola lettura.",
@@ -125,5 +130,38 @@
     "onLowConfidence": "Con bassa confidenza",
     "ask": "Chiedere (pausa con la domanda)",
     "proceed": "Procedere su ipotesi dichiarate"
+  },
+  "metrics": {
+    "title": "Consumo e tempo",
+    "hint": "Include correzioni e chiamate non riuscite. Il tempo degli agenti include gli strumenti. I token della cache fanno parte dei token di input.",
+    "unknown": "Non disponibile",
+    "duration": "Tempo di esecuzione",
+    "agentTime": "Tempo degli agenti",
+    "cost": "Costo dichiarato",
+    "providerCalls": "Chiamate agli agenti",
+    "toolCalls": "Chiamate agli strumenti",
+    "input": "Token di input",
+    "output": "Token di output",
+    "uncached": "Input senza cache",
+    "cacheRead": "Letture della cache",
+    "cacheWrite": "Scritture della cache",
+    "partial": "Alcuni tentativi non hanno misurazioni dettagliate.",
+    "phases": "Consumo per fase",
+    "phase": "Fase",
+    "attempts": "Tentativi"
+  },
+  "prompts": {
+    "title": "Prompt dei ruoli degli agenti",
+    "description": "Visualizza e modifica le istruzioni di ogni ruolo. Sono condivise da tutti i progetti e provider; le modifiche si applicano ai nuovi lavori. I lavori ripresi mantengono i prompt originali.",
+    "definition": "Definizione di {{role}}",
+    "default": "Impostazione predefinita",
+    "custom": "Personalizzato",
+    "restore": "Ripristina predefinito",
+    "contracts": "Il contesto della spec, il workflow OpenSpec e il formato di risposta richiesto vengono aggiunti automaticamente e non sono modificabili qui.",
+    "invalid": "Ogni definizione deve contenere da 1 a 20.000 caratteri, con testo non vuoto e senza byte nulli.",
+    "saved": "Prompt dei ruoli salvati",
+    "unsaved": "Modifiche non salvate",
+    "discard": "Scarta modifiche",
+    "save": "Salva prompt"
   }
 }

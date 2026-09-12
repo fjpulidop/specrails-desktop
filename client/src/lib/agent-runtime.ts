@@ -1,3 +1,4 @@
+import type { RuntimeEfficiency } from './runtime-efficiency'
 /** Version 1 wire contract shared with Core's agent-runtime.schema.json. */
 export const RUNTIME_CLI_PROVIDERS = ['claude', 'codex', 'gemini', 'kimi'] as const
 export const RUNTIME_ROLES = ['architect', 'developer', 'reviewer'] as const
@@ -31,6 +32,8 @@ export const REVIEW_THRESHOLD_DEFAULTS: { minScore: number; aspects: Record<Revi
 /** An architect question that pauses the run until the operator answers through resume. */
 export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
 export interface RuntimeRun {
+  canSettle?: boolean
+  metrics?: RuntimeEfficiency
   runId: string; traceId?: string; status: string; nextStep: string | null; error?: string
   pendingApproval?: { stepId: string; reason?: string }
   pendingQuestion?: RuntimePendingQuestion
@@ -46,7 +49,7 @@ export interface VerificationSuggestionsResponse { repositories: Array<{ id: str
 
 /** Core defaults, shown in the form so an empty field never hides what will run. */
 export const RUNTIME_DEFAULTS = {
-  maxTurns: 24,
+  maxTurns: 100,
   maxAttempts: 3,
   timeoutMs: 15 * 60_000,
 } as const

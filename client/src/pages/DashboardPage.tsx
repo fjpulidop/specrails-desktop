@@ -572,9 +572,17 @@ export default function DashboardPage() {
     const m = msg as {
       type?: string; projectId?: string; railIndex?: number | null; status?: string
       ticketIds?: number[]; changed?: 'tickets' | 'name' | 'profile' | 'engine'; name?: string | null
-      mode?: string; jobId?: string; loopRunId?: string
+      mode?: string; jobId?: string; loopRunId?: string; active?: boolean
     }
     if (m.projectId !== activeProjectIdRef.current) return
+    if (m.type === 'runtime.continuation') {
+      if (m.railIndex == null) return
+      const railId = railIdFromIndex(m.railIndex)
+      updateRails(prev => prev.map(r => r.id !== railId ? r : m.active
+        ? { ...r, status: 'running' as const, activeJobId: m.jobId }
+        : r.activeJobId === m.jobId ? { ...r, status: 'idle' as const, activeJobId: undefined } : r))
+      return
+    }
 
     // A rail started running ELSEWHERE — the MCP server, the mobile companion, or
     // another desktop tab. The local launch path (doLaunchRail) sets this

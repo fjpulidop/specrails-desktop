@@ -98,7 +98,7 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
   })
   it('states the Kimi capability boundary without advertising Claude-only transforms', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('Claude and Kimi\n  support profiles and Freestyle')
-    expect(OPERATOR_INSTRUCTIONS).toContain('Contract Refine and SMASH require Claude')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Contract Refine supports Claude and Codex')
     expect(OPERATOR_INSTRUCTIONS).toContain('structured actions\n  (currently Claude)')
     expect(OPERATOR_INSTRUCTIONS).toContain('structured-action provider (currently\n  Claude)')
     expect(OPERATOR_INSTRUCTIONS).not.toContain(

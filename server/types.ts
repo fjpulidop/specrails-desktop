@@ -1273,6 +1273,7 @@ export interface BackgroundProcessUpdatedMessage {
 }
 
 export type WsMessage =
+  | { type: 'runtime.continuation'; projectId: string; jobId: string; railIndex: number | null; active: boolean }
   | LogMessage | PhaseMessage | InitMessage | QueueMessage | EventMessage
   | ChatStreamMessage | ChatDoneMessage | ChatErrorMessage
   | ChatCommandProposalMessage | ChatTitleUpdateMessage

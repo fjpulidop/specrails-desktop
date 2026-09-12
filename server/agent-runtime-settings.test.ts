@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { registerAgentRuntimeSettingsRoutes } from './agent-runtime-settings-router'
-import { agentRuntimeConfigPath, defaultAgentRuntimeConfig, loadAgentRuntimeConfig, saveAgentRuntimeConfig, validateAgentRuntimeConfig, type RuntimeConfig } from './agent-runtime-settings'
+import { agentRuntimeConfigPath, defaultAgentRuntimeConfig, loadAgentRuntimeConfig, saveAgentRuntimeConfig, validateAgentRuntimeConfig, saveRuntimeProviders, loadRuntimeProviders, type RuntimeConfig } from './agent-runtime-settings'
 
 const loader = vi.hoisted(() => ({ entry: 'runtime/index.js' as string | null, validate: vi.fn((input: unknown) => input), loadFailure: false }))
 const layout = vi.hoisted(() => ({ suffix: '.specrails' }))
@@ -24,6 +24,7 @@ const url = '/api/projects/example/agent-runtime/config'
 beforeEach(() => {
   vi.clearAllMocks(); loader.entry = 'runtime/index.js'; loader.loadFailure = false; layout.suffix = '.specrails'
   directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-settings-'))
+  vi.spyOn(os, 'homedir').mockImplementation(() => path.join(directory, 'home'))
   app = express(); app.use(express.json())
   const router = express.Router()
   registerAgentRuntimeSettingsRoutes({ router, ctx: () => ({ project: project() }) as never })
@@ -32,13 +33,32 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }) })
 
 describe('runtime project configuration', () => {
+  it('migrates conflicting project connections without changing either endpoint and stores only role references', () => {
+    const legacy = config()
+    legacy.providers.push({ id: 'local', kind: 'openai-compatible', baseUrl: 'http://localhost:8001/v1' })
+    legacy.agents.developer = { provider: 'local', model: 'model-a' }
+    fs.mkdirSync(path.dirname(agentRuntimeConfigPath(project())), { recursive: true })
+    fs.writeFileSync(agentRuntimeConfigPath(project()), JSON.stringify(legacy))
+    const first = loadAgentRuntimeConfig(project())!
+    expect(first.agents.developer.provider).toBe('local')
+    const other = { ...project(), path: path.join(directory, 'other') }
+    legacy.providers[legacy.providers.length - 1] = { id: 'local', kind: 'openai-compatible', baseUrl: 'http://localhost:8002/v1' }
+    fs.mkdirSync(path.dirname(agentRuntimeConfigPath(other)), { recursive: true })
+    fs.writeFileSync(agentRuntimeConfigPath(other), JSON.stringify(legacy))
+    const migrated = loadAgentRuntimeConfig(other)!
+    expect(migrated.agents.developer.provider).toMatch(/^local-/)
+    expect(loadAgentRuntimeConfig(other)).toEqual(migrated)
+    expect(loadRuntimeProviders().filter(p => p.kind === 'openai-compatible')).toHaveLength(2)
+    expect(JSON.parse(fs.readFileSync(agentRuntimeConfigPath(other), 'utf8'))).not.toHaveProperty('providers')
+    expect(loadAgentRuntimeConfig(project())!.agents.developer.provider).toBe('local')
+  })
   it('reads absent settings without creating files or loading a provider', async () => {
     const response = await request(app).get(url).expect(200)
-    expect(response.body).toMatchObject({ configured: false, runtimeAvailable: true, config: { enabled: false, agents: { architect: { provider: 'kimi' } } } })
+    expect(response.body).toMatchObject({ configured: false, runtimeAvailable: true, config: { enabled: true, agents: { architect: { provider: 'kimi' } } } })
     expect(response.body.config.providers.map((p: { cli: string }) => p.cli)).toEqual(['claude', 'codex', 'gemini', 'kimi'])
     expect(fs.readdirSync(directory)).toEqual([])
     expect(loader.validate).not.toHaveBeenCalled()
-    expect(loadAgentRuntimeConfig(project())).toBeNull()
+    expect(loadAgentRuntimeConfig(project())?.enabled).toBe(true)
     expect(defaultAgentRuntimeConfig({ path: directory, provider: 'unknown' }).agents.developer.provider).toBe('claude')
   })
 
@@ -50,6 +70,7 @@ describe('runtime project configuration', () => {
     payload.limits = { maxAttempts: 3, maxTokens: 20000, timeoutMs: 60000, maxCostUsd: 2.5 }
     payload.verification = [{ repositoryId: 'primary-example', command: 'npm', args: ['test'], cwd: 'client', env: { CI: 'true' }, timeoutMs: 10000 }]
     payload.approvalBeforeArchive = true
+    saveRuntimeProviders(payload.providers)
     const response = await request(app).put(url).send(payload).expect(200)
     expect(response.body).toEqual({ configured: true, runtimeAvailable: true, config: payload })
     expect(loader.validate).toHaveBeenCalledWith(payload)
@@ -59,18 +80,14 @@ describe('runtime project configuration', () => {
     expect(read.body.config).toEqual(payload)
   })
 
-  it('supports offline disabled configuration and rejects enabling missing or incompatible Core without overwriting it', async () => {
-    loader.entry = null
-    await request(app).put(url).send(config()).expect(200)
-    expect(loader.validate).not.toHaveBeenCalled()
+  it('requires a compatible runtime and never falls back to legacy execution', async () => {
+    saveAgentRuntimeConfig(project(), config())
     const before = fs.readFileSync(agentRuntimeConfigPath(project()), 'utf8')
-    await request(app).put(url).send(enabledConfig()).expect(503).expect(({ body }) => expect(body.error).toBe('runtime_unavailable'))
-    expect(fs.readFileSync(agentRuntimeConfigPath(project()), 'utf8')).toBe(before)
+    loader.entry = null
+    await request(app).put(url).send({ ...config(), enabled: false }).expect(503)
     loader.entry = 'runtime/index.js'; loader.loadFailure = true
-    await request(app).put(url).send(enabledConfig()).expect(503).expect(({ body }) => expect(body.error).toBe('runtime_incompatible'))
+    await request(app).put(url).send(config()).expect(503)
     expect(fs.readFileSync(agentRuntimeConfigPath(project()), 'utf8')).toBe(before)
-    await request(app).put(url).send(config()).expect(200)
-    expect(loadAgentRuntimeConfig(project())?.enabled).toBe(false)
   })
 
   it('enables the runtime without any verification command: the architect proposes checks at run time', async () => {
@@ -79,8 +96,8 @@ describe('runtime project configuration', () => {
     expect(loader.validate).toHaveBeenCalledOnce()
     expect(loadAgentRuntimeConfig(project())).toMatchObject({ enabled: true, verification: [] })
     loader.entry = null
-    await request(app).put(url).send({ ...config(), enabled: false }).expect(200)
-    expect(loadAgentRuntimeConfig(project())?.enabled).toBe(false)
+    await request(app).put(url).send({ ...config(), enabled: false }).expect(503)
+    expect(loadAgentRuntimeConfig(project())?.enabled).toBe(true)
   })
 
   it('suggests each repository\'s own checks offline, without a model call or writing configuration', async () => {
@@ -156,6 +173,7 @@ describe('runtime project configuration', () => {
 
   it('accepts review thresholds that tighten Core\'s gate and the architect low-confidence policy', async () => {
     const payload: RuntimeConfig = { ...config(), review: { minScore: 70, aspects: { security: 75, type_correctness: 60, pattern_adherence: 80, test_coverage: 60, architectural_alignment: 100 } }, architect: { onLowConfidence: 'proceed' } }
+    saveRuntimeProviders(payload.providers)
     const response = await request(app).put(url).send(payload).expect(200)
     expect(response.body.config).toEqual(payload)
     expect(loadAgentRuntimeConfig(project())).toEqual(payload)

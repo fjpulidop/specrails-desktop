@@ -446,6 +446,9 @@ describe('external MCP server injection', () => {
     expect(joined).toContain('mcp_servers.jira.command="npx"')
     expect(joined).toContain('mcp_servers.jira.args=["-y", "jira-mcp"]')
     expect(joined).toContain('mcp_servers.jira.env.TOKEN="x"')
+    expect(w.extraArgs.filter(arg => arg.includes('approval_mode'))).toEqual([
+      'mcp_servers.specrails.default_tools_approval_mode="approve"',
+    ])
     expect(joined).not.toContain('has.dot')
     expect(joined).not.toContain('mcp_servers.web')
   })
