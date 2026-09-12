@@ -60,6 +60,35 @@ describe('AgentRuntimeRuns', () => {
     expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/run-1/resume', expect.objectContaining({ method: 'POST', body: JSON.stringify({ recover: ['archive'] }) }))
   })
 
+  it('shows the architect question and resumes only with a typed answer', async () => {
+    const user = userEvent.setup()
+    const question = { stepId: 'architect', requestedAt: '2026-09-12T00:00:00.000Z', question: 'Which cache backend should the design assume?' }
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ nextStep: 'architect', pendingQuestion: question })] }))
+    render(<AgentRuntimeRuns projectId="p1" />)
+    expect(await screen.findByText('Which cache backend should the design assume?')).toBeInTheDocument()
+    expect(screen.getByText('The architect asks:')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Resume' })).not.toBeInTheDocument()
+    const answer = screen.getByRole('button', { name: 'Answer and resume' })
+    expect(answer).toBeDisabled()
+    await user.type(screen.getByLabelText('Your answer'), '   ')
+    expect(answer).toBeDisabled()
+    await user.type(screen.getByLabelText('Your answer'), 'Redis, keep the schema ')
+    await user.click(answer)
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/run-1/resume', expect.objectContaining({ method: 'POST', body: JSON.stringify({ answer: 'Redis, keep the schema' }) }))
+    await waitFor(() => expect(screen.getByLabelText('Your answer')).toHaveValue(''))
+    // A rejected answer keeps the draft for correction.
+    await user.type(screen.getByLabelText('Your answer'), 'Retry')
+    vi.mocked(fetch).mockResolvedValueOnce(response({ error: 'answer_required', message: 'Answer first' }, false))
+    await user.click(screen.getByRole('button', { name: 'Answer and resume' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Answer first')
+    expect(screen.getByLabelText('Your answer')).toHaveValue('Retry')
+    // An interrupted answer step is recovered before asking again.
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'interrupted', recoverableSteps: ['architect'], pendingQuestion: question })] }))
+    await user.click(screen.getByRole('button', { name: 'Refresh' }))
+    await screen.findByRole('button', { name: 'Recover interrupted phase' })
+    expect(screen.queryByLabelText('Your answer')).not.toBeInTheDocument()
+  })
+
   it('ignores in-flight responses after a project pane unmounts and polls without overlapping reads', async () => {
     let finish!: (value: Response) => void
     vi.mocked(fetch).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))

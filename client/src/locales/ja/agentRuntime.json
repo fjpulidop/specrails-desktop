@@ -96,11 +96,34 @@
       "cancelled": "キャンセル済み",
       "interrupted": "中断",
       "unavailable": "利用不可"
-    }
+    },
+    "question": "アーキテクトからの質問:",
+    "answerLabel": "あなたの回答",
+    "answerPlaceholder": "質問に回答すると、アーキテクトはそれをもとに続行します。",
+    "answer": "回答して再開"
   },
   "roleHints": {
     "architect": "コードを読み、提案・設計・タスク・仕様を書きます。読み取り専用。",
     "developer": "タスクをテスト付きで実装します。CLI のサンドボックス内でファイル編集とコマンド実行ができます。",
     "reviewer": "仕様と検証結果に照らして成果を確認します。読み取り専用。"
+  },
+  "review": {
+    "title": "レビュー基準",
+    "hint": "空欄は Core の基準を使います。値は基準を厳しくする方向にのみ設定できます: 総合スコア {{score}} 以上、セキュリティ {{security}} 以上、その他の観点 {{aspect}} 以上。",
+    "minScore": "最低総合スコア(既定 {{score}})",
+    "aspects": {
+      "type_correctness": "型の正確さ(既定 {{score}})",
+      "pattern_adherence": "パターン準拠(既定 {{score}})",
+      "test_coverage": "テストカバレッジ(既定 {{score}})",
+      "security": "セキュリティ(既定 {{score}})",
+      "architectural_alignment": "アーキテクチャ整合性(既定 {{score}})"
+    }
+  },
+  "architect": {
+    "title": "アーキテクトの確信度",
+    "hint": "自律的な調査を1回行っても確信度が低い設計は、アーキテクトの質問で一時停止するか、明示した前提のもとで続行します。",
+    "onLowConfidence": "確信度が低いとき",
+    "ask": "質問する(質問で一時停止)",
+    "proceed": "明示した前提で続行"
   }
 }

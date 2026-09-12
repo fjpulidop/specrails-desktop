@@ -201,10 +201,33 @@ describe('agent runtime lifecycle', () => {
     expect(await service.summary('../escape')).toMatchObject({ status: 'unavailable' })
   })
 
-  it.each([null, [], { contextPath: '/other' }, { approve: 'archive' }, { recover: ['../other'] }, { invalidate: ['verify', 'verify'] }])('rejects arbitrary resume inputs %j', (input) => {
+  it.each([null, [], { contextPath: '/other' }, { approve: 'archive' }, { recover: ['../other'] }, { invalidate: ['verify', 'verify'] }, { answer: '' }, { answer: '   ' }, { answer: 42 }, { answer: ['text'] }, { answer: 'x'.repeat(20_001) }])('rejects arbitrary resume inputs %j', (input) => {
     expect(() => validateRuntimeResumeInput(input)).toThrow(RuntimeControlError)
   })
-  it('accepts only phase control arrays', () => expect(validateRuntimeResumeInput({ approve: ['archive'], recover: ['developer'], invalidate: ['verify'] })).toEqual({ approve: ['archive'], recover: ['developer'], invalidate: ['verify'] }))
+  it('accepts only phase control arrays and a bounded answer', () => {
+    expect(validateRuntimeResumeInput({ approve: ['archive'], recover: ['developer'], invalidate: ['verify'] })).toEqual({ approve: ['archive'], recover: ['developer'], invalidate: ['verify'] })
+    expect(validateRuntimeResumeInput({ answer: 'x'.repeat(20_000) })).toEqual({ answer: 'x'.repeat(20_000) })
+  })
+
+  it('exposes an open architect question, requires its answer to resume and forwards the answer to Core', async () => {
+    const question = { stepId: 'architect', requestedAt: '2026-09-12T00:00:00.000Z', question: 'Which database should the cache use?' }
+    status.mockResolvedValue({ ...state(), traceId: 'trace-1', nextStep: 'architect', pendingApproval: undefined, pendingQuestion: question, steps: { architect: { status: 'paused', visits: 2 } } })
+    expect(await service.summary('run-1')).toMatchObject({ status: 'paused', canResume: true, traceId: 'trace-1', pendingQuestion: question })
+    await expect(service.resume('run-1', {})).rejects.toMatchObject({ statusCode: 400, code: 'answer_required' })
+    await expect(service.resume('run-1', { approve: ['archive'] })).rejects.toMatchObject({ code: 'answer_required' })
+    expect(execute).not.toHaveBeenCalled()
+    expect((await service.summary('run-1')).canCancel).toBe(false)
+    await service.resume('run-1', { answer: 'Use Redis' })
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ resume: true, answer: 'Use Redis' }))
+    expect(JSON.parse((db.prepare('SELECT payload FROM events WHERE seq = 0').get() as { payload: string }).payload).line).toContain('answered question')
+    finish({ text: 'continued' })
+    await vi.waitFor(() => expect(db.prepare('SELECT COUNT(*) AS count FROM ai_invocations').get()).toEqual({ count: 1 }))
+    // An answered question is history, not an open prompt.
+    status.mockResolvedValue({ ...state(), pendingApproval: undefined, pendingQuestion: { ...question, answeredAt: '2026-09-12T00:01:00.000Z', answer: 'Use Redis' } })
+    expect((await service.summary('run-1')).pendingQuestion).toBeUndefined()
+    await service.resume('run-1', {})
+    expect(execute).toHaveBeenCalledTimes(2)
+  })
 
   it('runs the offline status CLI with structured argv and rejects missing/malformed Core output', async () => {
     await expect(readAgentRuntimeStatus(contextPath, directory, process.env)).rejects.toMatchObject({ statusCode: 503 })
@@ -227,6 +250,11 @@ describe('agent runtime lifecycle', () => {
     await request(app).post(base + '/run-1/resume').send({ approve: ['archive'] }).expect(202)
     expect(resume).toHaveBeenCalledWith('run-1', { approve: ['archive'] })
     await request(app).post(base + '/run-1/resume').send({ cwd: '/bad' }).expect(400)
+    await request(app).post(base + '/run-1/resume').send({ answer: 'Use Redis' }).expect(202)
+    expect(resume).toHaveBeenCalledWith('run-1', { answer: 'Use Redis' })
+    await request(app).post(base + '/run-1/resume').send({ answer: '' }).expect(400)
+    resume.mockRejectedValueOnce(new RuntimeControlError(400, 'answer_required', 'Answer first'))
+    await request(app).post(base + '/run-1/resume').send({}).expect(400, { error: 'answer_required', message: 'Answer first' })
     await request(app).post(base + '/run-1/cancel').expect(202)
     expect(cancel).toHaveBeenCalledWith('run-1')
     resume.mockRejectedValueOnce(new RuntimeControlError(409, 'active', 'Still active'))

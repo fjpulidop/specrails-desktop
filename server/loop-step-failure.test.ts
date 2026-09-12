@@ -51,7 +51,7 @@ it.each([
   const billingNote = logs.find(line => line.includes('Step cost unknown'))
   expect(billingNote).toContain('did not report a priced cost')
   expect(billingNote).not.toMatch(/timeout|crash|\$0/)
-  expect(logs.find(line => line.includes('Loop finished:'))).toContain('usage/cost unavailable')
+  expect(logs.find(line => line.includes('Loop execution finished:'))).toContain('usage/cost unavailable')
   expect(getJob(db, result.runId)).toMatchObject({ status: 'failed', total_cost_usd: null })
   expect(db.prepare('SELECT provider, status, total_cost_usd FROM ai_invocations WHERE loop_run_id = ?').all(result.runId))
     .toEqual([{ provider: 'agent-runtime', status: 'failed', total_cost_usd: null }])

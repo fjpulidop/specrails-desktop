@@ -96,11 +96,34 @@
       "cancelled": "Cancelled",
       "interrupted": "Interrupted",
       "unavailable": "Unavailable"
-    }
+    },
+    "question": "The architect asks:",
+    "answerLabel": "Your answer",
+    "answerPlaceholder": "Answer the question; the architect continues with it.",
+    "answer": "Answer and resume"
   },
   "roleHints": {
     "architect": "Reads the code and writes the proposal, design, tasks and spec. Read-only.",
     "developer": "Implements the tasks with tests. Can edit files and run commands inside the CLI sandbox.",
     "reviewer": "Checks the result against the spec and the verification evidence. Read-only."
+  },
+  "review": {
+    "title": "Review gate",
+    "hint": "Empty fields use Core's gate. Values can only raise it: overall score at least {{score}}, security at least {{security}}, other aspects at least {{aspect}}.",
+    "minScore": "Minimum overall score (default {{score}})",
+    "aspects": {
+      "type_correctness": "Type correctness (default {{score}})",
+      "pattern_adherence": "Pattern adherence (default {{score}})",
+      "test_coverage": "Test coverage (default {{score}})",
+      "security": "Security (default {{score}})",
+      "architectural_alignment": "Architectural alignment (default {{score}})"
+    }
+  },
+  "architect": {
+    "title": "Architect confidence",
+    "hint": "After one autonomous investigation pass, a design that is still low in confidence either pauses with the architect's question or proceeds on stated assumptions.",
+    "onLowConfidence": "On low confidence",
+    "ask": "Ask (pause with the question)",
+    "proceed": "Proceed on stated assumptions"
   }
 }

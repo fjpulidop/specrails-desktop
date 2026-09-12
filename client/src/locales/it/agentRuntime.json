@@ -96,11 +96,34 @@
       "cancelled": "Annullato",
       "interrupted": "Interrotto",
       "unavailable": "Non disponibile"
-    }
+    },
+    "question": "L'architetto chiede:",
+    "answerLabel": "La tua risposta",
+    "answerPlaceholder": "Rispondi alla domanda; l'architetto prosegue con essa.",
+    "answer": "Rispondi e riprendi"
   },
   "roleHints": {
     "architect": "Legge il codice e scrive proposta, design, attività e spec. Sola lettura.",
     "developer": "Implementa le attività con i test. Può modificare file ed eseguire comandi nella sandbox del CLI.",
     "reviewer": "Controlla il risultato rispetto alla spec e alle prove di verifica. Sola lettura."
+  },
+  "review": {
+    "title": "Soglia di revisione",
+    "hint": "I campi vuoti usano la soglia di Core. I valori possono solo alzarla: punteggio complessivo almeno {{score}}, sicurezza almeno {{security}}, altri aspetti almeno {{aspect}}.",
+    "minScore": "Punteggio complessivo minimo (predefinito {{score}})",
+    "aspects": {
+      "type_correctness": "Correttezza dei tipi (predefinito {{score}})",
+      "pattern_adherence": "Aderenza ai pattern (predefinito {{score}})",
+      "test_coverage": "Copertura dei test (predefinito {{score}})",
+      "security": "Sicurezza (predefinito {{score}})",
+      "architectural_alignment": "Allineamento architetturale (predefinito {{score}})"
+    }
+  },
+  "architect": {
+    "title": "Confidenza dell'architetto",
+    "hint": "Dopo un passaggio di indagine autonoma, un progetto ancora poco sicuro si mette in pausa con la domanda dell'architetto oppure procede su ipotesi dichiarate.",
+    "onLowConfidence": "Con bassa confidenza",
+    "ask": "Chiedere (pausa con la domanda)",
+    "proceed": "Procedere su ipotesi dichiarate"
   }
 }

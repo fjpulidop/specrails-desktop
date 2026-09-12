@@ -16,16 +16,20 @@ import type { ProjectContext } from './project-registry'
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 const STEP_IDS = ['architect', 'developer', 'verify', 'reviewer', 'archive']
-export interface RuntimeResumeInput { approve?: string[]; recover?: string[]; invalidate?: string[] }
+const ANSWER_LIMIT = 20_000
+export interface RuntimeResumeInput { approve?: string[]; recover?: string[]; invalidate?: string[]; answer?: string }
+export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
 interface FrozenContext { runId: string; backlogRoot: string; artifactRoot: string; repositories: Array<{ id: string; name: string; path: string }> }
-interface RuntimeState {
-  runId: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
+export interface RuntimeState {
+  runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
   pendingApproval?: { stepId: string; reason?: string }
-  steps: Record<string, { status: string }>
+  pendingQuestion?: RuntimePendingQuestion
+  steps: Record<string, { status: string; visits?: number }>
 }
 export interface RuntimeRunSummary {
-  runId: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
+  runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
   pendingApproval?: { stepId: string; reason?: string }
+  pendingQuestion?: RuntimePendingQuestion
   recoverableSteps: string[]; active: boolean; canResume: boolean; canCancel: boolean
 }
 export class RuntimeControlError extends Error {
@@ -36,9 +40,18 @@ export function validateRuntimeResumeInput(input: unknown): RuntimeResumeInput {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new RuntimeControlError(400, 'invalid_resume_request', 'Resume request must be an object')
   const body = input as Record<string, unknown>
   for (const [key, value] of Object.entries(body)) {
+    if (key === 'answer') {
+      if (typeof value !== 'string' || !value.trim() || value.length > ANSWER_LIMIT) throw new RuntimeControlError(400, 'invalid_resume_request', `An answer must be a nonempty string of at most ${ANSWER_LIMIT} characters`)
+      continue
+    }
     if (!['approve', 'recover', 'invalidate'].includes(key) || !Array.isArray(value) || value.length > STEP_IDS.length || !value.every((id) => typeof id === 'string' && STEP_IDS.includes(id)) || new Set(value).size !== value.length) throw new RuntimeControlError(400, 'invalid_resume_request', 'Only approve, recover and invalidate arrays of known phase IDs are allowed')
   }
   return body as RuntimeResumeInput
+}
+
+/** A question stays pending until Core records its answer. */
+function openQuestion(state: RuntimeState): RuntimePendingQuestion | undefined {
+  return state.pendingQuestion && state.pendingQuestion.answeredAt === undefined ? state.pendingQuestion : undefined
 }
 
 /** Status is a read-only Core CLI operation. It never invokes a provider. */
@@ -118,6 +131,7 @@ export class AgentRuntimeControls {
       const recoverableSteps = Object.entries(state.steps).filter(([, step]) => ['running', 'interrupted'].includes(step.status)).map(([id]) => id)
       return { runId, status: state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
         updatedAt: state.updatedAt, error: this.errors.get(runId) ?? state.error, pendingApproval: state.pendingApproval,
+        traceId: state.traceId, pendingQuestion: openQuestion(state),
         recoverableSteps, active, canCancel: this.active.has(runId), canResume: !active && parent?.status === 'completed' && state.status !== 'succeeded' }
     } catch (error) {
       return { runId, status: 'unavailable', nextStep: null, active: this.active.has(runId), canResume: false, canCancel: this.active.has(runId), recoverableSteps: [], error: error instanceof RuntimeControlError ? error.message : 'Could not inspect the saved runtime execution' }
@@ -138,6 +152,8 @@ export class AgentRuntimeControls {
       recoverOrphanLoopStepAccounting(this.ctx.db, new Date().toISOString(), runId)
       const state = await this.dependencies.status(context.file, context.cwd, context.env)
       if (!state || state.runId !== runId || state.status === 'succeeded') throw new RuntimeControlError(409, 'runtime_not_resumable', 'This execution has no resumable workflow')
+      // A pending question resumes the architect only with the operator's answer.
+      if (openQuestion(state) && !input.answer) throw new RuntimeControlError(400, 'answer_required', 'This execution is waiting for an answer to the architect\'s question')
       this.errors.delete(runId)
       this.statusCache.delete(runId)
       const startedAt = new Date().toISOString()
@@ -164,7 +180,7 @@ export class AgentRuntimeControls {
         if (this.disposed) return
         try { appendEvent(this.ctx.db, runId, ++sequence, { event_type: 'log', source, payload: JSON.stringify({ line: line.replace(/\n$/, '') }) }) } catch { /* events table best-effort */ }
       }
-      const requested = [...(input.approve?.length ? ['approve ' + input.approve.join(',')] : []), ...(input.recover?.length ? ['recover ' + input.recover.join(',')] : []), ...(input.invalidate?.length ? ['invalidate ' + input.invalidate.join(',')] : [])]
+      const requested = [...(input.approve?.length ? ['approve ' + input.approve.join(',')] : []), ...(input.recover?.length ? ['recover ' + input.recover.join(',')] : []), ...(input.invalidate?.length ? ['invalidate ' + input.invalidate.join(',')] : []), ...(input.answer ? ['answered question'] : [])]
       logLine(`[runtime] continuation started from phase ${state.nextStep ?? 'end'}${requested.length ? ' (' + requested.join('; ') + ')' : ''}; the original worktree and frozen scope are reused`)
       void this.dependencies.execute({
         contextPath: context.file, cwd: context.cwd, env: context.env, resume: true, ...input,

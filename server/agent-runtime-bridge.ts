@@ -51,6 +51,8 @@ export interface AgentRuntimeInvocationOptions {
   approve?: string[]
   recover?: string[]
   invalidate?: string[]
+  /** Answers the pending architect question on resume. */
+  answer?: string
   timeoutMs?: number
   onLine?: (line: string, source?: 'stdout' | 'stderr') => void
   onRawLine?: (line: string) => void
@@ -62,6 +64,7 @@ interface RuntimeResult {
   runId?: string
   status?: string
   error?: string
+  pendingQuestion?: { stepId?: string; question?: string }
   invocationUsage?: { costUsd?: number | null; inputTokens?: number | null; outputTokens?: number | null }
 }
 
@@ -78,6 +81,10 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
   if (!options.resume) args.push('--config', options.configPath!, '--change', options.change!)
   for (const [flag, values] of [['approve', options.approve], ['recover', options.recover], ['invalidate', options.invalidate]] as const) {
     if (values?.length) args.push('--' + flag, values.join(','))
+  }
+  if (options.answer !== undefined) {
+    if (!options.resume) throw new Error('Answers apply to runtime resume')
+    args.push('--answer', options.answer)
   }
   const started = Date.now()
   return new Promise<AiStepResult>((resolve) => {
@@ -120,6 +127,8 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         }
       } else if (event.type === 'verification-output' && typeof event.text === 'string') {
         observe(() => options.onLine?.(String(event.text)))
+      } else if (event.type === 'span') {
+        // Trace spans are telemetry; the raw line is already recorded for diagnostics.
       }
     })
     child.stderr?.on('data', (chunk: Buffer) => {
@@ -144,7 +153,9 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       const failed = code !== 0 || result?.status !== 'succeeded' || invalidProtocol || timedOut || Boolean(observerError)
       const errorText = observerError ?? (timedOut ? 'Programmatic workflow timed out; inspect its checkpoint before recovery'
         : invalidProtocol ? 'Core returned an invalid runtime event stream'
-        : result?.error ?? (result?.status === 'paused' ? 'Workflow awaits approval in Agent Runtime settings'
+        : result?.error ?? (result?.status === 'paused' ? (typeof result.pendingQuestion?.question === 'string' && result.pendingQuestion.question.trim()
+          ? `Workflow awaits an answer in Agent Runtime settings: ${result.pendingQuestion.question.trim().slice(0, 500)}`
+          : 'Workflow awaits approval in Agent Runtime settings')
         : failed ? stderr || 'Core exited without a successful programmatic workflow result' : undefined))
       resolve({
         text: summary || (failed ? errorText ?? '' : 'Programmatic implementation verified and archived.'),

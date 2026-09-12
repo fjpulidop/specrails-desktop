@@ -16,6 +16,25 @@ export interface AgentRuntimeConfig {
   limits?: { maxAttempts?: number; maxTokens?: number; maxCostUsd?: number; timeoutMs?: number }
   verification: RuntimeVerificationCommand[]
   approvalBeforeArchive?: boolean
+  review?: { minScore?: number; aspects?: Partial<Record<ReviewAspect, number>> }
+  architect?: { onLowConfidence?: ArchitectLowConfidencePolicy }
+}
+export const REVIEW_ASPECTS = ['type_correctness', 'pattern_adherence', 'test_coverage', 'security', 'architectural_alignment'] as const
+export type ReviewAspect = typeof REVIEW_ASPECTS[number]
+export const ARCHITECT_LOW_CONFIDENCE_POLICIES = ['ask', 'proceed'] as const
+export type ArchitectLowConfidencePolicy = typeof ARCHITECT_LOW_CONFIDENCE_POLICIES[number]
+/** Core's own review gate: configured thresholds may only tighten it, so the defaults are also the floors. */
+export const REVIEW_THRESHOLD_DEFAULTS: { minScore: number; aspects: Record<ReviewAspect, number> } = {
+  minScore: 70,
+  aspects: { type_correctness: 60, pattern_adherence: 60, test_coverage: 60, security: 75, architectural_alignment: 60 },
+}
+/** An architect question that pauses the run until the operator answers through resume. */
+export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
+export interface RuntimeRun {
+  runId: string; traceId?: string; status: string; nextStep: string | null; error?: string
+  pendingApproval?: { stepId: string; reason?: string }
+  pendingQuestion?: RuntimePendingQuestion
+  recoverableSteps: string[]; active: boolean; canResume: boolean; canCancel: boolean
 }
 export interface AgentRuntimeSettingsResponse {
   configured: boolean

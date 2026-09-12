@@ -96,11 +96,34 @@
       "cancelled": "Cancelado",
       "interrupted": "Interrompido",
       "unavailable": "Indisponível"
-    }
+    },
+    "question": "O arquiteto pergunta:",
+    "answerLabel": "A sua resposta",
+    "answerPlaceholder": "Responda à pergunta; o arquiteto continua com ela.",
+    "answer": "Responder e retomar"
   },
   "roleHints": {
     "architect": "Lê o código e escreve a proposta, o design, as tarefas e a spec. Só leitura.",
     "developer": "Implementa as tarefas com testes. Pode editar ficheiros e executar comandos na sandbox do CLI.",
     "reviewer": "Confere o resultado com a spec e a evidência de verificação. Só leitura."
+  },
+  "review": {
+    "title": "Limite de revisão",
+    "hint": "Campos vazios usam o limite do Core. Os valores só podem elevá-lo: pontuação geral de pelo menos {{score}}, segurança de pelo menos {{security}}, outros aspetos de pelo menos {{aspect}}.",
+    "minScore": "Pontuação geral mínima (padrão {{score}})",
+    "aspects": {
+      "type_correctness": "Correção de tipos (padrão {{score}})",
+      "pattern_adherence": "Aderência a padrões (padrão {{score}})",
+      "test_coverage": "Cobertura de testes (padrão {{score}})",
+      "security": "Segurança (padrão {{score}})",
+      "architectural_alignment": "Alinhamento arquitetural (padrão {{score}})"
+    }
+  },
+  "architect": {
+    "title": "Confiança do arquiteto",
+    "hint": "Após uma passagem de investigação autónoma, um design ainda com baixa confiança pausa com a pergunta do arquiteto ou prossegue com suposições declaradas.",
+    "onLowConfidence": "Com baixa confiança",
+    "ask": "Perguntar (pausar com a pergunta)",
+    "proceed": "Prosseguir com suposições declaradas"
   }
 }

@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 const scope = vi.hoisted(() => ({ bundled: null as string | null, source: 'bundled', error: null as string | null }))
 vi.mock('./core-runtime', () => ({ getCoreRuntimeStatus: () => ({ runtime: scope.bundled ? { root: scope.bundled, source: scope.source } : null, error: scope.error }) }))
 vi.mock('./path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath }))
-import { findCoreAgentRuntimeCli, findCoreAgentRuntimeEntry, loadCoreAgentRuntime } from './agent-runtime-loader'
+import { findCoreAgentRuntimeCli, findCoreAgentRuntimeEntry, loadCoreAgentRuntime, resetCoreAgentRuntimeApiCache } from './agent-runtime-loader'
 let root: string
-beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'runtime loader ')); vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', ''); vi.stubEnv('NODE_ENV', 'production') })
+beforeEach(() => { resetCoreAgentRuntimeApiCache(); root = mkdtempSync(join(tmpdir(), 'runtime loader ')); vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', ''); vi.stubEnv('NODE_ENV', 'production') })
 afterEach(() => { scope.bundled = null; scope.source = 'bundled'; scope.error = null; vi.restoreAllMocks(); vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true }) })
 function file(relative: string, content = '') { const target = join(root, relative); mkdirSync(dirname(target), { recursive: true }); writeFileSync(target, content); return target }
 it('finds and validates an explicit compatible API through ordinary Node with spaces', async () => {
@@ -20,6 +20,22 @@ it('finds and validates an explicit compatible API through ordinary Node with sp
   const api = await loadCoreAgentRuntime()
   expect(api.validateRuntimeConfig({ enabled: true })).toEqual({ enabled: true })
   expect(() => api.validateRuntimeConfig({ enabled: false })).toThrow()
+})
+it('probes the API once per CLI file revision while validating every configuration', async () => {
+  const entry = file('runtime/index.js')
+  vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', entry)
+  const probes = join(root, 'probes.log')
+  const cliSource = (version: number) => `const fs=require('node:fs');if(process.argv[2]==='api'){fs.appendFileSync(${JSON.stringify(probes)},'api\\n');console.log(JSON.stringify({type:'runtime-api',apiVersion:${version}}))}else{fs.appendFileSync(${JSON.stringify(probes)},'validate\\n');console.log(JSON.stringify({type:'runtime-config-valid'}))}`
+  const cli = file('runtime/cli.js', cliSource(1))
+  const count = (kind: string) => readFileSync(probes, 'utf8').split('\n').filter((line) => line === kind).length
+  ;(await loadCoreAgentRuntime()).validateRuntimeConfig({ enabled: true })
+  ;(await loadCoreAgentRuntime()).validateRuntimeConfig({ enabled: true })
+  expect(count('api')).toBe(1)
+  expect(count('validate')).toBe(2)
+  // A rebuilt CLI (new mtime) is probed again and can fail compatibility.
+  writeFileSync(cli, cliSource(0)); utimesSync(cli, new Date(Date.now() + 5000), new Date(Date.now() + 5000))
+  await expect(loadCoreAgentRuntime()).rejects.toThrow('expected version 1')
+  expect(count('api')).toBe(2)
 })
 it('does not replace a missing explicit installation with a sibling checkout', async () => {
   vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', join(root, 'missing.js'))

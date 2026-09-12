@@ -1,13 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { repositoryApiBase } from '../../lib/project-repositories'
+import type { RuntimeRun } from '../../lib/agent-runtime'
 import { Button } from '../ui/button'
-
-interface RuntimeRun {
-  runId: string; status: string; nextStep: string | null; error?: string
-  pendingApproval?: { stepId: string; reason?: string }
-  recoverableSteps: string[]; active: boolean; canResume: boolean; canCancel: boolean
-}
 
 /** Explicit continuation keeps frozen scope; it never starts a fresh delivery. */
 export function AgentRuntimeRuns({ projectId }: { projectId: string }) {
@@ -16,6 +11,7 @@ export function AgentRuntimeRuns({ projectId }: { projectId: string }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [revision, setRevision] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, string>>({})
   const mounted = useRef(true)
   const endpoint = `${repositoryApiBase(projectId)}/agent-runtime/runs`
   useEffect(() => {
@@ -36,10 +32,10 @@ export function AgentRuntimeRuns({ projectId }: { projectId: string }) {
     return () => { cancelled = true; mounted.current = false; clearTimeout(timer) }
   }, [endpoint, revision, t])
 
-  async function act(run: RuntimeRun, action: 'resume' | 'approve' | 'recover' | 'cancel') {
+  async function act(run: RuntimeRun, action: 'resume' | 'approve' | 'recover' | 'answer' | 'cancel') {
     setBusy(run.runId); setError('')
     try {
-      const body = action === 'approve' ? { approve: [run.pendingApproval!.stepId] } : action === 'recover' ? { recover: run.recoverableSteps } : {}
+      const body = action === 'approve' ? { approve: [run.pendingApproval!.stepId] } : action === 'recover' ? { recover: run.recoverableSteps } : action === 'answer' ? { answer: answers[run.runId]!.trim() } : {}
       const response = await fetch(`${endpoint}/${encodeURIComponent(run.runId)}/${action === 'cancel' ? 'cancel' : 'resume'}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })
@@ -47,7 +43,7 @@ export function AgentRuntimeRuns({ projectId }: { projectId: string }) {
         const data = await response.json() as { message?: string }
         throw new Error(data.message ?? t('runs.actionFailed'))
       }
-      if (mounted.current) setRevision((value) => value + 1)
+      if (mounted.current) { if (action === 'answer') setAnswers((value) => ({ ...value, [run.runId]: '' })); setRevision((value) => value + 1) }
     } catch (err) { if (mounted.current) setError(err instanceof Error ? err.message : t('runs.actionFailed')) }
     finally { if (mounted.current) setBusy(null) }
   }
@@ -62,8 +58,17 @@ export function AgentRuntimeRuns({ projectId }: { projectId: string }) {
       {run.nextStep && <p className="text-xs">{t('runs.phase', { phase: t(`roles.${run.nextStep}`, { defaultValue: run.nextStep }) })}</p>}
       {run.error && <p className="text-xs text-destructive">{run.error}</p>}
       {run.pendingApproval?.reason && <p className="text-xs text-muted-foreground">{run.pendingApproval.reason}</p>}
+      {run.pendingQuestion && <div className="space-y-2">
+        <p className="text-xs font-medium">{t('runs.question')}</p>
+        <p className="whitespace-pre-wrap text-xs">{run.pendingQuestion.question}</p>
+        {run.canResume && !run.recoverableSteps.length && <label className="block space-y-1 text-xs">{t('runs.answerLabel')}
+          <textarea className="min-h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-sm" maxLength={20000} placeholder={t('runs.answerPlaceholder')} value={answers[run.runId] ?? ''} onChange={(event) => setAnswers((value) => ({ ...value, [run.runId]: event.target.value }))} />
+        </label>}
+      </div>}
       <div className="flex flex-wrap gap-2">
-        {run.canResume && <Button size="sm" disabled={busy !== null} onClick={() => void act(run, run.recoverableSteps.length ? 'recover' : run.pendingApproval ? 'approve' : 'resume')}>{run.recoverableSteps.length ? t('runs.recover') : run.pendingApproval ? t('runs.approve') : t('runs.resume')}</Button>}
+        {run.canResume && (run.pendingQuestion && !run.recoverableSteps.length
+          ? <Button size="sm" disabled={busy !== null || !answers[run.runId]?.trim()} onClick={() => void act(run, 'answer')}>{t('runs.answer')}</Button>
+          : <Button size="sm" disabled={busy !== null} onClick={() => void act(run, run.recoverableSteps.length ? 'recover' : run.pendingApproval ? 'approve' : 'resume')}>{run.recoverableSteps.length ? t('runs.recover') : run.pendingApproval ? t('runs.approve') : t('runs.resume')}</Button>)}
         {run.canCancel && <Button size="sm" variant="secondary" disabled={busy !== null} onClick={() => void act(run, 'cancel')}>{t('runs.cancel')}</Button>}
       </div>
     </div>)}

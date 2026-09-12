@@ -96,11 +96,34 @@
       "cancelled": "Abgebrochen",
       "interrupted": "Unterbrochen",
       "unavailable": "Nicht verfügbar"
-    }
+    },
+    "question": "Der Architekt fragt:",
+    "answerLabel": "Ihre Antwort",
+    "answerPlaceholder": "Beantworten Sie die Frage; der Architekt macht damit weiter.",
+    "answer": "Antworten und fortsetzen"
   },
   "roleHints": {
     "architect": "Liest den Code und schreibt Vorschlag, Design, Aufgaben und Spezifikation. Nur lesend.",
     "developer": "Setzt die Aufgaben mit Tests um. Darf Dateien bearbeiten und Befehle in der CLI-Sandbox ausführen.",
     "reviewer": "Prüft das Ergebnis gegen Spezifikation und Verifikationsnachweise. Nur lesend."
+  },
+  "review": {
+    "title": "Review-Schwelle",
+    "hint": "Leere Felder verwenden Cores Schwelle. Werte können sie nur anheben: Gesamtwert mindestens {{score}}, Sicherheit mindestens {{security}}, andere Aspekte mindestens {{aspect}}.",
+    "minScore": "Mindestgesamtwert (Standard {{score}})",
+    "aspects": {
+      "type_correctness": "Typkorrektheit (Standard {{score}})",
+      "pattern_adherence": "Mustertreue (Standard {{score}})",
+      "test_coverage": "Testabdeckung (Standard {{score}})",
+      "security": "Sicherheit (Standard {{score}})",
+      "architectural_alignment": "Architekturkonformität (Standard {{score}})"
+    }
+  },
+  "architect": {
+    "title": "Zuversicht des Architekten",
+    "hint": "Nach einem autonomen Untersuchungsdurchlauf pausiert ein weiterhin unsicherer Entwurf mit der Frage des Architekten oder fährt mit benannten Annahmen fort.",
+    "onLowConfidence": "Bei geringer Zuversicht",
+    "ask": "Fragen (mit der Frage pausieren)",
+    "proceed": "Mit benannten Annahmen fortfahren"
   }
 }

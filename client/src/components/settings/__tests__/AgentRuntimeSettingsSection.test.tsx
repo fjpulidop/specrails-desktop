@@ -178,6 +178,42 @@ describe('AgentRuntimeSettingsSection', () => {
     expect(screen.getByLabelText('Use the agent runtime for implementation')).toBeChecked()
   })
 
+  it('saves tightened review thresholds and the architect policy, omitting empty fields so Core defaults apply', async () => {
+    const user = userEvent.setup()
+    mockServer({ configured: true, config: { ...defaults(), review: { minScore: 80, aspects: { security: 90 } }, architect: { onLowConfidence: 'proceed' } } })
+    render(<AgentRuntimeSettingsSection />)
+    const minScore = await screen.findByLabelText('Minimum overall score (default 70)')
+    expect(minScore).toHaveValue(80)
+    expect(minScore).toHaveAttribute('min', '70')
+    expect(minScore).toHaveAttribute('placeholder', '70')
+    expect(screen.getByLabelText('Security (default 75)')).toHaveValue(90)
+    expect(screen.getByLabelText('Test coverage (default 60)')).toHaveAttribute('placeholder', '60')
+    expect(screen.getByText(/security at least 75, other aspects at least 60/)).toBeInTheDocument()
+    expect(screen.getByLabelText('On low confidence')).toHaveValue('proceed')
+    await user.clear(screen.getByLabelText('Security (default 75)'))
+    await user.type(screen.getByLabelText('Type correctness (default 60)'), '65')
+    await user.selectOptions(screen.getByLabelText('On low confidence'), '')
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await screen.findByText('Runtime settings saved')
+    let saved = putBodies().at(-1)!
+    expect(saved.review).toEqual({ minScore: 80, aspects: { type_correctness: 65 } })
+    expect(saved).not.toHaveProperty('architect')
+    await user.clear(minScore)
+    await user.clear(screen.getByLabelText('Type correctness (default 60)'))
+    await user.selectOptions(screen.getByLabelText('On low confidence'), 'ask')
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await screen.findByText('Runtime settings saved')
+    saved = putBodies().at(-1)!
+    expect(saved).not.toHaveProperty('review')
+    expect(saved.architect).toEqual({ onLowConfidence: 'ask' })
+    // A server-side floor violation is reported without losing the draft.
+    await user.type(minScore, '65')
+    vi.mocked(fetch).mockResolvedValueOnce(response({ error: 'invalid_runtime_config', message: "Review threshold review.minScore must be at least 70 (Core's own review gate)" }, false))
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('must be at least 70')
+    expect(minScore).toHaveValue(65)
+  })
+
   it('round-trips command lines with quoted arguments', () => {
     expect(formatVerificationCommand({ command: 'npm', args: ['run', 'test', '--', 'a b'] })).toBe('npm run test -- "a b"')
     expect(parseVerificationCommand('npm run test -- "a b"')).toEqual({ command: 'npm', args: ['run', 'test', '--', 'a b'] })

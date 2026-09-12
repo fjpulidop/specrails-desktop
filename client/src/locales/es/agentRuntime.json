@@ -96,11 +96,34 @@
       "cancelled": "Cancelado",
       "interrupted": "Interrumpido",
       "unavailable": "No disponible"
-    }
+    },
+    "question": "El arquitecto pregunta:",
+    "answerLabel": "Tu respuesta",
+    "answerPlaceholder": "Responde a la pregunta; el arquitecto continúa con ella.",
+    "answer": "Responder y reanudar"
   },
   "roleHints": {
     "architect": "Lee el código y escribe la propuesta, el diseño, las tareas y la spec. Solo lectura.",
     "developer": "Implementa las tareas con tests. Puede editar archivos y ejecutar comandos dentro del sandbox del CLI.",
     "reviewer": "Comprueba el resultado contra la spec y la evidencia de verificación. Solo lectura."
+  },
+  "review": {
+    "title": "Umbral de revisión",
+    "hint": "Los campos vacíos usan el umbral de Core. Los valores solo pueden elevarlo: puntuación global mínima {{score}}, seguridad mínima {{security}}, resto de aspectos mínimo {{aspect}}.",
+    "minScore": "Puntuación global mínima (por defecto {{score}})",
+    "aspects": {
+      "type_correctness": "Corrección de tipos (por defecto {{score}})",
+      "pattern_adherence": "Adhesión a patrones (por defecto {{score}})",
+      "test_coverage": "Cobertura de pruebas (por defecto {{score}})",
+      "security": "Seguridad (por defecto {{score}})",
+      "architectural_alignment": "Alineación arquitectónica (por defecto {{score}})"
+    }
+  },
+  "architect": {
+    "title": "Confianza del arquitecto",
+    "hint": "Tras una pasada de investigación autónoma, un diseño con confianza aún baja se pausa con la pregunta del arquitecto o continúa con supuestos declarados.",
+    "onLowConfidence": "Con confianza baja",
+    "ask": "Preguntar (pausar con la pregunta)",
+    "proceed": "Continuar con supuestos declarados"
   }
 }

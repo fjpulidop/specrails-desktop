@@ -16,6 +16,14 @@ export interface RuntimeConfig {
   limits?: { maxAttempts?: number; maxTokens?: number; maxCostUsd?: number; timeoutMs?: number }
   verification: Array<{ repositoryId: string; command: string; args: string[]; cwd?: string; env?: Record<string, string>; timeoutMs?: number }>
   approvalBeforeArchive?: boolean
+  review?: { minScore?: number; aspects?: Partial<Record<ReviewAspect, number>> }
+  architect?: { onLowConfidence?: 'ask' | 'proceed' }
+}
+export type ReviewAspect = 'type_correctness' | 'pattern_adherence' | 'test_coverage' | 'security' | 'architectural_alignment'
+/** Core's own review gate. Configured thresholds may only tighten it (mirrors Core's config.ts). */
+export const REVIEW_THRESHOLD_FLOORS: { minScore: number; aspects: Record<ReviewAspect, number> } = {
+  minScore: 70,
+  aspects: { type_correctness: 60, pattern_adherence: 60, test_coverage: 60, security: 75, architectural_alignment: 60 },
 }
 export interface RuntimeConfigProject { path: string; slug?: string; provider?: string }
 const CLI_PROVIDERS: RuntimeCli[] = ['claude', 'codex', 'gemini', 'kimi']
@@ -59,6 +67,10 @@ export function validateAgentRuntimeConfig(input: unknown): RuntimeConfig {
       if (/(?:token|secret|password|api_?key|credential)/i.test(key)) throw new AgentRuntimeConfigError('Verification credentials must be inherited from environment variables, never saved')
       if (value.includes('\0')) throw new AgentRuntimeConfigError('Verification environment contains an invalid value')
     }
+  }
+  if (config.review?.minScore !== undefined && config.review.minScore < REVIEW_THRESHOLD_FLOORS.minScore) throw new AgentRuntimeConfigError(`Review threshold review.minScore must be at least ${REVIEW_THRESHOLD_FLOORS.minScore} (Core's own review gate)`)
+  for (const [aspect, value] of Object.entries(config.review?.aspects ?? {}) as Array<[ReviewAspect, number]>) {
+    if (value < REVIEW_THRESHOLD_FLOORS.aspects[aspect]) throw new AgentRuntimeConfigError(`Review threshold review.aspects.${aspect} must be at least ${REVIEW_THRESHOLD_FLOORS.aspects[aspect]} (Core's own review gate)`)
   }
   return structuredClone(config)
 }

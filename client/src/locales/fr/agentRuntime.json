@@ -96,11 +96,34 @@
       "cancelled": "Annulé",
       "interrupted": "Interrompu",
       "unavailable": "Indisponible"
-    }
+    },
+    "question": "L'architecte demande :",
+    "answerLabel": "Votre réponse",
+    "answerPlaceholder": "Répondez à la question ; l'architecte poursuit avec elle.",
+    "answer": "Répondre et reprendre"
   },
   "roleHints": {
     "architect": "Lit le code et rédige la proposition, la conception, les tâches et la spec. Lecture seule.",
     "developer": "Implémente les tâches avec des tests. Peut modifier des fichiers et exécuter des commandes dans le bac à sable du CLI.",
     "reviewer": "Vérifie le résultat par rapport à la spec et aux preuves de vérification. Lecture seule."
+  },
+  "review": {
+    "title": "Seuil de revue",
+    "hint": "Les champs vides utilisent le seuil de Core. Les valeurs ne peuvent que le relever : score global d'au moins {{score}}, sécurité d'au moins {{security}}, autres aspects d'au moins {{aspect}}.",
+    "minScore": "Score global minimal (par défaut {{score}})",
+    "aspects": {
+      "type_correctness": "Exactitude des types (par défaut {{score}})",
+      "pattern_adherence": "Respect des patrons (par défaut {{score}})",
+      "test_coverage": "Couverture de tests (par défaut {{score}})",
+      "security": "Sécurité (par défaut {{score}})",
+      "architectural_alignment": "Alignement architectural (par défaut {{score}})"
+    }
+  },
+  "architect": {
+    "title": "Confiance de l'architecte",
+    "hint": "Après une passe d'investigation autonome, une conception encore peu sûre se met en pause avec la question de l'architecte ou continue sur des hypothèses explicites.",
+    "onLowConfidence": "En cas de faible confiance",
+    "ask": "Demander (pause avec la question)",
+    "proceed": "Continuer sur des hypothèses explicites"
   }
 }

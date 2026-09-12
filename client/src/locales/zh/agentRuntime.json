@@ -96,11 +96,34 @@
       "cancelled": "已取消",
       "interrupted": "已中断",
       "unavailable": "不可用"
-    }
+    },
+    "question": "架构师提问:",
+    "answerLabel": "你的回答",
+    "answerPlaceholder": "回答该问题后,架构师将据此继续。",
+    "answer": "回答并继续"
   },
   "roleHints": {
     "architect": "阅读代码并撰写提案、设计、任务和规范。只读。",
     "developer": "带测试地实现任务。可在 CLI 沙箱内编辑文件并运行命令。",
     "reviewer": "对照规范和验证证据检查结果。只读。"
+  },
+  "review": {
+    "title": "评审门槛",
+    "hint": "留空则使用 Core 的门槛。数值只能提高门槛:总体分数至少 {{score}},安全性至少 {{security}},其他方面至少 {{aspect}}。",
+    "minScore": "最低总体分数(默认 {{score}})",
+    "aspects": {
+      "type_correctness": "类型正确性(默认 {{score}})",
+      "pattern_adherence": "模式遵循(默认 {{score}})",
+      "test_coverage": "测试覆盖率(默认 {{score}})",
+      "security": "安全性(默认 {{score}})",
+      "architectural_alignment": "架构一致性(默认 {{score}})"
+    }
+  },
+  "architect": {
+    "title": "架构师置信度",
+    "hint": "经过一轮自主调查后,若设计的置信度仍然较低,则带着架构师的问题暂停,或基于已声明的假设继续。",
+    "onLowConfidence": "置信度低时",
+    "ask": "询问(带问题暂停)",
+    "proceed": "基于已声明的假设继续"
   }
 }

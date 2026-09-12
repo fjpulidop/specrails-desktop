@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
@@ -39,6 +39,11 @@ export function findCoreAgentRuntimeEntry(): string | null {
   return null
 }
 
+/** The api probe is stable for a given CLI file; repeated settings saves need not respawn it.
+ * Validation stays uncached because its answer depends on the submitted configuration. */
+const apiProbeCache = new Map<string, { mtimeMs: number; size: number }>()
+export function resetCoreAgentRuntimeApiCache(): void { apiProbeCache.clear() }
+
 export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
   const cli = findCoreAgentRuntimeCli()
   if (!cli) throw new Error('Programmatic agent runtime is unavailable. Build or bundle a compatible specrails-core release.')
@@ -49,9 +54,14 @@ export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
     cwd: dirname(cli), env: windowsSpawnEnv(process.env), input, encoding: 'utf8',
     timeout: 15_000, maxBuffer: 2 * 1024 * 1024, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
   })
-  const api = JSON.parse(invoke(['api'])) as { type?: string; apiVersion?: number }
-  if (api.type !== 'runtime-api' || api.apiVersion !== 1) {
-    throw new Error('Incompatible Core agent runtime API; expected version 1. Update the paired Core bundle.')
+  const stat = statSync(cli)
+  const cached = apiProbeCache.get(cli)
+  if (!cached || cached.mtimeMs !== stat.mtimeMs || cached.size !== stat.size) {
+    const api = JSON.parse(invoke(['api'])) as { type?: string; apiVersion?: number }
+    if (api.type !== 'runtime-api' || api.apiVersion !== 1) {
+      throw new Error('Incompatible Core agent runtime API; expected version 1. Update the paired Core bundle.')
+    }
+    apiProbeCache.set(cli, { mtimeMs: stat.mtimeMs, size: stat.size })
   }
   return {
     RUNTIME_API_VERSION: 1,

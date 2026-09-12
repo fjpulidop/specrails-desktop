@@ -118,6 +118,12 @@ describe('runtime project configuration', () => {
     ['NUL argument', (c: any) => { c.verification = [{ repositoryId: 'primary', command: 'npm', args: ['\0'] }] }],
     ['saved verification secret', (c: any) => { c.verification = [{ repositoryId: 'primary', command: 'npm', args: [], env: { API_KEY: 'sensitive-submitted-value' } }] }],
     ['NUL environment', (c: any) => { c.verification = [{ repositoryId: 'primary', command: 'npm', args: [], env: { CI: '\0' } }] }],
+    ['loosened review score', (c: any) => { c.review = { minScore: 69 } }],
+    ['loosened security aspect', (c: any) => { c.review = { aspects: { security: 74 } } }],
+    ['loosened coverage aspect', (c: any) => { c.review = { aspects: { test_coverage: 59.5 } } }],
+    ['review score above 100', (c: any) => { c.review = { minScore: 101 } }],
+    ['unknown review aspect', (c: any) => { c.review = { aspects: { vibes: 90 } } }],
+    ['unknown low-confidence policy', (c: any) => { c.architect = { onLowConfidence: 'guess' } }],
   ])('rejects %s and preserves the last valid file', async (_name, mutate) => {
     saveAgentRuntimeConfig(project(), config())
     const before = fs.readFileSync(agentRuntimeConfigPath(project()), 'utf8')
@@ -146,6 +152,16 @@ describe('runtime project configuration', () => {
     await request(app).get(url).expect(422).expect(({ body }) => expect(body.message).not.toContain('sensitive-submitted-value'))
     fs.unlinkSync(file); fs.mkdirSync(file)
     await request(app).get(url).expect(500).expect(({ body }) => expect(body.error).toBe('runtime_config_read_failed'))
+  })
+
+  it('accepts review thresholds that tighten Core\'s gate and the architect low-confidence policy', async () => {
+    const payload: RuntimeConfig = { ...config(), review: { minScore: 70, aspects: { security: 75, type_correctness: 60, pattern_adherence: 80, test_coverage: 60, architectural_alignment: 100 } }, architect: { onLowConfidence: 'proceed' } }
+    const response = await request(app).put(url).send(payload).expect(200)
+    expect(response.body.config).toEqual(payload)
+    expect(loadAgentRuntimeConfig(project())).toEqual(payload)
+    expect(validateAgentRuntimeConfig({ ...config(), review: {}, architect: {} })).toMatchObject({ review: {}, architect: {} })
+    expect(() => validateAgentRuntimeConfig({ ...config(), review: { minScore: 69.9 } })).toThrow('review.minScore must be at least 70 (Core\'s own review gate)')
+    expect(() => validateAgentRuntimeConfig({ ...config(), review: { aspects: { security: 70 } } })).toThrow('review.aspects.security must be at least 75')
   })
 
   it('returns isolated validated config values and rejects nonobjects', () => {

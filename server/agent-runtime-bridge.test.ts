@@ -53,6 +53,15 @@ describe('Core process bridge', () => {
     const result = await runAgentRuntimeInvocation({ ...options(), resume: true, approve: ['archive'], recover: ['developer'], invalidate: ['verify'] })
     expect(result.failed).toBe(false)
   })
+  it('passes an answer verbatim on resume only and tolerates trace spans in the event stream', async () => {
+    script(`const i=process.argv.indexOf('--answer'); if(!process.argv.includes('resume')||i<0||process.argv[i+1]!=='Use Redis, keep the schema')process.exit(7); console.log(JSON.stringify({type:'span',span:{traceId:'t1',spanId:'s1',name:'architect',stepId:'architect',attempt:1,visit:2,startedAt:'a',endedAt:'b',status:'ok'}})); console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    const onLine = vi.fn(), onRawLine = vi.fn()
+    const result = await runAgentRuntimeInvocation({ ...options(), resume: true, answer: 'Use Redis, keep the schema', onLine, onRawLine })
+    expect(result.failed).toBe(false)
+    expect(onRawLine).toHaveBeenCalledTimes(2)
+    expect(onLine).not.toHaveBeenCalled()
+    await expect(runAgentRuntimeInvocation({ ...options(), answer: 'no run yet' })).rejects.toThrow('Answers apply to runtime resume')
+  })
   it.each([
     ['missing result', ''],
     ['nonzero exit', `console.log(JSON.stringify(${JSON.stringify(final())}));process.exitCode=4;`],
@@ -65,9 +74,13 @@ describe('Core process bridge', () => {
     script(code)
     expect((await runAgentRuntimeInvocation(options())).failed).toBe(true)
   })
-  it('exposes pending approval without claiming success', async () => {
+  it('exposes pending approval or the architect question without claiming success', async () => {
     script(`console.log(JSON.stringify(${JSON.stringify(final('paused'))}));process.exitCode=2;`)
     expect(await runAgentRuntimeInvocation(options())).toMatchObject({ failed: true, errorText: expect.stringContaining('approval') })
+    script(`console.log(JSON.stringify(${JSON.stringify(final('paused', { pendingQuestion: { stepId: 'architect', question: '  Which cache backend?  ' } }))}));process.exitCode=2;`)
+    expect(await runAgentRuntimeInvocation(options())).toMatchObject({ failed: true, errorText: 'Workflow awaits an answer in Agent Runtime settings: Which cache backend?' })
+    script(`console.log(JSON.stringify(${JSON.stringify(final('paused', { pendingQuestion: { stepId: 'architect', question: '' } }))}));process.exitCode=2;`)
+    expect((await runAgentRuntimeInvocation(options())).errorText).toContain('approval')
   })
   it('terminates a hung child and retains recovery metadata', async () => {
     script('setInterval(()=>{},1000)')
