@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.46.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.45.0...v2.46.0) (2026-09-13)
+
+
+### Features
+
+* **runtime:** unify implementation recovery, logs and global agent settings ([#660](https://github.com/fjpulidop/specrails-desktop/issues/660)) ([d8d8597](https://github.com/fjpulidop/specrails-desktop/commit/d8d8597ab0e440efe3a012e6ae8a449c467023f4))
+
 ## [2.45.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.44.2...v2.45.0) (2026-09-12)
 
 
