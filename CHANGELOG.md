@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.47.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.46.0...v2.47.0) (2026-09-13)
+
+
+### Features
+
+* **runtime:** efficiency controls and durable execution evidence ([#662](https://github.com/fjpulidop/specrails-desktop/issues/662)) ([6fed082](https://github.com/fjpulidop/specrails-desktop/commit/6fed082f7944b40bb021e7632064e7f54c7d30de))
+
 ## [2.46.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.45.0...v2.46.0) (2026-09-13)
 
 
