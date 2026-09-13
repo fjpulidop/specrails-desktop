@@ -9,14 +9,32 @@ import { resolveProjectExecution } from './workspace-resolution'
 export type RuntimeRole = 'architect' | 'developer' | 'reviewer'
 export type RuntimeCli = 'claude' | 'codex' | 'gemini' | 'kimi'
 export type RuntimeProvider = { id: string; kind: 'cli'; cli: RuntimeCli } | { id: string; kind: 'openai-compatible'; baseUrl: string; apiKeyEnv?: string }
+export interface RuntimeEfficiencyPolicy {
+  schemaVersion: 1
+  contextMode?: 'full' | 'incremental'
+  reviewMode?: 'full' | 'incremental'
+  planning?: 'full' | 'proportional'
+  acceptDeveloperChecks?: boolean
+  verification?: { maxConcurrency?: number }
+}
+export interface RuntimeCheckPolicy {
+  reuse?: 'never' | 'snapshot-local'
+  inputs?: string[]
+  deterministic?: boolean
+  readOnly?: boolean
+  toolchainInputs?: string[]
+  independentGroup?: string
+  resources?: string[]
+}
 export interface RuntimeConfig {
+  efficiency?: RuntimeEfficiencyPolicy
   schemaVersion: 1
   rolePrompts?: Partial<Record<RuntimeRole, string>>
   enabled: boolean
   providers: RuntimeProvider[]
-  agents: Record<RuntimeRole, { provider: string; model?: string; maxTurns?: number }>
+  agents: Record<RuntimeRole, { provider: string; model?: string; maxTurns?: number; effort?: string; escalation?: { model: string; effort?: string } }>
   limits?: { maxAttempts?: number; maxTokens?: number; maxCostUsd?: number; timeoutMs?: number }
-  verification: Array<{ repositoryId: string; command: string; args: string[]; cwd?: string; env?: Record<string, string>; timeoutMs?: number }>
+  verification: Array<{ key?: string; label?: string; policy?: RuntimeCheckPolicy; repositoryId: string; command: string; args: string[]; cwd?: string; env?: Record<string, string>; timeoutMs?: number }>
   approvalBeforeArchive?: boolean
   review?: { minScore?: number; aspects?: Partial<Record<ReviewAspect, number>> }
   architect?: { onLowConfidence?: 'ask' | 'proceed' }
@@ -58,12 +76,17 @@ export function validateAgentRuntimeConfig(input: unknown): RuntimeConfig {
     if (!provider) throw new AgentRuntimeConfigError(`Role ${role} references a provider that is not configured`)
     if (provider.kind === 'openai-compatible' && !agent.model) throw new AgentRuntimeConfigError(`Role ${role} requires a model for its API provider`)
     if (agent.model !== undefined && !agent.model.trim()) throw new AgentRuntimeConfigError(`Role ${role} requires a nonempty model identifier`)
+    for (const value of [agent.model, agent.effort, agent.escalation?.model, agent.escalation?.effort]) if (value !== undefined && (!value.trim() || value.includes('\0'))) throw new AgentRuntimeConfigError(`Role ${role} has an invalid model or effort`)
+    if (agent.escalation && (!agent.model || (agent.escalation.model === agent.model && agent.escalation.effort === agent.effort))) throw new AgentRuntimeConfigError(`Role ${role} escalation requires an explicit base and a different model or effort`)
     if (agent.maxTurns !== undefined && !Number.isSafeInteger(agent.maxTurns)) throw new AgentRuntimeConfigError(`Role ${role} maxTurns must be a safe integer`)
   }
   for (const [key, value] of Object.entries(config.limits ?? {})) {
     if (!Number.isFinite(value) || (key !== 'maxCostUsd' && !Number.isSafeInteger(value))) throw new AgentRuntimeConfigError('Workflow limits must be finite, safe numbers')
   }
+  const keys = config.verification.flatMap(command => command.key ? [command.key] : [])
+  if (new Set(keys).size !== keys.length) throw new AgentRuntimeConfigError('Verification check keys must be unique')
   for (const command of config.verification) {
+    for (const value of [command.label, ...(command.policy?.inputs ?? []), ...(command.policy?.toolchainInputs ?? []), ...(command.policy?.resources ?? [])]) if (value !== undefined && (!value.trim() || value.includes('\0'))) throw new AgentRuntimeConfigError('Invalid verification label or policy input')
     if (![command.command, ...command.args, ...(command.cwd === undefined ? [] : [command.cwd])].every((value) => !value.includes('\0')) || !command.command.trim() || (command.cwd !== undefined && !command.cwd.trim())) throw new AgentRuntimeConfigError('Verification command contains an empty or invalid value')
     if (command.timeoutMs !== undefined && !Number.isSafeInteger(command.timeoutMs)) throw new AgentRuntimeConfigError('Verification timeout must be a safe integer')
     for (const [key, value] of Object.entries(command.env ?? {})) {
@@ -195,4 +218,16 @@ export function saveRuntimeRolePrompts(input: unknown): Partial<Record<RuntimeRo
   const prompts = validateRuntimeRolePrompts(input)
   atomicJson(path.join(os.homedir(), '.specrails', 'runtime-role-prompts.json'), prompts)
   return prompts
+}
+
+
+export interface RuntimeProviderOverride { provider: string; model?: string; effort?: string }
+export function validateRuntimeProviderOverride(value: unknown): RuntimeProviderOverride | undefined {
+  if (value === undefined) return undefined
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AgentRuntimeConfigError('Invalid runtime provider override')
+  const raw = value as Record<string, unknown>
+  if (Object.keys(raw).some(key => !['provider', 'model', 'effort'].includes(key)) || typeof raw.provider !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(raw.provider)) throw new AgentRuntimeConfigError('Invalid runtime provider override provider')
+  if (raw.model !== undefined && (typeof raw.model !== 'string' || !raw.model.trim() || raw.model.length > 256 || /^-|[\r\n\0]/.test(raw.model))) throw new AgentRuntimeConfigError('Invalid runtime provider override model')
+  if (raw.effort !== undefined && (typeof raw.effort !== 'string' || !/^[a-z][a-z0-9_-]{0,31}$/.test(raw.effort))) throw new AgentRuntimeConfigError('Invalid runtime provider override effort')
+  return structuredClone(raw) as unknown as RuntimeProviderOverride
 }

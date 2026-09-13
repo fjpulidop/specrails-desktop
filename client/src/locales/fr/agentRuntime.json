@@ -73,7 +73,10 @@
     "reason": "Détecté depuis {{reason}}",
     "remove": "Retirer",
     "add": "Ajouter une commande",
-    "invalidLine": "Commande de vérification vide ou guillemet non fermé : {{line}}"
+    "invalidLine": "Commande de vérification vide ou guillemet non fermé : {{line}}",
+    "label": "Libellé du contrôle (facultatif)",
+    "moveUp": "Monter",
+    "moveDown": "Descendre"
   },
   "runs": {
     "title": "Exécutions enregistrées",
@@ -163,5 +166,81 @@
     "unsaved": "Modifications non enregistrées",
     "discard": "Annuler les modifications",
     "save": "Enregistrer les prompts"
+  },
+  "efficiency": {
+    "title": "Efficacité de l’implémentation",
+    "scope": "S’applique aux nouvelles exécutions. Les exécutions enregistrées conservent leur configuration et leur moteur.",
+    "effort": "Effort de raisonnement",
+    "providerDefault": "Valeur du fournisseur",
+    "unconfirmed": "Non confirmé",
+    "unknownSupport": "La prise en charge de ce modèle et de ce transport reste à confirmer.",
+    "escalation": "Autoriser un niveau supérieur avec le même fournisseur",
+    "baseRequired": "Sélectionnez d’abord un modèle de base explicite.",
+    "escalationModel": "Modèle supérieur",
+    "triggers": {
+      "architect": "Seule l’investigation approfondie existante peut sélectionner ce niveau.",
+      "developer": "Après deux candidats en échec, la prochaine tentative autorisée peut sélectionner ce niveau.",
+      "reviewer": "Uniquement pour réparer une réponse mal formée, jamais pour un refus du code."
+    },
+    "contextMode": "Contexte du dépôt",
+    "reviewMode": "Revue des corrections",
+    "planning": "Profondeur de planification",
+    "adaptive": "Adaptatif",
+    "full": "Complet",
+    "developerChecks": "Accepter les contrôles supplémentaires proposés par le développeur",
+    "concurrency": "Contrôles simultanés maximum",
+    "concurrencyHint": "Par défaut : 1. Seuls les contrôles indépendants déclarés par l’hôte dans différents dépôts peuvent s’exécuter ensemble. Aucune réutilisation par défaut.",
+    "checkCapabilities": "Vérifier la compatibilité des modèles",
+    "capabilitiesFailed": "Compatibilité non confirmée. Mettez à jour Core ou conservez les valeurs du fournisseur."
+  },
+  "evidence": {
+    "title": "Preuves de vérification",
+    "acceptance": "Acceptation technique",
+    "acceptanceStatus": {
+      "pending": "En attente",
+      "validated": "Validé",
+      "with-exceptions": "Avec exceptions",
+      "blocked": "Bloqué"
+    },
+    "calls": "Appels aux agents",
+    "executed": "Contrôles exécutés",
+    "reused": "Contrôles réutilisés",
+    "unknown": "Indisponible",
+    "unavailable": "Preuves indisponibles. Le résultat enregistré ne prouve pas la validité actuelle.",
+    "current": "Candidat et plan actuels",
+    "historical": "Résultat historique",
+    "moreChecks": "Plus de contrôles",
+    "output": "Sortie de vérification",
+    "empty": "Aucune sortie",
+    "truncated": "Page limitée ou capture tronquée.",
+    "nextPage": "Page de sortie suivante",
+    "status": {
+      "passed": "Réussi",
+      "failed": "Échec",
+      "cancelled": "Annulé",
+      "interrupted": "Interrompu"
+    },
+    "disposition": {
+      "executed": "Exécuté",
+      "reused": "Réutilisé",
+      "not-run": "Non exécuté"
+    },
+    "origin": "Origine",
+    "origins": {
+      "host": "Hôte",
+      "architect": "Architecte",
+      "developer": "Développeur",
+      "frozen-runtime-config": "Configuration enregistrée",
+      "project-role": "Rôle du projet",
+      "default": "Par défaut",
+      "explicit-launch-override": "Fournisseur choisi pour le lancement"
+    },
+    "reuseDisabled": "Réutilisation désactivée pour ce contrôle.",
+    "reuseConfirmed": "Réutilisé après confirmation des entrées et outils identiques.",
+    "inputsChanged": "Entrées modifiées pendant la vérification ; résultat invalidé.",
+    "reuseUnproven": "Aucun résultat actuel avec des entrées identiques prouvées ; contrôle relancé.",
+    "original": "Exécution originale",
+    "requested": "Demandé",
+    "reported": "Rapporté"
   }
 }

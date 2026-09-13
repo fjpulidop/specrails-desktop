@@ -175,6 +175,6 @@
     "noProfile": "Sin perfil",
     "modelTitle": "Modelo para este rail Freestyle",
     "loopModelTitle": "Modelo para este loop",
-    "engineTitle": "Motor de IA para este rail"
+    "engineTitle": "Proveedor de IA para todos los roles de este lanzamiento: arquitecto, desarrollador y revisor"
   }
 }

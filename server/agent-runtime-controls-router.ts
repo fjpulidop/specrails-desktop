@@ -40,7 +40,11 @@ export function registerAgentRuntimeControlRoutes({ router, ctx }: Pick<ProjectR
       res.json({ runs: hasAgentRuntimeRequest(context.project, runId) ? [await controls(req).summary(runId)] : [] })
     } catch { res.status(500).json({ error: 'runtime_status_failed' }) }
   })
-  router.post('/:projectId/agent-runtime/runs/:runId/resume', async (req, res) => {
+  router.get('/:projectId/agent-runtime/runs/:runId/evidence', async (req, res) => {
+    try { res.json(await controls(req).evidence(String(req.params.runId), req.query)) }
+    catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 503).json({ error: 'evidence_unavailable', message: error instanceof RuntimeControlError ? error.message : 'The original runtime evidence is unavailable' }) }
+  })
+  router.post('/:projectId/agent-runtime/runs/:runId/resume' , async (req, res) => {
     try { await controls(req).resume(String(req.params.runId), validateRuntimeResumeInput(req.body)); res.status(202).json({ accepted: true }) }
     catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 500).json({ error: error instanceof RuntimeControlError ? error.code : 'runtime_resume_failed', message: error instanceof RuntimeControlError ? error.message : 'Could not resume runtime execution' }) }
   })

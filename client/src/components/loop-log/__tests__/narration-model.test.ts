@@ -695,3 +695,16 @@ describe('buildNarration — Specrails Core agent runtime', () => {
    expect(model.milestones.map(item => item.values.repository)).toEqual(['Front', 'Back'])
    expect(model.milestones[0].values.repeats).toBe(2)
  })
+
+
+describe('runtime check activity', () => {
+  it('separates repository IDs and deduplicates replay without changing workflow outcomes', () => {
+    const check = (id: string, repositoryId: string, kind: string, exitCode = 0) => ev('runtime-efficiency-event', { schemaVersion: 1, eventId: id, kind, payload: { repositoryId, label: 'Tests', exitCode } })
+    const events = [check('one', 'front-a', 'check-started'), check('two', 'front-b', 'check-finished', 1), check('three', 'front-a', 'check-reused')]
+    const result = buildNarration({ events: [...events, ...events], settled: false })
+    expect(codes(result.milestones)).toEqual(['activity.check.started', 'activity.check.failed', 'activity.check.reused'])
+    expect(result.milestones.map(item => item.values.repository)).toEqual(['front-a', 'front-b', 'front-a'])
+    expect(result.milestones.every(item => item.kind === 'activity')).toBe(true)
+    expect(result.stepCount).toBe(0)
+  })
+})

@@ -9,7 +9,7 @@ import { agentRuntimeConfigPath, defaultAgentRuntimeConfig, loadAgentRuntimeConf
 
 const loader = vi.hoisted(() => ({ entry: 'runtime/index.js' as string | null, validate: vi.fn((input: unknown) => input), loadFailure: false }))
 const layout = vi.hoisted(() => ({ suffix: '.specrails' }))
-vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeEntry: () => loader.entry, loadCoreAgentRuntime: async () => {
+vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeEntry: () => loader.entry, loadCoreAgentRuntime: async () => {
   if (loader.loadFailure) throw new Error('incompatible Core')
   return { validateRuntimeConfig: loader.validate }
 } }))
@@ -72,7 +72,7 @@ describe('runtime project configuration', () => {
     payload.approvalBeforeArchive = true
     saveRuntimeProviders(payload.providers)
     const response = await request(app).put(url).send(payload).expect(200)
-    expect(response.body).toEqual({ configured: true, runtimeAvailable: true, config: payload })
+    expect(response.body).toEqual({ configured: true, runtimeAvailable: true, efficiencyAvailable: false, config: payload })
     expect(loader.validate).toHaveBeenCalledWith(payload)
     expect(loadAgentRuntimeConfig(project())).toEqual(payload)
     expect(fs.readdirSync(path.dirname(agentRuntimeConfigPath(project())))).toEqual(['agent-runtime.json'])

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { render, screen, within, fireEvent, act } from '../../../test-utils'
+import { render, screen, within, fireEvent, act, waitFor } from '../../../test-utils'
 import { AgentRuntimeSettingsSection } from '../AgentRuntimeSettingsSection'
 import { formatVerificationCommand, nextRuntimeProviderId, parseVerificationCommand, type AgentRuntimeConfig } from '../../../lib/agent-runtime'
 import type { DesktopProject } from '../../../hooks/useDesktop'
@@ -18,6 +18,7 @@ const response = (data: unknown, ok = true) => ({ ok, json: async () => data }) 
 const suggestions = { repositories: [{ id: 'primary-p1', name: 'App' }], suggestions: [{ repositoryId: 'primary-p1', command: 'npm', args: ['test'], reason: 'package.json test script "test"' }] }
 function mockServer(options: { configured?: boolean; config?: AgentRuntimeConfig; suggestions?: unknown; runtimeAvailable?: boolean; save?: (init: RequestInit) => Promise<Response> } = {}) {
   global.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+    if (String(url).endsWith('/capabilities')) return response({ schemaVersion: 1, roles: [] })
     if (String(url).endsWith('/verification-suggestions')) return response(options.suggestions ?? suggestions)
     if (String(url).endsWith('/agent-runtime/runs')) return response({ runs: [] })
     if (init?.method === 'PUT' && options.save) return options.save(init)
@@ -34,6 +35,74 @@ beforeEach(() => {
 })
 
 describe('AgentRuntimeSettingsSection', () => {
+  it('loads efforts automatically and retains confirmed options when effort or turns change', async () => {
+    const config = defaults()
+    config.agents.architect.model = 'sonnet'
+    global.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/capabilities')) {
+        const selected = JSON.parse(String(init?.body)) as AgentRuntimeConfig
+        return response({ schemaVersion: 1, roles: Object.entries(selected.agents).map(([role, agent]) => ({ role, tier: 'base', provider: agent.provider, model: agent.model ?? null, transport: 'claude-cli', effortSupport: 'supported', supportedEfforts: ['low', 'medium', 'high'] })) })
+      }
+      return response(snapshot(config, true, true))
+    })
+    const user = userEvent.setup()
+    render(<AgentRuntimeSettingsSection />)
+    const architect = within(await screen.findByRole('group', { name: 'Architect' }))
+    const effort = architect.getByLabelText('Reasoning effort')
+    await waitFor(() => expect(within(effort).getByRole('option', { name: 'medium' })).toBeInTheDocument())
+    await user.selectOptions(effort, 'medium')
+    await user.type(architect.getByLabelText('Maximum turns (default 100)'), '120')
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)) })
+    expect(effort).toHaveValue('medium')
+    expect(within(effort).getAllByRole('option')).toHaveLength(4)
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/capabilities'))).toHaveLength(1)
+    await user.selectOptions(architect.getByLabelText('Model'), 'opus')
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/capabilities'))).toHaveLength(2))
+    await waitFor(() => expect(within(effort).getByRole('option', { name: 'high' })).toBeInTheDocument())
+  })
+
+
+  it('ignores an older capability response after selecting a different model', async () => {
+    const config = defaults(); config.agents.architect.model = 'sonnet'
+    let resolveOld!: (value: Response) => void
+    const capabilityResponse = (model: string, levels: string[]) => response({ schemaVersion: 1, roles: [{ role: 'architect', tier: 'base', provider: 'claude', model, transport: 'claude-cli', effortSupport: 'supported', supportedEfforts: levels }] })
+    global.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (!url.endsWith('/capabilities')) return response(snapshot(config, true, true))
+      const model = (JSON.parse(String(init?.body)) as AgentRuntimeConfig).agents.architect.model
+      if (model === 'sonnet') return new Promise<Response>(resolve => { resolveOld = resolve })
+      return capabilityResponse('opus', ['high'])
+    })
+    const user = userEvent.setup()
+    render(<AgentRuntimeSettingsSection />)
+    const architect = within(await screen.findByRole('group', { name: 'Architect' }))
+    await waitFor(() => expect(resolveOld).toBeTypeOf('function'))
+    await user.selectOptions(architect.getByLabelText('Model'), 'opus')
+    const effort = architect.getByLabelText('Reasoning effort')
+    await waitFor(() => expect(within(effort).getByRole('option', { name: 'high' })).toBeInTheDocument())
+    await act(async () => { resolveOld(capabilityResponse('sonnet', ['low'])) })
+    expect(within(effort).queryByRole('option', { name: 'low' })).not.toBeInTheDocument()
+    expect(within(effort).getByRole('option', { name: 'high' })).toBeInTheDocument()
+  })
+
+  it('preserves distinct identical checks and their metadata when relabeling and reordering', async () => {
+    const config = defaults()
+    config.verification = [
+      { repositoryId: 'primary-p1', key: 'first', label: 'First', command: 'npm', args: ['test'], cwd: 'src', env: { CI: 'true' }, timeoutMs: 1234, policy: { reuse: 'never' } },
+      { repositoryId: 'primary-p1', key: 'second', label: 'Second', command: 'npm', args: ['test'], cwd: 'other', timeoutMs: 4321 },
+    ]
+    config.agents.developer = { provider: 'codex', model: 'base', effort: 'medium', escalation: { model: 'higher', effort: 'high' } }
+    mockServer({ config, configured: true })
+    const user = userEvent.setup()
+    render(<AgentRuntimeSettingsSection />)
+    const label = (await screen.findAllByLabelText('Check label (optional)'))[0]
+    await user.clear(label); await user.type(label, 'Renamed')
+    await user.click(screen.getByRole('button', { name: 'Move down 1' }))
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    const saved = putBodies().at(-1)!
+    expect(saved.verification).toEqual([config.verification[1], { ...config.verification[0], label: 'Renamed' }])
+    expect(saved.agents).toEqual(config.agents)
+  })
+
   it('prefills an unconfigured project with its detected checks and shows every default in the form', async () => {
     render(<AgentRuntimeSettingsSection />)
     await screen.findByRole('group', { name: 'Architect' })

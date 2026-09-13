@@ -71,6 +71,13 @@
       "stopped": "The runtime stopped: {{target}}",
       "corrections": "Sending corrections back to the developer",
       "resumed": "Resuming the saved execution"
+    },
+    "check": {
+      "started": "Checking {{target}}",
+      "passed": "Check passed: {{target}}",
+      "failed": "Check failed: {{target}}",
+      "reused": "Reusing verified result: {{target}}",
+      "invalidated": "Previous result invalidated: {{target}}"
     }
   },
   "repeats": "×{{count}}"

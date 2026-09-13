@@ -71,6 +71,13 @@
       "stopped": "Le moteur s’est arrêté : {{target}}",
       "corrections": "Renvoi des corrections au développeur",
       "resumed": "Reprise de l’exécution enregistrée"
+    },
+    "check": {
+      "started": "Vérification de {{target}}",
+      "passed": "Vérification réussie : {{target}}",
+      "failed": "Vérification échouée : {{target}}",
+      "reused": "Réutilisation du résultat vérifié : {{target}}",
+      "invalidated": "Résultat précédent invalidé : {{target}}"
     }
   },
   "repeats": "×{{count}}"

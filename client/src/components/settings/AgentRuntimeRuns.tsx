@@ -1,3 +1,4 @@
+import { RuntimeExecutionEvidence } from './RuntimeExecutionEvidence'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -59,11 +60,13 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
     {!runs.length && !error && <p className="text-xs text-muted-foreground">{t('runs.empty')}</p>}
     {runs.map((run) => <div key={run.runId} className="space-y-2 rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">{!contextual && <code className="break-all text-xs">{run.runId}</code>}<span className="text-xs font-medium">{t(`runs.status.${run.active ? 'running' : run.status}`, { defaultValue: run.status })}</span></div>
+      {run.historical && <p className="text-xs text-muted-foreground">{t('evidence.historical')}</p>}
       {run.nextStep && <p className="text-xs">{t('runs.phase', { phase: t(`roles.${run.nextStep}`, { defaultValue: run.nextStep }) })}</p>}
       {run.canResume && <p className="text-xs text-muted-foreground">{t('runs.preserveProgress')}</p>}
       {run.status === 'succeeded' && <p className="text-xs text-muted-foreground">{t('runs.reviewDelivery')}</p>}
       {run.error && <p className="text-xs text-destructive">{run.error}</p>}
       {run.metrics && <AgentRuntimeMetrics metrics={run.metrics} />}
+      <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />
       {run.pendingApproval?.reason && <p className="text-xs text-muted-foreground">{run.pendingApproval.reason}</p>}
       {run.pendingQuestion && <div className="space-y-2">
         <p className="text-xs font-medium">{t('runs.question')}</p>

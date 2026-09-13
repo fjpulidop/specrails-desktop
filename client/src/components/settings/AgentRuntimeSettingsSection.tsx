@@ -1,3 +1,4 @@
+import { RuntimeEfficiencyControls, RuntimeRoleEfficiency, type RoleCapability } from './RuntimeEfficiencyControls'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDesktop } from '../../hooks/useDesktop'
@@ -12,7 +13,7 @@ import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 
 const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
-interface VerificationRow { repositoryId: string; line: string; reason?: string }
+interface VerificationRow { label?: string; original?: RuntimeVerificationCommand; repositoryId: string; line: string; reason?: string }
 
 export function AgentRuntimeSettingsSection() {
   const { activeProjectId, projects } = useDesktop()
@@ -23,7 +24,7 @@ export function AgentRuntimeSettingsSection() {
 }
 
 function rowsFrom(commands: RuntimeVerificationCommand[]): VerificationRow[] {
-  return commands.map((command) => ({ repositoryId: command.repositoryId, line: formatVerificationCommand(command) }))
+  return commands.map((command) => ({ original: command, label: command.label, repositoryId: command.repositoryId, line: formatVerificationCommand(command) }))
 }
 function rowsFromSuggestions(suggestions: VerificationSuggestion[]): VerificationRow[] {
   return suggestions.map((suggestion) => ({ repositoryId: suggestion.repositoryId, line: formatVerificationCommand(suggestion), reason: suggestion.reason }))
@@ -40,6 +41,9 @@ function RuntimeSettings({ projectId, cache, repositories }: {
   const [snapshot, setSnapshot] = useState<AgentRuntimeSettingsResponse | null>(cached ?? null)
   const [config, setConfig] = useState<AgentRuntimeConfig | null>(cached?.config ?? null)
   const [rows, setRows] = useState<VerificationRow[]>(rowsFrom(cached?.config.verification ?? []))
+  const [capabilities, setCapabilities] = useState<RoleCapability[]>([])
+  const [checkingCapabilities, setCheckingCapabilities] = useState(false)
+  const [capabilityError, setCapabilityError] = useState(false)
   const [busy, setBusy] = useState(false)
   const [detecting, setDetecting] = useState(false)
   const [detected, setDetected] = useState<'none' | 'some' | null>(null)
@@ -50,6 +54,45 @@ function RuntimeSettings({ projectId, cache, repositories }: {
   const dirty = useRef(false)
   const mounted = useRef(true)
   const endpoint = `${repositoryApiBase(projectId)}/agent-runtime/config`
+  const capabilityRequest = useRef(0)
+  const currentConfig = useRef(config)
+  currentConfig.current = config
+  // Effort/turn-limit edits must not discard the options for the same model.
+  const capabilitySelection = JSON.stringify([projectId, config?.providers, config && RUNTIME_ROLES.map(role => {
+    const agent = config.agents[role]
+    return [role, agent.provider, agent.model ?? null, agent.escalation?.model || null]
+  })])
+  async function checkCapabilities(signal?: AbortSignal) {
+    if (!currentConfig.current) return
+    const selected = structuredClone(currentConfig.current)
+    for (const agent of Object.values(selected.agents)) if (agent.escalation && !agent.escalation.model.trim()) delete agent.escalation
+    const requestId = ++capabilityRequest.current
+    setCheckingCapabilities(true); setCapabilityError(false)
+    try {
+      const response = await fetch(`${repositoryApiBase(projectId)}/agent-runtime/capabilities`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(selected), signal })
+      const data = await response.json()
+      if (!response.ok || data.schemaVersion !== 1 || !Array.isArray(data.roles)) throw new Error('capabilities')
+      if (mounted.current && !signal?.aborted && requestId === capabilityRequest.current) setCapabilities(data.roles)
+    } catch {
+      if (mounted.current && !signal?.aborted && requestId === capabilityRequest.current) { setCapabilities([]); setCapabilityError(true) }
+    } finally {
+      if (mounted.current && !signal?.aborted && requestId === capabilityRequest.current) setCheckingCapabilities(false)
+    }
+  }
+  useEffect(() => {
+    capabilityRequest.current++; setCapabilities([]); setCapabilityError(false)
+    const selected = currentConfig.current
+    if (!selected || snapshot?.efficiencyAvailable === false) {
+      setCheckingCapabilities(false)
+      return
+    }
+    const controller = new AbortController()
+    setCheckingCapabilities(true)
+    const timer = setTimeout(() => { void checkCapabilities(controller.signal) }, 250)
+    return () => { clearTimeout(timer); controller.abort(); capabilityRequest.current++ }
+    // The identity excludes effort, so selecting an effort keeps confirmed options.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [capabilitySelection, snapshot?.efficiencyAvailable, reload])
   const suggestionsEndpoint = `${repositoryApiBase(projectId)}/agent-runtime/verification-suggestions`
 
   async function detect(): Promise<VerificationSuggestion[] | null> {
@@ -111,7 +154,7 @@ function RuntimeSettings({ projectId, cache, repositories }: {
       if (!row.line.trim() && !row.repositoryId) continue
       const parsed = parseVerificationCommand(row.line)
       if (!parsed || !row.repositoryId) { setError(t('verification.invalidLine', { line: row.line || '∅' })); return null }
-      commands.push({ repositoryId: row.repositoryId, ...parsed })
+      commands.push({ ...row.original, ...(row.label !== undefined ? { label: row.label.trim() || undefined } : {}), repositoryId: row.repositoryId, ...parsed })
     }
     return commands
   }
@@ -190,6 +233,9 @@ function RuntimeSettings({ projectId, cache, repositories }: {
         <section className="space-y-3" aria-labelledby="agent-runtime-roles">
           <h3 id="agent-runtime-roles" className="text-sm font-medium">{t('agents.title')}</h3>
           <p className="text-xs text-muted-foreground">{t('agents.hint', { turns: RUNTIME_DEFAULTS.maxTurns })}</p>
+          <Button size="sm" variant="secondary" disabled={checkingCapabilities || snapshot?.efficiencyAvailable === false} onClick={() => void checkCapabilities()}>{t('efficiency.checkCapabilities')}</Button>
+          {checkingCapabilities && <p role="status" className="text-xs text-muted-foreground">{t('loading')}</p>}
+          {capabilityError && <p className="text-xs text-destructive">{t('efficiency.capabilitiesFailed')}</p>}
           {RUNTIME_ROLES.map((role) => {
             const agent = config.agents[role]
             const provider = config.providers.find((item) => item.id === agent.provider)
@@ -200,7 +246,7 @@ function RuntimeSettings({ projectId, cache, repositories }: {
             return <fieldset key={role} className="rounded-lg border border-border p-3"><legend className="px-1 text-xs font-medium">{t(`roles.${role}`)}</legend>
               <p className="mb-2 text-xs text-muted-foreground">{t(`roleHints.${role}`)}</p>
               <div className="grid gap-3 sm:grid-cols-3">
-                <fieldset className="space-y-2 sm:col-span-3"><legend className="text-xs">{t('agents.provider')}</legend><div className="flex flex-wrap gap-2">{config.providers.map((item) => <label key={item.id} className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs ${agent.provider === item.id ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground'}`}><input type="radio" name={`runtime-${role}-provider`} value={item.id} checked={agent.provider === item.id} onChange={() => setAgent({ ...agent, provider: item.id, model: undefined })} />{providerLabel(item)}</label>)}</div></fieldset>
+                <fieldset className="space-y-2 sm:col-span-3"><legend className="text-xs">{t('agents.provider')}</legend><div className="flex flex-wrap gap-2">{config.providers.map((item) => <label key={item.id} className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs ${agent.provider === item.id ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground'}`}><input type="radio" name={`runtime-${role}-provider`} value={item.id} checked={agent.provider === item.id} onChange={() => setAgent({ ...agent, provider: item.id, model: undefined, effort: undefined, escalation: undefined })} />{providerLabel(item)}</label>)}</div></fieldset>
                 {provider?.kind === 'cli'
                   ? <label className="space-y-1 text-xs">{t('agents.model')}<select className={selectClass} value={agent.model ?? ''} onChange={(event) => setAgent({ ...agent, model: event.target.value || undefined })}>
                     <option value="">{t('agents.defaultModel', { model: catalog.find((model) => model.value === fallback)?.label ?? fallback })}</option>
@@ -210,9 +256,13 @@ function RuntimeSettings({ projectId, cache, repositories }: {
                   : <label className="space-y-1 text-xs">{t('agents.model')}<Input value={agent.model ?? ''} placeholder={t('agents.modelPlaceholder')} onChange={(event) => setAgent({ ...agent, model: event.target.value || undefined })} /></label>}
                 <label className="space-y-1 text-xs">{t('agents.maxTurns', { turns: RUNTIME_DEFAULTS.maxTurns })}<Input type="number" min="1" step="1" placeholder={String(RUNTIME_DEFAULTS.maxTurns)} value={agent.maxTurns ?? ''} onChange={(event) => setAgent({ ...agent, maxTurns: event.target.value === '' ? undefined : Number(event.target.value) })} /></label>
               </div>
+              <fieldset disabled={snapshot?.efficiencyAvailable === false}><RuntimeRoleEfficiency role={role} agent={agent} capabilities={capabilities} onChange={setAgent} /></fieldset>
             </fieldset>
           })}
         </section>
+
+        {snapshot?.efficiencyAvailable === false && <p className="text-xs text-muted-foreground">{t('efficiency.capabilitiesFailed')}</p>}
+        <fieldset disabled={snapshot?.efficiencyAvailable === false}><RuntimeEfficiencyControls config={config} onChange={update} /></fieldset>
 
         <section className="space-y-3" aria-labelledby="agent-runtime-verification">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -233,9 +283,13 @@ function RuntimeSettings({ projectId, cache, repositories }: {
             </label>
             <div className="space-y-1 text-xs">
               <label className="block space-y-1">{t('verification.command')}<Input className="font-mono" spellCheck={false} placeholder="npm test" value={row.line} onChange={(event) => updateRows(rows.map((item, i) => i === index ? { ...item, line: event.target.value, reason: undefined } : item))} /></label>
+              <label className="block space-y-1">{t('verification.label')}<Input maxLength={256} value={row.label ?? ''} onChange={event => updateRows(rows.map((item, i) => i === index ? { ...item, label: event.target.value } : item))} /></label>
               {row.reason && <span className="block text-[11px] text-muted-foreground">{t('verification.reason', { reason: row.reason })}</span>}
             </div>
-            <div className="flex items-end"><Button size="sm" variant="ghost" onClick={() => updateRows(rows.filter((_, i) => i !== index))}>{t('verification.remove')}</Button></div>
+            <div className="flex items-end gap-1">
+              <Button size="sm" variant="ghost" aria-label={`${t('verification.moveUp')} ${index + 1}`} disabled={index === 0} onClick={() => { const moved = [...rows]; [moved[index - 1], moved[index]] = [moved[index], moved[index - 1]]; updateRows(moved) }}>↑</Button>
+              <Button size="sm" variant="ghost" aria-label={`${t('verification.moveDown')} ${index + 1}`} disabled={index === rows.length - 1} onClick={() => { const moved = [...rows]; [moved[index + 1], moved[index]] = [moved[index], moved[index + 1]]; updateRows(moved) }}>↓</Button>
+              <Button size="sm" variant="ghost" onClick={() => updateRows(rows.filter((_, i) => i !== index))}>{t('verification.remove')}</Button></div>
           </div>)}
           <Button size="sm" variant="ghost" onClick={() => updateRows([...rows, { repositoryId: repositories[0]?.id ?? '', line: '' }])}>{t('verification.add')}</Button>
         </section>

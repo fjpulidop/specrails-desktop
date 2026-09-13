@@ -243,7 +243,7 @@ export function createLoopExecutors(
         return null
       }
     },
-    async runAiStep({ coreRun, prompt, sessionId, provider, model, effort, profileName, cwd, repoDir, executionManifest, onLine, onRawLine, onSpawn, aiStepTimeoutMs, idleTimeoutMs }) {
+    async runAiStep({ runtimeProviderOverride, coreRun, prompt, sessionId, provider, model, effort, profileName, cwd, repoDir, executionManifest, onLine, onRawLine, onSpawn, aiStepTimeoutMs, idleTimeoutMs }) {
       const adapter = getAdapter(provider)
       // First iteration spawns headless (rail-job); subsequent iterations resume
       // the session so the agent keeps prior context across iterations.
@@ -267,7 +267,7 @@ export function createLoopExecutors(
         return runAgentRuntimeInvocation({
           contextPath: core.contextPath, cwd, env: { ...programmaticStepEnv(resolveEnv(), repoDir, executionManifest), SPECRAILS_EXECUTION_CONTEXT: core.contextPath }, configPath: runtimeConfigPath(cwd),
           change: runtimeChangeName(coreRun.runId), resume: admitted,
-          defaultProvider: provider, selectedModel: model,
+          defaultProvider: provider, providerOverride: runtimeProviderOverride,
           onLine, onRawLine, onSpawn, timeoutMs: aiStepTimeoutMs,
         })
       }

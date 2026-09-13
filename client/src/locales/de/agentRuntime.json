@@ -73,7 +73,10 @@
     "reason": "Erkannt aus {{reason}}",
     "remove": "Entfernen",
     "add": "Befehl hinzufügen",
-    "invalidLine": "Verifikationsbefehl ist leer oder hat ein nicht geschlossenes Anführungszeichen: {{line}}"
+    "invalidLine": "Verifikationsbefehl ist leer oder hat ein nicht geschlossenes Anführungszeichen: {{line}}",
+    "label": "Prüfbezeichnung (optional)",
+    "moveUp": "Nach oben",
+    "moveDown": "Nach unten"
   },
   "runs": {
     "title": "Gespeicherte Ausführungen",
@@ -163,5 +166,81 @@
     "unsaved": "Ungespeicherte Änderungen",
     "discard": "Änderungen verwerfen",
     "save": "Prompts speichern"
+  },
+  "efficiency": {
+    "title": "Effizienz der Implementierung",
+    "scope": "Gilt für neue Ausführungen. Gespeicherte Ausführungen behalten ihre Konfiguration und Laufzeit.",
+    "effort": "Denkaufwand",
+    "providerDefault": "Anbietervorgabe",
+    "unconfirmed": "Unbestätigt",
+    "unknownSupport": "Unterstützung für dieses Modell und diesen Transport ist nicht bestätigt.",
+    "escalation": "Eine höhere Stufe beim gleichen Anbieter erlauben",
+    "baseRequired": "Zuerst ein konkretes Basismodell auswählen.",
+    "escalationModel": "Modell der höheren Stufe",
+    "triggers": {
+      "architect": "Nur die bestehende vertiefte Untersuchung kann diese Stufe wählen.",
+      "developer": "Nach zwei fehlgeschlagenen Kandidaten kann der nächste erlaubte Versuch diese Stufe wählen.",
+      "reviewer": "Nur zur Reparatur ungültiger Antworten, nicht bei Ablehnung des Codes."
+    },
+    "contextMode": "Repository-Kontext",
+    "reviewMode": "Korrekturprüfung",
+    "planning": "Planungstiefe",
+    "adaptive": "Adaptiv",
+    "full": "Vollständig",
+    "developerChecks": "Zusätzliche Prüfungen des Entwicklers akzeptieren",
+    "concurrency": "Maximale gleichzeitige Prüfungen",
+    "concurrencyHint": "Standard: 1. Nur vom Host als unabhängig deklarierte Prüfungen verschiedener Repositories laufen gleichzeitig. Standardmäßig keine Wiederverwendung.",
+    "checkCapabilities": "Modellkompatibilität prüfen",
+    "capabilitiesFailed": "Kompatibilität nicht bestätigt. Core aktualisieren oder Anbietervorgaben beibehalten."
+  },
+  "evidence": {
+    "title": "Prüfnachweise",
+    "acceptance": "Technische Abnahme",
+    "acceptanceStatus": {
+      "pending": "Ausstehend",
+      "validated": "Validiert",
+      "with-exceptions": "Mit Ausnahmen",
+      "blocked": "Blockiert"
+    },
+    "calls": "Agentenaufrufe",
+    "executed": "Ausgeführte Prüfungen",
+    "reused": "Wiederverwendete Prüfungen",
+    "unknown": "Nicht verfügbar",
+    "unavailable": "Nachweise nicht verfügbar. Das gespeicherte Ergebnis beweist keine aktuelle Gültigkeit.",
+    "current": "Aktueller Kandidat und Plan",
+    "historical": "Historisches Ergebnis",
+    "moreChecks": "Weitere Prüfungen",
+    "output": "Prüfausgabe",
+    "empty": "Keine Ausgabe",
+    "truncated": "Begrenzte Seite oder gekürzte Erfassung.",
+    "nextPage": "Nächste Ausgabeseite",
+    "status": {
+      "passed": "Bestanden",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "interrupted": "Unterbrochen"
+    },
+    "disposition": {
+      "executed": "Ausgeführt",
+      "reused": "Wiederverwendet",
+      "not-run": "Nicht ausgeführt"
+    },
+    "origin": "Herkunft",
+    "origins": {
+      "host": "Host",
+      "architect": "Architekt",
+      "developer": "Entwickler",
+      "frozen-runtime-config": "Gespeicherte Konfiguration",
+      "project-role": "Projektrolle",
+      "default": "Standard",
+      "explicit-launch-override": "Für diesen Start gewählter Anbieter"
+    },
+    "reuseDisabled": "Wiederverwendung für diese Prüfung deaktiviert.",
+    "reuseConfirmed": "Nach Prüfung identischer Eingaben und Werkzeuge wiederverwendet.",
+    "inputsChanged": "Eingaben während der Prüfung geändert; Ergebnis ungültig.",
+    "reuseUnproven": "Kein aktuelles Ergebnis mit nachweislich identischen Eingaben; erneut ausgeführt.",
+    "original": "Ursprüngliche Ausführung",
+    "requested": "Angefordert",
+    "reported": "Gemeldet"
   }
 }

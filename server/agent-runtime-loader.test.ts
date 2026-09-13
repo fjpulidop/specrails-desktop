@@ -85,3 +85,15 @@ it('loads the prompt catalog from the selected Core CLI', async () => {
   file('catalog/cli.js', `console.log(JSON.stringify(process.argv[2] === 'api' ? {type:'runtime-api',apiVersion:1} : {type:'runtime-role-prompts',defaults:{architect:'Plan',developer:'Implement',reviewer:'Review'}}))`)
   expect((await loadCoreAgentRuntime()).rolePromptDefaults()).toEqual({ architect: 'Plan', developer: 'Implement', reviewer: 'Review' })
 })
+
+it('rejects unsupported feature requests on old API1 and validates exact role capability responses', async () => {
+  const { requireRuntimeCapabilities, validateRoleCapabilities, validateRequestedRoleEfforts } = await import('./agent-runtime-loader')
+  const config = { agents: { architect: { provider: 'p', model: 'a' }, developer: { provider: 'p', model: 'd', effort: 'medium' }, reviewer: { provider: 'p', model: 'r' } }, verification: [] }
+  expect(() => requireRuntimeCapabilities({ type: 'runtime-api', apiVersion: 1 }, config)).toThrow('unsupported')
+  const roles = Object.entries(config.agents).map(([role, choice]) => ({ role, tier: 'base', provider: choice.provider, model: choice.model, requestedEffort: 'effort' in choice ? choice.effort : null, transport: 'test', continuation: 'unknown', effortSupport: 'unknown', supportedEfforts: null, observedModel: false, observedEffort: false }))
+  const result = { type: 'runtime-capabilities', schemaVersion: 1, roles }
+  expect(() => validateRoleCapabilities(result, config)).not.toThrow()
+  expect(() => validateRoleCapabilities({ ...result, roles: [...roles.slice(0, 2), roles[1]] }, config)).toThrow('malformed')
+  expect(() => validateRoleCapabilities({ ...result, roles: roles.map(role => ({ ...role, model: 'different' })) }, config)).toThrow('malformed')
+  expect(() => validateRequestedRoleEfforts({ RUNTIME_API_VERSION: 1, capabilities: () => result, rolePromptDefaults: () => ({ architect: '', developer: '', reviewer: '' }), validateRuntimeConfig: value => value }, config)).toThrow('not confirmed')
+})

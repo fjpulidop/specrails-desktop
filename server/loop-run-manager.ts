@@ -1,3 +1,5 @@
+import { runtimeEfficiencyEventLine, isRecordedRuntimeEfficiencyEvent } from './agent-runtime-events'
+import { validateRuntimeProviderOverride, type RuntimeProviderOverride } from './agent-runtime-settings'
 /**
  * LoopRunManager — the app-driven engine that executes a published loop graph.
  *
@@ -195,6 +197,7 @@ export interface InteractiveAiStepPlan {
 export interface LoopExecutors {
   readCoreCompletion?(runId: string): Promise<CoreCompletionSnapshot | null>
   runAiStep(input: {
+    runtimeProviderOverride?: RuntimeProviderOverride
     coreRun?: CoreRunInput
     prompt: string
     sessionId?: string
@@ -246,6 +249,7 @@ export interface LoopExecutors {
 }
 
 export interface LoopRunRequest {
+  runtimeProviderOverride?: RuntimeProviderOverride
   /** Explicit rail profile; null opts out of profile injection, undefined uses defaults. */
   profileName?: string | null
   /** Pre-allocated run id (so the caller can track/cancel before completion).
@@ -973,7 +977,7 @@ export class LoopRunManager {
   async run(req: LoopRunRequest): Promise<LoopRunResult> {
     // Later fresh steps must verify the admitted spec, even if its caller or
     // backlog changes while the implementation is running.
-    req = { ...req, graph: structuredClone(req.graph) }
+    req = { ...req, runtimeProviderOverride: validateRuntimeProviderOverride(req.runtimeProviderOverride), graph: structuredClone(req.graph) }
     if (req.spec) req = { ...req, spec: structuredClone(req.spec) }
     if (req.executionManifest) req = { ...req, executionManifest: structuredClone(req.executionManifest) }
     assertLoopShellRepositoryScope(req.graph, req.executionManifest?.selectedRepositoryIds ?? (req.repositoryId ? [req.repositoryId] : []))
@@ -1164,6 +1168,11 @@ export class LoopRunManager {
         else if (typeof parsed.role === 'string') eventType = parsed.role
       } catch { /* not JSON */ }
       if (!eventType) { logLine(line); return }
+      if (eventType === 'runtime-efficiency-event') {
+        const validated = runtimeEfficiencyEventLine(line, runId)
+        if (!validated || isRecordedRuntimeEfficiencyEvent(this.db, runId, validated)) return
+        line = validated
+      }
       const s = takeSeq()
       try {
         appendEvent(this.db, runId, s, { event_type: eventType, source: 'stdout', payload: line })
@@ -1585,7 +1594,7 @@ export class LoopRunManager {
                     nextEventSeq: takeSeq,
                     recoveryStepKey: aiRecoveryKey,
                   })
-                : this.executors.runAiStep({ coreRun, prompt, sessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, profileName: req.profileName, cwd: req.cwd, repoDir: req.repoDir, executionManifest: req.executionManifest, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs: effectiveTimeoutMs, idleTimeoutMs })
+                : this.executors.runAiStep({ runtimeProviderOverride: req.runtimeProviderOverride, coreRun, prompt, sessionId, provider: nodeProvider, model: nodeModel, effort: nodeEffort, profileName: req.profileName, cwd: req.cwd, repoDir: req.repoDir, executionManifest: req.executionManifest, onLine: logLine, onRawLine, onSpawn: (c) => this._activeChild.set(runId, c), aiStepTimeoutMs: effectiveTimeoutMs, idleTimeoutMs })
             }
             let res = await runAttempt(aiSessionId)
             if (this._disposed) return neverAfterDispose()

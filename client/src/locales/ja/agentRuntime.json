@@ -73,7 +73,10 @@
     "reason": "{{reason}} から検出",
     "remove": "削除",
     "add": "コマンドを追加",
-    "invalidLine": "検証コマンドが空か、引用符が閉じていません: {{line}}"
+    "invalidLine": "検証コマンドが空か、引用符が閉じていません: {{line}}",
+    "label": "チェック名（任意）",
+    "moveUp": "上へ",
+    "moveDown": "下へ"
   },
   "runs": {
     "title": "保存された実行",
@@ -163,5 +166,81 @@
     "unsaved": "未保存の変更",
     "discard": "変更を破棄",
     "save": "プロンプトを保存"
+  },
+  "efficiency": {
+    "title": "実装の効率",
+    "scope": "新しい実行に適用されます。保存済みの実行は元の設定とランタイムを維持します。",
+    "effort": "推論の強度",
+    "providerDefault": "プロバイダーの既定値",
+    "unconfirmed": "未確認",
+    "unknownSupport": "このモデルと通信方式の対応状況は未確認です。",
+    "escalation": "同じプロバイダーの上位モデルを1段階許可",
+    "baseRequired": "まず基本モデルを明示的に選択してください。",
+    "escalationModel": "上位モデル",
+    "triggers": {
+      "architect": "既存の追加調査のみがこの段階を選択できます。",
+      "developer": "候補が2回失敗した後、次の許可された試行で選択できます。",
+      "reviewer": "不正な形式の応答の修復のみ。コードの却下では昇格しません。"
+    },
+    "contextMode": "リポジトリのコンテキスト",
+    "reviewMode": "修正のレビュー",
+    "planning": "計画の深さ",
+    "adaptive": "適応型",
+    "full": "完全",
+    "developerChecks": "開発者が提案する追加チェックを許可",
+    "concurrency": "同時チェック数の上限",
+    "concurrencyHint": "既定値は1。ホストが独立と宣言した異なるリポジトリのチェックのみ並行実行できます。既定では再利用しません。",
+    "checkCapabilities": "モデルの互換性を確認",
+    "capabilitiesFailed": "互換性を確認できません。対応するCoreを更新するか、既定値を維持してください。"
+  },
+  "evidence": {
+    "title": "検証の証拠",
+    "acceptance": "技術的な受け入れ",
+    "acceptanceStatus": {
+      "pending": "保留中",
+      "validated": "検証済み",
+      "with-exceptions": "例外あり",
+      "blocked": "ブロック済み"
+    },
+    "calls": "エージェント呼び出し",
+    "executed": "実行したチェック",
+    "reused": "再利用したチェック",
+    "unknown": "利用不可",
+    "unavailable": "証拠は利用できません。記録された結果は現在の有効性を保証しません。",
+    "current": "現在の候補と計画",
+    "historical": "過去の結果",
+    "moreChecks": "その他のチェック",
+    "output": "検証出力",
+    "empty": "出力なし",
+    "truncated": "制限されたページまたは切り詰められた記録です。",
+    "nextPage": "次の出力ページ",
+    "status": {
+      "passed": "成功",
+      "failed": "失敗",
+      "cancelled": "キャンセル",
+      "interrupted": "中断"
+    },
+    "disposition": {
+      "executed": "実行済み",
+      "reused": "再利用",
+      "not-run": "未実行"
+    },
+    "origin": "出所",
+    "origins": {
+      "host": "ホスト",
+      "architect": "アーキテクト",
+      "developer": "開発者",
+      "frozen-runtime-config": "保存済み設定",
+      "project-role": "プロジェクトの役割",
+      "default": "既定",
+      "explicit-launch-override": "この実行で選択したプロバイダー"
+    },
+    "reuseDisabled": "このチェックの再利用は無効です。",
+    "reuseConfirmed": "入力とツールの一致を確認して再利用しました。",
+    "inputsChanged": "検証中に入力が変化したため、結果は無効です。",
+    "reuseUnproven": "入力の一致を証明できる有効な結果がないため、再実行しました。",
+    "original": "元の実行",
+    "requested": "要求値",
+    "reported": "報告値"
   }
 }
