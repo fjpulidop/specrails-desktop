@@ -33,10 +33,10 @@ For a capable runtime, fetch per-role transport/effort support through the read-
 Resolution order for NEW jobs:
 1. Project per-role assignment supplies that role's explicit provider/model/effort/maxTurns/escalation.
 2. Existing global/provider defaults fill missing fields; they never overwrite explicit role selections. Resolve model defaults only within the selected provider, never carry another provider's default model across.
-3. A deliberately chosen launch override can replace developer fields only. UI labels this scope. Architect and reviewer stay at their configured assignments.
+3. As clarified by the user on 2026-09-13, a selected launch provider applies to architect, developer and reviewer. Explicit launch model/effort also applies to all roles. With no provider selection, preserve project role assignments.
 4. Validate capability/model/effort/limits; normalize the new Core efficiency defaults once; persist the complete effective configuration and provenance before launching.
 
-Introduce a typed launch override with provenance (`source: user`, `role: developer`); incidental selector defaults remain defaults and must not generate that override. If the launch UI cannot establish user intent, it sends no override. Trace every producer, including implement/batch/mission launches. Resume reads only the frozen effective request and retained runtime. Current settings may be displayed as different but never silently mutate a continuation.
+Use a typed provider override with provenance for every affected role. Resolve the request/stored-rail/Mission provider at the shared launch boundary; a UI-only payload is insufficient. A generic engine default without a selection must not generate an override. Trace every producer, including implement/batch/mission launches. Resume reads only the frozen effective request and retained runtime. Current settings may be displayed as different but never silently mutate a continuation.
 
 Use named mapping helpers shared by load/save/launch. Preserve each configured check's stable identity and all supported cwd/env/timeout/policy fields while editing its label or command. Do not reconstruct full objects from a lossy row subset, and do not write normalized v5 defaults into an old saved request. Strict client/server/Core schemas and optional-null transport fixtures must agree.
 

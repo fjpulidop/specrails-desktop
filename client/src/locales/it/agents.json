@@ -175,6 +175,6 @@
     "noProfile": "Nessun profilo",
     "modelTitle": "Modello per questo rail Freestyle",
     "loopModelTitle": "Modello per questo loop",
-    "engineTitle": "Fornitore solo per lo sviluppatore; gli altri ruoli mantengono le impostazioni"
+    "engineTitle": "Provider IA per tutti i ruoli di questo avvio: architetto, sviluppatore e revisore"
   }
 }

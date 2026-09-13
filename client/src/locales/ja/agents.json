@@ -175,6 +175,6 @@
     "noProfile": "プロファイルなし",
     "modelTitle": "この Freestyle レールのモデル",
     "loopModelTitle": "このループのモデル",
-    "engineTitle": "開発者のみのAIプロバイダー。他の役割の設定は維持されます"
+    "engineTitle": "この実行のすべてのロール（設計、開発、レビュー）で使う AI プロバイダー"
   }
 }

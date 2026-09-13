@@ -221,13 +221,13 @@ export function saveRuntimeRolePrompts(input: unknown): Partial<Record<RuntimeRo
 }
 
 
-export interface RuntimeDeveloperOverride { provider: string; model?: string; effort?: string }
-export function validateRuntimeDeveloperOverride(value: unknown): RuntimeDeveloperOverride | undefined {
+export interface RuntimeProviderOverride { provider: string; model?: string; effort?: string }
+export function validateRuntimeProviderOverride(value: unknown): RuntimeProviderOverride | undefined {
   if (value === undefined) return undefined
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AgentRuntimeConfigError('Invalid developer override')
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AgentRuntimeConfigError('Invalid runtime provider override')
   const raw = value as Record<string, unknown>
-  if (Object.keys(raw).some(key => !['provider', 'model', 'effort'].includes(key)) || typeof raw.provider !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(raw.provider)) throw new AgentRuntimeConfigError('Invalid developer override provider')
-  if (raw.model !== undefined && (typeof raw.model !== 'string' || !raw.model.trim() || raw.model.length > 256 || /^-|[\r\n\0]/.test(raw.model))) throw new AgentRuntimeConfigError('Invalid developer override model')
-  if (raw.effort !== undefined && (typeof raw.effort !== 'string' || !/^[a-z][a-z0-9_-]{0,31}$/.test(raw.effort))) throw new AgentRuntimeConfigError('Invalid developer override effort')
-  return structuredClone(raw) as unknown as RuntimeDeveloperOverride
+  if (Object.keys(raw).some(key => !['provider', 'model', 'effort'].includes(key)) || typeof raw.provider !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(raw.provider)) throw new AgentRuntimeConfigError('Invalid runtime provider override provider')
+  if (raw.model !== undefined && (typeof raw.model !== 'string' || !raw.model.trim() || raw.model.length > 256 || /^-|[\r\n\0]/.test(raw.model))) throw new AgentRuntimeConfigError('Invalid runtime provider override model')
+  if (raw.effort !== undefined && (typeof raw.effort !== 'string' || !/^[a-z][a-z0-9_-]{0,31}$/.test(raw.effort))) throw new AgentRuntimeConfigError('Invalid runtime provider override effort')
+  return structuredClone(raw) as unknown as RuntimeProviderOverride
 }

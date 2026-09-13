@@ -4,7 +4,7 @@ The paired change lives on `codex/implement-efficiency-runtime` in Desktop and C
 
 ## User-facing behavior
 
-- Project role settings remain authoritative. A deliberate rail provider/model/effort selection overrides **developer only**. Architect and reviewer retain their project assignments. Provider-specific model defaults apply only where a model is absent. New runs record the resolved selections and origins; resume retains the original request.
+- Project role settings remain authoritative. A selected rail/Mission provider applies to **all three roles**; explicit launch model/effort applies to all three as well. Without a selected provider, project role assignments remain authoritative. Provider-specific model defaults apply only where a model is absent. New runs record the resolved selections and origins; resume retains the original request.
 - Effort is optional and is offered from the actual installed model/transport response. An unconfirmed saved value remains visible, and admission rejects it until it is supported or replaced by provider default. Base and optional same-provider escalation models are queried separately. Provider/model edits invalidate displayed compatibility.
 - Advanced efficiency settings control context, review, planning, developer-proposed checks and a one-to-four concurrency limit. They do not fabricate reusable or independent checks. Higher-tier routing is unset by default and cannot create additional attempts.
 - Board and Mission use the same implementation/evidence section. Sources and stdout/stderr load on demand with bounded pagination. Wheel and keyboard scrolling are independently available in the list and output panes.

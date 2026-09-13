@@ -175,6 +175,6 @@
     "noProfile": "无 Profile",
     "modelTitle": "此 Freestyle rail 使用的模型",
     "loopModelTitle": "此 Loop 使用的模型",
-    "engineTitle": "仅覆盖开发者的 AI 提供商；其他角色保留各自设置"
+    "engineTitle": "本次运行所有角色使用的 AI 提供商：架构师、开发者和审查者"
   }
 }

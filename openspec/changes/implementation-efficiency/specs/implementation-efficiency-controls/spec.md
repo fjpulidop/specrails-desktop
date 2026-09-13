@@ -1,16 +1,22 @@
 ## ADDED Requirements
 
 ### Requirement: Explicit role configuration survives launch
-Desktop SHALL preserve project per-role selections, fill only absent fields from applicable defaults, and apply only deliberate developer launch overrides with recorded provenance. It MUST NOT overwrite architect/reviewer assignments with an incidental provider selector default.
+Desktop SHALL preserve project per-role selections when there is no selected launch provider. A provider selected for a new launch (request, stored rail, or Mission conversation selection) SHALL apply to architect, developer and reviewer, with recorded provenance. Explicit launch model/effort SHALL apply to every role, and incompatible settings from a different provider/model SHALL be cleared. Global settings MUST NOT be mutated.
 
-#### Scenario: Three roles have distinct explicit providers
-- **WHEN** a job launches through implement, batch or mission with an incidental default provider
-- **THEN** every explicit role provider/model remains unchanged in the frozen Core request
+#### Scenario: No launch provider is selected
+- **WHEN** a job starts with project role settings and only incidental engine defaults
+- **THEN** explicit role provider/model assignments remain unchanged in the frozen Core request
 
-#### Scenario: User overrides the developer at launch
-- **WHEN** an explicit developer-only override is submitted
-- **THEN** Desktop labels and applies that override only to developer fields
-- **AND** the effective request records its source and validates model/effort against the selected provider
+#### Scenario: User launches with Codex
+- **WHEN** Codex is selected for an Implement or Batch Implement launch through Mission, Board or a saved rail
+- **THEN** all three runtime roles use Codex
+- **AND** the complete effective request records the selection source and validates each model/effort
+- **AND** the same rule applies without Git worktree isolation
+
+#### Scenario: Resume after changing the selected provider
+- **WHEN** an existing job is resumed after a different provider is selected
+- **THEN** the job retains its original frozen configuration
+- **AND** changing providers requires a new launch
 
 ### Requirement: Configuration edits preserve supported metadata
 Desktop SHALL round-trip every supported verification field and optional efficiency/role field through client, server, persistence and admission without lossy row conversion. Existing frozen requests MUST remain immutable.

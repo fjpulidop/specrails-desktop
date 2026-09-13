@@ -233,7 +233,7 @@
       "frozen-runtime-config": "已保存配置",
       "project-role": "项目角色",
       "default": "默认",
-      "explicit-launch-override": "开发者明确选择"
+      "explicit-launch-override": "本次运行选择的提供商"
     },
     "reuseDisabled": "此检查已禁用复用。",
     "reuseConfirmed": "确认输入和工具链一致后复用。",

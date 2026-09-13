@@ -245,7 +245,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
 
     // No origin conversation → no engine default: primary provider (claude).
     expect(loopRun).toHaveBeenCalledTimes(1)
-    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude' })
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude', runtimeProviderOverride: undefined })
 
     await vi.waitFor(() => {
       expect(getPrDelivery(db, row!.id)!.decision).toBe('on_review')
@@ -317,7 +317,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     expect(r.isError).toBeFalsy()
 
     expect(loopRun).toHaveBeenCalledTimes(1)
-    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex' })
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', runtimeProviderOverride: { provider: 'codex' } })
     // No conversation effort stored → none defaulted.
     expect(loopRun.mock.calls[0][0].effort).toBeUndefined()
 
@@ -327,6 +327,15 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     await settle()
   })
 
+  it.each(['ok', 'no-commits'] as const)('passes an explicit Codex selection into runtime roles with isolation %s', async isolation => {
+    isoStatus.value = isolation
+    const conv = createAgentConversation(desktopDb, { provider: 'claude' })
+    const result = await captured!({ action: 'launch', projectId: 'p1', railIndex: 0, mode: 'implement', aiEngine: 'codex', model: 'gpt-5.6-sol' }, launchExtra(conv.id))
+    expect(result.isError).toBeFalsy()
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', runtimeProviderOverride: { provider: 'codex', model: 'gpt-5.6-sol' } })
+    if (isolation === 'ok') await settle()
+  })
+
   it('an explicit aiEngine always wins over the conversation default', async () => {
     const conv = createAgentConversation(desktopDb, { provider: 'codex' })
     const r = await captured!(
@@ -334,7 +343,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
-    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude' })
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude', runtimeProviderOverride: { provider: 'claude' } })
     await settle()
   })
 
@@ -345,7 +354,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
-    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-6-astra', effort: 'ultra' })
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'codex', model: 'gpt-6-astra', effort: 'ultra', runtimeProviderOverride: { provider: 'codex', model: 'gpt-6-astra', effort: 'ultra' } })
     await settle()
   })
 
@@ -368,7 +377,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
-    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude' })
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude', runtimeProviderOverride: { provider: 'claude' } })
     expect(loopRun.mock.calls[0][0].model).not.toBe('gpt-6-astra')
     expect(loopRun.mock.calls[0][0].effort).toBeUndefined()
     await settle()
@@ -381,7 +390,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       launchExtra(conv.id),
     )
     expect(r.isError).toBeFalsy()
-    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude' })
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude', runtimeProviderOverride: undefined })
     await settle()
   })
 
@@ -391,7 +400,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
       launchExtra('conv-that-does-not-exist'),
     )
     expect(r.isError).toBeFalsy()
-    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude' })
+    expect(loopRun.mock.calls[0][0]).toMatchObject({ provider: 'claude', runtimeProviderOverride: undefined })
     // The router doesn't require the conversation to exist for the origin tag.
     expect(getActivePrDeliveryByRail(db, 0)!.origin_conversation_id).toBe('conv-that-does-not-exist')
     await settle()

@@ -233,7 +233,7 @@
       "frozen-runtime-config": "Frozen configuration",
       "project-role": "Project role",
       "default": "Default",
-      "explicit-launch-override": "Explicit developer override"
+      "explicit-launch-override": "Selected launch provider"
     },
     "reuseDisabled": "Reuse disabled for this check.",
     "reuseConfirmed": "Reused after verifying matching inputs and toolchain.",

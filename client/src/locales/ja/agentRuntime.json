@@ -233,7 +233,7 @@
       "frozen-runtime-config": "保存済み設定",
       "project-role": "プロジェクトの役割",
       "default": "既定",
-      "explicit-launch-override": "開発者の明示的な選択"
+      "explicit-launch-override": "この実行で選択したプロバイダー"
     },
     "reuseDisabled": "このチェックの再利用は無効です。",
     "reuseConfirmed": "入力とツールの一致を確認して再利用しました。",

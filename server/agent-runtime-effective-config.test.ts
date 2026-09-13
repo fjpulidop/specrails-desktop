@@ -12,11 +12,22 @@ it('preserves mixed project roles and check fields without modifying input', () 
   expect(config).toEqual(before)
   expect(result.origins.developer).toBe('project-role')
 })
-it('applies deliberate overrides only to developer and clears incompatible provider settings', () => {
-  const result = resolveEffectiveRuntimeConfig(config, { repositoryIds: ['front'], source: 'project-role', developerOverride: { provider: 'claude', model: 'chosen' } })
+it('applies the selected launch provider to all roles and clears incompatible settings', () => {
+  const result = resolveEffectiveRuntimeConfig(config, { repositoryIds: ['front'], source: 'project-role', providerOverride: { provider: 'claude', model: 'chosen' } })
   expect(result.config.agents.developer).toEqual({ provider: 'claude', model: 'chosen', effort: undefined, escalation: undefined })
-  expect(result.config.agents.architect).toEqual(config.agents.architect)
-  expect(result.config.agents.reviewer).toEqual(config.agents.reviewer)
+  expect(result.config.agents.architect).toEqual({ provider: 'claude', model: 'chosen', effort: undefined, escalation: undefined })
+  expect(result.config.agents.reviewer).toEqual({ provider: 'claude', model: 'chosen', effort: undefined, escalation: undefined })
+  expect(Object.values(result.origins)).toEqual(['explicit-launch-override', 'explicit-launch-override', 'explicit-launch-override'])
   expect(result.origins.developer).toBe('explicit-launch-override')
-  expect(() => resolveEffectiveRuntimeConfig(config, { repositoryIds: [], source: 'default', developerOverride: { provider: 'missing' } })).toThrow('not configured')
+  expect(() => resolveEffectiveRuntimeConfig(config, { repositoryIds: [], source: 'default', providerOverride: { provider: 'missing' } })).toThrow('not configured')
+})
+
+
+it('uses provider-local defaults when only the launch provider is selected', () => {
+  const result = resolveEffectiveRuntimeConfig(config, { repositoryIds: ['front'], source: 'project-role', providerOverride: { provider: 'codex' } })
+  expect(Object.values(result.config.agents).every(agent => agent.provider === 'codex')).toBe(true)
+  expect(result.config.agents.architect.model).not.toBe('architect')
+  expect(result.config.agents.reviewer.model).not.toBe('reviewer')
+  expect(result.config.agents.architect.effort).toBeUndefined()
+  expect(result.config.agents.developer).toEqual(config.agents.developer)
 })

@@ -233,7 +233,7 @@
       "frozen-runtime-config": "Configurazione salvata",
       "project-role": "Ruolo del progetto",
       "default": "Predefinito",
-      "explicit-launch-override": "Scelta esplicita dello sviluppatore"
+      "explicit-launch-override": "Provider scelto per questo avvio"
     },
     "reuseDisabled": "Riutilizzo disabilitato per questo controllo.",
     "reuseConfirmed": "Riutilizzato dopo la conferma di input e strumenti identici.",

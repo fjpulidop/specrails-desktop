@@ -175,6 +175,6 @@
     "noProfile": "Sem perfil",
     "modelTitle": "Modelo para este rail Freestyle",
     "loopModelTitle": "Modelo para este loop",
-    "engineTitle": "Fornecedor apenas para o programador; os outros papéis mantêm as definições"
+    "engineTitle": "Fornecedor de IA para todos os papéis desta execução: arquiteto, programador e revisor"
   }
 }

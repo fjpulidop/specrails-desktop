@@ -65,7 +65,7 @@ Cambiar modelo o esfuerzo abre una sesión compatible con contexto completo. La 
 
 Core implementa la política de ejecución, capacidades del transporte, contexto, sesiones, rutas, checks, evidencias y validez. Desktop configura, presenta y conserva proyecciones; no decide por su cuenta que una prueba sigue siendo válida.
 
-Se corregirá la precedencia actual de selección: una asignación explícita por rol prevalece sobre defaults incidentales del lanzamiento. Un override deliberado del lanzamiento afecta únicamente al developer y aparece identificado como tal. Reanudar siempre usa la configuración congelada de esa ejecución.
+Se corregirá la precedencia actual de selección: una asignación explícita por rol prevalece sobre defaults incidentales del lanzamiento. Aclaración del usuario (2026-09-13): el proveedor seleccionado para un lanzamiento afecta a arquitecto, developer y reviewer, con procedencia registrada; un modelo o esfuerzo explícito del lanzamiento se aplica igualmente a los tres. Reanudar siempre usa la configuración congelada de esa ejecución.
 
 Desktop ampliará las filas de roles existentes con esfuerzo compatible y escalado opcional. También conservará todos los campos de los checks al editarlos, incluidos cwd, entorno, timeout y política. No se duplicarán secciones por proveedor ni se trasladarán de nuevo las conexiones globales o los prompts que ya tienen su ubicación.
 

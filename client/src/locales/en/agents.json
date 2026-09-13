@@ -175,6 +175,6 @@
     "noProfile": "No profile",
     "modelTitle": "Model for this Freestyle rail",
     "loopModelTitle": "Model for this loop",
-    "engineTitle": "AI provider override for the developer only; other roles keep their settings"
+    "engineTitle": "AI provider for all roles in this launch: architect, developer and reviewer"
   }
 }

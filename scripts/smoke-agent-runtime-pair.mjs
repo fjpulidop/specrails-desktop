@@ -94,8 +94,8 @@ try {
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve) })
   const config = {
     schemaVersion: 1, enabled: true,
-    providers: [{ id: 'local', kind: 'openai-compatible', baseUrl: `http://127.0.0.1:${server.address().port}/v1` }],
-    agents: Object.fromEntries(['architect', 'developer', 'reviewer'].map(role => [role, { provider: 'local', model: 'offline-fixture', ...(role === 'reviewer' ? { escalation: { model: 'offline-rescue' } } : {}) }])),
+    providers: [{ id: 'local', kind: 'openai-compatible', baseUrl: `http://127.0.0.1:${server.address().port}/v1` }, { id: 'unused', kind: 'cli', cli: 'claude' }],
+    agents: Object.fromEntries(['architect', 'developer', 'reviewer'].map(role => [role, { provider: role === 'reviewer' ? 'local' : 'unused', model: role === 'reviewer' ? 'offline-fixture' : 'sonnet', ...(role === 'reviewer' ? { escalation: { model: 'offline-rescue' } } : {}) }])),
     verification: [{ repositoryId: 'app', key: 'host-result', label: 'Result contract', policy: { reuse: 'snapshot-local', deterministic: true, readOnly: true, inputs: ['result.txt'], toolchainInputs: [fs.realpathSync(process.execPath)], resources: [] }, command: fs.realpathSync(process.execPath), args: ['-e', 'require("node:assert/strict").equal(require("node:fs").readFileSync("result.txt","utf8"),"ready\\n");console.log("paired verification passed")'] }],
     limits: { timeoutMs: 180_000, maxAttempts: 2 }, approvalBeforeArchive: true,
   }
@@ -119,12 +119,15 @@ try {
     assert.equal(fs.readFileSync(fixturePath, 'utf8'), fs.readFileSync(path.join(desktop, 'server/schemas/fixtures/runtime-efficiency-summary.v1.json'), 'utf8'), 'Vendored contract fixture must match the paired package')
   }
 
-  const options = { contextPath, cwd: repository, env: process.env, timeoutMs: 190_000, onRawLine: line => rawEvents.push(JSON.parse(line)) }
+  const options = { providerOverride: { provider: 'local', model: 'offline-fixture' }, contextPath, cwd: repository, env: process.env, timeoutMs: 190_000, onRawLine: line => rawEvents.push(JSON.parse(line)) }
   const paused = await runAgentRuntimeInvocation({ ...options, configPath, change })
   assert.equal(inspect(contextPath).state.status, 'paused', paused.errorText)
   assert.deepEqual(calls, ['architect', 'architect', 'developer', 'developer', 'developer', 'developer', 'reviewer', 'reviewer', 'reviewer', 'reviewer'])
   assert.equal(paused.cost, undefined, 'Missing endpoint billing must remain unknown')
   assert.equal(paused.tokens, 120)
+  const frozenConfig = JSON.parse(fs.readFileSync(path.join(stateDirectory, 'desktop-runtime-config.json'), 'utf8'))
+  assert(Object.values(frozenConfig.agents).every(agent => agent.provider === 'local'), 'The selected launch provider must replace all project role providers')
+  assert.equal(config.agents.architect.provider, 'unused', 'Launch selection must not mutate the project settings')
   assert(selectedModels.includes('offline-rescue'), 'Malformed review must use the configured single escalation tier')
   const resumed = await runAgentRuntimeInvocation({ ...options, resume: true, approve: ['archive'] })
   assert.equal(resumed.failed, false, resumed.errorText)

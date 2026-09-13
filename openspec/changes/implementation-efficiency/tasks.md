@@ -13,15 +13,15 @@ Status: local implementation complete; unchecked items retain their native-distr
 
 - [x] 2.1 Mirror the agreed optional Core fields in server/client types, `agent-runtime-settings.ts` and `server/schemas/agent-runtime.schema.json`; add strict valid/invalid/absent-field parity fixtures against the built Core schema.
 - [x] 2.2 Replace lossy settings row conversions with stable optional key/label mappings preserving cwd/env/timeout/policy and role fields; test identical-check reordering, semantic edits, legacy keyless entries and load-edit-save-launch in server/client.
-- [x] 2.3 Implement one pure effective-config resolver with project-role > applicable defaults precedence and explicit developer-only user override provenance. Test mixed providers/models, provider-specific model defaults and no cross-role overwrite.
-- [x] 2.4 Trace and update `loop-executors.ts`, `agent-runtime-bridge.ts` and every implement/batch/mission producer to distinguish defaults from explicit launch overrides. Test each path and ensure only deliberate developer overrides reach Core.
+- [x] 2.3 Implement one pure effective-config resolver with project-role > applicable defaults precedence and selected launch provider provenance for all roles. Test mixed providers/models, provider-specific model defaults and no unselected cross-role overwrite.
+- [x] 2.4 Trace and update `loop-executors.ts`, `agent-runtime-bridge.ts` and every implement/batch/mission producer to distinguish defaults from explicit launch overrides. Test each path and ensure the selected provider reaches all Core roles through Mission and Board.
 - [x] 2.5 Freeze resolved config/provenance before launch; test resume with changed project/global defaults, effort and escalation preserves original request and persisted tier. Reject incompatible requested controls before paid execution.
 
 ## 3. D2 — Focused settings controls
 
 - [x] 3.1 Extend existing role rows with capability-aware effort and collapsed single same-provider escalation selectors. Query both base/escalation model support; label provider-default effort and fixed per-role triggers; test provider changes and invalid saved dependent selections.
 - [x] 3.2 Add advanced context/review/planning/acceptDeveloperChecks/concurrency controls using Core defaults only for new capable jobs. Keep reuse policy host-authored and prevent the form from fabricating independence/cache guarantees.
-- [x] 3.3 Show effective requested role configuration and provenance, explicit developer launch-override scope, and named unsupported-capability errors. Preserve existing global provider connections/custom role-prompt ownership and mandatory protocol/OpenSpec safeguards.
+- [x] 3.3 Show effective requested role configuration and provenance, all-role launch-provider scope, and named unsupported-capability errors. Preserve existing global provider connections/custom role-prompt ownership and mandatory protocol/OpenSpec safeguards.
 - [x] 3.4 Add accessible labels/focus/keyboard interactions and all eight locale catalog entries (en/es/fr/de/pt/it/zh/ja); test locale key parity and no duplicated verifier/provider sections.
 
 ## 4. D3 — Durable evidence and one shared log panel

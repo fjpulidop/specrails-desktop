@@ -45,8 +45,8 @@ export interface AgentRuntimeInvocationOptions {
   env: NodeJS.ProcessEnv
   configPath?: string
   defaultProvider?: string
-  /** Explicit user override affects only the developer; defaults never override roles. */
-  developerOverride?: { provider: string; model?: string; effort?: string }
+  /** A selected launch provider applies to every role; absent selection preserves role settings. */
+  providerOverride?: { provider: string; model?: string; effort?: string }
   change?: string
   resume?: boolean
   approve?: string[]
@@ -83,10 +83,10 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     if (!Array.isArray(admittedContext.repositories) || !admittedContext.repositories.length || admittedContext.repositories.some(repo => !repo || typeof repo.id !== 'string' || !repo.id)) throw new Error('Core context is missing its repository scope')
     const source = existsSync(options.configPath!) ? 'project-role' : 'default'
     const { config, origins } = resolveEffectiveRuntimeConfig(loadRuntimeConfigFile(options.configPath!, options.defaultProvider), {
-      repositoryIds: admittedContext.repositories.map(repo => repo.id), source, developerOverride: options.developerOverride,
+      repositoryIds: admittedContext.repositories.map(repo => repo.id), source, providerOverride: options.providerOverride,
     })
     config.rolePrompts = { ...(await loadCoreAgentRuntime()).rolePromptDefaults(), ...loadRuntimeRolePrompts() }
-    const override = options.developerOverride
+    const override = options.providerOverride
     const runtime = await loadCoreAgentRuntime()
     runtime.validateRuntimeConfig(JSON.parse(JSON.stringify(config)))
     validateRequestedRoleEfforts(runtime, config)
@@ -94,7 +94,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     args[0] = cli
     saveHostContext(options)
     const selectionFile = join(dirname(options.contextPath), 'desktop-runtime-selection.json')
-    const selection = JSON.stringify({ schemaVersion: 1, runId: admittedContext.runId, developerOverride: override ?? null, origins }) + '\n'
+    const selection = JSON.stringify({ schemaVersion: 1, runId: admittedContext.runId, providerOverride: override ?? null, origins }) + '\n'
     try { writeFileSync(selectionFile, selection, { flag: 'wx', mode: 0o600 }) }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || readFileSync(selectionFile, 'utf8') !== selection) throw new Error('Runtime selection provenance changed; start a new run') }
     const scopedPath = join(dirname(options.contextPath), 'desktop-runtime-config.json')

@@ -17,7 +17,7 @@ The paired OpenSpec task lists record completed local work individually. Remaini
 | C4 reuse and scheduling | pipeline-state | Host-only exact snapshot reuse, ignored dependency changes invalidate, external resources ineligible, contiguous independent waves, process-close/cancellation barriers and no successful partial receipt |
 | C5 accounting | workflow ledger, efficiency-summary; Desktop metrics/events/history | Invocation IDs persisted before dispatch, replay deduplication, unknown measurements stay unknown, newer failed/cancelled projections supersede old success, built Core fixtures parsed without sibling checkout |
 | C6 evaluation | evaluation/evaluation-corpus and runtime evaluate CLI | Five frozen cases, full/optimized pairs, independent acceptance and defective variants; opt-in real mode is not executed |
-| D1 / D2 controls | effective-config, bridge, settings router and role controls | Explicit developer override only; frozen provenance; key/label/cwd/env/timeout/policy survive edits and reordering; actual effort capability gates; eight locales |
+| D1 / D2 controls | effective-config, bridge, settings router and role controls | Selected launch provider applies to all roles (user clarification); frozen provenance; key/label/cwd/env/timeout/policy survive edits and reordering; actual effort capability gates; eight locales |
 | D3 shared evidence and narration | RuntimeExecutionEvidence, AgentRuntimeRuns, narration-model | Repository-attributed check activity, requested versus reported selection, lazy historical sources/output, bounded pagination, replay-safe narration, real Chromium wheel/keyboard tests in Mission and Board |
 
 ## Actual validation
