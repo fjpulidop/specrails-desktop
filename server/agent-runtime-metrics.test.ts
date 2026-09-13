@@ -11,3 +11,17 @@ describe('optional Core efficiency wire contract', () => {
     expect(readRuntimeEfficiency(value)).toBeUndefined()
   })
 })
+
+it('accepts packaged Core summary fixtures without a sibling checkout and strips unrecognized payloads', async () => {
+  const { readFileSync } = await import('node:fs')
+  const { readRuntimeEfficiencySummary } = await import('./agent-runtime-metrics')
+  const contract = JSON.parse(readFileSync(new URL('./schemas/fixtures/runtime-efficiency-summary.v1.json', import.meta.url), 'utf8'))
+  for (const fixture of Object.values(contract.fixtures)) {
+    const result = readRuntimeEfficiencySummary({ ...(fixture as object), transcript: 'private' })
+    expect(result).toBeDefined()
+    expect(JSON.stringify(result)).not.toContain('private')
+  }
+  expect(readRuntimeEfficiencySummary(contract.fixtures['incomplete-metrics'])!.invocations.complete).toBe(false)
+  expect(readRuntimeEfficiencySummary(contract.fixtures.reuse)!.checks.durationMs).toBe(0)
+  expect(readRuntimeEfficiencySummary(contract.fixtures['unavailable-evidence'])!.checks.executed).toBeNull()
+})

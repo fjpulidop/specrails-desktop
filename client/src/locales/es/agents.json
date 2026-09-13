@@ -175,6 +175,6 @@
     "noProfile": "Sin perfil",
     "modelTitle": "Modelo para este rail Freestyle",
     "loopModelTitle": "Modelo para este loop",
-    "engineTitle": "Motor de IA para este rail"
+    "engineTitle": "Proveedor de IA solo para el desarrollador; los otros roles conservan sus ajustes"
   }
 }

@@ -247,6 +247,7 @@ export interface NarrationInput {
 export function buildNarration({ events, settled }: NarrationInput): NarrationModel {
   const milestones: NarrationMilestone[] = []
   const steps = new Map<number, StepInfo>()
+  const efficiencyEvents = new Set<string>()
   let currentStep: number | null = null
   let sawLoopStructure = false
   let runtimeDeveloperSeen = false
@@ -351,6 +352,20 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
           tone: decision === 'continue' ? 'neutral' : 'good',
         })
       }
+      continue
+    }
+
+    // Advisory check activity never changes loop outcomes or acceptance.
+    if (event.event_type === 'runtime-efficiency-event') {
+      const record = parsePayload(event.payload)
+      const payload = record.payload && typeof record.payload === 'object' && !Array.isArray(record.payload) ? record.payload as Record<string, unknown> : {}
+      const id = asString(record.eventId), kind = asString(record.kind)
+      if (record.schemaVersion !== 1 || !id || efficiencyEvents.has(id)) continue
+      efficiencyEvents.add(id)
+      const label = asString(payload.label), repository = asString(payload.repositoryId)
+      if (!label || !repository || label.length > 256 || repository.length > 256) continue
+      const code = kind === 'check-started' ? 'started' : kind === 'check-reused' ? 'reused' : kind === 'check-invalidated' ? 'invalidated' : kind === 'check-finished' && typeof payload.exitCode === 'number' ? (payload.exitCode === 0 ? 'passed' : 'failed') : null
+      if (code) milestones.push({ seq: event.seq, kind: 'activity', code: `activity.check.${code}`, values: { target: label, repository }, stepIndex: currentStep, tone: code === 'failed' ? 'bad' : 'neutral' })
       continue
     }
 

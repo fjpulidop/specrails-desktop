@@ -175,6 +175,6 @@
     "noProfile": "Kein Profil",
     "modelTitle": "Modell für diese Freestyle-Rail",
     "loopModelTitle": "Modell für diesen Loop",
-    "engineTitle": "KI-Engine für diese Rail"
+    "engineTitle": "KI-Anbieter nur für Entwickler; andere Rollen behalten ihre Einstellungen"
   }
 }

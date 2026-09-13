@@ -73,7 +73,10 @@
     "reason": "Detetado em {{reason}}",
     "remove": "Remover",
     "add": "Adicionar comando",
-    "invalidLine": "Comando de verificação vazio ou com aspas por fechar: {{line}}"
+    "invalidLine": "Comando de verificação vazio ou com aspas por fechar: {{line}}",
+    "label": "Nome da verificação (opcional)",
+    "moveUp": "Subir",
+    "moveDown": "Descer"
   },
   "runs": {
     "title": "Execuções guardadas",
@@ -163,5 +166,81 @@
     "unsaved": "Alterações por guardar",
     "discard": "Descartar alterações",
     "save": "Guardar prompts"
+  },
+  "efficiency": {
+    "title": "Eficiência da implementação",
+    "scope": "Aplica-se a novas execuções. As execuções guardadas mantêm a configuração e o motor originais.",
+    "effort": "Esforço de raciocínio",
+    "providerDefault": "Padrão do fornecedor",
+    "unconfirmed": "Não confirmado",
+    "unknownSupport": "O suporte deste modelo e transporte não está confirmado.",
+    "escalation": "Permitir um nível superior com o mesmo fornecedor",
+    "baseRequired": "Selecione primeiro um modelo base explícito.",
+    "escalationModel": "Modelo de nível superior",
+    "triggers": {
+      "architect": "Apenas a investigação aprofundada existente pode selecionar este nível.",
+      "developer": "Após dois candidatos falhados, a próxima tentativa permitida pode selecionar este nível.",
+      "reviewer": "Apenas para reparar respostas inválidas; rejeitar código não ativa este nível."
+    },
+    "contextMode": "Contexto do repositório",
+    "reviewMode": "Revisão de correções",
+    "planning": "Profundidade do planeamento",
+    "adaptive": "Adaptativo",
+    "full": "Completo",
+    "developerChecks": "Aceitar verificações adicionais propostas pelo programador",
+    "concurrency": "Máximo de verificações simultâneas",
+    "concurrencyHint": "Padrão: 1. Apenas verificações independentes declaradas pelo anfitrião em repositórios diferentes podem executar em conjunto. Sem reutilização por padrão.",
+    "checkCapabilities": "Verificar compatibilidade dos modelos",
+    "capabilitiesFailed": "Compatibilidade não confirmada. Atualize Core ou mantenha os padrões do fornecedor."
+  },
+  "evidence": {
+    "title": "Evidências de verificação",
+    "acceptance": "Aceitação técnica",
+    "acceptanceStatus": {
+      "pending": "Pendente",
+      "validated": "Validado",
+      "with-exceptions": "Com exceções",
+      "blocked": "Bloqueado"
+    },
+    "calls": "Chamadas aos agentes",
+    "executed": "Verificações executadas",
+    "reused": "Verificações reutilizadas",
+    "unknown": "Indisponível",
+    "unavailable": "Evidência indisponível. O resultado guardado não prova a validade atual.",
+    "current": "Candidato e plano atuais",
+    "historical": "Resultado histórico",
+    "moreChecks": "Mais verificações",
+    "output": "Saída da verificação",
+    "empty": "Sem saída",
+    "truncated": "Página limitada ou captura truncada.",
+    "nextPage": "Página seguinte",
+    "status": {
+      "passed": "Aprovado",
+      "failed": "Falhou",
+      "cancelled": "Cancelado",
+      "interrupted": "Interrompido"
+    },
+    "disposition": {
+      "executed": "Executado",
+      "reused": "Reutilizado",
+      "not-run": "Não executado"
+    },
+    "origin": "Origem",
+    "origins": {
+      "host": "Anfitrião",
+      "architect": "Arquiteto",
+      "developer": "Programador",
+      "frozen-runtime-config": "Configuração guardada",
+      "project-role": "Papel do projeto",
+      "default": "Padrão",
+      "explicit-launch-override": "Seleção explícita do programador"
+    },
+    "reuseDisabled": "Reutilização desativada para esta verificação.",
+    "reuseConfirmed": "Reutilizado após confirmar entradas e ferramentas idênticas.",
+    "inputsChanged": "As entradas mudaram durante a verificação; resultado invalidado.",
+    "reuseUnproven": "Sem resultado atual com entradas idênticas comprovadas; executado novamente.",
+    "original": "Execução original",
+    "requested": "Solicitado",
+    "reported": "Reportado"
   }
 }

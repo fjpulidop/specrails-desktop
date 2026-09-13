@@ -1,4 +1,4 @@
-import type { RuntimeEfficiency } from './runtime-efficiency'
+import type { RuntimeEfficiency, RuntimeEfficiencySummary } from './runtime-efficiency'
 /** Version 1 wire contract shared with Core's agent-runtime.schema.json. */
 export const RUNTIME_CLI_PROVIDERS = ['claude', 'codex', 'gemini', 'kimi'] as const
 export const RUNTIME_ROLES = ['architect', 'developer', 'reviewer'] as const
@@ -7,9 +7,27 @@ export type RuntimeCli = typeof RUNTIME_CLI_PROVIDERS[number]
 export type RuntimeProvider =
   | { id: string; kind: 'cli'; cli: RuntimeCli }
   | { id: string; kind: 'openai-compatible'; baseUrl: string; apiKeyEnv?: string }
-export interface RuntimeAgent { provider: string; model?: string; maxTurns?: number }
-export interface RuntimeVerificationCommand { repositoryId: string; command: string; args: string[]; cwd?: string; env?: Record<string, string>; timeoutMs?: number }
+export interface RuntimeEfficiencyPolicy {
+  schemaVersion: 1
+  contextMode?: 'full' | 'incremental'
+  reviewMode?: 'full' | 'incremental'
+  planning?: 'full' | 'proportional'
+  acceptDeveloperChecks?: boolean
+  verification?: { maxConcurrency?: number }
+}
+export interface RuntimeCheckPolicy {
+  reuse?: 'never' | 'snapshot-local'
+  inputs?: string[]
+  deterministic?: boolean
+  readOnly?: boolean
+  toolchainInputs?: string[]
+  independentGroup?: string
+  resources?: string[]
+}
+export interface RuntimeAgent { provider: string; model?: string; maxTurns?: number; effort?: string; escalation?: { model: string; effort?: string } }
+export interface RuntimeVerificationCommand { key?: string; label?: string; policy?: RuntimeCheckPolicy; repositoryId: string; command: string; args: string[]; cwd?: string; env?: Record<string, string>; timeoutMs?: number }
 export interface AgentRuntimeConfig {
+  efficiency?: RuntimeEfficiencyPolicy
   schemaVersion: 1
   enabled: boolean
   providers: RuntimeProvider[]
@@ -32,6 +50,8 @@ export const REVIEW_THRESHOLD_DEFAULTS: { minScore: number; aspects: Record<Revi
 /** An architect question that pauses the run until the operator answers through resume. */
 export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
 export interface RuntimeRun {
+  historical?: boolean
+  efficiencySummary?: RuntimeEfficiencySummary
   canSettle?: boolean
   metrics?: RuntimeEfficiency
   runId: string; traceId?: string; status: string; nextStep: string | null; error?: string
@@ -40,6 +60,7 @@ export interface RuntimeRun {
   recoverableSteps: string[]; active: boolean; canResume: boolean; canCancel: boolean
 }
 export interface AgentRuntimeSettingsResponse {
+  efficiencyAvailable?: boolean
   configured: boolean
   config: AgentRuntimeConfig
   runtimeAvailable: boolean

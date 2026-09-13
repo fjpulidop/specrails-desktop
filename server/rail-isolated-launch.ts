@@ -1,3 +1,4 @@
+import type { RuntimeDeveloperOverride } from './agent-runtime-settings'
 /**
  * Isolated (worktree-per-ticket) rail launch — the live wiring that turns the
  * tested building blocks (worktree-manager, merge-manager, rail-merge-orchestrator,
@@ -84,6 +85,7 @@ import type { ProjectContext } from './project-registry'
 import type { ReasoningEffort } from './providers/types'
 
 export interface IsolatedLaunchInput {
+  runtimeDeveloperOverride?: RuntimeDeveloperOverride
   /** Registered write targets. When omitted, use the specs' targets, then primary. */
   repositoryIds?: string[]
   repositoryContinuation?: { deliveryId: string; decision: PrDecision }
@@ -1381,6 +1383,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     })
     const spec = ctx.getTicketSpec(a.ticketId)
     const enginePromise = ctx.loopRunManager.run({
+        runtimeDeveloperOverride: input.runtimeDeveloperOverride,
         runId: a.runId, loopId, loopName, graph: loopGraph, projectId: ctx.project.id,
         cwd: a.handle.worktreePath, repoDir: a.handle.worktreePath,
         repositoryId: singleRepositoryId,

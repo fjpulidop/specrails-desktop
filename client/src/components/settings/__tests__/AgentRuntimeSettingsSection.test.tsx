@@ -34,6 +34,25 @@ beforeEach(() => {
 })
 
 describe('AgentRuntimeSettingsSection', () => {
+  it('preserves distinct identical checks and their metadata when relabeling and reordering', async () => {
+    const config = defaults()
+    config.verification = [
+      { repositoryId: 'primary-p1', key: 'first', label: 'First', command: 'npm', args: ['test'], cwd: 'src', env: { CI: 'true' }, timeoutMs: 1234, policy: { reuse: 'never' } },
+      { repositoryId: 'primary-p1', key: 'second', label: 'Second', command: 'npm', args: ['test'], cwd: 'other', timeoutMs: 4321 },
+    ]
+    config.agents.developer = { provider: 'codex', model: 'base', effort: 'medium', escalation: { model: 'higher', effort: 'high' } }
+    mockServer({ config, configured: true })
+    const user = userEvent.setup()
+    render(<AgentRuntimeSettingsSection />)
+    const label = (await screen.findAllByLabelText('Check label (optional)'))[0]
+    await user.clear(label); await user.type(label, 'Renamed')
+    await user.click(screen.getByRole('button', { name: 'Move down 1' }))
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    const saved = putBodies().at(-1)!
+    expect(saved.verification).toEqual([config.verification[1], { ...config.verification[0], label: 'Renamed' }])
+    expect(saved.agents).toEqual(config.agents)
+  })
+
   it('prefills an unconfigured project with its detected checks and shows every default in the form', async () => {
     render(<AgentRuntimeSettingsSection />)
     await screen.findByRole('group', { name: 'Architect' })

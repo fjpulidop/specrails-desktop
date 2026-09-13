@@ -73,7 +73,10 @@
     "reason": "Detectado en {{reason}}",
     "remove": "Eliminar",
     "add": "Añadir comando",
-    "invalidLine": "El comando de verificación está vacío o tiene comillas sin cerrar: {{line}}"
+    "invalidLine": "El comando de verificación está vacío o tiene comillas sin cerrar: {{line}}",
+    "label": "Nombre de la comprobación (opcional)",
+    "moveUp": "Subir",
+    "moveDown": "Bajar"
   },
   "runs": {
     "title": "Ejecuciones guardadas",
@@ -163,5 +166,81 @@
     "unsaved": "Cambios sin guardar",
     "discard": "Descartar cambios",
     "save": "Guardar prompts"
+  },
+  "efficiency": {
+    "title": "Eficiencia de implementación",
+    "scope": "Se aplica a nuevas ejecuciones. Las guardadas conservan su configuración y runtime originales.",
+    "effort": "Esfuerzo de razonamiento",
+    "providerDefault": "Predeterminado del proveedor",
+    "unconfirmed": "Sin confirmar",
+    "unknownSupport": "Compatibilidad sin confirmar para este modelo y transporte. Puedes usar el valor predeterminado del proveedor.",
+    "escalation": "Permitir un nivel superior con el mismo proveedor",
+    "baseRequired": "Selecciona primero un modelo base explícito.",
+    "escalationModel": "Modelo del nivel superior",
+    "triggers": {
+      "architect": "Solo puede activarse en la pasada adicional de investigación ya permitida.",
+      "developer": "Tras dos candidatos fallidos, puede activarse en el siguiente intento permitido.",
+      "reviewer": "Solo puede activarse para reparar una respuesta mal formada; rechazar código no lo activa."
+    },
+    "contextMode": "Contexto de repositorios",
+    "reviewMode": "Revisión de correcciones",
+    "planning": "Profundidad del plan",
+    "adaptive": "Adaptativa",
+    "full": "Completa",
+    "developerChecks": "Aceptar checks adicionales propuestos por el developer",
+    "concurrency": "Máximo de checks simultáneos",
+    "concurrencyHint": "Por defecto, 1. Solo se solapan checks declarados independientes por el host en repositorios distintos. La reutilización está desactivada por defecto.",
+    "checkCapabilities": "Comprobar compatibilidad de modelos",
+    "capabilitiesFailed": "No se pudo confirmar la compatibilidad. Actualiza el Core emparejado o conserva los valores predeterminados del proveedor."
+  },
+  "evidence": {
+    "title": "Evidencia de verificación",
+    "acceptance": "Aceptación técnica",
+    "acceptanceStatus": {
+      "pending": "Pendiente",
+      "validated": "Validada",
+      "with-exceptions": "Con excepciones",
+      "blocked": "Bloqueada"
+    },
+    "calls": "Llamadas de agentes",
+    "executed": "Checks ejecutados",
+    "reused": "Checks reutilizados",
+    "unknown": "No disponible",
+    "unavailable": "La evidencia no está disponible para esta ejecución. El resultado registrado no confirma su validez actual.",
+    "current": "Candidato y plan actuales",
+    "historical": "Resultado histórico",
+    "moreChecks": "Más checks",
+    "output": "Salida de verificación",
+    "empty": "Sin salida",
+    "truncated": "Esta es una página limitada o una captura truncada.",
+    "nextPage": "Siguiente página de salida",
+    "status": {
+      "passed": "Correcto",
+      "failed": "Fallido",
+      "cancelled": "Cancelado",
+      "interrupted": "Interrumpido"
+    },
+    "disposition": {
+      "executed": "Ejecutado",
+      "reused": "Reutilizado",
+      "not-run": "No ejecutado"
+    },
+    "origin": "Origen",
+    "origins": {
+      "host": "Host",
+      "architect": "Arquitecto",
+      "developer": "Desarrollador",
+      "frozen-runtime-config": "Configuración guardada",
+      "project-role": "Rol del proyecto",
+      "default": "Por defecto",
+      "explicit-launch-override": "Selección explícita del desarrollador"
+    },
+    "reuseDisabled": "Reutilización desactivada para esta comprobación.",
+    "reuseConfirmed": "Reutilizado tras comprobar entradas y herramientas idénticas.",
+    "inputsChanged": "Las entradas cambiaron durante la verificación; resultado invalidado.",
+    "reuseUnproven": "No hay un resultado vigente con entradas idénticas demostradas; se ejecutó de nuevo.",
+    "original": "Ejecución original",
+    "requested": "Solicitado",
+    "reported": "Reportado"
   }
 }

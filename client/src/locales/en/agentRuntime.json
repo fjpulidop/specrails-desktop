@@ -73,7 +73,10 @@
     "reason": "Detected from {{reason}}",
     "remove": "Remove",
     "add": "Add command",
-    "invalidLine": "Verification command is empty or has an unterminated quote: {{line}}"
+    "invalidLine": "Verification command is empty or has an unterminated quote: {{line}}",
+    "label": "Check label (optional)",
+    "moveUp": "Move up",
+    "moveDown": "Move down"
   },
   "runs": {
     "title": "Saved executions",
@@ -163,5 +166,81 @@
     "unsaved": "Unsaved changes",
     "discard": "Discard changes",
     "save": "Save prompts"
+  },
+  "efficiency": {
+    "title": "Implementation efficiency",
+    "scope": "Applies to new runs. Saved runs retain their original configuration and runtime.",
+    "effort": "Reasoning effort",
+    "providerDefault": "Provider default",
+    "unconfirmed": "Unconfirmed",
+    "unknownSupport": "Support is not confirmed for this model and transport. Provider default remains available.",
+    "escalation": "Allow one higher tier with the same provider",
+    "baseRequired": "Select an explicit base model first.",
+    "escalationModel": "Higher-tier model",
+    "triggers": {
+      "architect": "Only the existing deeper investigation pass can select this tier.",
+      "developer": "After two failed candidates, the next permitted attempt can select this tier.",
+      "reviewer": "Only a malformed-response repair can select this tier; rejecting code does not trigger it."
+    },
+    "contextMode": "Repository context",
+    "reviewMode": "Correction review",
+    "planning": "Planning depth",
+    "adaptive": "Adaptive",
+    "full": "Full",
+    "developerChecks": "Accept additional checks proposed by the developer",
+    "concurrency": "Maximum concurrent checks",
+    "concurrencyHint": "Default 1. Only host-declared independent checks across different repositories may run together. Checks are never reused by default.",
+    "checkCapabilities": "Check model compatibility",
+    "capabilitiesFailed": "Could not confirm model capabilities. Update the paired Core runtime or keep provider defaults."
+  },
+  "evidence": {
+    "title": "Verification evidence",
+    "acceptance": "Technical acceptance",
+    "acceptanceStatus": {
+      "pending": "Pending",
+      "validated": "Validated",
+      "with-exceptions": "With exceptions",
+      "blocked": "Blocked"
+    },
+    "calls": "Agent calls",
+    "executed": "Executed checks",
+    "reused": "Reused checks",
+    "unknown": "Unavailable",
+    "unavailable": "Evidence is unavailable for this execution. Its recorded outcome is not proof of current validity.",
+    "current": "Current candidate and plan",
+    "historical": "Historical result",
+    "moreChecks": "More checks",
+    "output": "Verification output",
+    "empty": "No output",
+    "truncated": "This is a bounded page or a truncated capture.",
+    "nextPage": "Next output page",
+    "status": {
+      "passed": "Passed",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "interrupted": "Interrupted"
+    },
+    "disposition": {
+      "executed": "Executed",
+      "reused": "Reused",
+      "not-run": "Not run"
+    },
+    "origin": "Origin",
+    "origins": {
+      "host": "Host",
+      "architect": "Architect",
+      "developer": "Developer",
+      "frozen-runtime-config": "Frozen configuration",
+      "project-role": "Project role",
+      "default": "Default",
+      "explicit-launch-override": "Explicit developer override"
+    },
+    "reuseDisabled": "Reuse disabled for this check.",
+    "reuseConfirmed": "Reused after verifying matching inputs and toolchain.",
+    "inputsChanged": "Inputs changed during verification; result invalidated.",
+    "reuseUnproven": "No current result with proven matching inputs; the check ran again.",
+    "original": "Original execution",
+    "requested": "Requested",
+    "reported": "Reported"
   }
 }

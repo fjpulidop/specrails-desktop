@@ -73,7 +73,10 @@
     "reason": "Rilevato da {{reason}}",
     "remove": "Rimuovi",
     "add": "Aggiungi comando",
-    "invalidLine": "Comando di verifica vuoto o con virgolette non chiuse: {{line}}"
+    "invalidLine": "Comando di verifica vuoto o con virgolette non chiuse: {{line}}",
+    "label": "Nome del controllo (facoltativo)",
+    "moveUp": "Sposta su",
+    "moveDown": "Sposta giù"
   },
   "runs": {
     "title": "Esecuzioni salvate",
@@ -163,5 +166,81 @@
     "unsaved": "Modifiche non salvate",
     "discard": "Scarta modifiche",
     "save": "Salva prompt"
+  },
+  "efficiency": {
+    "title": "Efficienza dell’implementazione",
+    "scope": "Si applica alle nuove esecuzioni. Quelle salvate mantengono configurazione e motore originali.",
+    "effort": "Sforzo di ragionamento",
+    "providerDefault": "Predefinito del fornitore",
+    "unconfirmed": "Non confermato",
+    "unknownSupport": "Il supporto per questo modello e trasporto non è confermato.",
+    "escalation": "Consenti un livello superiore con lo stesso fornitore",
+    "baseRequired": "Seleziona prima un modello base esplicito.",
+    "escalationModel": "Modello di livello superiore",
+    "triggers": {
+      "architect": "Solo l’approfondimento già previsto può selezionare questo livello.",
+      "developer": "Dopo due candidati falliti, il tentativo successivo consentito può selezionare questo livello.",
+      "reviewer": "Solo per correggere risposte malformate; il rifiuto del codice non lo attiva."
+    },
+    "contextMode": "Contesto del repository",
+    "reviewMode": "Revisione delle correzioni",
+    "planning": "Profondità della pianificazione",
+    "adaptive": "Adattivo",
+    "full": "Completo",
+    "developerChecks": "Accetta controlli aggiuntivi proposti dallo sviluppatore",
+    "concurrency": "Controlli simultanei massimi",
+    "concurrencyHint": "Predefinito: 1. Solo controlli indipendenti dichiarati dall’host in repository diversi possono essere simultanei. Nessun riutilizzo predefinito.",
+    "checkCapabilities": "Verifica compatibilità dei modelli",
+    "capabilitiesFailed": "Compatibilità non confermata. Aggiorna Core o mantieni i valori del fornitore."
+  },
+  "evidence": {
+    "title": "Evidenze di verifica",
+    "acceptance": "Accettazione tecnica",
+    "acceptanceStatus": {
+      "pending": "In attesa",
+      "validated": "Validato",
+      "with-exceptions": "Con eccezioni",
+      "blocked": "Bloccato"
+    },
+    "calls": "Chiamate agli agenti",
+    "executed": "Controlli eseguiti",
+    "reused": "Controlli riutilizzati",
+    "unknown": "Non disponibile",
+    "unavailable": "Evidenza non disponibile. Il risultato registrato non prova la validità attuale.",
+    "current": "Candidato e piano attuali",
+    "historical": "Risultato storico",
+    "moreChecks": "Altri controlli",
+    "output": "Output della verifica",
+    "empty": "Nessun output",
+    "truncated": "Pagina limitata o acquisizione troncata.",
+    "nextPage": "Pagina successiva",
+    "status": {
+      "passed": "Superato",
+      "failed": "Fallito",
+      "cancelled": "Annullato",
+      "interrupted": "Interrotto"
+    },
+    "disposition": {
+      "executed": "Eseguito",
+      "reused": "Riutilizzato",
+      "not-run": "Non eseguito"
+    },
+    "origin": "Origine",
+    "origins": {
+      "host": "Host",
+      "architect": "Architetto",
+      "developer": "Sviluppatore",
+      "frozen-runtime-config": "Configurazione salvata",
+      "project-role": "Ruolo del progetto",
+      "default": "Predefinito",
+      "explicit-launch-override": "Scelta esplicita dello sviluppatore"
+    },
+    "reuseDisabled": "Riutilizzo disabilitato per questo controllo.",
+    "reuseConfirmed": "Riutilizzato dopo la conferma di input e strumenti identici.",
+    "inputsChanged": "Input cambiati durante la verifica; risultato invalidato.",
+    "reuseUnproven": "Nessun risultato attuale con input identici comprovati; controllo rieseguito.",
+    "original": "Esecuzione originale",
+    "requested": "Richiesto",
+    "reported": "Segnalato"
   }
 }

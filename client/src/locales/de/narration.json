@@ -71,6 +71,13 @@
       "stopped": "Die Laufzeit wurde gestoppt: {{target}}",
       "corrections": "Korrekturen gehen an den Entwickler zurück",
       "resumed": "Gespeicherte Ausführung wird fortgesetzt"
+    },
+    "check": {
+      "started": "Prüfe {{target}}",
+      "passed": "Prüfung bestanden: {{target}}",
+      "failed": "Prüfung fehlgeschlagen: {{target}}",
+      "reused": "Geprüftes Ergebnis wiederverwenden: {{target}}",
+      "invalidated": "Vorheriges Ergebnis ungültig: {{target}}"
     }
   },
   "repeats": "×{{count}}"

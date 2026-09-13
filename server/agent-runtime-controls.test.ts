@@ -15,6 +15,7 @@ import { recoverOrphanLoopStepAccounting } from './loop-run-manager'
 
 const loader = vi.hoisted(() => ({ cli: null as string | null }))
 vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: () => loader.cli }))
+vi.mock('./agent-runtime-package', () => ({ resolveRetainedAgentRuntime: () => loader.cli }))
 vi.mock('./path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath }))
 vi.mock('./workspace-resolution', () => ({ resolveProjectExecution: (project: { path: string }) => ({ specrailsDir: path.join(project.path, '.specrails') }), resolveLoopBaseEnv: () => ({ ...process.env, SPECRAILS_GIT_AUTO: 'true', SPECRAILS_REPO_MAP_PATH: 'new-map', SPECRAILS_PROFILE_PATH: 'legacy-profile.json' }) }))
 
@@ -52,6 +53,16 @@ describe('agent runtime lifecycle', () => {
     status.mockResolvedValue(state())
     expect((await service.summary('run-1')).metrics).toBeUndefined()
   })
+  it('shows a later transport failure even if Core left its previous checkpoint unchanged', async () => {
+    const { writeRuntimeHistory } = await import('./agent-runtime-history')
+    status.mockResolvedValue({ ...state(), updatedAt: '2026-01-01T00:00:00Z' })
+    writeRuntimeHistory(contextPath, { status: 'failed', error: 'Transport stopped before updating Core' })
+    expect(await service.summary('run-1')).toMatchObject({ status: 'failed', error: 'Transport stopped before updating Core', canResume: true, canSettle: false, metrics: undefined, efficiencySummary: undefined })
+    status.mockRejectedValue(new Error('Original runtime unavailable'))
+    expect(await service.summary('run-1')).toMatchObject({ status: 'failed', historical: true, canResume: false, canSettle: false })
+    expect(execute).not.toHaveBeenCalled()
+  })
+
   it('lists admitted runs and restores the original cwd/environment without starting providers for status', async () => {
     expect(await service.list()).toEqual([expect.objectContaining({ runId: 'run-1', status: 'paused', canResume: true, canCancel: false, pendingApproval: { stepId: 'archive', reason: 'Review candidate' } })])
     expect(status).toHaveBeenCalledWith(contextPath, directory, expect.objectContaining({ SPECRAILS_GIT_AUTO: 'false', SPECRAILS_EXECUTION_CONTEXT: contextPath }))

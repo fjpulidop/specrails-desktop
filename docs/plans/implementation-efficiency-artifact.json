@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "name": "specrails-core",
+  "version": "5.3.0",
+  "sha": "2427141bf61ea38785b3741cd1f66270743a476b",
+  "filename": "specrails-core-5.3.0.tgz",
+  "integrity": "sha512-pi0GRKWv7QbygU16i1AJVWme/IJ3vVrpSh80huGLE1yusHxGvLDN+ugy2REkdBlxreICbgXzR6lkaAEGQUMPWA==",
+  "developmentOnly": true,
+  "sourceCommitDescribes": "Uncommitted development tree based on this commit; use package integrity for artifact identity.",
+  "runtimeIdentity": {
+    "apiVersion": 1,
+    "packageVersion": "5.3.0",
+    "workflowVersion": "5",
+    "instructionsVersion": "7",
+    "packageIntegrity": "sha256:6a3005a4e0eb16a42da74b7fa39a5a7d694b1782ee73a2d64bc0872fb51bc340"
+  },
+  "artifactPath": "/tmp/specrails-core-efficiency-ready/specrails-core-5.3.0.tgz"
+}

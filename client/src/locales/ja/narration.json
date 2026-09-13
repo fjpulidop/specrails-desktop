@@ -71,6 +71,13 @@
       "stopped": "実行エンジンが停止しました: {{target}}",
       "corrections": "修正をデベロッパーに差し戻し中",
       "resumed": "保存した実行を再開しています"
+    },
+    "check": {
+      "started": "{{target}} を検証中",
+      "passed": "検証成功: {{target}}",
+      "failed": "検証失敗: {{target}}",
+      "reused": "検証済み結果を再利用: {{target}}",
+      "invalidated": "以前の結果は無効: {{target}}"
     }
   },
   "repeats": "×{{count}}"

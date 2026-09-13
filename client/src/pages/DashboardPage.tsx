@@ -1276,6 +1276,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: rail.mode,
+          ...((rail.aiEngine != null || rail.mode === 'loop' && (rail.loopModel || launchEffort)) ? { runtimeDeveloperOverride: { provider: launchProvider, ...(rail.mode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}), ...(rail.mode === 'loop' && launchEffort ? { effort: launchEffort } : {}) } } : {}),
           // rail.profileName can be a string (explicit), null (force legacy),
           // or undefined (let server fall back to stored rail profile or defaults).
           ...(rail.profileName !== undefined ? { profileName: rail.profileName } : {}),

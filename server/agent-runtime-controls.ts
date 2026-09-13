@@ -1,11 +1,13 @@
+import { runtimeEfficiencyEventLine, isRecordedRuntimeEfficiencyEvent } from './agent-runtime-events'
+import { readRuntimeHistory } from './agent-runtime-history'
 import { settleRuntimeContinuation } from './agent-runtime-settlement'
-import { readRuntimeEfficiency, type RuntimeEfficiency } from './agent-runtime-metrics'
+import { applyRuntimeSelectionOrigins, readRuntimeEfficiencySummary, readRuntimeEfficiency, type RuntimeEfficiencySummary, type RuntimeEfficiency } from './agent-runtime-metrics'
 import { execFile, type ChildProcess } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { findCoreAgentRuntimeCli } from './agent-runtime-loader'
+import { resolveRetainedAgentRuntime } from './agent-runtime-package'
 import { RUNTIME_HOST_ENV_KEYS, runAgentRuntimeInvocation } from './agent-runtime-bridge'
 import { resolveCoreNodeRuntime } from './core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from './util/win-spawn'
@@ -23,6 +25,7 @@ export interface RuntimeResumeInput { approve?: string[]; recover?: string[]; in
 export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
 interface FrozenContext { runId: string; backlogRoot: string; artifactRoot: string; repositories: Array<{ id: string; name: string; path: string }> }
 export interface RuntimeState {
+  efficiencySummary?: RuntimeEfficiencySummary
   metrics?: RuntimeEfficiency
   runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
   pendingApproval?: { stepId: string; reason?: string }
@@ -30,6 +33,8 @@ export interface RuntimeState {
   steps: Record<string, { status: string; visits?: number }>
 }
 export interface RuntimeRunSummary {
+  historical?: boolean
+  efficiencySummary?: RuntimeEfficiencySummary
   canSettle?: boolean
   metrics?: RuntimeEfficiency
   runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
@@ -61,14 +66,18 @@ function openQuestion(state: RuntimeState): RuntimePendingQuestion | undefined {
 
 /** Status is a read-only Core CLI operation. It never invokes a provider. */
 export async function readAgentRuntimeStatus(contextPath: string, cwd: string, env: NodeJS.ProcessEnv): Promise<RuntimeState | null> {
-  const cli = findCoreAgentRuntimeCli()
+  let cli: string
+  try { cli = resolveRetainedAgentRuntime(contextPath) }
+  catch (error) { throw new RuntimeControlError(409, 'original_runtime_unavailable', error instanceof Error ? error.message : 'The original runtime package is unavailable') }
   if (!cli) throw new RuntimeControlError(503, 'runtime_unavailable', 'Update Core to inspect or resume agent runtime executions')
   const { stdout } = await promisify(execFile)(resolveCoreNodeRuntime(), [cli, 'status', '--context', contextPath, '--compact'], {
     cwd, env: windowsSpawnEnv(env), windowsHide: true, timeout: 15000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8',
   })
-  const result = JSON.parse(stdout) as { type?: string; state?: RuntimeState | null }
+  const result = JSON.parse(stdout) as { type?: string; state?: RuntimeState | null; efficiencySummary?: unknown }
   if (result.type !== 'runtime-status' || result.state === undefined) throw new Error('Core returned an invalid runtime status')
-  return result.state
+  let selection: unknown
+  try { selection = JSON.parse(fs.readFileSync(path.join(path.dirname(contextPath), 'desktop-runtime-selection.json'), 'utf8')) } catch { /* Original hosts may not record selection origins. */ }
+  return result.state ? { ...result.state, efficiencySummary: applyRuntimeSelectionOrigins(readRuntimeEfficiencySummary(result.efficiencySummary), selection, result.state.runId) } : null
 }
 
 /** One controller per ProjectContext; Core's durable lease remains the final
@@ -82,7 +91,7 @@ export class AgentRuntimeControls {
   private disposed = false
   constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {}
 
-  private context(runId: string): { file: string; frozen: FrozenContext; cwd: string; env: NodeJS.ProcessEnv } {
+  private context(runId: string, historical = false): { file: string; frozen: FrozenContext; cwd: string; env: NodeJS.ProcessEnv } {
     if (!SAFE_ID.test(runId)) throw new RuntimeControlError(400, 'invalid_run_id', 'Invalid runtime run ID')
     const execution = resolveProjectExecution(this.ctx.project)
     const backlogRoot = fs.realpathSync(path.dirname(execution.specrailsDir))
@@ -94,7 +103,7 @@ export class AgentRuntimeControls {
     try {
       if (frozen.runId !== runId || fs.realpathSync(frozen.backlogRoot) !== backlogRoot || !Array.isArray(frozen.repositories) || !frozen.repositories.length || !frozen.repositories.some((repository) => repository.path === frozen.artifactRoot)) throw new Error()
       for (const root of [frozen.artifactRoot, ...frozen.repositories.map((repository) => repository.path)]) {
-        if (!path.isAbsolute(root) || fs.realpathSync(root) !== root || !fs.statSync(root).isDirectory()) throw new Error()
+        if (!path.isAbsolute(root) || (!historical && (fs.realpathSync(root) !== root || !fs.statSync(root).isDirectory()))) throw new Error()
       }
     } catch { throw new RuntimeControlError(409, 'runtime_scope_unavailable', 'The original runtime worktree or project scope is unavailable. Start a new implementation.') }
     const stored = this.ctx.db.prepare('SELECT execution_manifest FROM loop_runs WHERE id = ?').get(runId) as { execution_manifest?: string } | undefined
@@ -108,6 +117,20 @@ export class AgentRuntimeControls {
     for (const key of RUNTIME_HOST_ENV_KEYS) delete env[key]
     Object.assign(env, host.env, { SPECRAILS_EXECUTION_CONTEXT: file })
     return { file, frozen, cwd: host.cwd, env }
+  }
+
+  async evidence(runId: string, query: Record<string, unknown>): Promise<unknown> {
+    const { file, frozen, env } = this.context(runId, true)
+    const flags: string[] = []
+    for (const [key, value] of Object.entries(query)) {
+      if (!['id', 'section', 'sourceId', 'cursor', 'limit'].includes(key) || typeof value !== 'string' || value.length > 1024) throw new RuntimeControlError(400, 'invalid_evidence_query', 'Invalid evidence query')
+      flags.push('--' + (key === 'sourceId' ? 'source-id' : key), value)
+    }
+    const cli = resolveRetainedAgentRuntime(file)
+    const { stdout } = await promisify(execFile)(resolveCoreNodeRuntime(), [cli, 'evidence', '--context', file, ...flags], { cwd: frozen.backlogRoot, env: windowsSpawnEnv(env), windowsHide: true, timeout: 15000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8' })
+    const result = JSON.parse(stdout)
+    if (result.schemaVersion !== 1 || typeof result.available !== 'boolean' || typeof result.truncated !== 'boolean') throw new RuntimeControlError(503, 'evidence_unavailable', 'Core evidence is unavailable or incompatible')
+    return result
   }
 
   async list(): Promise<RuntimeRunSummary[]> {
@@ -128,21 +151,29 @@ export class AgentRuntimeControls {
       // key, keeping idle settings panes from spawning CLI processes repeatedly.
       const checkpoint = path.join(path.dirname(file), 'agent-workflow', runId, 'checkpoint.json')
       const stat = fs.existsSync(checkpoint) ? fs.statSync(checkpoint) : null
-      const fingerprint = stat ? `${stat.mtimeMs}:${stat.size}` : null
+      const fingerprint = stat ? createHash('sha256').update(fs.readFileSync(checkpoint)).digest('hex') : null
       const cached = this.statusCache.get(runId)
       const state = fingerprint && cached?.fingerprint === fingerprint ? cached.state : await this.dependencies.status(file, cwd, env)
       if (!state || state.runId !== runId) throw new Error('No saved workflow state is available')
       if (fingerprint) this.statusCache.set(runId, { fingerprint, state })
       const parent = getLoopRun(this.ctx.db, runId)
       const active = this.active.has(runId) || parent?.status === 'running' || parent?.status === 'paused'
+      let projection: ReturnType<typeof readRuntimeHistory> = null
+      try { projection = readRuntimeHistory(file) } catch { /* Invalid advisory history cannot replace live state. */ }
+      const superseding = !active && projection && ['failed', 'cancelled', 'running'].includes(projection.status) && Date.parse(projection.updatedAt) > Date.parse(state.updatedAt ?? '1970-01-01') ? projection : null
       const recoverableSteps = Object.entries(state.steps).filter(([, step]) => ['running', 'interrupted'].includes(step.status)).map(([id]) => id)
-      return { runId, status: state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
-        updatedAt: state.updatedAt, error: this.errors.get(runId) ?? state.error, pendingApproval: state.pendingApproval,
+      return { runId, status: superseding ? (superseding.status === 'running' ? 'interrupted' : superseding.status) : state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
+        updatedAt: superseding?.updatedAt ?? state.updatedAt, error: this.errors.get(runId) ?? superseding?.error ?? state.error, pendingApproval: state.pendingApproval,
         traceId: state.traceId, pendingQuestion: openQuestion(state),
-        metrics: readRuntimeEfficiency(state.metrics),
-        canSettle: !active && state.status === 'succeeded' && (this.ctx.db.prepare('SELECT status FROM jobs WHERE id = ?').get(runId) as { status?: string } | undefined)?.status !== 'completed',
+        metrics: readRuntimeEfficiency(superseding ? superseding.metrics : state.metrics), efficiencySummary: readRuntimeEfficiencySummary(superseding ? superseding.efficiencySummary : state.efficiencySummary),
+        canSettle: !superseding && !active && state.status === 'succeeded' && (this.ctx.db.prepare('SELECT status FROM jobs WHERE id = ?').get(runId) as { status?: string } | undefined)?.status !== 'completed',
         recoverableSteps, active, canCancel: this.active.has(runId), canResume: !active && parent?.status === 'completed' && state.status !== 'succeeded' }
     } catch (error) {
+      try {
+        const { file } = this.context(runId, true)
+        const historical = readRuntimeHistory(file)
+        if (historical) return { ...historical, runId, status: historical.status === 'running' ? 'interrupted' : historical.status, historical: true, active: this.active.has(runId), canResume: false, canSettle: false, canCancel: this.active.has(runId), recoverableSteps: [], error: error instanceof RuntimeControlError ? error.message : 'Historical result; live runtime verification is unavailable' }
+      } catch { /* No trustworthy historical projection is available. */ }
       return { runId, status: 'unavailable', nextStep: null, active: this.active.has(runId), canResume: false, canCancel: this.active.has(runId), recoverableSteps: [], error: error instanceof RuntimeControlError ? error.message : 'Could not inspect the saved runtime execution' }
     }
   }
@@ -207,6 +238,11 @@ export class AgentRuntimeControls {
           if (this.disposed) return
           let eventType = 'agent-runtime'
           try { const parsed = JSON.parse(line) as { type?: unknown }; if (typeof parsed.type === 'string') eventType = parsed.type } catch { /* Keep raw diagnostics available to recovery. */ }
+          if (eventType === 'runtime-efficiency-event') {
+            const validated = runtimeEfficiencyEventLine(line, runId)
+            if (!validated || isRecordedRuntimeEfficiencyEvent(this.ctx.db, runId, validated)) return
+            line = validated
+          }
           this.ctx.db.transaction(() => {
             appendEvent(this.ctx.db, runId, ++sequence, { event_type: eventType, source: 'stdout', payload: line })
             updateLoopStepActivityCheckpoint(this.ctx.db, runId, stepKey, undefined, Date.now())

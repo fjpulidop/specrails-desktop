@@ -73,7 +73,10 @@
     "reason": "检测自 {{reason}}",
     "remove": "移除",
     "add": "添加命令",
-    "invalidLine": "验证命令为空或引号未闭合：{{line}}"
+    "invalidLine": "验证命令为空或引号未闭合：{{line}}",
+    "label": "检查名称（可选）",
+    "moveUp": "上移",
+    "moveDown": "下移"
   },
   "runs": {
     "title": "已保存的执行",
@@ -163,5 +166,81 @@
     "unsaved": "未保存的更改",
     "discard": "放弃更改",
     "save": "保存提示词"
+  },
+  "efficiency": {
+    "title": "实现效率",
+    "scope": "适用于新运行。已保存的运行保留原始配置和运行时。",
+    "effort": "推理强度",
+    "providerDefault": "提供商默认值",
+    "unconfirmed": "未确认",
+    "unknownSupport": "尚未确认此模型和传输方式的支持情况。",
+    "escalation": "允许使用同一提供商的一个更高等级",
+    "baseRequired": "请先明确选择基础模型。",
+    "escalationModel": "更高等级模型",
+    "triggers": {
+      "architect": "仅现有的深入调查步骤可选择此等级。",
+      "developer": "两个候选实现失败后，下一次允许的尝试可选择此等级。",
+      "reviewer": "仅用于修复格式错误的响应；拒绝代码不会触发升级。"
+    },
+    "contextMode": "仓库上下文",
+    "reviewMode": "修正审查",
+    "planning": "规划深度",
+    "adaptive": "自适应",
+    "full": "完整",
+    "developerChecks": "接受开发者提出的额外检查",
+    "concurrency": "最大并发检查数",
+    "concurrencyHint": "默认值为 1。只有主机声明为独立且属于不同仓库的检查才能并发运行。默认不复用检查。",
+    "checkCapabilities": "检查模型兼容性",
+    "capabilitiesFailed": "无法确认兼容性。请更新配套 Core 或保留提供商默认值。"
+  },
+  "evidence": {
+    "title": "验证证据",
+    "acceptance": "技术验收",
+    "acceptanceStatus": {
+      "pending": "待处理",
+      "validated": "已验证",
+      "with-exceptions": "存在例外",
+      "blocked": "已阻止"
+    },
+    "calls": "代理调用",
+    "executed": "已执行检查",
+    "reused": "已复用检查",
+    "unknown": "不可用",
+    "unavailable": "证据不可用。已记录的结果不代表当前仍然有效。",
+    "current": "当前候选实现和计划",
+    "historical": "历史结果",
+    "moreChecks": "更多检查",
+    "output": "验证输出",
+    "empty": "无输出",
+    "truncated": "此页面有长度限制或记录已截断。",
+    "nextPage": "下一页输出",
+    "status": {
+      "passed": "通过",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "interrupted": "已中断"
+    },
+    "disposition": {
+      "executed": "已执行",
+      "reused": "已复用",
+      "not-run": "未执行"
+    },
+    "origin": "来源",
+    "origins": {
+      "host": "主机",
+      "architect": "架构师",
+      "developer": "开发者",
+      "frozen-runtime-config": "已保存配置",
+      "project-role": "项目角色",
+      "default": "默认",
+      "explicit-launch-override": "开发者明确选择"
+    },
+    "reuseDisabled": "此检查已禁用复用。",
+    "reuseConfirmed": "确认输入和工具链一致后复用。",
+    "inputsChanged": "验证期间输入发生变化；结果已失效。",
+    "reuseUnproven": "没有输入一致且仍然有效的结果；已重新执行检查。",
+    "original": "原始执行",
+    "requested": "请求值",
+    "reported": "报告值"
   }
 }

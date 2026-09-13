@@ -71,6 +71,13 @@
       "stopped": "El motor se detuvo: {{target}}",
       "corrections": "Devolviendo correcciones al desarrollador",
       "resumed": "Reanudando la ejecución guardada"
+    },
+    "check": {
+      "started": "Comprobando {{target}}",
+      "passed": "Comprobación superada: {{target}}",
+      "failed": "Comprobación fallida: {{target}}",
+      "reused": "Reutilizando el resultado verificado: {{target}}",
+      "invalidated": "Resultado anterior invalidado: {{target}}"
     }
   },
   "repeats": "×{{count}}"

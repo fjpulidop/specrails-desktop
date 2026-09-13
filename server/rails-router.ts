@@ -1,3 +1,4 @@
+import { validateRuntimeDeveloperOverride } from './agent-runtime-settings'
 import { Router, Request, Response } from 'express'
 import type { ProjectContext } from './project-registry'
 import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, createRail, deleteRail, railCount, railExists, MAX_RAILS, MAX_TICKETS_PER_RAIL_LAUNCH, type RailState } from './rails-store'
@@ -438,6 +439,9 @@ export function createRailsRouter(): Router {
       res.status(400).json({ error: 'Invalid rail index' }); return
     }
 
+    let runtimeDeveloperOverride
+    try { runtimeDeveloperOverride = validateRuntimeDeveloperOverride(req.body?.runtimeDeveloperOverride) }
+    catch { res.status(400).json({ error: 'invalid_developer_override' }); return }
     let { mode = 'implement' } = req.body ?? {}
     const { repositoryIds: rawRepositoryIds, baseDeliveryIds, profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch } = req.body ?? {}
     // Revision launch (nontech-review-experience Wave 3): the user asked for a
@@ -872,6 +876,7 @@ export function createRailsRouter(): Router {
             }
             try {
               const ids = await launchIsolatedRail({
+                runtimeDeveloperOverride,
                 ctx: c, railIndex, ticketIds: [...rail.ticketIds], repositoryIds, ...repositoryBases, loopId, loopName, loopGraph,
                 provider: loopProvider, model: loopModel, effort, scope,
                 profileName: resolvedProfile,
@@ -976,6 +981,7 @@ export function createRailsRouter(): Router {
           }
           const runPromise = c.loopRunManager
             .run({
+              runtimeDeveloperOverride,
               runId,
               loopId,
               loopName,

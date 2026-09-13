@@ -3,7 +3,8 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
 const fixture = vi.hoisted(() => ({ cli: null as string | null, node: null as string | null }))
-vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ rolePromptDefaults: () => ({ architect: 'Factory architect', developer: 'Factory developer', reviewer: 'Factory reviewer' }) }) }))
+vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ validateRuntimeConfig: (value: unknown) => value, rolePromptDefaults: () => ({ architect: 'Factory architect', developer: 'Factory developer', reviewer: 'Factory reviewer' }) }) }))
+vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, resolveRetainedAgentRuntime: () => fixture.cli }))
 vi.mock('./path-resolver', () => ({ resolveBundledNodeExe: () => fixture.node }))
 import { loadRuntimeConfigFile, saveRuntimeRolePrompts } from './agent-runtime-settings'
 import { runAgentRuntimeInvocation, runtimeChangeName } from './agent-runtime-bridge'
@@ -43,9 +44,11 @@ describe('Core process bridge', () => {
     writeFileSync(options().configPath, JSON.stringify(config))
     script(`console.log(JSON.stringify(${JSON.stringify(final())}));`)
     const onLine = vi.fn()
-    expect((await runAgentRuntimeInvocation({ ...options(), defaultProvider: 'codex', selectedModel: 'gpt-5.6-sol', onLine })).failed).toBe(false)
+    expect((await runAgentRuntimeInvocation({ ...options(), defaultProvider: 'codex', developerOverride: { provider: 'codex', model: 'gpt-5.6-sol' }, onLine })).failed).toBe(false)
     const frozen = JSON.parse(readFileSync(join(root, 'state', 'desktop-runtime-config.json'), 'utf8'))
-    for (const role of Object.values(frozen.agents)) expect(role).toMatchObject({ provider: 'codex', model: 'gpt-5.6-sol' })
+    expect(frozen.agents.developer).toMatchObject({ provider: 'codex', model: 'gpt-5.6-sol' })
+    expect(frozen.agents.architect).toMatchObject({ provider: 'claude', model: 'sonnet' })
+    expect(frozen.agents.reviewer.provider).toBe('claude')
     expect(onLine.mock.calls.map(call => call[0]).join('')).toContain('developer: codex/gpt-5.6-sol')
     await runAgentRuntimeInvocation({ ...options(), resume: true, defaultProvider: 'claude' })
     expect(JSON.parse(readFileSync(join(root, 'state', 'desktop-runtime-config.json'), 'utf8')).agents).toEqual(frozen.agents)
