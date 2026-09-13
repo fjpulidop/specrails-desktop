@@ -24,7 +24,8 @@
     },
     "stalled": "Il passo {{step}} si è bloccato — nessuna attività per {{idleMinutes}} min, quindi l'app l'ha fermato",
     "startResume": "Passo {{step}}: {{title}} — ripresa dopo un blocco",
-    "providerLimit": "Passo {{step}} fermato — raggiunto il limite d'uso del provider"
+    "providerLimit": "Passo {{step}} fermato — raggiunto il limite d'uso del provider",
+    "recovered": "Passaggio {{step}} completato dopo la ripresa"
   },
   "decision": {
     "another": "Non ancora — un altro giro",
@@ -68,7 +69,8 @@
       "reviewer": "Revisione dell’implementazione (revisore)",
       "archive": "Archiviazione della modifica revisionata",
       "stopped": "Il motore si è fermato: {{target}}",
-      "corrections": "Correzioni rinviate allo sviluppatore"
+      "corrections": "Correzioni rinviate allo sviluppatore",
+      "resumed": "Ripresa dell’esecuzione salvata"
     }
   },
   "repeats": "×{{count}}"

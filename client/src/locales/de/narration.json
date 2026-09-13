@@ -24,7 +24,8 @@
     },
     "stalled": "Schritt {{step}} hing – {{idleMinutes}} Min. ohne Aktivität, daher hat die App ihn beendet",
     "startResume": "Schritt {{step}}: {{title}} – Fortsetzung nach einem Hänger",
-    "providerLimit": "Schritt {{step}} gestoppt — das Nutzungslimit des Anbieters ist erreicht"
+    "providerLimit": "Schritt {{step}} gestoppt — das Nutzungslimit des Anbieters ist erreicht",
+    "recovered": "Schritt {{step}} nach dem Fortsetzen abgeschlossen"
   },
   "decision": {
     "another": "Noch nicht fertig — nächste Runde",
@@ -68,7 +69,8 @@
       "reviewer": "Prüfung der Umsetzung (Reviewer)",
       "archive": "Archivierung der geprüften Änderung",
       "stopped": "Die Laufzeit wurde gestoppt: {{target}}",
-      "corrections": "Korrekturen gehen an den Entwickler zurück"
+      "corrections": "Korrekturen gehen an den Entwickler zurück",
+      "resumed": "Gespeicherte Ausführung wird fortgesetzt"
     }
   },
   "repeats": "×{{count}}"

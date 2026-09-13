@@ -4,6 +4,9 @@ import { fireEvent, render, screen, waitFor } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import JobDetailPage from '../JobDetailPage'
 import type { JobSummary, EventRow } from '../../types'
+vi.mock('../../components/settings/AgentRuntimeRuns', () => ({
+  AgentRuntimeRuns: ({ projectId, jobId }: { projectId: string; jobId: string }) => <div data-testid="runtime-job-actions" data-project={projectId} data-job={jobId} />,
+}))
 
 vi.mock('sonner', () => ({
   toast: {
@@ -224,7 +227,7 @@ describe('JobDetailPage', () => {
     })
   })
 
-  it('re-fetches job when queue message transitions job to completed', async () => {
+  it.each(['queue', 'runtime.continuation'])('re-fetches job on %s lifecycle updates', async (eventType) => {
     const runningJob = { ...mockJob, status: 'running' as const, duration_ms: null, total_cost_usd: null }
     const completedJob = { ...mockJob, status: 'completed' as const, duration_ms: 30000, total_cost_usd: 0.05 }
 
@@ -238,7 +241,7 @@ describe('JobDetailPage', () => {
     })
 
     const handler = mockRegisterHandler.mock.calls[0][1]
-    handler({ type: 'queue', projectId: 'proj-1', jobs: [{ id: 'job-abc123', status: 'completed' }] })
+    handler({ type: eventType, jobId: 'job-abc123', projectId: 'proj-1', active: false, jobs: [{ id: 'job-abc123', status: 'completed' }] })
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(2)
@@ -255,6 +258,8 @@ describe('JobDetailPage', () => {
     await waitFor(() => {
       // LogViewer shows the log line
       expect(screen.getByText('Starting implementation...')).toBeInTheDocument()
+      expect(screen.getByTestId('runtime-job-actions')).toHaveAttribute('data-job', 'job-abc123')
+      expect(screen.getByTestId('runtime-job-actions')).toHaveAttribute('data-project', 'proj-1')
     })
   })
 

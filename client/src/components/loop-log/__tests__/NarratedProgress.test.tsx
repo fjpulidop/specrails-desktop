@@ -21,6 +21,14 @@ const tool = (name: string, input: Record<string, unknown>) =>
   ev('assistant', { type: 'assistant', message: { content: [{ type: 'tool_use', name, input }] } })
 
 describe('NarratedProgress', () => {
+  it('shows repository labels beside separate activity groups in mission mode', () => {
+    const events = ['Front', 'Back'].map(name => ev('agent-event', { role: 'developer', repositories: [{ id: name, name }], event: { kind: 'tool-start', tool: 'Read', detail: 'src/app.ts' } }))
+    render(<NarratedProgress events={events} settled={false} variant="glass" />)
+    expect(screen.getByText('Front')).toBeInTheDocument()
+    expect(screen.getByText('Back')).toBeInTheDocument()
+    expect(screen.getAllByText('Reading app.ts')).toHaveLength(2)
+  })
+
   it('renders milestones in plain language', () => {
     render(<NarratedProgress
       events={[step(1, 'Implement'), tool('Read', { file_path: '/src/auth.ts' }), stepEnd(1)]}

@@ -164,6 +164,11 @@ export function providerSupportsStructuredActions(
   return provider === 'claude'
 }
 
+/** Contract extraction accepts Codex's read-only transform boundary. */
+export function providerSupportsContractRefine(provider: string | null | undefined): boolean {
+  return providerSupportsStructuredActions(provider) || provider === 'codex'
+}
+
 /** Mirrors `ProviderCapabilities.userMcp` on the server. */
 export function providerSupportsUserMcp(
   provider: string | null | undefined,

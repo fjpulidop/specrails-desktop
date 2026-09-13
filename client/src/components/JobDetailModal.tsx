@@ -1,4 +1,5 @@
 import { modalOverlayStyle } from '../lib/modal-safe-area'
+import { AgentRuntimeRuns } from './settings/AgentRuntimeRuns'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDistanceToNow } from 'date-fns'
@@ -180,6 +181,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
       if (!rafIdRef.current) rafIdRef.current = requestAnimationFrame(flushEvents)
     } else if (
       (msg.type === 'job.finalized' && msg.jobId === jobId)
+      || (msg.type === 'runtime.continuation' && msg.jobId === jobId)
       || (msg.type === 'job.interactive' && msg.jobId === jobId)
       || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed') && msg.loopRunId === jobId)
     ) {
@@ -341,13 +343,14 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden relative">
+        {projectId && job && <div className="max-h-[40%] overflow-y-auto"><AgentRuntimeRuns projectId={projectId} jobId={jobId} contextual /></div>}
+        <div className="min-h-0 flex-1 overflow-hidden relative">
           {notFound ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-sm text-muted-foreground">{t('modal.notFound')}</p>
             </div>
           ) : FEATURE_NARRATED_PROGRESS && job ? (
-            <div className="flex h-full flex-col">
+            <div className="flex h-full min-h-0 flex-col">
               <div className="flex items-center gap-1 border-b border-border/40 px-3 py-1.5">
                 {(['narrated', 'log'] as const).map((mode) => (
                   <button
@@ -366,7 +369,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
                   </button>
                 ))}
               </div>
-              <div className="flex-1 overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-hidden">
                 {narrationMode === 'narrated' ? (
                   <NarratedProgress
                     events={events}

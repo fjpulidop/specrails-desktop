@@ -4,8 +4,6 @@
   "loading": "Cargando configuración…",
   "loadFailed": "No se pudo cargar la configuración. Reintenta antes de modificarla.",
   "retry": "Reintentar",
-  "enabled": "Usar el motor de agentes para implementar",
-  "enableHint": "Guardar no inicia agentes. Al activarlo, las implementaciones de este proyecto usan el motor; los proyectos desactivados conservan su modo de ejecución actual.",
   "unavailable": "Esta instalación de Core no incluye el motor de agentes. Actualiza Core antes de activarlo; puedes preparar la configuración mientras está desactivado.",
   "save": "Guardar configuración",
   "saving": "Guardando…",
@@ -27,7 +25,9 @@
     "addCli": "Añadir proveedor CLI",
     "addLocal": "Añadir proveedor local / API",
     "show": "Mostrar conexiones de proveedores",
-    "hide": "Ocultar conexiones de proveedores"
+    "hide": "Ocultar conexiones de proveedores",
+    "globalTitle": "Conexiones de proveedores",
+    "globalHint": "Estas conexiones están disponibles para todos los proyectos. Asigna proveedores y modelos a cada rol en los ajustes del proyecto. Los cambios se aplican a nuevas ejecuciones."
   },
   "cliNames": {
     "claude": "Claude",
@@ -44,7 +44,7 @@
   },
   "agents": {
     "title": "Asignación de roles",
-    "hint": "Cada rol ejecuta su propia sesión del proveedor. Deja el modelo en el predeterminado salvo que necesites uno concreto. Los turnos son las llamadas a herramientas que puede hacer un rol (por defecto {{turns}}).",
+    "hint": "Cada rol puede usar un proveedor y un modelo distintos. Las conexiones se gestionan en Ajustes generales → Specrails Agents. Límite por defecto: {{turns}} turnos por agente.",
     "provider": "Proveedor",
     "model": "Modelo",
     "modelPlaceholder": "ID del modelo o predeterminado del CLI",
@@ -100,7 +100,12 @@
     "question": "El arquitecto pregunta:",
     "answerLabel": "Tu respuesta",
     "answerPlaceholder": "Responde a la pregunta; el arquitecto continúa con ella.",
-    "answer": "Responder y reanudar"
+    "answer": "Responder y reanudar",
+    "viewLog": "Ver log del job",
+    "implementation": "Implementación",
+    "preserveProgress": "Continúa desde la fase indicada, conservando el trabajo anterior y la configuración guardada.",
+    "reviewDelivery": "Implementación completada. Revisa el resultado en el log de este job antes de preparar la entrega; esta continuación no lo ha publicado.",
+    "prepareDelivery": "Preparar entrega"
   },
   "roleHints": {
     "architect": "Lee el código y escribe la propuesta, el diseño, las tareas y la spec. Solo lectura.",
@@ -125,5 +130,38 @@
     "onLowConfidence": "Con confianza baja",
     "ask": "Preguntar (pausar con la pregunta)",
     "proceed": "Continuar con supuestos declarados"
+  },
+  "metrics": {
+    "title": "Consumo y tiempo",
+    "hint": "Incluye correcciones y llamadas fallidas. El tiempo del agente incluye sus herramientas. Los tokens de caché forman parte de los tokens de entrada.",
+    "unknown": "No disponible",
+    "duration": "Tiempo de ejecución",
+    "agentTime": "Tiempo de agentes",
+    "cost": "Coste informado",
+    "providerCalls": "Llamadas a agentes",
+    "toolCalls": "Llamadas a herramientas",
+    "input": "Tokens de entrada",
+    "output": "Tokens de salida",
+    "uncached": "Entrada sin caché",
+    "cacheRead": "Lecturas de caché",
+    "cacheWrite": "Escrituras de caché",
+    "partial": "Algunos intentos no tienen mediciones detalladas.",
+    "phases": "Consumo por fase",
+    "phase": "Fase",
+    "attempts": "Intentos"
+  },
+  "prompts": {
+    "title": "Prompts de los agentes",
+    "description": "Consulta y edita las instrucciones de cada rol. Son comunes a todos los proyectos y proveedores; los cambios se aplican a los nuevos jobs. Los jobs reanudados conservan sus prompts originales.",
+    "definition": "Definición de {{role}}",
+    "default": "Valor de fábrica",
+    "custom": "Personalizado",
+    "restore": "Restaurar valor de fábrica",
+    "contracts": "El contexto de la spec, el flujo de OpenSpec y el formato de respuesta se añaden automáticamente y no se editan aquí.",
+    "invalid": "Cada definición debe contener entre 1 y 20.000 caracteres, con texto no vacío y sin caracteres nulos.",
+    "saved": "Prompts guardados",
+    "unsaved": "Cambios sin guardar",
+    "discard": "Descartar cambios",
+    "save": "Guardar prompts"
   }
 }

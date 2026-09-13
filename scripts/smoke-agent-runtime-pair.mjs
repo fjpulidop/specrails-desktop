@@ -21,6 +21,8 @@ const require = createRequire(path.join(desktop, 'package.json'))
 const { runAgentRuntimeInvocation } = require('./server/dist/agent-runtime-bridge.js')
 const { loadCoreAgentRuntime } = require('./server/dist/agent-runtime-loader.js')
 const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'specrails paired runtime ')))
+const originalHomedir = os.homedir
+os.homedir = () => path.join(root, 'home')
 const repository = path.join(root, 'workspace with spaces')
 const hooks = path.join(root, 'empty-hooks')
 const change = 'paired-runtime-smoke', runId = 'paired-runtime-smoke'
@@ -33,6 +35,7 @@ const architecture = {
 const review = {
   approved: true, summary: 'Fixture result and verification evidence match.', issues: [], score: 90,
   aspects: { type_correctness: 90, pattern_adherence: 90, test_coverage: 90, security: 90, architectural_alignment: 90 },
+  acceptance: { criteria: [{ specId: '1', criterionIndex: 0, status: 'met', evidence: ['result.txt contains ready; paired verification passed'] }], checks: [], findings: [] },
 }
 const server = http.createServer(async (request, response) => {
   try {
@@ -127,6 +130,7 @@ try {
   assert(rawEvents.some(event => event.type === 'verification-output' && event.text.includes('paired verification passed')))
   console.log('Verified paired Desktop → Core → local HTTP tools → real verification → approval → archive; resume preserves roles, usage and Git ownership')
 } finally {
+  os.homedir = originalHomedir
   server.closeAllConnections()
   await new Promise(resolve => server.close(resolve))
   fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })

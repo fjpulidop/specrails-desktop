@@ -164,7 +164,7 @@ describe('from-draft agent-authored Contract Refine scheduling', () => {
     expect(runContractRefineForQuick).not.toHaveBeenCalled()
   })
 
-  it('skips the enrichment when claude is not among the project providers', async () => {
+  it('schedules enrichment with Codex when it is the project provider', async () => {
     const codexCtx = makeContext(db, tmpDir, ['codex'])
     const app = createApp(codexCtx)
     const res = await request(app)
@@ -172,7 +172,9 @@ describe('from-draft agent-authored Contract Refine scheduling', () => {
       .send({ title: 'Codex project', description: 'Body', contractRefine: true })
     expect(res.status).toBe(201)
     await drainScheduling()
-    expect(runContractRefineForQuick).not.toHaveBeenCalled()
+    expect(runContractRefineForQuick).toHaveBeenCalledWith(
+      expect.objectContaining({ providerId: 'codex' }), res.body.ticket.id, 'Codex project', 'Body', null,
+    )
     expect(runContractRefine).not.toHaveBeenCalled()
   })
 })
@@ -225,20 +227,21 @@ describe('contract-refine retry endpoint — quick fallback for origin-less tick
     return id
   }
 
-  it('202 + Quick-style refine seeded with the user body (prior Contract Layer stripped)', async () => {
+  it.each(['claude', 'codex'])('202 + %s refine seeded with the user body (prior Contract Layer stripped)', async (provider) => {
     const userBody = '## Problem Statement\nReal body.'
     const id = seedTicket({
       title: 'Agent spec',
       description: `${userBody}${CONTRACT_LAYER_SEPARATOR}### Naming Contract\n\nstale layer`,
     })
-    const app = createApp(ctx)
+    const app = createApp(makeContext(db, tmpDir, [provider]))
     const res = await request(app).post(`/api/projects/proj-1/tickets/${id}/contract-refine`).send({})
     expect(res.status).toBe(202)
     expect(res.body).toEqual({ scheduled: true, mode: 'quick' })
     await drainScheduling()
 
     expect(runContractRefineForQuick).toHaveBeenCalledTimes(1)
-    const [, ticketId, title, seed, model] = vi.mocked(runContractRefineForQuick).mock.calls[0]
+    const [deps, ticketId, title, seed, model] = vi.mocked(runContractRefineForQuick).mock.calls[0]
+    expect(deps.providerId).toBe(provider)
     expect(ticketId).toBe(id)
     expect(title).toBe('Agent spec')
     expect(seed).toBe(userBody)

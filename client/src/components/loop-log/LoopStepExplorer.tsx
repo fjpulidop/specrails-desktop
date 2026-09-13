@@ -251,7 +251,7 @@ export function LoopStepExplorer({
   const barPad = variant === 'glass' ? 'px-3 py-1.5' : 'px-4 py-2'
 
   return (
-    <div data-testid="loop-step-explorer" className="relative flex flex-col h-full">
+    <div data-testid="loop-step-explorer" className="relative flex min-h-0 flex-col h-full">
       {/* Top bar — filter, expand/collapse all, follow state, copy + count in
           the SAME trailing position as LogViewer. */}
       <div className={cn('border-b border-border flex items-center gap-2', barPad)}>
@@ -306,7 +306,11 @@ export function LoopStepExplorer({
       </div>
 
       {/* Overview strip — the loop's live circuit */}
-      {model.completion && <LoopCompletionSummary result={model.completion} />}
+      {model.completion && <div
+        data-testid="loop-completion-scroll"
+        className={variant === 'glass' ? 'max-h-[45%] min-h-0 shrink-0 overflow-y-auto overscroll-contain' : undefined}
+        tabIndex={variant === 'glass' ? 0 : undefined}
+      ><LoopCompletionSummary result={model.completion} /></div>}
       <LoopOverviewStrip
         chips={chips}
         iteration={iterationInfo}
@@ -318,7 +322,7 @@ export function LoopStepExplorer({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-2 text-xs"
+        className="min-h-0 flex-1 overflow-y-auto p-2 text-xs"
       >
         {model.setup.length > 0 && (
           <LoopSetupSection

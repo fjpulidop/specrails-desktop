@@ -1,3 +1,5 @@
+import { settleRuntimeContinuation } from './agent-runtime-settlement'
+import { readRuntimeEfficiency, type RuntimeEfficiency } from './agent-runtime-metrics'
 import { execFile, type ChildProcess } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
@@ -21,12 +23,15 @@ export interface RuntimeResumeInput { approve?: string[]; recover?: string[]; in
 export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
 interface FrozenContext { runId: string; backlogRoot: string; artifactRoot: string; repositories: Array<{ id: string; name: string; path: string }> }
 export interface RuntimeState {
+  metrics?: RuntimeEfficiency
   runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
   pendingApproval?: { stepId: string; reason?: string }
   pendingQuestion?: RuntimePendingQuestion
   steps: Record<string, { status: string; visits?: number }>
 }
 export interface RuntimeRunSummary {
+  canSettle?: boolean
+  metrics?: RuntimeEfficiency
   runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
   pendingApproval?: { stepId: string; reason?: string }
   pendingQuestion?: RuntimePendingQuestion
@@ -69,11 +74,13 @@ export async function readAgentRuntimeStatus(contextPath: string, cwd: string, e
 /** One controller per ProjectContext; Core's durable lease remains the final
  * cross-process guard. Resume never constructs a new context or worktree. */
 export class AgentRuntimeControls {
+  isActive(runId: string): boolean { return this.active.has(runId) }
+  activeRunIds(): string[] { return [...this.active.keys()] }
   private active = new Map<string, { child?: ChildProcess; cancelled: boolean; forceKillTimer?: ReturnType<typeof setTimeout> }>()
   private errors = new Map<string, string>()
   private statusCache = new Map<string, { fingerprint: string; state: RuntimeState }>()
   private disposed = false
-  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'>, private dependencies = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe }) {}
+  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {}
 
   private context(runId: string): { file: string; frozen: FrozenContext; cwd: string; env: NodeJS.ProcessEnv } {
     if (!SAFE_ID.test(runId)) throw new RuntimeControlError(400, 'invalid_run_id', 'Invalid runtime run ID')
@@ -132,6 +139,8 @@ export class AgentRuntimeControls {
       return { runId, status: state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
         updatedAt: state.updatedAt, error: this.errors.get(runId) ?? state.error, pendingApproval: state.pendingApproval,
         traceId: state.traceId, pendingQuestion: openQuestion(state),
+        metrics: readRuntimeEfficiency(state.metrics),
+        canSettle: !active && state.status === 'succeeded' && (this.ctx.db.prepare('SELECT status FROM jobs WHERE id = ?').get(runId) as { status?: string } | undefined)?.status !== 'completed',
         recoverableSteps, active, canCancel: this.active.has(runId), canResume: !active && parent?.status === 'completed' && state.status !== 'succeeded' }
     } catch (error) {
       return { runId, status: 'unavailable', nextStep: null, active: this.active.has(runId), canResume: false, canCancel: this.active.has(runId), recoverableSteps: [], error: error instanceof RuntimeControlError ? error.message : 'Could not inspect the saved runtime execution' }
@@ -142,6 +151,7 @@ export class AgentRuntimeControls {
     if (this.disposed) throw new RuntimeControlError(503, 'runtime_shutting_down', 'Project runtime is shutting down')
     const parent = getLoopRun(this.ctx.db, runId)
     if (!parent || parent.status !== 'completed' || this.active.has(runId)) throw new RuntimeControlError(409, 'runtime_run_active', 'Wait for the original Desktop execution to settle before resuming')
+    if (parent.rail_index != null && [...(this.ctx.railLoopRuns?.values() ?? []), ...(this.ctx.railJobs?.values() ?? [])].some(meta => meta.railIndex === parent.rail_index)) throw new RuntimeControlError(409, 'runtime_rail_active', 'Wait for the implementation card to finish its active job before resuming')
     const context = this.context(runId)
     // Reserve before awaiting status so concurrent resume requests cannot race.
     const active = { cancelled: false } as { child?: ChildProcess; cancelled: boolean; forceKillTimer?: ReturnType<typeof setTimeout> }
@@ -152,6 +162,7 @@ export class AgentRuntimeControls {
       recoverOrphanLoopStepAccounting(this.ctx.db, new Date().toISOString(), runId)
       const state = await this.dependencies.status(context.file, context.cwd, context.env)
       if (!state || state.runId !== runId || state.status === 'succeeded') throw new RuntimeControlError(409, 'runtime_not_resumable', 'This execution has no resumable workflow')
+      if (parent.rail_index != null && [...(this.ctx.railLoopRuns?.values() ?? []), ...(this.ctx.railJobs?.values() ?? [])].some(meta => meta.railIndex === parent.rail_index)) throw new RuntimeControlError(409, 'runtime_rail_active', 'The implementation card became active while checking the saved execution')
       // A pending question resumes the architect only with the operator's answer.
       if (openQuestion(state) && !input.answer) throw new RuntimeControlError(400, 'answer_required', 'This execution is waiting for an answer to the architect\'s question')
       this.errors.delete(runId)
@@ -179,7 +190,13 @@ export class AgentRuntimeControls {
       const logLine = (line: string, source: 'stdout' | 'stderr' = 'stdout'): void => {
         if (this.disposed) return
         try { appendEvent(this.ctx.db, runId, ++sequence, { event_type: 'log', source, payload: JSON.stringify({ line: line.replace(/\n$/, '') }) }) } catch { /* events table best-effort */ }
+        try { this.ctx.broadcast?.({ type: 'log', source, line, timestamp: new Date().toISOString(), processId: runId }) } catch { /* persisted log remains authoritative */ }
       }
+      if (parent.rail_index != null) this.ctx.railLoopRuns?.set(runId, { railIndex: parent.rail_index, ticketIds, requiresTerminalIntent: true })
+      const publishActivity = (running: boolean) => {
+        try { this.ctx.broadcast?.({ type: 'runtime.continuation', projectId: this.ctx.project.id, jobId: runId, railIndex: parent.rail_index, active: running }) } catch { /* durable log remains available */ }
+      }
+      publishActivity(true)
       const requested = [...(input.approve?.length ? ['approve ' + input.approve.join(',')] : []), ...(input.recover?.length ? ['recover ' + input.recover.join(',')] : []), ...(input.invalidate?.length ? ['invalidate ' + input.invalidate.join(',')] : []), ...(input.answer ? ['answered question'] : [])]
       logLine(`[runtime] continuation started from phase ${state.nextStep ?? 'end'}${requested.length ? ' (' + requested.join('; ') + ')' : ''}; the original worktree and frozen scope are reused`)
       void this.dependencies.execute({
@@ -194,21 +211,53 @@ export class AgentRuntimeControls {
             appendEvent(this.ctx.db, runId, ++sequence, { event_type: eventType, source: 'stdout', payload: line })
             updateLoopStepActivityCheckpoint(this.ctx.db, runId, stepKey, undefined, Date.now())
           })()
+          try { this.ctx.broadcast?.({ type: 'event', jobId: runId, event_type: eventType, source: 'stdout', payload: line, seq: sequence, timestamp: new Date().toISOString() }) } catch { /* persisted event remains authoritative */ }
         },
         onSpawn: (child) => {
           active.child = child
           if (this.disposed && child.pid) this.dependencies.kill(child.pid, 'SIGKILL')
           else if (active.cancelled) this.cancel(runId)
         },
-      }).then((result) => {
+      }).then(async (result) => {
         if (this.disposed) return
         logLine(result.failed ? `[runtime] continuation ended: ${result.errorText ?? 'failed'}` : '[runtime] continuation completed', result.failed ? 'stderr' : 'stdout')
         setLoopStepSettledResult(this.ctx.db, runId, stepKey, { ...result, provider: 'agent-runtime', model: 'per-role', failed: active.cancelled || result.failed })
         recoverOrphanLoopStepAccounting(this.ctx.db, new Date().toISOString(), runId)
         if (result.errorText) this.errors.set(runId, result.errorText)
-      }).catch(() => { this.errors.set(runId, 'Runtime continuation failed. Inspect the saved phase state before retrying.') })
-        .finally(() => { clearTimeout(active.forceKillTimer); this.active.delete(runId) })
-    } catch (error) { this.active.delete(runId); throw error }
+        if (!result.failed && !active.cancelled) await this.dependencies.settle?.({ db: this.ctx.db, projectId: this.ctx.project.id, runId, contextPath: context.file, cwd: context.cwd, env: context.env, broadcast: this.ctx.broadcast })
+      }).catch(() => {
+        if (this.disposed) return
+        const message = 'Runtime continuation failed. Inspect the saved phase state before retrying.'
+        this.errors.set(runId, message)
+        logLine(`[runtime] ${message}`, 'stderr')
+      })
+        .finally(() => {
+          clearTimeout(active.forceKillTimer); this.active.delete(runId)
+          this.ctx.railLoopRuns?.delete(runId)
+          this.statusCache.delete(runId)
+          publishActivity(false)
+        })
+    } catch (error) {
+      this.active.delete(runId)
+      this.ctx.railLoopRuns?.delete(runId)
+      try { this.ctx.broadcast?.({ type: 'runtime.continuation', projectId: this.ctx.project.id, jobId: runId, railIndex: parent.rail_index, active: false }) } catch { /* admission failed */ }
+      throw error
+    }
+  }
+
+  async settle(runId: string): Promise<void> {
+    if (this.active.has(runId) || getLoopRun(this.ctx.db, runId)?.status !== 'completed') throw new RuntimeControlError(409, 'runtime_run_active', 'Wait for the execution to settle')
+    const context = this.context(runId)
+    this.active.set(runId, { cancelled: false })
+    try {
+      await (this.dependencies.settle ?? settleRuntimeContinuation)({ db: this.ctx.db, projectId: this.ctx.project.id, runId, contextPath: context.file, cwd: context.cwd, env: context.env, broadcast: this.ctx.broadcast })
+      this.errors.delete(runId)
+    } catch (error) {
+      throw new RuntimeControlError(409, 'runtime_settlement_blocked', error instanceof Error ? error.message : 'Could not prepare the recovered delivery')
+    } finally {
+      this.active.delete(runId); this.statusCache.delete(runId)
+      this.ctx.broadcast?.({ type: 'runtime.continuation', projectId: this.ctx.project.id, jobId: runId, railIndex: getLoopRun(this.ctx.db, runId)?.rail_index ?? null, active: false })
+    }
   }
 
   cancel(runId: string): void {

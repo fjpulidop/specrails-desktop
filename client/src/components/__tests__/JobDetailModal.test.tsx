@@ -108,6 +108,18 @@ describe('JobDetailModal', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/jobs/job-abc123')
   })
 
+  it('shows implementation usage in the mission modal for the explicitly scoped project', async () => {
+    const total = { attempts: 1, measuredAttempts: 1, durationMs: 12000, agentDurationMs: 8000, providerCalls: 1, toolCalls: 7, inputTokens: 100, outputTokens: 10, costUsd: 1.25, uncachedInputTokens: 20, cacheReadInputTokens: 80, cacheWriteInputTokens: 0 }
+    global.fetch = vi.fn().mockImplementation(async (url: string) => ({ ok: true, json: async () => url.includes('/agent-runtime/runs/')
+      ? { runs: [{ runId: mockJob.id, status: 'succeeded', active: false, recoverableSteps: [], metrics: { schemaVersion: 1, total, phases: [] } }] }
+      : { job: { ...mockJob, command: 'loop: Implement' }, events: [], phaseDefinitions: [] } }))
+    render(<JobDetailModal jobId={mockJob.id} projectId="mission-project" onClose={onClose} />)
+    expect(await screen.findByRole('region', { name: 'Implementation' })).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Usage and time'))
+    expect(screen.getByText('Agent time').nextElementSibling).toHaveTextContent('8s')
+    expect(fetch).toHaveBeenCalledWith(`/api/projects/mission-project/agent-runtime/runs/${mockJob.id}`, expect.anything())
+  })
+
   it('renders queued detail with null started_at without epoch or Invalid Date', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

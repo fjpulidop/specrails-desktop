@@ -1,20 +1,16 @@
+import { toolRepositories, type RuntimeLogRepository } from './agent-runtime-repositories'
+import { stripVTControlCharacters } from 'node:util'
+import { getAdapter } from './providers'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
-import { findCoreAgentRuntimeCli } from './agent-runtime-loader'
-import { validateAgentRuntimeConfig } from './agent-runtime-settings'
+import { findCoreAgentRuntimeCli, loadCoreAgentRuntime } from './agent-runtime-loader'
+import { loadRuntimeConfigFile, loadRuntimeRolePrompts } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from './core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from './util/win-spawn'
 import type { AiStepResult } from './loop-run-manager'
-
-/** The stored admission wins over configuration changes for an existing run. */
-export function selectAgentRuntime(configPath: string, contextPath?: string): boolean {
-  if (contextPath && existsSync(join(dirname(contextPath), 'agent-runtime-request.json'))) return true
-  if (!existsSync(configPath)) return false
-  return validateAgentRuntimeConfig(JSON.parse(readFileSync(configPath, 'utf8'))).enabled
-}
 
 export function runtimeChangeName(runId: string): string {
   return 'runtime-' + createHash('sha256').update(runId).digest('hex').slice(0, 20)
@@ -46,6 +42,8 @@ export interface AgentRuntimeInvocationOptions {
   cwd: string
   env: NodeJS.ProcessEnv
   configPath?: string
+  defaultProvider?: string
+  selectedModel?: string
   change?: string
   resume?: boolean
   approve?: string[]
@@ -74,11 +72,47 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
   const cli = findCoreAgentRuntimeCli()
   if (!cli) throw new Error('Programmatic agent runtime is enabled but its Core CLI is unavailable. Build or bundle the compatible Core runtime.')
   if (!options.resume && (!options.configPath || !options.change)) throw new Error('New programmatic runs require configuration and a change name')
-  const admittedContext = JSON.parse(readFileSync(options.contextPath, 'utf8')) as { runId?: unknown }
+  const admittedContext = JSON.parse(readFileSync(options.contextPath, 'utf8')) as { runId?: unknown; artifactRoot?: string; repositories?: RuntimeLogRepository[] }
   if (typeof admittedContext.runId !== 'string') throw new Error('Core context is missing its run identity')
   if (!options.resume) saveHostContext(options)
   const args = [cli, options.resume ? 'resume' : 'run', '--context', options.contextPath]
-  if (!options.resume) args.push('--config', options.configPath!, '--change', options.change!)
+  if (!options.resume) {
+    if (!Array.isArray(admittedContext.repositories) || !admittedContext.repositories.length || admittedContext.repositories.some(repo => !repo || typeof repo.id !== 'string' || !repo.id)) throw new Error('Core context is missing its repository scope')
+    const config = loadRuntimeConfigFile(options.configPath!, options.defaultProvider)
+    config.rolePrompts = { ...(await loadCoreAgentRuntime()).rolePromptDefaults(), ...loadRuntimeRolePrompts() }
+    if (options.defaultProvider) {
+      const provider = config.providers.find(entry => entry.id === options.defaultProvider)
+      if (!provider) throw new Error(`Selected runtime provider is not configured: ${options.defaultProvider}`)
+      for (const role of Object.values(config.agents)) {
+        if (role.provider !== provider.id) {
+          role.provider = provider.id
+          role.model = options.selectedModel ?? (provider.kind === 'cli' ? getAdapter(provider.cli).defaultModel() : undefined)
+          if (!role.model) throw new Error(`Selected runtime provider requires a model: ${provider.id}`)
+        }
+        if (!role.model && provider.kind === 'cli') role.model = getAdapter(provider.cli).defaultModel()
+      }
+      if (options.selectedModel) config.agents.developer.model = options.selectedModel
+    }
+    const selected = new Set(admittedContext.repositories.map(repo => repo.id))
+    // Project settings cover every repository; a ticket may select only a subset.
+    // Freeze that subset for admission without changing the project settings.
+    config.verification = config.verification.filter(command => selected.has(command.repositoryId))
+    const scopedPath = join(dirname(options.contextPath), 'desktop-runtime-config.json')
+    const serialized = JSON.stringify(config, null, 2) + '\n'
+    try { writeFileSync(scopedPath, serialized, { flag: 'wx', mode: 0o600 }) }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+      if (readFileSync(scopedPath, 'utf8') !== serialized) throw new Error('Desktop runtime configuration changed; start a new run')
+    }
+    args.push('--config', scopedPath, '--change', options.change!)
+  }
+  const frozenPath = join(dirname(options.contextPath), 'desktop-runtime-config.json')
+  if (existsSync(frozenPath)) {
+    const frozen = JSON.parse(readFileSync(frozenPath, 'utf8')) as { agents: Record<string, { provider: string; model?: string }> }
+    for (const [role, assignment] of Object.entries(frozen.agents)) {
+      try { options.onLine?.(`[runtime] ${role}: ${assignment.provider}/${assignment.model ?? 'provider default'}\n`) } catch { /* Log observers cannot prevent execution. */ }
+    }
+  }
   for (const [flag, values] of [['approve', options.approve], ['recover', options.recover], ['invalidate', options.invalidate]] as const) {
     if (values?.length) args.push('--' + flag, values.join(','))
   }
@@ -108,7 +142,11 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       let event: Record<string, unknown>
       try { event = JSON.parse(line) as Record<string, unknown> } catch { invalidProtocol = true; return }
       if (!event || typeof event !== 'object') { invalidProtocol = true; return }
-      observe(() => options.onRawLine?.(line))
+      if (event.type === 'agent-event' && event.event && typeof event.event === 'object' && (event.event as { kind?: string }).kind === 'tool-start' && (admittedContext.repositories?.length ?? 0) > 1) {
+        const repositories = toolRepositories(event.event, admittedContext.repositories!, admittedContext.artifactRoot ?? options.cwd)
+        if (repositories.length) event.repositories = repositories.map(repo => ({ id: repo.id, name: repo.name || repo.id }))
+      }
+      observe(() => options.onRawLine?.(event.repositories ? JSON.stringify(event) : line))
       if (event.type === 'runtime-result') {
         if (result) invalidProtocol = true
         result = event as unknown as RuntimeResult
@@ -123,10 +161,12 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
           observe(() => options.onLine?.(payload.text + '\n'))
         } else if (payload?.kind === 'tool-start' && typeof payload.tool === 'string') {
           // Live tool activity keeps a long developer turn from looking hung.
-          observe(() => options.onLine?.(`[${role}] ${payload.tool}${payload.detail ? ' ' + payload.detail : ''}\n`))
+          const repositories = event.repositories as Array<{ name: string }> | undefined
+          const scope = repositories?.length ? ` [${repositories.map(repo => repo.name).join(' + ')}]` : ''
+          observe(() => options.onLine?.(`[${role}]${scope} ${payload.tool}${payload.detail ? ' ' + payload.detail : ''}\n`))
         }
       } else if (event.type === 'verification-output' && typeof event.text === 'string') {
-        observe(() => options.onLine?.(String(event.text)))
+        observe(() => options.onLine?.(stripVTControlCharacters(String(event.text))))
       } else if (event.type === 'span') {
         // Trace spans are telemetry; the raw line is already recorded for diagnostics.
       }

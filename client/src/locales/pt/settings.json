@@ -294,31 +294,6 @@
     "invalidName": "{{name}} não é um nome válido de variável de ambiente",
     "noValues": "Adicione apenas nomes de variáveis, não segredos KEY=value."
   },
-  "specrailsAgents": {
-    "heading": "Specrails Agents",
-    "description": "Personalize os agentes do pipeline specrails-core por provedor de IA — modelo e esforço de raciocínio. As mudanças valem para a próxima execução, sem reiniciar.",
-    "loadFailed": "Não foi possível carregar as configurações dos agentes.",
-    "modeDefault": "Padrão",
-    "modeCustom": "Personalizado",
-    "notDetected": "Não detectado",
-    "notSignedIn": "Sem sessão iniciada",
-    "pipeline": "Pipeline",
-    "pipelineHint": "Modelo e esforço de toda a execução — os subagentes os herdam, salvo override abaixo.",
-    "model": "Modelo",
-    "effort": "Esforço",
-    "defaultModel": "Padrão ({{model}})",
-    "defaultEffort": "Esforço padrão",
-    "agentsTitle": "Agentes do pipeline",
-    "agentsHint": "Modelo por agente para este provedor.",
-    "inheritNote": "Os subagentes do Codex herdam o modelo e o esforço do pipeline por design.",
-    "noPerAgentNote": "Este provedor não suporta modelos por agente.",
-    "reset": "Restaurar padrões",
-    "agentNames": {
-      "sr-architect": "Arquiteto",
-      "sr-developer": "Desenvolvedor",
-      "sr-reviewer": "Revisor"
-    }
-  },
   "effects": {
     "heading": "Efeitos",
     "description": "Detalhes visuais da app. Cada um pode ser desativado aqui.",

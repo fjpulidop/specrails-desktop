@@ -147,16 +147,18 @@ function pushActivity(
   stepIndex: number | null,
   actionKey: string,
   actionArg: string,
+  repository = '',
 ): void {
   for (let i = out.length - 1; i >= 0; i--) {
     const candidate = out[i]
+    if (candidate.values.phaseBoundary === 1) break
     // Stop at the step boundary: a later step's activity is its own story.
     if (candidate.kind !== 'activity') {
       if (candidate.stepIndex !== stepIndex) break
       continue
     }
     if (candidate.stepIndex !== stepIndex) break
-    if (candidate.values.action === actionKey && candidate.values.target === actionArg) {
+    if ((candidate.values.repository ?? '') === repository && candidate.values.action === actionKey && candidate.values.target === actionArg) {
       candidate.values.repeats = Number(candidate.values.repeats ?? 1) + 1
       return
     }
@@ -169,7 +171,7 @@ function pushActivity(
     code: actionKey === 'intent'
       ? actionArg
       : actionArg ? `activity.${actionKey}` : `activity.${actionKey}Bare`,
-    values: { action: actionKey, target: actionArg, repeats: 1 },
+    values: { action: actionKey, target: actionArg, repeats: 1, repository },
     stepIndex,
     tone: 'neutral',
   })
@@ -192,12 +194,14 @@ function pushFileActivity(
   stepIndex: number | null,
   actionKey: string,
   name: string,
+  repository = '',
 ): void {
   for (let i = out.length - 1; i >= 0; i--) {
     const candidate = out[i]
+    if (candidate.values.phaseBoundary === 1) break
     if (candidate.stepIndex !== stepIndex) break
     if (candidate.kind !== 'activity') continue
-    if (candidate.values.action !== actionKey || candidate.values.fileGroup !== 1) continue
+    if ((candidate.values.repository ?? '') !== repository || candidate.values.action !== actionKey || candidate.values.fileGroup !== 1) continue
 
     // `files` counts DISTINCT files, never touches: reading one file twice is
     // one file, and saying "2 files" would be a false number.
@@ -225,7 +229,7 @@ function pushFileActivity(
     kind: 'activity',
     code: name ? `activity.${actionKey}` : `activity.${actionKey}Bare`,
     values: {
-      action: actionKey, target: name, names: name, allNames: name,
+      action: actionKey, target: name, names: name, allNames: name, repository,
       files: name ? 1 : 0, fileGroup: 1, repeats: 1,
     },
     stepIndex,
@@ -246,6 +250,7 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
   let currentStep: number | null = null
   let sawLoopStructure = false
   let runtimeDeveloperSeen = false
+  const programmatic = events.some(event => event.event_type === 'workflow-event')
 
   for (const event of events) {
     if (event.event_type === 'loop_graph') {
@@ -262,7 +267,7 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
       const info: StepInfo = {
         index,
         title: cleanTitle(asString(payload.title) ?? ''),
-        roleCode: stepRoleCode(asString(payload.nodeId), kind),
+        roleCode: programmatic ? null : stepRoleCode(asString(payload.nodeId), kind),
         kind,
         iteration: asNumber(payload.iteration),
         ended: false,
@@ -311,7 +316,7 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
       milestones.push({
         seq: event.seq,
         kind: 'step-end',
-        code: stalled
+        code: payload.recovered === true && status === 'ok' ? 'step.recovered' : stalled
           ? 'step.stalled'
           : providerLimit
             ? 'step.providerLimit'
@@ -357,12 +362,16 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
       const inner = payload.event && typeof payload.event === 'object' && !Array.isArray(payload.event) ? payload.event as Record<string, unknown> : {}
       const type = asString(inner.type)
       const stepId = asString(inner.stepId)
-      if (type === 'step_started' && stepId && RUNTIME_PHASES.has(stepId)) {
+      if (type === 'workflow_resumed') {
+        runtimeDeveloperSeen = false
+        milestones.push({ seq: event.seq, kind: 'activity', code: 'activity.phase.resumed', values: { phaseBoundary: 1 }, stepIndex: currentStep, tone: 'neutral' })
+      }
+      else if (type === 'step_started' && stepId && RUNTIME_PHASES.has(stepId)) {
         // A second developer visit only happens when verification or review sent
         // corrections back: say that, instead of repeating "implementing".
         const corrections = stepId === 'developer' && runtimeDeveloperSeen
         if (stepId === 'developer') runtimeDeveloperSeen = true
-        pushActivity(milestones, event.seq, currentStep, 'intent', corrections ? 'activity.phase.corrections' : `activity.phase.${stepId}`)
+        milestones.push({ seq: event.seq, kind: 'activity', code: corrections ? 'activity.phase.corrections' : `activity.phase.${stepId}`, values: { phaseBoundary: 1 }, stepIndex: currentStep, tone: 'neutral' })
       }
       else if ((type === 'step_succeeded' && stepId === 'verify' && typeof inner.message !== 'string') || type === 'step_blocked') { /* covered by the next phase start or the workflow outcome */ }
       else if (type === 'workflow_failed' || type === 'workflow_blocked' || type === 'workflow_cancelled') {
@@ -371,9 +380,16 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
       continue
     }
 
+    const raw = event.event_type === 'agent-event' ? parsePayload(event.payload) : {}
+    const repository = Array.isArray(raw.repositories) ? raw.repositories.map(repo => typeof repo?.name === 'string' ? repo.name : '').filter(Boolean).join(' + ') : ''
     const activity = deriveFrameActivity(event)
     if (!activity.step || !activity.actionKey) continue
     if (NON_NARRATABLE_ACTIONS.has(activity.actionKey)) continue
+    if (programmatic && activity.actionKey === 'working') continue
+    if (programmatic && activity.actionKey === 'searching') {
+      pushActivity(milestones, event.seq, currentStep, 'searching', '', repository)
+      continue
+    }
 
     // A shell command is classified by what it ACCOMPLISHES. Plumbing (the ~80%
     // of real invocations that are grep/cd/find/sed/ls/jq) collapses into one
@@ -382,30 +398,30 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
       const command = commandFromEvent(event)
       const classified = command ? classifyCommand(command) : { kind: 'named' as const, tool: activity.actionArg ?? '' }
       if (classified.kind === 'plumbing') {
-        pushActivity(milestones, event.seq, currentStep, 'exploring', '')
+        pushActivity(milestones, event.seq, currentStep, 'exploring', '', repository)
         continue
       }
       if (classified.kind === 'intent') {
-        pushActivity(milestones, event.seq, currentStep, 'intent', classified.code)
+        pushActivity(milestones, event.seq, currentStep, 'intent', classified.code, repository)
         continue
       }
-      pushActivity(milestones, event.seq, currentStep, 'running', classified.tool)
+      pushActivity(milestones, event.seq, currentStep, 'running', programmatic ? '' : classified.tool, repository)
       continue
     }
     if (FILE_ACTIONS.has(activity.actionKey)) {
       const name = activity.actionArg ?? ''
       if (BOOKKEEPING_FILE.test(name)) {
-        pushActivity(milestones, event.seq, currentStep, 'intent', 'activity.bookkeeping')
+        pushActivity(milestones, event.seq, currentStep, 'intent', 'activity.bookkeeping', repository)
         continue
       }
       if (SPEC_FILE.test(name)) {
-        pushActivity(milestones, event.seq, currentStep, 'intent', 'activity.writingSpec')
+        pushActivity(milestones, event.seq, currentStep, 'intent', 'activity.writingSpec', repository)
         continue
       }
-      pushFileActivity(milestones, event.seq, currentStep, activity.actionKey, name)
+      pushFileActivity(milestones, event.seq, currentStep, activity.actionKey, name, repository)
       continue
     }
-    pushActivity(milestones, event.seq, currentStep, activity.actionKey, activity.actionArg ?? '')
+    pushActivity(milestones, event.seq, currentStep, activity.actionKey, activity.actionArg ?? '', repository)
   }
 
   // A step with no end event is only "interrupted" once the run has settled;

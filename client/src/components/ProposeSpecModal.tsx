@@ -19,7 +19,7 @@ import {
   isSmashCapable,
   providerLabel,
   providerSupportsPureOutput,
-  providerSupportsStructuredActions,
+  providerSupportsContractRefine,
   providerSupportsUserMcp,
   type ProviderId,
 } from '../lib/provider-capabilities'
@@ -165,7 +165,7 @@ export function ProposeSpecModal({ open, onClose, tickets, onExploreLaunch }: Pr
   const userMcpSupported = effectiveProvider == null
     || providerSupportsUserMcp(effectiveProvider)
   const contractRefineSupported = effectiveProvider == null
-    || providerSupportsStructuredActions(effectiveProvider)
+    || providerSupportsContractRefine(effectiveProvider)
 
   const { scope, setScope, persist: persistScope } = useContextScope(activeProjectId, mode, open)
   const quickRefine = useQuickContractRefineLast(activeProjectId, open)

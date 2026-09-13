@@ -24,7 +24,8 @@
     },
     "stalled": "ステップ {{step}} が停止：{{idleMinutes}} 分間活動がなかったため、アプリが停止しました",
     "startResume": "ステップ {{step}}：{{title}} — 停止後に再開",
-    "providerLimit": "ステップ {{step}} 停止 — プロバイダーの利用上限に達しました"
+    "providerLimit": "ステップ {{step}} 停止 — プロバイダーの利用上限に達しました",
+    "recovered": "再開後にステップ {{step}} が完了"
   },
   "decision": {
     "another": "まだ未達 — もう一周",
@@ -68,7 +69,8 @@
       "reviewer": "実装をレビュー中（レビュアー）",
       "archive": "レビュー済みの変更をアーカイブ中",
       "stopped": "実行エンジンが停止しました: {{target}}",
-      "corrections": "修正をデベロッパーに差し戻し中"
+      "corrections": "修正をデベロッパーに差し戻し中",
+      "resumed": "保存した実行を再開しています"
     }
   },
   "repeats": "×{{count}}"

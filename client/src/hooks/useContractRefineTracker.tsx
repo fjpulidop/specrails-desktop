@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 import i18n from '../lib/i18n'
 import { useSharedWebSocket } from './useSharedWebSocket'
 import { API_ORIGIN } from '../lib/origin'
-import { providerSupportsStructuredActions } from '../lib/provider-capabilities'
+import { providerSupportsContractRefine } from '../lib/provider-capabilities'
 import type { LocalTicket } from '../types'
 
 const CONTRACT_LAYER_MARKER = '\n\n---\n\n## Contract Layer\n\n'
@@ -60,7 +60,7 @@ export function ContractRefineTrackerProvider({ children }: { children: ReactNod
     const reason = (msg.reason as string | undefined) ?? 'unknown'
     if (typeof ticketId !== 'number' || !projectId) return
     projectByTicketRef.current.set(ticketId, projectId)
-    const retryAction = providerSupportsStructuredActions(provider)
+    const retryAction = providerSupportsContractRefine(provider)
       ? {
           label: i18n.t('common:actions.retry'),
           onClick: () => void fireRetry(projectId, ticketId),

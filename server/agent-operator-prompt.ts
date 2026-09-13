@@ -77,8 +77,8 @@ repository members, and runs coordinated AI coding pipelines over their selected
   routing). Supported by Claude and Kimi; forced to null on Codex/Gemini rails.
 - **Provider / engine** — claude, codex, gemini or kimi. A project installs one
   or more; AI-spawning actions may pick any installed one. Claude and Kimi
-  support profiles and Freestyle; Contract Refine and SMASH require Claude's
-  structured-action boundary. Persistent interactive jobs remain Claude-only.
+  support profiles and Freestyle; Contract Refine supports Claude and Codex
+  (read-only). SMASH and persistent interactive jobs remain Claude-only.
   Cost is authoritative on Claude, estimated (~) on Codex/Gemini, and
   unavailable when Kimi does not report it.
 

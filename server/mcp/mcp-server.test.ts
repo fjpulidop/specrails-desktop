@@ -274,6 +274,23 @@ describe('McpServerManager (embedded MCP server)', () => {
     await client.close()
   })
 
+  it('authorizes facade actions individually for a first-party read-only mission', async () => {
+    const capability = mintAgentCapability({ conversationId: 'readonly-facade', tierLevel: 0 })
+    const client = new Client({ name: 'mission', version: '1' })
+    await client.connect(new StreamableHTTPClientTransport(url, {
+      requestInit: { headers: { [AGENT_CAPABILITY_HEADER]: capability } },
+    }))
+    try {
+      const read = await client.callTool({ name: 'specrails_projects', arguments: { action: 'list' } })
+      expect(read.isError).toBeFalsy()
+      const mutation = await client.callTool({ name: 'specrails_projects', arguments: { action: 'unregister', projectId: 'x' } })
+      expect(mutation.isError).toBe(true)
+      expect(JSON.stringify(mutation.content)).toContain('Destructive')
+    } finally {
+      await client.close()
+    }
+  })
+
   it('reports status (enabled by default) with a non-zero tool count', () => {
     const status = manager.status()
     expect(status.enabled).toBe(true)

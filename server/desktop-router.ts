@@ -1,4 +1,6 @@
+import { registerRuntimeRolePromptRoutes } from './runtime-role-prompts-router'
 import { Router } from 'express'
+import { AgentRuntimeConfigError, loadRuntimeProviders, saveRuntimeProviders, validateRuntimeProviders, loadAgentRuntimeConfig, validateAgentRuntimeConfig } from './agent-runtime-settings'
 import { randomUUID } from 'crypto'
 import path from 'path'
 import fs from 'fs'
@@ -1270,6 +1272,23 @@ export function createDesktopRouter(
     const parsed = budgetRaw !== undefined ? Number(budgetRaw) : NaN
     const monthlyBudgetUsd = Number.isFinite(parsed) && parsed >= 0 ? parsed : 5.0
     res.json({ language, monthlyBudgetUsd })
+  })
+
+  registerRuntimeRolePromptRoutes(router)
+
+  router.get('/runtime-providers', (_req, res) => {
+    try {
+      for (const project of listProjects(registry.desktopDb)) loadAgentRuntimeConfig(project)
+      res.json({ providers: loadRuntimeProviders() })
+    } catch (error) { res.status(422).json({ message: (error as Error).message }) }
+  })
+  router.put('/runtime-providers', (req, res) => {
+    try {
+      const projects = listProjects(registry.desktopDb).map(project => loadAgentRuntimeConfig(project))
+      const providers = validateRuntimeProviders(req.body.providers)
+      for (const config of projects) if (config) validateAgentRuntimeConfig({ ...config, providers })
+      res.json({ providers: saveRuntimeProviders(providers) })
+    } catch (error) { res.status(error instanceof AgentRuntimeConfigError ? 400 : 500).json({ message: (error as Error).message }) }
   })
 
   // ─── Specrails Agents defaults (global per-provider agent model/effort) ───

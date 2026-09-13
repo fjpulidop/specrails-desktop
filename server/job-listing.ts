@@ -12,6 +12,7 @@ export interface UnifiedJobListOptions {
   limit: number
   offset: number
   status?: string
+  activeRuntimeIds?: string[]
   from?: string
   to?: string
 }
@@ -63,7 +64,9 @@ function historyConditions(opts: UnifiedJobListOptions): { sql: string; params: 
   const conditions: string[] = ["jobs.status <> 'queued'"]
   const params: unknown[] = []
   if (opts.status) {
-    conditions.push('jobs.status = ?')
+    const active = opts.activeRuntimeIds ?? []
+    conditions.push(active.length ? `CASE WHEN jobs.id IN (${active.map(() => '?').join(',')}) THEN 'running' ELSE jobs.status END = ?` : 'jobs.status = ?')
+    params.push(...active)
     params.push(opts.status)
   }
   if (opts.from) {
@@ -157,14 +160,16 @@ export function listUnifiedJobs(
     const remaining = limit - queuedRows.length
     const historyOffset = Math.max(0, offset - queuedTotal)
     if (remaining > 0 && historyOffset < historyTotal) {
+      const active = opts.activeRuntimeIds ?? []
+      const activeOrder = active.length ? `CASE WHEN jobs.id IN (${active.map(() => '?').join(',')}) THEN 0 ELSE 1 END, ` : ''
       historyRows = db.prepare(`
         SELECT jobs.*, jp.profile_name AS profile_name, NULL AS enqueued_at
         FROM jobs
         LEFT JOIN job_profiles jp ON jp.job_id = jobs.id
         ${history.sql}
-        ORDER BY jobs.started_at DESC, jobs.id ASC
+        ORDER BY ${activeOrder}jobs.started_at DESC, jobs.id ASC
         LIMIT ? OFFSET ?
-      `).all(...history.params, remaining, historyOffset) as ListedJobRow[]
+      `).all(...history.params, ...active, remaining, historyOffset) as ListedJobRow[]
     }
   }
 

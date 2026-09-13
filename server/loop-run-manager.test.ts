@@ -2825,7 +2825,7 @@ describe('terminal acceptance evidence', () => {
     const events = getJobEvents(db, result.runId)
     const completion = JSON.parse(events.find(event => event.event_type === 'loop_completion')!.payload)
     expect(completion).toMatchObject({ execution: 'success', steps: 1, deciderEvaluations: 0, core: null })
-    expect(events.some(event => event.payload.includes('1 step, 0 decider evaluations'))).toBe(true)
+    expect(events.some(event => event.payload.includes('0 decider evaluations'))).toBe(false)
   })
   it.each(['blocked', 'with-exceptions'] as const)('keeps execution distinct from %s acceptance and host delivery', async validation => {
     const readCoreCompletion = vi.fn(async () => ({

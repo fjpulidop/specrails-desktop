@@ -35,7 +35,7 @@ beforeEach(() => {
   createJob(db, { id: 'run-1', command: 'loop:factory:implement', started_at: new Date().toISOString(), provider: 'claude', owner: 'loop' })
   createLoopRun(db, { id: 'run-1', projectId: 'p1', loopId: 'factory:implement', iterationLimit: 1, startedAt: new Date().toISOString() })
   db.prepare("UPDATE loop_runs SET status = 'completed' WHERE id = 'run-1'").run()
-  ctx = { project: { id: 'p1', path: directory, slug: 'p1' }, db } as ProjectContext
+  ctx = { project: { id: 'p1', path: directory, slug: 'p1' }, db, broadcast: vi.fn(), railLoopRuns: new Map(), railJobs: new Map() } as unknown as ProjectContext
   status.mockResolvedValue(state())
   execute.mockImplementation(() => new Promise((resolve) => { finish = resolve }))
   service = new AgentRuntimeControls(ctx, { status, execute, kill })
@@ -43,6 +43,15 @@ beforeEach(() => {
 afterEach(() => { service.shutdown(); vi.restoreAllMocks(); db.close(); fs.rmSync(directory, { recursive: true, force: true }) })
 
 describe('agent runtime lifecycle', () => {
+  it('forwards optional metrics without altering admission or trusting unknown fields', async () => {
+    const total = { attempts: 1, measuredAttempts: 1, durationMs: 10, agentDurationMs: 8, providerCalls: 1, toolCalls: 1, inputTokens: 20, outputTokens: 5, costUsd: null, uncachedInputTokens: null, cacheReadInputTokens: null, cacheWriteInputTokens: null }
+    const metrics = { schemaVersion: 1, total, phases: [{ ...total, stepId: 'developer', providers: ['local'], models: [] }] }
+    status.mockResolvedValue({ ...state(), metrics: { ...metrics, transcript: 'do not forward' } })
+    expect(await service.summary('run-1')).toMatchObject({ metrics, canResume: true })
+    expect(JSON.stringify(await service.summary('run-1'))).not.toContain('do not forward')
+    status.mockResolvedValue(state())
+    expect((await service.summary('run-1')).metrics).toBeUndefined()
+  })
   it('lists admitted runs and restores the original cwd/environment without starting providers for status', async () => {
     expect(await service.list()).toEqual([expect.objectContaining({ runId: 'run-1', status: 'paused', canResume: true, canCancel: false, pendingApproval: { stepId: 'archive', reason: 'Review candidate' } })])
     expect(status).toHaveBeenCalledWith(contextPath, directory, expect.objectContaining({ SPECRAILS_GIT_AUTO: 'false', SPECRAILS_EXECUTION_CONTEXT: contextPath }))
@@ -66,7 +75,14 @@ describe('agent runtime lifecycle', () => {
   })
 
   it('resumes exactly once, blocks duplicate requests, propagates cancellation and records invocation usage once', async () => {
+    db.prepare('UPDATE loop_runs SET rail_index = 2 WHERE id = ?').run('run-1')
     await service.resume('run-1', { approve: ['archive'] })
+    expect(ctx.railLoopRuns.get('run-1')?.railIndex).toBe(2)
+    expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'runtime.continuation', jobId: 'run-1', active: true }))
+    execute.mock.calls[0][0].onLine('Developer resumed\n')
+    expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'log', processId: 'run-1', line: 'Developer resumed\n' }))
+    execute.mock.calls[0][0].onRawLine(JSON.stringify({ type: 'workflow-event', event: { type: 'step_started', stepId: 'developer' } }))
+    expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'event', jobId: 'run-1', event_type: 'workflow-event' }))
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({ contextPath, cwd: directory, resume: true, approve: ['archive'] }))
     expect(execute.mock.calls[0][0]).not.toHaveProperty('configPath')
     await expect(service.resume('run-1', {})).rejects.toMatchObject({ statusCode: 409 })
@@ -77,6 +93,8 @@ describe('agent runtime lifecycle', () => {
     await vi.waitFor(() => expect(db.prepare('SELECT * FROM ai_invocations').all()).toHaveLength(1))
     expect(db.prepare('SELECT provider,status,total_cost_usd,tokens_in,tokens_out FROM ai_invocations').get()).toEqual({ provider: 'agent-runtime', status: 'failed', total_cost_usd: 0.2, tokens_in: 20, tokens_out: 5 })
     expect(listLoopStepRecoveries(db)).toEqual([])
+    expect(ctx.railLoopRuns.has('run-1')).toBe(false)
+    expect(ctx.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'runtime.continuation', jobId: 'run-1', active: false }))
     expect((await service.summary('run-1')).error).toBe('Cancelled')
     expect(() => service.cancel('run-1')).toThrow('Only a continuation')
   })
@@ -246,6 +264,14 @@ describe('agent runtime lifecycle', () => {
     const cancel = vi.spyOn(AgentRuntimeControls.prototype, 'cancel').mockReturnValue()
     const stop = vi.spyOn(AgentRuntimeControls.prototype, 'shutdown').mockReturnValue()
     const base = '/api/projects/p1/agent-runtime/runs'
+    const summary = vi.spyOn(AgentRuntimeControls.prototype, 'summary').mockResolvedValue({ runId: 'run-1', status: 'failed', nextStep: 'developer', recoverableSteps: [], active: false, canResume: true, canCancel: false })
+    await request(app).get(base + '/run-1').expect(200).expect(res => expect(res.body.runs[0].runId).toBe('run-1'))
+    await request(app).get(base + '/legacy-job').expect(200, { runs: [] })
+    db.prepare('UPDATE loop_runs SET rail_index = 2 WHERE id = ?').run('run-1')
+    await request(app).get(base + '?railIndex=2').expect(200).expect(res => expect(res.body.runs[0].runId).toBe('run-1'))
+    await request(app).get(base + '?railIndex=3').expect(200, { runs: [] })
+    await request(app).get(base + '?railIndex=-1').expect(400)
+    expect(summary).toHaveBeenCalledWith('run-1')
     await request(app).get(base).expect(200, { runs: [] })
     await request(app).post(base + '/run-1/resume').send({ approve: ['archive'] }).expect(202)
     expect(resume).toHaveBeenCalledWith('run-1', { approve: ['archive'] })

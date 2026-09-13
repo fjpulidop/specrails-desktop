@@ -131,7 +131,7 @@ export function classifyCommand(command: string): CommandClass {
     return { kind: 'named', tool }
   }
 
-  if (tool === 'cargo' || tool === 'go' || tool === 'dotnet' || tool === 'mvn' || tool === 'gradle') {
+  if (tool === 'cargo' || tool === 'go' || tool === 'dotnet' || tool === 'mvn' || tool === 'mvnw' || tool === 'gradle' || tool === 'gradlew') {
     const sub = rest.find((token) => token === 'test' || token === 'build' || token === 'compile') ?? ''
     if (sub === 'test') return { kind: 'intent', code: 'activity.testing' }
     if (sub === 'build' || sub === 'compile') return { kind: 'intent', code: 'activity.building' }

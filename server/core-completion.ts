@@ -1,8 +1,9 @@
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
-import { resolveBundledNodeExe } from './path-resolver'
+import { resolveCoreNodeRuntime } from './core-node-runtime'
+import { findCoreAgentRuntimeCli } from './agent-runtime-loader'
 
 export interface CoreCompletion {
   implementation: 'complete' | 'incomplete'
@@ -55,12 +56,14 @@ export function parseCoreCompletion(value: unknown, runId: string): CoreCompleti
 }
 
 export async function readCoreCompletion(input: { contextPath: string; cwd: string; env: NodeJS.ProcessEnv; runId: string }): Promise<CoreCompletionSnapshot | null> {
-  const runtime = join(input.cwd, '.specrails', 'runtime', 'pipeline.mjs')
-  if (!existsSync(runtime)) return null
+  const programmatic = existsSync(join(dirname(input.contextPath), 'agent-runtime-request.json'))
+  const runtime = programmatic ? findCoreAgentRuntimeCli() : join(input.cwd, '.specrails', 'runtime', 'pipeline.mjs')
+  if (!runtime || !existsSync(runtime)) return null
   try {
-    const { stdout } = await promisify(execFile)(resolveBundledNodeExe() ?? process.execPath, [runtime, 'status', '--context', input.contextPath], {
+    const { stdout } = await promisify(execFile)(resolveCoreNodeRuntime(), [runtime, 'status', '--context', input.contextPath], {
       cwd: input.cwd, env: input.env, encoding: 'utf8', timeout: 15_000, maxBuffer: 4 * 1024 * 1024, windowsHide: true,
     })
-    return parseCoreCompletion(JSON.parse(stdout), input.runId)
+    const payload = JSON.parse(stdout)
+    return parseCoreCompletion(programmatic ? payload.pipeline : payload, input.runId)
   } catch { return null }
 }

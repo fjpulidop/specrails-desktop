@@ -2,7 +2,7 @@
 
 Desktop can hand implementation to Core's **runtime API 1**. Core runs architect, developer, deterministic verification, reviewer and archive as separate LangGraph phases. Desktop keeps project/worktree selection, rail lifecycle, logs, accounting and delivery ownership.
 
-This is an opt-in path in the current source tree. It applies to implementation rail steps and their Core completion check. Mission chat and unrelated AI features keep their existing transports. Provider-native implementation prompts and skills are not invoked inside the programmatic phases.
+This is the only implementation engine in the current source tree. It applies to implementation rail steps and their Core completion check. Mission chat and unrelated AI features keep their existing transports. Provider-native implementation prompts and skills are not invoked inside the programmatic phases.
 
 ## Build the paired source
 
@@ -53,16 +53,16 @@ Desktop negotiates `runtime api` and sends configuration to `runtime validate --
 
 `SPECRAILS_CORE_RUNTIME_PATH` selects this execution module. The existing `SPECRAILS_CORE_BIN` controls the installation/lifecycle resolver and is a different setting. Prefer a paired source bundle when testing the complete installation and execution flow.
 
-## Enable a project
+## Configure a project
 
 1. Open **Project settings → Agent runtime** (its own section in the project dialog).
-2. Choose a provider per role. The model dropdown lists each CLI's catalog with the default marked; turns, attempts and timeout show their defaults in the fields. Claude, Codex, Gemini and Kimi remain available; open **Show provider connections** to add an OpenAI-compatible endpoint for a local or remote model (local endpoints do not require a key; API providers need an explicit model).
+2. Choose a provider per role. The model dropdown lists each CLI's catalog with the default marked; turns, attempts and timeout show their defaults in the fields. Claude, Codex, Gemini and Kimi remain available; open **General settings → Specrails Agents → Provider connections** to add an OpenAI-compatible endpoint for a local or remote model (local endpoints do not require a key; API providers need an explicit model).
 3. Verification commands are optional. A project that never saved runtime settings is prefilled with the checks Desktop detects offline (`package.json` test/type-check/lint scripts with the right package manager, Cargo, Go, pytest, Gradle, Maven, .NET, Make); **Detect project checks** re-runs that detection. Each row is a repository plus one command line (`npm run test -- --strict`; quotes group arguments). Leave the list empty and the architect proposes the project's own checks on each run; repositories with no automated check are still reviewed and recorded as unverified in Core's receipt.
 4. **Review gate** and **Architect confidence** are optional. Review thresholds (overall score and the five aspects: type correctness, pattern adherence, test coverage, security, architectural alignment) can only *tighten* Core's own gate: the floors are 70 overall, 75 for security and 60 for every other aspect, and Desktop rejects lower values before saving (`Review threshold review.minScore must be at least 70 (Core's own review gate)`). Empty fields omit the key so Core's defaults apply. `architect.onLowConfidence` decides what happens when, after one autonomous investigation pass, the architect's design is still low in confidence: `ask` (default) pauses the run with the architect's question; `proceed` continues on stated assumptions.
-5. Enable the runtime and save.
+5. Save the project settings. Implementation always uses the agent runtime.
 6. Start an implementation through the normal rail flow.
 
-Settings are saved at `<project execution .specrails directory>/agent-runtime.json`. Missing or disabled configuration preserves legacy execution. Malformed configuration blocks admission with an error; it is not ignored. Enabling also verifies that Core exposes the expected API.
+Settings are saved at `<project execution .specrails directory>/agent-runtime.json`. Missing configuration uses the default agent runtime. The retired enabled flag cannot select another engine. Malformed configuration blocks admission; it is not ignored. Saving verifies that Core exposes the expected API. Connections are stored globally in `~/.specrails/runtime-providers.json`; project files retain role references, models, limits and verification. Existing embedded connections migrate once, with stable disambiguated IDs on endpoint conflicts. New runs freeze the resolved configuration, while saved runs retain their original snapshot.
 
 Core owns role instructions and permissions. The developer role edits and runs commands inside its CLI sandbox (the same autonomy as the legacy Implement step); architect and reviewer are read-only. A legacy rail profile/model selection does not override the runtime's per-role provider configuration. The JSON schema is [server/schemas/agent-runtime.schema.json](../../server/schemas/agent-runtime.schema.json), mirrored from Core. For a complete configuration, custom executor examples, Kimi capabilities and API tooling details, see [Core's runtime guide](https://github.com/fjpulidop/specrails-core/blob/main/docs/agent-runtime.md) in the paired revision.
 
@@ -77,6 +77,7 @@ The rail creates a frozen Core execution context for its original repository/wor
 | File | Purpose |
 | --- | --- |
 | `desktop-context.json` | Selected repositories, original worktrees, frozen scope and ownership |
+| `desktop-runtime-config.json` | Admission snapshot of project settings with verification commands restricted to the selected repositories; project settings remain unchanged |
 | `desktop-runtime-host.json` | Allowlisted host settings needed to reconstruct execution |
 | `agent-runtime-request.json` | Core's frozen configuration and change name |
 | `state.json`, `receipts/` | Core gates and verification receipts |
@@ -84,11 +85,13 @@ The rail creates a frozen Core execution context for its original repository/wor
 
 A run pauses (Core exit code 2) either on an **approval** (`pendingApproval`, for example before archive) or on a **question** (`pendingQuestion: { stepId, requestedAt, question }`) when the architect is configured to ask on low confidence. A pending question can only be resumed together with an answer: the runs panel shows the question with a textarea and an **Answer and resume** action, which posts `{ "answer": "…" }` (nonempty, at most 20,000 characters). Resuming without an answer while a question is open is rejected with `400 answer_required`. Once Core records `answeredAt`, the question is history and ordinary resume applies again. The bridge reports a paused run's reason in the job log: awaiting approval, or the pending question text.
 
-**Agent runtime → Saved executions** lists recent runs and exposes available resume, archive approval, question answering, interrupted-step recovery and continuation cancellation actions. A continuation resumes from the phase shown, in the original worktree, and writes its progress into that job's log (a `[runtime] continuation started from phase …` banner, tool activity, phase notes and the final outcome). Resuming a run that stopped at the developer attempt limit grants a fresh attempt budget. Wait for the original rail execution to settle before resuming. Active rail jobs are stopped through their job controls; the continuation's Cancel action owns only continuations started from this panel.
+**Implementation cards and job detail** expose resume, archive approval, question answering, interrupted-step recovery and continuation cancellation actions next to the work. Cards query their latest job by original rail identity; job detail queries its exact run. Legacy jobs render no runtime panel. **Jobs → Saved executions** retains the cross-run history. Project settings contain runtime configuration only. A continuation resumes from the phase shown, in the original worktree, and writes its progress into that job's log (a `[runtime] continuation started from phase …` banner, tool activity, phase notes and the final outcome). Resuming a run that stopped at the developer attempt limit grants a fresh attempt budget. Wait for the original rail execution to settle before resuming. Active rail jobs are stopped through their job controls; the continuation's Cancel action owns only continuations started from this panel.
 
 Resume retains valid completed phases and rechecks Core evidence. Changed code or environment requires fresh verification/review. An ambiguous interrupted write requires an explicit recovery action after inspecting partial changes. A changed frozen config/identity requires a new run. Missing original worktrees or mismatched execution manifests block recovery; the controller never invents a replacement worktree.
 
-**A continuation completes Core's work in the original worktree; it does not restart the former rail's delivery phase, create a PR, or mark backlog delivery complete.** Inspect the resulting worktree and deliver through an explicit host/Git operation. This also applies when approval is granted after the original rail has settled. Core archive success is not a claim that a PR was created. The initial uninterrupted successful rail retains its normal host delivery flow.
+Saved executions link directly to the original job log. Continuations broadcast readable logs and raw runtime events to that job, publish `runtime.continuation` lifecycle updates, and reserve the original implementation card until settlement. Jobs list/detail project the continuation as running while it is active (including the running filter); the failed attempt remains in history. Job and card cancellation route to the continuation process. After a successful continuation, Desktop revalidates Core receipts, commits the exact preserved worktrees locally, and reconciles the job and repository delivery cards to completed / ready for review. A new completion event supersedes the earlier failed summary while retaining the failed attempt and its usage. The activity reservation then clears.
+
+**A continuation prepares local delivery for review after Core succeeds; it does not create a PR or merge code.** Use the normal delivery card actions to review and publish. Older successful continuations expose **Prepare delivery**, which performs the same receipt validation and local settlement without invoking a model. This also applies when approval is granted after the original rail has settled. Core archive success is not a claim that a PR was created. The initial uninterrupted successful rail retains its normal host delivery flow.
 
 Disabling project runtime settings affects future admission. Existing runs retain their frozen runtime request and remain available for explicit continuation; they do not switch back to a platform prompt.
 
@@ -122,8 +125,16 @@ A production release must:
 
 Do not relabel an old 5.1.1 bundle or copy only `dist/agent-runtime`: LangGraph and the complete runtime dependency closure are required. Source assembly writes `source-bundle.json` with the Core version, runtime API and lock hash for traceability; it does not publish Core or update the production registry lock.
 
-Enable one project first, verify role outputs and delivery ownership, exercise approval/recovery, then expand. Existing legacy workflows and profile v1 remain supported during this rollout. Core's programmatic archive writes reviewed **complete specification replacements**; it does not merge partial OpenSpec delta snippets. Preserve unchanged requirements in the architect's output and inspect that behavior during the pilot.
+Verify role outputs, delivery ownership and saved-run recovery before releasing the paired app. Implementation has no legacy fallback; profile v1 remains only for other workflows. Core's programmatic archive writes reviewed **complete specification replacements**; it does not merge partial OpenSpec delta snippets. Preserve unchanged requirements in the architect's output and inspect that behavior during the pilot.
 
 See [Core runtime selection and recovery](core-runtime-updates.md) for the separate framework-update lifecycle and [the original evaluation](agent-runtime-framework-evaluation.md) for the architecture rationale.
 
 The [implementation verification record](programmatic-agent-runtime-validation.md) lists the completed checks and outstanding release validation.
+
+## Efficiency metrics
+
+Core's additive runtime metrics v1 are passed from compact status to each saved run's optional `metrics` field. The contextual run panels and Jobs history render a collapsed **Usage and time** panel with reported cost, active execution/agent time, calls and token/cache totals, plus per-phase attempts, duration, provider calls and cost. All eight locales include the panel labels.
+
+Older Core versions continue to work without the panel. The server validates numeric fields and known phase IDs, drops unsupported/malformed metrics and projects only the supported fields; it never forwards arbitrary transcripts from the metrics object. Missing billing is displayed as unavailable rather than zero. Cache tokens are already included in input tokens, and agent duration already includes native tool work. The panel does not estimate savings or measure implementation quality.
+
+The paired `agent-runtime-efficiency` OpenSpec change in specrails-core documents verification ownership, efficient API tools and the measurement contract. Core exposes the same report through `runtime status` / `runtime-result`, so a fixed set of real tasks can be compared without a Desktop database migration.

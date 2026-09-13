@@ -7,7 +7,6 @@ export function LoopCompletionSummary({ result }: { result: LoopCompletion }) {
   const status = (value: string) => t(`completion.status.${value}`, { defaultValue: value })
   return <section aria-label={t('completion.title')} className="border-b border-border/40 px-4 py-3 text-xs space-y-2" data-testid="loop-completion">
     <p className="font-medium">{t('completion.execution')}: {status(result.execution)}</p>
-    <p className="text-foreground/70">{t('completion.counters', { steps: result.steps, evaluations: result.deciderEvaluations, turns: result.turns ?? t('completion.unavailable') })}</p>
     {core ? <>
       <dl className="grid grid-cols-2 gap-2 md:grid-cols-4">
         {(['implementation', 'validation', 'archive', 'delivery'] as const).map(key => <div key={key}>

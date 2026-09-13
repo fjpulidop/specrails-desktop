@@ -752,6 +752,35 @@ describe('runContractRefine', () => {
     expect(rows[0].status).toBe('failed')
   })
 
+  it.each(['quick', 'explore'])('extracts a Codex contract in read-only mode (%s)', async (mode) => {
+    seedTicket(projectPath, 1)
+    makeExploreConv('conv-codex')
+    db.prepare('UPDATE chat_conversations SET provider = ?, model = ? WHERE id = ?')
+      .run('codex', 'gpt-5.5', 'conv-codex')
+    let seenArgs: string[] = []
+    let seenBinary = ''
+    const spawn = ((binary: string, args: string[]) => {
+      seenBinary = binary
+      seenArgs = args
+      return fakeSpawn([
+        JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: validContractBlock() } }),
+        JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 20 } }),
+      ])(binary, args)
+    }) as typeof import('./util/cli-prompt')['spawnAiCli']
+    const deps = { ...makeDeps({ spawn }), providerId: 'codex' }
+    const out = mode === 'quick'
+      ? await runContractRefineForQuick(deps, 1, 'Title', 'Description', 'gpt-5.5')
+      : await runContractRefine(deps, 'conv-codex', 1)
+    expect(out.ok).toBe(true)
+    expect(seenBinary).toBe('codex')
+    expect(seenArgs.join(' ')).toContain(mode === 'quick' ? '--sandbox read-only' : 'sandbox_mode="read-only"')
+    expect(seenArgs.join(' ')).toContain('Contract Refine')
+    expect(seenArgs.join(' ')).not.toContain('workspace-write')
+    const row = db.prepare('SELECT provider, status FROM ai_invocations').get()
+    expect(row).toMatchObject({ provider: 'codex', status: 'success' })
+    expect(fs.readFileSync(resolveTicketStoragePath(projectPath), 'utf8')).toContain('Contract Layer')
+  })
+
   it('runs Quick refine without --resume and records quick-spec invocation', async () => {
     seedTicket(projectPath, 1)
     let seenArgs: string[] = []

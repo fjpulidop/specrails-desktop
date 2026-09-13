@@ -4,8 +4,6 @@
   "loading": "Loading runtime settings…",
   "loadFailed": "Could not load runtime settings. Retry before making changes.",
   "retry": "Retry",
-  "enabled": "Use the agent runtime for implementation",
-  "enableHint": "Saving does not start agents. Implementations of this project use the runtime once enabled; disabled projects keep their current execution mode.",
   "unavailable": "This Core installation does not include the agent runtime. Update Core before enabling it; you can prepare settings while disabled.",
   "save": "Save runtime settings",
   "saving": "Saving…",
@@ -27,7 +25,9 @@
     "addCli": "Add CLI provider",
     "addLocal": "Add local / API provider",
     "show": "Show provider connections",
-    "hide": "Hide provider connections"
+    "hide": "Hide provider connections",
+    "globalTitle": "Provider connections",
+    "globalHint": "These connections are available to every project. Assign providers and models to roles in project settings. Changes apply to new executions."
   },
   "cliNames": {
     "claude": "Claude",
@@ -44,7 +44,7 @@
   },
   "agents": {
     "title": "Role assignments",
-    "hint": "Each role runs its own provider session. Leave the model on its default unless you need a specific one. Turns are the number of tool calls a role may make (default {{turns}}).",
+    "hint": "Each role can use a different provider and model. Manage connections in General settings → Specrails Agents. Default limit: {{turns}} turns per agent.",
     "provider": "Provider",
     "model": "Model",
     "modelPlaceholder": "Model ID or CLI default",
@@ -100,7 +100,12 @@
     "question": "The architect asks:",
     "answerLabel": "Your answer",
     "answerPlaceholder": "Answer the question; the architect continues with it.",
-    "answer": "Answer and resume"
+    "answer": "Answer and resume",
+    "viewLog": "View job log",
+    "implementation": "Implementation",
+    "preserveProgress": "Continue from the indicated phase, preserving your existing work and saved settings.",
+    "reviewDelivery": "Implementation completed. Review the result in this job log before arranging delivery; this continuation has not published it.",
+    "prepareDelivery": "Prepare delivery"
   },
   "roleHints": {
     "architect": "Reads the code and writes the proposal, design, tasks and spec. Read-only.",
@@ -125,5 +130,38 @@
     "onLowConfidence": "On low confidence",
     "ask": "Ask (pause with the question)",
     "proceed": "Proceed on stated assumptions"
+  },
+  "metrics": {
+    "title": "Usage and time",
+    "hint": "Includes corrections and failed calls. Agent time includes tool work. Cached tokens are part of input tokens.",
+    "unknown": "Unavailable",
+    "duration": "Execution time",
+    "agentTime": "Agent time",
+    "cost": "Reported cost",
+    "providerCalls": "Agent calls",
+    "toolCalls": "Tool calls",
+    "input": "Input tokens",
+    "output": "Output tokens",
+    "uncached": "Uncached input",
+    "cacheRead": "Cache reads",
+    "cacheWrite": "Cache writes",
+    "partial": "Some attempts have no detailed measurements.",
+    "phases": "Usage by phase",
+    "phase": "Phase",
+    "attempts": "Attempts"
+  },
+  "prompts": {
+    "title": "Agent role prompts",
+    "description": "View and edit the instructions for each role. Shared by all projects and providers; changes apply to new jobs. Resumed jobs keep their original prompts.",
+    "definition": "{{role}} definition",
+    "default": "Factory default",
+    "custom": "Customized",
+    "restore": "Restore default",
+    "contracts": "Spec context, OpenSpec workflow and required response format are added automatically and are not edited here.",
+    "invalid": "Each definition must contain 1–20,000 characters, with nonblank text and no null bytes.",
+    "saved": "Role prompts saved",
+    "unsaved": "Unsaved changes",
+    "discard": "Discard changes",
+    "save": "Save prompts"
   }
 }

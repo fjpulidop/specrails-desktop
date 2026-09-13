@@ -8,7 +8,7 @@ import type { DesktopProject } from '../../../hooks/useDesktop'
 const desktop = vi.hoisted(() => ({ activeProjectId: 'p1' as string | null, projects: [] as DesktopProject[] }))
 vi.mock('../../../hooks/useDesktop', () => ({ useDesktop: () => desktop }))
 const defaults = (): AgentRuntimeConfig => ({
-  schemaVersion: 1, enabled: false,
+  schemaVersion: 1, enabled: true,
   providers: ['claude', 'codex', 'gemini', 'kimi'].map((id) => ({ id, kind: 'cli', cli: id })) as AgentRuntimeConfig['providers'],
   agents: { architect: { provider: 'claude' }, developer: { provider: 'codex' }, reviewer: { provider: 'gemini' } },
   verification: [],
@@ -36,15 +36,15 @@ beforeEach(() => {
 describe('AgentRuntimeSettingsSection', () => {
   it('prefills an unconfigured project with its detected checks and shows every default in the form', async () => {
     render(<AgentRuntimeSettingsSection />)
-    await screen.findByLabelText('Use the agent runtime for implementation')
+    await screen.findByRole('group', { name: 'Architect' })
     expect(await screen.findByDisplayValue('npm test')).toBeInTheDocument()
     expect(screen.getByText(/Detected from package.json test script/)).toBeInTheDocument()
     expect(screen.getByText('Filled in from the checks this project already defines.')).toBeInTheDocument()
     const architect = within(screen.getByRole('group', { name: 'Architect' }))
-    expect(architect.getByLabelText('Provider')).toHaveValue('claude')
+    expect(architect.getByRole('radio', { name: 'Claude (claude)' })).toBeChecked()
     expect(architect.getByRole('option', { name: 'Default (Claude Sonnet)' })).toBeInTheDocument()
     expect(architect.getByRole('option', { name: 'Claude Opus' })).toBeInTheDocument()
-    expect(architect.getByLabelText('Maximum turns (default 24)')).toHaveAttribute('placeholder', '24')
+    expect(architect.getByLabelText('Maximum turns (default 100)')).toHaveAttribute('placeholder', '100')
     expect(screen.getByLabelText('Maximum developer attempts (default 3)')).toHaveAttribute('placeholder', '3')
     expect(screen.getByLabelText('Timeout in minutes (default 15)')).toHaveAttribute('placeholder', '15')
     expect(screen.getByLabelText('Maximum tokens')).toHaveAttribute('placeholder', 'No limit')
@@ -57,13 +57,12 @@ describe('AgentRuntimeSettingsSection', () => {
     const user = userEvent.setup()
     mockServer({ suggestions: { repositories: [{ id: 'primary-p1', name: 'App' }], suggestions: [] } })
     render(<AgentRuntimeSettingsSection />)
-    await screen.findByLabelText('Use the agent runtime for implementation')
+    await screen.findByRole('group', { name: 'Architect' })
     expect(await screen.findByText(/No test, type-check or build command was found/)).toBeInTheDocument()
-    await user.click(screen.getByLabelText('Use the agent runtime for implementation'))
     const developer = within(screen.getByRole('group', { name: 'Developer' }))
-    await user.selectOptions(developer.getByLabelText('Provider'), 'claude')
+    await user.click(developer.getByRole('radio', { name: 'Claude (claude)' }))
     await user.selectOptions(developer.getByLabelText('Model'), 'opus')
-    await user.type(developer.getByLabelText('Maximum turns (default 24)'), '12')
+    await user.type(developer.getByLabelText('Maximum turns (default 100)'), '12')
     await user.type(screen.getByLabelText('Maximum developer attempts (default 3)'), '2')
     await user.type(screen.getByLabelText('Timeout in minutes (default 15)'), '20')
     await user.click(screen.getByLabelText('Pause for approval before completing the workflow'))
@@ -98,39 +97,21 @@ describe('AgentRuntimeSettingsSection', () => {
     expect(screen.getAllByLabelText('Command')).toHaveLength(2)
   })
 
-  it('keeps role references when renaming providers, resets models on reassignment and protects referenced providers from deletion', async () => {
+  it('shows all providers and resets only the selected role model on reassignment', async () => {
     const user = userEvent.setup()
     mockServer({ configured: true })
     render(<AgentRuntimeSettingsSection />)
     const architect = within(await screen.findByRole('group', { name: 'Architect' }))
-    await user.click(screen.getByRole('button', { name: 'Show provider connections' }))
-    const first = within(screen.getByRole('group', { name: 'Provider 1' }))
-    expect(first.getByRole('button', { name: 'Remove provider' })).toBeDisabled()
-    fireEvent.change(first.getByLabelText('Provider ID'), { target: { value: 'design-cli' } })
-    expect(architect.getByLabelText('Provider')).toHaveValue('design-cli')
-    expect(architect.getByRole('option', { name: 'Claude (design-cli)' })).toBeInTheDocument()
+    expect(architect.getAllByRole('radio')).toHaveLength(4)
     await user.selectOptions(architect.getByLabelText('Model'), 'haiku')
-    await user.selectOptions(architect.getByLabelText('Provider'), 'kimi')
+    await user.click(architect.getByRole('radio', { name: 'Kimi (kimi)' }))
     expect(architect.getByLabelText('Model')).toHaveValue('')
-    expect(architect.getByRole('option', { name: 'Default (Kimi K3)' })).toBeInTheDocument()
-    await user.click(first.getByRole('button', { name: 'Remove provider' }))
-    expect(screen.getAllByLabelText('Provider ID')).toHaveLength(3)
-    await user.click(screen.getByRole('button', { name: 'Add local / API provider' }))
-    const added = within(screen.getByRole('group', { name: 'Provider 4' }))
-    expect(added.getByLabelText('API base URL')).toHaveValue('http://127.0.0.1:11434/v1')
-    await user.clear(added.getByLabelText('Provider ID'))
-    await user.type(added.getByLabelText('Provider ID'), 'ollama')
-    await user.type(added.getByLabelText('API key environment variable (optional)'), 'LOCAL_AI_KEY')
-    const developer = within(screen.getByRole('group', { name: 'Developer' }))
-    await user.selectOptions(developer.getByLabelText('Provider'), 'ollama')
-    // API endpoints have no catalog: the model is typed and required.
-    await user.type(developer.getByLabelText('Model'), 'qwen-local:latest')
+    expect(screen.queryByLabelText('Provider ID')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
     await screen.findByText('Runtime settings saved')
-    const saved = putBodies().at(-1)!
-    expect(saved.providers.at(-1)).toEqual({ id: 'ollama', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:11434/v1', apiKeyEnv: 'LOCAL_AI_KEY' })
-    expect(saved.agents.developer).toEqual({ provider: 'ollama', model: 'qwen-local:latest' })
-    expect(nextRuntimeProviderId([{ id: 'local', kind: 'cli', cli: 'claude' }, { id: 'local-2', kind: 'cli', cli: 'claude' }], 'local')).toBe('local-3')
+    expect(putBodies().at(-1)?.agents.architect).toEqual({ provider: 'kimi' })
+    expect(putBodies().at(-1)?.agents.developer.provider).toBe('codex')
+    expect(nextRuntimeProviderId([{ id: 'local', kind: 'cli', cli: 'claude' }], 'local')).toBe('local-2')
   })
 
   it('reports server validation errors without losing the draft and offers load retry', async () => {
@@ -138,7 +119,7 @@ describe('AgentRuntimeSettingsSection', () => {
     const save = vi.fn<() => Promise<Response>>()
     mockServer({ configured: true, save })
     const view = render(<AgentRuntimeSettingsSection />)
-    await screen.findByLabelText('Use the agent runtime for implementation')
+    await screen.findByRole('group', { name: 'Architect' })
     save.mockResolvedValueOnce(response({ message: 'Role developer requires a model' }, false))
     await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Role developer requires a model')
@@ -163,20 +144,19 @@ describe('AgentRuntimeSettingsSection', () => {
     let finish!: (response: Response) => void
     mockServer({ configured: true, save: () => new Promise((resolve) => { finish = resolve }) })
     const { rerender } = render(<AgentRuntimeSettingsSection />)
-    await screen.findByLabelText('Use the agent runtime for implementation')
-    await user.click(screen.getByLabelText('Use the agent runtime for implementation'))
+    await screen.findByRole('group', { name: 'Architect' })
     await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
     desktop.activeProjectId = 'p2'
     rerender(<AgentRuntimeSettingsSection />)
-    await screen.findByLabelText('Use the agent runtime for implementation')
+    await screen.findByRole('group', { name: 'Architect' })
     await act(async () => finish(response(snapshot({ ...defaults(), enabled: true }, true, true))))
-    expect(screen.getByLabelText('Use the agent runtime for implementation')).not.toBeChecked()
+    expect(screen.queryByText('Use the agent runtime for implementation')).not.toBeInTheDocument()
     expect(screen.queryByText('Runtime settings saved')).not.toBeInTheDocument()
     expect(vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PUT').map(([url]) => url)).toEqual(['/api/projects/p1/agent-runtime/config'])
     desktop.activeProjectId = 'p1'
     rerender(<AgentRuntimeSettingsSection />)
-    expect(screen.getByLabelText('Use the agent runtime for implementation')).toBeChecked()
+    expect(screen.getByRole('group', { name: 'Architect' })).toBeInTheDocument()
   })
 
   it('saves tightened review thresholds and the architect policy, omitting empty fields so Core defaults apply', async () => {

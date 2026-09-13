@@ -7,6 +7,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '../../test-utils'
 import JobsPage from '../JobsPage'
 
+vi.mock('../../hooks/useSharedWebSocket', () => ({
+  useSharedWebSocket: () => ({ registerHandler: vi.fn(), unregisterHandler: vi.fn() }),
+}))
+
 vi.mock('sonner', () => ({
   toast: {
     promise: vi.fn(),

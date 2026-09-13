@@ -4,8 +4,6 @@
   "loading": "Einstellungen werden geladen…",
   "loadFailed": "Einstellungen konnten nicht geladen werden. Vor Änderungen erneut versuchen.",
   "retry": "Erneut versuchen",
-  "enabled": "Agenten-Laufzeit für die Implementierung verwenden",
-  "enableHint": "Speichern startet keine Agenten. Nach der Aktivierung nutzen Implementierungen dieses Projekts die Laufzeit; deaktivierte Projekte behalten ihren bisherigen Ausführungsmodus.",
   "unavailable": "Diese Core-Installation enthält die Agenten-Laufzeit nicht. Aktualisieren Sie Core vor der Aktivierung. Die Einstellungen können Sie bereits vorbereiten.",
   "save": "Laufzeit-Einstellungen speichern",
   "saving": "Wird gespeichert…",
@@ -27,7 +25,9 @@
     "addCli": "CLI-Anbieter hinzufügen",
     "addLocal": "Lokalen / API-Anbieter hinzufügen",
     "show": "Anbieterverbindungen anzeigen",
-    "hide": "Anbieterverbindungen ausblenden"
+    "hide": "Anbieterverbindungen ausblenden",
+    "globalTitle": "Anbieterverbindungen",
+    "globalHint": "Diese Verbindungen stehen allen Projekten zur Verfügung. Anbieter und Modelle werden in den Projekteinstellungen Rollen zugewiesen. Änderungen gelten für neue Ausführungen."
   },
   "cliNames": {
     "claude": "Claude",
@@ -44,7 +44,7 @@
   },
   "agents": {
     "title": "Rollenzuweisungen",
-    "hint": "Jede Rolle läuft in einer eigenen Anbieter-Sitzung. Lass das Modell auf dem Standard, sofern du kein bestimmtes brauchst. Runden sind die Werkzeugaufrufe, die eine Rolle machen darf (Standard {{turns}}).",
+    "hint": "Jede Rolle kann einen anderen Anbieter und ein anderes Modell verwenden. Verbindungen: Allgemeine Einstellungen → Specrails Agents. Standard: {{turns}} Runden pro Agent.",
     "provider": "Anbieter",
     "model": "Modell",
     "modelPlaceholder": "Modell-ID oder CLI-Standard",
@@ -100,7 +100,12 @@
     "question": "Der Architekt fragt:",
     "answerLabel": "Ihre Antwort",
     "answerPlaceholder": "Beantworten Sie die Frage; der Architekt macht damit weiter.",
-    "answer": "Antworten und fortsetzen"
+    "answer": "Antworten und fortsetzen",
+    "viewLog": "Job-Protokoll anzeigen",
+    "implementation": "Implementierung",
+    "preserveProgress": "Ab der angezeigten Phase fortsetzen; bisherige Arbeit und gespeicherte Einstellungen bleiben erhalten.",
+    "reviewDelivery": "Implementierung abgeschlossen. Prüfe das Ergebnis im Job-Protokoll vor der Auslieferung; diese Fortsetzung hat es nicht veröffentlicht.",
+    "prepareDelivery": "Auslieferung vorbereiten"
   },
   "roleHints": {
     "architect": "Liest den Code und schreibt Vorschlag, Design, Aufgaben und Spezifikation. Nur lesend.",
@@ -125,5 +130,38 @@
     "onLowConfidence": "Bei geringer Zuversicht",
     "ask": "Fragen (mit der Frage pausieren)",
     "proceed": "Mit benannten Annahmen fortfahren"
+  },
+  "metrics": {
+    "title": "Verbrauch und Zeit",
+    "hint": "Enthält Korrekturen und fehlgeschlagene Aufrufe. Die Agentenzeit umfasst Werkzeuge. Cache-Tokens sind Teil der Eingabe-Tokens.",
+    "unknown": "Nicht verfügbar",
+    "duration": "Ausführungszeit",
+    "agentTime": "Agentenzeit",
+    "cost": "Gemeldete Kosten",
+    "providerCalls": "Agentenaufrufe",
+    "toolCalls": "Werkzeugaufrufe",
+    "input": "Eingabe-Tokens",
+    "output": "Ausgabe-Tokens",
+    "uncached": "Eingabe ohne Cache",
+    "cacheRead": "Cache-Lesezugriffe",
+    "cacheWrite": "Cache-Schreibzugriffe",
+    "partial": "Für einige Versuche fehlen detaillierte Messungen.",
+    "phases": "Verbrauch nach Phase",
+    "phase": "Phase",
+    "attempts": "Versuche"
+  },
+  "prompts": {
+    "title": "Prompts der Agentenrollen",
+    "description": "Anweisungen für jede Rolle anzeigen und bearbeiten. Sie gelten für alle Projekte und Anbieter; Änderungen gelten für neue Jobs. Fortgesetzte Jobs behalten ihre ursprünglichen Prompts.",
+    "definition": "Definition für {{role}}",
+    "default": "Werkseinstellung",
+    "custom": "Angepasst",
+    "restore": "Standard wiederherstellen",
+    "contracts": "Spec-Kontext, OpenSpec-Workflow und erforderliches Antwortformat werden automatisch ergänzt und hier nicht bearbeitet.",
+    "invalid": "Jede Definition muss 1–20.000 Zeichen mit nicht leerem Text und ohne Nullbytes enthalten.",
+    "saved": "Rollen-Prompts gespeichert",
+    "unsaved": "Ungespeicherte Änderungen",
+    "discard": "Änderungen verwerfen",
+    "save": "Prompts speichern"
   }
 }

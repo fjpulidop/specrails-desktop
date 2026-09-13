@@ -54,6 +54,7 @@ export function NarratedProgress({
 }: NarratedProgressProps) {
   const { t } = useTranslation('narration')
   const model = useMemo(() => buildNarration({ events, settled }), [events, settled])
+  const programmatic = useMemo(() => events.some(event => event.event_type === 'workflow-event'), [events])
 
   const ordered = useMemo(
     () => [...model.milestones].sort((a, b) => a.seq - b.seq),
@@ -93,18 +94,21 @@ export function NarratedProgress({
             || milestone.kind === 'step-interrupted'
           // A folded "N files" line already states its count in the text; the
           // ×N badge is only for the same thing happening repeatedly.
-          const repeats = Number(milestone.values.files ?? 0) > 1
+          const repeats = Number(milestone.values.files ?? 0) > 1 || programmatic
             ? 1
             : Number(milestone.values.repeats ?? 1)
           return (
             <li
               key={`${milestone.seq}-${milestone.code}-${index}`}
-              className={`flex items-start gap-2 text-sm ${isStep ? 'font-medium text-foreground' : 'text-muted-foreground'} ${
+              className={`flex items-start gap-2 text-sm ${isStep || milestone.values.phaseBoundary === 1 ? 'font-medium text-foreground' : 'text-muted-foreground'} ${
                 milestone.kind === 'step-start' && index > 0 ? 'pt-2' : ''
               }`}
             >
               <Icon className={`mt-0.5 size-3.5 shrink-0 ${TONE[milestone.tone]}`} aria-hidden />
-              <span>
+              <span className="min-w-0 break-words">
+                {typeof milestone.values.repository === 'string' && milestone.values.repository && (
+                  <span className="mr-2 inline-block rounded border border-border px-1.5 py-0.5 text-xs font-medium text-foreground">{milestone.values.repository}</span>
+                )}
                 {/* A step the engine named by role reads as its role; anything
                     else keeps the real title rather than a guessed label. */}
                 {milestone.kind === 'step-start' && typeof milestone.values.roleCode === 'string'

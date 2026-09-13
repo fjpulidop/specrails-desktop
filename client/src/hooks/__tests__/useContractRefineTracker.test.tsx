@@ -63,7 +63,7 @@ describe('ContractRefineTrackerProvider provider-safe retry UX', () => {
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
-  it('keeps Retry for a Claude failure and sends no provider-changing override', async () => {
+  it.each(['claude', 'codex'])('keeps Retry for a %s failure and sends no provider-changing override', async (provider) => {
     const ws = makeWs()
     renderTracker(ws)
 
@@ -72,7 +72,7 @@ describe('ContractRefineTrackerProvider provider-safe retry UX', () => {
         type: 'explore.contract_refine_failed',
         projectId: 'p',
         ticketId: 8,
-        provider: 'claude',
+        provider,
         reason: 'timeout',
       })
     })

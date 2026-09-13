@@ -4,8 +4,6 @@
   "loading": "A carregar configurações…",
   "loadFailed": "Não foi possível carregar as configurações. Tente novamente antes de alterar.",
   "retry": "Tentar novamente",
-  "enabled": "Usar o motor de agentes na implementação",
-  "enableHint": "Guardar não inicia agentes. Depois de ativado, as implementações deste projeto usam o motor; os projetos desativados mantêm o modo atual.",
   "unavailable": "Esta instalação do Core não inclui o motor de agentes. Atualize o Core antes de ativar; pode preparar as configurações enquanto está desativado.",
   "save": "Guardar configurações",
   "saving": "A guardar…",
@@ -27,7 +25,9 @@
     "addCli": "Adicionar fornecedor CLI",
     "addLocal": "Adicionar fornecedor local / API",
     "show": "Mostrar ligações a fornecedores",
-    "hide": "Ocultar ligações a fornecedores"
+    "hide": "Ocultar ligações a fornecedores",
+    "globalTitle": "Conexões de fornecedores",
+    "globalHint": "Estas conexões estão disponíveis para todos os projetos. Atribua fornecedores e modelos aos papéis nas definições do projeto. As alterações aplicam-se a novas execuções."
   },
   "cliNames": {
     "claude": "Claude",
@@ -44,7 +44,7 @@
   },
   "agents": {
     "title": "Atribuição de funções",
-    "hint": "Cada função executa a sua própria sessão do fornecedor. Deixe o modelo no valor por defeito salvo necessidade específica. Os turnos são as chamadas a ferramentas que uma função pode fazer (por defeito {{turns}}).",
+    "hint": "Cada papel pode usar um fornecedor e um modelo diferentes. Conexões: Definições gerais → Specrails Agents. Limite padrão: {{turns}} turnos por agente.",
     "provider": "Fornecedor",
     "model": "Modelo",
     "modelPlaceholder": "ID do modelo ou padrão do CLI",
@@ -100,7 +100,12 @@
     "question": "O arquiteto pergunta:",
     "answerLabel": "A sua resposta",
     "answerPlaceholder": "Responda à pergunta; o arquiteto continua com ela.",
-    "answer": "Responder e retomar"
+    "answer": "Responder e retomar",
+    "viewLog": "Ver log do job",
+    "implementation": "Implementação",
+    "preserveProgress": "Continue a partir da fase indicada, preservando o trabalho e as configurações guardadas.",
+    "reviewDelivery": "Implementação concluída. Reveja o resultado no log antes da entrega; esta continuação não o publicou.",
+    "prepareDelivery": "Preparar entrega"
   },
   "roleHints": {
     "architect": "Lê o código e escreve a proposta, o design, as tarefas e a spec. Só leitura.",
@@ -125,5 +130,38 @@
     "onLowConfidence": "Com baixa confiança",
     "ask": "Perguntar (pausar com a pergunta)",
     "proceed": "Prosseguir com suposições declaradas"
+  },
+  "metrics": {
+    "title": "Consumo e tempo",
+    "hint": "Inclui correções e chamadas falhadas. O tempo dos agentes inclui as ferramentas. Os tokens em cache fazem parte dos tokens de entrada.",
+    "unknown": "Indisponível",
+    "duration": "Tempo de execução",
+    "agentTime": "Tempo dos agentes",
+    "cost": "Custo reportado",
+    "providerCalls": "Chamadas a agentes",
+    "toolCalls": "Chamadas a ferramentas",
+    "input": "Tokens de entrada",
+    "output": "Tokens de saída",
+    "uncached": "Entrada sem cache",
+    "cacheRead": "Leituras da cache",
+    "cacheWrite": "Escritas na cache",
+    "partial": "Algumas tentativas não têm medições detalhadas.",
+    "phases": "Consumo por fase",
+    "phase": "Fase",
+    "attempts": "Tentativas"
+  },
+  "prompts": {
+    "title": "Prompts dos papéis dos agentes",
+    "description": "Veja e edite as instruções de cada papel. São partilhadas por todos os projetos e fornecedores; as alterações aplicam-se a novos trabalhos. Os trabalhos retomados mantêm os prompts originais.",
+    "definition": "Definição de {{role}}",
+    "default": "Predefinição de fábrica",
+    "custom": "Personalizado",
+    "restore": "Restaurar predefinição",
+    "contracts": "O contexto da spec, o fluxo OpenSpec e o formato de resposta obrigatório são adicionados automaticamente e não são editados aqui.",
+    "invalid": "Cada definição deve conter entre 1 e 20.000 caracteres, com texto não vazio e sem bytes nulos.",
+    "saved": "Prompts dos papéis guardados",
+    "unsaved": "Alterações por guardar",
+    "discard": "Descartar alterações",
+    "save": "Guardar prompts"
   }
 }
