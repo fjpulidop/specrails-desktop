@@ -43,6 +43,7 @@ function RuntimeSettings({ projectId, cache, repositories }: {
   const [rows, setRows] = useState<VerificationRow[]>(rowsFrom(cached?.config.verification ?? []))
   const [capabilities, setCapabilities] = useState<RoleCapability[]>([])
   const [checkingCapabilities, setCheckingCapabilities] = useState(false)
+  const [capabilityError, setCapabilityError] = useState(false)
   const [busy, setBusy] = useState(false)
   const [detecting, setDetecting] = useState(false)
   const [detected, setDetected] = useState<'none' | 'some' | null>(null)
@@ -54,7 +55,44 @@ function RuntimeSettings({ projectId, cache, repositories }: {
   const mounted = useRef(true)
   const endpoint = `${repositoryApiBase(projectId)}/agent-runtime/config`
   const capabilityRequest = useRef(0)
-  useEffect(() => { capabilityRequest.current++; setCapabilities([]); setCheckingCapabilities(false) }, [projectId, JSON.stringify(config?.providers), JSON.stringify(config?.agents)])
+  const currentConfig = useRef(config)
+  currentConfig.current = config
+  // Effort/turn-limit edits must not discard the options for the same model.
+  const capabilitySelection = JSON.stringify([projectId, config?.providers, config && RUNTIME_ROLES.map(role => {
+    const agent = config.agents[role]
+    return [role, agent.provider, agent.model ?? null, agent.escalation?.model || null]
+  })])
+  async function checkCapabilities(signal?: AbortSignal) {
+    if (!currentConfig.current) return
+    const selected = structuredClone(currentConfig.current)
+    for (const agent of Object.values(selected.agents)) if (agent.escalation && !agent.escalation.model.trim()) delete agent.escalation
+    const requestId = ++capabilityRequest.current
+    setCheckingCapabilities(true); setCapabilityError(false)
+    try {
+      const response = await fetch(`${repositoryApiBase(projectId)}/agent-runtime/capabilities`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(selected), signal })
+      const data = await response.json()
+      if (!response.ok || data.schemaVersion !== 1 || !Array.isArray(data.roles)) throw new Error('capabilities')
+      if (mounted.current && !signal?.aborted && requestId === capabilityRequest.current) setCapabilities(data.roles)
+    } catch {
+      if (mounted.current && !signal?.aborted && requestId === capabilityRequest.current) { setCapabilities([]); setCapabilityError(true) }
+    } finally {
+      if (mounted.current && !signal?.aborted && requestId === capabilityRequest.current) setCheckingCapabilities(false)
+    }
+  }
+  useEffect(() => {
+    capabilityRequest.current++; setCapabilities([]); setCapabilityError(false)
+    const selected = currentConfig.current
+    if (!selected || snapshot?.efficiencyAvailable === false) {
+      setCheckingCapabilities(false)
+      return
+    }
+    const controller = new AbortController()
+    setCheckingCapabilities(true)
+    const timer = setTimeout(() => { void checkCapabilities(controller.signal) }, 250)
+    return () => { clearTimeout(timer); controller.abort(); capabilityRequest.current++ }
+    // The identity excludes effort, so selecting an effort keeps confirmed options.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [capabilitySelection, snapshot?.efficiencyAvailable, reload])
   const suggestionsEndpoint = `${repositoryApiBase(projectId)}/agent-runtime/verification-suggestions`
 
   async function detect(): Promise<VerificationSuggestion[] | null> {
@@ -195,17 +233,9 @@ function RuntimeSettings({ projectId, cache, repositories }: {
         <section className="space-y-3" aria-labelledby="agent-runtime-roles">
           <h3 id="agent-runtime-roles" className="text-sm font-medium">{t('agents.title')}</h3>
           <p className="text-xs text-muted-foreground">{t('agents.hint', { turns: RUNTIME_DEFAULTS.maxTurns })}</p>
-          <Button size="sm" variant="secondary" disabled={checkingCapabilities} onClick={async () => {
-            const requestId = ++capabilityRequest.current
-            setCheckingCapabilities(true)
-            try {
-              const response = await fetch(`${repositoryApiBase(projectId)}/agent-runtime/capabilities`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) })
-              const data = await response.json()
-              if (!response.ok || data.schemaVersion !== 1 || !Array.isArray(data.roles)) throw new Error('capabilities')
-              if (mounted.current && requestId === capabilityRequest.current) setCapabilities(data.roles)
-            } catch { if (mounted.current && requestId === capabilityRequest.current) { setCapabilities([]); setError(t('efficiency.capabilitiesFailed')) } }
-            finally { if (mounted.current && requestId === capabilityRequest.current) setCheckingCapabilities(false) }
-          }}>{t('efficiency.checkCapabilities')}</Button>
+          <Button size="sm" variant="secondary" disabled={checkingCapabilities || snapshot?.efficiencyAvailable === false} onClick={() => void checkCapabilities()}>{t('efficiency.checkCapabilities')}</Button>
+          {checkingCapabilities && <p role="status" className="text-xs text-muted-foreground">{t('loading')}</p>}
+          {capabilityError && <p className="text-xs text-destructive">{t('efficiency.capabilitiesFailed')}</p>}
           {RUNTIME_ROLES.map((role) => {
             const agent = config.agents[role]
             const provider = config.providers.find((item) => item.id === agent.provider)

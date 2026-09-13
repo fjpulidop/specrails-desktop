@@ -12,7 +12,7 @@ function Effort({ value, capability, onChange }: { value?: string; capability?: 
   const { t } = useTranslation('agentRuntime')
   const levels = capability?.effortSupport === 'supported' ? capability.supportedEfforts ?? [] : []
   return <label className="block space-y-1 text-xs">{t('efficiency.effort')}
-    <select className={selectClass} value={value ?? ''} onChange={event => onChange(event.target.value || undefined)}>
+    <select aria-label={t('efficiency.effort')} className={selectClass} value={value ?? ''} onChange={event => onChange(event.target.value || undefined)}>
       <option value="">{t('efficiency.providerDefault')}</option>
       {levels.map(level => <option key={level} value={level}>{level}</option>)}
       {value && !levels.includes(value) && <option value={value}>{value} — {t('efficiency.unconfirmed')}</option>}
