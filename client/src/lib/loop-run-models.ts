@@ -40,9 +40,31 @@ export const LOOP_RUN_MODELS: Record<string, LoopRunModel[]> = {
   ],
 }
 
-/** The selectable models for a provider (empty for an unknown provider). */
+/**
+ * Dynamic catalogs for providers with no static list — local AI engines whose
+ * models are DISCOVERED by the server (`GET /v1/models`). Fed by
+ * `useProviderDetection` (`providers[id].models`) and by the connections card
+ * after a successful test; a machine property, not per-project state.
+ */
+const dynamicCatalogs = new Map<string, LoopRunModel[]>()
+
+export function registerDynamicModelCatalog(provider: string, models: readonly string[]): void {
+  if (!provider) return
+  const unique = Array.from(new Set(models.filter((value) => typeof value === 'string' && value.trim())))
+  if (unique.length === 0) { dynamicCatalogs.delete(provider); return }
+  dynamicCatalogs.set(provider, unique.map((value) => ({ value, label: value })))
+}
+
+/** Test seam. */
+export function resetDynamicModelCatalogs(): void {
+  dynamicCatalogs.clear()
+}
+
+/** The selectable models for a provider: the static catalog, else the dynamic
+ *  (discovered) one, else empty — never throws for an unknown id. */
 export function modelsForProvider(provider: string | undefined | null): LoopRunModel[] {
-  return (provider && LOOP_RUN_MODELS[provider]) || []
+  if (!provider) return []
+  return LOOP_RUN_MODELS[provider] ?? dynamicCatalogs.get(provider) ?? []
 }
 
 /** The provider's default model (its catalog's first entry). */

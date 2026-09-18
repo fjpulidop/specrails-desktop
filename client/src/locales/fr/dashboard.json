@@ -268,5 +268,8 @@
       "target_pr_invalid": "Les branches de la PR sont inutilisables comme cible de livraison",
       "target_pr_unfetchable": "Impossible de récupérer la branche head de la PR"
     }
+  },
+  "rail": {
+    "rolesNoFreestyle": "Freestyle exige un seul fournisseur : choisissez Implement ou une boucle avant de passer ce rail aux moteurs par rôle."
   }
 }

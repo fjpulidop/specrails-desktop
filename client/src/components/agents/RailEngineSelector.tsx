@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { Cpu } from 'lucide-react'
-import { providerLabel } from '../../lib/provider-capabilities'
+import { ROLES_ENGINE, isLocalEngineId, isRolesEngine, providerLabel } from '../../lib/provider-capabilities'
 
 interface Props {
-  /** Selected engine. null/undefined = project primary. */
+  /** Selected engine. null/undefined = project primary; `roles` = the hybrid
+   *  per-role engines (runtime config + loop roles). */
   value: string | null | undefined
   providers: readonly string[]
   onChange: (value: string) => void
@@ -18,10 +19,11 @@ export function RailEngineSelector({ value, providers, onChange }: Props) {
   const { t } = useTranslation('agents')
   if (!providers || providers.length <= 1) return null
   const current = value ?? providers[0]
+  const rolesSelected = isRolesEngine(current)
   return (
     <div
       className="inline-flex items-center"
-      title={t('railSelectors.engineTitle')}
+      title={rolesSelected ? t('railSelectors.rolesEngineTitle') : t('railSelectors.engineTitle')}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
@@ -35,9 +37,17 @@ export function RailEngineSelector({ value, providers, onChange }: Props) {
       >
         {providers.map((p) => (
           <option key={p} value={p}>
-            {providerLabel(p)}
+            {isLocalEngineId(p) ? `${providerLabel(p)} · ${t('railSelectors.localEngine')}` : providerLabel(p)}
           </option>
         ))}
+        {/* Hybrid per-role engines: architect/developer/reviewer from the
+            runtime config, verifier/decider from the loop roles. Set apart
+            from the provider list with its own group. */}
+        <optgroup label="──" title={t('railSelectors.rolesEngineTitle')}>
+          <option value={ROLES_ENGINE} title={t('railSelectors.rolesEngineTitle')}>
+            {t('railSelectors.rolesEngine')}
+          </option>
+        </optgroup>
       </select>
     </div>
   )

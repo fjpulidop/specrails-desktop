@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import {
+  defaultMachineProvider,
   isProviderEnabled,
   isMultiProvider,
   resolveProvider,
+  setDetectedProvidersSupplier,
   validateRequestedProvider,
 } from './provider-selection'
 import type { CliProvider } from './desktop-db'
@@ -286,5 +288,32 @@ describe('validateRequestedProvider', () => {
     const result = validateRequestedProvider({}, undefined)
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.provider).toBe('claude')
+  })
+})
+
+// ─── defaultMachineProvider ───────────────────────────────────────────────────
+
+describe('defaultMachineProvider', () => {
+  afterEach(() => setDetectedProvidersSupplier(null))
+
+  it('is claude while no detection snapshot exists (startup / legacy)', () => {
+    expect(defaultMachineProvider()).toBe('claude')
+  })
+
+  it('follows the CLI preference order over the detected set', () => {
+    setDetectedProvidersSupplier(() => ['kimi', 'codex'])
+    expect(defaultMachineProvider()).toBe('codex')
+    setDetectedProvidersSupplier(() => ['gemini', 'claude'])
+    expect(defaultMachineProvider()).toBe('claude')
+  })
+
+  it('lands on the local engine on a local-only machine instead of an uninstalled claude', () => {
+    setDetectedProvidersSupplier(() => ['lmstudio'])
+    expect(defaultMachineProvider()).toBe('lmstudio')
+  })
+
+  it('never prefers a local engine over a detected CLI', () => {
+    setDetectedProvidersSupplier(() => ['lmstudio', 'gemini'])
+    expect(defaultMachineProvider()).toBe('gemini')
   })
 })

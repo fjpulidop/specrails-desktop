@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import { FEATURE_AGENT_CHAT } from '../lib/feature-flags'
+import { preferredProvider } from '../lib/provider-capabilities'
 import {
   listAgentConversations,
   createAgentConversation,
@@ -509,6 +510,12 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const [mcpEnabled, setMcpEnabled] = useState(true)
   const [enablingMcp, setEnablingMcp] = useState(false)
   const [providersReady, setProvidersReady] = useState<boolean | null>(null)
+  // The machine's usable provider ids (CLIs on PATH + reachable local engines).
+  // A fresh mission starts on `preferredProvider(usable)`, never on a hardcoded
+  // claude — a local-only machine would otherwise compose on an uninstalled CLI.
+  const [usableProviders, setUsableProviders] = useState<string[]>([])
+  const usableProvidersRef = useRef<string[]>([])
+  usableProvidersRef.current = usableProviders
   // Pinned project chosen on the EMPTY compose screen (no conversation yet). The
   // first send materialises a conversation with this pin.
   const [draftPinnedProjectId, setDraftPinnedProjectId] = useState<string | null>(null)
@@ -678,7 +685,9 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
 
   const refreshProviders = useCallback(async () => {
     try {
-      setProvidersReady((await getAvailableProviders()).any)
+      const { any, installed } = await getAvailableProviders()
+      setProvidersReady(any)
+      setUsableProviders(Array.isArray(installed) ? installed : [])
     } catch {
       // On a probe failure, don't hard-block the agent — leave it usable.
       setProvidersReady(true)
@@ -1368,6 +1377,16 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     // Model + effort reset on provider switch (mirrors the server's stale reset).
     else { setDraftProvider(provider); setDraftModel(null); setDraftEffort(null) }
   }, [active, patchActive])
+  // Reconcile the DRAFT provider with what the machine can actually run: the
+  // pre-fetch `claude` default (or a provider that just went away) hops to the
+  // preferred usable id. Only drafts — a stored conversation keeps its provider
+  // (its session/model belong to it; the selector still offers a switch).
+  useEffect(() => {
+    if (active || usableProviders.length === 0 || usableProviders.includes(draftProvider)) return
+    setDraftProvider(preferredProvider(usableProviders))
+    setDraftModel(null)
+    setDraftEffort(null)
+  }, [active, usableProviders, draftProvider])
   const setModel = useCallback(async (model: string) => {
     if (active) await patchActive({ model })
     else {
@@ -1428,7 +1447,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setActive(null)
     setMessages([])
     setDraftPinnedProjectId(projectId ?? null)
-    setDraftProvider('claude')
+    setDraftProvider(preferredProvider(usableProvidersRef.current))
     setDraftModel(null)
     setDraftTierLevel(readLastTierLevel()) // sticky tier across missions
     setDraftEffort(null)

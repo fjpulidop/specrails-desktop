@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, describe } from 'vitest'
 import { resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
 import type { RuntimeConfig } from './agent-runtime-settings'
 const config: RuntimeConfig = { schemaVersion: 1, enabled: true, providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }, { id: 'codex', kind: 'cli', cli: 'codex' }], agents: {
@@ -30,4 +30,22 @@ it('uses provider-local defaults when only the launch provider is selected', () 
   expect(result.config.agents.reviewer.model).not.toBe('reviewer')
   expect(result.config.agents.architect.effort).toBeUndefined()
   expect(result.config.agents.developer).toEqual(config.agents.developer)
+})
+
+describe('fillDefaultRoleModels', () => {
+  it('gives a local role the connection default so the compatibility check does not reject "provider default"', async () => {
+    const { fillDefaultRoleModels } = await import('./agent-runtime-effective-config')
+    const { syncLocalAdapters } = await import('./providers/local-adapter-registry')
+    const { unregisterAdapter } = await import('./providers/registry')
+    syncLocalAdapters([{ id: 'localbox', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:9/v1', defaultModel: 'qwen' }])
+    try {
+      const config = fillDefaultRoleModels({
+        providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }, { id: 'localbox', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:9/v1' }],
+        agents: { architect: { provider: 'localbox' }, developer: { provider: 'claude' }, reviewer: { provider: 'claude', model: 'haiku' } },
+      } as never)
+      expect(config.agents.architect.model).toBe('qwen')
+      expect(config.agents.developer.model).toBeTruthy()
+      expect(config.agents.reviewer.model).toBe('haiku')
+    } finally { unregisterAdapter('localbox') }
+  })
 })

@@ -8,6 +8,7 @@ import {
   isModelAvailableForAdapter,
   reasoningEffortsForModel,
 } from './providers'
+import { defaultMachineProvider } from './provider-selection'
 import { normalizeLevel } from './agent-tier'
 import { attachmentManager, isSupportedUploadedFile } from './attachment-manager'
 import {
@@ -140,7 +141,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
 
   // Per-provider model catalog for the header model selector.
   router.get('/models', (req: Request, res: Response) => {
-    const provider = validProvider(req.query.provider) ?? 'claude'
+    const provider = validProvider(req.query.provider) ?? defaultMachineProvider()
     const adapter = getAdapter(provider)
     const requestedModel = isModelAvailableForAdapter(adapter, req.query.model)
       ? req.query.model
@@ -197,7 +198,9 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
 
   router.post('/conversations', (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>
-    let provider = 'claude'
+    // No explicit provider ⇒ the machine's primary (a local-only machine lands
+    // on its local engine, never on an uninstalled claude).
+    let provider = defaultMachineProvider()
     if (body.provider !== undefined) {
       const v = validProvider(body.provider)
       if (!v) {

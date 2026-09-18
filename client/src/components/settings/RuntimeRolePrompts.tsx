@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { RUNTIME_ROLES, type RuntimeRole } from '../../lib/agent-runtime'
+import { PROMPT_ROLES, RUNTIME_ROLES, type PromptRole } from '../../lib/agent-runtime'
 import { Button } from '../ui/button'
 
-type Prompts = Record<RuntimeRole, string>
-type Overrides = Partial<Prompts>
+type Prompts = Partial<Record<PromptRole, string>>
+type Overrides = Partial<Record<PromptRole, string>>
 interface Catalog { defaults: Prompts; overrides: Overrides }
 
 export function RuntimeRolePrompts() {
   const { t } = useTranslation('agentRuntime')
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [draft, setDraft] = useState<Overrides>({})
-  const [role, setRole] = useState<RuntimeRole>('architect')
+  const [role, setRole] = useState<PromptRole>('architect')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -26,10 +26,12 @@ export function RuntimeRolePrompts() {
     }).catch(error => { if (!cancelled) setError(error.message) })
     return () => { cancelled = true }
   }, [t, reload])
-  const effective = (overrides: Overrides, role: RuntimeRole) => overrides[role] ?? catalog!.defaults[role]
-  const dirty = Boolean(catalog && RUNTIME_ROLES.some(role => draft[role] !== catalog.overrides[role]))
-  const invalid = Boolean(catalog && RUNTIME_ROLES.some(role => { const text = effective(draft, role); return !text.trim() || text.length > 20000 || text.includes('\0') }))
-  function edit(role: RuntimeRole, text: string) {
+  // The fixer tab exists only when the paired Core publishes a fixer definition (older cores stop at the trio).
+  const roles: readonly PromptRole[] = catalog && typeof catalog.defaults.fixer === 'string' ? PROMPT_ROLES : RUNTIME_ROLES
+  const effective = (overrides: Overrides, role: PromptRole) => overrides[role] ?? catalog!.defaults[role] ?? ''
+  const dirty = Boolean(catalog && roles.some(role => draft[role] !== catalog.overrides[role]))
+  const invalid = Boolean(catalog && roles.some(role => { const text = effective(draft, role); return !text.trim() || text.length > 20000 || text.includes('\0') }))
+  function edit(role: PromptRole, text: string) {
     setDraft(previous => { const next = { ...previous }; if (text === catalog!.defaults[role]) delete next[role]; else next[role] = text; return next })
     setSaved(false)
   }
@@ -50,19 +52,20 @@ export function RuntimeRolePrompts() {
     {catalog && <fieldset disabled={busy} className="min-w-0 space-y-3">
       <div>
         <div role="tablist" aria-label={t('prompts.title')} className="inline-flex flex-wrap gap-1 rounded-lg border border-border bg-muted p-1">
-          {RUNTIME_ROLES.map((item, index) => <button type="button" role="tab" key={item} id={`role-tab-${item}`} aria-controls={`role-panel-${item}`} aria-selected={role === item} tabIndex={role === item ? 0 : -1} className={`rounded-md px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${role === item ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`} onClick={() => setRole(item)} onKeyDown={event => {
-            const next = event.key === 'ArrowRight' ? (index + 1) % 3 : event.key === 'ArrowLeft' ? (index + 2) % 3 : event.key === 'Home' ? 0 : event.key === 'End' ? 2 : -1
+          {roles.map((item, index) => <button type="button" role="tab" key={item} id={`role-tab-${item}`} aria-controls={`role-panel-${item}`} aria-selected={role === item} tabIndex={role === item ? 0 : -1} className={`rounded-md px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${role === item ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground'}`} onClick={() => setRole(item)} onKeyDown={event => {
+            const next = event.key === 'ArrowRight' ? (index + 1) % roles.length : event.key === 'ArrowLeft' ? (index + roles.length - 1) % roles.length : event.key === 'Home' ? 0 : event.key === 'End' ? roles.length - 1 : -1
             if (next < 0) return
-            event.preventDefault(); setRole(RUNTIME_ROLES[next]); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
+            event.preventDefault(); setRole(roles[next]!); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
           }}>{t(`roles.${item}`)}</button>)}
         </div>
-        {RUNTIME_ROLES.filter(item => item === role).map(role => <div key={role} role="tabpanel" id={`role-panel-${role}`} aria-labelledby={`role-tab-${role}`} className="mt-3 space-y-3">
+        {roles.filter(item => item === role).map(role => <div key={role} role="tabpanel" id={`role-panel-${role}`} aria-labelledby={`role-tab-${role}`} className="mt-3 space-y-3">
+          {role === 'fixer' && <p className="text-xs text-muted-foreground">{t('prompts.fixerHint')}</p>}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label htmlFor={`role-prompt-${role}`} className="text-sm font-medium">{t('prompts.definition', { role: t(`roles.${role}`) })}</label>
             <span className="text-xs text-muted-foreground">{t(draft[role] === undefined ? 'prompts.default' : 'prompts.custom')}</span>
           </div>
           <textarea id={`role-prompt-${role}`} value={effective(draft, role)} onChange={event => edit(role, event.target.value)} rows={18} maxLength={20000} spellCheck={false} className="block max-h-[420px] min-h-64 w-full resize-y rounded-md border border-input bg-background p-3 font-mono text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>{effective(draft, role).length.toLocaleString()} / 20,000</span><Button type="button" variant="ghost" size="sm" disabled={draft[role] === undefined} onClick={() => edit(role, catalog.defaults[role])}>{t('prompts.restore')}</Button></div>
+          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>{effective(draft, role).length.toLocaleString()} / 20,000</span><Button type="button" variant="ghost" size="sm" disabled={draft[role] === undefined} onClick={() => edit(role, catalog.defaults[role] ?? '')}>{t('prompts.restore')}</Button></div>
         </div>)}
       </div>
       <p className="text-xs text-muted-foreground">{t('prompts.contracts')}</p>

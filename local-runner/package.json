@@ -1,0 +1,15 @@
+{
+  "name": "specrails-local-runner",
+  "version": "1.0.0",
+  "description": "Agentic runner for OpenAI-compatible local endpoints. Spawned by Specrails Desktop like a CLI provider: takes claude-style argv, drives a streaming chat-completions tool loop, and emits claude-shaped stream-json on stdout.",
+  "license": "MIT",
+  "bin": {
+    "specrails-local-runner": "dist/specrails-local-runner.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  }
+}

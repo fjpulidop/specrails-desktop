@@ -9,7 +9,9 @@ import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance
 import { recordLoopRunProvenance } from './file-story'
 import { getLoop } from './loops-store'
 import { getLoopRun, getRunEventCounts, listActiveLoopRuns } from './loop-runs-store'
+import { isLocalAdapterId } from './providers/registry'
 import { getAdapter, reasoningEffortsForModel, supportsToolPolicy } from './providers'
+import { ROLES_ENGINE, loadLoopRoleEngines, resolveLoopRoleEngine } from './loop-role-engines'
 import { isReasoningEffortValidForModel } from './providers/runtime'
 import { resolveAgentDefaults } from './agent-defaults'
 import { resolveProfile } from './profile-manager'
@@ -387,8 +389,9 @@ export function createRailsRouter(): Router {
     }
     const value = body.aiEngine
     const c = ctx(req)
-    // null clears the override; a string must be one of the project's providers.
-    if (value !== null) {
+    // null clears the override; a string must be one of the project's providers
+    // — or the `roles` sentinel (per-role engines from Settings ▸ Specrails Agents).
+    if (value !== null && value !== ROLES_ENGINE) {
       const check = validateRequestedProvider(c.project, value)
       if (!check.ok) { res.status(400).json({ error: check.error }); return }
     }
@@ -611,8 +614,21 @@ export function createRailsRouter(): Router {
 
     // AI engine precedence: explicit body param > stored rail engine > primary.
     // `undefined`/empty in both means "run on the project's primary provider".
-    const requestedEngine =
+    const requestedEngineRaw =
       aiEngine === undefined ? (rail.aiEngine ?? undefined) : aiEngine
+    // `roles` (hybrid-role-engines): the pipeline roles keep the project's
+    // per-role runtime settings (no flattening override) and the loop's own
+    // steps come from the stored loop-role engines — verifier for every
+    // non-core ai-step, decider for the Loop Decider. The rail's "engine" for
+    // the non-core path is therefore the verifier's provider.
+    const rolesMode = requestedEngineRaw === ROLES_ENGINE
+    if (rolesMode && mode === 'freestyle') {
+      res.status(400).json({ error: 'roles_engine_unsupported_mode', detail: 'Freestyle has no roles; pick a concrete engine' }); return
+    }
+    const loopRoleEngines = rolesMode ? loadLoopRoleEngines(c.project) : {}
+    const requestedEngine = rolesMode
+      ? (loopRoleEngines.verifier?.provider && validateRequestedProvider(c.project, loopRoleEngines.verifier.provider).ok ? loopRoleEngines.verifier.provider : undefined)
+      : requestedEngineRaw
     const engineCheck = validateRequestedProvider(c.project, requestedEngine)
     if (!engineCheck.ok) {
       res.status(400).json({ error: engineCheck.error }); return
@@ -622,13 +638,27 @@ export function createRailsRouter(): Router {
     const railProvider = requestedEngine ? engineCheck.provider : undefined
     // Mission/MCP and Launch-all submit aiEngine or use the saved rail engine.
     // Resolve this at the shared boundary, not only in the Dashboard payload.
-    if (!runtimeProviderOverride && requestedEngine) {
+    // Local (OpenAI-compatible) engines: the override carries provider + model
+    // only — OpenAI endpoints have no effort knob, so effort is DROPPED (never
+    // forwarded to Core's executor), and cost caps are refused (a local run has
+    // no billable cost to cap against).
+    const localEngine = isLocalAdapterId(engineCheck.provider)
+    if (rolesMode && runtimeProviderOverride) {
+      res.status(400).json({ error: 'runtime_provider_mismatch', detail: 'A roles launch carries no provider override' }); return
+    }
+    if (!runtimeProviderOverride && requestedEngine && !rolesMode) {
       try {
-        runtimeProviderOverride = validateRuntimeProviderOverride({ provider: engineCheck.provider, ...(model ? { model } : {}), ...(reasoning_effort ? { effort: reasoning_effort } : {}) })
+        runtimeProviderOverride = validateRuntimeProviderOverride({ provider: engineCheck.provider, ...(model ? { model } : {}), ...(reasoning_effort && !localEngine ? { effort: reasoning_effort } : {}) })
       } catch { res.status(400).json({ error: 'invalid_runtime_provider_override' }); return }
     }
     if (runtimeProviderOverride && runtimeProviderOverride.provider !== engineCheck.provider) {
       res.status(400).json({ error: 'runtime_provider_mismatch' }); return
+    }
+    if (localEngine && runtimeProviderOverride?.effort !== undefined) {
+      runtimeProviderOverride = { provider: runtimeProviderOverride.provider, ...(runtimeProviderOverride.model !== undefined ? { model: runtimeProviderOverride.model } : {}) }
+    }
+    if (localEngine && req.body?.maxCostUsd !== undefined && req.body?.maxCostUsd !== null) {
+      res.status(400).json({ error: 'local_engine_no_cost_cap' }); return
     }
 
 
@@ -740,28 +770,42 @@ export function createRailsRouter(): Router {
             return
           }
         }
+        const verifierEngine = rolesMode ? resolveLoopRoleEngine(c.project, 'verifier', { provider: loopProvider, model: loopAdapter.defaultModel() }, loopRoleEngines) : undefined
         const loopModel =
           typeof model === 'string' && model
             ? model
-            : (profileModel ?? globalAgentDefaults?.pipelineModel ?? loopAdapter.defaultModel())
+            : (verifierEngine?.model ?? profileModel ?? globalAgentDefaults?.pipelineModel ?? loopAdapter.defaultModel())
         let effort: ReasoningEffort | undefined
-        if (reasoning_effort !== undefined && reasoning_effort !== null) {
+        // Local (OpenAI-compatible) engines have no per-invocation effort knob
+        // unless the connection opts in; a requested effort is DROPPED, not a
+        // 400 — the engine selectors send the last-used effort blindly.
+        const effortRequested = localEngine && !loopAdapter.capabilities.supportsReasoningEffort ? undefined : (reasoning_effort ?? verifierEngine?.effort)
+        if (effortRequested !== undefined && effortRequested !== null) {
           const allowed = reasoningEffortsForModel(loopAdapter, loopModel)
           if (
-            typeof reasoning_effort !== 'string' ||
-            !(allowed as readonly string[]).includes(reasoning_effort)
+            typeof effortRequested !== 'string' ||
+            !(allowed as readonly string[]).includes(effortRequested)
           ) {
             res.status(400).json({
               error: `reasoning_effort is not valid for provider "${loopProvider}" and model "${loopModel}"`,
               allowed,
             }); return
           }
-          effort = reasoning_effort as ReasoningEffort
+          effort = effortRequested as ReasoningEffort
         } else if (
           globalAgentDefaults?.pipelineEffort
           && isReasoningEffortValidForModel(loopAdapter, loopModel, globalAgentDefaults.pipelineEffort)
         ) {
           effort = globalAgentDefaults.pipelineEffort as ReasoningEffort
+        }
+        // Loop Decider engine under roles mode (else the rail's engine, as before).
+        // Its provider must enforce a read-only tool policy like the rail's.
+        const deciderEngine = rolesMode && loopGraph.nodes.some((node) => node.type === 'decider')
+          ? resolveLoopRoleEngine(c.project, 'decider', { provider: loopProvider, model: loopModel, ...(effort ? { effort } : {}) }, loopRoleEngines)
+          : undefined
+        if (deciderEngine && !supportsToolPolicy(getAdapter(deciderEngine.provider), 'read-only')) {
+          res.status(409).json({ code: 'provider_tool_policy_unsupported', provider: deciderEngine.provider, requiredPolicy: 'read-only', error: `Provider '${deciderEngine.provider}' cannot run Loop Deciders because its headless CLI does not enforce a read-only tool policy.` })
+          return
         }
         // The loop's command(s) declare ticket scope + required capabilities.
         const promptsText = loopGraph.nodes
@@ -890,6 +934,7 @@ export function createRailsRouter(): Router {
                 runtimeProviderOverride,
                 ctx: c, railIndex, ticketIds: [...rail.ticketIds], repositoryIds, ...repositoryBases, loopId, loopName, loopGraph,
                 provider: loopProvider, model: loopModel, effort, scope,
+                ...(deciderEngine ? { deciderEngine } : {}),
                 profileName: resolvedProfile,
                 originSurface: originSurface ?? 'dashboard',
                 originConversationId: originConversationId ?? null,
@@ -1018,6 +1063,7 @@ export function createRailsRouter(): Router {
               provider: loopProvider,
               model: loopModel,
               effort,
+              ...(deciderEngine ? { deciderEngine } : {}),
               profileName: resolvedProfile,
             })
             .then((r) => {
@@ -1193,6 +1239,12 @@ export function createRailsRouter(): Router {
       } catch (err) {
         console.warn(`[rails-router] stop: loop cancel(${runId}) failed: ${(err as Error).message}`)
       }
+      // A run the engine no longer owns (reconciled as an orphan by a context
+      // reload while still alive) never settles through onLoopRunFinished, so
+      // its rail entry would pin the tickets "in flight" forever. When the
+      // durable row is already terminal, release the entry here.
+      const row = getLoopRun(c.db, runId)
+      if (!row || row.status === 'completed') c.railLoopRuns.delete(runId)
       const stopMsg: LoopRunStoppedMessage = {
         type: 'loop.run_stopped',
         projectId: c.project.id,

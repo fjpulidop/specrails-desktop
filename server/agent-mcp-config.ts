@@ -5,7 +5,7 @@ import { randomBytes } from 'crypto'
 import { resolveBundledNodeExe } from './path-resolver'
 import { stripWindowsVerbatimPrefix } from './util/win-spawn'
 import { AGENT_CAPABILITY_FILE_ENV } from './agent-tier'
-import { getAdapter } from './providers'
+import { getAdapter, isLocalAdapterId } from './providers'
 import { isCodexInjectable, type ResolvedExternalServer } from './external-mcp'
 
 const AGENT_CONVERSATION_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
@@ -322,7 +322,10 @@ export function prepareAgentMcp(opts: {
 }): AgentMcpWiring {
   const adapter = getAdapter(opts.adapterId)
   const external = (opts.external ?? []).filter((s) => s.name !== 'specrails')
-  if (adapter.id === 'claude') {
+  // claude AND local (OpenAI-compatible) runners take the per-conversation
+  // `--mcp-config <file>` (design D8): the bundled runner starts the same
+  // stdio servers and exposes their tools as `mcp__<server>__<tool>`.
+  if (adapter.id === 'claude' || isLocalAdapterId(adapter.id)) {
     const extraArgs = buildAgentMcpArgs(opts)
     if (!extraArgs.length) throw new Error('The bundled Specrails MCP bridge is unavailable.')
     return { extraArgs, env: {} }

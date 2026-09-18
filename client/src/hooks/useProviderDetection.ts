@@ -1,5 +1,6 @@
 import { useContext, useEffect, useState } from 'react'
 import { API_ORIGIN } from '../lib/origin'
+import { registerDynamicModelCatalog } from '../lib/loop-run-models'
 import { SharedWebSocketContext } from './useSharedWebSocket'
 
 export type ProviderAuthState = 'authenticated' | 'unauthenticated' | 'unknown'
@@ -13,6 +14,18 @@ export interface DetectedProviderInfo {
   authState: ProviderAuthState
   usable: boolean
   error?: string
+  /** `local` for an OpenAI-compatible connection registered as an engine. */
+  kind?: 'cli' | 'local'
+  /** Models discovered by the last successful probe (local engines only). */
+  models?: string[]
+}
+
+/** Local engines carry their discovered models — publish them to the shared
+ *  dynamic catalog so `modelsForProvider(<local id>)` never renders empty. */
+function publishLocalCatalogs(providers: Record<string, DetectedProviderInfo>): void {
+  for (const [id, info] of Object.entries(providers)) {
+    if (info?.kind === 'local' && Array.isArray(info.models)) registerDynamicModelCatalog(id, info.models)
+  }
 }
 
 export interface ProviderDetectionState {
@@ -44,6 +57,7 @@ export function useProviderDetection(): ProviderDetectionState {
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { detected?: string[]; providers?: Record<string, DetectedProviderInfo> } | null) => {
         if (!alive || !data) return
+        publishLocalCatalogs(data.providers ?? {})
         setState({
           detected: Array.isArray(data.detected) ? data.detected : [],
           providers: data.providers ?? {},
@@ -62,6 +76,7 @@ export function useProviderDetection(): ProviderDetectionState {
     const handler = (raw: unknown) => {
       const msg = raw as { type?: string; detected?: string[]; providers?: Record<string, DetectedProviderInfo> }
       if (msg.type !== 'providers.detected_changed') return
+      publishLocalCatalogs(msg.providers ?? {})
       setState({
         detected: Array.isArray(msg.detected) ? msg.detected : [],
         providers: msg.providers ?? {},

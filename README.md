@@ -74,6 +74,8 @@ Install and authenticate the provider CLI you intend to use before launching wor
 | Gemini CLI | `gemini` | 0.11.0 | Tokens with estimated cost |
 | Kimi Code | `kimi` | 0.27.0 | Native token/cost totals unavailable |
 
+**Local AI engines.** Any OpenAI-compatible endpoint (Ollama, llama.cpp, LM Studio, vLLM…) registered in **Settings → Specrails Agents → Provider connections** is a selectable engine on every surface — rails, Add Spec, chat, agent missions and the Project Builder — executed by the bundled local agent runner. Availability is a machine property: a local-only machine needs no selection, every surface defaults to the local engine, and an endpoint that stops answering is not offered until it recovers. Token usage is recorded; cost stays unknown unless you enter rates. See [local providers](docs/local-providers.md).
+
 A minimum-version check is not a promise that every later CLI release has identical APIs. Features are capability-gated: for example, profiles are available for Claude and Kimi, and Kimi's unsupported no-tools transforms and Loop Deciders are rejected before execution. See [Kimi integration](docs/kimi.md) and the [provider adapter guide](docs/internals/adding-a-provider.md).
 
 Git is required for isolated worktrees and branch delivery. Authenticated `gh` is needed for GitHub PR operations. Jira, MCP integrations and other external services require their own configuration and credentials. Agents asked to connect should follow the [dedicated agent instructions](docs/agents/mcp.md). The [Specrails MCP server](docs/mcp.md) exposes project-aware operations to agents; repository-specific operations retain explicit repository identity.

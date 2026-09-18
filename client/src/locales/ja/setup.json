@@ -96,7 +96,8 @@
     "addFirstProject": "最初のプロジェクトを追加",
     "jiraHint": "各プロジェクトを専用の Jira ボードに接続 — スペックは双方向で同期され続けます。",
     "mcpHint": "安全なローカル MCP サーバー経由で外部の AI ツールを Specrails に接続します。既定でオン、設定 → MCP で管理します。",
-    "agentChatHint": "チャットで Specrails を操作 — 内蔵エージェントがローカル MCP を通じて specs・rails・分析をあなたの代わりに処理します。バブルから、または ⌘⇧A で開けます。"
+    "agentChatHint": "チャットで Specrails を操作 — 内蔵エージェントがローカル MCP を通じて specs・rails・分析をあなたの代わりに処理します。バブルから、または ⌘⇧A で開けます。",
+    "localEnginesHint": "ローカルモデルしかない場合は、設定 → Specrails Agents で OpenAI 互換のエンドポイントを追加してください。レール、チャット、ミッションなどすべての画面が既定でそれを使います。"
   },
   "onboarding": {
     "productTour": "プロダクトツアー",

@@ -96,7 +96,8 @@
     "addFirstProject": "Erstes Projekt hinzufügen",
     "jiraHint": "Verbinde jedes Projekt mit seinem eigenen Jira-Board — Specs bleiben in beide Richtungen synchron.",
     "mcpHint": "Verbinde externe KI-Tools über einen sicheren lokalen MCP-Server mit Specrails: standardmäßig an, verwalte ihn unter Einstellungen → MCP.",
-    "agentChatHint": "Steuere Specrails per Chat — ein integrierter Agent verwaltet Specs, Rails und Analysen für dich über den lokalen MCP. Öffne ihn über die Blase oder mit ⌘⇧A."
+    "agentChatHint": "Steuere Specrails per Chat — ein integrierter Agent verwaltet Specs, Rails und Analysen für dich über den lokalen MCP. Öffne ihn über die Blase oder mit ⌘⇧A.",
+    "localEnginesHint": "Nur ein lokales Modell? Füge unter Einstellungen → Specrails Agents einen OpenAI-kompatiblen Endpoint hinzu — Rails, Chat und Missionen laufen dann standardmäßig darauf."
   },
   "onboarding": {
     "productTour": "Produkttour",

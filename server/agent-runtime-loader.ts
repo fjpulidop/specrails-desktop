@@ -15,13 +15,16 @@ export interface RuntimeApi {
   runtimeIdentity?: { packageVersion: string; workflowVersion: string; instructionsVersion: string; packageIntegrity: string; apiVersion: 1 }
   workflowVersions?: string[]
   capabilities?: Record<string, number>
+  /** Configurable guardrail catalog (Core ≥ configurableGuardrails: 1). */
+  guardrails?: Array<{ id: string; phase: 'architect' | 'developer' | 'host' }>
 }
 
 export interface CoreAgentRuntimeModule {
   RUNTIME_API_VERSION: number
   api?: RuntimeApi
   capabilities?(input: unknown): unknown
-  rolePromptDefaults(): Record<'architect' | 'developer' | 'reviewer', string>
+  /** `fixer` is present only on cores that publish the fixer stance definition. */
+  rolePromptDefaults(): Record<'architect' | 'developer' | 'reviewer', string> & { fixer?: string }
   validateRuntimeConfig(input: unknown): unknown
   [key: string]: unknown
 }

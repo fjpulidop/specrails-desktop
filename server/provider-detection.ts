@@ -14,6 +14,9 @@ import * as path from 'path'
 import { listAdapters } from './providers'
 import type { ProviderAdapter } from './providers/types'
 import { checkCoreCompat, coreCompatSupportsProvider } from './core-compat'
+import { isLocalAdapter } from './providers/local-adapter'
+import { isLocalEnginesEnabled } from './providers/local-adapter-registry'
+import { probeConnection, setCachedProbe, type LocalProbeResult } from './local-engine-detection'
 
 export type ProviderAuthState = 'authenticated' | 'unauthenticated' | 'unknown'
 
@@ -31,6 +34,14 @@ export interface DetectedProvider {
   error?: string
   /** Set when the provider is force-disabled by its beta env kill switch. */
   vetoed?: boolean
+  /** `'local'` for OpenAI-compatible connections (HTTP probe); absent/`'cli'` for CLIs. */
+  kind?: 'cli' | 'local'
+  /** Models discovered by the local probe (local adapters only). */
+  models?: string[]
+  /** Local probe latency (ms). */
+  latencyMs?: number
+  /** Local: `apiKeyEnv` names a variable that is unset in this process. */
+  apiKeyEnvMissing?: boolean
 }
 
 export interface DetectionSnapshot {
@@ -124,7 +135,33 @@ function usabilityError(adapter: ProviderAdapter, d: {
   return undefined
 }
 
+/** Local (OpenAI-compatible) adapter: the bounded HTTP models probe, cached for
+ *  the adapter's dynamic `modelCatalog()`. */
+async function probeLocalAdapter(adapter: ProviderAdapter & { localConnection: { baseUrl: string; apiKeyEnv?: string } }): Promise<DetectedProvider> {
+  let probe: LocalProbeResult
+  try {
+    probe = await probeConnection({ baseUrl: adapter.localConnection.baseUrl, apiKeyEnv: adapter.localConnection.apiKeyEnv })
+  } catch (err) {
+    probe = { reachable: false, installed: false, executable: false, authState: 'unknown', models: [], latencyMs: 0, error: err instanceof Error ? err.message : String(err) }
+  }
+  setCachedProbe(adapter.id, probe)
+  return {
+    id: adapter.id,
+    displayName: adapter.displayName,
+    installed: probe.installed,
+    executable: probe.executable,
+    authState: probe.authState,
+    usable: probe.reachable,
+    error: probe.reachable ? undefined : (probe.error ?? `${adapter.displayName} endpoint is unreachable.`),
+    kind: 'local',
+    models: probe.models,
+    latencyMs: probe.latencyMs,
+    ...(probe.apiKeyEnvMissing ? { apiKeyEnvMissing: true } : {}),
+  }
+}
+
 async function probeAdapter(adapter: ProviderAdapter, home: string): Promise<DetectedProvider> {
+  if (isLocalAdapter(adapter)) return probeLocalAdapter(adapter)
   const vetoed = isVetoed(adapter.id)
   let detection: { installed: boolean; executable: boolean; version?: string; meetsMinimum?: boolean; error?: string }
   try {
@@ -167,7 +204,10 @@ let _inflight: Promise<DetectionSnapshot> | null = null
 
 async function runDetection(): Promise<DetectionSnapshot> {
   const home = os.homedir()
-  const adapters = listAdapters()
+  // Local adapters are probed in the SAME cycle as CLIs; under the kill
+  // switch they are skipped entirely (they should not be registered anyway).
+  const localEnabled = isLocalEnginesEnabled()
+  const adapters = listAdapters().filter((a) => localEnabled || !isLocalAdapter(a))
   const results = await Promise.all(adapters.map((a) => probeAdapter(a, home)))
   const providers: Record<string, DetectedProvider> = {}
   for (const r of results) providers[r.id] = r
@@ -210,6 +250,32 @@ export function getSnapshotSync(): DetectionSnapshot | null {
  * Refresh and report whether the usable set changed vs the previous snapshot.
  * Callers use the flag to decide whether to broadcast `providers.detected_changed`.
  */
+/**
+ * Re-probe ONLY the registered local adapters (after a connections save) and
+ * merge into the current snapshot without re-spawning CLI probes. Returns
+ * whether the usable set changed. Falls back to a full refresh when no
+ * snapshot exists yet.
+ */
+export async function refreshLocalDetection(): Promise<{ snapshot: DetectionSnapshot; changed: boolean }> {
+  if (!_snapshot) return refreshDetection()
+  const before = _snapshot.detected.join(',')
+  const localEnabled = isLocalEnginesEnabled()
+  const locals = listAdapters().filter(isLocalAdapter)
+  const providers: Record<string, DetectedProvider> = {}
+  for (const [id, row] of Object.entries(_snapshot.providers)) {
+    if (row.kind !== 'local') providers[id] = row
+  }
+  if (localEnabled) {
+    const results = await Promise.all(locals.map((a) => probeLocalAdapter(a)))
+    for (const r of results) providers[r.id] = r
+  }
+  const ordered = listAdapters().map((a) => a.id)
+  const detected = ordered.filter((id) => providers[id]?.usable)
+  const snapshot: DetectionSnapshot = { providers, detected, at: _snapshot.at }
+  _snapshot = snapshot
+  return { snapshot, changed: before !== detected.join(',') }
+}
+
 export async function refreshDetection(): Promise<{ snapshot: DetectionSnapshot; changed: boolean }> {
   const before = _snapshot?.detected.join(',') ?? null
   const snapshot = await getDetectionSnapshot({ refresh: true })

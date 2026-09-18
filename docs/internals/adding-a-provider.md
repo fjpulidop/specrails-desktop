@@ -385,3 +385,15 @@ papering over it with another manager-level branch.
 - [`docs/codex.md`](../codex.md) and [`docs/gemini.md`](../gemini.md) — the
   user-facing guides for the two non-Claude providers; `gemini.md` is the most
   recent worked example end-to-end.
+
+## Dynamic (non-CLI) adapters
+
+Not every adapter is a static module-load registration. **Local AI engines**
+(`server/providers/local-adapter.ts`) build one adapter per user-configured
+OpenAI-compatible connection at runtime and register/unregister them through
+`syncLocalAdapters` (`local-adapter-registry.ts`) — at boot and after every
+save of `~/.specrails/runtime-providers.json`. Execution is delegated to the
+bundled `local-runner` process, which speaks claude-shaped stream-json so the
+spawn contract is unchanged. If you add another endpoint-backed provider, reuse
+that adapter factory + the runner rather than teaching managers a new
+transport. See `docs/internals/local-agent-runner.md`.

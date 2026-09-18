@@ -26,8 +26,75 @@
     "addLocal": "Lokalen / API-Anbieter hinzufügen",
     "show": "Anbieterverbindungen anzeigen",
     "hide": "Anbieterverbindungen ausblenden",
-    "globalTitle": "Anbieterverbindungen",
-    "globalHint": "Diese Verbindungen stehen allen Projekten zur Verfügung. Anbieter und Modelle werden in den Projekteinstellungen Rollen zugewiesen. Änderungen gelten für neue Ausführungen."
+    "globalTitle": "KI-Anbieter",
+    "globalHint": "Zwei Arten von Anbietern treiben jedes Projekt an: auf diesem Rechner erkannte Coding-CLIs und lokale OpenAI-kompatible Engines, die du hier registrierst. Weise sie den Pipeline-Phasen in Projekteinstellungen ▸ Agenten-Engine zu. Änderungen gelten für neue Ausführungen.",
+    "label": "Anzeigename (optional)",
+    "labelPlaceholder": "z. B. LAN-Rechner",
+    "defaultModel": "Standardmodell",
+    "defaultModelNone": "Kein Standard (erstes gefundenes)",
+    "defaultModelPlaceholder": "Modell-ID oder eigener Alias",
+    "customModel": "Eigener Alias…",
+    "discoveredModels": "Gefundene Modelle",
+    "noModels": "Noch keine Modelle gefunden – Verbindung testen.",
+    "rates": "Tarife (USD pro 1M Tokens, optional)",
+    "ratesHint": "Kosten werden als Schätzung angezeigt; beide leer lassen und die Kosten bleiben unbekannt.",
+    "inputRate": "Eingabe pro 1M",
+    "outputRate": "Ausgabe pro 1M",
+    "ratesInvalid": "Beide Tarife als nicht negative Zahlen eingeben oder beide leer lassen.",
+    "reasoningEffort": "Endpunkt akzeptiert Reasoning-Aufwand",
+    "reasoningEffortHint": "Sendet das OpenAI-Feld reasoning_effort: bei jedem Aufruf den konfigurierten Aufwand der Rolle, auf hoch angehoben, während der kompakte Architekt den Plan schreibt. Nur aktivieren, wenn der Server es berücksichtigt.",
+    "apiKeyEnvMissing": "{{name}} ist im App-Prozess nicht gesetzt. Setze sie in der Umgebung, aus der die App gestartet wird.",
+    "test": "Verbindung testen",
+    "testing": "Wird getestet…",
+    "testFailed": "Verbindung konnte nicht getestet werden.",
+    "rename": "Umbenennen",
+    "renameHint": "Beim Umbenennen zeigen Rollenzuweisungen weiterhin auf diese Verbindung.",
+    "idLocked": "Die ID ist nach dem Speichern gesperrt. Zum Ändern Umbenennen verwenden.",
+    "localBadge": "Lokale Engine",
+    "cliBadge": "CLI",
+    "notDetected": "Auf diesem Rechner nicht erkannt",
+    "unsaved": "Ungespeicherte Änderungen",
+    "empty": "Noch keine Verbindungen. Füge einen lokalen / API-Anbieter hinzu.",
+    "fixBeforeSave": "Korrigiere die markierten Felder vor dem Speichern.",
+    "status": {
+      "probing": "Wird geprüft…",
+      "reachable": "Erreichbar",
+      "unauthorized": "Nicht autorisiert",
+      "unreachable": "Nicht erreichbar",
+      "untested": "Nie getestet"
+    },
+    "auth": {
+      "authenticated": "Angemeldet",
+      "unauthenticated": "Nicht angemeldet",
+      "unknown": "Anmeldung unbekannt"
+    },
+    "agentLoop": "Agenten-Schleife",
+    "agentLoopHint": "wie die Implement-Pipeline dieses Modell steuert",
+    "agentLoop_compact": "Kompakt",
+    "agentLoop_compactHint": "App-gesteuerte Mikroschritte mit strukturierter Ausgabe. Empfohlen für Modelle unter ~30B.",
+    "agentLoop_free": "Frei",
+    "agentLoop_freeHint": "Eine agentische Schleife pro Rolle, wie bei einem CLI-Provider. Braucht ein starkes Modell.",
+    "contextWindow": "Kontextfenster (Tokens)",
+    "contextWindowHint": "An die Kontextgröße des Servers anpassen (n_ctx / num_ctx). Dient zum Komprimieren alter Tool-Ergebnisse, bevor das Fenster voll ist. Standard 32768.",
+    "maxOutput": "Ausgabebudget pro Zug (Tokens)",
+    "maxOutputHint": "max_tokens eines Werkzeugzugs; ein abgeschnittener Zug wird einmal mit dem Doppelten wiederholt. Zählt innerhalb des Kontextfensters und wird daher stets auf den verbleibenden Platz begrenzt – erhöhen, wenn das Modell privat nachdenkt (Thinking verbraucht es). Standard 8192.",
+    "reasoningEffortRailHint": "Aus: der Reasoning-Aufwand-Selektor erscheint für diese Engine nicht in der Rail-Kopfzeile.",
+    "presetTitle": "Schnelleinrichtung",
+    "presetSmallModel": "Empfohlen für kleine Modelle",
+    "presetSmallModelApplied": "Voreinstellung für kleine Modelle angewendet",
+    "presetSmallModelHint": "Setzt die kompakte Schleife, leitet den Reasoning-Aufwand weiter und ein 32k-Kontextfenster – die mit 7–14B-Modellen validierte Kombination. Jedes Feld bleibt änderbar.",
+    "cliGroup": "CLI-Werkzeuge",
+    "cliGroupHint": "Auf diesem Rechner erkannt – sie nutzen ihre eigene Anmeldung, nichts zu konfigurieren.",
+    "localGroup": "Lokale Engines",
+    "localGroupHint": "OpenAI-kompatible Endpunkte (llama.cpp, Ollama, vLLM, LM Studio …), die von dieser App aus erreichbar sind.",
+    "models_one": "{{count}} Modell",
+    "models_other": "{{count}} Modelle",
+    "expand": "Einstellungen anzeigen",
+    "collapse": "Einstellungen ausblenden",
+    "overflow": "Weitere Aktionen",
+    "addLocalHero": "Lokale Engine hinzufügen",
+    "emptyLocalPitch": "Noch keine lokale Engine. Richte die App auf einen OpenAI-kompatiblen Endpunkt, um die Pipeline auf eigener Hardware auszuführen – die Kosten bleiben unter deiner Kontrolle und nichts verlässt dein Netzwerk.",
+    "defaultsGroup": "Anbieter-Standardwerte"
   },
   "cliNames": {
     "claude": "Claude",
@@ -39,23 +106,28 @@
     "architect": "Architekt",
     "developer": "Entwickler",
     "reviewer": "Prüfer",
+    "fixer": "Korrektor",
     "verify": "Prüfung",
     "archive": "Abschluss"
   },
   "agents": {
     "title": "Rollenzuweisungen",
-    "hint": "Jede Rolle kann einen anderen Anbieter und ein anderes Modell verwenden. Verbindungen: Allgemeine Einstellungen → Specrails Agents. Standard: {{turns}} Runden pro Agent.",
+    "hint": "Jede Rolle kann einen anderen Anbieter und ein anderes Modell verwenden. Verbindungen: Allgemeine Einstellungen → KI-Anbieter. Standard: {{turns}} Runden pro Agent.",
     "provider": "Anbieter",
     "model": "Modell",
     "modelPlaceholder": "Modell-ID oder CLI-Standard",
     "maxTurns": "Maximale Runden (Standard {{turns}})",
-    "defaultModel": "Standard ({{model}})"
+    "defaultModel": "Standard ({{model}})",
+    "thinking": "Verdecktes Nachdenken",
+    "thinking_off": "Aus",
+    "thinking_on": "An",
+    "thinkingHint": "Standardmäßig aus: verdecktes Nachdenken verbraucht das Ausgabebudget und Minuten pro Zug in einer host-gesteuerten Schleife. Für eine Rolle einschalten, die von Abwägen profitiert (gesendet als chat_template_kwargs.enable_thinking; Endpunkte, die es nicht kennen, ignorieren es)."
   },
   "limits": {
     "title": "Workflow-Limits",
-    "hint": "Leere Felder verwenden die Core-Standards: {{attempts}} Entwicklerversuche und {{minutes}} Minuten pro Workflow. Token- und USD-Obergrenzen sind optional; USD-Obergrenzen erfordern Claude für jede KI-Rolle.",
+    "hint": "Leere Felder nutzen die Core-Standards: {{attempts}} Korrekturversuche und {{minutes}} Minuten pro Rollenschritt. Bei lokalen Engines gilt das Zeitlimit je Arbeitseinheit (eine Aufgabengruppe, ein Artefakt, ein Review) – standardmäßig 45 Minuten – plus ein 20-minütiger Leerlauf-Wächter; ein Schritt, dem die Zeit ausgeht, blockiert den Lauf und kann ab der nächsten offenen Aufgabengruppe fortgesetzt werden. Token- und USD-Limits sind optional; USD-Limits erfordern Claude für jede KI-Rolle.",
     "maxAttempts": "Maximale Entwicklerversuche (Standard {{attempts}})",
-    "timeoutMinutes": "Zeitlimit in Minuten (Standard {{minutes}})",
+    "timeoutMinutes": "Zeitlimit in Minuten (Standard {{minutes}}; lokale Engines 45 je Aufgabengruppe)",
     "maxTokens": "Maximale Tokens",
     "maxCostUsd": "Maximale Kosten (USD)",
     "unlimited": "Kein Limit"
@@ -108,7 +180,8 @@
     "implementation": "Implementierung",
     "preserveProgress": "Ab der angezeigten Phase fortsetzen; bisherige Arbeit und gespeicherte Einstellungen bleiben erhalten.",
     "reviewDelivery": "Implementierung abgeschlossen. Prüfe das Ergebnis im Job-Protokoll vor der Auslieferung; diese Fortsetzung hat es nicht veröffentlicht.",
-    "prepareDelivery": "Auslieferung vorbereiten"
+    "prepareDelivery": "Auslieferung vorbereiten",
+    "dismiss": "Verwerfen"
   },
   "roleHints": {
     "architect": "Liest den Code und schreibt Vorschlag, Design, Aufgaben und Spezifikation. Nur lesend.",
@@ -165,7 +238,8 @@
     "saved": "Rollen-Prompts gespeichert",
     "unsaved": "Ungespeicherte Änderungen",
     "discard": "Änderungen verwerfen",
-    "save": "Prompts speichern"
+    "save": "Prompts speichern",
+    "fixerHint": "Nur in Korrekturrunden – nach einer fehlgeschlagenen Prüfung oder einem abgelehnten Review. Läuft auf der Engine des Entwicklers, sofern Einstellungen ▸ Agent-Engine ▸ Korrektor keine eigene nennt. Ein CLI-Anbieter, der die Entwickler-Sitzung fortsetzt, erhält stattdessen den kurzen Korrekturhinweis; die Definition gilt, sobald eine neue Sitzung startet (lokale Engines, Korrektor-Engine, verlorene Sitzung)."
   },
   "efficiency": {
     "title": "Effizienz der Implementierung",
@@ -180,7 +254,8 @@
     "triggers": {
       "architect": "Nur die bestehende vertiefte Untersuchung kann diese Stufe wählen.",
       "developer": "Nach zwei fehlgeschlagenen Kandidaten kann der nächste erlaubte Versuch diese Stufe wählen.",
-      "reviewer": "Nur zur Reparatur ungültiger Antworten, nicht bei Ablehnung des Codes."
+      "reviewer": "Nur zur Reparatur ungültiger Antworten, nicht bei Ablehnung des Codes.",
+      "fixer": "Nur eine Korrekturrunde kann diese Stufe erreichen; erste Durchläufe führen den Korrektor nie aus."
     },
     "contextMode": "Repository-Kontext",
     "reviewMode": "Korrekturprüfung",
@@ -242,5 +317,181 @@
     "original": "Ursprüngliche Ausführung",
     "requested": "Angefordert",
     "reported": "Gemeldet"
-  }
+  },
+  "loopRoles": {
+    "title": "Loop-Rollen",
+    "hint": "Engines für die Loop-Rollen, wenn ein Rail mit der Engine „Rollen“ gestartet wird. Die Pipeline-Rollen oben (Architect, Developer, Reviewer) stammen bereits aus dieser Runtime-Konfiguration.",
+    "verifier": "Verifier",
+    "verifierHint": "Jeder KI-Schritt des Loops außerhalb des Cores: verify, fix und eigene KI-Schritte.",
+    "decider": "Decider",
+    "deciderHint": "Der Loop Decider, der das Urteil liest und den nächsten Schritt bestimmt – ein günstiges, schnelles Modell ist die natürliche Wahl.",
+    "inherit": "Primären übernehmen",
+    "model": "Modell",
+    "effort": "Denkaufwand",
+    "disabled": "Die Agenten-Runtime ist deaktiviert – Rails mit der Engine „Rollen“ werden abgelehnt, bis sie aktiviert ist.",
+    "saveFailed": "Die Loop-Rollen konnten nicht gespeichert werden."
+  },
+  "pipeline": {
+    "title": "Implementierungs-Pipeline",
+    "explainer": "Diese Phasen laufen bei jeder Implementierung in dieser Reihenfolge. Ist die Engine des Rails „{{roles}}“, nutzt jede Phase die unten konfigurierte Engine – Anbieter, Modell und Aufwand je Phase. Wählst du im Rail eine konkrete Engine, laufen alle Phasen mit dieser Engine.",
+    "host": "Host",
+    "noCommand": "kein Befehl",
+    "inherits": "Erbt die primäre",
+    "inheritsDeveloper": "Erbt vom Entwickler",
+    "open": "Öffnen",
+    "collapse": "Einklappen",
+    "groups": {
+      "core": {
+        "title": "Kern-Pipeline",
+        "hint": "Läuft in jeder Implementierung: planen, bauen, prüfen, korrigieren, reviewen."
+      },
+      "loop": {
+        "title": "Loop-Schritte",
+        "hint": "KI-Schritte des Rail-Loops um den Lauf (prüfen → entscheiden → korrigieren) und eigener Loops; sie erben die primäre Engine, sofern nicht gesetzt.",
+        "chip": "Rail-Loop"
+      }
+    },
+    "phases": {
+      "architect": {
+        "name": "Architekt",
+        "purpose": "Liest den Code und schreibt Vorschlag, Design und Aufgaben."
+      },
+      "developer": {
+        "name": "Entwickler",
+        "purpose": "Setzt die Aufgaben mit Tests um."
+      },
+      "verification": {
+        "name": "Verifikation",
+        "purpose": "Der Host führt deine Prüfungen aus; Fehler gehen zurück an den Entwickler."
+      },
+      "fixer": {
+        "name": "Korrektor",
+        "purpose": "Behebt, was Verifizierung oder Review ablehnen; erbt vom Entwickler, wenn nicht konfiguriert."
+      },
+      "reviewer": {
+        "name": "Reviewer",
+        "purpose": "Prüft das Ergebnis gegen Spec und Nachweise."
+      },
+      "verifier": {
+        "name": "Prüfer",
+        "purpose": "Verify-, Fix- und eigene KI-Schritte des Loops."
+      },
+      "decider": {
+        "name": "Entscheider",
+        "purpose": "Liest das Urteil und wählt den nächsten Loop-Schritt."
+      }
+    }
+  },
+  "fixer": {
+    "title": "Korrektor-Engine",
+    "inherit": "Vom Entwickler erben",
+    "own": "Eigene Engine",
+    "hint": "Läuft nur in Korrekturrunden – nach einer fehlgeschlagenen Verifizierung oder einem abgelehnten Review; erste Durchläufe bleiben beim Entwickler. Ein stärkeres oder Cloud-Modell lohnt sich hier, wenn der Entwickler ein günstiges lokales Modell ist."
+  },
+  "guardrails": {
+    "title": "Leitplanken",
+    "intro": "Prozessregeln, die der Host um lokale Modelle herum anwendet, damit ein kleines Modell nicht entgleist. Standardmäßig alle aktiv; schalte eine nur ab, um den Prozess zu justieren. CLI-Anbieter sind nie betroffen.",
+    "unsupported": "Diese Core-Installation stellt keine konfigurierbaren Leitplanken bereit. Aktualisiere Core, um sie zu justieren; die eingebauten Regeln gelten weiterhin.",
+    "active": "{{on}} von {{total}} aktiv",
+    "reset": "Auf Standard zurücksetzen",
+    "phases": {
+      "architect": "Architekt",
+      "developer": "Entwickler",
+      "host": "Host"
+    },
+    "unknown": "Eine Leitplanke aus einem neueren Core; diese App hat noch keine Beschreibung dafür.",
+    "items": {
+      "plan-validation": {
+        "title": "Validierter Aufgabenplan",
+        "description": "Lehnt Pläne ab, die auf openspec/ zielen, bloße Dateinamen als Aufgaben listen, zu wenige Aufgaben/Gruppen für die Spec haben oder Akzeptanzkriterien unabgedeckt lassen; der Architekt versucht es erneut.",
+        "why": "Ein vager oder unvollständiger Plan ist Grund Nr. 1, warum ein kleines Entwicklermodell Stubs schreibt."
+      },
+      "genuine-blocking-question": {
+        "title": "Nur echte blockierende Fragen",
+        "description": "Der Architekt kann den Lauf nur mit einer echten Frage anhalten, die auf „?“ endet, nie mit kopiertem Beispieltext.",
+        "why": "Kleine Modelle wiederholen Prompt-Platzhalter und würden jeden Lauf blockieren."
+      },
+      "plan-language-hint": {
+        "title": "In der Sprache des Repositorys planen",
+        "description": "Nennt dem Architekten die Hauptsprache, damit Aufgaben-Dateinamen die richtige Endung tragen.",
+        "why": "Ein JS-Plan auf einem TypeScript-Repo macht Aufgaben unabhakbar."
+      },
+      "frozen-plan-writes": {
+        "title": "Planungsartefakte sind eingefroren",
+        "description": "Der Entwickler darf nicht unter openspec/ schreiben; der Plan gehört dem Host.",
+        "why": "Modelle „implementieren“, indem sie den Plan statt den Code bearbeiten."
+      },
+      "primary-language": {
+        "title": "Erinnerung an die Hauptsprache",
+        "description": "Jeder Aufgabengruppe wird die Hauptsprache des Repositorys mitgeteilt; neue Dateien sollen sie verwenden.",
+        "why": "Verhindert eine zweite Implementierung in einer anderen Sprache."
+      },
+      "duplicate-sibling": {
+        "title": "Keine Zwillingsmodule über Sprachen hinweg",
+        "description": "Lehnt board.js ab, wenn board.ts bereits existiert; erweitere stattdessen das vorhandene Modul.",
+        "why": "Zwillinge kompilieren beide und die Tests importieren den falschen."
+      },
+      "one-test-per-module": {
+        "title": "Eine Testdatei pro Modul",
+        "description": "Lehnt board.tick.test.ts ab, wenn board.test.ts existiert; erweitere diese stattdessen.",
+        "why": "Sonst fügt jeder Korrekturdurchlauf eine neue Suite hinzu."
+      },
+      "empty-write": {
+        "title": "Keine leeren Überschreibungen",
+        "description": "Ein leerer Schreibvorgang über eine gefüllte Datei wird abgelehnt; schreibe den vollständigen Inhalt oder patche sie.",
+        "why": "Ein „Aufräum“-Durchlauf ließ index.ts einmal mit 0 Zeilen zurück."
+      },
+      "evidence-gated-ticking": {
+        "title": "Belege vor dem Abhaken einer Aufgabe",
+        "description": "Eine Aufgabe, die Dateien nennt, ist nur erledigt, wenn diese existieren und keine Stubs sind (Geschwister-Endungen akzeptiert).",
+        "why": "Ohne das ist „erledigt“ nur eine Behauptung und die Verifikation läuft gegen nichts."
+      },
+      "inventory-retry": {
+        "title": "Mit dem echten Inventar erneut versuchen",
+        "description": "Wenn das Modell aufgibt und behauptet, das Repo sei leer, obwohl es das nicht ist, wird einmal mit der Dateiliste erneut versucht.",
+        "why": "Günstige zweite Chance statt eines fehlgeschlagenen Schritts."
+      },
+      "synthetic-corrections": {
+        "title": "Feedback in Aufgaben verwandeln",
+        "description": "Wenn alle Aufgaben abgehakt sind, aber Review/Verifikation fehlschlug, wird das Feedback zu konkreten Korrekturaufgaben.",
+        "why": "Sonst meldet der Entwickler „schon erledigt“ und nichts ändert sich."
+      },
+      "silent-group-closure": {
+        "title": "Stille Gruppen schließen, ihre Dateien behalten",
+        "description": "Eine Gruppe, deren Modell nicht mehr antwortet, wird geschlossen; die geschriebenen Dateien werden gutgeschrieben und ihre Aufgaben bleiben offen, statt den Lauf scheitern zu lassen.",
+        "why": "Ein 9B-Modell schrieb fünf Module, verstummte, und der ganze Lauf scheiterte."
+      },
+      "environment-repair": {
+        "title": "Der Host repariert die Umgebung",
+        "description": "Fehlende Abhängigkeiten oder Test-Tooling (npm install, ts-jest, @types/jest, Jest-Konfigurationsmodule) installiert der Host, dann läuft die Verifikation einmal erneut.",
+        "why": "Das Modell kann die Umgebung nicht reparieren und verbrennt Korrekturen beim Versuch."
+      },
+      "lockfile-repair": {
+        "title": "Handgeschriebene Lockfiles verwerfen",
+        "description": "Eine vom Modell erfundene package-lock.json (EINTEGRITY/ETARGET) wird entfernt und die Installation einmal wiederholt.",
+        "why": "Erfundene Hashes lassen sich nie installieren."
+      },
+      "verify-idle-timeout": {
+        "title": "Hängende Tests stoppen",
+        "description": "Ein Verifikationsbefehl ohne Ausgabe für 5 Minuten wird gestoppt und als wahrscheinlicher Hänger gemeldet (letzte Ausgabe inklusive).",
+        "why": "Sonst hält eine while-Schleife in einem Test den Lauf bis zur 15-Minuten-Grenze."
+      },
+      "verify-per-group": {
+        "title": "Nach jeder Gruppe prüfen",
+        "description": "Führt den Testbefehl des Repositorys direkt nach jeder Aufgabengruppe aus; ein Fehler bekommt sofort eine Korrekturrunde, solange der Kontext der Gruppe frisch ist.",
+        "why": "Fünf kaputte Suites am Ende sind viel schwerer zu beheben als eine nach der anderen."
+      },
+      "test-reachability": {
+        "title": "Jeder neue Test muss wirklich laufen",
+        "description": "Eine vom Developer geschriebene Testdatei, die der Testbefehl des Repositorys nie ausführt (ein aufzählendes `test`-Skript, das die neue Datei auslässt), lässt die Prüfung mit der genauen Datei fehlschlagen – zuerst auf Gruppenebene, dann erneut in der Host-Prüfung.",
+        "why": "Eine 622-zeilige Suite mit sechs fehlschlagenden Fällen wurde einmal grün ausgeliefert, weil sie nie lief."
+      },
+      "exit-code-honesty": {
+        "title": "Grünem Exit-Code mit gemeldeten Fehlern misstrauen",
+        "description": "Ein Prüfbefehl, der mit 0 endet, während seine Ausgabe Fehler meldet (`FAIL:`-Zeilen, „3 failed“, ein AssertionError), gilt als FEHLGESCHLAGEN und geht an den Korrektor, wobei der Test-Harness als Defekt benannt wird.",
+        "why": "Ein selbstgebauter Test-Runner ohne Nicht-Null-Exit-Code lieferte einmal drei rote Tests als grün aus."
+      }
+    }
+  },
+  "unsavedChanges": "Ungespeicherte Änderungen"
 }

@@ -11,6 +11,7 @@ import { spawnCli, windowsSpawnEnv } from './util/win-spawn'
 import { formatMissingSetupPrerequisites } from './setup-prerequisites'
 import { CORE_PACKAGE_SPEC } from './core-package'
 import { getAdapter, hasAdapter, type AdapterEvent } from './providers'
+import { isLocalAdapterId } from './providers/registry'
 import {
   buildProviderEnv,
   buildProviderRepoAccessArgs,
@@ -882,7 +883,10 @@ export class SetupManager {
   ): void {
     const state = this.silentAssembleState(projectId)
     if (state.running) return
-    const list = (opts?.providersFilter ?? providers).filter((p) => hasAdapter(p))
+    // Local (OpenAI-compatible) engines have no core framework target: core
+    // `init` rejects them (`unsupported provider 'local'`), so they never enter
+    // the assemble list whatever door (add, detection, retry) supplied them.
+    const list = (opts?.providersFilter ?? providers).filter((p) => hasAdapter(p) && !isLocalAdapterId(p))
     if (list.length === 0) return
     this._silentAssembles.set(projectId, { running: true, failed: [] })
 

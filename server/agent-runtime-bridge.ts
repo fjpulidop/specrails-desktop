@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime, validateRequestedRoleEfforts } from './agent-runtime-loader'
 import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
-import { loadRuntimeConfigFile, loadRuntimeRolePrompts } from './agent-runtime-settings'
+import { loadRuntimeConfigFile, loadRuntimeRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from './core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from './util/win-spawn'
 import type { AiStepResult } from './loop-run-manager'
@@ -86,8 +86,12 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       repositoryIds: admittedContext.repositories.map(repo => repo.id), source, providerOverride: options.providerOverride,
     })
     config.rolePrompts = { ...(await loadCoreAgentRuntime()).rolePromptDefaults(), ...loadRuntimeRolePrompts() }
-    const override = options.providerOverride
+    // Core rejects unknown connection keys: drop the desktop-only local-engine
+    // fields (label/defaultModel/rates/supportsReasoningEffort) before Core sees it.
     const runtime = await loadCoreAgentRuntime()
+    config.providers = stripDesktopConnectionFields(config.providers, coreConnectionFieldGates(runtime.api?.capabilities))
+    if (runtime.api?.capabilities?.configurableGuardrails !== 1) delete (config as { guardrails?: unknown }).guardrails
+    const override = options.providerOverride
     runtime.validateRuntimeConfig(JSON.parse(JSON.stringify(config)))
     validateRequestedRoleEfforts(runtime, config)
     cli = retainAgentRuntime(cli, options.contextPath)
@@ -108,8 +112,8 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
   }
   const frozenPath = join(dirname(options.contextPath), 'desktop-runtime-config.json')
   if (existsSync(frozenPath)) {
-    const frozen = JSON.parse(readFileSync(frozenPath, 'utf8')) as { agents: Record<string, { provider: string; model?: string }> }
-    for (const [role, assignment] of Object.entries(frozen.agents)) {
+    const frozen = JSON.parse(readFileSync(frozenPath, 'utf8')) as { agents: Record<string, { provider: string; model?: string }>; fixer?: { provider: string; model?: string } }
+    for (const [role, assignment] of [...Object.entries(frozen.agents), ...(frozen.fixer ? [['fixer', frozen.fixer] as const] : [])]) {
       try { options.onLine?.(`[runtime] ${role}: ${assignment.provider}/${assignment.model ?? 'provider default'}\n`) } catch { /* Log observers cannot prevent execution. */ }
     }
   }

@@ -96,7 +96,8 @@
     "addFirstProject": "添加你的第一个项目",
     "jiraHint": "将每个项目连接到各自的 Jira 看板——规格在两个方向保持同步。",
     "mcpHint": "通过安全的本地 MCP 服务器把外部 AI 工具接入 Specrails：默认开启，在设置 → MCP 中管理。",
-    "agentChatHint": "通过聊天操作 Specrails——内置 agent 通过本地 MCP 为你处理 specs、rails 和分析。可从气泡或按 ⌘⇧A 打开。"
+    "agentChatHint": "通过聊天操作 Specrails——内置 agent 通过本地 MCP 为你处理 specs、rails 和分析。可从气泡或按 ⌘⇧A 打开。",
+    "localEnginesHint": "只有本地模型？在 设置 → Specrails Agents 中添加一个兼容 OpenAI 的端点，rails、聊天、任务等所有界面都会默认使用它。"
   },
   "onboarding": {
     "productTour": "产品导览",

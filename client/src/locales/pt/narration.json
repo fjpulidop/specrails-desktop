@@ -66,10 +66,11 @@
       "architect": "A desenhar a alteração (arquiteto)",
       "developer": "A implementar a alteração (programador)",
       "verify": "A executar os comandos de verificação",
+      "fixer": "A corrigir o que a verificação ou a revisão reportou (corretor)",
       "reviewer": "A rever a implementação (revisor)",
       "archive": "A arquivar a alteração revista",
       "stopped": "O motor parou: {{target}}",
-      "corrections": "A devolver correções ao programador",
+      "corrections": "A continuar as tarefas restantes (developer)",
       "resumed": "Retomando a execução guardada"
     },
     "check": {

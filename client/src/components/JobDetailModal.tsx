@@ -1,5 +1,4 @@
 import { modalOverlayStyle } from '../lib/modal-safe-area'
-import { AgentRuntimeRuns } from './settings/AgentRuntimeRuns'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { formatDistanceToNow } from 'date-fns'
@@ -10,10 +9,9 @@ import { getDateFnsLocale } from '../lib/i18n'
 import { toast } from 'sonner'
 import { X, Loader2 } from 'lucide-react'
 import { cancelJob, cancelKindForJob } from '../lib/cancel-job'
-import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from './ui/tooltip'
-import { PipelineProgress } from './PipelineProgress'
+import { TooltipProvider } from './ui/tooltip'
+import { JobRunHeader } from './job-run/JobRunHeader'
 import { LogViewer } from './LogViewer'
 import { LoopStepExplorer } from './loop-log/LoopStepExplorer'
 import { NarratedProgress } from './loop-log/NarratedProgress'
@@ -27,33 +25,6 @@ import { WS_URL } from '../lib/ws-url'
 import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
 import type { JobSummary, EventRow, PhaseDefinition } from '../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
-
-function formatWallClock(startedAt: string | null, finishedAt: string): string {
-  const started = parseJobTimestamp(startedAt)
-  const finished = parseJobTimestamp(finishedAt)
-  if (!started || !finished) return '—'
-  const ms = finished.getTime() - started.getTime()
-  if (ms < 0) return '—'
-  const secs = Math.round(ms / 1000)
-  if (secs < 60) return `${secs}s`
-  const mins = Math.floor(secs / 60)
-  const s = secs % 60
-  if (mins < 60) return `${mins}m ${s}s`
-  const hrs = Math.floor(mins / 60)
-  const m = mins % 60
-  return `${hrs}h ${m}m`
-}
-
-type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'running' | 'queued' | 'failed' | 'canceled'
-
-const STATUS_BADGE: Record<string, { variant: BadgeVariant; labelKey: string; tooltipKey: string }> = {
-  running: { variant: 'running', labelKey: 'statusLabel.running', tooltipKey: 'statusTooltip.running' },
-  completed: { variant: 'success', labelKey: 'statusLabel.completed', tooltipKey: 'statusTooltip.completed' },
-  failed: { variant: 'failed', labelKey: 'statusLabel.failed', tooltipKey: 'statusTooltip.failed' },
-  canceled: { variant: 'canceled', labelKey: 'statusLabel.canceled', tooltipKey: 'statusTooltip.canceled' },
-  queued: { variant: 'queued', labelKey: 'statusLabel.queued', tooltipKey: 'statusTooltip.queued' },
-  zombie_terminated: { variant: 'failed', labelKey: 'statusLabel.zombie', tooltipKey: 'statusTooltip.zombie' },
-}
 
 interface JobDetailModalProps {
   jobId: string
@@ -244,7 +215,6 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
     }
   }
 
-  const statusInfo = job ? (STATUS_BADGE[job.status] ?? STATUS_BADGE.queued) : STATUS_BADGE.queued
   const isRunning = job?.status === 'running'
   const activityTime = job ? parseJobTimestamp(jobActivityTimestamp(job)) : null
 
@@ -283,40 +253,35 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
           <div className="flex items-center gap-3 min-w-0">
             {job && (
               <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Badge variant={statusInfo.variant}>{t(statusInfo.labelKey)}</Badge>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>{t(statusInfo.tooltipKey)}</TooltipContent>
-                </Tooltip>
                 <code className="text-xs font-mono text-foreground/80 truncate">{job.command}</code>
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-[10px] text-muted-foreground shrink-0">
                   {activityTime
                     ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })
                     : '—'}
                 </span>
-                {job.total_cost_usd != null && job.total_cost_usd > 0 && (
-                  <span className="text-[10px] text-muted-foreground">${job.total_cost_usd.toFixed(4)}</span>
-                )}
-                {job.started_at && job.finished_at && (
-                  <span className="text-[10px] text-muted-foreground">{formatWallClock(job.started_at, job.finished_at)}</span>
-                )}
               </>
             )}
             {isLoading && <span className="text-xs text-muted-foreground">{t('common:states.loading')}</span>}
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Pipeline progress inline */}
-            {phaseDefinitions.length > 0 && (
-              <div className="mr-3">
-                <PipelineProgress phases={phases} phaseDefinitions={phaseDefinitions} />
-              </div>
-            )}
+          <button
+            onClick={onClose}
+            className="h-7 w-7 shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-            {isRunning && (
+        {/* The ONE run header shared with the board's Job Detail page. */}
+        {job && (
+          <JobRunHeader
+            job={job}
+            events={events}
+            phases={phases}
+            phaseDefinitions={phaseDefinitions}
+            projectId={projectId}
+            variant="glass"
+            actions={isRunning ? (
               <Button
                 variant="ghost"
                 size="sm"
@@ -331,19 +296,11 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
                     ? t('common:actions.discard')
                     : t('common:actions.cancel')}
               </Button>
-            )}
-
-            <button
-              onClick={onClose}
-              className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+            ) : null}
+          />
+        )}
 
         {/* Content */}
-        {projectId && job && <div className="max-h-[40%] overflow-y-auto"><AgentRuntimeRuns projectId={projectId} jobId={jobId} contextual /></div>}
         <div className="min-h-0 flex-1 overflow-hidden relative">
           {notFound ? (
             <div className="flex items-center justify-center h-full">

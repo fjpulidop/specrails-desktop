@@ -1,6 +1,6 @@
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import { hasAgentRuntimeRequest } from './agent-runtime-paths'
-import { AgentRuntimeControls, RuntimeControlError, validateRuntimeResumeInput } from './agent-runtime-controls'
+import { AgentRuntimeControls, RuntimeControlError, validateRuntimeResumeInput, pinsRailCard } from './agent-runtime-controls'
 
 const controllers = new WeakMap<object, AgentRuntimeControls>()
 export function isRuntimeContinuationActive(context: object, runId: string): boolean { return controllers.get(context)?.isActive(runId) ?? false }
@@ -27,7 +27,9 @@ export function registerAgentRuntimeControlRoutes({ router, ctx }: Pick<ProjectR
         if (!Number.isSafeInteger(railIndex) || railIndex < 0) { res.status(400).json({ error: 'invalid_rail_index' }); return }
         const context = ctx(req)
         const latest = context.db.prepare('SELECT id FROM loop_runs WHERE rail_index = ? ORDER BY started_at DESC, rowid DESC LIMIT 1').get(railIndex) as { id: string } | undefined
-        res.json({ runs: latest && hasAgentRuntimeRequest(context.project, latest.id) ? [await controls(req).summary(latest.id)] : [] })
+        // A dismissed continuation — or a green one with nothing left to decide — leaves the rail card (the run stays in the history list below).
+        const summary = latest && hasAgentRuntimeRequest(context.project, latest.id) ? await controls(req).summary(latest.id) : undefined
+        res.json({ runs: summary && pinsRailCard(summary) ? [summary] : [] })
         return
       }
       res.json({ runs: await controls(req).list() })
@@ -51,6 +53,10 @@ export function registerAgentRuntimeControlRoutes({ router, ctx }: Pick<ProjectR
   router.post('/:projectId/agent-runtime/runs/:runId/settle', async (req, res) => {
     try { await controls(req).settle(String(req.params.runId)); res.json({ settled: true }) }
     catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 500).json({ message: error instanceof RuntimeControlError ? error.message : 'Could not prepare delivery' }) }
+  })
+  router.post('/:projectId/agent-runtime/runs/:runId/dismiss', (req, res) => {
+    try { controls(req).dismiss(String(req.params.runId)); res.json({ dismissed: true }) }
+    catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 500).json({ error: error instanceof RuntimeControlError ? error.code : 'runtime_dismiss_failed', message: error instanceof Error ? error.message : 'Could not dismiss the execution' }) }
   })
   router.post('/:projectId/agent-runtime/runs/:runId/cancel', (req, res) => {
     try { controls(req).cancel(String(req.params.runId)); res.status(202).json({ accepted: true }) }

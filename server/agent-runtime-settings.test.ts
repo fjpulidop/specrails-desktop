@@ -7,11 +7,11 @@ import path from 'node:path'
 import { registerAgentRuntimeSettingsRoutes } from './agent-runtime-settings-router'
 import { agentRuntimeConfigPath, defaultAgentRuntimeConfig, loadAgentRuntimeConfig, saveAgentRuntimeConfig, validateAgentRuntimeConfig, saveRuntimeProviders, loadRuntimeProviders, type RuntimeConfig } from './agent-runtime-settings'
 
-const loader = vi.hoisted(() => ({ entry: 'runtime/index.js' as string | null, validate: vi.fn((input: unknown) => input), loadFailure: false }))
+const loader = vi.hoisted(() => ({ entry: 'runtime/index.js' as string | null, validate: vi.fn((input: unknown) => input), loadFailure: false, capabilities: vi.fn(async (input: unknown) => ({ type: 'runtime-capabilities', schemaVersion: 1, roles: [], seen: input })) }))
 const layout = vi.hoisted(() => ({ suffix: '.specrails' }))
 vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeEntry: () => loader.entry, loadCoreAgentRuntime: async () => {
   if (loader.loadFailure) throw new Error('incompatible Core')
-  return { validateRuntimeConfig: loader.validate }
+  return { validateRuntimeConfig: loader.validate, capabilities: loader.capabilities }
 } }))
 vi.mock('./workspace-resolution', () => ({ resolveProjectExecution: (project: { path: string }) => ({ specrailsDir: path.join(project.path, layout.suffix) }) }))
 
@@ -192,5 +192,21 @@ describe('runtime project configuration', () => {
   const coreSchema = path.resolve(__dirname, '../../specrails-core/schemas/agent-runtime.schema.json')
   it.skipIf(!fs.existsSync(coreSchema))('keeps the vendored schema identical to the neighboring Core source', () => {
     expect(JSON.parse(fs.readFileSync(path.join(__dirname, 'schemas/agent-runtime.schema.json'), 'utf8'))).toEqual(JSON.parse(fs.readFileSync(coreSchema, 'utf8')))
+  })
+})
+
+
+describe('POST /agent-runtime/capabilities — local connections', () => {
+  it('strips the desktop-only connection fields before handing the config to Core', async () => {
+    saveRuntimeProviders([
+      { id: 'claude', kind: 'cli', cli: 'claude' },
+      { id: 'local', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:8080/v1', label: 'LAN box', defaultModel: 'qwen', rates: { inputPer1M: 0.1, outputPer1M: 0.4 }, supportsReasoningEffort: true },
+    ])
+    const body = { ...config(), agents: { architect: { provider: 'local', model: 'qwen' }, developer: { provider: 'claude' }, reviewer: { provider: 'claude' } } }
+    const res = await request(app).post('/api/projects/example/agent-runtime/capabilities').send(body)
+    expect(res.status).toBe(200)
+    expect(loader.capabilities).toHaveBeenCalledTimes(1)
+    const seen = (loader.capabilities.mock.calls[0][0] as { providers: Array<Record<string, unknown>> }).providers.find((p) => p.id === 'local')!
+    expect(seen).toEqual({ id: 'local', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:8080/v1' })
   })
 })

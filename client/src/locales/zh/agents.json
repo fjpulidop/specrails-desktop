@@ -175,6 +175,11 @@
     "noProfile": "无 Profile",
     "modelTitle": "此 Freestyle rail 使用的模型",
     "loopModelTitle": "此 Loop 使用的模型",
-    "engineTitle": "本次运行所有角色使用的 AI 提供商：架构师、开发者和审查者"
+    "engineTitle": "本次运行所有角色使用的 AI 提供商：架构师、开发者和审查者",
+    "localEngine": "本地引擎",
+    "rolesEngine": "按角色",
+    "rolesEngineTitle": "按角色的混合引擎：architect、developer 和 reviewer 使用运行时配置；verifier 和 decider 使用循环角色（设置 ▸ Specrails 代理）",
+    "rolesChip": "按角色引擎",
+    "rolesChipTitle": "引擎已在“设置 ▸ Specrails 代理”中按角色配置：architect、developer 和 reviewer 来自运行时配置；verifier 和 decider 来自循环角色。此处不选择模型、推理强度或配置文件。"
   }
 }

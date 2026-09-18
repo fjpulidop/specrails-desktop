@@ -419,6 +419,29 @@ describe('agent-chat-router', () => {
     app = makeApp(db, manager)
   })
 
+  it('a conversation created without a provider starts on the machine primary (local-only ⇒ the local engine)', async () => {
+    const { setDetectedProvidersSupplier } = await import('./provider-selection')
+    const { createLocalAdapter } = await import('./providers/local-adapter')
+    const { register, unregisterAdapter } = await import('./providers/registry')
+    register(createLocalAdapter({ id: 'lmstudio', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:1234/v1' }), 'local')
+    try {
+      setDetectedProvidersSupplier(() => ['lmstudio'])
+      const created = await req(app, 'POST', '/api/agent/conversations', {})
+      expect(created.status).toBe(201)
+      expect(created.body.conversation.provider).toBe('lmstudio')
+      // The model catalog follows the same default.
+      expect((await req(app, 'GET', '/api/agent/models')).body.provider).toBe('lmstudio')
+      // A detected CLI still wins over the local engine.
+      setDetectedProvidersSupplier(() => ['lmstudio', 'codex'])
+      expect((await req(app, 'POST', '/api/agent/conversations', {})).body.conversation.provider).toBe('codex')
+    } finally {
+      setDetectedProvidersSupplier(null)
+      unregisterAdapter('lmstudio')
+    }
+    // No snapshot ⇒ legacy claude.
+    expect((await req(app, 'POST', '/api/agent/conversations', {})).body.conversation.provider).toBe('claude')
+  })
+
   it('full lifecycle: create → list → get → patch → send → abort → delete', async () => {
     const created = await req(app, 'POST', '/api/agent/conversations', { provider: 'claude', tierLevel: 1 })
     expect(created.status).toBe(201)

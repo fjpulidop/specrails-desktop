@@ -27,6 +27,10 @@ const PROVIDER_LABEL: Record<string, string> = {
 function providerLabel(id: string): string {
   return PROVIDER_LABEL[id] ?? id
 }
+/** Any id outside the bundled CLIs is a local engine (dynamic adapter). */
+function isLocalEngine(id: string | null | undefined): boolean {
+  return !!id && !(id in PROVIDER_LABEL)
+}
 
 function fmtCost(v: number | null): string {
   if (v == null) return '—'
@@ -188,6 +192,8 @@ export function InvocationsTable({
                         >
                           ~{fmtCost(r.total_cost_usd)}
                         </span>
+                      ) : r.total_cost_usd == null && isLocalEngine(r.provider) ? (
+                        <span title={t('table.costUnknownLocalTooltip')} data-testid="cost-unknown-local" className="text-muted-foreground/70">—</span>
                       ) : (
                         fmtCost(r.total_cost_usd)
                       )}

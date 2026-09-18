@@ -268,5 +268,8 @@
       "target_pr_invalid": "As branches da PR não servem como destino de entrega",
       "target_pr_unfetchable": "Não foi possível buscar a branch head da PR"
     }
+  },
+  "rail": {
+    "rolesNoFreestyle": "O Freestyle precisa de um único provedor — escolha Implement ou um loop antes de mudar este rail para motores por papel."
   }
 }

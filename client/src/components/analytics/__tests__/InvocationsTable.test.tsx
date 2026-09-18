@@ -187,4 +187,15 @@ describe('InvocationsTable', () => {
     expect(screen.getAllByText('opus')).toHaveLength(2)
     expect(screen.getByText('inferred')).toBeInTheDocument()
   })
+
+  it('explains a null cost on a local engine with a tooltip instead of a bare em-dash', () => {
+    render(
+      <InvocationsTable rows={[row({ id: 'a', provider: 'lan-box', total_cost_usd: null }), row({ id: 'b', provider: 'claude', total_cost_usd: null })]}
+        loading={false} truncated={false} totalAvailable={2} tableFilters={{}} onTableFiltersChange={vi.fn()} />,
+    )
+    const cell = screen.getByTestId('cost-unknown-local')
+    expect(cell).toHaveTextContent('—')
+    expect(cell).toHaveAttribute('title', expect.stringContaining('Cost unknown (local engine)'))
+    expect(screen.getAllByTestId('cost-unknown-local')).toHaveLength(1)
+  })
 })

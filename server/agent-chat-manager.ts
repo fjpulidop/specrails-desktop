@@ -14,6 +14,7 @@ import {
   reasoningEffortsForModel,
 } from './providers'
 import { buildProviderEnv, parseStreamEvents, pureOutputToolPolicy } from './providers/runtime'
+import { isLocalAdapterId } from './providers/registry'
 import type { ReasoningEffort, AdapterEvent, ProviderAdapter } from './providers/types'
 import { runAiCliInvocation } from './spawn-lifecycle'
 import { nativeLiveSessionRunner } from './providers/live-session'
@@ -468,7 +469,13 @@ export class AgentChatManager {
     // Per-turn dynamic context (pinned project, permission level, provider) rides
     // the USER turn, never the system prompt — byte-stability contract (see
     // agent-operator-prompt.ts).
-    const turnSettings = `Permission level: ${tierLevel} (${['observe', 'edit', 'operate', 'autonomous'][tierLevel]}) | Provider: ${adapter.id} | Model: ${model}${reasoningEffort ? ` | Reasoning effort: ${reasoningEffort}` : ''}`
+    // Local (OpenAI-compatible) engines are usually small models that drop the
+    // exact fence tags and ask the user for the #noframe waiver — restate the
+    // two rules they break most, on the USER turn (system prompt stays byte-stable).
+    const localProtocolNote = isLocalAdapterId(adapter.id)
+      ? ' | Protocol: fenced protocol blocks MUST be tagged exactly problem-frame, spec-draft or options (never json); never ask the user to type #noframe'
+      : ''
+    const turnSettings = `Permission level: ${tierLevel} (${['observe', 'edit', 'operate', 'autonomous'][tierLevel]}) | Provider: ${adapter.id} | Model: ${model}${reasoningEffort ? ` | Reasoning effort: ${reasoningEffort}` : ''}${localProtocolNote}`
     const contextPrefix = conversation.pinned_project_id
       ? `[Active project: projectId="${conversation.pinned_project_id}" | ${turnSettings}. Use this project for project-scoped tools; changing the execution target requires changing the conversation pin.]`
       : `[No project pinned (Home) | ${turnSettings}]`

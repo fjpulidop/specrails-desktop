@@ -127,3 +127,21 @@ export const FEATURE_NARRATED_PROGRESS = (() => {
   if (typeof override === 'string') return override !== 'false'
   return true
 })()
+
+/**
+ * Gates the local AI engines UI (Provider connections card: test connection,
+ * discovered models, default model, rates). Default ON; set
+ * VITE_FEATURE_LOCAL_ENGINES=false to render the legacy plain connection rows.
+ * The server gates the engines themselves behind SPECRAILS_LOCAL_ENGINES.
+ */
+export const FEATURE_LOCAL_ENGINES = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_LOCAL_ENGINES
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()
+
+/** Function form so tests can mock the flag per case (`vi.mock` the module). */
+export function isLocalEnginesEnabled(): boolean {
+  return FEATURE_LOCAL_ENGINES
+}

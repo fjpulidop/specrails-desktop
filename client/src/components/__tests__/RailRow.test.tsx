@@ -191,6 +191,34 @@ describe('RailRow', () => {
     })
   })
 
+  describe('roles engine (hybrid per-role engines)', () => {
+    it('swaps the profile/model/effort pickers for the roles chip and keeps the engine selector', () => {
+      renderRailRow({
+        ...defaultProps,
+        mode: 'loop' as const,
+        selectedLoopId: 'custom-uuid-123',
+        aiEngine: 'roles',
+        providers: ['claude', 'codex'],
+        onEngineChange: vi.fn(),
+        onProfileChange: vi.fn(),
+        onLoopModelChange: vi.fn(),
+        onEffortChange: vi.fn(),
+      } as any)
+      const chip = screen.getByTestId('rail-roles-chip')
+      expect(chip).toHaveTextContent('Per-role engines')
+      expect(chip).toHaveAttribute('title', expect.stringContaining('verifier and decider'))
+      expect((screen.getByTestId('rail-engine-selector') as HTMLSelectElement).value).toBe('roles')
+      expect(screen.queryByTestId('loop-model-selector')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('rail-effort-selector')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('rail-profile-selector')).not.toBeInTheDocument()
+    })
+
+    it('hides the chip while the rail is running', () => {
+      renderRailRow({ ...defaultProps, status: 'running' as const, aiEngine: 'roles', providers: ['claude', 'codex'], onEngineChange: vi.fn() } as any)
+      expect(screen.queryByTestId('rail-roles-chip')).not.toBeInTheDocument()
+    })
+  })
+
   it('offers Kimi Freestyle with Kimi models and exact effort tiers', () => {
     renderRailRow({
       ...defaultProps,

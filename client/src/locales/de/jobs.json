@@ -138,14 +138,17 @@
       "reasoning": "Überlegt…",
       "working": "Arbeitet…",
       "connecting": "Verbinde mit dem Agenten…",
-      "starting": "Startet…"
+      "starting": "Startet…",
+      "delegating": "Delegiere an {{arg}}"
     },
     "pipelinePartial": "≥ angezeigt — {{count}} Phase(n) ohne erfasste Kosten",
     "pipelinePartialTooltip": "Einige Phasen wurden beendet, bevor ihre Kosten gemeldet wurden – dieser Gesamtwert ist eine Untergrenze.",
     "pipelineCostUnavailable": "Die Kostentelemetrie ist für alle Phasen nicht verfügbar.",
     "pipelineUsageUnavailable": "Die Token-Telemetrie ist für alle Phasen nicht verfügbar.",
     "pipelineUsagePartial": "≥ angezeigt — Phasen ohne Token-Telemetrie: {{count}}",
-    "pipelineUsageTooltip": "Anbieter können Phasen abschließen, ohne Token-Telemetrie bereitzustellen; enthalten ist nur die bekannte Nutzung."
+    "pipelineUsageTooltip": "Anbieter können Phasen abschließen, ohne Token-Telemetrie bereitzustellen; enthalten ist nur die bekannte Nutzung.",
+    "costUnknownLocal": "Kosten unbekannt (lokale Engine)",
+    "costUnknownLocalTooltip": "Kosten unbekannt (lokale Engine). Tarife in der Verbindung hinterlegen, um eine Schätzung zu sehen."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} weitere",
@@ -328,5 +331,11 @@
       "passed": "Bestanden",
       "unavailable": "Nicht verfügbar"
     }
+  },
+  "runHeader": {
+    "details": "Details",
+    "phaseActivity": "{{phase}} · {{activity}}",
+    "liveReported": "Bisher vom Anbieter gemeldet; die endgültigen Zahlen kommen, wenn der Job endet.",
+    "questionPending": "Frage beantworten"
   }
 }

@@ -268,5 +268,8 @@
       "target_pr_invalid": "The PR's branches are unusable as a delivery target",
       "target_pr_unfetchable": "The PR's head branch could not be fetched"
     }
+  },
+  "rail": {
+    "rolesNoFreestyle": "Freestyle needs a single provider — pick Implement or a loop before switching this rail to per-role engines."
   }
 }

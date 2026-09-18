@@ -66,10 +66,11 @@
       "architect": "Conception du changement (architecte)",
       "developer": "Implémentation du changement (développeur)",
       "verify": "Exécution des commandes de vérification",
+      "fixer": "Correction de ce que la vérification ou la revue a signalé (correcteur)",
       "reviewer": "Relecture de l’implémentation (relecteur)",
       "archive": "Archivage du changement relu",
       "stopped": "Le moteur s’est arrêté : {{target}}",
-      "corrections": "Renvoi des corrections au développeur",
+      "corrections": "Poursuite des tâches restantes (développeur)",
       "resumed": "Reprise de l’exécution enregistrée"
     },
     "check": {

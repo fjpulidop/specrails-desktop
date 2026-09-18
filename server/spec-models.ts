@@ -60,7 +60,12 @@ export const PROVIDER_DEFAULT_MODEL: Record<string, string> = {
 }
 
 export function getModelsForProvider(provider: SpecProvider): SpecModelOption[] {
-  return PROVIDER_MODELS[provider] ?? []
+  const fixed = PROVIDER_MODELS[provider]
+  if (fixed) return fixed
+  // Dynamically registered adapters (local OpenAI-compatible engines) own a
+  // live catalog — the discovered `GET /v1/models` ids, or the stored default.
+  if (hasAdapter(provider)) return getAdapter(provider).modelCatalog().map(({ value, label }) => ({ value, label }))
+  return []
 }
 
 export function isValidModelForProvider(model: unknown, provider: SpecProvider): model is string {
@@ -69,5 +74,8 @@ export function isValidModelForProvider(model: unknown, provider: SpecProvider):
 }
 
 export function getProviderDefault(provider: SpecProvider): string {
-  return PROVIDER_DEFAULT_MODEL[provider] ?? ''
+  const fixed = PROVIDER_DEFAULT_MODEL[provider]
+  if (fixed) return fixed
+  if (hasAdapter(provider)) return getAdapter(provider).defaultModel()
+  return ''
 }

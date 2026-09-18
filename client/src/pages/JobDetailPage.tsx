@@ -7,11 +7,10 @@ import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { getDateFnsLocale } from '../lib/i18n'
 import { ChevronRight, Home, RotateCcw, Download } from 'lucide-react'
-import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip'
-import { PipelineProgress } from '../components/PipelineProgress'
-import { JobStatusPanel } from '../components/JobStatusPanel'
+import { JobRunHeader } from '../components/job-run/JobRunHeader'
+import { computePipelineTotals } from '../components/job-run/job-run-model'
 import { JobTicketHeader } from '../components/JobTicketHeader'
 import { InteractiveJobComposer } from '../components/InteractiveJobComposer'
 import { useTicketDetailModal } from '../context/TicketDetailModalContext'
@@ -26,16 +25,6 @@ import type { JobSummary, EventRow, PhaseDefinition } from '../types'
 import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
 import { useDesktop } from '../hooks/useDesktop'
 import { formatCommandForProvider } from '../lib/format-command'
-
-type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'running' | 'queued' | 'failed' | 'canceled'
-
-const STATUS_BADGE: Record<string, { variant: BadgeVariant; labelKey: string; tooltipKey: string }> = {
-  running: { variant: 'running', labelKey: 'statusLabel.running', tooltipKey: 'statusTooltip.running' },
-  completed: { variant: 'success', labelKey: 'statusLabel.completed', tooltipKey: 'statusTooltip.completed' },
-  failed: { variant: 'failed', labelKey: 'statusLabel.failed', tooltipKey: 'statusTooltip.failed' },
-  canceled: { variant: 'canceled', labelKey: 'statusLabel.canceled', tooltipKey: 'statusTooltip.canceled' },
-  queued: { variant: 'queued', labelKey: 'statusLabel.queued', tooltipKey: 'statusTooltip.queued' },
-}
 
 export default function JobDetailPage() {
   const { t } = useTranslation('jobs')
@@ -201,7 +190,7 @@ export default function JobDetailPage() {
       setPhases(initPhases)
     } else if (msg.type === 'event' && msg.jobId === id) {
       // Live stream frames (assistant / item.completed / turn.completed …). The
-      // server broadcasts every parsed JSONL line here; the JobStatusPanel
+      // server broadcasts every parsed JSONL line here; the JobRunHeader
       // activity signal is built from them. Without this branch the panel froze
       // at the open-time snapshot. Mirrors JobDetailModal's handler.
       const eventRow: EventRow = {
@@ -398,7 +387,6 @@ export default function JobDetailPage() {
     )
   }
 
-  const statusInfo = STATUS_BADGE[job.status] ?? STATUS_BADGE.queued
   const isRunning = job.status === 'running'
   const isFinished = job.status === 'completed' || job.status === 'failed'
   // An interactive freestyle session that is still resident: the user converses
@@ -411,38 +399,12 @@ export default function JobDetailPage() {
   // LogViewer byte-identical. Same discriminator as the composer `kind` below.
   const isLoopJob = job.command.startsWith('loop:')
 
-  const pipelineTotals = pipelineJobs.length > 1 ? {
-    totalCostUsd: pipelineJobs.reduce((s, j) => s + (j.total_cost_usd ?? 0), 0),
-    // A phase whose cost is null (killed before its result event, provider gap)
-    // contributes $0 to the sum with no signal — flag it so the panel shows a
-    // "≥" incomplete indicator instead of a falsely-precise total (HIGH-10).
-    hasNullCost: pipelineJobs.some((j) => j.total_cost_usd == null),
-    // Preserve the estimated marker when any constituent phase's cost came from
-    // the pricing-table fallback.
-    costEstimated: pipelineJobs.some((j) => !!j.total_cost_usd_estimated),
-    nullCostCount: pipelineJobs.filter((j) => j.total_cost_usd == null).length,
-    costUnavailable: pipelineJobs.every((j) => j.total_cost_usd == null),
-    totalTokensIn: pipelineJobs.reduce((s, j) => s + (j.tokens_in ?? 0), 0),
-    totalTokensOut: pipelineJobs.reduce((s, j) => s + (j.tokens_out ?? 0), 0),
-    totalTokensCacheRead: pipelineJobs.reduce((s, j) => s + (j.tokens_cache_read ?? 0), 0),
-    totalTokensCacheCreate: pipelineJobs.reduce((s, j) => s + (j.tokens_cache_create ?? 0), 0),
-    nullTokenCount: pipelineJobs.filter(
-      (j) =>
-        j.tokens_in == null && j.tokens_out == null
-        && j.tokens_cache_read == null && j.tokens_cache_create == null,
-    ).length,
-    tokensUnavailable: pipelineJobs.every(
-      (j) =>
-        j.tokens_in == null && j.tokens_out == null
-        && j.tokens_cache_read == null && j.tokens_cache_create == null,
-    ),
-    jobCount: pipelineJobs.length,
-  } : null
+  const pipelineTotals = computePipelineTotals(pipelineJobs)
 
   return (
     <div data-job-detail-surface className="flex flex-col h-full max-w-5xl mx-auto w-full">
       {/* Header */}
-      <div className="px-4 py-4 border-b border-border space-y-3">
+      <div className="px-4 pt-3 pb-2 space-y-2">
         {/* Breadcrumb */}
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Link to="/" className="hover:text-foreground transition-colors flex items-center gap-1">
@@ -461,39 +423,38 @@ export default function JobDetailPage() {
           />
         )}
 
-        {/* Job info */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <Badge variant={statusInfo.variant}>{t(statusInfo.labelKey)}</Badge>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>{t(statusInfo.tooltipKey)}</TooltipContent>
-              </Tooltip>
-              <code
-                className={cn(
-                  'font-mono text-foreground/90 truncate',
-                  hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm',
-                )}
-              >
-                {formatCommandForProvider(job.command, activeProvider)}
-              </code>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-              <span>
-                {job.started_at
-                  ? t('detail.startedAgo', { timeAgo: formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: getDateFnsLocale() }) })
-                  : t('detail.queuedWaiting')}
-              </span>
-              {job.model && <span className="text-muted-foreground/40">{job.model}</span>}
-            </div>
-          </div>
+        {/* Job identity — command · started-ago · model (status/elapsed live in JobRunHeader) */}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap min-w-0">
+          <code
+            className={cn(
+              'font-mono text-foreground/90 truncate',
+              hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm',
+            )}
+          >
+            {formatCommandForProvider(job.command, activeProvider)}
+          </code>
+          <span>
+            {job.started_at
+              ? t('detail.startedAgo', { timeAgo: formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: getDateFnsLocale() }) })
+              : t('detail.queuedWaiting')}
+          </span>
+          {job.model && <span className="text-muted-foreground/40">{job.model}</span>}
+        </div>
+      </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0">
+      {/* The ONE run header shared with the mission-mode modal: status · elapsed ·
+          phase · activity · actions, the pipeline chips once, and a collapsed
+          Details disclosure with only real figures. */}
+      <JobRunHeader
+        job={job}
+        events={events}
+        phases={phases}
+        phaseDefinitions={phaseDefinitions}
+        projectId={activeProjectId}
+        variant="page"
+        pipelineTotals={pipelineTotals}
+        actions={(
+          <>
             {job.hasTelemetry && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -550,27 +511,9 @@ export default function JobDetailPage() {
                 </TooltipContent>
               </Tooltip>
             )}
-          </div>
-        </div>
-
-        {/* Pipeline progress */}
-        <PipelineProgress phases={phases} phaseDefinitions={phaseDefinitions} />
-      </div>
-
-      {/* Status panel — running, completed, or failed */}
-      {activeProjectId && id && <AgentRuntimeRuns projectId={activeProjectId} jobId={id} contextual />}
-      {(job.status === 'running' ||
-        job.status === 'completed' ||
-        job.status === 'failed') && (
-        <JobStatusPanel
-          job={job}
-          events={events}
-          defaultOpen={job.status === 'completed' || job.status === 'running'}
-          pipelineTotals={pipelineTotals ?? undefined}
-          phases={phases}
-          phaseDefinitions={phaseDefinitions}
-        />
-      )}
+          </>
+        )}
+      />
 
       {/* Log surface. The narrated altitude is a MODE over the same stream —
           the raw views below stay byte-identical when it is off. */}
@@ -634,4 +577,3 @@ export default function JobDetailPage() {
     </div>
   )
 }
-import { AgentRuntimeRuns } from '../components/settings/AgentRuntimeRuns'

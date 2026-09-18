@@ -35,13 +35,15 @@ afterEach(() => {
 })
 
 describe('linkNodeModulesIntoWorktree', () => {
-  it('links the root node_modules as a symlink into the worktree', () => {
+  it('prepares a worktree-owned node_modules directory whose package entries link into the base checkout', () => {
     mkRepo(['package.json', 'node_modules/left-pad/index.js'])
     const res = linkNodeModulesIntoWorktree(baseRepo, worktree)
     expect(res.linked).toEqual(['node_modules'])
     expect(res.warnings).toEqual([])
     const dest = path.join(worktree, 'node_modules')
-    expect(fs.lstatSync(dest).isSymbolicLink()).toBe(true)
+    // The directory itself is REAL (tool caches such as .vite stay local); each package is a link.
+    expect(fs.lstatSync(dest).isDirectory()).toBe(true)
+    expect(fs.lstatSync(path.join(dest, 'left-pad')).isSymbolicLink()).toBe(true)
     expect(fs.existsSync(path.join(dest, 'left-pad', 'index.js'))).toBe(true)
   })
 
@@ -54,7 +56,8 @@ describe('linkNodeModulesIntoWorktree', () => {
     ])
     const res = linkNodeModulesIntoWorktree(baseRepo, worktree)
     expect(res.linked.sort()).toEqual(['client/node_modules', 'node_modules'])
-    expect(fs.lstatSync(path.join(worktree, 'client', 'node_modules')).isSymbolicLink()).toBe(true)
+    expect(fs.lstatSync(path.join(worktree, 'client', 'node_modules')).isDirectory()).toBe(true)
+    expect(fs.lstatSync(path.join(worktree, 'client', 'node_modules', 'b.js')).isSymbolicLink()).toBe(true)
   })
 
   it('skips package dirs whose base checkout has no install', () => {
@@ -125,8 +128,9 @@ describe('linkNodeModulesIntoWorktree', () => {
   it('authenticates and fingerprints the links it creates', () => {
     mkRepo(['package.json', 'node_modules/a.js', 'client/package.json', 'client/node_modules/b.js'])
     const res = linkNodeModulesIntoWorktree(baseRepo, worktree)
-    expect(res.authenticated.sort()).toEqual(['client/node_modules', 'node_modules'])
-    expect(res.evidence.map((e) => e.path).sort()).toEqual(['client/node_modules', 'node_modules'])
+    // Authentication is per package ENTRY: the links, never the worktree-owned directory around them.
+    expect(res.authenticated.sort()).toEqual(['client/node_modules/b.js', 'node_modules/a.js'])
+    expect(res.evidence.map((e) => e.path).sort()).toEqual(['client/node_modules/b.js', 'node_modules/a.js'])
     for (const entry of res.evidence) {
       expect(entry.kind).toBe('symlink')
       expect(entry.digest).toMatch(/^[0-9a-f]{64}$/)
@@ -140,7 +144,7 @@ describe('linkNodeModulesIntoWorktree', () => {
     const second = linkNodeModulesIntoWorktree(baseRepo, worktree)
     // Nothing new is created, but the pre-existing link stays authorized.
     expect(second.linked).toEqual([])
-    expect(second.authenticated).toEqual(['node_modules'])
+    expect(second.authenticated).toEqual(['node_modules/a.js'])
     expect(second.evidence).toEqual(first.evidence)
   })
 
@@ -158,7 +162,7 @@ describe('authenticateWarmNodeModulesLinks', () => {
     mkRepo(['package.json', 'node_modules/a.js', 'client/package.json', 'client/node_modules/b.js'])
     linkNodeModulesIntoWorktree(baseRepo, worktree)
     const evidence = authenticateWarmNodeModulesLinks(baseRepo, worktree)
-    expect(evidence.map((e) => e.path).sort()).toEqual(['client/node_modules', 'node_modules'])
+    expect(evidence.map((e) => e.path).sort()).toEqual(['client/node_modules/b.js', 'node_modules/a.js'])
   })
 
   it('refuses a real directory, a copy, and a foreign link target', () => {

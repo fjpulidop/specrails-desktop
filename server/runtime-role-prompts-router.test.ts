@@ -22,6 +22,9 @@ it('returns actual defaults, persists overrides and resets one role independentl
   expect((await request(app).get('/api/runtime-role-prompts')).body.overrides).toEqual({ architect: 'My plan', reviewer: 'My review' })
   await request(app).put('/api/runtime-role-prompts').send({ overrides: { reviewer: 'My review' } }).expect(200)
   expect(loadRuntimeRolePrompts()).toEqual({ reviewer: 'My review' })
+  // The fixer stance is a fourth editable definition.
+  await request(app).put('/api/runtime-role-prompts').send({ overrides: { fixer: 'Repair only' } }).expect(200)
+  expect(loadRuntimeRolePrompts()).toEqual({ fixer: 'Repair only' })
 })
 it.each([null, [], { alien: 'x' }, { developer: ' ' }, { developer: 'x'.repeat(20001) }, { developer: 'x\0y' }])('rejects invalid prompts without replacing saved data (%j)', async overrides => {
   await request(app).put('/api/runtime-role-prompts').send({ overrides: { developer: 'Keep this' } }).expect(200)

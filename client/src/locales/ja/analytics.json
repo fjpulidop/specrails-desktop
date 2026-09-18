@@ -32,7 +32,8 @@
     "ticketChip": "チケット #{{id}} ·  ✕",
     "failedToLoad": "読み込みに失敗しました: {{error}}",
     "modelChip": "モデル：{{model}}",
-    "clearModelFilter": "モデルフィルターをクリア"
+    "clearModelFilter": "モデルフィルターをクリア",
+    "localEngine": "ローカル"
   },
   "hero": {
     "spending": "支出",
@@ -152,7 +153,8 @@
     "colProvider": "プロバイダー",
     "sortLabel": "並べ替え",
     "sortRecency": "最近",
-    "sortCost": "コスト"
+    "sortCost": "コスト",
+    "costUnknownLocalTooltip": "コスト不明（ローカルエンジン）。接続に料金を追加すると概算が表示されます。"
   },
   "export": {
     "summaryCsv": "サマリー CSV",

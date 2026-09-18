@@ -268,5 +268,8 @@
       "target_pr_invalid": "Die Branches des PR sind als Lieferziel unbrauchbar",
       "target_pr_unfetchable": "Der Head-Branch des PR konnte nicht geholt werden"
     }
+  },
+  "rail": {
+    "rolesNoFreestyle": "Freestyle braucht einen einzelnen Anbieter – wähle Implement oder einen Loop, bevor du dieses Rail auf Engines pro Rolle umstellst."
   }
 }

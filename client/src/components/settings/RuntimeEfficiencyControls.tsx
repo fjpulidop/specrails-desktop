@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
-import type { AgentRuntimeConfig, RuntimeAgent, RuntimeRole } from '../../lib/agent-runtime'
+import type { AgentRuntimeConfig, RuntimeAgent, RuntimeAgentRole } from '../../lib/agent-runtime'
 import { Input } from '../ui/input'
 
 export interface RoleCapability {
-  role: RuntimeRole; tier: 'base' | 'escalation'; provider: string; model: string | null
+  role: RuntimeAgentRole; tier: 'base' | 'escalation'; provider: string; model: string | null
   transport: string; continuation: 'supported' | 'unsupported' | 'unknown'
   effortSupport: 'supported' | 'unsupported' | 'unknown'; supportedEfforts: string[] | null
 }
@@ -20,7 +20,7 @@ function Effort({ value, capability, onChange }: { value?: string; capability?: 
     <span className="block text-muted-foreground">{capability?.effortSupport === 'supported' ? capability.transport : t('efficiency.unknownSupport')}</span>
   </label>
 }
-export function RuntimeRoleEfficiency({ role, agent, capabilities, onChange }: { role: RuntimeRole; agent: RuntimeAgent; capabilities: RoleCapability[]; onChange(agent: RuntimeAgent): void }) {
+export function RuntimeRoleEfficiency({ role, agent, capabilities, onChange }: { role: RuntimeAgentRole; agent: RuntimeAgent; capabilities: RoleCapability[]; onChange(agent: RuntimeAgent): void }) {
   const { t } = useTranslation('agentRuntime')
   const capability = (tier: 'base' | 'escalation') => capabilities.find(item => item.role === role && item.tier === tier && item.provider === agent.provider && item.model === ((tier === 'base' ? agent.model : agent.escalation?.model) ?? null))
   return <div className="mt-3 space-y-3 border-t pt-3">

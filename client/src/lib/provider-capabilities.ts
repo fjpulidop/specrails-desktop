@@ -13,6 +13,42 @@
 // helpers below already accept `string | null | undefined` and fall back safely.
 export type ProviderId = string
 
+/** The CLI adapters shipped with the app. Every other id is a LOCAL engine (an
+ *  OpenAI-compatible connection registered as a dynamic adapter — see
+ *  openspec/changes/local-ai-engines). Local engines share one capability
+ *  block (mirrors server/providers/local-adapter.ts). */
+export const CLI_PROVIDER_IDS: readonly string[] = ['claude', 'codex', 'gemini', 'kimi']
+
+/**
+ * The provider an app-level surface (a fresh mission, the Builder) should start
+ * on given the machine's usable providers: the fixed CLI preference order
+ * first, else the first usable id (a local-only machine lands on its local
+ * engine). Mirrors server `defaultMachineProvider`; `claude` while nothing is
+ * known yet (the pre-fetch default, byte-identical to before).
+ */
+export function preferredProvider(usable: readonly string[]): string {
+  for (const id of CLI_PROVIDER_IDS) if (usable.includes(id)) return id
+  return usable[0] ?? 'claude'
+}
+
+/** Sentinel rail engine (hybrid-role-engines): every pipeline role runs on the
+ *  provider its per-role runtime config names (Settings ▸ Specrails Agents),
+ *  and the loop-side verifier/decider come from the project's loop roles.
+ *  NOT a provider id — never feed it to a catalog/capability lookup; map it to
+ *  the project's primary provider first (`isRolesEngine`). Mirrors
+ *  server/loop-role-engines.ts `ROLES_ENGINE`. */
+export const ROLES_ENGINE = 'roles'
+
+/** True when a rail engine is the `roles` sentinel rather than a provider id. */
+export function isRolesEngine(id: string | null | undefined): boolean {
+  return id === ROLES_ENGINE
+}
+
+/** True for a provider id that is not a bundled CLI — i.e. a local engine. */
+export function isLocalEngineId(provider: string | null | undefined): boolean {
+  return typeof provider === 'string' && provider.length > 0 && provider !== ROLES_ENGINE && !CLI_PROVIDER_IDS.includes(provider)
+}
+
 /**
  * Returns true when the given provider supports SMASH (Spec decomposition via
  * Contract Layer). SMASH requires a Claude-specific Contract Layer generation
@@ -119,15 +155,16 @@ const PROVIDER_TOOL_POLICIES: Record<string, readonly RestrictedToolPolicy[]> = 
   gemini: ['read-only'],
   kimi: [],
 }
+const LOCAL_ENGINE_TOOL_POLICIES: readonly RestrictedToolPolicy[] = ['none', 'read-only']
 
-/** Mirrors each adapter's verified native non-default tool boundaries. */
+/** Mirrors each adapter's verified native non-default tool boundaries; the
+ *  local runner supports `--tools __none__` and the read-only set natively. */
 export function providerSupportsToolPolicy(
   provider: string | null | undefined,
   policy: RestrictedToolPolicy,
 ): boolean {
-  return provider
-    ? (PROVIDER_TOOL_POLICIES[provider] ?? []).includes(policy)
-    : false
+  if (!provider) return false
+  return (PROVIDER_TOOL_POLICIES[provider] ?? (isLocalEngineId(provider) ? LOCAL_ENGINE_TOOL_POLICIES : [])).includes(policy)
 }
 
 /** Pure-output actions require no-tools or a native read-only fallback. */
@@ -138,9 +175,10 @@ export function providerSupportsPureOutput(
     || providerSupportsToolPolicy(provider, 'read-only')
 }
 
-/** Provider-owned freestyle and profile projection are available for both. */
+/** Provider-owned freestyle: claude, kimi and every local engine (the runner
+ *  takes the freestyle pre-prompt natively). Profiles stay CLI-only. */
 export function providerSupportsFreestyle(provider: string | null | undefined): boolean {
-  return provider === 'claude' || provider === 'kimi'
+  return provider === 'claude' || provider === 'kimi' || isLocalEngineId(provider)
 }
 
 export function providerSupportsProfiles(provider: string | null | undefined): boolean {
@@ -154,7 +192,7 @@ export function providerSupportsProfiles(provider: string | null | undefined): b
 export function providerSupportsCustomModelAliases(
   provider: string | null | undefined,
 ): boolean {
-  return provider === 'kimi'
+  return provider === 'kimi' || isLocalEngineId(provider)
 }
 
 /** Mirrors `ProviderCapabilities.structuredActions` on the server. */

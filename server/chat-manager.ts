@@ -34,6 +34,7 @@ import {
   defaultBootScope, type ContextScope,
 } from './context-scope'
 import { buildUserMcpArgs } from './user-mcp-config'
+import { isLocalAdapterId } from './providers/registry'
 import { binaryOnPath } from './binary-probe'
 import { ExploreStdinSessions, isExplorePersistentStdinEnabled } from './explore-stdin-session'
 import { resolveProjectExecution, type ProjectExecution } from './workspace-resolution'
@@ -1046,7 +1047,10 @@ export class ChatManager {
     // gating is therefore claude-only today — codex inherits its sandbox
     // and approval policy from the project's `.codex/config.toml` (or the
     // `-c sandbox_mode=` override the adapter already attaches on resume).
-    const scopeFlags = conversationScope && adapter.id === 'claude'
+    // Local (OpenAI-compatible) runners accept the SAME `--tools` /
+    // `--disallowedTools` shape (the adapter's extraArgs allowlist drops any
+    // claude-only flag), so the scope tiers apply to them too.
+    const scopeFlags = conversationScope && (adapter.id === 'claude' || isLocalAdapterId(adapter.id))
       ? toolFlagsForScope(conversationScope).args
       : []
     if (this._cwd && conversation.kind !== 'milestone' && (!conversationScope || conversationScope.mcp)) {

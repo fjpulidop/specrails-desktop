@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { execSync } from 'child_process'
 import { windowsSpawnEnv } from './util/win-spawn'
 
@@ -18,6 +20,13 @@ export function binaryOnPath(binary: string): boolean {
   const hit = _cache.get(binary)
   if (hit && now - hit.at < PROBE_TTL_MS) return hit.onPath
   let onPath: boolean
+  // An absolute binary (the bundled Node that runs the local AI runner) is
+  // probed by existence: `where C:\\…\\node.exe` does not resolve a path.
+  if (path.isAbsolute(binary)) {
+    onPath = fs.existsSync(binary)
+    _cache.set(binary, { at: now, onPath })
+    return onPath
+  }
   try {
     // `where` runs via cmd.exe; pass a SystemRoot-backfilled env so the probe
     // (a HARD gate before job/chat spawns) can't be falsely cached as missing

@@ -66,10 +66,11 @@
       "architect": "设计变更（架构师）",
       "developer": "实现变更（开发者）",
       "verify": "运行验证命令",
+      "fixer": "修复验证或审查报告的问题（修复者）",
       "reviewer": "审阅实现（审阅者）",
       "archive": "归档已审阅的变更",
       "stopped": "运行引擎已停止：{{target}}",
-      "corrections": "将修正返回给开发者",
+      "corrections": "继续处理剩余任务（开发者）",
       "resumed": "正在恢复已保存的执行"
     },
     "check": {

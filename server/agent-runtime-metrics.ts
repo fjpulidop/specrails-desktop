@@ -22,7 +22,7 @@ export interface RuntimeEfficiency {
 
 const COUNTS = ['attempts', 'measuredAttempts', 'providerCalls', 'toolCalls', 'inputTokens', 'outputTokens', 'uncachedInputTokens', 'cacheReadInputTokens', 'cacheWriteInputTokens'] as const
 const KEYS = [...COUNTS, 'durationMs', 'agentDurationMs', 'costUsd'] as const
-const PHASES = ['architect', 'developer', 'verify', 'reviewer', 'archive']
+const PHASES = ['architect', 'developer', 'fixer', 'verify', 'reviewer', 'archive']
 function object(value: unknown): Record<string, unknown> | null { return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null }
 function counters(value: unknown): EfficiencyTotals | null {
   const input = object(value)

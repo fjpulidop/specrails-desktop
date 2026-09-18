@@ -19,7 +19,7 @@ import { recoverOrphanLoopStepAccounting } from './loop-run-manager'
 import type { ProjectContext } from './project-registry'
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
-const STEP_IDS = ['architect', 'developer', 'verify', 'reviewer', 'archive']
+const STEP_IDS = ['architect', 'developer', 'fixer', 'verify', 'reviewer', 'archive']
 const ANSWER_LIMIT = 20_000
 export interface RuntimeResumeInput { approve?: string[]; recover?: string[]; invalidate?: string[]; answer?: string }
 export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
@@ -41,6 +41,22 @@ export interface RuntimeRunSummary {
   pendingApproval?: { stepId: string; reason?: string }
   pendingQuestion?: RuntimePendingQuestion
   recoverableSteps: string[]; active: boolean; canResume: boolean; canCancel: boolean
+  /** A settled continuation (blocked/failed/interrupted/succeeded) can be dismissed from the rail card; it stays in the history. */
+  canDismiss?: boolean
+  dismissed?: boolean
+}
+/**
+ * Whether a continuation still deserves the rail card. Anything that needs a
+ * human (blocked, failed, interrupted, a pending question or approval, a
+ * settle still owed) pins the rail; a run that SUCCEEDED and offers no action
+ * does not — its evidence lives in the job log and the Settings history, and
+ * the delivery decision (when one exists) has its own strip. Observed: a rail
+ * kept a "Completed" card with only Dismiss on it after every green run.
+ */
+export function pinsRailCard(summary: RuntimeRunSummary): boolean {
+  if (summary.dismissed) return false
+  if (summary.active || summary.canResume || summary.canSettle || summary.canCancel || summary.pendingQuestion || summary.pendingApproval || summary.recoverableSteps.length) return true
+  return summary.status !== 'succeeded'
 }
 export class RuntimeControlError extends Error {
   constructor(public statusCode: number, public code: string, message: string) { super(message) }
@@ -167,7 +183,8 @@ export class AgentRuntimeControls {
         traceId: state.traceId, pendingQuestion: openQuestion(state),
         metrics: readRuntimeEfficiency(superseding ? superseding.metrics : state.metrics), efficiencySummary: readRuntimeEfficiencySummary(superseding ? superseding.efficiencySummary : state.efficiencySummary),
         canSettle: !superseding && !active && state.status === 'succeeded' && (this.ctx.db.prepare('SELECT status FROM jobs WHERE id = ?').get(runId) as { status?: string } | undefined)?.status !== 'completed',
-        recoverableSteps, active, canCancel: this.active.has(runId), canResume: !active && parent?.status === 'completed' && state.status !== 'succeeded' }
+        recoverableSteps, active, canCancel: this.active.has(runId), canResume: !active && parent?.status === 'completed' && state.status !== 'succeeded',
+        canDismiss: !active, dismissed: this.isDismissed(runId) }
     } catch (error) {
       try {
         const { file } = this.context(runId, true)
@@ -294,6 +311,18 @@ export class AgentRuntimeControls {
       this.active.delete(runId); this.statusCache.delete(runId)
       this.ctx.broadcast?.({ type: 'runtime.continuation', projectId: this.ctx.project.id, jobId: runId, railIndex: getLoopRun(this.ctx.db, runId)?.rail_index ?? null, active: false })
     }
+  }
+
+  /** Marker next to the frozen context: the rail card stops showing this run; history/log stay intact. */
+  private dismissMarker(runId: string): string { return path.join(path.dirname(this.context(runId).file), 'desktop-runtime-dismissed') }
+  isDismissed(runId: string): boolean { try { return fs.existsSync(this.dismissMarker(runId)) } catch { return false } }
+  dismiss(runId: string): void {
+    if (this.active.has(runId)) throw new RuntimeControlError(409, 'runtime_run_active', 'Stop the execution before dismissing it')
+    const parent = getLoopRun(this.ctx.db, runId)
+    if (parent && (parent.status === 'running' || parent.status === 'paused')) throw new RuntimeControlError(409, 'runtime_run_active', 'Stop the rail run before dismissing it')
+    fs.writeFileSync(this.dismissMarker(runId), new Date().toISOString() + '\n', { mode: 0o600 })
+    this.statusCache.delete(runId)
+    this.ctx.broadcast?.({ type: 'runtime.continuation', projectId: this.ctx.project.id, jobId: runId, railIndex: parent?.rail_index ?? null, active: false })
   }
 
   cancel(runId: string): void {

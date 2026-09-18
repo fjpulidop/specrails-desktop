@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  preferredProvider,
   isSmashCapable,
   providerSupportsSection,
   sectionVisibleForProviders,
@@ -270,7 +271,7 @@ describe('provider-owned rail capabilities', () => {
   it('keeps both unavailable for Gemini and unknown providers', () => {
     expect(providerSupportsFreestyle('gemini')).toBe(false)
     expect(providerSupportsProfiles('gemini')).toBe(false)
-    expect(providerSupportsFreestyle('mystery')).toBe(false)
+    expect(providerSupportsFreestyle('mystery')).toBe(true) // unknown ids are local engines
   })
 })
 
@@ -293,7 +294,7 @@ describe('providerSupportsCustomModelAliases', () => {
     expect(providerSupportsCustomModelAliases('claude')).toBe(false)
     expect(providerSupportsCustomModelAliases('codex')).toBe(false)
     expect(providerSupportsCustomModelAliases('gemini')).toBe(false)
-    expect(providerSupportsCustomModelAliases('mystery')).toBe(false)
+    expect(providerSupportsCustomModelAliases('mystery')).toBe(true) // unknown ids are local engines (dynamic catalog)
   })
 })
 
@@ -305,5 +306,17 @@ describe('Add Spec provider capabilities', () => {
       expect(providerSupportsStructuredActions(provider)).toBe(false)
       expect(providerSupportsUserMcp(provider)).toBe(false)
     }
+  })
+})
+
+describe('preferredProvider', () => {
+  it('follows the CLI preference order, then the first usable id', () => {
+    expect(preferredProvider(['kimi', 'codex'])).toBe('codex')
+    expect(preferredProvider(['gemini', 'claude'])).toBe('claude')
+    expect(preferredProvider(['lmstudio'])).toBe('lmstudio')
+    expect(preferredProvider(['lmstudio', 'gemini'])).toBe('gemini')
+  })
+  it('is claude while nothing is known yet', () => {
+    expect(preferredProvider([])).toBe('claude')
   })
 })

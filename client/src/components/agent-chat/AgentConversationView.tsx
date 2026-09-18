@@ -1,4 +1,5 @@
 import { useMissionWindows } from '../../context/MissionWindowsContext'
+import { isLocalEngineId } from '../../lib/provider-capabilities'
 import { readMissionScroll, saveMissionScroll, useMissionViewRevision } from '../../lib/mission-view-state'
 import { ExternalLink } from 'lucide-react'
 import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -270,6 +271,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 key={m.id}
                 role={m.role}
                 content={m.content}
+                tolerantFences={isLocalEngineId(active?.provider)}
                 createdAt={m.created_at}
                 // Option chips are clickable only on the newest settled message —
                 // a streaming turn suppresses them everywhere.
@@ -291,7 +293,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
           })}
           {isStreaming && (
             <div className="space-y-2">
-              {smoothed && <AgentMessage role="assistant" content={smoothed} streaming />}
+              {smoothed && <AgentMessage role="assistant" content={smoothed} streaming tolerantFences={isLocalEngineId(active?.provider)} />}
               <AgentActivityChip
                 tool={liveTools.length ? liveTools[liveTools.length - 1].tool : null}
                 onClick={() => setActivityOpen(true)}

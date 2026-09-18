@@ -17,7 +17,7 @@ register(codexAdapter)
 register(geminiAdapter)
 register(kimiAdapter)
 
-export { getAdapter, hasAdapter, listAdapters } from './registry'
+export { getAdapter, hasAdapter, listAdapters, unregisterAdapter, isLocalAdapterId, adapterKind } from './registry'
 export { claudeAdapter, codexAdapter, geminiAdapter, kimiAdapter }
 export {
   buildProviderEnv,

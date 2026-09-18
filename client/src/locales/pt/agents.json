@@ -175,6 +175,11 @@
     "noProfile": "Sem perfil",
     "modelTitle": "Modelo para este rail Freestyle",
     "loopModelTitle": "Modelo para este loop",
-    "engineTitle": "Fornecedor de IA para todos os papéis desta execução: arquiteto, programador e revisor"
+    "engineTitle": "Fornecedor de IA para todos os papéis desta execução: arquiteto, programador e revisor",
+    "localEngine": "Motor local",
+    "rolesEngine": "Papéis",
+    "rolesEngineTitle": "Motores híbridos por papel: architect, developer e reviewer usam a configuração do runtime; verifier e decider usam os papéis do loop (Definições ▸ Agentes Specrails)",
+    "rolesChip": "Motores por papel",
+    "rolesChipTitle": "Motores configurados por papel em Definições ▸ Agentes Specrails: architect, developer e reviewer a partir da configuração do runtime; verifier e decider a partir dos papéis do loop. Modelo, esforço e perfil não se escolhem aqui."
   }
 }

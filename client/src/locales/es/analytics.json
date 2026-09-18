@@ -32,7 +32,8 @@
     "ticketChip": "ticket #{{id}} ·  ✕",
     "failedToLoad": "Error al cargar: {{error}}",
     "modelChip": "Modelo: {{model}}",
-    "clearModelFilter": "Quitar filtro de modelo"
+    "clearModelFilter": "Quitar filtro de modelo",
+    "localEngine": "local"
   },
   "hero": {
     "spending": "Gasto",
@@ -152,7 +153,8 @@
     "colProvider": "Proveedor",
     "sortLabel": "Ordenar",
     "sortRecency": "Reciente",
-    "sortCost": "Coste"
+    "sortCost": "Coste",
+    "costUnknownLocalTooltip": "Coste desconocido (motor local). Añade tarifas a la conexión para ver una estimación."
   },
   "export": {
     "summaryCsv": "CSV resumen",

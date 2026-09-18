@@ -305,6 +305,14 @@ describe('rails-router PUT /:railIndex/engine', () => {
     expect(res.status).toBe(400)
   })
 
+  it('accepts the `roles` sentinel (hybrid-role-engines: per-role engines, no override)', async () => {
+    setRailTickets(db, 0, [1])
+    const res = await request(appWith(db, { providers: ['claude', 'codex'] }))
+      .put('/rails/0/engine').send({ aiEngine: 'roles' })
+    expect(res.status).toBe(200)
+    expect(getRail(db, 0).aiEngine).toBe('roles')
+  })
+
   it('rejects an invalid rail index', async () => {
     const res = await request(appWith(db)).put('/rails/-1/engine').send({ aiEngine: 'claude' })
     expect(res.status).toBe(400)
@@ -425,6 +433,20 @@ describe('rails-router POST /:railIndex/launch freestyle mode (loops off — Que
     expect(enqueue).not.toHaveBeenCalled()
   })
 
+  it('rejects a roles launch for freestyle (no roles there); implement degrades to the primary on the legacy path', async () => {
+    setRailTickets(db, 0, [1], 'implement', null, 'roles')
+    const enqueue = vi.fn(() => ({ id: 'job-r' }))
+    const app = appWith(db, { providers: ['claude', 'codex'], queueManager: { enqueue } })
+    const freestyle = await request(app).post('/rails/0/launch').send({ mode: 'freestyle' })
+    expect(freestyle.status).toBe(400)
+    expect(freestyle.body.error).toBe('roles_engine_unsupported_mode')
+    expect(enqueue).not.toHaveBeenCalled()
+    // Loops off ⇒ the CLI pipeline runs; no verifier stored ⇒ no provider override.
+    const implement = await request(app).post('/rails/0/launch').send({ mode: 'implement' })
+    expect(implement.status).toBe(202)
+    expect((enqueue.mock.calls[0]![2] as { provider?: string }).provider).toBeUndefined()
+  })
+
   it('rejects an unknown mode', async () => {
     setRailTickets(db, 0, [1])
     const res = await request(appWith(db, { queueManager: { enqueue: vi.fn() } }))
@@ -541,6 +563,27 @@ describe('rails-router POST /:railIndex/stop (M19)', () => {
 
     expect(res.status).toBe(200)
     expect(railJobs.has('stale')).toBe(false) // cleaned up despite the throw
+  })
+
+  it('releases a loop-run entry the engine no longer owns (orphan-reconciled while alive) so the tickets are not pinned in flight', async () => {
+    const railLoopRuns = new Map<string, unknown>([['ghost-run', { railIndex: 0, ticketIds: [1] }]])
+    const app = express()
+    app.use(express.json())
+    app.use((req, _res, next) => {
+      ;(req as unknown as { projectCtx: unknown }).projectCtx = {
+        db, railJobs: new Map(), railLoopRuns,
+        project: { id: 'p1', slug: 's1', provider: 'claude', providers: ['claude'], path: '/repo' },
+        queueManager: { cancel: vi.fn() }, loopRunManager: { cancel: vi.fn() },
+        broadcast: () => {},
+      }
+      next()
+    })
+    app.use('/rails', createRailsRouter())
+    // No loop_runs row at all (the engine never wrote it / it was swept): terminal from the rail's point of view.
+    const res = await request(app).post('/rails/0/stop').send({})
+    expect(res.status).toBe(200)
+    expect(res.body.loopRunIds).toEqual(['ghost-run'])
+    expect(railLoopRuns.has('ghost-run')).toBe(false)
   })
 
   it('404s when the rail has no jobs', async () => {

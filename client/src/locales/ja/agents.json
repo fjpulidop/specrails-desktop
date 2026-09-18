@@ -175,6 +175,11 @@
     "noProfile": "プロファイルなし",
     "modelTitle": "この Freestyle レールのモデル",
     "loopModelTitle": "このループのモデル",
-    "engineTitle": "この実行のすべてのロール（設計、開発、レビュー）で使う AI プロバイダー"
+    "engineTitle": "この実行のすべてのロール（設計、開発、レビュー）で使う AI プロバイダー",
+    "localEngine": "ローカルエンジン",
+    "rolesEngine": "ロール別",
+    "rolesEngineTitle": "ロール別のハイブリッドエンジン：architect・developer・reviewer はランタイム設定を、verifier・decider はループロールを使用します（設定 ▸ Specrails エージェント）",
+    "rolesChip": "ロール別エンジン",
+    "rolesChipTitle": "エンジンは「設定 ▸ Specrails エージェント」でロールごとに設定済みです：architect・developer・reviewer はランタイム設定から、verifier・decider はループロールから。モデル・推論の深さ・プロファイルはここでは選びません。"
   }
 }

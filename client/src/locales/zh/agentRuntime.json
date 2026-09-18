@@ -26,8 +26,75 @@
     "addLocal": "添加本地 / API 提供商",
     "show": "显示提供商连接",
     "hide": "隐藏提供商连接",
-    "globalTitle": "提供商连接",
-    "globalHint": "这些连接可供所有项目使用。在项目设置中为角色分配提供商和模型。更改适用于新的执行。"
+    "globalTitle": "AI 提供商",
+    "globalHint": "每个项目由两类提供商驱动：本机检测到的编程 CLI，以及你在此注册的本地 OpenAI 兼容引擎。在项目设置 ▸ 代理引擎中将它们分配给流水线各阶段。更改适用于新的执行。",
+    "label": "显示名称（可选）",
+    "labelPlaceholder": "例如：局域网主机",
+    "defaultModel": "默认模型",
+    "defaultModelNone": "无默认（使用首个发现的模型）",
+    "defaultModelPlaceholder": "模型 ID 或自定义别名",
+    "customModel": "自定义别名…",
+    "discoveredModels": "已发现的模型",
+    "noModels": "尚未发现模型，请测试连接。",
+    "rates": "费率（每 100 万 token 的美元，可选）",
+    "ratesHint": "费用按估算显示；两项都留空则费用保持未知。",
+    "inputRate": "输入 / 100 万",
+    "outputRate": "输出 / 100 万",
+    "ratesInvalid": "请将两项费率都填写为非负数，或都留空。",
+    "reasoningEffort": "端点支持推理强度",
+    "reasoningEffortHint": "发送 OpenAI 的 reasoning_effort 字段：每次调用使用该角色配置的推理强度，在紧凑架构师撰写计划时提升为 high。除非服务器支持，否则请保持关闭。",
+    "apiKeyEnvMissing": "应用进程中未设置 {{name}}。请在启动应用的环境中设置它。",
+    "test": "测试连接",
+    "testing": "测试中…",
+    "testFailed": "无法测试连接。",
+    "rename": "重命名",
+    "renameHint": "重命名后，角色分配仍指向此连接。",
+    "idLocked": "保存后 ID 将被锁定。请使用“重命名”修改。",
+    "localBadge": "本地引擎",
+    "cliBadge": "CLI",
+    "notDetected": "本机未检测到",
+    "unsaved": "未保存的更改",
+    "empty": "尚无连接。添加本地 / API 提供商以开始。",
+    "fixBeforeSave": "保存前请修正标出的字段。",
+    "status": {
+      "probing": "检测中…",
+      "reachable": "可访问",
+      "unauthorized": "未授权",
+      "unreachable": "无法访问",
+      "untested": "从未测试"
+    },
+    "auth": {
+      "authenticated": "已登录",
+      "unauthenticated": "未登录",
+      "unknown": "登录状态未知"
+    },
+    "agentLoop": "Agent 循环",
+    "agentLoopHint": "implement 流水线如何驱动此模型",
+    "agentLoop_compact": "紧凑",
+    "agentLoop_compactHint": "由应用驱动的微步骤与结构化输出。推荐 ~30B 以下的模型使用。",
+    "agentLoop_free": "自由",
+    "agentLoop_freeHint": "每个角色一个 agent 循环，与 CLI 提供商相同。需要较强的模型。",
+    "contextWindow": "上下文窗口（token）",
+    "contextWindowHint": "与服务器的上下文大小保持一致（n_ctx / num_ctx）。用于在窗口填满前压缩旧的工具结果。默认 32768。",
+    "maxOutput": "每轮输出预算（token）",
+    "maxOutputHint": "单个工具轮次的 max_tokens；被截断的轮次会以两倍预算重试一次。它计入上下文窗口，因此始终受剩余空间限制——若模型会私下思考（thinking 会消耗该预算），请调高。默认 8192。",
+    "reasoningEffortRailHint": "关闭时，此引擎在 rail 标题栏中不会显示推理强度选择器。",
+    "presetTitle": "快速设置",
+    "presetSmallModel": "小模型推荐",
+    "presetSmallModelApplied": "已应用小模型预设",
+    "presetSmallModelHint": "启用紧凑循环、转发推理强度并设置 32k 上下文窗口——这是在 7–14B 模型上验证过的组合。各字段仍可单独修改。",
+    "cliGroup": "CLI 工具",
+    "cliGroupHint": "在本机检测到——使用各自的登录，无需配置。",
+    "localGroup": "本地引擎",
+    "localGroupHint": "本应用可访问的 OpenAI 兼容端点（llama.cpp、Ollama、vLLM、LM Studio 等）。",
+    "models_one": "{{count}} 个模型",
+    "models_other": "{{count}} 个模型",
+    "expand": "显示设置",
+    "collapse": "隐藏设置",
+    "overflow": "更多操作",
+    "addLocalHero": "添加本地引擎",
+    "emptyLocalPitch": "尚无本地引擎。将应用指向一个 OpenAI 兼容端点，即可在自己的硬件上运行流水线：成本由你掌控，数据不离开你的网络。",
+    "defaultsGroup": "提供商默认值"
   },
   "cliNames": {
     "claude": "Claude",
@@ -39,23 +106,28 @@
     "architect": "架构师",
     "developer": "开发者",
     "reviewer": "审查者",
+    "fixer": "修复者",
     "verify": "验证",
     "archive": "完成"
   },
   "agents": {
     "title": "角色分配",
-    "hint": "每个角色可以使用不同的提供商和模型。在常规设置 → Specrails Agents中管理连接。默认每个代理最多{{turns}}轮。",
+    "hint": "每个角色可以使用不同的提供商和模型。在常规设置 → AI 提供商中管理连接。默认每个代理最多{{turns}}轮。",
     "provider": "提供商",
     "model": "模型",
     "modelPlaceholder": "模型 ID 或 CLI 默认值",
     "maxTurns": "最大轮数（默认 {{turns}}）",
-    "defaultModel": "默认（{{model}}）"
+    "defaultModel": "默认（{{model}}）",
+    "thinking": "隐藏思考",
+    "thinking_off": "关闭",
+    "thinking_on": "开启",
+    "thinkingHint": "默认关闭：在由主机驱动的循环中，隐藏推理会消耗输出预算和每轮的分钟数。对受益于深思的角色可开启（以 chat_template_kwargs.enable_thinking 发送；不识别该字段的端点会忽略）。"
   },
   "limits": {
     "title": "工作流限制",
-    "hint": "空字段使用 Core 默认值：开发者尝试 {{attempts}} 次，每个工作流 {{minutes}} 分钟。令牌和 USD 上限可选；USD 上限要求所有 AI 角色使用 Claude。",
+    "hint": "留空则使用 Core 默认值：{{attempts}} 次修正尝试，每个角色步骤 {{minutes}} 分钟。在本地引擎上，超时按工作单元计算（一个任务组、一个工件、一次审查），默认 45 分钟，另有 20 分钟空闲看门狗；超时的步骤会阻塞运行，并可从下一个未完成的任务组恢复。token 和美元上限为可选；美元上限要求所有 AI 角色使用 Claude。",
     "maxAttempts": "开发者最大尝试次数（默认 {{attempts}}）",
-    "timeoutMinutes": "超时（分钟，默认 {{minutes}}）",
+    "timeoutMinutes": "超时（分钟；默认 {{minutes}}，本地引擎每个任务组 45）",
     "maxTokens": "最大令牌数",
     "maxCostUsd": "最大成本（USD）",
     "unlimited": "无限制"
@@ -108,7 +180,8 @@
     "implementation": "实现",
     "preserveProgress": "从所示阶段继续，保留已有工作和保存的设置。",
     "reviewDelivery": "实现已完成。交付前请在任务日志中检查结果；本次继续执行未发布结果。",
-    "prepareDelivery": "准备交付"
+    "prepareDelivery": "准备交付",
+    "dismiss": "忽略"
   },
   "roleHints": {
     "architect": "阅读代码并撰写提案、设计、任务和规范。只读。",
@@ -165,7 +238,8 @@
     "saved": "角色提示词已保存",
     "unsaved": "未保存的更改",
     "discard": "放弃更改",
-    "save": "保存提示词"
+    "save": "保存提示词",
+    "fixerHint": "仅在修正轮次使用：验证失败或审查被拒之后。除非“设置 ▸ 代理引擎 ▸ 修复者”指定了独立引擎，否则运行在开发者引擎上。恢复开发者会话的 CLI 提供方收到的是简短的修正跟进；每当启动新会话（本地引擎、修复者引擎、会话丢失）时，本定义生效。"
   },
   "efficiency": {
     "title": "实现效率",
@@ -180,7 +254,8 @@
     "triggers": {
       "architect": "仅现有的深入调查步骤可选择此等级。",
       "developer": "两个候选实现失败后，下一次允许的尝试可选择此等级。",
-      "reviewer": "仅用于修复格式错误的响应；拒绝代码不会触发升级。"
+      "reviewer": "仅用于修复格式错误的响应；拒绝代码不会触发升级。",
+      "fixer": "只有修正轮次才能进入此层级；首次实现从不运行修复者。"
     },
     "contextMode": "仓库上下文",
     "reviewMode": "修正审查",
@@ -242,5 +317,181 @@
     "original": "原始执行",
     "requested": "请求值",
     "reported": "报告值"
-  }
+  },
+  "loopRoles": {
+    "title": "循环角色",
+    "hint": "轨道以“按角色”引擎启动时循环侧角色所用的引擎。上方的流水线角色（architect、developer、reviewer）已来自此运行时配置。",
+    "verifier": "验证者",
+    "verifierHint": "循环中所有非核心的 AI 步骤：verify、fix 和自定义 AI 步骤。",
+    "decider": "决策者",
+    "deciderHint": "读取结论并决定下一步的 Loop Decider——选择便宜快速的模型最合适。",
+    "inherit": "继承主引擎",
+    "model": "模型",
+    "effort": "推理强度",
+    "disabled": "代理运行时已禁用——在启用之前，以“按角色”引擎启动的轨道会被拒绝。",
+    "saveFailed": "无法保存循环角色。"
+  },
+  "pipeline": {
+    "title": "实现流水线",
+    "explainer": "每次实现都按此顺序执行这些阶段。当 rail 的引擎为“{{roles}}”时，每个阶段使用下方配置的引擎——每个阶段可以有不同的提供商、模型和推理强度。若在 rail 上选择具体引擎，则所有阶段都在该引擎上运行。",
+    "host": "主机",
+    "noCommand": "无命令",
+    "inherits": "继承主引擎",
+    "inheritsDeveloper": "继承开发者",
+    "open": "展开",
+    "collapse": "收起",
+    "groups": {
+      "core": {
+        "title": "核心流水线",
+        "hint": "在每次实现中运行：规划、构建、验证、修复、评审。"
+      },
+      "loop": {
+        "title": "循环步骤",
+        "hint": "包裹运行的 rail 循环（验证 → 决策 → 修复）以及自定义循环的 AI 步骤；未设置时继承主引擎。",
+        "chip": "rail 循环"
+      }
+    },
+    "phases": {
+      "architect": {
+        "name": "架构师",
+        "purpose": "阅读代码并编写提案、设计与任务。"
+      },
+      "developer": {
+        "name": "开发者",
+        "purpose": "带测试地实现任务。"
+      },
+      "verification": {
+        "name": "验证",
+        "purpose": "主机运行你的检查；失败会返回给开发者。"
+      },
+      "fixer": {
+        "name": "修复者",
+        "purpose": "修正验证或评审驳回的内容；未配置时继承开发者。"
+      },
+      "reviewer": {
+        "name": "审查者",
+        "purpose": "对照规格与证据检查结果。"
+      },
+      "verifier": {
+        "name": "校验者",
+        "purpose": "循环中的 verify、fix 与自定义 AI 步骤。"
+      },
+      "decider": {
+        "name": "决策者",
+        "purpose": "读取裁定并决定循环的下一步。"
+      }
+    }
+  },
+  "fixer": {
+    "title": "修复者引擎",
+    "inherit": "继承开发者",
+    "own": "独立引擎",
+    "hint": "仅在修正轮次运行：验证失败或评审被驳回之后；首次实现仍由开发者完成。当开发者是廉价的本地模型时，在此使用更强或云端模型更划算。"
+  },
+  "guardrails": {
+    "title": "护栏",
+    "intro": "宿主在本地模型周围施加的流程规则，防止小模型跑偏。默认全部开启；只有在需要微调流程时才关闭某一项。CLI 提供商永不受影响。",
+    "unsupported": "此 Core 安装未提供可配置的护栏。请更新 Core 以进行调整；内置规则仍然生效。",
+    "active": "{{total}} 项中 {{on}} 项已启用",
+    "reset": "恢复默认",
+    "phases": {
+      "architect": "架构师",
+      "developer": "开发者",
+      "host": "宿主"
+    },
+    "unknown": "由更新版本的 Core 新增的护栏；此应用尚无对应描述。",
+    "items": {
+      "plan-validation": {
+        "title": "经过校验的任务计划",
+        "description": "拒绝指向 openspec/、把裸文件名列为任务、任务/分组数量相对规格过少或验收标准未覆盖的计划；架构师会重试。",
+        "why": "含糊或不完整的计划是小型开发者模型写出桩代码的头号原因。"
+      },
+      "genuine-blocking-question": {
+        "title": "只允许真正的阻塞问题",
+        "description": "架构师只能用以“?”结尾的真实问题暂停运行，绝不能用复制的示例文本。",
+        "why": "小模型会照搬提示词占位符，导致每次运行都被阻塞。"
+      },
+      "plan-language-hint": {
+        "title": "按仓库语言规划",
+        "description": "告知架构师主要语言，使任务文件名带有正确的扩展名。",
+        "why": "在 TypeScript 仓库上生成 JS 计划会让任务无法勾选。"
+      },
+      "frozen-plan-writes": {
+        "title": "规划产物已冻结",
+        "description": "开发者不能写入 openspec/；计划归宿主所有。",
+        "why": "模型会通过修改计划而不是代码来“实现”功能。"
+      },
+      "primary-language": {
+        "title": "主要语言提醒",
+        "description": "每个任务组都会被告知仓库的主要语言；新文件应使用该语言。",
+        "why": "防止用另一种语言做第二套实现。"
+      },
+      "duplicate-sibling": {
+        "title": "跨语言不允许孪生模块",
+        "description": "当 board.ts 已存在时拒绝 board.js；请扩展现有模块。",
+        "why": "孪生模块都会编译，而测试会导入错误的那个。"
+      },
+      "one-test-per-module": {
+        "title": "每个模块一个测试文件",
+        "description": "当 board.test.ts 已存在时拒绝 board.tick.test.ts；请扩展它。",
+        "why": "否则每轮修正都会新增一个测试套件。"
+      },
+      "empty-write": {
+        "title": "禁止空覆盖",
+        "description": "拒绝用空内容覆盖非空文件；请写入完整内容或打补丁。",
+        "why": "一次“清理”曾把 index.ts 变成 0 行。"
+      },
+      "evidence-gated-ticking": {
+        "title": "有证据才勾选任务",
+        "description": "指明文件的任务只有在文件存在且不是桩代码时才算完成（接受同类扩展名）。",
+        "why": "否则“完成”只是一句声明，验证时无物可测。"
+      },
+      "inventory-retry": {
+        "title": "用真实清单重试",
+        "description": "当模型声称仓库为空而放弃（实际并非如此）时，带上文件列表重试一次。",
+        "why": "以低成本给第二次机会，而不是失败的步骤。"
+      },
+      "synthetic-corrections": {
+        "title": "把反馈变成任务",
+        "description": "当所有任务都已勾选但审查/验证失败时，把反馈转成具体的修正任务。",
+        "why": "否则开发者会回答“已经完成”，什么都不会改变。"
+      },
+      "silent-group-closure": {
+        "title": "关闭沉默的分组并保留其文件",
+        "description": "模型停止响应的分组会被关闭，计入其写入的文件并保留任务为未完成，而不是让整个运行失败。",
+        "why": "一个 9B 模型写了五个模块后沉默，导致整个运行失败。"
+      },
+      "environment-repair": {
+        "title": "宿主修复环境",
+        "description": "缺失的依赖或测试工具（npm install、ts-jest、@types/jest、Jest 配置模块）由宿主安装，然后重新验证一次。",
+        "why": "模型无法修复环境，只会在尝试中耗尽修正次数。"
+      },
+      "lockfile-repair": {
+        "title": "丢弃手写的锁文件",
+        "description": "模型编造的 package-lock.json（EINTEGRITY/ETARGET）会被删除，并重试安装一次。",
+        "why": "编造的哈希永远无法安装。"
+      },
+      "verify-idle-timeout": {
+        "title": "终止挂起的测试",
+        "description": "5 分钟无输出的验证命令会被终止，并报告为疑似挂起（附最后输出）。",
+        "why": "否则测试里的 while 循环会把运行拖到 15 分钟上限。"
+      },
+      "verify-per-group": {
+        "title": "每组后验证",
+        "description": "在每个任务组完成后立即运行仓库自身的测试命令；失败时趁该组上下文仍新鲜进行一轮就地修复。",
+        "why": "最后一次面对五个损坏的测试套件，比逐个修复难得多。"
+      },
+      "test-reachability": {
+        "title": "每个新测试都必须真正运行",
+        "description": "开发者写下、但仓库测试命令从未执行的测试文件（逐个列举文件的 `test` 脚本漏掉了新文件）会使验证失败并指出确切文件——先在任务组层面，再在主机验证时。",
+        "why": "一个 622 行、含六个失败用例的测试套件曾因从未被运行而“绿灯”交付。"
+      },
+      "exit-code-honesty": {
+        "title": "不信任报告失败却返回 0 的退出码",
+        "description": "验证命令以 0 退出但输出中打印了失败（`FAIL:` 行、\"3 failed\"、AssertionError）时视为失败，并交给修复者，同时指出测试框架本身是缺陷。",
+        "why": "一个从不设置非零退出码的手写测试运行器曾把三个失败测试当作通过交付。"
+      }
+    }
+  },
+  "unsavedChanges": "未保存的更改"
 }

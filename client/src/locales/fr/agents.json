@@ -175,6 +175,11 @@
     "noProfile": "Aucun profil",
     "modelTitle": "Modèle pour ce rail Freestyle",
     "loopModelTitle": "Modèle pour ce loop",
-    "engineTitle": "Fournisseur IA pour tous les rôles de ce lancement : architecte, développeur et réviseur"
+    "engineTitle": "Fournisseur IA pour tous les rôles de ce lancement : architecte, développeur et réviseur",
+    "localEngine": "Moteur local",
+    "rolesEngine": "Rôles",
+    "rolesEngineTitle": "Moteurs hybrides par rôle : architect, developer et reviewer utilisent la configuration du runtime ; verifier et decider utilisent les rôles de boucle (Réglages ▸ Agents Specrails)",
+    "rolesChip": "Moteurs par rôle",
+    "rolesChipTitle": "Moteurs configurés par rôle dans Réglages ▸ Agents Specrails : architect, developer et reviewer depuis la configuration du runtime ; verifier et decider depuis les rôles de boucle. Le modèle, l'effort et le profil ne se choisissent pas ici."
   }
 }

@@ -3,10 +3,77 @@ import type { RuntimeEfficiency, RuntimeEfficiencySummary } from './runtime-effi
 export const RUNTIME_CLI_PROVIDERS = ['claude', 'codex', 'gemini', 'kimi'] as const
 export const RUNTIME_ROLES = ['architect', 'developer', 'reviewer'] as const
 export type RuntimeRole = typeof RUNTIME_ROLES[number]
+/** Roles with an editable prompt definition: the pipeline trio plus the FIXER stance the developer takes on correction rounds (Core ≥ the fixer-prompt catalog; older cores omit it). */
+export const PROMPT_ROLES = [...RUNTIME_ROLES, 'fixer'] as const
+export type PromptRole = typeof PROMPT_ROLES[number]
+/** The optional correction-round role: absent ⇒ the developer corrects its own work. */
+export const FIXER_ROLE = 'fixer' as const
+export type RuntimeAgentRole = RuntimeRole | typeof FIXER_ROLE
 export type RuntimeCli = typeof RUNTIME_CLI_PROVIDERS[number]
-export type RuntimeProvider =
-  | { id: string; kind: 'cli'; cli: RuntimeCli }
-  | { id: string; kind: 'openai-compatible'; baseUrl: string; apiKeyEnv?: string }
+/** Optional USD per 1M tokens; when present the app flags the derived cost as estimated. */
+export interface RuntimeProviderRates { inputPer1M: number; outputPer1M: number }
+export interface RuntimeCliProvider { id: string; kind: 'cli'; cli: RuntimeCli }
+/**
+ * An OpenAI-compatible (local) connection. `label`, `defaultModel`, `rates` and
+ * `supportsReasoningEffort` are additive — files without them load unchanged.
+ */
+export interface RuntimeLocalProvider {
+  id: string
+  kind: 'openai-compatible'
+  baseUrl: string
+  apiKeyEnv?: string
+  label?: string
+  defaultModel?: string
+  rates?: RuntimeProviderRates
+  supportsReasoningEffort?: boolean
+  /** Core small-model runtime: 'compact' (default, host-driven micro-steps) or 'free' (single agentic loop). */
+  agentLoop?: 'compact' | 'free'
+  /** Server context window used for compaction budgets (tokens). */
+  contextWindowTokens?: number
+  /** Output budget (max_tokens) of one tool turn; the cut-off retry gets twice this, bounded by the window. Default 8192. */
+  maxOutputTokens?: number
+}
+export type RuntimeProvider = RuntimeCliProvider | RuntimeLocalProvider
+
+/** Live detection status of one connection (`GET /api/runtime-providers` → `status[id]`). */
+export interface RuntimeProviderStatus {
+  reachable?: boolean
+  installed?: boolean
+  executable?: boolean
+  version?: string
+  authState: 'authenticated' | 'unauthenticated' | 'unknown'
+  models?: string[]
+  latencyMs?: number
+  error?: string
+  apiKeyEnvMissing?: boolean
+}
+export interface RuntimeProvidersResponse { providers: RuntimeProvider[]; status: Record<string, RuntimeProviderStatus> }
+/** `POST /api/runtime-providers/test` reply — a probe of the DRAFT values, nothing saved. */
+export interface RuntimeProviderTestResult {
+  reachable: boolean
+  authState: RuntimeProviderStatus['authState']
+  models: string[]
+  latencyMs: number
+  error?: string
+  apiKeyEnvMissing?: boolean
+}
+
+export function isLocalRuntimeProvider(provider: RuntimeProvider): provider is RuntimeLocalProvider {
+  return provider.kind === 'openai-compatible'
+}
+
+/** Display name for a connection: the user's label when set, else the stable id. */
+export function runtimeProviderDisplayName(provider: RuntimeProvider): string {
+  return provider.kind === 'openai-compatible' && provider.label?.trim() ? provider.label.trim() : provider.id
+}
+
+/** Older servers omit `status`; a malformed body must never be treated as a connection list. */
+export function isRuntimeProvidersResponse(value: unknown): value is RuntimeProvidersResponse {
+  if (!value || typeof value !== 'object') return false
+  const data = value as Partial<RuntimeProvidersResponse>
+  return Array.isArray(data.providers) && data.providers.every((provider) => provider && typeof provider.id === 'string' && ['cli', 'openai-compatible'].includes(provider.kind))
+    && (data.status === undefined || (typeof data.status === 'object' && data.status !== null))
+}
 export interface RuntimeEfficiencyPolicy {
   schemaVersion: 1
   contextMode?: 'full' | 'incremental'
@@ -24,7 +91,7 @@ export interface RuntimeCheckPolicy {
   independentGroup?: string
   resources?: string[]
 }
-export interface RuntimeAgent { provider: string; model?: string; maxTurns?: number; effort?: string; escalation?: { model: string; effort?: string } }
+export interface RuntimeAgent { provider: string; model?: string; maxTurns?: number; effort?: string; /** Local engines only: private thinking; unset = off. */ thinking?: 'on' | 'off'; escalation?: { model: string; effort?: string } }
 export interface RuntimeVerificationCommand { key?: string; label?: string; policy?: RuntimeCheckPolicy; repositoryId: string; command: string; args: string[]; cwd?: string; env?: Record<string, string>; timeoutMs?: number }
 export interface AgentRuntimeConfig {
   efficiency?: RuntimeEfficiencyPolicy
@@ -32,11 +99,38 @@ export interface AgentRuntimeConfig {
   enabled: boolean
   providers: RuntimeProvider[]
   agents: Record<RuntimeRole, RuntimeAgent>
+  /**
+   * Optional engine for correction rounds (after a failed verification or a
+   * rejected review). Same shape as an `agents` entry; absent ⇒ the developer
+   * corrects its own work.
+   */
+  fixer?: RuntimeAgent
   limits?: { maxAttempts?: number; maxTokens?: number; maxCostUsd?: number; timeoutMs?: number }
   verification: RuntimeVerificationCommand[]
   approvalBeforeArchive?: boolean
   review?: { minScore?: number; aspects?: Partial<Record<ReviewAspect, number>> }
   architect?: { onLowConfidence?: ArchitectLowConfidencePolicy }
+  /** Compact-runtime guardrails switched OFF (`id → false`). A missing id is on; `true` is never stored. */
+  guardrails?: Record<string, boolean>
+}
+/** `GET …/agent-runtime/guardrails` — the host's process rules around local models, grouped by phase. */
+export const GUARDRAIL_PHASES = ['architect', 'developer', 'host'] as const
+export type GuardrailPhase = typeof GUARDRAIL_PHASES[number]
+export interface GuardrailDescriptor { id: string; phase: GuardrailPhase }
+export interface GuardrailsCatalogResponse { supported: boolean; catalog: GuardrailDescriptor[] }
+/** An older Core (or a malformed body) renders the section disabled instead of crashing. */
+export function isGuardrailsCatalogResponse(value: unknown): value is GuardrailsCatalogResponse {
+  if (!value || typeof value !== 'object') return false
+  const data = value as Partial<GuardrailsCatalogResponse>
+  return typeof data.supported === 'boolean' && Array.isArray(data.catalog) &&
+    data.catalog.every((item) => item && typeof item.id === 'string' && (GUARDRAIL_PHASES as readonly string[]).includes(item.phase))
+}
+/** Only `false` entries persist; turning a guardrail back on deletes its key (undefined when nothing is off). */
+export function setGuardrail(current: Record<string, boolean> | undefined, id: string, enabled: boolean): Record<string, boolean> | undefined {
+  const next = { ...current }
+  if (enabled) delete next[id]
+  else next[id] = false
+  return Object.keys(next).length ? next : undefined
 }
 export const REVIEW_ASPECTS = ['type_correctness', 'pattern_adherence', 'test_coverage', 'security', 'architectural_alignment'] as const
 export type ReviewAspect = typeof REVIEW_ASPECTS[number]
@@ -58,6 +152,9 @@ export interface RuntimeRun {
   pendingApproval?: { stepId: string; reason?: string }
   pendingQuestion?: RuntimePendingQuestion
   recoverableSteps: string[]; active: boolean; canResume: boolean; canCancel: boolean
+  /** Settled continuation removable from the rail card (stays in the history). */
+  canDismiss?: boolean
+  dismissed?: boolean
 }
 export interface AgentRuntimeSettingsResponse {
   efficiencyAvailable?: boolean
