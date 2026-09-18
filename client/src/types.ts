@@ -506,6 +506,8 @@ export interface PacketTicketSection {
   title: string | null
   problem: string | null
   solution: string | null
+  /** Solution content beyond the visible digest (markdown). */
+  solutionOverflow?: string | null
   labels: string[]
   implementationOutcome: string | null
   deliveryOutcome: string | null

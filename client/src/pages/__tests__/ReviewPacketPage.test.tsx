@@ -134,6 +134,31 @@ describe('ReviewPacketPage — above the fold', () => {
     expect(screen.getByText('This build cost $2.50')).toBeInTheDocument()
   })
 
+  it('renders the spec narrative as markdown — lists stay lists, code reads as code, the overflow sits behind a disclosure', async () => {
+    respond({
+      packet: packet({ sections: [{
+        ...packet().sections[0],
+        problem: 'The game only listens for `keydown` (`game.js:935`).',
+        solution: '**Proposed Solution**\n\n1. Tap Left/Right to move.\n2. Tap Rotate, identical to `ArrowUp`.',
+        solutionOverflow: '**Proposed Solution**\n\n1. Tap Left/Right to move.\n2. Tap Rotate.\n3. Hold Soft Drop.',
+      }] }),
+    })
+    renderPage()
+    expect(await screen.findByText('Your change is ready for review')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('What was done'))
+    // A numbered journey renders as an ordered list, not one run-on paragraph.
+    const items = [...document.querySelectorAll('ol > li')].filter((li) => /Tap (Left|Rotate)/.test(li.textContent ?? ''))
+    expect(items.length).toBeGreaterThanOrEqual(2)
+    // Backticks become code chips; bold labels become <strong>.
+    expect(screen.getAllByText('keydown').some((el) => el.tagName === 'CODE')).toBe(true)
+    expect(screen.getAllByText('Proposed Solution').some((el) => el.tagName === 'STRONG')).toBe(true)
+    // The overflow is collapsed behind a disclosure until asked for.
+    const summary = screen.getByText('Read the full solution')
+    expect(summary.closest('details')?.open).toBe(false)
+    fireEvent.click(summary)
+    expect(screen.getByText('Hold Soft Drop.')).toBeInTheDocument()
+  })
+
   it('marks an estimated cost and shows an em-dash when unknown', async () => {
     respond({ packet: packet({ cost: { totalUsd: 1.5, estimated: true } }) })
     const { unmount } = renderPage()

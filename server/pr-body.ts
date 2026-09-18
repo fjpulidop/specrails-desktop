@@ -264,14 +264,14 @@ export function extractSpecNarrative(description: string | null | undefined): Sp
   const solutionSections = headed.filter((s) => s !== problemSection && SOLUTION_HEADING_RE.test(s.title))
   if (solutionSections.length > 0) {
     for (const s of solutionSections) {
-      if (s.content.trim()) solutionParts.push(`**${s.title.trim()}** — ${s.content.trim()}`)
+      if (s.content.trim()) solutionParts.push(sectionDigest(s))
     }
   } else {
     // No explicit solution headings: use the remaining content (everything
     // after what we used as the problem).
     const rest = headed.filter((s) => s !== problemSection && s.content.trim())
     if (rest.length > 0) {
-      for (const s of rest) solutionParts.push(`**${s.title.trim()}** — ${s.content.trim()}`)
+      for (const s of rest) solutionParts.push(sectionDigest(s))
     } else if (!problemSection && preamble && problem === preamble) {
       // Heading-less description: first paragraph = problem, remainder = solution.
       const paras = preamble.split(/\n{2,}/)
@@ -290,6 +290,16 @@ export function extractSpecNarrative(description: string | null | undefined): Sp
     solution: clampText(solutionFull, SOLUTION_MAX),
     overflow: solutionFull,
   }
+}
+
+/**
+ * A headed section as markdown that still renders as markdown: the bold
+ * label on its own line, then the content as a BLOCK. The old inline
+ * `**Title** — content` join put a numbered list's first item on the label
+ * line, so every renderer (GitHub PR body, the review packet) lost the list.
+ */
+function sectionDigest(s: Section & { title: string }): string {
+  return `**${s.title.trim()}**\n\n${s.content.trim()}`
 }
 
 /** Split markdown into sections at `#`-headings and standalone `**Bold**` label lines. */

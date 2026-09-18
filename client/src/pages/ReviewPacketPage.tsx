@@ -25,6 +25,7 @@ import { useDesktop } from '../hooks/useDesktop'
 import { useRailPrDecisions } from '../context/RailPrDecisionContext'
 import { useTicketDetailModal } from '../context/TicketDetailModalContext'
 import { RepositoryDeliveries } from '../components/RepositoryDeliveries'
+import { PacketMarkdown } from '../components/review-packet/PacketMarkdown'
 import { coerceRailPrStateSnapshot, derivePrDeliveryPresentation } from '../lib/pr-delivery'
 import { packetVerbAction, resolvePacketVerbs, type PacketVerb } from '../lib/packet-verbs'
 import { notifyGitChanged } from '../lib/git-refresh'
@@ -572,7 +573,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                 #{section.ticketId} {section.title ?? ''}
               </button>
               {section.problem ? (
-                <p className="mt-1 text-muted-foreground">{section.problem}</p>
+                <PacketMarkdown muted className="mt-1">{section.problem}</PacketMarkdown>
               ) : null}
             </li>
           ))}
@@ -583,8 +584,22 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         <ul className="space-y-3">
           {packet.sections.map((section) => (
             <li key={section.ticketId} className="text-sm">
-              <span className="font-medium text-foreground">#{section.ticketId}</span>{' '}
-              {section.solution ?? <span className="text-muted-foreground">{t('noSolutionRecorded')}</span>}
+              <div className="font-medium text-foreground">
+                #{section.ticketId}{section.title ? <span className="font-normal text-muted-foreground"> · {section.title}</span> : null}
+              </div>
+              {section.solution ? (
+                <PacketMarkdown className="mt-1">{section.solution}</PacketMarkdown>
+              ) : (
+                <p className="mt-1 text-muted-foreground">{t('noSolutionRecorded')}</p>
+              )}
+              {section.solutionOverflow ? (
+                <details className="group mt-2 rounded-lg border border-border/50 bg-background-deep/30">
+                  <summary className="cursor-pointer select-none px-3 py-1.5 text-xs font-medium text-accent-primary/90 hover:text-accent-primary">
+                    {t('sections.fullSolution')}
+                  </summary>
+                  <PacketMarkdown className="px-3 pb-3">{section.solutionOverflow}</PacketMarkdown>
+                </details>
+              ) : null}
               {section.churn ? (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {t('churn.line', {
