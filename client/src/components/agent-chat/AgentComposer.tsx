@@ -193,11 +193,15 @@ export function AgentComposer({
   // screen we materialise the draft conversation just before the upload.
   const canAttach = !blocked && !inQueueEdit
   const provider = active?.provider ?? draftProvider
-  const { availableIds: discoveredProviders } = useAvailableProviders()
+  const { availableIds: discoveredProviders, labels: providerLabels } = useAvailableProviders()
   const selectableProviders = useMemo(
     () => [provider, ...discoveredProviders].filter((id, index, all) => all.indexOf(id) === index),
     [provider, discoveredProviders],
   )
+  // A local engine shows its connection label, never the raw connection id;
+  // CLIs keep their i18n names.
+  const providerOptionLabel = (id: string): string =>
+    t(`provider.${id}`, { defaultValue: providerLabels?.[id] ?? id })
   // The git strip follows the MISSION's pinned project (or the draft pin on the
   // EMPTY compose screen) — never the app's active project.
   const gitProjectId = active ? active.pinned_project_id : draftPinnedProjectId
@@ -686,7 +690,7 @@ export function AgentComposer({
           value={provider}
           options={selectableProviders.map((p) => ({
             value: p,
-            label: t(`provider.${p}`, { defaultValue: p }),
+            label: providerOptionLabel(p),
           }))}
           icon={Bot}
           onSelect={(nextProvider) => {

@@ -20,9 +20,13 @@ Ogni connessione ha anche l'impostazione **Loop dell'agente**. **Compatto** (pre
 - Le sessioni riprendono tra un turno e l'altro; i job interattivi funzionano.
 - Il costo è onesto: i token vengono registrati, il costo resta *sconosciuto* a meno che tu non inserisca tariffe (allora è contrassegnato come *stimato*).
 
-Non disponibile sui motori locali: profili agente e ruoli personalizzati, arricchimento SMASH / Contract Layer, generazione del Project Builder, allegati e telemetria della pipeline.
+Non disponibile sui motori locali: profili agente e ruoli personalizzati, arricchimento SMASH / Contract Layer, allegati e telemetria della pipeline. Il Project Builder funziona in modalità solo-output (senza strumenti); il suo contratto di blueprint è rigido, quindi usa un modello capace.
 
 > Le missioni richiedono una **finestra di contesto ampia** sul server (64k token o più): il prompt dell'operatore più gli schemi degli strumenti Specrails sono grandi. Chat ed Explore vanno bene a 32k. Se un turno fallisce con *exceeds the available context size*, aumenta la finestra (Ollama `OLLAMA_CONTEXT_LENGTH`, llama.cpp `-c`, LM Studio *Context Length*).
+
+## Hai solo un motore locale?
+
+Niente da configurare. Specrails offre i motori che la tua macchina può davvero eseguire e sceglie il predefinito con un'unica regola ovunque: una CLI installata (Claude → Codex → Gemini → Kimi), altrimenti il primo motore locale il cui endpoint risponde. Su una macchina con il solo endpoint locale, rail, Add Spec, chat, **missioni dell'agente e Project Builder** partono su di esso — nessun selettore da toccare. Un motore con il server spento semplicemente non viene offerto finché non risponde di nuovo. Le missioni esistenti mantengono il motore con cui sono state create; il selettore permette comunque di cambiarlo.
 
 ## Scegliere il modello
 

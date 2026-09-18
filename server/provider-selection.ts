@@ -88,6 +88,20 @@ export function derivePrimaryProvider(project: Partial<ProviderFields>): CliProv
 }
 
 /**
+ * The provider an APP-LEVEL surface (Agent Chat missions, the Project Builder)
+ * starts a fresh conversation on when the caller names none: the machine's
+ * primary per `derivePrimaryProvider` over the detected set — a local-only
+ * machine therefore lands on its local engine instead of a `claude` that is
+ * not installed. Falls back to `claude` while no detection snapshot exists
+ * (startup, unit tests), byte-identical to the old hardcoded default.
+ */
+export function defaultMachineProvider(): string {
+  const detected = detectedProviders()
+  if (!detected) return 'claude'
+  return derivePrimaryProvider({ provider: 'claude', providers: detected })
+}
+
+/**
  * Resolve the effective provider for a per-invocation request.
  * Returns the requested provider when it is available; otherwise falls back to
  * the derived primary. Never throws — callers that want strict validation

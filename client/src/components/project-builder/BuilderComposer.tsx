@@ -21,11 +21,13 @@ interface BuilderComposerProps {
 export function BuilderComposer({ session, autoFocus = false }: BuilderComposerProps) {
   const { t } = useTranslation('builder')
   const { t: tAgent } = useTranslation('agent')
-  const { availableIds: discoveredProviders } = useAvailableProviders()
+  const { availableIds: discoveredProviders, labels: providerLabels } = useAvailableProviders()
   const builderAvailable = providerSupportsPureOutput(session.provider)
   const providers = [session.provider, ...discoveredProviders]
     .filter((id, index, all) => all.indexOf(id) === index)
     .filter(providerSupportsPureOutput)
+  const providerOptionLabel = (id: string): string =>
+    tAgent(`provider.${id}`, { defaultValue: providerLabels?.[id] ?? id })
 
   const sendInput = () => {
     if (!builderAvailable || !session.draft.trim() || session.busy || !session.conversationReady) return
@@ -50,7 +52,7 @@ export function BuilderComposer({ session, autoFocus = false }: BuilderComposerP
           value={session.provider}
           options={providers.map((p) => ({
             value: p,
-            label: tAgent(`provider.${p}`, { defaultValue: p }),
+            label: providerOptionLabel(p),
           }))}
           icon={Bot}
           onSelect={session.setProvider}

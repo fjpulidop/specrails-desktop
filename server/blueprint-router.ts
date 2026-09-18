@@ -18,6 +18,7 @@ import {
   listBlueprintMessages,
 } from './blueprint-store'
 import { auditRawBlueprintForM1 } from './blueprint-spec-quality'
+import { defaultMachineProvider } from './provider-selection'
 import type { BlueprintCommitInput, BlueprintCommitRunner } from './blueprint-commit'
 
 // ─── Project Builder REST surface (/api/blueprint) ────────────────────────────
@@ -60,7 +61,7 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
   })
 
   router.get('/models', (req: Request, res: Response) => {
-    const provider = validProvider(req.query.provider) ?? 'claude'
+    const provider = validProvider(req.query.provider) ?? defaultMachineProvider()
     const adapter = getAdapter(provider)
     const toolPolicy = pureOutputToolPolicy(adapter)
     const requestedModel = typeof req.query.model === 'string' && req.query.model
@@ -92,7 +93,7 @@ export function createBlueprintRouter(deps: BlueprintRouterDeps): Router {
 
   router.post('/conversations', (req: Request, res: Response) => {
     const body = (req.body ?? {}) as { provider?: unknown; model?: unknown }
-    const provider = validProvider(body.provider) ?? 'claude'
+    const provider = validProvider(body.provider) ?? defaultMachineProvider()
     if (!pureOutputToolPolicy(getAdapter(provider))) {
       res.status(409).json({ error: 'provider_tool_policy_unsupported', provider })
       return

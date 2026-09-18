@@ -769,6 +769,37 @@ describe('desktop-router', () => {
       expect(res.body.codex).toBe(false)
     })
 
+    it('reports a local engine from the detection probe, not from `which` on its node binary', async () => {
+      const { createLocalAdapter } = await import('./providers/local-adapter')
+      const { register, unregisterAdapter } = await import('./providers/registry')
+      const { getDetectionSnapshot } = await import('./provider-detection')
+      register(createLocalAdapter({ id: 'lmstudio', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:1234/v1' }), 'local')
+      try {
+        // The PATH probe says "installed" (its binary is node) …
+        vi.mocked(detectAvailableCLIs).mockReturnValue({ claude: false, codex: false, gemini: false, kimi: false, lmstudio: true })
+        // … but the endpoint probe is the authority: unreachable ⇒ unavailable.
+        vi.mocked(getDetectionSnapshot).mockResolvedValueOnce({
+          providers: { lmstudio: { id: 'lmstudio', displayName: 'LM Studio', installed: false, executable: false, authState: 'unknown', usable: false, kind: 'local', error: 'unreachable' } },
+          detected: [], at: Date.now(),
+        } as never)
+        const { app } = createApp()
+        let res = await request(app).get('/api/available-providers')
+        expect(res.status).toBe(200)
+        expect(res.body.lmstudio).toBe(false)
+        // Reachable ⇒ available, even with no CLI on the machine.
+        vi.mocked(getDetectionSnapshot).mockResolvedValueOnce({
+          providers: { lmstudio: { id: 'lmstudio', displayName: 'LM Studio', installed: true, executable: true, authState: 'authenticated', usable: true, kind: 'local', models: ['qwen'] } },
+          detected: ['lmstudio'], at: Date.now(),
+        } as never)
+        res = await request(app).get('/api/available-providers')
+        expect(res.body.lmstudio).toBe(true)
+        expect(res.body.tiers).toContain('full')
+      } finally {
+        unregisterAdapter('lmstudio')
+        vi.mocked(detectAvailableCLIs).mockReturnValue({ claude: true, codex: false, gemini: false })
+      }
+    })
+
     it('gates detected Kimi on Core rendering support and returns remediation', async () => {
       vi.mocked(detectAvailableCLIs).mockReturnValue({
         claude: false,

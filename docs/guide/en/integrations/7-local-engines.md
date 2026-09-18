@@ -20,9 +20,13 @@ Each connection also has an **Agent loop** setting. **Compact** (default) drives
 - Sessions resume across turns; interactive jobs work.
 - Cost is honest: tokens are recorded, cost stays *unknown* unless you enter rates (then it is marked *estimated*).
 
-Not available on local engines: agent profiles and custom roles, SMASH / Contract Layer enrichment, Project Builder generation, attachments and pipeline telemetry.
+Not available on local engines: agent profiles and custom roles, SMASH / Contract Layer enrichment, attachments and pipeline telemetry. The Project Builder works in pure-output mode (no tools) — its blueprint contract is strict, so use a capable model.
 
 > Missions need a **large context window** on the server (64k tokens or more): the operator prompt plus the Specrails tool schemas are big. Chat and Explore are fine at 32k. If a turn fails with *exceeds the available context size*, raise the window (Ollama `OLLAMA_CONTEXT_LENGTH`, llama.cpp `-c`, LM Studio *Context Length*).
+
+## Only a local engine installed?
+
+Nothing to configure. Specrails offers the engines your machine can actually run and picks the default with one rule everywhere: an installed CLI (Claude → Codex → Gemini → Kimi), otherwise the first local engine whose endpoint answers. On a machine with just a local endpoint, rails, Add Spec, chat, **agent missions and the Project Builder** all start on it — no selector to touch. An engine whose server is down is simply not offered until it answers again. Existing missions keep the engine they were created on; the selector still lets you switch.
 
 ## Choosing a model
 

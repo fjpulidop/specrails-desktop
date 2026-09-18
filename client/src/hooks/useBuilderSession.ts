@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useSharedWebSocket } from './useSharedWebSocket'
 import { useDesktop } from './useDesktop'
+import { useAvailableProviders } from './useAvailableProviders'
+import { preferredProvider, providerSupportsPureOutput } from '../lib/provider-capabilities'
 import {
   coerceBlueprint,
   deriveDimensions,
@@ -408,6 +410,19 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
       .catch(() => { /* selector degrades to empty */ })
     return () => { cancelled = true }
   }, [enabled, provider])
+
+  // The Builder's draft provider follows the machine: the pre-fetch `claude`
+  // default hops to the preferred usable engine that can run the Builder's
+  // pure-output policy (a local-only machine lands on its local engine). Only
+  // while no conversation exists — a resumed one keeps its own provider.
+  const { availableIds: usableProviders } = useAvailableProviders({ enabled })
+  useEffect(() => {
+    if (conversationIdRef.current || usableProviders.length === 0 || usableProviders.includes(provider)) return
+    const eligible = usableProviders.filter(providerSupportsPureOutput)
+    if (eligible.length === 0) return
+    setProviderState(preferredProvider(eligible))
+    setModelState(null)
+  }, [usableProviders, provider])
 
   const setProvider = useCallback((next: string) => {
     setProviderState(next)

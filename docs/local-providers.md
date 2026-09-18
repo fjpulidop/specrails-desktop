@@ -49,6 +49,29 @@ without any of this.
 | Rails: freestyle, verify / fix / decider steps, loop ai-steps | the bundled **local agent runner** |
 | Add Spec Quick + Explore, sidebar chat | the local agent runner (read-only tool set for Explore) |
 | Agent chat / missions | the local agent runner with the Specrails MCP bridge + your enabled external MCP servers |
+| Project Builder (day-0 blueprint chat) | the local agent runner in pure-output mode (no tools); expect a capable model — the blueprint contract is strict |
+
+### Local-only machines
+
+Nothing has to be selected by hand. Provider availability is a machine
+property: every surface offers the engines the app can actually run, and the
+default follows the same rule everywhere — a detected CLI in the fixed order
+(Claude → Codex → Gemini → Kimi), else the first reachable local engine.
+
+- Project surfaces (rails, Add Spec, sidebar chat) already derive the
+  project's primary from the detected set, so with one local engine the
+  selectors stay hidden and everything runs on it.
+- **Agent missions and the Project Builder** start a fresh conversation on that
+  same machine default (server `defaultMachineProvider`, client
+  `preferredProvider`), so a local-only machine composes on its local engine
+  instead of an uninstalled Claude. Existing conversations keep the provider
+  they were created on — the selector still lets you switch.
+- A local engine counts as *available* only while its endpoint answers the
+  bounded `GET /models` probe. `/api/available-providers` (the gate the Agent
+  composer and the Builder read) reports local ids from that probe, never from
+  the PATH lookup of the bundled node that runs them — an endpoint that is
+  down leaves the engine out of the list instead of failing the first turn.
+- Selectors show the connection's **label** (or its id when unlabeled).
 
 The runner is a small process shipped inside the app (`specrails-local-runner`)
 that performs the streaming tool loop (Read / Grep / Glob / Bash / Write / Edit),

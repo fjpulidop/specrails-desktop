@@ -1,7 +1,7 @@
 import { useTranslation, Trans } from 'react-i18next'
 import { FolderOpen, Terminal } from 'lucide-react'
 import { Button } from './ui/button'
-import { FEATURE_JIRA, FEATURE_MCP, FEATURE_AGENT_CHAT } from '../lib/feature-flags'
+import { FEATURE_JIRA, FEATURE_MCP, FEATURE_AGENT_CHAT, FEATURE_LOCAL_ENGINES } from '../lib/feature-flags'
 
 interface WelcomeScreenProps {
   onAddProject: () => void
@@ -39,6 +39,11 @@ export function WelcomeScreen({ onAddProject }: WelcomeScreenProps) {
         {FEATURE_AGENT_CHAT && (
           <p className="text-xs text-muted-foreground/80 max-w-sm">
             {t('welcome.agentChatHint')}
+          </p>
+        )}
+        {FEATURE_LOCAL_ENGINES && (
+          <p className="text-xs text-muted-foreground/80 max-w-sm">
+            {t('welcome.localEnginesHint')}
           </p>
         )}
       </div>

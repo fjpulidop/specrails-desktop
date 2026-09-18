@@ -33,6 +33,7 @@ import {
 } from './provider-detection'
 import { getCachedProbe, probeConnection } from './local-engine-detection'
 import { isLocalEnginesEnabled, syncLocalAdapters } from './providers/local-adapter-registry'
+import { isLocalAdapter } from './providers/local-adapter'
 
 /** Per-connection status block on GET/PUT /runtime-providers. */
 export type RuntimeProviderStatus =
@@ -444,6 +445,16 @@ export function createDesktopRouter(
     // provider surfaces here with no edit. Apply per-provider beta gates: codex
     // is forced unavailable when SPECRAILS_CODEX_BETA=0 (emergency rollback).
     const gated: Record<string, boolean> = { ...providers }
+    // Local (OpenAI-compatible) engines have no CLI to `which`: their binary is
+    // the bundled node, so the PATH probe above always says "installed" even
+    // when the endpoint is down. Their availability is the bounded HTTP probe
+    // from the detection cycle (refreshed here so a first call after boot is
+    // not blind); an id the snapshot does not know stays unavailable.
+    const localIds = listAdapters().filter(isLocalAdapter).map((adapter) => adapter.id)
+    if (localIds.length > 0) {
+      const snapshot = await getDetectionSnapshot()
+      for (const id of localIds) gated[id] = snapshot.providers[id]?.usable === true
+    }
     if (isCodexBetaDisabled()) gated.codex = false
     // Gemini: enabled by default; forced unavailable only when
     // SPECRAILS_GEMINI_BETA=0 (emergency rollback, parity with codex).
@@ -476,7 +487,10 @@ export function createDesktopRouter(
         { command: adapter.binary, args: [] as string[] },
       ]),
     )
-    res.json({ ...gated, tiers, providerIssues, launchDescriptors })
+    // Display names so app-level selectors (Agent composer, Builder) can label
+    // a local engine with its connection label instead of its raw id.
+    const labels = Object.fromEntries(listAdapters().map((adapter) => [adapter.id, adapter.displayName]))
+    res.json({ ...gated, tiers, providerIssues, launchDescriptors, labels })
   })
 
   router.get('/setup-prerequisites', (req, res) => {

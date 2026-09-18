@@ -20,9 +20,13 @@
 - 会话可跨轮次恢复；交互式 job 可用。
 - 成本诚实：记录 token，除非你填写费率，否则成本显示为*未知*（填写后标记为*估算*）。
 
-本地引擎不支持：agent 配置文件与自定义角色、SMASH / Contract Layer 增强、Project Builder 生成、附件与流水线遥测。
+本地引擎不支持：agent 配置文件与自定义角色、SMASH / Contract Layer 增强、附件与流水线遥测。Project Builder 以纯输出模式（无工具）运行；其蓝图契约很严格，请使用能力较强的模型。
 
 > 任务需要服务器提供**较大的上下文窗口**（64k token 以上）：operator 提示词加上 Specrails 工具 schema 体积很大。聊天和 Explore 在 32k 下即可。若某轮以 *exceeds the available context size* 失败，请增大窗口（Ollama `OLLAMA_CONTEXT_LENGTH`、llama.cpp `-c`、LM Studio *Context Length*）。
+
+## 只安装了本地引擎？
+
+无需任何配置。Specrails 只提供你的机器真正能运行的引擎，并在所有地方用同一条规则选择默认值：已安装的 CLI（Claude → Codex → Gemini → Kimi），否则是第一个端点有响应的本地引擎。在只有本地端点的机器上，rails、Add Spec、聊天、**agent 任务和 Project Builder** 都会直接在它上面启动，无需碰任何选择器。服务器未运行的引擎在恢复响应前不会被提供。已有任务保留创建时的引擎；选择器仍可切换。
 
 ## 选择模型
 

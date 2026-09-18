@@ -76,7 +76,7 @@ vi.mock('../lib/agent-api', async (orig) => {
     removeQueuedAgentMessage: vi.fn(async () => 'saved' as const),
     getMcpStatus: vi.fn(async () => ({ enabled: true, running: true })),
     enableMcp: vi.fn(async () => {}),
-    getAvailableProviders: vi.fn(async () => ({ any: true, providers: [] })),
+    getAvailableProviders: vi.fn(async () => ({ any: true, installed: [] })),
     getAgentActiveTurns: vi.fn(async () => ({ snapshotVersion: 1, capturedAt: new Date().toISOString(), turns: [] })),
   }
 })
@@ -129,6 +129,8 @@ function Harness() {
       <span data-testid="live-tools">{JSON.stringify(agentChat.liveTools)}</span>
       <span data-testid="message-text">{agentChat.messages.map((message) => message.content).join('|')}</span>
       <span data-testid="favorites">{[...agentChat.favoriteConversationIds].sort().join(',')}</span>
+      <span data-testid="draft-provider">{agentChat.draftProvider}</span>
+      <button onClick={() => agentChat.startNewConversation()}>new-mission</button>
       <button onClick={() => void agentChat.selectConversation('c1', { windowRestore: true, signal: new AbortController().signal }).catch(() => setApplyResult('restore-failed'))}>restore-c1</button>
       <button onClick={() => agentChat.toggleFavoriteConversation('c1')}>favorite-c1</button>
       <button onClick={() => void agentChat.setModel('model-2')}>model</button>
@@ -166,9 +168,32 @@ beforeEach(() => {
     messages: [],
   }))
   vi.mocked(agentApi.getMcpStatus).mockResolvedValue({ enabled: true, running: true })
-  vi.mocked(agentApi.getAvailableProviders).mockResolvedValue({ any: true, providers: [] })
+  vi.mocked(agentApi.getAvailableProviders).mockResolvedValue({ any: true, installed: [] })
   vi.mocked(agentApi.getAgentActiveTurns).mockResolvedValue({ snapshotVersion: 1, capturedAt: new Date().toISOString(), turns: [] })
   setDocumentVisibility('visible')
+})
+
+describe('AgentChatContext draft provider follows the machine', () => {
+  it('a local-only machine composes on its local engine, and a new mission starts there too', async () => {
+    vi.mocked(agentApi.getAvailableProviders).mockResolvedValue({ any: true, installed: ['lmstudio'] })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    // Opening lands on the newest stored mission (its own provider stays);
+    // the DRAFT reconciles once the user composes a new one.
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(agentApi.getAvailableProviders).toHaveBeenCalled())
+    await act(async () => { fireEvent.click(screen.getByText('new-mission')) })
+    await waitFor(() => expect(screen.getByTestId('draft-provider')).toHaveTextContent('lmstudio'))
+    expect(screen.getByTestId('active-id')).toHaveTextContent('')
+  })
+
+  it('prefers a detected CLI over a local engine and keeps claude when it is installed', async () => {
+    vi.mocked(agentApi.getAvailableProviders).mockResolvedValue({ any: true, installed: ['lmstudio', 'gemini'] })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(agentApi.getAvailableProviders).toHaveBeenCalled())
+    await act(async () => { fireEvent.click(screen.getByText('new-mission')) })
+    await waitFor(() => expect(screen.getByTestId('draft-provider')).toHaveTextContent('gemini'))
+  })
 })
 
 describe('AgentChatContext reconnect reconciliation', () => {

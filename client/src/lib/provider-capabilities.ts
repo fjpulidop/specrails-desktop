@@ -19,6 +19,18 @@ export type ProviderId = string
  *  block (mirrors server/providers/local-adapter.ts). */
 export const CLI_PROVIDER_IDS: readonly string[] = ['claude', 'codex', 'gemini', 'kimi']
 
+/**
+ * The provider an app-level surface (a fresh mission, the Builder) should start
+ * on given the machine's usable providers: the fixed CLI preference order
+ * first, else the first usable id (a local-only machine lands on its local
+ * engine). Mirrors server `defaultMachineProvider`; `claude` while nothing is
+ * known yet (the pre-fetch default, byte-identical to before).
+ */
+export function preferredProvider(usable: readonly string[]): string {
+  for (const id of CLI_PROVIDER_IDS) if (usable.includes(id)) return id
+  return usable[0] ?? 'claude'
+}
+
 /** Sentinel rail engine (hybrid-role-engines): every pipeline role runs on the
  *  provider its per-role runtime config names (Settings ▸ Specrails Agents),
  *  and the loop-side verifier/decider come from the project's loop roles.
