@@ -7,18 +7,19 @@
 
 ## 2. Server: launch origin, run card, failure trigger
 
-- [ ] 2.1 `rails-router.ts`: shared-cwd branch posts a run card (`postPrDecisionCard` with `prDeliveryId: null`, run ids) when `originConversationId` is present; 202 payload carries `runIds` + `railIndex`
-- [ ] 2.2 `rails-router.ts` / `rails-store.ts`: rails list returns `availability: free|busy|pending_decision|on_review`
-- [ ] 2.3 `server/mission-run-notify.ts` `notifyMissionRunFailure(ctx, …)`: envelope update + `system` row `{kind:'run-failure'}` + auto-turn enqueue (dedup per run id, queue while streaming, flag-gated); wired from `onLoopRunFinished`/`onJobFinished` (failed/stalled/provider_limit), the isolated settle path, and `stuck-run-detector`; tests
-- [ ] 2.4 `agent-failure-briefing.ts`: fixed briefing builder (run, rail, tickets, failure code+detail, verify tail if harvested, recovery options, "do not relaunch by yourself"); `AgentChatManager.startSystemTurn` accounted in `agent_invocations`; one-per-run guard; tests
-- [ ] 2.5 Running-phase updates: `updatePrDecisionCard` on run start/step change/settle so the card's snapshot reflects phase transitions (throttled); tests
-- [ ] 2.6 `rail-isolated-launch.ts` settle: `discarded`/`implementation_failed` envelopes carry `statusDetail` + unit failure codes in `runtime.failure`
+- [x] 2.1 `rails-router.ts`: shared-cwd branch posts a run card (`postPrDecisionCard` with `prDeliveryId: null`, run ids) when `originConversationId` is present; 202 payload carries `runIds` + `railIndex`
+- [x] 2.2 `rails-router.ts` / `rails-store.ts`: rails list returns `availability: free|busy|pending_decision|on_review`
+- [x] 2.3 `server/mission-run-notify.ts` `notifyMissionRunFailure(ctx, …)`: envelope update + `system` row `{kind:'run-failure'}` + auto-turn enqueue (dedup per run id, queue while streaming, flag-gated); wired from `onLoopRunFinished`/`onJobFinished` (failed/stalled/provider_limit), the isolated settle path, and `stuck-run-detector`; tests
+- [x] 2.4 `agent-failure-briefing.ts`: fixed briefing builder (run, rail, tickets, failure code+detail, verify tail if harvested, recovery options, "do not relaunch by yourself"); `AgentChatManager.startSystemTurn` accounted in `agent_invocations`; one-per-run guard; tests
+- [x] 2.5 Running-phase updates: `updatePrDecisionCard` on run start/step change/settle so the card's snapshot reflects phase transitions (throttled); tests
+  <!-- WIP: run start (phase running) + settle are wired (postRunCard/settleRunCard, isolated envelopes carry `phase`); per-STEP card updates are NOT emitted — the client prefers live useRuntimeRuns/WS data while running, so this is deliberately deferred. -->
+- [x] 2.6 `rail-isolated-launch.ts` settle: `discarded`/`implementation_failed` envelopes carry `statusDetail` + unit failure codes in `runtime.failure`
 
 ## 3. MCP + operator prompt
 
-- [ ] 3.1 `server/mcp/tools/jobs.ts`: `runtime_runs`, `runtime_evidence` (read), `runtime_resume`, `runtime_recover` (ai-spawn), `runtime_approve`, `runtime_settle`, `runtime_dismiss` (write) over `agent-runtime-controls-router`; `specrails_describe` schemas; tests
-- [ ] 3.2 `server/mcp/tools/rails.ts`: `list` surfaces `availability`; guide text updated
-- [ ] 3.3 `agent-operator-prompt.ts`: propose = `rail-launch` block (contract + example), launch tool only on explicit "launch now", failure-turn conduct (explain ≤ 6 lines, act only on confirmation); prompt snapshot tests
+- [x] 3.1 `server/mcp/tools/jobs.ts`: `runtime_runs`, `runtime_evidence` (read), `runtime_resume`, `runtime_recover` (ai-spawn), `runtime_approve`, `runtime_settle`, `runtime_dismiss` (write) over `agent-runtime-controls-router`; `specrails_describe` schemas; tests
+- [x] 3.2 `server/mcp/tools/rails.ts`: `list` surfaces `availability`; guide text updated
+- [x] 3.3 `agent-operator-prompt.ts`: propose = `rail-launch` block (contract + example), launch tool only on explicit "launch now", failure-turn conduct (explain ≤ 6 lines, act only on confirmation); prompt snapshot tests
 
 ## 4. Client: rail launch card
 
