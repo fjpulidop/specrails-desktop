@@ -1730,6 +1730,25 @@ describe('rails-router POST /pr-decision', () => {
     expect(res.status).toBe(400)
   })
 
+  it('run-only cards (run:<id>) accept ONLY dismiss, need conversationId, and resolve through the agent-chat manager', async () => {
+    const { setAgentChatManager } = await import('./agent-chat-registry')
+    const dismissRunCard = vi.fn((conv: string, id: string) => conv === 'conv-1' && id === 'run:r1')
+    setAgentChatManager({ dismissRunCard } as never)
+    try {
+      const post = (body: Record<string, unknown>) => request(appWith(db)).post('/rails/pr-decision').send(body)
+      expect((await post({ prDeliveryId: 'run:r1', action: 'create-pr', expectedDecision: 'implementation_failed' })).body.error).toBe('run_card_dismiss_only')
+      expect((await post({ prDeliveryId: 'run:r1', action: 'dismiss', expectedDecision: 'implementation_failed' })).status).toBe(400)
+      expect((await post({ prDeliveryId: 'run:zz', action: 'dismiss', expectedDecision: 'implementation_failed', conversationId: 'conv-1' })).status).toBe(404)
+      const ok = await post({ prDeliveryId: 'run:r1', action: 'dismiss', expectedDecision: 'implementation_failed', conversationId: 'conv-1' })
+      expect(ok.status).toBe(200)
+      expect(ok.body).toMatchObject({ ok: true, decision: 'discarded' })
+      expect(dismissRunCard).toHaveBeenCalledWith('conv-1', 'run:r1')
+      expect(mockExecRun).not.toHaveBeenCalled()
+    } finally {
+      setAgentChatManager(null)
+    }
+  })
+
   it('404 on an unknown prDeliveryId', async () => {
     const res = await request(appWith(db)).post('/rails/pr-decision')
       .send({ prDeliveryId: 'ghost', action: 'publish', expectedDecision: 'pr_draft' })

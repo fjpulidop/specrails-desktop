@@ -507,6 +507,9 @@ export function AgentPrDecisionCard({ envelope: envelopeProp, conversationId }: 
         action,
         expectedDecision: decision,
         ...(repositoryId ? { repositoryId } : {}),
+        // Run-only cards (no delivery row) are resolved against the origin
+        // conversation's persisted card — the server needs its id.
+        ...(runOnly && conversationId ? { conversationId } : {}),
       })
       let snapshotApplication: ReturnType<typeof applyPrDecisionSnapshot> | null = null
       if (r.snapshot) {

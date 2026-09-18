@@ -35,7 +35,7 @@ export function useRailLaunchProposals(messages: readonly AgentMessage[]): Deriv
       if (m.role !== 'assistant' || !m.content.includes('```rail-launch')) continue
       const { proposals } = extractRailLaunchProposals(m.content, false)
       proposals.forEach((proposal, proposalIndex) => {
-        if (intentFor(local, m.id, m.intent, proposalIndex)) return
+        if (intentFor(local, m.id, m.intents, proposalIndex)) return
         pinned.push({ messageId: m.id, proposalIndex, proposal })
         ids.add(m.id)
       })

@@ -441,15 +441,15 @@ interface Props {
   tolerantFences?: boolean
   /** The message row id — needed to persist a rail-launch card decision. */
   messageId?: string
-  /** Persisted card decision on this row (mission-rail-cards). */
-  intent?: AgentMessageIntent | null
+  /** Persisted card decisions on this row, one per proposal (mission-rail-cards). */
+  intents?: readonly AgentMessageIntent[] | null
   /** True when this message's undecided rail-launch proposals are rendered in
    *  the pinned dock instead — the history slot shows a slim marker. */
   railProposalsPinned?: boolean
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
-export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intent = null, railProposalsPinned = false }: Props) {
+export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
   const localIntents = useLocalIntents()
   const isUser = role === 'user'
   const { openWebView, canOpenWebView } = useWebViewModal()
@@ -580,7 +580,7 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
       {draft && <AgentSpecDraftCard draft={draft} />}
       {pending && <AgentSpecDraftPending />}
       {!streaming && messageId && conversationId && rail.proposals.map((proposal, index) => {
-        const decided = intentFor(localIntents, messageId, intent, index)
+        const decided = intentFor(localIntents, messageId, intents, index)
         // Undecided proposals live in the pinned dock; the slot keeps a marker
         // (rendered by the conversation view). Decided ones freeze here.
         if (!decided && railProposalsPinned) return null

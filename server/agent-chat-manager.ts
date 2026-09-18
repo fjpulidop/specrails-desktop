@@ -1313,6 +1313,31 @@ export class AgentChatManager {
 
   private readonly _systemTurnRuns = new Set<string>()
 
+  /**
+   * Dismiss a RUN-ONLY card (mission-rail-cards: a shared-cwd launch keyed on a
+   * synthetic `run:<runId>` id — there is no delivery row for the decision
+   * endpoint to transition). Marks the persisted envelope `discarded` (phase
+   * settled, operation dismiss) and re-broadcasts so every open panel unpins
+   * it. Returns false when no such card exists in that conversation.
+   */
+  dismissRunCard(conversationId: string, prDeliveryId: string): boolean {
+    if (this._disposed) return false
+    const existing = this._findPrDecisionCards(conversationId, prDeliveryId)
+    if (existing.length === 0) return false
+    let envelope: PrDecisionCardEnvelope
+    try { envelope = JSON.parse(existing[existing.length - 1].content) as PrDecisionCardEnvelope } catch { return false }
+    if (envelope.hasDelivery !== false) return false
+    this.updatePrDecisionCard(conversationId, {
+      ...envelope,
+      decision: 'discarded',
+      phase: 'settled',
+      operation: 'dismiss',
+      statusCode: envelope.statusCode ?? 'dismissed',
+      updatedAt: new Date().toISOString(),
+    })
+    return true
+  }
+
   private _findPrDecisionCards(conversationId: string, prDeliveryId: string) {
     return findAgentSystemMessages(this._db, conversationId, (content) => {
       try {

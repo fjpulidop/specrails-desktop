@@ -58,7 +58,7 @@ function mockFetch(overrides: Partial<Record<string, (init?: RequestInit) => { s
     if (url.endsWith('/rails') && init?.method === 'POST') return { ok: true, status: 201, json: async () => ({ rail: { railIndex: 2 } }) } as Response
     if (/\/rails\/\d+\/(tickets|name|engine|profile)$/.test(url)) return { ok: true, status: 200, json: async () => ({ rail: {} }) } as Response
     if (/\/rails\/\d+\/launch$/.test(url)) return { ok: true, status: 202, json: async () => ({ loopRunIds: ['run-1', 'run-2'], railIndex: 1, mode: 'implement', isolated: true }) } as Response
-    if (url.includes('/intent')) return { ok: true, status: 200, json: async () => ({ message: { intent: { ...JSON.parse(String(init?.body)), at: '2026-09-18T00:00:00Z' } } }) } as Response
+    if (url.includes('/intent')) return { ok: true, status: 200, json: async () => ({ message: { intents: [{ ...JSON.parse(String(init?.body)), at: '2026-09-18T00:00:00Z' }] } }) } as Response
     return { ok: true, status: 200, json: async () => ({}) } as Response
   })
 }
@@ -202,7 +202,7 @@ describe('AgentMessage rail-launch extraction', () => {
     const content = fence({ ticketIds: [12] })
     const { rerender } = render(<AgentMessage role="assistant" content={content} messageId="m1" conversationId="c1" refsProjectId="p1" railProposalsPinned />)
     expect(screen.queryByTestId('agent-rail-launch-card')).not.toBeInTheDocument()
-    rerender(<AgentMessage role="assistant" content={content} messageId="m1" conversationId="c1" refsProjectId="p1" railProposalsPinned intent={{ kind: 'rail-launch', proposalIndex: 0, status: 'dismissed', at: 'x' }} />)
+    rerender(<AgentMessage role="assistant" content={content} messageId="m1" conversationId="c1" refsProjectId="p1" railProposalsPinned intents={[{ kind: 'rail-launch', proposalIndex: 0, status: 'dismissed', at: 'x' }]} />)
     expect(screen.getByTestId('agent-rail-launch-stub-dismissed')).toBeInTheDocument()
   })
 })
@@ -215,7 +215,7 @@ describe('useRailLaunchProposals', () => {
     const messages = [
       msg('a', 'x ' + fence({ ticketIds: [1] })),
       msg('b', 'plain'),
-      msg('c', fence({ ticketIds: [2] }) + fence({ ticketIds: [3] }), { intent: { kind: 'rail-launch', proposalIndex: 0, status: 'launched', at: 'x' } }),
+      msg('c', fence({ ticketIds: [2] }) + fence({ ticketIds: [3] }), { intents: [{ kind: 'rail-launch', proposalIndex: 0, status: 'launched', at: 'x' }] }),
       msg('d', fence({ ticketIds: [4] }), { role: 'user' }),
     ]
     const { result, rerender } = renderHook(({ m }) => useRailLaunchProposals(m), { initialProps: { m: messages } })

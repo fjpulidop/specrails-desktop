@@ -290,7 +290,7 @@ it('migrations27–28 upgrade an existing desktop database without rewriting its
     db.exec('DROP TABLE agent_inputs; DELETE FROM schema_migrations WHERE version >= 27')
     db.close(); db = initDesktopDb(file)
     expect(listAgentMessages(db, conversation.id)).toEqual([legacy])
-    expect(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 28 })
+    expect(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 29 })
     expect(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'project_repositories'").get()).toBeTruthy()
     expect(enqueueAgentInput(db, { conversationId: conversation.id, queueId: 'after-upgrade', text: 'New update' }).created).toBe(true)
     db.close(); db = initDesktopDb(file)
@@ -325,7 +325,7 @@ it('migration28 adds receipts in place and backfills only accepted legacy inputs
     const oldIndexes = db.prepare("SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'agent_inputs' ORDER BY name").all()
     const oldRootPage = db.prepare("SELECT rootpage FROM sqlite_master WHERE type = 'table' AND name = 'agent_inputs'").get()
     db.close(); db = initDesktopDb(file)
-    expect(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 28 })
+    expect(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 29 })
     expect(db.prepare("SELECT rootpage FROM sqlite_master WHERE type = 'table' AND name = 'agent_inputs'").get()).toEqual(oldRootPage)
     expect(db.prepare("SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'agent_inputs' ORDER BY name").all()).toEqual(oldIndexes)
     const upgradedRows = db.prepare('SELECT * FROM agent_inputs ORDER BY rowid').all() as Array<Record<string, unknown>>

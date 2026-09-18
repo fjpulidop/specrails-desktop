@@ -210,7 +210,7 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     await settle()
   })
 
-  it('a no-git repo falls back to shared cwd: NO card, and the hint tells the agent to be honest (not promise a card)', async () => {
+  it('a no-git repo falls back to shared cwd: a RUN card (no PR phase), and the hint tells the agent to be honest (not promise a PR card)', async () => {
     isoStatus.value = 'no-git'
     const r = await captured!(
       { action: 'launch', projectId: 'p1', railIndex: 0, loopId: 'factory:implement' },
@@ -221,12 +221,16 @@ describe('MCP → rails launch → rail_pr_deliveries origin link (end-to-end)',
     // Shared-cwd fallback surfaced verbatim + isolated flag absent.
     expect(payload.isolationUnavailable).toBe('no-git')
     expect(payload.isolated).toBeUndefined()
-    // No delivery row → no card ever posted, despite the authenticated origin.
+    // No delivery row — but mission-rail-cards posts a RUN card (no PR phase)
+    // to the authenticated origin so the mission is never blind without git.
     expect(getActivePrDeliveryByRail(db, 0)).toBeFalsy()
-    expect(postPrDecisionCard).not.toHaveBeenCalled()
-    // The hint forbids promising a card and explains the shared-cwd reality.
+    expect(postPrDecisionCard).toHaveBeenCalledWith(
+      'conv-nogit',
+      expect.objectContaining({ kind: 'pr_decision', hasDelivery: false, decision: 'building' }),
+    )
+    // The hint forbids promising a PR card and explains the shared-cwd reality.
     expect(payload.hint).toMatch(/ISOLATION IS UNAVAILABLE/i)
-    expect(payload.hint).toMatch(/NO PR-decision/i)
+    expect(payload.hint).toMatch(/NO PR phase/i)
     expect(payload.hint).toMatch(/git init/i)
     expect(payload.hint).toMatch(/directly into the user's files/i)
   })

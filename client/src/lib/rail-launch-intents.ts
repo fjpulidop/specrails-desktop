@@ -9,12 +9,13 @@ import { useSyncExternalStore } from 'react'
 import type { AgentMessageIntent } from './agent-api'
 
 type Listener = () => void
-let intents: ReadonlyMap<string, AgentMessageIntent> = new Map()
+let intents: ReadonlyMap<string, readonly AgentMessageIntent[]> = new Map()
 const listeners = new Set<Listener>()
 
 export function recordLocalIntent(messageId: string, intent: AgentMessageIntent): void {
   const next = new Map(intents)
-  next.set(messageId, intent)
+  const current = next.get(messageId) ?? []
+  next.set(messageId, [...current.filter((i) => i.proposalIndex !== intent.proposalIndex), intent])
   intents = next
   for (const l of listeners) l()
 }
@@ -30,17 +31,19 @@ function subscribe(l: Listener): () => void {
   return () => { listeners.delete(l) }
 }
 
-export function useLocalIntents(): ReadonlyMap<string, AgentMessageIntent> {
+export function useLocalIntents(): ReadonlyMap<string, readonly AgentMessageIntent[]> {
   return useSyncExternalStore(subscribe, () => intents, () => intents)
 }
 
-/** The decision that applies to a proposal: the local overlay wins over the row. */
+/** The decision that applies to ONE proposal of a message: the local overlay
+ *  wins over the persisted row; each proposal index is decided independently. */
 export function intentFor(
-  local: ReadonlyMap<string, AgentMessageIntent>,
+  local: ReadonlyMap<string, readonly AgentMessageIntent[]>,
   messageId: string,
-  persisted: AgentMessageIntent | null | undefined,
+  persisted: readonly AgentMessageIntent[] | null | undefined,
   proposalIndex: number,
 ): AgentMessageIntent | null {
-  const candidate = local.get(messageId) ?? persisted ?? null
-  return candidate && candidate.proposalIndex === proposalIndex ? candidate : null
+  return local.get(messageId)?.find((i) => i.proposalIndex === proposalIndex)
+    ?? persisted?.find((i) => i.proposalIndex === proposalIndex)
+    ?? null
 }

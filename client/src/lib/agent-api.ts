@@ -42,8 +42,9 @@ export interface AgentMessage {
   context_refs?: AgentContextReference[]
   delivery_status?: 'delivered' | 'interrupted' | 'cancelled'
   delivery_receipt?: AgentDeliveryReceipt
-  /** A decision taken on a card inside this message (mission-rail-cards). */
-  intent?: AgentMessageIntent | null
+  /** Decisions taken on cards inside this message (mission-rail-cards), one per
+   *  proposal index. Absent/[] for ordinary rows. */
+  intents?: AgentMessageIntent[]
   created_at: string
 }
 
@@ -517,7 +518,7 @@ export type AgentPrDecisionOutcome =
  */
 export async function postRailPrDecision(
   projectId: string,
-  body: { repositoryId?: string; prDeliveryId: string; action: AgentPrDecisionAction; expectedDecision: AgentPrDecisionValue },
+  body: { repositoryId?: string; prDeliveryId: string; action: AgentPrDecisionAction; expectedDecision: AgentPrDecisionValue; conversationId?: string },
 ): Promise<AgentPrDecisionOutcome> {
   const res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/rails/pr-decision`, {
     method: 'POST',
@@ -688,6 +689,7 @@ export async function patchAgentMessageIntent(
   let data: Record<string, unknown> | null = null
   try { data = await res.json() as Record<string, unknown> } catch { data = null }
   if (!res.ok) return { ok: false, status: res.status, error: typeof data?.error === 'string' ? data.error : `HTTP ${res.status}` }
-  const message = data?.message as { intent?: AgentMessageIntent } | undefined
-  return { ok: true, intent: message?.intent ?? { ...intent, at: new Date().toISOString() } }
+  const message = data?.message as { intents?: AgentMessageIntent[] } | undefined
+  const stored = message?.intents?.find((i) => i.proposalIndex === intent.proposalIndex)
+  return { ok: true, intent: stored ?? { ...intent, at: new Date().toISOString() } }
 }

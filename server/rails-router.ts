@@ -55,7 +55,7 @@ import { readExecutionManifest } from './multi-repo-execution-store'
 import { newId } from './ids'
 import { withRepoLock } from './repo-lock'
 import { getAgentChatManager } from './agent-chat-registry'
-import { postRunCard, settleRunCard, notifyMissionRunFailure, failureForLoopOutcome } from './mission-run-notify'
+import { postRunCard, settleRunCard, notifyMissionRunFailure, failureForLoopOutcome, isRunCardId } from './mission-run-notify'
 import { runtimeRunSummary } from './agent-runtime-controls-router'
 import { readStore, resolveTicketStoragePath } from './ticket-store'
 import type { ReasoningEffort } from './providers/types'
@@ -1354,6 +1354,18 @@ export function createRailsRouter(): Router {
     }
     if (typeof expectedDecision !== 'string' || !expectedDecision) {
       res.status(400).json({ error: 'expectedDecision is required' }); return
+    }
+    // mission-rail-cards: a RUN-ONLY card (shared-cwd launch, synthetic
+    // `run:<runId>` id) has no delivery row — the only legal decision is
+    // dismiss, resolved against the origin conversation's persisted card.
+    if (isRunCardId(prDeliveryId)) {
+      if (action !== 'dismiss') { res.status(400).json({ error: 'run_card_dismiss_only', detail: 'A run-only card (no git delivery) accepts only dismiss' }); return }
+      const conversationId = typeof req.body?.conversationId === 'string' ? req.body.conversationId : ''
+      if (!conversationId) { res.status(400).json({ error: 'conversationId is required for a run-only card' }); return }
+      const dismissed = getAgentChatManager()?.dismissRunCard(conversationId, prDeliveryId) ?? false
+      if (!dismissed) { res.status(404).json({ error: 'run_card_not_found' }); return }
+      res.json({ ok: true, decision: 'discarded', prUrl: null, prState: 'none', merged: false, detail: null })
+      return
     }
     try {
       const targetDelivery = getPrDelivery(c.db, prDeliveryId)

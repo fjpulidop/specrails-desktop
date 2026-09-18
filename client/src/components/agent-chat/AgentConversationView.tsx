@@ -290,7 +290,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 role={m.role}
                 content={m.content}
                 messageId={m.id}
-                intent={m.intent ?? null}
+                intents={m.intents ?? null}
                 railProposalsPinned={railPinned}
                 tolerantFences={isLocalEngineId(active?.provider)}
                 createdAt={m.created_at}

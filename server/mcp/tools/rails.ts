@@ -291,7 +291,7 @@ export function railsTools(): McpToolSpec[] {
               return {
                 ...r,
                 railLabel,
-                hint: `Launch accepted (202) on ${railLabel}, but WORKTREE ISOLATION IS UNAVAILABLE because ${why}. The run proceeds on the SHARED working tree and writes changes DIRECTLY into the user's files — there is NO PR-decision/implementation card and NO branch. Do NOT tell the user to look for a PR card; tell them the run writes to their files in place, and explain why. ${fix} When it finishes, the spec parks at on_review — the user accepts it by moving it to Done on the board (the changes are already in their files) or reverts the spec's status (which does NOT undo the file changes).`,
+                hint: `Launch accepted (202) on ${railLabel}, but WORKTREE ISOLATION IS UNAVAILABLE because ${why}. The run proceeds on the SHARED working tree and writes changes DIRECTLY into the user's files — there is NO branch and NO PR phase — the mission shows a RUN card (progress, log, failure + recovery) but never a PR-decision card. Do NOT promise a PR card; tell them the run writes to their files in place, and explain why. ${fix} When it finishes, the spec parks at on_review — the user accepts it by moving it to Done on the board (the changes are already in their files) or reverts the spec's status (which does NOT undo the file changes).`,
               }
             }
             if (r.isolated !== true) {

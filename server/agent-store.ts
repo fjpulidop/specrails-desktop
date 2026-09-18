@@ -37,9 +37,9 @@ export interface AgentMessage {
   attachment_ids: string[]
   /** Structured refs selected in the composer; [] when the turn has none. */
   context_refs: AgentMessageContextRef[]
-  /** A decision the user took on a card inside this message (mission-rail-cards);
-   *  null for every ordinary message. */
-  intent: AgentMessageIntent | null
+  /** Decisions the user took on cards inside this message (mission-rail-cards),
+   *  one per proposal index; [] for every ordinary message. */
+  intents: AgentMessageIntent[]
   created_at: string
 }
 
@@ -115,26 +115,33 @@ function mapMessage(row: AgentMessageRaw): AgentMessage {
     content: row.content,
     attachment_ids: ids,
     context_refs: parseJsonArray(row.context_refs, isContextRef),
-    intent: parseIntent(row.intent),
+    intents: parseIntents(row.intent),
     created_at: row.created_at,
   }
 }
 
-function parseIntent(raw: string | null | undefined): AgentMessageIntent | null {
-  if (!raw) return null
+function isIntent(v: unknown): v is AgentMessageIntent {
+  if (!v || typeof v !== 'object') return false
+  const o = v as Record<string, unknown>
+  return o.kind === 'rail-launch' && typeof o.proposalIndex === 'number' && (o.status === 'launched' || o.status === 'dismissed')
+}
+
+/** The column holds a JSON ARRAY (one decision per proposal index); a legacy
+ *  single-object value from the first cut is read as a one-element array. */
+function parseIntents(raw: string | null | undefined): AgentMessageIntent[] {
+  if (!raw) return []
   try {
-    const v = JSON.parse(raw) as Record<string, unknown>
-    if (!v || typeof v !== 'object' || v.kind !== 'rail-launch') return null
-    if (typeof v.proposalIndex !== 'number' || (v.status !== 'launched' && v.status !== 'dismissed')) return null
-    return v as unknown as AgentMessageIntent
+    const v = JSON.parse(raw) as unknown
+    if (Array.isArray(v)) return v.filter(isIntent)
+    return isIntent(v) ? [v] : []
   } catch {
-    return null
+    return []
   }
 }
 
 /**
- * Persist a card decision on a message (mission-rail-cards). Refuses to
- * overwrite an existing intent for the SAME proposal index (a decision is
+ * Persist a card decision on a message (mission-rail-cards). APPENDS to the
+ * message's decisions; refuses a second decision for the SAME proposal index (a decision is
  * final) — returns `{ ok: false, reason: 'already_decided' }` so the router
  * answers 409. Does NOT bump conversation activity.
  */
@@ -145,9 +152,9 @@ export function setAgentMessageIntent(
 ): { ok: true; message: AgentMessage } | { ok: false; reason: 'not_found' | 'already_decided' } {
   const row = db.prepare('SELECT * FROM agent_messages WHERE id = ?').get(messageId) as AgentMessageRaw | undefined
   if (!row) return { ok: false, reason: 'not_found' }
-  const current = parseIntent(row.intent)
-  if (current && current.proposalIndex === intent.proposalIndex) return { ok: false, reason: 'already_decided' }
-  db.prepare('UPDATE agent_messages SET intent = ? WHERE id = ?').run(JSON.stringify(intent), messageId)
+  const current = parseIntents(row.intent)
+  if (current.some((i) => i.proposalIndex === intent.proposalIndex)) return { ok: false, reason: 'already_decided' }
+  db.prepare('UPDATE agent_messages SET intent = ? WHERE id = ?').run(JSON.stringify([...current, intent]), messageId)
   const updated = db.prepare('SELECT * FROM agent_messages WHERE id = ?').get(messageId) as AgentMessageRaw
   return { ok: true, message: mapMessage(updated) }
 }
