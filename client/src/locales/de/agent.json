@@ -172,7 +172,9 @@
       "fileAttachmentHint": "Docs, Bilder, Logs hinzufügen",
       "browserCapture": "Browser-Aufnahme",
       "browserCaptureHint": "Einen Seitenbereich für diese Mission erfassen"
-    }
+    },
+    "railGroup": "Rails",
+    "railGroupInUse": "Rails in use"
   },
   "mission": {
     "label": "Mission wechseln",
@@ -574,5 +576,117 @@
     "dismiss": "Schließen",
     "wrongMission": "Öffne diese Mission, bevor du sie verschiebst.",
     "finishPending": "Beende den laufenden Vorgang oder speichere oder verwirf die Nachricht oder Aufnahme, bevor du die Mission verschiebst."
+  },
+  "railCard": {
+    "heading": "Rail launch",
+    "rail": "Rail {{index}}",
+    "newRail": "New rail",
+    "play": "Play",
+    "launching": "Launching…",
+    "dismiss": "Dismiss",
+    "playHint": "Adjust anything, then press Play to launch under your own authority.",
+    "pending": "Preparing a launch proposal…",
+    "unreadable_one": "The agent's launch proposal could not be read.",
+    "unreadable_other": "{{count}} launch proposals could not be read.",
+    "pinnedMarker": "Launch proposal pinned above the composer",
+    "effortDefault": "Default effort",
+    "profileNone": "No profile",
+    "status": {
+      "proposal": "Proposal",
+      "ready": "Ready",
+      "blocked": "Needs attention",
+      "loading": "Checking…"
+    },
+    "availability": {
+      "free": "free",
+      "busy": "running",
+      "pending_decision": "awaiting a decision",
+      "on_review": "on review"
+    },
+    "fields": {
+      "rail": "Rail",
+      "newRailName": "New rail name (optional)",
+      "railName": "Rail name",
+      "addSpec": "Add spec",
+      "removeSpec": "Remove #{{id}}",
+      "loop": "Loop",
+      "engine": "AI engine",
+      "model": "Model",
+      "effort": "Reasoning effort",
+      "profile": "Agent profile",
+      "targetPr": "Target PR #",
+      "baseBranch": "Base branch"
+    },
+    "notes": {
+      "railMissing": "Rail {{index}} no longer exists — pick another rail or create one.",
+      "railBusy": "Rail {{index}} is {{state}} — launching there is blocked.",
+      "useFree": "Use Rail {{index}}",
+      "specsDropped": "Not in this project any more: {{ids}}",
+      "engineStale": "{{engine}} is not detected on this machine — using {{fallback}}.",
+      "modelStale": "{{model}} is not available — using {{fallback}}."
+    },
+    "block": {
+      "noProject": "This mission is not pinned to a project.",
+      "loadFailed": "Could not load the project's rails.",
+      "noSpecs": "Add at least one spec to launch.",
+      "railLimit": "All {{max}} rails exist and none is free."
+    },
+    "errors": {
+      "tickets_in_flight": "One of these specs is already running on another rail.",
+      "pr_decision_pending": "This rail is waiting for a PR decision.",
+      "rail_limit_reached": "The project already has the maximum number of rails.",
+      "invalid_base_branch": "That base branch does not exist locally.",
+      "base_branch_requires_isolation": "A base branch needs worktree isolation (a git repository with commits).",
+      "target_pr_requires_pr_mode": "A target PR needs worktree isolation (a git repository with commits).",
+      "invalid_response": "Unexpected server response."
+    },
+    "stub": {
+      "launched": "Launched → Rail {{rail}}",
+      "dismissed": "Proposal dismissed",
+      "viewRun": "View run"
+    }
+  },
+  "runCard": {
+    "status": {
+      "running": "Running",
+      "paused": "Paused",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "stalled": "Stalled",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "title": {
+      "running": "Implementing in the project checkout…",
+      "paused": "Needs a human decision",
+      "succeeded": "Implementation finished",
+      "failed": "Implementation failed",
+      "stalled": "Implementation stalled",
+      "cancelled": "Run cancelled",
+      "unknown": "Run state unknown"
+    },
+    "noDeliveryNote": "No PR phase — this project has no git repository or commits, so the work landed directly in the project folder.",
+    "noDeliveryHint": "Running directly in the project folder (no git repository or commits — no PR will be proposed).",
+    "failure": {
+      "title": "Why it stopped",
+      "step": "step {{step}}",
+      "unit": "#{{ticket}} · {{code}}"
+    },
+    "actions": {
+      "resume": "Resume",
+      "approve": "Approve",
+      "recover": "Recover & retry",
+      "relaunch": "Relaunch"
+    },
+    "relaunchSent": "Rail {{index}} relaunched — a new card will follow the run.",
+    "relaunchFailed": "Could not relaunch the rail",
+    "relaunchBlockedActive": "The rail still has an active run"
+  },
+  "runFailure": {
+    "marker": "Rail {{rail}} failed: {{code}}",
+    "openCard": "Open card",
+    "briefing": {
+      "title": "Automatic failure briefing"
+    }
   }
 }

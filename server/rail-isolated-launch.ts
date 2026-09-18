@@ -50,6 +50,9 @@ import {
   type SupersededPrDelivery,
 } from './rail-pr-store'
 import { getAgentChatManager } from './agent-chat-registry'
+import { notifyMissionRunFailure } from './mission-run-notify'
+import { getRail } from './rails-store'
+import { runtimeRunSummary } from './agent-runtime-controls-router'
 import { runMergeBack } from './rail-merge-orchestrator'
 import { createLoopExecutors } from './loop-executors'
 import {
@@ -560,6 +563,10 @@ function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
  * tearing down owned partial allocation. The router refuses shared-cwd
  * fallback for these errors; execution stays bound to a verified worktree.
  */
+function getRailName(ctx: ProjectContext, railIndex: number): string | null {
+  try { return getRail(ctx.db, railIndex).name ?? null } catch { return null }
+}
+
 export async function launchIsolatedRail(input: IsolatedLaunchInput, io: IsolatedLaunchIO = {}): Promise<string[]> {
   const { ctx, railIndex, ticketIds, loopId, loopName, loopGraph, provider, model, effort, deciderEngine } = input
   let expectedRepositoryBaseSha = input.repositoryExecution?.expectedBaseSha
@@ -643,6 +650,26 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const syncOriginCard = (verb: 'post' | 'update'): void => {
     if (prDeliveryId) syncDeliveryCard(prDeliveryId, verb)
   }
+  // mission-rail-cards: the failure trigger for isolated launches. Reads the
+  // durable row (origin link + latest envelope) so the notification reflects
+  // the exact persisted state; fire-and-forget, never throws into settle.
+  const notifyOriginRunFailure = (deliveryId: string, failure: { code: string; detail: string | null; stepId: string | null }, runId: string | null): void => {
+    const row = getPrDelivery(ctx.db, deliveryId)
+    if (!row?.origin_conversation_id) return
+    const snapshot = toPrDeliverySnapshot(row)
+    const envelope = toPrDecisionCardEnvelope(ctx.project.id, snapshot)
+    const primaryRunId = runId ?? snapshot.runIds[0] ?? deliveryId
+    void (async () => {
+      const summary = runId ? await runtimeRunSummary(ctx, runId).catch(() => null) : null
+      await notifyMissionRunFailure({
+        originConversationId: row.origin_conversation_id,
+        projectId: ctx.project.id, runId: primaryRunId, railIndex, ticketIds: [...ticketIds],
+        railName: getRailName(ctx, railIndex),
+        failure, envelope, summary, hasDelivery: true, prDeliveryId: deliveryId,
+        tickets: ticketIds.map((id) => ({ id, title: ctx.getTicketSpec(id)?.title ?? null })),
+      })
+    })().catch((err) => console.error('[rail-isolated] mission failure notify failed:', err))
+  }
   const closeFailedGeneration = (err: unknown): void => {
     if (!prDeliveryId || getPrDelivery(ctx.db, prDeliveryId)?.decision !== 'building') return
     const closed = supersededDelivery
@@ -655,6 +682,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         })
     if (!closed) return
     try { emitPrDeliveryState(prDeliveryId, 'update') } catch { /* durable row is authoritative */ }
+    notifyOriginRunFailure(prDeliveryId, { code: 'launch_failed', detail: errorDetail(err), stepId: null }, null)
     if (supersededDelivery) {
       try { emitPrDeliveryState(supersededDelivery.id, 'update') } catch { /* durable row is authoritative */ }
     }
@@ -1824,6 +1852,17 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         // Completion driver: refresh the origin conversation's card in place —
         // on_review asks the question, discarded informs the outcome.
         syncOriginCard('update')
+        // mission-rail-cards: an implementation failure also wakes the origin
+        // mission (failure row + ONE bounded agent turn). Delivery failures
+        // (pr_failed) keep the card's retry controls and stay silent.
+        if (implementationOutcome === 'failed') {
+          const failedUnit = results.find((result) => result.implementationOutcome === 'failed') ?? results[0]
+          notifyOriginRunFailure(prDeliveryId, {
+            code: 'implementation_failed',
+            detail: statusDetail,
+            stepId: null,
+          }, failedUnit?.run.runId ?? null)
+        }
       }
       return // legacy merge-back never runs in PR mode
     }

@@ -21,7 +21,11 @@ import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import { AgentPrPinnedDock, PrDecisionPill } from './AgentPrPinnedDock'
 import { AgentConversationHeader } from './AgentConversationHeader'
-import { derivePrCards, isPrDecisionPinned } from './agent-pr-pinning'
+import { derivePrCards, isPrEnvelopePinned } from './agent-pr-pinning'
+import { parseRunFailureRow, systemBriefingRunId } from './agent-run-failure'
+import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMarker'
+import { FEATURE_MISSION_RAIL_CARDS } from '../../lib/feature-flags'
+import { useRailLaunchProposals } from './useRailLaunchProposals'
 
 // Only loads when a job-ref chip is actually clicked — keeps the conversation
 // chunk free of the log-explorer stack.
@@ -148,6 +152,8 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // cards (attention-demanding decisions) surface in the dock above the
   // composer; their history slot renders a slim reference marker instead.
   const prCards = useMemo(() => derivePrCards(messages), [messages])
+  // Undecided agent launch proposals (mission-rail-cards) pin next to the PR cards.
+  const railProposals = useRailLaunchProposals(messages)
 
   // Stick-to-bottom: only auto-scroll while the user is already near the bottom.
   const savedScroll = active ? readMissionScroll(active.id) : null
@@ -239,6 +245,12 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
             // raw JSON, with a one-shot warn so a NEW kind is noticed.
             if (m.role === 'system') {
               if (isSilentSystemRow(m.content)) return null
+              // mission-rail-cards: the moment a run failed, as a slim trace
+              // (the run card itself carries the recovery actions).
+              if (FEATURE_MISSION_RAIL_CARDS) {
+                const failure = parseRunFailureRow(m.content)
+                if (failure) return <AgentRunFailureMarker key={m.id} row={failure} />
+              }
               const envelope = prCards.byMessageId.get(m.id)
               if (!envelope) {
                 if (prCards.duplicateMessageIds.has(m.id)) return null
@@ -251,7 +263,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // While the card demands attention it lives PINNED above the
               // composer — its chronological slot keeps a slim reference marker
               // (no double render). Unpinning returns the full card here.
-              if (isPrDecisionPinned(envelope.decision)) {
+              if (isPrEnvelopePinned(envelope)) {
                 return (
                   <div
                     key={m.id}
@@ -264,13 +276,22 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                   </div>
                 )
               }
-              return <AgentPrDecisionCard key={m.id} envelope={envelope} />
+              return <AgentPrDecisionCard key={m.id} envelope={envelope} conversationId={m.conversation_id} />
             }
+            // mission-rail-cards: the automatic failure briefing is a server-
+            // authored user turn — a muted collapsible chip, never a bubble.
+            if (FEATURE_MISSION_RAIL_CARDS && systemBriefingRunId(m)) {
+              return <AgentSystemBriefing key={m.id} content={m.content} contextRefs={m.context_refs} />
+            }
+            const railPinned = railProposals.pinnedMessageIds.has(m.id)
             return (
+              <div key={m.id} className="space-y-1">
               <AgentMessage
-                key={m.id}
                 role={m.role}
                 content={m.content}
+                messageId={m.id}
+                intent={m.intent ?? null}
+                railProposalsPinned={railPinned}
                 tolerantFences={isLocalEngineId(active?.provider)}
                 createdAt={m.created_at}
                 // Option chips are clickable only on the newest settled message —
@@ -289,6 +310,18 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 conversationId={m.conversation_id}
                 attachments={(m.attachment_ids ?? []).map((id) => attachmentById.get(id)).filter((att): att is AgentAttachment => !!att)}
               />
+              {railPinned && (
+                // The proposal card is pinned above the composer while it awaits
+                // Play / Dismiss — its chronological slot keeps a slim marker.
+                <div
+                  data-testid="agent-rail-launch-pinned-marker"
+                  className="flex items-center gap-2 rounded-lg border border-border/40 bg-surface/30 px-3 py-1.5 text-[11px] text-foreground/45 backdrop-blur-sm"
+                >
+                  <Pin className="h-3 w-3 shrink-0 text-accent-primary/50" />
+                  <span className="min-w-0 flex-1 truncate">{t('railCard.pinnedMarker')}</span>
+                </div>
+              )}
+              </div>
             )
           })}
           {isStreaming && (
@@ -316,10 +349,12 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
         {/* Pinned implementation-card slot — always visible above the composer
             while any delivery demands attention; animates away on unpin. */}
         <AnimatePresence initial={false}>
-          {active && prCards.pinned.length > 0 && (
+          {active && (prCards.pinned.length > 0 || railProposals.pinned.length > 0) && (
             <AgentPrPinnedDock
               key="agent-pr-pinned-dock"
               pinned={prCards.pinned}
+              proposals={railProposals.pinned}
+              projectId={refsProjectId}
               conversationId={active.id}
               inline={inline}
             />

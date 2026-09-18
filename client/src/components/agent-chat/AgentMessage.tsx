@@ -13,6 +13,11 @@ import { extractAgentOptions } from './agent-options'
 import { promoteAgentProtocolFences } from './agent-fence-promotion'
 import { extractAgentSpecDraft } from './agent-spec-draft'
 import { AgentSpecDraftCard, AgentSpecDraftPending } from './AgentSpecDraftCard'
+import { extractRailLaunchProposals } from '../../lib/rail-launch-draft'
+import { AgentRailLaunchCard, AgentRailLaunchPending, AgentRailLaunchUnreadable } from './AgentRailLaunchCard'
+import { FEATURE_MISSION_RAIL_CARDS } from '../../lib/feature-flags'
+import { intentFor, useLocalIntents } from '../../lib/rail-launch-intents'
+import type { AgentMessageIntent } from '../../lib/agent-api'
 import { extractAgentProblemFrame } from './agent-problem-frame'
 import { AgentProblemFrameCard, AgentProblemFramePending } from './AgentProblemFrameCard'
 import { parseAgentRefHref, remarkAgentRefs, type AgentRefTarget } from '../../lib/agent-refs'
@@ -434,10 +439,18 @@ interface Props {
   conversationId?: string
   /** Local (OpenAI-compatible) engines only: re-tag ```json protocol blocks. CLI providers stay strict. */
   tolerantFences?: boolean
+  /** The message row id — needed to persist a rail-launch card decision. */
+  messageId?: string
+  /** Persisted card decision on this row (mission-rail-cards). */
+  intent?: AgentMessageIntent | null
+  /** True when this message's undecided rail-launch proposals are rendered in
+   *  the pinned dock instead — the history slot shows a slim marker. */
+  railProposalsPinned?: boolean
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
-export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false }: Props) {
+export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intent = null, railProposalsPinned = false }: Props) {
+  const localIntents = useLocalIntents()
   const isUser = role === 'user'
   const { openWebView, canOpenWebView } = useWebViewModal()
 
@@ -523,21 +536,28 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
   // both when the agent re-frames and re-drafts in one reply. The whole
   // extraction chain is memoized on (content, streaming) so a streaming turn
   // does not reparse three protocols on every frame.
-  const { body, options, frame, framePending, draft, pending } = useMemo(() => {
+  const { body, options, frame, framePending, draft, pending, rail } = useMemo(() => {
     // Small/local models emit protocol JSON under ```json — re-tag first.
     const promoted = tolerantFences ? promoteAgentProtocolFences(content) : content
     const withoutOptions = extractAgentOptions(promoted)
     const withoutFrame = extractAgentProblemFrame(withoutOptions.body, streaming)
     const withoutDraft = extractAgentSpecDraft(withoutFrame.body, streaming)
+    // A fenced ```rail-launch block (mission-rail-cards) is stripped too and
+    // renders as an editable launch card; feature off ⇒ untouched.
+    const withoutRail = FEATURE_MISSION_RAIL_CARDS
+      ? extractRailLaunchProposals(withoutDraft.body, streaming)
+      : { body: withoutDraft.body, proposals: [], rejected: [], pending: false, truncated: false, repaired: false }
     return {
-      body: withoutDraft.body,
+      body: withoutRail.body,
       options: withoutOptions.options,
       frame: withoutFrame.frame,
       framePending: withoutFrame.pending,
       draft: withoutDraft.draft,
       pending: withoutDraft.pending,
+      rail: withoutRail,
     }
   }, [content, streaming, tolerantFences])
+  const railUnreadable = !streaming && rail.rejected.length > 0 ? rail.rejected.map((r) => r.excerpt) : []
   const showChips = !!options && !!isLast && !streaming && !!onPickOption
   return (
     <div className="group flex flex-col gap-1">
@@ -559,6 +579,25 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
       {framePending && <AgentProblemFramePending />}
       {draft && <AgentSpecDraftCard draft={draft} />}
       {pending && <AgentSpecDraftPending />}
+      {!streaming && messageId && conversationId && rail.proposals.map((proposal, index) => {
+        const decided = intentFor(localIntents, messageId, intent, index)
+        // Undecided proposals live in the pinned dock; the slot keeps a marker
+        // (rendered by the conversation view). Decided ones freeze here.
+        if (!decided && railProposalsPinned) return null
+        return (
+          <AgentRailLaunchCard
+            key={`${messageId}:${index}`}
+            proposal={proposal}
+            proposalIndex={index}
+            messageId={messageId}
+            conversationId={conversationId}
+            projectId={refsProjectId ?? null}
+            intent={decided}
+          />
+        )
+      })}
+      {rail.pending && <AgentRailLaunchPending />}
+      {railUnreadable.length > 0 && <AgentRailLaunchUnreadable excerpts={railUnreadable} />}
       {showChips && (
         <div className="flex flex-wrap gap-1.5 pt-1">
           {options.map((option, i) => (

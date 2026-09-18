@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { OPERATOR_INSTRUCTIONS, OPERATOR_SYSTEM_PROMPT } from './agent-operator-prompt'
+import { describe, it, expect, afterEach } from 'vitest'
+import { OPERATOR_INSTRUCTIONS, OPERATOR_SYSTEM_PROMPT, RAIL_LAUNCH_CARD_SECTION, buildOperatorInstructions, buildOperatorSystemPrompt } from './agent-operator-prompt'
 
 // Content pins for the operator prompt's spec-authoring ("super specs") and
 // launch-then-release behaviours. These are prompt-as-contract tests: the
@@ -428,5 +428,35 @@ describe('existing guardrails survive the framing rewrite', () => {
   it('keeps both constants free of interpolation after the rewrite', () => {
     expect(OPERATOR_INSTRUCTIONS).not.toMatch(/\$\{/)
     expect(OPERATOR_SYSTEM_PROMPT).not.toMatch(/\$\{/)
+  })
+})
+
+// ── mission-rail-cards: propose = card, launch only on explicit "now" ─────────
+describe('rail launch cards (mission-rail-cards)', () => {
+  afterEach(() => { delete process.env.SPECRAILS_MISSION_RAIL_CARDS })
+
+  it('teaches the exact rail-launch fence contract and the propose-vs-launch verb split', () => {
+    expect(RAIL_LAUNCH_CARD_SECTION).toContain('## Rail launch cards')
+    expect(RAIL_LAUNCH_CARD_SECTION).toContain('```rail-launch')
+    for (const key of ['"ticketIds"', '"railIndex"', '"newRail"', '"mode"', '"loopId"', '"aiEngine"', '"model"', '"reasoningEffort"', '"profileName"', '"targetPrNumber"', '"baseBranch"', '"railName"', '"rationale"']) {
+      expect(RAIL_LAUNCH_CARD_SECTION).toContain(key)
+    }
+    expect(RAIL_LAUNCH_CARD_SECTION).toContain('do NOT call `specrails_rails(launch)`')
+    expect(RAIL_LAUNCH_CARD_SECTION).toContain('Never propose a busy rail')
+    expect(RAIL_LAUNCH_CARD_SECTION).toContain('0-BASED')
+    // Failure-turn conduct: explain, recommend ONE action, never act in that turn.
+    expect(RAIL_LAUNCH_CARD_SECTION).toContain('[Specrails run-failure briefing')
+    expect(RAIL_LAUNCH_CARD_SECTION).toContain('at most 6 short lines')
+    expect(RAIL_LAUNCH_CARD_SECTION).toContain('NEVER call runtime_resume / runtime_recover / launch / discard yourself')
+  })
+
+  it('is appended to the manual and the system prompt only while the feature is on', () => {
+    expect(buildOperatorInstructions()).toContain(RAIL_LAUNCH_CARD_SECTION)
+    expect(buildOperatorInstructions().startsWith(OPERATOR_INSTRUCTIONS)).toBe(true)
+    expect(buildOperatorSystemPrompt()).toContain('rail-launch JSON block')
+    expect(buildOperatorSystemPrompt().startsWith(OPERATOR_SYSTEM_PROMPT)).toBe(true)
+    process.env.SPECRAILS_MISSION_RAIL_CARDS = 'false'
+    expect(buildOperatorInstructions()).toBe(OPERATOR_INSTRUCTIONS)
+    expect(buildOperatorSystemPrompt()).toBe(OPERATOR_SYSTEM_PROMPT)
   })
 })

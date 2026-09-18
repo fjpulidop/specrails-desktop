@@ -38,13 +38,20 @@ export function jobsTools(): McpToolSpec[] {
         'pipeline (read a pipeline\'s jobs + statuses — use after composing dependent spawns), ' +
         'activity (recent activity feed), stats, metrics, phase_breakdown (per-phase timing and token use for jobId), default_spec_model, ' +
         'interactive_turn (ai-spawn — send a steering prompt to any running interactive job; claude jobs are interactive by default), ' +
-        'finalize (settle a running interactive job now — Freestyle jobs otherwise wait for it, others auto-settle).',
+        'finalize (settle a running interactive job now — Freestyle jobs otherwise wait for it, others auto-settle), ' +
+        'runtime_runs (read the programmatic runtime state of jobId — or every run when omitted — status, nextStep, canResume, recoverableSteps, pendingApproval, pendingQuestion; THIS is how you learn why a run failed and what recovery it offers), ' +
+        'runtime_evidence (read the durable runtime evidence of jobId), ' +
+        'runtime_resume (ai-spawn — continue a resumable run: optional approve/recover/invalidate step-id lists + answer for a pending question; act ONLY after the user confirmed on the card), ' +
+        'runtime_recover (ai-spawn — shorthand for runtime_resume with recover:[stepIds] over the recoverable steps), ' +
+        'runtime_approve (write — shorthand for runtime_resume with approve:[stepId] for a pending approval), ' +
+        'runtime_settle (write — prepare delivery for a succeeded-but-unsettled run), runtime_dismiss (write — dismiss a settled continuation from the rail card), ' +
+        'runtime_cancel (destructive — cancel an active runtime continuation).',
       hintTier: 'read',
       tier: (a) => {
         const action = a.action as string
-        if (['cancel', 'purge', 'background_start', 'background_kill'].includes(action)) return 'destructive'
-        if (['spawn', 'interactive_turn'].includes(action)) return 'ai-spawn'
-        if (['pause', 'resume', 'reorder', 'priority', 'finalize'].includes(action)) return 'write'
+        if (['cancel', 'purge', 'background_start', 'background_kill', 'runtime_cancel'].includes(action)) return 'destructive'
+        if (['spawn', 'interactive_turn', 'runtime_resume', 'runtime_recover'].includes(action)) return 'ai-spawn'
+        if (['pause', 'resume', 'reorder', 'priority', 'finalize', 'runtime_approve', 'runtime_settle', 'runtime_dismiss'].includes(action)) return 'write'
         return 'read'
       },
       inputSchema: {
@@ -76,6 +83,14 @@ export function jobsTools(): McpToolSpec[] {
             'background_list',
             'background_logs',
             'background_kill',
+            'runtime_runs',
+            'runtime_evidence',
+            'runtime_resume',
+            'runtime_recover',
+            'runtime_approve',
+            'runtime_settle',
+            'runtime_dismiss',
+            'runtime_cancel',
           ])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
@@ -127,6 +142,13 @@ export function jobsTools(): McpToolSpec[] {
         format: z.enum(['json', 'csv']).optional().describe('Export format (default json)'),
         // ── default_spec_model ──
         provider: z.string().optional().describe('Provider to resolve the default spec model for (default_spec_model)'),
+        // ── runtime_* (mission-rail-cards: the agent's eyes + hands on a failed run) ──
+        railIndex: z.number().int().nonnegative().optional().describe('runtime_runs: only the latest continuation of this rail (0-based)'),
+        approve: z.array(z.string()).optional().describe('runtime_resume/runtime_approve: step ids to approve'),
+        recover: z.array(z.string()).optional().describe('runtime_resume/runtime_recover: step ids to recover (default for runtime_recover: every recoverableStep)'),
+        invalidate: z.array(z.string()).optional().describe('runtime_resume: step ids whose results must be discarded before continuing'),
+        answer: z.string().optional().describe('runtime_resume: the answer to the run\'s pending question'),
+        stepId: z.string().optional().describe('runtime_approve/runtime_recover: the single step id (alternative to the arrays)'),
       },
       async handler(ctx, args) {
         const base = projectPath(ctx, args.projectId as string | undefined)
@@ -318,6 +340,64 @@ export function jobsTools(): McpToolSpec[] {
             const id = args.jobId as string | undefined
             if (!id) throw new Error('finalize requires a "jobId".')
             return apiCall(ctx, 'POST', `${base}/jobs/${encodeURIComponent(id)}/finalize`)
+          }
+
+          case 'runtime_runs': {
+            const id = args.jobId as string | undefined
+            if (id) return apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}`)
+            const railIndex = args.railIndex as number | undefined
+            return apiCall(ctx, 'GET', `${base}/agent-runtime/runs${typeof railIndex === 'number' ? `?railIndex=${railIndex}` : ''}`)
+          }
+
+          case 'runtime_evidence': {
+            const id = args.jobId as string | undefined
+            if (!id) throw new Error('runtime_evidence requires a "jobId".')
+            return apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/evidence`)
+          }
+
+          case 'runtime_resume':
+          case 'runtime_recover':
+          case 'runtime_approve': {
+            const id = args.jobId as string | undefined
+            if (!id) throw new Error(`${action} requires a "jobId".`)
+            const single = typeof args.stepId === 'string' && args.stepId.trim() ? [args.stepId.trim()] : undefined
+            const body: Record<string, unknown> = {}
+            if (action === 'runtime_recover') {
+              let recover = (args.recover as string[] | undefined) ?? single
+              if (!recover?.length) {
+                const state = await apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}`) as { runs?: Array<{ recoverableSteps?: string[] }> }
+                recover = state.runs?.[0]?.recoverableSteps ?? []
+              }
+              if (!recover.length) throw new Error('runtime_recover: the run has no recoverable steps — read runtime_runs and use runtime_resume instead.')
+              body.recover = recover
+            } else if (action === 'runtime_approve') {
+              const approve = (args.approve as string[] | undefined) ?? single
+              if (!approve?.length) throw new Error('runtime_approve requires "stepId" or "approve".')
+              body.approve = approve
+            } else {
+              for (const key of ['approve', 'recover', 'invalidate'] as const) if (Array.isArray(args[key])) body[key] = args[key]
+              if (typeof args.answer === 'string') body.answer = args.answer
+            }
+            const r = await apiCall(ctx, 'POST', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/resume`, body)
+            return { ...(r as Record<string, unknown>), hint: 'Resume accepted (202) — it is not completion. Progress streams into the mission run card; verify with runtime_runs or specrails_watch.' }
+          }
+
+          case 'runtime_settle': {
+            const id = args.jobId as string | undefined
+            if (!id) throw new Error('runtime_settle requires a "jobId".')
+            return apiCall(ctx, 'POST', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/settle`)
+          }
+
+          case 'runtime_dismiss': {
+            const id = args.jobId as string | undefined
+            if (!id) throw new Error('runtime_dismiss requires a "jobId".')
+            return apiCall(ctx, 'POST', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/dismiss`)
+          }
+
+          case 'runtime_cancel': {
+            const id = args.jobId as string | undefined
+            if (!id) throw new Error('runtime_cancel requires a "jobId".')
+            return apiCall(ctx, 'POST', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/cancel`)
           }
 
           case 'background_start': {

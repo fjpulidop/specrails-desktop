@@ -55,6 +55,9 @@ import { readExecutionManifest } from './multi-repo-execution-store'
 import { newId } from './ids'
 import { withRepoLock } from './repo-lock'
 import { getAgentChatManager } from './agent-chat-registry'
+import { postRunCard, settleRunCard, notifyMissionRunFailure, failureForLoopOutcome } from './mission-run-notify'
+import { runtimeRunSummary } from './agent-runtime-controls-router'
+import { readStore, resolveTicketStoragePath } from './ticket-store'
 import type { ReasoningEffort } from './providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, RailRemovedMessage, LoopRunStoppedMessage } from './types'
 import { assertProcessAdmission, captureProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
@@ -139,6 +142,17 @@ function emitPrDeliveryUpdate(c: ProjectContext, prDeliveryId: string): void {
   }
 }
 
+/** Ticket ids currently `on_review` (best-effort: an unreadable store ⇒ none). */
+function onReviewTicketIds(c: ProjectContext): Set<number> {
+  try {
+    const execution = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
+    const store = readStore(execution.relocated ? execution.ticketsPath : resolveTicketStoragePath(c.project.path))
+    return new Set(Object.values(store.tickets).filter((t) => t.status === 'on_review').map((t) => t.id))
+  } catch {
+    return new Set()
+  }
+}
+
 export function createRailsRouter(): Router {
   const router = Router({ mergeParams: true })
 
@@ -215,7 +229,20 @@ export function createRailsRouter(): Router {
       for (const row of listActivePrDeliveries(c.db)) {
         if (!(row.rail_index in prDeliveries)) prDeliveries[row.rail_index] = toPrDeliverySnapshot(row)
       }
-      res.json({ rails, activeJobs, activeLoopRuns, prDeliveries })
+      // mission-rail-cards: per-rail availability so an agent proposal (or the
+      // launch card) can target a usable rail without re-deriving the rules.
+      const onReviewIds = onReviewTicketIds(c)
+      const railsWithAvailability = rails.map((rail) => ({
+        ...rail,
+        availability: rail.railIndex in activeJobs || rail.railIndex in activeLoopRuns
+          ? 'busy' as const
+          : rail.railIndex in prDeliveries
+            ? 'pending_decision' as const
+            : rail.ticketIds.some((id) => onReviewIds.has(id))
+              ? 'on_review' as const
+              : 'free' as const,
+      }))
+      res.json({ rails: railsWithAvailability, activeJobs, activeLoopRuns, prDeliveries })
     } catch (err) {
       console.error('[rails-router] get rails error:', err)
       res.status(500).json({ error: 'Failed to fetch rails' })
@@ -1008,7 +1035,23 @@ export function createRailsRouter(): Router {
         const loopRunIds: string[] = []
         const loopTicketCompletionStatus = isRailPrDeliveryEnabled() ? 'on_review' as const : 'done' as const
         const launchLoopRun = (runId: string, ticketIds: number[], spec: ReturnType<typeof c.getTicketSpec>) => {
-          c.railLoopRuns.set(runId, { railIndex, ticketIds, requiresTerminalIntent: true })
+          c.railLoopRuns.set(runId, { railIndex, ticketIds, requiresTerminalIntent: true, ...(originConversationId ? { originConversationId } : {}) })
+          // mission-rail-cards: a shared-cwd run has no delivery row, so the
+          // origin mission gets a run card keyed on the run id instead.
+          const runCard = { projectId: c.project.id, runId, railIndex, railName: rail.name ?? null, ticketIds }
+          postRunCard(originConversationId ?? null, runCard)
+          const settleMissionCard = (outcome: string, stallReason?: string | null, detail?: string | null): void => {
+            if (!originConversationId) return
+            void (async () => {
+              const summary = await runtimeRunSummary(c, runId).catch(() => null)
+              const failure = failureForLoopOutcome(outcome, stallReason, detail)
+              if (!failure) { settleRunCard(originConversationId, runCard, outcome, summary); return }
+              await notifyMissionRunFailure({
+                ...runCard, originConversationId, failure, summary, hasDelivery: false,
+                tickets: ticketIds.map((id) => ({ id, title: c.getTicketSpec(id)?.title ?? null })),
+              })
+            })().catch((err) => console.error('[rails-router] mission card settle failed:', err))
+          }
           // Code-Explorer provenance for shared-cwd loop runs (isolated runs
           // record inside rail-isolated-launch): snapshot the REPO before the
           // run, diff + record at settle. Loop runs settle outside QueueManager,
@@ -1069,12 +1112,14 @@ export function createRailsRouter(): Router {
             .then((r) => {
               recordRunProvenance()
               c.onLoopRunFinished(r.runId, r.outcome, r.stallReason ? { stallReason: r.stallReason } : undefined)
+              settleMissionCard(r.outcome, r.stallReason ?? null)
               return r.outcome === 'success'
             })
             .catch((err) => {
               console.error('[rails-router] loop run failed:', err)
               recordRunProvenance()
               c.onLoopRunFinished(runId, 'failed')
+              settleMissionCard('failed', null, err instanceof Error ? err.message : String(err))
               return false
             })
           void runPromise
@@ -1092,7 +1137,7 @@ export function createRailsRouter(): Router {
           }
         }
         res.status(202).json({
-          loopRunIds, railIndex, mode,
+          loopRunIds, runIds: loopRunIds, railIndex, mode,
           ...(isolationUnavailable ? { isolationUnavailable } : {}),
         })
         return

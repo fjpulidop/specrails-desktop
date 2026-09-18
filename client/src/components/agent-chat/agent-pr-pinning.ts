@@ -27,6 +27,23 @@ export function isPrDecisionPinned(decision: AgentPrDecisionValue): boolean {
   return PINNED_PR_DECISIONS.has(decision)
 }
 
+/**
+ * Envelope-aware pinning (mission-rail-cards). A card stays pinned while:
+ *  - its decision demands one (the legacy set above), or
+ *  - it is in the launched/running phase, or
+ *  - the run recorded a failure that has not been acknowledged — i.e. the
+ *    card was not discarded/dismissed (run-only cards land at `completed`/
+ *    `implementation_failed`; a failure on those keeps them in the dock until
+ *    the person acts on the card).
+ * Legacy envelopes (no phase/runtime) behave exactly as before.
+ */
+export function isPrEnvelopePinned(envelope: Pick<AgentPrDecisionEnvelope, 'decision' | 'phase' | 'runtime' | 'hasDelivery'>): boolean {
+  if (isPrDecisionPinned(envelope.decision)) return true
+  if (envelope.phase === 'launched' || envelope.phase === 'running') return true
+  if (envelope.runtime?.failure && envelope.decision !== 'discarded' && envelope.decision !== 'superseded') return true
+  return false
+}
+
 export interface PinnedPrCard {
   /** The backing system row's id — the pinned card's identity + history anchor. */
   messageId: string
@@ -156,7 +173,7 @@ export function derivePrCards(messages: readonly AgentMessage[]): DerivedPrCards
       continue
     }
     byMessageId.set(card.messageId, card.envelope)
-    if (isPrDecisionPinned(card.envelope.decision)) pinned.push(card)
+    if (isPrEnvelopePinned(card.envelope)) pinned.push(card)
   }
   return { byMessageId, duplicateMessageIds, pinned }
 }

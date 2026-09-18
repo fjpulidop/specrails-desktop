@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useSharedWebSocket } from './useSharedWebSocket'
 import i18n from '../lib/i18n'
+import { useUiMode } from '../context/UiModeContext'
+import { requestMissionOpenRun } from '../components/agent-chat/agent-run-failure'
 
 interface WsJob {
   id: string
@@ -65,6 +67,26 @@ export function useOsNotifications({
 
   const setActiveProjectIdRef = useRef(setActiveProjectId)
   useEffect(() => { setActiveProjectIdRef.current = setActiveProjectId }, [setActiveProjectId])
+  // mission-rail-cards: in Mission mode a notification click must not leave
+  // the mission for the routed `/jobs/:id` page — it opens the run inside the
+  // workspace (Jobs pane → JobDetailModal) instead. Read through a ref so the
+  // WS handler below (registered once) always sees the current mode.
+  const { uiMode } = useUiMode()
+  const uiModeRef = useRef(uiMode)
+  useEffect(() => { uiModeRef.current = uiMode }, [uiMode])
+  const openJob = useCallback((projectId: string | null, jobId: string): void => {
+    if (uiModeRef.current === 'agent') {
+      if (projectId && setActiveProjectIdRef.current) setActiveProjectIdRef.current(projectId)
+      requestMissionOpenRun({ projectId, jobId })
+      return
+    }
+    if (projectId && setActiveProjectIdRef.current) {
+      setActiveProjectIdRef.current(projectId)
+      setTimeout(() => { navigateRef.current(`/jobs/${jobId}`) }, 100)
+    } else {
+      navigateRef.current(`/jobs/${jobId}`)
+    }
+  }, [])
 
   const projectsByIdRef = useRef(projectsById)
   useEffect(() => { projectsByIdRef.current = projectsById }, [projectsById])
@@ -196,12 +218,7 @@ export function useOsNotifications({
       })
       notification.onclick = () => {
         window.focus()
-        if (projectId && setActiveProjectIdRef.current) {
-          setActiveProjectIdRef.current(projectId)
-          setTimeout(() => { navigateRef.current(`/jobs/${jobId}`) }, 100)
-        } else {
-          navigateRef.current(`/jobs/${jobId}`)
-        }
+        openJob(projectId, jobId)
         notification.close()
       }
     }
@@ -254,14 +271,7 @@ export function useOsNotifications({
 
       notification.onclick = () => {
         window.focus()
-        if (targetProjectId && setActiveProjectIdRef.current) {
-          setActiveProjectIdRef.current(targetProjectId)
-          setTimeout(() => {
-            navigateRef.current(`/jobs/${jobId}`)
-          }, 100)
-        } else {
-          navigateRef.current(`/jobs/${jobId}`)
-        }
+        openJob(targetProjectId, jobId)
         notification.close()
       }
     }

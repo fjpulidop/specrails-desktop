@@ -689,8 +689,10 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     const fakeAgentChat = () => {
       const postPrDecisionCard = vi.fn()
       const updatePrDecisionCard = vi.fn()
-      setAgentChatManager({ postPrDecisionCard, updatePrDecisionCard } as unknown as AgentChatManager)
-      return { postPrDecisionCard, updatePrDecisionCard }
+      const postRunFailureRow = vi.fn().mockReturnValue('row-1')
+      const startSystemTurn = vi.fn().mockResolvedValue('started')
+      setAgentChatManager({ postPrDecisionCard, updatePrDecisionCard, postRunFailureRow, startSystemTurn } as unknown as AgentChatManager)
+      return { postPrDecisionCard, updatePrDecisionCard, postRunFailureRow, startSystemTurn }
     }
 
     it('origin conversation set → building card at launch, runIds chip update at allocation, settled envelope at settle', async () => {
@@ -732,20 +734,39 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
       }))
     })
 
-    it('failed settle (0 succeeded) also updates the card so the origin learns the failed job outcome', async () => {
-      const { updatePrDecisionCard } = fakeAgentChat()
+    it('failed settle (0 succeeded) updates the card AND fires the mission failure trigger (row + one briefing turn)', async () => {
+      const { updatePrDecisionCard, postRunFailureRow, startSystemTurn } = fakeAgentChat()
       const { ctx } = fakeCtx(settlingRun('failure'))
 
-      await launchIsolatedRail(
+      const ids = await launchIsolatedRail(
         { ...input([1], ctx), originSurface: 'agent-chat', originConversationId: 'conv-9' },
         okIo(),
       )
 
-      // calls[0] is the allocation runIds update; the LAST call carries the
-      // failed implementation outcome.
-      await vi.waitFor(() => expect(updatePrDecisionCard).toHaveBeenCalledTimes(2))
+      // calls[0] is the allocation runIds update; calls[1] the settled envelope;
+      // calls[2] the mission-rail-cards failure trigger's runtime-enriched card.
+      await vi.waitFor(() => expect(updatePrDecisionCard).toHaveBeenCalledTimes(3))
       expect(updatePrDecisionCard.mock.calls[1][0]).toBe('conv-9')
-      expect(updatePrDecisionCard.mock.calls[1][1]).toMatchObject({ kind: 'pr_decision', decision: 'implementation_failed' })
+      expect(updatePrDecisionCard.mock.calls[1][1]).toMatchObject({ kind: 'pr_decision', decision: 'implementation_failed', phase: 'settled' })
+      expect(updatePrDecisionCard.mock.calls[2][1]).toMatchObject({
+        decision: 'implementation_failed',
+        runtime: { status: 'failed', failure: { code: 'implementation_failed' } },
+      })
+      expect(postRunFailureRow).toHaveBeenCalledWith('conv-9', expect.objectContaining({ kind: 'run-failure', runId: ids[0], railIndex: 0, code: 'implementation_failed', ticketIds: [1] }))
+      expect(startSystemTurn).toHaveBeenCalledTimes(1)
+      expect(startSystemTurn.mock.calls[0][0]).toBe('conv-9')
+      expect(startSystemTurn.mock.calls[0][1]).toContain('[Specrails run-failure briefing')
+      expect(startSystemTurn.mock.calls[0][1]).toContain('Rail 1 \u00b7 run ' + ids[0])
+      expect(startSystemTurn.mock.calls[0][2]).toMatchObject({ runId: ids[0], ref: { kind: 'system-briefing', id: ids[0] } })
+    })
+
+    it('successful settle never fires the failure trigger', async () => {
+      const { postRunFailureRow, startSystemTurn, updatePrDecisionCard } = fakeAgentChat()
+      const { ctx } = fakeCtx(settlingRun('success'))
+      await launchIsolatedRail({ ...input([1], ctx), originSurface: 'agent-chat', originConversationId: 'conv-9' }, okIo())
+      await vi.waitFor(() => expect(updatePrDecisionCard).toHaveBeenCalledTimes(2))
+      expect(postRunFailureRow).not.toHaveBeenCalled()
+      expect(startSystemTurn).not.toHaveBeenCalled()
     })
 
     it('dashboard launch (origin null) → the card is never posted nor updated', async () => {

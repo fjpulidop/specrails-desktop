@@ -22,8 +22,10 @@ import { LiveInputDeliveryError, type LiveInputSink } from './providers/live-ses
 import { spawnAiCli } from './util/cli-prompt'
 import { finaliseInvocationResult } from './result-event'
 import { recordAgentInvocation, type AgentInvocationStatus } from './desktop-db'
+import { isMissionFailureTurnEnabled } from './feature-flags'
+import type { RunFailureRow } from './types'
 import { ensureAgentConversationCwd, ensureAgentCwd } from './agent-cwd-manager'
-import { OPERATOR_SYSTEM_PROMPT } from './agent-operator-prompt'
+import { buildOperatorSystemPrompt } from './agent-operator-prompt'
 import { prepareAgentMcp, removeAgentCapabilityFile } from './agent-mcp-config'
 import { buildCodexPluginArgs } from './plugins/codex-spawn'
 import { resolveProjectExecution } from './workspace-resolution'
@@ -489,8 +491,8 @@ export class AgentChatManager {
       : ''
     const prompt = `${contextPrefix}\n\n${projectSnapshot}\n\n${inputReceiptNote}${userWithAttachments}`
     const systemPrompt = hasAttachments
-      ? `${OPERATOR_SYSTEM_PROMPT}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
-      : OPERATOR_SYSTEM_PROMPT
+      ? `${buildOperatorSystemPrompt()}\n\n${USER_ATTACHMENT_SYSTEM_NOTE}`
+      : buildOperatorSystemPrompt()
     const effectivePrompt = (useResume: boolean): string => {
       const freshPrompt = !useResume && historyBlock ? `${contextPrefix}\n\n${historyBlock}\n\n${prompt}` : prompt
       return adapter.capabilities.systemPromptArg ? freshPrompt : `${systemPrompt}\n\n---\n\n${freshPrompt}`
@@ -1256,6 +1258,60 @@ export class AgentChatManager {
       console.error(`[agent-chat] updatePrDecisionCard failed (${conversationId}):`, err)
     }
   }
+
+  /**
+   * mission-rail-cards: persist the compact failure marker row for a run into
+   * its origin conversation (once per run — a repeat signal only updates the
+   * card) and broadcast `agent_run_failure`. Returns the row id, or null when
+   * skipped (duplicate / conversation gone / disposed). NEVER throws.
+   */
+  postRunFailureRow(conversationId: string, row: RunFailureRow): string | null {
+    if (this._disposed) return null
+    try {
+      if (!getAgentConversation(this._db, conversationId)) return null
+      const existing = findAgentSystemMessages(this._db, conversationId, (content) => {
+        try {
+          const parsed = JSON.parse(content) as { kind?: string; runId?: string }
+          return parsed.kind === 'run-failure' && parsed.runId === row.runId
+        } catch { return false }
+      })
+      if (existing.length > 0) return null
+      const message = addAgentMessage(this._db, { conversationId, role: 'system', content: JSON.stringify(row) })
+      this._broadcast({ type: 'agent_run_failure', conversationId, messageId: message.id, ...row, timestamp: new Date().toISOString() })
+      return message.id
+    } catch (err) {
+      console.error(`[agent-chat] postRunFailureRow failed (${conversationId}):`, err)
+      return null
+    }
+  }
+
+  /**
+   * mission-rail-cards: start ONE automatic, app-authored turn (the run-failure
+   * briefing). Reuses `sendMessage` end to end — queued behind a live turn,
+   * accounted like any turn, subject to the conversation's provider/model/tier.
+   * Durable dedup: the queue id is derived from the run id, so a second signal
+   * for the same run is an idempotent no-op (`created:false`) even across a
+   * restart. Flag-gated; NEVER throws.
+   */
+  async startSystemTurn(conversationId: string, text: string, opts: { runId: string; ref?: AgentContextReference }): Promise<'started' | 'skipped'> {
+    if (this._disposed || !isMissionFailureTurnEnabled()) return 'skipped'
+    const key = `${conversationId}:${opts.runId}`
+    if (this._systemTurnRuns.has(key)) return 'skipped'
+    if (!getAgentConversation(this._db, conversationId)) return 'skipped'
+    this._systemTurnRuns.add(key)
+    try {
+      await this.sendMessage(conversationId, text, {
+        queueId: `mission-failure:${opts.runId}`,
+        ...(opts.ref ? { contextRefs: [opts.ref] } : {}),
+      })
+      return 'started'
+    } catch (err) {
+      console.error(`[agent-chat] startSystemTurn failed (${conversationId}):`, err)
+      return 'skipped'
+    }
+  }
+
+  private readonly _systemTurnRuns = new Set<string>()
 
   private _findPrDecisionCards(conversationId: string, prDeliveryId: string) {
     return findAgentSystemMessages(this._db, conversationId, (content) => {

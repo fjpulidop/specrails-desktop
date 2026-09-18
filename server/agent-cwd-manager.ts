@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { OPERATOR_INSTRUCTIONS } from './agent-operator-prompt'
+import { buildOperatorInstructions } from './agent-operator-prompt'
 
 // ─── App-level agent working directory (design D1) ────────────────────────────
 //
@@ -29,7 +29,7 @@ function ensureCwd(dir: string): string {
   for (const name of INSTRUCTION_FILES) {
     // App-owned files (not user-edited) — always (re)write so operator-prompt
     // updates take effect instead of being pinned to the first materialization.
-    fs.writeFileSync(path.join(dir, name), OPERATOR_INSTRUCTIONS, 'utf-8')
+    fs.writeFileSync(path.join(dir, name), buildOperatorInstructions(), 'utf-8')
   }
   return dir
 }

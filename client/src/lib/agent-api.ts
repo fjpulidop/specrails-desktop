@@ -42,7 +42,20 @@ export interface AgentMessage {
   context_refs?: AgentContextReference[]
   delivery_status?: 'delivered' | 'interrupted' | 'cancelled'
   delivery_receipt?: AgentDeliveryReceipt
+  /** A decision taken on a card inside this message (mission-rail-cards). */
+  intent?: AgentMessageIntent | null
   created_at: string
+}
+
+export interface AgentMessageIntent {
+  kind: 'rail-launch'
+  proposalIndex: number
+  status: 'launched' | 'dismissed'
+  at: string
+  railIndex?: number
+  runIds?: string[]
+  prDeliveryId?: string | null
+  config?: Record<string, unknown>
 }
 
 export interface AgentPendingMessage {
@@ -350,6 +363,50 @@ export interface AgentPrDecisionEnvelope {
   units?: RailPrUnitOutcome[]
   createdAt?: string
   updatedAt?: string
+  // ── mission-rail-cards (all optional; absent on legacy envelopes) ──
+  /** False for shared-cwd launches (no git / no commits): no delivery phase. */
+  hasDelivery?: boolean
+  phase?: MissionRunPhase
+  railName?: string | null
+  runtime?: MissionRunRuntime | null
+}
+
+export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'
+
+export interface MissionRunFailure {
+  code: string
+  detail: string | null
+  stepId: string | null
+}
+
+export interface MissionRunRuntime {
+  status: 'running' | 'succeeded' | 'failed' | 'stalled' | 'cancelled' | 'unknown'
+  currentStep: string | null
+  canResume: boolean
+  recoverableSteps: string[]
+  pendingApproval: boolean
+  failure: MissionRunFailure | null
+  at: string
+}
+
+const MISSION_RUN_PHASES: readonly string[] = ['launched', 'running', 'settled', 'delivery']
+const MISSION_RUNTIME_STATUSES: readonly string[] = ['running', 'succeeded', 'failed', 'stalled', 'cancelled', 'unknown']
+
+function coerceMissionRuntime(v: unknown): MissionRunRuntime | null {
+  if (!v || typeof v !== 'object') return null
+  const o = v as Record<string, unknown>
+  const f = o.failure && typeof o.failure === 'object' ? o.failure as Record<string, unknown> : null
+  return {
+    status: typeof o.status === 'string' && MISSION_RUNTIME_STATUSES.includes(o.status) ? o.status as MissionRunRuntime['status'] : 'unknown',
+    currentStep: typeof o.currentStep === 'string' ? o.currentStep : null,
+    canResume: o.canResume === true,
+    recoverableSteps: Array.isArray(o.recoverableSteps) ? o.recoverableSteps.filter((s): s is string => typeof s === 'string') : [],
+    pendingApproval: o.pendingApproval === true,
+    failure: f && typeof f.code === 'string'
+      ? { code: f.code, detail: typeof f.detail === 'string' ? f.detail : null, stepId: typeof f.stepId === 'string' ? f.stepId : null }
+      : null,
+    at: typeof o.at === 'string' ? o.at : '',
+  }
 }
 
 /**
@@ -403,6 +460,11 @@ export function coercePrDecisionEnvelope(v: unknown): AgentPrDecisionEnvelope | 
     repositoryDeliveries: snapshot.repositoryDeliveries,
     createdAt: snapshot.createdAt,
     updatedAt: snapshot.updatedAt,
+    // mission-rail-cards — optional, legacy envelopes leave them undefined.
+    ...(o.hasDelivery === false ? { hasDelivery: false } : {}),
+    ...(typeof o.phase === 'string' && MISSION_RUN_PHASES.includes(o.phase) ? { phase: o.phase as MissionRunPhase } : {}),
+    ...(typeof o.railName === 'string' ? { railName: o.railName } : {}),
+    ...(o.runtime ? { runtime: coerceMissionRuntime(o.runtime) } : {}),
   }
 }
 
@@ -607,4 +669,25 @@ export async function getMcpStatus(): Promise<{ enabled: boolean; running: boole
 }
 export async function enableMcp(): Promise<void> {
   await json(await fetch(`${API_ORIGIN}/api/mcp-admin/enable`, { method: 'POST' }))
+}
+
+/**
+ * Persist a decision taken on an agent-emitted card (mission-rail-cards):
+ * a ```rail-launch proposal launched or dismissed. 409 ⇒ already decided.
+ */
+export async function patchAgentMessageIntent(
+  conversationId: string,
+  messageId: string,
+  intent: Omit<AgentMessageIntent, 'at'>,
+): Promise<{ ok: true; intent: AgentMessageIntent } | { ok: false; status: number; error: string }> {
+  const res = await fetch(`${API_ORIGIN}/api/agent/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/intent`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(intent),
+  })
+  let data: Record<string, unknown> | null = null
+  try { data = await res.json() as Record<string, unknown> } catch { data = null }
+  if (!res.ok) return { ok: false, status: res.status, error: typeof data?.error === 'string' ? data.error : `HTTP ${res.status}` }
+  const message = data?.message as { intent?: AgentMessageIntent } | undefined
+  return { ok: true, intent: message?.intent ?? { ...intent, at: new Date().toISOString() } }
 }

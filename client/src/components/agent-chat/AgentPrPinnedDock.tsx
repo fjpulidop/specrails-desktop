@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
-import { Pin, ChevronDown, ChevronUp, GitPullRequest } from 'lucide-react'
+import { Pin, ChevronDown, ChevronUp, GitPullRequest, Rocket } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { AgentPrDecisionEnvelope, AgentPrDecisionValue } from '../../lib/agent-api'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import type { PinnedPrCard } from './agent-pr-pinning'
+import { AgentRailLaunchCard } from './AgentRailLaunchCard'
+import type { PinnedRailProposal } from './useRailLaunchProposals'
 
 const PILL_TONE: Record<AgentPrDecisionValue, string> = {
   building: 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary',
@@ -35,6 +37,19 @@ export function PrDecisionPill({ decision }: { decision: AgentPrDecisionValue })
       )}
     >
       {t(`prCard.pinned.state.${decision}`)}
+    </span>
+  )
+}
+
+/** Pill for an undecided launch proposal (mission-rail-cards). */
+function ProposalPill() {
+  const { t } = useTranslation('agent')
+  return (
+    <span
+      data-testid="rail-proposal-pill"
+      className="inline-flex shrink-0 items-center rounded-full border border-accent-primary/40 bg-accent-primary/10 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-accent-primary"
+    >
+      {t('railCard.status.proposal')}
     </span>
   )
 }
@@ -96,11 +111,18 @@ function writeCollapsedCards(conversationId: string, ids: Set<string>): void {
  */
 export function AgentPrPinnedDock({
   pinned,
+  proposals = [],
+  projectId = null,
   conversationId,
   inline,
 }: {
   /** Message-ordered pinned cards — newest LAST (from `derivePrCards`). */
   pinned: PinnedPrCard[]
+  /** Undecided agent launch proposals (mission-rail-cards) — rendered ABOVE the
+   *  PR cards, same chrome, each collapsible. */
+  proposals?: PinnedRailProposal[]
+  /** The mission's pinned project the proposals resolve against. */
+  projectId?: string | null
   conversationId: string
   /** Agent-Mode inline surface (centers to the composer column) vs floating panel. */
   inline: boolean
@@ -117,8 +139,9 @@ export function AgentPrPinnedDock({
     setCollapsedCards(readCollapsedCards(conversationId))
   }, [conversationId])
 
-  if (pinned.length === 0) return null // parent gates; defensive
-  const newest = pinned[pinned.length - 1]
+  const total = pinned.length + proposals.length
+  if (total === 0) return null // parent gates; defensive
+  const newest = pinned.length > 0 ? pinned[pinned.length - 1] : null
 
   const setCollapsedPersist = (v: boolean) => {
     writeCollapsed(conversationId, v)
@@ -164,9 +187,9 @@ export function AgentPrPinnedDock({
           >
             <Pin className="h-3.5 w-3.5 shrink-0 text-accent-primary/70" />
             <span className="min-w-0 flex-1 truncate text-left">
-              {t('prCard.pinned.collapsed', { count: pinned.length })}
+              {t('prCard.pinned.collapsed', { count: total })}
             </span>
-            <PrDecisionPill decision={newest.envelope.decision} />
+            {newest ? <PrDecisionPill decision={newest.envelope.decision} /> : <ProposalPill />}
             <ChevronUp className="h-3.5 w-3.5 shrink-0 opacity-60" />
           </button>
         ) : (
@@ -176,9 +199,9 @@ export function AgentPrPinnedDock({
               <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-foreground/45">
                 <Pin className="h-3 w-3 text-accent-primary/60" />
                 {t('prCard.pinned.label')}
-                {pinned.length > 1 && (
+                {total > 1 && (
                   <span className="rounded-full border border-border/60 bg-surface/60 px-1.5 py-px text-[9px] tabular-nums text-foreground/55">
-                    {pinned.length}
+                    {total}
                   </span>
                 )}
               </span>
@@ -201,6 +224,47 @@ export function AgentPrPinnedDock({
               data-testid="agent-pr-dock-stack"
               className="max-h-[45vh] space-y-1.5 overflow-y-auto overscroll-contain"
             >
+              {proposals.map((p) => {
+                const key = `proposal:${p.messageId}:${p.proposalIndex}`
+                const isCardCollapsed = collapsedCards.has(key)
+                const tickets = p.proposal.ticketIds.map((id) => `#${id}`).join(' ')
+                return (
+                  <div key={key} data-testid="agent-rail-launch-dock-card" className="space-y-1">
+                    <button
+                      type="button"
+                      data-testid="agent-rail-launch-dock-card-toggle"
+                      data-agent-interactive
+                      onClick={() => toggleCard(key)}
+                      aria-expanded={!isCardCollapsed}
+                      aria-label={t(isCardCollapsed ? 'prCard.pinned.expandCard' : 'prCard.pinned.collapseCard')}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-lg border px-2.5 py-1 text-[11px] text-foreground/70 transition-colors',
+                        isCardCollapsed
+                          ? 'border-border/60 bg-card/80 shadow backdrop-blur-xl hover:border-accent-primary/40 hover:bg-surface/70'
+                          : 'border-transparent bg-transparent hover:bg-surface/50',
+                      )}
+                    >
+                      <Rocket className="h-3 w-3 shrink-0 text-accent-primary/70" />
+                      <span className="min-w-0 flex-1 truncate text-left font-medium">
+                        {t('railCard.heading')}{tickets ? ` · ${tickets}` : ''}
+                      </span>
+                      <ProposalPill />
+                      {isCardCollapsed ? <ChevronUp className="h-3 w-3 shrink-0 opacity-60" /> : <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />}
+                    </button>
+                    {!isCardCollapsed && (
+                      <AgentRailLaunchCard
+                        proposal={p.proposal}
+                        proposalIndex={p.proposalIndex}
+                        messageId={p.messageId}
+                        conversationId={conversationId}
+                        projectId={projectId}
+                        intent={null}
+                        compact
+                      />
+                    )}
+                  </div>
+                )
+              })}
               {pinned.map((p) => {
                 const deliveryId = p.envelope.prDeliveryId
                 const isCardCollapsed = collapsedCards.has(deliveryId)
@@ -232,7 +296,7 @@ export function AgentPrPinnedDock({
                         <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
                       )}
                     </button>
-                    {!isCardCollapsed && <AgentPrDecisionCard envelope={p.envelope} />}
+                    {!isCardCollapsed && <AgentPrDecisionCard envelope={p.envelope} conversationId={conversationId} />}
                   </div>
                 )
               })}
