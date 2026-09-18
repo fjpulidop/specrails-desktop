@@ -20,7 +20,8 @@
 // Spec: openspec/changes/add-multi-provider-support/specs/project-spending/spec.md
 
 import type { AdapterEvent, NormalisedResult, ProviderAdapter, ProviderId } from './providers/types'
-import { estimateCostUsd } from './pricing'
+import { estimateCostUsd, estimateLocalCostUsd } from './pricing'
+import { isLocalAdapter } from './providers/local-adapter'
 
 export type { NormalisedResult } from './providers/types'
 
@@ -99,6 +100,22 @@ export function finaliseInvocationResult(
   // (COST-ACCOUNTING-AUDIT CRIT-1). A genuine native cost — including a
   // numeric 0 — still passes through untouched with estimated=false.
   const nativeCostAbsent = cloned.total_cost_usd === null || cloned.total_cost_usd === undefined
+  // Local (OpenAI-compatible) engines are NEVER rate-card guessed: cost is the
+  // connection's optional user-supplied rates (flagged estimated) or NULL —
+  // honest "cost unknown", never $0 (design D9).
+  if (isLocalAdapter(adapter)) {
+    if (nativeCostAbsent && hasBillableUsage) {
+      const computed = estimateLocalCostUsd(adapter.localConnection.rates, {
+        tokens_in: cloned.tokens_in,
+        tokens_out: cloned.tokens_out,
+      })
+      if (computed !== null) {
+        cloned.total_cost_usd = computed
+        estimated = true
+      }
+    }
+    return { result: cloned, estimated }
+  }
   if (nativeCostAbsent && hasBillableUsage) {
     const estimator = opts.estimator ?? estimateCostUsd
     const computed = estimator(adapter.id, cloned.model, {

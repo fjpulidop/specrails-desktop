@@ -32,7 +32,8 @@
     "ticketChip": "工单 #{{id}} ·  ✕",
     "failedToLoad": "加载失败：{{error}}",
     "modelChip": "模型：{{model}}",
-    "clearModelFilter": "清除模型筛选"
+    "clearModelFilter": "清除模型筛选",
+    "localEngine": "本地"
   },
   "hero": {
     "spending": "支出",
@@ -152,7 +153,8 @@
     "colProvider": "提供商",
     "sortLabel": "排序",
     "sortRecency": "最近",
-    "sortCost": "成本"
+    "sortCost": "成本",
+    "costUnknownLocalTooltip": "费用未知（本地引擎）。为连接添加费率以查看估算。"
   },
   "export": {
     "summaryCsv": "摘要 CSV",

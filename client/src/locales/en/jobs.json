@@ -138,14 +138,17 @@
       "reasoning": "Reasoning…",
       "working": "Working…",
       "connecting": "Connecting to the agent…",
-      "starting": "Starting…"
+      "starting": "Starting…",
+      "delegating": "Delegating to {{arg}}"
     },
     "pipelinePartial": "≥ shown — {{count}} phase(s) have no recorded cost yet",
     "pipelinePartialTooltip": "Some phases did not report cost, so this total is a lower bound.",
     "pipelineCostUnavailable": "Cost telemetry is unavailable for every phase.",
     "pipelineUsageUnavailable": "Token telemetry is unavailable for every phase.",
     "pipelineUsagePartial": "≥ shown — {{count}} phase(s) have no token telemetry",
-    "pipelineUsageTooltip": "Providers may complete phases without exposing token telemetry; only known usage is included."
+    "pipelineUsageTooltip": "Providers may complete phases without exposing token telemetry; only known usage is included.",
+    "costUnknownLocal": "Cost unknown (local engine)",
+    "costUnknownLocalTooltip": "Cost unknown (local engine). Add rates to the connection to see an estimate."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} more",
@@ -328,5 +331,11 @@
       "passed": "Passed",
       "unavailable": "Unavailable"
     }
+  },
+  "runHeader": {
+    "details": "Details",
+    "phaseActivity": "{{phase}} · {{activity}}",
+    "liveReported": "Reported by the provider so far; the final figures arrive when the job finishes.",
+    "questionPending": "Answer the question"
   }
 }

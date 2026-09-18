@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select'
-import { providerLabel } from '../lib/provider-capabilities'
+import { isLocalEngineId, providerLabel } from '../lib/provider-capabilities'
 import { useProviderDetection } from '../hooks/useProviderDetection'
 
 interface AiEngineSelectorProps {
@@ -52,10 +52,19 @@ export function AiEngineSelector({
       <SelectContent>
         {providers.map((p) => {
           const unauthenticated = detection.providers[p]?.authState === 'unauthenticated'
+          const local = detection.providers[p]?.kind === 'local' || isLocalEngineId(p)
           return (
             <SelectItem key={p} value={p}>
               <span className="inline-flex items-center gap-1.5">
                 {providerLabel(p)}
+                {local && (
+                  <span
+                    className="rounded-full bg-accent-secondary/15 px-1.5 py-px text-[10px] leading-4 text-accent-secondary"
+                    title={t('aiEngine.localEngine')}
+                  >
+                    {t('aiEngine.localEngine')}
+                  </span>
+                )}
                 {unauthenticated && (
                   <span
                     className="rounded-full bg-accent-warning/15 px-1.5 py-px text-[10px] leading-4 text-accent-warning"

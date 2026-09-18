@@ -250,6 +250,8 @@ export interface LoopExecutors {
 
 export interface LoopRunRequest {
   runtimeProviderOverride?: RuntimeProviderOverride
+  /** Loop Decider engine (roles launch, hybrid-role-engines); absent ⇒ the rail's provider/model/effort. */
+  deciderEngine?: { provider: string; model: string; effort?: ReasoningEffort }
   /** Explicit rail profile; null opts out of profile injection, undefined uses defaults. */
   profileName?: string | null
   /** Pre-allocated run id (so the caller can track/cancel before completion).
@@ -1851,7 +1853,7 @@ export class LoopRunManager {
             iteration += 1
             const goal = resolveConstants(interpolateSpec(String(node.data?.goal ?? 'The loop goal is met.'), req.spec), constMap)
             // `iteration` was just incremented — it IS this pass's 1-based number.
-            emitStep('decider', `🔍 ${nodeLabel || 'Loop Decider'} (iteration ${iteration})`, node.id, iteration)
+            emitStep('decider', `🔍 ${nodeLabel || 'Loop Decider'} (iteration ${iteration}${req.deciderEngine ? `, ${req.deciderEngine.provider}/${req.deciderEngine.model}` : ''})`, node.id, iteration)
             logLine(`Goal: ${goal}`)
             // BUG-32: capture the real Decider start BEFORE the await (see AI step).
             const deciderStart = new Date(this.now()).toISOString()
@@ -1863,9 +1865,9 @@ export class LoopRunManager {
               // Give the Decider the spec so it can verify completeness against the
               // FULL scope instead of trusting a step's self-reported success.
               userPrompt: [executionManifestPrompt(req.executionManifest), buildDeciderUserPrompt({ goal, history, spec: req.spec })].filter(Boolean).join('\n\n'),
-              provider: nodeProvider,
-              model: nodeModel,
-              effort: nodeEffort,
+              provider: req.deciderEngine?.provider ?? nodeProvider,
+              model: req.deciderEngine?.model ?? nodeModel,
+              effort: req.deciderEngine ? req.deciderEngine.effort : nodeEffort,
               cwd: req.cwd,
               repoDir: req.repoDir, executionManifest: req.executionManifest,
               onLine: logLine,

@@ -211,6 +211,22 @@ export function estimateCostUsd(
 }
 
 /**
+ * Cost of a LOCAL (OpenAI-compatible) invocation from the connection's
+ * user-supplied per-1M rates. `null` when the connection has no rates or the
+ * usage is empty — never a rate-card guess for a local model.
+ */
+export function estimateLocalCostUsd(
+  rates: { inputPer1M: number; outputPer1M: number } | null | undefined,
+  usage: Pick<TokenUsage, 'tokens_in' | 'tokens_out'>,
+): number | null {
+  if (!rates) return null
+  const tokensIn = usage.tokens_in ?? 0
+  const tokensOut = usage.tokens_out ?? 0
+  if (tokensIn <= 0 && tokensOut <= 0) return null
+  return tokensIn / 1_000_000 * rates.inputPer1M + tokensOut / 1_000_000 * rates.outputPer1M
+}
+
+/**
  * Returns the oldest `lastReviewedAt` date across the table. Surfaced by an
  * optional diagnostic endpoint so the maintainer can spot staleness quickly.
  */

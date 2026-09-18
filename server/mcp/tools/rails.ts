@@ -85,7 +85,7 @@ export function railsTools(): McpToolSpec[] {
           .string()
           .nullable()
           .optional()
-          .describe('AI engine/provider override; null = project primary (set_engine; also optional override for launch). Must be an installed provider. For launch from the in-app agent chat, omitting it defaults to the launching conversation\'s provider (overriding any stored rail engine) — pass a string or null explicitly to control it.'),
+          .describe('AI engine/provider override; null = project primary (set_engine; also optional override for launch). Must be an installed provider, or "roles" to run each role on its own configured engine (Settings ▸ Specrails Agents: architect/developer/reviewer from the runtime config, verifier/decider from the loop roles; requires the agent runtime). For launch from the in-app agent chat, omitting it defaults to the launching conversation\'s provider (overriding any stored rail engine) — pass a string or null explicitly to control it.'),
         // set_name / create_rail
         name: z
           .string()

@@ -114,6 +114,8 @@ describe('JobDetailModal', () => {
       ? { runs: [{ runId: mockJob.id, status: 'succeeded', active: false, recoverableSteps: [], metrics: { schemaVersion: 1, total, phases: [] } }] }
       : { job: { ...mockJob, command: 'loop: Implement' }, events: [], phaseDefinitions: [] } }))
     render(<JobDetailModal jobId={mockJob.id} projectId="mission-project" onClose={onClose} />)
+    // The runtime continuation renders inside the shared run header's Details disclosure.
+    fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
     expect(await screen.findByRole('region', { name: 'Implementation' })).toBeInTheDocument()
     fireEvent.click(screen.getByText('Usage and time'))
     expect(screen.getByText('Agent time').nextElementSibling).toHaveTextContent('8s')
@@ -195,8 +197,9 @@ describe('JobDetailModal', () => {
     })
   })
 
-  it('renders cost when total_cost_usd is non-null', async () => {
+  it('renders the authoritative cost behind the run header Details disclosure', async () => {
     render(<JobDetailModal jobId="job-abc123" onClose={onClose} />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
     await waitFor(() => {
       expect(screen.getByText('$0.0234')).toBeInTheDocument()
     })

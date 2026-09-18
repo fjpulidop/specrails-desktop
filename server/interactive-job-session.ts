@@ -37,6 +37,7 @@ import { finaliseInvocationResult } from './result-event'
 import { appendEvent, accumulateInteractiveTurn, type DbInstance, type InteractiveTurnUsage } from './db'
 import { extractDisplayText } from './util/stream-display'
 import type { AdapterEvent, ProviderAdapter } from './providers/types'
+import { isLocalAdapterId } from './providers/registry'
 import { parseStreamEvents } from './providers/runtime'
 import { terminalResultError } from './providers/terminal-result'
 import { readClaudeBackgroundTasks } from './providers/claude-background-tasks'
@@ -379,7 +380,8 @@ export class InteractiveJobSession {
     // system context, not in the command's argument string. Preserve any
     // existing appended system prompt supplied by the queue/loop owner.
     const args = [...spec.args]
-    if (this._adapter.id === 'claude' && this._settleMode === 'auto') {
+    // Local runners share claude's argv shape for the appended system prompt.
+    if ((this._adapter.id === 'claude' || isLocalAdapterId(this._adapter.id)) && this._settleMode === 'auto') {
       const index = args.indexOf('--append-system-prompt')
       if (index >= 0) args[index + 1] = `${args[index + 1] ?? ''}\n\n${FOREGROUND_RULE}`
       else args.push('--append-system-prompt', FOREGROUND_RULE)

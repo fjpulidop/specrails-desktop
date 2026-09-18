@@ -114,6 +114,8 @@ export interface IsolatedLaunchInput {
   provider: string
   model: string
   effort?: ReasoningEffort
+  /** Loop Decider engine when the rail launched by roles (hybrid-role-engines). */
+  deciderEngine?: { provider: string; model: string; effort?: ReasoningEffort }
   /** How the rail fans out: `per-ticket` = one worktree+run per ticket; `all` =
    *  ONE worktree+run covering every ticket (e.g. `{{cmd:implement}}` which runs
    *  the whole batch in a single pipeline invocation). Default `per-ticket`. */
@@ -559,7 +561,7 @@ function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
  * fallback for these errors; execution stays bound to a verified worktree.
  */
 export async function launchIsolatedRail(input: IsolatedLaunchInput, io: IsolatedLaunchIO = {}): Promise<string[]> {
-  const { ctx, railIndex, ticketIds, loopId, loopName, loopGraph, provider, model, effort } = input
+  const { ctx, railIndex, ticketIds, loopId, loopName, loopGraph, provider, model, effort, deciderEngine } = input
   let expectedRepositoryBaseSha = input.repositoryExecution?.expectedBaseSha
   let singleRepositoryId = input.repositoryExecution?.repositoryId
   if (!input.repositoryExecution) {
@@ -1401,7 +1403,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         },
         ticketCompletionStatus: runFinishedOpts.ticketCompletionStatus,
         deferTerminalOutcome: true,
-        constants, provider, model, effort,
+        constants, provider, model, effort, ...(deciderEngine ? { deciderEngine } : {}),
         profileName: input.profileName,
       })
     runPromises.push(settleAllocatedRun(a, enginePromise))
@@ -1837,7 +1839,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     try {
       const outcomes = await runMergeBack({
         git, executor: createLoopExecutors(), baseDir: baseRepo,
-        provider, model, effort, constants, branches,
+        provider, model, effort, ...(deciderEngine ? { deciderEngine } : {}), constants, branches,
         // CRIT-2: record every merge-back AI step (verify/resolve-merge/fix) as a
         // `surface='job'` invocation tied to the rail (surface_ref_id
         // `${jobId}:merge:${step}`), primary ticket = ticketIds[0].

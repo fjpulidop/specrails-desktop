@@ -62,7 +62,7 @@
   "desktop": {
     "nav": {
       "appearance": "外観",
-      "specrailsAgents": "Specrails Agents",
+      "specrailsAgents": "AI プロバイダー",
       "code": "コード",
       "terminal": "ターミナル",
       "updates": "更新",

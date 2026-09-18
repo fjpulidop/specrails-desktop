@@ -16,6 +16,7 @@ import { existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { treeKillSafe as treeKill, windowsSpawnEnv } from './util/win-spawn'
 import { getAdapter } from './providers'
+import { isLocalAdapterId } from './providers/registry'
 import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from './workspace-manager'
 import { ensureClaudeTrusted } from './claude-trust'
 import { runAiCliInvocation } from './spawn-lifecycle'
@@ -287,7 +288,7 @@ export function createLoopExecutors(
       )
       const buildOpts = {
         prompt: effectivePrompt,
-        ...(adapter.id === 'claude' ? { systemPrompt: FOREGROUND_RULE } : {}),
+        ...(adapter.id === 'claude' || isLocalAdapterId(adapter.id) ? { systemPrompt: FOREGROUND_RULE } : {}),
         model,
         sessionId: sessionId ?? undefined,
         reasoning_effort: effort,

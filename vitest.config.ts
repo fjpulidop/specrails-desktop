@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    include: ['server/**/*.test.ts', 'cli/**/*.test.ts', 'mcp-bridge/**/*.test.ts'],
+    include: ['server/**/*.test.ts', 'cli/**/*.test.ts', 'mcp-bridge/**/*.test.ts', 'local-runner/src/**/*.test.ts'],
     environment: 'node',
     // Coverage-run headroom: under v8 instrumentation + full-suite parallelism the
     // event loop can starve an I/O-bound supertest round-trip past the 5s default,
@@ -17,12 +17,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text-summary', 'lcov', 'html'],
-      include: ['server/**/*.ts', 'cli/**/*.ts'],
+      include: ['server/**/*.ts', 'cli/**/*.ts', 'local-runner/src/**/*.ts'],
       exclude: [
         '**/*.test.ts',
         'server/vitest-setup.ts',
         'server/dist/**',
         'server/index.ts',
+        // Local-runner entry: wires process streams + exit code around runCli
+        // (fully tested in-process); process.exit is not exercisable in vitest.
+        'local-runner/src/index.ts',
+        'local-runner/src/__tests__/**',
         // Real Playwright/CDP implementation of the browser-capture abstractions.
         // Every branch requires a live Chromium (screencast frames, CDP input,
         // DOM eval) which is not exercisable in the node test env; the manager
@@ -47,6 +51,12 @@ export default defineConfig({
           functions: 80,
           statements: 80,
           branches: 70,
+        },
+        // Local agent runner (openspec change local-ai-engines, task 1.9)
+        'local-runner/**': {
+          lines: 80,
+          functions: 80,
+          statements: 80,
         },
       },
     },

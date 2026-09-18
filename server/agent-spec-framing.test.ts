@@ -292,3 +292,15 @@ describe('retention criterion is derivable without instrumentation', () => {
     expect(countFrameOutcomes(listAgentMessages(db, conversationId))).toEqual({ answered: 2, superseded: 0 })
   })
 })
+
+
+describe('hasValidProblemFrame — ```json fence tolerance (small/local models)', () => {
+  it('accepts a frame emitted under a generic json fence', async () => {
+    const { hasValidProblemFrame } = await import('./agent-spec-framing')
+    const frame = JSON.stringify({ restated: { reading: 'A', touches: [] }, alternative: { reading: 'B', touches: [] }, discriminator: 'which?', assumptions: [], unknowns: [] })
+    expect(hasValidProblemFrame('Framing:\n```json\n' + frame + '\n```', { tolerantFences: true })).toBe(true)
+    // CLI providers stay strict: no flag ⇒ a json fence is NOT a frame.
+    expect(hasValidProblemFrame('Framing:\n```json\n' + frame + '\n```')).toBe(false)
+    expect(hasValidProblemFrame('```json\n{"foo":1}\n```', { tolerantFences: true })).toBe(false)
+  })
+})

@@ -26,8 +26,75 @@
     "addLocal": "Ajouter un fournisseur local / API",
     "show": "Afficher les connexions aux fournisseurs",
     "hide": "Masquer les connexions aux fournisseurs",
-    "globalTitle": "Connexions des fournisseurs",
-    "globalHint": "Ces connexions sont disponibles pour tous les projets. Attribuez les fournisseurs et modèles aux rôles dans les paramètres du projet. Les changements s’appliquent aux nouvelles exécutions."
+    "globalTitle": "Fournisseurs d'IA",
+    "globalHint": "Deux types de fournisseurs alimentent chaque projet : les CLI de programmation détectées sur cette machine et les moteurs locaux compatibles OpenAI que vous enregistrez ici. Attribuez-les aux phases du pipeline dans Paramètres du projet ▸ Moteur des agents. Les changements s’appliquent aux nouvelles exécutions.",
+    "label": "Nom affiché (facultatif)",
+    "labelPlaceholder": "ex. Machine LAN",
+    "defaultModel": "Modèle par défaut",
+    "defaultModelNone": "Aucun défaut (premier découvert)",
+    "defaultModelPlaceholder": "ID du modèle ou alias personnalisé",
+    "customModel": "Alias personnalisé…",
+    "discoveredModels": "Modèles découverts",
+    "noModels": "Aucun modèle découvert pour l'instant : testez la connexion.",
+    "rates": "Tarifs (USD par 1M de jetons, facultatif)",
+    "ratesHint": "Les coûts sont affichés comme des estimations ; laissez les deux vides et le coût reste inconnu.",
+    "inputRate": "Entrée par 1M",
+    "outputRate": "Sortie par 1M",
+    "ratesInvalid": "Saisissez les deux tarifs comme nombres non négatifs, ou laissez les deux vides.",
+    "reasoningEffort": "Le service accepte l'effort de raisonnement",
+    "reasoningEffortHint": "Envoie le champ reasoning_effort d'OpenAI : l'effort configuré du rôle à chaque appel, porté à élevé pendant que l'architecte compact rédige le plan. Laissez désactivé sauf si le serveur le prend en charge.",
+    "apiKeyEnvMissing": "{{name}} n'est pas définie dans le processus de l'app. Définissez-la dans l'environnement qui lance l'app.",
+    "test": "Tester la connexion",
+    "testing": "Test en cours…",
+    "testFailed": "Impossible de tester la connexion.",
+    "rename": "Renommer",
+    "renameHint": "Le renommage conserve les affectations de rôles vers cette connexion.",
+    "idLocked": "L'id est verrouillé après l'enregistrement. Utilisez Renommer pour le modifier.",
+    "localBadge": "Moteur local",
+    "cliBadge": "CLI",
+    "notDetected": "Non détecté sur cette machine",
+    "unsaved": "Modifications non enregistrées",
+    "empty": "Aucune connexion pour l'instant. Ajoutez un fournisseur local / API pour commencer.",
+    "fixBeforeSave": "Corrigez les champs signalés avant d'enregistrer.",
+    "status": {
+      "probing": "Vérification…",
+      "reachable": "Joignable",
+      "unauthorized": "Non autorisé",
+      "unreachable": "Injoignable",
+      "untested": "Jamais testé"
+    },
+    "auth": {
+      "authenticated": "Connecté",
+      "unauthenticated": "Non connecté",
+      "unknown": "Connexion inconnue"
+    },
+    "agentLoop": "Boucle de l'agent",
+    "agentLoopHint": "comment le pipeline implement pilote ce modèle",
+    "agentLoop_compact": "Compacte",
+    "agentLoop_compactHint": "Micro-étapes pilotées par l'application avec sortie structurée. Recommandé pour les modèles de moins de ~30B.",
+    "agentLoop_free": "Libre",
+    "agentLoop_freeHint": "Une boucle agentique par rôle, comme un fournisseur CLI. Nécessite un modèle puissant.",
+    "contextWindow": "Fenêtre de contexte (tokens)",
+    "contextWindowHint": "Alignez sur la taille de contexte du serveur (n_ctx / num_ctx). Sert à compacter les anciens résultats d'outils avant de remplir la fenêtre. Par défaut 32768.",
+    "maxOutput": "Budget de sortie par tour (tokens)",
+    "maxOutputHint": "max_tokens d'un tour d'outils ; un tour coupé est retenté une fois au double. Compte dans la fenêtre de contexte, donc toujours plafonné à l'espace restant — augmentez-le si le modèle raisonne en privé (le thinking le consomme). Par défaut 8192.",
+    "reasoningEffortRailHint": "Désactivé : le sélecteur d'effort de raisonnement n'apparaît pas dans l'en-tête du rail pour ce moteur.",
+    "presetTitle": "Configuration rapide",
+    "presetSmallModel": "Recommandé pour les petits modèles",
+    "presetSmallModelApplied": "Préréglage petits modèles appliqué",
+    "presetSmallModelHint": "Active la boucle Compacte, transmet l'effort de raisonnement et fixe une fenêtre de contexte de 32k : la combinaison validée avec des modèles de 7–14B. Chaque champ reste modifiable.",
+    "cliGroup": "Outils CLI",
+    "cliGroupHint": "Détectés sur cette machine : ils utilisent leur propre connexion, rien à configurer.",
+    "localGroup": "Moteurs locaux",
+    "localGroupHint": "Points de terminaison compatibles OpenAI (llama.cpp, Ollama, vLLM, LM Studio…) accessibles depuis cette application.",
+    "models_one": "{{count}} modèle",
+    "models_other": "{{count}} modèles",
+    "expand": "Afficher les paramètres",
+    "collapse": "Masquer les paramètres",
+    "overflow": "Plus d'actions",
+    "addLocalHero": "Ajouter un moteur local",
+    "emptyLocalPitch": "Aucun moteur local pour l'instant. Pointez l'application vers un point de terminaison compatible OpenAI pour exécuter le pipeline sur votre propre matériel : le coût reste sous votre contrôle et rien ne quitte votre réseau.",
+    "defaultsGroup": "Valeurs par défaut du fournisseur"
   },
   "cliNames": {
     "claude": "Claude",
@@ -39,23 +106,28 @@
     "architect": "Architecte",
     "developer": "Développeur",
     "reviewer": "Réviseur",
+    "fixer": "Correcteur",
     "verify": "Vérification",
     "archive": "Finalisation"
   },
   "agents": {
     "title": "Attribution des rôles",
-    "hint": "Chaque rôle peut utiliser un fournisseur et un modèle différents. Connexions : Paramètres généraux → Specrails Agents. Limite par défaut : {{turns}} tours par agent.",
+    "hint": "Chaque rôle peut utiliser un fournisseur et un modèle différents. Connexions : Paramètres généraux → Fournisseurs d'IA. Limite par défaut : {{turns}} tours par agent.",
     "provider": "Fournisseur",
     "model": "Modèle",
     "modelPlaceholder": "ID du modèle ou modèle par défaut du CLI",
     "maxTurns": "Nombre maximal de tours (par défaut {{turns}})",
-    "defaultModel": "Par défaut ({{model}})"
+    "defaultModel": "Par défaut ({{model}})",
+    "thinking": "Raisonnement privé",
+    "thinking_off": "Désactivé",
+    "thinking_on": "Activé",
+    "thinkingHint": "Désactivé par défaut : le raisonnement caché consomme le budget de sortie et des minutes par tour dans une boucle pilotée par l'hôte. Activez-le pour un rôle qui profite de la délibération (envoyé comme chat_template_kwargs.enable_thinking ; ignoré par les endpoints qui ne le connaissent pas)."
   },
   "limits": {
     "title": "Limites du workflow",
-    "hint": "Les champs vides utilisent les valeurs de Core : {{attempts}} tentatives du développeur et {{minutes}} minutes par workflow. Les plafonds de jetons et USD sont facultatifs ; un plafond USD exige Claude pour chaque rôle IA.",
+    "hint": "Les champs vides utilisent les valeurs de Core : {{attempts}} tentatives de correction et {{minutes}} minutes par étape de rôle. Sur les moteurs locaux, le délai s'applique à chaque unité de travail (un groupe de tâches, un artefact, une revue) — 45 minutes par défaut — plus une surveillance d'inactivité de 20 minutes ; une étape qui dépasse son temps bloque l'exécution et peut reprendre au prochain groupe ouvert. Les plafonds de tokens et USD sont facultatifs ; ceux en USD exigent Claude pour tous les rôles.",
     "maxAttempts": "Tentatives maximales du développeur (par défaut {{attempts}})",
-    "timeoutMinutes": "Délai en minutes (par défaut {{minutes}})",
+    "timeoutMinutes": "Délai en minutes (par défaut {{minutes}} ; moteurs locaux 45 par groupe de tâches)",
     "maxTokens": "Jetons maximum",
     "maxCostUsd": "Coût maximum (USD)",
     "unlimited": "Sans limite"
@@ -108,7 +180,8 @@
     "implementation": "Implémentation",
     "preserveProgress": "Reprendre à la phase indiquée en conservant le travail et les paramètres enregistrés.",
     "reviewDelivery": "Implémentation terminée. Vérifiez le résultat dans le journal avant la livraison ; cette reprise ne l’a pas publié.",
-    "prepareDelivery": "Préparer la livraison"
+    "prepareDelivery": "Préparer la livraison",
+    "dismiss": "Ignorer"
   },
   "roleHints": {
     "architect": "Lit le code et rédige la proposition, la conception, les tâches et la spec. Lecture seule.",
@@ -165,7 +238,8 @@
     "saved": "Prompts des rôles enregistrés",
     "unsaved": "Modifications non enregistrées",
     "discard": "Annuler les modifications",
-    "save": "Enregistrer les prompts"
+    "save": "Enregistrer les prompts",
+    "fixerHint": "Utilisé uniquement lors des tours de correction : après une vérification échouée ou une revue rejetée. Tourne sur le moteur du développeur sauf si Réglages ▸ Moteur des agents ▸ Correcteur en désigne un. Un fournisseur CLI qui reprend la session du développeur reçoit le court suivi de correction ; la définition s'applique dès qu'une session neuve démarre (moteurs locaux, moteur correcteur, session perdue)."
   },
   "efficiency": {
     "title": "Efficacité de l’implémentation",
@@ -180,7 +254,8 @@
     "triggers": {
       "architect": "Seule l’investigation approfondie existante peut sélectionner ce niveau.",
       "developer": "Après deux candidats en échec, la prochaine tentative autorisée peut sélectionner ce niveau.",
-      "reviewer": "Uniquement pour réparer une réponse mal formée, jamais pour un refus du code."
+      "reviewer": "Uniquement pour réparer une réponse mal formée, jamais pour un refus du code.",
+      "fixer": "Seul un tour de correction peut atteindre ce palier ; les premiers passages n'exécutent jamais le correcteur."
     },
     "contextMode": "Contexte du dépôt",
     "reviewMode": "Revue des corrections",
@@ -242,5 +317,181 @@
     "original": "Exécution originale",
     "requested": "Demandé",
     "reported": "Rapporté"
-  }
+  },
+  "loopRoles": {
+    "title": "Rôles de boucle",
+    "hint": "Moteurs des rôles côté boucle lorsqu'un rail est lancé avec le moteur « Rôles ». Les rôles du pipeline ci-dessus (architect, developer, reviewer) proviennent déjà de cette configuration du runtime.",
+    "verifier": "Vérificateur",
+    "verifierHint": "Chaque étape IA de la boucle hors core : verify, fix et étapes IA personnalisées.",
+    "decider": "Décideur",
+    "deciderHint": "Le Loop Decider qui lit le verdict et choisit l'étape suivante — un modèle rapide et peu coûteux est le choix naturel.",
+    "inherit": "Hériter du principal",
+    "model": "Modèle",
+    "effort": "Effort de raisonnement",
+    "disabled": "Le runtime des agents est désactivé : les rails lancés avec le moteur « Rôles » sont refusés tant qu'il n'est pas activé.",
+    "saveFailed": "Impossible d'enregistrer les rôles de boucle."
+  },
+  "pipeline": {
+    "title": "Pipeline d'implémentation",
+    "explainer": "Ces phases s'exécutent dans cet ordre à chaque implémentation. Quand le moteur du rail est « {{roles}} », chaque phase utilise le moteur configuré ci-dessous : fournisseur, modèle et effort différents par phase. Choisir un moteur précis sur le rail exécute toutes les phases avec ce moteur.",
+    "host": "Hôte",
+    "noCommand": "aucune commande",
+    "inherits": "Hérite du principal",
+    "inheritsDeveloper": "Hérite du développeur",
+    "open": "Ouvrir",
+    "collapse": "Réduire",
+    "groups": {
+      "core": {
+        "title": "Pipeline principal",
+        "hint": "S'exécute dans chaque implémentation : planifier, construire, vérifier, corriger, relire."
+      },
+      "loop": {
+        "title": "Étapes de la boucle",
+        "hint": "Étapes IA de la boucle du rail qui entoure l'exécution (vérifier → décider → corriger) et des boucles personnalisées ; elles héritent du moteur principal sauf réglage.",
+        "chip": "boucle du rail"
+      }
+    },
+    "phases": {
+      "architect": {
+        "name": "Architecte",
+        "purpose": "Lit le code et rédige la proposition, la conception et les tâches."
+      },
+      "developer": {
+        "name": "Développeur",
+        "purpose": "Implémente les tâches avec des tests."
+      },
+      "verification": {
+        "name": "Vérification",
+        "purpose": "L'hôte exécute vos contrôles ; les échecs reviennent au développeur."
+      },
+      "fixer": {
+        "name": "Correcteur",
+        "purpose": "Corrige ce que la vérification ou la revue rejettent ; hérite du développeur s'il n'est pas configuré."
+      },
+      "reviewer": {
+        "name": "Relecteur",
+        "purpose": "Confronte le résultat à la spec et aux preuves."
+      },
+      "verifier": {
+        "name": "Vérificateur",
+        "purpose": "Étapes IA verify, fix et personnalisées de la boucle."
+      },
+      "decider": {
+        "name": "Décideur",
+        "purpose": "Lit le verdict et choisit l'étape suivante de la boucle."
+      }
+    }
+  },
+  "fixer": {
+    "title": "Moteur du correcteur",
+    "inherit": "Hériter du développeur",
+    "own": "Moteur dédié",
+    "hint": "Ne s'exécute que lors des tours de correction : après une vérification échouée ou une revue rejetée ; les premiers passages restent sur le développeur. Un modèle plus puissant ou cloud ici est rentable quand le développeur est un modèle local bon marché."
+  },
+  "guardrails": {
+    "title": "Garde-fous",
+    "intro": "Règles de processus que l'hôte applique autour des modèles locaux pour qu'un petit modèle ne déraille pas. Toutes actives par défaut ; n'en désactivez une que pour ajuster le processus. Les fournisseurs CLI ne sont jamais concernés.",
+    "unsupported": "Cette installation de Core n'expose pas de garde-fous configurables. Mettez Core à jour pour les ajuster ; les règles intégrées s'appliquent toujours.",
+    "active": "{{on}} sur {{total}} actifs",
+    "reset": "Rétablir les valeurs par défaut",
+    "phases": {
+      "architect": "Architecte",
+      "developer": "Développeur",
+      "host": "Hôte"
+    },
+    "unknown": "Un garde-fou ajouté par un Core plus récent ; cette application n'a pas encore de description pour lui.",
+    "items": {
+      "plan-validation": {
+        "title": "Plan de tâches validé",
+        "description": "Rejette les plans qui ciblent openspec/, listent de simples noms de fichiers comme tâches, ont trop peu de tâches/groupes pour la spec ou laissent des critères d'acceptation non couverts ; l'architecte réessaie.",
+        "why": "Un plan vague ou incomplet est la raison nº 1 pour laquelle un petit modèle développeur écrit des stubs."
+      },
+      "genuine-blocking-question": {
+        "title": "Uniquement de vraies questions bloquantes",
+        "description": "L'architecte ne peut mettre l'exécution en pause qu'avec une vraie question terminée par « ? », jamais avec un texte d'exemple copié.",
+        "why": "Les petits modèles répètent les espaces réservés du prompt et bloqueraient chaque exécution."
+      },
+      "plan-language-hint": {
+        "title": "Planifier dans le langage du dépôt",
+        "description": "Indique à l'architecte le langage principal pour que les noms de fichiers des tâches portent la bonne extension.",
+        "why": "Un plan JS sur un dépôt TypeScript rend les tâches impossibles à cocher."
+      },
+      "frozen-plan-writes": {
+        "title": "Les artefacts de planification sont figés",
+        "description": "Le développeur ne peut pas écrire sous openspec/ ; le plan appartient à l'hôte.",
+        "why": "Les modèles « implémentent » en modifiant le plan au lieu du code."
+      },
+      "primary-language": {
+        "title": "Rappel du langage principal",
+        "description": "Chaque groupe de tâches reçoit le langage principal du dépôt ; les nouveaux fichiers doivent l'utiliser.",
+        "why": "Évite une seconde implémentation dans un autre langage."
+      },
+      "duplicate-sibling": {
+        "title": "Pas de modules jumeaux entre langages",
+        "description": "Refuse board.js quand board.ts existe déjà ; étendez plutôt le module existant.",
+        "why": "Les jumeaux compilent tous les deux et les tests importent le mauvais."
+      },
+      "one-test-per-module": {
+        "title": "Un fichier de test par module",
+        "description": "Refuse board.tick.test.ts quand board.test.ts existe ; étendez-le plutôt.",
+        "why": "Sinon chaque passe de correction ajoute une nouvelle suite."
+      },
+      "empty-write": {
+        "title": "Pas d'écrasements vides",
+        "description": "Une écriture vide sur un fichier rempli est refusée ; écrivez le contenu complet ou appliquez un patch.",
+        "why": "Une passe de « nettoyage » a un jour laissé index.ts à 0 ligne."
+      },
+      "evidence-gated-ticking": {
+        "title": "Des preuves avant de cocher une tâche",
+        "description": "Une tâche nommant des fichiers n'est terminée que s'ils existent et ne sont pas des stubs (extensions sœurs acceptées).",
+        "why": "Sans cela, « terminé » n'est qu'une affirmation et la vérification s'exécute sur rien."
+      },
+      "inventory-retry": {
+        "title": "Réessayer avec le vrai inventaire",
+        "description": "Quand le modèle abandonne en prétendant que le dépôt est vide alors qu'il ne l'est pas, réessaie une fois avec la liste des fichiers.",
+        "why": "Une seconde chance peu coûteuse plutôt qu'une étape échouée."
+      },
+      "synthetic-corrections": {
+        "title": "Transformer le retour en tâches",
+        "description": "Quand toutes les tâches sont cochées mais que la revue/vérification a échoué, le retour devient des tâches de correction concrètes.",
+        "why": "Sinon le développeur répond « déjà fait » et rien ne change."
+      },
+      "silent-group-closure": {
+        "title": "Fermer les groupes silencieux, garder leurs fichiers",
+        "description": "Un groupe dont le modèle cesse de répondre est fermé en créditant les fichiers écrits et en laissant ses tâches ouvertes, au lieu de faire échouer l'exécution.",
+        "why": "Un modèle 9B a écrit cinq modules, s'est tu, et toute l'exécution a échoué."
+      },
+      "environment-repair": {
+        "title": "L'hôte répare l'environnement",
+        "description": "Les dépendances ou outils de test manquants (npm install, ts-jest, @types/jest, modules de config Jest) sont installés par l'hôte, puis la vérification est relancée une fois.",
+        "why": "Le modèle ne peut pas réparer l'environnement et gaspille des corrections à essayer."
+      },
+      "lockfile-repair": {
+        "title": "Supprimer les lockfiles écrits à la main",
+        "description": "Un package-lock.json inventé par le modèle (EINTEGRITY/ETARGET) est supprimé et l'installation retentée une fois.",
+        "why": "Des hachages inventés ne s'installent jamais."
+      },
+      "verify-idle-timeout": {
+        "title": "Arrêter les tests bloqués",
+        "description": "Une commande de vérification sans sortie pendant 5 minutes est arrêtée et signalée comme blocage probable (dernière sortie incluse).",
+        "why": "Sinon une boucle while dans un test retient l'exécution jusqu'à la limite de 15 minutes."
+      },
+      "verify-per-group": {
+        "title": "Vérifier après chaque groupe",
+        "description": "Lance la commande de test du dépôt juste après chaque groupe de tâches ; un échec reçoit une correction immédiate tant que le contexte du groupe est frais.",
+        "why": "Cinq suites cassées à la fin sont bien plus dures à corriger qu'une à la fois."
+      },
+      "test-reachability": {
+        "title": "Chaque nouveau test doit vraiment s'exécuter",
+        "description": "Un fichier de test écrit par le developer que la commande de test du dépôt n'exécute jamais (un script `test` énumératif qui omet le nouveau fichier) fait échouer la vérification en nommant le fichier exact, d'abord au niveau du groupe puis à la vérification de l'hôte.",
+        "why": "Une suite de 622 lignes avec six cas en échec est passée au vert parce que rien ne l'avait jamais lancée."
+      },
+      "exit-code-honesty": {
+        "title": "Se méfier d'un code de sortie 0 qui signale des échecs",
+        "description": "Une commande de vérification qui sort avec 0 alors que sa sortie affiche des échecs (lignes `FAIL:`, « 3 failed », une AssertionError) est traitée comme ÉCHOUÉE et transmise au correcteur, le harnais étant désigné comme le défaut.",
+        "why": "Un lanceur de tests maison qui ne fixait jamais de code de sortie non nul a livré trois tests rouges comme verts."
+      }
+    }
+  },
+  "unsavedChanges": "Modifications non enregistrées"
 }

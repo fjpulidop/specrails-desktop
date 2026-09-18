@@ -1,60 +1,20 @@
 /**
- * Warm-dependency reuse for isolated rail worktrees.
+ * Reuse installed packages without sharing tool caches with the base checkout.
+ * Each worktree owns its node_modules directory; package entries remain links,
+ * while .vite, .vite-temp and .cache are local writable directories. No install,
+ * dependency copy or permission broadening is performed. Legacy whole-directory
+ * links are migrated only after their exact source has been authenticated.
  *
- * `git worktree add` materializes only TRACKED files, so a fresh worktree has
- * no `node_modules` — every isolated run used to pay a cold `npm install`
- * (root + nested packages) plus cold build caches before doing any real work.
- * This module links the base checkout's existing install into the worktree so
- * the run starts warm.
- *
- * Mechanics:
- *  - DISCOVER: every directory that holds a `package.json` in the base repo at
- *    depth ≤ `MAX_DEPTH` (root plus shallow sub-packages like `client/`),
- *    skipping dot-dirs and anything inside a `node_modules` tree.
- *  - LINK: for each discovered package dir whose base checkout actually has a
- *    `node_modules`, create the same relative path in the worktree as a
- *    SYMLINK (junction on Windows). No copy fallback on purpose — copying a
- *    multi-GB dependency tree would be slower than the `npm install` it
- *    replaces; a failed link simply degrades to the legacy cold start.
- *  - NEVER overwrite: an existing entry at the destination (a real dir, a
- *    prior link, anything) is left untouched, so resume passes are idempotent
- *    and an agent-made install is never clobbered.
- *
- * The returned `authenticated` paths are appended to the launch's overlay-
- * exclusion list, so a linked `node_modules` inherits the same commit-time
- * guarantees as overlay scaffolding (excluded pathspecs + index audit) even if
- * the repo's `.gitignore` were ever missing the entry.
- *
- * Release safety (why `authenticated` exists next to `linked`): a repo whose
- * `.gitignore` carries the ordinary `node_modules/` DIRECTORY pattern does not
- * ignore a SYMLINK named `node_modules`, so the link surfaces as an untracked
- * entry in `git status`. Without evidence authorizing it, worktree release read
- * that as "the worktree contains changes made after settlement", parked the row
- * at `needs-review` forever and permanently blocked checkout of the branch. The
- * links therefore also carry `OverlayCleanupEvidence`, and a link created by an
- * EARLIER pass (resume) is re-authenticated instead of being ignored — the old
- * `linked`-only contract silently dropped both guarantees on resume.
- *
- * Authentication is deliberately narrow and source-anchored, never name-based:
- * the worktree entry must be a symlink whose resolved target is exactly the base
- * checkout's identically-named dependency directory. A real directory, a copy,
- * or a link pointing anywhere else stays unauthorized and preserves the
- * worktree, as `Recoverable work is never removed automatically` requires.
- *
- * Honest caveat (documented, accepted): the link SHARES the dependency tree
- * with the base checkout. Reads (tests, builds) are safe under concurrency; an
- * in-worktree `npm install` would write through to the shared tree — the same
- * mutation it would make in the user's checkout after merge.
- *
- * Kill switch: `SPECRAILS_WORKTREE_NODE_MODULES=false` restores the byte-
- * identical cold-worktree behaviour.
+ * Cleanup authority covers individual source-anchored links, never the entire
+ * writable directory. Replaced packages and newly created files therefore keep
+ * the existing ignored-artifact / recoverable-work settlement guarantees.
  */
 import * as fs from 'fs'
 import * as path from 'path'
 import { fingerprintOverlayCleanupPath, type OverlayCleanupEvidence } from './worktree-overlay'
 
 export interface NodeModulesLinkResult {
-  /** Worktree-relative POSIX paths of the links created by THIS call. */
+  /** Worktree-relative dependency directories prepared by THIS call. */
   linked: string[]
   /** Worktree-relative POSIX paths of every warm link PROVEN to point at the
    *  base checkout's identically-named dependency dir — created by this call OR
@@ -72,6 +32,7 @@ const MAX_DEPTH = 2
 
 /** Name of the dependency directory this module links. */
 const DEPS_DIR = 'node_modules'
+export const WORKTREE_DEPENDENCY_CACHES = ['.vite', '.vite-temp', '.cache'] as const
 
 export function isWorktreeNodeModulesEnabled(): boolean {
   return (process.env.SPECRAILS_WORKTREE_NODE_MODULES ?? '').toLowerCase() !== 'false'
@@ -99,7 +60,7 @@ function errMsg(err: unknown): string {
 }
 
 /** Relative POSIX paths of package dirs (containing package.json) at depth ≤ MAX_DEPTH. */
-function discoverPackageDirs(baseRepo: string): string[] {
+export function discoverPackageDirs(baseRepo: string): string[] {
   const found: string[] = []
   const walk = (rel: string, depth: number): void => {
     const abs = rel === '' ? baseRepo : path.join(baseRepo, rel)
@@ -116,7 +77,8 @@ function discoverPackageDirs(baseRepo: string): string[] {
       // hold linkable first-party packages.
       if (name.startsWith('.') || name === 'node_modules') continue
       const childAbs = path.join(abs, name)
-      if (!isDir(childAbs)) continue
+      // A first-party symlink can escape the checkout or form a discovery cycle.
+      if (!fs.lstatSync(childAbs).isDirectory()) continue
       walk(rel === '' ? name : `${rel}/${name}`, depth + 1)
     }
   }
@@ -155,7 +117,7 @@ function authenticateWarmLink(
     if (resolveRealPath(target) !== resolveRealPath(expected)) return null
     // A link to something that is not a live directory proves nothing about the
     // base checkout's dependency tree.
-    if (!isDir(target)) return null
+    if (!exists(target)) return null
   } catch {
     return null
   }
@@ -211,10 +173,46 @@ export function authenticateWarmNodeModulesLinks(
 ): OverlayCleanupEvidence[] {
   const evidence: OverlayCleanupEvidence[] = []
   for (const rel of discoverWorktreeDependencyPaths(worktreePath)) {
-    const entry = authenticateWarmLink(baseRepo, worktreePath, rel)
-    if (entry) evidence.push(entry)
+    const legacy = authenticateWarmLink(baseRepo, worktreePath, rel)
+    if (legacy) { evidence.push(legacy); continue }
+    const dest = path.join(worktreePath, rel)
+    try {
+      if (!fs.lstatSync(dest).isDirectory()) continue
+      for (const name of fs.readdirSync(dest)) {
+        if ((WORKTREE_DEPENDENCY_CACHES as readonly string[]).includes(name)) continue
+        const entryRel = `${rel}/${name}`
+        const entry = authenticateWarmLink(baseRepo, worktreePath, entryRel)
+        if (entry) { evidence.push(entry); continue }
+        // Scoped package parents are local too; never follow foreign symlinks.
+        if (name.startsWith('@') && fs.lstatSync(path.join(dest, name)).isDirectory()) {
+          for (const scoped of fs.readdirSync(path.join(dest, name))) {
+            const child = authenticateWarmLink(baseRepo, worktreePath, `${entryRel}/${scoped}`)
+            if (child) evidence.push(child)
+          }
+        }
+      }
+    } catch { /* Unreadable or concurrently removed entries confer no authority. */ }
   }
   return evidence
+}
+
+function linkDependencyEntry(source: string, destination: string): void {
+  fs.symlinkSync(source, destination, process.platform === 'win32'
+    ? (isDir(source) ? 'junction' : 'file') : undefined)
+}
+
+function createLocalDependencyTree(source: string, destination: string): void {
+  fs.mkdirSync(destination)
+  for (const name of fs.readdirSync(source)) {
+    if ((WORKTREE_DEPENDENCY_CACHES as readonly string[]).includes(name)) continue
+    const src = path.join(source, name)
+    const dest = path.join(destination, name)
+    if (name.startsWith('@') && isDir(src)) {
+      fs.mkdirSync(dest)
+      for (const scoped of fs.readdirSync(src)) linkDependencyEntry(path.join(src, scoped), path.join(dest, scoped))
+    } else linkDependencyEntry(src, dest)
+  }
+  for (const cache of WORKTREE_DEPENDENCY_CACHES) fs.mkdirSync(path.join(destination, cache))
 }
 
 /**
@@ -232,24 +230,37 @@ export function linkNodeModulesIntoWorktree(baseRepo: string, worktreePath: stri
     const src = path.join(baseRepo, ...rel.split('/'))
     if (!isDir(src)) continue
     const dest = path.join(worktreePath, ...rel.split('/'))
-    if (!exists(dest)) {
+    const legacy = authenticateWarmLink(baseRepo, worktreePath, rel)
+    if (!exists(dest) || legacy) {
+      let staging: string | undefined
+      let removedLegacy = false
       try {
         fs.mkdirSync(path.dirname(dest), { recursive: true })
-        fs.symlinkSync(src, dest, process.platform === 'win32' ? 'junction' : undefined)
+        staging = fs.mkdtempSync(path.join(path.dirname(dest), '.specrails-dependencies-'))
+        const prepared = path.join(staging, DEPS_DIR)
+        createLocalDependencyTree(src, prepared)
+        if (legacy) {
+          // Recheck immediately before removing the old link. Never unlink a
+          // directory or a replacement another actor installed in the meantime.
+          const current = authenticateWarmLink(baseRepo, worktreePath, rel)
+          if (!current || current.digest !== legacy.digest) throw new Error('dependency link changed during preparation')
+          fs.unlinkSync(dest)
+          removedLegacy = true
+        }
+        fs.renameSync(prepared, dest)
         result.linked.push(rel)
       } catch (err) {
-        result.warnings.push(`failed to link ${rel}: ${errMsg(err)}`)
-        continue
+        if (removedLegacy && !exists(dest)) {
+          try { linkDependencyEntry(src, dest) }
+          catch (restoreError) { result.warnings.push(`failed to restore ${rel}: ${errMsg(restoreError)}`) }
+        }
+        result.warnings.push(`failed to prepare ${rel}: ${errMsg(err)}`)
+      } finally {
+        if (staging) fs.rmSync(staging, { recursive: true, force: true })
       }
     }
-    // Authenticate what is actually on disk NOW — a link we just made, or one a
-    // previous pass made. An entry that cannot prove itself (a real dir, an
-    // agent-made install) is deliberately left unauthorized.
-    const entry = authenticateWarmLink(baseRepo, worktreePath, rel)
-    if (entry) {
-      result.authenticated.push(rel)
-      result.evidence.push(entry)
-    }
   }
+  result.evidence = authenticateWarmNodeModulesLinks(baseRepo, worktreePath)
+  result.authenticated = result.evidence.map(entry => entry.path)
   return result
 }

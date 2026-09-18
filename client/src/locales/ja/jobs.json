@@ -138,14 +138,17 @@
       "reasoning": "推論中…",
       "working": "作業中…",
       "connecting": "エージェントに接続中…",
-      "starting": "起動中…"
+      "starting": "起動中…",
+      "delegating": "{{arg}} に委任中"
     },
     "pipelinePartial": "≥ は部分値 — {{count}} 個のフェーズにコスト記録がありません",
     "pipelinePartialTooltip": "一部のフェーズはコストを報告する前に終了したため、この合計は下限値です。",
     "pipelineCostUnavailable": "すべてのフェーズでコストのテレメトリを利用できません。",
     "pipelineUsageUnavailable": "すべてのフェーズでトークンのテレメトリを利用できません。",
     "pipelineUsagePartial": "≥ 表示値 — {{count}} フェーズでトークンのテレメトリなし",
-    "pipelineUsageTooltip": "プロバイダーはトークンのテレメトリを提供せずにフェーズを完了する場合があります。既知の使用量のみが含まれます。"
+    "pipelineUsageTooltip": "プロバイダーはトークンのテレメトリを提供せずにフェーズを完了する場合があります。既知の使用量のみが含まれます。",
+    "costUnknownLocal": "コスト不明（ローカルエンジン）",
+    "costUnknownLocalTooltip": "コスト不明（ローカルエンジン）。接続に料金を追加すると概算が表示されます。"
   },
   "ticketHeader": {
     "showMore": "+ 他 {{count}} 件",
@@ -328,5 +331,11 @@
       "passed": "合格",
       "unavailable": "利用不可"
     }
+  },
+  "runHeader": {
+    "details": "詳細",
+    "phaseActivity": "{{phase}} · {{activity}}",
+    "liveReported": "これまでにプロバイダーが報告した値です。最終的な数値はジョブ終了時に届きます。",
+    "questionPending": "質問に回答"
   }
 }

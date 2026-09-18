@@ -214,7 +214,7 @@
       "loopsLabel": "Build your own loops",
       "loopsBody": "<b>Loops</b> is a visual builder: chain AI steps, shell commands and a <b>Loop Decider</b> that repeats until a goal is met. Built-in Implement, Batch and Freestyle ship ready to use.",
       "profilesLabel": "Agent profiles & defaults",
-      "profilesBody": "Decide which agents run and which model each uses — per project profile, per rail, or once for the whole machine in Settings → Specrails Agents.",
+      "profilesBody": "Decide which agents run and which model each uses — per project profile, per rail, or once for the whole machine in Settings → AI providers.",
       "isolationLabel": "Many projects, isolated",
       "isolationBody": "Each project has its own database and queue; your repository stays pristine because Specrails keeps its own files under your home folder."
     },

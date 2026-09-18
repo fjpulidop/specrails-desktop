@@ -4,8 +4,12 @@ import { fireEvent, render, screen, waitFor } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import JobDetailPage from '../JobDetailPage'
 import type { JobSummary, EventRow } from '../../types'
-vi.mock('../../components/settings/AgentRuntimeRuns', () => ({
-  AgentRuntimeRuns: ({ projectId, jobId }: { projectId: string; jobId: string }) => <div data-testid="runtime-job-actions" data-project={projectId} data-job={jobId} />,
+// The run header polls the agent-runtime continuation through this hook; the
+// page tests are about the page's own fetch choreography, so the poll is inert
+// here (its own behaviour is covered by JobRunHeader / AgentRuntimeRuns tests).
+const mockUseRuntimeRuns = vi.fn()
+vi.mock('../../components/job-run/useRuntimeRuns', () => ({
+  useRuntimeRuns: (...args: unknown[]) => mockUseRuntimeRuns(...args),
 }))
 
 vi.mock('sonner', () => ({
@@ -93,6 +97,7 @@ describe('JobDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockNavigate.mockClear()
+    mockUseRuntimeRuns.mockReturnValue({ runs: [], error: '', busy: null, answers: {}, setAnswer: vi.fn(), act: vi.fn(), refresh: vi.fn() })
     // The log surface now defaults to the narrated altitude (matching the Code
     // explorer's Story|Log precedent). These tests are about the RAW views, so
     // pin the persisted mode; the narrated mode has its own tests below.
@@ -258,9 +263,10 @@ describe('JobDetailPage', () => {
     await waitFor(() => {
       // LogViewer shows the log line
       expect(screen.getByText('Starting implementation...')).toBeInTheDocument()
-      expect(screen.getByTestId('runtime-job-actions')).toHaveAttribute('data-job', 'job-abc123')
-      expect(screen.getByTestId('runtime-job-actions')).toHaveAttribute('data-project', 'proj-1')
     })
+    // The shared run header scopes its runtime continuation to THIS job in the
+    // active project (the old contextual AgentRuntimeRuns mount).
+    expect(mockUseRuntimeRuns).toHaveBeenCalledWith('proj-1', { jobId: 'job-abc123', enabled: true })
   })
 
   it('renders Dashboard link in breadcrumb', async () => {
@@ -464,8 +470,8 @@ describe('JobDetailPage', () => {
     })
   })
 
-  describe('Status panel gate', () => {
-    it('renders the status panel for running jobs (no completion gate)', async () => {
+  describe('Run header', () => {
+    it('renders the shared run header for running jobs with the live activity line', async () => {
       const runningJob = { ...mockJob, status: 'running' as const, finished_at: null, total_cost_usd: null }
       global.fetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -473,8 +479,12 @@ describe('JobDetailPage', () => {
       })
       render(<JobDetailPage />)
       await waitFor(() => {
-        expect(screen.getByText('Job in progress')).toBeInTheDocument()
+        expect(screen.getByTestId('job-run-header')).toBeInTheDocument()
       })
+      expect(screen.getByTestId('job-run-activity')).toHaveTextContent('Connecting to the agent…')
+      // No placeholder "calculated when finished" tiles — nothing to disclose yet.
+      expect(screen.queryByText(/calculated when finished/i)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
     })
 
     it('derives unavailable pipeline coverage for Kimi phases instead of zero totals', async () => {
@@ -504,6 +514,8 @@ describe('JobDetailPage', () => {
         })
       render(<JobDetailPage />)
 
+      // Numbers live behind the collapsed Details disclosure.
+      fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
       await waitFor(() => {
         expect(screen.getByTestId('pipeline-cost-unavailable')).toBeInTheDocument()
       })
@@ -710,6 +722,7 @@ describe('JobDetailPage — narrated altitude', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockNavigate.mockClear()
+    mockUseRuntimeRuns.mockReturnValue({ runs: [], error: '', busy: null, answers: {}, setAnswer: vi.fn(), act: vi.fn(), refresh: vi.fn() })
     localStorage.clear() // no pinned preference ⇒ the narrated default applies
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

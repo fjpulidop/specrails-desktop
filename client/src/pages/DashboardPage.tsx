@@ -38,6 +38,7 @@ import { effectiveLoopId, deriveRailMode } from '../lib/rail-loops'
 import { defaultModelForProvider, modelsForProvider } from '../lib/loop-run-models'
 import {
   defaultReasoningEffortForProvider,
+  isRolesEngine,
   providerSupportsCustomModelAliases,
   providerSupportsFreestyle,
   reasoningEffortsForProvider,
@@ -1110,10 +1111,17 @@ export default function DashboardPage() {
     updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, selectedLoopId: loopId, mode } : r)))
   }
 
+  /** Provider id behind a rail's engine for catalog/capability lookups — the
+   *  `roles` sentinel is not a provider, so it maps to the project primary. */
+  function railProvider(r: { aiEngine?: string | null } | undefined): string {
+    const engine = r?.aiEngine
+    return (isRolesEngine(engine) ? undefined : engine) ?? railProviders[0] ?? 'claude'
+  }
+
   function handleLoopModelChange(railId: string, model: string) {
     updateRails((prev) => prev.map((r) => {
       if (r.id !== railId) return r
-      const provider = r.aiEngine ?? railProviders[0] ?? 'claude'
+      const provider = railProvider(r)
       const efforts = reasoningEffortsForProvider(provider, model)
       return {
         ...r,
@@ -1130,6 +1138,20 @@ export default function DashboardPage() {
   }
 
   async function handleEngineChange(railId: string, aiEngine: string) {
+    // Hybrid per-role engines: no single provider to derive model/effort from
+    // (each role is configured in Settings ▸ Specrails Agents), so the rail
+    // keeps its model/effort untouched and only the engine flips. Freestyle
+    // is provider-owned prose the server refuses under `roles`.
+    if (isRolesEngine(aiEngine)) {
+      const current = rails.find((r) => r.id === railId)
+      if (current && (current.mode === 'freestyle' || current.selectedLoopId === 'factory:freestyle')) {
+        toast.error(t('rail.rolesNoFreestyle'))
+        return
+      }
+      updateRails((prev) => prev.map((r) => (r.id === railId ? { ...r, aiEngine, profileName: null } : r)))
+      await persistRailEngine(railId, aiEngine)
+      return
+    }
     // Preserve provider-owned Freestyle for capable adapters (Claude and Kimi).
     // When switching to an adapter without it, fall back to Implement so launch
     // cannot fail validation. Provider-specific model and effort selections are
@@ -1169,6 +1191,10 @@ export default function DashboardPage() {
           : defaultReasoningEffortForProvider(aiEngine, nextLoopModel) ?? null,
       }
     }))
+    await persistRailEngine(railId, aiEngine)
+  }
+
+  async function persistRailEngine(railId: string, aiEngine: string) {
     const railIndex = serverRailIndex(railId)
     if (railIndex === -1) return
     try {
@@ -1242,7 +1268,10 @@ export default function DashboardPage() {
       if (!silent) toast.error(t('railControls.pickLoop'))
       return 'failed'
     }
-    const launchProvider = rail.aiEngine ?? railProviders[0] ?? 'claude'
+    // Hybrid per-role engines: the server resolves every role itself, so the
+    // launch carries NO model / effort / profile / provider override from the rail.
+    const rolesLaunch = isRolesEngine(rail.aiEngine)
+    const launchProvider = railProvider(rail)
     const launchLoopModel = rail.loopModel ?? defaultModelForProvider(launchProvider)
     const launchEfforts = reasoningEffortsForProvider(launchProvider, launchLoopModel)
     const launchEffort = rail.reasoningEffort && launchEfforts.includes(rail.reasoningEffort)
@@ -1276,22 +1305,22 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: rail.mode,
-          ...((rail.aiEngine != null || rail.mode === 'loop' && (rail.loopModel || launchEffort)) ? { runtimeProviderOverride: { provider: launchProvider, ...(rail.mode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}), ...(rail.mode === 'loop' && launchEffort ? { effort: launchEffort } : {}) } } : {}),
+          ...(!rolesLaunch && (rail.aiEngine != null || rail.mode === 'loop' && (rail.loopModel || launchEffort)) ? { runtimeProviderOverride: { provider: launchProvider, ...(rail.mode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}), ...(rail.mode === 'loop' && launchEffort ? { effort: launchEffort } : {}) } } : {}),
           // rail.profileName can be a string (explicit), null (force legacy),
           // or undefined (let server fall back to stored rail profile or defaults).
-          ...(rail.profileName !== undefined ? { profileName: rail.profileName } : {}),
+          ...(!rolesLaunch && rail.profileName !== undefined ? { profileName: rail.profileName } : {}),
           // rail.aiEngine: explicit per-rail engine override; undefined → server
           // falls back to the stored rail engine or the project primary.
           ...(rail.aiEngine != null ? { aiEngine: rail.aiEngine } : {}),
           // Freestyle model picker — only meaningful for freestyle launches.
-          ...(rail.mode === 'freestyle' && rail.freestyleModel ? { model: rail.freestyleModel } : {}),
+          ...(!rolesLaunch && rail.mode === 'freestyle' && rail.freestyleModel ? { model: rail.freestyleModel } : {}),
           // Loop model picker — only meaningful for custom loop launches.
-          ...(rail.mode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}),
+          ...(!rolesLaunch && rail.mode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}),
           // Interactive toggle — only meaningful for freestyle launches.
           // rails-as-loops: always send the chosen Loop. The server maps a
           // factory loop → its legacy mode; a custom loop runs the loop engine.
           loopId: launchLoopId,
-          ...(rail.mode === 'loop' && launchEffort ? { reasoning_effort: launchEffort } : {}),
+          ...(!rolesLaunch && rail.mode === 'loop' && launchEffort ? { reasoning_effort: launchEffort } : {}),
           // Explicit delivery target (deliver-rail-into-existing-pr): the run
           // continues this open PR's head branch; settle pushes into it.
           ...(rail.targetPr ? { targetPrNumber: rail.targetPr.number } : {}),
@@ -1614,7 +1643,7 @@ export default function DashboardPage() {
 
       {(() => {
         const r = freestyleConfirm ? rails.find((x) => x.id === freestyleConfirm.railId) : undefined
-        const provider = r?.aiEngine ?? railProviders[0] ?? 'claude'
+        const provider = railProvider(r)
         return (
           <FreestyleLaunchDialog
             open={!!freestyleConfirm && !!r}

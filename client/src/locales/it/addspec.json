@@ -143,7 +143,8 @@
   },
   "aiEngine": {
     "label": "Engine AI",
-    "notSignedIn": "Non connesso"
+    "notSignedIn": "Non connesso",
+    "localEngine": "Motore locale"
   },
   "modelSelector": {
     "presetHeading": "Preset modello",

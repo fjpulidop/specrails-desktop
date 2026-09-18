@@ -66,10 +66,11 @@
       "architect": "Progettazione della modifica (architetto)",
       "developer": "Implementazione della modifica (sviluppatore)",
       "verify": "Esecuzione dei comandi di verifica",
+      "fixer": "Correzione di quanto segnalato dalla verifica o dalla revisione (correttore)",
       "reviewer": "Revisione dell’implementazione (revisore)",
       "archive": "Archiviazione della modifica revisionata",
       "stopped": "Il motore si è fermato: {{target}}",
-      "corrections": "Correzioni rinviate allo sviluppatore",
+      "corrections": "Prosecuzione delle attività rimanenti (sviluppatore)",
       "resumed": "Ripresa dell’esecuzione salvata"
     },
     "check": {

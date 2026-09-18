@@ -175,6 +175,11 @@
     "noProfile": "No profile",
     "modelTitle": "Model for this Freestyle rail",
     "loopModelTitle": "Model for this loop",
-    "engineTitle": "AI provider for all roles in this launch: architect, developer and reviewer"
+    "engineTitle": "AI provider for all roles in this launch: architect, developer and reviewer",
+    "localEngine": "Local engine",
+    "rolesEngine": "Roles",
+    "rolesEngineTitle": "Hybrid engines per role: architect, developer and reviewer use the runtime configuration; verifier and decider use the loop roles (Settings ▸ AI providers)",
+    "rolesChip": "Per-role engines",
+    "rolesChipTitle": "Engines configured per role in Settings ▸ AI providers: architect, developer and reviewer from the runtime configuration; verifier and decider from the loop roles. Model, effort and profile are not chosen here."
   }
 }

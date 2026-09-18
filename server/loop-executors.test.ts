@@ -51,7 +51,7 @@ function fakeAdapter(id: string) {
     // codex/gemini enforce read-only, kimi enforces neither.
     capabilities: {
       toolPolicies:
-        id === 'claude' ? ['none', 'read-only'] : id === 'kimi' ? [] : ['read-only'],
+        id === 'claude' || id === 'local' ? ['none', 'read-only'] : id === 'kimi' ? [] : ['read-only'],
     },
     ...(id === 'kimi'
       ? {
@@ -292,6 +292,8 @@ describe('loop-executors runAiStep — relocated-repo sandbox grant', () => {
     { provider: 'claude', expected: 'none' },
     { provider: 'codex', expected: 'read-only' },
     { provider: 'gemini', expected: 'read-only' },
+    // Local OpenAI-compatible runner: native no-tools mode (`--tools __none__`).
+    { provider: 'local', expected: 'none' },
   ])('spawns the Decider under the tightest boundary $provider enforces, with no room to burn its single turn on a tool call', async ({ provider, expected }) => {
     getAdapter.mockReturnValue(fakeAdapter(provider))
     runAiCliInvocation.mockImplementation(async (hooks: { onEvent: (ev: unknown) => void }) => {

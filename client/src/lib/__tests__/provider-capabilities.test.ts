@@ -270,7 +270,7 @@ describe('provider-owned rail capabilities', () => {
   it('keeps both unavailable for Gemini and unknown providers', () => {
     expect(providerSupportsFreestyle('gemini')).toBe(false)
     expect(providerSupportsProfiles('gemini')).toBe(false)
-    expect(providerSupportsFreestyle('mystery')).toBe(false)
+    expect(providerSupportsFreestyle('mystery')).toBe(true) // unknown ids are local engines
   })
 })
 
@@ -293,7 +293,7 @@ describe('providerSupportsCustomModelAliases', () => {
     expect(providerSupportsCustomModelAliases('claude')).toBe(false)
     expect(providerSupportsCustomModelAliases('codex')).toBe(false)
     expect(providerSupportsCustomModelAliases('gemini')).toBe(false)
-    expect(providerSupportsCustomModelAliases('mystery')).toBe(false)
+    expect(providerSupportsCustomModelAliases('mystery')).toBe(true) // unknown ids are local engines (dynamic catalog)
   })
 })
 

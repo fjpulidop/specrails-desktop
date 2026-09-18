@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
 import { getApiBase } from '../lib/api'
 import { useDesktop, projectProviders } from '../hooks/useDesktop'
-import { providerLabel } from '../lib/provider-capabilities'
+import { isLocalEngineId, providerLabel } from '../lib/provider-capabilities'
 import { useSharedWebSocket } from '../hooks/useSharedWebSocket'
 import type {
   Period, Surface, SpendingFilters, SpendingResponse, InvocationsResponse,
@@ -403,7 +403,7 @@ export default function AnalyticsPage() {
                       ? 'bg-foreground/10 text-foreground ring-1 ring-foreground/20'
                       : 'text-muted-foreground hover:text-foreground hover:bg-accent/40'
                   }`}
-                >{providerLabel(p)}</button>
+                >{providerLabel(p)}{isLocalEngineId(p) && <span className="ml-1 rounded-full bg-accent-secondary/15 px-1.5 text-[9px] uppercase tracking-wide text-accent-secondary">{t('page.localEngine')}</span>}</button>
               )
             })}
           </div>

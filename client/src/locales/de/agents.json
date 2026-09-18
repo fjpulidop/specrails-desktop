@@ -175,6 +175,11 @@
     "noProfile": "Kein Profil",
     "modelTitle": "Modell für diese Freestyle-Rail",
     "loopModelTitle": "Modell für diesen Loop",
-    "engineTitle": "KI-Anbieter für alle Rollen dieses Starts: Architekt, Entwickler und Reviewer"
+    "engineTitle": "KI-Anbieter für alle Rollen dieses Starts: Architekt, Entwickler und Reviewer",
+    "localEngine": "Lokale Engine",
+    "rolesEngine": "Rollen",
+    "rolesEngineTitle": "Hybride Engines pro Rolle: Architect, Developer und Reviewer nutzen die Runtime-Konfiguration; Verifier und Decider nutzen die Loop-Rollen (Einstellungen ▸ Specrails-Agenten)",
+    "rolesChip": "Engines pro Rolle",
+    "rolesChipTitle": "Engines pro Rolle konfiguriert in Einstellungen ▸ Specrails-Agenten: Architect, Developer und Reviewer aus der Runtime-Konfiguration; Verifier und Decider aus den Loop-Rollen. Modell, Aufwand und Profil werden hier nicht gewählt."
   }
 }

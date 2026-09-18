@@ -16,11 +16,13 @@ const defaults = (): AgentRuntimeConfig => ({
 const snapshot = (config = defaults(), runtimeAvailable = true, configured = false) => ({ config, configured, runtimeAvailable })
 const response = (data: unknown, ok = true) => ({ ok, json: async () => data }) as Response
 const suggestions = { repositories: [{ id: 'primary-p1', name: 'App' }], suggestions: [{ repositoryId: 'primary-p1', command: 'npm', args: ['test'], reason: 'package.json test script "test"' }] }
-function mockServer(options: { configured?: boolean; config?: AgentRuntimeConfig; suggestions?: unknown; runtimeAvailable?: boolean; save?: (init: RequestInit) => Promise<Response> } = {}) {
+function mockServer(options: { detected?: unknown; configured?: boolean; config?: AgentRuntimeConfig; suggestions?: unknown; runtimeAvailable?: boolean; guardrails?: unknown; save?: (init: RequestInit) => Promise<Response> } = {}) {
   global.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
     if (String(url).endsWith('/capabilities')) return response({ schemaVersion: 1, roles: [] })
     if (String(url).endsWith('/verification-suggestions')) return response(options.suggestions ?? suggestions)
     if (String(url).endsWith('/agent-runtime/runs')) return response({ runs: [] })
+    if (String(url).endsWith('/agent-runtime/guardrails')) return response(options.guardrails ?? { supported: true, catalog: [{ id: 'plan-validation', phase: 'architect' }, { id: 'empty-write', phase: 'developer' }] })
+    if (String(url).includes('/providers/detected')) return response(options.detected ?? { detected: [], providers: {} })
     if (init?.method === 'PUT' && options.save) return options.save(init)
     if (init?.method === 'PUT') return response(snapshot(JSON.parse(String(init.body)) as AgentRuntimeConfig, options.runtimeAvailable ?? true, true))
     return response(snapshot(options.config ?? defaults(), options.runtimeAvailable ?? true, options.configured ?? false))
@@ -115,11 +117,25 @@ describe('AgentRuntimeSettingsSection', () => {
     expect(architect.getByRole('option', { name: 'Claude Opus' })).toBeInTheDocument()
     expect(architect.getByLabelText('Maximum turns (default 100)')).toHaveAttribute('placeholder', '100')
     expect(screen.getByLabelText('Maximum developer attempts (default 3)')).toHaveAttribute('placeholder', '3')
-    expect(screen.getByLabelText('Timeout in minutes (default 15)')).toHaveAttribute('placeholder', '15')
+    expect(screen.getByLabelText('Timeout in minutes (default 15; local engines 45 per task group)')).toHaveAttribute('placeholder', '15')
     expect(screen.getByLabelText('Maximum tokens')).toHaveAttribute('placeholder', 'No limit')
     // Provider connections are advanced: hidden until asked for.
     expect(screen.queryByLabelText('Provider ID')).not.toBeInTheDocument()
     expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/verification-suggestions', expect.anything())
+  })
+
+  it('mirrors the stepper grouping on the cards: core pipeline cards 1–5, loop-step cards 1–2 under their own heading', async () => {
+    render(<AgentRuntimeSettingsSection />)
+    await screen.findByRole('group', { name: 'Architect' })
+    const core = within(screen.getByTestId('phase-cards-core'))
+    const loop = within(screen.getByTestId('phase-cards-loop'))
+    expect(core.getByTestId('phase-group-heading-core')).toHaveTextContent('Core pipeline')
+    expect(loop.getByTestId('phase-group-heading-loop')).toHaveTextContent('Loop steps')
+    expect(core.getAllByTestId(/^phase-card-/).map((card) => card.getAttribute('data-testid'))).toEqual(['phase-card-architect', 'phase-card-developer', 'phase-card-verification', 'phase-card-fixer', 'phase-card-reviewer'])
+    expect(loop.getAllByTestId(/^phase-card-/).map((card) => card.getAttribute('data-testid'))).toEqual(['phase-card-verifier', 'phase-card-decider'])
+    expect(core.getByRole('button', { name: 'Collapse: 5. Reviewer' })).toBeInTheDocument()
+    expect(loop.getByRole('button', { name: 'Collapse: 1. Verifier' })).toBeInTheDocument()
+    expect(loop.getByRole('button', { name: 'Collapse: 2. Decider' })).toBeInTheDocument()
   })
 
   it('enables the runtime with no verification and saves models, turns, minutes and detected commands', async () => {
@@ -133,7 +149,7 @@ describe('AgentRuntimeSettingsSection', () => {
     await user.selectOptions(developer.getByLabelText('Model'), 'opus')
     await user.type(developer.getByLabelText('Maximum turns (default 100)'), '12')
     await user.type(screen.getByLabelText('Maximum developer attempts (default 3)'), '2')
-    await user.type(screen.getByLabelText('Timeout in minutes (default 15)'), '20')
+    await user.type(screen.getByLabelText('Timeout in minutes (default 15; local engines 45 per task group)'), '20')
     await user.click(screen.getByLabelText('Pause for approval before completing the workflow'))
     await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
     await screen.findByText('Runtime settings saved')
@@ -200,7 +216,8 @@ describe('AgentRuntimeSettingsSection', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Network offline')
 
     view.unmount()
-    vi.mocked(fetch).mockReset().mockResolvedValueOnce(response({}, false))
+    // The section also mounts useProviderDetection (one /api/providers/detected call) — answer it neutrally.
+    vi.mocked(fetch).mockReset().mockImplementation(async (url: string) => String(url).includes('/providers/detected') ? response({ detected: [], providers: {} }) : response({}, false))
     render(<AgentRuntimeSettingsSection />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load runtime settings')
     mockServer({ runtimeAvailable: false, configured: true })
@@ -264,11 +281,110 @@ describe('AgentRuntimeSettingsSection', () => {
     expect(minScore).toHaveValue(65)
   })
 
+  it('persists guardrail switches through the same Save as the rest of the config (false entries only)', async () => {
+    const user = userEvent.setup()
+    render(<AgentRuntimeSettingsSection />)
+    const guardrails = within(await screen.findByRole('group', { name: 'Guardrails' }))
+    await guardrails.findByText('2 of 2 active')
+    await user.click(guardrails.getByRole('switch', { name: 'No empty overwrites' }))
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await screen.findByText('Runtime settings saved')
+    expect(putBodies().at(-1)!.guardrails).toEqual({ 'empty-write': false })
+    expect(guardrails.getByText('1 of 2 active')).toBeInTheDocument()
+    await user.click(guardrails.getByRole('switch', { name: 'No empty overwrites' }))
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await screen.findByText('Runtime settings saved')
+    expect(putBodies().at(-1)).not.toHaveProperty('guardrails')
+  })
+
+  it('fixer: Own engine seeds from the developer and saves config.fixer; Inherit developer deletes it', async () => {
+    const config = defaults()
+    config.agents.developer = { provider: 'codex', model: 'gpt-5.5', effort: 'low' }
+    mockServer({ config, configured: true })
+    const user = userEvent.setup()
+    render(<AgentRuntimeSettingsSection />)
+    const fixer = within(await screen.findByRole('group', { name: 'Fixer' }))
+    expect(fixer.getByTestId('engine-chip')).toHaveTextContent('Inherits developer')
+    expect(fixer.getByRole('radio', { name: 'Inherit developer' })).toBeChecked()
+    expect(fixer.queryByLabelText('Model')).not.toBeInTheDocument()
+    await user.click(fixer.getByRole('radio', { name: 'Own engine' }))
+    // Seeded from the developer: provider + model only (effort/turns start clean).
+    expect(fixer.getByRole('radio', { name: 'Codex (codex)' })).toBeChecked()
+    expect(fixer.getByLabelText('Model')).toHaveValue('gpt-5.5')
+    expect(fixer.getByTestId('engine-chip')).toHaveTextContent('Codex · gpt-5.5')
+    await user.click(fixer.getByRole('radio', { name: 'Claude (claude)' }))
+    await user.selectOptions(fixer.getByLabelText('Model'), 'opus')
+    await user.type(fixer.getByLabelText('Maximum turns (default 100)'), '30')
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await screen.findByText('Runtime settings saved')
+    expect(putBodies().at(-1)?.fixer).toEqual({ provider: 'claude', model: 'opus', maxTurns: 30 })
+    expect(putBodies().at(-1)?.agents.developer).toEqual(config.agents.developer)
+    await user.click(fixer.getByRole('radio', { name: 'Inherit developer' }))
+    expect(fixer.getByTestId('engine-chip')).toHaveTextContent('Inherits developer')
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await waitFor(() => expect(putBodies()).toHaveLength(2))
+    expect(putBodies().at(-1)).not.toHaveProperty('fixer')
+  })
+
+  it('renders a saved fixer as Own engine and includes it in the capability check payload', async () => {
+    const config = defaults()
+    config.fixer = { provider: 'gemini', model: 'gemini-2.5-pro', effort: 'high' }
+    mockServer({ config, configured: true })
+    render(<AgentRuntimeSettingsSection />)
+    const fixer = within(await screen.findByRole('group', { name: 'Fixer' }))
+    expect(fixer.getByRole('radio', { name: 'Own engine' })).toBeChecked()
+    expect(fixer.getByRole('radio', { name: 'Gemini (gemini)' })).toBeChecked()
+    expect(fixer.getByTestId('engine-chip')).toHaveTextContent('gemini-2.5-pro · high')
+    await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/capabilities'))).toHaveLength(1))
+    const payload = JSON.parse(String(vi.mocked(fetch).mock.calls.find(([url]) => String(url).endsWith('/capabilities'))?.[1]?.body)) as AgentRuntimeConfig
+    expect(payload.fixer).toEqual(config.fixer)
+  })
+
   it('round-trips command lines with quoted arguments', () => {
     expect(formatVerificationCommand({ command: 'npm', args: ['run', 'test', '--', 'a b'] })).toBe('npm run test -- "a b"')
     expect(parseVerificationCommand('npm run test -- "a b"')).toEqual({ command: 'npm', args: ['run', 'test', '--', 'a b'] })
     expect(parseVerificationCommand('  ')).toBeNull()
     expect(parseVerificationCommand('node "unterminated')).toBeNull()
     expect(parseVerificationCommand('echo "quote \\" inside"')).toEqual({ command: 'echo', args: ['quote " inside'] })
+  })
+
+  it('labels local providers by display name and offers discovered models for the role model input', async () => {
+    const user = userEvent.setup()
+    const config = defaults()
+    config.providers.push({ id: 'lan-box', kind: 'openai-compatible', baseUrl: 'http://10.0.0.5:8080/v1', label: 'LAN box', defaultModel: 'qwen3.5-9b:latest' })
+    config.agents.developer = { provider: 'lan-box' }
+    mockServer({ config, detected: { detected: ['claude', 'lan-box'], providers: { 'lan-box': { id: 'lan-box', kind: 'local', models: ['qwen3.5-9b:latest', 'llama3'], authState: 'authenticated', installed: true, executable: true, usable: true, displayName: 'lan-box' } } } })
+    render(<AgentRuntimeSettingsSection />)
+    const developer = await screen.findByRole('group', { name: 'Developer' })
+    expect(within(developer).getByLabelText('LAN box (lan-box) · http://10.0.0.5:8080/v1')).toBeChecked()
+    const input = within(developer).getByLabelText('Model') as HTMLInputElement
+    expect(input.placeholder).toBe('Default (qwen3.5-9b:latest)')
+    const options = Array.from(within(developer).getByTestId('runtime-developer-models').querySelectorAll('option')).map((o) => o.value)
+    expect(options).toEqual(['qwen3.5-9b:latest', 'llama3'])
+    await user.type(input, 'custom-alias')
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await waitFor(() => expect(putBodies().at(-1)?.agents.developer.model).toBe('custom-alias'))
+  })
+
+  it('offers a per-role thinking switch on local engines only: Off by default (nothing saved), On persists, Off again deletes the field', async () => {
+    const user = userEvent.setup()
+    const config = defaults()
+    config.providers.push({ id: 'lan-box', kind: 'openai-compatible', baseUrl: 'http://10.0.0.5:8080/v1', label: 'LAN box', defaultModel: 'qwen3.5-9b:latest' })
+    config.agents.developer = { provider: 'lan-box' }
+    mockServer({ config, detected: { detected: ['claude', 'lan-box'], providers: { 'lan-box': { id: 'lan-box', kind: 'local', models: ['qwen3.5-9b:latest'], authState: 'authenticated', installed: true, executable: true, usable: true, displayName: 'lan-box' } } } })
+    render(<AgentRuntimeSettingsSection />)
+    const developer = await screen.findByRole('group', { name: 'Developer' })
+    const architect = screen.getByRole('group', { name: 'Architect' })
+    // A CLI role has no switch; the local role defaults to Off.
+    expect(within(architect).queryByRole('radiogroup', { name: 'Private thinking' })).toBeNull()
+    const thinking = within(developer).getByRole('radiogroup', { name: 'Private thinking' })
+    expect(within(thinking).getByLabelText('Off')).toBeChecked()
+    await user.click(within(thinking).getByLabelText('On'))
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await waitFor(() => expect(putBodies().at(-1)?.agents.developer.thinking).toBe('on'))
+    await user.click(within(thinking).getByLabelText('Off'))
+    await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+    await waitFor(() => expect(putBodies().length).toBe(2))
+    expect('thinking' in putBodies().at(-1)!.agents.developer).toBe(false)
   })
 })

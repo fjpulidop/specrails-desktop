@@ -143,7 +143,8 @@
   },
   "aiEngine": {
     "label": "AI 引擎",
-    "notSignedIn": "未登录"
+    "notSignedIn": "未登录",
+    "localEngine": "本地引擎"
   },
   "modelSelector": {
     "presetHeading": "模型预设",

@@ -726,7 +726,7 @@ select {
 }
 
 /* Collapse common translucent tint utilities used by status panels (e.g.
- * JobStatusPanel uses bg-emerald-500/5, bg-accent-info/5, bg-red-500/5) and
+ * JobRunHeader metrics use bg-emerald-500/5, bg-accent-info/5, bg-red-500/5) and
  * the muted track used by LogViewer. Without this the rain canvas bleeds
  * through and the log/status content is unreadable. Rain still shows
  * through unpainted areas (page padding, gaps between cards). */

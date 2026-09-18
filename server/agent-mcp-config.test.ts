@@ -3,6 +3,8 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { resolveBridgeScript, buildSpecrailsMcpEntry, buildAgentMcpArgs, prepareAgentMcp, removeAgentCapabilityFile, syncExternalServersIntoJsonFile } from './agent-mcp-config'
+import { syncLocalAdapters } from './providers/local-adapter-registry'
+import { unregisterAdapter } from './providers/registry'
 
 // resolveBridgeScript must survive the Tauri `\\?\` verbatim prefix on the
 // SPECRAILS_BUNDLED_MCP_BRIDGE_PATH env var: a `\\?\C:\…` script argument
@@ -131,6 +133,22 @@ describe('agent MCP capability transport', () => {
     expect(w.extraArgs[0]).toBe('--mcp-config')
     const json = JSON.parse(fs.readFileSync(w.extraArgs[1], 'utf-8'))
     expect(json.mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE).toContain('mcp.capability')
+  })
+
+  it('local (OpenAI-compatible) path writes the same per-conversation --mcp-config file claude gets', () => {
+    syncLocalAdapters([{ id: 'local', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:8080/v1' }])
+    try {
+      const w = prepareAgentMcp({ adapterId: 'local', conversationId: 'conv-local', cwd: os.tmpdir(), port: 4200, capability, external: [{ name: 'specrails', config: { command: 'evil' } }, { name: 'fsx', config: { command: 'npx', args: ['fs-mcp'] } }] as never })
+      expect(w.env).toEqual({})
+      expect(w.extraArgs[0]).toBe('--mcp-config')
+      const json = JSON.parse(fs.readFileSync(w.extraArgs[1], 'utf-8'))
+      expect(json.mcpServers.specrails.args[0]).toMatch(/specrails-mcp\.js$/)
+      expect(json.mcpServers.specrails.env.SPECRAILS_AGENT_CAPABILITY_FILE).toContain('mcp.capability')
+      expect(json.mcpServers.specrails.command).not.toBe('evil')
+      expect(json.mcpServers.fsx).toEqual({ command: 'npx', args: ['fs-mcp'] })
+      // No project-json file is written in the cwd for local engines.
+      expect(fs.existsSync(path.join(os.tmpdir(), '.specrails-local', 'mcp.json'))).toBe(false)
+    } finally { unregisterAdapter('local') }
   })
 
   it('codex path puts only the capability file path in argv', () => {

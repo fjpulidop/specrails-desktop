@@ -268,5 +268,8 @@
       "target_pr_invalid": "该 PR 的分支无法作为交付目标",
       "target_pr_unfetchable": "无法获取该 PR 的 head 分支"
     }
+  },
+  "rail": {
+    "rolesNoFreestyle": "Freestyle 需要单一提供方——请先选择 Implement 或某个循环，再将此轨道切换为按角色引擎。"
   }
 }

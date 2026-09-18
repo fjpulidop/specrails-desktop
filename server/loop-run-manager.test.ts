@@ -155,6 +155,13 @@ describe('LoopRunManager fail-fast (provider down / out of quota)', () => {
     expect(ex.runDecider).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 6000 }))
   })
 
+  it('routes the Loop Decider to the launch-provided decider engine (roles launch) while ai-steps keep the rail engine', async () => {
+    const ex = makeExecutors()
+    await manager(ex).run({ ...baseReq(), deciderEngine: { provider: 'codex', model: 'gpt-5.4-mini', effort: 'low' } })
+    expect(ex.runDecider).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex', model: 'gpt-5.4-mini', effort: 'low' }))
+    expect(ex.runAiStep).toHaveBeenCalledWith(expect.objectContaining({ provider: baseReq().provider, model: baseReq().model }))
+  })
+
   it('never starts an extra implementation after consuming maxIterations', async () => {
     const ex = makeExecutors({ runDecider: vi.fn(async () => ({ continue: true, blocked: false, parsed: true, reasoning: 'more work' })) })
     const result = await manager(ex).run({ ...baseReq(), graph: loopGraph(2) })

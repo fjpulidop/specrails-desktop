@@ -15,6 +15,7 @@
 // Spec: openspec/changes/global-core-zero-friction/specs/provider-auto-detection/spec.md
 
 import type { CliProvider, ProjectRow } from './desktop-db'
+import { isLocalAdapterId } from './providers/registry'
 
 type ProviderFields = Pick<ProjectRow, 'provider' | 'providers'>
 
@@ -72,10 +73,17 @@ export function isMultiProvider(project: Partial<ProviderFields>): boolean {
 export function derivePrimaryProvider(project: Partial<ProviderFields>): CliProvider {
   const available = installedProviders(project)
   const stored = project.provider
-  if (stored && available.includes(stored)) return stored
+  // A stored primary that is a LOCAL engine never wins over a detected CLI:
+  // local ids are opt-in per invocation, the machine's primary stays a CLI
+  // whenever one is detected (a local-only machine may still pick the local id).
+  const cliAvailable = available.filter((p) => !isLocalAdapterId(p))
+  if (stored && available.includes(stored) && (cliAvailable.length === 0 || !isLocalAdapterId(stored))) return stored
   for (const p of PROVIDER_PREFERENCE_ORDER) {
     if (available.includes(p)) return p
   }
+  if (cliAvailable.length > 0) return cliAvailable[0]
+  // Local-only machine: the first detected local engine is the primary.
+  if (available.some((p) => isLocalAdapterId(p))) return available[0]
   return stored ?? available[0]
 }
 

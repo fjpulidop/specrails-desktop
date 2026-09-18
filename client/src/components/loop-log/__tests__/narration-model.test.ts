@@ -670,19 +670,21 @@ describe('buildNarration — Specrails Core agent runtime', () => {
     ])
   })
 
-  it('names a second developer visit as corrections and a stopped workflow with Core’s structural reason', () => {
+  it('names the fixer node, a second developer visit as a continuation, and a stopped workflow with Core’s structural reason', () => {
     const model = buildNarration({
       events: [
         step(1, 'Implement'),
         runtime('step_started', { stepId: 'developer' }),
         runtime('step_started', { stepId: 'verify' }),
         runtime('step_started', { stepId: 'developer' }),
+        runtime('step_started', { stepId: 'verify' }),
+        runtime('step_started', { stepId: 'fixer' }),
         runtime('workflow_blocked', { message: 'Implementation correction limit reached' }),
         stepEnd(1, { status: 'failed' }),
       ],
       settled: true,
     })
-    expect(codes(model.milestones)).toEqual(['step.start', 'activity.phase.developer', 'activity.phase.verify', 'activity.phase.corrections', 'activity.phase.stopped', 'step.failed'])
+    expect(codes(model.milestones)).toEqual(['step.start', 'activity.phase.developer', 'activity.phase.verify', 'activity.phase.corrections', 'activity.phase.verify', 'activity.phase.fixer', 'activity.phase.stopped', 'step.failed'])
     const stopped = model.milestones.find((m) => m.code === 'activity.phase.stopped')
     expect(stopped).toMatchObject({ tone: 'bad', values: { target: 'Implementation correction limit reached' } })
   })

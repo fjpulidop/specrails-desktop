@@ -268,5 +268,8 @@
       "target_pr_invalid": "Las ramas de la PR no sirven como destino de entrega",
       "target_pr_unfetchable": "No se pudo hacer fetch de la rama head de la PR"
     }
+  },
+  "rail": {
+    "rolesNoFreestyle": "Freestyle necesita un único proveedor: elige Implement o un loop antes de pasar este rail a motores por rol."
   }
 }

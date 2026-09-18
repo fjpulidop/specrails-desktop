@@ -299,4 +299,14 @@ describe('AiEngineSelector', () => {
       fetchSpy.mockRestore()
     }
   })
+
+  it('renders an unknown provider id as a local engine with a badge (label falls back to the id)', async () => {
+    const user = userEvent.setup()
+    render(<AiEngineSelector value="claude" providers={['claude', 'lan-box']} onChange={vi.fn()} />)
+    await user.click(screen.getByRole('combobox'))
+    const option = screen.getByRole('option', { name: /lan-box/ })
+    expect(option).toHaveTextContent('lan-box')
+    expect(option).toHaveTextContent('Local engine')
+    expect(screen.getByRole('option', { name: /claude/i })).not.toHaveTextContent('Local engine')
+  })
 })

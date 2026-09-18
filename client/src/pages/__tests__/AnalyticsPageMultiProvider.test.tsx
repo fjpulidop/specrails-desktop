@@ -10,7 +10,7 @@ vi.mock('../../lib/api', () => ({ getApiBase: () => '/api' }))
 vi.mock('../../hooks/useDesktop', () => ({
   useDesktop: () => ({
     activeProjectId: 'proj-1',
-    projects: [{ id: 'proj-1', slug: 'p', name: 'P', path: '/p', db_path: ':memory:', provider: 'claude', providers: ['claude', 'codex'], added_at: '', last_seen_at: '' }],
+    projects: [{ id: 'proj-1', slug: 'p', name: 'P', path: '/p', db_path: ':memory:', provider: 'claude', providers: ['claude', 'codex', 'lan-box'], added_at: '', last_seen_at: '' }],
     isLoading: false,
     setupProjectIds: new Set(),
     setActiveProjectId: vi.fn(),
@@ -78,5 +78,13 @@ describe('AnalyticsPage — multi-provider engine filter', () => {
         .map((c) => c[0] as string).filter((u) => u.includes('/spending')).at(-1)
       expect(lastSpending).toContain('provider=codex')
     })
+  })
+
+  it('renders a local engine chip with the id and a local tag', async () => {
+    render(<AnalyticsPage />)
+    await waitFor(() => expect(screen.getByTestId('hero').textContent).toBe('hero-loaded'))
+    const chip = within(screen.getByTestId('analytics-provider-chips')).getByRole('button', { name: /lan-box/ })
+    expect(chip).toHaveTextContent('lan-box')
+    expect(chip).toHaveTextContent('local')
   })
 })

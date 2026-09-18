@@ -138,14 +138,17 @@
       "reasoning": "正在推理…",
       "working": "正在处理…",
       "connecting": "正在连接代理…",
-      "starting": "正在启动…"
+      "starting": "正在启动…",
+      "delegating": "委派给 {{arg}}"
     },
     "pipelinePartial": "≥ 表示部分 — {{count}} 个阶段尚无成本记录",
     "pipelinePartialTooltip": "部分阶段在报告成本前已结束，因此该总额为下限。",
     "pipelineCostUnavailable": "所有阶段的成本遥测数据均不可用。",
     "pipelineUsageUnavailable": "所有阶段的 token 遥测数据均不可用。",
     "pipelineUsagePartial": "≥ 显示值 — {{count}} 个阶段无 token 遥测数据",
-    "pipelineUsageTooltip": "提供方可能在不提供 token 遥测数据的情况下完成阶段；仅计入已知用量。"
+    "pipelineUsageTooltip": "提供方可能在不提供 token 遥测数据的情况下完成阶段；仅计入已知用量。",
+    "costUnknownLocal": "费用未知（本地引擎）",
+    "costUnknownLocalTooltip": "费用未知（本地引擎）。为连接添加费率以查看估算。"
   },
   "ticketHeader": {
     "showMore": "+ 还有 {{count}} 个",
@@ -328,5 +331,11 @@
       "passed": "通过",
       "unavailable": "不可用"
     }
+  },
+  "runHeader": {
+    "details": "详情",
+    "phaseActivity": "{{phase}} · {{activity}}",
+    "liveReported": "截至目前由提供方上报；最终数据在任务结束时给出。",
+    "questionPending": "回答问题"
   }
 }

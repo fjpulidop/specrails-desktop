@@ -26,8 +26,75 @@
     "addLocal": "Aggiungi fornitore locale / API",
     "show": "Mostra connessioni dei fornitori",
     "hide": "Nascondi connessioni dei fornitori",
-    "globalTitle": "Connessioni dei provider",
-    "globalHint": "Queste connessioni sono disponibili per tutti i progetti. Assegna provider e modelli ai ruoli nelle impostazioni del progetto. Le modifiche si applicano alle nuove esecuzioni."
+    "globalTitle": "Provider di IA",
+    "globalHint": "Due tipi di provider alimentano ogni progetto: le CLI di programmazione rilevate su questa macchina e i motori locali compatibili con OpenAI che registri qui. Assegnali alle fasi della pipeline in Impostazioni del progetto ▸ Motore degli agenti. Le modifiche si applicano alle nuove esecuzioni.",
+    "label": "Nome visualizzato (facoltativo)",
+    "labelPlaceholder": "es. Macchina LAN",
+    "defaultModel": "Modello predefinito",
+    "defaultModelNone": "Nessun predefinito (primo rilevato)",
+    "defaultModelPlaceholder": "ID del modello o alias personalizzato",
+    "customModel": "Alias personalizzato…",
+    "discoveredModels": "Modelli rilevati",
+    "noModels": "Nessun modello rilevato finora: prova la connessione.",
+    "rates": "Tariffe (USD per 1M di token, facoltativo)",
+    "ratesHint": "I costi sono mostrati come stime; lascia entrambe vuote e il costo resta sconosciuto.",
+    "inputRate": "Input per 1M",
+    "outputRate": "Output per 1M",
+    "ratesInvalid": "Inserisci entrambe le tariffe come numeri non negativi, oppure lasciale entrambe vuote.",
+    "reasoningEffort": "L'endpoint accetta lo sforzo di ragionamento",
+    "reasoningEffortHint": "Invia il campo reasoning_effort di OpenAI: lo sforzo configurato del ruolo a ogni chiamata, alzato ad alto mentre l'architetto compatto scrive il piano. Lascialo disattivo se il server non lo rispetta.",
+    "apiKeyEnvMissing": "{{name}} non è impostata nel processo dell'app. Impostala nell'ambiente da cui viene avviata l'app.",
+    "test": "Prova connessione",
+    "testing": "Prova in corso…",
+    "testFailed": "Impossibile provare la connessione.",
+    "rename": "Rinomina",
+    "renameHint": "Rinominando, le assegnazioni dei ruoli continuano a puntare a questa connessione.",
+    "idLocked": "L'id è bloccato dopo il salvataggio. Usa Rinomina per cambiarlo.",
+    "localBadge": "Motore locale",
+    "cliBadge": "CLI",
+    "notDetected": "Non rilevato su questa macchina",
+    "unsaved": "Modifiche non salvate",
+    "empty": "Nessuna connessione ancora. Aggiungi un provider locale / API per iniziare.",
+    "fixBeforeSave": "Correggi i campi evidenziati prima di salvare.",
+    "status": {
+      "probing": "Verifica…",
+      "reachable": "Raggiungibile",
+      "unauthorized": "Non autorizzato",
+      "unreachable": "Non raggiungibile",
+      "untested": "Mai provato"
+    },
+    "auth": {
+      "authenticated": "Accesso effettuato",
+      "unauthenticated": "Accesso non effettuato",
+      "unknown": "Accesso sconosciuto"
+    },
+    "agentLoop": "Loop dell'agente",
+    "agentLoopHint": "come la pipeline implement guida questo modello",
+    "agentLoop_compact": "Compatto",
+    "agentLoop_compactHint": "Micro-passi guidati dall'app con output strutturato. Consigliato per modelli sotto ~30B.",
+    "agentLoop_free": "Libero",
+    "agentLoop_freeHint": "Un loop agentico per ruolo, come un provider CLI. Richiede un modello potente.",
+    "contextWindow": "Finestra di contesto (token)",
+    "contextWindowHint": "Allineala alla dimensione di contesto del server (n_ctx / num_ctx). Serve a compattare i vecchi risultati degli strumenti prima di riempire la finestra. Predefinito 32768.",
+    "maxOutput": "Budget di output per turno (token)",
+    "maxOutputHint": "max_tokens di un turno con strumenti; un turno troncato viene ritentato una volta al doppio. Conta dentro la finestra di contesto, quindi è sempre limitato allo spazio rimanente — alzalo se il modello ragiona in privato (il thinking lo consuma). Predefinito 8192.",
+    "reasoningEffortRailHint": "Disattivo: il selettore dello sforzo di ragionamento non compare nell'intestazione del rail per questo motore.",
+    "presetTitle": "Configurazione rapida",
+    "presetSmallModel": "Consigliato per modelli piccoli",
+    "presetSmallModelApplied": "Preset per modelli piccoli applicato",
+    "presetSmallModelHint": "Imposta il loop Compatto, inoltra lo sforzo di ragionamento e una finestra di contesto di 32k: la combinazione validata con modelli da 7–14B. Ogni campo resta modificabile.",
+    "cliGroup": "Strumenti CLI",
+    "cliGroupHint": "Rilevati su questa macchina: usano il proprio accesso, niente da configurare.",
+    "localGroup": "Motori locali",
+    "localGroupHint": "Endpoint compatibili con OpenAI (llama.cpp, Ollama, vLLM, LM Studio…) raggiungibili da questa app.",
+    "models_one": "{{count}} modello",
+    "models_other": "{{count}} modelli",
+    "expand": "Mostra impostazioni",
+    "collapse": "Nascondi impostazioni",
+    "overflow": "Altre azioni",
+    "addLocalHero": "Aggiungi motore locale",
+    "emptyLocalPitch": "Nessun motore locale per ora. Punta l’app a un endpoint compatibile con OpenAI per eseguire la pipeline sul tuo hardware: il costo resta sotto il tuo controllo e nulla esce dalla tua rete.",
+    "defaultsGroup": "Valori predefiniti del provider"
   },
   "cliNames": {
     "claude": "Claude",
@@ -39,23 +106,28 @@
     "architect": "Architetto",
     "developer": "Sviluppatore",
     "reviewer": "Revisore",
+    "fixer": "Correttore",
     "verify": "Verifica",
     "archive": "Completamento"
   },
   "agents": {
     "title": "Assegnazione dei ruoli",
-    "hint": "Ogni ruolo può usare un provider e un modello diversi. Connessioni: Impostazioni generali → Specrails Agents. Limite predefinito: {{turns}} turni per agente.",
+    "hint": "Ogni ruolo può usare un provider e un modello diversi. Connessioni: Impostazioni generali → Provider di IA. Limite predefinito: {{turns}} turni per agente.",
     "provider": "Fornitore",
     "model": "Modello",
     "modelPlaceholder": "ID del modello o predefinito del CLI",
     "maxTurns": "Numero massimo di turni (predefinito {{turns}})",
-    "defaultModel": "Predefinito ({{model}})"
+    "defaultModel": "Predefinito ({{model}})",
+    "thinking": "Ragionamento nascosto",
+    "thinking_off": "Disattivato",
+    "thinking_on": "Attivato",
+    "thinkingHint": "Disattivato per impostazione predefinita: il ragionamento nascosto consuma il budget di output e minuti per turno in un ciclo guidato dall'host. Attivalo per un ruolo che trae vantaggio dalla deliberazione (inviato come chat_template_kwargs.enable_thinking; gli endpoint che non lo conoscono lo ignorano)."
   },
   "limits": {
     "title": "Limiti del flusso",
-    "hint": "I campi vuoti usano i valori di Core: {{attempts}} tentativi dello sviluppatore e {{minutes}} minuti per flusso. I limiti di token e USD sono facoltativi; il limite in USD richiede Claude per ogni ruolo IA.",
+    "hint": "I campi vuoti usano i valori di Core: {{attempts}} tentativi di correzione e {{minutes}} minuti per passo di ruolo. Sui motori locali il timeout si applica a ogni unità di lavoro (un gruppo di attività, un artefatto, una revisione) — 45 minuti per impostazione predefinita — più un watchdog di inattività di 20 minuti; un passo che esaurisce il tempo blocca l'esecuzione e può riprendere dal gruppo aperto successivo. I limiti di token e USD sono facoltativi; quelli in USD richiedono Claude per ogni ruolo.",
     "maxAttempts": "Tentativi massimi dello sviluppatore (predefinito {{attempts}})",
-    "timeoutMinutes": "Timeout in minuti (predefinito {{minutes}})",
+    "timeoutMinutes": "Timeout in minuti (predefinito {{minutes}}; motori locali 45 per gruppo di attività)",
     "maxTokens": "Token massimi",
     "maxCostUsd": "Costo massimo (USD)",
     "unlimited": "Nessun limite"
@@ -108,7 +180,8 @@
     "implementation": "Implementazione",
     "preserveProgress": "Riprendi dalla fase indicata, conservando il lavoro e le impostazioni salvate.",
     "reviewDelivery": "Implementazione completata. Controlla il risultato nel log prima della consegna; questa ripresa non lo ha pubblicato.",
-    "prepareDelivery": "Prepara consegna"
+    "prepareDelivery": "Prepara consegna",
+    "dismiss": "Ignora"
   },
   "roleHints": {
     "architect": "Legge il codice e scrive proposta, design, attività e spec. Sola lettura.",
@@ -165,7 +238,8 @@
     "saved": "Prompt dei ruoli salvati",
     "unsaved": "Modifiche non salvate",
     "discard": "Scarta modifiche",
-    "save": "Salva prompt"
+    "save": "Salva prompt",
+    "fixerHint": "Usato solo nei giri di correzione: dopo una verifica fallita o una revisione respinta. Gira sul motore dello sviluppatore, salvo che Impostazioni ▸ Motore agenti ▸ Correttore ne indichi uno proprio. Un provider CLI che riprende la sessione dello sviluppatore riceve il breve seguito di correzione; la definizione si applica ogni volta che parte una sessione nuova (motori locali, motore correttore, sessione persa)."
   },
   "efficiency": {
     "title": "Efficienza dell’implementazione",
@@ -180,7 +254,8 @@
     "triggers": {
       "architect": "Solo l’approfondimento già previsto può selezionare questo livello.",
       "developer": "Dopo due candidati falliti, il tentativo successivo consentito può selezionare questo livello.",
-      "reviewer": "Solo per correggere risposte malformate; il rifiuto del codice non lo attiva."
+      "reviewer": "Solo per correggere risposte malformate; il rifiuto del codice non lo attiva.",
+      "fixer": "Solo un giro di correzione può raggiungere questo livello; i primi passaggi non eseguono mai il correttore."
     },
     "contextMode": "Contesto del repository",
     "reviewMode": "Revisione delle correzioni",
@@ -242,5 +317,181 @@
     "original": "Esecuzione originale",
     "requested": "Richiesto",
     "reported": "Segnalato"
-  }
+  },
+  "loopRoles": {
+    "title": "Ruoli del loop",
+    "hint": "Motori dei ruoli del loop quando un rail viene lanciato con il motore «Ruoli». I ruoli della pipeline qui sopra (architect, developer, reviewer) provengono già da questa configurazione del runtime.",
+    "verifier": "Verificatore",
+    "verifierHint": "Ogni passo IA del loop esterno al core: verify, fix e passi IA personalizzati.",
+    "decider": "Decisore",
+    "deciderHint": "Il Loop Decider che legge il verdetto e sceglie il passo successivo: un modello economico e veloce è la scelta naturale.",
+    "inherit": "Eredita il principale",
+    "model": "Modello",
+    "effort": "Sforzo di ragionamento",
+    "disabled": "Il runtime degli agenti è disattivato: i rail lanciati con il motore «Ruoli» vengono rifiutati finché non viene attivato.",
+    "saveFailed": "Impossibile salvare i ruoli del loop."
+  },
+  "pipeline": {
+    "title": "Pipeline di implementazione",
+    "explainer": "Queste fasi vengono eseguite in quest'ordine a ogni implementazione. Quando il motore del rail è \"{{roles}}\", ogni fase usa il motore configurato qui sotto: provider, modello ed effort diversi per fase. Scegliendo un motore specifico sul rail, tutte le fasi girano su quel motore.",
+    "host": "Host",
+    "noCommand": "nessun comando",
+    "inherits": "Eredita il principale",
+    "inheritsDeveloper": "Eredita dallo sviluppatore",
+    "open": "Apri",
+    "collapse": "Comprimi",
+    "groups": {
+      "core": {
+        "title": "Pipeline principale",
+        "hint": "Viene eseguita in ogni implementazione: pianificare, costruire, verificare, correggere, revisionare."
+      },
+      "loop": {
+        "title": "Passi del loop",
+        "hint": "Passi IA del loop del rail che avvolge l'esecuzione (verificare → decidere → correggere) e dei loop personalizzati; ereditano il motore principale se non impostati.",
+        "chip": "loop del rail"
+      }
+    },
+    "phases": {
+      "architect": {
+        "name": "Architetto",
+        "purpose": "Legge il codice e scrive proposta, design e task."
+      },
+      "developer": {
+        "name": "Sviluppatore",
+        "purpose": "Implementa i task con i test."
+      },
+      "verification": {
+        "name": "Verifica",
+        "purpose": "L'host esegue i tuoi controlli; i fallimenti tornano allo sviluppatore."
+      },
+      "fixer": {
+        "name": "Correttore",
+        "purpose": "Corregge ciò che la verifica o la revisione respingono; eredita dallo sviluppatore se non configurato."
+      },
+      "reviewer": {
+        "name": "Revisore",
+        "purpose": "Confronta il risultato con la spec e le evidenze."
+      },
+      "verifier": {
+        "name": "Verificatore",
+        "purpose": "Passi IA verify, fix e personalizzati del loop."
+      },
+      "decider": {
+        "name": "Decisore",
+        "purpose": "Legge il verdetto e sceglie il prossimo passo del loop."
+      }
+    }
+  },
+  "fixer": {
+    "title": "Motore del correttore",
+    "inherit": "Eredita sviluppatore",
+    "own": "Motore proprio",
+    "hint": "Viene eseguito solo nei giri di correzione: dopo una verifica fallita o una revisione respinta; i primi passaggi restano sullo sviluppatore. Un modello più potente o cloud qui conviene quando lo sviluppatore è un modello locale economico."
+  },
+  "guardrails": {
+    "title": "Guardrail",
+    "intro": "Regole di processo che l'host applica intorno ai modelli locali perché un modello piccolo non deragli. Tutte attive per impostazione predefinita; disattivane una solo per regolare il processo. I provider CLI non sono mai coinvolti.",
+    "unsupported": "Questa installazione di Core non espone guardrail configurabili. Aggiorna Core per regolarli; le regole integrate continuano ad applicarsi.",
+    "active": "{{on}} di {{total}} attivi",
+    "reset": "Ripristina predefiniti",
+    "phases": {
+      "architect": "Architetto",
+      "developer": "Sviluppatore",
+      "host": "Host"
+    },
+    "unknown": "Un guardrail aggiunto da un Core più recente; questa app non ha ancora una descrizione.",
+    "items": {
+      "plan-validation": {
+        "title": "Piano di attività validato",
+        "description": "Rifiuta piani che puntano a openspec/, elencano semplici nomi di file come attività, hanno troppo poche attività/gruppi per la spec o lasciano criteri di accettazione scoperti; l'architetto riprova.",
+        "why": "Un piano vago o incompleto è la causa n. 1 per cui un piccolo modello sviluppatore scrive stub."
+      },
+      "genuine-blocking-question": {
+        "title": "Solo vere domande bloccanti",
+        "description": "L'architetto può mettere in pausa l'esecuzione solo con una vera domanda che termina con '?', mai con testo d'esempio copiato.",
+        "why": "I modelli piccoli ripetono i segnaposto del prompt e bloccherebbero ogni esecuzione."
+      },
+      "plan-language-hint": {
+        "title": "Pianificare nel linguaggio del repository",
+        "description": "Indica all'architetto il linguaggio principale così i nomi dei file delle attività hanno l'estensione giusta.",
+        "why": "Un piano JS su un repo TypeScript rende impossibile spuntare le attività."
+      },
+      "frozen-plan-writes": {
+        "title": "Gli artefatti di pianificazione sono congelati",
+        "description": "Lo sviluppatore non può scrivere sotto openspec/; il piano appartiene all'host.",
+        "why": "I modelli 'implementano' modificando il piano invece del codice."
+      },
+      "primary-language": {
+        "title": "Promemoria del linguaggio principale",
+        "description": "A ogni gruppo di attività viene indicato il linguaggio principale del repository; i nuovi file dovrebbero usarlo.",
+        "why": "Evita una seconda implementazione in un altro linguaggio."
+      },
+      "duplicate-sibling": {
+        "title": "Nessun modulo gemello tra linguaggi",
+        "description": "Rifiuta board.js quando board.ts esiste già; estendi invece il modulo esistente.",
+        "why": "I gemelli compilano entrambi e i test importano quello sbagliato."
+      },
+      "one-test-per-module": {
+        "title": "Un file di test per modulo",
+        "description": "Rifiuta board.tick.test.ts quando esiste board.test.ts; estendilo invece.",
+        "why": "Altrimenti ogni passata di correzione aggiunge una nuova suite."
+      },
+      "empty-write": {
+        "title": "Nessuna sovrascrittura vuota",
+        "description": "Una scrittura vuota su un file con contenuto viene rifiutata; scrivi il contenuto completo o applica una patch.",
+        "why": "Una passata di 'pulizia' una volta lasciò index.ts a 0 righe."
+      },
+      "evidence-gated-ticking": {
+        "title": "Prove prima di spuntare un'attività",
+        "description": "Un'attività che nomina file è completata solo se esistono e non sono stub (estensioni sorelle accettate).",
+        "why": "Senza, 'fatto' è solo un'affermazione e la verifica gira contro il nulla."
+      },
+      "inventory-retry": {
+        "title": "Riprova con l'inventario reale",
+        "description": "Quando il modello rinuncia sostenendo che il repo è vuoto mentre non lo è, riprova una volta con l'elenco dei file.",
+        "why": "Seconda possibilità economica invece di un passo fallito."
+      },
+      "synthetic-corrections": {
+        "title": "Trasformare il feedback in attività",
+        "description": "Quando tutte le attività sono spuntate ma review/verify sono falliti, il feedback diventa attività di correzione concrete.",
+        "why": "Altrimenti lo sviluppatore risponde 'già fatto' e nulla cambia."
+      },
+      "silent-group-closure": {
+        "title": "Chiudere i gruppi silenziosi, conservare i loro file",
+        "description": "Un gruppo il cui modello smette di rispondere viene chiuso accreditando i file scritti e lasciando aperte le sue attività, invece di far fallire l'esecuzione.",
+        "why": "Un modello 9B scrisse cinque moduli, tacque e l'intera esecuzione fallì."
+      },
+      "environment-repair": {
+        "title": "L'host ripara l'ambiente",
+        "description": "Dipendenze o strumenti di test mancanti (npm install, ts-jest, @types/jest, moduli di config Jest) vengono installati dall'host, poi la verifica viene rieseguita una volta.",
+        "why": "Il modello non può sistemare l'ambiente e brucia correzioni provandoci."
+      },
+      "lockfile-repair": {
+        "title": "Scartare i lockfile scritti a mano",
+        "description": "Un package-lock.json inventato dal modello (EINTEGRITY/ETARGET) viene rimosso e l'installazione ritentata una volta.",
+        "why": "Gli hash inventati non si installano mai."
+      },
+      "verify-idle-timeout": {
+        "title": "Fermare i test bloccati",
+        "description": "Un comando di verifica senza output per 5 minuti viene fermato e segnalato come probabile blocco (ultimo output incluso).",
+        "why": "Altrimenti un ciclo while in un test trattiene l'esecuzione fino al limite di 15 minuti."
+      },
+      "verify-per-group": {
+        "title": "Verifica dopo ogni gruppo",
+        "description": "Esegue il comando di test del repository subito dopo ogni gruppo di attività; un errore riceve un giro di correzione immediato finché il contesto del gruppo è fresco.",
+        "why": "Cinque suite rotte alla fine sono molto più difficili da sistemare di una alla volta."
+      },
+      "test-reachability": {
+        "title": "Ogni nuovo test deve essere eseguito davvero",
+        "description": "Un file di test scritto dal developer che il comando di test del repository non esegue mai (uno script `test` che enumera e salta il file nuovo) fa fallire la verifica indicando il file esatto, prima a livello di gruppo e poi di nuovo nella verifica dell'host.",
+        "why": "Una suite di 622 righe con sei casi falliti è passata in verde perché nessuno l'aveva mai eseguita."
+      },
+      "exit-code-honesty": {
+        "title": "Diffidare di un exit 0 che segnala fallimenti",
+        "description": "Un comando di verifica che esce con 0 mentre l'output stampa fallimenti (righe `FAIL:`, \"3 failed\", un AssertionError) è trattato come FALLITO e passato al correttore con l'harness indicato come difetto.",
+        "why": "Un runner di test artigianale che non impostava mai un exit code diverso da zero ha consegnato tre test rossi come verdi."
+      }
+    }
+  },
+  "unsavedChanges": "Modifiche non salvate"
 }

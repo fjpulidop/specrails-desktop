@@ -66,10 +66,11 @@
       "architect": "Entwurf der Änderung (Architekt)",
       "developer": "Umsetzung der Änderung (Entwickler)",
       "verify": "Ausführen der Verifikationsbefehle",
+      "fixer": "Behebt, was Prüfung oder Review gemeldet haben (Korrektor)",
       "reviewer": "Prüfung der Umsetzung (Reviewer)",
       "archive": "Archivierung der geprüften Änderung",
       "stopped": "Die Laufzeit wurde gestoppt: {{target}}",
-      "corrections": "Korrekturen gehen an den Entwickler zurück",
+      "corrections": "Setzt die verbleibenden Aufgaben fort (Entwickler)",
       "resumed": "Gespeicherte Ausführung wird fortgesetzt"
     },
     "check": {

@@ -7,13 +7,13 @@ import { EffectsSection } from '../components/settings/EffectsSection'
 import { AppearanceSection } from '../components/settings/AppearanceSection'
 import { LanguageSection } from '../components/settings/LanguageSection'
 import { CodeSectionSettings } from '../components/settings/CodeSectionSettings'
-import { RuntimeProviderConnections } from '../components/settings/RuntimeProviderConnections'
+import { ProviderConnectionsCard } from '../components/settings/provider-connections'
 import { CoreUpdateSection } from '../components/settings/CoreUpdateSection'
 import { AppUpdateSection } from '../components/settings/AppUpdateSection'
 import { MobileAccessSection } from '../components/settings/MobileAccessSection'
 import { McpSettingsSection } from '../components/settings/McpSettingsSection'
 import { FEATURE_MCP } from '../lib/feature-flags'
-import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, BrainCircuit, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare, Sparkles } from 'lucide-react'
+import { Settings, Trash2, Zap, Plus, Bell, GraduationCap, Palette, Code2, RefreshCw, Smartphone, Bot, Cpu, FolderOpen, SlidersHorizontal, Webhook, Info, TerminalSquare, Sparkles } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -93,7 +93,7 @@ function ProjectListItem({
 const SETTINGS_SECTIONS = [
   { id: 'appearance', icon: Palette, labelKey: 'desktop.nav.appearance' },
   { id: 'effects', icon: Sparkles, labelKey: 'desktop.nav.effects' },
-  { id: 'specrailsAgents', icon: BrainCircuit, labelKey: 'desktop.nav.specrailsAgents' },
+  { id: 'specrailsAgents', icon: Cpu, labelKey: 'desktop.nav.specrailsAgents' },
   { id: 'code', icon: Code2, labelKey: 'desktop.nav.code' },
   { id: 'terminal', icon: TerminalSquare, labelKey: 'desktop.nav.terminal' },
   { id: 'updates', icon: RefreshCw, labelKey: 'desktop.nav.updates' },
@@ -373,8 +373,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding }: Sett
             </div>
 
             <div className={paneCls('specrailsAgents')}>
-            <RuntimeProviderConnections />
-            <div className="mt-6"><RuntimeRolePrompts /></div>
+            <ProviderConnectionsCard><RuntimeRolePrompts /></ProviderConnectionsCard>
             </div>
 
             <div className={paneCls('code')}>

@@ -268,5 +268,8 @@
       "target_pr_invalid": "I branch della PR non sono utilizzabili come destinazione",
       "target_pr_unfetchable": "Impossibile recuperare il branch head della PR"
     }
+  },
+  "rail": {
+    "rolesNoFreestyle": "Freestyle richiede un unico provider: scegli Implement o un loop prima di passare questo rail ai motori per ruolo."
   }
 }

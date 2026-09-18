@@ -268,5 +268,8 @@
       "target_pr_invalid": "PR のブランチは配信先として使用できません",
       "target_pr_unfetchable": "PR の head ブランチを取得できませんでした"
     }
+  },
+  "rail": {
+    "rolesNoFreestyle": "Freestyle には単一のプロバイダーが必要です。このレールをロール別エンジンに切り替える前に Implement かループを選んでください。"
   }
 }

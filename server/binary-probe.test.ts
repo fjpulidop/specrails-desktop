@@ -63,3 +63,11 @@ describe('binaryOnPath (H19)', () => {
     expect(binaryOnPath('claude')).toBe(true)
   })
 })
+
+describe('binaryOnPath — absolute binaries', () => {
+  it('probes an absolute path by existence instead of which/where', async () => {
+    const { binaryOnPath } = await import('./binary-probe')
+    expect(binaryOnPath(process.execPath)).toBe(true)
+    expect(binaryOnPath('/definitely/not/here/node')).toBe(false)
+  })
+})

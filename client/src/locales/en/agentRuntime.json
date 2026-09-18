@@ -26,8 +26,75 @@
     "addLocal": "Add local / API provider",
     "show": "Show provider connections",
     "hide": "Hide provider connections",
-    "globalTitle": "Provider connections",
-    "globalHint": "These connections are available to every project. Assign providers and models to roles in project settings. Changes apply to new executions."
+    "globalTitle": "AI providers",
+    "globalHint": "Two kinds of provider power every project: coding CLIs detected on this machine and local OpenAI-compatible engines you register here. Assign them to the pipeline phases in Project settings ▸ Agent engine. Changes apply to new executions.",
+    "label": "Display name (optional)",
+    "labelPlaceholder": "e.g. LAN box",
+    "defaultModel": "Default model",
+    "defaultModelNone": "No default (first discovered)",
+    "defaultModelPlaceholder": "Model id or custom alias",
+    "customModel": "Custom alias…",
+    "discoveredModels": "Discovered models",
+    "noModels": "No models discovered yet — test the connection.",
+    "rates": "Rates (USD per 1M tokens, optional)",
+    "ratesHint": "Costs are shown as estimates; leave both empty and cost stays unknown.",
+    "inputRate": "Input per 1M",
+    "outputRate": "Output per 1M",
+    "ratesInvalid": "Enter both rates as non-negative numbers, or leave both empty.",
+    "reasoningEffort": "Endpoint accepts reasoning effort",
+    "reasoningEffortHint": "Sends the OpenAI reasoning_effort field: the role's configured effort on every call, raised to high while the Compact architect writes the plan. Leave off unless the server honours it.",
+    "apiKeyEnvMissing": "{{name}} is not set in the app process. Set it in the environment the app is launched from.",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "testFailed": "Could not test the connection.",
+    "rename": "Rename",
+    "renameHint": "Renaming keeps role assignments pointing at this connection.",
+    "idLocked": "The id is locked once saved. Use Rename to change it.",
+    "localBadge": "Local engine",
+    "cliBadge": "CLI",
+    "notDetected": "Not detected on this machine",
+    "unsaved": "Unsaved changes",
+    "empty": "No connections yet. Add a local / API provider to get started.",
+    "fixBeforeSave": "Fix the highlighted fields before saving.",
+    "status": {
+      "probing": "Probing…",
+      "reachable": "Reachable",
+      "unauthorized": "Not authorized",
+      "unreachable": "Unreachable",
+      "untested": "Never tested"
+    },
+    "auth": {
+      "authenticated": "Signed in",
+      "unauthenticated": "Not signed in",
+      "unknown": "Sign-in unknown"
+    },
+    "agentLoop": "Agent loop",
+    "agentLoopHint": "how the implement pipeline drives this model",
+    "agentLoop_compact": "Compact",
+    "agentLoop_compactHint": "Host-driven micro-steps with structured output. Recommended for models under ~30B.",
+    "agentLoop_free": "Free",
+    "agentLoop_freeHint": "One agentic loop per role, like a CLI provider. Needs a strong model.",
+    "contextWindow": "Context window (tokens)",
+    "contextWindowHint": "Match the server's context size (n_ctx / num_ctx). Used to compact old tool results before the window fills. Default 32768.",
+    "maxOutput": "Output budget per turn (tokens)",
+    "maxOutputHint": "max_tokens of one tool turn; a turn cut off by it is retried once at double. Counts inside the context window, so it is always capped to the room left — raise it when the model thinks privately (thinking counts against it). Default 8192.",
+    "reasoningEffortRailHint": "Off: the reasoning-effort selector is hidden in the rail header for this engine.",
+    "presetTitle": "Quick setup",
+    "presetSmallModel": "Recommended for small models",
+    "presetSmallModelApplied": "Small-model preset applied",
+    "presetSmallModelHint": "Sets Compact loop, forwards reasoning effort and a 32k context window — the combination validated with 7–14B models. You can still change each field.",
+    "cliGroup": "CLI tools",
+    "cliGroupHint": "Detected on this machine — they use their own login, nothing to configure.",
+    "localGroup": "Local engines",
+    "localGroupHint": "OpenAI-compatible endpoints (llama.cpp, Ollama, vLLM, LM Studio…) reachable from this app.",
+    "models_one": "{{count}} model",
+    "models_other": "{{count}} models",
+    "expand": "Show settings",
+    "collapse": "Hide settings",
+    "overflow": "More actions",
+    "addLocalHero": "Add local engine",
+    "emptyLocalPitch": "No local engine yet. Point the app at an OpenAI-compatible endpoint to run the pipeline on your own hardware — cost stays under your control and nothing leaves your network.",
+    "defaultsGroup": "Provider defaults"
   },
   "cliNames": {
     "claude": "Claude",
@@ -39,23 +106,28 @@
     "architect": "Architect",
     "developer": "Developer",
     "reviewer": "Reviewer",
+    "fixer": "Fixer",
     "verify": "Verification",
     "archive": "Completion"
   },
   "agents": {
     "title": "Role assignments",
-    "hint": "Each role can use a different provider and model. Manage connections in General settings → Specrails Agents. Default limit: {{turns}} turns per agent.",
+    "hint": "Each role can use a different provider and model. Manage connections in General settings → AI providers. Default limit: {{turns}} turns per agent.",
     "provider": "Provider",
     "model": "Model",
     "modelPlaceholder": "Model ID or CLI default",
     "maxTurns": "Maximum turns (default {{turns}})",
-    "defaultModel": "Default ({{model}})"
+    "defaultModel": "Default ({{model}})",
+    "thinking": "Private thinking",
+    "thinking_off": "Off",
+    "thinking_on": "On",
+    "thinkingHint": "Off by default: hidden reasoning spends the output budget and minutes per turn in a host-driven loop. Turn it on for a role that benefits from deliberation (sent as chat_template_kwargs.enable_thinking; ignored by endpoints that do not know it)."
   },
   "limits": {
     "title": "Workflow limits",
-    "hint": "Empty fields use Core defaults: {{attempts}} developer attempts and {{minutes}} minutes per workflow. Token and USD caps are optional; USD caps require Claude for every AI role.",
+    "hint": "Empty fields use Core defaults: {{attempts}} correction attempts and {{minutes}} minutes per role step. On local engines the timeout applies to each unit of work (a task group, an artifact, a review) — 45 minutes by default — plus a 20-minute idle watchdog; a step that runs out of time blocks the run and can be resumed from the next open task group. Token and USD caps are optional; USD caps require Claude for every AI role.",
     "maxAttempts": "Maximum developer attempts (default {{attempts}})",
-    "timeoutMinutes": "Timeout in minutes (default {{minutes}})",
+    "timeoutMinutes": "Timeout in minutes (default {{minutes}}; local engines 45 per task group)",
     "maxTokens": "Maximum tokens",
     "maxCostUsd": "Maximum cost (USD)",
     "unlimited": "No limit"
@@ -108,7 +180,8 @@
     "implementation": "Implementation",
     "preserveProgress": "Continue from the indicated phase, preserving your existing work and saved settings.",
     "reviewDelivery": "Implementation completed. Review the result in this job log before arranging delivery; this continuation has not published it.",
-    "prepareDelivery": "Prepare delivery"
+    "prepareDelivery": "Prepare delivery",
+    "dismiss": "Dismiss"
   },
   "roleHints": {
     "architect": "Reads the code and writes the proposal, design, tasks and spec. Read-only.",
@@ -165,7 +238,8 @@
     "saved": "Role prompts saved",
     "unsaved": "Unsaved changes",
     "discard": "Discard changes",
-    "save": "Save prompts"
+    "save": "Save prompts",
+    "fixerHint": "Used on correction rounds only — after a failed verification or a rejected review. Runs on the developer's engine unless Settings ▸ Agent engine ▸ Fixer names its own. A CLI provider that resumes the developer's session receives the short correction follow-up instead; the definition applies whenever a fresh session starts (local engines, the fixer engine, a lost session)."
   },
   "efficiency": {
     "title": "Implementation efficiency",
@@ -180,7 +254,8 @@
     "triggers": {
       "architect": "Only the existing deeper investigation pass can select this tier.",
       "developer": "After two failed candidates, the next permitted attempt can select this tier.",
-      "reviewer": "Only a malformed-response repair can select this tier; rejecting code does not trigger it."
+      "reviewer": "Only a malformed-response repair can select this tier; rejecting code does not trigger it.",
+      "fixer": "Only a correction round can reach this tier; first passes never run the fixer."
     },
     "contextMode": "Repository context",
     "reviewMode": "Correction review",
@@ -242,5 +317,181 @@
     "original": "Original execution",
     "requested": "Requested",
     "reported": "Reported"
-  }
+  },
+  "loopRoles": {
+    "title": "Loop roles",
+    "hint": "Engines for the loop-side roles when a rail launches with the \"Roles\" engine. The pipeline roles above (architect, developer, reviewer) already come from this runtime configuration.",
+    "verifier": "Verifier",
+    "verifierHint": "Every non-core AI step of the loop: verify, fix and custom AI steps.",
+    "decider": "Decider",
+    "deciderHint": "The Loop Decider that reads the verdict and routes the next step — a cheap, fast model is the natural pick.",
+    "inherit": "Inherit primary",
+    "model": "Model",
+    "effort": "Reasoning effort",
+    "disabled": "The agent runtime is disabled — rails launched with the \"Roles\" engine are refused until it is enabled.",
+    "saveFailed": "Could not save the loop roles."
+  },
+  "pipeline": {
+    "title": "Implement pipeline",
+    "explainer": "These phases run in this order on every implementation. When the rail's engine is \"{{roles}}\", each phase runs on the engine configured below — a different provider, model and effort per phase. Picking a concrete engine on the rail runs every phase on that engine instead.",
+    "host": "Host",
+    "noCommand": "no command",
+    "inherits": "Inherits primary",
+    "inheritsDeveloper": "Inherits developer",
+    "open": "Open",
+    "collapse": "Collapse",
+    "groups": {
+      "core": {
+        "title": "Core pipeline",
+        "hint": "Runs inside every implement: plan, build, verify, fix, review."
+      },
+      "loop": {
+        "title": "Loop steps",
+        "hint": "AI steps of the rail's loop around the run (verify → decide → fix) and of custom loops; they inherit the primary engine unless set.",
+        "chip": "rail loop"
+      }
+    },
+    "phases": {
+      "architect": {
+        "name": "Architect",
+        "purpose": "Reads the code and writes the proposal, design and tasks."
+      },
+      "developer": {
+        "name": "Developer",
+        "purpose": "Implements the tasks with tests."
+      },
+      "verification": {
+        "name": "Verification",
+        "purpose": "The host runs your checks; failures go back to the developer."
+      },
+      "fixer": {
+        "name": "Fixer",
+        "purpose": "Corrects what verification or review reject; inherits the developer when not configured."
+      },
+      "reviewer": {
+        "name": "Reviewer",
+        "purpose": "Checks the result against the spec and the evidence."
+      },
+      "verifier": {
+        "name": "Verifier",
+        "purpose": "Verify, fix and custom AI steps of the loop."
+      },
+      "decider": {
+        "name": "Decider",
+        "purpose": "Reads the verdict and routes the next loop step."
+      }
+    }
+  },
+  "fixer": {
+    "title": "Fixer engine",
+    "inherit": "Inherit developer",
+    "own": "Own engine",
+    "hint": "Runs only on correction rounds — after a failed verification or a rejected review; first passes stay on the developer. A stronger or cloud model here pays off when the developer is a cheap local model."
+  },
+  "guardrails": {
+    "title": "Guardrails",
+    "intro": "Process rules the host applies around local models so a small model does not derail. All on by default; switch one off only to tune the process. CLI providers are never affected.",
+    "unsupported": "This Core installation does not expose configurable guardrails. Update Core to tune them; the built-in rules still apply.",
+    "active": "{{on}} of {{total}} active",
+    "reset": "Reset to defaults",
+    "phases": {
+      "architect": "Architect",
+      "developer": "Developer",
+      "host": "Host"
+    },
+    "unknown": "A guardrail added by a newer Core; this app has no description for it yet.",
+    "items": {
+      "plan-validation": {
+        "title": "Validated task plan",
+        "description": "Rejects plans that target openspec/, list bare file names as tasks, have too few tasks/groups for the spec, or leave acceptance criteria uncovered; the architect retries.",
+        "why": "A vague or incomplete plan is the #1 reason a small developer model writes stubs."
+      },
+      "genuine-blocking-question": {
+        "title": "Only real blocking questions",
+        "description": "The architect can pause the run only with an actual question ending in '?', never with copied example text.",
+        "why": "Small models echo prompt placeholders and would block every run."
+      },
+      "plan-language-hint": {
+        "title": "Plan in the repository's language",
+        "description": "Tells the architect the primary language so task file names carry the right extension.",
+        "why": "A JS plan on a TypeScript repo makes tasks impossible to tick."
+      },
+      "frozen-plan-writes": {
+        "title": "Planning artifacts are frozen",
+        "description": "The developer cannot write under openspec/; the plan is the host's.",
+        "why": "Models 'implement' by editing the plan instead of the code."
+      },
+      "primary-language": {
+        "title": "Primary language reminder",
+        "description": "Each task group is told the repository's primary language; new files should use it.",
+        "why": "Prevents a second implementation in another language."
+      },
+      "duplicate-sibling": {
+        "title": "No twin modules across languages",
+        "description": "Refuses board.js when board.ts already exists; extend the existing module instead.",
+        "why": "Twins compile both and the tests import the wrong one."
+      },
+      "one-test-per-module": {
+        "title": "One test file per module",
+        "description": "Refuses board.tick.test.ts when board.test.ts exists; extend it instead.",
+        "why": "Correction passes otherwise add a new suite per attempt."
+      },
+      "empty-write": {
+        "title": "No empty overwrites",
+        "description": "An empty write over a populated file is refused; write the full content or patch it.",
+        "why": "A 'cleanup' pass once left index.ts at 0 lines."
+      },
+      "evidence-gated-ticking": {
+        "title": "Evidence before ticking a task",
+        "description": "A task naming files is done only when they exist and are not stubs (sibling extensions accepted).",
+        "why": "Without it 'done' is just a claim and verify runs against nothing."
+      },
+      "inventory-retry": {
+        "title": "Retry with the real inventory",
+        "description": "When the model gives up claiming the repo is empty while it is not, retry once with the file list.",
+        "why": "Cheap second chance instead of a failed step."
+      },
+      "synthetic-corrections": {
+        "title": "Turn feedback into tasks",
+        "description": "When every task is ticked but review/verify failed, the feedback becomes concrete correction tasks.",
+        "why": "Otherwise the developer reports 'already done' and nothing changes."
+      },
+      "silent-group-closure": {
+        "title": "Close silent groups, keep their files",
+        "description": "A group whose model stops answering is closed with the files it wrote credited and its tasks left open, instead of failing the run.",
+        "why": "A 9B model wrote five modules, went silent, and the whole run failed."
+      },
+      "environment-repair": {
+        "title": "Host repairs the environment",
+        "description": "Missing dependencies or test tooling (npm install, ts-jest, @types/jest, Jest config modules) are installed by the host, then verify re-runs once.",
+        "why": "The model cannot fix the environment and burns corrections trying."
+      },
+      "lockfile-repair": {
+        "title": "Drop hand-written lockfiles",
+        "description": "A package-lock.json the model invented (EINTEGRITY/ETARGET) is removed and the install retried once.",
+        "why": "Invented hashes never install."
+      },
+      "verify-idle-timeout": {
+        "title": "Stop hanging tests",
+        "description": "A verification command with no output for 5 minutes is stopped and reported as a probable hang (last output included).",
+        "why": "A while-loop in a test otherwise holds the run until the 15-minute wall clock."
+      },
+      "verify-per-group": {
+        "title": "Verify after each group",
+        "description": "Runs the repository's own test command right after each task group; a failure gets one in-place fix round while the group's context is still fresh.",
+        "why": "Five broken suites at the end are much harder to fix than one at a time."
+      },
+      "test-reachability": {
+        "title": "Every new test must actually run",
+        "description": "A test file the developer writes that the repository's test command never executes (an enumerating `test` script that skips the new file) fails verification with the exact file, at group altitude first and again at the host verify.",
+        "why": "A 622-line test suite with six failing cases once shipped green because nothing ever ran it."
+      },
+      "exit-code-honesty": {
+        "title": "Distrust a green exit code that reports failures",
+        "description": "A verification command that exits 0 while its output prints failures (`FAIL:` lines, \"3 failed\", an AssertionError) is treated as FAILED and handed to the fixer with the harness named as the defect.",
+        "why": "A hand-rolled test runner that never sets a non-zero exit code once shipped three red tests as green."
+      }
+    }
+  },
+  "unsavedChanges": "Unsaved changes"
 }

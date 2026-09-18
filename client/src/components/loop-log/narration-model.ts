@@ -178,7 +178,7 @@ function pushActivity(
 }
 
 /** Phase ids Core's programmatic runtime emits; each has copy under `activity.phase.*`. */
-const RUNTIME_PHASES = new Set(['architect', 'developer', 'verify', 'reviewer', 'archive'])
+const RUNTIME_PHASES = new Set(['architect', 'developer', 'fixer', 'verify', 'reviewer', 'archive'])
 
 /** How many example file names a folded file-activity line names. */
 const FILE_EXAMPLES = 3
@@ -382,8 +382,8 @@ export function buildNarration({ events, settled }: NarrationInput): NarrationMo
         milestones.push({ seq: event.seq, kind: 'activity', code: 'activity.phase.resumed', values: { phaseBoundary: 1 }, stepIndex: currentStep, tone: 'neutral' })
       }
       else if (type === 'step_started' && stepId && RUNTIME_PHASES.has(stepId)) {
-        // A second developer visit only happens when verification or review sent
-        // corrections back: say that, instead of repeating "implementing".
+        // Corrections have their own node (`fixer`); a second developer visit is
+        // a continuation of unchecked tasks: say that, instead of repeating "implementing".
         const corrections = stepId === 'developer' && runtimeDeveloperSeen
         if (stepId === 'developer') runtimeDeveloperSeen = true
         milestones.push({ seq: event.seq, kind: 'activity', code: corrections ? 'activity.phase.corrections' : `activity.phase.${stepId}`, values: { phaseBoundary: 1 }, stepIndex: currentStep, tone: 'neutral' })

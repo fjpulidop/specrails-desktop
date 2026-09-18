@@ -10,6 +10,7 @@ import { toDate } from '../../lib/relative-time'
 import { cn } from '../../lib/utils'
 import { useWebViewModal } from '../../context/WebViewModalContext'
 import { extractAgentOptions } from './agent-options'
+import { promoteAgentProtocolFences } from './agent-fence-promotion'
 import { extractAgentSpecDraft } from './agent-spec-draft'
 import { AgentSpecDraftCard, AgentSpecDraftPending } from './AgentSpecDraftCard'
 import { extractAgentProblemFrame } from './agent-problem-frame'
@@ -431,10 +432,12 @@ interface Props {
   deliveryReceipt?: 'sent' | 'received' | 'read'
   /** Conversation id needed to fetch the attachment blob for preview/download. */
   conversationId?: string
+  /** Local (OpenAI-compatible) engines only: re-tag ```json protocol blocks. CLI providers stay strict. */
+  tolerantFences?: boolean
 }
 
 /** A single agent chat message: markdown-rendered, with a subtle per-bubble copy. */
-export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt }: Props) {
+export function AgentMessage({ role, content, createdAt, streaming, isLast, isLatest, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false }: Props) {
   const isUser = role === 'user'
   const { openWebView, canOpenWebView } = useWebViewModal()
 
@@ -521,7 +524,9 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
   // extraction chain is memoized on (content, streaming) so a streaming turn
   // does not reparse three protocols on every frame.
   const { body, options, frame, framePending, draft, pending } = useMemo(() => {
-    const withoutOptions = extractAgentOptions(content)
+    // Small/local models emit protocol JSON under ```json — re-tag first.
+    const promoted = tolerantFences ? promoteAgentProtocolFences(content) : content
+    const withoutOptions = extractAgentOptions(promoted)
     const withoutFrame = extractAgentProblemFrame(withoutOptions.body, streaming)
     const withoutDraft = extractAgentSpecDraft(withoutFrame.body, streaming)
     return {
@@ -532,7 +537,7 @@ export function AgentMessage({ role, content, createdAt, streaming, isLast, isLa
       draft: withoutDraft.draft,
       pending: withoutDraft.pending,
     }
-  }, [content, streaming])
+  }, [content, streaming, tolerantFences])
   const showChips = !!options && !!isLast && !streaming && !!onPickOption
   return (
     <div className="group flex flex-col gap-1">

@@ -73,6 +73,17 @@ describe('agent runtime lifecycle', () => {
     expect(await service.list()).toEqual([])
   })
 
+  it('dismisses a settled continuation (marker next to the frozen context) and refuses while the rail run is live', async () => {
+    expect(await service.summary('run-1')).toMatchObject({ canDismiss: true, dismissed: false })
+    db.prepare("UPDATE loop_runs SET status = 'running' WHERE id = 'run-1'").run()
+    expect(() => service.dismiss('run-1')).toThrow(/Stop the rail run/)
+    db.prepare("UPDATE loop_runs SET status = 'completed' WHERE id = 'run-1'").run()
+    service.dismiss('run-1')
+    expect(fs.existsSync(path.join(runDirectory, 'desktop-runtime-dismissed'))).toBe(true)
+    expect(await service.summary('run-1')).toMatchObject({ dismissed: true })
+    expect(execute).not.toHaveBeenCalled()
+  })
+
   it('reuses Core status for unchanged checkpoints while checking scope and parent liveness each time', async () => {
     const checkpoint = path.join(runDirectory, 'agent-workflow', 'run-1', 'checkpoint.json')
     fs.mkdirSync(path.dirname(checkpoint), { recursive: true }); fs.writeFileSync(checkpoint, 'revision1')
@@ -281,12 +292,20 @@ describe('agent runtime lifecycle', () => {
     db.prepare('UPDATE loop_runs SET rail_index = 2 WHERE id = ?').run('run-1')
     await request(app).get(base + '?railIndex=2').expect(200).expect(res => expect(res.body.runs[0].runId).toBe('run-1'))
     await request(app).get(base + '?railIndex=3').expect(200, { runs: [] })
+    // A green run with nothing left to decide no longer pins the rail; a green run still owing a settle does.
+    summary.mockResolvedValueOnce({ runId: 'run-1', status: 'succeeded', nextStep: null, recoverableSteps: [], active: false, canResume: false, canCancel: false, canDismiss: true })
+    await request(app).get(base + '?railIndex=2').expect(200, { runs: [] })
+    summary.mockResolvedValueOnce({ runId: 'run-1', status: 'succeeded', nextStep: null, recoverableSteps: [], active: false, canResume: false, canCancel: false, canSettle: true })
+    await request(app).get(base + '?railIndex=2').expect(200).expect(res => expect(res.body.runs[0].canSettle).toBe(true))
     await request(app).get(base + '?railIndex=-1').expect(400)
     expect(summary).toHaveBeenCalledWith('run-1')
     await request(app).get(base).expect(200, { runs: [] })
     await request(app).post(base + '/run-1/resume').send({ approve: ['archive'] }).expect(202)
     expect(resume).toHaveBeenCalledWith('run-1', { approve: ['archive'] })
     await request(app).post(base + '/run-1/resume').send({ cwd: '/bad' }).expect(400)
+    // The fixer is a graph node of its own: an interrupted correction round is recoverable like any step.
+    await request(app).post(base + '/run-1/resume').send({ recover: ['fixer'] }).expect(202)
+    await request(app).post(base + '/run-1/resume').send({ recover: ['alien'] }).expect(400)
     await request(app).post(base + '/run-1/resume').send({ answer: 'Use Redis' }).expect(202)
     expect(resume).toHaveBeenCalledWith('run-1', { answer: 'Use Redis' })
     await request(app).post(base + '/run-1/resume').send({ answer: '' }).expect(400)

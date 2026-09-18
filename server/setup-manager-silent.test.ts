@@ -92,3 +92,20 @@ describe('SetupManager.startSilentAssemble', () => {
     expect(manager.silentAssembleState('proj-1').running).toBe(false)
   })
 })
+
+
+describe('startSilentAssemble — local engines', () => {
+  it('never assembles a local (OpenAI-compatible) engine: core init has no such target', async () => {
+    const { syncLocalAdapters } = await import('./providers/local-adapter-registry')
+    const { unregisterAdapter } = await import('./providers/registry')
+    syncLocalAdapters([{ id: 'local', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:8080/v1' }])
+    try {
+      mocks.assemble.mockReset()
+      const manager = new SetupManager(() => {})
+      manager.startSilentAssemble('proj-local', '/tmp/repo', 'my-app', ['local'])
+      await flush(); await flush()
+      expect(mocks.assemble).not.toHaveBeenCalled()
+      expect(manager.silentAssembleState('proj-local')).toEqual({ running: false, failed: [] })
+    } finally { unregisterAdapter('local') }
+  })
+})

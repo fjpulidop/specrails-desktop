@@ -26,7 +26,9 @@
 // server/spec-draft-parser.ts and client/src/lib/spec-draft.ts.
 
 import type { DbInstance } from './db'
-import { addAgentMessage, listAgentMessages } from './agent-store'
+import { addAgentMessage, listAgentMessages, getAgentConversation } from './agent-store'
+import { promoteAgentProtocolFences } from './agent-fence-promotion'
+import { isLocalAdapterId } from './providers/registry'
 
 /** User-typed command word that switches framing off for the conversation. */
 export const FRAMING_WAIVER_TOKEN = '#noframe'
@@ -87,7 +89,10 @@ function payloadIsValidFrame(raw: string): boolean {
 }
 
 /** True when an assistant message carries at least one VALID frame block. */
-export function hasValidProblemFrame(content: string): boolean {
+export function hasValidProblemFrame(rawContent: string, opts?: { tolerantFences?: boolean }): boolean {
+  // Local (OpenAI-compatible) engines only — mirrors the client: a ```json
+  // fence with a frame-shaped body counts. CLI providers stay strict.
+  const content = opts?.tolerantFences ? promoteAgentProtocolFences(rawContent) : rawContent
   if (!content.includes(OPEN_FENCE)) return false
 
   FENCE_RE.lastIndex = 0
@@ -135,7 +140,7 @@ function isFramingMarker(content: string): boolean {
  * rather than a series. A waiver is sticky for the rest of the conversation and
  * is cleared only by the restore token.
  */
-export function evaluateFramingState(messages: readonly FramingMessage[]): FramingState {
+export function evaluateFramingState(messages: readonly FramingMessage[], opts?: { tolerantFences?: boolean }): FramingState {
   let waived = false
   let pendingFrame = false // emitted, awaiting the user's answer
   let answeredFrame = false // answered and not yet spent on a spec
@@ -147,7 +152,7 @@ export function evaluateFramingState(messages: readonly FramingMessage[]): Frami
       continue
     }
     if (msg.role === 'assistant') {
-      if (hasValidProblemFrame(msg.content)) {
+      if (hasValidProblemFrame(msg.content, opts)) {
         pendingFrame = true
         sawFrame = true
       }
@@ -194,7 +199,8 @@ export function framingRefusalMessage(reason: FramingRefusalReason): string {
  * MCP client cannot render the card and holds no conversation here.
  */
 export function checkSpecFraming(db: DbInstance, conversationId: string): string | null {
-  const state = evaluateFramingState(listAgentMessages(db, conversationId))
+  const tolerantFences = isLocalAdapterId(getAgentConversation(db, conversationId)?.provider)
+  const state = evaluateFramingState(listAgentMessages(db, conversationId), { tolerantFences })
   if (state.satisfied) return null
   return framingRefusalMessage(state.reason ?? 'no_frame')
 }

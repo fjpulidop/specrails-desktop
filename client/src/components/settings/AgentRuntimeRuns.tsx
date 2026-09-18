@@ -1,60 +1,23 @@
 import { RuntimeExecutionEvidence } from './RuntimeExecutionEvidence'
-import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { repositoryApiBase } from '../../lib/project-repositories'
-import type { RuntimeRun } from '../../lib/agent-runtime'
 import { Button } from '../ui/button'
 import { AgentRuntimeMetrics } from './AgentRuntimeMetrics'
+import { useRuntimeRuns } from '../job-run/useRuntimeRuns'
 
-/** Explicit continuation keeps frozen scope; it never starts a fresh delivery. */
+/**
+ * Settings "Saved executions" list (and the legacy contextual rail card). The
+ * job-detail surfaces no longer mount this — they render the same runs through
+ * `JobRunHeader`, which consumes the SAME `useRuntimeRuns` hook.
+ * Explicit continuation keeps frozen scope; it never starts a fresh delivery.
+ */
 export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, contextual = false }: { projectId: string; onViewLog?: () => void; jobId?: string; railIndex?: number; contextual?: boolean }) {
   const { t } = useTranslation('agentRuntime')
-  const [runs, setRuns] = useState<RuntimeRun[]>([])
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState<string | null>(null)
-  const [revision, setRevision] = useState(0)
-  const [answers, setAnswers] = useState<Record<string, string>>({})
-  const mounted = useRef(true)
-  const endpoint = `${repositoryApiBase(projectId)}/agent-runtime/runs`
-  const statusEndpoint = jobId ? `${endpoint}/${encodeURIComponent(jobId)}` : railIndex !== undefined ? `${endpoint}?railIndex=${railIndex}` : endpoint
-  useEffect(() => {
-    mounted.current = true
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
-    async function refresh() {
-      try {
-        const response = await fetch(statusEndpoint, { cache: 'no-store' })
-        if (!response.ok) throw new Error()
-        const data = await response.json() as { runs?: RuntimeRun[] }
-        if (!Array.isArray(data.runs)) throw new Error()
-        if (!cancelled) { setRuns(data.runs); setError('') }
-      } catch { if (!cancelled) setError(t('runs.loadFailed')) }
-      finally { if (!cancelled) timer = setTimeout(() => void refresh(), 10000) }
-    }
-    void refresh()
-    return () => { cancelled = true; mounted.current = false; clearTimeout(timer) }
-  }, [statusEndpoint, revision, t])
-
-  async function act(run: RuntimeRun, action: 'resume' | 'approve' | 'recover' | 'answer' | 'cancel' | 'settle') {
-    setBusy(run.runId); setError('')
-    try {
-      const body = action === 'approve' ? { approve: [run.pendingApproval!.stepId] } : action === 'recover' ? { recover: run.recoverableSteps } : action === 'answer' ? { answer: answers[run.runId]!.trim() } : {}
-      const response = await fetch(`${endpoint}/${encodeURIComponent(run.runId)}/${action === 'cancel' ? 'cancel' : action === 'settle' ? 'settle' : 'resume'}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      })
-      if (!response.ok) {
-        const data = await response.json() as { message?: string }
-        throw new Error(data.message ?? t('runs.actionFailed'))
-      }
-      if (mounted.current) { if (action === 'answer') setAnswers((value) => ({ ...value, [run.runId]: '' })); setRevision((value) => value + 1) }
-    } catch (err) { if (mounted.current) setError(err instanceof Error ? err.message : t('runs.actionFailed')) }
-    finally { if (mounted.current) setBusy(null) }
-  }
+  const { runs, error, busy, answers, setAnswer, act, refresh } = useRuntimeRuns(projectId, { jobId, railIndex })
 
   if (contextual && !runs.length && !error) return null
   return <section className="space-y-3 border-t border-border p-3" aria-label={t(contextual ? 'runs.implementation' : 'runs.title')} onClick={event => event.stopPropagation()} onPointerDown={event => event.stopPropagation()}>
-    <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium">{t(contextual ? 'runs.implementation' : 'runs.title')}</h3><Button size="sm" variant="ghost" onClick={() => setRevision((value) => value + 1)}>{t('runs.refresh')}</Button></div>
+    <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium">{t(contextual ? 'runs.implementation' : 'runs.title')}</h3><Button size="sm" variant="ghost" onClick={refresh}>{t('runs.refresh')}</Button></div>
     {!contextual && <p className="text-xs text-muted-foreground">{t('runs.hint')}</p>}
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     {!runs.length && !error && <p className="text-xs text-muted-foreground">{t('runs.empty')}</p>}
@@ -72,7 +35,7 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
         <p className="text-xs font-medium">{t('runs.question')}</p>
         <p className="whitespace-pre-wrap text-xs">{run.pendingQuestion.question}</p>
         {run.canResume && !run.recoverableSteps.length && <label className="block space-y-1 text-xs">{t('runs.answerLabel')}
-          <textarea className="min-h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-sm" maxLength={20000} placeholder={t('runs.answerPlaceholder')} value={answers[run.runId] ?? ''} onChange={(event) => setAnswers((value) => ({ ...value, [run.runId]: event.target.value }))} />
+          <textarea className="min-h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-sm" maxLength={20000} placeholder={t('runs.answerPlaceholder')} value={answers[run.runId] ?? ''} onChange={(event) => setAnswer(run.runId, event.target.value)} />
         </label>}
       </div>}
       <div className="flex flex-wrap gap-2">
@@ -82,6 +45,7 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
           : <Button size="sm" disabled={busy !== null} onClick={() => void act(run, run.recoverableSteps.length ? 'recover' : run.pendingApproval ? 'approve' : 'resume')}>{run.recoverableSteps.length ? t('runs.recover') : run.pendingApproval ? t('runs.approve') : t('runs.resume')}</Button>)}
         {run.canSettle && <Button size="sm" disabled={busy !== null} onClick={() => void act(run, 'settle')}>{t('runs.prepareDelivery')}</Button>}
         {run.canCancel && <Button size="sm" variant="secondary" disabled={busy !== null} onClick={() => void act(run, 'cancel')}>{t('runs.cancel')}</Button>}
+        {!run.canCancel && run.canDismiss && contextual && <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => void act(run, 'dismiss')}>{t('runs.dismiss')}</Button>}
       </div>
     </div>)}
   </section>

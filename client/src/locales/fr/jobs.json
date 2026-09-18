@@ -138,14 +138,17 @@
       "reasoning": "Raisonnement…",
       "working": "Travail en cours…",
       "connecting": "Connexion à l'agent…",
-      "starting": "Démarrage…"
+      "starting": "Démarrage…",
+      "delegating": "Délégation à {{arg}}"
     },
     "pipelinePartial": "≥ affiché — {{count}} phase(s) sans coût enregistré",
     "pipelinePartialTooltip": "Certaines phases se sont arrêtées avant de rapporter leur coût ; ce total est donc une borne inférieure.",
     "pipelineCostUnavailable": "La télémétrie de coût est indisponible pour toutes les phases.",
     "pipelineUsageUnavailable": "La télémétrie des tokens est indisponible pour toutes les phases.",
     "pipelineUsagePartial": "≥ affiché — phases sans télémétrie des tokens : {{count}}",
-    "pipelineUsageTooltip": "Les fournisseurs peuvent terminer des phases sans exposer la télémétrie des tokens ; seule l'utilisation connue est incluse."
+    "pipelineUsageTooltip": "Les fournisseurs peuvent terminer des phases sans exposer la télémétrie des tokens ; seule l'utilisation connue est incluse.",
+    "costUnknownLocal": "Coût inconnu (moteur local)",
+    "costUnknownLocalTooltip": "Coût inconnu (moteur local). Ajoutez des tarifs à la connexion pour voir une estimation."
   },
   "ticketHeader": {
     "showMore": "+ {{count}} de plus",
@@ -328,5 +331,11 @@
       "passed": "Réussi",
       "unavailable": "Indisponible"
     }
+  },
+  "runHeader": {
+    "details": "Détails",
+    "phaseActivity": "{{phase}} · {{activity}}",
+    "liveReported": "Rapporté par le fournisseur jusqu'ici ; les chiffres définitifs arrivent à la fin du job.",
+    "questionPending": "Répondre à la question"
   }
 }

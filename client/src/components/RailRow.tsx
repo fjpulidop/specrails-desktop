@@ -5,7 +5,7 @@ import { useDesktop } from '../hooks/useDesktop'
 import { AgentRuntimeRuns } from './settings/AgentRuntimeRuns'
 import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { GripVertical, Trash2, ArrowLeft } from 'lucide-react'
+import { GripVertical, Trash2, ArrowLeft, Layers } from 'lucide-react'
 import { RailControls, type RailMode, type RailStatus } from './RailControls'
 import { effectiveLoopId } from '../lib/rail-loops'
 import { SpecCard } from './SpecCard'
@@ -19,6 +19,7 @@ import { RailPrDecisionStrip } from './RailPrDecisionStrip'
 import { RailTargetPrSelector, type RailTargetPr } from './RailTargetPrSelector'
 import { railIndexFromId } from '../lib/rail-id'
 import {
+  isRolesEngine,
   providerSupportsCustomModelAliases,
   providerSupportsFreestyle,
   providerSupportsProfiles,
@@ -117,9 +118,14 @@ export function RailRow({
   // Server rail index for identity-keyed endpoints (pr-candidates). Null for
   // exotic/test ids — the target-PR selector simply doesn't render then.
   const serverRailIdx = railIndexFromId(id)
-  const effectiveProvider = aiEngine ?? providers?.[0] ?? 'claude'
-  const profileApplies = providerSupportsProfiles(effectiveProvider)
-  const freestyleAvailable = providerSupportsFreestyle(effectiveProvider)
+  // Hybrid per-role engines: `roles` is a sentinel, not a provider id — the
+  // profile/model/effort pickers give way to a chip (each role is configured
+  // in Settings ▸ Specrails Agents) and capability checks use the primary.
+  const rolesEngine = isRolesEngine(aiEngine)
+  const effectiveProvider = (rolesEngine ? providers?.[0] : aiEngine) ?? providers?.[0] ?? 'claude'
+  const profileApplies = !rolesEngine && providerSupportsProfiles(effectiveProvider)
+  // Freestyle is provider-owned prose; the roles engine has no single provider.
+  const freestyleAvailable = !rolesEngine && providerSupportsFreestyle(effectiveProvider)
   // Which secondary selectors are visible right now. When any is shown we move
   // them onto their own row beneath the rail name so the header doesn't cram
   // engine + model + mode segments + play into a single line.
@@ -127,7 +133,7 @@ export function RailRow({
   const showProfileSel = !!onProfileChange && status !== 'running' && profileApplies && mode !== 'loop'
   const showModelSel = !!onFreestyleModelChange && status !== 'running' && mode === 'freestyle' && freestyleAvailable
   // Model picker for custom loop rails (non-factory loops) — provider-aware.
-  const showLoopModelSel = !!onLoopModelChange && status !== 'running' && mode === 'loop'
+  const showLoopModelSel = !!onLoopModelChange && status !== 'running' && mode === 'loop' && !rolesEngine
   const loopModelProvider = effectiveProvider
   const loopModelOptions = modelsForProvider(loopModelProvider)
   const effectiveLoopModel = loopModel && (
@@ -139,7 +145,20 @@ export function RailRow({
   )
     ? loopModel
     : defaultModelForProvider(loopModelProvider)
-  const effortApplies = providerSupportsReasoningEffort(effectiveProvider, effectiveLoopModel)
+  const effortApplies = !rolesEngine && providerSupportsReasoningEffort(effectiveProvider, effectiveLoopModel)
+  const showRolesChip = rolesEngine && status !== 'running'
+  const rolesChipEl = showRolesChip ? (
+    <span
+      data-testid="rail-roles-chip"
+      title={t('agents:railSelectors.rolesChipTitle')}
+      className="inline-flex items-center gap-1 h-5 px-1.5 text-[10px] rounded border border-accent-primary/40 bg-accent-primary/10 text-accent-primary whitespace-nowrap"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Layers className="w-3 h-3" />
+      {t('agents:railSelectors.rolesChip')}
+    </span>
+  ) : null
   const loopModelPickerEl = showLoopModelSel && onLoopModelChange ? (
     <RailModelSelector
       provider={loopModelProvider}
@@ -156,7 +175,7 @@ export function RailRow({
   // their condition holds). The profile selector self-hides when the project
   // has no profiles, so it can't trigger an empty row — it rides along the
   // second row when one exists, else stays inline on the top row.
-  const hasSelectorRow = showEngineSel || showModelSel || showLoopModelSel || showLoopSel
+  const hasSelectorRow = showEngineSel || showModelSel || showLoopModelSel || showLoopSel || showRolesChip
   // Compact-tier right-click context menu state. `{ticketId, x, y}` while
   // open, `null` otherwise. Closed by outside-click, Escape, or selection.
   const [ticketCtxMenu, setTicketCtxMenu] = useState<{ ticketId: number; x: number; y: number } | null>(null)
@@ -458,6 +477,7 @@ export function RailRow({
           {onEngineChange && !isRunning && (
             <RailEngineSelector value={aiEngine ?? null} providers={providers ?? []} onChange={onEngineChange} />
           )}
+          {rolesChipEl}
           {onProfileChange && !isRunning && profileApplies && mode !== 'loop' && (
             <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
           )}
@@ -689,6 +709,7 @@ export function RailRow({
               {showEngineSel && onEngineChange && (
                 <RailEngineSelector value={aiEngine ?? null} providers={providers ?? []} onChange={onEngineChange} />
               )}
+              {rolesChipEl}
               {hasSelectorRow && showProfileSel && onProfileChange && (
                 <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
               )}

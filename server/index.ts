@@ -62,6 +62,17 @@ import { awaitBackgroundProcessesStopped, initializeBackgroundProcessPersistence
 // before any manager constructs a project context. See
 // openspec/changes/add-multi-provider-support/specs/multi-provider-architecture/spec.md.
 import './providers'
+import { syncLocalAdapters } from './providers/local-adapter-registry'
+import { loadRuntimeProviders } from './agent-runtime-settings'
+// Local AI engines: every OpenAI-compatible connection in
+// ~/.specrails/runtime-providers.json becomes a registered adapter BEFORE the
+// first detection cycle (kill switch SPECRAILS_LOCAL_ENGINES=false ⇒ no-op).
+try {
+  const sync = syncLocalAdapters(loadRuntimeProviders())
+  if (sync.registered.length) console.log(`[local-engines] registered: ${sync.registered.join(', ')}`)
+} catch (err) {
+  console.warn('[local-engines] could not load runtime provider connections (non-fatal):', (err as Error).message)
+}
 
 const hostControlToken = consumeHostControlToken()
 const inheritedPathBeforeResolve = (process.env.PATH ?? '').split(process.platform === 'win32' ? ';' : ':').filter(Boolean).length
