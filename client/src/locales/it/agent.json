@@ -173,8 +173,8 @@
       "browserCapture": "Cattura browser",
       "browserCaptureHint": "Cattura un'area della pagina per questa missione"
     },
-    "railGroup": "Rails",
-    "railGroupInUse": "Rails in use"
+    "railGroup": "Rail",
+    "railGroupInUse": "Rail in uso"
   },
   "mission": {
     "label": "Cambia missione",
@@ -578,115 +578,115 @@
     "finishPending": "Completa l’operazione in corso oppure salva o annulla il messaggio o la cattura prima di spostare la missione."
   },
   "railCard": {
-    "heading": "Rail launch",
+    "heading": "Lancio del rail",
     "rail": "Rail {{index}}",
-    "newRail": "New rail",
+    "newRail": "Nuovo rail",
     "play": "Play",
-    "launching": "Launching…",
-    "dismiss": "Dismiss",
-    "playHint": "Adjust anything, then press Play to launch under your own authority.",
-    "pending": "Preparing a launch proposal…",
-    "unreadable_one": "The agent's launch proposal could not be read.",
-    "unreadable_other": "{{count}} launch proposals could not be read.",
-    "pinnedMarker": "Launch proposal pinned above the composer",
-    "effortDefault": "Default effort",
-    "profileNone": "No profile",
+    "launching": "Avvio in corso…",
+    "dismiss": "Ignora",
+    "playHint": "Modifica ciò che vuoi, poi premi Play per lanciare sotto la tua responsabilità.",
+    "pending": "Preparazione di una proposta di lancio…",
+    "unreadable_one": "Impossibile leggere la proposta di lancio dell’agente.",
+    "unreadable_other": "Impossibile leggere {{count}} proposte di lancio.",
+    "pinnedMarker": "Proposta di lancio fissata sopra il compositore",
+    "effortDefault": "Sforzo predefinito",
+    "profileNone": "Nessun profilo",
     "status": {
-      "proposal": "Proposal",
-      "ready": "Ready",
-      "blocked": "Needs attention",
-      "loading": "Checking…"
+      "proposal": "Proposta",
+      "ready": "Pronto",
+      "blocked": "Richiede attenzione",
+      "loading": "Verifica in corso…"
     },
     "availability": {
-      "free": "free",
-      "busy": "running",
-      "pending_decision": "awaiting a decision",
-      "on_review": "on review"
+      "free": "libero",
+      "busy": "in esecuzione",
+      "pending_decision": "in attesa di una decisione",
+      "on_review": "in revisione"
     },
     "fields": {
       "rail": "Rail",
-      "newRailName": "New rail name (optional)",
-      "railName": "Rail name",
-      "addSpec": "Add spec",
-      "removeSpec": "Remove #{{id}}",
+      "newRailName": "Nome del nuovo rail (facoltativo)",
+      "railName": "Nome del rail",
+      "addSpec": "Aggiungi spec",
+      "removeSpec": "Rimuovi #{{id}}",
       "loop": "Loop",
-      "engine": "AI engine",
-      "model": "Model",
-      "effort": "Reasoning effort",
-      "profile": "Agent profile",
-      "targetPr": "Target PR #",
-      "baseBranch": "Base branch"
+      "engine": "Motore IA",
+      "model": "Modello",
+      "effort": "Sforzo di ragionamento",
+      "profile": "Profilo agenti",
+      "targetPr": "PR di destinazione #",
+      "baseBranch": "Branch di base"
     },
     "notes": {
-      "railMissing": "Rail {{index}} no longer exists — pick another rail or create one.",
-      "railBusy": "Rail {{index}} is {{state}} — launching there is blocked.",
-      "useFree": "Use Rail {{index}}",
-      "specsDropped": "Not in this project any more: {{ids}}",
-      "engineStale": "{{engine}} is not detected on this machine — using {{fallback}}.",
-      "modelStale": "{{model}} is not available — using {{fallback}}."
+      "railMissing": "Il Rail {{index}} non esiste più — scegli un altro rail o creane uno.",
+      "railBusy": "Il Rail {{index}} è {{state}} — il lancio lì è bloccato.",
+      "useFree": "Usa il Rail {{index}}",
+      "specsDropped": "Non più in questo progetto: {{ids}}",
+      "engineStale": "{{engine}} non è rilevato su questa macchina — verrà usato {{fallback}}.",
+      "modelStale": "{{model}} non è disponibile — verrà usato {{fallback}}."
     },
     "block": {
-      "noProject": "This mission is not pinned to a project.",
-      "loadFailed": "Could not load the project's rails.",
-      "noSpecs": "Add at least one spec to launch.",
-      "railLimit": "All {{max}} rails exist and none is free."
+      "noProject": "Questa missione non è fissata a nessun progetto.",
+      "loadFailed": "Impossibile caricare i rail del progetto.",
+      "noSpecs": "Aggiungi almeno una spec per lanciare.",
+      "railLimit": "Tutti i {{max}} rail esistono già e nessuno è libero."
     },
     "errors": {
-      "tickets_in_flight": "One of these specs is already running on another rail.",
-      "pr_decision_pending": "This rail is waiting for a PR decision.",
-      "rail_limit_reached": "The project already has the maximum number of rails.",
-      "invalid_base_branch": "That base branch does not exist locally.",
-      "base_branch_requires_isolation": "A base branch needs worktree isolation (a git repository with commits).",
-      "target_pr_requires_pr_mode": "A target PR needs worktree isolation (a git repository with commits).",
-      "invalid_response": "Unexpected server response."
+      "tickets_in_flight": "Una di queste spec è già in esecuzione su un altro rail.",
+      "pr_decision_pending": "Questo rail è in attesa di una decisione sulla PR.",
+      "rail_limit_reached": "Il progetto ha già il numero massimo di rail.",
+      "invalid_base_branch": "Quel branch di base non esiste in locale.",
+      "base_branch_requires_isolation": "Un branch di base richiede l’isolamento tramite worktree (un repository git con commit).",
+      "target_pr_requires_pr_mode": "Una PR di destinazione richiede l’isolamento tramite worktree (un repository git con commit).",
+      "invalid_response": "Risposta inattesa dal server."
     },
     "stub": {
-      "launched": "Launched → Rail {{rail}}",
-      "dismissed": "Proposal dismissed",
-      "viewRun": "View run"
+      "launched": "Lanciato → Rail {{rail}}",
+      "dismissed": "Proposta ignorata",
+      "viewRun": "Vedi run"
     }
   },
   "runCard": {
     "status": {
-      "running": "Running",
-      "paused": "Paused",
-      "succeeded": "Succeeded",
-      "failed": "Failed",
-      "stalled": "Stalled",
-      "cancelled": "Cancelled",
-      "unknown": "Unknown"
+      "running": "In esecuzione",
+      "paused": "In pausa",
+      "succeeded": "Completato",
+      "failed": "Fallito",
+      "stalled": "Bloccato",
+      "cancelled": "Annullato",
+      "unknown": "Sconosciuto"
     },
     "title": {
-      "running": "Implementing in the project checkout…",
-      "paused": "Needs a human decision",
-      "succeeded": "Implementation finished",
-      "failed": "Implementation failed",
-      "stalled": "Implementation stalled",
-      "cancelled": "Run cancelled",
-      "unknown": "Run state unknown"
+      "running": "Implementazione nel checkout del progetto…",
+      "paused": "Richiede una decisione umana",
+      "succeeded": "Implementazione terminata",
+      "failed": "Implementazione fallita",
+      "stalled": "Implementazione bloccata",
+      "cancelled": "Run annullato",
+      "unknown": "Stato del run sconosciuto"
     },
-    "noDeliveryNote": "No PR phase — this project has no git repository or commits, so the work landed directly in the project folder.",
-    "noDeliveryHint": "Running directly in the project folder (no git repository or commits — no PR will be proposed).",
+    "noDeliveryNote": "Nessuna fase PR — questo progetto non ha un repository git né commit, quindi il lavoro è stato applicato direttamente nella cartella del progetto.",
+    "noDeliveryHint": "Esecuzione diretta nella cartella del progetto (nessun repository git né commit — non verrà proposta alcuna PR).",
     "failure": {
-      "title": "Why it stopped",
-      "step": "step {{step}}",
+      "title": "Perché si è fermato",
+      "step": "passo {{step}}",
       "unit": "#{{ticket}} · {{code}}"
     },
     "actions": {
-      "resume": "Resume",
-      "approve": "Approve",
-      "recover": "Recover & retry",
-      "relaunch": "Relaunch"
+      "resume": "Riprendi",
+      "approve": "Approva",
+      "recover": "Recupera e riprova",
+      "relaunch": "Rilancia"
     },
-    "relaunchSent": "Rail {{index}} relaunched — a new card will follow the run.",
-    "relaunchFailed": "Could not relaunch the rail",
-    "relaunchBlockedActive": "The rail still has an active run"
+    "relaunchSent": "Rail {{index}} rilanciato — una nuova scheda seguirà il run.",
+    "relaunchFailed": "Impossibile rilanciare il rail",
+    "relaunchBlockedActive": "Il rail ha ancora un run attivo"
   },
   "runFailure": {
-    "marker": "Rail {{rail}} failed: {{code}}",
-    "openCard": "Open card",
+    "marker": "Il Rail {{rail}} è fallito: {{code}}",
+    "openCard": "Apri scheda",
     "briefing": {
-      "title": "Automatic failure briefing"
+      "title": "Resoconto automatico dell’errore"
     }
   }
 }

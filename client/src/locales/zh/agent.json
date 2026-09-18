@@ -173,8 +173,8 @@
       "browserCapture": "浏览器捕获",
       "browserCaptureHint": "捕获页面区域并添加到此任务"
     },
-    "railGroup": "Rails",
-    "railGroupInUse": "Rails in use"
+    "railGroup": "Rail",
+    "railGroupInUse": "使用中的 Rail"
   },
   "mission": {
     "label": "切换任务",
@@ -578,115 +578,115 @@
     "finishPending": "请先完成当前操作，或保存或取消消息或截图，再移动任务。"
   },
   "railCard": {
-    "heading": "Rail launch",
+    "heading": "Rail 启动",
     "rail": "Rail {{index}}",
-    "newRail": "New rail",
+    "newRail": "新建 Rail",
     "play": "Play",
-    "launching": "Launching…",
-    "dismiss": "Dismiss",
-    "playHint": "Adjust anything, then press Play to launch under your own authority.",
-    "pending": "Preparing a launch proposal…",
-    "unreadable_one": "The agent's launch proposal could not be read.",
-    "unreadable_other": "{{count}} launch proposals could not be read.",
-    "pinnedMarker": "Launch proposal pinned above the composer",
-    "effortDefault": "Default effort",
-    "profileNone": "No profile",
+    "launching": "正在启动…",
+    "dismiss": "忽略",
+    "playHint": "随意调整后，按 Play 以你自己的授权启动。",
+    "pending": "正在准备启动提案…",
+    "unreadable_one": "无法读取代理的启动提案。",
+    "unreadable_other": "无法读取 {{count}} 个启动提案。",
+    "pinnedMarker": "启动提案已固定在输入框上方",
+    "effortDefault": "默认推理强度",
+    "profileNone": "无配置文件",
     "status": {
-      "proposal": "Proposal",
-      "ready": "Ready",
-      "blocked": "Needs attention",
-      "loading": "Checking…"
+      "proposal": "提案",
+      "ready": "就绪",
+      "blocked": "需要关注",
+      "loading": "检查中…"
     },
     "availability": {
-      "free": "free",
-      "busy": "running",
-      "pending_decision": "awaiting a decision",
-      "on_review": "on review"
+      "free": "空闲",
+      "busy": "运行中",
+      "pending_decision": "等待决定",
+      "on_review": "审核中"
     },
     "fields": {
       "rail": "Rail",
-      "newRailName": "New rail name (optional)",
-      "railName": "Rail name",
-      "addSpec": "Add spec",
-      "removeSpec": "Remove #{{id}}",
+      "newRailName": "新 Rail 名称（可选）",
+      "railName": "Rail 名称",
+      "addSpec": "添加 Spec",
+      "removeSpec": "移除 #{{id}}",
       "loop": "Loop",
-      "engine": "AI engine",
-      "model": "Model",
-      "effort": "Reasoning effort",
-      "profile": "Agent profile",
-      "targetPr": "Target PR #",
-      "baseBranch": "Base branch"
+      "engine": "AI 引擎",
+      "model": "模型",
+      "effort": "推理强度",
+      "profile": "代理配置文件",
+      "targetPr": "目标 PR #",
+      "baseBranch": "基础分支"
     },
     "notes": {
-      "railMissing": "Rail {{index}} no longer exists — pick another rail or create one.",
-      "railBusy": "Rail {{index}} is {{state}} — launching there is blocked.",
-      "useFree": "Use Rail {{index}}",
-      "specsDropped": "Not in this project any more: {{ids}}",
-      "engineStale": "{{engine}} is not detected on this machine — using {{fallback}}.",
-      "modelStale": "{{model}} is not available — using {{fallback}}."
+      "railMissing": "Rail {{index}} 已不存在 — 请选择其他 Rail 或新建一个。",
+      "railBusy": "Rail {{index}} 当前{{state}} — 无法在此启动。",
+      "useFree": "使用 Rail {{index}}",
+      "specsDropped": "已不在此项目中：{{ids}}",
+      "engineStale": "本机未检测到 {{engine}} — 将使用 {{fallback}}。",
+      "modelStale": "{{model}} 不可用 — 将使用 {{fallback}}。"
     },
     "block": {
-      "noProject": "This mission is not pinned to a project.",
-      "loadFailed": "Could not load the project's rails.",
-      "noSpecs": "Add at least one spec to launch.",
-      "railLimit": "All {{max}} rails exist and none is free."
+      "noProject": "此任务未固定到任何项目。",
+      "loadFailed": "无法加载项目的 Rail。",
+      "noSpecs": "至少添加一个 Spec 才能启动。",
+      "railLimit": "{{max}} 个 Rail 已全部存在，且没有空闲的。"
     },
     "errors": {
-      "tickets_in_flight": "One of these specs is already running on another rail.",
-      "pr_decision_pending": "This rail is waiting for a PR decision.",
-      "rail_limit_reached": "The project already has the maximum number of rails.",
-      "invalid_base_branch": "That base branch does not exist locally.",
-      "base_branch_requires_isolation": "A base branch needs worktree isolation (a git repository with commits).",
-      "target_pr_requires_pr_mode": "A target PR needs worktree isolation (a git repository with commits).",
-      "invalid_response": "Unexpected server response."
+      "tickets_in_flight": "其中一个 Spec 已在其他 Rail 上运行。",
+      "pr_decision_pending": "此 Rail 正在等待 PR 决定。",
+      "rail_limit_reached": "项目已达到 Rail 数量上限。",
+      "invalid_base_branch": "该基础分支在本地不存在。",
+      "base_branch_requires_isolation": "基础分支需要 worktree 隔离（带有提交的 git 仓库）。",
+      "target_pr_requires_pr_mode": "目标 PR 需要 worktree 隔离（带有提交的 git 仓库）。",
+      "invalid_response": "服务器返回了意外的响应。"
     },
     "stub": {
-      "launched": "Launched → Rail {{rail}}",
-      "dismissed": "Proposal dismissed",
-      "viewRun": "View run"
+      "launched": "已启动 → Rail {{rail}}",
+      "dismissed": "提案已忽略",
+      "viewRun": "查看运行"
     }
   },
   "runCard": {
     "status": {
-      "running": "Running",
-      "paused": "Paused",
-      "succeeded": "Succeeded",
-      "failed": "Failed",
-      "stalled": "Stalled",
-      "cancelled": "Cancelled",
-      "unknown": "Unknown"
+      "running": "运行中",
+      "paused": "已暂停",
+      "succeeded": "已成功",
+      "failed": "已失败",
+      "stalled": "已停滞",
+      "cancelled": "已取消",
+      "unknown": "未知"
     },
     "title": {
-      "running": "Implementing in the project checkout…",
-      "paused": "Needs a human decision",
-      "succeeded": "Implementation finished",
-      "failed": "Implementation failed",
-      "stalled": "Implementation stalled",
-      "cancelled": "Run cancelled",
-      "unknown": "Run state unknown"
+      "running": "正在项目检出目录中实现…",
+      "paused": "需要人工决定",
+      "succeeded": "实现已完成",
+      "failed": "实现失败",
+      "stalled": "实现已停滞",
+      "cancelled": "运行已取消",
+      "unknown": "运行状态未知"
     },
-    "noDeliveryNote": "No PR phase — this project has no git repository or commits, so the work landed directly in the project folder.",
-    "noDeliveryHint": "Running directly in the project folder (no git repository or commits — no PR will be proposed).",
+    "noDeliveryNote": "无 PR 阶段 — 此项目没有 git 仓库或提交，因此工作已直接落在项目文件夹中。",
+    "noDeliveryHint": "直接在项目文件夹中运行（没有 git 仓库或提交 — 不会提议 PR）。",
     "failure": {
-      "title": "Why it stopped",
-      "step": "step {{step}}",
+      "title": "停止原因",
+      "step": "步骤 {{step}}",
       "unit": "#{{ticket}} · {{code}}"
     },
     "actions": {
-      "resume": "Resume",
-      "approve": "Approve",
-      "recover": "Recover & retry",
-      "relaunch": "Relaunch"
+      "resume": "继续",
+      "approve": "批准",
+      "recover": "恢复并重试",
+      "relaunch": "重新启动"
     },
-    "relaunchSent": "Rail {{index}} relaunched — a new card will follow the run.",
-    "relaunchFailed": "Could not relaunch the rail",
-    "relaunchBlockedActive": "The rail still has an active run"
+    "relaunchSent": "Rail {{index}} 已重新启动 — 新卡片将跟踪此运行。",
+    "relaunchFailed": "无法重新启动该 Rail",
+    "relaunchBlockedActive": "该 Rail 仍有活动的运行"
   },
   "runFailure": {
-    "marker": "Rail {{rail}} failed: {{code}}",
-    "openCard": "Open card",
+    "marker": "Rail {{rail}} 失败：{{code}}",
+    "openCard": "打开卡片",
     "briefing": {
-      "title": "Automatic failure briefing"
+      "title": "自动故障简报"
     }
   }
 }

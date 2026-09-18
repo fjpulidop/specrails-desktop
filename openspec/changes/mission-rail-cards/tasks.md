@@ -40,12 +40,12 @@
 ## 6. Palette + i18n + docs
 
 - [x] 6.1 `agent-context-palette.ts` / `AgentContextPalette`: `rail` kind, `@rail-N` rows from `GET /rails`, chip tone, serialization in `buildAgentContextBlock`; tests
-- [ ] 6.2 i18n `agent:railCard.*`, `agent:runFailure.*`, palette/rail strings ×8 locales; parity test green
-- [ ] 6.3 Docs: CLAUDE.md (mission rail cards section), `docs/internals/mission-rail-cards.md`, in-app guide `docs/guide/<lang>/integrations/6-agent-chat.md` ×8, `docs/mcp.md` new actions
+- [x] 6.2 i18n `agent:railCard.*`, `agent:runFailure.*`, palette/rail strings ×8 locales; parity test green
+- [x] 6.3 Docs: CLAUDE.md (mission rail cards section), `docs/internals/mission-rail-cards.md`, in-app guide `docs/guide/<lang>/integrations/6-agent-chat.md` ×8, `docs/mcp.md` new actions
 
 ## 7. Verification
 
-- [ ] 7.1 Server tests: parser, intent route, notify chokepoint (all outcome paths, dedup, flag off, untagged), MCP actions + tiers, rails availability, shared-cwd card posting
-- [ ] 7.2 Client tests: card render/edit/play/409/frozen, run-card phases + failure actions, pinning, palette rail chips
-- [ ] 7.3 `npm run typecheck`, `npm test`, `npm run test:coverage` (server ≥ 80%), `cd client && npm run test:coverage` (client ≥ 80%)
+- [x] 7.1 Server tests: parser, intent route, notify chokepoint (all outcome paths, dedup, flag off, untagged), MCP actions + tiers, rails availability, shared-cwd card posting
+- [x] 7.2 Client tests: card render/edit/play/409/frozen, run-card phases + failure actions, pinning, palette rail chips
+- [x] 7.3 `npm run typecheck`, `npm test`, `npm run test:coverage` (server ≥ 80%), `cd client && npm run test:coverage` (client ≥ 80%)
 - [ ] 7.4 Manual smoke in Mission mode: propose → edit → Play (existing rail, new rail, no-git project) → running → forced failure → auto-turn → resume from card; check all 8 locales render

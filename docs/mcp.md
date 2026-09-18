@@ -40,7 +40,7 @@ reading one description. The tools are:
 | `specrails_context` | Compact live briefing: project/providers, backlog, rails/runs/deliveries, Git/worktrees, blueprint; source and availability per section |
 | `specrails_specs` | The spec/ticket backlog: list, get, create, update, delete, drafts, AI generate, AI-edit, Contract Refine, SMASH, per-ticket spend |
 | `specrails_rails` | Configure/launch dynamic rails (`create_rail`, up to 12), inspect PR candidates/review packets; `launch_all` reports outcomes and isolation availability per rail |
-| `specrails_jobs` | Inspect paginated job events, phase breakdowns, queues and background processes; stop jobs |
+| `specrails_jobs` | Inspect paginated job events, phase breakdowns, queues and background processes; stop jobs; read and drive programmatic runtime runs (`runtime_*`) |
 | `specrails_chat` | Explore / sidebar chat conversations and turns |
 | `specrails_agents` | Provider-scoped agent profiles and catalog; explicit profiles are validated for the selected provider |
 | `specrails_plugins` | The per-project plugin marketplace (install / verify / uninstall) |
@@ -106,6 +106,29 @@ available, while Quick Spec, AI Edit, Contract Refine, SMASH/Re-SMASH,
 Project Builder generation, Loop Decider, Code Explorer AI transforms, and
 Agent Studio automation are rejected before spawn. Destructive gates run
 before any mutation.
+
+## Runtime runs and rail availability (mission-rail-cards)
+
+`specrails_jobs` exposes the programmatic runtime of a job (the same state the
+app's Resume / Approve / Recover controls use), so an agent can explain a
+failure and act only on the user's confirmation:
+
+| Action | Tier | What it does |
+|---|---|---|
+| `runtime_runs` | read | Runtime state of `jobId` (or every run when omitted): status, current step, `canResume`, `recoverableSteps`, `pendingApproval` |
+| `runtime_evidence` | read | Durable runtime evidence of `jobId` |
+| `runtime_resume` | ai-spawn | Continue a resumable run (optional `approve` / `recover` / instruction body) |
+| `runtime_recover` | ai-spawn | Shorthand for `runtime_resume` with `recover: [stepIds]` |
+| `runtime_approve` | write | Shorthand for `runtime_resume` with `approve: [stepId]` |
+| `runtime_settle` | write | Prepare delivery for a succeeded-but-unsettled run |
+| `runtime_dismiss` | write | Dismiss a runtime continuation card |
+| `runtime_cancel` | destructive | Cancel an active runtime continuation |
+
+`specrails_rails(list)` rails carry `availability` — `free`, `busy` (active job
+or loop run), `pending_decision` (an undecided PR delivery) or `on_review` (a
+spec parked on review). Inside the app's own agent chat, a launch proposal is a
+fenced `rail-launch` block the user plays from an editable card; the tool's
+`launch` action is reserved for an explicit "launch now".
 
 ## The four permission tiers
 
