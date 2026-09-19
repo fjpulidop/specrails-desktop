@@ -702,7 +702,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: installed-smoke-${{ runner.arch }}
-          path: ${{ runner.temp }}/specrails-installed-smoke.log
+          path: |
+            ${{ runner.temp }}/specrails-installed-smoke.log
+            ${{ runner.temp }}/msi-install.log
 
       - name: Upload Windows installer artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
@@ -954,7 +956,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: installed-smoke-${{ runner.arch }}
-          path: ${{ runner.temp }}/specrails-installed-smoke.log
+          path: |
+            ${{ runner.temp }}/specrails-installed-smoke.log
+            ${{ runner.temp }}/msi-install.log
 
       - name: Upload Windows ARM64 installer artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
