@@ -12,6 +12,21 @@ import { cn } from '../../lib/utils'
  * a non-technical person, so lists breathe, code reads as a chip rather than
  * a terminal, links open in a new tab, and images/raw HTML never render.
  */
+/**
+ * Display-only: a spec written as ONE paragraph "1. … 2. … 3. …" renders as a
+ * wall of prose. When at least three inline ordinal markers exist, put each
+ * on its own line so markdown renders a real list. Never touches text that
+ * already has line breaks around its items.
+ */
+export function unfoldInlineNumberedList(text: string): string {
+  return text.split(/\n{2,}/).map((para) => {
+    if (para.includes('\n')) return para
+    const markers = para.match(/(?:^|\s)(\d{1,2})\.\s+(?=\S)/g)
+    if (!markers || markers.length < 3) return para
+    return para.replace(/\s+(\d{1,2})\.\s+(?=\S)/g, (m, n: string, offset: number) => (offset === 0 ? m : `\n${n}. `))
+  }).join('\n\n')
+}
+
 export function PacketMarkdown({ children, muted = false, className }: { children: string; muted?: boolean; className?: string }) {
   const components = useMemo(() => ({
     a: ({ href, children: label }: { href?: string; children?: React.ReactNode }) => (
@@ -40,7 +55,7 @@ export function PacketMarkdown({ children, muted = false, className }: { childre
         className,
       )}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={components}>{children}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={components}>{unfoldInlineNumberedList(children)}</ReactMarkdown>
     </div>
   )
 }

@@ -428,7 +428,7 @@ describe('ReviewPacketPage — sections', () => {
         sections: [
           {
             ticketId: 8, title: 'Touch controls', problem: 'Only `keydown` works.', labels: [],
-            solution: '**Proposed Solution** — 1. Tap `Left`/`Right`.',
+            solution: '**Proposed Solution**\n\n1. Tap `Left`/`Right`. 2. Tap Rotate, like `ArrowUp`. 3. Tap Hold.',
             implementationOutcome: 'succeeded', deliveryOutcome: 'ready', changed: true,
             churn: { filesTouched: 12, addedLines: 644, removedLines: 0, testFilesTouched: ['tests/touch.test.js'] }, runIds: ['run-1'],
           },
@@ -450,6 +450,8 @@ describe('ReviewPacketPage — sections', () => {
     expect(screen.getByText('Planned approach (from the spec)')).toBeInTheDocument()
     expect(screen.queryByText(/\*\*Proposed Solution\*\*/)).not.toBeInTheDocument()
     expect(screen.getByText('Proposed Solution').tagName).toBe('STRONG')
+    // An inline "1. … 2. … 3." paragraph unfolds into a real ordered list.
+    expect(screen.getAllByRole('listitem').filter((li) => li.parentElement?.tagName === 'OL')).toHaveLength(3)
     expect(screen.getByText('No summary was recorded.')).toBeInTheDocument()
     // "What you asked for" renders markdown too (inline code, not backticks).
     expect(screen.getByText('keydown').tagName).toBe('CODE')
@@ -621,5 +623,16 @@ describe('ReviewPacketPage — version lineage and drift (Wave 3)', () => {
     renderPage()
     await screen.findByText('Your change is ready for review')
     expect(screen.queryByTestId('packet-drift-nudges')).not.toBeInTheDocument()
+  })
+})
+
+describe('unfoldInlineNumberedList', () => {
+  it('breaks ≥3 inline ordinals into lines, leaves prose and real lists alone', async () => {
+    const { unfoldInlineNumberedList } = await import('../../components/review-packet/PacketMarkdown')
+    expect(unfoldInlineNumberedList('1. a 2. b 3. c')).toBe('1. a\n2. b\n3. c')
+    expect(unfoldInlineNumberedList('Intro: 1. a 2. b 3. c')).toBe('Intro:\n1. a\n2. b\n3. c')
+    expect(unfoldInlineNumberedList('only 1. a 2. b')).toBe('only 1. a 2. b')
+    expect(unfoldInlineNumberedList('1. a\n2. b\n3. c')).toBe('1. a\n2. b\n3. c')
+    expect(unfoldInlineNumberedList('v1.2 ships 3.5 GB and 4.0 more')).toBe('v1.2 ships 3.5 GB and 4.0 more')
   })
 })
