@@ -656,6 +656,16 @@ function applyDesktopMigrations(db: DbInstance): void {
         UPDATE agent_inputs SET receipt = 'received' WHERE status = 'delivered';
       `)
     },
+    // 29: mission-rail-cards — a user DECISION taken on an agent-emitted card
+    // (a ```rail-launch proposal launched or dismissed) is persisted on the
+    // message row, so after reload the proposal renders as a frozen stub and
+    // can never be launched twice (Builder `blueprint_messages.intent` precedent).
+    () => {
+      // Column-guarded: the agent-inputs upgrade tests replay migrations ≥ 27
+      // on an already-migrated database, so this must be a no-op when present.
+      const cols = (db.prepare('PRAGMA table_info(agent_messages)').all() as { name: string }[]).map((c) => c.name)
+      if (!cols.includes('intent')) db.exec(`ALTER TABLE agent_messages ADD COLUMN intent TEXT;`)
+    },
   ]
 
   applyNumberedMigrations(db, migrations)

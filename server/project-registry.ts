@@ -129,6 +129,9 @@ export interface ProjectContext {
     /** Current launchers settle through a durable loop_terminal_recovery row.
      * Absence means admission failed; never reinterpret it as a legacy exit. */
     requiresTerminalIntent?: boolean
+    /** mission-rail-cards: the agent-chat conversation that launched a SHARED-CWD
+     *  run (isolated runs keep it on the delivery row). */
+    originConversationId?: string
   }>
   /** Completion handler for a loop run: releases its tickets + rail slots,
    *  mapping the loop outcome to a ticket outcome. The engine already emits the
@@ -1082,6 +1085,7 @@ export class ProjectRegistry {
       railIndex: number
       ticketIds: number[]
       requiresTerminalIntent?: boolean
+      originConversationId?: string
     }>()
     // Capture before runtime construction. The status transition is deliberately
     // delayed until onLoopRunFinished exists so crash recovery replays ticket,
@@ -1447,6 +1451,7 @@ export class ProjectRegistry {
       railIndex: number
       ticketIds: number[]
       requiresTerminalIntent?: boolean
+      originConversationId?: string
     }>,
     onLoopRunFinished: (runId: string, outcome: string) => void,
     orphans: LoopRunRow[],

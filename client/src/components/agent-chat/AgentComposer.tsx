@@ -37,6 +37,8 @@ import {
   filterPaletteItems,
   insertPaletteSelection,
   toContextReference,
+  railsFromResponse,
+  type PaletteRail,
   type AgentPaletteItem,
   type AgentPaletteMode,
   type AgentPaletteTrigger,
@@ -168,6 +170,7 @@ export function AgentComposer({
   const [plusOpen, setPlusOpen] = useState(false)
   const [scopedTickets, setScopedTickets] = useState<LocalTicket[]>([])
   const [scopedJobs, setScopedJobs] = useState<JobSummary[]>([])
+  const [scopedRails, setScopedRails] = useState<PaletteRail[]>([])
   const inHistory = histIndex !== null
   const history = useMemo(
     () => messages.filter((m) => m.role === 'user').map((m) => m.content),
@@ -234,8 +237,9 @@ export function AgentComposer({
     activeProjectId,
     tickets: scopedTickets,
     jobs: scopedJobs,
+    rails: scopedRails,
     chips: contextChips,
-  }), [projects, conversations, active, pinnedProjectId, activeProjectId, scopedTickets, scopedJobs, contextChips])
+  }), [projects, conversations, active, pinnedProjectId, activeProjectId, scopedTickets, scopedJobs, scopedRails, contextChips])
   const paletteItems = useMemo(
     () => (paletteTrigger ? [...buildPaletteItems(paletteTrigger.mode, paletteSource), ...(paletteTrigger.mode === 'reference' && fileQuery.length >= 2 && fileResults.key === fileQueryKey ? fileResults.items : [])] : []),
     [paletteTrigger, paletteSource, fileResults, fileQueryKey, fileQuery],
@@ -272,6 +276,7 @@ export function AgentComposer({
     if (!pinnedProjectId) {
       setScopedTickets([])
       setScopedJobs([])
+      setScopedRails([])
       return
     }
     let alive = true
@@ -290,6 +295,16 @@ export function AgentComposer({
         if (!alive) return
         setScopedTickets([])
         setScopedJobs([])
+      }
+      // Rails ride a separate, best-effort request (mission-rail-cards
+      // `@rail-N`): a failure here must never blank the spec/job references.
+      try {
+        const railsRes = await fetch(`${API_ORIGIN}/api/projects/${encodeURIComponent(pinnedProjectId)}/rails`)
+        const railsJson: unknown = railsRes.ok ? await railsRes.json() : null
+        if (!alive) return
+        setScopedRails(railsFromResponse(railsJson))
+      } catch {
+        if (alive) setScopedRails([])
       }
     }
     void loadScopedContext()

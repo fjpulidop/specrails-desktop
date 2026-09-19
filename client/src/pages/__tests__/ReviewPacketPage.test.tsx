@@ -146,16 +146,17 @@ describe('ReviewPacketPage — above the fold', () => {
     renderPage()
     expect(await screen.findByText('Your change is ready for review')).toBeInTheDocument()
     fireEvent.click(screen.getByText('What was done'))
+    // The spec's proposal is the collapsed PLAN, never reported as what was done.
+    const plan = screen.getByText('Planned approach (from the spec)')
+    expect(plan.closest('details')?.open).toBe(false)
+    fireEvent.click(plan)
     // A numbered journey renders as an ordered list, not one run-on paragraph.
     const items = [...document.querySelectorAll('ol > li')].filter((li) => /Tap (Left|Rotate)/.test(li.textContent ?? ''))
     expect(items.length).toBeGreaterThanOrEqual(2)
     // Backticks become code chips; bold labels become <strong>.
     expect(screen.getAllByText('keydown').some((el) => el.tagName === 'CODE')).toBe(true)
     expect(screen.getAllByText('Proposed Solution').some((el) => el.tagName === 'STRONG')).toBe(true)
-    // The overflow is collapsed behind a disclosure until asked for.
-    const summary = screen.getByText('Read the full solution')
-    expect(summary.closest('details')?.open).toBe(false)
-    fireEvent.click(summary)
+    // The plan shows the FULL text (overflow), not the clamped digest.
     expect(screen.getByText('Hold Soft Drop.')).toBeInTheDocument()
   })
 
@@ -421,6 +422,41 @@ describe('ReviewPacketPage — sections', () => {
     fireEvent.click(await screen.findByText('What was done'))
     expect(screen.getByText(/not per request/i)).toBeInTheDocument()
   })
+
+  it('reports the durable outcome as facts and shows the spec plan collapsed, rendered as markdown', async () => {
+    respond({
+      packet: packet({
+        sections: [
+          {
+            ticketId: 8, title: 'Touch controls', problem: 'Only `keydown` works.', labels: [],
+            solution: '**Proposed Solution**\n\n1. Tap `Left`/`Right`. 2. Tap Rotate, like `ArrowUp`. 3. Tap Hold.',
+            implementationOutcome: 'succeeded', deliveryOutcome: 'ready', changed: true,
+            churn: { filesTouched: 12, addedLines: 644, removedLines: 0, testFilesTouched: ['tests/touch.test.js'] }, runIds: ['run-1'],
+          },
+          {
+            ticketId: 9, title: 'Broken one', problem: null, solution: null, labels: [],
+            implementationOutcome: 'failed', deliveryOutcome: 'blocked', changed: false,
+            churn: { filesTouched: 0, addedLines: 0, removedLines: 0, testFilesTouched: [] }, runIds: ['run-2'],
+          },
+        ],
+      }),
+    })
+    renderPage()
+    fireEvent.click(await screen.findByText('What was done'))
+    const pills = screen.getAllByTestId('packet-outcome-pill').map((el) => el.textContent)
+    expect(pills).toEqual(['Implemented', 'Could not be completed'])
+    expect(screen.getByText(/1 test file touched/)).toBeInTheDocument()
+    expect(screen.getByText(/No test files touched/)).toBeInTheDocument()
+    // The plan is labelled as the plan, collapsed, and never shown as raw markdown.
+    expect(screen.getByText('Planned approach (from the spec)')).toBeInTheDocument()
+    expect(screen.queryByText(/\*\*Proposed Solution\*\*/)).not.toBeInTheDocument()
+    expect(screen.getByText('Proposed Solution').tagName).toBe('STRONG')
+    // An inline "1. … 2. … 3." paragraph unfolds into a real ordered list.
+    expect(screen.getAllByRole('listitem').filter((li) => li.parentElement?.tagName === 'OL')).toHaveLength(3)
+    expect(screen.getByText('No summary was recorded.')).toBeInTheDocument()
+    // "What you asked for" renders markdown too (inline code, not backticks).
+    expect(screen.getByText('keydown').tagName).toBe('CODE')
+  })
 })
 
 describe('ReviewPacketPage — failures', () => {
@@ -588,5 +624,16 @@ describe('ReviewPacketPage — version lineage and drift (Wave 3)', () => {
     renderPage()
     await screen.findByText('Your change is ready for review')
     expect(screen.queryByTestId('packet-drift-nudges')).not.toBeInTheDocument()
+  })
+})
+
+describe('unfoldInlineNumberedList', () => {
+  it('breaks ≥3 inline ordinals into lines, leaves prose and real lists alone', async () => {
+    const { unfoldInlineNumberedList } = await import('../../components/review-packet/PacketMarkdown')
+    expect(unfoldInlineNumberedList('1. a 2. b 3. c')).toBe('1. a\n2. b\n3. c')
+    expect(unfoldInlineNumberedList('Intro: 1. a 2. b 3. c')).toBe('Intro:\n1. a\n2. b\n3. c')
+    expect(unfoldInlineNumberedList('only 1. a 2. b')).toBe('only 1. a 2. b')
+    expect(unfoldInlineNumberedList('1. a\n2. b\n3. c')).toBe('1. a\n2. b\n3. c')
+    expect(unfoldInlineNumberedList('v1.2 ships 3.5 GB and 4.0 more')).toBe('v1.2 ships 3.5 GB and 4.0 more')
   })
 })

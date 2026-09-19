@@ -172,7 +172,9 @@
       "fileAttachmentHint": "添加文档、图片、日志",
       "browserCapture": "浏览器捕获",
       "browserCaptureHint": "捕获页面区域并添加到此任务"
-    }
+    },
+    "railGroup": "Rail",
+    "railGroupInUse": "使用中的 Rail"
   },
   "mission": {
     "label": "切换任务",
@@ -574,5 +576,120 @@
     "dismiss": "关闭提示",
     "wrongMission": "请先打开此任务，再移动窗口。",
     "finishPending": "请先完成当前操作，或保存或取消消息或截图，再移动任务。"
+  },
+  "railCard": {
+    "heading": "Rail 启动",
+    "rail": "Rail {{index}}",
+    "newRail": "新建 Rail",
+    "play": "Play",
+    "launching": "正在启动…",
+    "dismiss": "忽略",
+    "playHint": "随意调整后，按 Play 以你自己的授权启动。",
+    "pending": "正在准备启动提案…",
+    "unreadable_one": "无法读取代理的启动提案。",
+    "unreadable_other": "无法读取 {{count}} 个启动提案。",
+    "pinnedMarker": "启动提案已固定在输入框上方",
+    "effortDefault": "默认推理强度",
+    "profileNone": "无配置文件",
+    "status": {
+      "proposal": "提案",
+      "ready": "就绪",
+      "blocked": "需要关注",
+      "loading": "检查中…"
+    },
+    "availability": {
+      "free": "空闲",
+      "busy": "运行中",
+      "pending_decision": "等待决定",
+      "on_review": "审核中"
+    },
+    "fields": {
+      "rail": "Rail",
+      "newRailName": "新 Rail 名称（可选）",
+      "railName": "Rail 名称",
+      "addSpec": "添加 Spec",
+      "removeSpec": "移除 #{{id}}",
+      "loop": "Loop",
+      "engine": "AI 引擎",
+      "model": "模型",
+      "effort": "推理强度",
+      "profile": "代理配置文件",
+      "targetPr": "目标 PR #",
+      "baseBranch": "基础分支"
+    },
+    "notes": {
+      "railMissing": "Rail {{index}} 已不存在 — 请选择其他 Rail 或新建一个。",
+      "railBusy": "Rail {{index}} 当前{{state}} — 无法在此启动。",
+      "useFree": "使用 Rail {{index}}",
+      "specsDropped": "已不在此项目中：{{ids}}",
+      "engineStale": "本机未检测到 {{engine}} — 将使用 {{fallback}}。",
+      "modelStale": "{{model}} 不可用 — 将使用 {{fallback}}。"
+    },
+    "block": {
+      "noProject": "此任务未固定到任何项目。",
+      "loadFailed": "无法加载项目的 Rail。",
+      "noSpecs": "至少添加一个 Spec 才能启动。",
+      "railLimit": "{{max}} 个 Rail 已全部存在，且没有空闲的。"
+    },
+    "errors": {
+      "tickets_in_flight": "其中一个 Spec 已在其他 Rail 上运行。",
+      "pr_decision_pending": "此 Rail 正在等待 PR 决定。",
+      "rail_limit_reached": "项目已达到 Rail 数量上限。",
+      "invalid_base_branch": "该基础分支在本地不存在。",
+      "base_branch_requires_isolation": "基础分支需要 worktree 隔离（带有提交的 git 仓库）。",
+      "target_pr_requires_pr_mode": "目标 PR 需要 worktree 隔离（带有提交的 git 仓库）。",
+      "invalid_response": "服务器返回了意外的响应。"
+    },
+    "stub": {
+      "launched": "已启动 → Rail {{rail}}",
+      "dismissed": "提案已忽略",
+      "viewRun": "查看运行",
+      "goToCard": "前往卡片",
+      "goToCardTitle": "跳转到此次启动的实现卡片",
+      "viewRunTitle": "打开该 run 的实时日志"
+    }
+  },
+  "runCard": {
+    "status": {
+      "running": "运行中",
+      "paused": "已暂停",
+      "succeeded": "已成功",
+      "failed": "已失败",
+      "stalled": "已停滞",
+      "cancelled": "已取消",
+      "unknown": "未知"
+    },
+    "title": {
+      "running": "正在项目检出目录中实现…",
+      "paused": "需要人工决定",
+      "succeeded": "实现已完成",
+      "failed": "实现失败",
+      "stalled": "实现已停滞",
+      "cancelled": "运行已取消",
+      "unknown": "运行状态未知"
+    },
+    "noDeliveryNote": "无 PR 阶段 — 此项目没有 git 仓库或提交，因此工作已直接落在项目文件夹中。",
+    "noDeliveryHint": "直接在项目文件夹中运行（没有 git 仓库或提交 — 不会提议 PR）。",
+    "failure": {
+      "title": "停止原因",
+      "step": "步骤 {{step}}",
+      "unit": "#{{ticket}} · {{code}}"
+    },
+    "actions": {
+      "resume": "继续",
+      "approve": "批准",
+      "recover": "恢复并重试",
+      "relaunch": "重新启动"
+    },
+    "relaunchSent": "Rail {{index}} 已重新启动 — 新卡片将跟踪此运行。",
+    "relaunchFailed": "无法重新启动该 Rail",
+    "relaunchBlockedActive": "该 Rail 仍有活动的运行"
+  },
+  "runFailure": {
+    "marker": "Rail {{rail}} 失败：{{code}}",
+    "openCard": "打开卡片",
+    "briefing": {
+      "title": "自动故障简报"
+    }
   }
 }

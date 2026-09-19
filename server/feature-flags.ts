@@ -74,3 +74,23 @@ export function isReviewPacketEnabled(): boolean {
 export function areDeliveryRevisionsEnabled(): boolean {
   return process.env.SPECRAILS_DELIVERY_REVISIONS !== 'false'
 }
+
+/**
+ * Mission rail cards (mission-rail-cards): the operator agent proposes launches
+ * as an editable ```rail-launch card, every mission-originated run gets a run
+ * card (shared-cwd launches included) and the message-intent route accepts
+ * card decisions. Default ON; set SPECRAILS_MISSION_RAIL_CARDS="false" to keep
+ * the legacy prompt verbs and ignore the protocol server-side.
+ */
+export function isMissionRailCardsEnabled(): boolean {
+  return process.env.SPECRAILS_MISSION_RAIL_CARDS !== 'false'
+}
+
+/**
+ * The automatic, bounded agent turn a mission-originated run failure starts
+ * (mission-rail-cards). Default ON; set SPECRAILS_MISSION_FAILURE_TURN="false"
+ * to keep the card update + failure system row but never start a turn.
+ */
+export function isMissionFailureTurnEnabled(): boolean {
+  return isMissionRailCardsEnabled() && process.env.SPECRAILS_MISSION_FAILURE_TURN !== 'false'
+}

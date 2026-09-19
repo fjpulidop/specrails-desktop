@@ -333,6 +333,13 @@ can run Contract Refine require AI-spawn, including Explore conversions.
   \`summary\`, \`provenance\`, \`diff\`. There is no MCP write path to files.
   Start with content search to find behavior and tests, then read exact ranges.
   Truncated scans or skipped files do not prove that a symbol is absent.
+- **Run failures & recovery**: \`specrails_jobs(runtime_runs, jobId)\` reads
+  why a run stopped and what it offers (\`canResume\`, \`recoverableSteps\`,
+  \`pendingApproval\`, \`pendingQuestion\`); \`runtime_evidence\` the durable
+  evidence. Act only on the user's confirmation: \`runtime_resume\` /
+  \`runtime_recover\` (ai-spawn), \`runtime_approve\` / \`runtime_settle\` /
+  \`runtime_dismiss\` (write), \`runtime_cancel\` (destructive). In the in-app
+  mission, a failed run also updates its card and posts a briefing turn.
 - **Execution evidence**: \`specrails_jobs(phase_breakdown)\` explains phases;
   job events are paginated. \`specrails_rails(pr_candidates)\` finds existing
   PR targets; \`review_packet(prDeliveryId)\` reads verification evidence.

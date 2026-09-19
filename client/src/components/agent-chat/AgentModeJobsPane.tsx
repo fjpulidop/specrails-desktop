@@ -35,12 +35,19 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
 export function AgentModeJobsPane({ projectId }: { projectId: string }) {
   const { t } = useTranslation('agent')
   const { t: tJobs } = useTranslation('jobs')
-  const { closeJobsPane } = useAgentWorkspace()
+  const { closeJobsPane, requestedJobId, clearRequestedJob } = useAgentWorkspace()
   const { projects } = useDesktop()
   const provider = projects.find((p) => p.id === projectId)?.provider
   const [width, setWidth] = useState(DEFAULT_PANE)
   const [maximized, setMaximized] = useState(false)
   const [detailJobId, setDetailJobId] = useState<string | null>(null)
+  // A Mission-mode notification click asked for a run (mission-rail-cards):
+  // open it here instead of leaving the mission for the routed jobs page.
+  useEffect(() => {
+    if (!requestedJobId) return
+    setDetailJobId(requestedJobId)
+    clearRequestedJob()
+  }, [requestedJobId, clearRequestedJob])
 
   const { data: jobs, isFirstLoad, refresh } = useProjectCache<JobSummary[]>({
     namespace: 'agent-jobs',

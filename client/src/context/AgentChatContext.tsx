@@ -906,6 +906,19 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
               : q
           )),
         }))
+      } else if (msg.type === 'agent_run_failure') {
+        // mission-rail-cards: the server persisted a `run-failure` system row
+        // and broadcast it; append it to the ACTIVE thread so the failure
+        // marker appears live (background threads rehydrate on select).
+        markUnread(convId)
+        if (isActive) {
+          const { type: _t, conversationId: _c, messageId, timestamp, ...row } = msg as unknown as { type: string; conversationId: string; messageId: string; timestamp: string } & Record<string, unknown>
+          if (typeof messageId === 'string' && !messagesRef.current.some((m) => m.id === messageId)) {
+            const systemRow: AgentMessage = { id: messageId, conversation_id: convId, role: 'system', content: JSON.stringify(row), created_at: typeof timestamp === 'string' ? timestamp : new Date().toISOString() }
+            messagesRef.current = [...messagesRef.current, systemRow]
+            setMessages((current) => (current.some((m) => m.id === messageId) ? current : [...current, systemRow]))
+          }
+        }
       } else if (msg.type === 'agent_pr_decision') {
         markUnread(convId)
         // PR-decision card (safe-pr-review-flow): the WS message carries the

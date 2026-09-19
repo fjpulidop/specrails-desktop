@@ -13,6 +13,7 @@ export type AgentContextKind =
   | 'file'
   | 'alias'
   | 'pr'
+  | 'rail'
   | 'action'
 
 export interface AgentContextChip {
@@ -90,7 +91,62 @@ export interface PaletteSourceState {
   activeProjectId: string | null
   tickets: LocalTicket[]
   jobs: JobSummary[]
+  /** The pinned project's rails (mission-rail-cards `@rail-N`); optional so
+   *  legacy callers/tests without a rails fetch keep working. */
+  rails?: PaletteRail[]
   chips: AgentContextChip[]
+}
+
+/** The slice of `GET /rails` the palette needs. `availability` comes from the
+ *  server when it reports it; `deriveRailAvailability` fills it otherwise. */
+export interface PaletteRail {
+  index: number
+  name: string | null
+  ticketIds: number[]
+  mode?: string | null
+  aiEngine?: string | null
+  profileName?: string | null
+  availability?: PaletteRailAvailability
+}
+
+export type PaletteRailAvailability = 'free' | 'busy' | 'pending_decision' | 'on_review'
+
+/**
+ * Project the raw rails response onto PaletteRail[]: honours a server-provided
+ * `availability`, else derives `busy` from active jobs/loop runs and
+ * `pending_decision` from a non-terminal delivery, else `free`.
+ */
+export function railsFromResponse(data: unknown): PaletteRail[] {
+  if (!data || typeof data !== 'object') return []
+  const o = data as {
+    rails?: Array<{ index?: number; railIndex?: number; name?: string | null; ticketIds?: unknown; mode?: string | null; aiEngine?: string | null; profileName?: string | null; availability?: string }>
+    activeJobs?: Record<string, unknown>
+    activeLoopRuns?: Record<string, unknown>
+    prDeliveries?: Record<string, { decision?: string } | undefined>
+  }
+  if (!Array.isArray(o.rails)) return []
+  const busy = new Set<number>([
+    ...Object.keys(o.activeJobs ?? {}).map(Number),
+    ...Object.keys(o.activeLoopRuns ?? {}).map(Number),
+  ])
+  const terminal = new Set(['merged', 'discarded', 'completed', 'superseded', 'pr_ready'])
+  const out: PaletteRail[] = []
+  for (const rail of o.rails) {
+    const index = typeof rail.index === 'number' ? rail.index : typeof rail.railIndex === 'number' ? rail.railIndex : null
+    if (index === null) continue
+    const ticketIds = Array.isArray(rail.ticketIds) ? rail.ticketIds.filter((id): id is number => typeof id === 'number') : []
+    const server = rail.availability
+    const availability: PaletteRailAvailability = server === 'free' || server === 'busy' || server === 'pending_decision' || server === 'on_review'
+      ? server
+      : busy.has(index)
+        ? 'busy'
+        : (() => {
+            const decision = o.prDeliveries?.[String(index)]?.decision
+            return decision && !terminal.has(decision) ? 'pending_decision' : 'free'
+          })()
+    out.push({ index, name: rail.name ?? null, ticketIds, mode: rail.mode ?? null, aiEngine: rail.aiEngine ?? null, profileName: rail.profileName ?? null, availability })
+  }
+  return out.sort((a, b) => a.index - b.index)
 }
 
 const TRIGGERS = new Set(['@', '#', '/'])
@@ -146,6 +202,15 @@ export function buildAgentContextBlock(refs: AgentContextReference[]): string {
       : ''
     const status = ref.status ? ` status=${ref.status}` : ''
     const repository = ref.scope?.repositoryId ? ` repositoryId=${ref.scope.repositoryId}` : ''
+    if (ref.kind === 'rail') {
+      // `rail <N> (<name>, specs #a #b, <state>)` — the 1-based label the
+      // operator prompt tells the agent to use, plus the 0-based railIndex.
+      const meta = ref.metadata ?? {}
+      const ticketIds = Array.isArray(meta.ticketIds) ? (meta.ticketIds as unknown[]).filter((id): id is number => typeof id === 'number') : []
+      const specs = ticketIds.length > 0 ? `specs ${ticketIds.map((id) => `#${id}`).join(' ')}` : 'no specs'
+      const name = typeof meta.name === 'string' && meta.name ? meta.name : 'unnamed'
+      return `- ${ref.token}: kind=rail railIndex=${ref.id} label="rail ${Number(ref.id) + 1} (${name}, ${specs}, ${ref.status ?? 'unknown'})"${scope}`
+    }
     return `- ${ref.token}: kind=${ref.kind} id=${ref.id} label="${ref.label}"${scope}${repository}${status}`
   })
   return `## Resolved Specrails Context\n\n${lines.join('\n')}`
@@ -203,6 +268,30 @@ function jobChip(job: JobSummary, projectId: string | null, projectLabel: string
       command: job.command,
       startedAt: job.started_at,
       costUsd: job.total_cost_usd ?? null,
+    },
+  }
+}
+
+export function railChip(rail: PaletteRail, projectId: string | null, projectLabel: string | null): AgentContextChip {
+  const n = rail.index + 1
+  const label = rail.name ? `Rail ${n} · ${rail.name}` : `Rail ${n}`
+  return {
+    kind: 'rail',
+    id: String(rail.index),
+    label,
+    token: `@rail-${n}`,
+    detail: projectLabel ? `${projectLabel} / ${rail.ticketIds.length ? rail.ticketIds.map((id) => `#${id}`).join(' ') : 'empty'}` : undefined,
+    status: rail.availability ?? null,
+    projectId,
+    projectName: projectLabel,
+    metadata: {
+      railIndex: rail.index,
+      name: rail.name,
+      ticketIds: rail.ticketIds,
+      mode: rail.mode ?? null,
+      aiEngine: rail.aiEngine ?? null,
+      profileName: rail.profileName ?? null,
+      availability: rail.availability ?? null,
     },
   }
 }
@@ -336,6 +425,24 @@ export function buildReferenceItems(state: PaletteSourceState): AgentPaletteItem
     }
   })
   items.push(...scopedJobs)
+
+  // Rails (mission-rail-cards): a rail is a launch slot the agent and the
+  // person can talk about by name — `@rail-2` — with its live availability.
+  for (const rail of state.rails ?? []) {
+    const chip = railChip(rail, state.pinnedProjectId, pinnedName)
+    const availability = rail.availability ?? 'free'
+    items.push({
+      id: `rail:${chip.projectId ?? 'home'}:${rail.index}`,
+      mode: 'reference' as const,
+      title: chip.label,
+      subtitle: `Rail · ${availability.replace('_', ' ')}${rail.ticketIds.length ? ` · ${rail.ticketIds.length} spec${rail.ticketIds.length === 1 ? '' : 's'}` : ''}`,
+      detail: chip.detail,
+      group: availability === 'free' ? 'Rails' : 'Rails in use',
+      icon: 'rail' as const,
+      chip,
+      keywords: ['rail', `rail-${rail.index + 1}`, String(rail.index + 1), rail.name ?? '', availability, ...rail.ticketIds.map((id) => `#${id}`)],
+    })
+  }
 
   for (const project of state.projects) {
     const chip = projectChip(project)

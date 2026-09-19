@@ -75,6 +75,14 @@ Replies stream in smoothly and land formatted (headings, tables, lists), each wi
 - **Switch missions.** The mission selector next to the project picker lists your conversations newest-first — a pulsing dot marks the ones where the agent is still working, and a small badge counts queued messages. Search appears when the list grows past eight, and the trash icon on each row deletes a mission after a quick inline confirm — even a running one (it warns first, then stops the agent).
 - **Find a mission from anywhere.** Press **⌘K** (or the sidebar **Search** button in Agent Mode) and type any fragment you remember — a word from the title *or* from what was said inside. Missions match instantly by title from memory, and a heartbeat later the matches by content arrive with the matching passage highlighted, plus the pinned project and when it was last active. In Agent Mode missions are the first group; on the board they sit right after Projects. Enter opens the mission.
 
+## Rail launch cards and run cards
+
+- **Propose, then you press Play.** Ask the agent to put specs on a rail ("prepare #12 and #14 for a rail") and, instead of describing it, it hands you a **launch card**: the rail (or a brand-new one), the specs, engine, model, effort, profile, loop, optional target PR and base branch — all pre-filled with its recommendation and all editable. Change what you like and press **Play**. Say "launch it now" and it launches directly instead.
+- **One card follows the run.** After Play the proposal freezes into a "Launched → Rail N" stub and a **run card** takes over: status, elapsed time, what the pipeline is doing, a log button and Stop. When the work is ready to review, the same card becomes the familiar PR card (create the PR, integrate locally, discard).
+- **Failures speak up.** If a run fails or stalls, the card shows the reason in plain text and offers the real options — Resume, Recover, Approve, Relaunch, Discard — and the agent posts a short briefing explaining what happened and what it recommends. It never resumes or relaunches on its own; you decide from the card.
+- **No git, no PR phase.** A project without a git repository (or without commits) still gets a run card — progress, log, failure and recovery — but there is no branch and no PR step; the card says so.
+- **`@rail-N`.** Type `@` and pick a rail to reference it in your message, with its specs and whether it is free, busy or awaiting a decision.
+
 ## A few things to know
 
 - **Operate and Autonomous cost money** because they run AI. The agent surfaces cost-incurring actions before doing them; keep the level at Observe or Edit if you just want to look and tidy.

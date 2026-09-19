@@ -49,12 +49,14 @@
   "sections": {
     "whatYouAsked": "Was du wolltest",
     "whatIDid": "Was getan wurde",
-    "howItWasChecked": "Wie es geprüft wurde",
-    "fullSolution": "Die vollständige Lösung lesen"
+    "howItWasChecked": "Wie es geprüft wurde"
   },
   "churn": {
     "line": "{{files}} Dateien geändert · +{{added}} / −{{removed}} Zeilen",
-    "batchNotSplittable": "Dateiänderungen gelten für die gesamte Lieferung, nicht pro Anfrage."
+    "batchNotSplittable": "Dateiänderungen gelten für die gesamte Lieferung, nicht pro Anfrage.",
+    "testFiles_one": "{{count}} Testdatei berührt",
+    "testFiles_other": "{{count}} Testdateien berührt",
+    "noTestFiles": "Keine Testdateien berührt"
   },
   "tier": {
     "app-verified": {
@@ -82,7 +84,13 @@
     "reviewerScore": "Gesamtbewertung {{overall}}/100",
     "reviewerAspect": "{{aspect}}: {{score}}/100",
     "reviewerScoreUnavailable": "Keine Reviewer-Bewertung erzeugt.",
-    "evidenceUnavailable": "Belege nicht verfügbar"
+    "evidenceUnavailable": "Belege nicht verfügbar",
+    "hostCommandPassed": "Die Runtime hat {{label}} selbst ausgeführt: Exit-Code {{exitCode}} ({{seconds}} s)",
+    "hostCommandFailed": "Die Runtime hat {{label}} selbst ausgeführt und es ist FEHLGESCHLAGEN: Exit-Code {{exitCode}} ({{seconds}} s)",
+    "acceptanceCheckPassed": "Reviewer-Prüfung bestanden: {{name}}",
+    "acceptanceCheckFailed": "Reviewer-Prüfung FEHLGESCHLAGEN: {{name}}",
+    "reviewerSummary": "Zusammenfassung des KI-Reviewers:",
+    "reviewerFinding": "Der KI-Reviewer merkte an:"
   },
   "watch": {
     "humanReviewRecommended": "Der KI-Reviewer gab {{overall}}/100 und empfiehlt eine menschliche Prüfung.",
@@ -110,5 +118,16 @@
     "costShare": "{{revisions}} Änderung(en) kosteten {{revisionCost}} — {{share}}% der {{originalCost}} der ursprünglichen Arbeit.",
     "outOfScopeChurn": "{{files}} von {{total}} geänderten Dateien gehörten nie zur ursprünglichen Anfrage.",
     "revisionCount": "Du hast {{revisions}} Änderungsrunden erbeten. Die Anfrage neu zu formulieren geht vielleicht schneller."
+  },
+  "planned": {
+    "title": "Geplanter Ansatz (laut Spec)",
+    "caveat": "Was die Anfrage vorschlug – kein Bericht darüber, was die KI getan hat. Die Fakten oben zeigen, was sich tatsächlich geändert hat."
+  },
+  "outcome": {
+    "succeeded": "Umgesetzt",
+    "failed": "Konnte nicht abgeschlossen werden",
+    "noChanges": "Nichts musste geändert werden",
+    "notStarted": "Nicht begonnen",
+    "unknown": "Ergebnis unbekannt"
   }
 }

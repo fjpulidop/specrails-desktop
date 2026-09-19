@@ -49,12 +49,14 @@
   "sections": {
     "whatYouAsked": "What you asked for",
     "whatIDid": "What was done",
-    "howItWasChecked": "How it was checked",
-    "fullSolution": "Read the full solution"
+    "howItWasChecked": "How it was checked"
   },
   "churn": {
     "line": "{{files}} files changed · +{{added}} / −{{removed}} lines",
-    "batchNotSplittable": "File changes are reported for the whole delivery, not per request."
+    "batchNotSplittable": "File changes are reported for the whole delivery, not per request.",
+    "testFiles_one": "{{count}} test file touched",
+    "testFiles_other": "{{count}} test files touched",
+    "noTestFiles": "No test files touched"
   },
   "tier": {
     "app-verified": {
@@ -82,7 +84,13 @@
     "reviewerScore": "Overall score {{overall}}/100",
     "reviewerAspect": "{{aspect}}: {{score}}/100",
     "reviewerScoreUnavailable": "No reviewer score was produced.",
-    "evidenceUnavailable": "evidence unavailable"
+    "evidenceUnavailable": "evidence unavailable",
+    "hostCommandPassed": "The runtime ran {{label}} itself: exit code {{exitCode}} ({{seconds}}s)",
+    "hostCommandFailed": "The runtime ran {{label}} itself and it FAILED: exit code {{exitCode}} ({{seconds}}s)",
+    "acceptanceCheckPassed": "Reviewer check passed: {{name}}",
+    "acceptanceCheckFailed": "Reviewer check FAILED: {{name}}",
+    "reviewerSummary": "The AI reviewer's summary:",
+    "reviewerFinding": "The AI reviewer noted:"
   },
   "watch": {
     "humanReviewRecommended": "The AI reviewer scored this {{overall}}/100 and recommends a person look at it.",
@@ -110,5 +118,16 @@
     "costShare": "{{revisions}} change(s) have cost {{revisionCost}} — {{share}}% of the {{originalCost}} original build.",
     "outOfScopeChurn": "{{files}} of {{total}} changed files were never part of the original request.",
     "revisionCount": "You've asked for {{revisions}} rounds of changes. Rewriting the request may be quicker."
+  },
+  "planned": {
+    "title": "Planned approach (from the spec)",
+    "caveat": "What the request proposed — not a report of what the AI did. The facts above are what actually changed."
+  },
+  "outcome": {
+    "succeeded": "Implemented",
+    "failed": "Could not be completed",
+    "noChanges": "Nothing needed changing",
+    "notStarted": "Not started",
+    "unknown": "Outcome unknown"
   }
 }

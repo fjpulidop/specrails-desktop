@@ -69,6 +69,14 @@ As respostas chegam de forma fluida e já formatadas (títulos, tabelas, listas)
 - **Troque de missão.** O seletor de missões ao lado do seletor de projeto lista suas conversas da mais recente para a mais antiga — um ponto pulsante marca aquelas em que o agente ainda está trabalhando, e um pequeno selo conta as mensagens na fila. A busca aparece quando a lista passa de oito, e o ícone de lixeira de cada linha exclui uma missão após uma confirmação rápida em linha — mesmo uma em andamento (ele avisa primeiro e depois para o agente).
 - **Encontre uma missão de qualquer lugar.** Pressione **⌘K** (ou o botão **Pesquisar** da barra lateral no modo Agente) e digite qualquer fragmento de que se lembre — uma palavra do título *ou* do que foi dito lá dentro. As missões coincidem na hora por título a partir da memória e, um instante depois, chegam as coincidências por conteúdo com o trecho destacado, mais o projeto fixado e quando teve atividade pela última vez. No modo Agente as missões são o primeiro grupo; no quadro ficam logo depois de Projetos. Enter abre a missão.
 
+## Cards de lançamento e cards de execução
+
+- **O agente propõe, você aperta Play.** Peça para colocar specs em um rail ("prepara #12 e #14 em um rail") e, em vez de descrever, ele entrega um **card de lançamento**: o rail (ou um novo), as specs, engine, modelo, esforço, perfil, loop, PR de destino e branch base opcionais — tudo pré-preenchido com a recomendação dele e tudo editável. Mude o que quiser e aperte **Play**. Diga "lança agora" e ele lança direto.
+- **Um único card acompanha a execução.** Depois do Play a proposta congela como "Lançado → Rail N" e um **card de execução** assume: status, tempo decorrido, o que o pipeline está fazendo, botão de log e Parar. Quando o trabalho está pronto para revisar, o mesmo card vira o card de PR de sempre (criar PR, integrar localmente, descartar).
+- **Falhas falam.** Se uma execução falha ou trava, o card mostra o motivo em texto claro e oferece as opções reais — Retomar, Recuperar, Aprovar, Relançar, Descartar — e o agente publica um breve relato explicando o que aconteceu e o que recomenda. Ele nunca retoma nem relança sozinho; você decide pelo card.
+- **Sem git, sem fase de PR.** Um projeto sem repositório git (ou sem commits) também recebe um card de execução — progresso, log, falha e recuperação — mas não há branch nem etapa de PR; o card avisa.
+- **`@rail-N`.** Digite `@` e escolha um rail para referenciá-lo na mensagem, com suas specs e se está livre, ocupado ou aguardando decisão.
+
 ## Algumas coisas para saber
 
 - **Opera e Autônomo custam dinheiro** porque executam IA. O agente destaca as ações que geram custo antes de fazê-las; mantenha o nível em Observa ou Edita se você só quer olhar e organizar.

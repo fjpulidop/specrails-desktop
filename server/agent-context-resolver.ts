@@ -346,6 +346,20 @@ function formatAction(ref: AgentContextReference, index: number): string {
   return lines.join('\n')
 }
 
+/** `@rail-N` (mission-rail-cards): the chip's metadata already carries the
+ *  live slot state the composer fetched (railIndex, name, ticketIds,
+ *  availability, mode/engine/profile); restate the naming rule so the agent
+ *  never confuses the 0-based railIndex with the user-facing "Rail N". */
+function formatRail(ref: AgentContextReference, index: number): string {
+  const lines = formatBase(ref, index)
+  const railIndex = Number(ref.id)
+  if (Number.isInteger(railIndex) && railIndex >= 0) {
+    lines.push(`railIndex: ${railIndex} (0-based API identity; say "Rail ${railIndex + 1}" to the user)`)
+  }
+  lines.push('resolution: rail slot snapshot as fetched by the composer; call specrails_rails(list) for the authoritative live state before launching')
+  return lines.join('\n')
+}
+
 function formatFallback(ref: AgentContextReference, index: number): string {
   const lines = formatBase(ref, index)
   lines.push('resolution: structured reference only; no richer resolver is registered for this kind yet')
@@ -397,6 +411,7 @@ export function buildResolvedAgentContextBlock(
       if (ref.kind === 'job' || ref.kind === 'trace') return formatJob(ref, index + 1, deps)
       if (ref.kind === 'conversation') return formatConversation(ref, index + 1, deps)
       if (ref.kind === 'action') return formatAction(ref, index + 1)
+      if (ref.kind === 'rail') return formatRail(ref, index + 1)
       return formatFallback(ref, index + 1)
     } catch (err) {
       return [...formatBase(ref, index + 1), `resolution_error: ${safe(err instanceof Error ? err.message : err, 300)}`].join('\n')

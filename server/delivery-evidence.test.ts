@@ -486,3 +486,95 @@ describe('harvestDeliveryEvidence — revision freshness gate', () => {
     expect(out.units[0].confidence?.overall).toBe(90)
   })
 })
+
+describe('programmatic-runtime evidence (core-host pipeline dir)', () => {
+  const dir = '/ws/.specrails/pipeline/run-9'
+  const evidenceId = 'a'.repeat(64)
+  const state = {
+    verification: { commands: [{ evidenceId, label: 'npm test', outcome: 'passed', command: 'npm', args: ['test'] }, { label: 'lint', outcome: 'failed', command: 'npm', args: ['run', 'lint'] }] },
+    acceptance: {
+      checks: [
+        { name: 'primary: npm test', status: 'passed', required: true, evidence: ['Verification receipt 8cfb: exit code 0'], scope: 'Core ran it', limitations: 'only tests' },
+        { name: 'Contract Layer review', status: 'passed', required: false, evidence: ['repeatIntervalMs=120 used'], scope: 'static', limitations: null },
+      ],
+      findings: ['Faithful port.', 'All tasks traceable.'],
+    },
+  }
+  const evidenceDoc = { document: { origin: ['host'], required: true, exitCode: 0, durationMs: 673, stdout: 'UI tests: 70 passed, 0 failed\n', stderr: '' } }
+  const checkpoint = { state: { steps: { reviewer: { output: { approved: true, score: 92, summary: 'Reviewed read-only. Solid.', issues: [{ message: 'nit: naming' }, 'plain issue'], aspects: { security: 95, test_coverage: 85, bogus: 'x' } } } } } }
+  const files: Record<string, unknown> = {
+    [`${dir}/state.json`]: state,
+    [`${dir}/verification/evidence/${evidenceId}.json`]: evidenceDoc,
+    [`${dir}/agent-workflow/run-9/checkpoint.json`]: checkpoint,
+  }
+  const io = (over: Partial<EvidenceHarvestIO> = {}): EvidenceHarvestIO => ({
+    readEvents: () => [],
+    listDir: () => [],
+    fileExists: (p) => p in files,
+    readFile: (p) => JSON.stringify(files[p]),
+    now: () => new Date('2026-09-19T00:00:00.000Z'),
+    ...over,
+  })
+
+  it('reads host commands, checks, findings and the reviewer verdict; fills confidence from the verdict', () => {
+    const out = harvestDeliveryEvidence(io(), [{ ticketId: 8, runId: 'run-9', worktreePath: null, runtimeDir: dir }])
+    expect(out.harvest).toBe('ok')
+    const unit = out.units[0]
+    expect(unit.sentinel).toBe('absent')
+    expect(unit.runtime?.commands).toEqual([
+      { label: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 673, required: true, hostRun: true, outputTail: 'UI tests: 70 passed, 0 failed' },
+      { label: 'lint', outcome: 'failed', exitCode: null, durationMs: null, required: true, hostRun: false, outputTail: null },
+    ])
+    expect(unit.runtime?.checks.map((c) => [c.name, c.hostRun, c.status])).toEqual([['primary: npm test', true, 'passed'], ['Contract Layer review', false, 'passed']])
+    expect(unit.runtime?.findings).toEqual(['Faithful port.', 'All tasks traceable.'])
+    expect(unit.runtime?.review).toEqual({ approved: true, score: 92, aspects: { security: 95, test_coverage: 85 }, issues: ['nit: naming', 'plain issue'], summary: 'Reviewed read-only. Solid.' })
+    expect(unit.confidence).toMatchObject({ overall: 92, aspects: { security: 95, test_coverage: 85 }, flags: ['nit: naming', 'plain issue'], changeName: null })
+    // Round-trips through the persisted column.
+    expect(readSettleEvidence(JSON.stringify(out))?.units[0].runtime?.review?.score).toBe(92)
+  })
+
+  it('keeps a file-based confidence score authoritative over the runtime verdict', () => {
+    const scorePath = '/wt/a/openspec/changes/c/confidence-score.json'
+    const out = harvestDeliveryEvidence(io({
+      listDir: () => ['c'],
+      fileExists: (p) => p in files || p === scorePath,
+      readFile: (p) => (p === scorePath ? JSON.stringify({ overall: 40 }) : JSON.stringify(files[p])),
+    }), [{ ticketId: 8, runId: 'run-9', worktreePath: '/wt/a', runtimeDir: dir }])
+    expect(out.units[0].confidence?.overall).toBe(40)
+    expect(out.units[0].runtime?.review?.score).toBe(92)
+  })
+
+  it('is absent for legacy runs (no state.json) and tolerant of malformed files', () => {
+    const none = harvestDeliveryEvidence(io({ fileExists: () => false }), [{ ticketId: 8, runId: 'run-9', worktreePath: null, runtimeDir: dir }])
+    expect(none.units[0].runtime).toBeUndefined()
+    expect(none.harvest).toBe('ok')
+    const broken = harvestDeliveryEvidence(io({ readFile: () => '{not json' }), [{ ticketId: 8, runId: 'run-9', worktreePath: null, runtimeDir: dir }])
+    expect(broken.units[0].runtime).toBeUndefined()
+    const thrower = harvestDeliveryEvidence(io({ readFile: () => { throw new Error('EACCES') } }), [{ ticketId: 8, runId: 'run-9', worktreePath: null, runtimeDir: dir }])
+    expect(thrower.harvest).toBe('ok') // readJson swallows; nothing to report is not an error
+    expect(thrower.units[0].runtime).toBeUndefined()
+  })
+})
+
+describe('healRuntimeEvidence', () => {
+  it('fills runtime + confidence for units that predate the harvest, leaves others untouched, null when nothing changes', async () => {
+    const { healRuntimeEvidence } = await import('./delivery-evidence')
+    const files: Record<string, unknown> = {
+      '/ws/pipeline/run-1/state.json': { verification: { commands: [{ label: 'npm test', outcome: 'passed' }] }, acceptance: { checks: [], findings: [] } },
+      '/ws/pipeline/run-1/agent-workflow/run-1/checkpoint.json': { state: { steps: { reviewer: { output: { approved: true, score: 77, aspects: {}, issues: [], summary: 's' } } } } },
+    }
+    const fsIo = { fileExists: (p: string) => p in files, readFile: (p: string) => JSON.stringify(files[p]) }
+    const base = { schemaVersion: 1 as const, harvest: 'ok' as const, harvestedAt: 'x', units: [
+      { ticketId: 1, runId: 'run-1', sentinel: 'absent' as const, sentinelDetail: null, verifyTail: null, confidence: null },
+      { ticketId: 2, runId: 'run-2', sentinel: 'absent' as const, sentinelDetail: null, verifyTail: null, confidence: null },
+      { ticketId: 3, runId: 'run-3', sentinel: 'pass' as const, sentinelDetail: null, verifyTail: null, confidence: null, runtime: null },
+    ] }
+    const healed = healRuntimeEvidence(base, '/ws/pipeline', fsIo)
+    expect(healed?.units[0].runtime?.commands[0].label).toBe('npm test')
+    expect(healed?.units[0].confidence?.overall).toBe(77)
+    expect(healed?.units[1].runtime).toBeUndefined()
+    expect(healed?.units[2]).toBe(base.units[2])
+    expect(healRuntimeEvidence(healed!, '/ws/pipeline', fsIo)).toBeNull()
+    expect(healRuntimeEvidence(base, '/nowhere', { fileExists: () => false, readFile: () => '' })).toBeNull()
+  })
+})

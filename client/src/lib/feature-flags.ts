@@ -145,3 +145,16 @@ export const FEATURE_LOCAL_ENGINES = (() => {
 export function isLocalEnginesEnabled(): boolean {
   return FEATURE_LOCAL_ENGINES
 }
+
+/**
+ * Mission rail cards (mission-rail-cards): agent-proposed editable launch cards
+ * + run-phase rendering on the mission PR card. Default ON; set
+ * VITE_FEATURE_MISSION_RAIL_CARDS=false to ignore ```rail-launch blocks and
+ * render the PR card exactly as before.
+ */
+export const FEATURE_MISSION_RAIL_CARDS = (() => {
+  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+  const override = env?.VITE_FEATURE_MISSION_RAIL_CARDS
+  if (typeof override === 'string') return override !== 'false'
+  return true
+})()

@@ -1316,7 +1316,7 @@ export type WsMessage =
   | AgentTitleMessage
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage | AgentSteeredMessage | AgentInputReceiptMessage
   | AgentQueueEditedMessage | AgentQueueRemovedMessage
-  | AgentPrDecisionMessage
+  | AgentPrDecisionMessage | AgentRunFailureMessage
   | BlueprintStreamMessage | BlueprintDoneMessage | BlueprintErrorMessage | BlueprintRepairingMessage | BlueprintGeneratingMessage
   | BlueprintCommitProgressMessage | BlueprintCommitDoneMessage | BlueprintCommitFailedMessage
   | BlueprintMilestoneProgressMessage | BlueprintMilestoneCompletedMessage | MilestoneChainChangedMessage | LoopProviderLimitMessage
@@ -1674,6 +1674,65 @@ export interface PrDecisionCardEnvelope {
   runIds: string[]
   createdAt?: string
   updatedAt?: string
+  // ── mission-rail-cards: the same card follows the run from launch to settle ──
+  /** False for shared-cwd launches (no git repo / no commits): the card exists,
+   *  keyed on a synthetic `run:<runId>` prDeliveryId, but has no delivery phase.
+   *  Absent ⇒ true (every pre-existing envelope is a delivery card). */
+  hasDelivery?: boolean
+  /** Coarse card phase. Absent ⇒ derived from `decision` (legacy envelopes). */
+  phase?: MissionRunPhase
+  /** Rail display name at launch time (null = unnamed). */
+  railName?: string | null
+  /** Settle-time snapshot of the run's runtime state + failure; the client
+   *  prefers live `useRuntimeRuns` data while the run is active. */
+  runtime?: MissionRunRuntime | null
+}
+
+export type MissionRunPhase = 'launched' | 'running' | 'settled' | 'delivery'
+
+export interface MissionRunFailure {
+  /** Stable code: `implementation_failed` | `stalled` | `provider_limit` | `stuck` | `launch_failed` | `delivery_failed` | `cancelled`. */
+  code: string
+  detail: string | null
+  stepId: string | null
+}
+
+export interface MissionRunRuntime {
+  status: 'running' | 'succeeded' | 'failed' | 'stalled' | 'cancelled' | 'unknown'
+  currentStep: string | null
+  canResume: boolean
+  recoverableSteps: string[]
+  pendingApproval: boolean
+  failure: MissionRunFailure | null
+  /** ISO timestamp of the snapshot. */
+  at: string
+}
+
+/**
+ * A mission-originated run failed/stalled (mission-rail-cards): the persisted
+ * `system` row `{ kind:'run-failure', … }` was inserted into the origin
+ * conversation. App-global like every `agent_*` event. The card itself is
+ * updated through `agent_pr_decision`; this event lets the client render the
+ * compact failure marker + unread glow without refetching.
+ */
+export interface RunFailureRow {
+  kind: 'run-failure'
+  runId: string
+  railIndex: number
+  projectId: string
+  prDeliveryId: string
+  ticketIds: number[]
+  code: string
+  detail: string | null
+  stepId: string | null
+  at: string
+}
+
+export interface AgentRunFailureMessage extends RunFailureRow {
+  type: 'agent_run_failure'
+  conversationId: string
+  messageId: string
+  timestamp: string
 }
 
 /**

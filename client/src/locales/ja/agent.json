@@ -172,7 +172,9 @@
       "fileAttachmentHint": "ドキュメント、画像、ログを追加",
       "browserCapture": "ブラウザーキャプチャ",
       "browserCaptureHint": "ページの領域をキャプチャしてこのミッションに追加"
-    }
+    },
+    "railGroup": "レール",
+    "railGroupInUse": "使用中のレール"
   },
   "mission": {
     "label": "ミッションを切り替え",
@@ -574,5 +576,120 @@
     "dismiss": "閉じる",
     "wrongMission": "移動する前にこのミッションを開いてください。",
     "finishPending": "進行中の操作を完了するか、メッセージまたはキャプチャを保存またはキャンセルしてから、ミッションを移動してください。"
+  },
+  "railCard": {
+    "heading": "レールの起動",
+    "rail": "レール {{index}}",
+    "newRail": "新しいレール",
+    "play": "Play",
+    "launching": "起動中…",
+    "dismiss": "閉じる",
+    "playHint": "必要に応じて調整し、Play を押して自分の権限で起動します。",
+    "pending": "起動の提案を準備しています…",
+    "unreadable_one": "エージェントの起動提案を読み取れませんでした。",
+    "unreadable_other": "{{count}} 件の起動提案を読み取れませんでした。",
+    "pinnedMarker": "起動提案は入力欄の上に固定されています",
+    "effortDefault": "デフォルトの推論強度",
+    "profileNone": "プロファイルなし",
+    "status": {
+      "proposal": "提案",
+      "ready": "準備完了",
+      "blocked": "要確認",
+      "loading": "確認中…"
+    },
+    "availability": {
+      "free": "空き",
+      "busy": "実行中",
+      "pending_decision": "判断待ち",
+      "on_review": "レビュー中"
+    },
+    "fields": {
+      "rail": "レール",
+      "newRailName": "新しいレール名（任意）",
+      "railName": "レール名",
+      "addSpec": "スペックを追加",
+      "removeSpec": "#{{id}} を削除",
+      "loop": "ループ",
+      "engine": "AI エンジン",
+      "model": "モデル",
+      "effort": "推論強度",
+      "profile": "エージェントプロファイル",
+      "targetPr": "対象 PR #",
+      "baseBranch": "ベースブランチ"
+    },
+    "notes": {
+      "railMissing": "レール {{index}} はもう存在しません — 別のレールを選ぶか、新しく作成してください。",
+      "railBusy": "レール {{index}} は{{state}}です — ここでは起動できません。",
+      "useFree": "レール {{index}} を使う",
+      "specsDropped": "このプロジェクトに存在しません: {{ids}}",
+      "engineStale": "このマシンで {{engine}} が検出されません — {{fallback}} を使用します。",
+      "modelStale": "{{model}} は利用できません — {{fallback}} を使用します。"
+    },
+    "block": {
+      "noProject": "このミッションはプロジェクトに固定されていません。",
+      "loadFailed": "プロジェクトのレールを読み込めませんでした。",
+      "noSpecs": "起動するにはスペックを 1 件以上追加してください。",
+      "railLimit": "{{max}} 本のレールがすべて存在し、空きがありません。"
+    },
+    "errors": {
+      "tickets_in_flight": "これらのスペックのいずれかはすでに別のレールで実行中です。",
+      "pr_decision_pending": "このレールは PR の判断待ちです。",
+      "rail_limit_reached": "プロジェクトのレール数はすでに上限です。",
+      "invalid_base_branch": "そのベースブランチはローカルに存在しません。",
+      "base_branch_requires_isolation": "ベースブランチには worktree による分離（コミットのある git リポジトリ）が必要です。",
+      "target_pr_requires_pr_mode": "対象 PR には worktree による分離（コミットのある git リポジトリ）が必要です。",
+      "invalid_response": "サーバーから予期しない応答がありました。"
+    },
+    "stub": {
+      "launched": "起動しました → レール {{rail}}",
+      "dismissed": "提案を閉じました",
+      "viewRun": "実行を表示",
+      "goToCard": "カードへ移動",
+      "goToCardTitle": "この起動の実装カードへ移動",
+      "viewRunTitle": "この run のライブログを開く"
+    }
+  },
+  "runCard": {
+    "status": {
+      "running": "実行中",
+      "paused": "一時停止中",
+      "succeeded": "成功",
+      "failed": "失敗",
+      "stalled": "停滞",
+      "cancelled": "キャンセル済み",
+      "unknown": "不明"
+    },
+    "title": {
+      "running": "プロジェクトのチェックアウトで実装中…",
+      "paused": "人の判断が必要です",
+      "succeeded": "実装が完了しました",
+      "failed": "実装に失敗しました",
+      "stalled": "実装が停滞しています",
+      "cancelled": "実行はキャンセルされました",
+      "unknown": "実行状態は不明です"
+    },
+    "noDeliveryNote": "PR フェーズなし — このプロジェクトには git リポジトリもコミットもないため、作業はプロジェクトフォルダーに直接反映されました。",
+    "noDeliveryHint": "プロジェクトフォルダーで直接実行しています（git リポジトリもコミットもないため、PR は提案されません）。",
+    "failure": {
+      "title": "停止した理由",
+      "step": "ステップ {{step}}",
+      "unit": "#{{ticket}} · {{code}}"
+    },
+    "actions": {
+      "resume": "再開",
+      "approve": "承認",
+      "recover": "復旧して再試行",
+      "relaunch": "再起動"
+    },
+    "relaunchSent": "レール {{index}} を再起動しました — 新しいカードが実行を追跡します。",
+    "relaunchFailed": "レールを再起動できませんでした",
+    "relaunchBlockedActive": "レールにはまだ実行中の処理があります"
+  },
+  "runFailure": {
+    "marker": "レール {{rail}} が失敗しました: {{code}}",
+    "openCard": "カードを開く",
+    "briefing": {
+      "title": "自動障害ブリーフィング"
+    }
   }
 }

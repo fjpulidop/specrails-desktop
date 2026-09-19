@@ -200,6 +200,7 @@ function chipTone(kind: AgentContextChip['kind']): string {
   if (kind === 'spec' || kind === 'action') return 'border-accent-highlight/30 bg-accent-highlight/10 text-accent-highlight'
   if (kind === 'job' || kind === 'trace') return 'border-accent-info/30 bg-accent-info/10 text-accent-info'
   if (kind === 'project' || kind === 'alias') return 'border-accent-primary/30 bg-accent-primary/10 text-accent-primary'
+  if (kind === 'rail') return 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning'
   return 'border-border/60 bg-surface/70 text-foreground/80'
 }
 

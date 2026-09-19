@@ -172,7 +172,9 @@
       "fileAttachmentHint": "Adicionar docs, imagens, logs",
       "browserCapture": "Captura do navegador",
       "browserCaptureHint": "Capturar uma área da página para esta missão"
-    }
+    },
+    "railGroup": "Rails",
+    "railGroupInUse": "Rails em uso"
   },
   "mission": {
     "label": "Trocar de missão",
@@ -574,5 +576,120 @@
     "dismiss": "Fechar aviso",
     "wrongMission": "Abre esta missão antes de a mover.",
     "finishPending": "Conclui a operação em curso ou guarda ou cancela a mensagem ou a captura antes de mover a missão."
+  },
+  "railCard": {
+    "heading": "Lançamento de rail",
+    "rail": "Rail {{index}}",
+    "newRail": "Novo rail",
+    "play": "Play",
+    "launching": "A lançar…",
+    "dismiss": "Descartar",
+    "playHint": "Ajuste o que quiser e depois prima Play para lançar sob a sua própria autoridade.",
+    "pending": "A preparar uma proposta de lançamento…",
+    "unreadable_one": "Não foi possível ler a proposta de lançamento do agente.",
+    "unreadable_other": "Não foi possível ler {{count}} propostas de lançamento.",
+    "pinnedMarker": "Proposta de lançamento fixada acima do compositor",
+    "effortDefault": "Esforço padrão",
+    "profileNone": "Sem perfil",
+    "status": {
+      "proposal": "Proposta",
+      "ready": "Pronto",
+      "blocked": "Requer atenção",
+      "loading": "A verificar…"
+    },
+    "availability": {
+      "free": "livre",
+      "busy": "em execução",
+      "pending_decision": "a aguardar uma decisão",
+      "on_review": "em revisão"
+    },
+    "fields": {
+      "rail": "Rail",
+      "newRailName": "Nome do novo rail (opcional)",
+      "railName": "Nome do rail",
+      "addSpec": "Adicionar spec",
+      "removeSpec": "Remover #{{id}}",
+      "loop": "Loop",
+      "engine": "Motor de IA",
+      "model": "Modelo",
+      "effort": "Esforço de raciocínio",
+      "profile": "Perfil de agentes",
+      "targetPr": "PR de destino #",
+      "baseBranch": "Branch base"
+    },
+    "notes": {
+      "railMissing": "O Rail {{index}} já não existe — escolha outro rail ou crie um.",
+      "railBusy": "O Rail {{index}} está {{state}} — não é possível lançar aí.",
+      "useFree": "Usar o Rail {{index}}",
+      "specsDropped": "Já não fazem parte deste projeto: {{ids}}",
+      "engineStale": "{{engine}} não foi detetado nesta máquina — será usado {{fallback}}.",
+      "modelStale": "{{model}} não está disponível — será usado {{fallback}}."
+    },
+    "block": {
+      "noProject": "Esta missão não está fixada a nenhum projeto.",
+      "loadFailed": "Não foi possível carregar os rails do projeto.",
+      "noSpecs": "Adicione pelo menos uma spec para lançar.",
+      "railLimit": "Os {{max}} rails já existem e nenhum está livre."
+    },
+    "errors": {
+      "tickets_in_flight": "Uma destas specs já está em execução noutro rail.",
+      "pr_decision_pending": "Este rail está a aguardar uma decisão sobre a PR.",
+      "rail_limit_reached": "O projeto já tem o número máximo de rails.",
+      "invalid_base_branch": "Essa branch base não existe localmente.",
+      "base_branch_requires_isolation": "Uma branch base requer isolamento por worktree (um repositório git com commits).",
+      "target_pr_requires_pr_mode": "Uma PR de destino requer isolamento por worktree (um repositório git com commits).",
+      "invalid_response": "Resposta inesperada do servidor."
+    },
+    "stub": {
+      "launched": "Lançado → Rail {{rail}}",
+      "dismissed": "Proposta descartada",
+      "viewRun": "Ver run",
+      "goToCard": "Ir para o card",
+      "goToCardTitle": "Ir para o card de implementação deste lançamento",
+      "viewRunTitle": "Abrir o log ao vivo do run"
+    }
+  },
+  "runCard": {
+    "status": {
+      "running": "Em execução",
+      "paused": "Em pausa",
+      "succeeded": "Concluído",
+      "failed": "Falhou",
+      "stalled": "Parado",
+      "cancelled": "Cancelado",
+      "unknown": "Desconhecido"
+    },
+    "title": {
+      "running": "A implementar no checkout do projeto…",
+      "paused": "Requer uma decisão humana",
+      "succeeded": "Implementação concluída",
+      "failed": "A implementação falhou",
+      "stalled": "A implementação parou",
+      "cancelled": "Run cancelado",
+      "unknown": "Estado do run desconhecido"
+    },
+    "noDeliveryNote": "Sem fase de PR — este projeto não tem repositório git nem commits, por isso o trabalho foi aplicado diretamente na pasta do projeto.",
+    "noDeliveryHint": "A executar diretamente na pasta do projeto (sem repositório git nem commits — não será proposta nenhuma PR).",
+    "failure": {
+      "title": "Porque parou",
+      "step": "passo {{step}}",
+      "unit": "#{{ticket}} · {{code}}"
+    },
+    "actions": {
+      "resume": "Retomar",
+      "approve": "Aprovar",
+      "recover": "Recuperar e tentar novamente",
+      "relaunch": "Relançar"
+    },
+    "relaunchSent": "Rail {{index}} relançado — um novo cartão acompanhará o run.",
+    "relaunchFailed": "Não foi possível relançar o rail",
+    "relaunchBlockedActive": "O rail ainda tem um run ativo"
+  },
+  "runFailure": {
+    "marker": "O Rail {{rail}} falhou: {{code}}",
+    "openCard": "Abrir cartão",
+    "briefing": {
+      "title": "Relatório automático da falha"
+    }
   }
 }

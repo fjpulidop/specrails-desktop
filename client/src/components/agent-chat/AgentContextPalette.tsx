@@ -11,6 +11,7 @@ import {
   Search,
   Sparkles,
   X,
+  Route,
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
@@ -32,6 +33,7 @@ const iconMap: Record<AgentContextKind | 'action', LucideIcon> = {
   file: Paperclip,
   alias: AtSign,
   pr: GitPullRequest,
+  rail: Route,
   action: Sparkles,
 }
 
@@ -46,6 +48,7 @@ function chipTone(kind: AgentContextKind): string {
   if (kind === 'job' || kind === 'trace') return 'border-accent-info/30 bg-accent-info/10 text-accent-info'
   if (kind === 'action') return 'border-accent-highlight/30 bg-accent-highlight/10 text-accent-highlight'
   if (kind === 'project' || kind === 'alias') return 'border-accent-primary/30 bg-accent-primary/10 text-accent-primary'
+  if (kind === 'rail') return 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning'
   return 'border-border/60 bg-surface/70 text-foreground/80'
 }
 

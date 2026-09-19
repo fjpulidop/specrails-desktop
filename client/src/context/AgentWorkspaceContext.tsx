@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { MISSION_OPEN_RUN_EVENT, type MissionOpenRunDetail } from '../components/agent-chat/agent-run-failure'
 import type { AgentAttachment } from '../lib/agent-api'
 import type { MissionWindowSnapshot } from '../lib/mission-windows'
 
@@ -15,6 +16,10 @@ interface AgentWorkspaceContextValue {
   toggleCodePane: () => void
   jobsPaneOpen: boolean
   openJobsPane: () => void
+  /** A run a Mission-mode notification click asked to open (mission-rail-cards);
+   *  the Jobs pane consumes it into its JobDetailModal and clears it. */
+  requestedJobId: string | null
+  clearRequestedJob: () => void
   closeJobsPane: () => void
   toggleJobsPane: () => void
   analyticsPaneOpen: boolean
@@ -46,6 +51,18 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const [browserOwnerId, setBrowserOwnerId] = useState<string | null>(null)
   const [browserUrl, setBrowserUrl] = useState<string | null>(null)
   const [pendingCaptures, setPendingCaptures] = useState<AgentAttachment[]>([])
+  const [requestedJobId, setRequestedJobId] = useState<string | null>(null)
+  const clearRequestedJob = useCallback(() => setRequestedJobId(null), [])
+  useEffect(() => {
+    const onOpenRun = (event: Event): void => {
+      const detail = (event as CustomEvent<MissionOpenRunDetail>).detail
+      if (!detail?.jobId) return
+      setRequestedJobId(detail.jobId)
+      setJobsPaneOpen(true)
+    }
+    window.addEventListener(MISSION_OPEN_RUN_EVENT, onOpenRun)
+    return () => window.removeEventListener(MISSION_OPEN_RUN_EVENT, onOpenRun)
+  }, [])
 
   const openCodePane = useCallback(() => setCodePaneOpen(true), [])
   const closeCodePane = useCallback(() => setCodePaneOpen(false), [])
@@ -95,17 +112,19 @@ export function AgentWorkspaceProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       codePaneOpen, openCodePane, closeCodePane, toggleCodePane,
-      jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane,
+      jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane, requestedJobId, clearRequestedJob,
       analyticsPaneOpen, openAnalyticsPane, closeAnalyticsPane, toggleAnalyticsPane,
       browserOpen, openBrowser, closeBrowser, browserOwnerId, browserUrl, setBrowserUrl, captureWorkspace, restoreWorkspace,
       pendingCaptures, queueCapture, consumePendingCaptures,
     }),
-    [browserOwnerId, browserUrl, captureWorkspace, restoreWorkspace, codePaneOpen, openCodePane, closeCodePane, toggleCodePane, jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane, analyticsPaneOpen, openAnalyticsPane, closeAnalyticsPane, toggleAnalyticsPane, browserOpen, openBrowser, closeBrowser, pendingCaptures, queueCapture, consumePendingCaptures],
+    [browserOwnerId, browserUrl, captureWorkspace, restoreWorkspace, codePaneOpen, openCodePane, closeCodePane, toggleCodePane, jobsPaneOpen, openJobsPane, closeJobsPane, toggleJobsPane, requestedJobId, clearRequestedJob, analyticsPaneOpen, openAnalyticsPane, closeAnalyticsPane, toggleAnalyticsPane, browserOpen, openBrowser, closeBrowser, pendingCaptures, queueCapture, consumePendingCaptures],
   )
   return <AgentWorkspaceContext.Provider value={value}>{children}</AgentWorkspaceContext.Provider>
 }
 
 const NOOP: AgentWorkspaceContextValue = {
+  requestedJobId: null,
+  clearRequestedJob: () => {},
   codePaneOpen: false,
   openCodePane: () => {},
   closeCodePane: () => {},

@@ -542,3 +542,41 @@ describe('computeDriftNudges', () => {
     expect(nudges).toEqual([])
   })
 })
+
+describe('programmatic-runtime evidence in the proof', () => {
+  const runtime = {
+    commands: [
+      { label: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 673, required: true, hostRun: true, outputTail: 'UI tests: 70 passed' },
+      { label: 'lint', outcome: 'failed', exitCode: 1, durationMs: 2000, required: true, hostRun: true, outputTail: 'boom' },
+      { label: 'agent-claimed', outcome: 'passed', exitCode: null, durationMs: null, required: false, hostRun: false, outputTail: null },
+    ],
+    checks: [
+      { name: 'primary: npm test', status: 'passed', required: true, hostRun: true, evidence: ['receipt'], scope: null, limitations: null },
+      { name: 'Contract Layer review', status: 'passed', required: false, hostRun: false, evidence: ['repeatIntervalMs=120 used'], scope: null, limitations: null },
+      { name: 'Docs updated', status: 'failed', required: false, hostRun: false, evidence: [], scope: null, limitations: null },
+    ],
+    findings: ['Faithful port.'],
+    review: { approved: true, score: 92, aspects: { security: 95 }, issues: [], summary: 'Solid work.' },
+  }
+
+  it('promotes host-run commands to measured facts and never claims silence when the runtime reported', () => {
+    const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime, confidence: { changeName: null, overall: 92, aspects: { security: 95 }, flags: [], raw: null } }) })
+    const byCode = (code: string) => packet.proof.filter((p) => p.code === code)
+    expect(byCode('proof.hostCommandPassed')).toEqual([expect.objectContaining({ tier: 'app-verified', values: { label: 'npm test', exitCode: 0, seconds: 1 }, rawExcerpt: 'UI tests: 70 passed' })])
+    expect(byCode('proof.hostCommandFailed')).toEqual([expect.objectContaining({ tier: 'app-verified', values: { label: 'lint', exitCode: 1, seconds: 2 } })])
+    // The agent-claimed command is not a host measurement.
+    expect(packet.proof.some((p) => p.values?.label === 'agent-claimed')).toBe(false)
+    expect(byCode('proof.noVerificationReported')).toEqual([])
+    expect(byCode('proof.acceptanceCheckPassed')).toEqual([expect.objectContaining({ tier: 'ai-reported', values: { name: 'Contract Layer review' }, rawExcerpt: 'repeatIntervalMs=120 used' })])
+    expect(byCode('proof.acceptanceCheckFailed')).toEqual([expect.objectContaining({ values: { name: 'Docs updated' } })])
+    expect(byCode('proof.reviewerSummary')).toEqual([expect.objectContaining({ tier: 'ai-reported', rawExcerpt: 'Solid work.' })])
+    expect(byCode('proof.reviewerFinding')).toEqual([expect.objectContaining({ rawExcerpt: 'Faithful port.' })])
+    expect(byCode('proof.reviewerScore')).toEqual([expect.objectContaining({ tier: 'reviewer-score', values: { overall: 92 } })])
+    expect(packet.confidence?.overall).toBe(92)
+  })
+
+  it('still says nothing was reported when neither sentinel nor runtime evidence exists', () => {
+    const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime: null }) })
+    expect(packet.proof.some((p) => p.code === 'proof.noVerificationReported')).toBe(true)
+  })
+})

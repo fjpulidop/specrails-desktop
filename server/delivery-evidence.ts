@@ -34,9 +34,54 @@ export interface DeliveryConfidenceScore {
   raw: unknown
 }
 
+/** A verification command the RUNTIME HOST executed (core-host, programmatic
+ *  agent runtime): exit code + bounded output, recorded by the host itself — a
+ *  measurement, not the agent's claim. */
+export interface DeliveryRuntimeCommand {
+  label: string
+  outcome: string
+  exitCode: number | null
+  durationMs: number | null
+  required: boolean
+  /** True when the host ran it (origin contains 'host'). */
+  hostRun: boolean
+  /** Bounded stdout/stderr tail (raw). */
+  outputTail: string | null
+}
+
+/** One acceptance check the runtime recorded (host-run or reviewer static). */
+export interface DeliveryRuntimeCheck {
+  name: string
+  status: string
+  required: boolean
+  hostRun: boolean
+  evidence: string[]
+  scope: string | null
+  limitations: string | null
+}
+
+export interface DeliveryRuntimeReview {
+  approved: boolean | null
+  score: number | null
+  aspects: Record<string, number>
+  issues: string[]
+  summary: string | null
+}
+
+/** Evidence read from the programmatic runtime's pipeline dir
+ *  (`<workspace>/.specrails/pipeline/<runId>/`). Absent for legacy loops. */
+export interface DeliveryRuntimeEvidence {
+  commands: DeliveryRuntimeCommand[]
+  checks: DeliveryRuntimeCheck[]
+  findings: string[]
+  review: DeliveryRuntimeReview | null
+}
+
 export interface DeliveryUnitEvidence {
   ticketId: number
   runId: string | null
+  /** Programmatic-runtime evidence (null/absent when the run used a legacy loop). */
+  runtime?: DeliveryRuntimeEvidence | null
   sentinel: SentinelVerdict
   /** Trailing free text after a FAIL sentinel (single line, bounded). */
   sentinelDetail: string | null
@@ -61,6 +106,9 @@ export interface EvidenceHarvestUnit {
   /** The loop this unit ran. `factory:revision` opts into the strict freshness
    *  gate below; everything else keeps the legacy last-writer-wins read. */
   loopId?: string | null
+  /** The programmatic runtime's pipeline dir for this run
+   *  (`<workspace>/.specrails/pipeline/<runId>`), when the caller knows it. */
+  runtimeDir?: string | null
 }
 
 export interface EvidenceHarvestIO {
@@ -385,6 +433,28 @@ export function harvestDeliveryEvidence(
     } catch {
       unitErrored = true
     }
+    try {
+      if (unit.runtimeDir && unit.runId) {
+        const runtime = readRuntimeEvidence(unit.runtimeDir, unit.runId, fsIo)
+        if (runtime) {
+          evidence.runtime = runtime
+          // The runtime reviewer's structured verdict IS the reviewer score for
+          // this run (core-host never writes confidence-score.json). Only fill
+          // the gap — a file-based score, when present, stays authoritative.
+          if (!evidence.confidence && runtime.review && runtime.review.score !== null) {
+            evidence.confidence = {
+              changeName: null,
+              overall: runtime.review.score,
+              aspects: runtime.review.aspects,
+              flags: runtime.review.issues,
+              raw: null,
+            }
+          }
+        }
+      }
+    } catch {
+      unitErrored = true
+    }
     if (unitErrored) errored++
     return evidence
   })
@@ -394,6 +464,128 @@ export function harvestDeliveryEvidence(
     harvestedAt: (io.now?.() ?? new Date()).toISOString(),
     units: harvested,
   }
+}
+
+const RUNTIME_OUTPUT_TAIL_CAP = 1500
+const RUNTIME_LIST_CAP = 12
+const RUNTIME_TEXT_CAP = 600
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v)
+}
+function str(v: unknown, cap = RUNTIME_TEXT_CAP): string | null {
+  return typeof v === 'string' && v.trim() ? v.trim().slice(0, cap) : null
+}
+function strList(v: unknown, cap = RUNTIME_LIST_CAP): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim().length > 0).slice(0, cap).map((x) => x.trim().slice(0, RUNTIME_TEXT_CAP)) : []
+}
+function readJson(fsIo: EvidenceFsIO, filePath: string): unknown {
+  if (!fsIo.fileExists(filePath)) return null
+  try { return JSON.parse(fsIo.readFile(filePath)) } catch { return null }
+}
+
+/**
+ * Read the programmatic runtime's durable evidence for one run:
+ *  - `state.json` `verification.commands[]` (+ each command's evidence file
+ *    under `verification/evidence/<id>.json` for exit code / duration / output)
+ *  - `state.json` `acceptance.checks[]` / `acceptance.findings[]`
+ *  - `agent-workflow/<runId>/checkpoint.json` `state.steps.reviewer.output`
+ *    (`approved`, `score`, `aspects`, `issues`, `summary`)
+ * Returns null when the dir carries no state.json (legacy loop run). Every
+ * field is bounded; a malformed file degrades to an empty list, never a throw.
+ */
+export function readRuntimeEvidence(runtimeDir: string, runId: string, fsIo: EvidenceFsIO): DeliveryRuntimeEvidence | null {
+  const state = readJson(fsIo, path.join(runtimeDir, 'state.json'))
+  if (!isRecord(state)) return null
+  const commands: DeliveryRuntimeCommand[] = []
+  const verification = isRecord(state.verification) ? state.verification : null
+  for (const raw of (Array.isArray(verification?.commands) ? verification.commands : []).slice(0, RUNTIME_LIST_CAP)) {
+    if (!isRecord(raw)) continue
+    const evidenceId = typeof raw.evidenceId === 'string' && /^[a-f0-9]{16,128}$/i.test(raw.evidenceId) ? raw.evidenceId : null
+    const doc = evidenceId ? readJson(fsIo, path.join(runtimeDir, 'verification', 'evidence', `${evidenceId}.json`)) : null
+    const document = isRecord(doc) && isRecord(doc.document) ? doc.document : null
+    const stdout = str(document?.stdout, RUNTIME_OUTPUT_TAIL_CAP * 4) ?? ''
+    const stderr = str(document?.stderr, RUNTIME_OUTPUT_TAIL_CAP * 4) ?? ''
+    const combined = [stdout, stderr].filter(Boolean).join('\n').trim()
+    const origin = strList(document?.origin)
+    commands.push({
+      label: str(raw.label, 200) ?? [str(raw.command, 80), ...strList(raw.args, 8)].filter(Boolean).join(' ') ?? 'command',
+      outcome: str(raw.outcome, 40) ?? str(document?.status, 40) ?? 'unknown',
+      exitCode: typeof document?.exitCode === 'number' && Number.isInteger(document.exitCode) ? document.exitCode : null,
+      durationMs: typeof document?.durationMs === 'number' && Number.isFinite(document.durationMs) ? document.durationMs : null,
+      required: document?.required !== false,
+      hostRun: origin.includes('host'),
+      outputTail: combined ? combined.slice(-RUNTIME_OUTPUT_TAIL_CAP) : null,
+    })
+  }
+  const acceptance = isRecord(state.acceptance) ? state.acceptance : null
+  const checks: DeliveryRuntimeCheck[] = []
+  for (const raw of (Array.isArray(acceptance?.checks) ? acceptance.checks : []).slice(0, RUNTIME_LIST_CAP)) {
+    if (!isRecord(raw)) continue
+    const name = str(raw.name, 200)
+    if (!name) continue
+    const evidence = strList(raw.evidence, 6)
+    // A check backed by a verification receipt was executed by the host; the
+    // rest are the reviewer's static assertions and stay AI-reported.
+    const hostRun = evidence.some((line) => /verification receipt/i.test(line))
+    checks.push({ name, status: str(raw.status, 40) ?? 'unknown', required: raw.required === true, hostRun, evidence, scope: str(raw.scope), limitations: str(raw.limitations) })
+  }
+  const findings = strList(acceptance?.findings, 6)
+  let review: DeliveryRuntimeReview | null = null
+  const checkpoint = readJson(fsIo, path.join(runtimeDir, 'agent-workflow', runId, 'checkpoint.json'))
+  const steps = isRecord(checkpoint) && isRecord(checkpoint.state) && isRecord(checkpoint.state.steps) ? checkpoint.state.steps : null
+  const reviewer = steps && isRecord(steps.reviewer) ? steps.reviewer : null
+  const output = reviewer && isRecord(reviewer.output) ? reviewer.output : null
+  if (output && ('score' in output || 'approved' in output)) {
+    const aspects: Record<string, number> = {}
+    if (isRecord(output.aspects)) {
+      for (const [k, v] of Object.entries(output.aspects).slice(0, RUNTIME_LIST_CAP)) if (typeof v === 'number' && Number.isFinite(v)) aspects[k] = v
+    }
+    const issues = Array.isArray(output.issues)
+      ? output.issues.slice(0, 6).map((i) => (typeof i === 'string' ? i : isRecord(i) ? (str(i.message) ?? str(i.title) ?? str(i.description) ?? JSON.stringify(i).slice(0, RUNTIME_TEXT_CAP)) : null)).filter((x): x is string => !!x)
+      : []
+    review = {
+      approved: typeof output.approved === 'boolean' ? output.approved : null,
+      score: typeof output.score === 'number' && Number.isFinite(output.score) ? output.score : null,
+      aspects,
+      issues,
+      summary: str(output.summary, 1200),
+    }
+  }
+  if (commands.length === 0 && checks.length === 0 && findings.length === 0 && !review) return null
+  return { commands, checks, findings, review }
+}
+
+/**
+ * Heal a persisted settle evidence whose units predate the runtime harvest:
+ * for every unit with a run id but no `runtime` field, read the pipeline dir
+ * now. Returns the healed evidence when anything was added, else null (so the
+ * caller neither rewrites the row nor re-broadcasts). Pure apart from `fsIo`.
+ */
+export function healRuntimeEvidence(
+  evidence: DeliverySettleEvidence,
+  pipelineDir: string,
+  fsIo: Partial<EvidenceFsIO> = {},
+): DeliverySettleEvidence | null {
+  const io: EvidenceFsIO = {
+    readFile: fsIo.readFile ?? ((p) => fs.readFileSync(p, 'utf8')),
+    listDir: fsIo.listDir ?? ((p) => fs.readdirSync(p)),
+    fileExists: fsIo.fileExists ?? ((p) => fs.existsSync(p)),
+    fileMtimeMs: fsIo.fileMtimeMs ?? ((p) => fs.statSync(p).mtimeMs),
+  }
+  let changed = false
+  const units = evidence.units.map((unit) => {
+    if (unit.runtime !== undefined || !unit.runId) return unit
+    let runtime: DeliveryRuntimeEvidence | null = null
+    try { runtime = readRuntimeEvidence(path.join(pipelineDir, unit.runId), unit.runId, io) } catch { runtime = null }
+    if (!runtime) return unit
+    changed = true
+    const confidence = unit.confidence ?? (runtime.review && runtime.review.score !== null
+      ? { changeName: null, overall: runtime.review.score, aspects: runtime.review.aspects, flags: runtime.review.issues, raw: null }
+      : null)
+    return { ...unit, runtime, confidence }
+  })
+  return changed ? { ...evidence, units } : null
 }
 
 /** Parse a persisted settle_evidence column value (null-tolerant). */

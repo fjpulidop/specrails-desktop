@@ -49,12 +49,14 @@
   "sections": {
     "whatYouAsked": "依頼した内容",
     "whatIDid": "行われた作業",
-    "howItWasChecked": "確認の方法",
-    "fullSolution": "解決策の全文を読む"
+    "howItWasChecked": "確認の方法"
   },
   "churn": {
     "line": "{{files}} ファイル変更 · +{{added}} / −{{removed}} 行",
-    "batchNotSplittable": "ファイル変更は納品全体の集計で、依頼ごとではありません。"
+    "batchNotSplittable": "ファイル変更は納品全体の集計で、依頼ごとではありません。",
+    "testFiles_one": "{{count}} 件のテストファイルを変更",
+    "testFiles_other": "{{count}} 件のテストファイルを変更",
+    "noTestFiles": "テストファイルの変更なし"
   },
   "tier": {
     "app-verified": {
@@ -82,7 +84,13 @@
     "reviewerScore": "総合スコア {{overall}}/100",
     "reviewerAspect": "{{aspect}}：{{score}}/100",
     "reviewerScoreUnavailable": "レビュアースコアは生成されませんでした。",
-    "evidenceUnavailable": "証跡なし"
+    "evidenceUnavailable": "証跡なし",
+    "hostCommandPassed": "ランタイムが {{label}} を自ら実行しました: 終了コード {{exitCode}}（{{seconds}} 秒）",
+    "hostCommandFailed": "ランタイムが {{label}} を自ら実行し、失敗しました: 終了コード {{exitCode}}（{{seconds}} 秒）",
+    "acceptanceCheckPassed": "レビュアーのチェックに合格: {{name}}",
+    "acceptanceCheckFailed": "レビュアーのチェックに失敗: {{name}}",
+    "reviewerSummary": "AI レビュアーの要約:",
+    "reviewerFinding": "AI レビュアーの指摘:"
   },
   "watch": {
     "humanReviewRecommended": "AI レビュアーは {{overall}}/100 と評価し、人による確認を推奨しています。",
@@ -110,5 +118,16 @@
     "costShare": "{{revisions}} 件の変更で {{revisionCost}} かかりました — 当初 {{originalCost}} の {{share}}% です。",
     "outOfScopeChurn": "変更された {{total}} ファイルのうち {{files}} 件は当初の依頼に含まれていませんでした。",
     "revisionCount": "すでに {{revisions}} 回の修正を依頼しています。依頼を書き直したほうが早いかもしれません。"
+  },
+  "planned": {
+    "title": "予定していたアプローチ（スペックより）",
+    "caveat": "依頼で提案された内容であり、AI が実際に行ったことの報告ではありません。上の事実が実際に変更された内容です。"
+  },
+  "outcome": {
+    "succeeded": "実装済み",
+    "failed": "完了できませんでした",
+    "noChanges": "変更は不要でした",
+    "notStarted": "未着手",
+    "unknown": "結果不明"
   }
 }

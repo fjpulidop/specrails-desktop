@@ -903,6 +903,11 @@ function parseJsonArray<T>(raw: string): T[] {
   }
 }
 
+/** Rewrite ONLY the settle_evidence column (evidence heal) — no decision change. */
+export function updatePrDeliverySettleEvidence(db: DbInstance, id: string, evidence: DeliverySettleEvidence): boolean {
+  return db.prepare('UPDATE rail_pr_deliveries SET settle_evidence = ? WHERE id = ?').run(JSON.stringify(evidence), id).changes > 0
+}
+
 export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot {
   const units = parseJsonArray<DeliverBranchRecord>(row.branches)
   return {
@@ -1019,5 +1024,18 @@ export function toPrDecisionCardEnvelope(projectId: string, snap: PrDeliverySnap
     runIds: snap.runIds,
     createdAt: snap.createdAt,
     updatedAt: snap.updatedAt,
+    // mission-rail-cards: coarse phase so the card renders the run header
+    // before the delivery controls; failure decisions carry a runtime snapshot
+    // with the reason as TEXT (the card used to hide statusDetail on discarded).
+    phase: missionPhaseForDecision(snap.decision),
+    ...(snap.decision === 'implementation_failed' || (snap.decision === 'discarded' && snap.statusCode === 'delivery_failed')
+      ? { runtime: { status: 'failed', currentStep: null, canResume: false, recoverableSteps: [], pendingApproval: false, at: snap.updatedAt ?? new Date().toISOString(), failure: { code: snap.statusCode ?? snap.decision, detail: snap.statusDetail, stepId: null } } }
+      : {}),
   }
+}
+
+export function missionPhaseForDecision(decision: PrDecision): 'running' | 'settled' | 'delivery' {
+  if (decision === 'building') return 'running'
+  if (decision === 'implementation_failed' || decision === 'discarded' || decision === 'completed') return 'settled'
+  return 'delivery'
 }

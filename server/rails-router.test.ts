@@ -1730,6 +1730,25 @@ describe('rails-router POST /pr-decision', () => {
     expect(res.status).toBe(400)
   })
 
+  it('run-only cards (run:<id>) accept ONLY dismiss, need conversationId, and resolve through the agent-chat manager', async () => {
+    const { setAgentChatManager } = await import('./agent-chat-registry')
+    const dismissRunCard = vi.fn((conv: string, id: string) => conv === 'conv-1' && id === 'run:r1')
+    setAgentChatManager({ dismissRunCard } as never)
+    try {
+      const post = (body: Record<string, unknown>) => request(appWith(db)).post('/rails/pr-decision').send(body)
+      expect((await post({ prDeliveryId: 'run:r1', action: 'create-pr', expectedDecision: 'implementation_failed' })).body.error).toBe('run_card_dismiss_only')
+      expect((await post({ prDeliveryId: 'run:r1', action: 'dismiss', expectedDecision: 'implementation_failed' })).status).toBe(400)
+      expect((await post({ prDeliveryId: 'run:zz', action: 'dismiss', expectedDecision: 'implementation_failed', conversationId: 'conv-1' })).status).toBe(404)
+      const ok = await post({ prDeliveryId: 'run:r1', action: 'dismiss', expectedDecision: 'implementation_failed', conversationId: 'conv-1' })
+      expect(ok.status).toBe(200)
+      expect(ok.body).toMatchObject({ ok: true, decision: 'discarded' })
+      expect(dismissRunCard).toHaveBeenCalledWith('conv-1', 'run:r1')
+      expect(mockExecRun).not.toHaveBeenCalled()
+    } finally {
+      setAgentChatManager(null)
+    }
+  })
+
   it('404 on an unknown prDeliveryId', async () => {
     const res = await request(appWith(db)).post('/rails/pr-decision')
       .send({ prDeliveryId: 'ghost', action: 'publish', expectedDecision: 'pr_draft' })
@@ -2529,5 +2548,122 @@ describe('POST /rails/:i/launch — baseBranch', () => {
     expect(res.status).toBe(400)
     expect(res.body.error).toBe('base_branch_requires_isolation')
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+})
+
+// ── mission-rail-cards: shared-cwd run card + rail availability ───────────────
+import { setAgentChatManager } from './agent-chat-registry'
+import type { AgentChatManager } from './agent-chat-manager'
+
+describe('rails-router mission run cards (shared-cwd launches, loops on)', () => {
+  let db: DbInstance
+  let desktopDb: DbInstance
+  const saved = process.env.SPECRAILS_LOOPS_SECTION
+  beforeEach(() => {
+    db = initDb(':memory:')
+    desktopDb = initDesktopDb(':memory:')
+    delete process.env.SPECRAILS_LOOPS_SECTION
+  })
+  afterEach(() => {
+    setAgentChatManager(null)
+    db.close(); desktopDb.close()
+    if (saved === undefined) delete process.env.SPECRAILS_LOOPS_SECTION; else process.env.SPECRAILS_LOOPS_SECTION = saved
+  })
+
+  const fakeAgentChat = () => {
+    const postPrDecisionCard = vi.fn()
+    const updatePrDecisionCard = vi.fn()
+    const postRunFailureRow = vi.fn().mockReturnValue('row')
+    const startSystemTurn = vi.fn().mockResolvedValue('started')
+    setAgentChatManager({ postPrDecisionCard, updatePrDecisionCard, postRunFailureRow, startSystemTurn } as unknown as AgentChatManager)
+    return { postPrDecisionCard, updatePrDecisionCard, postRunFailureRow, startSystemTurn }
+  }
+
+  it('a tagged no-git launch posts a run card at launch and settles it as completed (no delivery phase)', async () => {
+    const m = fakeAgentChat()
+    setRailTickets(db, 0, [1, 2], 'implement')
+    const railLoopRuns = new Map<string, { railIndex: number; ticketIds: number[]; originConversationId?: string }>()
+    const run = vi.fn().mockImplementation(async (req: { runId: string }) => ({ runId: req.runId, outcome: 'success', iterations: 1, totalCostUsd: 0 }))
+    const app = appWith(db, { desktopDb, railLoopRuns, loopRunManager: { run, cancel: vi.fn() }, getTicketSpec: (id: number) => ({ id, title: `T${id}`, description: 'D' }) })
+    const res = await request(app).post('/rails/0/launch').send({ loopId: 'factory:implement', originConversationId: 'conv-1', originSurface: 'agent-chat' })
+    expect(res.status).toBe(202)
+    expect(res.body.isolationUnavailable).toBe('no-git')
+    expect(res.body.runIds).toEqual(res.body.loopRunIds)
+    const runId = res.body.loopRunIds[0] as string
+    expect(m.postPrDecisionCard).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      prDeliveryId: `run:${runId}`, hasDelivery: false, phase: 'running', decision: 'building', railIndex: 0, ticketIds: [1, 2], runIds: [runId], projectId: 'p1',
+    }))
+    await vi.waitFor(() => expect(m.updatePrDecisionCard).toHaveBeenCalled())
+    expect(m.updatePrDecisionCard).toHaveBeenLastCalledWith('conv-1', expect.objectContaining({ prDeliveryId: `run:${runId}`, decision: 'completed', phase: 'settled', hasDelivery: false }))
+    expect(m.postRunFailureRow).not.toHaveBeenCalled()
+    expect(m.startSystemTurn).not.toHaveBeenCalled()
+  })
+
+  it('a tagged no-git launch that fails fires the failure trigger (card + row + briefing turn)', async () => {
+    const m = fakeAgentChat()
+    setRailTickets(db, 1, [5], 'implement')
+    const run = vi.fn().mockImplementation(async (req: { runId: string }) => ({ runId: req.runId, outcome: 'failed', stallReason: 'provider_limit', iterations: 1, totalCostUsd: 0 }))
+    const app = appWith(db, { desktopDb, loopRunManager: { run, cancel: vi.fn() }, getTicketSpec: (id: number) => ({ id, title: `T${id}`, description: 'D' }) })
+    const res = await request(app).post('/rails/1/launch').send({ loopId: 'factory:implement', originConversationId: 'conv-2', originSurface: 'agent-chat' })
+    expect(res.status).toBe(202)
+    const runId = res.body.loopRunIds[0] as string
+    await vi.waitFor(() => expect(m.startSystemTurn).toHaveBeenCalledTimes(1))
+    expect(m.updatePrDecisionCard).toHaveBeenLastCalledWith('conv-2', expect.objectContaining({
+      prDeliveryId: `run:${runId}`, decision: 'implementation_failed', runtime: expect.objectContaining({ failure: expect.objectContaining({ code: 'provider_limit' }) }),
+    }))
+    expect(m.postRunFailureRow).toHaveBeenCalledWith('conv-2', expect.objectContaining({ runId, railIndex: 1, code: 'provider_limit', ticketIds: [5] }))
+    expect(m.startSystemTurn.mock.calls[0][1]).toContain('#5 — T5')
+    expect(m.startSystemTurn.mock.calls[0][1]).toContain('usage or rate limit')
+  })
+
+  it('an engine crash (rejected run promise) also reaches the trigger with the error detail', async () => {
+    const m = fakeAgentChat()
+    setRailTickets(db, 0, [1], 'implement')
+    const run = vi.fn().mockRejectedValue(new Error('spawn ENOENT'))
+    const app = appWith(db, { desktopDb, loopRunManager: { run, cancel: vi.fn() } })
+    const res = await request(app).post('/rails/0/launch').send({ loopId: 'factory:implement', originConversationId: 'conv-3' })
+    expect(res.status).toBe(202)
+    await vi.waitFor(() => expect(m.postRunFailureRow).toHaveBeenCalled())
+    expect(m.postRunFailureRow.mock.calls[0][1]).toMatchObject({ code: 'implementation_failed', detail: 'spawn ENOENT' })
+  })
+
+  it('an untagged (dashboard) no-git launch posts nothing to any mission', async () => {
+    const m = fakeAgentChat()
+    setRailTickets(db, 0, [1], 'implement')
+    const run = vi.fn().mockImplementation(async (req: { runId: string }) => ({ runId: req.runId, outcome: 'failed', iterations: 1, totalCostUsd: 0 }))
+    const app = appWith(db, { desktopDb, loopRunManager: { run, cancel: vi.fn() } })
+    expect((await request(app).post('/rails/0/launch').send({ loopId: 'factory:implement' })).status).toBe(202)
+    await new Promise((r) => setTimeout(r, 30))
+    expect(m.postPrDecisionCard).not.toHaveBeenCalled()
+    expect(m.updatePrDecisionCard).not.toHaveBeenCalled()
+    expect(m.startSystemTurn).not.toHaveBeenCalled()
+  })
+
+  it('records the origin conversation on the in-memory rail run meta', async () => {
+    fakeAgentChat()
+    setRailTickets(db, 0, [1], 'implement')
+    const railLoopRuns = new Map<string, { railIndex: number; ticketIds: number[]; originConversationId?: string }>()
+    const run = vi.fn().mockReturnValue(new Promise(() => { /* never settles */ }))
+    const app = appWith(db, { desktopDb, railLoopRuns, loopRunManager: { run, cancel: vi.fn() } })
+    const res = await request(app).post('/rails/0/launch').send({ loopId: 'factory:implement', originConversationId: 'conv-9' })
+    expect(res.status).toBe(202)
+    expect(railLoopRuns.get(res.body.loopRunIds[0])).toMatchObject({ railIndex: 0, originConversationId: 'conv-9' })
+  })
+})
+
+describe('rails-router GET / — availability (mission-rail-cards)', () => {
+  let db: DbInstance
+  beforeEach(() => { db = initDb(':memory:') })
+  afterEach(() => { db.close() })
+
+  it('free / busy / pending_decision per rail', async () => {
+    setRailTickets(db, 1, [1], 'implement')
+    createLoopRun(db, { id: 'run-1', projectId: 'p1', loopId: 'factory:implement', loopName: 'Implement', railIndex: 1, ticketId: 1, provider: 'claude', model: 'opus', iterationLimit: 3, startedAt: new Date().toISOString() })
+    const railLoopRuns = new Map([['run-1', { railIndex: 1, ticketIds: [1] }]])
+    createPrDelivery(db, { railIndex: 2, railKey: '2-factory:implement', ticketIds: [3], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard', originConversationId: null } as never)
+    const res = await request(appWith(db, { railLoopRuns })).get('/rails')
+    expect(res.status).toBe(200)
+    const byIndex = Object.fromEntries(res.body.rails.map((r: { railIndex: number; availability: string }) => [r.railIndex, r.availability]))
+    expect(byIndex).toEqual({ 0: 'free', 1: 'busy', 2: 'pending_decision' })
   })
 })

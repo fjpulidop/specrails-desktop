@@ -109,9 +109,11 @@ holds no optimistic state; a raced answer surfaces the neutral
 
   The "What you asked" / "What was done" slots are spec markdown and render
   through `PacketMarkdown` (react-markdown + GFM, raw HTML skipped, images
-  dropped, inline code as quiet chips). `solution` is the tight digest; when
-  the composer clamps it, `solutionOverflow` carries the full text and the
-  page shows it behind a "Read the full solution" disclosure. The server
+  dropped, inline code as quiet chips, `unfoldInlineNumberedList` for specs
+  written as one "1. … 2. …" paragraph). "What was done" leads with the
+  durable outcome pill and the measured churn; the spec's proposed solution
+  (`solutionOverflow ?? solution`) sits below in a collapsed "Planned approach
+  (from the spec)" disclosure, labelled as the request, never as a report. The server
   digests each headed section as `**Label**` + a blank line + the content, so
   a numbered journey survives as a list in the packet AND in the PR body.
 - "Discuss this delivery" deliberately routes into the existing agent chat
@@ -218,3 +220,14 @@ their pre-change behaviour, with no toggle at all.
   toggle and render exactly as before.
 
 Any flag off leaves the existing decision strip byte-identical.
+
+
+## 2026-09-19 — "What was done" tells facts, not the plan
+
+Observed: the section rendered the spec's *Proposed Solution* digest as raw markdown (`**Proposed Solution** — …`, backticks) under the heading "What was done" — i.e. the PLAN presented as a REPORT. Fix (client only, `ReviewPacketPage.tsx`): each ticket row now leads with the durable per-unit outcome pill (`outcome.*`, derived from `implementationOutcome`/`deliveryOutcome`/`changed`, never from prose), the measured churn line now also states test files touched (`churn.testFiles`/`noTestFiles`), and the spec digest moved into a collapsed `<details>` labelled **Planned approach (from the spec)** with an explicit caveat that it is not a report of what the AI did. Both narratives (`problem`, `solution`) render through `ReactMarkdown` (`PacketMarkdown`) so headings, bold and inline code never leak raw. i18n `packet:planned.*`, `outcome.*`, `churn.testFiles*` ×8. Server composition unchanged.
+
+## 2026-09-19 — Programmatic-runtime evidence (host-run verification + reviewer verdict)
+
+Observed: a delivery built by the programmatic agent runtime (core-host) rendered **"The AI did not report any verification"** and **"No reviewer score"** although the host had run `npm test` (exit 0, output persisted) and the reviewer returned a structured verdict (score 92). The harvest only knew the legacy loop channels — the `VERIFICATION:` prose sentinel and `openspec/changes/**/confidence-score.json` — neither of which that runtime produces. Fix (`server/delivery-evidence.ts` `readRuntimeEvidence`, wired from `rail-isolated-launch.ts` via the new `EvidenceHarvestUnit.runtimeDir` = `<workspace>/.specrails/pipeline/<runId>`): read `state.json` `verification.commands[]` (+ each `verification/evidence/<id>.json` for exit code, duration, bounded output and `origin`), `acceptance.checks[]` / `acceptance.findings[]`, and the reviewer step output in `agent-workflow/<runId>/checkpoint.json` (`approved`, `score`, `aspects`, `issues`, `summary`). Every field is bounded; a malformed file degrades to nothing.
+
+Tier placement (`review-packet.ts` `buildProof`): commands whose `origin` includes `host` are **app-verified** (`proof.hostCommandPassed|Failed` with exit code + seconds + output tail) — the runtime executed them and recorded the exit code, which is a measurement, not a claim; non-host acceptance checks, the reviewer summary and findings are **ai-reported** (`proof.acceptanceCheckPassed|Failed`, `proof.reviewerSummary`, `proof.reviewerFinding`); the structured verdict fills `confidence` (score/aspects/issues→flags) ONLY when no file-based score exists, so the **reviewer-score** tier and the human-review band work unchanged. `proof.noVerificationReported` is emitted only when no channel reported anything. Older deliveries heal lazily: `GET …/packet` runs `healRuntimeEvidence` over units lacking `runtime` and persists the result (`updatePrDeliverySettleEvidence`), so a packet stops claiming silence once the pipeline dir exists. Still never a numeric test-count claim: the "70 passed" line rides inside the labelled raw output, not as a number the app asserts.

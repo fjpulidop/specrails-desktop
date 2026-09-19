@@ -1,6 +1,6 @@
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import { hasAgentRuntimeRequest } from './agent-runtime-paths'
-import { AgentRuntimeControls, RuntimeControlError, validateRuntimeResumeInput, pinsRailCard } from './agent-runtime-controls'
+import { AgentRuntimeControls, RuntimeControlError, validateRuntimeResumeInput, pinsRailCard, type RuntimeRunSummary } from './agent-runtime-controls'
 
 const controllers = new WeakMap<object, AgentRuntimeControls>()
 export function isRuntimeContinuationActive(context: object, runId: string): boolean { return controllers.get(context)?.isActive(runId) ?? false }
@@ -12,6 +12,14 @@ export function cancelRuntimeContinuation(context: object, runId: string): boole
   return true
 }
 export function shutdownAgentRuntimeControls(context: object): void { controllers.get(context)?.shutdown() }
+/** mission-rail-cards: read a run's runtime summary through the project's controller (created lazily). */
+export async function runtimeRunSummary(context: ProjectContextLike, runId: string): Promise<RuntimeRunSummary | null> {
+  if (!hasAgentRuntimeRequest(context.project, runId)) return null
+  let controller = controllers.get(context)
+  if (!controller) { controller = new AgentRuntimeControls(context as never); controllers.set(context, controller) }
+  try { return await controller.summary(runId) } catch { return null }
+}
+type ProjectContextLike = { project: { path: string; slug?: string } } & object
 
 export function registerAgentRuntimeControlRoutes({ router, ctx }: Pick<ProjectRoutesDeps, 'router' | 'ctx'>): void {
   function controls(request: Parameters<typeof ctx>[0]) {

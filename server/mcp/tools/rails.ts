@@ -36,7 +36,7 @@ export function railsTools(): McpToolSpec[] {
         'List and configure a project\'s rail launch slots, then launch or stop the AI pipeline for a rail. ' +
         'A rail holds assigned ticket IDs plus a mode/profile/engine/name. Rails are DYNAMIC: create_rail adds a new slot (up to 12), so when every rail is busy or holds other work, create a fresh one and proceed — never wait for a slot. ' +
         'Parallel launches normally run in isolated git worktrees; verify the returned isolated flag. Legacy or non-git runs may use shared project files and have no delivery card. ' +
-        'Actions: list (rails + active jobs/loop runs), pr_candidates (read compatible open PR targets for railIndex), review_packet (read durable evidence, verification and acceptance capability by prDeliveryId), create_rail (add a new rail slot; returns its railIndex), set_tickets (assign ticket IDs), set_profile (default agent profile, null=legacy), ' +
+        'Actions: list (rails + active jobs/loop runs; every rail carries availability free|busy|pending_decision|on_review — prefer a free rail when proposing a launch card, else create_rail), pr_candidates (read compatible open PR targets for railIndex), review_packet (read durable evidence, verification and acceptance capability by prDeliveryId), create_rail (add a new rail slot; returns its railIndex), set_tickets (assign ticket IDs), set_profile (default agent profile, null=legacy), ' +
         'set_engine (provider override, null=primary), set_name (display label, null clears), ' +
         'launch (ai-spawn — spawns the selected installed provider CLI job(s), including Kimi when installed, that WRITE CODE, RUN TESTS, COMMIT, and INCUR TOKEN COST; returns 202 with jobId/jobIds/loopRunIds), ' +
         'launch_all (ai-spawn — launches EVERY rail that has tickets and no active run/uncontinuable pending PR decision, in parallel, using each rail\'s stored mode/engine/profile; returns per-rail outcomes with skip reasons), ' +
@@ -291,7 +291,7 @@ export function railsTools(): McpToolSpec[] {
               return {
                 ...r,
                 railLabel,
-                hint: `Launch accepted (202) on ${railLabel}, but WORKTREE ISOLATION IS UNAVAILABLE because ${why}. The run proceeds on the SHARED working tree and writes changes DIRECTLY into the user's files — there is NO PR-decision/implementation card and NO branch. Do NOT tell the user to look for a PR card; tell them the run writes to their files in place, and explain why. ${fix} When it finishes, the spec parks at on_review — the user accepts it by moving it to Done on the board (the changes are already in their files) or reverts the spec's status (which does NOT undo the file changes).`,
+                hint: `Launch accepted (202) on ${railLabel}, but WORKTREE ISOLATION IS UNAVAILABLE because ${why}. The run proceeds on the SHARED working tree and writes changes DIRECTLY into the user's files — there is NO branch and NO PR phase — the mission shows a RUN card (progress, log, failure + recovery) but never a PR-decision card. Do NOT promise a PR card; tell them the run writes to their files in place, and explain why. ${fix} When it finishes, the spec parks at on_review — the user accepts it by moving it to Done on the board (the changes are already in their files) or reverts the spec's status (which does NOT undo the file changes).`,
               }
             }
             if (r.isolated !== true) {
