@@ -49,8 +49,7 @@
   "sections": {
     "whatYouAsked": "依頼した内容",
     "whatIDid": "行われた作業",
-    "howItWasChecked": "確認の方法",
-    "fullSolution": "解決策の全文を読む"
+    "howItWasChecked": "確認の方法"
   },
   "churn": {
     "line": "{{files}} ファイル変更 · +{{added}} / −{{removed}} 行",

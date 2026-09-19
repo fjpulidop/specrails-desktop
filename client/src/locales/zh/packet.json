@@ -49,8 +49,7 @@
   "sections": {
     "whatYouAsked": "你要求的",
     "whatIDid": "已完成的",
-    "howItWasChecked": "如何检查的",
-    "fullSolution": "阅读完整方案"
+    "howItWasChecked": "如何检查的"
   },
   "churn": {
     "line": "{{files}} 个文件改动 · +{{added}} / −{{removed}} 行",

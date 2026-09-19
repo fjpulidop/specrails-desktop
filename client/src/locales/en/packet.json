@@ -49,8 +49,7 @@
   "sections": {
     "whatYouAsked": "What you asked for",
     "whatIDid": "What was done",
-    "howItWasChecked": "How it was checked",
-    "fullSolution": "Read the full solution"
+    "howItWasChecked": "How it was checked"
   },
   "churn": {
     "line": "{{files}} files changed · +{{added}} / −{{removed}} lines",

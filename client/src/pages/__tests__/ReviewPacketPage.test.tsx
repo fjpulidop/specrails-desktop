@@ -146,16 +146,17 @@ describe('ReviewPacketPage — above the fold', () => {
     renderPage()
     expect(await screen.findByText('Your change is ready for review')).toBeInTheDocument()
     fireEvent.click(screen.getByText('What was done'))
+    // The spec's proposal is the collapsed PLAN, never reported as what was done.
+    const plan = screen.getByText('Planned approach (from the spec)')
+    expect(plan.closest('details')?.open).toBe(false)
+    fireEvent.click(plan)
     // A numbered journey renders as an ordered list, not one run-on paragraph.
     const items = [...document.querySelectorAll('ol > li')].filter((li) => /Tap (Left|Rotate)/.test(li.textContent ?? ''))
     expect(items.length).toBeGreaterThanOrEqual(2)
     // Backticks become code chips; bold labels become <strong>.
     expect(screen.getAllByText('keydown').some((el) => el.tagName === 'CODE')).toBe(true)
     expect(screen.getAllByText('Proposed Solution').some((el) => el.tagName === 'STRONG')).toBe(true)
-    // The overflow is collapsed behind a disclosure until asked for.
-    const summary = screen.getByText('Read the full solution')
-    expect(summary.closest('details')?.open).toBe(false)
-    fireEvent.click(summary)
+    // The plan shows the FULL text (overflow), not the clamped digest.
     expect(screen.getByText('Hold Soft Drop.')).toBeInTheDocument()
   })
 

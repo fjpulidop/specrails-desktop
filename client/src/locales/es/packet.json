@@ -49,8 +49,7 @@
   "sections": {
     "whatYouAsked": "Lo que pediste",
     "whatIDid": "Lo que se hizo",
-    "howItWasChecked": "Cómo se comprobó",
-    "fullSolution": "Leer la solución completa"
+    "howItWasChecked": "Cómo se comprobó"
   },
   "churn": {
     "line": "{{files}} archivos cambiados · +{{added}} / −{{removed}} líneas",

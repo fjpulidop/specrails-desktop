@@ -109,9 +109,11 @@ holds no optimistic state; a raced answer surfaces the neutral
 
   The "What you asked" / "What was done" slots are spec markdown and render
   through `PacketMarkdown` (react-markdown + GFM, raw HTML skipped, images
-  dropped, inline code as quiet chips). `solution` is the tight digest; when
-  the composer clamps it, `solutionOverflow` carries the full text and the
-  page shows it behind a "Read the full solution" disclosure. The server
+  dropped, inline code as quiet chips, `unfoldInlineNumberedList` for specs
+  written as one "1. … 2. …" paragraph). "What was done" leads with the
+  durable outcome pill and the measured churn; the spec's proposed solution
+  (`solutionOverflow ?? solution`) sits below in a collapsed "Planned approach
+  (from the spec)" disclosure, labelled as the request, never as a report. The server
   digests each headed section as `**Label**` + a blank line + the content, so
   a numbered journey survives as a list in the packet AND in the PR body.
 - "Discuss this delivery" deliberately routes into the existing agent chat
