@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.48.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.47.0...v2.48.0) (2026-09-19)
+
+
+### Features
+
+* **review-packet:** render the spec narrative as markdown ([#666](https://github.com/fjpulidop/specrails-desktop/issues/666)) ([791190e](https://github.com/fjpulidop/specrails-desktop/commit/791190ecd0f49576dc5c4d07040e9ba3fa9b4fc8))
+* **runtime:** local AI engines, role continuity and guardrail surfaces ([#664](https://github.com/fjpulidop/specrails-desktop/issues/664)) ([1da9301](https://github.com/fjpulidop/specrails-desktop/commit/1da9301e33eb2b7377d9e15d0f0942c29c5e1937))
+
 ## [2.47.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.46.0...v2.47.0) (2026-09-13)
 
 
