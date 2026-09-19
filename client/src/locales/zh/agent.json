@@ -643,7 +643,10 @@
     "stub": {
       "launched": "已启动 → Rail {{rail}}",
       "dismissed": "提案已忽略",
-      "viewRun": "查看运行"
+      "viewRun": "查看运行",
+      "goToCard": "前往卡片",
+      "goToCardTitle": "跳转到此次启动的实现卡片",
+      "viewRunTitle": "打开该 run 的实时日志"
     }
   },
   "runCard": {

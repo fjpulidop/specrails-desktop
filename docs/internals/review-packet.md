@@ -218,3 +218,8 @@ their pre-change behaviour, with no toggle at all.
   toggle and render exactly as before.
 
 Any flag off leaves the existing decision strip byte-identical.
+
+
+## 2026-09-19 — "What was done" tells facts, not the plan
+
+Observed: the section rendered the spec's *Proposed Solution* digest as raw markdown (`**Proposed Solution** — …`, backticks) under the heading "What was done" — i.e. the PLAN presented as a REPORT. Fix (client only, `ReviewPacketPage.tsx`): each ticket row now leads with the durable per-unit outcome pill (`outcome.*`, derived from `implementationOutcome`/`deliveryOutcome`/`changed`, never from prose), the measured churn line now also states test files touched (`churn.testFiles`/`noTestFiles`), and the spec digest moved into a collapsed `<details>` labelled **Planned approach (from the spec)** with an explicit caveat that it is not a report of what the AI did. Both narratives (`problem`, `solution`) render through `ReactMarkdown` (`PacketMarkdown`) so headings, bold and inline code never leak raw. i18n `packet:planned.*`, `outcome.*`, `churn.testFiles*` ×8. Server composition unchanged.

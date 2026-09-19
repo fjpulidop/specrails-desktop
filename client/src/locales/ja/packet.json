@@ -54,7 +54,10 @@
   },
   "churn": {
     "line": "{{files}} ファイル変更 · +{{added}} / −{{removed}} 行",
-    "batchNotSplittable": "ファイル変更は納品全体の集計で、依頼ごとではありません。"
+    "batchNotSplittable": "ファイル変更は納品全体の集計で、依頼ごとではありません。",
+    "testFiles_one": "{{count}} 件のテストファイルを変更",
+    "testFiles_other": "{{count}} 件のテストファイルを変更",
+    "noTestFiles": "テストファイルの変更なし"
   },
   "tier": {
     "app-verified": {
@@ -110,5 +113,16 @@
     "costShare": "{{revisions}} 件の変更で {{revisionCost}} かかりました — 当初 {{originalCost}} の {{share}}% です。",
     "outOfScopeChurn": "変更された {{total}} ファイルのうち {{files}} 件は当初の依頼に含まれていませんでした。",
     "revisionCount": "すでに {{revisions}} 回の修正を依頼しています。依頼を書き直したほうが早いかもしれません。"
+  },
+  "planned": {
+    "title": "予定していたアプローチ（スペックより）",
+    "caveat": "依頼で提案された内容であり、AI が実際に行ったことの報告ではありません。上の事実が実際に変更された内容です。"
+  },
+  "outcome": {
+    "succeeded": "実装済み",
+    "failed": "完了できませんでした",
+    "noChanges": "変更は不要でした",
+    "notStarted": "未着手",
+    "unknown": "結果不明"
   }
 }

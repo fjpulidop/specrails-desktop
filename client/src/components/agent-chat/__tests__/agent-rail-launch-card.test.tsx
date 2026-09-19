@@ -17,6 +17,12 @@ import { recordLocalIntent, resetLocalIntents } from '../../../lib/rail-launch-i
 import type { RailLaunchProposal } from '../../../lib/rail-launch-draft'
 import type { AgentMessage as ApiAgentMessage, AgentMessageIntent } from '../../../lib/agent-api'
 
+vi.mock('../../JobDetailModal', () => ({
+  JobDetailModal: ({ jobId, projectId, onClose }: { jobId: string; projectId?: string; onClose: () => void }) => (
+    <div data-testid="job-detail-modal">{jobId}@{projectId}<button data-testid="job-detail-modal-close" onClick={onClose}>close</button></div>
+  ),
+}))
+
 const proposal = (over: Partial<RailLaunchProposal> = {}): RailLaunchProposal => ({
   version: 1, railIndex: 1, newRail: null, ticketIds: [12, 14], mode: 'implement', loopId: null,
   aiEngine: 'claude', model: 'opus', reasoningEffort: 'high', profileName: null, targetPrNumber: null,
@@ -129,10 +135,30 @@ describe('AgentRailLaunchCard', () => {
     expect(body(intent)).toMatchObject({ kind: 'rail-launch', proposalIndex: 0, status: 'launched', railIndex: 1, runIds: ['run-1', 'run-2'], prDeliveryId: null })
     expect(screen.getByTestId('agent-rail-launch-stub-launched')).toHaveTextContent('Launched → Rail 2')
 
+    // "Go to card" brings the PR card into view; "View run" opens the run's live log.
     const listener = vi.fn()
     window.addEventListener(FOCUS_PR_CARD_EVENT, listener)
-    fireEvent.click(screen.getByTestId('agent-rail-launch-view-run'))
+    fireEvent.click(screen.getByTestId('agent-rail-launch-focus-card'))
     expect((listener.mock.calls[0][0] as CustomEvent).detail).toEqual({ prDeliveryId: null, runIds: ['run-1', 'run-2'] })
+    expect(screen.queryByTestId('job-detail-modal')).toBeNull()
+    fireEvent.click(screen.getByTestId('agent-rail-launch-view-run'))
+    await waitFor(() => expect(screen.getByTestId('job-detail-modal')).toHaveTextContent('run-1@p1'))
+    fireEvent.click(screen.getByTestId('job-detail-modal-close'))
+    await waitFor(() => expect(screen.queryByTestId('job-detail-modal')).toBeNull())
+  })
+
+  it('offers the hybrid Roles engine like the rail header: no model/effort, launch carries aiEngine=roles only', async () => {
+    renderCard({ aiEngine: 'roles', model: 'opus', reasoningEffort: 'high' })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    expect(screen.getByTestId('rail-card-engine')).toHaveTextContent('Roles')
+    expect(screen.queryByTestId('rail-card-model')).toBeNull()
+    expect(screen.queryByTestId('rail-card-effort')).toBeNull()
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await waitFor(() => expect(screen.getByTestId('agent-rail-launch-stub-launched')).toBeInTheDocument())
+    const launch = body(calls.find((c) => c.url.endsWith('/rails/1/launch'))!) as Record<string, unknown>
+    expect(launch).toMatchObject({ aiEngine: 'roles', mode: 'implement' })
+    expect(launch).not.toHaveProperty('model')
+    expect(launch).not.toHaveProperty('reasoning_effort')
   })
 
   it('creates a new rail first when the proposal asks for one', async () => {

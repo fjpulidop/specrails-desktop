@@ -12,12 +12,12 @@
 // glass surface, header row with rail + `#` chips + status pill, muted rationale,
 // motion enter, reduced-motion safe, `data-agent-interactive` on every control.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'motion/react'
 import {
   Play, Rocket, Cpu, Gauge, Brain, Workflow, UserCog, GitPullRequest, GitBranch, Plus, X, Sparkles,
-  AlertTriangle, Loader2, CheckCircle2, Ban, ExternalLink, TrainFront,
+  AlertTriangle, Loader2, CheckCircle2, Ban, ExternalLink, TrainFront, Layers, Pin,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { API_ORIGIN } from '../../lib/origin'
@@ -29,7 +29,7 @@ import { useProviderDetection } from '../../hooks/useProviderDetection'
 import { modelsForProvider, defaultModelForProvider } from '../../lib/loop-run-models'
 import {
   reasoningEffortsForProvider, providerSupportsFreestyle,
-  providerSupportsProfiles, providerLabel, isRolesEngine,
+  providerSupportsProfiles, providerLabel, isRolesEngine, ROLES_ENGINE,
 } from '../../lib/provider-capabilities'
 import { FACTORY_RAIL_LOOPS, deriveRailMode, effectiveLoopId } from '../../lib/rail-loops'
 import { loopsApi, type LoopDefinition } from '../../lib/loops-api'
@@ -85,6 +85,13 @@ export interface RailLaunchConfig {
  * view / expand. Detail: `{ prDeliveryId: string | null, runIds: string[] }`.
  */
 export const FOCUS_PR_CARD_EVENT = 'specrails:focus-pr-card'
+
+// The launched stub's "View run" opens the run's live log; loaded only on click
+// so the card chunk stays free of the log-explorer stack (same pattern as
+// AgentPrDecisionCard's run-log chips; the modal portals to body at z-[65]).
+const JobDetailModal = lazy(() =>
+  import('../JobDetailModal').then((m) => ({ default: m.JobDetailModal })),
+)
 
 function railAvailability(rail: RailSnapshot, data: RailsResponse, tickets: LocalTicket[]): RailAvailability {
   if (rail.availability) return rail.availability
@@ -170,6 +177,10 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     return detectedProviders[0] ?? null
   }, [config.aiEngine, detectedProviders])
   const engineStale = !!config.aiEngine && providerReady && effectiveEngine !== config.aiEngine
+  // `roles` = the hybrid per-role engines (runtime config + loop roles): no
+  // single provider owns the run, so model/effort/profile selectors step aside
+  // exactly like the rail header does (RailRow). Freestyle needs one engine.
+  const rolesEngine = !!effectiveEngine && isRolesEngine(effectiveEngine)
   const catalogProvider = effectiveEngine && !isRolesEngine(effectiveEngine) ? effectiveEngine : detectedProviders[0] ?? null
 
   const models = useMemo(() => modelsForProvider(catalogProvider), [catalogProvider])
@@ -185,7 +196,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     : null
 
   const mode = deriveRailMode(config.loopId)
-  const profilesApply = mode !== 'loop' && providerSupportsProfiles(catalogProvider)
+  const profilesApply = !rolesEngine && mode !== 'loop' && providerSupportsProfiles(catalogProvider)
 
   useEffect(() => {
     if (!projectId || intent || !catalogProvider || !profilesApply) { setProfiles([]); return }
@@ -231,7 +242,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     [tickets, config.ticketIds],
   )
 
-  const freestyleAvailable = providerSupportsFreestyle(catalogProvider)
+  const freestyleAvailable = !rolesEngine && providerSupportsFreestyle(catalogProvider)
   const loopOptions: AgentToolbarOption[] = useMemo(() => {
     const builtIn = FACTORY_RAIL_LOOPS
       .filter((l) => (!l.requiresFreestyle || freestyleAvailable) && (!l.requiresLoops || FEATURE_LOOPS_SECTION))
@@ -303,8 +314,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         originConversationId: conversationId,
         originSurface: 'agent-chat',
         ...(engineForRail ? { aiEngine: engineForRail } : {}),
-        ...(effectiveModel ? { model: effectiveModel } : {}),
-        ...(effectiveEffort ? { reasoning_effort: effectiveEffort } : {}),
+        ...(!rolesEngine && effectiveModel ? { model: effectiveModel } : {}),
+        ...(!rolesEngine && effectiveEffort ? { reasoning_effort: effectiveEffort } : {}),
         ...(profilesApply && effectiveProfile ? { profileName: effectiveProfile } : {}),
         ...(config.targetPrNumber ? { targetPrNumber: config.targetPrNumber } : {}),
         ...(config.baseBranch.trim() ? { baseBranch: config.baseBranch.trim() } : {}),
@@ -326,7 +337,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     } finally {
       if (mounted.current) setBusy(null)
     }
-  }, [projectId, blockReason, busy, resolvedRailIndex, config, proposedRail, effectiveEngine, detectedProviders.length, validTicketIds, mode, profilesApply, effectiveProfile, effectiveLoop, effectiveModel, effectiveEffort, conversationId, proposalIndex, finalize])
+  }, [projectId, blockReason, busy, resolvedRailIndex, config, proposedRail, effectiveEngine, rolesEngine, detectedProviders.length, validTicketIds, mode, profilesApply, effectiveProfile, effectiveLoop, effectiveModel, effectiveEffort, conversationId, proposalIndex, finalize])
 
   const dismiss = useCallback(async () => {
     if (busy) return
@@ -336,8 +347,17 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   }, [busy, finalize, proposalIndex])
 
   // ── Frozen stubs ─────────────────────────────────────────────────────────────
+  // "View run" = the run's JobDetailModal (the live log), scoped to the
+  // proposal's project. Bringing the PR card into view is a separate,
+  // honestly-labelled action ("Go to card") — it used to hide behind "View run",
+  // which merely scrolled + flashed a card that is usually already pinned.
+  const [logRunId, setLogRunId] = useState<string | null>(null)
   if (decided) {
     const launched = decided.status === 'launched'
+    const primaryRunId = decided.runIds?.[0] ?? null
+    const focusCard = (): void => {
+      window.dispatchEvent(new CustomEvent(FOCUS_PR_CARD_EVENT, { detail: { prDeliveryId: decided.prDeliveryId ?? null, runIds: decided.runIds ?? [] } }))
+    }
     return (
       <div
         data-testid={launched ? 'agent-rail-launch-stub-launched' : 'agent-rail-launch-stub-dismissed'}
@@ -358,13 +378,32 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           <button
             type="button"
             data-agent-interactive
+            data-testid="agent-rail-launch-focus-card"
+            title={t('railCard.stub.goToCardTitle')}
+            onClick={focusCard}
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-card/70 px-2 py-0.5 text-[11px] font-medium text-foreground/70 transition-colors hover:border-accent-primary/40 hover:text-foreground"
+          >
+            <Pin className="h-3 w-3" />
+            {t('railCard.stub.goToCard')}
+          </button>
+        )}
+        {launched && projectId && primaryRunId && (
+          <button
+            type="button"
+            data-agent-interactive
             data-testid="agent-rail-launch-view-run"
-            onClick={() => window.dispatchEvent(new CustomEvent(FOCUS_PR_CARD_EVENT, { detail: { prDeliveryId: decided.prDeliveryId ?? null, runIds: decided.runIds ?? [] } }))}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-card/70 px-2 py-0.5 text-[11px] font-medium text-foreground/80 transition-colors hover:border-accent-primary/40 hover:text-foreground"
+            title={t('railCard.stub.viewRunTitle')}
+            onClick={() => setLogRunId(primaryRunId)}
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-accent-primary/40 bg-accent-primary/10 px-2 py-0.5 text-[11px] font-medium text-accent-primary transition-colors hover:bg-accent-primary/20"
           >
             <ExternalLink className="h-3 w-3" />
             {t('railCard.stub.viewRun')}
           </button>
+        )}
+        {logRunId && projectId && (
+          <Suspense fallback={null}>
+            <JobDetailModal jobId={logRunId} projectId={projectId} onClose={() => setLogRunId(null)} />
+          </Suspense>
         )}
       </div>
     )
@@ -379,7 +418,11 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     }),
     ...(railLimitReached ? [] : [{ value: NEW_RAIL, label: t('railCard.newRail'), icon: Plus }]),
   ]
-  const engineOptions: AgentToolbarOption[] = detectedProviders.map((id) => ({ value: id, label: detection.providers[id]?.displayName ?? providerLabel(id) }))
+  const engineOptions: AgentToolbarOption[] = [
+    ...detectedProviders.map((id) => ({ value: id, label: detection.providers[id]?.displayName ?? providerLabel(id) })),
+    // Same offer as the rail header: Roles whenever there is a choice of engines.
+    ...(detectedProviders.length > 1 ? [{ value: ROLES_ENGINE, label: t('agents:railSelectors.rolesEngine'), icon: Layers }] : []),
+  ]
   const modelOptions: AgentToolbarOption[] = models.map((m) => ({ value: m.value, label: m.label ?? m.value }))
   const effortOptions: AgentToolbarOption[] = [{ value: NO_EFFORT, label: t('railCard.effortDefault') }, ...efforts.map((e) => ({ value: e, label: t(`effort.${e}`, { defaultValue: e }) }))]
   const profileOptions: AgentToolbarOption[] = [{ value: NO_PROFILE, label: t('railCard.profileNone') }, ...profiles.map((p) => ({ value: p.name, label: p.name }))]
@@ -501,10 +544,10 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           {engineOptions.length > 1 && (
             <AgentToolbarSelector label={t('railCard.fields.engine')} icon={Cpu} value={effectiveEngine ?? ''} options={engineOptions} disabled={!!busy} testId="rail-card-engine" onSelect={(v) => patch({ aiEngine: v, model: null, reasoningEffort: null, profileName: null })} />
           )}
-          {modelOptions.length > 0 && (
+          {!rolesEngine && modelOptions.length > 0 && (
             <AgentToolbarSelector label={t('railCard.fields.model')} icon={Brain} value={effectiveModel ?? ''} options={modelOptions} disabled={!!busy} testId="rail-card-model" onSelect={(v) => patch({ model: v })} />
           )}
-          {efforts.length > 0 && (
+          {!rolesEngine && efforts.length > 0 && (
             <AgentToolbarSelector label={t('railCard.fields.effort')} icon={Gauge} value={effectiveEffort ?? NO_EFFORT} options={effortOptions} disabled={!!busy} testId="rail-card-effort" onSelect={(v) => patch({ reasoningEffort: v === NO_EFFORT ? null : v })} />
           )}
           {profilesApply && profiles.length > 0 && (

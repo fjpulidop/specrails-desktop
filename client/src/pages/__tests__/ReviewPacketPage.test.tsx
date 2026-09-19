@@ -421,6 +421,39 @@ describe('ReviewPacketPage — sections', () => {
     fireEvent.click(await screen.findByText('What was done'))
     expect(screen.getByText(/not per request/i)).toBeInTheDocument()
   })
+
+  it('reports the durable outcome as facts and shows the spec plan collapsed, rendered as markdown', async () => {
+    respond({
+      packet: packet({
+        sections: [
+          {
+            ticketId: 8, title: 'Touch controls', problem: 'Only `keydown` works.', labels: [],
+            solution: '**Proposed Solution** — 1. Tap `Left`/`Right`.',
+            implementationOutcome: 'succeeded', deliveryOutcome: 'ready', changed: true,
+            churn: { filesTouched: 12, addedLines: 644, removedLines: 0, testFilesTouched: ['tests/touch.test.js'] }, runIds: ['run-1'],
+          },
+          {
+            ticketId: 9, title: 'Broken one', problem: null, solution: null, labels: [],
+            implementationOutcome: 'failed', deliveryOutcome: 'blocked', changed: false,
+            churn: { filesTouched: 0, addedLines: 0, removedLines: 0, testFilesTouched: [] }, runIds: ['run-2'],
+          },
+        ],
+      }),
+    })
+    renderPage()
+    fireEvent.click(await screen.findByText('What was done'))
+    const pills = screen.getAllByTestId('packet-outcome-pill').map((el) => el.textContent)
+    expect(pills).toEqual(['Implemented', 'Could not be completed'])
+    expect(screen.getByText(/1 test file touched/)).toBeInTheDocument()
+    expect(screen.getByText(/No test files touched/)).toBeInTheDocument()
+    // The plan is labelled as the plan, collapsed, and never shown as raw markdown.
+    expect(screen.getByText('Planned approach (from the spec)')).toBeInTheDocument()
+    expect(screen.queryByText(/\*\*Proposed Solution\*\*/)).not.toBeInTheDocument()
+    expect(screen.getByText('Proposed Solution').tagName).toBe('STRONG')
+    expect(screen.getByText('No summary was recorded.')).toBeInTheDocument()
+    // "What you asked for" renders markdown too (inline code, not backticks).
+    expect(screen.getByText('keydown').tagName).toBe('CODE')
+  })
 })
 
 describe('ReviewPacketPage — failures', () => {

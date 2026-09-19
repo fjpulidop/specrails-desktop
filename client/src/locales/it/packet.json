@@ -54,7 +54,10 @@
   },
   "churn": {
     "line": "{{files}} file modificati · +{{added}} / −{{removed}} righe",
-    "batchNotSplittable": "Le modifiche ai file riguardano tutta la consegna, non ogni richiesta."
+    "batchNotSplittable": "Le modifiche ai file riguardano tutta la consegna, non ogni richiesta.",
+    "testFiles_one": "{{count}} file di test toccato",
+    "testFiles_other": "{{count}} file di test toccati",
+    "noTestFiles": "Nessun file di test toccato"
   },
   "tier": {
     "app-verified": {
@@ -110,5 +113,16 @@
     "costShare": "{{revisions}} modifica/che sono costate {{revisionCost}} — il {{share}}% dei {{originalCost}} del lavoro originale.",
     "outOfScopeChurn": "{{files}} su {{total}} file modificati non facevano parte della richiesta iniziale.",
     "revisionCount": "Hai chiesto {{revisions}} giri di modifiche. Riscrivere la richiesta potrebbe essere più rapido."
+  },
+  "planned": {
+    "title": "Approccio previsto (dalla spec)",
+    "caveat": "Ciò che la richiesta proponeva, non un resoconto di ciò che ha fatto l'IA. I fatti qui sopra sono ciò che è cambiato davvero."
+  },
+  "outcome": {
+    "succeeded": "Implementato",
+    "failed": "Non è stato possibile completarlo",
+    "noChanges": "Non c'era nulla da cambiare",
+    "notStarted": "Non avviato",
+    "unknown": "Esito sconosciuto"
   }
 }

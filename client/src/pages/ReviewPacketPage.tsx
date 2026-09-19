@@ -30,7 +30,7 @@ import { coerceRailPrStateSnapshot, derivePrDeliveryPresentation } from '../lib/
 import { packetVerbAction, resolvePacketVerbs, type PacketVerb } from '../lib/packet-verbs'
 import { notifyGitChanged } from '../lib/git-refresh'
 import type {
-  AcceptCapability, PacketProofItem, ProofTier, ReviewPacket, ReviewPacketResponse,
+  AcceptCapability, PacketProofItem, PacketTicketSection, ProofTier, ReviewPacket, ReviewPacketResponse,
 } from '../types'
 
 const TIER_ORDER: ProofTier[] = ['app-verified', 'ai-reported', 'reviewer-score']
@@ -62,6 +62,23 @@ function ProofRow({ item }: { item: PacketProofItem }) {
       ) : null}
     </li>
   )
+}
+
+/** Durable per-unit outcome → one honest word. Never inferred from prose. */
+function outcomeKey(section: PacketTicketSection): 'succeeded' | 'failed' | 'noChanges' | 'notStarted' | 'unknown' {
+  if (section.implementationOutcome === 'failed') return 'failed'
+  if (section.deliveryOutcome === 'no_changes' || (section.implementationOutcome === 'succeeded' && section.changed === false)) return 'noChanges'
+  if (section.deliveryOutcome === 'not_started') return 'notStarted'
+  if (section.implementationOutcome === 'succeeded') return 'succeeded'
+  return 'unknown'
+}
+
+const OUTCOME_PILL: Record<ReturnType<typeof outcomeKey>, string> = {
+  succeeded: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
+  noChanges: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
+  failed: 'border-destructive/40 bg-destructive/10 text-destructive',
+  notStarted: 'border-border bg-background-deep/50 text-muted-foreground',
+  unknown: 'border-border bg-background-deep/50 text-muted-foreground',
 }
 
 function Section({
@@ -583,23 +600,19 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       <Section title={t('sections.whatIDid')}>
         <ul className="space-y-3">
           {packet.sections.map((section) => (
-            <li key={section.ticketId} className="text-sm">
-              <div className="font-medium text-foreground">
-                #{section.ticketId}{section.title ? <span className="font-normal text-muted-foreground"> · {section.title}</span> : null}
+            <li key={section.ticketId} className="text-sm" data-testid={`packet-done-${section.ticketId}`}>
+              {/* Facts first: the durable outcome + measured churn. The spec's
+                  proposed solution is NOT what was done — it is shown below,
+                  collapsed and labelled as the plan (honesty contract). */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-foreground">#{section.ticketId}</span>
+                {section.title ? <span className="text-foreground/80">{section.title}</span> : null}
+                {(() => { const key = outcomeKey(section); return (
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${OUTCOME_PILL[key]}`} data-testid="packet-outcome-pill">
+                    {t(`outcome.${key}`)}
+                  </span>
+                ) })()}
               </div>
-              {section.solution ? (
-                <PacketMarkdown className="mt-1">{section.solution}</PacketMarkdown>
-              ) : (
-                <p className="mt-1 text-muted-foreground">{t('noSolutionRecorded')}</p>
-              )}
-              {section.solutionOverflow ? (
-                <details className="group mt-2 rounded-lg border border-border/50 bg-background-deep/30">
-                  <summary className="cursor-pointer select-none px-3 py-1.5 text-xs font-medium text-accent-primary/90 hover:text-accent-primary">
-                    {t('sections.fullSolution')}
-                  </summary>
-                  <PacketMarkdown className="px-3 pb-3">{section.solutionOverflow}</PacketMarkdown>
-                </details>
-              ) : null}
               {section.churn ? (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {t('churn.line', {
@@ -607,9 +620,24 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
                     added: section.churn.addedLines,
                     removed: section.churn.removedLines,
                   })}
+                  {' · '}
+                  {section.churn.testFilesTouched.length > 0
+                    ? t('churn.testFiles', { count: section.churn.testFilesTouched.length })
+                    : t('churn.noTestFiles')}
                 </p>
               ) : (
                 <p className="mt-1 text-xs text-muted-foreground">{t('churn.batchNotSplittable')}</p>
+              )}
+              {section.solution ? (
+                <details className="group mt-2 rounded-md border border-border/50 bg-background-deep/30 px-3 py-2">
+                  <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground group-open:text-foreground/80">
+                    {t('planned.title')}
+                  </summary>
+                  <p className="mt-1 text-[11px] italic text-muted-foreground/80">{t('planned.caveat')}</p>
+                  <PacketMarkdown className="mt-2">{section.solutionOverflow ?? section.solution}</PacketMarkdown>
+                </details>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">{t('noSolutionRecorded')}</p>
               )}
             </li>
           ))}

@@ -643,7 +643,10 @@
     "stub": {
       "launched": "Lancé → Rail {{rail}}",
       "dismissed": "Proposition ignorée",
-      "viewRun": "Voir le run"
+      "viewRun": "Voir le run",
+      "goToCard": "Aller à la carte",
+      "goToCardTitle": "Aller à la carte d'implémentation de ce lancement",
+      "viewRunTitle": "Ouvrir le journal en direct du run"
     }
   },
   "runCard": {

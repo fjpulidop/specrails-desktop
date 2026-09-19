@@ -54,7 +54,10 @@
   },
   "churn": {
     "line": "{{files}} 个文件改动 · +{{added}} / −{{removed}} 行",
-    "batchNotSplittable": "文件改动按整次交付统计，不按单个请求。"
+    "batchNotSplittable": "文件改动按整次交付统计，不按单个请求。",
+    "testFiles_one": "涉及 {{count}} 个测试文件",
+    "testFiles_other": "涉及 {{count}} 个测试文件",
+    "noTestFiles": "未涉及测试文件"
   },
   "tier": {
     "app-verified": {
@@ -110,5 +113,16 @@
     "costShare": "{{revisions}} 次修改已花费 {{revisionCost}} — 是最初 {{originalCost}} 的 {{share}}%。",
     "outOfScopeChurn": "{{total}} 个改动文件中有 {{files}} 个不属于最初的要求。",
     "revisionCount": "你已经要求了 {{revisions}} 轮修改。重写需求可能更快。"
+  },
+  "planned": {
+    "title": "计划方案（来自 Spec）",
+    "caveat": "这是需求中提出的方案，而不是 AI 实际所做的报告。上方的事实才是真正发生的变更。"
+  },
+  "outcome": {
+    "succeeded": "已实现",
+    "failed": "未能完成",
+    "noChanges": "无需更改",
+    "notStarted": "未开始",
+    "unknown": "结果未知"
   }
 }

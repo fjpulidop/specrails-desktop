@@ -54,7 +54,10 @@
   },
   "churn": {
     "line": "{{files}} files changed · +{{added}} / −{{removed}} lines",
-    "batchNotSplittable": "File changes are reported for the whole delivery, not per request."
+    "batchNotSplittable": "File changes are reported for the whole delivery, not per request.",
+    "testFiles_one": "{{count}} test file touched",
+    "testFiles_other": "{{count}} test files touched",
+    "noTestFiles": "No test files touched"
   },
   "tier": {
     "app-verified": {
@@ -110,5 +113,16 @@
     "costShare": "{{revisions}} change(s) have cost {{revisionCost}} — {{share}}% of the {{originalCost}} original build.",
     "outOfScopeChurn": "{{files}} of {{total}} changed files were never part of the original request.",
     "revisionCount": "You've asked for {{revisions}} rounds of changes. Rewriting the request may be quicker."
+  },
+  "planned": {
+    "title": "Planned approach (from the spec)",
+    "caveat": "What the request proposed — not a report of what the AI did. The facts above are what actually changed."
+  },
+  "outcome": {
+    "succeeded": "Implemented",
+    "failed": "Could not be completed",
+    "noChanges": "Nothing needed changing",
+    "notStarted": "Not started",
+    "unknown": "Outcome unknown"
   }
 }

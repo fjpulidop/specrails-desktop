@@ -54,7 +54,10 @@
   },
   "churn": {
     "line": "{{files}} Dateien geändert · +{{added}} / −{{removed}} Zeilen",
-    "batchNotSplittable": "Dateiänderungen gelten für die gesamte Lieferung, nicht pro Anfrage."
+    "batchNotSplittable": "Dateiänderungen gelten für die gesamte Lieferung, nicht pro Anfrage.",
+    "testFiles_one": "{{count}} Testdatei berührt",
+    "testFiles_other": "{{count}} Testdateien berührt",
+    "noTestFiles": "Keine Testdateien berührt"
   },
   "tier": {
     "app-verified": {
@@ -110,5 +113,16 @@
     "costShare": "{{revisions}} Änderung(en) kosteten {{revisionCost}} — {{share}}% der {{originalCost}} der ursprünglichen Arbeit.",
     "outOfScopeChurn": "{{files}} von {{total}} geänderten Dateien gehörten nie zur ursprünglichen Anfrage.",
     "revisionCount": "Du hast {{revisions}} Änderungsrunden erbeten. Die Anfrage neu zu formulieren geht vielleicht schneller."
+  },
+  "planned": {
+    "title": "Geplanter Ansatz (laut Spec)",
+    "caveat": "Was die Anfrage vorschlug – kein Bericht darüber, was die KI getan hat. Die Fakten oben zeigen, was sich tatsächlich geändert hat."
+  },
+  "outcome": {
+    "succeeded": "Umgesetzt",
+    "failed": "Konnte nicht abgeschlossen werden",
+    "noChanges": "Nichts musste geändert werden",
+    "notStarted": "Nicht begonnen",
+    "unknown": "Ergebnis unbekannt"
   }
 }

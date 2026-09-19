@@ -643,7 +643,10 @@
     "stub": {
       "launched": "Launched → Rail {{rail}}",
       "dismissed": "Proposal dismissed",
-      "viewRun": "View run"
+      "viewRun": "View run",
+      "goToCard": "Go to card",
+      "goToCardTitle": "Scroll to this launch's implementation card",
+      "viewRunTitle": "Open the run's live log"
     }
   },
   "runCard": {
