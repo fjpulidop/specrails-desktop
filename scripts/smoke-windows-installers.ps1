@@ -47,7 +47,19 @@ try {
       } else {
         $p = Start-Process msiexec.exe -ArgumentList "/i `"$installer`" /qn /norestart INSTALLDIR=`"$installDir`" /l*v `"$testRoot\msi-install.log`"" -Wait -PassThru
       }
-      if ($p.ExitCode -notin @(0, 3010)) { throw "$kind installation failed with $($p.ExitCode)" }
+      if ($p.ExitCode -notin @(0, 3010)) {
+        # A bare 1603 says nothing; the verbose msiexec log names the failing
+        # action (1320 path too long, 1310 write error, 2318, …). Surface it.
+        Write-InstallerDiagnostics $kind $installDir
+        $msiLog = Join-Path $testRoot 'msi-install.log'
+        if ($kind -eq 'msi' -and (Test-Path $msiLog)) {
+          Write-Host "--- msi-install.log: lines around 'Return value 3' ---"
+          $lines = Get-Content $msiLog
+          $hits = @($lines | Select-String -Pattern 'Return value 3|MainEngineThread is returning|Error 1|Note: 1:' | Select-Object -First 8)
+          foreach ($hit in $hits) { $from = [Math]::Max(0, $hit.LineNumber - 12); $lines[$from..($hit.LineNumber - 1)] | ForEach-Object { Write-Host "  msi: $_" } }
+        }
+        throw "$kind installation failed with $($p.ExitCode)"
+      }
       $installed = $true
       if (-not (Test-Path (Join-Path $installDir 'specrails-desktop.exe'))) { Write-InstallerDiagnostics $kind $installDir; throw "$kind app executable is missing" }
       $node = Join-Path $installDir 'runtimes\node\node.exe'
