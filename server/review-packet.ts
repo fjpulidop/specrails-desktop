@@ -61,6 +61,8 @@ export interface PacketTicketSection {
   title: string | null
   problem: string | null
   solution: string | null
+  /** Solution content beyond the visible digest (markdown; the UI renders it behind a disclosure). */
+  solutionOverflow: string | null
   labels: string[]
   /** Durable per-unit outcome for this ticket. */
   implementationOutcome: DeliverBranchRecord['implementationOutcome'] | null
@@ -416,6 +418,7 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
       title: snap?.title ?? null,
       problem: narrative.problem,
       solution: narrative.solution,
+      solutionOverflow: narrative.overflow,
       labels: snap?.labels ?? [],
       implementationOutcome: unitRows[0]?.implementationOutcome ?? null,
       deliveryOutcome: unitRows[0]?.deliveryOutcome ?? null,

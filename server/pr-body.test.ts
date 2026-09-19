@@ -96,6 +96,12 @@ describe('extractSpecNarrative', () => {
     expect(extractSpecNarrative(undefined)).toEqual({ problem: null, solution: null, overflow: null })
   })
 
+  it('a headed section digests as a bold label on its own line and the content as a block, so a numbered journey stays a list', () => {
+    const n = extractSpecNarrative('## Problem\n\nNo touch input.\n\n## Proposed Solution\n\n1. Tap Left.\n2. Tap Rotate.')
+    expect(n.solution).toBe('**Proposed Solution**\n\n1. Tap Left.\n2. Tap Rotate.')
+    expect(n.solution).not.toContain('** — ')
+  })
+
   it('explicit Problem/Solution headings are used', () => {
     const n = extractSpecNarrative('## Problem\n\nIt crashes.\n\n## Solution\n\nCatch the error.')
     expect(n.problem).toBe('It crashes.')

@@ -106,6 +106,14 @@ holds no optimistic state; a raced answer surfaces the neutral
   agent-chat PR card. Both keep their precise git actions.
 - Layout is an inverted pyramid: verdict + confidence + cost + verbs above the
   fold; the sections are progressive disclosure below.
+
+  The "What you asked" / "What was done" slots are spec markdown and render
+  through `PacketMarkdown` (react-markdown + GFM, raw HTML skipped, images
+  dropped, inline code as quiet chips). `solution` is the tight digest; when
+  the composer clamps it, `solutionOverflow` carries the full text and the
+  page shows it behind a "Read the full solution" disclosure. The server
+  digests each headed section as `**Label**` + a blank line + the content, so
+  a numbered journey survives as a list in the packet AND in the PR body.
 - "Discuss this delivery" deliberately routes into the existing agent chat
   rather than adding a second Q&A brain (see the change's design D5).
 
