@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.48.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.48.0...v2.48.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **bundle:** prune leaked pnpm stores from the bundled core (Windows MSI Error 1304) ([#668](https://github.com/fjpulidop/specrails-desktop/issues/668)) ([eb32f8c](https://github.com/fjpulidop/specrails-desktop/commit/eb32f8c23f1ba2c241f48e36688abfa03c1a3671))
+
 ## [2.48.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.47.0...v2.48.0) (2026-09-19)
 
 
