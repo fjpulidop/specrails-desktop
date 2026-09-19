@@ -65,6 +65,7 @@ import {
   readFileSync,
   rmSync,
   writeFileSync,
+  realpathSync,
 } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -84,6 +85,67 @@ const repoRoot = path.resolve(__dirname, '..')
  * never used by our `node <cli>` invocation, so pruning them is safe and is the
  * stated intent of the assembly (see the symlink note in the file header).
  */
+/**
+ * Recursively remove every `node_modules/.pnpm` directory under `root` — a
+ * pnpm VIRTUAL STORE that leaked into a published tarball (observed:
+ * `@langchain/langgraph-sdk@0.3.x` ships `dist/node_modules/.pnpm/<pkg>@<v>/
+ * node_modules/<pkg>/…`). Node never resolves through `.pnpm/` (it only looks
+ * at `node_modules/<name>`), and npm installs the real dependencies next to the
+ * package, so the store is dead weight — and its 130-char-deep paths made
+ * msiexec fail the v2.48.0 MSI with `Error 1304. Error writing to file` while
+ * NSIS installed the same tree fine (the MSI FileCopy path budget is well
+ * below MAX_PATH once the install dir is added). Pruned BEFORE the path guard
+ * below so a future leak fails loudly here instead of in the release build.
+ */
+export function prunePnpmStores(root) {
+  let removed = 0
+  const walk = (dir) => {
+    if (!existsSync(dir)) return
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name)
+      if (entry.isSymbolicLink() || !entry.isDirectory()) continue
+      if (entry.name === '.pnpm' && path.basename(dir) === 'node_modules') {
+        rmSync(full, { recursive: true, force: true })
+        removed += 1
+        // A node_modules that held ONLY the store is now empty: drop it too.
+        if (readdirSync(dir).length === 0) rmSync(dir, { recursive: true, force: true })
+        continue
+      }
+      walk(full)
+    }
+  }
+  walk(root)
+  return removed
+}
+
+/**
+ * The longest relative path the staged tree may contain. msiexec writes to
+ * `<INSTALLDIR>\\core\\<relative>`; the release smoke installs under a ~105-char
+ * Temp dir and the v2.48.0 failure sat at 130, while the 109-char
+ * `@modelcontextprotocol/sdk/dist/esm/examples/...` paths copied fine. 120 keeps
+ * a margin under the known-bad depth without tripping on today's tree.
+ */
+export const MAX_STAGED_RELATIVE_PATH = 120
+
+/** Fail fast on a staged path deeper than the MSI budget, naming it. */
+export function assertStagedPathBudget(root) {
+  const offenders = []
+  const walk = (dir, rel) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const next = rel ? `${rel}/${entry.name}` : entry.name
+      if (next.length > MAX_STAGED_RELATIVE_PATH) offenders.push(next)
+      if (entry.isDirectory() && !entry.isSymbolicLink()) walk(path.join(dir, entry.name), next)
+    }
+  }
+  walk(root, '')
+  if (offenders.length) {
+    throw new Error(
+      `bundled-core: ${offenders.length} staged path(s) exceed ${MAX_STAGED_RELATIVE_PATH} chars and would break the Windows MSI (Error 1304); `
+      + `longest: ${offenders.sort((a, b) => b.length - a.length)[0]} (${offenders[0].length} chars)`,
+    )
+  }
+}
+
 function pruneBinDirs(root) {
   if (!existsSync(root)) return
   for (const entry of readdirSync(root, { withFileTypes: true })) {
@@ -279,6 +341,9 @@ async function main() {
     // Drop the npm `.bin` shims — they are dangling after the copy and Tauri
     // refuses to bundle a non-existent resource path. Never used at runtime.
     pruneBinDirs(path.join(dest, 'node_modules'))
+    const stores = prunePnpmStores(path.join(dest, 'node_modules'))
+    if (stores) console.log(`[assemble-bundled-core] pruned ${stores} leaked pnpm store(s) (node_modules/.pnpm)`)
+    assertStagedPathBudget(dest)
     // The staged node_modules must not contain the package itself referencing
     // its own stale copy — but cpSync of the hoisted tree already includes
     // `node_modules/specrails-core`; that is harmless (we run dist/ from dest,
@@ -330,4 +395,8 @@ async function main() {
   }
 }
 
-await main()
+// Run only when invoked directly (`node scripts/assemble-bundled-core.mjs`), so
+// the test file can import the helpers. Compare REAL paths: a symlinked
+// invocation path used to make this guard silently false (core cli.js bug).
+const invokedAs = process.argv[1] ? realpathSync(process.argv[1]) : ''
+if (invokedAs === realpathSync(fileURLToPath(import.meta.url))) await main()

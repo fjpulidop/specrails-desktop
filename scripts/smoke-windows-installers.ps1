@@ -53,10 +53,19 @@ try {
         Write-InstallerDiagnostics $kind $installDir
         $msiLog = Join-Path $testRoot 'msi-install.log'
         if ($kind -eq 'msi' -and (Test-Path $msiLog)) {
-          Write-Host "--- msi-install.log: lines around 'Return value 3' ---"
-          $lines = Get-Content $msiLog
-          $hits = @($lines | Select-String -Pattern 'Return value 3|MainEngineThread is returning|Error 1|Note: 1:' | Select-Object -First 8)
-          foreach ($hit in $hits) { $from = [Math]::Max(0, $hit.LineNumber - 12); $lines[$from..($hit.LineNumber - 1)] | ForEach-Object { Write-Host "  msi: $_" } }
+          # Keep the whole verbose log next to the installed-smoke log so the
+          # workflow's failure artifact carries it, and print the tail of the
+          # failing action (the FIRST 'Return value 3' — the header is full of
+          # benign 'Note: 1:' lines that are not the failure).
+          if ($env:SPECRAILS_SMOKE_LOG_PATH) { Copy-Item $msiLog (Join-Path (Split-Path $env:SPECRAILS_SMOKE_LOG_PATH) 'msi-install.log') -Force }
+          $lines = @(Get-Content $msiLog)
+          $hit = $lines | Select-String -Pattern 'Return value 3' | Select-Object -First 1
+          if ($hit) {
+            Write-Host "--- msi-install.log: 40 lines before the first 'Return value 3' (line $($hit.LineNumber)) ---"
+            $from = [Math]::Max(0, $hit.LineNumber - 41)
+            $lines[$from..($hit.LineNumber - 1)] | ForEach-Object { Write-Host "  msi: $_" }
+          }
+          $lines | Select-String -Pattern 'MainEngineThread is returning|Error \d{4}|1: 13\d\d |1: 16\d\d ' | Select-Object -First 10 | ForEach-Object { Write-Host "  msi: $($_.Line)" }
         }
         throw "$kind installation failed with $($p.ExitCode)"
       }
