@@ -1796,6 +1796,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
             runId: result.run.runId,
             worktreePath: result.run.handle.worktreePath,
             loopId,
+            // Programmatic-runtime evidence (host-run verification, reviewer
+            // verdict) lives in the workspace pipeline dir, not the worktree.
+            runtimeDir: path.join(resolveExecution(ctx.project).specrailsDir, 'pipeline', result.run.runId),
           })),
         )
       } catch (e) {

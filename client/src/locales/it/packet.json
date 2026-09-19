@@ -85,7 +85,13 @@
     "reviewerScore": "Punteggio complessivo {{overall}}/100",
     "reviewerAspect": "{{aspect}}: {{score}}/100",
     "reviewerScoreUnavailable": "Nessun punteggio del revisore prodotto.",
-    "evidenceUnavailable": "prove non disponibili"
+    "evidenceUnavailable": "prove non disponibili",
+    "hostCommandPassed": "Il runtime ha eseguito {{label}} da solo: codice di uscita {{exitCode}} ({{seconds}} s)",
+    "hostCommandFailed": "Il runtime ha eseguito {{label}} da solo ed è FALLITO: codice di uscita {{exitCode}} ({{seconds}} s)",
+    "acceptanceCheckPassed": "Controllo del revisore superato: {{name}}",
+    "acceptanceCheckFailed": "Controllo del revisore FALLITO: {{name}}",
+    "reviewerSummary": "Riepilogo del revisore IA:",
+    "reviewerFinding": "Il revisore IA ha segnalato:"
   },
   "watch": {
     "humanReviewRecommended": "Il revisore IA ha dato {{overall}}/100 e consiglia che una persona lo guardi.",

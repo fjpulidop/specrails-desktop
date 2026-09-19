@@ -240,10 +240,42 @@ function buildProof(
     proof.push({ tier: 'app-verified', code: 'proof.commitsRecorded', values: { branches: verifiedBranches } })
   }
 
-  // ── Tier 2: what the agent itself reported ────────────────────────────────
+  // ── Tier 1b: commands the RUNTIME HOST executed (programmatic runtime) ────
+  // core-host runs the repository's own verification command itself and
+  // records exit code + output under the pipeline dir. That is a measurement
+  // by the runtime, not the agent's claim — so it belongs with the facts.
+  const runtimeUnits = (evidence ?? []).map((unit) => unit.runtime).filter((r): r is NonNullable<typeof r> => !!r)
+  const hostCommands = runtimeUnits.flatMap((r) => r.commands.filter((c) => c.hostRun))
+  for (const command of hostCommands.slice(0, 6)) {
+    const passed = command.outcome === 'passed' || (command.exitCode === 0 && command.outcome !== 'failed')
+    proof.push({
+      tier: 'app-verified',
+      code: passed ? 'proof.hostCommandPassed' : 'proof.hostCommandFailed',
+      values: { label: command.label, exitCode: command.exitCode ?? '?', seconds: command.durationMs !== null ? Math.max(1, Math.round(command.durationMs / 1000)) : '?' },
+      ...(command.outputTail ? { rawExcerpt: command.outputTail } : {}),
+    })
+  }
+
+  // ── Tier 2: what the agent itself reported (sentinel, runtime checks) ─────
   const sentinels = (evidence ?? []).filter((unit) => unit.sentinel !== 'absent')
+  const runtimeChecks = runtimeUnits.flatMap((r) => r.checks.filter((c) => !c.hostRun))
+  const runtimeFindings = runtimeUnits.flatMap((r) => r.findings)
+  const runtimeSummary = runtimeUnits.map((r) => r.review?.summary ?? null).find((v): v is string => !!v) ?? null
+  for (const check of runtimeChecks.slice(0, 6)) {
+    proof.push({
+      tier: 'ai-reported',
+      code: check.status === 'passed' ? 'proof.acceptanceCheckPassed' : 'proof.acceptanceCheckFailed',
+      values: { name: check.name },
+      ...(check.evidence.length > 0 ? { rawExcerpt: check.evidence.join('\n') } : {}),
+    })
+  }
+  if (runtimeSummary) proof.push({ tier: 'ai-reported', code: 'proof.reviewerSummary', rawExcerpt: runtimeSummary })
+  for (const finding of runtimeFindings.slice(0, 4)) proof.push({ tier: 'ai-reported', code: 'proof.reviewerFinding', rawExcerpt: finding })
   if (sentinels.length === 0) {
-    proof.push({ tier: 'ai-reported', code: 'proof.noVerificationReported' })
+    // Only claim silence when NOTHING was reported through any channel.
+    if (hostCommands.length === 0 && runtimeChecks.length === 0 && runtimeFindings.length === 0 && !runtimeSummary) {
+      proof.push({ tier: 'ai-reported', code: 'proof.noVerificationReported' })
+    }
   } else {
     const failed = sentinels.filter((unit) => unit.sentinel === 'fail')
     if (failed.length > 0) {

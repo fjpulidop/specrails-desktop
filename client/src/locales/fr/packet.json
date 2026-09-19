@@ -85,7 +85,13 @@
     "reviewerScore": "Score global {{overall}}/100",
     "reviewerAspect": "{{aspect}} : {{score}}/100",
     "reviewerScoreUnavailable": "Aucun score de relecteur produit.",
-    "evidenceUnavailable": "preuves indisponibles"
+    "evidenceUnavailable": "preuves indisponibles",
+    "hostCommandPassed": "Le runtime a exécuté {{label}} lui-même : code de sortie {{exitCode}} ({{seconds}} s)",
+    "hostCommandFailed": "Le runtime a exécuté {{label}} lui-même et cela a ÉCHOUÉ : code de sortie {{exitCode}} ({{seconds}} s)",
+    "acceptanceCheckPassed": "Vérification du relecteur réussie : {{name}}",
+    "acceptanceCheckFailed": "Vérification du relecteur ÉCHOUÉE : {{name}}",
+    "reviewerSummary": "Résumé du relecteur IA :",
+    "reviewerFinding": "Le relecteur IA a noté :"
   },
   "watch": {
     "humanReviewRecommended": "Le relecteur IA a noté {{overall}}/100 et recommande une relecture humaine.",

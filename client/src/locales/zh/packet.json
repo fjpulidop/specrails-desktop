@@ -85,7 +85,13 @@
     "reviewerScore": "总分 {{overall}}/100",
     "reviewerAspect": "{{aspect}}：{{score}}/100",
     "reviewerScoreUnavailable": "未生成审阅者评分。",
-    "evidenceUnavailable": "无证据"
+    "evidenceUnavailable": "无证据",
+    "hostCommandPassed": "运行时自行执行了 {{label}}：退出码 {{exitCode}}（{{seconds}} 秒）",
+    "hostCommandFailed": "运行时自行执行了 {{label}} 但失败：退出码 {{exitCode}}（{{seconds}} 秒）",
+    "acceptanceCheckPassed": "审查检查通过：{{name}}",
+    "acceptanceCheckFailed": "审查检查失败：{{name}}",
+    "reviewerSummary": "AI 审查者的总结：",
+    "reviewerFinding": "AI 审查者指出："
   },
   "watch": {
     "humanReviewRecommended": "AI 审阅者给出 {{overall}}/100，建议由人来查看。",

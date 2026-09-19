@@ -903,6 +903,11 @@ function parseJsonArray<T>(raw: string): T[] {
   }
 }
 
+/** Rewrite ONLY the settle_evidence column (evidence heal) — no decision change. */
+export function updatePrDeliverySettleEvidence(db: DbInstance, id: string, evidence: DeliverySettleEvidence): boolean {
+  return db.prepare('UPDATE rail_pr_deliveries SET settle_evidence = ? WHERE id = ?').run(JSON.stringify(evidence), id).changes > 0
+}
+
 export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot {
   const units = parseJsonArray<DeliverBranchRecord>(row.branches)
   return {

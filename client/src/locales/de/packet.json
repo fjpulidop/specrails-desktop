@@ -85,7 +85,13 @@
     "reviewerScore": "Gesamtbewertung {{overall}}/100",
     "reviewerAspect": "{{aspect}}: {{score}}/100",
     "reviewerScoreUnavailable": "Keine Reviewer-Bewertung erzeugt.",
-    "evidenceUnavailable": "Belege nicht verfügbar"
+    "evidenceUnavailable": "Belege nicht verfügbar",
+    "hostCommandPassed": "Die Runtime hat {{label}} selbst ausgeführt: Exit-Code {{exitCode}} ({{seconds}} s)",
+    "hostCommandFailed": "Die Runtime hat {{label}} selbst ausgeführt und es ist FEHLGESCHLAGEN: Exit-Code {{exitCode}} ({{seconds}} s)",
+    "acceptanceCheckPassed": "Reviewer-Prüfung bestanden: {{name}}",
+    "acceptanceCheckFailed": "Reviewer-Prüfung FEHLGESCHLAGEN: {{name}}",
+    "reviewerSummary": "Zusammenfassung des KI-Reviewers:",
+    "reviewerFinding": "Der KI-Reviewer merkte an:"
   },
   "watch": {
     "humanReviewRecommended": "Der KI-Reviewer gab {{overall}}/100 und empfiehlt eine menschliche Prüfung.",

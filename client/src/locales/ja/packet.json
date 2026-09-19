@@ -85,7 +85,13 @@
     "reviewerScore": "総合スコア {{overall}}/100",
     "reviewerAspect": "{{aspect}}：{{score}}/100",
     "reviewerScoreUnavailable": "レビュアースコアは生成されませんでした。",
-    "evidenceUnavailable": "証跡なし"
+    "evidenceUnavailable": "証跡なし",
+    "hostCommandPassed": "ランタイムが {{label}} を自ら実行しました: 終了コード {{exitCode}}（{{seconds}} 秒）",
+    "hostCommandFailed": "ランタイムが {{label}} を自ら実行し、失敗しました: 終了コード {{exitCode}}（{{seconds}} 秒）",
+    "acceptanceCheckPassed": "レビュアーのチェックに合格: {{name}}",
+    "acceptanceCheckFailed": "レビュアーのチェックに失敗: {{name}}",
+    "reviewerSummary": "AI レビュアーの要約:",
+    "reviewerFinding": "AI レビュアーの指摘:"
   },
   "watch": {
     "humanReviewRecommended": "AI レビュアーは {{overall}}/100 と評価し、人による確認を推奨しています。",

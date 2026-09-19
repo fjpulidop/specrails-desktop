@@ -1,4 +1,5 @@
 import { validateRuntimeProviderOverride } from './agent-runtime-settings'
+import path from 'path'
 import { Router, Request, Response } from 'express'
 import type { ProjectContext } from './project-registry'
 import { getRails, getRail, setRailTickets, setRailProfile, setRailEngine, setRailName, createRail, deleteRail, railCount, railExists, MAX_RAILS, MAX_TICKETS_PER_RAIL_LAUNCH, type RailState } from './rails-store'
@@ -31,6 +32,7 @@ import {
   toPrDeliverySnapshot,
   toRailPrStateMessage,
   transitionDecision,
+  updatePrDeliverySettleEvidence,
   isTerminalPrDecision,
   PrDeliveryGenerationConflict,
   type PrDecision,
@@ -38,6 +40,7 @@ import {
 } from './rail-pr-store'
 import { classifyLoopEffect } from './loop-effect'
 import { composeReviewPacket } from './review-packet'
+import { readSettleEvidence, healRuntimeEvidence } from './delivery-evidence'
 import { resolveAcceptCapability } from './accept-ladder'
 import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
@@ -1323,6 +1326,20 @@ export function createRailsRouter(): Router {
       const manifest = readExecutionManifest(parent.execution_manifest)
       const frozenRepository = row.repository_id ? manifest?.repositories.find((repository) => repository.repositoryId === row!.repository_id && repository.sourcePath === row!.repository_path) : undefined
       if (row.parent_delivery_id && !frozenRepository) { res.status(409).json({ error: 'Repository delivery has no frozen source path' }); return }
+      // Evidence heal: deliveries settled before the programmatic-runtime
+      // harvest existed (or whose pipeline dir was unreadable then) get their
+      // host-run commands + reviewer verdict read now and persisted, so an
+      // older packet stops claiming "nothing reported" once the data exists.
+      try {
+        const existing = readSettleEvidence(row.settle_evidence)
+        if (existing) {
+          const pipelineDir = path.join(resolveProjectExecution({ slug: c.project.slug, path: c.project.path }).specrailsDir, 'pipeline')
+          const healed = healRuntimeEvidence(existing, pipelineDir)
+          if (healed) { updatePrDeliverySettleEvidence(c.db, row.id, healed); row = { ...row, settle_evidence: JSON.stringify(healed) } }
+        }
+      } catch (err) {
+        console.warn('[rails-router] packet evidence heal skipped:', err instanceof Error ? err.message : String(err))
+      }
       const packet = composeReviewPacket({ db: c.db, row, ...(frozenRepository ? { repositoryId: frozenRepository.repositoryId, includeLegacyProvenance: frozenRepository.repositoryId === manifest?.primaryRepositoryId } : {}) })
       // Capability probes are read-only and offline; a failure degrades to the
       // confirm-gated local path rather than blocking the packet.

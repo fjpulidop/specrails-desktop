@@ -85,7 +85,13 @@
     "reviewerScore": "Overall score {{overall}}/100",
     "reviewerAspect": "{{aspect}}: {{score}}/100",
     "reviewerScoreUnavailable": "No reviewer score was produced.",
-    "evidenceUnavailable": "evidence unavailable"
+    "evidenceUnavailable": "evidence unavailable",
+    "hostCommandPassed": "The runtime ran {{label}} itself: exit code {{exitCode}} ({{seconds}}s)",
+    "hostCommandFailed": "The runtime ran {{label}} itself and it FAILED: exit code {{exitCode}} ({{seconds}}s)",
+    "acceptanceCheckPassed": "Reviewer check passed: {{name}}",
+    "acceptanceCheckFailed": "Reviewer check FAILED: {{name}}",
+    "reviewerSummary": "The AI reviewer's summary:",
+    "reviewerFinding": "The AI reviewer noted:"
   },
   "watch": {
     "humanReviewRecommended": "The AI reviewer scored this {{overall}}/100 and recommends a person look at it.",
