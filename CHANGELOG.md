@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.49.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.48.1...v2.49.0) (2026-09-19)
+
+
+### Features
+
+* **agent-chat:** mission rail cards — agent-proposed launches, run lifecycle and packet reconciliation ([#670](https://github.com/fjpulidop/specrails-desktop/issues/670)) ([40d55f0](https://github.com/fjpulidop/specrails-desktop/commit/40d55f060f51fc792016ae24038f359e9641b1de))
+
 ## [2.48.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.48.0...v2.48.1) (2026-09-19)
 
 
