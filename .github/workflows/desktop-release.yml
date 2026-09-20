@@ -1276,16 +1276,39 @@ jobs:
           set -euo pipefail
           remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
           # --ftp-create-dirs auto-creates the latest/ folder on first run.
+          # Hostinger's FTP drops mid-transfer on these multi-hundred-MB
+          # uploads (`curl: (55) Send failure: Broken pipe`, v2.49.0 deploy,
+          # twice in a row). A dropped connection is not a bad artifact: retry
+          # the whole file a few times before failing the release. Each attempt
+          # re-uploads from byte 0 — FTP APPE/REST resume would risk a
+          # truncated-then-appended binary, and the HTTP HEAD verification
+          # below only proves reachability, not integrity.
+          upload() {
+            local file="$1" attempt=1
+            while :; do
+              if curl --fail --silent --show-error --ssl-reqd --ftp-pasv --ftp-create-dirs \
+                --connect-timeout 30 --speed-time 120 --speed-limit 1024 \
+                --user "${FTP_USER}:${FTP_PASS}" \
+                -T "${file}" \
+                "ftp://${HOST}/${remote}"; then
+                return 0
+              fi
+              if [ "${attempt}" -ge 4 ]; then
+                echo "FTP upload of $(basename "${file}") failed after ${attempt} attempts" >&2
+                return 1
+              fi
+              echo "FTP upload of $(basename "${file}") failed (attempt ${attempt}); retrying in $((attempt * 15))s" >&2
+              sleep $((attempt * 15))
+              attempt=$((attempt + 1))
+            done
+          }
           for file in \
             "${{ steps.rename.outputs.dmg_path }}" \
             "${{ steps.rename.outputs.exe_x64_path }}" \
             "${{ steps.rename.outputs.msi_x64_path }}" \
             "${{ steps.rename.outputs.exe_arm64_path }}" \
             "${{ steps.rename.outputs.msi_arm64_path }}"; do
-            curl --fail --silent --show-error --ssl-reqd --ftp-pasv --ftp-create-dirs \
-              --user "${FTP_USER}:${FTP_PASS}" \
-              -T "${file}" \
-              "ftp://${HOST}/${remote}"
+            upload "${file}"
             echo "Uploaded $(basename "${file}") to ${remote}"
           done
 
@@ -1328,10 +1351,16 @@ jobs:
           remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
           # --ftp-create-dirs is defensive; latest/ should already exist from
           # the previous step but we keep the flag for idempotency.
-          curl --fail --silent --show-error --ssl-reqd --ftp-pasv --ftp-create-dirs \
-            --user "${FTP_USER}:${FTP_PASS}" \
-            -T manifest/manifest.json \
-            "ftp://${HOST}/${remote}manifest.json.${GITHUB_RUN_ID}.tmp"
+          for attempt in 1 2 3; do
+            curl --fail --silent --show-error --ssl-reqd --ftp-pasv --ftp-create-dirs \
+              --connect-timeout 30 \
+              --user "${FTP_USER}:${FTP_PASS}" \
+              -T manifest/manifest.json \
+              "ftp://${HOST}/${remote}manifest.json.${GITHUB_RUN_ID}.tmp" && break
+            [ "${attempt}" = 3 ] && { echo "manifest upload failed after ${attempt} attempts" >&2; exit 1; }
+            echo "manifest upload failed (attempt ${attempt}); retrying" >&2
+            sleep 10
+          done
           curl --fail --silent --show-error --ssl-reqd --ftp-pasv \
             --user "${FTP_USER}:${FTP_PASS}" \
             -Q "RNFR ${remote}manifest.json.${GITHUB_RUN_ID}.tmp" \
