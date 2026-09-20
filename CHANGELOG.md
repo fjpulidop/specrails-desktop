@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.49.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.49.0...v2.49.1) (2026-09-20)
+
+
+### Bug Fixes
+
+* **local-engines:** resolve the bundled runner in a packaged app ([#674](https://github.com/fjpulidop/specrails-desktop/issues/674)) ([be3bcc8](https://github.com/fjpulidop/specrails-desktop/commit/be3bcc8b11b4c76a8dd6514f006fd91cd5cd430d))
+* **release:** retry Hostinger FTP uploads and surface the server's reply ([#672](https://github.com/fjpulidop/specrails-desktop/issues/672)) ([46cade3](https://github.com/fjpulidop/specrails-desktop/commit/46cade374a8f055a21201b6db4b5785f000b3482))
+
 ## [2.49.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.48.1...v2.49.0) (2026-09-19)
 
 
