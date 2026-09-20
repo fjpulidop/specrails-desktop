@@ -1284,15 +1284,23 @@ jobs:
           # truncated-then-appended binary, and the HTTP HEAD verification
           # below only proves reachability, not integrity.
           upload() {
-            local file="$1" attempt=1
+            local file="$1" attempt=1 trace
+            trace="$(mktemp)"
             while :; do
-              if curl --fail --silent --show-error --ssl-reqd --ftp-pasv --ftp-create-dirs \
+              # --verbose into a file: on failure we print the FTP CONTROL
+              # channel (`< 552 Disk full`, `< 421 …`) instead of curl's bare
+              # exit code, which is what made three identical `(55) Send
+              # failure: Broken pipe` failures undiagnosable. Secrets stay
+              # masked by Actions; only server replies are echoed.
+              if curl --fail --silent --show-error --verbose --ssl-reqd --ftp-pasv --ftp-create-dirs \
                 --connect-timeout 30 --speed-time 120 --speed-limit 1024 \
                 --user "${FTP_USER}:${FTP_PASS}" \
                 -T "${file}" \
-                "ftp://${HOST}/${remote}"; then
+                "ftp://${HOST}/${remote}" 2>"${trace}"; then
                 return 0
               fi
+              echo "--- FTP replies for $(basename "${file}") (attempt ${attempt}) ---" >&2
+              grep -E '^(< |curl: )' "${trace}" | tail -25 >&2 || true
               if [ "${attempt}" -ge 4 ]; then
                 echo "FTP upload of $(basename "${file}") failed after ${attempt} attempts" >&2
                 return 1
