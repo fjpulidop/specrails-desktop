@@ -12,7 +12,10 @@
 //
 // Spec: openspec/changes/local-ai-engines/specs/provider-auto-detection/spec.md
 
-export const LOCAL_PROBE_TIMEOUT_MS = 3000
+// 3 s was too tight for an endpoint on the LAN (or a server that loads a model
+// before answering /models): a timed-out probe drops the engine from the usable
+// set for that cycle, which flickers it out of provider selectors.
+export const LOCAL_PROBE_TIMEOUT_MS = 8000
 
 export interface LocalProbeInput {
   baseUrl: string
