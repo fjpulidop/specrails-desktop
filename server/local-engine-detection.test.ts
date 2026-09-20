@@ -50,7 +50,9 @@ describe('probeConnection', () => {
     expect(timedOut.error).toBe('timed out after 7 ms')
     const weird = await probeConnection({ baseUrl: 'http://h/v1' }, { fetch: (async () => { throw 'string failure' }) as never })
     expect(weird.error).toBe('string failure')
-    expect(LOCAL_PROBE_TIMEOUT_MS).toBe(3000)
+    // Wide enough for a LAN endpoint (or a server that loads a model before
+    // answering /models): a timed-out probe hides the engine for that cycle.
+    expect(LOCAL_PROBE_TIMEOUT_MS).toBe(8000)
   })
 })
 

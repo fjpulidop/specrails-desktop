@@ -131,6 +131,8 @@ function Harness() {
       <span data-testid="favorites">{[...agentChat.favoriteConversationIds].sort().join(',')}</span>
       <span data-testid="draft-provider">{agentChat.draftProvider}</span>
       <button onClick={() => agentChat.startNewConversation()}>new-mission</button>
+      <button onClick={() => void agentChat.setProvider('lmstudio')}>pick-local</button>
+      <button onClick={agentChat.minimize}>minimize</button>
       <button onClick={() => void agentChat.selectConversation('c1', { windowRestore: true, signal: new AbortController().signal }).catch(() => setApplyResult('restore-failed'))}>restore-c1</button>
       <button onClick={() => agentChat.toggleFavoriteConversation('c1')}>favorite-c1</button>
       <button onClick={() => void agentChat.setModel('model-2')}>model</button>
@@ -184,6 +186,29 @@ describe('AgentChatContext draft provider follows the machine', () => {
     await act(async () => { fireEvent.click(screen.getByText('new-mission')) })
     await waitFor(() => expect(screen.getByTestId('draft-provider')).toHaveTextContent('lmstudio'))
     expect(screen.getByTestId('active-id')).toHaveTextContent('')
+  })
+
+  it('keeps the user\'s explicit pick even when a detection cycle drops that engine', async () => {
+    // A local engine's usable set comes from a bounded HTTP probe: one slow
+    // answer used to snap the draft back to the machine default, which read as
+    // "the option will not click".
+    vi.mocked(agentApi.getAvailableProviders).mockResolvedValue({ any: true, installed: ['claude', 'lmstudio'] })
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await act(async () => { fireEvent.click(screen.getByText('new-mission')) })
+    await waitFor(() => expect(screen.getByTestId('draft-provider')).toHaveTextContent('claude'))
+    await act(async () => { fireEvent.click(screen.getByText('pick-local')) })
+    expect(screen.getByTestId('draft-provider')).toHaveTextContent('lmstudio')
+    // The next probe misses the endpoint; the pick survives.
+    const before = vi.mocked(agentApi.getAvailableProviders).mock.calls.length
+    vi.mocked(agentApi.getAvailableProviders).mockResolvedValue({ any: true, installed: ['claude'] })
+    await act(async () => { fireEvent.click(screen.getByText('minimize')) })
+    await act(async () => { fireEvent.click(screen.getByText('open')) })
+    await waitFor(() => expect(vi.mocked(agentApi.getAvailableProviders).mock.calls.length).toBeGreaterThan(before))
+    expect(screen.getByTestId('draft-provider')).toHaveTextContent('lmstudio')
+    // A brand-new mission starts from the machine default again.
+    await act(async () => { fireEvent.click(screen.getByText('new-mission')) })
+    expect(screen.getByTestId('draft-provider')).toHaveTextContent('claude')
   })
 
   it('prefers a detected CLI over a local engine and keeps claude when it is installed', async () => {

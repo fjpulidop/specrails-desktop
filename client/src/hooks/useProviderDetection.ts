@@ -77,6 +77,9 @@ export function useProviderDetection(): ProviderDetectionState {
       const msg = raw as { type?: string; detected?: string[]; providers?: Record<string, DetectedProviderInfo> }
       if (msg.type !== 'providers.detected_changed') return
       publishLocalCatalogs(msg.providers ?? {})
+      // Let the non-WS catalog hook (useAvailableProviders) refresh from the
+      // same signal, so every selector agrees on what the machine can run.
+      window.dispatchEvent(new Event('specrails:providers-detected-changed'))
       setState({
         detected: Array.isArray(msg.detected) ? msg.detected : [],
         providers: msg.providers ?? {},

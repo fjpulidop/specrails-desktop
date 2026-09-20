@@ -516,6 +516,9 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const [usableProviders, setUsableProviders] = useState<string[]>([])
   const usableProvidersRef = useRef<string[]>([])
   usableProvidersRef.current = usableProviders
+  // True once the user picks a provider for the CURRENT draft; cleared when a
+  // fresh draft starts. Guards the reconciliation below.
+  const draftProviderChosenRef = useRef(false)
   // Pinned project chosen on the EMPTY compose screen (no conversation yet). The
   // first send materialises a conversation with this pin.
   const [draftPinnedProjectId, setDraftPinnedProjectId] = useState<string | null>(null)
@@ -1388,14 +1391,24 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
   const setProvider = useCallback(async (provider: string) => {
     if (active) await patchActive({ provider })
     // Model + effort reset on provider switch (mirrors the server's stale reset).
-    else { setDraftProvider(provider); setDraftModel(null); setDraftEffort(null) }
+    // The pick is the user's: freeze the machine-default reconciliation for this
+    // draft so a flaky detection cycle cannot undo it.
+    else { draftProviderChosenRef.current = true; setDraftProvider(provider); setDraftModel(null); setDraftEffort(null) }
   }, [active, patchActive])
   // Reconcile the DRAFT provider with what the machine can actually run: the
   // pre-fetch `claude` default (or a provider that just went away) hops to the
   // preferred usable id. Only drafts — a stored conversation keeps its provider
   // (its session/model belong to it; the selector still offers a switch).
+  //
+  // NEVER override an explicit pick. A local engine's usable set comes from a
+  // bounded HTTP probe, so one slow answer can drop it from the list for a
+  // cycle; when that happened mid-compose this effect snapped the draft back to
+  // the machine default and the user saw a provider that "would not click"
+  // (the option was there, the selection reverted instantly). A default is a
+  // starting point, not a veto.
   useEffect(() => {
-    if (active || usableProviders.length === 0 || usableProviders.includes(draftProvider)) return
+    if (active || draftProviderChosenRef.current) return
+    if (usableProviders.length === 0 || usableProviders.includes(draftProvider)) return
     setDraftProvider(preferredProvider(usableProviders))
     setDraftModel(null)
     setDraftEffort(null)
@@ -1460,6 +1473,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     setActive(null)
     setMessages([])
     setDraftPinnedProjectId(projectId ?? null)
+    draftProviderChosenRef.current = false
     setDraftProvider(preferredProvider(usableProvidersRef.current))
     setDraftModel(null)
     setDraftTierLevel(readLastTierLevel()) // sticky tier across missions
