@@ -32,6 +32,29 @@ export function useAvailableProviders(options: { enabled?: boolean } = {}): Avai
     loading: true,
   })
 
+  // Refetch on focus (throttled) and on the app-global detection broadcast: the
+  // catalog used to be fetched ONCE per mount, so a selector could keep offering
+  // an engine a later detection cycle had dropped — and the consumer that owns
+  // the default would then fight the user's pick. One source, one freshness.
+  const [revision, setRevision] = useState(0)
+  useEffect(() => {
+    if (!enabled) return
+    let last = 0
+    const refresh = (): void => {
+      const now = Date.now()
+      if (now - last < 30_000) return
+      last = now
+      setRevision((r) => r + 1)
+    }
+    const onDetected = (): void => { last = 0; refresh() }
+    window.addEventListener('focus', refresh)
+    window.addEventListener('specrails:providers-detected-changed', onDetected)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('specrails:providers-detected-changed', onDetected)
+    }
+  }, [enabled])
+
   useEffect(() => {
     if (!enabled) return
     let alive = true
@@ -72,7 +95,7 @@ export function useAvailableProviders(options: { enabled?: boolean } = {}): Avai
         if (alive) setCatalog((previous) => ({ ...previous, loading: false }))
       })
     return () => { alive = false }
-  }, [enabled])
+  }, [enabled, revision])
 
   return catalog
 }
