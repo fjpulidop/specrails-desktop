@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.49.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.49.1...v2.49.2) (2026-09-20)
+
+
+### Bug Fixes
+
+* **agent-chat:** a picked provider is never undone by detection ([#675](https://github.com/fjpulidop/specrails-desktop/issues/675)) ([186ccd2](https://github.com/fjpulidop/specrails-desktop/commit/186ccd24cef90c4b8b50399484fb43b52dcb88fe))
+
 ## [2.49.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.49.0...v2.49.1) (2026-09-20)
 
 
