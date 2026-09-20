@@ -686,6 +686,35 @@ pub fn run() {
                 sidecar
             };
 
+            // Same story for the bundled local agent runner (`local-runner/`,
+            // declared as `binaries/specrails-local-runner.js`): without this env
+            // the sidecar's resolveLocalRunnerScript() climbs relative to
+            // __dirname, which only resolves in dev — in the packaged app it
+            // returns null and every local-engine turn spawns node against a
+            // non-existent script (observed on Windows: the mission composer
+            // offers the engine, then the turn dies with a Node error).
+            //   On macOS:   <app>.app/Contents/Resources/binaries/specrails-local-runner.js
+            //   On Windows: <install-dir>/resources/binaries/specrails-local-runner.js
+            let local_runner_path = app_handle
+                .path()
+                .resource_dir()
+                .ok()
+                .map(|p| {
+                    p.join("binaries")
+                        .join("specrails-local-runner.js")
+                        .to_string_lossy()
+                        .into_owned()
+                })
+                .unwrap_or_default();
+
+            // Existence-gated like the bridge above: a build without the runner
+            // falls back to the relative climb instead of a dead path.
+            let sidecar = if std::path::Path::new(&local_runner_path).exists() {
+                sidecar.env("SPECRAILS_BUNDLED_LOCAL_RUNNER_PATH", &local_runner_path)
+            } else {
+                sidecar
+            };
+
             // On macOS, GUI apps launched from Finder/Dock inherit a minimal PATH
             // from launchd that omits user tool dirs (homebrew, cargo, bun,
             // ~/.local/bin). We rebuild PATH from a zsh login shell and prepend
