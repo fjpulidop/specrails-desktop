@@ -81,6 +81,22 @@ export function resolveLocalRunnerScript(): string | null {
     const cleaned = stripWindowsVerbatimPrefix(fromEnv)
     if (fileExists(cleaned)) return cleaned
   }
+  // Packaged layouts FIRST relative to the running sidecar: in a built app
+  // `__dirname` is the bundler's virtual path, so the repo-relative climb below
+  // only ever resolves in dev — which is exactly how a packaged Windows build
+  // ended up spawning node against a non-existent runner script (the mission
+  // offered the local engine, the turn then died with a Node error). Mirrors
+  // locateBundledShim()'s execDir candidates.
+  const execDir = path.dirname(process.execPath)
+  const packaged = [
+    path.resolve(execDir, 'binaries', 'specrails-local-runner.js'),
+    path.resolve(execDir, '..', 'Resources', 'binaries', 'specrails-local-runner.js'),
+    path.resolve(execDir, 'resources', 'binaries', 'specrails-local-runner.js'),
+    path.resolve(execDir, 'specrails-local-runner.js'),
+  ]
+  for (const candidate of packaged) {
+    if (fileExists(candidate)) return candidate
+  }
   const roots = [
     path.resolve(__dirname, '..', '..'),
     path.resolve(__dirname, '..', '..', '..'),

@@ -195,6 +195,12 @@ hides the test / models UI of the connection card.
 
 ## Troubleshooting
 
+**"Node error" the moment a local-engine turn starts (installed app).** Fixed in
+2.49.2: the packaged app could not locate its bundled runner script, so every
+turn spawned Node against a missing file while the engine still appeared in the
+selectors. Update the app; nothing to configure.
+
+
 - **Engine missing from selectors** — the last probe failed. Test the
   connection; probes run every 60 s and are bounded at 3 s.
 - **`401` / "not authorized" pill** — the key env var is unset in the app

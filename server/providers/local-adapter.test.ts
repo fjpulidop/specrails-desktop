@@ -257,6 +257,21 @@ describe('runner script + node resolution', () => {
     expect(createLocalAdapter(conn).buildArgs('chat-turn', { prompt: 'x', model: 'm' })[0]).toMatch(/specrails-local-runner\.js$/)
   })
 
+  it('finds the runner next to the packaged sidecar when no env points at it (Windows install layout)', () => {
+    delete process.env.SPECRAILS_BUNDLED_LOCAL_RUNNER_PATH
+    const execDir = path.join(tmp, 'app')
+    fs.mkdirSync(path.join(execDir, 'binaries'), { recursive: true })
+    const script = path.join(execDir, 'binaries', 'specrails-local-runner.js')
+    fs.writeFileSync(script, '// stub')
+    const realExecPath = process.execPath
+    Object.defineProperty(process, 'execPath', { value: path.join(execDir, 'specrails-desktop.exe'), configurable: true })
+    try {
+      expect(resolveLocalRunnerScript()).toBe(script)
+    } finally {
+      Object.defineProperty(process, 'execPath', { value: realExecPath, configurable: true })
+    }
+  })
+
   it('binary is the bundled node or PATH node', () => {
     expect(['node', resolveLocalRunnerNode()]).toContain(createLocalAdapter(conn).binary)
   })
