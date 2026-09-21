@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { readSpecAddenda, type SpecAddendum } from './spec-addenda-core'
 
 // âââ Types âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -89,6 +90,14 @@ export interface Ticket {
    * never reads or writes this field.
    */
   needs_review?: boolean
+  /**
+   * Spec addenda (schema 1.4): structured iteration notes attached to the spec
+   * WITHOUT touching `description`. Each carries its own lifecycle (open →
+   * in_flight → applied / dismissed) and is injected as a briefing into every
+   * launch door (implement, SDD Quick, freestyle, custom loops, legacy jobs).
+   * Desktop-owned; specrails-core ignores the field. See server/spec-addenda-core.ts.
+   */
+  addenda?: SpecAddendum[]
 }
 
 export interface TicketStore {
@@ -102,7 +111,7 @@ export interface TicketStore {
 const VALID_STATUSES = new Set<TicketStatus>(['draft', 'todo', 'in_progress', 'on_review', 'done', 'cancelled'])
 const VALID_PRIORITIES = new Set<TicketPriority>(['critical', 'high', 'medium', 'low'])
 
-export const CURRENT_SCHEMA_VERSION = '1.3'
+export const CURRENT_SCHEMA_VERSION = '1.4'
 
 export const SHORT_SUMMARY_MAX_LEN = 240
 
@@ -305,6 +314,9 @@ function normalizeTicket(t: Ticket): Ticket {
   if (!('short_summary' in t) || t.short_summary === undefined) {
     t.short_summary = null
   }
+  // Schema 1.4 field: spec addenda. Absent ⇒ [], and a malformed entry is
+  // dropped rather than crashing the whole store read.
+  t.addenda = readSpecAddenda(t.addenda)
   return t
 }
 

@@ -1,4 +1,6 @@
 import { freezeFollowUp, parseFollowUpInput, readFollowUp } from './pr-follow-up'
+import { buildSpecAddendum, readSpecAddenda, readSpecAddendaSnapshot } from './spec-addenda'
+import { mutateStore, readStore } from './ticket-store'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
@@ -4003,6 +4005,58 @@ describe('launchIsolatedRail — revision generations (Wave 3)', () => {
     )
     const seed = (run.mock.calls[0][0] as { constants: Record<string, string> }).constants.REVISION_REQUEST
     expect(seed).toContain('revision 2')
+  })
+
+  it('spec addenda: frozen on the delivery row, claimed per run under the run id, briefed to the engine, description untouched', async () => {
+    const { ctx, db, broadcast } = fakeCtx(settlingRun('success'))
+    const projDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ril-addenda-'))
+    try {
+      ;(ctx as unknown as { project: { path: string } }).project.path = projDir
+      const storePath = path.join(projDir, '.specrails', 'local-tickets.json')
+      fs.mkdirSync(path.dirname(storePath), { recursive: true })
+      const now = '2026-09-21T10:00:00.000Z'
+      mutateStore(storePath, (s) => {
+        s.tickets['1'] = {
+          id: 1, title: 'Promote tab', description: 'never edited', status: 'on_review', priority: 'medium', labels: [],
+          assignee: null, prerequisites: [], metadata: {}, origin_conversation_id: null, is_epic: false,
+          parent_epic_id: null, execution_order: null, short_summary: null, created_at: now, updated_at: now,
+          created_by: 'test', source: 'manual',
+          addenda: [
+            { ...buildSpecAddendum({ kind: 'change-request', title: 'Idempotency', body: 'Send an Idempotency-Key.' }, { createdBy: 'agent', now }), id: 'a1' },
+            { ...buildSpecAddendum({ kind: 'constraint', title: 'Old', body: 'done already' }, { createdBy: 'user', now }), id: 'old', status: 'applied' },
+          ],
+        }
+        s.next_id = 2
+      })
+      const run = (ctx as unknown as { loopRunManager: { run: ReturnType<typeof vi.fn> } }).loopRunManager.run
+      run.mockClear()
+      await launchIsolatedRail(input([1], ctx), okIo())
+      const row = getActivePrDeliveryByRail(db, 0)!
+      const snapshot = readSpecAddendaSnapshot(row.spec_addenda)
+      expect(snapshot).toEqual([{ ticketId: 1, id: 'a1', kind: 'change-request', title: 'Idempotency', hash: expect.any(String) }])
+      expect(toPrDeliverySnapshot(row).specAddenda).toEqual(snapshot)
+      const req = run.mock.calls[0][0] as { runId: string; addenda?: { ids: string[]; briefing: string } }
+      expect(req.addenda?.ids).toEqual(['a1'])
+      expect(req.addenda?.briefing).toContain('### Spec #1 — Promote tab (status: on_review)')
+      expect(req.addenda?.briefing).toContain('ALREADY HAS DELIVERED WORK')
+      expect(req.addenda?.briefing).toContain('#### [a1] Change request — Idempotency')
+      const stored = readSpecAddenda(readStore(storePath).tickets['1'].addenda)
+      expect(stored.find((a) => a.id === 'a1')).toMatchObject({ status: 'in_flight', run_id: req.runId })
+      expect(stored.find((a) => a.id === 'old')?.status).toBe('applied')
+      expect(readStore(storePath).tickets['1'].description).toBe('never edited')
+      expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'ticket_updated', projectId: 'proj' }))
+    } finally {
+      fs.rmSync(projDir, { recursive: true, force: true })
+    }
+  })
+
+  it('a launch without addenda leaves spec_addenda NULL and passes no addenda to the engine (byte-identical)', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const run = (ctx as unknown as { loopRunManager: { run: ReturnType<typeof vi.fn> } }).loopRunManager.run
+    run.mockClear()
+    await launchIsolatedRail(input([1], ctx), okIo())
+    expect(getActivePrDeliveryByRail(db, 0)!.spec_addenda).toBeNull()
+    expect((run.mock.calls[0][0] as { addenda?: unknown }).addenda).toBeUndefined()
   })
 
   it('a follow-up launch persists the frozen scope on the delivery and appends its briefing to the run request', async () => {

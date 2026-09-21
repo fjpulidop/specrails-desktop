@@ -657,6 +657,10 @@
         "pasted": "incollato",
         "github": "da GitHub"
       }
+    },
+    "addenda": {
+      "rides_one": "{{count}} addendum aperto viaggia con questo lancio:",
+      "rides_other": "{{count}} addenda aperti viaggiano con questo lancio:"
     }
   },
   "runCard": {

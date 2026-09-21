@@ -28,6 +28,7 @@
  * FILES changed, which is all the diff can actually prove.
  */
 import { parseFollowUpReport, readFollowUp, type FollowUpReportLine, type PrFollowUp } from './pr-follow-up'
+import { parseSpecAddendaReport, readSpecAddendaSnapshot, type SpecAddendaReportLine, type SpecAddendaSnapshotEntry } from './spec-addenda-core'
 import type { DbInstance } from './db'
 import { readSettleEvidence, type DeliveryConfidenceScore, type DeliveryUnitEvidence , type DeliverySettleEvidence } from './delivery-evidence'
 import {
@@ -142,6 +143,10 @@ export interface ReviewPacket {
   /** The run's own per-comment report parsed from its harvested output — null
    * when the run reported nothing, never a synthesised verdict. */
   followUpReport: FollowUpReportLine[] | null
+  /** The frozen spec addenda this generation was launched with (spec-addenda); null when none. */
+  specAddenda: SpecAddendaSnapshotEntry[] | null
+  /** The run's own per-addendum `ADDENDA REPORT` parsed from its harvested output — null when it reported nothing. */
+  specAddendaReport: SpecAddendaReportLine[] | null
   /** Oldest-first version chain; length 1 when nothing has been revised. */
   versions: PacketVersion[]
   /** Cumulative cost across the whole chain (the honest number for a nudge). */
@@ -440,6 +445,7 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
   const snapshot = readSpecSnapshot(row.spec_snapshot)
   const evidence = readSettleEvidence(row.settle_evidence)
   const followUp = readFollowUp(row.follow_up)
+  const specAddenda = readSpecAddendaSnapshot(row.spec_addenda)
   const churn = churnForRuns(db, runIds, repository)
   const variant = selectVariant(row, units)
 
@@ -544,6 +550,8 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
     revisionNote: row.revision_note,
     followUp,
     followUpReport: followUp ? parseFollowUpReport(followUpReportSource(evidence), followUp) : null,
+    specAddenda,
+    specAddendaReport: specAddenda ? parseSpecAddendaReport(followUpReportSource(evidence), specAddenda) : null,
     versions,
     chainCostUsd: chainCosts.length > 0 ? chainCosts.reduce((sum, value) => sum + value, 0) : null,
     chainCostEstimated: versions.some((version) => version.costEstimated),

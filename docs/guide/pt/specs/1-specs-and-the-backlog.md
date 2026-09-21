@@ -46,6 +46,10 @@ Para criar uma spec, clique em **Adicionar** (o botão Mais na barra de ferramen
 
 Qual escolher depende do quão clara já está a ideia. Sabe exatamente o que quer? Quick. Ainda a pensar nela? Explore. Já tem o texto? Raw.
 
+## Adendos: iterar sobre uma spec existente
+
+Quando uma spec já tem trabalho por trás — uma PR em revisão, uma funcionalidade integrada — e quer *mais*, não reescreva a descrição: isso desvirtua a spec (e sincroniza o desvio com o Jira) e obriga a próxima execução a replanear tudo. Abra a spec e adicione um **adendo**: uma nota curta com um tipo (pedido de alteração, feedback de revisão, esclarecimento, restrição) e as suas palavras. Os adendos abertos seguem automaticamente com o próximo lançamento dessa spec em qualquer loop — Implement, SDD Quick, Freestyle — para que a execução altere apenas o que pediu, e o pacote de revisão reporta cada um como aplicado, parcialmente aplicado ou bloqueado. Se a execução falhar ou descartar a entrega, voltam sozinhos a **Aberto**. O agente de missão pode adicioná-los por si quando lhe pede para alterar algo numa spec existente.
+
 ## Para onde ir a seguir
 
 - [Adicionar Spec — modo Quick](add-spec-quick-mode.md) — a forma mais rápida de transformar uma ideia numa spec.

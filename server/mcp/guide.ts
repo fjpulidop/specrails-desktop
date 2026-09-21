@@ -47,6 +47,16 @@ Codex, Gemini, Kimi Code) to implement specs.
   them. Preserve scope through edits. A coordinated delivery is accepted only when
   every required repository satisfies its delivery contract; partial integration
   must remain visible and must not be represented by manually setting the spec done.
+  **Addenda** (\`addenda[]\` on the spec): structured iteration notes
+  (\`kind: change-request|review-feedback|clarification|constraint\`, title,
+  markdown body, sha256 hash) that live NEXT TO the description, never inside
+  it. Lifecycle \`open\` → \`in_flight\` (claimed by a launch, \`run_id\`) →
+  \`applied\` (the run completed) or back to \`open\` (the run failed / the
+  delivery was discarded); \`dismissed\` withdraws one. Every launch door
+  (Implement, SDD Quick, Freestyle, custom loops, revisions, legacy jobs)
+  briefs EVERY AI step with the spec's open addenda and the review packet reports
+  each as applied / partial / blocked. Use \`specrails_specs(add_addendum)\` to
+  iterate on an existing spec instead of editing its description.
 - **Rail**: a persistent numbered launch slot that runs the AI pipeline over its
   assigned tickets. A rail REMEMBERS its config across launches: ticket ids,
   mode, profile, engine, name. Launching spawns AI CLI processes that write

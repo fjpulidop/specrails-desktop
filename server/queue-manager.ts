@@ -47,6 +47,7 @@ import { InteractiveJobSession, type SettleInfo, type InteractiveSpawnSpec } fro
 import type { CommandInfo } from './config'
 import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
 import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from './ticket-store'
+import { broadcastSpecAddendaChange, claimSpecAddendaForRun } from './spec-addenda'
 import { binaryOnPath } from './binary-probe'
 import { ensureFrameworkAgents, ensureFrameworkCommandSubtrees } from './workspace-manager'
 import { ensureClaudeTrusted } from './claude-trust'
@@ -1825,6 +1826,27 @@ export class QueueManager {
   }
 
   /**
+   * Spec addenda briefing for a job (spec-addenda): claims (idempotently, keyed
+   * on the job id) the open addenda of every ticket the command references and
+   * renders the deterministic briefing. Best-effort: an unreadable store ⇒ ''.
+   */
+  private _buildSpecAddendaBriefing(command: string, jobId: string): string {
+    if (!this._cwd) return ''
+    const ticketIds = this._extractTicketIds(command)
+    if (ticketIds.length === 0) return ''
+    try {
+      const claimed = claimSpecAddendaForRun(this._resolveTicketsPath(), ticketIds, jobId)
+      if (claimed.store && this._projectId) {
+        broadcastSpecAddendaChange((msg) => this._broadcast(msg as unknown as WsMessage), this._projectId, claimed)
+      }
+      return claimed.briefing
+    } catch (err) {
+      console.warn(`[queue-manager] failed to build spec addenda briefing: ${(err as Error).message}`)
+      return ''
+    }
+  }
+
+  /**
    * Build the Claude prompt for an Freestyle job. Freestyle does NOT invoke
    * a slash command: it sends the resolved pre-prompt followed by the full spec
    * text of every ticket referenced in the command. Fully reconstructible from
@@ -2641,9 +2663,17 @@ export class QueueManager {
     // prompt. The server route rejects adapters that do not advertise
     // `freestyle` before this point.
     // (`isFreestyle` itself is resolved above, before the systemAppend build.)
-    const railPrompt = isFreestyle
+    let railPrompt = isFreestyle
       ? this._buildFreestylePrompt(commandToRun)
       : formatProviderCommand(adapter, commandToRun, execution.cwd)
+    // Spec addenda (spec-addenda): every ticket-referencing job carries the
+    // specs' open addenda as a briefing APPENDED after the command (so it rides
+    // as command arguments for CLI providers, plain text for freestyle/runner).
+    // Read + claimed at SPAWN time from the store — restart-durable, and the
+    // same path the loop engine takes, so implement/SDD Quick/freestyle/legacy
+    // all see the identical text.
+    const addendaBriefing = this._buildSpecAddendaBriefing(commandToRun, jobId)
+    if (addendaBriefing) railPrompt = `${railPrompt}\n\n${addendaBriefing}`
     // Per-job model override (consumed once) takes precedence — used by the
     // freestyle model picker so the user can choose haiku/sonnet/opus per launch.
     const modelOverride = this._jobModelSelection.get(jobId)

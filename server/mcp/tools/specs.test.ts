@@ -82,6 +82,39 @@ describe('specrails_specs facade', () => {
     expect(JSON.stringify(result).length).toBeLessThan(15_000)
   })
 
+  it('spec addenda actions route to the addenda REST endpoints with the right tiers', async () => {
+    const tier = (args: Record<string, unknown>) => (typeof spec.tier === 'function' ? spec.tier(args) : spec.tier)
+    expect(tier({ action: 'list_addenda' })).toBe('read')
+    expect(tier({ action: 'add_addendum' })).toBe('write')
+    expect(tier({ action: 'update_addendum' })).toBe('write')
+    expect(tier({ action: 'dismiss_addendum' })).toBe('write')
+    expect(tier({ action: 'reopen_addendum' })).toBe('write')
+    expect(tier({ action: 'delete_addendum' })).toBe('destructive')
+
+    await spec.handler(ctx, { action: 'list_addenda', projectId: 'p1', id: 7 })
+    expect((fetchMock.mock.calls.at(-1) as [string])[0]).toContain('/tickets/7/addenda')
+
+    const added = await spec.handler({ ...ctx, originConversationId: 'conv-1' }, { action: 'add_addendum', projectId: 'p1', id: 7, body: 'Send an Idempotency-Key.', kind: 'review-feedback' }) as { hint: string }
+    expect((fetchMock.mock.calls.at(-1) as [string, { method: string }])[1].method).toBe('POST')
+    expect(lastBody()).toMatchObject({ kind: 'review-feedback', body: 'Send an Idempotency-Key.', createdBy: 'agent', originConversationId: 'conv-1' })
+    expect(added.hint).toContain('NEXT launch')
+
+    await spec.handler(ctx, { action: 'add_addendum', projectId: 'p1', id: 7, body: 'x' })
+    expect(lastBody()).toMatchObject({ createdBy: 'mcp' })
+    await expect(spec.handler(ctx, { action: 'add_addendum', projectId: 'p1', id: 7 })).rejects.toThrow(/body/)
+
+    await spec.handler(ctx, { action: 'update_addendum', projectId: 'p1', id: 7, addendumId: 'a1', body: 'new' })
+    expect((fetchMock.mock.calls.at(-1) as [string, { method: string }])[0]).toContain('/tickets/7/addenda/a1')
+    expect(lastBody()).toMatchObject({ body: 'new' })
+    await spec.handler(ctx, { action: 'dismiss_addendum', projectId: 'p1', id: 7, addendumId: 'a1' })
+    expect(lastBody()).toEqual({ status: 'dismissed' })
+    await spec.handler(ctx, { action: 'reopen_addendum', projectId: 'p1', id: 7, addendumId: 'a1' })
+    expect(lastBody()).toEqual({ status: 'open' })
+    await spec.handler(ctx, { action: 'delete_addendum', projectId: 'p1', id: 7, addendumId: 'a1' })
+    expect((fetchMock.mock.calls.at(-1) as [string, { method: string }])[1].method).toBe('DELETE')
+    await expect(spec.handler(ctx, { action: 'delete_addendum', projectId: 'p1', id: 7 })).rejects.toThrow(/addendumId/)
+  })
+
   it('create forwards contextScope/attachmentIds/pendingSpecId/createLocal and drops the dead provider key', async () => {
     await spec.handler(ctx, {
       action: 'create',

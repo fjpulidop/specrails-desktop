@@ -105,6 +105,12 @@ describe('client mirror parity', () => {
     const norm = (s: string) => s.replace(/lives at [^\n]+ and MUST stay byte-identical/, 'MIRROR')
     expect(norm(client)).toBe(norm(server))
   })
+
+  it('client/src/lib/spec-addenda-core.ts is byte-identical to server/spec-addenda-core.ts', () => {
+    const server = fs.readFileSync(path.join(__dirname, 'spec-addenda-core.ts'), 'utf8')
+    const client = fs.readFileSync(path.join(__dirname, '..', 'client', 'src', 'lib', 'spec-addenda-core.ts'), 'utf8')
+    expect(client).toBe(server)
+  })
 })
 
 describe('followUp on a proposal (pr-follow-up-fixes)', () => {

@@ -69,6 +69,8 @@ function packet(over: Partial<ReviewPacket> = {}): ReviewPacket {
     revisionNote: null,
     followUp: null,
     followUpReport: null,
+    specAddenda: null,
+    specAddendaReport: null,
     versions: [{
       prDeliveryId: 'del-1', version: 1, revisionNote: null, decision: 'on_review',
       costUsd: 2.5, costEstimated: false, current: true,
@@ -184,6 +186,23 @@ describe('ReviewPacketPage — above the fold', () => {
     expect(screen.getByText('Ruled out:', { exact: false })).toBeInTheDocument()
     // Inline code in a pasted comment renders as code, not backticks.
     expect(screen.getAllByText('Idempotency-Key').some((el) => el.tagName === 'CODE')).toBe(true)
+  })
+
+  it('shows the frozen spec addenda with the run\'s own verdicts and "Not reported" when it said nothing', async () => {
+    const specAddenda = [
+      { ticketId: 1, id: 'a1', kind: 'change-request' as const, title: 'Idempotency keys', hash: 'h1' },
+      { ticketId: 1, id: 'a2', kind: 'constraint' as const, title: 'No new deps', hash: 'h2' },
+    ]
+    respond({ packet: packet({ specAddenda, specAddendaReport: [{ addendumId: 'a1', verdict: 'applied', files: 'lib/api.ts', tests: 'api.test.ts', notes: null }] }) })
+    renderPage()
+    expect(await screen.findByText('Your change is ready for review')).toBeInTheDocument()
+    const section = screen.getByTestId('packet-addenda')
+    expect(section).toHaveTextContent('Idempotency keys')
+    expect(section).toHaveTextContent('lib/api.ts')
+    expect(section).toHaveTextContent('Constraint')
+    const verdicts = screen.getAllByTestId('packet-addenda-verdict').map((el) => el.textContent)
+    expect(verdicts).toEqual(['Applied', 'Not reported'])
+    expect(section).toHaveTextContent('The run did not report this addendum.')
   })
 
   it('marks an estimated cost and shows an em-dash when unknown', async () => {

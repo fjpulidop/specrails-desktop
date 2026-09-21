@@ -46,6 +46,10 @@ Per creare una spec, clicca su **Aggiungi** (il pulsante Più nella toolbar dell
 
 Quale scegliere dipende da quanto è già chiara l'idea. Sai esattamente cosa vuoi? Quick. La stai ancora mettendo a fuoco? Explore. Hai già il testo? Raw.
 
+## Addenda: iterare su una spec esistente
+
+Quando una spec ha già del lavoro alle spalle — una PR in revisione, una funzionalità già unita — e vuoi *di più*, non riscriverne la descrizione: snatura la spec (e sincronizza la deriva su Jira) e costringe l'esecuzione successiva a ripianificare tutto. Apri la spec e aggiungi invece un **addendum**: una breve nota con un tipo (richiesta di modifica, feedback di revisione, chiarimento, vincolo) e le tue parole. Gli addenda aperti viaggiano automaticamente con il prossimo lancio di quella spec su qualsiasi loop — Implement, SDD Quick, Freestyle — così l'esecuzione cambia solo ciò che hai chiesto, e il pacchetto di revisione riporta ciascuno come applicato, parzialmente applicato o bloccato. Se l'esecuzione fallisce o scarti la consegna, tornano da soli ad **Aperto**. L'agente di missione può aggiungerli per te quando gli chiedi di cambiare qualcosa in una spec esistente.
+
 ## Dove andare adesso
 
 - [Aggiungi spec — Modalità Quick](add-spec-quick-mode.md) — il modo più rapido per trasformare un'idea in una spec.

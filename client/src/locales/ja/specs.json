@@ -35,7 +35,9 @@
     "raw": "Raw",
     "rawTitle": "Raw スペック — 取り込み時に AI 生成なし",
     "contract": "Contract",
-    "openParentEpicTitle": "親エピック #{{id}} を開く · {{title}}"
+    "openParentEpicTitle": "親エピック #{{id}} を開く · {{title}}",
+    "addendaTitle_one": "{{count}} 件の未処理補足 — 次回の起動に同行",
+    "addendaTitle_other": "{{count}} 件の未処理補足 — 次回の起動に同行"
   },
   "card": {
     "deleteSpec": "スペック #{{id}} を削除",

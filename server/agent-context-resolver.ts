@@ -1,4 +1,5 @@
 import { getAgentConversation, listAgentMessages, type AgentMessage } from './agent-store'
+import { readSpecAddenda } from './spec-addenda-core'
 import { getJob, getJobEvents, listJobs, type DbInstance } from './db'
 import { getProject, listProjects, type ProjectRow } from './desktop-db'
 import type { ProjectContext, ProjectRegistry } from './project-registry'
@@ -253,6 +254,10 @@ function formatTicket(
   lines.push(`spec.created_at: ${ticket.created_at}`, `spec.updated_at: ${ticket.updated_at}`)
   if (ticket.description) {
     lines.push(`spec.description:\n${clipMultiline(ticket.description, MAX_DESCRIPTION_CHARS)}`)
+  }
+  const addenda = readSpecAddenda(ticket.addenda)
+  if (addenda.length) {
+    lines.push(`spec.addenda (${addenda.length}; open/in_flight ones ride into the next launch):\n${addenda.map((a) => `- [${a.id}] ${a.status} · ${a.kind} · ${safe(a.title, 160)}${a.run_id ? ` · run ${a.run_id}` : ''}\n  ${safe(a.body, 600)}`).join('\n')}`)
   }
   const comments = (ticket.comments ?? []).slice(-3)
   if (comments.length) {

@@ -138,7 +138,7 @@ describe('E1: POST /tickets persists correct JSON to disk', () => {
     await request(app).post('/api/projects/proj-1/tickets').send({ title: 'Disk test' })
 
     const store = readDiskStore(tmpDir)
-    expect(store.schema_version).toBe('1.3')
+    expect(store.schema_version).toBe('1.4')
     expect(store.revision).toBe(1)
     expect(typeof store.last_updated).toBe('string')
     expect(store.next_id).toBe(2)

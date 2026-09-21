@@ -114,5 +114,67 @@
     "newTicket": "Nuovo ticket: {{title}}",
     "newTicketsAdded_one": "{{count}} nuovo ticket aggiunto dalla product discovery",
     "newTicketsAdded_other": "{{count}} nuovi ticket aggiunti dalla product discovery"
+  },
+  "addenda": {
+    "title": "Addenda",
+    "hint": "Note di iterazione sopra la spec. Viaggiano con il prossimo lancio senza modificare la descrizione.",
+    "add": "Aggiungi addendum",
+    "emptyCta": "Aggiungi un addendum per iterare su questa spec: il prossimo lancio (Implement, SDD Quick, Freestyle…) lo riceve come briefing e la descrizione resta intatta.",
+    "openCount_one": "{{count}} aperto",
+    "openCount_other": "{{count}} aperti",
+    "kind": {
+      "change-request": "Richiesta di modifica",
+      "review-feedback": "Feedback di revisione",
+      "clarification": "Chiarimento",
+      "constraint": "Vincolo"
+    },
+    "status": {
+      "open": "Aperto",
+      "in_flight": "In corso",
+      "applied": "Applicato",
+      "dismissed": "Scartato"
+    },
+    "statusHint": {
+      "open": "Viaggia con il prossimo lancio di questa spec",
+      "in_flight": "Rivendicato da un job in esecuzione — congelato fino al termine",
+      "applied": "Consegnato da un'esecuzione completata",
+      "dismissed": "Ritirato — non viene iniettato"
+    },
+    "form": {
+      "kind": "Tipo",
+      "titlePlaceholder": "Titolo (opzionale — derivato dalla prima riga)",
+      "bodyPlaceholder": "Descrivi la modifica con parole tue. Markdown ammesso; cita alla lettera i commenti del revisore se li hai.",
+      "hint": "⌘/Ctrl+Invio salva · la descrizione non viene mai modificata",
+      "save": "Salva addendum",
+      "cancel": "Annulla",
+      "saving": "Salvataggio…"
+    },
+    "actions": {
+      "edit": "Modifica",
+      "dismiss": "Scarta",
+      "reopen": "Riapri",
+      "delete": "Elimina",
+      "confirmDelete": "Conferma eliminazione",
+      "release": "Rilascia",
+      "releaseHint": "Rilascia l'addendum se l'esecuzione che lo aveva rivendicato non esiste più"
+    },
+    "meta": {
+      "by": "da {{who}}",
+      "run": "esecuzione {{id}}",
+      "hash": "hash {{hash}}",
+      "applied": "applicato {{when}}"
+    },
+    "who": {
+      "user": "te",
+      "agent": "l'agente",
+      "mcp": "un client MCP"
+    },
+    "toast": {
+      "added": "Addendum aggiunto — viaggerà con il prossimo lancio",
+      "updated": "Addendum aggiornato",
+      "removed": "Addendum eliminato",
+      "failed": "Impossibile salvare l'addendum",
+      "inFlight": "Questo addendum è in corso — attendi la fine dell'esecuzione"
+    }
   }
 }

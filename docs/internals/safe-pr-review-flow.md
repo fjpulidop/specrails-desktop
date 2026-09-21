@@ -729,6 +729,14 @@ child rows.
   generation on the same rail is never touched.
 - No migration: an already-stuck row is decided correctly the next time the
   user presses Discard.
+- **Relaunch closes it (spec-addenda, 2026-09-21).** `isPreparationFailureRow`
+  (`rail-pr-store.ts`) is the shared classifier; `POST /rails/:i/launch`
+  transitions such a row `pr_failed → discarded` in place (re-broadcasting
+  `rail.pr_state`) and proceeds with the launch instead of answering
+  `pr_decision_pending` — the user already saw the failure on the card, and
+  pressing Launch again IS the decision. A revision naming it gets 409
+  `invalid_revision_target` (nothing to revise). Real undecided deliveries are
+  untouched.
 
 ## PR review follow-up (pr-follow-up-fixes)
 

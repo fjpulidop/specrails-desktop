@@ -657,6 +657,10 @@
         "pasted": "粘贴",
         "github": "来自 GitHub"
       }
+    },
+    "addenda": {
+      "rides_one": "{{count}} 个待处理附录将随本次启动传递：",
+      "rides_other": "{{count}} 个待处理附录将随本次启动传递："
     }
   },
   "runCard": {

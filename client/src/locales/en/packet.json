@@ -148,5 +148,22 @@
       "pasted": "pasted by you",
       "github": "from GitHub"
     }
+  },
+  "addenda": {
+    "title": "Spec addenda this run was briefed with ({{count}})",
+    "caveat": "Iteration notes attached to the spec and frozen at launch. Verdicts below are the run's own report — not a claim that everything is fine because the tests passed.",
+    "kind": {
+      "change-request": "Change request",
+      "review-feedback": "Review feedback",
+      "clarification": "Clarification",
+      "constraint": "Constraint"
+    },
+    "verdict": {
+      "applied": "Applied",
+      "partial": "Partially applied",
+      "blocked": "Blocked",
+      "unreported": "Not reported"
+    },
+    "noReport": "The run did not report this addendum. Check the changes and evidence below."
   }
 }

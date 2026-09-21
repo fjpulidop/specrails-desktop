@@ -148,5 +148,22 @@
       "pasted": "collé par vous",
       "github": "depuis GitHub"
     }
+  },
+  "addenda": {
+    "title": "Addenda transmis à cette exécution ({{count}})",
+    "caveat": "Notes d'itération attachées à la spec et figées au lancement. Les verdicts ci-dessous sont le rapport de l'exécution elle-même — pas une garantie que tout va bien parce que les tests passent.",
+    "kind": {
+      "change-request": "Demande de changement",
+      "review-feedback": "Retour de revue",
+      "clarification": "Clarification",
+      "constraint": "Contrainte"
+    },
+    "verdict": {
+      "applied": "Appliqué",
+      "partial": "Partiellement appliqué",
+      "blocked": "Bloqué",
+      "unreported": "Non signalé"
+    },
+    "noReport": "L'exécution n'a rien signalé pour cet addendum. Vérifiez les changements et les preuves ci-dessous."
   }
 }

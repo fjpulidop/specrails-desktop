@@ -700,6 +700,20 @@ describe('LoopRunManager', () => {
     }
   })
 
+  it('appends the spec-addenda briefing to EVERY ai-step prompt, after the follow-up when both ride', async () => {
+    const ex = makeExecutors()
+    const followUp = '## FOLLOW-UP SCOPE (authoritative for this run)\nFollow-up fu-1'
+    const briefing = '## SPEC ADDENDA (authoritative for this run)\n#### [a1] Change request — Idempotency'
+    await manager(ex).run({ ...baseReq(), followUp: { id: 'fu-1', version: 1, hash: 'abc', briefing: followUp }, addenda: { ids: ['a1'], briefing } })
+    const prompts = (ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0].prompt as string)
+    expect(prompts.length).toBeGreaterThan(0)
+    for (const prompt of prompts) {
+      expect(prompt.endsWith(briefing)).toBe(true)
+      expect(prompt.indexOf('FOLLOW-UP SCOPE')).toBeGreaterThan(0)
+      expect(prompt.indexOf('SPEC ADDENDA')).toBeGreaterThan(prompt.indexOf('FOLLOW-UP SCOPE'))
+    }
+  })
+
   it('interpolates {{spec.title}} into the AI step prompt', async () => {
     const ex = makeExecutors()
     await manager(ex).run(baseReq())

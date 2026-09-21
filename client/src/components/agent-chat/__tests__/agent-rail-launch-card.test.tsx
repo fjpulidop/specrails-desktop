@@ -186,6 +186,26 @@ describe('AgentRailLaunchCard', () => {
     expect(calls.some((c) => /\/tickets\/\d+/.test(c.url) && c.init?.method && c.init.method !== 'GET')).toBe(false)
   })
 
+  it('surfaces the open addenda the launch will brief the run with (applied ones excluded)', async () => {
+    const addendum = (id: string, status: 'open' | 'applied', title: string) => ({
+      id, version: 1, kind: 'change-request', title, body: 'b', status, hash: 'h', created_at: 'x', updated_at: 'x',
+      created_by: 'user', origin_conversation_id: null, run_id: null, applied_at: null,
+    })
+    mockFetch({
+      '/tickets': () => ({ status: 200, body: { tickets: [
+        { id: 12, title: 'Login form', status: 'todo', labels: [], addenda: [addendum('a1', 'open', 'Use idempotency keys'), addendum('a0', 'applied', 'Old')] },
+        { id: 14, title: 'Session refresh', status: 'todo', labels: [], addenda: [addendum('a2', 'open', 'Classify 502 as unknown')] },
+      ] } }),
+    })
+    renderCard()
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    const note = screen.getByTestId('rail-card-addenda')
+    expect(note).toHaveTextContent('2 open addenda ride into this launch:')
+    expect(note).toHaveTextContent('#12 Use idempotency keys')
+    expect(note).toHaveTextContent('#14 Classify 502 as unknown')
+    expect(note).not.toHaveTextContent('Old')
+  })
+
   it('creates a new rail first when the proposal asks for one', async () => {
     renderCard({ railIndex: null, newRail: { name: 'Fresh' } })
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())

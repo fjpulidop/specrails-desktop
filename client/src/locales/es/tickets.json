@@ -114,5 +114,67 @@
     "newTicket": "Nuevo ticket: {{title}}",
     "newTicketsAdded_one": "{{count}} ticket nuevo añadido desde product discovery",
     "newTicketsAdded_other": "{{count}} tickets nuevos añadidos desde product discovery"
+  },
+  "addenda": {
+    "title": "Anexos",
+    "hint": "Notas de iteración sobre la spec. Viajan con el próximo lanzamiento sin editar la descripción.",
+    "add": "Añadir anexo",
+    "emptyCta": "Añade un anexo para iterar sobre esta spec: el próximo lanzamiento (Implement, SDD Quick, Freestyle…) lo recibe como briefing y la descripción queda intacta.",
+    "openCount_one": "{{count}} abierto",
+    "openCount_other": "{{count}} abiertos",
+    "kind": {
+      "change-request": "Petición de cambio",
+      "review-feedback": "Feedback de revisión",
+      "clarification": "Aclaración",
+      "constraint": "Restricción"
+    },
+    "status": {
+      "open": "Abierto",
+      "in_flight": "En curso",
+      "applied": "Aplicado",
+      "dismissed": "Descartado"
+    },
+    "statusHint": {
+      "open": "Viaja con el próximo lanzamiento de esta spec",
+      "in_flight": "Reclamado por un job en ejecución — congelado hasta que termine",
+      "applied": "Entregado por una ejecución completada",
+      "dismissed": "Retirado — no se inyecta"
+    },
+    "form": {
+      "kind": "Tipo",
+      "titlePlaceholder": "Título (opcional — se deriva de la primera línea)",
+      "bodyPlaceholder": "Describe el cambio con tus palabras. Puedes usar Markdown; cita literalmente los comentarios del revisor si los tienes.",
+      "hint": "⌘/Ctrl+Enter guarda · la descripción nunca se edita",
+      "save": "Guardar anexo",
+      "cancel": "Cancelar",
+      "saving": "Guardando…"
+    },
+    "actions": {
+      "edit": "Editar",
+      "dismiss": "Descartar",
+      "reopen": "Reabrir",
+      "delete": "Eliminar",
+      "confirmDelete": "Confirmar eliminación",
+      "release": "Liberar",
+      "releaseHint": "Libera el anexo si la ejecución que lo reclamó ya no existe"
+    },
+    "meta": {
+      "by": "por {{who}}",
+      "run": "ejecución {{id}}",
+      "hash": "hash {{hash}}",
+      "applied": "aplicado {{when}}"
+    },
+    "who": {
+      "user": "ti",
+      "agent": "el agente",
+      "mcp": "un cliente MCP"
+    },
+    "toast": {
+      "added": "Anexo añadido — viajará con el próximo lanzamiento",
+      "updated": "Anexo actualizado",
+      "removed": "Anexo eliminado",
+      "failed": "No se pudo guardar el anexo",
+      "inFlight": "Este anexo está en curso — espera a que termine la ejecución"
+    }
   }
 }

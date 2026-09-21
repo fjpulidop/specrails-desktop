@@ -150,6 +150,9 @@ export function mapIssueToTicket(
     parent_epic_id: existing?.parent_epic_id ?? null,
     execution_order: existing?.execution_order ?? null,
     short_summary: existing?.short_summary ?? null,
+    // Spec addenda are local-only iteration notes: never Jira content, never
+    // wiped by an inbound poll (the literal rebuilds the ticket from scratch).
+    addenda: existing?.addenda ?? [],
     created_at: existing?.created_at ?? now,
     updated_at: now,
     created_by: existing?.created_by ?? 'jira',

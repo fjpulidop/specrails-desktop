@@ -38,6 +38,7 @@ import { loopNeedsTicket } from '../../lib/loop-ticket-need'
 import { notifyGitChanged } from '../../lib/git-refresh'
 import { AgentToolbarSelector, type AgentToolbarOption } from './AgentToolbarSelector'
 import type { LocalTicket } from '../../types'
+import { openAddenda } from '../../lib/spec-addenda-core'
 import type { ProfileListEntry } from '../agents/types'
 
 // ── Live project state the card reconciles against ────────────────────────────
@@ -241,6 +242,14 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     [config.ticketIds, ticketById, tickets],
   )
   const droppedTickets = tickets ? config.ticketIds.filter((id) => !ticketById.has(id)) : []
+  // Spec addenda (spec-addenda): the open notes the launch will brief the run
+  // with — surfaced here so the user sees the iteration delta before Play.
+  const openAddendaEntries = useMemo(
+    () => validTicketIds.flatMap((id) => openAddenda(ticketById.get(id)?.addenda).map((a) => ({ ticketId: id, title: a.title }))),
+    [validTicketIds, ticketById],
+  )
+  const openAddendaTotal = openAddendaEntries.length
+  const openAddendaTitles = openAddendaEntries.slice(0, 3).map((e) => `#${e.ticketId} ${e.title}`)
   const addableTickets = useMemo(
     () => (tickets ?? []).filter((tk) => (tk.status === 'todo' || tk.status === 'draft') && !config.ticketIds.includes(tk.id)),
     [tickets, config.ticketIds],
@@ -544,6 +553,15 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
           )}
         </div>
         {droppedTickets.length > 0 && <Note tone="muted" text={t('railCard.notes.specsDropped', { ids: droppedTickets.map((id) => `#${id}`).join(', ') })} />}
+        {openAddendaTotal > 0 && (
+          <div data-testid="rail-card-addenda" className="flex items-start gap-1.5 rounded-lg border border-accent-primary/25 bg-accent-primary/[0.05] px-2.5 py-1.5 text-[11px] text-foreground/75">
+            <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-primary/80" />
+            <span>
+              {t('railCard.addenda.rides', { count: openAddendaTotal })}{' '}
+              <span className="text-foreground/50">{openAddendaTitles.join(' · ')}</span>
+            </span>
+          </div>
+        )}
 
         {/* Loop · engine · model · effort · profile */}
         <div className="flex flex-wrap items-center gap-x-1 gap-y-1">

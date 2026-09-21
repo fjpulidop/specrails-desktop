@@ -1,3 +1,5 @@
+import { buildSpecAddendum, readSpecAddenda } from './spec-addenda'
+import { mutateStore as mutateTicketStore, readStore as readTicketStore } from './ticket-store'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
@@ -1164,6 +1166,32 @@ describe('ProjectRegistry', () => {
       expect(onRailReview).not.toHaveBeenCalled()
     })
 
+    it('settles the spec addenda the run claimed: success ⇒ applied, failure ⇒ reopened (keyed on the run id, even for a non-promotable spec)', () => {
+      const seedWithAddenda = () => {
+        seedTicket('on_review')
+        mutateTicketStore(ticketFile(), (s) => {
+          s.tickets['1'].addenda = [
+            { ...buildSpecAddendum({ kind: 'change-request', title: 'Mine', body: 'b' }, { createdBy: 'user' }), id: 'mine', status: 'in_flight', run_id: 'run-1' },
+            { ...buildSpecAddendum({ kind: 'change-request', title: 'Other', body: 'b' }, { createdBy: 'user' }), id: 'other', status: 'in_flight', run_id: 'run-other' },
+          ]
+        })
+      }
+      const state = () => Object.fromEntries(readSpecAddenda(readTicketStore(ticketFile()).tickets['1'].addenda).map((a) => [a.id, [a.status, a.run_id]]))
+
+      seedWithAddenda()
+      const first = setup()
+      first.ctx.onLoopRunFinished('run-1', 'success', { ticketCompletionStatus: 'on_review' })
+      expect(state()).toEqual({ mine: ['applied', 'run-1'], other: ['in_flight', 'run-other'] })
+      expect(readStatus()).toBe('on_review')
+      expect(broadcast.mock.calls.some(([m]) => (m as { type?: string }).type === 'ticket_updated')).toBe(true)
+      registry.removeProject('pLoop')
+
+      seedWithAddenda()
+      const second = setup()
+      second.ctx.onLoopRunFinished('run-1', 'failed')
+      expect(state()).toEqual({ mine: ['open', null], other: ['in_flight', 'run-other'] })
+    })
+
     it('failure outcome ignores ticketCompletionStatus (in_progress → todo, done-flavoured enqueue)', () => {
       seedTicket('in_progress')
       const { ctx, onJobOutcome, onRailReview } = setup()
@@ -1428,6 +1456,28 @@ describe('ProjectRegistry', () => {
         .toEqual({ owner_id: 'admitted-job' })
       expect(ctx.db.prepare(`SELECT owner_id FROM rail_ticket_ownership WHERE rail_index = 0 AND ticket_id = 1`).get())
         .toEqual({ owner_id: 'admitted-job' })
+    })
+
+    it('settles the spec addenda a job claimed at spawn (completed ⇒ applied, canceled ⇒ reopened)', async () => {
+      const seedWithAddenda = () => {
+        seedTicket('in_progress')
+        mutateTicketStore(ticketFile(), (s) => {
+          s.tickets['1'].addenda = [{ ...buildSpecAddendum({ kind: 'review-feedback', title: 'Mine', body: 'b' }, { createdBy: 'agent' }), id: 'mine', status: 'in_flight', run_id: 'job-1' }]
+        })
+      }
+      const state = () => readSpecAddenda(readTicketStore(ticketFile()).tickets['1'].addenda)[0]
+
+      seedWithAddenda()
+      const first = await setup()
+      first.onJobFinished('job-1', 'completed', 0.02, { ticketCompletionStatus: 'on_review' })
+      expect(state()).toMatchObject({ status: 'applied', run_id: 'job-1' })
+      expect(state().applied_at).toBeTruthy()
+      registry.removeProject('pJob')
+
+      seedWithAddenda()
+      const second = await setup()
+      second.onJobFinished('job-1', 'canceled', null)
+      expect(state()).toMatchObject({ status: 'open', run_id: null })
     })
 
     it("ticketCompletionStatus 'on_review' (the spawn-captured PR mode) parks a completed job's tickets at on_review and calls the Jira on-review hook", async () => {

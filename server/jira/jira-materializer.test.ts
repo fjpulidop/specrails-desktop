@@ -409,6 +409,7 @@ describe('mapIssueToTicket', () => {
       parent_epic_id: 2,
       execution_order: 9,
       short_summary: 'short',
+      addenda: [{ id: 'a1', version: 1, kind: 'change-request', title: 'Keep', body: 'b', status: 'open', hash: 'h', created_at: 'x', updated_at: 'x', created_by: 'user', origin_conversation_id: null, run_id: null, applied_at: null }],
       created_at: '2020-05-05T05:05:05.000Z',
       updated_at: '2020-05-05T05:05:05.000Z',
       created_by: 'human',
@@ -427,6 +428,7 @@ describe('mapIssueToTicket', () => {
     expect(t.parent_epic_id).toBe(2)
     expect(t.execution_order).toBe(9)
     expect(t.short_summary).toBe('short')
+    expect(t.addenda).toEqual(existing.addenda) // spec addenda are local-only, never wiped by a poll
     expect(t.created_by).toBe('human') // preserved from existing
     // But Jira-authoritative fields are overwritten:
     expect(t.title).toBe('new title')

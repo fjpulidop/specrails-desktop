@@ -38,7 +38,7 @@ reading one description. The tools are:
 |---|---|
 | `specrails_projects` | List / resolve projects; unregister (destructive) |
 | `specrails_context` | Compact live briefing: project/providers, backlog, rails/runs/deliveries, Git/worktrees, blueprint; source and availability per section |
-| `specrails_specs` | The spec/ticket backlog: list, get, create, update, delete, drafts, AI generate, AI-edit, Contract Refine, SMASH, per-ticket spend |
+| `specrails_specs` | The spec/ticket backlog: list, get, create, update, delete, drafts, AI generate, AI-edit, Contract Refine, SMASH, per-ticket spend, and **spec addenda** (`list_addenda`, `add_addendum`, `update_addendum`, `dismiss_addendum`, `reopen_addendum`, `delete_addendum`) — the way to iterate on an existing spec without rewriting its description: an open addendum rides into the next launch on any loop and the packet reports it |
 | `specrails_rails` | Configure/launch dynamic rails (`create_rail`, up to 12), inspect PR candidates/review packets; `launch_all` reports outcomes and isolation availability per rail |
 | `specrails_jobs` | Inspect paginated job events, phase breakdowns, queues and background processes; stop jobs; read and drive programmatic runtime runs (`runtime_*`) |
 | `specrails_chat` | Explore / sidebar chat conversations and turns |

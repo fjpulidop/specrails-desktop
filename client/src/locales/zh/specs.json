@@ -35,7 +35,9 @@
     "raw": "Raw",
     "rawTitle": "Raw spec——录入时不经过 AI 生成",
     "contract": "Contract",
-    "openParentEpicTitle": "打开父级 Epic #{{id}} · {{title}}"
+    "openParentEpicTitle": "打开父级 Epic #{{id}} · {{title}}",
+    "addendaTitle_one": "{{count}} 个待处理附录 — 随下一次启动传递",
+    "addendaTitle_other": "{{count}} 个待处理附录 — 随下一次启动传递"
   },
   "card": {
     "deleteSpec": "删除 spec #{{id}}",
