@@ -73,6 +73,13 @@ function outcomeKey(section: PacketTicketSection): 'succeeded' | 'failed' | 'noC
   return 'unknown'
 }
 
+const FOLLOW_UP_PILL: Record<'resolved' | 'partial' | 'blocked' | 'unreported', string> = {
+  resolved: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
+  partial: 'border-accent-warning/40 bg-accent-warning/10 text-accent-warning',
+  blocked: 'border-destructive/40 bg-destructive/10 text-destructive',
+  unreported: 'border-border bg-background-deep/50 text-muted-foreground',
+}
+
 const OUTCOME_PILL: Record<ReturnType<typeof outcomeKey>, string> = {
   succeeded: 'border-accent-success/40 bg-accent-success/10 text-accent-success',
   noChanges: 'border-accent-info/40 bg-accent-info/10 text-accent-info',
@@ -596,6 +603,43 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
           ))}
         </ul>
       </Section>
+
+      {packet.followUp && (
+        <Section title={t('followUp.title', { count: packet.followUp.comments.length })} defaultOpen>
+          <p className="mb-2 text-xs text-muted-foreground">{t('followUp.caveat')}</p>
+          <ul className="space-y-3" data-testid="packet-follow-up">
+            {packet.followUp.comments.map((comment) => {
+              const report = packet.followUpReport?.find((line) => line.commentId === comment.id) ?? null
+              const verdictKey = report ? report.verdict : 'unreported'
+              return (
+                <li key={comment.id} className="rounded-md border border-border/50 bg-background-deep/30 px-3 py-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded bg-surface/70 px-1 font-mono text-[10px] text-muted-foreground">{comment.id}</span>
+                    {comment.path ? <span className="font-mono text-xs text-accent-info">{comment.path}{comment.line ? `:${comment.line}` : ''}</span> : null}
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${FOLLOW_UP_PILL[verdictKey]}`} data-testid="packet-follow-up-verdict">
+                      {t(`followUp.verdict.${verdictKey}`)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{t(`followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}{comment.author ? ` · ${comment.author}` : ''}</span>
+                  </div>
+                  <PacketMarkdown muted className="mt-1">{comment.body}</PacketMarkdown>
+                  {report ? (
+                    <dl className="mt-1 grid gap-x-3 gap-y-0.5 text-xs text-muted-foreground sm:grid-cols-[auto_1fr]">
+                      {report.files ? <><dt className="font-medium">{t('followUp.files')}</dt><dd className="font-mono">{report.files}</dd></> : null}
+                      {report.tests ? <><dt className="font-medium">{t('followUp.tests')}</dt><dd>{report.tests}</dd></> : null}
+                      {report.notes ? <><dt className="font-medium">{t('followUp.notes')}</dt><dd>{report.notes}</dd></> : null}
+                    </dl>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">{t('followUp.noReport')}</p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+          {packet.followUp.scope.excludedChanges.length > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground"><span className="font-medium">{t('followUp.excluded')}:</span> {packet.followUp.scope.excludedChanges.join(' · ')}</p>
+          )}
+        </Section>
+      )}
 
       <Section title={t('sections.whatIDid')}>
         <ul className="space-y-3">

@@ -1,3 +1,4 @@
+import { freezeFollowUp, parseFollowUpInput, readFollowUp } from './pr-follow-up'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
@@ -7,7 +8,7 @@ import { buildSpecSnapshot, launchIsolatedRail, reconcileRailWorktrees, type Iso
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
 import { listRailWorktrees, createRailWorktree, updateRailWorktreeState, getRailWorktree } from './rail-worktrees-store'
-import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, listActivePrDeliveries, PrDeliveryGenerationConflict, readSpecSnapshot, transitionDecision, type DeliverBranchRecord } from './rail-pr-store'
+import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, listActivePrDeliveries, PrDeliveryGenerationConflict, readSpecSnapshot, transitionDecision, type DeliverBranchRecord , toPrDeliverySnapshot } from './rail-pr-store'
 import { readSettleEvidence } from './delivery-evidence'
 import { createLoopRun } from './loop-runs-store'
 import { insertLinkWithId } from './jira/jira-db'
@@ -4002,6 +4003,28 @@ describe('launchIsolatedRail — revision generations (Wave 3)', () => {
     )
     const seed = (run.mock.calls[0][0] as { constants: Record<string, string> }).constants.REVISION_REQUEST
     expect(seed).toContain('revision 2')
+  })
+
+  it('a follow-up launch persists the frozen scope on the delivery and appends its briefing to the run request', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    const followUp = freezeFollowUp(parseFollowUpInput({
+      comments: [{ path: 'lib/api.ts', body: 'send Idempotency-Key per pair' }],
+      scope: { excludedChanges: ['anything else'] },
+    }), 'fu-1')
+    const run = (ctx as unknown as { loopRunManager: { run: ReturnType<typeof vi.fn> } }).loopRunManager.run
+    run.mockClear()
+    await launchIsolatedRail({ ...input([1], ctx), followUp }, okIo())
+    const row = getActivePrDeliveryByRail(db, 0)!
+    expect(readFollowUp(row.follow_up)).toEqual(followUp)
+    expect(toPrDeliverySnapshot(row).followUp?.hash).toBe(followUp.hash)
+    const req = run.mock.calls[0][0] as { followUp?: { id: string; version: number; hash: string; briefing: string }; constants: Record<string, string> }
+    expect(req.followUp).toMatchObject({ id: 'fu-1', version: 1, hash: followUp.hash })
+    expect(req.followUp!.briefing).toContain('#### [c1] lib/api.ts')
+    expect(req.followUp!.briefing).toContain('spec #1')
+    // Not a revision: the revision seed constant stays absent.
+    expect(req.constants.REVISION_REQUEST).toBeUndefined()
+    // The spec itself is untouched (snapshot only) and Jira only hears the ordinary launch hook.
+    expect(readSpecSnapshot(row.spec_snapshot)?.[0]).toMatchObject({ ticketId: 1, title: 'T1' })
   })
 
   it('an ordinary launch still records no revision metadata', async () => {

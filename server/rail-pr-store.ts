@@ -7,6 +7,7 @@
  * decision. Pure data access; the PR plumbing lives in rail-pr-delivery /
  * pr-publisher and the launch wiring in rail-isolated-launch.
  */
+import { readFollowUp, type PrFollowUp } from './pr-follow-up'
 import type { DbInstance } from './db'
 import type { OverlayCleanupEvidence } from './worktree-overlay'
 import type { DeliverySettleEvidence } from './delivery-evidence'
@@ -231,6 +232,8 @@ export interface RailPrDeliveryRow {
   revision_note: string | null
   /** The generation this one revises (migration 57); NULL on ordinary launches. */
   revision_of: string | null
+  /** JSON PrFollowUp frozen at launch (migration 62); NULL on ordinary launches. */
+  follow_up: string | null
   created_at: string
   updated_at: string
 }
@@ -256,6 +259,8 @@ export interface CreatePrDeliveryInput {
   /** Revision metadata: the user's sentence + the generation being revised. */
   revisionNote?: string | null
   revisionOf?: string | null
+  /** Frozen PR review follow-up scope (pr-follow-up-fixes); null on ordinary launches. */
+  followUp?: PrFollowUp | null
 }
 
 /**
@@ -271,9 +276,9 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
        loop_name, origin_surface, origin_conversation_id,
        implementation_outcome, delivery_outcome, status_code,
        is_continuation, supersedes_delivery_id, spec_snapshot,
-       revision_note, revision_of, parent_delivery_id, repository_id, repository_path
+       revision_note, revision_of, parent_delivery_id, repository_id, repository_path, follow_up
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', 'pending',
-       'implementation_running', ?, ?, ?, ?, ?, ?, ?, ?)`
+       'implementation_running', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.railIndex,
@@ -294,6 +299,7 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
     input.parentDeliveryId ?? null,
     input.repositoryId ?? null,
     input.repositoryPath ?? null,
+    input.followUp ? JSON.stringify(input.followUp) : null,
   )
   return getPrDelivery(db, id)!
 }
@@ -900,6 +906,8 @@ export interface PrDeliverySnapshot {
   runIds: string[]
   originSurface: PrOriginSurface
   originConversationId: string | null
+  /** Frozen PR review follow-up this generation was launched with (null otherwise). */
+  followUp: PrFollowUp | null
   createdAt: string
   updatedAt: string
 }
@@ -954,6 +962,7 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     runIds: parseJsonArray<string>(row.run_ids ?? '[]'),
     originSurface: row.origin_surface,
     originConversationId: row.origin_conversation_id,
+    followUp: readFollowUp(row.follow_up),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

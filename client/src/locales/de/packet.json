@@ -129,5 +129,24 @@
     "noChanges": "Nichts musste geändert werden",
     "notStarted": "Nicht begonnen",
     "unknown": "Ergebnis unbekannt"
+  },
+  "followUp": {
+    "title": "Zu behebende Review-Kommentare ({{count}})",
+    "caveat": "Was du beheben lassen wolltest, beim Start eingefroren. Die Urteile sind der Bericht des Laufs selbst – keine Zusicherung, dass alles stimmt, weil die Tests bestanden haben.",
+    "verdict": {
+      "resolved": "Behoben",
+      "partial": "Teilweise behoben",
+      "blocked": "Blockiert",
+      "unreported": "Nicht berichtet"
+    },
+    "files": "Dateien",
+    "tests": "Tests",
+    "notes": "Hinweise",
+    "noReport": "Der Lauf hat zu diesem Kommentar nichts berichtet. Prüfe die Änderungen und Belege unten.",
+    "excluded": "Ausgeschlossen",
+    "source": {
+      "pasted": "von dir eingefügt",
+      "github": "aus GitHub"
+    }
   }
 }

@@ -21,7 +21,7 @@ describe('extractRailLaunchProposals', () => {
     expect(p).toEqual({
       version: 1, railIndex: 1, newRail: null, ticketIds: [12, 14], mode: 'implement', loopId: 'factory:implement',
       aiEngine: 'claude', model: 'opus', reasoningEffort: 'high', profileName: 'fast', targetPrNumber: 7,
-      baseBranch: 'main', railName: 'Auth', rationale: 'both touch auth',
+      baseBranch: 'main', railName: 'Auth', rationale: 'both touch auth', followUp: null,
     })
     expect('ignored' in p).toBe(false)
   })
@@ -103,6 +103,25 @@ describe('client mirror parity', () => {
     const server = fs.readFileSync(path.join(__dirname, 'rail-launch-parser.ts'), 'utf8')
     const client = fs.readFileSync(path.join(__dirname, '..', 'client', 'src', 'lib', 'rail-launch-draft.ts'), 'utf8')
     const norm = (s: string) => s.replace(/lives at [^\n]+ and MUST stay byte-identical/, 'MIRROR')
+    expect(norm(client)).toBe(norm(server))
+  })
+})
+
+describe('followUp on a proposal (pr-follow-up-fixes)', () => {
+  it('keeps a valid follow-up scope (ids assigned, provenance kept) and drops an invalid one to null without rejecting the card', () => {
+    const valid = extractRailLaunchProposals(block({ ticketIds: [191], mode: 'loop', loopId: 'factory:sdd-quick-openspec', targetPrNumber: 51,
+      followUp: { comments: [{ path: 'lib/api.ts', body: 'send Idempotency-Key per pair' }], scope: { excludedChanges: ['UI changes'] }, openspecChangeName: 'fix-comments' } }))
+    expect(valid.proposals[0].followUp).toMatchObject({ kind: 'pr-review-fix', openspecChangeName: 'fix-comments', scope: { excludedChanges: ['UI changes'] } })
+    expect(valid.proposals[0].followUp!.comments[0]).toMatchObject({ id: 'c1', source: 'user-paste', path: 'lib/api.ts' })
+    const invalid = extractRailLaunchProposals(block({ ticketIds: [191], targetPrNumber: 51, followUp: { comments: [] } }))
+    expect(invalid.rejected).toEqual([])
+    expect(invalid.proposals[0].followUp).toBeNull()
+  })
+
+  it('client/src/lib/pr-follow-up-scope.ts is byte-identical to server/pr-follow-up-scope.ts except for the mirror note', () => {
+    const server = fs.readFileSync(path.join(__dirname, 'pr-follow-up-scope.ts'), 'utf8')
+    const client = fs.readFileSync(path.join(__dirname, '..', 'client', 'src', 'lib', 'pr-follow-up-scope.ts'), 'utf8')
+    const norm = (text: string) => text.replace(/(client|server) copy lives at\n\/\/ [^\n]+ and MUST stay byte-identical/, 'MIRROR')
     expect(norm(client)).toBe(norm(server))
   })
 })

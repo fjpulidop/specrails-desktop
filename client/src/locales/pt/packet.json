@@ -129,5 +129,24 @@
     "noChanges": "Nada precisava de mudar",
     "notStarted": "Não iniciado",
     "unknown": "Resultado desconhecido"
+  },
+  "followUp": {
+    "title": "Comentários de revisão a resolver ({{count}})",
+    "caveat": "O que você pediu para corrigir, congelado no lançamento. Os veredictos são o relatório da própria execução — não uma garantia de que tudo está bem porque os testes passaram.",
+    "verdict": {
+      "resolved": "Resolvido",
+      "partial": "Parcialmente resolvido",
+      "blocked": "Bloqueado",
+      "unreported": "Sem relato"
+    },
+    "files": "Arquivos",
+    "tests": "Testes",
+    "notes": "Notas",
+    "noReport": "A execução não relatou este comentário. Verifique as alterações e as evidências abaixo.",
+    "excluded": "Excluído",
+    "source": {
+      "pasted": "colado por você",
+      "github": "do GitHub"
+    }
   }
 }

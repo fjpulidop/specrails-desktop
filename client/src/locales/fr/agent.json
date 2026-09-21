@@ -647,6 +647,16 @@
       "goToCard": "Aller à la carte",
       "goToCardTitle": "Aller à la carte d'implémentation de ce lancement",
       "viewRunTitle": "Ouvrir le journal en direct du run"
+    },
+    "followUp": {
+      "title": "Résoudre {{count}} commentaire(s) de revue de la PR",
+      "excluded": "Ne pas modifier",
+      "verification": "Vérifier",
+      "specUntouched": "La spec et sa description Jira ne sont pas modifiées : le périmètre voyage avec l’exécution.",
+      "source": {
+        "pasted": "collé",
+        "github": "depuis GitHub"
+      }
     }
   },
   "runCard": {

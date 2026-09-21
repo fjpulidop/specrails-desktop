@@ -647,6 +647,16 @@
       "goToCard": "Go to card",
       "goToCardTitle": "Scroll to this launch's implementation card",
       "viewRunTitle": "Open the run's live log"
+    },
+    "followUp": {
+      "title": "Resolve {{count}} review comment(s) on the PR",
+      "excluded": "Do not change",
+      "verification": "Verify",
+      "specUntouched": "The spec and its Jira description are not edited — the scope travels with the run.",
+      "source": {
+        "pasted": "pasted",
+        "github": "from GitHub"
+      }
     }
   },
   "runCard": {

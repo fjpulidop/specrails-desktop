@@ -129,5 +129,24 @@
     "noChanges": "Rien à changer",
     "notStarted": "Non commencé",
     "unknown": "Résultat inconnu"
+  },
+  "followUp": {
+    "title": "Commentaires de revue à résoudre ({{count}})",
+    "caveat": "Ce que vous avez demandé de corriger, figé au lancement. Les verdicts sont le rapport de l’exécution elle‑même, pas une garantie que tout va bien parce que les tests passent.",
+    "verdict": {
+      "resolved": "Résolu",
+      "partial": "Partiellement résolu",
+      "blocked": "Bloqué",
+      "unreported": "Non rapporté"
+    },
+    "files": "Fichiers",
+    "tests": "Tests",
+    "notes": "Notes",
+    "noReport": "L’exécution n’a rien rapporté pour ce commentaire. Vérifiez les changements et les preuves ci‑dessous.",
+    "excluded": "Exclu",
+    "source": {
+      "pasted": "collé par vous",
+      "github": "depuis GitHub"
+    }
   }
 }

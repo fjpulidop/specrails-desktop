@@ -161,6 +161,31 @@ describe('AgentRailLaunchCard', () => {
     expect(launch).not.toHaveProperty('reasoning_effort')
   })
 
+  it('renders a PR follow-up scope block and sends the follow-up on Play, never a spec edit', async () => {
+    const followUp = {
+      version: 1 as const, kind: 'pr-review-fix' as const,
+      comments: [
+        { id: 'c1', source: 'user-paste' as const, author: 'reviewer', path: 'lib/api.ts', line: null, body: 'send Idempotency-Key per pair' },
+        { id: 'c2', source: 'github' as const, author: null, path: 'lib/promoteRun.ts', line: 40, body: 'unknown for ambiguous failures' },
+      ],
+      scope: { objective: 'Resolve only the two comments', requiredOutcomes: [], excludedChanges: ['Lesson selection UI'], verification: ['Distinct keys across pairs'] },
+      openspecChangeName: 'fix-selected-pr-comments',
+    }
+    renderCard({ targetPrNumber: 51, followUp })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    const block = screen.getByTestId('rail-card-follow-up')
+    expect(block).toHaveTextContent('Resolve 2 review comment(s) on the PR')
+    expect(block).toHaveTextContent('lib/api.ts')
+    expect(block).toHaveTextContent('lib/promoteRun.ts:40')
+    expect(block).toHaveTextContent('Lesson selection UI')
+    expect(block).toHaveTextContent('from GitHub')
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await waitFor(() => expect(screen.getByTestId('agent-rail-launch-stub-launched')).toBeInTheDocument())
+    const launch = body(calls.find((c) => c.url.endsWith('/rails/1/launch'))!) as Record<string, unknown>
+    expect(launch).toMatchObject({ targetPrNumber: 51, followUp: { openspecChangeName: 'fix-selected-pr-comments', comments: [{ id: 'c1' }, { id: 'c2', line: 40 }] } })
+    expect(calls.some((c) => /\/tickets\/\d+/.test(c.url) && c.init?.method && c.init.method !== 'GET')).toBe(false)
+  })
+
   it('creates a new rail first when the proposal asks for one', async () => {
     renderCard({ railIndex: null, newRail: { name: 'Fresh' } })
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())

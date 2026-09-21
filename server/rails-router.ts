@@ -1,3 +1,4 @@
+import { FollowUpValidationError, freezeFollowUp, parseFollowUpInput, type PrFollowUp } from './pr-follow-up'
 import { validateRuntimeProviderOverride } from './agent-runtime-settings'
 import path from 'path'
 import { Router, Request, Response } from 'express'
@@ -476,7 +477,26 @@ export function createRailsRouter(): Router {
     try { runtimeProviderOverride = validateRuntimeProviderOverride(req.body?.runtimeProviderOverride) }
     catch { res.status(400).json({ error: 'invalid_runtime_provider_override' }); return }
     let { mode = 'implement' } = req.body ?? {}
-    const { repositoryIds: rawRepositoryIds, baseDeliveryIds, profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch } = req.body ?? {}
+    const { repositoryIds: rawRepositoryIds, baseDeliveryIds, profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch, followUp: rawFollowUp } = req.body ?? {}
+    // PR review follow-up (pr-follow-up-fixes): a typed, bounded, FROZEN scope
+    // for "resolve these review comments". It rides the delivery row and every
+    // ai-step prompt — never the spec, whose description Jira-linked projects
+    // sync. It needs something to follow up ON: an explicit target PR or the
+    // delivery being revised.
+    let followUp: PrFollowUp | undefined
+    if (rawFollowUp !== undefined && rawFollowUp !== null) {
+      try {
+        followUp = freezeFollowUp(parseFollowUpInput(rawFollowUp))
+      } catch (err) {
+        if (err instanceof FollowUpValidationError) {
+          res.status(400).json({ error: 'invalid_follow_up', code: err.code, detail: err.message }); return
+        }
+        throw err
+      }
+      if (typeof targetPrNumber !== 'number' && !revisionOfDeliveryId) {
+        res.status(400).json({ error: 'follow_up_requires_target', detail: 'followUp needs the pull request to follow up on: pass targetPrNumber (an open PR) or revisionOfDeliveryId (an undecided delivery)' }); return
+      }
+    }
     // Revision launch (nontech-review-experience Wave 3): the user asked for a
     // change to a delivery that is already awaiting their decision. Shape is
     // validated here; the narrow guard exemption is enforced below.
@@ -571,6 +591,9 @@ export function createRailsRouter(): Router {
     // than silently launching fresh work next to the designated PR.
     if (typeof targetPrNumber === 'number' && (!isLoopsEnabled() || !isRailPrDeliveryEnabled())) {
       res.status(400).json({ error: 'target_pr_requires_pr_mode', detail: 'targetPrNumber requires loops and PR delivery to be enabled' }); return
+    }
+    if (followUp && (!isLoopsEnabled() || !isRailPrDeliveryEnabled())) {
+      res.status(400).json({ error: 'follow_up_requires_pr_mode', detail: 'a PR review follow-up runs on the isolated PR-delivery path; loops and PR delivery must be enabled' }); return
     }
     // Interactive in-job chat is ON by default for providers that expose the
     // spawn-time gate in QueueManager (kill-switch + persistent-stdin
@@ -990,8 +1013,9 @@ export function createRailsRouter(): Router {
                 // Revision of an undecided delivery: the guard above proved the
                 // exemption, so pass the contract through for supersession.
                 ...(revisionRequest ? { revision: revisionRequest } : {}),
+                ...(followUp ? { followUp } : {}),
               })
-              res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true })
+              res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true, ...(followUp ? { followUp: { id: followUp.id, version: followUp.version, hash: followUp.hash } } : {}) })
               return
             } catch (err) {
               if (err instanceof PrDeliveryGenerationConflict) {

@@ -647,6 +647,16 @@
       "goToCard": "Ir para o card",
       "goToCardTitle": "Ir para o card de implementação deste lançamento",
       "viewRunTitle": "Abrir o log ao vivo do run"
+    },
+    "followUp": {
+      "title": "Resolver {{count}} comentário(s) de revisão do PR",
+      "excluded": "Não alterar",
+      "verification": "Verificar",
+      "specUntouched": "A spec e a descrição no Jira não são editadas — o escopo viaja com a execução.",
+      "source": {
+        "pasted": "colado",
+        "github": "do GitHub"
+      }
     }
   },
   "runCard": {

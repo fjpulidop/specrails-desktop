@@ -647,6 +647,16 @@
       "goToCard": "Zur Karte",
       "goToCardTitle": "Zur Implementierungskarte dieses Starts springen",
       "viewRunTitle": "Das Live-Log des Runs öffnen"
+    },
+    "followUp": {
+      "title": "{{count}} Review-Kommentar(e) der PR beheben",
+      "excluded": "Nicht ändern",
+      "verification": "Prüfen",
+      "specUntouched": "Spec und Jira-Beschreibung werden nicht bearbeitet – der Umfang reist mit dem Lauf.",
+      "source": {
+        "pasted": "eingefügt",
+        "github": "aus GitHub"
+      }
     }
   },
   "runCard": {

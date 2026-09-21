@@ -1,3 +1,4 @@
+import type { PrFollowUp, FollowUpReportLine } from './lib/pr-follow-up-scope'
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'zombie_terminated' | 'skipped'
 
 export type BackgroundProcessStatus = 'starting' | 'running' | 'stopping' | 'exited' | 'killed' | 'failed' | 'interrupted'
@@ -566,6 +567,10 @@ export interface ReviewPacket {
   runIds: string[]
   supersedesDeliveryId: string | null
   revisionNote: string | null
+  /** The frozen PR review follow-up this generation ran with (pr-follow-up-fixes); null otherwise. */
+  followUp: PrFollowUp | null
+  /** The run's own per-comment report; null when it reported nothing (never a synthesised verdict). */
+  followUpReport: FollowUpReportLine[] | null
   versions: PacketVersion[]
   chainCostUsd: number | null
   chainCostEstimated: boolean

@@ -129,5 +129,24 @@
     "noChanges": "Non c'era nulla da cambiare",
     "notStarted": "Non avviato",
     "unknown": "Esito sconosciuto"
+  },
+  "followUp": {
+    "title": "Commenti di revisione da risolvere ({{count}})",
+    "caveat": "Ciò che hai chiesto di correggere, congelato al lancio. I verdetti sono il rapporto dell’esecuzione stessa, non una garanzia che tutto vada bene perché i test passano.",
+    "verdict": {
+      "resolved": "Risolto",
+      "partial": "Parzialmente risolto",
+      "blocked": "Bloccato",
+      "unreported": "Non riportato"
+    },
+    "files": "File",
+    "tests": "Test",
+    "notes": "Note",
+    "noReport": "L’esecuzione non ha riportato nulla su questo commento. Controlla le modifiche e le evidenze qui sotto.",
+    "excluded": "Escluso",
+    "source": {
+      "pasted": "incollato da te",
+      "github": "da GitHub"
+    }
   }
 }
