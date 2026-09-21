@@ -647,6 +647,16 @@
       "goToCard": "Vai alla scheda",
       "goToCardTitle": "Vai alla scheda di implementazione di questo lancio",
       "viewRunTitle": "Apri il log in tempo reale del run"
+    },
+    "followUp": {
+      "title": "Risolvere {{count}} commento/i di revisione della PR",
+      "excluded": "Non modificare",
+      "verification": "Verifica",
+      "specUntouched": "La spec e la sua descrizione Jira non vengono modificate: l’ambito viaggia con l’esecuzione.",
+      "source": {
+        "pasted": "incollato",
+        "github": "da GitHub"
+      }
     }
   },
   "runCard": {

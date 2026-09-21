@@ -129,5 +129,24 @@
     "noChanges": "Nothing needed changing",
     "notStarted": "Not started",
     "unknown": "Outcome unknown"
+  },
+  "followUp": {
+    "title": "Review comments to resolve ({{count}})",
+    "caveat": "What you asked the run to fix, frozen at launch. Verdicts below are the run’s own report — not a claim that everything is fine because the tests passed.",
+    "verdict": {
+      "resolved": "Resolved",
+      "partial": "Partially resolved",
+      "blocked": "Blocked",
+      "unreported": "Not reported"
+    },
+    "files": "Files",
+    "tests": "Tests",
+    "notes": "Notes",
+    "noReport": "The run did not report this comment. Check the changes and evidence below.",
+    "excluded": "Ruled out",
+    "source": {
+      "pasted": "pasted by you",
+      "github": "from GitHub"
+    }
   }
 }

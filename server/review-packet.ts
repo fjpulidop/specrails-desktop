@@ -27,8 +27,9 @@
  * launder a self-report into a measurement. `testEvidence` states which test
  * FILES changed, which is all the diff can actually prove.
  */
+import { parseFollowUpReport, readFollowUp, type FollowUpReportLine, type PrFollowUp } from './pr-follow-up'
 import type { DbInstance } from './db'
-import { readSettleEvidence, type DeliveryConfidenceScore, type DeliveryUnitEvidence } from './delivery-evidence'
+import { readSettleEvidence, type DeliveryConfidenceScore, type DeliveryUnitEvidence , type DeliverySettleEvidence } from './delivery-evidence'
 import {
   getPrDelivery,
   readSpecSnapshot,
@@ -136,6 +137,11 @@ export interface ReviewPacket {
   supersedesDeliveryId: string | null
   /** The revision instruction that produced THIS generation (null for v1). */
   revisionNote: string | null
+  /** The frozen PR review follow-up this generation ran with (pr-follow-up-fixes); null otherwise. */
+  followUp: PrFollowUp | null
+  /** The run's own per-comment report parsed from its harvested output — null
+   * when the run reported nothing, never a synthesised verdict. */
+  followUpReport: FollowUpReportLine[] | null
   /** Oldest-first version chain; length 1 when nothing has been revised. */
   versions: PacketVersion[]
   /** Cumulative cost across the whole chain (the honest number for a nudge). */
@@ -418,6 +424,14 @@ export interface ComposeReviewPacketInput {
   includeLegacyProvenance?: boolean
 }
 
+/** Where a follow-up run's `FOLLOW-UP REPORT` can be found after settle: the
+ * harvested verify tails (the final reply of record). Nothing else is guessed. */
+function followUpReportSource(evidence: DeliverySettleEvidence | null): string | null {
+  if (!evidence) return null
+  const parts = evidence.units.flatMap((unit) => [unit.verifyTail, unit.sentinelDetail]).filter((v): v is string => typeof v === 'string' && v.length > 0)
+  return parts.length > 0 ? parts.join('\n') : null
+}
+
 export function composeReviewPacket({ db, row, repositoryId = row.repository_id ?? undefined, includeLegacyProvenance = false }: ComposeReviewPacketInput): ReviewPacket {
   const repository = repositoryId ? { repositoryId, includeLegacy: includeLegacyProvenance } : undefined
   const ticketIds = safeParse<number[]>(row.ticket_ids, [])
@@ -425,6 +439,7 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
   const runIds = safeParse<string[]>(row.run_ids, [])
   const snapshot = readSpecSnapshot(row.spec_snapshot)
   const evidence = readSettleEvidence(row.settle_evidence)
+  const followUp = readFollowUp(row.follow_up)
   const churn = churnForRuns(db, runIds, repository)
   const variant = selectVariant(row, units)
 
@@ -527,6 +542,8 @@ export function composeReviewPacket({ db, row, repositoryId = row.repository_id 
     runIds,
     supersedesDeliveryId: row.supersedes_delivery_id,
     revisionNote: row.revision_note,
+    followUp,
+    followUpReport: followUp ? parseFollowUpReport(followUpReportSource(evidence), followUp) : null,
     versions,
     chainCostUsd: chainCosts.length > 0 ? chainCosts.reduce((sum, value) => sum + value, 0) : null,
     chainCostEstimated: versions.some((version) => version.costEstimated),

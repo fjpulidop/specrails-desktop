@@ -647,6 +647,16 @@
       "goToCard": "前往卡片",
       "goToCardTitle": "跳转到此次启动的实现卡片",
       "viewRunTitle": "打开该 run 的实时日志"
+    },
+    "followUp": {
+      "title": "解决 PR 上的 {{count}} 条评审意见",
+      "excluded": "不要改动",
+      "verification": "验证",
+      "specUntouched": "不会编辑 spec 及其 Jira 描述——范围随本次运行一起传递。",
+      "source": {
+        "pasted": "粘贴",
+        "github": "来自 GitHub"
+      }
     }
   },
   "runCard": {

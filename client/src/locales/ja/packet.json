@@ -129,5 +129,24 @@
     "noChanges": "変更は不要でした",
     "notStarted": "未着手",
     "unknown": "結果不明"
+  },
+  "followUp": {
+    "title": "解決すべきレビューコメント（{{count}}）",
+    "caveat": "修正を依頼した内容で、起動時に凍結されます。以下の判定は実行自身の報告であり、テストが通ったから問題ないという主張ではありません。",
+    "verdict": {
+      "resolved": "解決済み",
+      "partial": "一部解決",
+      "blocked": "ブロック",
+      "unreported": "未報告"
+    },
+    "files": "ファイル",
+    "tests": "テスト",
+    "notes": "メモ",
+    "noReport": "この実行はこのコメントについて報告していません。下の変更と証拠を確認してください。",
+    "excluded": "対象外",
+    "source": {
+      "pasted": "あなたが貼り付け",
+      "github": "GitHub から"
+    }
   }
 }

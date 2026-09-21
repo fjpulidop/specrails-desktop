@@ -1,3 +1,4 @@
+import { freezeFollowUp, parseFollowUpInput } from './pr-follow-up'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { initDb, type DbInstance } from './db'
 import { createPrDelivery, getPrDelivery, transitionDecision, type DeliverBranchRecord } from './rail-pr-store'
@@ -578,5 +579,51 @@ describe('programmatic-runtime evidence in the proof', () => {
   it('still says nothing was reported when neither sentinel nor runtime evidence exists', () => {
     const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime: null }) })
     expect(packet.proof.some((p) => p.code === 'proof.noVerificationReported')).toBe(true)
+  })
+})
+
+
+describe('PR review follow-up on the packet (pr-follow-up-fixes)', () => {
+  const followUp = freezeFollowUp(parseFollowUpInput({
+    comments: [{ path: 'lib/api.ts', body: 'send Idempotency-Key per pair' }, { id: 'promote', path: 'lib/promoteRun.ts', body: 'unknown for ambiguous failures' }],
+  }), 'fu-1')
+
+  function followUpDelivery(verifyTail: string | null) {
+    createPrDelivery(db, {
+      id: 'del-1', railIndex: 0, loopId: 'factory:sdd-quick-openspec', railKey: '0-factory:sdd-quick-openspec',
+      ticketIds: [1], baseBranch: 'main', loopName: 'SDD Quick (OpenSpec)', originSurface: 'agent-chat',
+      specSnapshot: [SPEC(1, 'Ticket 1')], followUp,
+    })
+    transitionDecision(db, 'del-1', 'building', 'on_review', {
+      branches: [unit()], runIds: ['run-1'], implementationOutcome: 'succeeded', deliveryOutcome: 'ready', statusCode: 'ready_for_review',
+      settleEvidence: evidence({ verifyTail }),
+    })
+    return composeReviewPacket({ db, row: getPrDelivery(db, 'del-1')! })
+  }
+
+  it('exposes the frozen scope and the run\'s own per-comment report', () => {
+    const packet = followUpDelivery([
+      'FOLLOW-UP REPORT',
+      '- [c1] resolved — files: lib/api.ts — tests: api.test.ts',
+      '- [promote] blocked — notes: proxy semantics undecided',
+      'VERIFICATION: PASS',
+    ].join('\n'))
+    expect(packet.followUp).toEqual(followUp)
+    expect(packet.followUpReport).toEqual([
+      { commentId: 'c1', verdict: 'resolved', files: 'lib/api.ts', tests: 'api.test.ts', notes: null },
+      { commentId: 'promote', verdict: 'blocked', files: null, tests: null, notes: 'proxy semantics undecided' },
+    ])
+    // The spec section is still the original context, untouched by the follow-up.
+    expect(packet.sections[0].title).toBe('Ticket 1')
+  })
+
+  it('reports null — not "all resolved" — when the run gave no per-comment report', () => {
+    const packet = followUpDelivery('Tests 6818 passed\nVERIFICATION: PASS')
+    expect(packet.followUp?.id).toBe('fu-1')
+    expect(packet.followUpReport).toBeNull()
+  })
+
+  it('an ordinary delivery carries no follow-up', () => {
+    expect(delivery().followUp).toBeNull()
   })
 })

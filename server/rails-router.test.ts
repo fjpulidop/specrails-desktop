@@ -1475,6 +1475,47 @@ describe('rails-router POST /:railIndex/launch — explicit target PR (deliver-r
     expect(call.requiredPrContinuation).toMatchObject({ prNumber: 521 })
     expect(call.explicitPrTarget).toBeUndefined()
   })
+
+  // ── PR review follow-up (pr-follow-up-fixes) ──────────────────────────────
+  const FOLLOW_UP = {
+    comments: [
+      { path: 'lib/api.ts', body: 'POST /lesson-content omits Idempotency-Key; send a stable key per pair.' },
+      { path: 'lib/promoteRun.ts', body: 'Ambiguous post-write failures must be unknown/unobservable, not failed.' },
+    ],
+    scope: { excludedChanges: ['Lesson selection UI'], verification: ['Distinct keys across pairs'] },
+    openspecChangeName: 'fix-selected-pr-comments',
+  }
+
+  it('freezes a valid followUp and hands it to the isolated launch with an id + content hash; the spec is never edited', async () => {
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-fu'])
+    const getTicketSpec = vi.fn(() => ({ title: 'T', description: 'D' }))
+    const res = await request(launchApp({ getTicketSpec })).post('/rails/0/launch')
+      .send({ loopId: 'factory:sdd-quick-openspec', targetPrNumber: 51, followUp: FOLLOW_UP })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(res.body.followUp).toMatchObject({ version: 1 })
+    expect(res.body.followUp.id).toEqual(expect.any(String))
+    expect(res.body.followUp.hash).toHaveLength(64)
+    const call = mockLaunchIsolated.mock.calls[0][0] as { followUp?: { id: string; hash: string; comments: Array<{ id: string; body: string }>; openspecChangeName: string | null }; explicitPrTarget?: { prNumber: number } }
+    expect(call.followUp).toMatchObject({ id: res.body.followUp.id, hash: res.body.followUp.hash, openspecChangeName: 'fix-selected-pr-comments' })
+    expect(call.followUp!.comments.map((c) => c.id)).toEqual(['c1', 'c2'])
+    expect(call.explicitPrTarget).toEqual({ prNumber: 51 })
+    // The launch reads the spec for its snapshot only; nothing writes it back.
+    expect(getTicketSpec.mock.calls.every((c) => c.length <= 1)).toBe(true)
+  })
+
+  it('400 invalid_follow_up names the field, and 400 follow_up_requires_target without a PR to follow up on', async () => {
+    mockRepoStatus.mockResolvedValue('ok')
+    let res = await request(launchApp()).post('/rails/0/launch')
+      .send({ loopId: 'factory:implement', targetPrNumber: 51, followUp: { comments: [] } })
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ error: 'invalid_follow_up', code: 'comments_required' })
+    res = await request(launchApp()).post('/rails/0/launch')
+      .send({ loopId: 'factory:implement', followUp: FOLLOW_UP })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('follow_up_requires_target')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
 })
 
 describe('rails-router GET /:railIndex/pr-candidates', () => {

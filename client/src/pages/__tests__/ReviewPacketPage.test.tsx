@@ -67,6 +67,8 @@ function packet(over: Partial<ReviewPacket> = {}): ReviewPacket {
     runIds: ['run-1'],
     supersedesDeliveryId: null,
     revisionNote: null,
+    followUp: null,
+    followUpReport: null,
     versions: [{
       prDeliveryId: 'del-1', version: 1, revisionNote: null, decision: 'on_review',
       costUsd: 2.5, costEstimated: false, current: true,
@@ -158,6 +160,30 @@ describe('ReviewPacketPage — above the fold', () => {
     expect(screen.getAllByText('Proposed Solution').some((el) => el.tagName === 'STRONG')).toBe(true)
     // The plan shows the FULL text (overflow), not the clamped digest.
     expect(screen.getByText('Hold Soft Drop.')).toBeInTheDocument()
+  })
+
+  it('shows the frozen follow-up with the run\'s per-comment verdicts, and "Not reported" — never "resolved" — when the run said nothing', async () => {
+    const followUp = {
+      id: 'fu-1', version: 1 as const, kind: 'pr-review-fix' as const, hash: 'h'.repeat(64),
+      comments: [
+        { id: 'c1', source: 'user-paste' as const, author: 'reviewer', path: 'lib/api.ts', line: null, body: 'send `Idempotency-Key` per pair' },
+        { id: 'c2', source: 'github' as const, author: null, path: 'lib/promoteRun.ts', line: 40, body: 'unknown for ambiguous failures' },
+      ],
+      scope: { objective: 'Resolve only the two comments', requiredOutcomes: [], excludedChanges: ['Lesson selection UI'], verification: [] },
+      openspecChangeName: null,
+    }
+    respond({ packet: packet({ followUp, followUpReport: [{ commentId: 'c1', verdict: 'resolved', files: 'lib/api.ts', tests: 'api.test.ts', notes: null }] }) })
+    renderPage()
+    expect(await screen.findByText('Your change is ready for review')).toBeInTheDocument()
+    const section = screen.getByTestId('packet-follow-up')
+    expect(section).toHaveTextContent('lib/api.ts')
+    expect(section).toHaveTextContent('api.test.ts')
+    const verdicts = screen.getAllByTestId('packet-follow-up-verdict').map((el) => el.textContent)
+    expect(verdicts).toEqual(['Resolved', 'Not reported'])
+    expect(section).toHaveTextContent('The run did not report this comment.')
+    expect(screen.getByText('Ruled out:', { exact: false })).toBeInTheDocument()
+    // Inline code in a pasted comment renders as code, not backticks.
+    expect(screen.getAllByText('Idempotency-Key').some((el) => el.tagName === 'CODE')).toBe(true)
   })
 
   it('marks an estimated cost and shows an em-dash when unknown', async () => {

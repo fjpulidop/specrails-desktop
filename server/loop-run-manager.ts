@@ -287,6 +287,11 @@ export interface LoopRunRequest {
   /** Set when this run executes in an isolated git worktree (parallel rail) — only
    *  drives a header line in the run log so the worktree/branch is visible. */
   isolation?: { branch: string; worktreePath: string }
+  /** PR review follow-up (pr-follow-up-fixes): the frozen scope's identity and
+   *  its rendered briefing, appended to EVERY ai-step prompt of this run so no
+   *  phase (prepare, implement, verify, deliver) can miss it. Same id/version/
+   *  hash for the whole run — a draft edited meanwhile never changes it. */
+  followUp?: { id: string; version: number; hash: string; briefing: string }
 }
 
 const IMPLEMENT_CMD_TOKEN_RE = /\{\{\s*cmd:(?:implement|batch)\s*\}\}/
@@ -1538,7 +1543,10 @@ export class LoopRunManager {
               ),
               constMap
             )
-            const base = [executionManifestPrompt(req.executionManifest), withReviewContinuationContext(expanded, rawTemplate, req.spec)].filter(Boolean).join('\n\n')
+            // The follow-up briefing is APPENDED (after any slash command, which
+            // must lead the message) so it becomes part of the command's
+            // arguments for CLI providers and plain prompt text for the runner.
+            const base = [executionManifestPrompt(req.executionManifest), withReviewContinuationContext(expanded, rawTemplate, req.spec), req.followUp?.briefing].filter(Boolean).join('\n\n')
             // Inject the cross-iteration history only when there's no live session
             // to carry it (a fresh pass) OR right after a Decider 'continue' (so the
             // step sees the verdict). A mid-body resumed step already has it.

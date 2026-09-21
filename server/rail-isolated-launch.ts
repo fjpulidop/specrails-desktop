@@ -61,6 +61,7 @@ import {
 } from './worktree-overlay'
 import { authenticateWarmNodeModulesLinks, linkNodeModulesIntoWorktree } from './worktree-node-modules'
 import { buildRevisionSeed } from './revision-seed'
+import { renderFollowUpBriefing, type PrFollowUp } from './pr-follow-up'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isCodeExplorerEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
@@ -161,6 +162,10 @@ export interface IsolatedLaunchInput {
     decision: PrDecision
     note: string
   }
+  /** Frozen PR review follow-up scope (pr-follow-up-fixes): persisted on the
+   * delivery row and appended to EVERY ai-step prompt of the run. The route has
+   * validated and frozen it (id/version/hash) before the launch. */
+  followUp?: PrFollowUp
 }
 
 /** A PR follow-up may only run on the verified PR branch in a dedicated
@@ -897,6 +902,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         : null,
       specSnapshot: buildSpecSnapshot(ctx, ticketIds),
       ...(input.revision ? { revisionNote: input.revision.note, revisionOf: input.revision.ofDeliveryId } : {}),
+      ...(input.followUp ? { followUp: input.followUp } : {}),
     }, input.requiredPrContinuation
       ? { id: input.requiredPrContinuation.deliveryId, decision: input.requiredPrContinuation.decision }
       // A revision replaces the generation it revises, atomically, so the rail
@@ -1433,6 +1439,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         deferTerminalOutcome: true,
         constants, provider, model, effort, ...(deciderEngine ? { deciderEngine } : {}),
         profileName: input.profileName,
+        ...(input.followUp ? { followUp: { id: input.followUp.id, version: input.followUp.version, hash: input.followUp.hash, briefing: renderFollowUpBriefing(input.followUp, { prNumber: (launchContinuation as ActivePrContinuationTarget | null)?.prNumber ?? input.explicitPrTarget?.prNumber ?? null, ticketIds }) } } : {}),
       })
     runPromises.push(settleAllocatedRun(a, enginePromise))
     try { ctx.jiraSyncManager.onRailLaunch(a.ticketIds, a.runId) } catch { /* non-fatal */ }

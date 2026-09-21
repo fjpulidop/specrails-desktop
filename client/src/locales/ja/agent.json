@@ -647,6 +647,16 @@
       "goToCard": "カードへ移動",
       "goToCardTitle": "この起動の実装カードへ移動",
       "viewRunTitle": "この run のライブログを開く"
+    },
+    "followUp": {
+      "title": "PR のレビューコメント {{count}} 件を解決",
+      "excluded": "変更しない",
+      "verification": "検証",
+      "specUntouched": "スペックと Jira の説明は編集しません。スコープは実行と一緒に渡されます。",
+      "source": {
+        "pasted": "貼り付け",
+        "github": "GitHub から"
+      }
     }
   },
   "runCard": {

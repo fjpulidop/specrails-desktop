@@ -688,6 +688,18 @@ describe('LoopRunManager', () => {
     expect(deciderGoal).toContain('prefix PROJ-') // custom, from request
   })
 
+  it('appends the follow-up briefing to EVERY ai-step prompt, after the command, with one identity for the run', async () => {
+    const ex = makeExecutors()
+    const briefing = '## FOLLOW-UP SCOPE (authoritative for this run)\nFollow-up fu-1 · version 1 · hash abc\n#### [c1] lib/api.ts'
+    await manager(ex).run({ ...baseReq(), followUp: { id: 'fu-1', version: 1, hash: 'abc', briefing } })
+    const prompts = (ex.runAiStep as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0].prompt as string)
+    expect(prompts.length).toBeGreaterThan(0)
+    for (const prompt of prompts) {
+      expect(prompt.endsWith(briefing)).toBe(true)
+      expect(prompt.indexOf('FOLLOW-UP SCOPE')).toBeGreaterThan(0)
+    }
+  })
+
   it('interpolates {{spec.title}} into the AI step prompt', async () => {
     const ex = makeExecutors()
     await manager(ex).run(baseReq())

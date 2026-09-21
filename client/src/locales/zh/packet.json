@@ -129,5 +129,24 @@
     "noChanges": "无需更改",
     "notStarted": "未开始",
     "unknown": "结果未知"
+  },
+  "followUp": {
+    "title": "待解决的评审意见（{{count}}）",
+    "caveat": "你要求修复的内容，在启动时冻结。以下结论是本次运行自己的报告，不是因为测试通过就断言一切正常。",
+    "verdict": {
+      "resolved": "已解决",
+      "partial": "部分解决",
+      "blocked": "受阻",
+      "unreported": "未报告"
+    },
+    "files": "文件",
+    "tests": "测试",
+    "notes": "备注",
+    "noReport": "本次运行未报告此意见。请查看下方的改动与证据。",
+    "excluded": "已排除",
+    "source": {
+      "pasted": "由你粘贴",
+      "github": "来自 GitHub"
+    }
   }
 }

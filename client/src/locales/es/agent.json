@@ -647,6 +647,16 @@
       "goToCard": "Ir a la tarjeta",
       "goToCardTitle": "Ir a la tarjeta de implementación de este lanzamiento",
       "viewRunTitle": "Abrir el log en vivo del run"
+    },
+    "followUp": {
+      "title": "Resolver {{count}} comentario(s) de revisión de la PR",
+      "excluded": "No cambiar",
+      "verification": "Verificar",
+      "specUntouched": "La spec y su descripción en Jira no se editan: el alcance viaja con la ejecución.",
+      "source": {
+        "pasted": "pegado",
+        "github": "de GitHub"
+      }
     }
   },
   "runCard": {

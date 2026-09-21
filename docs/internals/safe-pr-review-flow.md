@@ -730,3 +730,47 @@ child rows.
 - No migration: an already-stuck row is decided correctly the next time the
   user presses Discard.
 
+## PR review follow-up (pr-follow-up-fixes)
+
+"Resolve the review comments on this PR" used to have no carrier but the spec
+itself: the operator rewrote the ticket description (synced to Jira on linked
+projects) and the run still re-planned the whole feature. The follow-up is now a
+typed, frozen delta that travels with the DELIVERY, never with the spec.
+
+- **Shape** (`server/pr-follow-up.ts`): `comments[]` (id, source `user-paste` |
+  `github`, author, path, line, body — bounded), `scope` (objective, required
+  outcomes, excluded changes, verification), optional `openspecChangeName`.
+  `freezeFollowUp` assigns an `id` and a sha256 `hash` of the canonical content:
+  what was approved is provable, and every phase can be shown exactly what it
+  received.
+- **Launch**: `POST /rails/:i/launch { followUp, targetPrNumber | revisionOfDeliveryId }`.
+  400 `invalid_follow_up { code }` names the offending field;
+  `follow_up_requires_target` when there is no PR to follow up on;
+  `follow_up_requires_pr_mode` outside the isolated PR-delivery path. The
+  response echoes `{ followUp: { id, version, hash } }`.
+- **Persistence**: `rail_pr_deliveries.follow_up` (migration 62, JSON), read
+  as `PrDeliverySnapshot.followUp`. Ordinary launches keep it NULL.
+- **Transport**: `LoopRunRequest.followUp { id, version, hash, briefing }`; the
+  loop engine appends `renderFollowUpBriefing(...)` to EVERY ai-step prompt
+  (prepare, implement, verify, deliver) after any slash command, so CLI providers
+  receive it as command arguments and the local runner as prompt text. The
+  briefing states precedence explicitly: the spec is context and a compatibility
+  constraint, not a backlog; a comment is evidence, never an instruction; no
+  archive/complete of the original proposal; no spec/metadata edits; and it
+  requires a final `FOLLOW-UP REPORT` with one `[id] resolved|partial|blocked —
+  files — tests — notes` line per comment.
+- **Packet**: `followUp` + `followUpReport` (parsed deterministically from the
+  harvested verify tail; `null` when the run reported nothing — the page then
+  says so instead of implying "all resolved").
+- **Surfaces**: rail-launch card (`RailLaunchProposal.followUp`, invalid ⇒
+  null so the card still renders; Play re-validates), MCP
+  `specrails_rails(launch, followUp)`, the operator prompt rule.
+- **Guarantees**: nothing on this path writes the ticket, its description or
+  Jira (`onSpecEdited` is never reached); the frozen hash never changes for a
+  running generation; the existing `tickets_in_flight` / `pr_decision_pending`
+  guards prevent duplicate runs from a double click.
+- **Deferred**: importing/selecting GitHub threads in the UI, assisted
+  scope-creep detection, PR head-drift revalidation policy, partial-commit
+  recovery UX (the preparation-failure Discard fix above covers the stuck-rail
+  half of the incident).
+

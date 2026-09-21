@@ -1699,6 +1699,16 @@ const MIGRATIONS: Migration[] = [
   migrateRepositoryProvenance,
   // Migration 61: version and evidence identity of recorded-change explanations.
   migrateFileStoryMetadata,
+  // Migration 62: pr-follow-up-fixes — the frozen review follow-up scope a launch
+  // was approved with (`follow_up`, JSON PrFollowUp: selected comments, required
+  // outcomes, exclusions, verification, OpenSpec change name, id/version/hash).
+  // Lives on the DELIVERY, never on the spec: a follow-up must not rewrite the
+  // ticket description (Jira-synced on linked projects). Additive + idempotent;
+  // NULL on every pre-existing row and on ordinary launches.
+  (db) => {
+    const cols = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[]).map((r) => r.name)
+    if (!cols.includes('follow_up')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN follow_up TEXT`)
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {

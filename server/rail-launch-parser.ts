@@ -14,6 +14,7 @@
 // batch proposal is N blocks).
 
 import { parseJsonTolerant } from './json-tolerant'
+import { parseFollowUpInput, type PrFollowUp } from './pr-follow-up-scope'
 
 export const RAIL_LAUNCH_FENCE = 'rail-launch'
 export const RAIL_LAUNCH_PROPOSAL_VERSION = 1
@@ -39,7 +40,13 @@ export interface RailLaunchProposal {
   railName: string | null
   /** One sentence the agent gives for its recommendation (rendered muted). */
   rationale: string | null
+  /** PR review follow-up scope (pr-follow-up-fixes): validated with the same
+   * parser the launch route uses; an invalid block reads as null so the card
+   * still renders (the route re-validates on Play). */
+  followUp: FollowUpProposal | null
 }
+
+export type FollowUpProposal = Omit<PrFollowUp, 'id' | 'hash'>
 
 export interface RejectedRailLaunchBlock {
   reason: 'invalid_json' | 'not_object' | 'unsupported_version' | 'no_tickets' | 'invalid_mode'
@@ -133,8 +140,14 @@ export function coerceRailLaunchProposal(value: unknown): { ok: true; proposal: 
       baseBranch: optString(value.baseBranch, 200),
       railName: optString(value.railName ?? value.name, 80),
       rationale: optString(value.rationale ?? value.reason ?? value.why, 400),
+      followUp: coerceFollowUp(value.followUp),
     },
   }
+}
+
+function coerceFollowUp(value: unknown): FollowUpProposal | null {
+  if (value === undefined || value === null) return null
+  try { return parseFollowUpInput(value) } catch { return null }
 }
 
 function tidy(body: string): string {

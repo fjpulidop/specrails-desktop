@@ -14,10 +14,11 @@
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { FollowUpProposal } from '../../lib/rail-launch-draft'
 import { motion, useReducedMotion } from 'motion/react'
 import {
   Play, Rocket, Cpu, Gauge, Brain, Workflow, UserCog, GitPullRequest, GitBranch, Plus, X, Sparkles,
-  AlertTriangle, Loader2, CheckCircle2, Ban, ExternalLink, TrainFront, Layers, Pin,
+  AlertTriangle, Loader2, CheckCircle2, Ban, ExternalLink, TrainFront, Layers, Pin, MessageSquareText,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { API_ORIGIN } from '../../lib/origin'
@@ -77,6 +78,8 @@ export interface RailLaunchConfig {
   profileName: string | null
   targetPrNumber: number | null
   baseBranch: string
+  /** PR review follow-up scope (pr-follow-up-fixes); seeded from the proposal, sent frozen on Play. */
+  followUp: FollowUpProposal | null
 }
 
 /**
@@ -166,6 +169,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     profileName: proposal.profileName,
     targetPrNumber: proposal.targetPrNumber,
     baseBranch: proposal.baseBranch ?? '',
+    followUp: proposal.followUp ?? null,
   }))
   const patch = useCallback((p: Partial<RailLaunchConfig>) => setConfig((c) => ({ ...c, ...p })), [])
 
@@ -319,6 +323,9 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
         ...(profilesApply && effectiveProfile ? { profileName: effectiveProfile } : {}),
         ...(config.targetPrNumber ? { targetPrNumber: config.targetPrNumber } : {}),
         ...(config.baseBranch.trim() ? { baseBranch: config.baseBranch.trim() } : {}),
+        // The follow-up travels as-is; the route freezes it (id + hash) and
+        // persists it on the delivery — never on the spec.
+        ...(config.followUp ? { followUp: config.followUp } : {}),
       }
       const r2 = await fetch(`${base}/${railIndex}/launch`, { method: 'POST', headers: json, body: JSON.stringify(launchBody) })
       if (!r2.ok) { setInlineError(await readError(r2)); return }
@@ -590,6 +597,41 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
             />
           </label>
         </div>
+
+        {config.followUp && (
+          <div data-testid="rail-card-follow-up" className="rounded-lg border border-accent-primary/25 bg-accent-primary/[0.05] px-2.5 py-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 font-medium text-foreground/85">
+                <MessageSquareText className="h-3.5 w-3.5 text-accent-primary/80" />
+                {t('railCard.followUp.title', { count: config.followUp.comments.length })}
+              </span>
+              <span className="text-foreground/55">{config.followUp.scope.objective}</span>
+            </div>
+            <ul className="mt-1.5 space-y-1">
+              {config.followUp.comments.map((comment) => (
+                <li key={comment.id} className="flex gap-2 text-foreground/75">
+                  <span className="shrink-0 rounded bg-surface/70 px-1 font-mono text-[10px] text-foreground/60">{comment.id}</span>
+                  <span className="min-w-0">
+                    {comment.path ? <span className="font-mono text-[11px] text-accent-info">{comment.path}{comment.line ? `:${comment.line}` : ''} · </span> : null}
+                    <span className="line-clamp-2">{comment.body}</span>
+                    <span className="ml-1 text-[10px] text-foreground/45">{t(`railCard.followUp.source.${comment.source === 'github' ? 'github' : 'pasted'}`)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {config.followUp.scope.excludedChanges.length > 0 && (
+              <div className="mt-1.5 text-foreground/60">
+                <span className="font-medium">{t('railCard.followUp.excluded')}:</span> {config.followUp.scope.excludedChanges.join(' · ')}
+              </div>
+            )}
+            {config.followUp.scope.verification.length > 0 && (
+              <div className="mt-1 text-foreground/60">
+                <span className="font-medium">{t('railCard.followUp.verification')}:</span> {config.followUp.scope.verification.join(' · ')}
+              </div>
+            )}
+            <div className="mt-1.5 text-[11px] text-foreground/45">{t('railCard.followUp.specUntouched')}</div>
+          </div>
+        )}
 
         {inlineError && (
           <div data-testid="rail-card-error" className="flex items-start gap-2 rounded-lg border border-destructive/35 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
