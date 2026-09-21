@@ -5,9 +5,11 @@ import * as path from 'path'
 import { execFileSync } from 'child_process'
 import { initDb, type DbInstance } from './db'
 import { executePrDecision, isPrDecisionAction, sweepMergedChainAncestors, type PrDecisionDeps } from './rail-pr-decision'
+import type { RunExecutionManifest } from './multi-repo-execution-store'
 import {
   claimPrDeliveryOperation, createPrDelivery, getPrDelivery, toPrDeliverySnapshot, transitionDecision,
   type DeliverBranchRecord, type PrDecision, type PrDeliveryPatch,
+  listActivePrDeliveries,
 } from './rail-pr-store'
 import { createRailWorktree, getRailWorktree } from './rail-worktrees-store'
 import { insertLinkWithId } from './jira/jira-db'
@@ -4200,5 +4202,110 @@ describe('milestone chain: ancestor sweep + head discard', () => {
     expect(getChain(db, 'chain-2')!).toMatchObject({ status: 'paused', pause_reason: 'head_discarded', head_branch: 'feat/1-t1' })
     const chainMsgs = broadcast.mock.calls.map((c) => c[0] as { type: string }).filter((m) => m.type === 'milestone.chain_changed')
     expect(chainMsgs).toHaveLength(1)
+  })
+})
+
+// ─── Preparation failure before any repository was allocated ─────────────────
+//
+// Observed 2026-09-21: a target-PR continuation on Rail 3 failed at
+// `git worktree add` (the PR branch was checked out in the main clone). The
+// parent row persisted pr_failed/blocked WITH an execution manifest whose
+// `repositories` was empty and with NO child rows. Discard was routed into the
+// repository-group path, which 404'd on "no repositories"; the UI rendered
+// that as "Already resolved elsewhere" and the rail stayed pending_decision.
+describe('Discard of a preparation failure (manifest, zero repository deliveries)', () => {
+  function preparationFailureRow(ticketIds: number[] = [1]) {
+    const row = createPrDelivery(db, {
+      railIndex: 2, loopId: 'factory:sdd-quick-openspec', railKey: '2-factory:sdd-quick-openspec',
+      ticketIds, baseBranch: '', loopName: 'SDD Quick (OpenSpec)',
+      originSurface: 'agent-chat', originConversationId: 'conv-1',
+    })
+    // The loop run claimed the tickets at launch, exactly like production.
+    claimTicketOutcomeOwners(db, ticketIds, 'run-prep-fail')
+    const manifest: RunExecutionManifest = {
+      version: 1, groupId: row.id, projectId: PROJECT.id,
+      primaryRepositoryId: 'primary-p1', artifactRepositoryId: 'member-git',
+      selectedRepositoryIds: ['member-git'], repositories: [],
+    }
+    expect(transitionDecision(db, row.id, 'building', 'pr_failed', {
+      implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'delivery_failed',
+      statusDetail: 'cannot allocate a verified worktree for PR branch feat/SKILLS-191-promote-tab: git worktree add failed',
+      executionManifest: manifest, runIds: ['run-prep-fail'],
+    })).toBe(true)
+    return getPrDelivery(db, row.id)!
+  }
+
+  it('Discard closes the attempt, frees the rail and leaves the spec exactly as it was', async () => {
+    const row = preparationFailureRow()
+    expect(listActivePrDeliveries(db).map((r) => r.id)).toContain(row.id)
+    const { deps, jira, broadcast } = mkDeps()
+    const gitCalls: string[][] = []
+    deps.git = { run: async (args: string[]) => { gitCalls.push(args); return { code: 0, stdout: '', stderr: '' } } } as unknown as GitRunner
+
+    const result = await executePrDecision(deps, { prDeliveryId: row.id, action: 'discard', expectedDecision: 'pr_failed' })
+
+    expect(result).toMatchObject({ status: 200, body: { ok: true, decision: 'discarded', preparationFailure: true } })
+    expect(result.body).not.toHaveProperty('cleanupWarnings')
+    expect(getPrDelivery(db, row.id)).toMatchObject({ decision: 'discarded', status_code: 'discarded', delivery_outcome: 'not_started' })
+    // The rail is free again: no active delivery pins it at pending_decision.
+    expect(listActivePrDeliveries(db).map((r) => r.id)).not.toContain(row.id)
+    // Nothing ran, so nothing is torn down and the spec is not touched: it keeps
+    // the on_review it had from a still-open earlier PR; Jira hears nothing.
+    expect(gitCalls.filter((a) => a[0] === 'worktree' || a[0] === 'branch' || a[0] === 'update-ref')).toEqual([])
+    expect(readTicketStatuses(ticketFile)['1']).toBe('on_review')
+    expect(db.prepare('SELECT COUNT(*) AS n FROM rail_pr_ticket_effects').get()).toEqual({ n: 0 })
+    expect(jira.onRailDiscard).not.toHaveBeenCalled()
+    // Both surfaces converge on the durable terminal state.
+    expect(prStateBroadcasts(broadcast).at(-1)).toMatchObject({ decision: 'discarded' })
+  })
+
+  it('a repeated Discard is idempotent: 409 stale_decision naming the real state, no second transition', async () => {
+    const row = preparationFailureRow()
+    const { deps } = mkDeps()
+    expect((await executePrDecision(deps, { prDeliveryId: row.id, action: 'discard', expectedDecision: 'pr_failed' })).status).toBe(200)
+    const again = await executePrDecision(deps, { prDeliveryId: row.id, action: 'discard', expectedDecision: 'pr_failed' })
+    expect(again).toMatchObject({ status: 409, body: { error: 'stale_decision', current: 'discarded' } })
+    expect(getPrDelivery(db, row.id)!.decision).toBe('discarded')
+  })
+
+  it('two concurrent Discards: exactly one wins, the other sees the authoritative state', async () => {
+    const row = preparationFailureRow()
+    const { deps } = mkDeps()
+    const [a, b] = await Promise.all([
+      executePrDecision(deps, { prDeliveryId: row.id, action: 'discard', expectedDecision: 'pr_failed' }),
+      executePrDecision(deps, { prDeliveryId: row.id, action: 'discard', expectedDecision: 'pr_failed' }),
+    ])
+    const statuses = [a.status, b.status].sort()
+    expect(statuses).toEqual([200, 409])
+    expect(getPrDelivery(db, row.id)!.decision).toBe('discarded')
+    expect(db.prepare('SELECT COUNT(*) AS n FROM rail_pr_ticket_effects').get()).toEqual({ n: 0 })
+  })
+
+  it('a stale Discard never touches a newer delivery that took the rail meanwhile', async () => {
+    const old = preparationFailureRow()
+    // A new generation occupies the same rail; the old row is superseded.
+    expect(transitionDecision(db, old.id, 'pr_failed', 'superseded')).toBe(true)
+    const fresh = createPrDelivery(db, {
+      railIndex: 2, loopId: 'factory:sdd-quick-openspec', railKey: '2-factory:sdd-quick-openspec',
+      ticketIds: [1], baseBranch: 'main', loopName: 'SDD Quick (OpenSpec)', originSurface: 'dashboard', originConversationId: null,
+    })
+    const { deps } = mkDeps()
+    const result = await executePrDecision(deps, { prDeliveryId: old.id, action: 'discard', expectedDecision: 'pr_failed' })
+    expect(result).toMatchObject({ status: 409, body: { error: 'stale_decision', current: 'superseded' } })
+    expect(getPrDelivery(db, fresh.id)!.decision).toBe('building')
+  })
+
+  it('a preparation failure that also has no manifest at all takes the same single-row discard', async () => {
+    const row = createPrDelivery(db, {
+      railIndex: 2, loopId: 'factory:implement', railKey: '2-factory:implement',
+      ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard', originConversationId: null,
+    })
+    claimTicketOutcomeOwners(db, [1], 'run-x')
+    transitionDecision(db, row.id, 'building', 'pr_failed', { implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'delivery_failed' })
+    const { deps, jira } = mkDeps()
+    const result = await executePrDecision(deps, { prDeliveryId: row.id, action: 'discard', expectedDecision: 'pr_failed' })
+    expect(result).toMatchObject({ status: 200, body: { decision: 'discarded', preparationFailure: true } })
+    expect(readTicketStatuses(ticketFile)['1']).toBe('on_review')
+    expect(jira.onRailDiscard).not.toHaveBeenCalled()
   })
 })

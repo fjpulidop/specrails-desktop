@@ -421,6 +421,11 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
       let snapshotApplication: RailPrSnapshotApplication | undefined
       if (authoritative && projRef.current === projectId) {
         snapshotApplication = applySnapshot(authoritative)
+      } else if (res.status === 409 && body.error === 'stale_decision' && projRef.current === projectId) {
+        // "Resolved elsewhere" without an authoritative snapshot must never
+        // leave the strip showing a card the server no longer considers
+        // active: re-hydrate so the user sees the real state, not a stuck one.
+        void hydrate(projectId, false)
       }
       return {
         ...body,
@@ -438,7 +443,7 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
     } catch (err) {
       return { status: 0, ok: false, error: 'network', detail: (err as Error).message }
     }
-  }, [applySnapshot])
+  }, [applySnapshot, hydrate])
 
   const checkout = useCallback(async (
     railIndex: number,
