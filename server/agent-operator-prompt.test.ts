@@ -460,3 +460,13 @@ describe('rail launch cards (mission-rail-cards)', () => {
     expect(buildOperatorSystemPrompt()).toBe(OPERATOR_SYSTEM_PROMPT)
   })
 })
+
+describe('spec addenda rule (spec-addenda)', () => {
+  it('teaches the agent to iterate through add_addendum instead of editing the description, and that preparation failures self-close', async () => {
+    const { OPERATOR_INSTRUCTIONS: text } = await import('./agent-operator-prompt')
+    expect(text).toContain('"Iterate on / extend / adjust an existing spec" = a SPEC ADDENDUM')
+    expect(text).toContain('specrails_specs(add_addendum)')
+    expect(text).toContain('list_addenda')
+    expect(text).toContain('closed\n  automatically by the next launch')
+  })
+})

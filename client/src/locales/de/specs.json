@@ -35,7 +35,9 @@
     "raw": "Raw",
     "rawTitle": "Raw-Spec – keine KI-Generierung bei der Erfassung",
     "contract": "Contract",
-    "openParentEpicTitle": "Übergeordnetes Epic #{{id}} öffnen · {{title}}"
+    "openParentEpicTitle": "Übergeordnetes Epic #{{id}} öffnen · {{title}}",
+    "addendaTitle_one": "{{count}} offenes Addendum – reist mit dem nächsten Start mit",
+    "addendaTitle_other": "{{count}} offene Addenda – reisen mit dem nächsten Start mit"
   },
   "card": {
     "deleteSpec": "Spec #{{id}} löschen",

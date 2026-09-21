@@ -13,6 +13,7 @@ import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog'
 import { AttachmentsSection } from './AttachmentsSection'
 import { TicketFilesTouched } from './code-explorer/TicketFilesTouched'
+import { SpecAddendaSection } from './SpecAddendaSection'
 import { TicketSpendingLine } from './TicketSpendingLine'
 import { TicketStatusBadge } from './TicketStatusIndicator'
 import { useMinimizedChats } from '../context/MinimizedChatsContext'
@@ -585,6 +586,9 @@ export function TicketDetailModal({
                   </button>
                 )}
               </div>
+
+              {/* Spec addenda — iterate without editing the description (spec-addenda) */}
+              <SpecAddendaSection ticket={ticket} />
 
               {/* Attachments / Resources */}
               <AttachmentsSection

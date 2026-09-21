@@ -114,5 +114,67 @@
     "newTicket": "Neues Ticket: {{title}}",
     "newTicketsAdded_one": "{{count}} neues Ticket aus der Produkt-Discovery hinzugefügt",
     "newTicketsAdded_other": "{{count}} neue Tickets aus der Produkt-Discovery hinzugefügt"
+  },
+  "addenda": {
+    "title": "Addenda",
+    "hint": "Iterationsnotizen über der Spec. Sie reisen mit dem nächsten Start mit, ohne die Beschreibung zu ändern.",
+    "add": "Addendum hinzufügen",
+    "emptyCta": "Füge ein Addendum hinzu, um an dieser Spec zu iterieren – der nächste Start (Implement, SDD Quick, Freestyle…) wird damit gebrieft, die Beschreibung bleibt unberührt.",
+    "openCount_one": "{{count}} offen",
+    "openCount_other": "{{count}} offen",
+    "kind": {
+      "change-request": "Änderungswunsch",
+      "review-feedback": "Review-Feedback",
+      "clarification": "Klarstellung",
+      "constraint": "Einschränkung"
+    },
+    "status": {
+      "open": "Offen",
+      "in_flight": "In Arbeit",
+      "applied": "Angewendet",
+      "dismissed": "Verworfen"
+    },
+    "statusHint": {
+      "open": "Reist mit dem nächsten Start dieser Spec mit",
+      "in_flight": "Von einem laufenden Job beansprucht – eingefroren bis zum Abschluss",
+      "applied": "Von einem abgeschlossenen Lauf geliefert",
+      "dismissed": "Zurückgezogen – wird nicht injiziert"
+    },
+    "form": {
+      "kind": "Art",
+      "titlePlaceholder": "Titel (optional – aus der ersten Zeile abgeleitet)",
+      "bodyPlaceholder": "Beschreibe die Änderung in eigenen Worten. Markdown ist erlaubt; zitiere Reviewer-Kommentare wörtlich, wenn vorhanden.",
+      "hint": "⌘/Strg+Enter speichert · die Beschreibung wird nie bearbeitet",
+      "save": "Addendum speichern",
+      "cancel": "Abbrechen",
+      "saving": "Speichern…"
+    },
+    "actions": {
+      "edit": "Bearbeiten",
+      "dismiss": "Verwerfen",
+      "reopen": "Wieder öffnen",
+      "delete": "Löschen",
+      "confirmDelete": "Löschen bestätigen",
+      "release": "Freigeben",
+      "releaseHint": "Gibt das Addendum frei, wenn der Lauf, der es beansprucht hat, verschwunden ist"
+    },
+    "meta": {
+      "by": "von {{who}}",
+      "run": "Lauf {{id}}",
+      "hash": "Hash {{hash}}",
+      "applied": "angewendet {{when}}"
+    },
+    "who": {
+      "user": "dir",
+      "agent": "dem Agenten",
+      "mcp": "einem MCP-Client"
+    },
+    "toast": {
+      "added": "Addendum hinzugefügt – es reist mit dem nächsten Start mit",
+      "updated": "Addendum aktualisiert",
+      "removed": "Addendum entfernt",
+      "failed": "Addendum konnte nicht gespeichert werden",
+      "inFlight": "Dieses Addendum ist in Arbeit – warte auf den Abschluss des Laufs"
+    }
   }
 }

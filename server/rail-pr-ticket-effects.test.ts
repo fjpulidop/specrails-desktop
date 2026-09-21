@@ -6,6 +6,8 @@ import { initDb, type DbInstance } from './db'
 import { enqueueOutbox } from './jira/jira-db'
 import { claimPrDeliveryOperation, createPrDelivery, getPrDelivery } from './rail-pr-store'
 import { claimTicketOutcomeOwners } from './rails-store'
+import { buildSpecAddendum, readSpecAddenda } from './spec-addenda'
+import { mutateStore, readStore } from './ticket-store'
 import {
   applyRailPrTicketEffect,
   replayPendingRailPrTicketEffects,
@@ -243,6 +245,53 @@ describe('rail PR ticket-effect outbox', () => {
     writeTickets()
     expect(applyRailPrTicketEffect(deps, row.id)).toMatchObject({ ok: true, changedTicketIds: [1] })
     expect(JSON.parse(fs.readFileSync(ticketFile, 'utf8')).tickets['1'].status).toBe('todo')
+  })
+
+  it('a discard (→ todo) reopens the applied addenda named by the delivery snapshot; a merge (→ done) leaves them applied', () => {
+    const seed = () => {
+      writeTickets('on_review')
+      mutateStore(ticketFile, (s) => {
+        s.tickets['1'].addenda = [
+          { ...buildSpecAddendum({ kind: 'change-request', title: 'Delivered', body: 'b' }, { createdBy: 'user' }), id: 'delivered', status: 'applied', run_id: 'loop-1', applied_at: '2026-09-21T00:00:00.000Z' },
+          { ...buildSpecAddendum({ kind: 'change-request', title: 'Earlier', body: 'b' }, { createdBy: 'user' }), id: 'earlier', status: 'applied', run_id: 'loop-0', applied_at: '2026-09-20T00:00:00.000Z' },
+        ]
+      })
+    }
+    const state = () => Object.fromEntries(readSpecAddenda(readStore(ticketFile).tickets['1'].addenda).map((a) => [a.id, a.status]))
+    const deps = () => ({ db, project: { id: 'p1', slug: 'p1', path: dir }, broadcast: vi.fn(), jiraSyncManager: { onRailMerged: vi.fn(), onRailDiscard: vi.fn() }, ticketFile })
+
+    seed()
+    const row = createPrDelivery(db, {
+      id: 'delivery-1', railIndex: 0, loopId: 'loop-1', railKey: '0-loop-1',
+      ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+      specAddenda: [{ ticketId: 1, id: 'delivered', kind: 'change-request', title: 'Delivered', hash: 'h' }],
+    })
+    claimTicketOutcomeOwners(db, [1], 'loop-1')
+    expect(claimPrDeliveryOperation(db, row.id, 'building', 'discard', 'owner')).toBe(true)
+    expect(transitionClaimedDecisionWithTicketEffect(
+      db, row.id, 'building', 'discarded', 'owner', {},
+      { deliveryId: row.id, ticketIds: [1], targetStatus: 'todo', jiraAction: 'discard', prUrl: null },
+    )).toBe(true)
+    expect(applyRailPrTicketEffect(deps(), row.id)).toMatchObject({ ok: true, changedTicketIds: [1] })
+    expect(JSON.parse(fs.readFileSync(ticketFile, 'utf8')).tickets['1'].status).toBe('todo')
+    expect(state()).toEqual({ delivered: 'open', earlier: 'applied' })
+
+    // Merge path: applied stays applied.
+    db = initDb(':memory:')
+    seed()
+    const merged = createPrDelivery(db, {
+      id: 'delivery-2', railIndex: 0, loopId: 'loop-1', railKey: '0-loop-1',
+      ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+      specAddenda: [{ ticketId: 1, id: 'delivered', kind: 'change-request', title: 'Delivered', hash: 'h' }],
+    })
+    claimTicketOutcomeOwners(db, [1], 'loop-1')
+    expect(claimPrDeliveryOperation(db, merged.id, 'building', 'poll-merge', 'owner')).toBe(true)
+    expect(transitionClaimedDecisionWithTicketEffect(
+      db, merged.id, 'building', 'merged', 'owner', {},
+      { deliveryId: merged.id, ticketIds: [1], targetStatus: 'done', jiraAction: 'merged', prUrl: 'https://example/pr/1' },
+    )).toBe(true)
+    expect(applyRailPrTicketEffect(deps(), merged.id)).toMatchObject({ ok: true, changedTicketIds: [1] })
+    expect(state()).toEqual({ delivered: 'applied', earlier: 'applied' })
   })
 
   it('freezes and applies only candidate tickets still parked at on_review', () => {

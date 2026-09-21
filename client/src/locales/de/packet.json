@@ -148,5 +148,22 @@
       "pasted": "von dir eingefügt",
       "github": "aus GitHub"
     }
+  },
+  "addenda": {
+    "title": "Spec-Addenda, mit denen dieser Lauf gebrieft wurde ({{count}})",
+    "caveat": "An die Spec angehängte Iterationsnotizen, beim Start eingefroren. Die Urteile unten sind der eigene Bericht des Laufs – keine Zusicherung, dass alles in Ordnung ist, nur weil die Tests bestanden haben.",
+    "kind": {
+      "change-request": "Änderungswunsch",
+      "review-feedback": "Review-Feedback",
+      "clarification": "Klarstellung",
+      "constraint": "Einschränkung"
+    },
+    "verdict": {
+      "applied": "Angewendet",
+      "partial": "Teilweise angewendet",
+      "blocked": "Blockiert",
+      "unreported": "Nicht berichtet"
+    },
+    "noReport": "Der Lauf hat zu diesem Addendum nichts berichtet. Prüfe die Änderungen und Belege unten."
   }
 }

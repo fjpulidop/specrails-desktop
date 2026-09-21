@@ -1,8 +1,9 @@
 import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { openAddenda } from '../lib/spec-addenda-core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Trash2, AlertTriangle } from 'lucide-react'
+import { Trash2, AlertTriangle, Layers } from 'lucide-react'
 import { Badge } from './ui/badge'
 import type { LocalTicket, TicketPriority } from '../types'
 
@@ -48,6 +49,7 @@ export function SpecCard({
   onDelete,
 }: SpecCardProps) {
   const { t } = useTranslation('specs')
+  const openAddendaCount = openAddenda(ticket.addenda).length
   // On-review specs are frozen unless there is an open PR branch the rail can
   // continue by adding another commit.
   const dragFrozen = dragDisabled || jiggleMode || (ticket.status === 'on_review' && !allowOnReviewDrag)
@@ -218,6 +220,17 @@ export function SpecCard({
           data-testid={`jira-badge-${ticket.id}`}
         >
           {ticket.jira_key}
+        </Badge>
+      ) : null}
+      {openAddendaCount > 0 ? (
+        <Badge
+          variant="outline"
+          className="text-[9px] shrink-0 border-accent-primary/50 text-accent-primary bg-accent-primary/10 gap-0.5"
+          title={t('badges.addendaTitle', { count: openAddendaCount })}
+          data-testid={`addenda-badge-${ticket.id}`}
+        >
+          <Layers className="h-2.5 w-2.5" />
+          {openAddendaCount}
         </Badge>
       ) : null}
       {isDraft ? (

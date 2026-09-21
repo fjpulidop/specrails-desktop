@@ -114,5 +114,67 @@
     "newTicket": "New ticket: {{title}}",
     "newTicketsAdded_one": "{{count}} new ticket added from product discovery",
     "newTicketsAdded_other": "{{count}} new tickets added from product discovery"
+  },
+  "addenda": {
+    "title": "Addenda",
+    "hint": "Iteration notes layered on top of the spec. They ride into the next launch without editing the description.",
+    "add": "Add addendum",
+    "emptyCta": "Add an addendum to iterate on this spec — the next launch (Implement, SDD Quick, Freestyle…) is briefed with it while the description stays untouched.",
+    "openCount_one": "{{count}} open",
+    "openCount_other": "{{count}} open",
+    "kind": {
+      "change-request": "Change request",
+      "review-feedback": "Review feedback",
+      "clarification": "Clarification",
+      "constraint": "Constraint"
+    },
+    "status": {
+      "open": "Open",
+      "in_flight": "In flight",
+      "applied": "Applied",
+      "dismissed": "Dismissed"
+    },
+    "statusHint": {
+      "open": "Rides into the next launch of this spec",
+      "in_flight": "Claimed by a running job — frozen until it settles",
+      "applied": "Delivered by a completed run",
+      "dismissed": "Withdrawn — not injected"
+    },
+    "form": {
+      "kind": "Kind",
+      "titlePlaceholder": "Title (optional — derived from the first line)",
+      "bodyPlaceholder": "Describe the change in your own words. Markdown is fine; quote reviewer comments verbatim when you have them.",
+      "hint": "⌘/Ctrl+Enter saves · the description is never edited",
+      "save": "Save addendum",
+      "cancel": "Cancel",
+      "saving": "Saving…"
+    },
+    "actions": {
+      "edit": "Edit",
+      "dismiss": "Dismiss",
+      "reopen": "Reopen",
+      "delete": "Delete",
+      "confirmDelete": "Confirm delete",
+      "release": "Release",
+      "releaseHint": "Release the claim if the run that took it is gone"
+    },
+    "meta": {
+      "by": "by {{who}}",
+      "run": "run {{id}}",
+      "hash": "hash {{hash}}",
+      "applied": "applied {{when}}"
+    },
+    "who": {
+      "user": "you",
+      "agent": "the agent",
+      "mcp": "an MCP client"
+    },
+    "toast": {
+      "added": "Addendum added — it rides into the next launch",
+      "updated": "Addendum updated",
+      "removed": "Addendum removed",
+      "failed": "Could not save the addendum",
+      "inFlight": "This addendum is in flight — wait for the run to settle"
+    }
   }
 }

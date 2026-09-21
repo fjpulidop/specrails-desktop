@@ -657,6 +657,10 @@
         "pasted": "pegado",
         "github": "de GitHub"
       }
+    },
+    "addenda": {
+      "rides_one": "{{count}} anexo abierto viaja con este lanzamiento:",
+      "rides_other": "{{count}} anexos abiertos viajan con este lanzamiento:"
     }
   },
   "runCard": {

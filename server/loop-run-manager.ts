@@ -292,6 +292,11 @@ export interface LoopRunRequest {
    *  phase (prepare, implement, verify, deliver) can miss it. Same id/version/
    *  hash for the whole run — a draft edited meanwhile never changes it. */
   followUp?: { id: string; version: number; hash: string; briefing: string }
+  /** Spec addenda (spec-addenda): the iteration notes the run's specs carried at
+   *  launch, frozen (ids + hashes) and rendered ONCE into a briefing appended to
+   *  EVERY ai-step prompt — after the follow-up, before the history. A note
+   *  edited mid-run never changes what this run received. */
+  addenda?: { ids: string[]; briefing: string }
 }
 
 const IMPLEMENT_CMD_TOKEN_RE = /\{\{\s*cmd:(?:implement|batch)\s*\}\}/
@@ -1546,7 +1551,9 @@ export class LoopRunManager {
             // The follow-up briefing is APPENDED (after any slash command, which
             // must lead the message) so it becomes part of the command's
             // arguments for CLI providers and plain prompt text for the runner.
-            const base = [executionManifestPrompt(req.executionManifest), withReviewContinuationContext(expanded, rawTemplate, req.spec), req.followUp?.briefing].filter(Boolean).join('\n\n')
+            // The spec-addenda briefing rides the same slot: appended to every
+            // step so no phase can miss the iteration delta.
+            const base = [executionManifestPrompt(req.executionManifest), withReviewContinuationContext(expanded, rawTemplate, req.spec), req.followUp?.briefing, req.addenda?.briefing].filter(Boolean).join('\n\n')
             // Inject the cross-iteration history only when there's no live session
             // to carry it (a fresh pass) OR right after a Decider 'continue' (so the
             // step sees the verdict). A mid-body resumed step already has it.

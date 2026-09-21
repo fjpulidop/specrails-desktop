@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
+import path from 'path'
+import os from 'os'
+import fs from 'fs'
+import { mutateStore, readStore } from './ticket-store'
+import { buildSpecAddendum, readSpecAddenda } from './spec-addenda'
 import { initDb, type DbInstance } from './db'
 import { initDesktopDb } from './desktop-db'
 import { createRailsRouter, prDeliveryRevisionAllowed } from './rails-router'
@@ -93,6 +98,7 @@ function appWith(
     railLoopRuns?: Map<string, { railIndex: number; ticketIds: number[] }>
     getTicketSpec?: (ticketId: number) => { title: string; description: string } | undefined
     onLoopRunFinished?: (runId: string, outcome: string) => void
+    projectPath?: string
   },
 ) {
   const providers = opts?.providers ?? ['claude']
@@ -105,7 +111,7 @@ function appWith(
       db,
       railJobs: new Map(),
       railLoopRuns: opts?.railLoopRuns ?? new Map(),
-      project: { id: 'p1', slug: 's1', provider: providers[0], providers, path: '/repo' },
+      project: { id: 'p1', slug: 's1', provider: providers[0], providers, path: opts?.projectPath ?? '/repo' },
       queueManager: opts?.queueManager,
       broadcast: opts?.broadcast ?? (() => { /* noop */ }),
       desktopDb: opts?.desktopDb,
@@ -1515,6 +1521,129 @@ describe('rails-router POST /:railIndex/launch — explicit target PR (deliver-r
     expect(res.status).toBe(400)
     expect(res.body.error).toBe('follow_up_requires_target')
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+})
+
+describe('rails-router POST /:railIndex/launch — spec addenda + preparation-failure relaunch (spec-addenda)', () => {
+  let db: DbInstance
+  let desktopDb: DbInstance
+  let projDir: string
+  const ORIG_PR = process.env.SPECRAILS_RAIL_DELIVER_PR
+  const ORIG_LOOPS = process.env.SPECRAILS_LOOPS_SECTION
+
+  const seedAddenda = () => {
+    const storePath = path.join(projDir, '.specrails', 'local-tickets.json')
+    fs.mkdirSync(path.dirname(storePath), { recursive: true })
+    mutateStore(storePath, (s) => {
+      const now = '2026-09-21T10:00:00.000Z'
+      s.tickets['1'] = {
+        id: 1, title: 'Promote tab', description: 'never edited', status: 'todo', priority: 'medium', labels: [],
+        assignee: null, prerequisites: [], metadata: {}, origin_conversation_id: null, is_epic: false,
+        parent_epic_id: null, execution_order: null, short_summary: null, created_at: now, updated_at: now,
+        created_by: 'test', source: 'manual',
+        addenda: [{ ...buildSpecAddendum({ kind: 'review-feedback', title: 'Idempotency', body: 'Send an Idempotency-Key.' }, { createdBy: 'user', now }), id: 'a1' }],
+      }
+      s.next_id = 2
+    })
+    return storePath
+  }
+  const addendumState = (storePath: string) => readSpecAddenda(readStore(storePath).tickets['1'].addenda)[0]
+
+  beforeEach(() => {
+    db = initDb(':memory:')
+    desktopDb = initDesktopDb(':memory:')
+    projDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rails-addenda-'))
+    setRailTickets(db, 0, [1], 'loop')
+    delete process.env.SPECRAILS_RAIL_DELIVER_PR
+    delete process.env.SPECRAILS_LOOPS_SECTION
+  })
+  afterEach(() => {
+    openProjectProcessAdmission('p1')
+    db.close(); desktopDb.close()
+    fs.rmSync(projDir, { recursive: true, force: true })
+    if (ORIG_PR === undefined) delete process.env.SPECRAILS_RAIL_DELIVER_PR; else process.env.SPECRAILS_RAIL_DELIVER_PR = ORIG_PR
+    if (ORIG_LOOPS === undefined) delete process.env.SPECRAILS_LOOPS_SECTION; else process.env.SPECRAILS_LOOPS_SECTION = ORIG_LOOPS
+  })
+
+  const preparationFailure = () => {
+    const row = createPrDelivery(db, {
+      railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement',
+      ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+    })
+    transitionDecision(db, row.id, 'building', 'pr_failed', {
+      implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'delivery_failed',
+      statusDetail: "git worktree add failed: 'feat/x' is already used by worktree at '/elsewhere'",
+    })
+    return row
+  }
+
+  it('a relaunch closes a preparation-failure delivery in place and proceeds (no pr_decision_pending dead end)', async () => {
+    const row = preparationFailure()
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-2'])
+    const broadcast = vi.fn()
+    const res = await request(appWith(db, { desktopDb, broadcast, loopRunManager: { run: vi.fn(), cancel: vi.fn() }, getTicketSpec: () => ({ title: 'T', description: 'D' }) }))
+      .post('/rails/0/launch').send({ loopId: 'factory:implement' })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(getPrDelivery(db, row.id)?.decision).toBe('discarded')
+    expect(getPrDelivery(db, row.id)?.status_code).toBe('discarded')
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'rail.pr_state' }))
+    expect(mockLaunchIsolated).toHaveBeenCalledTimes(1)
+  })
+
+  it('a revision naming a preparation-failure delivery is refused with a precise reason and the row is left alone', async () => {
+    const row = preparationFailure()
+    mockRepoStatus.mockResolvedValue('ok')
+    const res = await request(appWith(db, { desktopDb, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
+      .post('/rails/0/launch').send({ loopId: 'factory:implement', revisionOfDeliveryId: row.id, revisionNote: 'try again' })
+    expect(res.status).toBe(409)
+    expect(res.body).toMatchObject({ error: 'invalid_revision_target', prDeliveryId: row.id })
+    expect(res.body.detail).toContain('nothing to revise')
+    expect(getPrDelivery(db, row.id)?.decision).toBe('pr_failed')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+  })
+
+  it('a real undecided delivery still answers pr_decision_pending (the auto-close is preparation-failure only)', async () => {
+    const row = createPrDelivery(db, {
+      railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement',
+      ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+    })
+    transitionDecision(db, row.id, 'building', 'pr_failed', {
+      implementationOutcome: 'failed', deliveryOutcome: 'blocked', statusCode: 'delivery_failed',
+      branches: [{ ticketId: 1, branch: 'feat/x', worktreeId: 'wt', succeeded: true, changed: true, finalSha: 'a'.repeat(40) } as never],
+    })
+    const res = await request(appWith(db, { desktopDb, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
+      .post('/rails/0/launch').send({ loopId: 'factory:implement' })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'pr_decision_pending', prDeliveryId: row.id })
+  })
+
+  it('shared-cwd loop launch claims the open addenda for the run and briefs the engine with them', async () => {
+    const storePath = seedAddenda()
+    mockRepoStatus.mockResolvedValue('no-git')
+    const run = vi.fn(() => new Promise<never>(() => { /* stays running */ }))
+    const broadcast = vi.fn()
+    const res = await request(appWith(db, { desktopDb, broadcast, projectPath: projDir, loopRunManager: { run, cancel: vi.fn() }, getTicketSpec: () => ({ title: 'Promote tab', description: 'never edited' }) }))
+      .post('/rails/0/launch').send({ loopId: 'factory:implement' })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    const req = run.mock.calls[0][0] as { runId: string; addenda?: { ids: string[]; briefing: string } }
+    expect(req.addenda?.ids).toEqual(['a1'])
+    expect(req.addenda?.briefing).toContain('## SPEC ADDENDA (authoritative for this run)')
+    expect(req.addenda?.briefing).toContain('#### [a1] Review feedback — Idempotency')
+    expect(addendumState(storePath)).toMatchObject({ status: 'in_flight', run_id: req.runId })
+    expect(readStore(storePath).tickets['1'].description).toBe('never edited')
+    expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'ticket_updated', projectId: 'p1' }))
+  })
+
+  it('legacy QueueManager launch (loops off) claims the addenda under the job id at enqueue', async () => {
+    process.env.SPECRAILS_LOOPS_SECTION = 'false'
+    const storePath = seedAddenda()
+    const enqueue = vi.fn(() => ({ id: 'job-9' }))
+    const res = await request(appWith(db, { desktopDb, projectPath: projDir, queueManager: { enqueue } }))
+      .post('/rails/0/launch').send({ mode: 'implement' })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(enqueue).toHaveBeenCalledTimes(1)
+    expect(addendumState(storePath)).toMatchObject({ status: 'in_flight', run_id: 'job-9' })
   })
 })
 

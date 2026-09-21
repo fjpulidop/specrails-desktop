@@ -148,5 +148,22 @@
       "pasted": "pegado por ti",
       "github": "de GitHub"
     }
+  },
+  "addenda": {
+    "title": "Anexos con los que se instruyó esta ejecución ({{count}})",
+    "caveat": "Notas de iteración adjuntas a la spec y congeladas en el lanzamiento. Los veredictos son el informe de la propia ejecución, no una garantía de que todo esté bien porque pasaron los tests.",
+    "kind": {
+      "change-request": "Petición de cambio",
+      "review-feedback": "Feedback de revisión",
+      "clarification": "Aclaración",
+      "constraint": "Restricción"
+    },
+    "verdict": {
+      "applied": "Aplicado",
+      "partial": "Aplicado parcialmente",
+      "blocked": "Bloqueado",
+      "unreported": "Sin informar"
+    },
+    "noReport": "La ejecución no informó sobre este anexo. Revisa los cambios y la evidencia más abajo."
   }
 }

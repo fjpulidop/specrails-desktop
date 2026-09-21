@@ -657,6 +657,10 @@
         "pasted": "貼り付け",
         "github": "GitHub から"
       }
+    },
+    "addenda": {
+      "rides_one": "{{count}} 件の未処理補足がこの起動に同行します：",
+      "rides_other": "{{count}} 件の未処理補足がこの起動に同行します："
     }
   },
   "runCard": {

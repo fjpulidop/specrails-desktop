@@ -583,6 +583,44 @@ describe('programmatic-runtime evidence in the proof', () => {
 })
 
 
+describe('spec addenda on the packet (spec-addenda)', () => {
+  const specAddenda = [
+    { ticketId: 1, id: 'a1', kind: 'change-request' as const, title: 'Idempotency', hash: 'h1' },
+    { ticketId: 1, id: 'a2', kind: 'constraint' as const, title: 'No new deps', hash: 'h2' },
+  ]
+  function addendaDelivery(verifyTail: string | null) {
+    createPrDelivery(db, {
+      id: 'del-a', railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement',
+      ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
+      specSnapshot: [SPEC(1, 'Ticket 1')], specAddenda,
+    })
+    transitionDecision(db, 'del-a', 'building', 'on_review', {
+      branches: [unit()], runIds: ['run-1'], implementationOutcome: 'succeeded', deliveryOutcome: 'ready', statusCode: 'ready_for_review',
+      settleEvidence: evidence({ verifyTail }),
+    })
+    return composeReviewPacket({ db, row: getPrDelivery(db, 'del-a')! })
+  }
+
+  it('exposes the frozen addenda and the run\'s own ADDENDA REPORT', () => {
+    const packet = addendaDelivery(['ADDENDA REPORT', '- [a1] applied — files: lib/api.ts — tests: api.test.ts', '- [a2] blocked — notes: needs a decision', 'VERIFICATION: PASS'].join('\n'))
+    expect(packet.specAddenda).toEqual(specAddenda)
+    expect(packet.specAddendaReport).toEqual([
+      { addendumId: 'a1', verdict: 'applied', files: 'lib/api.ts', tests: 'api.test.ts', notes: null },
+      { addendumId: 'a2', verdict: 'blocked', files: null, tests: null, notes: 'needs a decision' },
+    ])
+  })
+
+  it('reports null (never a synthesised verdict) when the run said nothing', () => {
+    expect(addendaDelivery('VERIFICATION: PASS').specAddendaReport).toBeNull()
+  })
+
+  it('an ordinary delivery carries null addenda and null report', () => {
+    const packet = delivery({})
+    expect(packet.specAddenda).toBeNull()
+    expect(packet.specAddendaReport).toBeNull()
+  })
+})
+
 describe('PR review follow-up on the packet (pr-follow-up-fixes)', () => {
   const followUp = freezeFollowUp(parseFollowUpInput({
     comments: [{ path: 'lib/api.ts', body: 'send Idempotency-Key per pair' }, { id: 'promote', path: 'lib/promoteRun.ts', body: 'unknown for ambiguous failures' }],

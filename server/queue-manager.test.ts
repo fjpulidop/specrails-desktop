@@ -2972,6 +2972,62 @@ describe('QueueManager', () => {
     })
   })
 
+  describe('spec addenda briefing (spec-addenda)', () => {
+    it('claims the open addenda of every referenced ticket under the job id and appends the briefing after the command', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('claude-addenda-job' as any)
+      const now = new Date().toISOString()
+      const projectDir = makeProjectDirWithTickets({
+        '7': {
+          id: 7, title: 'Promote tab', description: 'never edited', status: 'on_review', priority: 'medium', labels: [],
+          assignee: null, prerequisites: [], metadata: {}, created_at: now, updated_at: now, created_by: 'user', source: 'manual',
+          addenda: [
+            { id: 'a1', version: 1, kind: 'change-request', title: 'Idempotency', body: 'Send an Idempotency-Key.', status: 'open', hash: 'h1', created_at: now, updated_at: now, created_by: 'agent', origin_conversation_id: null, run_id: null, applied_at: null },
+            { id: 'done', version: 1, kind: 'constraint', title: 'Old', body: 'x', status: 'applied', hash: 'h2', created_at: now, updated_at: now, created_by: 'user', origin_conversation_id: null, run_id: 'earlier', applied_at: now },
+          ],
+        },
+      })
+      try {
+        const qmClaude = new QueueManager(broadcast, undefined, [], projectDir, { projectSlug: 'proj' })
+        qmClaude.enqueue('/specrails:implement #7 --yes', 'normal', { interactive: false })
+        const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+        const prompt = spawnArgs.find((a) => a.startsWith('/specrails:implement #7'))!
+        expect(prompt).toBeDefined()
+        expect(prompt).toContain('\n\n## SPEC ADDENDA (authoritative for this run)')
+        expect(prompt).toContain('#### [a1] Change request — Idempotency')
+        expect(prompt).not.toContain('#### [done]')
+        expect(prompt.indexOf('/specrails:implement')).toBe(0)
+        const store = JSON.parse(fs.readFileSync(path.join(projectDir, '.specrails', 'local-tickets.json'), 'utf8'))
+        expect(store.tickets['7'].addenda[0]).toMatchObject({ status: 'in_flight', run_id: 'claude-addenda-job' })
+        expect(store.tickets['7'].description).toBe('never edited')
+      } finally {
+        fs.rmSync(projectDir, { recursive: true, force: true })
+      }
+    })
+
+    it('a ticket without addenda spawns the byte-identical command', () => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      vi.mocked(mockUuidV4).mockReturnValue('claude-no-addenda-job' as any)
+      const now = new Date().toISOString()
+      const projectDir = makeProjectDirWithTickets({
+        '7': { id: 7, title: 'Plain', description: 'd', status: 'todo', priority: 'medium', labels: [], assignee: null, prerequisites: [], metadata: {}, created_at: now, updated_at: now, created_by: 'user', source: 'manual' },
+      })
+      try {
+        const qmClaude = new QueueManager(broadcast, undefined, [], projectDir, { projectSlug: 'proj' })
+        qmClaude.enqueue('/specrails:implement #7 --yes', 'normal', { interactive: false })
+        const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+        expect(spawnArgs).toContain('/specrails:implement #7 --yes')
+        expect(spawnArgs.some((a) => a.includes('SPEC ADDENDA'))).toBe(false)
+      } finally {
+        fs.rmSync(projectDir, { recursive: true, force: true })
+      }
+    })
+  })
+
   describe('implement attachment context', () => {
     it('embeds project pre-prompt in claude implement system prompt', () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))

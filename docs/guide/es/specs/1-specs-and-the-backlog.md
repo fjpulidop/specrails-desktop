@@ -46,6 +46,10 @@ Para crear una spec, haz clic en **Añadir** (el botón Más de la barra de herr
 
 A cuál recurrir depende de lo clara que tengas ya la idea. ¿Sabes exactamente lo que quieres? Quick. ¿Todavía le estás dando vueltas? Explore. ¿Ya tienes el texto? Raw.
 
+## Anexos: iterar sobre una spec existente
+
+Cuando una spec ya tiene trabajo detrás (una PR en revisión, una funcionalidad ya fusionada) y quieres *más*, no reescribas su descripción: eso desvirtúa la spec (y sincroniza la desviación con Jira) y obliga a la siguiente ejecución a replanificarlo todo. Abre la spec y añade un **anexo**: una nota breve con un tipo (petición de cambio, feedback de revisión, aclaración, restricción) y tus palabras. Los anexos abiertos viajan automáticamente con el próximo lanzamiento de esa spec en cualquier loop (Implement, SDD Quick, Freestyle), de modo que la ejecución cambia solo lo que pediste, y el paquete de revisión informa de cada uno como aplicado, aplicado parcialmente o bloqueado. Si la ejecución falla o descartas la entrega, vuelven solos a **Abierto**. El agente de misión puede añadirlos por ti cuando le pides cambiar algo de una spec existente.
+
 ## Adónde ir después
 
 - [Añadir spec — Modo Quick](add-spec-quick-mode.md): la forma más rápida de convertir una idea en una spec.

@@ -1709,6 +1709,16 @@ const MIGRATIONS: Migration[] = [
     const cols = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[]).map((r) => r.name)
     if (!cols.includes('follow_up')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN follow_up TEXT`)
   },
+  // Migration 63: spec-addenda — the frozen identity (ticketId/id/kind/title/
+  // hash) of the spec addenda a launch carried (`spec_addenda`, JSON
+  // SpecAddendaSnapshotEntry[]). The addenda themselves live on the TICKET
+  // (local-tickets.json, schema 1.4); the delivery only records which ones
+  // this generation was briefed with, so the packet can report them and a
+  // discard can reopen exactly those. Additive + idempotent; NULL when none.
+  (db) => {
+    const cols = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[]).map((r) => r.name)
+    if (!cols.includes('spec_addenda')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN spec_addenda TEXT`)
+  },
 ]
 
 function applyMigrations(db: DbInstance): void {

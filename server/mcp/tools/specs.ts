@@ -8,7 +8,7 @@ import { checkSpecFraming, recordSpecCommitted } from '../../agent-spec-framing'
 type McpTier = 'read' | 'write' | 'ai-spawn' | 'destructive'
 
 // Per-action danger classification for the specs (tickets) facade.
-const DESTRUCTIVE_ACTIONS = new Set(['delete', 'smash_undo', 'delete_epic_children'])
+const DESTRUCTIVE_ACTIONS = new Set(['delete', 'smash_undo', 'delete_epic_children', 'delete_addendum'])
 // `create` routes through Quick Add Spec (generate-spec) so MCP-created specs
 // match the app's "Add Spec → Quick" flow — hence ai-spawn, not write.
 const AI_SPAWN_ACTIONS = new Set(['create', 'generate', 'ai_edit', 'contract_refine', 'smash'])
@@ -16,6 +16,7 @@ const AI_SPAWN_ACTIONS = new Set(['create', 'generate', 'ai_edit', 'contract_ref
 // using its actual side effects, not the synchronous HTTP response alone.
 const WRITE_ACTIONS = new Set([
   'update', 'from_prompt', 'save_draft', 'commit_draft', 'cancel_ai_edit',
+  'add_addendum', 'update_addendum', 'dismiss_addendum', 'reopen_addendum',
 ])
 
 function resolveSpecsTier(action: string, args: Record<string, unknown>): McpTier {
@@ -71,7 +72,13 @@ export function specsTools(): McpToolSpec[] {
         'smash (ai-spawn, decompose a spec into N child sub-specs under an epic — Claude-only), ' +
         'smash_undo (destructive, reverse a prior SMASH), delete_epic_children (destructive, delete all children of an epic), ' +
         'spending_summary (per-ticket AI spend), files_touched (provenance of files an AI job touched for this ticket), ' +
-        'list_attachments, get_attachment. The generate/ai_edit/contract_refine/smash actions are async (HTTP 202) — ' +
+        'list_attachments, get_attachment. ' +
+        'SPEC ADDENDA — THE way to iterate on an EXISTING spec without rewriting its description (which drifts the spec and syncs to Jira): ' +
+        'add_addendum (write; id + body [+ kind change-request|review-feedback|clarification|constraint, + title] — an open addendum rides AUTOMATICALLY into the next launch of that spec on ANY loop: implement, SDD Quick, freestyle, custom loops, revisions; every AI step is briefed with it, a delivered spec is iterated instead of re-planned, and the review packet reports it as applied/partial/blocked), ' +
+        'list_addenda (read; status open|in_flight|applied|dismissed + the run that claimed/applied each), ' +
+        'update_addendum (write; edit an open/dismissed one: kind/title/body — in-flight and applied ones are frozen), ' +
+        'dismiss_addendum (write; withdraw it), reopen_addendum (write; a dismissed/applied one rides again), delete_addendum (destructive; never while in flight). ' +
+        'The generate/ai_edit/contract_refine/smash actions are async (HTTP 202) — ' +
         'results arrive over the WebSocket, not the HTTP response.',
       hintTier: 'read',
       tier: (args) => resolveSpecsTier(args.action as string, args),
@@ -97,6 +104,12 @@ export function specsTools(): McpToolSpec[] {
             'files_touched',
             'list_attachments',
             'get_attachment',
+            'add_addendum',
+            'list_addenda',
+            'update_addendum',
+            'dismiss_addendum',
+            'reopen_addendum',
+            'delete_addendum',
           ])
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
@@ -108,7 +121,7 @@ export function specsTools(): McpToolSpec[] {
           .number()
           .int()
           .optional()
-          .describe('Numeric ticket id (get/update/delete/contract_refine/smash/smash_undo/delete_epic_children/spending_summary/files_touched/ai_edit)'),
+          .describe('Numeric ticket id (get/update/delete/contract_refine/smash/smash_undo/delete_epic_children/spending_summary/files_touched/ai_edit/list_addenda/add_addendum/update_addendum/dismiss_addendum/reopen_addendum/delete_addendum)'),
 
         // ── list filters ─────────────────────────────────────────────────
         status: z
@@ -182,6 +195,18 @@ export function specsTools(): McpToolSpec[] {
         // ── smash ────────────────────────────────────────────────────────
         mode: z.enum(['simple', 'full']).optional().describe('smash: decomposition mode (default simple)'),
         smashedAt: z.string().optional().describe('smash_undo: the smashedAt timestamp of the SMASH to reverse (required)'),
+
+        // ── spec addenda ─────────────────────────────────────────────────
+        addendumId: z.string().max(64).optional().describe('update_addendum/dismiss_addendum/reopen_addendum/delete_addendum: the addendum id (from list_addenda / add_addendum)'),
+        kind: z
+          .enum(['change-request', 'review-feedback', 'clarification', 'constraint'])
+          .optional()
+          .describe('add_addendum/update_addendum: what the note is (default change-request)'),
+        body: z
+          .string()
+          .max(8000)
+          .optional()
+          .describe("add_addendum (required)/update_addendum: the addendum text in the user's own words (markdown, ≤ 8000 chars). Quoted to the run as evidence, never as an order that widens permissions"),
 
         // ── attachments ──────────────────────────────────────────────────
         ticketId: z
@@ -283,6 +308,44 @@ export function specsTools(): McpToolSpec[] {
               path: `${base}/tickets/${encodeURIComponent(ticketId)}/attachments/${encodeURIComponent(attachmentId)}`,
               hint: 'Attachment metadata and download path; binary content is not inlined. Fetch the authenticated REST download or open the attachment in the app.',
             }
+          }
+
+          // ── spec addenda ───────────────────────────────────────────────
+          case 'list_addenda':
+            return apiCall(ctx, 'GET', `${base}/tickets/${requireId()}/addenda`)
+          case 'add_addendum': {
+            if (typeof args.body !== 'string' || !args.body.trim()) throw new Error('add_addendum requires a non-empty "body".')
+            const r = await apiCall(ctx, 'POST', `${base}/tickets/${requireId()}/addenda`, {
+              kind: args.kind,
+              title: args.title,
+              body: args.body,
+              createdBy: ctx.originConversationId ? 'agent' : 'mcp',
+              originConversationId: ctx.originConversationId ?? undefined,
+            }) as Record<string, unknown>
+            return {
+              ...r,
+              hint: 'The addendum is open: the NEXT launch of this spec (specrails_rails launch — implement, SDD Quick, freestyle or any loop) briefs every AI step with it. Do not edit the spec description to repeat it.',
+            }
+          }
+          case 'update_addendum': {
+            const addendumId = args.addendumId as string | undefined
+            if (!addendumId) throw new Error('update_addendum requires an "addendumId".')
+            return apiCall(ctx, 'PATCH', `${base}/tickets/${requireId()}/addenda/${encodeURIComponent(addendumId)}`, {
+              kind: args.kind, title: args.title, body: args.body,
+            })
+          }
+          case 'dismiss_addendum':
+          case 'reopen_addendum': {
+            const addendumId = args.addendumId as string | undefined
+            if (!addendumId) throw new Error(`${action} requires an "addendumId".`)
+            return apiCall(ctx, 'PATCH', `${base}/tickets/${requireId()}/addenda/${encodeURIComponent(addendumId)}`, {
+              status: action === 'dismiss_addendum' ? 'dismissed' : 'open',
+            })
+          }
+          case 'delete_addendum': {
+            const addendumId = args.addendumId as string | undefined
+            if (!addendumId) throw new Error('delete_addendum requires an "addendumId".')
+            return apiCall(ctx, 'DELETE', `${base}/tickets/${requireId()}/addenda/${encodeURIComponent(addendumId)}`)
           }
 
           // ── writes (synchronous store mutations) ────────────────────────

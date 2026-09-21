@@ -114,5 +114,67 @@
     "newTicket": "新しいチケット: {{title}}",
     "newTicketsAdded_one": "プロダクトディスカバリーから {{count}} 件の新しいチケットを追加しました",
     "newTicketsAdded_other": "プロダクトディスカバリーから {{count}} 件の新しいチケットを追加しました"
+  },
+  "addenda": {
+    "title": "補足",
+    "hint": "スペックに重ねる反復メモ。説明文を編集せずに次回の起動に同行します。",
+    "add": "補足を追加",
+    "emptyCta": "補足を追加してこのスペックを反復しましょう。次回の起動（Implement、SDD Quick、Freestyle…）にブリーフィングとして渡され、説明文はそのままです。",
+    "openCount_one": "{{count}} 件が未処理",
+    "openCount_other": "{{count}} 件が未処理",
+    "kind": {
+      "change-request": "変更依頼",
+      "review-feedback": "レビューフィードバック",
+      "clarification": "明確化",
+      "constraint": "制約"
+    },
+    "status": {
+      "open": "未処理",
+      "in_flight": "実行中",
+      "applied": "適用済み",
+      "dismissed": "取り下げ"
+    },
+    "statusHint": {
+      "open": "このスペックの次回起動に同行します",
+      "in_flight": "実行中のジョブが確保 — 終了まで凍結",
+      "applied": "完了した実行で納品されました",
+      "dismissed": "取り下げ — 注入されません"
+    },
+    "form": {
+      "kind": "種類",
+      "titlePlaceholder": "タイトル（任意 — 1行目から導出）",
+      "bodyPlaceholder": "変更内容を自分の言葉で書いてください。Markdown可。レビューコメントがあれば原文のまま引用してください。",
+      "hint": "⌘/Ctrl+Enter で保存 · 説明文は決して編集されません",
+      "save": "補足を保存",
+      "cancel": "キャンセル",
+      "saving": "保存中…"
+    },
+    "actions": {
+      "edit": "編集",
+      "dismiss": "取り下げ",
+      "reopen": "再オープン",
+      "delete": "削除",
+      "confirmDelete": "削除を確認",
+      "release": "解放",
+      "releaseHint": "確保した実行が消えている場合に補足を解放します"
+    },
+    "meta": {
+      "by": "{{who}}による",
+      "run": "実行 {{id}}",
+      "hash": "ハッシュ {{hash}}",
+      "applied": "適用 {{when}}"
+    },
+    "who": {
+      "user": "あなた",
+      "agent": "エージェント",
+      "mcp": "MCP クライアント"
+    },
+    "toast": {
+      "added": "補足を追加しました — 次回の起動に同行します",
+      "updated": "補足を更新しました",
+      "removed": "補足を削除しました",
+      "failed": "補足を保存できませんでした",
+      "inFlight": "この補足は実行中です — 実行の終了をお待ちください"
+    }
   }
 }

@@ -1,4 +1,5 @@
 import type { PrFollowUp, FollowUpReportLine } from './lib/pr-follow-up-scope'
+import type { SpecAddendum, SpecAddendaSnapshotEntry, SpecAddendaReportLine } from './lib/spec-addenda-core'
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'zombie_terminated' | 'skipped'
 
 export type BackgroundProcessStatus = 'starting' | 'running' | 'stopping' | 'exited' | 'killed' | 'failed' | 'interrupted'
@@ -480,6 +481,8 @@ export interface LocalTicket {
    *  failed/was canceled/zombie-killed. The board shows a "review" badge on the
    *  Done card. Cleared on the next clean completion. */
   needs_review?: boolean
+  /** Spec addenda: structured iteration notes next to the description (see lib/spec-addenda-core). */
+  addenda?: SpecAddendum[]
 }
 
 // ─── Review packet (nontech-review-experience) ────────────────────────────────
@@ -571,6 +574,10 @@ export interface ReviewPacket {
   followUp: PrFollowUp | null
   /** The run's own per-comment report; null when it reported nothing (never a synthesised verdict). */
   followUpReport: FollowUpReportLine[] | null
+  /** The frozen spec addenda this generation was launched with (spec-addenda); null when none. */
+  specAddenda: SpecAddendaSnapshotEntry[] | null
+  /** The run's own per-addendum report; null when it reported nothing. */
+  specAddendaReport: SpecAddendaReportLine[] | null
   versions: PacketVersion[]
   chainCostUsd: number | null
   chainCostEstimated: boolean

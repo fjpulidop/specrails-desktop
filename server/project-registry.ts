@@ -39,6 +39,7 @@ import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolut
 import { applyWorktreeEnvPassthrough } from './project-env'
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './ticket-store'
+import { settleSpecAddendaAt } from './spec-addenda'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { StuckRunDetector } from './stuck-run-detector'
 import { MilestoneProgressBroadcaster, readMilestoneProgress, markMilestoneDone, resolveBlueprintWorkspace } from './milestone-progress'
@@ -853,6 +854,33 @@ export class ProjectRegistry {
           }
         }
 
+        // Spec addenda settle (spec-addenda): the addenda this job claimed at
+        // spawn move to `applied` on completion or back to `open` otherwise.
+        // Keyed on the job id (the causal key), so a replay or a newer owner
+        // can never touch another run's addenda. Independent of the ticket
+        // status effect above: an already on_review spec still settles them.
+        if (completedTicketIds.length > 0 && affectsTickets) {
+          try {
+            const addendaExec = resolveProjectExecution({ slug: project.slug, path: project.path })
+            const addendaFile = addendaExec.relocated ? addendaExec.ticketsPath : resolveTicketStoragePath(project.path)
+            const settled = settleSpecAddendaAt(addendaFile, completedTicketIds, jobId, ticketOutcomeStatus)
+            for (const tid of settled.changedTicketIds) {
+              const ticket = settled.store?.tickets[String(tid)]
+              if (!ticket) continue
+              try {
+                boundBroadcast({
+                  type: 'ticket_updated',
+                  ticket: ticket as unknown as import('./types').LocalTicket,
+                  projectId: project.id,
+                  timestamp: ticket.updated_at,
+                } as TicketUpdatedMessage)
+              } catch { /* the file mutation is authoritative */ }
+            }
+          } catch (err) {
+            console.error('[project-registry] failed to settle spec addenda:', err)
+          }
+        }
+
         // Release the job's tickets from any rail that still holds them. The
         // server `rails` table is the source of truth for mobile clients (the
         // desktop strips its localStorage copy on rail.job_completed) — without
@@ -1236,6 +1264,18 @@ export class ProjectRegistry {
               const marker = store?.tickets[String(ticketId)]?.metadata.specrails_outcome
               return marker?.owner_id === runId && marker.applied_effect_id === runId
             })
+          }
+
+          // Spec addenda settle (spec-addenda): keyed on the run id, so only
+          // the addenda THIS run claimed move (applied on success, reopened
+          // otherwise). Runs for every ticket of the run, not only the causally
+          // owned ones — the run id is already the causal proof.
+          if (ticketIds.length > 0) {
+            const settledAddenda = settleSpecAddendaAt(ticketStorePath(), ticketIds, runId, status)
+            if (settledAddenda.store) {
+              store = settledAddenda.store
+              for (const tid of settledAddenda.changedTicketIds) if (!changedIds.includes(tid)) changedIds.push(tid)
+            }
           }
 
           const released = releaseRailTicketsOwnedBy(db, runId, causallyOwnedTicketIds, {

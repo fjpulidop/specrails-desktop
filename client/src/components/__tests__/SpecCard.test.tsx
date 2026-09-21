@@ -381,3 +381,18 @@ describe('SpecCard', () => {
     })
   })
 })
+
+describe('SpecCard spec addenda badge', () => {
+  const addendum = (status: 'open' | 'applied') => ({
+    id: `a-${status}`, version: 1 as const, kind: 'change-request' as const, title: 'T', body: 'b', status, hash: 'h',
+    created_at: 'x', updated_at: 'x', created_by: 'user', origin_conversation_id: null, run_id: null, applied_at: null,
+  })
+  it('shows the OPEN addenda count and nothing when every addendum is applied', () => {
+    const { rerender } = render(<SpecCard ticket={makeTicket({ addenda: [addendum('open'), addendum('applied')] })} onClick={vi.fn()} />)
+    const badge = screen.getByTestId('addenda-badge-42')
+    expect(badge).toHaveTextContent('1')
+    expect(badge).toHaveAttribute('title', '1 open addendum — rides into the next launch')
+    rerender(<SpecCard ticket={makeTicket({ addenda: [addendum('applied')] })} onClick={vi.fn()} />)
+    expect(screen.queryByTestId('addenda-badge-42')).toBeNull()
+  })
+})

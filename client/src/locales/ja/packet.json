@@ -148,5 +148,22 @@
       "pasted": "あなたが貼り付け",
       "github": "GitHub から"
     }
+  },
+  "addenda": {
+    "title": "この実行に渡されたスペック補足（{{count}}）",
+    "caveat": "スペックに添付され起動時に凍結された反復メモ。以下の判定は実行自身の報告であり、テストが通ったから問題ないという主張ではありません。",
+    "kind": {
+      "change-request": "変更依頼",
+      "review-feedback": "レビューフィードバック",
+      "clarification": "明確化",
+      "constraint": "制約"
+    },
+    "verdict": {
+      "applied": "適用済み",
+      "partial": "一部適用",
+      "blocked": "ブロック",
+      "unreported": "未報告"
+    },
+    "noReport": "実行はこの補足について報告しませんでした。以下の変更と証拠を確認してください。"
   }
 }

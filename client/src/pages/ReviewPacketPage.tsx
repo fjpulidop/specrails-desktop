@@ -641,6 +641,40 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         </Section>
       )}
 
+      {packet.specAddenda && packet.specAddenda.length > 0 && (
+        <Section title={t('addenda.title', { count: packet.specAddenda.length })} defaultOpen>
+          <p className="mb-2 text-xs text-muted-foreground">{t('addenda.caveat')}</p>
+          <ul className="space-y-2" data-testid="packet-addenda">
+            {packet.specAddenda.map((entry) => {
+              const report = packet.specAddendaReport?.find((line) => line.addendumId === entry.id) ?? null
+              const verdictKey = report ? report.verdict : 'unreported'
+              const pill = verdictKey === 'applied' ? FOLLOW_UP_PILL.resolved : FOLLOW_UP_PILL[verdictKey]
+              return (
+                <li key={entry.id} className="rounded-md border border-border/50 bg-background-deep/30 px-3 py-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs text-accent-primary">#{entry.ticketId}</span>
+                    <span className="rounded-full border border-border/50 px-1.5 py-px text-[10px] text-muted-foreground">{t(`addenda.kind.${entry.kind}`)}</span>
+                    <span className="font-medium">{entry.title}</span>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${pill}`} data-testid="packet-addenda-verdict">
+                      {t(`addenda.verdict.${verdictKey}`)}
+                    </span>
+                  </div>
+                  {report ? (
+                    <dl className="mt-1 grid gap-x-3 gap-y-0.5 text-xs text-muted-foreground sm:grid-cols-[auto_1fr]">
+                      {report.files ? <><dt className="font-medium">{t('followUp.files')}</dt><dd className="font-mono">{report.files}</dd></> : null}
+                      {report.tests ? <><dt className="font-medium">{t('followUp.tests')}</dt><dd>{report.tests}</dd></> : null}
+                      {report.notes ? <><dt className="font-medium">{t('followUp.notes')}</dt><dd>{report.notes}</dd></> : null}
+                    </dl>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">{t('addenda.noReport')}</p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </Section>
+      )}
+
       <Section title={t('sections.whatIDid')}>
         <ul className="space-y-3">
           {packet.sections.map((section) => (

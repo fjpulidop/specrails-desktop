@@ -173,6 +173,37 @@ Manual edits and a separate Kimi Explore proposal remain available.
 
 The Contract Layer (if a spec has one) is shown inside the detail modal as a collapsible disclosure with an `N/5 populated` badge. You can re-run the enrichment for a single ticket from there.
 
+## Addenda — iterate on a spec without rewriting it
+
+Once a spec has work behind it (a PR under review, a merged feature, a half-done
+run), the way to ask for *more* is an **addendum**, not a description edit.
+Rewriting the description drifts the spec away from what was originally asked,
+syncs that drift to Jira on linked projects, and makes the next run re-plan the
+whole feature.
+
+The detail modal shows an **Addenda** section under the description:
+
+- **Add addendum** — pick a kind (*Change request*, *Review feedback*,
+  *Clarification*, *Constraint*), optionally a title, and write the note in your
+  own words (markdown; paste reviewer comments verbatim). ⌘/Ctrl+Enter saves.
+- Each addendum carries a lifecycle pill: **Open** (rides into the next launch),
+  **In flight** (claimed by a running job — frozen until it settles),
+  **Applied** (delivered by a completed run), **Dismissed** (withdrawn).
+- Open and dismissed addenda can be edited; applied ones can be reopened so the
+  next launch carries them again; nothing can be changed while in flight.
+
+Then launch the spec as usual — Implement, SDD Quick, Freestyle, a custom loop,
+or a revision from the review packet. Every AI step of the run is briefed with
+the open addenda: a spec that already has delivered work is iterated (only what
+the addenda ask changes), never re-implemented, and the run ends with an
+`ADDENDA REPORT` the review packet shows as *Applied / Partially applied /
+Blocked / Not reported* per addendum. If the run fails or you discard the
+delivery, the addenda return to **Open** automatically.
+
+The board shows an accent chip with the open-addenda count on the spec card, and
+the mission agent can add addenda for you (`specrails_specs(add_addendum)`)
+when you ask it to change something about an existing spec.
+
 ## Status visuals
 
 Every spec card shows a status indicator that stays consistent across view modes:

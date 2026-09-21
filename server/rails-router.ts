@@ -38,6 +38,7 @@ import {
   PrDeliveryGenerationConflict,
   type PrDecision,
   type PrDeliverySnapshot,
+  isPreparationFailureRow,
 } from './rail-pr-store'
 import { classifyLoopEffect } from './loop-effect'
 import { composeReviewPacket } from './review-packet'
@@ -62,6 +63,7 @@ import { getAgentChatManager } from './agent-chat-registry'
 import { postRunCard, settleRunCard, notifyMissionRunFailure, failureForLoopOutcome, isRunCardId } from './mission-run-notify'
 import { runtimeRunSummary } from './agent-runtime-controls-router'
 import { readStore, resolveTicketStoragePath } from './ticket-store'
+import { broadcastSpecAddendaChange, claimSpecAddendaForRun, ticketStorePathForProject } from './spec-addenda'
 import type { ReasoningEffort } from './providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, RailRemovedMessage, LoopRunStoppedMessage } from './types'
 import { assertProcessAdmission, captureProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
@@ -886,7 +888,26 @@ export function createRailsRouter(): Router {
         // when the worktree kill-switch is off. Otherwise a published PR follow-
         // up silently drops to shared cwd and can commit on the ambient branch.
         if (isRailPrDeliveryEnabled()) {
-          const pending = getActivePrDeliveryByRail(c.db, railIndex)
+          let pending = getActivePrDeliveryByRail(c.db, railIndex)
+          // A delivery that failed BEFORE any repository work was allocated
+          // (worktree add refused, branch busy…) never ran: it owns nothing to
+          // decide on. A relaunch closes it in place instead of dead-ending on
+          // `pr_decision_pending` — the user already saw the failure on the card,
+          // and pressing Launch again IS the decision. A revision naming it is
+          // meaningless (there is no work to revise) and gets a precise 409.
+          if (pending && isPreparationFailureRow(pending)) {
+            if (revisionOfDeliveryId === pending.id) {
+              res.status(409).json({
+                error: 'invalid_revision_target',
+                prDeliveryId: pending.id,
+                detail: 'that delivery failed before any work was prepared, so there is nothing to revise; relaunch the rail without revisionOfDeliveryId',
+              }); return
+            }
+            if (transitionDecision(c.db, pending.id, 'pr_failed', 'discarded', { deliveryOutcome: 'not_started', statusCode: 'discarded' })) {
+              emitPrDeliveryUpdate(c, pending.id)
+              pending = undefined
+            }
+          }
           const pendingSnapshot = pending ? toPrDeliverySnapshot(pending) : null
           // A revision is the ONE launch allowed to proceed against an
           // undecided delivery, and only on the exact terms below: the caller
@@ -1061,8 +1082,13 @@ export function createRailsRouter(): Router {
         const loopExec = resolveProjectExecution({ slug: c.project.slug, path: c.project.path })
         const loopRunIds: string[] = []
         const loopTicketCompletionStatus = isRailPrDeliveryEnabled() ? 'on_review' as const : 'done' as const
+        const addendaStorePath = ticketStorePathForProject(c.project)
         const launchLoopRun = (runId: string, ticketIds: number[], spec: ReturnType<typeof c.getTicketSpec>) => {
           c.railLoopRuns.set(runId, { railIndex, ticketIds, requiresTerminalIntent: true, ...(originConversationId ? { originConversationId } : {}) })
+          // Spec addenda (spec-addenda): claim the specs' open addenda for this
+          // run and brief every AI step with them (same slot as a follow-up).
+          const claimedAddenda = claimSpecAddendaForRun(addendaStorePath, ticketIds, runId)
+          broadcastSpecAddendaChange((msg) => c.broadcast(msg as never), c.project.id, claimedAddenda)
           // mission-rail-cards: a shared-cwd run has no delivery row, so the
           // origin mission gets a run card keyed on the run id instead.
           const runCard = { projectId: c.project.id, runId, railIndex, railName: rail.name ?? null, ticketIds }
@@ -1135,6 +1161,7 @@ export function createRailsRouter(): Router {
               effort,
               ...(deciderEngine ? { deciderEngine } : {}),
               profileName: resolvedProfile,
+              ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
             })
             .then((r) => {
               recordRunProvenance()
@@ -1200,6 +1227,10 @@ export function createRailsRouter(): Router {
           })
           jobIds.push(job.id)
           c.railJobs.set(job.id, { railIndex, mode, ticketIds: [ticketId] })
+          // Spec addenda: claim now (the card shows in_flight at once); the
+          // QueueManager renders the briefing at spawn from the store, so a
+          // restart between enqueue and spawn loses nothing.
+          broadcastSpecAddendaChange((msg) => c.broadcast(msg as never), c.project.id, claimSpecAddendaForRun(ticketStorePathForProject(c.project), [ticketId], job.id))
           // Jira write-back: push In Progress for any Jira-linked ticket (inert
           // for non-Jira projects). Best-effort — never blocks the launch.
           try { c.jiraSyncManager.onRailLaunch([ticketId], job.id) } catch { /* non-fatal */ }
@@ -1227,6 +1258,7 @@ export function createRailsRouter(): Router {
       const job = c.queueManager.enqueue(command, 'normal', { profileName: resolvedProfile, provider: railProvider })
       jobId = job.id
       c.railJobs.set(jobId, { railIndex, mode, ticketIds: [...rail.ticketIds] })
+      broadcastSpecAddendaChange((msg) => c.broadcast(msg as never), c.project.id, claimSpecAddendaForRun(ticketStorePathForProject(c.project), [...rail.ticketIds], jobId))
       // Jira write-back: push In Progress for any Jira-linked ticket (inert for
       // non-Jira projects). Best-effort — never blocks the launch.
       try { c.jiraSyncManager.onRailLaunch([...rail.ticketIds], jobId) } catch { /* non-fatal */ }

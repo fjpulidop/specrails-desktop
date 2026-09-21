@@ -8,6 +8,7 @@
  * pr-publisher and the launch wiring in rail-isolated-launch.
  */
 import { readFollowUp, type PrFollowUp } from './pr-follow-up'
+import { readSpecAddendaSnapshot, type SpecAddendaSnapshotEntry } from './spec-addenda-core'
 import type { DbInstance } from './db'
 import type { OverlayCleanupEvidence } from './worktree-overlay'
 import type { DeliverySettleEvidence } from './delivery-evidence'
@@ -234,6 +235,8 @@ export interface RailPrDeliveryRow {
   revision_of: string | null
   /** JSON PrFollowUp frozen at launch (migration 62); NULL on ordinary launches. */
   follow_up: string | null
+  /** JSON SpecAddendaSnapshotEntry[] frozen at launch (migration 63); NULL when the specs carried no addenda. */
+  spec_addenda: string | null
   created_at: string
   updated_at: string
 }
@@ -261,6 +264,8 @@ export interface CreatePrDeliveryInput {
   revisionOf?: string | null
   /** Frozen PR review follow-up scope (pr-follow-up-fixes); null on ordinary launches. */
   followUp?: PrFollowUp | null
+  /** Frozen identity of the spec addenda this launch carries (spec-addenda); null when none. */
+  specAddenda?: SpecAddendaSnapshotEntry[] | null
 }
 
 /**
@@ -276,9 +281,9 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
        loop_name, origin_surface, origin_conversation_id,
        implementation_outcome, delivery_outcome, status_code,
        is_continuation, supersedes_delivery_id, spec_snapshot,
-       revision_note, revision_of, parent_delivery_id, repository_id, repository_path, follow_up
+       revision_note, revision_of, parent_delivery_id, repository_id, repository_path, follow_up, spec_addenda
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', 'pending',
-       'implementation_running', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       'implementation_running', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.railIndex,
@@ -300,8 +305,21 @@ export function createPrDelivery(db: DbInstance, input: CreatePrDeliveryInput): 
     input.repositoryId ?? null,
     input.repositoryPath ?? null,
     input.followUp ? JSON.stringify(input.followUp) : null,
+    input.specAddenda && input.specAddenda.length > 0 ? JSON.stringify(input.specAddenda) : null,
   )
   return getPrDelivery(db, id)!
+}
+
+/**
+ * A delivery that failed BEFORE any repository work was allocated (e.g. `git
+ * worktree add` refused): it never ran, so it owns no worktree, branch, commit
+ * or PR. Shared by the discard path (no ticket/Jira effect) and the launch
+ * route (a relaunch closes it instead of reporting `pr_decision_pending`).
+ */
+export function isPreparationFailureRow(row: Pick<RailPrDeliveryRow, 'decision' | 'implementation_outcome' | 'pr_url' | 'delivery_sha' | 'branches' | 'worktree_ids' | 'is_continuation'>): boolean {
+  if (row.decision !== 'pr_failed' || row.implementation_outcome !== 'failed') return false
+  if (row.pr_url || row.delivery_sha || row.is_continuation) return false
+  return parseJsonArray<unknown>(row.branches ?? '[]').length === 0 && parseJsonArray<unknown>(row.worktree_ids ?? '[]').length === 0
 }
 
 export class PrDeliveryGenerationConflict extends Error {
@@ -908,6 +926,8 @@ export interface PrDeliverySnapshot {
   originConversationId: string | null
   /** Frozen PR review follow-up this generation was launched with (null otherwise). */
   followUp: PrFollowUp | null
+  /** Frozen spec addenda this generation was launched with (null when the specs carried none). */
+  specAddenda: SpecAddendaSnapshotEntry[] | null
   createdAt: string
   updatedAt: string
 }
@@ -963,6 +983,7 @@ export function toPrDeliverySnapshot(row: RailPrDeliveryRow): PrDeliverySnapshot
     originSurface: row.origin_surface,
     originConversationId: row.origin_conversation_id,
     followUp: readFollowUp(row.follow_up),
+    specAddenda: readSpecAddendaSnapshot(row.spec_addenda),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

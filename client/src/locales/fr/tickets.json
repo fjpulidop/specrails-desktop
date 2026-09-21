@@ -114,5 +114,67 @@
     "newTicket": "Nouveau ticket : {{title}}",
     "newTicketsAdded_one": "{{count}} nouveau ticket ajouté depuis la product discovery",
     "newTicketsAdded_other": "{{count}} nouveaux tickets ajoutés depuis la product discovery"
+  },
+  "addenda": {
+    "title": "Addenda",
+    "hint": "Notes d'itération posées sur la spec. Elles accompagnent le prochain lancement sans modifier la description.",
+    "add": "Ajouter un addendum",
+    "emptyCta": "Ajoutez un addendum pour itérer sur cette spec : le prochain lancement (Implement, SDD Quick, Freestyle…) en est briefé et la description reste intacte.",
+    "openCount_one": "{{count}} ouvert",
+    "openCount_other": "{{count}} ouverts",
+    "kind": {
+      "change-request": "Demande de changement",
+      "review-feedback": "Retour de revue",
+      "clarification": "Clarification",
+      "constraint": "Contrainte"
+    },
+    "status": {
+      "open": "Ouvert",
+      "in_flight": "En cours",
+      "applied": "Appliqué",
+      "dismissed": "Écarté"
+    },
+    "statusHint": {
+      "open": "Accompagne le prochain lancement de cette spec",
+      "in_flight": "Réclamé par un job en cours — figé jusqu'à sa fin",
+      "applied": "Livré par une exécution terminée",
+      "dismissed": "Retiré — non injecté"
+    },
+    "form": {
+      "kind": "Type",
+      "titlePlaceholder": "Titre (optionnel — dérivé de la première ligne)",
+      "bodyPlaceholder": "Décrivez le changement avec vos mots. Markdown accepté ; citez les commentaires du relecteur mot pour mot si vous les avez.",
+      "hint": "⌘/Ctrl+Entrée enregistre · la description n'est jamais modifiée",
+      "save": "Enregistrer l'addendum",
+      "cancel": "Annuler",
+      "saving": "Enregistrement…"
+    },
+    "actions": {
+      "edit": "Modifier",
+      "dismiss": "Écarter",
+      "reopen": "Rouvrir",
+      "delete": "Supprimer",
+      "confirmDelete": "Confirmer la suppression",
+      "release": "Libérer",
+      "releaseHint": "Libère l'addendum si l'exécution qui l'avait réclamé a disparu"
+    },
+    "meta": {
+      "by": "par {{who}}",
+      "run": "exécution {{id}}",
+      "hash": "hash {{hash}}",
+      "applied": "appliqué {{when}}"
+    },
+    "who": {
+      "user": "vous",
+      "agent": "l'agent",
+      "mcp": "un client MCP"
+    },
+    "toast": {
+      "added": "Addendum ajouté — il accompagnera le prochain lancement",
+      "updated": "Addendum mis à jour",
+      "removed": "Addendum supprimé",
+      "failed": "Impossible d'enregistrer l'addendum",
+      "inFlight": "Cet addendum est en cours — attendez la fin de l'exécution"
+    }
   }
 }

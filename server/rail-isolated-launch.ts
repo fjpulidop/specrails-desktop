@@ -62,6 +62,7 @@ import {
 import { authenticateWarmNodeModulesLinks, linkNodeModulesIntoWorktree } from './worktree-node-modules'
 import { buildRevisionSeed } from './revision-seed'
 import { renderFollowUpBriefing, type PrFollowUp } from './pr-follow-up'
+import { broadcastSpecAddendaChange, claimSpecAddendaForRun, planSpecAddendaAt, snapshotSpecAddenda, ticketStorePathForProject } from './spec-addenda'
 import { resolveProjectExecution } from './workspace-resolution'
 import { isCodeExplorerEnabled } from './feature-flags'
 import { snapshotWorkingTree, type WorkingTreeSnapshot } from './file-provenance'
@@ -615,6 +616,12 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         REVISION_REQUEST: buildRevisionSeedForLaunch(ctx.db, input.revision, ticketIds),
       }
     : loadConstantMap(ctx.desktopDb)
+  // Spec addenda (spec-addenda): the iteration notes the specs carry are
+  // planned ONCE at launch entry (frozen on the delivery row below), then
+  // claimed per allocated unit with that unit's run id and rendered into the
+  // briefing every AI step of the run receives.
+  const addendaStorePath = ticketStorePathForProject(ctx.project)
+  const addendaPlan = planSpecAddendaAt(addendaStorePath, ticketIds)
   // Capture the PR-delivery mode ONCE at launch entry so a mid-flight env flip
   // can never split one launch across the two delivery paths.
   const prMode = Boolean(input.repositoryExecution) || isRailPrDeliveryEnabled()
@@ -903,6 +910,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       specSnapshot: buildSpecSnapshot(ctx, ticketIds),
       ...(input.revision ? { revisionNote: input.revision.note, revisionOf: input.revision.ofDeliveryId } : {}),
       ...(input.followUp ? { followUp: input.followUp } : {}),
+      ...(addendaPlan.length > 0 ? { specAddenda: snapshotSpecAddenda(addendaPlan) } : {}),
     }, input.requiredPrContinuation
       ? { id: input.requiredPrContinuation.deliveryId, decision: input.requiredPrContinuation.decision }
       // A revision replaces the generation it revises, atomically, so the rail
@@ -1418,6 +1426,10 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       requiresTerminalIntent: true,
     })
     const spec = ctx.getTicketSpec(a.ticketId)
+    const claimedAddenda = claimSpecAddendaForRun(addendaStorePath, a.ticketIds, a.runId, {
+      plan: addendaPlan.filter((e) => a.ticketIds.includes(e.ticketId)),
+    })
+    broadcastSpecAddendaChange((msg) => ctx.broadcast(msg as never), ctx.project.id, claimedAddenda)
     const enginePromise = ctx.loopRunManager.run({
         runtimeProviderOverride: input.runtimeProviderOverride,
         runId: a.runId, loopId, loopName, graph: loopGraph, projectId: ctx.project.id,
@@ -1440,6 +1452,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         constants, provider, model, effort, ...(deciderEngine ? { deciderEngine } : {}),
         profileName: input.profileName,
         ...(input.followUp ? { followUp: { id: input.followUp.id, version: input.followUp.version, hash: input.followUp.hash, briefing: renderFollowUpBriefing(input.followUp, { prNumber: (launchContinuation as ActivePrContinuationTarget | null)?.prNumber ?? input.explicitPrTarget?.prNumber ?? null, ticketIds }) } } : {}),
+        ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
       })
     runPromises.push(settleAllocatedRun(a, enginePromise))
     try { ctx.jiraSyncManager.onRailLaunch(a.ticketIds, a.runId) } catch { /* non-fatal */ }

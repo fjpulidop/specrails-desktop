@@ -148,5 +148,22 @@
       "pasted": "由你粘贴",
       "github": "来自 GitHub"
     }
+  },
+  "addenda": {
+    "title": "本次运行收到的规格附录（{{count}}）",
+    "caveat": "附加在规格上并在启动时冻结的迭代说明。下方结论是运行自己的报告 — 并不因为测试通过就意味着一切正常。",
+    "kind": {
+      "change-request": "变更请求",
+      "review-feedback": "评审反馈",
+      "clarification": "澄清",
+      "constraint": "约束"
+    },
+    "verdict": {
+      "applied": "已应用",
+      "partial": "部分应用",
+      "blocked": "受阻",
+      "unreported": "未报告"
+    },
+    "noReport": "运行未报告此附录。请查看下方的变更与证据。"
   }
 }

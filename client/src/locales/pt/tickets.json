@@ -114,5 +114,67 @@
     "newTicket": "Novo ticket: {{title}}",
     "newTicketsAdded_one": "{{count}} novo ticket adicionado a partir da descoberta de produto",
     "newTicketsAdded_other": "{{count}} novos tickets adicionados a partir da descoberta de produto"
+  },
+  "addenda": {
+    "title": "Adendos",
+    "hint": "Notas de iteração sobre a spec. Seguem com o próximo lançamento sem editar a descrição.",
+    "add": "Adicionar adendo",
+    "emptyCta": "Adicione um adendo para iterar sobre esta spec: o próximo lançamento (Implement, SDD Quick, Freestyle…) recebe-o como briefing e a descrição fica intacta.",
+    "openCount_one": "{{count}} aberto",
+    "openCount_other": "{{count}} abertos",
+    "kind": {
+      "change-request": "Pedido de alteração",
+      "review-feedback": "Feedback de revisão",
+      "clarification": "Esclarecimento",
+      "constraint": "Restrição"
+    },
+    "status": {
+      "open": "Aberto",
+      "in_flight": "Em curso",
+      "applied": "Aplicado",
+      "dismissed": "Descartado"
+    },
+    "statusHint": {
+      "open": "Segue com o próximo lançamento desta spec",
+      "in_flight": "Reclamado por um job em execução — congelado até terminar",
+      "applied": "Entregue por uma execução concluída",
+      "dismissed": "Retirado — não é injetado"
+    },
+    "form": {
+      "kind": "Tipo",
+      "titlePlaceholder": "Título (opcional — derivado da primeira linha)",
+      "bodyPlaceholder": "Descreva a alteração com as suas palavras. Markdown é aceite; cite literalmente os comentários do revisor se os tiver.",
+      "hint": "⌘/Ctrl+Enter guarda · a descrição nunca é editada",
+      "save": "Guardar adendo",
+      "cancel": "Cancelar",
+      "saving": "A guardar…"
+    },
+    "actions": {
+      "edit": "Editar",
+      "dismiss": "Descartar",
+      "reopen": "Reabrir",
+      "delete": "Eliminar",
+      "confirmDelete": "Confirmar eliminação",
+      "release": "Libertar",
+      "releaseHint": "Liberta o adendo se a execução que o reclamou já não existe"
+    },
+    "meta": {
+      "by": "por {{who}}",
+      "run": "execução {{id}}",
+      "hash": "hash {{hash}}",
+      "applied": "aplicado {{when}}"
+    },
+    "who": {
+      "user": "si",
+      "agent": "o agente",
+      "mcp": "um cliente MCP"
+    },
+    "toast": {
+      "added": "Adendo adicionado — seguirá com o próximo lançamento",
+      "updated": "Adendo atualizado",
+      "removed": "Adendo eliminado",
+      "failed": "Não foi possível guardar o adendo",
+      "inFlight": "Este adendo está em curso — aguarde o fim da execução"
+    }
   }
 }

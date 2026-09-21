@@ -46,6 +46,10 @@ Um eine Spec zu erstellen, klicke auf **Hinzufügen** (die Plus-Schaltfläche in
 
 Welchen du wählst, hängt davon ab, wie klar die Idee schon ist. Du weißt genau, was du willst? Quick. Du tüftelst noch daran? Explore. Du hast den Text schon? Raw.
 
+## Addenda – an einer bestehenden Spec iterieren
+
+Wenn hinter einer Spec bereits Arbeit steckt – ein PR im Review, ein gemergtes Feature – und du *mehr* willst, schreibe ihre Beschreibung nicht um: Das verfälscht die Spec (und synchronisiert die Abweichung nach Jira) und zwingt den nächsten Lauf, alles neu zu planen. Öffne die Spec und füge stattdessen ein **Addendum** hinzu: eine kurze Notiz mit einer Art (Änderungswunsch, Review-Feedback, Klarstellung, Einschränkung) und deinen Worten. Offene Addenda reisen automatisch mit dem nächsten Start dieser Spec auf jedem Loop mit – Implement, SDD Quick, Freestyle –, sodass der Lauf nur ändert, was du verlangt hast, und das Review-Paket jedes als angewendet, teilweise angewendet oder blockiert meldet. Schlägt der Lauf fehl oder verwirfst du die Lieferung, kehren sie von selbst zu **Offen** zurück. Der Missions-Agent kann sie für dich anlegen, wenn du ihn bittest, etwas an einer bestehenden Spec zu ändern.
+
 ## Wie es weitergeht
 
 - [Spec hinzufügen – Quick-Modus](add-spec-quick-mode.md) – der schnellste Weg, eine Idee in eine Spec zu verwandeln.

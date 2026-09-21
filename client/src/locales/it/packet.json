@@ -148,5 +148,22 @@
       "pasted": "incollato da te",
       "github": "da GitHub"
     }
+  },
+  "addenda": {
+    "title": "Addenda con cui questa esecuzione è stata istruita ({{count}})",
+    "caveat": "Note di iterazione allegate alla spec e congelate al lancio. I verdetti qui sotto sono il rapporto dell'esecuzione stessa — non una garanzia che tutto sia a posto perché i test sono passati.",
+    "kind": {
+      "change-request": "Richiesta di modifica",
+      "review-feedback": "Feedback di revisione",
+      "clarification": "Chiarimento",
+      "constraint": "Vincolo"
+    },
+    "verdict": {
+      "applied": "Applicato",
+      "partial": "Parzialmente applicato",
+      "blocked": "Bloccato",
+      "unreported": "Non riportato"
+    },
+    "noReport": "L'esecuzione non ha riportato nulla su questo addendum. Controlla le modifiche e le evidenze qui sotto."
   }
 }

@@ -114,5 +114,67 @@
     "newTicket": "新工单：{{title}}",
     "newTicketsAdded_one": "已从产品发现新增 {{count}} 个工单",
     "newTicketsAdded_other": "已从产品发现新增 {{count}} 个工单"
+  },
+  "addenda": {
+    "title": "附录",
+    "hint": "叠加在规格之上的迭代说明。随下一次启动一起传递，不会修改描述。",
+    "add": "添加附录",
+    "emptyCta": "添加附录以在此规格上迭代：下一次启动（Implement、SDD Quick、Freestyle…）会收到它作为简报，描述保持不变。",
+    "openCount_one": "{{count}} 个待处理",
+    "openCount_other": "{{count}} 个待处理",
+    "kind": {
+      "change-request": "变更请求",
+      "review-feedback": "评审反馈",
+      "clarification": "澄清",
+      "constraint": "约束"
+    },
+    "status": {
+      "open": "待处理",
+      "in_flight": "进行中",
+      "applied": "已应用",
+      "dismissed": "已撤回"
+    },
+    "statusHint": {
+      "open": "随此规格的下一次启动传递",
+      "in_flight": "已被运行中的任务认领 — 在其结束前冻结",
+      "applied": "由已完成的运行交付",
+      "dismissed": "已撤回 — 不会注入"
+    },
+    "form": {
+      "kind": "类型",
+      "titlePlaceholder": "标题（可选 — 从第一行推导）",
+      "bodyPlaceholder": "用自己的话描述变更。支持 Markdown；如有评审意见请原文引用。",
+      "hint": "⌘/Ctrl+Enter 保存 · 描述永远不会被编辑",
+      "save": "保存附录",
+      "cancel": "取消",
+      "saving": "保存中…"
+    },
+    "actions": {
+      "edit": "编辑",
+      "dismiss": "撤回",
+      "reopen": "重新打开",
+      "delete": "删除",
+      "confirmDelete": "确认删除",
+      "release": "释放",
+      "releaseHint": "如果认领它的运行已不存在，则释放该附录"
+    },
+    "meta": {
+      "by": "来自 {{who}}",
+      "run": "运行 {{id}}",
+      "hash": "哈希 {{hash}}",
+      "applied": "已应用 {{when}}"
+    },
+    "who": {
+      "user": "你",
+      "agent": "智能体",
+      "mcp": "MCP 客户端"
+    },
+    "toast": {
+      "added": "附录已添加 — 将随下一次启动传递",
+      "updated": "附录已更新",
+      "removed": "附录已删除",
+      "failed": "无法保存附录",
+      "inFlight": "此附录正在进行中 — 请等待运行结束"
+    }
   }
 }

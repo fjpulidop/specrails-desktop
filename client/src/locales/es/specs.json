@@ -35,7 +35,9 @@
     "raw": "Raw",
     "rawTitle": "Spec Raw — sin generación con IA al crearla",
     "contract": "Contract",
-    "openParentEpicTitle": "Abrir la épica padre #{{id}} · {{title}}"
+    "openParentEpicTitle": "Abrir la épica padre #{{id}} · {{title}}",
+    "addendaTitle_one": "{{count}} anexo abierto — viaja con el próximo lanzamiento",
+    "addendaTitle_other": "{{count}} anexos abiertos — viajan con el próximo lanzamiento"
   },
   "card": {
     "deleteSpec": "Eliminar spec #{{id}}",

@@ -713,7 +713,7 @@ describe('schema_version 1.1+ → 1.3 back-compat', () => {
 
     const reread = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
     expect(reread.schema_version).toBe(CURRENT_SCHEMA_VERSION)
-    expect(CURRENT_SCHEMA_VERSION).toBe('1.3')
+    expect(CURRENT_SCHEMA_VERSION).toBe('1.4')
     expect(reread.tickets['1'].is_epic).toBe(false)
     expect(reread.tickets['1'].parent_epic_id).toBeNull()
     expect(reread.tickets['1'].execution_order).toBeNull()

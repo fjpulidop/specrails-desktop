@@ -9,6 +9,7 @@ import {
   type PrDeliveryStatusCode,
 } from './rail-pr-store'
 import { mutateStore, resolveTicketStoragePath } from './ticket-store'
+import { readSpecAddendaSnapshot, reopenSpecAddenda, type SpecAddendaSnapshotEntry } from './spec-addenda'
 import { resolveProjectExecution } from './workspace-resolution'
 import type { TicketUpdatedMessage, WsMessage } from './types'
 
@@ -221,6 +222,16 @@ function selectAppliedTicketIds(
   return parseTicketIds(durable.applied_ticket_ids)
 }
 
+/** The frozen addenda snapshot a delivery was launched with (null when none / unreadable). */
+function deliveryAddendaSnapshot(db: DbInstance, deliveryId: string): SpecAddendaSnapshotEntry[] | null {
+  try {
+    const row = db.prepare(`SELECT spec_addenda FROM rail_pr_deliveries WHERE id = ?`).get(deliveryId) as { spec_addenda: string | null } | undefined
+    return readSpecAddendaSnapshot(row?.spec_addenda ?? null)
+  } catch {
+    return null
+  }
+}
+
 /** Apply one pending row idempotently. Only tickets still parked at on_review
  * move. The selected ids and each boundary phase are durable, so replay after
  * the JSON write still hands the original ids to Jira; completion is recorded
@@ -247,6 +258,10 @@ export function applyRailPrTicketEffect(
   try {
     if (!row.tickets_applied_at) {
       const now = new Date().toISOString()
+      // A discard (→ todo) destroys the work the delivery's addenda were applied
+      // by: reopen exactly those (from the delivery's frozen snapshot) so the
+      // next launch carries them again. Read before the lock; malformed ⇒ none.
+      const reopenAddenda = row.target_status === 'todo' ? deliveryAddendaSnapshot(deps.db, deliveryId) : null
       store = mutateStore(resolveTicketFile(deps), (current) => {
         appliedTicketIds = selectAppliedTicketIds(
           deps.db,
@@ -261,6 +276,11 @@ export function applyRailPrTicketEffect(
           ticket.status = row.target_status
           ticket.updated_at = now
           changedTicketIds.push(ticketId)
+        }
+        if (reopenAddenda) {
+          for (const ticketId of reopenSpecAddenda(current, reopenAddenda, now)) {
+            if (!changedTicketIds.includes(ticketId)) changedTicketIds.push(ticketId)
+          }
         }
       })
       deps.db.prepare(`
