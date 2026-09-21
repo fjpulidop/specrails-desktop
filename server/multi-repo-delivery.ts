@@ -26,6 +26,9 @@ export async function executeRepositoryGroupDecision(deps: PrDecisionDeps, input
     return { status: 409, body: { error: 'stale_decision', current: parent.decision, reason: 'illegal_action' } }
   }
   const children = listRepositoryDeliveries(deps.db, parent.id)
+  // executePrDecision only routes here when children exist; keep the guard
+  // truthful for direct callers instead of a bare 404 that reads as "gone".
+  if (children.length === 0) return { status: 409, body: { error: 'no_repository_deliveries', detail: 'This delivery failed before any repository was prepared; decide it as a single delivery.', current: parent.decision } }
   const selected = input.repositoryId ? children.filter((row) => row.repository_id === input.repositoryId) : children
   if (selected.length === 0) return { status: 404, body: { error: 'Unknown repository in this delivery' } }
   if ((input.action === 'discard' || input.action === 'dismiss') && children.some(completed)) {

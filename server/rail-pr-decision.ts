@@ -43,6 +43,7 @@ import {
   releasePrDeliveryOperation, transitionClaimedDecision,
   toPrDeliverySnapshot, toRailPrStateMessage, toPrDecisionCardEnvelope,
   type DeliverBranchRecord, type PrDecision, type PrDeliveryPatch, type PrDeliverySnapshot, type RailPrDeliveryRow,
+  hasRepositoryDeliveries,
 } from './rail-pr-store'
 import { getRailWorktree, updateRailWorktreeState } from './rail-worktrees-store'
 import { readStore, resolveTicketStoragePath } from './ticket-store'
@@ -200,7 +201,13 @@ export async function executePrDecision(deps: PrDecisionDeps, input: PrDecisionI
   const row = getPrDelivery(deps.db, input.prDeliveryId)
   if (!row) return { status: 404, body: { error: 'Unknown prDeliveryId' } }
   if (row.parent_delivery_id && deps.repositoryChildOf !== row.parent_delivery_id) return { status: 409, body: { error: 'repository_delivery_requires_parent', parentDeliveryId: row.parent_delivery_id } }
-  if (!row.parent_delivery_id && row.execution_manifest) {
+  // A manifest alone does not make a repository GROUP: a launch that failed
+  // before allocating a single repository delivery persists the parent with
+  // its manifest and zero children (observed: `git worktree add` refused
+  // because the PR branch was checked out in the main clone). Routing that
+  // parent into the group path 404'd on "no repositories" — which the UI read
+  // as "already resolved" — and left the rail pinned at pending_decision.
+  if (!row.parent_delivery_id && row.execution_manifest && hasRepositoryDeliveries(deps.db, row.id)) {
     const { executeRepositoryGroupDecision } = await import('./multi-repo-delivery')
     return executeRepositoryGroupDecision(deps, input)
   }
@@ -1925,6 +1932,16 @@ async function runDiscard(
   // borrows the PR/ticket lifecycle. Per-unit ownership below independently
   // prevents deletion of borrowed/pre-existing head refs for fresh replacements.
   const preserveExternalReview = row.is_continuation === 1
+  // A preparation failure never ran: no worktree, no branch, no commit, no PR.
+  // Discarding it only closes the attempt and frees the rail — the spec keeps
+  // the status it had (typically on_review from a still-open earlier PR), the
+  // backlog/Jira are not told about a delivery that never existed, and no
+  // resource cleanup can be owed. Distinct from implementation_failed, which
+  // did run and did move the ticket.
+  const preparationFailure = row.decision === 'pr_failed' &&
+    row.implementation_outcome === 'failed' &&
+    !row.pr_url && !row.delivery_sha && !preserveExternalReview &&
+    snap.branches.length === 0 && snap.worktreeIds.length === 0
   const cleanupWarnings: string[] = []
 
   // A continuation borrows an existing PR/head. Discarding its local iteration
@@ -2047,7 +2064,7 @@ async function runDiscard(
     statusCode: cleanupWarnings.length > 0 ? 'cleanup_incomplete' : 'discarded',
     cleanupWarnings,
   }
-  const conflict = preserveExternalReview
+  const conflict = preserveExternalReview || preparationFailure
     ? casTransition(deps, row, 'discarded', terminalPatch)
     : casTransitionWithTicketEffect(deps, row, 'discarded', terminalPatch, {
         deliveryId: row.id,
@@ -2060,7 +2077,7 @@ async function runDiscard(
       })
   if (conflict) return conflict
   pauseChainsOnDiscard(deps, row)
-  if (!preserveExternalReview) applyTerminalTicketEffect(deps, row, 'discarded', cleanupWarnings)
+  if (!preserveExternalReview && !preparationFailure) applyTerminalTicketEffect(deps, row, 'discarded', cleanupWarnings)
   finalizeTransition(deps, row.id)
   return {
     status: 200,
@@ -2068,6 +2085,7 @@ async function runDiscard(
       ok: true,
       decision: 'discarded',
       ...(cleanupWarnings.length > 0 ? { cleanupWarnings } : {}),
+      ...(preparationFailure ? { preparationFailure: true } : {}),
       ...(preserveExternalReview ? { preservedBorrowedReview: true, preservedExternalReview: true } : {}),
     },
   }

@@ -139,6 +139,17 @@ describe('coordinated multi-repository execution', () => {
     expect(f.runAiStep).not.toHaveBeenCalled()
     await vi.waitFor(() => expect(listRepositoryDeliveries(f.db, getActivePrDeliveryByRail(f.db, 0)!.id).some((row) => row.decision === 'building')).toBe(false), { timeout: 10000 })
     expect(f.db.prepare('SELECT COUNT(*) AS n FROM loop_runs').get()).toEqual({ n: 0 })
+    // Partial allocation: the first repository got a child row, the second never
+    // did. Discard must still close the attempt through the group path, keep the
+    // user's checkouts untouched, and free the rail.
+    const parent = getActivePrDeliveryByRail(f.db, 0)!
+    expect(parent.decision).toBe('pr_failed')
+    fs.writeFileSync(path.join(f.repositories[1].path, 'untracked-note.txt'), 'keep me')
+    const result = await executePrDecision(f.deps, { prDeliveryId: parent.id, action: 'discard', expectedDecision: 'pr_failed' })
+    expect(result.status, JSON.stringify(result.body)).toBe(200)
+    expect(getPrDelivery(f.db, parent.id)?.decision).toBe('discarded')
+    expect(getActivePrDeliveryByRail(f.db, 0)).toBeUndefined()
+    expect(fs.readFileSync(path.join(f.repositories[1].path, 'untracked-note.txt'), 'utf8')).toBe('keep me')
   }, 20000)
 
   it('preserves both implementations and blocks acceptance when shared ticket settlement fails', async () => {

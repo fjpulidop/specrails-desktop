@@ -702,3 +702,31 @@ queue-manager); bundled specrails-core ≥ 4.11.0 honours it, so implement no lo
 
 (The relocation per-run workspace overlay — formerly on this list — has SHIPPED; see
 "Per-run worktree overlay" above.)
+
+## Preparation failures (no repository delivery ever allocated)
+
+A launch can fail before it prepares anything — the observed case was a
+target-PR continuation whose `git worktree add` was refused because the PR
+branch was already checked out in the main clone. The parent row then reads
+`pr_failed / implementation failed / delivery blocked / delivery_failed`, carries
+its `execution_manifest` with `repositories: []`, and has **no** per-repository
+child rows.
+
+- `executePrDecision` routes into `executeRepositoryGroupDecision` only when
+  `hasRepositoryDeliveries(db, parentId)` is true. A manifest alone is not a
+  group. (The group path used to answer 404 "Unknown repository in this
+  delivery", which both surfaces rendered as "Already resolved elsewhere" while
+  the rail stayed `pending_decision`; it now answers an explicit 409
+  `no_repository_deliveries` for direct callers.)
+- `runDiscard` treats such a row as a **preparation failure**: transition to
+  `discarded` (rail freed), no worktree/branch cleanup owed, **no ticket effect
+  and no Jira hook** — the spec keeps the status it had, typically `on_review`
+  from a still-open earlier PR — and the response carries
+  `preparationFailure: true`. This is deliberately narrower than
+  `implementation_failed`, which did run and did move the ticket.
+- Idempotence/concurrency are the ordinary CAS: a second Discard gets 409
+  `stale_decision { current: 'discarded' }`; a row superseded by a newer
+  generation on the same rail is never touched.
+- No migration: an already-stuck row is decided correctly the next time the
+  user presses Discard.
+

@@ -423,6 +423,16 @@ export function getActivePrDeliveryByRail(db: DbInstance, railIndex: number): Ra
 }
 
 /** Every non-terminal delivery — hydrates the GET /rails prDeliveries snapshot. */
+/** True when a delivery group has at least one per-repository child row. A
+ * parent that carries an execution manifest but no children is a launch that
+ * failed BEFORE any repository delivery was allocated (worktree add refused,
+ * DB setup error…) — it must be decided as an ordinary single row, not routed
+ * to the per-repository group machinery, which has nothing to act on. */
+export function hasRepositoryDeliveries(db: DbInstance, parentId: string): boolean {
+  const row = db.prepare('SELECT 1 AS present FROM rail_pr_deliveries WHERE parent_delivery_id = ? LIMIT 1').get(parentId) as { present: number } | undefined
+  return Boolean(row)
+}
+
 export function listActivePrDeliveries(db: DbInstance): RailPrDeliveryRow[] {
   return db
     .prepare(
