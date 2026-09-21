@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.50.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.49.2...v2.50.0) (2026-09-21)
+
+
+### Features
+
+* **rails:** PR review follow-up — a frozen, typed scope that never edits the spec ([#679](https://github.com/fjpulidop/specrails-desktop/issues/679)) ([0170039](https://github.com/fjpulidop/specrails-desktop/commit/017003990e2d00aa0ea82d92aee4aa829f138a5f))
+
+
+### Bug Fixes
+
+* **rails:** Discard a delivery that failed before any repository was prepared ([#677](https://github.com/fjpulidop/specrails-desktop/issues/677)) ([fef4adc](https://github.com/fjpulidop/specrails-desktop/commit/fef4adc2550c7f8f5c7f9f92d9f6409456f78b9f))
+
 ## [2.49.2](https://github.com/fjpulidop/specrails-desktop/compare/v2.49.1...v2.49.2) (2026-09-20)
 
 
