@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.51.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.50.0...v2.51.0) (2026-09-21)
+
+
+### Features
+
+* **specs:** spec addenda — iterate on a spec without rewriting its description ([#680](https://github.com/fjpulidop/specrails-desktop/issues/680)) ([0ca06b3](https://github.com/fjpulidop/specrails-desktop/commit/0ca06b3fc0d9ab47897a42266ce33fff227cead9))
+
 ## [2.50.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.49.2...v2.50.0) (2026-09-21)
 
 
