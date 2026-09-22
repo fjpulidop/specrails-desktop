@@ -7,10 +7,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { initDb, type DbInstance } from './db'
 import { expandCommands, getLoopCommand } from './loop-command-catalog'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 import {
   LoopRunManager,
   resolveRunVars,
   extractChangeId,
+  seedChangeId,
+  openspecChangeState,
   type LoopExecutors,
 } from './loop-run-manager'
 import { getLoopTemplate, opsxLifecycleGraph } from './loop-templates'
@@ -143,6 +148,15 @@ describe('opsx-lifecycle template', () => {
     expect(apply).toContain('amend the OpenSpec artifacts first')
   })
 
+  it('neither AI step may archive the change — the loop archives it in a CLI step', () => {
+    const g = opsxLifecycleGraph()
+    const ff = String(g.nodes.find((n) => n.id === 'ff')?.data?.prompt ?? '')
+    const apply = String(g.nodes.find((n) => n.id === 'apply')?.data?.prompt ?? '')
+    expect(ff).toContain('Do NOT run `openspec archive` in this step')
+    expect(ff).toContain('name that path in your final reply')
+    expect(apply).toContain('never run `openspec archive`')
+  })
+
   it('apply owns testing and cannot advance without reporting success', () => {
     const apply = opsxLifecycleGraph().nodes.find((n) => n.id === 'apply')!
     expect(apply.data?.requireVerificationPass).toBe(true)
@@ -232,6 +246,77 @@ describe('opsx-lifecycle run (engine integration)', () => {
     const res = await manager({ runAiStep: ai.fn, runShell, runDecider }).run(baseReq())
     expect(res.outcome).toBe('failed')
     expect(runShell).not.toHaveBeenCalled()
+  })
+
+  it('seeds the change id from the follow-up (else the spec metadata) when the step never names an active path', async () => {
+    // Run 644eb404: the ff step created, implemented AND archived the change in
+    // one go, so its prose never mentioned openspec/changes/<id>; validate then
+    // refused to run and a green implementation settled failed.
+    const ai = aiStepMock({ ffEmitsChangeId: false })
+    const runShell = vi.fn(async () => ({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 1 }))
+    const ex: LoopExecutors = { runAiStep: ai.fn, runShell, runDecider: vi.fn() }
+    const res = await manager(ex).run({
+      ...baseReq(),
+      spec: { id: 7, title: 'Feature X', description: 'd', metadata: { openspecChangeName: 'from-spec' } },
+      followUp: { id: 'fu', version: 1, hash: 'h', briefing: 'scope', openspecChangeName: 'fix-promote-creation-and-uncertain-outcomes' },
+    })
+    expect(res.outcome).toBe('success')
+    expect(runShell.mock.calls.map((c) => c[0].command)).toEqual([
+      'openspec validate fix-promote-creation-and-uncertain-outcomes --type change --strict --no-interactive',
+      'openspec archive fix-promote-creation-and-uncertain-outcomes -y',
+    ])
+    const logs = broadcasts.filter((m): m is Extract<WsMessage, { type: 'log' }> => m.type === 'log')
+    expect(logs.some((l) => l.line.includes('seeded from followUp: fix-promote-creation-and-uncertain-outcomes'))).toBe(true)
+
+    broadcasts = []
+    runShell.mockClear()
+    const res2 = await manager(ex).run({ ...baseReq(), spec: { id: 7, title: 'F', description: 'd', metadata: { openspecChangeName: 'from-spec' } } })
+    expect(res2.outcome).toBe('success')
+    expect(runShell.mock.calls[1][0].command).toBe('openspec archive from-spec -y')
+  })
+
+  it('seedChangeId prefers the follow-up, falls back to the spec, and rejects malformed names', () => {
+    expect(seedChangeId({ followUp: { id: 'f', version: 1, hash: 'h', briefing: '', openspecChangeName: 'a-b' }, spec: { openspecChangeName: 'c' } })).toEqual({ id: 'a-b', source: 'followUp' })
+    expect(seedChangeId({ spec: { openspecChangeName: ' c ' } })).toEqual({ id: 'c', source: 'spec' })
+    expect(seedChangeId({ spec: { metadata: { openspecChangeName: 'meta' } } })).toEqual({ id: 'meta', source: 'spec' })
+    expect(seedChangeId({ followUp: { id: 'f', version: 1, hash: 'h', briefing: '', openspecChangeName: '../etc' }, spec: {} })).toBeUndefined()
+    expect(seedChangeId({})).toBeUndefined()
+  })
+
+  it('a change the AI step already archived makes validate + archive successful no-ops instead of failing the run', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'opsx-archived-'))
+    try {
+      fs.mkdirSync(path.join(dir, 'openspec', 'changes', 'archive', '2026-09-22-my-change'), { recursive: true })
+      expect(openspecChangeState(dir, 'my-change')).toBe('archived')
+      expect(openspecChangeState(dir, 'other')).toBe('missing')
+      fs.mkdirSync(path.join(dir, 'openspec', 'changes', 'live'), { recursive: true })
+      expect(openspecChangeState(dir, 'live')).toBe('active')
+      expect(openspecChangeState(undefined, 'live')).toBe('missing')
+
+      const ai = aiStepMock()
+      const runShell = vi.fn(async () => ({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 1 }))
+      const res = await manager({ runAiStep: ai.fn, runShell, runDecider: vi.fn() }).run({ ...baseReq(), cwd: dir })
+      expect(res.outcome).toBe('success')
+      expect(runShell).not.toHaveBeenCalled()
+      const logs = broadcasts.filter((m): m is Extract<WsMessage, { type: 'log' }> => m.type === 'log')
+      expect(logs.filter((l) => l.line.includes('already archived')).length).toBe(2)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('an ACTIVE change still runs the real validate + archive commands', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'opsx-active-'))
+    try {
+      fs.mkdirSync(path.join(dir, 'openspec', 'changes', 'my-change'), { recursive: true })
+      const ai = aiStepMock()
+      const runShell = vi.fn(async () => ({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 1 }))
+      const res = await manager({ runAiStep: ai.fn, runShell, runDecider: vi.fn() }).run({ ...baseReq(), cwd: dir })
+      expect(res.outcome).toBe('success')
+      expect(runShell).toHaveBeenCalledTimes(2)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 
   it('archive guard: no change id captured → refuses to archive and fails', async () => {

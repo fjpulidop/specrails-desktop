@@ -1451,7 +1451,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         deferTerminalOutcome: true,
         constants, provider, model, effort, ...(deciderEngine ? { deciderEngine } : {}),
         profileName: input.profileName,
-        ...(input.followUp ? { followUp: { id: input.followUp.id, version: input.followUp.version, hash: input.followUp.hash, briefing: renderFollowUpBriefing(input.followUp, { prNumber: (launchContinuation as ActivePrContinuationTarget | null)?.prNumber ?? input.explicitPrTarget?.prNumber ?? null, ticketIds }) } } : {}),
+        ...(input.followUp ? { followUp: { id: input.followUp.id, version: input.followUp.version, hash: input.followUp.hash, openspecChangeName: input.followUp.openspecChangeName ?? null, briefing: renderFollowUpBriefing(input.followUp, { prNumber: (launchContinuation as ActivePrContinuationTarget | null)?.prNumber ?? input.explicitPrTarget?.prNumber ?? null, ticketIds }) } } : {}),
         ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
       })
     runPromises.push(settleAllocatedRun(a, enginePromise))

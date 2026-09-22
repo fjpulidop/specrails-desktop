@@ -214,6 +214,8 @@ const OPSX_FF_PROMPT = [
   '',
   'OpenSpec artifacts are authoritative. If the requested implementation changes requirements, acceptance criteria, design decisions, APIs, states, data models, or invariants, amend the relevant OpenSpec artifacts before any code changes.',
   '',
+  'Do NOT run `openspec archive` in this step, even if the implementation is complete: this loop validates and archives the change itself in later CLI steps, and an archived change makes those steps fail. Leave the change ACTIVE under openspec/changes/<name>/ and name that path in your final reply.',
+  '',
   'Run fully unattended: make reasonable decisions to keep momentum and NEVER stop to ask — there is no human to answer. When something is unclear, pick the most sensible option, proceed, and note the assumption.',
 ].join('\n')
 
@@ -224,7 +226,7 @@ const OPSX_APPLY_PROMPT = [
   '',
   'Before editing code, confirm the active OpenSpec artifacts already describe the contract being implemented. If implementation requires changing requirements, acceptance criteria, design decisions, APIs, states, data models, or invariants, stop code work and amend the OpenSpec artifacts first.',
   '',
-  'Run the relevant tests and configured checks for the changed behavior, correct failures, and confirm every required task and acceptance criterion is implemented. This step owns code verification; the later CLI validate only checks OpenSpec artifacts. Do not archive here.',
+  'Run the relevant tests and configured checks for the changed behavior, correct failures, and confirm every required task and acceptance criterion is implemented. This step owns code verification; the later CLI validate only checks OpenSpec artifacts. Do not archive here — never run `openspec archive`; the loop archives the change in a later CLI step.',
   'Finish with exactly `{{const:VERIFICATION_PASS}}` only after implementation and relevant checks succeed. Otherwise finish with `{{const:VERIFICATION_FAIL}} — <remaining work or failed checks>`.',
   'Run fully unattended: decide and keep momentum, never pause to ask. If you hit an ambiguity or blocker, make the most reasonable choice, implement it, and continue.',
 ].join('\n')

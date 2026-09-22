@@ -1,3 +1,5 @@
+import path from 'path'
+import fs from 'fs'
 import { runtimeEfficiencyEventLine, isRecordedRuntimeEfficiencyEvent } from './agent-runtime-events'
 import { validateRuntimeProviderOverride, type RuntimeProviderOverride } from './agent-runtime-settings'
 /**
@@ -291,7 +293,7 @@ export interface LoopRunRequest {
    *  its rendered briefing, appended to EVERY ai-step prompt of this run so no
    *  phase (prepare, implement, verify, deliver) can miss it. Same id/version/
    *  hash for the whole run — a draft edited meanwhile never changes it. */
-  followUp?: { id: string; version: number; hash: string; briefing: string }
+  followUp?: { id: string; version: number; hash: string; briefing: string; openspecChangeName?: string | null }
   /** Spec addenda (spec-addenda): the iteration notes the run's specs carried at
    *  launch, frozen (ids + hashes) and rendered ONCE into a briefing appended to
    *  EVERY ai-step prompt — after the follow-up, before the history. A note
@@ -499,6 +501,38 @@ const CHANGE_ID_RE = /openspec[\\/]+changes[\\/]+(?!archive(?:[\\/]|$))([A-Za-z0
  *  leaked literal token). Applied AFTER `{{cmd:*}}` and `{{spec.*}}`. */
 export function resolveRunVars(text: string, vars: Record<string, string>): string {
   return text.replace(RUN_TOKEN_RE, (_m, key: string) => vars[key] ?? '')
+}
+
+const CHANGE_NAME_RE = /^[a-z0-9][a-z0-9._-]{0,99}$/i
+
+/** The durable OpenSpec change name a launch already carries, if any: the
+ *  follow-up's declared name wins, else the spec's `openspecChangeName`. */
+export function seedChangeId(req: Pick<LoopRunRequest, 'followUp' | 'spec'>): { id: string; source: 'followUp' | 'spec' } | undefined {
+  const fromFollowUp = typeof req.followUp?.openspecChangeName === 'string' ? req.followUp.openspecChangeName.trim() : ''
+  if (fromFollowUp && CHANGE_NAME_RE.test(fromFollowUp)) return { id: fromFollowUp, source: 'followUp' }
+  const direct = typeof req.spec?.openspecChangeName === 'string' ? req.spec.openspecChangeName.trim() : ''
+  const fromMetadata = typeof req.spec?.metadata?.openspecChangeName === 'string' ? req.spec.metadata.openspecChangeName.trim() : ''
+  const fromSpec = direct || fromMetadata
+  if (fromSpec && CHANGE_NAME_RE.test(fromSpec)) return { id: fromSpec, source: 'spec' }
+  return undefined
+}
+
+/** Where an OpenSpec change currently lives under `cwd`: an ACTIVE
+ *  `openspec/changes/<id>` dir, an ARCHIVED `openspec/changes/archive/<…-id>`
+ *  dir, or nowhere. Read-only, never throws (an unreadable tree ⇒ 'missing'). */
+export function openspecChangeState(cwd: string | undefined, changeId: string): 'active' | 'archived' | 'missing' {
+  if (!cwd || !changeId) return 'missing'
+  try {
+    const changes = path.join(cwd, 'openspec', 'changes')
+    if (fs.existsSync(path.join(changes, changeId))) return 'active'
+    const archive = path.join(changes, 'archive')
+    if (!fs.existsSync(archive)) return 'missing'
+    const hit = fs.readdirSync(archive, { withFileTypes: true }).some((entry) =>
+      entry.isDirectory() && (entry.name === changeId || entry.name.endsWith(`-${changeId}`)))
+    return hit ? 'archived' : 'missing'
+  } catch {
+    return 'missing'
+  }
 }
 
 /** Extract the OpenSpec change id from a step's output (first match wins), or
@@ -1293,6 +1327,18 @@ export class LoopRunManager {
     // (e.g. `changeId` from the first opsx:ff step's output) and resolved in later
     // ai-step prompts and shell commands. Empty until something is captured.
     const runVars: Record<string, string> = {}
+    // Seed `changeId` from the DURABLE sources a launch already knows — the
+    // follow-up's declared OpenSpec change name, else the spec's
+    // `openspecChangeName` metadata. Capturing it from a step's prose was the
+    // only source before, and a step that created, implemented AND archived the
+    // change in one go (run 644eb404) never mentioned an active path, so the
+    // validate/archive shell steps refused to run and a green implementation
+    // settled `failed`. A step's own capture still wins when nothing is seeded.
+    const seededChangeId = seedChangeId(req)
+    if (seededChangeId) {
+      runVars.changeId = seededChangeId.id
+      logLine(`↪ OpenSpec change id seeded from ${seededChangeId.source}: ${seededChangeId.id}`)
+    }
     // Backstop against a cycle with no Decider (would otherwise never increment
     // `iteration`): cap total node executions well above any honest run.
     const stepCap = (maxIterations + 1) * (req.graph.nodes.length + 2) + 16
@@ -1837,11 +1883,24 @@ export class LoopRunManager {
               settled = true
               break
             }
-            const command = resolveConstants(resolveRunVars(interpolateSpec(String(node.data?.command ?? ''), req.spec), runVars), constMap)
+            const rawCommand = String(node.data?.command ?? '')
+            const command = resolveConstants(resolveRunVars(interpolateSpec(rawCommand, req.spec), runVars), constMap)
             emitStep('shell', `⚡ ${nodeLabel || 'Shell'}`, node.id, iteration + 1)
-            logLine(`$ ${command}`)
             const shellRepo = req.executionManifest?.repositories.find((repo) => repo.repositoryId === node.data?.repositoryId)?.worktreePath ?? req.repoDir
-            const sh = await this.executors.runShell({ command, cwd: req.executionManifest ? shellRepo ?? req.cwd : req.cwd, repoDir: shellRepo, timeoutMs: Math.min(10 * 60_000, Math.max(1, deadline - this.now())), onLine: logLine, onSpawn: (c) => this._activeChild.set(runId, c) })
+            const shellCwd = req.executionManifest ? shellRepo ?? req.cwd : req.cwd
+            // An OpenSpec change the AI step already archived (despite the
+            // prompt) is finished work, not a failure: validating or archiving
+            // it again would fail against the missing active dir and throw a
+            // green implementation away. Short-circuit as a successful no-op.
+            if (runVars.changeId && /\{\{\s*run\.changeId\s*\}\}/.test(rawCommand) && /\bopenspec\s+(validate|archive)\b/.test(rawCommand)
+              && openspecChangeState(shellCwd, runVars.changeId) === 'archived') {
+              logLine(`Skipped: OpenSpec change ${runVars.changeId} is already archived (openspec/changes/archive) — nothing left to ${/\barchive\b/.test(rawCommand) ? 'archive' : 'validate'}.`)
+              emitStepEnd({ status: 'ok', exitCode: 0, durationMs: 0 })
+              nodeId = succs[0]?.id
+              break
+            }
+            logLine(`$ ${command}`)
+            const sh = await this.executors.runShell({ command, cwd: shellCwd, repoDir: shellRepo, timeoutMs: Math.min(10 * 60_000, Math.max(1, deadline - this.now())), onLine: logLine, onSpawn: (c) => this._activeChild.set(runId, c) })
             if (this._disposed) return neverAfterDispose()
             this._activeChild.delete(runId)
             logLine(`(exit ${sh.exitCode})`)
