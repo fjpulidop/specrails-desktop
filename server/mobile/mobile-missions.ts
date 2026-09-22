@@ -1,4 +1,4 @@
-import { isMissionRailCardsEnabled } from '../feature-flags'
+import { isMissionRailCardsEnabled, isCodeExplorerEnabled } from '../feature-flags'
 import { StringDecoder } from 'node:string_decoder'
 import { Router, type Request, type Response } from 'express'
 import type { DbInstance } from '../db'
@@ -18,7 +18,7 @@ export type MobileUpstream = (method: string, path: string, body?: unknown) => P
 
 export function mobileCapabilities(db: DbInstance, deviceId: string) {
   const missions = process.env.SPECRAILS_AGENT_CHAT !== 'false' && getAllowedProjects(db, deviceId) === null
-  return { protocolVersion: MOBILE_PROTOCOL_VERSION, features: { missions, missionControl: missions, missionQueue: missions, missionProcesses: missions, repositories: true, missionRailCards: missions && isMissionRailCardsEnabled() },
+  return { protocolVersion: MOBILE_PROTOCOL_VERSION, features: { missions, missionControl: missions, missionQueue: missions, missionProcesses: missions, repositories: true, codeExplorer: isCodeExplorerEnabled(), missionRailCards: missions && isMissionRailCardsEnabled() },
     ...(!missions ? { missionsUnavailableReason: process.env.SPECRAILS_AGENT_CHAT === 'false' ? 'Missions are disabled on Desktop.' : MISSION_ACCESS_REASON } : {}) }
 }
 

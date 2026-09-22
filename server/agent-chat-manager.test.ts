@@ -119,6 +119,21 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     return db.prepare('SELECT * FROM agent_invocations ORDER BY started_at ASC').all() as Array<Record<string, unknown>>
   }
 
+  it('announces remote mission creation and direct input once, with its canonical message ID', async () => {
+    const conv = createAgentConversation(db, { provider: 'claude' })
+    mgr.notifyConversationCreated(conv.id)
+    expect(broadcastsOfType(broadcast, 'agent_conversation_created')).toEqual([
+      expect.objectContaining({ conversationId: conv.id }),
+    ])
+    primeTurn([assistantLine('Done.'), resultLine({ session_id: 'sync-session' })])
+    await mgr.sendMessage(conv.id, 'from Companion', { queueId: 'mobile-first' })
+    await mgr.sendMessage(conv.id, 'from Companion', { queueId: 'mobile-first' })
+    const events = broadcastsOfType(broadcast, 'agent_input_started')
+    expect(events).toHaveLength(1)
+    const saved = listAgentMessages(db, conv.id).find(row => row.role === 'user')!
+    expect(events[0]).toMatchObject({ conversationId: conv.id, messageId: saved.id, text: 'from Companion', queueId: 'mobile-first' })
+  })
+
   it('reports MCP preparation failure before spawning a paid tool-less agent', async () => {
     const conv = createAgentConversation(db, { provider: 'claude' })
     agentMcpMocks.prepare.mockImplementationOnce(() => { throw new Error('MCP bridge missing') })

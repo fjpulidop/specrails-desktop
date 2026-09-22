@@ -6,6 +6,8 @@ import { createMobileAuthMiddleware, type MobileAuthedRequest } from './mobile-a
 import { getAllowedProjects, isProjectAllowed } from './mobile-devices'
 import type { DbInstance } from '../db'
 import { createMobileMissionsRouter } from './mobile-missions'
+import type { MobileUpstream } from './mobile-missions'
+import { createMobileCodeRouter } from './mobile-code'
 
 // The gateway's authenticated REST surface: the `/v1/*` allow-list. Each route
 // forwards, in-process, via a REAL loopback HTTP request to
@@ -417,12 +419,14 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
     void forward(res, 'POST', `/api/projects/${encodeURIComponent(pid)}/tickets/from-draft`, '', narrowed)
   })
 
-  v1.use(createMobileMissionsRouter({ db: deps.db, upstream: async (method, path, body) => {
+  const mobileUpstream: MobileUpstream = async (method, path, body) => {
     const response = await fetch(internalBase + path, { method, signal: AbortSignal.timeout(30_000),
       headers: { 'x-desktop-token': loadOrGenerateToken(), ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}) })
     return { status: response.status, json: await response.json() }
-  } }))
+  }
+  v1.use(createMobileMissionsRouter({ db: deps.db, upstream: mobileUpstream }))
+  v1.use(createMobileCodeRouter(mobileUpstream))
   router.use('/v1', v1)
 
   // Any unmatched gateway path → 404 JSON (NEVER falls through to a SPA handler;
@@ -437,6 +441,9 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
 /** The allow-list, exported for the CI drift test (asserts each entry resolves
  *  against a real internal route, and that no traversal param is accepted). */
 export const MOBILE_ALLOWLIST: Array<{ method: string; path: string }> = [
+  { method: 'GET', path: '/v1/projects/:pid/repositories/:rid/code/tree' },
+  { method: 'GET', path: '/v1/projects/:pid/repositories/:rid/code/find' },
+  { method: 'GET', path: '/v1/projects/:pid/repositories/:rid/code/file' },
   { method: 'GET', path: '/v1/capabilities' },
   { method: 'GET', path: '/v1/mission-models' },
   { method: 'PATCH', path: '/v1/projects/:pid/missions/:cid/messages/:mid/intent' },

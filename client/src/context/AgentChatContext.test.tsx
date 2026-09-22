@@ -115,6 +115,7 @@ function Harness() {
   const [applyResult, setApplyResult] = useState('')
   return (
     <div>
+      <span data-testid="conversation-ids">{agentChat.conversations.map(c => c.id).join(',')}</span>
       <span data-testid="active-id">{agentChat.active?.id ?? ''}</span>
       <span data-testid="unread-ids">{[...agentChat.unreadConversationIds].sort().join(',')}</span>
       <span data-testid="pr-deliveries">{agentChat.messages.flatMap((message) => {
@@ -173,6 +174,25 @@ beforeEach(() => {
   vi.mocked(agentApi.getAvailableProviders).mockResolvedValue({ any: true, installed: [] })
   vi.mocked(agentApi.getAgentActiveTurns).mockResolvedValue({ snapshotVersion: 1, capturedAt: new Date().toISOString(), turns: [] })
   setDocumentVisibility('visible')
+})
+
+describe('cross-client mission synchronization', () => {
+  it('refreshes remotely created missions without changing the active conversation', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('select-c1')) })
+    vi.mocked(agentApi.listAgentConversations).mockResolvedValue([{ ...api.conv2, id: 'mobile-new' }, api.conv1])
+    await act(async () => { wsHandler!({ type: 'agent_conversation_created', conversationId: 'mobile-new' }) })
+    await waitFor(() => expect(screen.getByTestId('conversation-ids')).toHaveTextContent('mobile-new'))
+    expect(screen.getByTestId('active-id')).toHaveTextContent('c1')
+  })
+  it('shows a direct mobile input immediately and deduplicates its event', async () => {
+    render(<AgentChatProvider><Harness /></AgentChatProvider>)
+    await act(async () => { fireEvent.click(screen.getByText('select-c1')) })
+    const event = { type: 'agent_input_started', conversationId: 'c1', queueId: 'mobile-q', messageId: 'mobile-row', text: 'From my phone' }
+    await act(async () => { wsHandler!(event); wsHandler!(event) })
+    expect(screen.getByTestId('message-text').textContent).toBe('From my phone')
+    expect(screen.getByTestId('streaming')).toHaveTextContent('true')
+  })
 })
 
 describe('AgentChatContext draft provider follows the machine', () => {
