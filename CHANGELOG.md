@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.52.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.51.1...v2.52.0) (2026-09-22)
+
+
+### Features
+
+* **companion:** expose phone setup and harden reconnection ([#685](https://github.com/fjpulidop/specrails-desktop/issues/685)) ([bb104ed](https://github.com/fjpulidop/specrails-desktop/commit/bb104eda14147fbc7f73599beab8206212566af9))
+
+
+### Bug Fixes
+
+* **ci:** native popup smoke defers its last two synchronous window.open calls ([#686](https://github.com/fjpulidop/specrails-desktop/issues/686)) ([dac2289](https://github.com/fjpulidop/specrails-desktop/commit/dac228915fe1f66ba1fd9fcdda285fc39463c03c))
+
 ## [2.51.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.51.0...v2.51.1) (2026-09-22)
 
 
