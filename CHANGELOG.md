@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.51.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.51.0...v2.51.1) (2026-09-22)
+
+
+### Bug Fixes
+
+* **ci:** native multiwindow smoke defers window.open so WebKit cannot hold the script completion past the timeout ([#684](https://github.com/fjpulidop/specrails-desktop/issues/684)) ([9ffcef5](https://github.com/fjpulidop/specrails-desktop/commit/9ffcef5f5f0a0096fe010b1e5054e9c94ef2e872))
+* **loops:** SDD Quick no longer fails a green run when the change id was never captured or the change was already archived ([#682](https://github.com/fjpulidop/specrails-desktop/issues/682)) ([57e94fa](https://github.com/fjpulidop/specrails-desktop/commit/57e94fa3fa7353648054881a21b0de7b130d695e))
+
 ## [2.51.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.50.0...v2.51.0) (2026-09-21)
 
 
