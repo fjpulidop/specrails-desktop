@@ -2,7 +2,7 @@ import { keyboardLabel } from '../lib/keyboard-label'
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle } from 'lucide-react'
+import { PanelLeft, FolderOpen, Plus, BarChart2, BookOpen, Settings, Smartphone, X, Workflow, ChevronRight, ChevronDown, MessageSquare, Bot, LayoutGrid, Search, Home, Heart, Puzzle } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from './SidebarResizeGrip'
@@ -215,6 +215,7 @@ interface ArcSidebarProps {
   onOpenPlugins: () => void
   onOpenAnalytics: () => void
   onOpenDocs: () => void
+  onOpenCompanion?: () => void
   onOpenSettings: () => void
 }
 
@@ -427,6 +428,7 @@ export function ArcSidebar({
   onOpenAnalytics,
   onOpenDocs,
   onOpenSettings,
+  onOpenCompanion,
 }: ArcSidebarProps) {
   const { t } = useTranslation('nav')
   const { t: tAgent } = useTranslation('agent')
@@ -550,6 +552,7 @@ export function ArcSidebar({
   const navItems = [
     { label: t('arcSidebar.docs'), icon: BookOpen, action: onOpenDocs },
     { label: t('arcSidebar.analytics'), icon: BarChart2, action: onOpenAnalytics },
+    ...(onOpenCompanion ? [{ label: t('arcSidebar.companion'), icon: Smartphone, action: onOpenCompanion }] : []),
     { label: t('arcSidebar.settings'), icon: Settings, action: onOpenSettings },
   ]
 

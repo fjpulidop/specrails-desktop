@@ -24,7 +24,7 @@ export interface SignalFetchResult {
 export interface SignalReconnectDeps {
   /** e.g. https://specrails.dev/companion-signal.php */
   signalBase: string
-  doFetch: (url: string, init?: { method?: string; body?: string }) => Promise<SignalFetchResult>
+  doFetch: (url: string, init?: { method?: string; body?: string; signal?: AbortSignal }) => Promise<SignalFetchResult>
   /** Active (non-revoked) device ids — each is a mailbox "room". */
   rooms: () => string[]
   /** Create a fresh offer + its single-use secret (and the desktop identity) for
@@ -37,8 +37,10 @@ export interface SignalReconnectDeps {
 export class MobileSignalReconnect {
   private _timer: ReturnType<typeof setInterval> | null = null
   private _busy = false
+  private _epoch = 0
+  private _requests = new Set<AbortController>()
 
-  constructor(private _deps: SignalReconnectDeps) {}
+  constructor(private _deps: SignalReconnectDeps, private _timeoutMs = 8000) {}
 
   start(intervalMs = 3000): void {
     if (this._timer) return
@@ -47,6 +49,9 @@ export class MobileSignalReconnect {
   }
 
   stop(): void {
+    this._epoch++
+    for (const controller of this._requests) controller.abort()
+    this._requests.clear()
     if (this._timer) {
       clearInterval(this._timer)
       this._timer = null
@@ -57,13 +62,18 @@ export class MobileSignalReconnect {
   async poll(): Promise<void> {
     if (this._busy) return // never overlap cycles (a slow makeOffer must not stack)
     this._busy = true
-    try {
-      for (const room of this._deps.rooms()) {
+    const epoch = this._epoch
+    const rooms = [...this._deps.rooms()]
+    const worker = async () => {
+      while (rooms.length && epoch === this._epoch) {
+        const room = rooms.shift()!
         try {
           // A phone asking to reconnect? → answer with a fresh offer.
           const req = await this._get(room, 'req')
+          if (epoch !== this._epoch) return
           if (req !== null) {
             const offer = await this._deps.makeOffer(room)
+            if (epoch !== this._epoch) return
             if (offer) {
               // BUG-AUTH-01: never publish `offer.secret` to the public mailbox.
               // The reconnecting companion authenticates with its existing device
@@ -76,7 +86,9 @@ export class MobileSignalReconnect {
             }
           }
           // A phone's answer waiting? → complete the connection.
+          if (epoch !== this._epoch) return
           const ans = await this._get(room, 'answer')
+          if (epoch !== this._epoch) return
           if (ans) {
             try {
               const parsed = JSON.parse(ans) as { sdp?: unknown }
@@ -89,21 +101,45 @@ export class MobileSignalReconnect {
           /* transient per-room network error — retry next cycle */
         }
       }
+    }
+    try {
+      await Promise.all(Array.from({ length: Math.min(4, rooms.length) }, worker))
     } finally {
       this._busy = false
     }
   }
 
-  private async _get(room: string, slot: string): Promise<string | null> {
-    const res = await this._deps.doFetch(`${this._deps.signalBase}?room=${encodeURIComponent(room)}&slot=${slot}`)
-    if (res.status !== 200) return null
-    return res.text()
+  private async _request(room: string, slot: string, body?: string): Promise<string | null> {
+    const controller = new AbortController()
+    this._requests.add(controller)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const aborted = new Promise<never>((_, reject) => {
+      controller.signal.addEventListener('abort', () => reject(new Error('Signaling request canceled or timed out')), { once: true })
+      timer = setTimeout(() => controller.abort(), this._timeoutMs)
+    })
+    try {
+      return await Promise.race([aborted, (async () => {
+        const res = await this._deps.doFetch(`${this._deps.signalBase}?room=${encodeURIComponent(room)}&slot=${slot}`, {
+          signal: controller.signal,
+          ...(body === undefined ? {} : { method: 'POST', body }),
+        })
+        if (body !== undefined) {
+          if (res.status < 200 || res.status >= 300) throw new Error('Signaling write failed')
+          return null
+        }
+        return res.status === 200 ? await res.text() : null
+      })()])
+    } finally {
+      clearTimeout(timer)
+      this._requests.delete(controller)
+    }
+  }
+
+  private _get(room: string, slot: string): Promise<string | null> {
+    return this._request(room, slot)
   }
 
   private async _post(room: string, slot: string, body: string): Promise<void> {
-    await this._deps.doFetch(`${this._deps.signalBase}?room=${encodeURIComponent(room)}&slot=${slot}`, {
-      method: 'POST',
-      body,
-    })
+    await this._request(room, slot, body)
   }
 }
