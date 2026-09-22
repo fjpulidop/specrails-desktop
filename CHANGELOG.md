@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.55.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.54.0...v2.55.0) (2026-09-22)
+
+
+### Features
+
+* **companion:** expose code explorer and synchronize remote missions ([#693](https://github.com/fjpulidop/specrails-desktop/issues/693)) ([0c32568](https://github.com/fjpulidop/specrails-desktop/commit/0c32568fe8182b4abcb9187d9abdd6ba3c58c549))
+
 ## [2.54.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.53.0...v2.54.0) (2026-09-22)
 
 
