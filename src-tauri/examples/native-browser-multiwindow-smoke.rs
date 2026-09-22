@@ -74,6 +74,20 @@ async fn evaluate(view: &Webview, source: &str) -> Result<Value, String> {
         .map_err(|error| format!("{error} in [{}] while evaluating: {source}", view.label()))
 }
 
+// A synchronous `window.open` keeps WebKit's evaluateJavaScript completion
+// hostage while it constructs the native popup window — on the CI runners that
+// took longer than the 5 s script timeout about half the time, and a mutating
+// script must never be replayed (a second popup would hide an ownership
+// regression). Mirror the popup smoke: run the synchronous prelude, DEFER the
+// open with setTimeout so the completion returns at once, then observe the
+// effect through a read-only poll that is safe to retry.
+async fn open_auth_popup(view: &Webview, prelude: &str, name: &str) -> Result<(), String> {
+    let source = format!("{prelude}setTimeout(()=>{{window.auth=window.open('about:blank','{name}');}},0);return true;");
+    evaluate(view, &source).await?;
+    eventually(view, "!!window.auth").await?;
+    Ok(())
+}
+
 async fn pane_visible(view: &Webview) -> Result<bool, String> {
     let (send, receive) = tokio::sync::oneshot::channel();
     view.with_webview(move |platform| unsafe {
@@ -151,8 +165,8 @@ async fn run(app:tauri::AppHandle,port:u16)->Result<(),String> {
     let pane_b=browser::browser_pane_for_window(&app,SECOND,&owner)?;
     assert_ne!(pane_a.label(),pane_b.label());
     eventually(&pane_a,"!!window.fixture").await?; eventually(&pane_b,"!!window.fixture").await?;
-    evaluate(&pane_a,"fixture.sentinel='preserved';document.cookie='session=one;path=/';window.auth=window.open('about:blank','auth-one');return !!auth;").await?;
-    evaluate(&pane_b,"fixture.sentinel='second';window.auth=window.open('about:blank','auth-two');return !!auth;").await?;
+    open_auth_popup(&pane_a,"fixture.sentinel='preserved';document.cookie='session=one;path=/';","auth-one").await?;
+    open_auth_popup(&pane_b,"fixture.sentinel='second';","auth-two").await?;
     let popup_a=popup_for(&app,&pane_a).await?; let popup_b=popup_for(&app,&pane_b).await?;
     assert!(browser::browser_reload(app.clone(),pane_a.clone(),owner.clone()).await.is_err(),"remote child must never act as its trusted parent");
     assert!(browser::transfer_browser_window(&app,"main",SECOND,&owner).await.is_err(),"occupied target must retain its own browser");
@@ -160,7 +174,7 @@ async fn run(app:tauri::AppHandle,port:u16)->Result<(),String> {
     browser::browser_open_smoke_in_window(app.clone(),FIRST.into(),parked_owner.clone(),url.clone(),bounds).await?;
     let parked_pane=browser::browser_pane_for_window(&app,FIRST,&parked_owner)?;
     eventually(&parked_pane,"!!window.fixture").await?;
-    evaluate(&parked_pane,"fixture.sentinel='parked-session';window.auth=window.open('about:blank','auth-parked');return !!auth;").await?;
+    open_auth_popup(&parked_pane,"fixture.sentinel='parked-session';","auth-parked").await?;
     let parked_popup=popup_for(&app,&parked_pane).await?;
     browser::transfer_browser_window(&app,"main",FIRST,&owner).await?;
     assert!(!parked_popup.is_visible().map_err(|error|error.to_string())?);
