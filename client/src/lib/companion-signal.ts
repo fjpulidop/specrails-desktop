@@ -62,6 +62,7 @@ export async function decodeSignal(token: string): Promise<string> {
 }
 
 export interface OfferInput {
+  language?: string
   hubInstanceId: string
   hubName: string
   sdp: string
@@ -70,7 +71,7 @@ export interface OfferInput {
 
 /** Encode the desktop's offer into the token rendered as the first QR. */
 export async function encodeOffer(o: OfferInput): Promise<string> {
-  return encodeSignal(JSON.stringify({ k: 'offer', v: 2, hub: o.hubInstanceId, name: o.hubName, sdp: o.sdp, sec: o.secret }))
+  return encodeSignal(JSON.stringify({ k: 'offer', v: 2, hub: o.hubInstanceId, name: o.hubName, sdp: o.sdp, sec: o.secret, language: o.language }))
 }
 
 export interface AnswerParsed {
