@@ -1,3 +1,4 @@
+import { isMissionRailCardsEnabled } from '../feature-flags'
 import { StringDecoder } from 'node:string_decoder'
 import { Router, type Request, type Response } from 'express'
 import type { DbInstance } from '../db'
@@ -17,7 +18,7 @@ export type MobileUpstream = (method: string, path: string, body?: unknown) => P
 
 export function mobileCapabilities(db: DbInstance, deviceId: string) {
   const missions = process.env.SPECRAILS_AGENT_CHAT !== 'false' && getAllowedProjects(db, deviceId) === null
-  return { protocolVersion: MOBILE_PROTOCOL_VERSION, features: { missions, missionControl: missions, missionQueue: missions, missionProcesses: missions, repositories: true },
+  return { protocolVersion: MOBILE_PROTOCOL_VERSION, features: { missions, missionControl: missions, missionQueue: missions, missionProcesses: missions, repositories: true, missionRailCards: missions && isMissionRailCardsEnabled() },
     ...(!missions ? { missionsUnavailableReason: process.env.SPECRAILS_AGENT_CHAT === 'false' ? 'Missions are disabled on Desktop.' : MISSION_ACCESS_REASON } : {}) }
 }
 
@@ -56,12 +57,12 @@ export function missionSnapshot(value: unknown) {
     if (record(message).role === 'system') {
       try {
         const parsed = record(JSON.parse(raw))
-        if (parsed.kind === 'pr_decision') card = { ...pick(parsed, ['kind', 'railIndex', 'ticketIds', 'decision', 'implementationOutcome', 'deliveryOutcome', 'prNumber']), repositoryDeliveries: (Array.isArray(parsed.repositoryDeliveries) ? parsed.repositoryDeliveries : []).slice(0, 30).map(value => pick(value, ['repositoryId', 'repositoryName', 'decision'])) }
+        if (parsed.kind === 'pr_decision') card = { ...pick(parsed, ['kind', 'railIndex', 'ticketIds', 'decision', 'implementationOutcome', 'deliveryOutcome', 'prNumber', 'railName', 'phase', 'statusDetail', 'baseBranch']), runIds: (Array.isArray(parsed.runIds) ? parsed.runIds : []).filter(id => typeof id === 'string' && ID.test(id)).slice(0, 30), runtime: pick(parsed.runtime, ['status', 'currentStep', 'pendingApproval']), repositoryDeliveries: (Array.isArray(parsed.repositoryDeliveries) ? parsed.repositoryDeliveries : []).slice(0, 30).map(value => pick(value, ['repositoryId', 'repositoryName', 'decision'])) }
       } catch { /* Non-card system rows do not expose internal provider payloads. */ }
     }
     if (remaining === 0) { truncated = true; break }
     const content = record(message).role === 'system' ? '' : take(raw, 40_000)
-    bounded.unshift({ ...pick(message, ['id', 'role', 'created_at', 'delivery_status', 'delivery_receipt']), content, ...(card ? { card } : {}) })
+    bounded.unshift({ ...pick(message, ['id', 'role', 'created_at', 'delivery_status', 'delivery_receipt']), content, intents: (Array.isArray(record(message).intents) ? record(message).intents as unknown[] : []).slice(0, 30).map(value => pick(value, ['kind', 'proposalIndex', 'status', 'railIndex', 'runIds'])), ...(card ? { card } : {}) })
   }
   return { conversation: conversationView(data.conversation), messages: bounded, truncated,
     pendingMessages, pendingTruncated: pending.length > 50,
@@ -80,7 +81,9 @@ export function createMobileMissionsRouter({ db, upstream }: { db: DbInstance; u
   router.get('/mission-models', (req, res) => {
     const provider = segment(req.query.provider)
     if (!/^[a-z0-9_-]{1,40}$/.test(provider)) { res.status(400).json({ error: 'A valid provider is required' }); return }
-    void send(res, 'GET', `/api/agent/models?provider=${encodeURIComponent(provider)}`)
+    const model = segment(req.query.model)
+    if (model.length > 200) { res.status(400).json({ error: 'Invalid model' }); return }
+    void send(res, 'GET', `/api/agent/models?provider=${encodeURIComponent(provider)}${model ? `&model=${encodeURIComponent(model)}` : ''}`)
   })
   router.get('/projects/:pid/repositories', (req, res) => {
     const pid = segment(req.params.pid)
@@ -130,6 +133,14 @@ export function createMobileMissionsRouter({ db, upstream }: { db: DbInstance; u
     if (typeof b.text !== 'string' || !b.text.trim() || b.text.length > 40_000 || !ID.test(segment(b.queueId))) { res.status(400).json({ error: 'A message and stable queueId are required (maximum 40000 characters)' }); return }
     if (b.deliveryMode !== undefined && b.deliveryMode !== 'queue' && b.deliveryMode !== 'steer') { res.status(400).json({ error: 'deliveryMode must be queue or steer' }); return }
     void send(res, 'POST', `${id.base}/send`, { text: b.text, queueId: b.queueId, deliveryMode: b.deliveryMode ?? 'queue' }, data => pick(data, ['accepted', 'queued', 'duplicate', 'removed', 'deliveryMode']))
+  })
+  router.patch('/projects/:pid/missions/:cid/messages/:mid/intent', (req, res) => {
+    const id = identity(req, res); if (!id) return
+    const mid = segment(req.params.mid), b = record(req.body)
+    if (!ID.test(mid) || b.kind !== 'rail-launch' || !Number.isSafeInteger(b.proposalIndex) || Number(b.proposalIndex) < 0 || Number(b.proposalIndex) > 100) { res.status(400).json({ error: 'Invalid proposal' }); return }
+    const message = db.prepare('SELECT conversation_id FROM agent_messages WHERE id = ?').get(mid) as { conversation_id: string } | undefined
+    if (!message || message.conversation_id !== segment(req.params.cid)) { res.status(404).json({ error: 'Message not found in this mission' }); return }
+    void send(res, 'PATCH', `${id.base}/messages/${encodeURIComponent(mid)}/intent`, pick(b, ['kind', 'proposalIndex', 'status', 'railIndex', 'runIds', 'prDeliveryId']), data => ({ message: pick(record(data).message, ['id', 'intents']) }))
   })
   router.post('/projects/:pid/missions/:cid/abort', (req, res) => { const id = identity(req, res); if (id) void send(res, 'POST', `${id.base}/abort`, {}) })
   for (const action of ['edit', 'steer', 'remove'] as const) {

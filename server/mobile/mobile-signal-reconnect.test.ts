@@ -129,3 +129,19 @@ describe('reconnect recovery', () => {
     r.stop()
   })
 })
+
+describe('reconnect attempt correlation', () => {
+  it('ignores the stale answer left by a refreshed browser', async () => {
+    const {store,doFetch}=fakeMailbox()
+    const acceptAnswer=vi.fn(async()=>true)
+    const reconnect=new MobileSignalReconnect({signalBase:'http://local/s.php',doFetch,rooms:()=>['device-1'],makeOffer:async()=>({sdp:'offer',secret:'private',hubName:'Mac',hubInstanceId:'hub'}),acceptAnswer})
+    store.set('device-1:req',JSON.stringify({requestId:'attempt-new'}))
+    store.set('device-1:answer',JSON.stringify({requestId:'attempt-old',sdp:'stale'}))
+    await reconnect.poll()
+    expect(JSON.parse(store.get('device-1:offer')!)).toMatchObject({requestId:'attempt-new'})
+    expect(acceptAnswer).not.toHaveBeenCalled()
+    store.set('device-1:answer',JSON.stringify({requestId:'attempt-new',sdp:'current'}))
+    await reconnect.poll()
+    expect(acceptAnswer).toHaveBeenCalledWith('device-1','current')
+  })
+})

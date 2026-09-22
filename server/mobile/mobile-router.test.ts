@@ -56,6 +56,16 @@ describe('mobile-router', () => {
     lastPatchBody = null
   })
 
+  it('supports rail creation and narrows launch configuration', async () => {
+    const created = await request(app).post('/v1/projects/p1/rails').set('Authorization', 'Bearer tok').send({name:'Mobile rail',path:'/private'})
+    expect(created.status).toBe(200)
+    expect(created.body.body).toEqual({name:'Mobile rail'})
+    const launched = await request(app).post('/v1/projects/p1/rails/0/launch').set('Authorization', 'Bearer tok').send({mode:'implement',baseBranch:'main',targetPrNumber:42,command:'bad'})
+    expect(launched.body.body).toEqual({mode:'implement',baseBranch:'main',targetPrNumber:42})
+    expect((await request(app).post('/v1/projects/p1/rails/0/launch').set('Authorization', 'Bearer tok').send({targetPrNumber:-1})).status).toBe(400)
+    expect((await request(app).post('/v1/projects/p1/rails/0/launch').set('Authorization', 'Bearer tok').send({originConversationId:'other-mission'})).status).toBe(403)
+  })
+
   it('GET /v1/projects returns redacted projects with the master token injected', async () => {
     const res = await request(app).get('/v1/projects').set('Authorization', 'Bearer tok')
     expect(res.status).toBe(200)

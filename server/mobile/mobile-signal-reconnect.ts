@@ -36,6 +36,7 @@ export interface SignalReconnectDeps {
 
 export class MobileSignalReconnect {
   private _timer: ReturnType<typeof setInterval> | null = null
+  private _attempts = new Map<string, string | null>()
   private _busy = false
   private _epoch = 0
   private _requests = new Set<AbortController>()
@@ -46,10 +47,12 @@ export class MobileSignalReconnect {
     if (this._timer) return
     this._timer = setInterval(() => void this.poll(), intervalMs)
     this._timer.unref?.()
+    void this.poll()
   }
 
   stop(): void {
     this._epoch++
+    this._attempts.clear()
     for (const controller of this._requests) controller.abort()
     this._requests.clear()
     if (this._timer) {
@@ -72,6 +75,9 @@ export class MobileSignalReconnect {
           const req = await this._get(room, 'req')
           if (epoch !== this._epoch) return
           if (req !== null) {
+            let requestId: string | null = null
+            try { const value = JSON.parse(req); if (typeof value?.requestId === 'string' && /^[a-zA-Z0-9_-]{8,80}$/.test(value.requestId)) requestId = value.requestId } catch { /* legacy request */ }
+            this._attempts.set(room, requestId)
             const offer = await this._deps.makeOffer(room)
             if (epoch !== this._epoch) return
             if (offer) {
@@ -81,7 +87,7 @@ export class MobileSignalReconnect {
               await this._post(
                 room,
                 'offer',
-                JSON.stringify({ sdp: offer.sdp, hub: offer.hubInstanceId, name: offer.hubName }),
+                JSON.stringify({ sdp: offer.sdp, hub: offer.hubInstanceId, name: offer.hubName, ...(requestId ? { requestId } : {}) }),
               )
             }
           }
@@ -91,8 +97,10 @@ export class MobileSignalReconnect {
           if (epoch !== this._epoch) return
           if (ans) {
             try {
-              const parsed = JSON.parse(ans) as { sdp?: unknown }
-              if (typeof parsed.sdp === 'string') await this._deps.acceptAnswer(room, parsed.sdp)
+              const parsed = JSON.parse(ans) as { sdp?: unknown; requestId?: unknown }
+              const expected = this._attempts.get(room)
+              if (expected && parsed.requestId !== expected) continue
+              if (typeof parsed.sdp === 'string' && await this._deps.acceptAnswer(room, parsed.sdp)) this._attempts.delete(room)
             } catch {
               /* malformed answer — ignore */
             }

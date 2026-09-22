@@ -199,6 +199,19 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
     void forward(res, 'DELETE', `/api/projects/${encodeURIComponent(pid)}/tickets/${encodeURIComponent(tid)}`, '')
   })
 
+  v1.post('/projects/:pid/rails', (req, res) => {
+    const pid = seg(req.params.pid)
+    if (!validate(res, [pid, PID_RE])) return
+    const name = req.body?.name
+    if (name != null && (typeof name !== 'string' || name.length > 60)) { res.status(400).json({ error: 'Invalid rail name' }); return }
+    void forward(res, 'POST', `/api/projects/${encodeURIComponent(pid)}/rails`, '', { name: name ?? null })
+  })
+  v1.get('/projects/:pid/profiles', (req, res) => {
+    const pid = seg(req.params.pid), provider = seg(req.query.provider)
+    if (!validate(res, [pid, PID_RE], [provider, PID_RE])) return
+    void forward(res, 'GET', `/api/projects/${encodeURIComponent(pid)}/profiles`, `?provider=${encodeURIComponent(provider)}`)
+  })
+
   v1.put('/projects/:pid/rails/:i/tickets', (req, res) => {
     const pid = seg(req.params.pid), i = seg(req.params.i)
     if (!validate(res, [pid, PID_RE], [i, NUM_RE])) return
@@ -226,6 +239,21 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
       // The internal rail route validates the tier against the selected
       // provider. This gateway only narrows to the cross-provider enum.
       narrowed.reasoning_effort = b.reasoning_effort
+    }
+    if (b.targetPrNumber !== undefined) {
+      if (!Number.isSafeInteger(b.targetPrNumber) || Number(b.targetPrNumber) < 1) { res.status(400).json({ error: 'Invalid PR number' }); return }
+      narrowed.targetPrNumber = b.targetPrNumber
+    }
+    if (b.baseBranch !== undefined) {
+      if (typeof b.baseBranch !== 'string' || !b.baseBranch.trim() || b.baseBranch.length > 200) { res.status(400).json({ error: 'Invalid base branch' }); return }
+      narrowed.baseBranch = b.baseBranch
+    }
+    if (b.originConversationId !== undefined) {
+      if (typeof b.originConversationId !== 'string' || !PID_RE.test(b.originConversationId)) { res.status(400).json({ error: 'Invalid mission' }); return }
+      const conversation = deps.db.prepare('SELECT pinned_project_id FROM agent_conversations WHERE id = ?').get(b.originConversationId) as { pinned_project_id: string } | undefined
+      if (!conversation || conversation.pinned_project_id !== pid || getAllowedProjects(deps.db, (req as MobileAuthedRequest).mobileDevice!.id) !== null) { res.status(403).json({ error: 'Mission is not accessible' }); return }
+      narrowed.originConversationId = b.originConversationId
+      narrowed.originSurface = 'agent-chat'
     }
     if (typeof b.interactive === 'boolean') narrowed.interactive = b.interactive
     if (b.repositoryIds !== undefined) {
@@ -411,6 +439,7 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
 export const MOBILE_ALLOWLIST: Array<{ method: string; path: string }> = [
   { method: 'GET', path: '/v1/capabilities' },
   { method: 'GET', path: '/v1/mission-models' },
+  { method: 'PATCH', path: '/v1/projects/:pid/missions/:cid/messages/:mid/intent' },
   { method: 'GET', path: '/v1/projects/:pid/repositories' },
   { method: 'GET', path: '/v1/projects/:pid/missions' },
   { method: 'POST', path: '/v1/projects/:pid/missions' },
@@ -433,6 +462,9 @@ export const MOBILE_ALLOWLIST: Array<{ method: string; path: string }> = [
   { method: 'GET', path: '/v1/projects/:pid/loop-runs/:id' },
   { method: 'GET', path: '/v1/projects/:pid/queue' },
   { method: 'GET', path: '/v1/projects/:pid/rails' },
+  { method: 'POST', path: '/v1/projects/:pid/rails' },
+  { method: 'GET', path: '/v1/projects/:pid/profiles' },
+  { method: 'PUT', path: '/v1/projects/:pid/rails/:i/name' },
   { method: 'GET', path: '/v1/projects/:pid/activity' },
   { method: 'GET', path: '/v1/projects/:pid/stats' },
   { method: 'GET', path: '/v1/projects/:pid/state' },
