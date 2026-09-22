@@ -57,6 +57,7 @@ interface DesktopSettings {
 }
 
 interface SettingsDialogProps {
+  initialSection?: 'appearance' | 'mobile'
   open: boolean
   onClose: () => void
   onOpenOnboarding?: () => void
@@ -105,10 +106,13 @@ const SETTINGS_SECTIONS = [
   { id: 'about', icon: Info, labelKey: 'desktop.nav.about' },
 ] as const
 
-export default function SettingsDialog({ open, onClose, onOpenOnboarding }: SettingsDialogProps) {
+export default function SettingsDialog({ open, onClose, onOpenOnboarding, initialSection = 'appearance' }: SettingsDialogProps) {
   const { t } = useTranslation('settings')
   const { projects, removeProject } = useDesktop()
   const [activeSection, setActiveSection] = useState<string>('appearance')
+  useEffect(() => {
+    if (open) setActiveSection(initialSection)
+  }, [open, initialSection])
   const paneCls = (id: string) => cn('space-y-5', activeSection === id ? '' : 'hidden')
   const [desktopSettings, setDesktopSettings] = useState<DesktopSettings | null>(null)
   const [isLoading, setIsLoading] = useState(true)

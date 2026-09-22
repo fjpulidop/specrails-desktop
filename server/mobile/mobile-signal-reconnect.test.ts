@@ -89,3 +89,43 @@ describe('MobileSignalReconnect', () => {
     expect(acceptAnswer).not.toHaveBeenCalled()
   })
 })
+
+describe('reconnect recovery', () => {
+  it('bounds a hung request and lets other devices reconnect independently', async () => {
+    const mailbox = fakeMailbox()
+    mailbox.store.set('healthy:req', '1')
+    const makeOffer = vi.fn(async () => ({ sdp: 'offer', secret: 'private', hubName: 'Mac', hubInstanceId: 'desktop' }))
+    const r = new MobileSignalReconnect({
+      signalBase: 'http://h/s.php', rooms: () => ['hung', 'healthy'], makeOffer,
+      acceptAnswer: async () => true,
+      doFetch: (url, init) => url.includes('room=hung') ? new Promise(() => {}) : mailbox.doFetch(url, init),
+    }, 20)
+    await r.poll()
+    expect(makeOffer).toHaveBeenCalledWith('healthy')
+    mailbox.store.set('healthy:req', '1')
+    await r.poll()
+    expect(makeOffer).toHaveBeenCalledTimes(2)
+  })
+
+  it('stop prevents late offer publication', async () => {
+    let finish!: (value: { sdp: string; secret: string; hubName: string; hubInstanceId: string }) => void
+    const mailbox = fakeMailbox()
+    mailbox.store.set('device:req', '1')
+    const makeOffer = vi.fn(() => new Promise<{ sdp: string; secret: string; hubName: string; hubInstanceId: string }>(resolve => { finish = resolve }))
+    const r = new MobileSignalReconnect({ signalBase: 'http://h/s.php', rooms: () => ['device'], doFetch: mailbox.doFetch, makeOffer, acceptAnswer: async () => true })
+    const pending = r.poll()
+    await vi.waitFor(() => expect(makeOffer).toHaveBeenCalled())
+    r.stop()
+    finish({ sdp: 'stale', secret: 'private', hubName: 'Mac', hubInstanceId: 'desktop' })
+    await pending
+    expect(mailbox.store.has('device:offer')).toBe(false)
+  })
+
+  it('times out while reading a stalled response body', async () => {
+    const r = new MobileSignalReconnect({ signalBase: 'http://h/s.php', rooms: () => ['device'],
+      doFetch: async () => ({ status: 200, text: () => new Promise(() => {}) }),
+      makeOffer: async () => null, acceptAnswer: async () => true }, 10)
+    await r.poll()
+    r.stop()
+  })
+})

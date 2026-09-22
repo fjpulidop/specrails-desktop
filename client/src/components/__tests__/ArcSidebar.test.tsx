@@ -47,6 +47,14 @@ beforeEach(() => {
 })
 
 describe('ArcSidebar', () => {
+  it('opens Companion setup from the collapsed sidebar', () => {
+    const onOpenCompanion = vi.fn()
+    render(<ArcSidebar {...defaultProps} onOpenCompanion={onOpenCompanion} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Connect phone' }))
+    expect(onOpenCompanion).toHaveBeenCalledOnce()
+    expect(defaultProps.onOpenSettings).not.toHaveBeenCalled()
+  })
+
   it('renders collapsed (unpinned) by default', () => {
     render(<ArcSidebar {...defaultProps} />)
     expect(screen.getByRole('button', { name: /Pin left sidebar open/i })).toBeInTheDocument()

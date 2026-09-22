@@ -215,6 +215,7 @@ function DesktopApp() {
   // Two-way sync between split-view comparison state and ?compare=… URL params.
   useCompareUrlSync()
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState<'appearance' | 'mobile'>('appearance')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [loopsOpen, setLoopsOpen] = useState(false)
@@ -399,12 +400,13 @@ function DesktopApp() {
     <div className="flex h-full overflow-hidden font-sans">
       {/* Arc-style collapsible sidebar */}
       <ArcSidebar
+        onOpenCompanion={() => { setSettingsSection('mobile'); setSettingsOpen(true) }}
         onAddProject={() => setAddDialogOpen(true)}
         onOpenLoops={() => { if (uiMode === 'agent') setLoopsOpen(true); else navigate('/loops') }}
         onOpenPlugins={() => { if (uiMode === 'agent') setPluginsOpen(true); else navigate('/plugins') }}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
         onOpenDocs={() => setDocsOpen(true)}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
       />
 
       {/* Main area — navbar + content */}
@@ -490,7 +492,7 @@ function DesktopApp() {
           builder mode (floating panel in board mode; mission surface + sidebar
           transform in Agent Mode) — no standalone overlay. */}
       <AddProjectDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} onOpenBuilder={() => agentChat.builderMode.enter()} />
-      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
+      <SettingsDialog initialSection={settingsSection} open={settingsOpen} onClose={() => setSettingsOpen(false)} onOpenOnboarding={() => { setSettingsOpen(false); setOnboardingOpen(true) }} />
 
       <Dialog open={analyticsOpen} onOpenChange={setAnalyticsOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
@@ -578,7 +580,7 @@ function DesktopApp() {
       </Suspense>
 
       <CommandPalette
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => { setSettingsSection('appearance'); setSettingsOpen(true) }}
         onOpenAnalytics={() => setAnalyticsOpen(true)}
         onOpenDocs={() => setDocsOpen(true)}
       />
