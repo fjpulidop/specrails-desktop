@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.53.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.52.0...v2.53.0) (2026-09-22)
+
+
+### Features
+
+* **companion:** pass active Desktop language through pairing QR ([#688](https://github.com/fjpulidop/specrails-desktop/issues/688)) ([2f88346](https://github.com/fjpulidop/specrails-desktop/commit/2f88346e3dab3dfbf5e01fe3be0e28e3fc2bfa47))
+
 ## [2.52.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.51.1...v2.52.0) (2026-09-22)
 
 
