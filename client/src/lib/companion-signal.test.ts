@@ -16,9 +16,9 @@ describe('companion-signal codec', () => {
   })
 
   it('encodeOffer produces an offer the phone can read back', async () => {
-    const token = await encodeOffer({ hubInstanceId: 'inst-1', hubName: 'Mac', sdp: 'v=0\r\nSDP', secret: 'sec' })
+    const token = await encodeOffer({ hubInstanceId: 'inst-1', hubName: 'Mac', sdp: 'v=0\r\nSDP', secret: 'sec', language: 'es' })
     const m = JSON.parse(await decodeSignal(token))
-    expect(m).toMatchObject({ k: 'offer', v: 2, hub: 'inst-1', name: 'Mac', sdp: 'v=0\r\nSDP', sec: 'sec' })
+    expect(m).toMatchObject({ k: 'offer', v: 2, hub: 'inst-1', name: 'Mac', sdp: 'v=0\r\nSDP', sec: 'sec', language: 'es' })
   })
 
   it('decodeAnswer parses an answer token and rejects non-answers', async () => {

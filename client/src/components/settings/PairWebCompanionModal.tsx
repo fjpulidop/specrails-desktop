@@ -1,3 +1,4 @@
+import { getActiveLanguage } from '../../lib/i18n'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import jsQR from 'jsqr'
@@ -87,7 +88,7 @@ export function PairWebCompanionModal({ open, onClose, onPaired }: { open: boole
         const r = await fetch('/api/mobile/webrtc/offer', { method: 'POST' })
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const o = (await r.json()) as { sdp: string; secret: string; hubName: string; hubInstanceId: string }
-        const token = await encodeOffer({ hubInstanceId: o.hubInstanceId, hubName: o.hubName, sdp: o.sdp, secret: o.secret })
+        const token = await encodeOffer({ language: getActiveLanguage(), hubInstanceId: o.hubInstanceId, hubName: o.hubName, sdp: o.sdp, secret: o.secret })
         if (!cancelled) {
           setOfferToken(token)
           setPhase('offer')
