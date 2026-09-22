@@ -1,0 +1,69 @@
+name: Recover Desktop download channel
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing published stable version (X.Y.Z)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  recover:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    concurrency:
+      group: desktop-release-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: 22.22.3
+      - name: Verify existing release and every installer before recovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVERY_VERSION: ${{ inputs.version }}
+        run: node scripts/recover-desktop-channel.mjs
+      - name: Atomically publish the verified manifest
+        env:
+          HOST: ${{ secrets.HOSTINGER_HOST }}
+          FTP_USER: ${{ secrets.HOSTINGER_USER }}
+          FTP_PASS: ${{ secrets.HOSTINGER_PASSWORD }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          node scripts/release-policy.mjs latest
+          remote="domains/specrails.dev/public_html/downloads/specrails-desktop/latest/"
+          temporary="manifest.json.recovery-${GITHUB_RUN_ID}.tmp"
+          curl --fail --silent --show-error --ssl-reqd --ftp-pasv \
+            --connect-timeout 30 --max-time 90 --retry 3 --retry-all-errors \
+            --user "${FTP_USER}:${FTP_PASS}" -T recovery/manifest.json \
+            "ftp://${HOST}/${remote}${temporary}"
+          curl --fail --silent --show-error --ssl-reqd --ftp-pasv \
+            --connect-timeout 30 --max-time 90 \
+            --user "${FTP_USER}:${FTP_PASS}" \
+            -Q "RNFR ${remote}${temporary}" -Q "RNTO ${remote}manifest.json" \
+            "ftp://${HOST}/${remote}" --output /dev/null
+      - name: Verify public download channel matches the recovered manifest
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6; do
+            if curl --fail --silent --show-error --max-time 30 \
+              "https://specrails.dev/downloads/specrails-desktop/latest/manifest.json?recovery=${GITHUB_RUN_ID}" \
+              -o /tmp/published-manifest.json && \
+              cmp -s <(jq -S . recovery/manifest.json) <(jq -S . /tmp/published-manifest.json); then
+              echo "Published channel matches the verified release."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Public download channel does not match the recovered manifest." >&2
+          exit 1
