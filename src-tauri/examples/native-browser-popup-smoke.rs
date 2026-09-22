@@ -248,8 +248,11 @@ async fn run(app: tauri::AppHandle, port: u16, other: u16) -> Result<(), String>
     assert!(error_count>prior_errors,"ninth concurrent popup did not emit a denial event");
     for event in events.lock().unwrap().iter() { assert!(event["url"].is_null());assert!(event["title"].is_null());assert_eq!(event["ownerId"],owner); }
     close_popups(&app,&owner).await?;
-    evaluate(&pane,"window.retry=window.open('about:blank','retry');return !!retry;").await?;
+    // Deferred like every other open in this smoke: a synchronous window.open
+    // keeps the evaluate completion hostage while WebKit builds the window.
+    evaluate(&pane,"setTimeout(()=>{window.retry=window.open('about:blank','retry');},0);return true;").await?;
     popup_count(&app,&owner,1).await?;
+    eventually(&pane,"!!window.retry").await?;
     assert_eq!(events.lock().unwrap().last().unwrap()["kind"],"popup-opened");
     println!("PASS popup limit, slot release, retry and token-free error/recovery events");
 
@@ -259,8 +262,9 @@ async fn run(app: tauri::AppHandle, port: u16, other: u16) -> Result<(), String>
     let newer_pane = browser::browser_pane_for_window(&app,"main",&newer)?;
     eventually(&newer_pane,"document.title==='Popup fixture'").await?;
     assert_eq!(evaluate(&newer_pane,"return document.cookie.includes('fixture_session=authenticated');").await?,false,"new ephemeral pane must not reuse the previous cookie store");
-    evaluate(&newer_pane,"window.auth=window.open('about:blank','new-owner-auth');return !!auth;").await?;
+    evaluate(&newer_pane,"setTimeout(()=>{window.auth=window.open('about:blank','new-owner-auth');},0);return true;").await?;
     popup_count(&app,&newer,1).await?;
+    eventually(&newer_pane,"!!window.auth").await?;
     browser::browser_close(app.clone(), app.get_webview("main").ok_or("main interface missing")?, owner.clone()).await?;
     browser::browser_hide(app.clone(), app.get_webview("main").ok_or("main interface missing")?, owner).await?;
     assert_eq!(popup_windows(&app,&newer).len(),1,"stale owner cleanup closed a newer owner's popup");
