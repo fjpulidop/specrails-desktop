@@ -226,6 +226,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       // Off-catalog values fall back to null (= no provider-specific override).
       reasoningEffort: validEffort(provider, effectiveModel, body.reasoningEffort) ?? null,
     })
+    manager.notifyConversationCreated(conversation.id)
     res.status(201).json({ conversation })
   })
 

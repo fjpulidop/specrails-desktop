@@ -240,6 +240,9 @@ describe('mobile-router', () => {
       const denied = await request(app).get('/v1/projects/p2/tickets').set('Authorization', 'Bearer scoped')
       expect(denied.status).toBe(403)
       expect(denied.body.error).toMatch(/not allowed/i)
+      for (const endpoint of ['tree', 'find?q=main', 'file?path=main.ts']) {
+        expect((await request(app).get(`/v1/projects/p2/repositories/r1/code/${endpoint}`).set('Authorization', 'Bearer scoped')).status).toBe(403)
+      }
     })
 
     it('blocks scoped device on a non-granted project for ACTIONS too (delete/patch)', async () => {

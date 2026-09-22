@@ -249,6 +249,10 @@ export class AgentChatManager {
     }
   }
 
+  notifyConversationCreated(conversationId: string): void {
+    this._broadcast({ type: 'agent_conversation_created', conversationId, timestamp: new Date().toISOString() })
+  }
+
   private _startLifecycle(conversationId: string): void {
     const startedAt = new Date().toISOString()
     this._turnStartedAt.set(conversationId, startedAt)
@@ -454,11 +458,18 @@ export class AgentChatManager {
     const currentMessageId = options.queueId ? getAgentInput(this._db, conversationId, options.queueId)?.messageId : null
     const historyBlock = buildAgentHistoryBlock(decorateAgentInputMessages(this._db, listAgentMessages(this._db, conversationId))
       .filter((message) => message.id !== currentMessageId && message.delivery_status !== 'cancelled' && message.delivery_status !== 'interrupted'))
-    if (options.queueId) {
-      if (!deliverAgentInput(this._db, conversationId, options.queueId, 'sent')) return
-    } else {
-      addAgentMessage(this._db, { conversationId, role: 'user', content: userText, attachmentIds, contextRefs: options.contextRefs })
-    }
+    const message = options.queueId
+      ? deliverAgentInput(this._db, conversationId, options.queueId, 'sent')
+      : addAgentMessage(this._db, { conversationId, role: 'user', content: userText, attachmentIds, contextRefs: options.contextRefs })
+    if (!message) return
+    // Queued turns were announced by the drain loop. Direct turns must also
+    // reach every open client, including Desktop when Companion sent the input.
+    if (!currentMessageId) this._broadcast({
+      type: 'agent_input_started', conversationId, queueId: options.queueId ?? null,
+      messageId: message.id, text: message.content, timestamp: message.created_at,
+      contextRefs: options.contextRefs ?? [], attachmentIds: attachmentIds ?? [],
+      deliveryReceipt: 'sent',
+    })
     this._autoTitle(conversationId, conversation.title)
 
     // Providers WITHOUT a --system-prompt flag (codex, gemini) drop opts.systemPrompt

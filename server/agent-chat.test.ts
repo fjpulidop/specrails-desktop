@@ -372,6 +372,7 @@ function makeApp(db: DbInstance, manager: Partial<AgentChatManager>) {
   const app = express()
   app.use(express.json())
   app.use('/api/agent', createAgentChatRouter({ manager: {
+    notifyConversationCreated: vi.fn(),
     pendingMessages: () => [],
     conversationLive: () => ({ isStreaming: false, streamingText: '', startedAt: undefined }),
     ...manager,

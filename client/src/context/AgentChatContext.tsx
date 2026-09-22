@@ -710,6 +710,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         return
       }
       if (typeof msg.type !== 'string' || !msg.type.startsWith('agent_')) return
+      if (msg.type === 'agent_conversation_created') {
+        void refreshConversations()
+        return
+      }
       // Auto-title updates apply to the LIST (any conversation), not just the
       // active one — handle before the active-conversation filter.
       if (msg.type === 'agent_title' && msg.conversationId) {
@@ -865,7 +869,11 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         // Settling input delivery (including an unconfirmed native write) does
         // not end the turn. Only the persisted assistant segment resets.
         patchLive(convId, (p) => ({ ...p, queued: p.queued.filter((q) => q.queueId !== msg.queueId), streamingText: msg.assistantSegment ? '' : p.streamingText }))
-      } else if (msg.type === 'agent_dequeued') {
+      } else if (msg.type === 'agent_dequeued' || msg.type === 'agent_input_started') {
+        if (isActive && msg.queueId) {
+          messagesRef.current = messagesRef.current.filter(row => row.id !== `local-u-${msg.queueId}`)
+          setMessages(current => current.filter(row => row.id !== `local-u-${msg.queueId}`))
+        }
         // The queued message's turn starts now: chip → real user bubble.
         if (msg.queueId && consumedQueueIdsRef.current.has(msg.queueId)) return
         if (msg.queueId) consumedQueueIdsRef.current.add(msg.queueId)
@@ -947,7 +955,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     }
     registerHandler('agent-chat', handler)
     return () => unregisterHandler('agent-chat')
-  }, [registerHandler, unregisterHandler, patchLive, markUnread])
+  }, [registerHandler, unregisterHandler, patchLive, markUnread, refreshConversations])
 
   const loadConversation = useCallback(async (id: string, signal?: AbortSignal) => {
     const epoch = ++conversationLoadEpochRef.current
@@ -1115,7 +1123,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       return list[0]
     }
     const created = await createAgentConversation({})
-    setConversations((c) => [created, ...c])
+    setConversations((c) => [created, ...c.filter((row) => row.id !== created.id)])
     setActive(created)
     setMessages([])
     return created
@@ -1181,7 +1189,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         // this covers materialization triggered OUTSIDE the composer too
         // (e.g. a browser capture from the workspace sidebar).
         migrateNewMissionComposerDrafts(created.id)
-        setConversations((c) => [created, ...c])
+        setConversations((c) => [created, ...c.filter((row) => row.id !== created.id)])
         setActive(created)
         setMessages([])
         return created
@@ -1217,7 +1225,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     })
     setActive((a) => (a && a.id === conv!.id ? { ...a, updated_at: nowIso } : a))
     const userBubble = {
-      id: `local-u-${Date.now()}`,
+      id: `local-u-${queueId}`,
       conversation_id: conv.id,
       role: 'user' as const,
       content: trimmed,
@@ -1487,7 +1495,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
     // legacy behavior of inheriting the active conversation's pin.
     const pinnedProjectId = projectId !== undefined ? projectId : (active?.pinned_project_id ?? null)
     const created = await createAgentConversation({ pinnedProjectId, tierLevel: readLastTierLevel() })
-    setConversations((c) => [created, ...c])
+    setConversations((c) => [created, ...c.filter((row) => row.id !== created.id)])
     setActive(created)
     setMessages([])
   }, [active, exitBuilderMode])

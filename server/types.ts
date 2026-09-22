@@ -1314,6 +1314,7 @@ export type WsMessage =
   | JiraOutboxChangedMessage | JiraDegradedMessage
   | AgentStreamMessage | AgentPartialMessage | AgentDoneMessage | AgentErrorMessage | AgentToolMessage | AgentToolResultMessage
   | AgentTitleMessage
+  | { type: 'agent_conversation_created'; conversationId: string; timestamp: string }
   | AgentQueuedMessage | AgentDequeuedMessage | AgentQueueClearedMessage | AgentSteeredMessage | AgentInputReceiptMessage
   | AgentQueueEditedMessage | AgentQueueRemovedMessage
   | AgentPrDecisionMessage | AgentRunFailureMessage
@@ -1559,9 +1560,9 @@ export interface AgentQueuedMessage {
   timestamp: string
 }
 
-/** A queued message left the queue and its turn is starting now. */
+/** A persisted input starts its turn (direct or drained from the queue). */
 export interface AgentDequeuedMessage {
-  type: 'agent_dequeued'
+  type: 'agent_dequeued' | 'agent_input_started'
   conversationId: string
   queueId: string | null
   text: string
