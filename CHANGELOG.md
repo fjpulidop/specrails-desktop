@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.54.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.53.0...v2.54.0) (2026-09-22)
+
+
+### Features
+
+* **companion:** expose mission rail controls and execution logs ([#690](https://github.com/fjpulidop/specrails-desktop/issues/690)) ([c147c6c](https://github.com/fjpulidop/specrails-desktop/commit/c147c6c1fe3392ef9aa75838072d703cabfef173))
+
 ## [2.53.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.52.0...v2.53.0) (2026-09-22)
 
 
