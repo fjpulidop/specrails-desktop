@@ -55,10 +55,6 @@ vi.mock('../components/ProjectLayout', () => ({
   ProjectLayout: () => <div data-testid="project-layout">ProjectLayout</div>,
 }))
 
-vi.mock('../components/RootLayout', () => ({
-  RootLayout: () => <div data-testid="root-layout">RootLayout</div>,
-}))
-
 // The DesktopProvider makes REST calls to /api/projects.
 // We need to mock that too.
 vi.mock('../hooks/useDesktop', async () => {
