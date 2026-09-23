@@ -5,10 +5,10 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { initDb, type DbInstance } from './db'
-import { createCodeExplorerRouter } from './code-explorer-router'
-import { recordProvenanceForJob, type StoredPatch } from './file-provenance'
-import { setContributionSummary } from './file-story'
-import type { ExplainResult } from './file-story-manager'
+import { createCodeExplorerRouter } from './modules/code/runtime/code-explorer-router'
+import { recordProvenanceForJob, type StoredPatch } from './modules/code/runtime/file-provenance'
+import { setContributionSummary } from './modules/code/runtime/file-story'
+import type { ExplainResult } from './modules/code/runtime/file-story-manager'
 
 const PATCH = [
   'diff --git a/hello.ts b/hello.ts',

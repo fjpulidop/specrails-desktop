@@ -42,8 +42,8 @@ const conv = {
   updated_at: '',
 }
 
-vi.mock('../../lib/agent-api', async (orig) => {
-  const actual = await orig<typeof import('../../lib/agent-api')>()
+vi.mock('../../features/missions/lib/agent-api', async (orig) => {
+  const actual = await orig<typeof import('../../features/missions/lib/agent-api')>()
   return {
     ...actual,
     listAgentConversations: vi.fn(async () => [conv]),
@@ -69,8 +69,8 @@ vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), info: vi.fn(), success: vi.fn() }),
 }))
 
-import * as agentApi from '../../lib/agent-api'
-import { AgentChatProvider, useAgentChat } from '../AgentChatContext'
+import * as agentApi from '../../features/missions/lib/agent-api'
+import { AgentChatProvider, useAgentChat } from '../../features/missions/context/AgentChatContext'
 
 function Harness() {
   const agentChat = useAgentChat()

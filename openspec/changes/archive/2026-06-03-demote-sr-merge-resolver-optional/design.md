@@ -93,7 +93,7 @@ Both adapters must be kept in sync because `ProfileManager` resolves the adapter
 
 ---
 
-### 4. `server/profiles-router.ts` — `migrate-from-settings` handler
+### 4. `server/modules/agents/runtime/profiles-router.ts` — `migrate-from-settings` handler
 
 **What changes:** The hard-coded `baseline` array and the comment above the ordering block.
 
@@ -141,8 +141,8 @@ const pinnedLast = new Set<string>()
 |---|---|
 | `server/setup-manager.ts` | Does not contain a hard-coded agent list; reads the install-config.yaml written by the wizard, which is determined by `AgentSelector.CORE_AGENTS`. Fix flows through the client change. |
 | `client/src/components/SetupWizard.tsx` | The `handleInstall` guard `[...new Set([...CORE_AGENTS, ...])]` is correct; it simply reads the updated `CORE_AGENTS`. No edit needed. |
-| `client/src/components/agents/ProfileEditor.tsx` | The `sr-merge-resolver` pin-last behavior in the editor UI is a display convenience, not a data invariant. It does not affect what gets installed. Removing it is out of scope. |
-| `server/profile-manager.ts` | Delegates to `adapter.baselineAgents()`; no hard-coded list to change. |
+| `client/src/features/agents/components/ProfileEditor.tsx` | The `sr-merge-resolver` pin-last behavior in the editor UI is a display convenience, not a data invariant. It does not affect what gets installed. Removing it is out of scope. |
+| `server/modules/agents/runtime/profile-manager.ts` | Delegates to `adapter.baselineAgents()`; no hard-coded list to change. |
 | `specrails-core` source | Explicitly out of scope. |
 | Agent catalog listing | `sr-merge-resolver` remains in `ALL_AGENTS` and will appear in the catalog. |
 

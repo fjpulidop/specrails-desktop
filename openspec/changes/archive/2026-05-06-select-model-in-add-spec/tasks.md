@@ -1,6 +1,6 @@
 ## 1. Server-side model constants
 
-- [x] 1.1 Create `server/spec-models.ts` exporting `CLAUDE_MODELS`, `CODEX_MODELS` (each `{ value: string; label: string }[]`), `PROVIDER_DEFAULT_MODEL` (`{ claude: 'sonnet', codex: 'gpt-5.4-mini' }`), and helpers `isValidModelForProvider(model, provider)` + `getProviderDefault(provider)`.
+- [x] 1.1 Create `server/modules/specs/runtime/spec-models.ts` exporting `CLAUDE_MODELS`, `CODEX_MODELS` (each `{ value: string; label: string }[]`), `PROVIDER_DEFAULT_MODEL` (`{ claude: 'sonnet', codex: 'gpt-5.4-mini' }`), and helpers `isValidModelForProvider(model, provider)` + `getProviderDefault(provider)`.
 - [x] 1.2 (No client copy needed — client receives the allow-list from `GET /default-spec-model`. The agents-profile `ModelSelector.tsx` keeps its own internal lists, untouched.)
 
 ## 2. Server: default-model resolution
@@ -42,7 +42,7 @@
 - [x] 7.1 Add `model: string` to `ExploreLaunchPayload` in `ProposeSpecModal.tsx`.
 - [x] 7.2 Update consumers of `onExploreLaunch` (`SpecsBoard.tsx`, any other callers) to forward `model` into `ExploreSpecShell` props as `initialModel`.
 - [x] 7.3 Pass `initialModel` from `ExploreSpecShell` into the explore-conversation-create request body.
-- [x] 7.4 Update `client/src/lib/active-explore-spec.ts` and the minimize/restore path so a restored Explore session keeps its conversation's persisted model (no special wiring expected — `model` already lives on the conversation row).
+- [x] 7.4 Update `client/src/features/specs/lib/active-explore-spec.ts` and the minimize/restore path so a restored Explore session keeps its conversation's persisted model (no special wiring expected — `model` already lives on the conversation row).
 - [x] 7.5 Test (`ExploreSpecShell.test.tsx`): conversation created with initial model from launch payload; refresh/restore preserves it.
 
 ## 8. Wiring + UX polish

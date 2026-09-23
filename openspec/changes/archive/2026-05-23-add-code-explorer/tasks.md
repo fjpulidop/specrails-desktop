@@ -13,7 +13,7 @@
 - [x] 2.3 Extend `ai_invocations.surface` allow-list in the application layer to include `'file-summary'` (no schema migration needed if the column is unconstrained `TEXT`)
 - [x] 2.4 Verify the migrations are idempotent against an existing project SQLite that already has the tables
 
-## 3. File provenance module (`server/file-provenance.ts`)
+## 3. File provenance module (`server/modules/code/runtime/file-provenance.ts`)
 
 - [x] 3.1 Implement `snapshotWorkingTree(cwd): Promise<string>` using `git stash create --include-untracked` to capture a no-op snapshot ref
 - [x] 3.2 Implement `diffAgainstSnapshot(cwd, snapshotRef): Promise<DiffEntry[]>` returning `{ path, status: 'A'|'M'|'D'|'R', renamedFrom? }` parsed from `git diff --name-status`
@@ -32,7 +32,7 @@
 - [x] 4.5 Resolve `ticket_id` as the primary ticket from the existing `tickets[]` extraction on the job command
 - [x] 4.6 Tests: end-to-end with a fake git repo, multi-file diff, deletion, rename, and a job that touches zero files
 
-## 5. File summary manager (`server/file-summary-manager.ts`)
+## 5. File summary manager (`server/modules/code/runtime/file-summary-manager.ts`)
 
 - [x] 5.1 Define the on-disk JSON schema (TypeScript type + ajv validator) for `schemaVersion: 1`
 - [x] 5.2 Implement `readSummary(projectPath, relPath)`, `writeSummary(projectPath, relPath, payload)` with atomic temp+rename
@@ -49,7 +49,7 @@
 - [x] 5.13 Implement the orphan sweep capped at 200 deletions per pass
 - [x] 5.14 Unit tests for: hash gating no-op, hash mismatch regeneration path, budget cap skip, override-budget bypass, per-job cap, concurrency cap queue draining, truncation, orphan sweep cap
 
-## 6. Code explorer router (`server/code-explorer-router.ts`)
+## 6. Code explorer router (`server/modules/code/runtime/code-explorer-router.ts`)
 
 - [x] 6.1 Mount the router under `/api/projects/:projectId/code`, gated by `SPECRAILS_CODE_EXPLORER`
 - [x] 6.2 Implement `GET /tree?withProvenance=1&filter=touched-by-ai|all&cursor=…` with pagination (max 2000 entries per response, opaque cursor), deny-list (`node_modules`, `dist`, `.git`, `coverage`, `*.lock`, `*.log`, dotfiles), `.gitignore` respect via `ignore` npm package
@@ -63,15 +63,15 @@
 ## 7. Client: lazy Monaco wiring
 
 - [x] 7.1 Add `monaco-editor` to `client/package.json` and `client/package-lock.json`
-- [x] 7.2 Configure `MonacoEnvironment.getWorkerUrl` in `client/src/lib/monaco-setup.ts` without Vite plugin, importing `editor.worker?worker`-style worker URLs explicitly
-- [x] 7.3 Create `client/src/components/code-explorer/CodeViewerMonaco.tsx` as a lazy-loaded component using `React.lazy` + dynamic `import()` of `monaco-editor/esm/vs/editor/edcore.main`
+- [x] 7.2 Configure `MonacoEnvironment.getWorkerUrl` in `client/src/features/code/lib/monaco-setup.ts` without Vite plugin, importing `editor.worker?worker`-style worker URLs explicitly
+- [x] 7.3 Create `client/src/features/code/components/code-explorer/CodeViewerMonaco.tsx` as a lazy-loaded component using `React.lazy` + dynamic `import()` of `monaco-editor/esm/vs/editor/edcore.main`
 - [x] 7.4 Add a "Cargando editor…" skeleton displayed during the suspense fallback
 - [x] 7.5 Configure Monaco read-only mode, theme bound to `useActiveTheme()`, line numbers on, minimap off
 - [x] 7.6 Confirm that with the feature flag off, Monaco is not in the main route chunk (verify via `vite build --report` in CI step or local check)
 
 ## 8. Client: file tree component
 
-- [x] 8.1 Create `client/src/components/code-explorer/FileTree.tsx` with virtualisation (use `@tanstack/react-virtual` or existing virtualisation primitive)
+- [x] 8.1 Create `client/src/features/code/components/code-explorer/FileTree.tsx` with virtualisation (use `@tanstack/react-virtual` or existing virtualisation primitive)
 - [x] 8.2 Implement filter toggle "Tocado por IA" (default) ⇄ "All files"
 - [x] 8.3 Render provenance chips per row with the creating ticket visually distinct from modifying tickets
 - [x] 8.4 Wire chip clicks to `TicketDetailModalProvider.open(ticketId)`
@@ -81,8 +81,8 @@
 
 ## 9. Client: file viewer with summary header
 
-- [x] 9.1 Create `client/src/components/code-explorer/FileViewer.tsx` orchestrating header + Monaco
-- [x] 9.2 Create `client/src/components/code-explorer/SummaryHeader.tsx` rendering the summary card with ticket chips, stale flag, ↻ regenerate button, generation-timestamp humanised
+- [x] 9.1 Create `client/src/features/code/components/code-explorer/FileViewer.tsx` orchestrating header + Monaco
+- [x] 9.2 Create `client/src/features/code/components/code-explorer/SummaryHeader.tsx` rendering the summary card with ticket chips, stale flag, ↻ regenerate button, generation-timestamp humanised
 - [x] 9.3 Implement "Generar resumen" CTA when no summary exists
 - [x] 9.4 Wire ↻ to `POST /file/regenerate-summary`; show confirmation modal "Override budget?" when the response indicates a budget block
 - [x] 9.5 Show binary-file and oversize-file empty states without loading Monaco
@@ -91,7 +91,7 @@
 
 ## 10. Client: page, route, sidebar
 
-- [x] 10.1 Create `client/src/pages/CodePage.tsx` composing the tree on the left and viewer on the right inside `ProjectLayout`
+- [x] 10.1 Create `client/src/features/code/pages/CodePage.tsx` composing the tree on the left and viewer on the right inside `ProjectLayout`
 - [x] 10.2 Register the `/code` route in `App.tsx`, gated by `VITE_FEATURE_CODE_EXPLORER` (the route returns null/redirect when the flag is off)
 - [x] 10.3 Add the **Code** sidebar entry to `ProjectLayout`, hidden when the flag is off
 - [x] 10.4 Wire `useProjectRouteMemory` so `/code` is restored on project switch
@@ -108,7 +108,7 @@
 
 ## 12. TicketDetailModal: files-touched section
 
-- [x] 12.1 Add a "Files touched by this ticket" section to `client/src/components/TicketDetailModal.tsx`
+- [x] 12.1 Add a "Files touched by this ticket" section to `client/src/features/specs/components/TicketDetailModal.tsx`
 - [x] 12.2 Fetch from `GET /provenance?ticketId=…` lazily on modal open
 - [x] 12.3 Render rows with path + kind (created/modified); hide the entire section when the list is empty
 - [x] 12.4 Wire row click to navigate to `/code` and open the file in the viewer; close the modal

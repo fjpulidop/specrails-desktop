@@ -30,17 +30,17 @@ specrails-hub should expose **agent profiles**: named, catalogued configurations
 ## Impact
 
 - **Code**:
-  - `server/profile-manager.ts` — new module (CRUD + validation + resolve)
+  - `server/modules/agents/runtime/profile-manager.ts` — new module (CRUD + validation + resolve)
   - `server/project-router.ts` — new `/api/projects/:id/profiles/**` endpoints
-  - `server/queue-manager.ts` — snapshot creation + `SPECRAILS_PROFILE_PATH` injection at spawn
+  - `server/modules/execution/runtime/queue-manager.ts` — snapshot creation + `SPECRAILS_PROFILE_PATH` injection at spawn
   - `server/agent-studio.ts` — new module (template service, generator service, validator, test runner)
   - `server/db.ts` — new tables: `agent_versions`, `agent_tests`, `job_profiles`
-  - `client/src/pages/AgentsPage.tsx` — new page + subroutes
-  - `client/src/components/agents/ProfilesTab.tsx`, `AgentsTab.tsx`, `ModelsTab.tsx`
-  - `client/src/components/agents/AgentStudio.tsx` — Monaco editor + form + preview
+  - `client/src/features/agents/pages/AgentsPage.tsx` — new page + subroutes
+  - `client/src/features/agents/components/ProfilesTab.tsx`, `AgentsTab.tsx`, `ModelsTab.tsx`
+  - `client/src/features/agents/components/AgentStudio.tsx` — Monaco editor + form + preview
   - `client/src/components/agents/ProfilePicker.tsx` — reusable launch-time selector
-  - `client/src/pages/SettingsPage.tsx` — remove agent-models section, add breadcrumb
-  - `client/src/pages/AnalyticsPage.tsx` — per-profile metrics widget
+  - `client/src/features/settings/pages/SettingsPage.tsx` — remove agent-models section, add breadcrumb
+  - `client/src/features/analytics/pages/AnalyticsPage.tsx` — per-profile metrics widget
   - `client/src/context/ProjectLayout.tsx` — sidebar entry for Agents
   - Telemetry: add `specrails.profile_name` resource attribute enrichment in `queue-manager.ts`
 - **APIs**: new REST surface under `/api/projects/:projectId/profiles`, `/api/projects/:projectId/agents` (custom CRUD), `/api/projects/:projectId/agents/test`. WebSocket events: `profile.changed`, `agent.test_result`.

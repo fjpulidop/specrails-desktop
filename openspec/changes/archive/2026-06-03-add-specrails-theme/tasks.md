@@ -4,10 +4,10 @@ Three sequential tasks cover the entire implementation. All are purely additive 
 
 ---
 
-## 1. [frontend] Extend theme registry in `client/src/lib/themes.ts`
+## 1. [frontend] Extend theme registry in `client/src/features/settings/lib/themes.ts`
 
 **Files involved:**
-- `client/src/lib/themes.ts`
+- `client/src/features/settings/lib/themes.ts`
 
 **What to do:**
 
@@ -190,7 +190,7 @@ const THEME_ID_ALLOWLIST = new Set<string>(['dracula', 'aurora-light', 'obsidian
 const THEME_ID_ALLOWLIST = new Set<string>(['dracula', 'aurora-light', 'obsidian-dark', 'matrix', 'specrails'])
 ```
 
-No other changes to this file are required. The comment above the Set already reads: "Theme allow-list. Mirror of THEME_IDS in `client/src/lib/themes.ts`" — no comment update needed since the intent is already described generically.
+No other changes to this file are required. The comment above the Set already reads: "Theme allow-list. Mirror of THEME_IDS in `client/src/features/settings/lib/themes.ts`" — no comment update needed since the intent is already described generically.
 
 **Acceptance criteria:**
 - `PATCH /api/hub/theme` with `{ "theme": "specrails" }` returns HTTP 200 and stores the value.

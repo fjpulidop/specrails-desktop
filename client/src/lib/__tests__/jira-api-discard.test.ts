@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { jiraApi } from '../jira-api'
+import { jiraApi } from '../../features/integrations/lib/jira-api'
 
 vi.mock('../api', () => ({ getApiBase: () => '/api/projects/p1' }))
 

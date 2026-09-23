@@ -10,11 +10,11 @@
 - [x] 2.1 Extend `TicketDetailModalContext` state to `{ leftId, rightId, originSide, splitRatio }` preserving the existing `openTicketDetail`/`closeTicketDetail` API for non-split callers
 - [x] 2.2 Add `enterSplit(side)`, `setComparedTicket(id, side)`, `exitSplit()`, `setSplitRatio(n)` actions
 - [x] 2.3 Intercept `openTicketDetail(id)` so that when `originSide !== null` and `id` matches neither `leftId` nor `rightId`, the third-spec exit collapses split and opens the new ticket centered
-- [x] 2.4 Unit-test the context reducer covering: enter/exit, side B swap, third-spec auto-exit, ratio clamping (15 cases — see `client/src/context/__tests__/TicketDetailModalContext.test.tsx`)
+- [x] 2.4 Unit-test the context reducer covering: enter/exit, side B swap, third-spec auto-exit, ratio clamping (15 cases — see `client/src/features/specs/context/__tests__/TicketDetailModalContext.test.tsx`)
 
 ## 3. URL sync
 
-- [x] 3.1 Add `useCompareUrlSync()` hook in `client/src/hooks/useCompareUrlSync.ts`; called from `HubApp` inside `TicketDetailModalProvider`
+- [x] 3.1 Add `useCompareUrlSync()` hook in `client/src/features/jobs/hooks/useCompareUrlSync.ts`; called from `HubApp` inside `TicketDetailModalProvider`
 - [x] 3.2 Validate that the compare ticket exists; silently strip param on miss
 - [x] 3.3 Write URL params on `enterSplit`/`setComparedTicket`/`exitSplit`. Encoding uses three params: `compare`, `compareSide`, `compareOrigin` (the latter makes the round-trip lossless across cold reloads)
 - [x] 3.4 Non-split modal opens do NOT write URL params (verified — write path is gated on `state.originSide !== null`)

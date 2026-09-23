@@ -4,7 +4,7 @@ import path from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { runAiCliInvocation } = vi.hoisted(() => ({ runAiCliInvocation: vi.fn() }))
-vi.mock('../spawn-lifecycle', () => ({ runAiCliInvocation }))
+vi.mock('../modules/execution/runtime/spawn-lifecycle', () => ({ runAiCliInvocation }))
 vi.mock('../workspace-manager', async (original) => ({
   ...await original<typeof import('../workspace-manager')>(),
   ensureFrameworkAgents: vi.fn(), ensureFrameworkCommandSubtrees: vi.fn(),
@@ -14,7 +14,7 @@ import { BUNDLED_PLUGINS } from './index'
 import { setPluginManagerForTesting } from './manager'
 import { buildCodexPluginArgs } from './codex-spawn'
 import { codexAdapter } from '../providers/codex-adapter'
-import { createLoopExecutors } from '../loop-executors'
+import { createLoopExecutors } from '../modules/loops/runtime/loop-executors'
 
 let root: string
 let stateRoot: string

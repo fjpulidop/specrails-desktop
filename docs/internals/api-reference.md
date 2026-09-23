@@ -25,7 +25,7 @@ The CLI and the desktop client read the token automatically. The browser client 
 
 There is no UI to set or clear the token, and it is not an app setting.
 
-This page is hand-maintained against the route declarations in `server/*-router.ts`, the per-domain `server/project-router-{jobs,spending,settings,terminals,tickets,chat,setup}.ts` family, `server/code-explorer-router.ts`, and `server/jira-router.ts`. If you spot a discrepancy, please file an issue.
+This page is hand-maintained against the route declarations in `server/*-router.ts`, the per-domain `server/project-router-{jobs,spending,settings,terminals,tickets,chat,setup}.ts` family, `server/modules/code/runtime/code-explorer-router.ts`, and `server/jira-router.ts`. If you spot a discrepancy, please file an issue.
 
 ---
 
@@ -761,5 +761,5 @@ Error responses are `{ "error": "<message>" }`.
 
 ## Caveats
 
-- **Surface drift**: this file is hand-maintained against the route declarations in `server/*-router.ts`, the per-domain `server/project-router-{jobs,spending,settings,terminals,tickets,chat,setup}.ts` family, `server/code-explorer-router.ts`, and `server/jira-router.ts`. The app adds endpoints regularly; if a route exists in code but not here, please open an issue.
+- **Surface drift**: this file is hand-maintained against the route declarations in `server/*-router.ts`, the per-domain `server/project-router-{jobs,spending,settings,terminals,tickets,chat,setup}.ts` family, `server/modules/code/runtime/code-explorer-router.ts`, and `server/jira-router.ts`. The app adds endpoints regularly; if a route exists in code but not here, please open an issue.
 - **Stability**: routes under `/api/*` and `/api/projects/:projectId/*` are considered stable. A few legacy setup endpoints (`setup/start`, `setup/message`, `enrich/*`) back a flow the UI does not expose and remain only for forward compatibility.

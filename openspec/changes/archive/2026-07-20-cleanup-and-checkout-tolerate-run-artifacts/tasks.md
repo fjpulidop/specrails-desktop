@@ -7,13 +7,13 @@
 
 ## 2. Settlement snapshot of ignored paths
 
-- [x] 2.1 `server/rail-pr-store.ts`: additive `DeliverBranchRecord.settlementIgnoredPaths?: string[] | null`.
-- [x] 2.2 `server/rail-isolated-launch.ts`: after `commitWorktreeAndVerify` proves clean, capture `git status --porcelain --untracked-files=all --ignored=matching` `!!` paths (minus overlay excludes), cap 400 (over → null), thread into the settled branch record.
+- [x] 2.1 `server/modules/delivery/runtime/rail-pr-store.ts`: additive `DeliverBranchRecord.settlementIgnoredPaths?: string[] | null`.
+- [x] 2.2 `server/modules/delivery/runtime/rail-isolated-launch.ts`: after `commitWorktreeAndVerify` proves clean, capture `git status --porcelain --untracked-files=all --ignored=matching` `!!` paths (minus overlay excludes), cap 400 (over → null), thread into the settled branch record.
 - [x] 2.3 Tests: capture records run-created ignored dirs; overflow records null; capture failure records null.
 
 ## 3. Release preflight split
 
-- [x] 3.1 `server/rail-worktree-release.ts`: `durableSettlementIgnoredPaths(records)` (same collapse rules as overlay evidence: sanitize, conflict → none) + `verifyReleaseEvidence` partitions status lines — tracked/untracked must be empty (unchanged), live `!!` paths must be covered by the snapshot (directory-prefix aware); anything else preserves with the existing warning.
+- [x] 3.1 `server/modules/delivery/runtime/rail-worktree-release.ts`: `durableSettlementIgnoredPaths(records)` (same collapse rules as overlay evidence: sanitize, conflict → none) + `verifyReleaseEvidence` partitions status lines — tracked/untracked must be empty (unchanged), live `!!` paths must be covered by the snapshot (directory-prefix aware); anything else preserves with the existing warning.
 - [x] 3.2 Wire the snapshot map through every `releaseRailWorktrees` caller (same records that feed `overlayEvidenceByBranch`).
 - [x] 3.3 Tests: run-created `__pycache__` covered by snapshot → released; new ignored path post-settlement → preserved; no snapshot (legacy row) → preserved; conflicting snapshots → preserved.
 

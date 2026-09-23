@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'crypto'
-import type { AgentTierLevel } from '../agent-tier'
+import type { AgentTierLevel } from '../modules/missions/runtime/agent-tier'
 
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000
 const MAX_TTL_MS = DEFAULT_TTL_MS

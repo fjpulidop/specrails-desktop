@@ -3,7 +3,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { initDb, type DbInstance } from './db'
-import { createProfile, getProfile, ProfileNotFoundError } from './profile-manager'
+import { createProfile, getProfile, ProfileNotFoundError } from './modules/agents/runtime/profile-manager'
 
 /**
  * Integration-flavor test for the migration endpoint's core logic: read

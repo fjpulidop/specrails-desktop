@@ -2,7 +2,7 @@ import { isMissionRailCardsEnabled, isCodeExplorerEnabled } from '../feature-fla
 import { StringDecoder } from 'node:string_decoder'
 import { Router, type Request, type Response } from 'express'
 import type { DbInstance } from '../db'
-import { getAgentConversation } from '../agent-store'
+import { getAgentConversation } from '../modules/agents/runtime/agent-store'
 import { getProject, listProjectRepositories } from '../desktop-db'
 import { getAllowedProjects } from './mobile-devices'
 import type { MobileAuthedRequest } from './mobile-auth'

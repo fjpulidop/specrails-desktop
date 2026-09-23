@@ -62,7 +62,7 @@ dismissed ◀──(user)──▶ open/applied   (an in-flight one is frozen un
 ```
 
 - **Claim** — `claimSpecAddendaForRun(storePath, ticketIds, runId, { plan? })`
-  (`server/spec-addenda.ts`): quick read (most launches carry nothing → no lock,
+  (`server/modules/specs/runtime/spec-addenda.ts`): quick read (most launches carry nothing → no lock,
   no rewrite), then `mutateStore` re-plans under the lock and marks
   `open → in_flight` with the run id. Idempotent for the same run (a resume
   re-claims its own); another run's in-flight addenda are never stolen. Returns

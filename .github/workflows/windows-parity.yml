@@ -73,7 +73,7 @@ jobs:
           server/windows-background-containment.integration.test.ts
           server/host-control.test.ts server/util/win-spawn.test.ts server/plugins/codex-spawn.test.ts
           server/util/windows-provider-shell.test.ts server/util/cli-prompt-windows.test.ts
-          server/background-windows-bootstrap.test.ts server/background-windows-job-control.test.ts
+          server/modules/terminals/runtime/background-windows-bootstrap.test.ts server/background-windows-job-control.test.ts
           server/loop-executors-shell.test.ts
           server/mobile/mobile-redact.test.ts server/provider-detection.test.ts
       - id: production-build
@@ -153,4 +153,4 @@ jobs:
         run: >-
           node node_modules/vitest/vitest.mjs run --maxWorkers=2
           server/windows-background-containment.integration.test.ts
-          server/background-windows-bootstrap.test.ts server/background-windows-job-control.test.ts
+          server/modules/terminals/runtime/background-windows-bootstrap.test.ts server/background-windows-job-control.test.ts

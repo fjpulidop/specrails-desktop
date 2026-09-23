@@ -31,7 +31,7 @@ vi.mock('./hooks', () => ({ resetPhases: vi.fn(), setActivePhases: vi.fn() }))
 
 import { spawn as mockSpawn } from 'child_process'
 import treeKill from 'tree-kill'
-import { QueueManager } from './queue-manager'
+import { QueueManager } from './modules/execution/runtime/queue-manager'
 import { initDb, type DbInstance } from './db'
 import type { WsMessage } from './types'
 

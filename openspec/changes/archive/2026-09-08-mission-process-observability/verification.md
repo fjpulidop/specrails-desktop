@@ -7,7 +7,7 @@ Verified on macOS, 2026-09-06, on `codex/multi-repo-projects`.
 - Server: **65 files / 1,642 tests passed**. Covers mission managers, MCP, providers, process admission, project lifecycle, background REST routes, retained logs, ownership, retry and shutdown. Command:
 
   ```sh
-  npx vitest run server/agent server/mcp server/providers server/transient-children.test.ts server/transient-children.integration.test.ts server/background-process-control.test.ts server/background-process-flow.test.ts server/project-router-background-processes.test.ts server/project-registry.test.ts server/project-router.test.ts server/process-admission.test.ts server/desktop-db.test.ts server/spawn-lifecycle.test.ts server/interactive-job-session.test.ts server/util/cli-prompt.test.ts --maxWorkers=2 --reporter=dot
+  npx vitest run server/agent server/mcp server/providers server/transient-children.test.ts server/transient-children.integration.test.ts server/modules/terminals/runtime/background-process-control.test.ts server/background-process-flow.test.ts server/project-router-background-processes.test.ts server/project-registry.test.ts server/project-router.test.ts server/process-admission.test.ts server/desktop-db.test.ts server/modules/execution/runtime/spawn-lifecycle.test.ts server/modules/execution/runtime/interactive-job-session.test.ts server/util/cli-prompt.test.ts --maxWorkers=2 --reporter=dot
   ```
 
 - Client: **7 files / 173 tests passed**, including scoped state reconciliation, delayed WebSocket events during Stop, timed-out requests, missed terminal events, conversation switching, process chip controls, modal polling/cancellation, filtered exports, partial lines and locale parity. Command from `client/`:

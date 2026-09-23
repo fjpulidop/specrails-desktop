@@ -94,12 +94,12 @@ jobs:
         run: >-
           npx vitest run --maxWorkers=1
           server/core-node-runtime.test.ts
-          server/agent-runtime-loader.test.ts
-          server/agent-runtime-bridge.test.ts
-          server/agent-runtime-settings.test.ts
-          server/agent-runtime-verification-suggestions.test.ts
-          server/agent-runtime-controls.test.ts
-          server/agent-runtime-accounting.test.ts
+          server/modules/agent-runtime/runtime/agent-runtime-loader.test.ts
+          server/modules/agent-runtime/runtime/agent-runtime-bridge.test.ts
+          server/modules/agent-runtime/runtime/agent-runtime-settings.test.ts
+          server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.test.ts
+          server/modules/agent-runtime/runtime/agent-runtime-controls.test.ts
+          server/modules/agent-runtime/runtime/agent-runtime-accounting.test.ts
           server/agent-runtime-integration.test.ts
           server/loop-runtime-accounting.test.ts
 

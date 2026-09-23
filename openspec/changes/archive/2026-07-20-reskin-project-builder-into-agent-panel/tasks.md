@@ -2,12 +2,12 @@
 
 ## 1. Session extraction + mode state
 
-- [x] 1.1 Extract the builder session logic from `ProjectBuilderShell` into `client/src/hooks/useBuilderSession.ts` (conversation bootstrap, `blueprint.*` WS handling, phases `chat|commit|progress|done`, snapshot state, send/commit/launchM1/openProject actions); hook unit tests (mock fetch + WS handler injection)
+- [x] 1.1 Extract the builder session logic from `ProjectBuilderShell` into `client/src/features/builder/hooks/useBuilderSession.ts` (conversation bootstrap, `blueprint.*` WS handling, phases `chat|commit|progress|done`, snapshot state, send/commit/launchM1/openProject actions); hook unit tests (mock fetch + WS handler injection)
 - [x] 1.2 Add the `builderMode` slice to `AgentChatContext`: `{ active, enterBuilderMode, exitBuilderMode }`; entering opens the floating panel and suppresses (hides, never unmounts) normal agent chrome; exiting restores it and aborts an in-flight builder turn; context tests (agent queue/pinned state preserved across enter/exit)
 
 ## 2. Halo + surface transformation
 
-- [x] 2.1 Create `client/src/components/project-builder/BuilderHalo.tsx`: entry-only CSS-keyframe rotating conic-gradient ring (theme accent tokens), `motion` enter/exit, `prefers-reduced-motion` ⇒ static glow; mount on the fresh composer, `AgentBubble`, and panel header while the chat is empty; remove it on first work; render tests incl. reduced-motion branch
+- [x] 2.1 Create `client/src/features/builder/components/project-builder/BuilderHalo.tsx`: entry-only CSS-keyframe rotating conic-gradient ring (theme accent tokens), `motion` enter/exit, `prefers-reduced-motion` ⇒ static glow; mount on the fresh composer, `AgentBubble`, and panel header while the chat is empty; remove it on first work; render tests incl. reduced-motion branch
 - [x] 2.2 Agent Mode: `AgentWorkspaceSidebar` animated swap (`AnimatePresence`) to `BlueprintPanel` + phase CTA while `builderMode.active`; restore tool rail on exit; tests
 - [x] 2.3 Board mode: attached blueprint side pane on `AgentChatPanel` (same `BlueprintPanel` + CTA, panel min-width grows in builder mode); tests
 

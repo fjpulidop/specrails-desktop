@@ -4,7 +4,7 @@ Explore is the most natural way to shape a spec, but right now an Explore sessio
 
 ## What Changes
 
-- Add `draft` as a new value in the `TicketStatus` union exposed by the per-project JSON ticket store (`server/ticket-store.ts`, file `.specrails/local-tickets.json`).
+- Add `draft` as a new value in the `TicketStatus` union exposed by the per-project JSON ticket store (`server/modules/specs/runtime/ticket-store.ts`, file `.specrails/local-tickets.json`).
 - Make `priority` nullable on the `Ticket` interface while `status='draft'` (required again on transition out of draft). Update `VALID_PRIORITIES` checks to admit a null/missing priority specifically for drafts.
 - Add an `origin_conversation_id` field on the `Ticket` interface (nullable string). It permanently links the Explore conversation that produced the ticket — preserved even after the ticket is committed. Cascade-cleanup is enforced in the application layer (the JSON store has no FK).
 - Bump the JSON store's `schema_version` (currently `'1.0'`) to `'1.1'`. Reads remain backwards compatible: tickets written before this change keep working with the new code (missing `origin_conversation_id` reads as `null`).
@@ -31,8 +31,8 @@ Explore is the most natural way to shape a spec, but right now an Explore sessio
 
 ## Impact
 
-- **Storage**: per-project JSON store at `<project>/.specrails/local-tickets.json` managed by `server/ticket-store.ts`. Bump `schema_version` to `'1.1'`, extend `TicketStatus` and `VALID_STATUSES`, allow null `priority` on the `Ticket` interface and adapt `VALID_PRIORITIES` checks, add `origin_conversation_id` field. No SQLite migration required for tickets.
-- **Server**: `server/project-router.ts` ticket endpoints (create/update/list filters in `Object.values(store.tickets)` consumers), `server/project-router.ts` `POST /tickets/from-draft` extension, ticket helpers in `server/ticket-store.ts`, conversation linking when saving from Explore. The `chat_conversations` SQLite table itself does not change.
+- **Storage**: per-project JSON store at `<project>/.specrails/local-tickets.json` managed by `server/modules/specs/runtime/ticket-store.ts`. Bump `schema_version` to `'1.1'`, extend `TicketStatus` and `VALID_STATUSES`, allow null `priority` on the `Ticket` interface and adapt `VALID_PRIORITIES` checks, add `origin_conversation_id` field. No SQLite migration required for tickets.
+- **Server**: `server/project-router.ts` ticket endpoints (create/update/list filters in `Object.values(store.tickets)` consumers), `server/project-router.ts` `POST /tickets/from-draft` extension, ticket helpers in `server/modules/specs/runtime/ticket-store.ts`, conversation linking when saving from Explore. The `chat_conversations` SQLite table itself does not change.
 - **Client**: `ExploreSpecShell` (new buttons + close flow), `TicketCard` on `SpecsBoard` (visual variant), `TicketDetailModal` (Continue Explore CTA + draft-aware actions), ticket creation/list types in `client/src/lib/api.ts` and shared types.
 - **Tests**: from-draft flow tests already exist (`server/from-draft.test.ts`) — extend to cover the status-flip path and `origin_conversation_id` persistence. New tests for draft creation, auto-title, board rendering, and Continue Explore resume.
 - **Backwards compatibility**: existing tickets unaffected (status enum widens, priority becomes nullable but existing rows keep their values). No client breaking changes.

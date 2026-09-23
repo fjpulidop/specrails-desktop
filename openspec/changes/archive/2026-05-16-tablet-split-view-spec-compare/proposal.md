@@ -31,9 +31,9 @@ Comparing two specs side-by-side today requires opening one, memorising it, clos
 ## Impact
 
 - **Affected components** (client):
-  - `client/src/components/TicketDetailModal.tsx` — add drag handle on header, "Comparar" toolbar button, side-aware close handler.
-  - `client/src/context/TicketDetailModalContext.tsx` — extend state shape from single ticket id to `{ leftTicketId, rightTicketId, originSide, splitRatio }`; preserve current API for non-split openers.
-  - `client/src/components/SpecsBoard.tsx`, `TicketGridView.tsx`, `TicketListView.tsx`, `TicketPostItView.tsx` — verified reusable as embedded picker (no route assumptions); add a `mode='picker'` prop that disables drag-and-drop, hides headers/filters chrome, and emits `onSelectTicket(id)`.
+  - `client/src/features/specs/components/TicketDetailModal.tsx` — add drag handle on header, "Comparar" toolbar button, side-aware close handler.
+  - `client/src/features/specs/context/TicketDetailModalContext.tsx` — extend state shape from single ticket id to `{ leftTicketId, rightTicketId, originSide, splitRatio }`; preserve current API for non-split openers.
+  - `client/src/features/specs/components/SpecsBoard.tsx`, `TicketGridView.tsx`, `TicketListView.tsx`, `TicketPostItView.tsx` — verified reusable as embedded picker (no route assumptions); add a `mode='picker'` prop that disables drag-and-drop, hides headers/filters chrome, and emits `onSelectTicket(id)`.
   - `client/src/App.tsx` — route reads `?compare=` query and restores split via context on mount.
 - **No server changes**: feature is entirely client-side; no schema, REST, or WS surface added.
 - **No new dependencies**: drag/snap built on existing `useDashboardSplit` primitive plus framer-motion (already a dep) for spring animation. If framer-motion is not present today, CSS transitions + `requestAnimationFrame` fallback documented in design.md.

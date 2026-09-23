@@ -134,7 +134,7 @@ export async function resolveWorktreeBaseRef(
 }
 ```
 
-### Task 3.1 / 3.2 / 3.3 — Wire into `server/rail-isolated-launch.ts`
+### Task 3.1 / 3.2 / 3.3 — Wire into `server/modules/delivery/runtime/rail-isolated-launch.ts`
 
 **Import line** (currently line 34):
 
@@ -268,7 +268,7 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
 
 The existing `fakeGit` helper (lines 10-26) only special-cases `symbolic-ref` and `rev-parse --abbrev-ref`; every other args array (which will now include `['fetch', 'origin']` and `['rev-parse', '--verify', '--quiet', ...]`) falls through to `return { code: 0, stdout: '', stderr: '' }` — i.e. **the existing fake already answers "fetch succeeds" and "remote branch exists" by default** for any test that doesn't override it. New tests for `fetchOrigin`/`resolveWorktreeBaseRef` should extend this same `fakeGit` pattern (add an `args[0] === 'fetch'` branch, and an `args[0] === 'rev-parse' && args.includes('--verify')` branch) rather than inventing a new mock shape.
 
-### `server/rail-isolated-launch.test.ts`'s existing fake-git convention (relevant to Task 3.4/3.5)
+### `server/modules/delivery/runtime/rail-isolated-launch.test.ts`'s existing fake-git convention (relevant to Task 3.4/3.5)
 
 From the existing test file (lines 71-84):
 
@@ -304,5 +304,5 @@ This `git` fake's catch-all `{ code: 0, ... }` branch means, after this change, 
 6. The fetch (success or failure) happens ONCE per `launchIsolatedRail` call, not once per unit/ticket — it sits above the `for (const unit of units)` loop, inside `withRepoLock`, exactly like the existing `resolveIntegrationBranch` and `listLocalBranches` calls it sits beside.
 7. Two `launchIsolatedRail` calls for the SAME `ctx.project.path` within `FETCH_ORIGIN_TTL_MS` of each other share ONE underlying `git.run(['fetch', 'origin'], ...)` invocation — this is the load-bearing assertion for the "one fetch per batch" acceptance criterion (see design.md Decision 2 for why this is checked at this level rather than via a dedicated batch-API test — there is no such API).
 8. `createWorktree` / `server/worktree-manager.ts` receive NO code changes — `baseRef` remains an opaque string parameter.
-9. `launchLoopRun` (`server/rails-router.ts:536-592`, the shared-cwd non-isolated fallback) is untouched — it has no `createWorktree` call and therefore no `baseRef`/fetch concern at all.
+9. `launchLoopRun` (`server/modules/delivery/runtime/rails-router.ts:536-592`, the shared-cwd non-isolated fallback) is untouched — it has no `createWorktree` call and therefore no `baseRef`/fetch concern at all.
 10. No new HTTP request/response field, no new query param, no client/UI change. The only new observable surface is the `rail.fetch_degraded` WS broadcast (project-scoped, following the existing `rail.overlay_degraded` shape convention) — purely additive, no existing message type is altered.

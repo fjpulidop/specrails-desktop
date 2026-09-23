@@ -22,9 +22,9 @@ Today the Specs column only supports a custom drag-order persisted per project. 
 
 ## Impact
 
-- `client/src/components/SpecsBoard.tsx` — header layout adds the new sort control next to `+ Add`.
-- `client/src/components/SpecSortControl.tsx` — new component (chip + arrow).
-- `client/src/pages/DashboardPage.tsx` — ordering pipeline for `specTickets` and `doneSpecTickets`; drag-end handler flips mode to `Default` when leaving a non-default mode.
+- `client/src/features/specs/components/SpecsBoard.tsx` — header layout adds the new sort control next to `+ Add`.
+- `client/src/features/specs/components/SpecSortControl.tsx` — new component (chip + arrow).
+- `client/src/features/dashboard/pages/DashboardPage.tsx` — ordering pipeline for `specTickets` and `doneSpecTickets`; drag-end handler flips mode to `Default` when leaving a non-default mode.
 - `localStorage` adds two per-project keys: `specrails-hub:spec-sort-mode:<projectId>`, `specrails-hub:spec-sort-dir:<projectId>`.
 - No server changes. No schema changes. No API changes.
 - Tests: `SpecsBoard.test.tsx`, new `SpecSortControl.test.tsx`, and ordering coverage where `DashboardPage` is exercised.

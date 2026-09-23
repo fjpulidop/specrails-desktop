@@ -4,9 +4,9 @@ Current `ProposeSpecModal` Explore mode renders four toggles (`Specrails specs`,
 
 Existing state in scope:
 
-- `server/context-scope.ts` already defines `ContextScope` `{ specrails, openspec, full, mcp }`, plus `defaultBootScope`, `normalizeContextScope`, `buildScopedSystemPromptPrefix`, `toolFlagsForScope`.
+- `server/modules/conversations/runtime/context-scope.ts` already defines `ContextScope` `{ specrails, openspec, full, mcp }`, plus `defaultBootScope`, `normalizeContextScope`, `buildScopedSystemPromptPrefix`, `toolFlagsForScope`.
 - `chat_conversations.context_scope` is a JSON column (no migration cost for new fields).
-- `server/contract-refine-runner.ts` currently reads the project-wide `getExploreContractRefineEnabled` toggle. We want the per-conversation scope to be the source of truth for whether refine fires on commit; the project setting becomes the *modal default*.
+- `server/modules/specs/runtime/contract-refine-runner.ts` currently reads the project-wide `getExploreContractRefineEnabled` toggle. We want the per-conversation scope to be the source of truth for whether refine fires on commit; the project setting becomes the *modal default*.
 - The Settings card toggle already exists (per project). It will keep working (gate retries; seed the modal's default value), only the label changes.
 
 The slider is purely a UX layer over the same five booleans — it does **not** introduce a new persistent state shape on the server. Internally the modal still stores five booleans; the slider's preset stop is a *derived* value (closest matching combination, or `Custom` when no preset matches).

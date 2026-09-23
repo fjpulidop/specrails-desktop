@@ -21,7 +21,7 @@ vi.mock('./config', () => ({
 }))
 
 // Mock QueueManager
-vi.mock('./queue-manager', async () => {
+vi.mock('./modules/execution/runtime/queue-manager', async () => {
   const ClaudeNotFoundError = class extends Error {
     constructor() { super('claude binary not found'); this.name = 'ClaudeNotFoundError' }
   }
@@ -50,7 +50,7 @@ vi.mock('./queue-manager', async () => {
 })
 
 // Mock ChatManager
-vi.mock('./chat-manager', () => ({
+vi.mock('./modules/conversations/runtime/chat-manager', () => ({
   ChatManager: vi.fn(function () {
     return {
       isActive: vi.fn().mockReturnValue(false),
@@ -85,7 +85,7 @@ let mockProposalManagerInstance: {
   cancel: ReturnType<typeof vi.fn>
 }
 
-vi.mock('./proposal-manager', () => {
+vi.mock('./modules/specs/runtime/proposal-manager', () => {
   const ProposalManager = vi.fn(function () {
     mockProposalManagerInstance = {
       isActive: vi.fn().mockReturnValue(false),
@@ -183,7 +183,7 @@ describe('Proposal API routes', () => {
     vi.clearAllMocks()
 
     // ProposalManager mock needs to be initialized — trigger it
-    const { ProposalManager } = await import('./proposal-manager')
+    const { ProposalManager } = await import('./modules/specs/runtime/proposal-manager')
     new ProposalManager(vi.fn(), initDb(':memory:'), '/test')
 
     const created = createTestApp()

@@ -24,6 +24,6 @@ Users have no way to change which Claude model each specrails agent uses without
 ## Impact
 
 - `server/project-router.ts` — two new routes (`GET` / `PATCH` `/agent-models`)
-- `client/src/pages/SettingsPage.tsx` — new Agent Models card
+- `client/src/features/settings/pages/SettingsPage.tsx` — new Agent Models card
 - Filesystem: reads `.claude/agents/*.md` frontmatter, writes `.specrails/install-config.yaml` and patches `.claude/agents/*.md`
 - No DB changes, no new dependencies

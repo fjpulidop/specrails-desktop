@@ -23,7 +23,7 @@ _(none)_
 
 ## Impact
 
-- **Client**: `client/src/components/explore-spec/ExploreSpecShell.tsx` (composer area + keydown handler), plus its test file.
+- **Client**: `client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx` (composer area + keydown handler), plus its test file.
 - **Server**: none. The cancel endpoint, `ChatManager.abort()`, and `treeKill` path already exist and are used by the sidebar chat.
 - **WS protocol**: none.
 - **Specs**: delta on `explore-spec`.

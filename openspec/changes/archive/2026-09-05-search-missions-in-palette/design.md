@@ -54,7 +54,7 @@ Row = mission title (or the same untitled fallback the mission selector uses) ·
 - [Trigram needs ≥3 chars; 1–2 char queries] → fall back to `LIKE` with `limit`; both paths share the same row shape so the client never knows.
 - [Very large single messages (48 KB observed)] → `snippet()` bounds output; the endpoint never returns full content.
 - [`conversations` in context is capped at 100 rows] → title phase covers the newest 100; the server phase covers everything, so older missions still surface by title through the server union. Raise the cap only if profiling shows the need.
-- [Palette test suite renders cmdk in jsdom] → keep new logic in a pure module (`client/src/lib/mission-search.ts`: fold, title match, merge, ordering) with unit tests; the component test asserts group order per mode and the Enter → `selectConversation`/`open` wiring with a mocked API.
+- [Palette test suite renders cmdk in jsdom] → keep new logic in a pure module (`client/src/features/missions/lib/mission-search.ts`: fold, title match, merge, ordering) with unit tests; the component test asserts group order per mode and the Enter → `selectConversation`/`open` wiring with a mocked API.
 - [Coverage gates 80/70] → server: `agent-store` search tests over a `:memory:` DB (title hit, content hit, diacritics, system-row exclusion, short-query fallback, trigger sync on insert/update/delete); router test for `400` on missing `q`.
 
 ## Migration Plan

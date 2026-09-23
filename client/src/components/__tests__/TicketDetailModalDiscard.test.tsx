@@ -32,12 +32,12 @@ vi.mock('../../lib/tauri-shell', () => ({ openExternalUrl: vi.fn() }))
 
 // The discard feature toggles on the Jira connection probe.
 const mockUseJiraConnection = vi.fn()
-vi.mock('../../hooks/useJiraConnection', () => ({
+vi.mock('../../features/integrations/hooks/useJiraConnection', () => ({
   useJiraConnection: () => mockUseJiraConnection(),
 }))
 
 // Keep the discard dialog as the real component so its testid renders when opened.
-import { TicketDetailModal } from '../TicketDetailModal'
+import { TicketDetailModal } from '../../features/specs/components/TicketDetailModal'
 import type { LocalTicket } from '../../types'
 
 function makeTicket(overrides: Partial<LocalTicket> = {}): LocalTicket {

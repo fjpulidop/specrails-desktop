@@ -61,13 +61,13 @@ Changing `DEFAULT_THEME` is a forward-only change: it affects only users who hav
 
 | File | Layer | Change type |
 |------|-------|-------------|
-| `client/src/lib/themes.ts` | frontend | SPECRAILS_PALETTE const + ThemeDescriptor + THEME_IDS + DEFAULT_THEME |
+| `client/src/features/settings/lib/themes.ts` | frontend | SPECRAILS_PALETTE const + ThemeDescriptor + THEME_IDS + DEFAULT_THEME |
 | `client/src/globals.css` | frontend | New `[data-theme="specrails"]` CSS block (~35 lines) |
 | `server/hub-router.ts` | backend | Add `'specrails'` to THEME_ID_ALLOWLIST Set |
 
 ## Implementation Detail
 
-### `client/src/lib/themes.ts`
+### `client/src/features/settings/lib/themes.ts`
 
 **Step 1 — Update THEME_IDS and DEFAULT_THEME:**
 

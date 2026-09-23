@@ -1,0 +1,424 @@
+import { modalOverlayStyle } from '../../../lib/modal-safe-area'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import { formatDistanceToNow } from 'date-fns'
+import { useTranslation } from 'react-i18next'
+import { getApiBase } from '../../../lib/api'
+import { API_ORIGIN } from '../../../lib/origin'
+import { getDateFnsLocale } from '../../../lib/i18n'
+import { toast } from 'sonner'
+import { X, Loader2 } from 'lucide-react'
+import { cancelJob, cancelKindForJob } from '../lib/cancel-job'
+import { Button } from '../../../components/ui/button'
+import { TooltipProvider } from '../../../components/ui/tooltip'
+import { JobRunHeader } from './job-run/JobRunHeader'
+import { LogViewer } from './LogViewer'
+import { LoopStepExplorer } from '../../loops/components/loop-log/LoopStepExplorer'
+import { NarratedProgress } from '../../loops/components/loop-log/NarratedProgress'
+import { FEATURE_NARRATED_PROGRESS } from '../../../lib/feature-flags'
+import { loadJobLogMode, saveJobLogMode, type JobLogMode } from '../lib/job-log-mode'
+import { InteractiveJobComposer } from './InteractiveJobComposer'
+import { useMovableResizableModal } from '../../../hooks/useMovableResizableModal'
+import { ResizeGrips } from '../../../components/ui/ResizeGrips'
+import { useWebSocket } from '../../../hooks/useWebSocket'
+import { WS_URL } from '../../../lib/ws-url'
+import { jobActivityTimestamp, parseJobTimestamp } from '../lib/job-time'
+import type { JobSummary, EventRow, PhaseDefinition } from '../../../types'
+import type { PhaseMap, PhaseState } from '../hooks/usePipeline'
+
+interface JobDetailModalProps {
+  jobId: string
+  onClose: () => void
+  /** Explicit project scope (agent-chat ref chips — the conversation's pinned
+   *  project, which may differ from the active one). Defaults to the active
+   *  project via `getApiBase()` — board-mode callers are unchanged. */
+  projectId?: string
+}
+
+export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProps) {
+  const { t } = useTranslation('jobs')
+  const { t: tNarration } = useTranslation('narration')
+  // Lazy so the no-explicit-projectId path keeps getApiBase()'s call-time
+  // resolution (it throws when no project is active — never during render).
+  const apiBase = useCallback(
+    () => (projectId ? `${API_ORIGIN}/api/projects/${projectId}` : getApiBase()),
+    [projectId],
+  )
+  // Log-surface altitude, shared per project with the routed Job Detail page so
+  // the two views never disagree about which one the user prefers.
+  const [narrationMode, setNarrationModeState] = useState<JobLogMode>(loadJobLogMode)
+  const setNarrationMode = useCallback((mode: JobLogMode) => {
+    setNarrationModeState(mode)
+    saveJobLogMode(mode)
+  }, [])
+  const [job, setJob] = useState<JobSummary | null>(null)
+  const [events, setEvents] = useState<EventRow[]>([])
+  const [phaseDefinitions, setPhaseDefinitions] = useState<PhaseDefinition[]>([])
+  const [phases, setPhases] = useState<PhaseMap>({})
+  const [isLoading, setIsLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [isCanceling, setIsCanceling] = useState(false)
+
+  // Fetch initial job data + historical events
+  useEffect(() => {
+    async function loadJob() {
+      try {
+        const res = await fetch(`${apiBase()}/jobs/${jobId}`)
+        if (res.status === 404) {
+          setNotFound(true)
+          return
+        }
+        if (!res.ok) throw new Error('Failed to fetch job')
+        const data = await res.json() as { job: JobSummary; events: EventRow[]; phaseDefinitions?: PhaseDefinition[] }
+        setJob(data.job)
+        setEvents(data.events)
+        if (data.phaseDefinitions) {
+          setPhaseDefinitions(data.phaseDefinitions)
+          const initPhases: PhaseMap = {}
+          for (const def of data.phaseDefinitions) {
+            initPhases[def.key] = 'idle'
+          }
+          setPhases(initPhases)
+        }
+      } catch {
+        setNotFound(true)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadJob()
+  }, [jobId, apiBase])
+
+  // Tolerant job-row refetch (interactive settle / status flips): only replaces
+  // the job — a transient failure never blanks the already-rendered modal.
+  const refetchJob = useCallback(() => {
+    fetch(`${apiBase()}/jobs/${jobId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { job: JobSummary } | null) => {
+        if (data?.job) setJob(data.job)
+      })
+      .catch(() => {})
+  }, [jobId, apiBase])
+
+  // ── Batched event accumulation (flush via rAF → max ~60 updates/sec) ────
+  const pendingEventsRef = useRef<EventRow[]>([])
+  const rafIdRef = useRef<number | null>(null)
+
+  const flushEvents = useCallback(() => {
+    rafIdRef.current = null
+    const batch = pendingEventsRef.current
+    if (batch.length === 0) return
+    pendingEventsRef.current = []
+    setEvents((prev) => {
+      const next = [...prev, ...batch]
+      return next.length > 10000 ? next.slice(next.length - 8000) : next
+    })
+  }, [])
+
+  // Cleanup rAF on unmount
+  useEffect(() => () => { if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current) }, [])
+
+  // Subscribe to live WebSocket updates
+  const handleMessage = useCallback((data: unknown) => {
+    const msg = data as { type: string } & Record<string, unknown>
+
+    if (msg.type === 'event' && msg.jobId === jobId) {
+      const eventRow: EventRow = {
+        id: Date.now(),
+        job_id: jobId,
+        seq: 0,
+        event_type: msg.event_type as string,
+        source: msg.source as string,
+        payload: msg.payload as string,
+        timestamp: msg.timestamp as string,
+      }
+      pendingEventsRef.current.push(eventRow)
+      if (!rafIdRef.current) rafIdRef.current = requestAnimationFrame(flushEvents)
+    } else if (msg.type === 'log' && msg.processId === jobId) {
+      // Append BOTH stdout and stderr live log frames — matching JobDetailPage's
+      // handler. The old stderr-only filter froze live stdout in mission mode
+      // (loop-run lines, which stream as `log` frames, never grew the modal).
+      const syntheticEvent: EventRow = {
+        id: Date.now(),
+        job_id: jobId,
+        seq: 0,
+        event_type: 'log',
+        source: msg.source as string,
+        payload: JSON.stringify({ line: msg.line }),
+        timestamp: msg.timestamp as string,
+      }
+      pendingEventsRef.current.push(syntheticEvent)
+      if (!rafIdRef.current) rafIdRef.current = requestAnimationFrame(flushEvents)
+    } else if (
+      (msg.type === 'job.finalized' && msg.jobId === jobId)
+      || (msg.type === 'runtime.continuation' && msg.jobId === jobId)
+      || (msg.type === 'job.interactive' && msg.jobId === jobId)
+      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed') && msg.loopRunId === jobId)
+    ) {
+      // The interactive session settled — refetch the authoritative row so the
+      // header flips to the terminal status and the composer unmounts.
+      refetchJob()
+    } else if (msg.type === 'phase') {
+      const phaseName = msg.phase as string
+      const phaseState = msg.state as PhaseState
+      setPhases((prev) => ({ ...prev, [phaseName]: phaseState }))
+    } else if (msg.type === 'queue') {
+      const jobs = msg.jobs as Array<{ id: string; status: string }> | undefined
+      const matchingJob = jobs?.find((j) => j.id === jobId)
+      if (matchingJob && job) {
+        setJob((prev) => prev ? { ...prev, status: matchingJob.status as JobSummary['status'] } : prev)
+      }
+    }
+  }, [jobId, job, flushEvents, refetchJob])
+
+  useWebSocket(WS_URL, handleMessage)
+
+  // Close on Escape — but while the cancel-confirm is open, Escape dismisses
+  // the CONFIRM first (it renders in-portal above the modal), not the modal.
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      if (showCancelConfirm) { setShowCancelConfirm(false); return }
+      onClose()
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [onClose, showCancelConfirm])
+
+  // Cancel idiom: loop runs → "Stop", interactive sessions → "Discard" (the
+  // same relabel JobDetailPage uses), everything else → "Cancel". ALL kinds
+  // go through the shared manager-aware helper (POST /jobs/:id/cancel — the server
+  // dispatches to LoopRunManager or QueueManager by owner).
+  const cancelKind = job ? cancelKindForJob(job) : 'job'
+  const isLoopRun = cancelKind === 'loop-run'
+
+  async function handleCancel() {
+    setIsCanceling(true)
+    try {
+      const outcome = await cancelJob({ projectId: projectId ?? null, jobId, kind: cancelKind })
+      if (outcome.ok) {
+        toast.success(
+          isLoopRun ? t('modal.toast.stopSignalSent') : t('modal.toast.cancelSignalSent'),
+          { description: isLoopRun ? t('modal.toast.stopSignalSentDescription') : t('modal.toast.cancelSignalSentDescription') },
+        )
+        // Reconcile immediately — the WS `job.finalized` refetch still applies
+        // when the run settles later, but don't depend on it exclusively.
+        refetchJob()
+      } else {
+        // Surface EVERY failure with detail (the quota incident hid a failing
+        // request behind a generic toast — never mask what the server said).
+        toast.error(t('modal.toast.cancelFailed'), { description: outcome.error })
+      }
+    } finally {
+      setIsCanceling(false)
+    }
+  }
+
+  const isRunning = job?.status === 'running'
+  const activityTime = job ? parseJobTimestamp(jobActivityTimestamp(job)) : null
+
+  const { panelRef, panelStyle, headerHandleProps, resizeHandles, isFloating, guardBackdrop } = useMovableResizableModal()
+
+  return createPortal(
+    // PORTAL to document.body: agent-chat job-ref chips mount this from INSIDE
+    // the floating AgentChatPanel, whose backdrop-filter/transform makes it the
+    // containing block for fixed descendants — without the portal the modal is
+    // positioned against the panel and clipped by its overflow-hidden (looks
+    // like "nothing opened"). z-[65]: above the panel (z-[60]/z-[61]), below
+    // the MinimizedChatsDock (z-[70]) and browser-capture portals (z-[80]).
+    //
+    // Own TooltipProvider: this modal mounts from trees WITHOUT one (the
+    // Agent-Mode surface bypasses ProjectLayout) — without it Radix throws and
+    // blanks the whole app on open.
+    <TooltipProvider delayDuration={400}>
+    <div style={modalOverlayStyle()} className="fixed inset-0 z-[65] flex items-stretch justify-center p-[clamp(12px,2vmin,24px)]">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={guardBackdrop(onClose)}
+      />
+
+      {/* Panel */}
+      <div
+        ref={panelRef}
+        className="relative w-full min-w-0 rounded-xl glass-card border border-border/30 flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden"
+        style={panelStyle}
+      >
+        {/* Header */}
+        <div
+          {...headerHandleProps}
+          className={`flex items-center justify-between px-4 py-3 border-b border-border/30${isFloating ? ' cursor-grab active:cursor-grabbing' : ''}`}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            {job && (
+              <>
+                <code className="text-xs font-mono text-foreground/80 truncate">{job.command}</code>
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  {activityTime
+                    ? formatDistanceToNow(activityTime, { addSuffix: true, locale: getDateFnsLocale() })
+                    : '—'}
+                </span>
+              </>
+            )}
+            {isLoading && <span className="text-xs text-muted-foreground">{t('common:states.loading')}</span>}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="h-7 w-7 shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface/50 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* The ONE run header shared with the board's Job Detail page. */}
+        {job && (
+          <JobRunHeader
+            job={job}
+            events={events}
+            phases={phases}
+            phaseDefinitions={phaseDefinitions}
+            projectId={projectId}
+            variant="glass"
+            actions={isRunning ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCancelConfirm(true)}
+                disabled={isCanceling}
+                className="h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                {isCanceling && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" aria-hidden />}
+                {isLoopRun
+                  ? t('dashboard:railControls.stop')
+                  : cancelKind === 'interactive'
+                    ? t('common:actions.discard')
+                    : t('common:actions.cancel')}
+              </Button>
+            ) : null}
+          />
+        )}
+
+        {/* Content */}
+        <div className="min-h-0 flex-1 overflow-hidden relative">
+          {notFound ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-sm text-muted-foreground">{t('modal.notFound')}</p>
+            </div>
+          ) : FEATURE_NARRATED_PROGRESS && job ? (
+            <div className="flex h-full min-h-0 flex-col">
+              <div className="flex items-center gap-1 border-b border-border/40 px-3 py-1.5">
+                {(['narrated', 'log'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setNarrationMode(mode)}
+                    aria-pressed={narrationMode === mode}
+                    data-testid={`modal-narration-mode-${mode}`}
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                      narrationMode === mode
+                        ? 'bg-accent-primary/15 text-accent-primary'
+                        : 'text-muted-foreground hover:bg-surface/60'
+                    }`}
+                  >
+                    {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
+                  </button>
+                ))}
+              </div>
+              <div className="min-h-0 flex-1 overflow-hidden">
+                {narrationMode === 'narrated' ? (
+                  <NarratedProgress
+                    events={events}
+                    settled={job.status !== 'running' && job.status !== 'queued'}
+                    elapsedMs={job.duration_ms ?? null}
+                    variant="glass"
+                  />
+                ) : job.command.startsWith('loop:') ? (
+                  <LoopStepExplorer
+                    events={events}
+                    jobStatus={job.status}
+                    isLoading={isLoading}
+                    variant="glass"
+                    projectId={projectId}
+                  />
+                ) : (
+                  <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
+                )}
+              </div>
+            </div>
+          ) : job?.command.startsWith('loop:') ? (
+            <LoopStepExplorer
+              events={events}
+              jobStatus={job.status}
+              isLoading={isLoading}
+              variant="glass"
+              projectId={projectId}
+            />
+          ) : (
+            <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
+          )}
+        </div>
+
+        {/* Interactive in-job agent composer — the SAME control the board's Job
+            Detail page mounts, so a mission-mode user steers the running job
+            without leaving the workspace. */}
+        {!!job?.interactive && job.status === 'running' && (
+          <InteractiveJobComposer
+            jobId={jobId}
+            projectId={projectId}
+            settleMode={job.interactiveSettleMode}
+            initialAcceptingTurns={job.interactiveAcceptingTurns}
+            kind={job.command.startsWith('loop:') ? 'loop-step' : 'job'}
+            variant="glass"
+            onFinalized={refetchJob}
+          />
+        )}
+      </div>
+
+      <ResizeGrips handles={resizeHandles} />
+
+      {/* Cancel confirmation — rendered IN-PORTAL (not a Radix Dialog, which
+          portals to body at z-50 and would sit BEHIND this z-[65] modal). As an
+          absolute overlay inside the modal's stacking context it always sits
+          above the panel. */}
+      {showCancelConfirm && (
+        <div
+          data-testid="job-cancel-confirm"
+          className="absolute inset-0 z-10 flex items-center justify-center p-4"
+        >
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowCancelConfirm(false)}
+          />
+          <div className="relative w-full max-w-sm rounded-xl glass-card border border-border/30 p-5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-base font-semibold text-foreground">
+              {isLoopRun ? t('modal.stopRunConfirmTitle') : t('modal.cancelConfirmTitle')}
+            </h3>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {isLoopRun ? t('modal.stopRunConfirmDescription') : t('modal.cancelConfirmDescription')}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowCancelConfirm(false)}>
+                {t('modal.keepRunning')}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => { setShowCancelConfirm(false); handleCancel() }}
+              >
+                {isLoopRun
+                  ? t('modal.stopRun')
+                  : cancelKind === 'interactive'
+                    ? t('common:actions.discard')
+                    : t('modal.cancelJob')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+    </TooltipProvider>,
+    document.body,
+  )
+}

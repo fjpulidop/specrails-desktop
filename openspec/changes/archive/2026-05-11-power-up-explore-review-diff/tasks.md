@@ -1,12 +1,12 @@
 ## 1. Diff utilities
 
-- [x] 1.1 `client/src/components/explore-spec/diff-utils.ts` exports `wordDiff` + `arrayDiff` (with `ordered` interleaved sequence)
+- [x] 1.1 `client/src/features/specs/components/explore-spec/diff-utils.ts` exports `wordDiff` + `arrayDiff` (with `ordered` interleaved sequence)
 - [x] 1.2 Typed segment + array-diff result shapes
 - [x] 1.3 13 unit tests in `__tests__/diff-utils.test.ts` covering identical/empty/partial/different/custom-eq/dedupe
 
 ## 2. ExploreReviewOverlay component
 
-- [x] 2.1 `client/src/components/explore-spec/ExploreReviewOverlay.tsx` accepts `baseline`/`proposed`/`isCommitting`/`onBack`/`onCommit`
+- [x] 2.1 `client/src/features/specs/components/explore-spec/ExploreReviewOverlay.tsx` accepts `baseline`/`proposed`/`isCommitting`/`onBack`/`onCommit`
 - [x] 2.2 Full-screen overlay with backdrop, header, two-column responsive body, footer actions
 - [x] 2.3 Word-level diff for title and description via `wordDiff`, semantic green/red tokens, whitespace-preserving block for description
 - [x] 2.4 Set diff for labels (chips) and acceptance criteria (bullets) via `arrayDiff.ordered`, ordered + removed-after rendering

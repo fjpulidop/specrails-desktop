@@ -5,7 +5,7 @@ Planning baseline: main `d8d8597a`, branch `codex/implementation-efficiency`, 20
 Core remains the authority for the architect → developer → verify → reviewer → archive graph, OpenSpec, verification receipts and technical acceptance. Desktop owns configuration, admission, immutable runtime resolution, job projection and host delivery. The paired Core `openspec/changes/implementation-efficiency/contracts.md` is the authoritative target wire contract; do not introduce a parallel Desktop dialect.
 
 Verified issues in the current implementation:
-- `server/loop-executors.ts` always supplies provider/model defaults; `server/agent-runtime-bridge.ts` can overwrite all three configured role providers and the developer model. Incidental defaults are indistinguishable from a user override.
+- `server/modules/loops/runtime/loop-executors.ts` always supplies provider/model defaults; `server/modules/agent-runtime/runtime/agent-runtime-bridge.ts` can overwrite all three configured role providers and the developer model. Incidental defaults are indistinguishable from a user override.
 - Settings row conversion in `AgentRuntimeSettingsSection.tsx` can discard check cwd/env/timeout metadata.
 - `agent-runtime-loader.ts` checks API1 but not the new feature capabilities. A mutable path/mtime cache cannot identify the executable that admitted a saved job.
 - `agent-runtime-controls.ts` summary loading depends on available runtime scope/worktrees. Historical usage can disappear after cleanup despite existing durable job events.

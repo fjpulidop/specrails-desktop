@@ -22,7 +22,7 @@ Four independent defects degrade day-to-day desktop use: the app becomes unreach
 ## Impact
 
 - `src-tauri/src/lib.rs` — `RunEvent::Reopen` handling.
-- `client/src/context/AgentChatContext.tsx` — active-project → draft/empty-mission pin synchronisation.
-- `server/worktree-node-modules.ts`, `server/rail-worktree-release.ts`, `server/rail-isolated-launch.ts` — warm-link authentication, evidence persistence, release verification.
+- `client/src/features/missions/context/AgentChatContext.tsx` — active-project → draft/empty-mission pin synchronisation.
+- `server/worktree-node-modules.ts`, `server/modules/delivery/runtime/rail-worktree-release.ts`, `server/modules/delivery/runtime/rail-isolated-launch.ts` — warm-link authentication, evidence persistence, release verification.
 - `server/providers/claude-adapter.ts` — alias → model id resolution.
 - No schema migrations, no API surface changes, no wire-contract changes.

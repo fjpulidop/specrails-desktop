@@ -15,11 +15,11 @@ const args = process.argv.slice(2)
 if (args.length && (args.length !== 2 || args[0] !== '--core')) throw new Error('Usage: node scripts/smoke-agent-runtime-pair.mjs [--core <built Core index.js>]')
 const entry = path.resolve(args[1] ?? path.join(desktop, 'src-tauri/core/dist/agent-runtime/index.js'))
 assert(fs.existsSync(entry), 'Build Core and assemble the paired source first')
-assert(fs.existsSync(path.join(desktop, 'server/dist/agent-runtime-bridge.js')), 'Build the Desktop server first')
+assert(fs.existsSync(path.join(desktop, 'server/dist/modules/agent-runtime/runtime/agent-runtime-bridge.js')), 'Build the Desktop server first')
 process.env.SPECRAILS_CORE_RUNTIME_PATH = entry
 const require = createRequire(path.join(desktop, 'package.json'))
-const { runAgentRuntimeInvocation } = require('./server/dist/agent-runtime-bridge.js')
-const { loadCoreAgentRuntime } = require('./server/dist/agent-runtime-loader.js')
+const { runAgentRuntimeInvocation } = require('./server/dist/modules/agent-runtime/runtime/agent-runtime-bridge.js')
+const { loadCoreAgentRuntime } = require('./server/dist/modules/agent-runtime/runtime/agent-runtime-loader.js')
 const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'specrails paired runtime ')))
 const originalHomedir = os.homedir
 os.homedir = () => path.join(root, 'home')
@@ -113,7 +113,7 @@ try {
   ;(await loadCoreAgentRuntime()).validateRuntimeConfig(config)
   const fixturePath = path.resolve(path.dirname(entry), '../../schemas/fixtures/runtime-efficiency-summary.v1.json')
   if (fs.existsSync(fixturePath)) {
-    const { readRuntimeEfficiencySummary } = require('./server/dist/agent-runtime-metrics.js')
+    const { readRuntimeEfficiencySummary } = require('./server/dist/modules/agent-runtime/runtime/agent-runtime-metrics.js')
     const fixtures = JSON.parse(fs.readFileSync(fixturePath, 'utf8')).fixtures
     for (const fixture of Object.values(fixtures)) assert(readRuntimeEfficiencySummary(fixture), 'Packaged Core summary must be accepted by Desktop')
     assert.equal(fs.readFileSync(fixturePath, 'utf8'), fs.readFileSync(path.join(desktop, 'server/schemas/fixtures/runtime-efficiency-summary.v1.json'), 'utf8'), 'Vendored contract fixture must match the paired package')

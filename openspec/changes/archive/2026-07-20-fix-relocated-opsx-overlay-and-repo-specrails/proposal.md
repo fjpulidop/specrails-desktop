@@ -27,8 +27,8 @@ Three relocation-hygiene bugs were confirmed on a relocated project (live eviden
 ## Impact
 
 - `server/worktree-overlay.ts` — `fallbackSourceRoots` on `WorktreeOverlayInput`, N-way merge, multi-root evidence authentication.
-- `server/rail-isolated-launch.ts` — passes `[workspace, repo]` roots at both the overlay-apply and evidence-revalidation sites.
-- `server/chat-manager.ts` — `_resolveSpawnCwd` mcp-true branch routes through `resolveProjectExecution`; persistent and crash-respawn paths retain the relocation env; old cwd-scoped sessions get the one-shot fresh-workspace compatibility retry.
-- `server/contract-refine-runner.ts` — the resumed Contract Refine turn mirrors the same relocation-aware Explore cwd and falls back once to a no-tools, ticket-seeded fresh workspace invocation for the exact missing-session diagnostic.
+- `server/modules/delivery/runtime/rail-isolated-launch.ts` — passes `[workspace, repo]` roots at both the overlay-apply and evidence-revalidation sites.
+- `server/modules/conversations/runtime/chat-manager.ts` — `_resolveSpawnCwd` mcp-true branch routes through `resolveProjectExecution`; persistent and crash-respawn paths retain the relocation env; old cwd-scoped sessions get the one-shot fresh-workspace compatibility retry.
+- `server/modules/specs/runtime/contract-refine-runner.ts` — the resumed Contract Refine turn mirrors the same relocation-aware Explore cwd and falls back once to a no-tools, ticket-seeded fresh workspace invocation for the exact missing-session diagnostic.
 - `server/workspace-manager.ts` — corrects a stale comment claiming `/opsx:*` lives in the framework `commands/` subtree.
 - **Out of scope:** installing opsx into the shared framework bundle; shared-cwd (non-isolated) relocated spawns that need `/opsx:*` from the workspace itself; auto-deleting a stray `<repo>/.specrails/` (manual cleanup — the app must never delete repo content it cannot prove it owns); the dormant setup-enrich spawn (`_spawnSetupWithAdapter`, legacy flow not exposed in the app) and the ai-edit read-only cwd.

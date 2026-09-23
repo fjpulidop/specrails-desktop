@@ -2,8 +2,8 @@ import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
-import { MilestoneAutoAdvanceToggle, MilestoneCard, MilestoneChainRow, MilestoneProgressBar, MilestoneRailRow } from '../project-builder/MilestoneProgressCard'
-import type { MilestoneProgress, MilestoneRail, MilestoneChainSnapshot } from '../../lib/milestone-progress'
+import { MilestoneAutoAdvanceToggle, MilestoneCard, MilestoneChainRow, MilestoneProgressBar, MilestoneRailRow } from '../../features/builder/components/project-builder/MilestoneProgressCard'
+import type { MilestoneProgress, MilestoneRail, MilestoneChainSnapshot } from '../../features/builder/lib/milestone-progress'
 
 function progress(over: Partial<MilestoneProgress> = {}): MilestoneProgress {
   return {

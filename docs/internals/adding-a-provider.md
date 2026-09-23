@@ -51,7 +51,7 @@ export const exampleAdapter: ProviderAdapter = {
   capabilities: {
     nativeResume: true,
     nativeStreamJson: true,
-    nativeCostUsd: false,    // if false, add the provider:model entries to server/pricing.ts
+    nativeCostUsd: false,    // if false, add the provider:model entries to server/modules/accounting/runtime/pricing.ts
     nativeOtelEnv: false,    // if false, the app will synthesise OTEL via the bridge
     profileEnvSupport: true,
     systemPromptArg: false,
@@ -130,7 +130,7 @@ accordingly — don't assume null-only-on-empty.
 
 The model catalog is **duplicated** by design: the adapter's `modelCatalog()`
 drives the spawn-time UI, but spec-model validation reads a *second* copy in
-`server/spec-models.ts` (`PROVIDER_MODELS` + `PROVIDER_DEFAULT_MODEL`, both
+`server/modules/specs/runtime/spec-models.ts` (`PROVIDER_MODELS` + `PROVIDER_DEFAULT_MODEL`, both
 `Record<string, …>` keyed by provider id). The file even comments that
 `GEMINI_MODELS` "Mirrors GEMINI_MODELS in server/providers/gemini-adapter.ts".
 If you add the catalog only to the adapter, your models won't validate in the
@@ -163,22 +163,22 @@ provider with zero edits):
   (the only per-id touch on this route is an optional beta gate, below).
 - `POST /api/projects` provider validation (`server/desktop-router.ts`,
   via `hasAdapter` / `listAdapters`).
-- `AddProjectDialog` (`client/src/components/AddProjectDialog.tsx`) — it
+- `AddProjectDialog` (`client/src/features/projects/components/AddProjectDialog.tsx`) — it
   fetches `/available-providers` generically (`Object.entries(data)`) and a
   `providerRenderOrder()` helper appends **any** detected-but-unlisted
   provider after the canonical-ordered known ones, with a neutral chip
   fallback. A new provider appears in the Add Project UI automatically.
 - `setup-prerequisites` provider rows (`server/setup-prerequisites.ts`,
   iterates `listAdapters()`).
-- Analytics `byProvider` (`server/spending.ts`) and the
-  `ProviderBreakdownCard` (`client/src/components/analytics/ProviderBreakdownCard.tsx`).
+- Analytics `byProvider` (`server/modules/accounting/runtime/spending.ts`) and the
+  `ProviderBreakdownCard` (`client/src/features/analytics/components/ProviderBreakdownCard.tsx`).
 
 ### `ProviderId` is `string` — no compile-time blocker
 
 There is **no type-union to widen**. `ProviderId` is `export type ProviderId = string`
 (`server/providers/types.ts`), and every provider-typed seam already aliases it:
-`CliProvider` (`server/desktop-db.ts`), `SpecProvider` (`server/spec-models.ts`),
-`EnqueueOptions.provider` and `_jobProviderSelection` (`server/queue-manager.ts`),
+`CliProvider` (`server/desktop-db.ts`), `SpecProvider` (`server/modules/specs/runtime/spec-models.ts`),
+`EnqueueOptions.provider` and `_jobProviderSelection` (`server/modules/execution/runtime/queue-manager.ts`),
 `ChatManager`, `AgentRefineManager`, and `ProjectRegistry`. Adding a provider is
 **not** a compile-time blocker — the old "widen ~8 unions" step is paid off (Gemini
 is the proof it works). Any remaining `'claude' | 'codex'` literals live in test
@@ -210,16 +210,16 @@ makes it look first-class instead of falling back to a raw id:
 ### 3. (If `nativeCostUsd === false`) add pricing entries
 
 For providers that don't report `total_cost_usd` in their terminal
-event, append the rate card to `server/pricing.ts`:
+event, append the rate card to `server/modules/accounting/runtime/pricing.ts`:
 
 ```ts
 'example:flagship': { inputPer1M: 5.00, outputPer1M: 15.00, cacheReadPer1M: 0.50, lastReviewedAt: '2026-05-18' },
 'example:fast':     { inputPer1M: 0.50, outputPer1M:  1.50, cacheReadPer1M: 0.05, lastReviewedAt: '2026-05-18' },
 ```
 
-The `finaliseInvocationResult` flow in `server/result-event.ts` falls
+The `finaliseInvocationResult` flow in `server/modules/accounting/runtime/result-event.ts` falls
 back to this table automatically and returns an `estimated` flag that
-`recordInvocation` (`server/ai-invocations.ts`) persists as
+`recordInvocation` (`server/modules/accounting/runtime/ai-invocations.ts`) persists as
 `total_cost_usd_estimated = 1` on the `ai_invocations` row, which in
 turn lights up the `~` tilde + Hero footnote on the AnalyticsPage.
 
@@ -233,7 +233,7 @@ Two paths, picked by your `nativeOtelEnv` capability flag:
   is no `GEMINI_TELEMETRY_*` env var — Gemini honours the same `OTEL_*` vars as
   Claude.
 - **`nativeOtelEnv: false`** (Codex, Kimi) ⇒ the synthetic OTEL bridge at
-  `server/codex-otel-bridge.ts` fills the gap. It's provider-neutral despite its
+  `server/modules/accounting/runtime/codex-otel-bridge.ts` fills the gap. It's provider-neutral despite its
   name — it consumes the canonical `AdapterEvent` stream. As long as your
   adapter's `parseStreamLine` emits `text-delta`, `tool-use`, `session-started`,
   and `result` events, the bridge synthesises traces / metrics / logs for free.
@@ -296,7 +296,7 @@ Two distinct version concepts — don't conflate them:
 ## Known gotchas
 
 - **Legacy result path.** `normaliseResultEvent(event, provider)`
-  (`server/result-event.ts`) is still live for any callsite not yet
+  (`server/modules/accounting/runtime/result-event.ts`) is still live for any callsite not yet
   migrated to `finaliseInvocationResult`. It only special-cases
   `provider === 'claude'`; everything else falls into the non-claude
   (codex-shaped) branch. A new provider hitting that path would be
@@ -363,15 +363,15 @@ Most of the old debt is **paid off** — and Gemini's addition is what paid it:
 
 The genuine id-keyed sites that **remain** are:
 
-- **`normaliseResultEvent` legacy branch** (`server/result-event.ts`) — the
+- **`normaliseResultEvent` legacy branch** (`server/modules/accounting/runtime/result-event.ts`) — the
   pre-`finaliseInvocationResult` path that special-cases `provider === 'claude'`.
-- **Codex rail slash-command rewrite** (`server/queue-manager.ts`) —
+- **Codex rail slash-command rewrite** (`server/modules/execution/runtime/queue-manager.ts`) —
   `adapter.id === 'codex'`.
 
 Plus a few cosmetic per-id sites that are *expected* edits, not drift: the
 provider beta-gate env checks (`server/desktop-router.ts`), the install-hint
 `switch` (`server/setup-prerequisites.ts`), the `PROVIDER_ORDER` / `PROVIDER_META`
-chip, and the duplicated model catalog (`server/spec-models.ts`).
+chip, and the duplicated model catalog (`server/modules/specs/runtime/spec-models.ts`).
 
 The long-term goal is to delete the two remaining branches so adding a fourth
 provider really is just the adapter file plus the registry entry. If you find a

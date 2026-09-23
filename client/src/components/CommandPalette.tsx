@@ -24,8 +24,8 @@ import type { CommandInfo, JobSummary } from '../types'
 import { cn } from '../lib/utils'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useUiMode } from '../context/UiModeContext'
-import { useAgentChat } from '../context/AgentChatContext'
-import { searchMissions, type MissionSearchHit, type MissionSearchSnippet } from '../lib/agent-api'
+import { useAgentChat } from '../features/missions/context/AgentChatContext'
+import { searchMissions, type MissionSearchHit, type MissionSearchSnippet } from '../features/missions/lib/agent-api'
 import {
   groupOrderForMode,
   matchMissionTitles,
@@ -36,7 +36,7 @@ import {
   MISSION_SEARCH_LIMIT,
   type MissionSearchRow,
   type PaletteGroup,
-} from '../lib/mission-search'
+} from '../features/missions/lib/mission-search'
 import { absoluteTime, compactRelativeTime } from '../lib/relative-time'
 
 interface CommandPaletteProps {

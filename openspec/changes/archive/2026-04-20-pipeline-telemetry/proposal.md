@@ -24,7 +24,7 @@ We need a low-friction way for users to capture deep telemetry from a pipeline r
 
 ## Impact
 
-- **Server**: new `server/telemetry-receiver.ts` module and Express routes under `/otlp/*`; `server/queue-manager.ts` reads the per-project flag and injects env on spawn; new SQLite table `telemetry_blobs` in per-project `jobs.sqlite`.
+- **Server**: new `server/modules/accounting/runtime/telemetry-receiver.ts` module and Express routes under `/otlp/*`; `server/modules/execution/runtime/queue-manager.ts` reads the per-project flag and injects env on spawn; new SQLite table `telemetry_blobs` in per-project `jobs.sqlite`.
 - **Client**: new toggle in `SettingsPage`; new `[Export diagnostic]` button on existing job card (no new pages, no new visualizations).
 - **Filesystem**: new directory `~/.specrails/projects/<slug>/telemetry/`.
 - **Dependencies**: no new npm deps (OTLP/JSON parsed natively; gzip via node `zlib`).

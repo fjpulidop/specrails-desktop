@@ -1,7 +1,7 @@
 # Design - add-mission-transcript-export-copy-actions
 
 ## Context
-Agent Mode already renders the active mission title bar in `client/src/components/agent-chat/AgentConversationHeader.tsx`, including rename, favorite, delete, and metadata-copy actions in a hand-rolled overflow menu. The component has access to `active` from `useAgentChat()` and pinned project data from `useDesktop()`, and the ticket requires adding transcript actions without changing server persistence, Board-mode mission selection, or existing menu behavior.
+Agent Mode already renders the active mission title bar in `client/src/features/missions/components/AgentConversationHeader.tsx`, including rename, favorite, delete, and metadata-copy actions in a hand-rolled overflow menu. The component has access to `active` from `useAgentChat()` and pinned project data from `useDesktop()`, and the ticket requires adding transcript actions without changing server persistence, Board-mode mission selection, or existing menu behavior.
 
 Scope: frontend
 

@@ -32,7 +32,7 @@ describe('isInBuildDir', () => {
   })
 
   it('does NOT flag ordinary source files', () => {
-    expect(isInBuildDir('server/terminal-manager.ts')).toBe(false)
+    expect(isInBuildDir('server/modules/terminals/runtime/terminal-manager.ts')).toBe(false)
     expect(isInBuildDir('client/src/components/BottomPanel.tsx')).toBe(false)
     expect(isInBuildDir('README.md')).toBe(false)
     expect(isInBuildDir('docs/windows.md')).toBe(false)

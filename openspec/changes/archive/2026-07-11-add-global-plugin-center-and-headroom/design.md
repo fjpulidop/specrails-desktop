@@ -1,6 +1,6 @@
 ## Context
 
-The current integration surface is `client/src/pages/IntegrationsPage.tsx`. It requires `activeProjectId`, renders `JiraIntegrationCard`, then renders project plugins from `/api/projects/:projectId/plugins`. Serena is already project-local through `PluginManager`, and Jira is project-local through `/api/projects/:projectId/jira`.
+The current integration surface is `client/src/features/integrations/pages/IntegrationsPage.tsx`. It requires `activeProjectId`, renders `JiraIntegrationCard`, then renders project plugins from `/api/projects/:projectId/plugins`. Serena is already project-local through `PluginManager`, and Jira is project-local through `/api/projects/:projectId/jira`.
 
 Specrails also already has the beginnings of `uv` support: `server/setup-prerequisites.ts` knows a `uv` minimum version and Serena advertises `uv`, but runtime bundling only treats Node/npm/npx/git as bundled-first tools and GitHub CLI as system-first fallback.
 

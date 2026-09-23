@@ -1,6 +1,6 @@
 import { registerRuntimeRolePromptRoutes } from './runtime-role-prompts-router'
 import { Router } from 'express'
-import { AgentRuntimeConfigError, loadRuntimeProviders, saveRuntimeProviders, validateRuntimeProviders, loadAgentRuntimeConfig, validateAgentRuntimeConfig } from './agent-runtime-settings'
+import { AgentRuntimeConfigError, loadRuntimeProviders, saveRuntimeProviders, validateRuntimeProviders, loadAgentRuntimeConfig, validateAgentRuntimeConfig } from './modules/agent-runtime/runtime/agent-runtime-settings'
 import { randomUUID } from 'crypto'
 import path from 'path'
 import fs from 'fs'
@@ -9,7 +9,7 @@ import dns from 'dns'
 import type { WsMessage } from './types'
 import type { ProjectRegistry } from './project-registry'
 import { RepositoryValidationError, inspectRepositoryPath, assertDistinctRepositories, getProjectRepositories, resolveRepositoryProject, type ProjectRepositoryInput } from './project-repositories'
-import { getDesktopSetting, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook, getProjectSetupSession } from './desktop-db'
+import { getDesktopSetting, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook } from './desktop-db'
 import type { WebhookEvent } from './desktop-db'
 import { WebhookManager } from './webhook-manager'
 import { CoreUpdateManager } from './core-update-manager'
@@ -34,18 +34,12 @@ import {
 import { getCachedProbe, probeConnection } from './local-engine-detection'
 import { isLocalEnginesEnabled, syncLocalAdapters } from './providers/local-adapter-registry'
 import { isLocalAdapter } from './providers/local-adapter'
-
-/** Per-connection status block on GET/PUT /runtime-providers. */
-export type RuntimeProviderStatus =
-  | { kind: 'local'; reachable: boolean; authState: 'authenticated' | 'unauthenticated' | 'unknown'; models: string[]; latencyMs?: number; error?: string; apiKeyEnvMissing?: boolean; probing?: boolean }
-  | { kind: 'cli'; reachable: boolean; installed: boolean; executable: boolean; authState: 'authenticated' | 'unauthenticated' | 'unknown'; models: string[]; version?: string; error?: string; probing?: boolean }
-export type RuntimeProviderStatusMap = Record<string, RuntimeProviderStatus>
 import {
   AgentDefaultsValidationError,
   applyAgentDefaultsPatch,
   buildAgentDefaultsCatalog,
   readAgentDefaultsSettings,
-} from './agent-defaults'
+} from './modules/agents/runtime/agent-defaults'
 import {
   ExternalMcpValidationError,
   applyExternalMcpPatch,
@@ -55,17 +49,23 @@ import {
 import { workspacePathFor } from './workspace-manager'
 import { isWorkspacePopulated } from './workspace-resolution'
 import type { DetectionResult, ProviderAdapter } from './providers/types'
-import { getDesktopAnalytics, getDesktopTodayStats, getDesktopRecentJobs } from './desktop-analytics'
+import { getDesktopAnalytics, getDesktopTodayStats, getDesktopRecentJobs } from './modules/accounting/runtime/desktop-analytics'
 import { getSetupPrerequisitesStatus } from './setup-prerequisites'
 import { getPathDiagnostic } from './path-resolver'
 import {
   getDesktopTerminalSettings,
   patchDesktopTerminalSettings,
   TerminalSettingsValidationError,
-} from './terminal-settings'
+} from './modules/terminals/runtime/terminal-settings'
 import type { AnalyticsOpts, AnalyticsPeriod } from './types'
-import { registerLoopsRoutes } from './loops-router'
-import { countRunningForLoop } from './loop-runs-store'
+import { registerLoopsRoutes } from './modules/loops/runtime/loops-router'
+import { countRunningForLoop } from './modules/loops/runtime/loop-runs-store'
+
+/** Per-connection status block on GET/PUT /runtime-providers. */
+export type RuntimeProviderStatus =
+  | { kind: 'local'; reachable: boolean; authState: 'authenticated' | 'unauthenticated' | 'unknown'; models: string[]; latencyMs?: number; error?: string; apiKeyEnvMissing?: boolean; probing?: boolean }
+  | { kind: 'cli'; reachable: boolean; installed: boolean; executable: boolean; authState: 'authenticated' | 'unauthenticated' | 'unknown'; models: string[]; version?: string; error?: string; probing?: boolean }
+export type RuntimeProviderStatusMap = Record<string, RuntimeProviderStatus>
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -92,7 +92,7 @@ function allocateSlug(name: string, existing: ReadonlySet<string>): string {
 // (provider-detection.ts) so detection and route gating can never disagree.
 // Re-imported here under the original names.
 
-// Theme allow-list. Mirror of THEME_IDS in `client/src/lib/themes.ts` —
+// Theme allow-list. Mirror of THEME_IDS in `client/src/features/settings/lib/themes.ts` —
 // kept duplicated to avoid pulling client code into the server bundle.
 const THEME_ID_ALLOWLIST = new Set<string>(['dracula', 'aurora-light', 'obsidian-dark', 'code-rain', 'specrails', 'galaxy'])
 const LEGACY_THEME_ID_MAP: Record<string, string> = {
@@ -1207,7 +1207,7 @@ export function createDesktopRouter(
   })
 
   // ─── Theme (app-wide UI theme) ────────────────────────────────────────────
-  // Allow-list synchronized with `client/src/lib/themes.ts THEME_IDS`.
+  // Allow-list synchronized with `client/src/features/settings/lib/themes.ts THEME_IDS`.
   // Persisted under desktop_settings key `ui_theme`. Default seeded by migration 8.
   router.get('/theme', (_req, res) => {
     const stored = getDesktopSetting(registry.desktopDb, 'ui_theme')

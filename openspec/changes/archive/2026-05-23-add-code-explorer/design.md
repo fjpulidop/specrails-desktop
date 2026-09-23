@@ -135,7 +135,7 @@ The client handler filters by `activeProjectId` via ref-not-closure, per existin
 
 ### D7. New REST surface under `/api/projects/:projectId/code`
 
-A new router `server/code-explorer-router.ts` is mounted alongside the existing per-project routes:
+A new router `server/modules/code/runtime/code-explorer-router.ts` is mounted alongside the existing per-project routes:
 
 - `GET /tree?withProvenance=1&filter=touched-by-ai|all` — virtualised: returns up to 2000 entries per request with pagination cursor. Each entry: `{ path, kind: 'file'|'dir', sizeBytes, hasSummary, provenance: { createdByTicketId?, modifiedByTicketIds[] }, lastModifiedAt }`.
 - `GET /file?path=…` — returns `{ content: string, encoding, language, provenance, summary, summaryStale }`. Refuses binary files (returns `{ binary: true, sizeBytes, mime }`) and files larger than 2 MB.

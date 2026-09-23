@@ -23,7 +23,7 @@ _None. No existing spec describes the hub-demo build behaviour today._
 ## Impact
 
 - **Code (new)**: `client/src/demo-mode/tour/` — timeline, orchestrator, fake cursor, log-stream driver.
-- **Code (modified)**: `client/src/components/ProposeSpecModal.tsx`, `RailRow.tsx` / `RailControls.tsx`, `LogViewer.tsx` gain an opt-in `programmaticMode` path that the tour uses in demo builds. Production builds are unchanged.
+- **Code (modified)**: `client/src/features/specs/components/ProposeSpecModal.tsx`, `RailRow.tsx` / `RailControls.tsx`, `LogViewer.tsx` gain an opt-in `programmaticMode` path that the tour uses in demo builds. Production builds are unchanged.
 - **Fixtures**: `client/src/demo-mode/fixtures/` extended with the canonical spec title + log lines used by the tour (single source of truth).
 - **Build**: no new npm dependency; orchestrator is pure React + CSS transforms.
 - **Bundle impact**: the tour code lives behind a compile-time guard (`import.meta.env.MODE === 'demo'` or similar) so the production client bundle is not bloated.

@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '../../test-utils'
-import DashboardPage from '../DashboardPage'
+import DashboardPage from '../../features/dashboard/pages/DashboardPage'
 import type { LocalTicket, TicketPriority } from '../../types'
 
 vi.mock('../../lib/api', () => ({ getApiBase: () => '/api' }))
@@ -12,7 +12,7 @@ vi.mock('../../hooks/useSharedWebSocket', () => ({
     connectionStatus: 'connected',
   }),
 }))
-vi.mock('../../hooks/useSpecGenTracker', () => ({
+vi.mock('../../features/specs/hooks/useSpecGenTracker', () => ({
   useSpecGenTracker: () => ({ specToOpen: null, clearSpecToOpen: vi.fn() }),
 }))
 vi.mock('../../hooks/useDesktop', () => ({
@@ -54,7 +54,7 @@ const tickets: LocalTicket[] = [
   makeTicket(2, 'medium'),
 ]
 
-vi.mock('../../hooks/useTickets', () => ({
+vi.mock('../../features/specs/hooks/useTickets', () => ({
   useTickets: () => ({
     tickets,
     isLoading: false,
@@ -69,7 +69,7 @@ vi.mock('../../hooks/useTickets', () => ({
 // Mock SpecsBoard to surface the props we want to assert against
 let lastSortProps: { mode: string; dir: string; ticketIds: number[] } | null = null
 let invokeSortChange: ((mode: string, dir: string) => void) | null = null
-vi.mock('../../components/SpecsBoard', () => ({
+vi.mock('../../features/specs/components/SpecsBoard', () => ({
   SpecsBoard: (props: {
     tickets: LocalTicket[]
     sortMode: string
@@ -108,10 +108,10 @@ vi.mock('../../components/SpecsBoard', () => ({
   },
 }))
 
-vi.mock('../../components/TicketDetailModal', () => ({
+vi.mock('../../features/specs/components/TicketDetailModal', () => ({
   TicketDetailModal: () => <div />,
 }))
-vi.mock('../../components/CreateTicketModal', () => ({
+vi.mock('../../features/specs/components/CreateTicketModal', () => ({
   CreateTicketModal: () => null,
 }))
 

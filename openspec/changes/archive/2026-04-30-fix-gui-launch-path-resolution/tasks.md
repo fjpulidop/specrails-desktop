@@ -21,7 +21,7 @@
 - [x] 3.3 Set `executable = installed && versionProbeSucceeded`; gate `meetsMinimum` on both `installed && executable && version-meets`
 - [x] 3.4 Add a broken-symlink-aware `installHint` for the `installed && !executable` case ("found at <path> but failed to execute — possibly a broken symlink. Reinstall the tool or remove the stale link at <path>.")
 - [x] 3.5 Update `formatMissingSetupPrerequisites` to emit the new hint for the `!executable` branch
-- [x] 3.6 Update `client/src/types.ts` `SetupPrerequisite` shape to include `executable` (lives in `client/src/hooks/usePrerequisites.ts` — no separate types.ts entry; updated there)
+- [x] 3.6 Update `client/src/types.ts` `SetupPrerequisite` shape to include `executable` (lives in `client/src/features/projects/hooks/usePrerequisites.ts` — no separate types.ts entry; updated there)
 
 ## 4. Diagnostic endpoint
 
@@ -31,9 +31,9 @@
 
 ## 5. Client surfacing
 
-- [x] 5.1 Update `client/src/components/PrerequisitesPanel.tsx` to render the `installed && !executable` state with a distinct visual (warning, not error) and the new hint copy
-- [x] 5.2 Add a "Copy diagnostics" affordance in `client/src/components/InstallInstructionsModal.tsx` that fetches `?diagnostic=1` and copies the JSON to the clipboard with a short success toast
-- [x] 5.3 Update `client/src/hooks/usePrerequisites.ts` only if needed to thread the `executable` field through (prefer no API change to the hook)
+- [x] 5.1 Update `client/src/features/projects/components/PrerequisitesPanel.tsx` to render the `installed && !executable` state with a distinct visual (warning, not error) and the new hint copy
+- [x] 5.2 Add a "Copy diagnostics" affordance in `client/src/features/projects/components/InstallInstructionsModal.tsx` that fetches `?diagnostic=1` and copies the JSON to the clipboard with a short success toast
+- [x] 5.3 Update `client/src/features/projects/hooks/usePrerequisites.ts` only if needed to thread the `executable` field through (prefer no API change to the hook)
 
 ## 6. Tests
 
@@ -50,7 +50,7 @@
 - [x] 6.3 Extend `server/hub-router.ts` tests:
   - [x] 6.3.1 `?diagnostic=1` returns `diagnostic` field with expected shape
   - [x] 6.3.2 default request omits `diagnostic`
-- [x] 6.4 Extend `client/src/components/__tests__/PrerequisitesPanel.test.tsx`:
+- [x] 6.4 Extend `client/src/features/projects/components/__tests__/PrerequisitesPanel.test.tsx`:
   - [x] 6.4.1 Renders broken-symlink state with new copy when `installed && !executable`
 
 ## 7. Documentation & release notes

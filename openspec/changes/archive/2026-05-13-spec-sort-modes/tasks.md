@@ -1,16 +1,16 @@
 ## 1. Sort state plumbing
 
-- [x] 1.1 Add type `SpecSortMode = 'default' | 'ticket-id' | 'priority'` and `SpecSortDir = 'asc' | 'desc'` in a shared location (e.g. `client/src/types/spec-sort.ts`)
+- [x] 1.1 Add type `SpecSortMode = 'default' | 'ticket-id' | 'priority'` and `SpecSortDir = 'asc' | 'desc'` in a shared location (e.g. `client/src/features/specs/types/spec-sort.ts`)
 - [x] 1.2 Add per-project localStorage helpers `loadSpecSort(projectId)` / `saveSpecSort(projectId, mode, dir)` reading/writing `specrails-hub:spec-sort-mode:<projectId>` and `specrails-hub:spec-sort-dir:<projectId>` with safe parsing and defaults (`mode='default'`, `dir='desc'`)
 - [x] 1.3 Wire `useState` for `(mode, dir)` in `DashboardPage.tsx`, initialised from `loadSpecSort(activeProjectId)`; reset on `activeProjectId` change
 - [x] 1.4 Persist `(mode, dir)` to localStorage whenever it changes; preserve `dir` even while `mode === 'default'`
 
 ## 2. Ordering pipeline
 
-- [x] 2.1 Implement comparator helpers in a new `client/src/lib/spec-sort.ts`: `sortByTicketId(a, b, dir)` and `sortByPriority(a, b, dir)` using bucket order `critical>high>medium>low>null` with id-asc tiebreaker (inverted bucket comparison for `asc`)
+- [x] 2.1 Implement comparator helpers in a new `client/src/features/specs/lib/spec-sort.ts`: `sortByTicketId(a, b, dir)` and `sortByPriority(a, b, dir)` using bucket order `critical>high>medium>low>null` with id-asc tiebreaker (inverted bucket comparison for `asc`)
 - [x] 2.2 In `DashboardPage.tsx`, refactor `specTickets` so that: `mode='default'` → keep existing custom-order logic; `mode='ticket-id'` → sort by id; `mode='priority'` → sort by priority bucket
 - [x] 2.3 In `DashboardPage.tsx`, apply the same comparator to `doneSpecTickets` for non-default modes; keep `mode='default'` as API order
-- [x] 2.4 Unit tests in `client/src/lib/__tests__/spec-sort.test.ts` covering: id asc/desc, priority bucket asc/desc, null bucket placement, id-asc tiebreaker stability
+- [x] 2.4 Unit tests in `client/src/features/specs/lib/__tests__/spec-sort.test.ts` covering: id asc/desc, priority bucket asc/desc, null bucket placement, id-asc tiebreaker stability
 
 ## 3. Drag-flips-to-default behaviour
 
@@ -20,7 +20,7 @@
 
 ## 4. SpecSortControl component
 
-- [x] 4.1 Create `client/src/components/SpecSortControl.tsx` with props `{ mode, dir, onChange(mode, dir) }`
+- [x] 4.1 Create `client/src/features/specs/components/SpecSortControl.tsx` with props `{ mode, dir, onChange(mode, dir) }`
 - [x] 4.2 Render a chip with items `Default`, `Ticket #`, `Priority` using existing Radix `Select` (no new dep); show the active mode as the chip label
 - [x] 4.3 Render a direction arrow button (`↑`/`↓`) immediately to the right of the chip; hide when `mode === 'default'`
 - [x] 4.4 Use only semantic Tailwind tokens (`accent-secondary`, `muted-foreground`); no brand colours
@@ -36,8 +36,8 @@
 
 ## 6. Tests
 
-- [x] 6.1 New tests in `client/src/components/__tests__/SpecSortControl.test.tsx`: renders three modes; arrow hidden in default; arrow visible and toggles in sorted modes; emits expected `onChange` payloads
-- [x] 6.2 Extend `client/src/components/__tests__/SpecsBoard.test.tsx`: control renders in header; selecting a mode/direction calls the callback
+- [x] 6.1 New tests in `client/src/features/specs/components/__tests__/SpecSortControl.test.tsx`: renders three modes; arrow hidden in default; arrow visible and toggles in sorted modes; emits expected `onChange` payloads
+- [x] 6.2 Extend `client/src/features/specs/components/__tests__/SpecsBoard.test.tsx`: control renders in header; selecting a mode/direction calls the callback
 - [x] 6.3 New `client/src/pages/__tests__/DashboardPageSort.test.tsx` covering: switching to `ticket-id` re-renders cards in id order; switching to `priority` re-renders in bucket order; persists to localStorage and survives remount; default mode restores API order; direction preserved across default round-trips. Drag-flip end-to-end is not exercised (would require simulating dnd-kit drag-end through the mocked DndContext); the conditional itself is a 3-line guard and the comparator + persistence paths are covered by other tests.
 - [x] 6.4 Test localStorage round-trip: covered in both `spec-sort.test.ts` and `DashboardPageSort.test.tsx`
 

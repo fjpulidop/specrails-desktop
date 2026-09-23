@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { initDesktopDb } from './desktop-db'
 import type { DbInstance } from './db'
-import { AgentChatManager } from './agent-chat-manager'
-import { createAgentConversation, listAgentMessages } from './agent-store'
+import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
+import { createAgentConversation, listAgentMessages } from './modules/agents/runtime/agent-store'
 import type { WsMessage } from './types'
 
 // ── mission-rail-cards: failure row + the ONE automatic briefing turn ─────────

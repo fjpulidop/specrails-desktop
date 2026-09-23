@@ -1,124 +1,56 @@
-// Domain routes extracted from project-router.ts (settings).
-// Registered on the shared router by createProjectRouter — behaviour-preserving.
+// Composition for project settings and the remaining settings-related routes.
+// The project-settings module owns its validation, use cases and HTTP adapter.
+import { createProjectSettingsService } from './modules/project-settings'
+import { createSqliteProjectSettingsRepository } from './modules/project-settings/adapters/sqlite'
+import { registerProjectSettingsHttp } from './modules/project-settings/adapters/http'
 import fs from 'fs'
 import path from 'path'
-import { Router, Request, Response, NextFunction } from 'express'
-import { newId as uuidv4 } from './ids'
-import type { ProjectRegistry, ProjectContext } from './project-registry'
+import { Request, Response } from 'express'
 import {
-  listJobs, getJob, getJobEvents, purgeJobs, deleteJob, getProjectActivity,
-  createConversation, listConversations, getConversation,
-  deleteConversation, updateConversation, getMessages,
-  getStats, getPipelineJobs,
-  createProposal, getProposal, listProposals, deleteProposal,
-  createTemplate, listTemplates, getTemplate, updateTemplate, deleteTemplate,
-  getProjectSettings, updateProjectSettings, normalizeWorktreeEnvPassthrough,
+  getJob, getJobEvents, getProjectSettings,
   getQuickContractRefineLast, setQuickContractRefineLast, hasQuickContractRefineLast,
-  getTelemetryBlob, getTelemetrySummaries, getJobsWithTelemetry, hasJobTelemetry,
+  getTelemetryBlob, getTelemetrySummaries
 } from './db'
-import { createDiagnosticZip } from './telemetry-export'
-import { resolveIntegrationBranch, isValidBranchName } from './integration-branch'
+import { createDiagnosticZip } from './modules/accounting/runtime/telemetry-export'
+import { resolveIntegrationBranch } from './integration-branch'
 import { defaultGitRunner } from './worktree-manager'
-import { getProjectSetupSession } from './desktop-db'
-import { ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError, DEFAULT_ZOMBIE_TIMEOUT_MS } from './queue-manager'
-import type { JobPriority } from './types'
-import { VALID_PRIORITIES } from './types'
-import { resolveCommand } from './command-resolver'
-import { getAdapter } from './providers'
-import { createHooksRouter, getPhaseStates } from './hooks'
-import { getConfig, fetchIssues } from './config'
-import { runContractRefine, runContractRefineForQuick } from './contract-refine-runner'
-import { isExploreContractRefineKillSwitchActive } from './explore-contract-refine'
-import { runSmash, runSmashUndo, applyDeleteEpicChildren, checkSmashEligibility } from './smash-runner'
-import { isSpecsSmashKillSwitchActive } from './explore-smash'
-import { recordInvocation, updateTicketIdForConversation, getTicketSpendingSummary } from './ai-invocations'
-import { getContextBudget } from './context-budget'
+import { getContextBudget } from './modules/conversations/runtime/context-budget'
 import {
-  getLastContextScope, setLastContextScope, normalizeContextScope,
-  setConversationContextScope, getConversationContextScope,
-  buildScopedSystemPromptPrefix, toolFlagsForScope, defaultBootScope,
-  type ContextScope,
-} from './context-scope'
-import { finaliseInvocationResult } from './result-event'
-import { CORE_PACKAGE_SPEC } from './core-package'
-import type { AdapterEvent } from './providers/types'
-import { getSpending, getInvocations, parseSpendingFilters } from './spending'
-import { randomUUID } from 'crypto'
+  getLastContextScope, setLastContextScope, normalizeContextScope
+} from './modules/conversations/runtime/context-scope'
 import {
   getModelsForProvider,
   getProviderDefault,
   isValidModelForProvider,
   type SpecProvider,
-} from './spec-models'
-import { resolveProvider, validateRequestedProvider, isMultiProvider } from './provider-selection'
-import type { ChatConversationRow, JobTemplate, JobRow } from './types'
-import { readChanges } from './changes-reader'
-import { getProjectMetrics } from './metrics'
-import {
-  resolveTicketStoragePath, readStore, mutateStore, filterTickets,
-  isValidStatus, isValidPriority, validatePriorityForStatus,
-  resolveTicketsFromCommand,
-  clampShortSummary,
-  type Ticket,
-} from './ticket-store'
-import { generateAutoTitle } from './explore-draft-title'
-import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, TicketAiEditStreamMessage, TicketAiEditDoneMessage, TicketAiEditErrorMessage, SpecGenStreamMessage, SpecGenDoneMessage, SpecGenErrorMessage, LocalTicket } from './types'
-import { spawnAiCli } from './util/cli-prompt'
-import { createInterface } from 'readline'
-import treeKill from 'tree-kill'
-import multer from 'multer'
-import { createRailsRouter } from './rails-router'
-import { createProfilesRouter } from './profiles-router'
-import { createPluginsRouter } from './plugins-router'
-import { createCodeExplorerRouter } from './code-explorer-router'
+} from './modules/specs/runtime/spec-models'
 import {
   getDesktopTerminalSettings,
   getProjectOverride,
   patchProjectOverride,
   resolveTerminalSettings,
   TerminalSettingsValidationError,
-} from './terminal-settings'
-import { listMarks } from './terminal-marks-store'
-import { attachmentManager, isSupportedUploadedFile, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
-import { isBrowserCaptureEnabled } from './feature-flags'
-import { BrowserLimitExceededError, BrowserLaunchError } from './browser-capture-types'
-import type { CaptureRect } from './browser-capture-types'
-import {
-  getTerminalManager,
-  TerminalLimitExceededError,
-  TerminalNotFoundError,
-  TerminalNameInvalidError,
-  TerminalSpawnError,
-  TERMINAL_MAX_PER_PROJECT,
-} from './terminal-manager'
+} from './modules/terminals/runtime/terminal-settings'
+import { listMarks } from './modules/terminals/runtime/terminal-marks-store'
 import {
   type ProjectRoutesDeps,
-  type ModelAlias,
-  TERMINAL_PANEL_ENABLED,
-  readAgentModels,
+  type ModelAlias, readAgentModels,
   applyModelConfig,
-  serializeInstallConfigYaml,
-  stripSpecMetadataSections,
-  extractShortSummary,
-  deriveFallbackShortSummary,
-  lightlyStructurePrompt,
-  formatDescriptionWithCriteria,
-  resolveDefaultSpecModel,
+  serializeInstallConfigYaml
 } from './project-router-helpers'
 import { installConfigPath } from './install-config-path'
-import { registerAgentRuntimeSettingsRoutes } from './agent-runtime-settings-router'
-import { registerAgentRuntimeControlRoutes } from './agent-runtime-controls-router'
+import { registerAgentRuntimeSettingsRoutes } from './modules/agent-runtime/runtime/agent-runtime-settings-router'
+import { registerAgentRuntimeControlRoutes } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
 
 export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
   registerAgentRuntimeSettingsRoutes(deps)
   registerAgentRuntimeControlRoutes(deps)
-  const { router, registry, ctx, ticketPath } = deps
+  const { router, registry, ctx } = deps
   // ─── Project settings (pipeline telemetry) ───────────────────────────────────
 
-  router.get('/:projectId/settings', (req: Request, res: Response) => {
-    const settings = getProjectSettings(ctx(req).db)
-    res.json(settings)
-  })
+  registerProjectSettingsHttp(router, req =>
+    createProjectSettingsService(createSqliteProjectSettingsRepository(ctx(req).db)),
+  )
 
   // ─── Per-project Quick mode Contract Refine last-used value ─────────────────
 
@@ -174,65 +106,6 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
     const merged = normalizeContextScope({ ...current, ...body }, current)
     setLastContextScope(ctx(req).db, merged)
     res.json({ scope: merged })
-  })
-
-  router.patch('/:projectId/settings', (req: Request, res: Response) => {
-    const { pipelineTelemetryEnabled, orchestratorModel, prePrompt, freestylePrePrompt, worktreeEnvPassthrough } = req.body ?? {}
-    const patch: Parameters<typeof updateProjectSettings>[1] = {}
-    if (pipelineTelemetryEnabled !== undefined) {
-      patch.pipelineTelemetryEnabled = Boolean(pipelineTelemetryEnabled)
-    }
-    const VALID_MODELS = ['sonnet', 'opus', 'haiku']
-    if (orchestratorModel !== undefined) {
-      if (typeof orchestratorModel !== 'string' || !VALID_MODELS.includes(orchestratorModel)) {
-        res.status(400).json({ error: `orchestratorModel must be one of: ${VALID_MODELS.join(', ')}` })
-        return
-      }
-      patch.orchestratorModel = orchestratorModel
-    }
-    if (prePrompt !== undefined) {
-      if (typeof prePrompt !== 'string') {
-        res.status(400).json({ error: 'prePrompt must be a string' })
-        return
-      }
-      patch.prePrompt = prePrompt
-    }
-    if (freestylePrePrompt !== undefined) {
-      if (typeof freestylePrePrompt !== 'string') {
-        res.status(400).json({ error: 'freestylePrePrompt must be a string' })
-        return
-      }
-      patch.freestylePrePrompt = freestylePrePrompt
-    }
-    if (worktreeEnvPassthrough !== undefined) {
-      try {
-        patch.worktreeEnvPassthrough = normalizeWorktreeEnvPassthrough(worktreeEnvPassthrough)
-      } catch (err) {
-        res.status(400).json({ error: err instanceof Error ? err.message : 'invalid worktreeEnvPassthrough' })
-        return
-      }
-    }
-    if (req.body?.integrationBranch !== undefined) {
-      const ib = req.body.integrationBranch
-      if (typeof ib !== 'string') {
-        res.status(400).json({ error: 'integrationBranch must be a string' })
-        return
-      }
-      // Empty = clear (auto-resolve). A non-empty value flows into `git worktree
-      // add … <base>`, so it must be a safe branch name (no arg-injection).
-      if (ib.trim() !== '' && !isValidBranchName(ib)) {
-        res.status(400).json({ error: 'integrationBranch is not a valid branch name' })
-        return
-      }
-      patch.integrationBranch = ib
-    }
-    try {
-      updateProjectSettings(ctx(req).db, patch)
-      res.json({ ok: true, settings: getProjectSettings(ctx(req).db) })
-    } catch (err) {
-      console.error('[project-router] settings patch error:', err)
-      res.status(500).json({ error: 'Failed to update settings' })
-    }
   })
 
   // Resolve the effective integration branch (configured value + what it resolves

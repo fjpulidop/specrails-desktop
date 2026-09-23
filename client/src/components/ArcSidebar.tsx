@@ -7,17 +7,17 @@ import { cn } from '../lib/utils'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
 import { SidebarResizeGrip } from './SidebarResizeGrip'
 import { compactRelativeTime, absoluteTime } from '../lib/relative-time'
-import { useAssembleProgress } from '../hooks/useAssembleProgress'
+import { useAssembleProgress } from '../features/jobs/hooks/useAssembleProgress'
 import { useDesktop } from '../hooks/useDesktop'
 import type { DesktopProject } from '../hooks/useDesktop'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useUiMode } from '../context/UiModeContext'
-import { useAgentChat } from '../context/AgentChatContext'
-import type { AgentConversation } from '../lib/agent-api'
+import { useAgentChat } from '../features/missions/context/AgentChatContext'
+import type { AgentConversation } from '../features/missions/lib/agent-api'
 import { FEATURE_LOOPS_SECTION, FEATURE_AGENT_MODE } from '../lib/feature-flags'
 
 const ProjectSettingsDialog = lazy(() =>
-  import('./settings/ProjectSettingsDialog').then((m) => ({ default: m.ProjectSettingsDialog })),
+  import('../features/settings/components/ProjectSettingsDialog').then((m) => ({ default: m.ProjectSettingsDialog })),
 )
 
 const TREE_EXPAND_KEY = 'specrails-desktop:agentTreeExpanded'

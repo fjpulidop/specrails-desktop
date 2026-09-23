@@ -46,7 +46,7 @@ const html = `<style>
 let browser
 try {
   const bundle = path.join(temp, 'browser-playwright.cjs')
-  await build({ entryPoints: [path.join(root, 'server/browser-playwright.ts')], bundle: true, platform: 'node', format: 'cjs', packages: 'external', outfile: bundle, logLevel: 'silent' })
+  await build({ entryPoints: [path.join(root, 'server/modules/browser/runtime/browser-playwright.ts')], bundle: true, platform: 'node', format: 'cjs', packages: 'external', outfile: bundle, logLevel: 'silent' })
   const { PlaywrightPageHandle, chromiumLaunchArgs, screencastParams } = require(bundle)
   const report = []
   for (const disableGpu of [false, true]) {

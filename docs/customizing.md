@@ -27,7 +27,7 @@ There's an inline anti-FOUC script in `client/index.html` so a page refresh neve
 
 The active theme persists to `desktop_settings.ui_theme` on the server and mirrors to `localStorage` so the desktop app and browser stay in sync if you use both.
 
-> Want a sixth theme? It's a small contribution — see `client/src/lib/themes.ts` and [internals/architecture.md](internals/architecture.md) for the contract.
+> Want a sixth theme? It's a small contribution — see `client/src/features/settings/lib/themes.ts` and [internals/architecture.md](internals/architecture.md) for the contract.
 
 ## Sidebars
 

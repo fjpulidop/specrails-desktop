@@ -20,7 +20,7 @@ The programmatic runtime already lets each pipeline role (architect, developer, 
 
 ## Impact
 
-- **Server:** `server/loop-role-engines.ts` (new), `server/rails-router.ts` (roles mode at launch + `PUT /engine`), `server/rail-isolated-launch.ts` + `server/loop-run-manager.ts` (`deciderEngine` pass-through), `server/agent-runtime-settings-router.ts` (loop-roles routes), `server/mcp/tools/rails.ts` (description).
+- **Server:** `server/modules/loops/runtime/loop-role-engines.ts` (new), `server/modules/delivery/runtime/rails-router.ts` (roles mode at launch + `PUT /engine`), `server/modules/delivery/runtime/rail-isolated-launch.ts` + `server/modules/loops/runtime/loop-run-manager.ts` (`deciderEngine` pass-through), `server/modules/agent-runtime/runtime/agent-runtime-settings-router.ts` (loop-roles routes), `server/mcp/tools/rails.ts` (description).
 - **Client:** `RailEngineSelector`, `RailRow`, `DashboardPage`, `AgentRuntimeSettingsSection` (Loop roles block), `lib/provider-capabilities.ts`; i18n `agents`/`dashboard`/`agentRuntime` ×8.
 - **Core:** none (per-role config already supported).
 - **Docs:** `docs/local-providers.md` (hybrid section), CLAUDE.md.

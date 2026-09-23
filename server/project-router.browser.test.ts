@@ -4,7 +4,7 @@ import request from 'supertest'
 import { createProjectRouter } from './project-router'
 import { initDb, type DbInstance } from './db'
 import { initDesktopDb } from './desktop-db'
-import { BrowserLimitExceededError, BrowserLaunchError } from './browser-capture-types'
+import { BrowserLimitExceededError, BrowserLaunchError } from './modules/browser/runtime/browser-capture-types'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 
 function makeBrowserManager(overrides: Record<string, unknown> = {}) {

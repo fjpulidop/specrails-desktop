@@ -1,6 +1,6 @@
-// Client mirror of server/blueprint-spec-fixtures.ts: gate-valid premium specs
+// Client mirror of server/modules/builder/runtime/blueprint-spec-fixtures.ts: gate-valid premium specs
 // for the Builder test suites (raised floors — see SPEC_DEPTH_FLOORS).
-import type { BlueprintM1Spec } from '../blueprint-draft'
+import type { BlueprintM1Spec } from '../../features/builder/lib/blueprint-draft'
 
 export function premiumDescription(opts: { readme?: boolean; subject?: string } = {}): string {
   const subject = opts.subject ?? 'the core workflow'

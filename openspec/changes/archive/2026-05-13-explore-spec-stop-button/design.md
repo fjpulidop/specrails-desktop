@@ -1,8 +1,8 @@
 ## Context
 
-`ExploreSpecShell` (`client/src/components/explore-spec/ExploreSpecShell.tsx`) is the full-screen overlay used by Explore Spec turns. Its composer (`RichAttachmentEditor` + a Send button) submits on click or `⌘⏎`. While a turn is streaming (`conversation.isStreaming === true`), the textarea is hidden behind a placeholder, the Send button is disabled, and the user has no way to interrupt the model — they must wait for `result`.
+`ExploreSpecShell` (`client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx`) is the full-screen overlay used by Explore Spec turns. Its composer (`RichAttachmentEditor` + a Send button) submits on click or `⌘⏎`. While a turn is streaming (`conversation.isStreaming === true`), the textarea is hidden behind a placeholder, the Send button is disabled, and the user has no way to interrupt the model — they must wait for `result`.
 
-The sidebar chat solved the same problem in `client/src/components/ChatInput.tsx`: while `isStreaming`, it swaps the Send button for a red `Stop` button that calls `useChat.abortStream(conversationId)`, which `DELETE`s `/chat/conversations/:id/messages/stream`. On the server, that route calls `chatManager.abort(conversationId)` which `treeKill`s the spawned `claude` child (SIGTERM). The next turn resumes the conversation via `--resume <session_id>`, so context is preserved.
+The sidebar chat solved the same problem in `client/src/features/chat/components/ChatInput.tsx`: while `isStreaming`, it swaps the Send button for a red `Stop` button that calls `useChat.abortStream(conversationId)`, which `DELETE`s `/chat/conversations/:id/messages/stream`. On the server, that route calls `chatManager.abort(conversationId)` which `treeKill`s the spawned `claude` child (SIGTERM). The next turn resumes the conversation via `--resume <session_id>`, so context is preserved.
 
 All the infrastructure already exists; only an Explore-shell affordance is missing.
 

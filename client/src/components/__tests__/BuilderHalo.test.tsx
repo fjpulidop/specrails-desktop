@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen } from '../../test-utils'
-import { BuilderHalo } from '../project-builder/BuilderHalo'
+import { BuilderHalo } from '../../features/builder/components/project-builder/BuilderHalo'
 
 // useReducedMotion is mocked per-test: jsdom has no matchMedia-driven updates.
 const reducedMotionMock = vi.hoisted(() => ({ value: false }))

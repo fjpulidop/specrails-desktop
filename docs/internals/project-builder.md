@@ -30,7 +30,7 @@ route).
   the in-flight builder turn (`POST /abort`) and resets every session slice.
   The agent's own chrome (project/mission selectors, conversation, queue,
   pinned cards) is hidden while active but NEVER unmounted.
-- Session logic in `client/src/hooks/useBuilderSession.ts` (extracted from the
+- Session logic in `client/src/features/builder/hooks/useBuilderSession.ts` (extracted from the
   retired shell): bootstrap, `blueprint.*` WS handling with NULL-SAFE identity
   checks (a pre-bootstrap/pre-commit null ref must never match a null/absent
   message id), phases, snapshot, send/commit/launch actions, `dirty` flag.
@@ -101,20 +101,20 @@ generator's pure-output policy. A direct Kimi request is rejected before
 `BlueprintChatManager` spawns. This does not prevent the approved blueprint
 from declaring Kimi among the new project's target providers.
 
-- **Manager**: `server/blueprint-chat-manager.ts` `BlueprintChatManager` — an
+- **Manager**: `server/modules/builder/runtime/blueprint-chat-manager.ts` `BlueprintChatManager` — an
   app-level sibling of `AgentChatManager` reusing `runAiCliInvocation`. Spawns
-  from `~/.specrails/builder-cwd/` (`server/builder-cwd-manager.ts`: always
-  re-written instruction files from `server/blueprint-operator-prompt.ts`, NO
+  from `~/.specrails/builder-cwd/` (`server/modules/builder/runtime/builder-cwd-manager.ts`: always
+  re-written instruction files from `server/modules/builder/runtime/blueprint-operator-prompt.ts`, NO
   `./project` symlink, NO MCP). Auto-heal: a resume that yields no text retries
   fresh once. Abort keeps partial text and records `aborted`.
 - **Persistence**: `blueprint_conversations` / `blueprint_messages` in
-  `desktop.sqlite` (migration 22; CRUD in `server/blueprint-store.ts`).
+  `desktop.sqlite` (migration 22; CRUD in `server/modules/builder/runtime/blueprint-store.ts`).
 - **WS**: app-global `blueprint.stream` / `blueprint.done` / `blueprint.error`
   (no `projectId`; NOT in the mobile-ws translation layer). `blueprint.done`
   carries the STRIPPED `fullText` plus the last valid `blueprint` snapshot.
 - **Accounting**: one `agent_invocations` row per settled turn with
   `project_id NULL` (the Home-turn precedent). No backfill after creation.
-- **REST**: `/api/blueprint/*` (`server/blueprint-router.ts`) — conversations
+- **REST**: `/api/blueprint/*` (`server/modules/builder/runtime/blueprint-router.ts`) — conversations
   CRUD, `/send` (202, 409 while streaming), `/abort`, `/models`, `/commit`.
   `/models` returns the provider's `efforts` catalog; `/send` accepts only a
   catalog-valid `reasoning_effort`, and providers without the capability omit
@@ -224,7 +224,7 @@ the provider session (later turns `--resume`); two-step inline discard →
 `DELETE`. The exit confirm copy no longer threatens to discard the blueprint —
 it says where to pick it up.
 
-**5. Readiness, made legible (client).** `client/src/lib/blueprint-readiness.ts`
+**5. Readiness, made legible (client).** `client/src/features/builder/lib/blueprint-readiness.ts`
 `deriveReadiness` turns the same deterministic report into three steps —
 **blueprint** (5 dimensions) · **specs** (count within 5–10 and
 `specsComplete`) · **audit** (issues excluding the two batch-level codes) —
@@ -285,8 +285,8 @@ Fenced ` ```blueprint-draft ` JSON blocks. FULL snapshots, LAST syntactically
 valid block wins, streaming tail cut (unterminated trailing fence never
 parsed/shown — `cutUnterminatedBlock`). Unknown keys dropped; missing or
 non-integer `blueprintVersion` rejects the block. Parser pair:
-`server/blueprint-draft-parser.ts` ⇄ `client/src/lib/blueprint-draft.ts` (keep
-coercion rules in sync). Schema types in `server/blueprint-types.ts`:
+`server/modules/builder/runtime/blueprint-draft-parser.ts` ⇄ `client/src/features/builder/lib/blueprint-draft.ts` (keep
+coercion rules in sync). Schema types in `server/modules/builder/runtime/blueprint-types.ts`:
 `product{name,pitch,audience}`, `coreFlow`, `platform`,
 `stack{language,framework,db,notes?}`, `assumptions[]`,
 `milestones[]{id,title,goal,status: planned|committed|done, plannedSpecs[],
@@ -318,7 +318,7 @@ files remain readable (and returns null for missing/corrupt input).
 
 There is no Builder-specific “lite spec” format. Every detailed Builder spec
 uses the normal Specrails contract, and since premium-milestone-progress the
-prose that teaches it lives in ONE module — `server/spec-contract-prompt.ts`
+prose that teaches it lives in ONE module — `server/modules/specs/runtime/spec-contract-prompt.ts`
 (`premiumSpecContract(mode)`, `premiumSpecContractCompact(mode)`,
 `PREMIUM_SCAFFOLD_EXAMPLE`, `SPEC_DEPTH_FLOORS`) — consumed by the Builder
 operator prompt, `ChatManager._buildMilestoneSystemPrompt` (M2+) and the
@@ -353,10 +353,10 @@ uncertainty. `PREMIUM_SCAFFOLD_EXAMPLE` is the mandatory first spec written
 at that depth; "shorter is a defect, not a style". The floors were raised
 because the old minima ("at least two bullets", 4–10 criteria) became the
 ceiling the model aimed at (design D6/D8). Test fixtures that need a
-gate-valid spec use `server/blueprint-spec-fixtures.ts` ⇄
+gate-valid spec use `server/modules/builder/runtime/blueprint-spec-fixtures.ts` ⇄
 `client/src/lib/__tests__/premium-spec-fixture.ts`.
 
-`server/blueprint-spec-quality.ts` is the shared deterministic authority. It
+`server/modules/builder/runtime/blueprint-spec-quality.ts` is the shared deterministic authority. It
 validates `specsComplete=true`, the complete-set size, all fields/sections
 above (including the depth floors — issue codes `section_depth` carries the
 heading + min chars, `section_bullets` the min, `criteria_count` the 6–10
@@ -449,7 +449,7 @@ the panel's spec card shows "writing…" / "not written yet" instead of
 `location_already_registered`; rich-spec failures include actionable spec/field
 detail) → 202 `{commitId}` → per-step
 `blueprint.commit_progress` → terminal `blueprint.commit_done{projectId}` /
-`commit_failed{step,error}`. Orchestrator: `server/blueprint-commit.ts`
+`commit_failed{step,error}`. Orchestrator: `server/modules/builder/runtime/blueprint-commit.ts`
 `createBlueprintCommitRunner` (DI IO bag — every step fail-injectable in
 tests). Step order:
 
@@ -468,7 +468,7 @@ tests). Step order:
    ("reinstall the app"). Verifies the workspace exists afterwards.
 4. `blueprint` — `writeBlueprintPair` into `<workspace>/.specrails/`
    (`blueprint.json` source of truth + deterministic `blueprint.md`,
-   `server/blueprint-render.ts`; repo stays pristine)
+   `server/modules/builder/runtime/blueprint-render.ts`; repo stays pristine)
 5. `tickets` — `mutateStore` on the workspace `local-tickets.json`: `todo`,
    label `M1`, `source='project-builder'`, `created_by='project-builder'`, spec
    order preserved, generated priority/short summary/domain labels retained,
@@ -510,12 +510,12 @@ execution and can use Kimi.
 
 - **Launch Milestone N is SERVER-owned** (premium-milestone-progress D3):
   `POST /api/projects/:id/blueprint/milestones/:n/launch { mode }`
-  (`client/src/lib/milestone-launch.ts` `launchMilestone` is one POST; the
+  (`client/src/features/builder/lib/milestone-launch.ts` `launchMilestone` is one POST; the
   old browser-local `MilestoneSequencerContext` + its `localStorage` plan are
   GONE — `dropLegacySequentialPlans()` forgets the leftover key on load).
-  `server/milestone-chain.ts` `MilestoneChainManager` gathers the `M<n>`
+  `server/modules/builder/runtime/milestone-chain.ts` `MilestoneChainManager` gathers the `M<n>`
   `todo` tickets, chunks them (≤3, `chainRailName` → `M<n>` / `M<n> · k`),
-  persists ONE `milestone_launch_chains` row (`server/milestone-chain-store.ts`,
+  persists ONE `milestone_launch_chains` row (`server/modules/builder/runtime/milestone-chain-store.ts`,
   migration 58, partial unique index = one non-terminal chain per milestone;
   CAS `updateChain`) and launches chunk 1 through the app's OWN rails launch
   route over loopback (`server/internal-api.ts`, lifted from the MCP tools'
@@ -579,7 +579,7 @@ execution and can use Kimi.
   (`discardStackedNote` ×3 namespaces). Offered on the Builder done screen and
   the sidebar entry with the Sequential | Parallel toggle.
 - **Milestone progress is SERVER-derived** (premium-milestone-progress D2):
-  `server/milestone-progress.ts` `deriveMilestoneProgress` builds, per
+  `server/modules/builder/runtime/milestone-progress.ts` `deriveMilestoneProgress` builds, per
   milestone, counts by spec state (`total/done/onReview/inProgress/todo/failed`
   — `failed` = specs back at `todo` whose NEWEST delivery unit failed), the
   milestone's rails (active runs + non-terminal deliveries, chunk-ordered), the

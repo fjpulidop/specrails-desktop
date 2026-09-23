@@ -63,7 +63,7 @@ On pre-React boot, read localStorage. If the stored value is a legacy id, transl
 ### Public API / surface
 
 ```ts
-// client/src/lib/themes.ts
+// client/src/features/settings/lib/themes.ts
 export const LEGACY_THEME_ID_MAP: Record<string, ThemeId>
 export function isThemeId(v: unknown): v is ThemeId
 ```

@@ -43,20 +43,16 @@ vi.mock('../components/WelcomeScreen', () => ({
   ),
 }))
 
-vi.mock('../components/AddProjectDialog', () => ({
+vi.mock('../features/projects/components/AddProjectDialog', () => ({
   AddProjectDialog: () => <div data-testid="add-project-dialog" />,
 }))
 
-vi.mock('../pages/GlobalSettingsPage', () => ({
+vi.mock('../features/settings/pages/GlobalSettingsPage', () => ({
   default: () => <div data-testid="settings-dialog" />,
 }))
 
 vi.mock('../components/ProjectLayout', () => ({
   ProjectLayout: () => <div data-testid="project-layout">ProjectLayout</div>,
-}))
-
-vi.mock('../components/RootLayout', () => ({
-  RootLayout: () => <div data-testid="root-layout">RootLayout</div>,
 }))
 
 // The DesktopProvider makes REST calls to /api/projects.

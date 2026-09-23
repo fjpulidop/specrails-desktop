@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useSharedWebSocket } from './useSharedWebSocket'
 import i18n from '../lib/i18n'
 import { useUiMode } from '../context/UiModeContext'
-import { requestMissionOpenRun } from '../components/agent-chat/agent-run-failure'
+import { requestMissionOpenRun } from '../features/missions/components/agent-run-failure'
 
 interface WsJob {
   id: string

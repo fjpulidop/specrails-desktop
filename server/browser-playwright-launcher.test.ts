@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRequire } from 'node:module'
-import { createPlaywrightLauncher } from './browser-playwright'
+import { createPlaywrightLauncher } from './modules/browser/runtime/browser-playwright'
 
 // The production launcher deliberately uses require for the packaged sidecar.
 // Spy on that same cached module instead of launching a real browser or profile.

@@ -1,31 +1,32 @@
-import { shutdownAgentRuntimeControls } from './agent-runtime-controls-router'
+import { projectSupportsProfiles } from './project-profile-support'
+import { shutdownAgentRuntimeControls } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
 import type { DbInstance } from './db'
 import { initDb } from './db'
 import { resolveProjectRepository, resolveRepositoryProject, RepositoryValidationError, type ProjectRepositoryInput, type ProjectRepository, getProjectRepositories, canonicalRepositoryPath, repositoryPathKey } from './project-repositories'
-import { getRepositoryExecutionReferences } from './multi-repo-execution-store'
-import { QueueManager } from './queue-manager'
-import { createLoopProfilePathResolver, resolveAgentDefaults } from './agent-defaults'
-import { ChatManager } from './chat-manager'
+import { getRepositoryExecutionReferences } from './modules/delivery/runtime/multi-repo-execution-store'
+import { QueueManager } from './modules/execution/runtime/queue-manager'
+import { createLoopProfilePathResolver, resolveAgentDefaults } from './modules/agents/runtime/agent-defaults'
+import { ChatManager } from './modules/conversations/runtime/chat-manager'
 import { SetupManager } from './setup-manager'
-import { ProposalManager } from './proposal-manager'
-import { AgentRefineManager } from './agent-refine-manager'
-import { FileSummaryManager } from './file-summary-manager'
-import { createFileSummaryGenerator } from './file-summary-generator'
+import { ProposalManager } from './modules/specs/runtime/proposal-manager'
+import { AgentRefineManager } from './modules/agents/runtime/agent-refine-manager'
+import { FileSummaryManager } from './modules/code/runtime/file-summary-manager'
+import { createFileSummaryGenerator } from './modules/code/runtime/file-summary-generator'
 import { getAdapter } from './providers'
-import { pruneStaleRefineSessions } from './agent-refine-db'
-import { SpecLauncherManager } from './spec-launcher-manager'
+import { pruneStaleRefineSessions } from './modules/agents/runtime/agent-refine-db'
+import { SpecLauncherManager } from './modules/specs/runtime/spec-launcher-manager'
 import { WebhookManager } from './webhook-manager'
-import { TicketWatcher } from './ticket-watcher'
-import { getTerminalManager } from './terminal-manager'
-import { BrowserCaptureManager } from './browser-capture-manager'
-import { SharedBrowserContextPool } from './browser-context-pool'
-import { removeExploreCwd } from './explore-cwd-manager'
+import { TicketWatcher } from './modules/specs/runtime/ticket-watcher'
+import { getTerminalManager } from './modules/terminals/runtime/terminal-manager'
+import { BrowserCaptureManager } from './modules/browser/runtime/browser-capture-manager'
+import { SharedBrowserContextPool } from './modules/browser/runtime/browser-context-pool'
+import { removeExploreCwd } from './modules/conversations/runtime/explore-cwd-manager'
 import { dropPhaseScope } from './hooks'
 import { killTransientChildren, purgeBackgroundProcessHistory } from './transient-children'
-import { dropBlobStatesForProject } from './telemetry-receiver'
+import { dropBlobStatesForProject } from './modules/accounting/runtime/telemetry-receiver'
 import {
   mirrorProjectEntryWithPrevious,
   removeRegistryEntry,
@@ -38,24 +39,24 @@ import {
 import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolution'
 import { applyWorktreeEnvPassthrough } from './project-env'
 import { removeWorkspace } from './workspace-manager'
-import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './ticket-store'
-import { settleSpecAddendaAt } from './spec-addenda'
+import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './modules/specs/runtime/ticket-store'
+import { settleSpecAddendaAt } from './modules/specs/runtime/spec-addenda'
 import { JiraSyncManager } from './jira/jira-sync-manager'
-import { StuckRunDetector } from './stuck-run-detector'
-import { MilestoneProgressBroadcaster, readMilestoneProgress, markMilestoneDone, resolveBlueprintWorkspace } from './milestone-progress'
-import { MilestoneChainManager } from './milestone-chain'
+import { StuckRunDetector } from './modules/execution/runtime/stuck-run-detector'
+import { MilestoneProgressBroadcaster, readMilestoneProgress, markMilestoneDone, resolveBlueprintWorkspace } from './modules/builder/runtime/milestone-progress'
+import { MilestoneChainManager } from './modules/builder/runtime/milestone-chain'
 import { createInternalApi, internalApiError } from './internal-api'
-import { readBlueprint } from './blueprint-render'
+import { readBlueprint } from './modules/builder/runtime/blueprint-render'
 import { defaultGitRunner } from './worktree-manager'
 import { resolveIntegrationBranch } from './integration-branch'
 import { getProjectSettings } from './db'
-import { LoopRunManager, recoverOrphanLoopStepAccounting } from './loop-run-manager'
-import { createLoopExecutors } from './loop-executors'
-import { reconcileRailWorktrees } from './rail-isolated-launch'
-import { isRailPrDeliveryEnabled } from './rail-isolation'
-import { clearOrphanedPrDeliveryOperations, getActivePrDeliveryByRail, getPrDelivery, listOriginLinkedPrDeliveries, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './rail-pr-store'
-import { getAgentChatManager } from './agent-chat-registry'
-import { replayRailPrTicketEffectsUntilSettled } from './rail-pr-ticket-effects'
+import { LoopRunManager, recoverOrphanLoopStepAccounting } from './modules/loops/runtime/loop-run-manager'
+import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
+import { reconcileRailWorktrees } from './modules/delivery/runtime/rail-isolated-launch'
+import { isRailPrDeliveryEnabled } from './modules/delivery/runtime/rail-isolation'
+import { clearOrphanedPrDeliveryOperations, getActivePrDeliveryByRail, getPrDelivery, listOriginLinkedPrDeliveries, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './modules/delivery/runtime/rail-pr-store'
+import { getAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
+import { replayRailPrTicketEffectsUntilSettled } from './modules/delivery/runtime/rail-pr-ticket-effects'
 import {
   getLoopTerminalRecovery,
   getLoopRun,
@@ -65,10 +66,10 @@ import {
   reconcileOrphanLoopRuns,
   type LoopRunRow,
   type LoopTerminalRecoveryPayload,
-} from './loop-runs-store'
-import type { LoopSpec } from './loop-graph'
+} from './modules/loops/runtime/loop-runs-store'
+import type { LoopSpec } from './modules/loops/runtime/loop-graph'
 import type { JobStatus, WsMessage, TicketUpdatedMessage, RailUpdatedMessage } from './types'
-import { claimRailTickets, claimTicketOutcomeOwners, getRails, releaseRailTicketsOwnedBy, ticketOutcomeOwner } from './rails-store'
+import { claimRailTickets, claimTicketOutcomeOwners, getRails, releaseRailTicketsOwnedBy, ticketOutcomeOwner } from './modules/delivery/runtime/rails-store'
 import {
   initDesktopDb,
   getDesktopDbPath,
@@ -1141,14 +1142,7 @@ export class ProjectRegistry {
       profilePathFor: createLoopProfilePathResolver({
         desktopDb: this._desktopDb,
         profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
-        // Lazy require: several suites mock './queue-manager' with only the
-        // class export — a top-level named import would throw on module eval.
-        // The closure only runs at loop ai-step spawn time, never in tests
-        // that stub the queue.
-        supportsProfiles: (root) => {
-          const { projectSupportsProfiles } = require('./queue-manager') as typeof import('./queue-manager')
-          return projectSupportsProfiles(root)
-        },
+        supportsProfiles: projectSupportsProfiles,
       }),
     }))
 

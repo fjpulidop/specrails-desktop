@@ -152,7 +152,7 @@ Every adapter MUST implement `extractResult(events: AdapterEvent[]): NormalisedR
 - `duration_api_ms?: number`
 - `session_id?: string`
 
-Fields the provider does not report MUST be `undefined` (NULL when persisted). Cost calculation for providers without native cost reporting happens outside the adapter (via `server/pricing.ts`).
+Fields the provider does not report MUST be `undefined` (NULL when persisted). Cost calculation for providers without native cost reporting happens outside the adapter (via `server/modules/accounting/runtime/pricing.ts`).
 
 #### Scenario: Codex extractResult populates tokens but omits cost
 - **GIVEN** an event stream containing one `session-started` and one `result` carrying `turn.completed.usage`

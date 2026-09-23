@@ -3,10 +3,10 @@ import { spawn, type ChildProcess } from 'child_process'
 import { randomUUID } from 'crypto'
 import { StringDecoder } from 'string_decoder'
 import { assertProcessAdmission } from './process-admission'
-import { createBackgroundProcessControl, type BackgroundProcessControl } from './background-process-control'
+import { createBackgroundProcessControl, type BackgroundProcessControl } from './modules/terminals/runtime/background-process-control'
 import { windowsSpawnEnv } from './util/win-spawn'
-import { BackgroundProcessStore, BACKGROUND_HISTORY_MAX_LINES, BACKGROUND_HISTORY_RETENTION_MS } from './background-process-store'
-import { spawnWindowsBackgroundBootstrap, type WindowsBackgroundBootstrap } from './background-windows-bootstrap'
+import { BackgroundProcessStore, BACKGROUND_HISTORY_MAX_LINES, BACKGROUND_HISTORY_RETENTION_MS } from './modules/terminals/runtime/background-process-store'
+import { spawnWindowsBackgroundBootstrap, type WindowsBackgroundBootstrap } from './modules/terminals/runtime/background-windows-bootstrap'
 
 /** Fire-and-forget children not already owned by a long-lived provider manager. */
 const byProject = new Map<string, Set<ChildProcess>>()

@@ -28,7 +28,7 @@ vi.mock('../../hooks/useDesktop', () => ({
   },
 }))
 
-vi.mock('../../hooks/useTickets', () => ({
+vi.mock('../../features/specs/hooks/useTickets', () => ({
   useTickets: () => ({
     tickets: [
       { id: 3, title: 'Dark mode', status: 'todo', priority: 'high', labels: [] },
@@ -39,7 +39,7 @@ vi.mock('../../hooks/useTickets', () => ({
   }),
 }))
 
-vi.mock('../../components/TicketDetailModal', () => ({
+vi.mock('../../features/specs/components/TicketDetailModal', () => ({
   TicketDetailModal: ({ ticket }: { ticket: { id: number } }) => (
     <div data-testid="ticket-modal">ticket-{ticket.id}</div>
   ),
@@ -49,7 +49,7 @@ vi.mock('../../components/SplitViewShell', () => ({
   SplitViewShell: () => <div data-testid="split-shell" />,
 }))
 
-import { TicketDetailModalProvider, useTicketDetailModal } from '../TicketDetailModalContext'
+import { TicketDetailModalProvider, useTicketDetailModal } from '../../features/specs/context/TicketDetailModalContext'
 
 function Opener() {
   const { openTicketDetail, openTicketDetailInProject, enterSplit, state } = useTicketDetailModal()

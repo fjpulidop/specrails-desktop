@@ -3,9 +3,9 @@ import express from 'express'
 import request from 'supertest'
 import { initDesktopDb } from './desktop-db'
 import type { DbInstance } from './db'
-import { addAgentMessage, createAgentConversation, listAgentMessages, setAgentMessageIntent } from './agent-store'
-import { createAgentChatRouter } from './agent-chat-router'
-import type { AgentChatManager } from './agent-chat-manager'
+import { addAgentMessage, createAgentConversation, listAgentMessages, setAgentMessageIntent } from './modules/agents/runtime/agent-store'
+import { createAgentChatRouter } from './modules/missions/runtime/agent-chat-router'
+import type { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 
 let db: DbInstance
 beforeEach(() => { db = initDesktopDb(':memory:') })
@@ -79,7 +79,7 @@ describe('legacy single-object intent column', () => {
 
 describe('run-only card dismiss (POST /rails/pr-decision with a run: id)', () => {
   it('AgentChatManager.dismissRunCard marks the persisted envelope discarded and refuses delivery cards', async () => {
-    const { AgentChatManager } = await import('./agent-chat-manager')
+    const { AgentChatManager } = await import('./modules/missions/runtime/agent-chat-manager')
     const broadcasts: unknown[] = []
     const manager = new AgentChatManager((m: unknown) => { broadcasts.push(m) }, db, 0)
     const conv = createAgentConversation(db, { provider: 'claude' })

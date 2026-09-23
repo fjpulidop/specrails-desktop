@@ -99,5 +99,5 @@ The `matrix` theme MAY apply a subtle drop-shadow glow effect to interactive sur
 - **THEN** no element renders the matrix glow drop-shadow
 
 #### Scenario: Component code does not branch on theme identifier
-- **WHEN** a regression check runs `grep -rn "'matrix'\|\"matrix\"" client/src --include="*.tsx" --include="*.ts"` excluding `client/src/lib/themes.ts`, `client/src/lib/theme-palettes.ts`, the Appearance settings card, and the theme-effects directory (`client/src/components/theme-effects/`)
+- **WHEN** a regression check runs `grep -rn "'matrix'\|\"matrix\"" client/src --include="*.tsx" --include="*.ts"` excluding `client/src/features/settings/lib/themes.ts`, `client/src/lib/theme-palettes.ts`, the Appearance settings card, and the theme-effects directory (`client/src/components/theme-effects/`)
 - **THEN** the command returns zero matches in component code (the theme identifier appears only in the theme registry, palette maps, the Settings selector, and the dedicated theme-effects directory whose dispatcher contains the single registry entry per theme)

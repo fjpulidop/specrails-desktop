@@ -1,12 +1,12 @@
 # Loop-step log explorer
 
-The premium log surface for **loop runs**. When a job's `command` starts with `loop:`, both job views — the board's Job Detail page (`client/src/pages/JobDetailPage.tsx`, `variant="page"`) and the mission-mode job modal (`client/src/components/JobDetailModal.tsx`, `variant="glass"`) — mount `LoopStepExplorer` (`client/src/components/loop-log/LoopStepExplorer.tsx`) instead of the flat `LogViewer`. Non-loop jobs keep the legacy `LogViewer` byte-identical.
+The premium log surface for **loop runs**. When a job's `command` starts with `loop:`, both job views — the board's Job Detail page (`client/src/features/jobs/pages/JobDetailPage.tsx`, `variant="page"`) and the mission-mode job modal (`client/src/features/jobs/components/JobDetailModal.tsx`, `variant="glass"`) — mount `LoopStepExplorer` (`client/src/features/loops/components/loop-log/LoopStepExplorer.tsx`) instead of the flat `LogViewer`. Non-loop jobs keep the legacy `LogViewer` byte-identical.
 
 The explorer does **not** introduce a second log pipeline. It consumes the exact same `events` array (persisted rows + live WS frames) and the exact same line parser (`parseEvent → mergeAssistantLines → applyDiffDetection` from `LogViewer`), then *segments* the result by three structured events the loop engine already persists on the run's backing job row.
 
 ## Event contract
 
-Emitted by `server/loop-run-manager.ts` (payload interfaces are exported there — `LoopStepEventPayload`, `LoopStepEndEventPayload`, `LoopGraphEventPayload`). All three ride the run's job row as ordinary persisted `events` rows plus `event` WS broadcasts (`event_type` below, `payload` = JSON of the interface). Purely additive to the existing stream — no DB migration.
+Emitted by `server/modules/loops/runtime/loop-run-manager.ts` (payload interfaces are exported there — `LoopStepEventPayload`, `LoopStepEndEventPayload`, `LoopGraphEventPayload`). All three ride the run's job row as ordinary persisted `events` rows plus `event` WS broadcasts (`event_type` below, `payload` = JSON of the interface). Purely additive to the existing stream — no DB migration.
 
 ### `loop_graph` — once, at run start
 
@@ -137,10 +137,10 @@ All explorer strings live under the `jobs` namespace, `loopExplorer.*` (16 keys 
 
 | File | Role |
 |---|---|
-| `server/loop-run-manager.ts` | Event emission (`emitStep` / `emitStepEnd` / `loop_graph`), exported payload types, seq allocator |
-| `client/src/components/loop-log/loop-log-model.ts` | Pure grouping/status/chip model |
-| `client/src/components/loop-log/LoopStepExplorer.tsx` | Container: follow mode, filter, copy, toolbar |
-| `client/src/components/loop-log/LoopOverviewStrip.tsx` | Live chip strip + iteration counter |
-| `client/src/components/loop-log/LoopStepSection.tsx` | Per-step / Setup collapsible sections (memoized) |
-| `client/src/components/loop-log/loop-node-visuals.ts` | Node-kind icon + accent mapping |
+| `server/modules/loops/runtime/loop-run-manager.ts` | Event emission (`emitStep` / `emitStepEnd` / `loop_graph`), exported payload types, seq allocator |
+| `client/src/features/loops/components/loop-log/loop-log-model.ts` | Pure grouping/status/chip model |
+| `client/src/features/loops/components/loop-log/LoopStepExplorer.tsx` | Container: follow mode, filter, copy, toolbar |
+| `client/src/features/loops/components/loop-log/LoopOverviewStrip.tsx` | Live chip strip + iteration counter |
+| `client/src/features/loops/components/loop-log/LoopStepSection.tsx` | Per-step / Setup collapsible sections (memoized) |
+| `client/src/features/loops/components/loop-log/loop-node-visuals.ts` | Node-kind icon + accent mapping |
 | `client/src/components/loop-log/__tests__/` | Model + explorer tests |

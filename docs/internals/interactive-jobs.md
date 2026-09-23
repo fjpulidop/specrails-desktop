@@ -5,10 +5,10 @@ agent-style composer while the job runs. This doc is the as-built record of the 
 behind it: the transport, the two settle modes, the loop-step ownership design, the accounting
 reconciliation, and the failure interplay. User-facing behaviour: the in-app guide's
 [Job Detail view](../guide/en/pipeline/2-the-job-detail-view.md) page. Code:
-`server/interactive-job-session.ts`, `server/queue-manager.ts` (the interactive branch of
-`_startJob`), `server/loop-executors.ts` `planInteractiveAiStep`, `server/loop-run-manager.ts`
+`server/modules/execution/runtime/interactive-job-session.ts`, `server/modules/execution/runtime/queue-manager.ts` (the interactive branch of
+`_startJob`), `server/modules/loops/runtime/loop-executors.ts` `planInteractiveAiStep`, `server/modules/loops/runtime/loop-run-manager.ts`
 `_runInteractiveAiStep`, `server/project-router-jobs.ts` (the two manager-agnostic routes),
-`client/src/components/InteractiveJobComposer.tsx`.
+`client/src/features/jobs/components/InteractiveJobComposer.tsx`.
 
 ## Session model
 
@@ -33,7 +33,7 @@ The original interactive path was freestyle-only because freestyle sends prose, 
 command. Spike-verified 2026-07-03 against **claude 2.1.198**: the claude CLI expands slash
 commands arriving as stream-json stdin user frames **exactly like the argv `-p "/cmd"` path**
 (evidence pointer: the dated comment block above the interactive gate in
-`server/queue-manager.ts` `_startJob`, and `loop-executors.ts` `planInteractiveAiStep`). That
+`server/modules/execution/runtime/queue-manager.ts` `_startJob`, and `loop-executors.ts` `planInteractiveAiStep`). That
 makes every job — `/specrails:implement`, `/specrails:batch-implement`, distilled loop commands,
 custom commands — transport-compatible, so the default flipped to interactive for every
 persistent-stdin-capable provider.
@@ -63,7 +63,7 @@ spawnInteractive = isInteractiveJobsEnabled()            // SPECRAILS_INTERACTIV
 | Who gets it | freestyle/Freestyle QueueManager jobs (claude) | every other interactive job + ALL loop ai-steps |
 | End of session | explicit human **Finalize** only (SIGTERM → 2s → SIGKILL) | **quiescence**: a turn `result` arrived, nothing queued, no write in flight — torn down GRACEFULLY: stdin EOF (the CLI exits itself, flushing its session transcript so the next loop step can `--resume`), SIGTERM only after a grace window (`quiescentEofGraceMs`, default 5s) or when stdin is already gone |
 | Idle between turns | by design (awaiting the human) | only transiently (microtask window) |
-| Wedge detector | never armed | the queue's zombie-timeout budget (QueueManager) / the loop-step idle budget (loop ai-steps — `server/loop-step-idle.ts`, default 30 min, `SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS`), reset on any raw child output; silence for the whole budget → fold in-flight turn, settle `crashed` (loop steps: tagged `stalled`, retried once by resume) |
+| Wedge detector | never armed | the queue's zombie-timeout budget (QueueManager) / the loop-step idle budget (loop ai-steps — `server/modules/loops/runtime/loop-step-idle.ts`, default 30 min, `SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS`), reset on any raw child output; silence for the whole budget → fold in-flight turn, settle `crashed` (loop steps: tagged `stalled`, retried once by resume) |
 | Composer action | **Finalize Job** | **Wrap up now** (QueueManager) / **Settle this step** (loop step) |
 
 **Quiescence detail:** the auto-settle is deferred to a microtask after the `result` so anything
@@ -106,7 +106,7 @@ persistent stdin, each claude **ai-step** runs as its own `InteractiveJobSession
   SAME step once by resuming the captured session (`loop_step { attempt: 2 }`); a second stall
   settles the run `stalled` (tickets → `todo`, delivery row auto-closes). The one-shot loop path
   arms the same bound through `runAiCliInvocation`'s `inactivityTimeoutMs`. Contract:
-  `server/loop-step-idle.ts` — `SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS` (default 30 min; `0|false|off`
+  `server/modules/loops/runtime/loop-step-idle.ts` — `SPECRAILS_LOOP_STEP_IDLE_TIMEOUT_MS` (default 30 min; `0|false|off`
   disables; clamped ≥ the stuck-notification threshold so `job.stuck` always precedes teardown).
 
 ## Accounting reconciliation
@@ -141,7 +141,7 @@ factory loop then "succeeded" via verify/fix without implementing). Strictness r
 command didn't actually run, the settle is FAILED.**
 
 - **The predicate is shared and whole-life.** `isZeroWorkSettle` (exported from
-  `server/interactive-job-session.ts`) judges the session/step's WHOLE accumulated life: it is
+  `server/modules/execution/runtime/interactive-job-session.ts`) judges the session/step's WHOLE accumulated life: it is
   zero-work when `num_turns === 0` accumulated AND no assistant-derived event was ever observed
   (`isModelWorkEvent`: text-delta / tool-use / assistant frames / usage-carrying events; `result`
   frames do NOT count — the synthetic no-op IS a result frame) AND all four token counters are
@@ -312,7 +312,7 @@ dashboard — identical worktree isolation and ask-first PR flow. Without this, 
 implement landed in the bare QueueManager branch: shared cwd, `SPECRAILS_GIT_AUTO=false`, no
 delivery row — stranded uncommitted work. Loops disabled ⇒ the legacy QueueManager path,
 unchanged. Relatedly, the agent-chat operator prompt gained the ask-confirmation-once
-turn-discipline rule (`server/agent-operator-prompt.ts`): a confirmation question is asked
+turn-discipline rule (`server/modules/missions/runtime/agent-operator-prompt.ts`): a confirmation question is asked
 exactly once and ends the reply — the answer arrives as the next user message.
 
 ## Decider starved by its own tool budget (2026-09-07)

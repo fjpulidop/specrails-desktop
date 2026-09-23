@@ -13,7 +13,7 @@ export const REQUIRED_FILES = [
   'mcp-bridge/dist/specrails-mcp.js',
   'server/dist/schemas/profile.v1.json', 'server/dist/schemas/file-summary.v1.json',
   'server/dist/schemas/agent-runtime.schema.json',
-  'server/dist/agent-runtime-loader.js', 'server/dist/agent-runtime-bridge.js', 'server/dist/agent-runtime-controls.js',
+  'server/dist/modules/agent-runtime/runtime/agent-runtime-loader.js', 'server/dist/modules/agent-runtime/runtime/agent-runtime-bridge.js', 'server/dist/modules/agent-runtime/runtime/agent-runtime-controls.js',
   'server/dist/core-node-runtime.js',
   'server/dist/openspec-runtime-plugin-commands.json',
   'server/dist/chromium-archive.cjs',
@@ -111,7 +111,7 @@ export function checkPackage(root, output) {
     run(process.execPath, ['-e', `
       const path=require('node:path');
       process.env.SPECRAILS_CORE_RUNTIME_PATH=process.argv[2];
-      const loader=require(path.join(process.argv[1],'server/dist/agent-runtime-loader.js'));
+      const loader=require(path.join(process.argv[1],'server/dist/modules/agent-runtime/runtime/agent-runtime-loader.js'));
       loader.loadCoreAgentRuntime().then(async api=>{
         api.validateRuntimeConfig({schemaVersion:1});
         process.pkg={entrypoint:'/snapshot/server/index.js'};

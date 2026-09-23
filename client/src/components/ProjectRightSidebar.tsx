@@ -6,7 +6,7 @@ import { LayoutDashboard, Briefcase, BarChart3, Code2, Settings, PanelRight } fr
 import { cn } from '../lib/utils'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { FEATURE_CODE_EXPLORER } from '../lib/feature-flags'
-import { BuilderSidebarEntry } from './project-builder/BuilderSidebarEntry'
+import { BuilderSidebarEntry } from '../features/builder/components/project-builder/BuilderSidebarEntry'
 
 const RIGHT_PIN_LABEL_KEY: Record<'pinned-open' | 'pinned-collapsed' | 'unpinned', string> = {
   'pinned-open': 'sidebarPin.right.pinnedOpen',

@@ -106,7 +106,7 @@ GUARDRAILS = the canonical hardened anti-gaming block (multi-line string):
 
 In `LoopsPage`, the Templates section gains a filter header above the grid:
 
-- **Search input** — debounced (~150ms); case-insensitive substring match over `name + description + tags.join(' ') + category`. Pure function `filterTemplates(templates, { query, categories })` lives in a testable module (`client/src/lib/loop-template-filter.ts`).
+- **Search input** — debounced (~150ms); case-insensitive substring match over `name + description + tags.join(' ') + category`. Pure function `filterTemplates(templates, { query, categories })` lives in a testable module (`client/src/features/loops/lib/loop-template-filter.ts`).
 - **Category chips** — one chip per category that actually appears in the catalog, each showing a count; multi-select (OR within categories, AND with the search query); an "All" affordance clears the category selection. Chips use semantic theme tokens (`accent-*`, `surface`, `muted`) — no brand-named colours.
 - **Card badge** — each template card renders its category as a small badge plus its tags (tags currently only show in the preview modal).
 - **Empty state** — when the active filter yields zero templates, a localized "no results" row with a clear-filters action.

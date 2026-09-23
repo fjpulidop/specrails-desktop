@@ -10,7 +10,7 @@
 
 ## 2. Capability union (client)
 
-- [x] 2.1 Flip `client/src/lib/provider-capabilities.ts` `sectionVisibleForProviders` from `every` to `some`; sweep all callsites; key single-provider selector suppression on detected-set size
+- [x] 2.1 Flip `client/src/features/providers/lib/provider-capabilities.ts` `sectionVisibleForProviders` from `every` to `some`; sweep all callsites; key single-provider selector suppression on detected-set size
 - [x] 2.2 Client detection state: fetch detected set + subscribe to `providers.detected_changed` + focus-refresh (usePrerequisites pattern); feed engine selectors (`AiEngineSelector`, `RailEngineSelector`, `CliLaunchMenu`) from it, filtered per section capability; auth badge ("not signed in") on unauthenticated providers
 - [x] 2.3 Client tests: union visibility, selector filtering, single-provider invariant, auth badge
 

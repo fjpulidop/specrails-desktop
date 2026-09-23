@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAgentContextBlock, buildReferenceItems, railChip, railsFromResponse, toContextReference, type PaletteSourceState } from '../agent-context-palette'
+import { buildAgentContextBlock, buildReferenceItems, railChip, railsFromResponse, toContextReference, type PaletteSourceState } from '../../features/missions/lib/agent-context-palette'
 
 const base: PaletteSourceState = {
   projects: [{ id: 'p1', name: 'Home', slug: 'home', path: '/h', db_path: '', provider: 'claude', added_at: '', last_seen_at: '' }] as PaletteSourceState['projects'],

@@ -35,7 +35,7 @@ import {
   JobRecoveryPendingError,
 } from './db'
 import type { DbInstance } from './db'
-import { recordInvocation } from './ai-invocations'
+import { recordInvocation } from './modules/accounting/runtime/ai-invocations'
 
 function makeDb(): DbInstance {
   return initDb(':memory:')

@@ -67,7 +67,7 @@ When the project's MCP toggle is ON, Explore turns instead spawn with `cwd = <pr
 
 ### D2: Hub-managed embedded `CLAUDE.md` template, no per-project override in v1
 
-**Decision.** The Explore `CLAUDE.md` is a single embedded constant in `server/explore-cwd-manager.ts`. On first-use per project (and on hub version bump), the file is materialised at `~/.specrails/projects/<slug>/explore-cwd/CLAUDE.md`. The constant is interpolated with `{{projectName}}` and `{{projectPath}}` so the prompt naturally references the user's repo via `./project`.
+**Decision.** The Explore `CLAUDE.md` is a single embedded constant in `server/modules/conversations/runtime/explore-cwd-manager.ts`. On first-use per project (and on hub version bump), the file is materialised at `~/.specrails/projects/<slug>/explore-cwd/CLAUDE.md`. The constant is interpolated with `{{projectName}}` and `{{projectPath}}` so the prompt naturally references the user's repo via `./project`.
 
 The template communicates, in ~30–60 lines:
 
@@ -108,7 +108,7 @@ The setting is read fresh on every `sendMessage` call so toggling takes effect o
 
 **Why.** Some projects rely on serena or other MCP servers in their flow; the toggle is the escape hatch. Defaulting OFF makes the acceleration the out-of-the-box behaviour.
 
-**UI.** New Explore section in `client/src/pages/SettingsPage.tsx` with a single toggle and a one-paragraph explainer about the trade-off (no MCP servers vs faster first-token, plus a note that tools still work).
+**UI.** New Explore section in `client/src/features/settings/pages/SettingsPage.tsx` with a single toggle and a one-paragraph explainer about the trade-off (no MCP servers vs faster first-token, plus a note that tools still work).
 
 ### D5: Stable Explore system prompt — already lightweight, but harden
 

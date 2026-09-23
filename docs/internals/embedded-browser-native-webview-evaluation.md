@@ -4,8 +4,8 @@
 
 > Status: **implemented (phases 0–1 + devtools/zoom from phase 2)** — researched
 > 2026-07-26, shipped via OpenSpec change `native-embedded-browser`. As-built:
-> `src-tauri/src/browser.rs`, `client/src/lib/native-browser.ts`,
-> `client/src/components/browser-capture/NativeBrowserPane.tsx`, router in
+> `src-tauri/src/browser.rs`, `client/src/features/browser/lib/native-browser.ts`,
+> `client/src/features/browser/components/browser-capture/NativeBrowserPane.tsx`, router in
 > `WebViewModal.tsx`. Open follow-ups: Windows z-order QA on a real build
 > (tauri #9798), localhost-preview affordance (port detection), agent
 > observability (phase 3).
@@ -21,9 +21,9 @@ headless Chromium (Playwright, server)  ──CDP Page.startScreencast──▶ 
      input WS  ◀────────────────────────────────  <canvas> + createImageBitmap (client)
 ```
 
-- `server/browser-playwright.ts` — CDP screencast (JPEG, quality 70, `everyNthFrame: 1`).
-- `server/browser-context-pool.ts` — one persistent headless Chromium resident for the app.
-- `client/src/components/browser-capture/useBrowserCaptureSession.ts` — WS → bitmap → canvas pipeline, newest-frame-wins.
+- `server/modules/browser/runtime/browser-playwright.ts` — CDP screencast (JPEG, quality 70, `everyNthFrame: 1`).
+- `server/modules/browser/runtime/browser-context-pool.ts` — one persistent headless Chromium resident for the app.
+- `client/src/features/browser/components/browser-capture/useBrowserCaptureSession.ts` — WS → bitmap → canvas pipeline, newest-frame-wins.
 - The app **bundles a full Chromium** in the installer (`server/chromium-resolver.ts`, XOR blob `chromium.pak`) just to power this.
 
 Consequences: a second full Chromium process tree resident; continuous JPEG

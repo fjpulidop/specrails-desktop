@@ -10,7 +10,7 @@ vi.mock('child_process', () => ({
   execFile: vi.fn(),
 }))
 vi.mock('tree-kill', () => ({ default: vi.fn() }))
-vi.mock('./agent-cwd-manager', () => ({ ensureAgentCwd: () => '/tmp/agent-cwd-test' }))
+vi.mock('./modules/missions/runtime/agent-cwd-manager', () => ({ ensureAgentCwd: () => '/tmp/agent-cwd-test' }))
 vi.mock('./agent-mcp-config', () => ({
   prepareAgentMcp: () => ({ extraArgs: [], env: {} }),
   removeAgentCapabilityFile: vi.fn(),
@@ -21,10 +21,10 @@ vi.mock('./attachment-manager', () => ({
   USER_ATTACHMENT_SYSTEM_NOTE: 'note',
 }))
 
-import { AgentChatManager } from './agent-chat-manager'
-import { setAgentChatManager, getAgentChatManager } from './agent-chat-registry'
+import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
+import { setAgentChatManager, getAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
 import { initDesktopDb } from './desktop-db'
-import { createAgentConversation, addAgentMessage, listAgentMessages } from './agent-store'
+import { createAgentConversation, addAgentMessage, listAgentMessages } from './modules/agents/runtime/agent-store'
 import type { DbInstance } from './db'
 import type { PrDecisionCardEnvelope } from './types'
 

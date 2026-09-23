@@ -7,7 +7,7 @@ import path from 'path'
 import os from 'os'
 
 import { initDb, type DbInstance } from '../db'
-import { readStore, resolveTicketStoragePath, mutateStore, type Ticket } from '../ticket-store'
+import { readStore, resolveTicketStoragePath, mutateStore, type Ticket } from '../modules/specs/runtime/ticket-store'
 import { setSecretStore } from './jira-credential-store'
 import { upsertConnection, insertLinkWithId, listOutbox, getLinkByLocalId } from './jira-db'
 import type { FetchImpl } from './jira-client'

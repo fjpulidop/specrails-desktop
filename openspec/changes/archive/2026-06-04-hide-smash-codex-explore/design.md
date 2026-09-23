@@ -4,7 +4,7 @@
 
 ### Where the SMASH-capable element lives
 
-`ContextScopeSlider` (`client/src/components/ContextScopeSlider.tsx`) renders a
+`ContextScopeSlider` (`client/src/features/chat/components/ContextScopeSlider.tsx`) renders a
 hint block when `value.contractRefine === true`:
 
 ```tsx
@@ -32,7 +32,7 @@ code path.
 ### How provider is resolved on the client
 
 `ProposeSpecModal` uses `useDefaultSpecModel(activeProjectId, open)` from
-`client/src/components/explore-spec/SpecModelPicker.tsx`. This hook fetches
+`client/src/features/specs/components/explore-spec/SpecModelPicker.tsx`. This hook fetches
 `GET /api/projects/:projectId/default-spec-model` and returns:
 
 ```ts
@@ -64,7 +64,7 @@ of what the client sent.
 
 ### D1 — Single utility module for provider capability queries
 
-**Decision**: Create `client/src/lib/provider-capabilities.ts` with an
+**Decision**: Create `client/src/features/providers/lib/provider-capabilities.ts` with an
 `isSmashCapable(provider: string): boolean` function.
 
 **Rationale**: Capability checks scattered across components create invisible
@@ -112,7 +112,7 @@ ChatManager) would leave incorrect data in the conversation row.
 
 ## File-by-File Changes
 
-### `client/src/lib/provider-capabilities.ts` — CREATE
+### `client/src/features/providers/lib/provider-capabilities.ts` — CREATE
 
 New pure utility module. Contains one exported function and one exported type:
 
@@ -134,7 +134,7 @@ callers need not assert type narrowness when the provider hasn't been resolved y
 `false`, which is the safe default — better to hide the hint momentarily than to
 flash it for Codex users during load).
 
-### `client/src/components/ContextScopeSlider.tsx` — MODIFY
+### `client/src/features/chat/components/ContextScopeSlider.tsx` — MODIFY
 
 Extend `ContextScopeSliderProps` with:
 
@@ -175,7 +175,7 @@ Update the hint render condition:
 No other logic changes. Default `true` means all existing call sites continue to
 render the hint without modification unless they opt out.
 
-### `client/src/components/ProposeSpecModal.tsx` — MODIFY
+### `client/src/features/specs/components/ProposeSpecModal.tsx` — MODIFY
 
 1. Import `isSmashCapable` from the new utility module.
 2. Destructure `provider` from `useDefaultSpecModel`:

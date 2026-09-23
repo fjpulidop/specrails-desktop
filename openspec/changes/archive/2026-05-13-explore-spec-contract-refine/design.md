@@ -6,9 +6,9 @@ This change adds a **Contract Layer** to every committed Explore spec, populated
 
 Current state of relevant surfaces:
 
-- `server/chat-manager.ts` already implements an Explore lifecycle (idle-kill on minimize, crash auto-respawn, concurrency cap of 5). The refine turn plugs into this lifecycle as a new sub-step.
-- `server/explore-cwd-manager.ts` provides hub-managed cwd materialisation. The refine turn reuses it (same cwd resolution as a normal Explore turn — respects `contextScope.mcp`).
-- `server/ai-invocations.ts` already records every Explore turn. The refine turn writes a row through the same path; spending analytics absorb it transparently.
+- `server/modules/conversations/runtime/chat-manager.ts` already implements an Explore lifecycle (idle-kill on minimize, crash auto-respawn, concurrency cap of 5). The refine turn plugs into this lifecycle as a new sub-step.
+- `server/modules/conversations/runtime/explore-cwd-manager.ts` provides hub-managed cwd materialisation. The refine turn reuses it (same cwd resolution as a normal Explore turn — respects `contextScope.mcp`).
+- `server/modules/accounting/runtime/ai-invocations.ts` already records every Explore turn. The refine turn writes a row through the same path; spending analytics absorb it transparently.
 - `server/project-router.ts` already exposes `explore-mcp-enabled` toggle endpoints — the new `explore-contract-refine-enabled` endpoints mirror that shape exactly.
 - `SettingsPage` already renders an "Explore Spec" card — the new toggle drops in without restructuring.
 - The Explore system prompt is byte-stable across turns (cache-warmth invariant). The refine turn is a *different* prompt: it does not need to be byte-stable across refines (each one runs once per spec), but it MUST be byte-stable across two refines for the same `(conversationId, draft snapshot)` so retries are cheap.
@@ -109,7 +109,7 @@ Defaults to `false` because: (a) the feature is new and unvalidated, (b) adds co
 
 **Chosen:** Write a separate row in `ai_invocations` per refine turn, `surface='explore-spec'`, with `conversation_id` set to the Explore conversation id and `ticket_id` set to the newly committed ticket id. This matches how Explore turns are recorded today — the refine just appears as one more turn on the same conversation, which is what it actually is.
 
-**Why not a dedicated surface name like `'explore-spec-refine'`:** Would force `server/spending.ts`, the analytics dashboard, the CSV export schema, and every filter chip to learn a new value. The cost-vs-value ratio of a finer-grained breakdown in v1 is poor. If we later want to isolate refine spend, add a `mode` column or a derived filter — don't fork the surface enumeration.
+**Why not a dedicated surface name like `'explore-spec-refine'`:** Would force `server/modules/accounting/runtime/spending.ts`, the analytics dashboard, the CSV export schema, and every filter chip to learn a new value. The cost-vs-value ratio of a finer-grained breakdown in v1 is poor. If we later want to isolate refine spend, add a `mode` column or a derived filter — don't fork the surface enumeration.
 
 ### D7. Refinement failure is silent + non-blocking
 

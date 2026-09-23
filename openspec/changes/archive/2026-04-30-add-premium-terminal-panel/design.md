@@ -1,6 +1,6 @@
 ## Context
 
-Today's panel (`client/src/context/TerminalsContext.tsx` + `client/src/components/terminal/*` + `server/terminal-manager.ts`) renders xterm.js with three addons (`fit`, `web-links`, plus the css). PTY data flows in as binary frames over a dedicated `/ws/terminal/:id` socket; user input flows out as binary; resizes are JSON control frames. Settings are hardcoded constants. There is no link between what the user types and what the panel knows about (no shell integration), and there is no notion of "command" — only a stream of bytes.
+Today's panel (`client/src/features/terminals/context/TerminalsContext.tsx` + `client/src/components/terminal/*` + `server/modules/terminals/runtime/terminal-manager.ts`) renders xterm.js with three addons (`fit`, `web-links`, plus the css). PTY data flows in as binary frames over a dedicated `/ws/terminal/:id` socket; user input flows out as binary; resizes are JSON control frames. Settings are hardcoded constants. There is no link between what the user types and what the panel knows about (no shell integration), and there is no notion of "command" — only a stream of bytes.
 
 The starting xterm version in the repo and the CSS lifecycle (`@xterm/xterm/css/xterm.css` imported once) mean we can layer additional addons without ripping anything out. The hidden-host reparent pattern (`#specrails-terminal-host`) keeps `Terminal` instances alive across React StrictMode double-invokes and project switches; that pattern is load-bearing and stays.
 
@@ -101,7 +101,7 @@ if (renderMode === 'webgl' || (renderMode === 'auto' && webgl2Available())) {
 
 **Why over one big JSON blob:** stronger validation per field, easier diffs, cleaner audit trail in `hub_settings` rows.
 
-**Trade-off:** values are stored as TEXT and need parsing/serialising. The accessor layer (`server/terminal-settings.ts`) owns the codec, with tight unit tests.
+**Trade-off:** values are stored as TEXT and need parsing/serialising. The accessor layer (`server/modules/terminals/runtime/terminal-settings.ts`) owns the codec, with tight unit tests.
 
 ### Decision 6: Resize debounce, not throttle, and `transitionend` listener on ancestor sidebars
 

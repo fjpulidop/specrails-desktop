@@ -14,7 +14,7 @@ vi.mock('child_process', async importOriginal => ({
   ...await importOriginal<typeof import('child_process')>(),
   spawn: vi.fn(() => { throw new Error('Direct process spawning is forbidden in the native composition fixture.') }),
 }))
-vi.mock('./agent-cwd-manager', () => ({
+vi.mock('./modules/missions/runtime/agent-cwd-manager', () => ({
   ensureAgentCwd: () => '/tmp/specrails-native-composition-test',
   ensureAgentConversationCwd: () => '/tmp/specrails-native-composition-test/conversation',
 }))
@@ -26,10 +26,10 @@ vi.mock('./attachment-manager', () => ({
 vi.mock('./external-mcp', () => ({ resolveExternalEntries: () => [] }))
 vi.mock('tree-kill', () => ({ default: vi.fn() }))
 
-import { AgentChatManager } from './agent-chat-manager'
+import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 import { initDesktopDb } from './desktop-db'
-import { createAgentConversation, getAgentConversation, listAgentMessages, updateAgentConversation } from './agent-store'
-import { getAgentInput } from './agent-input-store'
+import { createAgentConversation, getAgentConversation, listAgentMessages, updateAgentConversation } from './modules/agents/runtime/agent-store'
+import { getAgentInput } from './modules/missions/runtime/agent-input-store'
 import { _resetAgentCapabilitiesForTest } from './mcp/agent-capability'
 
 type Frame = Record<string, any>

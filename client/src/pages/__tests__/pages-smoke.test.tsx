@@ -51,7 +51,7 @@ vi.mock('../../hooks/useDesktop', () => ({
   }),
 }))
 
-vi.mock('../../hooks/useActivity', () => ({
+vi.mock('../../features/analytics/hooks/useActivity', () => ({
   useActivity: () => ({
     items: [],
     loading: false,
@@ -81,13 +81,13 @@ describe('ActivityFeedPage', () => {
   })
 
   it('renders Activity heading', async () => {
-    const ActivityFeedPage = (await import('../ActivityFeedPage')).default
+    const ActivityFeedPage = (await import('../../features/analytics/pages/ActivityFeedPage')).default
     render(<ActivityFeedPage />)
     expect(screen.getByRole('heading', { name: /activity/i })).toBeInTheDocument()
   })
 
   it('renders empty state when no items', async () => {
-    const ActivityFeedPage = (await import('../ActivityFeedPage')).default
+    const ActivityFeedPage = (await import('../../features/analytics/pages/ActivityFeedPage')).default
     render(<ActivityFeedPage />)
     await waitFor(() => {
       expect(screen.getByText('No activity yet')).toBeInTheDocument()
@@ -95,7 +95,7 @@ describe('ActivityFeedPage', () => {
   })
 
   it('renders activity items when provided', async () => {
-    vi.doMock('../../hooks/useActivity', () => ({
+    vi.doMock('../../features/analytics/hooks/useActivity', () => ({
       useActivity: () => ({
         items: [
           {
@@ -117,7 +117,7 @@ describe('ActivityFeedPage', () => {
     // Need fresh module import after mock change
     vi.resetModules()
     // Re-import with fresh mocks
-    const ActivityFeedPageFresh = (await import('../ActivityFeedPage')).default
+    const ActivityFeedPageFresh = (await import('../../features/analytics/pages/ActivityFeedPage')).default
     render(<ActivityFeedPageFresh />)
     await waitFor(() => {
       expect(screen.getByText('/architect --spec SPEA-001')).toBeInTheDocument()
@@ -145,7 +145,7 @@ describe('GlobalSettingsPage', () => {
   })
 
   it('renders Desktop Settings dialog when open=true', async () => {
-    const GlobalSettingsPage = (await import('../GlobalSettingsPage')).default
+    const GlobalSettingsPage = (await import('../../features/settings/pages/GlobalSettingsPage')).default
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
@@ -154,13 +154,13 @@ describe('GlobalSettingsPage', () => {
   })
 
   it('does not render dialog content when open=false', async () => {
-    const GlobalSettingsPage = (await import('../GlobalSettingsPage')).default
+    const GlobalSettingsPage = (await import('../../features/settings/pages/GlobalSettingsPage')).default
     render(<GlobalSettingsPage open={false} onClose={vi.fn()} />)
     expect(screen.queryByText('Desktop Settings')).toBeNull()
   })
 
   it('renders registered projects section when open=true', async () => {
-    const GlobalSettingsPage = (await import('../GlobalSettingsPage')).default
+    const GlobalSettingsPage = (await import('../../features/settings/pages/GlobalSettingsPage')).default
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
@@ -169,7 +169,7 @@ describe('GlobalSettingsPage', () => {
   })
 
   it('does not render the removed specrails-tech URL field', async () => {
-    const GlobalSettingsPage = (await import('../GlobalSettingsPage')).default
+    const GlobalSettingsPage = (await import('../../features/settings/pages/GlobalSettingsPage')).default
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
@@ -178,7 +178,7 @@ describe('GlobalSettingsPage', () => {
   })
 
   it('renders desktop information section', async () => {
-    const GlobalSettingsPage = (await import('../GlobalSettingsPage')).default
+    const GlobalSettingsPage = (await import('../../features/settings/pages/GlobalSettingsPage')).default
     render(<GlobalSettingsPage open={true} onClose={vi.fn()} />)
 
     await waitFor(() => {
@@ -209,7 +209,7 @@ describe('DocsPage', () => {
   })
 
   it('renders Documentation sidebar link', async () => {
-    const DocsPage = (await import('../DocsPage')).default
+    const DocsPage = (await import('../../features/docs/pages/DocsPage')).default
     render(<DocsPage />)
 
     await waitFor(() => {
@@ -220,7 +220,7 @@ describe('DocsPage', () => {
   })
 
   it('renders category names from the API', async () => {
-    const DocsPage = (await import('../DocsPage')).default
+    const DocsPage = (await import('../../features/docs/pages/DocsPage')).default
     render(<DocsPage />)
 
     await waitFor(() => {
@@ -231,7 +231,7 @@ describe('DocsPage', () => {
   })
 
   it('renders doc links from categories', async () => {
-    const DocsPage = (await import('../DocsPage')).default
+    const DocsPage = (await import('../../features/docs/pages/DocsPage')).default
     render(<DocsPage />)
 
     await waitFor(() => {
@@ -242,7 +242,7 @@ describe('DocsPage', () => {
   })
 
   it('renders index page total doc count', async () => {
-    const DocsPage = (await import('../DocsPage')).default
+    const DocsPage = (await import('../../features/docs/pages/DocsPage')).default
     render(<DocsPage />)
 
     await waitFor(() => {
@@ -257,7 +257,7 @@ describe('DocsPage', () => {
       json: async () => ({ categories: [] }),
     })
 
-    const DocsPage = (await import('../DocsPage')).default
+    const DocsPage = (await import('../../features/docs/pages/DocsPage')).default
     render(<DocsPage />)
 
     await waitFor(() => {
@@ -268,7 +268,7 @@ describe('DocsPage', () => {
   it('falls back to empty categories when fetch fails', async () => {
     ;(global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('network'))
 
-    const DocsPage = (await import('../DocsPage')).default
+    const DocsPage = (await import('../../features/docs/pages/DocsPage')).default
     render(<DocsPage />)
 
     await waitFor(() => {

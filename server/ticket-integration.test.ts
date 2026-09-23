@@ -20,10 +20,10 @@ import { vi } from 'vitest'
 import { createProjectRouter } from './project-router'
 import { initDb } from './db'
 import { initDesktopDb } from './desktop-db'
-import { TicketWatcher } from './ticket-watcher'
+import { TicketWatcher } from './modules/specs/runtime/ticket-watcher'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import type { DbInstance } from './db'
-import type { TicketStore } from './ticket-store'
+import type { TicketStore } from './modules/specs/runtime/ticket-store'
 
 // ─── Test infrastructure (mirrors ticket-store.test.ts) ───────────────────────
 

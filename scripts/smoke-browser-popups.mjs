@@ -43,7 +43,7 @@ function document(body, script = '') {
 try {
   const bundle = path.join(temp, 'browser-popups.cjs')
   await build({
-    stdin: { contents: `export { PlaywrightPageHandle, chromiumLaunchArgs } from './server/browser-playwright'; export { BrowserCaptureManager } from './server/browser-capture-manager';`, resolveDir: root, loader: 'ts' },
+    stdin: { contents: `export { PlaywrightPageHandle, chromiumLaunchArgs } from './server/modules/browser/runtime/browser-playwright'; export { BrowserCaptureManager } from './server/modules/browser/runtime/browser-capture-manager';`, resolveDir: root, loader: 'ts' },
     bundle: true, platform: 'node', format: 'cjs', outfile: bundle, logLevel: 'silent',
     plugins: [{ name: 'local-dependencies', setup(build) {
       build.onResolve({ filter: /^[^./]|^@/ }, ({ path: name }) => ({ path: require.resolve(name), external: true }))

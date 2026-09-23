@@ -22,8 +22,8 @@ The Add Spec modal's Explore mode renders a SMASH-capable hint and the "enables 
 
 ## Impact
 
-- `client/src/components/ContextScopeSlider.tsx` — new optional `provider` prop; hint rendered conditionally.
-- `client/src/components/ContextScopeChecks.tsx` — new optional `provider` prop; checkbox hint text trimmed for Codex.
-- `client/src/components/ProposeSpecModal.tsx` — destructures `provider` from `useDefaultSpecModel`; threads it to both scope components.
+- `client/src/features/chat/components/ContextScopeSlider.tsx` — new optional `provider` prop; hint rendered conditionally.
+- `client/src/features/chat/components/ContextScopeChecks.tsx` — new optional `provider` prop; checkbox hint text trimmed for Codex.
+- `client/src/features/specs/components/ProposeSpecModal.tsx` — destructures `provider` from `useDefaultSpecModel`; threads it to both scope components.
 - `server/project-router.ts` — `POST /:projectId/chat/conversations` endpoint strips `contractRefine` from the scope when `project.provider === 'codex'`.
 - Tests: `ContextScopeSlider.test.tsx`, `ContextScopeChecks.test.tsx`, `ProposeSpecModal.test.tsx`, `project-router.test.ts`.

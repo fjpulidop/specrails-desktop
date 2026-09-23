@@ -1,0 +1,760 @@
+import React from 'react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '../../../../test-utils'
+import userEvent from '@testing-library/user-event'
+import JobDetailPage from '../JobDetailPage'
+import type { JobSummary, EventRow } from '../../../../types'
+// The run header polls the agent-runtime continuation through this hook; the
+// page tests are about the page's own fetch choreography, so the poll is inert
+// here (its own behaviour is covered by JobRunHeader / AgentRuntimeRuns tests).
+const mockUseRuntimeRuns = vi.fn()
+vi.mock('../../components/job-run/useRuntimeRuns', () => ({
+  useRuntimeRuns: (...args: unknown[]) => mockUseRuntimeRuns(...args),
+}))
+
+vi.mock('sonner', () => ({
+  toast: {
+    promise: vi.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
+  },
+}))
+
+vi.mock('../../../../lib/api', () => ({
+  getApiBase: () => '/api',
+}))
+
+vi.mock('react-markdown', () => ({
+  default: ({ children }: { children: string }) => <span>{children}</span>,
+}))
+vi.mock('remark-gfm', () => ({ default: () => {} }))
+vi.mock('../../../../lib/markdown-detect', () => ({
+  hasMarkdownSyntax: () => false,
+}))
+
+const mockNavigate = vi.fn()
+
+// Mock useParams + useNavigate
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return {
+    ...actual,
+    useParams: () => ({ id: 'job-abc123' }),
+    useNavigate: () => mockNavigate,
+  }
+})
+
+// Mock useDesktop
+vi.mock('../../../../hooks/useDesktop', () => ({
+  useDesktop: () => ({
+    activeProjectId: 'proj-1',
+    projects: [],
+    isLoading: false,
+    setupProjectIds: new Set(),
+    setActiveProjectId: vi.fn(),
+    startSetupWizard: vi.fn(),
+    completeSetupWizard: vi.fn(),
+    addProject: vi.fn(),
+    removeProject: vi.fn(),
+  }),
+}))
+
+// Mock useSharedWebSocket
+const mockRegisterHandler = vi.fn()
+const mockUnregisterHandler = vi.fn()
+vi.mock('../../../../hooks/useSharedWebSocket', () => ({
+  useSharedWebSocket: () => ({
+    registerHandler: mockRegisterHandler,
+    unregisterHandler: mockUnregisterHandler,
+    connectionStatus: 'connected',
+  }),
+}))
+
+const mockJob: JobSummary = {
+  id: 'job-abc123',
+  command: '/specrails:implement',
+  started_at: '2024-01-15T10:00:00Z',
+  finished_at: '2024-01-15T10:00:30Z',
+  status: 'completed',
+  total_cost_usd: 0.05,
+  duration_ms: 30000,
+  model: 'claude-sonnet-4-5',
+}
+
+const mockEvents: EventRow[] = [
+  {
+    id: 1,
+    job_id: 'job-abc123',
+    seq: 1,
+    event_type: 'log',
+    source: 'stdout',
+    payload: JSON.stringify({ line: 'Starting implementation...' }),
+    timestamp: '2024-01-15T10:00:01Z',
+  },
+]
+
+describe('JobDetailPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockNavigate.mockClear()
+    mockUseRuntimeRuns.mockReturnValue({ runs: [], error: '', busy: null, answers: {}, setAnswer: vi.fn(), act: vi.fn(), refresh: vi.fn() })
+    // The log surface now defaults to the narrated altitude (matching the Code
+    // explorer's Story|Log precedent). These tests are about the RAW views, so
+    // pin the persisted mode; the narrated mode has its own tests below.
+    localStorage.setItem('specrails-desktop:job-log-mode', 'log')
+  })
+
+  afterEach(() => { localStorage.clear() })
+
+  it('shows loading state initially', () => {
+    global.fetch = vi.fn().mockImplementation(() => new Promise(() => {}))
+    const { container } = render(<JobDetailPage />)
+    const pulseElements = container.querySelectorAll('.animate-pulse')
+    expect(pulseElements.length).toBeGreaterThan(0)
+  })
+
+  it('renders job details when job is found', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: mockJob, events: mockEvents }),
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByText('/specrails:implement')).toBeInTheDocument()
+    })
+  })
+
+  it('shows job status badge', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: mockJob, events: mockEvents }),
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByText('completed')).toBeInTheDocument()
+    })
+  })
+
+  it('shows breadcrumb with job id', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: mockJob, events: mockEvents }),
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByText(/Job #job-abc1/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows 404 state when job not found (404 response)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByText(/Job not found/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows 404 state when fetch throws', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByText(/Job not found/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows Back to Dashboard link in 404 state', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /Back to Dashboard/i })).toBeInTheDocument()
+    })
+  })
+
+  it('does not show Cancel Job button for completed jobs', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: mockJob, events: mockEvents }),
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByText('/specrails:implement')).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /Cancel Job/i })).not.toBeInTheDocument()
+  })
+
+  it('shows Cancel Job button for running jobs', async () => {
+    const runningJob = { ...mockJob, status: 'running' as const }
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: runningJob, events: [] }),
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Cancel Job/i })).toBeInTheDocument()
+    })
+  })
+
+  it('Cancel button sends an explicit POST cancel request', async () => {
+    const user = userEvent.setup()
+    const runningJob = { ...mockJob, status: 'running' as const }
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: runningJob, events: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Cancel Job/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Cancel Job/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/jobs/job-abc123/cancel',
+        expect.objectContaining({ method: 'POST' })
+      )
+    })
+  })
+
+  it('registers WebSocket handler on mount', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: mockJob, events: mockEvents }),
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(mockRegisterHandler).toHaveBeenCalled()
+    })
+  })
+
+  it.each(['queue', 'runtime.continuation'])('re-fetches job on %s lifecycle updates', async (eventType) => {
+    const runningJob = { ...mockJob, status: 'running' as const, duration_ms: null, total_cost_usd: null }
+    const completedJob = { ...mockJob, status: 'completed' as const, duration_ms: 30000, total_cost_usd: 0.05 }
+
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: runningJob, events: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: completedJob, events: mockEvents }) })
+
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(mockRegisterHandler).toHaveBeenCalled()
+    })
+
+    const handler = mockRegisterHandler.mock.calls[0][1]
+    handler({ type: eventType, jobId: 'job-abc123', projectId: 'proj-1', active: false, jobs: [{ id: 'job-abc123', status: 'completed' }] })
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+      expect(global.fetch).toHaveBeenLastCalledWith('/api/jobs/job-abc123')
+    })
+  })
+
+  it('renders log viewer section', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: mockJob, events: mockEvents }),
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      // LogViewer shows the log line
+      expect(screen.getByText('Starting implementation...')).toBeInTheDocument()
+    })
+    // The shared run header scopes its runtime continuation to THIS job in the
+    // active project (the old contextual AgentRuntimeRuns mount).
+    expect(mockUseRuntimeRuns).toHaveBeenCalledWith('proj-1', { jobId: 'job-abc123', enabled: true })
+  })
+
+  it('renders Dashboard link in breadcrumb', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: mockJob, events: mockEvents }),
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /Dashboard/i })).toBeInTheDocument()
+    })
+  })
+
+  it('shows Re-execute button for completed jobs', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: mockJob, events: mockEvents }),
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Re-execute/i })).toBeInTheDocument()
+    })
+  })
+
+  it('shows Re-execute button for failed jobs', async () => {
+    const failedJob = { ...mockJob, status: 'failed' as const }
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: failedJob, events: [] }),
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Re-execute/i })).toBeInTheDocument()
+    })
+  })
+
+  it('does not show Re-execute button for running jobs', async () => {
+    const runningJob = { ...mockJob, status: 'running' as const }
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: runningJob, events: [] }),
+    })
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Cancel Job/i })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /Re-execute/i })).not.toBeInTheDocument()
+  })
+
+  it('Re-execute spawns new job and navigates to new job detail', async () => {
+    const user = userEvent.setup()
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: mockJob, events: mockEvents }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'new-job-id' }) })
+
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Re-execute/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Re-execute/i }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/spawn',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ 'Idempotency-Key': expect.any(String) }),
+          body: JSON.stringify({ rerunOfJobId: 'job-abc123' }),
+        })
+      )
+      expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-id')
+    })
+  })
+
+  it('delegates a Kimi custom-alias rerun to the server without inventing effort', async () => {
+    const user = userEvent.setup()
+    const kimiJob: JobSummary = {
+      ...mockJob,
+      command: '/specrails:implement #42 --yes',
+      provider: 'kimi',
+      model: 'moonshot-team/private-coder:v2',
+      profile_name: 'kimi-balanced',
+      tickets: [{ id: 42, title: 'Keep rerun metadata' }],
+    }
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: kimiJob, events: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'kimi-rerun' }) })
+
+    render(<JobDetailPage />)
+    await user.click(await screen.findByRole('button', { name: /Re-execute/i }))
+
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[1] as [string, RequestInit]
+    const payload = JSON.parse(String(init.body)) as Record<string, unknown>
+    expect(payload).toEqual({ rerunOfJobId: 'job-abc123' })
+    expect(payload).not.toHaveProperty('reasoning_effort')
+    expect(payload).not.toHaveProperty('effort')
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/kimi-rerun'))
+  })
+
+  it('coalesces rapid Re-execute clicks into one billable spawn', async () => {
+    let resolveSpawn!: (value: unknown) => void
+    const pendingSpawn = new Promise((resolve) => { resolveSpawn = resolve })
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: mockJob, events: mockEvents }) })
+      .mockImplementationOnce(() => pendingSpawn)
+
+    render(<JobDetailPage />)
+    const button = await screen.findByRole('button', { name: /Re-execute/i })
+    fireEvent.click(button)
+    fireEvent.click(button)
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
+    expect(button).toBeDisabled()
+    resolveSpawn({ ok: true, json: async () => ({ jobId: 'new-job-id' }) })
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-id'))
+  })
+
+  it('uses a fresh idempotency key for a deliberate rerun after the first succeeds', async () => {
+    const user = userEvent.setup()
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ job: mockJob, events: mockEvents }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'new-job-1' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ jobId: 'new-job-2' }) })
+
+    render(<JobDetailPage />)
+    const button = await screen.findByRole('button', { name: /Re-execute/i })
+    await user.click(button)
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-1'))
+    await user.click(button)
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/jobs/new-job-2'))
+
+    const spawnCalls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.slice(1)
+    const firstKey = (spawnCalls[0][1] as RequestInit).headers as Record<string, string>
+    const secondKey = (spawnCalls[1][1] as RequestInit).headers as Record<string, string>
+    expect(firstKey['Idempotency-Key']).not.toBe(secondKey['Idempotency-Key'])
+  })
+
+  describe('Export diagnostic', () => {
+    it('shows Export diagnostic button when hasTelemetry is true', async () => {
+      const telemetryJob = { ...mockJob, hasTelemetry: true }
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: telemetryJob, events: mockEvents }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Export diagnostic/i })).toBeInTheDocument()
+      })
+    })
+
+    it('Export diagnostic click fetches the endpoint and triggers blob download', async () => {
+      const user = userEvent.setup()
+      const telemetryJob = { ...mockJob, hasTelemetry: true }
+      const fakeBlob = new Blob(['zip-bytes'], { type: 'application/zip' })
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ job: telemetryJob, events: mockEvents }) })
+        .mockResolvedValueOnce({ ok: true, blob: async () => fakeBlob })
+
+      // jsdom URL.createObjectURL / revokeObjectURL shims
+      const origCreate = URL.createObjectURL
+      const origRevoke = URL.revokeObjectURL
+      URL.createObjectURL = vi.fn(() => 'blob:mock-url')
+      URL.revokeObjectURL = vi.fn()
+
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Export diagnostic/i })).toBeInTheDocument()
+      })
+      await user.click(screen.getByRole('button', { name: /Export diagnostic/i }))
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/api/jobs/job-abc123/diagnostic')
+        expect(URL.createObjectURL).toHaveBeenCalledWith(fakeBlob)
+      })
+      URL.createObjectURL = origCreate
+      URL.revokeObjectURL = origRevoke
+    })
+
+    it('does NOT show Export diagnostic when hasTelemetry is false', async () => {
+      const noTelJob = { ...mockJob, hasTelemetry: false }
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: noTelJob, events: mockEvents }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByText('/specrails:implement')).toBeInTheDocument()
+      })
+      expect(screen.queryByRole('button', { name: /Export diagnostic/i })).not.toBeInTheDocument()
+    })
+
+    it('does NOT show Export diagnostic when hasTelemetry is undefined', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: mockJob, events: mockEvents }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByText('/specrails:implement')).toBeInTheDocument()
+      })
+      expect(screen.queryByRole('button', { name: /Export diagnostic/i })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Run header', () => {
+    it('renders the shared run header for running jobs with the live activity line', async () => {
+      const runningJob = { ...mockJob, status: 'running' as const, finished_at: null, total_cost_usd: null }
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: runningJob, events: [] }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByTestId('job-run-header')).toBeInTheDocument()
+      })
+      expect(screen.getByTestId('job-run-activity')).toHaveTextContent('Connecting to the agent…')
+      // No placeholder "calculated when finished" tiles — nothing to disclose yet.
+      expect(screen.queryByText(/calculated when finished/i)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
+    })
+
+    it('derives unavailable pipeline coverage for Kimi phases instead of zero totals', async () => {
+      const kimiJob = {
+        ...mockJob,
+        provider: 'kimi',
+        pipeline_id: 'pipe-kimi',
+        total_cost_usd: null,
+        tokens_in: null,
+        tokens_out: null,
+        tokens_cache_read: null,
+        tokens_cache_create: null,
+      }
+      global.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ job: kimiJob, events: [] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            jobs: [
+              { ...kimiJob, id: 'phase-1' },
+              { ...kimiJob, id: 'phase-2' },
+            ],
+          }),
+        })
+      render(<JobDetailPage />)
+
+      // Numbers live behind the collapsed Details disclosure.
+      fireEvent.click(await screen.findByRole('button', { name: 'Details' }))
+      await waitFor(() => {
+        expect(screen.getByTestId('pipeline-cost-unavailable')).toBeInTheDocument()
+      })
+      expect(screen.getByTestId('pipeline-usage-coverage-hint')).toHaveTextContent(/unavailable for every phase/i)
+      expect(screen.queryByText('$0.0000')).not.toBeInTheDocument()
+      expect(screen.queryByText('0.0k')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Ticket identity card', () => {
+    const baseJob = { ...mockJob, command: '/specrails:implement #24 --yes' }
+
+    it('renders the ticket card when job has tickets', async () => {
+      const jobWithTickets = {
+        ...baseJob,
+        tickets: [{ id: 24, title: 'Add live job status' }],
+      } as JobSummary
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: jobWithTickets, events: [] }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByText('Add live job status')).toBeInTheDocument()
+      })
+      expect(screen.getByText('#24')).toBeInTheDocument()
+    })
+
+    it('falls back to legacy header when job has no tickets', async () => {
+      const noTickets = { ...mockJob, tickets: [] } as JobSummary
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: noTickets, events: [] }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByText('/specrails:implement')).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/(deleted)/)).not.toBeInTheDocument()
+    })
+
+    it('renders deleted ticket as muted chip without title', async () => {
+      const deletedTicket = {
+        ...baseJob,
+        tickets: [{ id: 24, title: null }],
+      } as JobSummary
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: deletedTicket, events: [] }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByText('#24 (deleted)')).toBeInTheDocument()
+      })
+    })
+
+    it('renders compact mode with "+ N more" when 4+ tickets, expand reveals all', async () => {
+      const user = userEvent.setup()
+      const manyTickets = {
+        ...baseJob,
+        tickets: [
+          { id: 1, title: 'First ticket' },
+          { id: 2, title: 'Second ticket' },
+          { id: 3, title: 'Third ticket' },
+          { id: 4, title: 'Fourth ticket' },
+          { id: 5, title: 'Fifth ticket' },
+        ],
+      } as JobSummary
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: manyTickets, events: [] }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByText('First ticket')).toBeInTheDocument()
+      })
+      // Initially compact: only first title visible.
+      expect(screen.queryByText('Second ticket')).not.toBeInTheDocument()
+      expect(screen.getByText(/\+ 4 more/i)).toBeInTheDocument()
+
+      await user.click(screen.getByText(/\+ 4 more/i))
+      expect(screen.getByText('Second ticket')).toBeInTheDocument()
+      expect(screen.getByText('Fifth ticket')).toBeInTheDocument()
+    })
+  })
+
+  describe('Loop-step explorer (loop jobs only)', () => {
+    const loopJob: JobSummary = {
+      ...mockJob,
+      command: 'loop: Nightly refactor',
+      status: 'running',
+      finished_at: null,
+      total_cost_usd: null,
+      duration_ms: null,
+    }
+    const loopEvents: EventRow[] = [
+      {
+        id: 1,
+        job_id: 'job-abc123',
+        seq: 0,
+        event_type: 'log',
+        source: 'stdout',
+        payload: JSON.stringify({ line: '▶ Loop "Nightly refactor" started' }),
+        timestamp: '2024-01-15T10:00:01Z',
+      },
+      {
+        id: 2,
+        job_id: 'job-abc123',
+        seq: 1,
+        event_type: 'loop_step',
+        source: 'stdout',
+        payload: JSON.stringify({ index: 1, kind: 'ai-step', title: '🤖 Implement', nodeId: 'ai1', iteration: 0 }),
+        timestamp: '2024-01-15T10:00:02Z',
+      },
+      {
+        id: 3,
+        job_id: 'job-abc123',
+        seq: 2,
+        event_type: 'log',
+        source: 'stdout',
+        payload: JSON.stringify({ line: 'step output line' }),
+        timestamp: '2024-01-15T10:00:03Z',
+      },
+    ]
+
+    it('replaces the phase-grouped LogViewer with the explorer for loop jobs', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: loopJob, events: loopEvents }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByTestId('loop-step-explorer')).toBeInTheDocument()
+      })
+      // The step box renders with the cleaned title (also echoed on the strip
+      // chip) and the live step line
+      expect(screen.getAllByTestId('loop-step-section')).toHaveLength(1)
+      expect(screen.getAllByText('Implement').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText('step output line')).toBeInTheDocument()
+    })
+
+    it('regression pin: non-loop jobs keep the legacy LogViewer (no explorer)', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: mockJob, events: mockEvents }),
+      })
+      render(<JobDetailPage />)
+      await waitFor(() => {
+        expect(screen.getByText('Starting implementation...')).toBeInTheDocument()
+      })
+      expect(screen.queryByTestId('loop-step-explorer')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('loop-overview-strip')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Interactive freestyle session', () => {
+    const interactiveJob: JobSummary = {
+      ...mockJob,
+      command: '/specrails:freestyle #1 --yes',
+      status: 'running',
+      finished_at: null,
+      interactive: 1,
+    }
+
+    it('shows Finalize + composer and posts to the finalize and messages endpoints', async () => {
+      const user = userEvent.setup()
+      const calls: Array<{ url: string; method?: string }> = []
+      global.fetch = vi.fn().mockImplementation((url: string, opts?: { method?: string }) => {
+        calls.push({ url: String(url), method: opts?.method })
+        return Promise.resolve({ ok: true, json: async () => ({ job: interactiveJob, events: [] }) })
+      }) as unknown as typeof fetch
+
+      render(<JobDetailPage />)
+      await waitFor(() => expect(screen.getByText('Finalize Job')).toBeInTheDocument())
+
+      const textarea = screen.getByPlaceholderText(/Send a message to the running job/i)
+      await user.type(textarea, 'add error handling')
+      await user.click(screen.getByRole('button', { name: /Send/i }))
+      await waitFor(() =>
+        expect(calls.some((c) => c.url.endsWith('/jobs/job-abc123/messages') && c.method === 'POST')).toBe(true),
+      )
+
+      await user.click(screen.getByText('Finalize Job'))
+      await waitFor(() =>
+        expect(calls.some((c) => c.url.endsWith('/jobs/job-abc123/finalize') && c.method === 'POST')).toBe(true),
+      )
+    })
+
+    it('does not show the composer for a non-interactive running job', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ job: { ...interactiveJob, interactive: 0 }, events: [] }),
+      }) as unknown as typeof fetch
+      render(<JobDetailPage />)
+      await waitFor(() => expect(screen.getByText('/specrails:freestyle #1 --yes')).toBeInTheDocument())
+      expect(screen.queryByText('Finalize Job')).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText(/Send a message to the running job/i)).not.toBeInTheDocument()
+    })
+  })
+
+})
+
+describe('JobDetailPage — narrated altitude', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockNavigate.mockClear()
+    mockUseRuntimeRuns.mockReturnValue({ runs: [], error: '', busy: null, answers: {}, setAnswer: vi.fn(), act: vi.fn(), refresh: vi.fn() })
+    localStorage.clear() // no pinned preference ⇒ the narrated default applies
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: mockJob, events: mockEvents }),
+    })
+  })
+
+  afterEach(() => { localStorage.clear() })
+
+  it('opens on the narrated view by default', async () => {
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByTestId('job-narration-mode-narrated')).toHaveAttribute('aria-pressed', 'true')
+    })
+    // The raw log line is NOT shown until the user asks for it.
+    expect(screen.queryByText('Starting implementation...')).not.toBeInTheDocument()
+  })
+
+  it('switches to the raw log and remembers the choice', async () => {
+    render(<JobDetailPage />)
+    fireEvent.click(await screen.findByTestId('job-narration-mode-log'))
+    await waitFor(() => {
+      expect(screen.getByText('Starting implementation...')).toBeInTheDocument()
+    })
+    expect(localStorage.getItem('specrails-desktop:job-log-mode')).toBe('log')
+  })
+
+  it('restores a previously chosen raw-log preference', async () => {
+    localStorage.setItem('specrails-desktop:job-log-mode', 'log')
+    render(<JobDetailPage />)
+    await waitFor(() => {
+      expect(screen.getByTestId('job-narration-mode-log')).toHaveAttribute('aria-pressed', 'true')
+    })
+  })
+})

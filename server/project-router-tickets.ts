@@ -2,44 +2,23 @@
 // Registered on the shared router by createProjectRouter — behaviour-preserving.
 import fs from 'fs'
 import { validateTicketRepositoryIds, RepositoryValidationError, getProjectRepositories } from './project-repositories'
-import path from 'path'
-import { Router, Request, Response, NextFunction } from 'express'
+import { Request, Response, NextFunction } from 'express'
 import { newId as uuidv4 } from './ids'
-import type { ProjectRegistry, ProjectContext } from './project-registry'
+import type { ProjectContext } from './project-registry'
 import {
-  listJobs, getJob, getJobEvents, purgeJobs, deleteJob, getProjectActivity,
-  createConversation, listConversations, getConversation,
-  deleteConversation, updateConversation, getMessages,
-  getStats, getPipelineJobs,
-  createProposal, getProposal, listProposals, deleteProposal,
-  createTemplate, listTemplates, getTemplate, updateTemplate, deleteTemplate,
-  getProjectSettings, updateProjectSettings,
-  getQuickContractRefineLast, setQuickContractRefineLast, hasQuickContractRefineLast,
-  getTelemetryBlob, getTelemetrySummaries, getJobsWithTelemetry, hasJobTelemetry,
+  getConversation,
+  deleteConversation, getMessages, setQuickContractRefineLast
 } from './db'
-import { createDiagnosticZip } from './telemetry-export'
-import { getProjectSetupSession } from './desktop-db'
-import { ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError, DEFAULT_ZOMBIE_TIMEOUT_MS } from './queue-manager'
-import type { JobPriority } from './types'
-import { VALID_PRIORITIES } from './types'
-import { resolveCommand } from './command-resolver'
 import { getAdapter } from './providers'
-import { createHooksRouter, getPhaseStates } from './hooks'
-import { getConfig, fetchIssues } from './config'
-import { runContractRefine, runContractRefineForQuick } from './contract-refine-runner'
-import { isExploreContractRefineKillSwitchActive, splitDescriptionAtContractLayer } from './explore-contract-refine'
-import { runSmash, runSmashUndo, applyDeleteEpicChildren, checkSmashEligibility } from './smash-runner'
-import { isSpecsSmashKillSwitchActive } from './explore-smash'
-import { recordInvocation, updateTicketIdForConversation, getTicketSpendingSummary } from './ai-invocations'
-import { getContextBudget } from './context-budget'
+import { runContractRefine, runContractRefineForQuick } from './modules/specs/runtime/contract-refine-runner'
+import { isExploreContractRefineKillSwitchActive, splitDescriptionAtContractLayer } from './modules/conversations/runtime/explore-contract-refine'
+import { runSmash, runSmashUndo, applyDeleteEpicChildren, checkSmashEligibility } from './modules/specs/runtime/smash-runner'
+import { isSpecsSmashKillSwitchActive } from './modules/conversations/runtime/explore-smash'
+import { recordInvocation, updateTicketIdForConversation } from './modules/accounting/runtime/ai-invocations'
 import {
-  getLastContextScope, setLastContextScope, normalizeContextScope,
-  setConversationContextScope, getConversationContextScope,
-  buildScopedSystemPromptPrefix, toolFlagsForScope, defaultBootScope,
-  type ContextScope,
-} from './context-scope'
-import { finaliseInvocationResult } from './result-event'
-import { CORE_PACKAGE_SPEC } from './core-package'
+  buildScopedSystemPromptPrefix, toolFlagsForScope, type ContextScope
+} from './modules/conversations/runtime/context-scope'
+import { finaliseInvocationResult } from './modules/accounting/runtime/result-event'
 import type { AdapterEvent } from './providers/types'
 import type { SpawnOptions } from './providers/types'
 import {
@@ -49,30 +28,22 @@ import {
   supportsContractRefine,
   supportsToolPolicy,
 } from './providers/runtime'
-import { getSpending, getInvocations, parseSpendingFilters } from './spending'
 import { randomUUID } from 'crypto'
 import {
-  getModelsForProvider,
-  getProviderDefault,
-  isValidModelForProvider,
-  type SpecProvider,
-} from './spec-models'
-import { resolveProvider, validateRequestedProvider, isMultiProvider } from './provider-selection'
-import type { ChatConversationRow, JobTemplate, JobRow } from './types'
-import { readChanges } from './changes-reader'
-import { getProjectMetrics } from './metrics'
+  getModelsForProvider, isValidModelForProvider,
+  type SpecProvider
+} from './modules/specs/runtime/spec-models'
+import { validateRequestedProvider } from './provider-selection'
 import {
-  resolveTicketStoragePath, readStore, mutateStore, filterTickets,
-  isValidStatus, isValidPriority, validatePriorityForStatus,
-  resolveTicketsFromCommand,
-  clampShortSummary,
-  type Ticket,
-} from './ticket-store'
-import { generateAutoTitle } from './explore-draft-title'
+  readStore, mutateStore, filterTickets,
+  isValidStatus, isValidPriority, validatePriorityForStatus, clampShortSummary,
+  type Ticket
+} from './modules/specs/runtime/ticket-store'
+import { generateAutoTitle } from './modules/conversations/runtime/explore-draft-title'
 import {
   appendSpecAddendum, buildSpecAddendum, editSpecAddendum, parseSpecAddendumInput, readSpecAddenda,
   removeSpecAddendum, setSpecAddendumStatus, SpecAddendumValidationError, type SpecAddendum,
-} from './spec-addenda'
+} from './modules/specs/runtime/spec-addenda'
 import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, TicketAiEditStreamMessage, TicketAiEditDoneMessage, TicketAiEditErrorMessage, SpecGenStreamMessage, SpecGenDoneMessage, SpecGenErrorMessage, LocalTicket } from './types'
 import { spawnAiCli } from './util/cli-prompt'
 import { trackTransientChild } from './transient-children'
@@ -81,44 +52,14 @@ import { createInterface } from 'readline'
 import treeKill from 'tree-kill'
 import { resolveProjectExecution } from './workspace-resolution'
 import multer from 'multer'
-import { createRailsRouter } from './rails-router'
-import { createProfilesRouter } from './profiles-router'
-import { createPluginsRouter } from './plugins-router'
-import { createCodeExplorerRouter } from './code-explorer-router'
-import {
-  getDesktopTerminalSettings,
-  getProjectOverride,
-  patchProjectOverride,
-  resolveTerminalSettings,
-  TerminalSettingsValidationError,
-} from './terminal-settings'
-import { listMarks } from './terminal-marks-store'
 import { attachmentManager, isSupportedUploadedFile, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
-import { isBrowserCaptureEnabled } from './feature-flags'
-import { BrowserLimitExceededError, BrowserLaunchError } from './browser-capture-types'
-import type { CaptureRect } from './browser-capture-types'
 import {
-  getTerminalManager,
-  TerminalLimitExceededError,
-  TerminalNotFoundError,
-  TerminalNameInvalidError,
-  TerminalSpawnError,
-  TERMINAL_MAX_PER_PROJECT,
-} from './terminal-manager'
-import {
-  type ProjectRoutesDeps,
-  type ModelAlias,
-  TERMINAL_PANEL_ENABLED,
-  VALID_MODEL_ALIASES,
-  readAgentModels,
-  applyModelConfig,
-  serializeInstallConfigYaml,
-  stripSpecMetadataSections,
+  type ProjectRoutesDeps, stripSpecMetadataSections,
   extractShortSummary,
   deriveFallbackShortSummary,
   lightlyStructurePrompt,
   formatDescriptionWithCriteria,
-  resolveDefaultSpecModel,
+  resolveDefaultSpecModel
 } from './project-router-helpers'
 
 type TicketBoundProviderResult =
@@ -202,7 +143,7 @@ async function maybePromoteSpecToJira(
 }
 
 export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
-  const { router, registry, ctx, ticketPath } = deps
+  const { router, ctx, ticketPath } = deps
   // Validate scope at every authoring boundary before writes, uploads or AI.
   const validateRepositoryScope = (req: Request, res: Response, next: NextFunction): void => {
     try {
@@ -609,10 +550,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         // Create ticket directly
         try {
           const now = new Date().toISOString()
-          let created: import('./ticket-store').Ticket | undefined
+          let created: import('./modules/specs/runtime/ticket-store').Ticket | undefined
           const store = mutateStore(filePath, (s) => {
             const id = s.next_id++
-            const ticket: import('./ticket-store').Ticket = {
+            const ticket: import('./modules/specs/runtime/ticket-store').Ticket = {
               ...repositoryScope(req, res),
               id,
               title: specTitle,
@@ -1356,7 +1297,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     // Validate the ticket exists.
     try {
       const filePath = ticketPath(req)
-      const { withLock } = await import('./ticket-store')
+      const { withLock } = await import('./modules/specs/runtime/ticket-store')
       const ticket = withLock(filePath, (s) => s.tickets[String(ticketId)])
       if (!ticket) { res.status(404).json({ error: 'ticket not found' }); return }
       const refineProviderCheck = resolveTicketBoundProvider(
@@ -1439,7 +1380,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     const { project, db, broadcast } = ctx(req)
     try {
       const filePath = ticketPath(req)
-      const { readStore } = await import('./ticket-store')
+      const { readStore } = await import('./modules/specs/runtime/ticket-store')
       const store = readStore(filePath)
       const gate = checkSmashEligibility(store, ticketId)
       if (!gate.ok) {
@@ -1600,7 +1541,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (status !== undefined && !isValidStatus(status)) {
       res.status(400).json({ error: 'status must be one of: draft, todo, in_progress, on_review, done, cancelled' }); return
     }
-    const finalStatus = (status ?? 'todo') as import('./ticket-store').TicketStatus
+    const finalStatus = (status ?? 'todo') as import('./modules/specs/runtime/ticket-store').TicketStatus
     const finalPriority = priority === undefined ? (finalStatus === 'draft' ? null : 'medium') : (priority === null ? null : priority)
     const priorityError = validatePriorityForStatus(finalStatus, finalPriority as never)
     if (priorityError) {
@@ -1829,7 +1770,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       const store = mutateStore(filePath, (s) => {
         const ticket = s.tickets[ticketId]
         if (!ticket) return
-        const nextStatus = (status ?? ticket.status) as import('./ticket-store').TicketStatus
+        const nextStatus = (status ?? ticket.status) as import('./modules/specs/runtime/ticket-store').TicketStatus
         const nextPriority = priority === undefined ? ticket.priority : (priority === null ? null : priority)
         const err = validatePriorityForStatus(nextStatus, nextPriority as never)
         if (err) { validationError = err; return }

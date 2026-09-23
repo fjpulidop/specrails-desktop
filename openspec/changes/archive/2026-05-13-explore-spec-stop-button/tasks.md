@@ -1,6 +1,6 @@
 ## 1. Composer Stop button
 
-- [x] 1.1 In `client/src/components/explore-spec/ExploreSpecShell.tsx`, render a Stop button in the same flex slot as the Send button when `conversation?.isStreaming === true`. Use `Button` with `variant="ghost"` + `text-destructive` classes (mirror the visual treatment in `client/src/components/ChatInput.tsx` lines 100–109). Keep the `⌘⏎` keybind hint span visible in both states.
+- [x] 1.1 In `client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx`, render a Stop button in the same flex slot as the Send button when `conversation?.isStreaming === true`. Use `Button` with `variant="ghost"` + `text-destructive` classes (mirror the visual treatment in `client/src/features/chat/components/ChatInput.tsx` lines 100–109). Keep the `⌘⏎` keybind hint span visible in both states.
 - [x] 1.2 The Stop button SHALL be enabled regardless of composer text content. The Send button retains its existing disabled rules (`!hasComposerText || (!conversation && !editTicket) || conversation?.isStreaming || pendingTurn`).
 - [x] 1.3 Wire the Stop button's `onClick` to `chat.abortStream(conversation.id)` from `useChat()`. Guard against `conversation == null`.
 
@@ -11,7 +11,7 @@
 
 ## 3. Tests
 
-- [x] 3.1 Extend `client/src/components/explore-spec/__tests__/ExploreSpecShell.test.tsx` with a test that renders the shell with `conversation.isStreaming === true`, asserts a "Stop" button is present, asserts Send is not, and clicking Stop calls the mocked `abortStream` with the conversation id.
+- [x] 3.1 Extend `client/src/features/specs/components/explore-spec/__tests__/ExploreSpecShell.test.tsx` with a test that renders the shell with `conversation.isStreaming === true`, asserts a "Stop" button is present, asserts Send is not, and clicking Stop calls the mocked `abortStream` with the conversation id.
 - [x] 3.2 Add a test that asserts the Stop button is enabled even when the composer is empty.
 - [x] 3.3 Add a test that simulates the `⌘⏎` keybind via `RichAttachmentEditor`'s `onSubmit` prop while `isStreaming` is true and asserts `abortStream` is called (and no `sendMessage` call is made).
 - [x] 3.4 Add a test that asserts Send is restored (and Stop unmounts) when `isStreaming` flips back to false.

@@ -40,7 +40,7 @@ Decisión: **pinear ids GA concretos, no alias ni ids preview**, porque los ids 
 
 `[UNCERTAIN]`: el mapping alias→id-concreto no está byte-documentado; se resuelve NO usando alias.
 
-**Filas para `server/pricing.ts` (clave `'gemini:<model>'`, USD por 1M tokens, Standard paid tier):**
+**Filas para `server/modules/accounting/runtime/pricing.ts` (clave `'gemini:<model>'`, USD por 1M tokens, Standard paid tier):**
 
 ```ts
 // Gemini (Google). Ref: ai.google.dev/gemini-api/docs/pricing (fetched 2026-06-16).
@@ -159,7 +159,7 @@ export { claudeAdapter, codexAdapter, geminiAdapter }
 
 **Decisión: `nativeOtelEnv: true` — Gemini va por el path de claude (env-injection), NO por el bridge sintético de codex.** Evidencia `[confirmed]`: `packages/core/src/telemetry/config.ts` (PR #9113) lee de `process.env` con precedencia env>settings, emitiendo OTLP nativo de traces+metrics+logs.
 
-**Cómo se inyecta** — en `server/queue-manager.ts`, con `nativeOtelEnv:true` el bloque del bridge (`queue-manager.ts:1197-1205`, gated `!adapter.capabilities.nativeOtelEnv`) **se salta automáticamente**, y Gemini fluye por `buildTelemetryEnv` (`queue-manager.ts:1042,1105`). El adapter/queue inyecta:
+**Cómo se inyecta** — en `server/modules/execution/runtime/queue-manager.ts`, con `nativeOtelEnv:true` el bloque del bridge (`queue-manager.ts:1197-1205`, gated `!adapter.capabilities.nativeOtelEnv`) **se salta automáticamente**, y Gemini fluye por `buildTelemetryEnv` (`queue-manager.ts:1042,1105`). El adapter/queue inyecta:
 ```
 GEMINI_TELEMETRY_ENABLED=true
 GEMINI_TELEMETRY_TARGET=local
@@ -185,15 +185,15 @@ Mergeable independiente, no cambia comportamiento observable.
 | Fichero:línea | Cambio | Bloq |
 |---|---|---|
 | `server/desktop-db.ts:10,50,167,268,388` | `CliProvider = 'claude'\|'codex'` → ensanchar a incluir `'gemini'` (o alias a `ProviderId`/string). Tipo DB central; todos heredan. `DEFAULT 'claude'` se mantiene. | **sí** |
-| `server/spec-models.ts:1-37` | `SpecProvider` union + reemplazar ternario `provider==='codex'?CODEX:CLAUDE` en `getModelsForProvider` por **lookup `Record<provider, SpecModelOption[]>`** (fallback `adapter.defaultModel()`/`[]`). `PROVIDER_DEFAULT_MODEL` → record extensible. | **sí** |
+| `server/modules/specs/runtime/spec-models.ts:1-37` | `SpecProvider` union + reemplazar ternario `provider==='codex'?CODEX:CLAUDE` en `getModelsForProvider` por **lookup `Record<provider, SpecModelOption[]>`** (fallback `adapter.defaultModel()`/`[]`). `PROVIDER_DEFAULT_MODEL` → record extensible. | **sí** |
 | `server/desktop-router.ts:158-168` (`GET /available-providers`) | Dejar de destructurar `{claude,codex}` fijo; `detectAvailableCLIs()` ya devuelve `Record<string,boolean>` → **devolver el map entero (spread)**. `if(providers.claude\|\|providers.codex)` → `Object.values(providers).some(Boolean)`. | **sí** |
 | `server/desktop-router.ts:265-266` | casts `as 'claude'\|'codex'` en addProject → ensanchar (registry valida con `hasAdapter`). | **sí** |
 | `server/project-registry.ts:116` | `AddProjectInput.providers?: ('claude'\|'codex')[]` → `ProviderId[]`/`string[]`. | **sí** |
 | `client/src/hooks/useDesktop.tsx:29,35,48,172` | 4 anotaciones `('claude'\|'codex')[]` → `string[]`/`ProviderId`. | **sí** |
-| `client/src/lib/provider-capabilities.ts:11` | `ProviderId = 'claude'\|'codex'` → añadir `'gemini'`/string. | **sí** |
+| `client/src/features/providers/lib/provider-capabilities.ts:11` | `ProviderId = 'claude'\|'codex'` → añadir `'gemini'`/string. | **sí** |
 | `client/src/components/ModelSelector.tsx:20-55,80` | ternario `provider==='claude'?CLAUDE:CODEX` → map por id; `PRESET_DEFAULTS`/`MAX_OVERRIDES` literal → `Record<string,string>`; ensanchar prop union. **Bloqueante funcional**: sin esto Gemini mostraría modelos de Codex. | **sí** |
-| `client/src/components/ChatInput.tsx:7-18,25` | selección por id-keyed map; ensanchar `provider?: 'claude'\|'codex'`. | **sí** |
-| `client/src/components/AddProjectDialog.tsx:28,31,37,41,67-79,96,141,235-236` | `availableProviders` de `{claude;codex}` fijo → `Record<string,boolean>` iterado sobre `/available-providers`; `!claude && !codex` → iterar keys. | **sí** |
+| `client/src/features/chat/components/ChatInput.tsx:7-18,25` | selección por id-keyed map; ensanchar `provider?: 'claude'\|'codex'`. | **sí** |
+| `client/src/features/projects/components/AddProjectDialog.tsx:28,31,37,41,67-79,96,141,235-236` | `availableProviders` de `{claude;codex}` fijo → `Record<string,boolean>` iterado sobre `/available-providers`; `!claude && !codex` → iterar keys. | **sí** |
 | `client/src/components/{AiEngineSelector:40,53, RailEngineSelector:33,38, CliLaunchMenu:52,55, explore-spec/SpecModelPicker:23,81, SetupWizard:563}` | casts inline `as 'claude'\|'codex'` → ensanchar union. Listas data-driven, Gemini aparece solo. | **sí** |
 | `server/util/cli-prompt.ts:178-191` | `spawnAiCli` ya cae a `spawnCli` genérico para binarios desconocidos → **POSIX funciona sin cambio**. Windows multi-line argv (`transformClaudeArgsForWindows`/`transformCodexArgsForWindows`) NO cubre gemini. | cosmético (POSIX) / bloq Windows |
 
@@ -203,17 +203,17 @@ Mergeable independiente, no cambia comportamiento observable.
 |---|---|---|
 | `server/providers/gemini-adapter.ts` (nuevo) | El adapter completo (§3). | **sí** |
 | `server/providers/index.ts:11-14,17` | import + `register(geminiAdapter)` + re-export. | **sí** |
-| `server/pricing.ts:44-50` | 4 filas `'gemini:<model>'` (§2). Sin ellas coste=NULL. | **sí** |
+| `server/modules/accounting/runtime/pricing.ts:44-50` | 4 filas `'gemini:<model>'` (§2). Sin ellas coste=NULL. | **sí** |
 | `server/project-router-tickets.ts:1540-1556` (ai-edit) | dispatch hardcoded `if(provider==='codex'){binary='codex'...} else {binary='claude'...}` → **un proyecto gemini spawnearía 'claude' (binario equivocado)**. Reemplazar por `adapter.binary` + `adapter.buildArgs` (patrón ya usado en quick-spec línea 341). | **sí** |
 | `server/project-router-tickets.ts:420,610,1022,1148` | bloques `if(provider==='codex')` sin hermano gemini → generalizar o añadir arm gemini. | **sí** |
 | `server/setup-manager.ts:697-700,1306-1307` | regex allow-list `m[1]==='claude'\|\|m[1]==='codex'` **descarta 'gemini' silenciosamente** → install-config cae a claude. Añadir `'gemini'`. **Fallo silencioso de alto riesgo.** | **sí** |
 | `server/setup-manager.ts:495-503` | `computeSummary` branch codex → hermano gemini si el summary difiere. | menor |
 | `server/setup-prerequisites.ts:405-423` | switch de install-hint: añadir `case 'gemini':` (URL/comando install Gemini CLI). | menor |
-| `server/agent-refine-manager.ts:73,79` | ensanchar `provider?: 'claude'\|'codex'`. (validateAgentBody ya skip non-claude). | **sí** (compile) |
-| `server/chat-manager.ts:124,132,332` | ensanchar `provider?: 'claude'\|'codex'` ctor + cast persistido. Gates `adapter.id==='claude'` (scope/userMcp) ya rutean gemini como codex (OK). | **sí** (compile) |
-| `server/result-event.ts:98-117` | `normaliseResultEvent` legacy shim: gemini cae al branch codex `else` (mis-parsea usage). **Preferir `adapter.extractResult`** (path moderno). Ensanchar union por si se usa. | menor |
-| `client/src/types/context-scope.ts:62-67` | añadir filas de coste gemini (cliente). | menor |
-| `client/src/components/analytics/ProviderBreakdownCard.tsx:9-17` | `PROVIDER_LABEL`/`PROVIDER_ACCENT`: añadir `gemini` (label + accent, p.ej. `bg-accent-success`). | menor |
+| `server/modules/agents/runtime/agent-refine-manager.ts:73,79` | ensanchar `provider?: 'claude'\|'codex'`. (validateAgentBody ya skip non-claude). | **sí** (compile) |
+| `server/modules/conversations/runtime/chat-manager.ts:124,132,332` | ensanchar `provider?: 'claude'\|'codex'` ctor + cast persistido. Gates `adapter.id==='claude'` (scope/userMcp) ya rutean gemini como codex (OK). | **sí** (compile) |
+| `server/modules/accounting/runtime/result-event.ts:98-117` | `normaliseResultEvent` legacy shim: gemini cae al branch codex `else` (mis-parsea usage). **Preferir `adapter.extractResult`** (path moderno). Ensanchar union por si se usa. | menor |
+| `client/src/features/chat/types/context-scope.ts:62-67` | añadir filas de coste gemini (cliente). | menor |
+| `client/src/features/analytics/components/ProviderBreakdownCard.tsx:9-17` | `PROVIDER_LABEL`/`PROVIDER_ACCENT`: añadir `gemini` (label + accent, p.ej. `bg-accent-success`). | menor |
 | `client/src/components/Navbar.tsx:26-43` | badge: añadir `=== 'gemini'` (label/color), sino cae a 'no CLI' rojo. | menor |
 | `client/src/components/SetupWizard.tsx:63-76` | heurísticas modelId sonnet/haiku/opus son claude-specific → branch gemini si el configure debe mostrar modelo. | menor |
 | `server/desktop-router.ts:28-35,155-157,229-234` | gate beta: añadir `SPECRAILS_GEMINI_BETA` paralelo a `SPECRAILS_CODEX_BETA`. Generalizar el refuse hardcoded `providers.includes('codex')` (línea 229). | menor (necesario para el gate) |
@@ -273,7 +273,7 @@ CI exige **80% server** (lines/functions/statements, 70% branches) y **80% clien
   - `parseStreamLine`: fixtures NDJSON bajo `server/providers/__fixtures__/gemini-*.ndjson` (init/message/tool_use/tool_result/error/result/línea-vacía/parse-fail), aserción del AdapterEvent[].
   - `extractResult`: stats → tokens_in/out/cache_read, num_turns, session_id, `total_cost_usd` undefined.
   - `detectInstalled`: mock de `execSync` (no instalado / version OK / version < min / probe-fail / timeout >3s → installed:false).
-- `server/pricing.test.ts`: 4 filas `gemini:*`, `estimateCostUsd('gemini',model,usage)` correcto; clave ausente → null; semántica cached (no doble-conteo).
+- `server/modules/accounting/runtime/pricing.test.ts`: 4 filas `gemini:*`, `estimateCostUsd('gemini',model,usage)` correcto; clave ausente → null; semántica cached (no doble-conteo).
 - `server/provider-selection.test.ts`: `isProviderEnabled`/`resolveProvider`/`validateRequestedProvider` aceptan `'gemini'`; multi-provider claude+gemini.
 - `server/providers/registry.test.ts`: `getAdapter('gemini')`/`hasAdapter`/`listAdapters` incluye gemini tras import de index.
 
@@ -296,6 +296,6 @@ CI exige **80% server** (lines/functions/statements, 70% branches) y **80% clien
 3. **Beta-gated validation** — probar end-to-end: detect, add-project con gemini, Quick spec, Explore multi-turno (resume), Analytics coste, terminal launch. Validar exit 53/42, auth `GEMINI_API_KEY`. **NO** habilitar rails reales hasta resolver la traducción slash-command (§6, bloqueante) — gemini sirve para spec/explore/quick en esta fase.
 4. **Docs** — crear `docs/adding-a-provider.md` (falta) con gemini como ejemplo, y `docs/gemini.md` (espejo de `docs/codex.md`) con setup de API key.
 
-**Primer commit recomendado:** PR-A paso atómico — ensanchar `server/desktop-db.ts:10` `CliProvider` para incluir `'gemini'` y convertir el ternario de `server/spec-models.ts:1-37` `getModelsForProvider` en lookup `Record<provider, SpecModelOption[]>`. Desbloquea la cadena de tipos sin tocar comportamiento y deja la base lista para registrar el adapter.
+**Primer commit recomendado:** PR-A paso atómico — ensanchar `server/desktop-db.ts:10` `CliProvider` para incluir `'gemini'` y convertir el ternario de `server/modules/specs/runtime/spec-models.ts:1-37` `getModelsForProvider` en lookup `Record<provider, SpecModelOption[]>`. Desbloquea la cadena de tipos sin tocar comportamiento y deja la base lista para registrar el adapter.
 
 **Puntos `[UNCERTAIN]` pendientes (no inventados):** (a) `OTEL_RESOURCE_ATTRIBUTES` propagation en Gemini — validar empíricamente antes de confiar para correlación job/project; (b) semántica de `cachedContentTokenCount` como subconjunto de input — fijar por test de pricing; (c) `mcpRegistration` exacto en la versión bundleada — verificado que escribe a settings.json (`project-json`), confirmar en build. Ninguno bloquea v1 (spec/explore/quick); todos tienen fallback.

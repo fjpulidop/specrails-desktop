@@ -14,14 +14,14 @@
 
 ## 3. Extract AgentConversationView (floating panel keeps working)
 
-- [x] 3.1 Create `client/src/components/agent-chat/AgentConversationView.tsx` (`variant:'floating'|'inline'`): banners, sticky-scroll message list + empty placeholder, streaming + `useSmoothStream` + activity chip, full composer, and the local state (`input`, scroll refs, prompt-history, tier-cycle keydown rebind)
+- [x] 3.1 Create `client/src/features/missions/components/AgentConversationView.tsx` (`variant:'floating'|'inline'`): banners, sticky-scroll message list + empty placeholder, streaming + `useSmoothStream` + activity chip, full composer, and the local state (`input`, scroll refs, prompt-history, tier-cycle keydown rebind)
 - [x] 3.2 Reduce `AgentChatPanel.tsx` to chrome wrapper (`useMovableResizableModal`, maximize, header, `ResizeGrips`) rendering `<AgentConversationView variant='floating'/>`
 - [x] 3.3 Re-home `AgentProjectSelector` from panel header into the composer/empty-state
 - [x] 3.4 Extend `newConversation(projectId?)` in `AgentChatContext.tsx:246-253` (arg-less stays backward-compatible)
 
 ## 4. AgentModeSurface + center branch
 
-- [x] 4.1 Create `client/src/components/agent-chat/AgentModeSurface.tsx`: EMPTY (`active===null`, centered "Plan, Build" card) vs ACTIVE (`<AgentConversationView variant='inline'/>` + optional Files split); MUST NOT call `ensureActive` on mount
+- [x] 4.1 Create `client/src/features/missions/components/AgentModeSurface.tsx`: EMPTY (`active===null`, centered "Plan, Build" card) vs ACTIVE (`<AgentConversationView variant='inline'/>` + optional Files split); MUST NOT call `ensureActive` on mount
 - [x] 4.2 Branch the center in `App.tsx:252-296`: setup → global route (`/loops`,`/docs`) → `uiMode==='agent'` → else `<Routes>` (shared `onGlobalRoute` predicate); keep `<Routes>` byte-identical
 
 ## 5. Sidebar buttons + conversation trees + refresh
@@ -35,7 +35,7 @@
 
 ## 6. AgentWorkspaceSidebar
 
-- [x] 6.1 Create `client/src/components/agent-chat/AgentWorkspaceSidebar.tsx` (Browser/Terminal/Files, disabled+tooltip when `activeProjectId` null); mount at `App.tsx:302` agent branch (renders even with no project; suppress on global routes/setup)
+- [x] 6.1 Create `client/src/features/missions/components/AgentWorkspaceSidebar.tsx` (Browser/Terminal/Files, disabled+tooltip when `activeProjectId` null); mount at `App.tsx:302` agent branch (renders even with no project; suppress on global routes/setup)
 
 ## 7. Terminal tool
 

@@ -24,12 +24,12 @@ Today's `Add Spec` modal offers two non-interactive modes (the implicit "Quick" 
 
 ## Impact
 
-- `client/src/components/ProposeSpecModal.tsx` — remove the `exploreCodebase` checkbox, add a 2-mode segmented control, branch on submit (Quick → existing `/generate-spec`; Explore → mount `ExploreSpecShell`).
-- `client/src/components/explore-spec/ExploreSpecShell.tsx` (new) — overlay layout based on `AiEditShell` primitives. Two-column: chat history left, draft fields right. Composer + chips at the bottom.
-- `client/src/components/explore-spec/SpecDraftPanel.tsx` (new) — structured fields (title, priority, labels, description, acceptanceCriteria) editable in place, with subtle flash animation on Claude-driven updates.
-- `client/src/hooks/useSpecDraftStream.ts` (new) — subscribes to the chat WS, accumulates draft updates from `spec-draft` blocks, exposes `{ draft, ready, mergeUserEdit }`.
+- `client/src/features/specs/components/ProposeSpecModal.tsx` — remove the `exploreCodebase` checkbox, add a 2-mode segmented control, branch on submit (Quick → existing `/generate-spec`; Explore → mount `ExploreSpecShell`).
+- `client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx` (new) — overlay layout based on `AiEditShell` primitives. Two-column: chat history left, draft fields right. Composer + chips at the bottom.
+- `client/src/features/specs/components/explore-spec/SpecDraftPanel.tsx` (new) — structured fields (title, priority, labels, description, acceptanceCriteria) editable in place, with subtle flash animation on Claude-driven updates.
+- `client/src/features/specs/hooks/useSpecDraftStream.ts` (new) — subscribes to the chat WS, accumulates draft updates from `spec-draft` blocks, exposes `{ draft, ready, mergeUserEdit }`.
 - `client/src/lib/spec-draft-parser.ts` (new) — parses fenced ` ```spec-draft ` JSON blocks, validates fields against the draft type, returns parsed draft + remaining text (for chat rendering).
-- `server/chat-manager.ts` — when broadcasting an assistant message, run the parser, emit a `spec_draft.update` WS event with the merged draft, and replace the original block in the chat content with an empty string so the client never renders it.
+- `server/modules/conversations/runtime/chat-manager.ts` — when broadcasting an assistant message, run the parser, emit a `spec_draft.update` WS event with the merged draft, and replace the original block in the chat content with an empty string so the client never renders it.
 - `server/tickets-router.ts` — new route `POST /tickets/from-draft` that accepts `{ title, description, labels, priority, acceptanceCriteria }` and inserts a ticket directly into the per-project `local-tickets.json` without invoking `/generate-spec` machinery.
 - `.claude/commands/specrails/explore-spec.md` (new) — slash command body with the system prompt: thinking-partner stance, fenced-block convention, examples, `ready: true` semantics, and an explicit "do NOT create the ticket — the user does."
 - Tests: `ExploreSpecShell.test.tsx`, `SpecDraftPanel.test.tsx`, `useSpecDraftStream.test.ts`, `spec-draft-parser.test.ts` (client); `chat-manager.test.ts` extension for the parser hook; `tickets-router.test.ts` extension for `from-draft`.

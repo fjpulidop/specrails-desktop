@@ -33,7 +33,7 @@ The profile schema SHALL accept an optional top-level `provider: string` field. 
 - **THEN** the validation succeeds even though `sr-architect` is missing
 
 #### Scenario: Hardcoded baseline list is removed from validation code
-- **WHEN** the source of `validateStructural` in `server/profile-manager.ts` is inspected
+- **WHEN** the source of `validateStructural` in `server/modules/agents/runtime/profile-manager.ts` is inspected
 - **THEN** it contains no hardcoded array of agent ids
 - **AND** the baseline assertion is driven exclusively by the adapter's `baselineAgents()` call
 

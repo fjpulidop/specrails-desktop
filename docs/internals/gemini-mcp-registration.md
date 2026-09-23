@@ -15,7 +15,7 @@ empirically against **gemini-cli 0.49.0**.
   `chat-manager` / `queue-manager` / `util/cli-prompt.ts` already use for every gemini spawn.
 - **Gemini exposes MCP tools under an FQN prefix**: `mcp_<server>_<tool>` — for the Specrails
   server, `mcp_specrails_<canonical name>` (e.g. `mcp_specrails_specrails_specs`). The agent-chat
-  operator prompt (`server/agent-operator-prompt.ts`) notes this so the model calls the right
+  operator prompt (`server/modules/missions/runtime/agent-operator-prompt.ts`) notes this so the model calls the right
   names on gemini.
 
 ## What works today: agent chat
@@ -38,7 +38,7 @@ loads** for gemini:
 |---|---|---|
 | Plugins on rails (`server/plugin-manager.ts`, e.g. Serena) | surgical merge into `<project>/.mcp.json` for `project-json` providers | plugin installs "successfully", MCP server never loads in gemini rail spawns |
 | Workspace MCP (`server/agent-mcp-config.ts` `mergeSpecrailsIntoWorkspaceMcp`, via `workspace-manager.ts`) | writes `<workspace>/.mcp.json` | not read by gemini |
-| Explore `context_scope.mcp` (`server/chat-manager.ts`) | spawns from the relocation-aware artifact cwd (workspace when relocated, `<project.path>` when legacy) so `.mcp.json` loads | loads nothing on gemini |
+| Explore `context_scope.mcp` (`server/modules/conversations/runtime/chat-manager.ts`) | spawns from the relocation-aware artifact cwd (workspace when relocated, `<project.path>` when legacy) so `.mcp.json` loads | loads nothing on gemini |
 
 Fixing these means writing into the repo's / workspace's `.gemini/settings.json`, which
 intersects the **pristine-repo / artifact-relocation policy** (the app must not mutate the

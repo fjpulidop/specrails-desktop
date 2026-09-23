@@ -220,7 +220,7 @@ Multi-provider test counts in the hub:
 
 - `git stash list` on the hub shows 30+ entries. The first is
   `claude-model-auth-fix-wip`. Never run bare `git stash pop`.
-- `server/project-router.ts` and `server/smash-runner.ts` have
+- `server/project-router.ts` and `server/modules/specs/runtime/smash-runner.ts` have
   pre-existing TypeScript errors and 1 pre-existing test failure
   outside this change's scope. They also prevent the codex-specific
   project-router test file from loading; the route handler refactor

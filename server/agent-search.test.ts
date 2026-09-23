@@ -13,9 +13,9 @@ import {
   updateAgentConversation,
   updateAgentMessageContent,
   MISSION_SEARCH_MAX_LIMIT,
-} from './agent-store'
-import { createAgentChatRouter } from './agent-chat-router'
-import type { AgentChatManager } from './agent-chat-manager'
+} from './modules/agents/runtime/agent-store'
+import { createAgentChatRouter } from './modules/missions/runtime/agent-chat-router'
+import type { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 
 let db: DbInstance
 

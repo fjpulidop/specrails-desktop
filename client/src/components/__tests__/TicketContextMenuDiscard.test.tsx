@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '../../test-utils'
-import { TicketContextMenu } from '../TicketContextMenu'
-import { JiraDiscardProvider } from '../../context/JiraDiscardContext'
+import { TicketContextMenu } from '../../features/specs/components/TicketContextMenu'
+import { JiraDiscardProvider } from '../../features/integrations/context/JiraDiscardContext'
 import type { LocalTicket } from '../../types'
 
 // Control the single connection probe the provider performs.
 const jiraState = { connected: true, jiraProjectKey: 'PROJ', discardStatus: 'Cancelled' as string | null, loading: false }
-vi.mock('../../hooks/useJiraConnection', () => ({
+vi.mock('../../features/integrations/hooks/useJiraConnection', () => ({
   useJiraConnection: () => jiraState,
 }))
 
 // The discard dialog (opened by the move-to item) imports these.
-vi.mock('../../lib/jira-api', () => ({ jiraApi: { discardSpec: vi.fn().mockResolvedValue({ ok: true }) } }))
+vi.mock('../../features/integrations/lib/jira-api', () => ({ jiraApi: { discardSpec: vi.fn().mockResolvedValue({ ok: true }) } }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 const jiraTicket: Pick<LocalTicket, 'id' | 'title' | 'status' | 'priority' | 'source' | 'jira_key'> = {

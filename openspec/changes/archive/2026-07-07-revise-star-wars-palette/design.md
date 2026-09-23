@@ -1,7 +1,7 @@
 # Design - revise-star-wars-palette
 
 ## Context
-The branch already contains the original Star Wars theme implementation and its OpenSpec change is archived at `openspec/changes/archive/2026-07-07-add-star-wars-theme/`. The ticket is in review and the latest revision narrows the remaining work to palette re-differentiation only: `STAR_WARS_PALETTE` in `client/src/lib/themes.ts` and the matching `[data-theme="star-wars"]` block in `client/src/globals.css`. The current Star Wars values still collide with SpecRails: background is `hsl(224 45% 5%)` versus SpecRails `hsl(240 33% 4%)`, and secondary is `hsl(280 65% 64%)`, the same hue family as SpecRails `hsl(280 45% 62%)`.
+The branch already contains the original Star Wars theme implementation and its OpenSpec change is archived at `openspec/changes/archive/2026-07-07-add-star-wars-theme/`. The ticket is in review and the latest revision narrows the remaining work to palette re-differentiation only: `STAR_WARS_PALETTE` in `client/src/features/settings/lib/themes.ts` and the matching `[data-theme="star-wars"]` block in `client/src/globals.css`. The current Star Wars values still collide with SpecRails: background is `hsl(224 45% 5%)` versus SpecRails `hsl(240 33% 4%)`, and secondary is `hsl(280 65% 64%)`, the same hue family as SpecRails `hsl(280 45% 62%)`.
 
 Scope: frontend
 
@@ -19,7 +19,7 @@ Make the Star Wars palette visibly distinct from SpecRails while preserving the 
 The Star Wars theme has two color sources that must stay in sync:
 
 ```
-client/src/lib/themes.ts       STAR_WARS_PALETTE -> xterm/chart/status/preview
+client/src/features/settings/lib/themes.ts       STAR_WARS_PALETTE -> xterm/chart/status/preview
 client/src/globals.css         [data-theme="star-wars"] -> CSS variables
 ```
 

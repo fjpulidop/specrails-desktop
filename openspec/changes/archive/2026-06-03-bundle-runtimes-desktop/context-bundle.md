@@ -319,7 +319,7 @@ describe('getSetupPrerequisitesStatus — desktop mode', () => {
 
 ## Client Component: `PrerequisitesPanel`
 
-**Location**: `client/src/components/PrerequisitesPanel.tsx` (exact path — confirm it exists at this path before editing).
+**Location**: `client/src/features/projects/components/PrerequisitesPanel.tsx` (exact path — confirm it exists at this path before editing).
 
 **The `usePrerequisites()` hook** returns `SetupPrerequisitesStatus` as fetched from `GET /api/hub/setup-prerequisites`. The client-side type for `SetupPrerequisite` should already be defined somewhere in the client (likely in a types file or inline in the hook). Add the two new optional fields to the client-side type:
 

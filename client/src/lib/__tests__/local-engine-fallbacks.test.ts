@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { modelsForProvider, defaultModelForProvider, registerDynamicModelCatalog, resetDynamicModelCatalogs } from '../loop-run-models'
-import { isLocalEngineId, providerSupportsToolPolicy, providerSupportsPureOutput, providerSupportsProfiles, providerSupportsStructuredActions, providerSupportsReasoningEffort, providerSupportsFreestyle, providerSupportsCustomModelAliases, providerLabel } from '../provider-capabilities'
-import { isRuntimeProvidersResponse, runtimeProviderDisplayName, isLocalRuntimeProvider, isAgentRuntimeSettingsResponse } from '../agent-runtime'
+import { modelsForProvider, defaultModelForProvider, registerDynamicModelCatalog, resetDynamicModelCatalogs } from '../../features/loops/lib/loop-run-models'
+import { isLocalEngineId, providerSupportsToolPolicy, providerSupportsPureOutput, providerSupportsProfiles, providerSupportsStructuredActions, providerSupportsReasoningEffort, providerSupportsFreestyle, providerSupportsCustomModelAliases, providerLabel } from '../../features/providers/lib/provider-capabilities'
+import { isRuntimeProvidersResponse, runtimeProviderDisplayName, isLocalRuntimeProvider, isAgentRuntimeSettingsResponse } from '../../features/settings/lib/agent-runtime'
 import { FEATURE_LOCAL_ENGINES, isLocalEnginesEnabled } from '../feature-flags'
 
 beforeEach(() => resetDynamicModelCatalogs())

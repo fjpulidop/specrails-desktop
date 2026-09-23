@@ -7,10 +7,10 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { addProject, getProject, listProjects, initDesktopDb, setDesktopSetting, type DbInstance } from '../desktop-db'
 import type { ProjectRegistry } from '../project-registry'
 import { McpServerManager } from './mcp-server'
-import { AGENT_CAPABILITY_HEADER, AGENT_TIER_HEADER } from '../agent-tier'
+import { AGENT_CAPABILITY_HEADER, AGENT_TIER_HEADER } from '../modules/missions/runtime/agent-tier'
 import { _resetAgentCapabilitiesForTest, mintAgentCapability, revokeAgentCapability } from './agent-capability'
 import { RecoveringHttpTransport } from '../../mcp-bridge/src/http-transport'
-import { registerAgentSteering, notifyAgentSteering } from '../agent-steering'
+import { registerAgentSteering, notifyAgentSteering } from '../modules/missions/runtime/agent-steering'
 
 // A minimal ProjectRegistry stub: the MCP core only needs desktopDb + the
 // project lookup methods. No real projects are required for these tests.

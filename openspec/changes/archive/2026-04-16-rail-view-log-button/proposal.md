@@ -18,5 +18,5 @@ When a rail is running, the user has no quick way to jump to its live log — th
 
 ## Impact
 
-- `client/src/components/RailControls.tsx` — add button, read `railJob?.jobId` and `railJob?.status`
+- `client/src/features/rails/components/RailControls.tsx` — add button, read `railJob?.jobId` and `railJob?.status`
 - No API changes, no new routes, no server changes

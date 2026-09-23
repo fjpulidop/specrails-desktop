@@ -23,7 +23,7 @@ The in-app browsing experience (opening spec/agent/PR links via `WebViewModal`) 
 ## Impact
 
 - **Rust / Tauri**: `src-tauri/Cargo.toml` gains the `unstable` feature on `tauri`; new `src-tauri/src/browser.rs`; command registration in `lib.rs`. Desktop-only (macOS + Windows, the shipped targets).
-- **Client**: new `client/src/lib/native-browser.ts` (pure logic: availability, bounds math, URL normalization — unit-tested), `client/src/components/browser-capture/NativeBrowserPane.tsx`; `WebViewModal.tsx` becomes a thin router between native and screencast variants; `client/src/lib/feature-flags.ts` gains `FEATURE_NATIVE_BROWSER`.
+- **Client**: new `client/src/features/browser/lib/native-browser.ts` (pure logic: availability, bounds math, URL normalization — unit-tested), `client/src/features/browser/components/browser-capture/NativeBrowserPane.tsx`; `WebViewModal.tsx` becomes a thin router between native and screencast variants; `client/src/lib/feature-flags.ts` gains `FEATURE_NATIVE_BROWSER`.
 - **Server**: no changes (native path is entirely client+Tauri; screencast endpoints untouched).
 - **Coverage**: pure logic in `lib/` is unit-tested; the pane component is jsdom-unreachable (Tauri IPC + ResizeObserver + native view) and is excluded with an inline reason, like the existing browser-capture components.
 - **Docs**: CLAUDE.md section, evaluation doc status update.

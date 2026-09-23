@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import express from 'express'
 import request from 'supertest'
 import { initDesktopDb, type DbInstance } from './desktop-db'
-import { createAgentConversation, getAgentConversation } from './agent-store'
-import { createAgentChatRouter } from './agent-chat-router'
-import type { AgentChatManager } from './agent-chat-manager'
+import { createAgentConversation, getAgentConversation } from './modules/agents/runtime/agent-store'
+import { createAgentChatRouter } from './modules/missions/runtime/agent-chat-router'
+import type { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 import { killBackgroundProcessesForChat, purgeBackgroundProcessHistory } from './transient-children'
 
 vi.mock('./transient-children', () => ({

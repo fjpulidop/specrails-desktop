@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'operational-test-token-no-filesystem-access' }))
 import { z } from 'zod'
 import { initDesktopDb, type DbInstance } from '../../desktop-db'
-import { createAgentConversation } from '../../agent-store'
+import { createAgentConversation } from '../../modules/agents/runtime/agent-store'
 import type { ProjectRegistry } from '../../project-registry'
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import type { McpToolContext, McpToolSpec } from './types'

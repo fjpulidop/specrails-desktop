@@ -29,7 +29,7 @@ export function appUrl(): URL {
  * and conversation are bound to the capability server-side; legacy
  * SPECRAILS_AGENT_* context env vars are intentionally NOT forwarded.
  *
- * NOTE: this package cannot import server/agent-tier.ts, so these two names are
+ * NOTE: this package cannot import server/modules/missions/runtime/agent-tier.ts, so these two names are
  * deliberately duplicated string literals (keep in sync):
  *   SPECRAILS_AGENT_CAPABILITY_FILE → x-specrails-agent-capability
  */

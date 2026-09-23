@@ -26,7 +26,7 @@ The user has explicitly asked for a low-impact visual change: drafts must live i
 
 ### Decision 1: Draft is a ticket with `status='draft'` in the existing JSON store, not a separate entity
 
-**Choice:** Extend the `TicketStatus` union in `server/ticket-store.ts` to include `'draft'`. Tickets continue to live in `<project>/.specrails/local-tickets.json` (NOT in SQLite — there is no `tickets` table; that was a planning oversight in the initial draft of this design and has been corrected).
+**Choice:** Extend the `TicketStatus` union in `server/modules/specs/runtime/ticket-store.ts` to include `'draft'`. Tickets continue to live in `<project>/.specrails/local-tickets.json` (NOT in SQLite — there is no `tickets` table; that was a planning oversight in the initial draft of this design and has been corrected).
 
 **Why:** The user wants drafts to appear inside the Backlog column. The board renderer already groups tickets by status; adding a status keeps a single source of truth, a single render pipeline, and a single transition path (`draft → todo` is a one-row update, not a row migration). Auto-title resolves the historical objection that "tickets need a title" — by the time a draft is persisted, a title has been generated.
 
@@ -106,7 +106,7 @@ The existing `chat_conversations` SQLite table already persists per-turn history
 
 ## Migration Plan
 
-1. Update `server/ticket-store.ts`: extend `TicketStatus`, `VALID_STATUSES`; widen `Ticket.priority` to allow `null`; add `Ticket.origin_conversation_id`; bump default `schema_version` for newly-created stores from `'1.0'` to `'1.1'`. Existing on-disk stores retain their value and read fine — `origin_conversation_id` defaults to `null` when absent.
+1. Update `server/modules/specs/runtime/ticket-store.ts`: extend `TicketStatus`, `VALID_STATUSES`; widen `Ticket.priority` to allow `null`; add `Ticket.origin_conversation_id`; bump default `schema_version` for newly-created stores from `'1.0'` to `'1.1'`. Existing on-disk stores retain their value and read fine — `origin_conversation_id` defaults to `null` when absent.
 2. Server: extend ticket types, add list filters that exclude drafts where appropriate (in `Object.values(store.tickets)` consumers), extend `from-draft` to support the status-flip path, wire `Save as Draft` endpoint, add the auto-title summarizer, wire the conversation-delete cascade.
 3. Client: add `Save as Draft` button + close prompt to `ExploreSpecShell`, add draft tarjeta variant + `[Draft]` pill to the board card, add Continue Explore CTA to the detail modal.
 4. Tests: store-level tests for the new fields and back-compat read; extend `server/from-draft.test.ts` for the status-flip path; new tests for save-as-draft endpoint, auto-title, board rendering, detail modal Continue Explore.

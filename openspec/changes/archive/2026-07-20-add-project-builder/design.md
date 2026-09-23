@@ -50,7 +50,7 @@ Provider/model/effort selection mirrors the mission composer: default provider =
 
 ### D2 — `blueprint-draft` protocol: single block type, full snapshot, atomic detailed generation
 
-Fenced ```` ```blueprint-draft ```` JSON, parsed with the `spec-draft-parser.ts` mechanics (scan all blocks, last **valid** snapshot wins, streaming-tail cut ignores an unterminated block). New pure module `server/blueprint-draft-parser.ts` + shared schema types.
+Fenced ```` ```blueprint-draft ```` JSON, parsed with the `spec-draft-parser.ts` mechanics (scan all blocks, last **valid** snapshot wins, streaming-tail cut ignores an unterminated block). New pure module `server/modules/builder/runtime/blueprint-draft-parser.ts` + shared schema types.
 
 Schema (top-level): `blueprintVersion: 1`, `product {name, pitch, audience}`, `coreFlow`, `platform`, `stack {language, framework, db, notes}`, `assumptions[]`, `milestones[] {id, title, goal, status, plannedSpecs[]}`, `specsComplete`, and `m1Specs[] {kind, title, shortSummary, description, acceptanceCriteria[], priority, labels[], dependsOnIndex?}`. `kind ∈ scaffold|feature|verification`; `priority ∈ low|medium|high|critical`. The version remains 1: readers default absent `specsComplete=false`, kind to `feature`, summary to empty, criteria to `[]`, and absent/invalid priority to `medium`, keeping older persisted blueprints readable while strictness remains at new-commit time.
 
@@ -62,7 +62,7 @@ Every detailed spec uses exactly the normal Specrails base-description headings,
 
 *Alternative — delta/patch blocks or partial spec waves*: rejected. Both make the client/review state incremental and allow a dropped or interrupted message to leave an ambiguous partial backlog. One full snapshot at ≤10 M1 specs is an acceptable bounded payload and gives approval, review, and commit a single atomic representation.
 
-Client mirror parser lives in `client/src/lib/blueprint-draft.ts` (same extraction approach as `agent-spec-draft.ts`), feeding the live blueprint panel (5 dimensions ✓/✗ + the complete detailed spec set appearing together when the final fence closes).
+Client mirror parser lives in `client/src/features/builder/lib/blueprint-draft.ts` (same extraction approach as `agent-spec-draft.ts`), feeding the live blueprint panel (5 dimensions ✓/✗ + the complete detailed spec set appearing together when the final fence closes).
 
 ### D3 — Orchestrated commit: one endpoint, strict ordering, register-project-LAST
 

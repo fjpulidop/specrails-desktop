@@ -149,7 +149,7 @@ A few Codex-specific behaviours worth calling out:
 
 Codex does not report `total_cost_usd` natively. The app computes an
 estimate from the captured `usage` (input / output / cached input
-tokens × the local rate-card in `server/pricing.ts`) and stores it in
+tokens × the local rate-card in `server/modules/accounting/runtime/pricing.ts`) and stores it in
 `ai_invocations.total_cost_usd` with `total_cost_usd_estimated = 1`.
 
 The Analytics page surfaces this in two places:
@@ -168,7 +168,7 @@ The Analytics page surfaces this in two places:
 
 The pricing table is reviewed quarterly. The reference date sits on
 each entry as `lastReviewedAt`. If OpenAI raises prices mid-quarter,
-ship an out-of-band update to `server/pricing.ts`.
+ship an out-of-band update to `server/modules/accounting/runtime/pricing.ts`.
 
 ## Plugins and MCP on codex projects
 
@@ -198,7 +198,7 @@ adapter pins the minimum because earlier versions don't support
 or set `OPENAI_API_KEY`. The app doesn't proxy auth.
 
 **Cost shows as `—` for codex jobs even though tokens are non-zero**
-— the spawned model isn't in `server/pricing.ts` (e.g. a brand-new
+— the spawned model isn't in `server/modules/accounting/runtime/pricing.ts` (e.g. a brand-new
 model OpenAI shipped after our last review). Update the pricing table
 and reload the page.
 
@@ -243,8 +243,8 @@ The codex integration lives in:
 - `server/providers/codex-adapter.ts` — `ProviderAdapter`
   implementation for codex 0.128.0+. Fixtures under
   `server/providers/__fixtures__/codex/0.128.0/`.
-- `server/pricing.ts` — local pricing table + `estimateCostUsd`.
-- `server/codex-otel-bridge.ts` — synthetic OTEL traces / metrics /
+- `server/modules/accounting/runtime/pricing.ts` — local pricing table + `estimateCostUsd`.
+- `server/modules/accounting/runtime/codex-otel-bridge.ts` — synthetic OTEL traces / metrics /
   logs derived from JSONL events.
 - `server/plugins/codex-mcp.ts` — `codex mcp add/remove/list` wrapper
   with per-project `CODEX_HOME`.

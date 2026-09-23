@@ -24,9 +24,9 @@ The hub currently provides no way to track what happened in a project over time.
 
 - **server/project-router.ts** — new `/activity` route
 - **server/db.ts** — new `getProjectActivity` query function joining `jobs` + `events`
-- **client/src/hooks/useActivity.ts** — new hook (fetch + WS subscription)
+- **client/src/features/analytics/hooks/useActivity.ts** — new hook (fetch + WS subscription)
 - **client/src/components/NotificationCenter.tsx** — new component added to `ProjectNavbar`
-- **client/src/pages/ActivityFeedPage.tsx** — new page added to `ProjectLayout` routing
+- **client/src/features/analytics/pages/ActivityFeedPage.tsx** — new page added to `ProjectLayout` routing
 - **client/src/App.tsx** — new `/activity` route in per-project routes
 - **client/src/components/ProjectNavbar.tsx** — `NotificationCenter` integration
 - **server/project-router.test.ts** — new endpoint tests

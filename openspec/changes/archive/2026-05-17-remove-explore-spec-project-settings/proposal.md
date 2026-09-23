@@ -26,11 +26,11 @@ Today, Explore Spec options (MCP servers, Contract Refine) live in two places: p
 ## Impact
 
 - **Affected code**:
-  - `client/src/pages/SettingsPage.tsx` (remove card + handlers)
+  - `client/src/features/settings/pages/SettingsPage.tsx` (remove card + handlers)
   - `client/src/pages/__tests__/SettingsPageExploreMcp.test.tsx` (delete)
   - `server/project-router.ts` (remove 4 endpoints + retry-gate logic)
-  - `server/chat-manager.ts` (drop project-toggle read for spawn cwd)
-  - `server/contract-refine-runner.ts` (drop project-toggle fallback)
+  - `server/modules/conversations/runtime/chat-manager.ts` (drop project-toggle read for spawn cwd)
+  - `server/modules/specs/runtime/contract-refine-runner.ts` (drop project-toggle fallback)
   - `server/db.ts` (drop helper functions if exclusively used by removed endpoints)
   - Tests for the above modules
   - `CLAUDE.md` (doc update)

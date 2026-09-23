@@ -2,11 +2,11 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
-import { BuilderSidebarEntry } from '../project-builder/BuilderSidebarEntry'
-import type { Blueprint } from '../../lib/blueprint-draft'
-import type { MilestoneProgress } from '../../lib/milestone-progress'
+import { BuilderSidebarEntry } from '../../features/builder/components/project-builder/BuilderSidebarEntry'
+import type { Blueprint } from '../../features/builder/lib/blueprint-draft'
+import type { MilestoneProgress } from '../../features/builder/lib/milestone-progress'
 
-vi.mock('../project-builder/MilestoneGenerateShell', async () => {
+vi.mock('../../features/builder/components/project-builder/MilestoneGenerateShell', async () => {
   const ReactModule = await import('react')
   return {
     MilestoneGenerateShell: (props: { onCommitted?: () => void; onClose: () => void }) => ReactModule.createElement(
@@ -34,8 +34,8 @@ const launchMilestone = vi.fn()
 const resumeChain = vi.fn()
 const cancelChain = vi.fn()
 const setChainAutoAdvance = vi.fn()
-vi.mock('../../lib/milestone-launch', async () => {
-  const actual = await vi.importActual<typeof import('../../lib/milestone-launch')>('../../lib/milestone-launch')
+vi.mock('../../features/builder/lib/milestone-launch', async () => {
+  const actual = await vi.importActual<typeof import('../../features/builder/lib/milestone-launch')>('../../features/builder/lib/milestone-launch')
   return {
     ...actual,
     launchMilestone: (...a: unknown[]) => launchMilestone(...a),
@@ -48,7 +48,7 @@ vi.mock('../../lib/milestone-launch', async () => {
 // The live model is the hook's contract — the component never fetches the board.
 const progressState: { blueprint: Blueprint | null; progress: MilestoneProgress[]; hasBlueprint: boolean | null } = { blueprint: null, progress: [], hasBlueprint: null }
 const refresh = vi.fn(async () => {})
-vi.mock('../../hooks/useMilestoneProgress', () => ({
+vi.mock('../../features/builder/hooks/useMilestoneProgress', () => ({
   useMilestoneProgress: () => ({ ...progressState, loading: false, refresh }),
   useStackedHeadDeliveryIds: () => new Set<string>(),
 }))

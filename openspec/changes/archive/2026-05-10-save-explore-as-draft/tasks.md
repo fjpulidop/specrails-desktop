@@ -1,8 +1,8 @@
 ## 1. Ticket store schema changes
 
-- [x] 1.1 Update `server/ticket-store.ts`: add `'draft'` to `TicketStatus` and `VALID_STATUSES`; widen `Ticket.priority` to `TicketPriority | null`; add `Ticket.origin_conversation_id: string | null`; bump default `schema_version` for newly-created stores from `'1.0'` to `'1.1'`. Read paths must default missing `origin_conversation_id` to `null` and accept `priority = null` only when `status === 'draft'`.
-- [x] 1.2 Add a validation helper (e.g., `validatePriorityForStatus(status, priority)`) in `server/ticket-store.ts` that returns an error string when a non-draft status is paired with `priority = null`. Call it from every ticket-mutating endpoint.
-- [x] 1.3 Write a back-compat regression test in `server/ticket-store.unit.test.ts` (or sibling): load a hand-written `local-tickets.json` with `schema_version: '1.0'` and pre-existing tickets, read it, assert no field is mutated, and assert that adding a draft ticket bumps the version to `'1.1'` while preserving the existing rows verbatim.
+- [x] 1.1 Update `server/modules/specs/runtime/ticket-store.ts`: add `'draft'` to `TicketStatus` and `VALID_STATUSES`; widen `Ticket.priority` to `TicketPriority | null`; add `Ticket.origin_conversation_id: string | null`; bump default `schema_version` for newly-created stores from `'1.0'` to `'1.1'`. Read paths must default missing `origin_conversation_id` to `null` and accept `priority = null` only when `status === 'draft'`.
+- [x] 1.2 Add a validation helper (e.g., `validatePriorityForStatus(status, priority)`) in `server/modules/specs/runtime/ticket-store.ts` that returns an error string when a non-draft status is paired with `priority = null`. Call it from every ticket-mutating endpoint.
+- [x] 1.3 Write a back-compat regression test in `server/modules/specs/runtime/ticket-store.unit.test.ts` (or sibling): load a hand-written `local-tickets.json` with `schema_version: '1.0'` and pre-existing tickets, read it, assert no field is mutated, and assert that adding a draft ticket bumps the version to `'1.1'` while preserving the existing rows verbatim.
 
 ## 2. Server: persistence and endpoints
 

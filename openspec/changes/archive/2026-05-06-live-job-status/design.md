@@ -1,6 +1,6 @@
 ## Context
 
-The Job Detail page (`client/src/pages/JobDetailPage.tsx`) currently has two visual problems:
+The Job Detail page (`client/src/features/jobs/pages/JobDetailPage.tsx`) currently has two visual problems:
 
 1. **No live progress.** The metric card (`JobCompletionSummary`, `client/src/components/JobCompletionSummary.tsx`) is gated to `status === 'completed' | 'failed'`, so a running job shows only the streaming log viewer with no aggregated counters. Users can't tell at a glance how long it has been running, how many turns have happened, or how many tokens have been consumed.
 2. **Job identity is the command, not the work.** The header treats `/specrails:implement #24 --yes` as the visual hero. A human identifying the job from a list naturally wants to see *what the ticket was about*.
@@ -106,7 +106,7 @@ Performance: `readStore` does a JSON parse of `<project>/.specrails/local-ticket
 
 ### 7. Ticket header layout: dedicated component
 
-Introduce `client/src/components/JobTicketHeader.tsx`:
+Introduce `client/src/features/jobs/components/JobTicketHeader.tsx`:
 
 ```
 JobTicketHeader({ tickets, command, status, startedAt, model, onTicketClick })

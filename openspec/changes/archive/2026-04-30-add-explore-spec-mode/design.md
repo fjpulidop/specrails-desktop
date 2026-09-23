@@ -4,7 +4,7 @@ The hub already has all the pipes needed for an interactive spec flow:
 
 - `useChatContext` / `ChatManager` (server) spawn a `claude` CLI subprocess in chat mode and stream turns over the existing project WebSocket.
 - `RichAttachmentEditor` provides the composer primitive used elsewhere.
-- `AiEditShell` (`client/src/components/ai-edit/AiEditShell.tsx`) is a well-factored, reusable full-screen overlay with eyebrow + headline + composer + history/diff layout, confirm-discard, focus trap and keyboard handling. We reuse its visual language and split layout but cannot reuse the component verbatim because it is shaped around "edit existing target" not "compose from blank".
+- `AiEditShell` (`client/src/features/code/components/ai-edit/AiEditShell.tsx`) is a well-factored, reusable full-screen overlay with eyebrow + headline + composer + history/diff layout, confirm-discard, focus trap and keyboard handling. We reuse its visual language and split layout but cannot reuse the component verbatim because it is shaped around "edit existing target" not "compose from blank".
 - `local-tickets.json` is the source of truth for project tickets; `POST /tickets/generate-spec` invokes Claude to materialise one. The new commit path is simpler — the LLM has already produced a structured draft via the conversation, so we just persist.
 
 The new piece is the **draft protocol**: how Claude tells the hub what fields to put on the right panel. We chose a fenced JSON-block convention over a tool/MCP because the chat pipe is already a textual stream and Claude CLI does not expose hub-defined tools. The same trick is used by other AI products (Cursor's structured outputs, Replit Ghostwriter draft mode).

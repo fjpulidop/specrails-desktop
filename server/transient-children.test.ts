@@ -10,13 +10,13 @@ import {
 import { beginProjectProcessQuiescence, resetProcessAdmissionForTests } from './process-admission'
 import treeKill from 'tree-kill'
 import { spawn } from 'child_process'
-import { spawnWindowsBackgroundBootstrap } from './background-windows-bootstrap'
+import { spawnWindowsBackgroundBootstrap } from './modules/terminals/runtime/background-windows-bootstrap'
 
 vi.mock('tree-kill', () => ({ default: vi.fn() }))
 vi.mock('child_process', () => ({ spawn: vi.fn() }))
-vi.mock('./background-process-control', () => ({ createBackgroundProcessControl: (child: any) => child.control }))
+vi.mock('./modules/terminals/runtime/background-process-control', () => ({ createBackgroundProcessControl: (child: any) => child.control }))
 vi.mock('./util/win-spawn', () => ({ windowsSpawnEnv: () => ({}), treeKillSafe: (...args: Parameters<typeof treeKill>) => treeKill(...args) }))
-vi.mock('./background-windows-bootstrap', () => ({ spawnWindowsBackgroundBootstrap: vi.fn() }))
+vi.mock('./modules/terminals/runtime/background-windows-bootstrap', () => ({ spawnWindowsBackgroundBootstrap: vi.fn() }))
 
 const children: any[] = []
 function fakeChild(pid: number | undefined): any {

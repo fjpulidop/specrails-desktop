@@ -12,7 +12,7 @@ vi.mock('sonner', () => ({
 }))
 
 // Mock usePipeline
-vi.mock('../../hooks/usePipeline', () => ({
+vi.mock('../../features/jobs/hooks/usePipeline', () => ({
   usePipeline: () => ({
     connectionStatus: 'connected',
     phases: {},
@@ -33,7 +33,7 @@ vi.mock('../../hooks/useSharedWebSocket', () => ({
 }))
 
 // Mock useChat
-vi.mock('../../hooks/useChat', () => ({
+vi.mock('../../features/chat/hooks/useChat', () => ({
   useChat: () => ({
     conversations: [],
     activeConversationId: null,
@@ -66,7 +66,7 @@ vi.mock('../StatusBar', () => ({
   ),
 }))
 
-vi.mock('../ChatPanel', () => ({
+vi.mock('../../features/chat/components/ChatPanel', () => ({
   ChatPanel: () => <div data-testid="chat-panel" />,
 }))
 

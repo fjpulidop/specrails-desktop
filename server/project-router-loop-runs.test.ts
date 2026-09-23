@@ -3,10 +3,10 @@ import express, { Router, type Express } from 'express'
 import request from 'supertest'
 import { initDesktopDb } from './desktop-db'
 import type { DbInstance } from './db'
-import { createLoop, publishLoop } from './loops-store'
+import { createLoop, publishLoop } from './modules/loops/runtime/loops-store'
 import { registerLoopRunRoutes } from './project-router-loop-runs'
 import type { ProjectRoutesDeps } from './project-router-helpers'
-import type { LoopGraph } from './loop-graph'
+import type { LoopGraph } from './modules/loops/runtime/loop-graph'
 
 function graphWith(prompt: string): LoopGraph {
   return {
@@ -206,7 +206,7 @@ describe('project-router standalone loop runs', () => {
 describe('project-router GET /loop-runs/:id', () => {
   it('returns a loop run scoped to the project, 404s unknown / cross-project', async () => {
     const { initDb } = await import('./db')
-    const { createLoopRun } = await import('./loop-runs-store')
+    const { createLoopRun } = await import('./modules/loops/runtime/loop-runs-store')
     const db = initDb(':memory:')
     createLoopRun(db, { id: 'run-1', projectId: 'p1', loopId: 'factory:implement', loopName: 'Implement', railIndex: 0, iterationLimit: 12, startedAt: new Date(1000).toISOString() })
 
@@ -226,7 +226,7 @@ describe('project-router GET /loop-runs/:id', () => {
 
   it('serializes unavailable Kimi loop usage as null instead of zero', async () => {
     const { initDb } = await import('./db')
-    const { createLoopRun } = await import('./loop-runs-store')
+    const { createLoopRun } = await import('./modules/loops/runtime/loop-runs-store')
     const db = initDb(':memory:')
     createLoopRun(db, {
       id: 'run-kimi',

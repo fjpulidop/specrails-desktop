@@ -7,7 +7,7 @@
 
 ## 2. Server — TerminalManager
 
-- [x] 2.1 Create `server/terminal-manager.ts` with `TerminalSession` interface (id, projectId, name, shell, cwd, pty, cols, rows, ring buffer, clients set, createdAt)
+- [x] 2.1 Create `server/modules/terminals/runtime/terminal-manager.ts` with `TerminalSession` interface (id, projectId, name, shell, cwd, pty, cols, rows, ring buffer, clients set, createdAt)
 - [x] 2.2 Implement `TerminalManager.create(projectId, { cols, rows, cwd, shell? })` — spawns PTY via `node-pty`, enforces 10-per-project cap, returns metadata
 - [x] 2.3 Implement shell resolution: `process.env.SHELL` fallback chain (macOS/Linux: `/bin/zsh`, Windows: `powershell.exe`); add login+interactive args (`-l`, `-i`) for zsh/bash; set `TERM=xterm-256color`, `COLORTERM=truecolor`
 - [x] 2.4 Implement 256 KB ring buffer with drop-oldest on overflow; `buffer.append(chunk)` and `buffer.snapshot(): Buffer`
@@ -38,7 +38,7 @@
 
 ## 5. Server — tests
 
-- [x] 5.1 `server/terminal-manager.test.ts` — spawn, env (TERM/COLORTERM), cwd, login+interactive args reach shell
+- [x] 5.1 `server/modules/terminals/runtime/terminal-manager.test.ts` — spawn, env (TERM/COLORTERM), cwd, login+interactive args reach shell
 - [x] 5.2 Ring buffer — append, overflow drops oldest, snapshot size bounded
 - [x] 5.3 Attach/detach — snapshot replay then live, multiple clients, client disconnect keeps PTY alive
 - [x] 5.4 Resize propagates to PTY (verifiable via `stty size` echo)
@@ -51,7 +51,7 @@
 
 ## 6. Client — terminal store and xterm host
 
-- [x] 6.1 Create `client/src/context/TerminalsContext.tsx` with `TerminalsProvider` exposing per-project state, actions, and xterm-ref map (via `useRef<Map>`)
+- [x] 6.1 Create `client/src/features/terminals/context/TerminalsContext.tsx` with `TerminalsProvider` exposing per-project state, actions, and xterm-ref map (via `useRef<Map>`)
 - [x] 6.2 Define per-project state shape: `visibility: 'hidden'|'restored'|'maximized'`, `userHeight: number`, `sessions: TerminalRef[]`, `activeId: string | null`
 - [x] 6.3 Persist `{visibility, userHeight}` per project in `localStorage` under `specrails-hub:terminal-panel:<projectId>`; hydrate on provider mount
 - [x] 6.4 Implement `create(projectId)`, `rename(sessionId, name)`, `kill(sessionId)`, `setActive(projectId, id)`, `setVisibility`, `setUserHeight`, `focusActive(projectId)`
@@ -62,7 +62,7 @@
 
 ## 7. Client — BottomPanel UI
 
-- [x] 7.1 Create `client/src/components/terminal/BottomPanel.tsx` — always-mounted container; reads visibility from context; applies height via style; rendered as a row above StatusBar in ProjectLayout
+- [x] 7.1 Create `client/src/features/terminals/components/terminal/BottomPanel.tsx` — always-mounted container; reads visibility from context; applies height via style; rendered as a row above StatusBar in ProjectLayout
 - [x] 7.2 Create `TerminalTopBar.tsx` — 28px height (h-7); left shows "Terminal" label; right shows `+`, trash (kill active), maximize/restore, collapse chevron; disabled + tooltip at limit
 - [x] 7.3 Create `TerminalSidebar.tsx` — right-docked list of sessions; click to activate; inline rename on double-click; hover reveals `✕` close; shows shell icon and name
 - [x] 7.4 Create `TerminalViewport.tsx` — slot component; on mount `appendChild`s the active session's container; on unmount/active-change moves it back to the host; calls `fit.fit()` after reparent via `notifyAdopted`

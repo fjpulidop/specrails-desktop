@@ -67,12 +67,12 @@ Key structural moves shown above:
 | File | Responsibility | Key anchors |
 |---|---|---|
 | `client/src/context/UiModeContext.tsx` | App-global `uiMode: 'kanban'\|'agent'` + `setUiMode`/`toggle`, localStorage-persisted; `useUiMode()` with NOOP fallback for tests. | Insert provider at App.tsx:440-441; consumed by TitleBar/ArcSidebar/AgentChatContext/DesktopApp. |
-| `client/src/components/agent-chat/AgentConversationView.tsx` | Shared inner UI (banners + sticky-scroll message list + streaming + activity chip + composer) consumed by BOTH the floating panel and the inline surface; `variant: 'floating'\|'inline'`. | Extracted from AgentChatPanel.tsx:158-269. |
-| `client/src/components/agent-chat/AgentModeSurface.tsx` | Inline center surface: EMPTY (`active===null` → centered composer card) vs ACTIVE (`<AgentConversationView variant='inline'/>` + optional Files/code split). Does NOT call `ensureActive` on mount. | Mounted at App.tsx center swap (:252-296). |
-| `client/src/components/agent-chat/AgentWorkspaceSidebar.tsx` | Right "On workspace" toolbar in Agent Mode: Browser / Terminal / Files buttons, each disabled when `activeProjectId` is null. | Mounted at App.tsx:302 (agent branch). |
-| `client/src/components/agent-chat/AgentModeCodePane.tsx` (optional wrapper) | Resizable split host that mounts `<CodePage embedded/>` as a secondary pane beside the thread; own `<Suspense>` boundary. | Wraps CodePage.tsx (lazy). |
+| `client/src/features/missions/components/AgentConversationView.tsx` | Shared inner UI (banners + sticky-scroll message list + streaming + activity chip + composer) consumed by BOTH the floating panel and the inline surface; `variant: 'floating'\|'inline'`. | Extracted from AgentChatPanel.tsx:158-269. |
+| `client/src/features/missions/components/AgentModeSurface.tsx` | Inline center surface: EMPTY (`active===null` → centered composer card) vs ACTIVE (`<AgentConversationView variant='inline'/>` + optional Files/code split). Does NOT call `ensureActive` on mount. | Mounted at App.tsx center swap (:252-296). |
+| `client/src/features/missions/components/AgentWorkspaceSidebar.tsx` | Right "On workspace" toolbar in Agent Mode: Browser / Terminal / Files buttons, each disabled when `activeProjectId` is null. | Mounted at App.tsx:302 (agent branch). |
+| `client/src/features/missions/components/AgentModeCodePane.tsx` (optional wrapper) | Resizable split host that mounts `<CodePage embedded/>` as a secondary pane beside the thread; own `<Suspense>` boundary. | Wraps CodePage.tsx (lazy). |
 | `server/agent-attachment-routes` (in `agent-chat-router.ts`) | App-global attachment endpoints: `POST/GET/DELETE /api/agent/conversations/:id/attachments` (multer single 'file', 25MB, mime filter). | Mirror project-router-tickets.ts:1839-1917. |
-| `server/agent-store` migration | Persist attachment id list per agent turn (new nullable `attachments` JSON column on `agent_messages`, or sibling `agent_message_attachments` table). | agent-store.ts:24-30,111-128. |
+| `server/modules/agents/runtime/agent-store` migration | Persist attachment id list per agent turn (new nullable `attachments` JSON column on `agent_messages`, or sibling `agent_message_attachments` table). | agent-store.ts:24-30,111-128. |
 
 ### EXISTING files to modify
 
@@ -81,12 +81,12 @@ Key structural moves shown above:
 | `client/src/App.tsx` | Insert `UiModeProvider`; branch center on `uiMode`; branch right sidebar; hoist `BottomPanel`+`StatusBar` into main-area column; source `viewportHeight`/`panelState`/`connectionStatus` at DesktopApp scope. | 230-330 (shell), 440-461 (providers). |
 | `client/src/components/ProjectLayout.tsx` | REMOVE the `BottomPanel`/`StatusBar` render (hoisted); keep `<Outlet/>`, ChatContext; gate chevronSlot on `uiMode==='kanban'`; relocate the `viewportHeight` ResizeObserver + `panelState` up. | 66-95, 124-134. |
 | `client/src/components/TitleBar.tsx` | Hide `SearchPill` when `uiMode==='agent'` at both mount sites. | 66-129 (pill), 175 & 215 (mounts). |
-| `client/src/context/AgentChatContext.tsx` | Gate `AgentChatPanel`(:293) + `AgentBubble`(:296) off when `uiMode==='agent'`; expose a public `refreshConversations`; extend `newConversation(projectId?)`. | 39-70, 246-253, 290-298. |
-| `client/src/components/agent-chat/AgentChatPanel.tsx` | Reduce to thin chrome wrapper rendering `<AgentConversationView variant='floating'/>`; keep `useMovableResizableModal`/maximize/header/`ResizeGrips`. | 30-119 (chrome), 121-284 (body). |
+| `client/src/features/missions/context/AgentChatContext.tsx` | Gate `AgentChatPanel`(:293) + `AgentBubble`(:296) off when `uiMode==='agent'`; expose a public `refreshConversations`; extend `newConversation(projectId?)`. | 39-70, 246-253, 290-298. |
+| `client/src/features/missions/components/AgentChatPanel.tsx` | Reduce to thin chrome wrapper rendering `<AgentConversationView variant='floating'/>`; keep `useMovableResizableModal`/maximize/header/`ResizeGrips`. | 30-119 (chrome), 121-284 (body). |
 | `client/src/components/ArcSidebar.tsx` | Add `useAgentChat()` + `useUiMode()`; add [Switch mode]/[New agent]/[Search] buttons above Loops; make `ProjectItem` expandable; render conversation children + Home group; branch `handleSelectProject` by mode. | 1-9, 19-106, 135-166, 206-259. |
-| `client/src/pages/CodePage.tsx` | Add controlled/`embedded` props; neutralize `navigate({pathname:'/code'})` calls; gate URL→state effects when embedded. | 51-96, 129-160. |
-| `server/agent-chat-router.ts` | Parse `attachments:{ids}` on `POST /:id/send`; add attachment endpoints. | 144-163. |
-| `server/agent-chat-manager.ts` | Resolve attachment textBlocks via `attachmentManager.getClaudeArgs`, fold into `prompt` before pinned-project prefix; append note for codex/gemini into prompt. | 72-235 (fold near :97-102, chokepoint :151). |
+| `client/src/features/code/pages/CodePage.tsx` | Add controlled/`embedded` props; neutralize `navigate({pathname:'/code'})` calls; gate URL→state effects when embedded. | 51-96, 129-160. |
+| `server/modules/missions/runtime/agent-chat-router.ts` | Parse `attachments:{ids}` on `POST /:id/send`; add attachment endpoints. | 144-163. |
+| `server/modules/missions/runtime/agent-chat-manager.ts` | Resolve attachment textBlocks via `attachmentManager.getClaudeArgs`, fold into `prompt` before pinned-project prefix; append note for codex/gemini into prompt. | 72-235 (fold near :97-102, chokepoint :151). |
 | `server/attachment-manager.ts` | Add app-global agent storage root (`~/.specrails/agent/<conversationId>/attachments/`) or overload; keep traversal guards. | 89-133, 287-348. |
 
 ---
@@ -155,7 +155,7 @@ All three are gated on `!!activeProjectId` (disabled tooltip otherwise), matchin
 
 The Explore browser-capture stack is fully project-scoped and reusable verbatim.
 
-- **Reuse:** `BrowserCaptureModal` (props `{open,onClose,projectId,pendingSpecId,onCaptured,confirmLabel}`), `CapturedDomPanel` (props `{dom,onRemove?}`), the `client/src/lib/browser-capture.ts` REST helpers (`createBrowserSession`, `navigateBrowser`, `captureBrowserRegion`, `captureBrowserBreakpoints`, `uploadCaptureImage`), `isBrowserCaptureEnabled()` (client flag `VITE_FEATURE_BROWSER_CAPTURE`), and server `requireBrowserCaptureEnabled`/`SPECRAILS_BROWSER_CAPTURE` (feature-flags.ts:9-13). Server session endpoints at project-router-terminals.ts:200-410.
+- **Reuse:** `BrowserCaptureModal` (props `{open,onClose,projectId,pendingSpecId,onCaptured,confirmLabel}`), `CapturedDomPanel` (props `{dom,onRemove?}`), the `client/src/features/browser/lib/browser-capture.ts` REST helpers (`createBrowserSession`, `navigateBrowser`, `captureBrowserRegion`, `captureBrowserBreakpoints`, `uploadCaptureImage`), `isBrowserCaptureEnabled()` (client flag `VITE_FEATURE_BROWSER_CAPTURE`), and server `requireBrowserCaptureEnabled`/`SPECRAILS_BROWSER_CAPTURE` (feature-flags.ts:9-13). Server session endpoints at project-router-terminals.ts:200-410.
 - **New work:** wire the sidebar Browser button to open `BrowserCaptureModal` with the current `activeProjectId` and the agent conversation's pending id; route `onCaptured` into the composer capture chips (see §7). Requires an active project (browser sessions are project-scoped).
 
 ---

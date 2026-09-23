@@ -5,8 +5,8 @@ import path from 'node:path'
 vi.mock('./bundled-openspec', () => ({ getBundledOpenspecCli: vi.fn() }))
 vi.mock('./path-resolver', async original => ({ ...await original<typeof import('./path-resolver')>(), resolveBundledNodeExe: vi.fn(() => process.execPath) }))
 import { getBundledOpenspecCli } from './bundled-openspec'
-import { bundledLoopShellInvocation } from './loop-shell-invocation'
-import { createLoopExecutors } from './loop-executors'
+import { bundledLoopShellInvocation } from './modules/loops/runtime/loop-shell-invocation'
+import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
 
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks() })
 describe('offline loop archive execution', () => {

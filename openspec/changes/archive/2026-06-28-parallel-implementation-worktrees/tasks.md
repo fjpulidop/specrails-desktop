@@ -1,6 +1,6 @@
 ## 1. Isolation gate + loop classification — capability `rail-parallel-isolation`
 
-- [ ] 1.1 Add `readOnly?: boolean` to the `LoopTemplate` interface (`server/loop-templates.ts`); mark the provably read-only built-ins (PR watchers, read-only audits/investigations) `readOnly: true`. All other templates + all custom loops default to mutating.
+- [ ] 1.1 Add `readOnly?: boolean` to the `LoopTemplate` interface (`server/modules/loops/runtime/loop-templates.ts`); mark the provably read-only built-ins (PR watchers, read-only audits/investigations) `readOnly: true`. All other templates + all custom loops default to mutating.
 - [x] 1.2 Add a pure `mutatesRepo(graph, opts)` predicate (server) = `!readOnly` (custom loops → true). Unit-test the default-true behaviour.
 - [x] 1.3 Add `isolationApplies(rail, loop)` = loops-enabled AND not kill-switched AND per-ticket scope AND `ticketIds.length > 1` AND `mutatesRepo`. Unit-test every branch (N=1, scope=all, read-only, kill-switch → false).
 - [x] 1.4 Add the kill-switch `SPECRAILS_RAIL_WORKTREES` (default on; documented off value) read once at startup, mirroring the other loop flags.
@@ -25,7 +25,7 @@
 
 ## 5. Merge-back state machine — capability `loop-merge-back`
 
-- [x] 5.1 New `server/merge-manager.ts`: a sequential merge-back driver with an **injected git runner** + an injected "run verification" hook (mirrors `LoopExecutors`) so the state machine is unit-tested without real git. Holds a process-local per-repo mutex for the duration of one merge+verify step.
+- [x] 5.1 New `server/modules/delivery/runtime/merge-manager.ts`: a sequential merge-back driver with an **injected git runner** + an injected "run verification" hook (mirrors `LoopExecutors`) so the state machine is unit-tested without real git. Holds a process-local per-repo mutex for the duration of one merge+verify step.
 - [x] 5.2 Merge ordering: sort successful branches by ascending Contract-Layer touch-list overlap when touch-lists are present; else by ticket id. Pure, unit-tested.
 - [x] 5.3 Per branch: `merge --no-ff` → on conflict invoke the resolver hook → re-verify integrated tree → on red rebase+one fix-pass+retry-once → else `needs-review`. Update the ledger `merge_state` at each transition.
 - [x] 5.4 Never advance base except via a clean, re-verified merge. Failed/aborted runs are never merged. Unit-test: all-clean, one add-add conflict resolved, unresolvable → needs-review, integrated-red → rebase-fix → green, integrated-red → needs-review.

@@ -2,8 +2,8 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
-import { ChatPanel } from '../ChatPanel'
-import type { UseChatReturn } from '../../hooks/useChat'
+import { ChatPanel } from '../../features/chat/components/ChatPanel'
+import type { UseChatReturn } from '../../features/chat/hooks/useChat'
 import type { DesktopProject } from '../../hooks/useDesktop'
 
 vi.mock('react-markdown', () => ({

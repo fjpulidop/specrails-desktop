@@ -3,23 +3,23 @@ import { premiumDescription, premiumCriteria } from '../../lib/__tests__/premium
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { cleanup, render, screen, waitFor } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
-import { AddProjectDialog } from '../AddProjectDialog'
-import { BlueprintPanel } from '../project-builder/BlueprintPanel'
-import { BlueprintCommitForm } from '../project-builder/BlueprintCommitForm'
-import { BuilderConversation } from '../project-builder/BuilderConversation'
-import { BlueprintReadiness } from '../project-builder/BlueprintReadiness'
-import { BuilderRecentBlueprints } from '../project-builder/BuilderRecentBlueprints'
-import { BuilderGenerationProgress } from '../project-builder/BuilderGenerationProgress'
-import { __resetPrerequisitesCacheForTest } from '../../hooks/usePrerequisites'
+import { AddProjectDialog } from '../../features/projects/components/AddProjectDialog'
+import { BlueprintPanel } from '../../features/builder/components/project-builder/BlueprintPanel'
+import { BlueprintCommitForm } from '../../features/builder/components/project-builder/BlueprintCommitForm'
+import { BuilderConversation } from '../../features/builder/components/project-builder/BuilderConversation'
+import { BlueprintReadiness } from '../../features/builder/components/project-builder/BlueprintReadiness'
+import { BuilderRecentBlueprints } from '../../features/builder/components/project-builder/BuilderRecentBlueprints'
+import { BuilderGenerationProgress } from '../../features/builder/components/project-builder/BuilderGenerationProgress'
+import { __resetPrerequisitesCacheForTest } from '../../features/projects/hooks/usePrerequisites'
 import { SharedWebSocketContext } from '../../hooks/useSharedWebSocket'
-import type { Blueprint } from '../../lib/blueprint-draft'
-import type { BuilderSession } from '../../hooks/useBuilderSession'
+import type { Blueprint } from '../../features/builder/lib/blueprint-draft'
+import type { BuilderSession } from '../../features/builder/hooks/useBuilderSession'
 
 // Mutable agent-chat mock: each BuilderConversation test swaps builderMode in.
 const mockAgentChat: { builderMode: { active: boolean; enter: () => void; exit: () => void; session: BuilderSession } } = {
   builderMode: { active: false, enter: vi.fn(), exit: vi.fn(), session: {} as BuilderSession },
 }
-vi.mock('../../context/AgentChatContext', () => ({
+vi.mock('../../features/missions/context/AgentChatContext', () => ({
   useAgentChat: () => mockAgentChat,
 }))
 

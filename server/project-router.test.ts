@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { premiumSpec } from './blueprint-spec-fixtures'
+import { premiumSpec } from './modules/builder/runtime/blueprint-spec-fixtures'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -8,18 +8,18 @@ import request from 'supertest'
 
 import { createProjectRouter, stripSpecMetadataSections, formatDescriptionWithCriteria, extractShortSummary } from './project-router'
 import { serializeInstallConfigYaml } from './project-router-helpers'
-import { resolveTicketStoragePath, mutateStore, readStore } from './ticket-store'
+import { resolveTicketStoragePath, mutateStore, readStore } from './modules/specs/runtime/ticket-store'
 import { mirrorProjectEntry as regMirror, workspaceLayout as regLayout, resolveHome as regResolveHome } from './artifact-registry'
 import { initDb, listProposals } from './db'
 import { initDesktopDb } from './desktop-db'
 import { installConfigPath, installConfigPathForProvider } from './install-config-path'
-import { readBlueprint, writeBlueprintPair } from './blueprint-render'
+import { readBlueprint, writeBlueprintPair } from './modules/builder/runtime/blueprint-render'
 import {
   ClaudeNotFoundError,
   InvalidJobDependencyError,
   JobNotFoundError,
   JobAlreadyTerminalError,
-} from './queue-manager'
+} from './modules/execution/runtime/queue-manager'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import type { DbInstance } from './db'
 
@@ -3578,12 +3578,12 @@ describe('project-router', () => {
 
     beforeEach(async () => {
       // Clear any leftover sessions between tests
-      const { _resetTerminalManagerForTest } = await import('./terminal-manager')
+      const { _resetTerminalManagerForTest } = await import('./modules/terminals/runtime/terminal-manager')
       _resetTerminalManagerForTest()
     })
 
     afterEach(async () => {
-      const { _resetTerminalManagerForTest } = await import('./terminal-manager')
+      const { _resetTerminalManagerForTest } = await import('./modules/terminals/runtime/terminal-manager')
       _resetTerminalManagerForTest()
       // give PTYs a tick to die
       await new Promise((r) => setTimeout(r, 50))

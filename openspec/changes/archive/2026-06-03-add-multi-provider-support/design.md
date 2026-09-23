@@ -132,10 +132,10 @@ Trade-off: developers must add capability flags as they discover new behavioural
 
 ### D3 — Cost calculation strategy
 
-**Decision**: Local pricing table at `server/pricing.ts`, keyed by `${providerId}:${model}`. Used as a fallback when `adapter.capabilities.nativeCostUsd === false`. Surface as `estimated: true` in `ai_invocations` (new optional column added by migration — see Migration Plan) and badge in UI.
+**Decision**: Local pricing table at `server/modules/accounting/runtime/pricing.ts`, keyed by `${providerId}:${model}`. Used as a fallback when `adapter.capabilities.nativeCostUsd === false`. Surface as `estimated: true` in `ai_invocations` (new optional column added by migration — see Migration Plan) and badge in UI.
 
 ```ts
-// server/pricing.ts
+// server/modules/accounting/runtime/pricing.ts
 export interface PriceEntry {
   inputPer1M: number
   outputPer1M: number
@@ -168,7 +168,7 @@ Reasoning tokens (`reasoning_output_tokens` in codex) are tariffed as output tok
 
 ### D4 — Synthetic OTEL for codex
 
-**Decision**: `server/codex-otel-bridge.ts` consumes the JSONL emitted by `codex exec --json` and writes OTLP-shaped JSON payloads directly to the in-process OTLP receiver (POST `/otlp/v1/{traces,metrics,logs}`). Same destination QueueManager already feeds via env vars for Claude. `telemetry_blobs` rows, `telemetry.ndjson`, and the diagnostic export ZIP work identically.
+**Decision**: `server/modules/accounting/runtime/codex-otel-bridge.ts` consumes the JSONL emitted by `codex exec --json` and writes OTLP-shaped JSON payloads directly to the in-process OTLP receiver (POST `/otlp/v1/{traces,metrics,logs}`). Same destination QueueManager already feeds via env vars for Claude. `telemetry_blobs` rows, `telemetry.ndjson`, and the diagnostic export ZIP work identically.
 
 The bridge runs only when `pipelineTelemetryEnabled === true` for the project, mirroring the Claude path.
 

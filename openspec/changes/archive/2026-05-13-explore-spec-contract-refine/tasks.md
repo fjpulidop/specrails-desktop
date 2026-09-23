@@ -9,7 +9,7 @@
 
 ## 2. Server: refine prompt + parser
 
-- [x] 2.1 Create `server/explore-contract-refine.ts` exporting `CONTRACT_PROMPT_VERSION = 1`, `buildContractRefineSystemPrompt(): string` (byte-stable, structural-only, forbids user-content edits, demands `contract-layer` fenced block), and `CONTRACT_MARKER_USER_MESSAGE = '/specrails:contract-refine'`
+- [x] 2.1 Create `server/modules/conversations/runtime/explore-contract-refine.ts` exporting `CONTRACT_PROMPT_VERSION = 1`, `buildContractRefineSystemPrompt(): string` (byte-stable, structural-only, forbids user-content edits, demands `contract-layer` fenced block), and `CONTRACT_MARKER_USER_MESSAGE = '/specrails:contract-refine'`
 - [x] 2.2 Include 1–2 few-shot examples in the system prompt body that demonstrate the `contract-layer` JSON shape
 - [x] 2.3 Unit test: `buildContractRefineSystemPrompt()` is byte-equal across two consecutive calls
 - [x] 2.4 Export `parseContractLayerBlock(rawAssistantText): { ok: true, value: ContractLayer } | { ok: false, reason: 'malformed' | 'missing-version' | 'parser-error' }`
@@ -21,7 +21,7 @@
 
 ## 3. Server: ChatManager refine lifecycle hook
 
-- [x] 3.1 Extend `ChatManager` (or a thin sibling helper in `server/explore-contract-refine.ts`) with `runContractRefine(conversationId, ticketId): Promise<void>` that:
+- [x] 3.1 Extend `ChatManager` (or a thin sibling helper in `server/modules/conversations/runtime/explore-contract-refine.ts`) with `runContractRefine(conversationId, ticketId): Promise<void>` that:
    - Checks the per-project toggle + kill switch (early return if either disables it)
    - Schedules a turn through the existing Explore lifecycle (concurrency cap, idle-kill, crash auto-respawn, cwd resolution, `--resume <session_id>`, model = parent conversation model)
    - Sends `/specrails:contract-refine` as the marker user message
@@ -52,7 +52,7 @@
 ## 6. Client: SettingsPage toggle
 
 - [x] 6.1 Add a `useExploreContractRefineEnabled(projectId)` hook in `client/src/hooks/` (mirror `useExploreMcpEnabled` if present, otherwise stale-while-revalidate pattern)
-- [x] 6.2 Extend the `Explore Spec` card in `client/src/pages/SettingsPage.tsx` with the new toggle + helper line copy
+- [x] 6.2 Extend the `Explore Spec` card in `client/src/features/settings/pages/SettingsPage.tsx` with the new toggle + helper line copy
 - [x] 6.3 Toggle PATCHes the new endpoint on change and reflects server state on mount
 - [x] 6.4 Component test for the toggle (renders, persists, helper copy present)
 

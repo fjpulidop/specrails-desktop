@@ -1,11 +1,11 @@
 ## Context
 
-Custom agents live as `.claude/agents/custom-*.md` per project. The hub already manages them through `server/profiles-router.ts` (CRUD), `server/agent-generator.ts` (one-shot generation), and `client/src/components/agents/{AgentsCatalogTab,AgentStudio}.tsx` (list + edit).
+Custom agents live as `.claude/agents/custom-*.md` per project. The hub already manages them through `server/modules/agents/runtime/profiles-router.ts` (CRUD), `server/modules/agents/runtime/agent-generator.ts` (one-shot generation), and `client/src/components/agents/{AgentsCatalogTab,AgentStudio}.tsx` (list + edit).
 
 The codebase already implements an iterative AI editing pattern in two places:
 
 1. **Tickets** — capability `ai-edit-diff-review`, with the Idle/Composing/Reviewing state machine and word-level diff in `TicketDetailModal`.
-2. **Feature proposals** — `server/proposal-manager.ts` + `client/src/components/FeatureProposalModal.tsx` + `client/src/hooks/useProposal.ts`. Spawns `claude` with `--resume <sessionId>` so multi-turn refinements stay cheap and context-aware. Streams via WebSocket (`proposal_stream`, `proposal_ready`, `proposal_refined`).
+2. **Feature proposals** — `server/modules/specs/runtime/proposal-manager.ts` + `client/src/components/FeatureProposalModal.tsx` + `client/src/hooks/useProposal.ts`. Spawns `claude` with `--resume <sessionId>` so multi-turn refinements stay cheap and context-aware. Streams via WebSocket (`proposal_stream`, `proposal_ready`, `proposal_refined`).
 
 This change ports the proven proposal-style architecture to custom agents and combines it with the diff-review UX from tickets, then adds three premium polishes: full-screen overlay, staged status pills, and optional auto-test.
 

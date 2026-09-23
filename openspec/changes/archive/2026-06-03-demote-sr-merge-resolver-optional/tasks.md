@@ -78,7 +78,7 @@ Edit the `migrate-from-settings` POST handler in `profiles-router.ts` to remove 
 
 **Files:**
 
-- Modify: `server/profiles-router.ts`
+- Modify: `server/modules/agents/runtime/profiles-router.ts`
 
 **Exact changes (two edits in the same handler):**
 

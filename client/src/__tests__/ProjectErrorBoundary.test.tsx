@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '../test-utils'
-import { ProjectErrorBoundary } from '../components/ProjectErrorBoundary'
+import { ProjectErrorBoundary } from '../features/projects/components/ProjectErrorBoundary'
 
 function NormalChild() {
   return <div>Child content</div>

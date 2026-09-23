@@ -2,7 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
-import { RecentJobs } from '../RecentJobs'
+import { RecentJobs } from '../../features/jobs/components/RecentJobs'
 import type { JobSummary } from '../../types'
 
 vi.mock('sonner', () => ({
@@ -27,7 +27,7 @@ vi.mock('react-router-dom', async () => {
 })
 
 // Mock JobComparisonModal to avoid complex deps
-vi.mock('../JobComparisonModal', () => ({
+vi.mock('../../features/jobs/components/JobComparisonModal', () => ({
   JobComparisonModal: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="job-comparison-modal">
       <button onClick={onClose}>Close comparison</button>

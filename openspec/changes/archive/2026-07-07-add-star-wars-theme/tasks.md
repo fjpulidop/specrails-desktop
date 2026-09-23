@@ -1,23 +1,23 @@
 ## 1. Theme registry — palette + descriptor
 
-- [x] 1.1 Add `'star-wars'` to `THEME_IDS` in `client/src/lib/themes.ts` (append after `'specrails'`, keep `DEFAULT_THEME` unchanged at `'specrails'`).
+- [x] 1.1 Add `'star-wars'` to `THEME_IDS` in `client/src/features/settings/lib/themes.ts` (append after `'specrails'`, keep `DEFAULT_THEME` unchanged at `'specrails'`).
   **Layer:** client
-  **Files:** Modify: `client/src/lib/themes.ts`
+  **Files:** Modify: `client/src/features/settings/lib/themes.ts`
   **Acceptance:** `THEME_IDS` includes `'star-wars'`; `isThemeId('star-wars')` returns `true`.
 
 - [x] 1.2 Define `STAR_WARS_PALETTE` (a literal const object, mirroring the shape of `MATRIX_PALETTE`/`SPECRAILS_PALETTE`) with: `bg` (deep-space near-black, blue-tinted, hue ≈224°), `card`, `bgDeep`, `fg` (cool near-white), `muted`, `primary`/`info` sharing one Jedi-blue hue (≈212°, L≥55%), `secondary` (violet — Mace Windu homage, hue ≈280°), `success` (Force-green, hue ≈140°), `warning` (blaster-orange, hue ≈28°), `highlight` (droid-gold, hue ≈45°), `destructive` (Sith-red, hue ≈355°). See `design.md` Decision D1 for exact rationale and hue spacing; use it as the concrete value reference.
   **Layer:** client
-  **Files:** Modify: `client/src/lib/themes.ts`
+  **Files:** Modify: `client/src/features/settings/lib/themes.ts`
   **Acceptance:** every accent hue is ≥15° apart from its neighbors when plotted on the hue wheel (matches the existing "distinct accent slots" test pattern for `matrix`).
 
 - [x] 1.3 Define `STAR_WARS: ThemeDescriptor` using `STAR_WARS_PALETTE`: `displayName: 'Star Wars'`, a one-line `tagline`, `scheme: 'dark'`, `previewSwatches` (background/foreground + 4 accents), a full 20-key `xterm` palette (background/foreground/cursor/cursorAccent/selectionBackground + 8 ANSI + 8 bright variants — follow the exact key-by-key mapping pattern `MATRIX`/`SPECRAILS` use, e.g. `red: destructive`, `green: success`, `blue`/`cyan: primary`, `magenta: secondary`, `yellow: warning`), a 5-entry unique `chart` palette (`[primary, success, warning, secondary, destructive]` or similar — verify no duplicate values), and a `status` map (`completed: primary`, `failed: destructive`, `canceled: warning`, `running: info`, `queued: muted`).
   **Layer:** client
-  **Files:** Modify: `client/src/lib/themes.ts`
+  **Files:** Modify: `client/src/features/settings/lib/themes.ts`
   **Acceptance:** matches the `ThemeDescriptor` interface exactly (compiles under `tsc --noEmit`); `chart` has 5 unique entries; `xterm` has all 20 keys populated.
 
-- [x] 1.4 Add `'star-wars': STAR_WARS` to the `THEMES` registry map in `client/src/lib/themes.ts`.
+- [x] 1.4 Add `'star-wars': STAR_WARS` to the `THEMES` registry map in `client/src/features/settings/lib/themes.ts`.
   **Layer:** client
-  **Files:** Modify: `client/src/lib/themes.ts`
+  **Files:** Modify: `client/src/features/settings/lib/themes.ts`
   **Acceptance:** `THEMES['star-wars']` returns the `STAR_WARS` descriptor; `getTheme('star-wars')` works.
 
 ## 2. CSS tokens, focus-glow, and border-glow
@@ -44,9 +44,9 @@
   **Files:** Create: `client/src/components/theme-effects/LightsaberTrail.tsx`
   **Acceptance:** renders a `<canvas aria-hidden className="fixed inset-0 pointer-events-none" style={{ zIndex: -1 }} />`; moving the pointer draws a thin glowing trail that fades within ~200ms; setting `prefers-reduced-motion: reduce` (jsdom `matchMedia` mock) results in no `requestAnimationFrame` call; hiding `document` (`visibilitychange` + `document.hidden = true`) cancels the animation frame.
 
-- [x] 3.2 Register `'star-wars': LightsaberTrail` in the `THEME_EFFECTS` map in `client/src/components/theme-effects/ThemeEffectLayer.tsx` (alongside the existing `matrix: MatrixRain` entry), importing `LightsaberTrail` from the new file.
+- [x] 3.2 Register `'star-wars': LightsaberTrail` in the `THEME_EFFECTS` map in `client/src/features/settings/components/theme-effects/ThemeEffectLayer.tsx` (alongside the existing `matrix: MatrixRain` entry), importing `LightsaberTrail` from the new file.
   **Layer:** client
-  **Files:** Modify: `client/src/components/theme-effects/ThemeEffectLayer.tsx`
+  **Files:** Modify: `client/src/features/settings/components/theme-effects/ThemeEffectLayer.tsx`
   **Acceptance:** `THEME_EFFECTS['star-wars'] === LightsaberTrail`; under the `star-wars` theme `ThemeEffectLayer` renders `<LightsaberTrail />`; under any of the other four non-matrix themes it renders `null`.
 
 ## 4. Server-side allow-list
@@ -65,19 +65,19 @@
 
 ## 6. Test updates
 
-- [x] 6.1 Update `client/src/lib/__tests__/themes.test.ts`'s hardcoded fixtures to include `star-wars`: the `THEME_IDS allow-list contains the ... documented built-in themes` exact-array assertion, the `aurora-light has scheme=light, others=dark` assertion (add `star-wars` to the dark-scheme list), and the `each dark theme background is distinct from the others` `darks` array (add `'star-wars'`).
+- [x] 6.1 Update `client/src/features/settings/lib/__tests__/themes.test.ts`'s hardcoded fixtures to include `star-wars`: the `THEME_IDS allow-list contains the ... documented built-in themes` exact-array assertion, the `aurora-light has scheme=light, others=dark` assertion (add `star-wars` to the dark-scheme list), and the `each dark theme background is distinct from the others` `darks` array (add `'star-wars'`).
   **Layer:** tests
-  **Files:** Modify: `client/src/lib/__tests__/themes.test.ts`
-  **Acceptance:** `npx vitest run client/src/lib/__tests__/themes.test.ts` passes with `star-wars` included in every generic (`it.each(THEME_IDS)`) assertion and the updated fixed-array assertions.
+  **Files:** Modify: `client/src/features/settings/lib/__tests__/themes.test.ts`
+  **Acceptance:** `npx vitest run client/src/features/settings/lib/__tests__/themes.test.ts` passes with `star-wars` included in every generic (`it.each(THEME_IDS)`) assertion and the updated fixed-array assertions.
 
-- [x] 6.2 Add a `describe('star-wars theme', ...)` block to `client/src/lib/__tests__/themes.test.ts` (or a new sibling test file) asserting the theme-specific invariants from `design.md`/the delta spec: `accent-primary`, `ring`-equivalent, and `accent-info` share the same hue; `destructive` sits in the red hue band (340°–10°) and is distinct from `accent-highlight`'s gold band; `chart` palette spans at least 3 distinct hue families; foreground/background contrast meets WCAG AA (≥4.5:1) for body copy (reuse the existing `hslToLuminance`/`contrastRatio` helpers already defined in this test file for the `matrix` suite).
+- [x] 6.2 Add a `describe('star-wars theme', ...)` block to `client/src/features/settings/lib/__tests__/themes.test.ts` (or a new sibling test file) asserting the theme-specific invariants from `design.md`/the delta spec: `accent-primary`, `ring`-equivalent, and `accent-info` share the same hue; `destructive` sits in the red hue band (340°–10°) and is distinct from `accent-highlight`'s gold band; `chart` palette spans at least 3 distinct hue families; foreground/background contrast meets WCAG AA (≥4.5:1) for body copy (reuse the existing `hslToLuminance`/`contrastRatio` helpers already defined in this test file for the `matrix` suite).
   **Layer:** tests
-  **Files:** Modify: `client/src/lib/__tests__/themes.test.ts`
+  **Files:** Modify: `client/src/features/settings/lib/__tests__/themes.test.ts`
   **Acceptance:** all new assertions pass; contrast ratio ≥ 4.5.
 
-- [x] 6.3 Add `client/src/components/theme-effects/__tests__/ThemeEffectLayer.test.tsx` (new file — none exists today): mock `useActiveTheme` from `../../../context/ThemeContext` to return each theme id in turn and assert `ThemeEffectLayer` renders `LightsaberTrail` only for `star-wars`, `MatrixRain` only for `matrix`, and `null` for every other theme id.
+- [x] 6.3 Add `client/src/features/settings/components/theme-effects/__tests__/ThemeEffectLayer.test.tsx` (new file — none exists today): mock `useActiveTheme` from `../../../context/ThemeContext` to return each theme id in turn and assert `ThemeEffectLayer` renders `LightsaberTrail` only for `star-wars`, `MatrixRain` only for `matrix`, and `null` for every other theme id.
   **Layer:** tests
-  **Files:** Create: `client/src/components/theme-effects/__tests__/ThemeEffectLayer.test.tsx`
+  **Files:** Create: `client/src/features/settings/components/theme-effects/__tests__/ThemeEffectLayer.test.tsx`
   **Acceptance:** test passes for all 6 theme ids.
 
 - [x] 6.4 Add `client/src/components/theme-effects/__tests__/LightsaberTrail.test.tsx` (new file): a lightweight smoke test — (a) mounts/unmounts without throwing, (b) with `window.matchMedia` mocked to report `prefers-reduced-motion: reduce`, asserts no `requestAnimationFrame` call occurs, (c) asserts the rendered `<canvas>` has `pointer-events: none` and the fixed/inset-0 class, (d) simulates `document.hidden = true` + a `visibilitychange` dispatch and asserts `cancelAnimationFrame` is invoked. Follow whatever `jsdom` canvas/`matchMedia` mocking convention the vitest setup already provides (check `client/vitest-setup.ts` / `client/vitest.config.ts` for an existing `HTMLCanvasElement.prototype.getContext` stub before adding a new one).

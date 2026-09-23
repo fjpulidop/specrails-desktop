@@ -5,8 +5,8 @@ import path from 'path'
 import express from 'express'
 import request from 'supertest'
 
-vi.mock('./smash-runner', async () => {
-  const actual = await vi.importActual<typeof import('./smash-runner')>('./smash-runner')
+vi.mock('./modules/specs/runtime/smash-runner', async () => {
+  const actual = await vi.importActual<typeof import('./modules/specs/runtime/smash-runner')>('./modules/specs/runtime/smash-runner')
   return {
     ...actual,
     runSmash: vi.fn(async () => ({ ok: true, ticketId: 1, runId: 'test-run', childrenIds: [] })),
@@ -16,7 +16,7 @@ vi.mock('./smash-runner', async () => {
 import { createProjectRouter } from './project-router'
 import { initDb, createConversation, type DbInstance } from './db'
 import { initDesktopDb } from './desktop-db'
-import { runSmash } from './smash-runner'
+import { runSmash } from './modules/specs/runtime/smash-runner'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import {
   mutateStore,
@@ -24,7 +24,7 @@ import {
   resolveTicketStoragePath,
   CURRENT_SCHEMA_VERSION,
   type Ticket,
-} from './ticket-store'
+} from './modules/specs/runtime/ticket-store'
 
 function makeContext(db: DbInstance, projectPath: string): ProjectContext {
   return {
@@ -301,7 +301,7 @@ describe('SMASH endpoints', () => {
       expect(res.status).toBe(200)
       // Re-read store to confirm children survive
       const filePath = resolveTicketStoragePath(tmpDir)
-      const { readStore } = await import('./ticket-store')
+      const { readStore } = await import('./modules/specs/runtime/ticket-store')
       const store = readStore(filePath)
       expect(store.tickets['1']).toBeUndefined()
       expect(store.tickets['2']).toBeDefined()

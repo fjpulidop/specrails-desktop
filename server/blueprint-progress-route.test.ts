@@ -7,12 +7,12 @@ import request from 'supertest'
 import { createProjectRouter } from './project-router'
 import { initDb, type DbInstance } from './db'
 import { initDesktopDb } from './desktop-db'
-import { writeBlueprintPair } from './blueprint-render'
-import { mutateStore } from './ticket-store'
+import { writeBlueprintPair } from './modules/builder/runtime/blueprint-render'
+import { mutateStore } from './modules/specs/runtime/ticket-store'
 import { workspacePathFor } from './workspace-manager'
-import { MilestoneProgressBroadcaster } from './milestone-progress'
+import { MilestoneProgressBroadcaster } from './modules/builder/runtime/milestone-progress'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
-import type { Blueprint } from './blueprint-types'
+import type { Blueprint } from './modules/builder/runtime/blueprint-types'
 
 // GET /:projectId/blueprint now carries the server-derived milestone progress
 // next to the blueprint (premium-milestone-progress).

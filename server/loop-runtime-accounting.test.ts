@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { initDb, getJob, type DbInstance } from './db'
-import { LoopRunManager } from './loop-run-manager'
-import type { LoopGraph } from './loop-graph'
+import { LoopRunManager } from './modules/loops/runtime/loop-run-manager'
+import type { LoopGraph } from './modules/loops/runtime/loop-graph'
 const databases: DbInstance[] = []
 afterEach(() => databases.splice(0).forEach(db => db.close()))
 const graph: LoopGraph = {

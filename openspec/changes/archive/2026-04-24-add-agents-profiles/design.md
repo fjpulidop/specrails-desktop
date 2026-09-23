@@ -57,7 +57,7 @@ Catalog lives in the project tree:
   .user-preferred.json       ← gitignored, per-developer picker default
 ```
 
-The hub writes/reads these files via `ProfileManager` in `server/profile-manager.ts`. Validation against `schemas/profile.v1.json` (from specrails-core npm package) using `ajv` before any write.
+The hub writes/reads these files via `ProfileManager` in `server/modules/agents/runtime/profile-manager.ts`. Validation against `schemas/profile.v1.json` (from specrails-core npm package) using `ajv` before any write.
 
 `.gitignore` entry is added automatically on first profile creation: `.specrails/profiles/.user-preferred.json`.
 

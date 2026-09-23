@@ -1,5 +1,5 @@
-import type { PrFollowUp, FollowUpReportLine } from './lib/pr-follow-up-scope'
-import type { SpecAddendum, SpecAddendaSnapshotEntry, SpecAddendaReportLine } from './lib/spec-addenda-core'
+import type { PrFollowUp, FollowUpReportLine } from './features/delivery/lib/pr-follow-up-scope'
+import type { SpecAddendum, SpecAddendaSnapshotEntry, SpecAddendaReportLine } from './features/specs/lib/spec-addenda-core'
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled' | 'zombie_terminated' | 'skipped'
 
 export type BackgroundProcessStatus = 'starting' | 'running' | 'stopping' | 'exited' | 'killed' | 'failed' | 'interrupted'
@@ -365,8 +365,8 @@ export interface RailPrUnitOutcome {
  * `prDeliveries` and updated by every `rail.pr_state` broadcast.
  */
 export interface RailPrStateSnapshot {
-  executionManifest?: import('./types/multi-repo').RunExecutionManifest | null
-  repositoryDeliveries?: import('./types/multi-repo').RepositoryDeliverySnapshot[]
+  executionManifest?: import('./features/projects/types/multi-repo').RunExecutionManifest | null
+  repositoryDeliveries?: import('./features/projects/types/multi-repo').RepositoryDeliverySnapshot[]
   prDeliveryId: string
   railIndex: number
   railKey: string

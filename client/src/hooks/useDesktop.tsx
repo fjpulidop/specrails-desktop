@@ -10,13 +10,13 @@ import {
   type ReactNode,
 } from 'react'
 import { API_ORIGIN } from '../lib/origin'
-import type { ProviderId } from '../lib/provider-capabilities'
+import type { ProviderId } from '../features/providers/lib/provider-capabilities'
 import { toast } from 'sonner'
 import i18n from '../lib/i18n'
 import { useSharedWebSocket } from './useSharedWebSocket'
 import { setActiveProjectId as setApiActiveProjectId } from '../lib/api'
 import { purgeProjectCache } from './useProjectCache'
-import type { ProjectRepository, RepositoryInput } from '../lib/project-repositories'
+import type { ProjectRepository, RepositoryInput } from '../features/projects/lib/project-repositories'
 
 export interface DesktopProject {
   repositories?: ProjectRepository[]

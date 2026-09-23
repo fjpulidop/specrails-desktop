@@ -24,7 +24,7 @@ vi.mock('sonner', () => ({
   Toaster: () => null,
 }))
 
-vi.mock('../../hooks/usePipeline', () => ({
+vi.mock('../../features/jobs/hooks/usePipeline', () => ({
   usePipeline: () => ({
     connectionStatus: 'connected',
     phases: {},
@@ -45,7 +45,7 @@ vi.mock('../../hooks/useSharedWebSocket', () => ({
   }),
 }))
 
-vi.mock('../../hooks/useChat', () => ({
+vi.mock('../../features/chat/hooks/useChat', () => ({
   useChat: () => ({}),
   ChatContext: { Provider: ({ children }: { children: React.ReactNode }) => children },
 }))
@@ -65,23 +65,23 @@ vi.mock('../StatusBar', () => ({
   ),
 }))
 
-vi.mock('../ChatPanel', () => ({
+vi.mock('../../features/chat/components/ChatPanel', () => ({
   ChatPanel: () => <div data-testid="chat-panel" />,
 }))
 
-vi.mock('../terminal/BottomPanel', () => ({
+vi.mock('../../features/terminals/components/terminal/BottomPanel', () => ({
   BottomPanel: ({ projectId }: { projectId: string }) => (
     <div data-testid="bottom-panel">{projectId}</div>
   ),
 }))
 
-vi.mock('../terminal/PanelChevronButton', () => ({
+vi.mock('../../features/terminals/components/terminal/PanelChevronButton', () => ({
   PanelChevronButton: ({ onClick }: { isOpen: boolean; onClick: () => void }) => (
     <button data-testid="panel-chevron" onClick={onClick}>chevron</button>
   ),
 }))
 
-vi.mock('../../context/TerminalsContext', () => ({
+vi.mock('../../features/terminals/context/TerminalsContext', () => ({
   useTerminals: () => ({
     ensureProject: h.ensureProject,
     setVisibility: h.setVisibility,

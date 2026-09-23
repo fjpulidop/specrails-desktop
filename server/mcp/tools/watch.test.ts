@@ -4,7 +4,7 @@ import type { WsMessage } from '../../types'
 import { watchTool } from './watch'
 import type { McpToolContext } from './types'
 import type { DbInstance } from '../../db'
-import { acknowledgeNativeAgentSteering, notifyAgentSteering, onAgentSteering, registerAgentSteering, runWithAgentSteering } from '../../agent-steering'
+import { acknowledgeNativeAgentSteering, notifyAgentSteering, onAgentSteering, registerAgentSteering, runWithAgentSteering } from '../../modules/missions/runtime/agent-steering'
 import { mintAgentCapability, revokeAgentCapability } from '../agent-capability'
 
 vi.mock('../../auth', () => ({ loadOrGenerateToken: () => 'watch-test-token' }))

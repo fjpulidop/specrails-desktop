@@ -10,7 +10,7 @@
 ## The single source of truth
 
 `rail_pr_deliveries` (per-project `jobs.sqlite`, migrations 36/38/48–54; CRUD in
-`server/rail-pr-store.ts`) stores one durable **generation** per implementation launch. A partial
+`server/modules/delivery/runtime/rail-pr-store.ts`) stores one durable **generation** per implementation launch. A partial
 unique index enforces one non-terminal generation per rail. Reimplementing an attached PR creates
 generation B and atomically moves generation A to terminal `superseded`; A cannot reappear through
 ordinary replay after B closes. The sole exception is an allocation rollback committed in the same
@@ -110,7 +110,7 @@ branch or detached HEAD, a temporary checkout claims the base without switching 
 A base already held by another worktree remains untouched and reports `integration_branch_busy`.
 Both temporary checkouts use non-force cleanup, including after a Git runner exception.
 
-## Launch and recovery wiring (`server/rail-isolated-launch.ts`)
+## Launch and recovery wiring (`server/modules/delivery/runtime/rail-isolated-launch.ts`)
 
 - `prMode` is captured once. Admission is rechecked inside the per-repository allocation lock;
   two requests cannot both create a generation or reuse the ticket-keyed worktree.
@@ -247,7 +247,7 @@ at launch:
 
 `POST /rails/pr-decision` `{ prDeliveryId, action, expectedDecision }` (replaces the stateless
 v1 `POST /rails/pr-review`). The route validates and delegates to
-`server/rail-pr-decision.ts` `executePrDecision` (deps injected — db/git/exec/broadcast/jira/
+`server/modules/delivery/runtime/rail-pr-decision.ts` `executePrDecision` (deps injected — db/git/exec/broadcast/jira/
 agent-chat — so the whole matrix unit-tests without git/gh/network).
 
 Before any Git, GitHub, cleanup or ticket effect, the endpoint atomically claims the row's leased
@@ -279,7 +279,7 @@ Transient observation failure keeps the evidence and fails retryably.
 Initial settlement records exact post-push `CLOSED` as `pr_closed`; exact post-push `MERGED` stays
 attached and ready for Verify so that explicit decision can commit terminal ticket intent atomically.
 
-- **create-pr** — deferred `deliverRailAsPr` (`server/rail-pr-delivery.ts`: 1 unit → its
+- **create-pr** — deferred `deliverRailAsPr` (`server/modules/delivery/runtime/rail-pr-delivery.ts`: 1 unit → its
   branch; N → assembled onto the conventional batch branch off the integration branch, one PR
   covering every ticket). The PR **title and canonical body are composed here** (see "Branch
   naming & PR content" below) from the ticket store + `jira_links` + the branch diffs — all
@@ -355,7 +355,7 @@ state → 409 (`stale_decision` + `reason: 'illegal_action'`).
 ## Branch naming & PR content (pr-naming.ts / pr-body.ts)
 
 Conventional, open-source-style naming for everything the user sees on GitHub. All pure string
-logic in `server/pr-naming.ts` (branches + titles) and `server/pr-body.ts` (canonical body +
+logic in `server/modules/delivery/runtime/pr-naming.ts` (branches + titles) and `server/modules/delivery/runtime/pr-body.ts` (canonical body +
 diff collection), fully unit-tested.
 
 - **`<ref>`** — the ticket's Jira key when Jira-linked, else the local ticket number. **JIRA
@@ -408,7 +408,7 @@ the `expectedDecision` they rendered.
   the exact `A.restoredFromDeliveryId=B` rollback after B terminalizes, and advance the same id only
   through newer `updatedAt` evidence. A delayed A snapshot without that paired proof cannot replace
   B, and a non-terminal replay cannot ordinarily reopen an id already observed terminal.
-- **Option A — dashboard.** `client/src/context/RailPrDecisionContext.tsx` (registerHandler on
+- **Option A — dashboard.** `client/src/features/delivery/context/RailPrDecisionContext.tsx` (registerHandler on
   the shared socket + `GET /rails` seed) feeds `RailPrDecisionStrip` on `RailRow` (both density
   branches): on_review → Create PR / Discard; pr_draft → Open PR + Publish / Discard (degraded →
   retry); pr_ready → Verify PR; no_changes → Done/refine; pr_closed → Reopen; pr_failed derives
@@ -433,7 +433,7 @@ the `expectedDecision` they rendered.
   no migration; TS unions widened) whose content is the `PrDecisionCardEnvelope` JSON.
   `AgentChatManager.postPrDecisionCard` / `updatePrDecisionCard` (idempotent update-in-place on
   every transition, transactionally consolidating legacy duplicate rows by delivery id) are reached via the
-  process-wide `server/agent-chat-registry.ts` singleton (null-safe: tests/disabled builds).
+  process-wide `server/modules/missions/runtime/agent-chat-registry.ts` singleton (null-safe: tests/disabled builds).
   Live updates ride the app-global `agent_pr_decision` WS event; the client renders
   `AgentPrDecisionCard` and POSTs the same project-scoped `/rails/pr-decision`. Client hydration,
   WS upsert and rendering also dedupe by delivery id, so stale blocked and current ready cards can
@@ -469,7 +469,7 @@ launches are unaffected.
 The launch body accepts an optional `targetPrNumber` — the user's explicit designation of an
 existing open PR as the delivery destination ("extend PR #151"). It bypasses the automatic-inference
 status gates (which never probe GitHub for a `todo` ticket) but keeps the authoritative validation
-ladder: `resolveExplicitPrTarget` (`server/active-pr-continuation.ts`) resolves the number to its
+ladder: `resolveExplicitPrTarget` (`server/modules/delivery/runtime/active-pr-continuation.ts`) resolves the number to its
 canonical URL, observes the lifecycle, and throws `ExplicitPrTargetError` with a distinct code —
 `target_pr_not_found` (404) / `target_pr_not_open` / `target_pr_fork` (`isCrossRepository !== false`)
 / `target_pr_invalid` / `target_pr_unfetchable` (all 409) — rejecting the launch BEFORE any delivery
@@ -498,7 +498,7 @@ the shared checkout, or isolation is unavailable), and resolved right before all
 never stacks on a guess). `launchIsolatedRail` threads it as `resolveIntegrationBranch({ explicit })`,
 so the delivery row records it as `base_branch` and `deliverRailAsPr` creates the PR STACKED on it
 (`gh pr create --base <branch>`). Today's only driver is the milestone launch chain
-(`server/milestone-chain.ts`): chunk k+1 of a sequential "Launch Milestone" launches with
+(`server/modules/builder/runtime/milestone-chain.ts`): chunk k+1 of a sequential "Launch Milestone" launches with
 `baseBranch = chunk k's delivered branch`, so a greenfield walking skeleton accumulates without waiting
 for a merge. MCP `specrails_rails(launch, baseBranch)` exposes the same parameter.
 
@@ -522,7 +522,7 @@ rewound to the previous chunk's branch, else the integration branch) and broadca
 
 ## Ticket lifecycle — `on_review`
 
-New status in `TicketStatus` / `VALID_STATUSES` (`server/ticket-store.ts`), between
+New status in `TicketStatus` / `VALID_STATUSES` (`server/modules/specs/runtime/ticket-store.ts`), between
 `in_progress` and `done`. Pipeline-owned:
 
 **Universal ask-first (both completion chokepoints).** Under the default-on PR-delivery flag
@@ -745,7 +745,7 @@ itself: the operator rewrote the ticket description (synced to Jira on linked
 projects) and the run still re-planned the whole feature. The follow-up is now a
 typed, frozen delta that travels with the DELIVERY, never with the spec.
 
-- **Shape** (`server/pr-follow-up.ts`): `comments[]` (id, source `user-paste` |
+- **Shape** (`server/modules/delivery/runtime/pr-follow-up.ts`): `comments[]` (id, source `user-paste` |
   `github`, author, path, line, body — bounded), `scope` (objective, required
   outcomes, excluded changes, verification), optional `openspecChangeName`.
   `freezeFollowUp` assigns an `id` and a sha256 `hash` of the canonical content:

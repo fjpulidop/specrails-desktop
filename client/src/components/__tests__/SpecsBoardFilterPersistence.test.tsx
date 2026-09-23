@@ -28,9 +28,9 @@ vi.mock('@dnd-kit/sortable', () => ({
   useSortable: () => ({ attributes: {}, listeners: {}, setNodeRef: vi.fn(), transform: null, transition: undefined, isDragging: false }),
 }))
 vi.mock('@dnd-kit/utilities', () => ({ CSS: { Transform: { toString: () => '' }, Translate: { toString: () => '' } } }))
-vi.mock('../ProposeSpecModal', () => ({ ProposeSpecModal: () => null }))
+vi.mock('../../features/specs/components/ProposeSpecModal', () => ({ ProposeSpecModal: () => null }))
 
-import { SpecsBoard } from '../SpecsBoard'
+import { SpecsBoard } from '../../features/specs/components/SpecsBoard'
 
 function makeTicket(id: number, title: string, epicKey?: string, epicName?: string): LocalTicket {
   return {

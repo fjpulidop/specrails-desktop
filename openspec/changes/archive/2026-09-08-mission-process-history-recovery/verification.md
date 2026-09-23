@@ -13,7 +13,7 @@ The corrected proxy and internal/native API addressing use explicit IPv4. The ex
 **68 suites / 1,665 tests passed** in the final affected regression run:
 
 ```sh
-npx vitest run server/agent server/mcp server/providers server/transient-children.test.ts server/transient-children.integration.test.ts server/background-process-control.test.ts server/background-process-persistence.test.ts server/background-process-store.test.ts server/background-process-flow.test.ts server/project-router-background-processes.test.ts server/project-registry.test.ts server/project-router.test.ts server/process-admission.test.ts server/desktop-db.test.ts server/spawn-lifecycle.test.ts server/interactive-job-session.test.ts server/util/cli-prompt.test.ts server/dev-ports.test.ts --maxWorkers=2 --reporter=dot
+npx vitest run server/agent server/mcp server/providers server/transient-children.test.ts server/transient-children.integration.test.ts server/modules/terminals/runtime/background-process-control.test.ts server/background-process-persistence.test.ts server/modules/terminals/runtime/background-process-store.test.ts server/background-process-flow.test.ts server/project-router-background-processes.test.ts server/project-registry.test.ts server/project-router.test.ts server/process-admission.test.ts server/desktop-db.test.ts server/modules/execution/runtime/spawn-lifecycle.test.ts server/modules/execution/runtime/interactive-job-session.test.ts server/util/cli-prompt.test.ts server/dev-ports.test.ts --maxWorkers=2 --reporter=dot
 ```
 
 The persistent-store and lifecycle regressions verify:

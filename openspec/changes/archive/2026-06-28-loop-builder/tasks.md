@@ -8,9 +8,9 @@
 ## 2. Global loops library: storage + API (F1) — capability `loops-library`
 
 - [x] 2.1 `desktop.sqlite` migration: new `loops` table (id, name, description, status `draft|published`, graph JSON, created_at, updated_at) in `server/desktop-db.ts`. (migration 14)
-- [x] 2.2 Global loops store module (`server/loops-store.ts`: CRUD + state transitions; publish/unpublish/duplicate; "running" is derived, not stored). Graph model + validator in `server/loop-graph.ts`. 27 unit tests (TDD) green.
-- [x] 2.3 `loops-router` (`server/loops-router.ts`, `registerLoopsRoutes`) on the desktop `/api` router → `/api/loops*`; 404 when `isLoopsEnabled()` is false. Endpoints: list, get, create, update, publish, unpublish, duplicate, delete, templates, from-template.
-- [x] 2.4 Specrails-owned starter templates (`server/loop-templates.ts`: Ship & Green, Verify Pass, CI Watch, Lint & Fix, Type Safe, Coverage Climb, Build Fix, Deploy Check) — bundled, publishable graphs (validated in `loop-templates.test.ts`); Ship & Green showcases `{{cmd:implement}} {{spec.id}}`; `from-template` clones into a new Draft.
+- [x] 2.2 Global loops store module (`server/modules/loops/runtime/loops-store.ts`: CRUD + state transitions; publish/unpublish/duplicate; "running" is derived, not stored). Graph model + validator in `server/modules/loops/runtime/loop-graph.ts`. 27 unit tests (TDD) green.
+- [x] 2.3 `loops-router` (`server/modules/loops/runtime/loops-router.ts`, `registerLoopsRoutes`) on the desktop `/api` router → `/api/loops*`; 404 when `isLoopsEnabled()` is false. Endpoints: list, get, create, update, publish, unpublish, duplicate, delete, templates, from-template.
+- [x] 2.4 Specrails-owned starter templates (`server/modules/loops/runtime/loop-templates.ts`: Ship & Green, Verify Pass, CI Watch, Lint & Fix, Type Safe, Coverage Climb, Build Fix, Deploy Check) — bundled, publishable graphs (validated in `loop-templates.test.ts`); Ship & Green showcases `{{cmd:implement}} {{spec.id}}`; `from-template` clones into a new Draft.
 - [x] 2.5 Guard: `isLoopRunning` DI rejects edit/unpublish/delete with 409 while running (wired to the engine in F6/F7). (Delete-published confirm is a client concern.)
 - [x] 2.6 Server tests (`:memory:` desktop db): CRUD, lifecycle, publish 422, running-guard 409, flag-off 404 — 15 router tests + 27 store/validator tests.
 
@@ -19,7 +19,7 @@
 - [x] 3.1 "Loops" entry in `ArcSidebar.tsx` ABOVE the project list + separator below; gated by `FEATURE_LOOPS_SECTION`.
 - [x] 3.2 Global `/loops` route in `App.tsx` (outside `ProjectLayout`, lazy); right sidebar hidden on `/loops`; `/loops` excluded from per-project route memory.
 - [x] 3.3 `LoopsPage` library view: Published / Drafts / Templates sections; status badges; Edit / Publish / Unpublish / Duplicate / Delete (+confirm) / Use-template. 7 component tests.
-- [x] 3.4 Loops API client (`client/src/lib/loops-api.ts`, global `/api/loops`, typed `LoopPublishError`). 8 tests.
+- [x] 3.4 Loops API client (`client/src/features/loops/lib/loops-api.ts`, global `/api/loops`, typed `LoopPublishError`). 8 tests.
 
 ## 4. Canvas builder (F2) — capability `loop-builder-canvas`
 
@@ -68,9 +68,9 @@
 
 ## 8. Analytics (F5) — capability `loop-analytics`
 
-- [ ] 8.1 Add `'loop'` surface additively: `server/ai-invocations.ts` (Surface + ALLOWED_SURFACES), `server/spending.ts` (ALL_SURFACES, DailyEntry `loopCostUsd` + switch, bySurface), `client/src/types/spending.ts` (Surface + SURFACE_ACCENT colour), `AnalyticsPage.tsx` SURFACE_CHIPS, CostScatter, SpendingTimeline, SpendingHero, export.
+- [ ] 8.1 Add `'loop'` surface additively: `server/modules/accounting/runtime/ai-invocations.ts` (Surface + ALLOWED_SURFACES), `server/modules/accounting/runtime/spending.ts` (ALL_SURFACES, DailyEntry `loopCostUsd` + switch, bySurface), `client/src/features/analytics/types/spending.ts` (Surface + SURFACE_ACCENT colour), `AnalyticsPage.tsx` SURFACE_CHIPS, CostScatter, SpendingTimeline, SpendingHero, export.
 - [ ] 8.2 Per-project "Loops" run-metrics block: runs, success rate, avg iterations, iteration distribution, top loop — sourced from `loop_runs`; new endpoint + component under `components/analytics/`.
-- [ ] 8.3 Extend the global modal: `queryProjectLoops()` in `server/desktop-analytics.ts` aggregating `loop_runs` cross-project; new cross-project loop block in `DesktopAnalyticsPage.tsx` (top loops by usage/cost, global success rate, avg iterations).
+- [ ] 8.3 Extend the global modal: `queryProjectLoops()` in `server/modules/accounting/runtime/desktop-analytics.ts` aggregating `loop_runs` cross-project; new cross-project loop block in `DesktopAnalyticsPage.tsx` (top loops by usage/cost, global success rate, avg iterations).
 - [ ] 8.4 Tests: surface aggregation includes `loop`, run-metrics queries, global aggregation; estimated-cost flag honored.
 
 ## 9. Internationalization (all 8 locales)

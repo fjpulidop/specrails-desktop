@@ -2,7 +2,7 @@ import type { Request, Response } from 'express'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import { getBackgroundProcessLogs, listBackgroundProcesses, startBackgroundProcess } from './transient-children'
 import { getProjectRepositories, resolveProjectRepository, RepositoryValidationError } from './project-repositories'
-import { BackgroundProcessOwnershipLostError, backgroundProcessHooks, backgroundStartBusyReason, resolveBackgroundCwd, stopOwnedBackgroundProcess } from './background-process-service'
+import { BackgroundProcessOwnershipLostError, backgroundProcessHooks, backgroundStartBusyReason, resolveBackgroundCwd, stopOwnedBackgroundProcess } from './modules/terminals/runtime/background-process-service'
 
 function processQuery(req: Request, res: Response): { pid: number; chatId: string; processId?: string } | null {
   const pid = Number(req.params.pid)

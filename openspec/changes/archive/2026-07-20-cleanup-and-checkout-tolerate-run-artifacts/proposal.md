@@ -21,6 +21,6 @@ _None._
 
 ## Impact
 
-- **Server**: `server/project-git.ts` (two `git status` gates), `server/rail-isolated-launch.ts` (settlement snapshot capture), `server/rail-pr-store.ts` (`DeliverBranchRecord.settlementIgnoredPaths`, additive), `server/rail-worktree-release.ts` (durable collapse + preflight split).
+- **Server**: `server/project-git.ts` (two `git status` gates), `server/modules/delivery/runtime/rail-isolated-launch.ts` (settlement snapshot capture), `server/modules/delivery/runtime/rail-pr-store.ts` (`DeliverBranchRecord.settlementIgnoredPaths`, additive), `server/modules/delivery/runtime/rail-worktree-release.ts` (durable collapse + preflight split).
 - **No client changes** (same card states; the warning simply stops firing for run artifacts).
 - **No DB migration** (`branches` is a JSON column; legacy rows without the field get no ignored authorization — behavior identical to today for pre-existing deliveries).

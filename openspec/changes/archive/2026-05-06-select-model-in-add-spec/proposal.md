@@ -23,9 +23,9 @@ The Add Spec dialog runs a Claude (or Codex) process to draft the spec, but the 
 ## Impact
 
 - **Code**:
-  - `client/src/components/ProposeSpecModal.tsx` — picker UI, default resolution hook, model passed in submit.
-  - `client/src/components/explore-spec/ExploreSpecShell.tsx` — accept `initialModel`, pass to conversation start.
-  - `client/src/components/SpecsBoard.tsx` — thread `initialModel` through `onExploreLaunch`.
+  - `client/src/features/specs/components/ProposeSpecModal.tsx` — picker UI, default resolution hook, model passed in submit.
+  - `client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx` — accept `initialModel`, pass to conversation start.
+  - `client/src/features/specs/components/SpecsBoard.tsx` — thread `initialModel` through `onExploreLaunch`.
   - `server/project-router.ts` — `generate-spec` accepts and validates `model`, threads into `claude`/`codex` args.
   - Server-side helper to expose project's effective default model to client (small `GET` endpoint OR include in existing project state response — design.md decides).
 - **APIs**: `POST /api/projects/:projectId/tickets/generate-spec` body gains optional `model: string`. New (or extended) endpoint for default-model resolution.

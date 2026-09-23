@@ -1,6 +1,6 @@
 ## 1. Loop step idle watchdog (server)
 
-- [x] 1.1 Add `resolveLoopStepIdleTimeoutMs(env)` in `server/loop-constants.ts` (default 30 min; `0|false|off` disables; clamp ≥ `resolveStuckThresholdMs()` with a one-time warning) + unit tests
+- [x] 1.1 Add `resolveLoopStepIdleTimeoutMs(env)` in `server/modules/loops/runtime/loop-constants.ts` (default 30 min; `0|false|off` disables; clamp ≥ `resolveStuckThresholdMs()` with a one-time warning) + unit tests
 - [x] 1.2 Thread `idleTimeoutMs` through `loop-executors.ts` (`runAiStep` one-shot + `planInteractiveAiStep`) alongside `aiStepTimeoutMs`
 - [x] 1.3 One-shot path: arm/reset an idle timer on every stream line next to the `updateLoopStepActivityCheckpoint` call (`loop-run-manager.ts` ~1054); on fire kill the child with a `stalled` marker
 - [x] 1.4 Interactive path (`_runInteractiveAiStep`): arm/reset the idle timer on every session event (~1966); on fire `session.abort()` with a distinct `stalled` flag (not `timedOut`); clear on settle
@@ -12,7 +12,7 @@
 
 ## 2. Milestone progress model (server)
 
-- [x] 2.1 `server/milestone-progress.ts`: pure `deriveMilestoneProgress({ blueprint, tickets, deliveries, activeRuns, activeJobs, chains, now })` → `MilestoneProgress[]` (counts, `failed` from newest delivery unit, rails, chain snapshot, derived `state`) + exhaustive unit tests (delivered ≠ done, partial launch, failed attempt, manual regression)
+- [x] 2.1 `server/modules/builder/runtime/milestone-progress.ts`: pure `deriveMilestoneProgress({ blueprint, tickets, deliveries, activeRuns, activeJobs, chains, now })` → `MilestoneProgress[]` (counts, `failed` from newest delivery unit, rails, chain snapshot, derived `state`) + exhaustive unit tests (delivered ≠ done, partial launch, failed attempt, manual regression)
 - [x] 2.2 `GET /:projectId/blueprint` returns `{ blueprint, progress }` (project-router); reads deliveries via `rail-pr-store`, active runs via `railLoopRuns`/`railJobs`
 - [x] 2.3 `MilestoneProgressBroadcaster` on `ProjectContext` (150 ms debounce, memoized blueprint-existence check invalidated by `/blueprint/commit` + `commit-milestone`); WS type `blueprint.milestone_progress` (+ `blueprint.milestone_completed`) added to `ws-types`, NOT mobile-translated
 - [x] 2.4 Wire broadcast triggers: after ticket outcome apply in `onLoopRunFinished` + `onJobFinished` (`project-registry.ts`), manual status moves (`project-router-tickets.ts`), every `rail.pr_state` broadcast (`rail-pr-store`/`rail-pr-decision`), chain transitions
@@ -21,9 +21,9 @@
 
 ## 3. Milestone launch chain (server)
 
-- [x] 3.1 Migration: `milestone_launch_chains` table + partial unique index (one non-terminal chain per milestone); `server/milestone-chain-store.ts` CRUD with CAS transitions + tests
+- [x] 3.1 Migration: `milestone_launch_chains` table + partial unique index (one non-terminal chain per milestone); `server/modules/builder/runtime/milestone-chain-store.ts` CRUD with CAS transitions + tests
 - [x] 3.2 `server/internal-api.ts`: lift the loopback master-token client from `server/mcp/tools/types.ts` `apiCall` (shared by MCP tools + chain) + tests
-- [x] 3.3 `server/milestone-chain.ts` `MilestoneChainManager` (DI IO: `launchChunk`, `createRail`, `assignTickets`, `now`, `broadcast`): `start(n, mode)`, `onRunSettled(runId, outcome, delivery)`, `resume(id)`, `cancel(id)`, `recoverOnStartup()`; chunking reuses the ≤3 rule + `M<n> · k` naming; pause reasons per spec
+- [x] 3.3 `server/modules/builder/runtime/milestone-chain.ts` `MilestoneChainManager` (DI IO: `launchChunk`, `createRail`, `assignTickets`, `now`, `broadcast`): `start(n, mode)`, `onRunSettled(runId, outcome, delivery)`, `resume(id)`, `cancel(id)`, `recoverOnStartup()`; chunking reuses the ≤3 rule + `M<n> · k` naming; pause reasons per spec
 - [x] 3.4 Routes (project-router): `POST /blueprint/milestones/:n/launch { mode }` (202 / 409 `chain_active` / guard passthrough), `POST /blueprint/chains/:id/resume`, `POST /blueprint/chains/:id/cancel`; kill switch `SPECRAILS_MILESTONE_CHAIN=false` ⇒ parallel, no row
 - [x] 3.5 Hook `chainManager.onRunSettled` into `onLoopRunFinished` after the ticket outcome apply; startup recovery after `_recoverOrphanLoopRuns`, gated on HTTP `listening`
 - [x] 3.6 Explicit base branch: `POST /rails/:i/launch` accepts `baseBranch` (validate `isValidBranchName` + `git rev-parse --verify`; 400 `invalid_base_branch` / `base_branch_requires_isolation`); `IsolatedLaunchInput.baseBranch` → `resolveIntegrationBranch({ explicit })`; delivery row records it as `base_branch`; `deliverRailAsPr` uses `--base <base_branch>`
@@ -50,10 +50,10 @@
 
 ## 7. Premium spec generation
 
-- [x] 7.1 `server/spec-contract-prompt.ts`: the shared premium contract (full markdown + compact form + a premium example spec) with per-author grounding hooks (day-0 planned artifacts / verified paths)
-- [x] 7.2 Rewrite `server/blueprint-operator-prompt.ts` on the shared contract: premium example, batched generation protocol (outline → `APP CONTINUE` detail turns → `APP AUDIT`), `GENERATION MODE: single response` fallback line, `truncated` repair copy no longer says "tighten"; update `blueprint-operator-prompt.test.ts`
-- [x] 7.3 `server/blueprint-chat-manager.ts`: outline detection (`isOutlineSnapshot`), continuation driver (`SPECS_PER_DETAIL_TURN = 2`, `MAX_GENERATION_TURNS = 8`, target-filled check, stop on a stalled turn), audit turn, `blueprint.generating` WS + `blueprint.done { continuing, generation }`, no-resume fallback; tests in `blueprint-chat-manager.test.ts`
-- [x] 7.4 Raise the gate floors in `server/blueprint-spec-quality.ts` + `client/src/lib/blueprint-spec-quality.ts` (`section_depth`, `section_bullets` min, criteria 6–10, criterion ≥ 20 chars); update both test suites and the `builder:quality.*` i18n ×8; update `M1_READINESS_BOUNDS` copy if it names criteria bounds
+- [x] 7.1 `server/modules/specs/runtime/spec-contract-prompt.ts`: the shared premium contract (full markdown + compact form + a premium example spec) with per-author grounding hooks (day-0 planned artifacts / verified paths)
+- [x] 7.2 Rewrite `server/modules/builder/runtime/blueprint-operator-prompt.ts` on the shared contract: premium example, batched generation protocol (outline → `APP CONTINUE` detail turns → `APP AUDIT`), `GENERATION MODE: single response` fallback line, `truncated` repair copy no longer says "tighten"; update `blueprint-operator-prompt.test.ts`
+- [x] 7.3 `server/modules/builder/runtime/blueprint-chat-manager.ts`: outline detection (`isOutlineSnapshot`), continuation driver (`SPECS_PER_DETAIL_TURN = 2`, `MAX_GENERATION_TURNS = 8`, target-filled check, stop on a stalled turn), audit turn, `blueprint.generating` WS + `blueprint.done { continuing, generation }`, no-resume fallback; tests in `blueprint-chat-manager.test.ts`
+- [x] 7.4 Raise the gate floors in `server/modules/builder/runtime/blueprint-spec-quality.ts` + `client/src/features/builder/lib/blueprint-spec-quality.ts` (`section_depth`, `section_bullets` min, criteria 6–10, criterion ≥ 20 chars); update both test suites and the `builder:quality.*` i18n ×8; update `M1_READINESS_BOUNDS` copy if it names criteria bounds
 - [x] 7.5 `chat-manager.ts` `_buildMilestoneSystemPrompt` and `agent-operator-prompt.ts` super-spec section consume the shared contract; update their tests
 - [x] 7.6 Client: `BuilderSnapshotState` gains `generating` (phase/from/to/total), `useBuilderSession` handles `blueprint.generating` + continuing done frames (busy stays true, panel updates), `BuilderGenerationProgress` shows "Writing specs 3–4 of 8…" with a real ratio; i18n `builder:generation.*` ×8; tests
 - [x] 7.7 Docs: `docs/internals/project-builder.md` (contract + batched protocol), `CLAUDE.md` Project Builder bullets, `openspec` specs synced at archive

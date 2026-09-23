@@ -1,8 +1,8 @@
 ## Context
 
-Today the hub captures cost/tokens/turns/duration only for `claude` jobs spawned by `QueueManager` (table `jobs` in the per-project SQLite). Three other surfaces invoke the same CLIs and emit identical `result` events, but discard them: Quick spec generation in `server/project-router.ts:1460` (claude or codex via `--output-format stream-json`), Explore conversations via `server/chat-manager.ts` driven by the `/specrails:explore-spec` skill, and AI Edit refines via `server/agent-refine-manager.ts`. The chat sidebar (also routed through `ChatManager`) and the setup wizard (`SetupManager`) are explicitly excluded from this change.
+Today the hub captures cost/tokens/turns/duration only for `claude` jobs spawned by `QueueManager` (table `jobs` in the per-project SQLite). Three other surfaces invoke the same CLIs and emit identical `result` events, but discard them: Quick spec generation in `server/project-router.ts:1460` (claude or codex via `--output-format stream-json`), Explore conversations via `server/modules/conversations/runtime/chat-manager.ts` driven by the `/specrails:explore-spec` skill, and AI Edit refines via `server/modules/agents/runtime/agent-refine-manager.ts`. The chat sidebar (also routed through `ChatManager`) and the setup wizard (`SetupManager`) are explicitly excluded from this change.
 
-The current `/analytics` page (`client/src/pages/AnalyticsPage.tsx` + `server/analytics.ts`) reads from `jobs` only and exposes a CSV export that is broken three ways: (1) `ExportDropdown.handleCsv` uses `window.open(url, '_blank')`, which in the Tauri webview opens an internal frame instead of triggering a download; (2) the server only serializes `analytics.commandPerformance` (six columns out of the visible page); (3) failures surface as the JSON error response rendered as a page, with no toast.
+The current `/analytics` page (`client/src/features/analytics/pages/AnalyticsPage.tsx` + `server/analytics.ts`) reads from `jobs` only and exposes a CSV export that is broken three ways: (1) `ExportDropdown.handleCsv` uses `window.open(url, '_blank')`, which in the Tauri webview opens an internal frame instead of triggering a download; (2) the server only serializes `analytics.commandPerformance` (six columns out of the visible page); (3) failures surface as the JSON error response rendered as a page, with no toast.
 
 `ChatManager` is shared between the chat sidebar (excluded) and Explore (included). At the data layer `chat_conversations` does not distinguish them — currently the difference is implicit in how the client invokes the routes (system prompt + skill name).
 
@@ -73,7 +73,7 @@ Capture sites:
 | `explore-spec` | `ChatManager`'s `child.on('close')`, gated by `conversation.kind === 'explore'` | same helper |
 | `ai-edit` | `AgentRefineManager` exit handler | same helper |
 
-Helper exported from `server/ai-invocations.ts`. All five managers receive the helper via constructor injection (or import directly — none of them are unit-testable in isolation today, so the looser coupling is fine).
+Helper exported from `server/modules/accounting/runtime/ai-invocations.ts`. All five managers receive the helper via constructor injection (or import directly — none of them are unit-testable in isolation today, so the looser coupling is fine).
 
 **Alternative considered:** OTLP-style central receiver where each manager POSTs a payload. Rejected — adds a network hop in-process for zero benefit.
 
@@ -98,9 +98,9 @@ Each call to `ChatManager.sendMessage` spawns one CLI invocation and produces on
 ### D5. `getSpending(projectId, filters)` is the only query path
 
 Server side:
-- `server/spending.ts` exports `getSpending(db, opts) → SpendingResponse`. Single SQL query (with CTEs) returning all data needed by the seven dashboard blocks: `summary`, `dailyTimeline`, `byMode` (Quick vs Explore), `byModel`, `scatter`, `topTickets`, plus `totals`.
+- `server/modules/accounting/runtime/spending.ts` exports `getSpending(db, opts) → SpendingResponse`. Single SQL query (with CTEs) returning all data needed by the seven dashboard blocks: `summary`, `dailyTimeline`, `byMode` (Quick vs Explore), `byModel`, `scatter`, `topTickets`, plus `totals`.
 - `getInvocations(db, opts)` returns the raw rows for the table block and Raw export (paginated, with hard cap of 10 000 for export).
-- `server/analytics.ts` is repurposed to call into `server/spending.ts` for the new endpoints. The legacy `getAnalytics()` is kept for one release for backwards compatibility but emits a deprecation log line, then removed in a follow-up.
+- `server/analytics.ts` is repurposed to call into `server/modules/accounting/runtime/spending.ts` for the new endpoints. The legacy `getAnalytics()` is kept for one release for backwards compatibility but emits a deprecation log line, then removed in a follow-up.
 
 Filters accepted: `period` (`7d`/`30d`/`90d`/`all`/`custom`+`from`/`to`), `surface` (CSV multi-select), `model` (CSV), `status`, `minCostUsd`, `ticketId`.
 
@@ -152,7 +152,7 @@ When `recordInvocation` writes a row, it broadcasts `spending.invalidated` (proj
 
 - [Capturing AI Edit refines depends on `agent-refine-manager` emitting `result` reliably] → Verified that the manager spawns claude with `--output-format stream-json`. If the binary changes in a future refactor, the capture site becomes dead code silently. Mitigation: add an integration test that spawns a stub binary printing a fake `result` event and asserts the row is written; this lives alongside the existing manager tests.
 
-- [Coverage thresholds (80% server, 80% client lines/statements)] → `server/spending.ts` and the new components are net-new code; they need their own unit tests. Estimate ~25 new server tests and ~20 client component tests. Tracked explicitly in tasks.
+- [Coverage thresholds (80% server, 80% client lines/statements)] → `server/modules/accounting/runtime/spending.ts` and the new components are net-new code; they need their own unit tests. Estimate ~25 new server tests and ~20 client component tests. Tracked explicitly in tasks.
 
 - [Concurrent project switches while spending request is in flight] → Existing `useProjectCache` invalidates by `activeProjectId`; the new hook reuses it. Pattern is the established one.
 
@@ -160,7 +160,7 @@ When `recordInvocation` writes a row, it broadcasts `spending.invalidated` (proj
 
 1. Land DB migration: `ai_invocations` table + `chat_conversations.kind` column. Behavior unchanged at this point — all reads still go through `getAnalytics()` and `jobs`.
 2. Add capture in all four managers behind a feature flag `SPECRAILS_AI_INVOCATIONS_CAPTURE !== 'false'` (default on). One commit per manager so any regression is easy to bisect.
-3. Land `server/spending.ts` + new endpoints. Old `/analytics/export` keeps working in parallel.
+3. Land `server/modules/accounting/runtime/spending.ts` + new endpoints. Old `/analytics/export` keeps working in parallel.
 4. Land redesigned `/analytics` page. Old export still served by old endpoint until the page rewrite is merged; then `ExportDropdown` is wired to the new endpoint.
 5. Remove legacy `getAnalytics()` and the old export endpoint in a follow-up release after one beta cycle.
 

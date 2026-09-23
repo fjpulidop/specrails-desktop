@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { McpToolSpec } from './types'
 import { apiCall, projectPath, originConversationDefaults, requireProject, requireRepository } from './types'
 import { startBackgroundProcess, getBackgroundProcessLogs, listBackgroundProcesses } from '../../transient-children'
-import { resolveBackgroundCwd, backgroundProcessHooks, backgroundStartBusyReason, stopOwnedBackgroundProcess } from '../../background-process-service'
+import { resolveBackgroundCwd, backgroundProcessHooks, backgroundStartBusyReason, stopOwnedBackgroundProcess } from '../../modules/terminals/runtime/background-process-service'
 
 function requireFirstPartyConversation(ctx: Parameters<McpToolSpec['handler']>[0], action: string): string {
   if (!ctx.firstPartyAgent || !ctx.originConversationId) {

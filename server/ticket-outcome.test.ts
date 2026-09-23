@@ -10,7 +10,7 @@ import {
   type Ticket,
   type TicketStatus,
   type TicketStore,
-} from './ticket-store'
+} from './modules/specs/runtime/ticket-store'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

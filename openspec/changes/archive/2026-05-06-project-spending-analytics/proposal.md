@@ -28,15 +28,15 @@ The current `/analytics` page also reflects only jobs and ships a CSV export tha
 
 **Server**
 - `server/db.ts` — new migration adds `ai_invocations` table with indices on `(project_id, started_at)`, `(project_id, surface)`, `(project_id, ticket_id)`.
-- `server/queue-manager.ts` — at job close, additionally insert into `ai_invocations` with `surface='job'`. Existing `jobs` row keeps its denormalised metrics for queue UI.
+- `server/modules/execution/runtime/queue-manager.ts` — at job close, additionally insert into `ai_invocations` with `surface='job'`. Existing `jobs` row keeps its denormalised metrics for queue UI.
 - `server/project-router.ts` — `/tickets/generate-spec` (Quick) intercepts the `result` event from spawned subprocess; new manager hook for Explore (likely `server/explore-spec-manager.ts` or wherever the conversation manager lives — to be confirmed in design); AI Edit refine manager hook.
 - `server/analytics.ts` — rewritten to query `ai_invocations` instead of `jobs`. Introduces `getSpending(projectId, filters)` returning all data needed by the seven dashboard blocks plus a `rawInvocations(filters, cap)` for export.
 - `server/project-router.ts` — `/analytics/export` extended with `mode=summary|raw`, honors surface/model/status/min-cost filters, applies row cap, sets descriptive filename header.
 
 **Client**
-- `client/src/pages/AnalyticsPage.tsx` — full rewrite. Same route, new layout.
-- `client/src/components/ExportDropdown.tsx` — CSV path uses fetch+blob like JSON; submenu split between Summary CSV and Raw CSV.
-- `client/src/components/TicketDetailModal.tsx` — adds the cost summary line + link.
+- `client/src/features/analytics/pages/AnalyticsPage.tsx` — full rewrite. Same route, new layout.
+- `client/src/features/analytics/components/ExportDropdown.tsx` — CSV path uses fetch+blob like JSON; submenu split between Summary CSV and Raw CSV.
+- `client/src/features/specs/components/TicketDetailModal.tsx` — adds the cost summary line + link.
 - New components: `SpendingHero`, `SpendingTimeline`, `QuickVsExploreCard`, `ModelBreakdown`, `CostScatter`, `TopTicketsCrossSurface`, `InvocationsTable` under `client/src/components/analytics/`.
 
 **Telemetry contract**

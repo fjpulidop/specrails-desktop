@@ -10,7 +10,7 @@ Add a fifth hub theme named 'specrails' using the brand palette from `design_han
 
 | File | Line range (approx.) | What changes |
 |------|-----------------------|--------------|
-| `client/src/lib/themes.ts` | 15, 28, after line 328 | THEME_IDS + DEFAULT_THEME + palette const + descriptor + THEMES map |
+| `client/src/features/settings/lib/themes.ts` | 15, 28, after line 328 | THEME_IDS + DEFAULT_THEME + palette const + descriptor + THEMES map |
 | `client/src/globals.css` | after line ~208 | Insert new `[data-theme="specrails"]` block |
 | `server/hub-router.ts` | line ~30 | Add `'specrails'` to THEME_ID_ALLOWLIST Set |
 

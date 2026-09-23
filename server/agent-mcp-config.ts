@@ -4,7 +4,7 @@ import os from 'os'
 import { randomBytes } from 'crypto'
 import { resolveBundledNodeExe } from './path-resolver'
 import { stripWindowsVerbatimPrefix } from './util/win-spawn'
-import { AGENT_CAPABILITY_FILE_ENV } from './agent-tier'
+import { AGENT_CAPABILITY_FILE_ENV } from './modules/missions/runtime/agent-tier'
 import { getAdapter, isLocalAdapterId } from './providers'
 import { isCodexInjectable, type ResolvedExternalServer } from './external-mcp'
 
