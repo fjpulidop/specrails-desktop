@@ -347,10 +347,6 @@ function buildWhere(
   return { sql: conditions.join(' AND '), params }
 }
 
-function dateOnly(iso: string): string {
-  return iso.slice(0, 10)
-}
-
 /**
  * Calendar day (YYYY-MM-DD) of a UTC ISO instant shifted by `tzOffsetMinutes`
  * (BUG-ANALYTICS-21). Offset 0 ⇒ the raw UTC day, byte-identical to legacy

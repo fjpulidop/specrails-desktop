@@ -1,3 +1,4 @@
+import { distributeIntEvenly as distributeInt } from './util/distribute-int'
 /**
  * SPECs SMASH — Runner
  *
@@ -498,35 +499,6 @@ function recordSafely(
   } catch (err) {
     console.error('[smash-runner] recordInvocation failed:', err)
   }
-}
-
-/**
- * Distribute an integer `total` across `n` buckets using the largest-remainder
- * method so the per-bucket values sum EXACTLY to `total` (no floor loss). The
- * base share goes to every bucket; the leftover remainder is handed out one
- * unit at a time to the leading buckets. Returns `undefined` when the input is
- * absent so the recorded row carries no value (rather than a spurious 0).
- *
- * LOW-9: the previous `Math.floor(total / n)` dropped up to n-1 units per field
- * and — because SMASH turn counts (1-30) are the same magnitude as the child
- * count (3-8) — regularly collapsed num_turns to 0 for every child.
- */
-function distributeInt(
-  total: number | null | undefined,
-  n: number,
-): (number | undefined)[] {
-  if (total === null || total === undefined) return new Array(n).fill(undefined)
-  const t = Math.trunc(total)
-  const base = Math.floor(t / n)
-  let remainder = t - base * n
-  const out: (number | undefined)[] = new Array(n)
-  for (let i = 0; i < n; i++) {
-    // Hand the leftover to the leading buckets; sign-safe for negative totals.
-    if (remainder > 0) { out[i] = base + 1; remainder -= 1 }
-    else if (remainder < 0) { out[i] = base - 1; remainder += 1 }
-    else out[i] = base
-  }
-  return out
 }
 
 /**

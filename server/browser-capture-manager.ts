@@ -148,7 +148,6 @@ export class BrowserCaptureManager {
   private readonly projectId: string
   private readonly projectSlug: string
   private readonly db: DbInstance
-  private readonly broadcast?: (msg: WsMessage) => void
   private readonly launcher: ContextLauncher
   private readonly attachments: AttachmentManager
   private readonly profileDir: string
@@ -171,7 +170,6 @@ export class BrowserCaptureManager {
     this.projectId = opts.projectId
     this.projectSlug = opts.projectSlug
     this.db = opts.db
-    this.broadcast = opts.broadcast
     this.launcher = opts.launcher ?? createPlaywrightLauncher()
     this.attachments = opts.attachments ?? defaultAttachmentManager
     this.contextPool = opts.contextPool ?? null

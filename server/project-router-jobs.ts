@@ -1,57 +1,25 @@
 // Domain routes extracted from project-router.ts (jobs).
 // Registered on the shared router by createProjectRouter — behaviour-preserving.
-import fs from 'fs'
 import { isRuntimeContinuationActive, cancelRuntimeContinuation, activeRuntimeContinuationIds } from './agent-runtime-controls-router'
-import path from 'path'
-import { Router, Request, Response, NextFunction } from 'express'
+import { Request, Response } from 'express'
 import { newId as uuidv4 } from './ids'
-import type { ProjectRegistry, ProjectContext } from './project-registry'
 import {
-  getJob, getJobEvents, purgeJobs, deleteJob, getProjectActivity,
-  createConversation, listConversations, getConversation,
-  deleteConversation, updateConversation, getMessages,
-  getStats, getPipelineJobs,
-  createProposal, getProposal, listProposals, deleteProposal,
-  createTemplate, listTemplates, getTemplate, updateTemplate, deleteTemplate,
-  getProjectSettings, updateProjectSettings,
-  getQuickContractRefineLast, setQuickContractRefineLast, hasQuickContractRefineLast,
-  getTelemetryBlob, getTelemetrySummaries, getJobsWithTelemetry, hasJobTelemetry,
-  JobRecoveryPendingError,
+  getJob, getJobEvents, purgeJobs, deleteJob, getProjectActivity, getStats, getPipelineJobs, getJobsWithTelemetry, hasJobTelemetry,
+  JobRecoveryPendingError
 } from './db'
-import { createDiagnosticZip } from './telemetry-export'
-import { getProjectSetupSession } from './desktop-db'
 import {
   ClaudeNotFoundError,
   InvalidJobDependencyError,
   JobNotFoundError,
-  JobAlreadyTerminalError,
-  DEFAULT_ZOMBIE_TIMEOUT_MS,
+  JobAlreadyTerminalError
 } from './queue-manager'
 import { isInteractiveJobsEnabled } from './feature-flags'
 import type { JobPriority } from './types'
 import { VALID_PRIORITIES } from './types'
-import { resolveCommand } from './command-resolver'
 import { computeJobPhaseBreakdown } from './job-phase-breakdown'
 import { getAdapter } from './providers'
-import { createHooksRouter, getPhaseStates } from './hooks'
-import { getConfig, fetchIssues } from './config'
-import { runContractRefine, runContractRefineForQuick } from './contract-refine-runner'
-import { isExploreContractRefineKillSwitchActive } from './explore-contract-refine'
-import { runSmash, runSmashUndo, applyDeleteEpicChildren, checkSmashEligibility } from './smash-runner'
+import { getPhaseStates } from './hooks'
 import { isSpecsSmashKillSwitchActive } from './explore-smash'
-import { recordInvocation, updateTicketIdForConversation, getTicketSpendingSummary } from './ai-invocations'
-import { getContextBudget } from './context-budget'
-import {
-  getLastContextScope, setLastContextScope, normalizeContextScope,
-  setConversationContextScope, getConversationContextScope,
-  buildScopedSystemPromptPrefix, toolFlagsForScope, defaultBootScope,
-  type ContextScope,
-} from './context-scope'
-import { finaliseInvocationResult } from './result-event'
-import { CORE_PACKAGE_SPEC } from './core-package'
-import type { AdapterEvent } from './providers/types'
-import { getSpending, getInvocations, parseSpendingFilters } from './spending'
-import { randomUUID } from 'crypto'
 import {
   claimIdempotentJob,
   findIdempotentJob,
@@ -60,73 +28,24 @@ import {
   JobSpawnIdempotencyReplayError,
 } from './job-spawn-idempotency'
 import {
-  getModelsForProvider,
-  getProviderDefault,
-  isValidModelForProvider,
-  type SpecProvider,
+  getModelsForProvider, isValidModelForProvider,
+  type SpecProvider
 } from './spec-models'
-import { resolveProvider, validateRequestedProvider, isMultiProvider } from './provider-selection'
-import type { ChatConversationRow, JobTemplate, JobRow } from './types'
-import { readChanges } from './changes-reader'
+import { resolveProvider, validateRequestedProvider } from './provider-selection'
+import type { JobRow } from './types'
 import { getLoopRun } from './loop-runs-store'
 import { getProjectMetrics } from './metrics'
 import { getQueuedJobForListing, listUnifiedJobs } from './job-listing'
 import {
-  resolveTicketStoragePath, readStore, mutateStore, filterTickets,
-  isValidStatus, isValidPriority, validatePriorityForStatus,
-  resolveTicketsFromCommand,
-  clampShortSummary,
-  type Ticket,
+  resolveTicketsFromCommand
 } from './ticket-store'
-import { generateAutoTitle } from './explore-draft-title'
-import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, TicketAiEditStreamMessage, TicketAiEditDoneMessage, TicketAiEditErrorMessage, SpecGenStreamMessage, SpecGenDoneMessage, SpecGenErrorMessage, LocalTicket } from './types'
-import { spawnAiCli } from './util/cli-prompt'
-import { createInterface } from 'readline'
-import treeKill from 'tree-kill'
 import { registerBackgroundProcessRoutes } from './project-router-background-processes'
-import multer from 'multer'
-import { createRailsRouter } from './rails-router'
-import { createProfilesRouter } from './profiles-router'
-import { createPluginsRouter } from './plugins-router'
-import { createCodeExplorerRouter } from './code-explorer-router'
 import {
-  getDesktopTerminalSettings,
-  getProjectOverride,
-  patchProjectOverride,
-  resolveTerminalSettings,
-  TerminalSettingsValidationError,
-} from './terminal-settings'
-import { listMarks } from './terminal-marks-store'
-import { attachmentManager, isSupportedUploadedFile, USER_ATTACHMENT_SYSTEM_NOTE } from './attachment-manager'
-import { isBrowserCaptureEnabled } from './feature-flags'
-import { BrowserLimitExceededError, BrowserLaunchError } from './browser-capture-types'
-import type { CaptureRect } from './browser-capture-types'
-import {
-  getTerminalManager,
-  TerminalLimitExceededError,
-  TerminalNotFoundError,
-  TerminalNameInvalidError,
-  TerminalSpawnError,
-  TERMINAL_MAX_PER_PROJECT,
-} from './terminal-manager'
-import {
-  type ProjectRoutesDeps,
-  type ModelAlias,
-  TERMINAL_PANEL_ENABLED,
-  VALID_MODEL_ALIASES,
-  readAgentModels,
-  applyModelConfig,
-  serializeInstallConfigYaml,
-  stripSpecMetadataSections,
-  extractShortSummary,
-  deriveFallbackShortSummary,
-  lightlyStructurePrompt,
-  formatDescriptionWithCriteria,
-  resolveDefaultSpecModel,
+  type ProjectRoutesDeps, resolveDefaultSpecModel
 } from './project-router-helpers'
 
 export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
-  const { router, registry, ctx, ticketPath } = deps
+  const { router, ctx, ticketPath } = deps
   // ─── Queue / Spawn routes ────────────────────────────────────────────────────
 
   router.post('/:projectId/spawn', (req: Request, res: Response) => {

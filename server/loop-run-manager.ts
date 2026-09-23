@@ -29,7 +29,7 @@ import {
   type InteractiveSpawnSpec,
 } from './interactive-job-session'
 import type { WsMessage, JobStatus } from './types'
-import type { AdapterEvent, ProviderAdapter, ReasoningEffort } from './providers/types'
+import type { ProviderAdapter, ReasoningEffort } from './providers/types'
 import {
   type LoopGraph,
   type LoopSpec,

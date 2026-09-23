@@ -14,9 +14,7 @@ import {
 import {
   createProfile,
   deleteProfile,
-  duplicateProfile,
-  getProfile,
-  getProfileRaw,
+  duplicateProfile, getProfileRaw,
   listProfiles,
   renameProfile,
   resolveProfile,
@@ -24,7 +22,7 @@ import {
   ProfileConflictError,
   ProfileNotFoundError,
   ProfileValidationError,
-  type Profile,
+  type Profile
 } from './profile-manager'
 import { resolveProjectExecution } from './workspace-resolution'
 import {

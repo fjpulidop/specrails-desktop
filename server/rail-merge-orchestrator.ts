@@ -17,7 +17,7 @@ import { recordInvocation } from './ai-invocations'
 import { newId } from './ids'
 import type { DbInstance } from './db'
 import type { GitRunner } from './worktree-manager'
-import type { AiStepResult, LoopExecutors } from './loop-run-manager'
+import type { AiStepResult } from './loop-run-manager'
 import type { ReasoningEffort } from './providers/types'
 
 /** The subset of LoopExecutors the orchestrator needs (just AI steps). */

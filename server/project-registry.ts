@@ -1,3 +1,4 @@
+import { projectSupportsProfiles } from './project-profile-support'
 import { shutdownAgentRuntimeControls } from './agent-runtime-controls-router'
 import path from 'path'
 import fs from 'fs'
@@ -1141,14 +1142,7 @@ export class ProjectRegistry {
       profilePathFor: createLoopProfilePathResolver({
         desktopDb: this._desktopDb,
         profileRoot: () => resolveProjectExecution({ slug: project.slug, path: project.path }).cwd,
-        // Lazy require: several suites mock './queue-manager' with only the
-        // class export — a top-level named import would throw on module eval.
-        // The closure only runs at loop ai-step spawn time, never in tests
-        // that stub the queue.
-        supportsProfiles: (root) => {
-          const { projectSupportsProfiles } = require('./queue-manager') as typeof import('./queue-manager')
-          return projectSupportsProfiles(root)
-        },
+        supportsProfiles: projectSupportsProfiles,
       }),
     }))
 

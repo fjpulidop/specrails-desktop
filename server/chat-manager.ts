@@ -2400,10 +2400,6 @@ interface StreamFilterState {
 
 const FENCE_OPEN = '```spec-draft'
 const FENCE_CLOSE = '```'
-// Hold back up to this many trailing chars in the pre-block state so we never
-// emit a partial open fence. -1 because we know the user-visible prefix is at
-// least 1 char shorter than the full marker on every step.
-const PRE_BLOCK_TAIL = FENCE_OPEN.length - 1
 
 /**
  * Stateful, side-effect-free filter that consumes `newText` and returns the

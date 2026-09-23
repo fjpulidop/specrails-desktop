@@ -62,7 +62,7 @@ export function createMcpAdminRouter(deps: McpAdminDeps): Router {
     ]
     // Validate the complete patch before changing any tier. A 400 must never
     // leave the first fields committed while later fields were rejected.
-    for (const [bodyKey, tier] of fields) {
+    for (const [bodyKey] of fields) {
       if (bodyKey in body) {
         if (typeof body[bodyKey] !== 'boolean') {
           res.status(400).json({ error: `${bodyKey} must be a boolean` })

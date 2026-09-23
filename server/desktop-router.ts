@@ -9,7 +9,7 @@ import dns from 'dns'
 import type { WsMessage } from './types'
 import type { ProjectRegistry } from './project-registry'
 import { RepositoryValidationError, inspectRepositoryPath, assertDistinctRepositories, getProjectRepositories, resolveRepositoryProject, type ProjectRepositoryInput } from './project-repositories'
-import { getDesktopSetting, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook, getProjectSetupSession } from './desktop-db'
+import { getDesktopSetting, setDesktopSetting, listProjects, listAgents, getAgent, addAgent, updateAgent, listWebhooks, getWebhook, addWebhook, updateWebhook, removeWebhook } from './desktop-db'
 import type { WebhookEvent } from './desktop-db'
 import { WebhookManager } from './webhook-manager'
 import { CoreUpdateManager } from './core-update-manager'
@@ -34,12 +34,6 @@ import {
 import { getCachedProbe, probeConnection } from './local-engine-detection'
 import { isLocalEnginesEnabled, syncLocalAdapters } from './providers/local-adapter-registry'
 import { isLocalAdapter } from './providers/local-adapter'
-
-/** Per-connection status block on GET/PUT /runtime-providers. */
-export type RuntimeProviderStatus =
-  | { kind: 'local'; reachable: boolean; authState: 'authenticated' | 'unauthenticated' | 'unknown'; models: string[]; latencyMs?: number; error?: string; apiKeyEnvMissing?: boolean; probing?: boolean }
-  | { kind: 'cli'; reachable: boolean; installed: boolean; executable: boolean; authState: 'authenticated' | 'unauthenticated' | 'unknown'; models: string[]; version?: string; error?: string; probing?: boolean }
-export type RuntimeProviderStatusMap = Record<string, RuntimeProviderStatus>
 import {
   AgentDefaultsValidationError,
   applyAgentDefaultsPatch,
@@ -66,6 +60,12 @@ import {
 import type { AnalyticsOpts, AnalyticsPeriod } from './types'
 import { registerLoopsRoutes } from './loops-router'
 import { countRunningForLoop } from './loop-runs-store'
+
+/** Per-connection status block on GET/PUT /runtime-providers. */
+export type RuntimeProviderStatus =
+  | { kind: 'local'; reachable: boolean; authState: 'authenticated' | 'unauthenticated' | 'unknown'; models: string[]; latencyMs?: number; error?: string; apiKeyEnvMissing?: boolean; probing?: boolean }
+  | { kind: 'cli'; reachable: boolean; installed: boolean; executable: boolean; authState: 'authenticated' | 'unauthenticated' | 'unknown'; models: string[]; version?: string; error?: string; probing?: boolean }
+export type RuntimeProviderStatusMap = Record<string, RuntimeProviderStatus>
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')

@@ -7,7 +7,6 @@ import { newId as uuidv4 } from './ids'
 import { treeKillSafe } from './util/win-spawn'
 import type { WsMessage, LogMessage, Job, PhaseDefinition, JobPriority } from './types'
 import { PRIORITY_WEIGHT, VALID_PRIORITIES } from './types'
-import { resolveCommand } from './command-resolver'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
 import { injectRepoMapEnv } from './repo-map'
 import { spawnAiCli } from './util/cli-prompt'
@@ -57,115 +56,12 @@ import { readCurrentFrameworkVersion } from './framework-manager'
 import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim, openspecShimDir } from './openspec-shim'
 import { resolveHome } from './artifact-registry'
 
-// ─── Telemetry env helpers ────────────────────────────────────────────────────
+import { buildTelemetryEnv } from './providers/telemetry-env'
+import { projectSupportsProfiles } from './project-profile-support'
+import { distributeIntEvenly } from './util/distribute-int'
 
-/** Build the OTLP/telemetry environment variable block for a spawned AI-CLI
- * process. Extracted as a pure function so it is unit-testable without a full
- * spawn.
- *
- * Provider-aware: claude and codex honour the standard `OTEL_*` env-var
- * convention (plus claude's `CLAUDE_CODE_ENABLE_TELEMETRY=1` master switch),
- * but the Gemini CLI does NOT — it reads its own `GEMINI_TELEMETRY_*` prefixed
- * vars (verified against google-gemini/gemini-cli docs/cli/telemetry.md) and
- * defaults to gRPC, so gemini rails need `GEMINI_TELEMETRY_OTLP_PROTOCOL=http`
- * and the OTLP endpoint pointed at our loopback receiver. Resource attributes
- * still flow via the standard `OTEL_RESOURCE_ATTRIBUTES` (read by the OTel JS
- * SDK that the Gemini CLI uses), so the receiver can route by job/project id.
- *
- * The `providerId` argument defaults to `'claude'` so existing claude/codex
- * call paths stay byte-identical. */
-export function buildTelemetryEnv(
-  jobId: string,
-  projectId: string,
-  desktopPort: number,
-  extraResourceAttributes: Record<string, string | number> = {},
-  providerId: ProviderId = 'claude',
-): Record<string, string> {
-  const baseAttrs: Array<[string, string]> = [
-    ['specrails.job_id', jobId],
-    ['specrails.project_id', projectId],
-  ]
-  for (const [k, v] of Object.entries(extraResourceAttributes)) {
-    baseAttrs.push([k, String(v)])
-  }
-  const resourceAttributes = baseAttrs.map(([k, v]) => `${k}=${v}`).join(',')
-  const endpoint = `http://127.0.0.1:${desktopPort}/otlp`
-
-  if (providerId === 'gemini') {
-    // Gemini CLI uses its own env contract (not OTEL_*). Defaults to gRPC, so we
-    // must force the http transport to reach our OTLP/HTTP JSON receiver, and
-    // target the `local` backend (not gcp). OTEL_RESOURCE_ATTRIBUTES is still
-    // honoured by the underlying OTel SDK for job/project routing.
-    return {
-      GEMINI_TELEMETRY_ENABLED: 'true',
-      GEMINI_TELEMETRY_TARGET: 'local',
-      GEMINI_TELEMETRY_OTLP_ENDPOINT: endpoint,
-      GEMINI_TELEMETRY_OTLP_PROTOCOL: 'http',
-      GEMINI_TELEMETRY_TRACES_ENABLED: 'true',
-      OTEL_RESOURCE_ATTRIBUTES: resourceAttributes,
-    }
-  }
-
-  // claude (master switch + OTEL_*) and codex (OTEL_* only) — byte-identical to
-  // the pre-fix block for both.
-  return {
-    CLAUDE_CODE_ENABLE_TELEMETRY: '1',
-    OTEL_EXPORTER_OTLP_ENDPOINT: endpoint,
-    OTEL_EXPORTER_OTLP_PROTOCOL: 'http/json',
-    OTEL_METRICS_EXPORTER: 'otlp',
-    OTEL_LOGS_EXPORTER: 'otlp',
-    OTEL_TRACES_EXPORTER: 'otlp',
-    OTEL_RESOURCE_ATTRIBUTES: resourceAttributes,
-  }
-}
-
-/** Detect whether a project's installed specrails-core version supports the
- *  profile-aware pipeline (shipped in 4.1.0). Returns false when the version
- *  file is missing or unparseable so we default to legacy (safer). */
-export function projectSupportsProfiles(projectPath: string): boolean {
-  const candidates = [
-    pathNode.join(projectPath, '.specrails', 'specrails-version'),
-    pathNode.join(projectPath, '.specrails-version'),
-  ]
-  for (const p of candidates) {
-    if (!fsNode.existsSync(p)) continue
-    try {
-      const raw = fsNode.readFileSync(p, 'utf8').trim()
-      const [ma, mi, pa] = raw.split('.').map((n) => parseInt(n, 10))
-      if (isNaN(ma) || isNaN(mi) || isNaN(pa)) return false
-      return ma > 4 || (ma === 4 && mi > 1) || (ma === 4 && mi === 1 && pa >= 0)
-    } catch {
-      return false
-    }
-  }
-  return false
-}
-
-/**
- * Distribute an integer `total` across `n` buckets via the largest-remainder
- * method so the per-bucket values sum EXACTLY back to `total` (no floor loss).
- * Mirrors smash-runner's `distributeInt` — used to split a multi-ticket job's
- * token / turn totals across one ai_invocations row per ticket
- * (COST-ACCOUNTING-AUDIT MED-7). Returns `undefined` per bucket when the input
- * is absent so the row carries NULL rather than a spurious 0.
- */
-export function distributeIntEvenly(
-  total: number | null | undefined,
-  n: number,
-): (number | undefined)[] {
-  if (total === null || total === undefined) return new Array(n).fill(undefined)
-  const t = Math.trunc(total)
-  const base = Math.floor(t / n)
-  let remainder = t - base * n
-  const out: (number | undefined)[] = new Array(n)
-  for (let i = 0; i < n; i++) {
-    // Hand the leftover to the leading buckets; sign-safe for negative totals.
-    if (remainder > 0) { out[i] = base + 1; remainder -= 1 }
-    else if (remainder < 0) { out[i] = base - 1; remainder += 1 }
-    else out[i] = base
-  }
-  return out
-}
+// Keep the existing public API for consumers and integration tests.
+export { buildTelemetryEnv, projectSupportsProfiles, distributeIntEvenly }
 
 function maxNullable(
   left: number | null | undefined,
@@ -1591,14 +1487,6 @@ export class QueueManager {
 
   phasesForCommand(command: string): PhaseDefinition[] {
     return this._phasesForCommand(command)
-  }
-
-  /**
-   * Resolve a slash command into a full prompt with $ARGUMENTS substituted.
-   * Delegates to the shared resolveCommand utility in command-resolver.ts.
-   */
-  private _resolveCommand(command: string): string {
-    return resolveCommand(command, this._cwd ?? process.cwd())
   }
 
   private _phasesForCommand(command: string): PhaseDefinition[] {

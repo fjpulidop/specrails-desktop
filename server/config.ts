@@ -204,10 +204,6 @@ function parseFrontmatter(content: string): ParsedFrontmatter {
   return result
 }
 
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-}
-
 function scanCommands(commandsDir: string): CommandInfo[] {
   if (!fs.existsSync(commandsDir)) return []
 

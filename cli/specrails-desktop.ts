@@ -17,7 +17,6 @@
 import http from 'http'
 import net from 'net'
 import { spawn } from 'child_process'
-import { spawn as spawnProc } from 'child_process'
 import { createInterface } from 'readline'
 import WebSocket from 'ws'
 import path from 'path'

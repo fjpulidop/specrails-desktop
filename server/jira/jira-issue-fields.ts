@@ -91,8 +91,6 @@ export function humanizeKey(key: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
-const ISSUE_KEY_RE = /^[A-Z][A-Z0-9]+-\d+$/
-
 /** Render a scalar/object value by schema, or by shape when schema is absent. Returns
  *  the display string, or null when the value is empty/unpopulated. */
 function scalarDisplay(raw: unknown, schemaType?: string): string | null {

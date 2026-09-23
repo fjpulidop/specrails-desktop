@@ -1584,12 +1584,6 @@ function loadPrTicketData(deps: PrDecisionDeps, ticketIds: number[]): PrTicketDa
   })
 }
 
-/** True when the branch exists as a local ref in the base repo. */
-async function branchExists(deps: PrDecisionDeps, branch: string): Promise<boolean> {
-  const r = await deps.git.run(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], deps.project.path)
-  return r.code === 0
-}
-
 const COMMIT_SHA_RE = /^[0-9a-f]{40,64}$/i
 
 async function commitObjectExists(deps: PrDecisionDeps, sha: string): Promise<boolean> {

@@ -1,6 +1,6 @@
-import { spawn, spawnSync, ChildProcess } from 'child_process'
+import { spawnSync, ChildProcess } from 'child_process'
 import { createInterface } from 'readline'
-import { existsSync, readdirSync, rmSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'fs'
+import { existsSync, readdirSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { basename, isAbsolute, join, resolve as resolvePath } from 'path'
 import { tmpdir } from 'os'
 import treeKill from 'tree-kill'
@@ -197,54 +197,6 @@ function readInstallConfig(project: InstallConfigProject, provider?: string): In
   } catch {
     return null
   }
-}
-
-// ─── Template deployment (post-install) ──────────────────────────────────────
-
-function deployTemplates(projectPath: string, selectedAgents: string[]): { agents: number; commands: number; personas: number } {
-  const templatesDir = join(projectPath, '.specrails', 'setup-templates')
-  const targetDir = join(projectPath, SPECRAILS_DIR)
-  let agents = 0, commands = 0, personas = 0
-
-  // Deploy selected agent templates
-  const agentTemplatesDir = join(templatesDir, 'agents')
-  const agentTargetDir = join(targetDir, 'agents')
-  if (existsSync(agentTemplatesDir)) {
-    mkdirSync(agentTargetDir, { recursive: true })
-    for (const file of readdirSync(agentTemplatesDir) as string[]) {
-      if (!file.endsWith('.md')) continue
-      const agentId = file.replace(/\.md$/, '')
-      if (selectedAgents.length > 0 && !selectedAgents.includes(agentId)) continue
-      copyFileSync(join(agentTemplatesDir, file), join(agentTargetDir, file))
-      agents++
-    }
-  }
-
-  // Deploy persona templates
-  const personaTemplatesDir = join(templatesDir, 'personas')
-  const personaTargetDir = join(agentTargetDir, 'personas')
-  if (existsSync(personaTemplatesDir)) {
-    mkdirSync(personaTargetDir, { recursive: true })
-    for (const file of readdirSync(personaTemplatesDir) as string[]) {
-      if (!file.endsWith('.md')) continue
-      copyFileSync(join(personaTemplatesDir, file), join(personaTargetDir, file))
-      personas++
-    }
-  }
-
-  // Deploy command templates
-  const cmdTemplatesDir = join(templatesDir, 'commands', 'specrails')
-  const cmdTargetDir = join(targetDir, 'commands', 'specrails')
-  if (existsSync(cmdTemplatesDir)) {
-    mkdirSync(cmdTargetDir, { recursive: true })
-    for (const file of readdirSync(cmdTemplatesDir) as string[]) {
-      if (!file.endsWith('.md')) continue
-      copyFileSync(join(cmdTemplatesDir, file), join(cmdTargetDir, file))
-      commands++
-    }
-  }
-
-  return { agents, commands, personas }
 }
 
 // ─── Checkpoint definitions ───────────────────────────────────────────────────
