@@ -18,7 +18,7 @@ continue to import it. Implementations live under `server/db/`:
 | `jobs.ts` | Job lifecycle, durable admission, events, phases and transactional deletion |
 | `activity.ts`, `stats.ts` | Read models for activity and aggregate statistics |
 | `conversations.ts`, `proposals.ts`, `templates.ts` | Queries for their respective domains |
-| `settings.ts` | Project configuration, normalization and defaults |
+| `settings.ts` | Compatibility facade to the project-settings module |
 | `telemetry.ts` | Telemetry blobs and summaries |
 
 Repositories receive `DbInstance` explicitly. They must not open connections or
@@ -26,6 +26,8 @@ import the facade. Keep transaction ownership with the operation that needs
 atomicity: job deletion still removes its dependent records in one transaction.
 The extraction preserves every migration's SQL and ordering. Do not renumber
 historical migrations when reorganizing source.
+
+Project configuration now has a [ports-and-adapters module](../../server/modules/project-settings/README.md) with domain-owned types, use cases and a repository port. The legacy settings facade delegates to it. HTTP updates are atomic and validated before persistence.
 
 Settings reads use one query for the six supported configuration keys instead
 of six separately prepared queries. This reduces query work without changing

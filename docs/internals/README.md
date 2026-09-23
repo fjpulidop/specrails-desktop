@@ -6,6 +6,9 @@ If you're a user looking for **how do I do X?** docs, head back to the [user gui
 
 ## Contents
 
+Start with [the modular architecture decision](modular-architecture.md),
+[the source map](source-map.md) and [the shared contributor/AI guide](../../AGENTS.md).
+
 | Doc | What it covers |
 |-----|----------------|
 | [architecture.md](architecture.md) | Server modules, client layout, WebSocket protocol, process spawning, security model |
@@ -32,6 +35,6 @@ status is capability-aware: Kimi pure-output transforms fail closed.
 
 ## Contributing
 
-For coding conventions, file naming, the coverage policy, and how WebSocket handlers are expected to be wired, see [`CLAUDE.md`](../../CLAUDE.md) at the repo root. That file is the authoritative source for project-wide rules.
+For coding conventions, file naming, the coverage policy and WebSocket invariants, see [`AGENTS.md`](../../AGENTS.md). `CLAUDE.md` imports that shared guide; detailed history is kept in [optional reference notes](legacy-implementation-notes.md).
 
 When adding a feature, follow the OpenSpec workflow: `/opsx:new → /opsx:ff → /opsx:apply → /opsx:verify → /opsx:archive`. The `/opsx:*` invocations resolve to command files under `.claude/commands/opsx/*.md` (the related skills under `.claude/skills/` are named `openspec-*`).
