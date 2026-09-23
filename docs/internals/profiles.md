@@ -151,7 +151,7 @@ update.
 A few internals worth knowing if you're working on this surface:
 
 - **Version gate.** Profile-aware spawns are gated by
-  `projectSupportsProfiles()` (`server/queue-manager.ts`), which reads the
+  `projectSupportsProfiles()` (`server/modules/execution/runtime/queue-manager.ts`), which reads the
   project's `.specrails/specrails-version` and requires
   `specrails-core >= 4.1.0`; Kimi additionally requires the Core 4.12 target.
   Below the applicable floor, the rail spawns in legacy mode and no profile

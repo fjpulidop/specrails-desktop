@@ -1,6 +1,6 @@
 ## Why
 
-The in-app operator agent moves from a user's sentence to a persisted spec without ever verifying that it understood the request. Its manual (`server/agent-operator-prompt.ts`, 558 lines) makes grounding in CODE mandatory and checklisted — read the real tree, open the real module, quote the real behaviour, "never fabricate a path; if you did not verify it, do not name it" — and provides no equivalent step for grounding in INTENT.
+The in-app operator agent moves from a user's sentence to a persisted spec without ever verifying that it understood the request. Its manual (`server/modules/missions/runtime/agent-operator-prompt.ts`, 558 lines) makes grounding in CODE mandatory and checklisted — read the real tree, open the real module, quote the real behaviour, "never fabricate a path; if you did not verify it, do not name it" — and provides no equivalent step for grounding in INTENT.
 
 The imbalance is measurable in the prompt text itself: `confirm` appears 19 times, `NEVER` 8 times, `ask|question` 57 times, and `reflect|reconsider|assumption|reframe|misunderstand` appears **0 times**. Four separate instructions brake questioning ("at most TWO questions per turn", "a grounded clarification beats five guess-questions", "stop reading as soon as you can ask", "do not interrogate past the point of usefulness"); none brake premature framing. The `## Think in specs` section is titled a stance but written as a numbered five-step pipeline, and `## Stance` closes the manual with "Be concise and action-oriented."
 
@@ -34,7 +34,7 @@ None.
 
 ## Impact
 
-- `server/agent-operator-prompt.ts`: the `## Think in specs`, `## Spec refinement mode`, and `## Stance` sections gain the framing ritual and lose the numbered pipeline framing; `OPERATOR_SYSTEM_PROMPT` gains the matching non-negotiable. Both constants remain byte-stable (no interpolation) per the file's existing caching contract.
+- `server/modules/missions/runtime/agent-operator-prompt.ts`: the `## Think in specs`, `## Spec refinement mode`, and `## Stance` sections gain the framing ritual and lose the numbered pipeline framing; `OPERATOR_SYSTEM_PROMPT` gains the matching non-negotiable. Both constants remain byte-stable (no interpolation) per the file's existing caching contract.
 - `client/src/components/agent-chat/`: a new `agent-problem-frame.ts` parser mirroring `agent-spec-draft.ts`, a new `AgentProblemFrameCard.tsx` mirroring `AgentSpecDraftCard.tsx`, and extraction wired in `AgentMessage.tsx` next to the existing draft-card extraction.
 - `server/mcp/tools/specs.ts`: `commit_draft` acquires the framing precondition; no signature, schema, or REST change.
 - `server/mcp/tools/types.ts`: no change to `registerTieredTool` itself — the gate reuses the `originConversationId` and `firstPartyAgent` context it already resolves.

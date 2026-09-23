@@ -7,13 +7,13 @@
 - [x] 1.4 Server API + client picker DONE: `PATCH /settings` accepts+validates `integrationBranch` (`isValidBranchName`), `GET /:projectId/integration-branch` resolves `{configured, branch, source}`; `ProjectIntegrationBranchSection` in project Settings lets the user set it and shows the resolved base (`Rails branch off <branch>`), i18n ×8 (parity green). **Deferred:** surfacing the resolved base in the rail-launch header (Settings surfaces it today).
 
 ## 2. App-owned git/PR primitive (`safe-pr-workflow` / `core-git-agnostic-contract`)
-- [x] 2.1 New desktop primitive (`server/pr-publisher.ts` + tests): `git push -u origin <branch>` → `gh pr create --draft --base <baseBranch> --head <branch>`; parses + returns the PR URL.
+- [x] 2.1 New desktop primitive (`server/modules/delivery/runtime/pr-publisher.ts` + tests): `git push -u origin <branch>` → `gh pr create --draft --base <baseBranch> --head <branch>`; parses + returns the PR URL.
 - [x] 2.2 Degradation ladder in the primitive + WS surfacing DONE — `rail.pr_delivered` broadcast carries `{delivery, prState, prUrl, branch}` (`server/types.ts` + `rail-isolated-launch.ts`).
-- [x] 2.3 Draft-PR delivery is now the **default** (`SPECRAILS_RAIL_DELIVER_PR` is a default-ON kill-switch; set `0`/`false`/`off` to restore the legacy local merge-back). A settled isolated rail delivers a draft PR by default (`server/rail-pr-delivery.ts`, wired in `rail-isolated-launch.ts`). The merge-back code remains as the kill-switch fallback.
+- [x] 2.3 Draft-PR delivery is now the **default** (`SPECRAILS_RAIL_DELIVER_PR` is a default-ON kill-switch; set `0`/`false`/`off` to restore the legacy local merge-back). A settled isolated rail delivers a draft PR by default (`server/modules/delivery/runtime/rail-pr-delivery.ts`, wired in `rail-isolated-launch.ts`). The merge-back code remains as the kill-switch fallback.
 - [~] 2.4 `server/git-guardrails.ts` `assertGitAllowed` blocks force-push and direct push to the integration branch, wired into `pr-publisher` (the app's sanctioned push path) as defense-in-depth. **Deferred:** blocking git issued by the AI agent *inside* a loop turn needs a per-worktree pre-push hook (documented follow-up).
 
 ## 3. Platform-law enforcement (`safe-pr-workflow`)
-- [x] 3.1 `server/loop-effect.ts` `classifyLoopEffect` — server-authoritative, derived from node content (read-only iff no `ai-step`/`shell` node), unit-tested.
+- [x] 3.1 `server/modules/loops/runtime/loop-effect.ts` `classifyLoopEffect` — server-authoritative, derived from node content (read-only iff no `ai-step`/`shell` node), unit-tested.
 - [x] 3.2 Wired into `rails-router.ts` (replaces the hardcoded `readOnly:false`): the isolation gate now derives read-only from content, so a custom loop cannot declare itself read-only to escape isolation (there is no user flag to lie with — it's derived).
 - [~] 3.3 Client mirror deferred — there is no user-facing read-only flag to mirror (the classifier is purely server-derived), so an advisory client mirror is moot until a UI exposes the effect.
 
@@ -25,7 +25,7 @@
 - [x] 4.5 Superseded by 4.3: a travelling env signal (`SPECRAILS_GIT_AUTO=false`) is more robust than writing `git_auto:false` into a gitignored backlog-config that is absent in a fresh worktree.
 
 ## 5. Combined batch PR (`combined-batch-pr`)
-- [x] 5.1 `server/rail-pr-delivery.ts` `deliverRailAsPr` assembles N ticket branches onto `sr/<slug>/batch-<railKey>` off the designated integration branch (transient worktree, `git merge --no-ff`), kept clean.
+- [x] 5.1 `server/modules/delivery/runtime/rail-pr-delivery.ts` `deliverRailAsPr` assembles N ticket branches onto `sr/<slug>/batch-<railKey>` off the designated integration branch (transient worktree, `git merge --no-ff`), kept clean.
 - [x] 5.2 One draft PR per batch; body = per-ticket checklist (`buildBatchPrBody`); per-ticket commit history preserved (`--no-ff`, no squash). (AI-resolver-assisted conflict resolution during assembly = follow-up; v1 uses plain merge.)
 - [x] 5.3 Safe failure mode: conflict → `merge --abort` + teardown of the batch branch/worktree → `assembly-failed` (ticket branches left for a human); the base is never touched.
 

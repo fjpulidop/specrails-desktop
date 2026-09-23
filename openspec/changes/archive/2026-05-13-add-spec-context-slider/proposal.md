@@ -39,12 +39,12 @@ The Add Spec modal exposes context-scope as a 4-checkbox panel (Specrails specs,
 
 ## Impact
 
-- **Server (`server/context-scope.ts`)**: extend `ContextScope` type, `defaultBootScope`, `normalizeContextScope`, and `buildScopedSystemPromptPrefix` for the new flag.
+- **Server (`server/modules/conversations/runtime/context-scope.ts`)**: extend `ContextScope` type, `defaultBootScope`, `normalizeContextScope`, and `buildScopedSystemPromptPrefix` for the new flag.
 - **Server (`server/project-router.ts`)**: `POST /tickets/from-draft` hook reads `conversation.context_scope.contractRefine` (fallback to project setting only when scope is absent on legacy rows). `add_spec_context_scope_last` GET/PATCH already accepts a free-form JSON payload; just document the new field.
-- **Server (`server/contract-refine-runner.ts`)**: no functional change; the toggle check stays as a defence-in-depth (still respects per-project + kill switch). New early-return path `reason='scope-disabled'` when the conversation's stored scope opted out.
-- **Client (`client/src/components/ContextScopeSlider.tsx`)**: new component (rail + 6 stops + drag + keyboard + touch + cost line). Headless dragging via pointer events; accessibility via `role="slider"` ARIA pattern.
-- **Client (`client/src/components/ProposeSpecModal.tsx` and `client/src/hooks/useContextScope.ts`)**: switch the existing checkbox row to the slider; keep the checkboxes inside the `▾ Fine-tune` disclosure powered by the same state. Persist `contractRefine` alongside the other flags in `add_spec_context_scope_last`.
-- **Client (`client/src/pages/SettingsPage.tsx`)**: relabel the Contract Refine toggle copy.
+- **Server (`server/modules/specs/runtime/contract-refine-runner.ts`)**: no functional change; the toggle check stays as a defence-in-depth (still respects per-project + kill switch). New early-return path `reason='scope-disabled'` when the conversation's stored scope opted out.
+- **Client (`client/src/features/chat/components/ContextScopeSlider.tsx`)**: new component (rail + 6 stops + drag + keyboard + touch + cost line). Headless dragging via pointer events; accessibility via `role="slider"` ARIA pattern.
+- **Client (`client/src/features/specs/components/ProposeSpecModal.tsx` and `client/src/features/chat/hooks/useContextScope.ts`)**: switch the existing checkbox row to the slider; keep the checkboxes inside the `▾ Fine-tune` disclosure powered by the same state. Persist `contractRefine` alongside the other flags in `add_spec_context_scope_last`.
+- **Client (`client/src/features/settings/pages/SettingsPage.tsx`)**: relabel the Contract Refine toggle copy.
 - **Tests**: new client tests for the slider (drag/snap, keyboard, touch, Custom indicator); update existing `useContextScope` and `ProposeSpecModal` tests for the new toggle field; update `contract-refine-runner.test.ts` to cover the scope-driven gating path.
 - **Storage**: no schema migration. `context_scope` is JSON; existing rows without `contractRefine` normalise to `false`. `add_spec_context_scope_last` is free-form per project.
 - **Out of scope (deferred)**: custom preset definitions per project; preset budget shown in real tokens (instead of relative `Nx`); preset persistence per *user* across machines (only per project, local).

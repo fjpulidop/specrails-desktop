@@ -1,6 +1,6 @@
 ## Context
 
-Today the Add Spec modal (`client/src/components/ProposeSpecModal.tsx`) ships only Quick vs. Explore mode + a model picker. There is no way for the user to scope what context the model sees. Quick mode (`POST /tickets/generate-spec`) builds a one-shot prompt with no file tools. Explore mode (`chat-manager.ts` with `kind='explore'`) always spawns with Read/Grep/Glob/Bash open, from `explore-cwd` (or `<project>` when `explore_mcp_enabled=true`). Project-level toggle `config.explore_mcp_enabled` exists in `queue_state` and is exposed via `GET/PATCH /api/projects/:projectId/explore-mcp-enabled`.
+Today the Add Spec modal (`client/src/features/specs/components/ProposeSpecModal.tsx`) ships only Quick vs. Explore mode + a model picker. There is no way for the user to scope what context the model sees. Quick mode (`POST /tickets/generate-spec`) builds a one-shot prompt with no file tools. Explore mode (`chat-manager.ts` with `kind='explore'`) always spawns with Read/Grep/Glob/Bash open, from `explore-cwd` (or `<project>` when `explore_mcp_enabled=true`). Project-level toggle `config.explore_mcp_enabled` exists in `queue_state` and is exposed via `GET/PATCH /api/projects/:projectId/explore-mcp-enabled`.
 
 Stakeholders: end users (cost-conscious + transparency), and the implement pipeline (downstream `ai_invocations` rows already track per-turn token + cost). The `ai_invocations` table is the truth source for post-turn deltas.
 

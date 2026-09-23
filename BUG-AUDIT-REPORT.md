@@ -60,7 +60,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-CHAT-01 — Persistent-stdin children killed with `child.kill` instead of `treeKill` (Windows orphan)
 - **Severity:** High · **Subsystem:** ChatManager + explore lifecycle · **Platform:** Both (Windows-critical)
-- **File:** `server/explore-stdin-session.ts:158`
+- **File:** `server/modules/conversations/runtime/explore-stdin-session.ts:158`
 - **What's wrong:** `ExploreStdinSessions.kill()` does `s.child.kill('SIGTERM')`, whereas every other child teardown in `chat-manager.ts` (idle-kill, victim-eviction, abort, shutdown) uses `treeKill(child.pid, 'SIGTERM')`. On Windows the child is the `cmd.exe` cross-spawn wrapper; the real claude (+ MCP subprocesses) is a grandchild that `child.kill` does not reach.
 - **Impact:** On Windows, every persistent-stdin Explore session torn down by idle-kill, eviction, conversation delete, or app shutdown orphans a claude (+ MCP) process — consuming CPU, API quota, file locks indefinitely. On POSIX the MCP grandchildren still leak.
 - **Trigger:** `SPECRAILS_EXPLORE_PERSISTENT_STDIN=1` + minimize/idle, 6th-turn eviction, conversation delete, or app quit. Default-OFF flag caps real-world exposure.
@@ -88,7 +88,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-QUEUE-01 — Relocated claude rails never clean up their per-job openspec PATH shim (disk + map leak)
 - **Severity:** Medium · **Subsystem:** QueueManager + rails + result settle
-- **File:** `server/queue-manager.ts:1546-1822` (`_onJobExit`); shim created at `1296-1302`
+- **File:** `server/modules/execution/runtime/queue-manager.ts:1546-1822` (`_onJobExit`); shim created at `1296-1302`
 - **What's wrong:** `_startJob` creates an openspec PATH shim dir and records it in `_openspecShims` for every relocated claude job. Cleanup (`removeOpenspecShim` + map delete) lives only in `_settleInteractiveJob`. The dominant **non-interactive** rail path settles via `_onJobExit`, which never removes the shim. `_failWedgedJob` omits it too. No startup sweep exists; `shutdown()` only `clear()`s the in-memory map, leaving on-disk dirs.
 - **Impact:** Unbounded growth of `_openspecShims` (memory) plus one orphaned `chmod-700` dir per rail under `~/.specrails/projects/<slug>/openspec-shim/<jobId>/` forever. Gated behind artifact-relocation but on its primary code path.
 - **Trigger:** Any implement/batch-implement rail on a relocated claude project.
@@ -97,7 +97,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-QUEUE-02 — SIGKILL-failure cleanup path skips `onJobFinished` + `ai_invocations` + per-job map cleanup
 - **Severity:** Medium · **Subsystem:** QueueManager + rails
-- **File:** `server/queue-manager.ts:1894-1918`
+- **File:** `server/modules/execution/runtime/queue-manager.ts:1894-1918`
 - **What's wrong:** When `treeKill('SIGKILL')` returns an error (escalation kill failed), the recovery block force-fails the job in memory + DB and releases the slot, but does **not** call `_onJobFinished`, does not `recordInvocation`, and does not clear `_snapshotRefs`/`_jobExecution`/`_openspecShims`/`_jobModelSelection`/`_jobProfileSelection`/`_jobProviderSelection`. The codebase's own `_failWedgedJob` applies exactly this fix for the analogous wedge — this branch doesn't.
 - **Impact:** A child surviving SIGKILL (more likely on Windows via taskkill) wedges the rail in `running` forever; ticket status never reverts/flags, budget/webhook/Jira write-back never fires, per-job maps + git-stash snapshot leak.
 - **Trigger:** Cancel/zombie-terminate a rail whose child survives the 5s grace and whose SIGKILL `treeKill` errors.
@@ -105,7 +105,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-INTJOB-03 — Stray/late `result` frame from a finished turn is counted into the next turn
 - **Severity:** Medium · **Subsystem:** Interactive job session · **Category:** data-integrity
-- **File:** `server/interactive-job-session.ts:272-318`
+- **File:** `server/modules/execution/runtime/interactive-job-session.ts:272-318`
 - **What's wrong:** The double-count guard relies solely on `_awaitingResult`. After a turn's result, the next queued prompt's `_writeTurn` re-sets `_awaitingResult = true` immediately. A second (stray/duplicate) `result` line for the prior turn then passes the guard and is finalized against the new turn's (reset) `_turnEvents`, corrupting running totals/`num_turns`. The existing test only covers back-to-back results within one turn.
 - **Impact:** Job token/cost/`num_turns` totals (the "honest, never an estimate" figures persisted to the row and `ai_invocations`) can be inflated/corrupted when a turn emits a late/duplicate result after the next turn begins.
 - **Trigger:** A queued prompt fed on the first result, then a second buffered/duplicate result line for the prior turn.
@@ -113,7 +113,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-PARSER-01 — Quick contract-refine and SMASH orphan the AI-CLI subtree on timeout (SIGTERM-only)
 - **Severity:** High (reporter) → **Medium (corrected)** · **Subsystem:** Contract refine + SMASH + spec parsers · **Category:** resource-leak
-- **File:** `server/contract-refine-runner.ts:197-204`; `server/smash-runner.ts:231-238`
+- **File:** `server/modules/specs/runtime/contract-refine-runner.ts:197-204`; `server/modules/specs/runtime/smash-runner.ts:231-238`
 - **What's wrong:** `readRefineChildOutput` and `readSmashChildOutput` implement a timeout path that calls only `child.kill('SIGTERM')` on the direct child, with no tree-kill and no SIGKILL escalation — unlike the shared `spawn-lifecycle.ts` which escalates. SMASH full mode runs with a 900 000 ms (15 min) timeout and Read/Grep/Glob enabled (worst case).
 - **Impact:** Orphaned `claude` (+ grandchild) processes accumulate across repeated quick-spec-refine / SMASH timeouts; a signal-swallowing CLI is never force-killed. Only on the timeout edge, hence Medium.
 - **Trigger:** Quick spec with `contractRefine:true`, or POST `/tickets/:id/smash` (esp. `mode='full'`), against a model/CLI that hangs.
@@ -148,7 +148,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-SQLITE-03 — `emptyStore()` returned on any read/parse error → a present-but-unreadable tickets file gets blanked on next mutate
 - **Severity:** Medium · **Subsystem:** SQLite schemas + migrations · **Category:** data-integrity
-- **File:** `server/ticket-store.ts:280`
+- **File:** `server/modules/specs/runtime/ticket-store.ts:280`
 - **What's wrong:** `readStore` returns `emptyStore()` on `JSON.parse` throw OR a missing/wrong top-level shape. `mutateStore` does `readStore → fn → writeStore`, so a present-but-corrupt/foreign-shaped `local-tickets.json` yields an empty store that is then mutated and atomically written back — wiping all tickets and resetting `next_id`. There's no ENOENT-vs-unreadable distinction. The per-ticket corruption case was already hardened; the top-level case was left returning `emptyStore`.
 - **Impact:** A corrupt/hand-edited/externally-partial-write file can wipe the entire project's spec backlog. Atomic temp+rename + the advisory lock defend against in-process truncation, so triggers are out-of-band (hand-edit, disk corruption, foreign tool) — real but not in-process.
 - **Trigger:** `readStore` inside `mutateStore` hits a present-but-unparseable/foreign-shaped file.
@@ -180,7 +180,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-BROWSER-03 — Captured network request/response URLs stored raw — leaks tokens/PII despite "never store bodies" invariant
 - **Severity:** Medium · **Subsystem:** Browser capture · **Category:** security
-- **File:** `server/browser-network.ts:98-108`
+- **File:** `server/modules/browser/runtime/browser-network.ts:98-108`
 - **What's wrong:** The module reduces bodies to a key-name shape (privacy invariant) but stores the full request URL verbatim (`slice(0, 2000)`) with no query-string/credential stripping. Captured URLs are persisted into the `page-dom-<ts>.json` ticket attachment, then ride into the spec-ticket prompt + on-disk attachment. `captureNetwork` defaults ON.
 - **Impact:** Bearer tokens, API keys, signed-URL signatures, OAuth `code`/`state`, session ids in request URLs of any browsed site are persisted into spec attachments, fed to the LLM, and shared with ticket recipients — exactly the leak the invariant claims to prevent.
 - **Trigger:** Browse a query-string-authenticated/signed-URL site, then capture with `captureNetwork` on.
@@ -188,7 +188,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-BROWSER-04 — Headless Chromium launched with `--no-sandbox` while navigating arbitrary (and `file://`/internal) URLs
 - **Severity:** Medium · **Subsystem:** Browser capture · **Category:** security
-- **File:** `server/browser-playwright.ts:792-797`
+- **File:** `server/modules/browser/runtime/browser-playwright.ts:792-797`
 - **What's wrong:** `launchPersistentContext` always passes `args: ['--no-sandbox', …]`, disabling Chromium's renderer sandbox unconditionally, while navigating fully attacker-influenceable URLs (incl. `file://`/internal per BUG-BROWSER-01).
 - **Impact:** A renderer-level exploit on any browsed page escalates from sandboxed-renderer to full host code execution in the desktop app's context (filesystem, master token, terminals/spawn). Removes the primary mitigation for an inherently-untrusted-content feature. Conditional on a live Chromium exploit → Medium.
 - **Trigger:** User browses a malicious page exploiting a Chromium renderer bug.
@@ -228,7 +228,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-LONGTAIL-01 — `cancel()` clobbers `cancelled` status with `error`/`input`/`review` and emits a spurious failure (settle race)
 - **Severity:** High (reporter) → **Medium (corrected)** · **Subsystem:** Long-tail AI-CLI managers · **Category:** concurrency-race
-- **File:** `server/proposal-manager.ts:193-206, 293-306`; `server/agent-refine-manager.ts:141-156, 331-383`
+- **File:** `server/modules/specs/runtime/proposal-manager.ts:193-206, 293-306`; `server/modules/agents/runtime/agent-refine-manager.ts:141-156, 331-383`
 - **What's wrong:** `cancel()` SIGTERMs the child and writes `status='cancelled'`, but does not set `_disposed` and does not remove the child's close listener. When the killed child closes (non-zero), the close path runs with `_disposed===false`: ProposalManager calls `onError()` → `updateProposal(status:'input'|'review')` + `proposal_error`; AgentRefineManager sets `status:'error'` + `_emitError`. The authoritative `cancelled` state is overwritten and the client gets a spurious failure toast.
 - **Impact:** A user-initiated cancel shows a false "failed" error and the DB row ends `input`/`review`/`error` instead of `cancelled`, confusing the state machine/retry logic.
 - **Trigger:** Cancel a propose/refine while a turn is streaming.
@@ -237,7 +237,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-LONGTAIL-02 — No SIGKILL escalation on `cancel()`/`shutdown()` → SIGTERM-ignoring child orphaned (skip-permissions spend leak)
 - **Severity:** High (reporter) → **Medium (corrected)** · **Subsystem:** Long-tail AI-CLI managers · **Category:** resource-leak
-- **File:** `server/proposal-manager.ts:43,196`; `server/spec-launcher-manager.ts:35,164`; `server/agent-refine-manager.ts:97,144`
+- **File:** `server/modules/specs/runtime/proposal-manager.ts:43,196`; `server/modules/specs/runtime/spec-launcher-manager.ts:35,164`; `server/modules/agents/runtime/agent-refine-manager.ts:97,144`
 - **What's wrong:** All three managers terminate children with a single `treeKill(pid,'SIGTERM')` and never escalate to SIGKILL, diverging from `spawn-lifecycle.ts`/`QueueManager._kill`. On project removal/shutdown the cleared `_activeProcesses` map drops the only handle.
 - **Impact:** A child that swallows SIGTERM (or a blocked git/gh/build tool subprocess) becomes an unkillable orphan running with `--dangerously-skip-permissions`, burning API tokens for the host's lifetime. Conditional on signal-swallowing → Medium.
 - **Trigger:** Project removed or user cancel while a child is mid-tool-exec/blocked-I/O.
@@ -246,7 +246,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-LONGTAIL-04 — `cancel()`/`shutdown()` leave the child's close/error listeners attached → broadcasts on a removed project
 - **Severity:** Medium · **Subsystem:** Long-tail AI-CLI managers · **Category:** error-handling
-- **File:** `server/spec-launcher-manager.ts:161-169`; `server/proposal-manager.ts:193-206`
+- **File:** `server/modules/specs/runtime/spec-launcher-manager.ts:161-169`; `server/modules/specs/runtime/proposal-manager.ts:193-206`
 - **What's wrong:** `SpecLauncherManager.cancel()` deletes map entries and broadcasts `cancelled` but never removes the `'close'` listener, which later fires and broadcasts `spec_launcher_done`/`spec_launcher_error('Spec generation failed')` for a cancelled launch (reading the already-deleted buffer as `''`). `SpecLauncherManager.shutdown()` has no `_disposed` flag at all, so close handlers fire on a removed project. ProposalManager guards `shutdown` via `_disposed` but `cancel()` doesn't set it (the clobber in BUG-LONGTAIL-01).
 - **Impact:** Duplicate/contradictory WS messages after cancel; broadcasts emitted for a torn-down/removed project.
 - **Trigger:** Cancel a spec-launch (or remove a project) while the child is alive; the killed child closes a moment later.
@@ -334,7 +334,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-INTJOB-02 — No settle fallback if the child never emits `'close'` after finalize SIGTERM/SIGKILL
 - **Severity:** Medium (reporter) → **Low (corrected)** · **Subsystem:** Interactive job session · **Category:** resource-leak
-- **File:** `server/interactive-job-session.ts:191-203`
+- **File:** `server/modules/execution/runtime/interactive-job-session.ts:191-203`
 - **What's wrong:** `finalize()` SIGTERMs + arms a 2s SIGKILL timer, but `_settle()` (→ active-slot release, terminal status, queue drain) is only reached via `_handleClose` on the child `'close'` event. If `'close'` never fires (D-state/uninterruptible process), the SIGKILL timer fires and then nothing settles — the slot leaks, the job stays `running`, the queue never drains. No independent timeout. The interactive path notably arms no zombie watchdog.
 - **Impact:** A stuck child wedges the interactive job permanently until restart. Narrow reachability (direct `child.kill` usually reaps via SIGKILL) → Low.
 - **Trigger:** `finalize()`/cancel on a child that never emits `'close'` after SIGTERM+SIGKILL.
@@ -342,7 +342,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-INTJOB-04 — `send()` echoes the user prompt to the transcript before confirming delivery
 - **Severity:** Low · **Subsystem:** Interactive job session · **Category:** correctness
-- **File:** `server/interactive-job-session.ts:154-178`
+- **File:** `server/modules/execution/runtime/interactive-job-session.ts:154-178`
 - **What's wrong:** `send()` persists+emits the `🧑 <text>` log line and broadcasts `job.turn_user` before `_writeTurn`, which can silently fail to deliver (stdin destroyed early-return or caught EPIPE). The only guard is `_disposed`/`_finalizing`/`!_child`; a child alive but with closed stdin passes.
 - **Impact:** In-job chat shows turns as accepted that were never delivered to the agent. Transient (narrow stdin-destroyed-while-alive race).
 - **Trigger:** Any `send()` while the child is alive but stdin isn't writable (mid-crash/EPIPE).
@@ -350,7 +350,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-CHAT-02 — Auto-title CLI child is untracked and orphaned on shutdown/abort
 - **Severity:** Medium (reporter) → **Low (corrected)** · **Subsystem:** ChatManager · **Category:** resource-leak
-- **File:** `server/chat-manager.ts:1372`
+- **File:** `server/modules/conversations/runtime/chat-manager.ts:1372`
 - **What's wrong:** `_autoTitle()` spawns a fresh claude/codex child but never registers it in `_activeProcesses`; `shutdown()`/`abort()` only iterate that set + `_stdinSessions`, so an in-flight auto-title child is never signaled on shutdown/project removal.
 - **Impact:** One orphaned (Windows `cmd.exe`-wrapped) auto-title child per first-turn completion right before shutdown. Self-terminating, one-per-completion → Low.
 - **Trigger:** Complete the first turn of an Explore/sidebar conversation, then immediately quit/remove the project before the title CLI returns.
@@ -358,7 +358,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-CHAT-06 — Persistent-stdin `writeTurn` returns success after backpressured write; no `'error'` listener on `child.stdin`
 - **Severity:** Low · **Subsystem:** ChatManager · **Category:** error-handling
-- **File:** `server/explore-stdin-session.ts:138`
+- **File:** `server/modules/conversations/runtime/explore-stdin-session.ts:138`
 - **What's wrong:** `writeTurn` checks `stdin.destroyed` once then returns true on any non-throw; a buffered write that later emits async EPIPE has **no `'error'` listener** attached to `child.stdin` in `getOrSpawn`. (The "hang" half of the report is refuted — process death routes to `onClose`/settle — but the missing stdin `'error'` listener is real: an unhandled `'error'` on a Writable can crash the process, and there is no process-level `uncaughtException` handler.)
 - **Impact:** A buffered stdin write that errors asynchronously could crash the server. Gated by the default-OFF persistent-stdin flag + a narrow race → Low.
 - **Trigger:** Persistent child dies exactly as a new turn is written; the buffered write later emits EPIPE.
@@ -366,7 +366,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-QUEUE-03 — Gemini rails get claude-shaped telemetry env (`CLAUDE_CODE_ENABLE_TELEMETRY`); no `GEMINI_TELEMETRY_*` ever set
 - **Severity:** Low · **Subsystem:** QueueManager · **Category:** correctness
-- **File:** `server/queue-manager.ts:1176-1185 / 43-65`
+- **File:** `server/modules/execution/runtime/queue-manager.ts:1176-1185 / 43-65`
 - **What's wrong:** `buildTelemetryEnv` is provider-agnostic and emits only `CLAUDE_CODE_ENABLE_TELEMETRY` + generic `OTEL_*`. The gemini adapter declares `nativeOtelEnv:true` and its comment claims OTLP via `GEMINI_TELEMETRY_*` "set by QueueManager" — but no code sets any `GEMINI_TELEMETRY_*` var (the only occurrence is the adapter comment).
 - **Impact:** Pipeline telemetry likely doesn't flow for gemini rails despite being enabled — empty diagnostic ZIPs / missing spans, no error. Opt-in, default-off → Low.
 - **Trigger:** Enable pipeline telemetry on a multi-provider project; launch a gemini rail.
@@ -447,7 +447,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-SQLITE-02 — Stale-lock detection is mtime-only, never owner-PID liveness → crashed writer holds the lock for a fixed 10s
 - **Severity:** Medium (reporter) → **Low (corrected)** · **Subsystem:** SQLite/ticket-store · **Category:** concurrency-race
-- **File:** `server/ticket-store.ts:170`
+- **File:** `server/modules/specs/runtime/ticket-store.ts:170`
 - **What's wrong:** `acquireLock` writes `process.pid` into the lock but never reads it back; the only staleness signal is `mtime > 10s`. A crashed writer's lock is "held" for a full 10s even though the PID is dead, and the recorded PID is dead-weight.
 - **Impact:** After a hard kill while holding the ticket lock, concurrent ticket writes can exhaust the 50×50ms (2.5s) retry budget and throw "Could not acquire lock", losing a mutation, until mtime ages past 10s. The lock is held only across a synchronous small-JSON read-modify-write (sub-ms crash window) → Low.
 - **Trigger:** Server SIGKILLed while in `writeStore`/`mutateStore`, then another write before mtime ages.
@@ -487,7 +487,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-TERM-02 — `RingBuffer.append` retains the full original chunk's ArrayBuffer when trimming a lone oversized chunk (subarray view)
 - **Severity:** Low · **Subsystem:** Terminal PTY · **Category:** resource-leak
-- **File:** `server/terminal-manager.ts:129-134`
+- **File:** `server/modules/terminals/runtime/terminal-manager.ts:129-134`
 - **What's wrong:** When a single chunk > 256KB arrives, the buffer keeps the tail via `head.subarray(excess)` — a view over the same underlying ArrayBuffer — so the trimmed 256KB view pins the entire original (multi-MB) allocation until the next append.
 - **Impact:** Transient memory over-retention: a `cat bigfile` (~10MB single chunk) then idle keeps ~10MB resident instead of 256KB. Bounded to one chunk/session, self-healing on next append; scales with concurrent idle sessions → Low.
 - **Trigger:** A command flooding stdout in one >256KB `onData` chunk, then idle.
@@ -498,7 +498,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-BROWSER-02 — Concurrent `create()` calls race past `MAX_SESSIONS_PER_PROJECT` (resource-limit TOCTOU)
 - **Severity:** Medium (reporter) → **Low (corrected)** · **Subsystem:** Browser capture · **Category:** concurrency-race
-- **File:** `server/browser-capture-manager.ts:199-222`
+- **File:** `server/modules/browser/runtime/browser-capture-manager.ts:199-222`
 - **What's wrong:** `create()` reads the live-session count and throws if `>= 4`, then awaits `ensureContext()`+`ctx.newPage()` before inserting into `this.sessions`. The cap check and the map insertion are separated by two awaits with no reservation, so N concurrent `POST /browser/sessions` all observe `< 4` and proceed.
 - **Impact:** The per-project page/memory cap is bypassable by firing N parallel creates. Bounded by burst concurrency (shared context reused), loopback-only → Low.
 - **Trigger:** `Promise.all` of `POST …/browser/sessions` on a fresh manager.
@@ -506,7 +506,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-CODE-01 — `GET /diff` serves stored patches without deny-list or `.gitignore` checks → leaks secret-file contents
 - **Severity:** High/Medium (split) → reported as Medium-to-High · **Subsystem:** File provenance + code explorer · **Category:** security
-- **File:** `server/code-explorer-router.ts:841-859`
+- **File:** `server/modules/code/runtime/code-explorer-router.ts:841-859`
 - **What's wrong:** Every other content endpoint (`/file`, `/summary`, `/file/regenerate-summary`, `/provenance`) enforces `isDeniedRelPath` AND `isGitIgnored` after `resolveSafePath`. `/diff` enforces **neither** — only path-traversal. Provenance + diffs are recorded for any AI-touched path with no deny filter, and an added-file patch contains the full file content. So an AI job that creates/modifies a secret file (`.env`, `*.pem`, `id_rsa`, `*.key`, gitignored creds) has its complete contents served verbatim via `/diff?jobId=…&path=.env`. Feature defaults ON.
 - **Impact:** Disclosure of secret/credential file contents to a UI tier explicitly for non-developers, defeating the deny-list hardening every sibling endpoint applies. Local-only (loopback) disclosure → split High/Medium; treated as **Medium** in the tally given loopback + requires an AI job to touch a secret file.
 - **Trigger:** AI rail touches/creates a denied/gitignored file, then GET `…/code/diff?jobId=<job>&path=.env`.
@@ -514,7 +514,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-CODE-02 — `file-summary.v1.json` schema is never used — LLM output and on-disk summaries never validated
 - **Severity:** Medium (reporter) → **Low (corrected)** · **Subsystem:** File summaries · **Category:** data-integrity
-- **File:** `server/file-summary-manager.ts:140-149`
+- **File:** `server/modules/code/runtime/file-summary-manager.ts:140-149`
 - **What's wrong:** Docs claim summaries are "Schema validated by file-summary.v1.json", but no module imports/compiles it (unlike `profile.v1.json` via ajv). `writeSummary` persists the manager payload directly; `readSummary` does `JSON.parse(raw) as SummaryPayload` with a bare cast. LLM `out.summary` is written with no length bound.
 - **Impact:** A corrupt/tampered/cross-version summary is trusted and surfaced verbatim (and consumed by orphan-sweep via `payload.path`); unbounded length can bloat WS/file payloads; the documented invariant gives false assurance. App-internal writes are well-formed → Low.
 - **Trigger:** Read of a summary file that's valid JSON but non-conformant (hand-edited/cross-version/oversized).
@@ -522,7 +522,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-CODE-04 — `touched-by-ai` tree does not apply `.gitignore` → gitignored AI-touched files listed
 - **Severity:** Low · **Subsystem:** Code explorer · **Category:** security
-- **File:** `server/code-explorer-router.ts:441-448`
+- **File:** `server/modules/code/runtime/code-explorer-router.ts:441-448`
 - **What's wrong:** The `all` filter applies `gitIgnoredSet()`; the `touched-by-ai` branch (the default) applies only `isDeniedRelPath`, never `gitIgnoredSet`. A gitignored AI-touched file not caught by the deny-list (project-specific `config.local.json`, custom build dirs) appears with path/ticket-attribution/mtime, inconsistent with the documented `.gitignore`-respect contract. (`/file` gates content via gitignore, but `/diff` — BUG-CODE-01 — does not.)
 - **Impact:** Filename + ticket-attribution + mtime of gitignored AI-touched files surface; combined with BUG-CODE-01 the content is reachable. Low.
 - **Trigger:** AI job modifies a gitignored file whose name/extension isn't deny-listed; open Code with the default filter.
@@ -530,7 +530,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-CODE-05 — Monthly budget cap can be overshot by the entire in-flight set (no spend reserved until completion)
 - **Severity:** Low · **Subsystem:** File summaries · **Category:** concurrency-race
-- **File:** `server/file-summary-manager.ts:376-383`
+- **File:** `server/modules/code/runtime/file-summary-manager.ts:376-383`
 - **What's wrong:** `monthToDateSpend()` reads recorded `ai_invocations` cost, but a generation's cost row is written only at the end of `runOne`. Up to `desktopConcurrency` (8) generations can all pass the budget check, start, and bill before any records its cost; the pump re-check only bounds still-queued entries.
 - **Impact:** The "hard" monthly cap (default $5) can be exceeded by up to ~8 in-flight generations' cost. Bounded, acknowledged in a code comment → Low.
 - **Trigger:** Many files enqueued for summary just as the project crosses its budget.
@@ -600,7 +600,7 @@ Ordered by corrected severity (High → Medium → Low), then subsystem.
 
 #### BUG-WEBHOOK-03 — Receiver records `telemetry_blobs.byteSize` before append completes; no rollback on append failure
 - **Severity:** Low · **Subsystem:** Outbound egress sinks (telemetry receiver) · **Category:** data-integrity
-- **File:** `server/telemetry-receiver.ts:225`
+- **File:** `server/modules/accounting/runtime/telemetry-receiver.ts:225`
 - **What's wrong:** `state.uncompressedSize` is advanced and the DB `byteSize` updated synchronously before the async enqueued `appendToGzip` runs. `enqueueWrite`'s `task().then(drain, drain)` swallows a rejection (ENOSPC/EACCES) with no rollback, so the counter/`byteSize` stay advanced as though the bytes landed.
 - **Impact:** On a transient append failure, `byteSize` over-reports actual disk content and cap math over-accounts (fails safe — drops earlier, never overruns). Compaction/export read the real gzip file, so no content corruption. Low.
 - **Trigger:** Any I/O error inside `appendToGzip` after the synchronous size/DB bump.
@@ -670,11 +670,11 @@ This was verifier-**confirmed real at Low** but is listed here because it sits a
 
 ### Theme A — Child-process teardown: missing tree-kill / SIGKILL escalation (the single largest cluster)
 The codebase has a correct shared pattern (`spawn-lifecycle.ts` / `QueueManager._kill`: tree-kill SIGTERM → SIGKILL after grace), but multiple managers diverge to bare `child.kill`/single-SIGTERM, orphaning full-permission, spend-burning CLI trees (worst on Windows's `cmd.exe`-wrapper grandchildren).
-- `BUG-CHAT-01` `server/explore-stdin-session.ts:158`
-- `BUG-PARSER-01` `server/contract-refine-runner.ts:197-204`, `server/smash-runner.ts:231-238`
-- `BUG-LONGTAIL-02` `server/proposal-manager.ts:43,196`, `server/spec-launcher-manager.ts:35,164`, `server/agent-refine-manager.ts:97,144`
-- `BUG-CHAT-02` (untracked auto-title child) `server/chat-manager.ts:1372`
-- Related settle-never-fires: `BUG-INTJOB-02` `server/interactive-job-session.ts:191-203`, `BUG-QUEUE-02` `server/queue-manager.ts:1894-1918`
+- `BUG-CHAT-01` `server/modules/conversations/runtime/explore-stdin-session.ts:158`
+- `BUG-PARSER-01` `server/modules/specs/runtime/contract-refine-runner.ts:197-204`, `server/modules/specs/runtime/smash-runner.ts:231-238`
+- `BUG-LONGTAIL-02` `server/modules/specs/runtime/proposal-manager.ts:43,196`, `server/modules/specs/runtime/spec-launcher-manager.ts:35,164`, `server/modules/agents/runtime/agent-refine-manager.ts:97,144`
+- `BUG-CHAT-02` (untracked auto-title child) `server/modules/conversations/runtime/chat-manager.ts:1372`
+- Related settle-never-fires: `BUG-INTJOB-02` `server/modules/execution/runtime/interactive-job-session.ts:191-203`, `BUG-QUEUE-02` `server/modules/execution/runtime/queue-manager.ts:1894-1918`
 - **Root fix:** route every AI-CLI spawn teardown through one shared `treeKill + SIGKILL-escalation + force-settle` helper.
 
 ### Theme B — Mobile/companion authorization boundary

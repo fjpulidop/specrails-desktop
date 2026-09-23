@@ -2,21 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { RunExecutionManifest } from './multi-repo-execution-store'
-import type { RuntimeConfig } from './agent-runtime-settings'
+import type { RunExecutionManifest } from './modules/delivery/runtime/multi-repo-execution-store'
+import type { RuntimeConfig } from './modules/agent-runtime/runtime/agent-runtime-settings'
 
 const fixture = vi.hoisted(() => ({ cli: null as string | null, legacy: vi.fn(), framework: vi.fn() }))
-vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: (cli: string) => cli, resolveRetainedAgentRuntime: () => fixture.cli }))
-vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ validateRuntimeConfig: (input: unknown) => input, rolePromptDefaults: () => ({ architect: 'Plan', developer: 'Implement', reviewer: 'Review' }) }) }))
+vi.mock('./modules/agent-runtime/runtime/agent-runtime-package', () => ({ retainAgentRuntime: (cli: string) => cli, resolveRetainedAgentRuntime: () => fixture.cli }))
+vi.mock('./modules/agent-runtime/runtime/agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ validateRuntimeConfig: (input: unknown) => input, rolePromptDefaults: () => ({ architect: 'Plan', developer: 'Implement', reviewer: 'Review' }) }) }))
 vi.mock('./path-resolver', async () => ({ ...await vi.importActual<typeof import('./path-resolver')>('./path-resolver'), resolveBundledNodeExe: () => process.execPath }))
-vi.mock('./spawn-lifecycle', () => ({ runAiCliInvocation: fixture.legacy }))
+vi.mock('./modules/execution/runtime/spawn-lifecycle', () => ({ runAiCliInvocation: fixture.legacy }))
 vi.mock('./workspace-manager', () => ({ ensureFrameworkAgents: fixture.framework, ensureFrameworkCommandSubtrees: fixture.framework }))
 vi.mock('./claude-trust', () => ({ ensureClaudeTrusted: vi.fn() }))
 vi.mock('./core-update-state', () => ({ assertWorkspaceCoreReady: vi.fn() }))
 
-import { createLoopExecutors } from './loop-executors'
-import { LoopRunManager } from './loop-run-manager'
-import { getFactoryLoop } from './loop-factory'
+import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
+import { LoopRunManager } from './modules/loops/runtime/loop-run-manager'
+import { getFactoryLoop } from './modules/loops/runtime/loop-factory'
 import { initDb, type DbInstance } from './db'
 
 let root: string, workspace: string, worktree: string, secondWorktree: string, configPath: string

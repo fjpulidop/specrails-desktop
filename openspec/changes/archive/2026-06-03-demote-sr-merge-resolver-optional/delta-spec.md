@@ -81,7 +81,7 @@ baselineAgents: () => ['sr-architect', 'sr-developer', 'sr-reviewer'],
 
 ---
 
-## File 4: `server/profiles-router.ts`
+## File 4: `server/modules/agents/runtime/profiles-router.ts`
 
 ### Change A: Trim `baseline` array in `migrate-from-settings`
 
@@ -131,7 +131,7 @@ const baseline = ['sr-architect', 'sr-developer', 'sr-reviewer']
 | `client/src/components/AgentSelector.tsx` | 1 line removed | Remove string from Set literal |
 | `server/providers/claude-adapter.ts` | 1 line modified | Remove string from array literal |
 | `server/providers/codex-adapter.ts` | 1 line modified | Remove string from array literal |
-| `server/profiles-router.ts` | 2 lines modified + 1 comment updated | Remove string from array; empty Set |
+| `server/modules/agents/runtime/profiles-router.ts` | 2 lines modified + 1 comment updated | Remove string from array; empty Set |
 
 **Total net diff:** approximately −4 lines across four files.
 
@@ -141,8 +141,8 @@ const baseline = ['sr-architect', 'sr-developer', 'sr-reviewer']
 
 The following are explicitly out of scope for this delta and must not be edited:
 
-- `client/src/components/agents/ProfileEditor.tsx` pin-last UI behavior
-- `server/profile-manager.ts` validation logic (it already delegates to adapters)
+- `client/src/features/agents/components/ProfileEditor.tsx` pin-last UI behavior
+- `server/modules/agents/runtime/profile-manager.ts` validation logic (it already delegates to adapters)
 - `server/setup-manager.ts` (no hard-coded agent list present)
 - `client/src/components/SetupWizard.tsx` (no edit needed; consumes `CORE_AGENTS` correctly)
 - Any file in `specrails-core`

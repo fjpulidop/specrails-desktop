@@ -567,7 +567,7 @@ describe('specrails_watch', () => {
 
 // ── registerTieredTool per-request active project (B1) ───────────────────────
 import { registerTieredTool, getActiveProject, setActiveProject, type ToolHandlerExtra } from './tools/types'
-import { AGENT_CAPABILITY_HEADER, AGENT_PROJECT_HEADER, AGENT_TIER_HEADER, AGENT_CONVERSATION_HEADER } from '../agent-tier'
+import { AGENT_CAPABILITY_HEADER, AGENT_PROJECT_HEADER, AGENT_TIER_HEADER, AGENT_CONVERSATION_HEADER } from '../modules/missions/runtime/agent-tier'
 import { _resetAgentCapabilitiesForTest, mintAgentCapability, revokeAgentCapability } from './agent-capability'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 

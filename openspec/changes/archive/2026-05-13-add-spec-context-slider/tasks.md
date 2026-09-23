@@ -1,26 +1,26 @@
 ## 1. Server: ContextScope extension
 
-- [x] 1.1 Extend `ContextScope` in `server/context-scope.ts` with `contractRefine: boolean`
+- [x] 1.1 Extend `ContextScope` in `server/modules/conversations/runtime/context-scope.ts` with `contractRefine: boolean`
 - [x] 1.2 Update `normalizeContextScope` to default missing `contractRefine` to `false`
 - [x] 1.3 Update `defaultBootScope` signature to accept the project's `contractRefineEnabled` boolean and seed the field
 - [x] 1.4 Update all internal call-sites of `defaultBootScope` (chat-manager, project-router conversation creation) to pass the new arg
-- [x] 1.5 Unit tests in `server/context-scope.test.ts` for the new field: defaults, round-trip, normalisation of legacy missing field
+- [x] 1.5 Unit tests in `server/modules/conversations/runtime/context-scope.test.ts` for the new field: defaults, round-trip, normalisation of legacy missing field
 - [x] 1.6 Update `buildScopedSystemPromptPrefix` (no behavioural change needed, but ensure passes typecheck and ignores `contractRefine` for prompt content)
 
 ## 2. Server: from-draft hook reads from scope
 
-- [x] 2.1 In `server/contract-refine-runner.ts` introduce a `scope-disabled` early-return reason
+- [x] 2.1 In `server/modules/specs/runtime/contract-refine-runner.ts` introduce a `scope-disabled` early-return reason
 - [x] 2.2 Switch the gate inside `runContractRefine` so it consults `conversation.context_scope.contractRefine` first; only fall back to `getExploreContractRefineEnabled` for rows whose `context_scope` is null entirely
-- [x] 2.3 Update `server/contract-refine-runner.test.ts` with cases for: scope `false` skips (logs `scope-disabled`); scope `true` runs even when project setting is `false`; legacy null scope falls back to project setting
+- [x] 2.3 Update `server/modules/specs/runtime/contract-refine-runner.test.ts` with cases for: scope `false` skips (logs `scope-disabled`); scope `true` runs even when project setting is `false`; legacy null scope falls back to project setting
 - [x] 2.4 Keep the retry endpoint (`POST /tickets/:id/contract-refine`) gated on the project setting + kill switch (no change); add a regression test in `server/project-router.test.ts` confirming retry still succeeds for a ticket whose origin scope had `contractRefine=false`
 
 ## 3. Server: Quick mode refine path
 
 - [x] 3.1 Extend `POST /tickets/generate-spec` request body validation to accept `contractRefine?: boolean`
 - [x] 3.2 After the ticket is persisted, when `contractRefine && projectSetting && !killSwitch`, schedule a Quick variant of `runContractRefine`
-- [x] 3.3 Add a `runContractRefineForQuick(deps, ticketId, generatedTitle, generatedDescription)` helper in `server/contract-refine-runner.ts` that spawns claude WITHOUT `--resume`, with a one-shot system prompt augmented with the spec body, and records `ai_invocations` as `surface='quick-spec'`, `conversation_id=null`, `ticket_id=<new>`
+- [x] 3.3 Add a `runContractRefineForQuick(deps, ticketId, generatedTitle, generatedDescription)` helper in `server/modules/specs/runtime/contract-refine-runner.ts` that spawns claude WITHOUT `--resume`, with a one-shot system prompt augmented with the spec body, and records `ai_invocations` as `surface='quick-spec'`, `conversation_id=null`, `ticket_id=<new>`
 - [x] 3.4 Reuse the same parser, renderer, PATCH path, and WS events as the Explore-path refine
-- [x] 3.5 Tests in `server/contract-refine-runner.test.ts` for the Quick path: success, failure modes, kill-switch and project-setting gating, `ai_invocations` `surface='quick-spec'` recorded
+- [x] 3.5 Tests in `server/modules/specs/runtime/contract-refine-runner.test.ts` for the Quick path: success, failure modes, kill-switch and project-setting gating, `ai_invocations` `surface='quick-spec'` recorded
 - [x] 3.6 Update `server/project-router.test.ts` so the `generate-spec` test covers the `contractRefine: true` request-body field firing a refine
 - [x] 3.7 Document the Quick refine path in `CLAUDE.md` (small addition under the existing Explore Contract Refine section)
 
@@ -33,7 +33,7 @@
 
 ## 5. Client: ContextScopeSlider component
 
-- [x] 5.1 New file `client/src/components/ContextScopeSlider.tsx` with: 6-stop rail, drag thumb, snap on release, keyboard `←/→/Home/End`, ARIA `role="slider"`, click-on-stop to jump
+- [x] 5.1 New file `client/src/features/chat/components/ContextScopeSlider.tsx` with: 6-stop rail, drag thumb, snap on release, keyboard `←/→/Home/End`, ARIA `role="slider"`, click-on-stop to jump
 - [x] 5.2 Internal preset table mapping `(stopIndex 0..5) → { specrails, openspec, full, mcp, contractRefine, costSummary, label }`
 - [x] 5.3 Props: `value: ContextScope`, `onChange: (next: ContextScope) => void`. Derive thumb position from `value`; emit a new `ContextScope` on snap.
 - [x] 5.4 Render the `Custom` pill when `value` matches no preset (compare booleans exactly)

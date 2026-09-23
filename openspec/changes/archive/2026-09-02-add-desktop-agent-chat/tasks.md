@@ -2,11 +2,11 @@
 
 ## 1. App-level backend (`AgentChatManager`)
 - [x] 1.1 Extract/confirm the shared spawn→stream→settle core is reusable from `spawn-lifecycle.ts` for an app-level (non-project) caller.
-- [x] 1.2 `server/agent-cwd-manager.ts` — materialize `~/.specrails/agent-cwd/` (operator `CLAUDE.md`/instructions, no project symlink) with cleanup.
+- [x] 1.2 `server/modules/missions/runtime/agent-cwd-manager.ts` — materialize `~/.specrails/agent-cwd/` (operator `CLAUDE.md`/instructions, no project symlink) with cleanup.
 - [x] 1.3 `server/agent-mcp-config.ts` — write the `--mcp-config` file pointing at the bundled `specrails-mcp` bridge; resolve the bundled path (desktop) / dev path.
-- [x] 1.4 `server/agent-chat-manager.ts` — spawn (multi-provider via `getAdapter`), stream over `agent.*` WS events, operator system prompt (byte-stable for caching), per-conversation state.
+- [x] 1.4 `server/modules/missions/runtime/agent-chat-manager.ts` — spawn (multi-provider via `getAdapter`), stream over `agent.*` WS events, operator system prompt (byte-stable for caching), per-conversation state.
 - [x] 1.5 `desktop-db.ts` — `agent_conversations` + `agent_messages` tables (migration); CRUD incl. `pinned_project_id`, `provider`, `model`, `tier_level`.
-- [x] 1.6 `server/agent-chat-router.ts` — `/api/agent/*`: conversations CRUD, send, set-provider, set-tier, set-project, approvals; gated by `SPECRAILS_AGENT_CHAT`.
+- [x] 1.6 `server/modules/missions/runtime/agent-chat-router.ts` — `/api/agent/*`: conversations CRUD, send, set-provider, set-tier, set-project, approvals; gated by `SPECRAILS_AGENT_CHAT`.
 - [x] 1.7 Wire into `index.ts`: construct `AgentChatManager`, mount router, graceful shutdown.
 
 ## 2. Tier ladder + approvals (server)

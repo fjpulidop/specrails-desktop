@@ -126,9 +126,9 @@ Same handler is called either way; the visible label is the only difference. The
 - The `aiEditOpen` state, `handleAi*` methods, and snapshot revert affordance in `TicketDetailModal` (the snapshot mechanism was AI-Edit-specific)
 
 **Keep:**
-- `client/src/components/ai-edit/AiEditShell.tsx` — used by `AiRefineOverlay`
-- `client/src/components/ai-edit/__tests__/AiEditShell.test.tsx`
-- `client/src/components/agents/AiRefineOverlay.tsx`
+- `client/src/features/code/components/ai-edit/AiEditShell.tsx` — used by `AiRefineOverlay`
+- `client/src/features/code/components/ai-edit/__tests__/AiEditShell.test.tsx`
+- `client/src/features/agents/components/AiRefineOverlay.tsx`
 - `client/src/components/AiEditDiffView.tsx` — used by `AiRefineOverlay`'s shell
 - `server/agent-refine-*.ts` — still backs agent-refine sessions
 - `agent_refine_sessions` SQLite table — still in use

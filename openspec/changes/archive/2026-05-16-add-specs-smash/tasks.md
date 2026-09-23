@@ -1,6 +1,6 @@
 ## 1. Schema and store extensions
 
-- [x] 1.1 Extend `Ticket` interface in `server/ticket-store.ts` with `is_epic: boolean`, `parent_epic_id: number | null`, `execution_order: number | null`
+- [x] 1.1 Extend `Ticket` interface in `server/modules/specs/runtime/ticket-store.ts` with `is_epic: boolean`, `parent_epic_id: number | null`, `execution_order: number | null`
 - [x] 1.2 Add `'specs-smash'` to the `Ticket.source` union
 - [x] 1.3 Bump `CURRENT_SCHEMA_VERSION` from `'1.1'` to `'1.2'`
 - [x] 1.4 Extend `normalizeTicket()` so older stores load with the new fields defaulted (`is_epic = false`, `parent_epic_id = null`, `execution_order = null`)
@@ -9,7 +9,7 @@
 
 ## 2. Pure agent contract module
 
-- [x] 2.1 Create `server/explore-smash.ts` exporting `SMASH_PROMPT_VERSION = 1` and `buildSmashSystemPrompt()` (byte-stable, no timestamps, no live state)
+- [x] 2.1 Create `server/modules/conversations/runtime/explore-smash.ts` exporting `SMASH_PROMPT_VERSION = 1` and `buildSmashSystemPrompt()` (byte-stable, no timestamps, no live state)
 - [x] 2.2 Define `SmashChild` and `SmashOutput` TypeScript interfaces in the same module
 - [x] 2.3 Add manual validation `validateSmashOutput(raw: unknown)` returning either `{ ok: true, output }` or `{ ok: false, reason }` — covers `smashVersion === 1`, `children` length 3..8, `title` ≤ 80, `executionOrder` contiguous 1..N, priority enum (no `ajv` dep — pure module, hand-validated)
 - [x] 2.4 Add `parseSmashOutput(rawText: string)` that fence-strips, parses JSON, then runs `validateSmashOutput`
@@ -17,9 +17,9 @@
 
 ## 3. Server runner
 
-- [x] 3.1 Create `server/smash-runner.ts` exposing `runSmash(deps, projectId, ticketId)` and `runSmashUndo(deps, projectId, ticketId)`
+- [x] 3.1 Create `server/modules/specs/runtime/smash-runner.ts` exposing `runSmash(deps, projectId, ticketId)` and `runSmashUndo(deps, projectId, ticketId)`
 - [x] 3.2 Build the spawn argv via the same `spawnAiCli` wrapper used by `contract-refine-runner.ts` (`-p` with `<title>\n\n<description>`, `--system-prompt`, `--max-turns 1`, `--output-format stream-json`, `--disallowedTools Read,Grep,Glob,Bash`, model from origin conversation or `'sonnet'`)
-- [x] 3.3 Spawn cwd is the hub-managed dir from `server/explore-cwd-manager.ts` (reuse `ensureExploreCwd(slug)`); no project filesystem mutation
+- [x] 3.3 Spawn cwd is the hub-managed dir from `server/modules/conversations/runtime/explore-cwd-manager.ts` (reuse `ensureExploreCwd(slug)`); no project filesystem mutation
 - [x] 3.4 Parse the final `result` event from stream-json output, run through `parseSmashOutput`, broadcast `smash.failed { reason: 'invalid-output' }` and abort on failure
 - [x] 3.5 Perform the épica flip + child inserts in a single `mutateStore` callback (`is_epic = true` on parent, push N children with `parent_epic_id`, `execution_order`, `source = 'specs-smash'`, `status = 'todo'`, agent-assigned priority)
 - [x] 3.6 After mutation, broadcast `smash.completed`, plus the existing `ticket_updated` (épica) and one `ticket_created` per child
@@ -45,7 +45,7 @@
 
 ## 6. Client: SmashTrackerContext
 
-- [x] 6.1 Create `client/src/context/SmashTrackerContext.tsx` (provider + `useSmashInflight(ticketId)` + `useIsSmashing(ticketId)` hooks)
+- [x] 6.1 Create `client/src/features/specs/context/SmashTrackerContext.tsx` (provider + `useSmashInflight(ticketId)` + `useIsSmashing(ticketId)` hooks)
 - [x] 6.2 Mount provider at `App.tsx` root, sibling of `ContractRefineTrackerProvider`
 - [x] 6.3 Subscribe to `smash.started|progress|completed|failed|undone` and maintain an `inflight: Record<ticketId, { runId, stage }>` state
 - [x] 6.4 On `smash.completed`, render sonner toast with glass-card chrome, duration 10 000, action `Deshacer` calling the undo endpoint
@@ -55,7 +55,7 @@
 
 ## 7. Client: TicketDetailModal
 
-- [x] 7.1 In `client/src/components/specs-smash/SmashActions.tsx`, compute `canSmash` derived from `status !== 'draft'`, description contains `## Contract Layer`, `parent_epic_id == null`, and `featureFlagOn`
+- [x] 7.1 In `client/src/features/specs/components/specs-smash/SmashActions.tsx`, compute `canSmash` derived from `status !== 'draft'`, description contains `## Contract Layer`, `parent_epic_id == null`, and `featureFlagOn`
 - [x] 7.2 Render SMASH button in the modal actions area; hide entirely when ineligible
 - [x] 7.3 Inline-confirm UI: clicking SMASH swaps button content to "Cancelar / Confirmar" with brief warning
 - [x] 7.4 On Confirmar, POST to `/tickets/:id/smash` and switch button to disabled+spinner state
@@ -67,7 +67,7 @@
 
 ## 8. Client: SmashStatusPills
 
-- [x] 8.1 Create `client/src/components/specs-smash/SmashStatusPills.tsx` mirroring `ExploreStatusPills` patterns (150 ms min-display floor, three labels, no flicker)
+- [x] 8.1 Create `client/src/features/specs/components/specs-smash/SmashStatusPills.tsx` mirroring `ExploreStatusPills` patterns (150 ms min-display floor, three labels, no flicker)
 - [x] 8.2 Use semantic theme tokens (`accent-highlight` background, `foreground` text); no brand-named colours
 - [x] 8.3 Component test verifying rendering for each stage and stage transitions (5 tests in `SmashStatusPills.test.tsx`)
 
@@ -89,7 +89,7 @@
 
 ## 11. Analytics
 
-- [x] 11.1 Extend `Surface` union in `server/ai-invocations.ts` + `server/spending.ts` allow-list to include `'smash'`; bySurface initial object + DailyEntry shape updated
+- [x] 11.1 Extend `Surface` union in `server/modules/accounting/runtime/ai-invocations.ts` + `server/modules/accounting/runtime/spending.ts` allow-list to include `'smash'`; bySurface initial object + DailyEntry shape updated
 - [x] 11.2 `AnalyticsPage` surface chip + `CostScatter` colour map + `SpendingHero` surface list extended with `smash`; client `Surface` type + `SURFACE_LABEL` + `SURFACE_ACCENT` updated
 - [x] 11.3 Daily timeline stacking extended via `DailyEntry.smashCostUsd`
 - [x] 11.4 CSV/JSON export rows naturally include surface = 'smash' (data-driven from `ai_invocations`; no code change needed — the row exporter walks `surface` column verbatim)

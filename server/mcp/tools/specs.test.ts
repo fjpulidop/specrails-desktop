@@ -6,7 +6,7 @@ import type { ProjectRegistry, ProjectContext } from '../../project-registry'
 import { MobileEventBus } from '../../mobile/mobile-event-bus'
 import { specsTools } from './specs'
 import type { McpToolContext } from './types'
-import { createAgentConversation, addAgentMessage, listAgentMessages } from '../../agent-store'
+import { createAgentConversation, addAgentMessage, listAgentMessages } from '../../modules/agents/runtime/agent-store'
 
 // Focused tests for the specs facade behavior fixes (plan B4/B5):
 //  - `create` forwards the full generate-spec option set via the shared body
@@ -282,7 +282,7 @@ describe('specrails_specs commit_draft — framing gate', () => {
   const spec = specsTools()[0]
 
   const frame = {
-    restated: { reading: 'Group the Settings sections', touches: ['client/src/pages/SettingsPage.tsx'] },
+    restated: { reading: 'Group the Settings sections', touches: ['client/src/features/settings/pages/SettingsPage.tsx'] },
     alternative: { reading: 'Make one setting findable from anywhere', touches: ['client/src/components/CommandPalette.tsx'] },
     discriminator: 'Are you scanning the page, or did you arrive by accident?',
     assumptions: [],

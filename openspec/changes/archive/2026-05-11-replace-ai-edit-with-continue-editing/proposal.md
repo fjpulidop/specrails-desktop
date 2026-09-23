@@ -34,9 +34,9 @@ _None — additive behaviour layers onto the existing `explore-spec` capability.
 - **Server**:
   - `server/project-router.ts` — extend the existing `PATCH /api/projects/:projectId/tickets/:id` to accept `acceptanceCriteria: string[]`, folding into description when present
 - **Client**:
-  - `client/src/components/TicketDetailModal.tsx` — remove `TicketAiEditOverlay` import + state + button; add `Continue Editing` button gated by ticket status; on click, hand off to a new flow that mounts `ExploreSpecShell` (likely via `MinimizedChatsContext.triggerResume` or a dedicated overlay slot)
-  - `client/src/components/explore-spec/ExploreSpecShell.tsx` — new optional `editTicket` prop with the ticket payload; when present, seed draft + use non-empty baseline + commit via PATCH
-  - `client/src/components/explore-spec/ExploreReviewOverlay.tsx` — no changes (already accepts arbitrary baseline)
+  - `client/src/features/specs/components/TicketDetailModal.tsx` — remove `TicketAiEditOverlay` import + state + button; add `Continue Editing` button gated by ticket status; on click, hand off to a new flow that mounts `ExploreSpecShell` (likely via `MinimizedChatsContext.triggerResume` or a dedicated overlay slot)
+  - `client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx` — new optional `editTicket` prop with the ticket payload; when present, seed draft + use non-empty baseline + commit via PATCH
+  - `client/src/features/specs/components/explore-spec/ExploreReviewOverlay.tsx` — no changes (already accepts arbitrary baseline)
   - **Delete**: `client/src/components/tickets/TicketAiEditOverlay.tsx`, `client/src/components/tickets/__tests__/TicketAiEditOverlay.test.tsx` (if exists)
   - `client/src/components/AiEditDiffView.tsx` — kept as-is for `AiRefineOverlay` use
 - **Specs**: ADDED requirements under `explore-spec` for the edit-existing-ticket flow; REMOVED requirements under `ai-edit-diff-review` for the ticket-scoped surface

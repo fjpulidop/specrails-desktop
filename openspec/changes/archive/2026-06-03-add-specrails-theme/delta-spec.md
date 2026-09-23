@@ -39,7 +39,7 @@ The 'specrails' theme MUST define all semantic tokens as follows:
 
 ### Existing requirement (re-stated for clarity)
 
-The `THEME_ID_ALLOWLIST` in `server/hub-router.ts` MUST be kept in sync with `THEME_IDS` in `client/src/lib/themes.ts`. Adding a theme to one without the other constitutes a defect.
+The `THEME_ID_ALLOWLIST` in `server/hub-router.ts` MUST be kept in sync with `THEME_IDS` in `client/src/features/settings/lib/themes.ts`. Adding a theme to one without the other constitutes a defect.
 
 ### Non-regression requirement
 

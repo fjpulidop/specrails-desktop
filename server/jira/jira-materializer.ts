@@ -17,7 +17,7 @@ import {
   type Ticket,
   type TicketPriority,
   type TicketStatus,
-} from '../ticket-store'
+} from '../modules/specs/runtime/ticket-store'
 import { adfToText } from './jira-adf'
 import { getLinkByIssueId, insertLinkWithId, updateLinkStatusCategory } from './jira-db'
 import type { JiraConnection, JiraIssue, JiraStatusCategory } from './types'

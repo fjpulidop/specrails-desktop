@@ -2,25 +2,25 @@
 
 - [x] 1.1 Remove the four endpoints `GET/PATCH /api/projects/:projectId/explore-mcp-enabled` and `GET/PATCH /api/projects/:projectId/explore-contract-refine-enabled` from `server/project-router.ts` (handlers + route registrations).
 - [x] 1.2 Remove the corresponding helper functions in `server/db.ts` (e.g. `getExploreMcpEnabled`, `setExploreMcpEnabled`, `getExploreContractRefineEnabled`, `setExploreContractRefineEnabled`) that are exclusively used by the deleted endpoints. Leave any helper still referenced elsewhere untouched.
-- [x] 1.3 In `server/chat-manager.ts`, change the Explore spawn cwd selection so it reads only `conversation.context_scope.mcp` (default `false` when missing). Delete any read of `explore_mcp_enabled` or its DB helper.
-- [x] 1.4 In `server/contract-refine-runner.ts` (post-commit lifecycle), remove the fallback to `explore_contract_refine_enabled` when `context_scope.contractRefine` is null. Treat null/false as `scope-disabled` and early-return.
+- [x] 1.3 In `server/modules/conversations/runtime/chat-manager.ts`, change the Explore spawn cwd selection so it reads only `conversation.context_scope.mcp` (default `false` when missing). Delete any read of `explore_mcp_enabled` or its DB helper.
+- [x] 1.4 In `server/modules/specs/runtime/contract-refine-runner.ts` (post-commit lifecycle), remove the fallback to `explore_contract_refine_enabled` when `context_scope.contractRefine` is null. Treat null/false as `scope-disabled` and early-return.
 - [x] 1.5 In the retry handler `POST /api/projects/:projectId/tickets/:id/contract-refine` (in `server/project-router.ts` or wherever it currently lives), replace the project-toggle gate with: 404 if ticket unknown; 409 if `origin_conversation_id IS NULL`; 409 if the kill switch is active; 202 otherwise. Preserve the existing kill-switch parser.
-- [x] 1.6 In `server/agent-refine-manager.ts` / Quick `generate-spec` handler, change the Quick refine gate to depend only on the request body's `contractRefine` flag and the hub-wide kill switch — drop any read of the project setting.
+- [x] 1.6 In `server/modules/agents/runtime/agent-refine-manager.ts` / Quick `generate-spec` handler, change the Quick refine gate to depend only on the request body's `contractRefine` flag and the hub-wide kill switch — drop any read of the project setting.
 - [x] 1.7 Remove the `defaultBootScope` path (or equivalent) that derives the boot scope from project settings; if no longer called, delete the helper.
 
 ## 2. Client — drop the Explore Spec card
 
-- [x] 2.1 Delete the entire `Explore Spec` card and its surrounding effects/handlers from `client/src/pages/SettingsPage.tsx` (`exploreMcpEnabled`, `contractRefineEnabled` state, loaders, savers, and JSX).
+- [x] 2.1 Delete the entire `Explore Spec` card and its surrounding effects/handlers from `client/src/features/settings/pages/SettingsPage.tsx` (`exploreMcpEnabled`, `contractRefineEnabled` state, loaders, savers, and JSX).
 - [x] 2.2 Update any imports in `SettingsPage.tsx` that become unused after removing the card.
 - [x] 2.3 Delete `client/src/pages/__tests__/SettingsPageExploreMcp.test.tsx`.
-- [x] 2.4 In `client/src/pages/__tests__/SettingsPage.test.tsx` and `SettingsPageExtended.test.tsx`, remove any test cases that referenced the Explore Spec card; add a test asserting the card no longer renders (negative assertion).
+- [x] 2.4 In `client/src/features/settings/pages/__tests__/SettingsPage.test.tsx` and `SettingsPageExtended.test.tsx`, remove any test cases that referenced the Explore Spec card; add a test asserting the card no longer renders (negative assertion).
 - [x] 2.5 Confirm `ContextScopeSlider`, `useContextScope`, `useQuickContractRefineLast`, and `ProposeSpecModal` need no changes — they already operate per-spec.
 
 ## 3. Tests — server
 
 - [x] 3.1 Delete or rewrite test files in `server/` that exercised the four removed endpoints. Add a single test asserting the routes return 404.
-- [x] 3.2 In `server/chat-manager.test.ts` (or equivalent), update the Explore spawn-cwd tests so they no longer set/read `explore_mcp_enabled` and instead seed `context_scope.mcp` directly.
-- [x] 3.3 In `server/contract-refine-runner.test.ts`, update the lifecycle tests to drop the project-setting fallback path. Keep tests that cover `scope-disabled` and kill-switch behaviour.
+- [x] 3.2 In `server/modules/conversations/runtime/chat-manager.test.ts` (or equivalent), update the Explore spawn-cwd tests so they no longer set/read `explore_mcp_enabled` and instead seed `context_scope.mcp` directly.
+- [x] 3.3 In `server/modules/specs/runtime/contract-refine-runner.test.ts`, update the lifecycle tests to drop the project-setting fallback path. Keep tests that cover `scope-disabled` and kill-switch behaviour.
 - [x] 3.4 Add a test for the retry endpoint covering: 404 unknown ticket; 409 missing `origin_conversation_id`; 409 kill switch active; 202 success path.
 - [x] 3.5 In Quick `generate-spec` tests, remove project-setting permutations; keep `contractRefine: true/false` request-body permutations and the kill-switch permutation.
 

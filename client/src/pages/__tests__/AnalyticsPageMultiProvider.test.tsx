@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '../../test-utils'
 import { within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import AnalyticsPage from '../AnalyticsPage'
+import AnalyticsPage from '../../features/analytics/pages/AnalyticsPage'
 
 vi.mock('../../lib/api', () => ({ getApiBase: () => '/api' }))
 
@@ -29,15 +29,15 @@ vi.mock('../../hooks/useSharedWebSocket', () => ({
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 const stub = (testid: string) => ({ default: () => <div data-testid={testid}>{testid}</div> })
-vi.mock('../../components/analytics/SpendingHero', () => ({ SpendingHero: ({ data }: { data: unknown }) => <div data-testid="hero">{data ? 'hero-loaded' : 'hero-loading'}</div> }))
-vi.mock('../../components/analytics/ProviderBreakdownCard', () => ({ ProviderBreakdownCard: () => <div data-testid="provider-breakdown">pb</div> }))
-vi.mock('../../components/analytics/SpendingTimeline', () => ({ SpendingTimeline: () => <div data-testid="timeline">t</div> }))
-vi.mock('../../components/analytics/QuickVsExploreCard', () => ({ QuickVsExploreCard: () => <div data-testid="qvse">q</div> }))
-vi.mock('../../components/analytics/ModelBreakdown', () => ({ ModelBreakdown: () => <div data-testid="models">m</div> }))
-vi.mock('../../components/analytics/CostScatter', () => ({ CostScatter: () => <div data-testid="scatter">s</div> }))
-vi.mock('../../components/analytics/TopTicketsCrossSurface', () => ({ TopTicketsCrossSurface: () => <div data-testid="top">x</div> }))
-vi.mock('../../components/analytics/InvocationsTable', () => ({ InvocationsTable: () => <div data-testid="table">tb</div> }))
-vi.mock('../../components/ExportDropdown', () => ({ ExportDropdown: () => <button data-testid="export">Export</button> }))
+vi.mock('../../features/analytics/components/SpendingHero', () => ({ SpendingHero: ({ data }: { data: unknown }) => <div data-testid="hero">{data ? 'hero-loaded' : 'hero-loading'}</div> }))
+vi.mock('../../features/analytics/components/ProviderBreakdownCard', () => ({ ProviderBreakdownCard: () => <div data-testid="provider-breakdown">pb</div> }))
+vi.mock('../../features/analytics/components/SpendingTimeline', () => ({ SpendingTimeline: () => <div data-testid="timeline">t</div> }))
+vi.mock('../../features/analytics/components/QuickVsExploreCard', () => ({ QuickVsExploreCard: () => <div data-testid="qvse">q</div> }))
+vi.mock('../../features/analytics/components/ModelBreakdown', () => ({ ModelBreakdown: () => <div data-testid="models">m</div> }))
+vi.mock('../../features/analytics/components/CostScatter', () => ({ CostScatter: () => <div data-testid="scatter">s</div> }))
+vi.mock('../../features/analytics/components/TopTicketsCrossSurface', () => ({ TopTicketsCrossSurface: () => <div data-testid="top">x</div> }))
+vi.mock('../../features/analytics/components/InvocationsTable', () => ({ InvocationsTable: () => <div data-testid="table">tb</div> }))
+vi.mock('../../features/analytics/components/ExportDropdown', () => ({ ExportDropdown: () => <button data-testid="export">Export</button> }))
 void stub
 
 const emptySpending = {

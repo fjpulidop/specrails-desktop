@@ -23,7 +23,7 @@ Spec drafts produced by Explore Spec are often correct but too brief, so downstr
 
 ## Impact
 
-- **Server**: `server/chat-manager.ts` Explore lifecycle gains a `runContractRefine(conversationId)` step after `from-draft` / commit. New helper module `server/explore-contract-refine.ts` builds the refinement system prompt and parses the additive result. `server/project-router.ts` exposes `GET/PATCH /api/projects/:projectId/explore-contract-refine-enabled`. `ai-invocations` capture in refinement spawn.
+- **Server**: `server/modules/conversations/runtime/chat-manager.ts` Explore lifecycle gains a `runContractRefine(conversationId)` step after `from-draft` / commit. New helper module `server/modules/conversations/runtime/explore-contract-refine.ts` builds the refinement system prompt and parses the additive result. `server/project-router.ts` exposes `GET/PATCH /api/projects/:projectId/explore-contract-refine-enabled`. `ai-invocations` capture in refinement spawn.
 - **Schema**: New key `config.explore_contract_refine_enabled` in `queue_state` (no migration — key/value table).
 - **Client**: `SettingsPage` gains a toggle in the existing "Explore Spec" card. `ExploreSpecShell` shows the new status pill while refine is in flight (post-commit; non-blocking — user can already close the shell). `TicketDetailModal` renders the Contract Layer as a collapsed section by default.
 - **Spec generator prompt**: Updated to declare the Contract Layer as a section that the *refinement* turn will fill, so the initial draft stops trying to inline naming/shape details and stays focused on intent.

@@ -40,12 +40,12 @@ to the Code explorer.
 | `summary_model`, `summary_generated_at` | generation metadata |
 
 Stats rows are written **inside `recordProvenanceForJob`'s transaction**
-(`server/file-provenance.ts`), for every provenance row that has a collected
+(`server/modules/code/runtime/file-provenance.ts`), for every provenance row that has a collected
 patch. That means every producer — QueueManager jobs AND the loop seam — gets
 stats with zero extra calls. The prepare is guarded (like the migration-23
 `insertPatch`) so a pre-37 DB degrades cleanly.
 
-## The loop-run seam (`server/file-story.ts`)
+## The loop-run seam (`server/modules/code/runtime/file-story.ts`)
 
 `recordLoopRunProvenance({ db, projectId, runId, ticketId, repoDir, snapshot,
 broadcast })` is the single chokepoint that mirrors QueueManager's

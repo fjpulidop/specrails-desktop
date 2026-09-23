@@ -20,8 +20,8 @@
 // `mcp_tool_call`. The parser matches all four for forward/backward compat.
 //
 // Codex does not emit `total_cost_usd`; cost is estimated downstream via
-// server/pricing.ts. Codex does not honour Claude's OTEL env vars; signals are
-// synthesised by server/codex-otel-bridge.ts.
+// server/modules/accounting/runtime/pricing.ts. Codex does not honour Claude's OTEL env vars; signals are
+// synthesised by server/modules/accounting/runtime/codex-otel-bridge.ts.
 //
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
@@ -42,7 +42,7 @@ const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 const CODEX_MIN_VERSION = '0.128.0'
 
 const CODEX_MODELS = [
-  // Newest first. gpt-6-astra has no rate card in `server/pricing.ts` yet, so
+  // Newest first. gpt-6-astra has no rate card in `server/modules/accounting/runtime/pricing.ts` yet, so
   // its turns show cost as unavailable (honest-metrics: never fabricated).
   { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
   { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },

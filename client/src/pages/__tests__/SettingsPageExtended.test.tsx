@@ -2,7 +2,7 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
-import SettingsPage from '../SettingsPage'
+import SettingsPage from '../../features/settings/pages/SettingsPage'
 import type { ProjectConfig } from '../../types'
 
 vi.mock('sonner', () => ({
@@ -79,7 +79,7 @@ describe('SettingsPage - extended coverage', () => {
 
   it('blocker dialog shows when blocker.state is blocked', async () => {
     // Override useBlocker to return 'blocked' state
-    const { default: SettingsPageFresh } = await import('../SettingsPage')
+    const { default: SettingsPageFresh } = await import('../../features/settings/pages/SettingsPage')
     const mockBlocker = { state: 'blocked', proceed: vi.fn(), reset: vi.fn() }
 
     vi.doMock('react-router-dom', async (importOriginal) => {

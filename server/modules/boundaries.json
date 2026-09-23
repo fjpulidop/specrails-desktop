@@ -1,0 +1,1713 @@
+{
+  "accounting": {
+    "publicEntries": [
+      "runtime/ai-invocations.ts",
+      "runtime/codex-otel-bridge.ts",
+      "runtime/desktop-analytics.ts",
+      "runtime/metrics.ts",
+      "runtime/pricing.ts",
+      "runtime/result-event.ts",
+      "runtime/spending.ts",
+      "runtime/telemetry-compactor.ts",
+      "runtime/telemetry-export.ts",
+      "runtime/telemetry-receiver.ts"
+    ],
+    "dependencies": {
+      "runtime/ai-invocations.ts": [
+        "../../../db",
+        "./result-event"
+      ],
+      "runtime/codex-otel-bridge.ts": [
+        "../../../providers/types",
+        "crypto"
+      ],
+      "runtime/desktop-analytics.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../project-registry",
+        "../../../types"
+      ],
+      "runtime/metrics.ts": [
+        "../../../db",
+        "child_process",
+        "fs",
+        "path"
+      ],
+      "runtime/pricing.ts": [
+        "../../../providers/registry"
+      ],
+      "runtime/result-event.ts": [
+        "../../../providers/local-adapter",
+        "../../../providers/types",
+        "./pricing"
+      ],
+      "runtime/spending.ts": [
+        "../../../db",
+        "./ai-invocations"
+      ],
+      "runtime/telemetry-compactor.ts": [
+        "../../../db",
+        "../../../project-registry",
+        "fs",
+        "zlib"
+      ],
+      "runtime/telemetry-export.ts": [
+        "../../../db",
+        "../../../types",
+        "fs",
+        "http",
+        "zlib"
+      ],
+      "runtime/telemetry-receiver.ts": [
+        "../../../db",
+        "../../../project-registry",
+        "express",
+        "fs",
+        "os",
+        "path",
+        "zlib"
+      ]
+    }
+  },
+  "agent-runtime": {
+    "publicEntries": [
+      "runtime/agent-runtime-accounting.ts",
+      "runtime/agent-runtime-bridge.ts",
+      "runtime/agent-runtime-controls-router.ts",
+      "runtime/agent-runtime-controls.ts",
+      "runtime/agent-runtime-events.ts",
+      "runtime/agent-runtime-loader.ts",
+      "runtime/agent-runtime-paths.ts",
+      "runtime/agent-runtime-settings-router.ts",
+      "runtime/agent-runtime-settings.ts"
+    ],
+    "dependencies": {
+      "runtime/agent-runtime-accounting.ts": [],
+      "runtime/agent-runtime-bridge.ts": [
+        "../../../core-node-runtime",
+        "../../../util/win-spawn",
+        "../../loops/runtime/loop-run-manager",
+        "./agent-runtime-effective-config",
+        "./agent-runtime-history",
+        "./agent-runtime-loader",
+        "./agent-runtime-package",
+        "./agent-runtime-repositories",
+        "./agent-runtime-settings",
+        "node:child_process",
+        "node:crypto",
+        "node:fs",
+        "node:path",
+        "node:readline",
+        "node:util"
+      ],
+      "runtime/agent-runtime-controls-router.ts": [
+        "../../../project-router-helpers",
+        "./agent-runtime-controls",
+        "./agent-runtime-paths"
+      ],
+      "runtime/agent-runtime-controls.ts": [
+        "../../../core-node-runtime",
+        "../../../db",
+        "../../../project-registry",
+        "../../../util/win-spawn",
+        "../../../workspace-resolution",
+        "../../delivery/runtime/multi-repo-execution-store",
+        "../../loops/runtime/loop-run-manager",
+        "../../loops/runtime/loop-runs-store",
+        "./agent-runtime-bridge",
+        "./agent-runtime-events",
+        "./agent-runtime-history",
+        "./agent-runtime-metrics",
+        "./agent-runtime-package",
+        "./agent-runtime-settlement",
+        "node:child_process",
+        "node:crypto",
+        "node:fs",
+        "node:path",
+        "node:util"
+      ],
+      "runtime/agent-runtime-effective-config.ts": [
+        "../../../providers",
+        "./agent-runtime-settings"
+      ],
+      "runtime/agent-runtime-events.ts": [
+        "../../../db"
+      ],
+      "runtime/agent-runtime-history.ts": [
+        "./agent-runtime-metrics",
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/agent-runtime-loader.ts": [
+        "../../../core-node-runtime",
+        "../../../core-runtime",
+        "../../../util/win-spawn",
+        "./agent-runtime-package",
+        "./agent-runtime-settings",
+        "node:child_process",
+        "node:fs",
+        "node:module",
+        "node:path"
+      ],
+      "runtime/agent-runtime-metrics.ts": [],
+      "runtime/agent-runtime-package.ts": [
+        "node:crypto",
+        "node:fs",
+        "node:module",
+        "node:path"
+      ],
+      "runtime/agent-runtime-paths.ts": [
+        "../../../workspace-resolution",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/agent-runtime-repositories.ts": [
+        "node:path"
+      ],
+      "runtime/agent-runtime-settings-router.ts": [
+        "../../../project-repositories",
+        "../../../project-router-helpers",
+        "../../loops/runtime/loop-role-engines",
+        "./agent-runtime-effective-config",
+        "./agent-runtime-loader",
+        "./agent-runtime-settings",
+        "./agent-runtime-verification-suggestions",
+        "node:fs"
+      ],
+      "runtime/agent-runtime-settings.ts": [
+        "../../../providers/registry",
+        "../../../schemas/agent-runtime.schema.json",
+        "../../../workspace-resolution",
+        "ajv",
+        "node:crypto",
+        "node:fs",
+        "node:os",
+        "node:path"
+      ],
+      "runtime/agent-runtime-settlement.ts": [
+        "../../../core-completion",
+        "../../../core-execution",
+        "../../../db",
+        "../../../types",
+        "../../../worktree-manager",
+        "../../delivery/runtime/multi-repo-execution",
+        "../../delivery/runtime/rail-pr-store",
+        "node:crypto",
+        "node:fs"
+      ],
+      "runtime/agent-runtime-verification-suggestions.ts": [
+        "node:fs",
+        "node:path"
+      ]
+    }
+  },
+  "agents": {
+    "publicEntries": [
+      "runtime/agent-defaults.ts",
+      "runtime/agent-refine-db.ts",
+      "runtime/agent-refine-manager.ts",
+      "runtime/agent-store.ts",
+      "runtime/profile-manager.ts",
+      "runtime/profiles-router.ts"
+    ],
+    "dependencies": {
+      "runtime/agent-defaults.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "./profile-manager",
+        "crypto",
+        "fs",
+        "os",
+        "path"
+      ],
+      "runtime/agent-generator.ts": [
+        "../../../db",
+        "../../../process-admission",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../transient-children",
+        "../../../types",
+        "../../../util/cli-prompt",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/result-event",
+        "crypto",
+        "readline",
+        "tree-kill"
+      ],
+      "runtime/agent-refine-db.ts": [
+        "../../../db"
+      ],
+      "runtime/agent-refine-manager.ts": [
+        "../../../db",
+        "../../../providers",
+        "../../../types",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/result-event",
+        "../../execution/runtime/spawn-lifecycle",
+        "./agent-generator",
+        "./agent-refine-db",
+        "child_process",
+        "crypto",
+        "fs",
+        "path",
+        "tree-kill"
+      ],
+      "runtime/agent-store.ts": [
+        "../../../db",
+        "../../missions/runtime/agent-tier",
+        "crypto"
+      ],
+      "runtime/profile-manager.ts": [
+        "../../../db",
+        "../../../providers",
+        "../../../schemas/profile.v1.json",
+        "ajv",
+        "ajv/dist/2020",
+        "fs",
+        "os",
+        "path"
+      ],
+      "runtime/profiles-router.ts": [
+        "../../../core-runtime",
+        "../../../project-registry",
+        "../../../project-router-helpers",
+        "../../../providers",
+        "../../../providers/kimi-skill-prompt",
+        "../../../workspace-resolution",
+        "./agent-generator",
+        "./agent-refine-db",
+        "./agent-refine-manager",
+        "./profile-manager",
+        "express",
+        "fs",
+        "path"
+      ]
+    }
+  },
+  "browser": {
+    "publicEntries": [
+      "runtime/browser-capture-manager.ts",
+      "runtime/browser-capture-types.ts",
+      "runtime/browser-context-pool.ts",
+      "runtime/browser-playwright.ts"
+    ],
+    "dependencies": {
+      "runtime/browser-capture-manager.ts": [
+        "../../../attachment-manager",
+        "../../../db",
+        "../../../ids",
+        "../../../types",
+        "../../specs/runtime/ticket-store",
+        "./browser-capture-types",
+        "./browser-playwright",
+        "./browser-viewport",
+        "os",
+        "path"
+      ],
+      "runtime/browser-capture-types.ts": [],
+      "runtime/browser-context-pool.ts": [
+        "./browser-capture-types",
+        "./browser-playwright",
+        "os",
+        "path"
+      ],
+      "runtime/browser-network.ts": [
+        "./browser-capture-types"
+      ],
+      "runtime/browser-playwright.ts": [
+        "../../../chromium-resolver",
+        "./browser-capture-types",
+        "./browser-network",
+        "./browser-viewport",
+        "playwright"
+      ],
+      "runtime/browser-viewport.ts": []
+    }
+  },
+  "builder": {
+    "publicEntries": [
+      "runtime/blueprint-chat-manager.ts",
+      "runtime/blueprint-commit.ts",
+      "runtime/blueprint-draft-parser.ts",
+      "runtime/blueprint-render.ts",
+      "runtime/blueprint-router.ts",
+      "runtime/blueprint-spec-quality.ts",
+      "runtime/blueprint-types.ts",
+      "runtime/milestone-chain-store.ts",
+      "runtime/milestone-chain.ts",
+      "runtime/milestone-progress.ts"
+    ],
+    "dependencies": {
+      "runtime/blueprint-chat-manager.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../types",
+        "../../../util/cli-prompt",
+        "../../accounting/runtime/result-event",
+        "../../conversations/runtime/explore-draft-title",
+        "../../execution/runtime/spawn-lifecycle",
+        "./blueprint-draft-parser",
+        "./blueprint-generation",
+        "./blueprint-operator-prompt",
+        "./blueprint-spec-quality",
+        "./blueprint-store",
+        "./blueprint-types",
+        "./builder-cwd-manager",
+        "child_process",
+        "crypto",
+        "tree-kill"
+      ],
+      "runtime/blueprint-commit.ts": [
+        "../../../artifact-registry",
+        "../../../desktop-db",
+        "../../../offline-assemble",
+        "../../../project-registry",
+        "../../../project-router-helpers",
+        "../../../providers",
+        "../../../types",
+        "../../../util/win-spawn",
+        "../../../workspace-manager",
+        "../../specs/runtime/ticket-store",
+        "./blueprint-draft-parser",
+        "./blueprint-render",
+        "./blueprint-spec-quality",
+        "./blueprint-store",
+        "./blueprint-types",
+        "child_process",
+        "crypto",
+        "fs",
+        "os",
+        "path"
+      ],
+      "runtime/blueprint-draft-parser.ts": [
+        "../../../json-tolerant",
+        "./blueprint-types"
+      ],
+      "runtime/blueprint-generation.ts": [
+        "../../../json-tolerant",
+        "./blueprint-types"
+      ],
+      "runtime/blueprint-operator-prompt.ts": [
+        "../../specs/runtime/spec-contract-prompt",
+        "./blueprint-generation"
+      ],
+      "runtime/blueprint-render.ts": [
+        "./blueprint-draft-parser",
+        "./blueprint-types",
+        "fs",
+        "path"
+      ],
+      "runtime/blueprint-router.ts": [
+        "../../../db",
+        "../../../provider-selection",
+        "../../../providers",
+        "../../../providers/runtime",
+        "./blueprint-chat-manager",
+        "./blueprint-commit",
+        "./blueprint-spec-quality",
+        "./blueprint-store",
+        "express"
+      ],
+      "runtime/blueprint-spec-fixtures.ts": [
+        "./blueprint-types"
+      ],
+      "runtime/blueprint-spec-quality.ts": [
+        "../../specs/runtime/spec-contract-prompt",
+        "./blueprint-types"
+      ],
+      "runtime/blueprint-store.ts": [
+        "../../../db",
+        "./blueprint-draft-parser",
+        "./blueprint-types",
+        "crypto"
+      ],
+      "runtime/blueprint-types.ts": [],
+      "runtime/builder-cwd-manager.ts": [
+        "./blueprint-operator-prompt",
+        "fs",
+        "os",
+        "path"
+      ],
+      "runtime/milestone-chain-store.ts": [
+        "../../../db",
+        "./milestone-progress"
+      ],
+      "runtime/milestone-chain.ts": [
+        "../../../db",
+        "../../../ids",
+        "../../../types",
+        "../../delivery/runtime/rail-pr-store",
+        "./blueprint-types",
+        "./milestone-chain-store",
+        "./milestone-progress"
+      ],
+      "runtime/milestone-progress.ts": [
+        "../../../db",
+        "../../../types",
+        "../../../workspace-manager",
+        "../../../workspace-resolution",
+        "../../delivery/runtime/rail-pr-store",
+        "../../delivery/runtime/rails-store",
+        "../../loops/runtime/loop-runs-store",
+        "../../specs/runtime/ticket-store",
+        "./blueprint-render",
+        "./blueprint-types"
+      ]
+    }
+  },
+  "code": {
+    "publicEntries": [
+      "runtime/changes-reader.ts",
+      "runtime/code-activity.ts",
+      "runtime/code-explorer-router.ts",
+      "runtime/file-provenance.ts",
+      "runtime/file-story-manager.ts",
+      "runtime/file-story.ts",
+      "runtime/file-summary-generator.ts",
+      "runtime/file-summary-manager.ts",
+      "runtime/project-code-discovery.ts"
+    ],
+    "dependencies": {
+      "runtime/changes-reader.ts": [
+        "fs",
+        "path"
+      ],
+      "runtime/code-activity.ts": [
+        "../../../db",
+        "../../../project-repositories",
+        "node:crypto"
+      ],
+      "runtime/code-explorer-router.ts": [
+        "../../../build-dirs",
+        "../../../db",
+        "../../../feature-flags",
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../project-repository-provenance",
+        "../../../providers",
+        "../../../types",
+        "./code-activity",
+        "./file-provenance",
+        "./file-story",
+        "./file-story-manager",
+        "./file-summary-manager",
+        "child_process",
+        "express",
+        "fs",
+        "node:crypto",
+        "path"
+      ],
+      "runtime/file-provenance.ts": [
+        "../../../db",
+        "../../../project-repository-provenance",
+        "../../../types",
+        "child_process",
+        "fs",
+        "path"
+      ],
+      "runtime/file-story-manager.ts": [
+        "../../../db",
+        "../../../project-repository-provenance",
+        "../../../types",
+        "../../accounting/runtime/ai-invocations",
+        "./file-story",
+        "./file-summary-manager",
+        "crypto"
+      ],
+      "runtime/file-story.ts": [
+        "../../../db",
+        "../../../feature-flags",
+        "../../../project-repository-provenance",
+        "../../../types",
+        "./file-provenance",
+        "./file-summary-manager",
+        "node:crypto"
+      ],
+      "runtime/file-summary-generator.ts": [
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../util/cli-prompt",
+        "../../accounting/runtime/result-event",
+        "./file-summary-manager",
+        "readline",
+        "tree-kill"
+      ],
+      "runtime/file-summary-manager.ts": [
+        "../../../build-dirs",
+        "../../../db",
+        "../../../schemas/file-summary.v1.json",
+        "../../../types",
+        "../../accounting/runtime/ai-invocations",
+        "ajv",
+        "ajv/dist/2020",
+        "chokidar",
+        "crypto",
+        "fs",
+        "path"
+      ],
+      "runtime/project-code-discovery.ts": [
+        "../../../feature-flags",
+        "../../../project-repositories",
+        "./code-explorer-router",
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ]
+    }
+  },
+  "conversations": {
+    "publicEntries": [
+      "runtime/chat-manager.ts",
+      "runtime/context-budget.ts",
+      "runtime/context-scope.ts",
+      "runtime/explore-contract-refine.ts",
+      "runtime/explore-cwd-manager.ts",
+      "runtime/explore-draft-title.ts",
+      "runtime/explore-smash.ts",
+      "runtime/explore-stdin-session.ts"
+    ],
+    "dependencies": {
+      "domain/draft-stream.ts": [],
+      "domain/recovery-context.ts": [],
+      "index.ts": [
+        "./domain/draft-stream",
+        "./domain/recovery-context"
+      ],
+      "runtime/chat-manager.ts": [
+        "..",
+        "../../../attachment-manager",
+        "../../../binary-probe",
+        "../../../command-resolver",
+        "../../../db",
+        "../../../plugins/codex-spawn",
+        "../../../project-repositories",
+        "../../../providers",
+        "../../../providers/registry",
+        "../../../providers/runtime",
+        "../../../types",
+        "../../../user-mcp-config",
+        "../../../util/cli-prompt",
+        "../../../workspace-manager",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/result-event",
+        "../../builder/runtime/blueprint-render",
+        "../../specs/runtime/spec-contract-prompt",
+        "../../specs/runtime/spec-draft-parser",
+        "./context-scope",
+        "./explore-cwd-manager",
+        "./explore-draft-title",
+        "./explore-stdin-session",
+        "child_process",
+        "crypto",
+        "readline",
+        "tree-kill"
+      ],
+      "runtime/context-budget.ts": [
+        "../../../workspace-resolution",
+        "./context-scope",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/context-scope.ts": [
+        "../../../db",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/explore-contract-refine.ts": [],
+      "runtime/explore-cwd-manager.ts": [
+        "../../../providers",
+        "../../../providers/types",
+        "fs",
+        "os",
+        "path"
+      ],
+      "runtime/explore-draft-title.ts": [],
+      "runtime/explore-smash.ts": [
+        "../../specs/runtime/ticket-store"
+      ],
+      "runtime/explore-stdin-session.ts": [
+        "../../../util/cli-prompt",
+        "node:child_process",
+        "node:readline",
+        "tree-kill"
+      ]
+    }
+  },
+  "delivery": {
+    "publicEntries": [
+      "runtime/delivery-evidence.ts",
+      "runtime/multi-repo-execution-store.ts",
+      "runtime/multi-repo-execution.ts",
+      "runtime/pr-publisher.ts",
+      "runtime/rail-isolated-launch.ts",
+      "runtime/rail-isolation.ts",
+      "runtime/rail-pr-store.ts",
+      "runtime/rail-pr-ticket-effects.ts",
+      "runtime/rails-router.ts",
+      "runtime/rails-store.ts"
+    ],
+    "dependencies": {
+      "adapters/decisions/chains.ts": [
+        "../../../../ids",
+        "../../../builder/runtime/milestone-chain-store",
+        "../../runtime/rail-pr-store",
+        "../../runtime/rail-worktree-release",
+        "./contracts",
+        "./evidence",
+        "./ownership",
+        "./transitions"
+      ],
+      "adapters/decisions/contracts.ts": [
+        "../..",
+        "../../../../db",
+        "../../../../types",
+        "../../../../worktree-manager",
+        "../../runtime/pr-publisher"
+      ],
+      "adapters/decisions/create.ts": [
+        "../../../accounting/runtime/ai-invocations",
+        "../../runtime/pr-body",
+        "../../runtime/pr-naming",
+        "../../runtime/pr-publisher",
+        "../../runtime/rail-pr-delivery",
+        "../../runtime/rail-pr-store",
+        "../../runtime/rail-worktree-release",
+        "./contracts",
+        "./evidence",
+        "./metadata",
+        "./ownership",
+        "./retry",
+        "./transitions"
+      ],
+      "adapters/decisions/discard.ts": [
+        "../../runtime/rail-pr-recovery-git",
+        "../../runtime/rail-pr-store",
+        "../../runtime/rail-worktree-release",
+        "../../runtime/rail-worktrees-store",
+        "./chains",
+        "./contracts",
+        "./evidence",
+        "./ownership",
+        "./transitions",
+        "fs"
+      ],
+      "adapters/decisions/dispatch.ts": [
+        "../..",
+        "../../../../ids",
+        "../../runtime/multi-repo-delivery",
+        "../../runtime/rail-pr-store",
+        "./contracts",
+        "./create",
+        "./discard",
+        "./merge-local",
+        "./publish",
+        "./recovery",
+        "./transitions"
+      ],
+      "adapters/decisions/evidence.ts": [
+        "../../../../worktree-manager",
+        "../../runtime/rail-pr-recovery-git",
+        "../../runtime/rail-pr-store",
+        "./contracts",
+        "fs",
+        "path"
+      ],
+      "adapters/decisions/merge-local.ts": [
+        "../../../../ids",
+        "../../../../integration-branch",
+        "../../../../repo-lock",
+        "../../runtime/rail-pr-store",
+        "../../runtime/rail-worktree-release",
+        "./chains",
+        "./contracts",
+        "./evidence",
+        "./metadata",
+        "./ownership",
+        "./transitions",
+        "path"
+      ],
+      "adapters/decisions/metadata.ts": [
+        "../../../../artifact-registry",
+        "../../../../jira/jira-db",
+        "../../../../workspace-resolution",
+        "../../../builder/runtime/milestone-chain-store",
+        "../../../specs/runtime/ticket-store",
+        "../../runtime/pr-naming",
+        "../../runtime/rail-pr-store",
+        "./contracts",
+        "path"
+      ],
+      "adapters/decisions/observations.ts": [
+        "../../runtime/pr-lifecycle",
+        "../../runtime/rail-pr-store",
+        "../../runtime/rail-worktree-release",
+        "./chains",
+        "./contracts",
+        "./evidence",
+        "./ownership",
+        "./transitions"
+      ],
+      "adapters/decisions/ownership.ts": [
+        "../../runtime/rail-pr-store",
+        "../../runtime/rail-worktrees-store",
+        "./contracts",
+        "./evidence"
+      ],
+      "adapters/decisions/publish.ts": [
+        "../../runtime/pr-lifecycle",
+        "../../runtime/pr-publisher",
+        "../../runtime/rail-pr-store",
+        "./contracts",
+        "./observations",
+        "./transitions"
+      ],
+      "adapters/decisions/recovery.ts": [
+        "../../../../worktree-manager",
+        "../../runtime/pr-lifecycle",
+        "../../runtime/rail-pr-recovery-git",
+        "../../runtime/rail-pr-store",
+        "../../runtime/rail-worktrees-store",
+        "./contracts",
+        "./evidence",
+        "./observations",
+        "./retry",
+        "./transitions",
+        "fs"
+      ],
+      "adapters/decisions/retry.ts": [
+        "../../runtime/pr-lifecycle",
+        "../../runtime/pr-publisher",
+        "../../runtime/rail-pr-store",
+        "./contracts",
+        "./evidence",
+        "./observations",
+        "./transitions"
+      ],
+      "adapters/decisions/transitions.ts": [
+        "../../../missions/runtime/agent-chat-registry",
+        "../../runtime/pr-publisher",
+        "../../runtime/rail-pr-store",
+        "../../runtime/rail-pr-ticket-effects",
+        "./contracts"
+      ],
+      "domain/decision-policy.ts": [
+        "./state"
+      ],
+      "domain/state.ts": [],
+      "index.ts": [
+        "./domain/decision-policy",
+        "./domain/state"
+      ],
+      "runtime/active-pr-continuation.ts": [
+        "../../../db",
+        "../../../integration-branch",
+        "../../../jira/jira-db",
+        "../../../worktree-manager",
+        "./pr-lifecycle",
+        "./pr-publisher",
+        "./rail-pr-store",
+        "./rail-worktrees-store",
+        "fs"
+      ],
+      "runtime/delivery-evidence.ts": [
+        "../../../types",
+        "../../execution/runtime/verification-sentinel",
+        "../../loops/runtime/loop-factory",
+        "fs",
+        "path"
+      ],
+      "runtime/merge-manager.ts": [
+        "../../../worktree-manager"
+      ],
+      "runtime/multi-repo-bases.ts": [
+        "../../../db",
+        "../../../project-repositories",
+        "../../../worktree-manager",
+        "./rail-pr-store"
+      ],
+      "runtime/multi-repo-checkout.ts": [
+        "../../../ids",
+        "../../../project-git",
+        "../../../repo-lock",
+        "../../missions/runtime/agent-chat-registry",
+        "./multi-repo-execution",
+        "./rail-pr-decision",
+        "./rail-pr-store",
+        "./rail-worktree-release"
+      ],
+      "runtime/multi-repo-delivery.ts": [
+        "../../../ids",
+        "../../../repo-lock",
+        "../../../workspace-resolution",
+        "../../missions/runtime/agent-chat-registry",
+        "./multi-repo-execution",
+        "./multi-repo-execution-store",
+        "./rail-pr-decision",
+        "./rail-pr-store",
+        "./rail-pr-ticket-effects"
+      ],
+      "runtime/multi-repo-execution-store.ts": [
+        "../../../db",
+        "./rail-pr-store"
+      ],
+      "runtime/multi-repo-execution.ts": [
+        "../../../db",
+        "../../../ids",
+        "../../../integration-branch",
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../repo-lock",
+        "../../../workspace-resolution",
+        "../../../worktree-manager",
+        "../../loops/runtime/loop-run-manager",
+        "../../missions/runtime/agent-chat-registry",
+        "./multi-repo-execution-store",
+        "./rail-isolated-launch",
+        "./rail-pr-store",
+        "./rail-pr-ticket-effects"
+      ],
+      "runtime/pr-body.ts": [
+        "../../../worktree-manager",
+        "../../conversations/runtime/explore-contract-refine",
+        "./pr-naming"
+      ],
+      "runtime/pr-follow-up-scope.ts": [],
+      "runtime/pr-follow-up.ts": [
+        "../../../ids",
+        "./pr-follow-up-scope",
+        "crypto"
+      ],
+      "runtime/pr-lifecycle.ts": [
+        "./pr-publisher"
+      ],
+      "runtime/pr-naming.ts": [
+        "../../../integration-branch"
+      ],
+      "runtime/pr-publisher.ts": [
+        "../../../git-guardrails",
+        "../../../util/win-spawn",
+        "child_process"
+      ],
+      "runtime/rail-isolated-launch.ts": [
+        "../../../artifact-registry",
+        "../../../db",
+        "../../../feature-flags",
+        "../../../ids",
+        "../../../integration-branch",
+        "../../../jira/jira-db",
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../providers",
+        "../../../providers/types",
+        "../../../repo-lock",
+        "../../../workspace-resolution",
+        "../../../worktree-manager",
+        "../../../worktree-node-modules",
+        "../../../worktree-overlay",
+        "../../agent-runtime/runtime/agent-runtime-controls-router",
+        "../../agent-runtime/runtime/agent-runtime-paths",
+        "../../agent-runtime/runtime/agent-runtime-settings",
+        "../../code/runtime/file-provenance",
+        "../../code/runtime/file-story",
+        "../../execution/runtime/revision-seed",
+        "../../loops/runtime/loop-constants",
+        "../../loops/runtime/loop-executors",
+        "../../loops/runtime/loop-graph",
+        "../../missions/runtime/agent-chat-registry",
+        "../../missions/runtime/mission-run-notify",
+        "../../specs/runtime/spec-addenda",
+        "./active-pr-continuation",
+        "./delivery-evidence",
+        "./merge-manager",
+        "./multi-repo-execution",
+        "./multi-repo-execution-store",
+        "./pr-follow-up",
+        "./pr-lifecycle",
+        "./pr-naming",
+        "./pr-publisher",
+        "./rail-isolation",
+        "./rail-merge-orchestrator",
+        "./rail-pr-recovery-git",
+        "./rail-pr-store",
+        "./rail-worktree-release",
+        "./rail-worktrees-store",
+        "./rails-store",
+        "fs",
+        "path"
+      ],
+      "runtime/rail-isolation.ts": [],
+      "runtime/rail-launch-parser.ts": [
+        "../../../json-tolerant",
+        "./pr-follow-up-scope"
+      ],
+      "runtime/rail-merge-orchestrator.ts": [
+        "../../../db",
+        "../../../ids",
+        "../../../providers/types",
+        "../../../repo-lock",
+        "../../../worktree-manager",
+        "../../accounting/runtime/ai-invocations",
+        "../../loops/runtime/loop-command-catalog",
+        "../../loops/runtime/loop-constants",
+        "../../loops/runtime/loop-run-manager",
+        "./merge-manager"
+      ],
+      "runtime/rail-pr-decision.ts": [
+        "..",
+        "../adapters/decisions/chains",
+        "../adapters/decisions/contracts",
+        "../adapters/decisions/dispatch"
+      ],
+      "runtime/rail-pr-delivery.ts": [
+        "../../../worktree-manager",
+        "./pr-naming",
+        "./pr-publisher"
+      ],
+      "runtime/rail-pr-recovery-git.ts": [
+        "../../../worktree-manager",
+        "crypto"
+      ],
+      "runtime/rail-pr-store.ts": [
+        "..",
+        "../../../db",
+        "../../../ids",
+        "../../../types",
+        "../../../worktree-overlay",
+        "../../specs/runtime/spec-addenda-core",
+        "./delivery-evidence",
+        "./multi-repo-execution-store",
+        "./pr-follow-up"
+      ],
+      "runtime/rail-pr-ticket-effects.ts": [
+        "../../../db",
+        "../../../types",
+        "../../../workspace-resolution",
+        "../../specs/runtime/spec-addenda",
+        "../../specs/runtime/ticket-store",
+        "./rail-pr-store"
+      ],
+      "runtime/rail-worktree-release.ts": [
+        "../../../db",
+        "../../../repo-lock",
+        "../../../worktree-manager",
+        "../../../worktree-node-modules",
+        "../../../worktree-overlay",
+        "./rail-worktrees-store",
+        "fs",
+        "path"
+      ],
+      "runtime/rail-worktrees-store.ts": [
+        "../../../db"
+      ],
+      "runtime/rails-router.ts": [
+        "../../../feature-flags",
+        "../../../ids",
+        "../../../integration-branch",
+        "../../../process-admission",
+        "../../../project-git",
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../provider-selection",
+        "../../../providers",
+        "../../../providers/registry",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../repo-lock",
+        "../../../types",
+        "../../../workspace-resolution",
+        "../../../worktree-manager",
+        "../../agent-runtime/runtime/agent-runtime-controls-router",
+        "../../agent-runtime/runtime/agent-runtime-settings",
+        "../../agents/runtime/agent-defaults",
+        "../../agents/runtime/profile-manager",
+        "../../code/runtime/file-provenance",
+        "../../code/runtime/file-story",
+        "../../execution/runtime/accept-ladder",
+        "../../execution/runtime/queue-manager",
+        "../../loops/runtime/loop-command-catalog",
+        "../../loops/runtime/loop-constants",
+        "../../loops/runtime/loop-effect",
+        "../../loops/runtime/loop-factory",
+        "../../loops/runtime/loop-graph",
+        "../../loops/runtime/loop-role-engines",
+        "../../loops/runtime/loop-runs-store",
+        "../../loops/runtime/loops-store",
+        "../../missions/runtime/agent-chat-registry",
+        "../../missions/runtime/mission-run-notify",
+        "../../specs/runtime/spec-addenda",
+        "../../specs/runtime/spec-models",
+        "../../specs/runtime/ticket-store",
+        "./active-pr-continuation",
+        "./delivery-evidence",
+        "./multi-repo-bases",
+        "./multi-repo-checkout",
+        "./multi-repo-execution",
+        "./multi-repo-execution-store",
+        "./pr-follow-up",
+        "./pr-publisher",
+        "./rail-isolated-launch",
+        "./rail-isolation",
+        "./rail-pr-decision",
+        "./rail-pr-store",
+        "./rail-worktree-release",
+        "./rails-store",
+        "./review-packet",
+        "express",
+        "path"
+      ],
+      "runtime/rails-store.ts": [
+        "../../../db"
+      ],
+      "runtime/review-packet.ts": [
+        "../../../db",
+        "../../../project-repository-provenance",
+        "../../accounting/runtime/ai-invocations",
+        "../../specs/runtime/spec-addenda-core",
+        "./delivery-evidence",
+        "./pr-body",
+        "./pr-follow-up",
+        "./rail-pr-store"
+      ]
+    }
+  },
+  "execution": {
+    "publicEntries": [
+      "runtime/accept-ladder.ts",
+      "runtime/interactive-job-session.ts",
+      "runtime/job-listing.ts",
+      "runtime/job-phase-breakdown.ts",
+      "runtime/job-spawn-idempotency.ts",
+      "runtime/queue-manager.ts",
+      "runtime/revision-seed.ts",
+      "runtime/run-duration-stats.ts",
+      "runtime/spawn-lifecycle.ts",
+      "runtime/stuck-run-detector.ts",
+      "runtime/verification-sentinel.ts"
+    ],
+    "dependencies": {
+      "adapters/budget-storage.ts": [
+        "../../../db/types",
+        "../application/enforce-budget"
+      ],
+      "adapters/usage-reader.ts": [
+        "../../../db/types",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../accounting/runtime/result-event",
+        "../ports"
+      ],
+      "application/enforce-budget.ts": [],
+      "application/record-job-invocations.ts": [
+        "../../../util/distribute-int",
+        "../domain/job-accounting",
+        "../ports"
+      ],
+      "application/recover-job-usage.ts": [
+        "../domain/usage",
+        "../ports"
+      ],
+      "domain/job-accounting.ts": [],
+      "domain/scheduling.ts": [],
+      "domain/usage.ts": [
+        "./job-accounting"
+      ],
+      "index.ts": [
+        "./application/enforce-budget",
+        "./application/record-job-invocations",
+        "./application/recover-job-usage",
+        "./domain/job-accounting",
+        "./domain/scheduling",
+        "./domain/usage",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain/job-accounting",
+        "./domain/usage"
+      ],
+      "runtime/accept-ladder.ts": [
+        "../../delivery/runtime/pr-publisher"
+      ],
+      "runtime/interactive-job-session.ts": [
+        "../../../db",
+        "../../../providers/claude-background-tasks",
+        "../../../providers/registry",
+        "../../../providers/runtime",
+        "../../../providers/terminal-result",
+        "../../../providers/types",
+        "../../../types",
+        "../../../util/cli-prompt",
+        "../../../util/stream-display",
+        "../../../util/win-spawn",
+        "../../accounting/runtime/result-event",
+        "../../conversations/runtime/explore-stdin-session",
+        "../../loops/runtime/loop-constants",
+        "node:child_process",
+        "node:crypto",
+        "node:readline"
+      ],
+      "runtime/job-listing.ts": [
+        "../../../db",
+        "../../../types"
+      ],
+      "runtime/job-phase-breakdown.ts": [
+        "../../accounting/runtime/pricing"
+      ],
+      "runtime/job-spawn-idempotency.ts": [
+        "../../../db",
+        "crypto"
+      ],
+      "runtime/queue-manager.ts": [
+        "..",
+        "../../../artifact-registry",
+        "../../../attachment-manager",
+        "../../../binary-probe",
+        "../../../claude-trust",
+        "../../../config",
+        "../../../db",
+        "../../../feature-flags",
+        "../../../framework-manager",
+        "../../../hooks",
+        "../../../ids",
+        "../../../openspec-shim",
+        "../../../plugins/codex-spawn",
+        "../../../plugins/rail-integration",
+        "../../../project-env",
+        "../../../project-profile-support",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/telemetry-env",
+        "../../../repo-map",
+        "../../../types",
+        "../../../util/cli-prompt",
+        "../../../util/distribute-int",
+        "../../../util/stream-display",
+        "../../../util/win-spawn",
+        "../../../workspace-manager",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/codex-otel-bridge",
+        "../../accounting/runtime/result-event",
+        "../../agents/runtime/agent-defaults",
+        "../../agents/runtime/profile-manager",
+        "../../code/runtime/file-provenance",
+        "../../delivery/runtime/rail-isolation",
+        "../../specs/runtime/spec-addenda",
+        "../../specs/runtime/ticket-store",
+        "../adapters/budget-storage",
+        "../adapters/usage-reader",
+        "./interactive-job-session",
+        "child_process",
+        "crypto",
+        "fs",
+        "path",
+        "readline"
+      ],
+      "runtime/revision-seed.ts": [
+        "../../delivery/runtime/delivery-evidence",
+        "../../delivery/runtime/rail-pr-store"
+      ],
+      "runtime/run-duration-stats.ts": [
+        "../../../db"
+      ],
+      "runtime/spawn-lifecycle.ts": [
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../util/cli-prompt",
+        "../../../util/win-spawn",
+        "node:child_process",
+        "node:readline"
+      ],
+      "runtime/stuck-run-detector.ts": [
+        "../../../db",
+        "../../../types",
+        "../../loops/runtime/loop-runs-store"
+      ],
+      "runtime/verification-sentinel.ts": []
+    }
+  },
+  "loops": {
+    "publicEntries": [
+      "runtime/loop-command-catalog.ts",
+      "runtime/loop-constants.ts",
+      "runtime/loop-effect.ts",
+      "runtime/loop-executors.ts",
+      "runtime/loop-factory.ts",
+      "runtime/loop-graph.ts",
+      "runtime/loop-role-engines.ts",
+      "runtime/loop-run-manager.ts",
+      "runtime/loop-runs-store.ts",
+      "runtime/loops-router.ts",
+      "runtime/loops-store.ts"
+    ],
+    "dependencies": {
+      "runtime/loop-command-catalog.ts": [
+        "../../../providers/registry",
+        "./loop-constants"
+      ],
+      "runtime/loop-constants.ts": [
+        "../../../db"
+      ],
+      "runtime/loop-decider.ts": [],
+      "runtime/loop-effect.ts": [
+        "./loop-graph"
+      ],
+      "runtime/loop-executors.ts": [
+        "../../../claude-trust",
+        "../../../core-completion",
+        "../../../core-execution",
+        "../../../feature-flags",
+        "../../../plugins/codex-spawn",
+        "../../../providers",
+        "../../../providers/claude-background-tasks",
+        "../../../providers/registry",
+        "../../../providers/runtime",
+        "../../../providers/terminal-result",
+        "../../../providers/types",
+        "../../../repo-map",
+        "../../../util/win-spawn",
+        "../../../workspace-manager",
+        "../../accounting/runtime/result-event",
+        "../../agent-runtime/runtime/agent-runtime-bridge",
+        "../../delivery/runtime/multi-repo-execution-store",
+        "../../delivery/runtime/rail-isolation",
+        "../../execution/runtime/spawn-lifecycle",
+        "./loop-constants",
+        "./loop-decider",
+        "./loop-run-manager",
+        "./loop-shell-invocation",
+        "./loop-step-idle",
+        "node:child_process",
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/loop-factory.ts": [
+        "./loop-graph",
+        "./loop-templates"
+      ],
+      "runtime/loop-graph.ts": [],
+      "runtime/loop-preview.ts": [
+        "./loop-command-catalog",
+        "./loop-constants",
+        "./loop-graph"
+      ],
+      "runtime/loop-role-engines.ts": [
+        "../../../provider-selection",
+        "../../../providers",
+        "../../../providers/types",
+        "../../../workspace-resolution",
+        "../../specs/runtime/spec-models",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/loop-run-manager.ts": [
+        "../../../core-completion",
+        "../../../core-execution",
+        "../../../db",
+        "../../../ids",
+        "../../../provider-limit",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../types",
+        "../../../util/win-spawn",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/result-event",
+        "../../agent-runtime/runtime/agent-runtime-accounting",
+        "../../agent-runtime/runtime/agent-runtime-events",
+        "../../agent-runtime/runtime/agent-runtime-settings",
+        "../../delivery/runtime/multi-repo-execution-store",
+        "../../delivery/runtime/rails-store",
+        "../../execution/runtime/interactive-job-session",
+        "../../execution/runtime/verification-sentinel",
+        "./loop-command-catalog",
+        "./loop-constants",
+        "./loop-decider",
+        "./loop-graph",
+        "./loop-runs-store",
+        "./loop-step-idle",
+        "fs",
+        "node:child_process",
+        "path"
+      ],
+      "runtime/loop-runs-store.ts": [
+        "../../../db"
+      ],
+      "runtime/loop-shell-invocation.ts": [
+        "../../../bundled-openspec",
+        "../../../path-resolver"
+      ],
+      "runtime/loop-step-idle.ts": [
+        "../../execution/runtime/stuck-run-detector"
+      ],
+      "runtime/loop-templates-ported.ts": [
+        "./loop-templates"
+      ],
+      "runtime/loop-templates.ts": [
+        "./loop-graph",
+        "./loop-templates-ported"
+      ],
+      "runtime/loops-router.ts": [
+        "../../../db",
+        "../../../feature-flags",
+        "../../../ids",
+        "./loop-command-catalog",
+        "./loop-constants",
+        "./loop-factory",
+        "./loop-graph",
+        "./loop-preview",
+        "./loop-templates",
+        "./loops-store",
+        "express"
+      ],
+      "runtime/loops-store.ts": [
+        "../../../db",
+        "./loop-graph"
+      ]
+    }
+  },
+  "missions": {
+    "publicEntries": [
+      "runtime/agent-chat-manager.ts",
+      "runtime/agent-chat-registry.ts",
+      "runtime/agent-chat-router.ts",
+      "runtime/agent-spec-framing.ts",
+      "runtime/agent-steering.ts",
+      "runtime/agent-tier.ts",
+      "runtime/mission-run-notify.ts"
+    ],
+    "dependencies": {
+      "runtime/agent-chat-manager.ts": [
+        "../../../agent-mcp-config",
+        "../../../attachment-manager",
+        "../../../db",
+        "../../../desktop-db",
+        "../../../external-mcp",
+        "../../../feature-flags",
+        "../../../mcp/agent-capability",
+        "../../../plugins/codex-spawn",
+        "../../../providers",
+        "../../../providers/live-session",
+        "../../../providers/live-session-types",
+        "../../../providers/registry",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../types",
+        "../../../util/cli-prompt",
+        "../../../util/win-spawn",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/result-event",
+        "../../agents/runtime/agent-store",
+        "../../conversations/runtime/explore-draft-title",
+        "../../execution/runtime/spawn-lifecycle",
+        "./agent-context-resolver",
+        "./agent-cwd-manager",
+        "./agent-input-store",
+        "./agent-operator-prompt",
+        "./agent-steering",
+        "./agent-tier",
+        "child_process",
+        "crypto",
+        "node:fs/promises",
+        "node:path",
+        "os",
+        "readline"
+      ],
+      "runtime/agent-chat-registry.ts": [
+        "./agent-chat-manager"
+      ],
+      "runtime/agent-chat-router.ts": [
+        "../../../attachment-manager",
+        "../../../db",
+        "../../../feature-flags",
+        "../../../provider-selection",
+        "../../../providers",
+        "../../../transient-children",
+        "../../agents/runtime/agent-store",
+        "./agent-chat-manager",
+        "./agent-input-store",
+        "./agent-tier",
+        "express",
+        "fs",
+        "multer"
+      ],
+      "runtime/agent-context-resolver.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../workspace-resolution",
+        "../../agents/runtime/agent-store",
+        "../../code/runtime/code-explorer-router",
+        "../../specs/runtime/spec-addenda-core",
+        "../../specs/runtime/ticket-store"
+      ],
+      "runtime/agent-cwd-manager.ts": [
+        "./agent-operator-prompt",
+        "fs",
+        "os",
+        "path"
+      ],
+      "runtime/agent-failure-briefing.ts": [
+        "../../../types"
+      ],
+      "runtime/agent-fence-promotion.ts": [],
+      "runtime/agent-input-store.ts": [
+        "../../../db",
+        "../../agents/runtime/agent-store",
+        "./agent-tier",
+        "crypto"
+      ],
+      "runtime/agent-operator-prompt.ts": [
+        "../../../feature-flags",
+        "../../specs/runtime/spec-contract-prompt"
+      ],
+      "runtime/agent-spec-framing.ts": [
+        "../../../db",
+        "../../../providers/registry",
+        "../../agents/runtime/agent-store",
+        "./agent-fence-promotion"
+      ],
+      "runtime/agent-steering.ts": [
+        "../../../db",
+        "../../../mcp/agent-capability",
+        "@modelcontextprotocol/sdk/types.js",
+        "crypto"
+      ],
+      "runtime/agent-tier.ts": [
+        "../../../mcp/mcp-tiers"
+      ],
+      "runtime/mission-run-notify.ts": [
+        "../../../feature-flags",
+        "../../../types",
+        "../../agent-runtime/runtime/agent-runtime-controls",
+        "./agent-chat-registry",
+        "./agent-failure-briefing"
+      ]
+    }
+  },
+  "project-settings": {
+    "publicEntries": [
+      "adapters/http.ts",
+      "adapters/sqlite.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/http.ts": [
+        "..",
+        "express"
+      ],
+      "adapters/sqlite.ts": [
+        "../../../db/types",
+        "../domain",
+        "../ports"
+      ],
+      "application.ts": [
+        "./domain",
+        "./ports"
+      ],
+      "domain.ts": [
+        "../../shared/git-branch-name"
+      ],
+      "index.ts": [
+        "./application",
+        "./domain",
+        "./ports"
+      ],
+      "ports.ts": [
+        "./domain"
+      ]
+    }
+  },
+  "specs": {
+    "publicEntries": [
+      "runtime/contract-refine-runner.ts",
+      "runtime/proposal-manager.ts",
+      "runtime/smash-runner.ts",
+      "runtime/spec-addenda-core.ts",
+      "runtime/spec-addenda.ts",
+      "runtime/spec-contract-prompt.ts",
+      "runtime/spec-draft-parser.ts",
+      "runtime/spec-launcher-manager.ts",
+      "runtime/spec-models.ts",
+      "runtime/ticket-store.ts",
+      "runtime/ticket-watcher.ts"
+    ],
+    "dependencies": {
+      "runtime/contract-refine-runner.ts": [
+        "../../../db",
+        "../../../process-admission",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../transient-children",
+        "../../../util/cli-prompt",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/result-event",
+        "../../conversations/runtime/explore-contract-refine",
+        "../../conversations/runtime/explore-cwd-manager",
+        "../../execution/runtime/spawn-lifecycle",
+        "./ticket-store",
+        "node:child_process",
+        "node:crypto",
+        "node:readline",
+        "tree-kill"
+      ],
+      "runtime/proposal-manager.ts": [
+        "../../../command-resolver",
+        "../../../db",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../types",
+        "../../../util/cli-prompt",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/result-event",
+        "child_process",
+        "crypto",
+        "readline",
+        "tree-kill"
+      ],
+      "runtime/smash-runner.ts": [
+        "../../../db",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../transient-children",
+        "../../../util/cli-prompt",
+        "../../../util/distribute-int",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/result-event",
+        "../../conversations/runtime/explore-cwd-manager",
+        "../../conversations/runtime/explore-smash",
+        "../../execution/runtime/spawn-lifecycle",
+        "./ticket-store",
+        "node:child_process",
+        "node:crypto",
+        "node:readline",
+        "tree-kill"
+      ],
+      "runtime/spec-addenda-core.ts": [],
+      "runtime/spec-addenda.ts": [
+        "../../../ids",
+        "../../../workspace-resolution",
+        "./spec-addenda-core",
+        "./ticket-store",
+        "crypto"
+      ],
+      "runtime/spec-contract-prompt.ts": [
+        "../../builder/runtime/blueprint-types"
+      ],
+      "runtime/spec-draft-parser.ts": [],
+      "runtime/spec-launcher-manager.ts": [
+        "../../../command-resolver",
+        "../../../db",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../types",
+        "../../../util/cli-prompt",
+        "../../../workspace-resolution",
+        "../../accounting/runtime/ai-invocations",
+        "../../accounting/runtime/result-event",
+        "../../loops/runtime/loop-command-catalog",
+        "child_process",
+        "crypto",
+        "readline",
+        "tree-kill"
+      ],
+      "runtime/spec-models.ts": [
+        "../../../providers",
+        "../../../providers/types"
+      ],
+      "runtime/ticket-store.ts": [
+        "./spec-addenda-core",
+        "fs",
+        "path"
+      ],
+      "runtime/ticket-watcher.ts": [
+        "../../../types",
+        "../../../workspace-resolution",
+        "chokidar",
+        "fs",
+        "path"
+      ]
+    }
+  },
+  "terminals": {
+    "publicEntries": [
+      "runtime/background-process-control.ts",
+      "runtime/background-process-service.ts",
+      "runtime/background-process-store.ts",
+      "runtime/background-windows-bootstrap.ts",
+      "runtime/terminal-manager.ts",
+      "runtime/terminal-marks-store.ts",
+      "runtime/terminal-settings.ts"
+    ],
+    "dependencies": {
+      "runtime/background-process-control.ts": [
+        "../../../util/win-spawn",
+        "child_process",
+        "path"
+      ],
+      "runtime/background-process-service.ts": [
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../transient-children",
+        "../../../types",
+        "../../loops/runtime/loop-runs-store",
+        "node:path"
+      ],
+      "runtime/background-process-store.ts": [
+        "../../../transient-children",
+        "../../../util/secure-fs",
+        "better-sqlite3",
+        "crypto",
+        "fs",
+        "path"
+      ],
+      "runtime/background-windows-bootstrap.ts": [
+        "../../../path-resolver",
+        "../../../util/win-spawn",
+        "../../../windows-job-supervisor",
+        "./background-process-control",
+        "child_process",
+        "node:crypto",
+        "node:fs",
+        "node:net",
+        "node:os",
+        "node:path"
+      ],
+      "runtime/terminal-manager.ts": [
+        "../../../db",
+        "../../../ids",
+        "../../../terminal-shell-integration",
+        "../../../util/win-spawn",
+        "./terminal-marks-store",
+        "./terminal-osc-parser",
+        "./terminal-settings",
+        "fs",
+        "node-pty",
+        "path",
+        "ws"
+      ],
+      "runtime/terminal-marks-store.ts": [
+        "../../../db"
+      ],
+      "runtime/terminal-osc-parser.ts": [],
+      "runtime/terminal-settings.ts": [
+        "../../../db",
+        "os"
+      ]
+    }
+  }
+}

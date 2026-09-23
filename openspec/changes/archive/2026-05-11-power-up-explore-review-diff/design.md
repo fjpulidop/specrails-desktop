@@ -78,7 +78,7 @@ Order of `proposed` is preserved for `unchanged + added`; `removed` items are li
 
 ### D4: Shared `diff-utils` helper
 
-Extract the word-diff core into `client/src/components/explore-spec/diff-utils.ts`:
+Extract the word-diff core into `client/src/features/specs/components/explore-spec/diff-utils.ts`:
 
 ```ts
 export interface DiffSegment { value: string; added?: boolean; removed?: boolean }
@@ -114,9 +114,9 @@ Inside the overlay, the `Create Spec` button in the overlay footer IS the same c
 
 New tests:
 
-- `client/src/components/explore-spec/__tests__/diff-utils.test.ts` — wordDiff: identical, fully different, partial, empty baseline; arrayDiff: empty/empty, added-only, removed-only, mixed.
-- `client/src/components/explore-spec/__tests__/ExploreReviewOverlay.test.tsx` — renders with empty baseline (all "added"), renders with non-empty baseline (mixed), Back-to-edit fires callback, Create-Spec fires callback, Esc fires Back-to-edit callback.
-- `client/src/components/explore-spec/__tests__/ExploreSpecShell.test.tsx` — `Review →` button appears when title non-empty, opens overlay, Create from overlay calls the same commit path as Create Spec in footer.
+- `client/src/features/specs/components/explore-spec/__tests__/diff-utils.test.ts` — wordDiff: identical, fully different, partial, empty baseline; arrayDiff: empty/empty, added-only, removed-only, mixed.
+- `client/src/features/specs/components/explore-spec/__tests__/ExploreReviewOverlay.test.tsx` — renders with empty baseline (all "added"), renders with non-empty baseline (mixed), Back-to-edit fires callback, Create-Spec fires callback, Esc fires Back-to-edit callback.
+- `client/src/features/specs/components/explore-spec/__tests__/ExploreSpecShell.test.tsx` — `Review →` button appears when title non-empty, opens overlay, Create from overlay calls the same commit path as Create Spec in footer.
 
 Coverage thresholds (client 80% L / 70% F / 80% S) must hold.
 

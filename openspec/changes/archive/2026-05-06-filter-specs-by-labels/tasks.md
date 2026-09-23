@@ -1,6 +1,6 @@
 ## 1. Scaffold filter strip component
 
-- [x] 1.1 Create `client/src/components/SpecLabelFilterStrip.tsx` exporting a default-named function component with props `{ tickets: LocalTicket[]; doneTickets: LocalTicket[]; active: Set<string>; onToggle: (label: string) => void; onClear: () => void }`
+- [x] 1.1 Create `client/src/features/specs/components/SpecLabelFilterStrip.tsx` exporting a default-named function component with props `{ tickets: LocalTicket[]; doneTickets: LocalTicket[]; active: Set<string>; onToggle: (label: string) => void; onClear: () => void }`
 - [x] 1.2 Add `TONES` const tuple and `TONE_CLASSES` static map covering the six accent tokens (`accent-primary`, `accent-info`, `accent-success`, `accent-secondary`, `accent-warning`, `accent-highlight`) with `idle`, `hover`, and `active` class strings, all written as full literal Tailwind classes so the JIT picks them up
 - [x] 1.3 Implement `hashLabelToTone(label: string)` using FNV-1a 32-bit on the lowercased label, modulo 6, returning a member of `TONES`
 - [x] 1.4 Aggregate label counts from `tickets` only (NOT `doneTickets`) in a `useMemo`, return entries sorted by count desc with alphabetical asc tie-break
@@ -12,7 +12,7 @@
 
 ## 2. Wire strip into SpecsBoard
 
-- [x] 2.1 In `client/src/components/SpecsBoard.tsx` add `const [activeLabels, setActiveLabels] = useState<Set<string>>(new Set())` near the other state hooks
+- [x] 2.1 In `client/src/features/specs/components/SpecsBoard.tsx` add `const [activeLabels, setActiveLabels] = useState<Set<string>>(new Set())` near the other state hooks
 - [x] 2.2 Reset `activeLabels` when `activeProjectId` changes (read from `useHub`); add a dedicated `useEffect`
 - [x] 2.3 Add `toggleLabel(label)` and `clearLabels()` handlers using functional `setActiveLabels` updates
 - [x] 2.4 Compute `filteredTickets` and `filteredDoneTickets` via `useMemo`: when `activeLabels.size === 0` return the input arrays, else filter to tickets whose `labels` intersects `activeLabels`
@@ -23,7 +23,7 @@
 
 ## 3. Tests for the filter strip
 
-- [x] 3.1 Create `client/src/components/__tests__/SpecLabelFilterStrip.test.tsx`
+- [x] 3.1 Create `client/src/features/specs/components/__tests__/SpecLabelFilterStrip.test.tsx`
 - [x] 3.2 Test: returns null when no tickets carry labels (asserts no element rendered)
 - [x] 3.3 Test: aggregates counts from active tickets only and ignores Done labels
 - [x] 3.4 Test: orders pills by count desc with alpha tie-break
@@ -50,7 +50,7 @@
 - [x] 6.1 Run `cd client && npx tsc --noEmit` and fix any type errors introduced
 - [x] 6.2 Run `npm test` and fix any failures
 - [x] 6.3 Run `cd client && npm run test:coverage`; if client thresholds fall below 80% lines/statements or 70% functions, add tests until thresholds pass — never lower thresholds
-- [x] 6.4 Run a repo-wide grep for new `dracula-` token usages (`grep -rn "dracula-" client/src/components/SpecLabelFilterStrip.tsx client/src/components/SpecsBoard.tsx client/src/hooks/useDesktopUpdateNotifier.tsx`) and confirm zero matches
+- [x] 6.4 Run a repo-wide grep for new `dracula-` token usages (`grep -rn "dracula-" client/src/features/specs/components/SpecLabelFilterStrip.tsx client/src/features/specs/components/SpecsBoard.tsx client/src/hooks/useDesktopUpdateNotifier.tsx`) and confirm zero matches
 - [x] 6.5 Run `npm run typecheck` at the repo root and `npm test` once more to confirm a clean state before declaring done
 
 ## 7. Verification against specs

@@ -23,7 +23,7 @@ export function getStats(db: DbInstance): StatsRow {
   // MED-8: cost SUMs come from ai_invocations — ALL billable surfaces (job,
   // explore-spec, chat-sidebar, quick-spec, ai-edit, agent-studio, spec-launcher,
   // proposal, setup, smash, file-summary, loop), not just the jobs table — across
-  // every status, mirroring server/desktop-analytics.ts + server/spending.ts so
+  // every status, mirroring server/modules/accounting/runtime/desktop-analytics.ts + server/modules/accounting/runtime/spending.ts so
   // the per-project StatusBar reconciles with /analytics and /budget for the same
   // project. A killed/failed run's rate-card estimate now counts (it billed real
   // tokens) instead of vanishing; estimatedCost* is the portion sourced from the

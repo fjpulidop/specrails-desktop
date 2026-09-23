@@ -10,14 +10,14 @@ import { getAdapter } from './providers'
 import { supportsToolPolicy } from './providers/runtime'
 import {
   getLastContextScope, setLastContextScope, normalizeContextScope, type ContextScope
-} from './context-scope'
+} from './modules/conversations/runtime/context-scope'
 import {
   getModelsForProvider, isValidModelForProvider,
   type SpecProvider
-} from './spec-models'
+} from './modules/specs/runtime/spec-models'
 import { validateRequestedProvider, isMultiProvider } from './provider-selection'
 import type { ChatConversationRow } from './types'
-import { mutateStore } from './ticket-store'
+import { mutateStore } from './modules/specs/runtime/ticket-store'
 import {
   type ProjectRoutesDeps, resolveDefaultSpecModel
 } from './project-router-helpers'

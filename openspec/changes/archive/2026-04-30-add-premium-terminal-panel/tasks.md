@@ -3,7 +3,7 @@
 - [x] 1.1 Add hub-db migration that seeds `hub_settings` with reserved keys `terminal.fontFamily`, `terminal.fontSize`, `terminal.renderMode`, `terminal.copyOnSelect`, `terminal.shellIntegrationEnabled`, `terminal.notifyOnCompletion`, `terminal.imageRendering`, `terminal.longCommandThresholdMs` and their documented defaults (idempotent via `INSERT OR IGNORE`)
 - [x] 1.2 Add per-project migration: `terminal_settings_override(key TEXT PRIMARY KEY, value TEXT NOT NULL)` table — absence of a row means "inherit hub default"
 - [x] 1.3 Add migration: per-project `terminal_command_marks` table `(id INTEGER PRIMARY KEY, sessionId TEXT, startedAt INTEGER, finishedAt INTEGER, exitCode INTEGER, command TEXT, cwd TEXT)` with index on `(sessionId, startedAt)`
-- [x] 1.4 Create `server/terminal-settings.ts` with `TerminalSettings` type, hub CRUD (`getHubTerminalSettings`, `patchHubTerminalSettings`), per-project CRUD (`getProjectOverride`, `patchProjectOverride`), and `resolveTerminalSettings(projectId)` returning the COALESCE merge
+- [x] 1.4 Create `server/modules/terminals/runtime/terminal-settings.ts` with `TerminalSettings` type, hub CRUD (`getHubTerminalSettings`, `patchHubTerminalSettings`), per-project CRUD (`getProjectOverride`, `patchProjectOverride`), and `resolveTerminalSettings(projectId)` returning the COALESCE merge
 - [x] 1.5 Validate every patch input with bounds (`fontSize ∈ [8,32]`, `renderMode ∈ {auto,canvas,webgl}`, `longCommandThresholdMs ≥ 1000`); reject 400 on violation
 - [x] 1.6 Unit tests: defaults seeded on first migration, override null falls back to hub, out-of-range rejected, GET project shape `{resolved, override, hubDefaults}`
 - [x] 1.7 REST endpoints: `GET/PATCH /api/hub/terminal-settings` in `server/hub-router.ts`
@@ -12,14 +12,14 @@
 
 ## 2. Command-marks store
 
-- [x] 2.1 Create `server/terminal-marks-store.ts` with `appendMark`, `listMarks(sessionId, limit, before)`, `deleteForSession(sessionId)`, `pruneSessionFifo(sessionId, cap=1000)`
+- [x] 2.1 Create `server/modules/terminals/runtime/terminal-marks-store.ts` with `appendMark`, `listMarks(sessionId, limit, before)`, `deleteForSession(sessionId)`, `pruneSessionFifo(sessionId, cap=1000)`
 - [x] 2.2 Implement FIFO eviction inside `appendMark` (insert + delete oldest beyond cap, single transaction)
 - [x] 2.3 Endpoint: `GET /api/projects/:projectId/terminals/:id/marks?limit=&before=` in project router
 - [x] 2.4 Unit tests: cap eviction is per-session, dangling pre-exec marked killed on session kill, ordering by `startedAt` desc
 
 ## 3. OSC parser
 
-- [x] 3.1 Create `server/terminal-osc-parser.ts` exporting `class OscParser { feed(chunk: Buffer): MarkEvent[]; reset(): void }` with bounded-lookahead state machine handling fragmented sequences across chunk boundaries
+- [x] 3.1 Create `server/modules/terminals/runtime/terminal-osc-parser.ts` exporting `class OscParser { feed(chunk: Buffer): MarkEvent[]; reset(): void }` with bounded-lookahead state machine handling fragmented sequences across chunk boundaries
 - [x] 3.2 Recognise OSC 133 `A`, `B`, `C`, `D[;exit]` and OSC 1337 `CurrentDir=…` and `File=…` (only the first three trigger mark events; `File=` is observed but produces no mark)
 - [x] 3.3 Tolerate malformed sequences: drop bytes, never throw, never block
 - [x] 3.4 Fuzz tests with corpora: oh-my-zsh, starship, p10k prompts, plain bash, fish; assert byte-for-byte passthrough invariant
@@ -48,7 +48,7 @@
 
 ## 6. Terminal-manager wiring
 
-- [x] 6.1 In `server/terminal-manager.ts`, call `resolveTerminalSettings(projectId)` before each spawn; on `shellIntegrationEnabled`, call `composeShellIntegrationSpawn` and merge `args` and `env`
+- [x] 6.1 In `server/modules/terminals/runtime/terminal-manager.ts`, call `resolveTerminalSettings(projectId)` before each spawn; on `shellIntegrationEnabled`, call `composeShellIntegrationSpawn` and merge `args` and `env`
 - [x] 6.2 Hold a per-session `OscParser` instance; on PTY data, feed bytes through it and emit any resulting `MarkEvent` as JSON text frames on the session's WebSocket(s)
 - [x] 6.3 Persist `pre-exec`+`post-exec` pairs into `terminal_command_marks` via the marks store
 - [x] 6.4 On session kill or PTY exit, call `cleanupSessionShim`
@@ -84,14 +84,14 @@
 
 ## 10. Search overlay component
 
-- [x] 10.1 Create `client/src/components/terminal/TerminalSearchOverlay.tsx`: input, prev/next, case toggle, regex toggle, whole-word toggle, match count, Esc close
+- [x] 10.1 Create `client/src/features/terminals/components/terminal/TerminalSearchOverlay.tsx`: input, prev/next, case toggle, regex toggle, whole-word toggle, match count, Esc close
 - [x] 10.2 Integrate with addon-search's `findNext`/`findPrevious` and decoration colours from theme
 - [x] 10.3 Mount into `TerminalViewport.tsx` keyed by activeId
 - [x] 10.4 Unit tests: open on Cmd+F, Enter advances match, Esc closes & clears decorations, no PTY resize triggered
 
 ## 11. Right-click context menu
 
-- [x] 11.1 Create `client/src/components/terminal/TerminalContextMenu.tsx` using a Radix-style portal (already in repo) or a minimal positioned div
+- [x] 11.1 Create `client/src/features/terminals/components/terminal/TerminalContextMenu.tsx` using a Radix-style portal (already in repo) or a minimal positioned div
 - [x] 11.2 Items: Copy (disabled when no selection), Paste, Select All, Clear, Search, Save scrollback to file, "Open this directory" (conditional)
 - [x] 11.3 Position-flip when click is near viewport bottom-right
 - [x] 11.4 "Save scrollback" — dump `term.buffer.active` rows via `getLine(i).translateToString(true)`; Tauri → `dialog.save` + `fs.writeTextFile`; browser → blob download
@@ -111,10 +111,10 @@
 
 - [x] 13.1 Create `client/src/lib/command-mark-store.ts` — module-level Map keyed by sessionId of `{ marks: Mark[], cwdHistory: string[] }`. Re-rendering React state via a tiny pub/sub
 - [x] 13.2 In `TerminalsContext`, attach JSON `mark` frames to the store; expose `useSessionMarks(sessionId)` hook
-- [x] 13.3 Create `client/src/components/terminal/PromptGutter.tsx` overlay using xterm decoration API for one marker per prompt-start
+- [x] 13.3 Create `client/src/features/terminals/components/terminal/PromptGutter.tsx` overlay using xterm decoration API for one marker per prompt-start
 - [x] 13.4 Colour by exit code (success neutral, non-zero error from theme)
 - [x] 13.5 `Cmd+ArrowUp` / `Cmd+ArrowDown` keybindings → scroll xterm to the previous/next prompt mark row
-- [x] 13.6 Create `client/src/components/terminal/CommandTimingBadge.tsx` rendering elapsed time live (1Hz tick) once delta exceeds 500ms
+- [x] 13.6 Create `client/src/features/terminals/components/terminal/CommandTimingBadge.tsx` rendering elapsed time live (1Hz tick) once delta exceeds 500ms
 - [x] 13.7 Tests: gutter draws one per mark, exit-code colour, navigation skips, badge ticks and stops on post-exec
 
 ## 14. Long-running command notifications
@@ -132,9 +132,9 @@
 
 ## 16. Settings UI
 
-- [x] 16.1 Create `client/src/components/settings/TerminalSettingsSection.tsx` with mode prop `'hub' | 'project'`. Renders inputs for every field; project mode shows "Inherit hub" placeholder + toggle that PATCHes null to clear
-- [x] 16.2 Mount in `client/src/pages/GlobalSettingsPage.tsx` with `mode="hub"`
-- [x] 16.3 Mount in `client/src/pages/SettingsPage.tsx` with `mode="project"`
+- [x] 16.1 Create `client/src/features/settings/components/TerminalSettingsSection.tsx` with mode prop `'hub' | 'project'`. Renders inputs for every field; project mode shows "Inherit hub" placeholder + toggle that PATCHes null to clear
+- [x] 16.2 Mount in `client/src/features/settings/pages/GlobalSettingsPage.tsx` with `mode="hub"`
+- [x] 16.3 Mount in `client/src/features/settings/pages/SettingsPage.tsx` with `mode="project"`
 - [x] 16.4 Hot-reload wiring: PATCH triggers WS broadcast (or local invalidation) so live xterms re-read settings; font/copyOnSelect/notify fields apply live
 - [x] 16.5 Unit tests: hub form, project form, null-clears-override, validation surfaces, live-apply for font fields
 

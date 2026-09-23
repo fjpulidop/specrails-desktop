@@ -811,8 +811,8 @@ export interface RailWorktreeProgressMessage {
  * `rail.pr_delivered` event.
  */
 export interface RailPrStateMessage {
-  executionManifest?: import('./multi-repo-execution-store').RunExecutionManifest | null
-  repositoryDeliveries?: import('./multi-repo-execution-store').RepositoryDeliverySnapshot[]
+  executionManifest?: import('./modules/delivery/runtime/multi-repo-execution-store').RunExecutionManifest | null
+  repositoryDeliveries?: import('./modules/delivery/runtime/multi-repo-execution-store').RepositoryDeliverySnapshot[]
 
   type: 'rail.pr_state'
   projectId: string
@@ -1440,7 +1440,7 @@ export interface BlueprintCommitFailedMessage {
 export interface BlueprintMilestoneProgressMessage {
   type: 'blueprint.milestone_progress'
   projectId: string
-  progress: import('./milestone-progress').MilestoneProgress[]
+  progress: import('./modules/builder/runtime/milestone-progress').MilestoneProgress[]
   timestamp: string
 }
 
@@ -1449,7 +1449,7 @@ export interface BlueprintMilestoneProgressMessage {
 export interface MilestoneChainChangedMessage {
   type: 'milestone.chain_changed'
   projectId: string
-  chain: import('./milestone-progress').MilestoneChainSnapshot
+  chain: import('./modules/builder/runtime/milestone-progress').MilestoneChainSnapshot
   timestamp: string
 }
 
@@ -1601,7 +1601,7 @@ export interface AgentInputReceiptMessage {
 export interface AgentQueueClearedMessage {
   type: 'agent_queue_cleared'
   conversationId: string
-  messages?: Array<import('./agent-store').AgentMessage & { delivery_status: 'delivered' | 'cancelled' | 'interrupted' }>
+  messages?: Array<import('./modules/agents/runtime/agent-store').AgentMessage & { delivery_status: 'delivered' | 'cancelled' | 'interrupted' }>
   timestamp: string
 }
 
@@ -1631,8 +1631,8 @@ export interface AgentQueueRemovedMessage {
  * decision mutations update the SAME card in place.
  */
 export interface PrDecisionCardEnvelope {
-  executionManifest?: import('./multi-repo-execution-store').RunExecutionManifest | null
-  repositoryDeliveries?: import('./multi-repo-execution-store').RepositoryDeliverySnapshot[]
+  executionManifest?: import('./modules/delivery/runtime/multi-repo-execution-store').RunExecutionManifest | null
+  repositoryDeliveries?: import('./modules/delivery/runtime/multi-repo-execution-store').RepositoryDeliverySnapshot[]
 
   kind: 'pr_decision'
   prDeliveryId: string

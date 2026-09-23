@@ -1,5 +1,5 @@
 import { execFile } from 'child_process'
-import { gitExecEnv } from './file-provenance'
+import { gitExecEnv } from './modules/code/runtime/file-provenance'
 import { isValidBranchName } from './integration-branch'
 
 // ─── Project git info + branch switch (Agent-Mode git bar) ────────────────────

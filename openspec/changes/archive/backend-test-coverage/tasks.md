@@ -31,11 +31,11 @@ Add tests for percentiles, bonus metrics, multi-command scenarios.
 Test all routes not covered by proposal-routes.test.ts.
 
 ## Task 7 [server] — Expand chat-manager.test.ts
-**File:** `server/chat-manager.test.ts`
+**File:** `server/modules/conversations/runtime/chat-manager.test.ts`
 Add edge case tests.
 
 ## Task 8 [server] — Expand queue-manager.test.ts
-**File:** `server/queue-manager.test.ts`
+**File:** `server/modules/execution/runtime/queue-manager.test.ts`
 Add error recovery and edge case tests.
 
 ## Task 9 [server] — Fix bugs found during testing

@@ -8,8 +8,8 @@ Hub client is a Vite + React + Tailwind v4 SPA whose visual identity is locked t
 Non-CSS surfaces also embed colors:
 - `client/src/lib/dracula-colors.ts` (+ `__tests__/dracula-colors.test.ts`) — JS-side palette mirror used by xterm and charts.
 - `client/src/components/analytics/*` (Recharts) — color literals or palette imports.
-- `client/src/context/TerminalsContext.tsx` — xterm.js `Terminal` instances receive a `theme` option (background, foreground, ANSI 16).
-- `client/src/components/LogViewer.tsx` — syntax highlighting palette.
+- `client/src/features/terminals/context/TerminalsContext.tsx` — xterm.js `Terminal` instances receive a `theme` option (background, foreground, ANSI 16).
+- `client/src/features/jobs/components/LogViewer.tsx` — syntax highlighting palette.
 - `client/src/demo-mode/tour/tour.css` — tour overlay styles.
 
 Hub already has settings infrastructure: `hub_settings` table in `hub.sqlite`, hub router endpoints under `/api/hub/*`, and `GlobalSettingsPage` modal. Theme persistence fits cleanly there.
@@ -118,7 +118,7 @@ Inlined as the first child of `<head>`, before the Vite-injected `<script type="
 
 ### D5 — Non-CSS surface bridging via single source of truth (`themes.ts`)
 
-`client/src/lib/themes.ts` becomes the canonical theme registry — exported as a typed `Record<ThemeId, ThemeDescriptor>`. Each descriptor includes:
+`client/src/features/settings/lib/themes.ts` becomes the canonical theme registry — exported as a typed `Record<ThemeId, ThemeDescriptor>`. Each descriptor includes:
 - CSS-var values (informational; mirrored from `globals.css` for tooling — runtime authority is the CSS).
 - `xterm`: the full xterm.js theme object (background, foreground, cursor, ANSI 16).
 - `chart`: array of palette colors used by Recharts.

@@ -1,13 +1,13 @@
 ## 1. Server — index and search
 
 - [x] 1.1 Add a desktop-db migration creating `agent_messages_fts` (FTS5, `content='agent_messages'`, `content_rowid='rowid'`, `tokenize='trigram remove_diacritics 1'`), the three sync triggers (insert / delete / update of content), and the initial `'rebuild'`; expose `rebuildAgentSearchIndex(db)` for reuse
-- [x] 1.2 Implement `searchAgentConversations(db, q, limit)` in `server/agent-store.ts`: title `LIKE` match ∪ FTS content match (`role IN ('user','assistant')`, best `bm25` row per conversation, `snippet()` converted to plain text + highlight ranges), ordered title → rank → `updated_at DESC`; substring fallback when `q` is shorter than 3 characters
-- [x] 1.3 Add `GET /api/agent/search` to `server/agent-chat-router.ts` (`q` required, 400 on blank; `limit` default 20, max 50) returning `{ results: MissionSearchResult[] }`
+- [x] 1.2 Implement `searchAgentConversations(db, q, limit)` in `server/modules/agents/runtime/agent-store.ts`: title `LIKE` match ∪ FTS content match (`role IN ('user','assistant')`, best `bm25` row per conversation, `snippet()` converted to plain text + highlight ranges), ordered title → rank → `updated_at DESC`; substring fallback when `q` is shorter than 3 characters
+- [x] 1.3 Add `GET /api/agent/search` to `server/modules/missions/runtime/agent-chat-router.ts` (`q` required, 400 on blank; `limit` default 20, max 50) returning `{ results: MissionSearchResult[] }`
 - [x] 1.4 Server tests (`:memory:` DB): trigger sync on insert/update/delete, title hit, content hit with snippet ranges, diacritics fold, system-row exclusion, ranking order, short-query fallback, router 400 + limit clamp
 
 ## 2. Client — pure search model
 
-- [x] 2.1 Create `client/src/lib/mission-search.ts`: `foldText` (lowercase + NFD strip), `matchMissionTitles(conversations, q, max)`, `mergeMissionResults(titleHits, serverHits)` (dedupe by id, server row wins, order title → server rank → `updated_at`), `groupOrderForMode(uiMode)`; add `searchMissions(q, limit, signal)` to `client/src/lib/agent-api.ts`
+- [x] 2.1 Create `client/src/features/missions/lib/mission-search.ts`: `foldText` (lowercase + NFD strip), `matchMissionTitles(conversations, q, max)`, `mergeMissionResults(titleHits, serverHits)` (dedupe by id, server row wins, order title → server rank → `updated_at`), `groupOrderForMode(uiMode)`; add `searchMissions(q, limit, signal)` to `client/src/features/missions/lib/agent-api.ts`
 - [x] 2.2 Unit tests for the pure module: fold, title match, merge dedupe/ordering, empty-query recents, mode ordering
 
 ## 3. Client — palette integration

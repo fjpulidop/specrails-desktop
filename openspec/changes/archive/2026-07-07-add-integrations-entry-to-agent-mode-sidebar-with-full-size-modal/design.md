@@ -1,7 +1,7 @@
 # Design - add-integrations-entry-to-agent-mode-sidebar-with-full-size-modal
 
 ## Context
-Agent Mode already exposes workspace tools through `AgentWorkspaceSidebar`, with panel/modal state centralized in `AgentWorkspaceContext` and rendered from `AgentModeSurface`. Board mode gates Integrations visibility with `sectionVisibleForProviders('integrations', providers)` from `client/src/lib/provider-capabilities.ts`; the Agent Mode entry should use the same helper. `IntegrationsPage` is currently a route-level full-page component, but its internal install/uninstall confirmation dialogs already use their own modal shell and must remain nested.
+Agent Mode already exposes workspace tools through `AgentWorkspaceSidebar`, with panel/modal state centralized in `AgentWorkspaceContext` and rendered from `AgentModeSurface`. Board mode gates Integrations visibility with `sectionVisibleForProviders('integrations', providers)` from `client/src/features/providers/lib/provider-capabilities.ts`; the Agent Mode entry should use the same helper. `IntegrationsPage` is currently a route-level full-page component, but its internal install/uninstall confirmation dialogs already use their own modal shell and must remain nested.
 
 Scope: frontend
 
@@ -53,7 +53,7 @@ The modal should only render for an active project. If the project disappears wh
 
 ### Public API / surface
 ```ts
-// client/src/context/AgentWorkspaceContext.tsx
+// client/src/features/missions/context/AgentWorkspaceContext.tsx
 const {
   integrationsModalOpen,
   openIntegrationsModal,

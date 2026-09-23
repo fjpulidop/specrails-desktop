@@ -1,4 +1,4 @@
-import type { ActivityItem } from '../../hooks/useActivity'
+import type { ActivityItem } from '../../features/analytics/hooks/useActivity'
 
 export const demoActivity: ActivityItem[] = [
   {

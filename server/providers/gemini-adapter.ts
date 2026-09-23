@@ -11,7 +11,7 @@
 //     "cached":N,"total_tokens":N,"duration_ms":N}}
 //
 // Differences vs codex: Gemini reports tokens but NOT cost, so `nativeCostUsd`
-// is false and cost is estimated downstream via server/pricing.ts. Gemini DOES
+// is false and cost is estimated downstream via server/modules/accounting/runtime/pricing.ts. Gemini DOES
 // emit OTLP natively via `GEMINI_TELEMETRY_*` env (set by QueueManager), so
 // `nativeOtelEnv` is true — no synthetic bridge. There is no `--system-prompt`
 // flag (the CLI uses the `GEMINI_SYSTEM_MD` env), so `systemPromptArg` is false

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterDraftBlocksLive } from './chat-manager'
+import { filterDraftBlocksLive } from './modules/conversations/runtime/chat-manager'
 
 function feed(state: { inBlock: boolean; pendingTail: string }, chunks: string[]): string {
   return chunks.map((c) => filterDraftBlocksLive(state, c)).join('')

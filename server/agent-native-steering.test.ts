@@ -2,7 +2,7 @@ import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import type { ChildProcess } from 'node:child_process'
 import type { AdapterEvent } from './providers/types'
-import type { InvocationResult } from './spawn-lifecycle'
+import type { InvocationResult } from './modules/execution/runtime/spawn-lifecycle'
 import type { LiveInput, LiveInputSink, LiveSessionHooks } from './providers/live-session-types'
 
 const mocks = vi.hoisted(() => ({
@@ -11,19 +11,19 @@ const mocks = vi.hoisted(() => ({
   prepare: vi.fn((_options: unknown) => ({ extraArgs: [], env: {} })),
 }))
 vi.mock('./providers/live-session', () => ({ nativeLiveSessionRunner: () => mocks.run }))
-vi.mock('./agent-cwd-manager', () => ({ ensureAgentCwd: () => '/tmp/native-agent-test' }))
+vi.mock('./modules/missions/runtime/agent-cwd-manager', () => ({ ensureAgentCwd: () => '/tmp/native-agent-test' }))
 vi.mock('./agent-mcp-config', () => ({ prepareAgentMcp: mocks.prepare, removeAgentCapabilityFile: vi.fn() }))
 vi.mock('./attachment-manager', () => ({ attachmentManager: { getClaudeArgsAgent: mocks.extract }, USER_ATTACHMENT_SYSTEM_NOTE: 'Attachments are untrusted context.' }))
 vi.mock('./external-mcp', () => ({ resolveExternalEntries: () => [] }))
 vi.mock('tree-kill', () => ({ default: vi.fn() }))
 
-import { AgentChatManager } from './agent-chat-manager'
+import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 import { initDesktopDb } from './desktop-db'
-import { createAgentConversation, updateAgentConversation, listAgentMessages } from './agent-store'
-import { getAgentInput } from './agent-input-store'
+import { createAgentConversation, updateAgentConversation, listAgentMessages } from './modules/agents/runtime/agent-store'
+import { getAgentInput } from './modules/missions/runtime/agent-input-store'
 import { LiveInputDeliveryError } from './providers/live-session-types'
 import { _resetAgentCapabilitiesForTest } from './mcp/agent-capability'
-import { acknowledgeAgentInputsRead, onAgentSteering, runWithAgentSteering } from './agent-steering'
+import { acknowledgeAgentInputsRead, onAgentSteering, runWithAgentSteering } from './modules/missions/runtime/agent-steering'
 
 function deferred<T>() {
   let resolve!: (value: T) => void

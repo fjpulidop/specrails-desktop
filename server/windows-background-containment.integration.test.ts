@@ -12,7 +12,7 @@ import {
   type BackgroundProcess,
 } from './transient-children'
 
-import { WINDOWS_JOB_PREPARATION_TIMEOUT_MS } from './background-windows-bootstrap'
+import { WINDOWS_JOB_PREPARATION_TIMEOUT_MS } from './modules/terminals/runtime/background-windows-bootstrap'
 
 interface Fixture {
   directory: string

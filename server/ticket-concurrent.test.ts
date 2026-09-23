@@ -10,7 +10,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
-import { mutateStore, readStore, type Ticket } from './ticket-store'
+import { mutateStore, readStore, type Ticket } from './modules/specs/runtime/ticket-store'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

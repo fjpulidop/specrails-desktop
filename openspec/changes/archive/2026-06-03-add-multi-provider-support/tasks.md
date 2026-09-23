@@ -45,18 +45,18 @@
 
 ## 4. Pricing table
 
-- [x] 4.1 Add `server/pricing.ts` with `PRICING` map keyed `<providerId>:<model>` and `estimateCostUsd(providerId, model, usage) → number | null` + `lastReviewedAt() → string`
+- [x] 4.1 Add `server/modules/accounting/runtime/pricing.ts` with `PRICING` map keyed `<providerId>:<model>` and `estimateCostUsd(providerId, model, usage) → number | null` + `lastReviewedAt() → string`
 - [x] 4.2 Seed with `codex:gpt-5.5`, `codex:gpt-5.4`, `codex:gpt-5.4-mini`, `codex:gpt-5.3-codex` — pricing-of-record fetched at `lastReviewedAt: '2026-05-17'`
 - [x] 4.3 Document the pricing review cadence (quarterly) inline at the top of the file; include link/notes to OpenAI pricing
-- [x] 4.4 Write `server/pricing.test.ts`: cost = (in*price_in + out*price_out + cache_read*price_cache) / 1M for every entry; unknown model returns null; missing usage fields treated as 0
+- [x] 4.4 Write `server/modules/accounting/runtime/pricing.test.ts`: cost = (in*price_in + out*price_out + cache_read*price_cache) / 1M for every entry; unknown model returns null; missing usage fields treated as 0
 
 ## 5. Codex OTEL bridge
 
-- [x] 5.1 Add `server/codex-otel-bridge.ts` exporting `createCodexOtelBridge({ jobId, projectId, hubPort, model })` returning an object with `consumeEvent(event: AdapterEvent)` and `finalize(stderr?: string)`
+- [x] 5.1 Add `server/modules/accounting/runtime/codex-otel-bridge.ts` exporting `createCodexOtelBridge({ jobId, projectId, hubPort, model })` returning an object with `consumeEvent(event: AdapterEvent)` and `finalize(stderr?: string)`
 - [x] 5.2 Bridge buffers events, on `result` emits an OTLP/JSON traces payload (root span + per-tool child events), a metrics payload (one data point per token field + duration), and a logs payload (text-delta accumulator); posts each to `http://127.0.0.1:<hubPort>/otlp/v1/{traces,metrics,logs}`
 - [x] 5.3 Implement the 10 MB cap shared with the existing OTLP receiver path: after the receiver returns `logs_truncated`, the bridge stops sending log payloads but continues traces/metrics
 - [x] 5.4 Resource attributes: `specrails.job_id`, `specrails.project_id`, `specrails.provider=codex`, `specrails.codex.thread_id` (from session-started), `specrails.codex.cli_version` (best-effort)
-- [x] 5.5 Write `server/codex-otel-bridge.test.ts`: feed a recorded JSONL fixture, assert the receiver was called with expected payloads (mock fetch / mock POST)
+- [x] 5.5 Write `server/modules/accounting/runtime/codex-otel-bridge.test.ts`: feed a recorded JSONL fixture, assert the receiver was called with expected payloads (mock fetch / mock POST)
 - [x] 5.6 Wire `QueueManager` to instantiate the bridge when `adapter.capabilities.nativeOtelEnv === false` and telemetry is ON; consume every parsed `AdapterEvent`; call `bridge.finalize` on process close
 
 ## 6. Refactor `result-event.ts`
@@ -64,7 +64,7 @@
 - [x] 6.1 Replace the legacy `normaliseResultEvent(event, provider)` with `normaliseResultEvent(adapter, events): NormalisedResult` that delegates to `adapter.extractResult(events)`
 - [x] 6.2 After result extraction, if `adapter.capabilities.nativeCostUsd === false`, invoke `estimateCostUsd(adapter.id, normalised.model, normalised)` and set `total_cost_usd` + carry forward an `estimated: true` flag in the returned shape
 - [x] 6.3 Update every callsite (`queue-manager.ts`, `chat-manager.ts`, `agent-refine-manager.ts`) to pass the adapter + events array
-- [x] 6.4 Update `server/result-event.test.ts` for both providers
+- [x] 6.4 Update `server/modules/accounting/runtime/result-event.test.ts` for both providers
 
 ## 7. Refactor `ChatManager`
 
@@ -74,7 +74,7 @@
 - [x] 7.4 Capture `session-started` event into `capturedSessionId` (real codex thread_id, not synthetic); REMOVE the `codex-<convId>-<timestamp>` synthetic id generator
 - [x] 7.5 On close, call `adapter.extractResult(events)` and pass the result to `recordInvocation` with `provider: adapter.id`
 - [x] 7.6 Update `auto-title` to use `adapter.buildArgs('spec-gen', { prompt: titlePrompt, model: ... })` to stay provider-agnostic
-- [x] 7.7 Extend `server/chat-manager.test.ts` codex suite: assert real thread_id captured, second turn uses `exec resume`, third turn after minimize/restore preserves the session id
+- [x] 7.7 Extend `server/modules/conversations/runtime/chat-manager.test.ts` codex suite: assert real thread_id captured, second turn uses `exec resume`, third turn after minimize/restore preserves the session id
 - [x] 7.8 Add a regression test: claude path is byte-identical (mock spawn, assert argv unchanged from pre-refactor)
 
 ## 8. Refactor `QueueManager`
@@ -86,7 +86,7 @@
 - [x] 8.5 Profile injection: replace `this._provider === 'claude' &&` gate with `adapter.capabilities.profileEnvSupport &&`
 - [x] 8.6 Plugin injection (env var path): same — gate on adapter capability (the `cli-add` path doesn't need env injection; the spawn already has its `<PROVIDER>_HOME` set per §13)
 - [x] 8.7 `recordInvocation` call passes `provider: adapter.id`; pricing fallback applied at result-normalise step (§6.2)
-- [x] 8.8 Extend `server/queue-manager.test.ts` codex suite: real tokens captured, estimated cost present, OTEL bridge invoked when telemetry ON
+- [x] 8.8 Extend `server/modules/execution/runtime/queue-manager.test.ts` codex suite: real tokens captured, estimated cost present, OTEL bridge invoked when telemetry ON
 
 ## 9. Refactor `AgentRefineManager`
 
@@ -126,8 +126,8 @@
 - [x] 13.2 `validateProfile` keeps the AJV pass; `validateStructural` resolves `getAdapter(profile.provider ?? 'claude')` and asserts every `agents[i].model ∈ adapter.modelCatalog().map(m => m.value)`; baseline check uses `adapter.baselineAgents()`
 - [x] 13.3 `resolveProfile(projectPath, explicit, project)`: signature gains the project arg so the resolver can default `profile.provider` to `project.provider` in-memory (file on disk stays untouched)
 - [x] 13.4 `snapshotForJob` writes the materialised in-memory profile (with `provider` field present) so specrails-core skills receive the explicit provider id
-- [x] 13.5 Update `server/profile-manager.test.ts`: codex models accepted on codex profiles, cross-provider rejection, defaulting from project, schema not enumerating models
-- [x] 13.6 Extend `client/src/pages/AgentsPage.tsx` Profiles tab: model dropdown for each agent calls `adapter.modelCatalog()` derived from `project.provider`; banner text changes when project provider is codex AND core < 4.6.0
+- [x] 13.5 Update `server/modules/agents/runtime/profile-manager.test.ts`: codex models accepted on codex profiles, cross-provider rejection, defaulting from project, schema not enumerating models
+- [x] 13.6 Extend `client/src/features/agents/pages/AgentsPage.tsx` Profiles tab: model dropdown for each agent calls `adapter.modelCatalog()` derived from `project.provider`; banner text changes when project provider is codex AND core < 4.6.0
 
 ## 14. Extend `PluginManager`
 
@@ -142,7 +142,7 @@
   - `server/plugin-manager.test.ts`: install/uninstall on codex project via mock `codex mcp` subprocess
   - `server/plugins/serena/install.codex.test.ts`: codex-specific install path
   - `server/plugins/contributors.test.ts`: target file selection via adapter
-- [x] 14.9 `client/src/pages/IntegrationsPage.tsx` (or wherever plugin cards render): show "Not applicable for this provider" state when `status === 'not-applicable'`
+- [x] 14.9 `client/src/features/integrations/pages/IntegrationsPage.tsx` (or wherever plugin cards render): show "Not applicable for this provider" state when `status === 'not-applicable'`
 
 ## 15. DB migrations
 
@@ -150,15 +150,15 @@
 - [x] 15.2 Add migration 19: `ALTER TABLE ai_invocations ADD COLUMN total_cost_usd_estimated INTEGER NOT NULL DEFAULT 0;`
 - [x] 15.3 Update `recordInvocation` to require `provider` and accept optional `estimated: boolean` (writes 1 when true, 0 default)
 - [x] 15.4 Update `spending.ts` `getSpending` and `getInvocations` to surface `provider`, `total_cost_usd_estimated`, `totalEstimatedCostUsd` totals, and `byProvider` breakdown
-- [x] 15.5 Update `client/src/pages/AnalyticsPage.tsx`: `~` prefix on estimated cost cells with tooltip; Hero footnote when `totalEstimatedCostUsd > 0`; `byProvider` widget (new component `client/src/components/analytics/ProviderBreakdownCard.tsx`)
-- [x] 15.6 Update `server/spending.test.ts` and `analytics/*.test.tsx` accordingly
+- [x] 15.5 Update `client/src/features/analytics/pages/AnalyticsPage.tsx`: `~` prefix on estimated cost cells with tooltip; Hero footnote when `totalEstimatedCostUsd > 0`; `byProvider` widget (new component `client/src/features/analytics/components/ProviderBreakdownCard.tsx`)
+- [x] 15.6 Update `server/modules/accounting/runtime/spending.test.ts` and `analytics/*.test.tsx` accordingly
 
 ## 16. Extend `setup-prerequisites.ts`
 
 - [x] 16.1 `getSetupPrerequisitesStatus`: iterate `listAdapters()` and call each `adapter.detectInstalled()`; produce one entry per provider with `installed`, `executable`, `version`, `meetsMinimum`, plus the existing `uv` (for serena) check
 - [x] 16.2 `formatMissingSetupPrerequisites`: changes wording — block only when zero providers are usable
-- [x] 16.3 Update `client/src/components/PrerequisitesPanel.tsx` to list each provider as a row with detected/missing chip and install-info link
-- [x] 16.4 Update `client/src/components/InstallInstructionsModal.tsx` with codex install commands (Homebrew `brew install codex`, npm `npm i -g @openai/codex` or whatever's official — confirm at implementation time)
+- [x] 16.3 Update `client/src/features/projects/components/PrerequisitesPanel.tsx` to list each provider as a row with detected/missing chip and install-info link
+- [x] 16.4 Update `client/src/features/projects/components/InstallInstructionsModal.tsx` with codex install commands (Homebrew `brew install codex`, npm `npm i -g @openai/codex` or whatever's official — confirm at implementation time)
 - [x] 16.5 Update `server/setup-prerequisites.test.ts`
 
 ## 17. Refactor `core-compat.ts`
@@ -208,7 +208,7 @@
 - [x] 21.1 `server/hub-router.ts` line 147: replace `codex: false` with `codex: providers.codex` from `detectAvailableProviders()`
 - [x] 21.2 `server/hub-router.ts` lines 181-188: remove the `if (provider === 'codex') {...}` rejection block; replace the `if (provider !== undefined && provider !== 'claude')` check with `if (provider !== undefined && !hasAdapter(provider))` returning a 400 listing registered adapter ids
 - [x] 21.3 `client/src/hooks/useHub.tsx` line 37: change `addProject(... provider?: 'claude')` to `addProject(... provider?: string)` (or, more tightly, `ProviderId`); update the request body accordingly
-- [x] 21.4 `client/src/components/AddProjectDialog.tsx`:
+- [x] 21.4 `client/src/features/projects/components/AddProjectDialog.tsx`:
   - Line 59: stop forcing `codex: false`; use the server's truthful response
   - Lines 74-77: remove the `if (selectedProvider !== 'claude') toast.error(...)` early-return
   - Lines 220-236: codex button `disabled={!availableProviders.codex}` (instead of unconditional `disabled`)
@@ -218,9 +218,9 @@
 
 ## 22. Hub: settings page + analytics polish
 
-- [x] 22.1 `client/src/pages/SettingsPage.tsx`: render a read-only "Provider" badge near the project name, with a tooltip "Cannot be changed after project creation"
-- [x] 22.2 `client/src/pages/AnalyticsPage.tsx`: byProvider widget (§15.5) wired; estimated cost tilde rendered; Hero footnote when `totalEstimatedCostUsd > 0`
-- [x] 22.3 `client/src/pages/AgentsPage.tsx` Catalog tab: for codex projects, list `.codex/skills/rails/sr-*/SKILL.md` files alongside Claude `.claude/agents/sr-*.md` for projects where both exist
+- [x] 22.1 `client/src/features/settings/pages/SettingsPage.tsx`: render a read-only "Provider" badge near the project name, with a tooltip "Cannot be changed after project creation"
+- [x] 22.2 `client/src/features/analytics/pages/AnalyticsPage.tsx`: byProvider widget (§15.5) wired; estimated cost tilde rendered; Hero footnote when `totalEstimatedCostUsd > 0`
+- [x] 22.3 `client/src/features/agents/pages/AgentsPage.tsx` Catalog tab: for codex projects, list `.codex/skills/rails/sr-*/SKILL.md` files alongside Claude `.claude/agents/sr-*.md` for projects where both exist
 - [x] 22.4 `client/src/components/Navbar.tsx`: provider chip (small) next to the active project name when there's space — pure visual identification
 - [x] 22.5 Update `client/src/lib/api.ts` and `client/src/lib/models.ts` if any provider-specific URL or constant is hardcoded; verify all calls use `getApiBase()`
 

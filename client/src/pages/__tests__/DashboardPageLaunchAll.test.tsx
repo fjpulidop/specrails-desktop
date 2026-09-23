@@ -2,9 +2,9 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '../../test-utils'
 import { toast } from 'sonner'
-import DashboardPage from '../DashboardPage'
+import DashboardPage from '../../features/dashboard/pages/DashboardPage'
 import type { LocalTicket } from '../../types'
-import { RailPrDecisionProvider } from '../../context/RailPrDecisionContext'
+import { RailPrDecisionProvider } from '../../features/delivery/context/RailPrDecisionContext'
 
 const { mockSpecsBoard } = vi.hoisted(() => ({
   mockSpecsBoard: vi.fn(),
@@ -40,7 +40,7 @@ vi.mock('../../hooks/useSharedWebSocket', () => ({
 }))
 
 let mockTickets: LocalTicket[] = []
-vi.mock('../../hooks/useTickets', () => ({
+vi.mock('../../features/specs/hooks/useTickets', () => ({
   useTickets: () => ({
     tickets: mockTickets,
     isLoading: false,
@@ -51,14 +51,14 @@ vi.mock('../../hooks/useTickets', () => ({
   }),
 }))
 
-vi.mock('../../components/SpecsBoard', () => ({
+vi.mock('../../features/specs/components/SpecsBoard', () => ({
   SpecsBoard: (props: Record<string, unknown>) => {
     mockSpecsBoard(props)
     return <div data-testid="specs-board" />
   },
 }))
-vi.mock('../../components/TicketDetailModal', () => ({ TicketDetailModal: () => null }))
-vi.mock('../../components/CreateTicketModal', () => ({ CreateTicketModal: () => null }))
+vi.mock('../../features/specs/components/TicketDetailModal', () => ({ TicketDetailModal: () => null }))
+vi.mock('../../features/specs/components/CreateTicketModal', () => ({ CreateTicketModal: () => null }))
 
 vi.mock('sonner', () => ({
   toast: { info: vi.fn(), error: vi.fn(), success: vi.fn() },

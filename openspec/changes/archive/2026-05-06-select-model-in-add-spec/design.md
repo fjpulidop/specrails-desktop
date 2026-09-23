@@ -62,7 +62,7 @@ Alternative considered: pass-through with no validation. Rejected — hidden cou
 
 ### D5. Server owns model constants; client renders what the endpoint returns
 
-Define `CLAUDE_MODELS` / `CODEX_MODELS` (id + label pairs) in a new `server/spec-models.ts`. The `GET /api/projects/:projectId/default-spec-model` response carries the resolved default AND the full allow-list as `{ model, provider, allowed: [{ value, label }] }`. The client renders the dropdown directly from `allowed` — it does not maintain its own copy.
+Define `CLAUDE_MODELS` / `CODEX_MODELS` (id + label pairs) in a new `server/modules/specs/runtime/spec-models.ts`. The `GET /api/projects/:projectId/default-spec-model` response carries the resolved default AND the full allow-list as `{ model, provider, allowed: [{ value, label }] }`. The client renders the dropdown directly from `allowed` — it does not maintain its own copy.
 
 Existing `CLAUDE_MODELS` / `CODEX_MODELS` constants in `client/src/components/ModelSelector.tsx` are scoped to the agents profile editor and remain untouched (different concern: preset/override matrix). When they fall out of sync with server's list, the agent-profile picker may surface a stale entry — acceptable for now since the agents profile UI is a power-user surface and is independently audited.
 

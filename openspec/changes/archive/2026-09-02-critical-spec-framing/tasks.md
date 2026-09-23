@@ -1,7 +1,7 @@
 ## 1. The framing artifact (client)
 
 - [x] 1.1 Add parser tests for `problem-frame`: full-snapshot replacement, all-keys requirement, nested reading/`touches` shape, empty `reading` or `discriminator` rejection, invalid JSON rejection, streaming-tail cut, last-valid-wins across multiple blocks, and coexistence with a `spec-draft` and an `options` block in one message.
-- [x] 1.2 Implement `client/src/components/agent-chat/agent-problem-frame.ts` mirroring `agent-spec-draft.ts`, exporting the type and the extraction function with no rendering concerns.
+- [x] 1.2 Implement `client/src/features/missions/components/agent-problem-frame.ts` mirroring `agent-spec-draft.ts`, exporting the type and the extraction function with no rendering concerns.
 - [x] 1.3 Implement `AgentProblemFrameCard.tsx` mirroring `AgentSpecDraftCard.tsx`, rendering the two readings side by side with equal visual weight, each under its touched surfaces, and the discriminating question as the card's call to answer — so a fake second reading is legible as fake at a glance.
 - [x] 1.4 Wire extraction into `AgentMessage.tsx` beside the existing draft-card extraction, memoized on the same message-state boundary so streaming frames do not reparse.
 - [x] 1.5 Add component tests: a valid frame renders a card and hides the raw block; a malformed block renders neither a card nor literal code and leaves surrounding content intact; readings sharing surfaces still render when their outcomes differ.

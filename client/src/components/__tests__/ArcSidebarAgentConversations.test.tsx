@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '../../test-utils'
 import { ArcSidebar } from '../ArcSidebar'
 import type { DesktopProject } from '../../hooks/useDesktop'
-import type { AgentConversation } from '../../lib/agent-api'
+import type { AgentConversation } from '../../features/missions/lib/agent-api'
 
 const mockProjects: DesktopProject[] = [
   { id: 'proj-1', slug: 'proj-1', name: 'Project Alpha', path: '/alpha', db_path: '/alpha/.db', added_at: '', last_seen_at: '' },
@@ -24,7 +24,7 @@ vi.mock('../../hooks/useDesktop', () => ({
   }),
 }))
 
-vi.mock('../settings/ProjectSettingsDialog', () => ({
+vi.mock('../../features/settings/components/ProjectSettingsDialog', () => ({
   ProjectSettingsDialog: ({ open }: { open: boolean }) =>
     open ? <div data-testid="project-settings-dialog" /> : null,
 }))
@@ -57,7 +57,7 @@ const agentChatState: {
   favoriteIds: new Set(),
 }
 
-vi.mock('../../context/AgentChatContext', () => ({
+vi.mock('../../features/missions/context/AgentChatContext', () => ({
   useAgentChat: () => ({
     conversations: [conv('c-1', 'Fix the build', 'proj-1'), conv('c-2', null, null)],
     active: agentChatState.active,

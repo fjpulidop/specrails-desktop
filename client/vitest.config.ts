@@ -33,8 +33,8 @@ export default defineConfig({
         // profile-manager.test.ts / profiles-router.test.ts / rails-store.test.ts.
         // UI component tests are tracked as follow-up (add-agents-profiles
         // tasks 17.7–17.9).
-        'src/components/agents/**',
-        'src/pages/AgentsPage.tsx',
+        'src/features/agents/components/**',
+        'src/features/agents/pages/AgentsPage.tsx',
         // Premium terminal panel additions — feature delivered in
         // add-premium-terminal-panel. The shell-quote pure function and the
         // marks store have direct unit tests; the rest are Tauri-only paths
@@ -44,36 +44,36 @@ export default defineConfig({
         // backfill behavioural tests once a Tauri test harness lands.
         'src/lib/tauri-shell.ts',
         'src/lib/tauri-drag-drop.ts',
-        'src/lib/save-scrollback.ts',
-        'src/lib/terminal-notifications.ts',
-        'src/components/terminal/PromptGutter.tsx',
-        'src/components/terminal/CommandTimingBadge.tsx',
-        'src/components/terminal/TerminalContextMenu.tsx',
-        'src/components/terminal/TerminalSearchOverlay.tsx',
-        'src/components/terminal/ShortcutContextMenu.tsx',
-        'src/components/settings/TerminalSettingsSection.tsx',
+        'src/features/terminals/lib/save-scrollback.ts',
+        'src/features/terminals/lib/terminal-notifications.ts',
+        'src/features/terminals/components/terminal/PromptGutter.tsx',
+        'src/features/terminals/components/terminal/CommandTimingBadge.tsx',
+        'src/features/terminals/components/terminal/TerminalContextMenu.tsx',
+        'src/features/terminals/components/terminal/TerminalSearchOverlay.tsx',
+        'src/features/terminals/components/terminal/ShortcutContextMenu.tsx',
+        'src/features/settings/components/TerminalSettingsSection.tsx',
         // monaco-editor loaded dynamically; not testable in jsdom
-        'src/lib/monaco-setup.ts',
-        'src/components/code-explorer/CodeViewerMonaco.tsx',
+        'src/features/code/lib/monaco-setup.ts',
+        'src/features/code/components/code-explorer/CodeViewerMonaco.tsx',
         // Browser-capture ("Add Spec from browser"): the screencast canvas + WS
         // hook and the large overlay rely on WebSocket binary frames,
         // createImageBitmap, canvas 2d drawing and pointer-drag — none of which
         // run under jsdom. The pure geometry/REST/flag logic lives in
         // lib/browser-capture.ts and CapturedDomPanel, both unit-tested.
-        'src/components/browser-capture/useBrowserCaptureSession.ts',
-        'src/components/browser-capture/BrowserCaptureModal.tsx',
+        'src/features/browser/components/browser-capture/useBrowserCaptureSession.ts',
+        'src/features/browser/components/browser-capture/BrowserCaptureModal.tsx',
         // Read-only embedded-browser modal for opening spec-description links —
         // same canvas/WS/pointer machinery as BrowserCaptureModal (not jsdom-able).
-        'src/components/browser-capture/WebViewModal.tsx',
+        'src/features/browser/components/browser-capture/WebViewModal.tsx',
         // Annotation markup editor: canvas flatten + pointer-drag drawing; the
         // model/geometry/undo-reducer live in lib/annotations.ts and are tested.
-        'src/components/browser-capture/AnnotationEditor.tsx',
+        'src/features/browser/components/browser-capture/AnnotationEditor.tsx',
         // Loop builder canvas (the Loops feature): renders @xyflow/react (React
         // Flow) which needs getBoundingClientRect / ResizeObserver / pointer +
         // viewport transforms unavailable under jsdom. The pure graph⇄react-flow
         // conversion lives in lib/loop-graph-rf.ts and is unit-tested; the engine
         // logic is tested server-side (loop-run-manager.test.ts).
-        'src/pages/LoopBuilderPage.tsx',
+        'src/features/loops/pages/LoopBuilderPage.tsx',
       ],
       thresholds: {
         lines: 80,

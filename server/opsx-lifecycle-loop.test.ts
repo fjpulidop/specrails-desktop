@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { initDb, type DbInstance } from './db'
-import { expandCommands, getLoopCommand } from './loop-command-catalog'
+import { expandCommands, getLoopCommand } from './modules/loops/runtime/loop-command-catalog'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -17,9 +17,9 @@ import {
   seedChangeId,
   openspecChangeState,
   type LoopExecutors,
-} from './loop-run-manager'
-import { getLoopTemplate, opsxLifecycleGraph } from './loop-templates'
-import { interpolateSpec, validateLoopGraph } from './loop-graph'
+} from './modules/loops/runtime/loop-run-manager'
+import { getLoopTemplate, opsxLifecycleGraph } from './modules/loops/runtime/loop-templates'
+import { interpolateSpec, validateLoopGraph } from './modules/loops/runtime/loop-graph'
 import type { WsMessage } from './types'
 
 // ── opsx:* magic commands (loop-magic-commands) ──────────────────────────────

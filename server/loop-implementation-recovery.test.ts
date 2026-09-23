@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { initDb, getJob, getJobEvents, type DbInstance } from './db'
-import { LoopRunManager, type LoopExecutors } from './loop-run-manager'
-import { getFactoryLoop } from './loop-factory'
-import { fixLoopGraph } from './loop-templates'
-import { expandCommands } from './loop-command-catalog'
-import { interpolateSpec, type LoopSpec } from './loop-graph'
-import { resolveConstants, BUILTIN_CONSTANTS } from './loop-constants'
-import { getLoopRun } from './loop-runs-store'
+import { LoopRunManager, type LoopExecutors } from './modules/loops/runtime/loop-run-manager'
+import { getFactoryLoop } from './modules/loops/runtime/loop-factory'
+import { fixLoopGraph } from './modules/loops/runtime/loop-templates'
+import { expandCommands } from './modules/loops/runtime/loop-command-catalog'
+import { interpolateSpec, type LoopSpec } from './modules/loops/runtime/loop-graph'
+import { resolveConstants, BUILTIN_CONSTANTS } from './modules/loops/runtime/loop-constants'
+import { getLoopRun } from './modules/loops/runtime/loop-runs-store'
 
 const opened: DbInstance[] = []
 afterEach(() => { for (const db of opened.splice(0)) db.close() })

@@ -2,3 +2,7 @@ export { normalizePendingQueue, isDependencySatisfied } from './domain/schedulin
 export { recordJobInvocations } from './application/record-job-invocations'
 export type { JobAccountingInput, JobInvocation, JobInvocationStatus } from './domain/job-accounting'
 export type { JobAccountingPorts } from './ports'
+export { recoverJobUsage } from './application/recover-job-usage'
+export { sanitizeRecoveredResult, type JobUsage } from './domain/usage'
+export type { UsageRecoveryPorts, DurableUsageRow, NormalizedRecoveryUsage } from './ports'
+export { enforceDailyBudgets, type BudgetSnapshot, type BudgetEnforcementPorts } from './application/enforce-budget'

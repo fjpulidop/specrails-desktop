@@ -25,7 +25,7 @@ resolved provider. When `project.provider === 'codex'`, the element must not be
 rendered at all — no greying out, no tooltip, full DOM removal.
 
 The guard is implemented via a new pure utility `isSmashCapable(provider: string)`,
-co-located in `client/src/lib/provider-capabilities.ts`, which returns `true` iff
+co-located in `client/src/features/providers/lib/provider-capabilities.ts`, which returns `true` iff
 `provider === 'claude'`. `ProposeSpecModal` already consumes `useDefaultSpecModel`
 which returns the `provider` field alongside the model list; the modal passes a new
 `smashCapable` prop (or equivalent boolean) down to `ContextScopeSlider`.

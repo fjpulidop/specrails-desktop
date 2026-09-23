@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { CommandPalette } from '../CommandPalette'
-import type { AgentConversation, MissionSearchHit } from '../../lib/agent-api'
+import type { AgentConversation, MissionSearchHit } from '../../features/missions/lib/agent-api'
 
 // Mission-search behaviour of the ⌘K palette (search-missions-in-palette).
 // The generic palette suite lives in CommandPalette.test.tsx; this file mocks
@@ -55,7 +55,7 @@ const oldOne = conv('c-old', 'Ancient thread', new Date(Date.now() - 48 * 3_600_
 const selectConversation = vi.fn(async () => {})
 const openAgentPanel = vi.fn()
 const liveByConversation = new Map<string, { isStreaming: boolean }>([['c-tetris', { isStreaming: true }]])
-vi.mock('../../context/AgentChatContext', () => ({
+vi.mock('../../features/missions/context/AgentChatContext', () => ({
   useAgentChat: () => ({
     conversations: [tetris, deploy, oldOne],
     liveByConversation,
@@ -65,7 +65,7 @@ vi.mock('../../context/AgentChatContext', () => ({
 }))
 
 const searchMissions = vi.fn<(q: string, limit?: number, signal?: AbortSignal) => Promise<MissionSearchHit[]>>()
-vi.mock('../../lib/agent-api', () => ({
+vi.mock('../../features/missions/lib/agent-api', () => ({
   searchMissions: (...args: [string, number?, AbortSignal?]) => searchMissions(...args),
 }))
 

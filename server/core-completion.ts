@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import { resolveCoreNodeRuntime } from './core-node-runtime'
-import { findCoreAgentRuntimeCli } from './agent-runtime-loader'
+import { findCoreAgentRuntimeCli } from './modules/agent-runtime/runtime/agent-runtime-loader'
 
 export interface CoreCompletion {
   implementation: 'complete' | 'incomplete'

@@ -8,10 +8,10 @@ The Playwright capture engine backs **Add Spec → From a website** (`BrowserCap
 Chromium (headless, persistent shared context — browser-context-pool.ts)
   │  CDP Page.startScreencast (JPEG frames)          Playwright input API
   ▼                                                   ▲
-PlaywrightPageHandle (server/browser-playwright.ts)   │
+PlaywrightPageHandle (server/modules/browser/runtime/browser-playwright.ts)   │
   │  ScreencastFrame (raw JPEG Buffer)                │ dispatchInput
   ▼                                                   │
-BrowserCaptureManager (server/browser-capture-manager.ts)
+BrowserCaptureManager (server/modules/browser/runtime/browser-capture-manager.ts)
   │  binary WS frames (dedicated /ws/browser/:id)     │ JSON control {type:'input'|'probe'}
   ▼                                                   │
 useBrowserCaptureSession (client)  ───────────────────┘
@@ -119,7 +119,7 @@ Pop-ups now work end-to-end — the design:
 
 ## Verification
 
-Unit coverage: `server/browser-capture-manager.test.ts` (deferred nav, conflation, full popup lifecycle), `server/browser-playwright.test.ts` (`screencastParams`), `server/project-router.browser.test.ts` (popup-view route), `client/src/lib/browser-frame-pipeline.test.ts` (latest-wins/drop/dispose/stats), `client/src/lib/browser-capture.test.ts` (coalescer, popup helpers).
+Unit coverage: `server/modules/browser/runtime/browser-capture-manager.test.ts` (deferred nav, conflation, full popup lifecycle), `server/modules/browser/runtime/browser-playwright.test.ts` (`screencastParams`), `server/project-router.browser.test.ts` (popup-view route), `client/src/features/browser/lib/browser-frame-pipeline.test.ts` (latest-wins/drop/dispose/stats), `client/src/features/browser/lib/browser-capture.test.ts` (coalescer, popup helpers).
 
 `node scripts/smoke-browser-rendering.mjs` exercises the real exported Playwright
 handle using generated pages and temporary profiles, with no Specrails DB or

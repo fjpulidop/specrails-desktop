@@ -273,7 +273,7 @@ function applyDesktopMigrations(db: DbInstance): void {
     },
     // Migration 5: seed terminal-settings defaults under reserved settings keys.
     // Idempotent — uses INSERT OR IGNORE so re-running never overwrites a user's
-    // chosen value. See server/terminal-settings.ts for the typed access layer.
+    // chosen value. See server/modules/terminals/runtime/terminal-settings.ts for the typed access layer.
     () => {
       const seed = db.prepare('INSERT OR IGNORE INTO hub_settings (key, value) VALUES (?, ?)')
       seed.run('terminal.fontFamily', "'DM Mono', 'JetBrains Mono', ui-monospace, Menlo, monospace")
@@ -303,7 +303,7 @@ function applyDesktopMigrations(db: DbInstance): void {
     },
     // Migration 8: seed default ui_theme for the app-wide theme system.
     // Allow-list enforced at the route layer (server/desktop-router.ts) and the
-    // client (client/src/lib/themes.ts).
+    // client (client/src/features/settings/lib/themes.ts).
     () => {
       db.prepare('INSERT OR IGNORE INTO hub_settings (key, value) VALUES (?, ?)').run(
         'ui_theme', 'specrails',
@@ -407,7 +407,7 @@ function applyDesktopMigrations(db: DbInstance): void {
     // Migration 14: loops — global, cross-project library of visual automation
     // loop definitions (the Loops feature). Stored app-level (NOT per-project):
     // a loop is a reusable recipe used from any project's rail. `graph` is the
-    // JSON node-graph (see server/loop-graph.ts); `status` is the Draft/Published
+    // JSON node-graph (see server/modules/loops/runtime/loop-graph.ts); `status` is the Draft/Published
     // lifecycle. "Running" is NOT stored here — it is derived from active
     // per-project loop_runs at query time.
     () => {

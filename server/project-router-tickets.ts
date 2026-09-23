@@ -10,15 +10,15 @@ import {
   deleteConversation, getMessages, setQuickContractRefineLast
 } from './db'
 import { getAdapter } from './providers'
-import { runContractRefine, runContractRefineForQuick } from './contract-refine-runner'
-import { isExploreContractRefineKillSwitchActive, splitDescriptionAtContractLayer } from './explore-contract-refine'
-import { runSmash, runSmashUndo, applyDeleteEpicChildren, checkSmashEligibility } from './smash-runner'
-import { isSpecsSmashKillSwitchActive } from './explore-smash'
-import { recordInvocation, updateTicketIdForConversation } from './ai-invocations'
+import { runContractRefine, runContractRefineForQuick } from './modules/specs/runtime/contract-refine-runner'
+import { isExploreContractRefineKillSwitchActive, splitDescriptionAtContractLayer } from './modules/conversations/runtime/explore-contract-refine'
+import { runSmash, runSmashUndo, applyDeleteEpicChildren, checkSmashEligibility } from './modules/specs/runtime/smash-runner'
+import { isSpecsSmashKillSwitchActive } from './modules/conversations/runtime/explore-smash'
+import { recordInvocation, updateTicketIdForConversation } from './modules/accounting/runtime/ai-invocations'
 import {
   buildScopedSystemPromptPrefix, toolFlagsForScope, type ContextScope
-} from './context-scope'
-import { finaliseInvocationResult } from './result-event'
+} from './modules/conversations/runtime/context-scope'
+import { finaliseInvocationResult } from './modules/accounting/runtime/result-event'
 import type { AdapterEvent } from './providers/types'
 import type { SpawnOptions } from './providers/types'
 import {
@@ -32,18 +32,18 @@ import { randomUUID } from 'crypto'
 import {
   getModelsForProvider, isValidModelForProvider,
   type SpecProvider
-} from './spec-models'
+} from './modules/specs/runtime/spec-models'
 import { validateRequestedProvider } from './provider-selection'
 import {
   readStore, mutateStore, filterTickets,
   isValidStatus, isValidPriority, validatePriorityForStatus, clampShortSummary,
   type Ticket
-} from './ticket-store'
-import { generateAutoTitle } from './explore-draft-title'
+} from './modules/specs/runtime/ticket-store'
+import { generateAutoTitle } from './modules/conversations/runtime/explore-draft-title'
 import {
   appendSpecAddendum, buildSpecAddendum, editSpecAddendum, parseSpecAddendumInput, readSpecAddenda,
   removeSpecAddendum, setSpecAddendumStatus, SpecAddendumValidationError, type SpecAddendum,
-} from './spec-addenda'
+} from './modules/specs/runtime/spec-addenda'
 import type { TicketCreatedMessage, TicketUpdatedMessage, TicketDeletedMessage, TicketAiEditStreamMessage, TicketAiEditDoneMessage, TicketAiEditErrorMessage, SpecGenStreamMessage, SpecGenDoneMessage, SpecGenErrorMessage, LocalTicket } from './types'
 import { spawnAiCli } from './util/cli-prompt'
 import { trackTransientChild } from './transient-children'
@@ -550,10 +550,10 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
         // Create ticket directly
         try {
           const now = new Date().toISOString()
-          let created: import('./ticket-store').Ticket | undefined
+          let created: import('./modules/specs/runtime/ticket-store').Ticket | undefined
           const store = mutateStore(filePath, (s) => {
             const id = s.next_id++
-            const ticket: import('./ticket-store').Ticket = {
+            const ticket: import('./modules/specs/runtime/ticket-store').Ticket = {
               ...repositoryScope(req, res),
               id,
               title: specTitle,
@@ -1297,7 +1297,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     // Validate the ticket exists.
     try {
       const filePath = ticketPath(req)
-      const { withLock } = await import('./ticket-store')
+      const { withLock } = await import('./modules/specs/runtime/ticket-store')
       const ticket = withLock(filePath, (s) => s.tickets[String(ticketId)])
       if (!ticket) { res.status(404).json({ error: 'ticket not found' }); return }
       const refineProviderCheck = resolveTicketBoundProvider(
@@ -1380,7 +1380,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     const { project, db, broadcast } = ctx(req)
     try {
       const filePath = ticketPath(req)
-      const { readStore } = await import('./ticket-store')
+      const { readStore } = await import('./modules/specs/runtime/ticket-store')
       const store = readStore(filePath)
       const gate = checkSmashEligibility(store, ticketId)
       if (!gate.ok) {
@@ -1541,7 +1541,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
     if (status !== undefined && !isValidStatus(status)) {
       res.status(400).json({ error: 'status must be one of: draft, todo, in_progress, on_review, done, cancelled' }); return
     }
-    const finalStatus = (status ?? 'todo') as import('./ticket-store').TicketStatus
+    const finalStatus = (status ?? 'todo') as import('./modules/specs/runtime/ticket-store').TicketStatus
     const finalPriority = priority === undefined ? (finalStatus === 'draft' ? null : 'medium') : (priority === null ? null : priority)
     const priorityError = validatePriorityForStatus(finalStatus, finalPriority as never)
     if (priorityError) {
@@ -1770,7 +1770,7 @@ export function registerTicketsRoutes(deps: ProjectRoutesDeps): void {
       const store = mutateStore(filePath, (s) => {
         const ticket = s.tickets[ticketId]
         if (!ticket) return
-        const nextStatus = (status ?? ticket.status) as import('./ticket-store').TicketStatus
+        const nextStatus = (status ?? ticket.status) as import('./modules/specs/runtime/ticket-store').TicketStatus
         const nextPriority = priority === undefined ? ticket.priority : (priority === null ? null : priority)
         const err = validatePriorityForStatus(nextStatus, nextPriority as never)
         if (err) { validationError = err; return }

@@ -47,3 +47,17 @@ npm run typecheck
 - [Existing route regressions](../../project-router.test.ts): full request behavior.
 
 When adding a file, update the dependency rules and run `npm run docs:source-map`.
+
+## Reviewed public entry points
+
+- [adapters/http.ts](adapters/http.ts)
+- [adapters/sqlite.ts](adapters/sqlite.ts)
+- [index.ts](index.ts)
+
+The [boundary manifest](../boundaries.json) records dependencies for every
+production file and subpaths consumed outside this capability. The architecture
+test rejects undeclared dependency changes; domain/application rules remain
+independent of manifest generation. Prefer a focused public subpath over an
+eager barrel that initializes all effectful adapters.
+
+Run `npx vitest run server/modules/project-settings` and any affected consumers.

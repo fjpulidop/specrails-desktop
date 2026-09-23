@@ -7,7 +7,7 @@ import { getAdapter } from './index'
 import type { AdapterEvent } from './types'
 import { LiveInputDeliveryError, type LiveInputSink, type LiveSessionHooks } from './live-session-types'
 import { appendCodexHeadroomRelayOverride, transformCodexArgsForWindows } from '../util/cli-prompt'
-import { finaliseInvocationResult } from '../result-event'
+import { finaliseInvocationResult } from '../modules/accounting/runtime/result-event'
 
 type Frame = { id?: number | string; method?: string; params?: Record<string, any>; result?: any; error?: any }
 function deferred<T>() {

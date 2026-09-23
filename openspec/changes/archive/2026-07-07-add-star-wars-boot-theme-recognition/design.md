@@ -1,7 +1,7 @@
 # Design - add-star-wars-boot-theme-recognition
 
 ## Context
-Specrails Desktop now has `star-wars` in `THEME_IDS`, the `THEMES` map, CSS theme tokens, `ThemeEffectLayer`, and the server-side allow-list. The remaining mismatch is the synchronous anti-FOUC boot surface in `client/index.html`, which runs before React and cannot import `client/src/lib/themes.ts`; it therefore keeps a small literal allow-list and splash palette table that must be updated whenever a built-in theme is added. The fix should preserve the existing boot sequence and only extend its static data for `star-wars`.
+Specrails Desktop now has `star-wars` in `THEME_IDS`, the `THEMES` map, CSS theme tokens, `ThemeEffectLayer`, and the server-side allow-list. The remaining mismatch is the synchronous anti-FOUC boot surface in `client/index.html`, which runs before React and cannot import `client/src/features/settings/lib/themes.ts`; it therefore keeps a small literal allow-list and splash palette table that must be updated whenever a built-in theme is added. The fix should preserve the existing boot sequence and only extend its static data for `star-wars`.
 
 Scope: frontend
 

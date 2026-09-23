@@ -11,7 +11,7 @@ vi.mock('./path-resolver', () => ({ resolveBundledNodeExe: () => process.execPat
 vi.mock('./util/win-spawn', () => ({ windowsSpawnEnv: () => ({ SystemRoot: 'C:\\Windows' }) }))
 import { createServer } from 'node:net'
 import { spawn } from 'child_process'
-import { spawnWindowsBackgroundBootstrap, WINDOWS_JOB_PREPARATION_TIMEOUT_MS } from './background-windows-bootstrap'
+import { spawnWindowsBackgroundBootstrap, WINDOWS_JOB_PREPARATION_TIMEOUT_MS } from './modules/terminals/runtime/background-windows-bootstrap'
 
 let accept!: (socket: Socket) => void
 let child: ChildProcess & { kill: ReturnType<typeof vi.fn> }

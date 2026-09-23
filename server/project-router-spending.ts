@@ -1,12 +1,12 @@
 // Domain routes extracted from project-router.ts (spending).
 // Registered on the shared router by createProjectRouter — behaviour-preserving.
 import { Request, Response } from 'express'
-import { DEFAULT_ZOMBIE_TIMEOUT_MS } from './queue-manager'
+import { DEFAULT_ZOMBIE_TIMEOUT_MS } from './modules/execution/runtime/queue-manager'
 import { getConfig, fetchIssues } from './config'
 import { resolveProjectExecution } from './workspace-resolution'
-import { getTicketSpendingSummary } from './ai-invocations'
-import { getSpending, getInvocations, parseSpendingFilters, getAgentMissionSpending } from './spending'
-import { readStore } from './ticket-store'
+import { getTicketSpendingSummary } from './modules/accounting/runtime/ai-invocations'
+import { getSpending, getInvocations, parseSpendingFilters, getAgentMissionSpending } from './modules/accounting/runtime/spending'
+import { readStore } from './modules/specs/runtime/ticket-store'
 import {
   type ProjectRoutesDeps
 } from './project-router-helpers'

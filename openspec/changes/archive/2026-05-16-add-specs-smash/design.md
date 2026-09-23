@@ -2,10 +2,10 @@
 
 The hub already has two AI orchestration patterns that SMASH should mirror almost line-for-line:
 
-1. **Contract Refine** (`server/contract-refine-runner.ts` + `server/explore-contract-refine.ts`) — a fresh post-commit `claude` spawn whose only job is to produce a structured JSON addendum that mutates a single ticket. Byte-stable system prompt for cache hits, 1-turn budget, no `--resume` for the Quick variant, kill-switch env var, retry endpoint, sonner toast tracker on the client (`ContractRefineTrackerProvider`).
-2. **Status pills** (`client/src/components/explore-spec/ExploreStatusPills.tsx`) — three-stage label fader gated by a `VITE_FEATURE_*` flag with 150 ms minimum dwell, fed by WS progress events.
+1. **Contract Refine** (`server/modules/specs/runtime/contract-refine-runner.ts` + `server/modules/conversations/runtime/explore-contract-refine.ts`) — a fresh post-commit `claude` spawn whose only job is to produce a structured JSON addendum that mutates a single ticket. Byte-stable system prompt for cache hits, 1-turn budget, no `--resume` for the Quick variant, kill-switch env var, retry endpoint, sonner toast tracker on the client (`ContractRefineTrackerProvider`).
+2. **Status pills** (`client/src/features/specs/components/explore-spec/ExploreStatusPills.tsx`) — three-stage label fader gated by a `VITE_FEATURE_*` flag with 150 ms minimum dwell, fed by WS progress events.
 
-SMASH reuses both patterns and adds one new shape: instead of patching a single ticket, the runner does a transactional insert of N children plus a flip of the parent into épica state, inside the existing `mutateStore()` advisory-locked read-modify-write cycle in `server/ticket-store.ts` (JSON store, `schema_version` bump to `'1.2'`, backwards-compatible read).
+SMASH reuses both patterns and adds one new shape: instead of patching a single ticket, the runner does a transactional insert of N children plus a flip of the parent into épica state, inside the existing `mutateStore()` advisory-locked read-modify-write cycle in `server/modules/specs/runtime/ticket-store.ts` (JSON store, `schema_version` bump to `'1.2'`, backwards-compatible read).
 
 The board (`SpecCard`, `TicketListView`, `TicketGridView`, `TicketPostItView`, `TicketStatusIndicator`) already supports a "variant" rendering pattern from the draft work — épica and child variants slot into that same dispatch.
 
@@ -46,7 +46,7 @@ args = [
 cwd = hub-managed dir (no .mcp.json, no project CLAUDE.md auto-load)
 ```
 
-The hub-managed cwd is the same explore-cwd directory the Explore Spec acceleration already materialises (`server/explore-cwd-manager.ts`) when `contextScope.mcp === false` — we reuse `ensureExploreCwd(slug)` and never touch the project tree.
+The hub-managed cwd is the same explore-cwd directory the Explore Spec acceleration already materialises (`server/modules/conversations/runtime/explore-cwd-manager.ts`) when `contextScope.mcp === false` — we reuse `ensureExploreCwd(slug)` and never touch the project tree.
 
 **Why no `--resume`:** SMASH must work for both Explore-origin tickets (where a `session_id` exists) and Quick-origin tickets (no session). A unified fresh-spawn path means one runner, one prompt version, one cache key, and zero conditional branches. The full ticket description (including Contract Layer) is the only context the agent needs — and it's already canonical, byte-stable input.
 
@@ -58,7 +58,7 @@ The hub-managed cwd is the same explore-cwd directory the Explore Spec accelerat
 
 ### 2. Agent contract: strict JSON with ajv validation
 
-`server/explore-smash.ts` is a pure module exporting:
+`server/modules/conversations/runtime/explore-smash.ts` is a pure module exporting:
 
 ```typescript
 export const SMASH_PROMPT_VERSION = 1
@@ -95,7 +95,7 @@ parent_epic_id: number | null // default null
 execution_order: number | null // null for non-children
 ```
 
-`normalizeTicket()` in `server/ticket-store.ts` is extended with defaults so older stores load without rewrites. `CURRENT_SCHEMA_VERSION` bumps from `'1.1'` to `'1.2'`. First write under new code persists the new version.
+`normalizeTicket()` in `server/modules/specs/runtime/ticket-store.ts` is extended with defaults so older stores load without rewrites. `CURRENT_SCHEMA_VERSION` bumps from `'1.1'` to `'1.2'`. First write under new code persists the new version.
 
 **Why JSON store, not a new SQLite table:** tickets live in JSON today; introducing a relational table for parent/child relationships breaks the single-source-of-truth pattern. Application-level orphaning on parent delete mirrors the existing `origin_conversation_id` mechanic, which is well-understood in the codebase.
 
@@ -170,7 +170,7 @@ The existing `ticket_updated` (épica flip) and `ticket_created` (per child) bro
 
 ### 8. Client tracker & toast
 
-`client/src/context/SmashTrackerContext.tsx` mounts at `App.tsx` root (sibling of `ContractRefineTrackerProvider`):
+`client/src/features/specs/context/SmashTrackerContext.tsx` mounts at `App.tsx` root (sibling of `ContractRefineTrackerProvider`):
 
 ```typescript
 useWsHandler('smash.started', ({ ticketId, runId }) => {

@@ -3,22 +3,22 @@ import express, { Router } from 'express'
 import request from 'supertest'
 import { initDb, type DbInstance } from './db'
 import { initDesktopDb } from './desktop-db'
-import { createRailsRouter } from './rails-router'
+import { createRailsRouter } from './modules/delivery/runtime/rails-router'
 import { registerLoopRunRoutes } from './project-router-loop-runs'
-import { createLoop, publishLoop } from './loops-store'
-import { getRails, getRail, setRailTickets, createRail, MAX_RAILS } from './rails-store'
-import { createPrDelivery, getPrDelivery, type PrDecision } from './rail-pr-store'
+import { createLoop, publishLoop } from './modules/loops/runtime/loops-store'
+import { getRails, getRail, setRailTickets, createRail, MAX_RAILS } from './modules/delivery/runtime/rails-store'
+import { createPrDelivery, getPrDelivery, type PrDecision } from './modules/delivery/runtime/rail-pr-store'
 import { resetProcessAdmissionForTests } from './process-admission'
 import type { ProjectContext } from './project-registry'
 import type { ProjectRoutesDeps } from './project-router-helpers'
-import type { LoopGraph, LoopSpec } from './loop-graph'
-import type { RunExecutionManifest, RepositoryDeliverySnapshot } from './multi-repo-execution-store'
+import type { LoopGraph, LoopSpec } from './modules/loops/runtime/loop-graph'
+import type { RunExecutionManifest, RepositoryDeliverySnapshot } from './modules/delivery/runtime/multi-repo-execution-store'
 
 const mocks = vi.hoisted(() => ({ isolated: vi.fn(), multi: vi.fn(), probe: vi.fn(), accept: vi.fn() }))
 vi.mock('./worktree-manager', async (actual) => ({ ...await actual<typeof import('./worktree-manager')>(), repoIsolationStatus: mocks.probe }))
-vi.mock('./rail-isolated-launch', async (actual) => ({ ...await actual<typeof import('./rail-isolated-launch')>(), launchIsolatedRail: mocks.isolated }))
-vi.mock('./multi-repo-execution', async (actual) => ({ ...await actual<typeof import('./multi-repo-execution')>(), launchMultiRepositoryRail: mocks.multi }))
-vi.mock('./accept-ladder', async (actual) => ({ ...await actual<typeof import('./accept-ladder')>(), resolveAcceptCapability: mocks.accept }))
+vi.mock('./modules/delivery/runtime/rail-isolated-launch', async (actual) => ({ ...await actual<typeof import('./modules/delivery/runtime/rail-isolated-launch')>(), launchIsolatedRail: mocks.isolated }))
+vi.mock('./modules/delivery/runtime/multi-repo-execution', async (actual) => ({ ...await actual<typeof import('./modules/delivery/runtime/multi-repo-execution')>(), launchMultiRepositoryRail: mocks.multi }))
+vi.mock('./modules/execution/runtime/accept-ladder', async (actual) => ({ ...await actual<typeof import('./modules/execution/runtime/accept-ladder')>(), resolveAcceptCapability: mocks.accept }))
 
 let db: DbInstance, desktopDb: DbInstance, ctx: ProjectContext, app: express.Express
 let specs: Map<number, LoopSpec>

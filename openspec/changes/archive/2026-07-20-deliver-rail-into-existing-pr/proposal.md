@@ -2,7 +2,7 @@
 
 ## Why
 
-When a ticket's work belongs to an already-open PR (e.g. a spec that says "extend PR #151"), an isolated rail launched from the board still branches off the integration branch and produces a **duplicate PR**. The platform already has an active-PR continuation engine (`server/active-pr-continuation.ts`) that can borrow an external open PR (`source: 'github-open-pr'`), but it is deliberately inference-only and hard-gated: it probes GitHub **only** when the ticket is already `on_review` (or `in_progress` + Jira-linked), and matches only by PR-number mention in the spec text or Jira key. A `todo` ticket — the normal launch state — never reaches it. There is no way for the user to simply *say* "deliver this into PR #151" at launch time.
+When a ticket's work belongs to an already-open PR (e.g. a spec that says "extend PR #151"), an isolated rail launched from the board still branches off the integration branch and produces a **duplicate PR**. The platform already has an active-PR continuation engine (`server/modules/delivery/runtime/active-pr-continuation.ts`) that can borrow an external open PR (`source: 'github-open-pr'`), but it is deliberately inference-only and hard-gated: it probes GitHub **only** when the ticket is already `on_review` (or `in_progress` + Jira-linked), and matches only by PR-number mention in the spec text or Jira key. A `todo` ticket — the normal launch state — never reaches it. There is no way for the user to simply *say* "deliver this into PR #151" at launch time.
 
 ## What Changes
 
@@ -26,7 +26,7 @@ When a ticket's work belongs to an already-open PR (e.g. a spec that says "exten
 
 ## Impact
 
-- **Server**: `server/rails-router.ts` (launch body validation), `server/rail-isolated-launch.ts` (explicit-target resolution before allocation), `server/active-pr-continuation.ts` (an explicit-target resolver entry point reusing `materializeTarget`/lifecycle observation), `server/rail-pr-store.ts` (row born attached — likely no schema change; `pr_url`/`pr_number`/ownership already exist), `server/mcp/tools/rails.ts` (new param), i18n error strings ×8.
+- **Server**: `server/modules/delivery/runtime/rails-router.ts` (launch body validation), `server/modules/delivery/runtime/rail-isolated-launch.ts` (explicit-target resolution before allocation), `server/modules/delivery/runtime/active-pr-continuation.ts` (an explicit-target resolver entry point reusing `materializeTarget`/lifecycle observation), `server/modules/delivery/runtime/rail-pr-store.ts` (row born attached — likely no schema change; `pr_url`/`pr_number`/ownership already exist), `server/mcp/tools/rails.ts` (new param), i18n error strings ×8.
 - **Client**: rail launch flow in `DashboardPage`/`RailsBoard` (target-PR picker), `RailPrDecisionContext`/`RailPrDecisionStrip` (already render attached-PR states), `agent` chat card (already renders attached-PR states).
 - **No DB migration expected**: `rail_pr_deliveries` already carries `pr_url`, `pr_number`, `branches[].branchOwnership: 'borrowed-pr'`.
 - **Out of scope**: pushing to fork-based PRs; multi-PR targeting in one launch (one target per launch); automatic *un*-gated inference (explicit selection only).

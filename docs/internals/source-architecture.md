@@ -68,8 +68,8 @@ before deleting a candidate. Nonliteral imports are listed for manual review.
 
 Two intentional candidates remain:
 
-- `server/blueprint-spec-fixtures.ts`: shared test fixture used by five suites.
-- `server/rail-launch-parser.ts`: protocol reference implementation used by the
+- `server/modules/builder/runtime/blueprint-spec-fixtures.ts`: shared test fixture used by five suites.
+- `server/modules/delivery/runtime/rail-launch-parser.ts`: protocol reference implementation used by the
   parser tests and a byte-parity contract with the active client parser.
 
 The removed UI modules formed unreachable islands, including the old root/nav

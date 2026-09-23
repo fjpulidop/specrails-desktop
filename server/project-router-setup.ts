@@ -8,9 +8,9 @@ import {
   createProposal, getProposal, listProposals, createTemplate, listTemplates, getTemplate, updateTemplate, deleteTemplate
 } from './db'
 import { getProjectSetupSession } from './desktop-db'
-import { ClaudeNotFoundError } from './queue-manager'
+import { ClaudeNotFoundError } from './modules/execution/runtime/queue-manager'
 import type { JobTemplate } from './types'
-import { readChanges } from './changes-reader'
+import { readChanges } from './modules/code/runtime/changes-reader'
 import {
   type ProjectRoutesDeps, serializeInstallConfigYaml
 } from './project-router-helpers'

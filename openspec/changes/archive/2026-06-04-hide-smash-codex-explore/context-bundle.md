@@ -2,7 +2,7 @@
 
 ## Exact Changes
 
-### Task 1.1 — Create `client/src/lib/provider-capabilities.ts`
+### Task 1.1 — Create `client/src/features/providers/lib/provider-capabilities.ts`
 
 Create this file in its entirety:
 
@@ -34,7 +34,7 @@ export function isSmashCapable(provider: string | null | undefined): boolean {
 
 ### Task 2.1 — Extend `ContextScopeSliderProps` in `ContextScopeSlider.tsx`
 
-Location: `client/src/components/ContextScopeSlider.tsx`, interface at line 99
+Location: `client/src/features/chat/components/ContextScopeSlider.tsx`, interface at line 99
 and function signature at line 120.
 
 **Before (interface):**
@@ -270,7 +270,7 @@ validation (lines 1091–1098). The new `safeRawScope` logic inserts cleanly aft
 
 ### ContextScope type definition
 
-`client/src/types/context-scope.ts` defines:
+`client/src/features/chat/types/context-scope.ts` defines:
 ```ts
 export interface ContextScope {
   specrails: boolean

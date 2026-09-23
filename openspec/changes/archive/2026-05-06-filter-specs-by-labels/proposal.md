@@ -26,7 +26,7 @@ The Specs column in the project board can grow into dozens of tickets across man
 
 ## Impact
 
-- **Code**: `client/src/components/SpecsBoard.tsx` (header layout, filter state, filter application to active + Done), one new component (`SpecLabelFilterStrip`) co-located in `client/src/components/`, `client/src/hooks/useDesktopUpdateNotifier.tsx` (one-line `unstyled: true`).
+- **Code**: `client/src/features/specs/components/SpecsBoard.tsx` (header layout, filter state, filter application to active + Done), one new component (`SpecLabelFilterStrip`) co-located in `client/src/components/`, `client/src/hooks/useDesktopUpdateNotifier.tsx` (one-line `unstyled: true`).
 - **Tests**: client unit tests for the filter strip (frequency sort, hash → tone determinism, multi-select toggle, clear chip behavior, hidden when no labels) and a regression test for the updater toast options.
 - **APIs**: none. No server changes. `LocalTicket.labels` already exists.
 - **Theme tokens**: uses existing `accent-primary | info | success | secondary | warning | highlight` only. No new tokens, no `dracula-*` references.

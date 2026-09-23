@@ -1,4 +1,4 @@
-import type { RunInvocationHooks } from '../spawn-lifecycle'
+import type { RunInvocationHooks } from '../modules/execution/runtime/spawn-lifecycle'
 
 export interface LiveInput {
   /** Stable correlation ID; a transport must never send this input twice. */

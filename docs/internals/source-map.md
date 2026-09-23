@@ -5,12 +5,20 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 911 source/build files. Nearby tests are linked where names
+Includes 940 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
 
+- [args.ts](../../cli/args.ts)
+- [desktop-client.ts](../../cli/desktop-client.ts)
+- [desktop-control.ts](../../cli/desktop-control.ts)
+- [format.ts](../../cli/format.ts)
+- [help.ts](../../cli/help.ts)
+- [output.ts](../../cli/output.ts)
+- [run-command.ts](../../cli/run-command.ts)
 - [specrails-desktop.ts](../../cli/specrails-desktop.ts) · [test](../../cli/specrails-desktop.test.ts)
+- [status.ts](../../cli/status.ts)
 - [win-spawn.ts](../../cli/win-spawn.ts) · [test](../../cli/win-spawn.test.ts)
 
 ## client/src
@@ -23,333 +31,17 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/components
 
-- [AddProjectDialog.tsx](../../client/src/components/AddProjectDialog.tsx) · [test](../../client/src/components/__tests__/AddProjectDialog.test.tsx)
-- [AiEngineSelector.tsx](../../client/src/components/AiEngineSelector.tsx) · [test](../../client/src/components/__tests__/AiEngineSelector.test.tsx)
 - [ArcSidebar.tsx](../../client/src/components/ArcSidebar.tsx) · [test](../../client/src/components/__tests__/ArcSidebar.test.tsx)
-- [AttachmentChip.tsx](../../client/src/components/AttachmentChip.tsx) · [test](../../client/src/components/__tests__/AttachmentChip.test.tsx)
-- [AttachmentPreviewLightbox.tsx](../../client/src/components/AttachmentPreviewLightbox.tsx) · [test](../../client/src/components/__tests__/AttachmentPreviewLightbox.test.tsx)
-- [AttachmentsSection.tsx](../../client/src/components/AttachmentsSection.tsx) · [test](../../client/src/components/__tests__/AttachmentsSection.test.tsx)
-- [BackgroundProcessChip.tsx](../../client/src/components/BackgroundProcessChip.tsx)
-- [BackgroundProcessHistoryModal.tsx](../../client/src/components/BackgroundProcessHistoryModal.tsx) · [test](../../client/src/components/__tests__/BackgroundProcessHistoryModal.test.tsx)
-- [BackgroundProcessLogsModal.tsx](../../client/src/components/BackgroundProcessLogsModal.tsx) · [test](../../client/src/components/__tests__/BackgroundProcessLogsModal.test.tsx)
-- [ChatHeader.tsx](../../client/src/components/ChatHeader.tsx) · [test](../../client/src/components/__tests__/ChatHeader.test.tsx)
-- [ChatInput.tsx](../../client/src/components/ChatInput.tsx) · [test](../../client/src/components/__tests__/ChatInput.test.tsx)
-- [ChatPanel.tsx](../../client/src/components/ChatPanel.tsx) · [test](../../client/src/components/__tests__/ChatPanel.test.tsx)
 - [CommandPalette.tsx](../../client/src/components/CommandPalette.tsx) · [test](../../client/src/components/__tests__/CommandPalette.test.tsx)
-- [CommandProposal.tsx](../../client/src/components/CommandProposal.tsx) · [test](../../client/src/components/__tests__/CommandProposal.test.tsx)
-- [ContextScopeChecks.tsx](../../client/src/components/ContextScopeChecks.tsx) · [test](../../client/src/components/__tests__/ContextScopeChecks.test.tsx)
-- [ContextScopeSlider.tsx](../../client/src/components/ContextScopeSlider.tsx) · [test](../../client/src/components/__tests__/ContextScopeSlider.test.tsx)
-- [CreateTicketModal.tsx](../../client/src/components/CreateTicketModal.tsx) · [test](../../client/src/components/__tests__/CreateTicketModal.test.tsx)
-- [CustomModelAliasInput.tsx](../../client/src/components/CustomModelAliasInput.tsx) · [test](../../client/src/components/__tests__/CustomModelAliasInput.test.tsx)
-- [DashboardSplitter.tsx](../../client/src/components/DashboardSplitter.tsx)
-- [DocsDialog.tsx](../../client/src/components/DocsDialog.tsx) · [test](../../client/src/components/__tests__/DocsDialog.test.tsx)
-- [ExportDropdown.tsx](../../client/src/components/ExportDropdown.tsx) · [test](../../client/src/components/__tests__/ExportDropdown.test.tsx)
-- [FreestyleLaunchDialog.tsx](../../client/src/components/FreestyleLaunchDialog.tsx) · [test](../../client/src/components/__tests__/FreestyleLaunchDialog.test.tsx)
-- [InstallInstructionsModal.tsx](../../client/src/components/InstallInstructionsModal.tsx) · [test](../../client/src/components/__tests__/InstallInstructionsModal.test.tsx)
-- [InteractiveJobComposer.tsx](../../client/src/components/InteractiveJobComposer.tsx) · [test](../../client/src/components/__tests__/InteractiveJobComposer.test.tsx)
-- [JobComparisonModal.tsx](../../client/src/components/JobComparisonModal.tsx) · [test](../../client/src/components/__tests__/JobComparisonModal.test.tsx)
-- [JobDetailModal.tsx](../../client/src/components/JobDetailModal.tsx) · [test](../../client/src/components/__tests__/JobDetailModal.test.tsx)
-- [JobTicketHeader.tsx](../../client/src/components/JobTicketHeader.tsx)
 - [KeyboardShortcutsCheatsheet.tsx](../../client/src/components/KeyboardShortcutsCheatsheet.tsx) · [test](../../client/src/components/__tests__/KeyboardShortcutsCheatsheet.test.tsx)
-- [LaunchAllDialog.tsx](../../client/src/components/LaunchAllDialog.tsx)
-- [LogViewer.tsx](../../client/src/components/LogViewer.tsx) · [test](../../client/src/components/__tests__/LogViewer.test.tsx)
-- [MessageBubble.tsx](../../client/src/components/MessageBubble.tsx) · [test](../../client/src/components/__tests__/MessageBubble.test.tsx)
-- [MessageList.tsx](../../client/src/components/MessageList.tsx) · [test](../../client/src/components/__tests__/MessageList.test.tsx)
-- [MoveToRailPopover.tsx](../../client/src/components/MoveToRailPopover.tsx)
-- [OnboardingWizard.tsx](../../client/src/components/OnboardingWizard.tsx) · [test](../../client/src/components/__tests__/OnboardingWizard.test.tsx)
-- [PipelineProgress.tsx](../../client/src/components/PipelineProgress.tsx) · [test](../../client/src/components/__tests__/PipelineProgress.test.tsx)
-- [PrerequisitesPanel.tsx](../../client/src/components/PrerequisitesPanel.tsx) · [test](../../client/src/components/__tests__/PrerequisitesPanel.test.tsx)
-- [ProjectErrorBoundary.tsx](../../client/src/components/ProjectErrorBoundary.tsx) · [test](../../client/src/components/__tests__/ProjectErrorBoundary.test.tsx)
 - [ProjectLayout.tsx](../../client/src/components/ProjectLayout.tsx) · [test](../../client/src/components/__tests__/ProjectLayout.test.tsx)
 - [ProjectRightSidebar.tsx](../../client/src/components/ProjectRightSidebar.tsx) · [test](../../client/src/components/__tests__/ProjectRightSidebar.test.tsx)
-- [ProposeSpecModal.tsx](../../client/src/components/ProposeSpecModal.tsx) · [test](../../client/src/components/__tests__/ProposeSpecModal.test.tsx)
-- [RailControls.tsx](../../client/src/components/RailControls.tsx) · [test](../../client/src/components/__tests__/RailControls.test.tsx)
-- [RailExecutionInfo.tsx](../../client/src/components/RailExecutionInfo.tsx)
-- [RailPrDecisionStrip.tsx](../../client/src/components/RailPrDecisionStrip.tsx) · [test](../../client/src/components/__tests__/RailPrDecisionStrip.test.tsx)
-- [RailRow.tsx](../../client/src/components/RailRow.tsx) · [test](../../client/src/components/__tests__/RailRow.test.tsx)
-- [RailTargetPrSelector.tsx](../../client/src/components/RailTargetPrSelector.tsx) · [test](../../client/src/components/__tests__/RailTargetPrSelector.test.tsx)
-- [RailsBoard.tsx](../../client/src/components/RailsBoard.tsx) · [test](../../client/src/components/__tests__/RailsBoard.test.tsx)
-- [RecentJobs.tsx](../../client/src/components/RecentJobs.tsx) · [test](../../client/src/components/__tests__/RecentJobs.test.tsx)
-- [RepositoryDeliveries.tsx](../../client/src/components/RepositoryDeliveries.tsx) · [test](../../client/src/components/__tests__/RepositoryDeliveries.test.tsx)
-- [RepositoryScopeSelector.tsx](../../client/src/components/RepositoryScopeSelector.tsx) · [test](../../client/src/components/__tests__/RepositoryScopeSelector.test.tsx)
-- [RichAttachmentEditor.tsx](../../client/src/components/RichAttachmentEditor.tsx) · [test](../../client/src/components/__tests__/RichAttachmentEditor.test.tsx)
 - [ShellErrorBoundary.tsx](../../client/src/components/ShellErrorBoundary.tsx) · [test](../../client/src/components/__tests__/ShellErrorBoundary.test.tsx)
 - [SidebarResizeGrip.tsx](../../client/src/components/SidebarResizeGrip.tsx)
-- [SpecAddendaSection.tsx](../../client/src/components/SpecAddendaSection.tsx) · [test](../../client/src/components/__tests__/SpecAddendaSection.test.tsx)
-- [SpecCard.tsx](../../client/src/components/SpecCard.tsx) · [test](../../client/src/components/__tests__/SpecCard.test.tsx)
-- [SpecComparePicker.tsx](../../client/src/components/SpecComparePicker.tsx) · [test](../../client/src/components/__tests__/SpecComparePicker.test.tsx)
-- [SpecEpicFilterDropdown.tsx](../../client/src/components/SpecEpicFilterDropdown.tsx)
-- [SpecJiraStatusFilterDropdown.tsx](../../client/src/components/SpecJiraStatusFilterDropdown.tsx) · [test](../../client/src/components/__tests__/SpecJiraStatusFilterDropdown.test.tsx)
-- [SpecLabelFilterDropdown.tsx](../../client/src/components/SpecLabelFilterDropdown.tsx)
-- [SpecLabelFilterStrip.tsx](../../client/src/components/SpecLabelFilterStrip.tsx) · [test](../../client/src/components/__tests__/SpecLabelFilterStrip.test.tsx)
-- [SpecSortControl.tsx](../../client/src/components/SpecSortControl.tsx) · [test](../../client/src/components/__tests__/SpecSortControl.test.tsx)
-- [SpecSprintFilterDropdown.tsx](../../client/src/components/SpecSprintFilterDropdown.tsx)
-- [SpecStatusFilter.tsx](../../client/src/components/SpecStatusFilter.tsx)
-- [SpecsBoard.tsx](../../client/src/components/SpecsBoard.tsx) · [test](../../client/src/components/__tests__/SpecsBoard.test.tsx)
-- [SpecsViewTierToggle.tsx](../../client/src/components/SpecsViewTierToggle.tsx)
 - [SplitViewShell.tsx](../../client/src/components/SplitViewShell.tsx)
 - [StatusBar.tsx](../../client/src/components/StatusBar.tsx) · [test](../../client/src/components/__tests__/StatusBar.test.tsx)
-- [TargetPrLaunchDialog.tsx](../../client/src/components/TargetPrLaunchDialog.tsx)
-- [TicketContextMenu.tsx](../../client/src/components/TicketContextMenu.tsx) · [test](../../client/src/components/__tests__/TicketContextMenu.test.tsx)
-- [TicketDetailModal.tsx](../../client/src/components/TicketDetailModal.tsx) · [test](../../client/src/components/__tests__/TicketDetailModal.test.tsx)
-- [TicketPostitCard.tsx](../../client/src/components/TicketPostitCard.tsx) · [test](../../client/src/components/__tests__/TicketPostitCard.test.tsx)
-- [TicketSpendingLine.tsx](../../client/src/components/TicketSpendingLine.tsx) · [test](../../client/src/components/__tests__/TicketSpendingLine.test.tsx)
-- [TicketStatusIndicator.tsx](../../client/src/components/TicketStatusIndicator.tsx) · [test](../../client/src/components/__tests__/TicketStatusIndicator.test.tsx)
 - [TitleBar.tsx](../../client/src/components/TitleBar.tsx) · [test](../../client/src/components/__tests__/TitleBar.test.tsx)
 - [WelcomeScreen.tsx](../../client/src/components/WelcomeScreen.tsx) · [test](../../client/src/components/__tests__/WelcomeScreen.test.tsx)
-- [log-ticket-refs.tsx](../../client/src/components/log-ticket-refs.tsx) · [test](../../client/src/components/__tests__/log-ticket-refs.test.tsx)
-
-## client/src/components/agent-chat
-
-- [AgentActivityChip.tsx](../../client/src/components/agent-chat/AgentActivityChip.tsx)
-- [AgentActivityLogModal.tsx](../../client/src/components/agent-chat/AgentActivityLogModal.tsx) · [test](../../client/src/components/agent-chat/__tests__/AgentActivityLogModal.test.tsx)
-- [AgentBrowserCapture.tsx](../../client/src/components/agent-chat/AgentBrowserCapture.tsx) · [test](../../client/src/components/agent-chat/__tests__/AgentBrowserCapture.test.tsx)
-- [AgentBrowserCaptureHost.tsx](../../client/src/components/agent-chat/AgentBrowserCaptureHost.tsx)
-- [AgentBubble.tsx](../../client/src/components/agent-chat/AgentBubble.tsx)
-- [AgentChatPanel.tsx](../../client/src/components/agent-chat/AgentChatPanel.tsx)
-- [AgentComposer.tsx](../../client/src/components/agent-chat/AgentComposer.tsx)
-- [AgentComposerAttachmentChip.tsx](../../client/src/components/agent-chat/AgentComposerAttachmentChip.tsx) · [test](../../client/src/components/agent-chat/__tests__/AgentComposerAttachmentChip.test.tsx)
-- [AgentComposerEditor.tsx](../../client/src/components/agent-chat/AgentComposerEditor.tsx) · [test](../../client/src/components/agent-chat/__tests__/AgentComposerEditor.test.tsx)
-- [AgentContextPalette.tsx](../../client/src/components/agent-chat/AgentContextPalette.tsx)
-- [AgentConversationHeader.tsx](../../client/src/components/agent-chat/AgentConversationHeader.tsx)
-- [AgentConversationView.tsx](../../client/src/components/agent-chat/AgentConversationView.tsx)
-- [AgentDeliveryReceipt.tsx](../../client/src/components/agent-chat/AgentDeliveryReceipt.tsx) · [test](../../client/src/components/agent-chat/__tests__/AgentDeliveryReceipt.test.tsx)
-- [AgentGitBar.tsx](../../client/src/components/agent-chat/AgentGitBar.tsx) · [test](../../client/src/components/agent-chat/__tests__/AgentGitBar.test.tsx)
-- [AgentMessage.tsx](../../client/src/components/agent-chat/AgentMessage.tsx)
-- [AgentMissionSelector.tsx](../../client/src/components/agent-chat/AgentMissionSelector.tsx)
-- [AgentModeAnalyticsPane.tsx](../../client/src/components/agent-chat/AgentModeAnalyticsPane.tsx)
-- [AgentModeCodePane.tsx](../../client/src/components/agent-chat/AgentModeCodePane.tsx) · [test](../../client/src/components/agent-chat/__tests__/AgentModeCodePane.test.tsx)
-- [AgentModeJobsPane.tsx](../../client/src/components/agent-chat/AgentModeJobsPane.tsx) · [test](../../client/src/components/agent-chat/__tests__/AgentModeJobsPane.test.tsx)
-- [AgentModeSurface.tsx](../../client/src/components/agent-chat/AgentModeSurface.tsx) · [test](../../client/src/components/agent-chat/__tests__/AgentModeSurface.test.tsx)
-- [AgentModelSelector.tsx](../../client/src/components/agent-chat/AgentModelSelector.tsx)
-- [AgentPrDecisionCard.tsx](../../client/src/components/agent-chat/AgentPrDecisionCard.tsx)
-- [AgentPrPinnedDock.tsx](../../client/src/components/agent-chat/AgentPrPinnedDock.tsx)
-- [AgentProblemFrameCard.tsx](../../client/src/components/agent-chat/AgentProblemFrameCard.tsx)
-- [AgentProjectSelector.tsx](../../client/src/components/agent-chat/AgentProjectSelector.tsx)
-- [AgentQueuedMessage.tsx](../../client/src/components/agent-chat/AgentQueuedMessage.tsx)
-- [AgentRailLaunchCard.tsx](../../client/src/components/agent-chat/AgentRailLaunchCard.tsx)
-- [AgentRefChip.tsx](../../client/src/components/agent-chat/AgentRefChip.tsx)
-- [AgentRunFailureMarker.tsx](../../client/src/components/agent-chat/AgentRunFailureMarker.tsx)
-- [AgentSpecDraftCard.tsx](../../client/src/components/agent-chat/AgentSpecDraftCard.tsx)
-- [AgentThinkingHalo.tsx](../../client/src/components/agent-chat/AgentThinkingHalo.tsx) · [test](../../client/src/components/agent-chat/__tests__/AgentThinkingHalo.test.tsx)
-- [AgentTierChip.tsx](../../client/src/components/agent-chat/AgentTierChip.tsx)
-- [AgentToolbarSelector.tsx](../../client/src/components/agent-chat/AgentToolbarSelector.tsx)
-- [AgentWorkspaceSidebar.tsx](../../client/src/components/agent-chat/AgentWorkspaceSidebar.tsx) · [test](../../client/src/components/agent-chat/__tests__/AgentWorkspaceSidebar.test.tsx)
-- [MissionWindowAction.tsx](../../client/src/components/agent-chat/MissionWindowAction.tsx) · [test](../../client/src/components/agent-chat/__tests__/MissionWindowAction.test.tsx)
-- [MissionWindowBindings.tsx](../../client/src/components/agent-chat/MissionWindowBindings.tsx) · [test](../../client/src/components/agent-chat/MissionWindowBindings.test.tsx)
-- [MissionWindowSurface.tsx](../../client/src/components/agent-chat/MissionWindowSurface.tsx)
-- [agent-fence-promotion.ts](../../client/src/components/agent-chat/agent-fence-promotion.ts) · [test](../../client/src/components/agent-chat/__tests__/agent-fence-promotion.test.ts)
-- [agent-options.ts](../../client/src/components/agent-chat/agent-options.ts)
-- [agent-pr-pinning.ts](../../client/src/components/agent-chat/agent-pr-pinning.ts)
-- [agent-problem-frame.ts](../../client/src/components/agent-chat/agent-problem-frame.ts)
-- [agent-run-failure.ts](../../client/src/components/agent-chat/agent-run-failure.ts) · [test](../../client/src/components/agent-chat/__tests__/agent-run-failure.test.ts)
-- [agent-spec-draft.ts](../../client/src/components/agent-chat/agent-spec-draft.ts)
-- [useAgentProviderCatalog.ts](../../client/src/components/agent-chat/useAgentProviderCatalog.ts)
-- [useRailLaunchProposals.ts](../../client/src/components/agent-chat/useRailLaunchProposals.ts)
-
-## client/src/components/agents
-
-- [AgentStudio.tsx](../../client/src/components/agents/AgentStudio.tsx)
-- [AgentsCatalogTab.tsx](../../client/src/components/agents/AgentsCatalogTab.tsx)
-- [AiRefineOverlay.tsx](../../client/src/components/agents/AiRefineOverlay.tsx)
-- [ProfileAnalyticsCard.tsx](../../client/src/components/agents/ProfileAnalyticsCard.tsx)
-- [ProfileEditor.tsx](../../client/src/components/agents/ProfileEditor.tsx) · [test](../../client/src/components/agents/__tests__/ProfileEditor.test.tsx)
-- [ProfilesTab.tsx](../../client/src/components/agents/ProfilesTab.tsx)
-- [PromptDialog.tsx](../../client/src/components/agents/PromptDialog.tsx)
-- [RailEffortSelector.tsx](../../client/src/components/agents/RailEffortSelector.tsx) · [test](../../client/src/components/agents/__tests__/RailEffortSelector.test.tsx)
-- [RailEngineSelector.tsx](../../client/src/components/agents/RailEngineSelector.tsx) · [test](../../client/src/components/agents/__tests__/RailEngineSelector.test.tsx)
-- [RailLoopSelector.tsx](../../client/src/components/agents/RailLoopSelector.tsx) · [test](../../client/src/components/agents/__tests__/RailLoopSelector.test.tsx)
-- [RailModelSelector.tsx](../../client/src/components/agents/RailModelSelector.tsx) · [test](../../client/src/components/agents/__tests__/RailModelSelector.test.tsx)
-- [RailProfileSelector.tsx](../../client/src/components/agents/RailProfileSelector.tsx) · [test](../../client/src/components/agents/__tests__/RailProfileSelector.test.tsx)
-- [RoutingRuleDialog.tsx](../../client/src/components/agents/RoutingRuleDialog.tsx) · [test](../../client/src/components/agents/__tests__/RoutingRuleDialog.test.tsx)
-- [agentTemplates.ts](../../client/src/components/agents/agentTemplates.ts)
-- [types.ts](../../client/src/components/agents/types.ts)
-
-## client/src/components/ai-edit
-
-- [AiEditShell.tsx](../../client/src/components/ai-edit/AiEditShell.tsx) · [test](../../client/src/components/ai-edit/__tests__/AiEditShell.test.tsx)
-
-## client/src/components/analytics
-
-- [AgentMissionsCard.tsx](../../client/src/components/analytics/AgentMissionsCard.tsx)
-- [CostScatter.tsx](../../client/src/components/analytics/CostScatter.tsx) · [test](../../client/src/components/analytics/__tests__/CostScatter.test.tsx)
-- [InvocationsTable.tsx](../../client/src/components/analytics/InvocationsTable.tsx) · [test](../../client/src/components/analytics/__tests__/InvocationsTable.test.tsx)
-- [ModelBreakdown.tsx](../../client/src/components/analytics/ModelBreakdown.tsx) · [test](../../client/src/components/analytics/__tests__/ModelBreakdown.test.tsx)
-- [PeriodSelector.tsx](../../client/src/components/analytics/PeriodSelector.tsx) · [test](../../client/src/components/analytics/__tests__/PeriodSelector.test.tsx)
-- [ProviderBreakdownCard.tsx](../../client/src/components/analytics/ProviderBreakdownCard.tsx) · [test](../../client/src/components/analytics/__tests__/ProviderBreakdownCard.test.tsx)
-- [QuickVsExploreCard.tsx](../../client/src/components/analytics/QuickVsExploreCard.tsx) · [test](../../client/src/components/analytics/__tests__/QuickVsExploreCard.test.tsx)
-- [SpendingHero.tsx](../../client/src/components/analytics/SpendingHero.tsx) · [test](../../client/src/components/analytics/__tests__/SpendingHero.test.tsx)
-- [SpendingTimeline.tsx](../../client/src/components/analytics/SpendingTimeline.tsx) · [test](../../client/src/components/analytics/__tests__/SpendingTimeline.test.tsx)
-- [TopTicketsCrossSurface.tsx](../../client/src/components/analytics/TopTicketsCrossSurface.tsx) · [test](../../client/src/components/analytics/__tests__/TopTicketsCrossSurface.test.tsx)
-
-## client/src/components/browser-capture
-
-- [AnnotationEditor.tsx](../../client/src/components/browser-capture/AnnotationEditor.tsx) · [test](../../client/src/components/browser-capture/AnnotationEditor.test.tsx)
-- [BrowserCaptureModal.tsx](../../client/src/components/browser-capture/BrowserCaptureModal.tsx) · [test](../../client/src/components/browser-capture/BrowserCaptureModal.test.tsx)
-- [CapturedDomPanel.tsx](../../client/src/components/browser-capture/CapturedDomPanel.tsx) · [test](../../client/src/components/browser-capture/CapturedDomPanel.test.tsx)
-- [NativeBrowserPane.tsx](../../client/src/components/browser-capture/NativeBrowserPane.tsx) · [test](../../client/src/components/browser-capture/NativeBrowserPane.test.tsx)
-- [WebViewModal.tsx](../../client/src/components/browser-capture/WebViewModal.tsx) · [test](../../client/src/components/browser-capture/WebViewModal.test.tsx)
-- [useBrowserCaptureSession.ts](../../client/src/components/browser-capture/useBrowserCaptureSession.ts)
-- [useBrowserViewport.ts](../../client/src/components/browser-capture/useBrowserViewport.ts)
-
-## client/src/components/code-explorer
-
-- [CodeActivity.tsx](../../client/src/components/code-explorer/CodeActivity.tsx) · [test](../../client/src/components/code-explorer/__tests__/CodeActivity.test.tsx)
-- [CodeRepositoryContext.tsx](../../client/src/components/code-explorer/CodeRepositoryContext.tsx)
-- [CodeSearch.tsx](../../client/src/components/code-explorer/CodeSearch.tsx) · [test](../../client/src/components/code-explorer/__tests__/CodeSearch.test.tsx)
-- [CodeViewerMonaco.tsx](../../client/src/components/code-explorer/CodeViewerMonaco.tsx) · [test](../../client/src/components/code-explorer/__tests__/CodeViewerMonaco.test.tsx)
-- [ConstructionStory.tsx](../../client/src/components/code-explorer/ConstructionStory.tsx) · [test](../../client/src/components/code-explorer/__tests__/ConstructionStory.test.tsx)
-- [FileTree.tsx](../../client/src/components/code-explorer/FileTree.tsx) · [test](../../client/src/components/code-explorer/__tests__/FileTree.test.tsx)
-- [FileViewer.tsx](../../client/src/components/code-explorer/FileViewer.tsx) · [test](../../client/src/components/code-explorer/__tests__/FileViewer.test.tsx)
-- [MarkdownPreview.tsx](../../client/src/components/code-explorer/MarkdownPreview.tsx) · [test](../../client/src/components/code-explorer/__tests__/MarkdownPreview.test.tsx)
-- [RecordedDiff.tsx](../../client/src/components/code-explorer/RecordedDiff.tsx) · [test](../../client/src/components/code-explorer/__tests__/RecordedDiff.test.tsx)
-- [SummaryHeader.tsx](../../client/src/components/code-explorer/SummaryHeader.tsx) · [test](../../client/src/components/code-explorer/__tests__/SummaryHeader.test.tsx)
-- [TicketFilesTouched.tsx](../../client/src/components/code-explorer/TicketFilesTouched.tsx) · [test](../../client/src/components/code-explorer/__tests__/TicketFilesTouched.test.tsx)
-- [explorer-types.ts](../../client/src/components/code-explorer/explorer-types.ts)
-
-## client/src/components/explore-spec
-
-- [ExploreReviewOverlay.tsx](../../client/src/components/explore-spec/ExploreReviewOverlay.tsx) · [test](../../client/src/components/explore-spec/__tests__/ExploreReviewOverlay.test.tsx)
-- [ExploreSpecShell.tsx](../../client/src/components/explore-spec/ExploreSpecShell.tsx) · [test](../../client/src/components/explore-spec/__tests__/ExploreSpecShell.test.tsx)
-- [ExploreStatusPills.tsx](../../client/src/components/explore-spec/ExploreStatusPills.tsx) · [test](../../client/src/components/explore-spec/__tests__/ExploreStatusPills.test.tsx)
-- [SpecDraftPanel.tsx](../../client/src/components/explore-spec/SpecDraftPanel.tsx) · [test](../../client/src/components/explore-spec/__tests__/SpecDraftPanel.test.tsx)
-- [SpecModelPicker.tsx](../../client/src/components/explore-spec/SpecModelPicker.tsx) · [test](../../client/src/components/explore-spec/__tests__/SpecModelPicker.test.tsx)
-- [acceptance-criteria.ts](../../client/src/components/explore-spec/acceptance-criteria.ts) · [test](../../client/src/components/explore-spec/__tests__/acceptance-criteria.test.ts)
-- [diff-utils.ts](../../client/src/components/explore-spec/diff-utils.ts) · [test](../../client/src/components/explore-spec/__tests__/diff-utils.test.ts)
-- [useSmoothStream.ts](../../client/src/components/explore-spec/useSmoothStream.ts)
-
-## client/src/components/jira
-
-- [DiscardSpecDialog.tsx](../../client/src/components/jira/DiscardSpecDialog.tsx) · [test](../../client/src/components/jira/__tests__/DiscardSpecDialog.test.tsx)
-- [JiraConnectWizard.tsx](../../client/src/components/jira/JiraConnectWizard.tsx) · [test](../../client/src/components/jira/__tests__/JiraConnectWizard.test.tsx)
-- [JiraConnectedCard.tsx](../../client/src/components/jira/JiraConnectedCard.tsx)
-- [JiraSpecDetailsPanel.tsx](../../client/src/components/jira/JiraSpecDetailsPanel.tsx) · [test](../../client/src/components/jira/__tests__/JiraSpecDetailsPanel.test.tsx)
-
-## client/src/components/job-run
-
-- [JobRunHeader.tsx](../../client/src/components/job-run/JobRunHeader.tsx) · [test](../../client/src/components/job-run/__tests__/JobRunHeader.test.tsx)
-- [job-run-model.ts](../../client/src/components/job-run/job-run-model.ts) · [test](../../client/src/components/job-run/__tests__/job-run-model.test.ts)
-- [useRuntimeRuns.ts](../../client/src/components/job-run/useRuntimeRuns.ts)
-
-## client/src/components/loop-log
-
-- [LoopCompletionSummary.tsx](../../client/src/components/loop-log/LoopCompletionSummary.tsx) · [test](../../client/src/components/loop-log/__tests__/LoopCompletionSummary.test.tsx)
-- [LoopOverviewStrip.tsx](../../client/src/components/loop-log/LoopOverviewStrip.tsx)
-- [LoopStepExplorer.tsx](../../client/src/components/loop-log/LoopStepExplorer.tsx) · [test](../../client/src/components/loop-log/__tests__/LoopStepExplorer.test.tsx)
-- [LoopStepSection.tsx](../../client/src/components/loop-log/LoopStepSection.tsx)
-- [NarratedProgress.tsx](../../client/src/components/loop-log/NarratedProgress.tsx) · [test](../../client/src/components/loop-log/__tests__/NarratedProgress.test.tsx)
-- [completion-model.ts](../../client/src/components/loop-log/completion-model.ts)
-- [loop-log-model.ts](../../client/src/components/loop-log/loop-log-model.ts) · [test](../../client/src/components/loop-log/__tests__/loop-log-model.test.ts)
-- [loop-node-visuals.ts](../../client/src/components/loop-log/loop-node-visuals.ts)
-- [narration-commands.ts](../../client/src/components/loop-log/narration-commands.ts) · [test](../../client/src/components/loop-log/__tests__/narration-commands.test.ts)
-- [narration-model.ts](../../client/src/components/loop-log/narration-model.ts) · [test](../../client/src/components/loop-log/__tests__/narration-model.test.ts)
-
-## client/src/components/loops
-
-- [LoopPreviewModal.tsx](../../client/src/components/loops/LoopPreviewModal.tsx)
-- [LoopRunModal.tsx](../../client/src/components/loops/LoopRunModal.tsx) · [test](../../client/src/components/loops/__tests__/LoopRunModal.test.tsx)
-- [TemplatePreviewModal.tsx](../../client/src/components/loops/TemplatePreviewModal.tsx) · [test](../../client/src/components/loops/__tests__/TemplatePreviewModal.test.tsx)
-
-## client/src/components/minimized-chats
-
-- [MinimizedChatChip.tsx](../../client/src/components/minimized-chats/MinimizedChatChip.tsx)
-- [MinimizedChatsDock.tsx](../../client/src/components/minimized-chats/MinimizedChatsDock.tsx)
-
-## client/src/components/pickers
-
-- [LanguagePickerGrid.tsx](../../client/src/components/pickers/LanguagePickerGrid.tsx)
-- [ThemePickerGrid.tsx](../../client/src/components/pickers/ThemePickerGrid.tsx)
-
-## client/src/components/project-builder
-
-- [BlueprintCommitForm.tsx](../../client/src/components/project-builder/BlueprintCommitForm.tsx)
-- [BlueprintPanel.tsx](../../client/src/components/project-builder/BlueprintPanel.tsx)
-- [BlueprintReadiness.tsx](../../client/src/components/project-builder/BlueprintReadiness.tsx)
-- [BlueprintSpecModal.tsx](../../client/src/components/project-builder/BlueprintSpecModal.tsx)
-- [BuilderComposer.tsx](../../client/src/components/project-builder/BuilderComposer.tsx)
-- [BuilderConversation.tsx](../../client/src/components/project-builder/BuilderConversation.tsx)
-- [BuilderDecisionCard.tsx](../../client/src/components/project-builder/BuilderDecisionCard.tsx)
-- [BuilderDoneMilestone.tsx](../../client/src/components/project-builder/BuilderDoneMilestone.tsx)
-- [BuilderGenerationProgress.tsx](../../client/src/components/project-builder/BuilderGenerationProgress.tsx)
-- [BuilderHalo.tsx](../../client/src/components/project-builder/BuilderHalo.tsx)
-- [BuilderRecentBlueprints.tsx](../../client/src/components/project-builder/BuilderRecentBlueprints.tsx)
-- [BuilderSidebarEntry.tsx](../../client/src/components/project-builder/BuilderSidebarEntry.tsx)
-- [MilestoneGenerateShell.tsx](../../client/src/components/project-builder/MilestoneGenerateShell.tsx)
-- [MilestoneProgressCard.tsx](../../client/src/components/project-builder/MilestoneProgressCard.tsx)
-
-## client/src/components/review-packet
-
-- [PacketMarkdown.tsx](../../client/src/components/review-packet/PacketMarkdown.tsx)
-
-## client/src/components/settings
-
-- [AgentRuntimeMetrics.tsx](../../client/src/components/settings/AgentRuntimeMetrics.tsx) · [test](../../client/src/components/settings/__tests__/AgentRuntimeMetrics.test.tsx)
-- [AgentRuntimeRuns.tsx](../../client/src/components/settings/AgentRuntimeRuns.tsx) · [test](../../client/src/components/settings/__tests__/AgentRuntimeRuns.test.tsx)
-- [AgentRuntimeSettingsSection.tsx](../../client/src/components/settings/AgentRuntimeSettingsSection.tsx) · [test](../../client/src/components/settings/__tests__/AgentRuntimeSettingsSection.test.tsx)
-- [AppUpdateSection.tsx](../../client/src/components/settings/AppUpdateSection.tsx) · [test](../../client/src/components/settings/__tests__/AppUpdateSection.test.tsx)
-- [AppearanceSection.tsx](../../client/src/components/settings/AppearanceSection.tsx) · [test](../../client/src/components/settings/__tests__/AppearanceSection.test.tsx)
-- [CodeSectionSettings.tsx](../../client/src/components/settings/CodeSectionSettings.tsx) · [test](../../client/src/components/settings/__tests__/CodeSectionSettings.test.tsx)
-- [CoreUpdateSection.tsx](../../client/src/components/settings/CoreUpdateSection.tsx) · [test](../../client/src/components/settings/__tests__/CoreUpdateSection.test.tsx)
-- [EffectsSection.tsx](../../client/src/components/settings/EffectsSection.tsx) · [test](../../client/src/components/settings/__tests__/EffectsSection.test.tsx)
-- [ExternalMcpServersCard.tsx](../../client/src/components/settings/ExternalMcpServersCard.tsx) · [test](../../client/src/components/settings/__tests__/ExternalMcpServersCard.test.tsx)
-- [LanguageSection.tsx](../../client/src/components/settings/LanguageSection.tsx) · [test](../../client/src/components/settings/__tests__/LanguageSection.test.tsx)
-- [LoopRolesSection.tsx](../../client/src/components/settings/LoopRolesSection.tsx) · [test](../../client/src/components/settings/__tests__/LoopRolesSection.test.tsx)
-- [McpSettingsSection.tsx](../../client/src/components/settings/McpSettingsSection.tsx) · [test](../../client/src/components/settings/__tests__/McpSettingsSection.test.tsx)
-- [MobileAccessSection.tsx](../../client/src/components/settings/MobileAccessSection.tsx) · [test](../../client/src/components/settings/__tests__/MobileAccessSection.test.tsx)
-- [PairWebCompanionModal.tsx](../../client/src/components/settings/PairWebCompanionModal.tsx)
-- [PipelineStepper.tsx](../../client/src/components/settings/PipelineStepper.tsx) · [test](../../client/src/components/settings/__tests__/PipelineStepper.test.tsx)
-- [ProjectRepositoriesSection.tsx](../../client/src/components/settings/ProjectRepositoriesSection.tsx) · [test](../../client/src/components/settings/__tests__/ProjectRepositoriesSection.test.tsx)
-- [ProjectSettingsDialog.tsx](../../client/src/components/settings/ProjectSettingsDialog.tsx) · [test](../../client/src/components/settings/__tests__/ProjectSettingsDialog.test.tsx)
-- [ProjectSettingsSections.tsx](../../client/src/components/settings/ProjectSettingsSections.tsx)
-- [ProviderTabs.tsx](../../client/src/components/settings/ProviderTabs.tsx)
-- [RuntimeEfficiencyControls.tsx](../../client/src/components/settings/RuntimeEfficiencyControls.tsx)
-- [RuntimeExecutionEvidence.tsx](../../client/src/components/settings/RuntimeExecutionEvidence.tsx) · [test](../../client/src/components/settings/__tests__/RuntimeExecutionEvidence.test.tsx)
-- [RuntimeGuardrails.tsx](../../client/src/components/settings/RuntimeGuardrails.tsx) · [test](../../client/src/components/settings/__tests__/RuntimeGuardrails.test.tsx)
-- [RuntimeRolePrompts.tsx](../../client/src/components/settings/RuntimeRolePrompts.tsx) · [test](../../client/src/components/settings/__tests__/RuntimeRolePrompts.test.tsx)
-- [TerminalSettingsSection.tsx](../../client/src/components/settings/TerminalSettingsSection.tsx)
-
-## client/src/components/settings/provider-connections
-
-- [CliProviderRow.tsx](../../client/src/components/settings/provider-connections/CliProviderRow.tsx)
-- [ConnectionRow.tsx](../../client/src/components/settings/provider-connections/ConnectionRow.tsx)
-- [ConnectionStatusPill.tsx](../../client/src/components/settings/provider-connections/ConnectionStatusPill.tsx) · [test](../../client/src/components/settings/provider-connections/__tests__/ConnectionStatusPill.test.tsx)
-- [LocalConnectionEditor.tsx](../../client/src/components/settings/provider-connections/LocalConnectionEditor.tsx) · [test](../../client/src/components/settings/provider-connections/__tests__/LocalConnectionEditor.test.tsx)
-- [LocalEngineCard.tsx](../../client/src/components/settings/provider-connections/LocalEngineCard.tsx)
-- [OverflowMenu.tsx](../../client/src/components/settings/provider-connections/OverflowMenu.tsx)
-- [ProviderConnectionsCard.tsx](../../client/src/components/settings/provider-connections/ProviderConnectionsCard.tsx) · [test](../../client/src/components/settings/provider-connections/__tests__/ProviderConnectionsCard.test.tsx)
-- [TestConnectionButton.tsx](../../client/src/components/settings/provider-connections/TestConnectionButton.tsx) · [test](../../client/src/components/settings/provider-connections/__tests__/TestConnectionButton.test.tsx)
-- [index.ts](../../client/src/components/settings/provider-connections/index.ts)
-
-## client/src/components/specs-smash
-
-- [EpicChildrenSection.tsx](../../client/src/components/specs-smash/EpicChildrenSection.tsx) · [test](../../client/src/components/specs-smash/__tests__/EpicChildrenSection.test.tsx)
-- [EpicFamilySidebar.tsx](../../client/src/components/specs-smash/EpicFamilySidebar.tsx) · [test](../../client/src/components/specs-smash/__tests__/EpicFamilySidebar.test.tsx)
-- [SmashActions.tsx](../../client/src/components/specs-smash/SmashActions.tsx) · [test](../../client/src/components/specs-smash/__tests__/SmashActions.test.tsx)
-- [SmashConfirmModal.tsx](../../client/src/components/specs-smash/SmashConfirmModal.tsx)
-- [SmashStatusPills.tsx](../../client/src/components/specs-smash/SmashStatusPills.tsx) · [test](../../client/src/components/specs-smash/__tests__/SmashStatusPills.test.tsx)
-
-## client/src/components/terminal
-
-- [BottomPanel.tsx](../../client/src/components/terminal/BottomPanel.tsx) · [test](../../client/src/components/terminal/__tests__/BottomPanel.test.tsx)
-- [CliLaunchMenu.tsx](../../client/src/components/terminal/CliLaunchMenu.tsx) · [test](../../client/src/components/terminal/__tests__/CliLaunchMenu.test.tsx)
-- [CommandTimingBadge.tsx](../../client/src/components/terminal/CommandTimingBadge.tsx)
-- [EmptyTerminalPlaceholder.tsx](../../client/src/components/terminal/EmptyTerminalPlaceholder.tsx) · [test](../../client/src/components/terminal/__tests__/EmptyTerminalPlaceholder.test.tsx)
-- [PanelChevronButton.tsx](../../client/src/components/terminal/PanelChevronButton.tsx) · [test](../../client/src/components/terminal/__tests__/PanelChevronButton.test.tsx)
-- [PromptGutter.tsx](../../client/src/components/terminal/PromptGutter.tsx)
-- [ShortcutContextMenu.tsx](../../client/src/components/terminal/ShortcutContextMenu.tsx)
-- [TerminalContextMenu.tsx](../../client/src/components/terminal/TerminalContextMenu.tsx)
-- [TerminalDragHandle.tsx](../../client/src/components/terminal/TerminalDragHandle.tsx) · [test](../../client/src/components/terminal/__tests__/TerminalDragHandle.test.tsx)
-- [TerminalSearchOverlay.tsx](../../client/src/components/terminal/TerminalSearchOverlay.tsx)
-- [TerminalSidebar.tsx](../../client/src/components/terminal/TerminalSidebar.tsx) · [test](../../client/src/components/terminal/__tests__/TerminalSidebar.test.tsx)
-- [TerminalTopBar.tsx](../../client/src/components/terminal/TerminalTopBar.tsx) · [test](../../client/src/components/terminal/__tests__/TerminalTopBar.test.tsx)
-- [TerminalViewport.tsx](../../client/src/components/terminal/TerminalViewport.tsx) · [test](../../client/src/components/terminal/__tests__/TerminalViewport.test.tsx)
-
-## client/src/components/theme-effects
-
-- [BladeTrail.tsx](../../client/src/components/theme-effects/BladeTrail.tsx) · [test](../../client/src/components/theme-effects/__tests__/BladeTrail.test.tsx)
-- [CodeRainEffect.tsx](../../client/src/components/theme-effects/CodeRainEffect.tsx)
-- [Starfield.tsx](../../client/src/components/theme-effects/Starfield.tsx) · [test](../../client/src/components/theme-effects/__tests__/Starfield.test.tsx)
-- [ThemeEffectLayer.tsx](../../client/src/components/theme-effects/ThemeEffectLayer.tsx) · [test](../../client/src/components/theme-effects/__tests__/ThemeEffectLayer.test.tsx)
 
 ## client/src/components/ui
 
@@ -364,22 +56,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/context
 
-- [AgentChatContext.tsx](../../client/src/context/AgentChatContext.tsx) · [test](../../client/src/context/AgentChatContext.test.tsx)
-- [AgentWorkspaceContext.tsx](../../client/src/context/AgentWorkspaceContext.tsx) · [test](../../client/src/context/__tests__/AgentWorkspaceContext.test.tsx)
-- [BackgroundProcessesContext.tsx](../../client/src/context/BackgroundProcessesContext.tsx) · [test](../../client/src/context/__tests__/BackgroundProcessesContext.test.tsx)
-- [JiraDiscardContext.tsx](../../client/src/context/JiraDiscardContext.tsx)
-- [LanguageContext.tsx](../../client/src/context/LanguageContext.tsx) · [test](../../client/src/context/__tests__/LanguageContext.test.tsx)
-- [MinimizedChatsContext.tsx](../../client/src/context/MinimizedChatsContext.tsx) · [test](../../client/src/context/__tests__/MinimizedChatsContext.test.tsx)
-- [MissionWindowsContext.tsx](../../client/src/context/MissionWindowsContext.tsx) · [test](../../client/src/context/__tests__/MissionWindowsContext.test.tsx)
-- [RailMetricsContext.tsx](../../client/src/context/RailMetricsContext.tsx) · [test](../../client/src/context/__tests__/RailMetricsContext.test.tsx)
-- [RailPrDecisionContext.tsx](../../client/src/context/RailPrDecisionContext.tsx) · [test](../../client/src/context/__tests__/RailPrDecisionContext.test.tsx)
 - [SidebarPinContext.tsx](../../client/src/context/SidebarPinContext.tsx) · [test](../../client/src/context/__tests__/SidebarPinContext.test.tsx)
-- [SmashTrackerContext.tsx](../../client/src/context/SmashTrackerContext.tsx) · [test](../../client/src/context/__tests__/SmashTrackerContext.test.tsx)
-- [TerminalsContext.tsx](../../client/src/context/TerminalsContext.tsx) · [test](../../client/src/context/__tests__/TerminalsContext.test.tsx)
-- [ThemeContext.tsx](../../client/src/context/ThemeContext.tsx) · [test](../../client/src/context/__tests__/ThemeContext.test.tsx)
-- [TicketDetailModalContext.tsx](../../client/src/context/TicketDetailModalContext.tsx) · [test](../../client/src/context/__tests__/TicketDetailModalContext.test.tsx)
 - [UiModeContext.tsx](../../client/src/context/UiModeContext.tsx) · [test](../../client/src/context/__tests__/UiModeContext.test.tsx)
-- [WebViewModalContext.tsx](../../client/src/context/WebViewModalContext.tsx) · [test](../../client/src/context/WebViewModalContext.test.tsx)
 
 ## client/src/demo-mode
 
@@ -396,169 +74,682 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [timeline.ts](../../client/src/demo-mode/tour/timeline.ts)
 - [tour-store.ts](../../client/src/demo-mode/tour/tour-store.ts)
 
+## client/src/features/agents/components
+
+- [AgentStudio.tsx](../../client/src/features/agents/components/AgentStudio.tsx)
+- [AgentsCatalogTab.tsx](../../client/src/features/agents/components/AgentsCatalogTab.tsx)
+- [AiRefineOverlay.tsx](../../client/src/features/agents/components/AiRefineOverlay.tsx)
+- [ProfileAnalyticsCard.tsx](../../client/src/features/agents/components/ProfileAnalyticsCard.tsx)
+- [ProfileEditor.tsx](../../client/src/features/agents/components/ProfileEditor.tsx) · [test](../../client/src/features/agents/components/__tests__/ProfileEditor.test.tsx)
+- [ProfilesTab.tsx](../../client/src/features/agents/components/ProfilesTab.tsx)
+- [PromptDialog.tsx](../../client/src/features/agents/components/PromptDialog.tsx)
+- [RailEffortSelector.tsx](../../client/src/features/agents/components/RailEffortSelector.tsx) · [test](../../client/src/features/agents/components/__tests__/RailEffortSelector.test.tsx)
+- [RailEngineSelector.tsx](../../client/src/features/agents/components/RailEngineSelector.tsx) · [test](../../client/src/features/agents/components/__tests__/RailEngineSelector.test.tsx)
+- [RailLoopSelector.tsx](../../client/src/features/agents/components/RailLoopSelector.tsx) · [test](../../client/src/features/agents/components/__tests__/RailLoopSelector.test.tsx)
+- [RailModelSelector.tsx](../../client/src/features/agents/components/RailModelSelector.tsx) · [test](../../client/src/features/agents/components/__tests__/RailModelSelector.test.tsx)
+- [RailProfileSelector.tsx](../../client/src/features/agents/components/RailProfileSelector.tsx) · [test](../../client/src/features/agents/components/__tests__/RailProfileSelector.test.tsx)
+- [RoutingRuleDialog.tsx](../../client/src/features/agents/components/RoutingRuleDialog.tsx) · [test](../../client/src/features/agents/components/__tests__/RoutingRuleDialog.test.tsx)
+- [agentTemplates.ts](../../client/src/features/agents/components/agentTemplates.ts)
+- [types.ts](../../client/src/features/agents/components/types.ts)
+
+## client/src/features/agents/hooks
+
+- [useAgentRefine.ts](../../client/src/features/agents/hooks/useAgentRefine.ts)
+
+## client/src/features/agents/pages
+
+- [AgentsPage.tsx](../../client/src/features/agents/pages/AgentsPage.tsx)
+
+## client/src/features/analytics/components
+
+- [AgentMissionsCard.tsx](../../client/src/features/analytics/components/AgentMissionsCard.tsx)
+- [CostScatter.tsx](../../client/src/features/analytics/components/CostScatter.tsx) · [test](../../client/src/features/analytics/components/__tests__/CostScatter.test.tsx)
+- [ExportDropdown.tsx](../../client/src/features/analytics/components/ExportDropdown.tsx) · [test](../../client/src/features/analytics/components/__tests__/ExportDropdown.test.tsx)
+- [InvocationsTable.tsx](../../client/src/features/analytics/components/InvocationsTable.tsx) · [test](../../client/src/features/analytics/components/__tests__/InvocationsTable.test.tsx)
+- [ModelBreakdown.tsx](../../client/src/features/analytics/components/ModelBreakdown.tsx) · [test](../../client/src/features/analytics/components/__tests__/ModelBreakdown.test.tsx)
+- [PeriodSelector.tsx](../../client/src/features/analytics/components/PeriodSelector.tsx) · [test](../../client/src/features/analytics/components/__tests__/PeriodSelector.test.tsx)
+- [ProviderBreakdownCard.tsx](../../client/src/features/analytics/components/ProviderBreakdownCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/ProviderBreakdownCard.test.tsx)
+- [QuickVsExploreCard.tsx](../../client/src/features/analytics/components/QuickVsExploreCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/QuickVsExploreCard.test.tsx)
+- [SpendingHero.tsx](../../client/src/features/analytics/components/SpendingHero.tsx) · [test](../../client/src/features/analytics/components/__tests__/SpendingHero.test.tsx)
+- [SpendingTimeline.tsx](../../client/src/features/analytics/components/SpendingTimeline.tsx) · [test](../../client/src/features/analytics/components/__tests__/SpendingTimeline.test.tsx)
+- [TicketSpendingLine.tsx](../../client/src/features/analytics/components/TicketSpendingLine.tsx) · [test](../../client/src/features/analytics/components/__tests__/TicketSpendingLine.test.tsx)
+- [TopTicketsCrossSurface.tsx](../../client/src/features/analytics/components/TopTicketsCrossSurface.tsx) · [test](../../client/src/features/analytics/components/__tests__/TopTicketsCrossSurface.test.tsx)
+
+## client/src/features/analytics/hooks
+
+- [useActivity.ts](../../client/src/features/analytics/hooks/useActivity.ts) · [test](../../client/src/features/analytics/hooks/__tests__/useActivity.test.ts)
+
+## client/src/features/analytics/pages
+
+- [ActivityFeedPage.tsx](../../client/src/features/analytics/pages/ActivityFeedPage.tsx) · [test](../../client/src/features/analytics/pages/__tests__/ActivityFeedPage.test.tsx)
+- [AnalyticsPage.tsx](../../client/src/features/analytics/pages/AnalyticsPage.tsx) · [test](../../client/src/features/analytics/pages/__tests__/AnalyticsPage.test.tsx)
+- [DesktopAnalyticsPage.tsx](../../client/src/features/analytics/pages/DesktopAnalyticsPage.tsx) · [test](../../client/src/features/analytics/pages/__tests__/DesktopAnalyticsPage.test.tsx)
+
+## client/src/features/analytics/types
+
+- [spending.ts](../../client/src/features/analytics/types/spending.ts) · [test](../../client/src/features/analytics/types/__tests__/spending.test.ts)
+
+## client/src/features/background/components
+
+- [BackgroundProcessChip.tsx](../../client/src/features/background/components/BackgroundProcessChip.tsx)
+- [BackgroundProcessHistoryModal.tsx](../../client/src/features/background/components/BackgroundProcessHistoryModal.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessHistoryModal.test.tsx)
+- [BackgroundProcessLogsModal.tsx](../../client/src/features/background/components/BackgroundProcessLogsModal.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessLogsModal.test.tsx)
+
+## client/src/features/background/context
+
+- [BackgroundProcessesContext.tsx](../../client/src/features/background/context/BackgroundProcessesContext.tsx) · [test](../../client/src/features/background/context/__tests__/BackgroundProcessesContext.test.tsx)
+
+## client/src/features/background/lib
+
+- [background-processes-api.ts](../../client/src/features/background/lib/background-processes-api.ts) · [test](../../client/src/features/background/lib/__tests__/background-processes-api.test.ts)
+
+## client/src/features/browser/components/browser-capture
+
+- [AnnotationEditor.tsx](../../client/src/features/browser/components/browser-capture/AnnotationEditor.tsx) · [test](../../client/src/features/browser/components/browser-capture/AnnotationEditor.test.tsx)
+- [BrowserCaptureModal.tsx](../../client/src/features/browser/components/browser-capture/BrowserCaptureModal.tsx) · [test](../../client/src/features/browser/components/browser-capture/BrowserCaptureModal.test.tsx)
+- [CapturedDomPanel.tsx](../../client/src/features/browser/components/browser-capture/CapturedDomPanel.tsx) · [test](../../client/src/features/browser/components/browser-capture/CapturedDomPanel.test.tsx)
+- [NativeBrowserPane.tsx](../../client/src/features/browser/components/browser-capture/NativeBrowserPane.tsx) · [test](../../client/src/features/browser/components/browser-capture/NativeBrowserPane.test.tsx)
+- [WebViewModal.tsx](../../client/src/features/browser/components/browser-capture/WebViewModal.tsx) · [test](../../client/src/features/browser/components/browser-capture/WebViewModal.test.tsx)
+- [useBrowserCaptureSession.ts](../../client/src/features/browser/components/browser-capture/useBrowserCaptureSession.ts)
+- [useBrowserViewport.ts](../../client/src/features/browser/components/browser-capture/useBrowserViewport.ts)
+
+## client/src/features/browser/context
+
+- [WebViewModalContext.tsx](../../client/src/features/browser/context/WebViewModalContext.tsx) · [test](../../client/src/features/browser/context/WebViewModalContext.test.tsx)
+
+## client/src/features/browser/lib
+
+- [annotations.ts](../../client/src/features/browser/lib/annotations.ts) · [test](../../client/src/features/browser/lib/annotations.test.ts)
+- [browser-capture.ts](../../client/src/features/browser/lib/browser-capture.ts) · [test](../../client/src/features/browser/lib/browser-capture.test.ts)
+- [browser-frame-pipeline.ts](../../client/src/features/browser/lib/browser-frame-pipeline.ts) · [test](../../client/src/features/browser/lib/browser-frame-pipeline.test.ts)
+- [frame-activity.ts](../../client/src/features/browser/lib/frame-activity.ts) · [test](../../client/src/features/browser/lib/__tests__/frame-activity.test.ts)
+- [native-browser.ts](../../client/src/features/browser/lib/native-browser.ts) · [test](../../client/src/features/browser/lib/__tests__/native-browser.test.ts)
+
+## client/src/features/builder/components/project-builder
+
+- [BlueprintCommitForm.tsx](../../client/src/features/builder/components/project-builder/BlueprintCommitForm.tsx)
+- [BlueprintPanel.tsx](../../client/src/features/builder/components/project-builder/BlueprintPanel.tsx)
+- [BlueprintReadiness.tsx](../../client/src/features/builder/components/project-builder/BlueprintReadiness.tsx)
+- [BlueprintSpecModal.tsx](../../client/src/features/builder/components/project-builder/BlueprintSpecModal.tsx)
+- [BuilderComposer.tsx](../../client/src/features/builder/components/project-builder/BuilderComposer.tsx)
+- [BuilderConversation.tsx](../../client/src/features/builder/components/project-builder/BuilderConversation.tsx)
+- [BuilderDecisionCard.tsx](../../client/src/features/builder/components/project-builder/BuilderDecisionCard.tsx)
+- [BuilderDoneMilestone.tsx](../../client/src/features/builder/components/project-builder/BuilderDoneMilestone.tsx)
+- [BuilderGenerationProgress.tsx](../../client/src/features/builder/components/project-builder/BuilderGenerationProgress.tsx)
+- [BuilderHalo.tsx](../../client/src/features/builder/components/project-builder/BuilderHalo.tsx)
+- [BuilderRecentBlueprints.tsx](../../client/src/features/builder/components/project-builder/BuilderRecentBlueprints.tsx)
+- [BuilderSidebarEntry.tsx](../../client/src/features/builder/components/project-builder/BuilderSidebarEntry.tsx)
+- [MilestoneGenerateShell.tsx](../../client/src/features/builder/components/project-builder/MilestoneGenerateShell.tsx)
+- [MilestoneProgressCard.tsx](../../client/src/features/builder/components/project-builder/MilestoneProgressCard.tsx)
+
+## client/src/features/builder/hooks
+
+- [useBuilderSession.ts](../../client/src/features/builder/hooks/useBuilderSession.ts)
+- [useMilestoneNotifications.ts](../../client/src/features/builder/hooks/useMilestoneNotifications.ts)
+- [useMilestoneProgress.ts](../../client/src/features/builder/hooks/useMilestoneProgress.ts)
+
+## client/src/features/builder/lib
+
+- [blueprint-draft.ts](../../client/src/features/builder/lib/blueprint-draft.ts) · [test](../../client/src/features/builder/lib/__tests__/blueprint-draft.test.ts)
+- [blueprint-readiness.ts](../../client/src/features/builder/lib/blueprint-readiness.ts) · [test](../../client/src/features/builder/lib/__tests__/blueprint-readiness.test.ts)
+- [blueprint-spec-quality.ts](../../client/src/features/builder/lib/blueprint-spec-quality.ts) · [test](../../client/src/features/builder/lib/__tests__/blueprint-spec-quality.test.ts)
+- [milestone-launch.ts](../../client/src/features/builder/lib/milestone-launch.ts) · [test](../../client/src/features/builder/lib/__tests__/milestone-launch.test.ts)
+- [milestone-progress.ts](../../client/src/features/builder/lib/milestone-progress.ts) · [test](../../client/src/features/builder/lib/__tests__/milestone-progress.test.ts)
+
+## client/src/features/chat/components
+
+- [AttachmentChip.tsx](../../client/src/features/chat/components/AttachmentChip.tsx) · [test](../../client/src/features/chat/components/__tests__/AttachmentChip.test.tsx)
+- [AttachmentPreviewLightbox.tsx](../../client/src/features/chat/components/AttachmentPreviewLightbox.tsx) · [test](../../client/src/features/chat/components/__tests__/AttachmentPreviewLightbox.test.tsx)
+- [AttachmentsSection.tsx](../../client/src/features/chat/components/AttachmentsSection.tsx) · [test](../../client/src/features/chat/components/__tests__/AttachmentsSection.test.tsx)
+- [ChatHeader.tsx](../../client/src/features/chat/components/ChatHeader.tsx) · [test](../../client/src/features/chat/components/__tests__/ChatHeader.test.tsx)
+- [ChatInput.tsx](../../client/src/features/chat/components/ChatInput.tsx) · [test](../../client/src/features/chat/components/__tests__/ChatInput.test.tsx)
+- [ChatPanel.tsx](../../client/src/features/chat/components/ChatPanel.tsx) · [test](../../client/src/features/chat/components/__tests__/ChatPanel.test.tsx)
+- [CommandProposal.tsx](../../client/src/features/chat/components/CommandProposal.tsx) · [test](../../client/src/features/chat/components/__tests__/CommandProposal.test.tsx)
+- [ContextScopeChecks.tsx](../../client/src/features/chat/components/ContextScopeChecks.tsx) · [test](../../client/src/features/chat/components/__tests__/ContextScopeChecks.test.tsx)
+- [ContextScopeSlider.tsx](../../client/src/features/chat/components/ContextScopeSlider.tsx) · [test](../../client/src/features/chat/components/__tests__/ContextScopeSlider.test.tsx)
+- [MessageBubble.tsx](../../client/src/features/chat/components/MessageBubble.tsx) · [test](../../client/src/features/chat/components/__tests__/MessageBubble.test.tsx)
+- [MessageList.tsx](../../client/src/features/chat/components/MessageList.tsx) · [test](../../client/src/features/chat/components/__tests__/MessageList.test.tsx)
+- [RichAttachmentEditor.tsx](../../client/src/features/chat/components/RichAttachmentEditor.tsx) · [test](../../client/src/features/chat/components/__tests__/RichAttachmentEditor.test.tsx)
+
+## client/src/features/chat/hooks
+
+- [useChat.ts](../../client/src/features/chat/hooks/useChat.ts) · [test](../../client/src/features/chat/hooks/__tests__/useChat.test.ts)
+- [useContextBudget.ts](../../client/src/features/chat/hooks/useContextBudget.ts)
+- [useContextScope.ts](../../client/src/features/chat/hooks/useContextScope.ts)
+
+## client/src/features/chat/lib
+
+- [attachments.ts](../../client/src/features/chat/lib/attachments.ts) · [test](../../client/src/features/chat/lib/__tests__/attachments.test.ts)
+
+## client/src/features/chat/types
+
+- [context-scope.ts](../../client/src/features/chat/types/context-scope.ts) · [test](../../client/src/features/chat/types/__tests__/context-scope.test.ts)
+
+## client/src/features/code/components/ai-edit
+
+- [AiEditShell.tsx](../../client/src/features/code/components/ai-edit/AiEditShell.tsx) · [test](../../client/src/features/code/components/ai-edit/__tests__/AiEditShell.test.tsx)
+
+## client/src/features/code/components/code-explorer
+
+- [CodeActivity.tsx](../../client/src/features/code/components/code-explorer/CodeActivity.tsx) · [test](../../client/src/features/code/components/code-explorer/__tests__/CodeActivity.test.tsx)
+- [CodeRepositoryContext.tsx](../../client/src/features/code/components/code-explorer/CodeRepositoryContext.tsx)
+- [CodeSearch.tsx](../../client/src/features/code/components/code-explorer/CodeSearch.tsx) · [test](../../client/src/features/code/components/code-explorer/__tests__/CodeSearch.test.tsx)
+- [CodeViewerMonaco.tsx](../../client/src/features/code/components/code-explorer/CodeViewerMonaco.tsx) · [test](../../client/src/features/code/components/code-explorer/__tests__/CodeViewerMonaco.test.tsx)
+- [ConstructionStory.tsx](../../client/src/features/code/components/code-explorer/ConstructionStory.tsx) · [test](../../client/src/features/code/components/code-explorer/__tests__/ConstructionStory.test.tsx)
+- [FileTree.tsx](../../client/src/features/code/components/code-explorer/FileTree.tsx) · [test](../../client/src/features/code/components/code-explorer/__tests__/FileTree.test.tsx)
+- [FileViewer.tsx](../../client/src/features/code/components/code-explorer/FileViewer.tsx) · [test](../../client/src/features/code/components/code-explorer/__tests__/FileViewer.test.tsx)
+- [MarkdownPreview.tsx](../../client/src/features/code/components/code-explorer/MarkdownPreview.tsx) · [test](../../client/src/features/code/components/code-explorer/__tests__/MarkdownPreview.test.tsx)
+- [RecordedDiff.tsx](../../client/src/features/code/components/code-explorer/RecordedDiff.tsx) · [test](../../client/src/features/code/components/code-explorer/__tests__/RecordedDiff.test.tsx)
+- [SummaryHeader.tsx](../../client/src/features/code/components/code-explorer/SummaryHeader.tsx) · [test](../../client/src/features/code/components/code-explorer/__tests__/SummaryHeader.test.tsx)
+- [TicketFilesTouched.tsx](../../client/src/features/code/components/code-explorer/TicketFilesTouched.tsx) · [test](../../client/src/features/code/components/code-explorer/__tests__/TicketFilesTouched.test.tsx)
+- [explorer-types.ts](../../client/src/features/code/components/code-explorer/explorer-types.ts)
+
+## client/src/features/code/lib
+
+- [git-refresh.ts](../../client/src/features/code/lib/git-refresh.ts) · [test](../../client/src/features/code/lib/__tests__/git-refresh.test.ts)
+- [monaco-setup.ts](../../client/src/features/code/lib/monaco-setup.ts)
+
+## client/src/features/code/pages
+
+- [CodePage.tsx](../../client/src/features/code/pages/CodePage.tsx) · [test](../../client/src/features/code/pages/__tests__/CodePage.test.tsx)
+
+## client/src/features/dashboard/components
+
+- [DashboardSplitter.tsx](../../client/src/features/dashboard/components/DashboardSplitter.tsx)
+
+## client/src/features/dashboard/hooks
+
+- [useDashboardSplit.ts](../../client/src/features/dashboard/hooks/useDashboardSplit.ts)
+
+## client/src/features/dashboard/lib
+
+- [dashboard-dnd.ts](../../client/src/features/dashboard/lib/dashboard-dnd.ts) · [test](../../client/src/features/dashboard/lib/__tests__/dashboard-dnd.test.ts)
+
+## client/src/features/dashboard/pages
+
+- [DashboardPage.tsx](../../client/src/features/dashboard/pages/DashboardPage.tsx) · [test](../../client/src/features/dashboard/pages/__tests__/DashboardPage.test.tsx)
+
+## client/src/features/delivery/components
+
+- [RailPrDecisionStrip.tsx](../../client/src/features/delivery/components/RailPrDecisionStrip.tsx) · [test](../../client/src/features/delivery/components/__tests__/RailPrDecisionStrip.test.tsx)
+- [RepositoryDeliveries.tsx](../../client/src/features/delivery/components/RepositoryDeliveries.tsx) · [test](../../client/src/features/delivery/components/__tests__/RepositoryDeliveries.test.tsx)
+- [TargetPrLaunchDialog.tsx](../../client/src/features/delivery/components/TargetPrLaunchDialog.tsx)
+
+## client/src/features/delivery/components/review-packet
+
+- [PacketMarkdown.tsx](../../client/src/features/delivery/components/review-packet/PacketMarkdown.tsx)
+
+## client/src/features/delivery/context
+
+- [RailPrDecisionContext.tsx](../../client/src/features/delivery/context/RailPrDecisionContext.tsx) · [test](../../client/src/features/delivery/context/__tests__/RailPrDecisionContext.test.tsx)
+
+## client/src/features/delivery/lib
+
+- [packet-verbs.ts](../../client/src/features/delivery/lib/packet-verbs.ts) · [test](../../client/src/features/delivery/lib/__tests__/packet-verbs.test.ts)
+- [pr-delivery.ts](../../client/src/features/delivery/lib/pr-delivery.ts) · [test](../../client/src/features/delivery/lib/__tests__/pr-delivery.test.ts)
+- [pr-follow-up-scope.ts](../../client/src/features/delivery/lib/pr-follow-up-scope.ts)
+
+## client/src/features/delivery/pages
+
+- [ReviewPacketPage.tsx](../../client/src/features/delivery/pages/ReviewPacketPage.tsx) · [test](../../client/src/features/delivery/pages/__tests__/ReviewPacketPage.test.tsx)
+
+## client/src/features/docs/components
+
+- [DocsDialog.tsx](../../client/src/features/docs/components/DocsDialog.tsx) · [test](../../client/src/features/docs/components/__tests__/DocsDialog.test.tsx)
+
+## client/src/features/docs/lib
+
+- [docs-links.ts](../../client/src/features/docs/lib/docs-links.ts)
+
+## client/src/features/docs/pages
+
+- [DocsPage.tsx](../../client/src/features/docs/pages/DocsPage.tsx) · [test](../../client/src/features/docs/pages/__tests__/DocsPage.test.tsx)
+
+## client/src/features/integrations/components/jira
+
+- [DiscardSpecDialog.tsx](../../client/src/features/integrations/components/jira/DiscardSpecDialog.tsx) · [test](../../client/src/features/integrations/components/jira/__tests__/DiscardSpecDialog.test.tsx)
+- [JiraConnectWizard.tsx](../../client/src/features/integrations/components/jira/JiraConnectWizard.tsx) · [test](../../client/src/features/integrations/components/jira/__tests__/JiraConnectWizard.test.tsx)
+- [JiraConnectedCard.tsx](../../client/src/features/integrations/components/jira/JiraConnectedCard.tsx)
+- [JiraSpecDetailsPanel.tsx](../../client/src/features/integrations/components/jira/JiraSpecDetailsPanel.tsx) · [test](../../client/src/features/integrations/components/jira/__tests__/JiraSpecDetailsPanel.test.tsx)
+
+## client/src/features/integrations/context
+
+- [JiraDiscardContext.tsx](../../client/src/features/integrations/context/JiraDiscardContext.tsx)
+
+## client/src/features/integrations/hooks
+
+- [useJiraConnection.ts](../../client/src/features/integrations/hooks/useJiraConnection.ts)
+
+## client/src/features/integrations/lib
+
+- [companion-signal.ts](../../client/src/features/integrations/lib/companion-signal.ts) · [test](../../client/src/features/integrations/lib/companion-signal.test.ts)
+- [companion.ts](../../client/src/features/integrations/lib/companion.ts)
+- [jira-api.ts](../../client/src/features/integrations/lib/jira-api.ts) · [test](../../client/src/features/integrations/lib/__tests__/jira-api.test.ts)
+
+## client/src/features/integrations/pages
+
+- [IntegrationsPage.tsx](../../client/src/features/integrations/pages/IntegrationsPage.tsx) · [test](../../client/src/features/integrations/pages/__tests__/IntegrationsPage.test.tsx)
+
+## client/src/features/jobs/components
+
+- [InteractiveJobComposer.tsx](../../client/src/features/jobs/components/InteractiveJobComposer.tsx) · [test](../../client/src/features/jobs/components/__tests__/InteractiveJobComposer.test.tsx)
+- [JobComparisonModal.tsx](../../client/src/features/jobs/components/JobComparisonModal.tsx) · [test](../../client/src/features/jobs/components/__tests__/JobComparisonModal.test.tsx)
+- [JobDetailModal.tsx](../../client/src/features/jobs/components/JobDetailModal.tsx) · [test](../../client/src/features/jobs/components/__tests__/JobDetailModal.test.tsx)
+- [JobTicketHeader.tsx](../../client/src/features/jobs/components/JobTicketHeader.tsx)
+- [LogViewer.tsx](../../client/src/features/jobs/components/LogViewer.tsx) · [test](../../client/src/features/jobs/components/__tests__/LogViewer.test.tsx)
+- [PipelineProgress.tsx](../../client/src/features/jobs/components/PipelineProgress.tsx) · [test](../../client/src/features/jobs/components/__tests__/PipelineProgress.test.tsx)
+- [RecentJobs.tsx](../../client/src/features/jobs/components/RecentJobs.tsx) · [test](../../client/src/features/jobs/components/__tests__/RecentJobs.test.tsx)
+- [log-ticket-refs.tsx](../../client/src/features/jobs/components/log-ticket-refs.tsx) · [test](../../client/src/features/jobs/components/__tests__/log-ticket-refs.test.tsx)
+
+## client/src/features/jobs/components/job-run
+
+- [JobRunHeader.tsx](../../client/src/features/jobs/components/job-run/JobRunHeader.tsx) · [test](../../client/src/features/jobs/components/job-run/__tests__/JobRunHeader.test.tsx)
+- [job-run-model.ts](../../client/src/features/jobs/components/job-run/job-run-model.ts) · [test](../../client/src/features/jobs/components/job-run/__tests__/job-run-model.test.ts)
+- [useRuntimeRuns.ts](../../client/src/features/jobs/components/job-run/useRuntimeRuns.ts)
+
+## client/src/features/jobs/hooks
+
+- [useAssembleProgress.ts](../../client/src/features/jobs/hooks/useAssembleProgress.ts)
+- [useCompareUrlSync.ts](../../client/src/features/jobs/hooks/useCompareUrlSync.ts)
+- [useLogTicketActions.ts](../../client/src/features/jobs/hooks/useLogTicketActions.ts)
+- [usePipeline.ts](../../client/src/features/jobs/hooks/usePipeline.ts) · [test](../../client/src/features/jobs/hooks/__tests__/usePipeline.test.ts)
+- [useRunVitals.ts](../../client/src/features/jobs/hooks/useRunVitals.ts)
+
+## client/src/features/jobs/lib
+
+- [cancel-job.ts](../../client/src/features/jobs/lib/cancel-job.ts) · [test](../../client/src/features/jobs/lib/__tests__/cancel-job.test.ts)
+- [job-log-mode.ts](../../client/src/features/jobs/lib/job-log-mode.ts)
+- [job-time.ts](../../client/src/features/jobs/lib/job-time.ts)
+
+## client/src/features/jobs/pages
+
+- [JobDetailPage.tsx](../../client/src/features/jobs/pages/JobDetailPage.tsx) · [test](../../client/src/features/jobs/pages/__tests__/JobDetailPage.test.tsx)
+- [JobsPage.tsx](../../client/src/features/jobs/pages/JobsPage.tsx)
+
+## client/src/features/loops/components
+
+- [LoopPreviewModal.tsx](../../client/src/features/loops/components/LoopPreviewModal.tsx)
+- [LoopRunModal.tsx](../../client/src/features/loops/components/LoopRunModal.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopRunModal.test.tsx)
+- [TemplatePreviewModal.tsx](../../client/src/features/loops/components/TemplatePreviewModal.tsx) · [test](../../client/src/features/loops/components/__tests__/TemplatePreviewModal.test.tsx)
+
+## client/src/features/loops/components/loop-log
+
+- [LoopCompletionSummary.tsx](../../client/src/features/loops/components/loop-log/LoopCompletionSummary.tsx) · [test](../../client/src/features/loops/components/loop-log/__tests__/LoopCompletionSummary.test.tsx)
+- [LoopOverviewStrip.tsx](../../client/src/features/loops/components/loop-log/LoopOverviewStrip.tsx)
+- [LoopStepExplorer.tsx](../../client/src/features/loops/components/loop-log/LoopStepExplorer.tsx) · [test](../../client/src/features/loops/components/loop-log/__tests__/LoopStepExplorer.test.tsx)
+- [LoopStepSection.tsx](../../client/src/features/loops/components/loop-log/LoopStepSection.tsx)
+- [NarratedProgress.tsx](../../client/src/features/loops/components/loop-log/NarratedProgress.tsx) · [test](../../client/src/features/loops/components/loop-log/__tests__/NarratedProgress.test.tsx)
+- [completion-model.ts](../../client/src/features/loops/components/loop-log/completion-model.ts)
+- [loop-log-model.ts](../../client/src/features/loops/components/loop-log/loop-log-model.ts) · [test](../../client/src/features/loops/components/loop-log/__tests__/loop-log-model.test.ts)
+- [loop-node-visuals.ts](../../client/src/features/loops/components/loop-log/loop-node-visuals.ts)
+- [narration-commands.ts](../../client/src/features/loops/components/loop-log/narration-commands.ts) · [test](../../client/src/features/loops/components/loop-log/__tests__/narration-commands.test.ts)
+- [narration-model.ts](../../client/src/features/loops/components/loop-log/narration-model.ts) · [test](../../client/src/features/loops/components/loop-log/__tests__/narration-model.test.ts)
+
+## client/src/features/loops/lib
+
+- [loop-clipboard.ts](../../client/src/features/loops/lib/loop-clipboard.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-clipboard.test.ts)
+- [loop-export.ts](../../client/src/features/loops/lib/loop-export.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-export.test.ts)
+- [loop-graph-rf.ts](../../client/src/features/loops/lib/loop-graph-rf.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-graph-rf.test.ts)
+- [loop-layout.ts](../../client/src/features/loops/lib/loop-layout.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-layout.test.ts)
+- [loop-run-models.ts](../../client/src/features/loops/lib/loop-run-models.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-run-models.test.ts)
+- [loop-template-filter.ts](../../client/src/features/loops/lib/loop-template-filter.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-template-filter.test.ts)
+- [loop-ticket-need.ts](../../client/src/features/loops/lib/loop-ticket-need.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-ticket-need.test.ts)
+- [loop-validate.ts](../../client/src/features/loops/lib/loop-validate.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-validate.test.ts)
+- [loops-api.ts](../../client/src/features/loops/lib/loops-api.ts) · [test](../../client/src/features/loops/lib/__tests__/loops-api.test.ts)
+
+## client/src/features/loops/pages
+
+- [LoopBuilderPage.tsx](../../client/src/features/loops/pages/LoopBuilderPage.tsx)
+- [LoopsPage.tsx](../../client/src/features/loops/pages/LoopsPage.tsx) · [test](../../client/src/features/loops/pages/__tests__/LoopsPage.test.tsx)
+
+## client/src/features/missions/components
+
+- [AgentActivityChip.tsx](../../client/src/features/missions/components/AgentActivityChip.tsx)
+- [AgentActivityLogModal.tsx](../../client/src/features/missions/components/AgentActivityLogModal.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentActivityLogModal.test.tsx)
+- [AgentBrowserCapture.tsx](../../client/src/features/missions/components/AgentBrowserCapture.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentBrowserCapture.test.tsx)
+- [AgentBrowserCaptureHost.tsx](../../client/src/features/missions/components/AgentBrowserCaptureHost.tsx)
+- [AgentBubble.tsx](../../client/src/features/missions/components/AgentBubble.tsx)
+- [AgentChatPanel.tsx](../../client/src/features/missions/components/AgentChatPanel.tsx)
+- [AgentComposer.tsx](../../client/src/features/missions/components/AgentComposer.tsx)
+- [AgentComposerAttachmentChip.tsx](../../client/src/features/missions/components/AgentComposerAttachmentChip.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentComposerAttachmentChip.test.tsx)
+- [AgentComposerEditor.tsx](../../client/src/features/missions/components/AgentComposerEditor.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentComposerEditor.test.tsx)
+- [AgentContextPalette.tsx](../../client/src/features/missions/components/AgentContextPalette.tsx)
+- [AgentConversationHeader.tsx](../../client/src/features/missions/components/AgentConversationHeader.tsx)
+- [AgentConversationView.tsx](../../client/src/features/missions/components/AgentConversationView.tsx)
+- [AgentDeliveryReceipt.tsx](../../client/src/features/missions/components/AgentDeliveryReceipt.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentDeliveryReceipt.test.tsx)
+- [AgentGitBar.tsx](../../client/src/features/missions/components/AgentGitBar.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentGitBar.test.tsx)
+- [AgentMessage.tsx](../../client/src/features/missions/components/AgentMessage.tsx)
+- [AgentMissionSelector.tsx](../../client/src/features/missions/components/AgentMissionSelector.tsx)
+- [AgentModeAnalyticsPane.tsx](../../client/src/features/missions/components/AgentModeAnalyticsPane.tsx)
+- [AgentModeCodePane.tsx](../../client/src/features/missions/components/AgentModeCodePane.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeCodePane.test.tsx)
+- [AgentModeJobsPane.tsx](../../client/src/features/missions/components/AgentModeJobsPane.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeJobsPane.test.tsx)
+- [AgentModeSurface.tsx](../../client/src/features/missions/components/AgentModeSurface.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeSurface.test.tsx)
+- [AgentModelSelector.tsx](../../client/src/features/missions/components/AgentModelSelector.tsx)
+- [AgentPrDecisionCard.tsx](../../client/src/features/missions/components/AgentPrDecisionCard.tsx)
+- [AgentPrPinnedDock.tsx](../../client/src/features/missions/components/AgentPrPinnedDock.tsx)
+- [AgentProblemFrameCard.tsx](../../client/src/features/missions/components/AgentProblemFrameCard.tsx)
+- [AgentProjectSelector.tsx](../../client/src/features/missions/components/AgentProjectSelector.tsx)
+- [AgentQueuedMessage.tsx](../../client/src/features/missions/components/AgentQueuedMessage.tsx)
+- [AgentRailLaunchCard.tsx](../../client/src/features/missions/components/AgentRailLaunchCard.tsx)
+- [AgentRefChip.tsx](../../client/src/features/missions/components/AgentRefChip.tsx)
+- [AgentRunFailureMarker.tsx](../../client/src/features/missions/components/AgentRunFailureMarker.tsx)
+- [AgentSpecDraftCard.tsx](../../client/src/features/missions/components/AgentSpecDraftCard.tsx)
+- [AgentThinkingHalo.tsx](../../client/src/features/missions/components/AgentThinkingHalo.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentThinkingHalo.test.tsx)
+- [AgentTierChip.tsx](../../client/src/features/missions/components/AgentTierChip.tsx)
+- [AgentToolbarSelector.tsx](../../client/src/features/missions/components/AgentToolbarSelector.tsx)
+- [AgentWorkspaceSidebar.tsx](../../client/src/features/missions/components/AgentWorkspaceSidebar.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentWorkspaceSidebar.test.tsx)
+- [MissionWindowAction.tsx](../../client/src/features/missions/components/MissionWindowAction.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionWindowAction.test.tsx)
+- [MissionWindowBindings.tsx](../../client/src/features/missions/components/MissionWindowBindings.tsx) · [test](../../client/src/features/missions/components/MissionWindowBindings.test.tsx)
+- [MissionWindowSurface.tsx](../../client/src/features/missions/components/MissionWindowSurface.tsx)
+- [agent-fence-promotion.ts](../../client/src/features/missions/components/agent-fence-promotion.ts) · [test](../../client/src/features/missions/components/__tests__/agent-fence-promotion.test.ts)
+- [agent-options.ts](../../client/src/features/missions/components/agent-options.ts)
+- [agent-pr-pinning.ts](../../client/src/features/missions/components/agent-pr-pinning.ts)
+- [agent-problem-frame.ts](../../client/src/features/missions/components/agent-problem-frame.ts)
+- [agent-run-failure.ts](../../client/src/features/missions/components/agent-run-failure.ts) · [test](../../client/src/features/missions/components/__tests__/agent-run-failure.test.ts)
+- [agent-spec-draft.ts](../../client/src/features/missions/components/agent-spec-draft.ts)
+- [useAgentProviderCatalog.ts](../../client/src/features/missions/components/useAgentProviderCatalog.ts)
+- [useRailLaunchProposals.ts](../../client/src/features/missions/components/useRailLaunchProposals.ts)
+
+## client/src/features/missions/components/minimized-chats
+
+- [MinimizedChatChip.tsx](../../client/src/features/missions/components/minimized-chats/MinimizedChatChip.tsx)
+- [MinimizedChatsDock.tsx](../../client/src/features/missions/components/minimized-chats/MinimizedChatsDock.tsx)
+
+## client/src/features/missions/context
+
+- [AgentChatContext.tsx](../../client/src/features/missions/context/AgentChatContext.tsx) · [test](../../client/src/features/missions/context/AgentChatContext.test.tsx)
+- [AgentWorkspaceContext.tsx](../../client/src/features/missions/context/AgentWorkspaceContext.tsx) · [test](../../client/src/features/missions/context/__tests__/AgentWorkspaceContext.test.tsx)
+- [MinimizedChatsContext.tsx](../../client/src/features/missions/context/MinimizedChatsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MinimizedChatsContext.test.tsx)
+- [MissionWindowsContext.tsx](../../client/src/features/missions/context/MissionWindowsContext.tsx) · [test](../../client/src/features/missions/context/__tests__/MissionWindowsContext.test.tsx)
+
+## client/src/features/missions/hooks
+
+- [useAgentRefActions.ts](../../client/src/features/missions/hooks/useAgentRefActions.ts)
+
+## client/src/features/missions/lib
+
+- [agent-api.ts](../../client/src/features/missions/lib/agent-api.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-api.test.ts)
+- [agent-composer-drafts.ts](../../client/src/features/missions/lib/agent-composer-drafts.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-composer-drafts.test.ts)
+- [agent-context-palette.ts](../../client/src/features/missions/lib/agent-context-palette.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-context-palette.test.ts)
+- [agent-refs.ts](../../client/src/features/missions/lib/agent-refs.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-refs.test.ts)
+- [mission-search.ts](../../client/src/features/missions/lib/mission-search.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-search.test.ts)
+- [mission-view-state.ts](../../client/src/features/missions/lib/mission-view-state.ts)
+- [mission-window-controller.ts](../../client/src/features/missions/lib/mission-window-controller.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-window-controller.test.ts)
+- [mission-windows.ts](../../client/src/features/missions/lib/mission-windows.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-windows.test.ts)
+
+## client/src/features/plugins/pages
+
+- [PluginsPage.tsx](../../client/src/features/plugins/pages/PluginsPage.tsx) · [test](../../client/src/features/plugins/pages/__tests__/PluginsPage.test.tsx)
+
+## client/src/features/projects/components
+
+- [AddProjectDialog.tsx](../../client/src/features/projects/components/AddProjectDialog.tsx) · [test](../../client/src/features/projects/components/__tests__/AddProjectDialog.test.tsx)
+- [InstallInstructionsModal.tsx](../../client/src/features/projects/components/InstallInstructionsModal.tsx) · [test](../../client/src/features/projects/components/__tests__/InstallInstructionsModal.test.tsx)
+- [OnboardingWizard.tsx](../../client/src/features/projects/components/OnboardingWizard.tsx) · [test](../../client/src/features/projects/components/__tests__/OnboardingWizard.test.tsx)
+- [PrerequisitesPanel.tsx](../../client/src/features/projects/components/PrerequisitesPanel.tsx) · [test](../../client/src/features/projects/components/__tests__/PrerequisitesPanel.test.tsx)
+- [ProjectErrorBoundary.tsx](../../client/src/features/projects/components/ProjectErrorBoundary.tsx) · [test](../../client/src/features/projects/components/__tests__/ProjectErrorBoundary.test.tsx)
+- [RepositoryScopeSelector.tsx](../../client/src/features/projects/components/RepositoryScopeSelector.tsx) · [test](../../client/src/features/projects/components/__tests__/RepositoryScopeSelector.test.tsx)
+
+## client/src/features/projects/hooks
+
+- [usePrerequisites.ts](../../client/src/features/projects/hooks/usePrerequisites.ts)
+
+## client/src/features/projects/lib
+
+- [project-repositories.ts](../../client/src/features/projects/lib/project-repositories.ts)
+
+## client/src/features/projects/types
+
+- [multi-repo.ts](../../client/src/features/projects/types/multi-repo.ts)
+
+## client/src/features/providers/components
+
+- [AiEngineSelector.tsx](../../client/src/features/providers/components/AiEngineSelector.tsx) · [test](../../client/src/features/providers/components/__tests__/AiEngineSelector.test.tsx)
+- [CustomModelAliasInput.tsx](../../client/src/features/providers/components/CustomModelAliasInput.tsx) · [test](../../client/src/features/providers/components/__tests__/CustomModelAliasInput.test.tsx)
+
+## client/src/features/providers/hooks
+
+- [useAvailableProviders.ts](../../client/src/features/providers/hooks/useAvailableProviders.ts)
+- [useProviderDetection.ts](../../client/src/features/providers/hooks/useProviderDetection.ts)
+
+## client/src/features/providers/lib
+
+- [last-engine.ts](../../client/src/features/providers/lib/last-engine.ts) · [test](../../client/src/features/providers/lib/__tests__/last-engine.test.ts)
+- [model-alias.ts](../../client/src/features/providers/lib/model-alias.ts) · [test](../../client/src/features/providers/lib/__tests__/model-alias.test.ts)
+- [provider-capabilities.ts](../../client/src/features/providers/lib/provider-capabilities.ts) · [test](../../client/src/features/providers/lib/__tests__/provider-capabilities.test.ts)
+
+## client/src/features/rails/components
+
+- [FreestyleLaunchDialog.tsx](../../client/src/features/rails/components/FreestyleLaunchDialog.tsx) · [test](../../client/src/features/rails/components/__tests__/FreestyleLaunchDialog.test.tsx)
+- [LaunchAllDialog.tsx](../../client/src/features/rails/components/LaunchAllDialog.tsx)
+- [MoveToRailPopover.tsx](../../client/src/features/rails/components/MoveToRailPopover.tsx)
+- [RailControls.tsx](../../client/src/features/rails/components/RailControls.tsx) · [test](../../client/src/features/rails/components/__tests__/RailControls.test.tsx)
+- [RailExecutionInfo.tsx](../../client/src/features/rails/components/RailExecutionInfo.tsx)
+- [RailRow.tsx](../../client/src/features/rails/components/RailRow.tsx) · [test](../../client/src/features/rails/components/__tests__/RailRow.test.tsx)
+- [RailTargetPrSelector.tsx](../../client/src/features/rails/components/RailTargetPrSelector.tsx) · [test](../../client/src/features/rails/components/__tests__/RailTargetPrSelector.test.tsx)
+- [RailsBoard.tsx](../../client/src/features/rails/components/RailsBoard.tsx) · [test](../../client/src/features/rails/components/__tests__/RailsBoard.test.tsx)
+
+## client/src/features/rails/context
+
+- [RailMetricsContext.tsx](../../client/src/features/rails/context/RailMetricsContext.tsx) · [test](../../client/src/features/rails/context/__tests__/RailMetricsContext.test.tsx)
+
+## client/src/features/rails/lib
+
+- [rail-id.ts](../../client/src/features/rails/lib/rail-id.ts) · [test](../../client/src/features/rails/lib/__tests__/rail-id.test.ts)
+- [rail-launch-draft.ts](../../client/src/features/rails/lib/rail-launch-draft.ts)
+- [rail-launch-intents.ts](../../client/src/features/rails/lib/rail-launch-intents.ts)
+- [rail-loops.ts](../../client/src/features/rails/lib/rail-loops.ts) · [test](../../client/src/features/rails/lib/__tests__/rail-loops.test.ts)
+- [worktree-progress.ts](../../client/src/features/rails/lib/worktree-progress.ts) · [test](../../client/src/features/rails/lib/__tests__/worktree-progress.test.ts)
+
+## client/src/features/settings/components
+
+- [AgentRuntimeMetrics.tsx](../../client/src/features/settings/components/AgentRuntimeMetrics.tsx) · [test](../../client/src/features/settings/components/__tests__/AgentRuntimeMetrics.test.tsx)
+- [AgentRuntimeRuns.tsx](../../client/src/features/settings/components/AgentRuntimeRuns.tsx) · [test](../../client/src/features/settings/components/__tests__/AgentRuntimeRuns.test.tsx)
+- [AgentRuntimeSettingsSection.tsx](../../client/src/features/settings/components/AgentRuntimeSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AgentRuntimeSettingsSection.test.tsx)
+- [AppUpdateSection.tsx](../../client/src/features/settings/components/AppUpdateSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AppUpdateSection.test.tsx)
+- [AppearanceSection.tsx](../../client/src/features/settings/components/AppearanceSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AppearanceSection.test.tsx)
+- [CodeSectionSettings.tsx](../../client/src/features/settings/components/CodeSectionSettings.tsx) · [test](../../client/src/features/settings/components/__tests__/CodeSectionSettings.test.tsx)
+- [CoreUpdateSection.tsx](../../client/src/features/settings/components/CoreUpdateSection.tsx) · [test](../../client/src/features/settings/components/__tests__/CoreUpdateSection.test.tsx)
+- [EffectsSection.tsx](../../client/src/features/settings/components/EffectsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EffectsSection.test.tsx)
+- [ExternalMcpServersCard.tsx](../../client/src/features/settings/components/ExternalMcpServersCard.tsx) · [test](../../client/src/features/settings/components/__tests__/ExternalMcpServersCard.test.tsx)
+- [LanguageSection.tsx](../../client/src/features/settings/components/LanguageSection.tsx) · [test](../../client/src/features/settings/components/__tests__/LanguageSection.test.tsx)
+- [LoopRolesSection.tsx](../../client/src/features/settings/components/LoopRolesSection.tsx) · [test](../../client/src/features/settings/components/__tests__/LoopRolesSection.test.tsx)
+- [McpSettingsSection.tsx](../../client/src/features/settings/components/McpSettingsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/McpSettingsSection.test.tsx)
+- [MobileAccessSection.tsx](../../client/src/features/settings/components/MobileAccessSection.tsx) · [test](../../client/src/features/settings/components/__tests__/MobileAccessSection.test.tsx)
+- [PairWebCompanionModal.tsx](../../client/src/features/settings/components/PairWebCompanionModal.tsx)
+- [PipelineStepper.tsx](../../client/src/features/settings/components/PipelineStepper.tsx) · [test](../../client/src/features/settings/components/__tests__/PipelineStepper.test.tsx)
+- [ProjectRepositoriesSection.tsx](../../client/src/features/settings/components/ProjectRepositoriesSection.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectRepositoriesSection.test.tsx)
+- [ProjectSettingsDialog.tsx](../../client/src/features/settings/components/ProjectSettingsDialog.tsx) · [test](../../client/src/features/settings/components/__tests__/ProjectSettingsDialog.test.tsx)
+- [ProjectSettingsSections.tsx](../../client/src/features/settings/components/ProjectSettingsSections.tsx)
+- [ProviderTabs.tsx](../../client/src/features/settings/components/ProviderTabs.tsx)
+- [RuntimeEfficiencyControls.tsx](../../client/src/features/settings/components/RuntimeEfficiencyControls.tsx)
+- [RuntimeExecutionEvidence.tsx](../../client/src/features/settings/components/RuntimeExecutionEvidence.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeExecutionEvidence.test.tsx)
+- [RuntimeGuardrails.tsx](../../client/src/features/settings/components/RuntimeGuardrails.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeGuardrails.test.tsx)
+- [RuntimeRolePrompts.tsx](../../client/src/features/settings/components/RuntimeRolePrompts.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRolePrompts.test.tsx)
+- [TerminalSettingsSection.tsx](../../client/src/features/settings/components/TerminalSettingsSection.tsx)
+
+## client/src/features/settings/components/pickers
+
+- [LanguagePickerGrid.tsx](../../client/src/features/settings/components/pickers/LanguagePickerGrid.tsx)
+- [ThemePickerGrid.tsx](../../client/src/features/settings/components/pickers/ThemePickerGrid.tsx)
+
+## client/src/features/settings/components/provider-connections
+
+- [CliProviderRow.tsx](../../client/src/features/settings/components/provider-connections/CliProviderRow.tsx)
+- [ConnectionRow.tsx](../../client/src/features/settings/components/provider-connections/ConnectionRow.tsx)
+- [ConnectionStatusPill.tsx](../../client/src/features/settings/components/provider-connections/ConnectionStatusPill.tsx) · [test](../../client/src/features/settings/components/provider-connections/__tests__/ConnectionStatusPill.test.tsx)
+- [LocalConnectionEditor.tsx](../../client/src/features/settings/components/provider-connections/LocalConnectionEditor.tsx) · [test](../../client/src/features/settings/components/provider-connections/__tests__/LocalConnectionEditor.test.tsx)
+- [LocalEngineCard.tsx](../../client/src/features/settings/components/provider-connections/LocalEngineCard.tsx)
+- [OverflowMenu.tsx](../../client/src/features/settings/components/provider-connections/OverflowMenu.tsx)
+- [ProviderConnectionsCard.tsx](../../client/src/features/settings/components/provider-connections/ProviderConnectionsCard.tsx) · [test](../../client/src/features/settings/components/provider-connections/__tests__/ProviderConnectionsCard.test.tsx)
+- [TestConnectionButton.tsx](../../client/src/features/settings/components/provider-connections/TestConnectionButton.tsx) · [test](../../client/src/features/settings/components/provider-connections/__tests__/TestConnectionButton.test.tsx)
+- [index.ts](../../client/src/features/settings/components/provider-connections/index.ts)
+
+## client/src/features/settings/components/theme-effects
+
+- [BladeTrail.tsx](../../client/src/features/settings/components/theme-effects/BladeTrail.tsx) · [test](../../client/src/features/settings/components/theme-effects/__tests__/BladeTrail.test.tsx)
+- [CodeRainEffect.tsx](../../client/src/features/settings/components/theme-effects/CodeRainEffect.tsx)
+- [Starfield.tsx](../../client/src/features/settings/components/theme-effects/Starfield.tsx) · [test](../../client/src/features/settings/components/theme-effects/__tests__/Starfield.test.tsx)
+- [ThemeEffectLayer.tsx](../../client/src/features/settings/components/theme-effects/ThemeEffectLayer.tsx) · [test](../../client/src/features/settings/components/theme-effects/__tests__/ThemeEffectLayer.test.tsx)
+
+## client/src/features/settings/context
+
+- [LanguageContext.tsx](../../client/src/features/settings/context/LanguageContext.tsx) · [test](../../client/src/features/settings/context/__tests__/LanguageContext.test.tsx)
+- [ThemeContext.tsx](../../client/src/features/settings/context/ThemeContext.tsx) · [test](../../client/src/features/settings/context/__tests__/ThemeContext.test.tsx)
+
+## client/src/features/settings/lib
+
+- [agent-runtime.ts](../../client/src/features/settings/lib/agent-runtime.ts)
+- [effects-prefs.ts](../../client/src/features/settings/lib/effects-prefs.ts) · [test](../../client/src/features/settings/lib/__tests__/effects-prefs.test.ts)
+- [runtime-efficiency.ts](../../client/src/features/settings/lib/runtime-efficiency.ts)
+- [terminal-settings-events.ts](../../client/src/features/settings/lib/terminal-settings-events.ts) · [test](../../client/src/features/settings/lib/__tests__/terminal-settings-events.test.ts)
+- [terminal-settings-types.ts](../../client/src/features/settings/lib/terminal-settings-types.ts) · [test](../../client/src/features/settings/lib/__tests__/terminal-settings-types.test.ts)
+- [theme-palette.ts](../../client/src/features/settings/lib/theme-palette.ts) · [test](../../client/src/features/settings/lib/__tests__/theme-palette.test.ts)
+- [themes.ts](../../client/src/features/settings/lib/themes.ts) · [test](../../client/src/features/settings/lib/__tests__/themes.test.ts)
+
+## client/src/features/settings/pages
+
+- [GlobalSettingsPage.tsx](../../client/src/features/settings/pages/GlobalSettingsPage.tsx) · [test](../../client/src/features/settings/pages/__tests__/GlobalSettingsPage.test.tsx)
+- [SettingsPage.tsx](../../client/src/features/settings/pages/SettingsPage.tsx) · [test](../../client/src/features/settings/pages/__tests__/SettingsPage.test.tsx)
+
+## client/src/features/specs/components
+
+- [CreateTicketModal.tsx](../../client/src/features/specs/components/CreateTicketModal.tsx) · [test](../../client/src/features/specs/components/__tests__/CreateTicketModal.test.tsx)
+- [ProposeSpecModal.tsx](../../client/src/features/specs/components/ProposeSpecModal.tsx) · [test](../../client/src/features/specs/components/__tests__/ProposeSpecModal.test.tsx)
+- [SpecAddendaSection.tsx](../../client/src/features/specs/components/SpecAddendaSection.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecAddendaSection.test.tsx)
+- [SpecCard.tsx](../../client/src/features/specs/components/SpecCard.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecCard.test.tsx)
+- [SpecComparePicker.tsx](../../client/src/features/specs/components/SpecComparePicker.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecComparePicker.test.tsx)
+- [SpecEpicFilterDropdown.tsx](../../client/src/features/specs/components/SpecEpicFilterDropdown.tsx)
+- [SpecJiraStatusFilterDropdown.tsx](../../client/src/features/specs/components/SpecJiraStatusFilterDropdown.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecJiraStatusFilterDropdown.test.tsx)
+- [SpecLabelFilterDropdown.tsx](../../client/src/features/specs/components/SpecLabelFilterDropdown.tsx)
+- [SpecLabelFilterStrip.tsx](../../client/src/features/specs/components/SpecLabelFilterStrip.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecLabelFilterStrip.test.tsx)
+- [SpecSortControl.tsx](../../client/src/features/specs/components/SpecSortControl.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecSortControl.test.tsx)
+- [SpecSprintFilterDropdown.tsx](../../client/src/features/specs/components/SpecSprintFilterDropdown.tsx)
+- [SpecStatusFilter.tsx](../../client/src/features/specs/components/SpecStatusFilter.tsx)
+- [SpecsBoard.tsx](../../client/src/features/specs/components/SpecsBoard.tsx) · [test](../../client/src/features/specs/components/__tests__/SpecsBoard.test.tsx)
+- [SpecsViewTierToggle.tsx](../../client/src/features/specs/components/SpecsViewTierToggle.tsx)
+- [TicketContextMenu.tsx](../../client/src/features/specs/components/TicketContextMenu.tsx) · [test](../../client/src/features/specs/components/__tests__/TicketContextMenu.test.tsx)
+- [TicketDetailModal.tsx](../../client/src/features/specs/components/TicketDetailModal.tsx) · [test](../../client/src/features/specs/components/__tests__/TicketDetailModal.test.tsx)
+- [TicketPostitCard.tsx](../../client/src/features/specs/components/TicketPostitCard.tsx) · [test](../../client/src/features/specs/components/__tests__/TicketPostitCard.test.tsx)
+- [TicketStatusIndicator.tsx](../../client/src/features/specs/components/TicketStatusIndicator.tsx) · [test](../../client/src/features/specs/components/__tests__/TicketStatusIndicator.test.tsx)
+
+## client/src/features/specs/components/explore-spec
+
+- [ExploreReviewOverlay.tsx](../../client/src/features/specs/components/explore-spec/ExploreReviewOverlay.tsx) · [test](../../client/src/features/specs/components/explore-spec/__tests__/ExploreReviewOverlay.test.tsx)
+- [ExploreSpecShell.tsx](../../client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx) · [test](../../client/src/features/specs/components/explore-spec/__tests__/ExploreSpecShell.test.tsx)
+- [ExploreStatusPills.tsx](../../client/src/features/specs/components/explore-spec/ExploreStatusPills.tsx) · [test](../../client/src/features/specs/components/explore-spec/__tests__/ExploreStatusPills.test.tsx)
+- [SpecDraftPanel.tsx](../../client/src/features/specs/components/explore-spec/SpecDraftPanel.tsx) · [test](../../client/src/features/specs/components/explore-spec/__tests__/SpecDraftPanel.test.tsx)
+- [SpecModelPicker.tsx](../../client/src/features/specs/components/explore-spec/SpecModelPicker.tsx) · [test](../../client/src/features/specs/components/explore-spec/__tests__/SpecModelPicker.test.tsx)
+- [acceptance-criteria.ts](../../client/src/features/specs/components/explore-spec/acceptance-criteria.ts) · [test](../../client/src/features/specs/components/explore-spec/__tests__/acceptance-criteria.test.ts)
+- [diff-utils.ts](../../client/src/features/specs/components/explore-spec/diff-utils.ts) · [test](../../client/src/features/specs/components/explore-spec/__tests__/diff-utils.test.ts)
+- [useSmoothStream.ts](../../client/src/features/specs/components/explore-spec/useSmoothStream.ts)
+
+## client/src/features/specs/components/specs-smash
+
+- [EpicChildrenSection.tsx](../../client/src/features/specs/components/specs-smash/EpicChildrenSection.tsx) · [test](../../client/src/features/specs/components/specs-smash/__tests__/EpicChildrenSection.test.tsx)
+- [EpicFamilySidebar.tsx](../../client/src/features/specs/components/specs-smash/EpicFamilySidebar.tsx) · [test](../../client/src/features/specs/components/specs-smash/__tests__/EpicFamilySidebar.test.tsx)
+- [SmashActions.tsx](../../client/src/features/specs/components/specs-smash/SmashActions.tsx) · [test](../../client/src/features/specs/components/specs-smash/__tests__/SmashActions.test.tsx)
+- [SmashConfirmModal.tsx](../../client/src/features/specs/components/specs-smash/SmashConfirmModal.tsx)
+- [SmashStatusPills.tsx](../../client/src/features/specs/components/specs-smash/SmashStatusPills.tsx) · [test](../../client/src/features/specs/components/specs-smash/__tests__/SmashStatusPills.test.tsx)
+
+## client/src/features/specs/context
+
+- [SmashTrackerContext.tsx](../../client/src/features/specs/context/SmashTrackerContext.tsx) · [test](../../client/src/features/specs/context/__tests__/SmashTrackerContext.test.tsx)
+- [TicketDetailModalContext.tsx](../../client/src/features/specs/context/TicketDetailModalContext.tsx) · [test](../../client/src/features/specs/context/__tests__/TicketDetailModalContext.test.tsx)
+
+## client/src/features/specs/hooks
+
+- [useContractRefineTracker.tsx](../../client/src/features/specs/hooks/useContractRefineTracker.tsx) · [test](../../client/src/features/specs/hooks/__tests__/useContractRefineTracker.test.tsx)
+- [useQuickContractRefineLast.ts](../../client/src/features/specs/hooks/useQuickContractRefineLast.ts)
+- [useSpecDraftStream.ts](../../client/src/features/specs/hooks/useSpecDraftStream.ts)
+- [useSpecGenTracker.tsx](../../client/src/features/specs/hooks/useSpecGenTracker.tsx) · [test](../../client/src/features/specs/hooks/__tests__/useSpecGenTracker.test.tsx)
+- [useTickets.ts](../../client/src/features/specs/hooks/useTickets.ts) · [test](../../client/src/features/specs/hooks/__tests__/useTickets.test.ts)
+
+## client/src/features/specs/lib
+
+- [active-explore-spec.ts](../../client/src/features/specs/lib/active-explore-spec.ts)
+- [pending-spec-id.ts](../../client/src/features/specs/lib/pending-spec-id.ts) · [test](../../client/src/features/specs/lib/__tests__/pending-spec-id.test.ts)
+- [pending-specs.ts](../../client/src/features/specs/lib/pending-specs.ts) · [test](../../client/src/features/specs/lib/__tests__/pending-specs.test.ts)
+- [spec-addenda-core.ts](../../client/src/features/specs/lib/spec-addenda-core.ts)
+- [spec-draft.ts](../../client/src/features/specs/lib/spec-draft.ts)
+- [spec-filters.ts](../../client/src/features/specs/lib/spec-filters.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-filters.test.ts)
+- [spec-gen-suppression.ts](../../client/src/features/specs/lib/spec-gen-suppression.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-gen-suppression.test.ts)
+- [spec-sort.ts](../../client/src/features/specs/lib/spec-sort.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-sort.test.ts)
+- [spec-status-filter.ts](../../client/src/features/specs/lib/spec-status-filter.ts) · [test](../../client/src/features/specs/lib/__tests__/spec-status-filter.test.ts)
+- [specs-view-tier.ts](../../client/src/features/specs/lib/specs-view-tier.ts) · [test](../../client/src/features/specs/lib/__tests__/specs-view-tier.test.ts)
+- [ticket-refine.ts](../../client/src/features/specs/lib/ticket-refine.ts) · [test](../../client/src/features/specs/lib/__tests__/ticket-refine.test.ts)
+
+## client/src/features/specs/types
+
+- [spec-sort.ts](../../client/src/features/specs/types/spec-sort.ts)
+
+## client/src/features/terminals/components/terminal
+
+- [BottomPanel.tsx](../../client/src/features/terminals/components/terminal/BottomPanel.tsx) · [test](../../client/src/features/terminals/components/terminal/__tests__/BottomPanel.test.tsx)
+- [CliLaunchMenu.tsx](../../client/src/features/terminals/components/terminal/CliLaunchMenu.tsx) · [test](../../client/src/features/terminals/components/terminal/__tests__/CliLaunchMenu.test.tsx)
+- [CommandTimingBadge.tsx](../../client/src/features/terminals/components/terminal/CommandTimingBadge.tsx)
+- [EmptyTerminalPlaceholder.tsx](../../client/src/features/terminals/components/terminal/EmptyTerminalPlaceholder.tsx) · [test](../../client/src/features/terminals/components/terminal/__tests__/EmptyTerminalPlaceholder.test.tsx)
+- [PanelChevronButton.tsx](../../client/src/features/terminals/components/terminal/PanelChevronButton.tsx) · [test](../../client/src/features/terminals/components/terminal/__tests__/PanelChevronButton.test.tsx)
+- [PromptGutter.tsx](../../client/src/features/terminals/components/terminal/PromptGutter.tsx)
+- [ShortcutContextMenu.tsx](../../client/src/features/terminals/components/terminal/ShortcutContextMenu.tsx)
+- [TerminalContextMenu.tsx](../../client/src/features/terminals/components/terminal/TerminalContextMenu.tsx)
+- [TerminalDragHandle.tsx](../../client/src/features/terminals/components/terminal/TerminalDragHandle.tsx) · [test](../../client/src/features/terminals/components/terminal/__tests__/TerminalDragHandle.test.tsx)
+- [TerminalSearchOverlay.tsx](../../client/src/features/terminals/components/terminal/TerminalSearchOverlay.tsx)
+- [TerminalSidebar.tsx](../../client/src/features/terminals/components/terminal/TerminalSidebar.tsx) · [test](../../client/src/features/terminals/components/terminal/__tests__/TerminalSidebar.test.tsx)
+- [TerminalTopBar.tsx](../../client/src/features/terminals/components/terminal/TerminalTopBar.tsx) · [test](../../client/src/features/terminals/components/terminal/__tests__/TerminalTopBar.test.tsx)
+- [TerminalViewport.tsx](../../client/src/features/terminals/components/terminal/TerminalViewport.tsx) · [test](../../client/src/features/terminals/components/terminal/__tests__/TerminalViewport.test.tsx)
+
+## client/src/features/terminals/context
+
+- [TerminalsContext.tsx](../../client/src/features/terminals/context/TerminalsContext.tsx) · [test](../../client/src/features/terminals/context/__tests__/TerminalsContext.test.tsx)
+
+## client/src/features/terminals/lib
+
+- [save-scrollback.ts](../../client/src/features/terminals/lib/save-scrollback.ts)
+- [terminal-notifications.ts](../../client/src/features/terminals/lib/terminal-notifications.ts)
+
 ## client/src/hooks
 
-- [useActivity.ts](../../client/src/hooks/useActivity.ts) · [test](../../client/src/hooks/__tests__/useActivity.test.ts)
-- [useAgentRefActions.ts](../../client/src/hooks/useAgentRefActions.ts)
-- [useAgentRefine.ts](../../client/src/hooks/useAgentRefine.ts)
-- [useAssembleProgress.ts](../../client/src/hooks/useAssembleProgress.ts)
-- [useAvailableProviders.ts](../../client/src/hooks/useAvailableProviders.ts)
-- [useBuilderSession.ts](../../client/src/hooks/useBuilderSession.ts)
-- [useChat.ts](../../client/src/hooks/useChat.ts) · [test](../../client/src/hooks/__tests__/useChat.test.ts)
-- [useCompareUrlSync.ts](../../client/src/hooks/useCompareUrlSync.ts)
-- [useContextBudget.ts](../../client/src/hooks/useContextBudget.ts)
-- [useContextScope.ts](../../client/src/hooks/useContextScope.ts)
-- [useContractRefineTracker.tsx](../../client/src/hooks/useContractRefineTracker.tsx) · [test](../../client/src/hooks/__tests__/useContractRefineTracker.test.tsx)
-- [useDashboardSplit.ts](../../client/src/hooks/useDashboardSplit.ts)
 - [useDesktop.tsx](../../client/src/hooks/useDesktop.tsx) · [test](../../client/src/hooks/__tests__/useDesktop.test.tsx)
 - [useDesktopUpdateNotifier.tsx](../../client/src/hooks/useDesktopUpdateNotifier.tsx) · [test](../../client/src/hooks/__tests__/useDesktopUpdateNotifier.test.tsx)
-- [useJiraConnection.ts](../../client/src/hooks/useJiraConnection.ts)
 - [useKeyboardShortcuts.ts](../../client/src/hooks/useKeyboardShortcuts.ts)
-- [useLogTicketActions.ts](../../client/src/hooks/useLogTicketActions.ts)
-- [useMilestoneNotifications.ts](../../client/src/hooks/useMilestoneNotifications.ts)
-- [useMilestoneProgress.ts](../../client/src/hooks/useMilestoneProgress.ts)
 - [useMovableResizableModal.tsx](../../client/src/hooks/useMovableResizableModal.tsx) · [test](../../client/src/hooks/__tests__/useMovableResizableModal.test.tsx)
 - [useOsNotifications.ts](../../client/src/hooks/useOsNotifications.ts) · [test](../../client/src/hooks/__tests__/useOsNotifications.test.ts)
-- [usePipeline.ts](../../client/src/hooks/usePipeline.ts) · [test](../../client/src/hooks/__tests__/usePipeline.test.ts)
-- [usePrerequisites.ts](../../client/src/hooks/usePrerequisites.ts)
 - [useProjectCache.ts](../../client/src/hooks/useProjectCache.ts) · [test](../../client/src/hooks/__tests__/useProjectCache.test.ts)
-- [useProviderDetection.ts](../../client/src/hooks/useProviderDetection.ts)
-- [useQuickContractRefineLast.ts](../../client/src/hooks/useQuickContractRefineLast.ts)
 - [useResizableSidebar.ts](../../client/src/hooks/useResizableSidebar.ts)
-- [useRunVitals.ts](../../client/src/hooks/useRunVitals.ts)
 - [useSharedWebSocket.tsx](../../client/src/hooks/useSharedWebSocket.tsx) · [test](../../client/src/hooks/__tests__/useSharedWebSocket.test.tsx)
-- [useSpecDraftStream.ts](../../client/src/hooks/useSpecDraftStream.ts)
-- [useSpecGenTracker.tsx](../../client/src/hooks/useSpecGenTracker.tsx) · [test](../../client/src/hooks/__tests__/useSpecGenTracker.test.tsx)
 - [useSuppressNativeContextMenu.ts](../../client/src/hooks/useSuppressNativeContextMenu.ts) · [test](../../client/src/hooks/__tests__/useSuppressNativeContextMenu.test.ts)
-- [useTickets.ts](../../client/src/hooks/useTickets.ts) · [test](../../client/src/hooks/__tests__/useTickets.test.ts)
 - [useTrayLabels.tsx](../../client/src/hooks/useTrayLabels.tsx) · [test](../../client/src/hooks/__tests__/useTrayLabels.test.tsx)
 - [useWebSocket.ts](../../client/src/hooks/useWebSocket.ts) · [test](../../client/src/hooks/__tests__/useWebSocket.test.ts)
 
 ## client/src/lib
 
-- [active-explore-spec.ts](../../client/src/lib/active-explore-spec.ts)
-- [agent-api.ts](../../client/src/lib/agent-api.ts) · [test](../../client/src/lib/__tests__/agent-api.test.ts)
-- [agent-composer-drafts.ts](../../client/src/lib/agent-composer-drafts.ts) · [test](../../client/src/lib/__tests__/agent-composer-drafts.test.ts)
-- [agent-context-palette.ts](../../client/src/lib/agent-context-palette.ts) · [test](../../client/src/lib/__tests__/agent-context-palette.test.ts)
-- [agent-refs.ts](../../client/src/lib/agent-refs.ts) · [test](../../client/src/lib/__tests__/agent-refs.test.ts)
-- [agent-runtime.ts](../../client/src/lib/agent-runtime.ts)
-- [annotations.ts](../../client/src/lib/annotations.ts) · [test](../../client/src/lib/annotations.test.ts)
 - [api-response.ts](../../client/src/lib/api-response.ts) · [test](../../client/src/lib/__tests__/api-response.test.ts)
 - [api.ts](../../client/src/lib/api.ts) · [test](../../client/src/lib/__tests__/api.test.ts)
-- [attachments.ts](../../client/src/lib/attachments.ts) · [test](../../client/src/lib/__tests__/attachments.test.ts)
 - [auth.ts](../../client/src/lib/auth.ts) · [test](../../client/src/lib/__tests__/auth.test.ts)
-- [background-processes-api.ts](../../client/src/lib/background-processes-api.ts) · [test](../../client/src/lib/__tests__/background-processes-api.test.ts)
-- [blueprint-draft.ts](../../client/src/lib/blueprint-draft.ts) · [test](../../client/src/lib/__tests__/blueprint-draft.test.ts)
-- [blueprint-readiness.ts](../../client/src/lib/blueprint-readiness.ts) · [test](../../client/src/lib/__tests__/blueprint-readiness.test.ts)
-- [blueprint-spec-quality.ts](../../client/src/lib/blueprint-spec-quality.ts) · [test](../../client/src/lib/__tests__/blueprint-spec-quality.test.ts)
-- [browser-capture.ts](../../client/src/lib/browser-capture.ts) · [test](../../client/src/lib/browser-capture.test.ts)
-- [browser-frame-pipeline.ts](../../client/src/lib/browser-frame-pipeline.ts) · [test](../../client/src/lib/browser-frame-pipeline.test.ts)
-- [cancel-job.ts](../../client/src/lib/cancel-job.ts) · [test](../../client/src/lib/__tests__/cancel-job.test.ts)
 - [command-mark-store.ts](../../client/src/lib/command-mark-store.ts) · [test](../../client/src/lib/__tests__/command-mark-store.test.ts)
-- [companion-signal.ts](../../client/src/lib/companion-signal.ts) · [test](../../client/src/lib/companion-signal.test.ts)
-- [companion.ts](../../client/src/lib/companion.ts)
-- [dashboard-dnd.ts](../../client/src/lib/dashboard-dnd.ts) · [test](../../client/src/lib/__tests__/dashboard-dnd.test.ts)
 - [data-url.ts](../../client/src/lib/data-url.ts) · [test](../../client/src/lib/__tests__/data-url.test.ts)
-- [docs-links.ts](../../client/src/lib/docs-links.ts)
-- [effects-prefs.ts](../../client/src/lib/effects-prefs.ts) · [test](../../client/src/lib/__tests__/effects-prefs.test.ts)
 - [feature-flags.ts](../../client/src/lib/feature-flags.ts)
 - [format-command.ts](../../client/src/lib/format-command.ts) · [test](../../client/src/lib/__tests__/format-command.test.ts)
 - [format-duration.ts](../../client/src/lib/format-duration.ts) · [test](../../client/src/lib/__tests__/format-duration.test.ts)
-- [frame-activity.ts](../../client/src/lib/frame-activity.ts) · [test](../../client/src/lib/__tests__/frame-activity.test.ts)
-- [git-refresh.ts](../../client/src/lib/git-refresh.ts) · [test](../../client/src/lib/__tests__/git-refresh.test.ts)
 - [global-route-mode-transition.ts](../../client/src/lib/global-route-mode-transition.ts) · [test](../../client/src/lib/__tests__/global-route-mode-transition.test.ts)
 - [html-highlight.ts](../../client/src/lib/html-highlight.ts) · [test](../../client/src/lib/html-highlight.test.ts)
 - [i18n.ts](../../client/src/lib/i18n.ts) · [test](../../client/src/lib/__tests__/i18n.test.ts)
-- [jira-api.ts](../../client/src/lib/jira-api.ts) · [test](../../client/src/lib/__tests__/jira-api.test.ts)
-- [job-log-mode.ts](../../client/src/lib/job-log-mode.ts)
-- [job-time.ts](../../client/src/lib/job-time.ts)
 - [json-tolerant.ts](../../client/src/lib/json-tolerant.ts) · [test](../../client/src/lib/__tests__/json-tolerant.test.ts)
 - [keyboard-label.ts](../../client/src/lib/keyboard-label.ts)
-- [last-engine.ts](../../client/src/lib/last-engine.ts) · [test](../../client/src/lib/__tests__/last-engine.test.ts)
-- [loop-clipboard.ts](../../client/src/lib/loop-clipboard.ts) · [test](../../client/src/lib/__tests__/loop-clipboard.test.ts)
-- [loop-export.ts](../../client/src/lib/loop-export.ts) · [test](../../client/src/lib/__tests__/loop-export.test.ts)
-- [loop-graph-rf.ts](../../client/src/lib/loop-graph-rf.ts) · [test](../../client/src/lib/__tests__/loop-graph-rf.test.ts)
-- [loop-layout.ts](../../client/src/lib/loop-layout.ts) · [test](../../client/src/lib/__tests__/loop-layout.test.ts)
-- [loop-run-models.ts](../../client/src/lib/loop-run-models.ts) · [test](../../client/src/lib/__tests__/loop-run-models.test.ts)
-- [loop-template-filter.ts](../../client/src/lib/loop-template-filter.ts) · [test](../../client/src/lib/__tests__/loop-template-filter.test.ts)
-- [loop-ticket-need.ts](../../client/src/lib/loop-ticket-need.ts) · [test](../../client/src/lib/__tests__/loop-ticket-need.test.ts)
-- [loop-validate.ts](../../client/src/lib/loop-validate.ts) · [test](../../client/src/lib/__tests__/loop-validate.test.ts)
-- [loops-api.ts](../../client/src/lib/loops-api.ts) · [test](../../client/src/lib/__tests__/loops-api.test.ts)
 - [markdown-detect.ts](../../client/src/lib/markdown-detect.ts) · [test](../../client/src/lib/__tests__/markdown-detect.test.ts)
-- [milestone-launch.ts](../../client/src/lib/milestone-launch.ts) · [test](../../client/src/lib/__tests__/milestone-launch.test.ts)
-- [milestone-progress.ts](../../client/src/lib/milestone-progress.ts) · [test](../../client/src/lib/__tests__/milestone-progress.test.ts)
-- [mission-search.ts](../../client/src/lib/mission-search.ts) · [test](../../client/src/lib/__tests__/mission-search.test.ts)
-- [mission-view-state.ts](../../client/src/lib/mission-view-state.ts)
-- [mission-window-controller.ts](../../client/src/lib/mission-window-controller.ts) · [test](../../client/src/lib/__tests__/mission-window-controller.test.ts)
-- [mission-windows.ts](../../client/src/lib/mission-windows.ts) · [test](../../client/src/lib/__tests__/mission-windows.test.ts)
 - [modal-geometry.ts](../../client/src/lib/modal-geometry.ts) · [test](../../client/src/lib/__tests__/modal-geometry.test.ts)
 - [modal-safe-area.ts](../../client/src/lib/modal-safe-area.ts) · [test](../../client/src/lib/__tests__/modal-safe-area.test.ts)
-- [model-alias.ts](../../client/src/lib/model-alias.ts) · [test](../../client/src/lib/__tests__/model-alias.test.ts)
-- [monaco-setup.ts](../../client/src/lib/monaco-setup.ts)
-- [native-browser.ts](../../client/src/lib/native-browser.ts) · [test](../../client/src/lib/__tests__/native-browser.test.ts)
 - [origin.ts](../../client/src/lib/origin.ts)
-- [packet-verbs.ts](../../client/src/lib/packet-verbs.ts) · [test](../../client/src/lib/__tests__/packet-verbs.test.ts)
-- [pending-spec-id.ts](../../client/src/lib/pending-spec-id.ts) · [test](../../client/src/lib/__tests__/pending-spec-id.test.ts)
-- [pending-specs.ts](../../client/src/lib/pending-specs.ts) · [test](../../client/src/lib/__tests__/pending-specs.test.ts)
-- [pr-delivery.ts](../../client/src/lib/pr-delivery.ts) · [test](../../client/src/lib/__tests__/pr-delivery.test.ts)
-- [pr-follow-up-scope.ts](../../client/src/lib/pr-follow-up-scope.ts)
-- [project-repositories.ts](../../client/src/lib/project-repositories.ts)
-- [provider-capabilities.ts](../../client/src/lib/provider-capabilities.ts) · [test](../../client/src/lib/__tests__/provider-capabilities.test.ts)
-- [rail-id.ts](../../client/src/lib/rail-id.ts) · [test](../../client/src/lib/__tests__/rail-id.test.ts)
-- [rail-launch-draft.ts](../../client/src/lib/rail-launch-draft.ts)
-- [rail-launch-intents.ts](../../client/src/lib/rail-launch-intents.ts)
-- [rail-loops.ts](../../client/src/lib/rail-loops.ts) · [test](../../client/src/lib/__tests__/rail-loops.test.ts)
 - [relative-time.ts](../../client/src/lib/relative-time.ts) · [test](../../client/src/lib/__tests__/relative-time.test.ts)
 - [route-memory.ts](../../client/src/lib/route-memory.ts) · [test](../../client/src/lib/__tests__/route-memory.test.ts)
-- [runtime-efficiency.ts](../../client/src/lib/runtime-efficiency.ts)
-- [save-scrollback.ts](../../client/src/lib/save-scrollback.ts)
 - [shell-quote.ts](../../client/src/lib/shell-quote.ts) · [test](../../client/src/lib/shell-quote.test.ts)
-- [spec-addenda-core.ts](../../client/src/lib/spec-addenda-core.ts)
-- [spec-draft.ts](../../client/src/lib/spec-draft.ts)
-- [spec-filters.ts](../../client/src/lib/spec-filters.ts) · [test](../../client/src/lib/__tests__/spec-filters.test.ts)
-- [spec-gen-suppression.ts](../../client/src/lib/spec-gen-suppression.ts) · [test](../../client/src/lib/__tests__/spec-gen-suppression.test.ts)
-- [spec-sort.ts](../../client/src/lib/spec-sort.ts) · [test](../../client/src/lib/__tests__/spec-sort.test.ts)
-- [spec-status-filter.ts](../../client/src/lib/spec-status-filter.ts) · [test](../../client/src/lib/__tests__/spec-status-filter.test.ts)
-- [specs-view-tier.ts](../../client/src/lib/specs-view-tier.ts) · [test](../../client/src/lib/__tests__/specs-view-tier.test.ts)
 - [tauri-clipboard.ts](../../client/src/lib/tauri-clipboard.ts)
 - [tauri-drag-drop.ts](../../client/src/lib/tauri-drag-drop.ts) · [test](../../client/src/lib/__tests__/tauri-drag-drop.test.ts)
 - [tauri-shell.ts](../../client/src/lib/tauri-shell.ts)
-- [terminal-notifications.ts](../../client/src/lib/terminal-notifications.ts)
-- [terminal-settings-events.ts](../../client/src/lib/terminal-settings-events.ts) · [test](../../client/src/lib/__tests__/terminal-settings-events.test.ts)
-- [terminal-settings-types.ts](../../client/src/lib/terminal-settings-types.ts) · [test](../../client/src/lib/__tests__/terminal-settings-types.test.ts)
-- [theme-palette.ts](../../client/src/lib/theme-palette.ts) · [test](../../client/src/lib/__tests__/theme-palette.test.ts)
-- [themes.ts](../../client/src/lib/themes.ts) · [test](../../client/src/lib/__tests__/themes.test.ts)
-- [ticket-refine.ts](../../client/src/lib/ticket-refine.ts) · [test](../../client/src/lib/__tests__/ticket-refine.test.ts)
 - [utils.ts](../../client/src/lib/utils.ts) · [test](../../client/src/lib/__tests__/utils.test.ts)
 - [viewport.ts](../../client/src/lib/viewport.ts)
-- [worktree-progress.ts](../../client/src/lib/worktree-progress.ts) · [test](../../client/src/lib/__tests__/worktree-progress.test.ts)
 - [ws-url.ts](../../client/src/lib/ws-url.ts) · [test](../../client/src/lib/__tests__/ws-url.test.ts)
-
-## client/src/pages
-
-- [ActivityFeedPage.tsx](../../client/src/pages/ActivityFeedPage.tsx) · [test](../../client/src/pages/__tests__/ActivityFeedPage.test.tsx)
-- [AgentsPage.tsx](../../client/src/pages/AgentsPage.tsx)
-- [AnalyticsPage.tsx](../../client/src/pages/AnalyticsPage.tsx) · [test](../../client/src/pages/__tests__/AnalyticsPage.test.tsx)
-- [CodePage.tsx](../../client/src/pages/CodePage.tsx) · [test](../../client/src/pages/__tests__/CodePage.test.tsx)
-- [DashboardPage.tsx](../../client/src/pages/DashboardPage.tsx) · [test](../../client/src/pages/__tests__/DashboardPage.test.tsx)
-- [DesktopAnalyticsPage.tsx](../../client/src/pages/DesktopAnalyticsPage.tsx) · [test](../../client/src/pages/__tests__/DesktopAnalyticsPage.test.tsx)
-- [DocsPage.tsx](../../client/src/pages/DocsPage.tsx) · [test](../../client/src/pages/__tests__/DocsPage.test.tsx)
-- [GlobalSettingsPage.tsx](../../client/src/pages/GlobalSettingsPage.tsx) · [test](../../client/src/pages/__tests__/GlobalSettingsPage.test.tsx)
-- [IntegrationsPage.tsx](../../client/src/pages/IntegrationsPage.tsx) · [test](../../client/src/pages/__tests__/IntegrationsPage.test.tsx)
-- [JobDetailPage.tsx](../../client/src/pages/JobDetailPage.tsx) · [test](../../client/src/pages/__tests__/JobDetailPage.test.tsx)
-- [JobsPage.tsx](../../client/src/pages/JobsPage.tsx)
-- [LoopBuilderPage.tsx](../../client/src/pages/LoopBuilderPage.tsx)
-- [LoopsPage.tsx](../../client/src/pages/LoopsPage.tsx) · [test](../../client/src/pages/__tests__/LoopsPage.test.tsx)
-- [PluginsPage.tsx](../../client/src/pages/PluginsPage.tsx) · [test](../../client/src/pages/__tests__/PluginsPage.test.tsx)
-- [ReviewPacketPage.tsx](../../client/src/pages/ReviewPacketPage.tsx) · [test](../../client/src/pages/__tests__/ReviewPacketPage.test.tsx)
-- [SettingsPage.tsx](../../client/src/pages/SettingsPage.tsx) · [test](../../client/src/pages/__tests__/SettingsPage.test.tsx)
-
-## client/src/types
-
-- [context-scope.ts](../../client/src/types/context-scope.ts) · [test](../../client/src/types/__tests__/context-scope.test.ts)
-- [multi-repo.ts](../../client/src/types/multi-repo.ts)
-- [spec-sort.ts](../../client/src/types/spec-sort.ts)
-- [spending.ts](../../client/src/types/spending.ts) · [test](../../client/src/types/__tests__/spending.test.ts)
 
 ## local-runner/src
 
@@ -586,6 +777,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [assemble-chromium.mjs](../../scripts/assemble-chromium.mjs) · [test](../../scripts/assemble-chromium.test.mjs)
 - [assemble-core-source.mjs](../../scripts/assemble-core-source.mjs)
 - [assemble-runtimes-local.mjs](../../scripts/assemble-runtimes-local.mjs)
+- [audit-client-features.mjs](../../scripts/audit-client-features.mjs) · [test](../../scripts/audit-client-features.test.mjs)
+- [audit-server-modules.mjs](../../scripts/audit-server-modules.mjs)
 - [audit-source.mjs](../../scripts/audit-source.mjs)
 - [build-local-runner.mjs](../../scripts/build-local-runner.mjs)
 - [build-mcp-bridge.mjs](../../scripts/build-mcp-bridge.mjs)
@@ -622,132 +815,27 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server / agent
 
-- [agent-chat-manager.ts](../../server/agent-chat-manager.ts) · [test](../../server/agent-chat-manager.test.ts)
-- [agent-chat-registry.ts](../../server/agent-chat-registry.ts)
-- [agent-chat-router.ts](../../server/agent-chat-router.ts)
-- [agent-context-resolver.ts](../../server/agent-context-resolver.ts) · [test](../../server/agent-context-resolver.test.ts)
-- [agent-cwd-manager.ts](../../server/agent-cwd-manager.ts)
-- [agent-defaults.ts](../../server/agent-defaults.ts) · [test](../../server/agent-defaults.test.ts)
-- [agent-failure-briefing.ts](../../server/agent-failure-briefing.ts) · [test](../../server/agent-failure-briefing.test.ts)
-- [agent-fence-promotion.ts](../../server/agent-fence-promotion.ts)
-- [agent-generator.ts](../../server/agent-generator.ts) · [test](../../server/agent-generator.test.ts)
-- [agent-input-store.ts](../../server/agent-input-store.ts) · [test](../../server/agent-input-store.test.ts)
 - [agent-mcp-config.ts](../../server/agent-mcp-config.ts) · [test](../../server/agent-mcp-config.test.ts)
-- [agent-operator-prompt.ts](../../server/agent-operator-prompt.ts) · [test](../../server/agent-operator-prompt.test.ts)
-- [agent-refine-db.ts](../../server/agent-refine-db.ts) · [test](../../server/agent-refine-db.test.ts)
-- [agent-refine-manager.ts](../../server/agent-refine-manager.ts) · [test](../../server/agent-refine-manager.test.ts)
-- [agent-runtime-accounting.ts](../../server/agent-runtime-accounting.ts) · [test](../../server/agent-runtime-accounting.test.ts)
-- [agent-runtime-bridge.ts](../../server/agent-runtime-bridge.ts) · [test](../../server/agent-runtime-bridge.test.ts)
-- [agent-runtime-controls-router.ts](../../server/agent-runtime-controls-router.ts)
-- [agent-runtime-controls.ts](../../server/agent-runtime-controls.ts) · [test](../../server/agent-runtime-controls.test.ts)
-- [agent-runtime-effective-config.ts](../../server/agent-runtime-effective-config.ts) · [test](../../server/agent-runtime-effective-config.test.ts)
-- [agent-runtime-events.ts](../../server/agent-runtime-events.ts) · [test](../../server/agent-runtime-events.test.ts)
-- [agent-runtime-history.ts](../../server/agent-runtime-history.ts) · [test](../../server/agent-runtime-history.test.ts)
-- [agent-runtime-loader.ts](../../server/agent-runtime-loader.ts) · [test](../../server/agent-runtime-loader.test.ts)
-- [agent-runtime-metrics.ts](../../server/agent-runtime-metrics.ts) · [test](../../server/agent-runtime-metrics.test.ts)
-- [agent-runtime-package.ts](../../server/agent-runtime-package.ts) · [test](../../server/agent-runtime-package.test.ts)
-- [agent-runtime-paths.ts](../../server/agent-runtime-paths.ts)
-- [agent-runtime-repositories.ts](../../server/agent-runtime-repositories.ts) · [test](../../server/agent-runtime-repositories.test.ts)
-- [agent-runtime-settings-router.ts](../../server/agent-runtime-settings-router.ts)
-- [agent-runtime-settings.ts](../../server/agent-runtime-settings.ts) · [test](../../server/agent-runtime-settings.test.ts)
-- [agent-runtime-settlement.ts](../../server/agent-runtime-settlement.ts) · [test](../../server/agent-runtime-settlement.test.ts)
-- [agent-runtime-verification-suggestions.ts](../../server/agent-runtime-verification-suggestions.ts) · [test](../../server/agent-runtime-verification-suggestions.test.ts)
-- [agent-spec-framing.ts](../../server/agent-spec-framing.ts) · [test](../../server/agent-spec-framing.test.ts)
-- [agent-steering.ts](../../server/agent-steering.ts) · [test](../../server/agent-steering.test.ts)
-- [agent-store.ts](../../server/agent-store.ts)
-- [agent-tier.ts](../../server/agent-tier.ts)
-
-## server / blueprint
-
-- [blueprint-chat-manager.ts](../../server/blueprint-chat-manager.ts) · [test](../../server/blueprint-chat-manager.test.ts)
-- [blueprint-commit.ts](../../server/blueprint-commit.ts) · [test](../../server/blueprint-commit.test.ts)
-- [blueprint-draft-parser.ts](../../server/blueprint-draft-parser.ts) · [test](../../server/blueprint-draft-parser.test.ts)
-- [blueprint-generation.ts](../../server/blueprint-generation.ts) · [test](../../server/blueprint-generation.test.ts)
-- [blueprint-operator-prompt.ts](../../server/blueprint-operator-prompt.ts) · [test](../../server/blueprint-operator-prompt.test.ts)
-- [blueprint-render.ts](../../server/blueprint-render.ts) · [test](../../server/blueprint-render.test.ts)
-- [blueprint-router.ts](../../server/blueprint-router.ts) · [test](../../server/blueprint-router.test.ts)
-- [blueprint-spec-fixtures.ts](../../server/blueprint-spec-fixtures.ts)
-- [blueprint-spec-quality.ts](../../server/blueprint-spec-quality.ts) · [test](../../server/blueprint-spec-quality.test.ts)
-- [blueprint-store.ts](../../server/blueprint-store.ts) · [test](../../server/blueprint-store.test.ts)
-- [blueprint-types.ts](../../server/blueprint-types.ts)
-
-## server / browser
-
-- [browser-capture-manager.ts](../../server/browser-capture-manager.ts) · [test](../../server/browser-capture-manager.test.ts)
-- [browser-capture-types.ts](../../server/browser-capture-types.ts)
-- [browser-context-pool.ts](../../server/browser-context-pool.ts) · [test](../../server/browser-context-pool.test.ts)
-- [browser-network.ts](../../server/browser-network.ts) · [test](../../server/browser-network.test.ts)
-- [browser-playwright.ts](../../server/browser-playwright.ts) · [test](../../server/browser-playwright.test.ts)
-- [browser-viewport.ts](../../server/browser-viewport.ts) · [test](../../server/browser-viewport.test.ts)
-
-## server / chat
-
-- [chat-manager.ts](../../server/chat-manager.ts) · [test](../../server/chat-manager.test.ts)
-
-## server / code
-
-- [code-activity.ts](../../server/code-activity.ts) · [test](../../server/code-activity.test.ts)
-- [code-explorer-router.ts](../../server/code-explorer-router.ts) · [test](../../server/code-explorer-router.test.ts)
 
 ## server / desktop
 
-- [desktop-analytics.ts](../../server/desktop-analytics.ts) · [test](../../server/desktop-analytics.test.ts)
 - [desktop-db.ts](../../server/desktop-db.ts) · [test](../../server/desktop-db.test.ts)
 - [desktop-router.ts](../../server/desktop-router.ts) · [test](../../server/desktop-router.test.ts)
 
-## server / file
-
-- [file-provenance.ts](../../server/file-provenance.ts) · [test](../../server/file-provenance.test.ts)
-- [file-story-manager.ts](../../server/file-story-manager.ts) · [test](../../server/file-story-manager.test.ts)
-- [file-story.ts](../../server/file-story.ts) · [test](../../server/file-story.test.ts)
-- [file-summary-generator.ts](../../server/file-summary-generator.ts) · [test](../../server/file-summary-generator.test.ts)
-- [file-summary-manager.ts](../../server/file-summary-manager.ts) · [test](../../server/file-summary-manager.test.ts)
-
-## server / loop
-
-- [loop-command-catalog.ts](../../server/loop-command-catalog.ts) · [test](../../server/loop-command-catalog.test.ts)
-- [loop-constants.ts](../../server/loop-constants.ts) · [test](../../server/loop-constants.test.ts)
-- [loop-decider.ts](../../server/loop-decider.ts) · [test](../../server/loop-decider.test.ts)
-- [loop-effect.ts](../../server/loop-effect.ts) · [test](../../server/loop-effect.test.ts)
-- [loop-executors.ts](../../server/loop-executors.ts) · [test](../../server/loop-executors.test.ts)
-- [loop-factory.ts](../../server/loop-factory.ts) · [test](../../server/loop-factory.test.ts)
-- [loop-graph.ts](../../server/loop-graph.ts) · [test](../../server/loop-graph.test.ts)
-- [loop-preview.ts](../../server/loop-preview.ts) · [test](../../server/loop-preview.test.ts)
-- [loop-role-engines.ts](../../server/loop-role-engines.ts) · [test](../../server/loop-role-engines.test.ts)
-- [loop-run-manager.ts](../../server/loop-run-manager.ts) · [test](../../server/loop-run-manager.test.ts)
-- [loop-runs-store.ts](../../server/loop-runs-store.ts) · [test](../../server/loop-runs-store.test.ts)
-- [loop-shell-invocation.ts](../../server/loop-shell-invocation.ts)
-- [loop-step-idle.ts](../../server/loop-step-idle.ts) · [test](../../server/loop-step-idle.test.ts)
-- [loop-templates-ported.ts](../../server/loop-templates-ported.ts)
-- [loop-templates.ts](../../server/loop-templates.ts) · [test](../../server/loop-templates.test.ts)
-
 ## server / other
 
-- [accept-ladder.ts](../../server/accept-ladder.ts) · [test](../../server/accept-ladder.test.ts)
-- [active-pr-continuation.ts](../../server/active-pr-continuation.ts) · [test](../../server/active-pr-continuation.test.ts)
-- [ai-invocations.ts](../../server/ai-invocations.ts) · [test](../../server/ai-invocations.test.ts)
 - [api-not-found.ts](../../server/api-not-found.ts)
 - [artifact-registry.ts](../../server/artifact-registry.ts) · [test](../../server/artifact-registry.test.ts)
 - [attachment-manager.ts](../../server/attachment-manager.ts) · [test](../../server/attachment-manager.test.ts)
 - [auth.ts](../../server/auth.ts) · [test](../../server/auth.test.ts)
-- [background-process-control.ts](../../server/background-process-control.ts) · [test](../../server/background-process-control.test.ts)
-- [background-process-service.ts](../../server/background-process-service.ts)
-- [background-process-store.ts](../../server/background-process-store.ts) · [test](../../server/background-process-store.test.ts)
-- [background-windows-bootstrap.ts](../../server/background-windows-bootstrap.ts) · [test](../../server/background-windows-bootstrap.test.ts)
 - [binary-probe.ts](../../server/binary-probe.ts) · [test](../../server/binary-probe.test.ts)
 - [build-dirs.ts](../../server/build-dirs.ts) · [test](../../server/build-dirs.test.ts)
-- [builder-cwd-manager.ts](../../server/builder-cwd-manager.ts)
 - [bundled-core.ts](../../server/bundled-core.ts) · [test](../../server/bundled-core.test.ts)
 - [bundled-openspec.ts](../../server/bundled-openspec.ts) · [test](../../server/bundled-openspec.test.ts)
-- [changes-reader.ts](../../server/changes-reader.ts) · [test](../../server/changes-reader.test.ts)
 - [chromium-resolver.ts](../../server/chromium-resolver.ts) · [test](../../server/chromium-resolver.test.ts)
 - [claude-trust.ts](../../server/claude-trust.ts) · [test](../../server/claude-trust.test.ts)
-- [codex-otel-bridge.ts](../../server/codex-otel-bridge.ts) · [test](../../server/codex-otel-bridge.test.ts)
 - [command-resolver.ts](../../server/command-resolver.ts) · [test](../../server/command-resolver.test.ts)
 - [config.ts](../../server/config.ts) · [test](../../server/config.test.ts)
-- [context-budget.ts](../../server/context-budget.ts) · [test](../../server/context-budget.test.ts)
-- [context-scope.ts](../../server/context-scope.ts) · [test](../../server/context-scope.test.ts)
-- [contract-refine-runner.ts](../../server/contract-refine-runner.ts) · [test](../../server/contract-refine-runner.test.ts)
 - [core-compat.ts](../../server/core-compat.ts) · [test](../../server/core-compat.test.ts)
 - [core-completion.ts](../../server/core-completion.ts) · [test](../../server/core-completion.test.ts)
 - [core-execution.ts](../../server/core-execution.ts) · [test](../../server/core-execution.test.ts)
@@ -757,14 +845,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [core-update-manager.ts](../../server/core-update-manager.ts) · [test](../../server/core-update-manager.test.ts)
 - [core-update-state.ts](../../server/core-update-state.ts)
 - [db.ts](../../server/db.ts) · [test](../../server/db.test.ts)
-- [delivery-evidence.ts](../../server/delivery-evidence.ts) · [test](../../server/delivery-evidence.test.ts)
 - [dev-ports.ts](../../server/dev-ports.ts) · [test](../../server/dev-ports.test.ts)
 - [docs-router.ts](../../server/docs-router.ts) · [test](../../server/docs-router.test.ts)
-- [explore-contract-refine.ts](../../server/explore-contract-refine.ts) · [test](../../server/explore-contract-refine.test.ts)
-- [explore-cwd-manager.ts](../../server/explore-cwd-manager.ts) · [test](../../server/explore-cwd-manager.test.ts)
-- [explore-draft-title.ts](../../server/explore-draft-title.ts) · [test](../../server/explore-draft-title.test.ts)
-- [explore-smash.ts](../../server/explore-smash.ts) · [test](../../server/explore-smash.test.ts)
-- [explore-stdin-session.ts](../../server/explore-stdin-session.ts) · [test](../../server/explore-stdin-session.test.ts)
 - [external-mcp.ts](../../server/external-mcp.ts) · [test](../../server/external-mcp.test.ts)
 - [feature-flags.ts](../../server/feature-flags.ts) · [test](../../server/feature-flags.test.ts)
 - [framework-manager.ts](../../server/framework-manager.ts) · [test](../../server/framework-manager.test.ts)
@@ -781,81 +863,33 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [index.ts](../../server/index.ts) · [test](../../server/index.test.ts)
 - [install-config-path.ts](../../server/install-config-path.ts) · [test](../../server/install-config-path.test.ts)
 - [integration-branch.ts](../../server/integration-branch.ts) · [test](../../server/integration-branch.test.ts)
-- [interactive-job-session.ts](../../server/interactive-job-session.ts) · [test](../../server/interactive-job-session.test.ts)
 - [internal-api.ts](../../server/internal-api.ts) · [test](../../server/internal-api.test.ts)
 - [jira-router.ts](../../server/jira-router.ts) · [test](../../server/jira-router.test.ts)
-- [job-listing.ts](../../server/job-listing.ts) · [test](../../server/job-listing.test.ts)
-- [job-phase-breakdown.ts](../../server/job-phase-breakdown.ts) · [test](../../server/job-phase-breakdown.test.ts)
-- [job-spawn-idempotency.ts](../../server/job-spawn-idempotency.ts)
 - [json-tolerant.ts](../../server/json-tolerant.ts) · [test](../../server/json-tolerant.test.ts)
 - [legacy-migration.ts](../../server/legacy-migration.ts) · [test](../../server/legacy-migration.test.ts)
 - [local-engine-detection.ts](../../server/local-engine-detection.ts) · [test](../../server/local-engine-detection.test.ts)
-- [loops-router.ts](../../server/loops-router.ts) · [test](../../server/loops-router.test.ts)
-- [loops-store.ts](../../server/loops-store.ts) · [test](../../server/loops-store.test.ts)
-- [merge-manager.ts](../../server/merge-manager.ts) · [test](../../server/merge-manager.test.ts)
-- [metrics.ts](../../server/metrics.ts) · [test](../../server/metrics.test.ts)
-- [milestone-chain-store.ts](../../server/milestone-chain-store.ts) · [test](../../server/milestone-chain-store.test.ts)
-- [milestone-chain.ts](../../server/milestone-chain.ts) · [test](../../server/milestone-chain.test.ts)
-- [milestone-progress.ts](../../server/milestone-progress.ts) · [test](../../server/milestone-progress.test.ts)
-- [mission-run-notify.ts](../../server/mission-run-notify.ts) · [test](../../server/mission-run-notify.test.ts)
-- [multi-repo-bases.ts](../../server/multi-repo-bases.ts) · [test](../../server/multi-repo-bases.test.ts)
-- [multi-repo-checkout.ts](../../server/multi-repo-checkout.ts)
-- [multi-repo-delivery.ts](../../server/multi-repo-delivery.ts)
-- [multi-repo-execution-store.ts](../../server/multi-repo-execution-store.ts)
-- [multi-repo-execution.ts](../../server/multi-repo-execution.ts) · [test](../../server/multi-repo-execution.test.ts)
 - [offline-assemble.ts](../../server/offline-assemble.ts) · [test](../../server/offline-assemble.test.ts)
 - [openspec-runtime-plugin.ts](../../server/openspec-runtime-plugin.ts) · [test](../../server/openspec-runtime-plugin.test.ts)
 - [openspec-shim.ts](../../server/openspec-shim.ts) · [test](../../server/openspec-shim.test.ts)
 - [path-resolver.ts](../../server/path-resolver.ts) · [test](../../server/path-resolver.test.ts)
 - [plugin-manager.ts](../../server/plugin-manager.ts) · [test](../../server/plugin-manager.test.ts)
 - [plugins-router.ts](../../server/plugins-router.ts) · [test](../../server/plugins-router.test.ts)
-- [pr-body.ts](../../server/pr-body.ts) · [test](../../server/pr-body.test.ts)
-- [pr-follow-up-scope.ts](../../server/pr-follow-up-scope.ts)
-- [pr-follow-up.ts](../../server/pr-follow-up.ts) · [test](../../server/pr-follow-up.test.ts)
-- [pr-lifecycle.ts](../../server/pr-lifecycle.ts) · [test](../../server/pr-lifecycle.test.ts)
-- [pr-naming.ts](../../server/pr-naming.ts) · [test](../../server/pr-naming.test.ts)
-- [pr-publisher.ts](../../server/pr-publisher.ts) · [test](../../server/pr-publisher.test.ts)
-- [pricing.ts](../../server/pricing.ts) · [test](../../server/pricing.test.ts)
 - [process-admission.ts](../../server/process-admission.ts) · [test](../../server/process-admission.test.ts)
-- [profile-manager.ts](../../server/profile-manager.ts) · [test](../../server/profile-manager.test.ts)
-- [profiles-router.ts](../../server/profiles-router.ts) · [test](../../server/profiles-router.test.ts)
-- [proposal-manager.ts](../../server/proposal-manager.ts) · [test](../../server/proposal-manager.test.ts)
 - [provider-detection.ts](../../server/provider-detection.ts) · [test](../../server/provider-detection.test.ts)
 - [provider-limit.ts](../../server/provider-limit.ts) · [test](../../server/provider-limit.test.ts)
 - [provider-selection.ts](../../server/provider-selection.ts) · [test](../../server/provider-selection.test.ts)
-- [rails-router.ts](../../server/rails-router.ts) · [test](../../server/rails-router.test.ts)
-- [rails-store.ts](../../server/rails-store.ts) · [test](../../server/rails-store.test.ts)
 - [repo-lock.ts](../../server/repo-lock.ts) · [test](../../server/repo-lock.test.ts)
 - [repo-map.ts](../../server/repo-map.ts) · [test](../../server/repo-map.test.ts)
-- [result-event.ts](../../server/result-event.ts) · [test](../../server/result-event.test.ts)
-- [review-packet.ts](../../server/review-packet.ts) · [test](../../server/review-packet.test.ts)
-- [revision-seed.ts](../../server/revision-seed.ts) · [test](../../server/revision-seed.test.ts)
-- [run-duration-stats.ts](../../server/run-duration-stats.ts) · [test](../../server/run-duration-stats.test.ts)
 - [runtime-role-prompts-router.ts](../../server/runtime-role-prompts-router.ts) · [test](../../server/runtime-role-prompts-router.test.ts)
 - [semver-lite.ts](../../server/semver-lite.ts) · [test](../../server/semver-lite.test.ts)
 - [setup-manager.ts](../../server/setup-manager.ts) · [test](../../server/setup-manager.test.ts)
 - [setup-prerequisites.ts](../../server/setup-prerequisites.ts) · [test](../../server/setup-prerequisites.test.ts)
-- [smash-runner.ts](../../server/smash-runner.ts) · [test](../../server/smash-runner.test.ts)
-- [spawn-lifecycle.ts](../../server/spawn-lifecycle.ts) · [test](../../server/spawn-lifecycle.test.ts)
-- [spec-addenda-core.ts](../../server/spec-addenda-core.ts)
-- [spec-addenda.ts](../../server/spec-addenda.ts) · [test](../../server/spec-addenda.test.ts)
-- [spec-contract-prompt.ts](../../server/spec-contract-prompt.ts)
-- [spec-draft-parser.ts](../../server/spec-draft-parser.ts) · [test](../../server/spec-draft-parser.test.ts)
-- [spec-launcher-manager.ts](../../server/spec-launcher-manager.ts) · [test](../../server/spec-launcher-manager.test.ts)
-- [spec-models.ts](../../server/spec-models.ts) · [test](../../server/spec-models.test.ts)
 - [specrails-tech-client.ts](../../server/specrails-tech-client.ts) · [test](../../server/specrails-tech-client.test.ts)
-- [spending.ts](../../server/spending.ts) · [test](../../server/spending.test.ts)
 - [ssrf-guard.ts](../../server/ssrf-guard.ts) · [test](../../server/ssrf-guard.test.ts)
-- [stuck-run-detector.ts](../../server/stuck-run-detector.ts) · [test](../../server/stuck-run-detector.test.ts)
-- [terminal-manager.ts](../../server/terminal-manager.ts) · [test](../../server/terminal-manager.test.ts)
-- [terminal-marks-store.ts](../../server/terminal-marks-store.ts) · [test](../../server/terminal-marks-store.test.ts)
-- [terminal-osc-parser.ts](../../server/terminal-osc-parser.ts) · [test](../../server/terminal-osc-parser.test.ts)
-- [terminal-settings.ts](../../server/terminal-settings.ts) · [test](../../server/terminal-settings.test.ts)
 - [terminal-shell-integration.ts](../../server/terminal-shell-integration.ts) · [test](../../server/terminal-shell-integration.test.ts)
 - [transient-children.ts](../../server/transient-children.ts) · [test](../../server/transient-children.test.ts)
 - [types.ts](../../server/types.ts)
 - [user-mcp-config.ts](../../server/user-mcp-config.ts) · [test](../../server/user-mcp-config.test.ts)
-- [verification-sentinel.ts](../../server/verification-sentinel.ts)
 - [vitest-setup.ts](../../server/vitest-setup.ts)
 - [webhook-manager.ts](../../server/webhook-manager.ts) · [test](../../server/webhook-manager.test.ts)
 - [windows-job-supervisor.ts](../../server/windows-job-supervisor.ts)
@@ -869,7 +903,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server / project
 
-- [project-code-discovery.ts](../../server/project-code-discovery.ts)
 - [project-env.ts](../../server/project-env.ts) · [test](../../server/project-env.test.ts)
 - [project-git.ts](../../server/project-git.ts) · [test](../../server/project-git.test.ts)
 - [project-profile-support.ts](../../server/project-profile-support.ts)
@@ -888,35 +921,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [project-router-terminals.ts](../../server/project-router-terminals.ts)
 - [project-router-tickets.ts](../../server/project-router-tickets.ts)
 - [project-router.ts](../../server/project-router.ts) · [test](../../server/project-router.test.ts)
-
-## server / queue
-
-- [queue-manager.ts](../../server/queue-manager.ts) · [test](../../server/queue-manager.test.ts)
-
-## server / rail
-
-- [rail-isolated-launch.ts](../../server/rail-isolated-launch.ts) · [test](../../server/rail-isolated-launch.test.ts)
-- [rail-isolation.ts](../../server/rail-isolation.ts) · [test](../../server/rail-isolation.test.ts)
-- [rail-launch-parser.ts](../../server/rail-launch-parser.ts) · [test](../../server/rail-launch-parser.test.ts)
-- [rail-merge-orchestrator.ts](../../server/rail-merge-orchestrator.ts) · [test](../../server/rail-merge-orchestrator.test.ts)
-- [rail-pr-decision.ts](../../server/rail-pr-decision.ts) · [test](../../server/rail-pr-decision.test.ts)
-- [rail-pr-delivery.ts](../../server/rail-pr-delivery.ts) · [test](../../server/rail-pr-delivery.test.ts)
-- [rail-pr-recovery-git.ts](../../server/rail-pr-recovery-git.ts) · [test](../../server/rail-pr-recovery-git.test.ts)
-- [rail-pr-store.ts](../../server/rail-pr-store.ts) · [test](../../server/rail-pr-store.test.ts)
-- [rail-pr-ticket-effects.ts](../../server/rail-pr-ticket-effects.ts) · [test](../../server/rail-pr-ticket-effects.test.ts)
-- [rail-worktree-release.ts](../../server/rail-worktree-release.ts) · [test](../../server/rail-worktree-release.test.ts)
-- [rail-worktrees-store.ts](../../server/rail-worktrees-store.ts) · [test](../../server/rail-worktrees-store.test.ts)
-
-## server / telemetry
-
-- [telemetry-compactor.ts](../../server/telemetry-compactor.ts)
-- [telemetry-export.ts](../../server/telemetry-export.ts) · [test](../../server/telemetry-export.test.ts)
-- [telemetry-receiver.ts](../../server/telemetry-receiver.ts) · [test](../../server/telemetry-receiver.test.ts)
-
-## server / ticket
-
-- [ticket-store.ts](../../server/ticket-store.ts) · [test](../../server/ticket-store.test.ts)
-- [ticket-watcher.ts](../../server/ticket-watcher.ts) · [test](../../server/ticket-watcher.test.ts)
 
 ## server/db
 
@@ -1001,6 +1005,87 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mobile-webrtc.ts](../../server/mobile/mobile-webrtc.ts) · [test](../../server/mobile/mobile-webrtc.test.ts)
 - [mobile-ws.ts](../../server/mobile/mobile-ws.ts) · [test](../../server/mobile/mobile-ws.test.ts)
 
+## server/modules/accounting/runtime
+
+- [ai-invocations.ts](../../server/modules/accounting/runtime/ai-invocations.ts) · [test](../../server/modules/accounting/runtime/ai-invocations.test.ts)
+- [codex-otel-bridge.ts](../../server/modules/accounting/runtime/codex-otel-bridge.ts) · [test](../../server/modules/accounting/runtime/codex-otel-bridge.test.ts)
+- [desktop-analytics.ts](../../server/modules/accounting/runtime/desktop-analytics.ts) · [test](../../server/modules/accounting/runtime/desktop-analytics.test.ts)
+- [metrics.ts](../../server/modules/accounting/runtime/metrics.ts) · [test](../../server/modules/accounting/runtime/metrics.test.ts)
+- [pricing.ts](../../server/modules/accounting/runtime/pricing.ts) · [test](../../server/modules/accounting/runtime/pricing.test.ts)
+- [result-event.ts](../../server/modules/accounting/runtime/result-event.ts) · [test](../../server/modules/accounting/runtime/result-event.test.ts)
+- [spending.ts](../../server/modules/accounting/runtime/spending.ts) · [test](../../server/modules/accounting/runtime/spending.test.ts)
+- [telemetry-compactor.ts](../../server/modules/accounting/runtime/telemetry-compactor.ts)
+- [telemetry-export.ts](../../server/modules/accounting/runtime/telemetry-export.ts) · [test](../../server/modules/accounting/runtime/telemetry-export.test.ts)
+- [telemetry-receiver.ts](../../server/modules/accounting/runtime/telemetry-receiver.ts) · [test](../../server/modules/accounting/runtime/telemetry-receiver.test.ts)
+
+## server/modules/agent-runtime/runtime
+
+- [agent-runtime-accounting.ts](../../server/modules/agent-runtime/runtime/agent-runtime-accounting.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-accounting.test.ts)
+- [agent-runtime-bridge.ts](../../server/modules/agent-runtime/runtime/agent-runtime-bridge.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-bridge.test.ts)
+- [agent-runtime-controls-router.ts](../../server/modules/agent-runtime/runtime/agent-runtime-controls-router.ts)
+- [agent-runtime-controls.ts](../../server/modules/agent-runtime/runtime/agent-runtime-controls.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-controls.test.ts)
+- [agent-runtime-effective-config.ts](../../server/modules/agent-runtime/runtime/agent-runtime-effective-config.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-effective-config.test.ts)
+- [agent-runtime-events.ts](../../server/modules/agent-runtime/runtime/agent-runtime-events.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-events.test.ts)
+- [agent-runtime-history.ts](../../server/modules/agent-runtime/runtime/agent-runtime-history.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-history.test.ts)
+- [agent-runtime-loader.ts](../../server/modules/agent-runtime/runtime/agent-runtime-loader.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-loader.test.ts)
+- [agent-runtime-metrics.ts](../../server/modules/agent-runtime/runtime/agent-runtime-metrics.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-metrics.test.ts)
+- [agent-runtime-package.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-package.test.ts)
+- [agent-runtime-paths.ts](../../server/modules/agent-runtime/runtime/agent-runtime-paths.ts)
+- [agent-runtime-repositories.ts](../../server/modules/agent-runtime/runtime/agent-runtime-repositories.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-repositories.test.ts)
+- [agent-runtime-settings-router.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings-router.ts)
+- [agent-runtime-settings.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settings.test.ts)
+- [agent-runtime-settlement.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.test.ts)
+- [agent-runtime-verification-suggestions.ts](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.test.ts)
+
+## server/modules/agents/runtime
+
+- [agent-defaults.ts](../../server/modules/agents/runtime/agent-defaults.ts) · [test](../../server/modules/agents/runtime/agent-defaults.test.ts)
+- [agent-generator.ts](../../server/modules/agents/runtime/agent-generator.ts) · [test](../../server/modules/agents/runtime/agent-generator.test.ts)
+- [agent-refine-db.ts](../../server/modules/agents/runtime/agent-refine-db.ts) · [test](../../server/modules/agents/runtime/agent-refine-db.test.ts)
+- [agent-refine-manager.ts](../../server/modules/agents/runtime/agent-refine-manager.ts) · [test](../../server/modules/agents/runtime/agent-refine-manager.test.ts)
+- [agent-store.ts](../../server/modules/agents/runtime/agent-store.ts)
+- [profile-manager.ts](../../server/modules/agents/runtime/profile-manager.ts) · [test](../../server/modules/agents/runtime/profile-manager.test.ts)
+- [profiles-router.ts](../../server/modules/agents/runtime/profiles-router.ts) · [test](../../server/modules/agents/runtime/profiles-router.test.ts)
+
+## server/modules/browser/runtime
+
+- [browser-capture-manager.ts](../../server/modules/browser/runtime/browser-capture-manager.ts) · [test](../../server/modules/browser/runtime/browser-capture-manager.test.ts)
+- [browser-capture-types.ts](../../server/modules/browser/runtime/browser-capture-types.ts)
+- [browser-context-pool.ts](../../server/modules/browser/runtime/browser-context-pool.ts) · [test](../../server/modules/browser/runtime/browser-context-pool.test.ts)
+- [browser-network.ts](../../server/modules/browser/runtime/browser-network.ts) · [test](../../server/modules/browser/runtime/browser-network.test.ts)
+- [browser-playwright.ts](../../server/modules/browser/runtime/browser-playwright.ts) · [test](../../server/modules/browser/runtime/browser-playwright.test.ts)
+- [browser-viewport.ts](../../server/modules/browser/runtime/browser-viewport.ts) · [test](../../server/modules/browser/runtime/browser-viewport.test.ts)
+
+## server/modules/builder/runtime
+
+- [blueprint-chat-manager.ts](../../server/modules/builder/runtime/blueprint-chat-manager.ts) · [test](../../server/modules/builder/runtime/blueprint-chat-manager.test.ts)
+- [blueprint-commit.ts](../../server/modules/builder/runtime/blueprint-commit.ts) · [test](../../server/modules/builder/runtime/blueprint-commit.test.ts)
+- [blueprint-draft-parser.ts](../../server/modules/builder/runtime/blueprint-draft-parser.ts) · [test](../../server/modules/builder/runtime/blueprint-draft-parser.test.ts)
+- [blueprint-generation.ts](../../server/modules/builder/runtime/blueprint-generation.ts) · [test](../../server/modules/builder/runtime/blueprint-generation.test.ts)
+- [blueprint-operator-prompt.ts](../../server/modules/builder/runtime/blueprint-operator-prompt.ts) · [test](../../server/modules/builder/runtime/blueprint-operator-prompt.test.ts)
+- [blueprint-render.ts](../../server/modules/builder/runtime/blueprint-render.ts) · [test](../../server/modules/builder/runtime/blueprint-render.test.ts)
+- [blueprint-router.ts](../../server/modules/builder/runtime/blueprint-router.ts) · [test](../../server/modules/builder/runtime/blueprint-router.test.ts)
+- [blueprint-spec-fixtures.ts](../../server/modules/builder/runtime/blueprint-spec-fixtures.ts)
+- [blueprint-spec-quality.ts](../../server/modules/builder/runtime/blueprint-spec-quality.ts) · [test](../../server/modules/builder/runtime/blueprint-spec-quality.test.ts)
+- [blueprint-store.ts](../../server/modules/builder/runtime/blueprint-store.ts) · [test](../../server/modules/builder/runtime/blueprint-store.test.ts)
+- [blueprint-types.ts](../../server/modules/builder/runtime/blueprint-types.ts)
+- [builder-cwd-manager.ts](../../server/modules/builder/runtime/builder-cwd-manager.ts)
+- [milestone-chain-store.ts](../../server/modules/builder/runtime/milestone-chain-store.ts) · [test](../../server/modules/builder/runtime/milestone-chain-store.test.ts)
+- [milestone-chain.ts](../../server/modules/builder/runtime/milestone-chain.ts) · [test](../../server/modules/builder/runtime/milestone-chain.test.ts)
+- [milestone-progress.ts](../../server/modules/builder/runtime/milestone-progress.ts) · [test](../../server/modules/builder/runtime/milestone-progress.test.ts)
+
+## server/modules/code/runtime
+
+- [changes-reader.ts](../../server/modules/code/runtime/changes-reader.ts) · [test](../../server/modules/code/runtime/changes-reader.test.ts)
+- [code-activity.ts](../../server/modules/code/runtime/code-activity.ts) · [test](../../server/modules/code/runtime/code-activity.test.ts)
+- [code-explorer-router.ts](../../server/modules/code/runtime/code-explorer-router.ts) · [test](../../server/modules/code/runtime/code-explorer-router.test.ts)
+- [file-provenance.ts](../../server/modules/code/runtime/file-provenance.ts) · [test](../../server/modules/code/runtime/file-provenance.test.ts)
+- [file-story-manager.ts](../../server/modules/code/runtime/file-story-manager.ts) · [test](../../server/modules/code/runtime/file-story-manager.test.ts)
+- [file-story.ts](../../server/modules/code/runtime/file-story.ts) · [test](../../server/modules/code/runtime/file-story.test.ts)
+- [file-summary-generator.ts](../../server/modules/code/runtime/file-summary-generator.ts) · [test](../../server/modules/code/runtime/file-summary-generator.test.ts)
+- [file-summary-manager.ts](../../server/modules/code/runtime/file-summary-manager.ts) · [test](../../server/modules/code/runtime/file-summary-manager.test.ts)
+- [project-code-discovery.ts](../../server/modules/code/runtime/project-code-discovery.ts)
+
 ## server/modules/conversations
 
 - [index.ts](../../server/modules/conversations/index.ts)
@@ -1010,28 +1095,145 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [draft-stream.ts](../../server/modules/conversations/domain/draft-stream.ts)
 - [recovery-context.ts](../../server/modules/conversations/domain/recovery-context.ts)
 
+## server/modules/conversations/runtime
+
+- [chat-manager.ts](../../server/modules/conversations/runtime/chat-manager.ts) · [test](../../server/modules/conversations/runtime/chat-manager.test.ts)
+- [context-budget.ts](../../server/modules/conversations/runtime/context-budget.ts) · [test](../../server/modules/conversations/runtime/context-budget.test.ts)
+- [context-scope.ts](../../server/modules/conversations/runtime/context-scope.ts) · [test](../../server/modules/conversations/runtime/context-scope.test.ts)
+- [explore-contract-refine.ts](../../server/modules/conversations/runtime/explore-contract-refine.ts) · [test](../../server/modules/conversations/runtime/explore-contract-refine.test.ts)
+- [explore-cwd-manager.ts](../../server/modules/conversations/runtime/explore-cwd-manager.ts) · [test](../../server/modules/conversations/runtime/explore-cwd-manager.test.ts)
+- [explore-draft-title.ts](../../server/modules/conversations/runtime/explore-draft-title.ts) · [test](../../server/modules/conversations/runtime/explore-draft-title.test.ts)
+- [explore-smash.ts](../../server/modules/conversations/runtime/explore-smash.ts) · [test](../../server/modules/conversations/runtime/explore-smash.test.ts)
+- [explore-stdin-session.ts](../../server/modules/conversations/runtime/explore-stdin-session.ts) · [test](../../server/modules/conversations/runtime/explore-stdin-session.test.ts)
+
 ## server/modules/delivery
 
 - [index.ts](../../server/modules/delivery/index.ts)
+
+## server/modules/delivery/adapters/decisions
+
+- [chains.ts](../../server/modules/delivery/adapters/decisions/chains.ts)
+- [contracts.ts](../../server/modules/delivery/adapters/decisions/contracts.ts)
+- [create.ts](../../server/modules/delivery/adapters/decisions/create.ts)
+- [discard.ts](../../server/modules/delivery/adapters/decisions/discard.ts)
+- [dispatch.ts](../../server/modules/delivery/adapters/decisions/dispatch.ts)
+- [evidence.ts](../../server/modules/delivery/adapters/decisions/evidence.ts)
+- [merge-local.ts](../../server/modules/delivery/adapters/decisions/merge-local.ts)
+- [metadata.ts](../../server/modules/delivery/adapters/decisions/metadata.ts)
+- [observations.ts](../../server/modules/delivery/adapters/decisions/observations.ts)
+- [ownership.ts](../../server/modules/delivery/adapters/decisions/ownership.ts)
+- [publish.ts](../../server/modules/delivery/adapters/decisions/publish.ts)
+- [recovery.ts](../../server/modules/delivery/adapters/decisions/recovery.ts)
+- [retry.ts](../../server/modules/delivery/adapters/decisions/retry.ts)
+- [transitions.ts](../../server/modules/delivery/adapters/decisions/transitions.ts)
 
 ## server/modules/delivery/domain
 
 - [decision-policy.ts](../../server/modules/delivery/domain/decision-policy.ts)
 - [state.ts](../../server/modules/delivery/domain/state.ts)
 
+## server/modules/delivery/runtime
+
+- [active-pr-continuation.ts](../../server/modules/delivery/runtime/active-pr-continuation.ts) · [test](../../server/modules/delivery/runtime/active-pr-continuation.test.ts)
+- [delivery-evidence.ts](../../server/modules/delivery/runtime/delivery-evidence.ts) · [test](../../server/modules/delivery/runtime/delivery-evidence.test.ts)
+- [merge-manager.ts](../../server/modules/delivery/runtime/merge-manager.ts) · [test](../../server/modules/delivery/runtime/merge-manager.test.ts)
+- [multi-repo-bases.ts](../../server/modules/delivery/runtime/multi-repo-bases.ts) · [test](../../server/modules/delivery/runtime/multi-repo-bases.test.ts)
+- [multi-repo-checkout.ts](../../server/modules/delivery/runtime/multi-repo-checkout.ts)
+- [multi-repo-delivery.ts](../../server/modules/delivery/runtime/multi-repo-delivery.ts)
+- [multi-repo-execution-store.ts](../../server/modules/delivery/runtime/multi-repo-execution-store.ts)
+- [multi-repo-execution.ts](../../server/modules/delivery/runtime/multi-repo-execution.ts) · [test](../../server/modules/delivery/runtime/multi-repo-execution.test.ts)
+- [pr-body.ts](../../server/modules/delivery/runtime/pr-body.ts) · [test](../../server/modules/delivery/runtime/pr-body.test.ts)
+- [pr-follow-up-scope.ts](../../server/modules/delivery/runtime/pr-follow-up-scope.ts)
+- [pr-follow-up.ts](../../server/modules/delivery/runtime/pr-follow-up.ts) · [test](../../server/modules/delivery/runtime/pr-follow-up.test.ts)
+- [pr-lifecycle.ts](../../server/modules/delivery/runtime/pr-lifecycle.ts) · [test](../../server/modules/delivery/runtime/pr-lifecycle.test.ts)
+- [pr-naming.ts](../../server/modules/delivery/runtime/pr-naming.ts) · [test](../../server/modules/delivery/runtime/pr-naming.test.ts)
+- [pr-publisher.ts](../../server/modules/delivery/runtime/pr-publisher.ts) · [test](../../server/modules/delivery/runtime/pr-publisher.test.ts)
+- [rail-isolated-launch.ts](../../server/modules/delivery/runtime/rail-isolated-launch.ts) · [test](../../server/modules/delivery/runtime/rail-isolated-launch.test.ts)
+- [rail-isolation.ts](../../server/modules/delivery/runtime/rail-isolation.ts) · [test](../../server/modules/delivery/runtime/rail-isolation.test.ts)
+- [rail-launch-parser.ts](../../server/modules/delivery/runtime/rail-launch-parser.ts) · [test](../../server/modules/delivery/runtime/rail-launch-parser.test.ts)
+- [rail-merge-orchestrator.ts](../../server/modules/delivery/runtime/rail-merge-orchestrator.ts) · [test](../../server/modules/delivery/runtime/rail-merge-orchestrator.test.ts)
+- [rail-pr-decision.ts](../../server/modules/delivery/runtime/rail-pr-decision.ts) · [test](../../server/modules/delivery/runtime/rail-pr-decision.test.ts)
+- [rail-pr-delivery.ts](../../server/modules/delivery/runtime/rail-pr-delivery.ts) · [test](../../server/modules/delivery/runtime/rail-pr-delivery.test.ts)
+- [rail-pr-recovery-git.ts](../../server/modules/delivery/runtime/rail-pr-recovery-git.ts) · [test](../../server/modules/delivery/runtime/rail-pr-recovery-git.test.ts)
+- [rail-pr-store.ts](../../server/modules/delivery/runtime/rail-pr-store.ts) · [test](../../server/modules/delivery/runtime/rail-pr-store.test.ts)
+- [rail-pr-ticket-effects.ts](../../server/modules/delivery/runtime/rail-pr-ticket-effects.ts) · [test](../../server/modules/delivery/runtime/rail-pr-ticket-effects.test.ts)
+- [rail-worktree-release.ts](../../server/modules/delivery/runtime/rail-worktree-release.ts) · [test](../../server/modules/delivery/runtime/rail-worktree-release.test.ts)
+- [rail-worktrees-store.ts](../../server/modules/delivery/runtime/rail-worktrees-store.ts) · [test](../../server/modules/delivery/runtime/rail-worktrees-store.test.ts)
+- [rails-router.ts](../../server/modules/delivery/runtime/rails-router.ts) · [test](../../server/modules/delivery/runtime/rails-router.test.ts)
+- [rails-store.ts](../../server/modules/delivery/runtime/rails-store.ts) · [test](../../server/modules/delivery/runtime/rails-store.test.ts)
+- [review-packet.ts](../../server/modules/delivery/runtime/review-packet.ts) · [test](../../server/modules/delivery/runtime/review-packet.test.ts)
+
 ## server/modules/execution
 
 - [index.ts](../../server/modules/execution/index.ts)
 - [ports.ts](../../server/modules/execution/ports.ts)
 
+## server/modules/execution/adapters
+
+- [budget-storage.ts](../../server/modules/execution/adapters/budget-storage.ts)
+- [usage-reader.ts](../../server/modules/execution/adapters/usage-reader.ts)
+
 ## server/modules/execution/application
 
+- [enforce-budget.ts](../../server/modules/execution/application/enforce-budget.ts)
 - [record-job-invocations.ts](../../server/modules/execution/application/record-job-invocations.ts)
+- [recover-job-usage.ts](../../server/modules/execution/application/recover-job-usage.ts)
 
 ## server/modules/execution/domain
 
 - [job-accounting.ts](../../server/modules/execution/domain/job-accounting.ts)
 - [scheduling.ts](../../server/modules/execution/domain/scheduling.ts)
+- [usage.ts](../../server/modules/execution/domain/usage.ts)
+
+## server/modules/execution/runtime
+
+- [accept-ladder.ts](../../server/modules/execution/runtime/accept-ladder.ts) · [test](../../server/modules/execution/runtime/accept-ladder.test.ts)
+- [interactive-job-session.ts](../../server/modules/execution/runtime/interactive-job-session.ts) · [test](../../server/modules/execution/runtime/interactive-job-session.test.ts)
+- [job-listing.ts](../../server/modules/execution/runtime/job-listing.ts) · [test](../../server/modules/execution/runtime/job-listing.test.ts)
+- [job-phase-breakdown.ts](../../server/modules/execution/runtime/job-phase-breakdown.ts) · [test](../../server/modules/execution/runtime/job-phase-breakdown.test.ts)
+- [job-spawn-idempotency.ts](../../server/modules/execution/runtime/job-spawn-idempotency.ts)
+- [queue-manager.ts](../../server/modules/execution/runtime/queue-manager.ts) · [test](../../server/modules/execution/runtime/queue-manager.test.ts)
+- [revision-seed.ts](../../server/modules/execution/runtime/revision-seed.ts) · [test](../../server/modules/execution/runtime/revision-seed.test.ts)
+- [run-duration-stats.ts](../../server/modules/execution/runtime/run-duration-stats.ts) · [test](../../server/modules/execution/runtime/run-duration-stats.test.ts)
+- [spawn-lifecycle.ts](../../server/modules/execution/runtime/spawn-lifecycle.ts) · [test](../../server/modules/execution/runtime/spawn-lifecycle.test.ts)
+- [stuck-run-detector.ts](../../server/modules/execution/runtime/stuck-run-detector.ts) · [test](../../server/modules/execution/runtime/stuck-run-detector.test.ts)
+- [verification-sentinel.ts](../../server/modules/execution/runtime/verification-sentinel.ts)
+
+## server/modules/loops/runtime
+
+- [loop-command-catalog.ts](../../server/modules/loops/runtime/loop-command-catalog.ts) · [test](../../server/modules/loops/runtime/loop-command-catalog.test.ts)
+- [loop-constants.ts](../../server/modules/loops/runtime/loop-constants.ts) · [test](../../server/modules/loops/runtime/loop-constants.test.ts)
+- [loop-decider.ts](../../server/modules/loops/runtime/loop-decider.ts) · [test](../../server/modules/loops/runtime/loop-decider.test.ts)
+- [loop-effect.ts](../../server/modules/loops/runtime/loop-effect.ts) · [test](../../server/modules/loops/runtime/loop-effect.test.ts)
+- [loop-executors.ts](../../server/modules/loops/runtime/loop-executors.ts) · [test](../../server/modules/loops/runtime/loop-executors.test.ts)
+- [loop-factory.ts](../../server/modules/loops/runtime/loop-factory.ts) · [test](../../server/modules/loops/runtime/loop-factory.test.ts)
+- [loop-graph.ts](../../server/modules/loops/runtime/loop-graph.ts) · [test](../../server/modules/loops/runtime/loop-graph.test.ts)
+- [loop-preview.ts](../../server/modules/loops/runtime/loop-preview.ts) · [test](../../server/modules/loops/runtime/loop-preview.test.ts)
+- [loop-role-engines.ts](../../server/modules/loops/runtime/loop-role-engines.ts) · [test](../../server/modules/loops/runtime/loop-role-engines.test.ts)
+- [loop-run-manager.ts](../../server/modules/loops/runtime/loop-run-manager.ts) · [test](../../server/modules/loops/runtime/loop-run-manager.test.ts)
+- [loop-runs-store.ts](../../server/modules/loops/runtime/loop-runs-store.ts) · [test](../../server/modules/loops/runtime/loop-runs-store.test.ts)
+- [loop-shell-invocation.ts](../../server/modules/loops/runtime/loop-shell-invocation.ts)
+- [loop-step-idle.ts](../../server/modules/loops/runtime/loop-step-idle.ts) · [test](../../server/modules/loops/runtime/loop-step-idle.test.ts)
+- [loop-templates-ported.ts](../../server/modules/loops/runtime/loop-templates-ported.ts)
+- [loop-templates.ts](../../server/modules/loops/runtime/loop-templates.ts) · [test](../../server/modules/loops/runtime/loop-templates.test.ts)
+- [loops-router.ts](../../server/modules/loops/runtime/loops-router.ts) · [test](../../server/modules/loops/runtime/loops-router.test.ts)
+- [loops-store.ts](../../server/modules/loops/runtime/loops-store.ts) · [test](../../server/modules/loops/runtime/loops-store.test.ts)
+
+## server/modules/missions/runtime
+
+- [agent-chat-manager.ts](../../server/modules/missions/runtime/agent-chat-manager.ts) · [test](../../server/modules/missions/runtime/agent-chat-manager.test.ts)
+- [agent-chat-registry.ts](../../server/modules/missions/runtime/agent-chat-registry.ts)
+- [agent-chat-router.ts](../../server/modules/missions/runtime/agent-chat-router.ts)
+- [agent-context-resolver.ts](../../server/modules/missions/runtime/agent-context-resolver.ts) · [test](../../server/modules/missions/runtime/agent-context-resolver.test.ts)
+- [agent-cwd-manager.ts](../../server/modules/missions/runtime/agent-cwd-manager.ts)
+- [agent-failure-briefing.ts](../../server/modules/missions/runtime/agent-failure-briefing.ts) · [test](../../server/modules/missions/runtime/agent-failure-briefing.test.ts)
+- [agent-fence-promotion.ts](../../server/modules/missions/runtime/agent-fence-promotion.ts)
+- [agent-input-store.ts](../../server/modules/missions/runtime/agent-input-store.ts) · [test](../../server/modules/missions/runtime/agent-input-store.test.ts)
+- [agent-operator-prompt.ts](../../server/modules/missions/runtime/agent-operator-prompt.ts) · [test](../../server/modules/missions/runtime/agent-operator-prompt.test.ts)
+- [agent-spec-framing.ts](../../server/modules/missions/runtime/agent-spec-framing.ts) · [test](../../server/modules/missions/runtime/agent-spec-framing.test.ts)
+- [agent-steering.ts](../../server/modules/missions/runtime/agent-steering.ts) · [test](../../server/modules/missions/runtime/agent-steering.test.ts)
+- [agent-tier.ts](../../server/modules/missions/runtime/agent-tier.ts)
+- [mission-run-notify.ts](../../server/modules/missions/runtime/mission-run-notify.ts) · [test](../../server/modules/missions/runtime/mission-run-notify.test.ts)
 
 ## server/modules/project-settings
 
@@ -1044,6 +1246,31 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [http.ts](../../server/modules/project-settings/adapters/http.ts)
 - [sqlite.ts](../../server/modules/project-settings/adapters/sqlite.ts)
+
+## server/modules/specs/runtime
+
+- [contract-refine-runner.ts](../../server/modules/specs/runtime/contract-refine-runner.ts) · [test](../../server/modules/specs/runtime/contract-refine-runner.test.ts)
+- [proposal-manager.ts](../../server/modules/specs/runtime/proposal-manager.ts) · [test](../../server/modules/specs/runtime/proposal-manager.test.ts)
+- [smash-runner.ts](../../server/modules/specs/runtime/smash-runner.ts) · [test](../../server/modules/specs/runtime/smash-runner.test.ts)
+- [spec-addenda-core.ts](../../server/modules/specs/runtime/spec-addenda-core.ts)
+- [spec-addenda.ts](../../server/modules/specs/runtime/spec-addenda.ts) · [test](../../server/modules/specs/runtime/spec-addenda.test.ts)
+- [spec-contract-prompt.ts](../../server/modules/specs/runtime/spec-contract-prompt.ts)
+- [spec-draft-parser.ts](../../server/modules/specs/runtime/spec-draft-parser.ts) · [test](../../server/modules/specs/runtime/spec-draft-parser.test.ts)
+- [spec-launcher-manager.ts](../../server/modules/specs/runtime/spec-launcher-manager.ts) · [test](../../server/modules/specs/runtime/spec-launcher-manager.test.ts)
+- [spec-models.ts](../../server/modules/specs/runtime/spec-models.ts) · [test](../../server/modules/specs/runtime/spec-models.test.ts)
+- [ticket-store.ts](../../server/modules/specs/runtime/ticket-store.ts) · [test](../../server/modules/specs/runtime/ticket-store.test.ts)
+- [ticket-watcher.ts](../../server/modules/specs/runtime/ticket-watcher.ts) · [test](../../server/modules/specs/runtime/ticket-watcher.test.ts)
+
+## server/modules/terminals/runtime
+
+- [background-process-control.ts](../../server/modules/terminals/runtime/background-process-control.ts) · [test](../../server/modules/terminals/runtime/background-process-control.test.ts)
+- [background-process-service.ts](../../server/modules/terminals/runtime/background-process-service.ts)
+- [background-process-store.ts](../../server/modules/terminals/runtime/background-process-store.ts) · [test](../../server/modules/terminals/runtime/background-process-store.test.ts)
+- [background-windows-bootstrap.ts](../../server/modules/terminals/runtime/background-windows-bootstrap.ts) · [test](../../server/modules/terminals/runtime/background-windows-bootstrap.test.ts)
+- [terminal-manager.ts](../../server/modules/terminals/runtime/terminal-manager.ts) · [test](../../server/modules/terminals/runtime/terminal-manager.test.ts)
+- [terminal-marks-store.ts](../../server/modules/terminals/runtime/terminal-marks-store.ts) · [test](../../server/modules/terminals/runtime/terminal-marks-store.test.ts)
+- [terminal-osc-parser.ts](../../server/modules/terminals/runtime/terminal-osc-parser.ts) · [test](../../server/modules/terminals/runtime/terminal-osc-parser.test.ts)
+- [terminal-settings.ts](../../server/modules/terminals/runtime/terminal-settings.ts) · [test](../../server/modules/terminals/runtime/terminal-settings.test.ts)
 
 ## server/plugins
 

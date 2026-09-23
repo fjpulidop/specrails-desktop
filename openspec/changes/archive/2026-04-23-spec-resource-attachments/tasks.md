@@ -2,7 +2,7 @@
 
 - [x] 1.1 Add `pdf-parse`, `@types/pdf-parse`, `xlsx`, `multer`, `@types/multer` to root `package.json`
 - [x] 1.2 Add `Attachment` interface to `server/types.ts` (`id`, `filename`, `mimeType`, `size`, `addedAt`)
-- [x] 1.3 Add optional `attachments?: Attachment[]` field to `Ticket` interface in `server/ticket-store.ts`
+- [x] 1.3 Add optional `attachments?: Attachment[]` field to `Ticket` interface in `server/modules/specs/runtime/ticket-store.ts`
 
 ## 2. AttachmentManager
 
@@ -34,7 +34,7 @@
 
 ## 5. RichAttachmentEditor component
 
-- [x] 5.1 Create `client/src/components/RichAttachmentEditor.tsx` — `contenteditable` div with placeholder, forwarded ref, `getPlainText()` serializer that emits `@[name](attachmentId)` for pills, plus `getAttachmentIds()` in pill order
+- [x] 5.1 Create `client/src/features/chat/components/RichAttachmentEditor.tsx` — `contenteditable` div with placeholder, forwarded ref, `getPlainText()` serializer that emits `@[name](attachmentId)` for pills, plus `getAttachmentIds()` in pill order
 - [x] 5.2 Implement pill insertion at cursor — `insertPill(attachment: Attachment)` inserts `<span contenteditable="false" data-attachment-id data-filename>@filename ✕</span>`
 - [x] 5.3 Implement keyboard pill removal — intercept Backspace/Delete adjacent to pill spans, call `onAttachmentRemoved`
 - [x] 5.4 Implement drag & drop overlay — `dragenter` on modal root shows full overlay, `dragleave`/`drop` hides it
@@ -47,7 +47,7 @@
 
 ## 6. Attachment chip component
 
-- [x] 6.1 Create `client/src/components/AttachmentChip.tsx` — card chip with type icon, filename, metadata subtitle, remove button
+- [x] 6.1 Create `client/src/features/chat/components/AttachmentChip.tsx` — card chip with type icon, filename, metadata subtitle, remove button
 - [x] 6.2 Implement image chip variant — thumbnail via `URL.createObjectURL`, dimensions subtitle
 - [x] 6.3 Implement PDF chip variant — PDF icon, "N pages" subtitle (from upload response metadata)
 - [x] 6.4 Implement CSV/Excel chip variant — table icon, row count subtitle
@@ -58,7 +58,7 @@
 
 ## 7. AttachmentsSection component
 
-- [x] 7.1 Create `client/src/components/AttachmentsSection.tsx` — renders `ticket.attachments` sorted by `addedAt` desc
+- [x] 7.1 Create `client/src/features/chat/components/AttachmentsSection.tsx` — renders `ticket.attachments` sorted by `addedAt` desc
 - [x] 7.2 Each row: type icon, filename, formatted date, "Preview" / "Open" link → `GET /attachments/:id` in new tab
 - [x] 7.3 Each row: remove button → calls DELETE endpoint, animates row out, updates local state
 - [x] 7.4 Section hidden when `ticket.attachments` is empty or absent

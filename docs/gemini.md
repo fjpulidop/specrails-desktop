@@ -113,7 +113,7 @@ A few of these deserve a fuller explanation:
 
 - **Cost is estimated, not native.** Gemini reports token counts (including
   cached) but no USD cost in its stream, so Specrails estimates the cost from
-  a rate card (`server/pricing.ts`, keys `gemini:<model>`). Estimated rows
+  a rate card (`server/modules/accounting/runtime/pricing.ts`, keys `gemini:<model>`). Estimated rows
   show a `~` prefix on the Analytics page.
 - **OTEL is native.** Like Claude, Gemini honours the standard `OTEL_*`
   telemetry env vars, so QueueManager injects the same telemetry env
@@ -167,7 +167,7 @@ Flash models; Pro/preview need billing.
 
 > A few older ids (`gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-3-flash-preview`)
 > are **not** selectable models. They survive only as historic pricing rows in
-> `server/pricing.ts` so that already-recorded invocations on those models still
+> `server/modules/accounting/runtime/pricing.ts` so that already-recorded invocations on those models still
 > price correctly.
 
 ## Trusted folders (headless)
@@ -204,7 +204,7 @@ preview models; use a Flash model or enable billing.
 **Cost shows `—`** — there's no `gemini:<model>` pricing row for the model
 that ran (e.g. a brand-new model Google shipped after our last review). Cost
 estimation fails soft (it returns nothing rather than guessing). Add a row to
-`server/pricing.ts` and reload.
+`server/modules/accounting/runtime/pricing.ts` and reload.
 
 ## Emergency rollback
 
@@ -231,7 +231,7 @@ are unaffected; the adapter stays registered but dormant.
   `minCliVersion: '0.11.0'`). Registered in `server/providers/index.ts`.
 - **Headless subagent ack:** `server/providers/gemini-agent-ack.ts`
   (`acknowledgeGeminiProjectAgents`), wired as the adapter's
-  `prepareHeadlessSpawn` and called by `server/queue-manager.ts` before each
+  `prepareHeadlessSpawn` and called by `server/modules/execution/runtime/queue-manager.ts` before each
   rail spawn.
 - **Stream schema** (pinned to the gemini-cli 0.11 contract, locked by the
   fixtures under `server/providers/__fixtures__/gemini-*.ndjson`):
@@ -241,7 +241,7 @@ are unaffected; the adapter stays registered but dormant.
 - **Beta gate + provider list:** `server/desktop-router.ts`
   (`isGeminiBetaDisabled` — returns `true` only when
   `SPECRAILS_GEMINI_BETA === '0'`; `/available-providers`, `POST /projects`).
-- **Pricing / cost estimation:** `server/pricing.ts` (`gemini:<model>` rows +
+- **Pricing / cost estimation:** `server/modules/accounting/runtime/pricing.ts` (`gemini:<model>` rows +
   `estimateCostUsd`, which returns `null` when no row matches).
 - **Trust-folder env:** `server/util/cli-prompt.ts`, `spawnGemini`.
 

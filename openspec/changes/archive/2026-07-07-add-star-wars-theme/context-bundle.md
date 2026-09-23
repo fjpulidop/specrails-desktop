@@ -10,14 +10,14 @@ Add a sixth theme, `star-wars`, plus a new decorative cursor-trail effect (`Ligh
 
 | File | What changes |
 |------|--------------|
-| `client/src/lib/themes.ts` | `THEME_IDS` += `'star-wars'`; new `STAR_WARS_PALETTE` const + `STAR_WARS: ThemeDescriptor`; `THEMES` map += entry. `DEFAULT_THEME` stays `'specrails'` — unchanged. |
+| `client/src/features/settings/lib/themes.ts` | `THEME_IDS` += `'star-wars'`; new `STAR_WARS_PALETTE` const + `STAR_WARS: ThemeDescriptor`; `THEMES` map += entry. `DEFAULT_THEME` stays `'specrails'` — unchanged. |
 | `client/src/globals.css` | New `[data-theme="star-wars"]` token block (after `[data-theme="specrails"]`); `--starwars-glow` + focus-visible rule (parallel to `--matrix-glow`); new border-glow rule for `a[aria-current="page"]` and `.border-accent-primary` scoped to `[data-theme="star-wars"]`. |
 | `client/src/components/theme-effects/LightsaberTrail.tsx` | **New file.** Canvas cursor-trail effect, mirrors `MatrixRain.tsx`'s contract. |
-| `client/src/components/theme-effects/ThemeEffectLayer.tsx` | `THEME_EFFECTS` += `'star-wars': LightsaberTrail`. |
+| `client/src/features/settings/components/theme-effects/ThemeEffectLayer.tsx` | `THEME_EFFECTS` += `'star-wars': LightsaberTrail`. |
 | `server/desktop-router.ts` | `THEME_ID_ALLOWLIST` (line ~71) += `'star-wars'`. |
 | `client/src/locales/{en,es,fr,de,pt,it,zh,ja}/settings.json` | `appearance.taglines` += `"star-wars"` key (all 8 locales, for locale-parity). |
-| `client/src/lib/__tests__/themes.test.ts` | Update 3 hardcoded fixtures (`THEME_IDS` exact-array, dark-scheme list, `darks` distinctness list) to include `star-wars`; add a `star-wars`-specific describe block. |
-| `client/src/components/theme-effects/__tests__/ThemeEffectLayer.test.tsx` | **New file.** Registry dispatch test (none exists today for this component). |
+| `client/src/features/settings/lib/__tests__/themes.test.ts` | Update 3 hardcoded fixtures (`THEME_IDS` exact-array, dark-scheme list, `darks` distinctness list) to include `star-wars`; add a `star-wars`-specific describe block. |
+| `client/src/features/settings/components/theme-effects/__tests__/ThemeEffectLayer.test.tsx` | **New file.** Registry dispatch test (none exists today for this component). |
 | `client/src/components/theme-effects/__tests__/LightsaberTrail.test.tsx` | **New file.** Smoke test (reduced-motion, visibility pause, pointer-events/z-index). |
 | `server/desktop-router.test.ts` | Add a `PATCH /api/theme` case for `star-wars`. |
 
@@ -79,7 +79,7 @@ Plus, unique to this theme (not part of the generic protocol — `matrix` is the
 ## Regression guards to keep passing
 
 - `grep -rn "dracula-" client/src --include="*.ts" --include="*.tsx" --include="*.css"` → must stay 0 matches (untouched by this change).
-- The base spec's existing regression scenario (`openspec/specs/desktop-theme-system/spec.md`, "Component code does not branch on theme identifier"): `grep -rn "'star-wars'\|\"star-wars\"" client/src --include="*.tsx" --include="*.ts"` excluding `client/src/lib/themes.ts`, `client/src/lib/theme-palette.ts`, `client/src/components/pickers/ThemePickerGrid.tsx` (only via the generic `THEME_IDS` loop — no literal `'star-wars'` string should appear there), and `client/src/components/theme-effects/` → must return zero matches in component code outside those excluded files.
+- The base spec's existing regression scenario (`openspec/specs/desktop-theme-system/spec.md`, "Component code does not branch on theme identifier"): `grep -rn "'star-wars'\|\"star-wars\"" client/src --include="*.tsx" --include="*.ts"` excluding `client/src/features/settings/lib/themes.ts`, `client/src/features/settings/lib/theme-palette.ts`, `client/src/features/settings/components/pickers/ThemePickerGrid.tsx` (only via the generic `THEME_IDS` loop — no literal `'star-wars'` string should appear there), and `client/src/components/theme-effects/` → must return zero matches in component code outside those excluded files.
 
 ## Verify locally
 
@@ -103,7 +103,7 @@ npm run test:coverage
 ## What NOT to change
 
 - `client/index.html` — the anti-FOUC boot script needs no changes; it reads `localStorage` and applies `data-theme` generically.
-- `client/src/context/ThemeContext.tsx`, `client/src/lib/theme-palette.ts`, `client/src/components/pickers/ThemePickerGrid.tsx` — confirmed by reading all three: fully generic over `THEME_IDS`/`THEMES`, zero changes needed.
+- `client/src/features/settings/context/ThemeContext.tsx`, `client/src/features/settings/lib/theme-palette.ts`, `client/src/features/settings/components/pickers/ThemePickerGrid.tsx` — confirmed by reading all three: fully generic over `THEME_IDS`/`THEMES`, zero changes needed.
 - `MatrixRain.tsx` — do not refactor it to share code with `LightsaberTrail.tsx` in this change (see `design.md` Decision D2 — a shared hook is a separate, larger refactor, out of scope here).
 - Any existing `[data-theme="..."]` block — purely additive; the other five blocks must stay byte-identical.
 - `docs/guide/*/settings/1-themes.md` — explicitly deferred as a fast-follow per the ticket's Out of Scope section.

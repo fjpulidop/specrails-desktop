@@ -7,8 +7,8 @@
  * Recursively watching such a tree was the confirmed root cause of a file-descriptor
  * leak (~10k fds) that, under fd pressure, made node-pty's forkpty fail to give the
  * child shell a controlling tty — the shell then read EOF and exited instantly,
- * producing dead/hung terminals. See server/file-summary-manager.ts (the watcher)
- * and server/code-explorer-router.ts (the on-demand tree walk).
+ * producing dead/hung terminals. See server/modules/code/runtime/file-summary-manager.ts (the watcher)
+ * and server/modules/code/runtime/code-explorer-router.ts (the on-demand tree walk).
  *
  * Dot-directories (`.git`, `.next`, `.turbo`, `.venv`, …) are handled separately
  * by a `startsWith('.')` segment check so we don't have to enumerate every one.

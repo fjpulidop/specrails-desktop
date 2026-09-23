@@ -41,21 +41,21 @@
 
 ## 5. QueueManager rail integration
 
-- [x] 5.1 Add `resolvePluginsForSpawn(projectId, jobId, cwd)` private method in `server/queue-manager.ts`: read state, run `verify` per plugin in parallel with timeout, classify into `active` / `degraded`
+- [x] 5.1 Add `resolvePluginsForSpawn(projectId, jobId, cwd)` private method in `server/modules/execution/runtime/queue-manager.ts`: read state, run `verify` per plugin in parallel with timeout, classify into `active` / `degraded`
 - [x] 5.2 Add `snapshotPluginsForJob(jobId, projectId, active, degraded)` writing to `~/.specrails/projects/<slug>/jobs/<jobId>/plugins.json` (chmod 400)
 - [x] 5.3 In the existing spawn path, call `resolvePluginsForSpawn` after profile resolution and before the `claude` spawn
 - [x] 5.4 Inject `SPECRAILS_PLUGINS_ACTIVE` (CSV of names) and `SPECRAILS_PLUGINS_SNAPSHOT` (absolute path) into the spawn env when `active.length > 0`
 - [x] 5.5 Add `specrails.plugins.active`, `specrails.plugins.degraded`, `specrails.plugins.versions` to the OTEL resource attrs builder (only when applicable)
 - [x] 5.6 Emit `plugin.degraded` with `{ projectId, name, reason, jobId }` for each degraded plugin in this spawn
-- [x] 5.7 Vitest in `server/queue-manager.test.ts`: spawn with no plugins (no env, no OTEL attr, no snapshot), spawn with healthy Serena (env set, snapshot file present with chmod 400, OTEL attrs include `serena`), spawn with degraded Serena (still spawns, `degraded` array populated, snapshot still written)
+- [x] 5.7 Vitest in `server/modules/execution/runtime/queue-manager.test.ts`: spawn with no plugins (no env, no OTEL attr, no snapshot), spawn with healthy Serena (env set, snapshot file present with chmod 400, OTEL attrs include `serena`), spawn with degraded Serena (still spawns, `degraded` array populated, snapshot still written)
 - [x] 5.8 Verify (test) that `ChatManager` does not call `resolvePluginsForSpawn` and does not set `SPECRAILS_PLUGINS_*` env vars
 - [x] 5.9 Verify (test) that `SetupManager` does not invoke any `PluginManager` method during the wizard flow
 
 ## 6. Diagnostic export
 
-- [x] 6.1 In `server/telemetry-export.ts`, conditionally include `plugins.json` in the ZIP when the per-job snapshot exists
+- [x] 6.1 In `server/modules/accounting/runtime/telemetry-export.ts`, conditionally include `plugins.json` in the ZIP when the per-job snapshot exists
 - [x] 6.2 Add a "Plugins" section in the generated `summary.md` that lists active and degraded plugin names + versions; render nothing if no snapshot
-- [x] 6.3 Vitest in `server/telemetry-export.test.ts`: ZIP includes `plugins.json` when snapshot exists, omits it otherwise; `summary.md` mentions plugins only when snapshot exists
+- [x] 6.3 Vitest in `server/modules/accounting/runtime/telemetry-export.test.ts`: ZIP includes `plugins.json` when snapshot exists, omits it otherwise; `summary.md` mentions plugins only when snapshot exists
 
 ## 7. WebSocket events
 

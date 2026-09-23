@@ -13,7 +13,7 @@
 
 ## 3. `ProfileManager` backend module
 
-- [x] 3.1 Create `server/profile-manager.ts` with `list/get/create/update/duplicate/rename/delete` over `.specrails/profiles/*.json`
+- [x] 3.1 Create `server/modules/agents/runtime/profile-manager.ts` with `list/get/create/update/duplicate/rename/delete` over `.specrails/profiles/*.json`
 - [x] 3.2 Load and cache `schemas/profile.v1.json` — bundled at `server/schemas/profile.v1.json` (copied from specrails-core 4.1.0; to keep in sync via a future script)
 - [x] 3.3 Add `ajv`-based validator; every write passes through it; structural checks (default-last, exactly-one-default) enforced in code beyond the schema
 - [x] 3.4 Implement `resolveProfile(projectPath, explicit?)` honoring resolution order (explicit → `.user-preferred.json` → `default`/`project-default`)
@@ -50,7 +50,7 @@
 ## 7. Sidebar + Agents page shell
 
 - [x] 7.1 Add "Agents" entry to the top navbar (Home/Analytics/Agents/Settings layout) — hub mode only via existing project routing
-- [x] 7.2 Create `client/src/pages/AgentsPage.tsx` with three-tab shell (`Profiles`, `Agents`, `Models`)
+- [x] 7.2 Create `client/src/features/agents/pages/AgentsPage.tsx` with three-tab shell (`Profiles`, `Agents`, `Models`)
 - [x] 7.3 Route: `/agents` → default Profiles tab (hub mode uses per-project base via `getApiBase()`)
 - [x] 7.4 Per-tab memory of active sub-tab (Profiles vs Agents Catalog) via localStorage
 - [x] 7.5 Gate client-side behind `VITE_FEATURE_AGENTS_SECTION` (via `FEATURE_AGENTS_SECTION` in `feature-flags.ts`)
@@ -86,7 +86,7 @@ The Models tab was removed during implementation: models live per-agent inside p
 - [x] 11.2 Create-new modal: "New" button in the catalog rail; Duplicate copies from any agent
 - [x] 11.3 Template entry: 4 bundled templates (Security Reviewer, Data Engineer, Performance Profiler, UI/UX Polisher) available from the catalog rail and empty state
 - [x] 11.4 Duplicate entry: copy existing agent, prefill body, user supplies the new `custom-*` name
-- [x] 11.5 Generate entry: server endpoint spawns Claude with agent-authoring system prompt (`server/agent-generator.ts`); Studio opens in create mode with the draft for review
+- [x] 11.5 Generate entry: server endpoint spawns Claude with agent-authoring system prompt (`server/modules/agents/runtime/agent-generator.ts`); Studio opens in create mode with the draft for review
 - [x] 11.6 Live validation: name regex, frontmatter presence (collision check is server-side via 409)
 - [x] 11.7 Save: validate → write `.claude/agents/<name>.md` → append `agent_versions` row
 - [x] 11.8 Version history panel: list revisions, restore (writes next version on save)

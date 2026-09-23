@@ -1,10 +1,10 @@
 import { modalOverlayStyle } from '../lib/modal-safe-area'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { TicketDetailModal } from './TicketDetailModal'
-import { SpecComparePicker } from './SpecComparePicker'
+import { TicketDetailModal } from '../features/specs/components/TicketDetailModal'
+import { SpecComparePicker } from '../features/specs/components/SpecComparePicker'
 import type { LocalTicket } from '../types'
-import type { CompareSide, SplitState } from '../context/TicketDetailModalContext'
+import type { CompareSide, SplitState } from '../features/specs/context/TicketDetailModalContext'
 
 interface SplitViewShellProps {
   state: SplitState

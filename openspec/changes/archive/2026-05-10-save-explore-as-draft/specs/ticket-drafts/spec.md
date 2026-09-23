@@ -2,7 +2,7 @@
 
 ### Requirement: Tickets support a `draft` status
 
-The `TicketStatus` union exposed by the per-project ticket store (`server/ticket-store.ts`) SHALL accept the value `draft`. A ticket with `status='draft'` represents an in-progress Explore exploration that the user has chosen to persist for later resumption. The `draft` status MUST be a valid source for transitions into the existing initial active status (e.g., `todo`). The store's `schema_version` for stores created or written by this version SHALL be `'1.1'` or later. Stores at `'1.0'` MUST remain readable; missing `origin_conversation_id` MUST be treated as `null`.
+The `TicketStatus` union exposed by the per-project ticket store (`server/modules/specs/runtime/ticket-store.ts`) SHALL accept the value `draft`. A ticket with `status='draft'` represents an in-progress Explore exploration that the user has chosen to persist for later resumption. The `draft` status MUST be a valid source for transitions into the existing initial active status (e.g., `todo`). The store's `schema_version` for stores created or written by this version SHALL be `'1.1'` or later. Stores at `'1.0'` MUST remain readable; missing `origin_conversation_id` MUST be treated as `null`.
 
 #### Scenario: Draft ticket persists across server restarts
 - **WHEN** a ticket is created with `status='draft'`

@@ -1,10 +1,10 @@
 ## 1. Schema & shared types
 
-- [x] 1.1 Bump JSON store `CURRENT_SCHEMA_VERSION` to `'1.3'` and add normalisation for `short_summary` field in `server/ticket-store.ts` (store is JSON, not SQLite — adjusted from original wording)
+- [x] 1.1 Bump JSON store `CURRENT_SCHEMA_VERSION` to `'1.3'` and add normalisation for `short_summary` field in `server/modules/specs/runtime/ticket-store.ts` (store is JSON, not SQLite — adjusted from original wording)
 - [x] 1.2 Extend `Ticket` type with `short_summary: string | null` (server) and `short_summary?: string | null` (client `types.ts`)
 - [x] 1.3 Update ticket creation sites (`project-router.ts` ×4, `smash-runner.ts`) to set `short_summary` on insert; REST/WS payloads serialise via existing JSON path (no special handling needed)
 - [x] 1.4 Add server-side helper `clampShortSummary(raw)` in `ticket-store.ts` — trims, strips ASCII control chars, hard-caps at 240 chars, returns `null` for empty
-- [x] 1.5 Unit tests for normalisation (1.2 → 1.3 back-compat), schema bump, and clamp helper (`server/ticket-store.unit.test.ts`)
+- [x] 1.5 Unit tests for normalisation (1.2 → 1.3 back-compat), schema bump, and clamp helper (`server/modules/specs/runtime/ticket-store.unit.test.ts`)
 
 ## 2. AI flows — generate short_summary
 
@@ -29,7 +29,7 @@
 - [x] 3.6 Double-click on splitter → `resetToDefault` (50/50)
 - [x] 3.7 Snap zones at 600 and 900 px with ±30 px tolerance (`snapToBreakpoint` on drag release)
 - [x] 3.8 Splitter not rendered when `viewport < DISABLE_BELOW_VIEWPORT_PX (900)`; left panel takes 100%
-- [x] 3.9 Tests in `client/src/hooks/__tests__/useDashboardSplit.test.tsx` (12 cases — mount, persistence, clamp, reset, project switch, resize-disable)
+- [x] 3.9 Tests in `client/src/features/dashboard/hooks/__tests__/useDashboardSplit.test.tsx` (12 cases — mount, persistence, clamp, reset, project switch, resize-disable)
 
 ## 4. SpecsBoard tiers
 

@@ -3,8 +3,8 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseCoreCompletion, readCoreCompletion } from './core-completion'
-import { findCoreAgentRuntimeCli } from './agent-runtime-loader'
-vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: vi.fn() }))
+import { findCoreAgentRuntimeCli } from './modules/agent-runtime/runtime/agent-runtime-loader'
+vi.mock('./modules/agent-runtime/runtime/agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: vi.fn() }))
 vi.mock('./path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath }))
 const roots: string[] = []
 afterEach(() => roots.splice(0).forEach(root => rmSync(root, { recursive: true, force: true })))

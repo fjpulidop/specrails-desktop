@@ -9,7 +9,7 @@
 
 ## 2. Server kill and cleanup prevent orphaned process trees
 - [x] 2.1 Write a failing test in `server/transient-children.test.ts` that `killBackgroundProcess(pid)` only kills a registered process, escalates SIGTERM to SIGKILL through the tree-kill-safe pattern when needed, and `killTransientChildren(projectId)` kills background processes for that project.
-- [x] 2.2 Implement immediate kill and shutdown/project cleanup integration in `server/transient-children.ts`, reusing `treeKillSafe` or the existing SIGTERM-to-SIGKILL pattern from `server/queue-manager.ts`. Run `npx vitest run server/transient-children.test.ts`; ALL tests MUST pass.
+- [x] 2.2 Implement immediate kill and shutdown/project cleanup integration in `server/transient-children.ts`, reusing `treeKillSafe` or the existing SIGTERM-to-SIGKILL pattern from `server/modules/execution/runtime/queue-manager.ts`. Run `npx vitest run server/transient-children.test.ts`; ALL tests MUST pass.
 - [x] 2.3 Refactor if needed without changing behaviour. Run `npx vitest run server/transient-children.test.ts`; all tests still pass.
 
 ## 3. MCP/project surface starts and kills confirmed background shell commands
@@ -19,12 +19,12 @@
 
 ## 4. Websocket and frontend context maintain chat-scoped background state
 - [x] 4.1 Write failing client tests for `BackgroundProcessesContext` that feed websocket messages for two chats/projects and assert only the active chat/project's processes are exposed in append order and terminal events update/remove the matching process.
-- [x] 4.2 Implement `client/src/context/BackgroundProcessesContext.tsx`, add `BackgroundProcess`/WS types as needed, and wire the provider into the agent chat surface where the active project and conversation id are known. Run `cd client && npx vitest run <new-context-test>`; ALL tests MUST pass.
+- [x] 4.2 Implement `client/src/features/background/context/BackgroundProcessesContext.tsx`, add `BackgroundProcess`/WS types as needed, and wire the provider into the agent chat surface where the active project and conversation id are known. Run `cd client && npx vitest run <new-context-test>`; ALL tests MUST pass.
 - [x] 4.3 Refactor if needed without changing behaviour. Run the context test again; all tests still pass.
 
 ## 5. Composer renders animated background process chips
-- [x] 5.1 Write failing tests in `client/src/components/agent-chat/__tests__/agent-background-process-chips.test.tsx` that assert chips appear above the composer input in append order, rotate accent variants, show the close control and elapsed-time tooltip on hover, and call kill without a confirmation dialog.
-- [x] 5.2 Implement `client/src/components/BackgroundProcessChip.tsx` and integrate it into `client/src/components/agent-chat/AgentComposer.tsx` near the existing attachment chip row, reusing `AttachmentChip` animation style, `Tooltip`, lucide `X`, and elapsed-duration interval logic. Run the targeted client tests; ALL tests MUST pass.
+- [x] 5.1 Write failing tests in `client/src/features/missions/components/__tests__/agent-background-process-chips.test.tsx` that assert chips appear above the composer input in append order, rotate accent variants, show the close control and elapsed-time tooltip on hover, and call kill without a confirmation dialog.
+- [x] 5.2 Implement `client/src/features/background/components/BackgroundProcessChip.tsx` and integrate it into `client/src/features/missions/components/AgentComposer.tsx` near the existing attachment chip row, reusing `AttachmentChip` animation style, `Tooltip`, lucide `X`, and elapsed-duration interval logic. Run the targeted client tests; ALL tests MUST pass.
 - [x] 5.3 Refactor if needed without changing behaviour. Run the targeted client tests again; all tests still pass.
 
 ## 6. Agent confirmation contract and validation gate

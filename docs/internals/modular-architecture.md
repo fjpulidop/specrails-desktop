@@ -1,155 +1,107 @@
-# Architecture decision: modular monolith with selective ports and adapters
+# Architecture decision: capability modules with selective ports and adapters
 
-Status: accepted direction; project settings and execution/delivery/conversation
-core extractions implemented in this PR.
-Infrastructure orchestration remains a mixed legacy architecture, not a completed
-hexagonal migration. This distinction is intentional and reviewable.
+Status: capability ownership is implemented across the application, including
+server features, React features and CLI responsibilities. Hexagonal boundaries
+are applied to cores that benefit from substitutable effects. Runtime coordinators
+are explicitly effectful; this is not a claim that every class is infrastructure-free.
 
-## Objective
+## Decision and scope
 
-A future change should have an identifiable owner, a small public contract and
-focused tests. An engineer or coding agent should be able to find the feature,
-change its rule and validate it without loading the entire repository or mocking
-unrelated managers. File count or the number of interfaces is not a success metric.
+Keep a modular monolith and the existing deployment units. A change should have an
+identifiable owner, focused public entry points and adjacent behavioral tests.
+Use functions and composition; a generic repository, base-manager hierarchy,
+service locator or DI container would add machinery without solving the observed
+coupling. Folder moves alone do not constitute dependency inversion.
 
-## Evidence from this repository
-
-| Finding | Evidence | Consequence |
+| Area | Implemented ownership and boundary | Why this shape |
 | --- | --- | --- |
-| Persistence mixed unrelated responsibilities | [db facade](../../server/db.ts), [repositories](../../server/db/), [migration history](../../server/db/migrations.ts) | Separate connection/migration ownership from domain queries while preserving the public contract |
-| Execution managers combine policy and infrastructure | [queue](../../server/queue-manager.ts) owns process handles, SQLite, scheduling, accounting and broadcasts; [loops](../../server/loop-run-manager.ts) imports filesystem, persistence and process types | Dependency inversion would make lifecycle changes easier to isolate; extraction must preserve recovery and transaction boundaries |
-| A good strategy/adapter foundation already exists | [ProviderAdapter](../../server/providers/types.ts), [provider registry](../../server/providers/registry.ts), [loop executors](../../server/loop-executors.ts), [GitRunner](../../server/worktree-manager.ts) | Extend existing seams rather than building a competing abstraction framework |
-| Transport code owned settings rules | [settings composition](../../server/project-router-settings.ts) previously validated models, environment names and branches inline | Move validation to a transport-independent domain and use cases; keep response translation in HTTP |
-| Route dependencies are too broad for isolated features | [ProjectRoutesDeps](../../server/project-router-helpers.ts) exposes registry and complete project context | New modules receive narrow, project-bound ports rather than importing the registry |
-| Dead islands and copied imports accumulated | [source audit](../../scripts/audit-source.mjs), [removal inventory](source-architecture.md) | Remove verified unused modules and prevent unused locals/imports with typecheck |
-| AI instructions had become an implementation diary | [archived notes](legacy-implementation-notes.md) preserve the former root document | Small shared instructions plus a searchable source/test map reduce unrelated context |
+| Server capabilities | [14 modules](../../server/modules/README.md), [195 production files and public subpaths](../../server/modules/boundaries.json) | Related stores, runtime coordination and tests are discoverable together; dependencies are reviewed explicitly |
+| React capabilities | [21 features](../../client/src/features/README.md), [public subpaths and dependencies](../../client/src/features/boundaries.json) | UI, hooks, state, feature clients and tests belong to the same feature; focused subpath imports avoid eagerly loading every view |
+| Project settings | [Domain, application, repository port, HTTP/SQLite adapters](../../server/modules/project-settings/README.md) | Validation is independent of transport; updates validate first and commit atomically |
+| Execution | [Scheduling, accounting, recovery and budget enforcement](../../server/modules/execution/README.md) | Policies run without a database/process manager; recovery reads ordered evidence through a lazy adapter and preserves native-vs-estimated usage |
+| Delivery | [Decision policy and workflows](../../server/modules/delivery/README.md) | Lifecycle vocabulary is independent of storage; publication, recovery, discard and local merge have separate workflows with an acyclic dependency guard |
+| Conversations | [Recovery context and stream policies](../../server/modules/conversations/README.md) | Byte limits, exact missing-session detection and chunk filtering are testable independently of provider processes |
+| Persistence | [Connection, migrations and domain repositories](../../server/db/) behind [the public facade](../../server/db.ts) | Preserve schema history, query behavior and transaction ownership while separating unrelated concerns |
+| CLI | [Parsing, formatting, output, HTTP transport, execution and lifecycle modules](../../cli/README.md) | The executable only dispatches; parsing/formatting have no infrastructure imports and commands cannot depend on the executable |
 
-## Decision
+## Boundaries deliberately retained
 
-Keep one deployable desktop application: a **modular monolith**, organized by
-business capability. Use hexagonal boundaries inside modules where infrastructure
-and policy vary independently. Hexagonal architecture is a dependency direction,
-not a requirement for six folders, classes everywhere, microservices, or a DI
-container.
+These areas were assessed and keep their existing responsibility boundaries;
+moving them again would obscure package/resource contracts or duplicate adapters.
 
-The new [project-settings module](../../server/modules/project-settings/README.md)
-is the implemented reference:
-
-```mermaid
-flowchart LR
-  composition[Project route composition] --> http[HTTP adapter]
-  composition --> sqlite[SQLite adapter]
-  http --> application[Application use cases]
-  application --> domain[Domain rules]
-  application --> port[Repository port]
-  sqlite -. implements .-> port
-  sqlite --> db[(Project SQLite connection)]
-```
-
-Dependencies point inward: the application owns the repository contract. It does
-not import SQLite, Express, the project registry or process globals. Production
-composition supplies the SQLite adapter; unit tests supply a small in-memory fake.
-HTTP status codes and response shapes remain in the HTTP adapter. Existing
-`db.ts` consumers retain a compatibility facade while callers migrate gradually.
-
-The repository's update contract is atomic: validate the whole patch before any
-write, apply it in one transaction, then return persisted values. A new regression
-test forces a later SQL statement to fail and proves earlier changes roll back.
-
-### Where hexagonal architecture pays off
-
-- **Execution:** scheduling and lifecycle rules versus process/provider transports,
-  durable run state, clocks and notifications. Existing injected loop executors
-  are a useful starting point, but `LoopRunManager` is not infrastructure-free.
-- **PR delivery:** decision policy versus Git, GitHub, worktrees and ticket effects.
-  Preserve the existing durable outbox/ownership semantics; do not replace them
-  with an in-memory event bus.
-- **Project configuration:** validation/defaults versus HTTP and persistence. This
-  is the pilot implemented here, including an explicit public API and tests.
-- **External integrations:** Jira/provider behavior already needs substitutable
-  adapters and contract tests. Reuse those boundaries.
-
-Plain rendering components, trivial formatting functions and one-off build scripts
-do not need repository ports or application-service classes. Organize the frontend
-by features as they are extracted; retain React hooks/components for UI state.
-Do not force backend persistence patterns into React.
-
-## Applying SOLID concretely
-
-| Principle | Rule for this repo | Implemented evidence / remaining work |
+| Area | Retained entry points | Rationale |
 | --- | --- | --- |
-| Single responsibility | Separate policy, orchestration, persistence and transport by reason to change | Settings domain/use cases/adapters and DB repositories are separated; queue/chat/rail managers still need lifecycle-focused extractions |
-| Open/closed | Add behavior through an existing provider strategy or module port when variation is real | Existing provider registry; settings application accepts a repository without knowing its implementation |
-| Liskov substitution | All implementations must preserve the same behavioral contract, including failure semantics | Settings port specifies atomic update and normalized return values; provider adapters must preserve stream/usage/capability contracts rather than pretending unsupported features work |
-| Interface segregation | Describe what the consumer needs, not everything a manager happens to expose | Settings repository has `read` and `update`; avoid passing `ProjectContext` into new domain/application modules |
-| Dependency inversion | Domain/application own abstractions; composition selects infrastructure | Settings core imports only domain/port/shared pure validation; legacy queue still depends directly on SQLite and process APIs |
+| Server composition | [startup](../../server/index.ts), [project registry](../../server/project-registry.ts), [project routes](../../server/project-router.ts), [desktop routes](../../server/desktop-router.ts) | Own project lifetime, route ordering and dependency wiring |
+| Provider strategies | [provider contract](../../server/providers/types.ts), [registry](../../server/providers/registry.ts), [runtime](../../server/providers/runtime.ts) | Existing substitutable provider strategies already model different capabilities and stream semantics |
+| Integrations | [Jira](../../server/jira/), [plugins](../../server/plugins/), [mobile](../../server/mobile/), [MCP](../../server/mcp/) | Existing cohesive subsystems; preserve their public contracts rather than create parallel frameworks |
+| Resource/platform adapters | [Core compatibility](../../server/core-compat.ts), [command resolver](../../server/command-resolver.ts), [shell resources](../../server/terminal-shell-integration.ts), [MCP configuration](../../server/agent-mcp-config.ts) | Resource lookup depends on source/npm/sidecar locations; retain stable package anchors |
+| Local engine | [runner](../../local-runner/src/runner.ts), [HTTP client](../../local-runner/src/openai-client.ts), [tools](../../local-runner/src/tools.ts), [sessions](../../local-runner/src/sessions.ts) | The existing executable, protocol, transport, tools and session split is useful and contract-tested |
+| MCP bridge | [entry](../../mcp-bridge/src/index.ts), [bridge](../../mcp-bridge/src/bridge.ts), [HTTP transport](../../mcp-bridge/src/http-transport.ts) | Already separates process wiring, protocol handling and transport |
+| Native shell | [Tauri composition](../../src-tauri/src/lib.rs), [invoke guard](../../src-tauri/src/invoke_guard.rs), [browser ownership](../../src-tauri/src/browser_ownership.rs), [mission windows](../../src-tauri/src/mission_windows.rs) | Platform/window integration belongs at the native boundary, not behind JavaScript repository interfaces |
+| Shared frontend infrastructure | [App](../../client/src/App.tsx), [API context](../../client/src/lib/api.ts), [project cache](../../client/src/hooks/useProjectCache.ts), [UI primitives](../../client/src/components/ui/) | Application composition and reusable infrastructure remain shared; feature-specific code lives with its owner |
 
-Use functions and composition when they suffice. An interface for every utility
-or a generic `BaseManager` hierarchy would not improve these constraints.
+## SOLID and patterns in the implemented design
 
-## Design patterns to retain or introduce
+- **Single responsibility:** persistence repositories, CLI handlers, delivery
+  workflows and feature-owned source replace unrelated responsibilities in one
+  entry file. Runtime coordinators retain lifecycle/state ownership.
+- **Open/closed:** add real variation through existing provider strategies,
+  executor callbacks and use-case ports. Do not add an interface for every function.
+- **Liskov substitution:** fake and production ports must preserve atomic writes,
+  error propagation, unknown usage values, ordering and provider capability limits.
+- **Interface segregation:** settings exposes read/update; accounting exposes
+  write/identity; recovery exposes ordered evidence and provider interpretation;
+  budgets expose snapshots and exceeded effects. No complete project registry is
+  passed into these application cores.
+- **Dependency inversion:** domain/application files have fixed import allowlists.
+  SQLite and provider interpretation implement the recovery boundary; settings
+  HTTP/SQLite adapters are wired at composition.
 
-| Pattern | Concrete application | Constraint |
-| --- | --- | --- |
-| Strategy and adapter | AI provider adapters; loop executors; HTTP/SQLite settings adapters | Reuse existing provider contracts and preserve capability differences |
-| Application service / use case | `createProjectSettingsService` | No framework, DB connection, registry or transport types in its signature |
-| Repository port | `ProjectSettingsRepository` | Use-case-specific operations; avoid a generic CRUD repository that hides transaction semantics |
-| Facade | Existing `db.ts` API during extraction | Compatibility only; new business rules belong to their module |
-| Composition root / factory | Route registration binds one project's service and repository | No global service locator, shared mutable project cache or container dependency |
-| Transaction / unit of work | Atomic settings update; existing job/admission/settlement transactions | Keep related writes in one transaction and test rollback/restart behavior |
-| State machine | Extracted delivery action policy and queue admission | Model explicit transitions only after existing lifecycle invariants are captured; avoid a second competing state representation |
-| Durable outbox | Existing ticket effects in PR/recovery flows | Preserve durable replay and idempotency; do not substitute ephemeral pub/sub |
+Retain strategies/adapters, explicit application use cases, compatibility facades,
+composition roots and durable outboxes. Preserve existing compare-and-set leases
+and transactions: replacing them with ephemeral pub/sub would break crash recovery.
+A state machine is useful for action legality; it does not require replacing the
+existing persisted lifecycle vocabulary with a competing model.
 
-CQRS infrastructure, event sourcing, microservices, decorators and a dependency
-injection framework are not justified by the inspected problems. Reconsider them
-only against a concrete requirement and migration cost.
+## Enforcement and review
 
-## Module contract and dependency enforcement
+[Server architecture tests](../../server/modules/architecture.test.ts) verify the
+reviewed [manifest](../../server/modules/boundaries.json), every core's fixed
+allowlist and the acyclic delivery workflow graph. Regenerating the runtime
+manifest cannot authorize an infrastructure dependency inside a protected core.
+[CLI architecture tests](../../cli/architecture.test.ts) protect pure parsing/
+formatting, entry-point direction and acyclic command dependencies.
 
-Each extracted feature has a public `index.ts`, domain rules and a README with
-test commands. Add application use cases, ports and adapters when external
-capabilities are required; pure policy modules do not need artificial interfaces.
-The exact file count can vary; the import direction cannot.
+[Frontend boundary checks](../../scripts/audit-client-features.mjs) record public
+subpaths and direct capability dependencies and reject imports back into
+application composition. Existing cross-feature collaborations are explicit;
+this inventory does not claim that every feature is independent or acyclic.
 
-[Architecture tests](../../server/modules/architecture.test.ts) enforce declared
-core dependencies and block consumers from reaching into any extracted
-module's internals. Only documented composition/compatibility files may import its
-adapters. Typecheck enforces unused locals/imports. These checks run in normal CI.
+Use `npm run audit:architecture` after a boundary change. Regenerate manifests only
+after reviewing the new dependency and update the owning README. Typecheck enforces
+unused imports/locals; [source audit](../../scripts/audit-source.mjs) inventories
+reachability across application, demo, CLI, local-runner and MCP entry points.
 
-The current tests protect all four extracted modules, not every legacy server file.
-Extend the rule set as each module is migrated; do not claim global isolation from
-the existence of a `modules` directory.
+## Preserved behavior and limits
 
-## Migration order and acceptance criteria
+- Source moves update imports, dynamic imports, test mocks, source-reading fixtures,
+  coverage paths, packaging probes and navigation links together.
+- Keep queue reservation synchronous; keep cancellation, durable promotion,
+  terminal settlement, replay and PR ownership idempotent.
+- No historical database migrations are rewritten. Settings updates are atomic;
+  accounting/recovery continue inside their original transaction owner.
+- Frontend project switching, streaming state, route shapes and UI behavior remain
+  unchanged. Coverage exclusions move to equivalent files; thresholds are unchanged.
+- Large stateful coordinators still exist inside `runtime/`. Their location is
+  explicit and their policies have narrower seams; no claim is made that every
+  controller is a pure application service or that all architectural debt is gone.
+- No blanket runtime-performance gain is claimed. The concrete query improvement
+  reads the six project settings in one query. Source ownership is intended to
+  reduce change scope and navigation cost, not to manufacture a benchmark result.
 
-1. **Project settings — implemented.** Public use cases, domain validation,
-   repository port, SQLite/HTTP adapters, atomic updates, pure application tests,
-   adapter tests, legacy route regressions and dependency guards.
-2. **Execution — partial.** [Scheduling and job accounting](../../server/modules/execution/README.md)
-   now have pure policies and a narrow accounting port. Still separate budget
-   policy, durable lifecycle storage and provider/process execution. Keep active
-   slot reservation synchronous and settlement/recovery idempotent. Accept only
-   after queue, interactive-session, crash-replay and accounting suites pass.
-3. **PR delivery — partial.** [Decision rules and lifecycle vocabulary](../../server/modules/delivery/README.md)
-   are independent of persistence. Still extract Git/publisher/ticket-effect ports.
-   Preserve branch provenance, continuation identity, ownership and outbox replay.
-   Use the existing isolated-launch and PR-decision suites as contracts.
-4. **Chat and missions — partial.** [Resume context and stream rules](../../server/modules/conversations/README.md)
-   are independent of I/O. Still separate turn orchestration,
-   transports and persisted events. Preserve project switching and streaming state.
-5. **Frontend features.** Move a cohesive feature with its hooks, UI, contracts and
-   tests when its boundary is understood. Keep shared UI primitives genuinely
-   shared; avoid a global catch-all services directory.
+## Human and AI navigation
 
-For each step: define the public API, inventory callers, capture invariants,
-extract one vertical slice, wire it at composition, keep a temporary facade if
-needed, add a dependency rule, run focused and affected integration tests, and
-update the module guide/source map. Remove a facade only when no caller remains.
-
-## AI and human navigation
-
-[AGENTS.md](../../AGENTS.md) is the shared operational guide;
-[CLAUDE.md](../../CLAUDE.md) imports it and supplies a short reference index.
-The [generated source map](source-map.md) links source/build files and nearby
-tests. Feature history lives in optional reference docs, not in mandatory startup
-context. Update the narrowest guide instead of growing another root-level diary.
+[AGENTS.md](../../AGENTS.md) supplies concise working rules and a feature map;
+[CLAUDE.md](../../CLAUDE.md) imports it. Feature READMEs expose public contracts,
+collaborators and test commands. The [generated source map](source-map.md) links
+source and adjacent tests; historical detail stays in optional reference documents.

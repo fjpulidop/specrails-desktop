@@ -1,6 +1,6 @@
 ## 1. Make the draft store observable
 
-- [x] 1.1 Add change notification to `client/src/lib/agent-composer-drafts.ts`: a subscribe/getSnapshot pair per draft key, following the existing module-store pattern in `client/src/lib/mission-view-state.ts`. Every mutation path (`setInput` writes, `restoreComposerDraft`, `migrateNewMissionComposerDrafts`, the clear/restore added in group 2, and the attachment writes) MUST notify.
+- [x] 1.1 Add change notification to `client/src/features/missions/lib/agent-composer-drafts.ts`: a subscribe/getSnapshot pair per draft key, following the existing module-store pattern in `client/src/features/missions/lib/mission-view-state.ts`. Every mutation path (`setInput` writes, `restoreComposerDraft`, `migrateNewMissionComposerDrafts`, the clear/restore added in group 2, and the attachment writes) MUST notify.
 - [x] 1.2 Return referentially stable snapshots for unchanged keys (text string, reference array, attachment array), so `useSyncExternalStore` cannot loop on identity churn.
 - [x] 1.3 Extend `__clearComposerDrafts()` to reset subscribers, so tests stay isolated.
 - [x] 1.4 Unit-test the store directly: notification on each mutation kind, snapshot stability when an unrelated key changes, and no notification when a write is a no-op.

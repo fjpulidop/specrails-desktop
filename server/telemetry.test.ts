@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { buildTelemetryEnv } from './queue-manager'
+import { buildTelemetryEnv } from './modules/execution/runtime/queue-manager'
 import { readCurrentFrameworkVersion, frameworkRoot } from './framework-manager'
 import { initDb } from './db'
 import {
@@ -290,7 +290,7 @@ import os from 'os'
 import fs from 'fs'
 import path from 'path'
 import zlib from 'zlib'
-import { runCompaction, runCompactionForAll } from './telemetry-compactor'
+import { runCompaction, runCompactionForAll } from './modules/accounting/runtime/telemetry-compactor'
 import type { ProjectContext } from './project-registry'
 import type { ProjectRegistry } from './project-registry'
 

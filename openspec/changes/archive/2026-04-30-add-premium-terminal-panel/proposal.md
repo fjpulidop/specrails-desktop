@@ -52,26 +52,26 @@ This change rewrites the terminal panel into a "premium" experience in one cohes
 
 **New code (server):**
 - `server/terminal-shell-integration.ts` — resolves the shim path per shell (zsh/bash/fish/PowerShell), composes the `--init-file` arguments, manages a per-session writable temp shim that chains to user rc files, and parses the inbound OSC 133/1337 stream into structured `CommandMark` events on top of the existing PTY data flow.
-- `server/terminal-settings.ts` — CRUD over the hub `terminal_settings` table and per-project `terminal_settings_override` table; surface a single `resolveTerminalSettings(projectId)` helper.
-- `server/terminal-marks-store.ts` — append-only ring storage for `terminal_command_marks` per-project, with the 1000-row FIFO cap.
+- `server/modules/terminals/runtime/terminal-settings.ts` — CRUD over the hub `terminal_settings` table and per-project `terminal_settings_override` table; surface a single `resolveTerminalSettings(projectId)` helper.
+- `server/modules/terminals/runtime/terminal-marks-store.ts` — append-only ring storage for `terminal_command_marks` per-project, with the 1000-row FIFO cap.
 - New shim scripts under `server/shell-integration/`: `zsh-shim.zsh`, `bash-shim.bash`, `fish-shim.fish`, `powershell-shim.ps1`. Bundled with the desktop app via `scripts/build-sidecar.mjs`.
 
 **Modified code (server):**
-- `server/terminal-manager.ts` — call `resolveTerminalSettings`, optionally compose shell-integration args, write per-session shim, attach the OSC parser to the PTY data path, broadcast `mark` control frames over the existing terminal WS.
+- `server/modules/terminals/runtime/terminal-manager.ts` — call `resolveTerminalSettings`, optionally compose shell-integration args, write per-session shim, attach the OSC parser to the PTY data path, broadcast `mark` control frames over the existing terminal WS.
 - `server/db.ts` — three new migrations: `hub_settings.terminal_*` columns, per-project `terminal_settings_override` table, per-project `terminal_command_marks` table.
 - `server/project-router.ts` and `server/hub-router.ts` — new REST endpoints under `/api/hub/terminal-settings` and `/api/projects/:projectId/terminal-settings` (GET/PATCH), plus `/api/projects/:projectId/terminals/:id/marks` (GET, paginated).
 
 **New code (client):**
-- `client/src/components/terminal/TerminalSearchOverlay.tsx`, `TerminalContextMenu.tsx`, `PromptGutter.tsx`, `CommandTimingBadge.tsx`.
+- `client/src/features/terminals/components/terminal/TerminalSearchOverlay.tsx`, `TerminalContextMenu.tsx`, `PromptGutter.tsx`, `CommandTimingBadge.tsx`.
 - `client/src/lib/shell-quote.ts` — POSIX vs Windows path quoting for drag-drop.
 - `client/src/lib/tauri-drag-drop.ts` — Tauri webview drag-drop listener with browser no-op fallback.
-- `client/src/components/settings/TerminalSettingsSection.tsx` (used by both `GlobalSettingsPage` and `SettingsPage`).
+- `client/src/features/settings/components/TerminalSettingsSection.tsx` (used by both `GlobalSettingsPage` and `SettingsPage`).
 
 **Modified code (client):**
-- `client/src/context/TerminalsContext.tsx` — addon loading (WebGL, search, unicode11, ligatures, image), trailing-debounced resize, settings-driven font/render-mode hot-reload, command-mark store fed by control frames, custom-key handler for the new keybindings.
-- `client/src/components/terminal/TerminalViewport.tsx` — mounts the search overlay, context menu, and prompt-gutter overlay; handles drag-over visual.
-- `client/src/components/terminal/TerminalTopBar.tsx` — new "Search" affordance + settings shortcut.
-- `client/src/pages/GlobalSettingsPage.tsx`, `client/src/pages/SettingsPage.tsx` — render `TerminalSettingsSection`.
+- `client/src/features/terminals/context/TerminalsContext.tsx` — addon loading (WebGL, search, unicode11, ligatures, image), trailing-debounced resize, settings-driven font/render-mode hot-reload, command-mark store fed by control frames, custom-key handler for the new keybindings.
+- `client/src/features/terminals/components/terminal/TerminalViewport.tsx` — mounts the search overlay, context menu, and prompt-gutter overlay; handles drag-over visual.
+- `client/src/features/terminals/components/terminal/TerminalTopBar.tsx` — new "Search" affordance + settings shortcut.
+- `client/src/features/settings/pages/GlobalSettingsPage.tsx`, `client/src/features/settings/pages/SettingsPage.tsx` — render `TerminalSettingsSection`.
 
 **Dependencies (npm, client):**
 - Add `@xterm/addon-webgl`, `@xterm/addon-search`, `@xterm/addon-unicode11`, `@xterm/addon-ligatures`, `@xterm/addon-image`. All maintained alongside the `@xterm/xterm` core, ESM, no native binaries.

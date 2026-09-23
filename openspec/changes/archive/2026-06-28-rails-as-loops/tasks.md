@@ -1,6 +1,6 @@
 ## 1. Catalog commands, ticket scope, and tokens (additive — no behaviour change yet)
 
-- [x] 1.1 Add `{{cmd:batch}}` to `server/loop-command-catalog.ts` as a `coreCommand: 'batch-implement'` (native per-provider: claude `/specrails:batch-implement`, codex `$batch-implement`).
+- [x] 1.1 Add `{{cmd:batch}}` to `server/modules/loops/runtime/loop-command-catalog.ts` as a `coreCommand: 'batch-implement'` (native per-provider: claude `/specrails:batch-implement`, codex `$batch-implement`).
 - [x] 1.2 Add a NATIVE command kind to the catalog and register `{{cmd:freestyle}}` — expands to a raw autonomous prompt (NOT a slash command); flagged claude-only. (Factory freestyle routes to QueueManager's real `_buildFreestylePrompt` in §3; this is the custom-loop fallback prompt.)
 - [x] 1.3 Add `ticketScope: 'all' | 'per-ticket'` to `LoopCommand` (implement/batch=`all`, freestyle=`per-ticket`) + `dominantTicketScope()` + `referencesClaudeOnlyCommand()` helpers.
 - [x] 1.4 Add the `{{spec.ids}}` token (all rail ticket ids → `#1 #2 #3`) to `interpolateSpec` + `LoopSpec.ticketIds`; `{{spec.id}}` stays the single-ticket token. `expandCommands` now embeds all ticket ids for `all`-scope commands.
@@ -8,7 +8,7 @@
 
 ## 2. Factory loops (the first deliverable)
 
-- [x] 2.1 Define the `implement`, `batch`, `freestyle` factory loops in `server/loop-factory.ts` (graphs via `aiLoopGraph` using `{{cmd:implement}}`/`{{cmd:batch}}`/`{{cmd:freestyle}}` + `{{cmd:verify}}`); each carries its canonical rail `mode` + id `factory:<name>` + claudeOnly for freestyle; helpers `getFactoryLoop`/`isFactoryLoopId`/`factoryLoopMode`/`factoryLoopForMode`. 5 tests; graphs validate.
+- [x] 2.1 Define the `implement`, `batch`, `freestyle` factory loops in `server/modules/loops/runtime/loop-factory.ts` (graphs via `aiLoopGraph` using `{{cmd:implement}}`/`{{cmd:batch}}`/`{{cmd:freestyle}}` + `{{cmd:verify}}`); each carries its canonical rail `mode` + id `factory:<name>` + claudeOnly for freestyle; helpers `getFactoryLoop`/`isFactoryLoopId`/`factoryLoopMode`/`factoryLoopForMode`. 5 tests; graphs validate.
 - [x] 2.2 Surface factory loops in the gallery: `GET /api/loops/factory` (registered BEFORE `/loops/:id`); `LoopsPage` renders a "Built-in" section — locked cards (no Edit/Delete/Publish) with Preview (reuses `TemplatePreviewModal`) + Fork. i18n `sections.builtIn`/`builtInBadge`/`actions.fork` ×8.
 - [x] 2.3 "Fork to edit": `POST /api/loops/factory/:id/fork` clones the factory graph into a new user Draft; `LoopsPage` Fork button → opens the new draft in the builder; factory unchanged.
 - [x] 2.4 Tests: factory graphs validate (loop-factory.test); router lists factory loops + fork→draft + 404 + route-ordering (loops-router.test, 24); LoopsPage built-in section + fork (LoopsPage.test, 39). parity green.

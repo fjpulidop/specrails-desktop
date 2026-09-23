@@ -1,8 +1,8 @@
-import { MissionWindowsProvider } from './context/MissionWindowsContext'
-import { isMissionWindowRoute } from './lib/mission-windows'
-import { MissionWindowBindings } from './components/agent-chat/MissionWindowBindings'
-import { MissionWindowSurface } from './components/agent-chat/MissionWindowSurface'
-import { MissionWindowError } from './components/agent-chat/MissionWindowAction'
+import { MissionWindowsProvider } from './features/missions/context/MissionWindowsContext'
+import { isMissionWindowRoute } from './features/missions/lib/mission-windows'
+import { MissionWindowBindings } from './features/missions/components/MissionWindowBindings'
+import { MissionWindowSurface } from './features/missions/components/MissionWindowSurface'
+import { MissionWindowError } from './features/missions/components/MissionWindowAction'
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, lazy, Suspense }from 'react'
 import { createPortal } from 'react-dom'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
@@ -10,72 +10,72 @@ import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
 import { Puzzle, Workflow, X, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
-import DashboardPage from './pages/DashboardPage'
-import SettingsPage from './pages/SettingsPage'
-import SettingsDialog from './pages/GlobalSettingsPage'
+import DashboardPage from './features/dashboard/pages/DashboardPage'
+import SettingsPage from './features/settings/pages/SettingsPage'
+import SettingsDialog from './features/settings/pages/GlobalSettingsPage'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './components/ui/dialog'
 import { useKeyboardShortcuts, useCheatsheetState } from './hooks/useKeyboardShortcuts'
 import { KeyboardShortcutsCheatsheet } from './components/KeyboardShortcutsCheatsheet'
 import { TitleBar } from './components/TitleBar'
-import { ThemeEffectLayer } from './components/theme-effects/ThemeEffectLayer'
+import { ThemeEffectLayer } from './features/settings/components/theme-effects/ThemeEffectLayer'
 
 // Lazy-loaded pages — never visible at initial render
-const JobDetailPage = lazy(() => import('./pages/JobDetailPage'))
-const ReviewPacketPage = lazy(() => import('./pages/ReviewPacketPage'))
-const JobsPage = lazy(() => import('./pages/JobsPage'))
-const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'))
-const ActivityFeedPage = lazy(() => import('./pages/ActivityFeedPage'))
-const AgentsPage = lazy(() => import('./pages/AgentsPage'))
-const CodePage = lazy(() => import('./pages/CodePage'))
-const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'))
-const PluginsPage = lazy(() => import('./pages/PluginsPage'))
-const DesktopAnalyticsPage = lazy(() => import('./pages/DesktopAnalyticsPage'))
-const DocsPage = lazy(() => import('./pages/DocsPage'))
-const DocsDialog = lazy(() => import('./components/DocsDialog'))
-const LoopsPage = lazy(() => import('./pages/LoopsPage'))
-const LoopBuilderPage = lazy(() => import('./pages/LoopBuilderPage'))
+const JobDetailPage = lazy(() => import('./features/jobs/pages/JobDetailPage'))
+const ReviewPacketPage = lazy(() => import('./features/delivery/pages/ReviewPacketPage'))
+const JobsPage = lazy(() => import('./features/jobs/pages/JobsPage'))
+const AnalyticsPage = lazy(() => import('./features/analytics/pages/AnalyticsPage'))
+const ActivityFeedPage = lazy(() => import('./features/analytics/pages/ActivityFeedPage'))
+const AgentsPage = lazy(() => import('./features/agents/pages/AgentsPage'))
+const CodePage = lazy(() => import('./features/code/pages/CodePage'))
+const IntegrationsPage = lazy(() => import('./features/integrations/pages/IntegrationsPage'))
+const PluginsPage = lazy(() => import('./features/plugins/pages/PluginsPage'))
+const DesktopAnalyticsPage = lazy(() => import('./features/analytics/pages/DesktopAnalyticsPage'))
+const DocsPage = lazy(() => import('./features/docs/pages/DocsPage'))
+const DocsDialog = lazy(() => import('./features/docs/components/DocsDialog'))
+const LoopsPage = lazy(() => import('./features/loops/pages/LoopsPage'))
+const LoopBuilderPage = lazy(() => import('./features/loops/pages/LoopBuilderPage'))
 import { ProjectLayout } from './components/ProjectLayout'
-import { ProjectErrorBoundary } from './components/ProjectErrorBoundary'
+import { ProjectErrorBoundary } from './features/projects/components/ProjectErrorBoundary'
 import { WelcomeScreen } from './components/WelcomeScreen'
-import { OnboardingWizard, hasSeenOnboarding } from './components/OnboardingWizard'
+import { OnboardingWizard, hasSeenOnboarding } from './features/projects/components/OnboardingWizard'
 import { ArcSidebar } from './components/ArcSidebar'
 import { ProjectRightSidebar } from './components/ProjectRightSidebar'
-import { AddProjectDialog } from './components/AddProjectDialog'
+import { AddProjectDialog } from './features/projects/components/AddProjectDialog'
 import { SidebarPinProvider, useSidebarPin } from './context/SidebarPinContext'
 import { UiModeProvider } from './context/UiModeContext'
 import { CommandPalette } from './components/CommandPalette'
 import { SharedWebSocketProvider } from './hooks/useSharedWebSocket'
 import { DesktopProvider, useDesktop, projectProviders } from './hooks/useDesktop'
-import { SpecGenTrackerProvider } from './hooks/useSpecGenTracker'
-import { ContractRefineTrackerProvider } from './hooks/useContractRefineTracker'
-import { SmashTrackerProvider } from './context/SmashTrackerContext'
+import { SpecGenTrackerProvider } from './features/specs/hooks/useSpecGenTracker'
+import { ContractRefineTrackerProvider } from './features/specs/hooks/useContractRefineTracker'
+import { SmashTrackerProvider } from './features/specs/context/SmashTrackerContext'
 import { useOsNotifications } from './hooks/useOsNotifications'
 import { useDesktopUpdateNotifier } from './hooks/useDesktopUpdateNotifier'
 import { useTrayLabels } from './hooks/useTrayLabels'
 import { useSuppressNativeContextMenu } from './hooks/useSuppressNativeContextMenu'
 import { WS_URL } from './lib/ws-url'
-import { TerminalsProvider, useTerminals, useProjectTerminals } from './context/TerminalsContext'
-import { usePipeline } from './hooks/usePipeline'
-import { BottomPanel } from './components/terminal/BottomPanel'
+import { TerminalsProvider, useTerminals, useProjectTerminals } from './features/terminals/context/TerminalsContext'
+import { usePipeline } from './features/jobs/hooks/usePipeline'
+import { BottomPanel } from './features/terminals/components/terminal/BottomPanel'
 import { StatusBar } from './components/StatusBar'
-import { PanelChevronButton } from './components/terminal/PanelChevronButton'
+import { PanelChevronButton } from './features/terminals/components/terminal/PanelChevronButton'
 import { useUiMode } from './context/UiModeContext'
-import { AgentWorkspaceProvider } from './context/AgentWorkspaceContext'
-import { AgentWorkspaceSidebar } from './components/agent-chat/AgentWorkspaceSidebar'
-import { AgentModeSurface } from './components/agent-chat/AgentModeSurface'
-import { AgentBrowserCaptureHost } from './components/agent-chat/AgentBrowserCaptureHost'
-import { RailMetricsProvider } from './context/RailMetricsContext'
-import { RailPrDecisionProvider } from './context/RailPrDecisionContext'
-import { MinimizedChatsProvider, } from './context/MinimizedChatsContext'
-import { AgentChatProvider, useAgentChat } from './context/AgentChatContext'
-import { BackgroundProcessesProvider } from './context/BackgroundProcessesContext'
-import { TicketDetailModalProvider } from './context/TicketDetailModalContext'
-import { WebViewModalProvider } from './context/WebViewModalContext'
-import { useCompareUrlSync } from './hooks/useCompareUrlSync'
-import { useMilestoneNotifications } from './hooks/useMilestoneNotifications'
-import { dropLegacySequentialPlans } from './lib/milestone-launch'
-import { ThemeProvider, useTheme } from './context/ThemeContext'
-import { LanguageProvider } from './context/LanguageContext'
+import { AgentWorkspaceProvider } from './features/missions/context/AgentWorkspaceContext'
+import { AgentWorkspaceSidebar } from './features/missions/components/AgentWorkspaceSidebar'
+import { AgentModeSurface } from './features/missions/components/AgentModeSurface'
+import { AgentBrowserCaptureHost } from './features/missions/components/AgentBrowserCaptureHost'
+import { RailMetricsProvider } from './features/rails/context/RailMetricsContext'
+import { RailPrDecisionProvider } from './features/delivery/context/RailPrDecisionContext'
+import { MinimizedChatsProvider, } from './features/missions/context/MinimizedChatsContext'
+import { AgentChatProvider, useAgentChat } from './features/missions/context/AgentChatContext'
+import { BackgroundProcessesProvider } from './features/background/context/BackgroundProcessesContext'
+import { TicketDetailModalProvider } from './features/specs/context/TicketDetailModalContext'
+import { WebViewModalProvider } from './features/browser/context/WebViewModalContext'
+import { useCompareUrlSync } from './features/jobs/hooks/useCompareUrlSync'
+import { useMilestoneNotifications } from './features/builder/hooks/useMilestoneNotifications'
+import { dropLegacySequentialPlans } from './features/builder/lib/milestone-launch'
+import { ThemeProvider, useTheme } from './features/settings/context/ThemeContext'
+import { LanguageProvider } from './features/settings/context/LanguageContext'
 import { FEATURE_AGENTS_SECTION, FEATURE_CODE_EXPLORER, FEATURE_TERMINAL_PANEL, FEATURE_LOOPS_SECTION, FEATURE_AGENT_CHAT, FEATURE_REVIEW_PACKET } from './lib/feature-flags'
 import { getGlobalRouteModeTransition, type GlobalModalSurface } from './lib/global-route-mode-transition'
 

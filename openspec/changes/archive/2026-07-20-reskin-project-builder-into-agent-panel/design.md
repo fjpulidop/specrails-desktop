@@ -26,7 +26,7 @@ The Builder transport is deliberately NOT the agent transport: `blueprint_conver
 
 ### D1 — Builder mode state lives in `AgentChatContext`
 
-Add a `builderMode` slice to `AgentChatContext`: `{ active: boolean, enterBuilderMode(): void, exitBuilderMode(): void }` plus the session state the shell previously owned, extracted into a reusable hook `useBuilderSession()` (conversation bootstrap, WS handling, phases `chat|commit|progress|done`, blueprint snapshot, send/commit/launch actions — the logic currently inside `ProjectBuilderShell`, moved verbatim into `client/src/hooks/useBuilderSession.ts`). The context exposes mode + session so THREE consumers stay in sync: the floating panel, the Agent Mode surface, and the workspace sidebar.
+Add a `builderMode` slice to `AgentChatContext`: `{ active: boolean, enterBuilderMode(): void, exitBuilderMode(): void }` plus the session state the shell previously owned, extracted into a reusable hook `useBuilderSession()` (conversation bootstrap, WS handling, phases `chat|commit|progress|done`, blueprint snapshot, send/commit/launch actions — the logic currently inside `ProjectBuilderShell`, moved verbatim into `client/src/features/builder/hooks/useBuilderSession.ts`). The context exposes mode + session so THREE consumers stay in sync: the floating panel, the Agent Mode surface, and the workspace sidebar.
 
 *Alternative — a separate `BuilderModeContext`*: rejected; entering builder mode must also OPEN the floating panel and suppress normal agent chrome, which is `AgentChatContext`'s state. One owner avoids cross-context choreography.
 

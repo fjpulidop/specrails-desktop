@@ -11,11 +11,11 @@ import {
   getProviderDefault,
   isValidModelForProvider,
   type SpecProvider,
-} from './spec-models'
-import { clampShortSummary } from './ticket-store'
+} from './modules/specs/runtime/spec-models'
+import { clampShortSummary } from './modules/specs/runtime/ticket-store'
 import { installConfigPath } from './install-config-path'
 import { resolveProjectExecution } from './workspace-resolution'
-import type { Exec } from './pr-publisher'
+import type { Exec } from './modules/delivery/runtime/pr-publisher'
 
 /** Shared dependencies handed to every domain register function. */
 export interface ProjectRoutesDeps {

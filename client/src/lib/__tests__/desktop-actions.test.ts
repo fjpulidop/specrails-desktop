@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Terminal } from '@xterm/xterm'
 import { revealItemInDir } from '../tauri-shell'
-import { saveScrollbackToFile } from '../save-scrollback'
-import { notifyCommandFinished } from '../terminal-notifications'
+import { saveScrollbackToFile } from '../../features/terminals/lib/save-scrollback'
+import { notifyCommandFinished } from '../../features/terminals/lib/terminal-notifications'
 
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke }))

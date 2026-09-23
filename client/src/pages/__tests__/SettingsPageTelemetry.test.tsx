@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '../../test-utils'
-import SettingsPage from '../SettingsPage'
+import SettingsPage from '../../features/settings/pages/SettingsPage'
 import type { ProjectConfig } from '../../types'
 
 vi.mock('sonner', () => ({

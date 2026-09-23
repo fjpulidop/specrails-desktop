@@ -1,18 +1,18 @@
-import { buildSpecAddendum, readSpecAddenda } from './spec-addenda'
-import { mutateStore as mutateTicketStore, readStore as readTicketStore } from './ticket-store'
+import { buildSpecAddendum, readSpecAddenda } from './modules/specs/runtime/spec-addenda'
+import { mutateStore as mutateTicketStore, readStore as readTicketStore } from './modules/specs/runtime/ticket-store'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import Database from 'better-sqlite3'
 import * as projectDb from './db'
-import { TicketWatcher } from './ticket-watcher'
-import { mutateStore as mutateRepositoryTickets, resolveTicketStoragePath as repositoryTicketPath } from './ticket-store'
+import { TicketWatcher } from './modules/specs/runtime/ticket-watcher'
+import { mutateStore as mutateRepositoryTickets, resolveTicketStoragePath as repositoryTicketPath } from './modules/specs/runtime/ticket-store'
 import { resolveProjectExecution as repositoryExecution } from './workspace-resolution'
-import { ChatManager as MockedChatManager } from './chat-manager'
+import { ChatManager as MockedChatManager } from './modules/conversations/runtime/chat-manager'
 
 // Mock all managers before importing
-vi.mock('./queue-manager', () => {
+vi.mock('./modules/execution/runtime/queue-manager', () => {
   const QueueManager = vi.fn().mockImplementation(() => ({
     enqueue: vi.fn(),
     cancel: vi.fn(),
@@ -27,7 +27,7 @@ vi.mock('./queue-manager', () => {
   return { QueueManager }
 })
 
-vi.mock('./chat-manager', () => {
+vi.mock('./modules/conversations/runtime/chat-manager', () => {
   const ChatManager = vi.fn().mockImplementation(() => ({
     sendMessage: vi.fn(),
     abort: vi.fn(),
@@ -52,7 +52,7 @@ vi.mock('./setup-manager', () => {
   return { SetupManager }
 })
 
-vi.mock('./proposal-manager', () => {
+vi.mock('./modules/specs/runtime/proposal-manager', () => {
   const ProposalManager = vi.fn().mockImplementation(() => ({
     startExploration: vi.fn(),
     sendRefinement: vi.fn(),
@@ -70,7 +70,7 @@ vi.mock('./config', () => ({
 }))
 
 import { emitRecoveredPrDelivery, ProjectRegistry, reprojectActivePrDeliveries, type ProjectContext } from './project-registry'
-import { claimRailTickets, claimTicketOutcomeOwners, setRailTickets, getRail } from './rails-store'
+import { claimRailTickets, claimTicketOutcomeOwners, setRailTickets, getRail } from './modules/delivery/runtime/rails-store'
 import {
   initDesktopDb,
   addProject,
@@ -80,17 +80,17 @@ import {
   updateAgent,
   getAgent,
 } from './desktop-db'
-import { createLoopRun, finishLoopRunAndJob, getLoopRun, getLoopTerminalRecovery, listActiveLoopRuns } from './loop-runs-store'
+import { createLoopRun, finishLoopRunAndJob, getLoopRun, getLoopTerminalRecovery, listActiveLoopRuns } from './modules/loops/runtime/loop-runs-store'
 import { createJob, deleteJob, initDb, type DbInstance } from './db'
 import type { WsMessage } from './types'
 import {
   captureProcessAdmission,
   resetProcessAdmissionForTests,
 } from './process-admission'
-import { createPrDelivery, getPrDelivery, transitionDecision } from './rail-pr-store'
-import { reconcileRailWorktrees } from './rail-isolated-launch'
-import { setAgentChatManager } from './agent-chat-registry'
-import type { AgentChatManager } from './agent-chat-manager'
+import { createPrDelivery, getPrDelivery, transitionDecision } from './modules/delivery/runtime/rail-pr-store'
+import { reconcileRailWorktrees } from './modules/delivery/runtime/rail-isolated-launch'
+import { setAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
+import type { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 
 describe('ProjectRegistry', () => {
   let desktopDb: DbInstance
@@ -702,7 +702,7 @@ describe('ProjectRegistry', () => {
 
   describe('QueueManager options callbacks', () => {
     it('getCostAlertThreshold reads desktop setting', async () => {
-      const { QueueManager } = await import('./queue-manager')
+      const { QueueManager } = await import('./modules/execution/runtime/queue-manager')
       registry.addProject({ id: 'cb-1', slug: 'cb-proj', name: 'CB', path: '/cb' })
 
       // Capture the options passed to QueueManager constructor
@@ -718,7 +718,7 @@ describe('ProjectRegistry', () => {
     })
 
     it('getDesktopDailyBudget returns budget and total spend', async () => {
-      const { QueueManager } = await import('./queue-manager')
+      const { QueueManager } = await import('./modules/execution/runtime/queue-manager')
       registry.addProject({ id: 'hb-1', slug: 'hb-proj', name: 'HB', path: '/hb' })
 
       const constructorCalls = vi.mocked(QueueManager).mock.calls
@@ -732,7 +732,7 @@ describe('ProjectRegistry', () => {
     })
 
     it('onJobFinished calls webhook deliver', async () => {
-      const { QueueManager } = await import('./queue-manager')
+      const { QueueManager } = await import('./modules/execution/runtime/queue-manager')
       registry.addProject({ id: 'wh-1', slug: 'wh-proj', name: 'WH', path: '/wh' })
 
       const constructorCalls = vi.mocked(QueueManager).mock.calls
@@ -744,7 +744,7 @@ describe('ProjectRegistry', () => {
     })
 
     it('onJobFinished releases the finished job tickets from rails and broadcasts rail.updated', async () => {
-      const { QueueManager } = await import('./queue-manager')
+      const { QueueManager } = await import('./modules/execution/runtime/queue-manager')
       const ctx = registry.addProject({ id: 'rr-1', slug: 'rr-proj', name: 'RR', path: '/rr' })
 
       // Rail 0 holds tickets 5 and 7; the finishing job implements only #5.
@@ -770,7 +770,7 @@ describe('ProjectRegistry', () => {
     })
 
     it('onJobFinished releases rail tickets on failure too (specs return to the board)', async () => {
-      const { QueueManager } = await import('./queue-manager')
+      const { QueueManager } = await import('./modules/execution/runtime/queue-manager')
       const ctx = registry.addProject({ id: 'rr-2', slug: 'rr-proj-2', name: 'RR2', path: '/rr2' })
 
       setRailTickets(ctx.db, 1, [9])
@@ -862,7 +862,7 @@ describe('ProjectRegistry', () => {
     })
 
     it('clears a terminal assignment from the durable completion callback without a queue broadcast', async () => {
-      const { QueueManager } = await import('./queue-manager')
+      const { QueueManager } = await import('./modules/execution/runtime/queue-manager')
       registry.addProject({ id: 'aq-2', slug: 'aq-proj-2', name: 'AQ2', path: '/aq2' })
       addAgent(desktopDb, { id: 'agent-replay', slug: 'agent-replay', name: 'Agent Replay' })
       updateAgent(desktopDb, 'agent-replay', {
@@ -1391,7 +1391,7 @@ describe('ProjectRegistry', () => {
     // Register the project (real ticket store on disk), spy on the Jira hooks,
     // and grab the onJobFinished closure handed to the (mocked) QueueManager.
     const setup = async () => {
-      const { QueueManager } = await import('./queue-manager')
+      const { QueueManager } = await import('./modules/execution/runtime/queue-manager')
       const ctx = registry.addProject({ id: 'pJob', slug: 'job-proj', name: 'Job', path: projDir })
       const onJobOutcome = vi.fn()
       const onRailReview = vi.fn()

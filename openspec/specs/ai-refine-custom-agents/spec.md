@@ -214,7 +214,7 @@ The AI Refine overlay SHALL expose a minimize control in its header, distinct fr
 
 ### Requirement: AI Refine regenerates short_summary when description changes
 
-The AI Refine flow (`server/agent-refine-manager.ts`) SHALL request a `shortSummary` field in the refine response prompt, and SHALL update the ticket's `short_summary` only when the model returns a non-empty value.
+The AI Refine flow (`server/modules/agents/runtime/agent-refine-manager.ts`) SHALL request a `shortSummary` field in the refine response prompt, and SHALL update the ticket's `short_summary` only when the model returns a non-empty value.
 
 #### Scenario: Refine returns new summary
 - **WHEN** AI Refine returns a response with `shortSummary`

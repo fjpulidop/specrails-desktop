@@ -7,10 +7,10 @@ import path from 'path'
 import { initDb, createConversation, addMessage, type DbInstance } from './db'
 import { initDesktopDb, addProject } from './desktop-db'
 import { createProjectRouter } from './project-router'
-import { readStore, resolveTicketStoragePath } from './ticket-store'
+import { readStore, resolveTicketStoragePath } from './modules/specs/runtime/ticket-store'
 import type { ProjectContext, ProjectRegistry } from './project-registry'
 
-vi.mock('./contract-refine-runner', () => ({ runContractRefine: vi.fn().mockResolvedValue(undefined), runContractRefineForQuick: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('./modules/specs/runtime/contract-refine-runner', () => ({ runContractRefine: vi.fn().mockResolvedValue(undefined), runContractRefineForQuick: vi.fn().mockResolvedValue(undefined) }))
 vi.mock('./util/cli-prompt', async (actual) => ({ ...await actual<typeof import('./util/cli-prompt')>(), spawnAiCli: vi.fn(() => { throw new Error('No AI process is allowed in this test') }) }))
 
 let temp: string, db: DbInstance, desktopDb: DbInstance, ctx: ProjectContext, app: express.Express

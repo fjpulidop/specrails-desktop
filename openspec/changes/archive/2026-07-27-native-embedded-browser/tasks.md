@@ -7,14 +7,14 @@
 ## 2. Client: native pane surface
 
 - [x] 2.1 Add `FEATURE_NATIVE_BROWSER` to `client/src/lib/feature-flags.ts`
-- [x] 2.2 Create `client/src/lib/native-browser.ts`: `normalizeAddress` + scheme policy, `rectToBounds`, memoized `isNativeBrowserAvailable()` probe (isTauri + `browser_supported`), thin invoke/event wrappers with runtime-safe dynamic imports
-- [x] 2.3 Create `client/src/components/browser-capture/NativeBrowserPane.tsx`: chrome (back/forward/reload/address/Go/devtools/zoom/close) + measured hole div, ResizeObserver + rAF bounds sync, `native-browser:event` subscription, open-failure reporting to the parent
+- [x] 2.2 Create `client/src/features/browser/lib/native-browser.ts`: `normalizeAddress` + scheme policy, `rectToBounds`, memoized `isNativeBrowserAvailable()` probe (isTauri + `browser_supported`), thin invoke/event wrappers with runtime-safe dynamic imports
+- [x] 2.3 Create `client/src/features/browser/components/browser-capture/NativeBrowserPane.tsx`: chrome (back/forward/reload/address/Go/devtools/zoom/close) + measured hole div, ResizeObserver + rAF bounds sync, `native-browser:event` subscription, open-failure reporting to the parent
 - [x] 2.4 Route `WebViewModal.tsx` through the ladder: native pane when available, automatic per-session fallback to the legacy screencast variant on probe/open failure, untouched legacy path otherwise
 
 ## 3. i18n + coverage + docs
 
 - [x] 3.1 Add the new `browser` namespace keys (devtools, zoom controls, native status) to all 8 locales; keep key-parity test green
-- [x] 3.2 Unit-test `client/src/lib/native-browser.ts` (normalization, scheme rejection, bounds mapping, probe memoization + fallback); coverage-exclude `NativeBrowserPane.tsx` with an inline reason
+- [x] 3.2 Unit-test `client/src/features/browser/lib/native-browser.ts` (normalization, scheme rejection, bounds mapping, probe memoization + fallback); coverage-exclude `NativeBrowserPane.tsx` with an inline reason
 - [x] 3.3 Update CLAUDE.md (native browser section) and mark the evaluation doc as implemented (phases 0–1)
 
 ## 4. Gates

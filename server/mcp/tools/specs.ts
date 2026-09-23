@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { McpToolSpec } from './types'
 import { apiCall, originConversationDefaults, projectPath, repositoryPath } from './types'
-import { checkSpecFraming, recordSpecCommitted } from '../../agent-spec-framing'
+import { checkSpecFraming, recordSpecCommitted } from '../../modules/missions/runtime/agent-spec-framing'
 
 // Mirror of the McpTier union (mcp-tiers) — `./types` re-imports but does not
 // re-export it, so we restate the literal union to keep imports to zod + ./types.

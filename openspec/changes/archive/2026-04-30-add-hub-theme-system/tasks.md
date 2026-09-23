@@ -9,10 +9,10 @@
 
 ## 2. Theme registry and context
 
-- [x] 2.1 Create `client/src/lib/themes.ts` exporting `ThemeId = 'dracula' | 'aurora-light' | 'obsidian-dark'`, a `ThemeDescriptor` interface (cssVars, xterm, chart, syntax, displayName, tagline, previewSwatches), and a `THEMES: Record<ThemeId, ThemeDescriptor>` registry with the Dracula descriptor first (mirrors current values)
+- [x] 2.1 Create `client/src/features/settings/lib/themes.ts` exporting `ThemeId = 'dracula' | 'aurora-light' | 'obsidian-dark'`, a `ThemeDescriptor` interface (cssVars, xterm, chart, syntax, displayName, tagline, previewSwatches), and a `THEMES: Record<ThemeId, ThemeDescriptor>` registry with the Dracula descriptor first (mirrors current values)
 - [x] 2.2 Add `aurora-light` descriptor: warm-neutral background, indigo primary, light-friendly accents; tune for WCAG AA on body copy
 - [x] 2.3 Add `obsidian-dark` descriptor: near-black blue-tinted background, distinct from Dracula; tune accent palette
-- [x] 2.4 Create `client/src/context/ThemeContext.tsx` exposing `ThemeProvider` and `useTheme()`; provider applies `data-theme` to `document.documentElement`, mirrors to localStorage, fetches server value on mount, reconciles on mismatch
+- [x] 2.4 Create `client/src/features/settings/context/ThemeContext.tsx` exposing `ThemeProvider` and `useTheme()`; provider applies `data-theme` to `document.documentElement`, mirrors to localStorage, fetches server value on mount, reconciles on mismatch
 - [x] 2.5 Mount `ThemeProvider` above `HubProvider` in `client/src/App.tsx`
 - [x] 2.6 Unit-test `ThemeContext`: setting theme writes localStorage + document attribute + PATCH; reconcile-from-server overwrites stale cache; invalid input falls back to default
 - [x] 2.7 Unit-test `themes.ts`: every descriptor has all required fields; allow-list matches `ThemeId`
@@ -40,20 +40,20 @@
 
 ## 6. Settings UI: Appearance section
 
-- [x] 6.1 Create `client/src/components/settings/AppearanceSection.tsx` rendering three theme cards using preview swatches from `themes.ts`
+- [x] 6.1 Create `client/src/features/settings/components/AppearanceSection.tsx` rendering three theme cards using preview swatches from `themes.ts`
 - [x] 6.2 Each card shows: name, tagline, swatch row (background + 4–5 accent chips), and a selected-state indicator (ring + check icon)
 - [x] 6.3 Click handler: optimistic UI update (apply `data-theme` immediately) → call `setTheme()` from `useTheme()` → on PATCH failure revert UI and show inline error toast
-- [x] 6.4 Wire `AppearanceSection` into `client/src/pages/GlobalSettingsPage.tsx` as a new tab/section
+- [x] 6.4 Wire `AppearanceSection` into `client/src/features/settings/pages/GlobalSettingsPage.tsx` as a new tab/section
 - [x] 6.5 Component tests: renders three cards, marks active correctly, click triggers context update, server failure reverts selection
 - [x] 6.6 Make cards keyboard-accessible (Tab to focus, Enter/Space to select), with visible focus ring
 
 ## 7. Bridge to non-CSS surfaces
 
-- [x] 7.1 Refactor `client/src/lib/dracula-colors.ts` → `client/src/lib/theme-palette.ts`; export `getActivePalette(themeId)` and update `__tests__/dracula-colors.test.ts` → `theme-palette.test.ts`
-- [x] 7.2 In `client/src/context/TerminalsContext.tsx`, subscribe to `useTheme()`; on theme change call `term.options.theme = THEMES[id].xterm` for every active session — preserve scrollback and marks
+- [x] 7.1 Refactor `client/src/lib/dracula-colors.ts` → `client/src/features/settings/lib/theme-palette.ts`; export `getActivePalette(themeId)` and update `__tests__/dracula-colors.test.ts` → `theme-palette.test.ts`
+- [x] 7.2 In `client/src/features/terminals/context/TerminalsContext.tsx`, subscribe to `useTheme()`; on theme change call `term.options.theme = THEMES[id].xterm` for every active session — preserve scrollback and marks
 - [x] 7.3 Test that switching theme does not recreate xterm instances (object identity preserved) and updates the palette
 - [x] 7.4 Update `client/src/components/analytics/*` Recharts components to read palette from `useTheme()` (memoized per theme change); replace any hardcoded color literals
-- [x] 7.5 Update `client/src/components/LogViewer.tsx` syntax highlighting to use the active theme's `syntax` map
+- [x] 7.5 Update `client/src/features/jobs/components/LogViewer.tsx` syntax highlighting to use the active theme's `syntax` map
 - [x] 7.6 Update `client/src/demo-mode/tour/tour.css` to reference CSS vars instead of hardcoded Dracula values
 
 ## 8. Documentation

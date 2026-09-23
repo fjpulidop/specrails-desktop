@@ -10,7 +10,7 @@ vi.mock('./win-spawn', async (original) => ({
 }))
 import { spawnCli } from './win-spawn'
 import { spawnClaude, spawnGemini, transformCodexArgsForWindows } from './cli-prompt'
-import { InteractiveJobSession } from '../interactive-job-session'
+import { InteractiveJobSession } from '../modules/execution/runtime/interactive-job-session'
 import { initDb, createJob } from '../db'
 import { getAdapter } from '../providers'
 

@@ -9,7 +9,7 @@
 
 ## 2. Client: send `editTicketId` from `ExploreSpecShell.handleSaveAsDraft`
 
-- [x] 2.1 In `client/src/components/explore-spec/ExploreSpecShell.tsx`, extend the `handleSaveAsDraft` request body. When `editTicket` is non-null, include `editTicketId: editTicket.id`. When `editTicket` is null/undefined, omit the field entirely (do not send `editTicketId: null` or `editTicketId: undefined` — use a conditional spread).
+- [x] 2.1 In `client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx`, extend the `handleSaveAsDraft` request body. When `editTicket` is non-null, include `editTicketId: editTicket.id`. When `editTicket` is null/undefined, omit the field entirely (do not send `editTicketId: null` or `editTicketId: undefined` — use a conditional spread).
 - [x] 2.2 Add `editTicket?.id` to the `useCallback` dependency array of `handleSaveAsDraft` so the closure captures the latest id when the shell re-mounts on a different ticket.
 - [x] 2.3 No UI change: the Save-as-Draft button label, disabled-state rules, and toast text are unchanged. The success toast still reads `Draft saved — #${data.ticket.id} ${data.ticket.title}`.
 

@@ -34,7 +34,7 @@ requests create no invocation row; AI auto-title uses a deterministic fallback.
 Whether a cost figure is exact depends on the provider's CLI, not on which provider you picked:
 
 - **Claude cost is provider-billed and authoritative** — the figure comes straight from the CLI's own usage report.
-- **Codex and Gemini do not report cost natively**, so the app **estimates** their cost from a local rate-card (`server/pricing.ts`) using the captured token counts. Estimated rows are flagged: they render with a `~` tilde in the raw table (hover for the tooltip — *"Estimated from local pricing table — this provider does not report cost natively"*) and feed an "includes ~$X estimated" footnote in the Hero.
+- **Codex and Gemini do not report cost natively**, so the app **estimates** their cost from a local rate-card (`server/modules/accounting/runtime/pricing.ts`) using the captured token counts. Estimated rows are flagged: they render with a `~` tilde in the raw table (hover for the tooltip — *"Estimated from local pricing table — this provider does not report cost natively"*) and feed an "includes ~$X estimated" footnote in the Hero.
 - **Kimi reports neither token counts nor a native USD-cost envelope** in its
   stream. Specrails does not invent an estimate: cost and token cells stay
   unavailable.

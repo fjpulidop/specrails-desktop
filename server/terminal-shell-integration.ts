@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
-import type { TerminalSettings } from './terminal-settings'
+import type { TerminalSettings } from './modules/terminals/runtime/terminal-settings'
 
 export interface ShellIntegrationSpawn {
   /** Args to inject ahead of the existing arg list (or replace, depending on shell). */

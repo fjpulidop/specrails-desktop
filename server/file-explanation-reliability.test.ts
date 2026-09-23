@@ -4,10 +4,10 @@ import { join } from 'node:path'
 import os from 'node:os'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initDb, type DbInstance } from './db'
-import { FileSummaryManager, readSummary, writeSummary, summaryFilePath, CURRENT_PROMPT_VERSION, isSummaryMetadataStale, __resetDesktopSummaryStateForTests, type GenerateOutput, type SummaryLanguage } from './file-summary-manager'
-import { FileStoryManager } from './file-story-manager'
-import { getFileStory, getContribution, setContributionSummary, migrateFileStoryMetadata } from './file-story'
-import { recordProvenanceForJob } from './file-provenance'
+import { FileSummaryManager, readSummary, writeSummary, summaryFilePath, CURRENT_PROMPT_VERSION, isSummaryMetadataStale, __resetDesktopSummaryStateForTests, type GenerateOutput, type SummaryLanguage } from './modules/code/runtime/file-summary-manager'
+import { FileStoryManager } from './modules/code/runtime/file-story-manager'
+import { getFileStory, getContribution, setContributionSummary, migrateFileStoryMetadata } from './modules/code/runtime/file-story'
+import { recordProvenanceForJob } from './modules/code/runtime/file-provenance'
 
 const output = (summary = 'Visible responsibility'): GenerateOutput => ({ summary, model: 'fixture', provider: 'claude', costUsd: 0.001, tokensIn: 1, tokensOut: 1, durationMs: 1 })
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')

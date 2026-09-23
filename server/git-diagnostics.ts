@@ -1,5 +1,5 @@
 import { execFile } from 'child_process'
-import { gitExecEnv } from './file-provenance'
+import { gitExecEnv } from './modules/code/runtime/file-provenance'
 import { windowsSpawnEnv } from './util/win-spawn'
 
 /**

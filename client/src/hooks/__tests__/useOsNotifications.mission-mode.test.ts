@@ -20,7 +20,7 @@ const ui = vi.hoisted(() => ({ uiMode: 'agent' as 'agent' | 'kanban' }))
 vi.mock('../../context/UiModeContext', () => ({ useUiMode: () => ({ uiMode: ui.uiMode, setUiMode: vi.fn(), toggleUiMode: vi.fn() }) }))
 
 import { useOsNotifications } from '../useOsNotifications'
-import { MISSION_OPEN_RUN_EVENT } from '../../components/agent-chat/agent-run-failure'
+import { MISSION_OPEN_RUN_EVENT } from '../../features/missions/components/agent-run-failure'
 
 class MockNotification {
   static permission: NotificationPermission = 'granted'

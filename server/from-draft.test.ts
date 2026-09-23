@@ -269,7 +269,7 @@ describe('POST /tickets/from-draft', () => {
 
 // ─── Flip-in-place path (save-as-draft → from-draft) ─────────────────────────
 
-import { mutateStore, resolveTicketStoragePath } from './ticket-store'
+import { mutateStore, resolveTicketStoragePath } from './modules/specs/runtime/ticket-store'
 import { addMessage, createConversation } from './db'
 
 describe('POST /tickets/from-draft — flip-in-place', () => {

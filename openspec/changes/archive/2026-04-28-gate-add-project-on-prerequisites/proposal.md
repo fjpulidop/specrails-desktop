@@ -34,12 +34,12 @@ Today the developer-prerequisites check (Node.js, npm, npx, Git) only fires insi
 ## Impact
 
 **New code (client):**
-- `client/src/hooks/usePrerequisites.ts` — shared hook with 60s cache and recheck on `window.focus`.
-- `client/src/components/PrerequisitesPanel.tsx` — reusable status panel rendered by both `AddProjectDialog` and `SetupWizard`.
-- `client/src/components/InstallInstructionsModal.tsx` — OS-aware install command modal with copy-to-clipboard.
+- `client/src/features/projects/hooks/usePrerequisites.ts` — shared hook with 60s cache and recheck on `window.focus`.
+- `client/src/features/projects/components/PrerequisitesPanel.tsx` — reusable status panel rendered by both `AddProjectDialog` and `SetupWizard`.
+- `client/src/features/projects/components/InstallInstructionsModal.tsx` — OS-aware install command modal with copy-to-clipboard.
 
 **Modified code (client):**
-- `client/src/components/AddProjectDialog.tsx` — embeds `<PrerequisitesPanel />`, gates the submit button, opens `<InstallInstructionsModal />`.
+- `client/src/features/projects/components/AddProjectDialog.tsx` — embeds `<PrerequisitesPanel />`, gates the submit button, opens `<InstallInstructionsModal />`.
 - `client/src/components/SetupWizard.tsx` — replaces the inline prereq fetch + panel with `usePrerequisites()` + `<PrerequisitesPanel />`.
 
 **Modified code (server):**

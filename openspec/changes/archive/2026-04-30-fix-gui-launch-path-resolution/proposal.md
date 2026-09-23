@@ -40,8 +40,8 @@ The same root cause silently degrades any other tool spawn (`claude` CLI, `npx s
 - New `server/path-resolver.test.ts` — unit tests covering fast-path augmentation, login-shell parsing, timeout handling, and Windows no-op.
 
 **Modified code (client):**
-- `client/src/components/PrerequisitesPanel.tsx` — renders the new `executable: false` state with a distinct message and a "Copy diagnostics" affordance that hits the diagnostic endpoint.
-- `client/src/components/__tests__/PrerequisitesPanel.test.tsx` — coverage for the new state.
+- `client/src/features/projects/components/PrerequisitesPanel.tsx` — renders the new `executable: false` state with a distinct message and a "Copy diagnostics" affordance that hits the diagnostic endpoint.
+- `client/src/features/projects/components/__tests__/PrerequisitesPanel.test.tsx` — coverage for the new state.
 
 **APIs:**
 - `GET /api/hub/setup-prerequisites` response gains an optional `executable` field per prerequisite. Additive, no breaking change.

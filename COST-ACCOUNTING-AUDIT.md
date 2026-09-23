@@ -31,47 +31,47 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 | # | Sev | Impact | Location | Defect |
 |---|-----|--------|----------|--------|
 | CRIT-1 | critical | undercount | `server/providers/claude-adapter.ts:256` | Any claude spawn killed before its terminal `result` event persists total_cost_usd=NULL ($0) — no pricing fallback exists for claude, across every surface (job cancel/zombie/shutdown-timeout, chat abort/idle-kill, loop step timeout, SMASH timeout, contract-refine 60s timeout) |
-| CRIT-2 | critical | undercount | `server/rail-merge-orchestrator.ts:54` | Worktree-rail merge-back AI steps (verify / resolve-merge / fix) are completely untracked — and worktree isolation is ON by default |
-| CRIT-3 | critical | undercount | `server/queue-manager.ts:1773` | Server restart / graceful shutdown / project removal mid-job loses the whole job's cost: _onJobExit is disabled by the _disposed guard and _restoreFromDb writes failed rows with no ai_invocations row |
-| CRIT-4 | critical | undercount | `server/interactive-job-session.ts:210` | Interactive freestyle job finalized (or crashed) mid-turn drops the entire in-flight turn's cost — the final row can even be an authoritative $0 'success' |
-| HIGH-1 | high | undercount | `server/queue-manager.ts:383` | Interactive job torn down by shutdown/restart never writes an ai_invocations row even though the jobs row already holds its accumulated cost — permanent jobs-vs-analytics divergence |
-| HIGH-2 | high | overcount | `server/interactive-job-session.ts:324` | Interactive accumulator sums per-turn result total_cost_usd, but in the persistent stream-json transport that field is CUMULATIVE across turns — multi-turn interactive jobs inflate cost quadratically (empirically verified) |
-| HIGH-3 | high | undercount | `server/agent-chat-manager.ts:300` | Desktop Agent Chat / Mission Control turns are billable app-driving AI invocations with no cost accounting anywhere |
+| CRIT-2 | critical | undercount | `server/modules/delivery/runtime/rail-merge-orchestrator.ts:54` | Worktree-rail merge-back AI steps (verify / resolve-merge / fix) are completely untracked — and worktree isolation is ON by default |
+| CRIT-3 | critical | undercount | `server/modules/execution/runtime/queue-manager.ts:1773` | Server restart / graceful shutdown / project removal mid-job loses the whole job's cost: _onJobExit is disabled by the _disposed guard and _restoreFromDb writes failed rows with no ai_invocations row |
+| CRIT-4 | critical | undercount | `server/modules/execution/runtime/interactive-job-session.ts:210` | Interactive freestyle job finalized (or crashed) mid-turn drops the entire in-flight turn's cost — the final row can even be an authoritative $0 'success' |
+| HIGH-1 | high | undercount | `server/modules/execution/runtime/queue-manager.ts:383` | Interactive job torn down by shutdown/restart never writes an ai_invocations row even though the jobs row already holds its accumulated cost — permanent jobs-vs-analytics divergence |
+| HIGH-2 | high | overcount | `server/modules/execution/runtime/interactive-job-session.ts:324` | Interactive accumulator sums per-turn result total_cost_usd, but in the persistent stream-json transport that field is CUMULATIVE across turns — multi-turn interactive jobs inflate cost quadratically (empirically verified) |
+| HIGH-3 | high | undercount | `server/modules/missions/runtime/agent-chat-manager.ts:300` | Desktop Agent Chat / Mission Control turns are billable app-driving AI invocations with no cost accounting anywhere |
 | HIGH-4 | high | undercount | `server/project-router-tickets.ts:1665` | Ticket AI-Edit route (POST /tickets/:id/ai-edit) spawns a multi-turn claude run with zero ai_invocations recording |
-| HIGH-5 | high | undercount | `server/spec-launcher-manager.ts:98` | SpecLauncherManager /opsx:ff launch is a full unbounded agentic claude run with no invocation recording |
-| HIGH-6 | high | undercount | `server/proposal-manager.ts:255` | ProposalManager spawns (/specrails:propose-feature exploration, refinement turns, issue creation) are untracked |
-| HIGH-7 | high | undercount | `server/spending.ts:190` | Custom period excludes the ENTIRE final day: bare YYYY-MM-DD 'to' compared lexicographically against full-ISO started_at |
+| HIGH-5 | high | undercount | `server/modules/specs/runtime/spec-launcher-manager.ts:98` | SpecLauncherManager /opsx:ff launch is a full unbounded agentic claude run with no invocation recording |
+| HIGH-6 | high | undercount | `server/modules/specs/runtime/proposal-manager.ts:255` | ProposalManager spawns (/specrails:propose-feature exploration, refinement turns, issue creation) are untracked |
+| HIGH-7 | high | undercount | `server/modules/accounting/runtime/spending.ts:190` | Custom period excludes the ENTIRE final day: bare YYYY-MM-DD 'to' compared lexicographically against full-ISO started_at |
 | HIGH-8 | high | undercount | `server/providers/claude-adapter.ts:215` | parseClaudeStreamLine discards per-assistant-event `usage`, so cumulative token usage can never be reconstructed for interrupted runs — partial-stream estimation is structurally impossible |
-| HIGH-9 | high | both | `client/src/components/analytics/SpendingHero.tsx:41` | SpendingHero count-up animation is never cancelled; a second data arrival within 600ms is overwritten by the stale total's final frame |
-| HIGH-10 | high | undercount | `client/src/pages/JobDetailPage.tsx:384` | Pipeline total sums null job costs as $0 with no indicator (and drops the ~ estimated marker) |
-| MED-1 | medium | overcount | `server/chat-manager.ts:1169` | Persistent-stdin Explore records each turn's ai_invocations row with the session-cumulative total_cost_usd, multiplying conversation cost (flag-gated, default OFF) |
-| MED-2 | medium | undercount | `server/chat-manager.ts:906` | Chat crash auto-respawn discards the crashed spawn's burned tokens (adapterEvents zeroed), and a respawn spawn-failure writes no row at all |
-| MED-3 | medium | undercount | `server/agent-generator.ts:68` | Custom-agent generate and test spawns (Studio generate, manual test endpoint, and default-on per-refine-turn auto-test) are untracked |
-| MED-4 | medium | undercount | `server/chat-manager.ts:974` | Sidebar chat (kind='sidebar') is completely unrecorded — every billable sidebar turn (project cwd + live dashboard context) is invisible to analytics |
-| MED-5 | medium | undercount | `server/queue-manager.ts:1937` | Daily-budget PAUSE enforcement sums only status='completed' jobs with a UTC date('now') boundary and reads only the jobs table — failed-but-billed jobs and all non-job surfaces never count, and it disagrees with the /budget meter |
+| HIGH-9 | high | both | `client/src/features/analytics/components/SpendingHero.tsx:41` | SpendingHero count-up animation is never cancelled; a second data arrival within 600ms is overwritten by the stale total's final frame |
+| HIGH-10 | high | undercount | `client/src/features/jobs/pages/JobDetailPage.tsx:384` | Pipeline total sums null job costs as $0 with no indicator (and drops the ~ estimated marker) |
+| MED-1 | medium | overcount | `server/modules/conversations/runtime/chat-manager.ts:1169` | Persistent-stdin Explore records each turn's ai_invocations row with the session-cumulative total_cost_usd, multiplying conversation cost (flag-gated, default OFF) |
+| MED-2 | medium | undercount | `server/modules/conversations/runtime/chat-manager.ts:906` | Chat crash auto-respawn discards the crashed spawn's burned tokens (adapterEvents zeroed), and a respawn spawn-failure writes no row at all |
+| MED-3 | medium | undercount | `server/modules/agents/runtime/agent-generator.ts:68` | Custom-agent generate and test spawns (Studio generate, manual test endpoint, and default-on per-refine-turn auto-test) are untracked |
+| MED-4 | medium | undercount | `server/modules/conversations/runtime/chat-manager.ts:974` | Sidebar chat (kind='sidebar') is completely unrecorded — every billable sidebar turn (project cwd + live dashboard context) is invisible to analytics |
+| MED-5 | medium | undercount | `server/modules/execution/runtime/queue-manager.ts:1937` | Daily-budget PAUSE enforcement sums only status='completed' jobs with a UTC date('now') boundary and reads only the jobs table — failed-but-billed jobs and all non-job surfaces never count, and it disagrees with the /budget meter |
 | MED-6 | medium | both | `server/project-router-spending.ts:412` | Per-project GET /budget costToday: UTC date('now') boundary + jobs-table-only scope |
-| MED-7 | medium | both | `server/queue-manager.ts:1856` | Multi-ticket jobs attribute 100% of cost to ticketIds[0]: topTickets and /tickets/:id/spending-summary over/under-attribute batch spend |
-| MED-8 | medium | undercount | `server/desktop-analytics.ts:118` | App-level cost KPIs (HOME analytics, StatusBar /stats costToday, /api/state) read ONLY the jobs table — all non-job billable surfaces (explore, quick-spec, ai-edit, contract-refine, file-summary, smash, loop-only rows) are invisible |
-| MED-9 | medium | undercount | `client/src/pages/AnalyticsPage.tsx:76` | Per-project /analytics defaults to a 30-day window — windowed total easily read as the all-time total |
-| MED-10 | medium | undercount | `client/src/pages/DesktopAnalyticsPage.tsx:285` | Desktop (cross-project) analytics defaults to a 7-day window for a KPI labelled 'Total cost' |
-| MED-11 | medium | undercount | `client/src/pages/DesktopAnalyticsPage.tsx:296` | App-level analytics auto-refresh listens for a WS message ('log' + event_type 'job_done') the server never emits — totals go stale |
-| MED-12 | medium | undercount | `server/agent-refine-manager.ts:377` | Cancelled/disposed AI-Edit refine turns return before recordInvocation — no row (not even aborted) is written |
-| MED-13 | medium | undercount | `server/file-summary-generator.ts:187` | file-summary generator discards captured cost on non-zero exit and on empty-summary rejection |
-| LOW-1 | low | undercount | `server/chat-manager.ts:1417` | Auto-title spawns are billable claude invocations that are never recorded (fired on the first turn of every conversation) |
+| MED-7 | medium | both | `server/modules/execution/runtime/queue-manager.ts:1856` | Multi-ticket jobs attribute 100% of cost to ticketIds[0]: topTickets and /tickets/:id/spending-summary over/under-attribute batch spend |
+| MED-8 | medium | undercount | `server/modules/accounting/runtime/desktop-analytics.ts:118` | App-level cost KPIs (HOME analytics, StatusBar /stats costToday, /api/state) read ONLY the jobs table — all non-job billable surfaces (explore, quick-spec, ai-edit, contract-refine, file-summary, smash, loop-only rows) are invisible |
+| MED-9 | medium | undercount | `client/src/features/analytics/pages/AnalyticsPage.tsx:76` | Per-project /analytics defaults to a 30-day window — windowed total easily read as the all-time total |
+| MED-10 | medium | undercount | `client/src/features/analytics/pages/DesktopAnalyticsPage.tsx:285` | Desktop (cross-project) analytics defaults to a 7-day window for a KPI labelled 'Total cost' |
+| MED-11 | medium | undercount | `client/src/features/analytics/pages/DesktopAnalyticsPage.tsx:296` | App-level analytics auto-refresh listens for a WS message ('log' + event_type 'job_done') the server never emits — totals go stale |
+| MED-12 | medium | undercount | `server/modules/agents/runtime/agent-refine-manager.ts:377` | Cancelled/disposed AI-Edit refine turns return before recordInvocation — no row (not even aborted) is written |
+| MED-13 | medium | undercount | `server/modules/code/runtime/file-summary-generator.ts:187` | file-summary generator discards captured cost on non-zero exit and on empty-summary rejection |
+| LOW-1 | low | undercount | `server/modules/conversations/runtime/chat-manager.ts:1417` | Auto-title spawns are billable claude invocations that are never recorded (fired on the first turn of every conversation) |
 | LOW-2 | low | undercount | `server/setup-manager.ts:1234` | Setup-wizard AI spawns (Claude /setup chat) are unrecorded on any accounting surface |
 | LOW-3 | low | undercount | `server/project-router-spending.ts:274` | Summary CSV '# By model' section is silently top-10-truncated and excludes NULL-model rows — its sum does not reconcile to '# Totals' |
-| LOW-4 | low | neutral | `server/spending.ts:261` | minCostUsd filter compiles to `total_cost_usd >= ?`, so minCostUsd=0 silently drops all NULL-cost rows (not a no-op) |
-| LOW-5 | low | undercount | `server/pricing.ts:52` | Gemini Pro long-context (>200k) pricing tier not modeled — flat <=200k rates knowingly under-estimate long-context prompts |
-| LOW-6 | low | both | `server/queue-manager.ts:2136` | Unkillable-job recovery can double-record the same job: _forceFailUnkillableJob writes an 'aborted' NULL-cost row, then the child's eventual close runs _onJobExit and writes a second row (and double-fires _onJobFinished) |
-| LOW-7 | low | neutral | `server/chat-manager.ts:1221` | Persistent-stdin turns are recorded status='success' even when the result event reports an error (is_error / error subtypes) |
-| LOW-8 | low | neutral | `server/loop-executors.ts:163` | Loop invocation rows never persist num_turns / session_id / duration fields — dropped between the executors and the recorder |
-| LOW-9 | low | undercount | `server/smash-runner.ts:511` | SMASH splitInt floors token and turn splits across children — sum of splits < original (num_turns can collapse to 0) |
-| LOW-10 | low | undercount | `server/smash-runner.ts:779` | SMASH failure paths that DO capture real cost never broadcast spending.invalidated — open dashboards keep showing the pre-spend (lower) total |
-| LOW-11 | low | neutral | `client/src/components/analytics/ModelBreakdown.tsx:24` | ModelBreakdown percentages use the server-capped top-10 sum as denominator and render only top-5 |
-| LOW-12 | low | undercount | `server/smash-runner.ts:504` | SMASH children share one try/catch around the recordInvocation loop — a mid-loop failure drops all remaining children's cost |
+| LOW-4 | low | neutral | `server/modules/accounting/runtime/spending.ts:261` | minCostUsd filter compiles to `total_cost_usd >= ?`, so minCostUsd=0 silently drops all NULL-cost rows (not a no-op) |
+| LOW-5 | low | undercount | `server/modules/accounting/runtime/pricing.ts:52` | Gemini Pro long-context (>200k) pricing tier not modeled — flat <=200k rates knowingly under-estimate long-context prompts |
+| LOW-6 | low | both | `server/modules/execution/runtime/queue-manager.ts:2136` | Unkillable-job recovery can double-record the same job: _forceFailUnkillableJob writes an 'aborted' NULL-cost row, then the child's eventual close runs _onJobExit and writes a second row (and double-fires _onJobFinished) |
+| LOW-7 | low | neutral | `server/modules/conversations/runtime/chat-manager.ts:1221` | Persistent-stdin turns are recorded status='success' even when the result event reports an error (is_error / error subtypes) |
+| LOW-8 | low | neutral | `server/modules/loops/runtime/loop-executors.ts:163` | Loop invocation rows never persist num_turns / session_id / duration fields — dropped between the executors and the recorder |
+| LOW-9 | low | undercount | `server/modules/specs/runtime/smash-runner.ts:511` | SMASH splitInt floors token and turn splits across children — sum of splits < original (num_turns can collapse to 0) |
+| LOW-10 | low | undercount | `server/modules/specs/runtime/smash-runner.ts:779` | SMASH failure paths that DO capture real cost never broadcast spending.invalidated — open dashboards keep showing the pre-spend (lower) total |
+| LOW-11 | low | neutral | `client/src/features/analytics/components/ModelBreakdown.tsx:24` | ModelBreakdown percentages use the server-capped top-10 sum as denominator and render only top-5 |
+| LOW-12 | low | undercount | `server/modules/specs/runtime/smash-runner.ts:504` | SMASH children share one try/catch around the recordInvocation loop — a mid-loop failure drops all remaining children's cost |
 | LOW-13 | low | neutral | `server/project-router-tickets.ts:705` | Salvaged error_max_turns quick-spec (ticket created) is recorded status='failed' |
-| LOW-14 | low | overcount | `server/agent-generator.ts:222` | testCustomAgent double-counts token usage (per-message usage + cumulative result usage summed) |
-| LOW-15 | low | neutral | `server/queue-manager.ts:1063` | Interactive job duration_ms is wall-clock including idle time between turns |
+| LOW-14 | low | overcount | `server/modules/agents/runtime/agent-generator.ts:222` | testCustomAgent double-counts token usage (per-message usage + cumulative result usage summed) |
+| LOW-15 | low | neutral | `server/modules/execution/runtime/queue-manager.ts:1063` | Interactive job duration_ms is wall-clock including idle time between turns |
 
 
 ## Details
@@ -89,7 +89,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### CRIT-2 · Worktree-rail merge-back AI steps (verify / resolve-merge / fix) are completely untracked — and worktree isolation is ON by default
 
-**Location:** `server/rail-merge-orchestrator.ts:54` · **Severity:** critical · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
+**Location:** `server/modules/delivery/runtime/rail-merge-orchestrator.ts:54` · **Severity:** critical · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
 
 **Evidence.** rail-merge-orchestrator.ts:54-55 `const step = (cmd) => executor.runAiStep({ prompt: expand(cmd), provider, model, effort, cwd: baseDir, repoDir: baseDir })`; the returned AiStepResult carries cost/tokens (loop-executors.ts:163-184) but verifyIntegrated reads only `res.text` (57-60) and resolveConflict/rebaseAndFix discard the result entirely (62-75). runAiStep computes cost via finaliseInvocationResult (loop-executors.ts:158) but never calls recordInvocation — recording happens only inside LoopRunManager's `record()` wrapper (loop-run-manager.ts:394), which the merge-back bypasses: rail-isolated-launch.ts:139-141 calls `runMergeBack({ git, executor: createLoopExecutors(), baseDir: baseRepo, … })` directly. grep confirms zero recordInvocation in rail-merge-orchestrator.ts / rail-isolated-launch.ts / merge-manager.ts. merge-manager.ts:106 runs verifyIntegrated for EVERY merged branch (not just conflicted ones), so an N-ticket rail runs ≥N full agentic `{{cmd:verify}}` claude spawns ('run the full verification (tests, linter, build)… fix and re-run until green', loop-command-catalog.ts:120-132) plus resolve-merge per conflict and fix+re-verify per red integration. This path is live by default: rail-isolation.ts:36-39 `isRailWorktreesEnabled()` returns true unless SPECRAILS_RAIL_WORKTREES=0/false/off, wired at rails-router.ts:365-391.
 
@@ -100,7 +100,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### CRIT-3 · Server restart / graceful shutdown / project removal mid-job loses the whole job's cost: _onJobExit is disabled by the _disposed guard and _restoreFromDb writes failed rows with no ai_invocations row
 
-**Location:** `server/queue-manager.ts:1773` · **Severity:** critical · **Impact:** undercount · **Category:** capture-loss (restart/shutdown)
+**Location:** `server/modules/execution/runtime/queue-manager.ts:1773` · **Severity:** critical · **Impact:** undercount · **Category:** capture-loss (restart/shutdown)
 
 **Evidence.** shutdown() (queue-manager.ts:353-397) sets `_disposed = true`, treeKills the active child, and nulls `_db`; when the child's 'close' later fires, `_onJobExit` returns at `if (this._disposed) return` (line 1773) — BEFORE finishJob and recordInvocation, even if a full `result` event with total_cost_usd was already captured. On next boot `_restoreFromDb` runs `UPDATE jobs SET status = 'failed', finished_at = CURRENT_TIMESTAMP WHERE status = 'running'` (2230-2233), mirrored by the initDb orphan sweep (db.ts:842-844) — no cost written and no ai_invocations row EVER created (the only surface='job' writers are _onJobExit/_failWedgedJob/_forceFailUnkillableJob/_settleInteractiveJob, none of which run for a restart-orphaned job); the job doesn't even count toward totalRuns/failureRate. An ungraceful crash (e.g. the known tsx-watch freeze) hits the same path; a project removed mid-run also records nothing.
 
@@ -111,7 +111,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### CRIT-4 · Interactive freestyle job finalized (or crashed) mid-turn drops the entire in-flight turn's cost — the final row can even be an authoritative $0 'success'
 
-**Location:** `server/interactive-job-session.ts:210` · **Severity:** critical · **Impact:** undercount · **Category:** capture completeness / interactive session finalize
+**Location:** `server/modules/execution/runtime/interactive-job-session.ts:210` · **Severity:** critical · **Impact:** undercount · **Category:** capture completeness / interactive session finalize
 
 **Evidence.** Cost accumulates ONLY in `_onTurnResult` on a `result` frame (interactive-job-session.ts:306-344: `this._accum.total_cost_usd += normalised.total_cost_usd ?? 0`). `finalize()` (210-227) SIGTERMs the resident child immediately (`child.kill('SIGTERM')` at 218) with no wait for the streaming turn's result; `_handleClose` → `_settle(this._finalizing ? 'finalized' : 'crashed')` (409-436) hands back `{ ...this._accum }`, silently dropping `_turnEvents` (no estimation attempt — and per the adapter finding the events carry no usage anyway). `zeroUsage()` (68-77) initialises `total_cost_usd: 0`, so QueueManager._settleInteractiveJob (queue-manager.ts:1066-1086) persists an ai_invocations row with total_cost_usd=0 (a number, NOT NULL), `total_cost_usd_estimated: false`, status 'success' for a single-turn job finalized mid-flight. The module header (lines 10-12) claims 'the finalized job carries the full conversation's spend' — untrue when finalized mid-turn.
 
@@ -122,7 +122,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### HIGH-1 · Interactive job torn down by shutdown/restart never writes an ai_invocations row even though the jobs row already holds its accumulated cost — permanent jobs-vs-analytics divergence
 
-**Location:** `server/queue-manager.ts:383` · **Severity:** high · **Impact:** undercount · **Category:** jobs vs ai_invocations divergence (shutdown lifecycle)
+**Location:** `server/modules/execution/runtime/queue-manager.ts:383` · **Severity:** high · **Impact:** undercount · **Category:** jobs vs ai_invocations divergence (shutdown lifecycle)
 
 **Evidence.** QueueManager shutdown/dispose calls `session.dispose()` for every interactive session (queue-manager.ts:383-388; the comment states 'dispose() does not settle'). InteractiveJobSession.dispose() (interactive-job-session.ts:229-237) sets `_disposed` and kills the child WITHOUT `_onSettle`; `_handleClose` early-returns on `_disposed` (410), so `_settleInteractiveJob` — the ONLY writer of an interactive job's ai_invocations row (queue-manager.ts:1066) — never runs. Every completed turn was already persisted into the jobs row via accumulateInteractiveTurn (db.ts:873-901, `total_cost_usd = COALESCE(total_cost_usd,0) + ?`), and the startup sweep `UPDATE ... SET status='failed'` (queue-manager.ts:2231-2233 / db.ts:841-844) preserves those columns with no ai_invocations backfill. Job Detail shows the real cost; Analytics has no row at all.
 
@@ -133,7 +133,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### HIGH-2 · Interactive accumulator sums per-turn result total_cost_usd, but in the persistent stream-json transport that field is CUMULATIVE across turns — multi-turn interactive jobs inflate cost quadratically (empirically verified)
 
-**Location:** `server/interactive-job-session.ts:324` · **Severity:** high · **Impact:** overcount · **Category:** cost semantics / persistent-stdin transport
+**Location:** `server/modules/execution/runtime/interactive-job-session.ts:324` · **Severity:** high · **Impact:** overcount · **Category:** cost semantics / persistent-stdin transport
 
 **Evidence.** `_onTurnResult` does `this._accum.total_cost_usd += normalised.total_cost_usd ?? 0` and `+= num_turns ?? 1` per result frame (interactive-job-session.ts:320-325), mirrored into the jobs row via accumulateInteractiveTurn (db.ts:884-885 `+ ?`). All frames come from ONE resident `claude -p --input-format stream-json` child (chat-stream args, claude-adapter.ts:119-137). Empirically verified against the installed claude CLI in this exact transport (one resident child, two turns): turn-1 result reported total_cost_usd=0.0164211; turn-2 reported 0.0191507 while turn-2's OWN usage (in=10, out=40, cache_read=24056, cache_create=57) prices to ~0.0027 — i.e. cumulative (turn-1 cost + turn-2's own). Token fields are per-turn (correct); only cost is cumulative. Summing per-turn values counts turn 1's cost N times over an N-turn session (Σ of prefix sums). A separate `--resume`-across-processes test showed per-process cost, so normal rail/chat spawn-per-turn paths are unaffected. Nothing in the repo validates the semantics: interactive-job-session.test.ts fabricates identical per-turn frames (total_cost_usd: 0.05 at line 32) and asserts sum 0.1 (line 122) — the per-turn assumption is baked into the fixture.
 
@@ -144,7 +144,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### HIGH-3 · Desktop Agent Chat / Mission Control turns are billable app-driving AI invocations with no cost accounting anywhere
 
-**Location:** `server/agent-chat-manager.ts:300` · **Severity:** high · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
+**Location:** `server/modules/missions/runtime/agent-chat-manager.ts:300` · **Severity:** high · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
 
 **Evidence.** AgentChatManager.sendMessage runs full claude turns via runAiCliInvocation (agent-chat-manager.ts:264); the 'result' handler harvests ONLY the session id: `case 'result': { const sid = (ev.payload as { session_id?: string }).session_id; if (sid) capturedSessionId = sid; break }` (300-304) — total_cost_usd/usage/num_turns discarded. grep confirms zero recordInvocation/finaliseInvocationResult/cost fields across agent-chat-manager.ts, agent-chat-router.ts, agent-store.ts and desktop-db.ts. Structurally there is nowhere to write: ai_invocations lives in per-project jobs.sqlite while agent chat is app-global (desktop.sqlite). CLAUDE.md lists only sidebar chat and setup wizard as intentional exclusions — agent chat is an undocumented gap, and it landed AFTER the prior analytics audit (a7d39c1 Jul-1, extended by b06f0c9 and 34dbf9e Mission Control). Ironically docs/guide advertises asking the agent 'How much did I spend this week?' — an answer that can never include its own turns.
 
@@ -166,7 +166,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### HIGH-5 · SpecLauncherManager /opsx:ff launch is a full unbounded agentic claude run with no invocation recording
 
-**Location:** `server/spec-launcher-manager.ts:98` · **Severity:** high · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
+**Location:** `server/modules/specs/runtime/spec-launcher-manager.ts:98` · **Severity:** high · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
 
 **Evidence.** spec-launcher-manager.ts:98 `const child = spawnClaude(args, { env: process.env, …, cwd: this._cwd })` running the resolved `/opsx:ff <description>` prompt (82-83) with `--dangerously-skip-permissions --tools default --output-format stream-json` and NO --max-turns — the fast-forward OpenSpec artifact-creation pipeline (proposal + specs + design + tasks), an unbounded multi-turn agentic run. The class holds no DB handle (constructor at 29 takes only broadcast+cwd); the close handler (174-202) only broadcasts spec_launcher_done/error; no recordInvocation anywhere in the file. Live via project-router-setup.ts:375, constructed per-project at project-registry.ts:566. Its own shutdown comment (line 70) acknowledges the child 'keeps burning spend' — none of it recorded.
 
@@ -177,7 +177,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### HIGH-6 · ProposalManager spawns (/specrails:propose-feature exploration, refinement turns, issue creation) are untracked
 
-**Location:** `server/proposal-manager.ts:255` · **Severity:** high · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
+**Location:** `server/modules/specs/runtime/proposal-manager.ts:255` · **Severity:** high · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
 
 **Evidence.** proposal-manager.ts:255 `const child = spawnClaude(args, { env: process.env, …, cwd: this._cwd })` in `_runProcess`, used by three billable flows: startExploration (line 92/110: full-codebase `/specrails:propose-feature` run with `--dangerously-skip-permissions --tools default`), sendRefinement (148/152: `--resume` + feedback — each re-bills session context), and createIssue (194/198: `--resume` + gh-issue prompt). The close handler (333-350) only updates proposal status/broadcasts; no recordInvocation import in the file. Live at project-router-setup.ts:271/296/311, instantiated per project at project-registry.ts:560.
 
@@ -188,7 +188,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### HIGH-7 · Custom period excludes the ENTIRE final day: bare YYYY-MM-DD 'to' compared lexicographically against full-ISO started_at
 
-**Location:** `server/spending.ts:190` · **Severity:** high · **Impact:** undercount · **Category:** period-boundary / date math
+**Location:** `server/modules/accounting/runtime/spending.ts:190` · **Severity:** high · **Impact:** undercount · **Category:** period-boundary / date math
 
 **Evidence.** resolveRange's custom branch returns client strings verbatim (`from: filters.from, to: filters.to`, spending.ts:190-191) and buildWhere applies `started_at <= ?` (:227). The client PeriodSelector feeds bare `YYYY-MM-DD` from `<input type="date">`; stored started_at is a full ISO instant (queue-manager.ts:1157). SQLite string comparison: `'2026-07-02T09:15:00.000Z' <= '2026-07-02'` is FALSE, so every row started on the range's end date is dropped (the from side works, making the bug asymmetric). desktop-analytics.ts:82 fixed this exact problem with a next-day `started_at < ?` — spending.ts never got the fix. The same resolveRange/buildWhere feeds getInvocations and the /analytics/export route, so the raw table and both exports drop the same day; prevTotalCostUsd/deltaPct use the same broken boundary.
 
@@ -210,7 +210,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### HIGH-9 · SpendingHero count-up animation is never cancelled; a second data arrival within 600ms is overwritten by the stale total's final frame
 
-**Location:** `client/src/components/analytics/SpendingHero.tsx:41` · **Severity:** high · **Impact:** both · **Category:** stale-display race (uncancelled requestAnimationFrame loop)
+**Location:** `client/src/features/analytics/components/SpendingHero.tsx:41` · **Severity:** high · **Impact:** both · **Category:** stale-display race (uncancelled requestAnimationFrame loop)
 
 **Evidence.** The effect at lines 37-56 starts a 600ms rAF loop on the FIRST non-zero data arrival; no rAF id is stored and there is no effect cleanup, so when a second SpendingResponse lands mid-animation the else-branch's `setDisplayedTotal(target)` (fresh total) is subsequently overwritten by the still-running old loop, whose final frame at t=1 writes EXACTLY the old target. The headline (line 87 `fmtUsdLarge(displayedTotal)`) then shows the stale total indefinitely, while the segment bar/legend (139-161, built from `data`) reflect the fresh figures — the card contradicts itself. AnalyticsPage.tsx makes the double-arrival realistic: mount fetch resolves (~100ms) starting the animation, and the WS spending.invalidated debounce (500ms, AnalyticsPage.tsx:220-224) plus fetch latency lands the refreshed response inside the 600ms window.
 
@@ -221,7 +221,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### HIGH-10 · Pipeline total sums null job costs as $0 with no indicator (and drops the ~ estimated marker)
 
-**Location:** `client/src/pages/JobDetailPage.tsx:384` · **Severity:** high · **Impact:** undercount · **Category:** null-coerced-to-zero client summation
+**Location:** `client/src/features/jobs/pages/JobDetailPage.tsx:384` · **Severity:** high · **Impact:** undercount · **Category:** null-coerced-to-zero client summation
 
 **Evidence.** `totalCostUsd: pipelineJobs.reduce((s, j) => s + (j.total_cost_usd ?? 0), 0)` (JobDetailPage.tsx:384). JobSummary.total_cost_usd is `number | null` (client/src/types.ts:18) and JobStatusPanel documents nulls as legitimate ('authoritative value may legitimately be null', JobStatusPanel.tsx:398-399). Per-job the panel renders '—' + 'Not available', but the 'Pipeline total (N jobs)' card (JobStatusPanel.tsx:341) silently coerces nulls to $0 while jobCount still counts them, and never prefixes '~' when a sibling's cost is a pricing-table estimate (total_cost_usd_estimated), unlike the per-job costValue (:149-151).
 
@@ -232,7 +232,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-1 · Persistent-stdin Explore records each turn's ai_invocations row with the session-cumulative total_cost_usd, multiplying conversation cost (flag-gated, default OFF)
 
-**Location:** `server/chat-manager.ts:1169` · **Severity:** medium · **Impact:** overcount · **Category:** cost semantics / persistent-stdin transport
+**Location:** `server/modules/conversations/runtime/chat-manager.ts:1169` · **Severity:** medium · **Impact:** overcount · **Category:** cost semantics / persistent-stdin transport
 
 **Evidence.** `_streamPersistentExploreTurn`'s recordInv (chat-manager.ts:1166-1189) writes one ai_invocations row per turn from `finaliseInvocationResult(adapter, adapterEvents)`, persisting `resultPayload.total_cost_usd`/`num_turns` verbatim (claude-adapter.ts:268-269). One long-lived child serves all turns (ExploreStdinSessions.getOrSpawn, explore-stdin-session.ts:92-139); each turn ends on its own result event (finishTurn :1305-1310). No diffing against the previous turn's values, and the only persistent-stdin cost test (chat-manager.test.ts:1110) covers a single-turn session. Same cumulative-result-frame transport empirically verified in the interactive-job finding: row n contains the cost of turns 1..n, so summing rows overcounts ~×(N+1)/2. Active only when SPECRAILS_EXPLORE_PERSISTENT_STDIN=1 (default OFF).
 
@@ -243,7 +243,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-2 · Chat crash auto-respawn discards the crashed spawn's burned tokens (adapterEvents zeroed), and a respawn spawn-failure writes no row at all
 
-**Location:** `server/chat-manager.ts:906` · **Severity:** medium · **Impact:** undercount · **Category:** capture / crash-respawn
+**Location:** `server/modules/conversations/runtime/chat-manager.ts:906` · **Severity:** medium · **Impact:** undercount · **Category:** capture / crash-respawn
 
 **Evidence.** When an explore child exits non-zero before `result` (chat-manager.ts:863-871), the respawn branch resets accumulators: `this._buffers.set(conversationId, '')` (:904) and `adapterEvents.length = 0` (:906, commented as avoiding 'double-count'). But the first spawn's API calls are already billed, and the respawned process's result.total_cost_usd covers only its own calls (`--resume` restores conversation state, not the cost counter). Only ONE row is written for the turn (:984), reflecting only the second spawn. If the respawned child hits an async spawn 'error' (:919-940), the handler cleans up and resolve()s WITHOUT any recordInvocation — the turn is entirely invisible.
 
@@ -254,7 +254,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-3 · Custom-agent generate and test spawns (Studio generate, manual test endpoint, and default-on per-refine-turn auto-test) are untracked
 
-**Location:** `server/agent-generator.ts:68` · **Severity:** medium · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
+**Location:** `server/modules/agents/runtime/agent-generator.ts:68` · **Severity:** medium · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
 
 **Evidence.** agent-generator.ts:68 (generateCustomAgent spawnClaude, 90s cap) and :177 (testCustomAgent spawnClaude, 120s cap / 4000-token ceiling) have no recordInvocation. Callers: profiles-router.ts:510 (POST /profiles/catalog/generate), :482 (POST /profiles/catalog/test — persists tokens/duration into `agent_tests` but never into ai_invocations), and agent-refine-manager.ts:487 `_runAutoTest` which fires AFTER EVERY refine turn when smart-mode auto-test is on — and auto-test defaults ON (startRefine line 156: `autoTest: opts.autoTest !== false`), so every refine session records its refine turns (surface='ai-edit') but silently drops one extra spawn per turn. testCustomAgent already parses usage (tokensIn/tokensOut at 222-226) — the data exists and is discarded for cost purposes.
 
@@ -265,7 +265,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-4 · Sidebar chat (kind='sidebar') is completely unrecorded — every billable sidebar turn (project cwd + live dashboard context) is invisible to analytics
 
-**Location:** `server/chat-manager.ts:974` · **Severity:** medium · **Impact:** undercount · **Category:** capture completeness (documented design exclusion)
+**Location:** `server/modules/conversations/runtime/chat-manager.ts:974` · **Severity:** medium · **Impact:** undercount · **Category:** capture completeness (documented design exclusion)
 
 **Evidence.** The recording gate is `if (this._projectId && conversation.kind === 'explore')` (chat-manager.ts:974; same gate on the persistent path at :716/1172); test chat-manager.test.ts:907-923 pins that kind='sidebar' writes zero rows. Kinds are clamped to exactly 'sidebar'|'explore' at creation (project-router-chat.ts:145). Sidebar is fully billable: it spawns in the project path (`_resolveSpawnCwd` :349-352, so the project CLAUDE.md auto-loads), prepends the dashboard-context block to every turn (:671-676), and uses the full live-context `_buildSystemPrompt()` (little prompt caching since it embeds live aggregates). CLAUDE.md documents this as intentionally out-of-scope, but versus Claude's own accounting it is a systemic undercount with no UI disclosure, and it is also absent from the jobs table so StatusBar/HOME miss it too.
 
@@ -276,7 +276,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-5 · Daily-budget PAUSE enforcement sums only status='completed' jobs with a UTC date('now') boundary and reads only the jobs table — failed-but-billed jobs and all non-job surfaces never count, and it disagrees with the /budget meter
 
-**Location:** `server/queue-manager.ts:1937` · **Severity:** medium · **Impact:** undercount · **Category:** budget enforcement aggregation / period boundary
+**Location:** `server/modules/execution/runtime/queue-manager.ts:1937` · **Severity:** medium · **Impact:** undercount · **Category:** budget enforcement aggregation / period boundary
 
 **Evidence.** Per-project enforcement: `SELECT COALESCE(SUM(total_cost_usd), 0) as total FROM jobs WHERE status = 'completed' AND total_cost_usd IS NOT NULL AND started_at >= date('now')` (queue-manager.ts:1936-1938); app-level budget is the same query per project (project-registry.ts:408-410). (a) `status='completed'` excludes failed/canceled rows that carry REAL cost — a claude run ending in result subtype error_max_turns/error_during_execution emits total_cost_usd, exits non-zero, and finishJob persists that cost onto a 'failed' row (queue-manager.ts:1814-1834 writes tokenData for any finalStatus) — while the GET /budget meter sums the same table with NO status filter (project-router-spending.ts:412), so the two disagree; (b) `date('now')` is the UTC calendar date, not the user's local day (spend near local midnight lands on the wrong 'day'; the dailyTimeline got a tzOffsetMinutes fix, this query did not); (c) only the jobs table is read, so quick-spec/explore/ai-edit/file-summary/loop spend never counts toward any daily budget; (d) the whole check runs only inside `if (jobCost != null && finalStatus === 'completed')` (queue-manager.ts:1911), so a day of expensive failures never even triggers evaluation.
 
@@ -298,7 +298,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-7 · Multi-ticket jobs attribute 100% of cost to ticketIds[0]: topTickets and /tickets/:id/spending-summary over/under-attribute batch spend
 
-**Location:** `server/queue-manager.ts:1856` · **Severity:** medium · **Impact:** both · **Category:** ticket attribution
+**Location:** `server/modules/execution/runtime/queue-manager.ts:1856` · **Severity:** medium · **Impact:** both · **Category:** ticket attribution
 
 **Evidence.** Every ai_invocations job row stamps `ticket_id: ticketIds[0] ?? null` (queue-manager.ts:829, 1072, 1856, 2145). topTickets groups `GROUP BY ticket_id, surface` (spending.ts:581-585) and the per-ticket endpoint sums `WHERE ticket_id = ?` (ai-invocations.ts:149-152, served by project-router-spending.ts:189). CLAUDE.md acknowledges 'primary ticket only' for Code-explorer provenance, but the same truncation silently corrupts per-ticket dollars: the whole batch cost lands on one ticket and the rest read $0.
 
@@ -309,7 +309,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-8 · App-level cost KPIs (HOME analytics, StatusBar /stats costToday, /api/state) read ONLY the jobs table — all non-job billable surfaces (explore, quick-spec, ai-edit, contract-refine, file-summary, smash, loop-only rows) are invisible
 
-**Location:** `server/desktop-analytics.ts:118` · **Severity:** medium · **Impact:** undercount · **Category:** surface scope / wrong source table
+**Location:** `server/modules/accounting/runtime/desktop-analytics.ts:118` · **Severity:** medium · **Impact:** undercount · **Category:** surface scope / wrong source table
 
 **Evidence.** queryProjectKpi aggregates `FROM jobs ${clause}` (desktop-analytics.ts:111-119), queryProjectTimeline likewise (:137, :246), and getDesktopTodayStats — feeding the always-visible StatusBar and `/api/state` costToday — sums `FROM jobs ${clause}` (:299); getStats (db.ts:1330-1347) likewise computes totalCostUsd/costToday FROM jobs only. None touch ai_invocations, where six additional billable surfaces record. The prior audit patched these queries' estimated-cost split (BUG-24/27/28) but left the jobs-only sourcing untouched, explicitly describing the surface as 're-derives cost from the jobs table' without flagging the coverage undercount. The per-project Analytics page reads ai_invocations, so the app's two 'total spend' numbers structurally disagree.
 
@@ -320,7 +320,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-9 · Per-project /analytics defaults to a 30-day window — windowed total easily read as the all-time total
 
-**Location:** `client/src/pages/AnalyticsPage.tsx:76` · **Severity:** medium · **Impact:** undercount · **Category:** client display / default filter
+**Location:** `client/src/features/analytics/pages/AnalyticsPage.tsx:76` · **Severity:** medium · **Impact:** undercount · **Category:** client display / default filter
 
 **Evidence.** `const initialPeriod = (searchParams.get('period') as Period | null) ?? '30d'` — the hero burn meter then shows only the windowed sum.
 
@@ -329,7 +329,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-10 · Desktop (cross-project) analytics defaults to a 7-day window for a KPI labelled 'Total cost'
 
-**Location:** `client/src/pages/DesktopAnalyticsPage.tsx:285` · **Severity:** medium · **Impact:** undercount · **Category:** client display / default filter
+**Location:** `client/src/features/analytics/pages/DesktopAnalyticsPage.tsx:285` · **Severity:** medium · **Impact:** undercount · **Category:** client display / default filter
 
 **Evidence.** `const [period, setPeriod] = useState<AnalyticsPeriod>('7d')`.
 
@@ -338,7 +338,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-11 · App-level analytics auto-refresh listens for a WS message ('log' + event_type 'job_done') the server never emits — totals go stale
 
-**Location:** `client/src/pages/DesktopAnalyticsPage.tsx:296` · **Severity:** medium · **Impact:** undercount · **Category:** client staleness
+**Location:** `client/src/features/analytics/pages/DesktopAnalyticsPage.tsx:296` · **Severity:** medium · **Impact:** undercount · **Category:** client staleness
 
 **Evidence.** Handler gates on `msg.type === 'log' && msg.event_type === 'job_done'`; server-side grep shows no such broadcast (job completion is `rail.job_completed`; event frames use `type:'event'`).
 
@@ -347,7 +347,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-12 · Cancelled/disposed AI-Edit refine turns return before recordInvocation — no row (not even aborted) is written
 
-**Location:** `server/agent-refine-manager.ts:377` · **Severity:** medium · **Impact:** undercount · **Category:** capture-loss (cancel path)
+**Location:** `server/modules/agents/runtime/agent-refine-manager.ts:377` · **Severity:** medium · **Impact:** undercount · **Category:** capture-loss (cancel path)
 
 **Evidence.** `if (this._cancelledIds.delete(refineId)) return` and `if (this._disposed) return` both precede the `ai_invocations` capture block.
 
@@ -356,7 +356,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### MED-13 · file-summary generator discards captured cost on non-zero exit and on empty-summary rejection
 
-**Location:** `server/file-summary-generator.ts:187` · **Severity:** medium · **Impact:** undercount · **Category:** capture-loss (failure path)
+**Location:** `server/modules/code/runtime/file-summary-generator.ts:187` · **Severity:** medium · **Impact:** undercount · **Category:** capture-loss (failure path)
 
 **Evidence.** `if (code !== 0) { reject(...) ; return }` and `if (!summary) { reject(...) }` happen before `finaliseInvocationResult(adapter, events, ...)` — the parsed events (with usage) are thrown away with the rejection.
 
@@ -365,7 +365,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-1 · Auto-title spawns are billable claude invocations that are never recorded (fired on the first turn of every conversation)
 
-**Location:** `server/chat-manager.ts:1417` · **Severity:** low · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
+**Location:** `server/modules/conversations/runtime/chat-manager.ts:1417` · **Severity:** low · **Impact:** undercount · **Category:** untracked billable spawn (capture completeness)
 
 **Evidence.** _autoTitle (chat-manager.ts:1404-1448) spawns a fresh CLI child (`spawnAiCli(adapter.binary, args, …)` at :1417) with `adapter.defaultModel()` on the first turn of every conversation — both explore (legacy :1051-1053, persistent :1259-1261) and sidebar. The close handler (:1438-1448) only updates the title and broadcasts; no finaliseInvocationResult/recordInvocation, and the result event's total_cost_usd is never even parsed (:1429-1436 extract text-delta only).
 
@@ -398,7 +398,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-4 · minCostUsd filter compiles to `total_cost_usd >= ?`, so minCostUsd=0 silently drops all NULL-cost rows (not a no-op)
 
-**Location:** `server/spending.ts:261` · **Severity:** low · **Impact:** neutral · **Category:** filter semantics / NULL handling
+**Location:** `server/modules/accounting/runtime/spending.ts:261` · **Severity:** low · **Impact:** neutral · **Category:** filter semantics / NULL handling
 
 **Evidence.** `if (typeof filters.minCostUsd === 'number') { conditions.push(`${a}total_cost_usd >= ?`) }` (spending.ts:260-262). In SQLite `NULL >= 0` evaluates to NULL → row excluded. The client's raw-table filter sends 0 as a number, so entering 0 — read by the user as 'no minimum' — removes every unpriced (aborted/killed) row from the invocations table, totalRuns and failureRate for that fetch.
 
@@ -409,7 +409,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-5 · Gemini Pro long-context (>200k) pricing tier not modeled — flat <=200k rates knowingly under-estimate long-context prompts
 
-**Location:** `server/pricing.ts:52` · **Severity:** low · **Impact:** undercount · **Category:** rate-card tier coverage (long-context)
+**Location:** `server/modules/accounting/runtime/pricing.ts:52` · **Severity:** low · **Impact:** undercount · **Category:** rate-card tier coverage (long-context)
 
 **Evidence.** In-file comment (pricing.ts:51-52): 'Standard paid tier, <=200k-context prices (Gemini Pro is context-tiered; prompts >200k are under-estimated in v1…)'. PriceEntry has a single input/output pair per model with no context-size dimension; estimateCostUsd (:109-113) applies the flat rate regardless of prompt size.
 
@@ -420,7 +420,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-6 · Unkillable-job recovery can double-record the same job: _forceFailUnkillableJob writes an 'aborted' NULL-cost row, then the child's eventual close runs _onJobExit and writes a second row (and double-fires _onJobFinished)
 
-**Location:** `server/queue-manager.ts:2136` · **Severity:** low · **Impact:** both · **Category:** duplicate row
+**Location:** `server/modules/execution/runtime/queue-manager.ts:2136` · **Severity:** low · **Impact:** both · **Category:** duplicate row
 
 **Evidence.** When SIGKILL escalation fails (queue-manager.ts:2090-2097), _forceFailUnkillableJob records an ai_invocations row status 'aborted', no cost (2136-2151), releases the slot and fires _onJobFinished (2179). The job is NOT removed from `this._jobs` and the child's 'close' listener stays wired — when the process finally dies, _onJobExit runs (the `if (!job) return` guard passes, :1776), finishJob re-stamps the row, recordInvocation inserts a SECOND row for the same surface_ref_id (1850-1862, possibly WITH real cost if a result event streamed), and _onJobFinished fires again (1993) — duplicate webhooks/Jira transitions and inflated totalRuns.
 
@@ -431,7 +431,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-7 · Persistent-stdin turns are recorded status='success' even when the result event reports an error (is_error / error subtypes)
 
-**Location:** `server/chat-manager.ts:1221` · **Severity:** low · **Impact:** neutral · **Category:** status accuracy
+**Location:** `server/modules/conversations/runtime/chat-manager.ts:1221` · **Severity:** low · **Impact:** neutral · **Category:** status accuracy
 
 **Evidence.** The legacy path derives status from the child's exit code (chat-manager.ts:976-980). The persistent path has no per-turn exit code: finishTurn fires on any result event and calls `recordInv(wasAborting ? 'aborted' : 'success')` (:1221) without reading `payload.is_error` or `payload.subtype` (e.g. 'error_max_turns') from the result captured at :1305-1310. Cost/tokens still recorded, so totals unaffected; the row's status is wrong.
 
@@ -442,7 +442,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-8 · Loop invocation rows never persist num_turns / session_id / duration fields — dropped between the executors and the recorder
 
-**Location:** `server/loop-executors.ts:163` · **Severity:** low · **Impact:** neutral · **Category:** metric completeness (turns/session/duration, not dollars)
+**Location:** `server/modules/loops/runtime/loop-executors.ts:163` · **Severity:** low · **Impact:** neutral · **Category:** metric completeness (turns/session/duration, not dollars)
 
 **Evidence.** loop-executors.ts:163-184 (runAiStep) and 214-232 (runDecider) build return objects from finaliseInvocationResult's result but omit num_turns, session_id and duration_api_ms (only durationMs survives). loop-run-manager.ts:394-422 then calls recordInvocation without duration_ms / num_turns / session_id — even though `r.durationMs` is in hand one line above (:393) — so the columns are NULL on every surface='loop' row (ai-invocations.ts:97-107 defaults). Downstream: scatter numTurns null, getTicketSpendingSummary.totalTurns and activeDurationMs (ai-invocations.ts:191) exclude all loop steps.
 
@@ -453,7 +453,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-9 · SMASH splitInt floors token and turn splits across children — sum of splits < original (num_turns can collapse to 0)
 
-**Location:** `server/smash-runner.ts:511` · **Severity:** low · **Impact:** undercount · **Category:** split/rounding remainder loss (tokens/turns, not dollars)
+**Location:** `server/modules/specs/runtime/smash-runner.ts:511` · **Severity:** low · **Impact:** undercount · **Category:** split/rounding remainder loss (tokens/turns, not dollars)
 
 **Evidence.** smash-runner.ts:511-514 `Math.floor((v as number) / n)` applied to all four token fields and num_turns (529-534). Cost uses plain float division (:507-510) so per-child costs sum back within epsilon (pinned by smash-runner.test.ts:383). The floored fields lose up to n-1 units each; num_turns regularly rounds to zero because SMASH turn counts (1-30) match the child count magnitude (3-8) — e.g. num_turns=5 with 8 children → 0 per row → 0 total recorded.
 
@@ -464,7 +464,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-10 · SMASH failure paths that DO capture real cost never broadcast spending.invalidated — open dashboards keep showing the pre-spend (lower) total
 
-**Location:** `server/smash-runner.ts:779` · **Severity:** low · **Impact:** undercount · **Category:** dashboard invalidation gap (stale undercount in live view)
+**Location:** `server/modules/specs/runtime/smash-runner.ts:779` · **Severity:** low · **Impact:** undercount · **Category:** dashboard invalidation gap (stale undercount in live view)
 
 **Evidence.** smash-runner.ts:779 broadcasts `{ type: 'spending.invalidated' }` only on the fully-successful path. The failure branches that still write a COSTED row — parse failure (:704 recordSafely with result.resultEvent, real cost since the process exited 0 with a result event) and mutation-failed (:729) — return without any broadcast (:705-714, :730-738), violating the 'recordInvocation callsites broadcast spending.invalidated' contract (cf. the BUG-07 fix pattern in loop-run-manager.ts:427-429).
 
@@ -475,7 +475,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-11 · ModelBreakdown percentages use the server-capped top-10 sum as denominator and render only top-5
 
-**Location:** `client/src/components/analytics/ModelBreakdown.tsx:24` · **Severity:** low · **Impact:** neutral · **Category:** client display
+**Location:** `client/src/features/analytics/components/ModelBreakdown.tsx:24` · **Severity:** low · **Impact:** neutral · **Category:** client display
 
 **Evidence.** `const total = data.byModel.reduce(...)` over the top-10-capped byModel; `const top = data.byModel.slice(0, 5)`.
 
@@ -484,7 +484,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-12 · SMASH children share one try/catch around the recordInvocation loop — a mid-loop failure drops all remaining children's cost
 
-**Location:** `server/smash-runner.ts:504` · **Severity:** low · **Impact:** undercount · **Category:** persistence robustness
+**Location:** `server/modules/specs/runtime/smash-runner.ts:504` · **Severity:** low · **Impact:** undercount · **Category:** persistence robustness
 
 **Evidence.** Single `try { for (const childId of childrenIds) { recordInvocation(...) } } catch` — first throw (e.g. SQLITE_BUSY) abandons the rest; no retry/durable queue.
 
@@ -502,7 +502,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-14 · testCustomAgent double-counts token usage (per-message usage + cumulative result usage summed)
 
-**Location:** `server/agent-generator.ts:222` · **Severity:** low · **Impact:** overcount · **Category:** token accounting
+**Location:** `server/modules/agents/runtime/agent-generator.ts:222` · **Severity:** low · **Impact:** overcount · **Category:** token accounting
 
 **Evidence.** `const usage = (p.usage ?? message?.usage)` accumulates on EVERY stream line — per-assistant-event usage AND the final result's cumulative usage are added together (~2x).
 
@@ -511,7 +511,7 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 ### LOW-15 · Interactive job duration_ms is wall-clock including idle time between turns
 
-**Location:** `server/queue-manager.ts:1063` · **Severity:** low · **Impact:** neutral · **Category:** duration accounting
+**Location:** `server/modules/execution/runtime/queue-manager.ts:1063` · **Severity:** low · **Impact:** neutral · **Category:** duration accounting
 
 **Evidence.** `durationMs = new Date(job.finishedAt).getTime() - new Date(job.startedAt).getTime()` for the interactive finalize row.
 
@@ -520,9 +520,9 @@ Counterweight (why the app can also OVERcount in other scenarios): persistent-st
 
 
 ## Refuted findings (kept for the record)
-1. **"Successful SMASH with missing result event records nothing"** (`server/smash-runner.ts:503`) — structurally unreachable: the success path cannot be reached without a result event.
-2. **"Native claude `total_cost_usd` of 0 accepted as authoritative"** (`server/result-event.ts:79`) — code observation accurate (0 passes through; fallback gates on `!nativeCostUsd`), but judges found no reachable scenario where the shipped claude CLI emits cost 0 with non-zero usage today. **Latent risk**: becomes real if a CLI version/auth mode ever reports 0.
-3. **"PriceEntry has no cache-write tier — fallback prices `tokens_cache_create` at $0"** (`server/pricing.ts:109`) — accurate but latent: claude never takes the fallback today because native cost is always present. **Becomes load-bearing the moment CRIT-1 is fixed with a rate-card estimate — fix them together.**
+1. **"Successful SMASH with missing result event records nothing"** (`server/modules/specs/runtime/smash-runner.ts:503`) — structurally unreachable: the success path cannot be reached without a result event.
+2. **"Native claude `total_cost_usd` of 0 accepted as authoritative"** (`server/modules/accounting/runtime/result-event.ts:79`) — code observation accurate (0 passes through; fallback gates on `!nativeCostUsd`), but judges found no reachable scenario where the shipped claude CLI emits cost 0 with non-zero usage today. **Latent risk**: becomes real if a CLI version/auth mode ever reports 0.
+3. **"PriceEntry has no cache-write tier — fallback prices `tokens_cache_create` at $0"** (`server/modules/accounting/runtime/pricing.ts:109`) — accurate but latent: claude never takes the fallback today because native cost is always present. **Becomes load-bearing the moment CRIT-1 is fixed with a rate-card estimate — fix them together.**
 
 
 ## Recommended fix order

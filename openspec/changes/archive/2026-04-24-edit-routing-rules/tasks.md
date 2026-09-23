@@ -1,8 +1,8 @@
 ## 1. Server: lock default rule to sr-developer
 
-- [x] 1.1 In `server/profile-manager.ts` `validateStructural`, reject profiles whose `default: true` rule has `agent !== 'sr-developer'`
-- [x] 1.2 Add unit test in `server/profile-manager.test.ts` covering reject case + accept case
-- [x] 1.3 Verify `server/profiles-router.test.ts` POST/PATCH flows still pass; add a 400 regression test for `{default:true, agent:'custom-foo'}`
+- [x] 1.1 In `server/modules/agents/runtime/profile-manager.ts` `validateStructural`, reject profiles whose `default: true` rule has `agent !== 'sr-developer'`
+- [x] 1.2 Add unit test in `server/modules/agents/runtime/profile-manager.test.ts` covering reject case + accept case
+- [x] 1.3 Verify `server/modules/agents/runtime/profiles-router.test.ts` POST/PATCH flows still pass; add a 400 regression test for `{default:true, agent:'custom-foo'}`
 
 ## 2. Client dialog: add edit mode to RoutingRuleDialog
 

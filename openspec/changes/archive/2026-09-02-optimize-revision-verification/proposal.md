@@ -24,10 +24,10 @@ None.
 
 ## Impact
 
-- `server/loop-factory.ts` and `server/loop-templates.ts`: Revision uses a dedicated review/verification node while other factory loops retain the generic verify node.
-- `server/loop-command-catalog.ts`: revision mutation and review prompts receive explicit, non-overlapping responsibilities.
-- `server/loop-run-manager.ts`: review nodes can request a fresh provider session and loop-step events carry an additive high-resolution boundary for honest evidence matching.
-- `server/delivery-evidence.ts`: current reviewer artifact paths/schemas are normalized and revision evidence is tied to the latest verification epoch.
+- `server/modules/loops/runtime/loop-factory.ts` and `server/modules/loops/runtime/loop-templates.ts`: Revision uses a dedicated review/verification node while other factory loops retain the generic verify node.
+- `server/modules/loops/runtime/loop-command-catalog.ts`: revision mutation and review prompts receive explicit, non-overlapping responsibilities.
+- `server/modules/loops/runtime/loop-run-manager.ts`: review nodes can request a fresh provider session and loop-step events carry an additive high-resolution boundary for honest evidence matching.
+- `server/modules/delivery/runtime/delivery-evidence.ts`: current reviewer artifact paths/schemas are normalized and revision evidence is tied to the latest verification epoch.
 - The still-active `nontech-review-experience` delivery-revision artifacts are reconciled with the new single-owner gate so they do not retain a contradictory workflow.
 - Factory-loop, command-catalog, template, and revision regression tests.
 - No API, database-schema, delivery-lineage, or provider protocol changes. The persisted internal `loop_step` payload gains one additive timestamp field.

@@ -26,10 +26,10 @@ _None — additive behaviour layers onto the existing `explore-spec` capability.
 ## Impact
 
 - **Client**:
-  - New `client/src/components/explore-spec/ExploreReviewOverlay.tsx` — full-screen overlay rendering each draft field with diff vs. baseline. Reuses `diff` package via a new helper.
-  - New shared helper `client/src/components/explore-spec/diff-utils.ts` — `wordDiff(a, b)`, `arrayDiff(a, b)` returning typed segment lists usable by both text and chip renderers.
-  - `client/src/components/explore-spec/ExploreSpecShell.tsx` — new `Review →` button next to `Create Spec`; state for overlay open/closed; passes current draft + an optional baseline prop (defaulting to empty draft) to the overlay.
-  - `client/src/components/explore-spec/SpecDraftPanel.tsx` — unchanged (left pane stays "editing" view; diff lives in the overlay).
+  - New `client/src/features/specs/components/explore-spec/ExploreReviewOverlay.tsx` — full-screen overlay rendering each draft field with diff vs. baseline. Reuses `diff` package via a new helper.
+  - New shared helper `client/src/features/specs/components/explore-spec/diff-utils.ts` — `wordDiff(a, b)`, `arrayDiff(a, b)` returning typed segment lists usable by both text and chip renderers.
+  - `client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx` — new `Review →` button next to `Create Spec`; state for overlay open/closed; passes current draft + an optional baseline prop (defaulting to empty draft) to the overlay.
+  - `client/src/features/specs/components/explore-spec/SpecDraftPanel.tsx` — unchanged (left pane stays "editing" view; diff lives in the overlay).
   - Existing `AiEditDiffView` reused or wrapped where appropriate; the new helper extracts the core word-diff into a shared util so both surfaces stay aligned.
 - **Server**: no changes. The Create Spec path still hits the existing `POST /tickets/from-draft`.
 - **Specs**: 5-7 new ADDED requirements under `explore-spec`.

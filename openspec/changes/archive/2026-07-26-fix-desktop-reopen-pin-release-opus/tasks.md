@@ -14,8 +14,8 @@
 
 - [x] 3.1 In `server/worktree-node-modules.ts`, export a live authenticator that returns `OverlayCleanupEvidence` for worktree entries named `node_modules` (depth ≤ `MAX_DEPTH`) whose symlink target resolves to the base repo's identically-named directory
 - [x] 3.2 Make `linkNodeModulesIntoWorktree` also authenticate pre-existing links (resume safety) and return their evidence alongside the created ones
-- [x] 3.3 In `server/rail-isolated-launch.ts`, feed the authenticated paths into `overlayExcludes` and the evidence into the durable branch record's cleanup evidence, without letting overlay revalidation drop them
-- [x] 3.4 In `server/rail-worktree-release.ts`, merge live-authenticated warm-link evidence into the release exclusion pathspec and the quarantine set
+- [x] 3.3 In `server/modules/delivery/runtime/rail-isolated-launch.ts`, feed the authenticated paths into `overlayExcludes` and the evidence into the durable branch record's cleanup evidence, without letting overlay revalidation drop them
+- [x] 3.4 In `server/modules/delivery/runtime/rail-worktree-release.ts`, merge live-authenticated warm-link evidence into the release exclusion pathspec and the quarantine set
 - [x] 3.5 Server tests: link-only worktree releases and is quarantined; a real directory / copy / foreign-target link still preserves the worktree; a legacy row with no persisted evidence heals; resume keeps the exclusion
 
 ## 4. Claude Opus 5

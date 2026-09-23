@@ -1,6 +1,6 @@
 ## 1. Server: ticket resolution on Job Detail
 
-- [x] 1.1 Extract a shared `extractTicketIdsFromCommand(command: string): number[]` helper (preserve first-occurrence order, dedupe). Place in `server/ticket-store.ts` or a new `server/ticket-helpers.ts`.
+- [x] 1.1 Extract a shared `extractTicketIdsFromCommand(command: string): number[]` helper (preserve first-occurrence order, dedupe). Place in `server/modules/specs/runtime/ticket-store.ts` or a new `server/ticket-helpers.ts`.
 - [x] 1.2 Refactor `QueueManager._extractTicketIds` to call the shared helper (no behavioural change).
 - [x] 1.3 In `server/project-router.ts`, extend the `GET /api/projects/:projectId/jobs/:id` handler to resolve `tickets: Array<{ id: number; title: string | null }>` from the job's `command` and the project's ticket store. Use `ProjectContext.path` as `cwd` for `resolveTicketStoragePath`.
 - [x] 1.4 Return an empty array when the command has no `#<digits>` token.
@@ -29,7 +29,7 @@
 
 ## 4. Client: ticket identity card on Job Detail
 
-- [x] 4.1 Create `client/src/components/JobTicketHeader.tsx`. Props: `tickets`, `command`, `status`, `startedAt`, `model`, `onTicketClick`. Render contract follows `live-job-status` spec scenarios.
+- [x] 4.1 Create `client/src/features/jobs/components/JobTicketHeader.tsx`. Props: `tickets`, `command`, `status`, `startedAt`, `model`, `onTicketClick`. Render contract follows `live-job-status` spec scenarios.
 - [x] 4.2 Implement layout modes: hidden when `tickets.length === 0`; list mode for 2–3 tickets; compact mode with `+ N more` and expand chevron for ≥4 tickets.
 - [x] 4.3 Single-ticket layout: chip + title as visual hero (text-lg, semibold), command + status badge + started_at + model on a demoted row beneath.
 - [x] 4.4 Deleted-ticket handling: tickets whose `title` is `null` render as `#<id> (deleted)` in `text-muted-foreground`, non-clickable, no title row above.

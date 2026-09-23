@@ -3,10 +3,10 @@
 import { Request, Response, NextFunction } from 'express'
 import {
   resolveTerminalSettings
-} from './terminal-settings'
+} from './modules/terminals/runtime/terminal-settings'
 import { isBrowserCaptureEnabled } from './feature-flags'
-import { BrowserLimitExceededError, BrowserLaunchError } from './browser-capture-types'
-import type { CaptureRect } from './browser-capture-types'
+import { BrowserLimitExceededError, BrowserLaunchError } from './modules/browser/runtime/browser-capture-types'
+import type { CaptureRect } from './modules/browser/runtime/browser-capture-types'
 import {
   getTerminalManager,
   TerminalLimitExceededError,
@@ -14,7 +14,7 @@ import {
   TerminalNameInvalidError,
   TerminalSpawnError,
   TERMINAL_MAX_PER_PROJECT,
-} from './terminal-manager'
+} from './modules/terminals/runtime/terminal-manager'
 import {
   type ProjectRoutesDeps, TERMINAL_PANEL_ENABLED
 } from './project-router-helpers'

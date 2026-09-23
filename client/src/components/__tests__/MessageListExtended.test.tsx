@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '../../test-utils'
-import { MessageList } from '../MessageList'
+import { MessageList } from '../../features/chat/components/MessageList'
 import type { ChatMessage } from '../../types'
 import type { DesktopProject } from '../../hooks/useDesktop'
 

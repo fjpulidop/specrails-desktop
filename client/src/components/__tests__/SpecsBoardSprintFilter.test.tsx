@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '../../test-utils'
-import { SpecsBoard } from '../SpecsBoard'
+import { SpecsBoard } from '../../features/specs/components/SpecsBoard'
 import type { LocalTicket } from '../../types'
 
 vi.mock('@dnd-kit/core', () => ({ useDroppable: () => ({ isOver: false, setNodeRef: vi.fn() }) }))
@@ -11,7 +11,7 @@ vi.mock('@dnd-kit/sortable', () => ({
   useSortable: () => ({ attributes: {}, listeners: {}, setNodeRef: vi.fn(), transform: null, transition: undefined, isDragging: false }),
 }))
 vi.mock('@dnd-kit/utilities', () => ({ CSS: { Transform: { toString: () => '' }, Translate: { toString: () => '' } } }))
-vi.mock('../ProposeSpecModal', () => ({ ProposeSpecModal: () => null }))
+vi.mock('../../features/specs/components/ProposeSpecModal', () => ({ ProposeSpecModal: () => null }))
 
 function makeTicket(id: number, title: string, sprintId?: string, sprintName?: string, sprintState?: string): LocalTicket {
   return {

@@ -24,6 +24,6 @@ For specs — the primary thing users edit in this app — the real work is refi
 ## Impact
 
 - **Server**: `server/project-router.ts` — extend `ai-edit` body parsing and prompt construction. No new dependencies. No schema changes.
-- **Client**: `client/src/components/TicketDetailModal.tsx` — replace sidebar AI Edit block with expanded main-content flow. New components: `AiEditDiffView`, `SessionAttachmentBar`, `AiEditComposer` (extracted from current inline logic). Add `diff` npm package (~30 KB) for word-level diffing.
+- **Client**: `client/src/features/specs/components/TicketDetailModal.tsx` — replace sidebar AI Edit block with expanded main-content flow. New components: `AiEditDiffView`, `SessionAttachmentBar`, `AiEditComposer` (extracted from current inline logic). Add `diff` npm package (~30 KB) for word-level diffing.
 - **State scope**: Refinement history + proposed draft live in client component state only — ephemeral, cleared on modal close. No persistence, no DB changes.
 - **Out of scope**: ProposeSpecModal (stays one-shot); per-hunk accept/reject; slash-command shortcuts (`/shorter`, `/expand`); side-panel composer; persisting history to disk.

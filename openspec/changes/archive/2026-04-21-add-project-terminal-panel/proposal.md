@@ -27,7 +27,7 @@ _None — this is purely additive._
 
 ## Impact
 
-- **Server**: new `server/terminal-manager.ts`, new WS endpoint `/ws/terminal/:id`, new REST routes under `/api/projects/:projectId/terminals/*`, new dependency `node-pty`, hook into `project-registry.ts` for cleanup on project removal and `index.ts` for graceful shutdown.
+- **Server**: new `server/modules/terminals/runtime/terminal-manager.ts`, new WS endpoint `/ws/terminal/:id`, new REST routes under `/api/projects/:projectId/terminals/*`, new dependency `node-pty`, hook into `project-registry.ts` for cleanup on project removal and `index.ts` for graceful shutdown.
 - **Client**: new `xterm` + `@xterm/addon-fit` + `@xterm/addon-web-links` dependencies, new `TerminalsProvider` context, new `BottomPanel` / `TerminalViewport` / `TerminalSidebar` / `TerminalTopBar` components, new `useTerminals` hook, integration in `ProjectLayout.tsx` and `StatusBar.tsx`, new keybinding in `useKeyboardShortcuts.ts`.
 - **Desktop sidecar**: `scripts/build-sidecar.mjs` must include the platform-specific `pty.node` prebuilt addon; packaging must place it alongside `better_sqlite3.node`; the `Module._resolveFilename` patch in `server/index.ts` must be extended to redirect `node-pty` binding.
 - **Tests**: vitest suites for `TerminalManager` (spawn/attach/scrollback/kill/limit), WebSocket bridge integration, and client store (per-project isolation, persistence across switches).

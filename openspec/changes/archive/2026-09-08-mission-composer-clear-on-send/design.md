@@ -1,6 +1,6 @@
 ## Context
 
-The mission composer keeps its unsent work in a module-level session store (`client/src/lib/agent-composer-drafts.ts`): three `Map`s keyed by conversation id, plus the sentinel `__new-mission__` slot for the empty compose screen, mirrored into `sessionStorage` for crash recovery. The store exists because the composer legitimately unmounts — Mission⇄Board switching, panel close, detached mission windows — and a typed prompt must survive that.
+The mission composer keeps its unsent work in a module-level session store (`client/src/features/missions/lib/agent-composer-drafts.ts`): three `Map`s keyed by conversation id, plus the sentinel `__new-mission__` slot for the empty compose screen, mirrored into `sessionStorage` for crash recovery. The store exists because the composer legitimately unmounts — Mission⇄Board switching, panel close, detached mission windows — and a typed prompt must survive that.
 
 `AgentComposer` reads that store **once per draft key**, into local state:
 
@@ -63,7 +63,7 @@ Two independent defects fall out of one placement decision:
 
 The composer subscribes to the draft store instead of snapshotting it once. Any mutation — clear, migrate, restore — notifies subscribers, and every mounted composer for that key re-reads.
 
-The codebase already has this exact pattern for module-level session state: `client/src/lib/mission-view-state.ts`, `client/src/context/MissionWindowsContext.tsx` and `client/src/lib/effects-prefs.ts` all pair a module store with `useSyncExternalStore`. Reusing it keeps the store the single source of truth it was always documented to be.
+The codebase already has this exact pattern for module-level session state: `client/src/features/missions/lib/mission-view-state.ts`, `client/src/features/missions/context/MissionWindowsContext.tsx` and `client/src/features/settings/lib/effects-prefs.ts` all pair a module store with `useSyncExternalStore`. Reusing it keeps the store the single source of truth it was always documented to be.
 
 *Alternatives considered.* **(a) Reconcile after the fact** — have the new instance re-check the store on mount, or version the store and re-read on change only. That closes today's window but leaves the invariant "the visible value may diverge from the store" intact, so the next remount finds a new way in. **(b) Keep the composer mounted across materialization** — a stable key plus a single branch in `AgentModeSurface`. This removes the trigger rather than the fragility, and it fights the deliberate morph animation; a detached mission window or a future surface would still be able to swap instances. Subscription is the only option that makes instance identity irrelevant, which is the actual invariant we want.
 

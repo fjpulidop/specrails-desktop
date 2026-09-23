@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { getJob, getJobEvents, initDb, type DbInstance } from './db'
-import type { LoopGraph } from './loop-graph'
-import { LoopRunManager, type AiStepResult, type LoopExecutors } from './loop-run-manager'
+import type { LoopGraph } from './modules/loops/runtime/loop-graph'
+import { LoopRunManager, type AiStepResult, type LoopExecutors } from './modules/loops/runtime/loop-run-manager'
 import type { WsMessage } from './types'
 
 const databases: DbInstance[] = []

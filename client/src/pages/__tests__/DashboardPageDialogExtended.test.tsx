@@ -5,7 +5,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '../../test-utils'
-import JobsPage from '../JobsPage'
+import JobsPage from '../../features/jobs/pages/JobsPage'
 
 vi.mock('../../hooks/useSharedWebSocket', () => ({
   useSharedWebSocket: () => ({ registerHandler: vi.fn(), unregisterHandler: vi.fn() }),
@@ -42,7 +42,7 @@ vi.mock('../../hooks/useDesktop', () => ({
   }),
 }))
 
-vi.mock('../../hooks/usePipeline', () => ({
+vi.mock('../../features/jobs/hooks/usePipeline', () => ({
   usePipeline: () => ({
     recentJobs: [],
     phases: {},
@@ -70,11 +70,11 @@ vi.mock('../../hooks/useProjectCache', () => ({
   }),
 }))
 
-vi.mock('../../components/ExportDropdown', () => ({
+vi.mock('../../features/analytics/components/ExportDropdown', () => ({
   ExportDropdown: () => <div data-testid="export-dropdown" />,
 }))
 
-vi.mock('../../components/RecentJobs', () => ({
+vi.mock('../../features/jobs/components/RecentJobs', () => ({
   RecentJobs: ({
     jobs,
     onProposalClick,

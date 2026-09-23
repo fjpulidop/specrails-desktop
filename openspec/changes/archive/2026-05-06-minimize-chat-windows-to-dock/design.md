@@ -2,8 +2,8 @@
 
 Two chat-style fullscreen surfaces today fully occlude the hub:
 
-- `client/src/components/explore-spec/ExploreSpecShell.tsx` — `fixed inset-0 z-50`, mounted as a child of `ProposeSpecModal`'s Radix Dialog. Uses `ChatContext` (per-project) plus local component state (composer, attachments, streaming flags, discard-confirm).
-- `client/src/components/ai-edit/AiEditShell.tsx` — `fixed inset-0 z-50`, returned via early-return inside `AgentsCatalogTab` when `refine.kind === 'open'`. Drives state through the `useAgentRefine` hook (`refineId`, `agentId`, `baseBody`, `draftBody`, `history[]`, `streamingText`, `phase`, `uiState`, `testResult`, `appliedVersion`).
+- `client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx` — `fixed inset-0 z-50`, mounted as a child of `ProposeSpecModal`'s Radix Dialog. Uses `ChatContext` (per-project) plus local component state (composer, attachments, streaming flags, discard-confirm).
+- `client/src/features/code/components/ai-edit/AiEditShell.tsx` — `fixed inset-0 z-50`, returned via early-return inside `AgentsCatalogTab` when `refine.kind === 'open'`. Drives state through the `useAgentRefine` hook (`refineId`, `agentId`, `baseBody`, `draftBody`, `history[]`, `streamingText`, `phase`, `uiState`, `testResult`, `appliedVersion`).
 
 Both unmount when their trigger goes away (closing the Dialog, leaving the `/agents` route, switching projects). Anything held only in component state dies. The terminal panel solved a similar problem (`TerminalsContext`) by mounting xterm container divs inside a hidden `<div id="specrails-terminal-host">` appended to `document.body`, then `appendChild`-moving them into a viewport on demand.
 

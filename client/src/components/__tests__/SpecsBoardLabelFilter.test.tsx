@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '../../test-utils'
-import { SpecsBoard } from '../SpecsBoard'
+import { SpecsBoard } from '../../features/specs/components/SpecsBoard'
 import type { LocalTicket } from '../../types'
 
 vi.mock('@dnd-kit/core', () => ({
@@ -25,7 +25,7 @@ vi.mock('@dnd-kit/utilities', () => ({
   CSS: { Transform: { toString: () => '' }, Translate: { toString: () => '' } },
 }))
 
-vi.mock('../ProposeSpecModal', () => ({
+vi.mock('../../features/specs/components/ProposeSpecModal', () => ({
   ProposeSpecModal: () => null,
 }))
 

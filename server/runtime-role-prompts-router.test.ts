@@ -5,9 +5,9 @@ import os from 'node:os'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { registerRuntimeRolePromptRoutes } from './runtime-role-prompts-router'
-import { loadRuntimeRolePrompts } from './agent-runtime-settings'
+import { loadRuntimeRolePrompts } from './modules/agent-runtime/runtime/agent-runtime-settings'
 const defaults = { architect: 'Plan', developer: 'Implement', reviewer: 'Review' }
-vi.mock('./agent-runtime-loader', () => ({ loadCoreAgentRuntime: async () => ({ rolePromptDefaults: () => defaults }) }))
+vi.mock('./modules/agent-runtime/runtime/agent-runtime-loader', () => ({ loadCoreAgentRuntime: async () => ({ rolePromptDefaults: () => defaults }) }))
 let root: string
 let app: express.Express
 beforeEach(() => {

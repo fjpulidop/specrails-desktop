@@ -15,7 +15,10 @@ test('shared agent guides and modular architecture references resolve', () => {
   for (const file of ['AGENTS.md', 'CLAUDE.md', 'docs/internals/source-map.md',
     'docs/internals/modular-architecture.md', 'docs/internals/source-architecture.md',
     'server/modules/project-settings/README.md', 'server/modules/execution/README.md',
-    'server/modules/delivery/README.md', 'server/modules/conversations/README.md']) {
+    'server/modules/delivery/README.md', 'server/modules/conversations/README.md',
+    'client/src/features/README.md', 'server/modules/README.md', 'cli/README.md',
+    ...Object.keys(JSON.parse(fs.readFileSync(path.join(root, 'server/modules/boundaries.json'), 'utf8'))).map(name => `server/modules/${name}/README.md`),
+    ...Object.keys(JSON.parse(fs.readFileSync(path.join(root, 'client/src/features/boundaries.json'), 'utf8'))).map(name => `client/src/features/${name}/README.md`)]) {
     const absolute = path.join(root, file)
     const content = fs.readFileSync(absolute, 'utf8')
     for (const [, target] of content.matchAll(/\]\(([^)]+)\)/g)) {

@@ -8,7 +8,7 @@
 
 ## 2. Client — acceptanceCriteria parser
 
-- [x] 2.1 `client/src/components/explore-spec/acceptance-criteria.ts` exports `parseAcceptanceCriteria` + `formatWithCriteria`
+- [x] 2.1 `client/src/features/specs/components/explore-spec/acceptance-criteria.ts` exports `parseAcceptanceCriteria` + `formatWithCriteria`
 - [x] 2.2 13 tests covering parse/format/round-trip + mixed bullet styles + case-insensitive heading
 
 ## 3. ExploreSpecShell — edit-existing-ticket mode

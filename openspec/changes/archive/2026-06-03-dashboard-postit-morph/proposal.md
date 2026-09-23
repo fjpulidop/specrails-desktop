@@ -7,7 +7,7 @@ Hoy el dashboard parte la pantalla 50/50 fija entre `SpecsBoard` (izquierda) y `
 - Añadir splitter vertical arrastrable entre los dos paneles del dashboard, persistido por proyecto en `localStorage`.
 - Conforme el panel izquierdo crece, las cards del `SpecsBoard` morfan en 3 tiers discretos con snap: **row** (ancho actual) → **card** (intermedio) → **postit** cuadrado (modo expandido).
 - En modo **postit**, cada ticket muestra: `#id`, título, priority pill, indicador de dependencia, `short_summary` (si existe) y botón **"Move to Rail"** (popover con rails disponibles, atajo al drop existente).
-- Añadir campo nuevo `short_summary TEXT NULL` en tabla `tickets` (migración SQL en `server/ticket-store.ts`).
+- Añadir campo nuevo `short_summary TEXT NULL` en tabla `tickets` (migración SQL en `server/modules/specs/runtime/ticket-store.ts`).
 - Generar `short_summary` (~120 chars, 2 líneas) **solo en escritura/actualización AI de la spec**, dentro de la misma llamada existente (coste extra ~0):
   - Quick: `POST /tickets/generate-spec`
   - Explore: `POST /tickets/from-draft`

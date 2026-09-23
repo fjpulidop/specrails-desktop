@@ -11,27 +11,27 @@ import {
   getQuickContractRefineLast, setQuickContractRefineLast, hasQuickContractRefineLast,
   getTelemetryBlob, getTelemetrySummaries
 } from './db'
-import { createDiagnosticZip } from './telemetry-export'
+import { createDiagnosticZip } from './modules/accounting/runtime/telemetry-export'
 import { resolveIntegrationBranch } from './integration-branch'
 import { defaultGitRunner } from './worktree-manager'
-import { getContextBudget } from './context-budget'
+import { getContextBudget } from './modules/conversations/runtime/context-budget'
 import {
   getLastContextScope, setLastContextScope, normalizeContextScope
-} from './context-scope'
+} from './modules/conversations/runtime/context-scope'
 import {
   getModelsForProvider,
   getProviderDefault,
   isValidModelForProvider,
   type SpecProvider,
-} from './spec-models'
+} from './modules/specs/runtime/spec-models'
 import {
   getDesktopTerminalSettings,
   getProjectOverride,
   patchProjectOverride,
   resolveTerminalSettings,
   TerminalSettingsValidationError,
-} from './terminal-settings'
-import { listMarks } from './terminal-marks-store'
+} from './modules/terminals/runtime/terminal-settings'
+import { listMarks } from './modules/terminals/runtime/terminal-marks-store'
 import {
   type ProjectRoutesDeps,
   type ModelAlias, readAgentModels,
@@ -39,8 +39,8 @@ import {
   serializeInstallConfigYaml
 } from './project-router-helpers'
 import { installConfigPath } from './install-config-path'
-import { registerAgentRuntimeSettingsRoutes } from './agent-runtime-settings-router'
-import { registerAgentRuntimeControlRoutes } from './agent-runtime-controls-router'
+import { registerAgentRuntimeSettingsRoutes } from './modules/agent-runtime/runtime/agent-runtime-settings-router'
+import { registerAgentRuntimeControlRoutes } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
 
 export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
   registerAgentRuntimeSettingsRoutes(deps)

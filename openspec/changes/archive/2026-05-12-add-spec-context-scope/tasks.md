@@ -1,6 +1,6 @@
 ## 1. Server — context-budget endpoint
 
-- [x] 1.1 Add `server/context-budget.ts` computing `{ specrailsSpecsTokens, openspecSpecsTokens, codebaseFileCount, codebaseEstimatedTokens, mcpServers }` via a recursive walk with 60s in-memory per-project cache (token estimate = bytes/4 heuristic, codebase walk respects `.gitignore`).
+- [x] 1.1 Add `server/modules/conversations/runtime/context-budget.ts` computing `{ specrailsSpecsTokens, openspecSpecsTokens, codebaseFileCount, codebaseEstimatedTokens, mcpServers }` via a recursive walk with 60s in-memory per-project cache (token estimate = bytes/4 heuristic, codebase walk respects `.gitignore`).
 - [x] 1.2 Register `GET /api/projects/:projectId/context-budget` in `server/project-router.ts` that returns the JSON shape above.
 - [x] 1.3 Unit-test `context-budget.ts` for: empty project, project with only specrails specs, project with only openspec specs, cache hit within TTL, cache miss past TTL.
 
@@ -37,13 +37,13 @@
 
 ## 7. Client — types and hook
 
-- [x] 7.1 Add `client/src/types/context-scope.ts` mirroring server type.
-- [x] 7.2 Add `client/src/hooks/useContextBudget.ts` that fetches `GET /context-budget` for the active project with 60s stale window and surfaces `{ data, isError }`.
-- [x] 7.3 Add `client/src/hooks/useContextScope.ts` that loads `GET /context-scope-last`, falls back to default boot (incl. reading global `explore_mcp_enabled` via existing API), and exposes `{ scope, setScope, resetToDefault }`. Persists on submit (called by the modal).
+- [x] 7.1 Add `client/src/features/chat/types/context-scope.ts` mirroring server type.
+- [x] 7.2 Add `client/src/features/chat/hooks/useContextBudget.ts` that fetches `GET /context-budget` for the active project with 60s stale window and surfaces `{ data, isError }`.
+- [x] 7.3 Add `client/src/features/chat/hooks/useContextScope.ts` that loads `GET /context-scope-last`, falls back to default boot (incl. reading global `explore_mcp_enabled` via existing API), and exposes `{ scope, setScope, resetToDefault }`. Persists on submit (called by the modal).
 
 ## 8. Client — ContextScopeChecks component
 
-- [x] 8.1 Create `client/src/components/ContextScopeChecks.tsx` rendering the four toggles with the required labels and order. MCPs toggle disabled with tooltip "Explore mode only" when `mode='quick'`.
+- [x] 8.1 Create `client/src/features/chat/components/ContextScopeChecks.tsx` rendering the four toggles with the required labels and order. MCPs toggle disabled with tooltip "Explore mode only" when `mode='quick'`.
 - [x] 8.2 Unit tests covering: render in Quick (MCPs disabled), render in Explore (all enabled), toggles operate independently, callback fires with correct partial.
 
 ## 9. Client — CostAwarenessMeter component

@@ -6,9 +6,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import express, { Router, type Express } from 'express'
 import request from 'supertest'
 import { initDb, createJob, finishJob, type DbInstance } from './db'
-import { createLoopRun, finishLoopRun } from './loop-runs-store'
+import { createLoopRun, finishLoopRun } from './modules/loops/runtime/loop-runs-store'
 import { registerJobsRoutes } from './project-router-jobs'
-import { JobNotFoundError } from './queue-manager'
+import { JobNotFoundError } from './modules/execution/runtime/queue-manager'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 
 interface FakeManagers {

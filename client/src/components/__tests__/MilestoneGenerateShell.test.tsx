@@ -3,9 +3,9 @@ import { premiumDescription, premiumCriteria } from '../../lib/__tests__/premium
 import { act, render, screen, waitFor } from '../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MilestoneGenerateShell } from '../project-builder/MilestoneGenerateShell'
+import { MilestoneGenerateShell } from '../../features/builder/components/project-builder/MilestoneGenerateShell'
 import { SharedWebSocketContext } from '../../hooks/useSharedWebSocket'
-import type { Blueprint } from '../../lib/blueprint-draft'
+import type { Blueprint } from '../../features/builder/lib/blueprint-draft'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock('../../lib/api', () => ({ getApiBase: () => '/api/projects/proj-1' }))

@@ -55,7 +55,7 @@ Framer-Motion `layout` + `layoutId` por ticket: cuando un ticket cambia de tier,
 
 ### `short_summary` — schema y generación
 
-**Decisión schema**: nueva columna `short_summary TEXT NULL` en `tickets`. Migración nueva en `server/ticket-store.ts` (siguiendo el patrón existente con `schema_version` bump). El JSON store mirror también se extiende.
+**Decisión schema**: nueva columna `short_summary TEXT NULL` en `tickets`. Migración nueva en `server/modules/specs/runtime/ticket-store.ts` (siguiendo el patrón existente con `schema_version` bump). El JSON store mirror también se extiende.
 
 **Decisión generación**: extender los prompts AI ya existentes para que devuelvan un campo extra `shortSummary` en su JSON de salida. El parser tolera campo ausente (legacy responses) — no rompe nada.
 
@@ -64,8 +64,8 @@ Flujos a tocar:
 1. **Quick** (`server/project-router.ts` `POST /tickets/generate-spec`): prompt actual + "Also produce a `shortSummary` field (max 120 chars, 2 lines, plain language)".
 2. **Explore from-draft** (`POST /tickets/from-draft`): ya invoca al modelo para enriquecer; añadir el campo.
 3. **SMASH** (`specs-smash` engine, ambos modos Simple y Full): cada sub-spec creada recibe su propio `shortSummary` generado en la misma llamada de decomposición.
-4. **AI Refine** (`server/agent-refine-manager.ts`): si la refine produce un nuevo título o descripción, regenera `shortSummary`. Si no, se conserva el anterior.
-5. **Contract Refine** (`server/contract-refine-runner.ts`): no toca summary (su scope es Contract Layer únicamente).
+4. **AI Refine** (`server/modules/agents/runtime/agent-refine-manager.ts`): si la refine produce un nuevo título o descripción, regenera `shortSummary`. Si no, se conserva el anterior.
+5. **Contract Refine** (`server/modules/specs/runtime/contract-refine-runner.ts`): no toca summary (su scope es Contract Layer únicamente).
 
 **Validación**: trim, max 240 chars de seguridad (HARD cap server-side), null si vacío. No HTML, solo texto plano.
 

@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync
 import os from 'node:os'
 import { join } from 'node:path'
 import { checkCoreCompletion, coreVerificationContext, prepareCoreExecution } from './core-execution'
-import type { RunExecutionManifest } from './multi-repo-execution-store'
+import type { RunExecutionManifest } from './modules/delivery/runtime/multi-repo-execution-store'
 
 vi.mock('./path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath }))
 const roots: string[] = []

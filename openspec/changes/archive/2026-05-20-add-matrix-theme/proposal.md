@@ -21,7 +21,7 @@ The hub ships with three built-in themes (`dracula`, `aurora-light`, `obsidian-d
 
 ## Impact
 
-- `client/src/lib/themes.ts` — append a `matrix` descriptor and extend the `THEME_IDS` allow-list.
+- `client/src/features/settings/lib/themes.ts` — append a `matrix` descriptor and extend the `THEME_IDS` allow-list.
 - `client/src/globals.css` — new `[data-theme="matrix"] { ... }` block with the full token contract.
 - `client/src/lib/theme-palettes.ts` (or equivalent xterm / Recharts / LogViewer palette maps) — add the matrix-mode palettes.
 - `server/hub-router.ts` — extend the server-side theme allow-list.

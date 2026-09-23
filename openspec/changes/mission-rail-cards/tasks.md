@@ -1,6 +1,6 @@
 ## 1. Protocol + persistence
 
-- [x] 1.1 Define the `rail-launch` block contract (`server/rail-launch-parser.ts` ⇄ `client/src/lib/rail-launch-draft.ts`): schema v1, tolerant JSON via `json-tolerant`, unknown keys dropped, `rejected[]`/`truncated`, fence promotion for local engines; unit tests both sides
+- [x] 1.1 Define the `rail-launch` block contract (`server/modules/delivery/runtime/rail-launch-parser.ts` ⇄ `client/src/features/rails/lib/rail-launch-draft.ts`): schema v1, tolerant JSON via `json-tolerant`, unknown keys dropped, `rejected[]`/`truncated`, fence promotion for local engines; unit tests both sides
 - [x] 1.2 Desktop-db migration: nullable `agent_messages.intent` JSON; `agent-store.ts` read/write; `PATCH /api/agent/conversations/:id/messages/:mid/intent` (validated `rail-launch` intent shape) + tests
 - [x] 1.3 Extend `PrDecisionCardEnvelope` with optional `runIds`, `railIndex`, `phase`, `runtime` (status, step, canResume, recoverableSteps, pendingApproval, failure{code,detail,stepId}); keep `decision` vocabulary; mobile translation ignores new fields; tests
 - [x] 1.4 Feature flags `SPECRAILS_MISSION_RAIL_CARDS` / `VITE_FEATURE_MISSION_RAIL_CARDS` and `SPECRAILS_MISSION_FAILURE_TURN` (default on) in `feature-flags.ts` + server helpers
@@ -9,7 +9,7 @@
 
 - [x] 2.1 `rails-router.ts`: shared-cwd branch posts a run card (`postPrDecisionCard` with `prDeliveryId: null`, run ids) when `originConversationId` is present; 202 payload carries `runIds` + `railIndex`
 - [x] 2.2 `rails-router.ts` / `rails-store.ts`: rails list returns `availability: free|busy|pending_decision|on_review`
-- [x] 2.3 `server/mission-run-notify.ts` `notifyMissionRunFailure(ctx, …)`: envelope update + `system` row `{kind:'run-failure'}` + auto-turn enqueue (dedup per run id, queue while streaming, flag-gated); wired from `onLoopRunFinished`/`onJobFinished` (failed/stalled/provider_limit), the isolated settle path, and `stuck-run-detector`; tests
+- [x] 2.3 `server/modules/missions/runtime/mission-run-notify.ts` `notifyMissionRunFailure(ctx, …)`: envelope update + `system` row `{kind:'run-failure'}` + auto-turn enqueue (dedup per run id, queue while streaming, flag-gated); wired from `onLoopRunFinished`/`onJobFinished` (failed/stalled/provider_limit), the isolated settle path, and `stuck-run-detector`; tests
 - [x] 2.4 `agent-failure-briefing.ts`: fixed briefing builder (run, rail, tickets, failure code+detail, verify tail if harvested, recovery options, "do not relaunch by yourself"); `AgentChatManager.startSystemTurn` accounted in `agent_invocations`; one-per-run guard; tests
 - [x] 2.5 Running-phase updates: `updatePrDecisionCard` on run start/step change/settle so the card's snapshot reflects phase transitions (throttled); tests
   <!-- WIP: run start (phase running) + settle are wired (postRunCard/settleRunCard, isolated envelopes carry `phase`); per-STEP card updates are NOT emitted — the client prefers live useRuntimeRuns/WS data while running, so this is deliberately deferred. -->

@@ -24,7 +24,7 @@ vi.mock('./hooks', () => ({
 
 import { spawn as mockSpawn, execSync as mockExecSync } from 'child_process'
 import { newId as mockUuidV4 } from './ids'
-import { InvalidJobDependencyError, QueueManager } from './queue-manager'
+import { InvalidJobDependencyError, QueueManager } from './modules/execution/runtime/queue-manager'
 import type { WsMessage } from './types'
 
 function createMockChildProcess() {

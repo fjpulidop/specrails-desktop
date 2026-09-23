@@ -30,17 +30,17 @@ None. The SpecsBoard, TicketDetailModal, and AnalyticsPage existing capabilities
 ## Impact
 
 - **Server**:
-  - `server/ticket-store.ts` — extend `Ticket` type with `is_epic: boolean`, `parent_epic_id: string | null`, `execution_order: number | null`. Bump `schema_version` from `'1.1'` to `'1.2'`; old stores keep loading (defaults applied on read).
-  - New `server/smash-runner.ts` — orchestrates spawn, parses output, executes transactional insert (épica flip + N children) inside a single store mutex.
-  - New `server/explore-smash.ts` (pure) — `SMASH_PROMPT_VERSION`, `buildSmashSystemPrompt()`, `SmashChildSchema` (ajv), `parseSmashOutput()`, `validateSmashChildren()`.
+  - `server/modules/specs/runtime/ticket-store.ts` — extend `Ticket` type with `is_epic: boolean`, `parent_epic_id: string | null`, `execution_order: number | null`. Bump `schema_version` from `'1.1'` to `'1.2'`; old stores keep loading (defaults applied on read).
+  - New `server/modules/specs/runtime/smash-runner.ts` — orchestrates spawn, parses output, executes transactional insert (épica flip + N children) inside a single store mutex.
+  - New `server/modules/conversations/runtime/explore-smash.ts` (pure) — `SMASH_PROMPT_VERSION`, `buildSmashSystemPrompt()`, `SmashChildSchema` (ajv), `parseSmashOutput()`, `validateSmashChildren()`.
   - `server/project-router.ts` — new `POST /tickets/:id/smash` endpoint, `POST /tickets/:id/smash/undo` endpoint, `DELETE /tickets/:id` cascade (orphan children).
-  - `server/ai-invocations.ts` — accept `surface='smash'`; no other changes.
+  - `server/modules/accounting/runtime/ai-invocations.ts` — accept `surface='smash'`; no other changes.
   - WebSocket events — new `smash.started`, `smash.progress` (pill state), `smash.completed`, `smash.failed`, all project-scoped.
 - **Client**:
-  - `client/src/components/TicketDetailModal.tsx` — SMASH button in actions row, inline confirm, streaming pills, hijos section render, breadcrumb for children, Re-SMASH variant.
-  - `client/src/components/SpecCard.tsx`, `TicketListView`, `TicketGridView`, `TicketPostItView`, `TicketStatusIndicator` — render `💥 N hijos` badge on épicas and `↑ Épica: X` pill on children; new variant alongside the existing draft variant.
-  - New `client/src/context/SmashTrackerContext.tsx` — mounted at `App.tsx` root (sibling of `ContractRefineTrackerProvider`); listens to SMASH WS events, drives sonner toasts with Deshacer action.
-  - `client/src/pages/AnalyticsPage.tsx` + `client/src/components/analytics/*` — add `smash` surface chip, colour mapping `accent-highlight`, exporter columns.
+  - `client/src/features/specs/components/TicketDetailModal.tsx` — SMASH button in actions row, inline confirm, streaming pills, hijos section render, breadcrumb for children, Re-SMASH variant.
+  - `client/src/features/specs/components/SpecCard.tsx`, `TicketListView`, `TicketGridView`, `TicketPostItView`, `TicketStatusIndicator` — render `💥 N hijos` badge on épicas and `↑ Épica: X` pill on children; new variant alongside the existing draft variant.
+  - New `client/src/features/specs/context/SmashTrackerContext.tsx` — mounted at `App.tsx` root (sibling of `ContractRefineTrackerProvider`); listens to SMASH WS events, drives sonner toasts with Deshacer action.
+  - `client/src/features/analytics/pages/AnalyticsPage.tsx` + `client/src/components/analytics/*` — add `smash` surface chip, colour mapping `accent-highlight`, exporter columns.
 - **Storage & migrations**: new ticket-store schema version `1.2` (backwards-compatible read). No new SQLite migration — tickets live in JSON store today.
 - **Env / config**: new `SPECRAILS_SMASH` server env var (default ON); no client build flag (the feature is in-app, no early-stage toggle).
 - **Tests**: server unit tests for the pure parser/validator + runner integration; client component tests for the modal action and the tracker provider; analytics tests for the new surface chip.

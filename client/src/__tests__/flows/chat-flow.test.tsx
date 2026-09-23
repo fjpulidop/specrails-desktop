@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import React from 'react'
-import { useChat } from '../../hooks/useChat'
+import { useChat } from '../../features/chat/hooks/useChat'
 
 // Mock dependencies
 vi.mock('../../lib/api', () => ({

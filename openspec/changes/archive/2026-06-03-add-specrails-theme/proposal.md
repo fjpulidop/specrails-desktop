@@ -4,7 +4,7 @@ specrails-hub ships four themes today (Dracula, Aurora Light, Obsidian Dark, Mat
 
 ## What Changes
 
-- **`client/src/lib/themes.ts`** — define `SPECRAILS_PALETTE` const; append `'specrails'` to `THEME_IDS`; add a `SPECRAILS` `ThemeDescriptor` entry in the `THEMES` registry (xterm, chart, status, previewSwatches); change `DEFAULT_THEME` from `'dracula'` to `'specrails'`.
+- **`client/src/features/settings/lib/themes.ts`** — define `SPECRAILS_PALETTE` const; append `'specrails'` to `THEME_IDS`; add a `SPECRAILS` `ThemeDescriptor` entry in the `THEMES` registry (xterm, chart, status, previewSwatches); change `DEFAULT_THEME` from `'dracula'` to `'specrails'`.
 - **`client/src/globals.css`** — add `[data-theme="specrails"] { ... }` block redefining every `--color-*` semantic token for the new palette. No existing token block is touched.
 - **`server/hub-router.ts`** — add `'specrails'` to `THEME_ID_ALLOWLIST` so `PATCH /api/hub/theme` accepts the new value.
 
@@ -22,7 +22,7 @@ No other files need changes. The theme system is additive by design: components 
 
 **3 files touched in specrails-hub (purely additive, no deletions):**
 
-- `client/src/lib/themes.ts` — palette const + descriptor + THEME_IDS + DEFAULT_THEME change
+- `client/src/features/settings/lib/themes.ts` — palette const + descriptor + THEME_IDS + DEFAULT_THEME change
 - `client/src/globals.css` — one new CSS block, ~35 lines
 - `server/hub-router.ts` — one string added to a Set literal
 

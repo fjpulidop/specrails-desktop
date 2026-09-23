@@ -27,8 +27,8 @@ The same post-await placement also means that on every send — remount or not �
 
 ## Impact
 
-- `client/src/lib/agent-composer-drafts.ts` — the session draft store gains change notification so mounted composers converge on it.
-- `client/src/components/agent-chat/AgentComposer.tsx` — `submit()` clears before the await and restores on rejection; the visible value stops depending on this instance having survived.
-- `client/src/context/AgentChatContext.tsx` — `send()` keeps its accept/reject contract; `materializeDraftConversation`'s draft migration is unchanged.
+- `client/src/features/missions/lib/agent-composer-drafts.ts` — the session draft store gains change notification so mounted composers converge on it.
+- `client/src/features/missions/components/AgentComposer.tsx` — `submit()` clears before the await and restores on rejection; the visible value stops depending on this instance having survived.
+- `client/src/features/missions/context/AgentChatContext.tsx` — `send()` keeps its accept/reject contract; `materializeDraftConversation`'s draft migration is unchanged.
 - `client/src/components/agent-chat/__tests__/` — new coverage over the real Agent-Mode and floating-panel trees.
 - No server, REST, WebSocket, or persistence change. No i18n change.

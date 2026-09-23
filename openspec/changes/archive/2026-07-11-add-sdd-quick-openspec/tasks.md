@@ -1,6 +1,6 @@
 ## 1. Factory Loop Surface
 
-- [x] 1.1 Add a `factory:sdd-quick-openspec` factory loop entry named `SDD Quick (OpenSpec)` in `server/loop-factory.ts`, mapped to rail `loop` mode and backed by the OpenSpec lifecycle graph.
+- [x] 1.1 Add a `factory:sdd-quick-openspec` factory loop entry named `SDD Quick (OpenSpec)` in `server/modules/loops/runtime/loop-factory.ts`, mapped to rail `loop` mode and backed by the OpenSpec lifecycle graph.
 - [x] 1.2 Preserve compatibility for existing `factory:openspec` references, either as a visible legacy entry or a hidden alias that still resolves through `getFactoryLoop` / `factoryLoopMode`.
 - [x] 1.3 Update factory loop tests to cover the new id, display name, mode mapping, and compatibility behavior.
 - [x] 1.4 Update any loop gallery or factory-loop ordering tests that assert exact factory loop lists.
@@ -20,7 +20,7 @@
 
 ## 4. Operator Policy
 
-- [x] 4.1 Update `server/agent-operator-prompt.ts` so small work is classified as Freestyle, SDD Quick (OpenSpec), Implement, or Batch before launch.
+- [x] 4.1 Update `server/modules/missions/runtime/agent-operator-prompt.ts` so small work is classified as Freestyle, SDD Quick (OpenSpec), Implement, or Batch before launch.
 - [x] 4.2 Add prompt rules that Freestyle is only valid for ticket-local implementation-only changes when OpenSpec artifacts are relevant.
 - [x] 4.3 Add prompt rules that SDD Quick (OpenSpec) requires a local ticket and, when known, stores the target OpenSpec change name in ticket metadata before launch.
 - [x] 4.4 Update operator prompt tests to assert the new strategy name, Freestyle guardrail, ticket metadata requirement, and ai-spawn confirmation framing.

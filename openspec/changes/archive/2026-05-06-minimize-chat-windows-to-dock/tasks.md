@@ -6,7 +6,7 @@
 
 ## 2. MinimizedChatsProvider
 
-- [x] 2.1 Create `client/src/context/MinimizedChatsContext.tsx` exporting `MinimizedChatsProvider`, `useMinimizedChats()`, and the `MinimizedChat` discriminated-union type from `design.md` D2
+- [x] 2.1 Create `client/src/features/missions/context/MinimizedChatsContext.tsx` exporting `MinimizedChatsProvider`, `useMinimizedChats()`, and the `MinimizedChat` discriminated-union type from `design.md` D2
 - [x] 2.2 Implement state: `chats[]`, `open(kind, params): id`, `minimize(id)`, `restore(id)`, `close(id)`, `setVisible(id, visible)` with the same-project mutual-exclusion rule (D2/D3)
 - [ ] 2.3 Implement hidden host: render a `<div data-testid="minimized-chats-host">` always-mounted with `display: none` styling, plus a slot per chat where shells render
   - Pragmatic deviation: shells unmount on minimize and rehydrate from server-side state on restore (via `resumeConversationId` / `resumeRefineId`) instead of being hoisted into a hidden host. Avoids invasive lift of `ChatContext` out of `ProjectLayout`. Trade-off: ephemeral local state (composer text in flight, in-progress streaming text) is not preserved across minimize. Consider a follow-up to upgrade to true hoisting if this matters.
@@ -27,7 +27,7 @@
 > stack alongside the existing project-level Quick-mode spec-generation
 > toasts (same glass-card chrome, same bottom-right position).
 
-- [x] 4.1 Create `client/src/components/minimized-chats/MinimizedChatsDock.tsx` rendering fixed bottom-right above the sonner Toaster
+- [x] 4.1 Create `client/src/features/missions/components/minimized-chats/MinimizedChatsDock.tsx` rendering fixed bottom-right above the sonner Toaster
 - [x] 4.2 Render one chip per chat with kind icon, label, owning project name, and `×` close affordance
 - [x] 4.3 Order chips newest-on-top
 - [x] 4.4 Hide the dock when chips list is empty OR when active project's `isInSetup` is true
@@ -44,7 +44,7 @@
 
 ## 6. ExploreSpecShell hoist + minimize button
 
-- [x] 6.1 Refactor `client/src/components/explore-spec/ExploreSpecShell.tsx` to render exclusively via the provider's host slot (no longer a child of `ProposeSpecModal`'s Dialog)
+- [x] 6.1 Refactor `client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx` to render exclusively via the provider's host slot (no longer a child of `ProposeSpecModal`'s Dialog)
   - Shipped as: shell rendered by `SpecsBoard` (parent of `ProposeSpecModal`) instead of by the modal itself, so the shell's lifecycle is decoupled from modal open/close.
 - [x] 6.2 Update `ProposeSpecModal` to call `openExploreSpec(...)` on the provider instead of rendering the shell; the modal becomes a pure trigger
   - Shipped as: modal exposes `onExploreLaunch(payload)` callback; `SpecsBoard` consumes it and owns the shell.
@@ -57,7 +57,7 @@
 
 ## 7. AiEditShell hoist + minimize button
 
-- [x] 7.1 Refactor `client/src/components/ai-edit/AiEditShell.tsx` and `client/src/components/agents/AiRefineOverlay.tsx` to mount via the provider; replace the early-return in `AgentsCatalogTab` with a provider call (`openAiEdit({ agentId, refineId? })`)
+- [x] 7.1 Refactor `client/src/features/code/components/ai-edit/AiEditShell.tsx` and `client/src/features/agents/components/AiRefineOverlay.tsx` to mount via the provider; replace the early-return in `AgentsCatalogTab` with a provider call (`openAiEdit({ agentId, refineId? })`)
 - [x] 7.2 Move (or hoist) `useAgentRefine` so its state lives with the hoisted shell instance — guarantee state survives navigation away from `/agents`
 - [x] 7.3 Add a minimize button to the header next to the existing close button; on click, call `minimize(id)` — must NOT cancel the in-flight refine spawn and MUST NOT write to disk
 - [x] 7.4 Compute chip label from `agentId` (e.g., `AI Edit · sr-developer`); set `restoreRoute` to `/agents` with the catalog tab active

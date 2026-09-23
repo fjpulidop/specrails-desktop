@@ -1,11 +1,11 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
-import type { LoopSpec } from './loop-graph'
-import type { RunExecutionManifest } from './multi-repo-execution-store'
+import type { LoopSpec } from './modules/loops/runtime/loop-graph'
+import type { RunExecutionManifest } from './modules/delivery/runtime/multi-repo-execution-store'
 import { resolveCoreNodeRuntime } from './core-node-runtime'
 import { assertWorkspaceCoreReady } from './core-update-state'
-import { findCoreAgentRuntimeCli } from './agent-runtime-loader'
+import { findCoreAgentRuntimeCli } from './modules/agent-runtime/runtime/agent-runtime-loader'
 
 export interface CoreRunInput {
   runId: string

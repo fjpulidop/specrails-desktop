@@ -19,9 +19,9 @@ Routing rules in agent profiles can be added, reordered, deleted, and have their
 
 ## Impact
 
-- `client/src/components/agents/RoutingRuleDialog.tsx` — gain edit mode
-- `client/src/components/agents/ProfileEditor.tsx` — new `setRoutingRuleTags` handler; guards on default rule
-- `server/profile-manager.ts` — `validateStructural` rejects default rule with agent ≠ `sr-developer`
+- `client/src/features/agents/components/RoutingRuleDialog.tsx` — gain edit mode
+- `client/src/features/agents/components/ProfileEditor.tsx` — new `setRoutingRuleTags` handler; guards on default rule
+- `server/modules/agents/runtime/profile-manager.ts` — `validateStructural` rejects default rule with agent ≠ `sr-developer`
 - `server/schemas/profile.v1.json` — (optional) tighten default rule agent; may skip and rely on structural check since schema is shared with specrails-core
 - Tests: `ProfileEditor.test.tsx`, `profile-manager.test.ts`
 - No DB migration, no WS protocol change, no user data migration (zero users on 1.39.0 as of 2026-04-24)

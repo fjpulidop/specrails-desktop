@@ -2,10 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 
 vi.mock('../useDesktop', () => ({ useDesktop: () => ({ activeProjectId: 'p1' }) }))
-vi.mock('../../lib/jira-api', () => ({ jiraApi: { getConnection: vi.fn() } }))
+vi.mock('../../features/integrations/lib/jira-api', () => ({ jiraApi: { getConnection: vi.fn() } }))
 
-import { useJiraConnection } from '../useJiraConnection'
-import { jiraApi } from '../../lib/jira-api'
+import { useJiraConnection } from '../../features/integrations/hooks/useJiraConnection'
+import { jiraApi } from '../../features/integrations/lib/jira-api'
 
 const api = jiraApi as unknown as { getConnection: ReturnType<typeof vi.fn> }
 

@@ -5,8 +5,8 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { initDb, type DbInstance } from './db'
-import { createProfilesRouter } from './profiles-router'
-import { createRefineSession, getRefineSession } from './agent-refine-db'
+import { createProfilesRouter } from './modules/agents/runtime/profiles-router'
+import { createRefineSession, getRefineSession } from './modules/agents/runtime/agent-refine-db'
 import type { ProjectContext } from './project-registry'
 
 let projectPath: string

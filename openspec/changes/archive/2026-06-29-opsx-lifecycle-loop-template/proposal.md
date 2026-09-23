@@ -23,7 +23,7 @@ Driving a Specrails ticket all the way through the OpenSpec lifecycle (scaffold 
 
 ## Impact
 
-- **Server**: `server/loop-command-catalog.ts` (3 new commands), `server/loop-templates.ts` (`LOOP_TEMPLATES` hand-authored graph), `server/loop-run-manager.ts` (`{{run.changeId}}` capture + resolution in ai-step prompts and shell commands).
+- **Server**: `server/modules/loops/runtime/loop-command-catalog.ts` (3 new commands), `server/modules/loops/runtime/loop-templates.ts` (`LOOP_TEMPLATES` hand-authored graph), `server/modules/loops/runtime/loop-run-manager.ts` (`{{run.changeId}}` capture + resolution in ai-step prompts and shell commands).
 - **Tests**: new unit tests for the three providers' command expansion, the template's graph validation/compilation/launch, the change-id capture + resolution, and the archive shell node. Must hold the mandatory coverage gates (80% server lines/functions/statements, 70% branches).
 - **No client changes required** for v1 (the template appears in the existing gallery via `GET /loop-templates`; `Automation` is an existing category, so no taxonomy edit on client or server).
 - **No `specrails-core` changes.** The `opsx:*` commands are installed by OpenSpec, not the specrails framework.

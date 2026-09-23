@@ -37,7 +37,7 @@ Out of scope (explicit decisions taken in `/opsx:explore`):
 - **Client types**: `client/src/types.ts` — `JobSummary` (or a new `JobDetail`) gains `tickets?: Array<{ id; title }>`.
 - **Client UI**:
   - `client/src/components/JobCompletionSummary.tsx` extends to a `running` rendering branch (header label, spinner, ticking duration, live aggregator). Likely renamed to `JobStatusPanel` to reflect the broader role.
-  - `client/src/pages/JobDetailPage.tsx` removes the `status === 'completed' | 'failed'` gate around the panel; adds the new ticket-identity card above the metadata row; demotes command + status badge.
+  - `client/src/features/jobs/pages/JobDetailPage.tsx` removes the `status === 'completed' | 'failed'` gate around the panel; adds the new ticket-identity card above the metadata row; demotes command + status badge.
   - New component: `JobTicketHeader` (or similar) handling single/multi/empty/deleted-ticket states and modal trigger.
   - Reuses an existing spec/ticket detail modal — confirm the right component during implementation.
 - **Tests**: extend `JobCompletionSummary.test.tsx` (running branch, ticker, live aggregation, cost dash); extend `JobDetailPage.test.tsx` (gate removal, ticket header rendering, deleted-ticket fallback, multi-ticket expand); add server-side test for `GET /jobs/:id` `tickets[]` resolution incl. deleted-ticket case.

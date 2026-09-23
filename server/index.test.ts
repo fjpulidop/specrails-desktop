@@ -20,7 +20,7 @@ vi.mock('./config', () => ({
 }))
 
 // Mock QueueManager so routes are tested without spawning real processes
-vi.mock('./queue-manager', async () => {
+vi.mock('./modules/execution/runtime/queue-manager', async () => {
   const ClaudeNotFoundError = class extends Error {
     constructor() {
       super('claude binary not found')
@@ -62,7 +62,7 @@ vi.mock('./queue-manager', async () => {
 
 import express from 'express'
 import { createHooksRouter, getPhaseStates, resetPhases } from './hooks'
-import { QueueManager, ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError } from './queue-manager'
+import { QueueManager, ClaudeNotFoundError, JobNotFoundError, JobAlreadyTerminalError } from './modules/execution/runtime/queue-manager'
 import { initDb, listJobs, getJob, getJobEvents, getStats } from './db'
 import type { DbInstance } from './db'
 import { getConfig, fetchIssues } from './config'

@@ -11,7 +11,7 @@ Mission agents (Desktop agent chat) wire exactly ONE MCP server today: the embed
 Users with their own MCP servers (Jira, internal tooling) cannot expose them to missions. The only existing user-MCP surface is Explore's per-spec `context_scope.userMcp` toggle (claude-only, `server/user-mcp-config.ts`), which never reaches missions.
 
 Existing precedents this design deliberately reuses:
-- **Settings blob**: `desktop_settings['specrails_agent_defaults']` (`server/agent-defaults.ts`) — one JSON k/v entry, typed validation errors, `GET/PATCH` pair in `desktop-router.ts` (lines ~1213).
+- **Settings blob**: `desktop_settings['specrails_agent_defaults']` (`server/modules/agents/runtime/agent-defaults.ts`) — one JSON k/v entry, typed validation errors, `GET/PATCH` pair in `desktop-router.ts` (lines ~1213).
 - **Native-config reader**: `readUserClaudeMcpServers` (`server/user-mcp-config.ts`) — tolerant read of `~/.claude.json`, never throws.
 - **Owned-key hygiene**: `PluginManager.mergeMcpServers/removeMcpServers` — surgical add/remove of app-owned keys in a shared JSON file.
 
@@ -104,7 +104,7 @@ Mirror of `/api/agent-defaults` (desktop-router, master token, loopback):
 
 ### D7 — Operator prompt line
 
-One appended sentence in `server/agent-operator-prompt.ts`: additional user-configured tools may be present; ALL Specrails app operations MUST still go through `specrails_*` tools. Prevents the agent from confusing a user's `jira` MCP with `specrails_jira`.
+One appended sentence in `server/modules/missions/runtime/agent-operator-prompt.ts`: additional user-configured tools may be present; ALL Specrails app operations MUST still go through `specrails_*` tools. Prevents the agent from confusing a user's `jira` MCP with `specrails_jira`.
 
 ### D8 — Missions-only seam
 

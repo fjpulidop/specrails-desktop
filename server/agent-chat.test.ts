@@ -17,7 +17,7 @@ import {
   AGENT_TIER_ENV,
   AGENT_CAPABILITY_HEADER,
   AGENT_CAPABILITY_FILE_ENV,
-} from './agent-tier'
+} from './modules/missions/runtime/agent-tier'
 import {
   createAgentConversation,
   getAgentConversation,
@@ -26,7 +26,7 @@ import {
   deleteAgentConversation,
   addAgentMessage,
   listAgentMessages,
-} from './agent-store'
+} from './modules/agents/runtime/agent-store'
 import { buildSpecrailsMcpEntry, buildAgentMcpArgs, resolveBridgeScript, resolveNodeCommand, mergeSpecrailsIntoWorkspaceMcp, prepareAgentMcp } from './agent-mcp-config'
 import {
   ensureAgentCwd,
@@ -34,14 +34,14 @@ import {
   agentCwdPath,
   agentConversationCwdPath,
   removeAgentCwd,
-} from './agent-cwd-manager'
+} from './modules/missions/runtime/agent-cwd-manager'
 import { registerTieredTool, setActiveProject, getActiveProject, type McpToolContext, type McpToolSpec, type ToolHandlerExtra } from './mcp/tools/types'
-import { AGENT_PROJECT_HEADER } from './agent-tier'
+import { AGENT_PROJECT_HEADER } from './modules/missions/runtime/agent-tier'
 import { MobileEventBus } from './mobile/mobile-event-bus'
 import type { ProjectRegistry } from './project-registry'
 import { _resetAgentCapabilitiesForTest, mintAgentCapability } from './mcp/agent-capability'
 import fs from 'fs'
-import { getAgentInput } from './agent-input-store'
+import { getAgentInput } from './modules/missions/runtime/agent-input-store'
 import os from 'os'
 
 // ── agent-tier (pure ladder) ──────────────────────────────────────────────────
@@ -365,8 +365,8 @@ describe('registerTieredTool agent capability', () => {
 })
 
 // ── agent-chat-router (app-level REST) ────────────────────────────────────────
-import { createAgentChatRouter } from './agent-chat-router'
-import type { AgentChatManager } from './agent-chat-manager'
+import { createAgentChatRouter } from './modules/missions/runtime/agent-chat-router'
+import type { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 
 function makeApp(db: DbInstance, manager: Partial<AgentChatManager>) {
   const app = express()
@@ -722,14 +722,14 @@ describe('mission queue action routes', () => {
 })
 
 // ── AgentChatManager (mock the spawn core) ────────────────────────────────────
-import type { InvocationResult } from './spawn-lifecycle'
+import type { InvocationResult } from './modules/execution/runtime/spawn-lifecycle'
 import type { AdapterEvent } from './providers/types'
 
-vi.mock('./spawn-lifecycle', () => ({
+vi.mock('./modules/execution/runtime/spawn-lifecycle', () => ({
   runAiCliInvocation: vi.fn(),
 }))
-import { runAiCliInvocation } from './spawn-lifecycle'
-import { AgentChatManager as RealManager } from './agent-chat-manager'
+import { runAiCliInvocation } from './modules/execution/runtime/spawn-lifecycle'
+import { AgentChatManager as RealManager } from './modules/missions/runtime/agent-chat-manager'
 
 describe('AgentChatManager', () => {
   let db: DbInstance

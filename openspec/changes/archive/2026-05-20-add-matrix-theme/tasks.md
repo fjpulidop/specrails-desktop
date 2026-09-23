@@ -1,12 +1,12 @@
 ## 1. Palette definition
 
-- [x] 1.1 Define the matrix palette constants (background ramp, foreground mint, semantic accents, warm sentinels) in `client/src/lib/themes.ts` following the same `<NAME>_PALETTE` shape used by Dracula / Aurora / Obsidian.
-- [x] 1.2 Verify each accent slot meets the design's distinguishability rules (primary vs secondary lightness delta ≥ 0.15, warm hues for warning/highlight/destructive, teal for info) by walking through the palette in `client/src/lib/themes.ts` and adjusting hues until the checklist passes.
+- [x] 1.1 Define the matrix palette constants (background ramp, foreground mint, semantic accents, warm sentinels) in `client/src/features/settings/lib/themes.ts` following the same `<NAME>_PALETTE` shape used by Dracula / Aurora / Obsidian.
+- [x] 1.2 Verify each accent slot meets the design's distinguishability rules (primary vs secondary lightness delta ≥ 0.15, warm hues for warning/highlight/destructive, teal for info) by walking through the palette in `client/src/features/settings/lib/themes.ts` and adjusting hues until the checklist passes.
 
 ## 2. Theme registry
 
-- [x] 2.1 Append a `MATRIX: ThemeDescriptor` entry to `client/src/lib/themes.ts` with `id: 'matrix'`, scheme `'dark'`, a display name and tagline, preview swatches, the xterm palette, the Recharts series palette (spanning at least three hue families), and the status map.
-- [x] 2.2 Add `'matrix'` to the `THEME_IDS` tuple in `client/src/lib/themes.ts`.
+- [x] 2.1 Append a `MATRIX: ThemeDescriptor` entry to `client/src/features/settings/lib/themes.ts` with `id: 'matrix'`, scheme `'dark'`, a display name and tagline, preview swatches, the xterm palette, the Recharts series palette (spanning at least three hue families), and the status map.
+- [x] 2.2 Add `'matrix'` to the `THEME_IDS` tuple in `client/src/features/settings/lib/themes.ts`.
 - [x] 2.3 Add the entry to the `THEMES` map so `getActiveTheme()` resolves it.
 
 ## 3. CSS token contract
@@ -21,12 +21,12 @@
 
 ## 5. Settings preview card
 
-- [x] 5.1 Confirm `client/src/components/settings/AppearanceSection.tsx` iterates over `Object.values(THEMES)` (or `THEME_IDS`) so the new theme appears automatically; if it has a hard-coded count or list, lift it to read from the registry.
+- [x] 5.1 Confirm `client/src/features/settings/components/AppearanceSection.tsx` iterates over `Object.values(THEMES)` (or `THEME_IDS`) so the new theme appears automatically; if it has a hard-coded count or list, lift it to read from the registry.
 - [x] 5.2 Confirm the rendered Appearance section shows four cards (one per built-in theme), each with the matrix tagline and swatches matching the registry entry.
 
 ## 6. Tests
 
-- [x] 6.1 Extend `client/src/lib/__tests__/themes.test.ts` to assert (a) `'matrix'` is in `THEME_IDS`; (b) the matrix Recharts series palette has 5 unique entries; (c) the matrix xterm palette has the required 19 keys (no missing entries vs the `XtermTheme` interface).
+- [x] 6.1 Extend `client/src/features/settings/lib/__tests__/themes.test.ts` to assert (a) `'matrix'` is in `THEME_IDS`; (b) the matrix Recharts series palette has 5 unique entries; (c) the matrix xterm palette has the required 19 keys (no missing entries vs the `XtermTheme` interface).
 - [x] 6.2 Add an `AppearanceSection.test.tsx` (or extend the existing one) to assert that exactly four theme cards render and the matrix card is selectable.
 - [x] 6.3 Add a server-side test (or extend `server/hub-router.test.ts`) to assert `PATCH /api/hub/theme` with body `{ "theme": "matrix" }` returns 200 and the persisted value updates, and that `PATCH` with `{ "theme": "matricks" }` returns 400.
 - [x] 6.4 Add a contrast smoke test for the matrix theme: parse the resolved foreground / background HSL values and assert ≥ 4.5:1 contrast (use a tiny WCAG ratio helper if not already present).

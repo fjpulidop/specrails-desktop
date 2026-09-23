@@ -14,13 +14,13 @@
 
 ## 4. Frontend — useActivity Hook
 
-- [x] 4.1 Create `client/src/hooks/useActivity.ts`: fetches `GET ${getApiBase()}/activity` on mount and on `activeProjectId` change; returns `{ items, loadMore, loading }`
+- [x] 4.1 Create `client/src/features/analytics/hooks/useActivity.ts`: fetches `GET ${getApiBase()}/activity` on mount and on `activeProjectId` change; returns `{ items, loadMore, loading }`
 - [x] 4.2 Subscribe to WS messages (`phase`, `queue`) in `useActivity` to prepend new synthesized `ActivityItem` objects; filter by `activeProjectId` via ref; deduplicate by composite key `type+jobId`
 - [x] 4.3 Implement `loadMore()` using `before` cursor from the oldest item in current list; append results to existing list
 
 ## 5. Frontend — ActivityFeedPage
 
-- [x] 5.1 Create `client/src/pages/ActivityFeedPage.tsx`: renders a scrollable list of activity items using `useActivity`; shows icon per type, truncated command, relative timestamp, type label
+- [x] 5.1 Create `client/src/features/analytics/pages/ActivityFeedPage.tsx`: renders a scrollable list of activity items using `useActivity`; shows icon per type, truncated command, relative timestamp, type label
 - [x] 5.2 Add empty state when `items.length === 0` and not loading
 - [x] 5.3 Add "Load more" trigger at bottom of list (button or scroll sentinel) that calls `loadMore()`
 - [x] 5.4 Add `/activity` route in `client/src/App.tsx` under the per-project routes, rendering `<ActivityFeedPage />`

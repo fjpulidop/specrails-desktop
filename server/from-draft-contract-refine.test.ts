@@ -7,17 +7,17 @@ import request from 'supertest'
 
 // Mock the runner module BEFORE the router pulls it in: these tests assert the
 // SCHEDULING contract (which runner fires, with which args), not the spawn.
-vi.mock('./contract-refine-runner', () => ({
+vi.mock('./modules/specs/runtime/contract-refine-runner', () => ({
   runContractRefine: vi.fn(async () => ({ ok: true })),
   runContractRefineForQuick: vi.fn(async () => ({ ok: true })),
 }))
 
 import { createProjectRouter } from './project-router'
-import { runContractRefine, runContractRefineForQuick } from './contract-refine-runner'
+import { runContractRefine, runContractRefineForQuick } from './modules/specs/runtime/contract-refine-runner'
 import { initDb, createConversation, addMessage } from './db'
 import { initDesktopDb } from './desktop-db'
-import { resolveTicketStoragePath, mutateStore } from './ticket-store'
-import { CONTRACT_LAYER_SEPARATOR } from './explore-contract-refine'
+import { resolveTicketStoragePath, mutateStore } from './modules/specs/runtime/ticket-store'
+import { CONTRACT_LAYER_SEPARATOR } from './modules/conversations/runtime/explore-contract-refine'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import type { DbInstance } from './db'
 

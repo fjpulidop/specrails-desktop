@@ -599,11 +599,11 @@ Add after the build step, before the upload step:
 
 **Layer**: `[frontend]`
 
-**Description**: Modify `client/src/components/PrerequisitesPanel.tsx` (and associated hooks/types) to handle the `bundled: true` and `error: 'corrupted-bundle'` fields on prerequisite entries. In desktop mode, suppress the "More info" link and `InstallInstructionsModal`. Show "Bundle corrupted — reinstall app" message for corrupt entries.
+**Description**: Modify `client/src/features/projects/components/PrerequisitesPanel.tsx` (and associated hooks/types) to handle the `bundled: true` and `error: 'corrupted-bundle'` fields on prerequisite entries. In desktop mode, suppress the "More info" link and `InstallInstructionsModal`. Show "Bundle corrupted — reinstall app" message for corrupt entries.
 
 **Files**:
-- Modify: `client/src/components/PrerequisitesPanel.tsx`
-- Modify: `client/src/hooks/usePrerequisites.ts` (add type for new fields)
+- Modify: `client/src/features/projects/components/PrerequisitesPanel.tsx`
+- Modify: `client/src/features/projects/hooks/usePrerequisites.ts` (add type for new fields)
 
 **Changes**:
 
@@ -635,7 +635,7 @@ Add after the build step, before the upload step:
 **Description**: As a defence-in-depth guard, the `InstallInstructionsModal` component should not render OS-specific install instructions when the currently-missing tool has `error === 'corrupted-bundle'`. This is secondary to the `PrerequisitesPanel` change in Task 12 (which should prevent the modal from being opened at all), but ensures robustness.
 
 **Files**:
-- Modify: `client/src/components/InstallInstructionsModal.tsx` (or wherever the modal is defined)
+- Modify: `client/src/features/projects/components/InstallInstructionsModal.tsx` (or wherever the modal is defined)
 
 **Changes**:
 

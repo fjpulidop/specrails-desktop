@@ -20,7 +20,7 @@ verbs.
 
 This is the load-bearing design constraint, not a nicety. Three rules:
 
-1. **Every claim carries its source.** `server/review-packet.ts` splits proof
+1. **Every claim carries its source.** `server/modules/delivery/runtime/review-packet.ts` splits proof
    into three tiers and the tier travels with the item so the UI must label it:
 
    | Tier | Source | UI framing |
@@ -75,7 +75,7 @@ nothing-changed cases are exactly where a non-technical user is most abandoned:
 
 ## Decision verbs
 
-`client/src/lib/packet-verbs.ts` maps the FULL delivery state space (12
+`client/src/features/delivery/lib/packet-verbs.ts` maps the FULL delivery state space (12
 decisions × 9 actions × orthogonal outcome/status axes ≈ 14 presentation states)
 onto Accept / Request changes / Discard — and marks every state where that
 reduction would lie as `fineControlOnly`. Those states (the recovery family, a
@@ -84,7 +84,7 @@ instead of a friendly relabel of git work. The module header carries the full
 table; `resolvePacketVerbs` is total, defaulting to `fineControlOnly` rather
 than guessing.
 
-**Accept declares what it physically does.** `server/accept-ladder.ts`
+**Accept declares what it physically does.** `server/modules/execution/runtime/accept-ladder.ts`
 pre-resolves the ladder from shipped probes (`git remote`, offline
 `gh auth token`) and fails CLOSED to `merge-local`:
 
@@ -100,7 +100,7 @@ holds no optimistic state; a raced answer surfaces the neutral
 
 ## Surfaces
 
-- Routed page `/review/:prDeliveryId` (`client/src/pages/ReviewPacketPage.tsx`) —
+- Routed page `/review/:prDeliveryId` (`client/src/features/delivery/pages/ReviewPacketPage.tsx`) —
   chosen over a portal so the documented z-order ladder is irrelevant.
 - Entry points: a `Review` button on the rail strip's `on_review` row and on the
   agent-chat PR card. Both keep their precise git actions.
@@ -147,7 +147,7 @@ public catalog: its prompt consumes `{{const:REVISION_REQUEST}}`, which only a
 revision launch injects. The router forces this loop for any revision whatever
 the rail's stored mode is; without that, every tweak would re-run implement.
 
-**Fresh session by contract** (`server/revision-seed.ts`). The run is seeded from
+**Fresh session by contract** (`server/modules/execution/runtime/revision-seed.ts`). The run is seeded from
 durable state — the instruction, the frozen spec, the branch that carries the
 work, and what the previous run actually REPORTED (failure first). `--resume` of
 the prior session is not attempted: sessions are cwd-scoped to a released
@@ -177,7 +177,7 @@ rejected: it treats a 40-cent typo fix and a nine-dollar thrash identically.
 ## Narrated progress (Wave 3b)
 
 The third altitude on the job log surfaces, between the glance-level phase chips
-and the raw log. `client/src/components/loop-log/narration-model.ts`
+and the raw log. `client/src/features/loops/components/loop-log/narration-model.ts`
 `buildNarration` turns the persisted event stream into MILESTONES:
 
 - Each milestone is a stable i18n key plus factual values — nothing in the model
@@ -204,7 +204,7 @@ synthesised client-side.
 
 **The toggle** follows the Code explorer's Story|Log precedent and DEFAULTS to
 narrated, on both the routed Job Detail page and the mission-mode modal. The
-preference is one app-level key (`client/src/lib/job-log-mode.ts`) rather than
+preference is one app-level key (`client/src/features/jobs/lib/job-log-mode.ts`) rather than
 per-project: it describes the reader, not a project, and splitting it made the
 two surfaces disagree about what the same person had chosen. With
 `VITE_FEATURE_NARRATED_PROGRESS=false` both surfaces render byte-identically to
@@ -228,6 +228,6 @@ Observed: the section rendered the spec's *Proposed Solution* digest as raw mark
 
 ## 2026-09-19 — Programmatic-runtime evidence (host-run verification + reviewer verdict)
 
-Observed: a delivery built by the programmatic agent runtime (core-host) rendered **"The AI did not report any verification"** and **"No reviewer score"** although the host had run `npm test` (exit 0, output persisted) and the reviewer returned a structured verdict (score 92). The harvest only knew the legacy loop channels — the `VERIFICATION:` prose sentinel and `openspec/changes/**/confidence-score.json` — neither of which that runtime produces. Fix (`server/delivery-evidence.ts` `readRuntimeEvidence`, wired from `rail-isolated-launch.ts` via the new `EvidenceHarvestUnit.runtimeDir` = `<workspace>/.specrails/pipeline/<runId>`): read `state.json` `verification.commands[]` (+ each `verification/evidence/<id>.json` for exit code, duration, bounded output and `origin`), `acceptance.checks[]` / `acceptance.findings[]`, and the reviewer step output in `agent-workflow/<runId>/checkpoint.json` (`approved`, `score`, `aspects`, `issues`, `summary`). Every field is bounded; a malformed file degrades to nothing.
+Observed: a delivery built by the programmatic agent runtime (core-host) rendered **"The AI did not report any verification"** and **"No reviewer score"** although the host had run `npm test` (exit 0, output persisted) and the reviewer returned a structured verdict (score 92). The harvest only knew the legacy loop channels — the `VERIFICATION:` prose sentinel and `openspec/changes/**/confidence-score.json` — neither of which that runtime produces. Fix (`server/modules/delivery/runtime/delivery-evidence.ts` `readRuntimeEvidence`, wired from `rail-isolated-launch.ts` via the new `EvidenceHarvestUnit.runtimeDir` = `<workspace>/.specrails/pipeline/<runId>`): read `state.json` `verification.commands[]` (+ each `verification/evidence/<id>.json` for exit code, duration, bounded output and `origin`), `acceptance.checks[]` / `acceptance.findings[]`, and the reviewer step output in `agent-workflow/<runId>/checkpoint.json` (`approved`, `score`, `aspects`, `issues`, `summary`). Every field is bounded; a malformed file degrades to nothing.
 
 Tier placement (`review-packet.ts` `buildProof`): commands whose `origin` includes `host` are **app-verified** (`proof.hostCommandPassed|Failed` with exit code + seconds + output tail) — the runtime executed them and recorded the exit code, which is a measurement, not a claim; non-host acceptance checks, the reviewer summary and findings are **ai-reported** (`proof.acceptanceCheckPassed|Failed`, `proof.reviewerSummary`, `proof.reviewerFinding`); the structured verdict fills `confidence` (score/aspects/issues→flags) ONLY when no file-based score exists, so the **reviewer-score** tier and the human-review band work unchanged. `proof.noVerificationReported` is emitted only when no channel reported anything. Older deliveries heal lazily: `GET …/packet` runs `healRuntimeEvidence` over units lacking `runtime` and persists the result (`updatePrDeliverySettleEvidence`), so a packet stops claiming silence once the pipeline dir exists. Still never a numeric test-count claim: the "70 passed" line rides inside the labelled raw output, not as a number the app asserts.

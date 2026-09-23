@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '../../test-utils'
-import DashboardPage from '../DashboardPage'
+import DashboardPage from '../../features/dashboard/pages/DashboardPage'
 import type { LocalTicket } from '../../types'
 
 vi.mock('../../lib/api', () => ({
@@ -34,7 +34,7 @@ vi.mock('../../hooks/useSharedWebSocket', () => ({
 }))
 
 let mockTickets: LocalTicket[] = []
-vi.mock('../../hooks/useTickets', () => ({
+vi.mock('../../features/specs/hooks/useTickets', () => ({
   useTickets: () => ({
     tickets: mockTickets,
     isLoading: false,
@@ -45,15 +45,15 @@ vi.mock('../../hooks/useTickets', () => ({
   }),
 }))
 
-vi.mock('../../components/SpecsBoard', () => ({
+vi.mock('../../features/specs/components/SpecsBoard', () => ({
   SpecsBoard: () => <div data-testid="specs-board" />,
 }))
 
-vi.mock('../../components/TicketDetailModal', () => ({
+vi.mock('../../features/specs/components/TicketDetailModal', () => ({
   TicketDetailModal: () => null,
 }))
 
-vi.mock('../../components/CreateTicketModal', () => ({
+vi.mock('../../features/specs/components/CreateTicketModal', () => ({
   CreateTicketModal: () => null,
 }))
 

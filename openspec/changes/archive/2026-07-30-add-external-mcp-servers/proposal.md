@@ -30,7 +30,7 @@ _None._ Mission-agent MCP wiring has no canonical spec yet (`add-desktop-agent-c
 
 ## Impact
 
-- **Server**: new `server/external-mcp.ts` (discovery + settings read/validate/resolve); `server/agent-mcp-config.ts` (`prepareAgentMcp`, `buildAgentMcpArgs`, `codexMcpOverrides`, `mergeServerIntoJsonFile` parametrized to N servers + ownership tracking for gemini/kimi agent-cwd files); `server/desktop-router.ts` (two routes); `server/agent-operator-prompt.ts` (one line); `server/user-mcp-config.ts` (generalize `readUserClaudeMcpServers`-style native-config readers per provider).
-- **Client**: `client/src/components/settings/McpSettingsSection.tsx` (new card or sibling component); new i18n keys in the `mcp` namespace ×8 locales.
+- **Server**: new `server/external-mcp.ts` (discovery + settings read/validate/resolve); `server/agent-mcp-config.ts` (`prepareAgentMcp`, `buildAgentMcpArgs`, `codexMcpOverrides`, `mergeServerIntoJsonFile` parametrized to N servers + ownership tracking for gemini/kimi agent-cwd files); `server/desktop-router.ts` (two routes); `server/modules/missions/runtime/agent-operator-prompt.ts` (one line); `server/user-mcp-config.ts` (generalize `readUserClaudeMcpServers`-style native-config readers per provider).
+- **Client**: `client/src/features/settings/components/McpSettingsSection.tsx` (new card or sibling component); new i18n keys in the `mcp` namespace ×8 locales.
 - **Security surface**: external tools run unprompted inside missions — consent UI + warning copy are load-bearing, not cosmetic. Custom-entry `env` blocks may carry secrets; stored in `desktop.sqlite` plaintext, same trust domain as `~/.claude.json` (documented).
 - **No changes** to: specrails-core, rails/loops spawns, Explore's `userMcp` toggle, the embedded MCP server/tier system, mobile wire contract.

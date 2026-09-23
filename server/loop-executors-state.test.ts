@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createLoopExecutors } from './loop-executors'
+import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
 
 describe('loop progress fingerprint with a real Git repository', () => {
   let repo: string

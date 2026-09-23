@@ -18,7 +18,7 @@ import { hasAdapter, unregisterAdapter, _clearForTests, register } from './provi
 import { claudeAdapter } from './providers/claude-adapter'
 import { _resetDetectionForTests, refreshDetection } from './provider-detection'
 import { _resetForTests as resetProbeCache } from './local-engine-detection'
-import { saveRuntimeProviders } from './agent-runtime-settings'
+import { saveRuntimeProviders } from './modules/agent-runtime/runtime/agent-runtime-settings'
 
 const ok = (models: string[]) => ({ reachable: true, installed: true, executable: true, authState: 'authenticated', models, latencyMs: 8 })
 const down = { reachable: false, installed: false, executable: false, authState: 'unknown', models: [], latencyMs: 1500, error: 'timed out after 1500 ms' }

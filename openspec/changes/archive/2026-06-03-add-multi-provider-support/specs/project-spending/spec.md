@@ -34,13 +34,13 @@ The per-project SQLite schema SHALL include a `total_cost_usd_estimated INTEGER 
 - **THEN** the inserted row has `total_cost_usd_estimated = 1` and `total_cost_usd = <estimated value>`
 
 #### Scenario: Codex row keeps the flag at 0 when model is not in the pricing table
-- **WHEN** a codex job completes with token usage but its model is not in `server/pricing.ts`
+- **WHEN** a codex job completes with token usage but its model is not in `server/modules/accounting/runtime/pricing.ts`
 - **AND** `estimateCostUsd` returns `null`
 - **THEN** the inserted row has `total_cost_usd IS NULL` and `total_cost_usd_estimated = 0`
 
 ### Requirement: Pricing-table fallback for non-native-cost providers
 
-The hub SHALL maintain a local pricing table at `server/pricing.ts` keyed by `<providerId>:<model>` and SHALL populate `total_cost_usd` for `ai_invocations` rows whose resolved adapter declares `capabilities.nativeCostUsd === false`, using only the captured token usage and the table entry. The pricing module SHALL expose `estimateCostUsd(providerId, model, usage): number | null` and `lastReviewedAt(): string`. Rows whose model is not in the table SHALL be inserted with `total_cost_usd IS NULL` and `total_cost_usd_estimated = 0`.
+The hub SHALL maintain a local pricing table at `server/modules/accounting/runtime/pricing.ts` keyed by `<providerId>:<model>` and SHALL populate `total_cost_usd` for `ai_invocations` rows whose resolved adapter declares `capabilities.nativeCostUsd === false`, using only the captured token usage and the table entry. The pricing module SHALL expose `estimateCostUsd(providerId, model, usage): number | null` and `lastReviewedAt(): string`. Rows whose model is not in the table SHALL be inserted with `total_cost_usd IS NULL` and `total_cost_usd_estimated = 0`.
 
 #### Scenario: Cost is estimated for codex jobs
 - **GIVEN** the pricing table contains an entry for `codex:gpt-5.4-mini`

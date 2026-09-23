@@ -19,8 +19,8 @@ const peripheral = vi.hoisted(() => ({
   prepare: vi.fn((_options: unknown) => ({ extraArgs: [], env: {} })),
   extract: vi.fn(async (_conversationId: string, _ids: string[]) => ({ textBlocks: [] as string[], imagePaths: [] as string[] })),
 }))
-vi.mock('./spawn-lifecycle', () => ({ runAiCliInvocation: peripheral.run }))
-vi.mock('./agent-cwd-manager', () => ({
+vi.mock('./modules/execution/runtime/spawn-lifecycle', () => ({ runAiCliInvocation: peripheral.run }))
+vi.mock('./modules/missions/runtime/agent-cwd-manager', () => ({
   ensureAgentCwd: () => '/tmp/specrails-live-steering-test',
   ensureAgentConversationCwd: (id: string) => `/tmp/specrails-live-steering-test/${id}`,
 }))
@@ -32,18 +32,18 @@ vi.mock('./attachment-manager', () => ({
 vi.mock('./external-mcp', () => ({ resolveExternalEntries: () => [] }))
 vi.mock('tree-kill', () => ({ default: vi.fn() }))
 
-import { AgentChatManager } from './agent-chat-manager'
-import { createAgentChatRouter } from './agent-chat-router'
+import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
+import { createAgentChatRouter } from './modules/missions/runtime/agent-chat-router'
 import { initDesktopDb } from './desktop-db'
-import { createAgentConversation, listAgentMessages, updateAgentConversation } from './agent-store'
-import { decorateAgentInputMessages, enqueueAgentInput, getAgentInput, listPendingAgentInputs } from './agent-input-store'
-import { AGENT_CAPABILITY_HEADER } from './agent-tier'
+import { createAgentConversation, listAgentMessages, updateAgentConversation } from './modules/agents/runtime/agent-store'
+import { decorateAgentInputMessages, enqueueAgentInput, getAgentInput, listPendingAgentInputs } from './modules/missions/runtime/agent-input-store'
+import { AGENT_CAPABILITY_HEADER } from './modules/missions/runtime/agent-tier'
 import { _resetAgentCapabilitiesForTest } from './mcp/agent-capability'
 import { registerTieredTool, type McpToolContext, type McpToolSpec, type ToolHandlerExtra } from './mcp/tools/types'
 import { missionTools } from './mcp/tools/mission'
 import type { DbInstance } from './db'
 import type { AdapterEvent } from './providers/types'
-import type { InvocationResult, RunInvocationHooks } from './spawn-lifecycle'
+import type { InvocationResult, RunInvocationHooks } from './modules/execution/runtime/spawn-lifecycle'
 
 function deferred<T = void>() {
   let resolve!: (value: T) => void

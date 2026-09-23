@@ -5,7 +5,7 @@ import { newId } from './ids'
 import {
   Attachment,
   mutateStore,
-} from './ticket-store'
+} from './modules/specs/runtime/ticket-store'
 
 export const SUPPORTED_MIME_TYPES = new Set<string>([
   'image/jpeg',

@@ -16,7 +16,7 @@ vi.mock('child_process', async () => ({
     return child as unknown as ChildProcess
   }),
 }))
-vi.mock('./background-process-control', () => ({
+vi.mock('./modules/terminals/runtime/background-process-control', () => ({
   createBackgroundProcessControl: (child: FixtureChild) => ({
     isAlive: async () => child.alive,
     terminate: async (signal: string) => {
@@ -30,14 +30,14 @@ vi.mock('./background-process-control', () => ({
 let root: string
 let file: string
 let registry: typeof import('./transient-children')
-let Store: typeof import('./background-process-store').BackgroundProcessStore
+let Store: typeof import('./modules/terminals/runtime/background-process-store').BackgroundProcessStore
 beforeEach(async () => {
   vi.resetModules(); vi.useFakeTimers()
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'specrails-history-batches-'))
   file = path.join(root, 'history.sqlite')
   fixtures.children.length = 0; fixtures.signals.length = 0
   registry = await import('./transient-children')
-  Store = (await import('./background-process-store')).BackgroundProcessStore
+  Store = (await import('./modules/terminals/runtime/background-process-store')).BackgroundProcessStore
 })
 afterEach(async () => {
   vi.restoreAllMocks()

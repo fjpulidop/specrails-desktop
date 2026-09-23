@@ -7,7 +7,7 @@
 
 ## 2. Telemetry receiver (server)
 
-- [x] 2.1 [backend] Create `server/telemetry-receiver.ts` with `POST /otlp/v1/traces`, `POST /otlp/v1/metrics`, `POST /otlp/v1/logs` Express handlers that parse OTLP/JSON bodies.
+- [x] 2.1 [backend] Create `server/modules/accounting/runtime/telemetry-receiver.ts` with `POST /otlp/v1/traces`, `POST /otlp/v1/metrics`, `POST /otlp/v1/logs` Express handlers that parse OTLP/JSON bodies.
 - [x] 2.2 [backend] Extract `specrails.job_id` and `specrails.project_id` from `resource.attributes`; return HTTP 400 if either is missing, HTTP 404 if the jobId is unknown in that project's `jobs.sqlite`.
 - [x] 2.3 [backend] Implement append-only gzipped NDJSON writer keyed by `(projectId, jobId)`, writing to `~/.specrails/projects/<slug>/telemetry/<jobId>.ndjson.gz`. One line per payload with `{signal, receivedAt, payload}` shape.
 - [x] 2.4 [backend] Create/update pointer rows in `telemetry_blobs` on first and subsequent payloads (`state`, `startedAt`, `endedAt`, `byteSize`).
@@ -17,14 +17,14 @@
 
 ## 3. QueueManager env injection
 
-- [x] 3.1 [backend] In `server/queue-manager.ts`, read the project's `pipelineTelemetryEnabled` flag at spawn time (not at constructor time) so toggles take effect on the next job.
+- [x] 3.1 [backend] In `server/modules/execution/runtime/queue-manager.ts`, read the project's `pipelineTelemetryEnabled` flag at spawn time (not at constructor time) so toggles take effect on the next job.
 - [x] 3.2 [backend] When ON, merge the OTEL env block (`CLAUDE_CODE_ENABLE_TELEMETRY`, `OTEL_EXPORTER_OTLP_ENDPOINT` pointing at `http://127.0.0.1:<hubPort>/otlp`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/json`, `OTEL_METRICS_EXPORTER`, `OTEL_LOGS_EXPORTER`, `OTEL_TRACES_EXPORTER`, and `OTEL_RESOURCE_ATTRIBUTES=specrails.job_id=<jobId>,specrails.project_id=<projectId>`) into the spawn env.
 - [x] 3.3 [backend] Add a small helper `buildTelemetryEnv(jobId, projectId, hubPort)` so the logic is unit-testable without full spawn.
 - [x] 3.4 [backend] Confirm `ChatManager` and `SetupManager` call sites remain unchanged (no injection there) — add a brief code comment at each spawn site explaining why.
 
 ## 4. Retention and compaction (server)
 
-- [x] 4.1 [backend] Add `server/telemetry-compactor.ts` with a `runCompaction(projectContext, now)` function.
+- [x] 4.1 [backend] Add `server/modules/accounting/runtime/telemetry-compactor.ts` with a `runCompaction(projectContext, now)` function.
 - [x] 4.2 [backend] Compaction logic: find `telemetry_blobs` rows with `state="active"` older than 7 days; read and parse the NDJSON; group metrics/traces by phase; compute per-phase aggregates (duration, tokens in/out/cache, tool call counts, API error count, cost USD).
 - [x] 4.3 [backend] Insert aggregated rows into `telemetry_summaries`, delete the blob file, update pointer row to `state="compacted"` and `path=NULL`.
 - [x] 4.4 [backend] On `ProjectRegistry.removeProject`, delete the project's telemetry directory and drop its telemetry rows.

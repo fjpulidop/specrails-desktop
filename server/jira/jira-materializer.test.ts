@@ -4,7 +4,7 @@ import os from 'os'
 import path from 'path'
 
 import { initDb, type DbInstance } from '../db'
-import { readStore, resolveTicketStoragePath, type Ticket } from '../ticket-store'
+import { readStore, resolveTicketStoragePath, type Ticket } from '../modules/specs/runtime/ticket-store'
 import { getLinkByIssueId, getLinkByLocalId } from './jira-db'
 import {
   issueStatusCategory,

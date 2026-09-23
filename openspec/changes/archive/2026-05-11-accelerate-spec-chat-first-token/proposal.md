@@ -27,14 +27,14 @@ _None — all new behaviour layers onto the existing `explore-spec` capability._
 ## Impact
 
 - **Server**:
-  - `server/chat-manager.ts` — split system-prompt builders so Explore turns no longer pull live job stats; route Explore spawns through a new `ExploreCwdManager`; add per-conversation respawn-with-`--resume` policy, idle timer, crash auto-respawn-once, and concurrency cap.
-  - New `server/explore-cwd-manager.ts` — owns explore-cwd lifecycle: ensure-dir, write/refresh embedded `CLAUDE.md`, manage `./project` symlink (junction on Windows), expose `getCwd(projectId)`.
+  - `server/modules/conversations/runtime/chat-manager.ts` — split system-prompt builders so Explore turns no longer pull live job stats; route Explore spawns through a new `ExploreCwdManager`; add per-conversation respawn-with-`--resume` policy, idle timer, crash auto-respawn-once, and concurrency cap.
+  - New `server/modules/conversations/runtime/explore-cwd-manager.ts` — owns explore-cwd lifecycle: ensure-dir, write/refresh embedded `CLAUDE.md`, manage `./project` symlink (junction on Windows), expose `getCwd(projectId)`.
   - `server/hub-router.ts` or per-project settings router — new `GET/PATCH /api/projects/:projectId/explore-mcp-enabled` endpoint backed by `hub_settings` or per-project settings table; default `false`.
   - `server/db.ts` — migration for the new `explore_mcp_enabled` per-project setting (or piggyback on existing settings infra).
 - **Client**:
-  - `client/src/components/explore-spec/ExploreSpecShell.tsx` — render new `<SpecGenStatus>` stages from WS `chat_stream`/`tool_use` events; char-by-char rendering pass; instant skeleton.
-  - New `client/src/components/explore-spec/ExploreStatusPills.tsx` (or similar) — stage pills.
-  - `client/src/pages/SettingsPage.tsx` — Explore section with the MCP toggle.
+  - `client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx` — render new `<SpecGenStatus>` stages from WS `chat_stream`/`tool_use` events; char-by-char rendering pass; instant skeleton.
+  - New `client/src/features/specs/components/explore-spec/ExploreStatusPills.tsx` (or similar) — stage pills.
+  - `client/src/features/settings/pages/SettingsPage.tsx` — Explore section with the MCP toggle.
 - **Telemetry / WS**: no protocol changes needed; the existing `chat_stream`, `chat_error`, `chat_complete` events suffice. Status pills derive from already-streamed `assistant`/`tool_use` events.
 - **Filesystem (hub-managed)**: new directory `~/.specrails/projects/<slug>/explore-cwd/` containing `CLAUDE.md` and the `project` symlink. Cleaned up on `ProjectRegistry.removeProject`.
 - **Tests**: chat-manager tests extended for the new spawn-cwd logic + idle/crash policies; new explore-cwd-manager tests; client shell tests for status-pill rendering. Coverage thresholds (server 80%, client 80% lines) must hold.

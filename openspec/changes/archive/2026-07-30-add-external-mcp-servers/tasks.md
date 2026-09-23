@@ -17,7 +17,7 @@
 ## 3. REST + operator prompt
 
 - [x] 3.1 `GET/PATCH /api/external-mcp` in `server/desktop-router.ts` (mirror `/api/agent-defaults`); GET runs discovery per request and returns `{ discovered, settings }`; PATCH returns stored settings or 400 typed error
-- [x] 3.2 Operator prompt disclosure line in `server/agent-operator-prompt.ts` (external user tools may exist; app operations only via `specrails_*`)
+- [x] 3.2 Operator prompt disclosure line in `server/modules/missions/runtime/agent-operator-prompt.ts` (external user tools may exist; app operations only via `specrails_*`)
 - [x] 3.3 Route tests (supertest): GET shape, PATCH round-trip, each 400 code, prompt contains disclosure
 
 ## 4. Client (Settings ▸ MCP card)

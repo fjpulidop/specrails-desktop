@@ -1,5 +1,5 @@
 ## 1. Server
-- [x] 1.1 `server/loop-role-engines.ts`: sentinel, roles, load/validate/save, `resolveLoopRoleEngine` (+ tests)
+- [x] 1.1 `server/modules/loops/runtime/loop-role-engines.ts`: sentinel, roles, load/validate/save, `resolveLoopRoleEngine` (+ tests)
 - [x] 1.2 `PUT /rails/:i/engine` accepts `roles`
 - [x] 1.3 Launch: roles mode — no override, verifier → loop engine, decider → `deciderEngine`, freestyle 400, mismatch 400 (+ tests)
 - [x] 1.4 `LoopRunRequest.deciderEngine` threaded through `rail-isolated-launch` and used by the Decider (+ test, step title names the engine)

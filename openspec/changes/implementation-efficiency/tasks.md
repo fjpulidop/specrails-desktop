@@ -4,7 +4,7 @@ Status: local implementation complete; unchecked items retain their native-distr
 
 ## 1. D0 — Capability negotiation and saved-runtime compatibility
 
-- [x] 1.1 Extend `server/agent-runtime-loader.ts` API validation and read-only per-role transport capability queries, with runtime/transport/model-scoped caching. Test old API1, unknown/malformed metadata, global flags with unsupported installed effort and no inference or legacy-catalog fallback.
+- [x] 1.1 Extend `server/modules/agent-runtime/runtime/agent-runtime-loader.ts` API validation and read-only per-role transport capability queries, with runtime/transport/model-scoped caching. Test old API1, unknown/malformed metadata, global flags with unsupported installed effort and no inference or legacy-catalog fallback.
 - [x] 1.2 Persist immutable runtimeIdentity for new admissions and retain original runtimes before active-package replacement; verify integrity on reopen/resume. Coordinate Core C0 fixtures; test global changes cannot redirect saved jobs and referenced runtimes survive cleanup.
 - [x] 1.3 Support real v4 saved-job continuation through proven original-runtime resolution; preserve original checksums/config. Test unavailable/unproven legacy identity produces actionable recovery and readable history without paid attempts.
 - [x] 1.4 Add package-derived schema/API fixtures that run without a sibling Core checkout. Verify actual packaged CLI boundary rather than importing Core ESM into the CommonJS sidecar.

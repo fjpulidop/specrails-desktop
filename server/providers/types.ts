@@ -101,7 +101,7 @@ export interface NormalisedResult {
   tokens_cache_read?: number
   tokens_cache_create?: number
   /** Only populated when the provider reports cost natively. Estimation is
-   *  the caller's job (see server/pricing.ts). */
+   *  the caller's job (see server/modules/accounting/runtime/pricing.ts). */
   total_cost_usd?: number
   num_turns?: number
   model?: string

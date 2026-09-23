@@ -10,26 +10,26 @@
 
 ## 2. Client: shared hook + components
 
-- [x] 2.1 Create `client/src/hooks/usePrerequisites.ts` exporting `usePrerequisites()` returning `{ status, isLoading, error, recheck }`
+- [x] 2.1 Create `client/src/features/projects/hooks/usePrerequisites.ts` exporting `usePrerequisites()` returning `{ status, isLoading, error, recheck }`
 - [x] 2.2 Implement a module-level cache: `{ data, fetchedAt, inFlight }`; cache window 60_000 ms; `recheck()` invalidates and refetches
 - [x] 2.3 Subscribe to `window.addEventListener('focus', recheck)` while at least one consumer is mounted; clean up on last unmount
 - [x] 2.4 Use `AbortController` to cancel in-flight fetches on unmount
-- [x] 2.5 Add `client/src/hooks/__tests__/usePrerequisites.test.tsx` covering: initial fetch, cache hit on quick re-render, recheck after `window.focus`, recheck button bypass, abort on unmount, error path
-- [x] 2.6 Create `client/src/components/PrerequisitesPanel.tsx` accepting `{ status, isLoading, error, onMoreInfo? }` props
+- [x] 2.5 Add `client/src/features/projects/hooks/__tests__/usePrerequisites.test.tsx` covering: initial fetch, cache hit on quick re-render, recheck after `window.focus`, recheck button bypass, abort on unmount, error path
+- [x] 2.6 Create `client/src/features/projects/components/PrerequisitesPanel.tsx` accepting `{ status, isLoading, error, onMoreInfo? }` props
 - [x] 2.7 Render the "All required tools detected" success line when `status.ok && !error`
 - [x] 2.8 Render per-tool rows for missing/below-min tools with red-cross icon and the version-detail line; render present tools with a green-check icon and version
 - [x] 2.9 Render the "More info" affordance only when `!status.ok`; calls `onMoreInfo` from props
-- [x] 2.10 Add `client/src/components/__tests__/PrerequisitesPanel.test.tsx` covering all four panel states (loading, ok, partial-missing, all-missing) plus error
-- [x] 2.11 Create `client/src/components/InstallInstructionsModal.tsx` with `{ open, onClose, status, onRecheck }` props
+- [x] 2.10 Add `client/src/features/projects/components/__tests__/PrerequisitesPanel.test.tsx` covering all four panel states (loading, ok, partial-missing, all-missing) plus error
+- [x] 2.11 Create `client/src/features/projects/components/InstallInstructionsModal.tsx` with `{ open, onClose, status, onRecheck }` props
 - [x] 2.12 Render the host-OS section (driven by `status.platform`) by default; macOS shows brew + official, Windows shows winget + official + restart hint, Linux shows apt/dnf + official
 - [x] 2.13 Each command renders inside a code block with a `CopyButton` child component that calls `navigator.clipboard.writeText` (fallback `document.execCommand('copy')`) and shows a 1500 ms "Copied" affordance
 - [x] 2.14 Wrap non-host platforms in a Radix `<Collapsible>` or native `<details>` "Show other platforms" disclosure (closed by default)
 - [x] 2.15 Add an "I installed it, recheck" button calling `onRecheck`
-- [x] 2.16 Add `client/src/components/__tests__/InstallInstructionsModal.test.tsx` covering: shows host OS by default, hides others, copy-to-clipboard fires the API, recheck button triggers prop, fallback path when `navigator.clipboard` is undefined
+- [x] 2.16 Add `client/src/features/projects/components/__tests__/InstallInstructionsModal.test.tsx` covering: shows host OS by default, hides others, copy-to-clipboard fires the API, recheck button triggers prop, fallback path when `navigator.clipboard` is undefined
 
 ## 3. Wire AddProjectDialog
 
-- [x] 3.1 Read `client/src/components/AddProjectDialog.tsx` end to end
+- [x] 3.1 Read `client/src/features/projects/components/AddProjectDialog.tsx` end to end
 - [x] 3.2 Import and call `usePrerequisites()` at the top of the component
 - [x] 3.3 Render `<PrerequisitesPanel />` near the top of the dialog body, above the path/name fields
 - [x] 3.4 Track an `installModalOpen` local state; pass `onMoreInfo={() => setInstallModalOpen(true)}` to the panel
@@ -37,7 +37,7 @@
 - [x] 3.6 Compute `submitDisabled = !status?.ok || isLoading || existingFormErrors`; pass to the "Add project" button
 - [x] 3.7 Wrap the disabled button in a `<Tooltip>` listing missing tools when `submitDisabled` is due to prereqs (e.g. "Git is required to add a project"); existing form-error tooltips remain
 - [x] 3.8 If the prereq fetch errors (`error != null`), do NOT block the submit — render a small notice and let the user proceed; server install guard remains the source of truth
-- [x] 3.9 Add `client/src/components/__tests__/AddProjectDialog.test.tsx` (or extend if it exists) covering: panel shows on open, button disabled when prereqs missing, button enabled when prereqs ok, more-info opens modal, error path leaves submit enabled
+- [x] 3.9 Add `client/src/features/projects/components/__tests__/AddProjectDialog.test.tsx` (or extend if it exists) covering: panel shows on open, button disabled when prereqs missing, button enabled when prereqs ok, more-info opens modal, error path leaves submit enabled
 
 ## 4. Refactor SetupWizard onto the shared hook
 

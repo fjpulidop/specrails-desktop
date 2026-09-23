@@ -1,13 +1,13 @@
 ## 1. Server: data layer
 
 - [x] 1.1 Add `agent_refine_sessions` table migration to per-project `jobs.sqlite` (columns per design D3, plus index on `(agent_id, status)`)
-- [x] 1.2 Add typed CRUD helpers in `server/db.ts` (or a new `server/agent-refine-db.ts`) for create/get/update/list/delete
+- [x] 1.2 Add typed CRUD helpers in `server/db.ts` (or a new `server/modules/agents/runtime/agent-refine-db.ts`) for create/get/update/list/delete
 - [x] 1.3 Add startup retention prune in `ProjectRegistry` per design D11 (delete cancelled/error >24h, mark stuck streaming as error and prune, retain ready/applied)
 - [ ] 1.4 Add unit tests covering CRUD + prune semantics (in-memory SQLite per repo convention)
 
 ## 2. Server: refine manager
 
-- [x] 2.1 Create `server/agent-refine-manager.ts` mirroring `proposal-manager.ts` shape (constructor, broadcast injection, single-active-spawn-per-session lock)
+- [x] 2.1 Create `server/modules/agents/runtime/agent-refine-manager.ts` mirroring `proposal-manager.ts` shape (constructor, broadcast injection, single-active-spawn-per-session lock)
 - [x] 2.2 Implement `startRefine({ projectId, agentId, instruction, autoTest })`: spawn `claude` with stream-json, capture `session_id`, persist row, stream deltas
 - [x] 2.3 Implement `sendTurn({ refineId, instruction })`: spawn `claude --resume <sessionId>`, stream deltas, update `draft_body` on every flush
 - [x] 2.4 Implement `cancel({ refineId })`: kill spawn, set `status='cancelled'`, broadcast `agent_refine_cancelled`
@@ -20,7 +20,7 @@
 
 ## 3. Server: REST surface
 
-- [x] 3.1 Add routes under `/api/projects/:projectId/profiles/catalog/:agentId/refine` in `server/profiles-router.ts` (or split into `server/agent-refine-router.ts` if file gets large)
+- [x] 3.1 Add routes under `/api/projects/:projectId/profiles/catalog/:agentId/refine` in `server/modules/agents/runtime/profiles-router.ts` (or split into `server/agent-refine-router.ts` if file gets large)
 - [x] 3.2 `POST /refine` → start session (body: `{ instruction, autoTest? }`); returns `{ refineId }`
 - [x] 3.3 `POST /refine/:refineId/turn` → send follow-up instruction
 - [x] 3.4 `GET /refine/:refineId` → rehydrate (chat history, `draft_body`, phase, `auto_test`)
@@ -38,7 +38,7 @@
 
 ## 5. Client: hook + state
 
-- [x] 5.1 Create `client/src/hooks/useAgentRefine.ts` mirroring `useProposal.ts` (useReducer + WS subscription)
+- [x] 5.1 Create `client/src/features/agents/hooks/useAgentRefine.ts` mirroring `useProposal.ts` (useReducer + WS subscription)
 - [x] 5.2 State machine: `composing | streaming | reviewing | applying | error | cancelled`, derived from `draftBody` + `phase` + `streaming`
 - [x] 5.3 Conversation history (`ConversationTurn[]`) with assistant turn appended by `agent_refine_stream` deltas
 - [x] 5.4 Expose actions: `start`, `sendTurn`, `cancel`, `apply`, `toggleAutoTest`, `openInStudio`
@@ -47,7 +47,7 @@
 
 ## 6. Client: AI Refine overlay
 
-- [x] 6.1 Create `client/src/components/agents/AiRefineOverlay.tsx` (full-screen overlay component)
+- [x] 6.1 Create `client/src/features/agents/components/AiRefineOverlay.tsx` (full-screen overlay component)
 - [x] 6.2 Layout: chat pane (left), diff pane (right), action bar (Discard, Open in Studio, Apply)
 - [x] 6.3 Chat pane: token cursor on streaming, `aria-live="polite"`, status pills (reading/drafting/validating/testing/done) with active spinner per design D7
 - [x] 6.4 Auto-test toggle (default ON), checkbox persisted to server via `PATCH /refine/:refineId`

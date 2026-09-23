@@ -223,7 +223,7 @@ export function getSetupPrerequisitesStatus(options: PrerequisiteOptions = {}): 
 
 **Important**: `formatMissingSetupPrerequisites()` is the server-side defence in `SetupManager.startInstall`. In desktop mode, a corrupted bundle error from this function would surface a message like "Bundle corrupted — reinstall app" instead of OS install instructions. The existing function delegates to `installHint`, which is already overridden in the corrupted-bundle case above — no additional changes to `formatMissingSetupPrerequisites` needed.
 
-**Client UI note**: the `PrerequisitesPanel` component reads `error: 'corrupted-bundle'` from the API response. When present, it suppresses the "More info / install instructions" modal trigger and renders a single "Bundle corrupted — reinstall app" message. This is a client-side change in `client/src/components/PrerequisitesPanel.tsx` that is tracked as a separate task.
+**Client UI note**: the `PrerequisitesPanel` component reads `error: 'corrupted-bundle'` from the API response. When present, it suppresses the "More info / install instructions" modal trigger and renders a single "Bundle corrupted — reinstall app" message. This is a client-side change in `client/src/features/projects/components/PrerequisitesPanel.tsx` that is tracked as a separate task.
 
 ---
 

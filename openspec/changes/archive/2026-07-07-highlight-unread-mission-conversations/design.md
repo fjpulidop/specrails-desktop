@@ -1,7 +1,7 @@
 # Design - highlight-unread-mission-conversations
 
 ## Context
-The React client already centralizes app-global `agent_*` WebSocket handling in `client/src/context/AgentChatContext.tsx`, including `activeIdRef`, per-conversation `liveByConv`, and the derived `streamingConversationIds` set used by `ArcSidebar`. `ArcSidebar` already renders conversation rows in favorites, Home, and project trees, and `ConversationRow` owns the `MessageSquare` icon plus the streaming title shimmer. The change should stay client-side and use `document.visibilityState` as the only background signal; unread state is intentionally ephemeral.
+The React client already centralizes app-global `agent_*` WebSocket handling in `client/src/features/missions/context/AgentChatContext.tsx`, including `activeIdRef`, per-conversation `liveByConv`, and the derived `streamingConversationIds` set used by `ArcSidebar`. `ArcSidebar` already renders conversation rows in favorites, Home, and project trees, and `ConversationRow` owns the `MessageSquare` icon plus the streaming title shimmer. The change should stay client-side and use `document.visibilityState` as the only background signal; unread state is intentionally ephemeral.
 
 Scope: frontend
 

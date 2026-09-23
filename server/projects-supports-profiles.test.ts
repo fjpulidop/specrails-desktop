@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { projectSupportsProfiles, buildTelemetryEnv } from './queue-manager'
+import { projectSupportsProfiles, buildTelemetryEnv } from './modules/execution/runtime/queue-manager'
 
 let projectPath: string
 

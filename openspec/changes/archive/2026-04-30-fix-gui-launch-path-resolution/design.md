@@ -8,7 +8,7 @@ The hub is distributed as a Tauri desktop app on macOS. When launched from `Appl
 2. **Stale `/usr/local/bin/node` symlink** — left behind by an old `.pkg` install or previous brew prefix, target binary deleted. `which node` returns the symlink path; `node --version` fails. UI shows `Node.js — unknown found — needs 18.0.0+` (confirmed in user screenshot 2026-04-28).
 3. **Version managers (Volta, nvm, fnm, asdf)** — shims live under `$HOME` and are added to `PATH` by shell rc files only. Invisible to GUI launches.
 
-`server/terminal-manager.ts` already sidesteps the issue by spawning `$SHELL -l -i` for PTYs. The rest of the server does not, so prerequisites detection, `npx specrails-core` install, claude CLI spawns, and git operations all degrade silently when the app is launched from the GUI.
+`server/modules/terminals/runtime/terminal-manager.ts` already sidesteps the issue by spawning `$SHELL -l -i` for PTYs. The rest of the server does not, so prerequisites detection, `npx specrails-core` install, claude CLI spawns, and git operations all degrade silently when the app is launched from the GUI.
 
 Constraints:
 - Must not delay the listening socket on startup — a 1.5s shell spawn at boot would noticeably hurt cold-start UX on the splash screen.

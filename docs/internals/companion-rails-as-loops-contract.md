@@ -6,10 +6,10 @@
 
 The single fact that scopes the whole gap, verified directly in code:
 
-`server/rails-router.ts:301` — `if (isLoopsEnabled() && loopId) → LoopRunManager (loop.run_*, no jobId); else → QueueManager (jobId, rail.job_*)`.
+`server/modules/delivery/runtime/rails-router.ts:301` — `if (isLoopsEnabled() && loopId) → LoopRunManager (loop.run_*, no jobId); else → QueueManager (jobId, rail.job_*)`.
 
 - **Phone-initiated launches** send bare `{mode}` with **no `loopId`** (`desktop_repository.dart:116-123`) → fall to the **`else` / QueueManager** path → real `jobId` → `rail.job_*` → **the v1 companion mirrors them correctly (view + log tail + completion push). NO regression.**
-- **Desktop-initiated launches** now **always** send a `loopId`: the loop picker uses `effectiveLoopId = selectedLoopId || factoryIdForMode(mode)` (`client/src/lib/rail-loops.ts:43-44`) so even a plain "Implement" rail sends `loopId='factory:implement'`, and `doLaunchRail` always passes it (`client/src/pages/DashboardPage.tsx:824,869`) → **LoopRunManager** → `loop.run_*` (no `jobId`) → **dropped at the mobile boundary** (`mobile-ws.ts topicFor` default→null).
+- **Desktop-initiated launches** now **always** send a `loopId`: the loop picker uses `effectiveLoopId = selectedLoopId || factoryIdForMode(mode)` (`client/src/features/rails/lib/rail-loops.ts:43-44`) so even a plain "Implement" rail sends `loopId='factory:implement'`, and `doLaunchRail` always passes it (`client/src/features/dashboard/pages/DashboardPage.tsx:824,869`) → **LoopRunManager** → `loop.run_*` (no `jobId`) → **dropped at the mobile boundary** (`mobile-ws.ts topicFor` default→null).
 
 **Net:** the mirror gap is NOT in the phone's own launches — it is in **mirroring rails the user launches from the desktop** (the normal case), which now emit `loop.run_*` the boundary never forwards. So a connected phone shows desktop-launched loop rails as **idle, with no live progress and no completion notification.** The frozen wire is untouched (additive only). Everything below stands with this scoping.
 

@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'node:crypto'
 import type { DbInstance } from '../db'
-import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type TicketStatus } from '../ticket-store'
+import { mutateStore, readStore, resolveTicketStoragePath, type Ticket, type TicketStatus } from '../modules/specs/runtime/ticket-store'
 import type { WsMessage } from '../types'
 import { JiraClient, detectDeployment, type FetchImpl } from './jira-client'
 import { writeJiraBacklogConfig, writeLocalBacklogConfig } from './jira-backlog-config'

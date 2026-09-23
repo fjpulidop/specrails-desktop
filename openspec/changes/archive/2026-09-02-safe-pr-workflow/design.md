@@ -4,8 +4,8 @@
 
 Two code-producing paths mutate a repo today, with no shared git methodology:
 
-1. **Desktop loops** — `server/loop-run-manager.ts` walks a graph; repo-mutating rails in per-ticket scope are wrapped in a git worktree (`server/rail-isolated-launch.ts` → `server/worktree-manager.ts`), committed by the app (`commitWorktree`), and **merged back locally** into the checked-out branch (`server/rail-merge-orchestrator.ts` → `server/merge-manager.ts` `mergeBack`, `git merge --no-ff`, AI-resolver + verify + `git reset --hard` rollback). No push, no PR.
-2. **specrails-core `/specrails:implement`** — invoked from loops via `{{cmd:implement}}` (`server/loop-command-catalog.ts`, a real `coreCommand`). Its Phase 4c "Ship" (`templates/commands/specrails/implement.md`) **self-ships under Claude** (`checkout -b feat/…` → commit → `push -u` → `gh pr create`) driven by `GIT_AUTO=true`; under **Codex/Gemini it does no git at all**.
+1. **Desktop loops** — `server/modules/loops/runtime/loop-run-manager.ts` walks a graph; repo-mutating rails in per-ticket scope are wrapped in a git worktree (`server/modules/delivery/runtime/rail-isolated-launch.ts` → `server/worktree-manager.ts`), committed by the app (`commitWorktree`), and **merged back locally** into the checked-out branch (`server/modules/delivery/runtime/rail-merge-orchestrator.ts` → `server/modules/delivery/runtime/merge-manager.ts` `mergeBack`, `git merge --no-ff`, AI-resolver + verify + `git reset --hard` rollback). No push, no PR.
+2. **specrails-core `/specrails:implement`** — invoked from loops via `{{cmd:implement}}` (`server/modules/loops/runtime/loop-command-catalog.ts`, a real `coreCommand`). Its Phase 4c "Ship" (`templates/commands/specrails/implement.md`) **self-ships under Claude** (`checkout -b feat/…` → commit → `push -u` → `gh pr create`) driven by `GIT_AUTO=true`; under **Codex/Gemini it does no git at all**.
 
 Key facts that shape the design:
 
@@ -78,7 +78,7 @@ The builder is a quality pre-filter: the engineer's review queue only receives P
 
 - **Core change coordination.** Requires a synchronized specrails-core release for the `--no-ship` flag. The interim desktop-only stopgap (D4) de-risks the rollout window.
 - **Draft-PR requires `gh` auth + a remote.** Degradation ladder (D3) keeps loops functional offline; the methodology's "PR" endpoint is best-effort, never load-bearing for loop success.
-- **Schema duplication.** `LoopGraph` type is duplicated (`server/loop-graph.ts` vs `client/src/lib/loops-api.ts`); the mutating/read-only classifier must live server-side (authoritative) with the client mirroring.
+- **Schema duplication.** `LoopGraph` type is duplicated (`server/modules/loops/runtime/loop-graph.ts` vs `client/src/features/loops/lib/loops-api.ts`); the mutating/read-only classifier must live server-side (authoritative) with the client mirroring.
 - **`{{cmd:implement}}` scope change** from `all` to per-ticket alters batch execution semantics; verify dependency ordering still holds.
 
 ## Rollout

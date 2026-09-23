@@ -1,6 +1,6 @@
 // Domain routes extracted from project-router.ts (jobs).
 // Registered on the shared router by createProjectRouter — behaviour-preserving.
-import { isRuntimeContinuationActive, cancelRuntimeContinuation, activeRuntimeContinuationIds } from './agent-runtime-controls-router'
+import { isRuntimeContinuationActive, cancelRuntimeContinuation, activeRuntimeContinuationIds } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
 import { Request, Response } from 'express'
 import { newId as uuidv4 } from './ids'
 import {
@@ -12,33 +12,33 @@ import {
   InvalidJobDependencyError,
   JobNotFoundError,
   JobAlreadyTerminalError
-} from './queue-manager'
+} from './modules/execution/runtime/queue-manager'
 import { isInteractiveJobsEnabled } from './feature-flags'
 import type { JobPriority } from './types'
 import { VALID_PRIORITIES } from './types'
-import { computeJobPhaseBreakdown } from './job-phase-breakdown'
+import { computeJobPhaseBreakdown } from './modules/execution/runtime/job-phase-breakdown'
 import { getAdapter } from './providers'
 import { getPhaseStates } from './hooks'
-import { isSpecsSmashKillSwitchActive } from './explore-smash'
+import { isSpecsSmashKillSwitchActive } from './modules/conversations/runtime/explore-smash'
 import {
   claimIdempotentJob,
   findIdempotentJob,
   fingerprintJobSpawn,
   JobSpawnIdempotencyConflictError,
   JobSpawnIdempotencyReplayError,
-} from './job-spawn-idempotency'
+} from './modules/execution/runtime/job-spawn-idempotency'
 import {
   getModelsForProvider, isValidModelForProvider,
   type SpecProvider
-} from './spec-models'
+} from './modules/specs/runtime/spec-models'
 import { resolveProvider, validateRequestedProvider } from './provider-selection'
 import type { JobRow } from './types'
-import { getLoopRun } from './loop-runs-store'
-import { getProjectMetrics } from './metrics'
-import { getQueuedJobForListing, listUnifiedJobs } from './job-listing'
+import { getLoopRun } from './modules/loops/runtime/loop-runs-store'
+import { getProjectMetrics } from './modules/accounting/runtime/metrics'
+import { getQueuedJobForListing, listUnifiedJobs } from './modules/execution/runtime/job-listing'
 import {
   resolveTicketsFromCommand
-} from './ticket-store'
+} from './modules/specs/runtime/ticket-store'
 import { registerBackgroundProcessRoutes } from './project-router-background-processes'
 import {
   type ProjectRoutesDeps, resolveDefaultSpecModel
@@ -255,7 +255,7 @@ export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
 
   // Returns the resolved default model for Add Spec + the full provider
   // allow-list so the modal can render its picker without maintaining its
-  // own copy of the model lists. Source of truth is `server/spec-models.ts`.
+  // own copy of the model lists. Source of truth is `server/modules/specs/runtime/spec-models.ts`.
   router.get('/:projectId/default-spec-model', (req: Request, res: Response) => {
     const { project } = ctx(req)
     // Multi-provider: an optional ?provider= query selects which engine's models

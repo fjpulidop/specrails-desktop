@@ -1,8 +1,8 @@
 import type { DbInstance } from './types'
 import { applyNumberedMigrations } from '../util/sqlite-migrations'
-import { migrateMultiRepoExecution } from '../multi-repo-execution-store'
+import { migrateMultiRepoExecution } from '../modules/delivery/runtime/multi-repo-execution-store'
 import { migrateRepositoryProvenance } from '../project-repository-provenance'
-import { migrateFileStoryMetadata } from '../file-story'
+import { migrateFileStoryMetadata } from '../modules/code/runtime/file-story'
 
 // ─── Migrations ──────────────────────────────────────────────────────────────
 
@@ -463,7 +463,7 @@ const MIGRATIONS: Migration[] = [
   },
 
   // Migration 20: ai_invocations.total_cost_usd_estimated — 1 when the cost
-  // came from server/pricing.ts (estimated fallback for non-native-cost
+  // came from server/modules/accounting/runtime/pricing.ts (estimated fallback for non-native-cost
   // providers); 0 when authoritative from the provider's terminal event.
   //
   // Idempotent for the same reason as #18/#19.
@@ -575,7 +575,7 @@ const MIGRATIONS: Migration[] = [
   },
 
   // Migration 27: jobs.total_cost_usd_estimated — 1 when jobs.total_cost_usd
-  // came from server/pricing.ts (estimated fallback for non-native-cost
+  // came from server/modules/accounting/runtime/pricing.ts (estimated fallback for non-native-cost
   // providers like codex); 0 when authoritative from the provider's terminal
   // event. Mirrors the ai_invocations column (migration 20) so the app
   // dashboard, budget enforcement, and webhook can distinguish a rate-card

@@ -76,7 +76,7 @@ Both are simple arrow functions returning a string array. The `ProviderAdapter` 
 
 ## 4. How ProfileManager uses `baselineAgents()`
 
-**File:** `server/profile-manager.ts` (lines ~134–147)
+**File:** `server/modules/agents/runtime/profile-manager.ts` (lines ~134–147)
 
 ```ts
 const baseline = adapter.baselineAgents()
@@ -97,7 +97,7 @@ if (missing.length) {
 
 ## 5. Hard-coded baseline in `migrate-from-settings`
 
-**File:** `server/profiles-router.ts` (lines ~65–130)
+**File:** `server/modules/agents/runtime/profiles-router.ts` (lines ~65–130)
 
 This is the one server-side location that does NOT use `adapter.baselineAgents()`. It is a standalone legacy migration endpoint that seeds a `default` profile from existing agent frontmatters on disk.
 
@@ -162,7 +162,7 @@ it('None button keeps only core agents selected', () => {
 
 `CORE_IDS` is derived from the live export, not hard-coded. When `CORE_AGENTS` shrinks to three, `CORE_IDS` becomes three elements and `result.length` is asserted to be three. The test passes without modification.
 
-**File:** `client/src/components/agents/__tests__/ProfileEditor.test.tsx` (line 18)
+**File:** `client/src/features/agents/components/__tests__/ProfileEditor.test.tsx` (line 18)
 
 ```ts
 { id: 'sr-merge-resolver', required: true },

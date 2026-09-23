@@ -14,7 +14,7 @@ import { MobileWebrtcGateway } from './mobile-webrtc-peer'
 import { MobileSignalReconnect } from './mobile-signal-reconnect'
 import { buildRegisterDevice, buildRpcDispatch, createLoopbackFetch } from './mobile-webrtc'
 import type { MobilePlatform } from './mobile-types'
-import { getAgentConversation } from '../agent-store'
+import { getAgentConversation } from '../modules/agents/runtime/agent-store'
 
 // Lifecycle owner of the second HTTPS+WSS listener (default :4202), hard-isolated
 // from the main server. Off by default; started on enable or boot-if-enabled.

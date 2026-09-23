@@ -1,6 +1,6 @@
 ## 1. Server — ExploreCwdManager
 
-- [x] 1.1 Create `server/explore-cwd-manager.ts` with the embedded `CLAUDE.md` template constant (interpolates `{{projectName}}` and uses `./project` for the symlink target reference)
+- [x] 1.1 Create `server/modules/conversations/runtime/explore-cwd-manager.ts` with the embedded `CLAUDE.md` template constant (interpolates `{{projectName}}` and uses `./project` for the symlink target reference)
 - [x] 1.2 Implement `ensureExploreCwd(projectId: string): string` — idempotent
 - [x] 1.3 Implement `removeExploreCwd(projectId: string)` for project-removal cleanup
 - [x] 1.4 Add a Windows fallback path: when both symlink modes throw, write a `project-path.txt`; the embedded `CLAUDE.md` documents the fallback
@@ -39,7 +39,7 @@
 
 ## 6. Server — Explore-cwd-manager tests
 
-- [x] 6.1 `server/explore-cwd-manager.test.ts`: 10 tests (first-call, idempotent, rewrite-on-template-change, symlink recreation, cleanup without following, env short-circuit, snapshot of rendered template)
+- [x] 6.1 `server/modules/conversations/runtime/explore-cwd-manager.test.ts`: 10 tests (first-call, idempotent, rewrite-on-template-change, symlink recreation, cleanup without following, env short-circuit, snapshot of rendered template)
 - [ ] 6.2 Windows-only path: junction-vs-symlink + `project-path.txt` fallback — _deferred. The code path is implemented and exercised by the manual Windows smoke task (11.x); adding `fs.symlinkSync` mocks here would require restructuring the manager to inject a fs façade. Tracked as follow-up._
 
 ## 7. Client — Settings toggle

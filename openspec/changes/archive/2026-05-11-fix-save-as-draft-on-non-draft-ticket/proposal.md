@@ -23,7 +23,7 @@ Root cause: `POST /tickets/save-as-draft` only matches an existing draft by `(or
 ## Impact
 
 - **Server**: `server/project-router.ts` (`POST /:projectId/tickets/save-as-draft`).
-- **Client**: `client/src/components/explore-spec/ExploreSpecShell.tsx` (`handleSaveAsDraft` body).
+- **Client**: `client/src/features/specs/components/explore-spec/ExploreSpecShell.tsx` (`handleSaveAsDraft` body).
 - **Tests**: `server/from-draft.test.ts` / new save-as-draft tests covering the flip path and the no-op idempotency case.
 - **No schema migration**: the demotion uses existing `Ticket` fields. No new columns, no DB changes.
 - **No breaking changes**: `editTicketId` is optional; existing callers keep working unchanged.

@@ -1,6 +1,6 @@
 ## Context
 
-The Specs column lives in `client/src/components/SpecsBoard.tsx`. Its header today is a single flex row: `[icon] Spec [count]` on the left, `+ Add` button on the right, height `h-12`, with `border-b border-border/40`. Tickets carry `labels: string[]` already (defined in `client/src/types.ts:78,258`) but the field is never rendered or queried in the UI. The board splits its body into an active `tickets` list and a collapsed `doneTickets` section, both rendering `<SpecCard>` instances.
+The Specs column lives in `client/src/features/specs/components/SpecsBoard.tsx`. Its header today is a single flex row: `[icon] Spec [count]` on the left, `+ Add` button on the right, height `h-12`, with `border-b border-border/40`. Tickets carry `labels: string[]` already (defined in `client/src/types.ts:78,258`) but the field is never rendered or queried in the UI. The board splits its body into an active `tickets` list and a collapsed `doneTickets` section, both rendering `<SpecCard>` instances.
 
 Theme tokens are mandated by `CLAUDE.md`: only semantic tokens (`accent-primary | info | success | secondary | warning | highlight | surface | background-deep`) plus shadcn shadcn-style `background/foreground/card/muted/destructive`. A regression guard greps for `dracula-*`, so brand-named tokens are forbidden. Themes can change at runtime — pill colors must be expressible purely as Tailwind classes referencing those tokens (no hex values, no inline styles for color).
 
@@ -60,7 +60,7 @@ Pills are computed via `useMemo` on `tickets` only (active list, not Done). Filt
 
 ### Pill component
 
-A small co-located component `SpecLabelFilterStrip` in `client/src/components/SpecLabelFilterStrip.tsx`, props `{ tickets, doneTickets, active, onToggle, onClear }`. Returns `null` if no labels present. Internally:
+A small co-located component `SpecLabelFilterStrip` in `client/src/features/specs/components/SpecLabelFilterStrip.tsx`, props `{ tickets, doneTickets, active, onToggle, onClear }`. Returns `null` if no labels present. Internally:
 - aggregates counts (`Map<string, number>`)
 - sorts entries: count desc, label asc on tie
 - renders an optional leading clear chip when `active.size > 0`: `× {active.size} · clear`
