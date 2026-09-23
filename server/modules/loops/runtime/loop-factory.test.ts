@@ -17,7 +17,7 @@ describe('factory loops', () => {
   it('ships implement / batch / freestyle mapped to canonical rail modes + the graph-native openspec loop', () => {
     expect(FACTORY_LOOPS.map((f) => f.id)).toEqual([
       'factory:implement', 'factory:batch', 'factory:freestyle',
-      'factory:revision', 'factory:sdd-quick-openspec',
+      'factory:sdd-quick-openspec',
     ])
     expect(getFactoryLoop('factory:implement')?.mode).toBe('implement')
     expect(getFactoryLoop('factory:batch')?.mode).toBe('batch-implement')
@@ -94,86 +94,10 @@ describe('factory loops', () => {
   })
 })
 
-describe('factory revision loop (nontech-review-experience)', () => {
-  it('is listed for discovery but marked NOT launchable', () => {
-    // Visible so the platform's behaviour is discoverable (preview/fork), yet it
-    // has no launch path: the app runs it when a user asks for a change, and its
-    // prompt consumes a constant only a revision launch injects.
-    expect(getFactoryLoop(FACTORY_REVISION_LOOP_ID)).toBeDefined()
-    expect(FACTORY_LOOPS.map((f) => f.id)).toContain(FACTORY_REVISION_LOOP_ID)
-    expect(getFactoryLoop(FACTORY_REVISION_LOOP_ID)?.launchable).toBe(false)
-    expect(isFactoryLoopId(FACTORY_REVISION_LOOP_ID)).toBe(true)
-  })
-
-  it('is the ONLY non-launchable factory loop', () => {
-    const nonLaunchable = FACTORY_LOOPS.filter((f) => f.launchable === false).map((f) => f.id)
-    expect(nonLaunchable).toEqual([FACTORY_REVISION_LOOP_ID])
-  })
-
-  it('is never picked as the loop for a legacy rail mode', () => {
-    for (const mode of ['implement', 'batch-implement', 'freestyle', 'loop']) {
-      expect(factoryLoopForMode(mode)?.id).not.toBe(FACTORY_REVISION_LOOP_ID)
-    }
-  })
-
-  it('says in its own description that it is not started by hand', () => {
-    expect(getFactoryLoop(FACTORY_REVISION_LOOP_ID)?.description).toMatch(/not started by hand/i)
-  })
-
-  it('runs the revise step and NO architect/implement pipeline step', () => {
-    const graph = getFactoryLoop(FACTORY_REVISION_LOOP_ID)!.graph
-    const prompts = graph.nodes
-      .filter((n) => n.type === 'ai-step')
-      .map((n) => String((n.data as { prompt?: string })?.prompt ?? ''))
-      .join('\n')
-    expect(prompts).toContain('{{cmd:revise}}')
-    expect(prompts).not.toContain('{{cmd:implement}}')
-    expect(prompts).not.toContain('{{cmd:batch}}')
-  })
-
-  it('still verifies: the graph closes on a dedicated verify step + decider', () => {
-    const graph = getFactoryLoop(FACTORY_REVISION_LOOP_ID)!.graph
-    const prompts = graph.nodes
-      .filter((n) => n.type === 'ai-step')
-      .map((n) => String((n.data as { prompt?: string })?.prompt ?? ''))
-      .join('\n')
-    // Verification scope is never silently narrowed for a revision: the gate is
-    // swapped for a dedicated command, not removed, and the generic one is gone
-    // so no second repository-wide pass follows the reviewer.
-    expect(prompts).toContain('{{cmd:revision-verify}}')
-    expect(prompts).not.toContain('{{cmd:verify}}')
-    expect(graph.nodes.some((n) => n.type === 'decider')).toBe(true)
-  })
-
-  it('keeps the node id `verify` so the Decider and every step consumer still key off it', () => {
-    const graph = getFactoryLoop(FACTORY_REVISION_LOOP_ID)!.graph
-    const verify = graph.nodes.find((n) => n.id === 'verify')
-    expect(verify?.type).toBe('ai-step')
-    expect(String((verify?.data as { prompt?: string })?.prompt)).toBe('{{cmd:revision-verify}}')
-    expect(graph.edges.some((e) => e.source === 'verify' && e.target === 'decide')).toBe(true)
-  })
-
-  it('runs the verify/fix cycle in a fresh provider session', () => {
-    const graph = getFactoryLoop(FACTORY_REVISION_LOOP_ID)!.graph
-    for (const id of ['verify', 'fix']) {
-      const node = graph.nodes.find((n) => n.id === id)
-      expect((node?.data as { freshSession?: boolean })?.freshSession).toBe(true)
-    }
-    // The mutating step must NOT be reset — it continues the run's own session.
-    const main = graph.nodes.find((n) => n.id === 'main-1')
-    expect((main?.data as { freshSession?: boolean })?.freshSession).toBeUndefined()
-  })
-
-  it('leaves freestyle on the generic verify gate', () => {
-    for (const id of ['factory:freestyle']) {
-      const graph = getFactoryLoop(id)!.graph
-      const verify = graph.nodes.find((n) => n.id === 'verify')
-      expect(String((verify?.data as { prompt?: string })?.prompt)).toBe('{{cmd:verify}}')
-      expect((verify?.data as { freshSession?: boolean })?.freshSession).toBeUndefined()
-    }
-  })
-
-  it('is a graph-native loop (runs through the loop engine, not QueueManager)', () => {
-    expect(getFactoryLoop(FACTORY_REVISION_LOOP_ID)!.mode).toBe('loop')
+describe('retired Revision loop', () => {
+  it('is absent from the gallery and redirects saved ids to Quick SDD', () => {
+    expect(FACTORY_LOOPS.map((f) => f.id)).not.toContain(FACTORY_REVISION_LOOP_ID)
+    expect(getFactoryLoop(FACTORY_REVISION_LOOP_ID)).toBe(getFactoryLoop('factory:sdd-quick-openspec'))
+    expect(getFactoryLoop(FACTORY_REVISION_LOOP_ID)?.graph.nodes.some((n) => String(n.data?.prompt).includes('{{cmd:revise}}'))).toBe(false)
   })
 })

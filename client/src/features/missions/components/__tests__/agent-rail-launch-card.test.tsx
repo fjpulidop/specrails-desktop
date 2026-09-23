@@ -192,15 +192,26 @@ describe('AgentRailLaunchCard', () => {
       created_by: 'user', origin_conversation_id: null, run_id: null, applied_at: null,
     })
     mockFetch({
+      '/api/projects/p1/rails': (init) => ({ status: init?.method === 'POST' ? 202 : 200, body: init?.method === 'POST' ? { loopRunIds: ['next-run'] } : { ...railsPayload, rails: [
+        { railIndex: 0, ticketIds: [3], mode: 'implement', availability: 'free' },
+        { railIndex: 1, ticketIds: [12, 14], mode: 'implement', availability: 'pending_decision' },
+      ] } }),
       '/tickets': () => ({ status: 200, body: { tickets: [
         { id: 12, title: 'Login form', status: 'todo', labels: [], addenda: [addendum('a1', 'open', 'Use idempotency keys'), addendum('a0', 'applied', 'Old')] },
         { id: 14, title: 'Session refresh', status: 'todo', labels: [], addenda: [addendum('a2', 'open', 'Classify 502 as unknown')] },
       ] } }),
     })
-    renderCard()
+    renderCard({ railIndex: null })
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
     const note = screen.getByTestId('rail-card-addenda')
     expect(note).toHaveTextContent('2 open addenda ride into this launch:')
+    expect(screen.getByTestId('rail-card-rail')).toHaveTextContent('Rail 2')
+    expect(screen.queryByText(/Use Rail 1/)).not.toBeInTheDocument()
+    expect(screen.getByTestId('rail-card-loop')).toHaveTextContent('SDD Quick')
+    expect(screen.getByTestId('rail-card-loop')).toBeDisabled()
+    fireEvent.click(screen.getByTestId('rail-card-play'))
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/rails/1/launch'))).toBe(true))
+    expect(body(calls.find((c) => c.url.endsWith('/rails/1/launch'))!)).toMatchObject({ mode: 'loop', loopId: 'factory:sdd-quick-openspec' })
     expect(note).toHaveTextContent('#12 Use idempotency keys')
     expect(note).toHaveTextContent('#14 Classify 502 as unknown')
     expect(note).not.toHaveTextContent('Old')

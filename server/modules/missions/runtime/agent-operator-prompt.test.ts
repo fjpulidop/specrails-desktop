@@ -151,7 +151,7 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
     expect(OPERATOR_INSTRUCTIONS).toContain('revisionOfDeliveryId')
     expect(OPERATOR_INSTRUCTIONS).toContain('revisionNote')
     expect(OPERATOR_INSTRUCTIONS).toContain('Do NOT tell them to publish, discard or\n  merge first')
-    expect(OPERATOR_INSTRUCTIONS).toContain('Architect-less loop')
+    expect(OPERATOR_INSTRUCTIONS).toContain('always uses Quick SDD')
     expect(OPERATOR_INSTRUCTIONS).toContain('invalid_revision_target')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('published pr_ready card')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('do not require publish/discard/merge first')

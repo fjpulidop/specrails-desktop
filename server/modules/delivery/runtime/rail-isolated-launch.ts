@@ -1427,7 +1427,9 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     })
     const spec = ctx.getTicketSpec(a.ticketId)
     const claimedAddenda = claimSpecAddendaForRun(addendaStorePath, a.ticketIds, a.runId, {
-      plan: addendaPlan.filter((e) => a.ticketIds.includes(e.ticketId)),
+      plan: addendaPlan.filter((e) => a.ticketIds.includes(e.ticketId)).map((entry) =>
+        launchContinuation || input.revision || input.repositoryContinuation
+          ? { ...entry, status: 'on_review' } : entry),
     })
     broadcastSpecAddendaChange((msg) => ctx.broadcast(msg as never), ctx.project.id, claimedAddenda)
     const enginePromise = ctx.loopRunManager.run({

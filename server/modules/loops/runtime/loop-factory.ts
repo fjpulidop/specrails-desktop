@@ -29,8 +29,7 @@ export interface FactoryLoop {
   /**
    * False for a loop the platform runs on its OWN initiative and a user must
    * never start by hand — it is listed for discovery (preview/fork) but has no
-   * launch path. `factory:revision` is the case: its prompt consumes
-   * `{{const:REVISION_REQUEST}}`, injected only by a revision launch.
+   * launch path.
    */
   launchable?: boolean
   /** Faithful graph for preview + fork seed. */
@@ -77,7 +76,7 @@ const SDD_QUICK_OPENSPEC_FACTORY: FactoryLoop = {
   graph: opsxLifecycleGraph(),
 }
 
-/** The Architect-less revision loop every "ask for a change" launch runs. */
+/** Legacy persisted id. Resolves to Quick SDD; no Revision loop is listed or run. */
 export const FACTORY_REVISION_LOOP_ID = 'factory:revision'
 
 
@@ -107,31 +106,12 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
     requiredCapability: 'freestyle',
     graph: fixLoopGraph(['{{cmd:freestyle}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN),
   },
-  {
-    id: FACTORY_REVISION_LOOP_ID,
-    name: 'Revision',
-    // Listed so the platform's behaviour is discoverable, but `launchable:false`:
-    // the app runs this itself when a user asks for a change to a delivery. Its
-    // prompt consumes `{{const:REVISION_REQUEST}}`, and an unresolved constant
-    // renders as an EMPTY string, so a hand-launched run would have a blank
-    // central instruction. The launch route refuses it; the prompt guards too.
-    launchable: false,
-    description: "Apply the ONE change the user asked for on top of work already delivered, then run one independent reviewer-owned verification gate and refine until green. No re-planning. Runs automatically when you ask for changes on a review — it is not started by hand.",
-    mode: 'loop',
-    // Revision is the ONLY factory loop that swaps the generic `{{cmd:verify}}`
-    // gate: `{{cmd:revision-verify}}` owns reviewer re-grading AND the full pass
-    // of record in ONE read-only step, so the mutator no longer runs sr-reviewer
-    // itself and no second repository-wide gate follows it. The trailing `true`
-    // makes verify/fix run in a FRESH provider session — the gate's verdict and
-    // its confidence artifact then describe the candidate on disk rather than
-    // the mutator's own account of it.
-    graph: fixLoopGraph(['{{cmd:revise}}'], GREEN_GOAL, FACTORY_MAX_ITERATIONS, FACTORY_LOOP_TIMEOUT_MIN, FACTORY_AI_STEP_TIMEOUT_MIN, '{{cmd:revision-verify}}', true),
-  },
   SDD_QUICK_OPENSPEC_FACTORY,
 ]
 
 const FACTORY_ALIASES = new Map<string, FactoryLoop>([
   ['factory:openspec', SDD_QUICK_OPENSPEC_FACTORY],
+  [FACTORY_REVISION_LOOP_ID, SDD_QUICK_OPENSPEC_FACTORY],
 ])
 
 const FACTORY_BY_ID = new Map<string, FactoryLoop>([

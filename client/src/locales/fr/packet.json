@@ -37,7 +37,7 @@
     "prompt": "Que voulez-vous changer ?",
     "placeholder": "ex. mettre le bouton de connexion en bleu",
     "submit": "Envoyer le changement",
-    "hint": "Reprend là où le travail s'est arrêté — sans repartir de zéro."
+    "hint": "Quick SDD applique le changement sur la branche existante et met à jour cette livraison."
   },
   "discard": {
     "label": "Jeter ceci",

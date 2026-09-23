@@ -19,7 +19,7 @@ import { resolveAgentDefaults } from '../../agents/runtime/agent-defaults'
 import { resolveProfile } from '../../agents/runtime/profile-manager'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from '../../specs/runtime/spec-models'
 import { resolveProjectExecution } from '../../../workspace-resolution'
-import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode, FACTORY_REVISION_LOOP_ID } from '../../loops/runtime/loop-factory'
+import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode } from '../../loops/runtime/loop-factory'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { dominantTicketScope, referencesUnsupportedProviderCommand } from '../../loops/runtime/loop-command-catalog'
 import { loopNeedsTicket, validateLoopGraph, type LoopGraph } from '../../loops/runtime/loop-graph'
@@ -63,7 +63,7 @@ import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { postRunCard, settleRunCard, notifyMissionRunFailure, failureForLoopOutcome, isRunCardId } from '../../missions/runtime/mission-run-notify'
 import { runtimeRunSummary } from '../../agent-runtime/runtime/agent-runtime-controls-router'
 import { readStore, resolveTicketStoragePath } from '../../specs/runtime/ticket-store'
-import { broadcastSpecAddendaChange, claimSpecAddendaForRun, ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
+import { broadcastSpecAddendaChange, claimSpecAddendaForRun, planSpecAddendaAt, renderSpecAddendaBriefing, ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import type { ReasoningEffort } from '../../../providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, RailRemovedMessage, LoopRunStoppedMessage } from '../../../types'
 import { assertProcessAdmission, captureProcessAdmission, ProcessAdmissionClosedError } from '../../../process-admission'
@@ -549,17 +549,7 @@ export function createRailsRouter(): Router {
     if (typeof loopId === 'string' && isFactoryLoopId(loopId)) {
       const fmode = factoryLoopMode(loopId)
       if (!fmode) { res.status(404).json({ error: 'Factory loop not found' }); return }
-      // The revision loop is meaningless without a revision to apply: its prompt
-      // consumes {{const:REVISION_REQUEST}}, and an unresolved constant renders
-      // as an EMPTY string (loop-constants), so naming it directly would spawn a
-      // run whose central instruction is silently blank. It is reachable by id
-      // (fork/preview resolve it), so the launch door has to refuse it.
-      if (loopId === FACTORY_REVISION_LOOP_ID && !revisionOfDeliveryId) {
-        res.status(400).json({
-          error: 'revision_loop_requires_revision',
-          detail: 'factory:revision only runs as a revision — pass revisionOfDeliveryId and revisionNote instead of naming the loop',
-        }); return
-      }
+      loopId = getFactoryLoop(loopId)!.id // canonicalize saved legacy aliases
       mode = fmode
     }
     if (!VALID_MODES.has(mode as string)) {
@@ -574,16 +564,10 @@ export function createRailsRouter(): Router {
     if (isLoopsEnabled() && (typeof loopId !== 'string' || !loopId) && mode !== 'loop') {
       loopId = factoryLoopForMode(mode as string)?.id
     }
-    // A revision must run the Architect-LESS revision loop, whatever the rail's
-    // stored mode is. Without this every one-sentence tweak would re-run the
-    // full implement pipeline — the exact cost the feature exists to avoid.
-    // An explicit loopId is respected (a caller naming a loop means it).
-    if (revisionOfDeliveryId && isLoopsEnabled() && (typeof loopId !== 'string' || !loopId || isFactoryLoopId(loopId))) {
-      const revisionLoop = getFactoryLoop(FACTORY_REVISION_LOOP_ID)
-      if (revisionLoop) {
-        loopId = revisionLoop.id
-        mode = revisionLoop.mode
-      }
+    // Delivery continuation always uses Quick SDD; the old Revision loop is retired.
+    if (revisionOfDeliveryId && isLoopsEnabled()) {
+      loopId = 'factory:sdd-quick-openspec'
+      mode = 'loop'
     }
     if (mode === 'loop' && !isLoopsEnabled()) {
       res.status(403).json({ error: 'Loops are disabled on this server' }); return
@@ -615,6 +599,14 @@ export function createRailsRouter(): Router {
 
     if (rail.ticketIds.length === 0) {
       res.status(400).json({ error: 'Rail has no tickets assigned' }); return
+    }
+
+    // The durable delta chooses Quick SDD regardless of stale rail/agent defaults.
+    // Revision is a delivery-continuation mechanism, not the implementation loop.
+    const launchAddenda = planSpecAddendaAt(ticketStorePathForProject(c.project), rail.ticketIds)
+    if (launchAddenda.length && isLoopsEnabled()) {
+      loopId = 'factory:sdd-quick-openspec'
+      mode = 'loop'
     }
 
     let repositoryIds: string[]
@@ -909,14 +901,21 @@ export function createRailsRouter(): Router {
             }
           }
           const pendingSnapshot = pending ? toPrDeliverySnapshot(pending) : null
-          // A revision is the ONE launch allowed to proceed against an
-          // undecided delivery, and only on the exact terms below: the caller
-          // names that delivery AND covers its full ticket set. Anything else
-          // would silently append work to branches the user has not judged.
+          if (revisionOfDeliveryId && !pendingSnapshot) {
+            res.status(409).json({ error: 'invalid_revision_target', detail: 'The delivery is no longer active; refresh before continuing.' }); return
+          }
+          // Continue only the exact active generation and its full spec set.
+          // Explicit change requests name it; open addenda on the same rail
+          // identify it implicitly. Both use the existing supersession contract.
           const revisionsEnabled = areDeliveryRevisionsEnabled()
+          const addendumContinuation = Boolean(
+            launchAddenda.length && pendingSnapshot && pendingSnapshot.decision !== 'building'
+            && !revisionOfDeliveryId
+            && prDeliveryRevisionAllowed(pendingSnapshot, pendingSnapshot.id, rail.ticketIds),
+          )
           const revisionOfPending = Boolean(
-            revisionsEnabled && pendingSnapshot && revisionOfDeliveryId
-            && prDeliveryRevisionAllowed(pendingSnapshot, revisionOfDeliveryId as string, rail.ticketIds),
+            revisionsEnabled && pendingSnapshot && (addendumContinuation || (revisionOfDeliveryId
+            && prDeliveryRevisionAllowed(pendingSnapshot, revisionOfDeliveryId as string, rail.ticketIds))),
           )
           if (revisionsEnabled && pendingSnapshot && revisionOfDeliveryId && !revisionOfPending) {
             res.status(409).json({
@@ -932,14 +931,15 @@ export function createRailsRouter(): Router {
             revisionRequest = {
               ofDeliveryId: pendingSnapshot.id,
               decision: pendingSnapshot.decision as PrDecision,
-              note: revisionNote as string,
+              note: addendumContinuation ? renderSpecAddendaBriefing(launchAddenda) : revisionNote as string,
             }
           }
           // Explicit target vs an undecided continuable delivery: the slot's
           // active generation owns its PR. A DIFFERENT explicit target would
           // append to the undecided branches → 409; the SAME PR is redundant
           // (the continuation contract below already drives it) and is dropped.
-          if (pendingSnapshot && typeof targetPrNumber === 'number' && pendingSnapshot.prNumber !== targetPrNumber) {
+          if (pendingSnapshot && typeof targetPrNumber === 'number' && pendingSnapshot.prNumber !== targetPrNumber
+            && !pendingSnapshot.repositoryDeliveries?.some((delivery) => delivery.prNumber === targetPrNumber)) {
             res.status(409).json({ error: 'pr_decision_pending', prDeliveryId: pendingSnapshot.id }); return
           }
           if (pendingSnapshot?.executionManifest) {
@@ -1014,7 +1014,7 @@ export function createRailsRouter(): Router {
                 originConversationId: originConversationId ?? null,
                 ...(baseBranch ? { baseBranch } : {}),
                 ...(continuablePrDelivery?.executionManifest && !revisionRequest ? { repositoryContinuation: { deliveryId: continuablePrDelivery.id, decision: continuablePrDelivery.decision as PrDecision } } : {}),
-                ...(continuablePrDelivery && !continuablePrDelivery.executionManifest ? {
+                ...(continuablePrDelivery && !continuablePrDelivery.executionManifest && prDeliveryContinuesTickets(continuablePrDelivery, rail.ticketIds) ? {
                   requiredPrContinuation: {
                     deliveryId: continuablePrDelivery.id,
                     decision: continuablePrDelivery.decision as 'pr_draft' | 'pr_ready',
@@ -1036,7 +1036,7 @@ export function createRailsRouter(): Router {
                 ...(revisionRequest ? { revision: revisionRequest } : {}),
                 ...(followUp ? { followUp } : {}),
               })
-              res.status(202).json({ loopRunIds: ids, railIndex, mode, isolated: true, ...(followUp ? { followUp: { id: followUp.id, version: followUp.version, hash: followUp.hash } } : {}) })
+              res.status(202).json({ loopRunIds: ids, railIndex, mode, loopId, prDeliveryId: getActivePrDeliveryByRail(c.db, railIndex)?.id ?? null, isolated: true, ...(followUp ? { followUp: { id: followUp.id, version: followUp.version, hash: followUp.hash } } : {}) })
               return
             } catch (err) {
               if (err instanceof PrDeliveryGenerationConflict) {

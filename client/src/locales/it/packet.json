@@ -37,7 +37,7 @@
     "prompt": "Cosa vuoi cambiare?",
     "placeholder": "es. rendi blu il pulsante di accesso",
     "submit": "Invia la modifica",
-    "hint": "Riprende da dove il lavoro si è fermato — non ricomincia."
+    "hint": "Quick SDD applica la modifica sul ramo esistente e aggiorna questa consegna."
   },
   "discard": {
     "label": "Butta via",

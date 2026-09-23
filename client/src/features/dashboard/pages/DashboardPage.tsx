@@ -78,8 +78,10 @@ function prDecisionContinuesTickets(decision: RailPrStateSnapshot | undefined, t
   return ticketIds.length > 0 && ticketIds.every((id) => covered.has(id))
 }
 
-function ticketHasContinuablePr(ticketId: number, decisions: ReadonlyMap<number, RailPrStateSnapshot>): boolean {
+function ticketHasContinuablePr(ticketId: number, decisions: ReadonlyMap<number, RailPrStateSnapshot>, tickets: readonly LocalTicket[] = []): boolean {
+  const hasAddenda = tickets.some((ticket) => ticket.id === ticketId && ticket.addenda?.some((a) => a.status === 'open'))
   for (const decision of decisions.values()) {
+    if (hasAddenda && decision.decision !== 'building' && decision.ticketIds.includes(ticketId)) return true
     if (prDecisionContinuesTickets(decision, [ticketId])) return true
   }
   return false
@@ -426,7 +428,7 @@ export default function DashboardPage() {
       tickets
         .filter((t) => (
           t.status === 'done' ||
-          (railPrDecisionsHydrated && t.status === 'on_review' && !ticketHasContinuablePr(t.id, railPrDecisions))
+          (railPrDecisionsHydrated && t.status === 'on_review' && !ticketHasContinuablePr(t.id, railPrDecisions, tickets))
         ))
         .map((t) => t.id),
     )
@@ -736,16 +738,20 @@ export default function DashboardPage() {
       if (r.status === 'running') { skipped.push({ rail: r, reason: 'running' }); return }
       if (r.ticketIds.length === 0) { skipped.push({ rail: r, reason: 'empty' }); return }
       const decision = railPrDecisions.get(idx)
-      if (decision && !prDecisionContinuesTickets(decision, r.ticketIds)) {
+      const continuesAddenda = decision && decision.decision !== 'building'
+        && decision.ticketIds.length === r.ticketIds.length
+        && r.ticketIds.every((id) => decision.ticketIds.includes(id))
+        && r.ticketIds.some((id) => ticketMap.get(id)?.addenda?.some((a) => a.status === 'open'))
+      if (decision && !prDecisionContinuesTickets(decision, r.ticketIds) && !continuesAddenda) {
         skipped.push({ rail: r, reason: 'pendingDecision' }); return
       }
-      if (r.ticketIds.some((id) => ticketMap.get(id)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(id, railPrDecisions)))) {
+      if (r.ticketIds.some((id) => ticketMap.get(id)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(id, railPrDecisions, tickets)))) {
         skipped.push({ rail: r, reason: 'onReview' }); return
       }
       eligible.push(r)
     })
     return { eligible, skipped }
-  }, [rails, railPrDecisions, railPrDecisionsHydrated, ticketMap])
+  }, [rails, railPrDecisions, railPrDecisionsHydrated, ticketMap, tickets])
 
   const allTicketLabels = useMemo(() => {
     const set = new Set<string>()
@@ -825,7 +831,7 @@ export default function DashboardPage() {
     const ids = new Set<number>()
     if (!railPrDecisionsHydrated) return ids
     for (const ticket of tickets) {
-      if (ticket.status === 'on_review' && ticketHasContinuablePr(ticket.id, railPrDecisions)) {
+      if (ticket.status === 'on_review' && ticketHasContinuablePr(ticket.id, railPrDecisions, tickets)) {
         ids.add(ticket.id)
       }
     }
@@ -841,7 +847,7 @@ export default function DashboardPage() {
     if (!targetRail) return
     // On-review specs are frozen unless they already have a draft/published PR
     // head that a relaunch can continue.
-    if (tickets.find((tk) => tk.id === ticketId)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(ticketId, railPrDecisions))) {
+    if (tickets.find((tk) => tk.id === ticketId)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(ticketId, railPrDecisions, tickets))) {
       toast.info(t('toasts.onReviewCannotMoveToRail'))
       return
     }
@@ -992,7 +998,7 @@ export default function DashboardPage() {
       else if (sourceContainer === 'specs') {
         // Belt-and-braces: keep blocked on-review specs off rails, but allow the
         // documented "continue an open PR" path.
-        if (tickets.find((tk) => tk.id === draggedId)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(draggedId, railPrDecisions))) {
+        if (tickets.find((tk) => tk.id === draggedId)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(draggedId, railPrDecisions, tickets))) {
           toast.info(t('toasts.onReviewCannotMoveToRail'))
           return
         }
@@ -1233,7 +1239,7 @@ export default function DashboardPage() {
     if (rail.ticketIds.length === 0) return
 
     // Freestyle bypasses OpenSpec and has variable cost — confirm before launch.
-    if (rail.mode === 'freestyle') {
+    if (rail.mode === 'freestyle' && !rail.ticketIds.some((id) => ticketMap.get(id)?.addenda?.some((a) => a.status === 'open'))) {
       setFreestyleConfirm({ railId })
       return
     }
@@ -1256,20 +1262,21 @@ export default function DashboardPage() {
 
     // On-review specs are frozen unless they already have a draft/published PR
     // head that this launch can continue.
-    if (rail.ticketIds.some((id) => tickets.find((tk) => tk.id === id)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(id, railPrDecisions)))) {
+    if (rail.ticketIds.some((id) => tickets.find((tk) => tk.id === id)?.status === 'on_review' && (!railPrDecisionsHydrated || !ticketHasContinuablePr(id, railPrDecisions, tickets)))) {
       if (!silent) toast.info(t('toasts.onReviewNotLaunchable'))
       return 'skipped'
     }
 
     // rails-as-loops: every rail launches a Loop. Factory modes resolve to their
     // built-in loop; a custom (loop) rail needs an explicit pick.
-    const launchLoopId = effectiveLoopId(rail.selectedLoopId, rail.mode)
+    const launchLoopId = effectiveLoopId(rail.selectedLoopId, rail.mode, rail.ticketIds.some((id) => ticketMap.get(id)?.addenda?.some((a) => a.status === 'open')))
     if (!launchLoopId) {
       if (!silent) toast.error(t('railControls.pickLoop'))
       return 'failed'
     }
     // Hybrid per-role engines: the server resolves every role itself, so the
     // launch carries NO model / effort / profile / provider override from the rail.
+    const launchMode = deriveRailMode(launchLoopId)
     const rolesLaunch = isRolesEngine(rail.aiEngine)
     const launchProvider = railProvider(rail)
     const launchLoopModel = rail.loopModel ?? defaultModelForProvider(launchProvider)
@@ -1304,8 +1311,8 @@ export default function DashboardPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mode: rail.mode,
-          ...(!rolesLaunch && (rail.aiEngine != null || rail.mode === 'loop' && (rail.loopModel || launchEffort)) ? { runtimeProviderOverride: { provider: launchProvider, ...(rail.mode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}), ...(rail.mode === 'loop' && launchEffort ? { effort: launchEffort } : {}) } } : {}),
+          mode: launchMode,
+          ...(!rolesLaunch && (rail.aiEngine != null || launchMode === 'loop' && (rail.loopModel || launchEffort)) ? { runtimeProviderOverride: { provider: launchProvider, ...(launchMode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}), ...(launchMode === 'loop' && launchEffort ? { effort: launchEffort } : {}) } } : {}),
           // rail.profileName can be a string (explicit), null (force legacy),
           // or undefined (let server fall back to stored rail profile or defaults).
           ...(!rolesLaunch && rail.profileName !== undefined ? { profileName: rail.profileName } : {}),
@@ -1313,14 +1320,14 @@ export default function DashboardPage() {
           // falls back to the stored rail engine or the project primary.
           ...(rail.aiEngine != null ? { aiEngine: rail.aiEngine } : {}),
           // Freestyle model picker — only meaningful for freestyle launches.
-          ...(!rolesLaunch && rail.mode === 'freestyle' && rail.freestyleModel ? { model: rail.freestyleModel } : {}),
+          ...(!rolesLaunch && launchMode === 'freestyle' && rail.freestyleModel ? { model: rail.freestyleModel } : {}),
           // Loop model picker — only meaningful for custom loop launches.
-          ...(!rolesLaunch && rail.mode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}),
+          ...(!rolesLaunch && launchMode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}),
           // Interactive toggle — only meaningful for freestyle launches.
           // rails-as-loops: always send the chosen Loop. The server maps a
           // factory loop → its legacy mode; a custom loop runs the loop engine.
           loopId: launchLoopId,
-          ...(!rolesLaunch && rail.mode === 'loop' && launchEffort ? { reasoning_effort: launchEffort } : {}),
+          ...(!rolesLaunch && launchMode === 'loop' && launchEffort ? { reasoning_effort: launchEffort } : {}),
           // Explicit delivery target (deliver-rail-into-existing-pr): the run
           // continues this open PR's head branch; settle pushes into it.
           ...(rail.targetPr ? { targetPrNumber: rail.targetPr.number } : {}),

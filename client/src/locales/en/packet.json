@@ -37,7 +37,7 @@
     "prompt": "What would you like changed?",
     "placeholder": "e.g. make the login button blue",
     "submit": "Send the change",
-    "hint": "This picks up where the work left off — it does not start over."
+    "hint": "Quick SDD applies your change on the existing branch and updates this delivery."
   },
   "discard": {
     "label": "Throw this away",

@@ -122,11 +122,11 @@ export function railsTools(): McpToolSpec[] {
         revisionOfDeliveryId: z
           .string()
           .optional()
-          .describe('Revise a delivery that is ALREADY awaiting the user\'s decision (launch). This is the only way to launch against an undecided delivery: pass its prDeliveryId (from rails.prDeliveries) together with revisionNote. Use it whenever the user asks for a change to work you already delivered — never publish/discard/merge first. The rail must still carry exactly that delivery\'s specs.'),
+          .describe('Revise a delivery that is ALREADY awaiting the user\'s decision (launch). Continues with Quick SDD (the Revision loop is retired): pass its prDeliveryId (from rails.prDeliveries) together with revisionNote. Use it whenever the user asks for a change to work you already delivered — never publish/discard/merge first. The rail must still carry exactly that delivery\'s specs.'),
         revisionNote: z
           .string()
           .optional()
-          .describe('What to change, in the user\'s own words (required with revisionOfDeliveryId). It is injected into the revision run and shown on the updated review packet as "what you asked to change".'),
+          .describe('What to change, in the user\'s own words (required with revisionOfDeliveryId). It is injected into every Quick SDD phase and shown on the updated review packet as "what you asked to change".'),
         followUp: z
           .object({
             comments: z.array(z.object({

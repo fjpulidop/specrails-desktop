@@ -25,3 +25,7 @@ independent of manifest generation. Prefer a focused public subpath over an
 eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/loops` and any affected consumers.
+
+Quick SDD owns delivery changes and addenda. It seeds a distinct delta target,
+briefs each AI phase, and requires per-addendum coverage before validation/archive.
+The retired `factory:revision` id is a compatibility alias, absent from the gallery.

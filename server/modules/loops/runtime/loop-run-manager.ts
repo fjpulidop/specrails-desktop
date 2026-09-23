@@ -1,3 +1,5 @@
+import { createHash } from 'crypto'
+import { parseSpecAddendaReport } from '../../specs/runtime/spec-addenda-core'
 import path from 'path'
 import fs from 'fs'
 import { runtimeEfficiencyEventLine, isRecordedRuntimeEfficiencyEvent } from '../../agent-runtime/runtime/agent-runtime-events'
@@ -505,9 +507,20 @@ export function resolveRunVars(text: string, vars: Record<string, string>): stri
 
 const CHANGE_NAME_RE = /^[a-z0-9][a-z0-9._-]{0,99}$/i
 
-/** The durable OpenSpec change name a launch already carries, if any: the
- *  follow-up's declared name wins, else the spec's `openspecChangeName`. */
-export function seedChangeId(req: Pick<LoopRunRequest, 'followUp' | 'spec'>): { id: string; source: 'followUp' | 'spec' } | undefined {
+/** The authoritative OpenSpec target for a launch.
+ *  Addenda/delivery deltas get a run-specific name; ordinary launches use the
+ *  follow-up's declared name, else the spec's `openspecChangeName`. */
+export function seedChangeId(req: Pick<LoopRunRequest, 'followUp' | 'spec' | 'addenda' | 'runId' | 'constants'>): { id: string; source: 'addenda' | 'revision' | 'followUp' | 'spec' } | undefined {
+  if (req.addenda?.ids.length) {
+    // A new generation never picks an old/archived proposal, even when the
+    // ticket metadata still names it. Resuming the same run keeps its target.
+    const hash = createHash('sha256').update(JSON.stringify([req.runId, req.addenda.ids, req.addenda.briefing])).digest('hex').slice(0, 20)
+    return { id: `spec-addenda-${hash}`, source: 'addenda' }
+  }
+  if (req.constants?.REVISION_REQUEST) {
+    const hash = createHash('sha256').update(JSON.stringify([req.runId, req.constants.REVISION_REQUEST])).digest('hex').slice(0, 20)
+    return { id: `delivery-change-${hash}`, source: 'revision' }
+  }
   const fromFollowUp = typeof req.followUp?.openspecChangeName === 'string' ? req.followUp.openspecChangeName.trim() : ''
   if (fromFollowUp && CHANGE_NAME_RE.test(fromFollowUp)) return { id: fromFollowUp, source: 'followUp' }
   const direct = typeof req.spec?.openspecChangeName === 'string' ? req.spec.openspecChangeName.trim() : ''
@@ -1334,7 +1347,7 @@ export class LoopRunManager {
     // change in one go (run 644eb404) never mentioned an active path, so the
     // validate/archive shell steps refused to run and a green implementation
     // settled `failed`. A step's own capture still wins when nothing is seeded.
-    const seededChangeId = seedChangeId(req)
+    const seededChangeId = seedChangeId({ ...req, runId })
     if (seededChangeId) {
       runVars.changeId = seededChangeId.id
       logLine(`↪ OpenSpec change id seeded from ${seededChangeId.source}: ${seededChangeId.id}`)
@@ -1588,7 +1601,8 @@ export class LoopRunManager {
               resolveRunVars(
                 interpolateSpec(
                   expandCommands(rawTemplate, { provider: nodeProvider, ticketIds: req.spec?.ticketIds, specId: req.spec?.id }),
-                  req.spec
+                  seededChangeId && ['addenda', 'revision'].includes(seededChangeId.source)
+                    ? { ...req.spec, openspecChangeName: seededChangeId.id } : req.spec
                 ),
                 runVars
               ),
@@ -1599,7 +1613,10 @@ export class LoopRunManager {
             // arguments for CLI providers and plain prompt text for the runner.
             // The spec-addenda briefing rides the same slot: appended to every
             // step so no phase can miss the iteration delta.
-            const base = [executionManifestPrompt(req.executionManifest), withReviewContinuationContext(expanded, rawTemplate, req.spec), req.followUp?.briefing, req.addenda?.briefing].filter(Boolean).join('\n\n')
+            const deltaTarget = seededChangeId && ['addenda', 'revision'].includes(seededChangeId.source)
+              ? `DELTA OPENSPEC TARGET: ${seededChangeId.id}. Use ONLY openspec/changes/${seededChangeId.id}/. Create it if missing; the seeded name does not imply artifacts exist. Ignore the original spec/follow-up change name and unrelated active or archived changes. Inspect the current branch first. For delivered work, prepare artifacts and tasks ONLY for the attached addenda or delivery change request and preserve existing behavior outside this delta. For a spec with no delivered work, implement the spec together with its addenda. Map each requested change to acceptance checks. Do not redo or archive the original proposal. Apply and verify this exact change. When addenda are attached, report every addendum with concrete files and test evidence before VERIFICATION: PASS.`
+              : undefined
+            const base = [executionManifestPrompt(req.executionManifest), withReviewContinuationContext(expanded, rawTemplate, req.spec), req.followUp?.briefing, req.constants?.REVISION_REQUEST, deltaTarget, req.addenda?.briefing].filter(Boolean).join('\n\n')
             // Inject the cross-iteration history only when there's no live session
             // to carry it (a fresh pass) OR right after a Decider 'continue' (so the
             // step sees the verdict). A mid-body resumed step already has it.
@@ -1773,7 +1790,12 @@ export class LoopRunManager {
             const blockedReason = aiStepBlockedReason(res.text)
             const requiresVerification = node.data?.requireVerificationPass === true
               || /\{\{cmd:(?:verify|revision-verify|opsx:verify)\}\}/.test(rawTemplate)
-            const verificationFailed = requiresVerification
+            const addendaReport = requiresVerification && req.addenda?.ids.length
+              ? parseSpecAddendaReport(res.text, req.addenda.ids.map((id) => ({ id }))) : null
+            const addendaFailed = Boolean(requiresVerification && req.addenda?.ids.length
+              && req.addenda.ids.some((id) => !addendaReport?.some((line) =>
+                line.addendumId === id && line.verdict === 'applied' && line.files && line.tests)))
+            const verificationFailed = addendaFailed || requiresVerification
               && parseVerificationSentinel(res.text).verdict !== 'pass'
             const stepFailed = res.failed === true || zeroWork || blockedReason !== null || verificationFailed
             passFailed ||= res.failed === true || zeroWork || (verificationFailed && !blockedReason)
@@ -1782,7 +1804,7 @@ export class LoopRunManager {
               : blockedReason
                 ? `blocked — ${blockedReason}`
               : verificationFailed
-                ? 'verification did not finish with VERIFICATION: PASS'
+                ? addendaFailed ? 'addenda verification incomplete: every addendum requires an applied report with files and tests' : 'verification did not finish with VERIFICATION: PASS'
               : res.failed ? 'provider invocation failed without a reported reason' : undefined)
             // Make the failure reason land visibly INSIDE the step's log
             // segment (the interactive session already surfaced its own note at

@@ -210,7 +210,7 @@ const OPSX_FF_PROMPT = [
   '',
   'Structured OpenSpec target from the local ticket metadata: "{{spec.openspecChangeName}}". If this value is non-blank, CONTINUE that exact OpenSpec change and do NOT create a duplicate change for the same follow-up. If it is blank and no run change id exists, create a new OpenSpec change from this ticket and generate all required artifacts.',
   '',
-  'If a run change id appears here — "{{run.changeId}}" — an OpenSpec change for this ticket already exists: CONTINUE that change (do NOT create a new one) and complete its remaining work.',
+  'If a run change id appears here — "{{run.changeId}}" — use that EXACT change name, creating its artifacts if missing or continuing it if active. It takes precedence over ticket metadata; never select another change.',
   '',
   'OpenSpec artifacts are authoritative. If the requested implementation changes requirements, acceptance criteria, design decisions, APIs, states, data models, or invariants, amend the relevant OpenSpec artifacts before any code changes.',
   '',
@@ -220,7 +220,7 @@ const OPSX_FF_PROMPT = [
 ].join('\n')
 
 const OPSX_APPLY_PROMPT = [
-  '{{cmd:opsx:apply}}',
+  '{{cmd:opsx:apply}} {{run.changeId}}',
   '',
   'Implement every pending task of the active OpenSpec change for ticket "{{spec.title}}", editing code as needed and marking tasks complete as you finish them.',
   '',

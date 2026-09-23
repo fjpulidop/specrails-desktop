@@ -275,6 +275,32 @@ describe('opsx-lifecycle run (engine integration)', () => {
     expect(runShell.mock.calls[1][0].command).toBe('openspec archive from-spec -y')
   })
 
+  it.each([
+    ['missing', 'VERIFICATION: PASS', 'failed'],
+    ['partial', '- [a1] partial — files: ui.ts — tests: ui.test.ts\nVERIFICATION: PASS', 'failed'],
+    ['no evidence', '- [a1] applied\nVERIFICATION: PASS', 'failed'],
+    ['complete', '- [a1] applied — files: ui.ts — tests: ui.test.ts\nVERIFICATION: PASS', 'success'],
+  ])('addendum scope has its own target and rejects %s coverage before archive', async (_label, output, outcome) => {
+    const req = { ...baseReq(), runId: 'delta-run', spec: { ...baseReq().spec, openspecChangeName: 'old-completed-feature' }, addenda: { ids: ['a1'], briefing: 'Add module fields only; preserve pair selection.' } }
+    const target = seedChangeId(req)!
+    expect(target.source).toBe('addenda')
+    expect(seedChangeId(req)).toEqual(target)
+    expect(seedChangeId({ ...req, runId: 'retry' })?.id).not.toBe(target.id)
+    const runAiStep = vi.fn(async () => ({ text: output }))
+    const runShell = vi.fn(async () => ({ stdout: 'ok', stderr: '', exitCode: 0 }))
+    const res = await manager({ runAiStep, runShell, runDecider: vi.fn() }).run(req)
+    expect(res.outcome).toBe(outcome)
+    for (const [call] of runAiStep.mock.calls as unknown as [{ prompt: string }][]) {
+      expect(call.prompt).toContain(target.id)
+      expect(call.prompt).toContain(req.addenda.briefing)
+      expect(call.prompt).toContain('Create it if missing')
+    }
+    if (outcome === 'failed') expect(runShell).not.toHaveBeenCalled()
+    else expect(runShell.mock.calls.map((c) => (c as unknown as [{ command: string }])[0].command)).toEqual([
+      `openspec validate ${target.id} --type change --strict --no-interactive`, `openspec archive ${target.id} -y`,
+    ])
+  })
+
   it('seedChangeId prefers the follow-up, falls back to the spec, and rejects malformed names', () => {
     expect(seedChangeId({ followUp: { id: 'f', version: 1, hash: 'h', briefing: '', openspecChangeName: 'a-b' }, spec: { openspecChangeName: 'c' } })).toEqual({ id: 'a-b', source: 'followUp' })
     expect(seedChangeId({ spec: { openspecChangeName: ' c ' } })).toEqual({ id: 'c', source: 'spec' })

@@ -559,8 +559,8 @@ summary later.
   (usually Freestyle for implementation-only work, SDD Quick (OpenSpec) when
   OpenSpec artifacts are in play).
 - **SDD Quick (OpenSpec) launch path.** It requires a local ticket. Update or
-  create the ticket first so it describes the follow-up. If the target OpenSpec
-  change is known, store it in ticket metadata as \`openspecChangeName\` before
+  create the ticket first (for an existing spec, attach an addendum instead of rewriting it). If the target OpenSpec
+  change is known AND there are no open addenda, store it in ticket metadata as \`openspecChangeName\` before
   launch. Then propose \`specrails_rails(launch, mode:'loop',
   loopId:'factory:sdd-quick-openspec')\`. The confirmation prompt must include
   the ticket, OpenSpec target (or "new/unknown"), launch strategy, engine/model,
@@ -600,15 +600,15 @@ summary later.
   relaunch strategy even when \`main\` did not have that spec before the PR. If
   asked why a strategy was chosen, verify against active PR contents before
   answering.
-- **"Change something about work already delivered" = a REVISION launch.** When
+- **"Change something about work already delivered" = a Quick SDD continuation.** When
   the user asks for a modification to a delivery that is awaiting their decision
   (any non-terminal card: \`on_review\`, \`pr_draft\`, \`pr_ready\`, \`no_changes\`,
   \`implementation_failed\`), call \`specrails_rails(launch)\` with
   \`revisionOfDeliveryId\` = that card's \`prDeliveryId\` and \`revisionNote\` = what
   they asked for, in their own words. Do NOT tell them to publish, discard or
   merge first, and do NOT relaunch the ordinary implement/batch mode: a revision
-  runs a dedicated Architect-less loop that builds on the existing branch instead
-  of re-planning from scratch. The rail must still carry exactly that delivery's
+  always uses Quick SDD: pass \`loopId:'factory:sdd-quick-openspec'\` alongside the delivery
+  target. The server preserves the branch while running Quick SDD. The rail must still carry exactly that delivery's
   specs; a mismatch returns \`invalid_revision_target\`, which means re-check the
   rail's spec assignment rather than retrying blindly.
 - **"Resolve / fix the review comments on this PR" = a FOLLOW-UP launch, never a
@@ -649,6 +649,16 @@ summary later.
   \`dismiss_addendum\` withdraws it. Prefer an addendum + normal launch over a
   \`revisionNote\` when the change should stay attached to the spec for later
   runs; the two combine freely.
+  **Addenda on an existing branch/open PR ALWAYS run Quick SDD**, never Revision.
+  Use \`loopId:'factory:sdd-quick-openspec'\`; the server routes addenda there
+  even if the rail stores a different loop. A same-spec pending delivery is
+  continued without requiring publish/discard first. Keep the exact ticket and
+  repository scope; pass the delivery id when known. The runtime assigns a NEW
+  run-specific OpenSpec change for the frozen addenda, so NEVER edit
+  \`openspecChangeName\` to work around an old proposal. Every phase receives
+  the full addendum text and verification must report each id with files/tests.
+  Do not claim an addendum is applied merely because the run archived a change;
+  inspect its per-addendum evidence and report missing/partial/blocked work.
 - \`pr_decision_pending\` therefore only blocks a launch that is neither a
   revision nor a continuation of an open PR head. A delivery that failed
   BEFORE any work was prepared (a busy branch, a refused worktree) is closed
