@@ -97,7 +97,10 @@ describe('specrails_specs facade', () => {
     const added = await spec.handler({ ...ctx, originConversationId: 'conv-1' }, { action: 'add_addendum', projectId: 'p1', id: 7, body: 'Send an Idempotency-Key.', kind: 'review-feedback' }) as { hint: string }
     expect((fetchMock.mock.calls.at(-1) as [string, { method: string }])[1].method).toBe('POST')
     expect(lastBody()).toMatchObject({ kind: 'review-feedback', body: 'Send an Idempotency-Key.', createdBy: 'agent', originConversationId: 'conv-1' })
-    expect(added.hint).toContain('NEXT launch')
+    expect(added.hint).toContain('factory:sdd-quick-openspec')
+    expect(added.hint).toContain('continue a same-spec pending delivery')
+    expect(added.hint).toContain('full delta and a fresh OpenSpec target')
+    expect(added.hint).toContain('Do not use Revision')
 
     await spec.handler(ctx, { action: 'add_addendum', projectId: 'p1', id: 7, body: 'x' })
     expect(lastBody()).toMatchObject({ createdBy: 'mcp' })
