@@ -1,15 +1,18 @@
-// Domain routes extracted from project-router.ts (settings).
-// Registered on the shared router by createProjectRouter — behaviour-preserving.
+// Composition for project settings and the remaining settings-related routes.
+// The project-settings module owns its validation, use cases and HTTP adapter.
+import { createProjectSettingsService } from './modules/project-settings'
+import { createSqliteProjectSettingsRepository } from './modules/project-settings/adapters/sqlite'
+import { registerProjectSettingsHttp } from './modules/project-settings/adapters/http'
 import fs from 'fs'
 import path from 'path'
 import { Request, Response } from 'express'
 import {
-  getJob, getJobEvents, getProjectSettings, updateProjectSettings, normalizeWorktreeEnvPassthrough,
+  getJob, getJobEvents, getProjectSettings,
   getQuickContractRefineLast, setQuickContractRefineLast, hasQuickContractRefineLast,
   getTelemetryBlob, getTelemetrySummaries
 } from './db'
 import { createDiagnosticZip } from './telemetry-export'
-import { resolveIntegrationBranch, isValidBranchName } from './integration-branch'
+import { resolveIntegrationBranch } from './integration-branch'
 import { defaultGitRunner } from './worktree-manager'
 import { getContextBudget } from './context-budget'
 import {
@@ -45,10 +48,9 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
   const { router, registry, ctx } = deps
   // ─── Project settings (pipeline telemetry) ───────────────────────────────────
 
-  router.get('/:projectId/settings', (req: Request, res: Response) => {
-    const settings = getProjectSettings(ctx(req).db)
-    res.json(settings)
-  })
+  registerProjectSettingsHttp(router, req =>
+    createProjectSettingsService(createSqliteProjectSettingsRepository(ctx(req).db)),
+  )
 
   // ─── Per-project Quick mode Contract Refine last-used value ─────────────────
 
@@ -104,65 +106,6 @@ export function registerSettingsRoutes(deps: ProjectRoutesDeps): void {
     const merged = normalizeContextScope({ ...current, ...body }, current)
     setLastContextScope(ctx(req).db, merged)
     res.json({ scope: merged })
-  })
-
-  router.patch('/:projectId/settings', (req: Request, res: Response) => {
-    const { pipelineTelemetryEnabled, orchestratorModel, prePrompt, freestylePrePrompt, worktreeEnvPassthrough } = req.body ?? {}
-    const patch: Parameters<typeof updateProjectSettings>[1] = {}
-    if (pipelineTelemetryEnabled !== undefined) {
-      patch.pipelineTelemetryEnabled = Boolean(pipelineTelemetryEnabled)
-    }
-    const VALID_MODELS = ['sonnet', 'opus', 'haiku']
-    if (orchestratorModel !== undefined) {
-      if (typeof orchestratorModel !== 'string' || !VALID_MODELS.includes(orchestratorModel)) {
-        res.status(400).json({ error: `orchestratorModel must be one of: ${VALID_MODELS.join(', ')}` })
-        return
-      }
-      patch.orchestratorModel = orchestratorModel
-    }
-    if (prePrompt !== undefined) {
-      if (typeof prePrompt !== 'string') {
-        res.status(400).json({ error: 'prePrompt must be a string' })
-        return
-      }
-      patch.prePrompt = prePrompt
-    }
-    if (freestylePrePrompt !== undefined) {
-      if (typeof freestylePrePrompt !== 'string') {
-        res.status(400).json({ error: 'freestylePrePrompt must be a string' })
-        return
-      }
-      patch.freestylePrePrompt = freestylePrePrompt
-    }
-    if (worktreeEnvPassthrough !== undefined) {
-      try {
-        patch.worktreeEnvPassthrough = normalizeWorktreeEnvPassthrough(worktreeEnvPassthrough)
-      } catch (err) {
-        res.status(400).json({ error: err instanceof Error ? err.message : 'invalid worktreeEnvPassthrough' })
-        return
-      }
-    }
-    if (req.body?.integrationBranch !== undefined) {
-      const ib = req.body.integrationBranch
-      if (typeof ib !== 'string') {
-        res.status(400).json({ error: 'integrationBranch must be a string' })
-        return
-      }
-      // Empty = clear (auto-resolve). A non-empty value flows into `git worktree
-      // add … <base>`, so it must be a safe branch name (no arg-injection).
-      if (ib.trim() !== '' && !isValidBranchName(ib)) {
-        res.status(400).json({ error: 'integrationBranch is not a valid branch name' })
-        return
-      }
-      patch.integrationBranch = ib
-    }
-    try {
-      updateProjectSettings(ctx(req).db, patch)
-      res.json({ ok: true, settings: getProjectSettings(ctx(req).db) })
-    } catch (err) {
-      console.error('[project-router] settings patch error:', err)
-      res.status(500).json({ error: 'Failed to update settings' })
-    }
   })
 
   // Resolve the effective integration branch (configured value + what it resolves

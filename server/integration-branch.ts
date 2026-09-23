@@ -115,14 +115,7 @@ export async function currentBranch(git: GitRunner, repoDir: string): Promise<st
  * `-`, `..`, a trailing `/` or `.lock`, and cap the length. This is stricter than
  * git's own rules on purpose — it is an input-boundary guard, not a git parser.
  */
-export function isValidBranchName(name: string): boolean {
-  if (typeof name !== 'string') return false
-  const n = name.trim()
-  if (!n || n.length > 255) return false
-  if (n.startsWith('-') || n.startsWith('/') || n.endsWith('/')) return false
-  if (n.includes('..') || n.includes('//') || n.endsWith('.lock')) return false
-  return /^[A-Za-z0-9._/-]+$/.test(n)
-}
+export { isValidBranchName } from './shared/git-branch-name'
 
 export async function resolveIntegrationBranch(
   git: GitRunner,
