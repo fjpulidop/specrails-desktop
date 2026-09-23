@@ -1,3 +1,4 @@
+import { normalizePendingQueue, isDependencySatisfied, recordJobInvocations, type JobAccountingInput } from './modules/execution'
 import { ChildProcess } from 'child_process'
 import fsNode from 'fs'
 import pathNode from 'path'
@@ -1518,91 +1519,14 @@ export class QueueManager {
    * Returns the surface_ref_id(s) written so a caller (LOW-6 reconciliation) can
    * locate/replace the rows later.
    */
-  private _recordJobInvocations(params: {
-    jobId: string
-    provider: string
-    status: InvocationStatus
-    startedAt: string
-    finishedAt: string | null
-    ticketIds: number[]
-    estimated: boolean
-    result: {
-      tokens_in?: number
-      tokens_out?: number
-      tokens_cache_read?: number
-      tokens_cache_create?: number
-      total_cost_usd?: number
-      num_turns?: number
-      model?: string
-      session_id?: string
-      duration_ms?: number
-      duration_api_ms?: number
-    }
-    conversationId?: string | null
-  }): string[] {
-    const { jobId, provider, status, startedAt, finishedAt, ticketIds, estimated, result } = params
+  private _recordJobInvocations(params: JobAccountingInput): string[] {
     const db = this._db
     const projectId = this._projectId
     if (!db || !projectId) return []
-
-    // Single-ticket / no-ticket: one row, plain jobId (byte-compatible).
-    if (ticketIds.length <= 1) {
-      recordInvocation(db, {
-        id: randomUUID(),
-        project_id: projectId,
-        provider,
-        surface: 'job',
-        surface_ref_id: jobId,
-        ticket_id: ticketIds[0] ?? null,
-        conversation_id: params.conversationId ?? null,
-        status,
-        started_at: startedAt,
-        finished_at: finishedAt,
-        total_cost_usd_estimated: estimated,
-        ...result,
-      })
-      return [jobId]
-    }
-
-    // Multi-ticket: split across one row per ticket. Cost & duration split evenly
-    // as floats; token & turn totals via largest-remainder (sum exactly to total).
-    const n = ticketIds.length
-    const evenSplit = (v: number | undefined): number | undefined =>
-      v === undefined ? undefined : v / n
-    const tokensIn = distributeIntEvenly(result.tokens_in, n)
-    const tokensOut = distributeIntEvenly(result.tokens_out, n)
-    const cacheRead = distributeIntEvenly(result.tokens_cache_read, n)
-    const cacheCreate = distributeIntEvenly(result.tokens_cache_create, n)
-    const numTurns = distributeIntEvenly(result.num_turns, n)
-    const refIds: string[] = []
-    ticketIds.forEach((ticketId, i) => {
-      const refId = `${jobId}#t${ticketId}`
-      refIds.push(refId)
-      recordInvocation(db, {
-        id: randomUUID(),
-        project_id: projectId,
-        provider,
-        surface: 'job',
-        surface_ref_id: refId,
-        ticket_id: ticketId,
-        conversation_id: params.conversationId ?? null,
-        status,
-        started_at: startedAt,
-        finished_at: finishedAt,
-        total_cost_usd_estimated: estimated,
-        tokens_in: tokensIn[i],
-        tokens_out: tokensOut[i],
-        tokens_cache_read: cacheRead[i],
-        tokens_cache_create: cacheCreate[i],
-        total_cost_usd: evenSplit(result.total_cost_usd),
-        num_turns: numTurns[i],
-        model: result.model,
-        session_id: result.session_id,
-        duration_ms: evenSplit(result.duration_ms),
-        duration_api_ms: evenSplit(result.duration_api_ms),
-      })
+    return recordJobInvocations(projectId, params, {
+      newId: randomUUID,
+      write: invocation => recordInvocation(db, invocation),
     })
-    return refIds
   }
 
   /**
@@ -1774,16 +1698,7 @@ export class QueueManager {
     // an invalid caller: only unique, presently-queued jobs may reach start.
     // In particular, a duplicated id must not relaunch after its first run
     // becomes terminal.
-    const seen = new Set<string>()
-    const normalizedQueue: string[] = []
-    const removedJobIds: string[] = []
-    for (const id of this._queue) {
-      if (seen.has(id)) continue
-      seen.add(id)
-      const candidate = this._jobs.get(id)
-      if (candidate?.status === 'queued') normalizedQueue.push(id)
-      else removedJobIds.push(id)
-    }
+    const { normalizedQueue, removedJobIds } = normalizePendingQueue(this._queue, this._jobs)
     if (normalizedQueue.length !== this._queue.length) {
       this._queue = normalizedQueue
       this._recomputePositions()
@@ -4046,7 +3961,7 @@ export class QueueManager {
   private _isDependencyMet(job: Job): boolean {
     if (!job.dependsOnJobId) return true
     const parentStatus = this._getDependencyStatus(job.dependsOnJobId)
-    return parentStatus === null || parentStatus === 'completed'
+    return isDependencySatisfied(parentStatus)
   }
 
   private _skipDependents(parentJobId: string, reason: string): void {

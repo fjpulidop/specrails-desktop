@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 900 source/build files. Nearby tests are linked where names
+Includes 911 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1000,6 +1000,38 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mobile-webrtc-peer.ts](../../server/mobile/mobile-webrtc-peer.ts)
 - [mobile-webrtc.ts](../../server/mobile/mobile-webrtc.ts) · [test](../../server/mobile/mobile-webrtc.test.ts)
 - [mobile-ws.ts](../../server/mobile/mobile-ws.ts) · [test](../../server/mobile/mobile-ws.test.ts)
+
+## server/modules/conversations
+
+- [index.ts](../../server/modules/conversations/index.ts)
+
+## server/modules/conversations/domain
+
+- [draft-stream.ts](../../server/modules/conversations/domain/draft-stream.ts)
+- [recovery-context.ts](../../server/modules/conversations/domain/recovery-context.ts)
+
+## server/modules/delivery
+
+- [index.ts](../../server/modules/delivery/index.ts)
+
+## server/modules/delivery/domain
+
+- [decision-policy.ts](../../server/modules/delivery/domain/decision-policy.ts)
+- [state.ts](../../server/modules/delivery/domain/state.ts)
+
+## server/modules/execution
+
+- [index.ts](../../server/modules/execution/index.ts)
+- [ports.ts](../../server/modules/execution/ports.ts)
+
+## server/modules/execution/application
+
+- [record-job-invocations.ts](../../server/modules/execution/application/record-job-invocations.ts)
+
+## server/modules/execution/domain
+
+- [job-accounting.ts](../../server/modules/execution/domain/job-accounting.ts)
+- [scheduling.ts](../../server/modules/execution/domain/scheduling.ts)
 
 ## server/modules/project-settings
 

@@ -1,7 +1,8 @@
 # Architecture decision: modular monolith with selective ports and adapters
 
-Status: accepted direction; first vertical module implemented in this PR.
-The rest of the backend remains a mixed legacy architecture, not a completed
+Status: accepted direction; project settings and execution/delivery/conversation
+core extractions implemented in this PR.
+Infrastructure orchestration remains a mixed legacy architecture, not a completed
 hexagonal migration. This distinction is intentional and reviewable.
 
 ## Objective
@@ -96,7 +97,7 @@ or a generic `BaseManager` hierarchy would not improve these constraints.
 | Facade | Existing `db.ts` API during extraction | Compatibility only; new business rules belong to their module |
 | Composition root / factory | Route registration binds one project's service and repository | No global service locator, shared mutable project cache or container dependency |
 | Transaction / unit of work | Atomic settings update; existing job/admission/settlement transactions | Keep related writes in one transaction and test rollback/restart behavior |
-| State machine | Future queue/delivery lifecycle extractions | Model explicit transitions only after existing lifecycle invariants are captured; avoid a second competing state representation |
+| State machine | Extracted delivery action policy and queue admission | Model explicit transitions only after existing lifecycle invariants are captured; avoid a second competing state representation |
 | Durable outbox | Existing ticket effects in PR/recovery flows | Preserve durable replay and idempotency; do not substitute ephemeral pub/sub |
 
 CQRS infrastructure, event sourcing, microservices, decorators and a dependency
@@ -110,11 +111,11 @@ ports for required external capabilities, adapters and a README with test comman
 The exact file count can vary; the import direction cannot.
 
 [Architecture tests](../../server/modules/architecture.test.ts) enforce declared
-core dependencies and block legacy consumers from reaching into the settings
+core dependencies and block consumers from reaching into any extracted
 module's internals. Only documented composition/compatibility files may import its
 adapters. Typecheck enforces unused locals/imports. These checks run in normal CI.
 
-The current tests protect the extracted module, not every legacy server file.
+The current tests protect all four extracted modules, not every legacy server file.
 Extend the rule set as each module is migrated; do not claim global isolation from
 the existence of a `modules` directory.
 
@@ -123,14 +124,17 @@ the existence of a `modules` directory.
 1. **Project settings — implemented.** Public use cases, domain validation,
    repository port, SQLite/HTTP adapters, atomic updates, pure application tests,
    adapter tests, legacy route regressions and dependency guards.
-2. **Execution — next high-value extraction.** Separate pure scheduling/budget
+2. **Execution — partial.** [Scheduling and job accounting](../../server/modules/execution/README.md)
+   now have pure policies and a narrow accounting port. Still separate budget
    policy, durable lifecycle storage and provider/process execution. Keep active
    slot reservation synchronous and settlement/recovery idempotent. Accept only
    after queue, interactive-session, crash-replay and accounting suites pass.
-3. **PR delivery.** Isolate decision rules behind Git/publisher/ticket-effect ports.
+3. **PR delivery — partial.** [Decision rules and lifecycle vocabulary](../../server/modules/delivery/README.md)
+   are independent of persistence. Still extract Git/publisher/ticket-effect ports.
    Preserve branch provenance, continuation identity, ownership and outbox replay.
    Use the existing isolated-launch and PR-decision suites as contracts.
-4. **Chat and missions.** Separate conversation/turn policy, context construction,
+4. **Chat and missions — partial.** [Resume context and stream rules](../../server/modules/conversations/README.md)
+   are independent of I/O. Still separate turn orchestration,
    transports and persisted events. Preserve project switching and streaming state.
 5. **Frontend features.** Move a cohesive feature with its hooks, UI, contracts and
    tests when its boundary is understood. Keep shared UI primitives genuinely

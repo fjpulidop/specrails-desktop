@@ -1,3 +1,5 @@
+import { actionAllowed, type PrDecisionAction } from './modules/delivery'
+export { PR_DECISION_ACTIONS, isPrDecisionAction, actionAllowed, type PrDecisionAction } from './modules/delivery'
 /**
  * Execute a user's ask-first PR decision (safe-pr-review-flow) against its
  * authoritative `rail_pr_deliveries` row: the actions both decision
@@ -82,19 +84,12 @@ import {
   releasePrDeliveryOperation as chainReleaseOp,
 } from './rail-pr-store'
 
-export const PR_DECISION_ACTIONS = ['create-pr', 'publish', 'discard', 'dismiss', 'poll-merge', 'reopen', 'merge-local', 'acknowledge-no-changes', 'recover-and-retry'] as const
-export type PrDecisionAction = (typeof PR_DECISION_ACTIONS)[number]
-
 function safetyArchiveRecorder(deps: PrDecisionDeps, row: RailPrDeliveryRow) {
   return (archive: string): void => {
     if (!appendPrDeliverySafetyArchive(deps.db, row.id, archive)) {
       throw new Error(`delivery ${row.id} disappeared while recording safety archive ${archive}`)
     }
   }
-}
-
-export function isPrDecisionAction(v: unknown): v is PrDecisionAction {
-  return typeof v === 'string' && (PR_DECISION_ACTIONS as readonly string[]).includes(v)
 }
 
 export interface PrDecisionDeps {
@@ -153,48 +148,6 @@ function illegalAction(current: string): PrDecisionResult {
 function ghFailed(r: ExecResult): PrDecisionResult {
   const detail = (r.stderr.trim() || r.stdout.trim()).split('\n')[0] || `exit ${r.code}`
   return { status: 502, body: { error: 'gh_failed', detail } }
-}
-
-/**
- * The D3 state machine's action legality. `create-pr` is also the RETRY path:
- * from a retryable pr_failed, or from a pr_draft whose delivery degraded before
- * a PR existed (pushed/local-only → pr_url null). Publish/poll require a real
- * PR URL — a degraded draft only offers retry or discard.
- */
-export function actionAllowed(action: PrDecisionAction, row: RailPrDeliveryRow): boolean {
-  switch (action) {
-    case 'create-pr':
-      return row.decision === 'on_review' ||
-        (row.decision === 'pr_failed' && (row.delivery_outcome === 'retryable_failure' || row.delivery_outcome === 'unknown')) ||
-        (row.decision === 'pr_draft' && row.pr_url === null)
-    case 'publish':
-      return row.decision === 'pr_draft' && row.pr_url !== null
-    case 'discard':
-      return row.decision === 'on_review' || row.decision === 'pr_draft' ||
-        row.decision === 'pr_ready' || row.decision === 'pr_closed' || row.decision === 'no_changes' ||
-        row.decision === 'implementation_failed' ||
-        row.decision === 'pr_failed'
-    case 'dismiss':
-      return row.is_continuation === 1 && row.decision !== 'building' &&
-        row.decision !== 'merged' && row.decision !== 'discarded' && row.decision !== 'superseded'
-    case 'poll-merge':
-      return (row.decision === 'pr_draft' || row.decision === 'pr_ready' || row.decision === 'pr_closed') && row.pr_url !== null
-    case 'reopen':
-      return row.decision === 'pr_closed' && row.pr_url !== null
-    case 'merge-local':
-      // Remote-less acceptance ONLY: once a real PR exists (pr_url), GitHub is
-      // the merge authority — merging under an open PR would leave it dangling.
-      return row.pr_url === null &&
-        (row.decision === 'on_review' || row.decision === 'pr_failed' || row.decision === 'pr_draft')
-    case 'acknowledge-no-changes':
-      return row.decision === 'no_changes' && row.is_continuation !== 1
-    case 'recover-and-retry':
-      return row.decision === 'pr_failed' && row.delivery_outcome === 'blocked' &&
-        (row.status_code === 'settlement_interrupted' || row.status_code === 'recovery_unavailable') &&
-        row.is_continuation === 1 &&
-        (row.implementation_outcome === 'succeeded' || row.implementation_outcome === 'partially_succeeded') &&
-        row.pr_url !== null && row.branch !== null
-  }
 }
 
 export async function executePrDecision(deps: PrDecisionDeps, input: PrDecisionInput): Promise<PrDecisionResult> {
