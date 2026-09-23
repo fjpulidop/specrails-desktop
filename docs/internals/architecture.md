@@ -55,7 +55,7 @@ Tests use vitest with `:memory:` SQLite databases.
 
 > **Artifact relocation + bundled framework (pre-release, branch `feat/relocate-artifacts-to-home`).** Relocated projects spawn AI-CLIs from `projects/<slug>/workspace` (with `SPECRAILS_REPO_DIR` pointing at the repo) instead of the repo, so imported repos stay pristine; the framework is bundled and symlinked instead of installed per-project via `npx`. See the **Artifact relocation + bundled framework** section in `CLAUDE.md` and the three internal docs: `global-artifacts-relocation-evaluation.md`, `global-artifacts-alignment-contract.md`, `bundled-framework-build-plan.md`.
 
-The app SQLite (`desktop.sqlite`) stores only project metadata. All per-project data lives in an isolated `jobs.sqlite` under the project's slug directory — not just jobs and chat, but rails, tickets, agent profiles/versions, AI invocations (cost analytics), telemetry pointers, file provenance, terminal settings/marks, and more (see the `MIGRATIONS` array in `server/db.ts`). Projects can be removed and re-added without losing history, and the registry can be wiped without touching project data.
+The app SQLite (`desktop.sqlite`) stores only project metadata. All per-project data lives in an isolated `jobs.sqlite` under the project's slug directory — not just jobs and chat, but rails, tickets, agent profiles/versions, AI invocations (cost analytics), telemetry pointers, file provenance, terminal settings/marks, and more (see the `MIGRATIONS` array in `server/db/migrations.ts`). Projects can be removed and re-added without losing history, and the registry can be wiped without touching project data.
 
 > The data root is hardcoded to `os.homedir()/.specrails`. There is no environment override for the data directory.
 >
@@ -109,7 +109,7 @@ The `boundBroadcast` closure injects `projectId` into all WebSocket messages, so
 | `project-registry.ts` | `ProjectRegistry` class: load/unload per-project `ProjectContext` |
 | `desktop-router.ts` | `/api/*` routes: projects, settings, themes, specrails-tech proxy, cross-project analytics |
 | `project-router.ts` | `/api/projects/:id/*` routes: all project-scoped operations |
-| `db.ts` | Per-project SQLite: schema (`MIGRATIONS`) + queries |
+| `db.ts`, `db/` | Stable persistence facade with separate connection, migrations and domain repositories; see [source boundaries](source-architecture.md) |
 | `queue-manager.ts` | Job queue: spawn provider CLI processes serially per project |
 | `chat-manager.ts` | Chat/Explore: spawn provider CLI for conversational turns |
 | `setup-manager.ts` | Setup wizard: orchestrate `specrails-core` install + `/setup` chat |

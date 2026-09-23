@@ -47,7 +47,8 @@
     "test:coverage": "vitest run --coverage --maxWorkers=1 --reporter=dot --bail=1",
     "test:client": "cd client && npx vitest run",
     "test:all": "vitest run && cd client && npx vitest run",
-    "ci": "npm run typecheck && npm run check-core-compat && npm run test:scripts && npm run test:coverage && npm run test:coverage --prefix client && npm run build && npm run check:package"
+    "ci": "npm run typecheck && npm run check-core-compat && npm run test:scripts && npm run test:coverage && npm run test:coverage --prefix client && npm run build && npm run check:package",
+    "audit:source": "node scripts/audit-source.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

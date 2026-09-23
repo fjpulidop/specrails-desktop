@@ -9,6 +9,7 @@ If you're a user looking for **how do I do X?** docs, head back to the [user gui
 | Doc | What it covers |
 |-----|----------------|
 | [architecture.md](architecture.md) | Server modules, client layout, WebSocket protocol, process spawning, security model |
+| [source-architecture.md](source-architecture.md) | Persistence boundaries, queue collaborators and unused-source audit |
 | [api-reference.md](api-reference.md) | REST endpoint catalogue under `/api/*` and `/api/projects/:projectId/*` |
 | [configuration.md](configuration.md) | Settings, env vars, kill switches, advanced flags |
 | [operations-runbook.md](operations-runbook.md) | Start/stop, port conflicts, recovery procedures, backups |
