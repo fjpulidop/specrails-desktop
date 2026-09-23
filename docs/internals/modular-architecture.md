@@ -106,8 +106,9 @@ only against a concrete requirement and migration cost.
 
 ## Module contract and dependency enforcement
 
-Each extracted feature has a public `index.ts`, domain rules, an application API,
-ports for required external capabilities, adapters and a README with test commands.
+Each extracted feature has a public `index.ts`, domain rules and a README with
+test commands. Add application use cases, ports and adapters when external
+capabilities are required; pure policy modules do not need artificial interfaces.
 The exact file count can vary; the import direction cannot.
 
 [Architecture tests](../../server/modules/architecture.test.ts) enforce declared
