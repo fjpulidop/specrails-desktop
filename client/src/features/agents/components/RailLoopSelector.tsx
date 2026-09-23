@@ -17,7 +17,9 @@ export function RailLoopSelector({
   onChange,
   freestyleAvailable = true,
   loopsEnabled = true,
+  disabled = false,
 }: {
+  disabled?: boolean
   value: string | null | undefined
   onChange: (loopId: string) => void
   /** Offer the provider-owned Freestyle built-in when the adapter supports it. */
@@ -54,6 +56,7 @@ export function RailLoopSelector({
       <Workflow className="w-3 h-3 text-muted-foreground mr-1" />
       <select
         value={value ?? ''}
+        disabled={disabled}
         aria-label={t('railControls.loop')}
         data-testid="rail-loop-selector"
         onChange={(e) => onChange(e.target.value)}

@@ -1,3 +1,5 @@
+import { createHash } from 'crypto'
+import { parseSpecAddendaReport } from '../../specs/runtime/spec-addenda-core'
 import path from 'path'
 import fs from 'fs'
 import { runtimeEfficiencyEventLine, isRecordedRuntimeEfficiencyEvent } from '../../agent-runtime/runtime/agent-runtime-events'
@@ -32,6 +34,8 @@ import type { WsMessage, JobStatus } from '../../../types'
 import type { ProviderAdapter, ReasoningEffort } from '../../../providers/types'
 import {
   type LoopGraph,
+  type LoopNode,
+  assertLoopFailureRecovery,
   type LoopSpec,
   nodesById,
   findStartNode,
@@ -505,9 +509,20 @@ export function resolveRunVars(text: string, vars: Record<string, string>): stri
 
 const CHANGE_NAME_RE = /^[a-z0-9][a-z0-9._-]{0,99}$/i
 
-/** The durable OpenSpec change name a launch already carries, if any: the
- *  follow-up's declared name wins, else the spec's `openspecChangeName`. */
-export function seedChangeId(req: Pick<LoopRunRequest, 'followUp' | 'spec'>): { id: string; source: 'followUp' | 'spec' } | undefined {
+/** The authoritative OpenSpec target for a launch.
+ *  Addenda/delivery deltas get a run-specific name; ordinary launches use the
+ *  follow-up's declared name, else the spec's `openspecChangeName`. */
+export function seedChangeId(req: Pick<LoopRunRequest, 'followUp' | 'spec' | 'addenda' | 'runId' | 'constants'>): { id: string; source: 'addenda' | 'revision' | 'followUp' | 'spec' } | undefined {
+  if (req.addenda?.ids.length) {
+    // A new generation never picks an old/archived proposal, even when the
+    // ticket metadata still names it. Resuming the same run keeps its target.
+    const hash = createHash('sha256').update(JSON.stringify([req.runId, req.addenda.ids, req.addenda.briefing])).digest('hex').slice(0, 20)
+    return { id: `spec-addenda-${hash}`, source: 'addenda' }
+  }
+  if (req.constants?.REVISION_REQUEST) {
+    const hash = createHash('sha256').update(JSON.stringify([req.runId, req.constants.REVISION_REQUEST])).digest('hex').slice(0, 20)
+    return { id: `delivery-change-${hash}`, source: 'revision' }
+  }
   const fromFollowUp = typeof req.followUp?.openspecChangeName === 'string' ? req.followUp.openspecChangeName.trim() : ''
   if (fromFollowUp && CHANGE_NAME_RE.test(fromFollowUp)) return { id: fromFollowUp, source: 'followUp' }
   const direct = typeof req.spec?.openspecChangeName === 'string' ? req.spec.openspecChangeName.trim() : ''
@@ -1024,6 +1039,10 @@ export class LoopRunManager {
     // Later fresh steps must verify the admitted spec, even if its caller or
     // backlog changes while the implementation is running.
     req = { ...req, runtimeProviderOverride: validateRuntimeProviderOverride(req.runtimeProviderOverride), graph: structuredClone(req.graph) }
+    assertLoopFailureRecovery(req.graph)
+    if (req.addenda) req = { ...req, addenda: structuredClone(req.addenda) }
+    if (req.followUp) req = { ...req, followUp: structuredClone(req.followUp) }
+    if (req.constants) req = { ...req, constants: structuredClone(req.constants) }
     if (req.spec) req = { ...req, spec: structuredClone(req.spec) }
     if (req.executionManifest) req = { ...req, executionManifest: structuredClone(req.executionManifest) }
     assertLoopShellRepositoryScope(req.graph, req.executionManifest?.selectedRepositoryIds ?? (req.repositoryId ? [req.repositoryId] : []))
@@ -1334,7 +1353,7 @@ export class LoopRunManager {
     // change in one go (run 644eb404) never mentioned an active path, so the
     // validate/archive shell steps refused to run and a green implementation
     // settled `failed`. A step's own capture still wins when nothing is seeded.
-    const seededChangeId = seedChangeId(req)
+    const seededChangeId = seedChangeId({ ...req, runId })
     if (seededChangeId) {
       runVars.changeId = seededChangeId.id
       logLine(`↪ OpenSpec change id seeded from ${seededChangeId.source}: ${seededChangeId.id}`)
@@ -1534,6 +1553,26 @@ export class LoopRunManager {
       return decision
     }
 
+    const recoveryCounts = new Map<string, number>()
+    let phaseRecovery: { failedId: string; target: string; detail: string; artifactOnly: boolean } | undefined
+    const recoverPhase = (node: LoopNode, detail: string, previousFailure: boolean): string | undefined => {
+      const policy = node.data?.failureRecovery
+      if (!policy || phaseRecovery || this._cancelled.has(runId) ||
+        (recoveryCounts.get(node.id) ?? 0) >= policy.maxRetries) return undefined
+      recoveryCounts.set(node.id, (recoveryCounts.get(node.id) ?? 0) + 1)
+      phaseRecovery = { failedId: node.id, target: policy.target, detail: truncate(detail, 4000), artifactOnly: policy.artifactOnly === true }
+      passFailed = previousFailure
+      emitRunEvent('loop_phase_recovery', { nodeId: node.id, target: policy.target, attempt: recoveryCounts.get(node.id) })
+      logLine(`↪ Recovering phase ${node.id} once; preserving completed phases and the current change.`)
+      return policy.target
+    }
+    const afterPhase = (nodeId: string, successor: string | undefined): string | undefined => {
+      if (phaseRecovery?.target !== nodeId) return successor
+      const failedId = phaseRecovery.failedId
+      phaseRecovery = undefined
+      return failedId === nodeId ? successor : failedId
+    }
+
     const firstStepId = start ? req.graph.edges.find((e) => e.source === start.id)?.target : undefined
 
     try {
@@ -1581,14 +1620,19 @@ export class LoopRunManager {
             // NATIVE per-provider invocation (claude `/specrails:implement #<id>
             // --yes`, codex `$implement #<id> --yes`) — then resolve `{{spec.*}}`
             // data tokens and finally `{{const:*}}` library constants.
-            const rawTemplate = String(node.data?.prompt ?? '')
+            const priorPhaseFailure = passFailed
+            const repair = phaseRecovery?.target === node.id ? phaseRecovery : undefined
+            const rawTemplate = repair?.artifactOnly
+              ? 'Repair ONLY the OpenSpec artifacts at openspec/changes/{{run.changeId}}/ using the validation diagnostics below. Preserve requirements and acceptance criteria. Do not edit implementation code, run repository tests, archive, create a new change, or expand scope. {{const:GUARDRAILS}}'
+              : String(node.data?.prompt ?? '')
             const requiresCoreCompletion = node.data?.operation === 'core-implementation' || /\{\{\s*cmd:(?:implement|batch)\s*\}\}/.test(rawTemplate)
               || /^\s*(?:\/specrails:|\/skill:specrails-|\$)(?:implement|batch-implement)(?:\s|$)/.test(rawTemplate)
             const expanded = resolveConstants(
               resolveRunVars(
                 interpolateSpec(
                   expandCommands(rawTemplate, { provider: nodeProvider, ticketIds: req.spec?.ticketIds, specId: req.spec?.id }),
-                  req.spec
+                  seededChangeId && ['addenda', 'revision'].includes(seededChangeId.source)
+                    ? { ...req.spec, openspecChangeName: seededChangeId.id } : req.spec
                 ),
                 runVars
               ),
@@ -1599,7 +1643,10 @@ export class LoopRunManager {
             // arguments for CLI providers and plain prompt text for the runner.
             // The spec-addenda briefing rides the same slot: appended to every
             // step so no phase can miss the iteration delta.
-            const base = [executionManifestPrompt(req.executionManifest), withReviewContinuationContext(expanded, rawTemplate, req.spec), req.followUp?.briefing, req.addenda?.briefing].filter(Boolean).join('\n\n')
+            const deltaTarget = seededChangeId && ['addenda', 'revision'].includes(seededChangeId.source)
+              ? `DELTA OPENSPEC TARGET: ${seededChangeId.id}. Use ONLY openspec/changes/${seededChangeId.id}/. Create it if missing; the seeded name does not imply artifacts exist. Ignore the original spec/follow-up change name and unrelated active or archived changes. Inspect the current branch first. For delivered work, prepare artifacts and tasks ONLY for the attached addenda or delivery change request and preserve existing behavior outside this delta. For a spec with no delivered work, the scope is the full spec together with its addenda. Map each requested change to acceptance checks. Do not redo or archive the original proposal. Perform only the current phase on this exact change: preparation/repair edits artifacts only; implementation applies and verifies. The implementation phase must report every attached addendum with concrete files and test evidence before VERIFICATION: PASS.`
+              : undefined
+            const base = [executionManifestPrompt(req.executionManifest), withReviewContinuationContext(expanded, rawTemplate, req.spec), repair ? `PHASE RECOVERY: keep the same change and completed work. Correct only the remaining failure; do not repeat preparation or unaffected passing checks. Prior failure (diagnostic data):\n${repair.detail}` : undefined, req.followUp?.briefing, req.constants?.REVISION_REQUEST, deltaTarget, req.addenda?.briefing].filter(Boolean).join('\n\n')
             // Inject the cross-iteration history only when there's no live session
             // to carry it (a fresh pass) OR right after a Decider 'continue' (so the
             // step sees the verdict). A mid-body resumed step already has it.
@@ -1773,7 +1820,12 @@ export class LoopRunManager {
             const blockedReason = aiStepBlockedReason(res.text)
             const requiresVerification = node.data?.requireVerificationPass === true
               || /\{\{cmd:(?:verify|revision-verify|opsx:verify)\}\}/.test(rawTemplate)
-            const verificationFailed = requiresVerification
+            const addendaReport = requiresVerification && req.addenda?.ids.length
+              ? parseSpecAddendaReport(res.text, req.addenda.ids.map((id) => ({ id }))) : null
+            const addendaFailed = Boolean(requiresVerification && req.addenda?.ids.length
+              && req.addenda.ids.some((id) => !addendaReport?.some((line) =>
+                line.addendumId === id && line.verdict === 'applied' && line.files && line.tests)))
+            const verificationFailed = addendaFailed || requiresVerification
               && parseVerificationSentinel(res.text).verdict !== 'pass'
             const stepFailed = res.failed === true || zeroWork || blockedReason !== null || verificationFailed
             passFailed ||= res.failed === true || zeroWork || (verificationFailed && !blockedReason)
@@ -1782,7 +1834,7 @@ export class LoopRunManager {
               : blockedReason
                 ? `blocked — ${blockedReason}`
               : verificationFailed
-                ? 'verification did not finish with VERIFICATION: PASS'
+                ? addendaFailed ? 'addenda verification incomplete: every addendum requires an applied report with files and tests' : 'verification did not finish with VERIFICATION: PASS'
               : res.failed ? 'provider invocation failed without a reported reason' : undefined)
             // Make the failure reason land visibly INSIDE the step's log
             // segment (the interactive session already surfaced its own note at
@@ -1806,9 +1858,24 @@ export class LoopRunManager {
             // session — plus zero-work); no exit code is exposed by the AI
             // executors → null.
             emitStepEnd({ status: stepFailed ? 'failed' : 'ok', durationMs: res.durationMs })
+            if (req.graph.nodes.some((candidate) => candidate.data?.failureRecovery)) {
+              emitRunEvent('loop_phase_metrics', {
+                nodeId: node.id, stepIndex: stepNum, usageScope: 'final-attempt', recovery: !!repair, promptChars: prompt.length, outputChars: res.text.length,
+                durationMs: res.durationMs ?? null, costUsd: res.cost ?? null, estimated: res.estimated ?? null,
+                tokensIn: res.tokensIn ?? null, tokensOut: res.tokensOut ?? null,
+                tokensCacheRead: res.tokensCacheRead ?? null, tokensCacheCreate: res.tokensCacheCreate ?? null,
+              })
+            }
             // Linear workflows may forbid later actions (such as archive) after
             // a failed step. Verify/fix loops keep their existing recovery path.
             if (node.data?.stopOnFailure === true && stepFailed) {
+              const retryTarget = !res.failed && !res.resultIsError && !zeroWork && !blockedReason && verificationFailed
+                ? recoverPhase(node, `${stepErrorText}\n${res.text}`, priorPhaseFailure) : undefined
+              if (retryTarget) {
+                aiSessionId = res.sessionId
+                nodeId = retryTarget
+                break
+              }
               outcome = 'failed'
               settled = true
               break
@@ -1861,10 +1928,11 @@ export class LoopRunManager {
             } else {
               consecutiveAiFailures = 0
             }
-            nodeId = succs[0]?.id
+            nodeId = afterPhase(node.id, succs[0]?.id)
             break
           }
           case 'shell': {
+            const priorPhaseFailure = passFailed
             // Guard: refuse to run when a declared run-variable was never captured
             // (e.g. an archive node whose `{{run.changeId}}` is empty) — running
             // `openspec archive  -y` against an unknown change would archive the
@@ -1896,7 +1964,7 @@ export class LoopRunManager {
               && openspecChangeState(shellCwd, runVars.changeId) === 'archived') {
               logLine(`Skipped: OpenSpec change ${runVars.changeId} is already archived (openspec/changes/archive) — nothing left to ${/\barchive\b/.test(rawCommand) ? 'archive' : 'validate'}.`)
               emitStepEnd({ status: 'ok', exitCode: 0, durationMs: 0 })
-              nodeId = succs[0]?.id
+              nodeId = afterPhase(node.id, succs[0]?.id)
               break
             }
             logLine(`$ ${command}`)
@@ -1915,11 +1983,17 @@ export class LoopRunManager {
             })
             history.push(`Shell \`${command}\` exit=${sh.exitCode}: ${truncate(sh.stdout || sh.stderr)}`)
             if (node.data?.stopOnFailure === true && sh.exitCode !== 0) {
+              const retryTarget = sh.exitCode === 1
+                ? recoverPhase(node, `${command}\n${sh.stdout}\n${sh.stderr}`, priorPhaseFailure) : undefined
+              if (retryTarget) {
+                nodeId = retryTarget
+                break
+              }
               outcome = 'failed'
               settled = true
               break
             }
-            nodeId = succs[0]?.id
+            nodeId = afterPhase(node.id, succs[0]?.id)
             break
           }
           case 'decider': {

@@ -3987,6 +3987,24 @@ describe('launchIsolatedRail — revision generations (Wave 3)', () => {
     expect(seed).toContain('revision 1')
   })
 
+  it('Quick SDD keeps the full spec in its request without duplicating it in the continuation seed', async () => {
+    const { ctx, db } = fakeCtx(settlingRun('success'))
+    ;(ctx as unknown as { getTicketSpec: (id: number) => unknown }).getTicketSpec =
+      () => ({ title: 'Complete feature', description: 'All acceptance criteria for the complete feature.' })
+    const firstId = await firstGeneration(ctx, db)
+    const run = (ctx as unknown as { loopRunManager: { run: ReturnType<typeof vi.fn> } }).loopRunManager.run
+    run.mockClear()
+    await launchIsolatedRail(
+      { ...input([1], ctx), loopId: 'factory:sdd-quick-openspec', revision: { ofDeliveryId: firstId, decision: 'on_review', note: 'make it blue' } },
+      okIo(),
+    )
+    const req = run.mock.calls[0][0]
+    expect(req.spec.description).toContain('All acceptance criteria for the complete feature.')
+    expect(req.constants.REVISION_REQUEST).not.toContain('All acceptance criteria for the complete feature.')
+    expect(req.constants.REVISION_REQUEST).toContain('make it blue')
+    expect(req.constants.REVISION_REQUEST).toContain('sr/p/ticket-1')
+  })
+
   it('counts revision depth along the supersession chain', async () => {
     const { ctx, db } = fakeCtx(settlingRun('success'))
     const firstId = await firstGeneration(ctx, db)

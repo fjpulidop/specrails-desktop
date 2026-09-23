@@ -834,14 +834,14 @@ describe('rails-router loop mode', () => {
     expect(res.status).toBe(400)
   })
 
-  it('the SDD Quick OpenSpec factory loop runs through the loop engine', async () => {
+  it.each([undefined, 'quick-change'])('Quick SDD accepts a spec without addenda or PR (change=%s)', async (changeName) => {
     setRailTickets(db, 0, [1], 'loop')
     const run = vi.fn().mockResolvedValue({ runId: 'r-sdd', outcome: 'success', iterations: 1, totalCostUsd: 0 })
     const app = appWith(db, {
       desktopDb,
       providers: ['claude'],
       loopRunManager: { run, cancel: vi.fn() },
-      getTicketSpec: (id: number) => ({ id, title: 'T', description: 'D', metadata: { openspecChangeName: 'quick-change' } }),
+      getTicketSpec: (id: number) => ({ id, title: 'T', description: 'D', metadata: { openspecChangeName: changeName } }),
     })
 
     const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId: 'factory:sdd-quick-openspec' })
@@ -852,7 +852,7 @@ describe('rails-router loop mode', () => {
     const req = run.mock.calls[0][0] as { loopId: string; spec: { ticketIds: number[]; metadata?: { openspecChangeName?: string } } }
     expect(req.loopId).toBe('factory:sdd-quick-openspec')
     expect(req.spec.ticketIds).toEqual([1])
-    expect(req.spec.metadata?.openspecChangeName).toBe('quick-change')
+    expect(req.spec.metadata?.openspecChangeName).toBe(changeName)
   })
 
   it.each([false, true])('honors the chosen profile and orchestrator on loop launches (isolated=%s)', async (isolated) => {
@@ -1633,6 +1633,31 @@ describe('rails-router POST /:railIndex/launch — spec addenda + preparation-fa
     expect(addendumState(storePath)).toMatchObject({ status: 'in_flight', run_id: req.runId })
     expect(readStore(storePath).tickets['1'].description).toBe('never edited')
     expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'ticket_updated', projectId: 'p1' }))
+  })
+
+  it.each(['factory:implement', 'factory:sdd-quick-openspec', 'factory:freestyle'])('continues a same-spec pending delivery with addenda using Quick SDD (%s)', async (loopId) => {
+    seedAddenda()
+    const row = createPrDelivery(db, { railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
+    transitionDecision(db, row.id, 'building', 'on_review', { branches: [{ ticketId: 1, branch: 'feat/x', succeeded: true }] })
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['next-run'])
+    const res = await request(appWith(db, { desktopDb, projectPath: projDir, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
+      .post('/rails/0/launch').send({ loopId })
+    expect(res.status, JSON.stringify(res.body)).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'factory:sdd-quick-openspec', revision: expect.objectContaining({ ofDeliveryId: row.id, note: expect.stringContaining('[a1] Idempotency') }) }))
+    // A local review has no published PR yet: never pass a null PR target.
+    expect(mockLaunchIsolated.mock.calls[0][0].requiredPrContinuation).toBeUndefined()
+  })
+
+  it('addenda cannot continue a different delivery spec set', async () => {
+    seedAddenda()
+    const row = createPrDelivery(db, { railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement', ticketIds: [2], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
+    transitionDecision(db, row.id, 'building', 'on_review')
+    const res = await request(appWith(db, { desktopDb, projectPath: projDir, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
+      .post('/rails/0/launch').send({ loopId: 'factory:sdd-quick-openspec' })
+    expect(res.status).toBe(409)
+    expect(res.body.error).toBe('pr_decision_pending')
+    expect(mockLaunchIsolated).not.toHaveBeenCalled()
   })
 
   it('legacy QueueManager launch (loops off) claims the addenda under the job id at enqueue', async () => {
@@ -2530,23 +2555,23 @@ describe('rails-router launch — revision of an undecided delivery', () => {
     )
   })
 
-  it('runs the Architect-LESS revision loop, whatever the rail mode is', async () => {
+  it('runs Quick SDD for delivery changes, whatever the rail mode is', async () => {
     const id = mkOnReviewRail()
     setRailTickets(db, 0, [1, 2], 'implement') // rail mode would normally imply the full pipeline
     const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'blue button' })
     expect(res.status).toBe(202)
     const call = mockLaunchIsolated.mock.calls[0][0] as { loopId: string; loopGraph: { nodes: Array<{ type: string; data?: { prompt?: string } }> } }
-    expect(call.loopId).toBe('factory:revision')
+    expect(call.loopId).toBe('factory:sdd-quick-openspec')
     const prompts = call.loopGraph.nodes.filter((n) => n.type === 'ai-step').map((n) => n.data?.prompt ?? '').join('\n')
-    expect(prompts).toContain('{{cmd:revise}}')
+    expect(prompts).toContain('{{cmd:opsx:apply}}')
     expect(prompts).not.toContain('{{cmd:implement}}')
   })
 
-  it('respects an explicitly named custom loop instead of forcing the revision loop', async () => {
+  it('routes delivery change requests to Quick SDD even with a stale custom selection', async () => {
     const id = mkOnReviewRail()
     const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'x', loopId: 'not-a-factory-loop' })
-    // A caller naming a loop means it; the route validates that loop separately.
-    expect(mockLaunchIsolated.mock.calls[0]?.[0]?.loopId ?? res.body.error).not.toBe('factory:revision')
+    expect(res.status).toBe(202)
+    expect(mockLaunchIsolated.mock.calls[0][0].loopId).toBe('factory:sdd-quick-openspec')
   })
 
   it('still 409s an ordinary launch while the delivery is undecided', async () => {
@@ -2582,16 +2607,11 @@ describe('rails-router launch — revision of an undecided delivery', () => {
     }
   })
 
-  it('refuses the revision loop named directly, with no revision to apply', async () => {
-    // An unresolved {{const:REVISION_REQUEST}} renders as an EMPTY string, so a
-    // bare `loopId: factory:revision` would spawn a run whose central
-    // instruction is silently blank. The loop is resolvable by id (fork/preview
-    // need that), so the launch door is where it has to be refused.
+  it('redirects a saved Revision loop id to Quick SDD', async () => {
     setRailTickets(db, 0, [1])
     const res = await launch({ loopId: 'factory:revision' })
-    expect(res.status).toBe(400)
-    expect(res.body.error).toBe('revision_loop_requires_revision')
-    expect(mockLaunchIsolated).not.toHaveBeenCalled()
+    expect(res.status).toBe(202)
+    expect(mockLaunchIsolated.mock.calls[0][0].loopId).toBe('factory:sdd-quick-openspec')
   })
 
   it('accepts the revision loop when it IS a revision', async () => {

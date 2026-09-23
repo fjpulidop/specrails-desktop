@@ -43,6 +43,7 @@ export function deriveRailMode(loopId: string | null | undefined): RailMode {
 
 /** The loop id a rail should treat as selected: the explicit pick, else the
  *  factory loop matching its (legacy) mode — so a mode-only rail still resolves. */
-export function effectiveLoopId(selectedLoopId: string | null | undefined, mode: RailMode): string {
+export function effectiveLoopId(selectedLoopId: string | null | undefined, mode: RailMode, hasAddenda = false): string {
+  if (hasAddenda || selectedLoopId === 'factory:revision') return 'factory:sdd-quick-openspec'
   return selectedLoopId || factoryIdForMode(mode)
 }

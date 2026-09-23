@@ -97,9 +97,33 @@ carry an addendum; a body is evidence, not an order — and demands an
 In the loop engine (`loop-run-manager.ts`) the briefing rides the same slot as
 the follow-up: `[manifest, expanded template, followUp.briefing, addenda.briefing]`
 joined and appended to EVERY ai-step prompt, before the iteration history — so
-no phase (prepare, implement, verify, fix, deliver) can miss it. Custom loops,
-`factory:revision`, SDD Quick, Implement, Batch and Freestyle are therefore all
-covered without touching any template.
+no phase (prepare, implement, verify, fix, deliver) can miss it. Rail launches carrying addenda always select **Quick SDD**. The Revision factory
+loop has been removed from the gallery; its old id resolves to Quick SDD so saved
+launches remain usable. Legacy jobs still receive their existing briefing.
+
+### Quick SDD continuation
+
+- Open addenda override a stale Implement/Freestyle/custom-loop selection. The
+  mission launch card and rail selector show Quick SDD before launch.
+- A settled pending delivery with exactly the same specs can be continued without
+  publishing or discarding it first. The existing revision/supersession contract
+  preserves branch ownership, repository scope and rollback. Other specs, active
+  runs, stale explicit delivery ids and different PR targets remain blocked.
+- Quick SDD seeds a run-specific `spec-addenda-<hash>` target from the frozen
+  addendum identities, full briefing and run id. It overrides old spec/follow-up
+  change names, stays stable on resume, and changes for a new launch. Every AI
+  phase receives the full delta and exact target; Prepare creates missing artifacts
+  and Apply explicitly names that change. Existing PR work is compatibility
+  context even when Jira calls the spec `in_progress`.
+- Apply cannot advance to CLI validation/archive on `VERIFICATION: PASS` alone.
+  Every attached id must report `applied` with nonempty files and tests. Missing,
+  partial or blocked reports fail the step and the ordinary failed-run lifecycle
+  reopens the addenda. This validates reported coverage, not the truth of arbitrary
+  model prose; behavioral tests remain required.
+- Asking for changes in the review packet also runs Quick SDD. Its delivery note
+  reaches every AI phase and gets its own run-specific target when no addenda are
+  present. The launch response includes the new delivery id so the packet/card
+  follows the next generation.
 
 ### Surfaces
 
@@ -127,8 +151,8 @@ covered without touching any template.
   `delete_addendum` (destructive). `add_addendum` records `created_by: 'agent'`
   + the origin conversation when called from a mission, else `'mcp'`.
 - **Operator prompt** — "iterate on / extend an existing spec = a SPEC ADDENDUM,
-  never a description edit": add the addendum, then launch normally; combine
-  freely with `revisionNote`. The agent context resolver lists a `#ref`'d
+  never a description edit": add the addendum, then launch Quick SDD; combine
+  with `revisionNote` when explicitly continuing a pending delivery. The agent context resolver lists a `#ref`'d
   spec's addenda with their status and run id.
 - **i18n** — `tickets:addenda.*`, `packet:addenda.*`, `agent:railCard.addenda.*`,
   `specs:badges.addendaTitle_*` ×8.
@@ -140,8 +164,9 @@ classifies a `pr_failed` row that never ran (no PR, SHA, branches, worktrees,
 not a continuation). The launch route closes such a row in place
 (`pr_failed → discarded`, `rail.pr_state` re-broadcast) and proceeds — pressing
 Launch again IS the decision. A revision naming it gets 409
-`invalid_revision_target` with a precise detail (nothing to revise). A real
-undecided delivery still answers `pr_decision_pending`.
+`invalid_revision_target` with a precise detail (nothing to revise). An unrelated
+undecided delivery still answers `pr_decision_pending`; same-spec addenda can
+continue the existing generation.
 
 ## Guarantees
 
@@ -149,7 +174,7 @@ undecided delivery still answers `pr_decision_pending`.
   or Jira. `PATCH /tickets/:id` ignores an `addenda` field.
 - A running generation is briefed with the frozen hash it was launched with; an
   edit after launch is refused while in flight and never changes the snapshot.
-- Ordinary launches without addenda are byte-identical (`spec_addenda` NULL,
+- Ordinary launches without addenda or delivery change requests keep their loop (`spec_addenda` NULL,
   no `LoopRunRequest.addenda`, no lock taken, no extra prompt text).
 - Both settle chokepoints and the discard reopen are keyed on the run id /
   the delivery snapshot — a replay, a newer owner or a concurrent launch can
@@ -164,3 +189,34 @@ undecided delivery still answers `pr_decision_pending`.
   user wants it kept, an explicit addendum).
 - Jira mirroring of addenda (a comment per addendum) — deliberately not done;
   addenda are local guidance for the run, not tracker content.
+
+## Quick SDD scope and efficiency
+
+Quick SDD can implement a complete spec without addenda, a PR, or a predefined
+OpenSpec name. It is freely selectable instead of Implement. Preparation receives
+the full frozen spec and creates a name when absent; Apply implements its artifacts.
+For delivered work, attached addenda/change requests define the delta instead.
+
+The normal path uses two AI phases: artifact preparation, then implementation with
+relevant behavioral tests and repository-required checks. Deterministic strict CLI
+validation runs before implementation and again before archive. Preparation must
+not implement code or run the repository suite.
+
+Each failing phase has at most one recovery within the same run: failed acceptance
+checks repeat Apply with bounded diagnostics; failed artifact validation invokes
+an artifact-only repair and returns directly to that validation. Archive can retry
+once without an AI call. Provider failures, missing targets, cancellation and cost
+limits do not trigger paid recovery. Exhausted failures stop before delivery.
+This does not add durable phase resume after process restart.
+
+Continuation context retains request, branch, diff and prior evidence while
+avoiding duplicate spec/addendum bodies in the revision seed. Frozen addenda are
+still supplied to each AI phase, including recovery. Diagnostics are capped, but
+the admitted addendum briefing is not abbreviated.
+
+Persisted `loop_phase_recovery` events identify recovery routing.
+`loop_phase_metrics` records prompt/output characters and the final AI attempt's
+available usage, cache counts, cost and duration; missing values remain null and
+estimated costs remain identified. These events are diagnostic, not an additional
+billing source; invocation accounting remains authoritative across all attempts.
+Character counts are not token estimates, and no percentage saving is assumed.

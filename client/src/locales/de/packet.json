@@ -37,7 +37,7 @@
     "prompt": "Was soll geändert werden?",
     "placeholder": "z. B. den Login-Button blau machen",
     "submit": "Änderung senden",
-    "hint": "Setzt dort an, wo die Arbeit aufgehört hat — kein Neuanfang."
+    "hint": "Quick SDD setzt die Änderung auf dem bestehenden Branch um und aktualisiert diese Lieferung."
   },
   "discard": {
     "label": "Verwerfen",

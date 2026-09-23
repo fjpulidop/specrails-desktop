@@ -27,6 +27,17 @@ function evidence(over: Partial<DeliverySettleEvidence['units'][number]> = {}): 
 }
 
 describe('buildRevisionSeed', () => {
+  it('can omit duplicated spec bodies without losing change request, branch or failure evidence', () => {
+    const input = { evidence: evidence({ sentinel: 'fail', sentinelDetail: 'typecheck broke' }) }
+    const full = seed(input)
+    const compact = seed({ ...input, includeSpecBody: false })
+    expect(compact).not.toContain('Nobody can log in.')
+    for (const detail of ['#1 Add login', 'make the login button blue', 'feat/1-add-login', 'src/auth.ts', 'typecheck broke']) {
+      expect(compact).toContain(detail)
+    }
+    expect(compact.length).toBeLessThan(full.length)
+  })
+
   it('leads with the instruction and forbids starting over', () => {
     const text = seed()
     expect(text).toContain('make the login button blue')

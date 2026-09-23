@@ -121,6 +121,8 @@ export function RailRow({
   // Hybrid per-role engines: `roles` is a sentinel, not a provider id — the
   // profile/model/effort pickers give way to a chip (each role is configured
   // in Settings ▸ Specrails Agents) and capability checks use the primary.
+  const hasAddenda = tickets.some((ticket) => ticket.addenda?.some((a) => a.status === 'open'))
+  const effectiveMode = hasAddenda ? 'loop' : mode
   const rolesEngine = isRolesEngine(aiEngine)
   const effectiveProvider = (rolesEngine ? providers?.[0] : aiEngine) ?? providers?.[0] ?? 'claude'
   const profileApplies = !rolesEngine && providerSupportsProfiles(effectiveProvider)
@@ -130,10 +132,10 @@ export function RailRow({
   // them onto their own row beneath the rail name so the header doesn't cram
   // engine + model + mode segments + play into a single line.
   const showEngineSel = !!onEngineChange && status !== 'running' && (providers?.length ?? 0) > 1
-  const showProfileSel = !!onProfileChange && status !== 'running' && profileApplies && mode !== 'loop'
-  const showModelSel = !!onFreestyleModelChange && status !== 'running' && mode === 'freestyle' && freestyleAvailable
+  const showProfileSel = !!onProfileChange && status !== 'running' && profileApplies && effectiveMode !== 'loop'
+  const showModelSel = !!onFreestyleModelChange && status !== 'running' && effectiveMode === 'freestyle' && freestyleAvailable
   // Model picker for custom loop rails (non-factory loops) — provider-aware.
-  const showLoopModelSel = !!onLoopModelChange && status !== 'running' && mode === 'loop' && !rolesEngine
+  const showLoopModelSel = !!onLoopModelChange && status !== 'running' && effectiveMode === 'loop' && !rolesEngine
   const loopModelProvider = effectiveProvider
   const loopModelOptions = modelsForProvider(loopModelProvider)
   const effectiveLoopModel = loopModel && (
@@ -478,29 +480,30 @@ export function RailRow({
             <RailEngineSelector value={aiEngine ?? null} providers={providers ?? []} onChange={onEngineChange} />
           )}
           {rolesChipEl}
-          {onProfileChange && !isRunning && profileApplies && mode !== 'loop' && (
+          {onProfileChange && !isRunning && profileApplies && effectiveMode !== 'loop' && (
             <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
           )}
-          {onFreestyleModelChange && !isRunning && mode === 'freestyle' && freestyleAvailable && (
+          {onFreestyleModelChange && !isRunning && effectiveMode === 'freestyle' && freestyleAvailable && (
             <RailModelSelector provider={effectiveProvider} value={freestyleModel ?? null} onChange={onFreestyleModelChange} />
           )}
           {loopModelPickerEl}
           {onLoopChange && !isRunning && (
             <RailLoopSelector
-              value={effectiveLoopId(selectedLoopId, mode)}
+              disabled={hasAddenda}
+              value={effectiveLoopId(selectedLoopId, mode, hasAddenda)}
               onChange={onLoopChange}
               freestyleAvailable={freestyleAvailable}
               loopsEnabled={loopAvailable}
             />
           )}
-          {onEffortChange && !isRunning && mode === 'loop' && effortApplies && (
+          {onEffortChange && !isRunning && effectiveMode === 'loop' && effortApplies && (
             <RailEffortSelector provider={effectiveProvider} model={effectiveLoopModel} value={reasoningEffort ?? null} onChange={onEffortChange} />
           )}
           {onTargetPrChange && !isRunning && serverRailIdx !== null && (
             <RailTargetPrSelector railIndex={serverRailIdx} value={targetPr ?? null} onChange={onTargetPrChange} />
           )}
           <RailControls
-            mode={mode}
+            mode={effectiveMode}
             status={status}
             activeJobId={activeJobId}
             ticketCount={tickets.length}
@@ -663,7 +666,7 @@ export function RailRow({
             {!hasSelectorRow && showProfileSel && onProfileChange && (
               <RailProfileSelector provider={effectiveProvider} value={profileName ?? null} onChange={onProfileChange} />
             )}
-            <RailControls mode={mode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={freestyleAvailable} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} />
+            <RailControls mode={effectiveMode} status={status} activeJobId={activeJobId} ticketCount={tickets.length} freestyleAvailable={freestyleAvailable} loopAvailable={loopAvailable} onModeChange={onModeChange} onToggle={onToggle} />
             {/* Jiggle-mode delete button */}
             {jiggleMode && canDelete && (
               <button
@@ -719,13 +722,14 @@ export function RailRow({
               {loopModelPickerEl}
               {showLoopSel && onLoopChange && (
                 <RailLoopSelector
-                  value={effectiveLoopId(selectedLoopId, mode)}
+                  disabled={hasAddenda}
+                  value={effectiveLoopId(selectedLoopId, mode, hasAddenda)}
                   onChange={onLoopChange}
                   freestyleAvailable={freestyleAvailable}
                   loopsEnabled={loopAvailable}
                 />
               )}
-              {mode === 'loop' && !isRunning && effortApplies && onEffortChange && (
+              {effectiveMode === 'loop' && !isRunning && effortApplies && onEffortChange && (
                 <RailEffortSelector provider={effectiveProvider} model={effectiveLoopModel} value={reasoningEffort ?? null} onChange={onEffortChange} />
               )}
               {onTargetPrChange && !isRunning && serverRailIdx !== null && (

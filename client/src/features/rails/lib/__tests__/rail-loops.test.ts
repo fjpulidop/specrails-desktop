@@ -21,6 +21,12 @@ describe('rail-loops helpers', () => {
     expect(deriveRailMode(null)).toBe('loop')
   })
 
+  it('routes open addenda and saved Revision selections to Quick SDD', () => {
+    expect(effectiveLoopId('factory:implement', 'implement', true)).toBe('factory:sdd-quick-openspec')
+    expect(effectiveLoopId('custom', 'loop', true)).toBe('factory:sdd-quick-openspec')
+    expect(effectiveLoopId('factory:revision', 'loop')).toBe('factory:sdd-quick-openspec')
+  })
+
   it('round-trips mode → factory id → mode', () => {
     for (const mode of ['implement', 'batch-implement', 'freestyle'] as const) {
       expect(deriveRailMode(factoryIdForMode(mode))).toBe(mode)
@@ -29,6 +35,7 @@ describe('rail-loops helpers', () => {
 
   it('effectiveLoopId prefers the explicit pick, else the factory id for the mode', () => {
     expect(effectiveLoopId('custom-x', 'loop')).toBe('custom-x')
+    expect(effectiveLoopId('factory:sdd-quick-openspec', 'implement', false)).toBe('factory:sdd-quick-openspec')
     expect(effectiveLoopId(null, 'implement')).toBe('factory:implement')
     expect(effectiveLoopId(undefined, 'freestyle')).toBe('factory:freestyle')
     expect(effectiveLoopId('', 'loop')).toBe('') // custom mode + no pick → empty (blocks launch)

@@ -37,7 +37,7 @@
     "prompt": "你想改什么？",
     "placeholder": "例如：把登录按钮改成蓝色",
     "submit": "发送修改",
-    "hint": "从现有成果继续 — 不会重新开始。"
+    "hint": "Quick SDD 在现有分支上应用更改并更新此次交付。"
   },
   "discard": {
     "label": "丢弃",

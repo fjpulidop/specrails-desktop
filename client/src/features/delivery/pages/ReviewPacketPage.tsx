@@ -236,7 +236,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
   }, [act, activeProjectId, load, packet, verbs, delivery, repositoryId, operationBusy, isCurrentScope])
 
   /**
-   * "Ask for changes" launches the Architect-less revision loop against THIS
+   * "Ask for changes" launches Quick SDD against THIS
    * generation. The server re-validates the exemption, so a raced decision (the
    * delivery was just accepted elsewhere) fails closed with a clear message
    * rather than appending work to branches nobody is reviewing any more.
@@ -250,6 +250,7 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
+          loopId: 'factory:sdd-quick-openspec',
           revisionOfDeliveryId: delivery?.prDeliveryId ?? packet.prDeliveryId,
           revisionNote: revisionNote.trim(),
           ...(delivery?.executionManifest ? { repositoryIds: delivery.executionManifest.selectedRepositoryIds } : {}),
@@ -266,13 +267,18 @@ export default function ReviewPacketPage(props: ReviewPacketPageProps = {}) {
       // loses what the user typed.
       setRevisionNote('')
       setAskingChanges(false)
-      await load()
+      const launched = await res.json().catch(() => null) as { prDeliveryId?: string } | null
+      if (!isCurrentScope()) return
+      if (launched?.prDeliveryId && launched.prDeliveryId !== prDeliveryId) {
+        if (props.onClose) props.onClose()
+        else navigate(`/review/${encodeURIComponent(launched.prDeliveryId)}`)
+      } else await load()
     } catch {
       if (isCurrentScope()) setRevisionError('revisionFailed')
     } finally {
       if (isCurrentScope()) setRevising(false)
     }
-  }, [activeProjectId, load, packet, revisionNote, delivery, operationBusy, isCurrentScope])
+  }, [activeProjectId, load, packet, revisionNote, delivery, operationBusy, isCurrentScope, prDeliveryId, props.onClose, navigate])
 
   if (loading && !packet) {
     return (

@@ -221,7 +221,7 @@
     "worktreesNeedsReview": "{{count}} zu prüfen",
     "execSteps": "{{count}} Schritte",
     "execLines": "{{count}} Zeilen",
-    "openspec": "OpenSpec"
+    "openspec": "SDD Quick (OpenSpec)"
   },
   "railRow": {
     "moveToSpecs": "Nach Specs verschieben",

@@ -25,6 +25,8 @@ export interface LoopNode {
   position: { x: number; y: number }
   /** Node-type-specific config (prompt/model/effort, command, goal, …). */
   data?: Record<string, unknown> & {
+    /** One in-run retry; cross-phase targets may only repair artifacts. */
+    failureRecovery?: { target: string; maxRetries: number; artifactOnly?: boolean }
     /** Shell steps in a multi-repository execution must name a selected repository. */
     repositoryId?: string
     /** Explicit host operation. The prompt remains only for legacy transports. */
@@ -80,6 +82,24 @@ export function assertLoopShellRepositoryScope(graph: LoopGraph, repositoryIds: 
     const target = node.type === 'shell' ? node.data?.repositoryId : undefined
     if (target !== undefined && (typeof target !== 'string' || !repositoryIds.includes(target))) {
       throw new Error(`Shell step ${node.id} targets a repository outside this launch`)
+    }
+  }
+}
+
+/** Recovery is bounded and may only repeat a phase or repair artifacts before revalidation. */
+export function assertLoopFailureRecovery(graph: LoopGraph): void {
+  for (const node of graph.nodes) {
+    const recovery = node.data?.failureRecovery
+    if (recovery === undefined) continue
+    const target = graph.nodes.find((candidate) => candidate.id === recovery?.target)
+    if (!recovery || node.data?.stopOnFailure !== true ||
+      !['ai-step', 'shell'].includes(node.type) ||
+      recovery.maxRetries !== 1 ||
+      (recovery.artifactOnly !== undefined && typeof recovery.artifactOnly !== 'boolean') ||
+      !target || (target.id !== node.id &&
+        !(node.type === 'shell' && target.type === 'ai-step' && recovery.artifactOnly === true)) ||
+      (recovery.artifactOnly === true && (target?.type !== 'ai-step' || target.data?.operation === 'core-implementation' || target.data?.stopOnFailure !== true))) {
+      throw new Error(`Invalid failure recovery for step ${node.id}: use one retry of this phase or an AI artifact repair.`)
     }
   }
 }
@@ -156,6 +176,10 @@ export function validateLoopGraph(graph: LoopGraph): GraphValidationResult {
       (typeof node.data.repositoryId !== 'string' || !node.data.repositoryId.trim())) {
       errors.push({ code: 'INVALID_NODE', nodeId: node.id, message: 'A shell repositoryId must be a non-empty registered repository id.' })
     }
+  }
+
+  try { assertLoopFailureRecovery(graph) } catch (error) {
+    errors.push({ code: 'INVALID_NODE', message: (error as Error).message })
   }
 
   // ── Start cardinality ──────────────────────────────────────────────────────

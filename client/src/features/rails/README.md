@@ -40,3 +40,7 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/rails`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+Rails with open addenda display Quick SDD as their effective loop. Dashboard and
+mission launch requests use the same selection, retaining the current delivery
+when its spec set matches; active runs and unrelated deliveries stay protected.

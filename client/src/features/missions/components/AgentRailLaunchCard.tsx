@@ -200,7 +200,8 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     ? config.reasoningEffort
     : null
 
-  const mode = deriveRailMode(config.loopId)
+  const hasAddenda = !!tickets?.some((ticket) => config.ticketIds.includes(ticket.id) && openAddenda(ticket.addenda).length > 0)
+  const mode = deriveRailMode(effectiveLoopId(config.loopId, 'loop', hasAddenda))
   const profilesApply = !rolesEngine && mode !== 'loop' && providerSupportsProfiles(catalogProvider)
 
   useEffect(() => {
@@ -228,9 +229,12 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   }, [rails, railsData, tickets])
   const proposedRail = config.railIndex !== null ? rails.find((r) => r.railIndex === config.railIndex) : undefined
   const proposedRailMissing = railsData !== null && config.railIndex !== null && !config.newRail && !proposedRail
-  const proposedRailBusy = !!proposedRail && !config.newRail && availabilityOf.get(proposedRail.railIndex) !== 'free' && availabilityOf.get(proposedRail.railIndex) !== undefined
+  const proposedRailBusy = !!proposedRail && !config.newRail && availabilityOf.get(proposedRail.railIndex) !== 'free' && availabilityOf.get(proposedRail.railIndex) !== undefined && !(hasAddenda && availabilityOf.get(proposedRail.railIndex) !== 'busy' && proposedRail.ticketIds.length === config.ticketIds.length && proposedRail.ticketIds.every((id) => config.ticketIds.includes(id)))
   const railLimitReached = rails.length >= MAX_RAILS
-  const firstFreeRail = rails.find((r) => availabilityOf.get(r.railIndex) === 'free')
+  const matchingDeliveryRail = hasAddenda ? rails.find((r) =>
+    availabilityOf.get(r.railIndex) !== 'busy' && r.ticketIds.length === config.ticketIds.length
+    && r.ticketIds.every((id) => config.ticketIds.includes(id))) : undefined
+  const firstFreeRail = matchingDeliveryRail ?? rails.find((r) => availabilityOf.get(r.railIndex) === 'free')
 
   const railSelectorValue = config.newRail ? NEW_RAIL : config.railIndex !== null && proposedRail ? String(config.railIndex) : firstFreeRail ? String(firstFreeRail.railIndex) : railLimitReached ? '' : NEW_RAIL
   const resolvedRailIndex = config.newRail ? null : railSelectorValue === NEW_RAIL || railSelectorValue === '' ? null : Number(railSelectorValue)
@@ -263,7 +267,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     return [...builtIn, ...customLoops.map((l) => ({ value: l.id, label: l.name }))]
   }, [customLoops, freestyleAvailable, t])
   const loopKnown = loopOptions.some((o) => o.value === config.loopId)
-  const effectiveLoop = loopKnown ? config.loopId : loopOptions[0]?.value ?? config.loopId
+  const effectiveLoop = effectiveLoopId(loopKnown ? config.loopId : loopOptions[0]?.value ?? config.loopId, mode, hasAddenda)
 
   // ── Play ─────────────────────────────────────────────────────────────────────
   const [busy, setBusy] = useState<'launch' | 'dismiss' | null>(null)
@@ -565,7 +569,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
 
         {/* Loop · engine · model · effort · profile */}
         <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
-          <AgentToolbarSelector label={t('railCard.fields.loop')} icon={Workflow} value={effectiveLoop} options={loopOptions} disabled={!!busy} testId="rail-card-loop" onSelect={(v) => patch({ loopId: v })} />
+          <AgentToolbarSelector label={t('railCard.fields.loop')} icon={Workflow} value={effectiveLoop} options={loopOptions} disabled={!!busy || hasAddenda} testId="rail-card-loop" onSelect={(v) => patch({ loopId: v })} />
           {engineOptions.length > 1 && (
             <AgentToolbarSelector label={t('railCard.fields.engine')} icon={Cpu} value={effectiveEngine ?? ''} options={engineOptions} disabled={!!busy} testId="rail-card-engine" onSelect={(v) => patch({ aiEngine: v, model: null, reasoningEffort: null, profileName: null })} />
           )}

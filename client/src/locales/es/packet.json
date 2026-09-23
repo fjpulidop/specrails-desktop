@@ -37,7 +37,7 @@
     "prompt": "¿Qué quieres cambiar?",
     "placeholder": "p. ej. pon el botón de login en azul",
     "submit": "Enviar el cambio",
-    "hint": "Continúa desde donde quedó el trabajo — no empieza de cero."
+    "hint": "Quick SDD aplica el cambio sobre la rama existente y actualiza esta entrega."
   },
   "discard": {
     "label": "Tirar esto",

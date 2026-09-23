@@ -221,7 +221,7 @@
     "worktreesNeedsReview": "{{count}} 需复查",
     "execSteps": "{{count}} 步",
     "execLines": "{{count}} 行",
-    "openspec": "OpenSpec"
+    "openspec": "SDD Quick (OpenSpec)"
   },
   "railRow": {
     "moveToSpecs": "移至 Specs",

@@ -126,7 +126,7 @@ describe('ReviewPacketPage — above the fold', () => {
     fireEvent.change(screen.getByTestId('packet-revision-input'), { target: { value: 'Fix the API contract across both repos' } })
     fireEvent.click(screen.getByTestId('packet-revision-submit'))
     await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/projects/proj-1/rails/0/launch', expect.objectContaining({
-      body: JSON.stringify({ revisionOfDeliveryId: 'del-1', revisionNote: 'Fix the API contract across both repos', repositoryIds: ['web', 'api'] }),
+      body: JSON.stringify({ loopId: 'factory:sdd-quick-openspec', revisionOfDeliveryId: 'del-1', revisionNote: 'Fix the API contract across both repos', repositoryIds: ['web', 'api'] }),
     })))
   })
 
@@ -526,12 +526,12 @@ describe('ReviewPacketPage — failures', () => {
 })
 
 describe('ReviewPacketPage — ask for changes (Wave 3)', () => {
-  function fetchSpy() {
+  function fetchSpy(nextDeliveryId?: string) {
     const calls: Array<{ url: string; body?: unknown }> = []
     globalThis.fetch = vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ url, body: init?.body ? JSON.parse(init.body as string) : undefined })
       if (String(url).includes('/launch')) {
-        return { ok: true, status: 202, json: async () => ({ jobIds: ['run-2'] }) } as unknown as Response
+        return { ok: true, status: 202, json: async () => ({ loopRunIds: ['run-2'], prDeliveryId: nextDeliveryId }) } as unknown as Response
       }
       return {
         ok: true, status: 200,
@@ -554,8 +554,17 @@ describe('ReviewPacketPage — ask for changes (Wave 3)', () => {
 
     await waitFor(() => {
       const launch = calls.find((c) => c.url.includes('/launch'))
-      expect(launch?.body).toEqual({ revisionOfDeliveryId: 'del-1', revisionNote: 'make it blue' })
+      expect(launch?.body).toEqual({ loopId: 'factory:sdd-quick-openspec', revisionOfDeliveryId: 'del-1', revisionNote: 'make it blue' })
     })
+  })
+
+  it('follows the new delivery after Quick SDD accepts the change request', async () => {
+    fetchSpy('del-2')
+    renderPage()
+    fireEvent.click(await screen.findByTestId('packet-request-changes'))
+    fireEvent.change(screen.getByTestId('packet-revision-input'), { target: { value: 'implement the addendum' } })
+    fireEvent.click(screen.getByTestId('packet-revision-submit'))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/review/del-2'))
   })
 
   it('will not send an empty change request', async () => {
@@ -614,7 +623,7 @@ describe('ReviewPacketPage — ask for changes (Wave 3)', () => {
     fetchSpy()
     renderPage()
     fireEvent.click(await screen.findByTestId('packet-request-changes'))
-    const hint = screen.getByText(/does not start over/i)
+    const hint = screen.getByText(/Quick SDD applies your change on the existing branch/i)
     expect(hint.textContent).not.toMatch(/\d+\s*(min|minute)/i)
   })
 })
