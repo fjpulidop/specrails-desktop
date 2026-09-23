@@ -128,14 +128,14 @@ describe('opsx-lifecycle template', () => {
     })
     expect(prompt).toContain('add-sdd-quick-openspec')
     expect(prompt).toContain('CONTINUE that exact OpenSpec change')
-    expect(prompt).toContain('do NOT create a duplicate')
+    expect(prompt).toContain('create a duplicate')
 
     const withoutTarget = interpolateSpec(String(ff.data?.prompt), {
       title: 'New quick change',
       description: 'Create artifacts if needed',
     })
     expect(withoutTarget).not.toContain('{{spec.openspecChangeName}}')
-    expect(withoutTarget).toContain('If this value is non-blank')
+    expect(withoutTarget).toContain('If both are blank, choose a new name')
   })
 
   it('keeps SDD Quick prompts artifact-authoritative before implementation', () => {
@@ -143,7 +143,7 @@ describe('opsx-lifecycle template', () => {
     const ff = String(g.nodes.find((n) => n.id === 'ff')?.data?.prompt ?? '')
     const apply = String(g.nodes.find((n) => n.id === 'apply')?.data?.prompt ?? '')
     expect(ff).toContain('OpenSpec artifacts are authoritative')
-    expect(ff).toContain('amend the relevant OpenSpec artifacts before any code changes')
+    expect(ff).toContain('Do not implement code or run the repository test suite')
     expect(apply).toContain('Before editing code')
     expect(apply).toContain('amend the OpenSpec artifacts first')
   })
@@ -219,11 +219,11 @@ describe('opsx-lifecycle run (engine integration)', () => {
     const res = await manager(ex).run(baseReq())
 
     expect(res.outcome).toBe('success')
-    expect(runShell).toHaveBeenCalledTimes(2)
+    expect(runShell).toHaveBeenCalledTimes(3)
     expect(ai.fn).toHaveBeenCalledTimes(2)
     expect(runDecider).not.toHaveBeenCalled()
     expect(runShell.mock.calls[0][0].command).toBe('openspec validate my-change --type change --strict --no-interactive')
-    expect(runShell.mock.calls[1][0].command).toBe('openspec archive my-change -y')
+    expect(runShell.mock.calls[2][0].command).toBe('openspec archive my-change -y')
   })
 
   it('failed CLI validation stops before archive without calling a decider', async () => {
@@ -232,20 +232,85 @@ describe('opsx-lifecycle run (engine integration)', () => {
     const runDecider = vi.fn()
     const res = await manager({ runAiStep: ai.fn, runShell, runDecider }).run(baseReq())
     expect(res.outcome).toBe('failed')
-    expect(runShell).toHaveBeenCalledTimes(1)
+    expect(runShell).toHaveBeenCalledTimes(2)
     expect(runShell.mock.calls[0][0].command).toContain('openspec validate my-change')
     expect(runDecider).not.toHaveBeenCalled()
   })
 
-  it('failed Apply tests stop before validation and archive', async () => {
+  it('retries only Apply after failed checks and keeps the same target', async () => {
     const ai = aiStepMock()
     ai.fn.mockResolvedValueOnce({ text: 'Created openspec/changes/my-change/', sessionId: 's1', cost: 0, tokens: 1, provider: 'claude', model: 'sonnet' })
       .mockResolvedValueOnce({ text: 'VERIFICATION: FAIL — tests failed', sessionId: 's1', cost: 0, tokens: 1, provider: 'claude', model: 'sonnet' })
-    const runShell = vi.fn()
-    const runDecider = vi.fn()
-    const res = await manager({ runAiStep: ai.fn, runShell, runDecider }).run(baseReq())
+    const runShell = vi.fn(async () => ({ stdout: 'ok', stderr: '', exitCode: 0 }))
+    const res = await manager({ runAiStep: ai.fn, runShell, runDecider: vi.fn() }).run(baseReq())
+    expect(res.outcome).toBe('success')
+    expect(ai.fn).toHaveBeenCalledTimes(3)
+    const retry = ai.fn.mock.calls[2][0].prompt
+    expect(retry).toContain('/opsx:apply my-change')
+    expect(retry).toContain('tests failed')
+    expect(retry).not.toContain('/opsx:ff')
+    expect(runShell).toHaveBeenCalledTimes(3)
+  })
+
+  it.each(['preflight', 'validate'])('repairs %s artifacts then revalidates without replaying implementation', async (phase) => {
+    const ai = aiStepMock()
+    let validations = 0
+    const runShell = vi.fn(async ({ command }: { command: string }) => ({
+      stdout: '', stderr: 'Missing scenario', exitCode: command.includes('validate') && ++validations === (phase === 'preflight' ? 1 : 2) ? 1 : 0,
+    }))
+    const res = await manager({ runAiStep: ai.fn, runShell, runDecider: vi.fn() }).run(baseReq())
+    expect(res.outcome).toBe('success')
+    expect(ai.prompts.filter((p) => p.startsWith('/opsx:apply'))).toHaveLength(1)
+    expect(ai.prompts.filter((p) => p.startsWith('/opsx:ff'))).toHaveLength(1)
+    const repair = ai.prompts.find((p) => p.includes('Repair ONLY'))!
+    expect(repair).toContain('openspec/changes/my-change/')
+    expect(repair).toContain('Missing scenario')
+    expect(repair).toContain('Do not edit implementation code')
+    expect(runShell).toHaveBeenCalledTimes(4)
+  })
+
+  it('bounds persistent Apply failure and never archives it', async () => {
+    const runAiStep = vi.fn(async ({ prompt }: { prompt: string }) => ({ text: prompt.startsWith('/opsx:ff')
+      ? 'openspec/changes/my-change/' : 'VERIFICATION: FAIL — failing regression' }))
+    const runShell = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 }))
+    const res = await manager({ runAiStep, runShell, runDecider: vi.fn() }).run(baseReq())
     expect(res.outcome).toBe('failed')
-    expect(runShell).not.toHaveBeenCalled()
+    expect(runAiStep).toHaveBeenCalledTimes(3)
+    expect(runShell).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries archive once without another AI call', async () => {
+    const ai = aiStepMock()
+    let archives = 0
+    const runShell = vi.fn(async ({ command }: { command: string }) => ({
+      stdout: '', stderr: '', exitCode: command.includes('archive') && ++archives === 1 ? 1 : 0,
+    }))
+    expect((await manager({ runAiStep: ai.fn, runShell, runDecider: vi.fn() }).run(baseReq())).outcome).toBe('success')
+    expect(ai.fn).toHaveBeenCalledTimes(2)
+    expect(runShell).toHaveBeenCalledTimes(4)
+  })
+
+  it('does not spend another call recovering a provider failure', async () => {
+    const runAiStep = vi.fn(async ({ prompt }: { prompt: string }) => ({ text: prompt.startsWith('/opsx:ff')
+      ? 'openspec/changes/my-change/' : 'Provider down', failed: prompt.startsWith('/opsx:apply') }))
+    const runShell = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 }))
+    expect((await manager({ runAiStep, runShell, runDecider: vi.fn() }).run(baseReq())).outcome).toBe('failed')
+    expect(runAiStep).toHaveBeenCalledTimes(2)
+    expect(runShell).toHaveBeenCalledTimes(1)
+  })
+
+  it('implements a complete new spec without addenda, PR, or predefined change name', async () => {
+    const ai = aiStepMock()
+    const runShell = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 }))
+    const spec = { id: 7, title: 'New standalone feature', description: 'Implement the full login flow, including logout and expired sessions.' }
+    const result = await manager({ runAiStep: ai.fn, runShell, runDecider: vi.fn() }).run({ ...baseReq(), loopId: 'factory:sdd-quick-openspec', spec })
+    expect(result.outcome).toBe('success')
+    expect(ai.prompts[0]).toContain(spec.description)
+    expect(ai.prompts[0]).toContain('If both are blank, choose a new name')
+    expect(ai.prompts[0]).not.toContain('DELTA OPENSPEC TARGET')
+    expect(ai.prompts[1]).toContain('/opsx:apply my-change')
+    expect(ai.fn).toHaveBeenCalledTimes(2)
+    expect(runShell).toHaveBeenCalledTimes(3)
   })
 
   it('seeds the change id from the follow-up (else the spec metadata) when the step never names an active path', async () => {
@@ -263,6 +328,7 @@ describe('opsx-lifecycle run (engine integration)', () => {
     expect(res.outcome).toBe('success')
     expect(runShell.mock.calls.map((c) => c[0].command)).toEqual([
       'openspec validate fix-promote-creation-and-uncertain-outcomes --type change --strict --no-interactive',
+      'openspec validate fix-promote-creation-and-uncertain-outcomes --type change --strict --no-interactive',
       'openspec archive fix-promote-creation-and-uncertain-outcomes -y',
     ])
     const logs = broadcasts.filter((m): m is Extract<WsMessage, { type: 'log' }> => m.type === 'log')
@@ -272,7 +338,7 @@ describe('opsx-lifecycle run (engine integration)', () => {
     runShell.mockClear()
     const res2 = await manager(ex).run({ ...baseReq(), spec: { id: 7, title: 'F', description: 'd', metadata: { openspecChangeName: 'from-spec' } } })
     expect(res2.outcome).toBe('success')
-    expect(runShell.mock.calls[1][0].command).toBe('openspec archive from-spec -y')
+    expect(runShell.mock.calls[2][0].command).toBe('openspec archive from-spec -y')
   })
 
   it.each([
@@ -295,10 +361,62 @@ describe('opsx-lifecycle run (engine integration)', () => {
       expect(call.prompt).toContain(req.addenda.briefing)
       expect(call.prompt).toContain('Create it if missing')
     }
-    if (outcome === 'failed') expect(runShell).not.toHaveBeenCalled()
+    if (outcome === 'failed') expect(runShell).toHaveBeenCalledTimes(1)
     else expect(runShell.mock.calls.map((c) => (c as unknown as [{ command: string }])[0].command)).toEqual([
-      `openspec validate ${target.id} --type change --strict --no-interactive`, `openspec archive ${target.id} -y`,
+      `openspec validate ${target.id} --type change --strict --no-interactive`, `openspec validate ${target.id} --type change --strict --no-interactive`, `openspec archive ${target.id} -y`,
     ])
+  })
+
+  it('freezes addenda across a recovery even when the caller mutates them', async () => {
+    const req = { ...baseReq(), addenda: { ids: ['a1'], briefing: 'Frozen requested behavior' } }
+    const prompts: string[] = []
+    const runAiStep = vi.fn(async ({ prompt }: { prompt: string }) => {
+      prompts.push(prompt)
+      req.addenda.ids[0] = 'a2'
+      req.addenda.briefing = 'Changed after launch'
+      return { text: prompts.length === 2 ? 'VERIFICATION: FAIL — missing evidence' : '- [a1] applied — files: ui.ts — tests: ui.test.ts\nVERIFICATION: PASS' }
+    })
+    const runShell = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 }))
+    expect((await manager({ runAiStep, runShell, runDecider: vi.fn() }).run(req)).outcome).toBe('success')
+    expect(prompts).toHaveLength(3)
+    for (const prompt of prompts) {
+      expect(prompt).toContain('Frozen requested behavior')
+      expect(prompt).not.toContain('Changed after launch')
+    }
+  })
+
+  it('keeps cost limits in force before recovery', async () => {
+    const runAiStep = vi.fn(async ({ prompt }: { prompt: string }) => ({ text: prompt.startsWith('/opsx:ff')
+      ? 'openspec/changes/my-change/' : 'VERIFICATION: FAIL — failing regression', cost: 0.01, tokens: 100 }))
+    const runShell = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 }))
+    const req = baseReq()
+    req.graph.config.maxCostUsd = 0.015
+    const result = await manager({ runAiStep, runShell, runDecider: vi.fn() }).run(req)
+    expect(result.outcome).toBe('max-cost')
+    expect(runAiStep).toHaveBeenCalledTimes(2)
+  })
+
+  it('records phase context sizes and preserves unavailable usage instead of inventing zeroes', async () => {
+    const runAiStep = vi.fn(async ({ prompt }: { prompt: string }) => ({ text: prompt.startsWith('/opsx:ff')
+      ? 'openspec/changes/my-change/' : 'VERIFICATION: PASS', tokensIn: 123, tokensCacheRead: 45 }))
+    const runShell = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 }))
+    await manager({ runAiStep, runShell, runDecider: vi.fn() }).run(baseReq())
+    const metrics = broadcasts.filter((m) => m.type === 'event' && m.event_type === 'loop_phase_metrics')
+      .map((m) => JSON.parse((m as { payload: string }).payload))
+    expect(metrics).toHaveLength(2)
+    expect(metrics[0]).toMatchObject({ nodeId: 'ff', recovery: false, tokensIn: 123, tokensCacheRead: 45, tokensOut: null, costUsd: null })
+    expect(metrics[0].promptChars).toBe(runAiStep.mock.calls[0][0].prompt.length)
+  })
+
+  it.each([
+    { target: 'missing', maxRetries: 1 },
+    { target: 'apply', maxRetries: 100 },
+    { target: 'ff', maxRetries: 1 },
+    { target: 'archive', maxRetries: 1, artifactOnly: true },
+  ])('rejects unsafe recovery metadata %j', (policy) => {
+    const graph = opsxLifecycleGraph()
+    graph.nodes.find((node) => node.id === 'apply')!.data!.failureRecovery = policy
+    expect(validateLoopGraph(graph).valid).toBe(false)
   })
 
   it('seedChangeId prefers the follow-up, falls back to the spec, and rejects malformed names', () => {
@@ -325,7 +443,7 @@ describe('opsx-lifecycle run (engine integration)', () => {
       expect(res.outcome).toBe('success')
       expect(runShell).not.toHaveBeenCalled()
       const logs = broadcasts.filter((m): m is Extract<WsMessage, { type: 'log' }> => m.type === 'log')
-      expect(logs.filter((l) => l.line.includes('already archived')).length).toBe(2)
+      expect(logs.filter((l) => l.line.includes('already archived')).length).toBe(3)
     } finally {
       fs.rmSync(dir, { recursive: true, force: true })
     }
@@ -339,7 +457,7 @@ describe('opsx-lifecycle run (engine integration)', () => {
       const runShell = vi.fn(async () => ({ stdout: 'ok', stderr: '', exitCode: 0, durationMs: 1 }))
       const res = await manager({ runAiStep: ai.fn, runShell, runDecider: vi.fn() }).run({ ...baseReq(), cwd: dir })
       expect(res.outcome).toBe('success')
-      expect(runShell).toHaveBeenCalledTimes(2)
+      expect(runShell).toHaveBeenCalledTimes(3)
     } finally {
       fs.rmSync(dir, { recursive: true, force: true })
     }

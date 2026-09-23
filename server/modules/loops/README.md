@@ -29,3 +29,9 @@ Run `npx vitest run server/modules/loops` and any affected consumers.
 Quick SDD owns delivery changes and addenda. It seeds a distinct delta target,
 briefs each AI phase, and requires per-addendum coverage before validation/archive.
 The retired `factory:revision` id is a compatibility alias, absent from the gallery.
+
+Quick SDD also implements full specs without addenda or a PR. Its normal path is
+prepare → strict preflight → apply/tests → strict validation → archive (two AI
+phases). `failureRecovery` allows one in-run phase retry or an artifact-only repair
+followed by revalidation; it never resets run budgets or changes the frozen target.
+See [scope, recovery and metrics](../../../docs/internals/spec-addenda.md#quick-sdd-scope-and-efficiency).

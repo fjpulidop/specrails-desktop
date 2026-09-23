@@ -35,6 +35,7 @@ describe('rail-loops helpers', () => {
 
   it('effectiveLoopId prefers the explicit pick, else the factory id for the mode', () => {
     expect(effectiveLoopId('custom-x', 'loop')).toBe('custom-x')
+    expect(effectiveLoopId('factory:sdd-quick-openspec', 'implement', false)).toBe('factory:sdd-quick-openspec')
     expect(effectiveLoopId(null, 'implement')).toBe('factory:implement')
     expect(effectiveLoopId(undefined, 'freestyle')).toBe('factory:freestyle')
     expect(effectiveLoopId('', 'loop')).toBe('') // custom mode + no pick → empty (blocks launch)

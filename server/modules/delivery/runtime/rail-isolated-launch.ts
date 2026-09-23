@@ -289,6 +289,7 @@ function buildRevisionSeedForLaunch(
   db: DbInstance,
   revision: NonNullable<IsolatedLaunchInput['revision']>,
   ticketIds: readonly number[],
+  includeSpecBody = true,
 ): string {
   try {
     const previous = getPrDelivery(db, revision.ofDeliveryId)
@@ -305,6 +306,7 @@ function buildRevisionSeedForLaunch(
     }
     return buildRevisionSeed({
       note: revision.note,
+      includeSpecBody,
       specSnapshot: previous ? readSpecSnapshot(previous.spec_snapshot) : null,
       ticketIds: [...ticketIds],
       branches,
@@ -613,7 +615,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const constants = input.revision
     ? {
         ...loadConstantMap(ctx.desktopDb),
-        REVISION_REQUEST: buildRevisionSeedForLaunch(ctx.db, input.revision, ticketIds),
+        REVISION_REQUEST: buildRevisionSeedForLaunch(ctx.db, input.revision, ticketIds, !['factory:sdd-quick-openspec', 'factory:openspec', 'factory:revision'].includes(loopId)),
       }
     : loadConstantMap(ctx.desktopDb)
   // Spec addenda (spec-addenda): the iteration notes the specs carry are

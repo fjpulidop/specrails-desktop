@@ -189,3 +189,34 @@ continue the existing generation.
   user wants it kept, an explicit addendum).
 - Jira mirroring of addenda (a comment per addendum) — deliberately not done;
   addenda are local guidance for the run, not tracker content.
+
+## Quick SDD scope and efficiency
+
+Quick SDD can implement a complete spec without addenda, a PR, or a predefined
+OpenSpec name. It is freely selectable instead of Implement. Preparation receives
+the full frozen spec and creates a name when absent; Apply implements its artifacts.
+For delivered work, attached addenda/change requests define the delta instead.
+
+The normal path uses two AI phases: artifact preparation, then implementation with
+relevant behavioral tests and repository-required checks. Deterministic strict CLI
+validation runs before implementation and again before archive. Preparation must
+not implement code or run the repository suite.
+
+Each failing phase has at most one recovery within the same run: failed acceptance
+checks repeat Apply with bounded diagnostics; failed artifact validation invokes
+an artifact-only repair and returns directly to that validation. Archive can retry
+once without an AI call. Provider failures, missing targets, cancellation and cost
+limits do not trigger paid recovery. Exhausted failures stop before delivery.
+This does not add durable phase resume after process restart.
+
+Continuation context retains request, branch, diff and prior evidence while
+avoiding duplicate spec/addendum bodies in the revision seed. Frozen addenda are
+still supplied to each AI phase, including recovery. Diagnostics are capped, but
+the admitted addendum briefing is not abbreviated.
+
+Persisted `loop_phase_recovery` events identify recovery routing.
+`loop_phase_metrics` records prompt/output characters and the final AI attempt's
+available usage, cache counts, cost and duration; missing values remain null and
+estimated costs remain identified. These events are diagnostic, not an additional
+billing source; invocation accounting remains authoritative across all attempts.
+Character counts are not token estimates, and no percentage saving is assumed.

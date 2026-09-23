@@ -34,6 +34,8 @@ import type { WsMessage, JobStatus } from '../../../types'
 import type { ProviderAdapter, ReasoningEffort } from '../../../providers/types'
 import {
   type LoopGraph,
+  type LoopNode,
+  assertLoopFailureRecovery,
   type LoopSpec,
   nodesById,
   findStartNode,
@@ -1037,6 +1039,10 @@ export class LoopRunManager {
     // Later fresh steps must verify the admitted spec, even if its caller or
     // backlog changes while the implementation is running.
     req = { ...req, runtimeProviderOverride: validateRuntimeProviderOverride(req.runtimeProviderOverride), graph: structuredClone(req.graph) }
+    assertLoopFailureRecovery(req.graph)
+    if (req.addenda) req = { ...req, addenda: structuredClone(req.addenda) }
+    if (req.followUp) req = { ...req, followUp: structuredClone(req.followUp) }
+    if (req.constants) req = { ...req, constants: structuredClone(req.constants) }
     if (req.spec) req = { ...req, spec: structuredClone(req.spec) }
     if (req.executionManifest) req = { ...req, executionManifest: structuredClone(req.executionManifest) }
     assertLoopShellRepositoryScope(req.graph, req.executionManifest?.selectedRepositoryIds ?? (req.repositoryId ? [req.repositoryId] : []))
@@ -1547,6 +1553,26 @@ export class LoopRunManager {
       return decision
     }
 
+    const recoveryCounts = new Map<string, number>()
+    let phaseRecovery: { failedId: string; target: string; detail: string; artifactOnly: boolean } | undefined
+    const recoverPhase = (node: LoopNode, detail: string, previousFailure: boolean): string | undefined => {
+      const policy = node.data?.failureRecovery
+      if (!policy || phaseRecovery || this._cancelled.has(runId) ||
+        (recoveryCounts.get(node.id) ?? 0) >= policy.maxRetries) return undefined
+      recoveryCounts.set(node.id, (recoveryCounts.get(node.id) ?? 0) + 1)
+      phaseRecovery = { failedId: node.id, target: policy.target, detail: truncate(detail, 4000), artifactOnly: policy.artifactOnly === true }
+      passFailed = previousFailure
+      emitRunEvent('loop_phase_recovery', { nodeId: node.id, target: policy.target, attempt: recoveryCounts.get(node.id) })
+      logLine(`↪ Recovering phase ${node.id} once; preserving completed phases and the current change.`)
+      return policy.target
+    }
+    const afterPhase = (nodeId: string, successor: string | undefined): string | undefined => {
+      if (phaseRecovery?.target !== nodeId) return successor
+      const failedId = phaseRecovery.failedId
+      phaseRecovery = undefined
+      return failedId === nodeId ? successor : failedId
+    }
+
     const firstStepId = start ? req.graph.edges.find((e) => e.source === start.id)?.target : undefined
 
     try {
@@ -1594,7 +1620,11 @@ export class LoopRunManager {
             // NATIVE per-provider invocation (claude `/specrails:implement #<id>
             // --yes`, codex `$implement #<id> --yes`) — then resolve `{{spec.*}}`
             // data tokens and finally `{{const:*}}` library constants.
-            const rawTemplate = String(node.data?.prompt ?? '')
+            const priorPhaseFailure = passFailed
+            const repair = phaseRecovery?.target === node.id ? phaseRecovery : undefined
+            const rawTemplate = repair?.artifactOnly
+              ? 'Repair ONLY the OpenSpec artifacts at openspec/changes/{{run.changeId}}/ using the validation diagnostics below. Preserve requirements and acceptance criteria. Do not edit implementation code, run repository tests, archive, create a new change, or expand scope. {{const:GUARDRAILS}}'
+              : String(node.data?.prompt ?? '')
             const requiresCoreCompletion = node.data?.operation === 'core-implementation' || /\{\{\s*cmd:(?:implement|batch)\s*\}\}/.test(rawTemplate)
               || /^\s*(?:\/specrails:|\/skill:specrails-|\$)(?:implement|batch-implement)(?:\s|$)/.test(rawTemplate)
             const expanded = resolveConstants(
@@ -1614,9 +1644,9 @@ export class LoopRunManager {
             // The spec-addenda briefing rides the same slot: appended to every
             // step so no phase can miss the iteration delta.
             const deltaTarget = seededChangeId && ['addenda', 'revision'].includes(seededChangeId.source)
-              ? `DELTA OPENSPEC TARGET: ${seededChangeId.id}. Use ONLY openspec/changes/${seededChangeId.id}/. Create it if missing; the seeded name does not imply artifacts exist. Ignore the original spec/follow-up change name and unrelated active or archived changes. Inspect the current branch first. For delivered work, prepare artifacts and tasks ONLY for the attached addenda or delivery change request and preserve existing behavior outside this delta. For a spec with no delivered work, implement the spec together with its addenda. Map each requested change to acceptance checks. Do not redo or archive the original proposal. Apply and verify this exact change. When addenda are attached, report every addendum with concrete files and test evidence before VERIFICATION: PASS.`
+              ? `DELTA OPENSPEC TARGET: ${seededChangeId.id}. Use ONLY openspec/changes/${seededChangeId.id}/. Create it if missing; the seeded name does not imply artifacts exist. Ignore the original spec/follow-up change name and unrelated active or archived changes. Inspect the current branch first. For delivered work, prepare artifacts and tasks ONLY for the attached addenda or delivery change request and preserve existing behavior outside this delta. For a spec with no delivered work, the scope is the full spec together with its addenda. Map each requested change to acceptance checks. Do not redo or archive the original proposal. Perform only the current phase on this exact change: preparation/repair edits artifacts only; implementation applies and verifies. The implementation phase must report every attached addendum with concrete files and test evidence before VERIFICATION: PASS.`
               : undefined
-            const base = [executionManifestPrompt(req.executionManifest), withReviewContinuationContext(expanded, rawTemplate, req.spec), req.followUp?.briefing, req.constants?.REVISION_REQUEST, deltaTarget, req.addenda?.briefing].filter(Boolean).join('\n\n')
+            const base = [executionManifestPrompt(req.executionManifest), withReviewContinuationContext(expanded, rawTemplate, req.spec), repair ? `PHASE RECOVERY: keep the same change and completed work. Correct only the remaining failure; do not repeat preparation or unaffected passing checks. Prior failure (diagnostic data):\n${repair.detail}` : undefined, req.followUp?.briefing, req.constants?.REVISION_REQUEST, deltaTarget, req.addenda?.briefing].filter(Boolean).join('\n\n')
             // Inject the cross-iteration history only when there's no live session
             // to carry it (a fresh pass) OR right after a Decider 'continue' (so the
             // step sees the verdict). A mid-body resumed step already has it.
@@ -1828,9 +1858,24 @@ export class LoopRunManager {
             // session — plus zero-work); no exit code is exposed by the AI
             // executors → null.
             emitStepEnd({ status: stepFailed ? 'failed' : 'ok', durationMs: res.durationMs })
+            if (req.graph.nodes.some((candidate) => candidate.data?.failureRecovery)) {
+              emitRunEvent('loop_phase_metrics', {
+                nodeId: node.id, stepIndex: stepNum, usageScope: 'final-attempt', recovery: !!repair, promptChars: prompt.length, outputChars: res.text.length,
+                durationMs: res.durationMs ?? null, costUsd: res.cost ?? null, estimated: res.estimated ?? null,
+                tokensIn: res.tokensIn ?? null, tokensOut: res.tokensOut ?? null,
+                tokensCacheRead: res.tokensCacheRead ?? null, tokensCacheCreate: res.tokensCacheCreate ?? null,
+              })
+            }
             // Linear workflows may forbid later actions (such as archive) after
             // a failed step. Verify/fix loops keep their existing recovery path.
             if (node.data?.stopOnFailure === true && stepFailed) {
+              const retryTarget = !res.failed && !res.resultIsError && !zeroWork && !blockedReason && verificationFailed
+                ? recoverPhase(node, `${stepErrorText}\n${res.text}`, priorPhaseFailure) : undefined
+              if (retryTarget) {
+                aiSessionId = res.sessionId
+                nodeId = retryTarget
+                break
+              }
               outcome = 'failed'
               settled = true
               break
@@ -1883,10 +1928,11 @@ export class LoopRunManager {
             } else {
               consecutiveAiFailures = 0
             }
-            nodeId = succs[0]?.id
+            nodeId = afterPhase(node.id, succs[0]?.id)
             break
           }
           case 'shell': {
+            const priorPhaseFailure = passFailed
             // Guard: refuse to run when a declared run-variable was never captured
             // (e.g. an archive node whose `{{run.changeId}}` is empty) — running
             // `openspec archive  -y` against an unknown change would archive the
@@ -1918,7 +1964,7 @@ export class LoopRunManager {
               && openspecChangeState(shellCwd, runVars.changeId) === 'archived') {
               logLine(`Skipped: OpenSpec change ${runVars.changeId} is already archived (openspec/changes/archive) — nothing left to ${/\barchive\b/.test(rawCommand) ? 'archive' : 'validate'}.`)
               emitStepEnd({ status: 'ok', exitCode: 0, durationMs: 0 })
-              nodeId = succs[0]?.id
+              nodeId = afterPhase(node.id, succs[0]?.id)
               break
             }
             logLine(`$ ${command}`)
@@ -1937,11 +1983,17 @@ export class LoopRunManager {
             })
             history.push(`Shell \`${command}\` exit=${sh.exitCode}: ${truncate(sh.stdout || sh.stderr)}`)
             if (node.data?.stopOnFailure === true && sh.exitCode !== 0) {
+              const retryTarget = sh.exitCode === 1
+                ? recoverPhase(node, `${command}\n${sh.stdout}\n${sh.stderr}`, priorPhaseFailure) : undefined
+              if (retryTarget) {
+                nodeId = retryTarget
+                break
+              }
               outcome = 'failed'
               settled = true
               break
             }
-            nodeId = succs[0]?.id
+            nodeId = afterPhase(node.id, succs[0]?.id)
             break
           }
           case 'decider': {

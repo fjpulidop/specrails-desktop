@@ -75,9 +75,9 @@ describe('loop templates', () => {
     for (const tpl of LOOP_TEMPLATES) {
       if (tpl.id === 'opsx-lifecycle') {
         const shells = tpl.graph.nodes.filter((n) => n.type === 'shell')
-        expect(shells.length).toBe(2)
+        expect(shells.length).toBe(3)
         expect(String(shells[0].data?.command)).toContain('openspec validate')
-        expect(String(shells[1].data?.command)).toContain('openspec archive')
+        expect(String(shells[2].data?.command)).toContain('openspec archive')
         continue
       }
       expect(tpl.graph.nodes.some((n) => n.type === 'shell'), `${tpl.id} should not use a Shell node`).toBe(false)

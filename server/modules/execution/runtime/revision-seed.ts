@@ -31,6 +31,8 @@ export const SEED_EVIDENCE_CAP = 1200
 export interface RevisionSeedInput {
   /** The user's one-sentence instruction. */
   note: string
+  /** Quick SDD already supplies the spec; retain identity without repeating its body. */
+  includeSpecBody?: boolean
   /** Launch-time snapshot of the covered tickets (what was ASKED, frozen). */
   specSnapshot: DeliverySpecSnapshotEntry[] | null
   ticketIds: number[]
@@ -77,7 +79,7 @@ export function buildRevisionSeed(input: RevisionSeedInput): string {
   const specs = (input.specSnapshot ?? []).length > 0
     ? (input.specSnapshot ?? []).map((entry) => [
         `### #${entry.ticketId} ${entry.title ?? '(untitled)'}`,
-        entry.description ? clamp(entry.description, SEED_SPEC_BODY_CAP) : '(no description recorded)',
+        ...(input.includeSpecBody === false ? [] : [entry.description ? clamp(entry.description, SEED_SPEC_BODY_CAP) : '(no description recorded)']),
       ].join('\n')).join('\n\n')
     : input.ticketIds.map((id) => `### #${id}\n(spec text was not captured at launch)`).join('\n\n')
 

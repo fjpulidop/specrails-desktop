@@ -63,7 +63,7 @@ import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { postRunCard, settleRunCard, notifyMissionRunFailure, failureForLoopOutcome, isRunCardId } from '../../missions/runtime/mission-run-notify'
 import { runtimeRunSummary } from '../../agent-runtime/runtime/agent-runtime-controls-router'
 import { readStore, resolveTicketStoragePath } from '../../specs/runtime/ticket-store'
-import { broadcastSpecAddendaChange, claimSpecAddendaForRun, planSpecAddendaAt, renderSpecAddendaBriefing, ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
+import { broadcastSpecAddendaChange, claimSpecAddendaForRun, planSpecAddendaAt, ticketStorePathForProject } from '../../specs/runtime/spec-addenda'
 import type { ReasoningEffort } from '../../../providers/types'
 import type { RailJobStartedMessage, RailJobStoppedMessage, RailUpdatedMessage, RailRemovedMessage, LoopRunStoppedMessage } from '../../../types'
 import { assertProcessAdmission, captureProcessAdmission, ProcessAdmissionClosedError } from '../../../process-admission'
@@ -931,7 +931,9 @@ export function createRailsRouter(): Router {
             revisionRequest = {
               ofDeliveryId: pendingSnapshot.id,
               decision: pendingSnapshot.decision as PrDecision,
-              note: addendumContinuation ? renderSpecAddendaBriefing(launchAddenda) : revisionNote as string,
+              note: addendumContinuation
+                ? `Implement the attached spec addenda only: ${launchAddenda.flatMap((entry) => entry.addenda.map((a) => `#${entry.ticketId} [${a.id}] ${a.title}`)).join('; ')}. Their complete frozen bodies are in SPEC ADDENDA; preserve existing behavior outside that scope.`
+                : revisionNote as string,
             }
           }
           // Explicit target vs an undecided continuable delivery: the slot's

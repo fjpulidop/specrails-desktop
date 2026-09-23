@@ -834,14 +834,14 @@ describe('rails-router loop mode', () => {
     expect(res.status).toBe(400)
   })
 
-  it('the SDD Quick OpenSpec factory loop runs through the loop engine', async () => {
+  it.each([undefined, 'quick-change'])('Quick SDD accepts a spec without addenda or PR (change=%s)', async (changeName) => {
     setRailTickets(db, 0, [1], 'loop')
     const run = vi.fn().mockResolvedValue({ runId: 'r-sdd', outcome: 'success', iterations: 1, totalCostUsd: 0 })
     const app = appWith(db, {
       desktopDb,
       providers: ['claude'],
       loopRunManager: { run, cancel: vi.fn() },
-      getTicketSpec: (id: number) => ({ id, title: 'T', description: 'D', metadata: { openspecChangeName: 'quick-change' } }),
+      getTicketSpec: (id: number) => ({ id, title: 'T', description: 'D', metadata: { openspecChangeName: changeName } }),
     })
 
     const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId: 'factory:sdd-quick-openspec' })
@@ -852,7 +852,7 @@ describe('rails-router loop mode', () => {
     const req = run.mock.calls[0][0] as { loopId: string; spec: { ticketIds: number[]; metadata?: { openspecChangeName?: string } } }
     expect(req.loopId).toBe('factory:sdd-quick-openspec')
     expect(req.spec.ticketIds).toEqual([1])
-    expect(req.spec.metadata?.openspecChangeName).toBe('quick-change')
+    expect(req.spec.metadata?.openspecChangeName).toBe(changeName)
   })
 
   it.each([false, true])('honors the chosen profile and orchestrator on loop launches (isolated=%s)', async (isolated) => {
@@ -1644,7 +1644,7 @@ describe('rails-router POST /:railIndex/launch — spec addenda + preparation-fa
     const res = await request(appWith(db, { desktopDb, projectPath: projDir, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
       .post('/rails/0/launch').send({ loopId })
     expect(res.status, JSON.stringify(res.body)).toBe(202)
-    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'factory:sdd-quick-openspec', revision: expect.objectContaining({ ofDeliveryId: row.id, note: expect.stringContaining('Send an Idempotency-Key.') }) }))
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'factory:sdd-quick-openspec', revision: expect.objectContaining({ ofDeliveryId: row.id, note: expect.stringContaining('[a1] Idempotency') }) }))
     // A local review has no published PR yet: never pass a null PR target.
     expect(mockLaunchIsolated.mock.calls[0][0].requiredPrContinuation).toBeUndefined()
   })

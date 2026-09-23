@@ -201,58 +201,53 @@ export function fixLoopGraph(
 }
 
 // ── OpenSpec lifecycle loop ──────────────────────────────────────────────────
-// Lightweight lifecycle: prepare → apply/test → validate artifacts → archive.
+// Lightweight lifecycle: prepare → preflight → apply/test → validate artifacts → archive.
 // CLI validation checks OpenSpec artifacts; Apply owns code tests and corrections.
 const OPSX_FF_PROMPT = [
   '{{cmd:opsx:ff}} {{spec.title}}',
-  '',
   '{{spec.description}}',
-  '',
-  'Structured OpenSpec target from the local ticket metadata: "{{spec.openspecChangeName}}". If this value is non-blank, CONTINUE that exact OpenSpec change and do NOT create a duplicate change for the same follow-up. If it is blank and no run change id exists, create a new OpenSpec change from this ticket and generate all required artifacts.',
-  '',
-  'If a run change id appears here — "{{run.changeId}}" — use that EXACT change name, creating its artifacts if missing or continuing it if active. It takes precedence over ticket metadata; never select another change.',
-  '',
-  'OpenSpec artifacts are authoritative. If the requested implementation changes requirements, acceptance criteria, design decisions, APIs, states, data models, or invariants, amend the relevant OpenSpec artifacts before any code changes.',
-  '',
-  'Do NOT run `openspec archive` in this step, even if the implementation is complete: this loop validates and archives the change itself in later CLI steps, and an archived change makes those steps fail. Leave the change ACTIVE under openspec/changes/<name>/ and name that path in your final reply.',
-  '',
-  'Run fully unattended: make reasonable decisions to keep momentum and NEVER stop to ask — there is no human to answer. When something is unclear, pick the most sensible option, proceed, and note the assumption.',
-].join('\n')
+  'Target: "{{run.changeId}}" takes precedence over ticket metadata "{{spec.openspecChangeName}}". CONTINUE that exact OpenSpec change if active; create it if missing. If both are blank, choose a new name. Do not select unrelated changes or create a duplicate.',
+  'Preparation ONLY: inspect the affected code and generate the required proposal/specs/design/tasks. Do not implement code or run the repository test suite in this phase.',
+  'OpenSpec artifacts are authoritative: map the full requested spec (or each delta/addendum on delivered work) to tasks and an observable acceptance check. Keep artifacts proportional to the change; reference unchanged contracts instead of rewriting them. Do not invent extra work.',
+  'Do NOT run `openspec archive` in this step. Leave the change ACTIVE and name that path in your final reply. Return a concise handoff: change path, affected files, decisions, and checks for Apply; do not repeat the spec or addendum bodies.',
+  'Work unattended within the requested scope. Record assumptions; report a genuine blocker instead of expanding scope.',
+  '{{const:GUARDRAILS}}',
+].join('\n\n')
 
 const OPSX_APPLY_PROMPT = [
   '{{cmd:opsx:apply}} {{run.changeId}}',
-  '',
-  'Implement every pending task of the active OpenSpec change for ticket "{{spec.title}}", editing code as needed and marking tasks complete as you finish them.',
-  '',
-  'Before editing code, confirm the active OpenSpec artifacts already describe the contract being implemented. If implementation requires changing requirements, acceptance criteria, design decisions, APIs, states, data models, or invariants, stop code work and amend the OpenSpec artifacts first.',
-  '',
-  'Run the relevant tests and configured checks for the changed behavior, correct failures, and confirm every required task and acceptance criterion is implemented. This step owns code verification; the later CLI validate only checks OpenSpec artifacts. Do not archive here — never run `openspec archive`; the loop archives the change in a later CLI step.',
+  'Implement the pending tasks of this exact change for "{{spec.title}}". Inspect the diff and tasks first; preserve completed work and keep edits within the requested scope.',
+  'Before editing code, confirm the artifacts describe the requested contract; amend the OpenSpec artifacts first if needed. Do not re-plan the original feature.',
+  'Run the relevant tests for each requested behavior and all repository-required checks. Expand testing for affected contracts or failures. Once checks pass, repeat them only after changes that could invalidate them; do not run unrelated optional suites.',
+  'Inspect the final diff for omissions and regressions, mark completed tasks, and report concrete file/check evidence for every attached addendum. CLI validation checks artifacts, not implementation. Do not archive here — never run `openspec archive`.',
   'Finish with exactly `{{const:VERIFICATION_PASS}}` only after implementation and relevant checks succeed. Otherwise finish with `{{const:VERIFICATION_FAIL}} — <remaining work or failed checks>`.',
-  'Run fully unattended: decide and keep momentum, never pause to ask. If you hit an ambiguity or blocker, make the most reasonable choice, implement it, and continue.',
-].join('\n')
+  '{{const:GUARDRAILS}}',
+].join('\n\n')
 
 /** The OpenSpec-lifecycle graph (see comment above). Exported for unit testing. */
 export function opsxLifecycleGraph(): LoopGraph {
   return {
     nodes: [
       { id: 'start', type: 'start', position: { x: COL_X, y: 0 } },
-      { id: 'ff', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 1 }, data: { label: 'opsx:ff', prompt: OPSX_FF_PROMPT } },
-      { id: 'apply', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 2 }, data: { label: 'opsx:apply', prompt: OPSX_APPLY_PROMPT, requireVerificationPass: true, stopOnFailure: true } },
-      { id: 'validate', type: 'shell', position: { x: COL_X, y: ROW_GAP * 3 }, data: { label: 'validate', stopOnFailure: true, command: 'openspec validate {{run.changeId}} --type change --strict --no-interactive', requireRunVars: ['changeId'] } },
+      { id: 'ff', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 1 }, data: { label: 'opsx:ff', prompt: OPSX_FF_PROMPT, stopOnFailure: true } },
+      { id: 'preflight', type: 'shell', position: { x: COL_X, y: ROW_GAP * 2 }, data: { label: 'validate artifacts before implementation', stopOnFailure: true, command: 'openspec validate {{run.changeId}} --type change --strict --no-interactive', requireRunVars: ['changeId'], failureRecovery: { target: 'ff', maxRetries: 1, artifactOnly: true } } },
+      { id: 'apply', type: 'ai-step', position: { x: COL_X, y: ROW_GAP * 3 }, data: { label: 'opsx:apply', prompt: OPSX_APPLY_PROMPT, requireVerificationPass: true, stopOnFailure: true, failureRecovery: { target: 'apply', maxRetries: 1 } } },
+      { id: 'validate', type: 'shell', position: { x: COL_X, y: ROW_GAP * 4 }, data: { label: 'validate', stopOnFailure: true, command: 'openspec validate {{run.changeId}} --type change --strict --no-interactive', requireRunVars: ['changeId'], failureRecovery: { target: 'ff', maxRetries: 1, artifactOnly: true } } },
       // Unattended archive: deterministic CLI, no AI, no prompt. `requireRunVars`
       // makes the engine REFUSE to run if no change id was captured (never archive
       // an unknown change); `openspec archive -y` syncs the main specs by default.
-      { id: 'archive', type: 'shell', position: { x: COL_X, y: ROW_GAP * 4 }, data: { label: 'archive', command: 'openspec archive {{run.changeId}} -y', requireRunVars: ['changeId'] } },
-      { id: 'done', type: 'end', position: { x: COL_X, y: ROW_GAP * 5 }, data: { outcome: 'success' } },
+      { id: 'archive', type: 'shell', position: { x: COL_X, y: ROW_GAP * 5 }, data: { label: 'archive', stopOnFailure: true, failureRecovery: { target: 'archive', maxRetries: 1 }, command: 'openspec archive {{run.changeId}} -y', requireRunVars: ['changeId'] } },
+      { id: 'done', type: 'end', position: { x: COL_X, y: ROW_GAP * 6 }, data: { outcome: 'success' } },
     ],
     edges: [
       { id: 'e-start', source: 'start', target: 'ff' },
-      { id: 'e-ff', source: 'ff', target: 'apply' },
+      { id: 'e-ff', source: 'ff', target: 'preflight' },
+      { id: 'e-preflight', source: 'preflight', target: 'apply' },
       { id: 'e-apply', source: 'apply', target: 'validate' },
       { id: 'e-validate', source: 'validate', target: 'archive' },
       { id: 'e-archive', source: 'archive', target: 'done' },
     ],
-    // This linear lifecycle has no retry cycle. Like the other built-ins,
+    // Phase recovery is bounded per failing node, without an AI Decider. Like the other built-ins,
     // the run is UNTIMED (0 = no timeout) — apply can
     // implement a whole change and must never be killed mid-flight.
     config: { maxIterations: 3, timeoutMinutes: 0, aiStepTimeoutMinutes: 0 },
