@@ -47,7 +47,9 @@ ${entries.join('\n')}
 `).join('\n')
 const destination = path.join(root, 'docs/internals/source-map.md')
 if (process.argv.includes('--check')) {
-  if (!fs.existsSync(destination) || fs.readFileSync(destination, 'utf8') !== output) {
+  // Git may check Markdown out with CRLF on Windows. Only content changes
+  // should make the navigation index stale.
+  if (!fs.existsSync(destination) || fs.readFileSync(destination, 'utf8').replace(/\r\n/g, '\n') !== output) {
     console.error('Source map is stale. Run npm run docs:source-map.')
     process.exitCode = 1
   }

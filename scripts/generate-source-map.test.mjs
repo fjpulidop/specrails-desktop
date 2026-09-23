@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
@@ -23,3 +24,27 @@ test('shared agent guides and modular architecture references resolve', () => {
     }
   }
 })
+
+for (const [name, newline] of [['LF', '\n'], ['CRLF', '\r\n']]) {
+  test(`source map check accepts ${name} checkouts but rejects changed source`, t => {
+    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'source-map-check-'))
+    t.after(() => fs.rmSync(fixture, { recursive: true, force: true }))
+    for (const dir of ['server', 'client/src', 'cli', 'local-runner/src', 'mcp-bridge/src', 'src-tauri/src', 'scripts', 'docs/internals']) {
+      fs.mkdirSync(path.join(fixture, dir), { recursive: true })
+    }
+    const script = path.join(fixture, 'scripts/generate-source-map.mjs')
+    fs.copyFileSync(path.join(root, 'scripts/generate-source-map.mjs'), script)
+    fs.writeFileSync(path.join(fixture, 'server/example.ts'), 'export const example = true\n')
+    const run = (...args) => spawnSync(process.execPath, [script, ...args], { cwd: fixture, encoding: 'utf8' })
+    const generated = run()
+    assert.equal(generated.status, 0, generated.stderr)
+    const index = path.join(fixture, 'docs/internals/source-map.md')
+    fs.writeFileSync(index, fs.readFileSync(index, 'utf8').replace(/\n/g, newline))
+    const check = run('--check')
+    assert.equal(check.status, 0, check.stderr)
+    fs.writeFileSync(path.join(fixture, 'server/added.ts'), 'export const added = true\n')
+    const stale = run('--check')
+    assert.equal(stale.status, 1)
+    assert.match(stale.stderr, /Source map is stale/)
+  })
+}
