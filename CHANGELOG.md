@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.55.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.55.0...v2.55.1) (2026-09-23)
+
+
+### Bug Fixes
+
+* unify specs and addenda in an efficient Quick SDD flow ([#696](https://github.com/fjpulidop/specrails-desktop/issues/696)) ([a7c02ef](https://github.com/fjpulidop/specrails-desktop/commit/a7c02ef6d19fd1959739c710a29f3e927fd9043b))
+
 ## [2.55.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.54.0...v2.55.0) (2026-09-22)
 
 
