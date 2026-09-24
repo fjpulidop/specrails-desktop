@@ -278,3 +278,12 @@ describe('providerNeedsCostEstimation', () => {
     expect(providerNeedsCostEstimation('ghost')).toBe(false)
   })
 })
+
+describe('Opus 5.5 pricing', () => {
+  it.each(['opus', 'claude-opus-5-5'])('prices %s with independent cache rates', model => {
+    expect(estimateCostUsd('claude', model, { tokens_in: 1_000_000, tokens_out: 1_000_000, tokens_cache_read: 1_000_000, tokens_cache_create: 1_000_000 })).toBeCloseTo(29.2)
+  })
+  it.each(['claude-opus-5', 'claude-opus-4-8'])('preserves historical estimates for %s', model => {
+    expect(estimateCostUsd('claude', model, { tokens_in: 1_000_000, tokens_out: 1_000_000 })).toBe(30)
+  })
+})

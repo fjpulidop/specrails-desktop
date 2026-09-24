@@ -82,7 +82,7 @@ async fn evaluate(view: &Webview, source: &str) -> Result<Value, String> {
 // open with setTimeout so the completion returns at once, then observe the
 // effect through a read-only poll that is safe to retry.
 async fn open_auth_popup(view: &Webview, prelude: &str, name: &str) -> Result<(), String> {
-    let source = format!("{prelude}setTimeout(()=>{{window.auth=window.open('about:blank','{name}');}},0);return true;");
+    let source = format!("{prelude}window.auth=null;setTimeout(()=>{{window.auth=window.open('about:blank','{name}');}},0);return true;");
     evaluate(view, &source).await?;
     eventually(view, "!!window.auth").await?;
     Ok(())
@@ -218,7 +218,7 @@ async fn run(app:tauri::AppHandle,port:u16)->Result<(),String> {
     assert!(app.get_webview_window(popup_b.label()).is_some());
     // This popup is created while the browser is hosted by FIRST. It must not
     // acquire FIRST as an OS owner: that source window is destroyed below.
-    evaluate(&adopted,"window.returnAuth=window.open('about:blank','auth-before-reattach');return !!returnAuth;").await?;
+    open_auth_popup(&adopted,"","auth-before-reattach").await?;
     let source_popup=popup_for(&app,&adopted).await?;
     browser::transfer_browser_window(&app,FIRST,"main",&owner).await?;
     browser::transfer_browser_window(&app,FIRST,"main",&owner).await?; // retry is idempotent
@@ -232,7 +232,7 @@ async fn run(app:tauri::AppHandle,port:u16)->Result<(),String> {
     assert!(!main_events.lock().unwrap().iter().any(|event|event["kind"]=="resume" && event["ownerId"]==parked_owner));
     // Scripts can continue while a parked page is hidden. A newly opened popup
     // must not steal focus or create an orphan overlay before UI adoption.
-    evaluate(&parked_pane,"window.lateAuth=window.open('about:blank','late-hidden-popup');return !!lateAuth;").await?;
+    open_auth_popup(&parked_pane,"","late-hidden-popup").await?;
     let late_prefix=format!("{}-popup-",parked_pane.label());
     let mut late_popup=None;
     for _ in 0..100 {

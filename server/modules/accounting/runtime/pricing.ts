@@ -113,9 +113,13 @@ export const PRICING: Record<string, PriceEntry> = {
   // usage is the sole signal. Keys are the CLI's short aliases; full model ids
   // (e.g. per-event `message.model` like "claude-sonnet-4-6") are collapsed by
   // family via `resolvePriceEntry`. Cache write = 1.25x input (5-minute-TTL
-  // default), cache read = 0.1x input. Anthropic usage semantics: input_tokens
+  // default); cache reads are model-specific (Opus 5.5 uses 0.05x input).
+  // Anthropic usage semantics: input_tokens
   // EXCLUDES cache reads/writes → inputIncludesCacheReads: false.
-  'claude:opus':   { inputPer1M: 5.00,  outputPer1M: 25.00, cacheReadPer1M: 0.50, cacheWritePer1M: 6.25,  inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
+  'claude:claude-opus-5':   { inputPer1M: 5.00,  outputPer1M: 25.00, cacheReadPer1M: 0.50, cacheWritePer1M: 6.25,  inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
+  // Opus 5.5: https://platform.claude.com/docs/en/models/opus-5-5/overview
+  'claude:opus': { inputPer1M: 4.00, outputPer1M: 20.00, cacheReadPer1M: 0.20, cacheWritePer1M: 5.00, inputIncludesCacheReads: false, lastReviewedAt: '2026-09-24' },
+  'claude:claude-opus-5-5': { inputPer1M: 4.00, outputPer1M: 20.00, cacheReadPer1M: 0.20, cacheWritePer1M: 5.00, inputIncludesCacheReads: false, lastReviewedAt: '2026-09-24' },
   'claude:sonnet': { inputPer1M: 3.00,  outputPer1M: 15.00, cacheReadPer1M: 0.30, cacheWritePer1M: 3.75,  inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
   'claude:haiku':  { inputPer1M: 1.00,  outputPer1M: 5.00,  cacheReadPer1M: 0.10, cacheWritePer1M: 1.25,  inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
   'claude:fable':  { inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 1.00, cacheWritePer1M: 12.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
@@ -134,6 +138,8 @@ export function resolvePriceEntry(providerId: string, model: string): PriceEntry
   const exact = PRICING[`${providerId}:${model}`]
   if (exact) return exact
   if (providerId === 'claude') {
+    // Keep the existing estimates for older concrete Opus generations.
+    if (/^claude-opus-(?:4(?:-|$)|5$)/.test(model)) return PRICING['claude:claude-opus-5']
     const family = CLAUDE_MODEL_FAMILY.exec(model)
     if (family) return PRICING[`claude:${family[1]}`]
   }

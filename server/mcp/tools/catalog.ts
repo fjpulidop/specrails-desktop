@@ -6,6 +6,7 @@ import { metaTools } from './meta'
 import { specsTools } from './specs'
 import { railsTools } from './rails'
 import { jobsTools } from './jobs'
+import { recoveryTools } from './recovery'
 import { chatTools } from './chat'
 import { agentsTools } from './agents'
 import { pluginsTools } from './plugins'
@@ -37,6 +38,7 @@ export function buildToolSpecs(): McpToolSpec[] {
   specs.push(...specsTools())
   specs.push(...railsTools())
   specs.push(...jobsTools())
+  specs.push(...recoveryTools())
   specs.push(...chatTools())
   specs.push(...agentsTools())
   specs.push(...pluginsTools())

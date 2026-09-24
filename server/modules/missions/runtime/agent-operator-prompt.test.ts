@@ -425,6 +425,14 @@ describe('existing guardrails survive the framing rewrite', () => {
     expect(section).toContain('does NOT apply to support/troubleshooting')
   })
 
+  it('requires evidence and a changed precondition instead of escalating retries to relaunch', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('runtime_diagnose, jobId')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Do not use Relaunch as escalation from a failed Resume')
+    expect(OPERATOR_INSTRUCTIONS).toContain('specrails_recovery inspect')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('canResume is availability, not proof a retry will work')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('six-line limit does not apply to subsequent user troubleshooting')
+  })
+
   it('keeps both constants free of interpolation after the rewrite', () => {
     expect(OPERATOR_INSTRUCTIONS).not.toMatch(/\$\{/)
     expect(OPERATOR_SYSTEM_PROMPT).not.toMatch(/\$\{/)

@@ -138,3 +138,69 @@ Core's additive runtime metrics v1 are passed from compact status to each saved 
 Older Core versions continue to work without the panel. The server validates numeric fields and known phase IDs, drops unsupported/malformed metrics and projects only the supported fields; it never forwards arbitrary transcripts from the metrics object. Missing billing is displayed as unavailable rather than zero. Cache tokens are already included in input tokens, and agent duration already includes native tool work. The panel does not estimate savings or measure implementation quality.
 
 The paired `agent-runtime-efficiency` OpenSpec change in specrails-core documents verification ownership, efficient API tools and the measurement contract. Core exposes the same report through `runtime status` / `runtime-result`, so a fixed set of real tasks can be compared without a Desktop database migration.
+
+## Diagnose before retrying
+
+`GET /agent-runtime/runs/:runId/diagnosis` (MCP: `specrails_jobs runtime_diagnose`)
+returns the original scope, historical completed steps, up to eight recent
+failed/interrupted attempts, verification and acceptance reasons, and a recovery
+recommendation. It performs no provider calls or mutations. Repeated matching
+step/error pairs recommend repairing the precondition before retrying. A missing
+history on an older retained Core is unknown, not zero failures.
+
+MCP `runtime_evidence` accepts `evidenceId`, `section`, `sourceId`, `cursor` and
+`limit` to inspect the actual evidence beyond its index. `canResume` only means
+resume is available. Changed receipts can still cause verification and review
+to repeat; no zero-cost promise is made. A succeeded run awaiting settlement
+should use `runtime_settle`, preserving the existing implementation.
+
+Paired Core now preserves OpenSpec's output when archive exits successfully
+without creating its destination, and distinguishes that from multiple matching
+destinations. Retrying a failed archive keeps valid verification/review receipts;
+changed candidate files or environment still require fresh evidence. These Core
+fixes require a newly bundled/released runtime; retained original runtimes are
+not silently replaced or migrated. Diagnosis does not add arbitrary file-write
+access: repairs without a supported scoped tool are reported as concrete manual
+steps instead of being disguised as a reason to relaunch.
+
+## Repair the original worktree
+
+`specrails_recovery` calls `POST /agent-runtime/runs/:runId/recovery` with a
+strict action-specific request. It never constructs a new context/worktree.
+
+| Action | Inputs and permission | Result |
+| --- | --- | --- |
+| inspect | read | Original repository IDs, registered check definitions, recent attempts |
+| list_files / read_file / diff | repositoryId + relative path; read | Bounded directory/line/diff output; read_file includes SHA-256 |
+| history | optional offset; read | Latest attempts first, pages of 20 with nextOffset |
+| patch | repositoryId, path, expectedHash, oldText, newText, operationId UUID, reason; write | One unique replacement in an existing file, atomic publication |
+| check | kind openspec or verification; saved checkId for verification; operationId + reason; destructive | Real validation evidence, bounded output and durable outcome |
+
+Patches are limited to 16 KiB fragments and files readable within 128 KiB.
+Runtime/provider metadata, secret paths, frozen OpenSpec changes/config/archives,
+agent instructions, traversal, symlinks and platform aliases are rejected. New
+files, deletions and arbitrary commands are not supported. Explicit repository IDs
+prevent cross-project resolution. Verification runs one registered command with a
+45-second deadline; full acceptance remains the normal resume/settlement path.
+
+Desktop blocks admission while project executions are active and reserves the
+run/rail. Core takes the same cross-process lease as Resume. An interrupted write
+requires `acknowledgeInterrupted` after inspecting partial changes. Completed or
+archived runs cannot be patched or checked through recovery. Inspection remains
+available. This is an application boundary, not an OS sandbox against unrelated
+processes modifying the worktree concurrently.
+
+Core stores at most 100 attempts in `recovery-history.json` beside the pipeline
+state, separate from checkpoints. Each mutation has a write-ahead operation ID,
+request fingerprint, cause, before/after hashes where relevant and final outcome.
+Reuse the exact request/ID after transport uncertainty. A pending patch whose
+after-hash is present is reconciled; other pending operations become interrupted
+and are not rerun. Repeating a failed check on unchanged candidate code requires
+a documented `changedPrecondition`; this records the operator's explanation, not
+an independent proof that an external prerequisite changed.
+
+Resume still enforces verification, review and acceptance. Scoped verification
+uses Core's existing evidence/receipt store and cannot mark workflow phases done.
+OpenSpec checks validate real files without copying or archiving them. Old retained
+Core packages lacking `scopedRecovery` are not upgraded/migrated behind the run's
+back: the tool returns a manual-repair limitation rather than recommending Relaunch.

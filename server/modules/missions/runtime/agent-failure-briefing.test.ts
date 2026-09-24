@@ -10,7 +10,7 @@ describe('buildFailureBriefing', () => {
       hasDelivery: true, prDeliveryId: 'd1',
     })
     expect(text).toContain('[Specrails run-failure briefing')
-    expect(text).toContain('Rail 2 (Auth) · run run-1 stopped: the implementation failed.')
+    expect(text).toContain('Rail 2 (Auth) · run run-1 stopped: the verify step failed.')
     expect(text).toContain('Specs: #12 — Login, #14.')
     expect(text).toContain('Failed step: verify.')
     expect(text).toContain('Detail: verify: 3 failed')
@@ -21,6 +21,9 @@ describe('buildFailureBriefing', () => {
     expect(text).toContain('Relaunch')
     expect(text).toContain('Delivery id: d1.')
     expect(text).toContain('Do NOT relaunch')
+    expect(text).toContain('runtime_diagnose')
+    expect(text).toContain('not a card button')
+    expect(text).toContain('do not default to Relaunch')
     expect(text).not.toContain('Last output')
     expect(buildFailureBriefing({ runId: 'r', railIndex: 0, ticketIds: [], failure: { code: 'x', detail: null, stepId: null } })).toBe(
       buildFailureBriefing({ runId: 'r', railIndex: 0, ticketIds: [], failure: { code: 'x', detail: null, stepId: null } }),

@@ -56,6 +56,10 @@ describe('run card envelope (shared-cwd launches)', () => {
     expect(runtimeFromSummary(null, { code: 'stalled', detail: null, stepId: null })).toMatchObject({ status: 'stalled', canResume: false, recoverableSteps: [], pendingApproval: false })
     expect(runtimeFromSummary(null, { code: 'cancelled', detail: null, stepId: null }).status).toBe('cancelled')
     expect(runtimeFromSummary(null, null).status).toBe('unknown')
+    expect(runtimeFromSummary({ ...summary, status: 'failed', nextStep: 'archive', pendingApproval: undefined, error: 'OpenSpec aborted: missing Purpose' },
+      { code: 'implementation_failed', detail: 'Resume in Settings', stepId: null })).toMatchObject({
+      failure: { stepId: 'archive', detail: 'OpenSpec aborted: missing Purpose' },
+    })
   })
 })
 

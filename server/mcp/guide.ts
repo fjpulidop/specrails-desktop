@@ -340,16 +340,30 @@ can run Contract Refine require AI-spawn, including Explore conversions.
   trace or import is usually relative to a subdirectory), \`search\` (literal
   content search with line numbers and bounded snippets), \`read_file\`
   (bounded line ranges with continuation metadata),
-  \`summary\`, \`provenance\`, \`diff\`. There is no MCP write path to files.
+  \`summary\`, \`provenance\`, \`diff\`. General Code Explorer remains read-only; stopped-run repairs use specrails_recovery.
   Start with content search to find behavior and tests, then read exact ranges.
   Truncated scans or skipped files do not prove that a symbol is absent.
-- **Run failures & recovery**: \`specrails_jobs(runtime_runs, jobId)\` reads
+- **Run failures & recovery**: Start with \`specrails_jobs(runtime_diagnose, jobId)\`
+  for original scope, completed steps, repeated failures and receipt validity.
+  Availability of Resume is not a repair recommendation. After the same failure,
+  identify and validate a changed precondition before retrying; do not default
+  to Relaunch. Evidence can be paged with evidenceId/section/sourceId/cursor/limit.
+  \`specrails_jobs(runtime_runs, jobId)\` reads
   why a run stopped and what it offers (\`canResume\`, \`recoverableSteps\`,
   \`pendingApproval\`, \`pendingQuestion\`); \`runtime_evidence\` the durable
   evidence. Act only on the user's confirmation: \`runtime_resume\` /
   \`runtime_recover\` (ai-spawn), \`runtime_approve\` / \`runtime_settle\` /
   \`runtime_dismiss\` (write), \`runtime_cancel\` (destructive). In the in-app
   mission, a failed run also updates its card and posts a briefing turn.
+- **Scoped repair**: \`specrails_recovery\` inspects/list_files/read_file/diff/history
+  in the original run scope. \`patch\` requires write permission, a current
+  expectedHash, a unique fragment, reason and operationId. \`check\` requires
+  destructive permission because registered verification executes project code;
+  select a saved checkId from inspect or kind openspec. No arbitrary commands,
+  frozen plan edits, checkpoint changes, deletes or automatic resume. Read the
+  durable outcome; reuse operationId on uncertain transport and explain a real
+  changedPrecondition before retrying a failed check. Old retained Core packages
+  may lack this capability; never silently migrate them.
 - **Execution evidence**: \`specrails_jobs(phase_breakdown)\` explains phases;
   job events are paginated. \`specrails_rails(pr_candidates)\` finds existing
   PR targets; \`review_packet(prDeliveryId)\` reads verification evidence.

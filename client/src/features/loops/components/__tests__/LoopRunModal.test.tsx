@@ -43,7 +43,7 @@ describe('LoopRunModal', () => {
     // p1 is claude → claude catalog, default Claude Sonnet.
     const modelSel = within(dialog).getByTestId('run-model-select') as HTMLSelectElement
     expect(within(modelSel).getByRole('option', { name: 'Claude Sonnet' })).toBeInTheDocument()
-    expect(within(modelSel).getByRole('option', { name: 'Claude Opus' })).toBeInTheDocument()
+    expect(within(modelSel).getByRole('option', { name: 'Claude Opus 5.5' })).toBeInTheDocument()
     expect(modelSel.value).toBe('sonnet')
     // pick a non-default model
     fireEvent.change(modelSel, { target: { value: 'opus' } })

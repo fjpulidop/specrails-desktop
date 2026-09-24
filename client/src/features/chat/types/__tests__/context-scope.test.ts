@@ -87,6 +87,9 @@ describe('context-scope client helpers', () => {
       const cost = estimateCostUsd({ specrails: true, openspec: false, full: false, mcp: false, contractRefine: false }, budget, 'sonnet')
       expect(cost).toBeCloseTo(0.003, 6)
     })
+    it.each(['opus', 'claude-opus-5-5'])('estimates Opus 5.5 input for %s', model => {
+      expect(estimateCostUsd({ specrails: true, openspec: false, full: false, mcp: false, contractRefine: false }, budget, model)).toBeCloseTo(0.004, 6)
+    })
     it('falls back when model unknown', () => {
       const cost = estimateCostUsd({ specrails: true, openspec: false, full: false, mcp: false, contractRefine: false }, budget, 'unknown-model')
       expect(cost).toBeGreaterThan(0)

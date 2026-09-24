@@ -397,3 +397,10 @@ bundled `local-runner` process, which speaks claude-shaped stream-json so the
 spawn contract is unchanged. If you add another endpoint-backed provider, reuse
 that adapter factory + the runner rather than teaching managers a new
 transport. See `docs/internals/local-agent-runner.md`.
+
+### Claude Opus generation
+
+The `opus` catalog value selects Claude Opus 5.5 (`claude-opus-5-5`). Keep the
+Claude adapter pin, selector labels, Core CLI executor and cost estimates aligned
+when advancing this alias. Concrete historical model IDs in usage events retain
+their existing estimates; provider-reported cost remains authoritative.

@@ -40,7 +40,8 @@ export function jobsTools(): McpToolSpec[] {
         'interactive_turn (ai-spawn — send a steering prompt to any running interactive job; claude jobs are interactive by default), ' +
         'finalize (settle a running interactive job now — Freestyle jobs otherwise wait for it, others auto-settle), ' +
         'runtime_runs (read the programmatic runtime state of jobId — or every run when omitted — status, nextStep, canResume, recoverableSteps, pendingApproval, pendingQuestion; THIS is how you learn why a run failed and what recovery it offers), ' +
-        'runtime_evidence (read the durable runtime evidence of jobId), ' +
+        'runtime_diagnose (read-only recovery assessment for jobId: original scope, completed steps, repeated failures and verification invalidation reasons; use before recommending retry or relaunch), ' +
+        'runtime_evidence (read the durable runtime evidence of jobId; page with evidenceId/section/sourceId/cursor/limit), ' +
         'runtime_resume (ai-spawn — continue a resumable run: optional approve/recover/invalidate step-id lists + answer for a pending question; act ONLY after the user confirmed on the card), ' +
         'runtime_recover (ai-spawn — shorthand for runtime_resume with recover:[stepIds] over the recoverable steps), ' +
         'runtime_approve (write — shorthand for runtime_resume with approve:[stepId] for a pending approval), ' +
@@ -84,6 +85,7 @@ export function jobsTools(): McpToolSpec[] {
             'background_logs',
             'background_kill',
             'runtime_runs',
+            'runtime_diagnose',
             'runtime_evidence',
             'runtime_resume',
             'runtime_recover',
@@ -100,7 +102,7 @@ export function jobsTools(): McpToolSpec[] {
           .optional()
           .describe('Job id (for get / cancel / priority / diagnostic / interactive_turn / finalize)'),
         // ── list / export pagination + filters ──
-        limit: z.number().int().positive().max(200).optional().describe('Page size for list (1-200, default 50) / activity (1-100, default 50); background_logs returns the last N buffered log lines'),
+        limit: z.number().int().positive().max(200).optional().describe('Page size for list (1-200, default 50) / activity (1-100, default 50) / runtime_evidence (1-100, default 25); background_logs returns the last N buffered log lines'),
         offset: z.number().int().nonnegative().optional().describe('Page offset for list/background_list'),
         eventLimit: z.number().int().positive().max(200).optional().describe('get: maximum persisted events to return (default 50, latest events by default)'),
         eventOffset: z.number().int().nonnegative().optional().describe('get: chronological event offset; omit for the latest eventLimit events'),
@@ -149,6 +151,10 @@ export function jobsTools(): McpToolSpec[] {
         invalidate: z.array(z.string()).optional().describe('runtime_resume: step ids whose results must be discarded before continuing'),
         answer: z.string().optional().describe('runtime_resume: the answer to the run\'s pending question'),
         stepId: z.string().optional().describe('runtime_approve/runtime_recover: the single step id (alternative to the arrays)'),
+        evidenceId: z.string().max(1024).optional().describe('runtime_evidence: verification evidence id returned by the index'),
+        section: z.enum(['summary', 'stdout', 'stderr', 'source']).optional().describe('runtime_evidence: summary index, command output or recorded source'),
+        sourceId: z.string().max(1024).optional().describe('runtime_evidence: source id returned by the evidence index'),
+        cursor: z.string().max(1024).optional().describe('runtime_evidence: continuation cursor returned by the previous page'),
       },
       async handler(ctx, args) {
         const base = projectPath(ctx, args.projectId as string | undefined)
@@ -349,10 +355,18 @@ export function jobsTools(): McpToolSpec[] {
             return apiCall(ctx, 'GET', `${base}/agent-runtime/runs${typeof railIndex === 'number' ? `?railIndex=${railIndex}` : ''}`)
           }
 
+          case 'runtime_diagnose': {
+            const id = args.jobId as string | undefined
+            if (!id) throw new Error('runtime_diagnose requires a "jobId".')
+            return apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/diagnosis`)
+          }
           case 'runtime_evidence': {
             const id = args.jobId as string | undefined
             if (!id) throw new Error('runtime_evidence requires a "jobId".')
-            return apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/evidence`)
+            const query = new URLSearchParams()
+            if (typeof args.evidenceId === 'string') query.set('id', args.evidenceId)
+            for (const key of ['section', 'sourceId', 'cursor', 'limit']) if (args[key] !== undefined) query.set(key, String(args[key]))
+            return apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/evidence${query.size ? '?' + query.toString() : ''}`)
           }
 
           case 'runtime_resume':
@@ -368,7 +382,7 @@ export function jobsTools(): McpToolSpec[] {
                 const state = await apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}`) as { runs?: Array<{ recoverableSteps?: string[] }> }
                 recover = state.runs?.[0]?.recoverableSteps ?? []
               }
-              if (!recover.length) throw new Error('runtime_recover: the run has no recoverable steps — read runtime_runs and use runtime_resume instead.')
+              if (!recover.length) throw new Error('runtime_recover: the run has no interrupted steps to recover — read runtime_diagnose before deciding whether a repair or resume is appropriate.')
               body.recover = recover
             } else if (action === 'runtime_approve') {
               const approve = (args.approve as string[] | undefined) ?? single
