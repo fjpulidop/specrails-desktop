@@ -60,7 +60,8 @@ export function submitAccentForTier(tier: Tier): string {
 // `ai_invocations.total_cost_usd` after the turn settles.
 const MODEL_PRICE_PER_1K_INPUT_TOKENS: Record<string, number> = {
   sonnet: 0.003,
-  opus: 0.015,
+  opus: 0.004,
+  'claude-opus-5-5': 0.004,
   haiku: 0.0008,
   'gpt-5.5': 0.0015,
   'gpt-5.4-mini': 0.0006,

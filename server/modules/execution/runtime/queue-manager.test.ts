@@ -2777,7 +2777,7 @@ describe('QueueManager', () => {
         const mIdx = spawnArgs.indexOf('--model')
         expect(mIdx).toBeGreaterThanOrEqual(0)
         // The `opus` catalog value reaches the spawn as the pinned generation.
-        expect(spawnArgs[mIdx + 1]).toBe('claude-opus-5')
+        expect(spawnArgs[mIdx + 1]).toBe('claude-opus-5-5')
       } finally {
         db.close()
         fs.rmSync(projectDir, { recursive: true, force: true })

@@ -31,7 +31,7 @@ describe('Claude managed OpenSpec command registration', () => {
   it('preserves provider options, additional MCPs and caller plugin arguments alongside opsx', () => {
     const extras = ['--plugin-dir', '/fixture/approved-plugin', '--mcp-config', '/fixture/mcp.json', '--add-dir', '/fixture/repo']
     const args = claudeAdapter.buildArgs('rail-job', { prompt: '/specrails:implement #1 --yes', model: 'opus', reasoning_effort: 'max', loadUserEnv: true, extraArgs: extras })
-    expect(args[args.indexOf('--model') + 1]).toBe('claude-opus-5')
+    expect(args[args.indexOf('--model') + 1]).toBe('claude-opus-5-5')
     expect(args[args.indexOf('--effort') + 1]).toBe('max')
     expect(args[args.indexOf('--setting-sources') + 1]).toBe('user,project,local')
     expect(args[args.indexOf('-p') + 1]).toBe('/specrails:implement #1 --yes')
@@ -87,12 +87,12 @@ describe('claudeAdapter — identity', () => {
 })
 
 describe('claudeAdapter._resolveClaudeSpawnModel', () => {
-  it('resolves the opus catalog alias to Opus 5', () => {
-    expect(_resolveClaudeSpawnModel('opus')).toBe('claude-opus-5')
+  it('resolves the opus catalog alias to Opus 5.5', () => {
+    expect(_resolveClaudeSpawnModel('opus')).toBe('claude-opus-5-5')
   })
-  it('resolves pinned opus ids through the alias to Opus 5', () => {
-    expect(_resolveClaudeSpawnModel('claude-opus-4-8')).toBe('claude-opus-5')
-    expect(_resolveClaudeSpawnModel('claude-opus-5')).toBe('claude-opus-5')
+  it('resolves pinned opus ids through the alias to Opus 5.5', () => {
+    expect(_resolveClaudeSpawnModel('claude-opus-4-8')).toBe('claude-opus-5-5')
+    expect(_resolveClaudeSpawnModel('claude-opus-5')).toBe('claude-opus-5-5')
   })
   it('leaves unpinned aliases untouched', () => {
     expect(_resolveClaudeSpawnModel('sonnet')).toBe('sonnet')
@@ -105,13 +105,13 @@ describe('claudeAdapter._resolveClaudeSpawnModel', () => {
 })
 
 describe('claude spawn args carry the resolved model', () => {
-  it('every model-bearing action spawns Opus 5 for the opus alias', () => {
+  it('every model-bearing action spawns Opus 5.5 for the opus alias', () => {
     const opts = { prompt: 'hi', model: 'opus', sessionId: 'sess-1' } as never
     for (const action of ['chat-turn', 'chat-resume', 'chat-stream', 'rail-job', 'spec-gen'] as const) {
       const args = claudeAdapter.buildArgs(action, opts)
       const i = args.indexOf('--model')
       expect(i, `${action} passes --model`).toBeGreaterThanOrEqual(0)
-      expect(args[i + 1], `${action} model value`).toBe('claude-opus-5')
+      expect(args[i + 1], `${action} model value`).toBe('claude-opus-5-5')
     }
   })
 
@@ -129,6 +129,7 @@ describe('claudeAdapter._normaliseClaudeModel', () => {
   it('normalises pinned opus ids to "opus"', () => {
     expect(_normaliseClaudeModel('claude-opus-4-8')).toBe('opus')
     expect(_normaliseClaudeModel('claude-opus-5')).toBe('opus')
+    expect(_normaliseClaudeModel('claude-opus-5-5')).toBe('opus')
   })
   it('normalises pinned haiku ids to "haiku"', () => {
     expect(_normaliseClaudeModel('claude-haiku-4-5-20251001')).toBe('haiku')
@@ -234,8 +235,8 @@ describe('claudeAdapter.buildArgs', () => {
       model: 'claude-opus-4-8',
     })
     // Legacy opus ids collapse to the `opus` catalog value, which Specrails
-    // pins to Opus 5 for the spawn.
-    expect(args[args.indexOf('--model') + 1]).toBe('claude-opus-5')
+    // pins to Opus 5.5 for the spawn.
+    expect(args[args.indexOf('--model') + 1]).toBe('claude-opus-5-5')
   })
 
   it('chat-turn normalises an unpinned alias family without expanding it', () => {

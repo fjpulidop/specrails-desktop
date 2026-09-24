@@ -23,7 +23,7 @@ const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 const CLAUDE_MODELS = [
   { value: 'sonnet', label: 'Claude Sonnet', default: true as const },
   { value: 'fable', label: 'Claude Fable' },
-  { value: 'opus', label: 'Claude Opus' },
+  { value: 'opus', label: 'Claude Opus 5.5' },
   { value: 'haiku', label: 'Claude Haiku' },
 ] as const
 
@@ -39,6 +39,7 @@ function normaliseModel(model: string | null | undefined): string {
       return 'sonnet'
     case 'claude-fable-5':
       return 'fable'
+    case 'claude-opus-5-5':
     case 'claude-opus-5':
     case 'claude-opus-4-8':
     case 'claude-opus-4-5':
@@ -65,7 +66,7 @@ function normaliseModel(model: string | null | undefined): string {
  * bare `opus` alias currently points at.
  */
 const PINNED_ALIAS_MODEL_IDS: Readonly<Record<string, string>> = {
-  opus: 'claude-opus-5',
+  opus: 'claude-opus-5-5',
 }
 
 /** Catalog value (or concrete id) in, spawn model id out. */
