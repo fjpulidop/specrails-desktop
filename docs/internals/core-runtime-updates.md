@@ -12,6 +12,11 @@ framework is rejected rather than silently replacing an update.
 
 ## Persistence and publication
 
+The release bundle pins Core 5.6.0 in `desktop-release.yml` and
+`scripts/assemble-bundled-core.lock.json`. This includes scoped runtime recovery
+and the Opus 5.5 alias. Update both pins together and check compatibility against
+the staged published package; retained runs still use their original runtime.
+
 Desktop updates retain the complete npm installation, including dependencies,
 under `~/.specrails/core/<version>/`. The registry home override applies to this
 directory. Only the managed package corresponding to the active framework is

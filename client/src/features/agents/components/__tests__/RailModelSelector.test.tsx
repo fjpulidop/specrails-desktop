@@ -9,7 +9,7 @@ describe('RailModelSelector', () => {
     expect(select.value).toBe('sonnet')
     expect(screen.getByText('Claude Haiku')).toBeInTheDocument()
     expect(screen.getByText('Claude Sonnet')).toBeInTheDocument()
-    expect(screen.getByText('Claude Opus')).toBeInTheDocument()
+    expect(screen.getByText('Claude Opus 5.5')).toBeInTheDocument()
   })
 
   it('reflects the selected value', () => {

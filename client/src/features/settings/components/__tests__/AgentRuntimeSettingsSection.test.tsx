@@ -114,7 +114,7 @@ describe('AgentRuntimeSettingsSection', () => {
     const architect = within(screen.getByRole('group', { name: 'Architect' }))
     expect(architect.getByRole('radio', { name: 'Claude (claude)' })).toBeChecked()
     expect(architect.getByRole('option', { name: 'Default (Claude Sonnet)' })).toBeInTheDocument()
-    expect(architect.getByRole('option', { name: 'Claude Opus' })).toBeInTheDocument()
+    expect(architect.getByRole('option', { name: 'Claude Opus 5.5' })).toBeInTheDocument()
     expect(architect.getByLabelText('Maximum turns (default 100)')).toHaveAttribute('placeholder', '100')
     expect(screen.getByLabelText('Maximum developer attempts (default 3)')).toHaveAttribute('placeholder', '3')
     expect(screen.getByLabelText('Timeout in minutes (default 15; local engines 45 per task group)')).toHaveAttribute('placeholder', '15')
