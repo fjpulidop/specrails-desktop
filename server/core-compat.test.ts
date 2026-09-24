@@ -38,13 +38,7 @@ const COMPATIBLE_CONTRACT = {
   commands: [
     'implement',
     'batch-implement',
-    'why',
-    'product-backlog',
-    'update-product-driven-backlog',
-    'refactor-recommender',
-    'health-check',
-    'compat-check',
-    'enrich',
+    'retry',
   ],
 }
 
@@ -145,6 +139,20 @@ describe('checkCoreCompat', () => {
     expect(result.supportedProviders).toEqual(['claude', 'codex', 'gemini', 'kimi'])
   })
 
+  it('accepts the contract 5.0 shape without a standalone update command', async () => {
+    const providers = Object.fromEntries(['claude', 'codex', 'gemini', 'kimi'].map(provider => [provider, {
+      initCommand: 'init',
+      cli: { initArgs: ['init', '--yes', '--provider', provider],
+        ...(provider === 'kimi' ? { providerBinary: 'kimi', skillRunner: '.kimi-code/specrails/run-skill.mjs', workflowArgs: ['.kimi-code/specrails/run-skill.mjs', '--skill', '<id>'] } : {}) },
+      workflows: { implement: 'implement', 'batch-implement': 'batch-implement', retry: 'retry' },
+    }]))
+    setupContractInTmpDir({ schemaVersion: '5.0', coreVersion: '5.7.0', lifecycle: { mode: 'deterministic', requiresEnrich: false },
+      providers, checkpoints: { base_install: 'Installed', agent_generation: 'Placed', command_generation: 'Verified' } }, tmpDir)
+    const result = await checkCoreCompat()
+    expect(result.compatible).toBe(true)
+    expect(result.supportedProviders).toEqual(['claude', 'codex', 'gemini', 'kimi'])
+  })
+
   it('rejects empty or runner-less Kimi provider declarations', async () => {
     setupContractInTmpDir({
       ...COMPATIBLE_CONTRACT,
@@ -223,14 +231,14 @@ describe('checkCoreCompat', () => {
   it('detects drift when the app has a command that core dropped', async () => {
     const driftedContract = {
       ...COMPATIBLE_CONTRACT,
-      commands: COMPATIBLE_CONTRACT.commands.filter((c) => c !== 'health-check'),
+      commands: COMPATIBLE_CONTRACT.commands.filter((c) => c !== 'retry'),
     }
     setupContractInTmpDir(driftedContract, tmpDir)
 
     const result = await checkCoreCompat()
 
     expect(result.compatible).toBe(false)
-    expect(result.extraCommands).toContain('health-check')
+    expect(result.extraCommands).toContain('retry')
     expect(result.missingCommands).toEqual([])
   })
 

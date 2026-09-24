@@ -42,13 +42,7 @@ ${bold('Project Required:')}
 ${bold('Usage:')}
   specrails-desktop implement #42                Run a known specrails verb (prepends /specrails:)
   specrails-desktop batch-implement #40 #41      Batch implementation across issues
-  specrails-desktop why                          Explain recent changes
-  specrails-desktop get-backlog-specs            View prioritized spec backlog
-  specrails-desktop auto-propose-backlog-specs   Generate new spec ideas
-  specrails-desktop propose-spec                 Explore an idea and produce a spec
-  specrails-desktop refactor-recommender        Find refactoring opportunities
-  specrails-desktop health-check                Run codebase health check
-  specrails-desktop compat-check                Check for breaking API changes
+  specrails-desktop retry                        Resume the saved implementation run
   specrails-desktop "any raw prompt"             Pass a raw prompt directly to claude
   specrails-desktop --status                     Print manager status and exit
   specrails-desktop --jobs                       Print recent job history and exit

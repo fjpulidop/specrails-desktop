@@ -12,13 +12,7 @@ const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 const DESKTOP_KNOWN_COMMANDS = new Set([
   'implement',
   'batch-implement',
-  'why',
-  'product-backlog',
-  'update-product-driven-backlog',
-  'refactor-recommender',
-  'health-check',
-  'compat-check',
-  'enrich',
+  'retry',
 ])
 
 // v1.0: cli.initArgs / cli.updateArgs (flat); checkpoints/commands as string[]
@@ -77,10 +71,12 @@ function isRenderedProviderContract(provider: string, value: unknown): boolean {
   if (!isRecord(value)) return false
   // Core 5 has a deterministic installer. Enrichment no longer exists and is
   // therefore not evidence of provider availability on this contract shape.
-  if (value.initCommand === 'init' && value.updateCommand === 'update') {
+  // Core 5.7+ (contract 5.0) dropped the standalone `update` command: Desktop
+  // refreshes installs through init and the offline framework lifecycle.
+  if (value.initCommand === 'init' && (value.updateCommand === undefined || value.updateCommand === 'update')) {
     if (!isRecord(value.cli) || !isRecord(value.workflows)) return false
-    if (!isStringArray(value.cli.initArgs) || !isStringArray(value.cli.updateArgs)
-      || !value.cli.initArgs.includes('init') || !value.cli.updateArgs.includes('update')) return false
+    if (!isStringArray(value.cli.initArgs) || !value.cli.initArgs.includes('init')) return false
+    if (value.updateCommand === 'update' && (!isStringArray(value.cli.updateArgs) || !value.cli.updateArgs.includes('update'))) return false
     const workflows = value.workflows
     if (!['implement', 'batch-implement', 'retry'].every(name => typeof workflows[name] === 'string' && workflows[name])) return false
     return provider !== 'kimi' || (value.cli.providerBinary === 'kimi'

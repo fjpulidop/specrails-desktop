@@ -12,14 +12,7 @@ export const DEFAULT_PORT = 4200
 export const KNOWN_VERBS = new Set([
   'implement',
   'batch-implement',
-  'why',
-  'get-backlog-specs',
-  'auto-propose-backlog-specs',
-  'propose-spec',
-  'refactor-recommender',
-  'health-check',
-  'compat-check',
-  'enrich',
+  'retry',
 ])
 
 
