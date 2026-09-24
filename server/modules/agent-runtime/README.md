@@ -13,6 +13,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/agent-runtime-events.ts](runtime/agent-runtime-events.ts)
 - [runtime/agent-runtime-loader.ts](runtime/agent-runtime-loader.ts)
 - [runtime/agent-runtime-paths.ts](runtime/agent-runtime-paths.ts)
+- [runtime/agent-runtime-recovery.ts](runtime/agent-runtime-recovery.ts)
 - [runtime/agent-runtime-settings-router.ts](runtime/agent-runtime-settings-router.ts)
 - [runtime/agent-runtime-settings.ts](runtime/agent-runtime-settings.ts)
 
@@ -23,3 +24,22 @@ independent of manifest generation. Prefer a focused public subpath over an
 eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/agent-runtime` and any affected consumers.
+
+## Recovery diagnosis
+
+`GET /agent-runtime/runs/:runId/diagnosis` is a read-only assessment of the
+original run. It reports completed phases, original worktree scope, bounded
+Core failure history and verification/acceptance invalidation reasons. Repeated
+identical failures recommend repairing the precondition before retrying;
+`canResume` remains an admission flag, not a claim that retry fixes the error.
+Older retained Core packages without failure history report unknown counts.
+No provider, mutation, automatic retry or checkpoint migration is performed.
+
+## Scoped recovery
+
+The recovery adapter owns the strict HTTP request contract and retained-Core
+transport. The controller reserves the stopped run/rail and records mutation
+outcomes. Core's `scopedRecovery: 1` capability owns filesystem access, the shared
+workflow lease, guarded exact patches, registered checks and durable idempotency.
+The new adapter dependency and MCP public subpath are reviewed in boundaries.json;
+no lifecycle ownership moves into MCP. Older retained runtimes fail explicitly.

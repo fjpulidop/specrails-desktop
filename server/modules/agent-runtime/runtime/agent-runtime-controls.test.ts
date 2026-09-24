@@ -44,6 +44,74 @@ beforeEach(() => {
 afterEach(() => { service.shutdown(); vi.restoreAllMocks(); db.close(); fs.rmSync(directory, { recursive: true, force: true }) })
 
 describe('agent runtime lifecycle', () => {
+  it('reserves scoped recovery, forwards only the original context and audits the outcome', async () => {
+    let resolveRepair!: (value: unknown) => void
+    const recovery = vi.fn(() => new Promise(resolve => { resolveRepair = resolve }))
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, recovery })
+    db.prepare("UPDATE jobs SET status = 'failed' WHERE id = 'run-1'").run()
+    const input = { action: 'patch', operationId: 'ef12d691-10cb-4a6b-86e8-ab390498d312', repositoryId: 'primary', path: 'file.ts', expectedHash: 'a'.repeat(64), oldText: 'old', newText: 'new', reason: 'Fix observed failure' }
+    const pending = service.recovery('run-1', input)
+    expect(recovery).toHaveBeenCalledWith(expect.objectContaining({ contextPath, cwd: directory, request: input }))
+    await expect(service.recovery('run-1', { action: 'inspect' })).rejects.toMatchObject({ code: 'runtime_run_active' })
+    await expect(service.resume('run-1', {})).rejects.toMatchObject({ code: 'runtime_run_active' })
+    resolveRepair({ status: 'applied', operationId: input.operationId })
+    expect(await pending).toMatchObject({ status: 'applied' })
+    expect(service.isActive('run-1')).toBe(false)
+    expect(db.prepare("SELECT event_type FROM events WHERE job_id = 'run-1'").all()).toEqual([{ event_type: 'runtime-recovery' }])
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed, busy and foreign-scope recovery before calling Core and releases failed operations', async () => {
+    const recovery = vi.fn().mockRejectedValue(new Error('Original runtime lacks recovery'))
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, recovery })
+    await expect(service.recovery('run-1', { action: 'patch', command: 'shell' })).rejects.toMatchObject({ statusCode: 400 })
+    db.prepare("UPDATE jobs SET status = 'running' WHERE id = 'run-1'").run()
+    await expect(service.recovery('run-1', { action: 'inspect' })).rejects.toMatchObject({ statusCode: 409 })
+    expect(recovery).not.toHaveBeenCalled()
+    db.prepare("UPDATE jobs SET status = 'failed' WHERE id = 'run-1'").run()
+    await expect(service.recovery('run-1', { action: 'inspect' })).rejects.toThrow('Original runtime lacks recovery')
+    expect(service.isActive('run-1')).toBe(false)
+    const frozen = JSON.parse(fs.readFileSync(contextPath, 'utf8')); frozen.runId = 'other'
+    fs.writeFileSync(contextPath, JSON.stringify(frozen))
+    await expect(service.recovery('run-1', { action: 'inspect' })).rejects.toMatchObject({ code: 'runtime_scope_unavailable' })
+    expect(recovery).toHaveBeenCalledTimes(1)
+  })
+
+  it('diagnoses repeated blockers with original scope and invalidation evidence without invoking a provider', async () => {
+    const error = 'Archive validation failed: required section missing'
+    status.mockResolvedValue({ runId: 'run-1', status: 'failed', nextStep: 'archive', error,
+      steps: { architect: { status: 'succeeded' }, developer: { status: 'succeeded' }, archive: { status: 'failed' } },
+      recentFailures: [1, 2].map(n => ({ stepId: 'archive', status: 'failed', at: `attempt-${n}`, error })),
+      inspection: { resumePhase: 'archive', verification: { valid: false, reasons: ['Candidate files changed'] } },
+    })
+    expect(await service.diagnose('run-1')).toMatchObject({
+      recommendation: 'repair_before_retry', repeatFailureCount: 2,
+      completedSteps: ['architect', 'developer'], originalScope: { artifactRoot: directory },
+      verification: { valid: false, reasons: ['Candidate files changed'] }, summary: { canResume: true },
+    })
+    expect(execute).not.toHaveBeenCalled()
+    expect(listLoopStepRecoveries(db)).toEqual([])
+  })
+
+  it('keeps unknown history unknown and distinguishes approval, interruptions and delivery', async () => {
+    expect(await service.diagnose('run-1')).toMatchObject({ recommendation: 'inspect_and_approve', repeatFailureCount: null })
+    status.mockResolvedValue({ runId: 'run-1', status: 'interrupted', nextStep: 'developer', steps: { developer: { status: 'interrupted' } } })
+    expect(await service.diagnose('run-1')).toMatchObject({ recommendation: 'inspect_interrupted_writes' })
+    status.mockResolvedValue({ runId: 'run-1', status: 'failed', nextStep: 'developer', steps: {}, recentFailures: [] })
+    expect(await service.diagnose('run-1')).toMatchObject({ recommendation: 'diagnose_before_retry', repeatFailureCount: 0 })
+    status.mockResolvedValue({ runId: 'run-1', status: 'succeeded', nextStep: null, steps: {} })
+    expect(await service.diagnose('run-1')).toMatchObject({ recommendation: 'prepare_delivery' })
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('does not recommend a retry when scope is unavailable or a run is active', async () => {
+    db.prepare("UPDATE loop_runs SET status = 'running' WHERE id = 'run-1'").run()
+    expect(await service.diagnose('run-1')).toMatchObject({ recommendation: 'wait_for_active_run' })
+    fs.unlinkSync(contextPath)
+    expect(await service.diagnose('run-1')).toMatchObject({ recommendation: 'inspect_saved_evidence', repeatFailureCount: null })
+    expect(execute).not.toHaveBeenCalled()
+  })
+
   it('forwards optional metrics without altering admission or trusting unknown fields', async () => {
     const total = { attempts: 1, measuredAttempts: 1, durationMs: 10, agentDurationMs: 8, providerCalls: 1, toolCalls: 1, inputTokens: 20, outputTokens: 5, costUsd: null, uncachedInputTokens: null, cacheReadInputTokens: null, cacheWriteInputTokens: null }
     const metrics = { schemaVersion: 1, total, phases: [{ ...total, stepId: 'developer', providers: ['local'], models: [] }] }
@@ -274,6 +342,11 @@ describe('agent runtime lifecycle', () => {
     loader.cli = path.join(directory, 'fake status.cjs')
     fs.writeFileSync(loader.cli, 'if (!process.argv.includes("--compact")) process.exit(1); process.stdout.write(JSON.stringify({type:"runtime-status",state:null}))')
     expect(await readAgentRuntimeStatus(contextPath, directory, process.env)).toBeNull()
+    fs.writeFileSync(loader.cli, 'process.stdout.write(JSON.stringify({type:"runtime-status",state:{runId:"run-1",status:"failed",steps:{},recentFailures:[{stepId:"archive",status:"failed",at:"now",error:"invalid spec"}]},pipeline:{verification:{valid:false,reasons:["Candidate files changed"]}}}))')
+    expect(await readAgentRuntimeStatus(contextPath, directory, process.env)).toMatchObject({
+      recentFailures: [{ stepId: 'archive', error: 'invalid spec' }],
+      inspection: { verification: { valid: false, reasons: ['Candidate files changed'] } },
+    })
     fs.writeFileSync(loader.cli, 'process.stdout.write(JSON.stringify({type:"other"}))')
     await expect(readAgentRuntimeStatus(contextPath, directory, process.env)).rejects.toThrow('invalid runtime status')
   })
@@ -281,6 +354,11 @@ describe('agent runtime lifecycle', () => {
   it('mounts lifecycle routes with validation/status codes and disposes project controllers', async () => {
     const app = express(); app.use(express.json()); const router = express.Router()
     registerAgentRuntimeControlRoutes({ router, ctx: () => ctx }); app.use('/api/projects', router)
+    const diagnose = vi.spyOn(AgentRuntimeControls.prototype, 'diagnose').mockResolvedValue({ recommendation: 'repair_before_retry' })
+    await request(app).get('/api/projects/p1/agent-runtime/runs/run-1/diagnosis').expect(200, { recommendation: 'repair_before_retry' })
+    expect(diagnose).toHaveBeenCalledWith('run-1')
+    diagnose.mockRejectedValueOnce(new RuntimeControlError(409, 'runtime_scope_changed', 'Original worktree changed'))
+    await request(app).get('/api/projects/p1/agent-runtime/runs/run-1/diagnosis').expect(409, { error: 'diagnosis_unavailable', message: 'Original worktree changed' })
     const list = vi.spyOn(AgentRuntimeControls.prototype, 'list').mockResolvedValue([])
     const resume = vi.spyOn(AgentRuntimeControls.prototype, 'resume').mockResolvedValue()
     const cancel = vi.spyOn(AgentRuntimeControls.prototype, 'cancel').mockReturnValue()

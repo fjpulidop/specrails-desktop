@@ -54,9 +54,17 @@ export function registerAgentRuntimeControlRoutes({ router, ctx }: Pick<ProjectR
     try { res.json(await controls(req).evidence(String(req.params.runId), req.query)) }
     catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 503).json({ error: 'evidence_unavailable', message: error instanceof RuntimeControlError ? error.message : 'The original runtime evidence is unavailable' }) }
   })
+  router.get('/:projectId/agent-runtime/runs/:runId/diagnosis', async (req, res) => {
+    try { res.json(await controls(req).diagnose(String(req.params.runId))) }
+    catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 503).json({ error: 'diagnosis_unavailable', message: error instanceof RuntimeControlError ? error.message : 'Could not inspect the original runtime execution' }) }
+  })
   router.post('/:projectId/agent-runtime/runs/:runId/resume' , async (req, res) => {
     try { await controls(req).resume(String(req.params.runId), validateRuntimeResumeInput(req.body)); res.status(202).json({ accepted: true }) }
     catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 500).json({ error: error instanceof RuntimeControlError ? error.code : 'runtime_resume_failed', message: error instanceof RuntimeControlError ? error.message : 'Could not resume runtime execution' }) }
+  })
+  router.post('/:projectId/agent-runtime/runs/:runId/recovery', async (req, res) => {
+    try { res.json(await controls(req).recovery(String(req.params.runId), req.body)) }
+    catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 500).json({ error: error instanceof RuntimeControlError ? error.code : 'runtime_recovery_failed', message: error instanceof RuntimeControlError ? error.message : 'Could not perform scoped recovery' }) }
   })
   router.post('/:projectId/agent-runtime/runs/:runId/settle', async (req, res) => {
     try { await controls(req).settle(String(req.params.runId)); res.json({ settled: true }) }

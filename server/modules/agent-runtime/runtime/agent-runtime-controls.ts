@@ -17,14 +17,23 @@ import { readExecutionManifest } from '../../delivery/runtime/multi-repo-executi
 import { appendEvent } from '../../../db'
 import { recoverOrphanLoopStepAccounting } from '../../loops/runtime/loop-run-manager'
 import type { ProjectContext } from '../../../project-registry'
+import { invokeRuntimeRecovery, recoveryRequestSchema } from './agent-runtime-recovery'
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 const STEP_IDS = ['architect', 'developer', 'fixer', 'verify', 'reviewer', 'archive']
 const ANSWER_LIMIT = 20_000
 export interface RuntimeResumeInput { approve?: string[]; recover?: string[]; invalidate?: string[]; answer?: string }
 export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
+interface RuntimeFailure { stepId: string; status: string; at: string; error?: string }
+interface RuntimeInspection {
+  resumePhase?: string | null
+  verification?: { valid: boolean; reasons: string[] }
+  acceptance?: { valid: boolean; reasons: string[] }
+}
 interface FrozenContext { runId: string; backlogRoot: string; artifactRoot: string; repositories: Array<{ id: string; name: string; path: string }> }
 export interface RuntimeState {
+  recentFailures?: RuntimeFailure[]
+  inspection?: RuntimeInspection
   efficiencySummary?: RuntimeEfficiencySummary
   metrics?: RuntimeEfficiency
   runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
@@ -89,11 +98,11 @@ export async function readAgentRuntimeStatus(contextPath: string, cwd: string, e
   const { stdout } = await promisify(execFile)(resolveCoreNodeRuntime(), [cli, 'status', '--context', contextPath, '--compact'], {
     cwd, env: windowsSpawnEnv(env), windowsHide: true, timeout: 15000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8',
   })
-  const result = JSON.parse(stdout) as { type?: string; state?: RuntimeState | null; efficiencySummary?: unknown }
+  const result = JSON.parse(stdout) as { type?: string; state?: RuntimeState | null; pipeline?: RuntimeInspection; efficiencySummary?: unknown }
   if (result.type !== 'runtime-status' || result.state === undefined) throw new Error('Core returned an invalid runtime status')
   let selection: unknown
   try { selection = JSON.parse(fs.readFileSync(path.join(path.dirname(contextPath), 'desktop-runtime-selection.json'), 'utf8')) } catch { /* Original hosts may not record selection origins. */ }
-  return result.state ? { ...result.state, efficiencySummary: applyRuntimeSelectionOrigins(readRuntimeEfficiencySummary(result.efficiencySummary), selection, result.state.runId) } : null
+  return result.state ? { ...result.state, inspection: result.pipeline, efficiencySummary: applyRuntimeSelectionOrigins(readRuntimeEfficiencySummary(result.efficiencySummary), selection, result.state.runId) } : null
 }
 
 /** One controller per ProjectContext; Core's durable lease remains the final
@@ -105,7 +114,7 @@ export class AgentRuntimeControls {
   private errors = new Map<string, string>()
   private statusCache = new Map<string, { fingerprint: string; state: RuntimeState }>()
   private disposed = false
-  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {}
+  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation; recovery?: typeof invokeRuntimeRecovery } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {}
 
   private context(runId: string, historical = false): { file: string; frozen: FrozenContext; cwd: string; env: NodeJS.ProcessEnv } {
     if (!SAFE_ID.test(runId)) throw new RuntimeControlError(400, 'invalid_run_id', 'Invalid runtime run ID')
@@ -147,6 +156,84 @@ export class AgentRuntimeControls {
     const result = JSON.parse(stdout)
     if (result.schemaVersion !== 1 || typeof result.available !== 'boolean' || typeof result.truncated !== 'boolean') throw new RuntimeControlError(503, 'evidence_unavailable', 'Core evidence is unavailable or incompatible')
     return result
+  }
+
+  async recovery(runId: string, input: unknown): Promise<unknown> {
+    const parsed = recoveryRequestSchema.safeParse(input)
+    if (!parsed.success) throw new RuntimeControlError(400, 'invalid_recovery_request', parsed.error.message)
+    if (this.disposed) throw new RuntimeControlError(503, 'runtime_shutting_down', 'Project runtime is shutting down')
+    const parent = getLoopRun(this.ctx.db, runId)
+    const idle = () => parent?.status === 'completed' && !this.ctx.railLoopRuns?.size && !this.ctx.railJobs?.size
+      && !this.ctx.db.prepare("SELECT 1 FROM jobs WHERE status = 'running' LIMIT 1").get()
+    if (!idle() || this.active.size) throw new RuntimeControlError(409, 'runtime_run_active', 'Wait for project executions to settle before scoped recovery')
+    const context = this.context(runId)
+    const active: { child?: ChildProcess; cancelled: boolean; forceKillTimer?: ReturnType<typeof setTimeout> } = { cancelled: false }
+    this.active.set(runId, active)
+    if (parent?.rail_index != null) this.ctx.railLoopRuns?.set(runId, { railIndex: parent.rail_index, ticketIds: [], requiresTerminalIntent: true })
+    try {
+      const result = await (this.dependencies.recovery ?? invokeRuntimeRecovery)({ contextPath: context.file, cwd: context.cwd, env: context.env, request: parsed.data,
+        onSpawn: child => { active.child = child; if (active.cancelled || this.disposed) this.cancel(runId) },
+      })
+      if (parsed.data.action === 'patch' || parsed.data.action === 'check') {
+        this.statusCache.delete(runId)
+        this.ctx.db.transaction(() => {
+          const seq = (this.ctx.db.prepare('SELECT COALESCE(MAX(seq), -1) + 1 AS seq FROM events WHERE job_id = ?').get(runId) as { seq: number }).seq
+          appendEvent(this.ctx.db, runId, seq, { event_type: 'runtime-recovery', source: 'stdout', payload: JSON.stringify({ action: parsed.data.action, result }) })
+        })()
+      }
+      return result
+    } catch (error) {
+      if (error instanceof RuntimeControlError) throw error
+      throw new RuntimeControlError(409, 'runtime_recovery_blocked', error instanceof Error ? error.message : 'Recovery failed; inspect history before retrying')
+    } finally { clearTimeout(active.forceKillTimer); this.active.delete(runId); this.ctx.railLoopRuns?.delete(runId); this.statusCache.delete(runId) }
+  }
+
+  /** Read-only recovery assessment. canResume is admission, not a repair claim. */
+  async diagnose(runId: string): Promise<unknown> {
+    const summary = await this.summary(runId)
+    if (summary.historical || summary.status === 'unavailable') return {
+      runId, summary, recommendation: 'inspect_saved_evidence',
+      reason: 'Live original runtime scope is unavailable. Preserve saved work and inspect the missing scope before proposing a fresh run.',
+      repeatFailureCount: null, recentFailures: [],
+    }
+    const { file, frozen, cwd, env } = this.context(runId)
+    const state = await this.dependencies.status(file, cwd, env)
+    if (!state || state.runId !== runId) throw new RuntimeControlError(409, 'runtime_state_unavailable', 'No saved workflow state is available')
+    const failures = (state.recentFailures ?? []).slice(-8).map(item => ({ stepId: item.stepId, status: item.status, at: item.at, error: item.error?.slice(-6000) }))
+    const matching = failures.filter(item => item.status === 'failed' && item.stepId === state.nextStep && !!item.error && item.error === state.error?.slice(-6000))
+    const repeated = matching.length > 1
+    const recommendation = summary.active ? 'wait_for_active_run'
+      : summary.canSettle ? 'prepare_delivery'
+      : summary.status === 'succeeded' ? 'inspect_delivery'
+      : summary.pendingQuestion ? 'answer_question'
+      : summary.pendingApproval ? 'inspect_and_approve'
+      : repeated ? 'repair_before_retry'
+      : summary.recoverableSteps.length ? 'inspect_interrupted_writes'
+      : 'diagnose_before_retry'
+    return {
+      runId, summary, recommendation,
+      reason: {
+        wait_for_active_run: 'The original run is still active. Inspect its progress instead of starting a competing execution.',
+        prepare_delivery: 'Core succeeded but Desktop settlement is still pending. Prepare delivery of the existing implementation.',
+        inspect_delivery: 'Core already succeeded. Inspect the delivery state rather than restarting implementation.',
+        answer_question: 'The run is waiting for the recorded question to be answered.',
+        inspect_and_approve: 'The run is waiting for approval of the recorded candidate; inspect its evidence first.',
+        repair_before_retry: 'The same step failed with the same error more than once. Identify and verify a changed precondition before spending on another attempt.',
+        inspect_interrupted_writes: 'An interrupted step may have partially changed files. Inspect the original worktree before explicitly recovering it.',
+        diagnose_before_retry: 'Determine the failing precondition from the saved evidence. A resumable run may still need a repair; a fresh run is not a diagnosis.',
+      }[recommendation],
+      originalScope: { artifactRoot: frozen.artifactRoot, repositories: frozen.repositories },
+      completedSteps: Object.entries(state.steps).filter(([, step]) => step.status === 'succeeded').map(([id]) => id),
+      recentFailures: failures, repeatFailureCount: state.recentFailures ? matching.length : null,
+      verification: state.inspection?.verification ? { valid: state.inspection.verification.valid, reasons: state.inspection.verification.reasons } : null,
+      acceptance: state.inspection?.acceptance ? { valid: state.inspection.acceptance.valid, reasons: state.inspection.acceptance.reasons } : null,
+      resumePhase: state.inspection?.resumePhase ?? null,
+      limitations: [
+        'Recent failure history is bounded to eight attempts; null means the retained Core does not expose it.',
+        'Completed steps are historical outcomes. Resume revalidates receipts and may repeat verification/review after changes; do not promise zero cost.',
+        'This diagnostic does not execute repairs, resume, relaunch, publish or discard work.',
+      ],
+    }
   }
 
   async list(): Promise<RuntimeRunSummary[]> {

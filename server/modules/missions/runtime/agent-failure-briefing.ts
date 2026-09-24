@@ -62,7 +62,9 @@ export function buildFailureBriefing(input: FailureBriefingInput): string {
   const lines: string[] = []
   lines.push('[Specrails run-failure briefing — automatic, not typed by the user]')
   lines.push('')
-  lines.push(`${railLabel(input.railIndex, input.railName)} · run ${input.runId} stopped: ${describeFailureCode(input.failure.code)}.`)
+  const description = input.failure.code === 'implementation_failed' && input.failure.stepId
+    ? `the ${input.failure.stepId} step failed` : describeFailureCode(input.failure.code)
+  lines.push(`${railLabel(input.railIndex, input.railName)} · run ${input.runId} stopped: ${description}.`)
   lines.push(`Specs: ${specs.join(', ') || 'none'}.`)
   if (input.failure.stepId) lines.push(`Failed step: ${input.failure.stepId}.`)
   if (input.failure.detail) lines.push(`Detail: ${input.failure.detail.trim()}`)
@@ -87,7 +89,7 @@ export function buildFailureBriefing(input: FailureBriefingInput): string {
   if (input.hasDelivery === false) lines.push('This run had no git isolation (shared project folder) — there is no PR phase.')
   if (input.prDeliveryId) lines.push(`Delivery id: ${input.prDeliveryId}.`)
   lines.push('')
-  lines.push('Conduct: explain the failure in at most 6 short lines, name the ONE next action you recommend and why, and stop. Do NOT relaunch, resume or discard by yourself — the user decides on the card. If you need evidence, read it with specrails_jobs (get / runtime_runs / runtime_evidence) before answering.')
+  lines.push('Conduct: explain the failure in at most 6 short lines, name the ONE next action you recommend and why, and stop. Do NOT relaunch, resume or discard by yourself — the user decides on the card. Read specrails_jobs runtime_diagnose and, as needed, get / runtime_evidence before recommending recovery. canResume is not proof that retry fixes the cause. The next action may be diagnosis or a targeted repair, not a card button. If the same failure recurred, identify what must change before another attempt; do not default to Relaunch. This six-line limit applies only to this automatic turn.')
   return lines.join('\n')
 }
 

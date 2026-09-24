@@ -91,7 +91,10 @@ export function runtimeFromSummary(summary: RuntimeRunSummary | null, failure: M
     canResume: summary?.canResume ?? false,
     recoverableSteps: summary?.recoverableSteps ?? [],
     pendingApproval: Boolean(summary?.pendingApproval),
-    failure: failure ? { ...failure, stepId: failure.stepId ?? summary?.pendingApproval?.stepId ?? null } : null,
+    failure: failure ? { ...failure,
+      detail: summary?.status === 'failed' && summary.error ? summary.error : failure.detail,
+      stepId: failure.stepId ?? summary?.pendingApproval?.stepId ?? summary?.nextStep ?? null,
+    } : null,
     at: new Date().toISOString(),
   }
 }

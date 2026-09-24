@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 940 source/build files. Nearby tests are linked where names
+Includes 942 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -979,6 +979,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [plugins.ts](../../server/mcp/tools/plugins.ts) · [test](../../server/mcp/tools/plugins.test.ts)
 - [projects.ts](../../server/mcp/tools/projects.ts)
 - [rails.ts](../../server/mcp/tools/rails.ts)
+- [recovery.ts](../../server/mcp/tools/recovery.ts) · [test](../../server/mcp/tools/recovery.test.ts)
 - [setup.ts](../../server/mcp/tools/setup.ts) · [test](../../server/mcp/tools/setup.test.ts)
 - [specs.ts](../../server/mcp/tools/specs.ts) · [test](../../server/mcp/tools/specs.test.ts)
 - [support.ts](../../server/mcp/tools/support.ts)
@@ -1031,6 +1032,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-metrics.ts](../../server/modules/agent-runtime/runtime/agent-runtime-metrics.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-metrics.test.ts)
 - [agent-runtime-package.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-package.test.ts)
 - [agent-runtime-paths.ts](../../server/modules/agent-runtime/runtime/agent-runtime-paths.ts)
+- [agent-runtime-recovery.ts](../../server/modules/agent-runtime/runtime/agent-runtime-recovery.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-recovery.test.ts)
 - [agent-runtime-repositories.ts](../../server/modules/agent-runtime/runtime/agent-runtime-repositories.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-repositories.test.ts)
 - [agent-runtime-settings-router.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings-router.ts)
 - [agent-runtime-settings.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settings.test.ts)

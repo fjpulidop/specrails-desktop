@@ -16,6 +16,7 @@ describe('specrails_jobs runtime_* actions', () => {
   it('declares honest tiers', () => {
     expect(tier({ action: 'runtime_runs' })).toBe('read')
     expect(tier({ action: 'runtime_evidence' })).toBe('read')
+    expect(tier({ action: 'runtime_diagnose' })).toBe('read')
     expect(tier({ action: 'runtime_resume' })).toBe('ai-spawn')
     expect(tier({ action: 'runtime_recover' })).toBe('ai-spawn')
     expect(tier({ action: 'runtime_approve' })).toBe('write')
@@ -36,6 +37,14 @@ describe('specrails_jobs runtime_* actions', () => {
     await expect(call({ action: 'runtime_evidence' })).rejects.toThrow('requires a "jobId"')
   })
 
+  it('reads diagnosis and pages the exact verification evidence without mutation', async () => {
+    await call({ action: 'runtime_diagnose', jobId: 'r 1' })
+    expect(vi.mocked(apiCall).mock.calls[0].slice(1)).toEqual(['GET', '/projects/p1/agent-runtime/runs/r%201/diagnosis'])
+    await expect(call({ action: 'runtime_diagnose' })).rejects.toThrow('requires a "jobId"')
+    await call({ action: 'runtime_evidence', jobId: 'r1', evidenceId: 'check-1', section: 'source', sourceId: 'source 1', cursor: 'next&2', limit: 25 })
+    expect(vi.mocked(apiCall).mock.calls[1].slice(1)).toEqual(['GET', '/projects/p1/agent-runtime/runs/r1/evidence?id=check-1&section=source&sourceId=source+1&cursor=next%262&limit=25'])
+  })
+
   it('runtime_resume forwards approve/recover/invalidate/answer and hints that 202 is not completion', async () => {
     vi.mocked(apiCall).mockResolvedValue({ accepted: true })
     const r = await call({ action: 'runtime_resume', jobId: 'r1', approve: ['a'], recover: ['b'], invalidate: ['c'], answer: 'yes', ignored: 1 })
@@ -52,7 +61,7 @@ describe('specrails_jobs runtime_* actions', () => {
     await call({ action: 'runtime_recover', jobId: 'r1', stepId: 'verify' })
     expect(vi.mocked(apiCall).mock.calls[0][3]).toEqual({ recover: ['verify'] })
     vi.mocked(apiCall).mockReset().mockResolvedValue({ runs: [{ recoverableSteps: [] }] })
-    await expect(call({ action: 'runtime_recover', jobId: 'r1' })).rejects.toThrow('no recoverable steps')
+    await expect(call({ action: 'runtime_recover', jobId: 'r1' })).rejects.toThrow('read runtime_diagnose')
   })
 
   it('runtime_approve needs a step and maps settle / dismiss / cancel to their routes', async () => {

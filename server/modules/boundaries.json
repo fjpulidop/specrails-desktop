@@ -78,6 +78,7 @@
       "runtime/agent-runtime-events.ts",
       "runtime/agent-runtime-loader.ts",
       "runtime/agent-runtime-paths.ts",
+      "runtime/agent-runtime-recovery.ts",
       "runtime/agent-runtime-settings-router.ts",
       "runtime/agent-runtime-settings.ts"
     ],
@@ -119,6 +120,7 @@
         "./agent-runtime-history",
         "./agent-runtime-metrics",
         "./agent-runtime-package",
+        "./agent-runtime-recovery",
         "./agent-runtime-settlement",
         "node:child_process",
         "node:crypto",
@@ -161,6 +163,13 @@
         "../../../workspace-resolution",
         "node:fs",
         "node:path"
+      ],
+      "runtime/agent-runtime-recovery.ts": [
+        "../../../core-node-runtime",
+        "../../../util/win-spawn",
+        "./agent-runtime-package",
+        "node:child_process",
+        "zod"
       ],
       "runtime/agent-runtime-repositories.ts": [
         "node:path"
