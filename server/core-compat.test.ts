@@ -146,7 +146,7 @@ describe('checkCoreCompat', () => {
         ...(provider === 'kimi' ? { providerBinary: 'kimi', skillRunner: '.kimi-code/specrails/run-skill.mjs', workflowArgs: ['.kimi-code/specrails/run-skill.mjs', '--skill', '<id>'] } : {}) },
       workflows: { implement: 'implement', 'batch-implement': 'batch-implement', retry: 'retry' },
     }]))
-    setupContractInTmpDir({ schemaVersion: '5.0', coreVersion: '5.7.0', lifecycle: { mode: 'deterministic', requiresEnrich: false },
+    setupContractInTmpDir({ schemaVersion: '5.0', coreVersion: '6.0.0', lifecycle: { mode: 'deterministic', requiresEnrich: false },
       providers, checkpoints: { base_install: 'Installed', agent_generation: 'Placed', command_generation: 'Verified' } }, tmpDir)
     const result = await checkCoreCompat()
     expect(result.compatible).toBe(true)

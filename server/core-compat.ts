@@ -71,7 +71,7 @@ function isRenderedProviderContract(provider: string, value: unknown): boolean {
   if (!isRecord(value)) return false
   // Core 5 has a deterministic installer. Enrichment no longer exists and is
   // therefore not evidence of provider availability on this contract shape.
-  // Core 5.7+ (contract 5.0) dropped the standalone `update` command: Desktop
+  // Core 6 (contract 5.0) dropped the standalone `update` command: Desktop
   // refreshes installs through init and the offline framework lifecycle.
   if (value.initCommand === 'init' && (value.updateCommand === undefined || value.updateCommand === 'update')) {
     if (!isRecord(value.cli) || !isRecord(value.workflows)) return false
