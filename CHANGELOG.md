@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.56.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.55.1...v2.56.0) (2026-09-24)
+
+
+### Features
+
+* **agents:** add scoped runtime recovery and Claude Opus 5.5 ([#698](https://github.com/fjpulidop/specrails-desktop/issues/698)) ([c5c3bde](https://github.com/fjpulidop/specrails-desktop/commit/c5c3bde3068c2e2a17247dbbdfa432bbd2a1e7fc))
+
 ## [2.55.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.55.0...v2.55.1) (2026-09-23)
 
 
