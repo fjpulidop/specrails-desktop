@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.57.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.57.0...v2.57.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* **runtime:** scope Core to the registered package of a larger checkout ([#704](https://github.com/fjpulidop/specrails-desktop/issues/704)) ([70d459c](https://github.com/fjpulidop/specrails-desktop/commit/70d459c14f8a07cc040bac3be9c010650284cd63))
+
 ## [2.57.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.56.1...v2.57.0) (2026-09-25)
 
 
