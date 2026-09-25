@@ -45,7 +45,7 @@ env:
   # reproducibility — BUG-CI-02). This MUST equal the version the vendored
   # scripts/assemble-bundled-core.lock.json pins (assemble-bundled-core.mjs fails
   # fast on mismatch). Bump both together via PR. See server/bundled-core.ts.
-  CORE_BUNDLE_VERSION: "5.6.0"
+  CORE_BUNDLE_VERSION: "6.0.0"
   # Bundle @fission-ai/openspec into the app so the LAST network step of
   # project-add (openspec init) runs OFFLINE from the bundle instead of
   # `npx @fission-ai/openspec`. Pinned to match specrails-core's
@@ -598,7 +598,7 @@ jobs:
         run: node scripts/assemble-bundled-openspec.mjs "${OPENSPEC_BUNDLE_VERSION}"
 
       # Windows-specific relocate-artifacts framework smoke: validates dir
-      # junctions for commands/skills/rules, copy-fallback for agents, real
+      # junctions for commands/skills, copy-fallback for agents, real
       # multi-provider discovery (claude + gemini + kimi), and the single `current` swap
       # — against the SHIPPED bundled core. Runs before the heavy tauri build so a
       # broken bundle fails fast.

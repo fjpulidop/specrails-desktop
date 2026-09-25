@@ -7,14 +7,16 @@ read-only discovery; it does not execute a PATH shim or install a global package
 An explicit `SPECRAILS_CORE_BIN` wins when it resolves to a usable compatible
 package. Otherwise Desktop selects the newest compatible package from its
 activated managed installation, bundled resources, local dependency and external
-CLI on PATH. Core 4 and 5 remain supported. A runtime older than the active
+CLI on PATH. Supported Core majors are 4, 5 and 6 (`SUPPORTED_CORE_MAJORS` in
+`server/core-package.ts`). A runtime older than the active
 framework is rejected rather than silently replacing an update.
 
 ## Persistence and publication
 
-The release bundle pins Core 5.6.0 in `desktop-release.yml` and
-`scripts/assemble-bundled-core.lock.json`. This includes scoped runtime recovery
-and the Opus 5.5 alias. Update both pins together and check compatibility against
+The release bundle pins Core 6.0.0 in `desktop-release.yml` and
+`scripts/assemble-bundled-core.lock.json`. Core 6 is the Desktop-only engine: it
+publishes integration contract 5.0 (no standalone `update`) and ships only the
+implement, batch-implement and retry workflows. Update both pins together and check compatibility against
 the staged published package; retained runs still use their original runtime.
 
 Desktop updates retain the complete npm installation, including dependencies,

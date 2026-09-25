@@ -58,7 +58,7 @@ test('only a measured contract mismatch produces a compatibility issue signal', 
   assert.equal(result.code, 1)
   assert.equal(result.drift, 'true')
   assert.deepEqual(JSON.parse(result.stdout).missingCheckpoints, ['future_phase'])
-  const future = await candidate({ packageVersion: '6.0.0' })
+  const future = await candidate({ packageVersion: '7.0.0' })
   assert.equal(future.code, 1)
   assert.equal(future.drift, 'true')
   assert.equal(JSON.parse(future.stdout).unsupportedMajor, true)
