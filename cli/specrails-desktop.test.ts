@@ -119,7 +119,8 @@ describe('KNOWN_VERBS', () => {
   it('contains expected verbs', () => {
     expect(KNOWN_VERBS.has('implement')).toBe(true)
     expect(KNOWN_VERBS.has('batch-implement')).toBe(true)
-    expect(KNOWN_VERBS.has('health-check')).toBe(true)
+    expect(KNOWN_VERBS.has('retry')).toBe(true)
+    expect(KNOWN_VERBS.has('health-check')).toBe(false)
     expect(KNOWN_VERBS.has('nonexistent')).toBe(false)
   })
 })
