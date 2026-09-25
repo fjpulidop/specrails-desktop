@@ -7,7 +7,7 @@ vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn()
 vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, resolveRetainedAgentRuntime: () => fixture.cli }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => fixture.node }))
 import { loadRuntimeConfigFile, saveRuntimeRolePrompts } from './agent-runtime-settings'
-import { runAgentRuntimeInvocation, runtimeChangeName } from './agent-runtime-bridge'
+import { runAgentRuntimeInvocation, runtimeChangeName, scopedHostChecks } from './agent-runtime-bridge'
 
 let root: string, contextPath: string
 beforeEach(() => {
@@ -23,6 +23,28 @@ afterEach(() => { vi.restoreAllMocks(); rmSync(root, { recursive: true, force: t
 const options = () => ({ contextPath, cwd: root, env: { ...process.env, SPECRAILS_GIT_AUTO: 'false', API_SECRET: 'never-store-this' }, configPath: join(root, 'config.json'), change: 'test-change', timeoutMs: 3000 })
 function script(code: string) { writeFileSync(fixture.cli!, code) }
 function final(status = 'succeeded', overrides: object = {}) { return { type: 'runtime-result', runId: 'run-1', status, invocationUsage: { costUsd: null, inputTokens: 12, outputTokens: 4 }, ...overrides } }
+
+describe('host checks of a package inside a larger checkout', () => {
+  it('run in the registered package, keep explicit package-relative cwd and leave unscoped repositories alone', () => {
+    const repositories = [{ id: 'courses', scope: ['apps/busuu-courses'] }, { id: 'api' }]
+    expect(scopedHostChecks([
+      { repositoryId: 'courses', command: 'yarn', args: ['test'] },
+      { repositoryId: 'courses', command: 'yarn', args: ['lint'], cwd: 'src' },
+      { repositoryId: 'courses', command: 'yarn', args: ['e2e'], cwd: 'apps/busuu-courses/playwright' },
+      { repositoryId: 'courses', command: 'yarn', args: ['root'], cwd: '..' },
+      { repositoryId: 'api', command: 'npm', args: ['test'] },
+    ], repositories).map(check => check.cwd)).toEqual(['apps/busuu-courses', 'apps/busuu-courses/src', 'apps/busuu-courses/playwright', 'apps', undefined])
+    expect(scopedHostChecks([{ repositoryId: 'courses', command: 'yarn', args: ['test'] }])).toEqual([{ repositoryId: 'courses', command: 'yarn', args: ['test'] }])
+  })
+
+  it('freezes the scoped cwd into the configuration Core receives', async () => {
+    writeFileSync(contextPath, JSON.stringify({ runId: 'run-1', repositories: [{ id: 'front', scope: ['apps/web'] }] }))
+    script(`console.log(JSON.stringify(${JSON.stringify(final())}));`)
+    expect((await runAgentRuntimeInvocation(options())).failed).toBe(false)
+    const frozen = JSON.parse(readFileSync(join(root, 'state', 'desktop-runtime-config.json'), 'utf8'))
+    expect(frozen.verification).toEqual([{ repositoryId: 'front', command: 'npm', args: ['test'], cwd: 'apps/web' }])
+  })
+})
 
 describe('Core process bridge', () => {
   it('freezes global role definitions for new jobs and ignores later edits on resume', async () => {

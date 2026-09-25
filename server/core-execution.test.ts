@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
-import { checkCoreCompletion, coreVerificationContext, prepareCoreExecution } from './core-execution'
+import { checkCoreCompletion, checkoutSubdirectory, coreVerificationContext, prepareCoreExecution } from './core-execution'
 import type { RunExecutionManifest } from './modules/delivery/runtime/multi-repo-execution-store'
 
 vi.mock('./path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath }))
@@ -80,6 +80,51 @@ describe('Core execution context', () => {
     const { cwd, front } = fixture()
     expect(() => prepareCoreExecution({ cwd, repoDir: front, env: {}, run: { runId: '../escape' } })).toThrow('run id')
     expect(() => prepareCoreExecution({ cwd, repoDir: front, env: {}, run: { runId: 'valid', repositoryId: 'front', spec: { id: 1, repositoryIds: ['back'] } } })).toThrow('outside the execution scope')
+  })
+})
+
+describe('repository scope for a package of a larger checkout', () => {
+  /** A monorepo whose app is the registered repository, and an isolated worktree that mounts the whole checkout. */
+  function monorepo() {
+    const { root, cwd } = fixture()
+    const source = join(root, 'busuu-web'); const worktree = join(root, 'worktrees', 'ticket-199')
+    for (const dir of [join(source, '.git'), join(source, 'apps', 'busuu-courses'), join(worktree, 'apps', 'busuu-courses')]) mkdirSync(dir, { recursive: true })
+    writeFileSync(join(worktree, '.git'), 'gitdir: ' + join(source, '.git', 'worktrees', 'ticket-199') + '\n')
+    return { cwd, source, worktree, app: join(source, 'apps', 'busuu-courses') }
+  }
+  const single = (sourcePath?: string) => ({ ...(sourcePath ? { sourcePath } : {}) })
+  it('locates a registered directory inside its checkout', () => {
+    const { source, app, worktree } = monorepo()
+    expect(checkoutSubdirectory(app)).toBe('apps/busuu-courses')
+    expect(checkoutSubdirectory(source)).toBe('')
+    expect(checkoutSubdirectory(worktree)).toBe('')
+    expect(checkoutSubdirectory(join(source, 'missing'))).toBe('')
+  })
+  it('passes the registered package as Core scope for a worktree of the whole checkout', () => {
+    const { cwd, worktree, app } = monorepo()
+    const manifest: RunExecutionManifest = { version: 1, groupId: 'group', projectId: 'project', primaryRepositoryId: 'primary', artifactRepositoryId: 'courses', selectedRepositoryIds: ['courses'], repositories: [{
+      repositoryId: 'courses', name: 'busuu-courses', sourcePath: app, gitCommonDir: 'unused', baseBranch: 'main', baseSha: 'b'.repeat(40), worktreePath: worktree, branch: 'fix/nav', worktreeId: 'tree',
+    }] }
+    const result = prepareCoreExecution({ cwd, manifest, env: {}, run: { runId: 'scoped-manifest', spec: { id: 199, description: 'Responsive navigation' } } })
+    expect(JSON.parse(readFileSync(result.contextPath, 'utf8')).repositories).toEqual([{ id: 'courses', name: 'busuu-courses', path: worktree, baseSha: 'b'.repeat(40), scope: ['apps/busuu-courses'] }])
+    const isolated = prepareCoreExecution({ cwd, repoDir: worktree, env: {}, ...single(app), run: { runId: 'scoped-single', projectId: 'p' } })
+    expect(JSON.parse(readFileSync(isolated.contextPath, 'utf8')).repositories[0].scope).toEqual(['apps/busuu-courses'])
+  })
+  it('adds no scope when the registered directory is the checkout root or is what Core already receives', () => {
+    const { cwd, source, app, worktree } = monorepo()
+    const shared = prepareCoreExecution({ cwd, repoDir: app, env: {}, ...single(app), run: { runId: 'shared-cwd', projectId: 'p' } })
+    expect(JSON.parse(readFileSync(shared.contextPath, 'utf8')).repositories[0]).toEqual({ id: 'primary-p', name: 'busuu-courses', path: app })
+    const root = prepareCoreExecution({ cwd, repoDir: worktree, env: {}, ...single(source), run: { runId: 'root-registered', projectId: 'p' } })
+    expect(JSON.parse(readFileSync(root.contextPath, 'utf8')).repositories[0].scope).toBeUndefined()
+  })
+  it('keeps the frozen whole-checkout context of a run admitted before scopes existed', () => {
+    const { cwd, worktree, app } = monorepo()
+    const input = { cwd, repoDir: worktree, env: {}, run: { runId: 'admitted-before', projectId: 'p' } }
+    const legacy = prepareCoreExecution(input)
+    const frozen = readFileSync(legacy.contextPath, 'utf8')
+    expect(prepareCoreExecution({ ...input, sourcePath: app }).contextPath).toBe(legacy.contextPath)
+    expect(readFileSync(legacy.contextPath, 'utf8')).toBe(frozen)
+    expect(() => prepareCoreExecution({ ...input, sourcePath: app, run: { ...input.run, spec: { id: 1, description: 'changed' } } })).toThrow('context changed')
   })
 })
 

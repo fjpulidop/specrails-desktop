@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import type { LoopSpec } from './modules/loops/runtime/loop-graph'
 import type { RunExecutionManifest } from './modules/delivery/runtime/multi-repo-execution-store'
 import { resolveCoreNodeRuntime } from './core-node-runtime'
@@ -31,7 +31,7 @@ interface CoreContext {
   backlogPath: string
   artifactRoot: string
   artifactRepositoryId: string
-  repositories: Array<{ id: string; name: string; path: string; baseSha?: string }>
+  repositories: Array<{ id: string; name: string; path: string; baseSha?: string; scope?: string[] }>
   ownership: { git: 'host' | 'core'; backlog: 'host'; worktrees: 'host' }
   specs: Array<{ id: string | number; title: string; description: string; repositoryIds?: string[]; acceptanceCriteria?: string[] }>
 }
@@ -50,19 +50,53 @@ function canonicalPath(path: string): string {
   }
 }
 
+/** Where a directory sits inside its git checkout: '' for the checkout root or a directory outside git. */
+export function checkoutSubdirectory(directory: string): string {
+  let start: string
+  try { start = realpathSync(directory) } catch { return '' }
+  for (let current = start; ; current = dirname(current)) {
+    if (existsSync(join(current, '.git'))) return relative(current, start).split(sep).join('/')
+    if (dirname(current) === current) return ''
+  }
+}
+
+/**
+ * A registered repository may be one package of a larger git checkout (a
+ * monorepo app). An isolated worktree always mounts the whole checkout, so the
+ * registered directory travels to Core as the repository scope; otherwise Core
+ * verifies, edits and reviews every workspace of the checkout.
+ */
+function registeredScope(checkout: string, sourcePath: string | undefined): string[] | undefined {
+  if (!sourcePath) return undefined
+  const prefix = checkoutSubdirectory(sourcePath)
+  // Core already receives the registered directory itself when it is not a checkout root.
+  if (!prefix || checkoutSubdirectory(checkout) !== '') return undefined
+  try { return statSync(join(checkout, ...prefix.split('/'))).isDirectory() ? [prefix] : undefined } catch { return undefined }
+}
+
+function withoutScope(context: CoreContext): CoreContext {
+  return { ...context, repositories: context.repositories.map(({ scope: _scope, ...repository }) => repository) }
+}
+
 /** Stable run identity and frozen inputs are shared by every provider and retry.
  * No cwd/global singleton: two rails in the same workspace get separate files.
  */
 export function prepareCoreExecution(input: {
   run: CoreRunInput; cwd: string; repoDir?: string; manifest?: RunExecutionManifest; env: NodeJS.ProcessEnv
+  /** The registered directory a manifest-less run stands for (the project path); a checkout subdirectory becomes the Core scope. */
+  sourcePath?: string
 }): { env: NodeJS.ProcessEnv; promptPrefix: string; contextPath: string } {
   const { run, manifest } = input
   if (!SAFE_ID.test(run.runId)) throw new Error('Invalid Core execution run id')
   const cwd = realpathSync(input.cwd)
   assertWorkspaceCoreReady(cwd)
+  const scoped = <T extends { path: string }>(repository: T, sourcePath: string | undefined): T & { scope?: string[] } => {
+    const scope = registeredScope(repository.path, sourcePath)
+    return scope ? { ...repository, scope } : repository
+  }
   const repositories = manifest
-    ? manifest.repositories.map(repo => ({ id: repo.repositoryId, name: repo.name, path: realpathSync(repo.worktreePath), baseSha: repo.baseSha }))
-    : [{ id: run.repositoryId ?? (run.spec?.repositoryIds?.length === 1 ? run.spec.repositoryIds[0]! : run.projectId ? `primary-${run.projectId}` : 'primary'), name: basename(input.repoDir ?? cwd), path: realpathSync(input.repoDir ?? cwd) }]
+    ? manifest.repositories.map(repo => scoped({ id: repo.repositoryId, name: repo.name, path: realpathSync(repo.worktreePath), baseSha: repo.baseSha }, repo.sourcePath))
+    : [scoped({ id: run.repositoryId ?? (run.spec?.repositoryIds?.length === 1 ? run.spec.repositoryIds[0]! : run.projectId ? `primary-${run.projectId}` : 'primary'), name: basename(input.repoDir ?? cwd), path: realpathSync(input.repoDir ?? cwd) }, input.sourcePath)]
   if (!repositories.length || repositories.some(repo => !SAFE_ID.test(repo.id))) throw new Error('Invalid Core repository scope')
   const artifactRepositoryId = manifest?.artifactRepositoryId ?? repositories[0]!.id
   const artifactRepo = repositories.find(repo => repo.id === artifactRepositoryId)
@@ -97,7 +131,9 @@ export function prepareCoreExecution(input: {
   try { writeFileSync(contextPath, serialized, { flag: 'wx', mode: 0o600 }) }
   catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
-    if (readFileSync(contextPath, 'utf8') !== serialized) throw new Error('Core execution context changed during an active run; start a new run for changed scope')
+    const frozen = readFileSync(contextPath, 'utf8')
+    // A run admitted before repository scopes existed keeps its frozen whole-checkout context.
+    if (frozen !== serialized && frozen !== JSON.stringify(withoutScope(context), null, 2) + '\n') throw new Error('Core execution context changed during an active run; start a new run for changed scope')
   }
   const env = { ...input.env, SPECRAILS_EXECUTION_CONTEXT: contextPath }
   const promptPrefix = run.verificationStep ? coreVerificationContext(contextPath, cwd, env, run.runId) : ''
