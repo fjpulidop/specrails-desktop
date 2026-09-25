@@ -5,7 +5,7 @@ import { resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, isAbsolute, join, posix } from 'node:path'
 import { createInterface } from 'node:readline'
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime, validateRequestedRoleEfforts } from './agent-runtime-loader'
 import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
@@ -16,6 +16,22 @@ import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
 
 export function runtimeChangeName(runId: string): string {
   return 'runtime-' + createHash('sha256').update(runId).digest('hex').slice(0, 20)
+}
+
+/**
+ * Host checks belong to the directory the user registered: for a package of a
+ * larger checkout (Core scope) they run in that package, never at the checkout
+ * root where a monorepo test script fans out to every workspace. An explicit
+ * cwd is relative to the registered directory; one already inside the scope is kept.
+ */
+export function scopedHostChecks<T extends { repositoryId: string; cwd?: string }>(checks: readonly T[], repositories: ReadonlyArray<{ id: string; scope?: string[] }> = []): T[] {
+  return checks.map(check => {
+    const scope = repositories.find(repository => repository.id === check.repositoryId)?.scope?.[0]
+    if (!scope || (check.cwd !== undefined && isAbsolute(check.cwd))) return check
+    const cwd = (check.cwd ?? '.').replace(/\\/g, '/')
+    const inside = cwd === scope || cwd.startsWith(scope + '/')
+    return { ...check, cwd: inside ? cwd : posix.normalize(posix.join(scope, cwd)) }
+  })
 }
 
 export const RUNTIME_HOST_ENV_KEYS = [
@@ -76,7 +92,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
   let cli = selectedCli
   if (!cli) throw new Error('Programmatic agent runtime is enabled but its Core CLI is unavailable. Build or bundle the compatible Core runtime.')
   if (!options.resume && (!options.configPath || !options.change)) throw new Error('New programmatic runs require configuration and a change name')
-  const admittedContext = JSON.parse(readFileSync(options.contextPath, 'utf8')) as { runId?: unknown; artifactRoot?: string; repositories?: RuntimeLogRepository[] }
+  const admittedContext = JSON.parse(readFileSync(options.contextPath, 'utf8')) as { runId?: unknown; artifactRoot?: string; repositories?: Array<RuntimeLogRepository & { scope?: string[] }> }
   if (typeof admittedContext.runId !== 'string') throw new Error('Core context is missing its run identity')
   const args = [cli, options.resume ? 'resume' : 'run', '--context', options.contextPath]
   if (!options.resume) {
@@ -85,6 +101,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     const { config, origins } = resolveEffectiveRuntimeConfig(loadRuntimeConfigFile(options.configPath!, options.defaultProvider), {
       repositoryIds: admittedContext.repositories.map(repo => repo.id), source, providerOverride: options.providerOverride,
     })
+    config.verification = scopedHostChecks(config.verification, admittedContext.repositories)
     config.rolePrompts = { ...(await loadCoreAgentRuntime()).rolePromptDefaults(), ...loadRuntimeRolePrompts() }
     // Core rejects unknown connection keys: drop the desktop-only local-engine
     // fields (label/defaultModel/rates/supportsReasoningEffort) before Core sees it.

@@ -172,6 +172,9 @@ export function createLoopExecutors(
      *  SPECRAILS_PROFILE_PATH snapshot for AI steps. A null selection opts out;
      *  undefined keeps the existing global/Core default resolution. */
     profilePathFor?: (provider: string, profileName?: string | null) => string | null
+    /** The registered directory a manifest-less run stands for (the project path). When it is a
+     *  package inside a larger git checkout, an isolated worktree run passes it to Core as scope. */
+    sourcePath?: () => string | undefined
   } = {},
 ): LoopExecutors {
   const resolveEnv = (): NodeJS.ProcessEnv =>
@@ -258,7 +261,7 @@ export function createLoopExecutors(
       const existingContext = coreRun ? runtimeContextPath(cwd, coreRun.runId, baseEnv) : undefined
       const programmatic = coreRun && existingContext && (coreRun.implementation || (coreRun.verificationStep && existsRuntimeRequest(existingContext)))
       const baseStepEnv = programmatic ? programmaticStepEnv(baseEnv, repoDir, executionManifest) : withProfileEnv(aiStepEnv(baseEnv, repoDir, executionManifest), provider, profileName)
-      const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv }) : undefined
+      const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv, sourcePath: executionManifest ? undefined : opts.sourcePath?.() }) : undefined
       const stepEnv = core?.env ?? baseStepEnv
       if (coreRun?.implementation && core) {
         completionContexts.set(coreRun.runId, { cwd, contextPath: core.contextPath, env: stepEnv, runId: coreRun.runId })
@@ -473,7 +476,7 @@ export function createLoopExecutors(
       const adapter = getAdapter(provider)
       if (!adapter.capabilities.persistentStdin) return null
       const baseStepEnv = withProfileEnv(aiStepEnv(resolveEnv(), repoDir, executionManifest), provider, profileName)
-      const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv }) : undefined
+      const core = coreRun ? prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv, sourcePath: executionManifest ? undefined : opts.sourcePath?.() }) : undefined
       const stepEnv = core?.env ?? baseStepEnv
       const extraArgs = aiStepExtraArgs(adapter, cwd, repoDir, executionManifest)
       if (repoDir) { try { ensureFrameworkAgents(cwd, adapter.projectDirName); ensureFrameworkCommandSubtrees(cwd, adapter.projectDirName) } catch { /* best-effort */ } }
@@ -517,7 +520,7 @@ export function createLoopExecutors(
       const baseEnv = resolveEnv()
       const programmatic = existsRuntimeRequest(runtimeContextPath(cwd, coreRun.runId, baseEnv))
       const baseStepEnv = programmatic ? programmaticStepEnv(baseEnv, repoDir, executionManifest) : withProfileEnv(aiStepEnv(baseEnv, repoDir, executionManifest), provider, profileName)
-      const core = prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv })
+      const core = prepareCoreExecution({ run: coreRun, cwd, repoDir, manifest: executionManifest, env: baseStepEnv, sourcePath: executionManifest ? undefined : opts.sourcePath?.() })
       if (existsRuntimeRequest(core.contextPath)) return checkCoreCompletion(core.contextPath, cwd, { ...programmaticStepEnv(resolveEnv(), repoDir, executionManifest), SPECRAILS_EXECUTION_CONTEXT: core.contextPath }, coreRun.runId)
       const env = buildProviderEnv(getAdapter(provider), { prompt: '', model, reasoning_effort: effort }, core.env)
       return checkCoreCompletion(core.contextPath, cwd, env, coreRun.runId)

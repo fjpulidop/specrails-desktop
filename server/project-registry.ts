@@ -1131,6 +1131,8 @@ export class ProjectRegistry {
     // See resolveLoopBaseEnv.
     const loopRunManager = new LoopRunManager(db, boundBroadcast, createLoopExecutors({
       pluginScope: () => ({ stateRoot: resolveProjectExecution(project).cwd, legacyProviderId: project.provider }),
+      // A project registered as a package of a larger checkout scopes Core to that package in isolated worktrees.
+      sourcePath: () => project.path,
       env: () => resolveLoopBaseEnv(
         { slug: project.slug, path: project.path },
         undefined,
