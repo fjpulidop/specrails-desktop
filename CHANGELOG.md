@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.56.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.56.0...v2.56.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* **core-compat:** accept Core contract 5.0 and drop removed Core verbs ([#700](https://github.com/fjpulidop/specrails-desktop/issues/700)) ([b5600b9](https://github.com/fjpulidop/specrails-desktop/commit/b5600b9d46e0bff7aba29ed582fe7d13fef5027e))
+
 ## [2.56.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.55.1...v2.56.0) (2026-09-24)
 
 
