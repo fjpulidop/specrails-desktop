@@ -598,7 +598,7 @@ jobs:
         run: node scripts/assemble-bundled-openspec.mjs "${OPENSPEC_BUNDLE_VERSION}"
 
       # Windows-specific relocate-artifacts framework smoke: validates dir
-      # junctions for commands/skills/rules, copy-fallback for agents, real
+      # junctions for commands/skills, copy-fallback for agents, real
       # multi-provider discovery (claude + gemini + kimi), and the single `current` swap
       # — against the SHIPPED bundled core. Runs before the heavy tauri build so a
       # broken bundle fails fast.

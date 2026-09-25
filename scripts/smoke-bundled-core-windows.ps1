@@ -6,8 +6,8 @@
 #      `current` (materialize-all-then-swap-once).
 #   2. swap-current finalises: `current` resolves to the version (junction OR
 #      Windows copy-fallback — readCurrentFrameworkVersion handles both).
-#   3. assemble links the provider subtrees into a workspace: commands/skills/
-#      rules land as dir JUNCTIONS, agents land via the COPY-FALLBACK (file
+#   3. assemble links the provider subtrees into a workspace: commands/skills
+#      land as dir JUNCTIONS, agents land via the COPY-FALLBACK (file
 #      symlinks need admin on Windows; core falls back to copying). Each must
 #      have content.
 #   4. REAL provider discovery: all four providers (claude + codex + gemini +
@@ -76,14 +76,15 @@ $providerDirs = @{
   "gemini" = ".gemini"
   "kimi" = ".kimi-code"
 }
+# Core 6 no longer ships a rules/ subtree for any provider.
 $linkedByProvider = @{
-  "claude" = @("agents", "commands", "skills", "rules")
+  "claude" = @("agents", "commands", "skills")
   "codex" = @("skills")
   "gemini" = @("agents", "commands")
   # Kimi keeps the skills root real so OpenSpec and custom roles can coexist;
-  # Core links framework-owned children within it. Rules remains a whole-dir
-  # framework link and therefore exercises the junction/copy path here.
-  "kimi" = @("rules")
+  # Core links framework-owned children within it. The specrails/ runner dir
+  # remains a whole-dir framework link and exercises the junction/copy path.
+  "kimi" = @("specrails")
 }
 
 foreach ($p in $providers) {
