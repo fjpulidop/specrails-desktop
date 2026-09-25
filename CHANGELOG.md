@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.57.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.56.1...v2.57.0) (2026-09-25)
+
+
+### Features
+
+* **core:** bundle specrails-core 6.0.0 ([#702](https://github.com/fjpulidop/specrails-desktop/issues/702)) ([a595f4f](https://github.com/fjpulidop/specrails-desktop/commit/a595f4fdc64695fadcc841d2a46b5554eec1780e))
+
 ## [2.56.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.56.0...v2.56.1) (2026-09-25)
 
 
