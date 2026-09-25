@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { resolveHome } from './artifact-registry'
 import { getBundledCoreRoot } from './bundled-core'
+import { isSupportedCoreVersion, SUPPORTED_CORE_MAJORS } from './core-package'
 import { compareVersions } from './semver-lite'
 
 export type CoreRuntimeSource = 'override' | 'managed' | 'bundled' | 'local' | 'global'
@@ -92,7 +93,7 @@ export function resolveCoreRuntime(home?: string, external?: CoreRuntime[]): Cor
   if (override) {
     const runtime = packageForBinary(override, 'override')
     if (!runtime) throw new Error('SPECRAILS_CORE_BIN does not resolve to a usable specrails-core package.')
-    if (![4, 5].includes(Number(runtime.version.split('.')[0]))) throw new Error('The explicit Core package is not compatible with this Desktop. Supported Core majors: 4 and 5.')
+    if (!isSupportedCoreVersion(runtime.version)) throw new Error(`The explicit Core package is not compatible with this Desktop. Supported Core majors: ${SUPPORTED_CORE_MAJORS.join(', ')}.`)
     if (current && compareVersions(runtime.version, current) < 0) throw new Error(`The explicit Core ${runtime.version} is older than active framework ${current}; Desktop will not downgrade it.`)
     return runtime
   }
@@ -109,10 +110,7 @@ export function resolveCoreRuntime(home?: string, external?: CoreRuntime[]): Cor
     if (managed && managed.version === current) candidates.push(managed)
   }
   candidates.push(...(external ?? (home === undefined ? discoverExternalCoreRuntimes() : [])))
-  const compatible = candidates.filter(candidate => {
-    const major = Number(candidate.version.split('.')[0])
-    return major >= 4 && major <= 5
-  }).sort((a, b) => compareVersions(b.version, a.version))
+  const compatible = candidates.filter(candidate => isSupportedCoreVersion(candidate.version)).sort((a, b) => compareVersions(b.version, a.version))
   const selected = compatible[0] ?? null
   if (current && (!selected || compareVersions(selected.version, current) < 0)) {
     throw new Error(`Core framework ${current} is installed, but its runtime package is unavailable. Reinstall Core ${current} or a newer compatible version; Desktop will not downgrade it.`)

@@ -18,7 +18,8 @@ try {
   if (!entry.startsWith(`${root}${path.sep}`)) throw new Error('The Core CLI entry escapes its installed package.')
   process.env.SPECRAILS_CORE_BIN = entry
   let result
-  if (![4, 5].includes(Number(expected.split('.')[0]))) result = { compatible: false, coreVersion: expected, unsupportedMajor: true }
+  const { isSupportedCoreVersion } = await import('../server/core-package.ts')
+  if (!isSupportedCoreVersion(expected)) result = { compatible: false, coreVersion: expected, unsupportedMajor: true }
   else {
     const { checkCoreCompat } = await import('../server/core-compat.ts')
     result = await checkCoreCompat()

@@ -70,7 +70,7 @@ describe('Core runtime selection', () => {
     fs.mkdirSync(dir, { recursive: true })
     fs.symlinkSync('9.0.0', path.join(dir, 'current'))
     expect(readCurrentFrameworkVersion(home)).toBeNull()
-    expect(resolveCoreRuntime(home, [runtime('6.0.0', 'global')])).toBeNull()
+    expect(resolveCoreRuntime(home, [runtime('7.0.0', 'global')])).toBeNull()
   })
   it('reports linked, pinned and copied project versions independently', () => {
     current('5.0.0')

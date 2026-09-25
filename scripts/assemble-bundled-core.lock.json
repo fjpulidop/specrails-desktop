@@ -8,7 +8,7 @@
       "name": "bundled-core-stage",
       "version": "0.0.0",
       "dependencies": {
-        "specrails-core": "5.6.0"
+        "specrails-core": "6.0.0"
       }
     },
     "node_modules/@cfworker/json-schema": {
@@ -2281,18 +2281,16 @@
       }
     },
     "node_modules/specrails-core": {
-      "version": "5.6.0",
-      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-5.6.0.tgz",
-      "integrity": "sha512-h0LQDDpCBt7jVeUxKEjd4pRLIhE1m39J1oAXnrfHZvxf/vLM5RSADcFsjwWfAUSpeoXY70EHBvBoQKhGM6xc/w==",
+      "version": "6.0.0",
+      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-6.0.0.tgz",
+      "integrity": "sha512-m3CCtC7armZcAitrgfLWULI2otRozpLOtVcPtvgz9AAhjrMTmmJcYgOO7Dx9p72hkLkRyFN0PuaSSL//H7qZYg==",
       "license": "MIT",
       "dependencies": {
         "@fission-ai/openspec": "1.4.1",
-        "@inquirer/prompts": "^7.0.0",
         "@langchain/core": "1.2.10",
         "@langchain/langgraph": "1.4.14",
         "@langchain/langgraph-checkpoint": "1.1.5",
         "@modelcontextprotocol/sdk": "1.29.0",
-        "ajv": "^8.18.0",
         "cross-spawn": "7.0.6",
         "js-yaml": "^4.1.0",
         "picocolors": "^1.1.1",

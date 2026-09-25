@@ -8,6 +8,7 @@ import { isNewer, isValidVersion } from './semver-lite'
 import { windowsSpawnEnv } from './util/win-spawn'
 import { getBundledCoreVersion } from './bundled-core'
 import { getCoreRuntimeStatus, managedCoreRoot, readCoreRuntime, type CoreRuntimeSource } from './core-runtime'
+import { isSupportedCoreVersion, SUPPORTED_CORE_MAJORS } from './core-package'
 import { atomicWrite, withFileLock } from './artifact-registry'
 
 /** Voluntary Core updates retain the complete npm package and dependencies,
@@ -165,8 +166,8 @@ export class CoreUpdateManager {
     if (!requested || !isValidVersion(requested)) {
       return { ok: false, error: 'No valid target version to update to. Check for updates first.' }
     }
-    if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(requested) || ![4, 5].includes(Number(requested.split('.')[0]))) {
-      return { ok: false, error: 'This Desktop supports Core 4 and 5. Update Desktop before installing another major version.' }
+    if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(requested) || !isSupportedCoreVersion(requested)) {
+      return { ok: false, error: `This Desktop supports Core ${SUPPORTED_CORE_MAJORS.join(', ')}. Update Desktop before installing another major version.` }
     }
     const current = readCurrentFrameworkVersion(this.home)
     if (current && !isNewer(requested, current) && !(requested === current && (getCoreRuntimeStatus(this.home).error || this.pendingVersion === requested))) {

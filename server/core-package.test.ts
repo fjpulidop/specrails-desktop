@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, it, expect } from 'vitest'
-import { CORE_PACKAGE_SPEC } from './core-package'
+import { CORE_PACKAGE_SPEC, SUPPORTED_CORE_MAJORS } from './core-package'
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -73,10 +73,9 @@ describe('CORE_PACKAGE_SPEC (H5)', () => {
 
     const bundled = parseVersion(declared!)
     const floor = parseVersion(packageFloor!)
-    // An older shipped bundle remains supported while the next release is
-    // assembled from a published v5 lock. Do not invent a tarball integrity.
-    expect([4, 5]).toContain(bundled[0])
-    expect(floor[0]).toBe(5)
+    // The bundle and the online fallback share one supported major.
+    expect(SUPPORTED_CORE_MAJORS).toContain(bundled[0])
+    expect(floor[0]).toBe(6)
     if (bundled[0] === floor[0]) expect(isAtLeast(bundled, floor)).toBe(true)
   })
 
