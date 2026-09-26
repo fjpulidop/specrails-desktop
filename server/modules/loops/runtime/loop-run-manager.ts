@@ -1,4 +1,6 @@
 import { createHash } from 'crypto'
+import { createDefinitionEventProjection, readDefinitionUsage } from './loop-definition-events'
+import { runDefinitionLoop, type DefinitionCompletion, type DefinitionInterrupt, type DefinitionLoopInvocation, type DefinitionRuntimeResult, type DefinitionResumeControls } from './loop-definition-run'
 import { parseSpecAddendaReport } from '../../specs/runtime/spec-addenda-core'
 import path from 'path'
 import fs from 'fs'
@@ -42,6 +44,7 @@ import {
   successors,
   interpolateSpec,
   assertLoopShellRepositoryScope,
+  isDefinitionGraph,
 } from './loop-graph'
 import { expandCommands } from './loop-command-catalog'
 import { BUILTIN_CONSTANTS, resolveConstants } from './loop-constants'
@@ -49,6 +52,9 @@ import { resolveLoopStepIdleTimeoutMs, AI_STEP_STALLED_ERROR } from './loop-step
 import { buildDeciderSystemPrompt, buildDeciderUserPrompt, type DeciderDecision } from './loop-decider'
 import {
   createLoopRun,
+  saveDefinitionRun,
+  readDefinitionRun,
+  recordDefinitionCheckpoint,
   updateLoopRunCounters,
   finishLoopRunAndJob,
   pauseLoopRun,
@@ -75,6 +81,12 @@ import { claimRailTickets, claimTicketOutcomeOwners } from '../../delivery/runti
 import { parseVerificationSentinel } from '../../execution/runtime/verification-sentinel'
 
 export interface AiStepResult {
+  runtimeStatus?: DefinitionRuntimeResult['runtimeStatus']
+  completion?: DefinitionCompletion
+  pendingInterrupts?: DefinitionInterrupt[]
+  pendingQuestion?: DefinitionRuntimeResult['pendingQuestion']
+  pendingApproval?: DefinitionRuntimeResult['pendingApproval']
+  graph?: Record<string, unknown>
   text: string
   sessionId?: string
   cost?: number
@@ -201,6 +213,8 @@ export interface InteractiveAiStepPlan {
 }
 
 export interface LoopExecutors {
+  assertDefinitionSupport?(): Promise<void>
+  runDefinition?(input: DefinitionLoopInvocation): Promise<DefinitionRuntimeResult>
   readCoreCompletion?(runId: string): Promise<CoreCompletionSnapshot | null>
   runAiStep(input: {
     runtimeProviderOverride?: RuntimeProviderOverride
@@ -559,7 +573,7 @@ export function extractChangeId(text: string): string | undefined {
 }
 
 type PausedHumanDecision =
-  | { action: 'resume'; text: string }
+  | { action: 'resume'; text: string; interruptId?: string; approve?: boolean }
   | { action: 'stop' }
 
 type LoopRecordedResult = {
@@ -864,6 +878,7 @@ export function recoverOrphanLoopStepAccounting(
 
 export class LoopRunManager {
   private _disposed = false
+  private readonly _definitionTasks = new Map<string, Promise<LoopRunResult>>()
   private readonly _cancelled = new Set<string>()
   /** The currently-spawned child per run, so cancel/stop can actually KILL a
    *  blocked spawn (the cooperative `_cancelled` flag can't interrupt an await). */
@@ -877,6 +892,7 @@ export class LoopRunManager {
   private readonly _activeStepRecovery = new Map<string, string>()
   private readonly _pausedHumanDecisions = new Map<string, {
     reason: string
+    pending?: DefinitionInterrupt[]
     resolve: (decision: PausedHumanDecision) => void
   }>()
 
@@ -938,11 +954,19 @@ export class LoopRunManager {
   /** Feed one more user prompt to the ACTIVE step session owning this job row
    *  (queued behind the active turn — steering; the loop tends to continue its
    *  plan). Returns false when no interactive step is live for the id. */
-  sendInteractiveTurn(jobId: string, text: string): boolean {
+  pendingInterrupts(jobId: string): DefinitionInterrupt[] {
+    return structuredClone(this._pausedHumanDecisions.get(jobId)?.pending ?? [])
+  }
+
+  sendInteractiveTurn(jobId: string, text: string, control?: { interruptId?: string; approve?: boolean }): boolean {
     const paused = this._pausedHumanDecisions.get(jobId)
     if (paused) {
+      if (paused.pending?.length) {
+        const selected = control?.interruptId ? paused.pending.find(item => item.id === control.interruptId) : paused.pending.length === 1 ? paused.pending[0] : undefined
+        if (!selected || (selected.kind !== 'question' && control?.approve !== true)) return false
+      }
       this._pausedHumanDecisions.delete(jobId)
-      paused.resolve({ action: 'resume', text })
+      paused.resolve({ action: 'resume', text, ...control })
       return true
     }
     const session = this._interactiveSteps.get(jobId)
@@ -1035,7 +1059,34 @@ export class LoopRunManager {
     this._pausedHumanDecisions.clear()
   }
 
-  async run(req: LoopRunRequest): Promise<LoopRunResult> {
+  isDefinitionRunActive(runId: string): boolean { return this._definitionTasks.has(runId) }
+
+  run(req: LoopRunRequest): Promise<LoopRunResult> {
+    if (!isDefinitionGraph(req.graph)) return this._run(req)
+    const runId = req.runId ?? newId()
+    if (this._definitionTasks.has(runId)) return Promise.reject(new Error('runtime_run_active: Workflow is already running'))
+    const task = this._run({...req,runId}).finally(() => this._definitionTasks.delete(runId))
+    this._definitionTasks.set(runId,task)
+    return task
+  }
+
+  resumeDefinition(runId: string, input: DefinitionResumeControls = {}): Promise<LoopRunResult> {
+    const active = this._definitionTasks.get(runId)
+    if (active) {
+      const interruptId = input.interruptId ?? input.approve?.[0]
+      if (!this.isPaused(runId) || !this.sendInteractiveTurn(runId,input.answer ?? '',{interruptId,approve: Boolean(input.approve?.length)})) return Promise.reject(new Error('runtime_run_active: Select a pending question or approval'))
+      return active
+    }
+    const frozen = readDefinitionRun(this.db,runId)
+    if (!frozen) return Promise.reject(new Error('runtime_run_not_found: Frozen workflow is unavailable'))
+    if (frozen.row.status === 'completed') return Promise.reject(new Error('runtime_run_completed: Fork a completed workflow to continue'))
+    this._cancelled.delete(runId)
+    const task = this._run(frozen.request,{resume:true,...input}).finally(() => this._definitionTasks.delete(runId))
+    this._definitionTasks.set(runId,task)
+    return task
+  }
+
+  private async _run(req: LoopRunRequest, continuation?: DefinitionResumeControls & {resume:true}): Promise<LoopRunResult> {
     // Later fresh steps must verify the admitted spec, even if its caller or
     // backlog changes while the implementation is running.
     req = { ...req, runtimeProviderOverride: validateRuntimeProviderOverride(req.runtimeProviderOverride), graph: structuredClone(req.graph) }
@@ -1054,6 +1105,11 @@ export class LoopRunManager {
           throw new Error(`Shell step ${node.id} requires an explicit selected repositoryId for this execution`)
         }
       }
+    }
+    const definitionEngine = isDefinitionGraph(req.graph)
+    if (definitionEngine) {
+      if (!this.executors.runDefinition) throw new Error('engine_unsupported: Core workflow execution is unavailable')
+      if (!continuation) await this.executors.assertDefinitionSupport?.()
     }
     if (this._disposed) throw new Error('LoopRunManager is shut down')
     const adapter = getAdapter(req.provider)
@@ -1123,6 +1179,7 @@ export class LoopRunManager {
         iterationLimit: maxIterations,
         startedAt: launchStartedAt,
       })
+      if (definitionEngine) saveDefinitionRun(this.db,runId,{request:req,source:'definition'})
       if (req.executionManifest) this.db.prepare('UPDATE loop_runs SET execution_manifest = ? WHERE id = ?').run(JSON.stringify(req.executionManifest), runId)
       createJob(this.db, {
         id: runId,
@@ -1133,7 +1190,10 @@ export class LoopRunManager {
         causal_ownership: true,
       })
     })
-    persistLaunch()
+    if (continuation) {
+      resumeLoopRun(this.db,runId)
+      this.db.prepare("UPDATE jobs SET status='running',finished_at=NULL,exit_code=NULL WHERE id=? AND owner='loop'").run(runId)
+    } else persistLaunch()
     this._emit({
       type: 'loop.run_started',
       projectId: req.projectId,
@@ -1144,7 +1204,7 @@ export class LoopRunManager {
 
     // Surface the run as a JOB so the full session streams live in the Jobs list
     // + JobDetail. Both identities committed together above, before any spawn.
-    let seq = 0
+    let seq = continuation ? Number((this.db.prepare('SELECT COALESCE(MAX(seq),-1)+1 AS next FROM events WHERE job_id=?').get(runId) as {next:number}).next) : 0
     // Monotonic event-seq allocator for THIS run's job row. Shared with an
     // interactive step session (which persists its own provider events/logs on
     // the same job id) so replay ordering (getJobEvents ORDER BY seq) stays
@@ -1260,7 +1320,7 @@ export class LoopRunManager {
     }
     logLine(`▶ Loop "${req.loopName ?? req.loopId}" started${req.spec?.title ? ` — spec: ${req.spec.title}` : ''}`)
     if (req.isolation) logLine(`⎇ Isolated worktree: ${req.isolation.worktreePath} (branch ${req.isolation.branch})`)
-    if (!usageTelemetryAvailable) {
+    if (!definitionEngine && !usageTelemetryAvailable) {
       logLine(
         `⚠️ ${adapter.displayName} does not report token/cost usage in headless mode; usage totals will remain unavailable.` +
           (configuredMaxCostUsd !== undefined
@@ -1279,7 +1339,7 @@ export class LoopRunManager {
       model: req.model,
       iterationLimit: maxIterations,
     }
-    emitRunEvent('loop_graph', graphPayload)
+    if (!continuation) emitRunEvent('loop_graph', graphPayload)
     console.log(`[loop] start run=${runId} loop=${req.loopId} provider=${req.provider} model=${req.model} nodes=${req.graph.nodes.length} cwd=${req.cwd}`)
 
     const byId = nodesById(req.graph)
@@ -1493,9 +1553,9 @@ export class LoopRunManager {
     // that loop-back so each iteration starts FRESH (re-reading the current code),
     // keeping context bounded regardless of pass count. Within an iteration the
     // steps still resume, so RED→GREEN→REFACTOR share context.
-    const awaitHumanDecision = async (reason: string): Promise<PausedHumanDecision> => {
+    const awaitHumanDecision = async (reason: string, pending?: DefinitionInterrupt[]): Promise<PausedHumanDecision> => {
       const decisionPromise = new Promise<PausedHumanDecision>((resolve) => {
-        this._pausedHumanDecisions.set(runId, { reason, resolve })
+        this._pausedHumanDecisions.set(runId, { reason, pending, resolve })
       })
       logLine(`\n■ Loop paused — needs a human decision: ${reason}`, 'stderr')
       try { markJobInteractive(this.db, runId) } catch { /* best-effort */ }
@@ -1519,6 +1579,7 @@ export class LoopRunManager {
         projectId: req.projectId,
         jobId: runId,
         acceptingTurns: true,
+        pendingInterrupts: pending,
         settleMode: 'auto',
         timestamp: pausedAt,
       })
@@ -1547,6 +1608,7 @@ export class LoopRunManager {
         projectId: req.projectId,
         jobId: runId,
         acceptingTurns: false,
+        pendingInterrupts: [],
         settleMode: 'auto',
         timestamp: resumedAt,
       })
@@ -1573,6 +1635,7 @@ export class LoopRunManager {
       return failedId === nodeId ? successor : failedId
     }
 
+    let definitionCompletion: DefinitionCompletion | undefined
     const firstStepId = start ? req.graph.edges.find((e) => e.source === start.id)?.target : undefined
 
     try {
@@ -1580,6 +1643,27 @@ export class LoopRunManager {
       let settled = !start // no start node → fall through to settle as failed
       if (!start) outcome = 'failed'
 
+      if (definitionEngine) {
+        settled = true
+        const projectEvent = createDefinitionEventProjection({ db: this.db, runId, projectId: req.projectId, ticketIds: exactTicketIds, nextSequence: takeSeq,
+          broadcast: event => this._emit({ type: 'event', jobId: runId, event_type: event.eventType, source: 'stdout', payload: event.payload, seq: event.seq, timestamp: event.timestamp }),
+          onProgress: (count, usage) => { stepNum = count; totalCost = usage.cost; totalTokens = usage.tokensIn + usage.tokensOut; totalDuration = usage.duration; costUncertain = usage.costUnknown; usageTelemetryAvailable = usage.present },
+        })
+        let activeDurationMs = continuation ? getLoopRun(this.db,runId)?.total_duration_ms ?? 0 : 0
+        const result = await runDefinitionLoop(req, runId, { continuation, contextPath: () => readDefinitionRun(this.db,runId)?.metadata.contextPath,
+          onPrepared: metadata => { saveDefinitionRun(this.db,runId,metadata) }, invoke: this.executors.runDefinition!, isCancelled: () => this._cancelled.has(runId),
+          remainingMs: () => req.graph.config.timeoutMinutes > 0 ? Math.max(1, req.graph.config.timeoutMinutes*60_000-activeDurationMs) : undefined,
+          onLine: logLine, onRuntimeEvent: event => {
+            projectEvent(event)
+            if (event.type === 'runtime-result') recordDefinitionCheckpoint(this.db,runId,{status:typeof event.status === 'string' ? event.status : undefined,pendingInterrupts:Array.isArray(event.pendingInterrupts) ? event.pendingInterrupts : []})
+          }, onSpawn: child => this._activeChild.set(runId,child),
+          onInvocationEnd: result => { this._activeChild.delete(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs } }, awaitHumanDecision,
+        })
+        definitionCompletion = result.completion
+        if (result.durationMs !== undefined) totalDuration = result.durationMs
+        if (result.errorText) logLine(result.errorText, 'stderr')
+        outcome = result.runtimeStatus === 'succeeded' ? 'success' : result.runtimeStatus === 'cancelled' ? 'stopped' : result.runtimeStatus === 'blocked' ? 'blocked' : 'failed'
+      }
       while (nodeId && !settled) {
         if (this._cancelled.has(runId)) { outcome = 'stopped'; break }
         if (this.now() >= deadline) { outcome = 'failed'; break }
@@ -2197,7 +2281,7 @@ export class LoopRunManager {
         runId,
       )
       this._activeStepRecovery.delete(runId)
-      runtimeUsage = programmaticUsageAvailability(this.db, runId)
+      runtimeUsage = definitionEngine ? readDefinitionUsage(this.db, runId) : programmaticUsageAvailability(this.db, runId)
       usageTelemetryAvailable ||= runtimeUsage.present
       const aggregate = this.db.prepare(`
         SELECT COALESCE(SUM(total_cost_usd), 0) AS cost,
@@ -2247,8 +2331,14 @@ export class LoopRunManager {
     // Execution and acceptance are separate facts. Persist the runtime's own
     // terminal snapshot alongside counters so history does not depend on prose.
     let coreCompletion: CoreCompletionSnapshot | null = null
-    try { coreCompletion = await this.executors.readCoreCompletion?.(runId) ?? null } catch { /* old/unavailable runtime */ }
+    try { if (!definitionEngine) coreCompletion = await this.executors.readCoreCompletion?.(runId) ?? null } catch { /* old/unavailable runtime */ }
+    if (definitionEngine) {
+      const usage = readDefinitionUsage(this.db,runId)
+      usageTelemetryAvailable = usage.present
+      finalJobUsage = { tokensIn: usage.present && !usage.tokensInUnknown ? usage.tokensIn : null, tokensOut: usage.present && !usage.tokensOutUnknown ? usage.tokensOut : null, tokensCacheRead: usage.present && !usage.cacheReadUnknown ? usage.cacheRead : null, tokensCacheCreate: usage.present && !usage.cacheCreateUnknown ? usage.cacheCreate : null, numTurns: usage.present && !usage.turnsUnknown ? usage.turns : null }
+    }
     const executionOutcome = outcome
+    if (definitionEngine && outcome === 'success' && !definitionCompletion?.ok) outcome = 'blocked'
     if (outcome === 'success' && coreCompletion && (coreCompletion.completion.implementation !== 'complete' || !['verified', 'with-exceptions'].includes(coreCompletion.completion.validation))) outcome = 'blocked'
     const costAvailable = usageTelemetryAvailable && !runtimeUsage.costUnknown
     console.log(
@@ -2258,7 +2348,7 @@ export class LoopRunManager {
     emitRunEvent('loop_completion', {
       version: 1, execution: executionOutcome, steps: stepNum, deciderEvaluations: iteration,
       turns: finalJobUsage.numTurns, costUsd: usageTelemetryAvailable ? totalCost : null,
-      costUncertain, core: coreCompletion,
+      costUncertain, core: coreCompletion, ...(definitionEngine ? { engineVersion: 2, completion: definitionCompletion } : {}),
     })
 
     // Settle the backing job so the Jobs list + JobDetail reflect the final

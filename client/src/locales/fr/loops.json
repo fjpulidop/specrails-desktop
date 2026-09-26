@@ -152,7 +152,10 @@
       "EMPTY_PROMPT": "L'AI Step a un prompt vide.",
       "EMPTY_COMMAND": "L'étape Shell a une commande vide.",
       "EMPTY_GOAL": "Le Loop Decider n'a pas d'objectif.",
-      "DEAD_END": "Cette étape n'a aucune connexion sortante."
+      "DEAD_END": "Cette étape n'a aucune connexion sortante.",
+      "MIXED_ENGINES": "Ne mélangez pas les anciennes étapes et les étapes Core.",
+      "CORE_OUTCOMES": "Reliez des résultats distincts et valides.",
+      "CORE_PIECE": "Sélectionnez une étape et ses paramètres."
     },
     "preview": {
       "label": "Aperçu",
@@ -160,6 +163,48 @@
       "sampleNote": "Les valeurs du spec sont des exemples ; commandes et constantes sont résolues telles qu'à l'exécution.",
       "empty": "Aucune étape à prévisualiser.",
       "error": "Échec de l'aperçu"
+    },
+    "core": {
+      "unavailable": "Moteur indisponible. Mettez Core à jour pour ajouter ou publier des étapes.",
+      "root": "Workflow principal",
+      "components": "Composants",
+      "componentName": "Nom du composant",
+      "addComponent": "Ajouter un composant",
+      "openComponent": "Ouvrir le composant",
+      "breadcrumbs": "Navigation du workflow",
+      "select": "Choisir une option",
+      "valueType": "Type de valeur",
+      "addItem": "Ajouter un élément",
+      "fieldName": "Nom du champ",
+      "addField": "Ajouter {{name}}",
+      "removeField": "Supprimer {{name}}",
+      "variant": "Format de {{name}}",
+      "tooDeep": "La valeur contient trop de niveaux.",
+      "pieces": {
+        "prompt": "Prompt",
+        "role-turn": "Tour de rôle",
+        "decider": "Décision",
+        "condition": "Condition",
+        "verify": "Vérifier",
+        "shell": "Shell",
+        "openspec-validate": "Valider OpenSpec",
+        "openspec-archive": "Archiver OpenSpec",
+        "approval": "Approbation",
+        "question": "Question",
+        "gate": "Pause",
+        "map": "Parcourir",
+        "join": "Regrouper",
+        "component": "Composant",
+        "implementation": "Implémentation",
+        "end": "Fin"
+      },
+      "groups": {
+        "ai": "IA",
+        "verification": "Vérification",
+        "openspec": "OpenSpec",
+        "control": "Contrôle du flux"
+      },
+      "options": "Options du workflow"
     }
   },
   "preview": {
@@ -382,5 +427,14 @@
     "skipped_other": "{{count}} doublons ignorés : {{names}}",
     "invalid": "Ce fichier n'est pas un export de loops valide."
   },
-  "automaticOnly": "S'exécute automatiquement quand vous demandez des changements sur une relecture — vous ne le lancez pas."
+  "automaticOnly": "S'exécute automatiquement quand vous demandez des changements sur une relecture — vous ne le lancez pas.",
+  "core": {
+    "selectInterrupt": "Choisir la question ou approbation en attente",
+    "answerQuestion": "Répondre à la question",
+    "approval": "Approbation",
+    "approveContinue": "Approuver et continuer",
+    "paused": "En pause",
+    "acceptance": "Acceptation",
+    "verified": "Vérifié"
+  }
 }

@@ -493,5 +493,25 @@
       }
     }
   },
-  "unsavedChanges": "Ungespeicherte Änderungen"
+  "unsavedChanges": "Ungespeicherte Änderungen",
+  "customRoles": {
+    "title": "Benutzerdefinierte Rollen",
+    "hint": "Definieren Sie wiederverwendbare Anweisungen und ausdrückliche Berechtigungen für Workflow-Rollen.",
+    "unsupported": "Aktualisieren Sie Core, um benutzerdefinierte Rollen zu bearbeiten.",
+    "remove": "{{id}} entfernen",
+    "access": "Quellcodezugriff",
+    "read": "Nur lesen",
+    "write": "Lesen und schreiben",
+    "artifacts": "Zugriff auf OpenSpec-Artefakte",
+    "none": "Keiner",
+    "tasks": "Nur Aufgaben-Kontrollkästchen",
+    "all": "Alle Änderungsartefakte",
+    "skill": "OpenSpec-Skill",
+    "noSkill": "Keine Skill-Zuordnung",
+    "prompt": "Rollenanweisungen",
+    "id": "Rollen-ID",
+    "add": "Rolle hinzufügen",
+    "invalidId": "Verwenden Sie eine eindeutige ID in Kleinbuchstaben, die mit einem Buchstaben beginnt und höchstens 64 Buchstaben, Ziffern oder Bindestriche enthält. Integrierte IDs sind reserviert.",
+    "escalationHint": "Nur eine zulässige Protokollkorrektur darf das Eskalationsmodell verwenden. Es wird kein weiterer Versuch hinzugefügt."
+  }
 }

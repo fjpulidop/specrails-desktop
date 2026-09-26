@@ -1,5 +1,17 @@
 # El Loop Builder
 
+## Workflows de Core
+
+Con un motor de Core compatible, un canvas nuevo muestra las dieciséis piezas del catálogo instalado. Haz clic o arrastra una pieza al canvas, selecciónala y completa su formulario. Los proveedores y roles pertenecen al proyecto activo. Cada salida indica un resultado posible: conéctala a otra pieza o a Fin. Cada resultado admite una conexión.
+
+El catálogo incluye prompts, turnos de rol, decisiones, condiciones, verificación, shell, validación y archivo de OpenSpec, aprobaciones, preguntas, pausas, mapas, uniones, componentes, implementación y Fin. Los formularios permiten editar campos opcionales, objetos, listas y diccionarios. **Opciones del workflow** incluye límites de tokens y transiciones y políticas de concurrencia. El límite explícito de transiciones cuenta también las visitas dentro de componentes y ramas.
+
+Crea un cuerpo reutilizable en **Componentes**, declara sus variables de entrada y resultados y selecciónalo en una pieza Componente o Mapear. La navegación vuelve al canvas principal sin perder cambios. El Fin de un componente tiene un resultado de negocio y un `exit` opcional que coincide con una salida declarada.
+
+**Publicar** envía el borrador a Core. Los errores aparecen en el panel de problemas y señalan los nodos afectados. El lanzamiento vuelve a validar la configuración efectiva del proyecto. Core controla el formato y su hash. Si no está disponible, actualiza Core; los loops antiguos conservan su editor y ejecución.
+
+Las secciones siguientes describen los nodos antiguos de Desktop y su uso en rails.
+
 Un **rail ejecuta un Loop**. Los loops integrados (`Implement`, `Batch`, `Freestyle`) cubren los casos del día a día, pero el **Loop Builder** te permite diseñar el tuyo propio — un editor visual al estilo n8n para automatizaciones que se repiten hasta cumplir un objetivo. Esta página explica qué es un loop, cómo construir uno y cómo ejecutarlo en un rail.
 
 ## Loops y rails — la relación

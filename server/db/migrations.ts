@@ -1605,6 +1605,17 @@ const MIGRATIONS: Migration[] = [
     const cols = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[]).map((r) => r.name)
     if (!cols.includes('spec_addenda')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN spec_addenda TEXT`)
   },
+  // Migration 64: frozen Core definition launches and restart/fork provenance.
+  // Historical runs stay NULL (legacy); no graph is silently migrated to v2.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(loop_runs)').all() as { name: string }[]).map(row => row.name))
+    for (const [name, type] of Object.entries({ run_request_json: 'TEXT', engine_version: 'INTEGER', fork_of: 'TEXT',
+      runtime_metadata_json: 'TEXT', runtime_status_json: 'TEXT', core_revision: 'INTEGER', core_event_cursor: 'INTEGER',
+      fork_cut_json: 'TEXT', restart_reason: 'TEXT' })) {
+      if (!cols.has(name)) db.exec(`ALTER TABLE loop_runs ADD COLUMN ${name} ${type}`)
+    }
+    db.exec('CREATE INDEX IF NOT EXISTS idx_loop_runs_fork_of ON loop_runs(fork_of)')
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

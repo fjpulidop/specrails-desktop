@@ -369,6 +369,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
             projectId={projectId}
             settleMode={job.interactiveSettleMode}
             initialAcceptingTurns={job.interactiveAcceptingTurns}
+            pendingInterrupts={job.pendingInterrupts}
             kind={job.command.startsWith('loop:') ? 'loop-step' : 'job'}
             variant="glass"
             onFinalized={refetchJob}

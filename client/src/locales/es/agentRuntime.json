@@ -493,5 +493,25 @@
       }
     }
   },
-  "unsavedChanges": "Cambios sin guardar"
+  "unsavedChanges": "Cambios sin guardar",
+  "customRoles": {
+    "title": "Roles personalizados",
+    "hint": "Define instrucciones reutilizables y permisos explícitos para los roles del flujo.",
+    "unsupported": "Actualiza Core para editar roles personalizados.",
+    "remove": "Eliminar {{id}}",
+    "access": "Acceso al código",
+    "read": "Solo lectura",
+    "write": "Lectura y escritura",
+    "artifacts": "Acceso a artefactos OpenSpec",
+    "none": "Ninguno",
+    "tasks": "Solo casillas de tareas",
+    "all": "Todos los artefactos del cambio",
+    "skill": "Skill de OpenSpec",
+    "noSkill": "Sin skill asociado",
+    "prompt": "Instrucciones del rol",
+    "id": "ID del rol",
+    "add": "Añadir rol",
+    "invalidId": "Usa un ID único en minúsculas que empiece por una letra, con hasta 64 letras, números o guiones. Los IDs integrados están reservados.",
+    "escalationHint": "Solo una reparación permitida del protocolo puede usar el modelo de escalado. No se añade ningún reintento."
+  }
 }

@@ -12,6 +12,7 @@
  * IDs are namespaced `factory:<mode-ish>` so they never collide with user loop ids
  * (which are random) and the rail resolver can recognise a factory loop.
  */
+import { coreFactoryGraph } from './loop-core-factory'
 import type { LoopGraph } from './loop-graph'
 import { fixLoopGraph, opsxLifecycleGraph } from './loop-templates'
 
@@ -119,8 +120,15 @@ const FACTORY_BY_ID = new Map<string, FactoryLoop>([
   ...FACTORY_ALIASES,
 ])
 
-export function getFactoryLoop(id: string): FactoryLoop | undefined {
-  return FACTORY_BY_ID.get(id)
+export function factoryLoopsForCapabilities(capabilities?: Record<string, number>): FactoryLoop[] {
+  if (capabilities?.engineV2 !== 1 || capabilities.workflowDefinitions !== 1) return FACTORY_LOOPS
+  return FACTORY_LOOPS.map(factory => ({ ...factory, graph: coreFactoryGraph(factory.id === 'factory:implement' ? 'implement' : factory.id === 'factory:batch' ? 'batch' : factory.id === 'factory:freestyle' ? 'freestyle' : 'quick-sdd') }))
+}
+
+export function getFactoryLoop(id: string, capabilities?: Record<string, number>): FactoryLoop | undefined {
+  const legacy = FACTORY_BY_ID.get(id)
+  if (!legacy) return undefined
+  return factoryLoopsForCapabilities(capabilities).find(factory => factory.id === legacy.id)
 }
 
 /** True for any `factory:*` loop id. */
@@ -135,9 +143,9 @@ export function factoryLoopMode(id: string): FactoryLoop['mode'] | undefined {
 
 /** Map a legacy rail mode → the matching factory loop (so a legacy rail with a
  *  `mode` and no selected loop resolves to a factory loop on read). */
-export function factoryLoopForMode(mode: string): FactoryLoop | undefined {
-  if (mode === 'implement') return FACTORY_BY_ID.get('factory:implement')
-  if (mode === 'batch-implement') return FACTORY_BY_ID.get('factory:batch')
-  if (mode === 'freestyle') return FACTORY_BY_ID.get('factory:freestyle')
+export function factoryLoopForMode(mode: string, capabilities?: Record<string, number>): FactoryLoop | undefined {
+  if (mode === 'implement') return getFactoryLoop('factory:implement', capabilities)
+  if (mode === 'batch-implement') return getFactoryLoop('factory:batch', capabilities)
+  if (mode === 'freestyle') return getFactoryLoop('factory:freestyle', capabilities)
   return undefined
 }

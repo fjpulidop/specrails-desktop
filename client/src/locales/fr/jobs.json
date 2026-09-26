@@ -278,7 +278,8 @@
     "stalledIdle_one": "Aucune sortie du fournisseur pendant {{count}} minute — l'app a arrêté cette tentative",
     "stalledIdle_other": "Aucune sortie du fournisseur pendant {{count}} minutes — l'app a arrêté cette tentative",
     "providerLimit": "Limite du fournisseur",
-    "providerLimitHint": "Le fournisseur a répondu par un avis de limite d'utilisation ; l'app a arrêté l'exécution au lieu de boucler."
+    "providerLimitHint": "Le fournisseur a répondu par un avis de limite d'utilisation ; l'app a arrêté l'exécution au lieu de boucler.",
+    "paused": "En pause"
   },
   "logViewer": {
     "loading": "Chargement des logs…",

@@ -9,7 +9,7 @@
  * renders every kind.
  */
 import { MarkerType, type Node, type Edge } from '@xyflow/react'
-import type { LoopGraph, LoopNode, LoopNodeType, LoopJoin, LoopBranch } from './loops-api'
+import type { CoreNodeKind, LoopGraph, LoopNode, LoopNodeType, LoopJoin, LoopBranch } from './loops-api'
 
 function asBranch(v: unknown): LoopBranch | undefined {
   return v === 'continue' || v === 'stop' ? v : undefined
@@ -17,11 +17,16 @@ function asBranch(v: unknown): LoopBranch | undefined {
 
 export interface LoopNodeData extends Record<string, unknown> {
   kind: LoopNodeType
+  /** The persisted Core piece kind is separate from the canvas node category. */
+  coreKind?: CoreNodeKind
+  params?: Record<string, unknown>
 }
 
 /** Default config for a brand-new node of each kind. */
 export function defaultNodeData(kind: LoopNodeType): LoopNodeData {
   switch (kind) {
+    case 'core':
+      return { kind, coreKind: 'prompt', params: { text: '', access: 'write', sessionContinuity: 'run' } }
     case 'ai-step':
       return { kind, prompt: '', provider: 'claude', model: '', effort: 'medium', maxTurns: 0 }
     case 'shell':
@@ -52,7 +57,7 @@ export function graphToReactFlow(graph: LoopGraph): { nodes: Node<LoopNodeData>[
     id: n.id,
     type: 'loop',
     position: n.position ?? { x: 0, y: 0 },
-    data: { kind: n.type, ...(n.data ?? {}) } as LoopNodeData,
+    data: { ...(n.data ?? {}), ...(n.type === 'core' ? { coreKind: n.data?.kind } : {}), kind: n.type } as LoopNodeData,
   }))
   const typeById = new Map((graph.nodes ?? []).map((n) => [n.id, n.type]))
   const edges: Edge[] = (graph.edges ?? []).map((e) => {
@@ -71,13 +76,13 @@ export function graphToReactFlow(graph: LoopGraph): { nodes: Node<LoopNodeData>[
       id: e.id,
       source: e.source,
       target: e.target,
-      sourceHandle: branch ?? undefined,
+      sourceHandle: e.label ?? branch ?? undefined,
       // Orthogonal (right-angle) routing + an arrowhead so the flow direction is
       // unambiguous — far cleaner than the curvy default bezier on loop-backs.
       type: 'smoothstep',
       markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-      label: e.join,
-      data: { ...(e.join ? { join: e.join } : {}), ...(branch ? { branch } : {}) },
+      label: e.label ?? e.join,
+      data: { ...(e.join ? { join: e.join } : {}), ...(branch ? { branch } : {}), ...(e.label ? { label: e.label } : {}) },
       ...(branch
         ? { style: { stroke: branch === 'stop' ? 'var(--color-accent-success)' : 'var(--color-accent-highlight)' } }
         : {}),
@@ -89,22 +94,28 @@ export function graphToReactFlow(graph: LoopGraph): { nodes: Node<LoopNodeData>[
 export function reactFlowToGraph(
   nodes: Node<LoopNodeData>[],
   edges: Edge[],
-  config: LoopGraph['config']
+  config: LoopGraph['config'],
+  components?: LoopGraph['components'],
 ): LoopGraph {
   return {
     nodes: nodes.map((n) => {
-      const { kind, ...rest } = n.data
+      const { kind, coreKind, ...rest } = n.data
       const loopNode: LoopNode = { id: n.id, type: kind, position: n.position }
-      if (Object.keys(rest).length > 0) loopNode.data = rest
+      if (Object.keys(rest).length > 0 || coreKind) loopNode.data = { ...rest, ...(kind === 'core' ? { kind: coreKind } : {}) }
       return loopNode
     }),
     edges: edges.map((e) => {
       const join = (e.data as { join?: LoopJoin } | undefined)?.join
+      if (nodes.find(node => node.id === e.source)?.data.kind === 'core') {
+        const label = e.sourceHandle ?? (e.data as { label?: string } | undefined)?.label
+        return { id: e.id, source: e.source, target: e.target, ...(label ? { label } : {}) }
+      }
       // A connection drawn from a Decider handle carries the branch as
       // `sourceHandle`; a round-tripped edge carries it in `data.branch`.
       const branch = asBranch(e.sourceHandle) ?? asBranch((e.data as { branch?: unknown } | undefined)?.branch)
       return { id: e.id, source: e.source, target: e.target, ...(join ? { join } : {}), ...(branch ? { branch } : {}) }
     }),
     config,
+    ...(components ? { components } : {}),
   }
 }

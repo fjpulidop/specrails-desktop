@@ -93,7 +93,16 @@ export interface RuntimeCheckPolicy {
 }
 export interface RuntimeAgent { provider: string; model?: string; maxTurns?: number; effort?: string; /** Local engines only: private thinking; unset = off. */ thinking?: 'on' | 'off'; escalation?: { model: string; effort?: string } }
 export interface RuntimeVerificationCommand { key?: string; label?: string; policy?: RuntimeCheckPolicy; repositoryId: string; command: string; args: string[]; cwd?: string; env?: Record<string, string>; timeoutMs?: number }
+export interface RuntimeRoleDescriptor extends RuntimeAgent {
+  access: 'read' | 'write'
+  artifacts: 'none' | 'tasks-checkboxes' | 'all'
+  prompt?: string
+  openspecSkill?: 'openspec-ff-change' | 'openspec-apply-change' | 'openspec-verify-change'
+}
+export const CUSTOM_ROLE_ID = /^[a-z][a-z0-9-]{0,63}$/
 export interface AgentRuntimeConfig {
+  roles?: Record<string, RuntimeRoleDescriptor>
+  rolePrompts?: Record<string, string>
   efficiency?: RuntimeEfficiencyPolicy
   schemaVersion: 1
   enabled: boolean
@@ -157,6 +166,7 @@ export interface RuntimeRun {
   dismissed?: boolean
 }
 export interface AgentRuntimeSettingsResponse {
+  openRolesAvailable?: boolean
   efficiencyAvailable?: boolean
   configured: boolean
   config: AgentRuntimeConfig
@@ -181,7 +191,8 @@ export function isAgentRuntimeSettingsResponse(value: unknown): value is AgentRu
     config?.schemaVersion === 1 && typeof config.enabled === 'boolean' &&
     Array.isArray(config.providers) && config.providers.every((provider) => provider && typeof provider.id === 'string' && ['cli', 'openai-compatible'].includes(provider.kind)) &&
     Array.isArray(config.verification) && Boolean(config.agents) &&
-    RUNTIME_ROLES.every((role) => typeof config.agents[role]?.provider === 'string')
+    RUNTIME_ROLES.every((role) => typeof config.agents[role]?.provider === 'string') &&
+    (config.roles === undefined || (config.roles !== null && typeof config.roles === 'object' && !Array.isArray(config.roles) && Object.entries(config.roles).every(([id, role]) => CUSTOM_ROLE_ID.test(id) && id !== 'fixer' && role && typeof role.provider === 'string' && ['read', 'write'].includes(role.access) && ['none', 'tasks-checkboxes', 'all'].includes(role.artifacts))))
 }
 
 export function isVerificationSuggestionsResponse(value: unknown): value is VerificationSuggestionsResponse {

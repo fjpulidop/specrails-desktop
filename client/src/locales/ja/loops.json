@@ -152,7 +152,10 @@
       "EMPTY_PROMPT": "AI ステップのプロンプトが空です。",
       "EMPTY_COMMAND": "Shell ステップのコマンドが空です。",
       "EMPTY_GOAL": "Loop Decider に目標がありません。",
-      "DEAD_END": "このステップには出力接続がありません。"
+      "DEAD_END": "このステップには出力接続がありません。",
+      "MIXED_ENGINES": "従来のステップと Core のステップを混在させないでください。",
+      "CORE_OUTCOMES": "異なる有効な結果を接続してください。",
+      "CORE_PIECE": "ステップとパラメーターを選択してください。"
     },
     "preview": {
       "label": "プレビュー",
@@ -160,6 +163,48 @@
       "sampleNote": "Spec の値はサンプルです。コマンドと定数は実行時と同じように解決されます。",
       "empty": "プレビューするステップがありません。",
       "error": "プレビューに失敗しました"
+    },
+    "core": {
+      "unavailable": "エンジンを利用できません。Core を更新すると、ステップの追加や公開ができます。",
+      "root": "メインワークフロー",
+      "components": "コンポーネント",
+      "componentName": "コンポーネント名",
+      "addComponent": "コンポーネントを追加",
+      "openComponent": "コンポーネントを開く",
+      "breadcrumbs": "ワークフローのナビゲーション",
+      "select": "選択してください",
+      "valueType": "値の種類",
+      "addItem": "項目を追加",
+      "fieldName": "フィールド名",
+      "addField": "{{name}} を追加",
+      "removeField": "{{name}} を削除",
+      "variant": "{{name}} の形式",
+      "tooDeep": "値の階層が深すぎます。",
+      "pieces": {
+        "prompt": "プロンプト",
+        "role-turn": "ロールの実行",
+        "decider": "判断",
+        "condition": "条件",
+        "verify": "検証",
+        "shell": "シェル",
+        "openspec-validate": "OpenSpec を検証",
+        "openspec-archive": "OpenSpec をアーカイブ",
+        "approval": "承認",
+        "question": "質問",
+        "gate": "一時停止",
+        "map": "各項目を実行",
+        "join": "結合",
+        "component": "コンポーネント",
+        "implementation": "実装",
+        "end": "終了"
+      },
+      "groups": {
+        "ai": "AI",
+        "verification": "検証",
+        "openspec": "OpenSpec",
+        "control": "フロー制御"
+      },
+      "options": "ワークフローの設定"
     }
   },
   "preview": {
@@ -382,5 +427,14 @@
     "skipped_other": "{{count}} 件の重複をスキップ：{{names}}",
     "invalid": "そのファイルは有効なループのエクスポートではありません。"
   },
-  "automaticOnly": "レビューで修正を依頼したときに自動で実行されます — これは手動で開始しません。"
+  "automaticOnly": "レビューで修正を依頼したときに自動で実行されます — これは手動で開始しません。",
+  "core": {
+    "selectInterrupt": "保留中の質問または承認を選択",
+    "answerQuestion": "質問に回答",
+    "approval": "承認",
+    "approveContinue": "承認して続行",
+    "paused": "一時停止中",
+    "acceptance": "受け入れ",
+    "verified": "検証済み"
+  }
 }

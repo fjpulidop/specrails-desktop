@@ -3,6 +3,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 import Ajv from 'ajv'
+import { isDeepStrictEqual } from 'node:util'
 import runtimeSchema from '../../../schemas/agent-runtime.schema.json'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { hasAdapter, adapterKind, isLocalAdapterId } from '../../../providers/registry'
@@ -111,10 +112,19 @@ export interface RuntimeCheckPolicy {
   independentGroup?: string
   resources?: string[]
 }
+export interface RuntimeRoleDescriptor {
+  provider: string; model?: string; maxTurns?: number; effort?: string; thinking?: 'on' | 'off'; escalation?: { model: string; effort?: string }
+  access: 'read' | 'write'
+  artifacts: 'none' | 'tasks-checkboxes' | 'all'
+  prompt?: string
+  openspecSkill?: 'openspec-ff-change' | 'openspec-apply-change' | 'openspec-verify-change'
+}
+export const RUNTIME_ROLE_ID = /^[a-z][a-z0-9-]{0,63}$/
 export interface RuntimeConfig {
   efficiency?: RuntimeEfficiencyPolicy
   schemaVersion: 1
-  rolePrompts?: Partial<Record<RuntimeRole | 'fixer', string>>
+  rolePrompts?: Record<string, string>
+  roles?: Record<string, RuntimeRoleDescriptor>
   enabled: boolean
   providers: RuntimeProvider[]
   agents: Record<RuntimeRole, { provider: string; model?: string; maxTurns?: number; effort?: string; thinking?: 'on' | 'off'; escalation?: { model: string; effort?: string } }>
@@ -163,7 +173,7 @@ export function validateAgentRuntimeConfig(input: unknown): RuntimeConfig {
     throw new AgentRuntimeConfigError(`Invalid runtime configuration at ${error?.instancePath || '/'}: ${error?.message ?? 'invalid value'}`)
   }
   const config = input as RuntimeConfig
-  if (config.rolePrompts !== undefined) validateRuntimeRolePrompts(config.rolePrompts)
+  if (config.rolePrompts !== undefined) validateRuntimeRolePrompts(config.rolePrompts, Object.keys(config.roles ?? {}))
   if (new Set(config.providers.map(({ id }) => id)).size !== config.providers.length) throw new AgentRuntimeConfigError('Provider IDs must be unique')
   for (const provider of config.providers) {
     if (provider.kind !== 'openai-compatible') continue
@@ -174,8 +184,8 @@ export function validateAgentRuntimeConfig(input: unknown): RuntimeConfig {
     try { url = new URL(provider.baseUrl) } catch { throw new AgentRuntimeConfigError('Provider base URL must be an absolute HTTP(S) URL') }
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || provider.baseUrl.includes('\0')) throw new AgentRuntimeConfigError('Provider URLs must use HTTP(S) without credentials, query parameters or fragments')
   }
-  for (const role of [...ROLES, ...(config.fixer ? ['fixer' as const] : [])]) {
-    const agent = role === 'fixer' ? config.fixer! : config.agents[role]
+  const assignments = [...Object.entries(config.agents), ...Object.entries(config.roles ?? {}), ...(config.fixer ? [['fixer', config.fixer] as const] : [])]
+  for (const [role, agent] of assignments) {
     const provider = config.providers.find(({ id }) => id === agent.provider)
     if (!provider) throw new AgentRuntimeConfigError(`Role ${role} references a provider that is not configured`)
     // Core requires a model on API providers, but a LOCAL engine (a registered
@@ -191,6 +201,19 @@ export function validateAgentRuntimeConfig(input: unknown): RuntimeConfig {
     if (agent.escalation && (!agent.model || (agent.escalation.model === agent.model && agent.escalation.effort === agent.effort))) throw new AgentRuntimeConfigError(`Role ${role} escalation requires an explicit base and a different model or effort`)
     if (agent.maxTurns !== undefined && !Number.isSafeInteger(agent.maxTurns)) throw new AgentRuntimeConfigError(`Role ${role} maxTurns must be a safe integer`)
     if (agent.thinking !== undefined && agent.thinking !== 'on' && agent.thinking !== 'off') throw new AgentRuntimeConfigError(`Role ${role} thinking must be "on" or "off"`)
+  }
+  const builtinPolicies = {
+    architect: { access: 'read', artifacts: 'all', openspecSkill: 'openspec-ff-change' },
+    developer: { access: 'write', artifacts: 'tasks-checkboxes', openspecSkill: 'openspec-apply-change' },
+    reviewer: { access: 'read', artifacts: 'none', openspecSkill: 'openspec-verify-change' },
+  } as const
+  for (const [id, descriptor] of Object.entries(config.roles ?? {})) {
+    if (!RUNTIME_ROLE_ID.test(id) || id === 'fixer') throw new AgentRuntimeConfigError(`Invalid custom role ID: ${id}`)
+    if (descriptor.prompt !== undefined && (!descriptor.prompt.trim() || descriptor.prompt.includes('\0'))) throw new AgentRuntimeConfigError(`Role ${id} requires a nonblank prompt without null bytes`)
+    if (ROLES.includes(id as RuntimeRole)) {
+      const { access, artifacts, openspecSkill, prompt, ...assignment } = descriptor
+      if (prompt !== undefined || !isDeepStrictEqual(assignment, config.agents[id as RuntimeRole]) || !isDeepStrictEqual({ access, artifacts, openspecSkill }, builtinPolicies[id as RuntimeRole])) throw new AgentRuntimeConfigError(`Built-in role ${id} must retain its implicit assignment and access policy`)
+    }
   }
   for (const [key, value] of Object.entries(config.limits ?? {})) {
     if (!Number.isFinite(value) || (key !== 'maxCostUsd' && !Number.isSafeInteger(value))) throw new AgentRuntimeConfigError('Workflow limits must be finite, safe numbers')
@@ -288,7 +311,7 @@ export function loadRuntimeConfigFile(file: string, fallbackProvider?: string): 
       let connection = providers.find(item => item.id === original.id)
       if (connection && JSON.stringify(connection) !== JSON.stringify(original)) {
         const id = `${original.id.slice(0, 117)}-${createHash('sha256').update(JSON.stringify(original)).digest('hex').slice(0, 10)}`
-        for (const role of ROLES) if (legacy.agents[role].provider === original.id) legacy.agents[role].provider = id
+        for (const role of [...Object.values(legacy.agents), ...Object.values(legacy.roles ?? {}), ...(legacy.fixer ? [legacy.fixer] : [])]) if (role.provider === original.id) role.provider = id
         connection = providers.find(item => item.id === id)
         if (!connection) providers.push({ ...original, id })
       } else if (!connection) providers.push(original)
@@ -318,12 +341,12 @@ export function saveAgentRuntimeConfig(project: RuntimeConfigProject, input: unk
 /** Roles with an editable definition: the trio plus the FIXER stance (the developer role on a correction round). */
 export type RuntimePromptRole = RuntimeRole | 'fixer'
 const PROMPT_ROLES: RuntimePromptRole[] = [...ROLES, 'fixer']
-export function validateRuntimeRolePrompts(input: unknown): Partial<Record<RuntimePromptRole, string>> {
+export function validateRuntimeRolePrompts(input: unknown, extraRoles: readonly string[] = []): Record<string, string> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new AgentRuntimeConfigError('Role prompts must be an object')
-  const prompts: Partial<Record<RuntimePromptRole, string>> = {}
+  const prompts: Record<string, string> = {}
   for (const [role, text] of Object.entries(input)) {
-    if (!PROMPT_ROLES.includes(role as RuntimePromptRole) || typeof text !== 'string' || !text.trim() || text.length > 20000 || text.includes('\0')) throw new AgentRuntimeConfigError('Role prompts must use architect, developer, reviewer or fixer with 1–20000 nonblank characters and no null bytes')
-    prompts[role as RuntimePromptRole] = text
+    if (![...PROMPT_ROLES, ...extraRoles].includes(role) || typeof text !== 'string' || !text.trim() || text.length > 20000 || text.includes('\0')) throw new AgentRuntimeConfigError('Role prompts must use architect, developer, reviewer or fixer with 1–20000 nonblank characters and no null bytes')
+    prompts[role] = text
   }
   return prompts
 }
@@ -350,13 +373,17 @@ export function validateRuntimeProviderOverride(value: unknown): RuntimeProvider
 }
 
 /** Older Core runtimes reject unknown top-level keys: drop `guardrails` unless the loaded Core advertises `configurableGuardrails`. */
-export function forCoreRuntime<T extends { guardrails?: unknown; agents?: Record<string, { thinking?: unknown }>; fixer?: { thinking?: unknown } }>(config: T, capabilities: Record<string, number> | undefined): T {
+export function forCoreRuntime<T extends { guardrails?: unknown; agents?: Record<string, { thinking?: unknown }>; roles?: Record<string, { thinking?: unknown }>; fixer?: { thinking?: unknown } }>(config: T, capabilities: Record<string, number> | undefined): T {
   let out: T = config
+  if (capabilities?.openRoles !== 1 && out.roles !== undefined) {
+    if (Object.keys(out.roles).length) throw new AgentRuntimeConfigError('Update the paired Core runtime to use custom roles')
+    const { roles: _roles, ...rest } = out; out = rest as T
+  }
   if (capabilities?.configurableGuardrails !== 1 && out.guardrails !== undefined) { const { guardrails: _dropped, ...rest } = out; out = rest as T }
   // The per-role thinking switch is known only to cores advertising `roleThinkingControl`.
-  if (capabilities?.roleThinkingControl !== 1 && (Object.values(out.agents ?? {}).some(agent => agent?.thinking !== undefined) || out.fixer?.thinking !== undefined)) {
+  if (capabilities?.roleThinkingControl !== 1 && ([...Object.values(out.agents ?? {}), ...Object.values(out.roles ?? {})].some(agent => agent?.thinking !== undefined) || out.fixer?.thinking !== undefined)) {
     const strip = <A extends { thinking?: unknown }>(agent: A): A => { const { thinking: _t, ...rest } = agent; return rest as A }
-    out = { ...out, ...(out.agents ? { agents: Object.fromEntries(Object.entries(out.agents).map(([role, agent]) => [role, strip(agent)])) } : {}), ...(out.fixer ? { fixer: strip(out.fixer) } : {}) }
+    out = { ...out, ...(out.agents ? { agents: Object.fromEntries(Object.entries(out.agents).map(([role, agent]) => [role, strip(agent)])) } : {}), ...(out.fixer ? { fixer: strip(out.fixer) } : {}), ...(out.roles ? { roles: Object.fromEntries(Object.entries(out.roles).map(([id, role]) => [id, strip(role)])) } : {}) }
   }
   return out
 }

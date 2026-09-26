@@ -569,6 +569,7 @@ export default function JobDetailPage() {
           jobId={job.id}
           settleMode={job.interactiveSettleMode}
           initialAcceptingTurns={job.interactiveAcceptingTurns}
+            pendingInterrupts={job.pendingInterrupts}
           kind={job.command.startsWith('loop:') ? 'loop-step' : 'job'}
           variant="page"
           /* No onFinalized: the page's own job.finalized WS branch refetches. */

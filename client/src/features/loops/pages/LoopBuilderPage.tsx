@@ -24,6 +24,10 @@ import {
 import '@xyflow/react/dist/style.css'
 import { ArrowLeft, Save, Upload, Trash2, Play, Terminal, Brain, GitBranch, Flag, Square, Plus, Info, MoveVertical, MoveHorizontal, Grid3x3, RotateCcw, Settings, AlertTriangle, Eye } from 'lucide-react'
 import { useDesktop } from '../../../hooks/useDesktop'
+import { getApiBase } from '../../../lib/api'
+import { type ParameterChoices } from '../components/CoreParameterForm'
+import { CoreWorkflowInspector, CoreNodeInspector } from '../components/CoreWorkflowInspector'
+import { coreNodeData, effectiveOutcomes, pieceGroup } from '../lib/core-authoring'
 import { projectRepositories } from '../../projects/lib/project-repositories'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../../components/ui/tooltip'
@@ -31,7 +35,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '../../../components/ui/button'
 import { layoutLoop, type LayoutMode } from '../lib/loop-layout'
 import { cn } from '../../../lib/utils'
-import { loopsApi, LoopPublishError, type LoopNodeType, type LoopConstant, type LoopPreviewStep } from '../lib/loops-api'
+import { loopsApi, LoopPublishError, type LoopNodeType, type LoopConstant, type LoopPreviewStep, type LoopGraph, type WorkflowPieceDescriptor, type GraphValidationError } from '../lib/loops-api'
 import {
   graphToReactFlow,
   reactFlowToGraph,
@@ -45,6 +49,7 @@ import { validateBuilderGraph, severityByNode, type IssueSeverity } from '../lib
 // Per-node validation severity (error/warning), provided by BuilderInner so the
 // node component can ring itself without prop-drilling through React Flow.
 const NodeValidationContext = createContext<Map<string, IssueSeverity>>(new Map())
+const PieceCatalogContext = createContext<{ pieces: WorkflowPieceDescriptor[]; components?: LoopGraph['components'] }>({ pieces: [] })
 
 // Palette: 'condition' is intentionally OMITTED — the engine treats it as a
 // pass-through (AND/OR branching isn't implemented), so offering it would create
@@ -53,6 +58,7 @@ const NodeValidationContext = createContext<Map<string, IssueSeverity>>(new Map(
 const NODE_KINDS: LoopNodeType[] = ['start', 'ai-step', 'shell', 'decider', 'end']
 
 const NODE_ICON: Record<LoopNodeType, typeof Brain> = {
+  core: Brain,
   start: Play,
   'ai-step': Brain,
   shell: Terminal,
@@ -62,6 +68,7 @@ const NODE_ICON: Record<LoopNodeType, typeof Brain> = {
 }
 
 const NODE_ACCENT: Record<LoopNodeType, string> = {
+  core: 'border-accent-primary/60',
   start: 'border-accent-success/60',
   'ai-step': 'border-accent-primary/60',
   shell: 'border-accent-warning/60',
@@ -77,7 +84,11 @@ function LoopNodeBox({ id, data, selected }: NodeProps<Node<LoopNodeData>>) {
   const Icon = NODE_ICON[kind] ?? Square
   const label = String(data.label ?? '').trim() // user-given name; falls back to the type
   const severity = useContext(NodeValidationContext).get(id)
+  const catalog = useContext(PieceCatalogContext)
+  const piece = catalog.pieces.find(piece => piece.kind === data.coreKind)
+  const outcomes = effectiveOutcomes(piece, data.params ?? {}, catalog.components)
   const summary =
+    kind === 'core' ? String(data.params?.roleId ?? data.params?.ref ?? data.params?.body ?? data.params?.text ?? data.params?.expr ?? '') :
     kind === 'ai-step' ? String(data.model || data.provider || '') :
     kind === 'shell' ? String(data.command || '') :
     kind === 'decider' ? String(data.goal || '') :
@@ -103,11 +114,14 @@ function LoopNodeBox({ id, data, selected }: NodeProps<Node<LoopNodeData>>) {
       {kind !== 'start' && <Handle type="target" position={Position.Top} />}
       <div className="flex items-center gap-1.5">
         <Icon className="w-3.5 h-3.5 text-foreground flex-shrink-0" />
-        <span className="text-xs font-semibold text-foreground truncate max-w-[150px]">{label || t(`builder.nodes.${kind}`)}</span>
-        {label && <span className="text-[9px] text-muted-foreground/70 flex-shrink-0">{t(`builder.nodes.${kind}`)}</span>}
+        <span className="text-xs font-semibold text-foreground truncate max-w-[150px]">{label || t(kind === 'core' ? `builder.core.pieces.${data.coreKind}` : `builder.nodes.${kind}`)}</span>
+        {label && <span className="text-[9px] text-muted-foreground/70 flex-shrink-0">{t(kind === 'core' ? `builder.core.pieces.${data.coreKind}` : `builder.nodes.${kind}`)}</span>}
       </div>
       {summary && <p className="text-[10px] text-muted-foreground mt-1 truncate max-w-[160px]">{summary}</p>}
-      {kind === 'decider' ? (
+      {kind === 'core' ? (<>
+        <div className="flex justify-around gap-2 mt-2 text-[9px] text-accent-primary">{outcomes.map(outcome => <span key={outcome}>{outcome}</span>)}</div>
+        {outcomes.map((outcome, index) => <Handle key={outcome} id={outcome} type="source" position={Position.Bottom} style={{ left: `${(index + 1) * 100 / (outcomes.length + 1)}%` }} aria-label={outcome} />)}
+      </>) : kind === 'decider' ? (
         <>
           {/* Two named, colour-coded outputs at the bottom (layout-agnostic): the
               continue branch loops back, the stop branch exits. The edges route
@@ -139,7 +153,25 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
     else navigate('/loops')
   }, [onExit, navigate])
   const theme = useActiveTheme()
-  const { fitView } = useReactFlow()
+  const { fitView, screenToFlowPosition } = useReactFlow()
+  const { activeProjectId } = useDesktop()
+  const [catalog, setCatalog] = useState<WorkflowPieceDescriptor[]>([])
+  const [definitionSchema, setDefinitionSchema] = useState<Record<string, unknown>>({})
+  const [catalogUnavailable, setCatalogUnavailable] = useState(false)
+  const [choices, setChoices] = useState<ParameterChoices>({})
+  const [publicationErrors, setPublicationErrors] = useState<GraphValidationError[]>([])
+  const [document, setDocument] = useState<LoopGraph | null>(null)
+  const [canvas, setCanvas] = useState<string | null>(null)
+  useEffect(() => { let cancelled = false; loopsApi.catalog().then(value => { if (!cancelled) { setCatalog(value.nodeKinds); setDefinitionSchema(value.definitionSchema ?? {}); setCatalogUnavailable(false) } }).catch(() => { if (!cancelled) setCatalogUnavailable(true) }); return () => { cancelled = true } }, [])
+  useEffect(() => {
+    const controller = new AbortController(); setChoices({})
+    const read = (url: string) => fetch(url, { signal: controller.signal }).then(response => response.ok ? response.json() : null).catch(() => null)
+    void Promise.all([activeProjectId ? read(`${getApiBase()}/agent-runtime/config`) : Promise.resolve(null), read('/api/runtime-providers')]).then(([value, connections]) => {
+      if (controller.signal.aborted) return
+      setChoices({ providers: (value?.config?.providers ?? connections?.providers ?? []).map((provider: { id: string }) => provider.id), roles: [...new Set([...Object.keys(value?.config?.agents ?? {}), ...Object.keys(value?.config?.roles ?? {})])], models: Object.fromEntries(Object.entries(connections?.status ?? {}).map(([id, status]) => [id, (status as { models?: string[] }).models ?? []])) })
+    })
+    return () => controller.abort()
+  }, [activeProjectId])
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<LoopNodeData>>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -156,7 +188,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
   const [previewing, setPreviewing] = useState(false)
   // Live validation (mirrors the server publish gate + authoring warnings). Drives
   // the per-node ring (via context) and the Problems panel.
-  const issues = useMemo(() => validateBuilderGraph(nodes, edges), [nodes, edges])
+  const issues = useMemo(() => [...validateBuilderGraph(nodes, edges), ...publicationErrors.map(error => ({ severity: 'error' as const, code: 'CORE_VALIDATION' as const, nodeId: error.nodeId, message: error.message }))], [nodes, edges, publicationErrors])
   const nodeSeverity = useMemo(() => severityByNode(issues), [issues])
   const errorCount = issues.filter((i) => i.severity === 'error').length
   // The saved auto-arrange decision for THIS loop (persisted in graph.config.layout).
@@ -182,6 +214,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
       .get(id)
       .then((loop) => {
         if (cancelled) return
+        setDocument(loop.graph); setCanvas(null)
         const { nodes: rfNodes, edges: rfEdges } = graphToReactFlow(loop.graph)
         initialPositions.current = new Map(rfNodes.map((n) => [n.id, { ...n.position }]))
         // Re-apply the loop's saved arrange decision so it always opens tidy in
@@ -204,25 +237,33 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
   // Connections drawn from a Decider's named handle ('continue' / 'stop') are
   // colour-coded and carry the branch so the engine routes by it.
   const onConnect = useCallback((params: Connection) => {
+    setPublicationErrors([])
+    if (nodes.find(node => node.id === params.source)?.data.kind === 'core') { setEdges(eds => addEdge({ ...params, label: params.sourceHandle, data: { label: params.sourceHandle } }, eds)); return }
     const branch = params.sourceHandle === 'continue' || params.sourceHandle === 'stop' ? params.sourceHandle : undefined
     const edge = branch
       ? { ...params, data: { branch }, style: { stroke: branch === 'stop' ? 'var(--color-accent-success)' : 'var(--color-accent-highlight)' } }
       : params
     setEdges((eds) => addEdge(edge, eds))
-  }, [setEdges])
+  }, [setEdges, nodes])
 
   // Typed-handle validation: no edge INTO a Start, no edge OUT of an End, and no
   // self-loops. Combined with the per-kind handles above, this makes only the
   // valid wiring drawable, so "how do I connect these?" stops being a guess.
   const isValidConnection = useCallback((c: Connection | Edge) => {
-    if (!c.source || !c.target || c.source === c.target) return false
+    if (!c.source || !c.target) return false
     const src = nodes.find((n) => n.id === c.source)?.data.kind
     const tgt = nodes.find((n) => n.id === c.target)?.data.kind
-    if (!src || !tgt) return false
+    if (!src || !tgt || c.source === c.target && src !== 'core') return false
     if (src === 'end') return false
+    if (src === 'core') {
+      const node = nodes.find(node => node.id === c.source)!
+      const labels = effectiveOutcomes(catalog.find(piece => piece.kind === node.data.coreKind), node.data.params ?? {}, document?.components)
+      if (!c.sourceHandle || !labels.includes(c.sourceHandle) || edges.some(edge => edge.source === c.source && edge.sourceHandle === c.sourceHandle)) return false
+    }
+    if (src === 'start' && edges.some(edge => edge.source === c.source)) return false
     if (tgt === 'start') return false
     return true
-  }, [nodes])
+  }, [nodes, edges, catalog, document])
 
   // Auto-arrange the steps. 'default' restores the layout the loop loaded with;
   // the others recompute positions (vertical / horizontal layering, or grid
@@ -259,7 +300,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
   const edgesRef = useRef(edges); edgesRef.current = edges
   useEffect(() => {
     const inField = () => {
-      const el = document.activeElement as HTMLElement | null
+      const el = window.document.activeElement as HTMLElement | null
       return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
     }
     const onCopy = (e: ClipboardEvent) => {
@@ -302,6 +343,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
 
   const updateSelectedData = useCallback(
     (patch: Partial<LoopNodeData>) => {
+      setPublicationErrors([])
       setNodes((nds) => nds.map((n) => (n.id === selectedId ? { ...n, data: { ...n.data, ...patch } } : n)))
     },
     [selectedId, setNodes]
@@ -314,11 +356,35 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
     setSelectedId(null)
   }, [selectedId, setNodes, setEdges])
 
+  const coreMode = !!document && !nodes.some(node => !['start', 'core', 'end'].includes(node.data.kind))
+  const snapshot = useCallback((): LoopGraph => {
+    const config = { ...document?.config, maxIterations, timeoutMinutes, maxCostUsd: maxCostUsd ?? undefined, layout: layoutMode }
+    const previous = canvas ? document?.components?.[canvas] : document
+    const active = { ...previous, ...reactFlowToGraph(nodes, edges, canvas ? previous?.config ?? config : config) }
+    return canvas ? { ...document!, config, components: { ...document?.components, [canvas]: active } } : { ...active, components: document?.components }
+  }, [document, canvas, nodes, edges, maxIterations, timeoutMinutes, maxCostUsd, layoutMode])
+  const openCanvas = useCallback((name: string | null, create = false) => {
+    const next = snapshot()
+    if (name && create && !next.components?.[name]) {
+      next.components = { ...next.components, [name]: { nodes: [{ id: newNodeId(), type: 'start', position: { x: 160, y: 40 } }, { id: newNodeId(), type: 'core', position: { x: 160, y: 220 }, data: { kind: 'end', params: { outcome: 'success' } } }], edges: [], config: { maxIterations: 10, timeoutMinutes: 0 }, inputs: [], outputs: ['next', 'failed'] } }
+    }
+    const target = name ? next.components?.[name] : next
+    if (!target) return
+    const flow = graphToReactFlow(target)
+    setDocument(next); setCanvas(name); setNodes(flow.nodes); setEdges(flow.edges); setSelectedId(null); setPublicationErrors([])
+    requestAnimationFrame(() => fitView({ padding: 0.25 }))
+  }, [snapshot, setNodes, setEdges, fitView])
+  const addPiece = useCallback((piece: WorkflowPieceDescriptor, position?: { x: number; y: number }) => {
+    const node: Node<LoopNodeData> = { id: newNodeId(), type: 'loop', position: position ?? { x: 160 + nodes.length * 20, y: 100 + nodes.length * 30 }, data: coreNodeData(piece) }
+    if (piece.kind === 'prompt' && choices.providers?.length) node.data.params!.engine = { provider: choices.providers[0] }
+    setNodes(previous => [...previous, node]); setSelectedId(node.id)
+  }, [nodes.length, setNodes, choices.providers])
+
   // Dry-run: resolve the CURRENT (unsaved) graph's tokens and show what would run.
   const runPreview = useCallback(async () => {
     setPreviewing(true)
     try {
-      const graph = reactFlowToGraph(nodes, edges, { maxIterations, timeoutMinutes, maxCostUsd: maxCostUsd ?? undefined, layout: layoutMode })
+      const graph = snapshot()
       const { steps } = await loopsApi.previewLoop(graph)
       setPreview(steps)
     } catch {
@@ -326,13 +392,13 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
     } finally {
       setPreviewing(false)
     }
-  }, [nodes, edges, maxIterations, timeoutMinutes, maxCostUsd, layoutMode, t])
+  }, [snapshot, t])
 
   const save = useCallback(async (): Promise<boolean> => {
     if (!id) return false
     setSaving(true)
     try {
-      const graph = reactFlowToGraph(nodes, edges, { maxIterations, timeoutMinutes, maxCostUsd: maxCostUsd ?? undefined, layout: layoutMode })
+      const graph = snapshot()
       await loopsApi.update(id, { name, graph })
       return true
     } catch (err) {
@@ -343,7 +409,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
     } finally {
       setSaving(false)
     }
-  }, [id, nodes, edges, maxIterations, timeoutMinutes, maxCostUsd, layoutMode, name, t])
+  }, [id, snapshot, name, t])
 
   const publish = useCallback(async () => {
     if (!id) return
@@ -355,6 +421,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
       exitBuilder()
     } catch (err) {
       if (err instanceof LoopPublishError) {
+        setPublicationErrors(err.errors); setShowProblems(true)
         toast.error(t('errors.publishInvalid'))
       } else {
         toast.error(err instanceof Error && err.message ? err.message : t('errors.save'))
@@ -366,6 +433,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
 
   return (
     <NodeValidationContext.Provider value={nodeSeverity}>
+    <PieceCatalogContext.Provider value={{ pieces: catalog, components: document?.components }}>
     <div className="h-full flex flex-col">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 px-4 h-12 border-b border-border flex-shrink-0">
@@ -446,10 +514,15 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
         {/* Palette */}
         <div className="w-44 border-r border-border p-2 space-y-1 flex-shrink-0 overflow-y-auto">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground px-1 mb-1">{t('builder.addNode')}</p>
-          {NODE_KINDS.map((kind) => {
+          {coreMode && catalogUnavailable && <p role="status" className="text-xs text-muted-foreground px-1">{t('builder.core.unavailable')}</p>}
+          {coreMode && catalog.length > 0 && (['ai', 'verification', 'openspec', 'control'] as const).map(group => <div key={group} className="pt-2">
+            <p className="text-[10px] uppercase text-muted-foreground px-1">{t(`builder.core.groups.${group}`)}</p>
+            {catalog.filter(piece => pieceGroup(piece.kind) === group).map(piece => <button key={piece.kind} type="button" draggable onDragStart={event => { event.dataTransfer.setData('application/specrails-core-piece', piece.kind); event.dataTransfer.effectAllowed = 'copy' }} onClick={() => addPiece(piece)} className="flex items-center gap-2 w-full min-h-8 px-2 rounded text-left text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-accent-primary"><Plus className="h-3 w-3 flex-shrink-0" />{t(`builder.core.pieces.${piece.kind}`)}</button>)}
+          </div>)}
+          {(coreMode ? ['start'] as LoopNodeType[] : NODE_KINDS).map((kind) => {
             const Icon = NODE_ICON[kind]
             return (
-              <button key={kind} type="button" onClick={() => addNode(kind)} className="flex items-center gap-2 w-full h-8 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50">
+              <button key={kind} type="button" onClick={() => addNode(kind)} disabled={kind === 'start' && nodes.some(node => node.data.kind === 'start')} className="flex items-center gap-2 w-full h-8 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50">
                 <Icon className="w-3.5 h-3.5 flex-shrink-0" />
                 <span className="truncate">{t(`builder.nodes.${kind}`)}</span>
                 <Plus className="w-3 h-3 ml-auto opacity-50" />
@@ -459,7 +532,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
         </div>
 
         {/* Canvas */}
-        <div className="flex-1 min-w-0 relative">
+        <div className="flex-1 min-w-0 relative" onDragOver={event => { if (event.dataTransfer.types.includes('application/specrails-core-piece')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' } }} onDrop={event => { const piece = catalog.find(piece => piece.kind === event.dataTransfer.getData('application/specrails-core-piece')); if (!piece || !coreMode) return; event.preventDefault(); addPiece(piece, screenToFlowPosition({ x: event.clientX, y: event.clientY })) }}>
           {loading ? (
             <div className="flex items-center justify-center h-full"><p className="text-sm text-muted-foreground">…</p></div>
           ) : (
@@ -480,6 +553,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
               defaultEdgeOptions={{ type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 } }}
               proOptions={{ hideAttribution: true }}
             >
+              {coreMode && <Panel position="top-center"><nav className="flex items-center gap-1 rounded border border-border bg-card/95 p-1 text-xs" aria-label={t('builder.core.breadcrumbs')}><button type="button" onClick={() => openCanvas(null)} className="px-2 py-1 hover:bg-muted">{name || t('builder.core.root')}</button>{canvas && <span aria-current="page">/ {canvas}</span>}</nav></Panel>}
               <Background />
               <Controls />
               <MiniMap pannable zoomable />
@@ -548,7 +622,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
                               className="flex items-start gap-1.5 w-full text-left px-2.5 py-1 hover:bg-muted disabled:cursor-default"
                             >
                               <span className={cn('mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0', issue.severity === 'error' ? 'bg-destructive' : 'bg-accent-warning')} />
-                              <span className="text-foreground">{t(`builder.problems.${issue.code}`)}</span>
+                              <span className="text-foreground">{'message' in issue ? String(issue.message) : t(`builder.problems.${issue.code}`)}</span>
                             </button>
                           </li>
                         ))}
@@ -562,9 +636,12 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
         </div>
 
         {/* Inspector */}
-        <div className="w-64 border-l border-border p-3 flex-shrink-0 overflow-y-auto">
+        <div className="w-80 border-l border-border p-3 flex-shrink-0 overflow-y-auto space-y-4">
+          {coreMode && document && <CoreWorkflowInspector graph={document} canvas={canvas} schema={definitionSchema} onChange={setDocument} onOpenCanvas={openCanvas} />}
           {!selected ? (
             <p className="text-xs text-muted-foreground">{t('builder.inspector.selectNode')}</p>
+          ) : selected.data.kind === 'core' ? (
+            <CoreNodeInspector nodeId={selected.id} data={selected.data} piece={catalog.find(piece => piece.kind === selected.data.coreKind)} choices={{ ...choices, components: Object.keys(document?.components ?? {}) }} schema={definitionSchema} onChange={updateSelectedData} onDelete={deleteSelected} onOpenCanvas={openCanvas} />
           ) : (
             <NodeInspector
               data={selected.data}
@@ -586,6 +663,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
       />
       <LoopPreviewModal steps={preview} onClose={() => setPreview(null)} t={t} />
     </div>
+    </PieceCatalogContext.Provider>
     </NodeValidationContext.Provider>
   )
 }
@@ -795,8 +873,8 @@ function LoopPreviewModal({ steps, onClose, t }: {
           {steps?.map((s, i) => (
             <div key={`${s.nodeId}-${i}`} className="rounded-md border border-border">
               <div className="px-2.5 py-1 text-[10px] border-b border-border flex items-center gap-1.5">
-                <span className="font-medium text-foreground">{s.label || t(`builder.nodes.${s.kind}`)}</span>
-                <span className="text-muted-foreground">· {t(`builder.nodes.${s.kind}`)}</span>
+                <span className="font-medium text-foreground">{s.label || t(['start', 'end', 'ai-step', 'shell', 'decider', 'condition'].includes(s.kind) ? `builder.nodes.${s.kind}` : `builder.core.pieces.${s.kind}`)}</span>
+                <span className="text-muted-foreground">· {t(['start', 'end', 'ai-step', 'shell', 'decider', 'condition'].includes(s.kind) ? `builder.nodes.${s.kind}` : `builder.core.pieces.${s.kind}`)}</span>
               </div>
               <pre className="px-2.5 py-2 text-[11px] text-foreground whitespace-pre-wrap break-words font-mono">{s.text || '—'}</pre>
             </div>

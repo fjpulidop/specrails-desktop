@@ -152,7 +152,10 @@
       "EMPTY_PROMPT": "AI 步骤的提示词为空。",
       "EMPTY_COMMAND": "Shell 步骤的命令为空。",
       "EMPTY_GOAL": "Loop Decider 没有目标。",
-      "DEAD_END": "该步骤没有出向连接。"
+      "DEAD_END": "该步骤没有出向连接。",
+      "MIXED_ENGINES": "不能混合旧版步骤与 Core 步骤。",
+      "CORE_OUTCOMES": "请连接不同的有效结果。",
+      "CORE_PIECE": "请选择步骤及其参数。"
     },
     "preview": {
       "label": "预览",
@@ -160,6 +163,48 @@
       "sampleNote": "Spec 值为示例数据；命令和常量按运行时的实际值解析。",
       "empty": "没有可预览的步骤。",
       "error": "预览失败"
+    },
+    "core": {
+      "unavailable": "工作流引擎不可用。请更新 Core 以添加或发布步骤。",
+      "root": "主工作流",
+      "components": "组件",
+      "componentName": "组件名称",
+      "addComponent": "添加组件",
+      "openComponent": "打开组件",
+      "breadcrumbs": "工作流导航",
+      "select": "请选择",
+      "valueType": "值类型",
+      "addItem": "添加项目",
+      "fieldName": "字段名称",
+      "addField": "添加 {{name}}",
+      "removeField": "删除 {{name}}",
+      "variant": "{{name}} 的格式",
+      "tooDeep": "值的嵌套层级过深。",
+      "pieces": {
+        "prompt": "提示词",
+        "role-turn": "角色执行",
+        "decider": "决策",
+        "condition": "条件",
+        "verify": "验证",
+        "shell": "Shell",
+        "openspec-validate": "验证 OpenSpec",
+        "openspec-archive": "归档 OpenSpec",
+        "approval": "审批",
+        "question": "提问",
+        "gate": "暂停",
+        "map": "遍历",
+        "join": "合并",
+        "component": "组件",
+        "implementation": "实现",
+        "end": "结束"
+      },
+      "groups": {
+        "ai": "AI",
+        "verification": "验证",
+        "openspec": "OpenSpec",
+        "control": "流程控制"
+      },
+      "options": "工作流选项"
     }
   },
   "preview": {
@@ -382,5 +427,14 @@
     "skipped_other": "已跳过 {{count}} 个重复项：{{names}}",
     "invalid": "该文件不是有效的循环导出。"
   },
-  "automaticOnly": "当你在审阅中要求修改时自动运行 —— 这个不由你启动。"
+  "automaticOnly": "当你在审阅中要求修改时自动运行 —— 这个不由你启动。",
+  "core": {
+    "selectInterrupt": "选择待处理的问题或审批",
+    "answerQuestion": "回答问题",
+    "approval": "审批",
+    "approveContinue": "批准并继续",
+    "paused": "已暂停",
+    "acceptance": "验收",
+    "verified": "已验证"
+  }
 }

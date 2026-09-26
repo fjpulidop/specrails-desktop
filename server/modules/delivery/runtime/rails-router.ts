@@ -19,6 +19,7 @@ import { resolveAgentDefaults } from '../../agents/runtime/agent-defaults'
 import { resolveProfile } from '../../agents/runtime/profile-manager'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from '../../specs/runtime/spec-models'
 import { resolveProjectExecution } from '../../../workspace-resolution'
+import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode } from '../../loops/runtime/loop-factory'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { dominantTicketScope, referencesUnsupportedProviderCommand } from '../../loops/runtime/loop-command-catalog'
@@ -759,7 +760,9 @@ export function createRailsRouter(): Router {
         let loopGraph: LoopGraph
         let loopName: string
         if (isFactoryLoopId(loopId)) {
-          const f = getFactoryLoop(loopId)
+          let capabilities: Record<string,number> | undefined
+          try { capabilities = (await loadCoreAgentRuntime()).api?.capabilities } catch { /* Existing Core remains supported through the legacy factory. */ }
+          const f = getFactoryLoop(loopId, capabilities)
           if (!f) { res.status(404).json({ error: 'Factory loop not found' }); return }
           loopGraph = f.graph
           loopName = f.name

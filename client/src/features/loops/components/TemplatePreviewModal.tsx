@@ -6,6 +6,7 @@ import { loopNeedsTicket } from '../lib/loop-ticket-need'
 import type { LoopTemplateSummary, LoopNode, LoopNodeType } from '../lib/loops-api'
 
 export const NODE_ICON: Record<LoopNodeType, typeof Play> = {
+  core: Brain,
   start: Play,
   'ai-step': Brain,
   shell: Terminal,
@@ -16,6 +17,7 @@ export const NODE_ICON: Record<LoopNodeType, typeof Play> = {
 
 /** The human-readable detail for a node (prompt / command / goal), if any. */
 export function nodeDetail(node: LoopNode): string | null {
+  if (node.type === 'core') { const params = node.data?.params as Record<string, unknown> | undefined; return params ? String(params.text ?? params.prompt ?? params.goal ?? params.expr ?? params.question ?? params.message ?? params.ref ?? params.body ?? params.outcome ?? JSON.stringify(params, null, 2)) : null }
   if (node.type === 'ai-step') return typeof node.data?.prompt === 'string' ? node.data.prompt : null
   if (node.type === 'shell') return typeof node.data?.command === 'string' ? node.data.command : null
   if (node.type === 'decider') return typeof node.data?.goal === 'string' ? node.data.goal : null
@@ -102,7 +104,7 @@ export function TemplatePreviewModal({
                     <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
                       <span className="text-[10px] text-muted-foreground tabular-nums">{i + 1}.</span>
                       <Icon className="w-3.5 h-3.5 text-accent-primary" />
-                      {t(`builder.nodes.${node.type}`)}
+                      {t(node.type === 'core' ? `builder.core.pieces.${node.data?.kind}` : `builder.nodes.${node.type}`)}
                     </div>
                     {detail && (
                       <pre className="mt-1 whitespace-pre-wrap break-words text-[11px] text-muted-foreground font-mono">

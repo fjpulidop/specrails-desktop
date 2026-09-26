@@ -278,7 +278,8 @@
     "stalledIdle_one": "{{count}} Minute ohne Provider-Ausgabe – die App hat diesen Versuch beendet",
     "stalledIdle_other": "{{count}} Minuten ohne Provider-Ausgabe – die App hat diesen Versuch beendet",
     "providerLimit": "Anbieter-Limit",
-    "providerLimitHint": "Der Anbieter antwortete mit einem Nutzungslimit-Hinweis; die App hat den Lauf gestoppt statt weiterzudrehen."
+    "providerLimitHint": "Der Anbieter antwortete mit einem Nutzungslimit-Hinweis; die App hat den Lauf gestoppt statt weiterzudrehen.",
+    "paused": "Pausiert"
   },
   "logViewer": {
     "loading": "Logs werden geladen…",

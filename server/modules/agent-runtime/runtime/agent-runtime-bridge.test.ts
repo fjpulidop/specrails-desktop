@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
-const fixture = vi.hoisted(() => ({ cli: null as string | null, node: null as string | null }))
-vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ validateRuntimeConfig: (value: unknown) => value, rolePromptDefaults: () => ({ architect: 'Factory architect', developer: 'Factory developer', reviewer: 'Factory reviewer' }) }) }))
+const fixture = vi.hoisted(() => ({ cli: null as string | null, node: null as string | null, v2: false, invalid: false, validation: [] as unknown[] }))
+vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeCli: () => fixture.cli, loadCoreAgentRuntime: async () => ({ api: { capabilities: fixture.v2 ? { engineV2: 1, workflowDefinitions: 1 } : {} }, validateWorkflowDefinition: (value: unknown, options: unknown) => { fixture.validation.push(options); return fixture.invalid ? {ok:false,errors:[{path:'/entry',message:'missing node'}]} : {ok:true,version:'hash-v1',definition:{...value as object,version:'hash-v1'},graph:{nodes:[]}} }, validateRuntimeConfig: (value: unknown) => value, rolePromptDefaults: () => ({ architect: 'Factory architect', developer: 'Factory developer', reviewer: 'Factory reviewer' }) }) }))
 vi.mock('./agent-runtime-package', () => ({ retainAgentRuntime: () => fixture.cli, resolveRetainedAgentRuntime: () => fixture.cli }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => fixture.node }))
 import { loadRuntimeConfigFile, saveRuntimeRolePrompts } from './agent-runtime-settings'
@@ -17,6 +17,7 @@ beforeEach(() => {
   mkdirSync(join(root, 'state'))
   writeFileSync(contextPath, JSON.stringify({ runId: 'run-1', repositories: [{ id: 'front' }] }))
   writeFileSync(join(root, 'config.json'), JSON.stringify({ schemaVersion: 1, enabled: true, providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }], agents: { architect: { provider: 'claude' }, developer: { provider: 'claude' }, reviewer: { provider: 'claude' } }, verification: [{ repositoryId: 'front', command: 'npm', args: ['test'] }, { repositoryId: 'back', command: './mvnw', args: ['test'] }] }))
+  fixture.v2 = false; fixture.invalid = false; fixture.validation = []
   fixture.cli = join(root, 'cli.mjs')
 })
 afterEach(() => { vi.restoreAllMocks(); rmSync(root, { recursive: true, force: true }); fixture.cli = null })
@@ -200,5 +201,49 @@ describe('programmatic selection', () => {
     expect(() => loadRuntimeConfigFile(file).enabled).toThrow()
     expect(runtimeChangeName('RUN/with spaces')).toMatch(/^runtime-[a-f0-9]{20}$/)
     expect(runtimeChangeName('same')).toBe(runtimeChangeName('same'))
+  })
+})
+
+
+describe('Core definition process bridge', () => {
+  const definition = () => ({schemaVersion:1,id:'authored',entry:'finish',nodes:{finish:{kind:'end',params:{outcome:'success'},ends:{}}}})
+  const v2 = (status='succeeded',more:object={}) => final(status,{engineVersion:2,completion:{ok:true,verified:false,reasons:[]},usage:{durationMs:1234},...more})
+  it('validates against frozen project config and passes only canonical definition; resume retains it',async()=>{
+    fixture.v2=true
+    script(`import{readFileSync}from'node:fs';const i=process.argv.indexOf('--definition');if(i>=0&&JSON.parse(readFileSync(process.argv[i+1],'utf8')).version!=='hash-v1')process.exit(9);console.log(JSON.stringify(${JSON.stringify(v2())}));`)
+    const prepared=vi.fn(definition)
+    const result=await runAgentRuntimeInvocation({...options(),engineVersion:2,prepareDefinition:prepared})
+    expect(result).toMatchObject({runtimeStatus:'succeeded',completion:{ok:true,verified:false},durationMs:1234,failed:false})
+    expect(fixture.validation).toEqual([{configPath:join(root,'state','desktop-runtime-config.json'),structural:false}])
+    expect(prepared).toHaveBeenCalledWith(expect.objectContaining({agents:expect.any(Object)}))
+    const file=join(root,'state','desktop-workflow-definition.json'), frozen=readFileSync(file,'utf8')
+    writeFileSync(options().configPath,'changed')
+    expect((await runAgentRuntimeInvocation({...options(),engineVersion:2,resume:true})).failed).toBe(false)
+    expect(readFileSync(file,'utf8')).toBe(frozen);expect(fixture.validation).toHaveLength(1)
+  })
+  it('fails unsupported/invalid definitions before spawning',async()=>{
+    const onSpawn=vi.fn()
+    await expect(runAgentRuntimeInvocation({...options(),engineVersion:2,prepareDefinition:definition,onSpawn})).rejects.toThrow('engine_unsupported')
+    fixture.v2=true;fixture.invalid=true
+    await expect(runAgentRuntimeInvocation({...options(),engineVersion:2,prepareDefinition:definition,onSpawn})).rejects.toThrow('definition_invalid')
+    expect(onSpawn).not.toHaveBeenCalled()
+  })
+  it('accepts exit two as a recoverable pause and threads explicit interrupt approval',async()=>{
+    fixture.v2=true
+    script(`console.log(JSON.stringify(${JSON.stringify(v2('paused',{pendingInterrupts:[{id:'approval1',nodePath:'archive',kind:'approval'}]}))}));process.exitCode=2;`)
+    expect(await runAgentRuntimeInvocation({...options(),engineVersion:2,prepareDefinition:definition})).toMatchObject({runtimeStatus:'paused',failed:false,pendingInterrupts:[{id:'approval1'}]})
+    let args:string[]=[]
+    script(`console.log(JSON.stringify(${JSON.stringify(v2())}));`)
+    await runAgentRuntimeInvocation({...options(),engineVersion:2,resume:true,approve:['approval1'],interruptId:'approval1',onSpawn:child=>{args=child.spawnargs}})
+    expect(args).toEqual(expect.arrayContaining(['--approve','approval1','--interrupt-id','approval1']))
+  })
+  it('rejects success without acceptance evidence, contradictory exit, cross-run events and failed durable observers',async()=>{
+    fixture.v2=true
+    for(const [frame,code]of [[final(),0],[v2(),1],[v2('succeeded',{runId:'other'}),0]] as const){
+      script(`console.log(JSON.stringify(${JSON.stringify(frame)}));process.exitCode=${code};`)
+      expect((await runAgentRuntimeInvocation({...options(),engineVersion:2,resume:true})).runtimeStatus).toBe('failed')
+    }
+    script(`console.log(JSON.stringify(${JSON.stringify(v2())}));`)
+    expect(await runAgentRuntimeInvocation({...options(),engineVersion:2,resume:true,onRuntimeEvent:()=>{throw new Error('database unavailable')}})).toMatchObject({runtimeStatus:'failed',errorText:'database unavailable'})
   })
 })

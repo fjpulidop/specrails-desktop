@@ -64,6 +64,17 @@ Desktop negotiates `runtime api` and sends configuration to `runtime validate --
 
 Settings are saved at `<project execution .specrails directory>/agent-runtime.json`. Missing configuration uses the default agent runtime. The retired enabled flag cannot select another engine. Malformed configuration blocks admission; it is not ignored. Saving verifies that Core exposes the expected API. Connections are stored globally in `~/.specrails/runtime-providers.json`; project files retain role references, models, limits and verification. Existing embedded connections migrate once, with stable disambiguated IDs on endpoint conflicts. New runs freeze the resolved configuration, while saved runs retain their original snapshot.
 
+With a paired Core advertising `openRoles: 1`, **Custom roles** adds named project
+roles with their own provider, model, prompt and explicit source/artifact access.
+New roles start with read-only source access and no artifact writes. Artifact
+access is independent: an analyst may read code and write OpenSpec documents
+without gaining source write access. Optional OpenSpec skills use the provider's
+native syntax. Custom roles reuse effort, turns and escalation controls; escalation
+can use the one permitted protocol repair and does not add another retry. Existing
+architect/developer/reviewer policies remain fixed. Removing a custom role affects
+future runs; admitted runs retain their frozen role configuration. Older Core
+packages keep ordinary settings available and reject saving unsupported roles.
+
 **A package of a larger checkout.** A repository registered as a subdirectory of its git checkout (for example `apps/web` inside a monorepo) is isolated in a worktree of the whole checkout, so Desktop passes that directory to Core as the repository `scope` in `desktop-context.json` (Core capability `repositoryScope`). Configured checks run inside the package: a check without `cwd`, or with a `cwd` relative to the registered directory, never runs at the checkout root, where a monorepo test script fans out to every workspace. Core keeps the change inside the scope: after each developer or fixer turn it undoes edits outside it, the reviewer judges only the git change set measured against the run's base, a check that fails for missing credentials, variables or registry access stops the run for the host instead of starting a correction round, and a correction loop that stops converging stops with the reason instead of repeating the same checks. Runs admitted before scopes existed keep their frozen whole-checkout context.
 
 Core owns role instructions and permissions. The developer role edits and runs commands inside its CLI sandbox (the same autonomy as the legacy Implement step); architect and reviewer are read-only. A legacy rail profile/model selection does not override the runtime's per-role provider configuration. The JSON schema is [server/schemas/agent-runtime.schema.json](../../server/schemas/agent-runtime.schema.json), mirrored from Core. For a complete configuration, custom executor examples, Kimi capabilities and API tooling details, see [Core's runtime guide](https://github.com/fjpulidop/specrails-core/blob/main/docs/agent-runtime.md) in the paired revision.

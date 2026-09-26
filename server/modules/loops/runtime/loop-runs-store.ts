@@ -6,6 +6,7 @@
  * or status='paused').
  */
 import type { DbInstance } from '../../../db'
+import type { LoopRunRequest } from './loop-run-manager'
 
 export type LoopRunStatus = 'running' | 'paused' | 'completed'
 // `blocked` — halted on a human decision the Decider flagged (not a failure,
@@ -38,6 +39,103 @@ export interface LoopRunRow {
   ticket_ids_json?: string
   ticket_completion_status?: 'done' | 'on_review'
   causal_ownership?: number
+  engine_version?: number | null
+  run_request_json?: string | null
+  runtime_metadata_json?: string | null
+  runtime_status_json?: string | null
+  core_revision?: number | null
+  core_event_cursor?: number | null
+  fork_of?: string | null
+  fork_cut_json?: string | null
+  restart_reason?: string | null
+}
+
+export interface DefinitionRunMetadata {
+  source: 'definition'
+  contextPath?: string
+  definitionPath?: string
+  definitionHash?: string
+  workflowId?: string
+  definition?: Record<string, unknown>
+  configPath?: string
+  runtimeDirectory?: string
+  context?: Record<string, unknown>
+  runtimeIdentity?: Record<string, unknown>
+}
+export interface DefinitionRunSnapshot {
+  row: LoopRunRow
+  request: LoopRunRequest
+  metadata: DefinitionRunMetadata
+}
+export interface DefinitionCheckpoint {
+  revision?: number
+  eventCursor?: number
+  status?: string
+  pendingInterrupts?: unknown[]
+  recoverableSteps?: unknown[]
+  [key: string]: unknown
+}
+
+function frozenJson(value: unknown): string {
+  const serialized = JSON.stringify(value, (_key, item: unknown) => {
+    if (typeof item === 'function' || typeof item === 'symbol' || typeof item === 'bigint' || typeof item === 'number' && !Number.isFinite(item)) throw new Error('Durable workflow inputs must contain only JSON data')
+    return item
+  })
+  if (!serialized || Buffer.byteLength(serialized) > 4 * 1024 * 1024) throw new Error('Durable workflow inputs exceed 4 MiB')
+  const sort = (input: unknown): unknown => Array.isArray(input) ? input.map(sort) : input && typeof input === 'object'
+    ? Object.fromEntries(Object.entries(input).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, item]) => [key, sort(item)])) : input
+  return JSON.stringify(sort(JSON.parse(serialized)))
+}
+
+/** Freeze launch data before spawn; preparation may add fields, never replace them. */
+export function saveDefinitionRun(db: DbInstance, runId: string, input: Partial<DefinitionRunMetadata> & { request?: LoopRunRequest }): DefinitionRunSnapshot {
+  return db.transaction(() => {
+    const row = getLoopRun(db, runId)
+    if (!row || row.engine_version !== null && row.engine_version !== undefined && row.engine_version !== 2) throw new Error('Definition run is missing or belongs to another engine')
+    const { request, ...fields } = input
+    const requestJson = request ? frozenJson({ ...request, runId }) : row.run_request_json
+    if (!requestJson || row.run_request_json && row.run_request_json !== requestJson) throw new Error('Frozen loop request cannot change')
+    const normalized = JSON.parse(requestJson) as LoopRunRequest
+    if (normalized.projectId !== row.project_id || normalized.loopId !== row.loop_id) throw new Error('Frozen loop request belongs to another project or loop')
+    const prior = JSON.parse(row.runtime_metadata_json ?? '{"source":"definition"}') as DefinitionRunMetadata
+    for (const [key, value] of Object.entries(fields)) {
+      if (value !== undefined && key in prior && frozenJson(prior[key as keyof DefinitionRunMetadata]) !== frozenJson(value)) throw new Error('Frozen Core metadata cannot change: ' + key)
+    }
+    const metadata = { ...prior, ...JSON.parse(frozenJson(fields)) }
+    if (metadata.source !== 'definition' || metadata.definitionHash !== undefined && !/^[a-f0-9]{64}$/.test(metadata.definitionHash)) throw new Error('Invalid Core definition identity')
+    db.prepare('UPDATE loop_runs SET engine_version=2,run_request_json=?,runtime_metadata_json=? WHERE id=?').run(requestJson, frozenJson(metadata), runId)
+    return { row: getLoopRun(db, runId)!, request: normalized, metadata }
+  })()
+}
+
+export function readDefinitionRun(db: DbInstance, runId: string): DefinitionRunSnapshot | undefined {
+  const row = getLoopRun(db, runId)
+  if (!row || row.engine_version !== 2 || !row.run_request_json) return undefined
+  const request = JSON.parse(row.run_request_json) as LoopRunRequest, metadata = JSON.parse(row.runtime_metadata_json ?? '{"source":"definition"}') as DefinitionRunMetadata
+  if (request.runId !== runId || request.projectId !== row.project_id || request.loopId !== row.loop_id || metadata.source !== 'definition') throw new Error('Frozen workflow ownership is inconsistent')
+  return { row, request, metadata }
+}
+
+/** The projection cursor is independent of the aggregate accounting totals. */
+export function recordDefinitionCheckpoint(db: DbInstance, runId: string, checkpoint: DefinitionCheckpoint): void {
+  for (const value of [checkpoint.revision, checkpoint.eventCursor]) if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) throw new Error('Core checkpoint cursors must be nonnegative integers')
+  const serialized = frozenJson(checkpoint)
+  db.transaction(() => {
+    const row = readDefinitionRun(db, runId)?.row
+    if (!row) throw new Error('Frozen definition run is missing')
+    if (checkpoint.revision !== undefined && checkpoint.revision < (row.core_revision ?? 0) || checkpoint.eventCursor !== undefined && checkpoint.eventCursor < (row.core_event_cursor ?? 0)) return
+    db.prepare('UPDATE loop_runs SET core_revision=?,core_event_cursor=?,runtime_status_json=? WHERE id=?')
+      .run(checkpoint.revision ?? row.core_revision ?? null, checkpoint.eventCursor ?? row.core_event_cursor ?? null, serialized, runId)
+  })()
+}
+
+/** Startup preserves the job and launch ownership; no terminal callback is queued. */
+export function markDefinitionRestart(db: DbInstance, runId: string, checkpoint: DefinitionCheckpoint = {}): void {
+  db.transaction(() => {
+    if (!readDefinitionRun(db, runId)) throw new Error('Frozen definition run is missing')
+    recordDefinitionCheckpoint(db, runId, checkpoint)
+    db.prepare("UPDATE loop_runs SET status='paused',final_outcome=NULL,finished_at=NULL,restart_reason='restart' WHERE id=? AND status IN ('running','paused')").run(runId)
+  })()
 }
 
 export interface CreateLoopRunInput {
@@ -556,6 +654,7 @@ export function reconcileOrphanLoopRuns(
   /** Compatibility only for pre-migration rows whose exact launch ticket set
    * was never persisted. New rows always use ticket_ids_json. */
   legacyTicketIdsByRun?: ReadonlyMap<string, readonly number[]>,
+  definitionStates?: ReadonlyMap<string, DefinitionCheckpoint | null>,
 ): number {
   const reconcile = db.transaction(() => {
     const active = db.prepare(`
@@ -584,6 +683,13 @@ export function reconcileOrphanLoopRuns(
       ON CONFLICT(run_id) DO NOTHING
     `)
     for (const run of active) {
+      if (run.engine_version === 2 && run.run_request_json) {
+        const state = definitionStates?.get(run.id)
+        if (state !== null && (!state?.status || ['running', 'paused', 'interrupted'].includes(state.status))) {
+          markDefinitionRestart(db, run.id, state ?? { status: 'unavailable', reason: 'Original Core status could not be read' })
+          continue
+        }
+      }
       updateJob.run(finishedAt, run.id)
       updateRun.run(finishedAt, run.id)
       const persistedIds = parseTicketIdsJson(run.ticket_ids_json)

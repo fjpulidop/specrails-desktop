@@ -278,7 +278,8 @@
     "stalledIdle_one": "{{count}} 分钟内无提供方输出，应用已停止此次尝试",
     "stalledIdle_other": "{{count}} 分钟内无提供方输出，应用已停止此次尝试",
     "providerLimit": "提供商限额",
-    "providerLimitHint": "提供商返回了用量限额提示，应用已停止运行而不是继续循环。"
+    "providerLimitHint": "提供商返回了用量限额提示，应用已停止运行而不是继续循环。",
+    "paused": "已暂停"
   },
   "logViewer": {
     "loading": "正在加载日志…",

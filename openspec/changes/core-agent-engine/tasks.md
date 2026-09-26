@@ -28,18 +28,29 @@ Published C0 compatibility remains open; these source results do not close 1.6.
 
 ## 2. D1 — Definition authoring and Core launcher (requires published C4)
 
-- [ ] 2.1 Vendor definition schema with byte-parity test; add structural graph model and capability catalog.
-- [ ] 2.2 Implement pure deterministic graph compiler, interpolation and Core-owned hash validation.
-- [ ] 2.3 Validate publication via Core and expose node-scoped errors in builder.
+- [x] 2.1 Vendor definition schema with byte-parity test; add structural graph model and capability catalog.
+- [x] 2.2 Implement pure deterministic graph compiler, interpolation and Core-owned hash validation.
+- [x] 2.3 Validate publication via Core and expose node-scoped errors in builder.
 - [ ] 2.4 Implement exclusive frozen inputs and Core-only launch with host-owned git, cancellation and existing settlement.
 - [ ] 2.5 Implement verification-aware delivery gate; negative completion remains a successful runtime verdict.
-- [ ] 2.6 Build palette and inspectors including components/map/join with eight-locale parity and client tests.
+- [x] 2.6 Build palette and inspectors including components/map/join with eight-locale parity and client tests.
 - [ ] 2.7 Update user guides and run loop/runtime/delivery/client validation.
+
+Authoring validation on 2026-09-26: 143 server tests (including Core schema
+byte parity and architecture), 307 client tests (including eight-locale parity,
+schema forms, drag placement, typed connection validation and component canvas
+round-tripping) passed. Typecheck, architecture audit and source-map generation
+passed. The inspector extraction was checked again with seven focused tests.
+Execution, delivery, event accounting and human resume remain unchecked below;
+authoring validation does not close those integration gates.
 
 ## 3. D1b — Minimal role library (requires C2)
 
-- [ ] 3.1 Vendor role config schema and validate open role descriptors.
-- [ ] 3.2 Add settings role rows, engine selection and localized validation with schema-parity tests.
+- [x] 3.1 Vendor role config schema and validate open role descriptors.
+- [x] 3.2 Add settings role rows, engine selection and localized validation with schema-parity tests.
+
+Implemented and focused tests passed; shared integration and remaining factory
+work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 
 ## 4. D2 — Event projection and accounting (requires D1)
 

@@ -1,5 +1,17 @@
 # The Loop Builder
 
+## Core workflows
+
+With a compatible Core engine, a new canvas shows the installed catalog of sixteen pieces. Click or drag a piece onto the canvas, select it, and complete its parameter form. Provider and role choices come from the active project. A piece's named output handles show the outcomes it can produce; connect each outcome to another piece or an End. A source outcome can have one connection.
+
+The catalog includes prompts, role turns, decisions, conditions, verification, shell, OpenSpec validation and archival, approvals, questions, gates, maps, joins, reusable components, implementation and End. Optional fields, nested objects, arrays and dictionary values are editable through the form. **Workflow options** also exposes token and transition limits and concurrency policies. An explicit transition limit counts all visits inside components and map branches.
+
+Create a reusable body under **Components**, declare its input variables and output labels, then select it from a Component or Map piece. The breadcrumb returns to the root canvas without losing edits. A component End has a business outcome and an optional `exit` matching one of the component's output labels.
+
+**Publish** sends the draft to Core for validation. Errors appear in the problems panel and highlight the affected nodes. Launch validates the selected project's effective configuration again. The installed Core owns the execution format and its hash. If it is unavailable, update Core to author or publish these workflows; existing Desktop loops keep their original editor and execution behavior.
+
+The remaining sections describe the existing Desktop loop nodes and rail behavior.
+
 A **rail runs a Loop**. The built-in loops (`Implement`, `Batch`, `Freestyle`) cover the everyday cases, but the **Loop Builder** lets you design your own — a visual, n8n-style editor for automation that repeats until a goal is met. This page explains what a loop is, how to build one, and how to run it on a rail.
 
 ## Loops and rails — the relationship

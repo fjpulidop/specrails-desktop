@@ -51,7 +51,7 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
                 'relative flex items-center gap-1.5 shrink-0 rounded-full border bg-surface/40 px-2.5 py-1 text-[11px] transition-colors',
                 borderAccent,
                 chip.state === 'pending' && 'opacity-45 border-border/40',
-                chip.state === 'interrupted' && 'border-dashed border-accent-warning/50',
+                (chip.state === 'interrupted' || chip.state === 'paused') && 'border-dashed border-accent-warning/50',
                 clickable ? 'cursor-pointer hover:bg-surface/70' : 'cursor-default',
               )}
             >
@@ -70,6 +70,7 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
               >
                 {label}
               </span>
+              {chip.state === 'paused' && <span className="text-accent-warning">{t('loopExplorer.paused')}</span>}
               {chip.state === 'ok' && <Check className="w-3 h-3 text-accent-success shrink-0" />}
               {chip.state === 'failed' && <X className="w-3 h-3 text-destructive shrink-0" />}
               {chip.decision === 'continue' && (

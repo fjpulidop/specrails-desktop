@@ -493,5 +493,25 @@
       }
     }
   },
-  "unsavedChanges": "Unsaved changes"
+  "unsavedChanges": "Unsaved changes",
+  "customRoles": {
+    "title": "Custom roles",
+    "hint": "Declare reusable instructions and explicit permissions for workflow roles.",
+    "unsupported": "Update Core to edit custom roles.",
+    "remove": "Remove {{id}}",
+    "access": "Source access",
+    "read": "Read only",
+    "write": "Read and write",
+    "artifacts": "OpenSpec artifact access",
+    "none": "None",
+    "tasks": "Task checkboxes only",
+    "all": "All change artifacts",
+    "skill": "OpenSpec skill",
+    "noSkill": "No skill binding",
+    "prompt": "Role instructions",
+    "id": "Role ID",
+    "add": "Add role",
+    "invalidId": "Use a unique lowercase ID beginning with a letter, up to 64 letters, digits or hyphens. Built-in IDs are reserved.",
+    "escalationHint": "Only a permitted protocol repair may use the escalation model. No extra retry is added."
+  }
 }

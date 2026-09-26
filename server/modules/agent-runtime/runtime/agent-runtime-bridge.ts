@@ -12,6 +12,8 @@ import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime
 import { loadRuntimeConfigFile, loadRuntimeRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
+import type { DefinitionCompletion, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
+import type { RuntimeConfig } from './agent-runtime-settings'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
 
 export function runtimeChangeName(runId: string): string {
@@ -55,11 +57,28 @@ function saveHostContext(options: AgentRuntimeInvocationOptions): void {
   }
 }
 
+/** Recover the original host scope; project settings may have changed since admission. */
+export function readFrozenRuntimeHost(contextPath: string, baseEnv: NodeJS.ProcessEnv, runId: string): {cwd: string; env: NodeJS.ProcessEnv} {
+  const context = JSON.parse(readFileSync(contextPath,'utf8')) as {runId?: unknown;backlogRoot?: string;artifactRoot?: string;repositories?: Array<{path?: string}>}
+  const roots = [context.backlogRoot, ...(context.repositories ?? []).map(repository => repository.path)]
+  if (context.runId !== runId || !context.repositories?.length || !context.repositories.some(repository => repository.path === context.artifactRoot) || roots.some(root => typeof root !== 'string' || !isAbsolute(root) || realpathSync(root) !== root)) throw new Error('runtime_scope_changed: Original workflow scope is unavailable')
+  const host = JSON.parse(readFileSync(join(dirname(contextPath),'desktop-runtime-host.json'),'utf8')) as {schemaVersion?: number;cwd?: string;env?: Record<string,string>}
+  if (host.schemaVersion !== 1 || typeof host.cwd !== 'string' || !roots.includes(host.cwd) || !host.env || typeof host.env !== 'object' || Array.isArray(host.env) || Object.entries(host.env).some(([key,value]) => !(RUNTIME_HOST_ENV_KEYS as readonly string[]).includes(key) || typeof value !== 'string') || host.env.SPECRAILS_GIT_AUTO !== 'false') throw new Error('runtime_host_invalid: Original workflow host settings are invalid')
+  const env = {...baseEnv}
+  for (const key of RUNTIME_HOST_ENV_KEYS) delete env[key]
+  return {cwd:host.cwd,env:{...env,...host.env,SPECRAILS_EXECUTION_CONTEXT:contextPath}}
+}
+
 export interface AgentRuntimeInvocationOptions {
   contextPath: string
   cwd: string
   env: NodeJS.ProcessEnv
   configPath?: string
+  definitionPath?: string
+  engineVersion?: 2
+  /** Pure compile callback receives the same effective config that Core will read. */
+  onPrepared?(metadata: DefinitionPrepared): void
+  prepareDefinition?(config: Readonly<RuntimeConfig>): unknown
   defaultProvider?: string
   /** A selected launch provider applies to every role; absent selection preserves role settings. */
   providerOverride?: { provider: string; model?: string; effort?: string }
@@ -70,6 +89,9 @@ export interface AgentRuntimeInvocationOptions {
   invalidate?: string[]
   /** Answers the pending architect question on resume. */
   answer?: string
+  interruptId?: string
+  /** Durable projection errors abort observation; ordinary log callbacks remain advisory. */
+  onRuntimeEvent?(event: Record<string, unknown>): void
   timeoutMs?: number
   onLine?: (line: string, source?: 'stdout' | 'stderr') => void
   onRawLine?: (line: string) => void
@@ -80,14 +102,21 @@ interface RuntimeResult {
   type: 'runtime-result'
   runId?: string
   status?: string
-  error?: string
+  engineVersion?: number
+  error?: string | { code?: string; message?: string }
+  completion?: DefinitionCompletion
+  pendingInterrupts?: DefinitionInterrupt[]
+  pendingApproval?: { stepId?: string; reason?: string }
   pendingQuestion?: { stepId?: string; question?: string }
+  usage?: { durationMs?: number | null }
   invocationUsage?: { costUsd?: number | null; inputTokens?: number | null; outputTokens?: number | null }
 }
 
 /** Core owns the complete agent workflow in one managed process. The existing
  * rail's cancellation and worktree ownership remain in Desktop. */
 export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationOptions): Promise<AiStepResult> {
+  const definitionEngine = options.engineVersion === 2 || options.definitionPath !== undefined || options.prepareDefinition !== undefined
+  if (options.resume && (options.definitionPath || options.prepareDefinition)) throw new Error('Resume must use the frozen workflow definition')
   const selectedCli = options.resume ? resolveRetainedAgentRuntime(options.contextPath) : findCoreAgentRuntimeCli()
   let cli = selectedCli
   if (!cli) throw new Error('Programmatic agent runtime is enabled but its Core CLI is unavailable. Build or bundle the compatible Core runtime.')
@@ -108,6 +137,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     const runtime = await loadCoreAgentRuntime()
     config.providers = stripDesktopConnectionFields(config.providers, coreConnectionFieldGates(runtime.api?.capabilities))
     if (runtime.api?.capabilities?.configurableGuardrails !== 1) delete (config as { guardrails?: unknown }).guardrails
+    if (definitionEngine && (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1)) throw new Error('engine_unsupported: Update Core to run workflow definitions')
     const override = options.providerOverride
     runtime.validateRuntimeConfig(JSON.parse(JSON.stringify(config)))
     validateRequestedRoleEfforts(runtime, config)
@@ -125,6 +155,21 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
       if (readFileSync(scopedPath, 'utf8') !== serialized) throw new Error('Desktop runtime configuration changed; start a new run')
     }
+    if (definitionEngine) {
+      const draft = options.prepareDefinition
+        ? options.prepareDefinition(structuredClone(config))
+        : options.definitionPath ? JSON.parse(readFileSync(options.definitionPath, 'utf8')) : undefined
+      if (!draft) throw new Error('A new Core workflow requires a definition')
+      const validation = runtime.validateWorkflowDefinition(draft, { configPath: scopedPath, structural: false })
+      if (!validation.ok) throw new Error('definition_invalid: ' + validation.errors.map(error => `${error.path ?? error.nodeId ?? 'graph'}: ${error.message}`).join('; '))
+      const definitionPath = join(dirname(options.contextPath), 'desktop-workflow-definition.json')
+      const serializedDefinition = JSON.stringify(validation.definition, null, 2) + '\n'
+      try { writeFileSync(definitionPath, serializedDefinition, { flag: 'wx', mode: 0o600 }) }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || readFileSync(definitionPath, 'utf8') !== serializedDefinition) throw new Error('Frozen workflow definition changed; start a new run') }
+      const pinPath = join(dirname(options.contextPath), 'desktop-runtime-package.json')
+      options.onPrepared?.({ contextPath: options.contextPath, runtimeDirectory: dirname(options.contextPath), definitionPath, configPath: scopedPath, definitionHash: validation.version, definition: validation.definition as Record<string, unknown>, context: admittedContext as Record<string, unknown>, ...(existsSync(pinPath) ? {runtimeIdentity: JSON.parse(readFileSync(pinPath,'utf8')) as Record<string,unknown>} : {}) })
+      args.push('--definition', definitionPath)
+    }
     args.push('--config', scopedPath, '--change', options.change!)
   }
   const frozenPath = join(dirname(options.contextPath), 'desktop-runtime-config.json')
@@ -141,10 +186,12 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     if (!options.resume) throw new Error('Answers apply to runtime resume')
     args.push('--answer', options.answer)
   }
+  if (options.interruptId) { if (!options.resume) throw new Error('Interrupt selection applies to resume'); args.push('--interrupt-id', options.interruptId) }
   const started = Date.now()
   writeRuntimeHistory(options.contextPath, { status: 'running' })
   return new Promise<AiStepResult>((resolve) => {
     let result: RuntimeResult | undefined
+    let graph: Record<string, unknown> | undefined
     let stderr = '', summary = '', invalidProtocol = false, timedOut = false
     let timer: ReturnType<typeof setTimeout> | undefined
     const child = spawn(resolveCoreNodeRuntime(), args, {
@@ -168,6 +215,13 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
         const repositories = toolRepositories(event.event, admittedContext.repositories!, admittedContext.artifactRoot ?? options.cwd)
         if (repositories.length) event.repositories = repositories.map(repo => ({ id: repo.id, name: repo.name || repo.id }))
       }
+      if (definitionEngine && ((typeof event.runId === 'string' && event.runId !== admittedContext.runId) || (event.type === 'workflow-event' && (event.event as { runId?: unknown })?.runId !== admittedContext.runId))) { invalidProtocol = true; if (child.pid) treeKillSafe(child.pid, 'SIGKILL'); return }
+      try { options.onRuntimeEvent?.(event) } catch (error) {
+        observerError = error instanceof Error ? error.message : String(error)
+        if (child.pid) treeKillSafe(child.pid, 'SIGKILL')
+        return
+      }
+      if (event.type === 'runtime-graph') graph = event
       observe(() => options.onRawLine?.(event.repositories ? JSON.stringify(event) : line))
       if (event.type === 'runtime-result') {
         if (result) invalidProtocol = true
@@ -212,19 +266,25 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       const known = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
       const cost = known(usage?.costUsd), tokensIn = known(usage?.inputTokens), tokensOut = known(usage?.outputTokens)
       if (result?.status === 'succeeded' && result.runId !== admittedContext.runId) invalidProtocol = true
-      const failed = code !== 0 || result?.status !== 'succeeded' || invalidProtocol || timedOut || Boolean(observerError)
+      if (definitionEngine && result?.status === 'succeeded' && (!result.completion || typeof result.completion.ok !== 'boolean' || typeof result.completion.verified !== 'boolean' || (!Array.isArray(result.completion.reasons) || result.completion.reasons.some(reason => typeof reason !== 'string')))) invalidProtocol = true
+      if (definitionEngine && result?.status === 'paused' && result.runId !== admittedContext.runId) invalidProtocol = true
+      const validPause = definitionEngine && code === 2 && result?.status === 'paused'
+      const failed = (!validPause && (code !== 0 || result?.status !== 'succeeded')) || invalidProtocol || timedOut || Boolean(observerError)
+      const runtimeError = typeof result?.error === 'string' ? result.error : result?.error?.message
+      const runtimeStatus: AiStepResult['runtimeStatus'] = invalidProtocol || timedOut || observerError || (result?.status === 'paused' && !validPause) || (result?.status === 'succeeded' && code !== 0) ? 'failed' : ['succeeded', 'paused', 'failed', 'blocked', 'cancelled'].includes(result?.status ?? '') ? result!.status as AiStepResult['runtimeStatus'] : 'failed'
       const errorText = observerError ?? (timedOut ? 'Programmatic workflow timed out; inspect its checkpoint before recovery'
         : invalidProtocol ? 'Core returned an invalid runtime event stream'
-        : result?.error ?? (result?.status === 'paused' ? (typeof result.pendingQuestion?.question === 'string' && result.pendingQuestion.question.trim()
+        : runtimeError ?? (result?.status === 'paused' ? (typeof result.pendingQuestion?.question === 'string' && result.pendingQuestion.question.trim()
           ? `Workflow awaits an answer in Agent Runtime settings: ${result.pendingQuestion.question.trim().slice(0, 500)}`
           : 'Workflow awaits approval in Agent Runtime settings')
         : failed ? stderr || 'Core exited without a successful programmatic workflow result' : undefined))
       try { writeRuntimeHistory(options.contextPath, invalidProtocol || timedOut || observerError || !result ? { status: 'failed', error: errorText } : { ...result }) } catch { /* Projection failure cannot replay a completed execution. */ }
       resolve({
-        text: summary || (failed ? errorText ?? '' : 'Programmatic implementation verified and archived.'),
+        text: summary || (failed ? errorText ?? '' : definitionEngine ? 'Workflow execution completed.' : 'Programmatic implementation verified and archived.'),
         provider: 'agent-runtime', model: 'per-role', failed, errorText,
+        ...(definitionEngine ? { runtimeStatus, completion: result?.completion, pendingInterrupts: result?.pendingInterrupts, pendingQuestion: result?.pendingQuestion, pendingApproval: result?.pendingApproval, graph } : {}),
         cost, tokensIn, tokensOut, tokens: tokensIn === undefined || tokensOut === undefined ? undefined : tokensIn + tokensOut,
-        estimated: cost === undefined, durationMs: Date.now() - started,
+        estimated: cost === undefined, durationMs: definitionEngine ? known(result?.usage?.durationMs) : Date.now() - started,
       })
     })
   })

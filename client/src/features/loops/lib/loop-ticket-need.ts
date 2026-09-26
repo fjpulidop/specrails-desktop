@@ -13,10 +13,11 @@ const TICKET_CMD = /\{\{\s*cmd:(implement|batch|freestyle)\b/
 export function loopNeedsTicket(graph: LoopGraph | undefined): boolean {
   if (!graph) return false
   for (const node of graph.nodes) {
-    const text = [node.data?.prompt, node.data?.command, node.data?.goal]
+    if (node.type === 'core' && node.data?.kind === 'implementation') return true
+    const text = [node.data?.prompt, node.data?.command, node.data?.goal, node.type === 'core' ? JSON.stringify(node.data?.params ?? {}) : '']
       .filter((v) => typeof v === 'string')
       .join('\n')
     if (SPEC_TOKEN.test(text) || TICKET_CMD.test(text)) return true
   }
-  return false
+  return Object.values(graph.components ?? {}).some(component => loopNeedsTicket(component))
 }

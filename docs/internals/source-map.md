@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 942 source/build files. Nearby tests are linked where names
+Includes 952 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -368,6 +368,8 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/loops/components
 
+- [CoreParameterForm.tsx](../../client/src/features/loops/components/CoreParameterForm.tsx) · [test](../../client/src/features/loops/components/__tests__/CoreParameterForm.test.tsx)
+- [CoreWorkflowInspector.tsx](../../client/src/features/loops/components/CoreWorkflowInspector.tsx)
 - [LoopPreviewModal.tsx](../../client/src/features/loops/components/LoopPreviewModal.tsx)
 - [LoopRunModal.tsx](../../client/src/features/loops/components/LoopRunModal.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopRunModal.test.tsx)
 - [TemplatePreviewModal.tsx](../../client/src/features/loops/components/TemplatePreviewModal.tsx) · [test](../../client/src/features/loops/components/__tests__/TemplatePreviewModal.test.tsx)
@@ -387,6 +389,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/loops/lib
 
+- [core-authoring.ts](../../client/src/features/loops/lib/core-authoring.ts) · [test](../../client/src/features/loops/lib/__tests__/core-authoring.test.ts)
 - [loop-clipboard.ts](../../client/src/features/loops/lib/loop-clipboard.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-clipboard.test.ts)
 - [loop-export.ts](../../client/src/features/loops/lib/loop-export.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-export.test.ts)
 - [loop-graph-rf.ts](../../client/src/features/loops/lib/loop-graph-rf.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-graph-rf.test.ts)
@@ -550,6 +553,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AppearanceSection.tsx](../../client/src/features/settings/components/AppearanceSection.tsx) · [test](../../client/src/features/settings/components/__tests__/AppearanceSection.test.tsx)
 - [CodeSectionSettings.tsx](../../client/src/features/settings/components/CodeSectionSettings.tsx) · [test](../../client/src/features/settings/components/__tests__/CodeSectionSettings.test.tsx)
 - [CoreUpdateSection.tsx](../../client/src/features/settings/components/CoreUpdateSection.tsx) · [test](../../client/src/features/settings/components/__tests__/CoreUpdateSection.test.tsx)
+- [CustomRuntimeRoles.tsx](../../client/src/features/settings/components/CustomRuntimeRoles.tsx) · [test](../../client/src/features/settings/components/__tests__/CustomRuntimeRoles.test.tsx)
 - [EffectsSection.tsx](../../client/src/features/settings/components/EffectsSection.tsx) · [test](../../client/src/features/settings/components/__tests__/EffectsSection.test.tsx)
 - [ExternalMcpServersCard.tsx](../../client/src/features/settings/components/ExternalMcpServersCard.tsx) · [test](../../client/src/features/settings/components/__tests__/ExternalMcpServersCard.test.tsx)
 - [LanguageSection.tsx](../../client/src/features/settings/components/LanguageSection.tsx) · [test](../../client/src/features/settings/components/__tests__/LanguageSection.test.tsx)
@@ -788,6 +792,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [check-core-sync.mjs](../../scripts/check-core-sync.mjs) · [test](../../scripts/check-core-sync.test.mjs)
 - [check-package.mjs](../../scripts/check-package.mjs) · [test](../../scripts/check-package.test.mjs)
 - [copy-server-assets.mjs](../../scripts/copy-server-assets.mjs)
+- [coverage-shards.mjs](../../scripts/coverage-shards.mjs) · [test](../../scripts/coverage-shards.test.mjs)
 - [fix-desktop-bundle.mjs](../../scripts/fix-desktop-bundle.mjs)
 - [generate-icons.mjs](../../scripts/generate-icons.mjs)
 - [generate-mobile-types.mjs](../../scripts/generate-mobile-types.mjs)
@@ -811,6 +816,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [smoke-windows-installers.ps1](../../scripts/smoke-windows-installers.ps1)
 - [stage-windows-pty.mjs](../../scripts/stage-windows-pty.mjs) · [test](../../scripts/stage-windows-pty.test.mjs)
 - [test-scripts.mjs](../../scripts/test-scripts.mjs)
+- [verified-client.mjs](../../scripts/verified-client.mjs) · [test](../../scripts/verified-client.test.mjs)
 - [verify-chromium-bundle.mjs](../../scripts/verify-chromium-bundle.mjs) · [test](../../scripts/verify-chromium-bundle.test.mjs)
 
 ## server / agent
@@ -1205,7 +1211,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [loop-command-catalog.ts](../../server/modules/loops/runtime/loop-command-catalog.ts) · [test](../../server/modules/loops/runtime/loop-command-catalog.test.ts)
 - [loop-constants.ts](../../server/modules/loops/runtime/loop-constants.ts) · [test](../../server/modules/loops/runtime/loop-constants.test.ts)
+- [loop-core-factory.ts](../../server/modules/loops/runtime/loop-core-factory.ts) · [test](../../server/modules/loops/runtime/loop-core-factory.test.ts)
 - [loop-decider.ts](../../server/modules/loops/runtime/loop-decider.ts) · [test](../../server/modules/loops/runtime/loop-decider.test.ts)
+- [loop-definition-events.ts](../../server/modules/loops/runtime/loop-definition-events.ts)
+- [loop-definition-run.ts](../../server/modules/loops/runtime/loop-definition-run.ts) · [test](../../server/modules/loops/runtime/loop-definition-run.test.ts)
+- [loop-definition.ts](../../server/modules/loops/runtime/loop-definition.ts) · [test](../../server/modules/loops/runtime/loop-definition.test.ts)
 - [loop-effect.ts](../../server/modules/loops/runtime/loop-effect.ts) · [test](../../server/modules/loops/runtime/loop-effect.test.ts)
 - [loop-executors.ts](../../server/modules/loops/runtime/loop-executors.ts) · [test](../../server/modules/loops/runtime/loop-executors.test.ts)
 - [loop-factory.ts](../../server/modules/loops/runtime/loop-factory.ts) · [test](../../server/modules/loops/runtime/loop-factory.test.ts)

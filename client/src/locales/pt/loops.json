@@ -152,7 +152,10 @@
       "EMPTY_PROMPT": "O AI Step está com o prompt vazio.",
       "EMPTY_COMMAND": "O passo Shell está com o comando vazio.",
       "EMPTY_GOAL": "O Loop Decider não tem objetivo.",
-      "DEAD_END": "Este passo não tem conexão de saída."
+      "DEAD_END": "Este passo não tem conexão de saída.",
+      "MIXED_ENGINES": "Não misture etapas antigas com etapas Core.",
+      "CORE_OUTCOMES": "Ligue resultados distintos e válidos.",
+      "CORE_PIECE": "Selecione uma etapa e os seus parâmetros."
     },
     "preview": {
       "label": "Pré-visualizar",
@@ -160,6 +163,48 @@
       "sampleNote": "Os valores do spec são exemplos; comandos e constantes são resolvidos como em execução.",
       "empty": "Nenhum passo para pré-visualizar.",
       "error": "Falha na pré-visualização"
+    },
+    "core": {
+      "unavailable": "Motor indisponível. Atualize o Core para adicionar ou publicar etapas.",
+      "root": "Workflow principal",
+      "components": "Componentes",
+      "componentName": "Nome do componente",
+      "addComponent": "Adicionar componente",
+      "openComponent": "Abrir componente",
+      "breadcrumbs": "Navegação do workflow",
+      "select": "Escolha uma opção",
+      "valueType": "Tipo de valor",
+      "addItem": "Adicionar item",
+      "fieldName": "Nome do campo",
+      "addField": "Adicionar {{name}}",
+      "removeField": "Remover {{name}}",
+      "variant": "Formato de {{name}}",
+      "tooDeep": "O valor contém demasiados níveis.",
+      "pieces": {
+        "prompt": "Prompt",
+        "role-turn": "Turno de papel",
+        "decider": "Decisão",
+        "condition": "Condição",
+        "verify": "Verificar",
+        "shell": "Shell",
+        "openspec-validate": "Validar OpenSpec",
+        "openspec-archive": "Arquivar OpenSpec",
+        "approval": "Aprovação",
+        "question": "Pergunta",
+        "gate": "Pausa",
+        "map": "Mapear",
+        "join": "Unir",
+        "component": "Componente",
+        "implementation": "Implementação",
+        "end": "Fim"
+      },
+      "groups": {
+        "ai": "IA",
+        "verification": "Verificação",
+        "openspec": "OpenSpec",
+        "control": "Controlo de fluxo"
+      },
+      "options": "Opções do workflow"
     }
   },
   "preview": {
@@ -382,5 +427,14 @@
     "skipped_other": "{{count}} duplicados ignorados: {{names}}",
     "invalid": "Esse arquivo não é uma exportação de loops válida."
   },
-  "automaticOnly": "Executa automaticamente quando pede alterações numa revisão — este não é iniciado por você."
+  "automaticOnly": "Executa automaticamente quando pede alterações numa revisão — este não é iniciado por você.",
+  "core": {
+    "selectInterrupt": "Selecionar pergunta ou aprovação pendente",
+    "answerQuestion": "Responder à pergunta",
+    "approval": "Aprovação",
+    "approveContinue": "Aprovar e continuar",
+    "paused": "Em pausa",
+    "acceptance": "Aceitação",
+    "verified": "Verificado"
+  }
 }

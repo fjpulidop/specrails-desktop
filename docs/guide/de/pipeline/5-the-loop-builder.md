@@ -1,5 +1,15 @@
 # Der Loop Builder
 
+## Core-Workflows
+
+Mit einer kompatiblen Core-Engine zeigt ein neuer Canvas die sechzehn Schritte des installierten Katalogs. Klicke auf einen Schritt oder ziehe ihn auf den Canvas und fülle das Formular aus. Anbieter und Rollen stammen aus dem aktiven Projekt. Verbinde jeden benannten Ausgang mit einem weiteren Schritt oder Ende. Jeder Ausgang erlaubt eine Verbindung.
+
+Die Formulare unterstützen optionale Felder, Objekte, Listen und Wörterbücher für alle Schritte: KI, Bedingungen, Prüfung, Shell, OpenSpec, Freigaben, Fragen, Pausen, Zuordnung, Zusammenführung, Komponenten und Implementierung. Workflow-Optionen enthalten Token- und Übergangslimits sowie Parallelität. Das Übergangslimit zählt auch Besuche in Komponenten und Zweigen.
+
+Erstelle unter **Komponenten** einen wiederverwendbaren Ablauf, deklariere Eingaben und Ausgaben und wähle ihn in Komponente oder Zuordnen. Die Navigation kehrt ohne Datenverlust zum Hauptworkflow zurück. Ein lokales Ende wählt seine Komponentenausgabe optional über `exit`.
+
+Beim Veröffentlichen validiert Core den Entwurf und markiert fehlerhafte Schritte. Beim Start wird die Projektkonfiguration erneut geprüft. Aktualisiere Core, wenn die Engine fehlt. Bestehende Desktop-Loops behalten ihren bisherigen Editor und Ablauf; die folgenden Abschnitte beschreiben diese.
+
 Eine **rail führt einen Loop aus**. Die eingebauten Loops (`Implement`, `Batch`, `Freestyle`) decken die Alltagsfälle ab, aber der **Loop Builder** lässt dich deine eigenen entwerfen — ein visueller Editor im n8n-Stil für Automatisierung, die sich wiederholt, bis ein Ziel erreicht ist. Diese Seite erklärt, was ein Loop ist, wie du einen baust und wie du ihn auf einer rail ausführst.
 
 ## Loops und rails — die Beziehung

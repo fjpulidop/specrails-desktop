@@ -399,3 +399,24 @@ describe('stalled steps (loop-step-idle)', () => {
     expect(chip?.state).toBe('failed')
   })
 })
+
+describe('Core branch event projection', () => {
+  it('routes interleaved output by attempt identity and keeps all active branches running', () => {
+    const model = groupByLoopStep([
+      stepEv(1,'core','branch A',{attemptId:'a',nodeId:'map[0]/read',branch:'0'}),
+      stepEv(2,'core','branch B',{attemptId:'b',nodeId:'map[1]/read',branch:'1'}),
+      ev('log',{line:'A text',attemptId:'a'}), ev('log',{line:'B text',attemptId:'b'}),
+      ev('log',{line:'unknown branch',attemptId:'missing'}),
+    ])
+    expect(model.segments.map(segment=>segment.lines.map(line=>line.content))).toEqual([['A text'],['B text']])
+    expect(model.setup.map(line=>line.content)).toEqual(['unknown branch'])
+    expect(segmentStatus(model.segments[0],{isLast:false,jobSettled:false})).toBe('running')
+    expect(segmentStatus(model.segments[0],{isLast:false,jobSettled:true})).toBe('interrupted')
+  })
+  it('uses Core graph snapshot and replaces paused attempt with committed resumed terminal',()=>{
+    const model=groupByLoopStep([graphEv(),ev('runtime-graph',{workflowId:'core-def',nodes:[{path:'component/ask',kind:'human-question',label:'Decision'}],edges:[]}),
+      stepEv(1,'core','Decision',{attemptId:'a',nodeId:'component/ask'}),endEv(1,{status:'paused'}),endEv(1,{status:'ok'})])
+    expect(model.graphMeta?.loopId).toBe('core-def');expect(model.graphMeta?.graph.nodes[0]).toMatchObject({id:'component/ask',data:{label:'Decision',kind:'human-question'}})
+    expect(model.segments[0].end?.status).toBe('ok')
+  })
+})

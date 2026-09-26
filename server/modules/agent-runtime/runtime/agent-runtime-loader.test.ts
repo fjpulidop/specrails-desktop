@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 const scope = vi.hoisted(() => ({ bundled: null as string | null, source: 'bundled', error: null as string | null }))
 vi.mock('../../../core-runtime', () => ({ getCoreRuntimeStatus: () => ({ runtime: scope.bundled ? { root: scope.bundled, source: scope.source } : null, error: scope.error }) }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath }))
-import { findCoreAgentRuntimeCli, findCoreAgentRuntimeEntry, loadCoreAgentRuntime, resetCoreAgentRuntimeApiCache } from './agent-runtime-loader'
+import { findCoreAgentRuntimeCli, findCoreAgentRuntimeEntry, loadCoreAgentRuntime, resetCoreAgentRuntimeApiCache, readWorkflowCatalog } from './agent-runtime-loader'
 let root: string
 beforeEach(() => { resetCoreAgentRuntimeApiCache(); root = mkdtempSync(join(tmpdir(), 'runtime loader ')); vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', ''); vi.stubEnv('NODE_ENV', 'production') })
 afterEach(() => { scope.bundled = null; scope.source = 'bundled'; scope.error = null; vi.restoreAllMocks(); vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true }) })
@@ -90,10 +90,10 @@ it('accepts additive engine descriptors and validates definitions through the se
   const entry = file('engine/index.js')
   vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', entry)
   const descriptors = { engineVersion: 2, nodeKindsVersion: 1, nodeKinds: ['prompt', 'end'], builtins: [{ id: 'specrails-implementation', version: '7', deprecated: false }], capabilities: { workflowDefinitions: 1, engineV2: 1, openRoles: 1, fanOut: 1, fork: 1, steeringInbox: 1 } }
-  file('engine/cli.js', `if(process.argv[2]==='api')console.log(JSON.stringify({type:'runtime-api',apiVersion:1,...${JSON.stringify(descriptors)}}));else{if(process.argv.slice(2).join(' ')!=='workflows validate --stdin')process.exit(3);const input=JSON.parse(require('node:fs').readFileSync(0,'utf8'));console.log(JSON.stringify({type:'runtime-definition-validated',ok:true,version:'a'.repeat(64),graph:{nodes:[input],edges:[]}}))}`)
+  file('engine/cli.js', `if(process.argv[2]==='api')console.log(JSON.stringify({type:'runtime-api',apiVersion:1,...${JSON.stringify(descriptors)}}));else{if(process.argv.slice(2).join(' ')!=='workflows validate --stdin --structural')process.exit(3);const input=JSON.parse(require('node:fs').readFileSync(0,'utf8'));console.log(JSON.stringify({type:'runtime-definition-validated',ok:true,version:'a'.repeat(64),definition:{...input,version:'a'.repeat(64)},graph:{nodes:[input],edges:[]}}))}`)
   const runtime = await loadCoreAgentRuntime()
   expect(runtime.api).toMatchObject(descriptors)
-  expect(runtime.validateWorkflowDefinition!({ id: 'sample' })).toEqual({ ok: true, version: 'a'.repeat(64), graph: { nodes: [{ id: 'sample' }], edges: [] } })
+  expect(runtime.validateWorkflowDefinition!({ id: 'sample' })).toEqual({ ok: true, version: 'a'.repeat(64), definition: { id: 'sample', version: 'a'.repeat(64) }, graph: { nodes: [{ id: 'sample' }], edges: [] } })
 })
 
 it('returns structured definition errors from exit 1 and does not hide process failures', async () => {
@@ -143,4 +143,16 @@ it('rejects unsupported feature requests on old API1 and validates exact role ca
   expect(() => validateRoleCapabilities({ ...result, roles: [...roles.slice(0, 2), roles[1]] }, config)).toThrow('malformed')
   expect(() => validateRoleCapabilities({ ...result, roles: roles.map(role => ({ ...role, model: 'different' })) }, config)).toThrow('malformed')
   expect(() => validateRequestedRoleEfforts({ RUNTIME_API_VERSION: 1, capabilities: () => result, rolePromptDefaults: () => ({ architect: '', developer: '', reviewer: '' }), validateRuntimeConfig: value => value, validateWorkflowDefinition: () => { throw Error('unsupported') } }, config)).toThrow('not confirmed')
+})
+
+it('reads the authoritative piece catalog through Core and rejects malformed outcomes', async () => {
+  const entry = file('catalog/index.js')
+  vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', entry)
+  const catalog = { type: 'runtime-workflows', definitionSchema: { type: 'object' }, nodeKindsVersion: 1, builtins: [], nodeKinds: [{ kind: 'condition', paramsSchema: { type: 'object' }, outcomes: ['true', 'false'], effect: 'read', requiresAI: false }] }
+  const script = (value: unknown) => `console.log(JSON.stringify(process.argv[2] === 'api' ? {type:'runtime-api',apiVersion:1,capabilities:{workflowDefinitions:1,engineV2:1}} : ${JSON.stringify(value)}))`
+  const cli = file('catalog/cli.js', script(catalog))
+  expect((await loadCoreAgentRuntime()).listWorkflows!()).toEqual(catalog)
+  catalog.nodeKinds[0].outcomes.push('true')
+  writeFileSync(cli, script(catalog))
+  expect(() => (readWorkflowCatalog(catalog))).toThrow('malformed workflow catalog')
 })
