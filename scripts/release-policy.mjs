@@ -144,7 +144,8 @@ async function main(command) {
     const checkoutSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
     const mode = desktopReleaseMode({ eventName: process.env.GITHUB_EVENT_NAME, validationOnly: process.env.VALIDATION_ONLY,
       ref: process.env.GITHUB_REF, repository, sha, checkoutSha, version })
-    await requireSuccessfulCi({ repository, sha, branch: mode.ciBranch })
+    const ciRun = await requireSuccessfulCi({ repository, sha, branch: mode.ciBranch })
+    output('ci_run_id', ciRun.id)
     output('publish', String(mode.publish))
     output('version', mode.version)
     if (mode.tag) output('tag', mode.tag)

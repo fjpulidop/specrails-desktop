@@ -63,6 +63,7 @@ jobs:
     timeout-minutes: 95
     outputs:
       publish: ${{ steps.admission.outputs.publish }}
+      ci-run-id: ${{ steps.admission.outputs.ci_run_id }}
     permissions:
       contents: read
       actions: read
@@ -82,6 +83,9 @@ jobs:
 
   build-macos:
     needs: admission
+    permissions:
+      contents: read
+      actions: read
     # Chromium and the enclosing app are notarized separately before publication.
     timeout-minutes: 120
     runs-on: macos-latest  # Apple Silicon (arm64)
@@ -112,7 +116,17 @@ jobs:
           workspaces: "./src-tauri -> target"
 
       - name: Install dependencies
-        run: npm ci && cd client && npm ci
+        run: npm ci
+
+      - name: Download the frontend verified by exact-source CI
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: verified-desktop-client
+          path: ${{ runner.temp }}/verified-client
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.admission.outputs.ci-run-id }}
+      - name: Verify and restore the same frontend on every platform
+        run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client' 
 
       - name: Download and verify Node.js ${{ env.NODE_BUNDLE_VERSION }} (macOS arm64)
         run: |
@@ -375,7 +389,7 @@ jobs:
           bash scripts/smoke-bundled-runtimes.sh "$(pwd)/src-tauri/runtimes"
 
       - name: Build desktop app
-        run: npm run build:desktop
+        run: npm run build:desktop:verified
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -443,6 +457,9 @@ jobs:
   # ---------------------------------------------------------------
   build-windows:
     needs: admission
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 90
     runs-on: windows-latest
 
@@ -473,7 +490,17 @@ jobs:
 
       - name: Install dependencies
         shell: bash
-        run: npm ci && cd client && npm ci
+        run: npm ci
+
+      - name: Download the frontend verified by exact-source CI
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: verified-desktop-client
+          path: ${{ runner.temp }}/verified-client
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.admission.outputs.ci-run-id }}
+      - name: Verify and restore the same frontend on every platform
+        run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client' 
 
       - name: Download and verify Node.js ${{ env.NODE_BUNDLE_VERSION }} (Windows x64)
         shell: bash
@@ -608,7 +635,7 @@ jobs:
 
       - name: Build desktop app
         shell: bash
-        run: npm run build:desktop
+        run: npm run build:desktop:verified
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -726,6 +753,9 @@ jobs:
   # ---------------------------------------------------------------
   build-windows-arm64:
     needs: admission
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 90
     runs-on: windows-11-arm
 
@@ -758,7 +788,17 @@ jobs:
 
       - name: Install dependencies
         shell: bash
-        run: npm ci && cd client && npm ci
+        run: npm ci
+
+      - name: Download the frontend verified by exact-source CI
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: verified-desktop-client
+          path: ${{ runner.temp }}/verified-client
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.admission.outputs.ci-run-id }}
+      - name: Verify and restore the same frontend on every platform
+        run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client' 
 
       - name: Download and verify Node.js ${{ env.NODE_BUNDLE_VERSION }} (Windows arm64)
         shell: bash
@@ -884,7 +924,7 @@ jobs:
 
       - name: Build desktop app
         shell: bash
-        run: npm run build:desktop
+        run: npm run build:desktop:verified
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}

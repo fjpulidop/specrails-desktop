@@ -193,50 +193,108 @@ jobs:
       - run: npm run test:scripts
       - run: npm run audit:architecture
       # test:scripts already checks the generated source map without rewriting it.
+      - name: Preserve the verified platform-independent frontend for release
+        run: node scripts/verified-client.mjs stage '${{ runner.temp }}/verified-client'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: verified-desktop-client
+          path: ${{ runner.temp }}/verified-client/
+          if-no-files-found: error
+          retention-days: 30
 
-  # Separate runners let the two complete coverage suites run concurrently.
-  # Each keeps its own thresholds and artifact; no test shards lose coverage.
-  server-coverage:
+  # Partial reports never authorize a release. Each merge verifies commit,
+  # locks, Vitest version and an exhaustive, non-overlapping test inventory.
+  coverage-shards:
+    name: Coverage (${{ matrix.suite }} ${{ matrix.part }}/${{ matrix.count }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { suite: server, part: 1, count: 3, prefix: '.' }
+          - { suite: server, part: 2, count: 3, prefix: '.' }
+          - { suite: server, part: 3, count: 3, prefix: '.' }
+          - { suite: client, part: 1, count: 4, prefix: client }
+          - { suite: client, part: 2, count: 4, prefix: client }
+          - { suite: client, part: 3, count: 4, prefix: client }
+          - { suite: client, part: 4, count: 4, prefix: client }
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: ${{ matrix.prefix }}/package-lock.json
+      - run: npm ci --prefix '${{ matrix.prefix }}'
+      - name: Run assigned tests and collect coverage
+        run: node scripts/coverage-shards.mjs run '${{ matrix.suite }}' '${{ matrix.part }}/${{ matrix.count }}' '${{ runner.temp }}/coverage-shard'
+      - name: Preserve shard evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: coverage-${{ matrix.suite }}-shard-${{ matrix.part }}
+          path: |
+            ${{ runner.temp }}/coverage-shard/*.manifest.json
+            ${{ runner.temp }}/coverage-shard/*.blob.json
+          if-no-files-found: error
+          retention-days: 7
+
+  server-coverage:
+    needs: coverage-shards
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
         with:
           node-version: 22.22.3
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - name: Server and CLI coverage with existing enforced thresholds
-        run: npm run test:coverage
-      - name: Upload coverage report
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: coverage-server-shard-*
+          path: ${{ runner.temp }}/coverage-shards
+          merge-multiple: true
+      - name: Verify complete evidence and enforce existing coverage thresholds
+        run: node scripts/coverage-shards.mjs merge server 3 '${{ runner.temp }}/coverage-shards'
+      - name: Upload complete coverage report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: coverage-report
           path: coverage/
           retention-days: 30
 
   client-coverage:
+    needs: coverage-shards
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
         with:
           node-version: 22.22.3
           cache: npm
           cache-dependency-path: client/package-lock.json
       - run: npm ci --prefix client
-      - name: Client coverage with existing enforced thresholds
-        run: npm run test:coverage --prefix client
-      - name: Upload client coverage report
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: coverage-client-shard-*
+          path: ${{ runner.temp }}/coverage-shards
+          merge-multiple: true
+      - name: Verify complete evidence and enforce existing coverage thresholds
+        run: node scripts/coverage-shards.mjs merge client 4 '${{ runner.temp }}/coverage-shards'
+      - name: Upload complete coverage report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: client-coverage-report
           path: client/coverage/

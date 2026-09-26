@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 942 source/build files. Nearby tests are linked where names
+Includes 944 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -788,6 +788,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [check-core-sync.mjs](../../scripts/check-core-sync.mjs) · [test](../../scripts/check-core-sync.test.mjs)
 - [check-package.mjs](../../scripts/check-package.mjs) · [test](../../scripts/check-package.test.mjs)
 - [copy-server-assets.mjs](../../scripts/copy-server-assets.mjs)
+- [coverage-shards.mjs](../../scripts/coverage-shards.mjs) · [test](../../scripts/coverage-shards.test.mjs)
 - [fix-desktop-bundle.mjs](../../scripts/fix-desktop-bundle.mjs)
 - [generate-icons.mjs](../../scripts/generate-icons.mjs)
 - [generate-mobile-types.mjs](../../scripts/generate-mobile-types.mjs)
@@ -811,6 +812,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [smoke-windows-installers.ps1](../../scripts/smoke-windows-installers.ps1)
 - [stage-windows-pty.mjs](../../scripts/stage-windows-pty.mjs) · [test](../../scripts/stage-windows-pty.test.mjs)
 - [test-scripts.mjs](../../scripts/test-scripts.mjs)
+- [verified-client.mjs](../../scripts/verified-client.mjs) · [test](../../scripts/verified-client.test.mjs)
 - [verify-chromium-bundle.mjs](../../scripts/verify-chromium-bundle.mjs) · [test](../../scripts/verify-chromium-bundle.test.mjs)
 
 ## server / agent
