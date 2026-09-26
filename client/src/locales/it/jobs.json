@@ -279,7 +279,21 @@
     "stalledIdle_other": "Nessun output dal provider per {{count}} minuti — l'app ha fermato questo tentativo",
     "providerLimit": "Limite del provider",
     "providerLimitHint": "Il provider ha risposto con un avviso di limite d'uso, quindi l'app ha fermato la run invece di continuare a ciclare.",
-    "paused": "In pausa"
+    "paused": "In pausa",
+    "runtimeGraph": "Grafo di esecuzione",
+    "graphBack": "Indietro",
+    "graphOpenComponent": "Apri componente",
+    "graphNoAttempts": "Nessun tentativo registrato",
+    "graphState": {
+      "running": "In esecuzione",
+      "paused": "In pausa",
+      "failed": "Fallito",
+      "stalled": "Senza progressi",
+      "interrupted": "Interrotto",
+      "ok": "Riuscito",
+      "pending": "In attesa",
+      "unknown": "Sconosciuto"
+    }
   },
   "logViewer": {
     "loading": "Caricamento dei log...",

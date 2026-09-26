@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 963 source/build files. Nearby tests are linked where names
+Includes 966 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -386,11 +386,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [LoopStepExplorer.tsx](../../client/src/features/loops/components/loop-log/LoopStepExplorer.tsx) · [test](../../client/src/features/loops/components/loop-log/__tests__/LoopStepExplorer.test.tsx)
 - [LoopStepSection.tsx](../../client/src/features/loops/components/loop-log/LoopStepSection.tsx)
 - [NarratedProgress.tsx](../../client/src/features/loops/components/loop-log/NarratedProgress.tsx) · [test](../../client/src/features/loops/components/loop-log/__tests__/NarratedProgress.test.tsx)
+- [RuntimeGraphExplorer.tsx](../../client/src/features/loops/components/loop-log/RuntimeGraphExplorer.tsx) · [test](../../client/src/features/loops/components/loop-log/__tests__/RuntimeGraphExplorer.test.tsx)
 - [completion-model.ts](../../client/src/features/loops/components/loop-log/completion-model.ts)
 - [loop-log-model.ts](../../client/src/features/loops/components/loop-log/loop-log-model.ts) · [test](../../client/src/features/loops/components/loop-log/__tests__/loop-log-model.test.ts)
 - [loop-node-visuals.ts](../../client/src/features/loops/components/loop-log/loop-node-visuals.ts)
 - [narration-commands.ts](../../client/src/features/loops/components/loop-log/narration-commands.ts) · [test](../../client/src/features/loops/components/loop-log/__tests__/narration-commands.test.ts)
 - [narration-model.ts](../../client/src/features/loops/components/loop-log/narration-model.ts) · [test](../../client/src/features/loops/components/loop-log/__tests__/narration-model.test.ts)
+- [runtime-topology.ts](../../client/src/features/loops/components/loop-log/runtime-topology.ts) · [test](../../client/src/features/loops/components/loop-log/__tests__/runtime-topology.test.ts)
 
 ## client/src/features/loops/lib
 
@@ -801,6 +803,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [copy-server-assets.mjs](../../scripts/copy-server-assets.mjs)
 - [coverage-shards.mjs](../../scripts/coverage-shards.mjs) · [test](../../scripts/coverage-shards.test.mjs)
 - [fix-desktop-bundle.mjs](../../scripts/fix-desktop-bundle.mjs)
+- [generate-core-event-fixture.mjs](../../scripts/generate-core-event-fixture.mjs)
 - [generate-icons.mjs](../../scripts/generate-icons.mjs)
 - [generate-mobile-types.mjs](../../scripts/generate-mobile-types.mjs)
 - [generate-source-map.mjs](../../scripts/generate-source-map.mjs) · [test](../../scripts/generate-source-map.test.mjs)
@@ -1226,7 +1229,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-core-factory.ts](../../server/modules/loops/runtime/loop-core-factory.ts) · [test](../../server/modules/loops/runtime/loop-core-factory.test.ts)
 - [loop-decider.ts](../../server/modules/loops/runtime/loop-decider.ts) · [test](../../server/modules/loops/runtime/loop-decider.test.ts)
 - [loop-definition-controls.ts](../../server/modules/loops/runtime/loop-definition-controls.ts) · [test](../../server/modules/loops/runtime/loop-definition-controls.test.ts)
-- [loop-definition-events.ts](../../server/modules/loops/runtime/loop-definition-events.ts)
+- [loop-definition-events.ts](../../server/modules/loops/runtime/loop-definition-events.ts) · [test](../../server/modules/loops/runtime/loop-definition-events.test.ts)
 - [loop-definition-recovery.ts](../../server/modules/loops/runtime/loop-definition-recovery.ts) · [test](../../server/modules/loops/runtime/loop-definition-recovery.test.ts)
 - [loop-definition-run.ts](../../server/modules/loops/runtime/loop-definition-run.ts) · [test](../../server/modules/loops/runtime/loop-definition-run.test.ts)
 - [loop-definition.ts](../../server/modules/loops/runtime/loop-definition.ts) · [test](../../server/modules/loops/runtime/loop-definition.test.ts)

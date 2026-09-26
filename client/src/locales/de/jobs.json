@@ -279,7 +279,21 @@
     "stalledIdle_other": "{{count}} Minuten ohne Provider-Ausgabe – die App hat diesen Versuch beendet",
     "providerLimit": "Anbieter-Limit",
     "providerLimitHint": "Der Anbieter antwortete mit einem Nutzungslimit-Hinweis; die App hat den Lauf gestoppt statt weiterzudrehen.",
-    "paused": "Pausiert"
+    "paused": "Pausiert",
+    "runtimeGraph": "Ausführungsgraph",
+    "graphBack": "Zurück",
+    "graphOpenComponent": "Komponente öffnen",
+    "graphNoAttempts": "Keine aufgezeichneten Versuche",
+    "graphState": {
+      "running": "Läuft",
+      "paused": "Pausiert",
+      "failed": "Fehlgeschlagen",
+      "stalled": "Ohne Fortschritt",
+      "interrupted": "Unterbrochen",
+      "ok": "Erfolgreich",
+      "pending": "Ausstehend",
+      "unknown": "Unbekannt"
+    }
   },
   "logViewer": {
     "loading": "Logs werden geladen…",

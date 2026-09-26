@@ -279,7 +279,21 @@
     "stalledIdle_other": "Sin salida del proveedor durante {{count}} minutos: la app detuvo este intento",
     "providerLimit": "Límite del proveedor",
     "providerLimitHint": "El proveedor respondió con un aviso de límite de uso, así que la app detuvo el run en vez de seguir iterando.",
-    "paused": "En pausa"
+    "paused": "En pausa",
+    "runtimeGraph": "Grafo de ejecución",
+    "graphBack": "Volver",
+    "graphOpenComponent": "Abrir componente",
+    "graphNoAttempts": "Sin intentos registrados",
+    "graphState": {
+      "running": "En ejecución",
+      "paused": "Pausado",
+      "failed": "Fallido",
+      "stalled": "Sin progreso",
+      "interrupted": "Interrumpido",
+      "ok": "Completado",
+      "pending": "Pendiente",
+      "unknown": "Desconocido"
+    }
   },
   "logViewer": {
     "loading": "Cargando logs...",

@@ -279,7 +279,21 @@
     "stalledIdle_other": "Sem saída do fornecedor durante {{count}} minutos — a app parou esta tentativa",
     "providerLimit": "Limite do fornecedor",
     "providerLimitHint": "O fornecedor respondeu com um aviso de limite de utilização, por isso a app parou a execução em vez de continuar a ciclar.",
-    "paused": "Em pausa"
+    "paused": "Em pausa",
+    "runtimeGraph": "Grafo de execução",
+    "graphBack": "Voltar",
+    "graphOpenComponent": "Abrir componente",
+    "graphNoAttempts": "Nenhuma tentativa registada",
+    "graphState": {
+      "running": "Em execução",
+      "paused": "Pausado",
+      "failed": "Falhou",
+      "stalled": "Sem progresso",
+      "interrupted": "Interrompido",
+      "ok": "Concluído",
+      "pending": "Pendente",
+      "unknown": "Desconhecido"
+    }
   },
   "logViewer": {
     "loading": "A carregar logs...",

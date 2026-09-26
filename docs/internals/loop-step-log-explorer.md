@@ -6,6 +6,25 @@ The explorer does **not** introduce a second log pipeline. It consumes the exact
 
 ## Event contract
 
+### Core v2 topology and concurrent attempts
+
+For v2 runs, `runtime-graph.graph` is the recorded public Core topology, including
+component references and outcome-labelled edges. The collapsible **Run graph**
+renders this snapshot without inventing transitions or exposing executable prompts.
+Selecting a component opens its nested graph; Back restores the parent and fits
+the viewport. Editing remains in Loop Builder.
+
+Selecting a node lists its recorded attempts by scope and attempt ID. Each entry
+focuses that exact log segment, including concurrent map branches. Status uses the
+latest attempt within each scope; a successful sibling cannot hide a failed one.
+Trace/span identifiers appear only when present in the recorded event. Malformed
+topology is ignored without interrupting the normal log view. Legacy snapshots
+retain the existing overview strip.
+
+The v2 projection adds `attemptId`, `nodePath`, `scopeId`, `traceId` and optional
+`spanId` to step metadata. Log correlation uses an attempt-index map so parallel
+output is not assigned to whichever step happened to arrive last.
+
 Emitted by `server/modules/loops/runtime/loop-run-manager.ts` (payload interfaces are exported there — `LoopStepEventPayload`, `LoopStepEndEventPayload`, `LoopGraphEventPayload`). All three ride the run's job row as ordinary persisted `events` rows plus `event` WS broadcasts (`event_type` below, `payload` = JSON of the interface). Purely additive to the existing stream — no DB migration.
 
 ### `loop_graph` — once, at run start

@@ -1,3 +1,4 @@
+import { parseRuntimeTopology, type RuntimeTopology } from './runtime-topology'
 import { parseLoopCompletion, type LoopCompletion } from './completion-model'
 /**
  * Loop-step log model — pure grouping/derivation logic for the premium
@@ -29,6 +30,8 @@ import { deriveFrameActivity } from '../../../browser/lib/frame-activity'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface LoopStepMeta {
+  traceId?: string
+  spanId?: string
   nodePath?: string
   scopeId?: string
   branch?: string
@@ -62,6 +65,7 @@ export interface LoopStepEndMeta {
 }
 
 export interface LoopGraphMeta {
+  runtimeTopology?: RuntimeTopology
   graph: LoopGraph
   loopId?: string
   loopName?: string
@@ -162,6 +166,7 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
 
   // buckets[0] = setup; buckets[i+1] pairs segMetas[i]
   const buckets: FormattedLine[][] = [[]]
+  const attemptSegments = new Map<string, number>()
   const segMetas: Array<{
     meta: LoopStepMeta
     end: LoopStepEndMeta | null
@@ -182,7 +187,7 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
         const nodes = p.nodes.filter((node): node is Record<string, unknown> => Boolean(node && typeof node === 'object' && typeof node.path === 'string'))
         const edges = p.edges.filter((edge): edge is Record<string, unknown> => Boolean(edge && typeof edge === 'object' && typeof edge.from === 'string' && typeof edge.to === 'string'))
         const priorGraph: LoopGraphMeta | null = graphMeta as LoopGraphMeta | null
-        graphMeta = { ...(priorGraph ?? {}), loopId: typeof p.workflowId === 'string' ? p.workflowId : priorGraph?.loopId,
+        graphMeta = { ...(priorGraph ?? {}), runtimeTopology: parseRuntimeTopology(p.graph) ?? undefined, loopId: typeof p.workflowId === 'string' ? p.workflowId : priorGraph?.loopId,
           graph: { nodes: nodes.map((node,index) => ({ id: String(node.path), type: 'core', position: {x:0,y:index*100}, data: {label: String(node.label ?? node.path),kind: node.kind as NonNullable<LoopNode['data']>['kind']} })),
             edges: edges.map((edge,index) => ({id:`core-edge-${index}`,source:String(edge.from),target:String(edge.to),label:String(edge.label)})), config: priorGraph?.graph.config ?? {maxIterations:1,timeoutMinutes:0} } }
       }
@@ -211,6 +216,8 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
       segMetas.push({
         meta: {
           index: p.index,
+          traceId: typeof p.traceId === 'string' ? p.traceId : undefined,
+          spanId: typeof p.spanId === 'string' ? p.spanId : undefined,
           nodePath: typeof p.nodePath === 'string' ? p.nodePath : undefined,
           scopeId: typeof p.scopeId === 'string' ? p.scopeId : undefined,
           branch: typeof p.branch === 'string' ? p.branch : undefined,
@@ -227,6 +234,7 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
         end: null,
         lastActivity: null,
       })
+      if (typeof p.attemptId === 'string') attemptSegments.set(p.attemptId, segMetas.length - 1)
       buckets.push([])
       continue
     }
@@ -259,7 +267,7 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
     // the model is derived from whatever `events` currently holds).
     const raw = parsePayload(ev.payload)
     const eventAttempt = raw?.attemptId ?? (raw?.event && typeof raw.event === 'object' ? (raw.event as Record<string,unknown>).attemptId : undefined)
-    const correlatedIndex = typeof eventAttempt === 'string' ? segMetas.findIndex(segment => segment.meta.attemptId === eventAttempt) : -1
+    const correlatedIndex = typeof eventAttempt === 'string' ? (attemptSegments.get(eventAttempt) ?? -1) : -1
     const segmentIndex = correlatedIndex >= 0 ? correlatedIndex : eventAttempt !== undefined ? -1 : segMetas.length - 1
     const inStep = segmentIndex >= 0
     const line = parseEvent(ev, idx)

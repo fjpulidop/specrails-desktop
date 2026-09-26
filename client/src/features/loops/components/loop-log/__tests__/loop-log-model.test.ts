@@ -419,4 +419,13 @@ describe('Core branch event projection', () => {
     expect(model.graphMeta?.loopId).toBe('core-def');expect(model.graphMeta?.graph.nodes[0]).toMatchObject({id:'component/ask',data:{label:'Decision',kind:'human-question'}})
     expect(model.segments[0].end?.status).toBe('ok')
   })
+  it('preserves the public nested topology and recorded trace correlation', () => {
+    const graph = { entry: 'map', nodes: [{ id: 'map', kind: 'map', label: 'Review', component: 'review', ends: { next: null } }], components: { review: { entry: 'read', nodes: [{ id: 'read', kind: 'prompt', label: 'Read', ends: { next: null } }] } } }
+    const model = groupByLoopStep([
+      ev('runtime-graph', { workflowId: 'review', nodes: [{ path: 'map', kind: 'map', label: 'Review' }], edges: [], graph }),
+      stepEv(1, 'prompt', 'Read', { nodePath: 'map/read', scopeId: 'backend', attemptId: 'attempt-1', traceId: 'trace-1', spanId: 'span-1' }),
+    ])
+    expect(model.graphMeta?.runtimeTopology).toEqual(graph)
+    expect(model.segments[0].meta).toMatchObject({ nodePath: 'map/read', scopeId: 'backend', attemptId: 'attempt-1', traceId: 'trace-1', spanId: 'span-1' })
+  })
 })

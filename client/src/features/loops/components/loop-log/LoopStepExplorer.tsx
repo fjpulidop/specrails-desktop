@@ -1,3 +1,4 @@
+import { RuntimeGraphExplorer } from './RuntimeGraphExplorer'
 /**
  * LoopStepExplorer — premium step-grouped log exploration for loop jobs.
  *
@@ -311,6 +312,7 @@ export function LoopStepExplorer({
         className={variant === 'glass' ? 'max-h-[45%] min-h-0 shrink-0 overflow-y-auto overscroll-contain' : undefined}
         tabIndex={variant === 'glass' ? 0 : undefined}
       ><LoopCompletionSummary result={model.completion} /></div>}
+      {model.graphMeta?.runtimeTopology && <RuntimeGraphExplorer topology={model.graphMeta.runtimeTopology} segments={model.segments} settled={settled} onFocus={focusSegment} />}
       <LoopOverviewStrip
         chips={chips}
         iteration={iterationInfo}

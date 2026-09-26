@@ -5,6 +5,14 @@ The original objective remains **the entire plan, not just the foundations**.
 This checkpoint is unfinished implementation, not production acceptance. Do not
 merge, release, check off pending gates, or describe the complete migration as done.
 
+## Runtime graph and recorded events — 26 September 2026, 22:58 CEST
+
+- Read-only ReactFlow explorer consumes Core's actual public topology, including labelled transitions and nested components. Node selection focuses exact scoped attempts; latest status per scope cannot hide a failed sibling. Recorded trace/span metadata is retained. All eight locales updated.
+- Browser verification used the actual component with a disposable parallel-branch fixture. Corrected dark-theme control contrast and refit on component navigation; selecting the failed branch focused its exact scope. Preview files/server/tab were removed.
+- Client full coverage: **392 suites / 4,687 tests passed**, 182.30s; statements/lines 89.69%, branches 84.21%, functions 75.77%. Original thresholds unchanged. Focused explorer suites passed 188 tests. Full typecheck and architecture audit passed for the UI block.
+- Added a real Core/LangGraph JSONL capture (Core 54946aae) using a deterministic local executor: two physical calls, concurrent scopes, pause/resume and replay. Desktop projection agrees with recorded Core tokens and known-cost totals, preserves unknown billing, and does not bill replay. Eleven projection/manager tests passed. This is contract evidence, not rollout/provider billing telemetry.
+- D2 remaining checks include final evidence/paired delivery acceptance and trace surface integration. D3 fork lifecycle and D4 pre-migration recovery remain open; no completion claim is made for those blocks.
+
 ## Saved execution controls — 26 September 2026, 22:30 CEST
 
 - Saved v2 executions and job headers now route resume/recovery and terminal-settlement retry to the definition lifecycle. The legacy continuation rejects v2 before accounting/execution effects. Compact status preserves exact recoverable attempt IDs and maps displayed questions/approvals to authoritative pending interrupt identities.
