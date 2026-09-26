@@ -63,3 +63,9 @@ Updated run `36230773446` passed every check. Server shards took 2m12s–2m56s
 and client shards 2m52s–3m24s; each aggregate took 37s. Including queueing,
 the run took 22m52s, so this loaded-run comparison does not demonstrate a total
 wall-time reduction. Preserve both measures when adjusting worker counts.
+
+The subsequent exact-head run `36233342790` passed all 18 checks in **4m05s**
+including queueing (09:37:32–09:41:37 UTC). Server shards took 1m43s–2m42s,
+client shards 2m18s–3m10s, and aggregation took 35s/43s. This observed run is
+74% shorter than the 15m50s baseline; the preceding queued run demonstrates why
+this is an observed result, not a guaranteed hosted-runner latency.
