@@ -103,3 +103,5 @@ builder 会帮你在 loop 真正跑起来之前就把它弄对：
 - [Rail 与任务](rails-and-jobs)——启动 rail 以及任务队列。
 - [任务详情视图](the-job-detail-view)——实时观看一次运行。
 - [为每条 rail 选择引擎](picking-an-engine-per-rail)——是 rail（而不是 loop）来选提供方。
+
+如果所选 Core 支持单次调用限制，prompt、role 和 decider 节点会提供 `timeoutMs` 和 `idleTimeoutMs`。设为 `0` 可禁用该步骤的相应计时器；删除字段则继承默认值。整个工作流的预算和取消功能仍然有效。如果验证步骤提出需要人工决定的问题，它会等待你的回答，然后才能接受成功结果。

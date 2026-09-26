@@ -106,3 +106,9 @@ The run streams live in the **Jobs** view with the same metrics and cost trackin
 - [Rails & jobs](rails-and-jobs) — launching rails and the job queue.
 - [The Job Detail view](the-job-detail-view) — watching a run live.
 - [Picking an engine per rail](picking-an-engine-per-rail) — the rail (not the loop) picks the provider.
+
+When the selected Core exposes invocation limits, prompt, role and decider
+pieces offer `timeoutMs` and `idleTimeoutMs`. Set a limit to `0` to disable that
+step timer, or remove the field to inherit the default. Whole-workflow budgets
+and cancellation still apply. A verification step that asks a blocking question
+waits for your answer before accepting a success result.

@@ -297,3 +297,13 @@ and does not recreate a worktree or replace frozen paths with current settings.
 Status retains Core's recorded completion or pause and reports
 `runtime_scope_unavailable`; resume remains disabled until the original scope is
 available and validated. Inspection alone does not authorize delivery settlement.
+
+### Per-piece invocation limits
+
+With a Core catalog that exposes them, `prompt`, `role-turn` and `decider` accept
+`timeoutMs` and `idleTimeoutMs` in their parameter forms. An explicit `0` disables
+that invocation timer; removing the optional field restores the inherited
+default. Workflow duration/cost/token budgets and cancellation still apply.
+Role repair and session fallback retain the selected bounds, including Kimi ACP
+transport. A verification prompt reporting `LOOP_BLOCKED` pauses for the human
+answer before its success sentinel can be accepted.

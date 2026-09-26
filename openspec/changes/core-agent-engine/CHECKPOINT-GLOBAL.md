@@ -1,3 +1,20 @@
+## Timer compatibility and migration decisions — 27 September 2026
+
+The paired CI pin now targets Core `749a6133bd74e4fc97e794b6f1daecbf0c355901`.
+That version preserves explicit invocation/idle timers, aborts provider retry
+without another request after cancellation, forwards Kimi ACP idle bounds and
+pauses blocked verification prompts before accepting a success sentinel.
+
+All five real paired factory cases pass (61.00s), including no-progress failure.
+The parameter form now has a behavior regression proving zero and omission are
+distinct (all five form tests pass). Typecheck and actionlint pass. The loop
+builder guide describes the behavior in all eight locales; Web sync consumes
+these same sources. No legacy graph was migrated or deleted by these changes.
+
+`D8-COMPATIBILITY-DECISIONS.md` records verified constraints for the compatibility
+compiler, especially physical attempts versus visits, failure obligations and
+one-shot artifact repair. It does not close the compiler or release gates.
+
 # Checkpoint — 26 September 2026
 
 ## No-progress factory acceptance — 27 September 2026

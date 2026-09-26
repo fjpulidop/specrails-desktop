@@ -103,3 +103,5 @@ L'esecuzione scorre dal vivo nella vista **Jobs** con le stesse metriche e lo st
 - [Rail e job](rails-and-jobs) — avviare i rail e la coda dei job.
 - [La vista Dettaglio job](the-job-detail-view) — seguire un'esecuzione dal vivo.
 - [Scegliere un engine per rail](picking-an-engine-per-rail) — è il rail (non il loop) a scegliere il provider.
+
+Quando la versione di Core selezionata espone i limiti per invocazione, i blocchi prompt, ruolo e decider offrono `timeoutMs` e `idleTimeoutMs`. Imposta `0` per disattivare quel timer del passaggio oppure rimuovi il campo per ereditare il valore predefinito. I budget dell’intero workflow e l’annullamento restano attivi. Un passaggio di verifica che pone una domanda bloccante attende la tua risposta prima di accettare un risultato positivo.

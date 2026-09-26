@@ -103,3 +103,5 @@ Der Lauf streamt live in der **Jobs**-Ansicht, mit denselben Metriken und dersel
 - [Rails & Jobs](rails-and-jobs) — rails starten und die Job-Queue.
 - [Die Job-Detail-Ansicht](the-job-detail-view) — einem Lauf live zusehen.
 - [Eine Engine pro Rail wählen](picking-an-engine-per-rail) — die rail (nicht der Loop) wählt den Provider.
+
+Wenn die ausgewählte Core-Version Aufruflimits bereitstellt, bieten Prompt-, Rollen- und Decider-Bausteine `timeoutMs` und `idleTimeoutMs` an. Mit `0` deaktivierst du den jeweiligen Timer des Schritts; entfernst du das Feld, wird der Standardwert übernommen. Budgets des gesamten Workflows und der Abbruch bleiben wirksam. Stellt ein Verifizierungsschritt eine blockierende Frage, wartet er auf deine Antwort, bevor er ein erfolgreiches Ergebnis akzeptiert.

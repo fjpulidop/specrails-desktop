@@ -103,3 +103,5 @@ L'exécution se diffuse en direct dans la vue **Jobs** avec les mêmes métrique
 - [Rails et jobs](rails-and-jobs) — lancer des rails et la file d'attente des jobs.
 - [La vue détaillée du job](the-job-detail-view) — suivre une exécution en direct.
 - [Choisir un moteur par rail](picking-an-engine-per-rail) — c'est le rail (pas le loop) qui choisit le provider.
+
+Lorsque la version de Core sélectionnée expose les limites par invocation, les blocs prompt, rôle et decider proposent `timeoutMs` et `idleTimeoutMs`. La valeur `0` désactive le temporisateur correspondant pour cette étape ; supprimer le champ rétablit la valeur héritée. Les budgets du workflow complet et son annulation restent actifs. Une étape de vérification qui pose une question bloquante attend votre réponse avant d’accepter un résultat réussi.

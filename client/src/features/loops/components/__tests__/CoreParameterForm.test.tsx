@@ -24,6 +24,14 @@ function Editor({ schema, initial }: { schema: ParameterSchema; initial: unknown
 }
 const result = () => JSON.parse(screen.getByTestId('value').textContent!)
 describe('Core parameter authoring', () => {
+  it('distinguishes an explicit untimed step from an omitted inherited limit', () => {
+    render(<Editor schema={{ type: 'object', additionalProperties: false, properties: { timeoutMs: { type: 'integer', minimum: 0, maximum: 2_147_483_647 } } }} initial={{ timeoutMs: 60_000 }} />)
+    fireEvent.change(screen.getByLabelText('timeoutMs'), { target: { value: '0' } })
+    expect(result()).toEqual({ timeoutMs: 0 })
+    fireEvent.click(screen.getByRole('button', { name: 'builder.core.removeField timeoutMs' }))
+    expect(result()).toEqual({})
+  })
+
   it('edits required roles, optional scalar values and arrays without raw JSON', () => {
     render(
       <Editor

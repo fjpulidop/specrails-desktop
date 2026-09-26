@@ -103,3 +103,5 @@ A execução transmite ao vivo na vista **Jobs** com as mesmas métricas e o mes
 - [Rails e jobs](rails-and-jobs) — lançando rails e a fila de jobs.
 - [A vista de detalhe do job](the-job-detail-view) — acompanhando uma execução ao vivo.
 - [Escolhendo um motor por rail](picking-an-engine-per-rail) — o rail (não o loop) escolhe o provedor.
+
+Quando a versão de Core selecionada disponibiliza limites por invocação, os blocos de prompt, função e decider oferecem `timeoutMs` e `idleTimeoutMs`. Use `0` para desativar esse temporizador da etapa ou remova o campo para herdar o valor padrão. Os orçamentos do workflow completo e o cancelamento continuam ativos. Uma etapa de verificação que faz uma pergunta bloqueante espera sua resposta antes de aceitar um resultado bem-sucedido.
