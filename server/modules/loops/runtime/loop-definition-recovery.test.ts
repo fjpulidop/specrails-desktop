@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { existsSync, mkdtempSync, mkdirSync, realpathSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, realpathSync, readFileSync, writeFileSync, rmSync, symlinkSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -40,6 +40,30 @@ it('probes only retained status with frozen host and preserves the durable curso
   const result = await probeDefinitionRun(ctx(), 'run')
   expect(result).toMatchObject({ status: 'paused', resumable: true, lease: null, coreRevision: 7, eventCursor: 12, pendingInterrupts: [{ id: 'q1' }] })
   expect(db.prepare('SELECT * FROM loop_runs').all()).toEqual(prior)
+})
+
+it('inspects retained history after a mount disappears without authorizing resume', async () => {
+  const missing = path.join(directory, 'released-mount')
+  const runDirectory = path.join(path.dirname(contextPath), 'agent-workflow')
+  mkdirSync(runDirectory)
+  writeFileSync(path.join(runDirectory, 'run.sqlite'), 'fixture ledger')
+  writeFileSync(contextPath, JSON.stringify({ runId: 'run', backlogRoot: directory, artifactRoot: missing, repositories: [{ id: 'repo', path: missing }] }))
+  writeFileSync(retained.cli, `require('node:assert/strict').deepEqual(process.argv.slice(2),['status','--run-dir',${JSON.stringify(runDirectory)},'--compact']);process.stdout.write(${JSON.stringify(JSON.stringify(status()))})`)
+  const prior = db.prepare('SELECT * FROM loop_runs').all()
+  expect(await probeDefinitionRun(ctx(), 'run')).toMatchObject({ status: 'paused', resumable: false, error: { code: 'runtime_scope_unavailable' } })
+  expect(db.prepare('SELECT * FROM loop_runs').all()).toEqual(prior)
+  expect(existsSync(missing)).toBe(false)
+})
+
+it('refuses a redirected historical journal instead of inspecting another run', async () => {
+  const missing = path.join(directory, 'released-mount'), foreign = path.join(directory, 'other-run')
+  mkdirSync(foreign)
+  writeFileSync(path.join(foreign, 'run.sqlite'), 'foreign ledger')
+  symlinkSync(foreign, path.join(path.dirname(contextPath), 'agent-workflow'), 'junction')
+  writeFileSync(contextPath, JSON.stringify({ runId: 'run', backlogRoot: directory, artifactRoot: missing, repositories: [{ id: 'repo', path: missing }] }))
+  writeFileSync(retained.cli, `require('node:fs').writeFileSync(${JSON.stringify(path.join(directory, 'spawned'))},'bad')`)
+  expect(await probeDefinitionRun(ctx(), 'run')).toMatchObject({ status: 'unavailable', error: { message: 'Retained run ledger is outside its original directory' } })
+  expect(existsSync(path.join(directory, 'spawned'))).toBe(false)
 })
 
 it('takes active lease and exact recoverable attempt identity from Core', async () => {
@@ -133,3 +157,21 @@ it.skipIf(!pairedCore || !existsSync(path.join(pairedCore, 'dist/agent-runtime/c
   expect((await runAgentRuntimeControl({ ...controls, kind: 'cancel', requestId: 'cancel-probe' })).accepted).toEqual(receipt.accepted)
   expect(await probeDefinitionRun(ctx(), 'run')).toMatchObject({ status: 'cancelled', resumable: false, lease: null })
 }, process.platform === 'win32' ? 180_000 : 120_000)
+
+it.skipIf(!pairedCore || !existsSync(path.join(pairedCore, 'dist/agent-runtime/cli.js')))('reads a real retained ledger after releasing its original repository mount', async () => {
+  retained.cli = path.join(pairedCore!, 'dist/agent-runtime/cli.js')
+  const mount = path.join(directory, 'released-mount')
+  mkdirSync(mount)
+  expect(spawnSync('git', ['init', '-q', mount]).status).toBe(0)
+  writeFileSync(contextPath, JSON.stringify({ schemaVersion: 1, runId: 'run', backlogRoot: directory, artifactRoot: mount, artifactRepositoryId: 'repo', repositories: [{ id: 'repo', name: 'Repo', path: mount }], ownership: { git: 'host', backlog: 'host', worktrees: 'host' }, specs: [{ id: 'case', title: 'Probe', description: 'Read-only retained history' }] }))
+  writeFileSync(path.join(path.dirname(contextPath), 'desktop-runtime-host.json'), JSON.stringify({ schemaVersion: 1, cwd: mount, env: { SPECRAILS_GIT_AUTO: 'false' } }))
+  const fixture = path.join(pairedCore!, 'src/agent-runtime/engine/__fixtures__/acceptance')
+  const result = spawnSync(process.execPath, [retained.cli, 'run', '--context', contextPath, '--config', path.join(fixture, 'runtime-config.json'), '--definition', path.join(fixture, 'question-flow.json')], { encoding: 'utf8', timeout: 30_000 })
+  expect(result.status, result.stderr + result.stdout).toBe(2)
+  const ledger = path.join(path.dirname(contextPath), 'agent-workflow/run.sqlite')
+  const bytes = readFileSync(ledger)
+  rmSync(mount, { recursive: true })
+  expect(await probeDefinitionRun(ctx(), 'run')).toMatchObject({ status: 'paused', resumable: false, pendingInterrupts: [{ nodePath: 'ask' }], error: { code: 'runtime_scope_unavailable' } })
+  expect(readFileSync(ledger)).toEqual(bytes)
+  expect(existsSync(mount)).toBe(false)
+}, 30_000)

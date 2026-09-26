@@ -1,5 +1,29 @@
 # Checkpoint — 26 September 2026
 
+## Historical mount inspection — 27 September 2026
+
+Recovery status can inspect the owned retained journal when the frozen host's
+mounts are unavailable. The fallback is only `status --run-dir`, uses the run's
+existing directory, rejects journal symlink/junction redirection, preserves Core
+state and disables resume with `runtime_scope_unavailable`. It neither recreates
+mounts nor adopts current project settings. Eight recovery tests passed, including
+real Core pause, mount removal and byte-identical journal; typecheck passed.
+This is inspection support, not completion of D4 reconstruction/rehydration.
+
+Desktop remote CI 36277372514 on 3378b644 passed, including the required paired
+Core matrix on Linux/macOS/Windows, all coverage gates and package checks. The
+new inspection changes still require their own remote verification.
+
+## D7 observation acceptance — 27 September 2026
+
+The selected scoped attempt exposes only recorded trace/span identifiers. Core
+now shares the exact event-span identity with its optional OTLP exporter; its
+real local collector test proves correlation without implying export success.
+Desktop graph/model/composer suites passed 37 tests; MCP/runtime event projection
+passed 8 tests; runtime HTTP/control suite passed 53 tests in the preceding fix.
+The guide explains that event spans are points, not provider-duration measures.
+Task 9.3 is complete on this source pair; release/telemetry retirement gates stay open.
+
 ## Fork steering and Windows schema parity — 27 September 2026, 00:48 CEST
 
 - Pending/adopted fork operations now fence operator steering both before and

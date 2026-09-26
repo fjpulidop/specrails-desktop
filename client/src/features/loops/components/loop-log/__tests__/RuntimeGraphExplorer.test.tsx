@@ -39,3 +39,21 @@ it('explores component topology and selects exact branch attempts without editin
   await user.click(screen.getByRole('button', { name: 'Back' }))
   expect(screen.getByTestId('node-map')).toBeInTheDocument()
 })
+
+it('shows recorded trace and event-span correlation only for the owning attempt', async () => {
+  const user = userEvent.setup()
+  const left = segment('left-attempt', 'left', 'failed')
+  left.meta.traceId = 'recorded-trace'
+  left.meta.spanId = 'recorded-span'
+  const { container } = render(<RuntimeGraphExplorer topology={topology} segments={[left, segment('right-attempt', 'right', 'ok')]} settled onFocus={vi.fn()} />)
+  const details = container.querySelector('details')!
+  details.open = true; fireEvent(details, new Event('toggle'))
+  await user.click(await screen.findByTestId('node-map'))
+  await user.click(screen.getByRole('button', { name: 'Open component' }))
+  await user.click(screen.getByTestId('node-read'))
+  const leftRow = screen.getByRole('button', { name: 'left · left-attempt · Failed' }).closest('li')!
+  const rightRow = screen.getByRole('button', { name: 'right · right-attempt · Succeeded' }).closest('li')!
+  expect(leftRow).toHaveTextContent('traceId: recorded-trace · spanId: recorded-span')
+  expect(rightRow).not.toHaveTextContent('traceId:')
+  expect(rightRow).not.toHaveTextContent('spanId:')
+})

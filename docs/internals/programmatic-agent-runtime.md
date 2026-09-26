@@ -287,3 +287,13 @@ schema parity, four factories, custom-role read-only CLI arguments, durable
 fork/control recovery and two-repository settlement. Transport fixtures make no
 paid provider calls. Review and advance the Core pin with paired changes; ordinary
 coverage lanes may omit optional source fixtures, but the required matrix cannot.
+
+### Inspecting released workflow mounts
+
+Definition recovery can inspect an existing retained Core journal after its
+original repository mount disappears. This uses the read-only `status --run-dir`
+operation against the original owned journal, rejects redirected journal paths,
+and does not recreate a worktree or replace frozen paths with current settings.
+Status retains Core's recorded completion or pause and reports
+`runtime_scope_unavailable`; resume remains disabled until the original scope is
+available and validated. Inspection alone does not authorize delivery settlement.

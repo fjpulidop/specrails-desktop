@@ -89,7 +89,7 @@ work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 
 - [x] 9.1 Add retained-runtime signal endpoint and MCP action.
 - [x] 9.2 Show accepted/consumed steering receipts and attempt-boundary semantics in composer.
-- [ ] 9.3 Expose run traces and validate routes, MCP, composer and documentation.
+- [x] 9.3 Expose run traces and validate routes, MCP, composer and documentation.
 
 ## 10. D8 — Migration and retirement (requires parity and two telemetry releases)
 

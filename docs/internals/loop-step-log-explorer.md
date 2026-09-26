@@ -17,7 +17,11 @@ the viewport. Editing remains in Loop Builder.
 Selecting a node lists its recorded attempts by scope and attempt ID. Each entry
 focuses that exact log segment, including concurrent map branches. Status uses the
 latest attempt within each scope; a successful sibling cannot hide a failed one.
-Trace/span identifiers appear only when present in the recorded event. Malformed
+Trace/span identifiers appear only when present in the recorded event. Core v2
+uses the same stable event-span identity in JSONL and optional OTLP export, so a
+selected attempt's recorded `step_started` span can be located in a collector.
+These are point events, not provider-duration spans. Identifiers do not prove
+that a collector was configured or accepted the export. Malformed
 topology is ignored without interrupting the normal log view. Legacy snapshots
 retain the existing overview strip.
 

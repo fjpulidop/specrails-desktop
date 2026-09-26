@@ -41,9 +41,22 @@ export async function probeDefinitionRun(ctx: DefinitionProbeContext, runId: str
     if (!frozen || !contextPath || !path.isAbsolute(contextPath)) return unavailable('Frozen Core context is unavailable')
     const context = JSON.parse(readFileSync(contextPath, 'utf8')) as { runId?: string; backlogRoot?: string }
     if (context.runId !== runId || typeof context.backlogRoot !== 'string' || realpathSync(contextPath) !== path.join(realpathSync(context.backlogRoot), '.specrails', 'pipeline', runId, 'desktop-context.json')) return unavailable('Frozen Core context belongs to another run or path')
-    const host = readFrozenRuntimeHost(contextPath, ctx.env, runId)
+    let host: { cwd: string; env: NodeJS.ProcessEnv }
+    let scopeError: string | undefined
+    let selector = ['--context', contextPath]
+    try { host = readFrozenRuntimeHost(contextPath, ctx.env, runId) }
+    catch (error) {
+      // Released mounts cannot authorize execution, but the owned retained
+      // ledger can still answer a read-only status request. Never substitute
+      // today's project checkout for the frozen execution scope.
+      const runDirectory = path.join(path.dirname(contextPath), 'agent-workflow')
+      if (realpathSync(runDirectory) !== runDirectory || realpathSync(path.join(runDirectory, 'run.sqlite')) !== path.join(runDirectory, 'run.sqlite')) return unavailable('Retained run ledger is outside its original directory')
+      scopeError = error instanceof Error ? error.message : 'Original workflow scope is unavailable'
+      host = { cwd: path.dirname(contextPath), env: { ...ctx.env, SPECRAILS_GIT_AUTO: 'false' } }
+      selector = ['--run-dir', runDirectory]
+    }
     const cli = resolveRetainedAgentRuntime(contextPath)
-    const { stdout } = await promisify(execFile)(resolveCoreNodeRuntime(), [cli, 'status', '--context', contextPath, ...(includeOutputs ? [] : ['--compact'])], {
+    const { stdout } = await promisify(execFile)(resolveCoreNodeRuntime(), [cli, 'status', ...selector, ...(includeOutputs ? [] : ['--compact'])], {
       cwd: host.cwd, env: windowsSpawnEnv(host.env), windowsHide: true, timeout: 15_000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8',
     })
     const result: unknown = JSON.parse(stdout)
@@ -59,11 +72,12 @@ export async function probeDefinitionRun(ctx: DefinitionProbeContext, runId: str
     const completion = result.completion
     if (completion !== null && (!record(completion) || typeof completion.ok !== 'boolean' || typeof completion.verified !== 'boolean' || !Array.isArray(completion.reasons) || completion.reasons.some(reason => typeof reason !== 'string'))) return unavailable('Retained Core returned invalid completion evidence')
     return { runId, engineVersion: 2, status: state.status as DefinitionRunProbe['status'], lease: lease as DefinitionRunProbe['lease'],
-      resumable: !(lease as DefinitionRunProbe['lease'])?.active && completion === null && !['succeeded', 'cancelled'].includes(String(state.status)),
+      resumable: !scopeError && !(lease as DefinitionRunProbe['lease'])?.active && completion === null && !['succeeded', 'cancelled'].includes(String(state.status)),
       recoverableSteps: state.recoverableSteps.map(value => ({ attemptId: value.attemptId as string, nodePath: value.nodePath as string, scopeId: value.scopeId as string })),
       pendingInterrupts: state.pendingInterrupts as DefinitionInterrupt[], completion: completion as DefinitionCompletion | null,
       ...(includeOutputs ? { scopes: state.scopes as DefinitionRunProbe['scopes'] } : {}),
-      coreRevision: result.revision, eventCursor: result.eventCursor, probedAt: new Date().toISOString() }
+      coreRevision: result.revision, eventCursor: result.eventCursor, probedAt: new Date().toISOString(),
+      ...(scopeError ? { error: { code: 'runtime_scope_unavailable', message: scopeError.slice(0, 2000) } } : {}) }
   } catch (error) { return unavailable(error instanceof Error ? error.message : 'Retained runtime inspection failed') }
 }
 
