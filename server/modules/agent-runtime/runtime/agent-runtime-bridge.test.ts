@@ -230,7 +230,7 @@ describe('Core definition process bridge', () => {
     const result = await runAgentRuntimeInvocation({ ...options(), engineVersion: 2,
       prepareDefinition: () => ({ ...definition(), delivery: { requiresVerified: policy.requiresVerified } }),
     })
-    expect(result).toMatchObject({ failed: true, runtimeStatus: 'failed' })
+    expect(result).toMatchObject({ failed: true, runtimeStatus: 'blocked', errorText: expect.stringContaining('acceptance') })
   })
   it('fails unsupported/invalid definitions before spawning',async()=>{
     const onSpawn=vi.fn()

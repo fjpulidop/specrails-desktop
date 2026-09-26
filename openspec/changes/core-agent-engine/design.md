@@ -82,3 +82,14 @@ C1 determines SQLite binding, subgraph API limits and after-commit event deliver
 Store permissions and state patch semantics must be resolved in contracts before
 those later blocks. Default map concurrency is 1; the contract allows up to 8
 (the plan's suggested 4 is stale). No production v2 capability is advertised early.
+
+## Durable isolated settlement continuation
+
+Migration 67 stores immutable per-run/per-delivery allocation snapshots before
+Core starts, including the original branch/worktree, base SHA, overlay exclusions
+and cleanup authority. Per-unit Git settlement is extracted into one coordinator
+shared by fresh runs and restart reattachment. Durable per-unit results allow a
+partial fan-out to finish without discarding paused siblings. Reattachment claims
+the delivery before effects, validates frozen runtime/worktree identity, and uses
+Core terminal completion before applying the existing terminal outbox. It does
+not allocate another worktree, create another delivery, push, or merge.

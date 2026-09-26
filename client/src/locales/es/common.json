@@ -81,7 +81,8 @@
     "superseded": "Sustituida por una ejecución más reciente",
     "cleanup_incomplete": "Limpieza incompleta",
     "status_failed": "Falló la comprobación del estado del worktree",
-    "ref_mismatch": "La referencia de la rama no coincide"
+    "ref_mismatch": "La referencia de la rama no coincide",
+    "restart_pending": "Esperando la recuperación del workflow"
   },
   "prRecovery": {
     "inProgress": "La recuperación del proyecto sigue en curso. Tu entrega está a salvo; vuelve a intentarlo en unos instantes.",

@@ -1123,24 +1123,29 @@ export class LoopRunManager {
   }
 
   resumeDefinition(runId: string, input: DefinitionResumeControls = {}): Promise<LoopRunResult> {
+    try { return this.beginDefinitionResume(runId, input) } catch (error) { return Promise.reject(error) }
+  }
+
+  /** Synchronous admission lets HTTP reject competing writers before acknowledging a resume. */
+  beginDefinitionResume(runId: string, input: DefinitionResumeControls = {}): Promise<LoopRunResult> {
     const active = this._definitionTasks.get(runId)
     if (active) {
       const interruptId = input.interruptId ?? input.approve?.[0]
-      if (!this.isPaused(runId)) return Promise.reject(new Error('runtime_run_active: Select a pending question or approval'))
+      if (!this.isPaused(runId)) throw new Error('runtime_run_active: Select a pending question or approval')
       const request = readDefinitionRun(this.db, runId)?.request
-      if (!request) return Promise.reject(new Error('runtime_run_not_found: Frozen workflow is unavailable'))
-      try { this.claimDefinition({ ...request, runId }) } catch (error) { return Promise.reject(error) }
+      if (!request) throw new Error('runtime_run_not_found: Frozen workflow is unavailable')
+      this.claimDefinition({ ...request, runId })
       if (!this.sendInteractiveTurn(runId,input.answer ?? '',{interruptId,approve: Boolean(input.approve?.length)})) {
         this.releaseDefinition(runId)
-        return Promise.reject(new Error('runtime_run_active: Select a pending question or approval'))
+        throw new Error('runtime_run_active: Select a pending question or approval')
       }
       return active
     }
     const frozen = readDefinitionRun(this.db,runId)
-    if (!frozen) return Promise.reject(new Error('runtime_run_not_found: Frozen workflow is unavailable'))
-    if (frozen.row.status === 'completed') return Promise.reject(new Error('runtime_run_completed: Fork a completed workflow to continue'))
+    if (!frozen) throw new Error('runtime_run_not_found: Frozen workflow is unavailable')
+    if (frozen.row.status === 'completed') throw new Error('runtime_run_completed: Fork a completed workflow to continue')
     this._cancelled.delete(runId)
-    try { this.claimDefinition({ ...frozen.request, runId }) } catch (error) { return Promise.reject(error) }
+    this.claimDefinition({ ...frozen.request, runId })
     const task = this._run(frozen.request,{resume:true,...input}).finally(() => { this.releaseDefinition(runId); this._definitionTasks.delete(runId) })
     this._definitionTasks.set(runId,task)
     return task

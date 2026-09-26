@@ -1,0 +1,81 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import express from 'express'
+import request from 'supertest'
+import { initDb, type DbInstance } from './db'
+import { createLoopRun, claimDefinitionExecution, readDefinitionExecutionClaim } from './modules/loops/runtime/loop-runs-store'
+import { registerLoopRunRoutes } from './project-router-loop-runs'
+import type { ProjectRoutesDeps } from './project-router-helpers'
+
+const runtime = vi.hoisted(() => ({ probe: vi.fn(), settle: vi.fn() }))
+vi.mock('./modules/loops/runtime/loop-definition-recovery', () => ({ probeDefinitionRun: runtime.probe }))
+vi.mock('./modules/delivery/runtime/rail-isolated-launch', () => ({ reattachIsolatedSettlement: runtime.settle }))
+let db: DbInstance
+const begin = vi.fn(), finished = vi.fn(), resident = vi.fn()
+beforeEach(() => {
+  vi.clearAllMocks()
+  delete process.env.SPECRAILS_LOOPS_SECTION
+  db = initDb(':memory:')
+  createLoopRun(db, { id: 'run', projectId: 'p', loopId: 'loop', loopName: 'Test', railIndex: null, ticketId: null, provider: 'claude', model: 'sonnet', iterationLimit: 1, startedAt: new Date().toISOString() })
+  db.prepare("UPDATE loop_runs SET engine_version = 2, status = 'paused', restart_reason = 'restart' WHERE id = 'run'").run()
+  runtime.probe.mockResolvedValue({ status: 'paused', lease: null, pendingInterrupts: [], recoverableSteps: [{ attemptId: 'attempt', nodePath: 'node', scopeId: 'scope' }] })
+  begin.mockImplementation(() => new Promise(() => {}))
+  resident.mockReturnValue(false)
+})
+afterEach(() => db.close())
+function api(projectId = 'p') {
+  const app = express(), router = express.Router()
+  app.use(express.json())
+  registerLoopRunRoutes({ router, ctx: () => ({ db, project: { id: projectId, path: '/repo' }, loopRunManager: { beginDefinitionResume: begin, isDefinitionRunActive: resident }, onLoopRunFinished: finished }) } as unknown as ProjectRoutesDeps)
+  app.use('/api', router)
+  return request(app)
+}
+const url = '/api/p/loop-runs/run/resume'
+describe('definition resume admission', () => {
+  it('acknowledges admission without waiting for the workflow to finish', async () => {
+    expect((await api().post(url).send({ recover: ['attempt'] })).status).toBe(202)
+    expect(begin).toHaveBeenCalledWith('run', { recover: ['attempt'] })
+  })
+  it('rejects foreign project runs before probing Core', async () => {
+    expect((await api('other').post(url).send({})).status).toBe(404)
+    expect(runtime.probe).not.toHaveBeenCalled()
+  })
+  it.each(['unavailable', 'live'])('preserves ownership when inspection is %s', async status => {
+    claimDefinitionExecution(db, 'run', { owner: 'old', repositoryMounts: ['/repo'] })
+    runtime.probe.mockResolvedValue({ status: status === 'live' ? 'running' : status, lease: status === 'live' ? { active: true } : null })
+    expect((await api().post(url).send({})).status).toBe(status === 'live' ? 409 : 503)
+    expect(readDefinitionExecutionClaim(db, 'run')?.owner).toBe('old')
+    expect(begin).not.toHaveBeenCalled()
+  })
+  it('rejects node-path recovery and preserves the existing claim', async () => {
+    claimDefinitionExecution(db, 'run', { owner: 'old', repositoryMounts: ['/repo'] })
+    expect((await api().post(url).send({ recover: ['node'] })).status).toBe(400)
+    expect(readDefinitionExecutionClaim(db, 'run')?.owner).toBe('old')
+  })
+  it('releases only an observed orphan after Core confirms an inactive lease', async () => {
+    claimDefinitionExecution(db, 'run', { owner: 'old', repositoryMounts: ['/repo'] })
+    expect((await api().post(url).send({})).status).toBe(202)
+    expect(readDefinitionExecutionClaim(db, 'run')).toBeUndefined()
+  })
+  it('does not release a replacement claim acquired while probing', async () => {
+    claimDefinitionExecution(db, 'run', { owner: 'old', repositoryMounts: ['/repo'] })
+    runtime.probe.mockImplementation(async () => {
+      db.prepare("UPDATE definition_execution_claims SET owner = 'new' WHERE run_id = 'run'").run()
+      return { status: 'paused', lease: null, pendingInterrupts: [], recoverableSteps: [] }
+    })
+    begin.mockImplementation(() => { throw new Error('runtime_run_active') })
+    expect((await api().post(url).send({})).status).toBe(409)
+    expect(readDefinitionExecutionClaim(db, 'run')?.owner).toBe('new')
+  })
+  it('does not duplicate the original resident settlement callback', async () => {
+    resident.mockReturnValue(true)
+    begin.mockResolvedValue({ outcome: 'success' })
+    expect((await api().post(url).send({})).status).toBe(202)
+    expect(finished).not.toHaveBeenCalled()
+    expect(runtime.settle).not.toHaveBeenCalled()
+  })
+  it('completes the standalone terminal callback after resumed execution', async () => {
+    begin.mockResolvedValue({ outcome: 'success' })
+    expect((await api().post(url).send({})).status).toBe(202)
+    expect(finished).toHaveBeenCalledWith('run', 'success', undefined)
+  })
+})

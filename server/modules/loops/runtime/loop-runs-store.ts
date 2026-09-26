@@ -689,7 +689,7 @@ export function pauseLoopRun(db: DbInstance, id: string, counters?: Partial<Loop
 }
 
 export function resumeLoopRun(db: DbInstance, id: string): LoopRunRow | undefined {
-  db.prepare(`UPDATE loop_runs SET status = 'running' WHERE id = ? AND status = 'paused'`).run(id)
+  db.prepare(`UPDATE loop_runs SET status = 'running', restart_reason = NULL WHERE id = ? AND status = 'paused'`).run(id)
   return getLoopRun(db, id)
 }
 

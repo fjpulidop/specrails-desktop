@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 959 source/build files. Nearby tests are linked where names
+Includes 961 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1152,6 +1152,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [active-pr-continuation.ts](../../server/modules/delivery/runtime/active-pr-continuation.ts) · [test](../../server/modules/delivery/runtime/active-pr-continuation.test.ts)
 - [delivery-evidence.ts](../../server/modules/delivery/runtime/delivery-evidence.ts) · [test](../../server/modules/delivery/runtime/delivery-evidence.test.ts)
+- [isolated-settlement-store.ts](../../server/modules/delivery/runtime/isolated-settlement-store.ts)
 - [merge-manager.ts](../../server/modules/delivery/runtime/merge-manager.ts) · [test](../../server/modules/delivery/runtime/merge-manager.test.ts)
 - [multi-repo-bases.ts](../../server/modules/delivery/runtime/multi-repo-bases.ts) · [test](../../server/modules/delivery/runtime/multi-repo-bases.test.ts)
 - [multi-repo-checkout.ts](../../server/modules/delivery/runtime/multi-repo-checkout.ts)
@@ -1222,6 +1223,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-constants.ts](../../server/modules/loops/runtime/loop-constants.ts) · [test](../../server/modules/loops/runtime/loop-constants.test.ts)
 - [loop-core-factory.ts](../../server/modules/loops/runtime/loop-core-factory.ts) · [test](../../server/modules/loops/runtime/loop-core-factory.test.ts)
 - [loop-decider.ts](../../server/modules/loops/runtime/loop-decider.ts) · [test](../../server/modules/loops/runtime/loop-decider.test.ts)
+- [loop-definition-controls.ts](../../server/modules/loops/runtime/loop-definition-controls.ts) · [test](../../server/modules/loops/runtime/loop-definition-controls.test.ts)
 - [loop-definition-events.ts](../../server/modules/loops/runtime/loop-definition-events.ts)
 - [loop-definition-recovery.ts](../../server/modules/loops/runtime/loop-definition-recovery.ts) · [test](../../server/modules/loops/runtime/loop-definition-recovery.test.ts)
 - [loop-definition-run.ts](../../server/modules/loops/runtime/loop-definition-run.ts) · [test](../../server/modules/loops/runtime/loop-definition-run.test.ts)

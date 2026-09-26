@@ -81,7 +81,8 @@
     "superseded": "Durch einen neueren Lauf ersetzt",
     "cleanup_incomplete": "Bereinigung unvollständig",
     "status_failed": "Worktree-Statusprüfung fehlgeschlagen",
-    "ref_mismatch": "Branch-Referenz stimmt nicht überein"
+    "ref_mismatch": "Branch-Referenz stimmt nicht überein",
+    "restart_pending": "Wartet auf Wiederherstellung des Workflows"
   },
   "prRecovery": {
     "inProgress": "Die Projektwiederherstellung läuft noch. Deine Lieferung ist sicher – versuche es gleich noch einmal.",

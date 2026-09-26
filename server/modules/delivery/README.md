@@ -52,3 +52,15 @@ verdicts are retained in `scopedReviews`; their aggregate confidence stays absen
 An unavailable inspection is a failed/partial harvest, never a zero or a pass.
 Legacy journal harvesting remains limited to legacy executions. Delivery admission
 still requires the separate terminal completion/verification gate.
+
+### Definition execution recovery
+
+`runtime/isolated-settlement-store.ts` freezes isolated allocation and overlay
+policy before Core starts. Migration 67 stores one immutable snapshot per
+project delivery/run, the settlement result, and an atomic provenance receipt.
+`reattachIsolatedSettlement` uses the same Git settlement coordinator as a fresh
+launch. It checks the retained Core completion, frozen verification policy,
+worktree ledger, actual branch and repository mount before effects. Execution
+and delivery operation claims fence competing retries. A restart must preserve
+the original terminal outbox and accounting; it must not manufacture a new run
+or infer acceptance from exit code alone.

@@ -81,7 +81,8 @@
     "superseded": "Substituída por uma execução mais recente",
     "cleanup_incomplete": "Limpeza incompleta",
     "status_failed": "Falha na verificação do estado do worktree",
-    "ref_mismatch": "A referência do branch não corresponde"
+    "ref_mismatch": "A referência do branch não corresponde",
+    "restart_pending": "A aguardar a recuperação do workflow"
   },
   "prRecovery": {
     "inProgress": "A recuperação do projeto ainda está em andamento. Sua entrega está segura; tente novamente em instantes.",

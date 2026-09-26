@@ -5,6 +5,15 @@ The original objective remains **the entire plan, not just the foundations**.
 This checkpoint is unfinished implementation, not production acceptance. Do not
 merge, release, check off pending gates, or describe the complete migration as done.
 
+## Recovery continuation — 26 September 2026, 22:25 CEST
+
+- D4 isolated settlement now persists immutable per-unit admission snapshots before Core fan-out (migration 67), durable per-unit results, and transactional provenance receipts. Fresh and recovered work share the extracted Git settlement coordinator. Reattachment verifies frozen Core acceptance/verification, ledger/branch/mount ownership, claims execution and every delivery leg, preserves accounting and terminal outbox, and refreshes repository groups. Existing-PR results remain retryable through the existing delivery path; no automatic push or PR merge.
+- Added POST `/loop-runs/:id/resume` with fresh retained status, exact attempt/interrupt validation, synchronous manager admission, foreign-project protection and safe orphan-claim replacement checks. Resident tasks keep their original settlement callback; inactive resumed tasks reconnect to frozen isolated settlement or the standalone terminal callback. Completed Desktop rows can explicitly retry original settlement. Resume clears restart_reason.
+- Corrected the earlier completion-policy classification: a valid Core negative acceptance verdict (or missing required verification) is `blocked`, not malformed protocol/process failure. Frozen policy is still enforced.
+- Validation on this block: full typecheck and architecture audit passed; combined isolated launch/recovery, bridge, HTTP controls, resume validation/store and architecture regression passed 228 tests in seven files. Additional existing standalone routes passed with new HTTP cases (24 tests combined). Recovery operation conflict regression passed 7 tests. Source map and boundary manifest reviewed; eight common locales now include restart_pending.
+- This is not completion of D4/D3: fork HTTP/ownership transfer, inactive cancellation completion, pre-migration snapshot recovery, client controls/graph remain open. Existing agent-runtime saved-run controls still need to route v2 operations through the definition lifecycle. Real paired multi-repository/crash reattachment acceptance and new full coverage gates remain required. Do not count earlier full-coverage results as verification of these new edits.
+
+
 ## Codex continuation — 26 September 2026, 20:30 CEST
 
 - Broad stable-tree gates on Desktop 2fa3054a: server coverage 396 suites / 8,895 tests passed, two Windows-native suites / seven cases skipped on macOS; 105.27s with four workers, statements 87%, branches 80.17%, functions 90.90%, lines 90.01%. Original thresholds unchanged. Client coverage: 389 suites / 4,673 tests, 205.38s, statements/lines 89.68%, branches 84.17%, functions 75.70%.

@@ -78,3 +78,11 @@ for publication identity and nested-budget decisions.
 `loop-definition-recovery.ts` probes the retained Core CLI using frozen host inputs with four subprocesses at most, a 15-second timeout per run and bounded output. Startup waits for these observations before orphan reconciliation and worktree recovery. An unavailable probe is not evidence that implementation failed. Completed Core work remains pending Desktop settlement, and restart-paused v2 deliveries retain their building state and worktrees.
 
 The manager acquires a durable per-project execution claim before asynchronous admission. Claims fence overlapping checkout paths across distinct runs and forks, canonicalize existing symlinks and are released on errors and terminal completion. A human pause releases the claim; continuation reacquires it. Startup clears pre-allocation/terminal dead claims, preserves live or uninspectable Core owners, and keeps the exact recoverable attempt IDs supplied by Core. The per-run Core lease and the host's cross-run worktree claim enforce different ownership boundaries.
+
+Definition resume admission is synchronous through `beginDefinitionResume`;
+the returned promise represents execution completion, so HTTP can acknowledge
+admission without waiting for a human question. `resumeDefinition` retains the
+promise-rejection contract for existing callers. `loop-definition-controls.ts`
+validates pending question/approval IDs and exact recoverable attempt IDs from
+the retained Core journal. Resuming clears the restart marker so a later
+recovery request cannot release an active writer's claim.

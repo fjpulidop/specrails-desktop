@@ -1646,6 +1646,23 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_legacy_launch_at ON legacy_launch_events(at);
     `)
   },
+  // Migration 67: original isolated-delivery continuation, admitted before Core starts.
+  (db) => {
+    db.exec(`
+      CREATE TABLE definition_delivery_settlements (
+        delivery_id TEXT NOT NULL REFERENCES rail_pr_deliveries(id),
+        run_id TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL,
+        result_json TEXT,
+        provenance_recorded INTEGER NOT NULL DEFAULT 0 CHECK(provenance_recorded IN (0,1)),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (delivery_id, run_id)
+      );
+      CREATE INDEX idx_definition_delivery_run ON definition_delivery_settlements(run_id);
+    `)
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

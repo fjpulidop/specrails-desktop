@@ -37,8 +37,9 @@ import { getLinkByLocalId } from '../../../jira/jira-db'
 import type { DbInstance } from '../../../db'
 import { getJobEvents, getProjectSettings } from '../../../db'
 import { harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
-import { getLoopRun } from '../../loops/runtime/loop-runs-store'
-import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
+import { saveIsolatedSettlementSnapshot, saveIsolatedSettlementResult, readIsolatedSettlementRecords, recordIsolatedProvenanceOnce } from './isolated-settlement-store'
+import { getLoopRun, readDefinitionRun, claimDefinitionExecution, definitionRepositoryMounts } from '../../loops/runtime/loop-runs-store'
+import { probeDefinitionRun, probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 import { resolveIntegrationBranch, fetchOrigin, resolveWorktreeBaseRef, type ResolvedIntegrationBranch } from '../../../integration-branch'
 import { withRepoLock } from '../../../repo-lock'
 import { getProjectRepositories } from '../../../project-repositories'
@@ -47,7 +48,7 @@ import { isRailPrDeliveryEnabled } from './rail-isolation'
 import {
   appendPrDeliverySafetyArchive, createPrDeliveryGeneration, failPrDeliveryAndRestoreSuperseded,
   getPrDelivery, reconcileFailedBuildingPrDeliveries, readSpecSnapshot, transitionDecision, toPrDeliverySnapshot,
-  toRailPrStateMessage, toPrDecisionCardEnvelope,
+  toRailPrStateMessage, toPrDecisionCardEnvelope, claimPrDeliveryOperation, releasePrDeliveryOperation, transitionClaimedDecision,
   type DeliverBranchRecord, type DeliverySpecSnapshotEntry, type PrDecision, type PrDeliveryOutcome,
   type PrDeliveryStatusCode, type PrImplementationOutcome, type PrOriginSurface,
   type SupersededPrDelivery,
@@ -88,7 +89,7 @@ import {
   type UnreachableRecoveryScan,
 } from './rail-pr-recovery-git'
 import type { BranchToMerge } from './merge-manager'
-import { assertLoopShellRepositoryScope, type LoopGraph } from '../../loops/runtime/loop-graph'
+import { assertLoopShellRepositoryScope, isDefinitionGraph, type LoopGraph } from '../../loops/runtime/loop-graph'
 import type { ProjectContext } from '../../../project-registry'
 import type { ReasoningEffort } from '../../../providers/types'
 
@@ -207,7 +208,7 @@ export interface IsolatedLaunchIO {
   exec?: Exec
 }
 
-interface AllocatedRun {
+export interface AllocatedRun {
   /** The primary ticket (branch/ledger key). */
   ticketId: number
   /** Every ticket this run covers (= [ticketId] for per-ticket; all rail tickets for `all`). */
@@ -245,7 +246,7 @@ interface AllocatedRun {
   worktreeOwnership: 'created' | 'preexisting'
 }
 
-interface SettledRun {
+export interface SettledRun {
   run: AllocatedRun
   implementationOutcome: 'succeeded' | 'failed'
   deliveryOutcome: Extract<PrDeliveryOutcome, 'ready' | 'no_changes' | 'blocked' | 'not_started'>
@@ -576,6 +577,248 @@ function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
  */
 function getRailName(ctx: ProjectContext, railIndex: number): string | null {
   try { return getRail(ctx.db, railIndex).name ?? null } catch { return null }
+}
+
+interface IsolatedRunSettlementPorts {
+  git: GitRunner
+  baseRepo: string
+  overlaySourceRoot: string
+  overlayFallbackRoots?: string[]
+  overlayProviderDir: string
+  overlayInstructions: string
+  isAborted?(): boolean
+  onFinished(runId: string, outcome: string, stallReason?: string): void
+  recordRunProvenance(run: AllocatedRun): void
+  markWorktree(run: AllocatedRun, state: 'built' | 'failed' | 'needs-review'): string | null
+  hasRuntimeRequest(runId: string): boolean
+  commitMessage(run: AllocatedRun, partial: boolean): string
+}
+
+/** Shared by fresh execution and durable reattachment; one owner of Git settlement. */
+function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
+  const { git, baseRepo, overlaySourceRoot, overlayFallbackRoots, overlayProviderDir, overlayInstructions,
+    isAborted, onFinished, recordRunProvenance, markWorktree, hasRuntimeRequest, commitMessage } = ports
+  return async (
+    a: AllocatedRun,
+    enginePromise: Promise<{ runId: string; outcome: string; stallReason?: string }>,
+  ): Promise<SettledRun> => {
+    let actualOutcome = 'failed'
+    let engineFailure: string | undefined
+    let stallReason: string | undefined
+    try {
+      const result = await enginePromise
+      actualOutcome = result.outcome
+      stallReason = result.stallReason
+    } catch (err) {
+      engineFailure = errorDetail(err)
+      console.error(`[rail-isolated] loop run ${a.runId} rejected: ${engineFailure}`)
+    }
+
+    if (isAborted?.()) {
+      // The coordinator never started. Do not commit incidental edits or
+      // release a mount borrowed from a previous delivery while rolling back.
+      const finalSha = await readHeadSha(git, a.handle.worktreePath)
+      if (a.worktreeOwnership !== 'created') markWorktree(a, 'needs-review')
+      return {
+        run: a, implementationOutcome: 'failed', deliveryOutcome: 'not_started',
+        initialSha: a.initialSha, finalSha, changed: Boolean(finalSha && a.initialSha !== finalSha),
+        safeToRelease: a.worktreeOwnership === 'created' && finalSha !== null && finalSha === a.initialSha,
+      }
+    }
+    const implementationOutcome = actualOutcome === 'success' ? 'succeeded' as const : 'failed' as const
+    recordRunProvenance(a)
+
+    let callbackFailure: string | undefined
+    try {
+      onFinished(a.runId, actualOutcome, stallReason)
+    } catch (err) {
+      callbackFailure = errorDetail(err)
+      console.error(`[rail-isolated] terminal callback failed for ${a.runId}: ${callbackFailure}`)
+    }
+
+    // A paused/interrupted programmatic workflow owns unfinished changes and
+    // verification evidence in this exact mount. Keep them available for
+    // explicit Core recovery, including a currently clean worktree.
+    if (implementationOutcome === 'failed' && hasRuntimeRequest(a.runId)) {
+      markWorktree(a, 'needs-review')
+      return {
+        run: a, implementationOutcome, deliveryOutcome: 'blocked',
+        initialSha: a.initialSha, finalSha: await readHeadSha(git, a.handle.worktreePath),
+        failureCode: 'settlement_interrupted',
+        failureDetail: 'Programmatic workflow needs attention. Resume it from Agent Runtime settings in its original worktree.',
+        safeToRelease: false,
+      }
+    }
+
+    // The engine may have edited a copied overlay file. Re-authenticate only
+    // automatic-cleanup authority. Allocation-time paths remain conservative
+    // NEVER-COMMIT exclusions, while a modified copy is preserved in the
+    // worktree instead of being silently staged or deleted.
+    if (a.overlayCleanupEvidence.length > 0) {
+      a.overlayCleanupEvidence = revalidateOverlayCleanupEvidence({
+        worktreePath: a.handle.worktreePath,
+        sourceRoot: overlaySourceRoot,
+        fallbackSourceRoots: overlayFallbackRoots,
+        providerDir: overlayProviderDir,
+        instructionsFilename: overlayInstructions,
+      }, a.overlayCleanupEvidence)
+    }
+    // Warm-dependency links are re-proven against the base repo (their source),
+    // not the framework overlay source. A link the engine replaced with a real
+    // install loses its authorization here and correctly preserves the worktree.
+    if (a.warmLinkEvidence.length > 0) {
+      a.warmLinkEvidence = authenticateWarmNodeModulesLinks(baseRepo, a.handle.worktreePath)
+        .filter((live) => a.warmLinkEvidence.some(
+          (prior) => prior.path === live.path && prior.kind === live.kind && prior.digest === live.digest,
+        ))
+    }
+
+    let commit: CommitWorktreeResult
+    try {
+      commit = await commitWorktreeAndVerify(
+        git,
+        a.handle.worktreePath,
+        commitMessage(a, implementationOutcome === 'failed'),
+        a.overlayExcludes,
+      )
+    } catch (err) {
+      commit = { staged: false, committed: false, clean: false, dirty: [], error: errorDetail(err) }
+    }
+
+    if (!commit.clean) {
+      const detail = commitFailureSummary(commit)
+      console.error(`[rail-isolated] run ${a.runId} left an unsafe worktree: ${detail}`)
+      markWorktree(a, 'needs-review')
+      return {
+        run: a,
+        implementationOutcome,
+        deliveryOutcome: 'blocked',
+        initialSha: a.initialSha,
+        finalSha: await readHeadSha(git, a.handle.worktreePath),
+        failureCode: 'commit_failed',
+        failureDetail: detail,
+        safeToRelease: false,
+      }
+    }
+
+    // The worktree is proven clean THIS instant — freeze the ignored-path set
+    // as the settlement snapshot. Everything ignored right now is run residue
+    // by construction (the worktree is app-created and deliverables are
+    // committed); anything ignored that appears LATER preserves the worktree.
+    a.settlementIgnoredPaths = await captureSettlementIgnoredPaths(
+      git, a.handle.worktreePath, a.overlayExcludes,
+    )
+
+    let finalSha: string | null = null
+    let verificationFailure: string | undefined
+    if (a.continuationTarget) {
+      try {
+        finalSha = await verifyContinuationWorktree(git, baseRepo, a.handle, a.continuationTarget)
+      } catch (err) {
+        verificationFailure = errorDetail(err)
+      }
+    } else {
+      finalSha = await readHeadSha(git, a.handle.worktreePath)
+    }
+    const changed = commit.committed || Boolean(a.initialSha && finalSha && a.initialSha !== finalSha)
+
+    // A successful commit without a provable object is not retryable or safe to
+    // detach. A continuation additionally requires HEAD == refs/heads/<branch>.
+    if (verificationFailure || !finalSha || (
+      !commit.committed && a.branchOwnership === 'created' && !a.initialSha
+    )) {
+      const detail = verificationFailure
+        ?? (!finalSha
+          ? 'the final HEAD object could not be verified'
+          : 'the initial HEAD object was not captured, so a no-change result cannot be proven')
+      console.error(`[rail-isolated] run ${a.runId} finished on an unverified ref: ${detail}`)
+      markWorktree(a, 'needs-review')
+      return {
+        run: a,
+        implementationOutcome,
+        deliveryOutcome: 'blocked',
+        initialSha: a.initialSha,
+        finalSha,
+        changed,
+        failureCode: 'branch_verification_failed',
+        failureDetail: detail,
+        safeToRelease: false,
+      }
+    }
+
+    // Failed clean units remain `building` until aggregate cleanup removes the
+    // mount and atomically terminalizes the ledger as failed. Marking them
+    // terminal first would make idempotent cleanup skip a still-mounted path.
+    const ledgerFailure = implementationOutcome === 'succeeded'
+      ? (markWorktree(a, 'built') ?? undefined)
+      : undefined
+    const settlementFailure = callbackFailure ?? ledgerFailure
+    if (settlementFailure) {
+      markWorktree(a, 'needs-review')
+      return {
+        run: a,
+        implementationOutcome,
+        deliveryOutcome: 'blocked',
+        initialSha: a.initialSha,
+        finalSha,
+        changed,
+        failureCode: 'settlement_interrupted',
+        failureDetail: settlementFailure,
+        safeToRelease: false,
+      }
+    }
+
+    if (implementationOutcome === 'failed') {
+      return {
+        run: a,
+        implementationOutcome,
+        deliveryOutcome: 'not_started',
+        initialSha: a.initialSha,
+        finalSha,
+        changed,
+        ...(engineFailure ? { failureDetail: engineFailure } : {}),
+        safeToRelease: true,
+      }
+    }
+
+    // A resumed non-PR branch may already contain reviewable commits from an
+    // earlier attempt, even when this iteration itself did not add one.
+    let resumedBranchDelta: boolean | null = null
+    if (!changed && a.continuationTarget === null && a.branchOwnership === 'preexisting') {
+      resumedBranchDelta = await branchHasDelta(git, a.handle.worktreePath, a.baseRef)
+      if (resumedBranchDelta === null) {
+        const detail = `cannot prove whether resumed branch ${a.handle.branch} has commits ahead of ${a.baseRef}`
+        markWorktree(a, 'needs-review')
+        return {
+          run: a,
+          implementationOutcome,
+          deliveryOutcome: 'blocked',
+          initialSha: a.initialSha,
+          finalSha,
+          changed,
+          failureCode: 'branch_verification_failed',
+          failureDetail: detail,
+          safeToRelease: false,
+        }
+      }
+    }
+    const noChanges = !changed && Boolean(
+      a.initialSha && finalSha && a.initialSha === finalSha && (
+        a.continuationTarget !== null ||
+        a.branchOwnership === 'created' ||
+        resumedBranchDelta === false
+      ),
+    )
+    return {
+      run: a,
+      implementationOutcome,
+      deliveryOutcome: noChanges ? 'no_changes' : 'ready',
+      initialSha: a.initialSha,
+      finalSha,
+      changed,
+      safeToRelease: true,
+    }
+  }
 }
 
 export async function launchIsolatedRail(input: IsolatedLaunchInput, io: IsolatedLaunchIO = {}): Promise<string[]> {
@@ -1173,7 +1416,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     if (provenanceRecorded.has(a.runId)) return
     provenanceRecorded.add(a.runId)
     try {
-      recordProvenance({
+      const record = () => recordProvenance({
         db: ctx.db,
         projectId: ctx.project.id,
         runId: a.runId,
@@ -1183,6 +1426,8 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         snapshot: a.provenanceSnapshot,
         broadcast: (msg) => ctx.broadcast(msg),
       })
+      if (prDeliveryId && isDefinitionGraph(loopGraph)) recordIsolatedProvenanceOnce(ctx.db, prDeliveryId, a.runId, record)
+      else record()
     } catch (err) {
       console.warn(`[rail-isolated] provenance recording failed for ${a.runId}: ${errorDetail(err)}`)
     }
@@ -1198,230 +1443,25 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     }
   }
 
-  /** This function resolves for every allocated unit. Engine truth is captured
-   * before any delivery effect and is the only value sent to the deferred
-   * terminal callback. Delivery failures become blocked evidence instead. */
-  const settleAllocatedRun = async (
-    a: AllocatedRun,
-    enginePromise: Promise<{ runId: string; outcome: string; stallReason?: string }>,
-  ): Promise<SettledRun> => {
-    let actualOutcome = 'failed'
-    let engineFailure: string | undefined
-    let stallReason: string | undefined
-    try {
-      const result = await enginePromise
-      actualOutcome = result.outcome
-      stallReason = result.stallReason
-    } catch (err) {
-      engineFailure = errorDetail(err)
-      console.error(`[rail-isolated] loop run ${a.runId} rejected: ${engineFailure}`)
-    }
+  const settleAllocatedRun = createIsolatedRunSettlement({
+    git, baseRepo, overlaySourceRoot, overlayFallbackRoots, overlayProviderDir, overlayInstructions,
+    isAborted: input.repositoryExecution?.isAborted,
+    onFinished: (runId, outcome, stallReason) => ctx.onLoopRunFinished(runId, outcome, { ...runFinishedOpts, ...(stallReason ? { stallReason } : {}) }),
+    recordRunProvenance, markWorktree,
+    hasRuntimeRequest: runId => hasAgentRuntimeRequest(input.runtimeStateProject ?? ctx.project, runId),
+    commitMessage: (run, partial) => worktreeCommitMessage(ctx, run.ticketId, run.runId, partial),
+  })
 
-    if (input.repositoryExecution?.isAborted?.()) {
-      // The coordinator never started. Do not commit incidental edits or
-      // release a mount borrowed from a previous delivery while rolling back.
-      const finalSha = await readHeadSha(git, a.handle.worktreePath)
-      if (a.worktreeOwnership !== 'created') markWorktree(a, 'needs-review')
-      return {
-        run: a, implementationOutcome: 'failed', deliveryOutcome: 'not_started',
-        initialSha: a.initialSha, finalSha, changed: Boolean(finalSha && a.initialSha !== finalSha),
-        safeToRelease: a.worktreeOwnership === 'created' && finalSha !== null && finalSha === a.initialSha,
-      }
-    }
-    const implementationOutcome = actualOutcome === 'success' ? 'succeeded' as const : 'failed' as const
-    recordRunProvenance(a)
-
-    let callbackFailure: string | undefined
-    try {
-      ctx.onLoopRunFinished(a.runId, actualOutcome, { ...runFinishedOpts, ...(stallReason ? { stallReason } : {}) })
-    } catch (err) {
-      callbackFailure = errorDetail(err)
-      console.error(`[rail-isolated] terminal callback failed for ${a.runId}: ${callbackFailure}`)
-    }
-
-    // A paused/interrupted programmatic workflow owns unfinished changes and
-    // verification evidence in this exact mount. Keep them available for
-    // explicit Core recovery, including a currently clean worktree.
-    if (implementationOutcome === 'failed' && hasAgentRuntimeRequest(input.runtimeStateProject ?? ctx.project, a.runId)) {
-      markWorktree(a, 'needs-review')
-      return {
-        run: a, implementationOutcome, deliveryOutcome: 'blocked',
-        initialSha: a.initialSha, finalSha: await readHeadSha(git, a.handle.worktreePath),
-        failureCode: 'settlement_interrupted',
-        failureDetail: 'Programmatic workflow needs attention. Resume it from Agent Runtime settings in its original worktree.',
-        safeToRelease: false,
-      }
-    }
-
-    // The engine may have edited a copied overlay file. Re-authenticate only
-    // automatic-cleanup authority. Allocation-time paths remain conservative
-    // NEVER-COMMIT exclusions, while a modified copy is preserved in the
-    // worktree instead of being silently staged or deleted.
-    if (a.overlayCleanupEvidence.length > 0) {
-      a.overlayCleanupEvidence = revalidateOverlayCleanupEvidence({
-        worktreePath: a.handle.worktreePath,
-        sourceRoot: overlaySourceRoot,
-        fallbackSourceRoots: overlayFallbackRoots,
-        providerDir: overlayProviderDir,
-        instructionsFilename: overlayInstructions,
-      }, a.overlayCleanupEvidence)
-    }
-    // Warm-dependency links are re-proven against the base repo (their source),
-    // not the framework overlay source. A link the engine replaced with a real
-    // install loses its authorization here and correctly preserves the worktree.
-    if (a.warmLinkEvidence.length > 0) {
-      a.warmLinkEvidence = authenticateWarmNodeModulesLinks(baseRepo, a.handle.worktreePath)
-        .filter((live) => a.warmLinkEvidence.some(
-          (prior) => prior.path === live.path && prior.kind === live.kind && prior.digest === live.digest,
-        ))
-    }
-
-    let commit: CommitWorktreeResult
-    try {
-      commit = await commitWorktreeAndVerify(
-        git,
-        a.handle.worktreePath,
-        worktreeCommitMessage(ctx, a.ticketId, a.runId, implementationOutcome === 'failed'),
-        a.overlayExcludes,
-      )
-    } catch (err) {
-      commit = { staged: false, committed: false, clean: false, dirty: [], error: errorDetail(err) }
-    }
-
-    if (!commit.clean) {
-      const detail = commitFailureSummary(commit)
-      console.error(`[rail-isolated] run ${a.runId} left an unsafe worktree: ${detail}`)
-      markWorktree(a, 'needs-review')
-      return {
-        run: a,
-        implementationOutcome,
-        deliveryOutcome: 'blocked',
-        initialSha: a.initialSha,
-        finalSha: await readHeadSha(git, a.handle.worktreePath),
-        failureCode: 'commit_failed',
-        failureDetail: detail,
-        safeToRelease: false,
-      }
-    }
-
-    // The worktree is proven clean THIS instant — freeze the ignored-path set
-    // as the settlement snapshot. Everything ignored right now is run residue
-    // by construction (the worktree is app-created and deliverables are
-    // committed); anything ignored that appears LATER preserves the worktree.
-    a.settlementIgnoredPaths = await captureSettlementIgnoredPaths(
-      git, a.handle.worktreePath, a.overlayExcludes,
-    )
-
-    let finalSha: string | null = null
-    let verificationFailure: string | undefined
-    if (a.continuationTarget) {
-      try {
-        finalSha = await verifyContinuationWorktree(git, baseRepo, a.handle, a.continuationTarget)
-      } catch (err) {
-        verificationFailure = errorDetail(err)
-      }
-    } else {
-      finalSha = await readHeadSha(git, a.handle.worktreePath)
-    }
-    const changed = commit.committed || Boolean(a.initialSha && finalSha && a.initialSha !== finalSha)
-
-    // A successful commit without a provable object is not retryable or safe to
-    // detach. A continuation additionally requires HEAD == refs/heads/<branch>.
-    if (verificationFailure || !finalSha || (
-      !commit.committed && a.branchOwnership === 'created' && !a.initialSha
-    )) {
-      const detail = verificationFailure
-        ?? (!finalSha
-          ? 'the final HEAD object could not be verified'
-          : 'the initial HEAD object was not captured, so a no-change result cannot be proven')
-      console.error(`[rail-isolated] run ${a.runId} finished on an unverified ref: ${detail}`)
-      markWorktree(a, 'needs-review')
-      return {
-        run: a,
-        implementationOutcome,
-        deliveryOutcome: 'blocked',
-        initialSha: a.initialSha,
-        finalSha,
-        changed,
-        failureCode: 'branch_verification_failed',
-        failureDetail: detail,
-        safeToRelease: false,
-      }
-    }
-
-    // Failed clean units remain `building` until aggregate cleanup removes the
-    // mount and atomically terminalizes the ledger as failed. Marking them
-    // terminal first would make idempotent cleanup skip a still-mounted path.
-    const ledgerFailure = implementationOutcome === 'succeeded'
-      ? (markWorktree(a, 'built') ?? undefined)
-      : undefined
-    const settlementFailure = callbackFailure ?? ledgerFailure
-    if (settlementFailure) {
-      markWorktree(a, 'needs-review')
-      return {
-        run: a,
-        implementationOutcome,
-        deliveryOutcome: 'blocked',
-        initialSha: a.initialSha,
-        finalSha,
-        changed,
-        failureCode: 'settlement_interrupted',
-        failureDetail: settlementFailure,
-        safeToRelease: false,
-      }
-    }
-
-    if (implementationOutcome === 'failed') {
-      return {
-        run: a,
-        implementationOutcome,
-        deliveryOutcome: 'not_started',
-        initialSha: a.initialSha,
-        finalSha,
-        changed,
-        ...(engineFailure ? { failureDetail: engineFailure } : {}),
-        safeToRelease: true,
-      }
-    }
-
-    // A resumed non-PR branch may already contain reviewable commits from an
-    // earlier attempt, even when this iteration itself did not add one.
-    let resumedBranchDelta: boolean | null = null
-    if (!changed && a.continuationTarget === null && a.branchOwnership === 'preexisting') {
-      resumedBranchDelta = await branchHasDelta(git, a.handle.worktreePath, a.baseRef)
-      if (resumedBranchDelta === null) {
-        const detail = `cannot prove whether resumed branch ${a.handle.branch} has commits ahead of ${a.baseRef}`
-        markWorktree(a, 'needs-review')
-        return {
-          run: a,
-          implementationOutcome,
-          deliveryOutcome: 'blocked',
-          initialSha: a.initialSha,
-          finalSha,
-          changed,
-          failureCode: 'branch_verification_failed',
-          failureDetail: detail,
-          safeToRelease: false,
-        }
-      }
-    }
-    const noChanges = !changed && Boolean(
-      a.initialSha && finalSha && a.initialSha === finalSha && (
-        a.continuationTarget !== null ||
-        a.branchOwnership === 'created' ||
-        resumedBranchDelta === false
-      ),
-    )
-    return {
-      run: a,
-      implementationOutcome,
-      deliveryOutcome: noChanges ? 'no_changes' : 'ready',
-      initialSha: a.initialSha,
-      finalSha,
-      changed,
-      safeToRelease: true,
-    }
-  }
+  // Persist every unit before starting any Core process: a crash during fan-out
+  // leaves enough ownership information to continue the original generation.
+  if (prDeliveryId && isDefinitionGraph(loopGraph)) ctx.db.transaction(() => {
+    for (const run of allocated) saveIsolatedSettlementSnapshot(ctx.db, {
+      version: 1, projectId: ctx.project.id, deliveryId: prDeliveryId!, baseRepo,
+      overlaySourceRoot, overlayFallbackRoots, overlayProviderDir, overlayInstructions,
+      commitMessage: worktreeCommitMessage(ctx, run.ticketId, run.runId),
+      partialCommitMessage: worktreeCommitMessage(ctx, run.ticketId, run.runId, true), run,
+    })
+  })()
 
   const runPromises: Promise<SettledRun>[] = []
   for (const a of allocated) {
@@ -1461,7 +1501,10 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         ...(input.followUp ? { followUp: { id: input.followUp.id, version: input.followUp.version, hash: input.followUp.hash, openspecChangeName: input.followUp.openspecChangeName ?? null, briefing: renderFollowUpBriefing(input.followUp, { prNumber: (launchContinuation as ActivePrContinuationTarget | null)?.prNumber ?? input.explicitPrTarget?.prNumber ?? null, ticketIds }) } } : {}),
         ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
       })
-    runPromises.push(settleAllocatedRun(a, enginePromise))
+    runPromises.push(settleAllocatedRun(a, enginePromise).then(result => {
+      if (prDeliveryId && isDefinitionGraph(loopGraph)) saveIsolatedSettlementResult(ctx.db, prDeliveryId, result)
+      return result
+    }))
     try { ctx.jiraSyncManager.onRailLaunch(a.ticketIds, a.runId) } catch { /* non-fatal */ }
   }
 
@@ -1986,6 +2029,93 @@ interface RecoveryWorktreeInspection {
   safe: boolean
   sha: string | null
   detail?: string
+}
+
+/** Reattach the original allocation after Core finishes; no new generation or remote effects. */
+export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId: string, runId: string, io: IsolatedLaunchIO = {}): Promise<void> {
+  const frozen = readDefinitionRun(ctx.db, runId)
+  if (!frozen || frozen.row.project_id !== ctx.project.id || frozen.row.status !== 'completed') throw new Error('Recovered workflow must finish before delivery settlement')
+  const ids = ctx.db.prepare('SELECT delivery_id FROM definition_delivery_settlements WHERE project_id=? AND run_id=? ORDER BY delivery_id')
+    .all(ctx.project.id, runId) as Array<{ delivery_id: string }>
+  const rows = ids.map(({ delivery_id }) => getPrDelivery(ctx.db, delivery_id))
+  if (!rows.length || rows.some(row => !row) || !rows.some(row => row!.id === deliveryId || row!.parent_delivery_id === deliveryId)) throw new Error('Original isolated settlement is unavailable')
+  const deliveries = rows.filter((row): row is NonNullable<typeof row> => !!row)
+  if (deliveries.some(row => ['discarded', 'superseded', 'merged', 'completed'].includes(row.decision))) throw new Error('Delivery ownership has already changed')
+  const parents = [...new Set(deliveries.map(row => row.parent_delivery_id).filter((id): id is string => !!id))]
+  const allRows = [...deliveries, ...parents.map(id => getPrDelivery(ctx.db, id)).filter((row): row is NonNullable<typeof row> => !!row)]
+  if (allRows.some(row => ['discarded', 'superseded', 'merged', 'completed'].includes(row.decision))) throw new Error('Delivery group ownership has already changed')
+  const pending = deliveries.filter(row => !['on_review', 'no_changes', 'pr_draft', 'pr_ready'].includes(row.decision))
+  if (!pending.length) { ctx.onLoopRunFinished(runId, frozen.row.final_outcome ?? 'failed', { ticketCompletionStatus: 'on_review' }); return }
+  const probe = await probeDefinitionRun({ db: ctx.db, cwd: ctx.project.path, env: process.env }, runId, true)
+  if (probe.status === 'unavailable' || probe.lease?.active || ['paused', 'running'].includes(probe.status)) throw new Error('Core has not provided an inactive terminal result')
+  const policy = frozen.metadata.definition?.delivery as { requiresVerified?: boolean } | undefined
+  const accepted = probe.status === 'succeeded' && probe.completion?.ok === true && (policy?.requiresVerified === false || probe.completion.verified)
+  const outcome = accepted ? 'success' : probe.status === 'cancelled' ? 'stopped' : 'blocked'
+  const token = newId()
+  const execution = claimDefinitionExecution(ctx.db, runId, { owner: token, repositoryMounts: definitionRepositoryMounts(frozen.request) })
+  if (!execution.ok) throw new Error(`runtime_run_active: ${execution.conflictingRunId}`)
+  const claimed: typeof allRows = []
+  const git = io.git ?? defaultGitRunner
+  try {
+    ctx.db.transaction(() => {
+      for (const row of allRows) {
+        if (!claimPrDeliveryOperation(ctx.db, row.id, row.decision, 'recover-and-retry', token)) throw new Error('Delivery is busy; retry settlement')
+        claimed.push(row)
+      }
+    })()
+    for (const row of pending) {
+      const records = readIsolatedSettlementRecords(ctx.db, ctx.project.id, row.id)
+      const record = records.find(item => item.snapshot.run.runId === runId)
+      if (!record) throw new Error('Original isolated allocation is missing')
+      const snapshot = record.snapshot, run = snapshot.run
+      const ledger = getRailWorktree(ctx.db, run.ledgerId)
+      if (!ledger || ledger.run_id !== runId || ledger.branch !== run.handle.branch || ledger.worktree_path !== run.handle.worktreePath) throw new Error('Worktree ownership changed before recovery')
+      const context = frozen.metadata.context ?? (frozen.metadata.contextPath ? JSON.parse(fs.readFileSync(frozen.metadata.contextPath, 'utf8')) : null)
+      if (!context || context.runId !== runId || !Array.isArray(context.repositories) || !context.repositories.some((repo: { path?: string }) => repo.path && fs.realpathSync(repo.path) === fs.realpathSync(run.handle.worktreePath))) throw new Error('Recovered mount is outside the frozen Core context')
+      const branch = await git.run(['branch', '--show-current'], run.handle.worktreePath)
+      if (branch.code !== 0 || branch.stdout.trim() !== run.handle.branch) throw new Error('Recovered worktree is on another branch')
+      const settle = createIsolatedRunSettlement({
+        ...snapshot, git,
+        onFinished: () => { /* Apply the shared terminal outbox after all repository legs. */ },
+        hasRuntimeRequest: () => true,
+        commitMessage: (_run, partial) => partial ? snapshot.partialCommitMessage : snapshot.commitMessage,
+        markWorktree: (unit, state) => updateRailWorktreeState(ctx.db, unit.ledgerId, state) ? null : 'Worktree ledger disappeared',
+        recordRunProvenance: unit => recordIsolatedProvenanceOnce(ctx.db, row.id, runId, () => (io.recordProvenance ?? recordLoopRunProvenance)({
+          db: ctx.db, projectId: ctx.project.id, runId, ticketId: unit.ticketId, repoDir: unit.handle.worktreePath,
+          repositoryId: row.repository_id ?? undefined, snapshot: unit.provenanceSnapshot, broadcast: message => ctx.broadcast(message),
+        })),
+      })
+      const result = await settle(run, Promise.resolve({ runId, outcome }))
+      saveIsolatedSettlementResult(ctx.db, row.id, result)
+      const latest = readIsolatedSettlementRecords(ctx.db, ctx.project.id, row.id)
+      const results = latest.flatMap(item => item.result ? [item.result] : [])
+      const complete = results.length === latest.length
+      const successes = results.filter(item => item.implementationOutcome === 'succeeded')
+      const ready = results.filter(item => item.deliveryOutcome === 'ready')
+      const noChanges = complete && results.every(item => item.deliveryOutcome === 'no_changes')
+      const partial = complete && ready.length > 0 && results.some(item => item.implementationOutcome !== 'succeeded' || !['ready', 'no_changes'].includes(item.deliveryOutcome))
+      const next: PrDecision = !complete ? 'building' : !successes.length ? 'implementation_failed' : row.pr_url ? 'pr_failed' : ready.length ? 'on_review' : noChanges ? 'no_changes' : 'pr_failed'
+      const evidence = (io.harvestEvidence ?? harvestDeliveryEvidence)({ readEvents: id => getJobEvents(ctx.db, id) }, [{ ticketId: run.ticketId, runId, worktreePath: run.handle.worktreePath, definitionStatus: probe }])
+      if (!transitionClaimedDecision(ctx.db, row.id, row.decision, next, token, {
+        branches: branchRecords(results), runIds: latest.map(item => item.snapshot.run.runId), worktreeIds: latest.map(item => item.snapshot.run.ledgerId),
+        implementationOutcome: !complete ? 'unknown' : successes.length === results.length ? 'succeeded' : successes.length ? 'partially_succeeded' : 'failed',
+        deliveryOutcome: !complete ? 'not_started' : row.pr_url && ready.length ? 'retryable_failure' : ready.length ? (partial ? 'partial' : 'ready') : noChanges ? 'no_changes' : 'blocked',
+        statusCode: !complete ? 'restart_pending' : row.pr_url && ready.length ? 'settlement_interrupted' : ready.length ? (partial ? 'partial_success' : 'ready_for_review') : noChanges ? 'no_changes' : 'implementation_failed',
+        statusDetail: row.pr_url && ready.length ? 'Recovered local work is ready. Retry delivery to update the existing PR.' : null,
+        ...(results.length === 1 ? { deliverySha: results[0].finalSha } : {}), settleEvidence: evidence,
+      })) throw new Error('Delivery changed during recovered settlement')
+    }
+    const { refreshRepositoryDeliveryGroup } = await import('./multi-repo-execution')
+    for (const parent of parents) refreshRepositoryDeliveryGroup(ctx.db, parent)
+    ctx.onLoopRunFinished(runId, outcome, { ticketCompletionStatus: 'on_review' })
+  } finally {
+    for (const row of claimed) releasePrDeliveryOperation(ctx.db, row.id, token)
+    execution.release()
+  }
+  for (const row of allRows) {
+    const latest = getPrDelivery(ctx.db, row.id)
+    if (latest) ctx.broadcast(toRailPrStateMessage(ctx.project.id, toPrDeliverySnapshot(latest)))
+  }
 }
 
 function recoveryOverlayExcludes(repoDir: string, worktreePath: string): string[] {

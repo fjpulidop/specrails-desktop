@@ -269,14 +269,16 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       const known = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
       const cost = known(usage?.costUsd), tokensIn = known(usage?.inputTokens), tokensOut = known(usage?.outputTokens)
       if (result?.status === 'succeeded' && result.runId !== admittedContext.runId) invalidProtocol = true
-      if (definitionEngine && result?.status === 'succeeded' && (!result.completion || result.completion.ok !== true || typeof result.completion.verified !== 'boolean' || requiresVerified && !result.completion.verified || (!Array.isArray(result.completion.reasons) || result.completion.reasons.some(reason => typeof reason !== 'string')))) invalidProtocol = true
+      if (definitionEngine && result?.status === 'succeeded' && (!result.completion || typeof result.completion.ok !== 'boolean' || typeof result.completion.verified !== 'boolean' || (!Array.isArray(result.completion.reasons) || result.completion.reasons.some(reason => typeof reason !== 'string')))) invalidProtocol = true
       if (definitionEngine && result?.status === 'paused' && result.runId !== admittedContext.runId) invalidProtocol = true
+      const acceptanceBlocked = definitionEngine && result?.status === 'succeeded' && result.completion && (!result.completion.ok || requiresVerified && !result.completion.verified)
       const validPause = definitionEngine && code === 2 && result?.status === 'paused'
-      const failed = (!validPause && (code !== 0 || result?.status !== 'succeeded')) || invalidProtocol || timedOut || Boolean(observerError)
+      const failed = (!validPause && (code !== 0 || result?.status !== 'succeeded')) || invalidProtocol || timedOut || Boolean(observerError) || Boolean(acceptanceBlocked)
       const runtimeError = typeof result?.error === 'string' ? result.error : result?.error?.message
-      const runtimeStatus: AiStepResult['runtimeStatus'] = invalidProtocol || timedOut || observerError || (result?.status === 'paused' && !validPause) || (result?.status === 'succeeded' && code !== 0) ? 'failed' : ['succeeded', 'paused', 'failed', 'blocked', 'cancelled'].includes(result?.status ?? '') ? result!.status as AiStepResult['runtimeStatus'] : 'failed'
+      const runtimeStatus: AiStepResult['runtimeStatus'] = invalidProtocol || timedOut || observerError || (result?.status === 'paused' && !validPause) || (result?.status === 'succeeded' && code !== 0) ? 'failed' : acceptanceBlocked ? 'blocked' : ['succeeded', 'paused', 'failed', 'blocked', 'cancelled'].includes(result?.status ?? '') ? result!.status as AiStepResult['runtimeStatus'] : 'failed'
       const errorText = observerError ?? (timedOut ? 'Programmatic workflow timed out; inspect its checkpoint before recovery'
         : invalidProtocol ? 'Core returned an invalid runtime event stream'
+        : acceptanceBlocked ? result?.completion?.reasons.join('; ') || 'Core workflow acceptance or required verification is not satisfied'
         : runtimeError ?? (result?.status === 'paused' ? (typeof result.pendingQuestion?.question === 'string' && result.pendingQuestion.question.trim()
           ? `Workflow awaits an answer in Agent Runtime settings: ${result.pendingQuestion.question.trim().slice(0, 500)}`
           : 'Workflow awaits approval in Agent Runtime settings')

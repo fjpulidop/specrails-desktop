@@ -855,6 +855,10 @@
         "fs",
         "path"
       ],
+      "runtime/isolated-settlement-store.ts": [
+        "../../../db",
+        "./rail-isolated-launch"
+      ],
       "runtime/merge-manager.ts": [
         "../../../worktree-manager"
       ],
@@ -960,6 +964,7 @@
         "../../specs/runtime/spec-addenda",
         "./active-pr-continuation",
         "./delivery-evidence",
+        "./isolated-settlement-store",
         "./merge-manager",
         "./multi-repo-execution",
         "./multi-repo-execution-store",
@@ -1275,6 +1280,7 @@
       "runtime/legacy-launch-telemetry.ts",
       "runtime/loop-command-catalog.ts",
       "runtime/loop-constants.ts",
+      "runtime/loop-definition-controls.ts",
       "runtime/loop-definition-recovery.ts",
       "runtime/loop-definition-run.ts",
       "runtime/loop-effect.ts",
@@ -1303,6 +1309,10 @@
         "./loop-graph"
       ],
       "runtime/loop-decider.ts": [],
+      "runtime/loop-definition-controls.ts": [
+        "./loop-definition-recovery",
+        "./loop-definition-run"
+      ],
       "runtime/loop-definition-events.ts": [
         "../../../db",
         "../../../util/distribute-int",

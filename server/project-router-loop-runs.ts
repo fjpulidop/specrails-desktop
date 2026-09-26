@@ -10,7 +10,9 @@ import { validateLoopGraph, assertLoopShellRepositoryScope } from './modules/loo
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './modules/loops/runtime/loops-store'
-import { getLoopRun, readDefinitionLineage } from './modules/loops/runtime/loop-runs-store'
+import { getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim } from './modules/loops/runtime/loop-runs-store'
+import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isolated-launch'
+import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
 import { probeDefinitionRun } from './modules/loops/runtime/loop-definition-recovery'
 import { MIN_DURATION_SAMPLES, getJobCommandDurationRange, getLoopDurationRange, jobCommandShape } from './modules/execution/runtime/run-duration-stats'
 import { loadConstantMap } from './modules/loops/runtime/loop-constants'
@@ -39,6 +41,52 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
     const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
     res.json({ ...probe, lineage: readDefinitionLineage(c.db, runId) })
+  })
+
+  router.post('/:projectId/loop-runs/:id/resume', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
+    try {
+      assertProcessAdmission(c.project.id)
+      const observedClaim = readDefinitionExecutionClaim(c.db, runId)
+      const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+      if (probe.status === 'unavailable') { res.status(503).json({ error: 'runtime_status_unavailable', detail: probe.error?.message }); return }
+      if (probe.lease?.active) { res.status(409).json({ error: 'runtime_run_active' }); return }
+      let controls
+      try { controls = validateDefinitionResumeControls(req.body ?? {}, probe) }
+      catch (error) { res.status(400).json({ error: 'invalid_resume_controls', detail: error instanceof Error ? error.message : String(error) }); return }
+      // A retained claim can outlive its Core lease. Only release the exact
+      // owner observed before inspection, while this remains a restart pause.
+      const resident = c.loopRunManager.isDefinitionRunActive(runId)
+      if (resident && ((controls.recover?.length ?? 0) > 0 || (controls.approve?.length ?? 0) > 1)) {
+        res.status(409).json({ error: 'runtime_control_conflict', detail: 'A resident workflow accepts one pending interrupt at a time' }); return
+      }
+      if (!resident && observedClaim) {
+        c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id = ? AND owner = ?
+          AND EXISTS (SELECT 1 FROM loop_runs WHERE id = ? AND project_id = ? AND status = 'paused' AND restart_reason = 'restart')`)
+          .run(runId, observedClaim.owner, runId, c.project.id)
+      }
+      const snapshot = c.db.prepare('SELECT delivery_id FROM definition_delivery_settlements WHERE project_id = ? AND run_id = ? LIMIT 1')
+        .get(c.project.id, runId) as { delivery_id: string } | undefined
+      if (run.status === 'completed') {
+        if (!snapshot) { res.status(409).json({ error: 'runtime_run_completed' }); return }
+        await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+        res.json({ loopRunId: runId, settled: true }); return
+      }
+      const completion = c.loopRunManager.beginDefinitionResume(runId, controls)
+      // Resident executions already own their original settlement callback.
+      if (!resident) void completion.then(async result => {
+        if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+        else c.onLoopRunFinished(runId, result.outcome, result.stallReason ? { stallReason: result.stallReason } : undefined)
+      }).catch(error => {
+        // Preserve the durable terminal intent and worktree for another attempt.
+        console.error('[loop-runs] recovered settlement failed:', runId, error)
+      })
+      res.status(202).json({ loopRunId: runId })
+    } catch (error) {
+      res.status(409).json({ error: 'runtime_resume_rejected', detail: error instanceof Error ? error.message : String(error) })
+    }
   })
 
   // GET a single loop run's live/terminal state. Backs the companion's running
