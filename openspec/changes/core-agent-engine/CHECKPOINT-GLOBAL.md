@@ -5,6 +5,14 @@ The original objective remains **the entire plan, not just the foundations**.
 This checkpoint is unfinished implementation, not production acceptance. Do not
 merge, release, check off pending gates, or describe the complete migration as done.
 
+## Saved execution controls — 26 September 2026, 22:30 CEST
+
+- Saved v2 executions and job headers now route resume/recovery and terminal-settlement retry to the definition lifecycle. The legacy continuation rejects v2 before accounting/execution effects. Compact status preserves exact recoverable attempt IDs and maps displayed questions/approvals to authoritative pending interrupt identities.
+- Added explicit attempt checkboxes (node, scope, attempt) on both surfaces. No attempt is selected by default; refreshed status removes stale selections. Eight locales updated. Duplicate in-flight actions are fenced and late action responses are ignored after project switching.
+- Verification: 76 server tests (controls, HTTP admission, resume validation), 37 client tests (saved runs, header, selection), full typecheck and architecture audit passed. Locale parity/i18n passed 49 tests. The earlier broad coverage remains a baseline, not a final gate for this block.
+- Completed task bookkeeping for the verification-aware delivery verdict and durable-request/startup reconciliation already covered by focused and broad baseline tests. Full D3/D4 acceptance remains open; cancellation completion/fork/old snapshot recovery are still next.
+
+
 ## Recovery continuation — 26 September 2026, 22:25 CEST
 
 - D4 isolated settlement now persists immutable per-unit admission snapshots before Core fan-out (migration 67), durable per-unit results, and transactional provenance receipts. Fresh and recovered work share the extracted Git settlement coordinator. Reattachment verifies frozen Core acceptance/verification, ledger/branch/mount ownership, claims execution and every delivery leg, preserves accounting and terminal outbox, and refreshes repository groups. Existing-PR results remain retryable through the existing delivery path; no automatic push or PR merge.

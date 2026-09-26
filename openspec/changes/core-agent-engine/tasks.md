@@ -32,7 +32,7 @@ Published C0 compatibility remains open; these source results do not close 1.6.
 - [x] 2.2 Implement pure deterministic graph compiler, interpolation and Core-owned hash validation.
 - [x] 2.3 Validate publication via Core and expose node-scoped errors in builder.
 - [ ] 2.4 Implement exclusive frozen inputs and Core-only launch with host-owned git, cancellation and existing settlement.
-- [ ] 2.5 Implement verification-aware delivery gate; negative completion remains a successful runtime verdict.
+- [x] 2.5 Implement verification-aware delivery gate; negative completion remains a successful runtime verdict.
 - [x] 2.6 Build palette and inspectors including components/map/join with eight-locale parity and client tests.
 - [ ] 2.7 Update user guides and run loop/runtime/delivery/client validation.
 
@@ -67,8 +67,8 @@ work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 
 ## 6. D4 — Restart recovery (requires D2)
 
-- [ ] 6.1 Append next available migration for durable request, engine version and fork linkage.
-- [ ] 6.2 Reconcile resumable v2 runs to paused while preserving jobs and existing legacy recovery.
+- [x] 6.1 Append next available migration for durable request, engine version and fork linkage.
+- [x] 6.2 Reconcile resumable v2 runs to paused while preserving jobs and existing legacy recovery.
 - [ ] 6.3 Reconstruct launch and isolated settlement from durable records, expose recovery choice.
 - [ ] 6.4 Test crashes across read/write/pause boundaries and idempotent accounting/delivery.
 

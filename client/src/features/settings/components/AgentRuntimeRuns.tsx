@@ -1,3 +1,4 @@
+import { RuntimeRecovery } from './RuntimeRecovery'
 import { RuntimeExecutionEvidence } from './RuntimeExecutionEvidence'
 import { RuntimeSteering } from './RuntimeSteering'
 import { useTranslation } from 'react-i18next'
@@ -42,7 +43,7 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
       </div>}
       <div className="flex flex-wrap gap-2">
         {!jobId && <Link className="inline-flex items-center rounded-md border border-border px-3 py-1 text-xs hover:bg-muted" to={`/jobs/${encodeURIComponent(run.runId)}`} onClick={onViewLog}>{t('runs.viewLog')}</Link>}
-        {run.canResume && (run.pendingQuestion && !run.recoverableSteps.length
+        {run.canResume && run.engineVersion === 2 && run.recoverableSteps.length > 0 ? <RuntimeRecovery key={`${projectId}:${run.runId}`} run={run} busy={busy !== null} onRecover={attempts => void act(run, 'recover', attempts)} /> : run.canResume && (run.pendingQuestion && !run.recoverableSteps.length
           ? <Button size="sm" disabled={busy !== null || !answers[run.runId]?.trim()} onClick={() => void act(run, 'answer')}>{t('runs.answer')}</Button>
           : <Button size="sm" disabled={busy !== null} onClick={() => void act(run, run.recoverableSteps.length ? 'recover' : run.pendingApproval ? 'approve' : 'resume')}>{run.recoverableSteps.length ? t('runs.recover') : run.pendingApproval ? t('runs.approve') : t('runs.resume')}</Button>)}
         {run.canSettle && <Button size="sm" disabled={busy !== null} onClick={() => void act(run, 'settle')}>{t('runs.prepareDelivery')}</Button>}

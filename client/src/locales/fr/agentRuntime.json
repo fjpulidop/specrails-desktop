@@ -181,7 +181,8 @@
     "preserveProgress": "Reprendre à la phase indiquée en conservant le travail et les paramètres enregistrés.",
     "reviewDelivery": "Implémentation terminée. Vérifiez le résultat dans le journal avant la livraison ; cette reprise ne l’a pas publié.",
     "prepareDelivery": "Préparer la livraison",
-    "dismiss": "Ignorer"
+    "dismiss": "Ignorer",
+    "selectRecovery": "Sélectionnez les tentatives interrompues à reprendre"
   },
   "roleHints": {
     "architect": "Lit le code et rédige la proposition, la conception, les tâches et la spec. Lecture seule.",

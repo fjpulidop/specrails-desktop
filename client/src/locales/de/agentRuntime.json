@@ -181,7 +181,8 @@
     "preserveProgress": "Ab der angezeigten Phase fortsetzen; bisherige Arbeit und gespeicherte Einstellungen bleiben erhalten.",
     "reviewDelivery": "Implementierung abgeschlossen. Prüfe das Ergebnis im Job-Protokoll vor der Auslieferung; diese Fortsetzung hat es nicht veröffentlicht.",
     "prepareDelivery": "Auslieferung vorbereiten",
-    "dismiss": "Verwerfen"
+    "dismiss": "Verwerfen",
+    "selectRecovery": "Unterbrochene Versuche zur Wiederaufnahme auswählen"
   },
   "roleHints": {
     "architect": "Liest den Code und schreibt Vorschlag, Design, Aufgaben und Spezifikation. Nur lesend.",

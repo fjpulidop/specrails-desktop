@@ -21,7 +21,7 @@ export interface RuntimeRunsState {
   busy: string | null
   answers: Record<string, string>
   setAnswer: (runId: string, value: string) => void
-  act: (run: RuntimeRun, action: RuntimeRunAction) => Promise<void>
+  act: (run: RuntimeRun, action: RuntimeRunAction, selectedAttempts?: string[]) => Promise<void>
   refresh: () => void
 }
 
@@ -42,6 +42,10 @@ export function useRuntimeRuns(projectId: string | null | undefined, options: Us
   const mounted = useRef(true)
   const active = enabled && !!projectId
   const endpoint = projectId ? `${repositoryApiBase(projectId)}/agent-runtime/runs` : ''
+  const actionScope = useRef(endpoint)
+  actionScope.current = endpoint
+  const inFlight = useRef(new Set<string>())
+  useEffect(() => { setBusy(null); setAnswers({}) }, [endpoint])
   const statusEndpoint = jobId
     ? `${endpoint}/${encodeURIComponent(jobId)}`
     : railIndex !== undefined ? `${endpoint}?railIndex=${railIndex}` : endpoint
@@ -65,31 +69,38 @@ export function useRuntimeRuns(projectId: string | null | undefined, options: Us
     return () => { cancelled = true; mounted.current = false; clearTimeout(timer) }
   }, [active, statusEndpoint, revision, t])
 
-  const act = useCallback(async (run: RuntimeRun, action: RuntimeRunAction) => {
+  const act = useCallback(async (run: RuntimeRun, action: RuntimeRunAction, selectedAttempts?: string[]) => {
+    const actionKey = `${endpoint}:${run.runId}`
+    if (!projectId || inFlight.current.has(actionKey)) return
+    inFlight.current.add(actionKey)
+    const current = () => mounted.current && actionScope.current === endpoint
     setBusy(run.runId); setError('')
     try {
       const body = action === 'approve'
         ? { approve: [run.pendingApproval!.stepId] }
         : action === 'recover'
-          ? { recover: run.recoverableSteps }
+          ? { recover: selectedAttempts ?? run.recoverableSteps }
           : action === 'answer'
-            ? { answer: (answers[run.runId] ?? '').trim() }
+            ? { answer: (answers[run.runId] ?? '').trim(), ...(run.engineVersion === 2 && run.pendingQuestion ? { interruptId: run.pendingQuestion.stepId } : {}) }
             : {}
       const verb = action === 'cancel' ? 'cancel' : action === 'settle' ? 'settle' : action === 'dismiss' ? 'dismiss' : 'resume'
-      const response = await fetch(`${endpoint}/${encodeURIComponent(run.runId)}/${verb}`, {
+      const definitionContinuation = run.engineVersion === 2 && (verb === 'resume' || verb === 'settle')
+      const actionEndpoint = definitionContinuation
+        ? `${repositoryApiBase(projectId!)}/loop-runs` : endpoint
+      const response = await fetch(`${actionEndpoint}/${encodeURIComponent(run.runId)}/${definitionContinuation ? 'resume' : verb}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       })
       if (!response.ok) {
-        const data = await response.json() as { message?: string }
-        throw new Error(data.message ?? t('runs.actionFailed'))
+        const data = await response.json() as { message?: string; detail?: string }
+        throw new Error(data.message ?? data.detail ?? t('runs.actionFailed'))
       }
-      if (mounted.current) {
+      if (current()) {
         if (action === 'answer') setAnswers((value) => ({ ...value, [run.runId]: '' }))
         setRevision((value) => value + 1)
       }
-    } catch (err) { if (mounted.current) setError(err instanceof Error ? err.message : t('runs.actionFailed')) }
-    finally { if (mounted.current) setBusy(null) }
-  }, [answers, endpoint, t])
+    } catch (err) { if (current()) setError(err instanceof Error ? err.message : t('runs.actionFailed')) }
+    finally { inFlight.current.delete(actionKey); if (current()) setBusy(null) }
+  }, [answers, endpoint, projectId, t])
 
   const setAnswer = useCallback((runId: string, value: string) => {
     setAnswers((prev) => ({ ...prev, [runId]: value }))

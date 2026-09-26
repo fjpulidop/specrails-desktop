@@ -162,17 +162,27 @@ describe('agent runtime lifecycle', () => {
     expect((await service.summary('run-1')).metrics).toBeUndefined()
   })
 
-  it('uses the v2 run catalog for six arbitrary paths and rejects unknown nodes before execution', async () => {
+  it('projects exact v2 attempts and prevents legacy continuation from changing its accounting', async () => {
     const stepIds = ['draft', 'build', 'check', 'implement/reviewer', 'publish', 'finish']
-    const snapshot = { ...state(), engineVersion: 2, nextStep: 'implement/reviewer', pendingApproval: undefined,
+    const snapshot = { ...state(), engineVersion: 2, recoverableSteps: [{ attemptId: 'attempt-review', nodePath: 'implement/reviewer', scopeId: 'root' }], nextStep: 'implement/reviewer', pendingApproval: undefined,
       steps: Object.fromEntries(stepIds.map(id => [id, { status: id === 'implement/reviewer' ? 'interrupted' : 'succeeded', kind: 'prompt' }])) }
     status.mockResolvedValue(snapshot)
-    expect(await service.summary('run-1')).toMatchObject({ engineVersion: 2, nextStep: 'implement/reviewer', recoverableSteps: ['implement/reviewer'] })
-    await expect(service.resume('run-1', { recover: ['missing'] })).rejects.toMatchObject({ code: 'invalid_resume_request' })
+    expect(await service.summary('run-1')).toMatchObject({ engineVersion: 2, nextStep: 'implement/reviewer', recoverableSteps: ['attempt-review'] })
+    await expect(service.resume('run-1', { recover: ['attempt-review'] })).rejects.toMatchObject({ code: 'definition_lifecycle_required' })
     expect(execute).not.toHaveBeenCalled()
     expect(service.isActive('run-1')).toBe(false)
-    await service.resume('run-1', { recover: ['implement/reviewer'], invalidate: stepIds })
-    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ recover: ['implement/reviewer'], invalidate: stepIds }))
+  })
+
+  it('distinguishes a recovered v2 pause from a live Core lease', async () => {
+    db.prepare("UPDATE loop_runs SET engine_version=2, status='paused', restart_reason='restart' WHERE id='run-1'").run()
+    status.mockResolvedValue({ ...state(), engineVersion: 2, lease: null, recoverableSteps: [{ attemptId: 'attempt-left', nodePath: 'write', scopeId: 'left' }] })
+    expect(await service.summary('run-1')).toMatchObject({ active: false, canResume: true, recoverableSteps: ['attempt-left'], recoveryAttempts: [{ scopeId: 'left' }] })
+    status.mockResolvedValue({ ...state(), engineVersion: 2, lease: { active: true } })
+    expect(await service.summary('run-1')).toMatchObject({ active: true, canResume: false })
+    status.mockClear()
+    await expect(service.resume('run-1', {})).rejects.toMatchObject({ code: 'definition_lifecycle_required' })
+    expect(status).not.toHaveBeenCalled()
+    expect(execute).not.toHaveBeenCalled()
   })
 
   it('keeps the legacy allowlist after syntactic HTTP validation', async () => {
@@ -386,7 +396,9 @@ describe('agent runtime lifecycle', () => {
     const efficiencySummary = { ...fixture, runId: 'run-1', roles: roleIds.map(role => ({ ...fixture.roles[0], role })) }
     fs.writeFileSync(path.join(runDirectory, 'desktop-runtime-config.json'), JSON.stringify({ agents: { architect: {}, developer: {}, reviewer: {} }, roles: { auditor: {} } }))
     const wire = { type: 'runtime-status', engineVersion: 2, state: { runId: 'run-1', status: 'paused', nextNodePath: 'implement/reviewer', steps: Object.fromEntries(stepIds.map(id => [id, { status: 'paused', kind: 'prompt' }])) }, metrics, efficiencySummary }
+    Object.assign(wire.state, { pendingApproval: { stepId: 'publish', reason: 'Proceed?' }, pendingInterrupts: [{ id: 'approve-7', nodePath: 'publish', kind: 'approval' }], recoverableSteps: [{ attemptId: 'attempt-9', nodePath: 'build', scopeId: 'root' }], lease: null })
     fs.writeFileSync(loader.cli, `console.log(${JSON.stringify(JSON.stringify(wire))})`)
+    expect(await readAgentRuntimeStatus(contextPath, directory, process.env)).toMatchObject({ pendingApproval: { stepId: 'approve-7' }, recoverableSteps: [{ attemptId: 'attempt-9' }] })
     expect(await readAgentRuntimeStatus(contextPath, directory, process.env)).toMatchObject({ engineVersion: 2, nextStep: 'implement/reviewer', roleIds, metrics, efficiencySummary: { runId: 'run-1', roles: efficiencySummary.roles } })
     fs.unlinkSync(path.join(runDirectory, 'desktop-runtime-config.json'))
     expect((await readAgentRuntimeStatus(contextPath, directory, process.env))?.efficiencySummary).toBeUndefined()

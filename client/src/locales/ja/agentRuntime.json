@@ -181,7 +181,8 @@
     "preserveProgress": "表示されたフェーズから、既存の作業と保存済み設定を保持して続行します。",
     "reviewDelivery": "実装が完了しました。引き渡しの前にジョブログで結果を確認してください。この続行では公開していません。",
     "prepareDelivery": "引き渡しを準備",
-    "dismiss": "閉じる"
+    "dismiss": "閉じる",
+    "selectRecovery": "復旧する中断された試行を選択"
   },
   "roleHints": {
     "architect": "コードを読み、提案・設計・タスク・仕様を書きます。読み取り専用。",

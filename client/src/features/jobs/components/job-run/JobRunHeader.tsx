@@ -1,3 +1,4 @@
+import { RuntimeRecovery } from '../../../settings/components/RuntimeRecovery'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ChevronDown, Loader2, MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -131,6 +132,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const runtimeActions = run ? (
     <>
       {run.canResume && !answerable && (
+        run.engineVersion === 2 && run.recoverableSteps.length > 0 ? <RuntimeRecovery key={`${projectId}:${run.runId}`} run={run} busy={busy} onRecover={attempts => void runtime.act(run, 'recover', attempts)} /> :
         <Button size="sm" className="h-7" disabled={busy} onClick={() => void runtime.act(run, run.recoverableSteps.length ? 'recover' : run.pendingApproval ? 'approve' : 'resume')}>
           {run.recoverableSteps.length ? tRuntime('runs.recover') : run.pendingApproval ? tRuntime('runs.approve') : tRuntime('runs.resume')}
         </Button>

@@ -181,7 +181,8 @@
     "preserveProgress": "Continue from the indicated phase, preserving your existing work and saved settings.",
     "reviewDelivery": "Implementation completed. Review the result in this job log before arranging delivery; this continuation has not published it.",
     "prepareDelivery": "Prepare delivery",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "selectRecovery": "Select the interrupted attempts to recover"
   },
   "roleHints": {
     "architect": "Reads the code and writes the proposal, design, tasks and spec. Read-only.",

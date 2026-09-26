@@ -317,6 +317,7 @@
       "components/AgentRuntimeRuns.tsx",
       "components/ProjectSettingsDialog.tsx",
       "components/RuntimeExecutionEvidence.tsx",
+      "components/RuntimeRecovery.tsx",
       "components/RuntimeSteering.tsx",
       "components/pickers/LanguagePickerGrid.tsx",
       "components/pickers/ThemePickerGrid.tsx",

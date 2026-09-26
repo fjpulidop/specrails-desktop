@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 961 source/build files. Nearby tests are linked where names
+Includes 962 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -574,6 +574,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [RuntimeEfficiencyControls.tsx](../../client/src/features/settings/components/RuntimeEfficiencyControls.tsx)
 - [RuntimeExecutionEvidence.tsx](../../client/src/features/settings/components/RuntimeExecutionEvidence.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeExecutionEvidence.test.tsx)
 - [RuntimeGuardrails.tsx](../../client/src/features/settings/components/RuntimeGuardrails.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeGuardrails.test.tsx)
+- [RuntimeRecovery.tsx](../../client/src/features/settings/components/RuntimeRecovery.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRecovery.test.tsx)
 - [RuntimeRolePrompts.tsx](../../client/src/features/settings/components/RuntimeRolePrompts.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRolePrompts.test.tsx)
 - [RuntimeSteering.tsx](../../client/src/features/settings/components/RuntimeSteering.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeSteering.test.tsx)
 - [TerminalSettingsSection.tsx](../../client/src/features/settings/components/TerminalSettingsSection.tsx)

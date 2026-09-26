@@ -181,7 +181,8 @@
     "preserveProgress": "从所示阶段继续，保留已有工作和保存的设置。",
     "reviewDelivery": "实现已完成。交付前请在任务日志中检查结果；本次继续执行未发布结果。",
     "prepareDelivery": "准备交付",
-    "dismiss": "忽略"
+    "dismiss": "忽略",
+    "selectRecovery": "选择要恢复的中断尝试"
   },
   "roleHints": {
     "architect": "阅读代码并撰写提案、设计、任务和规范。只读。",

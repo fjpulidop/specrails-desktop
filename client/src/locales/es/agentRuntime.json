@@ -181,7 +181,8 @@
     "preserveProgress": "Continúa desde la fase indicada, conservando el trabajo anterior y la configuración guardada.",
     "reviewDelivery": "Implementación completada. Revisa el resultado en el log de este job antes de preparar la entrega; esta continuación no lo ha publicado.",
     "prepareDelivery": "Preparar entrega",
-    "dismiss": "Descartar"
+    "dismiss": "Descartar",
+    "selectRecovery": "Selecciona los intentos interrumpidos que quieres recuperar"
   },
   "roleHints": {
     "architect": "Lee el código y escribe la propuesta, el diseño, las tareas y la spec. Solo lectura.",
