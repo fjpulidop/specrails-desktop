@@ -154,7 +154,7 @@ Emparejamiento de releases (cada etapa con release de Core): Core publica con re
 
 Tres comprobaciones cortas, cada una con criterio de salida escrito antes de empezar, cuyo resultado fija el diseño de C3:
 
-1. **Checkpointer SQLite y empaquetado.** `@langchain/langgraph-checkpoint-sqlite` (módulo nativo) dentro del paquete de Core: `npm run check:package`, matriz OS × Node de CI, `scripts/assemble-bundled-core.mjs` de Desktop en macOS, Windows y Linux, apertura con WAL y 0600, un run con 200 nodos y kill -9 en cada frontera. Salida: pasa en las tres plataformas ⇒ `SqliteSaver`; si no, `FileCheckpointSaver` extendido con tablas del ledger en un fichero SQLite separado abierto solo por Core, o en su defecto el sobre actual.
+1. **Checkpointer SQLite y empaquetado.** Decisión del maintainer (26 de septiembre de 2026): SQLite es el diseño elegido; este spike valida el empaquetado, no la elección. `@langchain/langgraph-checkpoint-sqlite` (módulo nativo) dentro del paquete de Core: `npm run check:package`, matriz OS × Node de CI, `scripts/assemble-bundled-core.mjs` de Desktop en macOS, Windows y Linux, apertura con WAL y 0600, un run con 200 nodos y kill -9 en cada frontera. Salida: pasa en las tres plataformas ⇒ `SqliteSaver`; si falla en alguna, `FileCheckpointSaver` extendido con tablas del ledger en un fichero SQLite separado abierto solo por Core, o en su defecto el sobre actual, y se documenta la causa para reintentarlo más adelante.
 2. **Subgrafos con interrupciones y checkpoints.** Un subgrafo con `interrupt()` dentro de un `map` con `Send`: reanudación por rama, `Command.PARENT`, `getStateHistory` a través del subgrafo. Salida: documento de límites reales de LangGraph 1.4 para el compilador.
 3. **Streaming como fuente única de eventos.** `stream(['updates', 'custom'])` + `writer` + `streamEvents` frente a los callbacks actuales, midiendo latencia y volumen con un run de implement. Salida: mapa de eventos LangGraph → tipos JSONL actuales.
 
@@ -342,6 +342,7 @@ Se ejecuta en CI sobre grafos de piezas simuladas y, desde C4, sobre las definic
 - No permitir código del usuario ni tipos de nodo definidos por el usuario dentro de Core: solo la librería cerrada de piezas y los componentes compuestos con ellas.
 - No ejecutar pasos de loops nuevos en Desktop ni dejar que Desktop decida el sucesor de un nodo.
 - No abrir stdin de Core ni un canal bidireccional: interrupciones con exit 2 y `resume`; steering por buzón.
+- No portar a Core el transporte de sesión viva de Claude y Codex (steering en mitad de un turno) en esta iniciativa: decisión del maintainer del 26 de septiembre de 2026; las misiones lo conservan en Desktop.
 - No cambiar `id`, `ends`, `maxTransitions` ni orden del `specrails-implementation` legado mientras exista (`core-host.ts:79`, `workflow.ts:174-176`); el grafo de fábrica de Desktop es una definición distinta.
 - No retirar el motor legado de Core antes de Core 7 ni sin comprobar que los runs antiguos reanudan con su paquete retenido.
 - No cambiar `pipeline-state.ts` (fases por tipo de journal): se copia compilado en cada proyecto.
@@ -360,11 +361,12 @@ Se ejecuta en CI sobre grafos de piezas simuladas y, desde C4, sobre las definic
 4. Persistir `loopId` en el rail para relanzar el mismo grafo; etapa 3.
 5. Tarjeta de misión `workflow-launch` (`rail-launch-parser.ts` ⇄ `rail-launch-draft.ts`) que proponga spec + grafo + engine; etapa 6.
 6. Galería de componentes compartibles con firma del origen y aviso de permisos de escritura al importar; etapa 5.
+7. Transporte de sesión viva de Claude y Codex dentro de Core, para que el steering en loops entre en mitad de un turno como en misiones; fuera de esta iniciativa por decisión del maintainer, candidato a una iniciativa posterior una vez estable el motor v2.
 
-## 14. Preguntas abiertas para el maintainer
+## 14. Decisiones tomadas y preguntas abiertas para el maintainer
 
-1. ¿Se acepta un módulo nativo (SQLite) en el paquete de Core si el spike pasa en las tres plataformas? *Suposición: sí; si falla, `FileCheckpointSaver` extendido.*
-2. ¿Se acepta que el steering en loops entre solo en fronteras de intento (sin composer en mitad de un turno)? *Suposición: sí; misiones no cambian.*
+1. **Decidido el 26 de septiembre de 2026: sí.** Core lleva el módulo nativo de SQLite y `SqliteSaver` es el diseño elegido para el checkpointer y el ledger. El spike 1 de C1 deja de ser una elección y pasa a ser una comprobación de empaquetado con criterio de salida en las tres plataformas; `FileCheckpointSaver` extendido queda solo como reserva si esa comprobación falla en alguna de ellas.
+2. **Decidido el 26 de septiembre de 2026: sí.** El steering en loops entra en fronteras de intento por el buzón (C8, D7). El transporte de sesión viva de Claude y Codex (`providers/live-session.ts` en Desktop) **no se porta a Core en esta iniciativa**; las misiones conservan su steering inmediato sin cambios.
 3. ¿Los roles se definen por proyecto o globalmente en Agents? *Suposición: global con override por proyecto; la configuración congelada por run resuelve la mezcla.*
 4. ¿Concurrencia por defecto de `map`? *Suposición: 1, configurable hasta 4, con presupuesto compartido.*
 5. ¿Se mantiene `SPECRAILS_LOOPS_SECTION=false` y el caso `SPECRAILS_RAIL_DELIVER_PR=0` sin manifiesto? *Suposición: solo hasta la etapa 8; el segundo se corrige en D1.*
