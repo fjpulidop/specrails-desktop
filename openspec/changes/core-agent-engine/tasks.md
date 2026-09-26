@@ -62,7 +62,7 @@ work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 ## 5. D3 — Human pauses and fork (requires D2 and C3)
 
 - [ ] 5.1 Connect paused question/approval/gate states to job composer and single-writer resume.
-- [ ] 5.2 Implement linked fork endpoint and explorer action including internal component nodes.
+- [x] 5.2 Implement linked fork endpoint and explorer action including internal component nodes.
 - [ ] 5.3 Test cancellation during pause, original-run preservation and isolated settlement.
 
 ## 6. D4 — Restart recovery (requires D2)

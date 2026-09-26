@@ -2,6 +2,15 @@
 
 ## Linked historical forks — 26 September 2026, 23:47 CEST
 
+Follow-up acceptance: a real Core graph forks a paused question, writes and
+verifies two separate Git worktrees without providers, then settles both delivery
+legs. Injecting host failure after the first repository commits leaves its SHA
+and provenance stable on retry; the parent becomes on_review only after both
+legs finish. Original Core bytes and Desktop rows remain unchanged. Paired test
+passed in 8.13s. This closes task 5.2's endpoint/explorer integration evidence.
+Final client coverage now passes **393 suites / 4,692 tests**, 185.99s; statements
+and lines 89.70%, branches 84.21%, functions 75.69%, unchanged thresholds.
+
 - Migration 68 persists idempotent fork intents and marks superseded settlement
   allocations without rewriting their frozen snapshots. Core creates the exact
   historical cut; one Desktop transaction adopts the child job/run, causal ticket
@@ -28,8 +37,7 @@
   tests passed**, 180.73s, statements/lines 89.70%, branches 84.18%, functions
   75.69%. The final hook regression passed 5/5; full typecheck and architecture
   audit passed on the final code. A final client coverage run remains necessary.
-- Remaining acceptance includes real multi-repository Git settlement after fork,
-  already-released workspace handling and older isolated runs without migration
+- Remaining acceptance includes already-released workspace handling and older isolated runs without migration
   67 snapshots. These still reject uncertain ownership safely; this is not a
   claim that D3/D4 or the full rollout is complete.
 
