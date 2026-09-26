@@ -1277,6 +1277,7 @@
   },
   "loops": {
     "publicEntries": [
+      "runtime/definition-cancellation.ts",
       "runtime/legacy-launch-telemetry.ts",
       "runtime/loop-command-catalog.ts",
       "runtime/loop-constants.ts",
@@ -1294,6 +1295,9 @@
       "runtime/loops-store.ts"
     ],
     "dependencies": {
+      "runtime/definition-cancellation.ts": [
+        "./loop-definition-recovery"
+      ],
       "runtime/legacy-launch-telemetry.ts": [
         "../../../db",
         "node:crypto"

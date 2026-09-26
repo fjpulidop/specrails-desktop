@@ -85,7 +85,7 @@ export function useRuntimeRuns(projectId: string | null | undefined, options: Us
             : {}
       const verb = action === 'cancel' ? 'cancel' : action === 'settle' ? 'settle' : action === 'dismiss' ? 'dismiss' : 'resume'
       const definitionContinuation = run.engineVersion === 2 && (verb === 'resume' || verb === 'settle')
-      const actionEndpoint = definitionContinuation
+      const actionEndpoint = definitionContinuation || run.engineVersion === 2 && verb === 'cancel'
         ? `${repositoryApiBase(projectId!)}/loop-runs` : endpoint
       const response = await fetch(`${actionEndpoint}/${encodeURIComponent(run.runId)}/${definitionContinuation ? 'resume' : verb}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),

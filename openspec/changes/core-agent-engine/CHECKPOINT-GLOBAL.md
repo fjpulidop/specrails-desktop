@@ -466,3 +466,30 @@ Final checkpoint verification: Core typecheck/build pass and focused tests 48/48
 Desktop full typecheck and architecture pass. The working trees were clean after
 source commits. Later documentation-only commits add these cross-references.
 Read `CHECKPOINT-C3-C7-C8.md` in Core for detailed persistence/fork notes.
+
+### Cancellation and recovery coverage — 26 September 2026, 22:42 CEST
+
+Inactive cancellation now has a project/run-scoped observer: Core acknowledgement
+precedes waiting for the writer lease, terminal replay and original settlement.
+Resident tasks retain their callback. Shutdown defers to startup; an unavailable
+status or expired observation window records a durable control diagnostic.
+Writing runs missing their original settlement snapshot are not misclassified as
+standalone work. The saved-run client uses the definition cancellation endpoint.
+Focused validation: cancellation/admission/manager controls 48 tests, client
+saved-run/header 37, architecture/cancellation 27; typecheck and architecture
+passed before the subsequent run-graph client work.
+
+Full server coverage on the stable cancellation tree: 400 suites / 8,942 tests
+passed, two Windows-only suites / seven cases skipped, 195.38 seconds with two
+workers. Statements 86.99%, branches 80.15%, functions 90.85%, lines 90.03%; original
+thresholds unchanged. Two four-worker attempts failed separate HTTP cases: a
+socket hang-up in rails-router (188 tests pass separately), then MCP stale-session
+404 versus 401 (26 relevant tests pass separately). Added response-body failure
+diagnostics to the latter; no production cause or flakiness fix is claimed. One
+focused diagnostic command briefly used CLI coverage overrides, was interrupted,
+and is discarded; no configuration threshold was changed and it is not acceptance
+evidence. The complete successful run above used the original coverage gates.
+
+Web PR #218 is now draft. Commit 5287c7b stages Loop Builder/run-detail additions
+in eight languages; docs sync/check, six sync tests and production build passed.
+No Web deployment, PR merge or release occurred.

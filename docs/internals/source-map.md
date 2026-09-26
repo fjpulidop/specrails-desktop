@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 962 source/build files. Nearby tests are linked where names
+Includes 963 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1219,6 +1219,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/loops/runtime
 
+- [definition-cancellation.ts](../../server/modules/loops/runtime/definition-cancellation.ts) · [test](../../server/modules/loops/runtime/definition-cancellation.test.ts)
 - [legacy-launch-telemetry.ts](../../server/modules/loops/runtime/legacy-launch-telemetry.ts) · [test](../../server/modules/loops/runtime/legacy-launch-telemetry.test.ts)
 - [loop-command-catalog.ts](../../server/modules/loops/runtime/loop-command-catalog.ts) · [test](../../server/modules/loops/runtime/loop-command-catalog.test.ts)
 - [loop-constants.ts](../../server/modules/loops/runtime/loop-constants.ts) · [test](../../server/modules/loops/runtime/loop-constants.test.ts)

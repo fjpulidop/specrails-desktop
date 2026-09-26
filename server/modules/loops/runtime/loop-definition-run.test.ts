@@ -18,6 +18,18 @@ function step(sequence:number,type:string,attemptId='attempt-a',nodePath='map[0]
 function usage(sequence:number, invocationId='physical-1', costUsd:number|null=.6) { return {type:'runtime-efficiency-event',eventId:`r1:${sequence}`,runId:'r1',sequence,timestamp:at,kind:'role-context',attemptId:'attempt-a',nodePath:'map[0]/read',payload:{invocationId,provider:'claude',model:'sonnet',status:'succeeded',startedAt:at,finishedAt:'2026-09-26T12:00:01.000Z',durationMs:1000,usage:{inputTokens:5,outputTokens:2,costUsd,cacheReadInputTokens:3,cacheWriteInputTokens:null}}} }
 
 describe('Core definitions in Loop Manager',()=>{
+  it('rejects failed resume admission synchronously while preserving the promise API', async () => {
+    const execute = vi.fn(async () => complete())
+    const manager = new LoopRunManager(db, () => {}, executors(execute))
+    expect(() => manager.beginDefinitionResume('missing')).toThrow('runtime_run_not_found')
+    await expect(manager.resumeDefinition('missing')).rejects.toThrow('runtime_run_not_found')
+    manager.shutdown()
+    expect(manager.isDisposed()).toBe(true)
+    expect(() => manager.beginDefinitionResume('missing')).toThrow('runtime_shutting_down')
+    expect(execute).not.toHaveBeenCalled()
+    expect(readDefinitionExecutionClaim(db, 'missing')).toBeUndefined()
+  })
+
   it('claims before async admission, rejects another manager and releases on failure', async () => {
     let rejectAdmission!: (reason: Error) => void
     const support = new Promise<void>((_resolve, reject) => { rejectAdmission = reject })

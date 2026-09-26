@@ -6,7 +6,7 @@ export function validateDefinitionResumeControls(value: unknown, probe: Definiti
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Resume controls must be an object')
   const body = value as Record<string, unknown>
   if (Object.keys(body).some(key => !['answer', 'interruptId', 'approve', 'recover'].includes(key))) throw new Error('Unknown resume control')
-  if (body.answer !== undefined && (typeof body.answer !== 'string' || body.answer.length > 20_000)) throw new Error('Answer must contain at most 20000 characters')
+  if (body.answer !== undefined && (typeof body.answer !== 'string' || !body.answer.trim() || body.answer.length > 20_000)) throw new Error('Answer must be nonempty and contain at most 20000 characters')
   if (body.interruptId !== undefined && (typeof body.interruptId !== 'string' || !body.interruptId)) throw new Error('An exact interrupt ID is required')
   const ids = (key: 'approve' | 'recover'): string[] | undefined => {
     const values = body[key]

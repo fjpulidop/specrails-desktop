@@ -93,3 +93,13 @@ partial fan-out to finish without discarding paused siblings. Reattachment claim
 the delivery before effects, validates frozen runtime/worktree identity, and uses
 Core terminal completion before applying the existing terminal outbox. It does
 not allocate another worktree, create another delivery, push, or merge.
+
+### Cancellation acknowledgement and terminal settlement
+
+An accepted Core cancellation is not a Desktop terminal result. Resident work
+keeps its original callback. Restarted work uses one project/run-scoped observer,
+waits for the retained writer lease to end, reissues the same control after an
+expired writer if needed, then replays terminal events and reattaches the frozen
+settlement. A successful result that wins the race stays successful. Shutdown
+leaves the durable inbox intact for startup. Observation failure is a persisted
+job diagnostic, never fabricated success or inferred provider cost.

@@ -239,3 +239,20 @@ uses Core's existing evidence/receipt store and cannot mark workflow phases done
 OpenSpec checks validate real files without copying or archiving them. Old retained
 Core packages lacking `scopedRecovery` are not upgraded/migrated behind the run's
 back: the tool returns a manual-repair limitation rather than recommending Relaunch.
+
+### Definition cancellation after restart
+
+`POST /loop-runs/:runId/cancel` accepts an optional stable `requestId`. A `202`
+means the retained Core inbox acknowledged cancellation. The original resident
+execution still owns its callback. For a restarted execution, Desktop observes
+Core until its writer lease is inactive, then replays terminal events through
+Loop Manager and reconnects the original isolated settlement. A completed result
+that wins the race remains completed; cancellation never rewrites its verdict.
+
+The observer stops on project shutdown and leaves Core's durable intent for
+startup recovery. Unavailable status or a lease that remains active beyond the
+bounded observation window records a `definition-control-error` event in the
+original job. That diagnostic does not mark the job or delivery successful.
+Recovery preserves repository mounts, frozen verification policy, accounting,
+worktree ownership and the terminal outbox. Missing original isolated allocation
+data blocks settlement instead of treating the execution as a standalone job.

@@ -1098,6 +1098,8 @@ export class LoopRunManager {
     this._pausedHumanDecisions.clear()
   }
 
+  isDisposed(): boolean { return this._disposed }
+
   isDefinitionRunActive(runId: string): boolean { return this._definitionTasks.has(runId) }
 
   private readonly _definitionClaims = new Map<string, () => void>()
@@ -1128,6 +1130,7 @@ export class LoopRunManager {
 
   /** Synchronous admission lets HTTP reject competing writers before acknowledging a resume. */
   beginDefinitionResume(runId: string, input: DefinitionResumeControls = {}): Promise<LoopRunResult> {
+    if (this._disposed) throw new Error('runtime_shutting_down: LoopRunManager is shut down')
     const active = this._definitionTasks.get(runId)
     if (active) {
       const interruptId = input.interruptId ?? input.approve?.[0]

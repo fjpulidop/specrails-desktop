@@ -86,3 +86,9 @@ promise-rejection contract for existing callers. `loop-definition-controls.ts`
 validates pending question/approval IDs and exact recoverable attempt IDs from
 the retained Core journal. Resuming clears the restart marker so a later
 recovery request cannot release an active writer's claim.
+
+`runtime/definition-cancellation.ts` coordinates cancellation acknowledgement
+and terminal settlement through narrow observation/control/settlement/clock
+ports. It waits for Core's lease, reissues the same idempotent request when an
+expired writer leaves unfinished work, and defers to startup recovery on shutdown.
+Project HTTP composition owns observer deduplication and durable diagnostics.

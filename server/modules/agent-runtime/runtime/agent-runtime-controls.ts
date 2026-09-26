@@ -397,7 +397,7 @@ export class AgentRuntimeControls {
         canSettle: definition
           ? !active && parent.status === 'completed' && state.status === 'succeeded' && !!this.ctx.db.prepare(`SELECT 1 FROM definition_delivery_settlements s JOIN rail_pr_deliveries d ON d.id=s.delivery_id WHERE s.project_id=? AND s.run_id=? AND d.decision IN ('building','pr_failed','implementation_failed') LIMIT 1`).get(this.ctx.project.id, runId)
           : !superseding && !active && state.status === 'succeeded' && (this.ctx.db.prepare('SELECT status FROM jobs WHERE id = ?').get(runId) as { status?: string } | undefined)?.status !== 'completed',
-        recoverableSteps, ...(state.engineVersion === 2 ? { recoveryAttempts: state.recoverableSteps ?? [] } : {}), active, canCancel: this.active.has(runId), canResume: state.engineVersion === 2 ? definition && !active && parent.status !== 'completed' && state.status !== 'cancelled' : !active && parent?.status === 'completed' && state.status !== 'succeeded',
+        recoverableSteps, ...(state.engineVersion === 2 ? { recoveryAttempts: state.recoverableSteps ?? [] } : {}), active, canCancel: definition ? !state.completion && !['succeeded', 'cancelled'].includes(state.status) : this.active.has(runId), canResume: state.engineVersion === 2 ? definition && !active && parent.status !== 'completed' && state.status !== 'cancelled' : !active && parent?.status === 'completed' && state.status !== 'succeeded',
         canDismiss: !active, dismissed: this.isDismissed(runId) }
     } catch (error) {
       try {

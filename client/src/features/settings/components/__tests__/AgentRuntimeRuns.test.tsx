@@ -39,6 +39,14 @@ describe('AgentRuntimeRuns', () => {
     expect(screen.getByRole('button', { name: 'Resume' })).toBeEnabled()
   })
 
+  it('cancels v2 through the definition lifecycle', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, canResume: false, canCancel: true, active: true })] }))
+    render(<AgentRuntimeRuns projectId="p1" />)
+    await user.click(await screen.findByRole('button', { name: 'Cancel continuation' }))
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/loop-runs/run-1/cancel', expect.objectContaining({ method: 'POST', body: '{}' }))
+  })
+
   it('prepares an already completed runtime delivery without resuming the agents', async () => {
     const user = userEvent.setup()
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'succeeded', nextStep: null, canResume: false, canSettle: true })] }))

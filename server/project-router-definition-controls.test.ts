@@ -10,7 +10,7 @@ const runtime = vi.hoisted(() => ({ probe: vi.fn(), settle: vi.fn() }))
 vi.mock('./modules/loops/runtime/loop-definition-recovery', () => ({ probeDefinitionRun: runtime.probe }))
 vi.mock('./modules/delivery/runtime/rail-isolated-launch', () => ({ reattachIsolatedSettlement: runtime.settle }))
 let db: DbInstance
-const begin = vi.fn(), finished = vi.fn(), resident = vi.fn()
+const begin = vi.fn(), finished = vi.fn(), resident = vi.fn(), cancel = vi.fn()
 beforeEach(() => {
   vi.clearAllMocks()
   delete process.env.SPECRAILS_LOOPS_SECTION
@@ -20,12 +20,13 @@ beforeEach(() => {
   runtime.probe.mockResolvedValue({ status: 'paused', lease: null, pendingInterrupts: [], recoverableSteps: [{ attemptId: 'attempt', nodePath: 'node', scopeId: 'scope' }] })
   begin.mockImplementation(() => new Promise(() => {}))
   resident.mockReturnValue(false)
+  cancel.mockResolvedValue(undefined)
 })
 afterEach(() => db.close())
 function api(projectId = 'p') {
   const app = express(), router = express.Router()
   app.use(express.json())
-  registerLoopRunRoutes({ router, ctx: () => ({ db, project: { id: projectId, path: '/repo' }, loopRunManager: { beginDefinitionResume: begin, isDefinitionRunActive: resident }, onLoopRunFinished: finished }) } as unknown as ProjectRoutesDeps)
+  registerLoopRunRoutes({ router, ctx: () => ({ db, project: { id: projectId, path: '/repo' }, loopRunManager: { beginDefinitionResume: begin, isDefinitionRunActive: resident, cancelDefinition: cancel, isDisposed: () => false }, onLoopRunFinished: finished }) } as unknown as ProjectRoutesDeps)
   app.use('/api', router)
   return request(app)
 }
@@ -77,5 +78,33 @@ describe('definition resume admission', () => {
     begin.mockResolvedValue({ outcome: 'success' })
     expect((await api().post(url).send({})).status).toBe(202)
     expect(finished).toHaveBeenCalledWith('run', 'success', undefined)
+  })
+})
+
+describe('definition cancellation admission', () => {
+  it('settles an inactive standalone cancellation through Core terminal replay', async () => {
+    runtime.probe.mockResolvedValue({ status: 'cancelled', lease: null })
+    begin.mockResolvedValue({ outcome: 'stopped' })
+    const result = await api().post('/api/p/loop-runs/run/cancel').send({})
+    expect(result.status).toBe(202)
+    expect(cancel).toHaveBeenCalledWith('run', 'desktop-cancel:run')
+    await vi.waitFor(() => expect(finished).toHaveBeenCalledWith('run', 'stopped'))
+  })
+  it('keeps the resident execution as the sole settlement owner', async () => {
+    resident.mockReturnValue(true)
+    expect((await api().post('/api/p/loop-runs/run/cancel').send({ requestId: 'cancel-1' })).status).toBe(202)
+    expect(begin).not.toHaveBeenCalled()
+    expect(runtime.probe).not.toHaveBeenCalled()
+    expect(finished).not.toHaveBeenCalled()
+  })
+  it('does not acknowledge a rejected Core cancellation', async () => {
+    cancel.mockRejectedValue(new Error('Control unavailable'))
+    expect((await api().post('/api/p/loop-runs/run/cancel').send({})).status).toBe(409)
+    expect(begin).not.toHaveBeenCalled()
+  })
+  it('rejects foreign runs and invalid request identities before control effects', async () => {
+    expect((await api('other').post('/api/p/loop-runs/run/cancel').send({})).status).toBe(404)
+    expect((await api().post('/api/p/loop-runs/run/cancel').send({ requestId: '../other' })).status).toBe(400)
+    expect(cancel).not.toHaveBeenCalled()
   })
 })

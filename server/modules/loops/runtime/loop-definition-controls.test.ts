@@ -22,7 +22,7 @@ describe('definition resume controls', () => {
     { recover: ['write'] }, { recover: ['attempt-3', 'attempt-3'] },
     { answer: 'yes', approve: ['approval-1'] }, { approve: ['question-2'] }, { approve: ['expired'] },
     { answer: 'yes', interruptId: 'approval-1' }, { interruptId: 'question-2' },
-    { interruptId: 'expired', answer: 'yes' }, { answer: 'x'.repeat(20_001) },
+    { interruptId: 'expired', answer: 'yes' }, { answer: 'x'.repeat(20_001) }, { answer: '' }, { answer: '   ' },
     { recover: 'attempt-3' }, { approve: [null] }, { answer: 1 }, { force: true }, null, [],
   ])('rejects stale, ambiguous or malformed controls %j', body => {
     expect(() => validate(body, probe)).toThrow()
