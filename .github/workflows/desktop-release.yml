@@ -81,8 +81,56 @@ jobs:
           VALIDATION_ONLY: ${{ inputs.validation_only }}
         run: node scripts/release-policy.mjs desktop-admission
 
-  build-macos:
+  frontend:
     needs: admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Locate retained frontend evidence from admitted CI
+        id: retained
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN_ID: ${{ needs.admission.outputs.ci-run-id }}
+        run: node scripts/release-policy.mjs client-artifact
+      - name: Download retained frontend
+        if: steps.retained.outputs.available == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          artifact-ids: ${{ steps.retained.outputs.artifact_id }}
+          path: ${{ runner.temp }}/verified-client
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.admission.outputs.ci-run-id }}
+      - name: Verify retained bytes before reuse
+        if: steps.retained.outputs.available == 'true'
+        run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client'
+      - name: Rebuild once if the CI artifact expired or predates receipts
+        if: steps.retained.outputs.available == 'false'
+        run: |
+          npm ci --prefix client
+          npm run build --prefix client
+      - name: Stage the shared release frontend
+        run: node scripts/verified-client.mjs stage '${{ runner.temp }}/release-client'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: release-verified-desktop-client
+          path: ${{ runner.temp }}/release-client
+          if-no-files-found: error
+          retention-days: 7
+
+  build-macos:
+    needs: [admission, frontend]
     permissions:
       contents: read
       actions: read
@@ -118,13 +166,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download the frontend verified by exact-source CI
+      - name: Download the shared release frontend
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
-          name: verified-desktop-client
+          name: release-verified-desktop-client
           path: ${{ runner.temp }}/verified-client
-          github-token: ${{ github.token }}
-          run-id: ${{ needs.admission.outputs.ci-run-id }}
       - name: Verify and restore the same frontend on every platform
         run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client' 
 
@@ -456,7 +502,7 @@ jobs:
   # without an accompanying spec update.
   # ---------------------------------------------------------------
   build-windows:
-    needs: admission
+    needs: [admission, frontend]
     permissions:
       contents: read
       actions: read
@@ -492,13 +538,11 @@ jobs:
         shell: bash
         run: npm ci
 
-      - name: Download the frontend verified by exact-source CI
+      - name: Download the shared release frontend
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
-          name: verified-desktop-client
+          name: release-verified-desktop-client
           path: ${{ runner.temp }}/verified-client
-          github-token: ${{ github.token }}
-          run-id: ${{ needs.admission.outputs.ci-run-id }}
       - name: Verify and restore the same frontend on every platform
         run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client' 
 
@@ -752,7 +796,7 @@ jobs:
   # Same v1-unsigned-on-purpose stance as the x64 build.
   # ---------------------------------------------------------------
   build-windows-arm64:
-    needs: admission
+    needs: [admission, frontend]
     permissions:
       contents: read
       actions: read
@@ -790,13 +834,11 @@ jobs:
         shell: bash
         run: npm ci
 
-      - name: Download the frontend verified by exact-source CI
+      - name: Download the shared release frontend
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
-          name: verified-desktop-client
+          name: release-verified-desktop-client
           path: ${{ runner.temp }}/verified-client
-          github-token: ${{ github.token }}
-          run-id: ${{ needs.admission.outputs.ci-run-id }}
       - name: Verify and restore the same frontend on every platform
         run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client' 
 

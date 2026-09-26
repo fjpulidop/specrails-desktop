@@ -43,8 +43,11 @@ individual checksums. Production Vite URLs are relative and contain no runner or
 platform-specific endpoint.
 
 Release admission selects the latest successful trusted push CI attempt for the
-exact source SHA. Each native job downloads that run's frontend, checks every
-byte before restoring it, then builds its own platform-specific server, sidecars
+exact source SHA. A shared release job verifies and republishes that run's frontend.
+If the artifact expired or predates receipts, it rebuilds the exact admitted source
+once. API, identity and checksum failures remain failures; they never trigger a
+rebuild fallback. Each native job checks the shared bytes before restoring them,
+then builds its own platform-specific server, sidecars
 and Rust shell. The three native jobs reuse the same frontend; each still signs,
 notarizes where configured, and performs installed-application smoke checks.
 `build:desktop` continues to build from source for local development.
@@ -56,4 +59,7 @@ coverage ran for 10m53s and server coverage for 7m07s. The final check waited al
 five minutes for a runner. Compare critical-path execution and queue time
 separately; more partitions reduce work per runner but cannot eliminate host
 queueing. Blob manifests retain start/end and test counts for subsequent tuning.
-Do not claim a wall-time reduction until the updated remote workflow finishes.
+Updated run `36230773446` passed every check. Server shards took 2m12s–2m56s
+and client shards 2m52s–3m24s; each aggregate took 37s. Including queueing,
+the run took 22m52s, so this loaded-run comparison does not demonstrate a total
+wall-time reduction. Preserve both measures when adjusting worker counts.
