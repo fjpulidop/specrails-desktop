@@ -1,5 +1,20 @@
 # Checkpoint — 26 September 2026
 
+## No-progress factory acceptance — 27 September 2026
+
+The real bridge/Core factory suite now includes a Freestyle execution whose
+configured checks pass while its read-only decider continues to report missing
+acceptance work. After three unchanged decisions the run fails, never enters the
+success end, and records the failed decision. All four ordinary factories plus
+this regression passed: five cases, 62.76s. CI's paired Core pin advances to
+60cf9cd8, which contains the independently reproduced engine correction.
+
+Tasks 2.4, 5.1 and 5.3 are reconciled against the one-process/frozen-resume,
+transactional event/accounting, explicit question/approval, paused cancellation,
+source-row preservation and real two-repository fork/settlement suites. These
+were also covered by successful Desktop CI 36277372514; this does not close D4's
+historical allocation reconstruction or the staged D8 rollout gates.
+
 ## Historical mount inspection — 27 September 2026
 
 Recovery status can inspect the owned retained journal when the frozen host's

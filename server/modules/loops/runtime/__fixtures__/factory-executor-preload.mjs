@@ -32,7 +32,7 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
         } else throw Error('Unexpected native command')
         return { text: 'Native skill completed', usage }
       }
-      if (request.prompt.includes('You are the Loop Decider')) return { text: JSON.stringify({ verdict: 'stop', reason: 'Actual host checks now prove the requested value.' }), usage }
+      if (request.prompt.includes('You are the Loop Decider')) return { text: JSON.stringify({ verdict: process.env.SPECRAILS_FACTORY_STALL === '1' ? 'continue' : 'stop', reason: process.env.SPECRAILS_FACTORY_STALL === '1' ? 'Another acceptance obligation remains missing.' : 'Actual host checks now prove the requested value.' }), usage }
       if (!request.openspec) {
         // The first claimed PASS is intentionally false; only the fix turn
         // changes code. This proves sentinels cannot replace host verification.

@@ -31,7 +31,7 @@ Published C0 compatibility remains open; these source results do not close 1.6.
 - [x] 2.1 Vendor definition schema with byte-parity test; add structural graph model and capability catalog.
 - [x] 2.2 Implement pure deterministic graph compiler, interpolation and Core-owned hash validation.
 - [x] 2.3 Validate publication via Core and expose node-scoped errors in builder.
-- [ ] 2.4 Implement exclusive frozen inputs and Core-only launch with host-owned git, cancellation and existing settlement.
+- [x] 2.4 Implement exclusive frozen inputs and Core-only launch with host-owned git, cancellation and existing settlement.
 - [x] 2.5 Implement verification-aware delivery gate; negative completion remains a successful runtime verdict.
 - [x] 2.6 Build palette and inspectors including components/map/join with eight-locale parity and client tests.
 - [ ] 2.7 Update user guides and run loop/runtime/delivery/client validation.
@@ -61,9 +61,9 @@ work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 
 ## 5. D3 — Human pauses and fork (requires D2 and C3)
 
-- [ ] 5.1 Connect paused question/approval/gate states to job composer and single-writer resume.
+- [x] 5.1 Connect paused question/approval/gate states to job composer and single-writer resume.
 - [x] 5.2 Implement linked fork endpoint and explorer action including internal component nodes.
-- [ ] 5.3 Test cancellation during pause, original-run preservation and isolated settlement.
+- [x] 5.3 Test cancellation during pause, original-run preservation and isolated settlement.
 
 ## 6. D4 — Restart recovery (requires D2)
 

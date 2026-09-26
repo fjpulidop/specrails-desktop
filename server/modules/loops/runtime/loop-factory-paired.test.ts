@@ -26,7 +26,7 @@ beforeEach(() => {
 })
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true }) })
 type Event = Record<string, any>
-async function execute(mode: string, legacy = false) {
+async function execute(mode: string, legacy = false, stall = false) {
   const id = `${mode}-${legacy ? 'legacy' : 'v2'}`, repository = path.join(root, id), backlog = path.join(root, id + '-backlog')
   mkdirSync(repository); mkdirSync(backlog)
   expect(spawnSync('git', ['init', '-q', repository]).status).toBe(0)
@@ -43,14 +43,14 @@ async function execute(mode: string, legacy = false) {
   const callsFile = path.join(root, id + '-calls.jsonl'), events: Event[] = []
   const change = 'paired-change', factory = getFactoryLoop(mode === 'quick-sdd' ? 'factory:sdd-quick-openspec' : `factory:${mode}`, { engineV2: 1, workflowDefinitions: 1 })!
   const result = await runAgentRuntimeInvocation({ contextPath, configPath, cwd: repository, change,
-    env: { ...process.env, SPECRAILS_GIT_AUTO: 'false', SPECRAILS_FACTORY_CORE: core, SPECRAILS_FACTORY_CALLS: callsFile,
+    env: { ...process.env, SPECRAILS_GIT_AUTO: 'false', SPECRAILS_FACTORY_CORE: core, SPECRAILS_FACTORY_CALLS: callsFile, SPECRAILS_FACTORY_STALL: stall ? '1' : '0',
       NODE_OPTIONS: `--import=${pathToFileURL(path.join(process.cwd(), 'server/modules/loops/runtime/__fixtures__/factory-executor-preload.mjs')).href}` },
     ...(!legacy ? { engineVersion: 2 as const, prepareDefinition: () => compileLoopToDefinition(factory.graph, { id: factory.id, title: factory.name, provider: 'claude', constants: {}, repositoryCount: 1, changeId: change }) } : {}),
     onRuntimeEvent: event => events.push(event), timeoutMs: 150_000,
   })
   const calls = existsSync(callsFile) ? readFileSync(callsFile, 'utf8').trim().split('\n').map(line => JSON.parse(line) as Event) : []
-  expect(result, JSON.stringify({ result, events: events.slice(-5) })).toMatchObject({ failed: false })
-  if (!legacy) expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+  expect(result, JSON.stringify({ result, events: events.slice(-5) })).toMatchObject({ failed: stall })
+  if (!legacy && !stall) expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
   expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe('module.exports = 2\n')
   return { result, calls, events }
 }
@@ -72,4 +72,14 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).ea
     expect(terminal).toHaveLength(2)
     expect(actual.calls.at(-1)?.access).toBe('read')
   }
+}, 180_000)
+
+it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('does not report Freestyle success when verified checks pass but the decider makes no progress', async () => {
+  const actual = await execute('freestyle', false, true)
+  expect(actual.result).toMatchObject({ failed: true, runtimeStatus: 'failed', completion: { ok: false } })
+  expect(actual.calls.filter(call => call.role === 'loop-decider')).toHaveLength(3)
+  const lifecycle = actual.events.filter(event => event.type === 'workflow-event').map(event => event.event)
+  expect(lifecycle.some(event => event.type === 'workflow_succeeded')).toBe(false)
+  expect(lifecycle.some(event => event.type === 'step_started' && event.nodePath === 'done')).toBe(false)
+  expect(lifecycle.some(event => event.type === 'step_failed' && event.nodePath === 'decide')).toBe(true)
 }, 180_000)
