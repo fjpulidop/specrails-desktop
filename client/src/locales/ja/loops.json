@@ -204,7 +204,10 @@
         "openspec": "OpenSpec",
         "control": "フロー制御"
       },
-      "options": "ワークフローの設定"
+      "options": "ワークフローの設定",
+      "reviewerStep": "レビュー証拠ノード",
+      "reviewerAutomatic": "自動（実装レビュー）",
+      "reviewerHint": "構造化されたレビューを提供するロールターンを選択します。AIレビューはホストによる検証の代わりにはなりません。"
     }
   },
   "preview": {

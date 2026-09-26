@@ -362,6 +362,7 @@ export function ProfileEditor({
 
       {/* Orchestrator */}
       <section>
+        <p className="text-xs text-muted-foreground mb-3">{t('profileEditor.legacyWorkflowNotice')}</p>
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
           {t('profileEditor.orchestrator.heading')}
         </h2>

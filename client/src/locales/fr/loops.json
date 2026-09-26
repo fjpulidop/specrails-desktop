@@ -204,7 +204,10 @@
         "openspec": "OpenSpec",
         "control": "Contrôle du flux"
       },
-      "options": "Options du workflow"
+      "options": "Options du workflow",
+      "reviewerStep": "Nœud de preuves de revue",
+      "reviewerAutomatic": "Automatique (revues d’implémentation)",
+      "reviewerHint": "Choisissez le tour de rôle qui fournit la revue structurée. La revue IA ne remplace pas la vérification par l’hôte."
     }
   },
   "preview": {

@@ -83,6 +83,8 @@ export interface LoopGraphConfig {
   change?: 'new' | 'existing' | 'none'
   maxTransitions?: number
   maxTokens?: number
+  /** Exact Core role-turn path used to project a custom reviewer verdict. */
+  reviewerStepId?: string
   policies?: { failFast?: number; noProgress?: number; historyMaxChars?: number; concurrency?: number }
 }
 
@@ -94,6 +96,21 @@ export interface LoopGraph {
   inputs?: string[]
   outputs?: string[]
   components?: Record<string, LoopGraph>
+}
+
+export function isDefinitionReviewerPath(graph: LoopGraph, value: unknown): value is string {
+  if (typeof value !== 'string' || !value || value.length > 2048) return false
+  const segments = value.split('/')
+  if (segments.length > 32) return false
+  let body: LoopGraph | undefined = graph
+  for (let index = 0; index < segments.length; index++) {
+    const node: LoopNode | undefined = body?.nodes.find(item => item.id === segments[index])
+    if (!node || node.type !== 'core') return false
+    if (index === segments.length - 1) return node.data?.kind === 'role-turn'
+    const ref: unknown = node.data?.kind === 'component' ? node.data.params?.ref : node.data?.kind === 'map' ? node.data.params?.body : undefined
+    body = typeof ref === 'string' ? graph.components?.[ref] : undefined
+  }
+  return false
 }
 
 export function isDefinitionGraph(graph: LoopGraph): boolean {
@@ -257,11 +274,12 @@ export function validateLoopGraph(graph: LoopGraph, catalog?: readonly CorePiece
     (cfg.aiStepTimeoutMinutes !== undefined && (!Number.isFinite(cfg.aiStepTimeoutMinutes) || cfg.aiStepTimeoutMinutes < 0)) ||
     (cfg.maxCostUsd !== undefined && !Number.isFinite(cfg.maxCostUsd)) ||
     (cfg.maxTransitions !== undefined && (!Number.isInteger(cfg.maxTransitions) || cfg.maxTransitions < 1 || cfg.maxTransitions > 10000)) ||
-    (cfg.maxTokens !== undefined && (!Number.isInteger(cfg.maxTokens) || cfg.maxTokens < 1))
+    (cfg.maxTokens !== undefined && (!Number.isInteger(cfg.maxTokens) || cfg.maxTokens < 1)) ||
+    (cfg.reviewerStepId !== undefined && !isDefinitionReviewerPath(graph, cfg.reviewerStepId))
   ) {
     errors.push({
       code: 'INVALID_CONFIG',
-      message: 'maxIterations must be ≥ 1; timeouts must be finite and ≥ 0 (0 = no timeout); maxCostUsd must be finite.',
+      message: 'maxIterations must be ≥ 1; timeouts must be finite and ≥ 0 (0 = no timeout); maxCostUsd must be finite; reviewerStepId must identify a Core role-turn.',
     })
   }
 

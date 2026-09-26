@@ -136,7 +136,8 @@
       "moveUp": "Mover para cima",
       "coreDefaultBadge": "core · default",
       "coreDefaultTitle": "Fallback core — a regra de último recurso do pipeline, fixada no sr-developer"
-    }
+    },
+    "legacyWorkflowNotice": "As definições do orquestrador e do encaminhamento aplicam-se aos workflows antigos. Os workflows Core usam os papéis selecionados no editor de loops."
   },
   "agentSelector": {
     "coreBadge": "core",

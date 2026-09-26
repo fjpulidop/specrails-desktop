@@ -1,7 +1,7 @@
 import { writeRuntimeHistory } from './agent-runtime-history'
 import { toolRepositories, type RuntimeLogRepository } from './agent-runtime-repositories'
 import { stripVTControlCharacters } from 'node:util'
-import { resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
+import { bindWorkflowRoleDefaults, resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
@@ -139,6 +139,11 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     config.providers = stripDesktopConnectionFields(config.providers, coreConnectionFieldGates(runtime.api?.capabilities))
     if (runtime.api?.capabilities?.configurableGuardrails !== 1) delete (config as { guardrails?: unknown }).guardrails
     if (definitionEngine && (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1)) throw new Error('engine_unsupported: Update Core to run workflow definitions')
+    const draft = definitionEngine ? options.prepareDefinition
+      ? options.prepareDefinition(structuredClone(config))
+      : options.definitionPath ? JSON.parse(readFileSync(options.definitionPath, 'utf8')) : undefined : undefined
+    if (definitionEngine && !draft) throw new Error('A new Core workflow requires a definition')
+    const workflowOrigins = bindWorkflowRoleDefaults(config, draft)
     const override = options.providerOverride
     runtime.validateRuntimeConfig(JSON.parse(JSON.stringify(config)))
     validateRequestedRoleEfforts(runtime, config)
@@ -146,7 +151,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     args[0] = cli
     saveHostContext(options)
     const selectionFile = join(dirname(options.contextPath), 'desktop-runtime-selection.json')
-    const selection = JSON.stringify({ schemaVersion: 1, runId: admittedContext.runId, providerOverride: override ?? null, origins }) + '\n'
+    const selection = JSON.stringify({ schemaVersion: 1, runId: admittedContext.runId, providerOverride: override ?? null, origins: { ...origins, ...workflowOrigins } }) + '\n'
     try { writeFileSync(selectionFile, selection, { flag: 'wx', mode: 0o600 }) }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || readFileSync(selectionFile, 'utf8') !== selection) throw new Error('Runtime selection provenance changed; start a new run') }
     const scopedPath = join(dirname(options.contextPath), 'desktop-runtime-config.json')
@@ -157,10 +162,6 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       if (readFileSync(scopedPath, 'utf8') !== serialized) throw new Error('Desktop runtime configuration changed; start a new run')
     }
     if (definitionEngine) {
-      const draft = options.prepareDefinition
-        ? options.prepareDefinition(structuredClone(config))
-        : options.definitionPath ? JSON.parse(readFileSync(options.definitionPath, 'utf8')) : undefined
-      if (!draft) throw new Error('A new Core workflow requires a definition')
       const validation = runtime.validateWorkflowDefinition(draft, { configPath: scopedPath, structural: false })
       if (!validation.ok) throw new Error('definition_invalid: ' + validation.errors.map(error => `${error.path ?? error.nodeId ?? 'graph'}: ${error.message}`).join('; '))
       const definitionPath = join(dirname(options.contextPath), 'desktop-workflow-definition.json')

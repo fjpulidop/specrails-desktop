@@ -136,7 +136,8 @@
       "moveUp": "Sposta su",
       "coreDefaultBadge": "core · default",
       "coreDefaultTitle": "Fallback core — la regola di ultima istanza della pipeline, fissata su sr-developer"
-    }
+    },
+    "legacyWorkflowNotice": "Le impostazioni dell’orchestratore e dell’instradamento si applicano ai workflow precedenti. I workflow Core usano i ruoli selezionati nell’editor dei loop."
   },
   "agentSelector": {
     "coreBadge": "core",

@@ -168,7 +168,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
     const read = (url: string) => fetch(url, { signal: controller.signal }).then(response => response.ok ? response.json() : null).catch(() => null)
     void Promise.all([activeProjectId ? read(`${getApiBase()}/agent-runtime/config`) : Promise.resolve(null), read('/api/runtime-providers')]).then(([value, connections]) => {
       if (controller.signal.aborted) return
-      setChoices({ providers: (value?.config?.providers ?? connections?.providers ?? []).map((provider: { id: string }) => provider.id), roles: [...new Set([...Object.keys(value?.config?.agents ?? {}), ...Object.keys(value?.config?.roles ?? {})])], models: Object.fromEntries(Object.entries(connections?.status ?? {}).map(([id, status]) => [id, (status as { models?: string[] }).models ?? []])) })
+      setChoices({ providers: (value?.config?.providers ?? connections?.providers ?? []).map((provider: { id: string }) => provider.id), roles: [...new Set([...Object.keys(value?.config?.agents ?? {}), ...Object.keys(value?.config?.roles ?? {}), ...Object.keys(value?.workflowRoleDefaults ?? {})])], models: Object.fromEntries(Object.entries(connections?.status ?? {}).map(([id, status]) => [id, (status as { models?: string[] }).models ?? []])) })
     })
     return () => controller.abort()
   }, [activeProjectId])

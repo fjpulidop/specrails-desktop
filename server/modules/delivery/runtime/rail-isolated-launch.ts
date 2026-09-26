@@ -1875,6 +1875,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
             ticketId: result.run.ticketId,
             runId: result.run.runId,
             definitionStatus: definitionEvidence.get(result.run.runId),
+            reviewerStepId: readDefinitionRun(ctx.db, result.run.runId)?.request.graph.config.reviewerStepId,
             worktreePath: result.run.handle.worktreePath,
             loopId,
             // Programmatic-runtime evidence (host-run verification, reviewer
@@ -2110,6 +2111,7 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
       const evidence = (io.harvestEvidence ?? harvestDeliveryEvidence)({ readEvents: id => getJobEvents(ctx.db, id) }, results.map(item => ({
         ticketId: item.run.ticketId, runId: item.run.runId, worktreePath: item.run.handle.worktreePath,
         definitionStatus: definitionEvidence.get(item.run.runId),
+        reviewerStepId: readDefinitionRun(ctx.db, item.run.runId)?.request.graph.config.reviewerStepId,
       })))
       if (!transitionClaimedDecision(ctx.db, row.id, row.decision, next, token, {
         branches: branchRecords(results), runIds: latest.map(item => item.snapshot.run.runId), worktreeIds: latest.map(item => item.snapshot.run.ledgerId),

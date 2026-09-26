@@ -28,6 +28,11 @@ Run `npx vitest run server/modules/agent-runtime` and any affected consumers.
 
 ## Configured roles
 
+`workflowRoleDefaults` exposes app-owned read-only decision-role defaults.
+`bindWorkflowRoleDefaults` applies only descriptors declared by a compiled graph,
+preserves explicit project engine selections and rejects incompatible policies.
+Admission freezes these defaults after launch overrides; saved runs reuse them.
+
 The three built-in assignments remain in `agents`. Additional role descriptors
 live in `roles` and declare source access, artifact access, provider/model, optional
 OpenSpec skill and instructions. Settings reuse the provider and effort controls;

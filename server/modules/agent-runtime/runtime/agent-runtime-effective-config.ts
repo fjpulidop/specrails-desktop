@@ -1,6 +1,26 @@
 import { getAdapter, hasAdapter, isLocalAdapterId } from '../../../providers'
 import type { RuntimeConfig, RuntimeProviderOverride } from './agent-runtime-settings'
 
+/** The loop decision role uses the selected review engine, but has no OpenSpec
+ * workflow obligation. Native implementation's reviewer keeps its own policy. */
+export function workflowRoleDefaults(config: RuntimeConfig): NonNullable<RuntimeConfig['roles']> {
+  return { 'loop-decider': { ...config.agents.reviewer, access: 'read', artifacts: 'none' } }
+}
+
+/** Bind only roles referenced by the frozen definition; preserve explicit
+ * project assignments and never persist generated defaults into project files. */
+export function bindWorkflowRoleDefaults(config: RuntimeConfig, definition: unknown): Record<string, string> {
+  const roles = (definition as { roles?: unknown } | undefined)?.roles
+  if (!Array.isArray(roles) || !roles.includes('loop-decider')) return {}
+  const existing = config.roles?.['loop-decider']
+  if (existing) {
+    if (existing.access !== 'read' || existing.artifacts !== 'none' || existing.openspecSkill) throw new Error('loop-decider requires read access, no artifact writes and no OpenSpec skill')
+    return { 'loop-decider': 'project-role' }
+  }
+  config.roles = { ...config.roles, ...workflowRoleDefaults(config) }
+  return { 'loop-decider': 'inherited-reviewer-engine' }
+}
+
 /** A pure admission resolver; only deliberate launch intent overrides a project role. */
 export function resolveEffectiveRuntimeConfig(input: RuntimeConfig, options: {
   repositoryIds: string[]

@@ -204,7 +204,10 @@
         "openspec": "OpenSpec",
         "control": "Controllo del flusso"
       },
-      "options": "Opzioni del workflow"
+      "options": "Opzioni del workflow",
+      "reviewerStep": "Nodo delle evidenze di revisione",
+      "reviewerAutomatic": "Automatico (revisioni di implementazione)",
+      "reviewerHint": "Scegli il turno di ruolo che fornisce la revisione strutturata. La revisione IA non sostituisce la verifica dell’host."
     }
   },
   "preview": {

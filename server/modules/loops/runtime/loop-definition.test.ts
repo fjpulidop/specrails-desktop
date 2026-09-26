@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { compileLoopToDefinition } from './loop-definition'
-import { assertDefinitionGraph, isDefinitionGraph, validateLoopGraph, type LoopGraph } from './loop-graph'
+import { assertDefinitionGraph, isDefinitionGraph, isDefinitionReviewerPath, validateLoopGraph, type LoopGraph } from './loop-graph'
+
+it('validates a custom evidence reviewer against an exact role-turn instance path', () => {
+  const graph = fixture()
+  graph.nodes[1].data = { kind: 'component', params: { ref: 'review' } }
+  const review = fixture(); review.nodes[1].data = { kind: 'role-turn', params: { roleId: 'auditor', prompt: 'Review' } }
+  graph.components = { review }
+  expect(isDefinitionReviewerPath(graph, 'work/work')).toBe(true)
+  expect(isDefinitionReviewerPath(graph, 'review/work')).toBe(false)
+  expect(isDefinitionReviewerPath(graph, 'work/finish')).toBe(false)
+  expect(isDefinitionReviewerPath(graph, '../work')).toBe(false)
+  graph.config.reviewerStepId = 'work/finish'
+  expect(validateLoopGraph(graph)).toMatchObject({ valid: false })
+})
 
 const launch = {
   id: 'factory:quick',

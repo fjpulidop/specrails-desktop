@@ -136,3 +136,33 @@ existing atomic ticket-store mutation, restricted to causally owned tickets.
 Remaining sibling runs reattach their aggregate settlement when a fork has taken
 over the original coordinator. Fork creation does not rewind repository files or
 start a provider; the UI opens the paused child for explicit resume.
+# Workflow decision role
+
+Paired factory execution found that using the built-in `reviewer` for a Freestyle
+decider inherits its mandatory OpenSpec verification skill even when the graph
+has `change: none`. Factories and starters now reference `loop-decider`, a custom
+read-only, no-artifact role. At admission, only definitions declaring that role
+receive the default descriptor, using the effective reviewer engine after launch
+overrides. Explicit project engine/prompt selections win; incompatible write or
+OpenSpec policies are rejected before execution. Generated defaults are frozen
+with the run and their origin is recorded, without rewriting project settings.
+The role is exposed in the builder's library. Native implementation reviewers
+retain their original OpenSpec obligations.
+
+### Custom review evidence selection
+
+Desktop stores an optional exact role-turn node path in graph configuration,
+validates membership across component/map instances, and freezes it with the run
+request. It is host evidence metadata, not a Core execution parameter. Fresh
+settlement and retained-status recovery use that same selection; evidence rows
+retain it for later healing. Native implementation reviews remain automatic,
+parallel scope reviews remain separate, and host verification remains independent.
+
+### Web release verification
+
+Web CI is reusable at the caller commit. Release waits for all checks and reuses
+its immutable build artifact, including hidden static files, with no deployment
+rebuild. Force-deploy now bypasses release-please as advertised. Only main can
+release/deploy, stale main revisions are rejected, FTP execution is serialized,
+and write permissions are confined to release metadata. This is implementation
+in a draft PR, not authorization to release or evidence of deployed behavior.

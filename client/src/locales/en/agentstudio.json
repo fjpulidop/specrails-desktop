@@ -136,7 +136,8 @@
       "moveUp": "Move up",
       "coreDefaultBadge": "core · default",
       "coreDefaultTitle": "Core fallback — the pipeline's last-resort rule, pinned to sr-developer"
-    }
+    },
+    "legacyWorkflowNotice": "Orchestrator and routing settings apply to legacy workflows. Core workflows use the roles selected in the Loop Builder."
   },
   "agentSelector": {
     "coreBadge": "core",

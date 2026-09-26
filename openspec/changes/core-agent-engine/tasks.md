@@ -54,10 +54,10 @@ work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 
 ## 4. D2 — Event projection and accounting (requires D1)
 
-- [ ] 4.1 Project graph/step/branch events into existing loop events and nested explorer models.
-- [ ] 4.2 Persist one invocation per AI attempt with idempotent replay, shared integer allocation and null usage.
-- [ ] 4.3 Read Core evidence via retained CLI and preserve review confidence projection.
-- [ ] 4.4 Add event fixture, accounting parity, replay, evidence and client explorer tests; update log guide.
+- [x] 4.1 Project graph/step/branch events into existing loop events and nested explorer models.
+- [x] 4.2 Persist one invocation per AI attempt with idempotent replay, shared integer allocation and null usage.
+- [x] 4.3 Read Core evidence via retained CLI and preserve review confidence projection.
+- [x] 4.4 Add event fixture, accounting parity, replay, evidence and client explorer tests; update log guide.
 
 ## 5. D3 — Human pauses and fork (requires D2 and C3)
 
@@ -74,16 +74,16 @@ work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 
 ## 7. D5 — Progressive factories (requires C4/C5/C6 respectively)
 
-- [ ] 7.1 Port Quick SDD after C4 with sequence parity and capability fallback.
-- [ ] 7.2 Port Freestyle and templates after C5 with sentinel/retry parity.
-- [ ] 7.3 Port Implement and Batch after C6 with receipt/acceptance parity and stable factory aliases.
-- [ ] 7.4 Update pipeline user documentation and run factory/template pairing tests.
+- [x] 7.1 Port Quick SDD after C4 with sequence parity and capability fallback.
+- [x] 7.2 Port Freestyle and templates after C5 with sentinel/retry parity.
+- [x] 7.3 Port Implement and Batch after C6 with receipt/acceptance parity and stable factory aliases.
+- [x] 7.4 Update pipeline user documentation and run factory/template pairing tests.
 
 ## 8. D6 — Agents role library (requires D1b/C5)
 
 - [x] 8.1 Project custom agent frontmatter and prompts into runtime role descriptors.
-- [ ] 8.2 Integrate role selection and builtin read-only display; mark legacy routing for later removal.
-- [ ] 8.3 Test role permissions, profiles API and Agent Studio flows.
+- [x] 8.2 Integrate role selection and builtin read-only display; mark legacy routing for later removal.
+- [x] 8.3 Test role permissions, profiles API and Agent Studio flows.
 
 ## 9. D7 — Steering and observation (requires C8)
 

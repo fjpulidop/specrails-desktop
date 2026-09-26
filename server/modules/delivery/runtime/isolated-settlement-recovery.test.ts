@@ -27,7 +27,7 @@ beforeEach(() => {
   createRailWorktree(db, { id: 'mount', runId: 'run', railIndex: 0, ticketId: 1, branch: 'work', worktreePath: root })
   createJob(db, { id: 'run', command: 'loop:test', started_at: new Date().toISOString(), owner: 'loop' })
   createLoopRun(db, { id: 'run', projectId: 'p', loopId: 'loop', ticketIds: [1], railIndex: 0, ticketCompletionStatus: 'on_review', iterationLimit: 5, startedAt: new Date().toISOString() })
-  saveDefinitionRun(db, 'run', { request: { runId: 'run', projectId: 'p', loopId: 'loop', cwd: root, graph: { nodes: [], edges: [], config: {} }, provider: 'test', model: 'test' } as LoopRunRequest,
+  saveDefinitionRun(db, 'run', { request: { runId: 'run', projectId: 'p', loopId: 'loop', cwd: root, graph: { nodes: [], edges: [], config: { reviewerStepId: 'checks/audit' } }, provider: 'test', model: 'test' } as LoopRunRequest,
     definition: { delivery: { requiresVerified: true } }, context: { runId: 'run', repositories: [{ id: 'repo', path: root }] } })
   finishLoopRunAndJob(db, 'run', { outcome: 'success', finishedAt: new Date().toISOString(), callbackOutcome: 'failed', outcomeFinalized: false,
     counters: { iterationCount: 1, totalCostUsd: 5, totalTokens: 8, totalDurationMs: 10 },
@@ -90,7 +90,7 @@ it('retains evidence from every settled sibling when the last recovered run fini
   await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance, harvestEvidence: harvest })
   expect(fixture.evidence).toHaveBeenCalledWith(expect.anything(), expect.arrayContaining(['run', 'sibling']), true)
   expect(harvest.mock.calls[0][1]).toEqual(expect.arrayContaining([
-    expect.objectContaining({ runId: 'run', definitionStatus: expect.objectContaining({ runId: 'run' }) }),
+    expect.objectContaining({ runId: 'run', reviewerStepId: 'checks/audit', definitionStatus: expect.objectContaining({ runId: 'run' }) }),
     expect.objectContaining({ runId: 'sibling', definitionStatus: expect.objectContaining({ runId: 'sibling' }) }),
   ]))
 })

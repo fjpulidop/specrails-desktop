@@ -116,6 +116,9 @@ describe('runtime project configuration', () => {
     expect(loadAgentRuntimeConfig(project())).toEqual(payload)
     const read = await request(app).get(url).expect(200)
     expect(read.body).toMatchObject({ openRolesAvailable: true, config: { roles: payload.roles } })
+    expect(read.body.workflowRoleDefaults['loop-decider']).toMatchObject({ ...payload.agents.reviewer, access: 'read', artifacts: 'none' })
+    expect(read.body.workflowRoleDefaults['loop-decider']).not.toHaveProperty('openspecSkill')
+    expect(read.body.config.roles).not.toHaveProperty('loop-decider')
   })
 
   it('preserves the saved file when an older runtime cannot accept declared roles', async () => {

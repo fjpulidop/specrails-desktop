@@ -5,7 +5,7 @@ import { AgentRuntimeConfigError, agentRuntimeConfigPath, loadAgentRuntimeConfig
 import { stripDesktopConnectionFields, forCoreRuntime } from './agent-runtime-settings'
 import { suggestVerificationCommands } from './agent-runtime-verification-suggestions'
 import { getProjectRepositories } from '../../../project-repositories'
-import { fillDefaultRoleModels } from './agent-runtime-effective-config'
+import { fillDefaultRoleModels, workflowRoleDefaults } from './agent-runtime-effective-config'
 
 /** Raw request body → same body with every local role's missing model filled (validation then passes). */
 function withDefaultRoleModels(body: Record<string, unknown>): Record<string, unknown> {
@@ -53,7 +53,8 @@ export function registerAgentRuntimeSettingsRoutes({ router, ctx }: Pick<Project
       const config = loadAgentRuntimeConfig(project)
       let efficiencyAvailable = false, openRolesAvailable = false
       try { const capabilities = (await loadCoreAgentRuntime()).api?.capabilities; efficiencyAvailable = capabilities?.efficientRoleExecution === 1; openRolesAvailable = capabilities?.openRoles === 1 } catch { /* Ordinary settings remain readable without capability support. */ }
-      res.json({ configured, config, runtimeAvailable: findCoreAgentRuntimeEntry() !== null, efficiencyAvailable, openRolesAvailable })
+      res.json({ configured, config, runtimeAvailable: findCoreAgentRuntimeEntry() !== null, efficiencyAvailable, openRolesAvailable,
+        workflowRoleDefaults: openRolesAvailable && config ? workflowRoleDefaults(config) : {} })
     } catch (err) {
       const validation = err instanceof AgentRuntimeConfigError
       res.status(validation ? 422 : 500).json({ error: validation ? 'invalid_runtime_config' : 'runtime_config_read_failed', message: validation ? err.message : 'Could not read runtime configuration' })

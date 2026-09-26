@@ -42,13 +42,22 @@ Each rail has a header with:
 
 ### Loops
 
-A rail runs a **Loop**, picked in the rail header and persisted per rail. The three **built-in** loops cover the common cases:
+A rail runs a **Loop**, picked in the rail header and persisted per rail. With a compatible Core definition engine, four built-in graphs cover the common cases. Older Core installations retain their existing factories.
 
-| Built-in loop | Command | What it does |
-|------|---------|--------------|
-| **Implement** | `/specrails:implement` | One job covering all the specs on the rail. Runs the full Architect → Developer → Reviewer → Ship pipeline. |
-| **Batch** | `/specrails:batch-implement` | One job that works through the rail's specs sequentially, in dependency-aware waves. |
-| **Freestyle** | (Freestyle) | A provider with native Freestyle capability implements each spec autonomously, bypassing the OpenSpec pipeline. Claude and Kimi support it. |
+| Built-in loop | What it does |
+|------|--------------|
+| **Implement** | Native Architect → Developer → Verify → Reviewer → Archive, with acceptance and verification required for delivery. |
+| **Batch** | A bounded map of ticket implementations, followed by a join and verification of the combined result. |
+| **Quick SDD** | Prepare an OpenSpec change, validate it, apply it, verify, archive and verify again. The `revision` and `openspec` aliases remain valid. |
+| **Freestyle** | Implement directly, run configured checks, ask a read-only decider whether every requirement is met, and fix/recheck when necessary. |
+
+The Core palette also offers role turns, questions, approvals, gates, reusable
+components, maps and joins. Drag a piece onto the canvas, connect its named
+outcomes, then edit its parameters. Role turns select from the project's role
+library. The `loop-decider` role inherits the selected review engine and has read
+access with no artifact writes or OpenSpec requirement; its engine and prompt can
+be explicitly configured. A printed `VERIFICATION: PASS` never replaces host-run
+checks. The eight starter templates use these same Core pieces when supported.
 
 Beyond the built-ins, the **Loops** section (left sidebar, above the project list) is a global, n8n-style **visual builder** shared across all your projects. A loop is a graph of typed steps:
 
@@ -59,12 +68,12 @@ Beyond the built-ins, the **Loops** section (left sidebar, above the project lis
 
 Each run is bounded by **max iterations**, a wall-clock **timeout**, and an optional **cost cap** (USD, checked between steps). The builder also has live validation, a dry-run preview (resolve every step's exact text without spawning), import/export to JSON, and copy/paste of steps across loops. **Fork** a built-in to start from a working graph, then **Publish** to make a loop selectable on any rail.
 
-Kimi runs built-in and custom loops whose graph contains AI/shell steps but no
+On the legacy traversal, Kimi runs built-in and custom loops whose graph contains AI/shell steps but no
 **Loop Decider**. A Decider's constrained `continue`/`stop` verdict is a
 pure-output action; Kimi 0.27 `-p` cannot enforce the required no-tools
 boundary, so Kimi + Decider is rejected before the loop starts.
 
-> Loop runs stream live in the Jobs view like any rail job — and the Job Detail view groups a loop's log **by step**: a live chip map of the graph on top, one collapsible section per step below, with follow mode tracking the running step. Provider/model/effort are governed by the **rail**, not the loop's steps.
+> Loop runs stream live in the Jobs view, grouped by scoped attempts. Core runs also expose their nested graph. Project role settings apply unless a deliberate launch override selects an engine for the run. Legacy profile routing and orchestrator settings remain available for older workflows.
 
 ### Pipeline phases
 

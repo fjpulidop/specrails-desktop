@@ -204,7 +204,10 @@
         "openspec": "OpenSpec",
         "control": "Ablaufsteuerung"
       },
-      "options": "Workflow-Optionen"
+      "options": "Workflow-Optionen",
+      "reviewerStep": "Knoten für Prüfnachweise",
+      "reviewerAutomatic": "Automatisch (Implementierungsprüfungen)",
+      "reviewerHint": "Wähle den Rollenschritt für strukturierte Prüfnachweise. Eine KI-Prüfung ersetzt nicht die Verifikation durch den Host."
     }
   },
   "preview": {

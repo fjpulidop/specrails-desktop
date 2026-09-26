@@ -25,6 +25,15 @@ The v2 projection adds `attemptId`, `nodePath`, `scopeId`, `traceId` and optiona
 `spanId` to step metadata. Log correlation uses an attempt-index map so parallel
 output is not assigned to whichever step happened to arrive last.
 
+For custom review roles, the root workflow inspector's **Review evidence node**
+selects an exact role-turn path, including component/map instances such as
+`checks/security`. The frozen run request carries that selection into fresh and
+recovered delivery evidence. Automatic mode reads native implementation reviews.
+Structured custom-role output must provide a review verdict; a role name alone
+does not qualify. Parallel scoped verdicts stay separate and do not acquire an
+invented aggregate confidence score. AI review never replaces host verification,
+and a file-based confidence score retains precedence over the runtime projection.
+
 Emitted by `server/modules/loops/runtime/loop-run-manager.ts` (payload interfaces are exported there — `LoopStepEventPayload`, `LoopStepEndEventPayload`, `LoopGraphEventPayload`). All three ride the run's job row as ordinary persisted `events` rows plus `event` WS broadcasts (`event_type` below, `payload` = JSON of the interface). Purely additive to the existing stream — no DB migration.
 
 ### `loop_graph` — once, at run start

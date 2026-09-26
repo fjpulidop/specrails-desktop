@@ -266,3 +266,15 @@ finish missing frozen files. Existing files must match exactly. A conflicting
 request or destination is rejected; the source and child Core databases are never
 replaced by host cleanup. Older children without receipts cannot be adopted by a
 new request.
+
+### Workflow decision role
+
+Factories and starters use `loop-decider` for evidence-based continuation. The
+bridge binds this role only when the compiled definition declares it, after
+effective provider/model overrides. Its default inherits the review engine with
+`access: read`, `artifacts: none` and no OpenSpec skill. Explicit project engine
+and prompt settings win; incompatible permission/skill settings fail before
+execution. The generated descriptor and selection origin are frozen per run,
+without modifying the project config. The config endpoint exposes available
+workflow defaults separately for builder choices. Native implementation's
+reviewer still requires its original OpenSpec workflow.

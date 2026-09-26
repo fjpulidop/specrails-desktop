@@ -85,6 +85,8 @@ export interface DeliveryUnitEvidence {
   runId: string | null
   /** Programmatic-runtime evidence (null/absent when the run used a legacy loop). */
   runtime?: DeliveryRuntimeEvidence | null
+  /** Frozen host selection, retained for later evidence healing. */
+  reviewerStepId?: string
   sentinel: SentinelVerdict
   /** Trailing free text after a FAIL sentinel (single line, bounded). */
   sentinelDetail: string | null
@@ -402,6 +404,7 @@ export function harvestDeliveryEvidence(
     const evidence: DeliveryUnitEvidence = {
       ticketId: unit.ticketId,
       runId: unit.runId,
+      ...(unit.reviewerStepId ? { reviewerStepId: unit.reviewerStepId } : {}),
       sentinel: 'absent',
       sentinelDetail: null,
       verifyTail: null,
@@ -625,7 +628,7 @@ export function healRuntimeEvidence(
     const definition = definitionStatuses.get(unit.runId)
     if (definition?.status === 'unavailable' || !definition && unit.runtime !== undefined) return unit
     let runtime: DeliveryRuntimeEvidence | null = null
-    try { runtime = definition ? projectDefinitionRuntimeEvidence(definition) : readRuntimeEvidence(path.join(pipelineDir, unit.runId), unit.runId, io) } catch { runtime = null }
+    try { runtime = definition ? projectDefinitionRuntimeEvidence(definition, unit.reviewerStepId) : readRuntimeEvidence(path.join(pipelineDir, unit.runId), unit.runId, io) } catch { runtime = null }
     if (!runtime) return unit
     changed = true
     const confidence = unit.confidence ?? (runtime.review && runtime.review.score !== null

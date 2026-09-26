@@ -204,7 +204,10 @@
         "openspec": "OpenSpec",
         "control": "流程控制"
       },
-      "options": "工作流选项"
+      "options": "工作流选项",
+      "reviewerStep": "审查证据节点",
+      "reviewerAutomatic": "自动（实现审查）",
+      "reviewerHint": "选择提供结构化审查的角色轮次。AI 审查不能替代主机验证。"
     }
   },
   "preview": {

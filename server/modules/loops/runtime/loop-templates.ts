@@ -473,7 +473,7 @@ export function coreStarterGraph(id: CoreStarterTemplateId): LoopGraph {
   }
   const verify = (pass: string) => piece('verify', 'verify', { commands: 'configured' }, { pass, fail: 'fix', failed: 'failed' })
   const decide = (deciderGoal: string, next: string) =>
-    piece('decide', 'decider', { roleId: 'reviewer', goal: deciderGoal, noProgress: 3 }, { stop: 'done', continue: next, failed: 'failed' })
+    piece('decide', 'decider', { roleId: 'loop-decider', goal: deciderGoal, noProgress: 3 }, { stop: 'done', continue: next, failed: 'failed' })
   const fix = () => piece('fix', 'prompt', { text: CORE_FIX_PROMPT, access: 'write' }, { next: 'verify', failed: 'failed' }, COL_RIGHT_X)
   let entry: string
   let config: LoopGraph['config'] = { maxIterations, timeoutMinutes: STARTER_TIMEOUT_MIN, journal: 'ledger-only', change: 'none' }

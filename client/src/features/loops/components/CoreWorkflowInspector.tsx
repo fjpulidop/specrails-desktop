@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Trash2 } from 'lucide-react'
-import { asObject } from '../lib/core-authoring'
+import { asObject, reviewerNodePaths } from '../lib/core-authoring'
 import type { LoopNodeData } from '../lib/loop-graph-rf'
 import type { LoopGraph, WorkflowPieceDescriptor } from '../lib/loops-api'
 import { CoreParameterForm, type ParameterChoices } from './CoreParameterForm'
@@ -41,8 +41,19 @@ export function CoreWorkflowInspector({
     Object.entries(graph.config).filter(([key]) => OPTION_KEYS.includes(key)),
   )
   const component = canvas ? graph.components?.[canvas] : undefined
+  const reviewers = canvas ? [] : reviewerNodePaths(graph)
   return (
     <>
+      {!canvas && <label className="block space-y-1 text-xs">
+        <span>{t('builder.core.reviewerStep')}</span>
+        <select className={fieldClass} value={graph.config.reviewerStepId ?? ''}
+          onChange={event => onChange({ ...graph, config: { ...graph.config, reviewerStepId: event.target.value || undefined } })}>
+          <option value="">{t('builder.core.reviewerAutomatic')}</option>
+          {graph.config.reviewerStepId && !reviewers.includes(graph.config.reviewerStepId) && <option value={graph.config.reviewerStepId}>{graph.config.reviewerStepId}</option>}
+          {reviewers.map(nodePath => <option key={nodePath} value={nodePath}>{nodePath}</option>)}
+        </select>
+        <span className="block text-muted-foreground">{t('builder.core.reviewerHint')}</span>
+      </label>}
       <CoreParameterForm
         schema={optionsSchema}
         value={options}

@@ -204,7 +204,10 @@
         "openspec": "OpenSpec",
         "control": "Control flow"
       },
-      "options": "Workflow options"
+      "options": "Workflow options",
+      "reviewerStep": "Review evidence node",
+      "reviewerAutomatic": "Automatic (implementation reviews)",
+      "reviewerHint": "Choose the role turn that provides structured review evidence. AI review does not replace host verification."
     }
   },
   "preview": {

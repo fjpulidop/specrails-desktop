@@ -33,7 +33,7 @@ export function coreFactoryGraph(mode: 'implement' | 'batch' | 'freestyle' | 'qu
     entry = 'implement'
     node('implement', 'prompt', { text: '{{cmd:freestyle}}', access: 'write' }, next('verify'))
     verify('verify', 'decide', 'fix')
-    node('decide', 'decider', { roleId: 'reviewer', goal: 'Stop only when actual behavioral evidence proves every frozen acceptance criterion is implemented across every selected ticket and repository. Passing baseline checks alone is insufficient.', noProgress: 3 }, { continue: 'fix', stop: 'done', failed: 'failed' })
+    node('decide', 'decider', { roleId: 'loop-decider', goal: 'Stop only when actual behavioral evidence proves every frozen acceptance criterion is implemented across every selected ticket and repository. Passing baseline checks alone is insufficient.', noProgress: 3 }, { continue: 'fix', stop: 'done', failed: 'failed' })
     node('fix', 'prompt', { text: '{{cmd:fix}}', access: 'write' }, next('verify'))
   }
   edges.unshift({ id: 'e-start', source: 'start', target: entry })

@@ -604,6 +604,18 @@ describe('Core definition delivery evidence', () => {
     expect(projectDefinitionRuntimeEvidence(probe)).toBeNull()
     expect(projectDefinitionRuntimeEvidence(probe, 'custom-review')).toMatchObject({ review: { approved: false, score: 55 } })
   })
+  it('persists the exact reviewer selection for recovery without choosing a similarly named node', () => {
+    const probe = definitionProbe([
+      { ...scopedReview, nodePath: 'left/audit', kind: 'role-turn', output: { structured: { approved: false, score: 55 } } },
+      { ...scopedReview, nodePath: 'right/audit', kind: 'role-turn', output: { structured: { approved: true, score: 99 } } },
+    ])
+    const unit = { ticketId: 1, runId: 'run-1', worktreePath: null, reviewerStepId: 'left/audit' }
+    const harvested = harvestDeliveryEvidence({ readEvents: () => [] }, [{ ...unit, definitionStatus: probe }])
+    expect(readSettleEvidence(JSON.stringify(harvested))?.units[0]).toMatchObject({ reviewerStepId: 'left/audit', confidence: { overall: 55 }, runtime: { review: { approved: false } } })
+    const pending = harvestDeliveryEvidence({ readEvents: () => [] }, [unit])
+    const healed = healRuntimeEvidence(readSettleEvidence(JSON.stringify(pending))!, '/unused', { readFile: () => { throw new Error('No legacy evidence') } }, new Map([['run-1', probe]]))
+    expect(healed?.units[0]).toMatchObject({ reviewerStepId: 'left/audit', confidence: { overall: 55 }, runtime: { review: { approved: false } } })
+  })
   it('uses Core evidence without reading legacy checkpoint files and reports unavailable inspection honestly', () => {
     const io: EvidenceHarvestIO = { readEvents: () => [], fileExists: () => false, readFile: () => { throw new Error('Legacy checkpoint should not be read') } }
     const unit = { ticketId: 1, runId: 'run-1', worktreePath: null, runtimeDir: '/legacy', definitionStatus: definitionProbe([scopedReview]) }

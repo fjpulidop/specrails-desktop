@@ -1,5 +1,66 @@
 # Checkpoint — 26 September 2026
 
+## D2/D5/D6 verification — 27 September 2026, 00:28 CEST
+
+- Server coverage passed **405 suites / 8,971 tests**, with two Windows-only
+  suites / seven cases skipped on macOS. This includes the new Studio acceptance
+  and four factory pairings, 236.83s. Coverage: statements 87.01%, branches
+  80.25%, functions 90.89%, lines 90.09%; thresholds unchanged. Client coverage
+  remains **394 / 4,695** passing. Final typecheck and architecture audit passed.
+- D2 implementation tasks now reflect the recorded Core JSONL projection,
+  transactional replay/accounting, exact scoped evidence and graph explorer
+  already validated here. D6 role selection/read-only UI/legacy notice and
+  profiles-to-Core permission acceptance are also complete. This does not close
+  D3/D4 restart/retained-workspace gaps or any release/telemetry gate.
+
+## Agent Studio acceptance and CI — 27 September 2026, 00:25 CEST
+
+- Paired Agent Studio acceptance creates a custom read/no-artifact role through
+  the profiles HTTP API, reads the builder's runtime configuration endpoint,
+  freezes it through the real bridge and executes Core. Only the provider
+  process transport is substituted; the real CLI adapter produces Claude's
+  read-only argv and preserves the authored instructions. Test passed in 2.36s.
+- Final client coverage for D5/reviewer changes passed **394 suites / 4,695 tests**,
+  189.94s; statements/lines 89.71%, branches 84.21%, functions 75.72%.
+  Typecheck and 94 script tests passed. Concurrent server/client coverage caused
+  a 20s timeout in the long paired recovery test; all five recovery cases passed
+  in isolation. Server coverage is being rerun without the client CPU load.
+- Web b99dab4 makes release depend on shared CI and deploy its verified artifact.
+  No release/deployment was run. Follow-up router security updates are being
+  validated separately in Web's isolated dependency tree.
+
+## Custom reviewer evidence — 27 September 2026, 00:14 CEST
+
+- Root workflow inspector selects a concrete role-turn path, including reused
+  component/map instances. All eight locales explain the host verification boundary.
+- Selection is frozen with the request and carried into fresh/recovered settlement
+  and evidence healing. No parallel-review aggregate or billing data is invented.
+- Full typecheck passed; three focused server suites passed **116 tests** and
+  two client suites passed **5 tests**. These checks do not replace final coverage.
+
+## Factory pairing — 27 September 2026, 00:03 CEST
+
+- All four published factory graphs now execute through the actual Desktop
+  bridge and Core CLI with deterministic local executor substitutions. OpenSpec,
+  verification commands, SQLite and event/result parsing are real. Implement's
+  role sequence matches a legacy Core invocation; Batch completes two native
+  implementations; Quick SDD prepares/applies/validates/archives; Freestyle's
+  false PASS cannot bypass a failed host check and requires a fix/recheck.
+- This exposed and fixed a real Freestyle/starter bug: `reviewer` imposed a
+  mandatory OpenSpec skill on `change: none`. Graphs now declare `loop-decider`;
+  admission derives only its engine from the effective reviewer assignment while
+  keeping read/no-artifact permissions and no OpenSpec skill. Explicit role
+  engine/prompt settings win, frozen provenance records defaults, and incompatible
+  policies are rejected. Native reviewer behavior remains unchanged.
+- Five focused server suites passed **68 tests**, 55.51s, including all four
+  factory executions and real validation of all eight starters. Client builder,
+  parameter form and profile suites passed **12 tests**. Orchestrator/routing
+  legacy scope is now explained in all eight locales. Full typecheck, architecture and settings/API regressions passed. Final
+  full coverage remains to run for this block.
+- D5 implementation tasks are checked off. Global Core/platform/rollout gates
+  remain separate and incomplete; no provider billing or release evidence is
+  claimed by these local fixtures.
+
 ## Linked historical forks — 26 September 2026, 23:47 CEST
 
 Follow-up acceptance: a real Core graph forks a paused question, writes and

@@ -34,7 +34,7 @@ export interface LoopGraph {
   nodes: LoopNode[]
   edges: LoopEdge[]
   config: { maxIterations: number; timeoutMinutes: number; maxCostUsd?: number; maxTokens?: number; maxTransitions?: number;
-    journal?: 'ledger-only' | 'implementation'; change?: 'new' | 'existing' | 'none';
+    journal?: 'ledger-only' | 'implementation'; change?: 'new' | 'existing' | 'none'; reviewerStepId?: string;
     policies?: { failFast?: number; noProgress?: number; historyMaxChars?: number; concurrency?: number };
     layout?: 'vertical' | 'horizontal' | 'grid' | 'manual' }
   inputs?: string[]

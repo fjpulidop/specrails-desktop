@@ -1,9 +1,26 @@
 import { expect, it, describe } from 'vitest'
-import { resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
+import { bindWorkflowRoleDefaults, resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
 import type { RuntimeConfig } from './agent-runtime-settings'
 const config: RuntimeConfig = { schemaVersion: 1, enabled: true, providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }, { id: 'codex', kind: 'cli', cli: 'codex' }], agents: {
   architect: { provider: 'claude', model: 'architect', effort: 'medium' }, developer: { provider: 'codex', model: 'developer', effort: 'low', escalation: { model: 'rescue', effort: 'high' } }, reviewer: { provider: 'claude', model: 'reviewer' },
 }, verification: [{ repositoryId: 'front', key: 'test', label: 'Test', command: 'npm', args: ['test'], cwd: 'app', env: { CI: 'true' }, timeoutMs: 42, policy: { reuse: 'never' } }, { repositoryId: 'back', command: 'npm', args: ['test'] }] }
+it('binds a workflow decider only when requested, using the effective review engine without its OpenSpec policy', () => {
+  const { config: effective } = resolveEffectiveRuntimeConfig(config, { repositoryIds: ['front'], source: 'project-role', providerOverride: { provider: 'codex', model: 'chosen' } })
+  expect(bindWorkflowRoleDefaults(effective, { roles: ['developer'] })).toEqual({})
+  expect(effective.roles).toBeUndefined()
+  expect(bindWorkflowRoleDefaults(effective, { roles: ['loop-decider'] })).toEqual({ 'loop-decider': 'inherited-reviewer-engine' })
+  expect(effective.roles?.['loop-decider']).toMatchObject({ provider: 'codex', model: 'chosen', access: 'read', artifacts: 'none' })
+  expect(effective.roles?.['loop-decider']).not.toHaveProperty('openspecSkill')
+  expect(config.roles).toBeUndefined()
+})
+it('preserves an explicit decision engine and rejects incompatible policy before execution', () => {
+  const effective = structuredClone(config)
+  effective.roles = { 'loop-decider': { provider: 'codex', model: 'custom', access: 'read', artifacts: 'none', prompt: 'Check every criterion.' } }
+  expect(bindWorkflowRoleDefaults(effective, { roles: ['loop-decider'] })).toEqual({ 'loop-decider': 'project-role' })
+  expect(effective.roles['loop-decider'].model).toBe('custom')
+  effective.roles['loop-decider'].access = 'write'
+  expect(() => bindWorkflowRoleDefaults(effective, { roles: ['loop-decider'] })).toThrow('requires read access')
+})
 it('preserves mixed project roles and check fields without modifying input', () => {
   const before = structuredClone(config)
   const result = resolveEffectiveRuntimeConfig(config, { repositoryIds: ['front'], source: 'project-role' })

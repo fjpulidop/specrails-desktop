@@ -2,6 +2,25 @@ import type { CoreNodeKind, LoopGraph, WorkflowPieceDescriptor } from './loops-a
 import type { LoopNodeData } from './loop-graph-rf'
 
 export type ParameterSchema = Record<string, unknown>
+/** Expand node instances, not component names: two uses of one component have
+ * different evidence paths, while map branches retain their runtime scopes. */
+export function reviewerNodePaths(graph: LoopGraph): string[] {
+  const paths: string[] = []
+  let visited = 0
+  function visit(body: LoopGraph, prefix: string, ancestors: string[]) {
+    if (ancestors.length >= 32 || paths.length >= 10_000) return
+    for (const node of body.nodes) {
+      if (++visited > 10_000) return
+      if (node.type !== 'core') continue
+      const current = prefix + node.id, kind = node.data?.kind, params = asObject(node.data?.params)
+      if (kind === 'role-turn') paths.push(current)
+      const ref = kind === 'component' ? params.ref : kind === 'map' ? params.body : undefined
+      if (typeof ref === 'string' && !ancestors.includes(ref) && graph.components?.[ref]) visit(graph.components[ref], current + '/', [...ancestors, ref])
+    }
+  }
+  visit(graph, '', [])
+  return paths.sort()
+}
 export const asObject = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)

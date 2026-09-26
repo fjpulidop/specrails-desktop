@@ -374,7 +374,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/loops/components
 
 - [CoreParameterForm.tsx](../../client/src/features/loops/components/CoreParameterForm.tsx) · [test](../../client/src/features/loops/components/__tests__/CoreParameterForm.test.tsx)
-- [CoreWorkflowInspector.tsx](../../client/src/features/loops/components/CoreWorkflowInspector.tsx)
+- [CoreWorkflowInspector.tsx](../../client/src/features/loops/components/CoreWorkflowInspector.tsx) · [test](../../client/src/features/loops/components/__tests__/CoreWorkflowInspector.test.tsx)
 - [LoopPreviewModal.tsx](../../client/src/features/loops/components/LoopPreviewModal.tsx)
 - [LoopRunModal.tsx](../../client/src/features/loops/components/LoopRunModal.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopRunModal.test.tsx)
 - [TemplatePreviewModal.tsx](../../client/src/features/loops/components/TemplatePreviewModal.tsx) · [test](../../client/src/features/loops/components/__tests__/TemplatePreviewModal.test.tsx)
