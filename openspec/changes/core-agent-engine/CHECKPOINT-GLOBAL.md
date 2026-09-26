@@ -7,6 +7,9 @@ merge, release, check off pending gates, or describe the complete migration as d
 
 ## Codex continuation — 26 September 2026, 20:30 CEST
 
+- Agent Studio now edits explicit Core access/artifact policy, optional OpenSpec skill, provider/model/effort/thinking/maxTurns and escalation while preserving instructions and provider-native metadata. Identity validation applies across providers; built-in roles cannot be shadowed. Eight locales updated. All agent client suites passed (80 tests); locale parity previously passed (30 tests).
+- Closed AI-refinement bypass: applying a draft validates the Core descriptor and Kimi native requirements before file/version/session mutation, including force-apply. Manager regression passed 40 tests, including rejection without disk/version/session changes. Structured frontmatter editing normalizes YAML formatting; this behavior is documented in the feature guide.
+
 The interrupted wave is being completed, preserving its uncommitted work. No merge or release occurred.
 
 - Completed the D7 server transport: retained CLI signal via stdin, stable request id, bounded control output, project/frozen-context checks, Core acceptance timestamp, 400/409/503 error mapping, POST `/agent-runtime/runs/:runId/steer` and MCP `runtime_steer` with write permission.

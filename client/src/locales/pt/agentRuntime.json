@@ -527,5 +527,11 @@
     "unavailable": "Os detalhes dos recibos estão indisponíveis.",
     "unreported": "Esta versão do Core não informa a utilização.",
     "truncated": "São apresentados apenas os recibos recentes e as mensagens pendentes."
+  },
+  "studioRole": {
+    "title": "Valores padrão do papel do Core",
+    "hint": "Estes valores do arquivo aplicam-se a novos workflows. As configurações explícitas do projeto têm prioridade; as execuções salvas mantêm as configurações fixadas.",
+    "invalid": "Corrija o cabeçalho YAML no editor antes de alterar os campos do papel.",
+    "escalationEffort": "Esforço de raciocínio do modelo superior"
   }
 }

@@ -527,5 +527,11 @@
     "unavailable": "Receipt details are unavailable.",
     "unreported": "This Core version does not report consumption.",
     "truncated": "Only the most recent receipts and pending messages are shown."
+  },
+  "studioRole": {
+    "title": "Core role defaults",
+    "hint": "These file defaults apply to new workflows. Explicit project settings take precedence; saved runs keep their frozen settings.",
+    "invalid": "Fix the YAML frontmatter in the editor before changing role fields.",
+    "escalationEffort": "Higher-tier reasoning effort"
   }
 }

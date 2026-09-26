@@ -266,6 +266,7 @@
       "runtime/agent-refine-manager.ts": [
         "../../../db",
         "../../../providers",
+        "../../../providers/kimi-skill-prompt",
         "../../../types",
         "../../../workspace-resolution",
         "../../accounting/runtime/ai-invocations",
@@ -273,6 +274,7 @@
         "../../execution/runtime/spawn-lifecycle",
         "./agent-generator",
         "./agent-refine-db",
+        "./agent-role-descriptor",
         "child_process",
         "crypto",
         "fs",

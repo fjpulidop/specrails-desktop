@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 957 source/build files. Nearby tests are linked where names
+Includes 959 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -76,6 +76,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## client/src/features/agents/components
 
+- [AgentRoleFields.tsx](../../client/src/features/agents/components/AgentRoleFields.tsx) · [test](../../client/src/features/agents/components/__tests__/AgentRoleFields.test.tsx)
 - [AgentStudio.tsx](../../client/src/features/agents/components/AgentStudio.tsx)
 - [AgentsCatalogTab.tsx](../../client/src/features/agents/components/AgentsCatalogTab.tsx)
 - [AiRefineOverlay.tsx](../../client/src/features/agents/components/AiRefineOverlay.tsx)
@@ -95,6 +96,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src/features/agents/hooks
 
 - [useAgentRefine.ts](../../client/src/features/agents/hooks/useAgentRefine.ts)
+
+## client/src/features/agents/lib
+
+- [agent-role-metadata.ts](../../client/src/features/agents/lib/agent-role-metadata.ts)
 
 ## client/src/features/agents/pages
 

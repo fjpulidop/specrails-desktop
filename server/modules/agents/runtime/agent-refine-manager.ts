@@ -4,6 +4,8 @@ import { ChildProcess } from 'child_process'
 import { createHash, randomUUID } from 'crypto'
 import treeKill from 'tree-kill'
 import { testCustomAgent } from './agent-generator'
+import { projectCustomAgentRole } from './agent-role-descriptor'
+import { validateKimiRoleDocument } from '../../../providers/kimi-skill-prompt'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
 import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
 import { runAiCliInvocation } from '../../execution/runtime/spawn-lifecycle'
@@ -46,7 +48,7 @@ export interface SendTurnOptions {
 
 export interface ApplyResult {
   ok: boolean
-  reason?: 'disk_changed' | 'name_changed' | 'session_not_found' | 'invalid_state' | 'agent_not_found'
+  reason?: 'disk_changed' | 'name_changed' | 'session_not_found' | 'invalid_state' | 'agent_not_found' | 'invalid_agent_role'
   version?: number
   body?: string
 }
@@ -241,6 +243,13 @@ export class AgentRefineManager {
     if (draftName && draftName !== currentName) {
       return { ok: false, reason: 'name_changed' }
     }
+    // Force only bypasses concurrent disk edits, never the execution contract.
+    try {
+      projectCustomAgentRole({ id: session.agent_id, content: session.draft_body }, { provider: this._adapter.id })
+      if (this._adapter.id === 'kimi' && validateKimiRoleDocument(session.draft_body, session.agent_id, `${session.agent_id}/SKILL.md`).length > 0) {
+        return { ok: false, reason: 'invalid_agent_role' }
+      }
+    } catch { return { ok: false, reason: 'invalid_agent_role' } }
     fs.writeFileSync(file, session.draft_body, 'utf8')
     const maxVersion = (this._db
       .prepare(

@@ -527,5 +527,11 @@
     "unavailable": "Empfangsdetails sind nicht verfügbar.",
     "unreported": "Diese Core-Version meldet die Übernahme nicht.",
     "truncated": "Nur aktuelle Empfangsbestätigungen und ausstehende Nachrichten werden angezeigt."
+  },
+  "studioRole": {
+    "title": "Standardwerte der Core-Rolle",
+    "hint": "Diese Dateivorgaben gelten für neue Workflows. Explizite Projekteinstellungen haben Vorrang; gespeicherte Ausführungen behalten ihre festgelegten Einstellungen.",
+    "invalid": "Korrigieren Sie den YAML-Kopf im Editor, bevor Sie Rollenfelder ändern.",
+    "escalationEffort": "Denkaufwand des höherwertigen Modells"
   }
 }

@@ -527,5 +527,11 @@
     "unavailable": "I dettagli delle ricevute non sono disponibili.",
     "unreported": "Questa versione di Core non segnala l’utilizzo.",
     "truncated": "Sono mostrate solo le ricevute recenti e i messaggi in attesa."
+  },
+  "studioRole": {
+    "title": "Valori predefiniti del ruolo Core",
+    "hint": "Questi valori del file si applicano ai nuovi workflow. Le impostazioni esplicite del progetto hanno la precedenza; le esecuzioni salvate mantengono le impostazioni fissate.",
+    "invalid": "Correggi l’intestazione YAML nell’editor prima di modificare i campi del ruolo.",
+    "escalationEffort": "Sforzo di ragionamento del modello superiore"
   }
 }

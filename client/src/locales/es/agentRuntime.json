@@ -527,5 +527,11 @@
     "unavailable": "Los detalles de los recibos no están disponibles.",
     "unreported": "Esta versión de Core no informa del consumo.",
     "truncated": "Solo se muestran los recibos más recientes y los mensajes pendientes."
+  },
+  "studioRole": {
+    "title": "Valores predeterminados del rol de Core",
+    "hint": "Estos valores del archivo se aplican a workflows nuevos. La configuración explícita del proyecto tiene prioridad; las ejecuciones guardadas conservan su configuración congelada.",
+    "invalid": "Corrige el encabezado YAML en el editor antes de cambiar los campos del rol.",
+    "escalationEffort": "Esfuerzo de razonamiento del modelo superior"
   }
 }

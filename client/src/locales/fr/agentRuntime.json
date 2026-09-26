@@ -527,5 +527,11 @@
     "unavailable": "Les détails des reçus sont indisponibles.",
     "unreported": "Cette version de Core ne signale pas la prise en compte.",
     "truncated": "Seuls les reçus récents et les messages en attente sont affichés."
+  },
+  "studioRole": {
+    "title": "Valeurs par défaut du rôle Core",
+    "hint": "Ces valeurs du fichier s’appliquent aux nouveaux workflows. Les paramètres explicites du projet sont prioritaires ; les exécutions enregistrées conservent leurs paramètres figés.",
+    "invalid": "Corrigez l’en-tête YAML dans l’éditeur avant de modifier les champs du rôle.",
+    "escalationEffort": "Effort de raisonnement du modèle supérieur"
   }
 }

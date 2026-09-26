@@ -527,5 +527,11 @@
     "unavailable": "无法获取接收记录详情。",
     "unreported": "此 Core 版本不报告使用状态。",
     "truncated": "仅显示最近的接收记录和待处理消息。"
+  },
+  "studioRole": {
+    "title": "Core 角色默认值",
+    "hint": "这些文件默认值适用于新工作流。项目的显式设置优先；已保存的运行保留其固定配置。",
+    "invalid": "更改角色字段前，请先在编辑器中修正 YAML 头部。",
+    "escalationEffort": "更高级模型的推理强度"
   }
 }
