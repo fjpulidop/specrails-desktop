@@ -173,6 +173,8 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     }
     args.push('--config', scopedPath, '--change', options.change!)
   }
+  const definitionFile = join(dirname(options.contextPath), 'desktop-workflow-definition.json')
+  const requiresVerified = definitionEngine && (JSON.parse(readFileSync(definitionFile, 'utf8')) as { delivery?: { requiresVerified?: boolean } }).delivery?.requiresVerified === true
   const frozenPath = join(dirname(options.contextPath), 'desktop-runtime-config.json')
   if (existsSync(frozenPath)) {
     const frozen = JSON.parse(readFileSync(frozenPath, 'utf8')) as { agents: Record<string, { provider: string; model?: string }>; fixer?: { provider: string; model?: string } }
@@ -267,7 +269,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       const known = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
       const cost = known(usage?.costUsd), tokensIn = known(usage?.inputTokens), tokensOut = known(usage?.outputTokens)
       if (result?.status === 'succeeded' && result.runId !== admittedContext.runId) invalidProtocol = true
-      if (definitionEngine && result?.status === 'succeeded' && (!result.completion || typeof result.completion.ok !== 'boolean' || typeof result.completion.verified !== 'boolean' || (!Array.isArray(result.completion.reasons) || result.completion.reasons.some(reason => typeof reason !== 'string')))) invalidProtocol = true
+      if (definitionEngine && result?.status === 'succeeded' && (!result.completion || result.completion.ok !== true || typeof result.completion.verified !== 'boolean' || requiresVerified && !result.completion.verified || (!Array.isArray(result.completion.reasons) || result.completion.reasons.some(reason => typeof reason !== 'string')))) invalidProtocol = true
       if (definitionEngine && result?.status === 'paused' && result.runId !== admittedContext.runId) invalidProtocol = true
       const validPause = definitionEngine && code === 2 && result?.status === 'paused'
       const failed = (!validPause && (code !== 0 || result?.status !== 'succeeded')) || invalidProtocol || timedOut || Boolean(observerError)

@@ -221,6 +221,17 @@ describe('Core definition process bridge', () => {
     expect((await runAgentRuntimeInvocation({...options(),engineVersion:2,resume:true})).failed).toBe(false)
     expect(readFileSync(file,'utf8')).toBe(frozen);expect(fixture.validation).toHaveLength(1)
   })
+  it.each([
+    { ok: false, verified: true, requiresVerified: false },
+    { ok: true, verified: false, requiresVerified: true },
+  ])('rejects a successful exit without the frozen completion policy: %j', async policy => {
+    fixture.v2 = true
+    script(`console.log(JSON.stringify(${JSON.stringify(v2('succeeded', { completion: { ok: policy.ok, verified: policy.verified, reasons: [] } }))}));`)
+    const result = await runAgentRuntimeInvocation({ ...options(), engineVersion: 2,
+      prepareDefinition: () => ({ ...definition(), delivery: { requiresVerified: policy.requiresVerified } }),
+    })
+    expect(result).toMatchObject({ failed: true, runtimeStatus: 'failed' })
+  })
   it('fails unsupported/invalid definitions before spawning',async()=>{
     const onSpawn=vi.fn()
     await expect(runAgentRuntimeInvocation({...options(),engineVersion:2,prepareDefinition:definition,onSpawn})).rejects.toThrow('engine_unsupported')
@@ -239,6 +250,7 @@ describe('Core definition process bridge', () => {
   })
   it('rejects success without acceptance evidence, contradictory exit, cross-run events and failed durable observers',async()=>{
     fixture.v2=true
+    writeFileSync(join(root, 'state', 'desktop-workflow-definition.json'), JSON.stringify(definition()))
     for(const [frame,code]of [[final(),0],[v2(),1],[v2('succeeded',{runId:'other'}),0]] as const){
       script(`console.log(JSON.stringify(${JSON.stringify(frame)}));process.exitCode=${code};`)
       expect((await runAgentRuntimeInvocation({...options(),engineVersion:2,resume:true})).runtimeStatus).toBe('failed')

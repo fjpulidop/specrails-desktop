@@ -7,6 +7,7 @@ merge, release, check off pending gates, or describe the complete migration as d
 
 ## Codex continuation — 26 September 2026, 20:30 CEST
 
+- Completion-policy hardening: the process bridge now rejects an exit-zero succeeded frame when completion.ok is false or the frozen definition requires verification but completion.verified is false. Fresh launches and resumes use the same frozen policy. Bridge tests passed 29 cases; full typecheck passed.
 - D2 evidence implementation: isolated settlement now prefetches full retained status with bounded concurrency and projects host commands plus exact scoped reviews. Failed inspection marks harvest unavailable; legacy journals are not substituted for v2. Regression passed 200 tests across evidence, isolated launch and paired recovery; Core full-status regression passed 12 tests. Packet healing now queries retained Core for historical v2 runs, preserves file confidence, and never substitutes a legacy journal after a failed v2 probe. Routes/architecture regression passed 214 tests; full typecheck and architecture audit passed. Custom reviewer selection UI remains to integrate.
 - D2 evidence decision: full retained CLI status exposes scoped committed outputs. Delivery will use the exact attempt/scope identities for verification commands and declared reviewer output. Ambiguous parallel reviews cannot be reduced to a fabricated single score; file-based confidence remains authoritative. Compact recovery probes remain bounded and omit output payloads.
 
