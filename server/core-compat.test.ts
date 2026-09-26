@@ -319,7 +319,7 @@ describe('getCLIStatus', () => {
   it('returns provider and parsed semver version when claude is found', () => {
     vi.mocked(execSync).mockImplementation((cmd: any) => {
       const c = String(cmd)
-      if (c.includes('which claude')) return '' as any
+      if (c.includes('which claude') || c.includes('where claude')) return '' as any
       if (c.includes('claude --version')) return 'Claude Code 1.2.3\n' as any
       throw new Error('not found')
     })
@@ -330,7 +330,7 @@ describe('getCLIStatus', () => {
 
   it('returns provider and version null when version command fails', () => {
     vi.mocked(execSync).mockImplementation((cmd: any) => {
-      if (String(cmd).includes('which claude')) return '' as any
+      if (String(cmd).includes('which claude') || String(cmd).includes('where claude')) return '' as any
       throw new Error('version cmd failed')
     })
     const result = getCLIStatus()
@@ -348,7 +348,7 @@ describe('getCLIStatus', () => {
   it('returns codex provider when only codex is found', () => {
     vi.mocked(execSync).mockImplementation((cmd: any) => {
       const c = String(cmd)
-      if (c.includes('which codex')) return '' as any
+      if (c.includes('which codex') || c.includes('where codex')) return '' as any
       if (c.includes('codex --version')) return '0.1.5\n' as any
       throw new Error('not found')
     })

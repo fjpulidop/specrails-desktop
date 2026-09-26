@@ -395,6 +395,8 @@ Se ejecuta en CI sobre grafos de piezas simuladas y, desde C4, sobre las definic
 - La proyección histórica actual no contiene un catálogo de pasos autoritativo: mantiene validación legado hasta la proyección de `runtime-graph` de D2. El status v2 no usa la caché del checkpoint legado porque no refleja cambios del WAL de SQLite.
 - C0 clasifica `help` como `agentRuntime.cliPresentationOperations: ['help']`; las operaciones JSON de máquina incluyen `evaluate`. No se cambia la superficie de comandos de Desktop.
 - CI conserva ejecución en todos los pushes (la validación de release depende del push de rama confiable); separa quality/server/client en paralelo y reúne sus resultados bajo el check obligatorio `test`, sin rebajar cobertura ni omitir gates.
+- El smoke HTTP emparejado implementa el protocolo `free` y ahora fija `agentLoop: 'free'`: Core usa `compact` por defecto y ese protocolo distinto se verifica en sus suites propias. Se mantienen todas las aserciones de fallo/corrección, escalado, uso, aprobación, reutilización de evidencia y ownership; los errores del fixture se incluyen en el diagnóstico.
+- La nueva cobertura de portabilidad detectó tres mocks de `getCLIStatus` limitados a `which`; se admiten también las consultas `where` de Windows sin saltar pruebas ni cambiar producción.
 
 ## 15. Cómo retomar este plan más adelante
 

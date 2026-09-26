@@ -16,6 +16,16 @@ Initial delivery uses feat/core-engine-d0 paired with Core C0/C1 PRs.
 
 - [x] 1.7 Split independent CI coverage lanes, preserve the required aggregate and all platform/package gates, and validate workflow syntax.
 
+Validation on 2026-09-26: D0 source `6e0711fb` passed 223 affected tests
+without skips and complete local coverage (server: 8,794 passed, 8 existing
+platform/opt-in skips; client: 4,647 passed). Typecheck, architecture, scripts,
+build, real package consumer and source-pair compatibility passed. The actual
+Desktop/Core smoke passed with Node 22.22.3, including pause/resume, correction,
+escalation, verification reuse, unknown billing and host Git ownership. Its HTTP
+fixture explicitly selects the `free` protocol. The Windows CI lane exposed three
+Unix-only CLI detection mocks; they now recognize both `which` and `where`.
+Published C0 compatibility remains open; these source results do not close 1.6.
+
 ## 2. D1 — Definition authoring and Core launcher (requires published C4)
 
 - [ ] 2.1 Vendor definition schema with byte-parity test; add structural graph model and capability catalog.

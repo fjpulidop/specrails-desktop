@@ -29,7 +29,7 @@ npm run build:server
 node scripts/smoke-agent-runtime-pair.mjs
 ```
 
-This runs the compiled Desktop bridge and real bundled Core against a temporary localhost model fixture. It checks tool writes, a real verification subprocess, archive approval, resume, usage and host Git ownership. It uses a temporary repository and deletes it afterward. Pass `--core /absolute/path/to/Core/dist/agent-runtime/index.js` to exercise another built Core checkout.
+This runs the compiled Desktop bridge and real bundled Core against a temporary localhost model fixture. It checks tool writes, a real verification subprocess, archive approval, resume, usage and host Git ownership. The fixture explicitly selects the `free` agent loop; Core's compact pipeline has its own protocol tests. It uses a temporary repository and deletes it afterward. Pass `--core /absolute/path/to/Core/dist/agent-runtime/index.js` to exercise another built Core checkout.
 
 For web development, an explicit runtime override can point to the built module:
 
