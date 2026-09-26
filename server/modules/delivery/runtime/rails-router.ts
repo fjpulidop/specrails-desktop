@@ -19,6 +19,7 @@ import { resolveAgentDefaults } from '../../agents/runtime/agent-defaults'
 import { resolveProfile } from '../../agents/runtime/profile-manager'
 import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from '../../specs/runtime/spec-models'
 import { resolveProjectExecution } from '../../../workspace-resolution'
+import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode } from '../../loops/runtime/loop-factory'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { dominantTicketScope, referencesUnsupportedProviderCommand } from '../../loops/runtime/loop-command-catalog'
@@ -43,6 +44,7 @@ import {
 import { classifyLoopEffect } from '../../loops/runtime/loop-effect'
 import { composeReviewPacket } from './review-packet'
 import { readSettleEvidence, healRuntimeEvidence } from './delivery-evidence'
+import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 import { resolveAcceptCapability } from '../../execution/runtime/accept-ladder'
 import { executePrDecision, isPrDecisionAction, PR_DECISION_ACTIONS } from './rail-pr-decision'
 import { ExplicitPrTargetError, listPrCandidatesForTickets } from './active-pr-continuation'
@@ -759,7 +761,9 @@ export function createRailsRouter(): Router {
         let loopGraph: LoopGraph
         let loopName: string
         if (isFactoryLoopId(loopId)) {
-          const f = getFactoryLoop(loopId)
+          let capabilities: Record<string,number> | undefined
+          try { capabilities = (await loadCoreAgentRuntime()).api?.capabilities } catch { /* Existing Core remains supported through the legacy factory. */ }
+          const f = getFactoryLoop(loopId, capabilities)
           if (!f) { res.status(404).json({ error: 'Factory loop not found' }); return }
           loopGraph = f.graph
           loopName = f.name
@@ -1392,7 +1396,9 @@ export function createRailsRouter(): Router {
         const existing = readSettleEvidence(row.settle_evidence)
         if (existing) {
           const pipelineDir = path.join(resolveProjectExecution({ slug: c.project.slug, path: c.project.path }).specrailsDir, 'pipeline')
-          const healed = healRuntimeEvidence(existing, pipelineDir)
+          const definitionStatuses = await probeDefinitionRuns({ db: c.db, cwd: c.project.path, env: process.env },
+            existing.units.filter(unit => !unit.runtime && unit.runId && getLoopRun(c.db, unit.runId)?.engine_version === 2).map(unit => unit.runId!), true)
+          const healed = healRuntimeEvidence(existing, pipelineDir, {}, definitionStatuses)
           if (healed) { updatePrDeliverySettleEvidence(c.db, row.id, healed); row = { ...row, settle_evidence: JSON.stringify(healed) } }
         }
       } catch (err) {

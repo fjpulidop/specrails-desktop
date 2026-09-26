@@ -1,5 +1,15 @@
 # Le Loop Builder
 
+## Workflows Core
+
+Avec un moteur Core compatible, un nouveau canevas affiche les seize étapes du catalogue installé. Cliquez sur une étape ou faites-la glisser, puis remplissez son formulaire. Les fournisseurs et rôles proviennent du projet actif. Reliez chaque sortie nommée à une autre étape ou à Fin ; une sortie accepte une seule connexion.
+
+Les formulaires couvrent les champs facultatifs, objets, listes et dictionnaires de toutes les étapes : IA, conditions, vérification, shell, OpenSpec, approbation, question, pause, parcours, regroupement, composants et implémentation. Les options exposent les limites de jetons et de transitions et la concurrence. Les visites internes aux composants comptent dans la limite.
+
+Créez un corps réutilisable dans **Composants**, déclarez ses entrées et sorties, puis sélectionnez-le dans une étape Composant ou Parcourir. Le fil de navigation revient au canevas principal sans perdre les modifications. Une étape Fin peut choisir une sortie locale avec `exit`.
+
+La publication demande à Core de valider le brouillon et affiche les erreurs sur les étapes concernées. Le lancement valide à nouveau la configuration du projet. Si le moteur est indisponible, mettez Core à jour. Les anciennes boucles conservent leur éditeur et leur exécution ; les sections suivantes les décrivent.
+
 Un **rail exécute un Loop**. Les loops intégrés (`Implement`, `Batch`, `Freestyle`) couvrent les cas du quotidien, mais le **Loop Builder** vous laisse concevoir les vôtres — un éditeur visuel, de style n8n, pour de l'automatisation qui se répète jusqu'à ce qu'un objectif soit atteint. Cette page explique ce qu'est un loop, comment en construire un, et comment l'exécuter sur un rail.
 
 ## Loops et rails — la relation

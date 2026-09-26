@@ -41,3 +41,37 @@ Delivery change requests and same-spec addenda continue through Quick SDD using
 the existing supersession/rollback contract. `revisionOfDeliveryId` remains the
 wire field for identifying the generation; it no longer selects a Revision loop.
 See [spec addenda](../../../docs/internals/spec-addenda.md).
+
+## Definition-engine evidence
+
+Before isolated delivery releases worktrees, it obtains full status from each
+retained Core CLI with bounded concurrency. The pure evidence projection uses
+committed scope/attempt identities, host verification receipts and implementation
+review outputs. Existing file confidence remains authoritative. Parallel reviewer
+verdicts are retained in `scopedReviews`; their aggregate confidence stays absent.
+An unavailable inspection is a failed/partial harvest, never a zero or a pass.
+Legacy journal harvesting remains limited to legacy executions. Delivery admission
+still requires the separate terminal completion/verification gate.
+
+### Definition execution recovery
+
+`runtime/isolated-settlement-store.ts` freezes isolated allocation and overlay
+policy before Core starts. Migration 67 stores one immutable snapshot per
+project delivery/run, the settlement result, and an atomic provenance receipt.
+`reattachIsolatedSettlement` uses the same Git settlement coordinator as a fresh
+launch. It checks the retained Core completion, frozen verification policy,
+worktree ledger, actual branch and repository mount before effects. Execution
+and delivery operation claims fence competing retries. A restart must preserve
+the original terminal outbox and accounting; it must not manufacture a new run
+or infer acceptance from exit code alone.
+
+### Linked definition forks
+
+`runtime/definition-fork.ts` is the fork admission coordinator exposed to HTTP.
+Migration 68 records the request before Core publication, then adopts the child
+and transfers ticket/worktree/delivery ownership in one project transaction.
+Original run rows, events, accounting and frozen snapshots are preserved; the
+active snapshot query excludes superseded allocations. Pending or adopted forks
+fence source execution and late settlement. Frozen addendum claims transfer only
+when the child applies its causally owned terminal effects. Core is responsible
+for historical cuts and idempotent publication; Desktop never edits its SQLite.

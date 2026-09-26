@@ -1,3 +1,4 @@
+import { parseRuntimeTopology, type RuntimeTopology } from './runtime-topology'
 import { parseLoopCompletion, type LoopCompletion } from './completion-model'
 /**
  * Loop-step log model — pure grouping/derivation logic for the premium
@@ -29,6 +30,13 @@ import { deriveFrameActivity } from '../../../browser/lib/frame-activity'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface LoopStepMeta {
+  traceId?: string
+  spanId?: string
+  nodePath?: string
+  scopeId?: string
+  branch?: string
+  attemptId?: string
+  attempt?: number
   index: number
   kind: string // 'ai-step' | 'shell' | 'decider' (open for forward compat)
   title: string
@@ -46,7 +54,7 @@ export interface LoopStepEndMeta {
   nodeId: string | null
   /** `stalled`: the server's idle watchdog tore the step down (no provider
    *  output for `idleMs`); the engine retries such a step once by resume. */
-  status: 'ok' | 'failed' | 'stalled'
+  status: 'ok' | 'failed' | 'stalled' | 'paused' | 'interrupted'
   exitCode: number | null
   durationMs: number | null
   decision?: 'continue' | 'stop'
@@ -57,6 +65,7 @@ export interface LoopStepEndMeta {
 }
 
 export interface LoopGraphMeta {
+  runtimeTopology?: RuntimeTopology
   graph: LoopGraph
   loopId?: string
   loopName?: string
@@ -90,9 +99,9 @@ export interface LoopLogModel {
   totalLines: number
 }
 
-export type SegmentStatus = 'ok' | 'failed' | 'stalled' | 'running' | 'interrupted' | 'unknown'
+export type SegmentStatus = 'paused' | 'ok' | 'failed' | 'stalled' | 'running' | 'interrupted' | 'unknown'
 
-export type NodeChipState = 'pending' | 'running' | 'ok' | 'failed' | 'interrupted'
+export type NodeChipState = 'paused' | 'pending' | 'running' | 'ok' | 'failed' | 'interrupted'
 
 export interface NodeChip {
   key: string
@@ -157,6 +166,7 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
 
   // buckets[0] = setup; buckets[i+1] pairs segMetas[i]
   const buckets: FormattedLine[][] = [[]]
+  const attemptSegments = new Map<string, number>()
   const segMetas: Array<{
     meta: LoopStepMeta
     end: LoopStepEndMeta | null
@@ -171,6 +181,18 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
       continue
     }
 
+    if (ev.event_type === 'runtime-graph') {
+      const p = parsePayload(ev.payload)
+      if (p && Array.isArray(p.nodes) && Array.isArray(p.edges)) {
+        const nodes = p.nodes.filter((node): node is Record<string, unknown> => Boolean(node && typeof node === 'object' && typeof node.path === 'string'))
+        const edges = p.edges.filter((edge): edge is Record<string, unknown> => Boolean(edge && typeof edge === 'object' && typeof edge.from === 'string' && typeof edge.to === 'string'))
+        const priorGraph: LoopGraphMeta | null = graphMeta as LoopGraphMeta | null
+        graphMeta = { ...(priorGraph ?? {}), runtimeTopology: parseRuntimeTopology(p.graph) ?? undefined, loopId: typeof p.workflowId === 'string' ? p.workflowId : priorGraph?.loopId,
+          graph: { nodes: nodes.map((node,index) => ({ id: String(node.path), type: 'core', position: {x:0,y:index*100}, data: {label: String(node.label ?? node.path),kind: node.kind as NonNullable<LoopNode['data']>['kind']} })),
+            edges: edges.map((edge,index) => ({id:`core-edge-${index}`,source:String(edge.from),target:String(edge.to),label:String(edge.label)})), config: priorGraph?.graph.config ?? {maxIterations:1,timeoutMinutes:0} } }
+      }
+      continue
+    }
     if (ev.event_type === 'loop_graph') {
       const p = parsePayload(ev.payload)
       if (p && p.graph && typeof p.graph === 'object' && !Array.isArray(p.graph)) {
@@ -194,6 +216,13 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
       segMetas.push({
         meta: {
           index: p.index,
+          traceId: typeof p.traceId === 'string' ? p.traceId : undefined,
+          spanId: typeof p.spanId === 'string' ? p.spanId : undefined,
+          nodePath: typeof p.nodePath === 'string' ? p.nodePath : undefined,
+          scopeId: typeof p.scopeId === 'string' ? p.scopeId : undefined,
+          branch: typeof p.branch === 'string' ? p.branch : undefined,
+          attemptId: typeof p.attemptId === 'string' ? p.attemptId : undefined,
+          attempt: typeof p.attempt === 'number' ? p.attempt : undefined,
           kind: typeof p.kind === 'string' ? p.kind : 'ai-step',
           title: typeof p.title === 'string' ? p.title : '',
           nodeId: typeof p.nodeId === 'string' ? p.nodeId : null,
@@ -205,6 +234,7 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
         end: null,
         lastActivity: null,
       })
+      if (typeof p.attemptId === 'string') attemptSegments.set(p.attemptId, segMetas.length - 1)
       buckets.push([])
       continue
     }
@@ -218,7 +248,7 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
           segMetas[s].end = {
             index: p.index,
             nodeId: typeof p.nodeId === 'string' ? p.nodeId : null,
-            status: p.status === 'stalled' ? 'stalled' : p.status === 'failed' ? 'failed' : 'ok',
+            status: p.status === 'paused' ? 'paused' : p.status === 'interrupted' ? 'interrupted' : p.status === 'stalled' ? 'stalled' : p.status === 'failed' ? 'failed' : 'ok',
             exitCode: typeof p.exitCode === 'number' ? p.exitCode : null,
             durationMs: typeof p.durationMs === 'number' ? p.durationMs : null,
             decision:
@@ -235,15 +265,19 @@ export function groupByLoopStep(events: EventRow[]): LoopLogModel {
     // Ordinary event → line, bucketed to the LAST-SEEN step (arrival order —
     // live WS frames carry no reliable seq; refetch reconciles naturally since
     // the model is derived from whatever `events` currently holds).
-    const inStep = segMetas.length > 0
+    const raw = parsePayload(ev.payload)
+    const eventAttempt = raw?.attemptId ?? (raw?.event && typeof raw.event === 'object' ? (raw.event as Record<string,unknown>).attemptId : undefined)
+    const correlatedIndex = typeof eventAttempt === 'string' ? (attemptSegments.get(eventAttempt) ?? -1) : -1
+    const segmentIndex = correlatedIndex >= 0 ? correlatedIndex : eventAttempt !== undefined ? -1 : segMetas.length - 1
+    const inStep = segmentIndex >= 0
     const line = parseEvent(ev, idx)
     if (line && !(inStep && STEP_DIVIDER_RE.test(line.content))) {
-      buckets[buckets.length - 1].push(line)
+      buckets[segmentIndex + 1].push(line)
     }
     if (inStep) {
       const act = deriveFrameActivity(ev)
       if (act.step && act.actionKey) {
-        segMetas[segMetas.length - 1].lastActivity = {
+        segMetas[segmentIndex].lastActivity = {
           actionKey: act.actionKey,
           actionArg: act.actionArg,
         }
@@ -277,7 +311,7 @@ export function segmentStatus(
   // Contract: end may be MISSING for interrupted steps — a running step w/o end
   // on a settled run ⇒ interrupted. Earlier no-end steps (legacy runs) are
   // 'unknown' (the loop advanced past them; no status glyph is shown).
-  if (opts.isLast) return opts.jobSettled ? 'interrupted' : 'running'
+  if (opts.isLast || seg.meta.attemptId) return opts.jobSettled ? 'interrupted' : 'running'
   return 'unknown'
 }
 

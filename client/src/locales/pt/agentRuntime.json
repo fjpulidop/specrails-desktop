@@ -181,7 +181,8 @@
     "preserveProgress": "Continue a partir da fase indicada, preservando o trabalho e as configurações guardadas.",
     "reviewDelivery": "Implementação concluída. Reveja o resultado no log antes da entrega; esta continuação não o publicou.",
     "prepareDelivery": "Preparar entrega",
-    "dismiss": "Descartar"
+    "dismiss": "Descartar",
+    "selectRecovery": "Selecione as tentativas interrompidas a recuperar"
   },
   "roleHints": {
     "architect": "Lê o código e escreve a proposta, o design, as tarefas e a spec. Só leitura.",
@@ -493,5 +494,45 @@
       }
     }
   },
-  "unsavedChanges": "Alterações não guardadas"
+  "unsavedChanges": "Alterações não guardadas",
+  "customRoles": {
+    "title": "Funções personalizadas",
+    "hint": "Defina instruções reutilizáveis e permissões explícitas para as funções do fluxo.",
+    "unsupported": "Atualize o Core para editar funções personalizadas.",
+    "remove": "Remover {{id}}",
+    "access": "Acesso ao código",
+    "read": "Somente leitura",
+    "write": "Leitura e escrita",
+    "artifacts": "Acesso aos artefatos OpenSpec",
+    "none": "Nenhum",
+    "tasks": "Somente caixas de tarefas",
+    "all": "Todos os artefatos da alteração",
+    "skill": "Skill do OpenSpec",
+    "noSkill": "Nenhuma skill associada",
+    "prompt": "Instruções da função",
+    "id": "ID da função",
+    "add": "Adicionar função",
+    "invalidId": "Use um ID único em minúsculas que comece com uma letra, com até 64 letras, números ou hífens. Os IDs integrados são reservados.",
+    "escalationHint": "Somente uma correção permitida do protocolo pode usar o modelo de escalonamento. Nenhuma tentativa extra é adicionada."
+  },
+  "steering": {
+    "title": "Instruções de execução",
+    "hint": "O Core guarda estas instruções para o próximo turno de agente compatível. O envio não responde a perguntas nem concede aprovações.",
+    "label": "Instruções adicionais",
+    "send": "Enviar instruções",
+    "accepted": "Recebidas pelo Core; aguardando utilização.",
+    "pending": "Aguardando um turno de agente",
+    "consumed": "Utilizadas por um agente",
+    "counts": "Pendentes: {{pending}} · Utilizadas: {{consumed}}",
+    "failed": "Não foi possível enviar as instruções. Tente novamente para confirmar a mesma mensagem.",
+    "unavailable": "Os detalhes dos recibos estão indisponíveis.",
+    "unreported": "Esta versão do Core não informa a utilização.",
+    "truncated": "São apresentados apenas os recibos recentes e as mensagens pendentes."
+  },
+  "studioRole": {
+    "title": "Valores padrão do papel do Core",
+    "hint": "Estes valores do arquivo aplicam-se a novos workflows. As configurações explícitas do projeto têm prioridade; as execuções salvas mantêm as configurações fixadas.",
+    "invalid": "Corrija o cabeçalho YAML no editor antes de alterar os campos do papel.",
+    "escalationEffort": "Esforço de raciocínio do modelo superior"
+  }
 }

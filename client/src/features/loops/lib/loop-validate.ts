@@ -19,6 +19,10 @@ export type IssueCode =
   | 'EMPTY_COMMAND'
   | 'EMPTY_GOAL'
   | 'DEAD_END'
+  | 'MIXED_ENGINES'
+  | 'CORE_OUTCOMES'
+  | 'CORE_PIECE'
+  | 'CORE_VALIDATION'
 
 export interface LoopIssue {
   severity: IssueSeverity
@@ -54,7 +58,10 @@ export function validateBuilderGraph(nodes: Node<LoopNodeData>[], edges: Edge[])
 
   if (starts.length === 0) issues.push({ severity: 'error', code: 'NO_START' })
   for (const extra of starts.slice(1)) issues.push({ severity: 'error', code: 'MULTIPLE_START', nodeId: extra.id })
-  if (!nodes.some((n) => n.data.kind === 'end')) issues.push({ severity: 'error', code: 'NO_END' })
+  if (!nodes.some((n) => n.data.kind === 'end' || n.data.kind === 'core' && n.data.coreKind === 'end')) issues.push({ severity: 'error', code: 'NO_END' })
+  if (nodes.some(node => node.data.kind === 'core') && nodes.some(node => !['start', 'core', 'end'].includes(node.data.kind))) {
+    issues.push({ severity: 'error', code: 'MIXED_ENGINES' })
+  }
 
   // Reachability (only meaningful with exactly one Start).
   if (starts.length === 1) {
@@ -68,6 +75,16 @@ export function validateBuilderGraph(nodes: Node<LoopNodeData>[], edges: Edge[])
   for (const n of nodes) {
     const out = outBySource.get(n.id) ?? []
     switch (n.data.kind) {
+      case 'core': {
+        if (!n.data.coreKind || !n.data.params || typeof n.data.params !== 'object' || Array.isArray(n.data.params)) {
+          issues.push({ severity: 'error', code: 'CORE_PIECE', nodeId: n.id })
+        }
+        const labels = out.map(edge => edge.sourceHandle ?? (edge.data as { label?: string } | undefined)?.label)
+        if (n.data.coreKind === 'end' ? out.length > 0 : !labels.length || labels.some(label => !label || !/^[a-z][a-z0-9-]{0,31}$/.test(label)) || new Set(labels).size !== labels.length) {
+          issues.push({ severity: 'error', code: 'CORE_OUTCOMES', nodeId: n.id })
+        }
+        break
+      }
       case 'decider': {
         const branches = new Set(out.map((e) => e.sourceHandle ?? (e.data as { branch?: string } | undefined)?.branch))
         if (!branches.has('continue') || !branches.has('stop')) {

@@ -152,7 +152,10 @@
       "EMPTY_PROMPT": "Der KI-Schritt hat einen leeren Prompt.",
       "EMPTY_COMMAND": "Der Shell-Schritt hat einen leeren Befehl.",
       "EMPTY_GOAL": "Der Loop Decider hat kein Ziel.",
-      "DEAD_END": "Dieser Schritt hat keine ausgehende Verbindung."
+      "DEAD_END": "Dieser Schritt hat keine ausgehende Verbindung.",
+      "MIXED_ENGINES": "Core-Workflows dürfen keine alten Schritte enthalten.",
+      "CORE_OUTCOMES": "Verbinde unterschiedliche gültige Ergebnisse.",
+      "CORE_PIECE": "Wähle einen Schritt und seine Parameter."
     },
     "preview": {
       "label": "Vorschau",
@@ -160,6 +163,51 @@
       "sampleNote": "Spec-Werte sind Beispieldaten; Befehle und Konstanten werden wie zur Laufzeit aufgelöst.",
       "empty": "Keine Schritte zur Vorschau.",
       "error": "Vorschau fehlgeschlagen"
+    },
+    "core": {
+      "unavailable": "Workflow-Engine nicht verfügbar. Core zum Hinzufügen oder Veröffentlichen aktualisieren.",
+      "root": "Hauptworkflow",
+      "components": "Komponenten",
+      "componentName": "Komponentenname",
+      "addComponent": "Komponente hinzufügen",
+      "openComponent": "Komponente öffnen",
+      "breadcrumbs": "Workflow-Navigation",
+      "select": "Option auswählen",
+      "valueType": "Werttyp",
+      "addItem": "Element hinzufügen",
+      "fieldName": "Feldname",
+      "addField": "{{name}} hinzufügen",
+      "removeField": "{{name}} entfernen",
+      "variant": "Format für {{name}}",
+      "tooDeep": "Der Wert ist zu tief verschachtelt.",
+      "pieces": {
+        "prompt": "Prompt",
+        "role-turn": "Rollenschritt",
+        "decider": "Entscheidung",
+        "condition": "Bedingung",
+        "verify": "Prüfen",
+        "shell": "Shell",
+        "openspec-validate": "OpenSpec validieren",
+        "openspec-archive": "OpenSpec archivieren",
+        "approval": "Freigabe",
+        "question": "Frage",
+        "gate": "Pause",
+        "map": "Zuordnen",
+        "join": "Zusammenführen",
+        "component": "Komponente",
+        "implementation": "Implementierung",
+        "end": "Ende"
+      },
+      "groups": {
+        "ai": "KI",
+        "verification": "Prüfung",
+        "openspec": "OpenSpec",
+        "control": "Ablaufsteuerung"
+      },
+      "options": "Workflow-Optionen",
+      "reviewerStep": "Knoten für Prüfnachweise",
+      "reviewerAutomatic": "Automatisch (Implementierungsprüfungen)",
+      "reviewerHint": "Wähle den Rollenschritt für strukturierte Prüfnachweise. Eine KI-Prüfung ersetzt nicht die Verifikation durch den Host."
     }
   },
   "preview": {
@@ -382,5 +430,14 @@
     "skipped_other": "{{count}} Duplikate übersprungen: {{names}}",
     "invalid": "Diese Datei ist kein gültiger Loops-Export."
   },
-  "automaticOnly": "Läuft automatisch, wenn du bei einer Prüfung Änderungen erbittest — diesen startest du nicht selbst."
+  "automaticOnly": "Läuft automatisch, wenn du bei einer Prüfung Änderungen erbittest — diesen startest du nicht selbst.",
+  "core": {
+    "selectInterrupt": "Offene Frage oder Freigabe auswählen",
+    "answerQuestion": "Frage beantworten",
+    "approval": "Freigabe",
+    "approveContinue": "Freigeben und fortfahren",
+    "paused": "Pausiert",
+    "acceptance": "Abnahme",
+    "verified": "Verifiziert"
+  }
 }

@@ -278,7 +278,27 @@
     "stalledIdle_one": "Sin salida del proveedor durante {{count}} minuto: la app detuvo este intento",
     "stalledIdle_other": "Sin salida del proveedor durante {{count}} minutos: la app detuvo este intento",
     "providerLimit": "Límite del proveedor",
-    "providerLimitHint": "El proveedor respondió con un aviso de límite de uso, así que la app detuvo el run en vez de seguir iterando."
+    "providerLimitHint": "El proveedor respondió con un aviso de límite de uso, así que la app detuvo el run en vez de seguir iterando.",
+    "paused": "En pausa",
+    "runtimeGraph": "Grafo de ejecución",
+    "graphBack": "Volver",
+    "graphOpenComponent": "Abrir componente",
+    "graphNoAttempts": "Sin intentos registrados",
+    "graphState": {
+      "running": "En ejecución",
+      "paused": "Pausado",
+      "failed": "Fallido",
+      "stalled": "Sin progreso",
+      "interrupted": "Interrumpido",
+      "ok": "Completado",
+      "pending": "Pendiente",
+      "unknown": "Desconocido"
+    },
+    "repeatFromHere": "Repetir desde aquí",
+    "forkFailed": "No se pudo crear la ejecución enlazada",
+    "forkPending": "Reintenta el paso seleccionado originalmente para completar la bifurcación pendiente.",
+    "forkCreated": "Ejecución enlazada creada. Ábrela y reanuda desde el punto seleccionado.",
+    "openFork": "Abrir ejecución enlazada"
   },
   "logViewer": {
     "loading": "Cargando logs...",

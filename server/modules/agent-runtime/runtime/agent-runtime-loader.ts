@@ -27,16 +27,45 @@ export interface CoreAgentRuntimeModule {
   RUNTIME_API_VERSION: number
   api?: RuntimeApi
   capabilities?(input: unknown): unknown
+  listWorkflows?(): WorkflowCatalog
   /** `fixer` is present only on cores that publish the fixer stance definition. */
   rolePromptDefaults(): Record<'architect' | 'developer' | 'reviewer', string> & { fixer?: string }
   validateRuntimeConfig(input: unknown): unknown
-  validateWorkflowDefinition(input: unknown): WorkflowDefinitionValidation
+  validateWorkflowDefinition(input: unknown, options?: { configPath?: string; structural?: boolean }): WorkflowDefinitionValidation
   [key: string]: unknown
 }
 
 export type WorkflowDefinitionValidation =
-  | { ok: true; version: string; graph: { nodes: unknown[]; edges: unknown[] } }
+  | { ok: true; version: string; definition: Record<string, unknown>; graph: { nodes: unknown[]; edges: unknown[] } }
   | { ok: false; errors: Array<{ code: string; nodeId?: string; path?: string; message: string }> }
+
+export interface WorkflowPieceDescriptor {
+  kind: string
+  paramsSchema: Record<string, unknown>
+  outcomes: string[]
+  effect: 'read' | 'write' | 'derived'
+  requiresAI: boolean
+}
+export interface WorkflowCatalog {
+  type: 'runtime-workflows'
+  definitionSchema: Record<string, unknown>
+  nodeKindsVersion: number
+  nodeKinds: WorkflowPieceDescriptor[]
+  builtins: Array<{ id: string; version: string; deprecated: boolean }>
+}
+
+export function readWorkflowCatalog(value: unknown): WorkflowCatalog {
+  if (!object(value) || value.type !== 'runtime-workflows' || !object(value.definitionSchema) || !Number.isSafeInteger(value.nodeKindsVersion) || Number(value.nodeKindsVersion) < 1 ||
+    !Array.isArray(value.nodeKinds) || value.nodeKinds.length > 128 || !Array.isArray(value.builtins) ||
+    !value.nodeKinds.every(piece => object(piece) && typeof piece.kind === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(piece.kind) && object(piece.paramsSchema) &&
+      Array.isArray(piece.outcomes) && piece.outcomes.every(label => typeof label === 'string' && /^[a-z][a-z0-9-]{0,31}$/.test(label)) &&
+      new Set(piece.outcomes).size === piece.outcomes.length && ['read', 'write', 'derived'].includes(String(piece.effect)) && typeof piece.requiresAI === 'boolean') ||
+    new Set(value.nodeKinds.map(piece => piece.kind)).size !== value.nodeKinds.length ||
+    !value.builtins.every(item => object(item) && typeof item.id === 'string' && typeof item.version === 'string' && typeof item.deprecated === 'boolean')) {
+    throw new Error('Core returned malformed workflow catalog')
+  }
+  return value as unknown as WorkflowCatalog
+}
 
 function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -47,8 +76,8 @@ function readDefinitionValidation(value: unknown): WorkflowDefinitionValidation 
   const invalid = (): never => { throw new Error('Core returned malformed workflow definition validation') }
   if (!object(value) || value.type !== 'runtime-definition-validated') return invalid()
   if (value.ok === true) {
-    if (typeof value.version !== 'string' || !/^[a-f0-9]{64}$/.test(value.version) || !object(value.graph) || !Array.isArray(value.graph.nodes) || !Array.isArray(value.graph.edges)) return invalid()
-    return { ok: true, version: value.version, graph: { nodes: value.graph.nodes, edges: value.graph.edges } }
+    if (typeof value.version !== 'string' || !/^[a-f0-9]{64}$/.test(value.version) || !object(value.definition) || value.definition.version !== value.version || !object(value.graph) || !Array.isArray(value.graph.nodes) || !Array.isArray(value.graph.edges)) return invalid()
+    return { ok: true, version: value.version, definition: value.definition, graph: { nodes: value.graph.nodes, edges: value.graph.edges } }
   }
   if (value.ok !== false || !Array.isArray(value.errors) || !value.errors.length || !value.errors.every(error => object(error) && typeof error.code === 'string' && error.code.length > 0 && typeof error.message === 'string' && ['nodeId', 'path'].every(key => error[key] === undefined || typeof error[key] === 'string'))) return invalid()
   return { ok: false, errors: value.errors as Extract<WorkflowDefinitionValidation, { ok: false }>['errors'] }
@@ -126,6 +155,10 @@ export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
       const result = JSON.parse(invoke(['capabilities', '--stdin'], JSON.stringify(input)))
       return { ...validateRoleCapabilities(result, input), runtimeIdentity: api.runtimeIdentity }
     },
+    listWorkflows(): WorkflowCatalog {
+      if (api.capabilities?.workflowDefinitions !== 1 || api.capabilities?.engineV2 !== 1) throw new Error('Installed Core does not support workflow definitions. Update the paired Core package.')
+      return readWorkflowCatalog(JSON.parse(invoke(['workflows', 'list'])))
+    },
     rolePromptDefaults() {
       const result = JSON.parse(invoke(['prompts']))
       if (result.type !== 'runtime-role-prompts' || !['architect', 'developer', 'reviewer'].every(role => typeof result.defaults?.[role] === 'string' && result.defaults[role].trim())) throw new Error('Core role prompt catalog is unavailable. Update the paired Core bundle.')
@@ -137,10 +170,11 @@ export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
       if (result.type !== 'runtime-config-valid') throw new Error('Core did not validate the runtime configuration')
       return input
     },
-    validateWorkflowDefinition(input: unknown): WorkflowDefinitionValidation {
+    validateWorkflowDefinition(input: unknown, options?: { configPath?: string; structural?: boolean }): WorkflowDefinitionValidation {
       if (api.capabilities?.workflowDefinitions !== 1) throw new Error('Installed Core does not support workflow definitions. Update the paired Core package.')
+      const args = ['workflows', 'validate', '--stdin', ...(options?.configPath ? ['--config', options.configPath] : []), ...(options?.structural !== false && !options?.configPath ? ['--structural'] : [])]
       let output: string
-      try { output = invoke(['workflows', 'validate', '--stdin'], JSON.stringify(input)) }
+      try { output = invoke(args, JSON.stringify(input)) }
       catch (error) {
         const failure = error as { status?: unknown; stdout?: unknown }
         if (failure.status !== 1 || typeof failure.stdout !== 'string') throw error
@@ -165,8 +199,8 @@ export function validateRoleCapabilities(value: unknown, input: unknown) {
   const invalid = (): never => { throw new Error('Core returned malformed role capabilities') }
   const object = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : invalid()
   const result = object(value), config = object(input)
-  const choices = Object.entries(object(config.agents))
-  if (result.type !== 'runtime-capabilities' || result.schemaVersion !== 1 || !Array.isArray(result.roles) || result.roles.length > 6) return invalid()
+  const choices = Object.entries({ ...object(config.agents), ...(config.roles === undefined ? {} : object(config.roles)) })
+  if (result.type !== 'runtime-capabilities' || result.schemaVersion !== 1 || !Array.isArray(result.roles)) return invalid()
   const expected = choices.flatMap(([role, value]) => {
     const selected = object(value)
     return [['base', selected], ...(selected.escalation ? [['escalation', object(selected.escalation)]] : [])].map(([tier, choice]) => {
@@ -192,8 +226,8 @@ export function validateRoleCapabilities(value: unknown, input: unknown) {
   return { type: 'runtime-capabilities', schemaVersion: 1, roles }
 }
 
-export function validateRequestedRoleEfforts(runtime: CoreAgentRuntimeModule, config: Pick<RuntimeConfig, 'agents'>): void {
-  if (!Object.values(config.agents).some(role => role.effort !== undefined || role.escalation?.effort !== undefined)) return
+export function validateRequestedRoleEfforts(runtime: CoreAgentRuntimeModule, config: Pick<RuntimeConfig, 'agents' | 'roles'>): void {
+  if (![...Object.values(config.agents), ...Object.values(config.roles ?? {})].some(role => role.effort !== undefined || role.escalation?.effort !== undefined)) return
   if (!runtime.capabilities) throw new Error('Installed Core cannot validate requested role effort')
   const result = validateRoleCapabilities(runtime.capabilities(config), config)
   for (const row of result.roles) if (row.requestedEffort !== null && (row.effortSupport !== 'supported' || !row.supportedEfforts?.includes(String(row.requestedEffort)))) throw new Error(`${row.role} (${row.tier}): effort '${row.requestedEffort}' is not confirmed for ${row.transport}. Select provider default or a supported effort.`)

@@ -21,6 +21,7 @@ import type { ProjectContext } from '../../../project-registry'
 import { __resetFetchOriginCache } from '../../../integration-branch'
 import { PR_NEVER_STAGE_PATHSPEC_ROOTS } from '../../../worktree-manager'
 import { recoveryRefForDelivery } from './rail-pr-recovery-git'
+import { coreFactoryGraph } from '../../loops/runtime/loop-core-factory'
 
 // The legacy merge-back must never spawn real executors from a test settle —
 // stub it (PR-mode tests assert it is NOT called; the kill-switch-off pin
@@ -540,6 +541,23 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
       ticketCompletionStatus: 'on_review',
     }))
   })
+  it('ignores a late original settlement after its worktree has moved to a fork', async () => {
+    let finish!: (value: unknown) => void
+    const { ctx, db, onLoopRunFinished } = fakeCtx(() => new Promise(resolve => { finish = resolve }))
+    const io = okIo(), git = { run: vi.fn(io.git!.run) }
+    const ids = await launchIsolatedRail(input([1], ctx), { ...io, git })
+    createLoopRun(db, { id: ids[0], projectId: ctx.project.id, loopId: 'loop', iterationLimit: 1, startedAt: new Date().toISOString() })
+    db.prepare('INSERT INTO definition_fork_operations(project_id,source_run_id,request_id,child_run_id,request_json,result_json,adopted) VALUES (?,?,?,?,?,?,1)').run(ctx.project.id, ids[0], 'fork-control', 'child', '{}', '{}')
+    db.prepare('UPDATE rail_worktrees SET run_id=? WHERE run_id=?').run('child', ids[0])
+    const delivery = getActivePrDeliveryByRail(db, 0)
+    git.run.mockClear(); onLoopRunFinished.mockClear()
+    finish({ runId: ids[0], outcome: 'success' })
+    await new Promise(resolve => setImmediate(resolve))
+    expect(git.run).not.toHaveBeenCalled()
+    expect(onLoopRunFinished).not.toHaveBeenCalled()
+    expect(getActivePrDeliveryByRail(db, 0)).toEqual(delivery)
+    expect(listRailWorktrees(db, 0)[0].run_id).toBe('child')
+  })
 
   it('persists a mixed batch as partial without dropping the failed unit', async () => {
     let call = 0
@@ -666,6 +684,26 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
 
     expect(getActivePrDeliveryByRail(db, 0)).toBeUndefined() // no orphan 'building' row
     expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'discarded'])
+  })
+
+  it('rolls back the full snapshot batch before spawning Core and preserves preexisting mounts', async () => {
+    const { ctx, db, run } = fakeCtx()
+    db.exec(`CREATE TRIGGER fail_second_snapshot BEFORE INSERT ON definition_delivery_settlements
+      WHEN (SELECT COUNT(*) FROM definition_delivery_settlements) = 1
+      BEGIN SELECT RAISE(ABORT, 'snapshot admission failed'); END`)
+    const create = vi.fn(async (_git: unknown, options: { ticketId: number; branch: string }) => ({
+      branch: options.branch, worktreePath: `/wt/ticket-${options.ticketId}`,
+      worktreeCreated: options.ticketId === 1, branchCreated: options.ticketId === 1,
+    }))
+    const remove = vi.fn(async () => {})
+    await expect(launchIsolatedRail({ ...input([1, 2], ctx), loopGraph: coreFactoryGraph('implement') }, { ...okIo(create), remove }))
+      .rejects.toThrow('snapshot admission failed')
+    expect(run).not.toHaveBeenCalled()
+    expect(db.prepare('SELECT COUNT(*) AS n FROM definition_delivery_settlements').get()).toEqual({ n: 0 })
+    expect(getActivePrDeliveryByRail(db, 0)).toBeUndefined()
+    expect(listRailWorktrees(db, 0).map(row => row.merge_state)).toEqual(['failed', 'failed'])
+    expect(remove).toHaveBeenCalledTimes(1)
+    expect(remove).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ worktreePath: '/wt/ticket-1', deleteBranch: true }))
   })
 
   it('always closes the building row on allocation failure; no shared-cwd continuation handoff remains', async () => {
@@ -806,6 +844,7 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     expect((db.prepare('SELECT COUNT(*) AS n FROM rail_pr_deliveries').get() as { n: number }).n).toBe(0)
     expect(prStates(broadcast)).toHaveLength(0)
     expect(onLoopRunFinished).toHaveBeenCalledWith(ids[0], 'success', { ticketCompletionStatus: 'done' })
+    expect(db.prepare("SELECT kind,run_id FROM legacy_launch_events WHERE kind='merge_back'").all()).toEqual([{ kind: 'merge_back', run_id: ids[0] }])
   })
 })
 

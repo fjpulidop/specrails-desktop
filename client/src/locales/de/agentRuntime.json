@@ -181,7 +181,8 @@
     "preserveProgress": "Ab der angezeigten Phase fortsetzen; bisherige Arbeit und gespeicherte Einstellungen bleiben erhalten.",
     "reviewDelivery": "Implementierung abgeschlossen. Prüfe das Ergebnis im Job-Protokoll vor der Auslieferung; diese Fortsetzung hat es nicht veröffentlicht.",
     "prepareDelivery": "Auslieferung vorbereiten",
-    "dismiss": "Verwerfen"
+    "dismiss": "Verwerfen",
+    "selectRecovery": "Unterbrochene Versuche zur Wiederaufnahme auswählen"
   },
   "roleHints": {
     "architect": "Liest den Code und schreibt Vorschlag, Design, Aufgaben und Spezifikation. Nur lesend.",
@@ -493,5 +494,45 @@
       }
     }
   },
-  "unsavedChanges": "Ungespeicherte Änderungen"
+  "unsavedChanges": "Ungespeicherte Änderungen",
+  "customRoles": {
+    "title": "Benutzerdefinierte Rollen",
+    "hint": "Definieren Sie wiederverwendbare Anweisungen und ausdrückliche Berechtigungen für Workflow-Rollen.",
+    "unsupported": "Aktualisieren Sie Core, um benutzerdefinierte Rollen zu bearbeiten.",
+    "remove": "{{id}} entfernen",
+    "access": "Quellcodezugriff",
+    "read": "Nur lesen",
+    "write": "Lesen und schreiben",
+    "artifacts": "Zugriff auf OpenSpec-Artefakte",
+    "none": "Keiner",
+    "tasks": "Nur Aufgaben-Kontrollkästchen",
+    "all": "Alle Änderungsartefakte",
+    "skill": "OpenSpec-Skill",
+    "noSkill": "Keine Skill-Zuordnung",
+    "prompt": "Rollenanweisungen",
+    "id": "Rollen-ID",
+    "add": "Rolle hinzufügen",
+    "invalidId": "Verwenden Sie eine eindeutige ID in Kleinbuchstaben, die mit einem Buchstaben beginnt und höchstens 64 Buchstaben, Ziffern oder Bindestriche enthält. Integrierte IDs sind reserviert.",
+    "escalationHint": "Nur eine zulässige Protokollkorrektur darf das Eskalationsmodell verwenden. Es wird kein weiterer Versuch hinzugefügt."
+  },
+  "steering": {
+    "title": "Ausführungsanweisungen",
+    "hint": "Core speichert diese Anweisungen für den nächsten geeigneten Agentendurchlauf. Das Senden beantwortet keine Fragen und erteilt keine Freigabe.",
+    "label": "Zusätzliche Anweisungen",
+    "send": "Anweisungen senden",
+    "accepted": "Von Core angenommen; noch nicht übernommen.",
+    "pending": "Warten auf einen Agentendurchlauf",
+    "consumed": "Von einem Agenten übernommen",
+    "counts": "Ausstehend: {{pending}} · Übernommen: {{consumed}}",
+    "failed": "Anweisungen konnten nicht gesendet werden. Erneut versuchen, um dieselbe Nachricht zu bestätigen.",
+    "unavailable": "Empfangsdetails sind nicht verfügbar.",
+    "unreported": "Diese Core-Version meldet die Übernahme nicht.",
+    "truncated": "Nur aktuelle Empfangsbestätigungen und ausstehende Nachrichten werden angezeigt."
+  },
+  "studioRole": {
+    "title": "Standardwerte der Core-Rolle",
+    "hint": "Diese Dateivorgaben gelten für neue Workflows. Explizite Projekteinstellungen haben Vorrang; gespeicherte Ausführungen behalten ihre festgelegten Einstellungen.",
+    "invalid": "Korrigieren Sie den YAML-Kopf im Editor, bevor Sie Rollenfelder ändern.",
+    "escalationEffort": "Denkaufwand des höherwertigen Modells"
+  }
 }

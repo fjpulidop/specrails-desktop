@@ -1605,6 +1605,82 @@ const MIGRATIONS: Migration[] = [
     const cols = (db.prepare(`PRAGMA table_info(rail_pr_deliveries)`).all() as { name: string }[]).map((r) => r.name)
     if (!cols.includes('spec_addenda')) db.exec(`ALTER TABLE rail_pr_deliveries ADD COLUMN spec_addenda TEXT`)
   },
+  // Migration 64: frozen Core definition launches and restart/fork provenance.
+  // Historical runs stay NULL (legacy); no graph is silently migrated to v2.
+  (db) => {
+    const cols = new Set((db.prepare('PRAGMA table_info(loop_runs)').all() as { name: string }[]).map(row => row.name))
+    for (const [name, type] of Object.entries({ run_request_json: 'TEXT', engine_version: 'INTEGER', fork_of: 'TEXT',
+      runtime_metadata_json: 'TEXT', runtime_status_json: 'TEXT', core_revision: 'INTEGER', core_event_cursor: 'INTEGER',
+      fork_cut_json: 'TEXT', restart_reason: 'TEXT' })) {
+      if (!cols.has(name)) db.exec(`ALTER TABLE loop_runs ADD COLUMN ${name} ${type}`)
+    }
+    db.exec('CREATE INDEX IF NOT EXISTS idx_loop_runs_fork_of ON loop_runs(fork_of)')
+  },
+  // Migration 65: definition execution claims — the synchronous admission guard
+  // that keeps a v2 run and its forks from writing to one shared worktree at the
+  // same time. A row is a LIVE owner, never a paused run: settlement, cancel and
+  // restart reconciliation delete it. Additive + idempotent.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS definition_execution_claims (
+        run_id                 TEXT PRIMARY KEY,
+        owner                  TEXT NOT NULL,
+        repository_mounts_json TEXT NOT NULL,
+        claimed_at             TEXT NOT NULL DEFAULT (datetime('now')),
+        heartbeat_at           TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_definition_execution_claims_owner ON definition_execution_claims(owner);
+    `)
+  },
+  // Migration 66: observed legacy launches, independent of release eligibility.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS legacy_launch_events (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL CHECK (kind IN ('legacy_loop_traversal','queue_manager_slash','merge_back')),
+        project_id TEXT NOT NULL,
+        run_id TEXT,
+        at TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_legacy_launch_identity ON legacy_launch_events(kind, run_id) WHERE run_id IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_legacy_launch_at ON legacy_launch_events(at);
+    `)
+  },
+  // Migration 67: original isolated-delivery continuation, admitted before Core starts.
+  (db) => {
+    db.exec(`
+      CREATE TABLE definition_delivery_settlements (
+        delivery_id TEXT NOT NULL REFERENCES rail_pr_deliveries(id),
+        run_id TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL,
+        result_json TEXT,
+        provenance_recorded INTEGER NOT NULL DEFAULT 0 CHECK(provenance_recorded IN (0,1)),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (delivery_id, run_id)
+      );
+      CREATE INDEX idx_definition_delivery_run ON definition_delivery_settlements(run_id);
+    `)
+  },
+  // Migration 68: durable fork admission and transfer of settlement ownership.
+  (db) => {
+    db.exec(`
+      CREATE TABLE definition_fork_operations (
+        project_id TEXT NOT NULL,
+        source_run_id TEXT NOT NULL REFERENCES loop_runs(id),
+        request_id TEXT NOT NULL,
+        child_run_id TEXT NOT NULL UNIQUE,
+        request_json TEXT NOT NULL,
+        result_json TEXT,
+        adopted INTEGER NOT NULL DEFAULT 0 CHECK(adopted IN (0,1)),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (project_id, source_run_id, request_id)
+      );
+      CREATE UNIQUE INDEX idx_definition_fork_adopted_source ON definition_fork_operations(source_run_id) WHERE adopted=1;
+      ALTER TABLE definition_delivery_settlements ADD COLUMN superseded_by TEXT;
+    `)
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

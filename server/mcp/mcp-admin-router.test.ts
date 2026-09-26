@@ -72,7 +72,7 @@ describe('createMcpAdminRouter', () => {
     expect((await request(app).post('/api/mcp-admin/regenerate-token')).status).toBe(200)
     expect(manager.status().activeSessions).toBe(0)
     const stale = await request(app).delete('/api/mcp').set('mcp-session-id', initialized.headers['mcp-session-id'])
-    expect(stale.status).toBe(404)
+    expect(stale.status, JSON.stringify(stale.body)).toBe(404)
   })
 
   it('GET /config returns connection info for the panel', async () => {

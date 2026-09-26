@@ -6,6 +6,34 @@ The explorer does **not** introduce a second log pipeline. It consumes the exact
 
 ## Event contract
 
+### Core v2 topology and concurrent attempts
+
+For v2 runs, `runtime-graph.graph` is the recorded public Core topology, including
+component references and outcome-labelled edges. The collapsible **Run graph**
+renders this snapshot without inventing transitions or exposing executable prompts.
+Selecting a component opens its nested graph; Back restores the parent and fits
+the viewport. Editing remains in Loop Builder.
+
+Selecting a node lists its recorded attempts by scope and attempt ID. Each entry
+focuses that exact log segment, including concurrent map branches. Status uses the
+latest attempt within each scope; a successful sibling cannot hide a failed one.
+Trace/span identifiers appear only when present in the recorded event. Malformed
+topology is ignored without interrupting the normal log view. Legacy snapshots
+retain the existing overview strip.
+
+The v2 projection adds `attemptId`, `nodePath`, `scopeId`, `traceId` and optional
+`spanId` to step metadata. Log correlation uses an attempt-index map so parallel
+output is not assigned to whichever step happened to arrive last.
+
+For custom review roles, the root workflow inspector's **Review evidence node**
+selects an exact role-turn path, including component/map instances such as
+`checks/security`. The frozen run request carries that selection into fresh and
+recovered delivery evidence. Automatic mode reads native implementation reviews.
+Structured custom-role output must provide a review verdict; a role name alone
+does not qualify. Parallel scoped verdicts stay separate and do not acquire an
+invented aggregate confidence score. AI review never replaces host verification,
+and a file-based confidence score retains precedence over the runtime projection.
+
 Emitted by `server/modules/loops/runtime/loop-run-manager.ts` (payload interfaces are exported there — `LoopStepEventPayload`, `LoopStepEndEventPayload`, `LoopGraphEventPayload`). All three ride the run's job row as ordinary persisted `events` rows plus `event` WS broadcasts (`event_type` below, `payload` = JSON of the interface). Purely additive to the existing stream — no DB migration.
 
 ### `loop_graph` — once, at run start
@@ -144,3 +172,13 @@ All explorer strings live under the `jobs` namespace, `loopExplorer.*` (16 keys 
 | `client/src/features/loops/components/loop-log/LoopStepSection.tsx` | Per-step / Setup collapsible sections (memoized) |
 | `client/src/features/loops/components/loop-log/loop-node-visuals.ts` | Node-kind icon + accent mapping |
 | `client/src/components/loop-log/__tests__/` | Model + explorer tests |
+
+### Repeat from an exact attempt
+
+Recorded v2 attempts expose **Repeat from here**, including internal component
+nodes. The request carries the node path, scope and visit; Core rejects ambiguous
+cuts. A stable request ID survives lost responses through the recovery endpoint.
+The linked child opens in the same project and starts paused for an explicit
+resume. Its original frozen inputs, worktree and delivery settlement are retained.
+The source remains historical; its resume/cancel/settlement effects are fenced once
+ownership moves. The engine does not roll back working-tree files automatically.

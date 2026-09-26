@@ -5,7 +5,10 @@
  */
 
 export type LoopStatus = 'draft' | 'published'
-export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'condition' | 'end'
+export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'condition' | 'core' | 'end'
+export type CoreNodeKind = 'prompt' | 'role-turn' | 'decider' | 'condition' | 'verify' | 'shell'
+  | 'openspec-validate' | 'openspec-archive' | 'approval' | 'question' | 'gate' | 'map' | 'join'
+  | 'component' | 'implementation' | 'end'
 export type LoopJoin = 'AND' | 'OR'
 /** Which Decider verdict routes down an edge: 'continue' = loop, 'stop' = exit. */
 export type LoopBranch = 'continue' | 'stop'
@@ -24,12 +27,19 @@ export interface LoopEdge {
   join?: LoopJoin
   /** Set on edges leaving a `decider` (maps to React Flow `sourceHandle`). */
   branch?: LoopBranch
+  label?: string
 }
 
 export interface LoopGraph {
   nodes: LoopNode[]
   edges: LoopEdge[]
-  config: { maxIterations: number; timeoutMinutes: number; maxCostUsd?: number; layout?: 'vertical' | 'horizontal' | 'grid' | 'manual' }
+  config: { maxIterations: number; timeoutMinutes: number; maxCostUsd?: number; maxTokens?: number; maxTransitions?: number;
+    journal?: 'ledger-only' | 'implementation'; change?: 'new' | 'existing' | 'none'; reviewerStepId?: string;
+    policies?: { failFast?: number; noProgress?: number; historyMaxChars?: number; concurrency?: number };
+    layout?: 'vertical' | 'horizontal' | 'grid' | 'manual' }
+  inputs?: string[]
+  outputs?: string[]
+  components?: Record<string, LoopGraph>
 }
 
 export interface LoopDefinition {
@@ -74,10 +84,20 @@ export interface FactoryLoopSummary {
   graph: LoopGraph
 }
 
+export interface WorkflowPieceDescriptor {
+  kind: CoreNodeKind
+  paramsSchema: Record<string, unknown>
+  outcomes: string[]
+  effect: 'read' | 'write' | 'derived'
+  requiresAI: boolean
+}
+export interface WorkflowCatalog { definitionSchema?: Record<string, unknown>; nodeKindsVersion: number; nodeKinds: WorkflowPieceDescriptor[]; builtins: Array<{ id: string; version: string; deprecated: boolean }> }
+
 export interface GraphValidationError {
   code: string
   message: string
   nodeId?: string
+  path?: string
   edgeId?: string
 }
 
@@ -119,7 +139,7 @@ async function parse<T>(res: Response): Promise<T> {
     } catch {
       body = undefined
     }
-    if (res.status === 422 && body && typeof body === 'object' && 'errors' in body) {
+    if ((res.status === 422 || res.status === 400) && body && typeof body === 'object' && 'errors' in body) {
       throw new LoopPublishError((body as { errors: GraphValidationError[] }).errors ?? [])
     }
     const message =
@@ -141,6 +161,7 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
 }
 
 export const loopsApi = {
+  async catalog(): Promise<WorkflowCatalog> { return send('GET', '/loops/catalog') },
   async list(): Promise<LoopDefinition[]> {
     return (await send<{ loops: LoopDefinition[] }>('GET', '/loops')).loops
   },

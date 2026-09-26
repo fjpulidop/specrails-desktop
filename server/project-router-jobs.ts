@@ -369,15 +369,19 @@ if (!isInteractiveJobsEnabled() && !loopPaused) {
 res.status(403).json({ error: 'Interactive jobs are disabled on this server' })
 return
 }
-    const { text } = req.body ?? {}
-    if (!text || typeof text !== 'string' || !text.trim()) {
+    const { text, interruptId, approve } = req.body ?? {}
+    if (interruptId !== undefined && (typeof interruptId !== 'string' || !interruptId)) { res.status(400).json({ error: 'Invalid interruptId' }); return }
+    if (approve !== undefined && typeof approve !== 'boolean') { res.status(400).json({ error: 'Invalid approval' }); return }
+    if ((typeof text !== 'string' || !text.trim()) && !(loopPaused && approve === true)) {
       res.status(400).json({ error: 'text is required' })
       return
     }
-const accepted = c.queueManager.sendInteractiveTurn(jobId, text)
-|| (c.loopRunManager?.sendInteractiveTurn(jobId, text) ?? false)
+const control = { ...(interruptId ? { interruptId } : {}), ...(approve !== undefined ? { approve } : {}) }
+const accepted = loopPaused
+  ? (c.loopRunManager?.sendInteractiveTurn(jobId, typeof text === 'string' ? text : '', control) ?? false)
+  : c.queueManager.sendInteractiveTurn(jobId, text) || (c.loopRunManager?.sendInteractiveTurn(jobId, text) ?? false)
     if (!accepted) {
-      res.status(409).json({ error: 'Job is not an active interactive session' })
+      res.status(409).json({ error: loopPaused ? 'Select a pending interrupt and provide its answer or explicit approval' : 'Job is not an active interactive session', ...(loopPaused ? { pendingInterrupts: c.loopRunManager?.pendingInterrupts?.(jobId) ?? [] } : {}) })
       return
     }
     res.status(202).json({ ok: true })
@@ -648,13 +652,14 @@ let interactiveAcceptingTurns = false
 const loopRun = getLoopRun(db, jobId)
 const loopPaused = loopRun?.status === 'paused' || (c.loopRunManager?.isPaused?.(jobId) ?? false)
 const loopPauseReason = c.loopRunManager?.pausedReason?.(jobId) ?? null
+const pendingInterrupts = c.loopRunManager?.pendingInterrupts?.(jobId) ?? []
 if (job.status === 'running' && ((isInteractiveJobsEnabled() && job.interactive) || loopPaused)) {
 const qmMode = queueManager.getInteractiveSettleMode?.(jobId) ?? null
 const loopStepActive = c.loopRunManager?.isInteractiveJob?.(jobId) ?? false
 interactiveAcceptingTurns = qmMode !== null || loopStepActive || loopPaused
 interactiveSettleMode = qmMode ?? ((loopStepActive || loopPaused || loopRun) ? 'auto' : null)
 }
-const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status: 'running', finished_at: null } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason }
+const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status: 'running', finished_at: null } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason, pendingInterrupts }
     res.json({ job: annotated, events, phaseDefinitions })
   })
 

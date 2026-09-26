@@ -1879,6 +1879,7 @@ export interface JobTurnDoneMessage {
  *  derives availability from status + `interactive`. Desktop-only, like every
  *  job.turn_* message above (mobile topicFor() drops uncased types). */
 export interface JobInteractiveMessage {
+  pendingInterrupts?: Array<{id: string;nodePath: string;kind: 'question' | 'approval' | 'gate'; value?: unknown}>
   type: 'job.interactive'
   projectId: string
   jobId: string

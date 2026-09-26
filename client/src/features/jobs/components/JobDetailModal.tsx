@@ -35,7 +35,9 @@ interface JobDetailModalProps {
   projectId?: string
 }
 
-export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProps) {
+export function JobDetailModal({ jobId: initialJobId, onClose, projectId }: JobDetailModalProps) {
+  const [jobId, openFork] = useState(initialJobId)
+  useEffect(() => { openFork(initialJobId) }, [initialJobId])
   const { t } = useTranslation('jobs')
   const { t: tNarration } = useTranslation('narration')
   // Lazy so the no-explicit-projectId path keeps getApiBase()'s call-time
@@ -275,6 +277,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
         {/* The ONE run header shared with the board's Job Detail page. */}
         {job && (
           <JobRunHeader
+            onOpenRun={openFork}
             job={job}
             events={events}
             phases={phases}
@@ -341,6 +344,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
                     isLoading={isLoading}
                     variant="glass"
                     projectId={projectId}
+                    onOpenRun={openFork}
                   />
                 ) : (
                   <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
@@ -354,6 +358,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
               isLoading={isLoading}
               variant="glass"
               projectId={projectId}
+              onOpenRun={openFork}
             />
           ) : (
             <LogViewer events={events} isLoading={isLoading} projectId={projectId} />
@@ -369,6 +374,7 @@ export function JobDetailModal({ jobId, onClose, projectId }: JobDetailModalProp
             projectId={projectId}
             settleMode={job.interactiveSettleMode}
             initialAcceptingTurns={job.interactiveAcceptingTurns}
+            pendingInterrupts={job.pendingInterrupts}
             kind={job.command.startsWith('loop:') ? 'loop-step' : 'job'}
             variant="glass"
             onFinalized={refetchJob}

@@ -399,3 +399,33 @@ describe('stalled steps (loop-step-idle)', () => {
     expect(chip?.state).toBe('failed')
   })
 })
+
+describe('Core branch event projection', () => {
+  it('routes interleaved output by attempt identity and keeps all active branches running', () => {
+    const model = groupByLoopStep([
+      stepEv(1,'core','branch A',{attemptId:'a',nodeId:'map[0]/read',branch:'0'}),
+      stepEv(2,'core','branch B',{attemptId:'b',nodeId:'map[1]/read',branch:'1'}),
+      ev('log',{line:'A text',attemptId:'a'}), ev('log',{line:'B text',attemptId:'b'}),
+      ev('log',{line:'unknown branch',attemptId:'missing'}),
+    ])
+    expect(model.segments.map(segment=>segment.lines.map(line=>line.content))).toEqual([['A text'],['B text']])
+    expect(model.setup.map(line=>line.content)).toEqual(['unknown branch'])
+    expect(segmentStatus(model.segments[0],{isLast:false,jobSettled:false})).toBe('running')
+    expect(segmentStatus(model.segments[0],{isLast:false,jobSettled:true})).toBe('interrupted')
+  })
+  it('uses Core graph snapshot and replaces paused attempt with committed resumed terminal',()=>{
+    const model=groupByLoopStep([graphEv(),ev('runtime-graph',{workflowId:'core-def',nodes:[{path:'component/ask',kind:'human-question',label:'Decision'}],edges:[]}),
+      stepEv(1,'core','Decision',{attemptId:'a',nodeId:'component/ask'}),endEv(1,{status:'paused'}),endEv(1,{status:'ok'})])
+    expect(model.graphMeta?.loopId).toBe('core-def');expect(model.graphMeta?.graph.nodes[0]).toMatchObject({id:'component/ask',data:{label:'Decision',kind:'human-question'}})
+    expect(model.segments[0].end?.status).toBe('ok')
+  })
+  it('preserves the public nested topology and recorded trace correlation', () => {
+    const graph = { entry: 'map', nodes: [{ id: 'map', kind: 'map', label: 'Review', component: 'review', ends: { next: null } }], components: { review: { entry: 'read', nodes: [{ id: 'read', kind: 'prompt', label: 'Read', ends: { next: null } }] } } }
+    const model = groupByLoopStep([
+      ev('runtime-graph', { workflowId: 'review', nodes: [{ path: 'map', kind: 'map', label: 'Review' }], edges: [], graph }),
+      stepEv(1, 'prompt', 'Read', { nodePath: 'map/read', scopeId: 'backend', attemptId: 'attempt-1', traceId: 'trace-1', spanId: 'span-1' }),
+    ])
+    expect(model.graphMeta?.runtimeTopology).toEqual(graph)
+    expect(model.segments[0].meta).toMatchObject({ nodePath: 'map/read', scopeId: 'backend', attemptId: 'attempt-1', traceId: 'trace-1', spanId: 'span-1' })
+  })
+})

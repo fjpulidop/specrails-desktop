@@ -29,6 +29,7 @@ import {
   planSpecAddendaAt,
   claimSpecAddendaForRun,
   settleSpecAddendaAt,
+  settleForkAddendaAt,
   reopenSpecAddenda,
   specAddendumHash,
   broadcastSpecAddendaChange,
@@ -199,6 +200,23 @@ describe('spec-addenda: ticket-store lifecycle', () => {
     expect(a.hash).not.toBe(specAddendumHash({ kind: 'constraint', title: 'T', body: 'B' }))
     expect(a.status).toBe('open')
     expect(a.run_id).toBeNull()
+  })
+  it('settles only frozen inherited addenda on causally owned tickets and replays without rewriting', () => {
+    mutateStore(storePath, store => {
+      store.tickets['1'].addenda = [addendum({ id: 'inherited', status: 'in_flight', run_id: 'source' }), addendum({ id: 'unselected', status: 'in_flight', run_id: 'source' })]
+      store.tickets['2'].addenda = [addendum({ id: 'foreign-ticket', status: 'in_flight', run_id: 'source' })]
+    })
+    const claims = [{ runId: 'source', ids: ['inherited', 'foreign-ticket'] }]
+    expect(settleForkAddendaAt(storePath, [1], 'child', claims, 'completed').changedTicketIds).toEqual([1])
+    const saved = readStore(storePath)
+    expect(saved.tickets['1'].addenda).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'inherited', run_id: 'child', status: 'applied' }),
+      expect.objectContaining({ id: 'unselected', run_id: 'source', status: 'in_flight' }),
+    ]))
+    expect(saved.tickets['2'].addenda?.[0]).toMatchObject({ status: 'in_flight', run_id: 'source' })
+    const bytes = fs.readFileSync(storePath)
+    expect(settleForkAddendaAt(storePath, [1], 'child', claims, 'completed').changedTicketIds).toEqual([])
+    expect(fs.readFileSync(storePath)).toEqual(bytes)
   })
 
   it('append enforces the per-ticket cap and bumps updated_at; the description is untouched', () => {

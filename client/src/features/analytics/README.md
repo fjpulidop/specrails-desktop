@@ -29,3 +29,7 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/analytics`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+`LegacyWorkflowUsage` reads the project's append-only legacy counters separately
+from spending filters. It caches by project, aborts stale reads and never turns
+missing telemetry into zero. Counts are observations, not rollout acceptance.

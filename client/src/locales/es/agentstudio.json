@@ -136,7 +136,8 @@
       "moveUp": "Subir",
       "coreDefaultBadge": "core · por defecto",
       "coreDefaultTitle": "Fallback del core — la regla de último recurso del pipeline, fijada a sr-developer"
-    }
+    },
+    "legacyWorkflowNotice": "Los ajustes del orquestador y del enrutamiento se aplican a los workflows antiguos. Los workflows de Core usan los roles seleccionados en el editor de loops."
   },
   "agentSelector": {
     "coreBadge": "core",

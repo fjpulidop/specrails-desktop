@@ -40,7 +40,7 @@ import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolut
 import { applyWorktreeEnvPassthrough } from './project-env'
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './modules/specs/runtime/ticket-store'
-import { settleSpecAddendaAt } from './modules/specs/runtime/spec-addenda'
+import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { StuckRunDetector } from './modules/execution/runtime/stuck-run-detector'
 import { MilestoneProgressBroadcaster, readMilestoneProgress, markMilestoneDone, resolveBlueprintWorkspace } from './modules/builder/runtime/milestone-progress'
@@ -52,6 +52,7 @@ import { resolveIntegrationBranch } from './integration-branch'
 import { getProjectSettings } from './db'
 import { LoopRunManager, recoverOrphanLoopStepAccounting } from './modules/loops/runtime/loop-run-manager'
 import { createLoopExecutors } from './modules/loops/runtime/loop-executors'
+import { probeDefinitionRuns, toDefinitionStates } from './modules/loops/runtime/loop-definition-recovery'
 import { reconcileRailWorktrees } from './modules/delivery/runtime/rail-isolated-launch'
 import { isRailPrDeliveryEnabled } from './modules/delivery/runtime/rail-isolation'
 import { clearOrphanedPrDeliveryOperations, getActivePrDeliveryByRail, getPrDelivery, listOriginLinkedPrDeliveries, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './modules/delivery/runtime/rail-pr-store'
@@ -60,11 +61,14 @@ import { replayRailPrTicketEffectsUntilSettled } from './modules/delivery/runtim
 import {
   getLoopTerminalRecovery,
   getLoopRun,
+  readDefinitionRun,
+  readDefinitionSuccessor,
   listActiveLoopRuns,
   listPendingLoopTerminalRecoveries,
   completeLoopTerminalRecovery,
   reconcileOrphanLoopRuns,
   type LoopRunRow,
+  type DefinitionCheckpoint,
   type LoopTerminalRecoveryPayload,
 } from './modules/loops/runtime/loop-runs-store'
 import type { LoopSpec } from './modules/loops/runtime/loop-graph'
@@ -1181,6 +1185,7 @@ export class ProjectRegistry {
       outcome: string,
       opts?: { ticketCompletionStatus?: 'done' | 'on_review'; stallReason?: string },
     ): void => {
+      if (readDefinitionSuccessor(db, runId)) return
       const intent = getLoopTerminalRecovery(db, runId)
       let payload: LoopTerminalRecoveryPayload | null = null
       if (intent) {
@@ -1267,6 +1272,12 @@ export class ProjectRegistry {
           // otherwise). Runs for every ticket of the run, not only the causally
           // owned ones — the run id is already the causal proof.
           if (ticketIds.length > 0) {
+            const inherited = readDefinitionRun(db, runId)?.metadata.inheritedAddendaClaims ?? []
+            const inheritedResult = settleForkAddendaAt(ticketStorePath(), causallyOwnedTicketIds, runId, inherited, status)
+            if (inheritedResult.store) {
+              store = inheritedResult.store
+              for (const tid of inheritedResult.changedTicketIds) if (!changedIds.includes(tid)) changedIds.push(tid)
+            }
             const settledAddenda = settleSpecAddendaAt(ticketStorePath(), ticketIds, runId, status)
             if (settledAddenda.store) {
               store = settledAddenda.store
@@ -1432,51 +1443,60 @@ export class ProjectRegistry {
     const ctx: ProjectContext = { project, db, queueManager, chatManager, setupManager, proposalManager, agentRefineManager, fileSummaryManager, specLauncherManager, ticketWatcher, browserCaptureManager, jiraSyncManager, stuckRunDetector, broadcast: boundBroadcast, railJobs, loopRunManager, railLoopRuns, onLoopRunFinished, getTicketSpec, desktopDb: this._desktopDb, milestoneProgress }
     ctx.milestoneChains = milestoneChains
     this._contexts.set(project.id, ctx)
-    const loopRecoveryOk = this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns)
-    if (loopRecoveryOk) {
-      // Decision tokens belong to the dead process. Clear them before any
-      // recovery projection while admission is still closed; otherwise every
-      // action on the card remains disabled and cannot trigger lease reclaim.
-      const orphanedDecisionLeases = clearOrphanedPrDeliveryOperations(db)
-      if (orphanedDecisionLeases > 0) {
-        console.log(`[safe-pr] cleared ${orphanedDecisionLeases} orphaned decision lease(s) for ${project.slug}`)
-      }
-      // Worktree/delivery recovery owns the same repo mutex as launch
-      // allocation. Admission opens only after it settles, so a request cannot
-      // reuse a ticket-keyed path while startup still inspects it.
-      void reconcileRailWorktrees(db, project.path)
-        .then(async (n) => {
-          if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`)
-          if (this._contexts.get(project.id) === ctx) {
-            const effectDeps = {
-              db,
-              project: { id: project.id, slug: project.slug, path: project.path },
-              broadcast: boundBroadcast,
-              jiraSyncManager,
-            }
-            const ticketEffects = await replayRailPrTicketEffectsUntilSettled(effectDeps, {
-              isCurrent: () => this._contexts.get(project.id) === ctx,
-              onAttempt: (result) => {
-                if (result.attempted > 0) {
-                  console.log(`[safe-pr] replayed ${result.completed}/${result.attempted} ticket effect(s) for ${project.slug}; ${result.pending} pending`)
-                  // A failed attempt persists cleanup_incomplete on the terminal
-                  // delivery; project it immediately while admission remains
-                  // closed so both cards explain the recovery state.
-                  for (const deliveryId of result.attemptedDeliveryIds) {
-                    emitRecoveredPrDelivery(ctx, deliveryId)
+    const recoverAfterProbe = (definitionStates?: ReadonlyMap<string, DefinitionCheckpoint>) => {
+      if (this._contexts.get(project.id) !== ctx) return
+      const loopRecoveryOk = this._recoverOrphanLoopRuns(project, db, railLoopRuns, onLoopRunFinished, orphanLoopRuns, definitionStates)
+      if (loopRecoveryOk) {
+        // Decision tokens belong to the dead process. Clear them before any
+        // recovery projection while admission is still closed; otherwise every
+        // action on the card remains disabled and cannot trigger lease reclaim.
+        const orphanedDecisionLeases = clearOrphanedPrDeliveryOperations(db)
+        if (orphanedDecisionLeases > 0) {
+          console.log(`[safe-pr] cleared ${orphanedDecisionLeases} orphaned decision lease(s) for ${project.slug}`)
+        }
+        // Worktree/delivery recovery owns the same repo mutex as launch
+        // allocation. Admission opens only after it settles, so a request cannot
+        // reuse a ticket-keyed path while startup still inspects it.
+        void reconcileRailWorktrees(db, project.path)
+          .then(async (n) => {
+            if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`)
+            if (this._contexts.get(project.id) === ctx) {
+              const effectDeps = {
+                db,
+                project: { id: project.id, slug: project.slug, path: project.path },
+                broadcast: boundBroadcast,
+                jiraSyncManager,
+              }
+              const ticketEffects = await replayRailPrTicketEffectsUntilSettled(effectDeps, {
+                isCurrent: () => this._contexts.get(project.id) === ctx,
+                onAttempt: (result) => {
+                  if (result.attempted > 0) {
+                    console.log(`[safe-pr] replayed ${result.completed}/${result.attempted} ticket effect(s) for ${project.slug}; ${result.pending} pending`)
+                    // A failed attempt persists cleanup_incomplete on the terminal
+                    // delivery; project it immediately while admission remains
+                    // closed so both cards explain the recovery state.
+                    for (const deliveryId of result.attemptedDeliveryIds) {
+                      emitRecoveredPrDelivery(ctx, deliveryId)
+                    }
                   }
-                }
-              },
-            })
-            if (!ticketEffects.settled || this._contexts.get(project.id) !== ctx) return
-            reprojectActivePrDeliveries(ctx)
-            openProjectProcessAdmission(project.id)
-          }
-        })
-        .catch((err) => {
-          console.error(`[loops] isolated recovery failed for ${project.slug}; admission remains closed:`, err)
-        })
+                },
+              })
+              if (!ticketEffects.settled || this._contexts.get(project.id) !== ctx) return
+              reprojectActivePrDeliveries(ctx)
+              openProjectProcessAdmission(project.id)
+            }
+          })
+          .catch((err) => {
+            console.error(`[loops] isolated recovery failed for ${project.slug}; admission remains closed:`, err)
+          })
+      }
     }
+    const definitionIds = orphanLoopRuns.filter(run => run.engine_version === 2).map(run => run.id)
+    if (definitionIds.length) {
+      void probeDefinitionRuns({ db, cwd: project.path, env: process.env }, definitionIds)
+        .then(probes => recoverAfterProbe(toDefinitionStates(probes)))
+        .catch(error => { console.error(`[loops] Core recovery inspection failed for ${project.slug}; admission remains closed:`, error) })
+    } else recoverAfterProbe()
     return ctx
   }
 
@@ -1491,6 +1511,7 @@ export class ProjectRegistry {
     }>,
     onLoopRunFinished: (runId: string, outcome: string) => void,
     orphans: LoopRunRow[],
+    definitionStates?: ReadonlyMap<string, DefinitionCheckpoint>,
   ): boolean {
     try {
       const recoveredSteps = recoverOrphanLoopStepAccounting(db)
@@ -1524,9 +1545,7 @@ export class ProjectRegistry {
         legacyTicketIds.set(run.id, ticketIds)
         railLoopRuns.set(run.id, { railIndex: run.rail_index, ticketIds })
       }
-      if (orphans.length > 0) {
-        reconcileOrphanLoopRuns(db, new Date().toISOString(), legacyTicketIds)
-      }
+      reconcileOrphanLoopRuns(db, new Date().toISOString(), legacyTicketIds, definitionStates)
       // Includes orphan intents created above AND normally-completed runs whose
       // process died after the atomic settle but before its `.then` callback.
       const pending = listPendingLoopTerminalRecoveries(db)

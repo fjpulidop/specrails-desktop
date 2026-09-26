@@ -5,7 +5,7 @@ import { AgentRuntimeConfigError, agentRuntimeConfigPath, loadAgentRuntimeConfig
 import { stripDesktopConnectionFields, forCoreRuntime } from './agent-runtime-settings'
 import { suggestVerificationCommands } from './agent-runtime-verification-suggestions'
 import { getProjectRepositories } from '../../../project-repositories'
-import { fillDefaultRoleModels } from './agent-runtime-effective-config'
+import { fillDefaultRoleModels, workflowRoleDefaults } from './agent-runtime-effective-config'
 
 /** Raw request body → same body with every local role's missing model filled (validation then passes). */
 function withDefaultRoleModels(body: Record<string, unknown>): Record<string, unknown> {
@@ -13,9 +13,10 @@ function withDefaultRoleModels(body: Record<string, unknown>): Record<string, un
   const providers = body.providers
   if (!agents || typeof agents !== 'object' || !Array.isArray(providers)) return body
   // Only LOCAL roles: a CLI role saved without a model keeps meaning "provider default" (never frozen into the file).
+  const roles = body.roles && typeof body.roles === 'object' && !Array.isArray(body.roles) ? structuredClone(body.roles) : undefined
   const fixer = body.fixer && typeof body.fixer === 'object' ? structuredClone(body.fixer) : undefined
-  const filled = fillDefaultRoleModels({ agents: structuredClone(agents) as never, providers: providers as never, ...(fixer ? { fixer: fixer as never } : {}) }, { localOnly: true })
-  return { ...body, agents: filled.agents, ...(filled.fixer ? { fixer: filled.fixer } : {}) }
+  const filled = fillDefaultRoleModels({ agents: structuredClone(agents) as never, providers: providers as never, ...(roles ? { roles: roles as never } : {}), ...(fixer ? { fixer: fixer as never } : {}) }, { localOnly: true })
+  return { ...body, agents: filled.agents, ...(filled.roles ? { roles: filled.roles } : {}), ...(filled.fixer ? { fixer: filled.fixer } : {}) }
 }
 import { LoopRoleEnginesError, loadLoopRoleEngines, saveLoopRoleEngines, validateLoopRoleEngines } from '../../loops/runtime/loop-role-engines'
 
@@ -50,9 +51,10 @@ export function registerAgentRuntimeSettingsRoutes({ router, ctx }: Pick<Project
       const project = ctx(_req).project
       const configured = existsSync(agentRuntimeConfigPath(project))
       const config = loadAgentRuntimeConfig(project)
-      let efficiencyAvailable = false
-      try { efficiencyAvailable = (await loadCoreAgentRuntime()).api?.capabilities?.efficientRoleExecution === 1 } catch { /* Ordinary settings remain readable without capability support. */ }
-      res.json({ configured, config, runtimeAvailable: findCoreAgentRuntimeEntry() !== null, efficiencyAvailable })
+      let efficiencyAvailable = false, openRolesAvailable = false
+      try { const capabilities = (await loadCoreAgentRuntime()).api?.capabilities; efficiencyAvailable = capabilities?.efficientRoleExecution === 1; openRolesAvailable = capabilities?.openRoles === 1 } catch { /* Ordinary settings remain readable without capability support. */ }
+      res.json({ configured, config, runtimeAvailable: findCoreAgentRuntimeEntry() !== null, efficiencyAvailable, openRolesAvailable,
+        workflowRoleDefaults: openRolesAvailable && config ? workflowRoleDefaults(config) : {} })
     } catch (err) {
       const validation = err instanceof AgentRuntimeConfigError
       res.status(validation ? 422 : 500).json({ error: validation ? 'invalid_runtime_config' : 'runtime_config_read_failed', message: validation ? err.message : 'Could not read runtime configuration' })
@@ -101,16 +103,16 @@ export function registerAgentRuntimeSettingsRoutes({ router, ctx }: Pick<Project
         res.status(503).json({ error: 'runtime_unavailable', message: 'Update Core to an installation with the agent runtime before enabling it' })
         return
       }
-      let efficiencyAvailable = false
+      let efficiencyAvailable = false, openRolesAvailable = false
       if (config.enabled && runtimeAvailable) {
-        try { const runtime = await loadCoreAgentRuntime(); const coreConfig = { ...forCoreRuntime(fillDefaultRoleModels(structuredClone(config), { localOnly: true }), runtime.api?.capabilities), providers: stripDesktopConnectionFields(config.providers, coreConnectionFieldGates(runtime.api?.capabilities)) }; runtime.validateRuntimeConfig(coreConfig); validateRequestedRoleEfforts(runtime, coreConfig); efficiencyAvailable = runtime.api?.capabilities?.efficientRoleExecution === 1 }
+        try { const runtime = await loadCoreAgentRuntime(); const coreConfig = { ...forCoreRuntime(fillDefaultRoleModels(structuredClone(config), { localOnly: true }), runtime.api?.capabilities), providers: stripDesktopConnectionFields(config.providers, coreConnectionFieldGates(runtime.api?.capabilities)) }; runtime.validateRuntimeConfig(coreConfig); validateRequestedRoleEfforts(runtime, coreConfig); efficiencyAvailable = runtime.api?.capabilities?.efficientRoleExecution === 1; openRolesAvailable = runtime.api?.capabilities?.openRoles === 1 }
         catch {
           res.status(503).json({ error: 'runtime_incompatible', message: 'The installed Core runtime could not validate this configuration; update Core and retry' })
           return
         }
       }
       const saved = saveAgentRuntimeConfig(ctx(req).project, config)
-      res.json({ configured: true, config: saved, runtimeAvailable, efficiencyAvailable })
+      res.json({ configured: true, config: saved, runtimeAvailable, efficiencyAvailable, openRolesAvailable })
     } catch (err) {
       const validation = err instanceof AgentRuntimeConfigError
       res.status(validation ? 400 : 500).json({ error: validation ? 'invalid_runtime_config' : 'runtime_config_write_failed', message: validation ? err.message : 'Could not save runtime configuration' })

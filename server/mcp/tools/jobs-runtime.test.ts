@@ -20,6 +20,7 @@ describe('specrails_jobs runtime_* actions', () => {
     expect(tier({ action: 'runtime_resume' })).toBe('ai-spawn')
     expect(tier({ action: 'runtime_recover' })).toBe('ai-spawn')
     expect(tier({ action: 'runtime_approve' })).toBe('write')
+    expect(tier({ action: 'runtime_steer' })).toBe('write')
     expect(tier({ action: 'runtime_settle' })).toBe('write')
     expect(tier({ action: 'runtime_dismiss' })).toBe('write')
     expect(tier({ action: 'runtime_cancel' })).toBe('destructive')
@@ -51,6 +52,14 @@ describe('specrails_jobs runtime_* actions', () => {
     expect(vi.mocked(apiCall).mock.calls[0].slice(1)).toEqual(['POST', '/projects/p1/agent-runtime/runs/r1/resume', { approve: ['a'], recover: ['b'], invalidate: ['c'], answer: 'yes' }])
     expect(r).toMatchObject({ accepted: true, hint: expect.stringContaining('not completion') })
     await expect(call({ action: 'runtime_resume' })).rejects.toThrow('requires a "jobId"')
+  })
+
+  it('forwards steering with its idempotency key and distinguishes acceptance from consumption', async () => {
+    vi.mocked(apiCall).mockResolvedValue({ id: 'operator-1', acceptedAt: '2026-09-26T19:00:00Z' })
+    const result = await call({ action: 'runtime_steer', jobId: 'r 1', requestId: 'operator-1', steeringText: 'Preserve the tests' })
+    expect(vi.mocked(apiCall).mock.calls[0].slice(1)).toEqual(['POST', '/projects/p1/agent-runtime/runs/r%201/steer', { text: 'Preserve the tests', requestId: 'operator-1' }])
+    expect(result).toMatchObject({ id: 'operator-1', hint: expect.stringContaining('next eligible AI attempt') })
+    await expect(call({ action: 'runtime_steer', jobId: 'r1', steeringText: 'Text' })).rejects.toThrow('stable requestId')
   })
 
   it('runtime_recover defaults to the run\'s recoverable steps and refuses when there are none', async () => {

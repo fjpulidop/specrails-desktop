@@ -1,0 +1,16 @@
+{
+  "coreCommit": "54946aae94164e10f1cec25e19959204de07dd46",
+  "provider": "deterministic local executor; not billed telemetry",
+  "physicalCalls": 2,
+  "pausedEventCount": 19,
+  "finalEventCount": 44,
+  "finalUsage": {
+    "costUsd": null,
+    "inputTokens": 10,
+    "outputTokens": 6,
+    "knownCostUsd": 0.02,
+    "knownTokens": 16,
+    "durationMs": 841
+  },
+  "finalCursor": 24
+}

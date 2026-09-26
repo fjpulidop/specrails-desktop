@@ -136,7 +136,8 @@
       "moveUp": "Monter",
       "coreDefaultBadge": "core · défaut",
       "coreDefaultTitle": "Repli core — la règle de dernier recours du pipeline, épinglée sur sr-developer"
-    }
+    },
+    "legacyWorkflowNotice": "Les paramètres de l’orchestrateur et du routage s’appliquent aux anciens workflows. Les workflows Core utilisent les rôles sélectionnés dans l’éditeur de loops."
   },
   "agentSelector": {
     "coreBadge": "core",

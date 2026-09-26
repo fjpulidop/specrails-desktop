@@ -34,6 +34,9 @@ vi.mock('sonner', () => ({
 }))
 
 // Stub all dashboard child components to keep test focus on the page wiring.
+vi.mock('../../components/LegacyWorkflowUsage', () => ({
+  LegacyWorkflowUsage: ({ projectId }: { projectId: string }) => <div data-testid="legacy-usage">{projectId}</div>,
+}))
 vi.mock('../../components/SpendingHero', () => ({
   SpendingHero: ({ data }: { data: unknown }) => (
     <div data-testid="hero">{data ? 'hero-loaded' : 'hero-loading'}</div>
@@ -114,6 +117,7 @@ describe('AnalyticsPage', () => {
     expect(screen.getByTestId('scatter')).toBeInTheDocument()
     expect(screen.getByTestId('top')).toBeInTheDocument()
     expect(screen.getByTestId('table')).toBeInTheDocument()
+    expect(screen.getByTestId('legacy-usage')).toHaveTextContent('proj-1')
   })
 
   it('disables export when there are no invocations', async () => {

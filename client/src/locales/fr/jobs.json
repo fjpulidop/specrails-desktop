@@ -278,7 +278,27 @@
     "stalledIdle_one": "Aucune sortie du fournisseur pendant {{count}} minute — l'app a arrêté cette tentative",
     "stalledIdle_other": "Aucune sortie du fournisseur pendant {{count}} minutes — l'app a arrêté cette tentative",
     "providerLimit": "Limite du fournisseur",
-    "providerLimitHint": "Le fournisseur a répondu par un avis de limite d'utilisation ; l'app a arrêté l'exécution au lieu de boucler."
+    "providerLimitHint": "Le fournisseur a répondu par un avis de limite d'utilisation ; l'app a arrêté l'exécution au lieu de boucler.",
+    "paused": "En pause",
+    "runtimeGraph": "Graphe d’exécution",
+    "graphBack": "Retour",
+    "graphOpenComponent": "Ouvrir le composant",
+    "graphNoAttempts": "Aucune tentative enregistrée",
+    "graphState": {
+      "running": "En cours",
+      "paused": "En pause",
+      "failed": "Échec",
+      "stalled": "Bloqué",
+      "interrupted": "Interrompu",
+      "ok": "Réussi",
+      "pending": "En attente",
+      "unknown": "Inconnu"
+    },
+    "repeatFromHere": "Reprendre à partir d’ici",
+    "forkFailed": "Impossible de créer l’exécution liée",
+    "forkPending": "Réessayez l’étape sélectionnée initialement pour terminer la bifurcation en attente.",
+    "forkCreated": "Exécution liée créée. Ouvrez-la et reprenez au point sélectionné.",
+    "openFork": "Ouvrir l’exécution liée"
   },
   "logViewer": {
     "loading": "Chargement des logs…",

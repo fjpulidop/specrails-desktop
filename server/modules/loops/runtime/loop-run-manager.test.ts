@@ -111,6 +111,7 @@ describe('LoopRunManager fail-fast (provider down / out of quota)', () => {
     await manager(ex).run({ ...baseReq(), profileName })
     expect(planInteractiveAiStep).toHaveBeenCalledWith(expect.objectContaining({ profileName }))
     expect(ex.runAiStep).toHaveBeenCalledWith(expect.objectContaining({ profileName }))
+    expect(db.prepare('SELECT kind,project_id FROM legacy_launch_events').all()).toEqual([{ kind: 'legacy_loop_traversal', project_id: 'p1' }])
   })
 
   it('does not accept STOP over a failed verification, then succeeds after a clean repair pass', async () => {

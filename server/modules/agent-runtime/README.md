@@ -12,6 +12,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/agent-runtime-controls.ts](runtime/agent-runtime-controls.ts)
 - [runtime/agent-runtime-events.ts](runtime/agent-runtime-events.ts)
 - [runtime/agent-runtime-loader.ts](runtime/agent-runtime-loader.ts)
+- [runtime/agent-runtime-package.ts](runtime/agent-runtime-package.ts)
 - [runtime/agent-runtime-paths.ts](runtime/agent-runtime-paths.ts)
 - [runtime/agent-runtime-recovery.ts](runtime/agent-runtime-recovery.ts)
 - [runtime/agent-runtime-settings-router.ts](runtime/agent-runtime-settings-router.ts)
@@ -24,6 +25,25 @@ independent of manifest generation. Prefer a focused public subpath over an
 eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/agent-runtime` and any affected consumers.
+
+## Configured roles
+
+`workflowRoleDefaults` exposes app-owned read-only decision-role defaults.
+`bindWorkflowRoleDefaults` applies only descriptors declared by a compiled graph,
+preserves explicit project engine selections and rejects incompatible policies.
+Admission freezes these defaults after launch overrides; saved runs reuse them.
+
+The three built-in assignments remain in `agents`. Additional role descriptors
+live in `roles` and declare source access, artifact access, provider/model, optional
+OpenSpec skill and instructions. Settings reuse the provider and effort controls;
+new custom roles default to read access with no artifact writes. Built-in policy
+cannot be overridden. Settings validation, global connection migration and launch
+resolution preserve every declared assignment. Saving custom roles requires the
+paired Core's `openRoles: 1` capability; unsupported settings fail before writes.
+
+Capability rows must match all submitted role/engine selections, including
+escalations, with no fixed row ceiling. Frozen runs keep their original role map.
+See [the role and factory decisions](../../../openspec/changes/core-agent-engine/desktop-role-factory-protocol.md).
 
 ## Runtime catalog compatibility
 
@@ -58,3 +78,7 @@ outcomes. Core's `scopedRecovery: 1` capability owns filesystem access, the shar
 workflow lease, guarded exact patches, registered checks and durable idempotency.
 The new adapter dependency and MCP public subpath are reviewed in boundaries.json;
 no lifecycle ownership moves into MCP. Older retained runtimes fail explicitly.
+
+## Durable steering
+
+`POST /agent-runtime/runs/:runId/steer` validates text and a stable request id, checks the project and frozen context, then sends stdin to the retained Core signal command. Core owns idempotency and receipt timestamps. Status projects pending versus consumed receipts with bounded previews; missing older-runtime reporting remains unknown. MCP exposes the same operation as `runtime_steer` with write permission. See [live steering](../../../docs/agent-live-steering.md).

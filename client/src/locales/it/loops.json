@@ -152,7 +152,10 @@
       "EMPTY_PROMPT": "L'AI Step ha il prompt vuoto.",
       "EMPTY_COMMAND": "Il passo Shell ha il comando vuoto.",
       "EMPTY_GOAL": "Il Loop Decider non ha un obiettivo.",
-      "DEAD_END": "Questo passo non ha connessioni in uscita."
+      "DEAD_END": "Questo passo non ha connessioni in uscita.",
+      "MIXED_ENGINES": "Non mescolare passaggi precedenti con passaggi Core.",
+      "CORE_OUTCOMES": "Collega risultati distinti e validi.",
+      "CORE_PIECE": "Seleziona un passaggio e i relativi parametri."
     },
     "preview": {
       "label": "Anteprima",
@@ -160,6 +163,51 @@
       "sampleNote": "I valori dello spec sono di esempio; comandi e costanti si risolvono come a runtime.",
       "empty": "Nessun passo da visualizzare.",
       "error": "Anteprima non riuscita"
+    },
+    "core": {
+      "unavailable": "Motore non disponibile. Aggiorna Core per aggiungere o pubblicare passaggi.",
+      "root": "Workflow principale",
+      "components": "Componenti",
+      "componentName": "Nome del componente",
+      "addComponent": "Aggiungi componente",
+      "openComponent": "Apri componente",
+      "breadcrumbs": "Navigazione del workflow",
+      "select": "Scegli un'opzione",
+      "valueType": "Tipo di valore",
+      "addItem": "Aggiungi elemento",
+      "fieldName": "Nome del campo",
+      "addField": "Aggiungi {{name}}",
+      "removeField": "Rimuovi {{name}}",
+      "variant": "Formato di {{name}}",
+      "tooDeep": "Il valore contiene troppi livelli.",
+      "pieces": {
+        "prompt": "Prompt",
+        "role-turn": "Turno del ruolo",
+        "decider": "Decisione",
+        "condition": "Condizione",
+        "verify": "Verifica",
+        "shell": "Shell",
+        "openspec-validate": "Convalida OpenSpec",
+        "openspec-archive": "Archivia OpenSpec",
+        "approval": "Approvazione",
+        "question": "Domanda",
+        "gate": "Pausa",
+        "map": "Mappa",
+        "join": "Unisci",
+        "component": "Componente",
+        "implementation": "Implementazione",
+        "end": "Fine"
+      },
+      "groups": {
+        "ai": "IA",
+        "verification": "Verifica",
+        "openspec": "OpenSpec",
+        "control": "Controllo del flusso"
+      },
+      "options": "Opzioni del workflow",
+      "reviewerStep": "Nodo delle evidenze di revisione",
+      "reviewerAutomatic": "Automatico (revisioni di implementazione)",
+      "reviewerHint": "Scegli il turno di ruolo che fornisce la revisione strutturata. La revisione IA non sostituisce la verifica dell’host."
     }
   },
   "preview": {
@@ -382,5 +430,14 @@
     "skipped_other": "{{count}} duplicati saltati: {{names}}",
     "invalid": "Quel file non è un export di loop valido."
   },
-  "automaticOnly": "Si avvia automaticamente quando chiedi modifiche in una revisione — questo non lo lanci tu."
+  "automaticOnly": "Si avvia automaticamente quando chiedi modifiche in una revisione — questo non lo lanci tu.",
+  "core": {
+    "selectInterrupt": "Seleziona la domanda o approvazione in attesa",
+    "answerQuestion": "Rispondi alla domanda",
+    "approval": "Approvazione",
+    "approveContinue": "Approva e continua",
+    "paused": "In pausa",
+    "acceptance": "Accettazione",
+    "verified": "Verificato"
+  }
 }

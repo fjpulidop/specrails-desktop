@@ -10,7 +10,13 @@ import { validateLoopGraph, assertLoopShellRepositoryScope } from './modules/loo
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './modules/loops/runtime/loops-store'
-import { getLoopRun } from './modules/loops/runtime/loop-runs-store'
+import { getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
+import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/delivery/runtime/definition-fork'
+import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isolated-launch'
+import { finishDefinitionCancellation } from './modules/loops/runtime/definition-cancellation'
+import { appendEvent } from './db'
+import { validateDefinitionResumeControls } from './modules/loops/runtime/loop-definition-controls'
+import { probeDefinitionRun } from './modules/loops/runtime/loop-definition-recovery'
 import { MIN_DURATION_SAMPLES, getJobCommandDurationRange, getLoopDurationRange, jobCommandShape } from './modules/execution/runtime/run-duration-stats'
 import { loadConstantMap } from './modules/loops/runtime/loop-constants'
 import { getAdapter, hasAdapter, reasoningEffortsForModel, supportsToolPolicy } from './providers'
@@ -29,8 +35,139 @@ import { getActivePrDeliveryByRail } from './modules/delivery/runtime/rail-pr-st
 import { isolationApplies } from './modules/delivery/runtime/rail-isolation'
 import { assertProcessAdmission, ProcessAdmissionClosedError } from './process-admission'
 
+const pendingCancellations = new WeakMap<object, Map<string, Promise<void>>>()
+
 export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
   const { router, ctx } = deps
+
+  router.get('/:projectId/loop-runs/:id/recovery', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
+    const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+    const forkOperation = c.db.prepare('SELECT request_json,child_run_id,adopted FROM definition_fork_operations WHERE project_id=? AND source_run_id=? ORDER BY adopted DESC,created_at LIMIT 1').get(c.project.id, runId) as { request_json: string; child_run_id: string; adopted: number } | undefined
+    res.json({ ...probe, lineage: readDefinitionLineage(c.db, runId), ...(forkOperation ? { forkRequest: JSON.parse(forkOperation.request_json), forkRunId: forkOperation.child_run_id, forkAdopted: !!forkOperation.adopted } : {}) })
+  })
+
+  router.post('/:projectId/loop-runs/:id/resume', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
+    try {
+      assertProcessAdmission(c.project.id)
+      const successor = readDefinitionSuccessor(c.db, runId)
+      if (successor) { res.status(409).json({ error: 'runtime_fork_owns_worktree', loopRunId: successor }); return }
+      const observedClaim = readDefinitionExecutionClaim(c.db, runId)
+      const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+      if (probe.status === 'unavailable') { res.status(503).json({ error: 'runtime_status_unavailable', detail: probe.error?.message }); return }
+      if (probe.lease?.active) { res.status(409).json({ error: 'runtime_run_active' }); return }
+      let controls
+      try { controls = validateDefinitionResumeControls(req.body ?? {}, probe) }
+      catch (error) { res.status(400).json({ error: 'invalid_resume_controls', detail: error instanceof Error ? error.message : String(error) }); return }
+      // A retained claim can outlive its Core lease. Only release the exact
+      // owner observed before inspection, while this remains a restart pause.
+      const resident = c.loopRunManager.isDefinitionRunActive(runId)
+      if (resident && ((controls.recover?.length ?? 0) > 0 || (controls.approve?.length ?? 0) > 1)) {
+        res.status(409).json({ error: 'runtime_control_conflict', detail: 'A resident workflow accepts one pending interrupt at a time' }); return
+      }
+      if (!resident && observedClaim) {
+        c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id = ? AND owner = ?
+          AND EXISTS (SELECT 1 FROM loop_runs WHERE id = ? AND project_id = ? AND status = 'paused' AND restart_reason = 'restart')`)
+          .run(runId, observedClaim.owner, runId, c.project.id)
+      }
+      const snapshot = c.db.prepare('SELECT delivery_id FROM definition_delivery_settlements WHERE project_id = ? AND run_id = ? LIMIT 1')
+        .get(c.project.id, runId) as { delivery_id: string } | undefined
+      if (!snapshot && readDefinitionRun(c.db, runId)?.request.deferTerminalOutcome) throw new Error('Original isolated settlement snapshot is unavailable')
+      if (run.status === 'completed') {
+        if (!snapshot) { res.status(409).json({ error: 'runtime_run_completed' }); return }
+        await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+        res.json({ loopRunId: runId, settled: true }); return
+      }
+      const completion = c.loopRunManager.beginDefinitionResume(runId, controls)
+      // Resident executions already own their original settlement callback.
+      if (!resident) void completion.then(async result => {
+        if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+        else c.onLoopRunFinished(runId, result.outcome, result.stallReason ? { stallReason: result.stallReason } : undefined)
+      }).catch(error => {
+        // Preserve the durable terminal intent and worktree for another attempt.
+        console.error('[loop-runs] recovered settlement failed:', runId, error)
+      })
+      res.status(202).json({ loopRunId: runId })
+    } catch (error) {
+      res.status(409).json({ error: 'runtime_resume_rejected', detail: error instanceof Error ? error.message : String(error) })
+    }
+  })
+
+  router.post('/:projectId/loop-runs/:id/cancel', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
+    const body = req.body ?? {}
+    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => key !== 'requestId') ||
+      body.requestId !== undefined && (typeof body.requestId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(body.requestId))) {
+      res.status(400).json({ error: 'invalid_cancellation' }); return
+    }
+    const requestId = body.requestId ?? `desktop-cancel:${runId}`
+    try {
+      const resident = c.loopRunManager.isDefinitionRunActive(runId)
+      await c.loopRunManager.cancelDefinition(runId, requestId)
+      let pending = pendingCancellations.get(c)
+      if (!pending) { pending = new Map(); pendingCancellations.set(c, pending) }
+      if (!resident && !c.loopRunManager.isDefinitionRunActive(runId) && !pending.has(runId)) {
+        let observedClaim: ReturnType<typeof readDefinitionExecutionClaim>
+        const task = finishDefinitionCancellation({
+          inspect: () => {
+            observedClaim = readDefinitionExecutionClaim(c.db, runId)
+            return probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+          },
+          cancel: () => c.loopRunManager.cancelDefinition(runId, requestId),
+          stopped: () => c.loopRunManager.isDisposed(), now: Date.now,
+          wait: milliseconds => new Promise(resolve => { const timer = setTimeout(resolve, milliseconds); timer.unref() }),
+          settle: async () => {
+            assertProcessAdmission(c.project.id)
+            if (observedClaim) c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id=? AND owner=?
+              AND EXISTS (SELECT 1 FROM loop_runs WHERE id=? AND project_id=? AND status='paused' AND restart_reason='restart')`)
+              .run(runId, observedClaim.owner, runId, c.project.id)
+            const snapshot = c.db.prepare('SELECT delivery_id FROM definition_delivery_settlements WHERE project_id=? AND run_id=? LIMIT 1')
+              .get(c.project.id, runId) as { delivery_id: string } | undefined
+            if (!snapshot && readDefinitionRun(c.db, runId)?.request.deferTerminalOutcome) throw new Error('Original isolated settlement snapshot is unavailable')
+            const current = getLoopRun(c.db, runId)!
+            const result = current.status === 'completed' ? { outcome: current.final_outcome ?? 'stopped' } : await c.loopRunManager.beginDefinitionResume(runId)
+            if (snapshot) await reattachIsolatedSettlement(c, snapshot.delivery_id, runId)
+            else c.onLoopRunFinished(runId, result.outcome)
+          },
+        }).catch(error => {
+          // Keep an actionable durable diagnostic; never replace Core's result
+          // or turn a failed observation into a successful cancellation.
+          try { if (!c.loopRunManager.isDisposed()) c.db.transaction(() => {
+            const sequence = (c.db.prepare('SELECT COALESCE(MAX(seq), -1) + 1 AS seq FROM events WHERE job_id=?').get(runId) as { seq: number }).seq
+            appendEvent(c.db, runId, sequence, { event_type: 'definition-control-error', source: 'stderr', payload: JSON.stringify({ action: 'cancel', requestId, message: error instanceof Error ? error.message : String(error) }) })
+          })() } catch (diagnosticError) { console.error('[loop-runs] cancellation diagnostic unavailable:', runId, diagnosticError) }
+        }).finally(() => pending!.delete(runId))
+        pending.set(runId, task)
+      }
+      res.status(202).json({ loopRunId: runId, cancellationRequested: true })
+    } catch (error) {
+      res.status(409).json({ error: 'runtime_cancel_rejected', detail: error instanceof Error ? error.message : String(error) })
+    }
+  })
+
+  router.post('/:projectId/loop-runs/:id/fork', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
+    let input
+    try { input = validateDefinitionForkRequest(req.body) }
+    catch (error) { res.status(400).json({ error: 'invalid_fork_request', detail: error instanceof Error ? error.message : String(error) }); return }
+    try {
+      assertProcessAdmission(c.project.id)
+      const result = await forkDefinitionRun(c, runId, input)
+      res.status(201).json(result)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      res.status(detail === 'runtime_status_unavailable' ? 503 : 409).json({ error: 'runtime_fork_rejected', detail })
+    }
+  })
 
   // GET a single loop run's live/terminal state. Backs the companion's running
   // surface (a loop run has no jobId, so it can't be tailed via /jobs/:id).

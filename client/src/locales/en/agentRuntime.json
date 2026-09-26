@@ -181,7 +181,8 @@
     "preserveProgress": "Continue from the indicated phase, preserving your existing work and saved settings.",
     "reviewDelivery": "Implementation completed. Review the result in this job log before arranging delivery; this continuation has not published it.",
     "prepareDelivery": "Prepare delivery",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "selectRecovery": "Select the interrupted attempts to recover"
   },
   "roleHints": {
     "architect": "Reads the code and writes the proposal, design, tasks and spec. Read-only.",
@@ -493,5 +494,45 @@
       }
     }
   },
-  "unsavedChanges": "Unsaved changes"
+  "unsavedChanges": "Unsaved changes",
+  "customRoles": {
+    "title": "Custom roles",
+    "hint": "Declare reusable instructions and explicit permissions for workflow roles.",
+    "unsupported": "Update Core to edit custom roles.",
+    "remove": "Remove {{id}}",
+    "access": "Source access",
+    "read": "Read only",
+    "write": "Read and write",
+    "artifacts": "OpenSpec artifact access",
+    "none": "None",
+    "tasks": "Task checkboxes only",
+    "all": "All change artifacts",
+    "skill": "OpenSpec skill",
+    "noSkill": "No skill binding",
+    "prompt": "Role instructions",
+    "id": "Role ID",
+    "add": "Add role",
+    "invalidId": "Use a unique lowercase ID beginning with a letter, up to 64 letters, digits or hyphens. Built-in IDs are reserved.",
+    "escalationHint": "Only a permitted protocol repair may use the escalation model. No extra retry is added."
+  },
+  "steering": {
+    "title": "Run instructions",
+    "hint": "Core saves these instructions for the next eligible agent turn. Sending does not answer a question or grant approval.",
+    "label": "Additional instructions",
+    "send": "Send instructions",
+    "accepted": "Accepted by Core; awaiting consumption.",
+    "pending": "Awaiting an agent turn",
+    "consumed": "Consumed by an agent",
+    "counts": "Pending: {{pending}} · Consumed: {{consumed}}",
+    "failed": "Could not send instructions. Retry to confirm the same message.",
+    "unavailable": "Receipt details are unavailable.",
+    "unreported": "This Core version does not report consumption.",
+    "truncated": "Only the most recent receipts and pending messages are shown."
+  },
+  "studioRole": {
+    "title": "Core role defaults",
+    "hint": "These file defaults apply to new workflows. Explicit project settings take precedence; saved runs keep their frozen settings.",
+    "invalid": "Fix the YAML frontmatter in the editor before changing role fields.",
+    "escalationEffort": "Higher-tier reasoning effort"
+  }
 }

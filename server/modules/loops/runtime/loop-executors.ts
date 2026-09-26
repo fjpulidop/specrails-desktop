@@ -6,9 +6,11 @@
  * from coverage; the engine's traversal/decision logic is unit-tested against
  * fake executors in `loop-run-manager.test.ts`.
  */
+import { compileLoopToDefinition } from './loop-definition'
+import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { readCoreCompletion } from '../../../core-completion'
 import { checkCoreCompletion, prepareCoreExecution } from '../../../core-execution'
-import { runAgentRuntimeInvocation, runtimeChangeName } from '../../agent-runtime/runtime/agent-runtime-bridge'
+import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, readFrozenRuntimeHost } from '../../agent-runtime/runtime/agent-runtime-bridge'
 import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -37,7 +39,7 @@ import {
   formatProviderCommand,
   pureOutputToolPolicy,
 } from '../../../providers/runtime'
-import type { LoopExecutors, ShellResult } from './loop-run-manager'
+import { seedChangeId, type LoopExecutors, type ShellResult } from './loop-run-manager'
 import { bundledLoopShellInvocation } from './loop-shell-invocation'
 
 // Per-step wall-clock caps so a single hung step can't block the engine's
@@ -205,6 +207,43 @@ export function createLoopExecutors(
   const completionContexts = new Map<string, { cwd: string; contextPath: string; env: NodeJS.ProcessEnv; runId: string }>()
   const runtimeConfigPath = (cwd: string): string => join(opts.pluginScope?.().stateRoot ?? cwd, '.specrails', 'agent-runtime.json')
   return {
+    async cancelDefinition({ runId, contextPath, requestId }) {
+      const host = readFrozenRuntimeHost(contextPath, resolveEnv(), runId)
+      await runAgentRuntimeControl({ kind: 'cancel', runId, contextPath, requestId, ...host })
+    },
+    async assertDefinitionSupport() {
+      const runtime = await loadCoreAgentRuntime()
+      if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1) throw new Error('engine_unsupported: Update Core to run workflow definitions')
+    },
+    async runDefinition(input) {
+      const { request, runId } = input
+      if (input.resume) {
+        const contextPath = input.contextPath ?? runtimeContextPath(request.cwd,runId,resolveEnv())
+        const host = readFrozenRuntimeHost(contextPath,resolveEnv(),runId)
+        const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,approve:input.approve,recover:input.recover,interruptId:input.interruptId,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
+        return {...result,runtimeStatus:result.runtimeStatus ?? 'failed'}
+      }
+      const seeded = seedChangeId({ ...request, runId })
+      const briefing = [request.followUp?.briefing, request.addenda?.briefing].filter(Boolean).join('\n\n')
+      const spec = request.spec && briefing ? { ...request.spec, description: [request.spec.description, briefing].filter(Boolean).join('\n\n'), ...(request.spec.tickets ? { tickets: request.spec.tickets.map(ticket => ({...ticket,description:[ticket.description,briefing].filter(Boolean).join('\n\n')})) } : {}) } : request.spec
+      const env = { ...programmaticStepEnv(resolveEnv(), request.repoDir, request.executionManifest), SPECRAILS_GIT_AUTO: 'false' }
+      const core = prepareCoreExecution({ run: { runId, projectId: request.projectId, repositoryId: request.repositoryId, spec, goal: request.spec?.title ?? request.loopName }, cwd: request.cwd, repoDir: request.repoDir, manifest: request.executionManifest, env, sourcePath: request.executionManifest ? undefined : opts.sourcePath?.() })
+      const result = await runAgentRuntimeInvocation({
+        contextPath: core.contextPath, cwd: request.cwd, env: core.env,
+        configPath: runtimeConfigPath(request.cwd), engineVersion: 2,
+        change: seeded?.id ?? runtimeChangeName(runId),
+        resume: input.resume, answer: input.answer, approve: input.approve, interruptId: input.interruptId,
+        defaultProvider: request.provider, providerOverride: request.runtimeProviderOverride,
+        ...(!input.resume ? { prepareDefinition: (config) => compileLoopToDefinition(request.graph, {
+          id: request.loopId, title: request.loopName, spec: request.spec,
+          constants: request.constants ?? {}, provider: request.provider, model: request.model, effort: request.effort,
+          roles: { architect: { access: 'read' }, developer: { access: 'write' }, reviewer: { access: 'read' }, ...config.roles }, repositoryCount: request.executionManifest?.repositories.length ?? 1,
+          changeId: seeded?.id, briefing,
+        }) } : {}),
+        onPrepared: input.onPrepared, onLine: input.onLine, onRuntimeEvent: input.onRuntimeEvent, onSpawn: input.onSpawn, timeoutMs: input.timeoutMs,
+      })
+      return { ...result, runtimeStatus: result.runtimeStatus ?? 'failed' }
+    },
     async readCoreCompletion(runId) {
       const context = completionContexts.get(runId)
       completionContexts.delete(runId)

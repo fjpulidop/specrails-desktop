@@ -384,6 +384,11 @@ Se ejecuta en CI sobre grafos de piezas simuladas y, desde C4, sobre las definic
 
 ### Registro de implementación — 26 de septiembre de 2026
 
+- El usuario exige compatibilidad completa de Loop Manager y un editor visual tipo n8n: las 16 piezas del catálogo de Core, arrastrar y conectar resultados tipados, formularios para todos los parámetros, componentes con subcanvas, roles/engines, errores en línea, teclado, tema y ocho locales. El protocolo concreto queda en [desktop-authoring-protocol.md](../desktop-authoring-protocol.md).
+
+- El usuario confirma implementación completa C0–C10/D0–D8, sin limitar la entrega a la primera tanda, y añade optimización de coste/calidad con LangGraph como requisito transversal. Se preparan bloques independientes en ramas integrables mientras se validan sus dependencias; la admisión real sigue condicionada a capacidades y evidencia. No se confunde implementación con publicación ni se inventan los dos releases de telemetría.
+- La eficiencia conserva los criterios de aceptación: reutilización de resultados y receipts válidos, contexto acotado, reintentos por causa y escalado justificado. Las evaluaciones comparan calidad, tokens, llamadas, coste conocido y latencia sobre el mismo corpus; coste desconocido sigue siendo desconocido.
+- Los componentes del canvas se guardan como `LoopGraph.components`, cada uno con su start y end visuales. El compilador elimina start y convierte end a la pieza de Core; solo Core calcula el hash. La paleta valida etiquetas contra el catálogo y Core valida el conjunto exacto según parámetros.
 - Base inspeccionada: Desktop 2.57.1 / Core 6.0.1. El workflow legado actual es 7 y las instrucciones 10. Se conservan esas identidades; 6/9 arriba son la base histórica, no valores que deban restaurarse.
 - C0/C1/D0 se preparan en ramas separadas. D0 se desarrolla como PR emparejada; su gate de publicación depende de C0 publicado. No se inventan versiones npm ni se cierran gates con bundles de fuente.
 - C1 exige evidencia macOS arm64, Windows x64 y Linux x64 antes de C3. D8/C10 conservan el gate de dos releases de telemetría y paridad; no se eliminan runners por anticipación.

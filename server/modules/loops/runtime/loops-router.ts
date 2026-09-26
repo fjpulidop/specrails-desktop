@@ -22,9 +22,11 @@ import {
   importLoops,
   LoopValidationError,
 } from './loops-store'
-import type { LoopGraph } from './loop-graph'
-import { LOOP_TEMPLATES, getLoopTemplate } from './loop-templates'
-import { FACTORY_LOOPS, getFactoryLoop } from './loop-factory'
+import { isDefinitionGraph, type LoopGraph } from './loop-graph'
+import { compileLoopToDefinition } from './loop-definition'
+import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
+import { loopTemplatesForCapabilities, getLoopTemplate } from './loop-templates'
+import { factoryLoopsForCapabilities, getFactoryLoop } from './loop-factory'
 import { LOOP_COMMANDS } from './loop-command-catalog'
 import { listConstants, createConstant, updateConstant, deleteConstant, loadConstantMap, LoopConstantError } from './loop-constants'
 import { previewLoop } from './loop-preview'
@@ -35,6 +37,10 @@ export interface LoopsRoutesDeps {
    *  loop_runs). Update/unpublish/delete are rejected (409) while running.
    *  Defaults to "never running" until the run engine is wired (F6/F7). */
   isLoopRunning?: (loopId: string) => boolean
+}
+
+async function factoryCapabilities(): Promise<Record<string, number> | undefined> {
+  try { return (await loadCoreAgentRuntime()).api?.capabilities } catch { return undefined }
 }
 
 function isNonEmptyString(v: unknown): v is string {
@@ -55,10 +61,10 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   }
 
   // ── Templates ──────────────────────────────────────────────────────────────
-  router.get('/loop-templates', (_req: Request, res: Response) => {
+  router.get('/loop-templates', async (_req: Request, res: Response) => {
     if (!guard(res)) return
     res.json({
-      templates: LOOP_TEMPLATES.map((t) => ({
+      templates: loopTemplatesForCapabilities(await factoryCapabilities()).map((t) => ({
         id: t.id,
         name: t.name,
         description: t.description,
@@ -84,12 +90,24 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
     res.json({ commands: LOOP_COMMANDS.map((c) => ({ name: c.name, label: c.label, description: c.description })) })
   })
 
+  // Catalog belongs to the installed runtime; global authoring has no project state.
+  router.get('/loops/catalog', async (_req: Request, res: Response) => {
+    if (!guard(res)) return
+    try {
+      const runtime = await loadCoreAgentRuntime()
+      if (runtime.api?.capabilities?.engineV2 !== 1 || !runtime.listWorkflows) {
+        res.status(409).json({ error: 'engine_unsupported', message: 'Update Core to author executable workflows.' }); return
+      }
+      res.json(runtime.listWorkflows())
+    } catch (error) { res.status(503).json({ error: 'runtime_catalog_unavailable', message: error instanceof Error ? error.message : 'Core catalog unavailable' }) }
+  })
+
   // ── Factory loops (built-in, locked) ─────────────────────────────────────────
   // Registered BEFORE `/loops/:id` so "factory" is not captured as an id.
-  router.get('/loops/factory', (_req: Request, res: Response) => {
+  router.get('/loops/factory', async (_req: Request, res: Response) => {
     if (!guard(res)) return
     res.json({
-      factoryLoops: FACTORY_LOOPS.map((f) => ({
+      factoryLoops: factoryLoopsForCapabilities(await factoryCapabilities()).map((f) => ({
         id: f.id,
         name: f.name,
         description: f.description,
@@ -103,9 +121,9 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   })
 
   // Fork a factory loop into a new editable user Draft (leaves the factory intact).
-  router.post('/loops/factory/:id/fork', (req: Request, res: Response) => {
+  router.post('/loops/factory/:id/fork', async (req: Request, res: Response) => {
     if (!guard(res)) return
-    const f = getFactoryLoop(req.params.id as string)
+    const f = getFactoryLoop(req.params.id as string, await factoryCapabilities())
     if (!f) {
       res.status(404).json({ error: 'Factory loop not found' })
       return
@@ -172,7 +190,8 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       return
     }
     const provider = typeof body.provider === 'string' ? body.provider : 'claude'
-    res.json(previewLoop(body.graph, { provider, constants: loadConstantMap(db) }))
+    try { res.json(previewLoop(body.graph, { provider, constants: loadConstantMap(db) })) }
+    catch (error) { res.status(400).json({ errors: [{ code: 'definition_invalid', message: error instanceof Error ? error.message : 'Invalid workflow' }] }) }
   })
 
   // Import loops from an export envelope. Duplicate NAMES are skipped (returned
@@ -215,9 +234,9 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   })
 
   // ── Instantiate from a template ───────────────────────────────────────────────
-  router.post('/loops/from-template/:templateId', (req: Request, res: Response) => {
+  router.post('/loops/from-template/:templateId', async (req: Request, res: Response) => {
     if (!guard(res)) return
-    const template = getLoopTemplate(req.params.templateId as string)
+    const template = getLoopTemplate(req.params.templateId as string, await factoryCapabilities())
     if (!template) {
       res.status(404).json({ error: 'Template not found' })
       return
@@ -263,7 +282,7 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   })
 
   // ── Publish / unpublish ───────────────────────────────────────────────────────
-  router.post('/loops/:id/publish', (req: Request, res: Response) => {
+  router.post('/loops/:id/publish', async (req: Request, res: Response) => {
     if (!guard(res)) return
     const id = req.params.id as string
     if (!getLoop(db, id)) {
@@ -271,6 +290,20 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       return
     }
     try {
+      const current = getLoop(db, id)!
+      if (isDefinitionGraph(current.graph)) {
+        const runtime = await loadCoreAgentRuntime()
+        if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1) {
+          res.status(409).json({ error: 'engine_unsupported', message: 'Update Core to publish executable workflows.' }); return
+        }
+        let draft
+        try { draft = compileLoopToDefinition(current.graph, { id: current.id, title: current.name, constants: loadConstantMap(db), provider: 'claude', spec: { id: 1, title: 'Sample spec', description: 'Publication preview' } }) }
+        catch (error) { res.status(400).json({ errors: [{ code: 'definition_invalid', message: error instanceof Error ? error.message : 'Invalid workflow' }] }); return }
+        const validation = runtime.validateWorkflowDefinition(draft, { structural: true })
+        if (!validation.ok) {
+          res.status(400).json({ errors: validation.errors.map(error => ({ ...error, nodeId: error.nodeId ?? error.path?.match(/^\/nodes\/([^/]+)/)?.[1] })) }); return
+        }
+      }
       const loop = publishLoop(db, id)
       res.json({ loop })
     } catch (err) {
@@ -278,7 +311,7 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
         res.status(422).json({ error: 'Loop graph is invalid', errors: err.errors })
         return
       }
-      throw err
+      res.status(503).json({ error: 'runtime_validation_unavailable', message: err instanceof Error ? err.message : 'Core validation unavailable' })
     }
   })
 

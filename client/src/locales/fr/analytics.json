@@ -212,5 +212,20 @@
     "turnsAndTokens": "{{turns}} tours · {{tokens}} tokens",
     "untitled": "Mission sans titre",
     "estimatedNote": "Inclut des coûts estimés"
+  },
+  "legacyUsage": {
+    "title": "Utilisation des anciens workflows",
+    "refresh": "Actualiser les compteurs",
+    "scope": "Tous les événements enregistrés pour ce projet, indépendamment des filtres de dépenses.",
+    "unavailable": "Impossible d’actualiser ces compteurs.",
+    "loading": "Chargement de l’utilisation enregistrée…",
+    "total": "Événements enregistrés : {{count}}",
+    "last": "Dernier événement :",
+    "evidence": "Ces compteurs seuls ne prouvent pas que la compatibilité antérieure peut être retirée.",
+    "kinds": {
+      "legacy_loop_traversal": "Boucles classiques",
+      "queue_manager_slash": "Commandes en attente",
+      "merge_back": "Intégrations locales"
+    }
   }
 }

@@ -7,11 +7,11 @@ import path from 'node:path'
 import { registerAgentRuntimeSettingsRoutes } from './agent-runtime-settings-router'
 import { agentRuntimeConfigPath, defaultAgentRuntimeConfig, loadAgentRuntimeConfig, saveAgentRuntimeConfig, validateAgentRuntimeConfig, saveRuntimeProviders, loadRuntimeProviders, type RuntimeConfig } from './agent-runtime-settings'
 
-const loader = vi.hoisted(() => ({ entry: 'runtime/index.js' as string | null, validate: vi.fn((input: unknown) => input), loadFailure: false, capabilities: vi.fn(async (input: unknown) => ({ type: 'runtime-capabilities', schemaVersion: 1, roles: [], seen: input })) }))
+const loader = vi.hoisted(() => ({ entry: 'runtime/index.js' as string | null, validate: vi.fn((input: unknown) => input), loadFailure: false, apiCapabilities: {} as Record<string, number>, capabilities: vi.fn(async (input: unknown) => ({ type: 'runtime-capabilities', schemaVersion: 1, roles: [], seen: input })) }))
 const layout = vi.hoisted(() => ({ suffix: '.specrails' }))
 vi.mock('./agent-runtime-loader', () => ({ validateRequestedRoleEfforts: vi.fn(), findCoreAgentRuntimeEntry: () => loader.entry, loadCoreAgentRuntime: async () => {
   if (loader.loadFailure) throw new Error('incompatible Core')
-  return { validateRuntimeConfig: loader.validate, capabilities: loader.capabilities }
+  return { validateRuntimeConfig: loader.validate, capabilities: loader.capabilities, api: { capabilities: loader.apiCapabilities } }
 } }))
 vi.mock('../../../workspace-resolution', () => ({ resolveProjectExecution: (project: { path: string }) => ({ specrailsDir: path.join(project.path, layout.suffix) }) }))
 
@@ -22,7 +22,7 @@ const config = (): RuntimeConfig => defaultAgentRuntimeConfig(project())
 const enabledConfig = (): RuntimeConfig => ({ ...config(), enabled: true, verification: [{ repositoryId: 'primary-example', command: 'npm', args: ['test'] }] })
 const url = '/api/projects/example/agent-runtime/config'
 beforeEach(() => {
-  vi.clearAllMocks(); loader.entry = 'runtime/index.js'; loader.loadFailure = false; layout.suffix = '.specrails'
+  vi.clearAllMocks(); loader.entry = 'runtime/index.js'; loader.loadFailure = false; loader.apiCapabilities = {}; layout.suffix = '.specrails'
   directory = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-settings-'))
   vi.spyOn(os, 'homedir').mockImplementation(() => path.join(directory, 'home'))
   app = express(); app.use(express.json())
@@ -33,10 +33,22 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }) })
 
 describe('runtime project configuration', () => {
+  it('projects provider-native custom agents with safe defaults and preserves explicit role settings', () => {
+    const catalog = path.join(directory, '.kimi-code/skills/custom-auditor')
+    fs.mkdirSync(catalog, { recursive: true })
+    fs.writeFileSync(path.join(catalog, 'SKILL.md'), '---\nname: custom-auditor\ndescription: Audit the project\n---\nInspect the public behavior.')
+    expect(loadAgentRuntimeConfig(project())?.roles?.auditor).toMatchObject({ provider: 'kimi', access: 'read', artifacts: 'none', prompt: 'Inspect the public behavior.' })
+    const explicit = { provider: 'kimi', access: 'write' as const, artifacts: 'tasks-checkboxes' as const, prompt: 'Use the explicit project instructions.' }
+    saveAgentRuntimeConfig(project(), { ...enabledConfig(), roles: { auditor: explicit } })
+    expect(loadAgentRuntimeConfig(project())?.roles?.auditor).toEqual(explicit)
+  })
+
   it('migrates conflicting project connections without changing either endpoint and stores only role references', () => {
     const legacy = config()
     legacy.providers.push({ id: 'local', kind: 'openai-compatible', baseUrl: 'http://localhost:8001/v1' })
     legacy.agents.developer = { provider: 'local', model: 'model-a' }
+    legacy.roles = { analyst: { provider: 'local', model: 'model-a', access: 'read', artifacts: 'none', prompt: 'Inspect evidence.' } }
+    legacy.fixer = { provider: 'local', model: 'model-a' }
     fs.mkdirSync(path.dirname(agentRuntimeConfigPath(project())), { recursive: true })
     fs.writeFileSync(agentRuntimeConfigPath(project()), JSON.stringify(legacy))
     const first = loadAgentRuntimeConfig(project())!
@@ -47,6 +59,8 @@ describe('runtime project configuration', () => {
     fs.writeFileSync(agentRuntimeConfigPath(other), JSON.stringify(legacy))
     const migrated = loadAgentRuntimeConfig(other)!
     expect(migrated.agents.developer.provider).toMatch(/^local-/)
+    expect(migrated.roles!.analyst.provider).toBe(migrated.agents.developer.provider)
+    expect(migrated.fixer!.provider).toBe(migrated.agents.developer.provider)
     expect(loadAgentRuntimeConfig(other)).toEqual(migrated)
     expect(loadRuntimeProviders().filter(p => p.kind === 'openai-compatible')).toHaveLength(2)
     expect(JSON.parse(fs.readFileSync(agentRuntimeConfigPath(other), 'utf8'))).not.toHaveProperty('providers')
@@ -72,7 +86,7 @@ describe('runtime project configuration', () => {
     payload.approvalBeforeArchive = true
     saveRuntimeProviders(payload.providers)
     const response = await request(app).put(url).send(payload).expect(200)
-    expect(response.body).toEqual({ configured: true, runtimeAvailable: true, efficiencyAvailable: false, config: payload })
+    expect(response.body).toEqual({ configured: true, runtimeAvailable: true, efficiencyAvailable: false, openRolesAvailable: false, config: payload })
     expect(loader.validate).toHaveBeenCalledWith(payload)
     expect(loadAgentRuntimeConfig(project())).toEqual(payload)
     expect(fs.readdirSync(path.dirname(agentRuntimeConfigPath(project())))).toEqual(['agent-runtime.json'])
@@ -87,6 +101,35 @@ describe('runtime project configuration', () => {
     await request(app).put(url).send({ ...config(), enabled: false }).expect(503)
     loader.entry = 'runtime/index.js'; loader.loadFailure = true
     await request(app).put(url).send(config()).expect(503)
+    expect(fs.readFileSync(agentRuntimeConfigPath(project()), 'utf8')).toBe(before)
+  })
+
+  it('saves declared role policy and prompts through the paired runtime without changing built-in assignments', async () => {
+    loader.apiCapabilities = { openRoles: 1 }
+    const payload: RuntimeConfig = { ...enabledConfig(), roles: {
+      analyst: { provider: 'kimi', model: 'future-model', access: 'read', artifacts: 'all', prompt: 'Inspect requirements and publish the analysis.', openspecSkill: 'openspec-ff-change' },
+    } }
+    saveRuntimeProviders(payload.providers)
+    const response = await request(app).put(url).send(payload).expect(200)
+    expect(response.body).toMatchObject({ openRolesAvailable: true, config: { roles: payload.roles, agents: payload.agents } })
+    expect(loader.validate).toHaveBeenCalledWith(expect.objectContaining({ roles: payload.roles }))
+    expect(loadAgentRuntimeConfig(project())).toEqual(payload)
+    const read = await request(app).get(url).expect(200)
+    expect(read.body).toMatchObject({ openRolesAvailable: true, config: { roles: payload.roles } })
+    expect(read.body.workflowRoleDefaults['loop-decider']).toMatchObject({ ...payload.agents.reviewer, access: 'read', artifacts: 'none' })
+    expect(read.body.workflowRoleDefaults['loop-decider']).not.toHaveProperty('openspecSkill')
+    expect(read.body.config.roles).not.toHaveProperty('loop-decider')
+  })
+
+  it('preserves the saved file when an older runtime cannot accept declared roles', async () => {
+    const original = enabledConfig()
+    saveAgentRuntimeConfig(project(), original)
+    const before = fs.readFileSync(agentRuntimeConfigPath(project()), 'utf8')
+    const response = await request(app).put(url).send({ ...original, roles: { analyst: {
+      provider: 'kimi', access: 'read', artifacts: 'none', prompt: 'Inspect requirements.',
+    } } }).expect(503)
+    expect(response.body.error).toBe('runtime_incompatible')
+    expect(loader.validate).not.toHaveBeenCalled()
     expect(fs.readFileSync(agentRuntimeConfigPath(project()), 'utf8')).toBe(before)
   })
 
@@ -189,7 +232,7 @@ describe('runtime project configuration', () => {
     expect(() => validateAgentRuntimeConfig(null)).toThrow('Invalid runtime configuration')
   })
 
-  const coreSchema = path.resolve(require('node:path').resolve(__dirname, '../../..'), '../../specrails-core/schemas/agent-runtime.schema.json')
+  const coreSchema = process.env.SPECRAILS_EFFICIENCY_CORE_ROOT ? path.join(process.env.SPECRAILS_EFFICIENCY_CORE_ROOT, 'schemas/agent-runtime.schema.json') : path.resolve(require('node:path').resolve(__dirname, '../../..'), '../../specrails-core/schemas/agent-runtime.schema.json')
   it.skipIf(!fs.existsSync(coreSchema))('keeps the vendored schema identical to the neighboring Core source', () => {
     expect(JSON.parse(fs.readFileSync(path.join(require('node:path').resolve(__dirname, '../../..'), 'schemas/agent-runtime.schema.json'), 'utf8'))).toEqual(JSON.parse(fs.readFileSync(coreSchema, 'utf8')))
   })

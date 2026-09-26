@@ -7,6 +7,7 @@ import { resolveProjectExecution } from './workspace-resolution'
 import { getTicketSpendingSummary } from './modules/accounting/runtime/ai-invocations'
 import { getSpending, getInvocations, parseSpendingFilters, getAgentMissionSpending } from './modules/accounting/runtime/spending'
 import { readStore } from './modules/specs/runtime/ticket-store'
+import { readLegacyLaunchSummary } from './modules/loops/runtime/legacy-launch-telemetry'
 import {
   type ProjectRoutesDeps
 } from './project-router-helpers'
@@ -41,6 +42,15 @@ export function localDayBoundsUtc(tzOffsetMinutes: number, now: number = Date.no
 
 export function registerSpendingRoutes(deps: ProjectRoutesDeps): void {
   const { router, registry, ctx, ticketPath } = deps
+
+  router.get('/:projectId/analytics/legacy-launches', (req: Request, res: Response) => {
+    if (req.query.since !== undefined && typeof req.query.since !== 'string') { res.status(400).json({ error: 'invalid_since' }); return }
+    try { res.json({ ...readLegacyLaunchSummary(ctx(req).db, req.query.since as string | undefined), retirementEvidence: 'not-evaluated' }) }
+    catch (error) {
+      if (error instanceof RangeError) { res.status(400).json({ error: 'invalid_since' }); return }
+      res.status(503).json({ error: 'legacy_telemetry_unavailable' })
+    }
+  })
 
   // Build a YAML-store-backed title resolver for getSpending's 4th arg
   // (BUG-ANALYTICS-18/36). Without it, topTickets keeps ticketTitle:null and the

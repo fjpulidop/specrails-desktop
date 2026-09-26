@@ -181,7 +181,8 @@
     "preserveProgress": "Continúa desde la fase indicada, conservando el trabajo anterior y la configuración guardada.",
     "reviewDelivery": "Implementación completada. Revisa el resultado en el log de este job antes de preparar la entrega; esta continuación no lo ha publicado.",
     "prepareDelivery": "Preparar entrega",
-    "dismiss": "Descartar"
+    "dismiss": "Descartar",
+    "selectRecovery": "Selecciona los intentos interrumpidos que quieres recuperar"
   },
   "roleHints": {
     "architect": "Lee el código y escribe la propuesta, el diseño, las tareas y la spec. Solo lectura.",
@@ -493,5 +494,45 @@
       }
     }
   },
-  "unsavedChanges": "Cambios sin guardar"
+  "unsavedChanges": "Cambios sin guardar",
+  "customRoles": {
+    "title": "Roles personalizados",
+    "hint": "Define instrucciones reutilizables y permisos explícitos para los roles del flujo.",
+    "unsupported": "Actualiza Core para editar roles personalizados.",
+    "remove": "Eliminar {{id}}",
+    "access": "Acceso al código",
+    "read": "Solo lectura",
+    "write": "Lectura y escritura",
+    "artifacts": "Acceso a artefactos OpenSpec",
+    "none": "Ninguno",
+    "tasks": "Solo casillas de tareas",
+    "all": "Todos los artefactos del cambio",
+    "skill": "Skill de OpenSpec",
+    "noSkill": "Sin skill asociado",
+    "prompt": "Instrucciones del rol",
+    "id": "ID del rol",
+    "add": "Añadir rol",
+    "invalidId": "Usa un ID único en minúsculas que empiece por una letra, con hasta 64 letras, números o guiones. Los IDs integrados están reservados.",
+    "escalationHint": "Solo una reparación permitida del protocolo puede usar el modelo de escalado. No se añade ningún reintento."
+  },
+  "steering": {
+    "title": "Instrucciones de ejecución",
+    "hint": "Core guarda estas instrucciones para el siguiente turno de agente compatible. Enviarlas no responde preguntas ni concede aprobaciones.",
+    "label": "Instrucciones adicionales",
+    "send": "Enviar instrucciones",
+    "accepted": "Recibidas por Core; pendientes de consumo.",
+    "pending": "Pendientes de un turno de agente",
+    "consumed": "Consumidas por un agente",
+    "counts": "Pendientes: {{pending}} · Consumidas: {{consumed}}",
+    "failed": "No se pudieron enviar las instrucciones. Reintenta para confirmar el mismo mensaje.",
+    "unavailable": "Los detalles de los recibos no están disponibles.",
+    "unreported": "Esta versión de Core no informa del consumo.",
+    "truncated": "Solo se muestran los recibos más recientes y los mensajes pendientes."
+  },
+  "studioRole": {
+    "title": "Valores predeterminados del rol de Core",
+    "hint": "Estos valores del archivo se aplican a workflows nuevos. La configuración explícita del proyecto tiene prioridad; las ejecuciones guardadas conservan su configuración congelada.",
+    "invalid": "Corrige el encabezado YAML en el editor antes de cambiar los campos del rol.",
+    "escalationEffort": "Esfuerzo de razonamiento del modelo superior"
+  }
 }

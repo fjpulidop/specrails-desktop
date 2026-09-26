@@ -152,7 +152,10 @@
       "EMPTY_PROMPT": "AI Step has an empty prompt.",
       "EMPTY_COMMAND": "Shell step has an empty command.",
       "EMPTY_GOAL": "Loop Decider has no goal.",
-      "DEAD_END": "This step has no outgoing connection."
+      "DEAD_END": "This step has no outgoing connection.",
+      "MIXED_ENGINES": "Core workflows cannot mix legacy steps.",
+      "CORE_OUTCOMES": "Connect distinct valid outcomes.",
+      "CORE_PIECE": "Select a piece and its parameters."
     },
     "preview": {
       "label": "Preview",
@@ -160,6 +163,51 @@
       "sampleNote": "Spec values use sample data; commands and constants resolve exactly as they will at run time.",
       "empty": "No steps to preview.",
       "error": "Preview failed"
+    },
+    "core": {
+      "unavailable": "Workflow engine unavailable. Update Core to add or publish pieces.",
+      "root": "Root workflow",
+      "components": "Components",
+      "componentName": "Component name",
+      "addComponent": "Add component",
+      "openComponent": "Open component",
+      "breadcrumbs": "Workflow navigation",
+      "select": "Choose an option",
+      "valueType": "Value type",
+      "addItem": "Add item",
+      "fieldName": "Field name",
+      "addField": "Add {{name}}",
+      "removeField": "Remove {{name}}",
+      "variant": "Format for {{name}}",
+      "tooDeep": "Nested value is too deep.",
+      "pieces": {
+        "prompt": "Prompt",
+        "role-turn": "Role turn",
+        "decider": "Decision",
+        "condition": "Condition",
+        "verify": "Verify",
+        "shell": "Shell",
+        "openspec-validate": "Validate OpenSpec",
+        "openspec-archive": "Archive OpenSpec",
+        "approval": "Approval",
+        "question": "Question",
+        "gate": "Gate",
+        "map": "Map",
+        "join": "Join",
+        "component": "Component",
+        "implementation": "Implementation",
+        "end": "End"
+      },
+      "groups": {
+        "ai": "AI",
+        "verification": "Verification",
+        "openspec": "OpenSpec",
+        "control": "Control flow"
+      },
+      "options": "Workflow options",
+      "reviewerStep": "Review evidence node",
+      "reviewerAutomatic": "Automatic (implementation reviews)",
+      "reviewerHint": "Choose the role turn that provides structured review evidence. AI review does not replace host verification."
     }
   },
   "preview": {
@@ -382,5 +430,14 @@
     "skipped_other": "Skipped {{count}} duplicates: {{names}}",
     "invalid": "That file isn't a valid loops export."
   },
-  "automaticOnly": "Runs automatically when you ask for changes on a review — you don't start this one."
+  "automaticOnly": "Runs automatically when you ask for changes on a review — you don't start this one.",
+  "core": {
+    "selectInterrupt": "Select pending question or approval",
+    "answerQuestion": "Answer question",
+    "approval": "Approval",
+    "approveContinue": "Approve and continue",
+    "paused": "Paused",
+    "acceptance": "Acceptance",
+    "verified": "Verified"
+  }
 }

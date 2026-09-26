@@ -55,3 +55,19 @@ Cada invocación, incluido un reintento por sesión caducada, recibe una capabil
 - [Codex app-server](https://learn.chatgpt.com/docs/app-server), contrastado con el esquema generado por Codex 0.153.4.
 - [Gemini model steering](https://geminicli.com/docs/cli/model-steering/) y ACP instalado 0.49.0: la capacidad interactiva no equivale a entrada sin interrupción en su transporte ACP.
 - [Kimi Server API](https://www.kimi.com/code/docs/en/kimi-code-cli/reference/server-api.html): transporte distinto del modo print utilizado actualmente.
+
+## Definition engine runs
+
+For engine v2, POST `/api/projects/:projectId/agent-runtime/runs/:runId/steer` with `{text, requestId}`. Use a stable request id for transport retries; changing its text is a conflict. Text must contain 1–20,000 characters. Desktop sends it over stdin to the run's retained Core package and original frozen context. The endpoint returns HTTP 202 with `{id, acceptedAt}` after Core commits its inbox transaction.
+
+Acceptance does not mean the agent has read the instruction. The next eligible AI attempt consumes it. Runtime status exposes bounded steering receipts with pending/consumed status, consuming attempt and timestamp. The counts cover the whole inbox; at most 512 receipts and 240-character previews are returned. Older retained runtimes may lack this reporting and cannot confirm consumption. Terminal runs reject new controls.
+
+The MCP `specrails_jobs` action `runtime_steer` takes `jobId`, `steeringText` and `requestId`; it is a write operation. Inspect `runtime_runs` for consumption. Steering does not replace frozen requirements or grant broader repository permissions.
+
+Job details and Settings → Saved executions expose the same instruction inbox.
+The composer preserves its request identity after a failed or lost response;
+editing the text starts a new message. An acceptance receipt remains labelled
+pending until Core reports the consuming attempt. Project switches discard the
+draft and ignore late responses from the previous project. Questions and
+approvals keep their separate explicit actions. All eight interface locales
+include the inbox labels.

@@ -8,11 +8,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { resolveRetainedAgentRuntime } from './agent-runtime-package'
-import { RUNTIME_HOST_ENV_KEYS, runAgentRuntimeInvocation } from './agent-runtime-bridge'
+import { RUNTIME_HOST_ENV_KEYS, runAgentRuntimeInvocation, runAgentRuntimeControl } from './agent-runtime-bridge'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import { resolveLoopBaseEnv, resolveProjectExecution } from '../../../workspace-resolution'
-import { getLoopRun, readLoopJobUsage, stageLoopStepRecovery, setLoopStepSettledResult, updateLoopStepActivityCheckpoint } from '../../loops/runtime/loop-runs-store'
+import { getLoopRun, readLoopJobUsage, stageLoopStepRecovery, setLoopStepSettledResult, updateLoopStepActivityCheckpoint, readDefinitionSuccessor } from '../../loops/runtime/loop-runs-store'
 import { readExecutionManifest } from '../../delivery/runtime/multi-repo-execution-store'
 import { appendEvent } from '../../../db'
 import { recoverOrphanLoopStepAccounting } from '../../loops/runtime/loop-run-manager'
@@ -26,6 +26,45 @@ function isNodePath(value: string): boolean {
   return NODE_PATH.test(value) && value.split('/').every(id => !['START', 'END', '__start__', '__end__', 'next'].includes(id))
 }
 const ANSWER_LIMIT = 20_000
+/** Core contract (engine/steering/inbox.ts): 1–20,000 UTF-16 code units per message. Its 80,000-byte cap cannot be reached below that length. */
+export const STEERING_TEXT_LIMIT = 20_000
+const STEERING_PREVIEW_LENGTH = 240
+const STEERING_RECEIPT_LIMIT = 512
+const STEERING_REQUEST_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
+export interface RuntimeSteeringAccepted { id: string; acceptedAt: string }
+export interface RuntimeSteeringReceipt {
+  id: string
+  /** Core's durable inbox timestamp, preserved across idempotent retries. */
+  acceptedAt: string
+  preview: string
+  length: number
+  /** pending: accepted by Core's inbox and not yet claimed by an attempt (or consumption unreported). consumed: claimed by consumedAttemptId at that attempt's admission. */
+  status: 'pending' | 'consumed'
+  consumedAttemptId?: string
+  consumedAt?: string
+}
+export interface RuntimeSteeringState {
+  receipts: RuntimeSteeringReceipt[]
+  pending: number
+  consumed: number
+  /** false: the retained Core does not report inbox consumption, so accepted messages stay pending here even after an attempt claimed them. */
+  consumptionReported: boolean
+  truncated?: boolean
+  /** The Desktop receipt projection could not be read; Core's inbox remains authoritative. */
+  receiptsUnavailable?: true
+}
+/** Core owns receipt durability; Desktop never infers consumption from process state. */
+export function readRuntimeSteering(value: unknown): RuntimeSteeringState | undefined {
+  if (value === undefined) return undefined
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Core returned invalid steering receipts')
+  const state = value as RuntimeSteeringState
+  const timestamp = (value: unknown) => typeof value === 'string' && Number.isFinite(Date.parse(value))
+  if (state.consumptionReported !== true || !Number.isSafeInteger(state.pending) || state.pending < 0 || !Number.isSafeInteger(state.consumed) || state.consumed < 0 || typeof state.truncated !== 'boolean' ||
+    !Array.isArray(state.receipts) || state.receipts.length > STEERING_RECEIPT_LIMIT || state.receipts.some(item => !item || typeof item.id !== 'string' || !item.id || item.id.length > 256 || !timestamp(item.acceptedAt) || typeof item.preview !== 'string' || item.preview.length > STEERING_PREVIEW_LENGTH || !Number.isSafeInteger(item.length) || item.length < item.preview.length || item.length > STEERING_TEXT_LIMIT || !['pending', 'consumed'].includes(item.status) ||
+      (item.status === 'consumed' && (typeof item.consumedAttemptId !== 'string' || !item.consumedAttemptId || !timestamp(item.consumedAt))) ||
+      (item.status === 'pending' && (item.consumedAt !== undefined || item.consumedAttemptId !== undefined)))) throw new Error('Core returned invalid steering receipts')
+  return { receipts: state.receipts.map(({ id, acceptedAt, preview, length, status, consumedAttemptId, consumedAt }) => ({ id, acceptedAt, preview, length, status, ...(consumedAttemptId ? { consumedAttemptId, consumedAt } : {}) })), pending: state.pending, consumed: state.consumed, truncated: state.truncated, consumptionReported: true }
+}
 export interface RuntimeResumeInput { approve?: string[]; recover?: string[]; invalidate?: string[]; answer?: string }
 export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
 interface RuntimeFailure { stepId: string; status: string; at: string; error?: string }
@@ -36,6 +75,12 @@ interface RuntimeInspection {
 }
 interface FrozenContext { runId: string; backlogRoot: string; artifactRoot: string; repositories: Array<{ id: string; name: string; path: string }> }
 export interface RuntimeState {
+  lease?: { active: boolean } | null
+  recoverableSteps?: Array<{ attemptId: string; nodePath: string; scopeId: string }>
+  pendingInterrupts?: Array<{ id: string; nodePath: string; kind: 'question' | 'approval' | 'gate'; value?: unknown }>
+
+  completion?: { ok: boolean; verified: boolean; reasons: string[] } | null
+  steering?: RuntimeSteeringState
   engineVersion?: number
   /** IDs from the original frozen runtime configuration, not an observed metrics row. */
   roleIds?: string[]
@@ -49,10 +94,14 @@ export interface RuntimeState {
   steps: Record<string, { status: string; visits?: number; kind?: string }>
 }
 export interface RuntimeRunSummary {
+  recoveryAttempts?: RuntimeState['recoverableSteps']
+  completion?: RuntimeState['completion']
+  steering?: RuntimeSteeringState
   engineVersion?: number
   historical?: boolean
   efficiencySummary?: RuntimeEfficiencySummary
   canSettle?: boolean
+  forkSuccessor?: string
   metrics?: RuntimeEfficiency
   runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
   pendingApproval?: { stepId: string; reason?: string }
@@ -127,7 +176,7 @@ export async function readAgentRuntimeStatus(contextPath: string, cwd: string, e
   const { stdout } = await promisify(execFile)(resolveCoreNodeRuntime(), [cli, 'status', '--context', contextPath, '--compact'], {
     cwd, env: windowsSpawnEnv(env), windowsHide: true, timeout: 15000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8',
   })
-  const result = JSON.parse(stdout) as { type?: string; engineVersion?: number; state?: (RuntimeState & { nextNodePath?: string | null }) | null; pipeline?: RuntimeInspection; metrics?: unknown; efficiencySummary?: unknown }
+  const result = JSON.parse(stdout) as { type?: string; engineVersion?: number; completion?: RuntimeState['completion']; state?: (RuntimeState & { nextNodePath?: string | null }) | null; pipeline?: RuntimeInspection; metrics?: unknown; efficiencySummary?: unknown }
   if (result.type !== 'runtime-status' || result.state === undefined) throw new Error('Core returned an invalid runtime status')
   if (result.engineVersion !== undefined && (!Number.isSafeInteger(result.engineVersion) || result.engineVersion < 1)) throw new Error('Core returned an invalid runtime engine version')
   if (!result.state) return null
@@ -135,8 +184,24 @@ export async function readAgentRuntimeStatus(contextPath: string, cwd: string, e
   if (state.engineVersion === 2) {
     if (!state.steps || typeof state.steps !== 'object' || Array.isArray(state.steps) || !Object.entries(state.steps).every(([id, step]) => isNodePath(id) && step && typeof step.status === 'string')) throw new Error('Core returned an invalid runtime step catalog')
     if (state.nextNodePath !== null && (typeof state.nextNodePath !== 'string' || !Object.hasOwn(state.steps, state.nextNodePath))) throw new Error('Core returned an invalid next node path')
+    if (state.recoverableSteps !== undefined && (!Array.isArray(state.recoverableSteps) || state.recoverableSteps.some(step => !step || typeof step.attemptId !== 'string' || !step.attemptId || typeof step.nodePath !== 'string' || typeof step.scopeId !== 'string'))) throw new Error('Core returned invalid recovery attempt identities')
+    if (state.lease !== undefined && state.lease !== null && (typeof state.lease !== 'object' || typeof state.lease.active !== 'boolean')) throw new Error('Core returned an invalid execution lease')
+    if (state.pendingInterrupts !== undefined && (!Array.isArray(state.pendingInterrupts) || state.pendingInterrupts.some(item => !item || typeof item.id !== 'string' || !item.id || typeof item.nodePath !== 'string' || !['question', 'approval', 'gate'].includes(item.kind)))) throw new Error('Core returned invalid pending interrupts')
+    // Legacy display fields use node paths. Controls must use an exact pending
+    // interrupt, including when parallel branches pause at the same node.
+    if (state.pendingApproval) {
+      const approval = state.pendingInterrupts?.find(item => item.nodePath === state.pendingApproval!.stepId && item.kind !== 'question')
+      state.pendingApproval = approval ? { ...state.pendingApproval, stepId: approval.id } : undefined
+    }
+    if (state.pendingQuestion) {
+      const question = state.pendingInterrupts?.find(item => item.nodePath === state.pendingQuestion!.stepId && item.kind === 'question')
+      state.pendingQuestion = question ? { ...state.pendingQuestion, stepId: question.id } : undefined
+    }
     state.nextStep = state.nextNodePath
     state.roleIds = frozenRoleIds(contextPath)
+    state.steering = readRuntimeSteering(state.steering)
+    if (result.completion !== undefined && result.completion !== null && (typeof result.completion !== 'object' || typeof result.completion.ok !== 'boolean' || typeof result.completion.verified !== 'boolean' || !Array.isArray(result.completion.reasons) || result.completion.reasons.some(reason => typeof reason !== 'string'))) throw new Error('Core returned invalid completion evidence')
+    state.completion = result.completion
   }
   let selection: unknown
   try { selection = JSON.parse(fs.readFileSync(path.join(path.dirname(contextPath), 'desktop-runtime-selection.json'), 'utf8')) } catch { /* Original hosts may not record selection origins. */ }
@@ -153,7 +218,25 @@ export class AgentRuntimeControls {
   private errors = new Map<string, string>()
   private statusCache = new Map<string, { fingerprint: string; state: RuntimeState }>()
   private disposed = false
-  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation; recovery?: typeof invokeRuntimeRecovery } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {}
+  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation; recovery?: typeof invokeRuntimeRecovery; control?: typeof runAgentRuntimeControl } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {}
+
+  async signal(runId: string, input: unknown): Promise<RuntimeSteeringAccepted> {
+    if (this.disposed) throw new RuntimeControlError(503, 'runtime_shutting_down', 'Project runtime is shutting down')
+    const body = input as { text?: unknown; requestId?: unknown } | null
+    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => !['text', 'requestId'].includes(key)) || typeof body.text !== 'string' || !body.text.trim() || body.text.length > STEERING_TEXT_LIMIT || typeof body.requestId !== 'string' || !STEERING_REQUEST_ID.test(body.requestId)) throw new RuntimeControlError(400, 'invalid_steering_request', 'Steering requires text of 1–20,000 characters and a stable requestId')
+    const { file, cwd, env } = this.context(runId)
+    const state = await this.dependencies.status(file, cwd, env)
+    if (!state || state.runId !== runId || state.engineVersion !== 2) throw new RuntimeControlError(409, 'steering_unsupported', 'This retained run does not support engine v2 steering')
+    try {
+      const accepted = await (this.dependencies.control ?? runAgentRuntimeControl)({ kind: 'signal', contextPath: file, cwd, env, runId, text: body.text, requestId: body.requestId })
+      this.statusCache.delete(runId)
+      return { id: accepted.id, acceptedAt: accepted.acceptedAt }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not send operator steering'
+      const code = /^(control_conflict|run_terminal|inbox_full|invalid_arguments):/.exec(message)?.[1]
+      throw new RuntimeControlError(code === 'invalid_arguments' ? 400 : code ? 409 : 503, code ?? 'runtime_steering_failed', message)
+    }
+  }
 
   private context(runId: string, historical = false): { file: string; frozen: FrozenContext; cwd: string; env: NodeJS.ProcessEnv } {
     if (!SAFE_ID.test(runId)) throw new RuntimeControlError(400, 'invalid_run_id', 'Invalid runtime run ID')
@@ -294,25 +377,29 @@ export class AgentRuntimeControls {
       const checkpoint = path.join(path.dirname(file), 'agent-workflow', runId, 'checkpoint.json')
       // A v2 run can also contain a legacy implementation journal; that file
       // cannot invalidate the SQLite/WAL status, so leave v2 inspection uncached.
-      const stat = !fs.existsSync(path.join(path.dirname(file), 'run.sqlite')) && fs.existsSync(checkpoint) ? fs.statSync(checkpoint) : null
+      const stat = !fs.existsSync(path.join(path.dirname(file), 'agent-workflow', 'run.sqlite')) && fs.existsSync(checkpoint) ? fs.statSync(checkpoint) : null
       const fingerprint = stat ? createHash('sha256').update(fs.readFileSync(checkpoint)).digest('hex') : null
       const cached = this.statusCache.get(runId)
       const state = fingerprint && cached?.fingerprint === fingerprint ? cached.state : await this.dependencies.status(file, cwd, env)
       if (!state || state.runId !== runId) throw new Error('No saved workflow state is available')
       if (fingerprint) this.statusCache.set(runId, { fingerprint, state })
       const parent = getLoopRun(this.ctx.db, runId)
-      const active = this.active.has(runId) || parent?.status === 'running' || parent?.status === 'paused'
+      const definition = state.engineVersion === 2 && parent?.engine_version === 2
+      const forkSuccessor = definition ? readDefinitionSuccessor(this.ctx.db, runId) : undefined
+      const active = definition ? state.lease?.active === true : this.active.has(runId) || parent?.status === 'running' || parent?.status === 'paused'
       let projection: ReturnType<typeof readRuntimeHistory> = null
       try { projection = readRuntimeHistory(file) } catch { /* Invalid advisory history cannot replace live state. */ }
       const superseding = !active && projection && ['failed', 'cancelled', 'running'].includes(projection.status) && Date.parse(projection.updatedAt) > Date.parse(state.updatedAt ?? '1970-01-01') ? projection : null
-      const recoverableSteps = Object.entries(state.steps).filter(([, step]) => ['running', 'interrupted'].includes(step.status)).map(([id]) => id)
+      const recoverableSteps = state.engineVersion === 2 ? (state.recoverableSteps ?? []).map(step => step.attemptId) : Object.entries(state.steps).filter(([, step]) => ['running', 'interrupted'].includes(step.status)).map(([id]) => id)
       const catalog = metricsCatalogFor(state)
       return { runId, engineVersion: state.engineVersion, status: superseding ? (superseding.status === 'running' ? 'interrupted' : superseding.status) : state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
-        updatedAt: superseding?.updatedAt ?? state.updatedAt, error: this.errors.get(runId) ?? superseding?.error ?? state.error, pendingApproval: state.pendingApproval,
-        traceId: state.traceId, pendingQuestion: openQuestion(state),
+        updatedAt: superseding?.updatedAt ?? state.updatedAt, error: this.errors.get(runId) ?? superseding?.error ?? state.error, pendingApproval: forkSuccessor ? undefined : state.pendingApproval,
+        traceId: state.traceId, pendingQuestion: forkSuccessor ? undefined : openQuestion(state), steering: state.steering, completion: state.completion, ...(forkSuccessor ? { forkSuccessor } : {}),
         metrics: readRuntimeEfficiency(superseding ? superseding.metrics : state.metrics, catalog), efficiencySummary: readRuntimeEfficiencySummary(superseding ? superseding.efficiencySummary : state.efficiencySummary, catalog),
-        canSettle: !superseding && !active && state.status === 'succeeded' && (this.ctx.db.prepare('SELECT status FROM jobs WHERE id = ?').get(runId) as { status?: string } | undefined)?.status !== 'completed',
-        recoverableSteps, active, canCancel: this.active.has(runId), canResume: !active && parent?.status === 'completed' && state.status !== 'succeeded',
+        canSettle: forkSuccessor ? false : definition
+          ? !active && parent.status === 'completed' && state.status === 'succeeded' && !!this.ctx.db.prepare(`SELECT 1 FROM definition_delivery_settlements s JOIN rail_pr_deliveries d ON d.id=s.delivery_id WHERE s.project_id=? AND s.run_id=? AND d.decision IN ('building','pr_failed','implementation_failed') LIMIT 1`).get(this.ctx.project.id, runId)
+          : !superseding && !active && state.status === 'succeeded' && (this.ctx.db.prepare('SELECT status FROM jobs WHERE id = ?').get(runId) as { status?: string } | undefined)?.status !== 'completed',
+        recoverableSteps: forkSuccessor ? [] : recoverableSteps, ...(state.engineVersion === 2 ? { recoveryAttempts: forkSuccessor ? [] : state.recoverableSteps ?? [] } : {}), active, canCancel: !forkSuccessor && (definition ? !state.completion && !['succeeded', 'cancelled'].includes(state.status) : this.active.has(runId)), canResume: !forkSuccessor && (state.engineVersion === 2 ? definition && !active && parent.status !== 'completed' && state.status !== 'cancelled' : !active && parent?.status === 'completed' && state.status !== 'succeeded'),
         canDismiss: !active, dismissed: this.isDismissed(runId) }
     } catch (error) {
       try {
@@ -327,6 +414,7 @@ export class AgentRuntimeControls {
   async resume(runId: string, input: RuntimeResumeInput): Promise<void> {
     if (this.disposed) throw new RuntimeControlError(503, 'runtime_shutting_down', 'Project runtime is shutting down')
     const parent = getLoopRun(this.ctx.db, runId)
+    if (parent?.engine_version === 2) throw new RuntimeControlError(409, 'definition_lifecycle_required', 'Resume this workflow through its definition lifecycle')
     if (!parent || parent.status !== 'completed' || this.active.has(runId)) throw new RuntimeControlError(409, 'runtime_run_active', 'Wait for the original Desktop execution to settle before resuming')
     if (parent.rail_index != null && [...(this.ctx.railLoopRuns?.values() ?? []), ...(this.ctx.railJobs?.values() ?? [])].some(meta => meta.railIndex === parent.rail_index)) throw new RuntimeControlError(409, 'runtime_rail_active', 'Wait for the implementation card to finish its active job before resuming')
     const context = this.context(runId)
@@ -336,8 +424,9 @@ export class AgentRuntimeControls {
     try {
       // Accounting from a prior continuation must settle even when Core now
       // reports success and correctly refuses any further execution.
-      recoverOrphanLoopStepAccounting(this.ctx.db, new Date().toISOString(), runId)
       const state = await this.dependencies.status(context.file, context.cwd, context.env)
+      if (state?.engineVersion === 2) throw new RuntimeControlError(409, 'definition_lifecycle_required', 'Resume this workflow through its definition lifecycle')
+      recoverOrphanLoopStepAccounting(this.ctx.db, new Date().toISOString(), runId)
       if (!state || state.runId !== runId || state.status === 'succeeded') throw new RuntimeControlError(409, 'runtime_not_resumable', 'This execution has no resumable workflow')
       validateRuntimeResumeInput(input, state)
       if (parent.rail_index != null && [...(this.ctx.railLoopRuns?.values() ?? []), ...(this.ctx.railJobs?.values() ?? [])].some(meta => meta.railIndex === parent.rail_index)) throw new RuntimeControlError(409, 'runtime_rail_active', 'The implementation card became active while checking the saved execution')

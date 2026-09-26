@@ -92,6 +92,19 @@ describe('QueueManager', () => {
   // ─── enqueue ──────────────────────────────────────────────────────────────
 
   describe('enqueue', () => {
+    it.each(['/implement #1', '$implement #1'])('records %s at spawn admission, separately from queue admission', async command => {
+      vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
+      vi.mocked(mockUuidV4).mockReturnValue('legacy-telemetry-job' as any)
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      const db = initDb(':memory:')
+      const local = new QueueManager(broadcast, db, [], undefined, { projectId: 'p1' })
+      try {
+        local.enqueue(command)
+        await vi.waitFor(() => expect(db.prepare('SELECT kind,run_id FROM legacy_launch_events').all()).toEqual([{ kind: 'queue_manager_slash', run_id: 'legacy-telemetry-job' }]))
+        child.emit('close', 0)
+      } finally { local.shutdown(); db.close() }
+    })
     it('returns a job with status queued when a process is already running', () => {
       vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
       const child1 = createMockChildProcess()

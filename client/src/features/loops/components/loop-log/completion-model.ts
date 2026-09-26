@@ -1,5 +1,7 @@
 /** Additive, durable terminal event; absent for historical runs. */
 export interface LoopCompletion {
+  engineVersion?: 2
+  completion?: {ok: boolean; verified: boolean; reasons: string[]}
   version: 1
   execution: string
   steps: number
@@ -23,6 +25,7 @@ const strings = (value: unknown): boolean => Array.isArray(value) && value.every
 export function parseLoopCompletion(value: unknown): LoopCompletion | null {
   if (!object(value) || value.version !== 1 || typeof value.execution !== 'string' || !count(value.steps) || !count(value.deciderEvaluations)
     || !(value.turns === null || count(value.turns)) || !(value.costUsd === null || count(value.costUsd)) || typeof value.costUncertain !== 'boolean') return null
+  if (value.engineVersion === 2 && value.completion !== undefined && (!object(value.completion) || typeof value.completion.ok !== 'boolean' || typeof value.completion.verified !== 'boolean' || !strings(value.completion.reasons))) return null
   if (value.core !== null) {
     const core = value.core
     if (!object(core) || typeof core.change !== 'string' || typeof core.recordedAt !== 'string' || !object(core.completion)) return null

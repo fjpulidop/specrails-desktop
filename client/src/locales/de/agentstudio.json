@@ -136,7 +136,8 @@
       "moveUp": "Nach oben",
       "coreDefaultBadge": "Core · Standard",
       "coreDefaultTitle": "Core-Fallback – die letzte Auffangregel der Pipeline, fest auf sr-developer"
-    }
+    },
+    "legacyWorkflowNotice": "Orchestrator- und Routing-Einstellungen gelten für ältere Workflows. Core-Workflows verwenden die im Loop Builder ausgewählten Rollen."
   },
   "agentSelector": {
     "coreBadge": "core",

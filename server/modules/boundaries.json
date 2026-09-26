@@ -77,6 +77,7 @@
       "runtime/agent-runtime-controls.ts",
       "runtime/agent-runtime-events.ts",
       "runtime/agent-runtime-loader.ts",
+      "runtime/agent-runtime-package.ts",
       "runtime/agent-runtime-paths.ts",
       "runtime/agent-runtime-recovery.ts",
       "runtime/agent-runtime-settings-router.ts",
@@ -87,6 +88,7 @@
       "runtime/agent-runtime-bridge.ts": [
         "../../../core-node-runtime",
         "../../../util/win-spawn",
+        "../../loops/runtime/loop-definition-run",
         "../../loops/runtime/loop-run-manager",
         "./agent-runtime-effective-config",
         "./agent-runtime-history",
@@ -97,6 +99,7 @@
         "node:child_process",
         "node:crypto",
         "node:fs",
+        "node:os",
         "node:path",
         "node:readline",
         "node:util"
@@ -188,11 +191,14 @@
         "../../../providers/registry",
         "../../../schemas/agent-runtime.schema.json",
         "../../../workspace-resolution",
+        "../../agents/runtime/agent-catalog",
+        "../../agents/runtime/agent-role-descriptor",
         "ajv",
         "node:crypto",
         "node:fs",
         "node:os",
-        "node:path"
+        "node:path",
+        "node:util"
       ],
       "runtime/agent-runtime-settlement.ts": [
         "../../../core-completion",
@@ -213,14 +219,21 @@
   },
   "agents": {
     "publicEntries": [
+      "runtime/agent-catalog.ts",
       "runtime/agent-defaults.ts",
       "runtime/agent-refine-db.ts",
       "runtime/agent-refine-manager.ts",
+      "runtime/agent-role-descriptor.ts",
       "runtime/agent-store.ts",
       "runtime/profile-manager.ts",
       "runtime/profiles-router.ts"
     ],
     "dependencies": {
+      "runtime/agent-catalog.ts": [
+        "../../../providers",
+        "node:fs",
+        "node:path"
+      ],
       "runtime/agent-defaults.ts": [
         "../../../db",
         "../../../desktop-db",
@@ -253,6 +266,7 @@
       "runtime/agent-refine-manager.ts": [
         "../../../db",
         "../../../providers",
+        "../../../providers/kimi-skill-prompt",
         "../../../types",
         "../../../workspace-resolution",
         "../../accounting/runtime/ai-invocations",
@@ -260,11 +274,15 @@
         "../../execution/runtime/spawn-lifecycle",
         "./agent-generator",
         "./agent-refine-db",
+        "./agent-role-descriptor",
         "child_process",
         "crypto",
         "fs",
         "path",
         "tree-kill"
+      ],
+      "runtime/agent-role-descriptor.ts": [
+        "js-yaml"
       ],
       "runtime/agent-store.ts": [
         "../../../db",
@@ -288,9 +306,11 @@
         "../../../providers",
         "../../../providers/kimi-skill-prompt",
         "../../../workspace-resolution",
+        "./agent-catalog",
         "./agent-generator",
         "./agent-refine-db",
         "./agent-refine-manager",
+        "./agent-role-descriptor",
         "./profile-manager",
         "express",
         "fs",
@@ -653,6 +673,7 @@
   },
   "delivery": {
     "publicEntries": [
+      "runtime/definition-fork.ts",
       "runtime/delivery-evidence.ts",
       "runtime/multi-repo-execution-store.ts",
       "runtime/multi-repo-execution.ts",
@@ -827,12 +848,30 @@
         "./rail-worktrees-store",
         "fs"
       ],
+      "runtime/definition-fork.ts": [
+        "../../../db",
+        "../../../project-registry",
+        "../../agent-runtime/runtime/agent-runtime-bridge",
+        "../../loops/runtime/loop-definition-recovery",
+        "../../loops/runtime/loop-runs-store",
+        "./isolated-settlement-store",
+        "./rail-pr-store",
+        "./rail-worktrees-store",
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ],
       "runtime/delivery-evidence.ts": [
         "../../../types",
         "../../execution/runtime/verification-sentinel",
+        "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-factory",
         "fs",
         "path"
+      ],
+      "runtime/isolated-settlement-store.ts": [
+        "../../../db",
+        "./rail-isolated-launch"
       ],
       "runtime/merge-manager.ts": [
         "../../../worktree-manager"
@@ -928,14 +967,18 @@
         "../../code/runtime/file-provenance",
         "../../code/runtime/file-story",
         "../../execution/runtime/revision-seed",
+        "../../loops/runtime/legacy-launch-telemetry",
         "../../loops/runtime/loop-constants",
+        "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-executors",
         "../../loops/runtime/loop-graph",
+        "../../loops/runtime/loop-runs-store",
         "../../missions/runtime/agent-chat-registry",
         "../../missions/runtime/mission-run-notify",
         "../../specs/runtime/spec-addenda",
         "./active-pr-continuation",
         "./delivery-evidence",
+        "./isolated-settlement-store",
         "./merge-manager",
         "./multi-repo-execution",
         "./multi-repo-execution-store",
@@ -1035,6 +1078,7 @@
         "../../../workspace-resolution",
         "../../../worktree-manager",
         "../../agent-runtime/runtime/agent-runtime-controls-router",
+        "../../agent-runtime/runtime/agent-runtime-loader",
         "../../agent-runtime/runtime/agent-runtime-settings",
         "../../agents/runtime/agent-defaults",
         "../../agents/runtime/profile-manager",
@@ -1044,6 +1088,7 @@
         "../../execution/runtime/queue-manager",
         "../../loops/runtime/loop-command-catalog",
         "../../loops/runtime/loop-constants",
+        "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-effect",
         "../../loops/runtime/loop-factory",
         "../../loops/runtime/loop-graph",
@@ -1209,6 +1254,7 @@
         "../../agents/runtime/profile-manager",
         "../../code/runtime/file-provenance",
         "../../delivery/runtime/rail-isolation",
+        "../../loops/runtime/legacy-launch-telemetry",
         "../../specs/runtime/spec-addenda",
         "../../specs/runtime/ticket-store",
         "../adapters/budget-storage",
@@ -1245,8 +1291,13 @@
   },
   "loops": {
     "publicEntries": [
+      "runtime/definition-cancellation.ts",
+      "runtime/legacy-launch-telemetry.ts",
       "runtime/loop-command-catalog.ts",
       "runtime/loop-constants.ts",
+      "runtime/loop-definition-controls.ts",
+      "runtime/loop-definition-recovery.ts",
+      "runtime/loop-definition-run.ts",
       "runtime/loop-effect.ts",
       "runtime/loop-executors.ts",
       "runtime/loop-factory.ts",
@@ -1258,6 +1309,13 @@
       "runtime/loops-store.ts"
     ],
     "dependencies": {
+      "runtime/definition-cancellation.ts": [
+        "./loop-definition-recovery"
+      ],
+      "runtime/legacy-launch-telemetry.ts": [
+        "../../../db",
+        "node:crypto"
+      ],
       "runtime/loop-command-catalog.ts": [
         "../../../providers/registry",
         "./loop-constants"
@@ -1265,7 +1323,42 @@
       "runtime/loop-constants.ts": [
         "../../../db"
       ],
+      "runtime/loop-core-factory.ts": [
+        "./loop-graph"
+      ],
       "runtime/loop-decider.ts": [],
+      "runtime/loop-definition-controls.ts": [
+        "./loop-definition-recovery",
+        "./loop-definition-run"
+      ],
+      "runtime/loop-definition-events.ts": [
+        "../../../db",
+        "../../../util/distribute-int",
+        "../../accounting/runtime/ai-invocations",
+        "./loop-runs-store"
+      ],
+      "runtime/loop-definition-recovery.ts": [
+        "../../../core-node-runtime",
+        "../../../db",
+        "../../../util/win-spawn",
+        "../../agent-runtime/runtime/agent-runtime-bridge",
+        "../../agent-runtime/runtime/agent-runtime-package",
+        "./loop-definition-run",
+        "./loop-runs-store",
+        "node:child_process",
+        "node:fs",
+        "node:path",
+        "node:util"
+      ],
+      "runtime/loop-definition-run.ts": [
+        "./loop-run-manager",
+        "node:child_process"
+      ],
+      "runtime/loop-definition.ts": [
+        "./loop-command-catalog",
+        "./loop-constants",
+        "./loop-graph"
+      ],
       "runtime/loop-effect.ts": [
         "./loop-graph"
       ],
@@ -1286,11 +1379,13 @@
         "../../../workspace-manager",
         "../../accounting/runtime/result-event",
         "../../agent-runtime/runtime/agent-runtime-bridge",
+        "../../agent-runtime/runtime/agent-runtime-loader",
         "../../delivery/runtime/multi-repo-execution-store",
         "../../delivery/runtime/rail-isolation",
         "../../execution/runtime/spawn-lifecycle",
         "./loop-constants",
         "./loop-decider",
+        "./loop-definition",
         "./loop-run-manager",
         "./loop-shell-invocation",
         "./loop-step-idle",
@@ -1300,6 +1395,7 @@
         "node:path"
       ],
       "runtime/loop-factory.ts": [
+        "./loop-core-factory",
         "./loop-graph",
         "./loop-templates"
       ],
@@ -1307,6 +1403,7 @@
       "runtime/loop-preview.ts": [
         "./loop-command-catalog",
         "./loop-constants",
+        "./loop-definition",
         "./loop-graph"
       ],
       "runtime/loop-role-engines.ts": [
@@ -1339,9 +1436,12 @@
         "../../execution/runtime/interactive-job-session",
         "../../execution/runtime/verification-sentinel",
         "../../specs/runtime/spec-addenda-core",
+        "./legacy-launch-telemetry",
         "./loop-command-catalog",
         "./loop-constants",
         "./loop-decider",
+        "./loop-definition-events",
+        "./loop-definition-run",
         "./loop-graph",
         "./loop-runs-store",
         "./loop-step-idle",
@@ -1351,7 +1451,10 @@
         "path"
       ],
       "runtime/loop-runs-store.ts": [
-        "../../../db"
+        "../../../db",
+        "./loop-run-manager",
+        "node:fs",
+        "path"
       ],
       "runtime/loop-shell-invocation.ts": [
         "../../../bundled-openspec",
@@ -1371,8 +1474,10 @@
         "../../../db",
         "../../../feature-flags",
         "../../../ids",
+        "../../agent-runtime/runtime/agent-runtime-loader",
         "./loop-command-catalog",
         "./loop-constants",
+        "./loop-definition",
         "./loop-factory",
         "./loop-graph",
         "./loop-preview",

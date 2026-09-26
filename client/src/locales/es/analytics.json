@@ -212,5 +212,20 @@
     "turnsAndTokens": "{{turns}} turnos · {{tokens}} tokens",
     "untitled": "Misión sin título",
     "estimatedNote": "Incluye costes estimados"
+  },
+  "legacyUsage": {
+    "title": "Uso de workflows anteriores",
+    "refresh": "Actualizar contadores",
+    "scope": "Todos los eventos registrados de este proyecto, sin aplicar los filtros de gasto.",
+    "unavailable": "No se han podido actualizar estos contadores.",
+    "loading": "Cargando uso registrado…",
+    "total": "Eventos registrados: {{count}}",
+    "last": "Último evento:",
+    "evidence": "Estos contadores por sí solos no acreditan que se pueda retirar la compatibilidad anterior.",
+    "kinds": {
+      "legacy_loop_traversal": "Loops clásicos",
+      "queue_manager_slash": "Comandos en cola",
+      "merge_back": "Integraciones locales"
+    }
   }
 }

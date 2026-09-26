@@ -181,7 +181,8 @@
     "preserveProgress": "Reprendre à la phase indiquée en conservant le travail et les paramètres enregistrés.",
     "reviewDelivery": "Implémentation terminée. Vérifiez le résultat dans le journal avant la livraison ; cette reprise ne l’a pas publié.",
     "prepareDelivery": "Préparer la livraison",
-    "dismiss": "Ignorer"
+    "dismiss": "Ignorer",
+    "selectRecovery": "Sélectionnez les tentatives interrompues à reprendre"
   },
   "roleHints": {
     "architect": "Lit le code et rédige la proposition, la conception, les tâches et la spec. Lecture seule.",
@@ -493,5 +494,45 @@
       }
     }
   },
-  "unsavedChanges": "Modifications non enregistrées"
+  "unsavedChanges": "Modifications non enregistrées",
+  "customRoles": {
+    "title": "Rôles personnalisés",
+    "hint": "Définissez des instructions réutilisables et des permissions explicites pour les rôles du workflow.",
+    "unsupported": "Mettez Core à jour pour modifier les rôles personnalisés.",
+    "remove": "Supprimer {{id}}",
+    "access": "Accès au code",
+    "read": "Lecture seule",
+    "write": "Lecture et écriture",
+    "artifacts": "Accès aux artefacts OpenSpec",
+    "none": "Aucun",
+    "tasks": "Cases des tâches uniquement",
+    "all": "Tous les artefacts du changement",
+    "skill": "Skill OpenSpec",
+    "noSkill": "Aucun skill associé",
+    "prompt": "Instructions du rôle",
+    "id": "ID du rôle",
+    "add": "Ajouter un rôle",
+    "invalidId": "Utilisez un ID unique en minuscules commençant par une lettre, avec au plus 64 lettres, chiffres ou tirets. Les IDs intégrés sont réservés.",
+    "escalationHint": "Seule une réparation autorisée du protocole peut utiliser le modèle supérieur. Aucun nouvel essai n’est ajouté."
+  },
+  "steering": {
+    "title": "Instructions d’exécution",
+    "hint": "Core conserve ces instructions pour le prochain tour d’agent compatible. Leur envoi ne répond pas aux questions et ne donne aucune approbation.",
+    "label": "Instructions supplémentaires",
+    "send": "Envoyer les instructions",
+    "accepted": "Reçues par Core ; en attente de traitement.",
+    "pending": "En attente d’un tour d’agent",
+    "consumed": "Prises en compte par un agent",
+    "counts": "En attente : {{pending}} · Traitées : {{consumed}}",
+    "failed": "Impossible d’envoyer les instructions. Réessayez pour confirmer le même message.",
+    "unavailable": "Les détails des reçus sont indisponibles.",
+    "unreported": "Cette version de Core ne signale pas la prise en compte.",
+    "truncated": "Seuls les reçus récents et les messages en attente sont affichés."
+  },
+  "studioRole": {
+    "title": "Valeurs par défaut du rôle Core",
+    "hint": "Ces valeurs du fichier s’appliquent aux nouveaux workflows. Les paramètres explicites du projet sont prioritaires ; les exécutions enregistrées conservent leurs paramètres figés.",
+    "invalid": "Corrigez l’en-tête YAML dans l’éditeur avant de modifier les champs du rôle.",
+    "escalationEffort": "Effort de raisonnement du modèle supérieur"
+  }
 }

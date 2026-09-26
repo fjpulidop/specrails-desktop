@@ -28,56 +28,67 @@ Published C0 compatibility remains open; these source results do not close 1.6.
 
 ## 2. D1 — Definition authoring and Core launcher (requires published C4)
 
-- [ ] 2.1 Vendor definition schema with byte-parity test; add structural graph model and capability catalog.
-- [ ] 2.2 Implement pure deterministic graph compiler, interpolation and Core-owned hash validation.
-- [ ] 2.3 Validate publication via Core and expose node-scoped errors in builder.
+- [x] 2.1 Vendor definition schema with byte-parity test; add structural graph model and capability catalog.
+- [x] 2.2 Implement pure deterministic graph compiler, interpolation and Core-owned hash validation.
+- [x] 2.3 Validate publication via Core and expose node-scoped errors in builder.
 - [ ] 2.4 Implement exclusive frozen inputs and Core-only launch with host-owned git, cancellation and existing settlement.
-- [ ] 2.5 Implement verification-aware delivery gate; negative completion remains a successful runtime verdict.
-- [ ] 2.6 Build palette and inspectors including components/map/join with eight-locale parity and client tests.
+- [x] 2.5 Implement verification-aware delivery gate; negative completion remains a successful runtime verdict.
+- [x] 2.6 Build palette and inspectors including components/map/join with eight-locale parity and client tests.
 - [ ] 2.7 Update user guides and run loop/runtime/delivery/client validation.
+
+Authoring validation on 2026-09-26: 143 server tests (including Core schema
+byte parity and architecture), 307 client tests (including eight-locale parity,
+schema forms, drag placement, typed connection validation and component canvas
+round-tripping) passed. Typecheck, architecture audit and source-map generation
+passed. The inspector extraction was checked again with seven focused tests.
+Execution, delivery, event accounting and human resume remain unchecked below;
+authoring validation does not close those integration gates.
 
 ## 3. D1b — Minimal role library (requires C2)
 
-- [ ] 3.1 Vendor role config schema and validate open role descriptors.
-- [ ] 3.2 Add settings role rows, engine selection and localized validation with schema-parity tests.
+- [x] 3.1 Vendor role config schema and validate open role descriptors.
+- [x] 3.2 Add settings role rows, engine selection and localized validation with schema-parity tests.
+
+Implemented and focused tests passed; shared integration and remaining factory
+work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 
 ## 4. D2 — Event projection and accounting (requires D1)
 
-- [ ] 4.1 Project graph/step/branch events into existing loop events and nested explorer models.
-- [ ] 4.2 Persist one invocation per AI attempt with idempotent replay, shared integer allocation and null usage.
-- [ ] 4.3 Read Core evidence via retained CLI and preserve review confidence projection.
-- [ ] 4.4 Add event fixture, accounting parity, replay, evidence and client explorer tests; update log guide.
+- [x] 4.1 Project graph/step/branch events into existing loop events and nested explorer models.
+- [x] 4.2 Persist one invocation per AI attempt with idempotent replay, shared integer allocation and null usage.
+- [x] 4.3 Read Core evidence via retained CLI and preserve review confidence projection.
+- [x] 4.4 Add event fixture, accounting parity, replay, evidence and client explorer tests; update log guide.
 
 ## 5. D3 — Human pauses and fork (requires D2 and C3)
 
 - [ ] 5.1 Connect paused question/approval/gate states to job composer and single-writer resume.
-- [ ] 5.2 Implement linked fork endpoint and explorer action including internal component nodes.
+- [x] 5.2 Implement linked fork endpoint and explorer action including internal component nodes.
 - [ ] 5.3 Test cancellation during pause, original-run preservation and isolated settlement.
 
 ## 6. D4 — Restart recovery (requires D2)
 
-- [ ] 6.1 Append next available migration for durable request, engine version and fork linkage.
-- [ ] 6.2 Reconcile resumable v2 runs to paused while preserving jobs and existing legacy recovery.
+- [x] 6.1 Append next available migration for durable request, engine version and fork linkage.
+- [x] 6.2 Reconcile resumable v2 runs to paused while preserving jobs and existing legacy recovery.
 - [ ] 6.3 Reconstruct launch and isolated settlement from durable records, expose recovery choice.
 - [ ] 6.4 Test crashes across read/write/pause boundaries and idempotent accounting/delivery.
 
 ## 7. D5 — Progressive factories (requires C4/C5/C6 respectively)
 
-- [ ] 7.1 Port Quick SDD after C4 with sequence parity and capability fallback.
-- [ ] 7.2 Port Freestyle and templates after C5 with sentinel/retry parity.
-- [ ] 7.3 Port Implement and Batch after C6 with receipt/acceptance parity and stable factory aliases.
-- [ ] 7.4 Update pipeline user documentation and run factory/template pairing tests.
+- [x] 7.1 Port Quick SDD after C4 with sequence parity and capability fallback.
+- [x] 7.2 Port Freestyle and templates after C5 with sentinel/retry parity.
+- [x] 7.3 Port Implement and Batch after C6 with receipt/acceptance parity and stable factory aliases.
+- [x] 7.4 Update pipeline user documentation and run factory/template pairing tests.
 
 ## 8. D6 — Agents role library (requires D1b/C5)
 
-- [ ] 8.1 Project custom agent frontmatter and prompts into runtime role descriptors.
-- [ ] 8.2 Integrate role selection and builtin read-only display; mark legacy routing for later removal.
-- [ ] 8.3 Test role permissions, profiles API and Agent Studio flows.
+- [x] 8.1 Project custom agent frontmatter and prompts into runtime role descriptors.
+- [x] 8.2 Integrate role selection and builtin read-only display; mark legacy routing for later removal.
+- [x] 8.3 Test role permissions, profiles API and Agent Studio flows.
 
 ## 9. D7 — Steering and observation (requires C8)
 
-- [ ] 9.1 Add retained-runtime signal endpoint and MCP action.
-- [ ] 9.2 Show accepted/consumed steering receipts and attempt-boundary semantics in composer.
+- [x] 9.1 Add retained-runtime signal endpoint and MCP action.
+- [x] 9.2 Show accepted/consumed steering receipts and attempt-boundary semantics in composer.
 - [ ] 9.3 Expose run traces and validate routes, MCP, composer and documentation.
 
 ## 10. D8 — Migration and retirement (requires parity and two telemetry releases)

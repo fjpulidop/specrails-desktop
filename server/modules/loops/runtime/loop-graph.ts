@@ -9,7 +9,13 @@
  * trivially unit-testable and reused verbatim by both the store and the engine.
  */
 
-export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'condition' | 'end'
+export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'condition' | 'core' | 'end'
+
+export const CORE_NODE_KINDS = ['prompt', 'role-turn', 'decider', 'condition', 'verify', 'shell',
+  'openspec-validate', 'openspec-archive', 'approval', 'question', 'gate', 'map', 'join',
+  'component', 'implementation', 'end'] as const
+export type CoreNodeKind = typeof CORE_NODE_KINDS[number]
+export interface CorePieceShape { kind: string; outcomes: readonly string[] }
 
 /** Boolean join carried on an edge leaving a `condition` node. */
 export type LoopJoin = 'AND' | 'OR'
@@ -25,6 +31,9 @@ export interface LoopNode {
   position: { x: number; y: number }
   /** Node-type-specific config (prompt/model/effort, command, goal, …). */
   data?: Record<string, unknown> & {
+    kind?: CoreNodeKind
+    params?: Record<string, unknown>
+    retry?: { maxAttempts?: number; backoffMs?: number; retryOn?: string[] }
     /** One in-run retry; cross-phase targets may only repair artifacts. */
     failureRecovery?: { target: string; maxRetries: number; artifactOnly?: boolean }
     /** Shell steps in a multi-repository execution must name a selected repository. */
@@ -44,6 +53,8 @@ export interface LoopEdge {
    *  the React Flow `sourceHandle` on the canvas. Absent on legacy graphs (the
    *  engine then falls back to the successor-node-type heuristic). */
   branch?: LoopBranch
+  /** Core piece outcome; validated again against the effective params by Core. */
+  label?: string
 }
 
 export interface LoopGraphConfig {
@@ -68,12 +79,48 @@ export interface LoopGraphConfig {
    *  unset) = the user hand-placed the nodes. The engine ignores this; it only
    *  drives the canvas layout when the loop is re-opened in the builder. */
   layout?: 'vertical' | 'horizontal' | 'grid' | 'manual'
+  journal?: 'ledger-only' | 'implementation'
+  change?: 'new' | 'existing' | 'none'
+  maxTransitions?: number
+  maxTokens?: number
+  /** Exact Core role-turn path used to project a custom reviewer verdict. */
+  reviewerStepId?: string
+  policies?: { failFast?: number; noProgress?: number; historyMaxChars?: number; concurrency?: number }
 }
 
 export interface LoopGraph {
   nodes: LoopNode[]
   edges: LoopEdge[]
   config: LoopGraphConfig
+  /** Reusable nested canvases; Core validates depth, cycles and parameter schemas. */
+  inputs?: string[]
+  outputs?: string[]
+  components?: Record<string, LoopGraph>
+}
+
+export function isDefinitionReviewerPath(graph: LoopGraph, value: unknown): value is string {
+  if (typeof value !== 'string' || !value || value.length > 2048) return false
+  const segments = value.split('/')
+  if (segments.length > 32) return false
+  let body: LoopGraph | undefined = graph
+  for (let index = 0; index < segments.length; index++) {
+    const node: LoopNode | undefined = body?.nodes.find(item => item.id === segments[index])
+    if (!node || node.type !== 'core') return false
+    if (index === segments.length - 1) return node.data?.kind === 'role-turn'
+    const ref: unknown = node.data?.kind === 'component' ? node.data.params?.ref : node.data?.kind === 'map' ? node.data.params?.body : undefined
+    body = typeof ref === 'string' ? graph.components?.[ref] : undefined
+  }
+  return false
+}
+
+export function isDefinitionGraph(graph: LoopGraph): boolean {
+  return graph.nodes.some(node => node.type === 'core')
+}
+
+export function assertDefinitionGraph(graph: LoopGraph): void {
+  if (!isDefinitionGraph(graph) || graph.nodes.some(node => !['start', 'core', 'end'].includes(node.type))) {
+    throw new Error('A Core workflow must contain Core pieces and cannot mix Desktop execution steps.')
+  }
 }
 
 /** A named shell target must never silently fall back to another checkout. */
@@ -117,6 +164,7 @@ export type GraphValidationCode =
   | 'INVALID_BRANCH'
   | 'UNSUPPORTED_BRANCHING'
   | 'DEAD_END'
+  | 'MIXED_ENGINES'
 
 export interface GraphValidationError {
   code: GraphValidationCode
@@ -148,7 +196,7 @@ export function emptyLoopGraph(): LoopGraph {
  * Returns all errors found (not just the first) so the builder can highlight
  * every problem at once.
  */
-export function validateLoopGraph(graph: LoopGraph): GraphValidationResult {
+export function validateLoopGraph(graph: LoopGraph, catalog?: readonly CorePieceShape[]): GraphValidationResult {
   const errors: GraphValidationError[] = []
 
   if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
@@ -156,12 +204,25 @@ export function validateLoopGraph(graph: LoopGraph): GraphValidationResult {
   }
   const nodes = graph.nodes
   const edges = graph.edges
-  const kinds = new Set<LoopNodeType>(['start', 'ai-step', 'shell', 'decider', 'condition', 'end'])
+  const kinds = new Set<LoopNodeType>(['start', 'ai-step', 'shell', 'decider', 'condition', 'core', 'end'])
   if (nodes.some((node) => !node || typeof node.id !== 'string' || !node.id.trim() || !kinds.has(node.type))) {
     return { valid: false, errors: [{ code: 'INVALID_NODE', message: 'Every node needs a non-empty id and a supported node type.' }] }
   }
   if (edges.some((edge) => !edge || typeof edge.id !== 'string' || !edge.id.trim() || typeof edge.source !== 'string' || typeof edge.target !== 'string')) {
     return { valid: false, errors: [{ code: 'DANGLING_EDGE', message: 'Every edge needs a non-empty id, source and target.' }] }
+  }
+  const definition = isDefinitionGraph(graph)
+  if (definition && nodes.some(node => !['start', 'core', 'end'].includes(node.type))) {
+    errors.push({ code: 'MIXED_ENGINES', message: 'Core workflows cannot mix Core pieces with Desktop execution steps.' })
+  }
+  for (const node of nodes) {
+    if (definition && (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(node.id) || ['START', 'END', '__start__', '__end__', 'next'].includes(node.id))) {
+      errors.push({ code: 'INVALID_NODE', nodeId: node.id, message: 'Core node IDs must be safe, non-reserved identifiers.' })
+    }
+    if (node.type === 'core' && (!CORE_NODE_KINDS.includes(node.data?.kind as CoreNodeKind) || !node.data?.params ||
+      typeof node.data.params !== 'object' || Array.isArray(node.data.params))) {
+      errors.push({ code: 'INVALID_NODE', nodeId: node.id, message: 'A Core piece needs a supported kind and an object of parameters.' })
+    }
   }
   for (const [items, code] of [[nodes, 'DUPLICATE_NODE'], [edges, 'DUPLICATE_EDGE']] as const) {
     const ids = new Set<string>()
@@ -197,7 +258,7 @@ export function validateLoopGraph(graph: LoopGraph): GraphValidationResult {
   }
 
   // ── End presence ────────────────────────────────────────────────────────────
-  if (!nodes.some((n) => n.type === 'end')) {
+  if (!nodes.some((n) => n.type === 'end' || n.type === 'core' && n.data?.kind === 'end')) {
     errors.push({ code: 'NO_END', message: 'The loop must have at least one End node.' })
   }
 
@@ -211,11 +272,14 @@ export function validateLoopGraph(graph: LoopGraph): GraphValidationResult {
     !Number.isFinite(cfg.timeoutMinutes) ||
     cfg.timeoutMinutes < 0 ||
     (cfg.aiStepTimeoutMinutes !== undefined && (!Number.isFinite(cfg.aiStepTimeoutMinutes) || cfg.aiStepTimeoutMinutes < 0)) ||
-    (cfg.maxCostUsd !== undefined && !Number.isFinite(cfg.maxCostUsd))
+    (cfg.maxCostUsd !== undefined && !Number.isFinite(cfg.maxCostUsd)) ||
+    (cfg.maxTransitions !== undefined && (!Number.isInteger(cfg.maxTransitions) || cfg.maxTransitions < 1 || cfg.maxTransitions > 10000)) ||
+    (cfg.maxTokens !== undefined && (!Number.isInteger(cfg.maxTokens) || cfg.maxTokens < 1)) ||
+    (cfg.reviewerStepId !== undefined && !isDefinitionReviewerPath(graph, cfg.reviewerStepId))
   ) {
     errors.push({
       code: 'INVALID_CONFIG',
-      message: 'maxIterations must be ≥ 1; timeouts must be finite and ≥ 0 (0 = no timeout); maxCostUsd must be finite.',
+      message: 'maxIterations must be ≥ 1; timeouts must be finite and ≥ 0 (0 = no timeout); maxCostUsd must be finite; reviewerStepId must identify a Core role-turn.',
     })
   }
 
@@ -235,8 +299,20 @@ export function validateLoopGraph(graph: LoopGraph): GraphValidationResult {
   // shell or condition node would silently skip all but its first branch.
   for (const node of nodes) {
     const out = edges.filter((edge) => edge.source === node.id)
-    if (node.type === 'end') {
+    if (node.type === 'end' || node.type === 'core' && node.data?.kind === 'end') {
       if (out.length) errors.push({ code: 'INVALID_BRANCH', nodeId: node.id, message: 'End nodes cannot have outgoing edges.' })
+    } else if (node.type === 'core') {
+      const descriptor = catalog?.find(piece => piece.kind === node.data?.kind)
+      if (catalog && !descriptor) errors.push({ code: 'INVALID_NODE', nodeId: node.id, message: 'The installed Core does not advertise this piece.' })
+      if (!out.length) errors.push({ code: 'DEAD_END', nodeId: node.id, message: 'A Core piece needs labeled outcome edges.' })
+      const labels = new Set<string>()
+      for (const edge of out) {
+        if (typeof edge.label !== 'string' || !/^[a-z][a-z0-9-]{0,31}$/.test(edge.label) || labels.has(edge.label) ||
+          (descriptor && !descriptor.outcomes.includes(edge.label))) {
+          errors.push({ code: 'INVALID_BRANCH', nodeId: node.id, edgeId: edge.id, message: 'Core outcome edges need unique labels advertised by the piece.' })
+        }
+        if (edge.label) labels.add(edge.label)
+      }
     } else if (node.type === 'decider') {
       const labeled = out.some((edge) => edge.branch !== undefined)
       const validBranches = labeled
@@ -347,11 +423,14 @@ const TICKET_CMD_RE = /\{\{\s*cmd:(implement|batch|freestyle)\b/
 export function loopNeedsTicket(graph: LoopGraph | undefined): boolean {
   if (!graph) return false
   for (const node of graph.nodes) {
-    const text = [node.data?.prompt, node.data?.command, node.data?.goal]
+    if (node.type === 'core' && node.data?.kind === 'implementation') return true
+    const text = [node.data?.prompt, node.data?.command, node.data?.goal,
+      node.type === 'core' ? JSON.stringify(node.data?.params) : undefined]
       .filter((v) => typeof v === 'string')
       .join('\n')
     if (SPEC_TOKEN_RE.test(text) || TICKET_CMD_RE.test(text)) return true
   }
+  if (Object.values(graph.components ?? {}).some(component => loopNeedsTicket(component))) return true
   return false
 }
 
