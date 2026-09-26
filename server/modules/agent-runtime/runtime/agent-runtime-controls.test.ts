@@ -12,6 +12,7 @@ import { registerAgentRuntimeControlRoutes, shutdownAgentRuntimeControls } from 
 import type { ProjectContext } from '../../../project-registry'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
 import { recoverOrphanLoopStepAccounting } from '../../loops/runtime/loop-run-manager'
+import summaryContract from '../../../schemas/fixtures/runtime-efficiency-summary.v1.json'
 
 const loader = vi.hoisted(() => ({ cli: null as string | null }))
 vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: () => loader.cli }))
@@ -120,6 +121,25 @@ describe('agent runtime lifecycle', () => {
     expect(JSON.stringify(await service.summary('run-1'))).not.toContain('do not forward')
     status.mockResolvedValue(state())
     expect((await service.summary('run-1')).metrics).toBeUndefined()
+  })
+
+  it('uses the v2 run catalog for six arbitrary paths and rejects unknown nodes before execution', async () => {
+    const stepIds = ['draft', 'build', 'check', 'implement/reviewer', 'publish', 'finish']
+    const snapshot = { ...state(), engineVersion: 2, nextStep: 'implement/reviewer', pendingApproval: undefined,
+      steps: Object.fromEntries(stepIds.map(id => [id, { status: id === 'implement/reviewer' ? 'interrupted' : 'succeeded', kind: 'prompt' }])) }
+    status.mockResolvedValue(snapshot)
+    expect(await service.summary('run-1')).toMatchObject({ engineVersion: 2, nextStep: 'implement/reviewer', recoverableSteps: ['implement/reviewer'] })
+    await expect(service.resume('run-1', { recover: ['missing'] })).rejects.toMatchObject({ code: 'invalid_resume_request' })
+    expect(execute).not.toHaveBeenCalled()
+    expect(service.isActive('run-1')).toBe(false)
+    await service.resume('run-1', { recover: ['implement/reviewer'], invalidate: stepIds })
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({ recover: ['implement/reviewer'], invalidate: stepIds }))
+  })
+
+  it('keeps the legacy allowlist after syntactic HTTP validation', async () => {
+    expect(validateRuntimeResumeInput({ recover: ['custom/step'] })).toEqual({ recover: ['custom/step'] })
+    await expect(service.resume('run-1', { recover: ['custom/step'] })).rejects.toMatchObject({ code: 'invalid_resume_request' })
+    expect(execute).not.toHaveBeenCalled()
   })
   it('shows a later transport failure even if Core left its previous checkpoint unchanged', async () => {
     const { writeRuntimeHistory } = await import('./agent-runtime-history')
@@ -309,12 +329,32 @@ describe('agent runtime lifecycle', () => {
     expect(await service.summary('../escape')).toMatchObject({ status: 'unavailable' })
   })
 
-  it.each([null, [], { contextPath: '/other' }, { approve: 'archive' }, { recover: ['../other'] }, { invalidate: ['verify', 'verify'] }, { answer: '' }, { answer: '   ' }, { answer: 42 }, { answer: ['text'] }, { answer: 'x'.repeat(20_001) }])('rejects arbitrary resume inputs %j', (input) => {
+  it.each([null, [], { contextPath: '/other' }, { approve: 'archive' }, { recover: ['../other'] }, { recover: ['one//two'] }, { recover: ['a/b/c/d/e'] }, { recover: ['a/END'] }, { recover: ['a'.repeat(121)] }, { invalidate: ['verify', 'verify'] }, { answer: '' }, { answer: '   ' }, { answer: 42 }, { answer: ['text'] }, { answer: 'x'.repeat(20_001) }])('rejects arbitrary resume inputs %j', (input) => {
     expect(() => validateRuntimeResumeInput(input)).toThrow(RuntimeControlError)
   })
-  it('accepts only phase control arrays and a bounded answer', () => {
+  it('accepts safe node control arrays and a bounded answer', () => {
     expect(validateRuntimeResumeInput({ approve: ['archive'], recover: ['developer'], invalidate: ['verify'] })).toEqual({ approve: ['archive'], recover: ['developer'], invalidate: ['verify'] })
     expect(validateRuntimeResumeInput({ answer: 'x'.repeat(20_000) })).toEqual({ answer: 'x'.repeat(20_000) })
+  })
+
+  it('normalizes v2 compact status metrics and derives open roles from frozen configuration', async () => {
+    loader.cli = path.join(directory, 'status.cjs')
+    const stepIds = ['draft', 'build', 'check', 'implement/reviewer', 'publish', 'finish']
+    const total = { attempts: 1, measuredAttempts: 1, durationMs: 10, agentDurationMs: 8, providerCalls: 1, toolCalls: 2, inputTokens: 100, outputTokens: 10, costUsd: null, uncachedInputTokens: null, cacheReadInputTokens: null, cacheWriteInputTokens: null }
+    const metrics = { schemaVersion: 1, total, phases: stepIds.map(stepId => ({ ...total, stepId, providers: ['local'], models: [] })) }
+    const roleIds = ['architect', 'developer', 'reviewer', 'auditor']
+    const fixture = summaryContract.fixtures.success
+    const efficiencySummary = { ...fixture, runId: 'run-1', roles: roleIds.map(role => ({ ...fixture.roles[0], role })) }
+    fs.writeFileSync(path.join(runDirectory, 'desktop-runtime-config.json'), JSON.stringify({ agents: { architect: {}, developer: {}, reviewer: {} }, roles: { auditor: {} } }))
+    const wire = { type: 'runtime-status', engineVersion: 2, state: { runId: 'run-1', status: 'paused', nextNodePath: 'implement/reviewer', steps: Object.fromEntries(stepIds.map(id => [id, { status: 'paused', kind: 'prompt' }])) }, metrics, efficiencySummary }
+    fs.writeFileSync(loader.cli, `console.log(${JSON.stringify(JSON.stringify(wire))})`)
+    expect(await readAgentRuntimeStatus(contextPath, directory, process.env)).toMatchObject({ engineVersion: 2, nextStep: 'implement/reviewer', roleIds, metrics, efficiencySummary: { runId: 'run-1', roles: efficiencySummary.roles } })
+    fs.unlinkSync(path.join(runDirectory, 'desktop-runtime-config.json'))
+    expect((await readAgentRuntimeStatus(contextPath, directory, process.env))?.efficiencySummary).toBeUndefined()
+    for (const state of [{ ...wire.state, nextNodePath: 'unknown' }, { ...wire.state, steps: { '../escape': { status: 'paused' } } }, { ...wire.state, steps: [] }, { ...wire.state, steps: { draft: null } }]) {
+      fs.writeFileSync(loader.cli, `console.log(${JSON.stringify(JSON.stringify({ ...wire, state }))})`)
+      await expect(readAgentRuntimeStatus(contextPath, directory, process.env)).rejects.toThrow('invalid')
+    }
   })
 
   it('exposes an open architect question, requires its answer to resume and forwards the answer to Core', async () => {
@@ -383,6 +423,8 @@ describe('agent runtime lifecycle', () => {
     await request(app).post(base + '/run-1/resume').send({ cwd: '/bad' }).expect(400)
     // The fixer is a graph node of its own: an interrupted correction round is recoverable like any step.
     await request(app).post(base + '/run-1/resume').send({ recover: ['fixer'] }).expect(202)
+    await request(app).post(base + '/run-1/resume').send({ recover: ['custom/step'] }).expect(202)
+    resume.mockRejectedValueOnce(new RuntimeControlError(400, 'invalid_resume_request', 'Unknown saved workflow node'))
     await request(app).post(base + '/run-1/resume').send({ recover: ['alien'] }).expect(400)
     await request(app).post(base + '/run-1/resume').send({ answer: 'Use Redis' }).expect(202)
     expect(resume).toHaveBeenCalledWith('run-1', { answer: 'Use Redis' })

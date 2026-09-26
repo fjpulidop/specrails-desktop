@@ -48,6 +48,12 @@ new product terminology, changing legacy graph identity, premature runner deleti
 9. CI improvements must preserve coverage, platform checks and package evidence.
    Run independent jobs concurrently and cancel superseded PR runs; do not skip
    checks to make the refactor pass. Three-platform spikes gate C3.
+10. D0 validates at most four safe node-path segments (three nested components
+    and one leaf), excluding reserved node IDs, then checks run membership.
+    Empty node catalog version 0 is valid before the engine is implemented.
+    V2 status stays uncached: a legacy implementation checkpoint cannot invalidate
+    SQLite/WAL state. Historical projections have no authoritative step catalog;
+    they keep legacy validation until D2 projects the runtime graph.
 
 ## Risks / Trade-offs
 

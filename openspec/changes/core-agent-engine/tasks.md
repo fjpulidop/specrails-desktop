@@ -7,12 +7,14 @@ Initial delivery uses feat/core-engine-d0 paired with Core C0/C1 PRs.
 
 ## 1. D0 — Runtime catalog compatibility
 
-- [ ] 1.1 Parse optional engine/catalog/builtin descriptors and capability-gated CLI definition validation, including structured exit-1 errors.
-- [ ] 1.2 Normalize v2 status and validate safe resume paths against authoritative run step membership while preserving legacy behavior.
-- [ ] 1.3 Derive metrics step/role validation from run catalogs and frozen config; retain missing-value semantics and legacy fallbacks.
-- [ ] 1.4 Align compatibility metadata, retained-package tests, module README and runtime guide with inspected sources and paired C0.
-- [ ] 1.5 Run typecheck, affected runtime/compatibility suites, architecture audit, source-map generation and source-pair compatibility.
+- [x] 1.1 Parse optional engine/catalog/builtin descriptors and capability-gated CLI definition validation, including structured exit-1 errors.
+- [x] 1.2 Normalize v2 status and validate safe resume paths against authoritative run step membership while preserving legacy behavior.
+- [x] 1.3 Derive metrics step/role validation from run catalogs and frozen config; retain missing-value semantics and legacy fallbacks.
+- [x] 1.4 Align compatibility metadata, retained-package tests, module README and runtime guide with inspected sources and paired C0.
+- [x] 1.5 Run typecheck, affected runtime/compatibility suites, architecture audit, source-map generation and source-pair compatibility.
 - [ ] 1.6 Complete published-package compatibility against released C0, record evidence/date/commit and close D0 release gate.
+
+- [x] 1.7 Split independent CI coverage lanes, preserve the required aggregate and all platform/package gates, and validate workflow syntax.
 
 ## 2. D1 — Definition authoring and Core launcher (requires published C4)
 
@@ -76,4 +78,3 @@ Initial delivery uses feat/core-engine-d0 paired with Core C0/C1 PRs.
 - [ ] 10.4 Prepare reviewed deltas for existing loop specs, then remove obsolete traversal/profile paths and tests exclusive to proven-unused code.
 - [ ] 10.5 Implement retained-package/run retention and paired Core7 compatibility.
 - [ ] 10.6 Run full CI, source and architecture audits; update Core/Desktop/Web documentation and companion contract.
-

@@ -17,6 +17,7 @@ import {
   detectCLI,
   detectCLISync,
   getCLIStatus,
+  EXPECTED_CORE_CONTRACT_SCHEMA_VERSION,
 } from './core-compat'
 import { execSync } from 'child_process'
 
@@ -151,6 +152,14 @@ describe('checkCoreCompat', () => {
     const result = await checkCoreCompat()
     expect(result.compatible).toBe(true)
     expect(result.supportedProviders).toEqual(['claude', 'codex', 'gemini', 'kimi'])
+  })
+
+  it('keeps schema 5.1 engine metadata informational and preserves the Desktop command surface', async () => {
+    expect(EXPECTED_CORE_CONTRACT_SCHEMA_VERSION).toBe('5.1')
+    setupContractInTmpDir({ ...COMPATIBLE_CONTRACT, schemaVersion: '5.1', coreVersion: '6.0.1',
+      agentRuntime: { engine: { version: 2, nodeKindsVersion: 0 }, nodeKinds: [], builtins: [{ id: 'specrails-implementation', version: '7', deprecated: false }] },
+    }, tmpDir)
+    expect(await checkCoreCompat()).toMatchObject({ compatible: true, contractSchemaVersion: '5.1', missingCommands: [], extraCommands: [] })
   })
 
   it('rejects empty or runner-less Kimi provider declarations', async () => {

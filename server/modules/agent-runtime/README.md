@@ -25,6 +25,21 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/agent-runtime` and any affected consumers.
 
+## Runtime catalog compatibility
+
+The CLI loader accepts optional engine, node kind and builtin descriptors while
+retaining API 1 compatibility. `validateWorkflowDefinition` is capability-gated;
+Core owns definition validation and hashing, including structured validation
+errors returned with exit 1. Catalog metadata alone never enables execution.
+
+Compact v2 status supplies the run's step catalog and `nextNodePath`, normalized
+to existing Desktop controls. Resume first validates safe node paths, then exact
+membership in the saved run. Metrics use those steps and role IDs from the frozen
+runtime configuration. Legacy runs retain their six phases and three-role
+summary validation. Historical projections without an authoritative catalog keep
+the legacy fallback until D2 supplies the graph projection. SQLite status stays
+uncached because a legacy journal cannot represent its WAL revision.
+
 ## Recovery diagnosis
 
 `GET /agent-runtime/runs/:runId/diagnosis` is a read-only assessment of the

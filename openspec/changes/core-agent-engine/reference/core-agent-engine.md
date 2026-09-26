@@ -391,6 +391,10 @@ Se ejecuta en CI sobre grafos de piezas simuladas y, desde C4, sobre las definic
 - El contrato técnico fija concurrencia máxima 8 frente a la sugerencia 4 del plan; prevalece el contrato. No se anuncia engineV2 antes de implementarlo.
 - Los originales adjuntos se conservan en reference/. Core mantiene contracts.md como contrato vivo; las correcciones quedan explícitas aquí y en el diseño.
 - Web tiene trabajo sin seguimiento preexistente; se preserva y no se incorpora a las PRs de esta iniciativa.
+- D0 acota rutas a cuatro segmentos seguros (tres componentes y un nodo), excluye IDs reservados y comprueba pertenencia al run. `nodeKindsVersion: 0` representa el catálogo vacío previo al motor.
+- La proyección histórica actual no contiene un catálogo de pasos autoritativo: mantiene validación legado hasta la proyección de `runtime-graph` de D2. El status v2 no usa la caché del checkpoint legado porque no refleja cambios del WAL de SQLite.
+- C0 clasifica `help` como `agentRuntime.cliPresentationOperations: ['help']`; las operaciones JSON de máquina incluyen `evaluate`. No se cambia la superficie de comandos de Desktop.
+- CI conserva ejecución en todos los pushes (la validación de release depende del push de rama confiable); separa quality/server/client en paralelo y reúne sus resultados bajo el check obligatorio `test`, sin rebajar cobertura ni omitir gates.
 
 ## 15. Cómo retomar este plan más adelante
 

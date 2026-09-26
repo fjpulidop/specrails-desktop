@@ -86,6 +86,53 @@ it('loads the prompt catalog from the selected Core CLI', async () => {
   expect((await loadCoreAgentRuntime()).rolePromptDefaults()).toEqual({ architect: 'Plan', developer: 'Implement', reviewer: 'Review' })
 })
 
+it('accepts additive engine descriptors and validates definitions through the selected Core', async () => {
+  const entry = file('engine/index.js')
+  vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', entry)
+  const descriptors = { engineVersion: 2, nodeKindsVersion: 1, nodeKinds: ['prompt', 'end'], builtins: [{ id: 'specrails-implementation', version: '7', deprecated: false }], capabilities: { workflowDefinitions: 1, engineV2: 1, openRoles: 1, fanOut: 1, fork: 1, steeringInbox: 1 } }
+  file('engine/cli.js', `if(process.argv[2]==='api')console.log(JSON.stringify({type:'runtime-api',apiVersion:1,...${JSON.stringify(descriptors)}}));else{if(process.argv.slice(2).join(' ')!=='workflows validate --stdin')process.exit(3);const input=JSON.parse(require('node:fs').readFileSync(0,'utf8'));console.log(JSON.stringify({type:'runtime-definition-validated',ok:true,version:'a'.repeat(64),graph:{nodes:[input],edges:[]}}))}`)
+  const runtime = await loadCoreAgentRuntime()
+  expect(runtime.api).toMatchObject(descriptors)
+  expect(runtime.validateWorkflowDefinition!({ id: 'sample' })).toEqual({ ok: true, version: 'a'.repeat(64), graph: { nodes: [{ id: 'sample' }], edges: [] } })
+})
+
+it('returns structured definition errors from exit 1 and does not hide process failures', async () => {
+  const entry = file('engine/index.js')
+  vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', entry)
+  const errors = [{ code: 'piece_unknown', nodeId: 'custom', path: '/nodes/custom/kind', message: 'Unknown piece' }]
+  const cli = file('engine/cli.js', `if(process.argv[2]==='api')console.log(JSON.stringify({type:'runtime-api',apiVersion:1,capabilities:{workflowDefinitions:1}}));else{console.log(JSON.stringify({type:'runtime-definition-validated',ok:false,errors:${JSON.stringify(errors)}}));process.exit(1)}`)
+  expect((await loadCoreAgentRuntime()).validateWorkflowDefinition!({})).toEqual({ ok: false, errors })
+  for (const output of [{ type: 'runtime-definition-validated', ok: false, errors: [{ code: 4 }] }, { type: 'runtime-result', error: 'crashed' }, { type: 'runtime-definition-validated', ok: true, version: 'a'.repeat(64), graph: { nodes: [], edges: [] } }]) {
+    writeFileSync(cli, `if(process.argv[2]==='api')console.log(JSON.stringify({type:'runtime-api',apiVersion:1,capabilities:{workflowDefinitions:1}}));else{console.log(${JSON.stringify(JSON.stringify(output))});process.exit(1)}`)
+    const runtime = await loadCoreAgentRuntime()
+    expect(() => runtime.validateWorkflowDefinition!({})).toThrow()
+  }
+})
+
+it('requires the definition capability before invoking an old Core', async () => {
+  vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', file('engine/index.js'))
+  file('engine/cli.js', `if(process.argv[2]!=='api')throw Error('unexpected command');console.log(JSON.stringify({type:'runtime-api',apiVersion:1}))`)
+  const runtime = await loadCoreAgentRuntime()
+  expect(() => runtime.validateWorkflowDefinition!({})).toThrow('Installed Core does not support workflow definitions')
+})
+
+it('accepts an empty version-zero catalog before engine rollout', async () => {
+  vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', file('engine/index.js'))
+  file('engine/cli.js', `console.log(JSON.stringify({type:'runtime-api',apiVersion:1,nodeKindsVersion:0,nodeKinds:[],builtins:[]}))`)
+  expect((await loadCoreAgentRuntime()).api).toMatchObject({ nodeKindsVersion: 0, nodeKinds: [] })
+})
+
+it.each([
+  { engineVersion: 0 }, { engineVersion: '2' }, { nodeKindsVersion: 1.5 },
+  { nodeKinds: 'prompt' }, { nodeKinds: ['prompt', 'prompt'] }, { nodeKinds: [42] },
+  { builtins: [{}] }, { builtins: [{ id: 'builtin', version: '7', deprecated: 'false' }] },
+  { capabilities: { engineV2: false } },
+])('rejects malformed advertised engine metadata %j', async fields => {
+  vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', file('engine/index.js'))
+  file('engine/cli.js', `console.log(${JSON.stringify(JSON.stringify({ type: 'runtime-api', apiVersion: 1, ...fields }))})`)
+  await expect(loadCoreAgentRuntime()).rejects.toThrow('malformed')
+})
+
 it('rejects unsupported feature requests on old API1 and validates exact role capability responses', async () => {
   const { requireRuntimeCapabilities, validateRoleCapabilities, validateRequestedRoleEfforts } = await import('./agent-runtime-loader')
   const config = { agents: { architect: { provider: 'p', model: 'a' }, developer: { provider: 'p', model: 'd', effort: 'medium' }, reviewer: { provider: 'p', model: 'r' } }, verification: [] }
@@ -95,5 +142,5 @@ it('rejects unsupported feature requests on old API1 and validates exact role ca
   expect(() => validateRoleCapabilities(result, config)).not.toThrow()
   expect(() => validateRoleCapabilities({ ...result, roles: [...roles.slice(0, 2), roles[1]] }, config)).toThrow('malformed')
   expect(() => validateRoleCapabilities({ ...result, roles: roles.map(role => ({ ...role, model: 'different' })) }, config)).toThrow('malformed')
-  expect(() => validateRequestedRoleEfforts({ RUNTIME_API_VERSION: 1, capabilities: () => result, rolePromptDefaults: () => ({ architect: '', developer: '', reviewer: '' }), validateRuntimeConfig: value => value }, config)).toThrow('not confirmed')
+  expect(() => validateRequestedRoleEfforts({ RUNTIME_API_VERSION: 1, capabilities: () => result, rolePromptDefaults: () => ({ architect: '', developer: '', reviewer: '' }), validateRuntimeConfig: value => value, validateWorkflowDefinition: () => { throw Error('unsupported') } }, config)).toThrow('not confirmed')
 })

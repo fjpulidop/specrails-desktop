@@ -8,6 +8,9 @@ import { getCoreRuntimeStatus } from './core-runtime'
 // Windows has no `which`; probe PATH via `where` instead.
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
+/** Paired development target; older supported contracts remain compatible. */
+export const EXPECTED_CORE_CONTRACT_SCHEMA_VERSION = '5.1'
+
 // These must mirror KNOWN_VERBS in cli/specrails-desktop.ts
 const DESKTOP_KNOWN_COMMANDS = new Set([
   'implement',
@@ -21,6 +24,8 @@ const DESKTOP_KNOWN_COMMANDS = new Set([
 //       object (key â description); `commands` field dropped from the contract
 // v4.0: deterministic init/update lifecycle, provider workflows and local runtime;
 //       removed enrichment is no longer required to prove provider support.
+// v5.1: additive engine, nodeKinds and builtins descriptors are informational;
+//       execution features are gated by runtime api capabilities.
 interface IntegrationContract {
   schemaVersion: string
   lifecycle?: { mode?: string; requiresEnrich?: boolean }

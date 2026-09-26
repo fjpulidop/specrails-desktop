@@ -13,7 +13,7 @@
  *   npm run check-core-compat
  */
 
-import { checkCoreCompat } from '../server/core-compat'
+import { checkCoreCompat, EXPECTED_CORE_CONTRACT_SCHEMA_VERSION } from '../server/core-compat'
 
 async function main(): Promise<void> {
   const result = await checkCoreCompat()
@@ -26,6 +26,7 @@ async function main(): Promise<void> {
   console.log(
     `[check-core-compat] specrails-core@${result.coreVersion} vs specrails-desktop@${result.desktopVersion}`
   )
+  console.log(`[check-core-compat] contract ${result.contractSchemaVersion ?? 'unknown'} (paired target ${EXPECTED_CORE_CONTRACT_SCHEMA_VERSION})`)
 
   let hasErrors = false
 
