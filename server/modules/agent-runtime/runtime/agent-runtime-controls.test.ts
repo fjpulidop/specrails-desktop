@@ -72,6 +72,34 @@ describe('agent runtime lifecycle', () => {
     expect(execute).not.toHaveBeenCalled()
   })
 
+  it.each([0, 1])('fences steering and resume controls while fork adoption is %i', async adopted => {
+    db.prepare("UPDATE loop_runs SET engine_version=2,status='paused' WHERE id='run-1'").run()
+    db.prepare('INSERT INTO definition_fork_operations (project_id,source_run_id,request_id,child_run_id,request_json,adopted) VALUES (?,?,?,?,?,?)')
+      .run('p1', 'run-1', 'fork-request', 'child-1', '{}', adopted)
+    status.mockResolvedValue({ ...state(), engineVersion: 2, lease: null })
+    const control = vi.fn()
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, control })
+    await expect(service.signal('run-1', { text: 'Steer', requestId: 'op-1' })).rejects.toMatchObject({ statusCode: 409, code: 'runtime_fork_pending' })
+    expect(status).not.toHaveBeenCalled()
+    expect(control).not.toHaveBeenCalled()
+    const summary = await service.summary('run-1')
+    expect(summary).toMatchObject({ canResume: false, canCancel: false, canSettle: false, recoverableSteps: [] })
+    expect(summary.pendingApproval).toBeUndefined()
+    expect(summary.forkSuccessor).toBe(adopted ? 'child-1' : undefined)
+  })
+
+  it('rechecks fork ownership after asynchronous status inspection', async () => {
+    const control = vi.fn()
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, control })
+    status.mockImplementationOnce(async () => {
+      db.prepare('INSERT INTO definition_fork_operations (project_id,source_run_id,request_id,child_run_id,request_json) VALUES (?,?,?,?,?)')
+        .run('p1', 'run-1', 'fork-request', 'child-1', '{}')
+      return { ...state(), engineVersion: 2 }
+    })
+    await expect(service.signal('run-1', { text: 'Steer', requestId: 'op-1' })).rejects.toMatchObject({ code: 'runtime_fork_pending' })
+    expect(control).not.toHaveBeenCalled()
+  })
+
   it('projects validated durable steering receipts without inventing consumption for older runtimes', () => {
     expect(readRuntimeSteering(undefined)).toBeUndefined()
     const receipt = { id: 'op', acceptedAt: '2026-09-26T19:00:00Z', preview: 'Hello', length: 5, status: 'pending' }

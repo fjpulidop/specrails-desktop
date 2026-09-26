@@ -12,7 +12,7 @@ import { RUNTIME_HOST_ENV_KEYS, runAgentRuntimeInvocation, runAgentRuntimeContro
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import { resolveLoopBaseEnv, resolveProjectExecution } from '../../../workspace-resolution'
-import { getLoopRun, readLoopJobUsage, stageLoopStepRecovery, setLoopStepSettledResult, updateLoopStepActivityCheckpoint, readDefinitionSuccessor } from '../../loops/runtime/loop-runs-store'
+import { getLoopRun, readLoopJobUsage, stageLoopStepRecovery, setLoopStepSettledResult, updateLoopStepActivityCheckpoint, readDefinitionSuccessor, readDefinitionForkTarget } from '../../loops/runtime/loop-runs-store'
 import { readExecutionManifest } from '../../delivery/runtime/multi-repo-execution-store'
 import { appendEvent } from '../../../db'
 import { recoverOrphanLoopStepAccounting } from '../../loops/runtime/loop-run-manager'
@@ -225,7 +225,9 @@ export class AgentRuntimeControls {
     const body = input as { text?: unknown; requestId?: unknown } | null
     if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => !['text', 'requestId'].includes(key)) || typeof body.text !== 'string' || !body.text.trim() || body.text.length > STEERING_TEXT_LIMIT || typeof body.requestId !== 'string' || !STEERING_REQUEST_ID.test(body.requestId)) throw new RuntimeControlError(400, 'invalid_steering_request', 'Steering requires text of 1–20,000 characters and a stable requestId')
     const { file, cwd, env } = this.context(runId)
+    this.assertSteeringOwner(runId)
     const state = await this.dependencies.status(file, cwd, env)
+    this.assertSteeringOwner(runId)
     if (!state || state.runId !== runId || state.engineVersion !== 2) throw new RuntimeControlError(409, 'steering_unsupported', 'This retained run does not support engine v2 steering')
     try {
       const accepted = await (this.dependencies.control ?? runAgentRuntimeControl)({ kind: 'signal', contextPath: file, cwd, env, runId, text: body.text, requestId: body.requestId })
@@ -235,6 +237,12 @@ export class AgentRuntimeControls {
       const message = error instanceof Error ? error.message : 'Could not send operator steering'
       const code = /^(control_conflict|run_terminal|inbox_full|invalid_arguments):/.exec(message)?.[1]
       throw new RuntimeControlError(code === 'invalid_arguments' ? 400 : code ? 409 : 503, code ?? 'runtime_steering_failed', message)
+    }
+  }
+
+  private assertSteeringOwner(runId: string): void {
+    if (readDefinitionForkTarget(this.ctx.db, runId)) {
+      throw new RuntimeControlError(409, 'runtime_fork_pending', 'This run has a pending or adopted fork; send steering to the child after adoption')
     }
   }
 
@@ -386,6 +394,7 @@ export class AgentRuntimeControls {
       const parent = getLoopRun(this.ctx.db, runId)
       const definition = state.engineVersion === 2 && parent?.engine_version === 2
       const forkSuccessor = definition ? readDefinitionSuccessor(this.ctx.db, runId) : undefined
+      const forkReserved = definition && !!readDefinitionForkTarget(this.ctx.db, runId)
       const active = definition ? state.lease?.active === true : this.active.has(runId) || parent?.status === 'running' || parent?.status === 'paused'
       let projection: ReturnType<typeof readRuntimeHistory> = null
       try { projection = readRuntimeHistory(file) } catch { /* Invalid advisory history cannot replace live state. */ }
@@ -393,13 +402,13 @@ export class AgentRuntimeControls {
       const recoverableSteps = state.engineVersion === 2 ? (state.recoverableSteps ?? []).map(step => step.attemptId) : Object.entries(state.steps).filter(([, step]) => ['running', 'interrupted'].includes(step.status)).map(([id]) => id)
       const catalog = metricsCatalogFor(state)
       return { runId, engineVersion: state.engineVersion, status: superseding ? (superseding.status === 'running' ? 'interrupted' : superseding.status) : state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
-        updatedAt: superseding?.updatedAt ?? state.updatedAt, error: this.errors.get(runId) ?? superseding?.error ?? state.error, pendingApproval: forkSuccessor ? undefined : state.pendingApproval,
-        traceId: state.traceId, pendingQuestion: forkSuccessor ? undefined : openQuestion(state), steering: state.steering, completion: state.completion, ...(forkSuccessor ? { forkSuccessor } : {}),
+        updatedAt: superseding?.updatedAt ?? state.updatedAt, error: this.errors.get(runId) ?? superseding?.error ?? state.error, pendingApproval: forkReserved ? undefined : state.pendingApproval,
+        traceId: state.traceId, pendingQuestion: forkReserved ? undefined : openQuestion(state), steering: state.steering, completion: state.completion, ...(forkSuccessor ? { forkSuccessor } : {}),
         metrics: readRuntimeEfficiency(superseding ? superseding.metrics : state.metrics, catalog), efficiencySummary: readRuntimeEfficiencySummary(superseding ? superseding.efficiencySummary : state.efficiencySummary, catalog),
-        canSettle: forkSuccessor ? false : definition
+        canSettle: forkReserved ? false : definition
           ? !active && parent.status === 'completed' && state.status === 'succeeded' && !!this.ctx.db.prepare(`SELECT 1 FROM definition_delivery_settlements s JOIN rail_pr_deliveries d ON d.id=s.delivery_id WHERE s.project_id=? AND s.run_id=? AND d.decision IN ('building','pr_failed','implementation_failed') LIMIT 1`).get(this.ctx.project.id, runId)
           : !superseding && !active && state.status === 'succeeded' && (this.ctx.db.prepare('SELECT status FROM jobs WHERE id = ?').get(runId) as { status?: string } | undefined)?.status !== 'completed',
-        recoverableSteps: forkSuccessor ? [] : recoverableSteps, ...(state.engineVersion === 2 ? { recoveryAttempts: forkSuccessor ? [] : state.recoverableSteps ?? [] } : {}), active, canCancel: !forkSuccessor && (definition ? !state.completion && !['succeeded', 'cancelled'].includes(state.status) : this.active.has(runId)), canResume: !forkSuccessor && (state.engineVersion === 2 ? definition && !active && parent.status !== 'completed' && state.status !== 'cancelled' : !active && parent?.status === 'completed' && state.status !== 'succeeded'),
+        recoverableSteps: forkReserved ? [] : recoverableSteps, ...(state.engineVersion === 2 ? { recoveryAttempts: forkReserved ? [] : state.recoverableSteps ?? [] } : {}), active, canCancel: !forkReserved && (definition ? !state.completion && !['succeeded', 'cancelled'].includes(state.status) : this.active.has(runId)), canResume: !forkReserved && (state.engineVersion === 2 ? definition && !active && parent.status !== 'completed' && state.status !== 'cancelled' : !active && parent?.status === 'completed' && state.status !== 'succeeded'),
         canDismiss: !active, dismissed: this.isDismissed(runId) }
     } catch (error) {
       try {

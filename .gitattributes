@@ -1,0 +1,2 @@
+# This vendored contract must remain byte-identical to the published Core schema.
+/server/schemas/workflow-definition.schema.json text eol=lf

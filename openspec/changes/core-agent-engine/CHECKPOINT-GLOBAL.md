@@ -1,5 +1,19 @@
 # Checkpoint — 26 September 2026
 
+## Fork steering and Windows schema parity — 27 September 2026, 00:48 CEST
+
+- Pending/adopted fork operations now fence operator steering both before and
+  after asynchronous Core status inspection. Original-run recovery controls are
+  disabled during pending adoption, without linking to a child not yet adopted.
+  Runtime control regressions passed 53 tests; full typecheck passed.
+- Paired CI 36277021706 passed Linux/macOS. Windows passed 17 functional cases
+  and failed only vendored-schema byte parity: Desktop checkout used CRLF while
+  Core enforces LF. A focused `.gitattributes` entry preserves the actual contract
+  bytes; the parity assertion stays strict. Remote verification of this fix is pending.
+- Core full local `npm run ci` passed: 99 suites, 1,223 tests, one platform skip;
+  coverage 87.95% statements, 80% branches, 93.24% functions, 94.04% lines.
+  Installed-package validation includes engine v2 run, resume and fork.
+
 ## Recovery admission and paired CI — 27 September 2026, 00:41 CEST
 
 - Snapshot persistence now sits inside locked allocation's error boundary. A
