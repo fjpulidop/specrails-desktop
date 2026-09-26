@@ -82,3 +82,8 @@ C1 determines SQLite binding, subgraph API limits and after-commit event deliver
 Store permissions and state patch semantics must be resolved in contracts before
 those later blocks. Default map concurrency is 1; the contract allows up to 8
 (the plan's suggested 4 is stale). No production v2 capability is advertised early.
+
+
+## Release frontend retention and measured CI (2026-09-26)
+
+Native releases prepare one shared frontend after exact-source push CI admission. Retained CI assets must pass complete source/lock/content verification. Only an authenticated inventory showing absence or expiration permits a single source rebuild; API errors, conflicting identities and corrupt bytes fail. Every platform consumes the same verified result. CI run 36230773446 passed the complete sharded coverage gates; 2m12s–3m24s shard execution plus 37s aggregation reduced per-runner work, while runner queueing increased observed wall time to 22m52s. Both measures remain visible; no total-time improvement is claimed from that loaded sample.

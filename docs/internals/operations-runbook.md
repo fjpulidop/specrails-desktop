@@ -226,3 +226,6 @@ Before this split, CI run [36225340897](https://github.com/fjpulidop/specrails-d
 spent 18m40s in the sequential `test` job, including 6m13s server coverage and
 10m11s client coverage. The split removes that serial dependency; actual runtime
 and runner-minute changes must be measured from subsequent runs.
+
+
+CI partitioning and reuse of verified frontend assets are described in [CI performance](ci-performance.md).
