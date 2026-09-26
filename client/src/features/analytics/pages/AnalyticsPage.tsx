@@ -19,6 +19,7 @@ import { ModelBreakdown } from '../components/ModelBreakdown'
 import { CostScatter } from '../components/CostScatter'
 import { TopTicketsCrossSurface } from '../components/TopTicketsCrossSurface'
 import { InvocationsTable } from '../components/InvocationsTable'
+import { LegacyWorkflowUsage } from '../components/LegacyWorkflowUsage'
 
 const PERIODS: { value: Period; labelKey: string }[] = [
   { value: '7d', labelKey: 'periods.d7' },
@@ -422,6 +423,7 @@ export default function AnalyticsPage() {
 
       {/* Block 1: Hero */}
       <SpendingHero data={data} loading={loading} period={filters.period} />
+      {activeProjectId && <LegacyWorkflowUsage projectId={activeProjectId} />}
 
       {/* Block 1b: Provider breakdown (renders only on multi-provider projects) */}
       <ProviderBreakdownCard data={data} loading={loading} />

@@ -105,6 +105,60 @@ jobs:
           server/agent-runtime-integration.test.ts
           server/loop-runtime-accounting.test.ts
 
+  # Pinned integration evidence: these tests must not silently skip because a
+  # runner lacks a Core checkout. Advance the pin only with paired acceptance.
+  paired-core-engine:
+    name: Paired Core engine (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      SPECRAILS_CORE_SOURCE_DIR: ${{ github.workspace }}/.paired/core
+      SPECRAILS_EFFICIENCY_CORE_ROOT: ${{ github.workspace }}/.paired/core
+      SPECRAILS_CORE_BIN: ${{ github.workspace }}/.paired/core/bin/specrails-core.mjs
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          repository: fjpulidop/specrails-core
+          ref: 06d563c5feb62abd85d7340e5022d206a186d1ae
+          path: .paired/core
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            .paired/core/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix .paired/core
+      - run: npm run build --prefix .paired/core
+      - run: npm run check-core-compat
+      - name: Verify real CLI authoring, roles, factories, fork and settlement
+        run: >-
+          npx vitest run --maxWorkers=1 --reporter=default --reporter=junit
+          --outputFile.junit=paired-core-results.xml
+          server/modules/loops/runtime/loop-definition-schema.test.ts
+          server/modules/loops/runtime/loop-core-factory.test.ts
+          server/modules/loops/runtime/loop-definition-recovery.test.ts
+          server/modules/loops/runtime/loop-factory-paired.test.ts
+          server/modules/agent-runtime/runtime/agent-studio-paired.test.ts
+          server/modules/delivery/runtime/definition-fork-paired.test.ts
+      - name: Retain paired acceptance results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: paired-core-${{ matrix.os }}
+          path: paired-core-results.xml
+          if-no-files-found: error
+          retention-days: 14
+
   # These fixtures use local/in-memory pages and temporary native profiles.
   # They do not start a sidecar, read a user database or call an AI provider.
   native-macos:
@@ -304,7 +358,7 @@ jobs:
   # must never turn the aggregate green, including on merge queue runs.
   test:
     if: always()
-    needs: [quality, server-coverage, client-coverage, workflow-lint, secret-scan, bundled-core-windows, agent-runtime-portability, native-macos]
+    needs: [quality, server-coverage, client-coverage, workflow-lint, secret-scan, bundled-core-windows, agent-runtime-portability, paired-core-engine, native-macos]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

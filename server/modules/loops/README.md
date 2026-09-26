@@ -10,6 +10,8 @@ Run-scoped observations are idempotent; timestamps are normalized to UTC.
 returns per-kind counts and the latest observation. Invalid windows return 400;
 unavailable storage returns 503 rather than a fabricated zero. These are local
 observations, not proof that two published releases have zero legacy usage.
+Project Analytics displays these all-time counters with explicit refresh. Raw
+Codex `$skill` commands are counted alongside slash commands at spawn admission.
 
 This module owns the loops capability and its adjacent regression tests.
 Runtime files contain effectful coordination and adapters. Domain/application

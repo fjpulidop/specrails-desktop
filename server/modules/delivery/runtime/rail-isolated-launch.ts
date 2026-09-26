@@ -1356,6 +1356,17 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         throw err
       }
     }
+    // Durable admission is part of allocation: if any snapshot cannot commit,
+    // roll back the entire batch before releasing the repository lock or
+    // starting Core. The same ownership-aware cleanup handles that failure.
+    if (prDeliveryId && isDefinitionGraph(loopGraph)) ctx.db.transaction(() => {
+      for (const run of allocated) saveIsolatedSettlementSnapshot(ctx.db, {
+        version: 1, projectId: ctx.project.id, deliveryId: prDeliveryId!, baseRepo,
+        overlaySourceRoot, overlayFallbackRoots, overlayProviderDir, overlayInstructions,
+        commitMessage: worktreeCommitMessage(ctx, run.ticketId, run.runId),
+        partialCommitMessage: worktreeCommitMessage(ctx, run.ticketId, run.runId, true), run,
+      })
+    })()
   } catch (err) {
     for (const a of allocated) {
       if (a.worktreeOwnership === 'created') {
@@ -1454,17 +1465,6 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     hasRuntimeRequest: runId => hasAgentRuntimeRequest(input.runtimeStateProject ?? ctx.project, runId),
     commitMessage: (run, partial) => worktreeCommitMessage(ctx, run.ticketId, run.runId, partial),
   })
-
-  // Persist every unit before starting any Core process: a crash during fan-out
-  // leaves enough ownership information to continue the original generation.
-  if (prDeliveryId && isDefinitionGraph(loopGraph)) ctx.db.transaction(() => {
-    for (const run of allocated) saveIsolatedSettlementSnapshot(ctx.db, {
-      version: 1, projectId: ctx.project.id, deliveryId: prDeliveryId!, baseRepo,
-      overlaySourceRoot, overlayFallbackRoots, overlayProviderDir, overlayInstructions,
-      commitMessage: worktreeCommitMessage(ctx, run.ticketId, run.runId),
-      partialCommitMessage: worktreeCommitMessage(ctx, run.ticketId, run.runId, true), run,
-    })
-  })()
 
   const runPromises: Promise<SettledRun>[] = []
   for (const a of allocated) {

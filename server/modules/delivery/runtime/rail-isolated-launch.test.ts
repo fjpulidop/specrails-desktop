@@ -21,6 +21,7 @@ import type { ProjectContext } from '../../../project-registry'
 import { __resetFetchOriginCache } from '../../../integration-branch'
 import { PR_NEVER_STAGE_PATHSPEC_ROOTS } from '../../../worktree-manager'
 import { recoveryRefForDelivery } from './rail-pr-recovery-git'
+import { coreFactoryGraph } from '../../loops/runtime/loop-core-factory'
 
 // The legacy merge-back must never spawn real executors from a test settle —
 // stub it (PR-mode tests assert it is NOT called; the kill-switch-off pin
@@ -683,6 +684,26 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
 
     expect(getActivePrDeliveryByRail(db, 0)).toBeUndefined() // no orphan 'building' row
     expect(prStates(broadcast).map((m) => m.decision)).toEqual(['building', 'discarded'])
+  })
+
+  it('rolls back the full snapshot batch before spawning Core and preserves preexisting mounts', async () => {
+    const { ctx, db, run } = fakeCtx()
+    db.exec(`CREATE TRIGGER fail_second_snapshot BEFORE INSERT ON definition_delivery_settlements
+      WHEN (SELECT COUNT(*) FROM definition_delivery_settlements) = 1
+      BEGIN SELECT RAISE(ABORT, 'snapshot admission failed'); END`)
+    const create = vi.fn(async (_git: unknown, options: { ticketId: number; branch: string }) => ({
+      branch: options.branch, worktreePath: `/wt/ticket-${options.ticketId}`,
+      worktreeCreated: options.ticketId === 1, branchCreated: options.ticketId === 1,
+    }))
+    const remove = vi.fn(async () => {})
+    await expect(launchIsolatedRail({ ...input([1, 2], ctx), loopGraph: coreFactoryGraph('implement') }, { ...okIo(create), remove }))
+      .rejects.toThrow('snapshot admission failed')
+    expect(run).not.toHaveBeenCalled()
+    expect(db.prepare('SELECT COUNT(*) AS n FROM definition_delivery_settlements').get()).toEqual({ n: 0 })
+    expect(getActivePrDeliveryByRail(db, 0)).toBeUndefined()
+    expect(listRailWorktrees(db, 0).map(row => row.merge_state)).toEqual(['failed', 'failed'])
+    expect(remove).toHaveBeenCalledTimes(1)
+    expect(remove).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ worktreePath: '/wt/ticket-1', deleteBranch: true }))
   })
 
   it('always closes the building row on allocation failure; no shared-cwd continuation handoff remains', async () => {

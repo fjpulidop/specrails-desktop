@@ -132,4 +132,4 @@ it.skipIf(!pairedCore || !existsSync(path.join(pairedCore, 'dist/agent-runtime/c
   expect(receipt).toMatchObject({ kind: 'cancel', requestId: 'cancel-probe', accepted: { requestId: 'cancel-probe' } })
   expect((await runAgentRuntimeControl({ ...controls, kind: 'cancel', requestId: 'cancel-probe' })).accepted).toEqual(receipt.accepted)
   expect(await probeDefinitionRun(ctx(), 'run')).toMatchObject({ status: 'cancelled', resumable: false, lease: null })
-})
+}, process.platform === 'win32' ? 180_000 : 120_000)

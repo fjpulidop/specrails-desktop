@@ -178,3 +178,12 @@ For the cross-project view, open **Analytics** from the Arc sidebar on the left.
 - [Using Codex](codex.md) — how cost works when you run a project on Codex (estimated, ~ tilde).
 - [Using Gemini](gemini.md) — how cost works when you run a project on Gemini (also estimated, ~ tilde).
 - [Using Kimi](kimi.md) — why Kimi duration/outcome are recorded while tokens and cost remain unavailable.
+
+## Legacy workflow usage
+
+Project Analytics also shows recorded uses of classic loops, queued native
+commands and local merge-back. This card covers all recorded history for the
+project and is independent of spending filters. Refresh its counters to inspect
+recent use; unavailable storage is shown as unavailable, never zero. A zero count
+alone does not prove the two-release observation period required before retiring
+legacy compatibility. These counts are execution observations, not billed costs.

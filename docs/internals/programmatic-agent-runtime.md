@@ -278,3 +278,12 @@ execution. The generated descriptor and selection origin are frozen per run,
 without modifying the project config. The config endpoint exposes available
 workflow defaults separately for builder choices. Native implementation's
 reviewer still requires its original OpenSpec workflow.
+
+### Paired engine CI
+
+The required `paired-core-engine` matrix builds the commit-pinned Core checkout
+on Linux, macOS and Windows and exports both source-root variables. It checks
+schema parity, four factories, custom-role read-only CLI arguments, durable
+fork/control recovery and two-repository settlement. Transport fixtures make no
+paid provider calls. Review and advance the Core pin with paired changes; ordinary
+coverage lanes may omit optional source fixtures, but the required matrix cannot.

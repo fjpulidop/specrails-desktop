@@ -18,9 +18,10 @@ import type { DbInstance } from '../../../db'
 export const LEGACY_LAUNCH_KINDS = ['legacy_loop_traversal', 'queue_manager_slash', 'merge_back'] as const
 export type LegacyLaunchKind = (typeof LEGACY_LAUNCH_KINDS)[number]
 
-/** Raw queue prompts support both /implement and /specrails:implement. */
+/** Raw queue prompts support slash commands and Codex's $skill spelling. */
 export function isLegacySlashCommand(command: string): boolean {
-  return /^\s*\/(?:[a-z0-9-]+:)?[a-z][a-z0-9-]*(?=\s|$)/i.test(command)
+  return /^\s*\/(?:[a-z0-9-]+:)?[a-z][a-z0-9-]*(?=\s|$)/i.test(command) ||
+    /^\s*\$[a-z][a-z0-9-]*(?=\s|$)/.test(command)
 }
 
 export interface LegacyLaunchEvent {

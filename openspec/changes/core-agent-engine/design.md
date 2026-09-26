@@ -166,3 +166,31 @@ rebuild. Force-deploy now bypasses release-please as advertised. Only main can
 release/deploy, stale main revisions are rejected, FTP execution is serialized,
 and write permissions are confined to release metadata. This is implementation
 in a draft PR, not authorization to release or evidence of deployed behavior.
+
+### D8 observed legacy usage
+
+Project analytics exposes the existing append-only legacy launch counters in a
+separate all-time card. Counts reflect recorded events only; zero is not evidence
+of two zero-usage releases. Project changes preserve per-project cached snapshots
+while aborting/ignoring late requests. Failed or malformed responses are shown as
+unavailable rather than fabricated zeros. This prepares retirement evidence but
+does not authorize removing the legacy engine or running a release.
+
+### Isolated admission persistence failure
+
+Persist the complete settlement snapshot batch inside repository allocation's
+lock and error boundary, before any Core process starts. A failed insert rolls
+back every snapshot, closes/restores the delivery generation and removes only
+worktrees allocated by this launch. Borrowed/preexisting mounts remain intact.
+This closes a gap where persistence failure escaped after allocation cleanup.
+
+### Cross-platform paired acceptance
+
+A required CI matrix installs Desktop and a commit-pinned Core on Linux, macOS
+and Windows. It builds Core and explicitly exports both source roots, preventing
+paired tests from silently skipping. The matrix exercises schema parity, all
+factories, Studio permissions, durable fork/control recovery and two-repository
+Git settlement. Provider transport is deterministic and offline. The long CLI
+recovery scenario receives an explicit whole-scenario timeout (120s POSIX/180s
+Windows); individual subprocess limits remain unchanged. Ordinary unit-test
+coverage and the existing required aggregate remain mandatory.

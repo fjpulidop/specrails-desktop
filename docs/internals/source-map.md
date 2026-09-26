@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 968 source/build files. Nearby tests are linked where names
+Includes 969 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -111,6 +111,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [CostScatter.tsx](../../client/src/features/analytics/components/CostScatter.tsx) · [test](../../client/src/features/analytics/components/__tests__/CostScatter.test.tsx)
 - [ExportDropdown.tsx](../../client/src/features/analytics/components/ExportDropdown.tsx) · [test](../../client/src/features/analytics/components/__tests__/ExportDropdown.test.tsx)
 - [InvocationsTable.tsx](../../client/src/features/analytics/components/InvocationsTable.tsx) · [test](../../client/src/features/analytics/components/__tests__/InvocationsTable.test.tsx)
+- [LegacyWorkflowUsage.tsx](../../client/src/features/analytics/components/LegacyWorkflowUsage.tsx) · [test](../../client/src/features/analytics/components/__tests__/LegacyWorkflowUsage.test.tsx)
 - [ModelBreakdown.tsx](../../client/src/features/analytics/components/ModelBreakdown.tsx) · [test](../../client/src/features/analytics/components/__tests__/ModelBreakdown.test.tsx)
 - [PeriodSelector.tsx](../../client/src/features/analytics/components/PeriodSelector.tsx) · [test](../../client/src/features/analytics/components/__tests__/PeriodSelector.test.tsx)
 - [ProviderBreakdownCard.tsx](../../client/src/features/analytics/components/ProviderBreakdownCard.tsx) · [test](../../client/src/features/analytics/components/__tests__/ProviderBreakdownCard.test.tsx)

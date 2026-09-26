@@ -212,5 +212,20 @@
     "turnsAndTokens": "{{turns}} 轮 · {{tokens}} tokens",
     "untitled": "未命名任务",
     "estimatedNote": "包含估算成本"
+  },
+  "legacyUsage": {
+    "title": "旧版工作流使用情况",
+    "refresh": "刷新计数",
+    "scope": "此项目记录的所有事件，不受支出筛选条件影响。",
+    "unavailable": "无法刷新这些计数。",
+    "loading": "正在加载已记录的使用情况…",
+    "total": "已记录事件：{{count}}",
+    "last": "最近事件：",
+    "evidence": "仅凭这些计数不能证明可以移除旧版兼容功能。",
+    "kinds": {
+      "legacy_loop_traversal": "经典循环",
+      "queue_manager_slash": "排队命令",
+      "merge_back": "本地集成"
+    }
   }
 }

@@ -1,5 +1,40 @@
 # Checkpoint — 26 September 2026
 
+## Recovery admission and paired CI — 27 September 2026, 00:41 CEST
+
+- Snapshot persistence now sits inside locked allocation's error boundary. A
+  SQLite trigger regression fails the second snapshot, proves full rollback,
+  closes the generation, starts no Core process and preserves preexisting mounts.
+  Isolated launch/recovery suites passed **145 tests**, 9.45s.
+- Required CI now installs pinned Core `06d563c5` on Linux/macOS/Windows and runs
+  real CLI schema/factory/Studio/fork/two-repository settlement acceptance. The
+  required aggregate includes every matrix result. Actionlint passed. The long
+  recovery scenario has a 120s POSIX/180s Windows whole-test bound; subprocess
+  limits and assertions are unchanged. This closes CI's previous silent skips.
+- Desktop `da59ec1b` remote CI **36276548345 passed all 18 jobs**, including both
+  Windows bundled-Core architectures and runtime portability, native macOS,
+  coverage shards/aggregation, package and architecture. New work in this section
+  still needs its own remote CI; that green run is the preceding block's evidence.
+- Web `a1008d5` CI and DCO passed. Core `886db4fc` expands PR CI to integration
+  targets; local full Core CI is still running and C1 integration remains pending.
+
+## Legacy usage visibility — 27 September 2026, 00:34 CEST
+
+- Project Analytics now displays observed all-time legacy counts with separate
+  refresh, eight locales, per-project caching and late-response cancellation.
+  Missing telemetry is not zero; no release-retirement evidence is inferred.
+- Found and fixed a counter gap: raw Codex `$skill` commands now count at queue
+  spawn admission alongside slash commands. Substitution/path syntax is excluded.
+- Client counter/page/locale tests passed **44 tests**. Typecheck, architecture
+  and source-map checks passed before the additive Codex counter regression;
+  server counter/queue/HTTP regressions passed **207 tests** in 6.43s. D8.1 remains unchecked because its
+  two-release observation gate is real, not replaceable by local fixtures.
+- D2/D5/D6 build and real production package checks passed; explicit paired
+  Core compatibility confirms contract 5.1. Generated native bundles restored
+  after review; no generated bundles are included in source commits.
+- Web a1008d5 completes the router security follow-up: zero production advisories,
+  226 tests, typecheck and build passed on isolated dependencies. PRs remain draft.
+
 ## D2/D5/D6 verification — 27 September 2026, 00:28 CEST
 
 - Server coverage passed **405 suites / 8,971 tests**, with two Windows-only
