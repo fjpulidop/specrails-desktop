@@ -501,3 +501,13 @@ evidence. The complete successful run above used the original coverage gates.
 Web PR #218 is now draft. Commit 5287c7b stages Loop Builder/run-detail additions
 in eight languages; docs sync/check, six sync tests and production build passed.
 No Web deployment, PR merge or release occurred.
+
+## Fork transport crash boundary — 26 September 2026, 23:04 CEST
+
+Core 01c519ba adds durable idempotent fork receipts. Desktop forwards request IDs,
+compares existing frozen files and preserves published children after a lost
+acknowledgement/materialization error instead of deleting their databases. Actual
+paired CLI coverage reproduces partial host-file materialization, retries it and
+verifies source/child bytes unchanged; 34 bridge/recovery tests and full typecheck
+passed. The HTTP admission, delivery ownership transfer and client action remain
+the next D3 work; the transport fix alone does not close task 5.2.

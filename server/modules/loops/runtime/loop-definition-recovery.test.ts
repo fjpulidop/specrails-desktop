@@ -87,10 +87,27 @@ it.skipIf(!pairedCore || !existsSync(path.join(pairedCore, 'dist/agent-runtime/c
   writeFileSync(path.join(runtimeDirectory, 'desktop-runtime-package.json'), JSON.stringify({ cli: retained.cli }))
   const sourceBytes = readFileSync(path.join(runtimeDirectory, 'agent-workflow/run.sqlite'))
   const controls = { runId: 'run', contextPath, cwd: directory, env: process.env }
-  const fork = await runAgentRuntimeControl({ ...controls, kind: 'fork', childRunId: 'child', fromNodePath: 'ask' })
+  const forkOptions = { ...controls, kind: 'fork' as const, childRunId: 'child', fromNodePath: 'ask', requestId: 'fork-probe-1' }
+  const fork = await runAgentRuntimeControl(forkOptions)
   expect(fork).toMatchObject({ kind: 'fork', runId: 'child', forkOf: 'run', fromNodePath: 'ask' })
   expect(readFileSync(path.join(runtimeDirectory, 'agent-workflow/run.sqlite'))).toEqual(sourceBytes)
   expect(JSON.parse(readFileSync(fork.contextPath, 'utf8')).runId).toBe('child')
+  const childBytes = readFileSync(path.join(fork.directory, 'run.sqlite'))
+  expect(await runAgentRuntimeControl(forkOptions)).toEqual(fork)
+  expect(readFileSync(path.join(fork.directory, 'run.sqlite'))).toEqual(childBytes)
+  // Core publication succeeds but Desktop host metadata cannot materialize.
+  // Retrying the same request repairs the child instead of deleting/re-forking it.
+  const packageFile = path.join(runtimeDirectory, 'desktop-runtime-package.json')
+  const packageBytes = readFileSync(packageFile)
+  rmSync(packageFile)
+  const interrupted = { ...forkOptions, childRunId: 'host-retry', requestId: 'fork-probe-2' }
+  await expect(runAgentRuntimeControl(interrupted)).rejects.toThrow('Source run is missing desktop-runtime-package.json')
+  const interruptedDirectory = path.join(path.dirname(runtimeDirectory), 'host-retry', 'agent-workflow')
+  const interruptedBytes = readFileSync(path.join(interruptedDirectory, 'run.sqlite'))
+  writeFileSync(packageFile, packageBytes)
+  expect(await runAgentRuntimeControl(interrupted)).toMatchObject({ runId: 'host-retry', forkOf: 'run' })
+  expect(readFileSync(path.join(interruptedDirectory, 'run.sqlite'))).toEqual(interruptedBytes)
+  expect(readFileSync(path.join(runtimeDirectory, 'agent-workflow/run.sqlite'))).toEqual(sourceBytes)
   const receipt = await runAgentRuntimeControl({ ...controls, kind: 'cancel', requestId: 'cancel-probe' })
   expect(receipt).toMatchObject({ kind: 'cancel', requestId: 'cancel-probe', accepted: { requestId: 'cancel-probe' } })
   expect((await runAgentRuntimeControl({ ...controls, kind: 'cancel', requestId: 'cancel-probe' })).accepted).toEqual(receipt.accepted)

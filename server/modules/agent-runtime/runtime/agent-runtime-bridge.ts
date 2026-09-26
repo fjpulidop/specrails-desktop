@@ -4,9 +4,9 @@ import { stripVTControlCharacters } from 'node:util'
 import { resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, dirname, isAbsolute, join, posix } from 'node:path'
+import { dirname, isAbsolute, join, posix } from 'node:path'
 import { createInterface } from 'node:readline'
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime, validateRequestedRoleEfforts } from './agent-runtime-loader'
 import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
@@ -307,7 +307,7 @@ interface AgentRuntimeControlBase {
   onLine?: (line: string, source?: 'stdout' | 'stderr') => void
 }
 export type AgentRuntimeControlInvocation =
-  | (AgentRuntimeControlBase & { kind: 'fork'; childRunId: string; fromNodePath: string; scopeId?: string; visit?: number; state?: Record<string, unknown> })
+  | (AgentRuntimeControlBase & { kind: 'fork'; childRunId: string; fromNodePath: string; scopeId?: string; visit?: number; state?: Record<string, unknown>; requestId?: string })
   | (AgentRuntimeControlBase & { kind: 'cancel'; requestId: string })
   | (AgentRuntimeControlBase & { kind: 'signal'; requestId: string; text: string })
 export interface AgentRuntimeForkResult {
@@ -389,12 +389,17 @@ function swapRunId(file: string, runId: string): string {
 function materializeForkedRun(sourceContextPath: string, childRunId: string, childContextPath: string): Pick<AgentRuntimeForkResult, 'contextPath' | 'runtimeDirectory' | 'definitionPath' | 'configPath' | 'context'> {
   const source = dirname(sourceContextPath), target = dirname(childContextPath)
   mkdirSync(target, { recursive: true, mode: 0o700 })
-  const write = (name: string, content: string): string => { const file = join(target, name); writeFileSync(file, content, { flag: 'wx', mode: 0o600 }); return file }
+  const write = (name: string, content: string): string => {
+    const file = join(target, name)
+    if (existsSync(file)) {
+      if (readFileSync(file, 'utf8') !== content) throw new Error(`Fork frozen input conflicts: ${name}`)
+    } else writeFileSync(file, content, { flag: 'wx', mode: 0o600 })
+    return file
+  }
   const copy = (name: string, required = false): string | undefined => {
     const from = join(source, name)
     if (!existsSync(from)) { if (required) throw new Error(`Source run is missing ${name}`); return undefined }
-    copyFileSync(from, join(target, name), 1 /* COPYFILE_EXCL */)
-    return join(target, name)
+    return write(name, readFileSync(from, 'utf8'))
   }
   const context = swapRunId(sourceContextPath, childRunId)
   write('desktop-context.json', context)
@@ -448,8 +453,10 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
   if (options.scopeId !== undefined && (typeof options.scopeId !== 'string' || !options.scopeId)) throw new Error('invalid_arguments: Fork scope must be a non-empty string')
   const childContextPath = join(dirname(dirname(options.contextPath)), options.childRunId, 'desktop-context.json')
   const childRuntimeDirectory = dirname(childContextPath)
-  if (existsSync(childRuntimeDirectory)) throw new Error('run_exists: A run directory already exists for the fork child')
+  if (options.requestId !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(options.requestId)) throw new Error('invalid_arguments: Fork requires a safe request id')
+  if (existsSync(childRuntimeDirectory) && !options.requestId) throw new Error('run_exists: A run directory already exists for the fork child')
   args.push('--from', options.fromNodePath, '--run-id', options.childRunId)
+  if (options.requestId) args.push('--request-id', options.requestId)
   if (options.scopeId !== undefined) args.push('--scope-id', options.scopeId)
   if (options.visit !== undefined) args.push('--visit', String(options.visit))
   let staged: string | undefined
@@ -460,10 +467,6 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
     writeFileSync(stateFile, JSON.stringify(options.state), { mode: 0o600 })
     args.push('--state', stateFile)
   }
-  const cleanupChild = (): void => {
-    // Only the brand-new child directory is removable; it sits next to the source under pipeline/.
-    if (basename(childRuntimeDirectory) === options.childRunId && basename(dirname(childRuntimeDirectory)) === 'pipeline') rmSync(childRuntimeDirectory, { recursive: true, force: true })
-  }
   try {
     const events = await runControlProcess(args, options)
     const forked = events.find(event => event.type === 'runtime-forked') as { runId?: unknown; forkOf?: unknown; fromNodePath?: unknown; scopeId?: unknown; visit?: unknown; revision?: unknown; directory?: unknown } | undefined
@@ -473,10 +476,9 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
     return { kind: 'fork', runId: options.childRunId, forkOf: options.runId, fromNodePath: options.fromNodePath,
       scopeId: typeof forked.scopeId === 'string' ? forked.scopeId : null, visit: typeof forked.visit === 'number' ? forked.visit : null,
       revision: typeof forked.revision === 'number' ? forked.revision : null, directory: forked.directory, ...frozen }
-  } catch (error) {
-    try { cleanupChild() } catch { /* the failure below is authoritative */ }
-    throw error
   } finally {
+    // Core owns publication/cleanup. A lost acknowledgement or host-file error
+    // must preserve a published child for the same idempotent request to retry.
     if (staged) rmSync(staged, { recursive: true, force: true })
   }
 }

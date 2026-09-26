@@ -256,3 +256,13 @@ original job. That diagnostic does not mark the job or delivery successful.
 Recovery preserves repository mounts, frozen verification policy, accounting,
 worktree ownership and the terminal outbox. Missing original isolated allocation
 data blocks settlement instead of treating the execution as a standalone job.
+
+### Lost fork acknowledgement
+
+Core forks may include a stable `requestId`. The retained engine stores the exact
+fork request and original receipt before publication. Desktop preserves a child
+if acknowledgement or host metadata writing fails, and reuses that request ID to
+finish missing frozen files. Existing files must match exactly. A conflicting
+request or destination is rejected; the source and child Core databases are never
+replaced by host cleanup. Older children without receipts cannot be adopted by a
+new request.
