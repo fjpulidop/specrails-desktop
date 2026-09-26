@@ -8,8 +8,8 @@ pauses blocked verification prompts before accepting a success sentinel.
 All five real paired factory cases pass (61.00s), including no-progress failure.
 The parameter form now has a behavior regression proving zero and omission are
 distinct (all five form tests pass). Typecheck and actionlint pass. The loop
-builder guide describes the behavior in all eight locales; Web sync consumes
-these same sources. No legacy graph was migrated or deleted by these changes.
+builder guide describes the behavior in all eight locales; matching reviewed
+paragraphs are applied to Web, whose human guide is maintained independently. No legacy graph was migrated or deleted by these changes.
 
 `D8-COMPATIBILITY-DECISIONS.md` records verified constraints for the compatibility
 compiler, especially physical attempts versus visits, failure obligations and
