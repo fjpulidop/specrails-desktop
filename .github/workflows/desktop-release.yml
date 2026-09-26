@@ -172,7 +172,7 @@ jobs:
           name: release-verified-desktop-client
           path: ${{ runner.temp }}/verified-client
       - name: Verify and restore the same frontend on every platform
-        run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client' 
+        run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client'
 
       - name: Download and verify Node.js ${{ env.NODE_BUNDLE_VERSION }} (macOS arm64)
         run: |
@@ -544,7 +544,7 @@ jobs:
           name: release-verified-desktop-client
           path: ${{ runner.temp }}/verified-client
       - name: Verify and restore the same frontend on every platform
-        run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client' 
+        run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client'
 
       - name: Download and verify Node.js ${{ env.NODE_BUNDLE_VERSION }} (Windows x64)
         shell: bash
@@ -840,7 +840,7 @@ jobs:
           name: release-verified-desktop-client
           path: ${{ runner.temp }}/verified-client
       - name: Verify and restore the same frontend on every platform
-        run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client' 
+        run: node scripts/verified-client.mjs restore '${{ runner.temp }}/verified-client'
 
       - name: Download and verify Node.js ${{ env.NODE_BUNDLE_VERSION }} (Windows arm64)
         shell: bash
