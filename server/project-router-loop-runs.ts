@@ -10,7 +10,8 @@ import { validateLoopGraph, assertLoopShellRepositoryScope } from './modules/loo
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './modules/loops/runtime/loops-store'
-import { getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun } from './modules/loops/runtime/loop-runs-store'
+import { getLoopRun, readDefinitionLineage, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor } from './modules/loops/runtime/loop-runs-store'
+import { forkDefinitionRun, validateDefinitionForkRequest } from './modules/delivery/runtime/definition-fork'
 import { reattachIsolatedSettlement } from './modules/delivery/runtime/rail-isolated-launch'
 import { finishDefinitionCancellation } from './modules/loops/runtime/definition-cancellation'
 import { appendEvent } from './db'
@@ -44,7 +45,8 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
     if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
     const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
-    res.json({ ...probe, lineage: readDefinitionLineage(c.db, runId) })
+    const forkOperation = c.db.prepare('SELECT request_json,child_run_id,adopted FROM definition_fork_operations WHERE project_id=? AND source_run_id=? ORDER BY adopted DESC,created_at LIMIT 1').get(c.project.id, runId) as { request_json: string; child_run_id: string; adopted: number } | undefined
+    res.json({ ...probe, lineage: readDefinitionLineage(c.db, runId), ...(forkOperation ? { forkRequest: JSON.parse(forkOperation.request_json), forkRunId: forkOperation.child_run_id, forkAdopted: !!forkOperation.adopted } : {}) })
   })
 
   router.post('/:projectId/loop-runs/:id/resume', async (req: Request, res: Response) => {
@@ -53,6 +55,8 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
     try {
       assertProcessAdmission(c.project.id)
+      const successor = readDefinitionSuccessor(c.db, runId)
+      if (successor) { res.status(409).json({ error: 'runtime_fork_owns_worktree', loopRunId: successor }); return }
       const observedClaim = readDefinitionExecutionClaim(c.db, runId)
       const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
       if (probe.status === 'unavailable') { res.status(503).json({ error: 'runtime_status_unavailable', detail: probe.error?.message }); return }
@@ -145,6 +149,23 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       res.status(202).json({ loopRunId: runId, cancellationRequested: true })
     } catch (error) {
       res.status(409).json({ error: 'runtime_cancel_rejected', detail: error instanceof Error ? error.message : String(error) })
+    }
+  })
+
+  router.post('/:projectId/loop-runs/:id/fork', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
+    let input
+    try { input = validateDefinitionForkRequest(req.body) }
+    catch (error) { res.status(400).json({ error: 'invalid_fork_request', detail: error instanceof Error ? error.message : String(error) }); return }
+    try {
+      assertProcessAdmission(c.project.id)
+      const result = await forkDefinitionRun(c, runId, input)
+      res.status(201).json(result)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      res.status(detail === 'runtime_status_unavailable' ? 503 : 409).json({ error: 'runtime_fork_rejected', detail })
     }
   })
 

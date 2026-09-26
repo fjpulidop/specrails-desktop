@@ -163,3 +163,13 @@ All explorer strings live under the `jobs` namespace, `loopExplorer.*` (16 keys 
 | `client/src/features/loops/components/loop-log/LoopStepSection.tsx` | Per-step / Setup collapsible sections (memoized) |
 | `client/src/features/loops/components/loop-log/loop-node-visuals.ts` | Node-kind icon + accent mapping |
 | `client/src/components/loop-log/__tests__/` | Model + explorer tests |
+
+### Repeat from an exact attempt
+
+Recorded v2 attempts expose **Repeat from here**, including internal component
+nodes. The request carries the node path, scope and visit; Core rejects ambiguous
+cuts. A stable request ID survives lost responses through the recovery endpoint.
+The linked child opens in the same project and starts paused for an explicit
+resume. Its original frozen inputs, worktree and delivery settlement are retained.
+The source remains historical; its resume/cancel/settlement effects are fenced once
+ownership moves. The engine does not roll back working-tree files automatically.

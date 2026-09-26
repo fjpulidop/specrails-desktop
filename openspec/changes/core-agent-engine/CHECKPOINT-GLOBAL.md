@@ -1,5 +1,38 @@
 # Checkpoint — 26 September 2026
 
+## Linked historical forks — 26 September 2026, 23:47 CEST
+
+- Migration 68 persists idempotent fork intents and marks superseded settlement
+  allocations without rewriting their frozen snapshots. Core creates the exact
+  historical cut; one Desktop transaction adopts the child job/run, causal ticket
+  ownership, inherited addenda and original isolated allocation. Late original
+  callbacks cannot commit Git, settle tickets or replace the child's delivery.
+  Pending intents fence source execution and preserve retry identity after an
+  uncertain response. Retained Core must advertise `forkIdempotency: 1`.
+- Explorer attempts offer **Repeat from here**, preserving node, scope and visit.
+  A reload recovers the server request; project switches discard late responses.
+  The linked child is explicitly paused for the user to open and resume. Eight
+  locales and both routed/modal job views are wired. StrictMode effect remounts
+  have a separate regression test.
+- Paired real Core test creates/adopts/resumes the child, answers its question and
+  completes without providers while preserving source database bytes and Desktop
+  rows. Focused settlement tests also fence a late successful original callback.
+- Full server coverage: **402 suites / 8,961 tests passed**, two Windows-only
+  suites / seven cases skipped on macOS, 210.11s with two workers. Statements
+  86.99%, branches 80.18%, functions 90.83%, lines 90.08%; thresholds unchanged.
+  An earlier attempt failed ECONNRESET in the old agent-chat HTTP helper. Its
+  per-request servers now disable socket pooling and await close; 66 focused
+  tests and the repeated full gate passed. Other previously observed HTTP flakes
+  are not claimed fixed by this change.
+- Full client coverage before the final StrictMode fix: **393 suites / 4,691
+  tests passed**, 180.73s, statements/lines 89.70%, branches 84.18%, functions
+  75.69%. The final hook regression passed 5/5; full typecheck and architecture
+  audit passed on the final code. A final client coverage run remains necessary.
+- Remaining acceptance includes real multi-repository Git settlement after fork,
+  already-released workspace handling and older isolated runs without migration
+  67 snapshots. These still reject uncertain ownership safely; this is not a
+  claim that D3/D4 or the full rollout is complete.
+
 The user requested a checkpoint because their weekly quota was almost exhausted.
 The original objective remains **the entire plan, not just the foundations**.
 This checkpoint is unfinished implementation, not production acceptance. Do not

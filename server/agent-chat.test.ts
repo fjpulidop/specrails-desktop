@@ -393,13 +393,15 @@ async function req(
   try {
     const res = await fetch(`http://127.0.0.1:${port}${path}`, {
       method,
-      headers: body !== undefined ? { 'content-type': 'application/json' } : {},
+      // Each request owns a different ephemeral server. Never pool its socket
+      // for a later test whose server may reuse the same port.
+      headers: { connection: 'close', ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     })
     const text = await res.text()
     return { status: res.status, body: text ? JSON.parse(text) : null }
   } finally {
-    server.close()
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
   }
 }
 

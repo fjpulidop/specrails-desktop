@@ -293,7 +293,12 @@
       "ok": "Erfolgreich",
       "pending": "Ausstehend",
       "unknown": "Unbekannt"
-    }
+    },
+    "repeatFromHere": "Ab hier wiederholen",
+    "forkFailed": "Verknüpfter Lauf konnte nicht erstellt werden",
+    "forkPending": "Wiederholen Sie den ursprünglich ausgewählten Schritt, um die ausstehende Abzweigung abzuschließen.",
+    "forkCreated": "Verknüpfter Lauf erstellt. Öffnen Sie ihn und setzen Sie am ausgewählten Prüfpunkt fort.",
+    "openFork": "Verknüpften Lauf öffnen"
   },
   "logViewer": {
     "loading": "Logs werden geladen…",

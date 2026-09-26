@@ -55,6 +55,7 @@ export interface JobRunHeaderProps {
   pipelineTotals?: PipelineTotals | null
   /** Surface-owned buttons (Cancel / Re-run / Export) rendered on row 1. */
   actions?: ReactNode
+  onOpenRun?(runId: string): void
 }
 
 /**
@@ -65,7 +66,7 @@ export interface JobRunHeaderProps {
  * authoritative totals after exit, the runtime continuation when it exists.
  * Nothing is ever a placeholder or an estimate.
  */
-export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions }: JobRunHeaderProps) {
+export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions, onOpenRun }: JobRunHeaderProps) {
   const { t } = useTranslation('jobs')
   const { t: tRuntime } = useTranslation('agentRuntime')
   const isRunning = job.status === 'running'
@@ -146,6 +147,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
       {run.canSettle && (
         <Button size="sm" className="h-7" disabled={busy} onClick={() => void runtime.act(run, 'settle')}>{tRuntime('runs.prepareDelivery')}</Button>
       )}
+      {run.forkSuccessor && onOpenRun && <Button size="sm" variant="outline" onClick={() => onOpenRun(run.forkSuccessor!)}>{t('loopExplorer.openFork')}</Button>}
       {run.canCancel && (
         <Button size="sm" variant="secondary" className="h-7" disabled={busy} onClick={() => void runtime.act(run, 'cancel')}>{tRuntime('runs.cancel')}</Button>
       )}

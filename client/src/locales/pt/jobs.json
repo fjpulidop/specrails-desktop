@@ -293,7 +293,12 @@
       "ok": "Concluído",
       "pending": "Pendente",
       "unknown": "Desconhecido"
-    }
+    },
+    "repeatFromHere": "Repetir a partir daqui",
+    "forkFailed": "Não foi possível criar a execução vinculada",
+    "forkPending": "Tente novamente a etapa selecionada originalmente para concluir a bifurcação pendente.",
+    "forkCreated": "Execução vinculada criada. Abra-a e retome a partir do ponto selecionado.",
+    "openFork": "Abrir execução vinculada"
   },
   "logViewer": {
     "loading": "A carregar logs...",

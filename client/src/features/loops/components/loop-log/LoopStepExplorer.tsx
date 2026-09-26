@@ -34,6 +34,8 @@ import { LoopCompletionSummary } from './LoopCompletionSummary'
 import { LoopOverviewStrip } from './LoopOverviewStrip'
 import { LoopStepSection, LoopSetupSection, SETUP_KEY } from './LoopStepSection'
 import { useLogTicketActions } from '../../../jobs/hooks/useLogTicketActions'
+import { useDesktop } from '../../../../hooks/useDesktop'
+import { useDefinitionFork } from '../../hooks/useDefinitionFork'
 
 export interface LoopStepExplorerProps {
   events: EventRow[]
@@ -44,6 +46,7 @@ export interface LoopStepExplorerProps {
   /** Project scope for `#N` ticket refs in step-box lines — defaults to the
    *  active project (board page); mission JobDetailModal passes its own. */
   projectId?: string
+  onOpenRun?(runId: string): void
 }
 
 function PulseDot() {
@@ -61,6 +64,7 @@ export function LoopStepExplorer({
   isLoading,
   variant = 'page',
   projectId,
+  onOpenRun,
 }: LoopStepExplorerProps) {
   const { t, i18n: i18nInstance } = useTranslation('jobs')
   const [filter, setFilter] = useState('')
@@ -69,6 +73,8 @@ export function LoopStepExplorer({
   const containerRef = useRef<HTMLDivElement>(null)
   const sectionElsRef = useRef(new Map<string, HTMLDivElement>())
   const onOpenTicket = useLogTicketActions(projectId)
+  const { activeProjectId } = useDesktop()
+  const forkControl = useDefinitionFork(events[0]?.job_id, projectId ?? activeProjectId ?? undefined)
 
   // i18nInstance.language: parseEvent localises the result summary line —
   // recompute when the UI language changes (same rule as LogViewer).
@@ -312,7 +318,11 @@ export function LoopStepExplorer({
         className={variant === 'glass' ? 'max-h-[45%] min-h-0 shrink-0 overflow-y-auto overscroll-contain' : undefined}
         tabIndex={variant === 'glass' ? 0 : undefined}
       ><LoopCompletionSummary result={model.completion} /></div>}
-      {model.graphMeta?.runtimeTopology && <RuntimeGraphExplorer topology={model.graphMeta.runtimeTopology} segments={model.segments} settled={settled} onFocus={focusSegment} />}
+      {model.graphMeta?.runtimeTopology && <>
+        <RuntimeGraphExplorer topology={model.graphMeta.runtimeTopology} segments={model.segments} settled={settled} onFocus={focusSegment} onFork={forkControl.fork} forkBusy={forkControl.busy} />
+        {forkControl.error && <p role="alert" className="px-2 text-xs text-destructive">{forkControl.error}</p>}
+        {forkControl.created && <div className="p-2 text-xs"><p>{t('loopExplorer.forkCreated')}</p><Button size="sm" variant="outline" onClick={() => onOpenRun?.(forkControl.created!)} disabled={!onOpenRun}>{t('loopExplorer.openFork')}</Button><code className="ml-2">{forkControl.created}</code></div>}
+      </>}
       <LoopOverviewStrip
         chips={chips}
         iteration={iterationInfo}

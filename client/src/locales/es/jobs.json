@@ -293,7 +293,12 @@
       "ok": "Completado",
       "pending": "Pendiente",
       "unknown": "Desconocido"
-    }
+    },
+    "repeatFromHere": "Repetir desde aquí",
+    "forkFailed": "No se pudo crear la ejecución enlazada",
+    "forkPending": "Reintenta el paso seleccionado originalmente para completar la bifurcación pendiente.",
+    "forkCreated": "Ejecución enlazada creada. Ábrela y reanuda desde el punto seleccionado.",
+    "openFork": "Abrir ejecución enlazada"
   },
   "logViewer": {
     "loading": "Cargando logs...",

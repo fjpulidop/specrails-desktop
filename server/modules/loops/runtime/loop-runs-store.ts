@@ -63,6 +63,7 @@ export interface DefinitionRunMetadata {
   runtimeDirectory?: string
   context?: Record<string, unknown>
   runtimeIdentity?: Record<string, unknown>
+  inheritedAddendaClaims?: Array<{ runId: string; ids: string[] }>
 }
 export interface DefinitionRunSnapshot {
   row: LoopRunRow
@@ -210,6 +211,10 @@ export function claimDefinitionExecution(db: DbInstance, runId: string, claim: D
   if (!runId || !claim.owner) throw new Error('Execution claims require a run and an owner')
   const mounts = [...new Set(claim.repositoryMounts.map(normalizeMount))].sort()
   return db.transaction((): DefinitionExecutionClaim => {
+    const successor = readDefinitionSuccessor(db, runId)
+    if (successor) return { ok: false, reason: 'lineage_conflict', conflictingRunId: successor }
+    const pendingFork = readDefinitionForkTarget(db, runId)
+    if (pendingFork && !claim.owner.startsWith('fork:')) return { ok: false, reason: 'lineage_conflict', conflictingRunId: pendingFork }
     const existing = db.prepare('SELECT run_id, owner, repository_mounts_json FROM definition_execution_claims WHERE run_id = ?').get(runId) as ClaimRow | undefined
     if (existing) return { ok: false, reason: 'active_owner', conflictingRunId: runId }
     if (mounts.length) {
@@ -226,6 +231,16 @@ export function claimDefinitionExecution(db: DbInstance, runId: string, claim: D
       .run(runId, claim.owner, JSON.stringify(mounts), at, at)
     return { ok: true, release: () => releaseDefinitionExecution(db, runId, claim.owner) }
   })()
+}
+
+/** The historical run remains intact; only its child owns shared checkout effects. */
+export function readDefinitionSuccessor(db: DbInstance, runId: string): string | undefined {
+  const row = db.prepare('SELECT child_run_id FROM definition_fork_operations WHERE source_run_id=? AND adopted=1').get(runId) as { child_run_id: string } | undefined
+  return row?.child_run_id
+}
+
+export function readDefinitionForkTarget(db: DbInstance, runId: string): string | undefined {
+  return (db.prepare('SELECT child_run_id FROM definition_fork_operations WHERE source_run_id=? ORDER BY adopted DESC,created_at LIMIT 1').get(runId) as { child_run_id: string } | undefined)?.child_run_id
 }
 
 /** Idempotent: only the owner that holds the claim can release it. */
@@ -460,6 +475,7 @@ export function listPendingLoopTerminalRecoveries(db: DbInstance): LoopTerminalR
     SELECT run_id, payload, callback_completed, created_at
       FROM loop_terminal_recovery
      WHERE callback_completed = 0
+       AND NOT EXISTS (SELECT 1 FROM definition_fork_operations f WHERE f.source_run_id=loop_terminal_recovery.run_id AND f.adopted=1)
      ORDER BY created_at, run_id
   `).all() as LoopTerminalRecoveryRow[]
 }

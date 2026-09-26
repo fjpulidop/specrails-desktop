@@ -26,6 +26,7 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
     {runs.map((run) => <div key={run.runId} className="space-y-2 rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">{!contextual && <code className="break-all text-xs">{run.runId}</code>}<span className="text-xs font-medium">{t(`runs.status.${run.active ? 'running' : run.status}`, { defaultValue: run.status })}</span></div>
       {run.historical && <p className="text-xs text-muted-foreground">{t('evidence.historical')}</p>}
+      {run.forkSuccessor && <p className="text-xs">{t('jobs:loopExplorer.openFork')}: <code>{run.forkSuccessor}</code></p>}
       {run.nextStep && <p className="text-xs">{t('runs.phase', { phase: t(`roles.${run.nextStep}`, { defaultValue: run.nextStep }) })}</p>}
       {run.canResume && <p className="text-xs text-muted-foreground">{t('runs.preserveProgress')}</p>}
       {run.status === 'succeeded' && <p className="text-xs text-muted-foreground">{t('runs.reviewDelivery')}</p>}

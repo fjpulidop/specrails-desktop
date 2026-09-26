@@ -117,3 +117,22 @@ Core/LangGraph with a deterministic local executor, not hand-authored transport
 frames. Metadata identifies the Core commit and authoritative final usage. Replay
 across the pause/restart seam must conserve integer usage and keep unknown costs
 null; this fixture is explicitly not rollout or billed-provider evidence.
+
+### Host fork adoption and shared checkout ownership
+
+A durable `(project, source, requestId)` intent fixes the child ID before Core
+publication. Retained Core must advertise `forkIdempotency: 1`. Adoption is one
+project SQLite transaction: child job/run and ancestry, frozen host metadata,
+causal ticket/rail ownership, worktree ledger, active delivery references and
+superseding settlement snapshots. Original run rows, events and invocation rows
+are unchanged. Failed adoption retains the same Core child for retry; changed
+request content is rejected. Conclusive pre-publication validation failure can
+release its intent only when no destination exists.
+
+Pending/adopted intents fence the source mount, controls and late settlement.
+Only the child may finish inherited effects. Addenda carry explicit frozen ID and
+ancestor claims; the terminal outbox transfers and settles these inside the
+existing atomic ticket-store mutation, restricted to causally owned tickets.
+Remaining sibling runs reattach their aggregate settlement when a fork has taken
+over the original coordinator. Fork creation does not rewind repository files or
+start a provider; the UI opens the paused child for explicit resume.

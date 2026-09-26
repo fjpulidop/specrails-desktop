@@ -3,7 +3,9 @@ import { existsSync, mkdtempSync, mkdirSync, realpathSync, readFileSync, writeFi
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { initDb, type DbInstance } from '../../../db'
+import { initDb, createJob, getJob, type DbInstance } from '../../../db'
+import type { ProjectContext } from '../../../project-registry'
+import { forkDefinitionRun } from '../../delivery/runtime/definition-fork'
 import { createLoopRun, saveDefinitionRun } from './loop-runs-store'
 import { probeDefinitionRun, probeDefinitionRuns, toDefinitionStates } from './loop-definition-recovery'
 import type { LoopRunRequest } from './loop-run-manager'
@@ -107,6 +109,24 @@ it.skipIf(!pairedCore || !existsSync(path.join(pairedCore, 'dist/agent-runtime/c
   writeFileSync(packageFile, packageBytes)
   expect(await runAgentRuntimeControl(interrupted)).toMatchObject({ runId: 'host-retry', forkOf: 'run' })
   expect(readFileSync(path.join(interruptedDirectory, 'run.sqlite'))).toEqual(interruptedBytes)
+  expect(readFileSync(path.join(runtimeDirectory, 'agent-workflow/run.sqlite'))).toEqual(sourceBytes)
+  createJob(db, { id: 'run', command: 'loop: paired-fork', owner: 'loop', started_at: new Date().toISOString() })
+  db.prepare("UPDATE loop_runs SET status='paused' WHERE id='run'").run()
+  const sourceRow = db.prepare("SELECT * FROM loop_runs WHERE id='run'").get(), sourceJob = getJob(db, 'run')
+  const hostContext = { db, project: { id: 'p1', path: directory }, loopRunManager: { isDefinitionRunActive: () => false, isDefinitionCancellationPending: () => false } } as unknown as ProjectContext
+  const forkRequest = { requestId: 'paired-adoption', fromNodePath: 'ask', scopeId: 'root', visit: 1 }
+  const adopted = await forkDefinitionRun(hostContext, 'run', forkRequest)
+  expect(await forkDefinitionRun(hostContext, 'run', forkRequest)).toEqual(adopted)
+  const childContext = path.join(path.dirname(runtimeDirectory), adopted.loopRunId, 'desktop-context.json')
+  const pausedChild = spawnSync(process.execPath, [retained.cli, 'resume', '--context', childContext], { encoding: 'utf8', timeout: 30_000 })
+  expect(pausedChild.status, pausedChild.stderr + pausedChild.stdout).toBe(2)
+  const childProbe = await probeDefinitionRun(ctx(), adopted.loopRunId)
+  expect(childProbe).toMatchObject({ status: 'paused', pendingInterrupts: [{ nodePath: 'ask' }] })
+  const completedChild = spawnSync(process.execPath, [retained.cli, 'resume', '--context', childContext, '--answer', 'Accepted', '--interrupt-id', childProbe.pendingInterrupts[0].id], { encoding: 'utf8', timeout: 30_000 })
+  expect(completedChild.status, completedChild.stderr + completedChild.stdout).toBe(0)
+  expect(await probeDefinitionRun(ctx(), adopted.loopRunId)).toMatchObject({ status: 'succeeded', completion: { ok: true } })
+  expect(db.prepare("SELECT * FROM loop_runs WHERE id='run'").get()).toEqual(sourceRow)
+  expect(getJob(db, 'run')).toEqual(sourceJob)
   expect(readFileSync(path.join(runtimeDirectory, 'agent-workflow/run.sqlite'))).toEqual(sourceBytes)
   const receipt = await runAgentRuntimeControl({ ...controls, kind: 'cancel', requestId: 'cancel-probe' })
   expect(receipt).toMatchObject({ kind: 'cancel', requestId: 'cancel-probe', accepted: { requestId: 'cancel-probe' } })

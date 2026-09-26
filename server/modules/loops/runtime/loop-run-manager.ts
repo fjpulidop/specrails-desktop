@@ -55,6 +55,8 @@ import {
   createLoopRun,
   saveDefinitionRun,
   readDefinitionRun,
+  readDefinitionForkTarget,
+  readDefinitionExecutionClaim,
   claimDefinitionExecution,
   definitionRepositoryMounts,
   updateLoopRunCounters,
@@ -933,9 +935,14 @@ export class LoopRunManager {
   }
 
   private readonly _definitionCancellations = new Map<string, Promise<void>>()
+  isDefinitionCancellationPending(runId: string): boolean { return this._definitionCancellations.has(runId) }
+  private definitionForkOwnsRun(runId: string): boolean {
+    return !!readDefinitionForkTarget(this.db, runId) || readDefinitionExecutionClaim(this.db, runId)?.owner.startsWith('fork:') === true
+  }
   /** Persist intent in the retained Core inbox before settling a resident pause.
    * A rejected control leaves the execution available for an explicit retry. */
   cancelDefinition(runId: string, requestId = `desktop-cancel:${runId}`): Promise<void> {
+    if (this.definitionForkOwnsRun(runId)) return Promise.reject(new Error('runtime_fork_owns_worktree: Continue the forked run'))
     const pending = this._definitionCancellations.get(runId)
     if (pending) return pending
     const frozen = readDefinitionRun(this.db, runId)
@@ -998,6 +1005,7 @@ export class LoopRunManager {
   }
 
   sendInteractiveTurn(jobId: string, text: string, control?: { interruptId?: string; approve?: boolean }): boolean {
+    if (this.definitionForkOwnsRun(jobId)) return false
     const paused = this._pausedHumanDecisions.get(jobId)
     if (paused) {
       if (paused.pending?.length) {

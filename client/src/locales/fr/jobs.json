@@ -293,7 +293,12 @@
       "ok": "Réussi",
       "pending": "En attente",
       "unknown": "Inconnu"
-    }
+    },
+    "repeatFromHere": "Reprendre à partir d’ici",
+    "forkFailed": "Impossible de créer l’exécution liée",
+    "forkPending": "Réessayez l’étape sélectionnée initialement pour terminer la bifurcation en attente.",
+    "forkCreated": "Exécution liée créée. Ouvrez-la et reprenez au point sélectionné.",
+    "openFork": "Ouvrir l’exécution liée"
   },
   "logViewer": {
     "loading": "Chargement des logs…",

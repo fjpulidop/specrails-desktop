@@ -293,7 +293,12 @@
       "ok": "成功",
       "pending": "待处理",
       "unknown": "未知"
-    }
+    },
+    "repeatFromHere": "从此处重复",
+    "forkFailed": "无法创建关联运行",
+    "forkPending": "请重试最初选择的步骤，以完成待处理的分支。",
+    "forkCreated": "已创建关联运行。请打开并从所选检查点恢复。",
+    "openFork": "打开关联运行"
   },
   "logViewer": {
     "loading": "正在加载日志…",

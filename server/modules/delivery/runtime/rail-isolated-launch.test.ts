@@ -540,6 +540,23 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
       ticketCompletionStatus: 'on_review',
     }))
   })
+  it('ignores a late original settlement after its worktree has moved to a fork', async () => {
+    let finish!: (value: unknown) => void
+    const { ctx, db, onLoopRunFinished } = fakeCtx(() => new Promise(resolve => { finish = resolve }))
+    const io = okIo(), git = { run: vi.fn(io.git!.run) }
+    const ids = await launchIsolatedRail(input([1], ctx), { ...io, git })
+    createLoopRun(db, { id: ids[0], projectId: ctx.project.id, loopId: 'loop', iterationLimit: 1, startedAt: new Date().toISOString() })
+    db.prepare('INSERT INTO definition_fork_operations(project_id,source_run_id,request_id,child_run_id,request_json,result_json,adopted) VALUES (?,?,?,?,?,?,1)').run(ctx.project.id, ids[0], 'fork-control', 'child', '{}', '{}')
+    db.prepare('UPDATE rail_worktrees SET run_id=? WHERE run_id=?').run('child', ids[0])
+    const delivery = getActivePrDeliveryByRail(db, 0)
+    git.run.mockClear(); onLoopRunFinished.mockClear()
+    finish({ runId: ids[0], outcome: 'success' })
+    await new Promise(resolve => setImmediate(resolve))
+    expect(git.run).not.toHaveBeenCalled()
+    expect(onLoopRunFinished).not.toHaveBeenCalled()
+    expect(getActivePrDeliveryByRail(db, 0)).toEqual(delivery)
+    expect(listRailWorktrees(db, 0)[0].run_id).toBe('child')
+  })
 
   it('persists a mixed batch as partial without dropping the failed unit', async () => {
     let call = 0

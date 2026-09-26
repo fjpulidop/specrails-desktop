@@ -12,7 +12,7 @@ import { RUNTIME_HOST_ENV_KEYS, runAgentRuntimeInvocation, runAgentRuntimeContro
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import { resolveLoopBaseEnv, resolveProjectExecution } from '../../../workspace-resolution'
-import { getLoopRun, readLoopJobUsage, stageLoopStepRecovery, setLoopStepSettledResult, updateLoopStepActivityCheckpoint } from '../../loops/runtime/loop-runs-store'
+import { getLoopRun, readLoopJobUsage, stageLoopStepRecovery, setLoopStepSettledResult, updateLoopStepActivityCheckpoint, readDefinitionSuccessor } from '../../loops/runtime/loop-runs-store'
 import { readExecutionManifest } from '../../delivery/runtime/multi-repo-execution-store'
 import { appendEvent } from '../../../db'
 import { recoverOrphanLoopStepAccounting } from '../../loops/runtime/loop-run-manager'
@@ -101,6 +101,7 @@ export interface RuntimeRunSummary {
   historical?: boolean
   efficiencySummary?: RuntimeEfficiencySummary
   canSettle?: boolean
+  forkSuccessor?: string
   metrics?: RuntimeEfficiency
   runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
   pendingApproval?: { stepId: string; reason?: string }
@@ -384,6 +385,7 @@ export class AgentRuntimeControls {
       if (fingerprint) this.statusCache.set(runId, { fingerprint, state })
       const parent = getLoopRun(this.ctx.db, runId)
       const definition = state.engineVersion === 2 && parent?.engine_version === 2
+      const forkSuccessor = definition ? readDefinitionSuccessor(this.ctx.db, runId) : undefined
       const active = definition ? state.lease?.active === true : this.active.has(runId) || parent?.status === 'running' || parent?.status === 'paused'
       let projection: ReturnType<typeof readRuntimeHistory> = null
       try { projection = readRuntimeHistory(file) } catch { /* Invalid advisory history cannot replace live state. */ }
@@ -391,13 +393,13 @@ export class AgentRuntimeControls {
       const recoverableSteps = state.engineVersion === 2 ? (state.recoverableSteps ?? []).map(step => step.attemptId) : Object.entries(state.steps).filter(([, step]) => ['running', 'interrupted'].includes(step.status)).map(([id]) => id)
       const catalog = metricsCatalogFor(state)
       return { runId, engineVersion: state.engineVersion, status: superseding ? (superseding.status === 'running' ? 'interrupted' : superseding.status) : state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
-        updatedAt: superseding?.updatedAt ?? state.updatedAt, error: this.errors.get(runId) ?? superseding?.error ?? state.error, pendingApproval: state.pendingApproval,
-        traceId: state.traceId, pendingQuestion: openQuestion(state), steering: state.steering, completion: state.completion,
+        updatedAt: superseding?.updatedAt ?? state.updatedAt, error: this.errors.get(runId) ?? superseding?.error ?? state.error, pendingApproval: forkSuccessor ? undefined : state.pendingApproval,
+        traceId: state.traceId, pendingQuestion: forkSuccessor ? undefined : openQuestion(state), steering: state.steering, completion: state.completion, ...(forkSuccessor ? { forkSuccessor } : {}),
         metrics: readRuntimeEfficiency(superseding ? superseding.metrics : state.metrics, catalog), efficiencySummary: readRuntimeEfficiencySummary(superseding ? superseding.efficiencySummary : state.efficiencySummary, catalog),
-        canSettle: definition
+        canSettle: forkSuccessor ? false : definition
           ? !active && parent.status === 'completed' && state.status === 'succeeded' && !!this.ctx.db.prepare(`SELECT 1 FROM definition_delivery_settlements s JOIN rail_pr_deliveries d ON d.id=s.delivery_id WHERE s.project_id=? AND s.run_id=? AND d.decision IN ('building','pr_failed','implementation_failed') LIMIT 1`).get(this.ctx.project.id, runId)
           : !superseding && !active && state.status === 'succeeded' && (this.ctx.db.prepare('SELECT status FROM jobs WHERE id = ?').get(runId) as { status?: string } | undefined)?.status !== 'completed',
-        recoverableSteps, ...(state.engineVersion === 2 ? { recoveryAttempts: state.recoverableSteps ?? [] } : {}), active, canCancel: definition ? !state.completion && !['succeeded', 'cancelled'].includes(state.status) : this.active.has(runId), canResume: state.engineVersion === 2 ? definition && !active && parent.status !== 'completed' && state.status !== 'cancelled' : !active && parent?.status === 'completed' && state.status !== 'succeeded',
+        recoverableSteps: forkSuccessor ? [] : recoverableSteps, ...(state.engineVersion === 2 ? { recoveryAttempts: forkSuccessor ? [] : state.recoverableSteps ?? [] } : {}), active, canCancel: !forkSuccessor && (definition ? !state.completion && !['succeeded', 'cancelled'].includes(state.status) : this.active.has(runId)), canResume: !forkSuccessor && (state.engineVersion === 2 ? definition && !active && parent.status !== 'completed' && state.status !== 'cancelled' : !active && parent?.status === 'completed' && state.status !== 'succeeded'),
         canDismiss: !active, dismissed: this.isDismissed(runId) }
     } catch (error) {
       try {

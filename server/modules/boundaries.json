@@ -673,6 +673,7 @@
   },
   "delivery": {
     "publicEntries": [
+      "runtime/definition-fork.ts",
       "runtime/delivery-evidence.ts",
       "runtime/multi-repo-execution-store.ts",
       "runtime/multi-repo-execution.ts",
@@ -846,6 +847,19 @@
         "./rail-pr-store",
         "./rail-worktrees-store",
         "fs"
+      ],
+      "runtime/definition-fork.ts": [
+        "../../../db",
+        "../../../project-registry",
+        "../../agent-runtime/runtime/agent-runtime-bridge",
+        "../../loops/runtime/loop-definition-recovery",
+        "../../loops/runtime/loop-runs-store",
+        "./isolated-settlement-store",
+        "./rail-pr-store",
+        "./rail-worktrees-store",
+        "node:crypto",
+        "node:fs",
+        "node:path"
       ],
       "runtime/delivery-evidence.ts": [
         "../../../types",

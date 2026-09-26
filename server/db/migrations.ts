@@ -1663,6 +1663,24 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX idx_definition_delivery_run ON definition_delivery_settlements(run_id);
     `)
   },
+  // Migration 68: durable fork admission and transfer of settlement ownership.
+  (db) => {
+    db.exec(`
+      CREATE TABLE definition_fork_operations (
+        project_id TEXT NOT NULL,
+        source_run_id TEXT NOT NULL REFERENCES loop_runs(id),
+        request_id TEXT NOT NULL,
+        child_run_id TEXT NOT NULL UNIQUE,
+        request_json TEXT NOT NULL,
+        result_json TEXT,
+        adopted INTEGER NOT NULL DEFAULT 0 CHECK(adopted IN (0,1)),
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (project_id, source_run_id, request_id)
+      );
+      CREATE UNIQUE INDEX idx_definition_fork_adopted_source ON definition_fork_operations(source_run_id) WHERE adopted=1;
+      ALTER TABLE definition_delivery_settlements ADD COLUMN superseded_by TEXT;
+    `)
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

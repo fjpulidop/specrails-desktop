@@ -332,6 +332,16 @@ export interface AgentRuntimeSignalResult { kind: 'signal'; id: string; accepted
 const CONTROL_RUN_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 const CONTROL_TIMEOUT_MS = 60_000
 
+/** Check the retained package before recording a host operation that requires
+ * recoverable publication. Older forks cannot safely retry a lost receipt. */
+export async function assertRetainedForkSupport(options: AgentRuntimeControlBase): Promise<void> {
+  const cli = resolveRetainedAgentRuntime(options.contextPath)
+  const events = await runControlProcess([cli, 'api'], options)
+  const api = events.find(event => event.type === 'runtime-api')
+  const capabilities = api?.capabilities as Record<string, unknown> | undefined
+  if (capabilities?.forkIdempotency !== 1) throw new Error('engine_unsupported: Retained Core does not support recoverable fork publication')
+}
+
 function controlError(event: Record<string, unknown> | undefined, fallback: string): Error {
   const error = event?.error as string | { code?: string; message?: string } | undefined
   if (typeof error === 'string') return new Error(error)
@@ -454,6 +464,7 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
   const childContextPath = join(dirname(dirname(options.contextPath)), options.childRunId, 'desktop-context.json')
   const childRuntimeDirectory = dirname(childContextPath)
   if (options.requestId !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(options.requestId)) throw new Error('invalid_arguments: Fork requires a safe request id')
+  if (options.requestId) await assertRetainedForkSupport(options)
   if (existsSync(childRuntimeDirectory) && !options.requestId) throw new Error('run_exists: A run directory already exists for the fork child')
   args.push('--from', options.fromNodePath, '--run-id', options.childRunId)
   if (options.requestId) args.push('--request-id', options.requestId)

@@ -40,7 +40,7 @@ import { resolveProjectExecution, resolveLoopBaseEnv } from './workspace-resolut
 import { applyWorktreeEnvPassthrough } from './project-env'
 import { removeWorkspace } from './workspace-manager'
 import { resolveTicketStoragePath, mutateStore, applyJobOutcomeToTickets, extractTicketIdsFromCommand, readStore, type JobOutcome } from './modules/specs/runtime/ticket-store'
-import { settleSpecAddendaAt } from './modules/specs/runtime/spec-addenda'
+import { settleSpecAddendaAt, settleForkAddendaAt } from './modules/specs/runtime/spec-addenda'
 import { JiraSyncManager } from './jira/jira-sync-manager'
 import { StuckRunDetector } from './modules/execution/runtime/stuck-run-detector'
 import { MilestoneProgressBroadcaster, readMilestoneProgress, markMilestoneDone, resolveBlueprintWorkspace } from './modules/builder/runtime/milestone-progress'
@@ -61,6 +61,8 @@ import { replayRailPrTicketEffectsUntilSettled } from './modules/delivery/runtim
 import {
   getLoopTerminalRecovery,
   getLoopRun,
+  readDefinitionRun,
+  readDefinitionSuccessor,
   listActiveLoopRuns,
   listPendingLoopTerminalRecoveries,
   completeLoopTerminalRecovery,
@@ -1183,6 +1185,7 @@ export class ProjectRegistry {
       outcome: string,
       opts?: { ticketCompletionStatus?: 'done' | 'on_review'; stallReason?: string },
     ): void => {
+      if (readDefinitionSuccessor(db, runId)) return
       const intent = getLoopTerminalRecovery(db, runId)
       let payload: LoopTerminalRecoveryPayload | null = null
       if (intent) {
@@ -1269,6 +1272,12 @@ export class ProjectRegistry {
           // otherwise). Runs for every ticket of the run, not only the causally
           // owned ones — the run id is already the causal proof.
           if (ticketIds.length > 0) {
+            const inherited = readDefinitionRun(db, runId)?.metadata.inheritedAddendaClaims ?? []
+            const inheritedResult = settleForkAddendaAt(ticketStorePath(), causallyOwnedTicketIds, runId, inherited, status)
+            if (inheritedResult.store) {
+              store = inheritedResult.store
+              for (const tid of inheritedResult.changedTicketIds) if (!changedIds.includes(tid)) changedIds.push(tid)
+            }
             const settledAddenda = settleSpecAddendaAt(ticketStorePath(), ticketIds, runId, status)
             if (settledAddenda.store) {
               store = settledAddenda.store

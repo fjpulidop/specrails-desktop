@@ -35,7 +35,7 @@ export function saveIsolatedSettlementSnapshot(db: DbInstance, snapshot: Isolate
 }
 
 export function readIsolatedSettlementRecords(db: DbInstance, projectId: string, deliveryId: string): IsolatedSettlementRecord[] {
-  const rows = db.prepare('SELECT run_id,snapshot_json,result_json FROM definition_delivery_settlements WHERE project_id=? AND delivery_id=? ORDER BY created_at,run_id')
+  const rows = db.prepare('SELECT run_id,snapshot_json,result_json FROM definition_delivery_settlements WHERE project_id=? AND delivery_id=? AND superseded_by IS NULL ORDER BY created_at,run_id')
     .all(projectId, deliveryId) as Array<{ run_id: string; snapshot_json: string; result_json: string | null }>
   return rows.map(row => {
     const snapshot = JSON.parse(row.snapshot_json) as IsolatedSettlementSnapshot

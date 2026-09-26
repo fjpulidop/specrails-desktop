@@ -38,7 +38,7 @@ import type { DbInstance } from '../../../db'
 import { getJobEvents, getProjectSettings } from '../../../db'
 import { harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
 import { saveIsolatedSettlementSnapshot, saveIsolatedSettlementResult, readIsolatedSettlementRecords, recordIsolatedProvenanceOnce } from './isolated-settlement-store'
-import { getLoopRun, readDefinitionRun, claimDefinitionExecution, definitionRepositoryMounts } from '../../loops/runtime/loop-runs-store'
+import { getLoopRun, readDefinitionRun, readDefinitionForkTarget, claimDefinitionExecution, definitionRepositoryMounts } from '../../loops/runtime/loop-runs-store'
 import { probeDefinitionRun, probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 import { resolveIntegrationBranch, fetchOrigin, resolveWorktreeBaseRef, type ResolvedIntegrationBranch } from '../../../integration-branch'
 import { withRepoLock } from '../../../repo-lock'
@@ -587,6 +587,7 @@ interface IsolatedRunSettlementPorts {
   overlayProviderDir: string
   overlayInstructions: string
   isAborted?(): boolean
+  ownsRun?(runId: string): boolean
   onFinished(runId: string, outcome: string, stallReason?: string): void
   recordRunProvenance(run: AllocatedRun): void
   markWorktree(run: AllocatedRun, state: 'built' | 'failed' | 'needs-review'): string | null
@@ -613,6 +614,7 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
       engineFailure = errorDetail(err)
       console.error(`[rail-isolated] loop run ${a.runId} rejected: ${engineFailure}`)
     }
+    if (ports.ownsRun && !ports.ownsRun(a.runId)) throw new Error('Fork owns the original settlement')
 
     if (isAborted?.()) {
       // The coordinator never started. Do not commit incidental edits or
@@ -1446,6 +1448,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   const settleAllocatedRun = createIsolatedRunSettlement({
     git, baseRepo, overlaySourceRoot, overlayFallbackRoots, overlayProviderDir, overlayInstructions,
     isAborted: input.repositoryExecution?.isAborted,
+    ownsRun: runId => !readDefinitionForkTarget(ctx.db, runId),
     onFinished: (runId, outcome, stallReason) => ctx.onLoopRunFinished(runId, outcome, { ...runFinishedOpts, ...(stallReason ? { stallReason } : {}) }),
     recordRunProvenance, markWorktree,
     hasRuntimeRequest: runId => hasAgentRuntimeRequest(input.runtimeStateProject ?? ctx.project, runId),
@@ -1501,8 +1504,11 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         ...(input.followUp ? { followUp: { id: input.followUp.id, version: input.followUp.version, hash: input.followUp.hash, openspecChangeName: input.followUp.openspecChangeName ?? null, briefing: renderFollowUpBriefing(input.followUp, { prNumber: (launchContinuation as ActivePrContinuationTarget | null)?.prNumber ?? input.explicitPrTarget?.prNumber ?? null, ticketIds }) } } : {}),
         ...(claimedAddenda.briefing ? { addenda: { ids: claimedAddenda.snapshot.map((e) => e.id), briefing: claimedAddenda.briefing } } : {}),
       })
-    runPromises.push(settleAllocatedRun(a, enginePromise).then(result => {
+    runPromises.push(settleAllocatedRun(a, enginePromise).then(async result => {
       if (prDeliveryId && isDefinitionGraph(loopGraph)) saveIsolatedSettlementResult(ctx.db, prDeliveryId, result)
+      if (prDeliveryId && isDefinitionGraph(loopGraph) && allocated.some(unit => readDefinitionForkTarget(ctx.db, unit.runId))) {
+        await reattachIsolatedSettlement(ctx, prDeliveryId, a.runId).catch(error => console.error('[rail-isolated] fork sibling settlement remains pending:', error))
+      }
       return result
     }))
     try { ctx.jiraSyncManager.onRailLaunch(a.ticketIds, a.runId) } catch { /* non-fatal */ }
@@ -1526,6 +1532,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   //       the draft PR is only created when the user clicks [Create PR] on the
   //       pr-decision endpoint (ask-first, safe-pr-review-flow).
   const guardedRunPromises = runPromises.map((promise, index) => promise.catch(async (err): Promise<SettledRun> => {
+    if (readDefinitionForkTarget(ctx.db, allocated[index].runId)) return { run: allocated[index], implementationOutcome: 'failed', deliveryOutcome: 'not_started', initialSha: allocated[index].initialSha, finalSha: null, safeToRelease: false }
     const run = allocated[index]
     const detail = errorDetail(err)
     console.error(`[rail-isolated] unexpected settlement rejection for ${run.runId}: ${detail}`)
@@ -1547,6 +1554,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
   }))
 
   void Promise.all(guardedRunPromises).then(async (settledResults) => {
+    if (allocated.some(unit => readDefinitionForkTarget(ctx.db, unit.runId))) return
     // Cardinality is invariant: one structured result per allocated unit. The
     // guarded promises above synthesize a blocked record for any rejection.
     let results = settledResults
@@ -1998,6 +2006,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       console.error('[rail-isolated] merge-back failed:', err)
     }
   }).catch(async (err) => {
+    if (allocated.some(unit => readDefinitionForkTarget(ctx.db, unit.runId))) return
     const detail = errorDetail(err)
     console.error(`[rail-isolated] aggregate settlement failed: ${detail}`)
     if (!prMode || !prDeliveryId || getPrDelivery(ctx.db, prDeliveryId)?.decision !== 'building') return

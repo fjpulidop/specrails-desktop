@@ -6,7 +6,8 @@ import { createLoopRun, claimDefinitionExecution, readDefinitionExecutionClaim }
 import { registerLoopRunRoutes } from './project-router-loop-runs'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 
-const runtime = vi.hoisted(() => ({ probe: vi.fn(), settle: vi.fn() }))
+const runtime = vi.hoisted(() => ({ probe: vi.fn(), settle: vi.fn(), fork: vi.fn() }))
+vi.mock('./modules/delivery/runtime/definition-fork', async () => ({ ...await vi.importActual<typeof import('./modules/delivery/runtime/definition-fork')>('./modules/delivery/runtime/definition-fork'), forkDefinitionRun: runtime.fork }))
 vi.mock('./modules/loops/runtime/loop-definition-recovery', () => ({ probeDefinitionRun: runtime.probe }))
 vi.mock('./modules/delivery/runtime/rail-isolated-launch', () => ({ reattachIsolatedSettlement: runtime.settle }))
 let db: DbInstance
@@ -106,5 +107,28 @@ describe('definition cancellation admission', () => {
     expect((await api('other').post('/api/p/loop-runs/run/cancel').send({})).status).toBe(404)
     expect((await api().post('/api/p/loop-runs/run/cancel').send({ requestId: '../other' })).status).toBe(400)
     expect(cancel).not.toHaveBeenCalled()
+  })
+})
+
+describe('definition fork admission', () => {
+  const endpoint = '/api/p/loop-runs/run/fork'
+  const body = { requestId: 'fork-1', fromNodePath: 'reviews/read', scopeId: 'right', visit: 2 }
+  it('returns the linked child after durable adoption with exact scoped controls', async () => {
+    runtime.fork.mockResolvedValue({ loopRunId: 'child', forkOf: 'run', fromNodePath: 'reviews/read', scopeId: 'right', visit: 2 })
+    const result = await api().post(endpoint).send(body)
+    expect(result.status).toBe(201)
+    expect(result.body).toMatchObject({ loopRunId: 'child', forkOf: 'run', scopeId: 'right' })
+    expect(runtime.fork).toHaveBeenCalledWith(expect.anything(), 'run', body)
+  })
+  it('rejects foreign project runs and malformed controls before creating a fork', async () => {
+    expect((await api('other').post(endpoint).send(body)).status).toBe(404)
+    expect((await api().post(endpoint).send({ ...body, visit: 0 })).status).toBe(400)
+    expect(runtime.fork).not.toHaveBeenCalled()
+  })
+  it('reports retained inspection failures without pretending a child was created', async () => {
+    runtime.fork.mockRejectedValue(new Error('runtime_status_unavailable'))
+    const result = await api().post(endpoint).send(body)
+    expect(result.status).toBe(503)
+    expect(result.body).not.toHaveProperty('loopRunId')
   })
 })

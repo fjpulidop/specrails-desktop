@@ -293,7 +293,12 @@
       "ok": "Succeeded",
       "pending": "Pending",
       "unknown": "Unknown"
-    }
+    },
+    "repeatFromHere": "Repeat from here",
+    "forkFailed": "Could not create the linked run",
+    "forkPending": "Retry the originally selected step to finish the pending fork.",
+    "forkCreated": "Linked run created. Open it and resume from the selected checkpoint.",
+    "openFork": "Open linked run"
   },
   "logViewer": {
     "loading": "Loading logs...",

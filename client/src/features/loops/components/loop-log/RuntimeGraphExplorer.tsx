@@ -9,8 +9,9 @@ import type { LoopNodeData } from '../../lib/loop-graph-rf'
 import { segmentStatus, type LoopStepSegment } from './loop-log-model'
 import type { RuntimeTopology, RuntimeTopologyBody } from './runtime-topology'
 
-export function RuntimeGraphExplorer({ topology, segments, settled, onFocus }: {
+export function RuntimeGraphExplorer({ topology, segments, settled, onFocus, onFork, forkBusy }: {
   topology: RuntimeTopology; segments: LoopStepSegment[]; settled: boolean; onFocus(key: string): void
+  onFork?(attempt: LoopStepSegment): void; forkBusy?: boolean
 }) {
   const { t } = useTranslation('jobs')
   const theme = useActiveTheme()
@@ -61,7 +62,7 @@ export function RuntimeGraphExplorer({ topology, segments, settled, onFocus }: {
         <code className="break-all">{selected}</code>
         {component && trail.length < 16 && <Button size="sm" variant="outline" onClick={() => { setTrail(value => [...value, { path: selected, body: component }]); setSelected(null) }}>{t('loopExplorer.graphOpenComponent')}</Button>}
         {attempts.length === 0 ? <p>{t('loopExplorer.graphNoAttempts')}</p> : <ul className="max-h-40 space-y-1 overflow-auto">
-          {attempts.map(attempt => <li key={attempt.key}><button className="text-left underline underline-offset-2" onClick={() => onFocus(attempt.key)}>{attempt.meta.scopeId ?? '/'} · {attempt.meta.attemptId ?? attempt.meta.index} · {t(`loopExplorer.graphState.${segmentStatus(attempt, { isLast: true, jobSettled: settled })}`)}</button>{attempt.meta.traceId && <code className="block break-all text-[10px] text-muted-foreground">traceId: {attempt.meta.traceId}{attempt.meta.spanId ? ` · spanId: ${attempt.meta.spanId}` : ''}</code>}</li>)}
+          {attempts.map(attempt => <li key={attempt.key}><button className="text-left underline underline-offset-2" onClick={() => onFocus(attempt.key)}>{attempt.meta.scopeId ?? '/'} · {attempt.meta.attemptId ?? attempt.meta.index} · {t(`loopExplorer.graphState.${segmentStatus(attempt, { isLast: true, jobSettled: settled })}`)}</button>{onFork && attempt.end && attempt.meta.nodePath && attempt.meta.scopeId && attempt.meta.iteration != null && <Button className="ml-2" size="sm" variant="outline" disabled={forkBusy} onClick={() => onFork(attempt)}>{t('loopExplorer.repeatFromHere')}</Button>}{attempt.meta.traceId && <code className="block break-all text-[10px] text-muted-foreground">traceId: {attempt.meta.traceId}{attempt.meta.spanId ? ` · spanId: ${attempt.meta.spanId}` : ''}</code>}</li>)}
         </ul>}
       </div>}
     </>}

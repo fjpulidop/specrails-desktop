@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 966 source/build files. Nearby tests are linked where names
+Includes 968 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -393,6 +393,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [narration-commands.ts](../../client/src/features/loops/components/loop-log/narration-commands.ts) · [test](../../client/src/features/loops/components/loop-log/__tests__/narration-commands.test.ts)
 - [narration-model.ts](../../client/src/features/loops/components/loop-log/narration-model.ts) · [test](../../client/src/features/loops/components/loop-log/__tests__/narration-model.test.ts)
 - [runtime-topology.ts](../../client/src/features/loops/components/loop-log/runtime-topology.ts) · [test](../../client/src/features/loops/components/loop-log/__tests__/runtime-topology.test.ts)
+
+## client/src/features/loops/hooks
+
+- [useDefinitionFork.ts](../../client/src/features/loops/hooks/useDefinitionFork.ts) · [test](../../client/src/features/loops/hooks/__tests__/useDefinitionFork.test.ts)
 
 ## client/src/features/loops/lib
 
@@ -1155,6 +1159,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/delivery/runtime
 
 - [active-pr-continuation.ts](../../server/modules/delivery/runtime/active-pr-continuation.ts) · [test](../../server/modules/delivery/runtime/active-pr-continuation.test.ts)
+- [definition-fork.ts](../../server/modules/delivery/runtime/definition-fork.ts) · [test](../../server/modules/delivery/runtime/definition-fork.test.ts)
 - [delivery-evidence.ts](../../server/modules/delivery/runtime/delivery-evidence.ts) · [test](../../server/modules/delivery/runtime/delivery-evidence.test.ts)
 - [isolated-settlement-store.ts](../../server/modules/delivery/runtime/isolated-settlement-store.ts)
 - [merge-manager.ts](../../server/modules/delivery/runtime/merge-manager.ts) · [test](../../server/modules/delivery/runtime/merge-manager.test.ts)

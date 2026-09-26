@@ -293,7 +293,12 @@
       "ok": "Riuscito",
       "pending": "In attesa",
       "unknown": "Sconosciuto"
-    }
+    },
+    "repeatFromHere": "Ripeti da qui",
+    "forkFailed": "Impossibile creare l’esecuzione collegata",
+    "forkPending": "Riprova il passaggio selezionato inizialmente per completare la biforcazione in attesa.",
+    "forkCreated": "Esecuzione collegata creata. Aprila e riprendi dal punto selezionato.",
+    "openFork": "Apri esecuzione collegata"
   },
   "logViewer": {
     "loading": "Caricamento dei log...",

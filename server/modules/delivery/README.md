@@ -64,3 +64,14 @@ worktree ledger, actual branch and repository mount before effects. Execution
 and delivery operation claims fence competing retries. A restart must preserve
 the original terminal outbox and accounting; it must not manufacture a new run
 or infer acceptance from exit code alone.
+
+### Linked definition forks
+
+`runtime/definition-fork.ts` is the fork admission coordinator exposed to HTTP.
+Migration 68 records the request before Core publication, then adopts the child
+and transfers ticket/worktree/delivery ownership in one project transaction.
+Original run rows, events, accounting and frozen snapshots are preserved; the
+active snapshot query excludes superseded allocations. Pending or adopted forks
+fence source execution and late settlement. Frozen addendum claims transfer only
+when the child applies its causally owned terminal effects. Core is responsible
+for historical cuts and idempotent publication; Desktop never edits its SQLite.
