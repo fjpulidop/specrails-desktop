@@ -14,6 +14,10 @@ export interface RuntimeApi {
   coreVersion?: string
   runtimeIdentity?: { packageVersion: string; workflowVersion: string; instructionsVersion: string; packageIntegrity: string; apiVersion: 1 }
   workflowVersions?: string[]
+  engineVersion?: number
+  nodeKinds?: string[]
+  nodeKindsVersion?: number
+  builtins?: Array<{ id: string; version: string; deprecated: boolean }>
   capabilities?: Record<string, number>
   /** Configurable guardrail catalog (Core ≥ configurableGuardrails: 1). */
   guardrails?: Array<{ id: string; phase: 'architect' | 'developer' | 'host' }>
@@ -26,7 +30,28 @@ export interface CoreAgentRuntimeModule {
   /** `fixer` is present only on cores that publish the fixer stance definition. */
   rolePromptDefaults(): Record<'architect' | 'developer' | 'reviewer', string> & { fixer?: string }
   validateRuntimeConfig(input: unknown): unknown
+  validateWorkflowDefinition(input: unknown): WorkflowDefinitionValidation
   [key: string]: unknown
+}
+
+export type WorkflowDefinitionValidation =
+  | { ok: true; version: string; graph: { nodes: unknown[]; edges: unknown[] } }
+  | { ok: false; errors: Array<{ code: string; nodeId?: string; path?: string; message: string }> }
+
+function object(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+/** Validation is a protocol result even when Core exits 1 for an invalid definition. */
+function readDefinitionValidation(value: unknown): WorkflowDefinitionValidation {
+  const invalid = (): never => { throw new Error('Core returned malformed workflow definition validation') }
+  if (!object(value) || value.type !== 'runtime-definition-validated') return invalid()
+  if (value.ok === true) {
+    if (typeof value.version !== 'string' || !/^[a-f0-9]{64}$/.test(value.version) || !object(value.graph) || !Array.isArray(value.graph.nodes) || !Array.isArray(value.graph.edges)) return invalid()
+    return { ok: true, version: value.version, graph: { nodes: value.graph.nodes, edges: value.graph.edges } }
+  }
+  if (value.ok !== false || !Array.isArray(value.errors) || !value.errors.length || !value.errors.every(error => object(error) && typeof error.code === 'string' && error.code.length > 0 && typeof error.message === 'string' && ['nodeId', 'path'].every(key => error[key] === undefined || typeof error[key] === 'string'))) return invalid()
+  return { ok: false, errors: value.errors as Extract<WorkflowDefinitionValidation, { ok: false }>['errors'] }
 }
 
 /** An explicit or bundled installation is authoritative: never silently replace
@@ -81,6 +106,12 @@ export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
     }
     if (api.capabilities !== undefined && (!api.capabilities || typeof api.capabilities !== 'object' || Array.isArray(api.capabilities) || Object.values(api.capabilities).some(value => !Number.isSafeInteger(value) || value < 1))) throw new Error('Core returned malformed runtime capabilities')
     if (api.workflowVersions !== undefined && (!Array.isArray(api.workflowVersions) || !api.workflowVersions.every(value => typeof value === 'string' && /^\d+$/.test(value)))) throw new Error('Core returned malformed workflow versions')
+    for (const key of ['engineVersion', 'nodeKindsVersion'] as const) {
+      const value = api[key]
+      if (value !== undefined && (!Number.isSafeInteger(value) || value < (key === 'engineVersion' ? 1 : 0))) throw new Error(`Core returned malformed ${key}`)
+    }
+    if (api.nodeKinds !== undefined && (!Array.isArray(api.nodeKinds) || !api.nodeKinds.every(value => typeof value === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(value)) || new Set(api.nodeKinds).size !== api.nodeKinds.length)) throw new Error('Core returned malformed node kinds')
+    if (api.builtins !== undefined && (!Array.isArray(api.builtins) || !api.builtins.every(value => object(value) && typeof value.id === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(value.id) && typeof value.version === 'string' && value.version.length > 0 && value.version.length <= 128 && typeof value.deprecated === 'boolean') || new Set(api.builtins.map(value => value.id)).size !== api.builtins.length)) throw new Error('Core returned malformed builtins')
     if (api.runtimeIdentity !== undefined) {
       const identity = api.runtimeIdentity
       if (!identity || identity.apiVersion !== 1 || !['packageVersion', 'workflowVersion', 'instructionsVersion', 'packageIntegrity'].every(key => typeof identity[key as keyof typeof identity] === 'string') || !/^sha256:[a-f0-9]{64}$/.test(identity.packageIntegrity)) throw new Error('Core returned malformed runtime identity')
@@ -105,6 +136,19 @@ export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
       const result = JSON.parse(invoke(['validate', '--stdin'], JSON.stringify(input))) as { type?: string }
       if (result.type !== 'runtime-config-valid') throw new Error('Core did not validate the runtime configuration')
       return input
+    },
+    validateWorkflowDefinition(input: unknown): WorkflowDefinitionValidation {
+      if (api.capabilities?.workflowDefinitions !== 1) throw new Error('Installed Core does not support workflow definitions. Update the paired Core package.')
+      let output: string
+      try { output = invoke(['workflows', 'validate', '--stdin'], JSON.stringify(input)) }
+      catch (error) {
+        const failure = error as { status?: unknown; stdout?: unknown }
+        if (failure.status !== 1 || typeof failure.stdout !== 'string') throw error
+        const result = readDefinitionValidation(JSON.parse(failure.stdout))
+        if (result.ok) throw error
+        return result
+      }
+      return readDefinitionValidation(JSON.parse(output))
     },
   }
 }

@@ -1,6 +1,6 @@
 # Programmatic agent runtime
 
-Desktop can hand implementation to Core's **runtime API 1**. Core runs architect, developer, deterministic verification, reviewer and archive as separate LangGraph phases. Desktop keeps project/worktree selection, rail lifecycle, logs, accounting and delivery ownership.
+Desktop can hand implementation to Core's **runtime API 1**. Core runs architect, developer, fixer, deterministic verification, reviewer and archive as separate LangGraph phases. Desktop keeps project/worktree selection, rail lifecycle, logs, accounting and delivery ownership.
 
 This is the only implementation engine in the current source tree. It applies to implementation rail steps and their Core completion check. Mission chat and unrelated AI features keep their existing transports. Provider-native implementation prompts and skills are not invoked inside the programmatic phases.
 
@@ -29,7 +29,7 @@ npm run build:server
 node scripts/smoke-agent-runtime-pair.mjs
 ```
 
-This runs the compiled Desktop bridge and real bundled Core against a temporary localhost model fixture. It checks tool writes, a real verification subprocess, archive approval, resume, usage and host Git ownership. It uses a temporary repository and deletes it afterward. Pass `--core /absolute/path/to/Core/dist/agent-runtime/index.js` to exercise another built Core checkout.
+This runs the compiled Desktop bridge and real bundled Core against a temporary localhost model fixture. It checks tool writes, a real verification subprocess, archive approval, resume, usage and host Git ownership. The fixture explicitly selects the `free` agent loop; Core's compact pipeline has its own protocol tests. It uses a temporary repository and deletes it afterward. Pass `--core /absolute/path/to/Core/dist/agent-runtime/index.js` to exercise another built Core checkout.
 
 For web development, an explicit runtime override can point to the built module:
 
@@ -109,15 +109,37 @@ All routes are under `/api/projects/:projectId`:
 | `POST /agent-runtime/runs/:runId/resume` | Accept `{}`, `{ "approve": ["archive"] }`, `{ "recover": ["developer"] }`, explicit `invalidate` phase IDs, or `{ "answer": "…" }` for a pending question (required while one is open) |
 | `POST /agent-runtime/runs/:runId/cancel` | Cancel a continuation owned by this controller |
 
-Resume responds `202` after admission and continues asynchronously. The valid phase IDs are `architect`, `developer`, `verify`, `reviewer` and `archive`. Core's lease remains the cross-process concurrency guard. A run cannot be resumed while its original Desktop execution is active.
+Resume responds `202` after admission and continues asynchronously. Legacy phase IDs are `architect`, `developer`, `fixer`, `verify`, `reviewer` and `archive`. For a v2 status, Desktop accepts safe node paths (including nested component paths) only when they belong to that saved run. Core's lease remains the cross-process concurrency guard. A run cannot be resumed while its original Desktop execution is active.
 
-Desktop launches `node <Core>/dist/agent-runtime/cli.js` with structured argv (`--approve`, `--recover`, `--invalidate`, `--answer <text>` on resume) and consumes JSON lines for phase events (`workflow-event`), agent output (`agent-event`), verification output, trace spans (`span`: `{ traceId, spanId, name, stepId, attempt, visit, startedAt, endedAt, status, usage?, error? }`) and the terminal `runtime-result`. Spans are stored verbatim as job events for diagnostics and are not narrated in the log. `runtime status --compact` returns `state.traceId`, `pendingApproval`, `pendingQuestion` and per-step `{ status, visits }`. Desktop probes `runtime api` once per Core CLI file revision (path plus mtime/size); `runtime validate --stdin` runs on every save. The job log shows phase transitions (`[runtime] step_started: developer`), live tool activity per role (`[developer] Read src/app.ts`, `[developer] Bash npm test`) and Core's own phase notes (architecture written, verification passed, review approved or corrections requested); the final JSON of architect and reviewer is not echoed. The narrated view (Relato) derives its milestones from the same events: each runtime phase, the tools used, correction loops and a stopped workflow with Core's structural reason. Accounting uses the invocation's new attempts, so resuming a completed phase does not bill its cumulative history twice. Status queries use `--compact`, are read-only and do not invoke providers; accumulated logs stay in Core's checkpoint instead of overflowing the process status response.
+Desktop launches `node <Core>/dist/agent-runtime/cli.js` with structured argv (`--approve`, `--recover`, `--invalidate`, `--answer <text>` on resume) and consumes JSON lines for phase events (`workflow-event`), agent output (`agent-event`), verification output, trace spans (`span`: `{ traceId, spanId, name, stepId, attempt, visit, startedAt, endedAt, status, usage?, error? }`) and the terminal `runtime-result`. Spans are stored verbatim as job events for diagnostics and are not narrated in the log. `runtime status --compact` returns `state.traceId`, `pendingApproval`, `pendingQuestion` and per-step `{ status, visits }`. Desktop probes `runtime api` once per executable package content digest; `runtime validate --stdin` runs on every save. The job log shows phase transitions (`[runtime] step_started: developer`), live tool activity per role (`[developer] Read src/app.ts`, `[developer] Bash npm test`) and Core's own phase notes (architecture written, verification passed, review approved or corrections requested); the final JSON of architect and reviewer is not echoed. The narrated view (Relato) derives its milestones from the same events: each runtime phase, the tools used, correction loops and a stopped workflow with Core's structural reason. Accounting uses the invocation's new attempts, so resuming a completed phase does not bill its cumulative history twice. Status queries use `--compact`, are read-only and do not invoke providers; accumulated logs stay in Core's checkpoint instead of overflowing the process status response.
 
 Provider invocation/cancellation supports native macOS processes and Windows executables/npm shims. Actual provider behavior still depends on the installed CLI version and capabilities. The offline tests cover fake CLI/ACP frames, Windows argv rules, a local HTTP coding fixture and real verification subprocesses; live provider smoke tests and Windows CI remain separate validation.
 
+## Definition catalog compatibility (D0)
+
+Desktop accepts optional `engineVersion`, `nodeKindsVersion`, `nodeKinds` and
+`builtins` metadata from `runtime api`; malformed descriptors are protocol errors.
+An empty catalog can use version 0. The integration contract target is 5.1;
+engine/catalog/builtin metadata is informational and older supported Core
+packages remain compatible. D0 does not enable definition execution.
+
+`validateWorkflowDefinition` invokes `workflows validate --stdin` only when Core
+advertises `workflowDefinitions: 1`. Core returns the canonical hash and graph or
+structured node errors, including valid error responses with exit 1. Desktop
+does not calculate a competing definition hash.
+
+Compact v2 status normalizes `nextNodePath` to existing controls and accepts
+metrics from the top-level response. Resume validates syntax first, then exact
+membership in the run's step catalog. Role metrics use the frozen runtime config,
+so later settings changes cannot add roles to an existing run. Legacy readers
+remain the fallback when no catalog exists. Historical projections will gain the
+authoritative graph catalog in D2; D0 does not infer one from metrics themselves.
+V2 inspection is uncached because a legacy journal does not track SQLite/WAL
+changes. C0 published-package pairing remains a separate release gate.
+
 ## Rollout and release pairing
 
-The committed registry bundle lock and `CORE_BUNDLE_VERSION` currently pin **Core 5.1.1**, a previously published package. That pin does not incorporate these source changes. Source assembly is the supported development route until the paired Core runtime release is available.
+The committed registry bundle lock and `CORE_BUNDLE_VERSION` currently pin **Core 6.0.0**, a previously published package. The inspected source pair is Core 6.0.1 with workflow identity 7 and role instructions 10; D0 keeps those identities intact. That pin does not incorporate these source changes. Source assembly is the supported development route until the paired Core runtime release is available.
 
 A production release must:
 
@@ -125,7 +147,7 @@ A production release must:
 2. Update `scripts/assemble-bundled-core.lock.json` and `CORE_BUNDLE_VERSION` together to that exact release, capturing the full dependency integrity closure.
 3. Run Core package checks, Desktop compatibility/package checks and both macOS/Windows native validation before packaging the paired app.
 
-Do not relabel an old 5.1.1 bundle or copy only `dist/agent-runtime`: LangGraph and the complete runtime dependency closure are required. Source assembly writes `source-bundle.json` with the Core version, runtime API and lock hash for traceability; it does not publish Core or update the production registry lock.
+Do not relabel an existing 6.0.0 bundle or copy only `dist/agent-runtime`: LangGraph and the complete runtime dependency closure are required. Source assembly writes `source-bundle.json` with the Core version, runtime API and lock hash for traceability; it does not publish Core or update the production registry lock.
 
 Verify role outputs, delivery ownership and saved-run recovery before releasing the paired app. Implementation has no legacy fallback; profile v1 remains only for other workflows. Core's programmatic archive writes reviewed **complete specification replacements**; it does not merge partial OpenSpec delta snippets. Preserve unchanged requirements in the architect's output and inspect that behavior during the pilot.
 
@@ -137,7 +159,7 @@ The [implementation verification record](programmatic-agent-runtime-validation.m
 
 Core's additive runtime metrics v1 are passed from compact status to each saved run's optional `metrics` field. The contextual run panels and Jobs history render a collapsed **Usage and time** panel with reported cost, active execution/agent time, calls and token/cache totals, plus per-phase attempts, duration, provider calls and cost. All eight locales include the panel labels.
 
-Older Core versions continue to work without the panel. The server validates numeric fields and known phase IDs, drops unsupported/malformed metrics and projects only the supported fields; it never forwards arbitrary transcripts from the metrics object. Missing billing is displayed as unavailable rather than zero. Cache tokens are already included in input tokens, and agent duration already includes native tool work. The panel does not estimate savings or measure implementation quality.
+Older Core versions continue to work without the panel. The server validates numeric fields and legacy phase IDs, or the authoritative step and frozen-role catalogs of a v2 run, drops unsupported/malformed metrics and projects only the supported fields; it never forwards arbitrary transcripts from the metrics object. Missing billing is displayed as unavailable rather than zero. Cache tokens are already included in input tokens, and agent duration already includes native tool work. The panel does not estimate savings or measure implementation quality.
 
 The paired `agent-runtime-efficiency` OpenSpec change in specrails-core documents verification ownership, efficient API tools and the measurement contract. Core exposes the same report through `runtime status` / `runtime-result`, so a fixed set of real tasks can be compared without a Desktop database migration.
 

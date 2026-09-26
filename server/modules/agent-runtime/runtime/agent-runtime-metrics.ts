@@ -23,6 +23,12 @@ export interface RuntimeEfficiency {
 const COUNTS = ['attempts', 'measuredAttempts', 'providerCalls', 'toolCalls', 'inputTokens', 'outputTokens', 'uncachedInputTokens', 'cacheReadInputTokens', 'cacheWriteInputTokens'] as const
 const KEYS = [...COUNTS, 'durationMs', 'agentDurationMs', 'costUsd'] as const
 const PHASES = ['architect', 'developer', 'fixer', 'verify', 'reviewer', 'archive']
+const ROLES = ['architect', 'developer', 'reviewer']
+/** Authoritative per-run IDs, supplied by status/frozen configuration, never by metrics. */
+export interface RuntimeMetricsCatalog {
+  stepIds?: readonly string[]
+  roleIds?: readonly string[]
+}
 function object(value: unknown): Record<string, unknown> | null { return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null }
 function counters(value: unknown): EfficiencyTotals | null {
   const input = object(value)
@@ -38,17 +44,20 @@ function counters(value: unknown): EfficiencyTotals | null {
   return output as unknown as EfficiencyTotals
 }
 /** Older Core versions omit metrics; malformed/unknown versions do not break run controls. */
-export function readRuntimeEfficiency(value: unknown): RuntimeEfficiency | undefined {
+export function readRuntimeEfficiency(value: unknown, catalog?: RuntimeMetricsCatalog): RuntimeEfficiency | undefined {
   const input = object(value)
-  if (input?.schemaVersion !== 1 || !Array.isArray(input.phases) || input.phases.length > PHASES.length) return undefined
+  const stepIds = catalog?.stepIds ?? PHASES
+  if (input?.schemaVersion !== 1 || !Array.isArray(input.phases) || input.phases.length > stepIds.length) return undefined
   const total = counters(input.total)
   if (!total) return undefined
+  const allowedSteps = new Set(stepIds), seenSteps = new Set<string>()
   const phases: RuntimeEfficiency['phases'] = []
   for (const raw of input.phases) {
     const phase = object(raw), count = counters(phase)
-    if (!phase || !count || typeof phase.stepId !== 'string' || !PHASES.includes(phase.stepId) || phases.some(item => item.stepId === phase.stepId)) return undefined
+    if (!phase || !count || typeof phase.stepId !== 'string' || !allowedSteps.has(phase.stepId) || seenSteps.has(phase.stepId)) return undefined
     for (const key of ['providers', 'models']) if (!Array.isArray(phase[key]) || phase[key].length > 50 || !phase[key].every((item: unknown) => typeof item === 'string' && item.length > 0 && item.length <= 256)) return undefined
     phases.push({ ...count, stepId: phase.stepId, providers: [...phase.providers as string[]], models: [...phase.models as string[]] })
+    seenSteps.add(phase.stepId)
   }
   return { schemaVersion: 1, total, phases }
 }
@@ -71,9 +80,10 @@ export interface RuntimeEfficiencySummary {
 }
 
 
-export function readRuntimeEfficiencySummary(value: unknown): RuntimeEfficiencySummary | undefined {
+export function readRuntimeEfficiencySummary(value: unknown, catalog?: RuntimeMetricsCatalog): RuntimeEfficiencySummary | undefined {
   const input = object(value), invocations = object(input?.invocations), checks = object(input?.checks)
-  if (!input || input.schemaVersion !== 1 || typeof input.runId !== 'string' || input.runId.length > 128 || typeof input.workflowVersion !== 'string' || input.workflowVersion.length > 16 || !['pending', 'validated', 'with-exceptions', 'blocked'].includes(String(input.technicalAcceptance)) || !invocations || !checks || !Array.isArray(input.roles) || input.roles.length > 3) return undefined
+  const roleIds = catalog?.roleIds ?? ROLES
+  if (!input || input.schemaVersion !== 1 || typeof input.runId !== 'string' || input.runId.length > 128 || typeof input.workflowVersion !== 'string' || input.workflowVersion.length > (catalog ? 64 : 16) || !['pending', 'validated', 'with-exceptions', 'blocked'].includes(String(input.technicalAcceptance)) || !invocations || !checks || !Array.isArray(input.roles) || input.roles.length > roleIds.length) return undefined
   if (typeof input.archive !== 'string' || input.archive.length > 32 || typeof input.delivery !== 'string' || input.delivery.length > 32 || typeof invocations.complete !== 'boolean' || typeof checks.available !== 'boolean') return undefined
   const count = (value: unknown, nullable = true) => (nullable && value === null) || typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
   for (const key of ['total', 'fullContexts', 'incrementalContexts']) if (!count(invocations[key], false)) return undefined
@@ -88,7 +98,7 @@ export function readRuntimeEfficiencySummary(value: unknown): RuntimeEfficiencyS
   const roles: RuntimeEfficiencySummary['roles'] = []
   for (const raw of input.roles) {
     const role = object(raw)
-    if (!role || !['architect', 'developer', 'reviewer'].includes(String(role.role)) || roles.some(item => item.role === role.role)) return undefined
+    if (!role || !roleIds.includes(String(role.role)) || roles.some(item => item.role === role.role)) return undefined
     const row: Record<string, string | null> = { role: String(role.role) }
     for (const key of ['provider', 'model', 'effort', 'observedModel', 'observedEffort', 'origin', 'tier']) {
       if (role[key] !== null && (typeof role[key] !== 'string' || role[key].length > 256)) return undefined
@@ -103,7 +113,7 @@ export function readRuntimeEfficiencySummary(value: unknown): RuntimeEfficiencyS
     escalations = []
     for (const item of input.escalations) {
       const raw = object(item)
-      if (!raw || !['architect', 'developer', 'reviewer'].includes(String(raw.role))) return undefined
+      if (!raw || !roleIds.includes(String(raw.role))) return undefined
       const row: Record<string, string | null> = { role: String(raw.role) }
       for (const key of ['attemptId', 'provider', 'model', 'effort', 'reason']) {
         if (raw[key] !== null && (typeof raw[key] !== 'string' || raw[key].length > 256) || ['attemptId', 'provider'].includes(key) && typeof raw[key] !== 'string') return undefined
@@ -122,5 +132,8 @@ export function applyRuntimeSelectionOrigins(summary: RuntimeEfficiencySummary |
   const record = object(selection), origins = object(record?.origins)
   if (!summary || record?.schemaVersion !== 1 || record.runId !== runId || !origins) return summary
   if (!['architect', 'developer', 'reviewer'].every(role => ['project-role', 'default', ...(role === 'developer' ? ['explicit-launch-override'] : [])].includes(String(origins[role])))) return summary
-  return { ...summary, roles: summary.roles.map(role => ({ ...role, origin: String(origins[role.role]) })) }
+  return { ...summary, roles: summary.roles.map(role => {
+    const origin = origins[role.role]
+    return { ...role, origin: typeof origin === 'string' ? origin : role.origin }
+  }) }
 }

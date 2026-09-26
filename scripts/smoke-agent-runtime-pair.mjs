@@ -26,7 +26,7 @@ os.homedir = () => path.join(root, 'home')
 const repository = path.join(root, 'workspace with spaces')
 const hooks = path.join(root, 'empty-hooks')
 const change = 'paired-runtime-smoke', runId = 'paired-runtime-smoke'
-const calls = [], rawEvents = [], selectedModels = []
+const calls = [], rawEvents = [], selectedModels = [], fixtureErrors = []
 let developerWrites = 0, reviewerResponses = 0
 const review = {
   approved: true, summary: 'Fixture result and verification evidence match.', issues: [], score: 90,
@@ -69,6 +69,7 @@ const server = http.createServer(async (request, response) => {
     response.writeHead(200, { 'content-type': 'application/json' })
     response.end(JSON.stringify({ choices: [{ message, finish_reason: finishReason }], usage: { prompt_tokens: 10, completion_tokens: 2 } }))
   } catch (error) {
+    fixtureErrors.push(error instanceof Error ? error.stack : String(error))
     response.writeHead(500, { 'content-type': 'application/json' })
     response.end(JSON.stringify({ error: String(error) }))
   }
@@ -94,7 +95,9 @@ try {
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve) })
   const config = {
     schemaVersion: 1, enabled: true,
-    providers: [{ id: 'local', kind: 'openai-compatible', baseUrl: `http://127.0.0.1:${server.address().port}/v1` }, { id: 'unused', kind: 'cli', cli: 'claude' }],
+    // This fixture exercises the free tool loop. Core's newer default is the
+    // compact pipeline, whose step-specific model protocol has its own tests.
+    providers: [{ id: 'local', kind: 'openai-compatible', agentLoop: 'free', baseUrl: `http://127.0.0.1:${server.address().port}/v1` }, { id: 'unused', kind: 'cli', cli: 'claude' }],
     agents: Object.fromEntries(['architect', 'developer', 'reviewer'].map(role => [role, { provider: role === 'reviewer' ? 'local' : 'unused', model: role === 'reviewer' ? 'offline-fixture' : 'sonnet', ...(role === 'reviewer' ? { escalation: { model: 'offline-rescue' } } : {}) }])),
     verification: [{ repositoryId: 'app', key: 'host-result', label: 'Result contract', policy: { reuse: 'snapshot-local', deterministic: true, readOnly: true, inputs: ['result.txt'], toolchainInputs: [fs.realpathSync(process.execPath)], resources: [] }, command: fs.realpathSync(process.execPath), args: ['-e', 'require("node:assert/strict").equal(require("node:fs").readFileSync("result.txt","utf8"),"ready\\n");console.log("paired verification passed")'] }],
     limits: { timeoutMs: 180_000, maxAttempts: 2 }, approvalBeforeArchive: true,
@@ -121,7 +124,7 @@ try {
 
   const options = { providerOverride: { provider: 'local', model: 'offline-fixture' }, contextPath, cwd: repository, env: process.env, timeoutMs: 190_000, onRawLine: line => rawEvents.push(JSON.parse(line)) }
   const paused = await runAgentRuntimeInvocation({ ...options, configPath, change })
-  assert.equal(inspect(contextPath).state.status, 'paused', paused.errorText)
+  assert.equal(inspect(contextPath).state.status, 'paused', [paused.errorText, ...fixtureErrors].filter(Boolean).join('\n'))
   assert.deepEqual(calls, ['architect', 'architect', 'developer', 'developer', 'developer', 'developer', 'reviewer', 'reviewer', 'reviewer', 'reviewer'])
   assert.equal(paused.cost, undefined, 'Missing endpoint billing must remain unknown')
   assert.equal(paused.tokens, 120)

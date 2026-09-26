@@ -207,3 +207,22 @@ Regenerates every icon size (PNG/ICNS/ICO) from `src-tauri/icons/icon.svg` via `
 - [CLI reference](../cli.md) — every command and flag in detail
 - [Architecture](architecture.md) — server modules, data flow, WebSocket protocol
 - [macOS](../platforms/macos.md) · [Windows](../platforms/windows.md) — platform-specific operations
+
+## CI verification lanes
+
+The `CI` workflow runs quality checks (types, compatibility, scripts, build, npm
+package, module boundaries and generated source map), server/CLI coverage and
+client coverage on independent runners. Both coverage suites retain their existing
+thresholds and publish separate reports. Native macOS, Windows Core assembly and
+runtime portability jobs remain required. The final `test` job preserves the check
+name used by branch protection and rejects any failed, skipped or cancelled lane.
+
+Push CI still runs on every branch: native release validation requires a trusted
+push run for the exact branch and commit. PR and merge-queue runs remain enabled.
+Concurrency cancels superseded runs within the same event/ref. No path filters
+exclude runtime or package verification during the engine migration.
+
+Before this split, CI run [36225340897](https://github.com/fjpulidop/specrails-desktop/actions/runs/36225340897)
+spent 18m40s in the sequential `test` job, including 6m13s server coverage and
+10m11s client coverage. The split removes that serial dependency; actual runtime
+and runner-minute changes must be measured from subsequent runs.
