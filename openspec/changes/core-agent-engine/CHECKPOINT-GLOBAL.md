@@ -5,6 +5,228 @@ The original objective remains **the entire plan, not just the foundations**.
 This checkpoint is unfinished implementation, not production acceptance. Do not
 merge, release, check off pending gates, or describe the complete migration as done.
 
+## Continuation checkpoint — 26 September 2026, 19:55 CEST (Claude Code session)
+
+A second assistant session resumed from this checkpoint, verified every claim
+against code and tests, planned the remaining Desktop/Web work, and started a
+first server-side implementation wave with seven parallel agents. The wave was
+cut by the account's session limit before any agent finished or verified its
+work. **Nothing from the wave is verified or committed on this branch.** Partial
+edits remain uncommitted in `/private/tmp/specrails-desktop-engine` and are
+backed up on branch `wip/claude-wave1-desktop` (check `git branch -r`). Treat
+them as a head start, not accepted work. Read this section first, then the rest.
+The paired Core section is in `/private/tmp/specrails-core-engine-v2/openspec/changes/core-agent-engine/CHECKPOINT.md`.
+
+### Verified baseline (HEAD `bf638fbd`, system Node 25.9.0)
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` (root, cli, mcp-bridge, local-runner, client) | pass |
+| `npm run audit:architecture` | pass (supersedes the D1B note "not yet green") |
+| `git diff --check` (tree and vs `origin/main`) | clean; the three trailing spaces in `desktop-release.yml` were removed by PR707 commit `c11cb19d` — the D1-D3 note item 9 is stale |
+| Server suites | loops **458 passed / 2 skipped**, agent-runtime **205 / 2 skipped**, delivery **1011**, execution **345**, architecture+db+project-router-loop-runs **107**; 0 failures |
+| Client suites | loops **279**, settings **290**, jobs **282**, i18n + locale parity **49**; 0 failures |
+| Migration numbering | 64 entries, contiguous; 64 = frozen definition launches (`server/db/migrations.ts:1608`) |
+| The 4 skips | paired-Core guards (`loop-core-factory.test.ts:33`, `loop-definition-schema.test.ts:17`, `agent-runtime-package.test.ts:62`, `agent-runtime-settings.test.ts:223`) because `../specrails-core` does not exist. Export `SPECRAILS_CORE_SOURCE_DIR=/private/tmp/specrails-core-engine-v2 SPECRAILS_EFFICIENCY_CORE_ROOT=/private/tmp/specrails-core-engine-v2` to run them (a `/private/tmp/specrails-core` symlink was not created). |
+| PR707 ancestry | `97cfabbb` is **not** an ancestor of HEAD; `.github` + `scripts` are byte-identical to `origin/codex/ci-engine-optimization` (`c11cb19d`), i.e. copied not merged — still to reconcile |
+| CI | PR #708 run `36235416535`: 18/18 green. `windows-parity.yml` has never run on this branch (main-only trigger) |
+| Full root/client coverage, build, `check:package` on this HEAD | **not run** |
+
+Structural audit confirmed the gaps exactly as the checkpoint notes describe:
+no execution claim guard (only the in-memory `_definitionTasks` check at
+`loop-run-manager.ts:1066`), no `loop-definition-recovery.ts`,
+`project-registry.ts:1528` calls `reconcileOrphanLoopRuns` without
+`definitionStates`, `rail-pr-store.ts:462-500` marks every unfinished building
+delivery `settlement_interrupted` at startup, no `reattachIsolatedSettlement`,
+`project-router-loop-runs.ts` has only GET run / GET duration-range / POST
+launch (no resume/fork/cancel; `resumeDefinition` has zero non-test callers),
+bridge args are only `run|resume` (`agent-runtime-bridge.ts:126`), cancel is
+treeKill-only, no `signal`/`steer`/`runtime_steer` anywhere,
+`loop-definition-events.ts:88` re-sums `ai_invocations` per event and never
+stores the Core cursor, `delivery-evidence.ts:497-560` reads only the legacy
+layout, the eight templates in `loop-templates.ts` are legacy graphs, template
+routes are not capability-aware, D6/D7/D8 absent, no run-graph or fork lineage
+rendering in the loop log explorer (`loop-log-model.ts:179-189` parses
+`runtime-graph` but nothing renders it).
+
+### Partial, unverified edits left in the worktree
+
+`npm run typecheck` currently **fails** with five `TS6133/TS6196` unused
+declarations in `server/modules/agent-runtime/runtime/agent-runtime-controls.ts`
+(lines 31-33, 56-57: steering constants/types scaffolded, implementation cut).
+Focused run of loop-runs-store, loop-definition-store, loop-templates, bridge,
+controls, db and loop-core-factory tests: **186 passed / 1 failed** —
+`loop-definition-store.test.ts` "appends migration 64 ..." now sees version 65.
+
+| File | State |
+| --- | --- |
+| `server/db/migrations.ts` | Migration **65** appended: `definition_execution_claims` (synchronous admission guard). Migration 66 (`legacy_launch_events`) was **not** appended although its module exists. |
+| `server/modules/loops/runtime/loop-runs-store.ts` | New exports `claimDefinitionExecution`, `releaseDefinitionExecution`, `readDefinitionLineage` (~lines 201-260) per the contract below. No callers, no tests yet. |
+| `server/modules/loops/runtime/legacy-launch-telemetry.ts` (new, 90 lines) | `recordLegacyLaunch`, `readLegacyLaunchSummary`; needs migration 66, tests, analytics exposure and call sites. |
+| `server/modules/agent-runtime/runtime/agent-runtime-bridge.ts` | `runAgentRuntimeControl` gains `kind: 'fork'` (Core `fork --context --from --run-id [--scope-id --visit --state]`) and `kind: 'cancel'` (`cancel --context --request-id`) result types (~lines 306-451). Untested. |
+| `server/modules/agent-runtime/runtime/agent-runtime-controls.ts` | Steering scaffolding only (breaks typecheck). |
+| `server/modules/loops/runtime/loop-templates.ts` | The eight starters re-declared through a Core-graph builder (`type: 'core'` nodes at ~line 471). Not validated against the paired Core catalog; legacy versions/capability fallback and route selection not done; tests not updated. |
+
+### Shared server API contracts (already partially implemented; keep them)
+
+```ts
+// server/modules/loops/runtime/loop-definition-recovery.ts (to create)
+export interface DefinitionRunProbe { runId: string; engineVersion: 2; status: 'paused'|'running'|'succeeded'|'failed'|'blocked'|'cancelled'|'unavailable'; resumable: boolean; lease: { owner: string; epoch: number; expiresAt: string; active: boolean } | null; recoverableSteps: Array<{ attemptId: string; nodePath: string; scopeId?: string }>; pendingInterrupts: Array<{ interruptId: string; nodePath: string; kind: string }>; coreRevision: number | null; probedAt: string; error?: { code: string; message: string } }
+export interface DefinitionProbeContext { db: DbInstance; cwd: string; env: NodeJS.ProcessEnv }
+export function probeDefinitionRun(ctx: DefinitionProbeContext, runId: string): Promise<DefinitionRunProbe>
+export function probeDefinitionRuns(ctx: DefinitionProbeContext, runIds: string[]): Promise<Map<string, DefinitionRunProbe>>
+export function toDefinitionStates(probes: Map<string, DefinitionRunProbe>): /* definitionStates shape of reconcileOrphanLoopRuns; null = missing/non-resumable */
+// Runs `runtime status --compact` through the RETAINED runtime with the frozen host
+// (readFrozenRuntimeHost); never infers lease expiry from updatedAt.
+
+// server/modules/loops/runtime/loop-runs-store.ts (present, untested)
+export function claimDefinitionExecution(db, runId, claim: { owner: string; repositoryMounts: string[]; parentRunId?: string }): { ok: true; release: () => void } | { ok: false; reason: 'active_owner'|'lineage_conflict'; conflictingRunId: string }
+export function releaseDefinitionExecution(db, runId, owner: string): void
+export function readDefinitionLineage(db, runId): { runId: string; forkOf: string | null; children: string[]; forkCut: unknown | null }
+// Atomic single transaction; rejects overlapping live claims on any shared repository
+// mount (parent/child share the worktree); paused rows never imply a live process;
+// claims are released on settlement/cancel and cleared by restart reconciliation.
+
+// server/modules/loops/runtime/legacy-launch-telemetry.ts (present, untested)
+export function recordLegacyLaunch(db, event: { kind: 'legacy_loop_traversal'|'queue_manager_slash'|'merge_back'; projectId: string; runId?: string; at?: string }): void
+export function readLegacyLaunchSummary(db, since?: string): { total: number; byKind: Record<string, number>; lastAt: string | null }
+// Table legacy_launch_events via migration 66; idempotent per (kind, run_id).
+```
+
+### Remaining Desktop work (planned as three waves; file ownership kept disjoint)
+
+**Wave 1 — server (restart here).**
+
+1. *D4 recovery* — create `loop-definition-recovery.ts` per the contract; in
+   `project-registry.ts` probe engine-2 rows asynchronously (bounded concurrency,
+   per-run timeout, failure ⇒ `unavailable`) before orphan reconciliation /
+   worktree recovery / admission and pass `definitionStates`; add the durable v2
+   restart exception to `rail-pr-store.ts reconcileFailedBuildingPrDeliveries`
+   (paused-by-restart run ⇒ keep building, preserve worktrees, note
+   `restart_pending`); add `checkCoreWorkflowCompletion(contextPath, cwd, env,
+   runId)` in `server/core-execution.ts` (valid ⇔ succeeded ∧ completion.ok ∧
+   (verified ∨ no write effect)); use it in `rail-isolated-launch.ts` for v2 runs
+   (`completion.ok:false` ⇒ `implementation_failed`, never `on_review` without a
+   receipt) and implement `reattachIsolatedSettlement(ctx, deliveryId, runId)`
+   by extracting the settlement continuation of `launchIsolatedRail` (no copy of
+   the closure); crash-recovery test to `on_review` with idempotent effects.
+   Call `recordLegacyLaunch({kind:'merge_back'})` from `runMergeBack`.
+2. *D4/D3 routes and lifecycle* — call `claimDefinitionExecution` before spawn in
+   `run()`/`resumeDefinition()`, release on all terminal paths, HTTP 409 on
+   conflict; `forkDefinition(runId, { fromNodePath, scopeId?, visit?, state? })`
+   freezing the child from the source run's durable request, calling Core `fork`
+   through the bridge, persisting `fork_of` + `fork_cut_json`, reusing
+   worktree/settlement ownership, launching via resume, leaving the source
+   pipeline directory byte-identical; graceful cancel = Core `cancel
+   --request-id` first, bounded grace, then the existing treeKill; a cancel path
+   for restart-paused rows with no live task; routes `POST /:projectId/loop-runs/:id/resume|fork|cancel`
+   and `GET /:projectId/loop-runs/:id/recovery` (probe + lineage) — never through
+   `AgentRuntimeControls.resume`; route tests; `recordLegacyLaunch({kind:'legacy_loop_traversal'})`
+   once per legacy run start. Fix `loop-definition-store.test.ts` to expect the
+   latest migration.
+3. *D2 completion* — cache usage totals in `loop-definition-events.ts` until an
+   invocation row changes; persist Core event cursor/revision in the same
+   transaction; reject a repeated `invocationId` with divergent payload; v2 path in
+   `delivery-evidence.ts readRuntimeEvidence` (retained `runtime status --compact`,
+   reviewer `$outputs`/`reviewerStepId`, confidence projection preserved); record a
+   real Core v2 JSONL (provider-free definition: shell + condition + question +
+   end) as a fixture and replay it through `createDefinitionEventProjection`;
+   parity assertion `SUM(ai_invocations) == runtime-result.invocationUsage`
+   (null-preserving).
+4. *D5 templates* — finish the eight Core templates (watchers read-only, mutating
+   templates end with real `verify` + `requiresVerified`, `ship-and-green` =
+   `implementation → verify → decider → prompt(fix)`), keep legacy graphs for
+   older Core, capability-aware `GET /loop-templates` and `POST
+   /loops/from-template/:id` like `loops-router.ts:107-135`, paired-Core validation
+   tests that actually run (env above), structural Quick SDD parity in
+   `loop-core-factory.test.ts`.
+5. *D7 server* — `AgentRuntimeControls.signal(runId, text)` (≤ 20000 UTF-16
+   units, retained runtime, `signal --context --stdin`), `POST
+   /:projectId/agent-runtime/runs/:runId/steer` (202 `{id, acceptedAt}`; 400/404/409),
+   receipts in run status (pending vs consumed with `consumedAttemptId` if Core
+   status exposes them), MCP action `runtime_steer` in `server/mcp/tools/jobs.ts`,
+   docs (`docs/agent-live-steering.md`, programmatic runtime guide).
+6. *D6 server* — pure projection of `custom-*.md` agents to
+   `roles.<id>` descriptors (id without `custom-`, `^[a-z][a-z0-9-]{0,63}# Checkpoint — 26 September 2026
+
+The user requested a checkpoint because their weekly quota was almost exhausted.
+The original objective remains **the entire plan, not just the foundations**.
+This checkpoint is unfinished implementation, not production acceptance. Do not
+merge, release, check off pending gates, or describe the complete migration as done.
+
+,
+   `access` read default, `artifacts` none default, engine, `openspecSkill`),
+   merged into the effective RuntimeConfig below explicit settings roles,
+   built-in id conflicts rejected, exposed through `/catalog` and
+   `/agent-runtime/config`; orchestrator/routing flagged deprecated (no removal).
+7. *D8 preparation only* — migration 66 + tests for the telemetry module,
+   analytics exposure of `readLegacyLaunchSummary`, `recordLegacyLaunch({kind:'queue_manager_slash'})`
+   at the QueueManager slash launch in `rails-router.ts`; `loop-compat.ts
+   upgradeLegacyGraph` (contract §11 mapping) with parity tests over every
+   template/factory graph validated by the paired Core. **Do not** add the
+   `graph_legacy` loops migration or remove any legacy traversal: D8.3–D8.5 stay
+   gated on two telemetry releases.
+8. *Wave-1 close* — regenerate `server/modules/boundaries.json` only through the
+   audit script (review the diff: real new edges only), `npm run docs:source-map`,
+   `npm run typecheck`, `npm run audit:architecture`, affected suites,
+   `npm run check-core-compat`.
+
+**Wave 2 — client.** "Repeat from here" on finished steps in
+`LoopStepExplorer` calling the fork route and showing lineage (`forkOf`);
+"Resume" on the job card with the `recoverableSteps` list when Core requires
+`--recover`, interrupt selection already exists in `InteractiveJobComposer`;
+render the run topology from `runtime-graph` (`loop-log-model.ts` already
+parses it) and the fork lineage; steering composer semantics for v2 runs
+(accepted vs consumed receipts) and a per-run trace/span view; Agent Studio
+access/artifacts/engine/openspecSkill fields. Add all new keys to the eight
+locales in one pass and run the locale-parity tests; note
+`LoopBuilderPage.tsx` is excluded from client coverage, so keep logic in `lib/`.
+
+**Wave 3 — documentation and gates.** Desktop guides in all eight locales
+(`docs/guide/*/pipeline/1,2,5`, `docs/running-pipelines.md`, internals for
+recovery/steering/lineage), module READMEs; full root + client coverage,
+`npm run build`, `npm run check:package`; reconcile PR707 ancestry; tick
+`tasks.md` only with evidence; rewrite the PR #708 body.
+
+### Web (specrails-web) state and plan
+
+PR #218 (`docs/core-engine-rollout`, worktree `/private/tmp/specrails-web-engine-docs`,
+clean, no `node_modules`) adds only `README.md` (+4) and
+`docs/core-engine-documentation-rollout.md` (+63): a gate table, no guide change.
+Guide source of truth is `src/content/guide/<lang>/<category>/<N>-<slug>.md`
+(8 languages × 8 categories; English drives the 37 routes; a translation is
+current only when its first line is `<!-- guide-revision: mission-first-v1 -->`).
+en/es cover all 37; the other six languages have 32 files each of which only 3
+are current. 14 routes concern pipelines/loops/agent runtime;
+`pipeline-the-loop-builder` (en and es) has zero Core-workflow content, while
+Desktop's `docs/guide/*/pipeline/5-the-loop-builder.md` already carries a
+"Core workflows" section in all eight languages (only on branch
+`feat/core-engine-desktop-v2`, commit `4c84e95c`). Adding/updating a page:
+write en+es with the marker, `npm run docs:sync` (regenerates
+`src/lib/docs-generated.json`, `src/lib/docs-loaders.ts`, `public/sitemap.xml`),
+then update the hard-coded counts in `scripts/sync-guide.test.mjs` (37 entries,
+3 translations per non-en/es language) and `src/test/docs-registry.test.ts`
+(37, fallback assertions), and `src/content/guide/README.md`. Web CI runs only
+`npm run test:coverage`; `docs:check`/`test:docs-sync` run only via `prebuild`
+in release — add them to `ci.yml` if the parity gate should protect PRs. The
+original checkout `/Users/javi/repos/specrails-web` has 17 unrelated untracked
+`src/content/*` paths: never stage them.
+
+### Decisions recorded in this continuation
+
+- Core now advertises engine v2 (`engineVersion 2`, 16 `nodeKinds`,
+  `engineV2/workflowDefinitions/fanOut/fork/steeringInbox`) so that Desktop
+  capability-aware factories/templates/steering can be exercised; the
+  three-platform robustness CI remains a release gate. Reverse explicitly if
+  the maintainer disagrees.
+- Partial wave-1 edits are preserved uncommitted plus on `wip/claude-wave1-*`
+  branches rather than committed on the integration branches, because none of
+  them were verified.
+- Desktop paired tests use `SPECRAILS_CORE_SOURCE_DIR`/`SPECRAILS_EFFICIENCY_CORE_ROOT`
+  instead of a `/private/tmp/specrails-core` symlink.
+- No merge, no release, no telemetry evidence invented; D8 retirement and C10
+  remain gated.
+
 ## User scope and authority
 
 Implement Core engine v2 with LangGraph, all pieces and lifecycle operations;
