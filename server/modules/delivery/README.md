@@ -41,3 +41,14 @@ Delivery change requests and same-spec addenda continue through Quick SDD using
 the existing supersession/rollback contract. `revisionOfDeliveryId` remains the
 wire field for identifying the generation; it no longer selects a Revision loop.
 See [spec addenda](../../../docs/internals/spec-addenda.md).
+
+## Definition-engine evidence
+
+Before isolated delivery releases worktrees, it obtains full status from each
+retained Core CLI with bounded concurrency. The pure evidence projection uses
+committed scope/attempt identities, host verification receipts and implementation
+review outputs. Existing file confidence remains authoritative. Parallel reviewer
+verdicts are retained in `scopedReviews`; their aggregate confidence stays absent.
+An unavailable inspection is a failed/partial harvest, never a zero or a pass.
+Legacy journal harvesting remains limited to legacy executions. Delivery admission
+still requires the separate terminal completion/verification gate.

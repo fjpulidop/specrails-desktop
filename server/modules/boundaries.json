@@ -850,6 +850,7 @@
       "runtime/delivery-evidence.ts": [
         "../../../types",
         "../../execution/runtime/verification-sentinel",
+        "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-factory",
         "fs",
         "path"
@@ -950,8 +951,10 @@
         "../../execution/runtime/revision-seed",
         "../../loops/runtime/legacy-launch-telemetry",
         "../../loops/runtime/loop-constants",
+        "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-executors",
         "../../loops/runtime/loop-graph",
+        "../../loops/runtime/loop-runs-store",
         "../../missions/runtime/agent-chat-registry",
         "../../missions/runtime/mission-run-notify",
         "../../specs/runtime/spec-addenda",
@@ -1066,6 +1069,7 @@
         "../../execution/runtime/queue-manager",
         "../../loops/runtime/loop-command-catalog",
         "../../loops/runtime/loop-constants",
+        "../../loops/runtime/loop-definition-recovery",
         "../../loops/runtime/loop-effect",
         "../../loops/runtime/loop-factory",
         "../../loops/runtime/loop-graph",

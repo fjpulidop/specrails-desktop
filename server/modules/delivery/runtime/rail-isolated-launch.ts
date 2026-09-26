@@ -37,6 +37,8 @@ import { getLinkByLocalId } from '../../../jira/jira-db'
 import type { DbInstance } from '../../../db'
 import { getJobEvents, getProjectSettings } from '../../../db'
 import { harvestDeliveryEvidence, readSettleEvidence } from './delivery-evidence'
+import { getLoopRun } from '../../loops/runtime/loop-runs-store'
+import { probeDefinitionRuns } from '../../loops/runtime/loop-definition-recovery'
 import { resolveIntegrationBranch, fetchOrigin, resolveWorktreeBaseRef, type ResolvedIntegrationBranch } from '../../../integration-branch'
 import { withRepoLock } from '../../../repo-lock'
 import { getProjectRepositories } from '../../../project-repositories'
@@ -1814,11 +1816,14 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
       const harvest = io.harvestEvidence ?? harvestDeliveryEvidence
       let settleEvidence
       try {
+        const definitionEvidence = await probeDefinitionRuns({ db: ctx.db, cwd: ctx.project.path, env: process.env },
+          results.filter(result => getLoopRun(ctx.db, result.run.runId)?.engine_version === 2).map(result => result.run.runId), true)
         settleEvidence = harvest(
           { readEvents: (runId) => getJobEvents(ctx.db, runId) },
           results.map((result) => ({
             ticketId: result.run.ticketId,
             runId: result.run.runId,
+            definitionStatus: definitionEvidence.get(result.run.runId),
             worktreePath: result.run.handle.worktreePath,
             loopId,
             // Programmatic-runtime evidence (host-run verification, reviewer

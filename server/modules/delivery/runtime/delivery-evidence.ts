@@ -12,6 +12,7 @@
 import fs from 'fs'
 import path from 'path'
 import type { EventRow } from '../../../types'
+import type { DefinitionRunProbe } from '../../loops/runtime/loop-definition-recovery'
 import { FACTORY_REVISION_LOOP_ID } from '../../loops/runtime/loop-factory'
 import { parseVerificationSentinel, type SentinelVerdict } from '../../execution/runtime/verification-sentinel'
 export { parseVerificationSentinel, type SentinelVerdict } from '../../execution/runtime/verification-sentinel'
@@ -71,6 +72,8 @@ export interface DeliveryRuntimeReview {
 /** Evidence read from the programmatic runtime's pipeline dir
  *  (`<workspace>/.specrails/pipeline/<runId>/`). Absent for legacy loops. */
 export interface DeliveryRuntimeEvidence {
+  /** Preserve branch verdicts without inventing an aggregate confidence score. */
+  scopedReviews?: Array<{ nodePath: string; scopeId: string; attemptId: string; review: DeliveryRuntimeReview }>
   commands: DeliveryRuntimeCommand[]
   checks: DeliveryRuntimeCheck[]
   findings: string[]
@@ -100,6 +103,11 @@ export interface DeliverySettleEvidence {
 }
 
 export interface EvidenceHarvestUnit {
+  /** Retained Core full status, obtained before worktree release. */
+  definitionStatus?: DefinitionRunProbe
+  /** Explicit reviewer node for workflows without an implementation piece. */
+  reviewerStepId?: string
+
   ticketId: number
   runId: string | null
   worktreePath: string | null
@@ -399,7 +407,7 @@ export function harvestDeliveryEvidence(
       verifyTail: null,
       confidence: null,
     }
-    let unitErrored = false
+    let unitErrored = unit.definitionStatus?.status === 'unavailable'
     let verifyStartedAtMs: number | null = null
     try {
       if (unit.runId) {
@@ -434,8 +442,11 @@ export function harvestDeliveryEvidence(
       unitErrored = true
     }
     try {
-      if (unit.runtimeDir && unit.runId) {
-        const runtime = readRuntimeEvidence(unit.runtimeDir, unit.runId, fsIo)
+      if (unit.runId && (unit.definitionStatus || unit.runtimeDir)) {
+        const runtime = unit.definitionStatus
+          ? projectDefinitionRuntimeEvidence(unit.definitionStatus, unit.reviewerStepId)
+          : readRuntimeEvidence(unit.runtimeDir!, unit.runId, fsIo)
+        if (unit.definitionStatus) evidence.runtime = runtime
         if (runtime) {
           evidence.runtime = runtime
           // The runtime reviewer's structured verdict IS the reviewer score for
@@ -531,11 +542,18 @@ export function readRuntimeEvidence(runtimeDir: string, runId: string, fsIo: Evi
     checks.push({ name, status: str(raw.status, 40) ?? 'unknown', required: raw.required === true, hostRun, evidence, scope: str(raw.scope), limitations: str(raw.limitations) })
   }
   const findings = strList(acceptance?.findings, 6)
-  let review: DeliveryRuntimeReview | null = null
   const checkpoint = readJson(fsIo, path.join(runtimeDir, 'agent-workflow', runId, 'checkpoint.json'))
   const steps = isRecord(checkpoint) && isRecord(checkpoint.state) && isRecord(checkpoint.state.steps) ? checkpoint.state.steps : null
   const reviewer = steps && isRecord(steps.reviewer) ? steps.reviewer : null
   const output = reviewer && isRecord(reviewer.output) ? reviewer.output : null
+  const review = parseRuntimeReview(output)
+  if (commands.length === 0 && checks.length === 0 && findings.length === 0 && !review) return null
+  return { commands, checks, findings, review }
+}
+
+/** A reviewer verdict stays AI-reported; it cannot create host verification. */
+function parseRuntimeReview(value: unknown): DeliveryRuntimeReview | null {
+  const output = isRecord(value) ? value : null
   if (output && ('score' in output || 'approved' in output)) {
     const aspects: Record<string, number> = {}
     if (isRecord(output.aspects)) {
@@ -544,7 +562,7 @@ export function readRuntimeEvidence(runtimeDir: string, runId: string, fsIo: Evi
     const issues = Array.isArray(output.issues)
       ? output.issues.slice(0, 6).map((i) => (typeof i === 'string' ? i : isRecord(i) ? (str(i.message) ?? str(i.title) ?? str(i.description) ?? JSON.stringify(i).slice(0, RUNTIME_TEXT_CAP)) : null)).filter((x): x is string => !!x)
       : []
-    review = {
+    return {
       approved: typeof output.approved === 'boolean' ? output.approved : null,
       score: typeof output.score === 'number' && Number.isFinite(output.score) ? output.score : null,
       aspects,
@@ -552,8 +570,35 @@ export function readRuntimeEvidence(runtimeDir: string, runId: string, fsIo: Evi
       summary: str(output.summary, 1200),
     }
   }
-  if (commands.length === 0 && checks.length === 0 && findings.length === 0 && !review) return null
-  return { commands, checks, findings, review }
+  return null
+}
+
+/** Pure projection of exact committed scopes; never read Core's private database. */
+export function projectDefinitionRuntimeEvidence(status: DefinitionRunProbe, reviewerStepId?: string): DeliveryRuntimeEvidence | null {
+  if (status.status === 'unavailable' || !status.scopes) return null
+  const commands: DeliveryRuntimeCommand[] = []
+  const scopedReviews: NonNullable<DeliveryRuntimeEvidence['scopedReviews']> = []
+  for (const scope of status.scopes) {
+    if (!['succeeded', 'failed'].includes(scope.status) || !scope.attemptId || !isRecord(scope.output)) continue
+    const output = scope.output
+    if (scope.kind === 'verify' && typeof output.receiptId === 'string' && Array.isArray(output.commands)) {
+      for (const raw of output.commands) {
+        if (commands.length >= RUNTIME_LIST_CAP) break
+        if (!isRecord(raw) || typeof raw.command !== 'string' || !Number.isInteger(raw.exitCode)) continue
+        const exitCode = raw.exitCode as number
+        commands.push({ label: raw.command.slice(0, 200), outcome: exitCode === 0 ? 'passed' : 'failed', exitCode,
+          durationMs: null, required: true, hostRun: true, outputTail: null })
+      }
+    }
+    const review = scope.status !== 'succeeded' ? null : scope.kind === 'implementation' ? parseRuntimeReview(output.review)
+      : reviewerStepId === scope.nodePath && scope.kind === 'role-turn' ? parseRuntimeReview(output.structured ?? output) : null
+    if (review) scopedReviews.push({ nodePath: scope.nodePath, scopeId: scope.scopeId, attemptId: scope.attemptId, review })
+  }
+  // Multiple branch verdicts have no defined aggregate confidence score.
+  // Keep that absence explicit instead of letting the last branch win.
+  const review = scopedReviews.length === 1 ? scopedReviews[0].review : null
+  const findings = scopedReviews.length > 1 ? ['Multiple scoped reviewer verdicts; no aggregate confidence score is defined.'] : []
+  return commands.length || review || findings.length ? { commands, checks: [], findings, review, scopedReviews } : null
 }
 
 /**
@@ -566,6 +611,7 @@ export function healRuntimeEvidence(
   evidence: DeliverySettleEvidence,
   pipelineDir: string,
   fsIo: Partial<EvidenceFsIO> = {},
+  definitionStatuses: ReadonlyMap<string, DefinitionRunProbe> = new Map(),
 ): DeliverySettleEvidence | null {
   const io: EvidenceFsIO = {
     readFile: fsIo.readFile ?? ((p) => fs.readFileSync(p, 'utf8')),
@@ -575,9 +621,11 @@ export function healRuntimeEvidence(
   }
   let changed = false
   const units = evidence.units.map((unit) => {
-    if (unit.runtime !== undefined || !unit.runId) return unit
+    if (!unit.runId || unit.runtime) return unit
+    const definition = definitionStatuses.get(unit.runId)
+    if (definition?.status === 'unavailable' || !definition && unit.runtime !== undefined) return unit
     let runtime: DeliveryRuntimeEvidence | null = null
-    try { runtime = readRuntimeEvidence(path.join(pipelineDir, unit.runId), unit.runId, io) } catch { runtime = null }
+    try { runtime = definition ? projectDefinitionRuntimeEvidence(definition) : readRuntimeEvidence(path.join(pipelineDir, unit.runId), unit.runId, io) } catch { runtime = null }
     if (!runtime) return unit
     changed = true
     const confidence = unit.confidence ?? (runtime.review && runtime.review.score !== null

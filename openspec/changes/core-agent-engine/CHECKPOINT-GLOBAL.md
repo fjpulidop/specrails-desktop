@@ -7,6 +7,9 @@ merge, release, check off pending gates, or describe the complete migration as d
 
 ## Codex continuation — 26 September 2026, 20:30 CEST
 
+- D2 evidence implementation: isolated settlement now prefetches full retained status with bounded concurrency and projects host commands plus exact scoped reviews. Failed inspection marks harvest unavailable; legacy journals are not substituted for v2. Regression passed 200 tests across evidence, isolated launch and paired recovery; Core full-status regression passed 12 tests. Packet healing now queries retained Core for historical v2 runs, preserves file confidence, and never substitutes a legacy journal after a failed v2 probe. Routes/architecture regression passed 214 tests; full typecheck and architecture audit passed. Custom reviewer selection UI remains to integrate.
+- D2 evidence decision: full retained CLI status exposes scoped committed outputs. Delivery will use the exact attempt/scope identities for verification commands and declared reviewer output. Ambiguous parallel reviews cannot be reduced to a fabricated single score; file-based confidence remains authoritative. Compact recovery probes remain bounded and omit output payloads.
+
 - Agent Studio now edits explicit Core access/artifact policy, optional OpenSpec skill, provider/model/effort/thinking/maxTurns and escalation while preserving instructions and provider-native metadata. Identity validation applies across providers; built-in roles cannot be shadowed. Eight locales updated. All agent client suites passed (80 tests); locale parity previously passed (30 tests).
 - Closed AI-refinement bypass: applying a draft validates the Core descriptor and Kimi native requirements before file/version/session mutation, including force-apply. Manager regression passed 40 tests, including rejection without disk/version/session changes. Structured frontmatter editing normalizes YAML formatting; this behavior is documented in the feature guide.
 

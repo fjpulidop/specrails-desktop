@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  projectDefinitionRuntimeEvidence,
+  healRuntimeEvidence,
   CONFIDENCE_RAW_CAP,
   VERIFY_TAIL_CAP,
   extractVerifyStepText,
@@ -10,6 +12,7 @@ import {
   type EvidenceHarvestIO,
 } from './delivery-evidence'
 import type { EventRow } from '../../../types'
+import type { DefinitionRunProbe } from '../../loops/runtime/loop-definition-recovery'
 
 let seq = 0
 function ev(event_type: string, payload: string, job_id = 'run-1'): EventRow {
@@ -577,4 +580,44 @@ describe('healRuntimeEvidence', () => {
     expect(healRuntimeEvidence(healed!, '/ws/pipeline', fsIo)).toBeNull()
     expect(healRuntimeEvidence(base, '/nowhere', { fileExists: () => false, readFile: () => '' })).toBeNull()
   })
+})
+
+function definitionProbe(scopes: NonNullable<DefinitionRunProbe['scopes']>): DefinitionRunProbe {
+  return { runId: 'run-1', engineVersion: 2, status: 'succeeded', resumable: false, lease: null,
+    pendingInterrupts: [], recoverableSteps: [], completion: { ok: true, verified: true, reasons: [] },
+    coreRevision: 10, eventCursor: 20, probedAt: new Date().toISOString(), scopes }
+}
+const scopedReview = { nodePath: 'implement', scopeId: 'root', kind: 'implementation', status: 'succeeded', attemptId: 'a1', output: { review: { approved: true, score: 88, aspects: { correctness: 90 }, issues: [] } } }
+
+describe('Core definition delivery evidence', () => {
+  it('projects confirmed verification commands and implementation review without inventing durations or output', () => {
+    const probe = definitionProbe([scopedReview, { nodePath: 'verify', scopeId: 'root', kind: 'verify', status: 'failed', attemptId: 'a2', output: { receiptId: 'receipt', commands: [{ command: 'npm test', exitCode: 1 }] } }])
+    expect(projectDefinitionRuntimeEvidence(probe)).toMatchObject({ review: { approved: true, score: 88 }, commands: [{ label: 'npm test', exitCode: 1, outcome: 'failed', hostRun: true, durationMs: null, outputTail: null }] })
+  })
+  it('does not collapse parallel reviewers or reuse an unfinished current attempt', () => {
+    expect(projectDefinitionRuntimeEvidence(definitionProbe([scopedReview, { ...scopedReview, scopeId: 'branch-2', attemptId: 'a2' }]))).toMatchObject({ review: null, findings: [expect.stringContaining('Multiple scoped')], scopedReviews: [{ scopeId: 'root', attemptId: 'a1' }, { scopeId: 'branch-2', attemptId: 'a2' }] })
+    expect(projectDefinitionRuntimeEvidence(definitionProbe([{ ...scopedReview, status: 'running' }]))).toBeNull()
+    expect(projectDefinitionRuntimeEvidence({ ...definitionProbe([scopedReview]), status: 'unavailable' })).toBeNull()
+  })
+  it('requires an explicit reviewer node for structured custom-role output', () => {
+    const probe = definitionProbe([{ ...scopedReview, nodePath: 'custom-review', kind: 'role-turn', output: { structured: { approved: false, score: 55 } } }])
+    expect(projectDefinitionRuntimeEvidence(probe)).toBeNull()
+    expect(projectDefinitionRuntimeEvidence(probe, 'custom-review')).toMatchObject({ review: { approved: false, score: 55 } })
+  })
+  it('uses Core evidence without reading legacy checkpoint files and reports unavailable inspection honestly', () => {
+    const io: EvidenceHarvestIO = { readEvents: () => [], fileExists: () => false, readFile: () => { throw new Error('Legacy checkpoint should not be read') } }
+    const unit = { ticketId: 1, runId: 'run-1', worktreePath: null, runtimeDir: '/legacy', definitionStatus: definitionProbe([scopedReview]) }
+    expect(harvestDeliveryEvidence(io, [unit])).toMatchObject({ harvest: 'ok', units: [{ runtime: { review: { score: 88 } }, confidence: { overall: 88 } }] })
+    expect(harvestDeliveryEvidence(io, [{ ...unit, definitionStatus: { ...unit.definitionStatus, status: 'unavailable' } }])).toMatchObject({ harvest: 'failed', units: [{ confidence: null }] })
+  })
+})
+
+it('heals missing definition evidence through retained status and never falls back to an implementation journal', () => {
+  const base = harvestDeliveryEvidence({ readEvents: () => [] }, [{ ticketId: 1, runId: 'run-1', worktreePath: null }])
+  const readFile = () => { throw new Error('No legacy reads for definition runs') }
+  const healed = healRuntimeEvidence(base, '/legacy', { readFile }, new Map([['run-1', definitionProbe([scopedReview])]]))
+  expect(healed?.units[0]).toMatchObject({ runtime: { review: { score: 88 } }, confidence: { overall: 88 } })
+  expect(healRuntimeEvidence(base, '/legacy', { readFile }, new Map([['run-1', { ...definitionProbe([]), status: 'unavailable' }]]))).toBeNull()
+  const withFileConfidence = { ...base, units: [{ ...base.units[0], confidence: { changeName: 'change', overall: 91, aspects: {}, flags: [], raw: {} } }] }
+  expect(healRuntimeEvidence(withFileConfidence, '/legacy', { readFile }, new Map([['run-1', definitionProbe([scopedReview])]]))?.units[0].confidence?.overall).toBe(91)
 })
