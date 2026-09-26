@@ -62,6 +62,10 @@ export function registerAgentRuntimeControlRoutes({ router, ctx }: Pick<ProjectR
     try { await controls(req).resume(String(req.params.runId), validateRuntimeResumeInput(req.body)); res.status(202).json({ accepted: true }) }
     catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 500).json({ error: error instanceof RuntimeControlError ? error.code : 'runtime_resume_failed', message: error instanceof RuntimeControlError ? error.message : 'Could not resume runtime execution' }) }
   })
+  router.post('/:projectId/agent-runtime/runs/:runId/steer', async (req, res) => {
+    try { res.status(202).json(await controls(req).signal(String(req.params.runId), req.body)) }
+    catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 500).json({ error: error instanceof RuntimeControlError ? error.code : 'runtime_steering_failed', message: error instanceof RuntimeControlError ? error.message : 'Could not send operator steering' }) }
+  })
   router.post('/:projectId/agent-runtime/runs/:runId/recovery', async (req, res) => {
     try { res.json(await controls(req).recovery(String(req.params.runId), req.body)) }
     catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 500).json({ error: error instanceof RuntimeControlError ? error.code : 'runtime_recovery_failed', message: error instanceof RuntimeControlError ? error.message : 'Could not perform scoped recovery' }) }

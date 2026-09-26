@@ -33,6 +33,16 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }) })
 
 describe('runtime project configuration', () => {
+  it('projects provider-native custom agents with safe defaults and preserves explicit role settings', () => {
+    const catalog = path.join(directory, '.kimi-code/skills/custom-auditor')
+    fs.mkdirSync(catalog, { recursive: true })
+    fs.writeFileSync(path.join(catalog, 'SKILL.md'), '---\nname: custom-auditor\ndescription: Audit the project\n---\nInspect the public behavior.')
+    expect(loadAgentRuntimeConfig(project())?.roles?.auditor).toMatchObject({ provider: 'kimi', access: 'read', artifacts: 'none', prompt: 'Inspect the public behavior.' })
+    const explicit = { provider: 'kimi', access: 'write' as const, artifacts: 'tasks-checkboxes' as const, prompt: 'Use the explicit project instructions.' }
+    saveAgentRuntimeConfig(project(), { ...enabledConfig(), roles: { auditor: explicit } })
+    expect(loadAgentRuntimeConfig(project())?.roles?.auditor).toEqual(explicit)
+  })
+
   it('migrates conflicting project connections without changing either endpoint and stores only role references', () => {
     const legacy = config()
     legacy.providers.push({ id: 'local', kind: 'openai-compatible', baseUrl: 'http://localhost:8001/v1' })

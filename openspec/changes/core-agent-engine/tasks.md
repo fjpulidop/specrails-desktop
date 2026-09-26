@@ -81,14 +81,14 @@ work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 
 ## 8. D6 — Agents role library (requires D1b/C5)
 
-- [ ] 8.1 Project custom agent frontmatter and prompts into runtime role descriptors.
+- [x] 8.1 Project custom agent frontmatter and prompts into runtime role descriptors.
 - [ ] 8.2 Integrate role selection and builtin read-only display; mark legacy routing for later removal.
 - [ ] 8.3 Test role permissions, profiles API and Agent Studio flows.
 
 ## 9. D7 — Steering and observation (requires C8)
 
-- [ ] 9.1 Add retained-runtime signal endpoint and MCP action.
-- [ ] 9.2 Show accepted/consumed steering receipts and attempt-boundary semantics in composer.
+- [x] 9.1 Add retained-runtime signal endpoint and MCP action.
+- [x] 9.2 Show accepted/consumed steering receipts and attempt-boundary semantics in composer.
 - [ ] 9.3 Expose run traces and validate routes, MCP, composer and documentation.
 
 ## 10. D8 — Migration and retirement (requires parity and two telemetry releases)

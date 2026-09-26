@@ -513,5 +513,19 @@
     "add": "添加角色",
     "invalidId": "使用以字母开头的唯一小写 ID，最多包含64个字母、数字或连字符。内置 ID 为保留名称。",
     "escalationHint": "仅允许的协议修复可以使用升级模型，不会增加重试次数。"
+  },
+  "steering": {
+    "title": "运行指令",
+    "hint": "Core 会保存这些指令，供下一个符合条件的代理回合使用。发送指令不会回答问题或授予批准。",
+    "label": "补充指令",
+    "send": "发送指令",
+    "accepted": "Core 已接收，等待代理使用。",
+    "pending": "等待代理回合",
+    "consumed": "代理已使用",
+    "counts": "待处理：{{pending}} · 已使用：{{consumed}}",
+    "failed": "无法发送指令。请重试以确认同一条消息。",
+    "unavailable": "无法获取接收记录详情。",
+    "unreported": "此 Core 版本不报告使用状态。",
+    "truncated": "仅显示最近的接收记录和待处理消息。"
   }
 }

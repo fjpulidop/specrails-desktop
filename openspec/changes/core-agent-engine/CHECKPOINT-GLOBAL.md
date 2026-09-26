@@ -5,6 +5,26 @@ The original objective remains **the entire plan, not just the foundations**.
 This checkpoint is unfinished implementation, not production acceptance. Do not
 merge, release, check off pending gates, or describe the complete migration as done.
 
+## Codex continuation — 26 September 2026, 20:30 CEST
+
+The interrupted wave is being completed, preserving its uncommitted work. No merge or release occurred.
+
+- Completed the D7 server transport: retained CLI signal via stdin, stable request id, bounded control output, project/frozen-context checks, Core acceptance timestamp, 400/409/503 error mapping, POST `/agent-runtime/runs/:runId/steer` and MCP `runtime_steer` with write permission.
+- Core owns durable steering receipts and consumption; Desktop projects bounded previews and does not invent consumption or maintain a second receipt journal. Core status supplies counts and consuming attempt/time. UI remains pending.
+- Corrected the v2 status-cache database path to `agent-workflow/run.sqlite`; legacy implementation checkpoints cannot invalidate v2 status.
+- Desktop full typecheck passed after removing the incomplete steering scaffold through implementation. Controls/bridge/MCP targeted suites passed 83/83 (HTTP tests require local socket permission). A subsequent endpoint naming alignment to the planned `/steer` path and its tests is included; final checks still required.
+- D4 admission now uses durable execution claims before async work, releases claims during human pauses and reacquires on continuation. Added conflict, stale-owner, failed-admission and restart tests.
+- D4 startup now probes retained Core status (bounded fan-out/time/output) before orphan/worktree recovery. Inaccessible or completed Core work is preserved for explicit settlement; live leases remain fenced. Restart-paused engine-v2 building deliveries retain `restart_pending`. Reattachment and lifecycle HTTP routes are still pending.
+- Recovery/claims/delivery/startup targeted suites passed 147 tests; subsequent extra stale/surviving owner tests passed (18 tests in three focused suites). Architecture audit and its 21 tests pass; source map updated. Full Desktop coverage still pending.
+- The recovery probe also passed a provider-free paired test against the actual Core CLI (5 tests including malformed/unavailable cases). The authoritative lease expiry is epoch milliseconds and interrupt identity is `id`; these supersede the preliminary Claude API sketch below.
+- D5 template routes now select all eight Core starter graphs by capabilities, retaining legacy fallback for older Core. The template/factory/router suites passed 58 tests, including validation of every starter against the real Core CLI. Mutating starters require verification; read-only monitoring starters do not invent write requirements.
+- D6 server projection now discovers provider-native custom agents and maps `custom-<id>` to non-built-in Core roles with read/none defaults. Explicit project settings and prompts win. Engine escalation, access, artifacts and OpenSpec skill metadata are validated; plain Markdown remains supported. Catalog metadata is named `runtimeRoleDefaults` to avoid implying effective project overrides. The role/settings/profile/architecture suites passed 156 tests and full typecheck passed. Agent Studio editing UI remains pending.
+- D2 projection now caches usage between new physical invocations, rejects divergent evidence for an existing physical invocation, persists event cursors and runtime result checkpoints atomically with events/accounting, and retains trace/span correlation. Focused projection/store tests passed 15 tests, including rollback/cursor and aggregate-read-count checks. Core result now includes its authoritative revision/event cursor (CLI acceptance 7/7). Delivery v2 evidence and the graph explorer remain pending.
+- D7 client inbox is wired into saved executions and job details with all eight locales. Retry uses the same request identity after an uncertain response, edited text gets a new identity, project switches ignore late responses, and acceptance never implies consumption. Client inbox/saved-run/i18n suites passed 33 tests and full typecheck passed. Final job-header, locale-parity and server route regression checks remain to run.
+- Final focused D7 checks passed: job header/locale parity 54 tests; server controls/routes/projection/store 64 tests. Broad paired server regression passed 998 tests across 45 files (loops, runtime, profiles/roles, architecture, database, startup and PR store). No paired tests skipped.
+- Migration 66 now creates the legacy telemetry store and its indexes. The preserved helper normalizes timestamps before window comparisons; database/telemetry tests passed 74 tests. Actual launch call sites, analytics and two-release retirement evidence remain pending; an empty store is not rollout evidence.
+- The other Claude partial changes (claims, templates, telemetry, fork/cancel bridge) are preserved and still require their integration and acceptance. D4 recovery/settlement and lifecycle routes are next. Original D2/D5/D6/D8 and client/Web plan remains outstanding.
+
 ## Continuation checkpoint — 26 September 2026, 19:55 CEST (Claude Code session)
 
 A second assistant session resumed from this checkpoint, verified every claim

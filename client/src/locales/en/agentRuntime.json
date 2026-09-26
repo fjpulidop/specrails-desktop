@@ -513,5 +513,19 @@
     "add": "Add role",
     "invalidId": "Use a unique lowercase ID beginning with a letter, up to 64 letters, digits or hyphens. Built-in IDs are reserved.",
     "escalationHint": "Only a permitted protocol repair may use the escalation model. No extra retry is added."
+  },
+  "steering": {
+    "title": "Run instructions",
+    "hint": "Core saves these instructions for the next eligible agent turn. Sending does not answer a question or grant approval.",
+    "label": "Additional instructions",
+    "send": "Send instructions",
+    "accepted": "Accepted by Core; awaiting consumption.",
+    "pending": "Awaiting an agent turn",
+    "consumed": "Consumed by an agent",
+    "counts": "Pending: {{pending}} · Consumed: {{consumed}}",
+    "failed": "Could not send instructions. Retry to confirm the same message.",
+    "unavailable": "Receipt details are unavailable.",
+    "unreported": "This Core version does not report consumption.",
+    "truncated": "Only the most recent receipts and pending messages are shown."
   }
 }

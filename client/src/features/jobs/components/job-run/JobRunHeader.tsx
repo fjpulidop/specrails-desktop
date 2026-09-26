@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/
 import { PipelineProgress } from '../PipelineProgress'
 import { AgentRuntimeMetrics } from '../../../settings/components/AgentRuntimeMetrics'
 import { RuntimeExecutionEvidence } from '../../../settings/components/RuntimeExecutionEvidence'
+import { RuntimeSteering } from '../../../settings/components/RuntimeSteering'
 import { useRuntimeRuns } from './useRuntimeRuns'
 import {
   extractModifiedFiles,
@@ -299,6 +300,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
               )}
               {run?.metrics && <AgentRuntimeMetrics metrics={run.metrics} />}
               {run && <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />}
+              {run && <RuntimeSteering projectId={projectId} run={run} onAccepted={runtime.refresh} />}
             </section>
           )}
         </div>

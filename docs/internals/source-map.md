@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 952 source/build files. Nearby tests are linked where names
+Includes 957 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -570,6 +570,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [RuntimeExecutionEvidence.tsx](../../client/src/features/settings/components/RuntimeExecutionEvidence.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeExecutionEvidence.test.tsx)
 - [RuntimeGuardrails.tsx](../../client/src/features/settings/components/RuntimeGuardrails.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeGuardrails.test.tsx)
 - [RuntimeRolePrompts.tsx](../../client/src/features/settings/components/RuntimeRolePrompts.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRolePrompts.test.tsx)
+- [RuntimeSteering.tsx](../../client/src/features/settings/components/RuntimeSteering.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeSteering.test.tsx)
 - [TerminalSettingsSection.tsx](../../client/src/features/settings/components/TerminalSettingsSection.tsx)
 
 ## client/src/features/settings/components/pickers
@@ -1047,10 +1048,12 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/agents/runtime
 
+- [agent-catalog.ts](../../server/modules/agents/runtime/agent-catalog.ts)
 - [agent-defaults.ts](../../server/modules/agents/runtime/agent-defaults.ts) · [test](../../server/modules/agents/runtime/agent-defaults.test.ts)
 - [agent-generator.ts](../../server/modules/agents/runtime/agent-generator.ts) · [test](../../server/modules/agents/runtime/agent-generator.test.ts)
 - [agent-refine-db.ts](../../server/modules/agents/runtime/agent-refine-db.ts) · [test](../../server/modules/agents/runtime/agent-refine-db.test.ts)
 - [agent-refine-manager.ts](../../server/modules/agents/runtime/agent-refine-manager.ts) · [test](../../server/modules/agents/runtime/agent-refine-manager.test.ts)
+- [agent-role-descriptor.ts](../../server/modules/agents/runtime/agent-role-descriptor.ts) · [test](../../server/modules/agents/runtime/agent-role-descriptor.test.ts)
 - [agent-store.ts](../../server/modules/agents/runtime/agent-store.ts)
 - [profile-manager.ts](../../server/modules/agents/runtime/profile-manager.ts) · [test](../../server/modules/agents/runtime/profile-manager.test.ts)
 - [profiles-router.ts](../../server/modules/agents/runtime/profiles-router.ts) · [test](../../server/modules/agents/runtime/profiles-router.test.ts)
@@ -1209,11 +1212,13 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/loops/runtime
 
+- [legacy-launch-telemetry.ts](../../server/modules/loops/runtime/legacy-launch-telemetry.ts) · [test](../../server/modules/loops/runtime/legacy-launch-telemetry.test.ts)
 - [loop-command-catalog.ts](../../server/modules/loops/runtime/loop-command-catalog.ts) · [test](../../server/modules/loops/runtime/loop-command-catalog.test.ts)
 - [loop-constants.ts](../../server/modules/loops/runtime/loop-constants.ts) · [test](../../server/modules/loops/runtime/loop-constants.test.ts)
 - [loop-core-factory.ts](../../server/modules/loops/runtime/loop-core-factory.ts) · [test](../../server/modules/loops/runtime/loop-core-factory.test.ts)
 - [loop-decider.ts](../../server/modules/loops/runtime/loop-decider.ts) · [test](../../server/modules/loops/runtime/loop-decider.test.ts)
 - [loop-definition-events.ts](../../server/modules/loops/runtime/loop-definition-events.ts)
+- [loop-definition-recovery.ts](../../server/modules/loops/runtime/loop-definition-recovery.ts) · [test](../../server/modules/loops/runtime/loop-definition-recovery.test.ts)
 - [loop-definition-run.ts](../../server/modules/loops/runtime/loop-definition-run.ts) · [test](../../server/modules/loops/runtime/loop-definition-run.test.ts)
 - [loop-definition.ts](../../server/modules/loops/runtime/loop-definition.ts) · [test](../../server/modules/loops/runtime/loop-definition.test.ts)
 - [loop-effect.ts](../../server/modules/loops/runtime/loop-effect.ts) · [test](../../server/modules/loops/runtime/loop-effect.test.ts)

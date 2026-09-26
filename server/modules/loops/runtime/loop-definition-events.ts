@@ -1,12 +1,14 @@
 import { appendEvent, type DbInstance } from '../../../db'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
 import { distributeIntEvenly } from '../../../util/distribute-int'
-import { completeLoopStepRecovery, readLoopJobUsage, setLoopStepSettledResult, stageLoopStepRecovery, type LoopStepRecoveryPayload } from './loop-runs-store'
+import { completeLoopStepRecovery, readLoopJobUsage, recordDefinitionCheckpoint, setLoopStepSettledResult, stageLoopStepRecovery, type LoopStepRecoveryPayload } from './loop-runs-store'
 
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value)
 const text = (value: unknown): string | undefined => typeof value === 'string' && value.length > 0 ? value : undefined
 const number = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
 const timestamp = (value: unknown): string | undefined => typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : undefined
+const canonical = (value: unknown): unknown => Array.isArray(value) ? value.map(canonical) : object(value)
+  ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, canonical(item)])) : value
 
 export interface DefinitionProjectedEvent { eventType: string; payload: string; seq: number; timestamp: string }
 export interface DefinitionUsage {
@@ -31,6 +33,9 @@ export function createDefinitionEventProjection(input: {
 }) {
   const { db, runId } = input
   let count = Number((db.prepare("SELECT COALESCE(MAX(json_extract(payload,'$.index')),0) AS count FROM events WHERE job_id=? AND event_type='loop_step'").get(runId) as { count: number }).count)
+  // Only a new physical invocation changes usage. Publish the cached aggregate
+  // after commit so a failed event transaction cannot poison later progress.
+  let totals = readDefinitionUsage(db, runId)
   return (event: Record<string, unknown>): void => {
     const workflow = event.type === 'workflow-event' && object(event.event) ? event.event : undefined
     const durableId = workflow ? text(workflow.id) : text(event.eventId)
@@ -40,6 +45,7 @@ export function createDefinitionEventProjection(input: {
     const at = timestamp(workflow?.timestamp ?? event.timestamp) ?? new Date().toISOString()
     const outgoing: DefinitionProjectedEvent[] = []
     let nextCount = count
+    let nextTotals = totals
     const persist = (eventType: string, payload: unknown) => {
       const seq = input.nextSequence(), json = JSON.stringify(payload)
       appendEvent(db, runId, seq, { event_type: eventType, source: 'stdout', payload: json })
@@ -47,9 +53,10 @@ export function createDefinitionEventProjection(input: {
     }
     db.transaction(() => {
       if (durableId) {
-        if (owner !== runId || !Number.isSafeInteger(workflow?.sequence ?? event.sequence)) throw new Error('Malformed durable Core event identity')
-        const prior = db.prepare("SELECT payload FROM events WHERE job_id=? AND event_type=? AND COALESCE(json_extract(payload,'$.event.id'),json_extract(payload,'$.eventId'))=? LIMIT 1")
-          .get(runId, event.type, durableId) as { payload: string } | undefined
+        const sequence = workflow?.sequence ?? event.sequence
+        if (owner !== runId || !Number.isSafeInteger(sequence) || (sequence as number) < 1 || durableId !== `${runId}:${sequence}`) throw new Error('Malformed durable Core event identity')
+        const prior = db.prepare("SELECT payload FROM events WHERE job_id=? AND event_type IN ('workflow-event','runtime-efficiency-event') AND COALESCE(json_extract(payload,'$.event.id'),json_extract(payload,'$.eventId'))=? LIMIT 1")
+          .get(runId, durableId) as { payload: string } | undefined
         if (prior) {
           if (prior.payload !== encoded) throw new Error('A replayed Core event changed its committed content')
           return
@@ -63,9 +70,18 @@ export function createDefinitionEventProjection(input: {
         const startedAt = timestamp(p.startedAt), finishedAt = timestamp(p.finishedAt)
         if (!invocationId || !attemptId || !provider || !startedAt || !finishedAt || !['succeeded','failed','interrupted'].includes(String(p.status))) throw new Error('Incomplete physical invocation evidence')
         const identity = `core:${runId}:${invocationId}`
+        const priorEvidence = db.prepare("SELECT payload FROM events WHERE job_id=? AND event_type='runtime-efficiency-event' AND json_extract(payload,'$.payload.invocationId')=? LIMIT 1").get(runId, invocationId) as { payload: string } | undefined
+        if (priorEvidence) {
+          const original = JSON.parse(priorEvidence.payload) as Record<string, unknown>
+          // Envelope sequence/time may differ on replay; physical identity,
+          // attribution and the provider's reported usage must not diverge.
+          const evidence = (value: Record<string, unknown>) => JSON.stringify(canonical([value.attemptId, value.nodePath, value.payload]))
+          if (evidence(original) !== evidence(event)) throw new Error('A physical Core invocation changed its committed evidence')
+        }
         const targets: Array<number | null> = [...new Set(input.ticketIds)].sort((a,b) => a-b)
         if (!targets.length) targets.push(null)
         const prior = db.prepare('SELECT id FROM ai_invocations WHERE id=?').get(identity + (targets.length > 1 ? `:t${targets[0]}` : ''))
+        if (prior && !priorEvidence) throw new Error('Physical Core invocation is missing its committed evidence')
         if (!prior) {
           const payload: LoopStepRecoveryPayload = { version: 1, runId, stepKey: identity, invocationId: identity, projectId: input.projectId, provider,
             model: text(p.model) ?? null, surfaceRefId: text(event.nodePath) ?? attemptId, ticketIds: input.ticketIds,
@@ -83,20 +99,30 @@ export function createDefinitionEventProjection(input: {
               duration_ms: number(p.durationMs) === undefined ? undefined : Number(p.durationMs)/targets.length,
             }))
           })
+          nextTotals = readDefinitionUsage(db, runId)
         }
       }
-      const totals = readDefinitionUsage(db, runId)
+      if (nextTotals !== totals) {
       db.prepare(`UPDATE jobs SET total_cost_usd=?,tokens_in=?,tokens_out=?,tokens_cache_read=?,tokens_cache_create=?,num_turns=? WHERE id=? AND owner='loop'`).run(
-        totals.present && !totals.costUnknown ? totals.cost : null, totals.present && !totals.tokensInUnknown ? totals.tokensIn : null,
-        totals.present && !totals.tokensOutUnknown ? totals.tokensOut : null, totals.present && !totals.cacheReadUnknown ? totals.cacheRead : null,
-        totals.present && !totals.cacheCreateUnknown ? totals.cacheCreate : null, totals.present && !totals.turnsUnknown ? totals.turns : null, runId)
-      db.prepare('UPDATE loop_runs SET total_cost_usd=?,total_tokens=? WHERE id=?').run(totals.cost,totals.tokensIn+totals.tokensOut,runId)
+        nextTotals.present && !nextTotals.costUnknown ? nextTotals.cost : null, nextTotals.present && !nextTotals.tokensInUnknown ? nextTotals.tokensIn : null,
+        nextTotals.present && !nextTotals.tokensOutUnknown ? nextTotals.tokensOut : null, nextTotals.present && !nextTotals.cacheReadUnknown ? nextTotals.cacheRead : null,
+        nextTotals.present && !nextTotals.cacheCreateUnknown ? nextTotals.cacheCreate : null, nextTotals.present && !nextTotals.turnsUnknown ? nextTotals.turns : null, runId)
+      db.prepare('UPDATE loop_runs SET total_cost_usd=?,total_tokens=? WHERE id=?').run(nextTotals.cost,nextTotals.tokensIn+nextTotals.tokensOut,runId)
+      }
       persist(event.type, event)
+      if (durableId) db.prepare('UPDATE loop_runs SET core_event_cursor=MAX(COALESCE(core_event_cursor,0),?) WHERE id=? AND engine_version=2').run(workflow?.sequence ?? event.sequence, runId)
+      if (event.type === 'runtime-result') recordDefinitionCheckpoint(db, runId, {
+        ...(event.revision === undefined ? {} : { revision: event.revision as number }),
+        ...(event.eventCursor === undefined ? {} : { eventCursor: event.eventCursor as number }),
+        status: typeof event.status === 'string' ? event.status : undefined,
+        pendingInterrupts: Array.isArray(event.pendingInterrupts) ? event.pendingInterrupts : [],
+        ...(event.completion === undefined ? {} : { completion: event.completion }),
+      })
       if (workflow && text(workflow.attemptId)) {
         const attemptId = String(workflow.attemptId)
         const prior = db.prepare("SELECT payload FROM events WHERE job_id=? AND event_type='loop_step' AND json_extract(payload,'$.attemptId')=? ORDER BY seq DESC LIMIT 1").get(runId, attemptId) as { payload: string } | undefined
         const opening = prior ? JSON.parse(prior.payload) as Record<string, unknown> : undefined
-        const correlation = { nodeId: workflow.nodePath, nodePath: workflow.nodePath, scopeId: workflow.scopeId, branch: workflow.branch, visit: workflow.visit, attempt: workflow.attempt, attemptId, coreEventId: durableId }
+        const correlation = { nodeId: workflow.nodePath, nodePath: workflow.nodePath, scopeId: workflow.scopeId, branch: workflow.branch, visit: workflow.visit, attempt: workflow.attempt, attemptId, coreEventId: durableId, traceId: workflow.traceId, spanId: workflow.spanId }
         if (workflow.type === 'step_started' && !opening) {
           nextCount += 1
           persist('loop_step', { index: nextCount, kind: 'core', title: workflow.nodePath, iteration: workflow.visit, startedAtMs: Date.parse(at), ...correlation })
@@ -108,7 +134,8 @@ export function createDefinitionEventProjection(input: {
       }
     })()
     count = nextCount
+    totals = nextTotals
     for (const projected of outgoing) input.broadcast(projected)
-    if (outgoing.length) input.onProgress?.(count, readDefinitionUsage(db,runId))
+    if (outgoing.length) input.onProgress?.(count, totals)
   }
 }

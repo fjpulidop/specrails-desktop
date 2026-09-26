@@ -513,5 +513,19 @@
     "add": "Rolle hinzufügen",
     "invalidId": "Verwenden Sie eine eindeutige ID in Kleinbuchstaben, die mit einem Buchstaben beginnt und höchstens 64 Buchstaben, Ziffern oder Bindestriche enthält. Integrierte IDs sind reserviert.",
     "escalationHint": "Nur eine zulässige Protokollkorrektur darf das Eskalationsmodell verwenden. Es wird kein weiterer Versuch hinzugefügt."
+  },
+  "steering": {
+    "title": "Ausführungsanweisungen",
+    "hint": "Core speichert diese Anweisungen für den nächsten geeigneten Agentendurchlauf. Das Senden beantwortet keine Fragen und erteilt keine Freigabe.",
+    "label": "Zusätzliche Anweisungen",
+    "send": "Anweisungen senden",
+    "accepted": "Von Core angenommen; noch nicht übernommen.",
+    "pending": "Warten auf einen Agentendurchlauf",
+    "consumed": "Von einem Agenten übernommen",
+    "counts": "Ausstehend: {{pending}} · Übernommen: {{consumed}}",
+    "failed": "Anweisungen konnten nicht gesendet werden. Erneut versuchen, um dieselbe Nachricht zu bestätigen.",
+    "unavailable": "Empfangsdetails sind nicht verfügbar.",
+    "unreported": "Diese Core-Version meldet die Übernahme nicht.",
+    "truncated": "Nur aktuelle Empfangsbestätigungen und ausstehende Nachrichten werden angezeigt."
   }
 }

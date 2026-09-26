@@ -513,5 +513,19 @@
     "add": "Añadir rol",
     "invalidId": "Usa un ID único en minúsculas que empiece por una letra, con hasta 64 letras, números o guiones. Los IDs integrados están reservados.",
     "escalationHint": "Solo una reparación permitida del protocolo puede usar el modelo de escalado. No se añade ningún reintento."
+  },
+  "steering": {
+    "title": "Instrucciones de ejecución",
+    "hint": "Core guarda estas instrucciones para el siguiente turno de agente compatible. Enviarlas no responde preguntas ni concede aprobaciones.",
+    "label": "Instrucciones adicionales",
+    "send": "Enviar instrucciones",
+    "accepted": "Recibidas por Core; pendientes de consumo.",
+    "pending": "Pendientes de un turno de agente",
+    "consumed": "Consumidas por un agente",
+    "counts": "Pendientes: {{pending}} · Consumidas: {{consumed}}",
+    "failed": "No se pudieron enviar las instrucciones. Reintenta para confirmar el mismo mensaje.",
+    "unavailable": "Los detalles de los recibos no están disponibles.",
+    "unreported": "Esta versión de Core no informa del consumo.",
+    "truncated": "Solo se muestran los recibos más recientes y los mensajes pendientes."
   }
 }

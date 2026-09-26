@@ -7,6 +7,9 @@ import { isDeepStrictEqual } from 'node:util'
 import runtimeSchema from '../../../schemas/agent-runtime.schema.json'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { hasAdapter, adapterKind, isLocalAdapterId } from '../../../providers/registry'
+import { listNativeAgentFiles } from '../../agents/runtime/agent-catalog'
+import { projectCustomAgentRoles, RUNTIME_ROLE_ID, type RuntimeRoleDescriptor } from '../../agents/runtime/agent-role-descriptor'
+export { RUNTIME_ROLE_ID, type RuntimeRoleDescriptor } from '../../agents/runtime/agent-role-descriptor'
 
 export type RuntimeRole = 'architect' | 'developer' | 'reviewer'
 export type RuntimeCli = 'claude' | 'codex' | 'gemini' | 'kimi'
@@ -112,14 +115,6 @@ export interface RuntimeCheckPolicy {
   independentGroup?: string
   resources?: string[]
 }
-export interface RuntimeRoleDescriptor {
-  provider: string; model?: string; maxTurns?: number; effort?: string; thinking?: 'on' | 'off'; escalation?: { model: string; effort?: string }
-  access: 'read' | 'write'
-  artifacts: 'none' | 'tasks-checkboxes' | 'all'
-  prompt?: string
-  openspecSkill?: 'openspec-ff-change' | 'openspec-apply-change' | 'openspec-verify-change'
-}
-export const RUNTIME_ROLE_ID = /^[a-z][a-z0-9-]{0,63}$/
 export interface RuntimeConfig {
   efficiency?: RuntimeEfficiencyPolicy
   schemaVersion: 1
@@ -303,7 +298,7 @@ export function loadRuntimeConfigFile(file: string, fallbackProvider?: string): 
     const selected = providers.find(item => item.id === config.agents.architect.provider) ?? providers.find(item => item.kind === 'cli')
     if (!selected || selected.kind !== 'cli') throw new AgentRuntimeConfigError('Configure project role models before using API-only connections')
     for (const role of ROLES) config.agents[role].provider = selected.id
-    return validateAgentRuntimeConfig({ ...config, providers })
+    return withCustomAgentRoles(validateAgentRuntimeConfig({ ...config, providers }), file, fallbackProvider)
   }
   if (Array.isArray(parsed.providers)) {
     const legacy = validateAgentRuntimeConfig(parsed)
@@ -321,7 +316,21 @@ export function loadRuntimeConfigFile(file: string, fallbackProvider?: string): 
     atomicJson(file, settings)
     parsed = settings
   }
-  return validateAgentRuntimeConfig({ ...parsed, enabled: true, providers })
+  return withCustomAgentRoles(validateAgentRuntimeConfig({ ...parsed, enabled: true, providers }), file, fallbackProvider)
+}
+
+/** Agent Studio documents supply defaults; explicit project roles always win. */
+function withCustomAgentRoles(config: RuntimeConfig, file: string, fallbackProvider?: string): RuntimeConfig {
+  const connection = config.providers.find(connection => connection.id === config.agents.architect.provider)
+  const provider = fallbackProvider && hasAdapter(fallbackProvider) && adapterKind(fallbackProvider) !== 'local'
+    ? fallbackProvider : connection?.kind === 'cli' ? connection.cli : 'claude'
+  try {
+    const documents = listNativeAgentFiles(path.dirname(path.dirname(file)), provider).filter(entry => entry.id.startsWith('custom-'))
+      .map(entry => ({ id: entry.id, content: fs.readFileSync(entry.file, 'utf8') }))
+    if (!documents.length) return config
+    const roles = projectCustomAgentRoles(documents, config.agents.architect, config.roles)
+    return validateAgentRuntimeConfig({ ...config, roles })
+  } catch (error) { throw new AgentRuntimeConfigError(error instanceof Error ? error.message : 'Custom agent roles could not be loaded') }
 }
 
 /** Missing settings use the programmatic engine. Malformed files fail closed. */

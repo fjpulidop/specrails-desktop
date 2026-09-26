@@ -513,5 +513,19 @@
     "add": "Adicionar função",
     "invalidId": "Use um ID único em minúsculas que comece com uma letra, com até 64 letras, números ou hífens. Os IDs integrados são reservados.",
     "escalationHint": "Somente uma correção permitida do protocolo pode usar o modelo de escalonamento. Nenhuma tentativa extra é adicionada."
+  },
+  "steering": {
+    "title": "Instruções de execução",
+    "hint": "O Core guarda estas instruções para o próximo turno de agente compatível. O envio não responde a perguntas nem concede aprovações.",
+    "label": "Instruções adicionais",
+    "send": "Enviar instruções",
+    "accepted": "Recebidas pelo Core; aguardando utilização.",
+    "pending": "Aguardando um turno de agente",
+    "consumed": "Utilizadas por um agente",
+    "counts": "Pendentes: {{pending}} · Utilizadas: {{consumed}}",
+    "failed": "Não foi possível enviar as instruções. Tente novamente para confirmar a mesma mensagem.",
+    "unavailable": "Os detalhes dos recibos estão indisponíveis.",
+    "unreported": "Esta versão do Core não informa a utilização.",
+    "truncated": "São apresentados apenas os recibos recentes e as mensagens pendentes."
   }
 }

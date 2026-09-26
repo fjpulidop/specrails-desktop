@@ -12,6 +12,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/agent-runtime-controls.ts](runtime/agent-runtime-controls.ts)
 - [runtime/agent-runtime-events.ts](runtime/agent-runtime-events.ts)
 - [runtime/agent-runtime-loader.ts](runtime/agent-runtime-loader.ts)
+- [runtime/agent-runtime-package.ts](runtime/agent-runtime-package.ts)
 - [runtime/agent-runtime-paths.ts](runtime/agent-runtime-paths.ts)
 - [runtime/agent-runtime-recovery.ts](runtime/agent-runtime-recovery.ts)
 - [runtime/agent-runtime-settings-router.ts](runtime/agent-runtime-settings-router.ts)
@@ -72,3 +73,7 @@ outcomes. Core's `scopedRecovery: 1` capability owns filesystem access, the shar
 workflow lease, guarded exact patches, registered checks and durable idempotency.
 The new adapter dependency and MCP public subpath are reviewed in boundaries.json;
 no lifecycle ownership moves into MCP. Older retained runtimes fail explicitly.
+
+## Durable steering
+
+`POST /agent-runtime/runs/:runId/steer` validates text and a stable request id, checks the project and frozen context, then sends stdin to the retained Core signal command. Core owns idempotency and receipt timestamps. Status projects pending versus consumed receipts with bounded previews; missing older-runtime reporting remains unknown. MCP exposes the same operation as `runtime_steer` with write permission. See [live steering](../../../docs/agent-live-steering.md).

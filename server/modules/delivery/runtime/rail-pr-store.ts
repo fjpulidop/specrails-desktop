@@ -487,10 +487,15 @@ export function reconcileFailedBuildingPrDeliveries(
     const uniqueRunIds = [...new Set(runIds)]
     const placeholders = uniqueRunIds.map(() => '?').join(',')
     const runs = db
-      .prepare(`SELECT id, status, final_outcome FROM loop_runs WHERE id IN (${placeholders})`)
-      .all(...uniqueRunIds) as Array<{ id: string; status: string; final_outcome: string | null }>
+      .prepare(`SELECT id, status, final_outcome, engine_version, restart_reason FROM loop_runs WHERE id IN (${placeholders})`)
+      .all(...uniqueRunIds) as Array<{ id: string; status: string; final_outcome: string | null; engine_version: number | null; restart_reason: string | null }>
     if (runs.length !== uniqueRunIds.length || runs.some((run) => run.status !== 'completed')) {
       if (!opts.startup) continue
+      if (runs.length === uniqueRunIds.length && runs.some(run => run.engine_version === 2 && run.status === 'paused' && run.restart_reason === 'restart') && runs.every(run => run.status === 'completed' || run.engine_version === 2 && run.status === 'paused' && run.restart_reason === 'restart')) {
+        db.prepare("UPDATE rail_pr_deliveries SET status_code='restart_pending', status_detail=? WHERE id=? AND decision='building'")
+          .run('The retained Core execution awaits recovery or delivery settlement after restart.', row.id)
+        continue
+      }
       if (transitionDecision(db, row.id, 'building', 'pr_failed', {
         implementationOutcome: 'unknown',
         deliveryOutcome: 'blocked',

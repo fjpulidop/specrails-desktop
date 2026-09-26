@@ -1616,6 +1616,36 @@ const MIGRATIONS: Migration[] = [
     }
     db.exec('CREATE INDEX IF NOT EXISTS idx_loop_runs_fork_of ON loop_runs(fork_of)')
   },
+  // Migration 65: definition execution claims — the synchronous admission guard
+  // that keeps a v2 run and its forks from writing to one shared worktree at the
+  // same time. A row is a LIVE owner, never a paused run: settlement, cancel and
+  // restart reconciliation delete it. Additive + idempotent.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS definition_execution_claims (
+        run_id                 TEXT PRIMARY KEY,
+        owner                  TEXT NOT NULL,
+        repository_mounts_json TEXT NOT NULL,
+        claimed_at             TEXT NOT NULL DEFAULT (datetime('now')),
+        heartbeat_at           TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_definition_execution_claims_owner ON definition_execution_claims(owner);
+    `)
+  },
+  // Migration 66: observed legacy launches, independent of release eligibility.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS legacy_launch_events (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL CHECK (kind IN ('legacy_loop_traversal','queue_manager_slash','merge_back')),
+        project_id TEXT NOT NULL,
+        run_id TEXT,
+        at TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_legacy_launch_identity ON legacy_launch_events(kind, run_id) WHERE run_id IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_legacy_launch_at ON legacy_launch_events(at);
+    `)
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

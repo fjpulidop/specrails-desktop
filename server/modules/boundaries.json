@@ -77,6 +77,7 @@
       "runtime/agent-runtime-controls.ts",
       "runtime/agent-runtime-events.ts",
       "runtime/agent-runtime-loader.ts",
+      "runtime/agent-runtime-package.ts",
       "runtime/agent-runtime-paths.ts",
       "runtime/agent-runtime-recovery.ts",
       "runtime/agent-runtime-settings-router.ts",
@@ -98,6 +99,7 @@
         "node:child_process",
         "node:crypto",
         "node:fs",
+        "node:os",
         "node:path",
         "node:readline",
         "node:util"
@@ -189,6 +191,8 @@
         "../../../providers/registry",
         "../../../schemas/agent-runtime.schema.json",
         "../../../workspace-resolution",
+        "../../agents/runtime/agent-catalog",
+        "../../agents/runtime/agent-role-descriptor",
         "ajv",
         "node:crypto",
         "node:fs",
@@ -215,14 +219,21 @@
   },
   "agents": {
     "publicEntries": [
+      "runtime/agent-catalog.ts",
       "runtime/agent-defaults.ts",
       "runtime/agent-refine-db.ts",
       "runtime/agent-refine-manager.ts",
+      "runtime/agent-role-descriptor.ts",
       "runtime/agent-store.ts",
       "runtime/profile-manager.ts",
       "runtime/profiles-router.ts"
     ],
     "dependencies": {
+      "runtime/agent-catalog.ts": [
+        "../../../providers",
+        "node:fs",
+        "node:path"
+      ],
       "runtime/agent-defaults.ts": [
         "../../../db",
         "../../../desktop-db",
@@ -268,6 +279,9 @@
         "path",
         "tree-kill"
       ],
+      "runtime/agent-role-descriptor.ts": [
+        "js-yaml"
+      ],
       "runtime/agent-store.ts": [
         "../../../db",
         "../../missions/runtime/agent-tier",
@@ -290,9 +304,11 @@
         "../../../providers",
         "../../../providers/kimi-skill-prompt",
         "../../../workspace-resolution",
+        "./agent-catalog",
         "./agent-generator",
         "./agent-refine-db",
         "./agent-refine-manager",
+        "./agent-role-descriptor",
         "./profile-manager",
         "express",
         "fs",
@@ -1250,6 +1266,7 @@
     "publicEntries": [
       "runtime/loop-command-catalog.ts",
       "runtime/loop-constants.ts",
+      "runtime/loop-definition-recovery.ts",
       "runtime/loop-definition-run.ts",
       "runtime/loop-effect.ts",
       "runtime/loop-executors.ts",
@@ -1262,6 +1279,10 @@
       "runtime/loops-store.ts"
     ],
     "dependencies": {
+      "runtime/legacy-launch-telemetry.ts": [
+        "../../../db",
+        "node:crypto"
+      ],
       "runtime/loop-command-catalog.ts": [
         "../../../providers/registry",
         "./loop-constants"
@@ -1278,6 +1299,19 @@
         "../../../util/distribute-int",
         "../../accounting/runtime/ai-invocations",
         "./loop-runs-store"
+      ],
+      "runtime/loop-definition-recovery.ts": [
+        "../../../core-node-runtime",
+        "../../../db",
+        "../../../util/win-spawn",
+        "../../agent-runtime/runtime/agent-runtime-bridge",
+        "../../agent-runtime/runtime/agent-runtime-package",
+        "./loop-definition-run",
+        "./loop-runs-store",
+        "node:child_process",
+        "node:fs",
+        "node:path",
+        "node:util"
       ],
       "runtime/loop-definition-run.ts": [
         "./loop-run-manager",
@@ -1380,7 +1414,9 @@
       ],
       "runtime/loop-runs-store.ts": [
         "../../../db",
-        "./loop-run-manager"
+        "./loop-run-manager",
+        "node:fs",
+        "path"
       ],
       "runtime/loop-shell-invocation.ts": [
         "../../../bundled-openspec",

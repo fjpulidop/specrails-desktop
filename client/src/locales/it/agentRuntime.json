@@ -513,5 +513,19 @@
     "add": "Aggiungi ruolo",
     "invalidId": "Usa un ID univoco in minuscolo che inizi con una lettera, con un massimo di 64 lettere, numeri o trattini. Gli ID integrati sono riservati.",
     "escalationHint": "Solo una correzione consentita del protocollo può usare il modello superiore. Non viene aggiunto alcun tentativo."
+  },
+  "steering": {
+    "title": "Istruzioni di esecuzione",
+    "hint": "Core conserva queste istruzioni per il prossimo turno di agente compatibile. L’invio non risponde alle domande e non concede approvazioni.",
+    "label": "Istruzioni aggiuntive",
+    "send": "Invia istruzioni",
+    "accepted": "Ricevute da Core; in attesa di utilizzo.",
+    "pending": "In attesa di un turno di agente",
+    "consumed": "Utilizzate da un agente",
+    "counts": "In attesa: {{pending}} · Utilizzate: {{consumed}}",
+    "failed": "Impossibile inviare le istruzioni. Riprova per confermare lo stesso messaggio.",
+    "unavailable": "I dettagli delle ricevute non sono disponibili.",
+    "unreported": "Questa versione di Core non segnala l’utilizzo.",
+    "truncated": "Sono mostrate solo le ricevute recenti e i messaggi in attesa."
   }
 }

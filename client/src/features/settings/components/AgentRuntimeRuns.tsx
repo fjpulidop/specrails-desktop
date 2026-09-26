@@ -1,4 +1,5 @@
 import { RuntimeExecutionEvidence } from './RuntimeExecutionEvidence'
+import { RuntimeSteering } from './RuntimeSteering'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Button } from '../../../components/ui/button'
@@ -30,6 +31,7 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
       {run.error && <p className="text-xs text-destructive">{run.error}</p>}
       {run.metrics && <AgentRuntimeMetrics metrics={run.metrics} />}
       <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />
+      <RuntimeSteering projectId={projectId} run={run} onAccepted={refresh} />
       {run.pendingApproval?.reason && <p className="text-xs text-muted-foreground">{run.pendingApproval.reason}</p>}
       {run.pendingQuestion && <div className="space-y-2">
         <p className="text-xs font-medium">{t('runs.question')}</p>

@@ -8,6 +8,7 @@ subdirectories, where present, enforce inward dependency rules.
 
 - [runtime/loop-command-catalog.ts](runtime/loop-command-catalog.ts)
 - [runtime/loop-constants.ts](runtime/loop-constants.ts)
+- [runtime/loop-definition-recovery.ts](runtime/loop-definition-recovery.ts)
 - [runtime/loop-effect.ts](runtime/loop-effect.ts)
 - [runtime/loop-executors.ts](runtime/loop-executors.ts)
 - [runtime/loop-factory.ts](runtime/loop-factory.ts)
@@ -60,3 +61,9 @@ The client schema forms, outcome handles and component navigation consume this
 catalog. Saved legacy graphs continue to use their existing editor and execution
 path. See the [authoring protocol](../../../openspec/changes/core-agent-engine/desktop-authoring-protocol.md)
 for publication identity and nested-budget decisions.
+
+## Definition recovery ownership
+
+`loop-definition-recovery.ts` probes the retained Core CLI using frozen host inputs with four subprocesses at most, a 15-second timeout per run and bounded output. Startup waits for these observations before orphan reconciliation and worktree recovery. An unavailable probe is not evidence that implementation failed. Completed Core work remains pending Desktop settlement, and restart-paused v2 deliveries retain their building state and worktrees.
+
+The manager acquires a durable per-project execution claim before asynchronous admission. Claims fence overlapping checkout paths across distinct runs and forks, canonicalize existing symlinks and are released on errors and terminal completion. A human pause releases the claim; continuation reacquires it. Startup clears pre-allocation/terminal dead claims, preserves live or uninspectable Core owners, and keeps the exact recoverable attempt IDs supplied by Core. The per-run Core lease and the host's cross-run worktree claim enforce different ownership boundaries.

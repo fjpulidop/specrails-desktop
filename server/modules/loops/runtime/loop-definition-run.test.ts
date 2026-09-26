@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initDb, getJob, getJobEvents, type DbInstance } from '../../../db'
 import { LoopRunManager, type LoopExecutors, type LoopRunRequest } from './loop-run-manager'
 import { createDefinitionEventProjection } from './loop-definition-events'
-import { getLoopRun } from './loop-runs-store'
+import { getLoopRun, readDefinitionExecutionClaim } from './loop-runs-store'
 import type { DefinitionLoopInvocation, DefinitionRuntimeResult } from './loop-definition-run'
 
 let db: DbInstance
@@ -18,6 +18,26 @@ function step(sequence:number,type:string,attemptId='attempt-a',nodePath='map[0]
 function usage(sequence:number, invocationId='physical-1', costUsd:number|null=.6) { return {type:'runtime-efficiency-event',eventId:`r1:${sequence}`,runId:'r1',sequence,timestamp:at,kind:'role-context',attemptId:'attempt-a',nodePath:'map[0]/read',payload:{invocationId,provider:'claude',model:'sonnet',status:'succeeded',startedAt:at,finishedAt:'2026-09-26T12:00:01.000Z',durationMs:1000,usage:{inputTokens:5,outputTokens:2,costUsd,cacheReadInputTokens:3,cacheWriteInputTokens:null}}} }
 
 describe('Core definitions in Loop Manager',()=>{
+  it('claims before async admission, rejects another manager and releases on failure', async () => {
+    let rejectAdmission!: (reason: Error) => void
+    const support = new Promise<void>((_resolve, reject) => { rejectAdmission = reject })
+    const run = vi.fn(async () => complete())
+    const first = new LoopRunManager(db, () => {}, { ...executors(run), assertDefinitionSupport: () => support })
+    const other = new LoopRunManager(db, () => {}, executors(run))
+    const running = first.run(request())
+    expect(readDefinitionExecutionClaim(db, 'r1')).toBeDefined()
+    await expect(other.run(request())).rejects.toThrow('runtime_run_active')
+    await expect(other.run({ ...request(), runId: 'fork' })).rejects.toThrow('runtime_run_active')
+    expect(getLoopRun(db, 'r1')).toBeUndefined()
+    const failed = expect(running).rejects.toThrow('unsupported')
+    rejectAdmission(new Error('unsupported'))
+    await failed
+    expect(readDefinitionExecutionClaim(db, 'r1')).toBeUndefined()
+    expect(run).not.toHaveBeenCalled()
+    expect((await other.run(request())).outcome).toBe('success')
+    expect(readDefinitionExecutionClaim(db, 'r1')).toBeUndefined()
+  })
+
   it('uses one Core process and physical invocation evidence, never legacy traversal or aggregate double billing',async()=>{
     const ex=executors(async input=>{input.onRuntimeEvent(step(1,'step_started'));input.onRuntimeEvent(usage(2));input.onRuntimeEvent(step(3,'step_succeeded'));return complete()})
     const manager=new LoopRunManager(db,()=>{},ex)
@@ -34,6 +54,7 @@ describe('Core definitions in Loop Manager',()=>{
       expect(input).toMatchObject({resume:true,answer:'Answer B',interruptId:'q2'});input.onRuntimeEvent(step(4,'step_succeeded','attempt-b','map[1]/read'));input.onRuntimeEvent(step(5,'step_succeeded'));return complete()
     })
     const manager=new LoopRunManager(db,()=>{},ex);const running=manager.run(request());await vi.waitFor(()=>expect(manager.isPaused('r1')).toBe(true))
+    expect(readDefinitionExecutionClaim(db, 'r1')).toBeUndefined()
     expect(manager.sendInteractiveTurn('r1','Ambiguous')).toBe(false)
     expect(manager.sendInteractiveTurn('r1','Answer B',{interruptId:'q2'})).toBe(true)
     expect((await running).outcome).toBe('success')
@@ -75,5 +96,29 @@ describe('Core definitions in Loop Manager',()=>{
     expect(rows).toEqual([{tokens_in:3,tokens_out:1,total_cost_usd:.3},{tokens_in:2,tokens_out:1,total_cost_usd:.3},{tokens_in:3,tokens_out:1,total_cost_usd:null},{tokens_in:2,tokens_out:1,total_cost_usd:null}]);expect(observer).toHaveBeenCalledTimes(2)
     expect(()=>project({...usage(10),payload:{...usage(10).payload,model:'changed'}})).toThrow('changed its committed content')
     expect(()=>seen!.onRuntimeEvent({...step(20,'step_started'),event:{...step(20,'step_started').event,runId:'other'}})).toThrow('another run')
+  })
+  it('caches aggregates between physical invocations and commits cursor/status with the event', async () => {
+    await new LoopRunManager(db, () => {}, executors(async () => complete())).run(request())
+    const prepare = vi.spyOn(db, 'prepare'), progress = vi.fn()
+    let sequence = 100
+    const project = createDefinitionEventProjection({ db, runId: 'r1', projectId: 'p1', ticketIds: [], nextSequence: () => sequence++, broadcast: () => {}, onProgress: progress })
+    const aggregateReads = () => prepare.mock.calls.filter(([sql]) => sql.includes('COALESCE(SUM(total_cost_usd),0)')).length
+    expect(aggregateReads()).toBe(1)
+    project(step(1, 'step_started')); project(usage(2)); project(step(3, 'step_succeeded'))
+    project(usage(4)) // Same physical invocation under a new transport sequence.
+    expect(aggregateReads()).toBe(2)
+    expect(getLoopRun(db, 'r1')?.core_event_cursor).toBe(4)
+    expect(db.prepare('SELECT COUNT(*) AS n FROM ai_invocations').get()).toEqual({ n: 1 })
+    expect(() => project(usage(5, 'physical-1', 99))).toThrow('changed its committed evidence')
+    expect(getLoopRun(db, 'r1')?.core_event_cursor).toBe(4)
+    db.exec("CREATE TRIGGER reject_result_checkpoint BEFORE UPDATE OF runtime_status_json ON loop_runs BEGIN SELECT RAISE(ABORT,'checkpoint write failed'); END")
+    const result = { type: 'runtime-result', runId: 'r1', revision: 8, eventCursor: 4, status: 'paused', pendingInterrupts: [{ id: 'q1' }] }
+    expect(() => project(result)).toThrow('checkpoint write failed')
+    expect(getJobEvents(db, 'r1').filter(event => event.event_type === 'runtime-result')).toHaveLength(0)
+    db.exec('DROP TRIGGER reject_result_checkpoint')
+    project(result)
+    expect(getLoopRun(db, 'r1')).toMatchObject({ core_revision: 8, core_event_cursor: 4 })
+    expect(progress.mock.lastCall?.[1]).toMatchObject({ cost: .6, tokensIn: 5, tokensOut: 2 })
+    prepare.mockRestore()
   })
 })

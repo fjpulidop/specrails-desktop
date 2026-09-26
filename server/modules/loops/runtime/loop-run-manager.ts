@@ -54,7 +54,8 @@ import {
   createLoopRun,
   saveDefinitionRun,
   readDefinitionRun,
-  recordDefinitionCheckpoint,
+  claimDefinitionExecution,
+  definitionRepositoryMounts,
   updateLoopRunCounters,
   finishLoopRunAndJob,
   pauseLoopRun,
@@ -1061,11 +1062,24 @@ export class LoopRunManager {
 
   isDefinitionRunActive(runId: string): boolean { return this._definitionTasks.has(runId) }
 
+  private readonly _definitionClaims = new Map<string, () => void>()
+  private claimDefinition(req: LoopRunRequest & { runId: string }): void {
+    if (this._definitionClaims.has(req.runId)) return
+    const claim = claimDefinitionExecution(this.db, req.runId, { owner: newId(), repositoryMounts: definitionRepositoryMounts(req) })
+    if (!claim.ok) throw new Error(`runtime_run_active: ${claim.reason} (${claim.conflictingRunId})`)
+    this._definitionClaims.set(req.runId, claim.release)
+  }
+  private releaseDefinition(runId: string): void {
+    this._definitionClaims.get(runId)?.()
+    this._definitionClaims.delete(runId)
+  }
+
   run(req: LoopRunRequest): Promise<LoopRunResult> {
     if (!isDefinitionGraph(req.graph)) return this._run(req)
     const runId = req.runId ?? newId()
     if (this._definitionTasks.has(runId)) return Promise.reject(new Error('runtime_run_active: Workflow is already running'))
-    const task = this._run({...req,runId}).finally(() => this._definitionTasks.delete(runId))
+    try { this.claimDefinition({ ...req, runId }) } catch (error) { return Promise.reject(error) }
+    const task = this._run({...req,runId}).finally(() => { this.releaseDefinition(runId); this._definitionTasks.delete(runId) })
     this._definitionTasks.set(runId,task)
     return task
   }
@@ -1074,14 +1088,22 @@ export class LoopRunManager {
     const active = this._definitionTasks.get(runId)
     if (active) {
       const interruptId = input.interruptId ?? input.approve?.[0]
-      if (!this.isPaused(runId) || !this.sendInteractiveTurn(runId,input.answer ?? '',{interruptId,approve: Boolean(input.approve?.length)})) return Promise.reject(new Error('runtime_run_active: Select a pending question or approval'))
+      if (!this.isPaused(runId)) return Promise.reject(new Error('runtime_run_active: Select a pending question or approval'))
+      const request = readDefinitionRun(this.db, runId)?.request
+      if (!request) return Promise.reject(new Error('runtime_run_not_found: Frozen workflow is unavailable'))
+      try { this.claimDefinition({ ...request, runId }) } catch (error) { return Promise.reject(error) }
+      if (!this.sendInteractiveTurn(runId,input.answer ?? '',{interruptId,approve: Boolean(input.approve?.length)})) {
+        this.releaseDefinition(runId)
+        return Promise.reject(new Error('runtime_run_active: Select a pending question or approval'))
+      }
       return active
     }
     const frozen = readDefinitionRun(this.db,runId)
     if (!frozen) return Promise.reject(new Error('runtime_run_not_found: Frozen workflow is unavailable'))
     if (frozen.row.status === 'completed') return Promise.reject(new Error('runtime_run_completed: Fork a completed workflow to continue'))
     this._cancelled.delete(runId)
-    const task = this._run(frozen.request,{resume:true,...input}).finally(() => this._definitionTasks.delete(runId))
+    try { this.claimDefinition({ ...frozen.request, runId }) } catch (error) { return Promise.reject(error) }
+    const task = this._run(frozen.request,{resume:true,...input}).finally(() => { this.releaseDefinition(runId); this._definitionTasks.delete(runId) })
     this._definitionTasks.set(runId,task)
     return task
   }
@@ -1651,13 +1673,11 @@ export class LoopRunManager {
         })
         let activeDurationMs = continuation ? getLoopRun(this.db,runId)?.total_duration_ms ?? 0 : 0
         const result = await runDefinitionLoop(req, runId, { continuation, contextPath: () => readDefinitionRun(this.db,runId)?.metadata.contextPath,
-          onPrepared: metadata => { saveDefinitionRun(this.db,runId,metadata) }, invoke: this.executors.runDefinition!, isCancelled: () => this._cancelled.has(runId),
+          onPrepared: metadata => { saveDefinitionRun(this.db,runId,metadata) },
+          invoke: input => { this.claimDefinition({ ...req, runId }); return this.executors.runDefinition!(input) }, isCancelled: () => this._cancelled.has(runId),
           remainingMs: () => req.graph.config.timeoutMinutes > 0 ? Math.max(1, req.graph.config.timeoutMinutes*60_000-activeDurationMs) : undefined,
-          onLine: logLine, onRuntimeEvent: event => {
-            projectEvent(event)
-            if (event.type === 'runtime-result') recordDefinitionCheckpoint(this.db,runId,{status:typeof event.status === 'string' ? event.status : undefined,pendingInterrupts:Array.isArray(event.pendingInterrupts) ? event.pendingInterrupts : []})
-          }, onSpawn: child => this._activeChild.set(runId,child),
-          onInvocationEnd: result => { this._activeChild.delete(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs } }, awaitHumanDecision,
+          onLine: logLine, onRuntimeEvent: projectEvent, onSpawn: child => this._activeChild.set(runId,child),
+          onInvocationEnd: result => { this._activeChild.delete(runId); if (result.runtimeStatus === 'paused') this.releaseDefinition(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs } }, awaitHumanDecision,
         })
         definitionCompletion = result.completion
         if (result.durationMs !== undefined) totalDuration = result.durationMs

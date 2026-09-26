@@ -10,7 +10,8 @@ import { validateLoopGraph, assertLoopShellRepositoryScope } from './modules/loo
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import { isLoopsEnabled } from './feature-flags'
 import { getLoop } from './modules/loops/runtime/loops-store'
-import { getLoopRun } from './modules/loops/runtime/loop-runs-store'
+import { getLoopRun, readDefinitionLineage } from './modules/loops/runtime/loop-runs-store'
+import { probeDefinitionRun } from './modules/loops/runtime/loop-definition-recovery'
 import { MIN_DURATION_SAMPLES, getJobCommandDurationRange, getLoopDurationRange, jobCommandShape } from './modules/execution/runtime/run-duration-stats'
 import { loadConstantMap } from './modules/loops/runtime/loop-constants'
 import { getAdapter, hasAdapter, reasoningEffortsForModel, supportsToolPolicy } from './providers'
@@ -31,6 +32,14 @@ import { assertProcessAdmission, ProcessAdmissionClosedError } from './process-a
 
 export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
   const { router, ctx } = deps
+
+  router.get('/:projectId/loop-runs/:id/recovery', async (req: Request, res: Response) => {
+    if (!isLoopsEnabled()) { res.status(404).json({ error: 'Not Found' }); return }
+    const c = ctx(req), runId = String(req.params.id), run = getLoopRun(c.db, runId)
+    if (!run || run.project_id !== c.project.id || run.engine_version !== 2) { res.status(404).json({ error: 'Definition run not found' }); return }
+    const probe = await probeDefinitionRun({ db: c.db, cwd: c.project.path, env: process.env }, runId)
+    res.json({ ...probe, lineage: readDefinitionLineage(c.db, runId) })
+  })
 
   // GET a single loop run's live/terminal state. Backs the companion's running
   // surface (a loop run has no jobId, so it can't be tailed via /jobs/:id).

@@ -25,7 +25,7 @@ import {
 import { isDefinitionGraph, type LoopGraph } from './loop-graph'
 import { compileLoopToDefinition } from './loop-definition'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
-import { LOOP_TEMPLATES, getLoopTemplate } from './loop-templates'
+import { loopTemplatesForCapabilities, getLoopTemplate } from './loop-templates'
 import { factoryLoopsForCapabilities, getFactoryLoop } from './loop-factory'
 import { LOOP_COMMANDS } from './loop-command-catalog'
 import { listConstants, createConstant, updateConstant, deleteConstant, loadConstantMap, LoopConstantError } from './loop-constants'
@@ -61,10 +61,10 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   }
 
   // ── Templates ──────────────────────────────────────────────────────────────
-  router.get('/loop-templates', (_req: Request, res: Response) => {
+  router.get('/loop-templates', async (_req: Request, res: Response) => {
     if (!guard(res)) return
     res.json({
-      templates: LOOP_TEMPLATES.map((t) => ({
+      templates: loopTemplatesForCapabilities(await factoryCapabilities()).map((t) => ({
         id: t.id,
         name: t.name,
         description: t.description,
@@ -234,9 +234,9 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   })
 
   // ── Instantiate from a template ───────────────────────────────────────────────
-  router.post('/loops/from-template/:templateId', (req: Request, res: Response) => {
+  router.post('/loops/from-template/:templateId', async (req: Request, res: Response) => {
     if (!guard(res)) return
-    const template = getLoopTemplate(req.params.templateId as string)
+    const template = getLoopTemplate(req.params.templateId as string, await factoryCapabilities())
     if (!template) {
       res.status(404).json({ error: 'Template not found' })
       return

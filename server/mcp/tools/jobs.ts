@@ -42,6 +42,7 @@ export function jobsTools(): McpToolSpec[] {
         'runtime_runs (read the programmatic runtime state of jobId — or every run when omitted — status, nextStep, canResume, recoverableSteps, pendingApproval, pendingQuestion; THIS is how you learn why a run failed and what recovery it offers), ' +
         'runtime_diagnose (read-only recovery assessment for jobId: original scope, completed steps, repeated failures and verification invalidation reasons; use before recommending retry or relaunch), ' +
         'runtime_evidence (read the durable runtime evidence of jobId; page with evidenceId/section/sourceId/cursor/limit), ' +
+        'runtime_steer (write — queue steeringText in an engine v2 run with a stable requestId; acceptance is not consumption; inspect runtime_runs steering receipts), ' +
         'runtime_resume (ai-spawn — continue a resumable run: optional approve/recover/invalidate step-id lists + answer for a pending question; act ONLY after the user confirmed on the card), ' +
         'runtime_recover (ai-spawn — shorthand for runtime_resume with recover:[stepIds] over the recoverable steps), ' +
         'runtime_approve (write — shorthand for runtime_resume with approve:[stepId] for a pending approval), ' +
@@ -52,7 +53,7 @@ export function jobsTools(): McpToolSpec[] {
         const action = a.action as string
         if (['cancel', 'purge', 'background_start', 'background_kill', 'runtime_cancel'].includes(action)) return 'destructive'
         if (['spawn', 'interactive_turn', 'runtime_resume', 'runtime_recover'].includes(action)) return 'ai-spawn'
-        if (['pause', 'resume', 'reorder', 'priority', 'finalize', 'runtime_approve', 'runtime_settle', 'runtime_dismiss'].includes(action)) return 'write'
+        if (['pause', 'resume', 'reorder', 'priority', 'finalize', 'runtime_approve', 'runtime_settle', 'runtime_dismiss', 'runtime_steer'].includes(action)) return 'write'
         return 'read'
       },
       inputSchema: {
@@ -87,6 +88,7 @@ export function jobsTools(): McpToolSpec[] {
             'runtime_runs',
             'runtime_diagnose',
             'runtime_evidence',
+            'runtime_steer',
             'runtime_resume',
             'runtime_recover',
             'runtime_approve',
@@ -146,6 +148,8 @@ export function jobsTools(): McpToolSpec[] {
         provider: z.string().optional().describe('Provider to resolve the default spec model for (default_spec_model)'),
         // ── runtime_* (mission-rail-cards: the agent's eyes + hands on a failed run) ──
         railIndex: z.number().int().nonnegative().optional().describe('runtime_runs: only the latest continuation of this rail (0-based)'),
+        steeringText: z.string().min(1).max(20_000).optional().describe('runtime_steer: operator instruction consumed at the next eligible AI attempt'),
+        requestId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/).optional().describe('runtime_steer: stable idempotency key; reuse only with identical text'),
         approve: z.array(z.string()).optional().describe('runtime_resume/runtime_approve: step ids to approve'),
         recover: z.array(z.string()).optional().describe('runtime_resume/runtime_recover: step ids to recover (default for runtime_recover: every recoverableStep)'),
         invalidate: z.array(z.string()).optional().describe('runtime_resume: step ids whose results must be discarded before continuing'),
@@ -367,6 +371,14 @@ export function jobsTools(): McpToolSpec[] {
             if (typeof args.evidenceId === 'string') query.set('id', args.evidenceId)
             for (const key of ['section', 'sourceId', 'cursor', 'limit']) if (args[key] !== undefined) query.set(key, String(args[key]))
             return apiCall(ctx, 'GET', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/evidence${query.size ? '?' + query.toString() : ''}`)
+          }
+
+          case 'runtime_steer': {
+            const id = args.jobId as string | undefined
+            if (!id) throw new Error('runtime_steer requires a "jobId".')
+            if (typeof args.steeringText !== 'string' || !args.steeringText.trim() || args.steeringText.length > 20_000 || typeof args.requestId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(args.requestId)) throw new Error('runtime_steer requires steeringText and a stable requestId.')
+            const result = await apiCall(ctx, 'POST', `${base}/agent-runtime/runs/${encodeURIComponent(id)}/steer`, { text: args.steeringText, requestId: args.requestId })
+            return { ...(result as Record<string, unknown>), hint: 'Accepted into the durable inbox; consumption happens at the next eligible AI attempt. Inspect runtime_runs steering receipts.' }
           }
 
           case 'runtime_resume':

@@ -153,6 +153,12 @@ export const REVIEW_THRESHOLD_DEFAULTS: { minScore: number; aspects: Record<Revi
 /** An architect question that pauses the run until the operator answers through resume. */
 export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
 export interface RuntimeRun {
+  engineVersion?: number
+  completion?: { ok: boolean; verified: boolean; reasons: string[] } | null
+  steering?: {
+    receipts: Array<{ id: string; acceptedAt: string; preview: string; length: number; status: 'pending' | 'consumed'; consumedAttemptId?: string; consumedAt?: string }>
+    pending: number; consumed: number; consumptionReported: boolean; truncated?: boolean; receiptsUnavailable?: true
+  }
   historical?: boolean
   efficiencySummary?: RuntimeEfficiencySummary
   canSettle?: boolean
