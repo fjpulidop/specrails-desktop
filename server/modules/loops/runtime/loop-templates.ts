@@ -13,7 +13,7 @@
  *
  * Each template is a fully-publishable graph (passes validateLoopGraph).
  */
-import type { LoopGraph } from './loop-graph'
+import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
 import { PORTED_TEMPLATES } from './loop-templates-ported'
 
 /** Closed taxonomy a template's `category` must belong to. Single source of truth
@@ -254,6 +254,83 @@ export function opsxLifecycleGraph(): LoopGraph {
   }
 }
 
+// ── The eight named starters ─────────────────────────────────────────────────
+// Prompt/goal text is shared by the legacy graphs (Desktop traversal, older Core)
+// and the Core definition graphs below, so porting never silently rewrites the
+// user-facing instructions. Iteration bounds are kept per starter as well.
+
+/** Starters that ship as Core definition graphs when the selected Core advertises
+ *  both `engineV2: 1` and `workflowDefinitions: 1` (same gate as the factories). */
+export const CORE_STARTER_TEMPLATE_IDS = [
+  'ship-and-green', 'verify-pass', 'ci-watch', 'lint-and-fix', 'type-safe', 'coverage-climb', 'build-fix', 'deploy-check',
+] as const
+export type CoreStarterTemplateId = (typeof CORE_STARTER_TEMPLATE_IDS)[number]
+
+interface StarterText {
+  /** Agent-facing task for the (single) working step. Empty for verify-only loops. */
+  prompt: string
+  /** The Decider's exit condition in the legacy graph; reused verbatim by Core deciders. */
+  goal: string
+  /** Legacy iteration cap (aiLoopGraph default 10 / fixLoopGraph default 12 / watchers 20). */
+  maxIterations: number
+}
+
+const STARTER_TEXT: Record<CoreStarterTemplateId, StarterText> = {
+  'ship-and-green': {
+    prompt: '{{cmd:implement}}',
+    // Uses the built-in {{const:VERIFICATION_PASS}} so the Decider goal and the
+    // sentinel {{cmd:verify}} emits stay in lock-step (resolved at run time).
+    goal: 'The verification step reported {{const:VERIFICATION_PASS}} — the spec is implemented and all tests pass.',
+    maxIterations: 12,
+  },
+  'verify-pass': {
+    prompt: '',
+    goal: 'The verification step reported {{const:VERIFICATION_PASS}} with no remaining issues.',
+    maxIterations: 12,
+  },
+  'ci-watch': {
+    prompt: 'Check the CI status of the current pull request using the repository\'s CI tooling (e.g. `gh pr checks`). Report whether every check has passed or is still running/failing.',
+    goal: 'Every CI check on the PR reports success.',
+    maxIterations: 20,
+  },
+  'lint-and-fix': {
+    prompt: 'Detect this project\'s linter from its config and run it. Fix every issue it reports for spec "{{spec.title}}" (lint/format only — no behaviour change). Report whether the linter is now clean.',
+    goal: 'The linter reports zero errors and zero warnings.',
+    maxIterations: 10,
+  },
+  'type-safe': {
+    prompt: 'Detect this project\'s type checker from its config and run it. Resolve every type error related to spec "{{spec.title}}" without `any`, ignore comments, or non-null assertions. Report whether it passes.',
+    goal: 'The type checker passes with zero errors and no suppressions were added.',
+    maxIterations: 10,
+  },
+  'coverage-climb': {
+    prompt: 'Detect this project\'s test/coverage tooling and run it with coverage. Add focused tests for the code implementing spec "{{spec.title}}" until the coverage gate passes; cover edge cases and error paths (tests must assert real behaviour). Report coverage status.',
+    goal: 'The coverage thresholds pass and the added tests assert meaningful behaviour.',
+    maxIterations: 10,
+  },
+  'build-fix': {
+    prompt: 'Detect this project\'s production build command from its config and run it. Fix any compilation or bundling errors for spec "{{spec.title}}" without disabling type or build checks. Report whether the build succeeds.',
+    goal: 'The production build completes successfully with no errors.',
+    maxIterations: 10,
+  },
+  'deploy-check': {
+    prompt: 'Check the latest deployment/health status using the repository\'s deploy tooling (e.g. `gh run list --workflow deploy`, a health endpoint). Report whether the deployment finished successfully and the service is healthy.',
+    goal: 'The latest deployment finished successfully and the service is healthy.',
+    maxIterations: 20,
+  },
+}
+
+/** Legacy starter graphs (Desktop node traversal). Served whenever the selected
+ *  Core does not advertise the definition engine; retained until D8. */
+function legacyStarterGraph(id: CoreStarterTemplateId): LoopGraph {
+  const { prompt, goal, maxIterations } = STARTER_TEXT[id]
+  if (id === 'ship-and-green' || id === 'verify-pass') return fixLoopGraph(prompt ? [prompt] : [], goal, maxIterations)
+  return aiLoopGraph([prompt], goal, maxIterations)
+}
+
+/** Legacy catalog: every starter as a Desktop-traversal graph. `LOOP_TEMPLATES`
+ *  keeps this meaning for existing consumers; capability-aware callers use
+ *  `loopTemplatesForCapabilities` / `getLoopTemplate(id, capabilities)`. */
 export const LOOP_TEMPLATES: LoopTemplate[] = [
   {
     id: 'opsx-lifecycle',
@@ -269,12 +346,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     description: 'Fully autonomous: implement the spec, verify, and refine (fix) on failure — looping verify → fix → verify until everything is green. No human intervention.',
     category: 'CI',
     tags: ['CI', 'testing'],
-    graph: fixLoopGraph(
-      ['{{cmd:implement}}'],
-      // Uses the built-in {{const:VERIFICATION_PASS}} so the Decider goal and the
-      // sentinel {{cmd:verify}} emits stay in lock-step (resolved at run time).
-      'The verification step reported {{const:VERIFICATION_PASS}} — the spec is implemented and all tests pass.'
-    ),
+    graph: legacyStarterGraph('ship-and-green'),
   },
   {
     id: 'verify-pass',
@@ -282,10 +354,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     description: 'Autonomous verify-and-fix: detect and run the project\'s build/lint/tests, then refine on failure — verify → fix → verify until green.',
     category: 'Testing',
     tags: ['testing', 'quality'],
-    graph: fixLoopGraph(
-      [],
-      'The verification step reported {{const:VERIFICATION_PASS}} with no remaining issues.'
-    ),
+    graph: legacyStarterGraph('verify-pass'),
   },
   {
     id: 'ci-watch',
@@ -293,11 +362,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     description: 'Poll CI checks on the open PR (the agent uses the repo\'s CI tooling) until every check is green.',
     category: 'CI',
     tags: ['CI', 'DevOps'],
-    graph: aiLoopGraph(
-      ['Check the CI status of the current pull request using the repository\'s CI tooling (e.g. `gh pr checks`). Report whether every check has passed or is still running/failing.'],
-      'Every CI check on the PR reports success.',
-      20
-    ),
+    graph: legacyStarterGraph('ci-watch'),
   },
   {
     id: 'lint-and-fix',
@@ -305,10 +370,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     description: 'The agent detects and runs the project\'s linter and fixes every issue, iterating until the codebase is clean.',
     category: 'Quality',
     tags: ['quality', 'lint'],
-    graph: aiLoopGraph(
-      ['Detect this project\'s linter from its config and run it. Fix every issue it reports for spec "{{spec.title}}" (lint/format only — no behaviour change). Report whether the linter is now clean.'],
-      'The linter reports zero errors and zero warnings.'
-    ),
+    graph: legacyStarterGraph('lint-and-fix'),
   },
   {
     id: 'type-safe',
@@ -316,10 +378,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     description: 'The agent detects and runs the project\'s type checker and resolves every error, iterating until it passes cleanly.',
     category: 'Quality',
     tags: ['quality', 'types'],
-    graph: aiLoopGraph(
-      ['Detect this project\'s type checker from its config and run it. Resolve every type error related to spec "{{spec.title}}" without `any`, ignore comments, or non-null assertions. Report whether it passes.'],
-      'The type checker passes with zero errors and no suppressions were added.'
-    ),
+    graph: legacyStarterGraph('type-safe'),
   },
   {
     id: 'coverage-climb',
@@ -327,10 +386,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     description: 'The agent runs the project\'s coverage tooling and adds focused tests until the thresholds pass.',
     category: 'Testing',
     tags: ['testing', 'coverage'],
-    graph: aiLoopGraph(
-      ['Detect this project\'s test/coverage tooling and run it with coverage. Add focused tests for the code implementing spec "{{spec.title}}" until the coverage gate passes; cover edge cases and error paths (tests must assert real behaviour). Report coverage status.'],
-      'The coverage thresholds pass and the added tests assert meaningful behaviour.'
-    ),
+    graph: legacyStarterGraph('coverage-climb'),
   },
   {
     id: 'build-fix',
@@ -338,10 +394,7 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     description: 'The agent detects and runs the project\'s production build and fixes compile/bundle errors until it is green.',
     category: 'CI',
     tags: ['CI', 'build'],
-    graph: aiLoopGraph(
-      ['Detect this project\'s production build command from its config and run it. Fix any compilation or bundling errors for spec "{{spec.title}}" without disabling type or build checks. Report whether the build succeeds.'],
-      'The production build completes successfully with no errors.'
-    ),
+    graph: legacyStarterGraph('build-fix'),
   },
   {
     id: 'deploy-check',
@@ -349,17 +402,149 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     description: 'The agent polls the deployment/health status (using the project\'s deploy tooling) until the service reports healthy.',
     category: 'DevOps',
     tags: ['DevOps', 'deploy'],
-    graph: aiLoopGraph(
-      ['Check the latest deployment/health status using the repository\'s deploy tooling (e.g. `gh run list --workflow deploy`, a health endpoint). Report whether the deployment finished successfully and the service is healthy.'],
-      'The latest deployment finished successfully and the service is healthy.',
-      20
-    ),
+    graph: legacyStarterGraph('deploy-check'),
   },
   // Ported community-pattern starters (Specrails-authored), compiled from
   // declarative PortSpecs so the catalog spans every category in the taxonomy.
   ...PORTED_TEMPLATES.map(compilePortSpec),
 ]
 
-export function getLoopTemplate(id: string): LoopTemplate | undefined {
-  return LOOP_TEMPLATES.find((t) => t.id === id)
+/** Explicit alias: the legacy (older Core / no engineV2) catalog. */
+export const LEGACY_LOOP_TEMPLATES: readonly LoopTemplate[] = LOOP_TEMPLATES
+
+// ── Core definition starters (engineV2 + workflowDefinitions) ────────────────
+// Rules (CHECKPOINT-D1B-D5 "Still pending"):
+// - watchers (ci-watch, deploy-check) are explicit `access: 'read'` prompts and
+//   certify nothing (their success end has `requiresVerified: false`);
+// - every mutating starter runs the real `verify` piece over the project's
+//   configured checks and ends with `requiresVerified: true` — a passing sentinel
+//   alone never reaches a success end;
+// - ship-and-green = native `implementation` → verify → decider → prompt(fix) loop;
+// - prompts, goals and iteration caps come from STARTER_TEXT (legacy parity).
+
+/** Fix step shared by every mutating Core starter. Reuses the tuned `{{cmd:fix}}`
+ *  contract and covers the verify→fix edge, where no Decider verdict precedes it. */
+const CORE_FIX_PROMPT = [
+  'Either the configured host verification failed or the Loop Decider judged the goal not yet met.',
+  '{{cmd:fix}}',
+  'If the verification findings are not visible above, run the project\'s configured checks (build, type-check, lint, tests) yourself first and act on their actual output. Never weaken, skip or disable a check to make it pass.',
+].join('\n\n')
+
+/** Read-only watcher verdict: the legacy Decider goal becomes the explicit sentinel rule. */
+function watcherVerdict(goal: string): string {
+  return [
+    'Read-only: do not modify any file, branch, pull request or deployment.',
+    `Finish with exactly \`{{const:VERIFICATION_PASS}}\` only when this holds: ${goal} Otherwise finish with \`{{const:VERIFICATION_FAIL}} — <what is still running or failing>\`.`,
+  ].join('\n\n')
+}
+
+/** Evidence clause appended to legacy Decider goals: the Core decider only runs after
+ *  the real `verify` piece passed, so it judges completeness, not check status. */
+const CORE_GOAL_EVIDENCE = 'The configured host verification already passed on the current candidate before this decision. Judge only from concrete evidence in the history (commands run, their output, files changed); green baseline checks, setup or planning alone do not prove the goal.'
+
+const SHIP_AND_GREEN_GOAL = 'Stop only when the history proves the spec is implemented: every acceptance criterion maps to real code and behavioral evidence across every selected ticket and repository, and the configured host verification passed on the current candidate. Setup, planning, a launched subagent or green baseline checks alone are insufficient; continue when work is missing or incomplete.'
+
+/** Wall-clock cap for starters (legacy default). ship-and-green is untimed like the
+ *  Implement factory: the native implementation piece runs the whole pipeline. */
+const STARTER_TIMEOUT_MIN = 30
+
+type CoreStarterShape = 'ship' | 'verify-fix' | 'quality' | 'watch'
+const CORE_STARTER_SHAPES: Record<CoreStarterTemplateId, CoreStarterShape> = {
+  'ship-and-green': 'ship',
+  'verify-pass': 'verify-fix',
+  'ci-watch': 'watch',
+  'lint-and-fix': 'quality',
+  'type-safe': 'quality',
+  'coverage-climb': 'quality',
+  'build-fix': 'quality',
+  'deploy-check': 'watch',
+}
+
+/** Core definition graph for one of the eight starters. Deterministic: same id ⇒
+ *  structurally identical graph (positions included). */
+export function coreStarterGraph(id: CoreStarterTemplateId): LoopGraph {
+  const shape = CORE_STARTER_SHAPES[id]
+  const { prompt, goal, maxIterations } = STARTER_TEXT[id]
+  const nodes: LoopNode[] = [{ id: 'start', type: 'start', position: { x: COL_X, y: 0 } }]
+  const edges: LoopGraph['edges'] = []
+  const piece = (nodeId: string, kind: CoreNodeKind, params: Record<string, unknown>, outcomes: Record<string, string>, x = COL_X) => {
+    nodes.push({ id: nodeId, type: 'core', position: { x, y: ROW_GAP * nodes.length }, data: { kind, params } })
+    for (const [label, target] of Object.entries(outcomes)) edges.push({ id: `e-${nodeId}-${label}`, source: nodeId, target, label })
+  }
+  const verify = (pass: string) => piece('verify', 'verify', { commands: 'configured' }, { pass, fail: 'fix', failed: 'failed' })
+  const decide = (deciderGoal: string, next: string) =>
+    piece('decide', 'decider', { roleId: 'reviewer', goal: deciderGoal, noProgress: 3 }, { stop: 'done', continue: next, failed: 'failed' })
+  const fix = () => piece('fix', 'prompt', { text: CORE_FIX_PROMPT, access: 'write' }, { next: 'verify', failed: 'failed' }, COL_RIGHT_X)
+  let entry: string
+  let config: LoopGraph['config'] = { maxIterations, timeoutMinutes: STARTER_TIMEOUT_MIN, journal: 'ledger-only', change: 'none' }
+  let successEnd: Record<string, unknown> = { outcome: 'success', requiresVerified: true }
+  if (shape === 'ship') {
+    entry = 'implement'
+    piece('implement', 'implementation', {}, { next: 'verify', rejected: 'failed', failed: 'failed' })
+    verify('decide')
+    decide(SHIP_AND_GREEN_GOAL, 'fix')
+    fix()
+    config = { maxIterations, timeoutMinutes: 0, aiStepTimeoutMinutes: 0, journal: 'implementation', change: 'new' }
+  } else if (shape === 'verify-fix') {
+    entry = 'verify'
+    verify('done')
+    fix()
+  } else if (shape === 'quality') {
+    entry = 'work'
+    piece('work', 'prompt', { text: prompt, access: 'write' }, { next: 'verify', failed: 'failed' })
+    verify('decide')
+    decide(`${goal} ${CORE_GOAL_EVIDENCE}`, 'work')
+    fix()
+  } else {
+    entry = 'check'
+    piece('check', 'prompt', { text: `${prompt}\n\n${watcherVerdict(goal)}`, access: 'read', sentinel: 'verification' }, { pass: 'done', fail: 'check', failed: 'failed' })
+    successEnd = { outcome: 'success', requiresVerified: false }
+  }
+  edges.unshift({ id: 'e-start', source: 'start', target: entry })
+  nodes.push(
+    { id: 'done', type: 'end', position: { x: COL_X, y: ROW_GAP * nodes.length }, data: successEnd },
+    { id: 'failed', type: 'end', position: { x: COL_RIGHT_X, y: ROW_GAP * nodes.length }, data: { outcome: 'failure' } },
+  )
+  return { nodes, edges, config }
+}
+
+const CORE_STARTER_DESCRIPTIONS: Record<CoreStarterTemplateId, string> = {
+  'ship-and-green': 'Fully autonomous: run Core\'s native implementation pipeline for the spec, then verify with the project\'s configured checks and refine (fix) on failure — verify → decide → fix until green. Success requires a verified candidate; no human intervention.',
+  'verify-pass': 'Autonomous verify-and-fix: run the project\'s configured build/lint/tests through Core\'s verify piece, then refine on failure — verify → fix → verify until green.',
+  'ci-watch': 'Poll CI checks on the open PR (the agent uses the repo\'s CI tooling) until every check is green. Read-only: the watcher never edits the repository.',
+  'lint-and-fix': 'The agent detects and runs the project\'s linter and fixes every issue, iterating until the codebase is clean. Every pass is confirmed by the project\'s configured verification before the loop can succeed.',
+  'type-safe': 'The agent detects and runs the project\'s type checker and resolves every error, iterating until it passes cleanly. Every pass is confirmed by the project\'s configured verification before the loop can succeed.',
+  'coverage-climb': 'The agent runs the project\'s coverage tooling and adds focused tests until the thresholds pass. Every pass is confirmed by the project\'s configured verification before the loop can succeed.',
+  'build-fix': 'The agent detects and runs the project\'s production build and fixes compile/bundle errors until it is green. Every pass is confirmed by the project\'s configured verification before the loop can succeed.',
+  'deploy-check': 'The agent polls the deployment/health status (using the project\'s deploy tooling) until the service reports healthy. Read-only: the watcher never edits the repository.',
+}
+
+function isCoreStarterId(id: string): id is CoreStarterTemplateId {
+  return (CORE_STARTER_TEMPLATE_IDS as readonly string[]).includes(id)
+}
+
+/** Same gate as `factoryLoopsForCapabilities`: both flags must be advertised. */
+export function supportsCoreTemplates(capabilities?: Record<string, number>): boolean {
+  return capabilities?.engineV2 === 1 && capabilities.workflowDefinitions === 1
+}
+
+/** The catalog for the selected Core: the eight starters become Core definitions
+ *  when the capabilities allow it; every other entry (and every entry on older
+ *  Core) is the legacy graph. Order, ids, names, categories and tags are stable. */
+export function loopTemplatesForCapabilities(capabilities?: Record<string, number>): LoopTemplate[] {
+  if (!supportsCoreTemplates(capabilities)) return LOOP_TEMPLATES
+  return LOOP_TEMPLATES.map((template) => {
+    if (!isCoreStarterId(template.id)) return template
+    const readOnly = CORE_STARTER_SHAPES[template.id] === 'watch'
+    return {
+      ...template,
+      description: CORE_STARTER_DESCRIPTIONS[template.id],
+      ...(readOnly ? { readOnly: true } : {}),
+      graph: coreStarterGraph(template.id),
+    }
+  })
+}
+
+export function getLoopTemplate(id: string, capabilities?: Record<string, number>): LoopTemplate | undefined {
+  return loopTemplatesForCapabilities(capabilities).find((t) => t.id === id)
 }

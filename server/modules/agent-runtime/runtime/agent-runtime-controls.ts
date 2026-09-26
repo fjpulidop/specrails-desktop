@@ -26,6 +26,35 @@ function isNodePath(value: string): boolean {
   return NODE_PATH.test(value) && value.split('/').every(id => !['START', 'END', '__start__', '__end__', 'next'].includes(id))
 }
 const ANSWER_LIMIT = 20_000
+/** Core contract (engine/steering/inbox.ts): 1–20,000 UTF-16 code units per message. Its 80,000-byte cap cannot be reached below that length. */
+export const STEERING_TEXT_LIMIT = 20_000
+const STEERING_PREVIEW_LENGTH = 240
+const STEERING_RECEIPT_LIMIT = 512
+const STEERING_REQUEST_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
+export interface RuntimeSteeringAccepted { id: string; acceptedAt: string }
+export interface RuntimeSteeringReceipt {
+  id: string
+  /** Desktop clock when Core's inbox transaction committed the message. */
+  acceptedAt: string
+  preview: string
+  length: number
+  /** pending: accepted by Core's inbox and not yet claimed by an attempt (or consumption unreported). consumed: claimed by consumedAttemptId at that attempt's admission. */
+  status: 'pending' | 'consumed'
+  consumedAttemptId?: string
+  consumedAt?: string
+}
+export interface RuntimeSteeringState {
+  receipts: RuntimeSteeringReceipt[]
+  pending: number
+  consumed: number
+  /** false: the retained Core does not report inbox consumption, so accepted messages stay pending here even after an attempt claimed them. */
+  consumptionReported: boolean
+  /** The Desktop receipt projection could not be read; Core's inbox remains authoritative. */
+  receiptsUnavailable?: true
+}
+/** Shape Core's ControlInbox projects (SteeringMessage); read from compact status only when Core exposes state.steering. */
+interface CoreSteeringMessage { id: string; text?: string; createdAt?: string; consumedByAttemptId?: string; consumedAt?: string }
+type StoredSteeringReceipt = Omit<RuntimeSteeringReceipt, 'status' | 'consumedAttemptId' | 'consumedAt'>
 export interface RuntimeResumeInput { approve?: string[]; recover?: string[]; invalidate?: string[]; answer?: string }
 export interface RuntimePendingQuestion { stepId: string; requestedAt: string; question: string; answeredAt?: string; answer?: string }
 interface RuntimeFailure { stepId: string; status: string; at: string; error?: string }

@@ -1616,6 +1616,22 @@ const MIGRATIONS: Migration[] = [
     }
     db.exec('CREATE INDEX IF NOT EXISTS idx_loop_runs_fork_of ON loop_runs(fork_of)')
   },
+  // Migration 65: definition execution claims — the synchronous admission guard
+  // that keeps a v2 run and its forks from writing to one shared worktree at the
+  // same time. A row is a LIVE owner, never a paused run: settlement, cancel and
+  // restart reconciliation delete it. Additive + idempotent.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS definition_execution_claims (
+        run_id                 TEXT PRIMARY KEY,
+        owner                  TEXT NOT NULL,
+        repository_mounts_json TEXT NOT NULL,
+        claimed_at             TEXT NOT NULL DEFAULT (datetime('now')),
+        heartbeat_at           TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_definition_execution_claims_owner ON definition_execution_claims(owner);
+    `)
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

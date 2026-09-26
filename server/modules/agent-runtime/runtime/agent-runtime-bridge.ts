@@ -4,8 +4,9 @@ import { stripVTControlCharacters } from 'node:util'
 import { resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
-import { dirname, isAbsolute, join, posix } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { basename, dirname, isAbsolute, join, posix } from 'node:path'
 import { createInterface } from 'node:readline'
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime, validateRequestedRoleEfforts } from './agent-runtime-loader'
 import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
@@ -288,4 +289,172 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       })
     })
   })
+}
+
+// ─── Retained-runtime control verbs (fork / cancel) ──────────────────────────
+
+interface AgentRuntimeControlBase {
+  contextPath: string
+  cwd: string
+  env: NodeJS.ProcessEnv
+  /** The run the frozen context belongs to; a mismatch never spawns. */
+  runId: string
+  timeoutMs?: number
+  onLine?: (line: string, source?: 'stdout' | 'stderr') => void
+}
+export type AgentRuntimeControlInvocation =
+  | (AgentRuntimeControlBase & { kind: 'fork'; childRunId: string; fromNodePath: string; scopeId?: string; visit?: number; state?: Record<string, unknown> })
+  | (AgentRuntimeControlBase & { kind: 'cancel'; requestId: string })
+export interface AgentRuntimeForkResult {
+  kind: 'fork'
+  runId: string
+  forkOf: string
+  fromNodePath: string
+  scopeId: string | null
+  visit: number | null
+  revision: number | null
+  /** Core's private run directory of the child (`.../pipeline/<child>/agent-workflow`). */
+  directory: string
+  contextPath: string
+  runtimeDirectory: string
+  definitionPath: string
+  configPath: string
+  context: Record<string, unknown>
+}
+export interface AgentRuntimeCancelResult { kind: 'cancel'; requestId: string | null; accepted: Record<string, unknown> }
+
+const CONTROL_RUN_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
+const CONTROL_TIMEOUT_MS = 60_000
+
+function controlError(event: Record<string, unknown> | undefined, fallback: string): Error {
+  const error = event?.error as string | { code?: string; message?: string } | undefined
+  if (typeof error === 'string') return new Error(error)
+  if (error && typeof error === 'object') return new Error([error.code, error.message].filter(Boolean).join(': ') || fallback)
+  return new Error(fallback)
+}
+
+function runControlProcess(args: string[], options: AgentRuntimeControlBase): Promise<Array<Record<string, unknown>>> {
+  return new Promise((resolve, reject) => {
+    const events: Array<Record<string, unknown>> = []
+    let stderr = '', invalid = false, timedOut = false
+    const child = spawn(resolveCoreNodeRuntime(), args, { cwd: options.cwd, env: windowsSpawnEnv(options.env), shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+    const lines = createInterface({ input: child.stdout! })
+    lines.on('line', line => {
+      if (!line.trim()) return
+      try {
+        const event = JSON.parse(line) as unknown
+        if (!event || typeof event !== 'object' || Array.isArray(event)) { invalid = true; return }
+        events.push(event as Record<string, unknown>)
+      } catch { invalid = true }
+    })
+    child.stderr?.on('data', (chunk: Buffer) => {
+      stderr = (stderr + chunk.toString('utf8')).slice(-32_000)
+      try { options.onLine?.(chunk.toString('utf8'), 'stderr') } catch { /* advisory */ }
+    })
+    child.on('error', error => { stderr = error.message })
+    const timer = setTimeout(() => { timedOut = true; if (child.pid) treeKillSafe(child.pid, 'SIGKILL') }, options.timeoutMs && options.timeoutMs > 0 ? options.timeoutMs : CONTROL_TIMEOUT_MS)
+    timer.unref?.()
+    child.on('close', code => {
+      clearTimeout(timer)
+      lines.close()
+      const failure = events.find(event => event.type === 'runtime-result' && event.status === 'failed')
+      if (timedOut) return reject(new Error('timeout: Core control command did not finish in time'))
+      if (failure) return reject(controlError(failure, 'Core control command failed'))
+      if (invalid) return reject(new Error('Core returned an invalid control event stream'))
+      if (code !== 0) return reject(new Error(stderr.trim() || `Core control command exited with code ${code}`))
+      resolve(events)
+    })
+  })
+}
+
+function swapRunId(file: string, runId: string): string {
+  const parsed = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>
+  return JSON.stringify({ ...parsed, runId }, null, 2) + '\n'
+}
+
+/** Freeze the child's Desktop-side files from the SOURCE run's frozen files, never from live project settings. */
+function materializeForkedRun(sourceContextPath: string, childRunId: string, childContextPath: string): Pick<AgentRuntimeForkResult, 'contextPath' | 'runtimeDirectory' | 'definitionPath' | 'configPath' | 'context'> {
+  const source = dirname(sourceContextPath), target = dirname(childContextPath)
+  mkdirSync(target, { recursive: true, mode: 0o700 })
+  const write = (name: string, content: string): string => { const file = join(target, name); writeFileSync(file, content, { flag: 'wx', mode: 0o600 }); return file }
+  const copy = (name: string, required = false): string | undefined => {
+    const from = join(source, name)
+    if (!existsSync(from)) { if (required) throw new Error(`Source run is missing ${name}`); return undefined }
+    copyFileSync(from, join(target, name), 1 /* COPYFILE_EXCL */)
+    return join(target, name)
+  }
+  const context = swapRunId(sourceContextPath, childRunId)
+  write('desktop-context.json', context)
+  copy('desktop-runtime-package.json', true)
+  const hostFile = join(source, 'desktop-runtime-host.json')
+  if (existsSync(hostFile)) {
+    const host = JSON.parse(readFileSync(hostFile, 'utf8')) as { env?: Record<string, string> }
+    if (host.env && typeof host.env === 'object' && host.env.SPECRAILS_EXECUTION_CONTEXT !== undefined) host.env = { ...host.env, SPECRAILS_EXECUTION_CONTEXT: childContextPath }
+    write('desktop-runtime-host.json', JSON.stringify(host, null, 2) + '\n')
+  }
+  const configPath = copy('desktop-runtime-config.json') ?? join(target, 'desktop-runtime-config.json')
+  const definitionPath = copy('desktop-workflow-definition.json') ?? join(target, 'desktop-workflow-definition.json')
+  if (existsSync(join(source, 'desktop-runtime-selection.json'))) write('desktop-runtime-selection.json', swapRunId(join(source, 'desktop-runtime-selection.json'), childRunId))
+  return { contextPath: childContextPath, runtimeDirectory: target, definitionPath, configPath, context: JSON.parse(context) as Record<string, unknown> }
+}
+
+/**
+ * Fork or cancel a retained Core run. Both verbs use the ORIGINAL retained
+ * runtime and the frozen context: current project settings never enter. Fork
+ * produces the child's Core database through Core and then freezes the child's
+ * Desktop files as copies of the source's frozen inputs; the source directory
+ * is only read. Cancel is Core's idempotent inbox request.
+ */
+export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation & { kind: 'fork' }): Promise<AgentRuntimeForkResult>
+export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation & { kind: 'cancel' }): Promise<AgentRuntimeCancelResult>
+export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocation): Promise<AgentRuntimeForkResult | AgentRuntimeCancelResult> {
+  const cli = resolveRetainedAgentRuntime(options.contextPath)
+  const admitted = JSON.parse(readFileSync(options.contextPath, 'utf8')) as { runId?: unknown }
+  if (typeof admitted.runId !== 'string' || admitted.runId !== options.runId) throw new Error('runtime_scope_changed: Frozen context belongs to another run')
+  const args = [cli, options.kind, '--context', options.contextPath]
+  if (options.kind === 'cancel') {
+    if (typeof options.requestId !== 'string' || !options.requestId.trim()) throw new Error('invalid_arguments: Cancellation requires a request id')
+    args.push('--request-id', options.requestId)
+    const events = await runControlProcess(args, options)
+    const accepted = events.find(event => event.type === 'runtime-cancellation-accepted')
+    if (!accepted) throw new Error('Core did not acknowledge the cancellation request')
+    return { kind: 'cancel', requestId: options.requestId, accepted }
+  }
+  if (!CONTROL_RUN_ID.test(options.childRunId) || options.childRunId === options.runId) throw new Error('invalid_arguments: Fork requires a distinct child run id')
+  if (typeof options.fromNodePath !== 'string' || !options.fromNodePath.trim()) throw new Error('invalid_arguments: Fork requires a node path')
+  if (options.visit !== undefined && (!Number.isSafeInteger(options.visit) || options.visit < 1)) throw new Error('invalid_arguments: Fork visit must be a positive integer')
+  if (options.scopeId !== undefined && (typeof options.scopeId !== 'string' || !options.scopeId)) throw new Error('invalid_arguments: Fork scope must be a non-empty string')
+  const childContextPath = join(dirname(dirname(options.contextPath)), options.childRunId, 'desktop-context.json')
+  const childRuntimeDirectory = dirname(childContextPath)
+  if (existsSync(childRuntimeDirectory)) throw new Error('run_exists: A run directory already exists for the fork child')
+  args.push('--from', options.fromNodePath, '--run-id', options.childRunId)
+  if (options.scopeId !== undefined) args.push('--scope-id', options.scopeId)
+  if (options.visit !== undefined) args.push('--visit', String(options.visit))
+  let staged: string | undefined
+  if (options.state !== undefined) {
+    if (!options.state || typeof options.state !== 'object' || Array.isArray(options.state)) throw new Error('invalid_arguments: Fork state must be an object')
+    staged = mkdtempSync(join(tmpdir(), 'specrails-fork-'))
+    const stateFile = join(staged, 'state.json')
+    writeFileSync(stateFile, JSON.stringify(options.state), { mode: 0o600 })
+    args.push('--state', stateFile)
+  }
+  const cleanupChild = (): void => {
+    // Only the brand-new child directory is removable; it sits next to the source under pipeline/.
+    if (basename(childRuntimeDirectory) === options.childRunId && basename(dirname(childRuntimeDirectory)) === 'pipeline') rmSync(childRuntimeDirectory, { recursive: true, force: true })
+  }
+  try {
+    const events = await runControlProcess(args, options)
+    const forked = events.find(event => event.type === 'runtime-forked') as { runId?: unknown; forkOf?: unknown; fromNodePath?: unknown; scopeId?: unknown; visit?: unknown; revision?: unknown; directory?: unknown } | undefined
+    if (!forked || forked.runId !== options.childRunId || forked.forkOf !== options.runId || typeof forked.directory !== 'string') throw new Error('Core returned an invalid fork result')
+    if (!existsSync(join(forked.directory, 'run.sqlite')) || realpathSync(dirname(forked.directory)) !== realpathSync(childRuntimeDirectory)) throw new Error('Core placed the fork outside the expected run directory')
+    const frozen = materializeForkedRun(options.contextPath, options.childRunId, childContextPath)
+    return { kind: 'fork', runId: options.childRunId, forkOf: options.runId, fromNodePath: options.fromNodePath,
+      scopeId: typeof forked.scopeId === 'string' ? forked.scopeId : null, visit: typeof forked.visit === 'number' ? forked.visit : null,
+      revision: typeof forked.revision === 'number' ? forked.revision : null, directory: forked.directory, ...frozen }
+  } catch (error) {
+    try { cleanupChild() } catch { /* the failure below is authoritative */ }
+    throw error
+  } finally {
+    if (staged) rmSync(staged, { recursive: true, force: true })
+  }
 }
