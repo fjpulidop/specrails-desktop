@@ -511,3 +511,14 @@ paired CLI coverage reproduces partial host-file materialization, retries it and
 verifies source/child bytes unchanged; 34 bridge/recovery tests and full typecheck
 passed. The HTTP admission, delivery ownership transfer and client action remain
 the next D3 work; the transport fix alone does not close task 5.2.
+
+## Recovered delivery evidence — 26 September 2026, 23:07 CEST
+
+Recovered settlement now rebuilds evidence from all completed sibling runs, using
+bounded retained-Core probes, instead of overwriting the delivery packet with only
+the last recovered run. Terminal admission uses compact authoritative status;
+unavailable full evidence marks the harvest failed without losing valid terminal
+completion. Ticketless repository legs retain their branch/worktree record using
+the existing ticket-0 sentinel. Regression passed 205 tests across isolated launch,
+recovery and evidence; full typecheck passed. Multi-repository real-Git acceptance
+and pre-migration snapshot reconstruction remain required.

@@ -549,7 +549,7 @@ async function captureSettlementIgnoredPaths(
 }
 
 function branchRecords(results: readonly SettledRun[]): DeliverBranchRecord[] {
-  return results.flatMap((result) => result.run.ticketIds.map((ticketId) => ({
+  return results.flatMap((result) => (result.run.ticketIds.length ? result.run.ticketIds : [result.run.ticketId]).map((ticketId) => ({
     ticketId,
     branch: result.run.handle.branch,
     // Legacy consumers interpret this as delivery eligibility, not engine truth.
@@ -2046,7 +2046,9 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
   if (allRows.some(row => ['discarded', 'superseded', 'merged', 'completed'].includes(row.decision))) throw new Error('Delivery group ownership has already changed')
   const pending = deliveries.filter(row => !['on_review', 'no_changes', 'pr_draft', 'pr_ready'].includes(row.decision))
   if (!pending.length) { ctx.onLoopRunFinished(runId, frozen.row.final_outcome ?? 'failed', { ticketCompletionStatus: 'on_review' }); return }
-  const probe = await probeDefinitionRun({ db: ctx.db, cwd: ctx.project.path, env: process.env }, runId, true)
+  // Terminal admission must not depend on optional, potentially large evidence
+  // outputs. A failed full-status harvest stays visible in the review packet.
+  const probe = await probeDefinitionRun({ db: ctx.db, cwd: ctx.project.path, env: process.env }, runId)
   if (probe.status === 'unavailable' || probe.lease?.active || ['paused', 'running'].includes(probe.status)) throw new Error('Core has not provided an inactive terminal result')
   const policy = frozen.metadata.definition?.delivery as { requiresVerified?: boolean } | undefined
   const accepted = probe.status === 'succeeded' && probe.completion?.ok === true && (policy?.requiresVerified === false || probe.completion.verified)
@@ -2095,7 +2097,11 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
       const noChanges = complete && results.every(item => item.deliveryOutcome === 'no_changes')
       const partial = complete && ready.length > 0 && results.some(item => item.implementationOutcome !== 'succeeded' || !['ready', 'no_changes'].includes(item.deliveryOutcome))
       const next: PrDecision = !complete ? 'building' : !successes.length ? 'implementation_failed' : row.pr_url ? 'pr_failed' : ready.length ? 'on_review' : noChanges ? 'no_changes' : 'pr_failed'
-      const evidence = (io.harvestEvidence ?? harvestDeliveryEvidence)({ readEvents: id => getJobEvents(ctx.db, id) }, [{ ticketId: run.ticketId, runId, worktreePath: run.handle.worktreePath, definitionStatus: probe }])
+      const definitionEvidence = await probeDefinitionRuns({ db: ctx.db, cwd: ctx.project.path, env: process.env }, results.map(item => item.run.runId), true)
+      const evidence = (io.harvestEvidence ?? harvestDeliveryEvidence)({ readEvents: id => getJobEvents(ctx.db, id) }, results.map(item => ({
+        ticketId: item.run.ticketId, runId: item.run.runId, worktreePath: item.run.handle.worktreePath,
+        definitionStatus: definitionEvidence.get(item.run.runId),
+      })))
       if (!transitionClaimedDecision(ctx.db, row.id, row.decision, next, token, {
         branches: branchRecords(results), runIds: latest.map(item => item.snapshot.run.runId), worktreeIds: latest.map(item => item.snapshot.run.ledgerId),
         implementationOutcome: !complete ? 'unknown' : successes.length === results.length ? 'succeeded' : successes.length ? 'partially_succeeded' : 'failed',

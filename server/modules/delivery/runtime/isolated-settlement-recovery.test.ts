@@ -9,11 +9,12 @@ import { createRailWorktree } from './rail-worktrees-store'
 import { createLoopRun, saveDefinitionRun, finishLoopRunAndJob } from '../../loops/runtime/loop-runs-store'
 import type { LoopRunRequest } from '../../loops/runtime/loop-run-manager'
 import type { DefinitionRunProbe } from '../../loops/runtime/loop-definition-recovery'
-import { saveIsolatedSettlementSnapshot, readIsolatedSettlementRecords } from './isolated-settlement-store'
+import { saveIsolatedSettlementSnapshot, readIsolatedSettlementRecords, saveIsolatedSettlementResult } from './isolated-settlement-store'
 import { reattachIsolatedSettlement, type AllocatedRun } from './rail-isolated-launch'
+import { harvestDeliveryEvidence } from './delivery-evidence'
 
-const fixture = vi.hoisted(() => ({ probe: null as unknown }))
-vi.mock('../../loops/runtime/loop-definition-recovery', () => ({ probeDefinitionRun: async () => fixture.probe, probeDefinitionRuns: async () => new Map() }))
+const fixture = vi.hoisted(() => ({ probe: null as unknown, evidence: vi.fn() }))
+vi.mock('../../loops/runtime/loop-definition-recovery', () => ({ probeDefinitionRun: async () => fixture.probe, probeDefinitionRuns: fixture.evidence }))
 let db: DbInstance, root: string, ctx: ProjectContext, run: AllocatedRun
 const git = { run: vi.fn(async (args: string[]) => ({ code: 0, stderr: '', stdout: args[0] === 'branch' ? 'work' : args[0] === 'rev-parse' ? 'b'.repeat(40) : '' })) }
 const recordProvenance = vi.fn()
@@ -21,6 +22,7 @@ const probe = (): DefinitionRunProbe => ({ runId: 'run', engineVersion: 2, statu
 beforeEach(() => {
   db = initDb(':memory:'); root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'reattach-')))
   git.run.mockClear(); recordProvenance.mockClear(); fixture.probe = probe()
+  fixture.evidence.mockReset().mockImplementation(async (_ctx: unknown, ids: string[]) => new Map(ids.map(id => [id, { ...probe(), runId: id }])))
   createPrDelivery(db, { id: 'delivery', railIndex: 0, loopId: 'loop', railKey: '0-loop', ticketIds: [1], baseBranch: 'main', loopName: 'Loop', originSurface: 'dashboard' })
   createRailWorktree(db, { id: 'mount', runId: 'run', railIndex: 0, ticketId: 1, branch: 'work', worktreePath: root })
   createJob(db, { id: 'run', command: 'loop:test', started_at: new Date().toISOString(), owner: 'loop' })
@@ -78,4 +80,30 @@ it('preserves an acquired delivery operation and releases its execution claim on
   expect(git.run).not.toHaveBeenCalled()
   expect(getPrDelivery(db, 'delivery')?.operation_token).toBe('other')
   expect(db.prepare('SELECT COUNT(*) AS n FROM definition_execution_claims').get()).toEqual({ n: 0 })
+})
+it('retains evidence from every settled sibling when the last recovered run finishes', async () => {
+  const snapshot = readIsolatedSettlementRecords(db, 'p', 'delivery')[0].snapshot
+  const sibling = { ...run, runId: 'sibling', ticketId: 2, ticketIds: [2], ledgerId: 'sibling-mount' }
+  saveIsolatedSettlementSnapshot(db, { ...snapshot, run: sibling })
+  saveIsolatedSettlementResult(db, 'delivery', { run: sibling, implementationOutcome: 'succeeded', deliveryOutcome: 'ready', initialSha: 'a'.repeat(40), finalSha: 'b'.repeat(40), safeToRelease: false })
+  const harvest = vi.fn(harvestDeliveryEvidence)
+  await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance, harvestEvidence: harvest })
+  expect(fixture.evidence).toHaveBeenCalledWith(expect.anything(), expect.arrayContaining(['run', 'sibling']), true)
+  expect(harvest.mock.calls[0][1]).toEqual(expect.arrayContaining([
+    expect.objectContaining({ runId: 'run', definitionStatus: expect.objectContaining({ runId: 'run' }) }),
+    expect.objectContaining({ runId: 'sibling', definitionStatus: expect.objectContaining({ runId: 'sibling' }) }),
+  ]))
+})
+it('settles from compact terminal proof even when full evidence is unavailable', async () => {
+  fixture.evidence.mockResolvedValue(new Map([['run', { ...probe(), status: 'unavailable', scopes: undefined }]]))
+  await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance })
+  expect(getPrDelivery(db, 'delivery')?.decision).toBe('on_review')
+  expect(JSON.parse(getPrDelivery(db, 'delivery')!.settle_evidence!)).toMatchObject({ harvest: 'failed', units: [{ runId: 'run', runtime: null }] })
+})
+it('preserves the branch record for a ticketless repository leg', async () => {
+  const snapshot = readIsolatedSettlementRecords(db, 'p', 'delivery')[0].snapshot
+  snapshot.run.ticketId = 0; snapshot.run.ticketIds = []
+  db.prepare('UPDATE definition_delivery_settlements SET snapshot_json=? WHERE delivery_id=? AND run_id=?').run(JSON.stringify(snapshot), 'delivery', 'run')
+  await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance })
+  expect(JSON.parse(getPrDelivery(db, 'delivery')!.branches)).toMatchObject([{ ticketId: 0, runId: 'run', branch: 'work', worktreePath: root }])
 })
