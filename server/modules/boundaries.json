@@ -946,6 +946,7 @@
         "../../code/runtime/file-provenance",
         "../../code/runtime/file-story",
         "../../execution/runtime/revision-seed",
+        "../../loops/runtime/legacy-launch-telemetry",
         "../../loops/runtime/loop-constants",
         "../../loops/runtime/loop-executors",
         "../../loops/runtime/loop-graph",
@@ -1228,6 +1229,7 @@
         "../../agents/runtime/profile-manager",
         "../../code/runtime/file-provenance",
         "../../delivery/runtime/rail-isolation",
+        "../../loops/runtime/legacy-launch-telemetry",
         "../../specs/runtime/spec-addenda",
         "../../specs/runtime/ticket-store",
         "../adapters/budget-storage",
@@ -1264,6 +1266,7 @@
   },
   "loops": {
     "publicEntries": [
+      "runtime/legacy-launch-telemetry.ts",
       "runtime/loop-command-catalog.ts",
       "runtime/loop-constants.ts",
       "runtime/loop-definition-recovery.ts",
@@ -1399,6 +1402,7 @@
         "../../execution/runtime/interactive-job-session",
         "../../execution/runtime/verification-sentinel",
         "../../specs/runtime/spec-addenda-core",
+        "./legacy-launch-telemetry",
         "./loop-command-catalog",
         "./loop-constants",
         "./loop-decider",

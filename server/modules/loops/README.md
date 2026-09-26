@@ -1,5 +1,16 @@
 # loops
 
+## Legacy retirement observations
+
+`runtime/legacy-launch-telemetry.ts` is a focused public SQLite adapter consumed
+by Loop Manager, Queue Manager and isolated delivery. Migration 66 records
+admission to legacy graph traversal, slash-command process launch and merge-back.
+Run-scoped observations are idempotent; timestamps are normalized to UTC.
+`GET /api/projects/:projectId/analytics/legacy-launches?since=<ISO timestamp>`
+returns per-kind counts and the latest observation. Invalid windows return 400;
+unavailable storage returns 503 rather than a fabricated zero. These are local
+observations, not proof that two published releases have zero legacy usage.
+
 This module owns the loops capability and its adjacent regression tests.
 Runtime files contain effectful coordination and adapters. Domain/application
 subdirectories, where present, enforce inward dependency rules.

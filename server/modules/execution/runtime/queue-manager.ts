@@ -1,4 +1,5 @@
 import { createQueueBudgetStorage } from '../adapters/budget-storage'
+import { isLegacySlashCommand, recordLegacyLaunch } from '../../loops/runtime/legacy-launch-telemetry'
 import { enforceDailyBudgets } from '..'
 import { createDurableUsageReader } from '../adapters/usage-reader'
 import { normalizePendingQueue, isDependencySatisfied, recordJobInvocations, recoverJobUsage, sanitizeRecoveredResult, type JobAccountingInput } from '..'
@@ -900,6 +901,12 @@ export class QueueManager {
 
   private _assertMutable(): void {
     if (this._disposed) throw new Error('Queue manager is shutting down')
+  }
+
+  private _recordLegacySlashLaunch(job: Job): void {
+    if (this._db && this._projectId && isLegacySlashCommand(job.command)) {
+      recordLegacyLaunch(this._db, { kind: 'queue_manager_slash', projectId: this._projectId, runId: job.id })
+    }
   }
 
   enqueue(
@@ -2008,6 +2015,7 @@ export class QueueManager {
     }
     this._consumePendingSelections(jobId)
 
+    this._recordLegacySlashLaunch(job)
     const session = new InteractiveJobSession({
       jobId,
       projectId: this._projectId ?? '',
@@ -2811,6 +2819,7 @@ export class QueueManager {
     this._consumePendingSelections(jobId)
 
     // spawnAiCli reroutes multi-line argv values through stdin on Windows.
+    this._recordLegacySlashLaunch(job)
     const child = spawnAiCli(binary, args, {
       env: buildProviderEnv(adapter, railSpawnOptions, spawnEnv),
       stdio: ['ignore', 'pipe', 'pipe'],

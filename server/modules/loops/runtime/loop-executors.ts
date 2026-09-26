@@ -10,7 +10,7 @@ import { compileLoopToDefinition } from './loop-definition'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { readCoreCompletion } from '../../../core-completion'
 import { checkCoreCompletion, prepareCoreExecution } from '../../../core-execution'
-import { runAgentRuntimeInvocation, runtimeChangeName, readFrozenRuntimeHost } from '../../agent-runtime/runtime/agent-runtime-bridge'
+import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, readFrozenRuntimeHost } from '../../agent-runtime/runtime/agent-runtime-bridge'
 import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -207,6 +207,10 @@ export function createLoopExecutors(
   const completionContexts = new Map<string, { cwd: string; contextPath: string; env: NodeJS.ProcessEnv; runId: string }>()
   const runtimeConfigPath = (cwd: string): string => join(opts.pluginScope?.().stateRoot ?? cwd, '.specrails', 'agent-runtime.json')
   return {
+    async cancelDefinition({ runId, contextPath, requestId }) {
+      const host = readFrozenRuntimeHost(contextPath, resolveEnv(), runId)
+      await runAgentRuntimeControl({ kind: 'cancel', runId, contextPath, requestId, ...host })
+    },
     async assertDefinitionSupport() {
       const runtime = await loadCoreAgentRuntime()
       if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1) throw new Error('engine_unsupported: Update Core to run workflow definitions')

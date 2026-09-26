@@ -431,11 +431,11 @@ export async function runAgentRuntimeControl(options: AgentRuntimeControlInvocat
     return { kind: 'signal', id: accepted.id as string, acceptedAt: accepted.acceptedAt }
   }
   if (options.kind === 'cancel') {
-    if (typeof options.requestId !== 'string' || !options.requestId.trim()) throw new Error('invalid_arguments: Cancellation requires a request id')
+    if (typeof options.requestId !== 'string' || !options.requestId.trim() || options.requestId.length > 256 || options.requestId.includes('\0')) throw new Error('invalid_arguments: Cancellation requires a request id of 1–256 characters')
     args.push('--request-id', options.requestId)
     const events = await runControlProcess(args, options)
     const accepted = events.find(event => event.type === 'runtime-cancellation-accepted')
-    if (!accepted) throw new Error('Core did not acknowledge the cancellation request')
+    if (accepted?.requestId !== options.requestId || typeof accepted.createdAt !== 'string' || !Number.isFinite(Date.parse(accepted.createdAt))) throw new Error('Core did not acknowledge the cancellation request')
     return { kind: 'cancel', requestId: options.requestId, accepted }
   }
   if (!CONTROL_RUN_ID.test(options.childRunId) || options.childRunId === options.runId) throw new Error('invalid_arguments: Fork requires a distinct child run id')

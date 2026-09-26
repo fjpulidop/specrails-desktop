@@ -18,6 +18,11 @@ import type { DbInstance } from '../../../db'
 export const LEGACY_LAUNCH_KINDS = ['legacy_loop_traversal', 'queue_manager_slash', 'merge_back'] as const
 export type LegacyLaunchKind = (typeof LEGACY_LAUNCH_KINDS)[number]
 
+/** Raw queue prompts support both /implement and /specrails:implement. */
+export function isLegacySlashCommand(command: string): boolean {
+  return /^\s*\/(?:[a-z0-9-]+:)?[a-z][a-z0-9-]*(?=\s|$)/i.test(command)
+}
+
 export interface LegacyLaunchEvent {
   kind: LegacyLaunchKind
   /** Owning project; the table lives in that project's database. */

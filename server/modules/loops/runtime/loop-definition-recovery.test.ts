@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { existsSync, mkdtempSync, mkdirSync, realpathSync, writeFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, realpathSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -7,6 +7,7 @@ import { initDb, type DbInstance } from '../../../db'
 import { createLoopRun, saveDefinitionRun } from './loop-runs-store'
 import { probeDefinitionRun, probeDefinitionRuns, toDefinitionStates } from './loop-definition-recovery'
 import type { LoopRunRequest } from './loop-run-manager'
+import { runAgentRuntimeControl } from '../../agent-runtime/runtime/agent-runtime-bridge'
 
 const retained = vi.hoisted(() => ({ cli: '' }))
 vi.mock('../../agent-runtime/runtime/agent-runtime-package', () => ({ resolveRetainedAgentRuntime: () => retained.cli }))
@@ -75,4 +76,20 @@ it.skipIf(!pairedCore || !existsSync(path.join(pairedCore, 'dist/agent-runtime/c
   const result = spawnSync(process.execPath, [retained.cli, 'run', '--context', contextPath, '--config', path.join(fixture, 'runtime-config.json'), '--definition', path.join(fixture, 'question-flow.json')], { encoding: 'utf8', timeout: 30_000 })
   expect(result.status, result.stderr + result.stdout).toBe(2)
   expect(await probeDefinitionRun(ctx(), 'run')).toMatchObject({ engineVersion: 2, status: 'paused', resumable: true, lease: null, pendingInterrupts: [{ nodePath: 'ask', kind: 'question' }] })
+  const runtimeDirectory = path.dirname(contextPath)
+  writeFileSync(path.join(runtimeDirectory, 'desktop-runtime-config.json'), readFileSync(path.join(fixture, 'runtime-config.json')))
+  writeFileSync(path.join(runtimeDirectory, 'desktop-workflow-definition.json'), readFileSync(path.join(fixture, 'question-flow.json')))
+  // Package resolution is the injected seam; control verbs still execute the
+  // actual paired CLI, including its frozen request and checkpoint validation.
+  writeFileSync(path.join(runtimeDirectory, 'desktop-runtime-package.json'), JSON.stringify({ cli: retained.cli }))
+  const sourceBytes = readFileSync(path.join(runtimeDirectory, 'agent-workflow/run.sqlite'))
+  const controls = { runId: 'run', contextPath, cwd: directory, env: process.env }
+  const fork = await runAgentRuntimeControl({ ...controls, kind: 'fork', childRunId: 'child', fromNodePath: 'ask' })
+  expect(fork).toMatchObject({ kind: 'fork', runId: 'child', forkOf: 'run', fromNodePath: 'ask' })
+  expect(readFileSync(path.join(runtimeDirectory, 'agent-workflow/run.sqlite'))).toEqual(sourceBytes)
+  expect(JSON.parse(readFileSync(fork.contextPath, 'utf8')).runId).toBe('child')
+  const receipt = await runAgentRuntimeControl({ ...controls, kind: 'cancel', requestId: 'cancel-probe' })
+  expect(receipt).toMatchObject({ kind: 'cancel', requestId: 'cancel-probe', accepted: { requestId: 'cancel-probe' } })
+  expect((await runAgentRuntimeControl({ ...controls, kind: 'cancel', requestId: 'cancel-probe' })).accepted).toEqual(receipt.accepted)
+  expect(await probeDefinitionRun(ctx(), 'run')).toMatchObject({ status: 'cancelled', resumable: false, lease: null })
 })

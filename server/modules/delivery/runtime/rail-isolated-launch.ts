@@ -1,4 +1,5 @@
 import type { RuntimeProviderOverride } from '../../agent-runtime/runtime/agent-runtime-settings'
+import { recordLegacyLaunch } from '../../loops/runtime/legacy-launch-telemetry'
 /**
  * Isolated (worktree-per-ticket) rail launch — the live wiring that turns the
  * tested building blocks (worktree-manager, merge-manager, rail-merge-orchestrator,
@@ -1903,6 +1904,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
     )
 
     try {
+      if (branches.length) recordLegacyLaunch(ctx.db, { kind: 'merge_back', projectId: ctx.project.id, runId: allocated[0]?.runId })
       const outcomes = await runMergeBack({
         git, executor: createLoopExecutors(), baseDir: baseRepo,
         provider, model, effort, ...(deciderEngine ? { deciderEngine } : {}), constants, branches,

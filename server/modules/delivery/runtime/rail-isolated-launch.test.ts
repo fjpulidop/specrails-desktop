@@ -806,6 +806,7 @@ describe('launchIsolatedRail — ask-first PR delivery (rail_pr_deliveries lifec
     expect((db.prepare('SELECT COUNT(*) AS n FROM rail_pr_deliveries').get() as { n: number }).n).toBe(0)
     expect(prStates(broadcast)).toHaveLength(0)
     expect(onLoopRunFinished).toHaveBeenCalledWith(ids[0], 'success', { ticketCompletionStatus: 'done' })
+    expect(db.prepare("SELECT kind,run_id FROM legacy_launch_events WHERE kind='merge_back'").all()).toEqual([{ kind: 'merge_back', run_id: ids[0] }])
   })
 })
 

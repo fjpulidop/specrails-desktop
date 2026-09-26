@@ -43,6 +43,7 @@ describe('Core definitions in Loop Manager',()=>{
     const manager=new LoopRunManager(db,()=>{},ex)
     expect(await manager.run(request())).toMatchObject({outcome:'success',totalCostUsd:.6})
     expect(ex.runAiStep).not.toHaveBeenCalled();expect(ex.runShell).not.toHaveBeenCalled();expect(ex.runDecider).not.toHaveBeenCalled()
+    expect(db.prepare('SELECT COUNT(*) AS count FROM legacy_launch_events').get()).toEqual({ count: 0 })
     expect(getJob(db,'r1')).toMatchObject({total_cost_usd:.6,tokens_in:5,tokens_out:2,tokens_cache_read:3,tokens_cache_create:null,num_turns:null})
     expect(db.prepare('SELECT COUNT(*) AS n FROM ai_invocations').get()).toEqual({n:1})
     expect(getJobEvents(db,'r1').filter(e=>e.event_type==='loop_step_end').map(e=>JSON.parse(e.payload))).toMatchObject([{attemptId:'attempt-a',nodeId:'map[0]/read',status:'ok'}])
@@ -75,6 +76,23 @@ describe('Core definitions in Loop Manager',()=>{
     const run=vi.fn(async():Promise<DefinitionRuntimeResult>=>({text:'',runtimeStatus:'paused',pendingInterrupts:[{id:'q1',nodePath:'ask',kind:'question'}]}))
     const manager=new LoopRunManager(db,()=>{},executors(run));const running=manager.run(request());await vi.waitFor(()=>expect(manager.isPaused('r1')).toBe(true));manager.cancel('r1')
     expect(await running).toMatchObject({outcome:'stopped',totalCostUsd:null});expect(run).toHaveBeenCalledTimes(1)
+  })
+  it('requires durable Core cancellation before settling a resident human pause', async () => {
+    const invoke = vi.fn(async (input: DefinitionLoopInvocation): Promise<DefinitionRuntimeResult> => {
+      input.onPrepared?.({ contextPath: '/frozen/context.json', runtimeDirectory: '/frozen', configPath: '/frozen/config.json', definitionPath: '/frozen/definition.json', definitionHash: 'a'.repeat(64), definition: {}, context: {} })
+      return { text: '', runtimeStatus: 'paused', pendingInterrupts: [{ id: 'q1', nodePath: 'ask', kind: 'question' }] }
+    })
+    const cancel = vi.fn().mockRejectedValueOnce(new Error('Core unavailable')).mockResolvedValue(undefined)
+    const manager = new LoopRunManager(db, () => {}, { ...executors(invoke), cancelDefinition: cancel })
+    const running = manager.run(request())
+    await vi.waitFor(() => expect(manager.isPaused('r1')).toBe(true))
+    await expect(manager.cancelDefinition('r1')).rejects.toThrow('Core unavailable')
+    expect(manager.isPaused('r1')).toBe(true)
+    expect(getLoopRun(db, 'r1')?.status).toBe('paused')
+    await manager.cancelDefinition('r1')
+    expect(cancel).toHaveBeenLastCalledWith({ runId: 'r1', contextPath: '/frozen/context.json', requestId: 'desktop-cancel:r1' })
+    expect((await running).outcome).toBe('stopped')
+    expect(invoke).toHaveBeenCalledOnce()
   })
   it('separates successful execution from failed acceptance and rejects old Core before admission',async()=>{
     const manager=new LoopRunManager(db,()=>{},executors(async()=>complete(false)))

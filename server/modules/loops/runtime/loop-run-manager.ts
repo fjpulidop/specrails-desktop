@@ -1,5 +1,6 @@
 import { createHash } from 'crypto'
 import { createDefinitionEventProjection, readDefinitionUsage } from './loop-definition-events'
+import { recordLegacyLaunch } from './legacy-launch-telemetry'
 import { runDefinitionLoop, type DefinitionCompletion, type DefinitionInterrupt, type DefinitionLoopInvocation, type DefinitionRuntimeResult, type DefinitionResumeControls } from './loop-definition-run'
 import { parseSpecAddendaReport } from '../../specs/runtime/spec-addenda-core'
 import path from 'path'
@@ -216,6 +217,7 @@ export interface InteractiveAiStepPlan {
 export interface LoopExecutors {
   assertDefinitionSupport?(): Promise<void>
   runDefinition?(input: DefinitionLoopInvocation): Promise<DefinitionRuntimeResult>
+  cancelDefinition?(input: { runId: string; contextPath: string; requestId: string }): Promise<void>
   readCoreCompletion?(runId: string): Promise<CoreCompletionSnapshot | null>
   runAiStep(input: {
     runtimeProviderOverride?: RuntimeProviderOverride
@@ -920,6 +922,33 @@ export class LoopRunManager {
    *  awaited step resolves) — NOT dispose(), which never settles and would
    *  leave the engine's `await` hanging forever. */
   cancel(runId: string): void {
+    const frozen = readDefinitionRun(this.db, runId)
+    if (this.executors.cancelDefinition && frozen?.metadata.contextPath) {
+      void this.cancelDefinition(runId).catch(error => {
+        console.error(`[loop-run] durable cancellation failed for ${runId}: ${error instanceof Error ? error.message : String(error)}`)
+      })
+      return
+    }
+    this.cancelResident(runId, false)
+  }
+
+  private readonly _definitionCancellations = new Map<string, Promise<void>>()
+  /** Persist intent in the retained Core inbox before settling a resident pause.
+   * A rejected control leaves the execution available for an explicit retry. */
+  cancelDefinition(runId: string, requestId = `desktop-cancel:${runId}`): Promise<void> {
+    const pending = this._definitionCancellations.get(runId)
+    if (pending) return pending
+    const frozen = readDefinitionRun(this.db, runId)
+    const contextPath = frozen?.metadata.contextPath
+    if (!contextPath || !this.executors.cancelDefinition) return Promise.reject(new Error('runtime_control_unavailable: Frozen workflow cancellation is unavailable'))
+    const task = this.executors.cancelDefinition({ runId, contextPath, requestId }).then(() => {
+      this.cancelResident(runId, true)
+    }).finally(() => { this._definitionCancellations.delete(runId) })
+    this._definitionCancellations.set(runId, task)
+    return task
+  }
+
+  private cancelResident(runId: string, graceful: boolean): void {
     this._cancelled.add(runId)
     const paused = this._pausedHumanDecisions.get(runId)
     if (paused) {
@@ -932,7 +961,16 @@ export class LoopRunManager {
     }
     const child = this._activeChild.get(runId)
     if (child?.pid) {
-      try { treeKill(child.pid, 'SIGKILL', () => { /* best-effort */ }) } catch { /* already gone */ }
+      try { treeKill(child.pid, graceful ? 'SIGTERM' : 'SIGKILL', () => { /* best-effort */ }) } catch { /* already gone */ }
+      if (graceful) {
+        const timer = setTimeout(() => {
+          if (this._activeChild.get(runId) === child && child.pid) {
+            try { treeKill(child.pid, 'SIGKILL', () => {}) } catch { /* already gone */ }
+          }
+        }, 1500)
+        timer.unref?.()
+        child.once('close', () => clearTimeout(timer))
+      }
     }
   }
 
@@ -1211,6 +1249,7 @@ export class LoopRunManager {
         owner: 'loop',
         causal_ownership: true,
       })
+      if (!definitionEngine) recordLegacyLaunch(this.db, { kind: 'legacy_loop_traversal', projectId: req.projectId, runId, at: launchStartedAt })
     })
     if (continuation) {
       resumeLoopRun(this.db,runId)
@@ -1676,7 +1715,10 @@ export class LoopRunManager {
           onPrepared: metadata => { saveDefinitionRun(this.db,runId,metadata) },
           invoke: input => { this.claimDefinition({ ...req, runId }); return this.executors.runDefinition!(input) }, isCancelled: () => this._cancelled.has(runId),
           remainingMs: () => req.graph.config.timeoutMinutes > 0 ? Math.max(1, req.graph.config.timeoutMinutes*60_000-activeDurationMs) : undefined,
-          onLine: logLine, onRuntimeEvent: projectEvent, onSpawn: child => this._activeChild.set(runId,child),
+          onLine: logLine, onRuntimeEvent: projectEvent, onSpawn: child => {
+            this._activeChild.set(runId, child)
+            if (this._cancelled.has(runId)) this.cancelResident(runId, false)
+          },
           onInvocationEnd: result => { this._activeChild.delete(runId); if (result.runtimeStatus === 'paused') this.releaseDefinition(runId); if (result.durationMs !== undefined) { activeDurationMs = result.durationMs; totalDuration = result.durationMs } }, awaitHumanDecision,
         })
         definitionCompletion = result.completion
