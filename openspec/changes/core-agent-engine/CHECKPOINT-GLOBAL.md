@@ -1,3 +1,25 @@
+## Published converter verified — 27 September 2026, 05:22 CEST
+
+Desktop `c2de60d5` is pushed. Its isolated immutable checkout at
+`/private/tmp/specrails-desktop-engine-validation` passed complete server coverage:
+411 suites, 9,102 passes and seven existing platform-only omissions, 346.93s.
+Statements 87.07%, branches 80.37%, functions 90.96%, lines 90.15%; thresholds
+unchanged. This isolates the published converter from in-progress retention files.
+Full client: 396 suites / 4,710 passes; typecheck/build, audits/actionlint and
+installed production-package acceptance also passed. Core catalog 5 full coverage
+passed 102 suites / 1,282 tests / one existing Windows-only skip (88.09/80.34/93.39/
+94.14). Core evidence is committed at `056dca59`, with source at `04ea4663`.
+
+Current uncommitted work is retention only: pure policy/coordinator, SQLite package
+publication/collection lock, fail-closed reference scanning and package GC,
+scoped journal quarantine/recovery, project-local expiration records and proposed
+additive migration 69. Focused foundation tests, DB tests and quarantine tests pass.
+The HTTP/controller/UI admission and restart wiring are not yet implemented; no
+retention feature or cleanup of user history is claimed complete. The package
+adapter now takes the same maintenance lock as GC. Remaining work includes
+ownership/concurrency integration, settings/preview UI, manifests/docs and final
+gates for that separate change. Read RUNTIME-RETENTION-DECISION.md before wiring.
+
 ## Continuation checkpoint — 27 September 2026, 05:07 CEST
 
 Core catalog 5 is committed/pushed at `04ea46639dbc18e92373f9a60ecc03d74aa08969`.
