@@ -119,3 +119,5 @@ Pratique pour partager une exécution avec un coéquipier, ou pour déposer un r
 ## Après le redémarrage d’un workflow
 
 Après un arrêt brutal, reprenez le workflow enregistré avec sa configuration et ses dépôts d’origine. Une écriture interrompue exige de sélectionner la tentative exacte après avoir examiné le diff du worktree. Les étapes terminées sont conservées. Un appel au fournisseur dont la réponse a été perdue reste comptabilisé comme interrompu, avec une consommation inconnue ; il n’est jamais présenté comme gratuit. Si les données enregistrées ne permettent pas de prouver la livraison d’origine, la récupération affiche une erreur et conserve le worktree.
+
+Quand une étape de décision pose une question, la reprise réutilise la décision enregistrée et transmet la réponse humaine à l’étape suivante. Elle ne rappelle pas le modèle pour cette même décision. Un prompt en pause peut nécessiter un nouveau tour du modèle pour appliquer votre réponse.

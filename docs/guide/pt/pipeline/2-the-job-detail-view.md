@@ -118,3 +118,5 @@ Se a [telemetria](../settings/customizing) estava ativada para o job, aparece um
 ## Após reiniciar um workflow
 
 Após uma falha, retome o workflow salvo com a configuração e os repositórios originais. Uma escrita interrompida exige selecionar a tentativa exata depois de revisar o diff do worktree. As etapas concluídas são preservadas. Uma chamada ao provedor cuja resposta foi perdida continua contabilizada como interrompida, com consumo desconhecido; nunca é apresentada como gratuita. Se os registros salvos não comprovarem a entrega original, a recuperação mostra um erro e preserva o worktree.
+
+Quando uma etapa de decisão pausa para fazer uma pergunta, a retomada reutiliza a decisão salva e transmite a resposta humana à próxima etapa. O modelo não é chamado novamente para essa mesma decisão. Um prompt pausado pode precisar de outro turno do modelo para aplicar sua resposta.

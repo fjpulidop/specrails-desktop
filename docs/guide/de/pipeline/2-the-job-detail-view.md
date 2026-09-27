@@ -119,3 +119,5 @@ Praktisch, um einen Lauf mit einem Teammitglied zu teilen oder einen präzisen F
 ## Nach einem Workflow-Neustart
 
 Setze nach einem Absturz den gespeicherten Workflow mit seiner ursprünglichen Konfiguration und seinen ursprünglichen Repositorys fort. Prüfe bei einem unterbrochenen Schreibvorgang zuerst den Worktree-Diff und wähle dann den genauen Versuch aus. Abgeschlossene Schritte bleiben erhalten. Ein Anbieteraufruf mit verlorener Antwort wird weiterhin als unterbrochen mit unbekanntem Verbrauch gezählt, niemals als kostenlos. Lässt sich die ursprüngliche Auslieferung anhand der gespeicherten Daten nicht belegen, zeigt die Wiederherstellung einen Fehler und erhält den Worktree.
+
+Wenn ein Entscheidungsschritt wegen einer Frage pausiert, verwendet die Fortsetzung die gespeicherte Entscheidung und gibt die menschliche Antwort an den nächsten Schritt weiter. Das Modell wird für dieselbe Entscheidung nicht erneut aufgerufen. Ein pausierter Prompt kann einen weiteren Modellaufruf benötigen, um Ihre Antwort umzusetzen.

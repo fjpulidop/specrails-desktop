@@ -59,7 +59,7 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
   if (blockAt) {
     expect(result).toMatchObject({ failed: false, runtimeStatus: 'paused' })
     expect(result.pendingInterrupts).toHaveLength(1)
-    expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe('module.exports = 1\n')
+    expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe(blockAt === 'loop-decider' ? 'module.exports = 2\n' : 'module.exports = 1\n')
     result = await runAgentRuntimeInvocation({ contextPath, cwd: repository, env, engineVersion: 2, resume: true,
       answer: 'Return two', interruptId: result.pendingInterrupts![0].id, onRuntimeEvent: event => events.push(event), timeoutMs: 150_000 })
   }
@@ -105,4 +105,11 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('d
   expect(lifecycle.some(event => event.type === 'workflow_succeeded')).toBe(false)
   expect(lifecycle.some(event => event.type === 'step_started' && event.nodePath === 'done')).toBe(false)
   expect(lifecycle.some(event => event.type === 'step_failed' && event.nodePath === 'decide')).toBe(true)
+}, 180_000)
+
+it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('continues after a decider question without repeating its paused provider invocation', async () => {
+  const actual = await execute('freestyle', false, false, 'loop-decider')
+  expect(actual.calls.map(call => call.role)).toEqual(['prompt', 'prompt', 'loop-decider', 'prompt', 'loop-decider'])
+  expect(actual.calls[3].prompt).toContain('Return two')
+  expect(actual.calls.filter(call => call.role === 'loop-decider')).toHaveLength(2)
 }, 180_000)

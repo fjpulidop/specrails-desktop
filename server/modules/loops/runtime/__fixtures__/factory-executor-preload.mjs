@@ -20,7 +20,7 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
   const executor = {
     capabilities: () => ({ transport: 'fixture', continuation: 'unsupported', effortSupport: 'unsupported', supportedEfforts: [], observedModel: false, observedEffort: false }),
     async execute(request) {
-      fs.appendFileSync(process.env.SPECRAILS_FACTORY_CALLS, JSON.stringify({ role: request.role, nativeCommand: request.nativeCommand ?? null, access: request.access, artifacts: request.artifacts }) + '\n')
+      fs.appendFileSync(process.env.SPECRAILS_FACTORY_CALLS, JSON.stringify({ role: request.role, nativeCommand: request.nativeCommand ?? null, access: request.access, artifacts: request.artifacts, prompt: request.prompt }) + '\n')
       const blockAt = process.env.SPECRAILS_FACTORY_BLOCK
       const blockedMarker = process.env.SPECRAILS_FACTORY_CALLS + '.blocked'
       if (blockAt && (request.nativeCommand?.id ?? request.role) === blockAt && !fs.existsSync(blockedMarker)) {

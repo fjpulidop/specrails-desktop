@@ -1,3 +1,19 @@
+## Decider human continuation pairing — 27 September 2026
+
+Paired Core 428f5b489ed8b60f99e5c936135f138102ed5b50 advertises catalog version 2
+and preserves explicit blocked decision questions. Freestyle pauses after its
+read-only decision, reuses that saved result on answer and sends the answer to
+the following prompt. A later decision visit still invokes its provider. All
+eight factory pairing cases pass (109.79s), including existing no-progress and
+prompt/native-command pauses; typecheck passes. The required three-platform
+lane pins this Core revision. Eight-locale Desktop/Web guides explain the
+difference between continuing a decision and another prompt turn.
+
+Core full coverage passed 1,249 tests with unchanged thresholds; catalog/API/CLI
+acceptance passed another 22 tests, and the installed Core package ran, resumed
+and forked successfully. These are source/package acceptance results, not a
+release or measured legacy-retirement claim.
+
 ## Git directory identity across Windows spellings — 27 September 2026
 
 Remote run 36286182182 confirms all four actual Loop Manager crash cases pass
