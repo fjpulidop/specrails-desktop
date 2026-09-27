@@ -199,7 +199,8 @@
         "join": "Unir",
         "component": "Componente",
         "implementation": "Implementación",
-        "end": "Fin"
+        "end": "Fin",
+        "assign": "Asignar variables"
       },
       "groups": {
         "ai": "IA",
@@ -210,7 +211,11 @@
       "options": "Opciones del workflow",
       "reviewerStep": "Nodo de evidencia de revisión",
       "reviewerAutomatic": "Automático (revisiones de implementación)",
-      "reviewerHint": "Elige el turno de rol que aporta la revisión estructurada. La revisión de IA no sustituye la verificación del host."
+      "reviewerHint": "Elige el turno de rol que aporta la revisión estructurada. La revisión de IA no sustituye la verificación del host.",
+      "assignment": {
+        "set": "Asignar valores",
+        "increment": "Ajustar contadores"
+      }
     }
   },
   "preview": {

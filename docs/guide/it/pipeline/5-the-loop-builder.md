@@ -2,7 +2,7 @@
 
 ## Workflow Core
 
-Con un motore Core compatibile, un nuovo canvas mostra i sedici passaggi del catalogo installato. Fai clic o trascina un passaggio e compila il modulo. Provider e ruoli appartengono al progetto attivo. Collega ogni uscita denominata a un altro passaggio o a Fine; ciascuna uscita ammette una connessione.
+Con un motore Core compatibile, un nuovo canvas mostra i diciassette passaggi del catalogo installato. Fai clic o trascina un passaggio e compila il modulo. Provider e ruoli appartengono al progetto attivo. Collega ogni uscita denominata a un altro passaggio o a Fine; ciascuna uscita ammette una connessione.
 
 I moduli coprono campi facoltativi, oggetti, elenchi e dizionari per IA, condizioni, verifica, shell, OpenSpec, approvazioni, domande, pause, mappe, unioni, componenti e implementazione. Le opzioni includono limiti di token e transizioni e concorrenza. Anche i passaggi interni ai componenti contano nel limite.
 
@@ -107,3 +107,5 @@ L'esecuzione scorre dal vivo nella vista **Jobs** con le stesse metriche e lo st
 Quando la versione di Core selezionata espone i limiti per invocazione, i blocchi prompt, ruolo e decider offrono `timeoutMs` e `idleTimeoutMs`. Imposta `0` per disattivare quel timer del passaggio oppure rimuovi il campo per ereditare il valore predefinito. I budget dell’intero workflow e l’annullamento restano attivi. Un passaggio di verifica che pone una domanda bloccante attende la tua risposta prima di accettare un risultato positivo.
 
 Quando un grafo precedente salvato viene sostituito per la prima volta con blocchi Core, il grafo originale viene conservato. La libreria offre quindi **Esporta il grafo originale**. L’esportazione ha un nome distinto, così puoi importarla come bozza separata senza sostituire il workflow attuale. La conversione e le modifiche successive non pubblicano mai automaticamente un loop.
+
+Usa **Imposta variabili** per conservare lo stato durante una pausa: imposta valori JSON tipizzati o modifica un contatore intero esistente. Questo blocco non chiama l’IA. Gli aggiornamenti vengono salvati insieme; un contatore non valido lascia tutte le variabili invariate. Le variabili di un componente mappato restano locali a quel componente.

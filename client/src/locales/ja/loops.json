@@ -199,7 +199,8 @@
         "join": "結合",
         "component": "コンポーネント",
         "implementation": "実装",
-        "end": "終了"
+        "end": "終了",
+        "assign": "変数を設定"
       },
       "groups": {
         "ai": "AI",
@@ -210,7 +211,11 @@
       "options": "ワークフローの設定",
       "reviewerStep": "レビュー証拠ノード",
       "reviewerAutomatic": "自動（実装レビュー）",
-      "reviewerHint": "構造化されたレビューを提供するロールターンを選択します。AIレビューはホストによる検証の代わりにはなりません。"
+      "reviewerHint": "構造化されたレビューを提供するロールターンを選択します。AIレビューはホストによる検証の代わりにはなりません。",
+      "assignment": {
+        "set": "値を設定",
+        "increment": "カウンターを調整"
+      }
     }
   },
   "preview": {

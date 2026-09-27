@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { useState } from 'react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { CoreWorkflowInspector } from '../CoreWorkflowInspector'
-import type { LoopGraph } from '../../lib/loops-api'
+import { CoreNodeInspector, CoreWorkflowInspector } from '../CoreWorkflowInspector'
+import type { LoopGraph, WorkflowPieceDescriptor } from '../../lib/loops-api'
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }))
 
@@ -29,4 +30,26 @@ describe('workflow review evidence selection', () => {
     rerender(<CoreWorkflowInspector {...props} canvas="nested" />)
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   })
+})
+
+it('edits typed variable values and counter deltas through localized controls without mutating the catalog', () => {
+  const piece: WorkflowPieceDescriptor = { kind: 'assign', effect: 'read', requiresAI: false, outcomes: ['next', 'failed'], paramsSchema: {
+    type: 'object', additionalProperties: false, properties: {
+      set: { type: 'object', additionalProperties: true },
+      increment: { type: 'object', additionalProperties: { type: 'integer', default: 1 } },
+    },
+  } }
+  const original = structuredClone(piece)
+  function Editor() {
+    const [params, setParams] = useState<Record<string, unknown>>({ set: { failed: false }, increment: { iteration: 1 } })
+    return <><CoreNodeInspector nodeId="variables" data={{ kind: 'core', coreKind: 'assign', params }} piece={piece} choices={{}} schema={{}}
+      onChange={patch => { if (patch.params) setParams(patch.params) }} onDelete={() => {}} onOpenCanvas={() => {}} />
+      <output data-testid="variables">{JSON.stringify(params)}</output></>
+  }
+  render(<Editor />)
+  expect(screen.getByText('builder.core.assignment.increment')).toBeInTheDocument()
+  fireEvent.change(screen.getByLabelText('iteration'), { target: { value: '2' } })
+  fireEvent.click(within(screen.getByRole('group', { name: 'builder.core.assignment.set' })).getByRole('checkbox'))
+  expect(JSON.parse(screen.getByTestId('variables').textContent!)).toEqual({ set: { failed: true }, increment: { iteration: 2 } })
+  expect(piece).toEqual(original)
 })

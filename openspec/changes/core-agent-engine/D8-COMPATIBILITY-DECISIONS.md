@@ -11,9 +11,13 @@ an actionable draft and cannot silently run with different semantics.
 
 ## Invocation boundaries
 
-- Preserve the effective provider/model/effort at each legacy AI node. A decider
-  uses a declared read-only role with that effective engine; choosing the current
-  reviewer engine without checking node overrides is not equivalent.
+- Preserve the effective rail provider/model/effort for legacy AI steps. Source
+  inspection of loop-run-manager confirms that stored node overrides are
+  deliberately ignored: the rail governs the run. The optional deciderEngine
+  launch selection overrides that rail engine only for the decider. Bind its
+  declared read-only role explicitly; inheriting the project reviewer engine
+  would change the effective choice. This corrects the earlier checkpoint
+  assumption that stored per-node overrides were active.
 - Preserve the legacy 15-minute AI, 30-minute idle, 3-minute decider and
   10-minute shell limits. Explicit zero means untimed, not missing/default.
   Core commit `749a6133` includes additive per-piece timer support, with full

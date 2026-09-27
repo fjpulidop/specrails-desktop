@@ -199,7 +199,8 @@
         "join": "Regrouper",
         "component": "Composant",
         "implementation": "Implémentation",
-        "end": "Fin"
+        "end": "Fin",
+        "assign": "Définir des variables"
       },
       "groups": {
         "ai": "IA",
@@ -210,7 +211,11 @@
       "options": "Options du workflow",
       "reviewerStep": "Nœud de preuves de revue",
       "reviewerAutomatic": "Automatique (revues d’implémentation)",
-      "reviewerHint": "Choisissez le tour de rôle qui fournit la revue structurée. La revue IA ne remplace pas la vérification par l’hôte."
+      "reviewerHint": "Choisissez le tour de rôle qui fournit la revue structurée. La revue IA ne remplace pas la vérification par l’hôte.",
+      "assignment": {
+        "set": "Définir les valeurs",
+        "increment": "Ajuster les compteurs"
+      }
     }
   },
   "preview": {

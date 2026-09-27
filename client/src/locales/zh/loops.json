@@ -199,7 +199,8 @@
         "join": "合并",
         "component": "组件",
         "implementation": "实现",
-        "end": "结束"
+        "end": "结束",
+        "assign": "设置变量"
       },
       "groups": {
         "ai": "AI",
@@ -210,7 +211,11 @@
       "options": "工作流选项",
       "reviewerStep": "审查证据节点",
       "reviewerAutomatic": "自动（实现审查）",
-      "reviewerHint": "选择提供结构化审查的角色轮次。AI 审查不能替代主机验证。"
+      "reviewerHint": "选择提供结构化审查的角色轮次。AI 审查不能替代主机验证。",
+      "assignment": {
+        "set": "设置值",
+        "increment": "调整计数器"
+      }
     }
   },
   "preview": {

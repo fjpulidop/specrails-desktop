@@ -1,3 +1,25 @@
+## Three-platform CI confirmed — 27 September 2026
+
+Desktop 89e431e327bdd8830b54bb7c99a44c90dd484801 passed every gate in
+GitHub Actions run 36287208869, including paired Core on Windows/macOS/Linux,
+server/client coverage, quality, native macOS and Windows bundled runtimes.
+This confirms the Git-directory identity correction on Windows and the crash
+recovery harness under the serialized Windows preparation policy. The later
+assignment authoring changes below have separate focused validation.
+
+## Scoped assignment authoring — 27 September 2026
+
+The paired schema and authoring catalog now include Core catalog-v3 `assign`.
+The inspector exposes typed set-values and integer adjustments with eight-locale
+labels and guides. The pure definition compiler preserves these values without
+adding an AI engine, role or verification obligation. A selected older catalog
+that lacks the piece rejects publication. Legacy conversion is still separate.
+
+Validation: 11 focused client cases, 58 graph/compiler/schema cases and the new
+compiler capability-rejection case (12 cases in its rerun); typecheck and
+architecture audits and 30 locale-parity cases pass. Core durable runtime tests prove atomic invalid-update
+routing, pause recovery and mapped scope isolation. No shared dependencies changed.
+
 ## Decider human continuation pairing — 27 September 2026
 
 Paired Core 428f5b489ed8b60f99e5c936135f138102ed5b50 advertises catalog version 2

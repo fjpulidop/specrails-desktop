@@ -68,6 +68,7 @@ export function coreNodeData(piece: WorkflowPieceDescriptor): LoopNodeData {
     params.access = 'read'
   }
   if (piece.kind === 'shell') params.argv = ['']
+  if (piece.kind === 'assign') params.set = {}
   return { kind: 'core', coreKind: piece.kind, params }
 }
 

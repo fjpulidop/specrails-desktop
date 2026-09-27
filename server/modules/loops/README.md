@@ -77,6 +77,13 @@ catalog. Saved legacy graphs continue to use their existing editor and execution
 path. See the [authoring protocol](../../../openspec/changes/core-agent-engine/desktop-authoring-protocol.md)
 for publication identity and nested-budget decisions.
 
+Catalog version 3 adds `assign`, a non-AI scoped variable update. Its inspector
+offers typed JSON values and signed integer counter adjustments. Core validates
+variable names and commits the entire update atomically; invalid counters cannot
+partially apply companion assignments. Publication rejects this piece when the
+selected Core catalog does not support it. Assignments inside mapped components
+remain local to that component scope.
+
 ## Definition recovery ownership
 
 `loop-definition-recovery.ts` probes the retained Core CLI using frozen host inputs with four subprocesses at most, a 15-second timeout per run and bounded output. Startup waits for these observations before orphan reconciliation and worktree recovery. If the frozen mounts are unavailable, read-only inspection uses the owned retained

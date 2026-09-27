@@ -11,7 +11,7 @@
 
 export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'condition' | 'core' | 'end'
 
-export const CORE_NODE_KINDS = ['prompt', 'role-turn', 'decider', 'condition', 'verify', 'shell',
+export const CORE_NODE_KINDS = ['prompt', 'role-turn', 'decider', 'condition', 'assign', 'verify', 'shell',
   'openspec-validate', 'openspec-archive', 'approval', 'question', 'gate', 'map', 'join',
   'component', 'implementation', 'end'] as const
 export type CoreNodeKind = typeof CORE_NODE_KINDS[number]

@@ -199,7 +199,8 @@
         "join": "Zusammenführen",
         "component": "Komponente",
         "implementation": "Implementierung",
-        "end": "Ende"
+        "end": "Ende",
+        "assign": "Variablen setzen"
       },
       "groups": {
         "ai": "KI",
@@ -210,7 +211,11 @@
       "options": "Workflow-Optionen",
       "reviewerStep": "Knoten für Prüfnachweise",
       "reviewerAutomatic": "Automatisch (Implementierungsprüfungen)",
-      "reviewerHint": "Wähle den Rollenschritt für strukturierte Prüfnachweise. Eine KI-Prüfung ersetzt nicht die Verifikation durch den Host."
+      "reviewerHint": "Wähle den Rollenschritt für strukturierte Prüfnachweise. Eine KI-Prüfung ersetzt nicht die Verifikation durch den Host.",
+      "assignment": {
+        "set": "Werte setzen",
+        "increment": "Zähler anpassen"
+      }
     }
   },
   "preview": {

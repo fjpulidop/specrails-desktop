@@ -2,7 +2,7 @@
 
 ## Workflows de Core
 
-Con un motor de Core compatible, un canvas nuevo muestra las dieciséis piezas del catálogo instalado. Haz clic o arrastra una pieza al canvas, selecciónala y completa su formulario. Los proveedores y roles pertenecen al proyecto activo. Cada salida indica un resultado posible: conéctala a otra pieza o a Fin. Cada resultado admite una conexión.
+Con un motor de Core compatible, un canvas nuevo muestra las diecisiete piezas del catálogo instalado. Haz clic o arrastra una pieza al canvas, selecciónala y completa su formulario. Los proveedores y roles pertenecen al proyecto activo. Cada salida indica un resultado posible: conéctala a otra pieza o a Fin. Cada resultado admite una conexión.
 
 El catálogo incluye prompts, turnos de rol, decisiones, condiciones, verificación, shell, validación y archivo de OpenSpec, aprobaciones, preguntas, pausas, mapas, uniones, componentes, implementación y Fin. Los formularios permiten editar campos opcionales, objetos, listas y diccionarios. **Opciones del workflow** incluye límites de tokens y transiciones y políticas de concurrencia. El límite explícito de transiciones cuenta también las visitas dentro de componentes y ramas.
 
@@ -109,3 +109,5 @@ La ejecución se transmite en vivo en la vista **Jobs** con las mismas métricas
 Cuando el Core seleccionado expone límites por invocación, las piezas de prompt, rol y decider ofrecen `timeoutMs` e `idleTimeoutMs`. Usa `0` para desactivar ese temporizador del paso, o elimina el campo para heredar el valor predeterminado. Los presupuestos del workflow completo y la cancelación siguen activos. Si una verificación plantea una pregunta bloqueante, espera tu respuesta antes de aceptar un resultado correcto.
 
 Cuando un grafo antiguo guardado se sustituye por primera vez por piezas de Core, se conserva el grafo original. La biblioteca ofrece entonces **Exportar grafo original**. La exportación tiene un nombre distinto para poder importarla como un borrador independiente sin sustituir el workflow actual. La conversión y las ediciones posteriores nunca publican el loop automáticamente.
+
+Usa **Asignar variables** para conservar estado durante una pausa: asigna valores JSON tipados o ajusta un contador entero existente. Esta pieza no realiza llamadas a la IA. Las actualizaciones se guardan juntas; un contador inválido deja todas las variables intactas. Las variables de un componente mapeado permanecen dentro de ese componente.

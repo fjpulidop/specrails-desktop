@@ -6,7 +6,7 @@
 
 export type LoopStatus = 'draft' | 'published'
 export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'condition' | 'core' | 'end'
-export type CoreNodeKind = 'prompt' | 'role-turn' | 'decider' | 'condition' | 'verify' | 'shell'
+export type CoreNodeKind = 'prompt' | 'role-turn' | 'decider' | 'condition' | 'assign' | 'verify' | 'shell'
   | 'openspec-validate' | 'openspec-archive' | 'approval' | 'question' | 'gate' | 'map' | 'join'
   | 'component' | 'implementation' | 'end'
 export type LoopJoin = 'AND' | 'OR'

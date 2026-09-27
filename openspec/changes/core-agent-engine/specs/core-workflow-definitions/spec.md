@@ -36,3 +36,14 @@ Factory graphs and role authoring SHALL become definitions only when the require
 #### Scenario: Role permissions
 - **WHEN** a read-only custom role is selected
 - **THEN** the frozen role descriptor preserves access and artifact permissions
+
+### Requirement: Workflow state controls preserve legacy obligations
+Desktop SHALL expose the Core assign piece through the runtime catalog and localized visual authoring controls. Legacy conversion SHALL preserve pass failure, decider iteration and per-phase recovery allowances as explicit scoped variables rather than interpreting physical attempt numbers as total visits. Core SHALL validate the converted definition before publication, and the original graph SHALL remain recoverable.
+
+#### Scenario: A later iteration encounters an already repaired phase
+- **WHEN** its legacy recovery allowance has already been consumed
+- **THEN** conversion does not grant another repair merely because a new physical attempt begins
+
+#### Scenario: A runtime lacks assignment support
+- **WHEN** a workflow requiring scoped assignments is validated against that runtime
+- **THEN** publication fails with a capability diagnostic rather than using legacy traversal or silently dropping state updates

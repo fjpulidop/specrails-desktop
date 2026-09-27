@@ -2,7 +2,7 @@
 
 ## Workflows Core
 
-Com um motor Core compatível, um novo canvas apresenta as dezasseis etapas do catálogo instalado. Clique ou arraste uma etapa e preencha o formulário. Os fornecedores e papéis pertencem ao projeto ativo. Ligue cada saída identificada a outra etapa ou a Fim; cada saída permite uma ligação.
+Com um motor Core compatível, um novo canvas apresenta as dezassete etapas do catálogo instalado. Clique ou arraste uma etapa e preencha o formulário. Os fornecedores e papéis pertencem ao projeto ativo. Ligue cada saída identificada a outra etapa ou a Fim; cada saída permite uma ligação.
 
 Os formulários cobrem campos opcionais, objetos, listas e dicionários para IA, condições, verificação, shell, OpenSpec, aprovações, perguntas, pausas, mapas, uniões, componentes e implementação. As opções incluem limites de tokens e transições e concorrência. As visitas dentro de componentes também contam para o limite.
 
@@ -107,3 +107,5 @@ A execução transmite ao vivo na vista **Jobs** com as mesmas métricas e o mes
 Quando a versão de Core selecionada disponibiliza limites por invocação, os blocos de prompt, função e decider oferecem `timeoutMs` e `idleTimeoutMs`. Use `0` para desativar esse temporizador da etapa ou remova o campo para herdar o valor padrão. Os orçamentos do workflow completo e o cancelamento continuam ativos. Uma etapa de verificação que faz uma pergunta bloqueante espera sua resposta antes de aceitar um resultado bem-sucedido.
 
 Quando um grafo antigo salvo é substituído pela primeira vez por blocos Core, o grafo original é preservado. A biblioteca passa a oferecer **Exportar grafo original**. A exportação tem um nome diferente para permitir a importação como rascunho separado, sem substituir o workflow atual. A conversão e as edições posteriores nunca publicam um loop automaticamente.
+
+Use **Definir variáveis** para preservar o estado durante uma pausa: defina valores JSON tipados ou ajuste um contador inteiro existente. Esta peça não faz chamadas à IA. Todas as alterações são guardadas em conjunto; um contador inválido deixa todas as variáveis intactas. As variáveis de um componente mapeado permanecem locais a esse componente.

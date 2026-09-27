@@ -51,6 +51,19 @@ function fixture(): LoopGraph {
 }
 
 describe('Core workflow authoring contract', () => {
+  it('compiles scoped assignments without AI bindings and rejects a catalog that lacks them', () => {
+    const graph = fixture()
+    graph.nodes[1].data = { kind: 'assign', params: { set: { failed: false }, increment: { iteration: 1 } } }
+    const before = JSON.stringify(graph)
+    expect(validateLoopGraph(graph, [{ kind: 'assign', outcomes: ['next', 'failed'] }]).valid).toBe(true)
+    expect(validateLoopGraph(graph, [{ kind: 'prompt', outcomes: ['next', 'failed'] }]).valid).toBe(false)
+    const definition = compileLoopToDefinition(graph, launch)
+    expect(definition.nodes.work).toMatchObject({ kind: 'assign', params: { set: { failed: false }, increment: { iteration: 1 } } })
+    expect(definition.roles).toEqual([])
+    expect(definition.delivery.requiresVerified).toBe(false)
+    expect(JSON.stringify(graph)).toBe(before)
+  })
+
   it('accepts a structural Core graph and validates labeled edges against the catalog', () => {
     const graph = fixture()
     expect(isDefinitionGraph(graph)).toBe(true)

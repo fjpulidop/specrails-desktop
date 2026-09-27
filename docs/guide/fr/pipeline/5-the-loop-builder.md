@@ -2,7 +2,7 @@
 
 ## Workflows Core
 
-Avec un moteur Core compatible, un nouveau canevas affiche les seize étapes du catalogue installé. Cliquez sur une étape ou faites-la glisser, puis remplissez son formulaire. Les fournisseurs et rôles proviennent du projet actif. Reliez chaque sortie nommée à une autre étape ou à Fin ; une sortie accepte une seule connexion.
+Avec un moteur Core compatible, un nouveau canevas affiche les dix-sept étapes du catalogue installé. Cliquez sur une étape ou faites-la glisser, puis remplissez son formulaire. Les fournisseurs et rôles proviennent du projet actif. Reliez chaque sortie nommée à une autre étape ou à Fin ; une sortie accepte une seule connexion.
 
 Les formulaires couvrent les champs facultatifs, objets, listes et dictionnaires de toutes les étapes : IA, conditions, vérification, shell, OpenSpec, approbation, question, pause, parcours, regroupement, composants et implémentation. Les options exposent les limites de jetons et de transitions et la concurrence. Les visites internes aux composants comptent dans la limite.
 
@@ -107,3 +107,5 @@ L'exécution se diffuse en direct dans la vue **Jobs** avec les mêmes métrique
 Lorsque la version de Core sélectionnée expose les limites par invocation, les blocs prompt, rôle et decider proposent `timeoutMs` et `idleTimeoutMs`. La valeur `0` désactive le temporisateur correspondant pour cette étape ; supprimer le champ rétablit la valeur héritée. Les budgets du workflow complet et son annulation restent actifs. Une étape de vérification qui pose une question bloquante attend votre réponse avant d’accepter un résultat réussi.
 
 Lorsqu’un ancien graphe enregistré est remplacé pour la première fois par des blocs Core, le graphe d’origine est conservé. La bibliothèque propose alors **Exporter le graphe d’origine**. L’export porte un nom distinct pour pouvoir être importé comme brouillon séparé sans remplacer le workflow actuel. La conversion et les modifications ultérieures ne publient jamais automatiquement une boucle.
+
+Utilisez **Définir les variables** pour conserver un état pendant une pause : définissez des valeurs JSON typées ou ajustez un compteur entier existant. Cette pièce ne fait aucun appel à l’IA. Toutes les modifications sont enregistrées ensemble ; un compteur invalide laisse toutes les variables inchangées. Les variables d’un composant mappé restent locales à ce composant.

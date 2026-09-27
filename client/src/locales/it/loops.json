@@ -199,7 +199,8 @@
         "join": "Unisci",
         "component": "Componente",
         "implementation": "Implementazione",
-        "end": "Fine"
+        "end": "Fine",
+        "assign": "Impostare variabili"
       },
       "groups": {
         "ai": "IA",
@@ -210,7 +211,11 @@
       "options": "Opzioni del workflow",
       "reviewerStep": "Nodo delle evidenze di revisione",
       "reviewerAutomatic": "Automatico (revisioni di implementazione)",
-      "reviewerHint": "Scegli il turno di ruolo che fornisce la revisione strutturata. La revisione IA non sostituisce la verifica dell’host."
+      "reviewerHint": "Scegli il turno di ruolo che fornisce la revisione strutturata. La revisione IA non sostituisce la verifica dell’host.",
+      "assignment": {
+        "set": "Impostare valori",
+        "increment": "Modificare contatori"
+      }
     }
   },
   "preview": {

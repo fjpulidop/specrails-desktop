@@ -199,7 +199,8 @@
         "join": "Join",
         "component": "Component",
         "implementation": "Implementation",
-        "end": "End"
+        "end": "End",
+        "assign": "Set variables"
       },
       "groups": {
         "ai": "AI",
@@ -210,7 +211,11 @@
       "options": "Workflow options",
       "reviewerStep": "Review evidence node",
       "reviewerAutomatic": "Automatic (implementation reviews)",
-      "reviewerHint": "Choose the role turn that provides structured review evidence. AI review does not replace host verification."
+      "reviewerHint": "Choose the role turn that provides structured review evidence. AI review does not replace host verification.",
+      "assignment": {
+        "set": "Set values",
+        "increment": "Adjust counters"
+      }
     }
   },
   "preview": {

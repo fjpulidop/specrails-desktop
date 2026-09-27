@@ -2,7 +2,7 @@
 
 ## Core-Workflows
 
-Mit einer kompatiblen Core-Engine zeigt ein neuer Canvas die sechzehn Schritte des installierten Katalogs. Klicke auf einen Schritt oder ziehe ihn auf den Canvas und fülle das Formular aus. Anbieter und Rollen stammen aus dem aktiven Projekt. Verbinde jeden benannten Ausgang mit einem weiteren Schritt oder Ende. Jeder Ausgang erlaubt eine Verbindung.
+Mit einer kompatiblen Core-Engine zeigt ein neuer Canvas die siebzehn Schritte des installierten Katalogs. Klicke auf einen Schritt oder ziehe ihn auf den Canvas und fülle das Formular aus. Anbieter und Rollen stammen aus dem aktiven Projekt. Verbinde jeden benannten Ausgang mit einem weiteren Schritt oder Ende. Jeder Ausgang erlaubt eine Verbindung.
 
 Die Formulare unterstützen optionale Felder, Objekte, Listen und Wörterbücher für alle Schritte: KI, Bedingungen, Prüfung, Shell, OpenSpec, Freigaben, Fragen, Pausen, Zuordnung, Zusammenführung, Komponenten und Implementierung. Workflow-Optionen enthalten Token- und Übergangslimits sowie Parallelität. Das Übergangslimit zählt auch Besuche in Komponenten und Zweigen.
 
@@ -107,3 +107,5 @@ Der Lauf streamt live in der **Jobs**-Ansicht, mit denselben Metriken und dersel
 Wenn die ausgewählte Core-Version Aufruflimits bereitstellt, bieten Prompt-, Rollen- und Decider-Bausteine `timeoutMs` und `idleTimeoutMs` an. Mit `0` deaktivierst du den jeweiligen Timer des Schritts; entfernst du das Feld, wird der Standardwert übernommen. Budgets des gesamten Workflows und der Abbruch bleiben wirksam. Stellt ein Verifizierungsschritt eine blockierende Frage, wartet er auf deine Antwort, bevor er ein erfolgreiches Ergebnis akzeptiert.
 
 Wenn ein gespeicherter älterer Graph erstmals durch Core-Bausteine ersetzt wird, bleibt sein ursprünglicher Graph erhalten. Die Bibliothek bietet dann **Ursprünglichen Graphen exportieren** an. Der Export erhält einen eigenen Namen, damit du ihn als separaten Entwurf importieren kannst, ohne den aktuellen Workflow zu ersetzen. Konvertierungen und spätere Änderungen veröffentlichen einen Loop niemals automatisch.
+
+Mit **Variablen setzen** bleibt Zustand über eine Pause hinweg erhalten: Setzen Sie typisierte JSON-Werte oder ändern Sie einen bestehenden ganzzahligen Zähler. Dieser Baustein ruft keine KI auf. Alle Änderungen werden gemeinsam gespeichert; ein ungültiger Zähler lässt sämtliche Variablen unverändert. Variablen einer zugeordneten Komponente bleiben auf diese Komponente beschränkt.

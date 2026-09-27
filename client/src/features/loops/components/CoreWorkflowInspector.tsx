@@ -151,6 +151,13 @@ export function CoreNodeInspector({
   const { t } = useTranslation('loops')
   const component = data.params?.ref ?? data.params?.body
   const retrySchema = asObject(asObject(schema.$defs).retry)
+  const parameters = piece?.paramsSchema ?? {}
+  const parameterSchema = data.coreKind === 'assign' ? {
+    ...parameters,
+    properties: Object.fromEntries(Object.entries(asObject(parameters.properties)).map(([name, value]) => [name, {
+      ...asObject(value), title: t(`builder.core.assignment.${name}`, { defaultValue: name }),
+    }])),
+  } : parameters
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -175,7 +182,7 @@ export function CoreNodeInspector({
       {piece ? (
         <CoreParameterForm
           key={nodeId}
-          schema={piece.paramsSchema}
+          schema={parameterSchema}
           value={data.params ?? {}}
           onChange={(value) => onChange({ params: value as Record<string, unknown> })}
           choices={choices}
