@@ -48,6 +48,8 @@ When the selected Core advertises both `engineV2: 1` and `workflowDefinitions: 1
 the same factory IDs resolve through `loop-core-factory.ts` to editable Core
 definitions. Implement uses the native implementation subgraph; Batch maps frozen
 tickets to isolated implementations and verifies the whole candidate after join.
+Quick SDD and Freestyle prompts explicitly pause on `LOOP_BLOCKED` questions;
+resume forwards the answer without replaying completed phases.
 Quick SDD uses two native skill prompts plus real validation, archive and host
 verification before and after archive. Freestyle alternates verified edits with
 an evidence-based decision and preserves the no-progress bound. Every successful

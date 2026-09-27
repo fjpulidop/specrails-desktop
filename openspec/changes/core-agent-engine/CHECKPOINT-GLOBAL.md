@@ -1,3 +1,22 @@
+## Factory human continuations — 27 September 2026
+
+Quick SDD preparation/apply and Freestyle implementation/fix prompts now select
+Core's blocked sentinel explicitly. The existing default none had treated a human
+question as ordinary output; the Quick SDD reference then failed validation.
+New factory graphs pause and resume the same attempt through the frozen bridge.
+Two real paired cases prove exactly one extra provider invocation, no repeated
+completed preparation, forwarded native-command answer and final verified success.
+The five existing paired cases and factory/catalog validation remain passing:
+12 tests across two suites (70.14s), plus full typecheck. This focused follow-up
+is separate from the preceding full coverage evidence below.
+
+Remote Desktop CI 36282050665 on bf7d5292 passed all required jobs. That revision
+contains original-graph backup/export and publication-conflict protection; the
+human-continuation follow-up still needs its own remote run. D1 documentation
+acceptance task 2.7 is now reconciled against the eight-locale guides, complete
+server/client coverage and successful remote gates. D4 reconstruction/crash and
+D8 compiler/release/telemetry tasks remain open.
+
 ## Original graph preservation and publication races — 27 September 2026
 
 Desktop migration 30 preserves the exact original graph JSON on first legacy-to-Core
@@ -15,17 +34,21 @@ export contents/errors and zero-duration save. Full client coverage passes:
 395 suites / 4,705 tests, 211.92s; statements/lines 89.72%, branches 84.22%,
 functions 75.70%, with unchanged thresholds. Typecheck, build, architecture and
 source audits, 94 script tests and installed-package consumer acceptance pass.
-The full server gate is still running and is not claimed complete here.
+Full server coverage on bf7d5292 subsequently passed: 405 suites, 8,989 tests,
+482.66s; statements 87.03%, branches 80.30%, functions 90.94%, lines 90.10%.
+The seven skips belong exclusively to the two native-Windows suites (five
+execution cases and two Job Object cases), which cannot run on macOS. All
+source-paired suites ran; no new skip or threshold change was introduced.
 
 An initial server run exposed a fixture that inherited SPECRAILS_CORE_BIN;
 FrameworkManager unit tests now isolate that override and the 56 focused
 framework/store tests pass. A subsequent sandbox run stopped on listen EPERM;
 the socket-enabled run reached 4,229 passing tests before one unrelated spending
 HTTP fixture returned 401. Its server has no authentication route; the unchanged
-25-test spending suite passes in isolation. A diagnostic full run now collects
-all failures (bail=0), retaining the same assertions and coverage thresholds; the
-spending assertion includes its response body for actionable evidence. No full
-server success is claimed until that gate completes.
+25-test spending suite passes in isolation. The diagnostic full run (bail=0) passed with unchanged assertions and coverage
+thresholds; the spending assertion now includes its response body for actionable
+evidence if it recurs. The transient 401 was not reproducible in that complete
+run and is not described as a fixed production defect.
 D8 migration/compiler and measured rollout gates remain unchecked.
 
 ## Timer compatibility and migration decisions — 27 September 2026

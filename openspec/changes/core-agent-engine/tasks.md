@@ -34,7 +34,7 @@ Published C0 compatibility remains open; these source results do not close 1.6.
 - [x] 2.4 Implement exclusive frozen inputs and Core-only launch with host-owned git, cancellation and existing settlement.
 - [x] 2.5 Implement verification-aware delivery gate; negative completion remains a successful runtime verdict.
 - [x] 2.6 Build palette and inspectors including components/map/join with eight-locale parity and client tests.
-- [ ] 2.7 Update user guides and run loop/runtime/delivery/client validation.
+- [x] 2.7 Update user guides and run loop/runtime/delivery/client validation.
 
 Authoring validation on 2026-09-26: 143 server tests (including Core schema
 byte parity and architecture), 307 client tests (including eight-locale parity,

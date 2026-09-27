@@ -14,7 +14,15 @@ vi.mock('../../../core-node-runtime', () => ({ resolveCoreNodeRuntime: () => pro
 // validation, freezing, process execution and result parsing in this pairing.
 vi.mock('../../agent-runtime/runtime/agent-runtime-package', async importOriginal => {
   const original = await importOriginal<typeof import('../../agent-runtime/runtime/agent-runtime-package')>()
-  return { ...original, retainAgentRuntime: (cli: string) => cli }
+  const selected = new Map<string, string>()
+  return { ...original,
+    retainAgentRuntime: (cli: string, contextPath: string) => { selected.set(contextPath, cli); return cli },
+    resolveRetainedAgentRuntime: (contextPath: string) => {
+      const cli = selected.get(contextPath)
+      if (!cli) throw new Error('Fixture runtime was never retained')
+      return cli
+    },
+  }
 })
 const core = process.env.SPECRAILS_CORE_SOURCE_DIR ?? process.env.SPECRAILS_EFFICIENCY_CORE_ROOT
 let root: string
@@ -26,7 +34,7 @@ beforeEach(() => {
 })
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true }) })
 type Event = Record<string, any>
-async function execute(mode: string, legacy = false, stall = false) {
+async function execute(mode: string, legacy = false, stall = false, blockAt?: string) {
   const id = `${mode}-${legacy ? 'legacy' : 'v2'}`, repository = path.join(root, id), backlog = path.join(root, id + '-backlog')
   mkdirSync(repository); mkdirSync(backlog)
   expect(spawnSync('git', ['init', '-q', repository]).status).toBe(0)
@@ -42,12 +50,19 @@ async function execute(mode: string, legacy = false, stall = false) {
   writeFileSync(configPath, JSON.stringify(config))
   const callsFile = path.join(root, id + '-calls.jsonl'), events: Event[] = []
   const change = 'paired-change', factory = getFactoryLoop(mode === 'quick-sdd' ? 'factory:sdd-quick-openspec' : `factory:${mode}`, { engineV2: 1, workflowDefinitions: 1 })!
-  const result = await runAgentRuntimeInvocation({ contextPath, configPath, cwd: repository, change,
-    env: { ...process.env, SPECRAILS_GIT_AUTO: 'false', SPECRAILS_FACTORY_CORE: core, SPECRAILS_FACTORY_CALLS: callsFile, SPECRAILS_FACTORY_STALL: stall ? '1' : '0',
-      NODE_OPTIONS: `--import=${pathToFileURL(path.join(process.cwd(), 'server/modules/loops/runtime/__fixtures__/factory-executor-preload.mjs')).href}` },
+  const env = { ...process.env, SPECRAILS_GIT_AUTO: 'false', SPECRAILS_FACTORY_CORE: core, SPECRAILS_FACTORY_CALLS: callsFile, SPECRAILS_FACTORY_STALL: stall ? '1' : '0', SPECRAILS_FACTORY_BLOCK: blockAt ?? '',
+    NODE_OPTIONS: `--import=${pathToFileURL(path.join(process.cwd(), 'server/modules/loops/runtime/__fixtures__/factory-executor-preload.mjs')).href}` }
+  let result = await runAgentRuntimeInvocation({ contextPath, configPath, cwd: repository, change, env,
     ...(!legacy ? { engineVersion: 2 as const, prepareDefinition: () => compileLoopToDefinition(factory.graph, { id: factory.id, title: factory.name, provider: 'claude', constants: {}, repositoryCount: 1, changeId: change }) } : {}),
     onRuntimeEvent: event => events.push(event), timeoutMs: 150_000,
   })
+  if (blockAt) {
+    expect(result).toMatchObject({ failed: false, runtimeStatus: 'paused' })
+    expect(result.pendingInterrupts).toHaveLength(1)
+    expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe('module.exports = 1\n')
+    result = await runAgentRuntimeInvocation({ contextPath, cwd: repository, env, engineVersion: 2, resume: true,
+      answer: 'Return two', interruptId: result.pendingInterrupts![0].id, onRuntimeEvent: event => events.push(event), timeoutMs: 150_000 })
+  }
   const calls = existsSync(callsFile) ? readFileSync(callsFile, 'utf8').trim().split('\n').map(line => JSON.parse(line) as Event) : []
   expect(result, JSON.stringify({ result, events: events.slice(-5) })).toMatchObject({ failed: stall })
   if (!legacy && !stall) expect(result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
@@ -72,6 +87,14 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).ea
     expect(terminal).toHaveLength(2)
     expect(actual.calls.at(-1)?.access).toBe('read')
   }
+}, 180_000)
+
+it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['quick-sdd', 'freestyle'])('resumes a blocked %s factory through the real bridge without replaying completed phases', async mode => {
+  const actual = await execute(mode, false, false, mode === 'quick-sdd' ? 'opsx:apply' : 'prompt')
+  if (mode === 'quick-sdd') {
+    expect(actual.calls.map(call => call.nativeCommand.id)).toEqual(['opsx:ff', 'opsx:apply', 'opsx:apply'])
+    expect(actual.calls.at(-1)?.nativeCommand.args).toContain('Return two')
+  } else expect(actual.calls.map(call => call.role)).toEqual(['prompt', 'prompt', 'prompt', 'loop-decider'])
 }, 180_000)
 
 it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('does not report Freestyle success when verified checks pass but the decider makes no progress', async () => {

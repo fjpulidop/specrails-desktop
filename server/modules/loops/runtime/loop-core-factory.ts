@@ -11,6 +11,7 @@ export function coreFactoryGraph(mode: 'implement' | 'batch' | 'freestyle' | 'qu
     for (const [label, target] of Object.entries(outcomes)) edges.push({ id: `e-${id}-${label}`, source: id, target, label })
   }
   const next = (id: string) => ({ next: id, failed: 'failed' })
+  const promptNext = (id: string) => ({ ...next(id), blocked: 'failed' })
   const verify = (id: string, passed = 'done', failed = 'failed') => node(id, 'verify', { commands: 'configured' }, { pass: passed, fail: failed, failed: 'failed' })
   let entry: string, components: LoopGraph['components']
   if (mode === 'implement') {
@@ -23,18 +24,18 @@ export function coreFactoryGraph(mode: 'implement' | 'batch' | 'freestyle' | 'qu
     body.outputs = ['next', 'failed']; components = { implementation: body }
   } else if (mode === 'quick-sdd') {
     entry = 'prepare'
-    node('prepare', 'prompt', { nativeCommand: { id: 'opsx:ff', args: '{{run.changeId}}' }, access: 'write' }, next('validate'))
+    node('prepare', 'prompt', { nativeCommand: { id: 'opsx:ff', args: '{{run.changeId}}' }, access: 'write', sentinel: 'blocked' }, promptNext('validate'))
     node('validate', 'openspec-validate', { change: '{{run.changeId}}' }, { pass: 'apply', fail: 'failed', failed: 'failed' })
-    node('apply', 'prompt', { nativeCommand: { id: 'opsx:apply', args: '{{run.changeId}}' }, access: 'write' }, next('check'))
+    node('apply', 'prompt', { nativeCommand: { id: 'opsx:apply', args: '{{run.changeId}}' }, access: 'write', sentinel: 'blocked' }, promptNext('check'))
     verify('check', 'archive')
     node('archive', 'openspec-archive', { change: '{{run.changeId}}' }, next('verify'))
     verify('verify')
   } else {
     entry = 'implement'
-    node('implement', 'prompt', { text: '{{cmd:freestyle}}', access: 'write' }, next('verify'))
+    node('implement', 'prompt', { text: '{{cmd:freestyle}}', access: 'write', sentinel: 'blocked' }, promptNext('verify'))
     verify('verify', 'decide', 'fix')
     node('decide', 'decider', { roleId: 'loop-decider', goal: 'Stop only when actual behavioral evidence proves every frozen acceptance criterion is implemented across every selected ticket and repository. Passing baseline checks alone is insufficient.', noProgress: 3 }, { continue: 'fix', stop: 'done', failed: 'failed' })
-    node('fix', 'prompt', { text: '{{cmd:fix}}', access: 'write' }, next('verify'))
+    node('fix', 'prompt', { text: '{{cmd:fix}}', access: 'write', sentinel: 'blocked' }, promptNext('verify'))
   }
   edges.unshift({ id: 'e-start', source: 'start', target: entry })
   nodes.push({ id: 'done', type: 'end', position: { x: 0, y: nodes.length * 120 }, data: { outcome: 'success', requiresVerified: true } },

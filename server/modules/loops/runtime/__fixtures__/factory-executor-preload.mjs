@@ -21,6 +21,12 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
     capabilities: () => ({ transport: 'fixture', continuation: 'unsupported', effortSupport: 'unsupported', supportedEfforts: [], observedModel: false, observedEffort: false }),
     async execute(request) {
       fs.appendFileSync(process.env.SPECRAILS_FACTORY_CALLS, JSON.stringify({ role: request.role, nativeCommand: request.nativeCommand ?? null, access: request.access, artifacts: request.artifacts }) + '\n')
+      const blockAt = process.env.SPECRAILS_FACTORY_BLOCK
+      const blockedMarker = process.env.SPECRAILS_FACTORY_CALLS + '.blocked'
+      if (blockAt && (request.nativeCommand?.id ?? request.role) === blockAt && !fs.existsSync(blockedMarker)) {
+        fs.writeFileSync(blockedMarker, 'accepted question')
+        return { text: 'LOOP_BLOCKED: Confirm the requested value?', usage }
+      }
       if (request.nativeCommand) {
         const change = request.nativeCommand.args.trim().split(/\s/)[0], active = path.join(request.cwd, 'openspec/changes', change)
         if (request.nativeCommand.id === 'opsx:ff') {
