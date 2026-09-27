@@ -108,3 +108,49 @@ legacy one-shot recovery counters persist across iterations. Any state-expanded
 conversion must carry these independent state dimensions, preserve the failed
 phase's return address, and account for Core's per-node no-progress tracking;
 renaming each visit cannot silently reset no-progress detection.
+
+## Persisted conversion bindings and terminal evidence
+
+Converted graphs keep the original execution IDs where Core permits them and
+return an explicit mapping for remapped IDs. Generated controls use collision-free
+IDs. A saved legacy decision binding identifies its declared custom role; launch
+resolves that role from the legacy decider selection or rail engine and freezes
+it through the explicit bridge port. It must survive visual edit/save round trips.
+
+Shell conversion requires a selected repository binding when it cannot preserve
+the original single-repository scope. No first-repository inference is permitted.
+The converter returns diagnostics before mutation, feeds the existing definition
+compiler, and leaves publication/backup ownership in the store transaction.
+Core's verified terminal requirement remains mandatory for converted writers;
+an AI sentinel cannot substitute for actual host checks. These are explicit v2
+acceptance requirements, not a claim that arbitrary historical graphs are already
+safe to migrate automatically.
+
+## Reviewed draft conversion — 27 September
+
+The HTTP/UI path now produces a structurally validated Core Draft and atomically
+preserves its original. Catalog 5 is required for scoped archived OpenSpec
+commands. Original node identifiers are retained where valid; generated controls
+are ordinary Core pieces. Iteration counters and single-use repair budgets remain
+checkpointed assignments. A failed-pass stop verdict is still evaluated and then
+forced to continue. Blocked decisions resume without repeating that decision.
+
+Actual CLI acceptance passed converted Implement and two-ticket Batch, Quick SDD
+with pinned archive and with one artifact repair, sticky failed-pass continuation,
+iteration exhaustion, pause/resume, single-use self-retry, and artifact-only repair.
+All 48 factory/template entries also pass actual Core structural validation.
+Publication concurrency, immutable backup/idempotence and visual role-binding
+round trips are tested. These results do not claim full historical behavioral
+parity or authorize automatic publication/removal of the legacy runner.
+
+Core admission fixes the change identity before execution; converted OpenSpec
+commands use that frozen target rather than allowing subsequent AI prose to
+switch it. Human blocks follow Core's durable pause/answer semantics. Malformed
+decisions use Core's bounded structured repair; successful completion requires
+host evidence. The reviewed Draft makes these stricter v2 requirements explicit.
+The converter limits consecutive failed AI attempts to two (or a stricter saved
+policy); controls do not reset that counter. Actual empty responses are rejected by Core’s executor registry and the paired
+acceptance proves the same two-failure cap as provider exceptions. Three paired
+cases also run the original LoopRunManager on the same scripted sequence and
+compare outcomes/call order: forced continuation, iteration cap and one-shot
+self-retry. Broader historical parity remains required before D8 is complete.

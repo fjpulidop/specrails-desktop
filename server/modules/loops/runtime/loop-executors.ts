@@ -234,6 +234,12 @@ export function createLoopExecutors(
         change: seeded?.id ?? runtimeChangeName(runId),
         resume: input.resume, answer: input.answer, approve: input.approve, interruptId: input.interruptId,
         defaultProvider: request.provider, providerOverride: request.runtimeProviderOverride,
+        ...(request.graph.config.legacyDeciderRole ? { workflowRoleBindings: {
+          [request.graph.config.legacyDeciderRole]: {
+            ...(request.deciderEngine ?? { provider: request.provider, model: request.model, effort: request.effort }),
+            access: 'read' as const, artifacts: 'none' as const,
+          },
+        } } : {}),
         ...(!input.resume ? { prepareDefinition: (config) => compileLoopToDefinition(request.graph, {
           id: request.loopId, title: request.loopName, spec: request.spec,
           constants: request.constants ?? {}, provider: request.provider, model: request.model, effort: request.effort,

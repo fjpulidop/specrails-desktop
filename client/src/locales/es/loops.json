@@ -59,7 +59,8 @@
     "import": "Importar",
     "select": "Seleccionar {{name}}",
     "exportLegacy": "Exportar grafo original",
-    "originalCopyName": "Original: {{name}}"
+    "originalCopyName": "Original: {{name}}",
+    "convert": "Convertir a Core"
   },
   "card": {
     "nodes_one": "{{count}} nodo",
@@ -448,5 +449,15 @@
     "paused": "En pausa",
     "acceptance": "Aceptación",
     "verified": "Verificado"
+  },
+  "conversion": {
+    "title": "Convertir {{name}} a Core",
+    "description": "Core valida el grafo convertido antes de guardarlo como borrador. El original sigue disponible para exportar. Revisa el nuevo workflow antes de publicarlo.",
+    "repository": "Repositorio de los pasos shell sin destino",
+    "selectRepository": "Elige el repositorio original",
+    "submit": "Convertir y revisar",
+    "pending": "Convirtiendo…",
+    "error": "No se pudo convertir",
+    "coreRequired": "Actualiza Core para convertir este workflow."
   }
 }

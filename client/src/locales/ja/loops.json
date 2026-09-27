@@ -59,7 +59,8 @@
     "import": "インポート",
     "select": "{{name}} を選択",
     "exportLegacy": "元のグラフをエクスポート",
-    "originalCopyName": "元のグラフ: {{name}}"
+    "originalCopyName": "元のグラフ: {{name}}",
+    "convert": "Coreに変換"
   },
   "card": {
     "nodes_one": "{{count}} 個のノード",
@@ -448,5 +449,15 @@
     "paused": "一時停止中",
     "acceptance": "受け入れ",
     "verified": "検証済み"
+  },
+  "conversion": {
+    "title": "{{name}}をCoreに変換",
+    "description": "Coreは変換したグラフを検証してから下書きとして保存します。元のグラフは引き続きエクスポートできます。公開前に新しいワークフローを確認してください。",
+    "repository": "宛先のないシェルステップのリポジトリ",
+    "selectRepository": "元のリポジトリを選択",
+    "submit": "変換して確認",
+    "pending": "変換中…",
+    "error": "変換に失敗しました",
+    "coreRequired": "このワークフローを変換するにはCoreを更新してください。"
   }
 }

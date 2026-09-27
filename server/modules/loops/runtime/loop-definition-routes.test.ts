@@ -5,7 +5,7 @@ import { initDesktopDb } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
 import { registerLoopsRoutes } from './loops-router'
 import type { LoopGraph } from './loop-graph'
-import { updateLoop } from './loops-store'
+import { getLoop, readLegacyLoopGraph, updateLoop } from './loops-store'
 
 const runtime = vi.hoisted(() => ({
   api: { capabilities: { engineV2: 1, workflowDefinitions: 1 } },
@@ -41,11 +41,11 @@ beforeEach(() => {
   delete process.env.SPECRAILS_LOOPS_SECTION
 })
 afterEach(() => db.close())
-function api() {
+function api(isLoopRunning?: () => boolean) {
   const instance = express()
   instance.use(express.json())
   const router = express.Router()
-  registerLoopsRoutes(router, { db })
+  registerLoopsRoutes(router, { db, isLoopRunning })
   instance.use('/api', router)
   return request(instance)
 }
@@ -122,5 +122,61 @@ describe('Core definition publication', () => {
     const id = (await api().post('/api/loops').send({ name: 'Legacy', graph: legacy })).body.loop.id
     expect((await api().post(`/api/loops/${id}/publish`)).status).toBe(200)
     expect(runtime.validateWorkflowDefinition).not.toHaveBeenCalled()
+  })
+})
+
+async function legacyDraft() {
+  const legacy: LoopGraph = {
+    nodes: [{ id: 'start', type: 'start', position: { x: 0, y: 0 } },
+      { id: 'work', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'Complete the task' } },
+      { id: 'done', type: 'end', position: { x: 0, y: 2 } }],
+    edges: [{ id: 'enter', source: 'start', target: 'work' }, { id: 'finish', source: 'work', target: 'done' }],
+    config: { maxIterations: 2, timeoutMinutes: 0 },
+  }
+  const response = await api().post('/api/loops').send({ name: 'Legacy conversion', graph: legacy })
+  return { id: response.body.loop.id as string, graph: legacy }
+}
+describe('atomic legacy conversion', () => {
+  function ready() {
+    runtime.listWorkflows.mockReturnValue({ nodeKindsVersion: 5 })
+    runtime.validateWorkflowDefinition.mockReturnValue({ ok: true })
+  }
+  it('validates through Core before saving a draft and preserves the original exactly once', async () => {
+    ready()
+    const source = await legacyDraft()
+    const response = await api().post(`/api/loops/${source.id}/convert`).send({})
+    expect(response.status, JSON.stringify(response.body)).toBe(200)
+    expect(response.body.loop.status).toBe('draft')
+    expect(response.body.nodeIds.work).toBe('work')
+    expect(runtime.validateWorkflowDefinition).toHaveBeenCalledWith(expect.objectContaining({ schemaVersion: 1 }), { structural: true })
+    expect(readLegacyLoopGraph(db, source.id)?.graph).toEqual(source.graph)
+    const backup = readLegacyLoopGraph(db, source.id)
+    expect((await api().post(`/api/loops/${source.id}/convert`).send({})).body.alreadyConverted).toBe(true)
+    expect(readLegacyLoopGraph(db, source.id)).toEqual(backup)
+  })
+  it('keeps a rejected conversion unchanged without inventing a backup', async () => {
+    ready(); runtime.validateWorkflowDefinition.mockReturnValue({ ok: false, errors: [{ code: 'invalid_params' }] })
+    const source = await legacyDraft()
+    expect((await api().post(`/api/loops/${source.id}/convert`).send({})).status).toBe(422)
+    expect(getLoop(db, source.id)?.graph).toEqual(source.graph)
+    expect(readLegacyLoopGraph(db, source.id)).toBeUndefined()
+  })
+  it('refuses a concurrent edit rather than replacing it with the validated old graph', async () => {
+    ready(); const source = await legacyDraft()
+    runtime.beforeLoad = () => { updateLoop(db, source.id, { name: 'Concurrent edit' }) }
+    expect((await api().post(`/api/loops/${source.id}/convert`).send({})).status).toBe(409)
+    expect(getLoop(db, source.id)?.name).toBe('Concurrent edit')
+    expect(getLoop(db, source.id)?.graph).toEqual(source.graph)
+    expect(readLegacyLoopGraph(db, source.id)).toBeUndefined()
+  })
+  it('requires the guarded catalog and rechecks active executions after runtime loading', async () => {
+    ready(); const source = await legacyDraft()
+    runtime.listWorkflows.mockReturnValue({ nodeKindsVersion: 4 })
+    expect((await api().post(`/api/loops/${source.id}/convert`).send({})).status).toBe(409)
+    ready(); let active = false
+    runtime.beforeLoad = () => { active = true }
+    expect((await api(() => active).post(`/api/loops/${source.id}/convert`).send({})).status).toBe(409)
+    expect(getLoop(db, source.id)?.graph).toEqual(source.graph)
+    expect(readLegacyLoopGraph(db, source.id)).toBeUndefined()
   })
 })

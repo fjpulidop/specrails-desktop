@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 970 source/build files. Nearby tests are linked where names
+Includes 972 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -376,6 +376,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [CoreParameterForm.tsx](../../client/src/features/loops/components/CoreParameterForm.tsx) · [test](../../client/src/features/loops/components/__tests__/CoreParameterForm.test.tsx)
 - [CoreWorkflowInspector.tsx](../../client/src/features/loops/components/CoreWorkflowInspector.tsx) · [test](../../client/src/features/loops/components/__tests__/CoreWorkflowInspector.test.tsx)
+- [LegacyConversionModal.tsx](../../client/src/features/loops/components/LegacyConversionModal.tsx) · [test](../../client/src/features/loops/components/__tests__/LegacyConversionModal.test.tsx)
 - [LoopPreviewModal.tsx](../../client/src/features/loops/components/LoopPreviewModal.tsx)
 - [LoopRunModal.tsx](../../client/src/features/loops/components/LoopRunModal.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopRunModal.test.tsx)
 - [TemplatePreviewModal.tsx](../../client/src/features/loops/components/TemplatePreviewModal.tsx) · [test](../../client/src/features/loops/components/__tests__/TemplatePreviewModal.test.tsx)
@@ -1232,6 +1233,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [definition-cancellation.ts](../../server/modules/loops/runtime/definition-cancellation.ts) · [test](../../server/modules/loops/runtime/definition-cancellation.test.ts)
 - [legacy-launch-telemetry.ts](../../server/modules/loops/runtime/legacy-launch-telemetry.ts) · [test](../../server/modules/loops/runtime/legacy-launch-telemetry.test.ts)
 - [loop-command-catalog.ts](../../server/modules/loops/runtime/loop-command-catalog.ts) · [test](../../server/modules/loops/runtime/loop-command-catalog.test.ts)
+- [loop-compat.ts](../../server/modules/loops/runtime/loop-compat.ts) · [test](../../server/modules/loops/runtime/loop-compat.test.ts)
 - [loop-constants.ts](../../server/modules/loops/runtime/loop-constants.ts) · [test](../../server/modules/loops/runtime/loop-constants.test.ts)
 - [loop-core-factory.ts](../../server/modules/loops/runtime/loop-core-factory.ts) · [test](../../server/modules/loops/runtime/loop-core-factory.test.ts)
 - [loop-decider.ts](../../server/modules/loops/runtime/loop-decider.ts) · [test](../../server/modules/loops/runtime/loop-decider.test.ts)

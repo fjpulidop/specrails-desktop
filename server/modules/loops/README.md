@@ -131,3 +131,21 @@ Publication freezes the content that Core validated. The final immediate
 transaction refuses a changed name, description, graph or publication state
 with `409 loop_changed`; the newer edit remains Draft. Second-resolution edit
 timestamps are not used as a concurrency token.
+
+## Reviewable legacy conversion
+
+`POST /api/loops/:id/convert` runs the pure `runtime/loop-compat.ts` projection,
+then the existing compiler and Core structural validator (catalog version 5 or
+newer). The optional `repositoryId` supplies an explicit scope for unbound legacy
+shell nodes. Running loops and concurrent content changes return conflicts.
+Successful conversion saves a Draft and its immutable original in one transaction;
+retrying that conversion returns the same saved draft. Publication stays explicit.
+
+The projection uses ordinary Core assignments and conditions to preserve sticky
+failed-pass state, iteration/step bounds and single-use repair allowances. Decider
+provider choices are frozen through the bridge's declared-role binding port.
+Native batch work uses ticket maps; canonical OpenSpec validation/archive commands
+use pinned pieces with exact archived-target support. Arbitrary shell commands
+retain their selected repository and are not rewritten by substring matching.
+All converted writers require host verification. The policy stops after two
+consecutive failed AI attempts; successful AI attempts reset that counter.

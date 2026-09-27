@@ -34,7 +34,7 @@ export interface LoopGraph {
   nodes: LoopNode[]
   edges: LoopEdge[]
   config: { maxIterations: number; timeoutMinutes: number; maxCostUsd?: number; maxTokens?: number; maxTransitions?: number;
-    journal?: 'ledger-only' | 'implementation'; change?: 'new' | 'existing' | 'none'; reviewerStepId?: string;
+    journal?: 'ledger-only' | 'implementation'; change?: 'new' | 'existing' | 'none'; reviewerStepId?: string; legacyDeciderRole?: string;
     policies?: { failFast?: number; noProgress?: number; historyMaxChars?: number; concurrency?: number };
     layout?: 'vertical' | 'horizontal' | 'grid' | 'manual' }
   inputs?: string[]
@@ -171,6 +171,9 @@ export const loopsApi = {
   },
   async legacyGraph(id: string): Promise<{ graph: LoopGraph; savedAt: string }> {
     return send('GET', `/loops/${encodeURIComponent(id)}/legacy-graph`)
+  },
+  async convert(id: string, repositoryId?: string): Promise<{ loop: LoopDefinition; nodeIds: Record<string, string>; alreadyConverted?: boolean }> {
+    return send('POST', `/loops/${encodeURIComponent(id)}/convert`, { ...(repositoryId ? { repositoryId } : {}) })
   },
   async create(input: { name: string; description?: string; graph?: LoopGraph }): Promise<LoopDefinition> {
     return (await send<{ loop: LoopDefinition }>('POST', '/loops', input)).loop

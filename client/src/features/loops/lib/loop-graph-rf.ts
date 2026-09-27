@@ -97,6 +97,10 @@ export function reactFlowToGraph(
   config: LoopGraph['config'],
   components?: LoopGraph['components'],
 ): LoopGraph {
+  const retainedConfig = { ...config }
+  if (retainedConfig.legacyDeciderRole && !nodes.some(node => node.data.coreKind === 'decider' && node.data.params?.roleId === retainedConfig.legacyDeciderRole)) {
+    delete retainedConfig.legacyDeciderRole
+  }
   return {
     nodes: nodes.map((n) => {
       const { kind, coreKind, ...rest } = n.data
@@ -115,7 +119,7 @@ export function reactFlowToGraph(
       const branch = asBranch(e.sourceHandle) ?? asBranch((e.data as { branch?: unknown } | undefined)?.branch)
       return { id: e.id, source: e.source, target: e.target, ...(join ? { join } : {}), ...(branch ? { branch } : {}) }
     }),
-    config,
+    config: retainedConfig,
     ...(components ? { components } : {}),
   }
 }

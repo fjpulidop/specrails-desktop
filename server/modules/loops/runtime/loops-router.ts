@@ -26,6 +26,7 @@ import {
 } from './loops-store'
 import { isDefinitionGraph, type LoopGraph } from './loop-graph'
 import { compileLoopToDefinition } from './loop-definition'
+import { convertLegacyLoop } from './loop-compat'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { loopTemplatesForCapabilities, getLoopTemplate } from './loop-templates'
 import { factoryLoopsForCapabilities, getFactoryLoop } from './loop-factory'
@@ -291,6 +292,37 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   })
 
   // ── Publish / unpublish ───────────────────────────────────────────────────────
+  router.post('/loops/:id/convert', async (req: Request, res: Response) => {
+    if (!guard(res)) return
+    const id = req.params.id as string, current = getLoop(db, id)
+    if (!current) { res.status(404).json({ error: 'Loop not found' }); return }
+    if (isRunning(id)) { res.status(409).json({ error: 'loop_running' }); return }
+    if (isDefinitionGraph(current.graph) && readLegacyLoopGraph(db, id)) {
+      res.json({ loop: current, nodeIds: {}, issues: [], alreadyConverted: true }); return
+    }
+    try {
+      const converted = convertLegacyLoop(current.graph, {
+        ...(typeof req.body?.repositoryId === 'string' && req.body.repositoryId.trim() ? { repositoryId: req.body.repositoryId.trim() } : {}),
+      })
+      if (!converted.ok) { res.status(422).json({ error: 'conversion_invalid', errors: converted.issues }); return }
+      const runtime = await loadCoreAgentRuntime()
+      const catalog = runtime.listWorkflows?.()
+      if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1 ||
+        !catalog || catalog.nodeKindsVersion < 5) {
+        res.status(409).json({ error: 'engine_unsupported', message: 'Legacy conversion requires Core catalog version 5 or later.' }); return
+      }
+      const definition = compileLoopToDefinition(converted.graph, { id: current.id, title: current.name, constants: loadConstantMap(db), provider: 'claude', spec: { id: 1, title: 'Sample spec', description: 'Conversion preview' } })
+      const validation = runtime.validateWorkflowDefinition(definition, { structural: true })
+      if (!validation.ok) { res.status(422).json({ error: 'conversion_invalid', errors: validation.errors }); return }
+      if (isRunning(id)) { res.status(409).json({ error: 'loop_running' }); return }
+      const loop = updateLoop(db, id, { graph: converted.graph }, current)
+      res.json({ loop, nodeIds: converted.nodeIds, issues: converted.issues })
+    } catch (error) {
+      if (error instanceof LoopPublicationConflict) { res.status(409).json({ error: 'loop_changed' }); return }
+      res.status(400).json({ error: 'conversion_invalid', message: error instanceof Error ? error.message : 'Conversion failed' })
+    }
+  })
+
   router.post('/loops/:id/publish', async (req: Request, res: Response) => {
     if (!guard(res)) return
     const id = req.params.id as string

@@ -126,7 +126,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: fjpulidop/specrails-core
-          ref: ee622e741f5ed5847d1ffebafc5cb120fe652d80
+          ref: 04ea46639dbc18e92373f9a60ecc03d74aa08969
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
@@ -149,6 +149,7 @@ jobs:
           server/modules/loops/runtime/loop-definition-recovery.test.ts
           server/modules/loops/runtime/loop-definition-crash-paired.test.ts
           server/modules/loops/runtime/loop-factory-paired.test.ts
+          server/modules/loops/runtime/loop-compat-paired.test.ts
           server/modules/agent-runtime/runtime/agent-studio-paired.test.ts
           server/modules/delivery/runtime/definition-fork-paired.test.ts
       - name: Retain paired acceptance results

@@ -7,6 +7,7 @@ import { buildExportEnvelope, parseImportFile, exportFilename } from '../lib/loo
 import { filterTemplates, categoryCounts } from '../lib/loop-template-filter'
 import { TemplatePreviewModal } from '../components/TemplatePreviewModal'
 import { LoopRunModal } from '../components/LoopRunModal'
+import { LegacyConversionModal } from '../components/LegacyConversionModal'
 import { loopNeedsTicket } from '../lib/loop-ticket-need'
 import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
 import { cn } from '../../../lib/utils'
@@ -66,6 +67,7 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
   // a built-in factory loop (clone via forkFactory). Drives the modal's CTA.
   const [previewMode, setPreviewMode] = useState<'use' | 'fork'>('use')
   const [runLoop, setRunLoop] = useState<LoopDefinition | null>(null)
+  const [conversionLoop, setConversionLoop] = useState<LoopDefinition | null>(null)
   // Multi-select for export. Selection is over user loops only (drafts+published).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   // Template-gallery discovery filter (search query + selected category chips),
@@ -370,6 +372,7 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
                     onDuplicate={() => handleDuplicate(loop.id)}
                     onExport={() => downloadLoops([loop])}
                     onExportLegacy={loop.hasLegacyGraph ? () => void downloadLegacyGraph(loop) : undefined}
+                    onConvert={loop.graph.nodes.some(node => node.type === 'core') ? undefined : () => setConversionLoop(loop)}
                     onDelete={() => handleDelete(loop.id)}
                     onRun={loopNeedsTicket(loop.graph) ? undefined : () => setRunLoop(loop)}
                   />
@@ -390,6 +393,7 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
                     onDuplicate={() => handleDuplicate(loop.id)}
                     onExport={() => downloadLoops([loop])}
                     onExportLegacy={loop.hasLegacyGraph ? () => void downloadLegacyGraph(loop) : undefined}
+                    onConvert={loop.graph.nodes.some(node => node.type === 'core') ? undefined : () => setConversionLoop(loop)}
                     onDelete={() => handleDelete(loop.id)}
                   />
                 ))}
@@ -595,6 +599,11 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
       />
 
       {/* Standalone Run for a ticket-less loop (pick a project + provider/effort). */}
+      {conversionLoop && <LegacyConversionModal key={conversionLoop.id} loop={conversionLoop} projects={projects}
+        onClose={() => setConversionLoop(null)} onConverted={converted => {
+          setLoops(current => current.map(loop => loop.id === converted.id ? converted : loop))
+          setConversionLoop(null); openBuilder(converted.id)
+        }} />}
       <LoopRunModal
         loop={runLoop ? { id: runLoop.id, name: runLoop.name } : null}
         projects={projects.map((p) => ({ id: p.id, name: p.name, providers: projectProviders(p), repositories: p.repositories }))}
@@ -624,6 +633,7 @@ function LoopCard({
   onDuplicate,
   onExport,
   onExportLegacy,
+  onConvert,
   onDelete,
   onRun,
 }: {
@@ -636,6 +646,7 @@ function LoopCard({
   onDuplicate: () => void
   onExport: () => void
   onExportLegacy?: () => void
+  onConvert?: () => void
   onDelete: () => void
   /** Present only for ticket-less published loops → standalone Run. */
   onRun?: () => void
@@ -666,6 +677,7 @@ function LoopCard({
         <CardButton icon={Copy} label={t('actions.duplicate')} onClick={onDuplicate} />
         <CardButton icon={FileDown} label={t('actions.export')} onClick={onExport} />
         {onExportLegacy && <CardButton icon={FileDown} label={t('actions.exportLegacy')} onClick={onExportLegacy} />}
+        {onConvert && <CardButton icon={Workflow} label={t('actions.convert')} onClick={onConvert} />}
         <CardButton icon={Trash2} label={t('actions.delete')} onClick={onDelete} danger />
       </div>
     </div>

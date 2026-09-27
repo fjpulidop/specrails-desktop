@@ -85,6 +85,8 @@ export interface LoopGraphConfig {
   maxTokens?: number
   /** Exact Core role-turn path used to project a custom reviewer verdict. */
   reviewerStepId?: string
+  /** Converted legacy deciders inherit the rail/decider launch engine. */
+  legacyDeciderRole?: string
   policies?: { failFast?: number; noProgress?: number; historyMaxChars?: number; concurrency?: number }
 }
 
@@ -264,6 +266,11 @@ export function validateLoopGraph(graph: LoopGraph, catalog?: readonly CorePiece
 
   // ── Config sanity ─────────────────────────────────────────────────────────────
   const cfg = graph.config
+  if (cfg?.legacyDeciderRole !== undefined && (!definition ||
+    typeof cfg.legacyDeciderRole !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/.test(cfg.legacyDeciderRole) ||
+    !nodes.some(node => node.type === 'core' && node.data?.kind === 'decider' && node.data.params?.roleId === cfg.legacyDeciderRole))) {
+    errors.push({ code: 'INVALID_CONFIG', message: 'The legacy decision binding must identify a declared Core decider role.' })
+  }
   if (
     !cfg ||
     !Number.isInteger(cfg.maxIterations) ||

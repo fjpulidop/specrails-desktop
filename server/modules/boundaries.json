@@ -1330,6 +1330,10 @@
         "../../../providers/registry",
         "./loop-constants"
       ],
+      "runtime/loop-compat.ts": [
+        "./loop-core-factory",
+        "./loop-graph"
+      ],
       "runtime/loop-constants.ts": [
         "../../../db"
       ],
@@ -1486,6 +1490,7 @@
         "../../../ids",
         "../../agent-runtime/runtime/agent-runtime-loader",
         "./loop-command-catalog",
+        "./loop-compat",
         "./loop-constants",
         "./loop-definition",
         "./loop-factory",

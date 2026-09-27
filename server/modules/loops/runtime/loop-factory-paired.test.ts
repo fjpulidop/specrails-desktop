@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process'
 import { runAgentRuntimeInvocation } from '../../agent-runtime/runtime/agent-runtime-bridge'
 import { resetCoreAgentRuntimeApiCache } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { getFactoryLoop } from './loop-factory'
+import { convertLegacyLoop, LEGACY_DECIDER_ROLE } from './loop-compat'
 import { compileLoopToDefinition } from './loop-definition'
 
 vi.mock('../../../core-node-runtime', () => ({ resolveCoreNodeRuntime: () => process.execPath }))
@@ -34,7 +35,7 @@ beforeEach(() => {
 })
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true }) })
 type Event = Record<string, any>
-async function execute(mode: string, legacy = false, stall = false, blockAt?: string, decisionModel?: string) {
+async function execute(mode: string, legacy = false, stall = false, blockAt?: string, decisionModel?: string, converted = false) {
   const id = `${mode}-${legacy ? 'legacy' : 'v2'}`, repository = path.join(root, id), backlog = path.join(root, id + '-backlog')
   mkdirSync(repository); mkdirSync(backlog)
   expect(spawnSync('git', ['init', '-q', repository]).status).toBe(0)
@@ -49,12 +50,20 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
   config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['-e', 'if(require("./code.cjs")!==2)process.exit(9);console.log("actual value verified")'] }]
   writeFileSync(configPath, JSON.stringify(config))
   const callsFile = path.join(root, id + '-calls.jsonl'), events: Event[] = []
-  const change = 'paired-change', factory = getFactoryLoop(mode === 'quick-sdd' ? 'factory:sdd-quick-openspec' : `factory:${mode}`, { engineV2: 1, workflowDefinitions: 1 })!
+  const change = 'paired-change'
+  let factory = getFactoryLoop(mode === 'quick-sdd' ? 'factory:sdd-quick-openspec' : `factory:${mode}`, { engineV2: 1, workflowDefinitions: 1 })!
+  if (converted) {
+    const old = getFactoryLoop(`factory:${mode}`)!
+    const projection = convertLegacyLoop(old.graph, { repositoryId: 'repo' })
+    if (!projection.ok) throw Error(JSON.stringify(projection.issues))
+    factory = { ...old, graph: projection.graph }
+  }
   const env = { ...process.env, SPECRAILS_GIT_AUTO: 'false', SPECRAILS_FACTORY_CORE: core, SPECRAILS_FACTORY_CALLS: callsFile, SPECRAILS_FACTORY_STALL: stall ? '1' : '0', SPECRAILS_FACTORY_BLOCK: blockAt ?? '',
     NODE_OPTIONS: `--import=${pathToFileURL(path.join(process.cwd(), 'server/modules/loops/runtime/__fixtures__/factory-executor-preload.mjs')).href}` }
   let result = await runAgentRuntimeInvocation({ contextPath, configPath, cwd: repository, change, env,
     ...(decisionModel ? { workflowRoleBindings: { 'loop-decider': { provider: 'claude', model: decisionModel, access: 'read' as const, artifacts: 'none' as const } } } : {}),
-    ...(!legacy ? { engineVersion: 2 as const, prepareDefinition: () => compileLoopToDefinition(factory.graph, { id: factory.id, title: factory.name, provider: 'claude', constants: {}, repositoryCount: 1, changeId: change }) } : {}),
+    ...(converted && factory.graph.config.legacyDeciderRole ? { workflowRoleBindings: { [LEGACY_DECIDER_ROLE]: { provider: 'claude', access: 'read' as const, artifacts: 'none' as const } } } : {}),
+    ...(!legacy ? { engineVersion: 2 as const, prepareDefinition: config => compileLoopToDefinition(factory.graph, { id: factory.id, title: factory.name, provider: 'claude', constants: {}, roles: config.roles, repositoryCount: 1, changeId: change }) } : {}),
     onRuntimeEvent: event => events.push(event), timeoutMs: 150_000,
   })
   if (blockAt) {
@@ -115,4 +124,11 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('c
   expect(actual.calls.filter(call => call.role === 'loop-decider')).toHaveLength(2)
   expect(actual.calls.filter(call => call.role === 'loop-decider').map(call => call.model)).toEqual(['selected-decider', 'selected-decider'])
   expect(actual.calls.filter(call => call.role === 'prompt').every(call => call.model !== 'selected-decider')).toBe(true)
+}, 180_000)
+
+it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['implement', 'batch'])('executes the converted legacy %s factory with actual implementation evidence', async mode => {
+  const actual = await execute(mode, false, false, undefined, undefined, true)
+  const count = mode === 'batch' ? 2 : 1
+  for (const role of ['architect', 'developer', 'reviewer']) expect(actual.calls.filter(call => call.role === role)).toHaveLength(count)
+  expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
 }, 180_000)

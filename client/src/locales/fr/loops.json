@@ -59,7 +59,8 @@
     "import": "Importer",
     "select": "Sélectionner {{name}}",
     "exportLegacy": "Exporter le graphe d’origine",
-    "originalCopyName": "Original : {{name}}"
+    "originalCopyName": "Original : {{name}}",
+    "convert": "Convertir vers Core"
   },
   "card": {
     "nodes_one": "{{count}} nœud",
@@ -448,5 +449,15 @@
     "paused": "En pause",
     "acceptance": "Acceptation",
     "verified": "Vérifié"
+  },
+  "conversion": {
+    "title": "Convertir {{name}} vers Core",
+    "description": "Core valide le graphe converti avant de l’enregistrer comme brouillon. L’original reste exportable. Vérifiez le nouveau workflow avant de le publier.",
+    "repository": "Dépôt des étapes shell sans destination",
+    "selectRepository": "Choisissez le dépôt d’origine",
+    "submit": "Convertir et vérifier",
+    "pending": "Conversion…",
+    "error": "Échec de la conversion",
+    "coreRequired": "Mettez Core à jour pour convertir ce workflow."
   }
 }

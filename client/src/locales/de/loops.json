@@ -59,7 +59,8 @@
     "import": "Importieren",
     "select": "{{name}} auswählen",
     "exportLegacy": "Ursprünglichen Graphen exportieren",
-    "originalCopyName": "Original: {{name}}"
+    "originalCopyName": "Original: {{name}}",
+    "convert": "In Core umwandeln"
   },
   "card": {
     "nodes_one": "{{count}} Knoten",
@@ -448,5 +449,15 @@
     "paused": "Pausiert",
     "acceptance": "Abnahme",
     "verified": "Verifiziert"
+  },
+  "conversion": {
+    "title": "{{name}} in Core umwandeln",
+    "description": "Core validiert den umgewandelten Graphen vor dem Speichern als Entwurf. Das Original bleibt exportierbar. Prüfe den neuen Workflow vor der Veröffentlichung.",
+    "repository": "Repository für Shell-Schritte ohne Ziel",
+    "selectRepository": "Ursprüngliches Repository auswählen",
+    "submit": "Umwandeln und prüfen",
+    "pending": "Wird umgewandelt…",
+    "error": "Umwandlung fehlgeschlagen",
+    "coreRequired": "Aktualisiere Core, um diesen Workflow umzuwandeln."
   }
 }

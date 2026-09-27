@@ -108,10 +108,13 @@ export function createLoop(
 export function updateLoop(
   db: DbInstance,
   id: string,
-  patch: { name?: string; description?: string | null; graph?: LoopGraph }
+  patch: { name?: string; description?: string | null; graph?: LoopGraph },
+  expected?: Pick<LoopDefinition, 'name' | 'description' | 'graph' | 'status'>,
 ): LoopDefinition | undefined {
   return db.transaction(() => {
     const existing = getLoop(db, id)
+    if (expected && (!existing || JSON.stringify([existing.name, existing.description, existing.graph, existing.status]) !==
+      JSON.stringify([expected.name, expected.description, expected.graph, expected.status]))) throw new LoopPublicationConflict()
     if (!existing) return undefined
     const name = patch.name ?? existing.name
     const description = patch.description !== undefined ? patch.description : existing.description

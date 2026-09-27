@@ -1,3 +1,41 @@
+## Continuation checkpoint — 27 September 2026, 05:07 CEST
+
+Core catalog 5 is committed/pushed at `04ea46639dbc18e92373f9a60ecc03d74aa08969`.
+Desktop CI pins it and now includes `loop-compat-paired.test.ts` on all three
+paired platforms. Web conversion guides are pushed at `c5a2984`.
+
+The generic legacy converter, guarded HTTP conversion, reviewable modal, frozen
+decider selection, original backup and eight localized guides are implemented
+in the working tree. Full client coverage passes: 396 suites / 4,710 tests,
+89.77% statements, 84.21% branches, 75.66% functions, 89.77% lines. Typecheck,
+architecture/source audits, source map, actionlint and build passed. Web guide
+sync, six sync tests and production build passed.
+
+Actual Core acceptance covers converted Implement/Batch, Quick SDD and bounded
+artifact repair, state across pause/resume, required-work stop guards, iteration
+caps, one-shot retry budgets and provider exceptions/empty responses. Three
+cases run the original LoopRunManager with the same fixture call sequence and
+match outcome/order. Four production executor binding tests prove launch uses
+the selected decider or rail engine, and resume does not replace frozen choices.
+
+The first full server run had 9,097 passes / 7 existing platform skips and one
+failure: the 48-definition corpus started a CLI process per graph and exceeded
+20 seconds under coverage. The corpus now validates through the same actual Core
+SDK validator in one child process (structural mode), passing in 519ms. Real CLI
+run/resume tests remain separate. Full server coverage is rerunning; do not call
+this revision fully green until that result is known. Package acceptance is
+running in an isolated temporary consumer with the permitted npm cache/network.
+
+Retention work has started separately: `RUNTIME-RETENTION-DECISION.md` records
+ownership requirements; the new pure retention policy has 24 passing cases but
+is not yet integrated with collection/host admission. These files are WIP and
+do not implement garbage collection. D8 remains incomplete; no two-release
+telemetry, migration rollout or Core7 publication evidence is fabricated.
+
+No merges/releases occurred. C1 integration remains blocked on the previously
+requested explicit authorization; the prior Core CI still fails only its known
+Windows permission spike. Latest Core CI 36289770112 is in progress.
+
 ## Guarded decision authoring — 27 September 2026
 
 The three-platform Core pin advances to ee622e741f5ed5847d1ffebafc5cb120fe652d80,

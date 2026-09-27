@@ -59,7 +59,8 @@
     "import": "导入",
     "select": "选择 {{name}}",
     "exportLegacy": "导出原始图",
-    "originalCopyName": "原始图：{{name}}"
+    "originalCopyName": "原始图：{{name}}",
+    "convert": "转换为Core"
   },
   "card": {
     "nodes_one": "{{count}} 个节点",
@@ -448,5 +449,15 @@
     "paused": "已暂停",
     "acceptance": "验收",
     "verified": "已验证"
+  },
+  "conversion": {
+    "title": "将{{name}}转换为Core",
+    "description": "Core会先验证转换后的图，再将其保存为草稿。原始图仍可导出。发布前请检查新的工作流。",
+    "repository": "未绑定shell步骤的仓库",
+    "selectRepository": "选择原始仓库",
+    "submit": "转换并检查",
+    "pending": "正在转换…",
+    "error": "转换失败",
+    "coreRequired": "请更新Core以转换此工作流。"
   }
 }

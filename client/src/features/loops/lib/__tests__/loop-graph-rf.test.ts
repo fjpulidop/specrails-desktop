@@ -133,3 +133,15 @@ describe('graph ⇄ react-flow round-trip', () => {
     expect(back.edges[0].branch).toBe('stop')
   })
 })
+
+it('preserves converted decision bindings until the last matching role is changed or removed', () => {
+  const converted: LoopGraph = { nodes: [
+    { id: 'decision', type: 'core', position: { x: 1, y: 2 }, data: { kind: 'decider', params: { roleId: 'legacy-loop-decider' } } },
+  ], edges: [], config: { maxIterations: 3, timeoutMinutes: 0, legacyDeciderRole: 'legacy-loop-decider' } }
+  const { nodes, edges } = graphToReactFlow(converted)
+  expect(reactFlowToGraph(nodes, edges, converted.config)).toEqual(converted)
+  nodes[0].data.params = { roleId: 'reviewer' }
+  expect(reactFlowToGraph(nodes, edges, converted.config).config.legacyDeciderRole).toBeUndefined()
+  expect(reactFlowToGraph([], [], converted.config).config.legacyDeciderRole).toBeUndefined()
+  expect(converted.config.legacyDeciderRole).toBe('legacy-loop-decider')
+})

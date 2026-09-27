@@ -59,7 +59,8 @@
     "import": "Import",
     "select": "Select {{name}}",
     "exportLegacy": "Export original graph",
-    "originalCopyName": "Original: {{name}}"
+    "originalCopyName": "Original: {{name}}",
+    "convert": "Convert to Core"
   },
   "card": {
     "nodes_one": "{{count}} node",
@@ -448,5 +449,15 @@
     "paused": "Paused",
     "acceptance": "Acceptance",
     "verified": "Verified"
+  },
+  "conversion": {
+    "title": "Convert {{name}} to Core",
+    "description": "Core validates the converted graph before saving it as a draft. The original remains available for export. Review the new workflow before publishing.",
+    "repository": "Repository for unbound shell steps",
+    "selectRepository": "Choose the original repository",
+    "submit": "Convert and review",
+    "pending": "Converting…",
+    "error": "Conversion failed",
+    "coreRequired": "Update Core to convert this workflow."
   }
 }
