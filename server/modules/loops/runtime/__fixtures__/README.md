@@ -19,3 +19,19 @@ that the run pauses then succeeds and executes exactly two provider invocations.
 `loop-definition-events.test.ts` compares Desktop projection with these recorded
 Core totals, including restart replay, branch identities, integer allocation and
 unknown billing. Regeneration changes UUIDs/timestamps and must be reviewed.
+
+## Real host/Core crash acceptance
+
+`loop-crash-worker.mjs` runs the production Loop Manager, executors, retained
+Core package and disk project database in a separate host process. The parent
+kills its owned process tree during a read, partial write, human pause or between
+committed nodes and
+starts another host. The provider preload isolates the fixture home and replaces
+only the AI executor; no paid CLI/network call is made. Production lease TTLs
+remain unchanged, and write recovery uses the attempt returned by Core status.
+
+The paired test invalidates current project settings before restart, resumes the
+frozen request, independently verifies repository contents and replays all
+durable events twice. Interrupted calls remain counted with unknown usage; the
+human answer produces exactly one additional invocation. Every process and
+temporary repository belongs to that test and is cleaned up on failure.

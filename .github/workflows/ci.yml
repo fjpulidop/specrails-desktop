@@ -126,7 +126,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: fjpulidop/specrails-core
-          ref: 749a6133bd74e4fc97e794b6f1daecbf0c355901
+          ref: 342898588fd7225a1d1be34f96c15491057dcb3f
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
@@ -147,6 +147,7 @@ jobs:
           server/modules/loops/runtime/loop-definition-schema.test.ts
           server/modules/loops/runtime/loop-core-factory.test.ts
           server/modules/loops/runtime/loop-definition-recovery.test.ts
+          server/modules/loops/runtime/loop-definition-crash-paired.test.ts
           server/modules/loops/runtime/loop-factory-paired.test.ts
           server/modules/agent-runtime/runtime/agent-studio-paired.test.ts
           server/modules/delivery/runtime/definition-fork-paired.test.ts

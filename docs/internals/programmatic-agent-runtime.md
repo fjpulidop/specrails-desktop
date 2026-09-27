@@ -293,7 +293,10 @@ reviewer still requires its original OpenSpec workflow.
 The required `paired-core-engine` matrix builds the commit-pinned Core checkout
 on Linux, macOS and Windows and exports both source-root variables. It checks
 schema parity, four factories, custom-role read-only CLI arguments, durable
-fork/control recovery and two-repository settlement. Transport fixtures make no
+fork/control recovery, real host/Core crashes during read/write/human pauses or between nodes,
+and two-repository settlement. Crash acceptance retains production lease TTLs,
+requires exact write-attempt recovery and verifies frozen configuration plus
+idempotent physical-call accounting. Transport fixtures make no
 paid provider calls. Review and advance the Core pin with paired changes; ordinary
 coverage lanes may omit optional source fixtures, but the required matrix cannot.
 

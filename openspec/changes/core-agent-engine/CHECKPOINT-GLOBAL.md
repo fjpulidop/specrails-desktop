@@ -1,3 +1,35 @@
+## Loop Manager process-crash acceptance — 27 September 2026
+
+Four new paired tests kill the actual host/Core process tree during a read, a
+partial write, human pause and between committed nodes, then reopen the disk project database with a new
+Loop Manager. Production leases remain 60 seconds: early execution is rejected;
+only the specific write attempt from Core status is authorized after expiry.
+Current project config is deliberately invalidated before restart; frozen inputs
+still complete and real host verification proves repository contents.
+
+These tests exposed a Core accounting bug: the abandoned provider call remained
+running and never reached Desktop. The paired Core correction settles it once
+under the next writer lease with unknown usage/duration/tool counts, retaining
+unreported budget reservations. The read/write/pause cases pass together (100.36s); the between-node case also
+passes (78.19s) and proves the completed provider call is not repeated. The cases
+prove two physical calls for interrupted/paused runs, one for a between-node
+restart, one interrupted record for each lost response,
+null missing cost and no duplicate records after two complete durable replays.
+Typecheck, architecture audit and source-map generation pass. CI includes this
+suite in the required three-platform paired lane, pinned to Core correction
+342898588fd7225a1d1be34f96c15491057dcb3f. Core full coverage is still running. The full paired selection passed 27 tests
+across six suites; its Agent Studio HTTP case initially hit sandbox listen EPERM
+and passed separately with local socket permission. The additional between-node
+case brings the validated paired selection to 29 tests across seven suites.
+Final typecheck, architecture/source audits, source-map, actionlint and strict
+OpenSpec validation pass.
+
+D4 task 6.4 is complete with these cases and the preceding real two-repository
+settlement crash/provenance-once acceptance. Task 6.3 remains open for historical
+allocation reconstruction. Remote Desktop CI 36283283851 passed on dae1bca6;
+36282570489 also passed on the human-continuation commit. Those runs predate these
+new tests and are not evidence for the uncommitted Core accounting correction.
+
 ## Real host crash and historical fork ownership — 27 September 2026
 
 The paired two-repository acceptance now covers an actual SIGKILL of the Desktop
