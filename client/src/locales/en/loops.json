@@ -215,7 +215,8 @@
       "assignment": {
         "set": "Set values",
         "increment": "Adjust counters"
-      }
+      },
+      "requiredContinue": "Continue while this condition holds"
     }
   },
   "preview": {

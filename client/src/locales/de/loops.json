@@ -215,7 +215,8 @@
       "assignment": {
         "set": "Werte setzen",
         "increment": "Zähler anpassen"
-      }
+      },
+      "requiredContinue": "Fortsetzen, solange diese Bedingung erfüllt ist"
     }
   },
   "preview": {

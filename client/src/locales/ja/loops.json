@@ -215,7 +215,8 @@
       "assignment": {
         "set": "値を設定",
         "increment": "カウンターを調整"
-      }
+      },
+      "requiredContinue": "この条件が成立する間は続行"
     }
   },
   "preview": {

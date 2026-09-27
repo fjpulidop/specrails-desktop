@@ -1,3 +1,19 @@
+## Guarded decision authoring — 27 September 2026
+
+The three-platform Core pin advances to ee622e741f5ed5847d1ffebafc5cb120fe652d80,
+catalog version 4. Its decider supports continueWhen over scoped variables,
+preventing a premature stop while mandatory work remains without resetting
+no-progress evidence. The inspector localizes this field in eight languages and
+exposes it only when the selected catalog advertises it; existing catalogs stay
+unchanged. Desktop and Web guides explain the obligation and human-pause behavior.
+
+Validation: four inspector cases, 30 locale-parity cases and typecheck pass.
+Core's new behavior passes 29 piece cases, 30 definition/runtime cases, 22
+catalog/CLI/package-surface/documentation cases and 26 script tests. The immediately
+preceding assignment baseline passed all 1,270 Core tests with unchanged coverage
+thresholds plus actual installed-package run/resume/fork after fixing the stale
+sixteen-piece expectation. Generic legacy conversion remains in progress.
+
 ## Frozen conversion role selection — 27 September 2026
 
 The runtime bridge now accepts explicit launch-owned custom-role bindings, shows

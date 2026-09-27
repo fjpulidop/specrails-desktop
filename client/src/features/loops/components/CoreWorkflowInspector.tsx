@@ -152,11 +152,14 @@ export function CoreNodeInspector({
   const component = data.params?.ref ?? data.params?.body
   const retrySchema = asObject(asObject(schema.$defs).retry)
   const parameters = piece?.paramsSchema ?? {}
-  const parameterSchema = data.coreKind === 'assign' ? {
+  const parameterLabels: Record<string, string> = data.coreKind === 'assign'
+    ? { set: t('builder.core.assignment.set'), increment: t('builder.core.assignment.increment') }
+    : data.coreKind === 'decider' ? { continueWhen: t('builder.core.requiredContinue') } : {}
+  const parameterSchema = Object.keys(parameterLabels).length ? {
     ...parameters,
-    properties: Object.fromEntries(Object.entries(asObject(parameters.properties)).map(([name, value]) => [name, {
-      ...asObject(value), title: t(`builder.core.assignment.${name}`, { defaultValue: name }),
-    }])),
+    properties: Object.fromEntries(Object.entries(asObject(parameters.properties)).map(([name, value]) => [name,
+      parameterLabels[name] ? { ...asObject(value), title: parameterLabels[name] } : value,
+    ])),
   } : parameters
   return (
     <div className="space-y-3">

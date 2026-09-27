@@ -53,3 +53,17 @@ it('edits typed variable values and counter deltas through localized controls wi
   expect(JSON.parse(screen.getByTestId('variables').textContent!)).toEqual({ set: { failed: true }, increment: { iteration: 2 } })
   expect(piece).toEqual(original)
 })
+
+it('offers the localized continuation guard only when the selected catalog supports it', () => {
+  const piece: WorkflowPieceDescriptor = { kind: 'decider', effect: 'read', requiresAI: true, outcomes: ['continue', 'stop', 'failed'], paramsSchema: {
+    type: 'object', properties: { continueWhen: { type: 'string' } },
+  } }
+  const onChange = vi.fn()
+  const props = { nodeId: 'decide', data: { kind: 'core' as const, coreKind: 'decider' as const, params: { continueWhen: '$vars.failed == true' } }, piece, choices: {}, schema: {},
+    onChange, onDelete: vi.fn(), onOpenCanvas: vi.fn() }
+  const { rerender } = render(<CoreNodeInspector {...props} />)
+  fireEvent.change(screen.getByLabelText('builder.core.requiredContinue'), { target: { value: '$vars.pending > 0' } })
+  expect(onChange).toHaveBeenLastCalledWith({ params: { continueWhen: '$vars.pending > 0' } })
+  rerender(<CoreNodeInspector {...props} data={{ ...props.data, params: {} }} piece={{ ...piece, paramsSchema: { type: 'object', properties: {} } }} />)
+  expect(screen.queryByLabelText('builder.core.requiredContinue')).not.toBeInTheDocument()
+})

@@ -215,7 +215,8 @@
       "assignment": {
         "set": "Définir les valeurs",
         "increment": "Ajuster les compteurs"
-      }
+      },
+      "requiredContinue": "Continuer tant que cette condition est remplie"
     }
   },
   "preview": {

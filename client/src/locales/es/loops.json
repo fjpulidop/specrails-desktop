@@ -215,7 +215,8 @@
       "assignment": {
         "set": "Asignar valores",
         "increment": "Ajustar contadores"
-      }
+      },
+      "requiredContinue": "Continuar mientras se cumpla esta condición"
     }
   },
   "preview": {

@@ -215,7 +215,8 @@
       "assignment": {
         "set": "Impostare valori",
         "increment": "Modificare contatori"
-      }
+      },
+      "requiredContinue": "Continua finché questa condizione è vera"
     }
   },
   "preview": {

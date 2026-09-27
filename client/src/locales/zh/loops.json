@@ -215,7 +215,8 @@
       "assignment": {
         "set": "设置值",
         "increment": "调整计数器"
-      }
+      },
+      "requiredContinue": "满足此条件时继续"
     }
   },
   "preview": {
