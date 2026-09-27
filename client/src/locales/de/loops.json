@@ -57,7 +57,9 @@
     "run": "Ausführen",
     "export": "Exportieren",
     "import": "Importieren",
-    "select": "{{name}} auswählen"
+    "select": "{{name}} auswählen",
+    "exportLegacy": "Ursprünglichen Graphen exportieren",
+    "originalCopyName": "Original: {{name}}"
   },
   "card": {
     "nodes_one": "{{count}} Knoten",
@@ -69,7 +71,8 @@
   "errors": {
     "load": "Loops konnten nicht geladen werden",
     "save": "Loop konnte nicht gespeichert werden",
-    "publishInvalid": "Dieser Loop kann noch nicht veröffentlicht werden – behebe die hervorgehobenen Probleme."
+    "publishInvalid": "Dieser Loop kann noch nicht veröffentlicht werden – behebe die hervorgehobenen Probleme.",
+    "exportLegacy": "Der ursprüngliche Graph konnte nicht exportiert werden."
   },
   "builder": {
     "back": "Zurück zu Loops",
@@ -83,7 +86,7 @@
       "maxIterations": "Maximale Iterationen",
       "timeout": "Timeout (Min.)",
       "maxIterationsHint": "Obergrenze für Loop-Decider-Iterationen — der Loop stoppt beim Erreichen, auch wenn das Ziel nicht erfüllt ist. Verhindert Endlosschleifen.",
-      "timeoutHint": "Echtzeit-Limit für den gesamten Lauf, in Minuten. Bei Überschreitung wird der Lauf gestoppt und als fehlgeschlagen markiert — ein Sicherheitsnetz neben den max. Iterationen.",
+      "timeoutHint": "Echtzeit-Limit für den gesamten Lauf, in Minuten. Bei Überschreitung wird der Lauf gestoppt und als fehlgeschlagen markiert — ein Sicherheitsnetz neben den max. Iterationen. 0 deaktiviert dieses Zeitlimit; andere Budgets und der Abbruch bleiben wirksam.",
       "maxCost": "Max. Kosten ($)",
       "maxCostHint": "Optionales USD-Budget für den gesamten Lauf. Wird ZWISCHEN Schritten geprüft (die Kosten eines Schritts stehen erst nach dessen Ende fest), der Loop stoppt vor dem nächsten Schritt, sobald die Summe es überschreitet — kann um einen Schritt überschreiten. Bei Nicht-Claude-Anbietern sind die Kosten geschätzt. Leer = kein Limit."
     },

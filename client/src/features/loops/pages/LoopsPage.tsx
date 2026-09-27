@@ -113,6 +113,13 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
     URL.revokeObjectURL(url)
   }, [])
 
+  const downloadLegacyGraph = useCallback(async (loop: LoopDefinition) => {
+    try {
+      const backup = await loopsApi.legacyGraph(loop.id)
+      downloadLoops([{ ...loop, name: t('actions.originalCopyName', { name: loop.name }), graph: backup.graph }])
+    } catch { toast.error(t('errors.exportLegacy')) }
+  }, [downloadLoops, t])
+
   const reload = useCallback(async () => {
     try {
       // List + templates are the core gallery; load them first so a failure of
@@ -362,6 +369,7 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
                     onUnpublish={() => handleUnpublish(loop.id)}
                     onDuplicate={() => handleDuplicate(loop.id)}
                     onExport={() => downloadLoops([loop])}
+                    onExportLegacy={loop.hasLegacyGraph ? () => void downloadLegacyGraph(loop) : undefined}
                     onDelete={() => handleDelete(loop.id)}
                     onRun={loopNeedsTicket(loop.graph) ? undefined : () => setRunLoop(loop)}
                   />
@@ -381,6 +389,7 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
                     onPublish={() => handlePublish(loop.id)}
                     onDuplicate={() => handleDuplicate(loop.id)}
                     onExport={() => downloadLoops([loop])}
+                    onExportLegacy={loop.hasLegacyGraph ? () => void downloadLegacyGraph(loop) : undefined}
                     onDelete={() => handleDelete(loop.id)}
                   />
                 ))}
@@ -614,6 +623,7 @@ function LoopCard({
   onUnpublish,
   onDuplicate,
   onExport,
+  onExportLegacy,
   onDelete,
   onRun,
 }: {
@@ -625,6 +635,7 @@ function LoopCard({
   onUnpublish?: () => void
   onDuplicate: () => void
   onExport: () => void
+  onExportLegacy?: () => void
   onDelete: () => void
   /** Present only for ticket-less published loops → standalone Run. */
   onRun?: () => void
@@ -654,6 +665,7 @@ function LoopCard({
         {onUnpublish && <CardButton icon={Download} label={t('actions.unpublish')} onClick={onUnpublish} />}
         <CardButton icon={Copy} label={t('actions.duplicate')} onClick={onDuplicate} />
         <CardButton icon={FileDown} label={t('actions.export')} onClick={onExport} />
+        {onExportLegacy && <CardButton icon={FileDown} label={t('actions.exportLegacy')} onClick={onExportLegacy} />}
         <CardButton icon={Trash2} label={t('actions.delete')} onClick={onDelete} danger />
       </div>
     </div>

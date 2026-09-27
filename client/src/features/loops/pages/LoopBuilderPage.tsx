@@ -472,7 +472,7 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs leading-relaxed">{t('builder.config.timeoutHint')}</TooltipContent>
               </Tooltip>
-              <input type="number" min={1} value={timeoutMinutes} onChange={(e) => setTimeoutMinutes(Math.max(1, Number(e.target.value) || 1))} className="w-14 h-6 text-xs rounded border border-border bg-transparent px-1 text-foreground" />
+              <input type="number" min={0} aria-label={t('builder.config.timeout')} value={timeoutMinutes} onChange={(e) => setTimeoutMinutes(Math.max(0, Number(e.target.value) || 0))} className="w-14 h-6 text-xs rounded border border-border bg-transparent px-1 text-foreground" />
             </label>
             <label className="text-[10px] text-muted-foreground flex items-center gap-1">
               {t('builder.config.maxCost')}

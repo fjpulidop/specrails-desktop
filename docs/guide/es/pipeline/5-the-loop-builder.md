@@ -107,3 +107,5 @@ La ejecución se transmite en vivo en la vista **Jobs** con las mismas métricas
 - [Elegir un motor por rail](picking-an-engine-per-rail) — el rail (no el loop) elige el proveedor.
 
 Cuando el Core seleccionado expone límites por invocación, las piezas de prompt, rol y decider ofrecen `timeoutMs` e `idleTimeoutMs`. Usa `0` para desactivar ese temporizador del paso, o elimina el campo para heredar el valor predeterminado. Los presupuestos del workflow completo y la cancelación siguen activos. Si una verificación plantea una pregunta bloqueante, espera tu respuesta antes de aceptar un resultado correcto.
+
+Cuando un grafo antiguo guardado se sustituye por primera vez por piezas de Core, se conserva el grafo original. La biblioteca ofrece entonces **Exportar grafo original**. La exportación tiene un nombre distinto para poder importarla como un borrador independiente sin sustituir el workflow actual. La conversión y las ediciones posteriores nunca publican el loop automáticamente.

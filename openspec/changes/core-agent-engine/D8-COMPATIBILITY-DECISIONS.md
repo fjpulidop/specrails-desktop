@@ -67,3 +67,17 @@ restart halfway through publication/migration and idempotent retry of backups.
 This preparation does not authorize legacy deletion. The two-release measured
 zero-use gate, paired Core 7 contract and release authorization remain separate.
 No release evidence can be inferred from passing tests or telemetry with no rows.
+
+## Atomic backup before first conversion
+
+Desktop migration 30 adds nullable original-graph storage. The first save that
+replaces legacy execution nodes with a Core graph captures the original stored
+JSON in the same transaction as the edit and returns the loop to Draft. Later
+edits never replace the backup. Existing Core definitions are not assigned a
+fabricated predecessor. A read-only export makes the original graph recoverable
+without reverting a running definition or implicitly publishing anything.
+
+Publication also checks the validated content inside an immediate transaction.
+If a graph/name/description changes while Core loads or validates, publication
+returns a conflict and keeps the newer edit as Draft. This avoids validating one
+definition and publishing another, without trusting second-resolution timestamps.

@@ -105,3 +105,5 @@ A execução transmite ao vivo na vista **Jobs** com as mesmas métricas e o mes
 - [Escolhendo um motor por rail](picking-an-engine-per-rail) — o rail (não o loop) escolhe o provedor.
 
 Quando a versão de Core selecionada disponibiliza limites por invocação, os blocos de prompt, função e decider oferecem `timeoutMs` e `idleTimeoutMs`. Use `0` para desativar esse temporizador da etapa ou remova o campo para herdar o valor padrão. Os orçamentos do workflow completo e o cancelamento continuam ativos. Uma etapa de verificação que faz uma pergunta bloqueante espera sua resposta antes de aceitar um resultado bem-sucedido.
+
+Quando um grafo antigo salvo é substituído pela primeira vez por blocos Core, o grafo original é preservado. A biblioteca passa a oferecer **Exportar grafo original**. A exportação tem um nome diferente para permitir a importação como rascunho separado, sem substituir o workflow atual. A conversão e as edições posteriores nunca publicam um loop automaticamente.

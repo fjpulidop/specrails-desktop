@@ -21,6 +21,8 @@ export interface LoopDefinition {
   graph: LoopGraph
   createdAt: string
   updatedAt: string
+  /** Present only when a pre-conversion graph was preserved. */
+  hasLegacyGraph?: true
 }
 
 interface LoopRowRaw {
@@ -31,6 +33,9 @@ interface LoopRowRaw {
   graph: string
   created_at: string
   updated_at: string
+  graph_legacy: string | null
+  graph_legacy_saved_at: string | null
+  has_legacy_graph?: number
 }
 
 /** Thrown by {@link publishLoop} when the graph fails validation. The router
@@ -42,6 +47,11 @@ export class LoopValidationError extends Error {
     this.name = 'LoopValidationError'
     this.errors = errors
   }
+}
+
+/** Validation cannot authorize publishing a different edit made while Core loaded. */
+export class LoopPublicationConflict extends Error {
+  constructor() { super('Loop changed during validation; reload and publish again'); this.name = 'LoopPublicationConflict' }
 }
 
 function mapRow(raw: LoopRowRaw | undefined): LoopDefinition | undefined {
@@ -60,17 +70,21 @@ function mapRow(raw: LoopRowRaw | undefined): LoopDefinition | undefined {
     graph,
     createdAt: raw.created_at,
     updatedAt: raw.updated_at,
+    ...(raw.has_legacy_graph ? { hasLegacyGraph: true as const } : {}),
   }
 }
 
+// Backups can be large; load their contents only for an explicit export.
+const loopColumns = 'id, name, description, status, graph, created_at, updated_at, (graph_legacy IS NOT NULL) AS has_legacy_graph'
+
 export function listLoops(db: DbInstance): LoopDefinition[] {
-  return (db.prepare('SELECT * FROM loops ORDER BY updated_at DESC, created_at DESC').all() as LoopRowRaw[]).map(
+  return (db.prepare(`SELECT ${loopColumns} FROM loops ORDER BY updated_at DESC, created_at DESC`).all() as LoopRowRaw[]).map(
     (r) => mapRow(r)!
   )
 }
 
 export function getLoop(db: DbInstance, id: string): LoopDefinition | undefined {
-  return mapRow(db.prepare('SELECT * FROM loops WHERE id = ?').get(id) as LoopRowRaw | undefined)
+  return mapRow(db.prepare(`SELECT ${loopColumns} FROM loops WHERE id = ?`).get(id) as LoopRowRaw | undefined)
 }
 
 /** Create a new loop. Always starts as a Draft. `graph` defaults to an empty
@@ -96,17 +110,30 @@ export function updateLoop(
   id: string,
   patch: { name?: string; description?: string | null; graph?: LoopGraph }
 ): LoopDefinition | undefined {
-  const existing = getLoop(db, id)
-  if (!existing) return undefined
+  return db.transaction(() => {
+    const existing = getLoop(db, id)
+    if (!existing) return undefined
+    const name = patch.name ?? existing.name
+    const description = patch.description !== undefined ? patch.description : existing.description
+    const graph = patch.graph ?? existing.graph
+    const converting = patch.graph !== undefined && Array.isArray(graph.nodes) && graph.nodes.some(node => node?.type === 'core') &&
+      Array.isArray(existing.graph.nodes) && existing.graph.nodes.some(node => ['ai-step', 'shell', 'decider', 'condition'].includes(node?.type))
+    // Both expressions read the old row. A failed save cannot leave a backup
+    // that claims a conversion happened, and retries cannot replace its bytes.
+    db.prepare(`UPDATE loops SET name = ?, description = ?,
+      graph_legacy = CASE WHEN ? THEN COALESCE(graph_legacy, graph) ELSE graph_legacy END,
+      graph_legacy_saved_at = CASE WHEN ? THEN COALESCE(graph_legacy_saved_at, datetime('now')) ELSE graph_legacy_saved_at END,
+      graph = ?, status = 'draft', updated_at = datetime('now') WHERE id = ?`)
+      .run(name, description, Number(converting), Number(converting), JSON.stringify(graph), id)
+    return getLoop(db, id)
+  }).immediate()
+}
 
-  const name = patch.name ?? existing.name
-  const description = patch.description !== undefined ? patch.description : existing.description
-  const graph = patch.graph ?? existing.graph
-
-  db.prepare(
-    `UPDATE loops SET name = ?, description = ?, graph = ?, status = 'draft', updated_at = datetime('now') WHERE id = ?`
-  ).run(name, description, JSON.stringify(graph), id)
-  return getLoop(db, id)
+/** Read-only original export; does not restore, publish or execute a graph. */
+export function readLegacyLoopGraph(db: DbInstance, id: string): { graph: LoopGraph; savedAt: string } | undefined {
+  const row = db.prepare('SELECT graph_legacy, graph_legacy_saved_at FROM loops WHERE id = ?').get(id) as Pick<LoopRowRaw, 'graph_legacy' | 'graph_legacy_saved_at'> | undefined
+  if (!row?.graph_legacy || !row.graph_legacy_saved_at) return undefined
+  return { graph: JSON.parse(row.graph_legacy) as LoopGraph, savedAt: row.graph_legacy_saved_at }
 }
 
 /**
@@ -114,15 +141,19 @@ export function updateLoop(
  * selectable in the rail picker). Throws {@link LoopValidationError} otherwise,
  * leaving the loop in Draft.
  */
-export function publishLoop(db: DbInstance, id: string): LoopDefinition | undefined {
-  const existing = getLoop(db, id)
-  if (!existing) return undefined
-
-  const result = validateLoopGraph(existing.graph)
-  if (!result.valid) throw new LoopValidationError(result.errors)
-
-  db.prepare(`UPDATE loops SET status = 'published', updated_at = datetime('now') WHERE id = ?`).run(id)
-  return getLoop(db, id)
+export function publishLoop(
+  db: DbInstance, id: string, validated?: Pick<LoopDefinition, 'name' | 'description' | 'graph' | 'status'>,
+): LoopDefinition | undefined {
+  return db.transaction(() => {
+    const existing = getLoop(db, id)
+    if (validated && (!existing || JSON.stringify([existing.name, existing.description, existing.graph, existing.status]) !==
+      JSON.stringify([validated.name, validated.description, validated.graph, validated.status]))) throw new LoopPublicationConflict()
+    if (!existing) return undefined
+    const result = validateLoopGraph(existing.graph)
+    if (!result.valid) throw new LoopValidationError(result.errors)
+    db.prepare(`UPDATE loops SET status = 'published', updated_at = datetime('now') WHERE id = ?`).run(id)
+    return getLoop(db, id)
+  }).immediate()
 }
 
 /** Return a Published loop to Draft without changing its content. */

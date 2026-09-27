@@ -112,3 +112,5 @@ pieces offer `timeoutMs` and `idleTimeoutMs`. Set a limit to `0` to disable that
 step timer, or remove the field to inherit the default. Whole-workflow budgets
 and cancellation still apply. A verification step that asks a blocking question
 waits for your answer before accepting a success result.
+
+When a saved legacy graph is first replaced with Core pieces, its original graph is preserved. The library then offers **Export original graph**. The export has a distinct name so you can import it as a separate draft without replacing the current workflow. Conversion and later edits never publish a loop automatically.

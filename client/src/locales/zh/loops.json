@@ -57,7 +57,9 @@
     "run": "运行",
     "export": "导出",
     "import": "导入",
-    "select": "选择 {{name}}"
+    "select": "选择 {{name}}",
+    "exportLegacy": "导出原始图",
+    "originalCopyName": "原始图：{{name}}"
   },
   "card": {
     "nodes_one": "{{count}} 个节点",
@@ -69,7 +71,8 @@
   "errors": {
     "load": "加载循环失败",
     "save": "保存循环失败",
-    "publishInvalid": "此循环暂时无法发布——请修复高亮显示的问题。"
+    "publishInvalid": "此循环暂时无法发布——请修复高亮显示的问题。",
+    "exportLegacy": "无法导出原始图。"
   },
   "builder": {
     "back": "返回循环列表",
@@ -83,7 +86,7 @@
       "maxIterations": "最大迭代次数",
       "timeout": "超时（分钟）",
       "maxIterationsHint": "Loop Decider 迭代次数上限——达到后即使目标未达成也会停止循环。防止无限循环。",
-      "timeoutHint": "整个运行的实际时间上限（分钟）。超过后运行将停止并标记为失败——与最大迭代次数一起作为安全网。",
+      "timeoutHint": "整个运行的实际时间上限（分钟）。超过后运行将停止并标记为失败——与最大迭代次数一起作为安全网。 0 表示禁用此时间限制；其他预算和取消功能仍然有效。",
       "maxCost": "最大费用 ($)",
       "maxCostHint": "整个运行的可选美元预算。在步骤之间检查（每步费用只有在该步结束后才知道），因此当总额超过时循环会在下一步之前停止——可能超出一步。非 Claude 提供方的费用为估算。留空 = 不限制。"
     },

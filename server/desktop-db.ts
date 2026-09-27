@@ -666,6 +666,13 @@ function applyDesktopMigrations(db: DbInstance): void {
       const cols = (db.prepare('PRAGMA table_info(agent_messages)').all() as { name: string }[]).map((c) => c.name)
       if (!cols.includes('intent')) db.exec(`ALTER TABLE agent_messages ADD COLUMN intent TEXT;`)
     },
+    // 30: preserve the original legacy loop graph before its first Core conversion.
+    // Column guards also support the existing migration replay fixtures.
+    () => {
+      const columns = (db.prepare('PRAGMA table_info(loops)').all() as { name: string }[]).map(column => column.name)
+      if (!columns.includes('graph_legacy')) db.exec('ALTER TABLE loops ADD COLUMN graph_legacy TEXT')
+      if (!columns.includes('graph_legacy_saved_at')) db.exec('ALTER TABLE loops ADD COLUMN graph_legacy_saved_at TEXT')
+    },
   ]
 
   applyNumberedMigrations(db, migrations)

@@ -5,14 +5,16 @@ import { initDesktopDb } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
 import { registerLoopsRoutes } from './loops-router'
 import type { LoopGraph } from './loop-graph'
+import { updateLoop } from './loops-store'
 
 const runtime = vi.hoisted(() => ({
   api: { capabilities: { engineV2: 1, workflowDefinitions: 1 } },
+  beforeLoad: undefined as (() => void) | undefined,
   listWorkflows: vi.fn(),
   validateWorkflowDefinition: vi.fn(),
 }))
 vi.mock('../../agent-runtime/runtime/agent-runtime-loader', () => ({
-  loadCoreAgentRuntime: async () => runtime,
+  loadCoreAgentRuntime: async () => { runtime.beforeLoad?.(); return runtime },
 }))
 let db: DbInstance
 function graph(): LoopGraph {
@@ -33,6 +35,7 @@ function graph(): LoopGraph {
 beforeEach(() => {
   db = initDesktopDb(':memory:')
   runtime.api.capabilities = { engineV2: 1, workflowDefinitions: 1 }
+  runtime.beforeLoad = undefined
   runtime.listWorkflows.mockReset()
   runtime.validateWorkflowDefinition.mockReset()
   delete process.env.SPECRAILS_LOOPS_SECTION
@@ -82,6 +85,16 @@ describe('Core definition publication', () => {
       { structural: true },
     )
     expect(runtime.validateWorkflowDefinition.mock.calls[0][0]).not.toHaveProperty('version')
+  })
+  it('rejects publication when a different graph is saved while the Core runtime loads', async () => {
+    const id = await draft()
+    const changed = graph(); changed.nodes[1].data!.params = { outcome: 'failure' }
+    runtime.beforeLoad = () => { updateLoop(db, id, { graph: changed }) }
+    runtime.validateWorkflowDefinition.mockReturnValue({ ok: true, definition: {}, graph: { nodes: [], edges: [] }, version: 'a'.repeat(64) })
+    const response = await api().post(`/api/loops/${id}/publish`)
+    expect(response.status).toBe(409)
+    expect(response.body.code).toBe('loop_changed')
+    expect((await api().get(`/api/loops/${id}`)).body.loop).toMatchObject({ status: 'draft', graph: changed })
   })
   it('retains the draft and returns node-specific Core diagnostics', async () => {
     runtime.validateWorkflowDefinition.mockReturnValue({

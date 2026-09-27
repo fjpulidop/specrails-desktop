@@ -152,3 +152,13 @@ describe('Core canvas authoring', () => {
     })
   })
 })
+
+
+it('saves an explicitly untimed workflow instead of clamping it to one minute', async () => {
+  page()
+  await screen.findByRole('button', { name: 'Condition' })
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'Timeout (min)' }), { target: { value: '0' } })
+  fireEvent.click(screen.getByRole('button', { name: /Save/ }))
+  await waitFor(() => expect(api.update).toHaveBeenCalled())
+  expect(api.update.mock.calls[0][1].graph?.config.timeoutMinutes).toBe(0)
+})

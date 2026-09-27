@@ -1,12 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import LoopsPage from '../LoopsPage'
+import { toast } from 'sonner'
 import { loopsApi, type LoopDefinition } from '../../lib/loops-api'
 
 vi.mock('../../lib/loops-api', () => ({
   loopsApi: {
     list: vi.fn(),
+    legacyGraph: vi.fn(),
     templates: vi.fn(),
     create: vi.fn(),
     fromTemplate: vi.fn(),
@@ -295,5 +297,48 @@ describe('LoopsPage — non-launchable built-ins', () => {
     renderPage()
     await screen.findByText('Implement')
     expect(screen.queryByTestId('factory-loop-automatic')).not.toBeInTheDocument()
+  })
+})
+
+
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
+
+describe('preserved original graph export', () => {
+  it('downloads the retained original rather than the current edited graph', async () => {
+    const current = loop({ hasLegacyGraph: true })
+    const original = { ...current.graph, config: { ...current.graph.config, maxIterations: 77 } }
+    api.list.mockResolvedValue([current])
+    api.legacyGraph.mockResolvedValue({ graph: original, savedAt: '2026-09-27' })
+    const blobs: Blob[] = []
+    const NativeURL = URL
+    vi.stubGlobal('URL', class extends NativeURL {
+      static createObjectURL(blob: Blob) { blobs.push(blob); return 'blob:original' }
+      static revokeObjectURL = vi.fn()
+    })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Export original graph' }))
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
+    expect(api.legacyGraph).toHaveBeenCalledWith(current.id)
+    const text = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = reject
+      reader.readAsText(blobs[0])
+    })
+    expect(JSON.parse(text).loops[0].graph).toEqual(original)
+    expect(JSON.parse(text).loops[0].name).toBe('Original: My Loop')
+    expect(current.graph.config.maxIterations).toBe(10)
+    expect(api.publish).not.toHaveBeenCalled()
+  })
+  it('reports a missing backup and does not fall back to exporting the current graph', async () => {
+    api.list.mockResolvedValue([loop({ hasLegacyGraph: true })])
+    api.legacyGraph.mockRejectedValue(new Error('missing'))
+    const error = vi.spyOn(toast, 'error')
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: 'Export original graph' }))
+    await waitFor(() => expect(error).toHaveBeenCalledWith('Could not export the original graph.'))
+    expect(click).not.toHaveBeenCalled()
   })
 })

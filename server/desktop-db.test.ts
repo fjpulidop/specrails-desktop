@@ -76,10 +76,10 @@ describe('desktop-db', () => {
       expect(names).toContain('idx_projects_path')
     })
 
-    it('applies migrations 1 through 29 and records them', () => {
+    it('applies migrations 1 through 30 and records them', () => {
       const versions = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as { version: number }[]
-      expect(versions).toHaveLength(29)
-      expect(versions.map((v) => v.version)).toEqual(Array.from({ length: 29 }, (_, i) => i + 1))
+      expect(versions).toHaveLength(30)
+      expect(versions.map((v) => v.version)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1))
       const columns = db.prepare('PRAGMA table_info(agent_messages)').all() as { name: string }[]
       expect(columns.map((c) => c.name)).toContain('context_refs')
       // 23: durable Builder snapshots
@@ -93,7 +93,7 @@ describe('desktop-db', () => {
       // Re-init on same DB (in-memory so we just call again)
       const db2 = makeDb()
       const versions = db2.prepare('SELECT version FROM schema_migrations').all() as { version: number }[]
-      expect(versions).toHaveLength(29)
+      expect(versions).toHaveLength(30)
     })
   })
 
@@ -793,4 +793,20 @@ describe('agent_invocations (HIGH-3: agent-chat cost accounting)', () => {
       expect(sumAgentInvocationsCost(db, '2026-07-02T09:00:00.000Z')).toBeCloseTo(2.5, 6)
     })
   })
+})
+
+
+it('upgrades a version-29 library without converting or fabricating backups for published loops', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'loop-backup-migration-'))
+  const file = path.join(root, 'desktop.sqlite')
+  let connection = initDesktopDb(file)
+  try {
+    const original = '{ "nodes": [], "edges": [], "config": { "maxIterations": 3, "timeoutMinutes": 0 } }'
+    connection.prepare("INSERT INTO loops(id,name,status,graph) VALUES('original','Original','published',?)").run(original)
+    connection.exec('ALTER TABLE loops DROP COLUMN graph_legacy_saved_at; ALTER TABLE loops DROP COLUMN graph_legacy; DELETE FROM schema_migrations WHERE version=30')
+    connection.close()
+    connection = initDesktopDb(file)
+    expect(connection.prepare("SELECT graph,status,graph_legacy,graph_legacy_saved_at FROM loops WHERE id='original'").get()).toEqual({ graph: original, status: 'published', graph_legacy: null, graph_legacy_saved_at: null })
+    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 30 })
+  } finally { if (connection.open) connection.close(); fs.rmSync(root, { recursive: true, force: true }) }
 })

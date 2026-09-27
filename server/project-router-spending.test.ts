@@ -190,7 +190,7 @@ describe('project-router-spending', () => {
     it('sets truncated when totalAvailable exceeds returned rows (limit path)', async () => {
       for (let i = 0; i < 5; i++) insert(h.db, { surface: 'job', cost: 1 })
       const res = await request(h.app).get(`/api/projects/${PROJECT_ID}/invocations?limit=2`)
-      expect(res.status).toBe(200)
+      expect(res.status, `Unexpected invocation response: ${JSON.stringify(res.body)}`).toBe(200)
       expect(res.body.rows.length).toBe(2)
       expect(res.body.totalAvailable).toBe(5)
       expect(res.body.truncated).toBe(true)

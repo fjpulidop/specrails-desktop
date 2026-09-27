@@ -57,7 +57,9 @@
     "run": "Executar",
     "export": "Exportar",
     "import": "Importar",
-    "select": "Selecionar {{name}}"
+    "select": "Selecionar {{name}}",
+    "exportLegacy": "Exportar grafo original",
+    "originalCopyName": "Original: {{name}}"
   },
   "card": {
     "nodes_one": "{{count}} nó",
@@ -69,7 +71,8 @@
   "errors": {
     "load": "Falha ao carregar os loops",
     "save": "Falha ao guardar o loop",
-    "publishInvalid": "Este loop ainda não pode ser publicado — corrija os problemas assinalados."
+    "publishInvalid": "Este loop ainda não pode ser publicado — corrija os problemas assinalados.",
+    "exportLegacy": "Não foi possível exportar o grafo original."
   },
   "builder": {
     "back": "Voltar aos Loops",
@@ -83,7 +86,7 @@
       "maxIterations": "Iterações máximas",
       "timeout": "Tempo limite (min)",
       "maxIterationsHint": "Limite de iterações do Loop Decider — o loop para ao atingi-lo mesmo que o objetivo não seja cumprido. Evita loops infinitos.",
-      "timeoutHint": "Limite de tempo real de toda a execução, em minutos. Se excedido, a execução é interrompida e marcada como falha — uma rede de segurança junto com as iterações máximas.",
+      "timeoutHint": "Limite de tempo real de toda a execução, em minutos. Se excedido, a execução é interrompida e marcada como falha — uma rede de segurança junto com as iterações máximas. 0 desativa este limite de tempo; os outros orçamentos e o cancelamento continuam ativos.",
       "maxCost": "Custo máx ($)",
       "maxCostHint": "Orçamento opcional em USD para toda a execução. Verificado ENTRE passos (o custo de um passo só é conhecido ao terminá-lo), o loop para antes do próximo passo quando o total freestylepassa — pode passar um passo. Em provedores não-Claude o custo é estimado. Vazio = sem limite."
     },

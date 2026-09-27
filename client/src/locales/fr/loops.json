@@ -57,7 +57,9 @@
     "run": "Exécuter",
     "export": "Exporter",
     "import": "Importer",
-    "select": "Sélectionner {{name}}"
+    "select": "Sélectionner {{name}}",
+    "exportLegacy": "Exporter le graphe d’origine",
+    "originalCopyName": "Original : {{name}}"
   },
   "card": {
     "nodes_one": "{{count}} nœud",
@@ -69,7 +71,8 @@
   "errors": {
     "load": "Échec du chargement des boucles",
     "save": "Échec de l'enregistrement de la boucle",
-    "publishInvalid": "Cette boucle ne peut pas encore être publiée — corrigez les problèmes signalés."
+    "publishInvalid": "Cette boucle ne peut pas encore être publiée — corrigez les problèmes signalés.",
+    "exportLegacy": "Impossible d’exporter le graphe d’origine."
   },
   "builder": {
     "back": "Retour aux boucles",
@@ -83,7 +86,7 @@
       "maxIterations": "Itérations max",
       "timeout": "Délai (min)",
       "maxIterationsHint": "Plafond d'itérations du Loop Decider — la boucle s'arrête une fois atteint, même si l'objectif n'est pas rempli. Évite les boucles infinies.",
-      "timeoutHint": "Limite de temps réel pour toute l'exécution, en minutes. Si dépassée, l'exécution est arrêtée et marquée échouée — un filet de sécurité avec le nombre max d'itérations.",
+      "timeoutHint": "Limite de temps réel pour toute l'exécution, en minutes. Si dépassée, l'exécution est arrêtée et marquée échouée — un filet de sécurité avec le nombre max d'itérations. 0 désactive cette limite de temps ; les autres budgets et l’annulation restent actifs.",
       "maxCost": "Coût max ($)",
       "maxCostHint": "Budget USD optionnel pour toute l’exécution. Vérifié ENTRE les étapes (le coût d’une étape n’est connu qu’à sa fin), la boucle s’arrête avant l’étape suivante une fois le total dépassé — peut dépasser d’une étape. Pour les fournisseurs non-Claude, le coût est estimé. Vide = aucune limite."
     },

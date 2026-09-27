@@ -304,3 +304,32 @@ describe('loops-router factory loops', () => {
     })
   })
 })
+
+
+describe('original graph export', () => {
+  it('exports the pre-conversion graph without changing or publishing the current loop', async () => {
+    const original = validGraph()
+    const created = await request(app).post('/api/loops').send({ name: 'Legacy', graph: original })
+    const id = created.body.loop.id
+    expect((await request(app).get(`/api/loops/${id}/legacy-graph`)).status).toBe(404)
+    const graph = structuredClone(original)
+    graph.nodes[1] = { ...graph.nodes[1], type: 'core', data: { kind: 'condition', params: { expr: 'true' } } }
+    const saved = await request(app).put(`/api/loops/${id}`).send({ graph })
+    expect(saved.body.loop).toMatchObject({ status: 'draft', hasLegacyGraph: true })
+    const before = db.prepare('SELECT * FROM loops WHERE id=?').get(id)
+    const exported = await request(app).get(`/api/loops/${id}/legacy-graph`)
+    expect(exported.status).toBe(200)
+    expect(exported.body).toEqual({ graph: original, savedAt: expect.any(String) })
+    expect(db.prepare('SELECT * FROM loops WHERE id=?').get(id)).toEqual(before)
+    expect((await request(app).get('/api/loops/missing/legacy-graph')).status).toBe(404)
+  })
+  it('keeps backup export behind the loops feature gate', async () => {
+    const created = await request(app).post('/api/loops').send({ name: 'Original', graph: validGraph() })
+    const id = created.body.loop.id
+    const graph = validGraph(); graph.nodes[1].type = 'core'
+    await request(app).put(`/api/loops/${id}`).send({ graph })
+    expect((await request(app).get(`/api/loops/${id}/legacy-graph`)).status).toBe(200)
+    process.env.SPECRAILS_LOOPS_SECTION = 'false'
+    expect((await request(app).get(`/api/loops/${id}/legacy-graph`)).status).toBe(404)
+  })
+})

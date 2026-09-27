@@ -57,7 +57,9 @@
     "run": "Ejecutar",
     "export": "Exportar",
     "import": "Importar",
-    "select": "Seleccionar {{name}}"
+    "select": "Seleccionar {{name}}",
+    "exportLegacy": "Exportar grafo original",
+    "originalCopyName": "Original: {{name}}"
   },
   "card": {
     "nodes_one": "{{count}} nodo",
@@ -69,7 +71,8 @@
   "errors": {
     "load": "No se pudieron cargar los loops",
     "save": "No se pudo guardar el loop",
-    "publishInvalid": "Este loop aún no se puede publicar — corrige los problemas resaltados."
+    "publishInvalid": "Este loop aún no se puede publicar — corrige los problemas resaltados.",
+    "exportLegacy": "No se pudo exportar el grafo original."
   },
   "builder": {
     "back": "Volver a los loops",
@@ -83,7 +86,7 @@
       "maxIterations": "Iteraciones máximas",
       "timeout": "Tiempo límite (min)",
       "maxIterationsHint": "Tope de iteraciones del Loop Decider — el loop se detiene al alcanzarlo aunque no se cumpla el objetivo. Evita bucles infinitos.",
-      "timeoutHint": "Límite de tiempo real de toda la ejecución, en minutos. Si se supera, la ejecución se detiene y se marca como fallida — una red de seguridad junto a las iteraciones máximas.",
+      "timeoutHint": "Límite de tiempo real de toda la ejecución, en minutos. Si se supera, la ejecución se detiene y se marca como fallida — una red de seguridad junto a las iteraciones máximas. 0 desactiva este límite de tiempo; los demás presupuestos y la cancelación siguen activos.",
       "maxCost": "Coste máx ($)",
       "maxCostHint": "Presupuesto opcional en USD para toda la ejecución. Se comprueba ENTRE pasos (el coste de un paso solo se sabe al terminarlo), así que el loop para antes del siguiente paso cuando el total lo supera — puede pasarse un paso. En proveedores no-Claude el coste es estimado. Vacío = sin tope."
     },

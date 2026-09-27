@@ -1,3 +1,33 @@
+## Original graph preservation and publication races — 27 September 2026
+
+Desktop migration 30 preserves the exact original graph JSON on first legacy-to-Core
+save, atomically with returning the edited definition to Draft. Later conversions
+cannot replace that original. The read-only export API and eight-locale card action
+produce a separately named importable draft without publishing or changing a run.
+Listing definitions projects only backup availability, not the backup blob.
+Publication compares the validated graph, name, description and status inside the
+write transaction; edits during asynchronous Core validation return HTTP 409.
+The builder now preserves a global duration limit of zero (untimed).
+
+Tests cover upgrade from a real version-29 database, rollback on injected failure,
+immutable backups, malformed drafts, route gating, concurrent edit/publication,
+export contents/errors and zero-duration save. Full client coverage passes:
+395 suites / 4,705 tests, 211.92s; statements/lines 89.72%, branches 84.22%,
+functions 75.70%, with unchanged thresholds. Typecheck, build, architecture and
+source audits, 94 script tests and installed-package consumer acceptance pass.
+The full server gate is still running and is not claimed complete here.
+
+An initial server run exposed a fixture that inherited SPECRAILS_CORE_BIN;
+FrameworkManager unit tests now isolate that override and the 56 focused
+framework/store tests pass. A subsequent sandbox run stopped on listen EPERM;
+the socket-enabled run reached 4,229 passing tests before one unrelated spending
+HTTP fixture returned 401. Its server has no authentication route; the unchanged
+25-test spending suite passes in isolation. A diagnostic full run now collects
+all failures (bail=0), retaining the same assertions and coverage thresholds; the
+spending assertion includes its response body for actionable evidence. No full
+server success is claimed until that gate completes.
+D8 migration/compiler and measured rollout gates remain unchecked.
+
 ## Timer compatibility and migration decisions — 27 September 2026
 
 The paired CI pin now targets Core `749a6133bd74e4fc97e794b6f1daecbf0c355901`.

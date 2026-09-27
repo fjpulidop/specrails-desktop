@@ -13,6 +13,7 @@ import { isLoopsEnabled } from '../../../feature-flags'
 import {
   listLoops,
   getLoop,
+  readLegacyLoopGraph,
   createLoop,
   updateLoop,
   publishLoop,
@@ -21,6 +22,7 @@ import {
   deleteLoop,
   importLoops,
   LoopValidationError,
+  LoopPublicationConflict,
 } from './loops-store'
 import { isDefinitionGraph, type LoopGraph } from './loop-graph'
 import { compileLoopToDefinition } from './loop-definition'
@@ -206,6 +208,13 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
     res.json(importLoops(db, body.loops, newId))
   })
 
+  router.get('/loops/:id/legacy-graph', (req: Request, res: Response) => {
+    if (!guard(res)) return
+    const backup = readLegacyLoopGraph(db, req.params.id as string)
+    if (!backup) { res.status(404).json({ error: 'Original legacy graph not found' }); return }
+    res.json(backup)
+  })
+
   router.get('/loops/:id', (req: Request, res: Response) => {
     if (!guard(res)) return
     const loop = getLoop(db, req.params.id as string)
@@ -304,9 +313,12 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
           res.status(400).json({ errors: validation.errors.map(error => ({ ...error, nodeId: error.nodeId ?? error.path?.match(/^\/nodes\/([^/]+)/)?.[1] })) }); return
         }
       }
-      const loop = publishLoop(db, id)
+      const loop = publishLoop(db, id, current)
       res.json({ loop })
     } catch (err) {
+      if (err instanceof LoopPublicationConflict) {
+        res.status(409).json({ error: err.message, code: 'loop_changed' }); return
+      }
       if (err instanceof LoopValidationError) {
         res.status(422).json({ error: 'Loop graph is invalid', errors: err.errors })
         return

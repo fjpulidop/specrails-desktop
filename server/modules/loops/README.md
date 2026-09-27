@@ -98,3 +98,22 @@ and terminal settlement through narrow observation/control/settlement/clock
 ports. It waits for Core's lease, reissues the same idempotent request when an
 expired writer leaves unfinished work, and defers to startup recovery on shutdown.
 Project HTTP composition owns observer deduplication and durable diagnostics.
+
+## Original graph preservation
+
+Desktop database migration 30 adds an original-graph snapshot. On the first save
+from legacy execution nodes to Core pieces, `updateLoop` preserves the exact
+stored JSON and its timestamp in the same immediate transaction as the edit.
+The result is Draft; later edits and conversion retries cannot overwrite the
+original. New Core definitions and incomplete drafts have no invented backup.
+
+`GET /api/loops/:id/legacy-graph` exposes an existing backup without modifying or
+publishing the loop. The library offers **Export original graph** only when a
+backup exists. Importing that export creates a separate draft under the existing
+import rules. This protection does not automatically migrate saved graphs or
+permit removal of the legacy engine before the measured rollout gate.
+
+Publication freezes the content that Core validated. The final immediate
+transaction refuses a changed name, description, graph or publication state
+with `409 loop_changed`; the newer edit remains Draft. Second-resolution edit
+timestamps are not used as a concurrency token.

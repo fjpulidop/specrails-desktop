@@ -50,6 +50,7 @@ export interface LoopDefinition {
   graph: LoopGraph
   createdAt: string
   updatedAt: string
+  hasLegacyGraph?: boolean
 }
 
 export interface LoopTemplateSummary {
@@ -167,6 +168,9 @@ export const loopsApi = {
   },
   async get(id: string): Promise<LoopDefinition> {
     return (await send<{ loop: LoopDefinition }>('GET', `/loops/${id}`)).loop
+  },
+  async legacyGraph(id: string): Promise<{ graph: LoopGraph; savedAt: string }> {
+    return send('GET', `/loops/${encodeURIComponent(id)}/legacy-graph`)
   },
   async create(input: { name: string; description?: string; graph?: LoopGraph }): Promise<LoopDefinition> {
     return (await send<{ loop: LoopDefinition }>('POST', '/loops', input)).loop
