@@ -1,3 +1,20 @@
+## Git directory identity across Windows spellings — 27 September 2026
+
+Remote run 36286182182 confirms all four actual Loop Manager crash cases pass
+on Windows after admission serialization. Its sole failing test is the new
+historical two-repository reconstruction: string equality of realpath results
+rejected the Git common directory. All other CI gates passed.
+
+Recovery now compares directory device/inode identities, falling back to native
+canonical paths only where file IDs are unavailable. It does not case-fold two
+potentially distinct repositories. A portable regression reproduces the previous
+rejection with differing display spellings and passes with the correction;
+foreign directory identity remains rejected before staging or provenance.
+27 reconstruction/recovery tests and all three real Core/two-repository cases
+pass (35.95s for the latter). Typecheck and source/architecture audits pass.
+The next remote run must confirm the Windows fix; this is not yet an all-green
+CI claim.
+
 ## Windows crash-harness admission — 27 September 2026
 
 Remote run 36284631746 passed all gates except the four new Windows crash

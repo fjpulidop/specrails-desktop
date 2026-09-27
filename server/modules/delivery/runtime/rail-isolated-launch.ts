@@ -2044,6 +2044,17 @@ interface RecoveryWorktreeInspection {
   detail?: string
 }
 
+/** Git and Node can spell the same Windows directory differently. Compare its
+ * filesystem identity instead of case-folding paths (which could admit another
+ * repository on a case-sensitive volume). */
+function sameRecoveryDirectory(observed: string, expected: string): boolean {
+  const left = fs.statSync(observed, { bigint: true })
+  const right = fs.statSync(expected, { bigint: true })
+  if (!left.isDirectory() || !right.isDirectory()) return false
+  if (left.ino !== 0n && right.ino !== 0n) return left.dev === right.dev && left.ino === right.ino
+  return fs.realpathSync.native(observed) === fs.realpathSync.native(expected)
+}
+
 /** Reattach the original allocation after Core finishes; no new generation or remote effects. */
 export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId: string, runId: string, io: IsolatedLaunchIO = {}): Promise<void> {
   const frozen = readDefinitionRun(ctx.db, runId)
@@ -2092,7 +2103,7 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
         const repository = frozen.request.executionManifest?.repositories.find(item => item.worktreeId === run.ledgerId)
         const common = await git.run(['rev-parse', '--path-format=absolute', '--git-common-dir'], run.handle.worktreePath)
         if (!repository || common.code !== 0 || !common.stdout.trim() ||
-          fs.realpathSync(common.stdout.trim()) !== fs.realpathSync(repository.gitCommonDir)) throw new Error('Recovered worktree belongs to another Git repository')
+          !sameRecoveryDirectory(common.stdout.trim(), repository.gitCommonDir)) throw new Error('Recovered worktree belongs to another Git repository')
       }
       const branch = await git.run(['branch', '--show-current'], run.handle.worktreePath)
       if (branch.code !== 0 || branch.stdout.trim() !== run.handle.branch) throw new Error('Recovered worktree is on another branch')

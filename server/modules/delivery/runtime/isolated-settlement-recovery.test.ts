@@ -2,6 +2,7 @@ import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { syncBuiltinESMExports } from 'node:module'
 import { initDb, createJob, type DbInstance } from '../../../db'
 import type { ProjectContext } from '../../../project-registry'
 import { createPrDelivery, getPrDelivery, claimPrDeliveryOperation } from './rail-pr-store'
@@ -118,4 +119,20 @@ it('rejects a reconstructed checkout from another Git common directory before st
   expect(git.run.mock.calls.map(([args]) => args[0])).toEqual(['rev-parse'])
   expect(recordProvenance).not.toHaveBeenCalled()
   expect(getPrDelivery(db, 'delivery')?.operation_token).toBeNull()
+})
+
+it('recognizes the same Git directory despite differing realpath display spellings', async () => {
+  const observed = root + path.sep + '.'
+  db.prepare("UPDATE definition_delivery_settlements SET snapshot_json=json_set(snapshot_json,'$.reconstructedFrom','durable-branch-records','$.run.automaticRelease',json('false')) WHERE run_id='run'").run()
+  db.prepare("UPDATE loop_runs SET run_request_json=json_set(run_request_json,'$.executionManifest',json(?)) WHERE id='run'")
+    .run(JSON.stringify({ repositories: [{ worktreeId: 'mount', gitCommonDir: root }] }))
+  git.run.mockImplementation(async args => ({ code: 0, stderr: '', stdout: args.includes('--git-common-dir') ? observed : args[0] === 'branch' ? 'work' : args[0] === 'rev-parse' ? 'b'.repeat(40) : '' }))
+  const original = fs.realpathSync
+  const spelling = vi.spyOn(fs, 'realpathSync').mockImplementation(((input: fs.PathLike, options?: unknown) =>
+    input === observed ? root.toUpperCase() : original(input, options as never)) as typeof fs.realpathSync)
+  syncBuiltinESMExports()
+  try {
+    await reattachIsolatedSettlement(ctx, 'delivery', 'run', { git, recordProvenance })
+    expect(getPrDelivery(db, 'delivery')?.decision).toBe('on_review')
+  } finally { spelling.mockRestore(); syncBuiltinESMExports() }
 })
