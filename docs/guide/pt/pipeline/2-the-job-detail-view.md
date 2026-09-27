@@ -114,3 +114,7 @@ Se a [telemetria](../settings/customizing) estava ativada para o job, aparece um
 - [Rails e jobs](rails-and-jobs) — lançar e enfileirar.
 - [Batch implement e multi-feature](batch-implement-and-multi-feature) — muitas specs, ondas de dependências.
 - [Acompanhar o custo](../analytics/tracking-cost) — transformar os custos por job em analytics do projeto.
+
+## Após reiniciar um workflow
+
+Após uma falha, retome o workflow salvo com a configuração e os repositórios originais. Uma escrita interrompida exige selecionar a tentativa exata depois de revisar o diff do worktree. As etapas concluídas são preservadas. Uma chamada ao provedor cuja resposta foi perdida continua contabilizada como interrompida, com consumo desconhecido; nunca é apresentada como gratuita. Se os registros salvos não comprovarem a entrega original, a recuperação mostra um erro e preserva o worktree.

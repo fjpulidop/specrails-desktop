@@ -1,3 +1,4 @@
+import { ensureIsolatedSettlementSnapshot } from './isolated-settlement-reconstruction'
 import type { RuntimeProviderOverride } from '../../agent-runtime/runtime/agent-runtime-settings'
 import { recordLegacyLaunch } from '../../loops/runtime/legacy-launch-telemetry'
 /**
@@ -244,6 +245,8 @@ export interface AllocatedRun {
    *  PR branch or a pre-existing/resumable local branch. */
   branchOwnership: 'created' | 'preexisting' | 'borrowed-pr'
   worktreeOwnership: 'created' | 'preexisting'
+  /** Historical reconstruction cannot grant new automatic cleanup authority. */
+  automaticRelease?: false
 }
 
 export interface SettledRun {
@@ -707,7 +710,7 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
     // as the settlement snapshot. Everything ignored right now is run residue
     // by construction (the worktree is app-created and deliverables are
     // committed); anything ignored that appears LATER preserves the worktree.
-    a.settlementIgnoredPaths = await captureSettlementIgnoredPaths(
+    a.settlementIgnoredPaths = a.automaticRelease === false ? null : await captureSettlementIgnoredPaths(
       git, a.handle.worktreePath, a.overlayExcludes,
     )
 
@@ -779,7 +782,7 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
         finalSha,
         changed,
         ...(engineFailure ? { failureDetail: engineFailure } : {}),
-        safeToRelease: true,
+        safeToRelease: a.automaticRelease !== false,
       }
     }
 
@@ -818,7 +821,7 @@ function createIsolatedRunSettlement(ports: IsolatedRunSettlementPorts) {
       initialSha: a.initialSha,
       finalSha,
       changed,
-      safeToRelease: true,
+      safeToRelease: a.automaticRelease !== false,
     }
   }
 }
@@ -2045,6 +2048,7 @@ interface RecoveryWorktreeInspection {
 export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId: string, runId: string, io: IsolatedLaunchIO = {}): Promise<void> {
   const frozen = readDefinitionRun(ctx.db, runId)
   if (!frozen || frozen.row.project_id !== ctx.project.id || frozen.row.status !== 'completed') throw new Error('Recovered workflow must finish before delivery settlement')
+  ensureIsolatedSettlementSnapshot(ctx.db, ctx.project.id, runId)
   const ids = ctx.db.prepare('SELECT delivery_id FROM definition_delivery_settlements WHERE project_id=? AND run_id=? ORDER BY delivery_id')
     .all(ctx.project.id, runId) as Array<{ delivery_id: string }>
   const rows = ids.map(({ delivery_id }) => getPrDelivery(ctx.db, delivery_id))
@@ -2084,6 +2088,12 @@ export async function reattachIsolatedSettlement(ctx: ProjectContext, deliveryId
       if (!ledger || ledger.run_id !== runId || ledger.branch !== run.handle.branch || ledger.worktree_path !== run.handle.worktreePath) throw new Error('Worktree ownership changed before recovery')
       const context = frozen.metadata.context ?? (frozen.metadata.contextPath ? JSON.parse(fs.readFileSync(frozen.metadata.contextPath, 'utf8')) : null)
       if (!context || context.runId !== runId || !Array.isArray(context.repositories) || !context.repositories.some((repo: { path?: string }) => repo.path && fs.realpathSync(repo.path) === fs.realpathSync(run.handle.worktreePath))) throw new Error('Recovered mount is outside the frozen Core context')
+      if (snapshot.reconstructedFrom) {
+        const repository = frozen.request.executionManifest?.repositories.find(item => item.worktreeId === run.ledgerId)
+        const common = await git.run(['rev-parse', '--path-format=absolute', '--git-common-dir'], run.handle.worktreePath)
+        if (!repository || common.code !== 0 || !common.stdout.trim() ||
+          fs.realpathSync(common.stdout.trim()) !== fs.realpathSync(repository.gitCommonDir)) throw new Error('Recovered worktree belongs to another Git repository')
+      }
       const branch = await git.run(['branch', '--show-current'], run.handle.worktreePath)
       if (branch.code !== 0 || branch.stdout.trim() !== run.handle.branch) throw new Error('Recovered worktree is on another branch')
       const settle = createIsolatedRunSettlement({

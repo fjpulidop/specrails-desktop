@@ -69,7 +69,7 @@ work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 
 - [x] 6.1 Append next available migration for durable request, engine version and fork linkage.
 - [x] 6.2 Reconcile resumable v2 runs to paused while preserving jobs and existing legacy recovery.
-- [ ] 6.3 Reconstruct launch and isolated settlement from durable records, expose recovery choice.
+- [x] 6.3 Reconstruct launch and isolated settlement from durable records, expose recovery choice.
 - [x] 6.4 Test crashes across read/write/pause boundaries and idempotent accounting/delivery.
 
 ## 7. D5 — Progressive factories (requires C4/C5/C6 respectively)

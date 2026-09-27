@@ -115,3 +115,7 @@ Comodo per condividere un'esecuzione con un collega, o per inviare una segnalazi
 - [Rail e job](rails-and-jobs) — avvio e accodamento.
 - [Batch implement e multi-feature](batch-implement-and-multi-feature) — molte spec, ondate di dipendenze.
 - [Tracciare i costi](../analytics/tracking-cost) — trasforma i costi per job in analytics di progetto.
+
+## Dopo il riavvio di un workflow
+
+Dopo un arresto improvviso, riprendi il workflow salvato con la configurazione e i repository originali. Una scrittura interrotta richiede di selezionare il tentativo esatto dopo aver esaminato il diff del worktree. I passaggi completati vengono conservati. Una chiamata al provider la cui risposta è andata persa resta conteggiata come interrotta, con consumo sconosciuto; non viene mai presentata come gratuita. Se i dati salvati non consentono di dimostrare la consegna originale, il recupero mostra un errore e conserva il worktree.

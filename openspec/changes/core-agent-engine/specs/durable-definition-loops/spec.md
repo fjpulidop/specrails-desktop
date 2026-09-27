@@ -9,7 +9,7 @@ Definition loops SHALL persist question, approval and gate pauses, resume throug
 
 #### Scenario: Cancel pause
 - **WHEN** a paused run is cancelled
-- **THEN** Desktop settles cancellation without launching Core
+- **THEN** Desktop acknowledges cancellation through retained Core control without resuming the paused provider
 
 ### Requirement: Fork preserves original
 Repeating from a completed node SHALL create a linked new run and preserve the original checkpoints and accounting.
@@ -28,3 +28,11 @@ Desktop SHALL append durable request metadata and reconstruct resumable v2 runs 
 #### Scenario: Settlement replay
 - **WHEN** a recovered run finishes and its outbox replays
 - **THEN** delivery and accounting are applied exactly once
+
+#### Scenario: Historical isolated allocation
+- **WHEN** a v2 run lacks a complete settlement snapshot but its frozen context, manifest, delivery branch records and worktree ledger prove the original allocation
+- **THEN** explicit recovery restores every repository leg atomically without granting new cleanup authority or changing frozen execution inputs
+
+#### Scenario: Missing historical ownership proof
+- **WHEN** the original initial SHA, never-commit exclusions, repository identity or continuation contract cannot be proven from durable records
+- **THEN** recovery reports the missing proof and preserves the job, worktree and delivery instead of inferring ownership from the current checkout

@@ -1,3 +1,4 @@
+import { ensureIsolatedSettlementSnapshot } from './modules/delivery/runtime/isolated-settlement-reconstruction'
 /**
  * Standalone loop runs (rails-as-loops). A ticket-LESS loop (one that references
  * no `{{spec.*}}` token) is launched directly against a project from the Loops
@@ -75,8 +76,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
           AND EXISTS (SELECT 1 FROM loop_runs WHERE id = ? AND project_id = ? AND status = 'paused' AND restart_reason = 'restart')`)
           .run(runId, observedClaim.owner, runId, c.project.id)
       }
-      const snapshot = c.db.prepare('SELECT delivery_id FROM definition_delivery_settlements WHERE project_id = ? AND run_id = ? LIMIT 1')
-        .get(c.project.id, runId) as { delivery_id: string } | undefined
+      const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
       if (!snapshot && readDefinitionRun(c.db, runId)?.request.deferTerminalOutcome) throw new Error('Original isolated settlement snapshot is unavailable')
       if (run.status === 'completed') {
         if (!snapshot) { res.status(409).json({ error: 'runtime_run_completed' }); return }
@@ -128,8 +128,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
             if (observedClaim) c.db.prepare(`DELETE FROM definition_execution_claims WHERE run_id=? AND owner=?
               AND EXISTS (SELECT 1 FROM loop_runs WHERE id=? AND project_id=? AND status='paused' AND restart_reason='restart')`)
               .run(runId, observedClaim.owner, runId, c.project.id)
-            const snapshot = c.db.prepare('SELECT delivery_id FROM definition_delivery_settlements WHERE project_id=? AND run_id=? LIMIT 1')
-              .get(c.project.id, runId) as { delivery_id: string } | undefined
+            const snapshot = ensureIsolatedSettlementSnapshot(c.db, c.project.id, runId)
             if (!snapshot && readDefinitionRun(c.db, runId)?.request.deferTerminalOutcome) throw new Error('Original isolated settlement snapshot is unavailable')
             const current = getLoopRun(c.db, runId)!
             const result = current.status === 'completed' ? { outcome: current.final_outcome ?? 'stopped' } : await c.loopRunManager.beginDefinitionResume(runId)

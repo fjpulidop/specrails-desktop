@@ -256,6 +256,14 @@ original job. That diagnostic does not mark the job or delivery successful.
 Recovery preserves repository mounts, frozen verification policy, accounting,
 worktree ownership and the terminal outbox. Missing original isolated allocation
 data blocks settlement instead of treating the execution as a standalone job.
+For historical v2 multi-repository records, explicit recovery can reconstruct a
+missing allocation snapshot when the original frozen manifest/context, worktree
+ledger and delivery branch records agree, including the captured initial SHA and
+never-commit exclusions. All repository legs restore atomically. Reconstruction
+checks the original Git common directory, grants no automatic cleanup permission
+and does not infer missing values from current checkouts or project settings.
+Incomplete records and borrowed-PR continuations without their original contract
+remain blocked with a recovery diagnostic.
 
 ### Lost fork acknowledgement
 

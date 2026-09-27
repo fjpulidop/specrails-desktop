@@ -13,7 +13,7 @@ import { probeDefinitionRun } from '../../loops/runtime/loop-definition-recovery
 import type { LoopRunRequest } from '../../loops/runtime/loop-run-manager'
 import { createPrDelivery, getPrDelivery, clearOrphanedPrDeliveryOperations } from './rail-pr-store'
 import { createRailWorktree } from './rail-worktrees-store'
-import { saveIsolatedSettlementSnapshot } from './isolated-settlement-store'
+import { saveIsolatedSettlementSnapshot, readIsolatedSettlementRecords } from './isolated-settlement-store'
 import { forkDefinitionRun } from './definition-fork'
 import { reattachIsolatedSettlement, type AllocatedRun } from './rail-isolated-launch'
 import { getRepositoryExecutionReferences, type RunExecutionManifest } from './multi-repo-execution-store'
@@ -25,7 +25,7 @@ const core = process.env.SPECRAILS_CORE_SOURCE_DIR ?? process.env.SPECRAILS_EFFI
 let root: string | undefined, db: DbInstance | undefined
 afterEach(() => { db?.close(); if (root) rmSync(root, { recursive: true, force: true }) })
 
-it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['exception', 'process'] as const)('forks a real Core run across two Git worktrees and recovers a %s crash between repository settlements', async crash => {
+it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['exception', 'process', 'historical'] as const)('forks a real Core run across two Git worktrees and recovers a %s crash between repository settlements', async crash => {
   root = realpathSync(mkdtempSync(path.join(tmpdir(), 'paired fork git ')))
   const databasePath = path.join(root, 'project.sqlite')
   db = initDb(databasePath)
@@ -79,7 +79,8 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).ea
   db.prepare('UPDATE rail_pr_deliveries SET execution_manifest=? WHERE id=?').run(JSON.stringify(manifest), 'group')
   for (const repo of repos) {
     createPrDelivery(db, { id: repo.repositoryId, parentDeliveryId: 'group', repositoryId: repo.repositoryId, repositoryPath: repo.sourcePath, railIndex: 0, railKey: repo.repositoryId, loopName: 'Paired', ticketIds: [1], baseBranch: 'main', originSurface: 'dashboard' })
-    createRailWorktree(db, { id: repo.worktreeId, runId: 'source', railIndex: 0, ticketId: 1, branch: repo.branch, worktreePath: repo.worktreePath })
+    createRailWorktree(db, { id: repo.worktreeId, repositoryId: repo.repositoryId, repositoryPath: repo.sourcePath, runId: 'source', railIndex: 0, ticketId: 1, branch: repo.branch, worktreePath: repo.worktreePath })
+    db.prepare('UPDATE rail_pr_deliveries SET run_ids=?,worktree_ids=? WHERE id=?').run(JSON.stringify(['source']), JSON.stringify([repo.worktreeId]), repo.repositoryId)
     const run: AllocatedRun = { ticketId: 1, ticketIds: [1], runId: 'source', ledgerId: repo.worktreeId, handle: { branch: repo.branch, worktreePath: repo.worktreePath }, initialSha: repo.baseSha, baseRef: 'main', overlayExcludes: [], overlayCleanupEvidence: [], warmLinkEvidence: [], provenanceSnapshot: null, continuationTarget: null, branchOwnership: 'created', worktreeOwnership: 'created' }
     saveIsolatedSettlementSnapshot(db, { version: 1, projectId: 'p', deliveryId: repo.repositoryId, baseRepo: repo.sourcePath, overlaySourceRoot: repo.sourcePath, overlayProviderDir: '.claude', overlayInstructions: 'CLAUDE.md', commitMessage: 'Paired implementation', partialCommitMessage: 'Partial implementation', run })
   }
@@ -95,6 +96,16 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).ea
   expect(completed.status, completed.stderr + completed.stdout).toBe(0)
   expect(await probeDefinitionRun({ db, cwd: root, env: process.env }, child.loopRunId)).toMatchObject({ status: 'succeeded', completion: { ok: true, verified: true } })
   finishLoopRunAndJob(db, child.loopRunId, { outcome: 'success', finishedAt: new Date().toISOString(), callbackOutcome: 'success', outcomeFinalized: false, counters: { iterationCount: 1, totalCostUsd: 0, totalTokens: 0, totalDurationMs: 0 }, job: { status: 'completed', exitCode: 0, totalCostUsd: 0, tokensIn: 0, tokensOut: 0, tokensCacheRead: null, tokensCacheCreate: null, durationMs: 0, numTurns: 0 } })
+  if (crash === 'historical') {
+    // Older records captured branches/manifests but not the complete allocation.
+    for (const repo of repos) {
+      const saved = readIsolatedSettlementRecords(db, 'p', repo.repositoryId).find(record => record.snapshot.run.runId === child.loopRunId)!.snapshot.run
+      db.prepare('UPDATE rail_pr_deliveries SET branches=? WHERE id=?').run(JSON.stringify([{ ticketId: 1, runId: child.loopRunId,
+        branch: saved.handle.branch, worktreePath: saved.handle.worktreePath, initialSha: saved.initialSha,
+        branchOwnership: saved.branchOwnership, overlayExcludes: saved.overlayExcludes, succeeded: false }]), repo.repositoryId)
+    }
+    db.prepare('DELETE FROM definition_delivery_settlements WHERE run_id=?').run(child.loopRunId)
+  }
   // The first leg commits; the next repository loses its host process boundary.
   // Retry must retain the committed leg and its provenance, then finish the group.
   let interrupted = false
@@ -102,7 +113,7 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).ea
     if (!interrupted && cwd === repos[0].worktreePath && args[0] === 'branch') { interrupted = true; throw new Error('host interrupted between repositories') }
     return defaultGitRunner.run(args, cwd)
   } }
-  if (crash === 'exception') {
+  if (crash !== 'process') {
     await expect(reattachIsolatedSettlement(ctx, 'group', child.loopRunId, { git: failingGit, recordProvenance: provenance })).rejects.toThrow('host interrupted')
   } else {
     const worker = fileURLToPath(new URL('./__fixtures__/settlement-crash-worker.mjs', import.meta.url))
@@ -132,5 +143,11 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).ea
   expect(db.prepare('SELECT SUM(provenance_recorded) AS n FROM definition_delivery_settlements WHERE run_id=?').get(child.loopRunId)).toEqual({ n: 2 })
   expect(onFinished).toHaveBeenCalledWith(child.loopRunId, 'success', { ticketCompletionStatus: 'on_review' })
   expect(readDefinitionRun(db, 'source')).toEqual(sourceRow)
+  if (crash === 'historical') for (const repo of repos) {
+    const record = readIsolatedSettlementRecords(db, 'p', repo.repositoryId).find(item => item.snapshot.run.runId === child.loopRunId)!
+    expect(record.snapshot.reconstructedFrom).toBe('durable-branch-records')
+    expect(record.result?.run).toMatchObject({ automaticRelease: false, settlementIgnoredPaths: null })
+    expect(record.result?.safeToRelease).toBe(false)
+  }
   expect(readFileSync(path.join(runtime, 'agent-workflow', 'run.sqlite'))).toEqual(sourceBytes)
 }, 180_000)

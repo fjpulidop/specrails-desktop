@@ -115,3 +115,7 @@ Práctico para compartir una ejecución con un compañero o para abrir un inform
 - [Rails y jobs](rails-and-jobs) — lanzamiento y encolado.
 - [Batch implement y multifuncionalidad](batch-implement-and-multi-feature) — muchas specs, oleadas por dependencias.
 - [Seguimiento de costes](../analytics/tracking-cost) — convierte los costes por job en analíticas de proyecto.
+
+## Después de reiniciar un workflow
+
+Tras una caída, reanuda el workflow guardado con su configuración y repositorios originales. Una escritura interrumpida exige seleccionar el intento exacto después de revisar el diff del worktree. Los pasos completados se conservan. Una llamada al proveedor cuya respuesta se perdió sigue contabilizada como interrumpida y con consumo desconocido; nunca se presenta como gratuita. Si los registros guardados no permiten demostrar la entrega original, la recuperación muestra un error y conserva el worktree.

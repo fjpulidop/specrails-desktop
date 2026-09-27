@@ -17,4 +17,7 @@ is installed once per module instance. Production networking is unchanged.
 Validation: the collision regression and two addressing controls pass; together
 with the two affected route suites, 51 tests pass. Full typecheck passes. This
 corrects transport ownership without retries, assertion relaxation or coverage
-threshold changes. Full server coverage is being rerun separately.
+threshold changes. Full server coverage subsequently passed: 408 suites, 9,019 tests, seven
+existing Windows-only omissions; 313.22s with two workers. Original coverage
+thresholds pass (87.04% statements, 80.34% branches, 90.96% functions,
+90.12% lines).

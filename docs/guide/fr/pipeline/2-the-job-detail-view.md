@@ -115,3 +115,7 @@ Pratique pour partager une exécution avec un coéquipier, ou pour déposer un r
 - [Rails et jobs](rails-and-jobs) — lancement et mise en file.
 - [Batch implement et multi-fonctionnalité](batch-implement-and-multi-feature) — plusieurs specs, vagues de dépendances.
 - [Suivre le coût](../analytics/tracking-cost) — transformer les coûts par job en analytics de projet.
+
+## Après le redémarrage d’un workflow
+
+Après un arrêt brutal, reprenez le workflow enregistré avec sa configuration et ses dépôts d’origine. Une écriture interrompue exige de sélectionner la tentative exacte après avoir examiné le diff du worktree. Les étapes terminées sont conservées. Un appel au fournisseur dont la réponse a été perdue reste comptabilisé comme interrompu, avec une consommation inconnue ; il n’est jamais présenté comme gratuit. Si les données enregistrées ne permettent pas de prouver la livraison d’origine, la récupération affiche une erreur et conserve le worktree.

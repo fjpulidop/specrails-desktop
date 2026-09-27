@@ -115,3 +115,7 @@ Handy for sharing a run with a teammate, or filing a precise bug report.
 - [Rails & jobs](rails-and-jobs) — launching and queueing.
 - [Batch implement & multi-feature](batch-implement-and-multi-feature) — many specs, dependency waves.
 - [Tracking cost](../analytics/tracking-cost) — turn per-job costs into project analytics.
+
+## After a workflow restart
+
+After a crash, resume the saved workflow with its original configuration and repositories. An interrupted write requires selecting the exact attempt after inspecting the worktree diff. Completed steps are reused. A provider call whose response was lost remains counted as interrupted with unknown usage; it is never reported as free. If the original delivery cannot be proven from saved records, recovery shows an error and preserves the worktree.

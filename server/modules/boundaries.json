@@ -675,6 +675,7 @@
     "publicEntries": [
       "runtime/definition-fork.ts",
       "runtime/delivery-evidence.ts",
+      "runtime/isolated-settlement-reconstruction.ts",
       "runtime/multi-repo-execution-store.ts",
       "runtime/multi-repo-execution.ts",
       "runtime/pr-publisher.ts",
@@ -869,6 +870,14 @@
         "fs",
         "path"
       ],
+      "runtime/isolated-settlement-reconstruction.ts": [
+        "../../../db",
+        "../../loops/runtime/loop-runs-store",
+        "./isolated-settlement-store",
+        "./rail-pr-store",
+        "./rail-worktrees-store",
+        "node:path"
+      ],
       "runtime/isolated-settlement-store.ts": [
         "../../../db",
         "./rail-isolated-launch"
@@ -978,6 +987,7 @@
         "../../specs/runtime/spec-addenda",
         "./active-pr-continuation",
         "./delivery-evidence",
+        "./isolated-settlement-reconstruction",
         "./isolated-settlement-store",
         "./merge-manager",
         "./multi-repo-execution",

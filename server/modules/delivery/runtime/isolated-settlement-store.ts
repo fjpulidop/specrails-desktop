@@ -3,6 +3,8 @@ import type { AllocatedRun, SettledRun } from './rail-isolated-launch'
 
 export interface IsolatedSettlementSnapshot {
   version: 1
+  /** Historical proof grants no automatic worktree/overlay cleanup authority. */
+  reconstructedFrom?: 'durable-branch-records'
   projectId: string
   deliveryId: string
   baseRepo: string

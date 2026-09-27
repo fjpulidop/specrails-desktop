@@ -19,6 +19,7 @@ degraded drafts and continuation recovery prerequisites.
 ## Reviewed public entry points
 
 - [runtime/delivery-evidence.ts](runtime/delivery-evidence.ts)
+- [runtime/isolated-settlement-reconstruction.ts](runtime/isolated-settlement-reconstruction.ts)
 - [runtime/multi-repo-execution-store.ts](runtime/multi-repo-execution-store.ts)
 - [runtime/multi-repo-execution.ts](runtime/multi-repo-execution.ts)
 - [runtime/pr-publisher.ts](runtime/pr-publisher.ts)
@@ -75,3 +76,14 @@ active snapshot query excludes superseded allocations. Pending or adopted forks
 fence source execution and late settlement. Frozen addendum claims transfer only
 when the child applies its causally owned terminal effects. Core is responsible
 for historical cuts and idempotent publication; Desktop never edits its SQLite.
+
+Historical v2 runs without a complete allocation snapshot use
+`ensureIsolatedSettlementSnapshot` only during explicit recovery. It requires
+matching frozen context/manifest, delivery branch records (including initial
+SHA and never-commit exclusions), worktree ledger and every repository leg.
+All snapshots insert in one immediate transaction. Incomplete, conflicting,
+closed, operated or borrowed-PR records stay blocked without guessed ownership.
+The recovered checkout's Git common directory is checked before settlement.
+Reconstruction grants no automatic worktree/overlay cleanup authority, captures
+no new ignored-release baseline, and leaves missing provenance baselines null.
+The original request, ticket destination and accounting remain unchanged.

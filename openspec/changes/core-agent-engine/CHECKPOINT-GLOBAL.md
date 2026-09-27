@@ -1,3 +1,34 @@
+## Historical settlement reconstruction — 27 September 2026
+
+Explicit resume/cancellation settlement can now reconstruct a missing v2
+allocation snapshot from mutually consistent frozen request/context/manifest,
+delivery branch records and worktree ledger. Every repository leg must retain
+its original identities, initial SHA and never-commit exclusions; all snapshots
+insert atomically. No current settings, live ticket edits or current HEAD fill
+historical gaps. Closed/operated/mismatched rows and borrowed-PR continuations
+without their exact original contract remain actionable recovery errors.
+
+Reconstructed worktrees are preexisting, have no automatic release permission,
+no cleanup/warm-link authority, no new ignored-release baseline and no invented
+provenance baseline. Settlement verifies the original Git common directory before
+staging. Existing new-run snapshots and standalone/resident callbacks retain
+their behavior. D4 task 6.3 is complete with this supported reconstruction and
+explicit rejection of records lacking sufficient proof; unavailable historical
+data cannot authorize guessed side effects.
+
+Validation: 161 delivery/reconstruction lifecycle tests pass; 37 HTTP admission
+and architecture tests pass. All three actual two-repository Core fork/settlement
+cases pass (35.80s), including reconstruction from historical branch records,
+another interrupted settlement, one commit/provenance per leg, on_review delivery,
+no automatic release authority and unchanged parent history. Full typecheck, source/architecture audits, source-map and strict OpenSpec
+validation pass. Build and 94 script tests pass. Complete server coverage with
+the HTTP fixture address-family correction passes: 408 suites, 9,019 tests and
+seven existing Windows-only omissions, 313.22s. Coverage remains above the
+original thresholds: statements 87.04%, branches 80.34%, functions 90.96%,
+lines 90.12%. See HTTP-TEST-ISOLATION.md for the deterministic before/after proof.
+The installed-package consumer check is being rerun with registry access; the
+first sandboxed attempt could not access the npm cache/registry.
+
 ## Loop Manager process-crash acceptance — 27 September 2026
 
 Four new paired tests kill the actual host/Core process tree during a read, a
