@@ -1,7 +1,7 @@
 import { writeRuntimeHistory } from './agent-runtime-history'
 import { toolRepositories, type RuntimeLogRepository } from './agent-runtime-repositories'
 import { stripVTControlCharacters } from 'node:util'
-import { bindWorkflowRoleDefaults, resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
+import { bindWorkflowRoleDefaults, bindWorkflowRoleSelections, fillDefaultRoleModels, resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
@@ -80,6 +80,8 @@ export interface AgentRuntimeInvocationOptions {
   /** Pure compile callback receives the same effective config that Core will read. */
   onPrepared?(metadata: DefinitionPrepared): void
   prepareDefinition?(config: Readonly<RuntimeConfig>): unknown
+  /** Explicit launch selections for custom roles declared by this definition. */
+  workflowRoleBindings?: RuntimeConfig['roles']
   defaultProvider?: string
   /** A selected launch provider applies to every role; absent selection preserves role settings. */
   providerOverride?: { provider: string; model?: string; effort?: string }
@@ -117,7 +119,7 @@ interface RuntimeResult {
  * rail's cancellation and worktree ownership remain in Desktop. */
 export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationOptions): Promise<AiStepResult> {
   const definitionEngine = options.engineVersion === 2 || options.definitionPath !== undefined || options.prepareDefinition !== undefined
-  if (options.resume && (options.definitionPath || options.prepareDefinition)) throw new Error('Resume must use the frozen workflow definition')
+  if (options.resume && (options.definitionPath || options.prepareDefinition || options.workflowRoleBindings)) throw new Error('Resume must use the frozen workflow definition and role bindings')
   const selectedCli = options.resume ? resolveRetainedAgentRuntime(options.contextPath) : findCoreAgentRuntimeCli()
   let cli = selectedCli
   if (!cli) throw new Error('Programmatic agent runtime is enabled but its Core CLI is unavailable. Build or bundle the compatible Core runtime.')
@@ -139,11 +141,17 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
     config.providers = stripDesktopConnectionFields(config.providers, coreConnectionFieldGates(runtime.api?.capabilities))
     if (runtime.api?.capabilities?.configurableGuardrails !== 1) delete (config as { guardrails?: unknown }).guardrails
     if (definitionEngine && (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1)) throw new Error('engine_unsupported: Update Core to run workflow definitions')
+    const compilationConfig = structuredClone(config)
+    if (options.workflowRoleBindings) {
+      compilationConfig.roles = { ...compilationConfig.roles, ...structuredClone(options.workflowRoleBindings) }
+      fillDefaultRoleModels(compilationConfig)
+    }
     const draft = definitionEngine ? options.prepareDefinition
-      ? options.prepareDefinition(structuredClone(config))
+      ? options.prepareDefinition(compilationConfig)
       : options.definitionPath ? JSON.parse(readFileSync(options.definitionPath, 'utf8')) : undefined : undefined
     if (definitionEngine && !draft) throw new Error('A new Core workflow requires a definition')
-    const workflowOrigins = bindWorkflowRoleDefaults(config, draft)
+    const selectedOrigins = bindWorkflowRoleSelections(config, draft, options.workflowRoleBindings)
+    const workflowOrigins = { ...bindWorkflowRoleDefaults(config, draft), ...selectedOrigins }
     const override = options.providerOverride
     runtime.validateRuntimeConfig(JSON.parse(JSON.stringify(config)))
     validateRequestedRoleEfforts(runtime, config)

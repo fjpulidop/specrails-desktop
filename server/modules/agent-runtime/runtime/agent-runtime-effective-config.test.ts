@@ -1,5 +1,5 @@
 import { expect, it, describe } from 'vitest'
-import { bindWorkflowRoleDefaults, resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
+import { bindWorkflowRoleDefaults, bindWorkflowRoleSelections, resolveEffectiveRuntimeConfig } from './agent-runtime-effective-config'
 import type { RuntimeConfig } from './agent-runtime-settings'
 const config: RuntimeConfig = { schemaVersion: 1, enabled: true, providers: [{ id: 'claude', kind: 'cli', cli: 'claude' }, { id: 'codex', kind: 'cli', cli: 'codex' }], agents: {
   architect: { provider: 'claude', model: 'architect', effort: 'medium' }, developer: { provider: 'codex', model: 'developer', effort: 'low', escalation: { model: 'rescue', effort: 'high' } }, reviewer: { provider: 'claude', model: 'reviewer' },
@@ -21,6 +21,24 @@ it('preserves an explicit decision engine and rejects incompatible policy before
   effective.roles['loop-decider'].access = 'write'
   expect(() => bindWorkflowRoleDefaults(effective, { roles: ['loop-decider'] })).toThrow('requires read access')
 })
+it('binds a declared launch decision engine without changing project roles or caller descriptors', () => {
+  const effective = structuredClone(config)
+  const selections = { 'converted-decider': { provider: 'codex', model: 'chosen-decider', access: 'read' as const, artifacts: 'none' as const } }
+  expect(bindWorkflowRoleSelections(effective, { roles: ['converted-decider'] }, selections)).toEqual({ 'converted-decider': 'explicit-workflow-selection' })
+  expect(effective.roles?.['converted-decider']).toEqual(selections['converted-decider'])
+  selections['converted-decider'].model = 'later-edit'
+  expect(effective.roles?.['converted-decider'].model).toBe('chosen-decider')
+  expect(effective.agents).toEqual(config.agents)
+  expect(config.roles).toBeUndefined()
+})
+
+it.each(['undeclared', 'reviewer', 'constructor', 'Bad/id'])('rejects invalid role selection %s before applying other selections', id => {
+  const effective = structuredClone(config), before = structuredClone(effective)
+  const role = { provider: 'claude', access: 'read' as const, artifacts: 'none' as const }
+  expect(() => bindWorkflowRoleSelections(effective, { roles: ['valid', ...(id === 'undeclared' ? [] : [id])] }, { valid: role, [id]: role })).toThrow('declared custom roles')
+  expect(effective).toEqual(before)
+})
+
 it('preserves mixed project roles and check fields without modifying input', () => {
   const before = structuredClone(config)
   const result = resolveEffectiveRuntimeConfig(config, { repositoryIds: ['front'], source: 'project-role' })

@@ -1,3 +1,18 @@
+## Frozen conversion role selection — 27 September 2026
+
+The runtime bridge now accepts explicit launch-owned custom-role bindings, shows
+them to the pure compiler, validates that the definition declares each role and
+freezes them with selection provenance. Built-in or undeclared role selections
+are rejected before host files or Core spawn. Resume rejects replacement bindings
+and uses the retained configuration. No project role assignment is rewritten.
+
+Validation: 63 effective-config/bridge/architecture cases pass and typecheck
+passes. A real Core Freestyle pause/resume case proves both decision visits use
+the selected decision model while work prompts keep their own model (4.83s
+focused pairing run). This is a conversion prerequisite, not a completed generic
+legacy compiler. The legacy engine actually ignores stored node model overrides;
+D8-COMPATIBILITY-DECISIONS.md now records the rail/decider launch precedence.
+
 ## Three-platform CI confirmed — 27 September 2026
 
 Desktop 89e431e327bdd8830b54bb7c99a44c90dd484801 passed every gate in

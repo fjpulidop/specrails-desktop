@@ -7,6 +7,24 @@ export function workflowRoleDefaults(config: RuntimeConfig): NonNullable<Runtime
   return { 'loop-decider': { ...config.agents.reviewer, access: 'read', artifacts: 'none' } }
 }
 
+/** Explicit launch-owned roles, used when a converted workflow has a different
+ * decision engine from the project's reviewer. Validate the complete selection
+ * before applying it; project settings and caller descriptors remain untouched. */
+export function bindWorkflowRoleSelections(config: RuntimeConfig, definition: unknown,
+  selections: RuntimeConfig['roles']): Record<string, string> {
+  if (!selections || !Object.keys(selections).length) return {}
+  const declared = (definition as { roles?: unknown } | undefined)?.roles
+  const names = Object.keys(selections)
+  if (!Array.isArray(declared) || names.some(id => !declared.includes(id) ||
+    !/^[a-z][a-z0-9-]{0,63}$/.test(id) ||
+    ['architect', 'developer', 'reviewer', 'fixer', 'constructor', 'prototype'].includes(id))) {
+    throw new Error('Workflow role selections must name declared custom roles')
+  }
+  config.roles = { ...config.roles, ...structuredClone(selections) }
+  fillDefaultRoleModels(config)
+  return Object.fromEntries(names.map(id => [id, 'explicit-workflow-selection']))
+}
+
 /** Bind only roles referenced by the frozen definition; preserve explicit
  * project assignments and never persist generated defaults into project files. */
 export function bindWorkflowRoleDefaults(config: RuntimeConfig, definition: unknown): Record<string, string> {

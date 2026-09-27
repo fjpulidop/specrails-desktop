@@ -31,6 +31,13 @@ an actionable draft and cannot silently run with different semantics.
 
 ## Failure and repair
 
+The bridge exposes explicit launch-owned custom-role bindings for conversion.
+These are applied to the pure compiler's configuration and the frozen Core
+configuration together, with provenance. Only declared custom roles are accepted;
+normal Core validation still checks providers/models/policies. Resume cannot
+replace them. This avoids mutating the callback's copied configuration and
+incorrectly assuming those changes reached the runtime.
+
 `$attempts[node]` is the physical attempt number within a visit, not a counter
 of all visits. The original contracts table's suggested cross-node repair guard
 cannot be implemented by comparing it to two: doing so can admit an unbounded

@@ -208,6 +208,25 @@ describe('programmatic selection', () => {
 describe('Core definition process bridge', () => {
   const definition = () => ({schemaVersion:1,id:'authored',entry:'finish',nodes:{finish:{kind:'end',params:{outcome:'success'},ends:{}}}})
   const v2 = (status='succeeded',more:object={}) => final(status,{engineVersion:2,completion:{ok:true,verified:false,reasons:[]},usage:{durationMs:1234},...more})
+  it('freezes an explicit workflow decision engine and refuses to replace it during resume', async () => {
+    fixture.v2 = true
+    script(`console.log(JSON.stringify(${JSON.stringify(v2())}));`)
+    const bindings = { 'converted-decider': { provider: 'claude', model: 'selected-decision-model', access: 'read' as const, artifacts: 'none' as const } }
+    const prepared = vi.fn(() => ({ ...definition(), roles: ['converted-decider'] }))
+    // Migrate the legacy fixture's connection fields before comparing writes.
+    loadRuntimeConfigFile(options().configPath)
+    const source = readFileSync(options().configPath, 'utf8')
+    await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: prepared, workflowRoleBindings: bindings })
+    const file = join(root, 'state', 'desktop-runtime-config.json'), frozen = readFileSync(file, 'utf8')
+    expect(JSON.parse(frozen).roles['converted-decider']).toEqual(bindings['converted-decider'])
+    expect(prepared).toHaveBeenCalledWith(expect.objectContaining({ roles: bindings }))
+    expect(JSON.parse(readFileSync(join(root, 'state', 'desktop-runtime-selection.json'), 'utf8')).origins['converted-decider']).toBe('explicit-workflow-selection')
+    expect(readFileSync(options().configPath, 'utf8')).toBe(source)
+    await expect(runAgentRuntimeInvocation({ ...options(), engineVersion: 2, resume: true, workflowRoleBindings: bindings })).rejects.toThrow('frozen workflow definition and role bindings')
+    writeFileSync(options().configPath, 'later invalid project configuration')
+    expect((await runAgentRuntimeInvocation({ ...options(), engineVersion: 2, resume: true })).failed).toBe(false)
+    expect(readFileSync(file, 'utf8')).toBe(frozen)
+  })
   it('validates against frozen project config and passes only canonical definition; resume retains it',async()=>{
     fixture.v2=true
     script(`import{readFileSync}from'node:fs';const i=process.argv.indexOf('--definition');if(i>=0&&JSON.parse(readFileSync(process.argv[i+1],'utf8')).version!=='hash-v1')process.exit(9);console.log(JSON.stringify(${JSON.stringify(v2())}));`)
@@ -220,6 +239,16 @@ describe('Core definition process bridge', () => {
     writeFileSync(options().configPath,'changed')
     expect((await runAgentRuntimeInvocation({...options(),engineVersion:2,resume:true})).failed).toBe(false)
     expect(readFileSync(file,'utf8')).toBe(frozen);expect(fixture.validation).toHaveLength(1)
+  })
+  it('rejects an undeclared launch role before freezing host files or spawning Core', async () => {
+    fixture.v2 = true
+    const onSpawn = vi.fn()
+    await expect(runAgentRuntimeInvocation({ ...options(), engineVersion: 2, prepareDefinition: definition, onSpawn,
+      workflowRoleBindings: { 'not-declared': { provider: 'claude', access: 'read', artifacts: 'none' } },
+    })).rejects.toThrow('declared custom roles')
+    expect(onSpawn).not.toHaveBeenCalled()
+    expect(() => readFileSync(join(root, 'state', 'desktop-runtime-host.json'))).toThrow()
+    expect(() => readFileSync(join(root, 'state', 'desktop-runtime-config.json'))).toThrow()
   })
   it.each([
     { ok: false, verified: true, requiresVerified: false },

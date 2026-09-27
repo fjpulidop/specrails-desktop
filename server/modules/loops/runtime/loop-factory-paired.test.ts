@@ -34,7 +34,7 @@ beforeEach(() => {
 })
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true }) })
 type Event = Record<string, any>
-async function execute(mode: string, legacy = false, stall = false, blockAt?: string) {
+async function execute(mode: string, legacy = false, stall = false, blockAt?: string, decisionModel?: string) {
   const id = `${mode}-${legacy ? 'legacy' : 'v2'}`, repository = path.join(root, id), backlog = path.join(root, id + '-backlog')
   mkdirSync(repository); mkdirSync(backlog)
   expect(spawnSync('git', ['init', '-q', repository]).status).toBe(0)
@@ -53,6 +53,7 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
   const env = { ...process.env, SPECRAILS_GIT_AUTO: 'false', SPECRAILS_FACTORY_CORE: core, SPECRAILS_FACTORY_CALLS: callsFile, SPECRAILS_FACTORY_STALL: stall ? '1' : '0', SPECRAILS_FACTORY_BLOCK: blockAt ?? '',
     NODE_OPTIONS: `--import=${pathToFileURL(path.join(process.cwd(), 'server/modules/loops/runtime/__fixtures__/factory-executor-preload.mjs')).href}` }
   let result = await runAgentRuntimeInvocation({ contextPath, configPath, cwd: repository, change, env,
+    ...(decisionModel ? { workflowRoleBindings: { 'loop-decider': { provider: 'claude', model: decisionModel, access: 'read' as const, artifacts: 'none' as const } } } : {}),
     ...(!legacy ? { engineVersion: 2 as const, prepareDefinition: () => compileLoopToDefinition(factory.graph, { id: factory.id, title: factory.name, provider: 'claude', constants: {}, repositoryCount: 1, changeId: change }) } : {}),
     onRuntimeEvent: event => events.push(event), timeoutMs: 150_000,
   })
@@ -108,8 +109,10 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('d
 }, 180_000)
 
 it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('continues after a decider question without repeating its paused provider invocation', async () => {
-  const actual = await execute('freestyle', false, false, 'loop-decider')
+  const actual = await execute('freestyle', false, false, 'loop-decider', 'selected-decider')
   expect(actual.calls.map(call => call.role)).toEqual(['prompt', 'prompt', 'loop-decider', 'prompt', 'loop-decider'])
   expect(actual.calls[3].prompt).toContain('Return two')
   expect(actual.calls.filter(call => call.role === 'loop-decider')).toHaveLength(2)
+  expect(actual.calls.filter(call => call.role === 'loop-decider').map(call => call.model)).toEqual(['selected-decider', 'selected-decider'])
+  expect(actual.calls.filter(call => call.role === 'prompt').every(call => call.model !== 'selected-decider')).toBe(true)
 }, 180_000)

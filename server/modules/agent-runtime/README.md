@@ -33,6 +33,15 @@ Run `npx vitest run server/modules/agent-runtime` and any affected consumers.
 preserves explicit project engine selections and rejects incompatible policies.
 Admission freezes these defaults after launch overrides; saved runs reuse them.
 
+For converted workflows, the bridge accepts explicit custom-role bindings owned
+by the launch. The pure compiler sees those same effective assignments. Only
+roles declared by its definition can be selected; built-in roles cannot be
+replaced through this path. Core validates provider, model and policy before
+admission. Selection provenance records `explicit-workflow-selection`, and the
+frozen run configuration keeps the selected decision engine through pause and
+resume without changing project role settings. Resume rejects replacement
+bindings and uses the retained configuration.
+
 The three built-in assignments remain in `agents`. Additional role descriptors
 live in `roles` and declare source access, artifact access, provider/model, optional
 OpenSpec skill and instructions. Settings reuse the provider and effort controls;
