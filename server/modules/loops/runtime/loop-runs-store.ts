@@ -751,18 +751,21 @@ export function getRunEventCounts(db: DbInstance, runId: string): { steps: numbe
   return { steps, lines }
 }
 
+// Adopted parents stay in history but their child owns execution and edit guards.
+const ownsLoopExecution = 'NOT EXISTS (SELECT 1 FROM definition_fork_operations AS fork WHERE fork.source_run_id = loop_runs.id AND fork.adopted = 1)'
+
 /** All currently-running loop runs for a project, straight from the DB (NOT the
  *  in-memory rail map, which is cleared on every server restart). Authoritative
  *  source for seeding the dashboard's live rail metrics after a refresh. */
 export function listRunningLoopRuns(db: DbInstance, projectId: string): LoopRunRow[] {
   return db
-    .prepare("SELECT * FROM loop_runs WHERE project_id = ? AND status = 'running' ORDER BY started_at ASC")
+    .prepare(`SELECT * FROM loop_runs WHERE project_id = ? AND status = 'running' AND ${ownsLoopExecution} ORDER BY started_at ASC`)
     .all(projectId) as LoopRunRow[]
 }
 
 export function listActiveLoopRuns(db: DbInstance, projectId: string): LoopRunRow[] {
   return db
-    .prepare("SELECT * FROM loop_runs WHERE project_id = ? AND status IN ('running','paused') ORDER BY started_at ASC")
+    .prepare(`SELECT * FROM loop_runs WHERE project_id = ? AND status IN ('running','paused') AND ${ownsLoopExecution} ORDER BY started_at ASC`)
     .all(projectId) as LoopRunRow[]
 }
 
@@ -777,7 +780,7 @@ export function listLoopRuns(db: DbInstance, projectId: string, limit = 100): Lo
  *  Running?" guard that blocks edit/delete of a loop while it executes. */
 export function countRunningForLoop(db: DbInstance, loopId: string): number {
   const row = db
-    .prepare(`SELECT COUNT(*) AS n FROM loop_runs WHERE loop_id = ? AND status IN ('running','paused')`)
+    .prepare(`SELECT COUNT(*) AS n FROM loop_runs WHERE loop_id = ? AND status IN ('running','paused') AND ${ownsLoopExecution}`)
     .get(loopId) as { n: number }
   return row.n
 }
@@ -831,7 +834,12 @@ export function reconcileOrphanLoopRuns(
     // No process survived the restart: every execution claim of an active row is
     // stale, whether the row is retained as paused or settled as failed.
     const releaseClaim = db.prepare('DELETE FROM definition_execution_claims WHERE run_id = ?')
+    let reconciled = 0
     for (const run of active) {
+      // Adoption already transferred execution/delivery ownership to the child.
+      // The parent's paused row is immutable history, not another orphan launch.
+      if (readDefinitionSuccessor(db, run.id)) { releaseClaim.run(run.id); continue }
+      reconciled += 1
       const probe = definitionStates?.get(run.id)
       const lease = probe?.lease as { active?: boolean } | null | undefined
       if (!lease?.active && probe?.coreStatus !== 'unavailable') releaseClaim.run(run.id)
@@ -868,7 +876,7 @@ export function reconcileOrphanLoopRuns(
       }
       insertIntent.run(run.id, JSON.stringify(payload))
     }
-    return active.length
+    return reconciled
   })
   return reconcile() as number
 }

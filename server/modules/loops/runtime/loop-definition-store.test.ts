@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createJob, getJob, initDb, type DbInstance } from '../../../db'
 import { applyMigrations } from '../../../db/migrations'
 import type { LoopRunRequest } from './loop-run-manager'
-import { claimDefinitionExecution, releaseDefinitionExecution, readDefinitionExecutionClaim, createLoopRun, getLoopRun, listPendingLoopTerminalRecoveries, markDefinitionRestart, readDefinitionRun, reconcileOrphanLoopRuns, recordDefinitionCheckpoint, saveDefinitionRun } from './loop-runs-store'
+import { claimDefinitionExecution, releaseDefinitionExecution, readDefinitionExecutionClaim, createLoopRun, getLoopRun, listPendingLoopTerminalRecoveries, markDefinitionRestart, readDefinitionRun, reconcileOrphanLoopRuns, recordDefinitionCheckpoint, saveDefinitionRun, listActiveLoopRuns, listRunningLoopRuns, countRunningForLoop, listLoopRuns } from './loop-runs-store'
 
 let db: DbInstance
 beforeEach(() => { db = initDb(':memory:') })
@@ -35,6 +35,36 @@ describe('frozen definition launch storage', () => {
     expect(getLoopRun(db, 'run')?.status).toBe('paused')
     expect(readDefinitionExecutionClaim(db, 'run')).toBeUndefined()
     expect(claimDefinitionExecution(db, 'run', { owner: 'new', repositoryMounts: ['/repo'] }).ok).toBe(true)
+  })
+
+  it.each(['paused', 'unavailable'])('preserves an adopted fork parent during restart even when its Core status is %s', coreStatus => {
+    saveDefinitionRun(db, 'run', { request: launch() })
+    db.prepare("UPDATE loop_runs SET status='paused' WHERE id='run'").run()
+    claimDefinitionExecution(db, 'run', { owner: 'old-parent', repositoryMounts: ['/repo'] })
+    db.prepare("INSERT INTO definition_fork_operations(project_id,source_run_id,request_id,child_run_id,request_json,adopted) VALUES ('project','run','fork','child','{}',1)").run()
+    const original = readDefinitionRun(db, 'run'), job = getJob(db, 'run')
+    expect(reconcileOrphanLoopRuns(db, '2026-09-27T00:00:00Z', undefined,
+      new Map([['run', { status: 'interrupted', coreStatus }]]))).toBe(0)
+    expect(readDefinitionRun(db, 'run')).toEqual(original)
+    expect(getJob(db, 'run')).toEqual(job)
+    expect(readDefinitionExecutionClaim(db, 'run')).toBeUndefined()
+    expect(listPendingLoopTerminalRecoveries(db)).toEqual([])
+  })
+
+  it('counts only the adopted child as active while retaining both historical runs', () => {
+    saveDefinitionRun(db, 'run', { request: launch() })
+    saveDefinitionRun(db, 'child', { request: launch('child') })
+    db.prepare("INSERT INTO definition_fork_operations(project_id,source_run_id,request_id,child_run_id,request_json,adopted) VALUES ('project','run','fork','child','{}',0)").run()
+    expect(countRunningForLoop(db, 'workflow')).toBe(2)
+    db.prepare('UPDATE definition_fork_operations SET adopted=1').run()
+    expect(listRunningLoopRuns(db, 'project').map(row => row.id)).toEqual(['child'])
+    db.prepare("UPDATE loop_runs SET status='paused' WHERE id='run'").run()
+    expect(listActiveLoopRuns(db, 'project').map(row => row.id)).toEqual(['child'])
+    expect(countRunningForLoop(db, 'workflow')).toBe(1)
+    db.prepare("UPDATE loop_runs SET status='completed' WHERE id='child'").run()
+    expect(countRunningForLoop(db, 'workflow')).toBe(0)
+    expect(listActiveLoopRuns(db, 'project')).toEqual([])
+    expect(listLoopRuns(db, 'project')).toHaveLength(2)
   })
 
   it('fences surviving or uninspectable Core worktrees and clears pre-allocation claims', () => {

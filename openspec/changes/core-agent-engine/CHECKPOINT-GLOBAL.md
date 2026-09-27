@@ -1,3 +1,29 @@
+## Real host crash and historical fork ownership — 27 September 2026
+
+The paired two-repository acceptance now covers an actual SIGKILL of the Desktop
+settlement process, using a disk project database and the retained production
+Core package (including dependency closure). The process dies after the first
+repository settles and before the next begins; no finally cleanup runs. The test
+reopens SQLite, clears orphan delivery operations through startup APIs, reconciles
+runs, then finishes both repositories. Each has one commit; provenance is recorded
+once per leg; parent Core journal bytes and the Desktop parent row are unchanged.
+The fixture uses file URLs for the tsx import so Windows drive paths remain valid.
+
+This exposed and reproduced two bugs: startup rewrote an adopted parent's restart
+metadata, and that historical parent remained counted as active forever. Recovery
+now preserves the parent; active lists/edit guards/repository references follow
+the adopted child. Pending, unadopted forks still protect their original owners.
+Unit regressions also cover unavailable parent status and retained history.
+
+Validation: 24 focused paired/store tests pass (26.64s), including both exception
+and real-process crashes. Another 98 delivery/registry lifecycle tests pass;
+typecheck, source/architecture audits and source-map generation passed. Final
+typecheck and architecture checks also passed after the active-reference queries
+were corrected.
+This is additional D4 evidence, not completion of all read/write/pause crash cases
+or historical allocation reconstruction. No recovery ownership is inferred from
+the current checkout, and no release or PR merge has occurred.
+
 ## Factory human continuations — 27 September 2026
 
 Quick SDD preparation/apply and Freestyle implementation/fix prompts now select

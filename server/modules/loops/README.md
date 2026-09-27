@@ -87,6 +87,11 @@ An unavailable probe is not evidence that implementation failed. Completed Core 
 
 The manager acquires a durable per-project execution claim before asynchronous admission. Claims fence overlapping checkout paths across distinct runs and forks, canonicalize existing symlinks and are released on errors and terminal completion. A human pause releases the claim; continuation reacquires it. Startup clears pre-allocation/terminal dead claims, preserves live or uninspectable Core owners, and keeps the exact recoverable attempt IDs supplied by Core. The per-run Core lease and the host's cross-run worktree claim enforce different ownership boundaries.
 
+After fork adoption, the parent is immutable history. Startup reconciles the
+child's ownership and clears obsolete parent host claims without rewriting the
+parent run or job. Live-run lists, edit guards and repository references exclude
+adopted parents; historical run listing continues to include them.
+
 Definition resume admission is synchronous through `beginDefinitionResume`;
 the returned promise represents execution completion, so HTTP can acknowledge
 admission without waiting for a human question. `resumeDefinition` retains the

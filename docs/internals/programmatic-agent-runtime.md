@@ -259,6 +259,15 @@ data blocks settlement instead of treating the execution as a standalone job.
 
 ### Lost fork acknowledgement
 
+Once Desktop adopts a child, the parent remains immutable history. Restart does
+not mark that historical parent as a new interrupted execution. Active-run counts,
+workflow edit guards and repository execution references follow the child; a
+completed child therefore does not leave its paused parent blocking edits forever.
+The host crash fixture kills the settlement process between two repository legs,
+reopens the real project database and replays startup reconciliation before retry.
+It checks one commit and one provenance receipt per leg, cleared orphan claims,
+verified delivery to review and unchanged parent database/journal state.
+
 Core forks may include a stable `requestId`. The retained engine stores the exact
 fork request and original receipt before publication. Desktop preserves a child
 if acknowledgement or host metadata writing fails, and reuses that request ID to

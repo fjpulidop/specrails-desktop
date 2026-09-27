@@ -3,18 +3,20 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { createRequire } from 'node:module'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { initDb, createJob, type DbInstance } from '../../../db'
 import type { ProjectContext } from '../../../project-registry'
 import { defaultGitRunner } from '../../../worktree-manager'
-import { createLoopRun, saveDefinitionRun, readDefinitionRun, finishLoopRunAndJob } from '../../loops/runtime/loop-runs-store'
+import { createLoopRun, saveDefinitionRun, readDefinitionRun, finishLoopRunAndJob, reconcileOrphanLoopRuns } from '../../loops/runtime/loop-runs-store'
 import { probeDefinitionRun } from '../../loops/runtime/loop-definition-recovery'
 import type { LoopRunRequest } from '../../loops/runtime/loop-run-manager'
-import { createPrDelivery, getPrDelivery } from './rail-pr-store'
+import { createPrDelivery, getPrDelivery, clearOrphanedPrDeliveryOperations } from './rail-pr-store'
 import { createRailWorktree } from './rail-worktrees-store'
 import { saveIsolatedSettlementSnapshot } from './isolated-settlement-store'
 import { forkDefinitionRun } from './definition-fork'
 import { reattachIsolatedSettlement, type AllocatedRun } from './rail-isolated-launch'
-import type { RunExecutionManifest } from './multi-repo-execution-store'
+import { getRepositoryExecutionReferences, type RunExecutionManifest } from './multi-repo-execution-store'
 
 const retained = vi.hoisted(() => ({ cli: '' }))
 vi.mock('../../agent-runtime/runtime/agent-runtime-package', () => ({ resolveRetainedAgentRuntime: () => retained.cli }))
@@ -23,8 +25,10 @@ const core = process.env.SPECRAILS_CORE_SOURCE_DIR ?? process.env.SPECRAILS_EFFI
 let root: string | undefined, db: DbInstance | undefined
 afterEach(() => { db?.close(); if (root) rmSync(root, { recursive: true, force: true }) })
 
-it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('forks a real Core run across two Git worktrees and recovers a crash between repository settlements', async () => {
-  root = realpathSync(mkdtempSync(path.join(tmpdir(), 'paired fork git '))); db = initDb(':memory:')
+it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['exception', 'process'] as const)('forks a real Core run across two Git worktrees and recovers a %s crash between repository settlements', async crash => {
+  root = realpathSync(mkdtempSync(path.join(tmpdir(), 'paired fork git ')))
+  const databasePath = path.join(root, 'project.sqlite')
+  db = initDb(databasePath)
   retained.cli = path.join(core!, 'dist/agent-runtime/cli.js')
   const git = (cwd: string, args: string[]) => {
     const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
@@ -46,7 +50,10 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('f
   const context = { schemaVersion: 1, runId: 'source', backlogRoot: root, artifactRoot: repos[0].worktreePath, artifactRepositoryId: 'frontend', repositories: repos.map(repo => ({ id: repo.repositoryId, name: repo.name, path: repo.worktreePath })), ownership: { git: 'host', backlog: 'host', worktrees: 'host' }, specs: [{ id: 1, title: 'Paired fork', description: 'Preserve history and settle both repositories', repositoryIds: repos.map(repo => repo.repositoryId) }] }
   writeFileSync(contextPath, JSON.stringify(context))
   writeFileSync(path.join(runtime, 'desktop-runtime-host.json'), JSON.stringify({ schemaVersion: 1, cwd: repos[0].worktreePath, env: { SPECRAILS_GIT_AUTO: 'false' } }))
-  writeFileSync(path.join(runtime, 'desktop-runtime-package.json'), JSON.stringify({ cli: retained.cli }))
+  if (crash === 'process') {
+    const realRetention = await vi.importActual<typeof import('../../agent-runtime/runtime/agent-runtime-package')>('../../agent-runtime/runtime/agent-runtime-package')
+    realRetention.retainAgentRuntime(retained.cli, contextPath)
+  } else writeFileSync(path.join(runtime, 'desktop-runtime-package.json'), JSON.stringify({ cli: retained.cli }))
   writeFileSync(configPath, readFileSync(path.join(core!, 'src/agent-runtime/engine/__fixtures__/acceptance/runtime-config.json')))
   const definition = { schemaVersion: 1, id: 'paired-fork', title: 'Paired fork', journal: 'ledger-only', change: 'none', roles: [], maxTransitions: 20, entry: 'ask', delivery: { requiresVerified: true }, nodes: {
     ask: { kind: 'question', params: { text: 'Continue?' }, ends: { next: 'write-front' } },
@@ -65,6 +72,7 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('f
   createLoopRun(db, { id: 'source', projectId: 'p', loopId: 'loop', ticketIds: [1], railIndex: 0, causalOwnership: true, iterationLimit: 20, startedAt: new Date().toISOString() })
   createJob(db, { id: 'source', command: 'loop: paired-git', owner: 'loop', started_at: new Date().toISOString() })
   saveDefinitionRun(db, 'source', { contextPath, definition, context, request: { runId: 'source', projectId: 'p', loopId: 'loop', cwd: repos[0].worktreePath, provider: 'claude', model: 'fixture', graph: { nodes: [], edges: [], config: {} }, executionManifest: manifest, deferTerminalOutcome: true } as LoopRunRequest })
+  db.prepare('UPDATE loop_runs SET execution_manifest=? WHERE id=?').run(JSON.stringify(manifest), 'source')
   db.prepare("UPDATE loop_runs SET status='paused' WHERE id='source'").run()
   db.prepare("INSERT INTO ticket_outcome_ownership(ticket_id,owner_id,generation,claimed_at) VALUES (1,'source',1,datetime('now'))").run()
   createPrDelivery(db, { id: 'group', railIndex: 0, railKey: 'group', loopName: 'Paired', ticketIds: [1], baseBranch: 'main', originSurface: 'dashboard' })
@@ -79,6 +87,7 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('f
   const ctx = { db, project: { id: 'p', path: root }, loopRunManager: { isDefinitionRunActive: () => false, isDefinitionCancellationPending: () => false }, broadcast: vi.fn(), onLoopRunFinished: onFinished } as unknown as ProjectContext
   const sourceBytes = readFileSync(path.join(runtime, 'agent-workflow', 'run.sqlite')), sourceRow = readDefinitionRun(db, 'source')
   const child = await forkDefinitionRun(ctx, 'source', { requestId: 'multi-repo-fork', fromNodePath: 'ask', scopeId: 'root', visit: 1 })
+  for (const repo of repos) expect(getRepositoryExecutionReferences(db, repo.repositoryId).runIds).toEqual([child.loopRunId])
   const childContext = readDefinitionRun(db, child.loopRunId)!.metadata.contextPath!
   expect(invoke(['resume', '--context', childContext]).status).toBe(2)
   const paused = await probeDefinitionRun({ db, cwd: root, env: process.env }, child.loopRunId)
@@ -93,7 +102,21 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('f
     if (!interrupted && cwd === repos[0].worktreePath && args[0] === 'branch') { interrupted = true; throw new Error('host interrupted between repositories') }
     return defaultGitRunner.run(args, cwd)
   } }
-  await expect(reattachIsolatedSettlement(ctx, 'group', child.loopRunId, { git: failingGit, recordProvenance: provenance })).rejects.toThrow('host interrupted')
+  if (crash === 'exception') {
+    await expect(reattachIsolatedSettlement(ctx, 'group', child.loopRunId, { git: failingGit, recordProvenance: provenance })).rejects.toThrow('host interrupted')
+  } else {
+    const worker = fileURLToPath(new URL('./__fixtures__/settlement-crash-worker.mjs', import.meta.url))
+    const killed = spawnSync(process.execPath, ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, worker, databasePath, root, child.loopRunId, repos[0].worktreePath], { encoding: 'utf8', timeout: 90_000 })
+    expect(killed.stderr).toContain('desktop-settlement-crash:between-repositories')
+    expect(killed.status).not.toBe(0)
+    if (process.platform !== 'win32') expect(killed.signal).toBe('SIGKILL')
+    expect(existsSync(path.join(root, 'premature-finish'))).toBe(false)
+    db.close(); db = initDb(databasePath); ctx.db = db
+    expect(db.prepare('SELECT COUNT(*) AS n FROM definition_execution_claims').get()).toEqual({ n: 1 })
+    clearOrphanedPrDeliveryOperations(db)
+    reconcileOrphanLoopRuns(db, new Date().toISOString())
+    expect(readFileSync(path.join(root, 'child-provenance.jsonl'), 'utf8').trim().split('\n')).toHaveLength(1)
+  }
   const firstHead = git(repos[1].worktreePath, ['rev-parse', 'HEAD'])
   expect(firstHead).not.toBe(repos[1].baseSha)
   expect(onFinished).not.toHaveBeenCalled()
@@ -105,7 +128,8 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('f
   }
   expect(git(repos[1].worktreePath, ['rev-parse', 'HEAD'])).toBe(firstHead)
   expect(getPrDelivery(db, 'group')).toMatchObject({ decision: 'on_review', implementation_outcome: 'succeeded' })
-  expect(provenance).toHaveBeenCalledTimes(2)
+  expect(provenance).toHaveBeenCalledTimes(crash === 'process' ? 1 : 2)
+  expect(db.prepare('SELECT SUM(provenance_recorded) AS n FROM definition_delivery_settlements WHERE run_id=?').get(child.loopRunId)).toEqual({ n: 2 })
   expect(onFinished).toHaveBeenCalledWith(child.loopRunId, 'success', { ticketCompletionStatus: 'on_review' })
   expect(readDefinitionRun(db, 'source')).toEqual(sourceRow)
   expect(readFileSync(path.join(runtime, 'agent-workflow', 'run.sqlite'))).toEqual(sourceBytes)

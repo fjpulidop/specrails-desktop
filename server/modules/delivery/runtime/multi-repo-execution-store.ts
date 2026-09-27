@@ -81,7 +81,9 @@ export function getRepositoryExecutionReferences(db: DbInstance, repositoryId: s
     Array<{ id: string; parent_delivery_id: string | null; run_ids: string }>
   const worktrees = db.prepare(`SELECT run_id FROM rail_worktrees WHERE repository_id = ?
     AND merge_state NOT IN ('merged','failed','released')`).all(repositoryId) as Array<{ run_id: string | null }>
-  const runs = db.prepare("SELECT id, execution_manifest FROM loop_runs WHERE status <> 'completed' AND execution_manifest IS NOT NULL").all() as Array<{ id: string; execution_manifest: string }>
+  const runs = db.prepare(`SELECT id, execution_manifest FROM loop_runs WHERE status <> 'completed' AND execution_manifest IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM definition_fork_operations AS fork WHERE fork.source_run_id = loop_runs.id AND fork.adopted = 1)`)
+    .all() as Array<{ id: string; execution_manifest: string }>
   const manifestRunIds = runs.filter((row) => readExecutionManifest(row.execution_manifest)?.selectedRepositoryIds.includes(repositoryId)).map((row) => row.id)
   return {
     runIds: [...new Set([...worktrees.flatMap((row) => row.run_id ? [row.run_id] : []), ...manifestRunIds])],
