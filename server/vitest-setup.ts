@@ -1,6 +1,33 @@
 import { mkdtempSync } from 'fs'
 import os from 'os'
 import path from 'path'
+import type { Server } from 'node:http'
+import request from 'supertest'
+
+// Supertest starts fixtures on the default (usually IPv6) wildcard socket but
+// builds an IPv4 URL. On hosts with separate port namespaces that URL can reach
+// an unrelated local service. Connect to the family actually owned by the fixture.
+// Keep Supertest responsible for starting and closing its ephemeral servers.
+const transportMarker = Symbol.for('specrails.supertest.address-family')
+const testPrototype = request.Test.prototype as unknown as {
+  serverAddress(server: Server, path: string): string
+  [transportMarker]?: boolean
+}
+if (!testPrototype[transportMarker]) {
+  const serverAddress = testPrototype.serverAddress
+  testPrototype.serverAddress = function (server, requestPath) {
+    const original = serverAddress.call(this, server, requestPath)
+    const address = server.address()
+    if (address && typeof address !== 'string' && address.family === 'IPv6'
+      && (address.address === '::' || address.address === '::1')) {
+      const url = new URL(original)
+      url.hostname = '[::1]'
+      return url.toString()
+    }
+    return original
+  }
+  testPrototype[transportMarker] = true
+}
 
 /**
  * Test safety net: NEVER let a test write the relocation registry into the
