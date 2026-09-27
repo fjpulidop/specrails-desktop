@@ -1,3 +1,16 @@
+## Windows crash-harness admission — 27 September 2026
+
+Remote run 36284631746 passed all gates except the four new Windows crash
+cases, which timed out before their boundary with only host-start output.
+Each case was retaining a complete package concurrently. The harness now
+serializes Windows admission, releases that reservation immediately after the
+crash and overlaps the production lease waits/recovery. Startup/recovery test
+ceilings account for the platform's observed package-copy cost; Core lease TTL
+and runtime execution limits are unchanged. Preparation/spawn diagnostics make
+another failure attributable to its phase. All four cases pass locally together
+in 87.37s after this change, and typecheck passes. Windows verification requires
+the next remote run; no all-platform success is claimed yet.
+
 ## Historical settlement reconstruction — 27 September 2026
 
 Explicit resume/cancellation settlement can now reconstruct a missing v2
@@ -26,8 +39,10 @@ the HTTP fixture address-family correction passes: 408 suites, 9,019 tests and
 seven existing Windows-only omissions, 313.22s. Coverage remains above the
 original thresholds: statements 87.04%, branches 80.34%, functions 90.96%,
 lines 90.12%. See HTTP-TEST-ISOLATION.md for the deterministic before/after proof.
-The installed-package consumer check is being rerun with registry access; the
-first sandboxed attempt could not access the npm cache/registry.
+The installed-package production consumer check passes with registry access,
+including CLI/MCP/shell assets and tarball integrity. The preceding sandboxed
+attempt could not access the npm cache/registry; shared repository dependencies
+were not installed or rebuilt.
 
 ## Loop Manager process-crash acceptance — 27 September 2026
 

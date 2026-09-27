@@ -11,6 +11,18 @@ import type { LoopRunRequest } from './loop-run-manager'
 const core = process.env.SPECRAILS_CORE_SOURCE_DIR ?? process.env.SPECRAILS_EFFICIENCY_CORE_ROOT
 const fixtures = path.join(process.cwd(), 'server/modules/loops/runtime/__fixtures__')
 const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href
+// Retaining four complete dependency closures concurrently saturates the Windows
+// runner's disk. Serialize admission there, then overlap the real lease waits
+// and recovery. No production lease or execution timeout is shortened.
+let admission = Promise.resolve()
+async function reserveAdmission(): Promise<() => void> {
+  if (process.platform !== 'win32') return () => {}
+  const previous = admission
+  let release!: () => void
+  admission = new Promise<void>(resolve => { release = resolve })
+  await previous
+  return release
+}
 function killTree(child: ChildProcess) {
   if (!child.pid || child.exitCode !== null || child.signalCode !== null) return
   if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true })
@@ -55,22 +67,27 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).co
         const exit = new Promise<number | null>((resolve, reject) => { child.once('error', reject); child.once('exit', code => resolve(code)) })
         return { child, exit, output: () => output }
       }
-      const original = launch('start'), boundary = path.join(root, mode === 'pause' ? 'paused.json' : mode === 'between' ? 'between-entered' : 'provider-entered')
-      const deadline = Date.now() + 60_000
-      while (!existsSync(boundary)) {
-        if (original.child.exitCode !== null || original.child.signalCode !== null) throw new Error('Host exited before crash boundary: ' + original.output())
-        if (Date.now() > deadline) throw new Error('Timed out before crash boundary: ' + original.output())
-        await sleep(50)
+      const releaseAdmission = await reserveAdmission()
+      try {
+        const original = launch('start'), boundary = path.join(root, mode === 'pause' ? 'paused.json' : mode === 'between' ? 'between-entered' : 'provider-entered')
+        const deadline = Date.now() + (process.platform === 'win32' ? 120_000 : 60_000)
+        while (!existsSync(boundary)) {
+          if (original.child.exitCode !== null || original.child.signalCode !== null) throw new Error('Host exited before crash boundary: ' + original.output())
+          if (Date.now() > deadline) throw new Error('Timed out before crash boundary: ' + original.output())
+          await sleep(50)
+        }
+        expect(calls()).toHaveLength(1)
+        expect(readFileSync(path.join(cwd, 'value.txt'), 'utf8')).toBe(mode === 'write' ? 'partial' : 'baseline')
+        killTree(original.child); await original.exit
+        if (process.platform !== 'win32') expect(original.child.signalCode).toBe('SIGKILL')
+      } finally {
+        releaseAdmission()
       }
-      expect(calls()).toHaveLength(1)
-      expect(readFileSync(path.join(cwd, 'value.txt'), 'utf8')).toBe(mode === 'write' ? 'partial' : 'baseline')
-      killTree(original.child); await original.exit
-      if (process.platform !== 'win32') expect(original.child.signalCode).toBe('SIGKILL')
       expect(existsSync(path.join(root, 'unexpected-result.json'))).toBe(false)
       // Restart must use the admitted config, even if today's project settings are invalid.
       writeFileSync(path.join(cwd, '.specrails/agent-runtime.json'), JSON.stringify({ schemaVersion: 999 }))
       const restarted = launch('recover')
-      const recoveryDeadline = Date.now() + 110_000
+      const recoveryDeadline = Date.now() + (process.platform === 'win32' ? 180_000 : 110_000)
       while (restarted.child.exitCode === null && restarted.child.signalCode === null) {
         if (Date.now() > recoveryDeadline) throw new Error('Recovery timed out: ' + restarted.output())
         await sleep(50)
@@ -99,5 +116,5 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).co
       await Promise.all(children.filter(child => child.exitCode === null && child.signalCode === null).map(child => new Promise<void>(resolve => child.once('exit', () => resolve()))))
       rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
     }
-  }, 180_000,
+  }, process.platform === 'win32' ? 660_000 : 180_000,
 )

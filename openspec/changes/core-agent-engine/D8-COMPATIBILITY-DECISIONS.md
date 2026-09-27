@@ -81,3 +81,19 @@ Publication also checks the validated content inside an immediate transaction.
 If a graph/name/description changes while Core loads or validates, publication
 returns a conflict and keeps the newer edit as Draft. This avoids validating one
 definition and publishing another, without trusting second-resolution timestamps.
+
+## Decision pauses and retained pass state
+
+Further inspection on 27 September identified an additional prerequisite: the
+legacy decider can return `LOOP_BLOCKED`, pause for a human, and then follow its
+continue branch without evaluating the decider again. The current Core decider
+accepts only structured continue/stop verdicts and routes malformed output to
+failure after a bounded repair. A compatibility graph must preserve the human
+pause explicitly; treating a blocked decision as malformed is not parity.
+
+A failed pass forces a stop verdict to continue but does not suppress the
+physical decider invocation. Iteration increments before that invocation. The
+legacy one-shot recovery counters persist across iterations. Any state-expanded
+conversion must carry these independent state dimensions, preserve the failed
+phase's return address, and account for Core's per-node no-progress tracking;
+renaming each visit cannot silently reset no-progress detection.
