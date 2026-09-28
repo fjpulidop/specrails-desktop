@@ -86,10 +86,15 @@ async function executeLegacy(source: LoopGraph, plan: Response[]) {
       return { text: item.text, tokens: 5, tokensIn: 3, tokensOut: 2 }
     },
     runDecider: async () => { const item = next(LEGACY_DECIDER_ROLE), value = JSON.parse(item.text); return { continue: value.verdict === 'continue', reasoning: value.reason, parsed: true, tokens: 5 } },
-    runShell: async () => { throw Error('Unexpected legacy shell') },
+    runShell: async ({ command, cwd }) => {
+      const child = spawnSync(command, { cwd, shell: true, encoding: 'utf8' })
+      return { stdout: child.stdout ?? '', stderr: child.stderr ?? '', exitCode: child.status ?? 1, durationMs: 1 }
+    },
   }, () => 1000)
+  // Shell side effects (visit counters) must not leak into the Core run's repository.
+  const cwd = path.join(root, 'legacy'); mkdirSync(cwd, { recursive: true })
   try {
-    const result = await manager.run({ loopId: 'baseline', graph: source, projectId: 'fixture', cwd: root, provider: 'claude', model: 'fixture' })
+    const result = await manager.run({ loopId: 'baseline', graph: source, projectId: 'fixture', cwd, provider: 'claude', model: 'fixture' })
     expect(roles).toEqual(plan.map(item => item.role))
     return result
   } finally { db.close() }
@@ -225,6 +230,26 @@ paired.each([
   { name: 'two provider exceptions abort before the third call', graph: sequential, plan: [{ ...prompt(''), error: 'Provider unavailable' }, { ...prompt(''), error: 'Provider unavailable' }], legacy: 'failed', core: 'failed' },
   { name: 'two empty replies abort before the third call', graph: sequential, plan: [prompt(''), prompt('')], legacy: 'failed', core: 'failed' },
 ])('matches legacy behavior: $name', async ({ graph, plan, legacy: expected, core: status }) => {
+  expect((await executeLegacy(graph(), plan)).outcome).toBe(expected)
+  const { result } = await execute(graph(), plan)
+  expect(result, JSON.stringify(result)).toMatchObject({ runtimeStatus: status, failed: status !== 'succeeded' })
+}, 90_000)
+
+function checked(exitWhen: string, options: { stopOnFailure?: boolean } = {}): LoopGraph {
+  const graph = legacy()
+  graph.nodes.splice(2, 0, { id: 'check', type: 'shell', position: { x: 0, y: 2 }, data: {
+    command: `"${process.execPath}" -e "const fs=require('node:fs');const n=fs.existsSync('visits')?Number(fs.readFileSync('visits','utf8'))+1:1;fs.writeFileSync('visits',String(n));process.exit(${exitWhen}?1:0)"`,
+    ...options } })
+  graph.nodes[1].data = { prompt: 'Implement the change' }
+  graph.edges[1].target = 'check'
+  graph.edges.push({ id: 'checked', source: 'check', target: 'decide' })
+  return graph
+}
+paired.each([
+  { name: 'a passing shell check lets the first stop succeed', graph: () => checked('false'), plan: [prompt('Done'), decision()], legacy: 'success', core: 'succeeded' },
+  { name: 'a failed shell check forces one more pass before stopping', graph: () => checked('n===1'), plan: [prompt('Done'), decision(), prompt('Fixed'), decision()], legacy: 'success', core: 'succeeded' },
+  { name: 'a required shell check fails the run without deciding', graph: () => checked('true', { stopOnFailure: true }), plan: [prompt('Done')], legacy: 'failed', core: 'failed' },
+])('matches legacy shell behavior: $name', async ({ graph, plan, legacy: expected, core: status }) => {
   expect((await executeLegacy(graph(), plan)).outcome).toBe(expected)
   const { result } = await execute(graph(), plan)
   expect(result, JSON.stringify(result)).toMatchObject({ runtimeStatus: status, failed: status !== 'succeeded' })

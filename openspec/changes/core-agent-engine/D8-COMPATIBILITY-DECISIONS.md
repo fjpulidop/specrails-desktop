@@ -166,7 +166,10 @@ harnesses assert the exact invocation order, so branch choice, decision count an
 the absence of an extra expensive call are compared as well as the outcome
 (`success`/`max-iterations`/`failed` against `succeeded`/`failed`). The legacy
 harness now models a failed provider call as a hard failure with no output,
-matching the manager's fail-fast rule. Ten paired cases now compare both engines.
-Remaining for task 10.2: shell-step failures, human pauses on the legacy side,
+matching the manager's fail-fast rule. Three shell cases run the real command in
+each engine's own repository: a passing check, a failed check that forces one more
+pass before the stop is accepted, and a required (`stopOnFailure`) check that fails
+the run without a decision. Thirteen paired cases now compare both engines.
+Remaining for task 10.2: human pauses on the legacy side,
 native implement/batch operations and saved user graphs beyond the factory and
 template corpus.
