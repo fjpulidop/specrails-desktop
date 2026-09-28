@@ -154,3 +154,19 @@ acceptance proves the same two-failure cap as provider exceptions. Three paired
 cases also run the original LoopRunManager on the same scripted sequence and
 compare outcomes/call order: forced continuation, iteration cap and one-shot
 self-retry. Broader historical parity remains required before D8 is complete.
+
+## Differential parity corpus — 28 September
+
+`loop-compat-paired.test.ts` now runs seven more scripted sequences through both
+the original `LoopRunManager` and the converted definition on the real Core CLI:
+first-pass stop, continue-then-stop, a missing verification sentinel treated as a
+failed pass, a decision cap exhausted by continue verdicts, the unlabeled decider
+edge fallback, and two consecutive provider exceptions or empty replies. Both
+harnesses assert the exact invocation order, so branch choice, decision count and
+the absence of an extra expensive call are compared as well as the outcome
+(`success`/`max-iterations`/`failed` against `succeeded`/`failed`). The legacy
+harness now models a failed provider call as a hard failure with no output,
+matching the manager's fail-fast rule. Ten paired cases now compare both engines.
+Remaining for task 10.2: shell-step failures, human pauses on the legacy side,
+native implement/batch operations and saved user graphs beyond the factory and
+template corpus.

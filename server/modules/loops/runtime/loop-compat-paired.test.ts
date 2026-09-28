@@ -79,7 +79,12 @@ async function executeLegacy(source: LoopGraph, plan: Response[]) {
     return item
   }
   const manager = new LoopRunManager(db, () => {}, {
-    runAiStep: async () => { const item = next('prompt'); return { text: item.text, tokens: 5, tokensIn: 3, tokensOut: 2 } },
+    runAiStep: async () => {
+      const item = next('prompt')
+      // A provider exception or an empty reply is a hard failure with no output.
+      if (item.error || !item.text) return { text: '', failed: true, resultIsError: !!item.error, tokens: 0 }
+      return { text: item.text, tokens: 5, tokensIn: 3, tokensOut: 2 }
+    },
     runDecider: async () => { const item = next(LEGACY_DECIDER_ROLE), value = JSON.parse(item.text); return { continue: value.verdict === 'continue', reasoning: value.reason, parsed: true, tokens: 5 } },
     runShell: async () => { throw Error('Unexpected legacy shell') },
   }, () => 1000)
@@ -191,4 +196,36 @@ paired.each(['exception', 'empty'])('stops after two consecutive provider failur
     ...Array.from({ length: 2 }, () => ({ ...prompt(''), ...(mode === 'exception' ? { error: 'Provider unavailable' } : {}) })),
   ])
   expect(result).toMatchObject({ failed: true, runtimeStatus: 'failed' })
+}, 90_000)
+
+function unlabeled(maxIterations = 3): LoopGraph {
+  const graph = legacy(maxIterations)
+  // Legacy fallback: continue follows the first non-end successor, stop the first end.
+  graph.edges = graph.edges.map(({ branch: _branch, ...edge }) => edge)
+  return graph
+}
+function sequential(): LoopGraph {
+  return { nodes: [
+    { id: 'start', type: 'start', position: { x: 0, y: 0 } },
+    ...['first', 'second', 'third'].map(id => ({ id, type: 'ai-step' as const, position: { x: 0, y: 1 }, data: { prompt: 'Do required work' } })),
+    { id: 'done', type: 'end', position: { x: 0, y: 2 } },
+  ], edges: ['start', 'first', 'second', 'third'].map((source, index) => ({ id: String(index), source, target: ['first', 'second', 'third', 'done'][index] })), config: { maxIterations: 3, timeoutMinutes: 0 } }
+}
+const cont = (reason = 'More work remains') => decision(JSON.stringify({ verdict: 'continue', reason }))
+// Differential parity: the same scripted provider sequence runs through the
+// original LoopRunManager and the converted Core definition. Both harnesses
+// assert the exact invocation order, so branch choices, decision counts and
+// the absence of extra expensive calls are compared, not only the outcome.
+paired.each([
+  { name: 'first-pass success stops once', graph: () => legacy(), plan: [prompt('VERIFICATION: PASS'), decision()], legacy: 'success', core: 'succeeded' },
+  { name: 'continue then stop keeps every pass', graph: () => legacy(), plan: [prompt('VERIFICATION: PASS'), cont(), prompt('VERIFICATION: PASS'), decision()], legacy: 'success', core: 'succeeded' },
+  { name: 'a missing sentinel counts as a failed pass', graph: () => legacy(), plan: [prompt('Implemented everything'), decision(), prompt('VERIFICATION: PASS'), decision()], legacy: 'success', core: 'succeeded' },
+  { name: 'continue verdicts exhaust the decision cap', graph: () => legacy(2), plan: [prompt('VERIFICATION: PASS'), cont(), prompt('VERIFICATION: PASS'), cont()], legacy: 'max-iterations', core: 'failed' },
+  { name: 'unlabeled decider edges use the legacy fallback', graph: () => unlabeled(), plan: [prompt('VERIFICATION: PASS'), cont(), prompt('VERIFICATION: PASS'), decision()], legacy: 'success', core: 'succeeded' },
+  { name: 'two provider exceptions abort before the third call', graph: sequential, plan: [{ ...prompt(''), error: 'Provider unavailable' }, { ...prompt(''), error: 'Provider unavailable' }], legacy: 'failed', core: 'failed' },
+  { name: 'two empty replies abort before the third call', graph: sequential, plan: [prompt(''), prompt('')], legacy: 'failed', core: 'failed' },
+])('matches legacy behavior: $name', async ({ graph, plan, legacy: expected, core: status }) => {
+  expect((await executeLegacy(graph(), plan)).outcome).toBe(expected)
+  const { result } = await execute(graph(), plan)
+  expect(result, JSON.stringify(result)).toMatchObject({ runtimeStatus: status, failed: status !== 'succeeded' })
 }, 90_000)
