@@ -141,7 +141,7 @@ jobs:
       - run: npm ci --prefix .paired/core
       - run: npm run build --prefix .paired/core
       - run: npm run check-core-compat
-      - name: Verify real CLI authoring, roles, factories, fork, settlement and retention
+      - name: Verify real CLI authoring, roles, factories, fork, settlement, retention and steering
         run: >-
           npx vitest run --maxWorkers=1 --reporter=default --reporter=junit
           --outputFile.junit=paired-core-results.xml
@@ -154,6 +154,7 @@ jobs:
           server/modules/agent-runtime/runtime/agent-studio-paired.test.ts
           server/modules/delivery/runtime/definition-fork-paired.test.ts
           server/modules/agent-runtime/runtime/agent-runtime-retention-paired.test.ts
+          server/modules/agent-runtime/runtime/agent-runtime-steering-paired.test.ts
       - name: Retain paired acceptance results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
