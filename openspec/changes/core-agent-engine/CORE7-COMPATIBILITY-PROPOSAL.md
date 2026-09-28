@@ -1,8 +1,8 @@
 # Core 7 compatibility signal — proposal for decision
 
-28 September 2026. Status: **proposal, awaiting the owner's decision.** Nothing
-here is implemented. It is the remaining design input for D8 task 10.5
-("paired Core7 compatibility").
+28 September 2026. Status: **approved by the owner on 28 September 2026 and
+implemented** (see "Implementation" at the end). It is the design input for D8
+task 10.5 ("paired Core7 compatibility").
 
 ## What the contract already fixes
 
@@ -53,3 +53,30 @@ and `[2]` on 7.x. The rules:
   `[2]` (fixture) and one that omits the field.
 - **Neither side** changes `SUPPORTED_CORE_MAJORS` or removes legacy code before
   the two-release zero-use gate (10.1).
+
+## Implementation — 28 September 2026
+
+- **Core:** `runtime api` emits `engines: [1, 2]`, and `integration-contract.json`
+  mirrors it as `agentRuntime.engines`, covered by the contract test. Core task
+  11.3 switches it to `[2]` together with the engine-1 removal.
+- **Desktop loader:** `RuntimeApi.engines` must be a non-empty array of unique
+  positive integers, otherwise it is rejected as malformed.
+  `supportedEngines(api)` applies the defaults above.
+- **Launch guard:** `LoopRunManager.assertEngineSupport(graph)` checks legacy
+  graphs through `LoopExecutors.assertLegacyEngineSupport`. `_run` calls it for
+  every fresh launch, but never for a resume. The rails launch route calls it
+  before allocating worktrees and answers
+  `409 {error: 'legacy_engine_unavailable', loopId, detail}`. A missing or broken
+  Core does not block a legacy traversal: it is not evidence that engine 1 is
+  gone, and legacy traversal predates Core.
+- **UI:** the Dashboard shows a localized toast (8 locales) that points to
+  Loops ▸ Convert to Core.
+- **Tests:**
+  - `agent-runtime-loader.test.ts`: fixture Cores advertising `[2]`, omitting the
+    field, and malformed values.
+  - `loop-legacy-engine.test.ts`: refusal before persistence or provider calls,
+    and the derived defaults.
+  - `rails-router.test.ts`: the 409 before any run.
+  - `loop-legacy-engine-paired.test.ts`: the real paired Core advertises `[1, 2]`
+    and admits legacy loops. It is part of the CI paired job.
+- `SUPPORTED_CORE_MAJORS` is unchanged (`[4, 5, 6]`).

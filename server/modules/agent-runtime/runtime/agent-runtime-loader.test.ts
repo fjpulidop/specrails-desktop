@@ -6,6 +6,7 @@ const scope = vi.hoisted(() => ({ bundled: null as string | null, source: 'bundl
 vi.mock('../../../core-runtime', () => ({ getCoreRuntimeStatus: () => ({ runtime: scope.bundled ? { root: scope.bundled, source: scope.source } : null, error: scope.error }) }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath }))
 import { findCoreAgentRuntimeCli, findCoreAgentRuntimeEntry, loadCoreAgentRuntime, resetCoreAgentRuntimeApiCache, readWorkflowCatalog } from './agent-runtime-loader'
+import { supportedEngines } from './agent-runtime-engines'
 let root: string
 beforeEach(() => { resetCoreAgentRuntimeApiCache(); root = mkdtempSync(join(tmpdir(), 'runtime loader ')); vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', ''); vi.stubEnv('NODE_ENV', 'production') })
 afterEach(() => { scope.bundled = null; scope.source = 'bundled'; scope.error = null; vi.restoreAllMocks(); vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true }) })
@@ -127,6 +128,7 @@ it.each([
   { nodeKinds: 'prompt' }, { nodeKinds: ['prompt', 'prompt'] }, { nodeKinds: [42] },
   { builtins: [{}] }, { builtins: [{ id: 'builtin', version: '7', deprecated: 'false' }] },
   { capabilities: { engineV2: false } },
+  { engines: [] }, { engines: [2, 2] }, { engines: [0] }, { engines: ['2'] }, { engines: 2 },
 ])('rejects malformed advertised engine metadata %j', async fields => {
   vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', file('engine/index.js'))
   file('engine/cli.js', `console.log(${JSON.stringify(JSON.stringify({ type: 'runtime-api', apiVersion: 1, ...fields }))})`)
@@ -155,4 +157,13 @@ it('reads the authoritative piece catalog through Core and rejects malformed out
   catalog.nodeKinds[0].outcomes.push('true')
   writeFileSync(cli, script(catalog))
   expect(() => (readWorkflowCatalog(catalog))).toThrow('malformed workflow catalog')
+})
+
+it('reads advertised engines and derives them for Cores that predate the field', async () => {
+  vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', file('engine/index.js'))
+  file('engine/cli.js', `console.log(JSON.stringify({type:'runtime-api',apiVersion:1,engines:[2],capabilities:{engineV2:1}}))`)
+  expect(supportedEngines((await loadCoreAgentRuntime()).api)).toEqual([2])
+  expect(supportedEngines({ type: 'runtime-api', apiVersion: 1, capabilities: { engineV2: 1 } })).toEqual([1, 2])
+  expect(supportedEngines({ type: 'runtime-api', apiVersion: 1 })).toEqual([1])
+  expect(supportedEngines(undefined)).toEqual([1])
 })

@@ -122,3 +122,5 @@ For a Decider, **Continue while this condition holds** can protect unfinished re
 To migrate a saved legacy loop, choose **Convert to Core** in the loop library. Select the original repository when a shell step has no explicit scope. Conversion validates the graph and saves a draft with an exportable copy of the original. Review the connected steps and publish explicitly. Running loops cannot be converted; conflicting edits are preserved. Converted writers require real verification commands, and Quick SDD uses the OpenSpec version included in Core. Update Core if conversion is unavailable.
 
 To see which saved loops still need attention, open **Core migration check** in the loop library and choose **Check**. It lists loops the installed Core rejects, loops ready to convert and loops that need a repository or other fix. It never converts or publishes anything on its own.
+
+A future Core that runs only Core workflows refuses to launch an unconverted loop on a rail. Desktop shows a message that points you to **Convert to Core** instead of starting a run that would fail midway. Runs that already started keep the Core version that created them.

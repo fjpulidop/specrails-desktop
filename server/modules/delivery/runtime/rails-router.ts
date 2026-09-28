@@ -784,6 +784,12 @@ export function createRailsRouter(): Router {
           if (!loopNeedsTicket(loop.graph)) {
             res.status(400).json({ error: 'This loop runs standalone — launch it from the Loops page, not a rail.' }); return
           }
+          try { await c.loopRunManager.assertEngineSupport?.(loop.graph) } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            const code = /^(legacy_engine_unavailable|engine_unsupported):/.exec(message)?.[1]
+            if (!code) throw error
+            res.status(409).json({ error: code, loopId, detail: message.slice(code.length + 1).trim() }); return
+          }
           loopGraph = loop.graph
           loopName = loop.name
         }

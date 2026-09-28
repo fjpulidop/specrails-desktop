@@ -15,6 +15,8 @@ export interface RuntimeApi {
   runtimeIdentity?: { packageVersion: string; workflowVersion: string; instructionsVersion: string; packageIntegrity: string; apiVersion: 1 }
   workflowVersions?: string[]
   engineVersion?: number
+  /** Engines this Core can launch (Core ≥ 6 advertises it; absent on older 6.x). */
+  engines?: number[]
   nodeKinds?: string[]
   nodeKindsVersion?: number
   builtins?: Array<{ id: string; version: string; deprecated: boolean }>
@@ -139,6 +141,7 @@ export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
       const value = api[key]
       if (value !== undefined && (!Number.isSafeInteger(value) || value < (key === 'engineVersion' ? 1 : 0))) throw new Error(`Core returned malformed ${key}`)
     }
+    if (api.engines !== undefined && (!Array.isArray(api.engines) || !api.engines.length || !api.engines.every(value => Number.isSafeInteger(value) && value >= 1) || new Set(api.engines).size !== api.engines.length)) throw new Error('Core returned malformed engines')
     if (api.nodeKinds !== undefined && (!Array.isArray(api.nodeKinds) || !api.nodeKinds.every(value => typeof value === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(value)) || new Set(api.nodeKinds).size !== api.nodeKinds.length)) throw new Error('Core returned malformed node kinds')
     if (api.builtins !== undefined && (!Array.isArray(api.builtins) || !api.builtins.every(value => object(value) && typeof value.id === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(value.id) && typeof value.version === 'string' && value.version.length > 0 && value.version.length <= 128 && typeof value.deprecated === 'boolean') || new Set(api.builtins.map(value => value.id)).size !== api.builtins.length)) throw new Error('Core returned malformed builtins')
     if (api.runtimeIdentity !== undefined) {
