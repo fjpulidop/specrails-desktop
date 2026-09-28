@@ -71,6 +71,10 @@ Paired Core7 compatibility and the other D8 tasks remain open.
   real Core executions, expires one while the recent run keeps the shared pinned
   package, then collects the package after both expire, preserving accounting and
   Core source. It is part of the required paired CI job on three platforms.
+- **Paired timing.** Each paired run retains a full copy of Core's dependency
+  closure and hashes it. On the Windows runner the test exceeded its original
+  120 s budget (about 28 s on Linux); it now allows 480 s, in line with the other
+  real-Core paired suites. No assertion or runtime timeout changed.
 - **Identity limit.** Journal identity is `dev`+`ino`. A filesystem may reuse an
   inode after the original was deleted, so identity detects replacement of a live
   journal but cannot prove that a deleted journal was not recreated with the same

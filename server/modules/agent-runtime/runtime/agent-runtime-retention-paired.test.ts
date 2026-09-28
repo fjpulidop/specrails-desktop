@@ -56,4 +56,6 @@ it.skipIf(!core || !fs.existsSync(path.join(core, 'dist/agent-runtime/cli.js')))
   expect(fs.existsSync(retained)).toBe(false)
   expect(fs.existsSync(path.join(core!, 'dist/agent-runtime/cli.js'))).toBe(true)
   expect(db.prepare('SELECT count(*) total FROM jobs').get()).toEqual({ total: 2 })
-}, 120_000)
+  // Each run retains a full copy of Core's dependency closure and hashes it; on
+  // Windows runners that file copy alone is several times slower than on Linux.
+}, 480_000)
