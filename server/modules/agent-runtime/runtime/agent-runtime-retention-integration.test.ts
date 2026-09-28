@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -6,6 +6,7 @@ import { createJob, initDb, type DbInstance } from '../../../db'
 import { createLoopRun, claimDefinitionExecution, readDefinitionExecutionClaim } from '../../loops/runtime/loop-runs-store'
 import { AgentRuntimeControls } from './agent-runtime-controls'
 import { readRuntimeExpiration } from './agent-runtime-retention-records'
+import { runtimeJournalQuarantine } from './agent-runtime-retention-quarantine'
 import type { ProjectContext } from '../../../project-registry'
 vi.mock('../../../workspace-resolution', () => ({ resolveProjectExecution: (project: { path: string }) => ({ specrailsDir: path.join(project.path, '.specrails') }), resolveLoopBaseEnv: () => ({}) }))
 let root: string, directory: string, db: DbInstance, controls: AgentRuntimeControls
@@ -85,4 +86,85 @@ it('rejects destructive shortcuts and malformed policies', async () => {
   expect(() => controls.configureRetention({ days: 0 })).toThrow('Retention days')
   await expect(controls.collectRetention({ force: true })).rejects.toMatchObject({ statusCode: 400 })
   expect(controls.retentionPolicy()).toEqual({ days: null })
+})
+
+function addRun(runId: string, finishedAt: string, outcome = 'success') {
+  const run = path.join(root, '.specrails/pipeline', runId); fs.mkdirSync(run, { recursive: true })
+  fs.writeFileSync(path.join(run, 'desktop-context.json'), JSON.stringify({ runId, backlogRoot: root, artifactRoot: root, repositories: [{ id: 'repo', name: 'Repo', path: root }] }))
+  fs.writeFileSync(path.join(run, 'desktop-runtime-host.json'), JSON.stringify({ schemaVersion: 1, cwd: root, env: {} }))
+  fs.writeFileSync(path.join(run, 'agent-runtime-request.json'), '{}')
+  createJob(db, { id: runId, command: 'loop:fixture', started_at: '2000-01-01T00:00:00Z', owner: 'loop' })
+  createLoopRun(db, { id: runId, projectId: 'project', loopId: 'fixture', iterationLimit: 1, startedAt: '2000-01-01T00:00:00Z' })
+  db.prepare("UPDATE jobs SET status='completed' WHERE id=?").run(runId)
+  db.prepare("UPDATE loop_runs SET status='completed',final_outcome=?,finished_at=? WHERE id=?").run(outcome, finishedAt, runId)
+  return run
+}
+const runStatus = (overrides: Record<string, unknown> = {}) => (file: string) => Promise.resolve({ ...terminal(), runId: path.basename(path.dirname(file)), ...overrides })
+const delivery = (decision: string, token: string | null = null, runIds = ['run']) =>
+  db.prepare("INSERT INTO rail_pr_deliveries(id,rail_index,rail_key,ticket_ids,base_branch,decision,run_ids,operation_token) VALUES (?,0,'rail','[]','main',?,?,?)").run(`delivery-${decision}-${token}`, decision, JSON.stringify(runIds), token)
+const fork = (source: string, child: string, adopted: 0 | 1) =>
+  db.prepare("INSERT INTO definition_fork_operations(project_id,source_run_id,request_id,child_run_id,request_json,adopted) VALUES ('project',?,?,?,'{}',?)").run(source, `request-${child}`, child, adopted)
+
+describe('host delivery, lineage and restart ownership', () => {
+  it.each(['building', 'on_review', 'pr_draft', 'pr_ready', 'pr_failed', 'implementation_failed'])('protects history while delivery is %s', async decision => {
+    controls.configureRetention({ days: 1 }); delivery(decision)
+    expect(await controls.collectRetention({ dryRun: false })).toMatchObject({ runs: [{ state: 'protected', reasons: expect.arrayContaining(['delivery_pending']) }] })
+    expect(fs.existsSync(directory)).toBe(true)
+  })
+  it('protects a delivery whose terminal decision still owns an in-flight operation', async () => {
+    controls.configureRetention({ days: 1 }); delivery('merged', 'operation')
+    expect(await controls.collectRetention({ dryRun: false })).toMatchObject({ runs: [{ state: 'protected', reasons: ['delivery_pending'] }] })
+  })
+  it('expires a discarded failed run as discarded history and keeps merged successful runs settled', async () => {
+    controls.configureRetention({ days: 1 })
+    db.prepare("UPDATE loop_runs SET final_outcome='failure' WHERE id='run'").run(); delivery('discarded')
+    status.mockResolvedValue({ ...terminal(), status: 'failed' })
+    expect(await controls.collectRetention({ dryRun: false })).toMatchObject({ runs: [{ state: 'expired' }] })
+    expect(readRuntimeExpiration(db, 'run')).toMatchObject({ disposition: 'discarded', previousStatus: 'failed' })
+  })
+  it('keeps a failed run without a discard decision as recoverable history', async () => {
+    controls.configureRetention({ days: 1 })
+    db.prepare("UPDATE loop_runs SET final_outcome='failure' WHERE id='run'").run()
+    status.mockResolvedValue({ ...terminal(), status: 'failed' })
+    expect(await controls.collectRetention({ dryRun: false })).toMatchObject({ runs: [{ state: 'protected', reasons: ['recoverable'] }] })
+  })
+  it('protects a parent while an unexpired fork child exists and expires the child first', async () => {
+    controls.configureRetention({ days: 1 }); status.mockImplementation(runStatus())
+    const child = addRun('child', new Date().toISOString()); fork('run', 'child', 0)
+    expect(await controls.collectRetention({ dryRun: false })).toMatchObject({ runs: expect.arrayContaining([
+      expect.objectContaining({ runId: 'child', state: 'protected', reasons: ['within_retention'] }),
+      // The lineage fence refuses the reservation before Core is inspected;
+      // fork_pending evidence is a second, independent guard.
+      expect.objectContaining({ runId: 'run', state: 'busy' })]) })
+    expect(fs.existsSync(directory)).toBe(true)
+    db.prepare("UPDATE loop_runs SET finished_at='2000-01-03 00:00:00' WHERE id='child'").run()
+    const report = await controls.collectRetention({ dryRun: false })
+    expect(report.runs.map(run => [run.runId, run.state])).toEqual([['child', 'expired'], ['run', 'expired']])
+    expect(fs.existsSync(child)).toBe(false); expect(fs.existsSync(directory)).toBe(false)
+  })
+  it('does not reserve a parent whose adopted successor still owns its lineage', async () => {
+    controls.configureRetention({ days: 1 }); status.mockImplementation(runStatus())
+    addRun('child', new Date().toISOString()); fork('run', 'child', 1)
+    const report = await controls.collectRetention({ dryRun: false })
+    expect(report.runs).toEqual(expect.arrayContaining([expect.objectContaining({ runId: 'run', state: 'busy' })]))
+    expect(fs.existsSync(directory)).toBe(true)
+  })
+  it('restores an interrupted unexpired quarantine when the project controller restarts', async () => {
+    await runtimeJournalQuarantine(db, path.dirname(directory), { runId: 'run', expiredAt: '2026-09-28T00:00:00Z', disposition: 'settled', previousStatus: 'succeeded', summary: {} }).quarantine()
+    expect(fs.existsSync(directory)).toBe(false)
+    const restarted = new AgentRuntimeControls({ project: { id: 'project', path: root }, db } as Pick<ProjectContext, 'project' | 'db'>, { status, execute, kill })
+    try { expect(fs.readFileSync(path.join(directory, 'evidence'), 'utf8')).toBe('original evidence') } finally { restarted.shutdown() }
+  })
+  it('finishes an expired quarantine on restart but leaves one owned by another live claim', async () => {
+    const store = runtimeJournalQuarantine(db, path.dirname(directory), { runId: 'run', expiredAt: '2026-09-28T00:00:00Z', disposition: 'settled', previousStatus: 'succeeded', summary: {} })
+    const { token } = await store.quarantine(); await store.expire(token)
+    const quarantine = path.join(path.dirname(directory), '.retention', token)
+    // A live collector in another process owns the run: no heuristic takes over.
+    db.prepare("INSERT INTO definition_execution_claims(run_id,owner,repository_mounts_json) VALUES ('run','retention:other','[]')").run()
+    new AgentRuntimeControls({ project: { id: 'project', path: root }, db } as Pick<ProjectContext, 'project' | 'db'>, { status, execute, kill }).shutdown()
+    expect(fs.existsSync(quarantine)).toBe(true)
+    db.prepare("DELETE FROM definition_execution_claims WHERE run_id='run'").run()
+    new AgentRuntimeControls({ project: { id: 'project', path: root }, db } as Pick<ProjectContext, 'project' | 'db'>, { status, execute, kill }).shutdown()
+    expect(fs.existsSync(quarantine)).toBe(false); expect(readRuntimeExpiration(db, 'run')).toMatchObject({ quarantineToken: token })
+  })
 })

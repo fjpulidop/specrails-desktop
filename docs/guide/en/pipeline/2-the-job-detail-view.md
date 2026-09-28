@@ -121,3 +121,7 @@ Handy for sharing a run with a teammate, or filing a precise bug report.
 After a crash, resume the saved workflow with its original configuration and repositories. An interrupted write requires selecting the exact attempt after inspecting the worktree diff. Completed steps are reused. A provider call whose response was lost remains counted as interrupted with unknown usage; it is never reported as free. If the original delivery cannot be proven from saved records, recovery shows an error and preserves the worktree.
 
 When a decision step pauses for a question, resuming reuses its saved decision and sends the human answer to the following step. It does not call the model again for that same decision. A paused prompt can need another model turn to act on your answer.
+
+## History retention
+
+Saved executions are kept indefinitely by default. In **Saved executions → History retention**, a project can keep them for 1 to 3650 days instead. Nothing is deleted in the background: save the policy, choose **Preview cleanup** and review each run and its reason before **Delete expired history**. A run stays protected while it is active, waiting for your answer or approval, has an interrupted write, has an open delivery or a fork that still depends on it. Only runtime history under the project's Specrails storage is removed; your repository, worktrees, job log and cost records remain. An expired run shows as **Expired** and can no longer be resumed or forked. Core versions still used by a surviving run are always kept.

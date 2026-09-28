@@ -35,6 +35,9 @@ function RetentionForm({ projectId, onChanged }: { projectId: string; onChanged(
   async function action(kind: 'save' | 'preview' | 'collect') {
     if (pending.current) return
     pending.current = true; setBusy(true); setError('')
+    // A new inspection supersedes the old one: never offer deletion from a
+    // preview that a later preview or collection attempt could not confirm.
+    if (kind !== 'save') setReport(null)
     try {
       const response = await fetch(kind === 'save' ? endpoint : `${endpoint}/collect`, {
         method: kind === 'save' ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },

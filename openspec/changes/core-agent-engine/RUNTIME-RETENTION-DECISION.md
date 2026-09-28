@@ -28,3 +28,48 @@ This document records the required ownership decision before implementation; it
 does not assert that collection is implemented or authorize running it on user
 history during development. The existing retained-package integrity checks remain
 in effect while this work is completed.
+
+## Implementation decisions — 28 September 2026
+
+Implemented in Desktop as a partial delivery of task 10.5 (run/package retention).
+Paired Core7 compatibility and the other D8 tasks remain open.
+
+- **Policy.** Per-project, stored in `runtime_retention_policy` (migration 69);
+  `days: null` (indefinite) by default, otherwise an integer 1..3650. Collection
+  never runs in the background: `POST …/agent-runtime/retention/collect` defaults
+  to a preview (`dryRun: true`), and the UI offers deletion only from the preview
+  of the currently saved policy. A new preview or collection attempt clears the
+  previous report, so a failed inspection never leaves an old deletion offer.
+- **Admission.** Each candidate is reserved with a `retention:` execution claim
+  before Core status is read; resume/fork/settlement conflict while it is held.
+  A parent with a pending or adopted fork child is refused at the claim layer
+  (reported `busy`) until the child itself has expired; children are processed
+  first, so one collection can expire a whole finished lineage. `fork_pending`
+  evidence remains a second guard. Open deliveries (`building`, `on_review`,
+  `pr_draft`, `pr_ready`, `pr_failed`, `implementation_failed`) or any delivery
+  with an in-flight `operation_token` protect a run. A failed run expires only as
+  `discarded` history when every delivery referencing it was discarded/superseded.
+- **Fencing limit.** Host claims fence Desktop admission only. A Core CLI started
+  outside Desktop against the same journal is detected only if it holds a live
+  lease when status is read; there is no cross-process Core fence between that read
+  and the quarantine move. We do not claim stronger protection. Mitigation: the move
+  is a same-directory rename, restore is automatic until expiration commits, and
+  retention is opt-in and explicit.
+- **Quarantine protocol.** Intent is written and fsynced inside
+  `.retention/.staging-<uuid>` and published by directory rename; only then is the
+  journal renamed into `<uuid>/run`. Expiration requires the moved journal to
+  keep its recorded inode identity. Deletion removes the journal first and the
+  intent last; restoration moves the journal back and verifies the original's
+  identity before removing the intent. Recovery handles each boundary (staging
+  debris, empty directory, intent without move, moved journal, partial deletion,
+  interrupted restore), never deletes a directory it cannot attribute and reports
+  per-entry errors without blocking other entries or controller startup. Package
+  collection refuses to run while any quarantine entry remains.
+- **Evidence.** `agent-runtime-retention-quarantine.test.ts` injects every
+  boundary; `agent-runtime-retention-integration.test.ts` covers deliveries,
+  lineage and restart ownership; `agent-runtime-retention-paired.test.ts` runs two
+  real Core executions, expires one while the recent run keeps the shared pinned
+  package, then collects the package after both expire, preserving accounting and
+  Core source. It is part of the required paired CI job on three platforms.
+- **Not done.** No real user history was collected. Visual review of the settings
+  panel has not been performed.

@@ -31,7 +31,7 @@ it.skipIf(!core || !fs.existsSync(path.join(core, 'dist/agent-runtime/cli.js')))
     const directory = path.join(root, '.specrails/pipeline', runId); fs.mkdirSync(directory, { recursive: true })
     const contextPath = path.join(directory, 'desktop-context.json'); contexts.push(contextPath)
     fs.writeFileSync(contextPath, JSON.stringify({ schemaVersion: 1, runId, backlogRoot: root, artifactRoot: root, artifactRepositoryId: 'repo', repositories: [{ id: 'repo', name: 'Repo', path: root }], ownership: { git: 'host', backlog: 'host', worktrees: 'host' }, specs: [{ id: 1, title: 'Inspect', description: 'Read-only fixture' }] }))
-    const result = await runAgentRuntimeInvocation({ contextPath, configPath: config, cwd: root, env: { ...process.env, SPECRAILS_GIT_AUTO: 'false' }, engineVersion: 2,
+    const result = await runAgentRuntimeInvocation({ contextPath, configPath: config, change: `retention-${runId}`, cwd: root, env: { ...process.env, SPECRAILS_GIT_AUTO: 'false' }, engineVersion: 2,
       prepareDefinition: () => ({ schemaVersion: 1, id: 'retention-fixture', title: 'Retention fixture', journal: 'ledger-only', change: 'none', entry: 'done', roles: [], maxTransitions: 1,
         nodes: { done: { kind: 'end', params: { outcome: 'success' }, ends: {} } }, delivery: { requiresVerified: false } }), timeoutMs: 30_000 })
     expect(result).toMatchObject({ failed: false, runtimeStatus: 'succeeded' })

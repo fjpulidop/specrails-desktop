@@ -224,7 +224,12 @@ export class AgentRuntimeControls {
   private disposed = false
   private collectingRetention = false
   constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation; recovery?: typeof invokeRuntimeRecovery; control?: typeof runAgentRuntimeControl } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {
-    recoverHostRuntimeRetention({ db: ctx.db, pipelineRoot: path.join(resolveProjectExecution(ctx.project).specrailsDir, 'pipeline'), active: runId => this.active.has(runId) })
+    // Startup recovery never blocks runtime controls; unrecovered entries stay in
+    // quarantine, where they also block package collection until reviewed.
+    try {
+      const recovered = recoverHostRuntimeRetention({ db: ctx.db, pipelineRoot: path.join(resolveProjectExecution(ctx.project).specrailsDir, 'pipeline'), active: runId => this.active.has(runId) })
+      for (const error of recovered.errors) console.warn('[agent-runtime] retention recovery kept quarantine:', error)
+    } catch (error) { console.warn('[agent-runtime] retention recovery unavailable:', error instanceof Error ? error.message : error) }
   }
 
   retentionPolicy() { return readRuntimeRetentionPolicy(this.ctx.db) }
@@ -247,8 +252,9 @@ export class AgentRuntimeControls {
             inspect: () => this.dependencies.status(context.file, fs.existsSync(context.cwd) ? context.cwd : context.frozen.backlogRoot, context.env) }
         },
       }
-      if (body.dryRun === false) recoverHostRuntimeRetention(host)
-      return await collectRuntimeRetention(runtimeRetentionHostPorts(host, policy, now), policy, { dryRun: body.dryRun !== false, now })
+      const recovery = body.dryRun === false ? recoverHostRuntimeRetention(host).errors : []
+      const report = await collectRuntimeRetention(runtimeRetentionHostPorts(host, policy, now), policy, { dryRun: body.dryRun !== false, now })
+      return recovery.length ? { ...report, errors: [...recovery, ...report.errors] } : report
     } finally { this.collectingRetention = false; this.statusCache.clear() }
   }
 

@@ -108,7 +108,8 @@
       "runtime/agent-runtime-controls-router.ts": [
         "../../../project-router-helpers",
         "./agent-runtime-controls",
-        "./agent-runtime-paths"
+        "./agent-runtime-paths",
+        "./agent-runtime-retention-records"
       ],
       "runtime/agent-runtime-controls.ts": [
         "../../../core-node-runtime",
