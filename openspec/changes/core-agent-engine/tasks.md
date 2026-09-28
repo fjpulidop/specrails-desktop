@@ -108,3 +108,6 @@ work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 - 10.5 stays open until the paired Core 7 release exists: the retention part is
   done, and the engine signal is implemented and tested against a Core that
   advertises `[1, 2]` (real) and `[2]` (fixture).
+- First release prepared, not published: `RELEASE-PLAN.md` lists the expected
+  versions (Core 6.1.0, Desktop 2.58.0), draft notes and the ordered owner-gated
+  publish steps. 1.6 closes only against the published Core package.
