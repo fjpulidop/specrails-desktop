@@ -131,4 +131,15 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).ea
   const count = mode === 'batch' ? 2 : 1
   for (const role of ['architect', 'developer', 'reviewer']) expect(actual.calls.filter(call => call.role === role)).toHaveLength(count)
   expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+  // Compare with the original engine on the same factory. Implement must match
+  // exactly. Batch is an intentional, recorded divergence (D5): the original runs
+  // one combined pipeline for every ticket, the converted graph isolates one
+  // implementation per ticket before global verification. Pin both shapes so a
+  // change in either invocation count is noticed.
+  const original = await execute(mode, true)
+  if (mode === 'implement') expect(actual.calls.map(call => call.role)).toEqual(original.calls.map(call => call.role))
+  else {
+    expect(original.calls.map(call => call.role)).toEqual(['architect', 'developer', 'reviewer'])
+    expect(actual.calls.map(call => call.role).sort()).toEqual(original.calls.flatMap(call => Array(count).fill(call.role)).sort())
+  }
 }, 180_000)
