@@ -459,5 +459,21 @@
     "pending": "Wird umgewandelt…",
     "error": "Umwandlung fehlgeschlagen",
     "coreRequired": "Aktualisiere Core, um diesen Workflow umzuwandeln."
+  },
+  "migration": {
+    "title": "Core-Migrationsprüfung",
+    "description": "Prüft jede gespeicherte Loop gegen den installierten Core. Nichts wird automatisch konvertiert oder veröffentlicht.",
+    "check": "Prüfen",
+    "checking": "Wird geprüft…",
+    "failed": "Die Loops konnten nicht geprüft werden.",
+    "empty": "Keine gespeicherten Loops.",
+    "allCurrent": "Alle Loops laufen bereits mit Core und sind gültig.",
+    "states": {
+      "current": "Aktuell",
+      "invalid": "Vom installierten Core abgelehnt",
+      "convertible": "Bereit zur Konvertierung",
+      "needs_attention": "Braucht Aufmerksamkeit",
+      "running": "Läuft"
+    }
   }
 }

@@ -459,5 +459,21 @@
     "pending": "変換中…",
     "error": "変換に失敗しました",
     "coreRequired": "このワークフローを変換するにはCoreを更新してください。"
+  },
+  "migration": {
+    "title": "Core への移行チェック",
+    "description": "保存済みのすべてのループを、インストール済みの Core で確認します。自動で変換や公開は行いません。",
+    "check": "確認",
+    "checking": "確認中…",
+    "failed": "ループを確認できませんでした。",
+    "empty": "保存済みのループはありません。",
+    "allCurrent": "すべてのループがすでに Core で動作し、有効です。",
+    "states": {
+      "current": "最新",
+      "invalid": "インストール済みの Core が拒否",
+      "convertible": "変換可能",
+      "needs_attention": "要対応",
+      "running": "実行中"
+    }
   }
 }

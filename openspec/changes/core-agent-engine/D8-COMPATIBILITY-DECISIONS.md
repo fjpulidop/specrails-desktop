@@ -183,3 +183,41 @@ nonzero. Core `30e852e0` passes that exact form verbatim with one pair of outer
 quotes (stripped by `/s`); structured argv is unchanged. The paired pin moves to
 that commit (engine branch + C1 + fix) and the paired job timeout rises from 20
 to 40 minutes because Windows runs every real-Core suite serially (~20 minutes).
+
+## Human pauses, saved-graph shapes and native operations — 28 September
+
+- **Human pauses.** The legacy harness now answers through `sendInteractiveTurn`,
+  the same path the UI uses. Two paired cases match both engines: a blocked work
+  step pauses and repeats with the answer, and a blocked decision resumes on the
+  continue branch without re-deciding, keeping the failed-pass obligation. In both
+  engines the answer reaches the next work invocation.
+- **Saved-graph shapes.** A single-successor condition is a pass-through; a
+  two-phase pass re-enters at its first phase after continue; an iteration cap of
+  one accepts a successful first stop. A branching condition, which the legacy
+  runtime refuses at run time, is refused by the converter instead of choosing a
+  branch.
+- **Native Implement/Batch.** The converted Implement factory now matches the
+  original engine's role sequence exactly. Batch is an intentional divergence
+  recorded here: the original engine runs one combined architect/developer/reviewer
+  pipeline for all tickets, while the converted graph (D5) isolates one
+  implementation per ticket before global verification. With two tickets that is
+  twice the expensive invocations. The test pins both shapes. Choosing between
+  isolation and the lower combined cost remains an owner decision; nothing was
+  changed silently.
+- Paired compatibility now has 18 cases across both engines. Remaining for 10.2:
+  user-saved graphs from real projects (none are available in this environment)
+  and the Batch cost decision above.
+
+## Migration assessment (task 10.3) — 28 September
+
+`GET /api/loops/migration` and the loop library's migration check classify every
+saved loop against the installed Core (catalog 5+): `current`, `invalid` (a Core
+definition, possibly published, that the installed Core rejects), `convertible`,
+`needs_attention` (conversion issues such as a missing repository binding) or
+`running` (not validated). The check is read-only by design. It never converts,
+publishes, unpublishes or writes backups, so a Core upgrade that rejects a
+published definition is surfaced for review instead of silently withdrawing it.
+Conversion stays the explicit per-loop step with its atomic backup and returns
+the loop to Draft. Bulk automatic migration is deliberately not provided; after
+conversion a person reviews and publishes explicitly. Task 10.3 stays open until
+this is validated against real saved user loops.

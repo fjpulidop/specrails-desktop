@@ -459,5 +459,21 @@
     "pending": "正在转换…",
     "error": "转换失败",
     "coreRequired": "请更新Core以转换此工作流。"
+  },
+  "migration": {
+    "title": "Core 迁移检查",
+    "description": "根据已安装的 Core 检查每个已保存的循环。不会自动转换或发布任何内容。",
+    "check": "检查",
+    "checking": "正在检查…",
+    "failed": "无法检查循环。",
+    "empty": "没有已保存的循环。",
+    "allCurrent": "所有循环都已在 Core 上运行并通过验证。",
+    "states": {
+      "current": "最新",
+      "invalid": "已安装的 Core 拒绝",
+      "convertible": "可以转换",
+      "needs_attention": "需要处理",
+      "running": "运行中"
+    }
   }
 }

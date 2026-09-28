@@ -149,3 +149,21 @@ use pinned pieces with exact archived-target support. Arbitrary shell commands
 retain their selected repository and are not rewritten by substring matching.
 All converted writers require host verification. The policy stops after two
 consecutive failed AI attempts; successful AI attempts reset that counter.
+
+## Migration assessment
+
+`GET /api/loops/migration` ([loop-migration.ts](runtime/loop-migration.ts)) reports
+every saved loop against the installed Core (catalog 5 or later, else 409):
+
+- `current`: a Core definition that still validates;
+- `invalid`: a Core definition, possibly published, that the installed Core no
+  longer accepts. It stays published until someone fixes it;
+- `convertible`: a legacy loop that converts and validates, so it can be converted
+  explicitly with `POST /loops/:id/convert`;
+- `needs_attention`: a legacy loop with conversion issues, for example a missing
+  repository binding (the migration never infers one);
+- `running`: an executing loop, which is not validated.
+
+The assessment is read-only. It never converts, publishes, unpublishes or writes
+backups; conversion keeps its atomic original-graph backup and returns the loop
+to Draft for review.

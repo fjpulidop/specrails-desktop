@@ -10,6 +10,7 @@ import { convertLegacyLoop, LEGACY_DECIDER_ROLE } from './loop-compat'
 import { compileLoopToDefinition } from './loop-definition'
 import { initDb } from '../../../db'
 import { LoopRunManager } from './loop-run-manager'
+import { getLoopRun } from './loop-runs-store'
 import { FACTORY_LOOPS } from './loop-factory'
 import { LEGACY_LOOP_TEMPLATES } from './loop-templates'
 import { opsxLifecycleGraph } from './loop-templates'
@@ -71,7 +72,7 @@ async function execute(source: LoopGraph, plan: Response[], answer?: string, ver
   expect(calls.filter(call => call.role === LEGACY_DECIDER_ROLE).every(call => call.model === 'decision-model')).toBe(true)
   return { result, calls }
 }
-async function executeLegacy(source: LoopGraph, plan: Response[]) {
+async function executeLegacy(source: LoopGraph, plan: Response[], answer?: string) {
   const db = initDb(':memory:'), roles: string[] = []
   const next = (role: string) => {
     const item = plan[roles.length]
@@ -85,7 +86,11 @@ async function executeLegacy(source: LoopGraph, plan: Response[]) {
       if (item.error || !item.text) return { text: '', failed: true, resultIsError: !!item.error, tokens: 0 }
       return { text: item.text, tokens: 5, tokensIn: 3, tokensOut: 2 }
     },
-    runDecider: async () => { const item = next(LEGACY_DECIDER_ROLE), value = JSON.parse(item.text); return { continue: value.verdict === 'continue', reasoning: value.reason, parsed: true, tokens: 5 } },
+    runDecider: async () => {
+      const item = next(LEGACY_DECIDER_ROLE), blocked = /^LOOP_BLOCKED:\s*(.+)$/.exec(item.text)
+      if (blocked) return { continue: false, blocked: true, reasoning: blocked[1], parsed: true, tokens: 5 }
+      const value = JSON.parse(item.text); return { continue: value.verdict === 'continue', reasoning: value.reason, parsed: true, tokens: 5 }
+    },
     runShell: async ({ command, cwd }) => {
       const child = spawnSync(command, { cwd, shell: true, encoding: 'utf8' })
       return { stdout: child.stdout ?? '', stderr: child.stderr ?? '', exitCode: child.status ?? 1, durationMs: 1 }
@@ -94,7 +99,13 @@ async function executeLegacy(source: LoopGraph, plan: Response[]) {
   // Shell side effects (visit counters) must not leak into the Core run's repository.
   const cwd = path.join(root, 'legacy'); mkdirSync(cwd, { recursive: true })
   try {
-    const result = await manager.run({ loopId: 'baseline', graph: source, projectId: 'fixture', cwd, provider: 'claude', model: 'fixture' })
+    const running = manager.run({ loopId: 'baseline', runId: 'legacy-baseline', graph: source, projectId: 'fixture', cwd, provider: 'claude', model: 'fixture' })
+    if (answer) {
+      // A human answers the single pause through the same interactive-turn path the UI uses.
+      await vi.waitFor(() => expect(getLoopRun(db, 'legacy-baseline')?.status).toBe('paused'), { timeout: 10_000 })
+      expect(manager.sendInteractiveTurn('legacy-baseline', answer)).toBe(true)
+    }
+    const result = await running
     expect(roles).toEqual(plan.map(item => item.role))
     return result
   } finally { db.close() }
@@ -254,3 +265,49 @@ paired.each([
   const { result } = await execute(graph(), plan)
   expect(result, JSON.stringify(result)).toMatchObject({ runtimeStatus: status, failed: status !== 'succeeded' })
 }, 90_000)
+
+paired.each([
+  { name: 'a blocked work step pauses, then repeats with the answer', graph: () => legacy(),
+    plan: [prompt('LOOP_BLOCKED: Which scope?'), prompt('VERIFICATION: PASS'), decision()], legacy: 'success', core: 'succeeded' },
+  { name: 'a blocked decision continues without re-deciding and keeps the failed pass', graph: () => legacy(),
+    plan: [prompt('VERIFICATION: FAIL'), decision('LOOP_BLOCKED: Which scope?'), prompt('VERIFICATION: PASS'), decision(), prompt('VERIFICATION: PASS'), decision()], legacy: 'success', core: 'succeeded' },
+])('matches legacy human pauses: $name', async ({ graph, plan, legacy: expected, core: status }) => {
+  expect((await executeLegacy(graph(), plan, 'Billing only')).outcome).toBe(expected)
+  const { result, calls } = await execute(graph(), plan, 'Billing only')
+  expect(result, JSON.stringify(result)).toMatchObject({ runtimeStatus: status, failed: status !== 'succeeded' })
+  // The answer reaches the next work invocation in both engines.
+  expect(calls.find((call, index) => index > 0 && call.role === 'prompt')?.prompt).toContain('Billing only')
+}, 120_000)
+
+function withCondition(): LoopGraph {
+  const graph = legacy()
+  graph.nodes.splice(2, 0, { id: 'gate', type: 'condition', position: { x: 0, y: 2 }, data: {} })
+  graph.edges[1].target = 'gate'
+  graph.edges.push({ id: 'through', source: 'gate', target: 'decide' })
+  return graph
+}
+function twoPhase(): LoopGraph {
+  const graph = legacy()
+  graph.nodes.splice(1, 0, { id: 'prepare', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'Prepare the change' } })
+  graph.edges[0].target = 'prepare'
+  graph.edges.push({ id: 'prepared', source: 'prepare', target: 'work' })
+  // The decider's continue branch returns to preparation, not only to the verified phase.
+  graph.edges.find(edge => edge.id === 'again')!.target = 'prepare'
+  return graph
+}
+paired.each([
+  { name: 'a single-successor condition is a pass-through', graph: withCondition, plan: [prompt('VERIFICATION: PASS'), decision()], legacy: 'success', core: 'succeeded' },
+  { name: 'a two-phase pass re-enters at the first phase after continue', graph: twoPhase,
+    plan: [prompt('Prepared'), prompt('VERIFICATION: PASS'), cont(), prompt('Prepared again'), prompt('VERIFICATION: PASS'), decision()], legacy: 'success', core: 'succeeded' },
+  { name: 'an iteration cap of one accepts a successful first stop', graph: () => legacy(1), plan: [prompt('VERIFICATION: PASS'), decision()], legacy: 'success', core: 'succeeded' },
+])('matches legacy saved graphs: $name', async ({ graph, plan, legacy: expected, core: status }) => {
+  expect((await executeLegacy(graph(), plan)).outcome).toBe(expected)
+  const { result } = await execute(graph(), plan)
+  expect(result, JSON.stringify(result)).toMatchObject({ runtimeStatus: status, failed: status !== 'succeeded' })
+}, 90_000)
+
+it('refuses to convert a branching condition the legacy runtime cannot execute', () => {
+  const graph = withCondition()
+  graph.edges.push({ id: 'other', source: 'gate', target: 'done' })
+  expect(convertLegacyLoop(graph, { repositoryId: 'repo' })).toMatchObject({ ok: false })
+})

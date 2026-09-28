@@ -459,5 +459,21 @@
     "pending": "Conversion…",
     "error": "Échec de la conversion",
     "coreRequired": "Mettez Core à jour pour convertir ce workflow."
+  },
+  "migration": {
+    "title": "Vérification de la migration vers Core",
+    "description": "Vérifie chaque loop enregistrée avec le Core installé. Rien n’est converti ni publié automatiquement.",
+    "check": "Vérifier",
+    "checking": "Vérification…",
+    "failed": "Impossible de vérifier les loops.",
+    "empty": "Aucune loop enregistrée.",
+    "allCurrent": "Toutes les loops utilisent déjà Core et sont valides.",
+    "states": {
+      "current": "À jour",
+      "invalid": "Refusée par le Core installé",
+      "convertible": "Prête à convertir",
+      "needs_attention": "À examiner",
+      "running": "En cours"
+    }
   }
 }

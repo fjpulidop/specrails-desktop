@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 979 source/build files. Nearby tests are linked where names
+Includes 981 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -377,6 +377,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [CoreParameterForm.tsx](../../client/src/features/loops/components/CoreParameterForm.tsx) · [test](../../client/src/features/loops/components/__tests__/CoreParameterForm.test.tsx)
 - [CoreWorkflowInspector.tsx](../../client/src/features/loops/components/CoreWorkflowInspector.tsx) · [test](../../client/src/features/loops/components/__tests__/CoreWorkflowInspector.test.tsx)
 - [LegacyConversionModal.tsx](../../client/src/features/loops/components/LegacyConversionModal.tsx) · [test](../../client/src/features/loops/components/__tests__/LegacyConversionModal.test.tsx)
+- [LoopMigrationPanel.tsx](../../client/src/features/loops/components/LoopMigrationPanel.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopMigrationPanel.test.tsx)
 - [LoopPreviewModal.tsx](../../client/src/features/loops/components/LoopPreviewModal.tsx)
 - [LoopRunModal.tsx](../../client/src/features/loops/components/LoopRunModal.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopRunModal.test.tsx)
 - [TemplatePreviewModal.tsx](../../client/src/features/loops/components/TemplatePreviewModal.tsx) · [test](../../client/src/features/loops/components/__tests__/TemplatePreviewModal.test.tsx)
@@ -1253,6 +1254,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-executors.ts](../../server/modules/loops/runtime/loop-executors.ts) · [test](../../server/modules/loops/runtime/loop-executors.test.ts)
 - [loop-factory.ts](../../server/modules/loops/runtime/loop-factory.ts) · [test](../../server/modules/loops/runtime/loop-factory.test.ts)
 - [loop-graph.ts](../../server/modules/loops/runtime/loop-graph.ts) · [test](../../server/modules/loops/runtime/loop-graph.test.ts)
+- [loop-migration.ts](../../server/modules/loops/runtime/loop-migration.ts)
 - [loop-preview.ts](../../server/modules/loops/runtime/loop-preview.ts) · [test](../../server/modules/loops/runtime/loop-preview.test.ts)
 - [loop-role-engines.ts](../../server/modules/loops/runtime/loop-role-engines.ts) · [test](../../server/modules/loops/runtime/loop-role-engines.test.ts)
 - [loop-run-manager.ts](../../server/modules/loops/runtime/loop-run-manager.ts) · [test](../../server/modules/loops/runtime/loop-run-manager.test.ts)

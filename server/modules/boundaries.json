@@ -1455,6 +1455,11 @@
         "./loop-templates"
       ],
       "runtime/loop-graph.ts": [],
+      "runtime/loop-migration.ts": [
+        "./loop-compat",
+        "./loop-graph",
+        "./loops-store"
+      ],
       "runtime/loop-preview.ts": [
         "./loop-command-catalog",
         "./loop-constants",
@@ -1537,6 +1542,7 @@
         "./loop-definition",
         "./loop-factory",
         "./loop-graph",
+        "./loop-migration",
         "./loop-preview",
         "./loop-templates",
         "./loops-store",
