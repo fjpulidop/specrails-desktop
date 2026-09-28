@@ -127,7 +127,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: fjpulidop/specrails-core
-          ref: 30e852e0b3f84397d32bbd0cdd4087ef771ce51e
+          ref: 82119076d9aae4664d26cd4e2be457eed72e606a
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
@@ -155,6 +155,7 @@ jobs:
           server/modules/delivery/runtime/definition-fork-paired.test.ts
           server/modules/agent-runtime/runtime/agent-runtime-retention-paired.test.ts
           server/modules/agent-runtime/runtime/agent-runtime-steering-paired.test.ts
+          server/modules/loops/runtime/loop-legacy-engine-paired.test.ts
       - name: Retain paired acceptance results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

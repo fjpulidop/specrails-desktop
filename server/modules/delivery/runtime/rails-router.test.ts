@@ -715,6 +715,17 @@ describe('rails-router loop mode', () => {
     expect(railLoopRuns.size).toBe(1)
   })
 
+  it('refuses a legacy loop with 409 before allocating runs when the active Core lacks engine 1', async () => {
+    const loopId = publishedLoop()
+    const run = vi.fn()
+    const assertEngineSupport = vi.fn(async () => { throw new Error('legacy_engine_unavailable: Convert this loop to Core first.') })
+    const app = appWith(db, { desktopDb, loopRunManager: { run, cancel: vi.fn(), assertEngineSupport }, getTicketSpec: () => ({ title: 'T', description: 'D' }) })
+    const res = await request(app).post('/rails/0/launch').send({ mode: 'loop', loopId })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'legacy_engine_unavailable', loopId, detail: 'Convert this loop to Core first.' })
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('rejects launching an unpublished loop (400)', async () => {
     createLoop(desktopDb, { id: 'draft-1', name: 'Draft', graph: publishableGraph() }) // not published
     const app = appWith(db, { desktopDb, loopRunManager: { run: vi.fn(), cancel: vi.fn() } })

@@ -99,3 +99,12 @@ work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
 - [ ] 10.4 Prepare reviewed deltas for existing loop specs, then remove obsolete traversal/profile paths and tests exclusive to proven-unused code.
 - [ ] 10.5 Implement retained-package/run retention and paired Core7 compatibility.
 - [ ] 10.6 Run full CI, source and architecture audits; update Core/Desktop/Web documentation and companion contract.
+
+## Core 7 engine signal and Batch decision — 28 September 2026
+
+- Owner decisions: converted Batch keeps per-ticket isolation (recorded in
+  `D8-COMPATIBILITY-DECISIONS.md`); the `engines` proposal is approved and
+  implemented (`CORE7-COMPATIBILITY-PROPOSAL.md`, Implementation section).
+- 10.5 stays open until the paired Core 7 release exists: the retention part is
+  done, and the engine signal is implemented and tested against a Core that
+  advertises `[1, 2]` (real) and `[2]` (fixture).

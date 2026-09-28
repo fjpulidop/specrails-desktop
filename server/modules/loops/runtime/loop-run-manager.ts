@@ -218,6 +218,8 @@ export interface InteractiveAiStepPlan {
 
 export interface LoopExecutors {
   assertDefinitionSupport?(): Promise<void>
+  /** Rejects a legacy traversal when the active Core has no engine 1 (Core 7). */
+  assertLegacyEngineSupport?(): Promise<void>
   runDefinition?(input: DefinitionLoopInvocation): Promise<DefinitionRuntimeResult>
   cancelDefinition?(input: { runId: string; contextPath: string; requestId: string }): Promise<void>
   readCoreCompletion?(runId: string): Promise<CoreCompletionSnapshot | null>
@@ -936,6 +938,14 @@ export class LoopRunManager {
 
   private readonly _definitionCancellations = new Map<string, Promise<void>>()
   isDefinitionCancellationPending(runId: string): boolean { return this._definitionCancellations.has(runId) }
+
+  /** Launch-time engine check, callable before a caller allocates worktrees. */
+  async assertEngineSupport(graph: LoopRunRequest['graph']): Promise<void> {
+    if (isDefinitionGraph(graph)) {
+      if (!this.executors.runDefinition) throw new Error('engine_unsupported: Core workflow execution is unavailable')
+      await this.executors.assertDefinitionSupport?.()
+    } else await this.executors.assertLegacyEngineSupport?.()
+  }
   private definitionForkOwnsRun(runId: string): boolean {
     return !!readDefinitionForkTarget(this.db, runId) || readDefinitionExecutionClaim(this.db, runId)?.owner.startsWith('fork:') === true
   }
@@ -1183,10 +1193,9 @@ export class LoopRunManager {
       }
     }
     const definitionEngine = isDefinitionGraph(req.graph)
-    if (definitionEngine) {
-      if (!this.executors.runDefinition) throw new Error('engine_unsupported: Core workflow execution is unavailable')
-      if (!continuation) await this.executors.assertDefinitionSupport?.()
-    }
+    if (definitionEngine && !this.executors.runDefinition) throw new Error('engine_unsupported: Core workflow execution is unavailable')
+    // Saved runs resume with their retained package whatever the active Core lists.
+    if (!continuation) await this.assertEngineSupport(req.graph)
     if (this._disposed) throw new Error('LoopRunManager is shut down')
     const adapter = getAdapter(req.provider)
     // A Decider is a structured, read-only judgment over repository state.

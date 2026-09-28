@@ -167,3 +167,13 @@ every saved loop against the installed Core (catalog 5 or later, else 409):
 The assessment is read-only. It never converts, publishes, unpublishes or writes
 backups; conversion keeps its atomic original-graph backup and returns the loop
 to Draft for review.
+
+## Engine availability
+
+Core advertises the engines it can launch in `runtime api` (`engines`; Cores that
+predate the field are read as `[1, 2]` with `engineV2`, else `[1]`). A Core
+without engine 1 runs only definitions, so `LoopRunManager.assertEngineSupport`
+refuses a fresh legacy traversal with `legacy_engine_unavailable` before anything
+is persisted. The rails launch route answers 409 before allocating worktrees.
+Resumes keep their retained package and are never re-checked. A missing Core does
+not block legacy traversal.

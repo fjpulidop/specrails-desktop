@@ -7,7 +7,7 @@
  * fake executors in `loop-run-manager.test.ts`.
  */
 import { compileLoopToDefinition } from './loop-definition'
-import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
+import { loadCoreAgentRuntime, supportedEngines } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { readCoreCompletion } from '../../../core-completion'
 import { checkCoreCompletion, prepareCoreExecution } from '../../../core-execution'
 import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, readFrozenRuntimeHost } from '../../agent-runtime/runtime/agent-runtime-bridge'
@@ -214,6 +214,12 @@ export function createLoopExecutors(
     async assertDefinitionSupport() {
       const runtime = await loadCoreAgentRuntime()
       if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1) throw new Error('engine_unsupported: Update Core to run workflow definitions')
+    },
+    async assertLegacyEngineSupport() {
+      // Legacy traversal predates Core: only a Core that positively lacks engine 1 blocks it.
+      let runtime: Awaited<ReturnType<typeof loadCoreAgentRuntime>>
+      try { runtime = await loadCoreAgentRuntime() } catch { return }
+      if (!supportedEngines(runtime.api).includes(1)) throw new Error('legacy_engine_unavailable: The installed Core runs only workflow definitions. Convert this loop to Core first.')
     },
     async runDefinition(input) {
       const { request, runId } = input

@@ -201,12 +201,14 @@ to 40 minutes because Windows runs every real-Core suite serially (~20 minutes).
   recorded here: the original engine runs one combined architect/developer/reviewer
   pipeline for all tickets, while the converted graph (D5) isolates one
   implementation per ticket before global verification. With two tickets that is
-  twice the expensive invocations. The test pins both shapes. Choosing between
-  isolation and the lower combined cost remains an owner decision; nothing was
-  changed silently.
+  twice the expensive invocations. The test pins both shapes.
+  **Owner decision (28 September 2026): keep per-ticket isolation.** A failure
+  or repair in one ticket cannot contaminate another ticket's change, and each
+  ticket keeps its own OpenSpec change and evidence. The extra cost is accepted
+  and is visible per invocation in accounting; there is no combined mode for
+  converted Batch.
 - Paired compatibility now has 18 cases across both engines. Remaining for 10.2:
-  user-saved graphs from real projects (none are available in this environment)
-  and the Batch cost decision above.
+  user-saved graphs from real projects (none are available in this environment).
 
 ## Migration assessment (task 10.3) — 28 September
 

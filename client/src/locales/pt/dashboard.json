@@ -5,6 +5,7 @@
     "railLimitReached": "Limite de rails atingido ({{max}} máx.)",
     "railDeleteFailed": "Não foi possível remover o rail — ele contém specs, está em execução ou tem uma decisão de PR pendente",
     "launchTicketsInFlight": "Uma spec deste rail já está sendo trabalhada por uma execução ativa",
+    "launchLegacyEngineUnavailable": "Este loop usa o motor antigo, que o Core instalado não executa mais. Abra-o em Loops e escolha Converter para Core.",
     "launchTicketCap": "Este trilho tem {{count}} specs — um lançamento aceita no máximo {{max}} por trilho. Distribua-as entre trilhos.",
     "launchAllSummary_one": "{{count}} rail lançado em paralelo",
     "launchAllSummary_other": "{{count}} rails lançados em paralelo",

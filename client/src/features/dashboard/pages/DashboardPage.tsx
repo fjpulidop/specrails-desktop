@@ -1347,6 +1347,11 @@ export default function DashboardPage() {
           if (!silent) toast.info(t('toasts.launchTicketsInFlight'))
           return 'skipped'
         }
+        // The active Core runs only definitions (Core 7): the loop must be converted.
+        if (res.status === 409 && data.error === 'legacy_engine_unavailable') {
+          if (!silent) toast.error(t('toasts.launchLegacyEngineUnavailable'), { duration: 10000 })
+          return 'failed'
+        }
         // Per-rail spec cap: the rail carries more specs than a single launch
         // may take — the user must split them across rails (max 3 per rail).
         if (res.status === 400 && data.error === 'rail_ticket_cap_exceeded') {
