@@ -459,5 +459,21 @@
     "pending": "Converting…",
     "error": "Conversion failed",
     "coreRequired": "Update Core to convert this workflow."
+  },
+  "migration": {
+    "title": "Core migration check",
+    "description": "Checks every saved loop against the installed Core. Nothing is converted or published automatically.",
+    "check": "Check",
+    "checking": "Checking…",
+    "failed": "Could not check the loops.",
+    "empty": "No saved loops.",
+    "allCurrent": "Every loop already runs on Core and validates.",
+    "states": {
+      "current": "Up to date",
+      "invalid": "Rejected by the installed Core",
+      "convertible": "Ready to convert",
+      "needs_attention": "Needs attention",
+      "running": "Running"
+    }
   }
 }

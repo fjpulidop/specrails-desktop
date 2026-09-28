@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LoopMigrationPanel } from '../components/LoopMigrationPanel'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Workflow, Plus, Pencil, Trash2, Copy, Upload, Download, Sparkles, Eye, Play, FileDown, FileUp } from 'lucide-react'
@@ -358,6 +359,8 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
                 <p className="text-xs text-muted-foreground mt-1">{t('empty.body')}</p>
               </div>
             )}
+
+            {loops.length > 0 && <LoopMigrationPanel onConvert={id => { const loop = loops.find(item => item.id === id); if (loop) setConversionLoop(loop) }} />}
 
             {published.length > 0 && (
               <Section title={t('sections.published')}>

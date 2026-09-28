@@ -27,6 +27,7 @@ import {
 import { isDefinitionGraph, type LoopGraph } from './loop-graph'
 import { compileLoopToDefinition } from './loop-definition'
 import { convertLegacyLoop } from './loop-compat'
+import { assessLoopMigration } from './loop-migration'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { loopTemplatesForCapabilities, getLoopTemplate } from './loop-templates'
 import { factoryLoopsForCapabilities, getFactoryLoop } from './loop-factory'
@@ -207,6 +208,30 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       return
     }
     res.json(importLoops(db, body.loops, newId))
+  })
+
+  // Read-only migration assessment; registered before `/loops/:id`. It never
+  // converts or (un)publishes: conversion stays an explicit, reviewable step.
+  router.get('/loops/migration', async (_req: Request, res: Response) => {
+    if (!guard(res)) return
+    try {
+      const runtime = await loadCoreAgentRuntime()
+      const catalog = runtime.listWorkflows?.()
+      if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1 || !catalog || catalog.nodeKindsVersion < 5) {
+        res.status(409).json({ error: 'engine_unsupported', message: 'Migration assessment requires Core catalog version 5 or later.' }); return
+      }
+      const constants = loadConstantMap(db)
+      res.json(assessLoopMigration(listLoops(db), {
+        isRunning,
+        validate: (loop, graph) => {
+          const definition = compileLoopToDefinition(graph, { id: loop.id, title: loop.name, constants, provider: 'claude', spec: { id: 1, title: 'Sample spec', description: 'Migration assessment' } })
+          const validation = runtime.validateWorkflowDefinition(definition, { structural: true })
+          return validation.ok ? { ok: true } : { ok: false, errors: validation.errors.map(error => ({ ...error, nodeId: error.nodeId ?? error.path?.match(/^\/nodes\/([^/]+)/)?.[1] })) }
+        },
+      }))
+    } catch (error) {
+      res.status(503).json({ error: 'runtime_validation_unavailable', message: error instanceof Error ? error.message : 'Core validation unavailable' })
+    }
   })
 
   router.get('/loops/:id/legacy-graph', (req: Request, res: Response) => {

@@ -207,3 +207,17 @@ to 40 minutes because Windows runs every real-Core suite serially (~20 minutes).
 - Paired compatibility now has 18 cases across both engines. Remaining for 10.2:
   user-saved graphs from real projects (none are available in this environment)
   and the Batch cost decision above.
+
+## Migration assessment (task 10.3) — 28 September
+
+`GET /api/loops/migration` and the loop library's migration check classify every
+saved loop against the installed Core (catalog 5+): `current`, `invalid` (a Core
+definition, possibly published, that the installed Core rejects), `convertible`,
+`needs_attention` (conversion issues such as a missing repository binding) or
+`running` (not validated). The check is read-only by design. It never converts,
+publishes, unpublishes or writes backups, so a Core upgrade that rejects a
+published definition is surfaced for review instead of silently withdrawing it.
+Conversion stays the explicit per-loop step with its atomic backup and returns
+the loop to Draft. Bulk automatic migration is deliberately not provided; after
+conversion a person reviews and publishes explicitly. Task 10.3 stays open until
+this is validated against real saved user loops.

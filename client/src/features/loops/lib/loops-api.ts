@@ -161,7 +161,15 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
   return parse<T>(res)
 }
 
+export type LoopMigrationState = 'current' | 'invalid' | 'convertible' | 'needs_attention' | 'running'
+export interface LoopMigrationEntry {
+  id: string; name: string; status: 'draft' | 'published'; engine: 'legacy' | 'core'; hasLegacyGraph: boolean
+  state: LoopMigrationState; issues: Array<{ code: string; message: string; nodeId?: string }>
+}
+export interface LoopMigrationReport { loops: LoopMigrationEntry[]; summary: Record<LoopMigrationState, number> }
+
 export const loopsApi = {
+  async migration(): Promise<LoopMigrationReport> { return send('GET', '/loops/migration') },
   async catalog(): Promise<WorkflowCatalog> { return send('GET', '/loops/catalog') },
   async list(): Promise<LoopDefinition[]> {
     return (await send<{ loops: LoopDefinition[] }>('GET', '/loops')).loops

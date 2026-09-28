@@ -180,3 +180,52 @@ describe('atomic legacy conversion', () => {
     expect(readLegacyLoopGraph(db, source.id)).toBeUndefined()
   })
 })
+
+describe('migration assessment', () => {
+  const legacyGraph = (extra: Partial<LoopGraph['nodes'][number]> = {}): LoopGraph => ({
+    nodes: [
+      { id: 'start', type: 'start', position: { x: 0, y: 0 } },
+      { id: 'work', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: 'Do the work' }, ...extra },
+      { id: 'done', type: 'end', position: { x: 0, y: 2 } },
+    ],
+    edges: [{ id: 'a', source: 'start', target: 'work' }, { id: 'b', source: 'work', target: 'done' }],
+    config: { maxIterations: 1, timeoutMinutes: 0 },
+  })
+  const create = async (name: string, value: LoopGraph) => (await api().post('/api/loops').send({ name, graph: value })).body.loop.id as string
+
+  it('classifies every loop without converting, publishing or withdrawing any of them', async () => {
+    runtime.listWorkflows.mockReturnValue({ nodeKindsVersion: 5 })
+    const current = await draft()
+    const stale = await draft()
+    runtime.validateWorkflowDefinition.mockReturnValue({ ok: true })
+    expect((await api().post(`/api/loops/${stale}/publish`)).status).toBe(200)
+    const convertible = await create('Legacy', legacyGraph())
+    const broken = await create('Broken', { ...legacyGraph(), edges: [{ id: 'a', source: 'start', target: 'work' }] })
+    const before = [current, stale, convertible, broken].map(id => getLoop(db, id))
+    // The installed Core no longer accepts the published definition.
+    runtime.validateWorkflowDefinition.mockImplementation((definition: { id: string }) => definition.id === stale
+      ? { ok: false, errors: [{ code: 'unknown_kind', message: 'Unknown piece', path: '/nodes/finish/kind' }] } : { ok: true })
+    const response = await api().get('/api/loops/migration')
+    expect(response.status).toBe(200)
+    const byId = Object.fromEntries(response.body.loops.map((entry: { id: string }) => [entry.id, entry]))
+    expect(byId[current]).toMatchObject({ engine: 'core', state: 'current', status: 'draft', issues: [] })
+    expect(byId[stale]).toMatchObject({ engine: 'core', state: 'invalid', status: 'published', issues: [{ code: 'unknown_kind', nodeId: 'finish' }] })
+    expect(byId[convertible]).toMatchObject({ engine: 'legacy', state: 'convertible', hasLegacyGraph: false })
+    expect(byId[broken]).toMatchObject({ engine: 'legacy', state: 'needs_attention' })
+    expect(byId[broken].issues.length).toBeGreaterThan(0)
+    expect(response.body.summary).toEqual({ current: 1, invalid: 1, convertible: 1, needs_attention: 1, running: 0 })
+    expect([current, stale, convertible, broken].map(id => getLoop(db, id))).toEqual(before)
+    expect(readLegacyLoopGraph(db, convertible)).toBeUndefined()
+  })
+
+  it('reports running loops without validating them and refuses an older Core', async () => {
+    runtime.listWorkflows.mockReturnValue({ nodeKindsVersion: 5 })
+    const id = await create('Legacy', legacyGraph())
+    runtime.validateWorkflowDefinition.mockReturnValue({ ok: true })
+    const running = await api(() => true).get('/api/loops/migration')
+    expect(running.body.loops).toEqual([expect.objectContaining({ id, state: 'running' })])
+    expect(runtime.validateWorkflowDefinition).not.toHaveBeenCalled()
+    runtime.listWorkflows.mockReturnValue({ nodeKindsVersion: 4 })
+    expect((await api().get('/api/loops/migration')).status).toBe(409)
+  })
+})
