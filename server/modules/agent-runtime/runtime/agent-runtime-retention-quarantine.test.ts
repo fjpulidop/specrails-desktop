@@ -85,7 +85,8 @@ describe('crash boundaries', () => {
   })
   it('never cleans up an intent once the original was replaced by another directory', async () => {
     const store = runtimeJournalQuarantine(db, pipeline, record), { token } = await store.quarantine()
-    fs.rmSync(path.join(quarantineRoot(), token, 'run'), { recursive: true })
+    // Keep the moved journal alive elsewhere so the replacement cannot reuse its inode.
+    fs.renameSync(path.join(quarantineRoot(), token, 'run'), path.join(root, 'moved-away'))
     fs.mkdirSync(original); fs.writeFileSync(path.join(original, 'replacement'), 'new owner')
     expect(recoverAll().errors).toEqual([expect.stringContaining('identity changed')])
     expect(fs.existsSync(path.join(quarantineRoot(), token, 'intent.json'))).toBe(true)

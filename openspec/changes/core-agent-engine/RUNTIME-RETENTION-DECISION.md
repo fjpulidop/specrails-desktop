@@ -71,5 +71,10 @@ Paired Core7 compatibility and the other D8 tasks remain open.
   real Core executions, expires one while the recent run keeps the shared pinned
   package, then collects the package after both expire, preserving accounting and
   Core source. It is part of the required paired CI job on three platforms.
+- **Identity limit.** Journal identity is `dev`+`ino`. A filesystem may reuse an
+  inode after the original was deleted, so identity detects replacement of a live
+  journal but cannot prove that a deleted journal was not recreated with the same
+  number. Recovery still never deletes the original location's data; the only
+  consequence is removing an intent file.
 - **Not done.** No real user history was collected. Visual review of the settings
   panel has not been performed.
