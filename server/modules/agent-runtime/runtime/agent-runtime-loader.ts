@@ -190,13 +190,6 @@ export async function loadCoreAgentRuntime(): Promise<CoreAgentRuntimeModule> {
   }
 }
 
-/** Engines the active Core can launch. Cores released before the `engines`
- * field still run the legacy engine, plus definitions when they advertise engine v2. */
-export function supportedEngines(api: RuntimeApi | undefined): number[] {
-  if (api?.engines) return [...api.engines]
-  return api?.capabilities?.engineV2 === 1 ? [1, 2] : [1]
-}
-
 export function requireRuntimeCapabilities(api: RuntimeApi, input: unknown): void {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return
   const config = input as { efficiency?: unknown; agents?: Record<string, { effort?: unknown; escalation?: unknown }>; verification?: Array<{ policy?: unknown; key?: unknown; label?: unknown }> }

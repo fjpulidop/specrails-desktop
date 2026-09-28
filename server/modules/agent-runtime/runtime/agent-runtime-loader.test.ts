@@ -5,7 +5,8 @@ import { dirname, join } from 'node:path'
 const scope = vi.hoisted(() => ({ bundled: null as string | null, source: 'bundled', error: null as string | null }))
 vi.mock('../../../core-runtime', () => ({ getCoreRuntimeStatus: () => ({ runtime: scope.bundled ? { root: scope.bundled, source: scope.source } : null, error: scope.error }) }))
 vi.mock('../../../path-resolver', () => ({ resolveBundledNodeExe: () => process.execPath }))
-import { findCoreAgentRuntimeCli, findCoreAgentRuntimeEntry, loadCoreAgentRuntime, resetCoreAgentRuntimeApiCache, readWorkflowCatalog, supportedEngines } from './agent-runtime-loader'
+import { findCoreAgentRuntimeCli, findCoreAgentRuntimeEntry, loadCoreAgentRuntime, resetCoreAgentRuntimeApiCache, readWorkflowCatalog } from './agent-runtime-loader'
+import { supportedEngines } from './agent-runtime-engines'
 let root: string
 beforeEach(() => { resetCoreAgentRuntimeApiCache(); root = mkdtempSync(join(tmpdir(), 'runtime loader ')); vi.stubEnv('SPECRAILS_CORE_RUNTIME_PATH', ''); vi.stubEnv('NODE_ENV', 'production') })
 afterEach(() => { scope.bundled = null; scope.source = 'bundled'; scope.error = null; vi.restoreAllMocks(); vi.unstubAllEnvs(); rmSync(root, { recursive: true, force: true }) })

@@ -75,6 +75,7 @@
       "runtime/agent-runtime-bridge.ts",
       "runtime/agent-runtime-controls-router.ts",
       "runtime/agent-runtime-controls.ts",
+      "runtime/agent-runtime-engines.ts",
       "runtime/agent-runtime-events.ts",
       "runtime/agent-runtime-loader.ts",
       "runtime/agent-runtime-package.ts",
@@ -139,6 +140,9 @@
       "runtime/agent-runtime-effective-config.ts": [
         "../../../providers",
         "./agent-runtime-settings"
+      ],
+      "runtime/agent-runtime-engines.ts": [
+        "./agent-runtime-loader"
       ],
       "runtime/agent-runtime-events.ts": [
         "../../../db"
@@ -1434,6 +1438,7 @@
         "../../../workspace-manager",
         "../../accounting/runtime/result-event",
         "../../agent-runtime/runtime/agent-runtime-bridge",
+        "../../agent-runtime/runtime/agent-runtime-engines",
         "../../agent-runtime/runtime/agent-runtime-loader",
         "../../delivery/runtime/multi-repo-execution-store",
         "../../delivery/runtime/rail-isolation",

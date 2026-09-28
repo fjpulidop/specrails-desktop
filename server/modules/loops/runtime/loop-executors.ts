@@ -7,7 +7,8 @@
  * fake executors in `loop-run-manager.test.ts`.
  */
 import { compileLoopToDefinition } from './loop-definition'
-import { loadCoreAgentRuntime, supportedEngines } from '../../agent-runtime/runtime/agent-runtime-loader'
+import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
+import { supportedEngines } from '../../agent-runtime/runtime/agent-runtime-engines'
 import { readCoreCompletion } from '../../../core-completion'
 import { checkCoreCompletion, prepareCoreExecution } from '../../../core-execution'
 import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, readFrozenRuntimeHost } from '../../agent-runtime/runtime/agent-runtime-bridge'

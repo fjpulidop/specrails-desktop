@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import { loadCoreAgentRuntime, resetCoreAgentRuntimeApiCache, supportedEngines } from '../../agent-runtime/runtime/agent-runtime-loader'
+import { loadCoreAgentRuntime, resetCoreAgentRuntimeApiCache } from '../../agent-runtime/runtime/agent-runtime-loader'
+import { supportedEngines } from '../../agent-runtime/runtime/agent-runtime-engines'
 import { createLoopExecutors } from './loop-executors'
 
 /* D8 pairing: the engines signal as the real Core CLI advertises it. The
