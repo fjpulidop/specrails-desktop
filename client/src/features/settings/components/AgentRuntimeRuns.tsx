@@ -1,3 +1,4 @@
+import { RuntimeRetention } from './RuntimeRetention'
 import { RuntimeRecovery } from './RuntimeRecovery'
 import { RuntimeExecutionEvidence } from './RuntimeExecutionEvidence'
 import { RuntimeSteering } from './RuntimeSteering'
@@ -21,6 +22,7 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
   return <section className="space-y-3 border-t border-border p-3" aria-label={t(contextual ? 'runs.implementation' : 'runs.title')} onClick={event => event.stopPropagation()} onPointerDown={event => event.stopPropagation()}>
     <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium">{t(contextual ? 'runs.implementation' : 'runs.title')}</h3><Button size="sm" variant="ghost" onClick={refresh}>{t('runs.refresh')}</Button></div>
     {!contextual && <p className="text-xs text-muted-foreground">{t('runs.hint')}</p>}
+    {!contextual && <RuntimeRetention projectId={projectId} onChanged={refresh} />}
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     {!runs.length && !error && <p className="text-xs text-muted-foreground">{t('runs.empty')}</p>}
     {runs.map((run) => <div key={run.runId} className="space-y-2 rounded-lg border border-border p-3">
@@ -32,7 +34,8 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
       {run.status === 'succeeded' && <p className="text-xs text-muted-foreground">{t('runs.reviewDelivery')}</p>}
       {run.error && <p className="text-xs text-destructive">{run.error}</p>}
       {run.metrics && <AgentRuntimeMetrics metrics={run.metrics} />}
-      <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />
+      {run.status === 'expired' && <p className="text-xs text-muted-foreground">{t('retention.expired')}</p>}
+      {run.status !== 'expired' && <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />}
       <RuntimeSteering projectId={projectId} run={run} onAccepted={refresh} />
       {run.pendingApproval?.reason && <p className="text-xs text-muted-foreground">{run.pendingApproval.reason}</p>}
       {run.pendingQuestion && <div className="space-y-2">

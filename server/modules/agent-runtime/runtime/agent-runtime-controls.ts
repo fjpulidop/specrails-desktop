@@ -1,3 +1,6 @@
+import { collectRuntimeRetention } from './agent-runtime-retention'
+import { runtimeRetentionHostPorts, recoverHostRuntimeRetention } from './agent-runtime-retention-host'
+import { readRuntimeExpiration, readRuntimeRetentionPolicy, saveRuntimeRetentionPolicy } from './agent-runtime-retention-records'
 import { runtimeEfficiencyEventLine, isRecordedRuntimeEfficiencyEvent } from './agent-runtime-events'
 import { readRuntimeHistory } from './agent-runtime-history'
 import { settleRuntimeContinuation } from './agent-runtime-settlement'
@@ -12,7 +15,7 @@ import { RUNTIME_HOST_ENV_KEYS, runAgentRuntimeInvocation, runAgentRuntimeContro
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import { resolveLoopBaseEnv, resolveProjectExecution } from '../../../workspace-resolution'
-import { getLoopRun, readLoopJobUsage, stageLoopStepRecovery, setLoopStepSettledResult, updateLoopStepActivityCheckpoint, readDefinitionSuccessor, readDefinitionForkTarget } from '../../loops/runtime/loop-runs-store'
+import { getLoopRun, readLoopJobUsage, stageLoopStepRecovery, setLoopStepSettledResult, updateLoopStepActivityCheckpoint, readDefinitionSuccessor, readDefinitionForkTarget, readDefinitionExecutionClaim } from '../../loops/runtime/loop-runs-store'
 import { readExecutionManifest } from '../../delivery/runtime/multi-repo-execution-store'
 import { appendEvent } from '../../../db'
 import { recoverOrphanLoopStepAccounting } from '../../loops/runtime/loop-run-manager'
@@ -94,6 +97,7 @@ export interface RuntimeState {
   steps: Record<string, { status: string; visits?: number; kind?: string }>
 }
 export interface RuntimeRunSummary {
+  expiredAt?: string
   recoveryAttempts?: RuntimeState['recoverableSteps']
   completion?: RuntimeState['completion']
   steering?: RuntimeSteeringState
@@ -120,7 +124,7 @@ export interface RuntimeRunSummary {
  * kept a "Completed" card with only Dismiss on it after every green run.
  */
 export function pinsRailCard(summary: RuntimeRunSummary): boolean {
-  if (summary.dismissed) return false
+  if (summary.dismissed || summary.status === 'expired') return false
   if (summary.active || summary.canResume || summary.canSettle || summary.canCancel || summary.pendingQuestion || summary.pendingApproval || summary.recoverableSteps.length) return true
   return summary.status !== 'succeeded'
 }
@@ -218,7 +222,35 @@ export class AgentRuntimeControls {
   private errors = new Map<string, string>()
   private statusCache = new Map<string, { fingerprint: string; state: RuntimeState }>()
   private disposed = false
-  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation; recovery?: typeof invokeRuntimeRecovery; control?: typeof runAgentRuntimeControl } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {}
+  private collectingRetention = false
+  constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation; recovery?: typeof invokeRuntimeRecovery; control?: typeof runAgentRuntimeControl } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }) {
+    recoverHostRuntimeRetention({ db: ctx.db, pipelineRoot: path.join(resolveProjectExecution(ctx.project).specrailsDir, 'pipeline'), active: runId => this.active.has(runId) })
+  }
+
+  retentionPolicy() { return readRuntimeRetentionPolicy(this.ctx.db) }
+  configureRetention(input: unknown) {
+    try { return saveRuntimeRetentionPolicy(this.ctx.db, input) }
+    catch { throw new RuntimeControlError(400, 'invalid_retention_policy', 'Retention days must be null or an integer from 1 to 3650') }
+  }
+  async collectRetention(input: unknown) {
+    const body = input as { dryRun?: unknown } | null
+    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => key !== 'dryRun') || body.dryRun !== undefined && typeof body.dryRun !== 'boolean') throw new RuntimeControlError(400, 'invalid_retention_request', 'Retention accepts only a boolean dryRun')
+    if (this.disposed || this.collectingRetention) throw new RuntimeControlError(409, 'runtime_retention_busy', 'Runtime retention is already active or shutting down')
+    this.collectingRetention = true
+    try {
+      const policy = this.retentionPolicy(), now = Date.now()
+      const host = { db: this.ctx.db, projectId: this.ctx.project.id,
+        pipelineRoot: path.join(resolveProjectExecution(this.ctx.project).specrailsDir, 'pipeline'), active: (runId: string) => this.active.has(runId),
+        scope: (runId: string) => {
+          const context = this.context(runId, true)
+          return { repositoryMounts: context.frozen.repositories.map(repository => repository.path),
+            inspect: () => this.dependencies.status(context.file, fs.existsSync(context.cwd) ? context.cwd : context.frozen.backlogRoot, context.env) }
+        },
+      }
+      if (body.dryRun === false) recoverHostRuntimeRetention(host)
+      return await collectRuntimeRetention(runtimeRetentionHostPorts(host, policy, now), policy, { dryRun: body.dryRun !== false, now })
+    } finally { this.collectingRetention = false; this.statusCache.clear() }
+  }
 
   async signal(runId: string, input: unknown): Promise<RuntimeSteeringAccepted> {
     if (this.disposed) throw new RuntimeControlError(503, 'runtime_shutting_down', 'Project runtime is shutting down')
@@ -248,6 +280,8 @@ export class AgentRuntimeControls {
 
   private context(runId: string, historical = false): { file: string; frozen: FrozenContext; cwd: string; env: NodeJS.ProcessEnv } {
     if (!SAFE_ID.test(runId)) throw new RuntimeControlError(400, 'invalid_run_id', 'Invalid runtime run ID')
+    if (readRuntimeExpiration(this.ctx.db, runId)) throw new RuntimeControlError(410, 'runtime_history_expired', 'Runtime history has expired under the project retention policy')
+    if (!historical && readDefinitionExecutionClaim(this.ctx.db, runId)?.owner.startsWith('retention')) throw new RuntimeControlError(409, 'runtime_retention_busy', 'Runtime history is reserved for retention')
     const execution = resolveProjectExecution(this.ctx.project)
     const backlogRoot = fs.realpathSync(path.dirname(execution.specrailsDir))
     const directory = path.join(execution.specrailsDir, 'pipeline', runId)
@@ -368,16 +402,19 @@ export class AgentRuntimeControls {
 
   async list(): Promise<RuntimeRunSummary[]> {
     const directory = path.join(resolveProjectExecution(this.ctx.project).specrailsDir, 'pipeline')
-    if (!fs.existsSync(directory)) return []
-    const entries = fs.readdirSync(directory, { withFileTypes: true }).filter((entry) => entry.isDirectory() && SAFE_ID.test(entry.name) && fs.existsSync(path.join(directory, entry.name, 'agent-runtime-request.json')))
+    const entries = (fs.existsSync(directory) ? fs.readdirSync(directory, { withFileTypes: true }) : []).filter((entry) => entry.isDirectory() && SAFE_ID.test(entry.name) && fs.existsSync(path.join(directory, entry.name, 'agent-runtime-request.json')))
       .sort((a, b) => fs.statSync(path.join(directory, b.name)).mtimeMs - fs.statSync(path.join(directory, a.name)).mtimeMs).slice(0, 20)
     const runs: RuntimeRunSummary[] = []
     // Bounded sequential reads avoid spawning one Node process per historical run at once.
     for (const entry of entries) runs.push(await this.summary(entry.name))
-    return runs
+    const expired = this.ctx.db.prepare('SELECT run_id FROM runtime_retention_records ORDER BY expired_at DESC LIMIT 20').all() as Array<{ run_id: string }>
+    for (const row of expired) if (!runs.some(run => run.runId === row.run_id)) runs.push(await this.summary(row.run_id))
+    return runs.sort((a, b) => Number(b.active) - Number(a.active) || (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 20)
   }
 
   async summary(runId: string): Promise<RuntimeRunSummary> {
+    const expired = readRuntimeExpiration(this.ctx.db, runId)
+    if (expired) return { runId, status: 'expired', expiredAt: expired.expiredAt, updatedAt: expired.expiredAt, nextStep: null, historical: true, active: false, canResume: false, canCancel: false, canSettle: false, recoverableSteps: [] }
     try {
       const { file, cwd, env } = this.context(runId)
       // Core owns checkpoint parsing. Its atomic file revision is only a cache

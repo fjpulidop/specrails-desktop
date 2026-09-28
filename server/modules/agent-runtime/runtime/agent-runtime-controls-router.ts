@@ -1,3 +1,4 @@
+import { readRuntimeExpiration } from './agent-runtime-retention-records'
 import type { ProjectRoutesDeps } from '../../../project-router-helpers'
 import { hasAgentRuntimeRequest } from './agent-runtime-paths'
 import { AgentRuntimeControls, RuntimeControlError, validateRuntimeResumeInput, pinsRailCard, type RuntimeRunSummary } from './agent-runtime-controls'
@@ -28,6 +29,18 @@ export function registerAgentRuntimeControlRoutes({ router, ctx }: Pick<ProjectR
     if (!controller) { controller = new AgentRuntimeControls(context); controllers.set(context, controller) }
     return controller
   }
+  router.get('/:projectId/agent-runtime/retention', (req, res) => {
+    try { res.json({ policy: controls(req).retentionPolicy() }) }
+    catch { res.status(503).json({ error: 'runtime_retention_unavailable' }) }
+  })
+  router.put('/:projectId/agent-runtime/retention', (req, res) => {
+    try { res.json({ policy: controls(req).configureRetention(req.body) }) }
+    catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 503).json({ error: error instanceof RuntimeControlError ? error.code : 'runtime_retention_unavailable' }) }
+  })
+  router.post('/:projectId/agent-runtime/retention/collect', async (req, res) => {
+    try { res.json(await controls(req).collectRetention(req.body ?? {})) }
+    catch (error) { res.status(error instanceof RuntimeControlError ? error.statusCode : 503).json({ error: error instanceof RuntimeControlError ? error.code : 'runtime_retention_failed', message: error instanceof Error ? error.message : 'Retention could not inspect runtime storage' }) }
+  })
   router.get('/:projectId/agent-runtime/runs', async (req, res) => {
     try {
       if (req.query.railIndex !== undefined) {
@@ -47,7 +60,7 @@ export function registerAgentRuntimeControlRoutes({ router, ctx }: Pick<ProjectR
   router.get('/:projectId/agent-runtime/runs/:runId', async (req, res) => {
     try {
       const context = ctx(req), runId = String(req.params.runId)
-      res.json({ runs: hasAgentRuntimeRequest(context.project, runId) ? [await controls(req).summary(runId)] : [] })
+      res.json({ runs: hasAgentRuntimeRequest(context.project, runId) || readRuntimeExpiration(context.db, runId) ? [await controls(req).summary(runId)] : [] })
     } catch { res.status(500).json({ error: 'runtime_status_failed' }) }
   })
   router.get('/:projectId/agent-runtime/runs/:runId/evidence', async (req, res) => {

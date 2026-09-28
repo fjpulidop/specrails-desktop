@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 972 source/build files. Nearby tests are linked where names
+Includes 979 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -583,6 +583,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [RuntimeExecutionEvidence.tsx](../../client/src/features/settings/components/RuntimeExecutionEvidence.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeExecutionEvidence.test.tsx)
 - [RuntimeGuardrails.tsx](../../client/src/features/settings/components/RuntimeGuardrails.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeGuardrails.test.tsx)
 - [RuntimeRecovery.tsx](../../client/src/features/settings/components/RuntimeRecovery.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRecovery.test.tsx)
+- [RuntimeRetention.tsx](../../client/src/features/settings/components/RuntimeRetention.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRetention.test.tsx)
 - [RuntimeRolePrompts.tsx](../../client/src/features/settings/components/RuntimeRolePrompts.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeRolePrompts.test.tsx)
 - [RuntimeSteering.tsx](../../client/src/features/settings/components/RuntimeSteering.tsx) · [test](../../client/src/features/settings/components/__tests__/RuntimeSteering.test.tsx)
 - [TerminalSettingsSection.tsx](../../client/src/features/settings/components/TerminalSettingsSection.tsx)
@@ -1052,10 +1053,16 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-runtime-history.ts](../../server/modules/agent-runtime/runtime/agent-runtime-history.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-history.test.ts)
 - [agent-runtime-loader.ts](../../server/modules/agent-runtime/runtime/agent-runtime-loader.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-loader.test.ts)
 - [agent-runtime-metrics.ts](../../server/modules/agent-runtime/runtime/agent-runtime-metrics.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-metrics.test.ts)
+- [agent-runtime-package-gc.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package-gc.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-package-gc.test.ts)
+- [agent-runtime-package-lock.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package-lock.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-package-lock.test.ts)
 - [agent-runtime-package.ts](../../server/modules/agent-runtime/runtime/agent-runtime-package.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-package.test.ts)
 - [agent-runtime-paths.ts](../../server/modules/agent-runtime/runtime/agent-runtime-paths.ts)
 - [agent-runtime-recovery.ts](../../server/modules/agent-runtime/runtime/agent-runtime-recovery.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-recovery.test.ts)
 - [agent-runtime-repositories.ts](../../server/modules/agent-runtime/runtime/agent-runtime-repositories.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-repositories.test.ts)
+- [agent-runtime-retention-host.ts](../../server/modules/agent-runtime/runtime/agent-runtime-retention-host.ts)
+- [agent-runtime-retention-quarantine.ts](../../server/modules/agent-runtime/runtime/agent-runtime-retention-quarantine.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-retention-quarantine.test.ts)
+- [agent-runtime-retention-records.ts](../../server/modules/agent-runtime/runtime/agent-runtime-retention-records.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-retention-records.test.ts)
+- [agent-runtime-retention.ts](../../server/modules/agent-runtime/runtime/agent-runtime-retention.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-retention.test.ts)
 - [agent-runtime-settings-router.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings-router.ts)
 - [agent-runtime-settings.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settings.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settings.test.ts)
 - [agent-runtime-settlement.ts](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.ts) · [test](../../server/modules/agent-runtime/runtime/agent-runtime-settlement.test.ts)

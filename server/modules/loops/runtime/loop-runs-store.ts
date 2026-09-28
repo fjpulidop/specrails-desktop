@@ -1,3 +1,4 @@
+import { readRuntimeExpiration } from '../../agent-runtime/runtime/agent-runtime-retention-records'
 /**
  * Loop runs store — per-project record (jobs.sqlite `loop_runs`) of each
  * executed loop. The manager creates a row at launch, updates counters as it
@@ -151,7 +152,7 @@ export interface DefinitionExecutionClaimInput {
 }
 export type DefinitionExecutionClaim =
   | { ok: true; release: () => void }
-  | { ok: false; reason: 'active_owner' | 'lineage_conflict'; conflictingRunId: string }
+  | { ok: false; reason: 'active_owner' | 'lineage_conflict' | 'expired'; conflictingRunId: string }
 
 interface ClaimRow { run_id: string; owner: string; repository_mounts_json: string }
 
@@ -211,10 +212,12 @@ export function claimDefinitionExecution(db: DbInstance, runId: string, claim: D
   if (!runId || !claim.owner) throw new Error('Execution claims require a run and an owner')
   const mounts = [...new Set(claim.repositoryMounts.map(normalizeMount))].sort()
   return db.transaction((): DefinitionExecutionClaim => {
+    const collecting = claim.owner.startsWith('retention:') || claim.owner.startsWith('retention-recovery:')
+    if (readRuntimeExpiration(db, runId) && !claim.owner.startsWith('retention-recovery:')) return { ok: false, reason: 'expired', conflictingRunId: runId }
     const successor = readDefinitionSuccessor(db, runId)
-    if (successor) return { ok: false, reason: 'lineage_conflict', conflictingRunId: successor }
+    if (successor && !(collecting && readRuntimeExpiration(db, successor))) return { ok: false, reason: 'lineage_conflict', conflictingRunId: successor }
     const pendingFork = readDefinitionForkTarget(db, runId)
-    if (pendingFork && !claim.owner.startsWith('fork:')) return { ok: false, reason: 'lineage_conflict', conflictingRunId: pendingFork }
+    if (pendingFork && !claim.owner.startsWith('fork:') && !(collecting && readRuntimeExpiration(db, pendingFork))) return { ok: false, reason: 'lineage_conflict', conflictingRunId: pendingFork }
     const existing = db.prepare('SELECT run_id, owner, repository_mounts_json FROM definition_execution_claims WHERE run_id = ?').get(runId) as ClaimRow | undefined
     if (existing) return { ok: false, reason: 'active_owner', conflictingRunId: runId }
     if (mounts.length) {

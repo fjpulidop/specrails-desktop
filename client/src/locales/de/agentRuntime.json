@@ -170,7 +170,8 @@
       "paused": "Pausiert",
       "cancelled": "Abgebrochen",
       "interrupted": "Unterbrochen",
-      "unavailable": "Nicht verfügbar"
+      "unavailable": "Nicht verfügbar",
+      "expired": "Abgelaufen"
     },
     "question": "Der Architekt fragt:",
     "answerLabel": "Ihre Antwort",
@@ -534,5 +535,39 @@
     "hint": "Diese Dateivorgaben gelten für neue Workflows. Explizite Projekteinstellungen haben Vorrang; gespeicherte Ausführungen behalten ihre festgelegten Einstellungen.",
     "invalid": "Korrigieren Sie den YAML-Kopf im Editor, bevor Sie Rollenfelder ändern.",
     "escalationEffort": "Denkaufwand des höherwertigen Modells"
+  },
+  "retention": {
+    "title": "Aufbewahrung des Verlaufs",
+    "description": "Lösche abgelaufene Ausführungsverläufe und ungenutzte Core-Versionen. Gelöschte Verläufe können nicht fortgesetzt oder verzweigt werden. Aktive oder wiederherstellbare Ausführungen und offene Auslieferungen bleiben geschützt; Jobprotokolle und Kosten bleiben erhalten.",
+    "forever": "Verlauf unbegrenzt aufbewahren",
+    "days": "Aufbewahrungstage",
+    "save": "Aufbewahrung speichern",
+    "preview": "Bereinigung prüfen",
+    "collect": "Abgelaufenen Verlauf löschen",
+    "previewSummary": "Geeignet: {{runs}} Verläufe und {{packages}} ungenutzte Core-Versionen.",
+    "collectedSummary": "Abgelaufen: {{runs}} Verläufe. Entfernt: {{packages}} ungenutzte Core-Versionen.",
+    "more": "{{count}} weitere Ausführungen.",
+    "failed": "Aufbewahrung konnte nicht geprüft oder aktualisiert werden.",
+    "expired": "Dieser Verlauf ist gemäß der Projektrichtlinie abgelaufen. Jobprotokoll und Kosten bleiben verfügbar.",
+    "loading": "Aufbewahrungsrichtlinie wird geladen…",
+    "states": {
+      "protected": "Aufbewahrt",
+      "eligible": "Geeignet",
+      "expired": "Abgelaufen",
+      "cleanup_pending": "Bereinigung ausstehend",
+      "busy": "In Verwendung",
+      "error": "Prüfung fehlgeschlagen"
+    },
+    "reasons": {
+      "disabled": "Unbegrenzte Aufbewahrung",
+      "recoverable": "Wiederherstellung noch möglich",
+      "active": "Aktive Ausführung",
+      "human_pending": "Wartet auf menschliche Antwort",
+      "interrupted_writes": "Unterbrochene Schreibvorgänge prüfen",
+      "delivery_pending": "Auslieferung ausstehend",
+      "fork_pending": "Abhängige Verzweigung vorhanden",
+      "unknown_terminal_time": "Abschlusszeit unbekannt",
+      "within_retention": "Aufbewahrungsfrist noch nicht abgelaufen"
+    }
   }
 }

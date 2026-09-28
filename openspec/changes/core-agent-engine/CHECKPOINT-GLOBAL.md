@@ -1,3 +1,10 @@
+## Claude handoff — 28 September 2026
+
+Read [CLAUDE-HANDOFF-2026-09-28.md](CLAUDE-HANDOFF-2026-09-28.md) first.
+It supersedes older retention status and merge-authorization notes below.
+Retention is uncommitted WIP with a known failing real-Core fixture and identified
+crash-recovery gaps. The complete plan is not finished.
+
 ## Published converter verified — 27 September 2026, 05:22 CEST
 
 Desktop `c2de60d5` is pushed. Its isolated immutable checkout at

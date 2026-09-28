@@ -80,6 +80,7 @@
       "runtime/agent-runtime-package.ts",
       "runtime/agent-runtime-paths.ts",
       "runtime/agent-runtime-recovery.ts",
+      "runtime/agent-runtime-retention-records.ts",
       "runtime/agent-runtime-settings-router.ts",
       "runtime/agent-runtime-settings.ts"
     ],
@@ -124,6 +125,9 @@
         "./agent-runtime-metrics",
         "./agent-runtime-package",
         "./agent-runtime-recovery",
+        "./agent-runtime-retention",
+        "./agent-runtime-retention-host",
+        "./agent-runtime-retention-records",
         "./agent-runtime-settlement",
         "node:child_process",
         "node:crypto",
@@ -156,7 +160,20 @@
         "node:path"
       ],
       "runtime/agent-runtime-metrics.ts": [],
+      "runtime/agent-runtime-package-gc.ts": [
+        "./agent-runtime-package-lock",
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/agent-runtime-package-lock.ts": [
+        "better-sqlite3",
+        "node:fs",
+        "node:path"
+      ],
       "runtime/agent-runtime-package.ts": [
+        "./agent-runtime-package-gc",
+        "./agent-runtime-package-lock",
         "node:crypto",
         "node:fs",
         "node:module",
@@ -177,6 +194,29 @@
       "runtime/agent-runtime-repositories.ts": [
         "node:path"
       ],
+      "runtime/agent-runtime-retention-host.ts": [
+        "../../../db",
+        "../../loops/runtime/loop-runs-store",
+        "./agent-runtime-package",
+        "./agent-runtime-retention",
+        "./agent-runtime-retention-quarantine",
+        "./agent-runtime-retention-records",
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/agent-runtime-retention-quarantine.ts": [
+        "../../../db",
+        "./agent-runtime-retention-records",
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ],
+      "runtime/agent-runtime-retention-records.ts": [
+        "../../../db",
+        "./agent-runtime-retention"
+      ],
+      "runtime/agent-runtime-retention.ts": [],
       "runtime/agent-runtime-settings-router.ts": [
         "../../../project-repositories",
         "../../../project-router-helpers",
@@ -1466,6 +1506,7 @@
       ],
       "runtime/loop-runs-store.ts": [
         "../../../db",
+        "../../agent-runtime/runtime/agent-runtime-retention-records",
         "./loop-run-manager",
         "node:fs",
         "path"

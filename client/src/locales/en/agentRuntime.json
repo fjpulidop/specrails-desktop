@@ -170,7 +170,8 @@
       "paused": "Paused",
       "cancelled": "Cancelled",
       "interrupted": "Interrupted",
-      "unavailable": "Unavailable"
+      "unavailable": "Unavailable",
+      "expired": "Expired"
     },
     "question": "The architect asks:",
     "answerLabel": "Your answer",
@@ -534,5 +535,39 @@
     "hint": "These file defaults apply to new workflows. Explicit project settings take precedence; saved runs keep their frozen settings.",
     "invalid": "Fix the YAML frontmatter in the editor before changing role fields.",
     "escalationEffort": "Higher-tier reasoning effort"
+  },
+  "retention": {
+    "title": "History retention",
+    "description": "Delete expired execution histories and unused Core versions. Deleted histories cannot be resumed or forked. Active or recoverable runs and pending deliveries stay protected; job logs and cost records remain.",
+    "forever": "Keep history indefinitely",
+    "days": "Retention days",
+    "save": "Save retention",
+    "preview": "Preview cleanup",
+    "collect": "Delete expired history",
+    "previewSummary": "Eligible: {{runs}} histories and {{packages}} unused Core versions.",
+    "collectedSummary": "Expired: {{runs}} histories. Removed: {{packages}} unused Core versions.",
+    "more": "{{count}} additional executions.",
+    "failed": "Could not inspect or update retention.",
+    "expired": "This execution history expired under the project policy. Its job log and accounting remain available.",
+    "loading": "Loading retention policy…",
+    "states": {
+      "protected": "Kept",
+      "eligible": "Eligible",
+      "expired": "Expired",
+      "cleanup_pending": "Cleanup pending",
+      "busy": "In use",
+      "error": "Inspection failed"
+    },
+    "reasons": {
+      "disabled": "Indefinite retention",
+      "recoverable": "Recovery remains available",
+      "active": "Active execution",
+      "human_pending": "Waiting for a human",
+      "interrupted_writes": "Interrupted writes need review",
+      "delivery_pending": "Delivery is pending",
+      "fork_pending": "A dependent fork remains",
+      "unknown_terminal_time": "Completion time is unknown",
+      "within_retention": "Still within the retention period"
+    }
   }
 }
