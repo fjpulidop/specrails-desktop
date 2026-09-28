@@ -173,3 +173,13 @@ the run without a decision. Thirteen paired cases now compare both engines.
 Remaining for task 10.2: human pauses on the legacy side,
 native implement/batch operations and saved user graphs beyond the factory and
 template corpus.
+
+## Windows shell lines and paired pin — 28 September
+
+The paired Windows job had failed since #708 on "repairs only artifacts": Core's
+shell piece runs `cmd /d /s /c <commandLine>`, and Node quoted that line with
+backslash escapes cmd does not parse, so any line containing quotes exited
+nonzero. Core `30e852e0` passes that exact form verbatim with one pair of outer
+quotes (stripped by `/s`); structured argv is unchanged. The paired pin moves to
+that commit (engine branch + C1 + fix) and the paired job timeout rises from 20
+to 40 minutes because Windows runs every real-Core suite serially (~20 minutes).
