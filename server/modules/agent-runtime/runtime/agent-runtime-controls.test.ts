@@ -532,3 +532,24 @@ describe('agent runtime lifecycle', () => {
     shutdownAgentRuntimeControls({})
   })
 })
+
+describe('runtime retention HTTP contract', () => {
+  function api() {
+    const app = express(); app.use(express.json()); const router = express.Router()
+    registerAgentRuntimeControlRoutes({ router, ctx: () => ctx } as never); app.use('/api/projects', router)
+    return request(app)
+  }
+  it('defaults to indefinite retention and preview-only collection', async () => {
+    expect((await api().get('/api/projects/p1/agent-runtime/retention')).body).toEqual({ policy: { days: null } })
+    const result = await api().post('/api/projects/p1/agent-runtime/retention/collect').send({})
+    expect(result.status).toBe(200)
+    expect(result.body).toMatchObject({ dryRun: true, runs: [{ state: 'protected', reasons: ['disabled'] }] })
+    expect(fs.existsSync(contextPath)).toBe(true)
+  })
+  it('validates project policy before saving and rejects force shortcuts', async () => {
+    expect((await api().put('/api/projects/p1/agent-runtime/retention').send({ days: 30 })).body).toEqual({ policy: { days: 30 } })
+    expect((await api().put('/api/projects/p1/agent-runtime/retention').send({ days: 0 })).status).toBe(400)
+    expect((await api().get('/api/projects/p1/agent-runtime/retention')).body).toEqual({ policy: { days: 30 } })
+    expect((await api().post('/api/projects/p1/agent-runtime/retention/collect').send({ force: true })).status).toBe(400)
+  })
+})

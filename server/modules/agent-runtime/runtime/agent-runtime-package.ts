@@ -1,3 +1,5 @@
+import { withRuntimePackageLock } from './agent-runtime-package-lock'
+export { collectUnreferencedRuntimePackages } from './agent-runtime-package-gc'
 import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
@@ -111,22 +113,24 @@ export function retainAgentRuntime(cli: string, contextPath: string): string {
   if (relativeCli.startsWith('..') || path.isAbsolute(relativeCli)) throw new Error('Core CLI escapes its package')
   const cache = path.join(path.dirname(path.dirname(contextPath)), 'runtime-packages')
   fs.mkdirSync(cache, { recursive: true, mode: 0o700 })
-  const staged = path.join(cache, '.staged-' + randomUUID())
-  try {
-    copyInstalledPackage(root, staged)
-    const integrity = treeDigest(staged)
-    const retained = path.join(cache, integrity)
-    if (fs.existsSync(retained)) {
-      if (treeDigest(retained) !== integrity) throw new Error('Retained Core runtime integrity changed')
-    } else {
-      try { fs.renameSync(staged, retained) }
-      catch (error) { if (!fs.existsSync(retained) || treeDigest(retained) !== integrity) throw error }
-    }
-    const pin: RuntimePackagePin = { schemaVersion: 1, packageVersion: JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version, integrity, root: retained, cli: relativeCli }
-    try { fs.writeFileSync(pinFile, JSON.stringify(pin) + '\n', { flag: 'wx', mode: 0o600 }) }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || resolveRetainedAgentRuntime(contextPath) !== path.join(retained, relativeCli)) throw error }
-    return path.join(retained, relativeCli)
-  } finally { fs.rmSync(staged, { recursive: true, force: true }) }
+  return withRuntimePackageLock(cache, () => {
+    const staged = path.join(cache, '.staged-' + randomUUID())
+    try {
+      copyInstalledPackage(root, staged)
+      const integrity = treeDigest(staged)
+      const retained = path.join(cache, integrity)
+      if (fs.existsSync(retained)) {
+        if (treeDigest(retained) !== integrity) throw new Error('Retained Core runtime integrity changed')
+      } else {
+        try { fs.renameSync(staged, retained) }
+        catch (error) { if (!fs.existsSync(retained) || treeDigest(retained) !== integrity) throw error }
+      }
+      const pin: RuntimePackagePin = { schemaVersion: 1, packageVersion: JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version, integrity, root: retained, cli: relativeCli }
+      try { fs.writeFileSync(pinFile, JSON.stringify(pin) + '\n', { flag: 'wx', mode: 0o600 }) }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || resolveRetainedAgentRuntime(contextPath) !== path.join(retained, relativeCli)) throw error }
+      return path.join(retained, relativeCli)
+    } finally { fs.rmSync(staged, { recursive: true, force: true }) }
+  })
 }
 
 export function resolveRetainedAgentRuntime(contextPath: string): string {

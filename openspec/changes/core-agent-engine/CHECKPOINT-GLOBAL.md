@@ -1,3 +1,26 @@
+## Retention fixes verified — 28 September 2026
+
+Handoff steps 1–6 are done on `claude/stoic-euler-5pckuw` (PR #709, stacked on
+#708): `0573ea9` retention fixes, `8ffd7fa` inode-reuse-safe fixture. Full server
+coverage at `8ffd7fa` in an isolated worktree with no sibling Core: 410 suites /
+9,153 passes / 43 skips, 86.88/80.11/90.83/89.98, thresholds unchanged. Two IPv6
+tests (`dev-network`, `http-test-isolation`) were excluded only because the
+container has no IPv6 (`EAFNOSUPPORT`); every other test ran. Full client at
+`0573ea9`: 397 suites / 4,715 passes, 89.78/84.22/75.71/89.78. Typecheck,
+architecture/source audits and source map clean. The retention paired test passed
+against a real Core build (engine branch + C1). Core C1 integration is PR core#390;
+the Desktop Core pin stays at `04ea4663` until it is green on three platforms.
+Known unrelated issue: seven loop/rail router tests fail when a built
+`../specrails-core` exists because the non-production loader falls back to it.
+Task 10.5 remains partial (paired Core7 compatibility open).
+
+## Claude handoff — 28 September 2026
+
+Read [CLAUDE-HANDOFF-2026-09-28.md](CLAUDE-HANDOFF-2026-09-28.md) first.
+It supersedes older retention status and merge-authorization notes below.
+Retention is uncommitted WIP with a known failing real-Core fixture and identified
+crash-recovery gaps. The complete plan is not finished.
+
 ## Published converter verified — 27 September 2026, 05:22 CEST
 
 Desktop `c2de60d5` is pushed. Its isolated immutable checkout at

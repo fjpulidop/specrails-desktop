@@ -170,7 +170,8 @@
       "paused": "一時停止",
       "cancelled": "キャンセル済み",
       "interrupted": "中断",
-      "unavailable": "利用不可"
+      "unavailable": "利用不可",
+      "expired": "期限切れ"
     },
     "question": "アーキテクトからの質問:",
     "answerLabel": "あなたの回答",
@@ -534,5 +535,39 @@
     "hint": "このファイルの既定値は新しいワークフローに適用されます。プロジェクトの明示的な設定が優先され、保存済みの実行は固定された設定を保持します。",
     "invalid": "ロールの項目を変更する前に、エディターで YAML ヘッダーを修正してください。",
     "escalationEffort": "上位モデルの推論レベル"
+  },
+  "retention": {
+    "title": "履歴の保持",
+    "description": "期限切れの実行履歴と未使用の Core バージョンを削除します。削除した履歴は再開や分岐ができません。実行中・復旧可能な実行や未完了の配信は保護され、ジョブログと費用記録は保持されます。",
+    "forever": "履歴を無期限に保持",
+    "days": "保持日数",
+    "save": "保持設定を保存",
+    "preview": "削除対象を確認",
+    "collect": "期限切れの履歴を削除",
+    "previewSummary": "対象：履歴 {{runs}} 件、未使用の Core バージョン {{packages}} 件。",
+    "collectedSummary": "期限切れ：履歴 {{runs}} 件。削除済み：未使用の Core バージョン {{packages}} 件。",
+    "more": "ほか {{count}} 件の実行。",
+    "failed": "保持設定を確認または更新できませんでした。",
+    "expired": "この実行履歴はプロジェクトの保持方針により期限切れになりました。ジョブログと費用記録は引き続き利用できます。",
+    "loading": "保持方針を読み込み中…",
+    "states": {
+      "protected": "保持",
+      "eligible": "対象",
+      "expired": "期限切れ",
+      "cleanup_pending": "削除待ち",
+      "busy": "使用中",
+      "error": "確認失敗"
+    },
+    "reasons": {
+      "disabled": "無期限保持",
+      "recoverable": "復旧可能",
+      "active": "実行中",
+      "human_pending": "人による回答待ち",
+      "interrupted_writes": "中断した書き込みの確認が必要",
+      "delivery_pending": "配信待ち",
+      "fork_pending": "依存する分岐が残っています",
+      "unknown_terminal_time": "完了日時が不明",
+      "within_retention": "保持期間内"
+    }
   }
 }

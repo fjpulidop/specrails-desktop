@@ -170,7 +170,8 @@
       "paused": "En pause",
       "cancelled": "Annulé",
       "interrupted": "Interrompu",
-      "unavailable": "Indisponible"
+      "unavailable": "Indisponible",
+      "expired": "Expiré"
     },
     "question": "L'architecte demande :",
     "answerLabel": "Votre réponse",
@@ -534,5 +535,39 @@
     "hint": "Ces valeurs du fichier s’appliquent aux nouveaux workflows. Les paramètres explicites du projet sont prioritaires ; les exécutions enregistrées conservent leurs paramètres figés.",
     "invalid": "Corrigez l’en-tête YAML dans l’éditeur avant de modifier les champs du rôle.",
     "escalationEffort": "Effort de raisonnement du modèle supérieur"
+  },
+  "retention": {
+    "title": "Conservation de l’historique",
+    "description": "Supprimez les historiques expirés et les versions de Core inutilisées. Un historique supprimé ne peut plus être repris ni bifurqué. Les exécutions actives ou récupérables et les livraisons en attente restent protégées ; les journaux et les coûts sont conservés.",
+    "forever": "Conserver indéfiniment",
+    "days": "Jours de conservation",
+    "save": "Enregistrer la conservation",
+    "preview": "Aperçu du nettoyage",
+    "collect": "Supprimer les historiques expirés",
+    "previewSummary": "Éligibles : {{runs}} historiques et {{packages}} versions de Core inutilisées.",
+    "collectedSummary": "Expirés : {{runs}} historiques. Supprimées : {{packages}} versions de Core inutilisées.",
+    "more": "{{count}} exécutions supplémentaires.",
+    "failed": "Impossible de consulter ou modifier la conservation.",
+    "expired": "Cet historique a expiré selon la politique du projet. Le journal et la comptabilité restent disponibles.",
+    "loading": "Chargement de la politique…",
+    "states": {
+      "protected": "Conservé",
+      "eligible": "Éligible",
+      "expired": "Expiré",
+      "cleanup_pending": "Nettoyage en attente",
+      "busy": "Utilisé",
+      "error": "Échec de vérification"
+    },
+    "reasons": {
+      "disabled": "Conservation indéfinie",
+      "recoverable": "Récupération encore possible",
+      "active": "Exécution active",
+      "human_pending": "Réponse humaine attendue",
+      "interrupted_writes": "Écritures interrompues à examiner",
+      "delivery_pending": "Livraison en attente",
+      "fork_pending": "Bifurcation dépendante restante",
+      "unknown_terminal_time": "Date de fin inconnue",
+      "within_retention": "Durée de conservation non dépassée"
+    }
   }
 }

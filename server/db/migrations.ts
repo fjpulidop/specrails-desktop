@@ -1681,6 +1681,26 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE definition_delivery_settlements ADD COLUMN superseded_by TEXT;
     `)
   },
+  // Migration 69: durable runtime-history expiration, independent of UI dismissal.
+  // The token identifies owned quarantine for restart-safe cleanup; historical
+  // job/loop accounting remains in its original tables.
+  (db) => {
+    db.exec(`
+      CREATE TABLE runtime_retention_policy (
+        id INTEGER PRIMARY KEY CHECK(id=1),
+        days INTEGER CHECK(days IS NULL OR (days BETWEEN 1 AND 3650))
+      );
+      CREATE TABLE runtime_retention_records (
+        run_id TEXT PRIMARY KEY,
+        expired_at TEXT NOT NULL,
+        disposition TEXT NOT NULL CHECK(disposition IN ('settled','discarded')),
+        previous_status TEXT NOT NULL,
+        quarantine_token TEXT NOT NULL UNIQUE,
+        summary_json TEXT NOT NULL
+      );
+    `)
+  },
+
 ]
 
 export function applyMigrations(db: DbInstance): void {

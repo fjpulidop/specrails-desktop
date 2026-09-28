@@ -15,6 +15,7 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/agent-runtime-package.ts](runtime/agent-runtime-package.ts)
 - [runtime/agent-runtime-paths.ts](runtime/agent-runtime-paths.ts)
 - [runtime/agent-runtime-recovery.ts](runtime/agent-runtime-recovery.ts)
+- [runtime/agent-runtime-retention-records.ts](runtime/agent-runtime-retention-records.ts)
 - [runtime/agent-runtime-settings-router.ts](runtime/agent-runtime-settings-router.ts)
 - [runtime/agent-runtime-settings.ts](runtime/agent-runtime-settings.ts)
 
@@ -91,3 +92,25 @@ no lifecycle ownership moves into MCP. Older retained runtimes fail explicitly.
 ## Durable steering
 
 `POST /agent-runtime/runs/:runId/steer` validates text and a stable request id, checks the project and frozen context, then sends stdin to the retained Core signal command. Core owns idempotency and receipt timestamps. Status projects pending versus consumed receipts with bounded previews; missing older-runtime reporting remains unknown. MCP exposes the same operation as `runtime_steer` with write permission. See [live steering](../../../docs/agent-live-steering.md).
+
+## History retention
+
+Saved runtime history is kept indefinitely unless a project sets a retention
+policy. Routes (project scoped):
+
+- `GET /agent-runtime/retention` → `{ policy: { days: number | null } }`
+- `PUT /agent-runtime/retention` with `{ days }` (null or 1..3650); 400
+  `invalid_retention_policy` otherwise.
+- `POST /agent-runtime/retention/collect` with optional `{ dryRun: boolean }`
+  (default `true`). Returns `{ dryRun, runs: [{ runId, collect, reasons, state }],
+  packages, errors }`; 409 `runtime_retention_busy` while another collection runs.
+
+`agent-runtime-retention.ts` is the pure policy and coordinator,
+`agent-runtime-retention-host.ts` binds claims, fresh Core status and delivery/
+fork evidence, `agent-runtime-retention-quarantine.ts` owns the crash-safe
+journal protocol and `agent-runtime-package-gc.ts` collects unreferenced
+packages under `agent-runtime-package-lock.ts`. Expired runs keep a
+`runtime_retention_records` row and report `status: 'expired'`; resume, fork and
+execution claims reject them with 410 `runtime_history_expired`. Jobs, cost
+records and repository content are never touched. See
+[the retention decision](../../../openspec/changes/core-agent-engine/RUNTIME-RETENTION-DECISION.md).

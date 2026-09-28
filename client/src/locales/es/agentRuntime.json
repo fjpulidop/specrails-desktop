@@ -170,7 +170,8 @@
       "paused": "En pausa",
       "cancelled": "Cancelado",
       "interrupted": "Interrumpido",
-      "unavailable": "No disponible"
+      "unavailable": "No disponible",
+      "expired": "Caducado"
     },
     "question": "El arquitecto pregunta:",
     "answerLabel": "Tu respuesta",
@@ -534,5 +535,39 @@
     "hint": "Estos valores del archivo se aplican a workflows nuevos. La configuración explícita del proyecto tiene prioridad; las ejecuciones guardadas conservan su configuración congelada.",
     "invalid": "Corrige el encabezado YAML en el editor antes de cambiar los campos del rol.",
     "escalationEffort": "Esfuerzo de razonamiento del modelo superior"
+  },
+  "retention": {
+    "title": "Conservación del historial",
+    "description": "Elimina historiales caducados y versiones de Core sin uso. Los historiales eliminados no pueden reanudarse ni bifurcarse. Se protegen las ejecuciones activas o recuperables y las entregas pendientes; se conservan los registros de trabajos y costes.",
+    "forever": "Conservar el historial indefinidamente",
+    "days": "Días de conservación",
+    "save": "Guardar conservación",
+    "preview": "Previsualizar limpieza",
+    "collect": "Eliminar historial caducado",
+    "previewSummary": "Elegibles: {{runs}} historiales y {{packages}} versiones de Core sin uso.",
+    "collectedSummary": "Caducados: {{runs}} historiales. Eliminadas: {{packages}} versiones de Core sin uso.",
+    "more": "{{count}} ejecuciones adicionales.",
+    "failed": "No se pudo consultar o actualizar la conservación.",
+    "expired": "El historial de esta ejecución ha caducado según la política del proyecto. Se conservan su registro de trabajo y contabilidad.",
+    "loading": "Cargando política de conservación…",
+    "states": {
+      "protected": "Conservado",
+      "eligible": "Elegible",
+      "expired": "Caducado",
+      "cleanup_pending": "Limpieza pendiente",
+      "busy": "En uso",
+      "error": "Error de inspección"
+    },
+    "reasons": {
+      "disabled": "Conservación indefinida",
+      "recoverable": "Todavía puede recuperarse",
+      "active": "Ejecución activa",
+      "human_pending": "Espera una respuesta humana",
+      "interrupted_writes": "Hay escrituras interrumpidas por revisar",
+      "delivery_pending": "Entrega pendiente",
+      "fork_pending": "Queda una bifurcación dependiente",
+      "unknown_terminal_time": "Se desconoce la fecha de finalización",
+      "within_retention": "Dentro del plazo de conservación"
+    }
   }
 }

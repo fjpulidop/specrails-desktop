@@ -154,3 +154,32 @@ acceptance proves the same two-failure cap as provider exceptions. Three paired
 cases also run the original LoopRunManager on the same scripted sequence and
 compare outcomes/call order: forced continuation, iteration cap and one-shot
 self-retry. Broader historical parity remains required before D8 is complete.
+
+## Differential parity corpus — 28 September
+
+`loop-compat-paired.test.ts` now runs seven more scripted sequences through both
+the original `LoopRunManager` and the converted definition on the real Core CLI:
+first-pass stop, continue-then-stop, a missing verification sentinel treated as a
+failed pass, a decision cap exhausted by continue verdicts, the unlabeled decider
+edge fallback, and two consecutive provider exceptions or empty replies. Both
+harnesses assert the exact invocation order, so branch choice, decision count and
+the absence of an extra expensive call are compared as well as the outcome
+(`success`/`max-iterations`/`failed` against `succeeded`/`failed`). The legacy
+harness now models a failed provider call as a hard failure with no output,
+matching the manager's fail-fast rule. Three shell cases run the real command in
+each engine's own repository: a passing check, a failed check that forces one more
+pass before the stop is accepted, and a required (`stopOnFailure`) check that fails
+the run without a decision. Thirteen paired cases now compare both engines.
+Remaining for task 10.2: human pauses on the legacy side,
+native implement/batch operations and saved user graphs beyond the factory and
+template corpus.
+
+## Windows shell lines and paired pin — 28 September
+
+The paired Windows job had failed since #708 on "repairs only artifacts": Core's
+shell piece runs `cmd /d /s /c <commandLine>`, and Node quoted that line with
+backslash escapes cmd does not parse, so any line containing quotes exited
+nonzero. Core `30e852e0` passes that exact form verbatim with one pair of outer
+quotes (stripped by `/s`); structured argv is unchanged. The paired pin moves to
+that commit (engine branch + C1 + fix) and the paired job timeout rises from 20
+to 40 minutes because Windows runs every real-Core suite serially (~20 minutes).
