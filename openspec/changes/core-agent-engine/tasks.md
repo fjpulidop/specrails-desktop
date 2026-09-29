@@ -12,7 +12,7 @@ Initial delivery uses feat/core-engine-d0 paired with Core C0/C1 PRs.
 - [x] 1.3 Derive metrics step/role validation from run catalogs and frozen config; retain missing-value semantics and legacy fallbacks.
 - [x] 1.4 Align compatibility metadata, retained-package tests, module README and runtime guide with inspected sources and paired C0.
 - [x] 1.5 Run typecheck, affected runtime/compatibility suites, architecture audit, source-map generation and source-pair compatibility.
-- [ ] 1.6 Complete published-package compatibility against released C0, record evidence/date/commit and close D0 release gate.
+- [x] 1.6 Complete published-package compatibility against released C0, record evidence/date/commit and close D0 release gate. (29 September 2026: `check-core-compat` passes against the published `specrails-core@6.1.0`, tag `v6.1.0` at `037f6820`, contract 5.1; bundle lock regenerated and CI paired pin moved to that commit.)
 
 - [x] 1.7 Split independent CI coverage lanes, preserve the required aggregate and all platform/package gates, and validate workflow syntax.
 
