@@ -247,7 +247,7 @@ export const LOOP_COMMANDS: LoopCommand[] = [
   // native opsx command fall back to the `template` prompt. Archive is invoked via
   // the `openspec` CLI in a shell node (provider-independent) and has no command.
   // NOTE: opsx commands are confirmed on claude today; codex/gemini lean on the
-  // fallback until OpenSpec ships their native commands (see opsx-lifecycle loop).
+  // fallback until OpenSpec ships their native commands (see the legacy Quick SDD graph).
   {
     name: 'opsx:ff', label: 'opsx:ff', ticketScope: 'per-ticket',
     description: 'OpenSpec fast-forward: create (or continue) a change and generate all its artifacts (proposal, specs, design, tasks). Native /opsx:ff (claude/gemini) or $opsx:ff (codex).',

@@ -63,6 +63,14 @@ phases). `failureRecovery` allows one in-run phase retry or an artifact-only rep
 followed by revalidation; it never resets run budgets or changes the frozen target.
 See [scope, recovery and metrics](../../../docs/internals/spec-addenda.md#quick-sdd-scope-and-efficiency).
 
+## Template catalog
+
+`runtime/loop-templates.ts` serves exactly the eight starters in
+`CORE_STARTER_TEMPLATE_IDS`. With `engineV2` + `workflowDefinitions` they are
+Core definition graphs; older Core packages receive the legacy graphs. Legacy-only
+templates are not bundled, because a Core without engine 1 refuses them.
+`opsxLifecycleGraph` remains only as the legacy Quick SDD factory graph.
+
 ## Editable built-in loops
 
 Desktop migration 31 adds `builtin_id`, `builtin_default_hash` and
