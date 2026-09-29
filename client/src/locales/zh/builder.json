@@ -83,8 +83,6 @@
     "description": "里程碑 1 的待办清单已在看板上，标签为 M1。",
     "launchM1": "启动里程碑 1",
     "openProject": "打开项目",
-    "launchToast": "里程碑 1 已启动——{{count}} 个规格分布在多条轨道上（每条轨道最多 3 个）",
-    "launchPartialToast": "里程碑 1 部分启动——已启动 {{count}} 个规格，{{skipped}} 个待处理",
     "launchFailed": "无法启动里程碑 1"
   },
   "sidebar": {
@@ -134,13 +132,6 @@
     "description": "规格描述",
     "acceptanceCriteria": "验收标准",
     "criteriaEmpty": "尚无验收标准。"
-  },
-  "sequential": {
-    "modeLabel": "启动模式",
-    "mode": {
-      "sequential": "顺序",
-      "parallel": "并行"
-    }
   },
   "generation": {
     "writing": "正在编写里程碑 1 的规格…",
@@ -311,7 +302,8 @@
         "head_discarded": "下一条轨道所基于的交付已被丢弃",
         "run_lost": "重启后找不到运行中的轨道",
         "unknown": "已暂停",
-        "provider_limit": "已达到提供商用量限额"
+        "provider_limit": "已达到提供商用量限额",
+        "rail_limit_reached": "每条轨道都有等待你决定的 PR — 合并或放弃待处理的 PR 以释放轨道，然后继续"
       },
       "checkpoint": "第 {{k}}/{{n}} 条轨道已交付 — 启动第 {{next}} 条？",
       "launchNext": "启动下一条轨道",
@@ -325,9 +317,8 @@
       "autoFailed": "无法更新链"
     },
     "toast": {
-      "launched": "{{milestone}} 已启动 — 第 1/{{n}} 条轨道上有 {{count}} 个规格；后续轨道将自动跟进",
-      "launchedAll": "{{milestone}} 已启动 — {{count}} 个规格分布在 {{n}} 条轨道",
-      "launchedPartial": "{{milestone}} 部分启动 — 已启动 {{count}} 个规格，{{skipped}} 个待处理",
+      "launched": "{{milestone}} 已启动 — 第 1/{{n}} 个规格已在其轨道上；后续规格将自动跟进，每个一条轨道",
+      "launchedAll": "{{milestone}} 已启动 — 每条轨道一个规格（共 {{n}} 个）",
       "chainActive": "{{milestone}} 正在启动 — 请查看蓝图面板",
       "chunkLaunched": "{{milestone}} — 第 {{k}}/{{n}} 条轨道已启动",
       "paused": "{{milestone}} 已暂停 — {{reason}}",
@@ -335,13 +326,13 @@
       "delivered": "{{milestone}} 已交付 — {{count}} 个规格等待您的审阅",
       "review": "审阅",
       "completed": "{{milestone}} 已完成 — 所有规格均已合并",
-      "launchedCheckpoint": "{{milestone}} 已启动 — {{count}} 条规格在第 1/{{n}} 条轨道上；每条后续轨道启动前都会询问",
+      "launchedCheckpoint": "{{milestone}} 已启动 — 第 1/{{n}} 个规格已在其轨道上；每个后续规格启动前都会询问",
       "checkpoint": "{{milestone}} — 第 {{k}}/{{n}} 条轨道已交付。启动下一条？",
       "launchNext": "启动下一条轨道",
-      "autoContinue": "自动继续"
+      "autoContinue": "自动继续",
+      "railLimitReached": "{{milestone}} 无法启动 — 每条轨道都有等待你决定的 PR。合并或放弃待处理的 PR 以释放轨道。"
     },
-    "sequentialHint": "每条轨道基于上一条轨道的分支",
-    "parallelHint": "从集成分支独立启动各轨道（不堆叠）"
+    "sequentialHint": "每条轨道一个规格，按依赖顺序 — 每条轨道基于上一条轨道的分支"
   },
   "decisionCard": {
     "settledLabel": "已做决定",

@@ -105,7 +105,9 @@ describe('BuilderSidebarEntry', () => {
     expect(screen.getByText('Skeleton')).toBeInTheDocument()
     expect(screen.getByTestId('milestone-counts')).toHaveTextContent('1 of 2 delivered · 1 done')
     expect(screen.getByTestId('sidebar-launch-m1')).toBeInTheDocument()
-    expect(screen.getByTestId('milestone-launch-mode')).toBeInTheDocument()
+    // Sequential only: no Sequential/Parallel toggle, just the one-spec-per-rail hint.
+    expect(screen.queryByTestId('milestone-launch-mode')).not.toBeInTheDocument()
+    expect(screen.getByTestId('milestone-launch-hint')).toHaveTextContent('One spec per rail, in dependency order')
     expect(screen.getByTestId('sidebar-generate-next')).toHaveTextContent('Generate M2')
   })
 
@@ -124,29 +126,24 @@ describe('BuilderSidebarEntry', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/review/d-3')
   })
 
-  it('Launch M1 posts the stored mode and toasts the chain framing', async () => {
-    launchMilestone.mockResolvedValue({ ok: true, chainId: 'c1', launched: [{ chunk: 1, railIndex: 3, ticketIds: [1, 2, 3], runIds: ['r'], deliveryId: 'd' }], pending: [[4, 5, 6], [7, 8]], ticketCount: 3, skippedCount: 5 })
+  it('Launch M1 posts the stored preference (auto-continue ON by default) and toasts the chain framing', async () => {
+    launchMilestone.mockResolvedValue({ ok: true, chainId: 'c1', launched: [{ chunk: 1, railIndex: 3, ticketIds: [1], runIds: ['r'], deliveryId: 'd' }], pending: [[2], [3]], ticketCount: 1, skippedCount: 2 })
     const user = await openPanel()
-    // Default: checkpoints (auto-continue OFF) — the toast says so.
-    expect(screen.getByTestId('sidebar-auto-advance')).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByTestId('sidebar-auto-advance')).toHaveAttribute('aria-checked', 'true')
     await user.click(screen.getByTestId('sidebar-launch-m1'))
-    expect(launchMilestone).toHaveBeenCalledWith('proj-1', 1, 'sequential', { autoAdvance: false })
-    expect(toastMocks.success).toHaveBeenCalledWith('M1 launched — 3 specs on rail 1 of 3; you\'ll be asked before each next rail')
+    expect(launchMilestone).toHaveBeenCalledWith('proj-1', 1, { autoAdvance: true })
+    expect(toastMocks.success).toHaveBeenCalledWith('M1 launched — spec 1 of 3 is on its rail; the next specs follow automatically, one rail each')
   })
 
   it('the auto-continue switch persists the preference and changes the launch body + framing', async () => {
-    launchMilestone.mockResolvedValue({ ok: true, chainId: 'c1', launched: [{ chunk: 1, railIndex: 3, ticketIds: [1, 2, 3], runIds: ['r'], deliveryId: 'd' }], pending: [[4, 5, 6], [7, 8]], ticketCount: 3, skippedCount: 5 })
+    launchMilestone.mockResolvedValue({ ok: true, chainId: 'c1', launched: [{ chunk: 1, railIndex: 3, ticketIds: [1], runIds: ['r'], deliveryId: 'd' }], pending: [[2], [3]], ticketCount: 1, skippedCount: 2 })
     const user = await openPanel()
     await user.click(screen.getByTestId('sidebar-auto-advance'))
-    expect(screen.getByTestId('sidebar-auto-advance')).toHaveAttribute('aria-checked', 'true')
-    expect(localStorage.getItem('specrails-desktop:milestone-auto-advance')).toBe('true')
+    expect(screen.getByTestId('sidebar-auto-advance')).toHaveAttribute('aria-checked', 'false')
+    expect(localStorage.getItem('specrails-desktop:milestone-auto-advance')).toBe('false')
     await user.click(screen.getByTestId('sidebar-launch-m1'))
-    expect(launchMilestone).toHaveBeenCalledWith('proj-1', 1, 'sequential', { autoAdvance: true })
-    expect(toastMocks.success).toHaveBeenCalledWith('M1 launched — 3 specs on rail 1 of 3; the next rails follow automatically')
-    // Parallel launches have no checkpoints — the switch is hidden.
-    await user.click(screen.getByTestId('builder-sidebar-toggle'))
-    await user.click(await screen.findByRole('radio', { name: 'Parallel' }))
-    expect(screen.queryByTestId('sidebar-auto-advance')).not.toBeInTheDocument()
+    expect(launchMilestone).toHaveBeenCalledWith('proj-1', 1, { autoAdvance: false })
+    expect(toastMocks.success).toHaveBeenCalledWith('M1 launched — spec 1 of 3 is on its rail; you\'ll be asked before each next one')
   })
 
   it('a chain at a wave checkpoint offers Launch next rail and the chain-level auto-continue switch; Launch M1 is hidden', async () => {
@@ -172,14 +169,11 @@ describe('BuilderSidebarEntry', () => {
     expect(toastMocks.error).toHaveBeenCalledWith('Could not update the chain', { description: 'chain is cancelled' })
   })
 
-  it('parallel mode is remembered and framed as all rails at once; a guard refusal surfaces', async () => {
-    launchMilestone.mockResolvedValueOnce({ ok: true, chainId: null, launched: [{ chunk: 1, railIndex: 3, ticketIds: [1], runIds: [], deliveryId: null }], pending: [], ticketCount: 1, skippedCount: 0 })
+  it('a single-spec launch is framed as one spec per rail; guard refusals surface (rail limit is localized)', async () => {
+    launchMilestone.mockResolvedValueOnce({ ok: true, chainId: 'c1', launched: [{ chunk: 1, railIndex: 3, ticketIds: [1], runIds: [], deliveryId: null }], pending: [], ticketCount: 1, skippedCount: 0 })
     const user = await openPanel()
-    await user.click(screen.getByRole('radio', { name: 'Parallel' }))
     await user.click(screen.getByTestId('sidebar-launch-m1'))
-    expect(launchMilestone).toHaveBeenCalledWith('proj-1', 1, 'parallel', { autoAdvance: false })
-    expect(toastMocks.success).toHaveBeenCalledWith('M1 launched — 1 specs across 1 rails')
-    expect(localStorage.getItem('specrails-desktop:milestone-launch-mode')).toBe('parallel')
+    expect(toastMocks.success).toHaveBeenCalledWith('M1 launched — one spec per rail (1 in total)')
     launchMilestone.mockResolvedValueOnce({ ok: false, reason: 'launch_rejected', error: 'tickets_in_flight', detail: 'busy' })
     await user.click(screen.getByTestId('builder-sidebar-toggle'))
     await user.click(await screen.findByTestId('sidebar-launch-m1'))
@@ -187,6 +181,9 @@ describe('BuilderSidebarEntry', () => {
     launchMilestone.mockResolvedValueOnce({ ok: false, reason: 'chain_active', error: 'chain_active', chainId: 'c' })
     await user.click(screen.getByTestId('sidebar-launch-m1'))
     expect(toastMocks.info).toHaveBeenCalled()
+    launchMilestone.mockResolvedValueOnce({ ok: false, reason: 'rail_limit_reached', error: 'rail_limit_reached' })
+    await user.click(screen.getByTestId('sidebar-launch-m1'))
+    expect(toastMocks.warning).toHaveBeenCalledWith('M1 could not launch — every rail holds a PR awaiting your decision. Merge or discard pending PRs to free a rail.')
   })
 
   it('a paused chain offers Resume / Cancel through the chain routes and hides Launch', async () => {

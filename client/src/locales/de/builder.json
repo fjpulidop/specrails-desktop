@@ -83,8 +83,6 @@
     "description": "Dein Meilenstein-1-Backlog ist auf dem Board, mit M1 gelabelt.",
     "launchM1": "Meilenstein 1 starten",
     "openProject": "Projekt öffnen",
-    "launchToast": "Meilenstein 1 gestartet — {{count}} Specs auf Rails verteilt (max. 3 pro Rail)",
-    "launchPartialToast": "Meilenstein 1 teilweise gestartet — {{count}} Specs gestartet, {{skipped}} ausstehend",
     "launchFailed": "Meilenstein 1 konnte nicht gestartet werden"
   },
   "sidebar": {
@@ -134,13 +132,6 @@
     "description": "Spec-Beschreibung",
     "acceptanceCriteria": "Akzeptanzkriterien",
     "criteriaEmpty": "Noch keine Akzeptanzkriterien."
-  },
-  "sequential": {
-    "modeLabel": "Startmodus",
-    "mode": {
-      "sequential": "Sequenziell",
-      "parallel": "Parallel"
-    }
   },
   "generation": {
     "writing": "Milestone-1-Specs werden geschrieben…",
@@ -311,7 +302,8 @@
         "head_discarded": "die Lieferung, auf der das nächste Rail aufbaut, wurde verworfen",
         "run_lost": "das laufende Rail wurde nach einem Neustart nicht gefunden",
         "unknown": "pausiert",
-        "provider_limit": "das Nutzungslimit des Anbieters ist erreicht"
+        "provider_limit": "das Nutzungslimit des Anbieters ist erreicht",
+        "rail_limit_reached": "jedes Rail hat einen PR, der auf deine Entscheidung wartet – merge oder verwirf offene PRs, um ein Rail freizugeben, und setze dann fort"
       },
       "checkpoint": "Rail {{k}} von {{n}} geliefert — Rail {{next}} starten?",
       "launchNext": "Nächstes Rail starten",
@@ -325,9 +317,8 @@
       "autoFailed": "Kette konnte nicht aktualisiert werden"
     },
     "toast": {
-      "launched": "{{milestone}} gestartet – {{count}} Specs auf Rail 1 von {{n}}; die nächsten Rails folgen automatisch",
-      "launchedAll": "{{milestone}} gestartet – {{count}} Specs auf {{n}} Rails",
-      "launchedPartial": "{{milestone}} teilweise gestartet – {{count}} Specs gestartet, {{skipped}} ausstehend",
+      "launched": "{{milestone}} gestartet – Spec 1 von {{n}} läuft auf seinem Rail; die nächsten Specs folgen automatisch, je ein Rail",
+      "launchedAll": "{{milestone}} gestartet – ein Spec pro Rail ({{n}} insgesamt)",
       "chainActive": "{{milestone}} wird bereits gestartet – siehe Blueprint-Panel",
       "chunkLaunched": "{{milestone}} – Rail {{k}} von {{n}} gestartet",
       "paused": "{{milestone}} pausiert – {{reason}}",
@@ -335,13 +326,13 @@
       "delivered": "{{milestone}} geliefert – {{count}} Specs warten auf dein Review",
       "review": "Prüfen",
       "completed": "{{milestone}} abgeschlossen – alle Specs gemergt",
-      "launchedCheckpoint": "{{milestone}} gestartet — {{count}} Specs auf Rail 1 von {{n}}; vor jedem weiteren Rail wird gefragt",
+      "launchedCheckpoint": "{{milestone}} gestartet – Spec 1 von {{n}} läuft auf seinem Rail; vor jedem weiteren wird gefragt",
       "checkpoint": "{{milestone}} — Rail {{k}} von {{n}} geliefert. Nächstes Rail starten?",
       "launchNext": "Nächstes Rail starten",
-      "autoContinue": "Automatisch weiter"
+      "autoContinue": "Automatisch weiter",
+      "railLimitReached": "{{milestone}} konnte nicht starten – jedes Rail hat einen PR, der auf deine Entscheidung wartet. Merge oder verwirf offene PRs, um ein Rail freizugeben."
     },
-    "sequentialHint": "Jedes Rail baut auf dem Branch des vorherigen Rails auf",
-    "parallelHint": "Unabhängige Rails vom Integrations-Branch (kein Stapeln)"
+    "sequentialHint": "Ein Spec pro Rail, in Abhängigkeitsreihenfolge – jedes Rail baut auf dem Branch des vorherigen Rails auf"
   },
   "decisionCard": {
     "settledLabel": "Entscheidung getroffen",

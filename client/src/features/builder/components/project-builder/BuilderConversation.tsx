@@ -17,7 +17,7 @@ import { COMMIT_STEP_ORDER, githubErrorKey } from '../../hooks/useBuilderSession
 import { BuilderDoneMilestone } from './BuilderDoneMilestone'
 import { BuilderDecisionCard } from './BuilderDecisionCard'
 import { MilestoneAutoAdvanceToggle } from './MilestoneProgressCard'
-import { readMilestoneAutoAdvance, readMilestoneLaunchMode, saveMilestoneAutoAdvance } from '../../lib/milestone-launch'
+import { readMilestoneAutoAdvance, saveMilestoneAutoAdvance } from '../../lib/milestone-launch'
 
 // Shared composer card chrome — the morph target of `layoutId` (the mission's
 // "agent-composer-dock" twin) so the empty hero card lowers smoothly into the
@@ -257,14 +257,12 @@ export function BuilderConversation({ variant }: BuilderConversationProps) {
                   {t('done.launchM1')}
                 </Button>
                 {/* Wave checkpoints (D9): the stored preference the launch reads. */}
-                {readMilestoneLaunchMode() === 'sequential' && (
-                  <MilestoneAutoAdvanceToggle
-                    checked={doneAutoAdvance}
-                    onChange={(on) => { setDoneAutoAdvance(on); saveMilestoneAutoAdvance(on) }}
-                    disabled={session.launching}
-                    testId="done-auto-advance"
-                  />
-                )}
+                <MilestoneAutoAdvanceToggle
+                  checked={doneAutoAdvance}
+                  onChange={(on) => { setDoneAutoAdvance(on); saveMilestoneAutoAdvance(on) }}
+                  disabled={session.launching}
+                  testId="done-auto-advance"
+                />
               </>
             )}
             <Button variant="outline" onClick={session.openProject} data-testid="open-project">

@@ -474,11 +474,11 @@ describe('BuilderConversation (panel-hosted phases)', () => {
     const user = userEvent.setup()
     const s = session({ phase: 'done', createdProjectId: 'proj-9' })
     renderWithMode(s)
-    // Wave checkpoints: the done screen carries the stored auto-continue preference (default OFF).
-    expect(screen.getByTestId('done-auto-advance')).toHaveAttribute('aria-checked', 'false')
-    await user.click(screen.getByTestId('done-auto-advance'))
+    // Wave checkpoints: the done screen carries the stored auto-continue preference (default ON).
     expect(screen.getByTestId('done-auto-advance')).toHaveAttribute('aria-checked', 'true')
-    expect(localStorage.getItem('specrails-desktop:milestone-auto-advance')).toBe('true')
+    await user.click(screen.getByTestId('done-auto-advance'))
+    expect(screen.getByTestId('done-auto-advance')).toHaveAttribute('aria-checked', 'false')
+    expect(localStorage.getItem('specrails-desktop:milestone-auto-advance')).toBe('false')
     await user.click(screen.getByTestId('launch-m1'))
     expect(s.launchM1).toHaveBeenCalled()
     await user.click(screen.getByTestId('open-project'))
