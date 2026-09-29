@@ -1,5 +1,4 @@
 import { assertLoopFailureRecovery, isDefinitionGraph, validateLoopGraph, type CoreNodeKind, type LoopGraph, type LoopNode } from './loop-graph'
-import { coreFactoryGraph } from './loop-core-factory'
 
 export interface LegacyConversionIssue { code: string; message: string; nodeId?: string }
 export type LegacyConversion =
@@ -66,7 +65,6 @@ export function convertLegacyLoop(graph: LoopGraph, bindings: LegacyConversionBi
   const recoveryVars = new Map(graph.nodes.filter(node => node.data?.failureRecovery).map((node, index) => [node.id, 'compatRecovery' + index]))
   const writes = graph.nodes.some(node => node.type === 'ai-step' || node.type === 'shell')
   let implementation = false
-  const components: NonNullable<LoopGraph['components']> = {}
   const failedPass = (target: string): string => {
     const id = fresh('failed-pass'); assign(id, { set: { [PASS]: true } }, target); return id
   }
@@ -126,14 +124,9 @@ export function convertLegacyLoop(graph: LoopGraph, bindings: LegacyConversionBi
       const raw = String(node.data?.prompt ?? '')
       if (node.data?.operation === 'core-implementation' || /\{\{\s*cmd:(?:implement|batch)\s*\}\}/.test(raw) || /^\s*(?:\/specrails:|\/skill:specrails-|\$)(?:implement|batch-implement)(?:\s|$)/.test(raw)) {
         implementation = true
-        const batch = /\{\{\s*cmd:batch\s*\}\}|(?:\/specrails:|\/skill:specrails-|\$)batch-implement(?:\s|$)/.test(raw)
-        if (batch) {
-          const body = coreFactoryGraph('implement'), ref = fresh('implementation-body'), join = fresh('batch-join')
-          for (const terminal of body.nodes.filter(item => item.type === 'end')) terminal.data = { ...terminal.data, requiresVerified: false, exit: terminal.id === 'done' ? 'next' : 'failed' }
-          body.outputs = ['next', 'failed']; components[ref] = body
-          emit(id, 'map', { over: 'tickets', body: ref, concurrency: 2 }, { next: join }, node)
-          emit(join, 'join', { reduce: 'all-ok' }, { next, fail: hardFailure })
-        } else emit(id, 'implementation', {}, { next, rejected: hardFailure, failed: hardFailure }, node)
+        // The removed Batch command (`{{cmd:batch}}` / `batch-implement`) converts
+        // exactly like implement: one aggregate implementation node, no map/join.
+        emit(id, 'implementation', {}, { next, rejected: hardFailure, failed: hardFailure }, node)
       } else {
         const params = promptParams(node)
         emit(id, 'prompt', params, params.sentinel === 'verification'
@@ -184,7 +177,6 @@ export function convertLegacyLoop(graph: LoopGraph, bindings: LegacyConversionBi
   const maxTransitions = implementation ? 10_000 : legacyCap * 12 + nodes.length
   if (maxTransitions > 10_000) return { ok: false, issues: [{ code: 'transition_limit', message: 'This conversion exceeds Core’s 10000-transition ceiling; reduce the requested iteration bound.' }] }
   const converted: LoopGraph = { nodes: nodes.filter(node => reachable.has(node.id)), edges: edges.filter(edge => reachable.has(edge.source)),
-    ...(Object.keys(components).length ? { components } : {}),
     config: { ...graph.config, policies: { ...graph.config.policies, failFast: Math.min(graph.config.policies?.failFast ?? 2, 2) }, maxTransitions, journal: implementation ? 'implementation' : 'ledger-only', change: graph.config.change ?? (implementation ? undefined : 'none'),
       ...(graph.nodes.some(node => node.type === 'decider') ? { legacyDeciderRole: LEGACY_DECIDER_ROLE } : {}) } }
   const result = validateLoopGraph(converted)

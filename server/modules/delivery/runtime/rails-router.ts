@@ -77,7 +77,14 @@ declare module 'express-serve-static-core' {
   }
 }
 
-const VALID_MODES = new Set(['implement', 'batch-implement', 'freestyle', 'loop'])
+const VALID_MODES = new Set(['implement', 'freestyle', 'loop'])
+/** Input aliases of the removed Batch mode. `implement` already runs every rail
+ *  ticket in one aggregate run, so stored/agent/mobile `batch-implement` (or
+ *  `batch`) requests are normalized to it at the HTTP boundary. */
+const REMOVED_BATCH_MODES = new Set(['batch-implement', 'batch'])
+export function normalizeRailMode(mode: unknown): unknown {
+  return typeof mode === 'string' && REMOVED_BATCH_MODES.has(mode) ? 'implement' : mode
+}
 function prDeliveryContinuesTickets(delivery: PrDeliverySnapshot, ticketIds: number[]): boolean {
   if (delivery.decision !== 'pr_draft' && delivery.decision !== 'pr_ready') return false
   if (delivery.executionManifest && delivery.repositoryDeliveries?.length) {
@@ -343,7 +350,11 @@ export function createRailsRouter(): Router {
       // per-rail profile. Preserve them (an explicit body value still wins).
       const current = getRail(c.db, railIndex)
       const body = req.body ?? {}
-      const mode = typeof body.mode === 'string' ? body.mode : current.mode
+      const requestedMode = normalizeRailMode(body.mode)
+      if (requestedMode !== undefined && (typeof requestedMode !== 'string' || !VALID_MODES.has(requestedMode))) {
+        res.status(400).json({ error: 'mode must be "implement", "freestyle" or "loop"' }); return
+      }
+      const mode = typeof requestedMode === 'string' ? requestedMode : String(normalizeRailMode(current.mode))
       const profileName = 'profileName' in body ? body.profileName : current.profileName
       // Preserve the rail's AI engine across ticket reassignment (undefined →
       // setRailTickets re-reads the current value), so it isn't silently wiped.
@@ -480,7 +491,8 @@ export function createRailsRouter(): Router {
     let runtimeProviderOverride
     try { runtimeProviderOverride = validateRuntimeProviderOverride(req.body?.runtimeProviderOverride) }
     catch { res.status(400).json({ error: 'invalid_runtime_provider_override' }); return }
-    let { mode = 'implement' } = req.body ?? {}
+    // Non-string values fail the VALID_MODES check below.
+    let mode = normalizeRailMode(req.body?.mode ?? 'implement') as string
     const { repositoryIds: rawRepositoryIds, baseDeliveryIds, profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch, followUp: rawFollowUp } = req.body ?? {}
     // PR review follow-up (pr-follow-up-fixes): a typed, bounded, FROZEN scope
     // for "resolve these review comments". It rides the delivery row and every
@@ -555,7 +567,7 @@ export function createRailsRouter(): Router {
       mode = fmode
     }
     if (!VALID_MODES.has(mode as string)) {
-      res.status(400).json({ error: 'mode must be "implement", "batch-implement", "freestyle" or "loop"' }); return
+      res.status(400).json({ error: 'mode must be "implement", "freestyle" or "loop"' }); return
     }
     // A bare legacy mode (MCP tools, mobile, direct REST — no loopId) must run
     // through the SAME factory loop the dashboard sends, so worktree isolation
@@ -1262,11 +1274,10 @@ export function createRailsRouter(): Router {
         return
       }
 
-      // Implement / batch-implement create a single job with all ticket IDs.
-      // /specrails:implement handles multiple specs in parallel internally.
+      // Implement creates a single job with all ticket IDs (the removed Batch
+      // mode is normalized to implement above).
       const issueArgs = rail.ticketIds.map((id) => `#${id}`).join(' ')
-      const commandName = mode === 'batch-implement' ? 'batch-implement' : 'implement'
-      const command = `/specrails:${commandName} ${issueArgs} --yes`
+      const command = `/specrails:implement ${issueArgs} --yes`
       const job = c.queueManager.enqueue(command, 'normal', { profileName: resolvedProfile, provider: railProvider })
       jobId = job.id
       c.railJobs.set(jobId, { railIndex, mode, ticketIds: [...rail.ticketIds] })

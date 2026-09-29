@@ -78,14 +78,27 @@ describe('DashboardPage — rail interactions', () => {
     expect(screen.getByText('Rail 3')).toBeInTheDocument()
   })
 
-  it('handleModeChange: clicking Batch button changes mode', () => {
+  it('does not offer the removed Batch mode on any rail', () => {
     render(<DashboardPage />)
-    // Each rail has Implement + Batch buttons; click Batch on first rail
-    const batchButtons = screen.getAllByText('Batch')
-    fireEvent.click(batchButtons[0])
-    // After mode change, the first Batch button becomes active (has bg-primary class)
-    // Just verify no errors thrown and component still renders
-    expect(screen.getByText('Rail 1')).toBeInTheDocument()
+    expect(screen.getAllByText('Implement').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Batch')).not.toBeInTheDocument()
+  })
+
+  it('loads rails persisted with the removed Batch mode as Implement', async () => {
+    mockActiveProjectId = 'proj-legacy'
+    localStorage.setItem('specrails-desktop:rails:proj-legacy', JSON.stringify([
+      { id: 'rail-1', label: 'Rail 1', ticketIds: [], mode: 'batch-implement', selectedLoopId: 'factory:batch', status: 'idle' },
+      { id: 'rail-2', label: 'Rail 2', ticketIds: [], mode: 'batch', status: 'idle' },
+      { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'freestyle', selectedLoopId: 'factory:freestyle', status: 'idle' },
+    ]))
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ rails: [], activeJobs: {}, activeLoopRuns: {}, profiles: [] }) })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const pickers = screen.getAllByTestId('rail-loop-selector') as HTMLSelectElement[]
+      expect(pickers[0].value).toBe('factory:implement')
+      expect(pickers[1].value).toBe('factory:implement')
+    })
+    expect(screen.queryByText('Batch')).not.toBeInTheDocument()
   })
 
   it('handleModeChange: clicking Implement button keeps mode', () => {
@@ -97,11 +110,11 @@ describe('DashboardPage — rail interactions', () => {
 
   it('saveRails: persists to localStorage when mode changes', () => {
     render(<DashboardPage />)
-    const batchButtons = screen.getAllByText('Batch')
-    fireEvent.click(batchButtons[0])
+    const implementButtons = screen.getAllByText('Implement')
+    fireEvent.click(implementButtons[0])
     // saveRails stores under specrails-desktop:rails:<projectId>
     // projectId is null in test so no-op — just verify no crash
-    expect(screen.getAllByText('Batch').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Implement').length).toBeGreaterThan(0)
   })
 })
 

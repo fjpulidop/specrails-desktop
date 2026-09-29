@@ -21,14 +21,14 @@ L'engine selezionato esegue ogni fase della pipeline di quel rail. Se la CLI del
 
 ## In cosa è bravo ciascun engine
 
-Tutti e quattro eseguono **Implement** e **Batch**:
+Tutti e quattro eseguono **Implement**:
 
 | Engine | Scegli questo quando… | Note |
 |--------|--------------------|-------|
 | **Claude** | Servono costi nativi, interazione persistente o tool policy rigorose. | Profili, Freestyle e transform strutturati. |
 | **Codex** | Preferisci la CLI Codex di OpenAI o vuoi confrontare le implementazioni tra provider diversi. | `codex` ≥ 0.128.0. Nessuna reportistica nativa dei costi — l'app ricava il costo dalla sua tabella prezzi. I profili non si applicano. |
 | **Gemini** | Vuoi la CLI Gemini di Google, telemetria nativa o un'esecuzione più economica per le spec di routine. | `gemini` ≥ 0.11.0 (imposta `GEMINI_API_KEY`). Telemetria OTLP nativa. I profili non si applicano. |
-| **Kimi** | Vuoi Kimi agentic per Implement, Batch, Freestyle o loop senza Decider. | `kimi` ≥ 0.27.0 esterno; profili/ruoli, effort solo K3; token/costo non disponibili. |
+| **Kimi** | Vuoi Kimi agentic per Implement, Freestyle o loop senza Decider. | `kimi` ≥ 0.27.0 esterno; profili/ruoli, effort solo K3; token/costo non disponibili. |
 
 ### Differenze di capability
 

@@ -276,10 +276,6 @@
       "name": "实现",
       "description": "全自动:实现 spec、验证,失败时自动修正(fix)——循环直到所有测试通过。"
     },
-    "factory_batch": {
-      "name": "批量实现",
-      "description": "一次性批量实现该 rail 的全部工单,然后验证 + 失败时修正,直到全部通过。"
-    },
     "factory_freestyle": {
       "name": "Freestyle",
       "description": "将 spec 直接交给模型, 给予完全自由 — 无管线, 像普通编码智能体一样工作, 然后验证+改进直到全部通过。仅限 Claude。"

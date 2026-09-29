@@ -15,7 +15,7 @@ Chaque connexion possède aussi un réglage **Boucle de l'agent**. **Compacte** 
 
 ## Ce que vous obtenez
 
-- Rails (implement, batch, freestyle, boucles personnalisées), Explore et specs Quick, chat et missions s'exécutent sur le modèle local.
+- Rails (implement, freestyle, boucles personnalisées), Explore et specs Quick, chat et missions s'exécutent sur le modèle local.
 - Les missions conservent leurs outils Specrails et vos serveurs MCP externes.
 - Les sessions reprennent d'un tour à l'autre ; les jobs interactifs fonctionnent.
 - Le coût est honnête : les tokens sont enregistrés, le coût reste *inconnu* sauf si vous saisissez des tarifs (il est alors marqué *estimé*).

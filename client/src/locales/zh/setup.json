@@ -213,7 +213,7 @@
       "steerLabel": "运行中随时引导",
       "steerBody": "Claude 运行是交互式的：工作时可提问或改向，并以叙述式进度代替原始日志。",
       "loopsLabel": "构建自己的循环",
-      "loopsBody": "<b>Loops</b> 是可视化构建器：串联 AI 步骤、shell 命令和一个<b>循环决策器</b>，重复直到达成目标。内置的 Implement、Batch 和 Freestyle 开箱即用。",
+      "loopsBody": "<b>Loops</b> 是可视化构建器：串联 AI 步骤、shell 命令和一个<b>循环决策器</b>，重复直到达成目标。内置的 Implement 和 Freestyle 开箱即用。",
       "profilesLabel": "代理配置与默认值",
       "profilesBody": "决定运行哪些代理以及各自使用的模型：按项目配置、按轨道，或在设置 → Specrails 代理中为整台机器设置一次。",
       "isolationLabel": "多项目，彼此隔离",

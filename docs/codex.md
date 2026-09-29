@@ -54,7 +54,7 @@ binary isn't on `PATH`; it shows install commands if you click "More info".
    - `.codex/config.toml` — model, reasoning effort, sandbox mode, and
      approval policy (all top-level keys per the codex 0.128.0+ schema).
    - `.codex/skills/sr-*/SKILL.md` — general specrails skills
-     (implement, batch-implement, why, compat-check, …).
+     (implement, why, compat-check, …).
    - `.codex/skills/rails/sr-*/SKILL.md` — the pipeline rails.
    - `AGENTS.md` — top-level instructions file with a sentinel-protected
      managed block. Anything outside the sentinels is preserved on
@@ -126,7 +126,7 @@ The table below includes all four registered providers. See the
 | **Reasoning efforts** | `low`–`xhigh` | model-dependent | none | `low`/`high`/`max`, K3 only |
 | **Agent format** | `.claude/agents/<id>.md` | `.codex/skills/<id>/SKILL.md` | `.gemini/` target | `.kimi-code/skills/<id>/SKILL.md` |
 | **Agent profiles** | ✅ | legacy | legacy | ✅ provider-scoped |
-| **Implement / Batch** | ✅ | ✅ | ✅ | ✅ |
+| **Implement** | ✅ | ✅ | ✅ | ✅ |
 | **Freestyle** | ✅ | ❌ | ❌ | ✅ |
 | **Pure-output transforms** | capability-dependent | capability-dependent | capability-dependent | ❌ fail closed |
 | **MCP registration** | `.mcp.json` | isolated `CODEX_HOME` | `.gemini/settings.json` | `.kimi-code/mcp.json` |

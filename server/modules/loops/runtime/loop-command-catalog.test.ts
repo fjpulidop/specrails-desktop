@@ -9,20 +9,24 @@ import {
 import { interpolateSpec } from './loop-graph'
 
 describe('loop command catalog', () => {
-  it('ships implement (all), batch (all), freestyle (per-ticket, capability-gated)', () => {
+  it('ships implement (all), freestyle (per-ticket, capability-gated); batch is a hidden implement alias', () => {
     expect(getLoopCommand('implement')).toMatchObject({ coreCommand: 'implement', ticketScope: 'all' })
-    expect(getLoopCommand('batch')).toMatchObject({ coreCommand: 'batch-implement', ticketScope: 'all' })
+    expect(getLoopCommand('batch')).toBe(getLoopCommand('implement'))
+    expect(LOOP_COMMANDS.some((c) => c.name === 'batch' || c.coreCommand === 'batch-implement')).toBe(false)
     expect(getLoopCommand('freestyle')).toMatchObject({ native: true, requiredCapability: 'freestyle', ticketScope: 'per-ticket' })
     expect(LOOP_COMMANDS.some((c) => c.name === 'verify')).toBe(true)
   })
 
-  it('implement/batch embed ALL ticket ids (all scope)', () => {
+  it('implement (and the legacy batch alias) embed ALL ticket ids (all scope)', () => {
     expect(expandCommands('{{cmd:implement}}', { provider: 'claude', ticketIds: [1, 2, 3] })).toBe('/specrails:implement #1 #2 #3 --yes')
-    expect(expandCommands('{{cmd:batch}}', { provider: 'claude', ticketIds: [1, 2] })).toBe('/specrails:batch-implement #1 #2 --yes')
+    expect(expandCommands('{{cmd:batch}}', { provider: 'claude', ticketIds: [1, 2] })).toBe('/specrails:implement #1 #2 --yes')
+    expect(expandCommands('{{cmd:batch}}', { provider: 'kimi', ticketIds: [1] })).toBe('/skill:specrails-implement #1 --yes')
   })
 
-  it('codex uses the $skill form', () => {
-    expect(expandCommands('{{cmd:batch}}', { provider: 'codex', ticketIds: [4] })).toBe('$batch-implement #4 --yes')
+  it('codex uses the $skill form and never rewrites multi-ticket implement to batch-implement', () => {
+    expect(expandCommands('{{cmd:implement}}', { provider: 'codex', ticketIds: [4] })).toBe('$implement #4 --yes')
+    expect(expandCommands('{{cmd:implement}}', { provider: 'codex', ticketIds: [4, 5] })).toBe('$implement #4 #5 --yes')
+    expect(expandCommands('{{cmd:batch}}', { provider: 'codex', ticketIds: [4, 5] })).toBe('$implement #4 #5 --yes')
   })
 
   it('falls back to a single specId and omits tickets when none', () => {

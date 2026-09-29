@@ -9,14 +9,14 @@ describe('internal-api (loopback master-token client)', () => {
   it('calls 127.0.0.1:<port>/api<path> with the bearer token and JSON body, parsing JSON back', async () => {
     const fetchImpl = vi.fn(async () => response(202, '{"loopRunIds":["r1"]}'))
     const api = createInternalApi({ port: 4321, fetchImpl: fetchImpl as unknown as typeof fetch, token: () => 'tok' })
-    const res = await api.call('POST', '/projects/p1/rails/0/launch', { mode: 'batch-implement' })
+    const res = await api.call('POST', '/projects/p1/rails/0/launch', { mode: 'implement' })
     expect(res).toEqual({ ok: true, status: 202, body: { loopRunIds: ['r1'] } })
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('http://127.0.0.1:4321/api/projects/p1/rails/0/launch')
     expect(init.method).toBe('POST')
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok')
     expect((init.headers as Record<string, string>)['content-type']).toBe('application/json')
-    expect(init.body).toBe('{"mode":"batch-implement"}')
+    expect(init.body).toBe('{"mode":"implement"}')
   })
 
   it('never throws on 4xx — the status + parsed body come back for typed handling', async () => {

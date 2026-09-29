@@ -187,9 +187,10 @@ heading inside the description); \`labels\`; \`priority\`. Spec content is Engli
 - Configure: \`set_tickets\` (replaces the assigned set), \`set_profile\` (null =
   legacy), \`set_engine\` (null = project primary), \`set_name\`.
 - Launch modes:
-  - \`implement\`: one pipeline job (Architect → Developer → Reviewer → Ship)
-    over the rail's tickets.
-  - \`batch-implement\`: dependency-aware waves across many tickets.
+  - \`implement\`: one aggregate pipeline job (Architect → Developer → Reviewer
+    → Ship) over all the rail's tickets. Put at most 3 specs on one rail; split
+    larger sets across several rails (they run in parallel) or sequential
+    launches. There is no separate batch mode.
   - Freestyle: sends a free-form autonomous prompt to a capable provider — one
     job per ticket; Claude and Kimi; \`model\` picker. Claude additionally
     supports optional \`interactive\` in-job chat (settle with

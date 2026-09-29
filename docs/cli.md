@@ -98,13 +98,14 @@ specrails-desktop implement "#42"
 
 This is shorthand for `specrails-desktop /specrails:implement "#42"` — the app queues a rail job that you can monitor in the Dashboard. Token usage and cost are tracked in Analytics.
 
-### Implement a batch
+### Implement several specs
 
 ```bash
-specrails-desktop batch-implement "#40" "#41" "#43"
+specrails-desktop implement "#40" "#41" "#43"
 ```
 
-Shorthand for `/specrails:batch-implement` — runs the listed specs in one dependency-aware job.
+`implement` accepts several specs and runs them in one aggregate job. The old
+`batch-implement` verb was removed; typing it still works and runs `implement`.
 
 ### Health check
 
@@ -128,8 +129,7 @@ These are all shorthand for `/specrails:<verb>` — the app auto-prefixes:
 
 | Verb | What it does |
 |------|--------------|
-| `implement` | Queue a rail job for one spec |
-| `batch-implement` | Queue one job that implements many specs |
+| `implement` | Queue a rail job for one or more specs (one aggregate run) |
 | `why` | Explain why a chunk of code looks the way it does |
 | `propose-spec` | Explore an idea and produce a structured spec proposal |
 | `get-backlog-specs` | View the prioritised spec backlog |
@@ -155,7 +155,7 @@ The app still tracks cost in Analytics under `surface=job`.
 
 ```bash
 specrails-desktop --project my-app implement "#42"
-specrails-desktop --project ~/repos/api-srv batch-implement "#5" "#6"
+specrails-desktop --project ~/repos/api-srv implement "#5" "#6"
 ```
 
 `--project` accepts a project **name** or a **path** (absolute, or relative starting with `.` / `..`). Use it when you want to launch work in a project from outside its directory (e.g. from a CI runner or your home directory). Both `--project` and `--port` may appear **anywhere** in the command, not just at the front.
@@ -197,7 +197,7 @@ specrails-desktop /opsx:archive      # archive to openspec/changes/archive/
 
 ## When the app isn't running
 
-If you invoke a command that routes work (`implement`, `batch-implement`, a raw prompt, …) while the app is not running, the CLI falls back to spawning the **`claude`** binary directly in the current directory. You'll see:
+If you invoke a command that routes work (`implement`, a raw prompt, …) while the app is not running, the CLI falls back to spawning the **`claude`** binary directly in the current directory. You'll see:
 
 ```
 [specrails-desktop] manager not running — invoking claude directly

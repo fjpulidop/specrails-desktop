@@ -180,9 +180,9 @@ or read-only behavior.
 | Project Chat and Agent Chat | Text, tools, errors, cancellation, session resume, attachments, and proposals use a fresh owned `kimi -p` process per turn. |
 | Explore | Conversation and proposal/draft work are available under Kimi's autonomous prompt-mode policy. It is not a filesystem sandbox. |
 | Quick Launcher | Agentic commands such as `/opsx:ff` are available. This is distinct from the pure-output **Quick Spec** form. |
-| Rails | Implement, Batch, Freestyle, retry/rerun, worktree isolation, cancellation, and ask-first PR delivery use Core's Kimi skills. |
+| Rails | Implement, Freestyle, retry/rerun, worktree isolation, cancellation, and ask-first PR delivery use Core's Kimi skills. |
 | Loops | Built-in and custom loops are available when the graph has no **Loop Decider**. AI and shell steps keep their normal agentic semantics. |
-| Project Builder delivery | Selecting Kimi as a target project provider and launching an already committed milestone through its Batch rail are available. Blueprint and milestone generation are not. |
+| Project Builder delivery | Selecting Kimi as a target project provider and launching an already committed milestone through its rails (one spec per rail) are available. Blueprint and milestone generation are not. |
 | Profiles and roles | Provider-scoped profiles, exact Kimi models, per-role routing, and manual `custom-*` role creation/editing/execution are available. |
 | MCP and integrations | Project `.kimi-code/mcp.json`, the Desktop bridge, provider-scoped plugins, and Serena are available through additive merges. |
 | Terminal and attachments | The integrated terminal launches the external CLI. Text and validated image references are available; Kimi reads images with `ReadMediaFile`. |

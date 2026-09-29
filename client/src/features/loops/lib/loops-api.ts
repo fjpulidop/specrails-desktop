@@ -65,13 +65,13 @@ export interface LoopTemplateSummary {
   graph: LoopGraph
 }
 
-/** A built-in factory loop (locked) — implement / batch / freestyle. */
+/** A built-in factory loop (locked) — implement / freestyle / SDD Quick. */
 export interface FactoryLoopSummary {
   id: string
   name: string
   description: string
   /** Legacy rail mode this loop maps to. */
-  mode: 'implement' | 'batch-implement' | 'freestyle'
+  mode: 'implement' | 'freestyle'
   /** Adapter capability required to execute this factory loop, when any. */
   requiredCapability?: 'freestyle'
   /** Backward-compatible field from older servers. */

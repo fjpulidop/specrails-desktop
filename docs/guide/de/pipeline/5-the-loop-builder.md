@@ -10,7 +10,7 @@ Erstelle unter **Komponenten** einen wiederverwendbaren Ablauf, deklariere Einga
 
 Beim Veröffentlichen validiert Core den Entwurf und markiert fehlerhafte Schritte. Beim Start wird die Projektkonfiguration erneut geprüft. Aktualisiere Core, wenn die Engine fehlt. Bestehende Desktop-Loops behalten ihren bisherigen Editor und Ablauf; die folgenden Abschnitte beschreiben diese.
 
-Eine **rail führt einen Loop aus**. Die eingebauten Loops (`Implement`, `Batch`, `Freestyle`) decken die Alltagsfälle ab, aber der **Loop Builder** lässt dich deine eigenen entwerfen — ein visueller Editor im n8n-Stil für Automatisierung, die sich wiederholt, bis ein Ziel erreicht ist. Diese Seite erklärt, was ein Loop ist, wie du einen baust und wie du ihn auf einer rail ausführst.
+Eine **rail führt einen Loop aus**. Die eingebauten Loops (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) decken die Alltagsfälle ab, aber der **Loop Builder** lässt dich deine eigenen entwerfen — ein visueller Editor im n8n-Stil für Automatisierung, die sich wiederholt, bis ein Ziel erreicht ist. Diese Seite erklärt, was ein Loop ist, wie du einen baust und wie du ihn auf einer rail ausführst.
 
 ## Loops und rails — die Beziehung
 
@@ -20,9 +20,8 @@ Ein **Loop** ist das *Rezept* für die Arbeit; eine **rail** ist die *Spur*, die
    Loop Builder (linke Seitenleiste)        Rails (rechts)
    ───────────────────────────             ─────────────
    Implement   (eingebaut)                  Rail 1
-   Batch       (eingebaut)     wählen auf ►    Loop: Verify-until-green
-   Freestyle   (eingebaut)                     ▶ Play
-   Verify-until-green (deiner)
+   Freestyle   (eingebaut)     wählen auf ►    Loop: Verify-until-green
+   Verify-until-green (deiner)                     ▶ Play
 ```
 
 - Loops leben im **Loops**-Bereich (linke Seitenleiste, neben deinen Projekten) — sie sind **global**, projektübergreifend geteilt.

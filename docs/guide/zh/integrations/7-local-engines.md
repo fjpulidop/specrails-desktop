@@ -15,7 +15,7 @@
 
 ## 你将获得
 
-- Rails（implement、batch、freestyle、自定义 loop）、Explore 与 Quick spec、聊天和任务都在本地模型上运行。
+- Rails（implement、freestyle、自定义 loop）、Explore 与 Quick spec、聊天和任务都在本地模型上运行。
 - 任务保留 Specrails 工具和你的外部 MCP 服务器。
 - 会话可跨轮次恢复；交互式 job 可用。
 - 成本诚实：记录 token，除非你填写费率，否则成本显示为*未知*（填写后标记为*估算*）。

@@ -132,7 +132,7 @@ describe('rails-router PUT /:railIndex/tickets', () => {
   afterEach(() => { db.close() })
 
   it('preserves a previously-set profile and mode when reassigning tickets', async () => {
-    setRailTickets(db, 0, [1, 2], 'batch-implement', 'prof-a')
+    setRailTickets(db, 0, [1, 2], 'freestyle', 'prof-a')
     expect(getRail(db, 0).profileName).toBe('prof-a')
 
     const res = await request(appWith(db)).put('/rails/0/tickets').send({ ticketIds: [3, 4] })
@@ -140,7 +140,7 @@ describe('rails-router PUT /:railIndex/tickets', () => {
     expect(res.status).toBe(200)
     const rail = getRail(db, 0)
     expect(rail.ticketIds).toEqual([3, 4])
-    expect(rail.mode).toBe('batch-implement') // preserved (pre-fix reset to 'implement')
+    expect(rail.mode).toBe('freestyle') // preserved (pre-fix reset to 'implement')
     expect(rail.profileName).toBe('prof-a')    // preserved (pre-fix wiped to null)
   })
 
@@ -148,11 +148,33 @@ describe('rails-router PUT /:railIndex/tickets', () => {
     setRailTickets(db, 1, [1], 'implement', 'old')
     const res = await request(appWith(db))
       .put('/rails/1/tickets')
-      .send({ ticketIds: [9], mode: 'batch-implement', profileName: 'new' })
+      .send({ ticketIds: [9], mode: 'freestyle', profileName: 'new' })
     expect(res.status).toBe(200)
     const rail = getRail(db, 1)
-    expect(rail.mode).toBe('batch-implement')
+    expect(rail.mode).toBe('freestyle')
     expect(rail.profileName).toBe('new')
+  })
+
+  it.each(['batch-implement', 'batch'])('normalizes the removed %s mode to implement', async (mode) => {
+    setRailTickets(db, 1, [1], 'freestyle', 'old')
+    const res = await request(appWith(db)).put('/rails/1/tickets').send({ ticketIds: [9], mode })
+    expect(res.status).toBe(200)
+    expect(res.body.rail.mode).toBe('implement')
+    expect(getRail(db, 1).mode).toBe('implement')
+  })
+
+  it('normalizes a stored legacy batch mode to implement when preserving it', async () => {
+    setRailTickets(db, 0, [1], 'batch-implement')
+    const res = await request(appWith(db)).put('/rails/0/tickets').send({ ticketIds: [2] })
+    expect(res.status).toBe(200)
+    expect(getRail(db, 0).mode).toBe('implement')
+  })
+
+  it.each(['nonsense', 42, ''])('400s an invalid mode (%s) without touching the rail', async (mode) => {
+    setRailTickets(db, 1, [1], 'freestyle', 'old')
+    const res = await request(appWith(db)).put('/rails/1/tickets').send({ ticketIds: [9], mode })
+    expect(res.status).toBe(400)
+    expect(getRail(db, 1)).toMatchObject({ ticketIds: [1], mode: 'freestyle' })
   })
 
   it('lets an explicit null profileName clear the stored profile', async () => {
@@ -2146,7 +2168,7 @@ describe('rails-router launch — concurrent-launch ticket guard', () => {
     setRailTickets(db, 0, [1, 2, 3, 4])
     const enqueue = vi.fn()
     const res = await request(appWith(db, { queueManager: { enqueue } }))
-      .post('/rails/0/launch').send({ mode: 'batch-implement' })
+      .post('/rails/0/launch').send({ mode: 'implement' })
     expect(res.status).toBe(400)
     expect(res.body).toEqual({ error: 'rail_ticket_cap_exceeded', max: 3, ticketCount: 4 })
     expect(enqueue).not.toHaveBeenCalled()
@@ -2156,8 +2178,28 @@ describe('rails-router launch — concurrent-launch ticket guard', () => {
     setRailTickets(db, 0, [1, 2, 3])
     const enqueue = vi.fn().mockReturnValue({ id: 'job-cap', queuePosition: 0 })
     const res = await request(appWith(db, { queueManager: { enqueue } }))
-      .post('/rails/0/launch').send({ mode: 'batch-implement' })
+      .post('/rails/0/launch').send({ mode: 'implement' })
     expect(res.status).not.toBe(400)
+  })
+
+  it.each(['batch-implement', 'batch'])('legacy path: the removed %s mode launches one aggregate implement job', async (mode) => {
+    setRailTickets(db, 0, [1, 2, 3])
+    const enqueue = vi.fn().mockReturnValue({ id: 'job-alias', queuePosition: 0 })
+    const res = await request(appWith(db, { queueManager: { enqueue } }))
+      .post('/rails/0/launch').send({ mode })
+    expect(res.status).toBe(202)
+    expect(res.body.mode).toBe('implement')
+    expect(enqueue).toHaveBeenCalledOnce()
+    expect(enqueue.mock.calls[0][0]).toBe('/specrails:implement #1 #2 #3 --yes')
+  })
+
+  it('400s an unknown launch mode', async () => {
+    setRailTickets(db, 0, [1])
+    const enqueue = vi.fn()
+    const res = await request(appWith(db, { queueManager: { enqueue } })).post('/rails/0/launch').send({ mode: 'parallel-waves' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('mode must be "implement", "freestyle" or "loop"')
+    expect(enqueue).not.toHaveBeenCalled()
   })
 
   it('409 tickets_in_flight when a rail ticket is already worked by an active loop run', async () => {
@@ -2706,7 +2748,7 @@ describe('POST /rails/:i/launch — baseBranch', () => {
 
   it('rejects a malformed branch name before touching git', async () => {
     mockRepoStatus.mockResolvedValue('ok')
-    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:batch', baseBranch: 'bad name' })
+    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement', baseBranch: 'bad name' })
     expect(res.status).toBe(400)
     expect(res.body.error).toBe('invalid_base_branch')
     expect(mockLaunchIsolated).not.toHaveBeenCalled()
@@ -2716,7 +2758,7 @@ describe('POST /rails/:i/launch — baseBranch', () => {
     mockRepoStatus.mockResolvedValue('ok')
     const spy = vi.spyOn(defaultGitRunner, 'run').mockResolvedValue({ code: 128, stdout: '', stderr: 'fatal' })
     try {
-      const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:batch', baseBranch: 'feat/missing' })
+      const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement', baseBranch: 'feat/missing' })
       expect(res.status).toBe(400)
       expect(res.body.error).toBe('invalid_base_branch')
       expect(spy).toHaveBeenCalledWith(['rev-parse', '--verify', '--quiet', 'refs/heads/feat/missing'], '/repo')
@@ -2729,23 +2771,31 @@ describe('POST /rails/:i/launch — baseBranch', () => {
     mockLaunchIsolated.mockResolvedValue(['run-1'])
     const spy = vi.spyOn(defaultGitRunner, 'run').mockResolvedValue({ code: 0, stdout: 'abc\n', stderr: '' })
     try {
-      const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:batch', baseBranch: 'feat/1-batch-3-tickets' })
+      const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement', baseBranch: 'feat/1-implement-3-tickets' })
       expect(res.status).toBe(202)
-      expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ baseBranch: 'feat/1-batch-3-tickets' }))
+      expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ baseBranch: 'feat/1-implement-3-tickets' }))
     } finally { spy.mockRestore() }
+  })
+
+  it.each([{ loopId: 'factory:batch' }, { mode: 'batch-implement' }, { mode: 'batch' }])('runs the removed Batch input %o as the Implement factory loop', async (body) => {
+    mockRepoStatus.mockResolvedValue('ok')
+    mockLaunchIsolated.mockResolvedValue(['run-1'])
+    const res = await request(launchApp()).post('/rails/0/launch').send(body)
+    expect(res.status).toBe(202)
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'factory:implement' }))
   })
 
   it('a launch without baseBranch passes none (byte-identical legacy)', async () => {
     mockRepoStatus.mockResolvedValue('ok')
     mockLaunchIsolated.mockResolvedValue(['run-1'])
-    await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:batch' })
+    await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement' })
     const call = mockLaunchIsolated.mock.calls[0][0] as Record<string, unknown>
     expect('baseBranch' in call).toBe(false)
   })
 
   it('requires isolation: an unavailable worktree setup refuses rather than silently launching shared', async () => {
     mockRepoStatus.mockResolvedValue('no-commits')
-    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:batch', baseBranch: 'feat/x' })
+    const res = await request(launchApp()).post('/rails/0/launch').send({ loopId: 'factory:implement', baseBranch: 'feat/x' })
     expect(res.status).toBe(400)
     expect(res.body.error).toBe('base_branch_requires_isolation')
     expect(mockLaunchIsolated).not.toHaveBeenCalled()

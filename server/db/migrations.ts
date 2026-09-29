@@ -1700,6 +1700,11 @@ const MIGRATIONS: Migration[] = [
       );
     `)
   },
+  // Migration 70: the Batch rail mode was removed — `implement` already runs
+  // every rail ticket in one aggregate run. Stored batch rails become implement.
+  (db) => {
+    db.exec(`UPDATE rails SET mode='implement' WHERE mode IN ('batch-implement','batch')`)
+  },
 
 ]
 

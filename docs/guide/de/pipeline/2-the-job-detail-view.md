@@ -22,7 +22,7 @@ Klick auf eine beliebige Job-Karte auf der **Jobs**-Seite, und du landest hier: 
 
 ## Pipeline-Phasen
 
-Bei `Implement`- und `Batch`-Jobs durchläuft der Lauf die Phasen, die der Slash-Befehl definiert — standardmäßig:
+Bei `Implement`-Jobs durchläuft der Lauf die Phasen, die der Slash-Befehl definiert — standardmäßig:
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -113,7 +113,6 @@ Praktisch, um einen Lauf mit einem Teammitglied zu teilen oder einen präzisen F
 ## Wie es weitergeht
 
 - [Rails & Jobs](rails-and-jobs) — Starten und Einreihen in die Queue.
-- [Batch implement & Multi-Feature](batch-implement-and-multi-feature) — viele Specs, abhängigkeitsbewusste Wellen.
 - [Kosten verfolgen](../analytics/tracking-cost) — aus Kosten pro Job Projekt-Analysen machen.
 
 ## Nach einem Workflow-Neustart

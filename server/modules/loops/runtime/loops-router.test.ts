@@ -169,7 +169,7 @@ describe('loops-router factory loops', () => {
     expect(res.status).toBe(200)
     const ids = res.body.factoryLoops.map((f: { id: string }) => f.id)
     expect(ids).toEqual([
-      'factory:implement', 'factory:batch', 'factory:freestyle',
+      'factory:implement', 'factory:freestyle',
       'factory:sdd-quick-openspec',
     ])
     // The catalog tells the client which entries have no launch path.
@@ -208,7 +208,8 @@ describe('loops-router factory loops', () => {
     const res = await request(app).get('/api/loops/commands')
     expect(res.status).toBe(200)
     const names = res.body.commands.map((c: { name: string }) => c.name)
-    expect(names).toEqual(expect.arrayContaining(['implement', 'batch', 'freestyle', 'verify', 'fix']))
+    expect(names).toEqual(expect.arrayContaining(['implement', 'freestyle', 'verify', 'fix']))
+    expect(names).not.toContain('batch') // removed Batch mode: hidden alias only
     expect(res.body.commands.every((c: { label: string }) => typeof c.label === 'string')).toBe(true)
   })
 

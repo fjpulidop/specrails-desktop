@@ -15,7 +15,7 @@ Jede Verbindung hat außerdem die Einstellung **Agenten-Schleife**. **Kompakt** 
 
 ## Was du bekommst
 
-- Rails (implement, batch, freestyle, eigene Loops), Explore und Quick-Specs, Chat und Missionen laufen auf dem lokalen Modell.
+- Rails (implement, freestyle, eigene Loops), Explore und Quick-Specs, Chat und Missionen laufen auf dem lokalen Modell.
 - Missionen behalten ihre Specrails-Tools und deine externen MCP-Server.
 - Sitzungen werden über Turns hinweg fortgesetzt; interaktive Jobs funktionieren.
 - Kosten sind ehrlich: Tokens werden erfasst, die Kosten bleiben *unbekannt*, sofern du keine Tarife einträgst (dann als *geschätzt* markiert).

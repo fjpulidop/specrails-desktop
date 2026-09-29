@@ -22,14 +22,14 @@ Le moteur sélectionné exécute chaque phase du pipeline de ce rail. Si la CLI 
 
 ## Les points forts de chaque moteur
 
-Les quatre exécutent **Implement** et **Batch** :
+Les quatre exécutent **Implement** :
 
 | Moteur | À privilégier quand… | Notes |
 |--------|--------------------|-------|
 | **Claude** | Vous avez besoin du coût natif, de l'interaction persistante ou de politiques d'outils strictes. | Profils, Freestyle et transforms structurés. |
 | **Codex** | Vous préférez la CLI Codex d'OpenAI ou vous voulez comparer les implémentations entre fournisseurs. | `codex` ≥ 0.128.0. Pas de rapport de coût natif — l'application complète le coût à partir de sa table de tarifs. Les profils ne s'appliquent pas. |
 | **Gemini** | Vous voulez la CLI Gemini de Google, la télémétrie native, ou une exécution moins chère pour les specs de routine. | `gemini` ≥ 0.11.0 (définissez `GEMINI_API_KEY`). Télémétrie OTLP native. Les profils ne s'appliquent pas. |
-| **Kimi** | Vous voulez Kimi agentic pour Implement, Batch, Freestyle ou loops sans Decider. | `kimi` ≥ 0.27.0 externe ; profils/rôles, effort K3 seulement ; tokens/coût indisponibles. |
+| **Kimi** | Vous voulez Kimi agentic pour Implement, Freestyle ou loops sans Decider. | `kimi` ≥ 0.27.0 externe ; profils/rôles, effort K3 seulement ; tokens/coût indisponibles. |
 
 ### Différences de capacité
 

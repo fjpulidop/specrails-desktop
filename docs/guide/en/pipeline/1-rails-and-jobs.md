@@ -18,12 +18,12 @@ SpecsBoard (left)            Rails (right)
 
 A rail is an **execution lane**. You drag a spec card from the SpecsBoard onto a rail, then press **▶ Play**. For git repositories, the rail launches the pipeline in an isolated git worktree so the AI can edit files and run tests without touching your active working tree. If the project is not a git repo yet, Specrails clearly degrades to shared-folder execution and tells you that no branch or PR card will appear.
 
-You can have several rails to organise work into named lanes (one for the feature you're focused on, another queued behind it). Rails are **dynamic**: the **+ Add** button in the Rails header creates a new lane (up to 12 per project) and idle empty lanes can be deleted. Every rail is server-backed, so your set of lanes survives reloads and is visible to the mobile companion and the in-app agent — the agent can even create a rail itself when all lanes are busy. More on multi-rail and batching in [Batch implement & multi-feature](batch-implement-and-multi-feature).
+You can have several rails to organise work into named lanes (one for the feature you're focused on, another queued behind it). Rails are **dynamic**: the **+ Add** button in the Rails header creates a new lane (up to 12 per project) and idle empty lanes can be deleted. Every rail is server-backed, so your set of lanes survives reloads and is visible to the mobile companion and the in-app agent — the agent can even create a rail itself when all lanes are busy.
 
 ## Launching a rail on a spec
 
 1. **Drag a spec card** from the SpecsBoard onto a rail. The spec's ID shows up in the rail's spec list. (Prefer not to drag? Use the **Move to rail** popover on the spec card — it shows a status dot per rail so you don't drop work onto a busy lane.)
-2. **Pick a Loop** in the rail header. A rail runs a **Loop** — that's the work it performs. The default is the built-in `Implement` loop; you can also pick `Batch`, `Freestyle`, or a custom loop you built yourself. See [The Loop Builder](the-loop-builder).
+2. **Pick a Loop** in the rail header. A rail runs a **Loop** — that's the work it performs. The default is the built-in `Implement` loop; you can also pick `Freestyle`, or a custom loop you built yourself. See [The Loop Builder](the-loop-builder).
 3. **Press ▶ Play.**
 
 That's it. The rail spins up an AI CLI process in the right execution context and starts the pipeline.
@@ -34,20 +34,21 @@ That's it. The rail spins up an AI CLI process in the right execution context an
 |---------|--------------|
 | **Status pill** | `idle`, `running`, or `failed`. There's no separate "completed" — a rail returns to `idle` when its job finishes cleanly. |
 | **Spec list** | The IDs assigned to this rail. Drag more in, drag them out to detach. |
-| **Loop picker** | The Loop this rail runs — a built-in (`Implement` / `Batch` / `Freestyle`) or a custom loop. See the table below. Persisted per rail. |
+| **Loop picker** | The Loop this rail runs — a built-in (`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`) or a custom loop. See the table below. Persisted per rail. |
 | **Profile picker** | Which provider-scoped agent profile runs (Claude and Kimi rails). Only appears once the effective provider has at least one profile. |
 | **Engine selector** | Which installed provider runs this rail — Claude, Codex, Gemini, or Kimi. Only renders when the project has more than one provider. See [Picking an engine per rail](picking-an-engine-per-rail). |
 | **▶ Play / ■ Stop** | Start or cancel. |
 
 ### What a rail runs: Loops
 
-A rail runs a **Loop** — the recipe for the work. Three loops are **built in** and cover the common cases:
+A rail runs a **Loop** — the recipe for the work. Two loops are **built in** and cover the common cases:
 
 | Built-in loop | Command | What it does |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | One job covering all specs on the rail. Runs the full Architect → Developer → Reviewer → Ship pipeline. The everyday default. |
-| **Batch** | `/specrails:batch-implement` | One job that works through the rail's specs sequentially, in dependency-aware waves. Best for several related specs. |
 | **Freestyle** | Freestyle | A capable provider implements each spec autonomously, **bypassing** the pipeline. One independent job per spec. Claude and Kimi support it. |
+
+To run several specs, put related ones (up to 3) on one rail — `Implement` runs them as one aggregate job — or spread independent specs across several rails: each git-backed rail runs in parallel in its own isolated worktree.
 
 Freestyle is the odd one out: it skips the agent chain and hands the capable
 provider the raw spec to work on with native tools. It's open-ended, so
@@ -107,5 +108,4 @@ If something looks wrong:
 
 - [The Loop Builder](the-loop-builder) — what a rail runs, and how to build your own loops.
 - [The Job Detail view](the-job-detail-view) — phases, live metrics, ticket cards.
-- [Batch implement & multi-feature](batch-implement-and-multi-feature) — run several specs at once.
 - [Picking an engine per rail](picking-an-engine-per-rail) — Claude vs Codex vs Gemini vs Kimi.

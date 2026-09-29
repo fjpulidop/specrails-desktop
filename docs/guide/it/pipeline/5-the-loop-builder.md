@@ -10,7 +10,7 @@ Crea un corpo riutilizzabile in **Componenti**, dichiara ingressi e uscite e sel
 
 La pubblicazione invia la bozza a Core e mostra gli errori sui passaggi interessati. L'avvio convalida nuovamente la configurazione del progetto. Aggiorna Core se il motore non è disponibile. I loop precedenti conservano editor ed esecuzione; le sezioni seguenti li descrivono.
 
-Un **rail esegue un Loop**. I loop integrati (`Implement`, `Batch`, `Freestyle`) coprono i casi di tutti i giorni, ma il **Loop Builder** ti permette di progettare i tuoi — un editor visuale in stile n8n per automazioni che si ripetono finché un obiettivo non è raggiunto. Questa pagina spiega cos'è un loop, come costruirne uno e come eseguirlo su un rail.
+Un **rail esegue un Loop**. I loop integrati (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) coprono i casi di tutti i giorni, ma il **Loop Builder** ti permette di progettare i tuoi — un editor visuale in stile n8n per automazioni che si ripetono finché un obiettivo non è raggiunto. Questa pagina spiega cos'è un loop, come costruirne uno e come eseguirlo su un rail.
 
 ## Loop e rail — la relazione
 
@@ -20,9 +20,8 @@ Un **loop** è la *ricetta* del lavoro; un **rail** è la *corsia* che lo esegue
    Loop Builder (sidebar sinistra)         Rail (destra)
    ───────────────────────────             ─────────────
    Implement   (integrato)                 Rail 1
-   Batch       (integrato)     scegli su ►    Loop: Verify-until-green
-   Freestyle   (integrato)                    ▶ Play
-   Verify-until-green (tuo)
+   Freestyle   (integrato)     scegli su ►    Loop: Verify-until-green
+   Verify-until-green (tuo)                    ▶ Play
 ```
 
 - I loop vivono nella sezione **Loops** (sidebar sinistra, accanto ai tuoi progetti) — sono **globali**, condivisi tra tutti i progetti.

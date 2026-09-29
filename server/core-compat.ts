@@ -14,9 +14,11 @@ export const EXPECTED_CORE_CONTRACT_SCHEMA_VERSION = '5.1'
 // These must mirror KNOWN_VERBS in cli/specrails-desktop.ts
 const DESKTOP_KNOWN_COMMANDS = new Set([
   'implement',
-  'batch-implement',
   'retry',
 ])
+// Commands older Cores still ship that Desktop no longer invokes. They are
+// tolerated (not drift) but never required: Batch was folded into implement.
+const DESKTOP_TOLERATED_LEGACY_COMMANDS = new Set(['batch-implement'])
 
 // v1.0: cli.initArgs / cli.updateArgs (flat); checkpoints/commands as string[]
 // v2.0: cli.claude / cli.codex (per-provider objects) + specrailsDir
@@ -83,7 +85,7 @@ function isRenderedProviderContract(provider: string, value: unknown): boolean {
     if (!isStringArray(value.cli.initArgs) || !value.cli.initArgs.includes('init')) return false
     if (value.updateCommand === 'update' && (!isStringArray(value.cli.updateArgs) || !value.cli.updateArgs.includes('update'))) return false
     const workflows = value.workflows
-    if (!['implement', 'batch-implement', 'retry'].every(name => typeof workflows[name] === 'string' && workflows[name])) return false
+    if (!['implement', 'retry'].every(name => typeof workflows[name] === 'string' && workflows[name])) return false
     return provider !== 'kimi' || (value.cli.providerBinary === 'kimi'
       && value.cli.skillRunner === '.kimi-code/specrails/run-skill.mjs'
       && isStringArray(value.cli.workflowArgs) && value.cli.workflowArgs.includes(value.cli.skillRunner))
@@ -300,7 +302,7 @@ export async function checkCoreCompat(): Promise<CoreCompatResult> {
   // v3 dropped the `commands` field from the contract â when absent, the
   // command-set check is a no-op (cannot prove drift either way).
   const contractCommands: string[] = Array.isArray(contract.commands) ? contract.commands : []
-  const missingCommands = contractCommands.filter((c) => !DESKTOP_KNOWN_COMMANDS.has(c))
+  const missingCommands = contractCommands.filter((c) => !DESKTOP_KNOWN_COMMANDS.has(c) && !DESKTOP_TOLERATED_LEGACY_COMMANDS.has(c))
   const extraCommands = contract.commands === undefined
     ? []
     : [...DESKTOP_KNOWN_COMMANDS].filter((c) => !contractCommands.includes(c))

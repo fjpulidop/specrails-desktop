@@ -12,7 +12,7 @@ Create a reusable body under **Components**, declare its input variables and out
 
 The remaining sections describe the existing Desktop loop nodes and rail behavior.
 
-A **rail runs a Loop**. The built-in loops (`Implement`, `Batch`, `Freestyle`) cover the everyday cases, but the **Loop Builder** lets you design your own — a visual, n8n-style editor for automation that repeats until a goal is met. This page explains what a loop is, how to build one, and how to run it on a rail.
+A **rail runs a Loop**. The built-in loops (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) cover the everyday cases, but the **Loop Builder** lets you design your own — a visual, n8n-style editor for automation that repeats until a goal is met. This page explains what a loop is, how to build one, and how to run it on a rail.
 
 ## Loops and rails — the relationship
 
@@ -22,9 +22,8 @@ A **loop** is the *recipe* for the work; a **rail** is the *lane* that runs it a
    Loop Builder (left sidebar)             Rails (right)
    ───────────────────────────             ─────────────
    Implement   (built-in)                  Rail 1
-   Batch       (built-in)      pick on ►      Loop: Verify-until-green
-   Freestyle   (built-in)                     ▶ Play
-   Verify-until-green (yours)
+   Freestyle   (built-in)      pick on ►      Loop: Verify-until-green
+   Verify-until-green (yours)                     ▶ Play
 ```
 
 - Loops live in the **Loops** section (left sidebar, alongside your projects) — they are **global**, shared across every project.

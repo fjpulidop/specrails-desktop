@@ -22,7 +22,7 @@ Deux panneaux se trouvent au-dessus du log en streaming complet ; sur un job Cla
 
 ## Les phases du pipeline
 
-Pour les jobs `Implement` et `Batch`, l'exécution traverse les phases définies par la slash command — par défaut :
+Pour les jobs `Implement`, l'exécution traverse les phases définies par la slash command — par défaut :
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -113,7 +113,6 @@ Pratique pour partager une exécution avec un coéquipier, ou pour déposer un r
 ## Où aller ensuite
 
 - [Rails et jobs](rails-and-jobs) — lancement et mise en file.
-- [Batch implement et multi-fonctionnalité](batch-implement-and-multi-feature) — plusieurs specs, vagues de dépendances.
 - [Suivre le coût](../analytics/tracking-cost) — transformer les coûts par job en analytics de projet.
 
 ## Après le redémarrage d’un workflow

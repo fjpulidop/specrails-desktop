@@ -1376,7 +1376,6 @@
         "./loop-constants"
       ],
       "runtime/loop-compat.ts": [
-        "./loop-core-factory",
         "./loop-graph"
       ],
       "runtime/loop-constants.ts": [

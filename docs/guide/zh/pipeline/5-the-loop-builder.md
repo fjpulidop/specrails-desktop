@@ -10,7 +10,7 @@
 
 发布时，Core 会验证草稿并在相关步骤上显示错误。启动时会再次验证项目配置。引擎不可用时请更新 Core。现有 Desktop 循环保留原来的编辑器和执行方式，下面的章节介绍这些旧版流程。
 
-**一条 rail 运行的是一个 Loop。** 内置的那些 loop（`Implement`、`Batch`、`Freestyle`）覆盖了日常场景，但 **Loop Builder** 让你能设计自己的——一个可视化的、n8n 风格的编辑器，用来做那种"重复执行直到目标达成"的自动化。本页会讲清楚什么是 loop、怎么搭一个，以及怎么在 rail 上运行它。
+**一条 rail 运行的是一个 Loop。** 内置的那些 loop（`Implement`、`Freestyle`、`SDD Quick (OpenSpec)`）覆盖了日常场景，但 **Loop Builder** 让你能设计自己的——一个可视化的、n8n 风格的编辑器，用来做那种"重复执行直到目标达成"的自动化。本页会讲清楚什么是 loop、怎么搭一个，以及怎么在 rail 上运行它。
 
 ## Loop 与 rail——它们的关系
 
@@ -20,9 +20,8 @@
    Loop Builder (左侧栏)                   Rails (右)
    ───────────────────────────             ─────────────
    Implement   (内置)                       Rail 1
-   Batch       (内置)          在此挑选 ►       Loop: Verify-until-green
-   Freestyle   (内置)                          ▶ Play
-   Verify-until-green (你的)
+   Freestyle   (内置)          在此挑选 ►       Loop: Verify-until-green
+   Verify-until-green (你的)                          ▶ Play
 ```
 
 - loop 住在 **Loops** 区里（左侧栏，和你的项目并列）——它们是**全局**的，跨所有项目共享。
