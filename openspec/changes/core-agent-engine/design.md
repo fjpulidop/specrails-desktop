@@ -194,3 +194,7 @@ Git settlement. Provider transport is deterministic and offline. The long CLI
 recovery scenario receives an explicit whole-scenario timeout (120s POSIX/180s
 Windows); individual subprocess limits remain unchanged. Ordinary unit-test
 coverage and the existing required aggregate remain mandatory.
+
+## Release frontend retention and measured CI (2026-09-26)
+
+Native releases prepare one shared frontend after exact-source push CI admission. Retained CI assets must pass complete source/lock/content verification. Only an authenticated inventory showing absence or expiration permits a single source rebuild; API errors, conflicting identities and corrupt bytes fail. Every platform consumes the same verified result. CI run 36230773446 passed the complete sharded coverage gates; 2m12s–3m24s shard execution plus 37s aggregation reduced per-runner work, while runner queueing increased observed wall time to 22m52s. Both measures remain visible; no total-time improvement is claimed from that loaded sample.
