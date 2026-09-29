@@ -21,7 +21,7 @@ test('only genuine absence or expiry permits the single source rebuild', async (
   await assert.rejects(retainedClientArtifact({ ...identity, request: requestFor([artifact, { ...artifact, id: 100 }]) }), /Ambiguous/)
 })
 test('all native platforms require the shared frontend and integrity errors cannot fall back', () => {
-  const workflow = fs.readFileSync(new URL('../.github/workflows/desktop-release.yml', import.meta.url), 'utf8')
+  const workflow = fs.readFileSync(new URL('../.github/workflows/desktop-release.yml', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
   for (const name of ['build-macos', 'build-windows', 'build-windows-arm64']) assert.match(workflow, new RegExp(`  ${name}:\\n    needs: \\[admission, frontend\\]`))
   const frontend = workflow.slice(workflow.indexOf('  frontend:'), workflow.indexOf('  build-macos:'))
   assert.match(frontend, /if: steps\.retained\.outputs\.available == 'false'\n        run: \|\n          npm ci --prefix client\n          npm run build --prefix client/)
