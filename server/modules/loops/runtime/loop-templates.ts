@@ -11,10 +11,13 @@
  * stack, so a template works on any repo regardless of test runner. (The Shell
  * node type still exists for power users; the starters just don't depend on it.)
  *
+ * The catalog is exactly the eight starters in CORE_STARTER_TEMPLATE_IDS. When
+ * the selected Core advertises the definition engine they are served as Core
+ * definitions; older Core packages receive the equivalent legacy graphs.
+ *
  * Each template is a fully-publishable graph (passes validateLoopGraph).
  */
 import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
-import { PORTED_TEMPLATES } from './loop-templates-ported'
 
 /** Closed taxonomy a template's `category` must belong to. Single source of truth
  *  for the gallery's category chips (the client derives its chip list from the
@@ -39,50 +42,6 @@ export interface LoopTemplate {
    *  (the safe default; a false read-only would corrupt the shared tree). */
   readOnly?: boolean
   graph: LoopGraph
-}
-
-/** Declarative shape for a ported starter loop. Compiled to a validated graph by
- *  `compilePortSpec` so every template is structurally consistent. The `steps`
- *  are Specrails-authored prompts (may embed `{{cmd:*}}` / `{{const:*}}` /
- *  `{{spec.*}}`); `goal` is the Decider's exit condition. */
-export interface PortSpec {
-  id: string
-  name: string
-  description: string
-  category: LoopCategory
-  tags: string[]
-  steps: string[]
-  goal: string
-  maxIterations?: number
-  /** Wall-clock cap for the whole run, in minutes (default 30). Raise it for
-   *  strict per-item loops that legitimately need many passes (e.g. strict TDD). */
-  timeoutMinutes?: number
-  /** 'verify' ⇒ fixLoopGraph shape (main steps run once, then verify→fix→verify).
-   *  'last' (default) ⇒ aiLoopGraph re-running only the LAST step (single-concern
-   *  gate loops). 'first' ⇒ aiLoopGraph re-running the WHOLE body from step 1
-   *  (iterate one item per pass until the spec is fully covered: TDD, story
-   *  executors, one-by-one upgrades). */
-  loopBack?: 'last' | 'verify' | 'first'
-  /** See LoopTemplate.readOnly — default-false (mutating). */
-  readOnly?: boolean
-}
-
-/** Compile a PortSpec into a publishable LoopTemplate (graph passes validation,
- *  no Shell nodes, exactly one continue+stop Decider branch — by construction). */
-export function compilePortSpec(spec: PortSpec): LoopTemplate {
-  const graph =
-    spec.loopBack === 'verify'
-      ? fixLoopGraph(spec.steps, spec.goal, spec.maxIterations ?? 12, spec.timeoutMinutes ?? 30)
-      : aiLoopGraph(spec.steps, spec.goal, spec.maxIterations ?? 10, spec.loopBack === 'first' ? 'first' : 'last', spec.timeoutMinutes ?? 30)
-  return {
-    id: spec.id,
-    name: spec.name,
-    description: spec.description,
-    category: spec.category,
-    tags: spec.tags,
-    ...(spec.readOnly ? { readOnly: true } : {}),
-    graph,
-  }
 }
 
 /** Helper: a linear chain of AI steps closed by a Loop Decider. The decider's
@@ -200,7 +159,7 @@ export function fixLoopGraph(
   return { nodes, edges, config: { maxIterations, timeoutMinutes, ...(aiStepTimeoutMinutes != null ? { aiStepTimeoutMinutes } : {}) } }
 }
 
-// ── OpenSpec lifecycle loop ──────────────────────────────────────────────────
+// ── OpenSpec lifecycle graph (legacy Quick SDD factory) ──────────────────────
 // Lightweight lifecycle: prepare → preflight → apply/test → validate artifacts → archive.
 // CLI validation checks OpenSpec artifacts; Apply owns code tests and corrections.
 const OPSX_FF_PROMPT = [
@@ -224,7 +183,8 @@ const OPSX_APPLY_PROMPT = [
   '{{const:GUARDRAILS}}',
 ].join('\n\n')
 
-/** The OpenSpec-lifecycle graph (see comment above). Exported for unit testing. */
+/** The OpenSpec-lifecycle graph (see comment above). Legacy variant of the
+ *  `factory:sdd-quick-openspec` built-in; it is not a gallery template. */
 export function opsxLifecycleGraph(): LoopGraph {
   return {
     nodes: [
@@ -333,14 +293,6 @@ function legacyStarterGraph(id: CoreStarterTemplateId): LoopGraph {
  *  `loopTemplatesForCapabilities` / `getLoopTemplate(id, capabilities)`. */
 export const LOOP_TEMPLATES: LoopTemplate[] = [
   {
-    id: 'opsx-lifecycle',
-    name: 'OpenSpec Lifecycle',
-    description: 'Lightweight ticket-to-archive OpenSpec lifecycle: generate artifacts, implement and test, validate the change through the CLI, then archive it unattended. The artifact-centric counterpart to the implement pipeline. Claude-first — codex/gemini fall back to a generic prompt until OpenSpec ships their native opsx commands.',
-    category: 'Automation',
-    tags: ['Automation', 'openspec', 'lifecycle'],
-    graph: opsxLifecycleGraph(),
-  },
-  {
     id: 'ship-and-green',
     name: 'Ship & Green',
     description: 'Fully autonomous: implement the spec, verify, and refine (fix) on failure — looping verify → fix → verify until everything is green. No human intervention.',
@@ -404,9 +356,6 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     tags: ['DevOps', 'deploy'],
     graph: legacyStarterGraph('deploy-check'),
   },
-  // Ported community-pattern starters (Specrails-authored), compiled from
-  // declarative PortSpecs so the catalog spans every category in the taxonomy.
-  ...PORTED_TEMPLATES.map(compilePortSpec),
 ]
 
 /** Explicit alias: the legacy (older Core / no engineV2) catalog. */

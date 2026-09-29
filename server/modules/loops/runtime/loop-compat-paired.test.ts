@@ -183,7 +183,7 @@ paired('validates every saved factory/template conversion with the actual Core c
     return { id: source.id, definition: compileLoopToDefinition(converted.graph, { provider: 'claude', constants: {}, repositoryCount: 2, changeId: 'compat-change', spec: { ticketIds: [1, 2] } }) }
   })
   // One actual Core process validates the complete corpus. Per-run CLI behavior
-  // stays covered above; 48 separate CLI startups only duplicate module loading.
+  // stays covered above; one CLI startup per entry only duplicates module loading.
   const child = spawnSync(process.execPath, ['--input-type=module', '-e', `
     import fs from 'node:fs';
     const { validateWorkflowDefinition, validationPieceRegistry } = await import(process.argv[1]);

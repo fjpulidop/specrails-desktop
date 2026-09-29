@@ -1538,12 +1538,8 @@
       "runtime/loop-step-idle.ts": [
         "../../execution/runtime/stuck-run-detector"
       ],
-      "runtime/loop-templates-ported.ts": [
-        "./loop-templates"
-      ],
       "runtime/loop-templates.ts": [
-        "./loop-graph",
-        "./loop-templates-ported"
+        "./loop-graph"
       ],
       "runtime/loops-router.ts": [
         "../../../db",

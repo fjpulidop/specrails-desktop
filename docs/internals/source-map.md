@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 983 source/build files. Nearby tests are linked where names
+Includes 982 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1263,7 +1263,6 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-runs-store.ts](../../server/modules/loops/runtime/loop-runs-store.ts) · [test](../../server/modules/loops/runtime/loop-runs-store.test.ts)
 - [loop-shell-invocation.ts](../../server/modules/loops/runtime/loop-shell-invocation.ts)
 - [loop-step-idle.ts](../../server/modules/loops/runtime/loop-step-idle.ts) · [test](../../server/modules/loops/runtime/loop-step-idle.test.ts)
-- [loop-templates-ported.ts](../../server/modules/loops/runtime/loop-templates-ported.ts)
 - [loop-templates.ts](../../server/modules/loops/runtime/loop-templates.ts) · [test](../../server/modules/loops/runtime/loop-templates.test.ts)
 - [loops-router.ts](../../server/modules/loops/runtime/loops-router.ts) · [test](../../server/modules/loops/runtime/loops-router.test.ts)
 - [loops-store.ts](../../server/modules/loops/runtime/loops-store.ts) · [test](../../server/modules/loops/runtime/loops-store.test.ts)

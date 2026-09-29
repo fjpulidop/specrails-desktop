@@ -154,19 +154,19 @@ describe('LoopsPage', () => {
   })
 
   it('matches search against the localized (catalog) text, not just the server fields', async () => {
-    // id `flaky-test-triage` has a catalog entry whose description contains
-    // "intermittent"; the server description here does NOT. Searching the
+    // id `coverage-climb` has a catalog entry whose description contains
+    // "thresholds"; the server description here does NOT. Searching the
     // localized word must still find it.
     api.templates.mockResolvedValue([
-      { id: 'flaky-test-triage', name: 'srv-name-a', description: 'srv-desc-no-match', category: 'Testing', tags: [], graph: tmplGraph },
-      { id: 'merge-conflict-resolver', name: 'srv-name-b', description: 'srv-desc-b', category: 'Git', tags: [], graph: tmplGraph },
+      { id: 'coverage-climb', name: 'srv-name-a', description: 'srv-desc-no-match', category: 'Testing', tags: [], graph: tmplGraph },
+      { id: 'build-fix', name: 'srv-name-b', description: 'srv-desc-b', category: 'CI', tags: [], graph: tmplGraph },
     ])
     renderPage()
     // card shows the localized catalog name, not the server name
-    await screen.findByText('Flaky Test Triage')
-    fireEvent.change(screen.getByTestId('template-search'), { target: { value: 'intermittent' } })
-    await waitFor(() => expect(screen.queryByText('Merge Conflict Resolver')).not.toBeInTheDocument())
-    expect(screen.getByText('Flaky Test Triage')).toBeInTheDocument()
+    await screen.findByText('Coverage Climb')
+    fireEvent.change(screen.getByTestId('template-search'), { target: { value: 'thresholds' } })
+    await waitFor(() => expect(screen.queryByText('Build Fix')).not.toBeInTheDocument())
+    expect(screen.getByText('Coverage Climb')).toBeInTheDocument()
   })
 
   it('filters templates by clicking a category chip', async () => {
