@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.58.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.57.1...v2.58.0) (2026-09-29)
+
+
+### Features
+
+* Core workflow editor and runtime integration (checkpoint) ([#708](https://github.com/fjpulidop/specrails-desktop/issues/708)) ([f1b44db](https://github.com/fjpulidop/specrails-desktop/commit/f1b44dbdec6ca6fdc4acc53b96e23a985fe89e28))
+
 ## [2.57.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.57.0...v2.57.1) (2026-09-25)
 
 
