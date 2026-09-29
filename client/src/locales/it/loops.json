@@ -51,9 +51,9 @@
     "publish": "Pubblica",
     "unpublish": "Annulla pubblicazione",
     "duplicate": "Duplica",
+    "restoreBuiltin": "Ripristina originale",
     "use": "Usa modello",
     "preview": "Anteprima",
-    "fork": "Fork per modificare",
     "run": "Esegui",
     "export": "Esporta",
     "import": "Importa",
@@ -65,7 +65,8 @@
   "card": {
     "nodes_one": "{{count}} nodo",
     "nodes_other": "{{count}} nodi",
-    "usedIn": "In uso · {{project}}"
+    "usedIn": "In uso · {{project}}",
+    "builtinModified": "Modificato"
   },
   "confirmDelete": "Eliminare questo loop? Scomparirà da ogni selettore di rail.",
   "newLoopName": "Nuovo loop",
@@ -81,6 +82,12 @@
     "saved": "Loop salvato",
     "publish": "Pubblica",
     "published": "Loop pubblicato",
+    "builtin": {
+      "note": "Loop integrato. Stai modificando il loop integrato stesso: una volta pubblicate, le modifiche si applicano a ogni rail, avvio dalla chat dell'agente e Companion che lo usa. Durante la modifica i rail continuano a eseguire l'ultima versione pubblicata. Usa Ripristina originale per tornare alla versione predefinita.",
+      "restored": "Loop integrato ripristinato alla versione originale",
+      "confirmTitle": "Ripristinare il loop integrato originale?",
+      "confirmBody": "Questo scarta le tue modifiche a questo loop integrato e pubblica la sua versione originale per tutti i rail che lo usano. Duplicalo prima se vuoi conservare la tua versione."
+    },
     "addNode": "Aggiungi nodo",
     "deleteNode": "Elimina nodo",
     "config": {
@@ -440,7 +447,6 @@
     "skipped_other": "{{count}} duplicati saltati: {{names}}",
     "invalid": "Quel file non è un export di loop valido."
   },
-  "automaticOnly": "Si avvia automaticamente quando chiedi modifiche in una revisione — questo non lo lanci tu.",
   "core": {
     "selectInterrupt": "Seleziona la domanda o approvazione in attesa",
     "answerQuestion": "Rispondi alla domanda",

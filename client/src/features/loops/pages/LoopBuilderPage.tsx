@@ -31,11 +31,11 @@ import { coreNodeData, effectiveOutcomes, pieceGroup } from '../lib/core-authori
 import { projectRepositories } from '../../projects/lib/project-repositories'
 import { useActiveTheme } from '../../settings/context/ThemeContext'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '../../../components/ui/tooltip'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { layoutLoop, type LayoutMode } from '../lib/loop-layout'
 import { cn } from '../../../lib/utils'
-import { loopsApi, LoopPublishError, type LoopNodeType, type LoopConstant, type LoopPreviewStep, type LoopGraph, type WorkflowPieceDescriptor, type GraphValidationError } from '../lib/loops-api'
+import { loopsApi, LoopPublishError, type LoopDefinition, type LoopNodeType, type LoopConstant, type LoopPreviewStep, type LoopGraph, type WorkflowPieceDescriptor, type GraphValidationError } from '../lib/loops-api'
 import {
   graphToReactFlow,
   reactFlowToGraph,
@@ -176,6 +176,9 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<LoopNodeData>>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [name, setName] = useState('')
+  // Built-in loops are edited in place; the builder offers Restore original.
+  const [builtin, setBuiltin] = useState(false)
+  const [confirmRestore, setConfirmRestore] = useState(false)
   const [maxIterations, setMaxIterations] = useState(10)
   const [timeoutMinutes, setTimeoutMinutes] = useState(30)
   // Optional cost cap (USD). null = no cap. Stored on graph.config.maxCostUsd.
@@ -207,32 +210,48 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
 
   const nodeTypes = useMemo(() => ({ loop: LoopNodeBox }), [])
 
+  const applyLoop = useCallback((loop: LoopDefinition) => {
+    setDocument(loop.graph); setCanvas(null)
+    const { nodes: rfNodes, edges: rfEdges } = graphToReactFlow(loop.graph)
+    initialPositions.current = new Map(rfNodes.map((n) => [n.id, { ...n.position }]))
+    // Re-apply the loop's saved arrange decision so it always opens tidy in
+    // the chosen orientation; 'manual'/unset keeps the stored positions.
+    const saved = loop.graph.config?.layout
+    const mode: LayoutMode | 'manual' = saved === 'vertical' || saved === 'horizontal' || saved === 'grid' ? saved : 'manual'
+    setLayoutMode(mode)
+    setNodes(mode === 'manual' ? rfNodes : layoutLoop(rfNodes, rfEdges, mode))
+    setEdges(rfEdges)
+    setName(loop.name)
+    setMaxIterations(loop.graph.config?.maxIterations ?? 10)
+    setTimeoutMinutes(loop.graph.config?.timeoutMinutes ?? 30)
+    setMaxCostUsd(typeof loop.graph.config?.maxCostUsd === 'number' ? loop.graph.config!.maxCostUsd! : null)
+    setBuiltin(Boolean(loop.builtinId))
+  }, [setNodes, setEdges])
+
   useEffect(() => {
     if (!id) return
     let cancelled = false
     loopsApi
       .get(id)
-      .then((loop) => {
-        if (cancelled) return
-        setDocument(loop.graph); setCanvas(null)
-        const { nodes: rfNodes, edges: rfEdges } = graphToReactFlow(loop.graph)
-        initialPositions.current = new Map(rfNodes.map((n) => [n.id, { ...n.position }]))
-        // Re-apply the loop's saved arrange decision so it always opens tidy in
-        // the chosen orientation; 'manual'/unset keeps the stored positions.
-        const saved = loop.graph.config?.layout
-        const mode: LayoutMode | 'manual' = saved === 'vertical' || saved === 'horizontal' || saved === 'grid' ? saved : 'manual'
-        setLayoutMode(mode)
-        setNodes(mode === 'manual' ? rfNodes : layoutLoop(rfNodes, rfEdges, mode))
-        setEdges(rfEdges)
-        setName(loop.name)
-        setMaxIterations(loop.graph.config?.maxIterations ?? 10)
-        setTimeoutMinutes(loop.graph.config?.timeoutMinutes ?? 30)
-        setMaxCostUsd(typeof loop.graph.config?.maxCostUsd === 'number' ? loop.graph.config!.maxCostUsd! : null)
-      })
+      .then((loop) => { if (!cancelled) applyLoop(loop) })
       .catch(() => toast.error(t('errors.load')))
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [id, setNodes, setEdges, t])
+  }, [id, applyLoop, t])
+
+  // Discards unsaved and saved edits: the built-in returns to its current
+  // default, Published, for every rail that uses it.
+  const restoreOriginal = useCallback(async () => {
+    if (!id) return
+    setConfirmRestore(false)
+    try {
+      applyLoop(await loopsApi.restoreBuiltin(id))
+      setPublicationErrors([])
+      toast.success(t('builder.builtin.restored'))
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : t('errors.save'))
+    }
+  }, [id, applyLoop, t])
 
   // Connections drawn from a Decider's named handle ('continue' / 'stop') are
   // colour-coded and carry the branch so the engine routes by it.
@@ -498,6 +517,11 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
               />
             </label>
           </TooltipProvider>
+          {builtin && (
+            <button type="button" onClick={() => setConfirmRestore(true)} disabled={saving} data-testid="builder-restore-builtin" className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground disabled:opacity-50">
+              <RotateCcw className="w-3 h-3" /> {t('actions.restoreBuiltin')}
+            </button>
+          )}
           <button type="button" onClick={() => void runPreview()} disabled={previewing} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground disabled:opacity-50">
             <Eye className="w-3 h-3" /> {t('builder.preview.label')}
           </button>
@@ -509,6 +533,24 @@ function BuilderInner({ loopId, onExit }: LoopBuilderPageProps) {
           </button>
         </div>
       </div>
+
+      {builtin && (
+        <div role="note" data-testid="builder-builtin-note" className="px-4 py-1.5 border-b border-border bg-accent-info/10 text-[11px] text-accent-info flex-shrink-0">
+          {t('builder.builtin.note')}
+        </div>
+      )}
+      <Dialog open={confirmRestore} onOpenChange={(open) => { if (!open) setConfirmRestore(false) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('builder.builtin.confirmTitle')}</DialogTitle>
+            <DialogDescription>{t('builder.builtin.confirmBody')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmRestore(false)}>{t('common:actions.cancel')}</Button>
+            <Button data-testid="builder-restore-confirm" onClick={() => void restoreOriginal()}>{t('actions.restoreBuiltin')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex-1 flex min-h-0">
         {/* Palette */}

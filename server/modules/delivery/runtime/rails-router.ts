@@ -21,6 +21,7 @@ import { isValidModelForProvider, getModelsForProvider, type SpecProvider } from
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { isFactoryLoopId, factoryLoopMode, getFactoryLoop, factoryLoopForMode } from '../../loops/runtime/loop-factory'
+import { resolveBuiltinLoop } from '../../loops/runtime/builtin-loops'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
 import { dominantTicketScope, referencesUnsupportedProviderCommand } from '../../loops/runtime/loop-command-catalog'
 import { loopNeedsTicket, validateLoopGraph, type LoopGraph } from '../../loops/runtime/loop-graph'
@@ -159,6 +160,19 @@ function onReviewTicketIds(c: ProjectContext): Set<number> {
   } catch {
     return new Set()
   }
+}
+
+/** Map an engine-availability refusal to the launch's 409 body; rethrow others. */
+async function engineSupportRejection(
+  manager: ProjectContext['loopRunManager'], graph: LoopGraph, loopId: string,
+): Promise<{ error: string; loopId: string; detail: string } | undefined> {
+  try { await manager.assertEngineSupport?.(graph) } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    const code = /^(legacy_engine_unavailable|engine_unsupported):/.exec(message)?.[1]
+    if (!code) throw error
+    return { error: code, loopId, detail: message.slice(code.length + 1).trim() }
+  }
+  return undefined
 }
 
 export function createRailsRouter(): Router {
@@ -763,8 +777,19 @@ export function createRailsRouter(): Router {
         if (isFactoryLoopId(loopId)) {
           let capabilities: Record<string,number> | undefined
           try { capabilities = (await loadCoreAgentRuntime()).api?.capabilities } catch { /* Existing Core remains supported through the legacy factory. */ }
-          const f = getFactoryLoop(loopId, capabilities)
+          // Editable built-ins: an edited row runs its Published graph (or the
+          // last Published snapshot while an edit is Draft); otherwise the
+          // current code default for this Core.
+          const f = resolveBuiltinLoop(c.desktopDb, loopId, capabilities)
           if (!f) { res.status(404).json({ error: 'Factory loop not found' }); return }
+          if (f.source !== 'default') {
+            const validation = validateLoopGraph(f.graph)
+            if (!validation.valid) {
+              res.status(422).json({ error: 'Loop graph is invalid', errors: validation.errors }); return
+            }
+            const rejection = await engineSupportRejection(c.loopRunManager, f.graph, loopId)
+            if (rejection) { res.status(409).json(rejection); return }
+          }
           loopGraph = f.graph
           loopName = f.name
         } else {
@@ -784,12 +809,8 @@ export function createRailsRouter(): Router {
           if (!loopNeedsTicket(loop.graph)) {
             res.status(400).json({ error: 'This loop runs standalone — launch it from the Loops page, not a rail.' }); return
           }
-          try { await c.loopRunManager.assertEngineSupport?.(loop.graph) } catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
-            const code = /^(legacy_engine_unavailable|engine_unsupported):/.exec(message)?.[1]
-            if (!code) throw error
-            res.status(409).json({ error: code, loopId, detail: message.slice(code.length + 1).trim() }); return
-          }
+          const rejection = await engineSupportRejection(c.loopRunManager, loop.graph, loopId)
+          if (rejection) { res.status(409).json(rejection); return }
           loopGraph = loop.graph
           loopName = loop.name
         }

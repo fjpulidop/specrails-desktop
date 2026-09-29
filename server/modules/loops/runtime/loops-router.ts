@@ -30,7 +30,8 @@ import { convertLegacyLoop } from './loop-compat'
 import { assessLoopMigration } from './loop-migration'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { loopTemplatesForCapabilities, getLoopTemplate } from './loop-templates'
-import { factoryLoopsForCapabilities, getFactoryLoop } from './loop-factory'
+import { factoryLoopsForCapabilities } from './loop-factory'
+import { ensureBuiltinLoops, resolveBuiltinLoop, restoreBuiltin, type BuiltinLoopEnvironment } from './builtin-loops'
 import { LOOP_COMMANDS } from './loop-command-catalog'
 import { listConstants, createConstant, updateConstant, deleteConstant, loadConstantMap, LoopConstantError } from './loop-constants'
 import { previewLoop } from './loop-preview'
@@ -41,7 +42,12 @@ export interface LoopsRoutesDeps {
    *  loop_runs). Update/unpublish/delete are rejected (409) while running.
    *  Defaults to "never running" until the run engine is wired (F6/F7). */
   isLoopRunning?: (loopId: string) => boolean
+  /** Seed the editable built-in rows (at registration and on `GET /loops`).
+   *  Omitted by focused tests that exercise a plain library. */
+  builtinLoops?: BuiltinLoopEnvironment
 }
+
+const BUILTIN_DELETE_MESSAGE = 'Built-in loops cannot be deleted. Use Restore original to reset it, or Duplicate it to keep a separate copy.'
 
 async function factoryCapabilities(): Promise<Record<string, number> | undefined> {
   try { return (await loadCoreAgentRuntime()).api?.capabilities } catch { return undefined }
@@ -54,6 +60,22 @@ function isNonEmptyString(v: unknown): v is string {
 export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void {
   const { db } = deps
   const isRunning = deps.isLoopRunning ?? (() => false)
+  const isBuiltin = (id: string): boolean => Boolean(getLoop(db, id)?.builtinId)
+
+  // One seeding pass at a time; later calls re-check (Core may have appeared or
+  // changed) and are cheap because the Core API probe is cached by fingerprint.
+  let seeding: Promise<unknown> | null = null
+  function seedBuiltins(): Promise<unknown> {
+    if (!deps.builtinLoops) return Promise.resolve()
+    if (!seeding) {
+      seeding = ensureBuiltinLoops(db, deps.builtinLoops)
+        .catch((error: unknown) => { console.warn('[loops] built-in loop seeding failed:', error instanceof Error ? error.message : error) })
+        .finally(() => { seeding = null })
+    }
+    return seeding
+  }
+  // Startup: the registry (and its desktop DB) exists when routes are registered.
+  if (isLoopsEnabled()) void seedBuiltins()
 
   // Single gate: every loops route 404s when the feature is disabled.
   function guard(res: Response): boolean {
@@ -82,8 +104,9 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   })
 
   // ── List / get ───────────────────────────────────────────────────────────────
-  router.get('/loops', (_req: Request, res: Response) => {
+  router.get('/loops', async (_req: Request, res: Response) => {
     if (!guard(res)) return
+    await seedBuiltins()
     res.json({ loops: listLoops(db) })
   })
 
@@ -106,35 +129,48 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
     } catch (error) { res.status(503).json({ error: 'runtime_catalog_unavailable', message: error instanceof Error ? error.message : 'Core catalog unavailable' }) }
   })
 
-  // ── Factory loops (built-in, locked) ─────────────────────────────────────────
-  // Registered BEFORE `/loops/:id` so "factory" is not captured as an id.
+  // ── Factory loops (built-ins) ────────────────────────────────────────────────
+  // Registered BEFORE `/loops/:id` so "factory" is not captured as an id. Kept
+  // for companion/mobile/MCP back-compat: each entry reflects its editable row
+  // when seeded (name, description and the graph a rail launch would run).
   router.get('/loops/factory', async (_req: Request, res: Response) => {
     if (!guard(res)) return
+    await seedBuiltins()
+    const capabilities = await factoryCapabilities()
     res.json({
-      factoryLoops: factoryLoopsForCapabilities(await factoryCapabilities()).map((f) => ({
-        id: f.id,
-        name: f.name,
-        description: f.description,
-        mode: f.mode,
-        requiredCapability: f.requiredCapability ?? null,
-        // Absent means launchable (every pre-existing factory loop is).
-        launchable: f.launchable !== false,
-        graph: f.graph,
-      })),
+      factoryLoops: factoryLoopsForCapabilities(capabilities).map((f) => {
+        const resolved = resolveBuiltinLoop(db, f.id, capabilities)
+        return {
+          id: f.id,
+          name: resolved?.name ?? f.name,
+          description: resolved?.description ?? f.description,
+          mode: f.mode,
+          requiredCapability: f.requiredCapability ?? null,
+          // Absent means launchable (every pre-existing factory loop is).
+          launchable: f.launchable !== false,
+          graph: resolved?.graph ?? f.graph,
+          // Seeded built-ins are ordinary loops: edit them via PUT /loops/:id.
+          editable: Boolean(resolved?.row),
+          status: resolved?.row?.status ?? 'published',
+          modified: resolved?.row?.builtinModified ?? false,
+        }
+      }),
     })
   })
 
-  // Fork a factory loop into a new editable user Draft (leaves the factory intact).
+  // Back-compat alias of `POST /loops/:id/duplicate` for a built-in: creates a
+  // separate Draft from the built-in's current content (the built-in is unchanged).
   router.post('/loops/factory/:id/fork', async (req: Request, res: Response) => {
     if (!guard(res)) return
-    const f = getFactoryLoop(req.params.id as string, await factoryCapabilities())
-    if (!f) {
+    const resolved = resolveBuiltinLoop(db, req.params.id as string, await factoryCapabilities())
+    if (!resolved) {
       res.status(404).json({ error: 'Factory loop not found' })
       return
     }
     const body = req.body ?? {}
-    const name = isNonEmptyString(body.name) ? body.name.trim() : `${f.name} (fork)`
-    const loop = createLoop(db, { id: newId(), name, description: f.description, graph: f.graph })
+    const name = isNonEmptyString(body.name) ? body.name.trim() : `${resolved.name} (fork)`
+    const source = resolved.row ?? { description: resolved.description, graph: resolved.graph }
+    const loop = createLoop(db, { id: newId(), name, description: source.description, graph: source.graph })
     res.status(201).json({ loop })
   })
 
@@ -295,7 +331,10 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       res.status(404).json({ error: 'Loop not found' })
       return
     }
-    if (isRunning(id)) {
+    // Runs freeze a clone of their graph at launch, and built-in launches use
+    // the last Published snapshot while an edit is Draft, so a running built-in
+    // stays editable. Other loops keep the conservative running guard.
+    if (!isBuiltin(id) && isRunning(id)) {
       res.status(409).json({ error: 'Loop is running; stop the run before editing' })
       return
     }
@@ -391,11 +430,36 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       res.status(404).json({ error: 'Loop not found' })
       return
     }
+    if (isBuiltin(id)) {
+      res.status(409).json({ error: 'builtin_loop', message: 'Built-in loops stay available on rails. Edit and publish it, or use Restore original.' })
+      return
+    }
     if (isRunning(id)) {
       res.status(409).json({ error: 'Loop is running; stop the run first' })
       return
     }
     res.json({ loop: unpublishLoop(db, id) })
+  })
+
+  // ── Restore a built-in to its current default ─────────────────────────────────
+  router.post('/loops/:id/restore-builtin', async (req: Request, res: Response) => {
+    if (!guard(res)) return
+    const id = req.params.id as string
+    if (!getLoop(db, id)) {
+      res.status(404).json({ error: 'Loop not found' })
+      return
+    }
+    if (!isBuiltin(id)) {
+      res.status(400).json({ error: 'not_builtin', message: 'Only built-in loops can be restored.' })
+      return
+    }
+    if (isRunning(id)) {
+      res.status(409).json({ error: 'loop_running', message: 'Loop is running; stop the run before restoring it' })
+      return
+    }
+    const loop = await restoreBuiltin(db, id, deps.builtinLoops)
+    if (!loop) { res.status(404).json({ error: 'Built-in loop default not found' }); return }
+    res.json({ loop })
   })
 
   // ── Duplicate ─────────────────────────────────────────────────────────────────
@@ -419,6 +483,10 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
     const id = req.params.id as string
     if (!getLoop(db, id)) {
       res.status(404).json({ error: 'Loop not found' })
+      return
+    }
+    if (isBuiltin(id)) {
+      res.status(409).json({ error: 'builtin_loop', message: BUILTIN_DELETE_MESSAGE })
       return
     }
     if (isRunning(id)) {

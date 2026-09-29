@@ -2878,3 +2878,28 @@ describe('terminal acceptance evidence', () => {
     expect(getLoopRun(db, result.runId)?.final_outcome).toBe(result.outcome)
   })
 })
+
+describe('LoopRunManager graph isolation (editable built-ins)', () => {
+  it('runs the graph cloned at launch even when the source graph is edited mid-run', async () => {
+    const graph = loopGraph()
+    let edit: (() => void) | undefined
+    const prompts: string[] = []
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async (input: { prompt: string }) => {
+        prompts.push(input.prompt)
+        edit?.()
+        return { text: 'did work', sessionId: 's1', cost: 0.01, tokens: 100, provider: 'claude', model: 'sonnet' }
+      }) as unknown as LoopExecutors['runAiStep'],
+      runDecider: vi.fn()
+        .mockResolvedValueOnce({ continue: true, reasoning: 'again', parsed: true, cost: 0, tokens: 1, provider: 'claude', model: 'sonnet' })
+        .mockResolvedValue({ continue: false, reasoning: 'done', parsed: true, cost: 0, tokens: 1, provider: 'claude', model: 'sonnet' }),
+    })
+    // Simulate `PUT /loops/:id` saving a new prompt while the first step runs.
+    edit = () => { graph.nodes[1].data = { prompt: 'EDITED {{spec.title}}' }; graph.nodes.splice(2, 1) }
+    const result = await manager(ex).run({ ...baseReq(), graph })
+    expect(result.outcome).toBe('success')
+    expect(prompts).toHaveLength(2)
+    expect(prompts.every((prompt) => prompt.includes('Implement') && !prompt.includes('EDITED'))).toBe(true)
+    expect(ex.runShell).toHaveBeenCalledTimes(2)
+  })
+})

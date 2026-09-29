@@ -1,8 +1,8 @@
 /**
  * Built-in "factory" loops — the app-owned loops that replace the old rail modes
- * (`implement` / `batch-implement` / Freestyle's `freestyle` mode). They appear in the Loops
- * gallery as read-only (locked) entries the user can run on a rail or "Fork to
- * edit" into an editable custom loop.
+ * (`implement` / `batch-implement` / Freestyle's `freestyle` mode). These are the
+ * code DEFAULTS; `builtin-loops.ts` seeds them as editable loop rows (same ids)
+ * and resolves launches to an edited, published row when one exists.
  *
  * Each carries the canonical rail `mode` it maps to. The rail launch routes a
  * factory loop to the matching engine via that mode (QueueManager slash command /

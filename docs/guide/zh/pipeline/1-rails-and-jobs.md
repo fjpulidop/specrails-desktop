@@ -53,6 +53,8 @@ Freestyle 使用 provider 的 native tool/model。Claude 有 persistent
 interactive transport；Kimi 使用没有 persistent stdin 的 agentic
 `kimi -p` process。
 
+内置 loop 也可以编辑：在 Loop Builder 里编辑并发布后，所有选用它的 rail 都会运行你的版本（用 **恢复原始版本** 可以改回去）。
+
 除了这些内置 loop，你还可以**搭建自己的 loop**——重复一个 verify → fix → verify 的循环直到目标达成、在 AI 步骤之间串联 shell 命令，等等。这些自定义 loop 会出现在同一个 Loop 选择器里。这就是下一个大点子：[Loop Builder](the-loop-builder)。
 
 ## 任务队列

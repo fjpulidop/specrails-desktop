@@ -72,6 +72,8 @@ Codex, Gemini, Kimi Code) to implement specs.
   Do not patch statuses to simulate acceptance or repair a failed delivery.
 - **Loop**: an APP-LEVEL saved workflow graph (not project-scoped). Author with
   \`specrails_loops\`; RUN it with \`specrails_rails(launch, mode:'loop', loopId)\`.
+  Built-ins (\`factory:*\` ids) are editable in place: update + publish changes the
+  built-in everywhere it is used; restore_builtin resets it.
 - **Profile**: per-project, provider-scoped agent configuration (agents, models,
   routing). Explicit named profiles are validated against the selected provider;
   do not silently discard a user's profile when choosing an engine.

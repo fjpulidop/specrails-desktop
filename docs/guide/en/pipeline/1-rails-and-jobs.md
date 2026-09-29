@@ -55,6 +55,8 @@ pressing Play opens a confirmation first, and its model picker follows that
 provider's catalog. Claude uses its persistent live-session flow; Kimi uses an
 owned agentic `kimi -p` process and has no persistent stdin.
 
+The built-ins are editable, too: edit one in the Loop Builder and publish it, and every rail that picks it runs your version (use **Restore original** to go back).
+
 Beyond the built-ins, you can **build your own loops** — repeat a verify → fix
 → verify cycle until a goal is met, chain shell commands between AI steps, and
 more. Kimi runs loops without a Loop Decider; its `-p` transport cannot enforce

@@ -51,9 +51,9 @@
     "publish": "发布",
     "unpublish": "取消发布",
     "duplicate": "复制",
+    "restoreBuiltin": "恢复原始版本",
     "use": "使用模板",
     "preview": "预览",
-    "fork": "复刻以编辑",
     "run": "运行",
     "export": "导出",
     "import": "导入",
@@ -65,7 +65,8 @@
   "card": {
     "nodes_one": "{{count}} 个节点",
     "nodes_other": "{{count}} 个节点",
-    "usedIn": "使用中 · {{project}}"
+    "usedIn": "使用中 · {{project}}",
+    "builtinModified": "已编辑"
   },
   "confirmDelete": "删除此循环？它将从所有 rail 选择器中消失。",
   "newLoopName": "新建循环",
@@ -81,6 +82,12 @@
     "saved": "循环已保存",
     "publish": "发布",
     "published": "循环已发布",
+    "builtin": {
+      "note": "内置循环。你正在编辑内置循环本身：发布后，你的更改将应用于使用它的每个轨道、代理聊天启动以及 Companion。编辑期间，轨道会继续运行最后发布的版本。使用“恢复原始版本”可回到默认版本。",
+      "restored": "内置循环已恢复为原始版本",
+      "confirmTitle": "恢复原始内置循环？",
+      "confirmBody": "这将放弃你对此内置循环的更改，并为所有使用它的轨道发布其原始版本。如果想保留你的版本，请先复制它。"
+    },
     "addNode": "添加节点",
     "deleteNode": "删除节点",
     "config": {
@@ -440,7 +447,6 @@
     "skipped_other": "已跳过 {{count}} 个重复项：{{names}}",
     "invalid": "该文件不是有效的循环导出。"
   },
-  "automaticOnly": "当你在审阅中要求修改时自动运行 —— 这个不由你启动。",
   "core": {
     "selectInterrupt": "选择待处理的问题或审批",
     "answerQuestion": "回答问题",

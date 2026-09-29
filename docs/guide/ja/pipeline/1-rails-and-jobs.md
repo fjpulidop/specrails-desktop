@@ -53,6 +53,8 @@ Freestyle は provider の native tool/model を使います。Claude は
 persistent interactive transport、Kimi は persistent stdin のない agentic
 `kimi -p` process を使います。
 
+組み込み Loop も編集できます。Loop Builder で編集して公開すると、それを選んでいるすべてのレールがあなたのバージョンを実行します（戻すには **元に戻す** を使います）。
+
 組み込みのほかにも、**自分だけの Loop を作る** ことができます — verify → fix → verify のサイクルを目標が達成されるまで繰り返したり、AI ステップの間にシェルコマンドを連ねたり、さらにいろいろなことができます。そうしたカスタム Loop は同じ Loop ピッカーに表示されます。それが次の大きなアイデア、[Loop Builder](the-loop-builder) です。
 
 ## ジョブのキュー

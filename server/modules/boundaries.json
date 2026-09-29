@@ -1141,6 +1141,7 @@
         "../../code/runtime/file-story",
         "../../execution/runtime/accept-ladder",
         "../../execution/runtime/queue-manager",
+        "../../loops/runtime/builtin-loops",
         "../../loops/runtime/loop-command-catalog",
         "../../loops/runtime/loop-constants",
         "../../loops/runtime/loop-definition-recovery",
@@ -1346,6 +1347,7 @@
   },
   "loops": {
     "publicEntries": [
+      "runtime/builtin-loops.ts",
       "runtime/definition-cancellation.ts",
       "runtime/legacy-launch-telemetry.ts",
       "runtime/loop-command-catalog.ts",
@@ -1364,6 +1366,14 @@
       "runtime/loops-store.ts"
     ],
     "dependencies": {
+      "runtime/builtin-loops.ts": [
+        "../../../db",
+        "../../../providers/registry",
+        "../../agent-runtime/runtime/agent-runtime-loader",
+        "./loop-factory",
+        "./loop-graph",
+        "./loops-store"
+      ],
       "runtime/definition-cancellation.ts": [
         "./loop-definition-recovery"
       ],
@@ -1541,6 +1551,7 @@
         "../../../feature-flags",
         "../../../ids",
         "../../agent-runtime/runtime/agent-runtime-loader",
+        "./builtin-loops",
         "./loop-command-catalog",
         "./loop-compat",
         "./loop-constants",
@@ -1555,7 +1566,8 @@
       ],
       "runtime/loops-store.ts": [
         "../../../db",
-        "./loop-graph"
+        "./loop-graph",
+        "crypto"
       ]
     }
   },

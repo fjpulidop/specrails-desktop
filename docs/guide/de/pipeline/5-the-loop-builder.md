@@ -35,7 +35,7 @@ Also: Bau einen Loop einmal, dann wähl ihn auf jeder rail in jedem Projekt.
 
 Klick **Loops** in der linken Seitenleiste, um die Bibliothek zu sehen: die drei eingebauten Loops plus alle deine eigenen. Öffne einen, um ihn anzusehen, oder klick **New loop**, um mit einer leeren Leinwand zu starten.
 
-Einen eingebauten Loop kannst du nicht ohne Weiteres direkt bearbeiten — stattdessen **Fork** ihn. Das gibt dir eine bearbeitbare Kopie eines funktionierenden Graphen als Ausgangspunkt, was der einfachste Weg zum Lernen ist.
+Eingebaute Loops sind echte, bearbeitbare Loops. Öffne einen mit **Edit** und ändere ihn wie jeden anderen Loop: Beim Speichern wird er zum Entwurf, und **Publish** wendet deine Version auf **jede Rail, jeden Start aus dem Agenten-Chat und jeden Companion-Start an, der diesen eingebauten Loop verwendet**. Solange deine Änderung ein Entwurf ist, führen Rails weiter die zuletzt veröffentlichte Version aus – mitten im Bearbeiten geht also nichts kaputt. **Original wiederherstellen** (auf der Karte oder im Builder) setzt einen eingebauten Loop auf die Standardversion zurück; eingebaute Loops lassen sich nicht löschen. Lieber eine separate Kopie? Nutze **Duplicate** – das erzeugt einen normalen Loop und lässt den eingebauten unverändert.
 
 ## Woraus ein Loop besteht
 

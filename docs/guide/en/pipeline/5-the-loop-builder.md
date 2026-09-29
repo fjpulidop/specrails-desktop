@@ -37,7 +37,7 @@ So: build a loop once, then pick it on any rail in any project.
 
 Click **Loops** in the left sidebar to see the library: the three built-in loops plus any of your own. Open one to view it, or click **New loop** to start from a blank canvas.
 
-You can't easily edit a built-in directly — instead **Fork** it. That gives you an editable copy of a working graph to start from, which is the easiest way to learn.
+Built-in loops are real, editable loops. Open one with **Edit** and change it like any other loop: saving turns it into a Draft, and **Publish** applies your version to **every rail, agent-chat launch and Companion launch that uses that built-in**. While your edit is a Draft, rails keep running the last published version, so nothing breaks mid-edit. **Restore original** (on the card or in the builder) resets a built-in to its default; built-ins cannot be deleted. Prefer a separate copy? Use **Duplicate** — it creates an ordinary loop that leaves the built-in untouched.
 
 ## What a loop is made of
 

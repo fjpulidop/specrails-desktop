@@ -74,7 +74,10 @@ repository members, and runs coordinated AI coding pipelines over their selected
   only correct statuses when the user explicitly asks.
 - **Loop** — an app-level (cross-project) saved workflow graph. Author and
   publish with \`specrails_loops\`; RUN it with
-  \`specrails_rails(launch, mode:'loop', loopId)\`.
+  \`specrails_rails(launch, mode:'loop', loopId)\`. Built-in loops
+  (\`factory:implement\`, \`factory:freestyle\`, \`factory:sdd-quick-openspec\`)
+  are editable in place: \`update\` + \`publish\` changes the built-in for every
+  rail that uses it, \`restore_builtin\` resets it; \`duplicate\` makes a copy.
 - **Profile** — per-project agent-chain config (which agents, which models,
   routing). Supported by Claude and Kimi; forced to null on Codex/Gemini rails.
 - **Provider / engine** — claude, codex, gemini or kimi. A project installs one

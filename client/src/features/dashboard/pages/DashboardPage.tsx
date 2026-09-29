@@ -34,7 +34,7 @@ import { TargetPrLaunchDialog } from '../../delivery/components/TargetPrLaunchDi
 import type { RailTargetPr } from '../../rails/components/RailTargetPrSelector'
 import { getApiBase } from '../../../lib/api'
 import { FEATURE_LOOPS_SECTION } from '../../../lib/feature-flags'
-import { effectiveLoopId, deriveRailMode } from '../../rails/lib/rail-loops'
+import { effectiveLoopId, deriveRailMode, adoptedSelectedLoopId } from '../../rails/lib/rail-loops'
 import { defaultModelForProvider, modelsForProvider } from '../../loops/lib/loop-run-models'
 import {
   defaultReasoningEffortForProvider,
@@ -298,9 +298,7 @@ export default function DashboardPage() {
                 mode: serverMode ?? r.mode,
                 // A custom loop needs its id selected for the rail header to
                 // label the run; factory loops keep the rail's own selection.
-                ...(loopRun?.loopId && loopRun.loopId.startsWith('custom:')
-                  ? { selectedLoopId: loopRun.loopId }
-                  : {}),
+                ...(adoptedSelectedLoopId(loopRun?.loopId) ? { selectedLoopId: adoptedSelectedLoopId(loopRun?.loopId) } : {}),
               }
             }
             if (r.status !== 'running') return r
@@ -337,9 +335,7 @@ export default function DashboardPage() {
               mode,
               status: running ? ('running' as const) : ('idle' as const),
               activeJobId: activeJobs[String(sr.railIndex)]?.jobId ?? loopRun?.loopRunId,
-              ...(loopRun?.loopId && loopRun.loopId.startsWith('custom:')
-                ? { selectedLoopId: loopRun.loopId }
-                : {}),
+              ...(adoptedSelectedLoopId(loopRun?.loopId) ? { selectedLoopId: adoptedSelectedLoopId(loopRun?.loopId) } : {}),
             })
             if (ticketIds.length > 0) adoptedTickets.set(id, ticketIds)
             changed = true

@@ -37,7 +37,7 @@ Así que: construye un loop una vez y luego elígelo en cualquier rail de cualqu
 
 Pulsa **Loops** en la barra lateral izquierda para ver la biblioteca: los tres loops integrados más los tuyos. Abre uno para verlo, o pulsa **New loop** para empezar desde un lienzo en blanco.
 
-No puedes editar fácilmente un integrado directamente — en su lugar, hazle **Fork**. Eso te da una copia editable de un grafo que funciona desde la que partir, que es la forma más fácil de aprender.
+Los loops integrados son loops reales y editables. Ábrelo con **Edit** y cámbialo como cualquier otro loop: al guardar pasa a Borrador y **Publish** aplica tu versión en **todos los rails, lanzamientos desde el chat del agente y Companion que usan ese integrado**. Mientras tu edición sea un Borrador, los rails siguen ejecutando la última versión publicada, así que nada se rompe a mitad de edición. **Restaurar original** (en la tarjeta o en el builder) devuelve el integrado a su versión por defecto; los integrados no se pueden borrar. ¿Prefieres una copia aparte? Usa **Duplicate**: crea un loop normal y deja el integrado intacto.
 
 ## De qué se compone un loop
 

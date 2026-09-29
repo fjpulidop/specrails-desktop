@@ -53,6 +53,8 @@ Freestyle nutzt native Tools und Modelle des Providers. Claude hat persistenten
 interaktiven Transport; Kimi nutzt einen agentischen `kimi -p`-Prozess ohne
 persistentes stdin.
 
+Auch die eingebauten Loops sind bearbeitbar: Bearbeite einen im Loop Builder und veröffentliche ihn, dann führt jede rail, die ihn wählt, deine Version aus (mit **Original wiederherstellen** gehst du zurück).
+
 Über die eingebauten Loops hinaus kannst du **deine eigenen Loops bauen** — einen verify → fix → verify-Zyklus wiederholen, bis ein Ziel erreicht ist, Shell-Befehle zwischen KI-Schritten verketten und mehr. Diese eigenen Loops erscheinen in derselben Loop-Auswahl. Das ist die nächste große Idee: [Der Loop Builder](the-loop-builder).
 
 ## Die Job-Queue
