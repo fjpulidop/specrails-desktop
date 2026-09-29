@@ -51,9 +51,9 @@
     "publish": "Publicar",
     "unpublish": "Despublicar",
     "duplicate": "Duplicar",
+    "restoreBuiltin": "Restaurar original",
     "use": "Usar plantilla",
     "preview": "Vista previa",
-    "fork": "Bifurcar para editar",
     "run": "Ejecutar",
     "export": "Exportar",
     "import": "Importar",
@@ -65,7 +65,8 @@
   "card": {
     "nodes_one": "{{count}} nodo",
     "nodes_other": "{{count}} nodos",
-    "usedIn": "En uso · {{project}}"
+    "usedIn": "En uso · {{project}}",
+    "builtinModified": "Editado"
   },
   "confirmDelete": "¿Eliminar este loop? Desaparecerá de todos los selectores de rieles.",
   "newLoopName": "Nuevo loop",
@@ -81,6 +82,12 @@
     "saved": "Loop guardado",
     "publish": "Publicar",
     "published": "Loop publicado",
+    "builtin": {
+      "note": "Loop integrado. Estás editando el propio loop integrado: al publicarlo, tus cambios se aplican en todos los rails, lanzamientos desde el chat del agente y en Companion donde se use. Los rails siguen ejecutando la última versión publicada mientras editas. Usa Restaurar original para volver a la versión por defecto.",
+      "restored": "Loop integrado restaurado a su versión original",
+      "confirmTitle": "¿Restaurar el loop integrado original?",
+      "confirmBody": "Esto descarta tus cambios en este loop integrado y publica su versión original para todos los rails que lo usan. Duplícalo antes si quieres conservar tu versión."
+    },
     "addNode": "Añadir nodo",
     "deleteNode": "Eliminar nodo",
     "config": {
@@ -274,7 +281,7 @@
     },
     "factory_implement": {
       "name": "Implementar",
-      "description": "Totalmente autónomo: implementa la spec, verifica y refina (corrige) cuando falla, encadenando hasta que pasen todos los tests."
+      "description": "Implementa todas las specs del rail en una sola ejecución: planifica, implementa, revisa y verifica, corrigiendo fallos hasta que pasen las comprobaciones."
     },
     "factory_freestyle": {
       "name": "Freestyle",
@@ -436,7 +443,6 @@
     "skipped_other": "Omitidos {{count}} duplicados: {{names}}",
     "invalid": "Ese archivo no es una exportación de loops válida."
   },
-  "automaticOnly": "Se ejecuta automáticamente cuando pides cambios en una revisión — este no lo lanzas tú.",
   "core": {
     "selectInterrupt": "Selecciona la pregunta o aprobación pendiente",
     "answerQuestion": "Responder pregunta",

@@ -76,10 +76,10 @@ describe('desktop-db', () => {
       expect(names).toContain('idx_projects_path')
     })
 
-    it('applies migrations 1 through 30 and records them', () => {
+    it('applies migrations 1 through 31 and records them', () => {
       const versions = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as { version: number }[]
-      expect(versions).toHaveLength(30)
-      expect(versions.map((v) => v.version)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1))
+      expect(versions).toHaveLength(31)
+      expect(versions.map((v) => v.version)).toEqual(Array.from({ length: 31 }, (_, i) => i + 1))
       const columns = db.prepare('PRAGMA table_info(agent_messages)').all() as { name: string }[]
       expect(columns.map((c) => c.name)).toContain('context_refs')
       // 23: durable Builder snapshots
@@ -93,7 +93,7 @@ describe('desktop-db', () => {
       // Re-init on same DB (in-memory so we just call again)
       const db2 = makeDb()
       const versions = db2.prepare('SELECT version FROM schema_migrations').all() as { version: number }[]
-      expect(versions).toHaveLength(30)
+      expect(versions).toHaveLength(31)
     })
   })
 
@@ -807,6 +807,32 @@ it('upgrades a version-29 library without converting or fabricating backups for 
     connection.close()
     connection = initDesktopDb(file)
     expect(connection.prepare("SELECT graph,status,graph_legacy,graph_legacy_saved_at FROM loops WHERE id='original'").get()).toEqual({ graph: original, status: 'published', graph_legacy: null, graph_legacy_saved_at: null })
-    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 30 })
+    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 31 })
+  } finally { if (connection.open) connection.close(); fs.rmSync(root, { recursive: true, force: true }) }
+})
+
+it('migration 31 adds built-in columns, backfills published snapshots and enforces one row per built-in', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'loop-builtin-migration-'))
+  const file = path.join(root, 'desktop.sqlite')
+  let connection = initDesktopDb(file)
+  try {
+    const graph = '{"nodes":[],"edges":[],"config":{"maxIterations":3,"timeoutMinutes":0}}'
+    connection.prepare("INSERT INTO loops(id,name,status,graph) VALUES('pub','Published','published',?),('draft','Draft','draft',?)").run(graph, graph)
+    connection.exec(`DROP INDEX idx_loops_builtin_id; ALTER TABLE loops DROP COLUMN published_graph;
+      ALTER TABLE loops DROP COLUMN builtin_default_hash; ALTER TABLE loops DROP COLUMN builtin_id; DELETE FROM schema_migrations WHERE version=31`)
+    connection.close()
+    connection = initDesktopDb(file)
+    expect(connection.prepare('SELECT id, builtin_id, builtin_default_hash, published_graph FROM loops ORDER BY id').all()).toEqual([
+      { id: 'draft', builtin_id: null, builtin_default_hash: null, published_graph: null },
+      { id: 'pub', builtin_id: null, builtin_default_hash: null, published_graph: graph },
+    ])
+    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 31 })
+    connection.prepare("INSERT INTO loops(id,name,status,graph,builtin_id) VALUES('factory:implement','Implement','published',?,'factory:implement')").run(graph)
+    expect(() => connection.prepare("INSERT INTO loops(id,name,status,graph,builtin_id) VALUES('other','Other','published',?,'factory:implement')").run(graph)).toThrow(/UNIQUE/)
+    // Replaying the guarded migration on a migrated database is a no-op.
+    connection.exec('DELETE FROM schema_migrations WHERE version=31')
+    connection.close()
+    connection = initDesktopDb(file)
+    expect(connection.prepare("SELECT COUNT(*) AS n FROM loops WHERE builtin_id IS NOT NULL").get()).toEqual({ n: 1 })
   } finally { if (connection.open) connection.close(); fs.rmSync(root, { recursive: true, force: true }) }
 })

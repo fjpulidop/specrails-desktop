@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { factoryIdForMode, deriveRailMode, effectiveLoopId, FACTORY_LOOP_ID, FACTORY_RAIL_LOOPS } from '../rail-loops'
+import { factoryIdForMode, deriveRailMode, effectiveLoopId, adoptedSelectedLoopId, FACTORY_LOOP_ID, FACTORY_RAIL_LOOPS } from '../rail-loops'
 
 describe('rail-loops helpers', () => {
   it('maps each legacy mode to its factory loop id', () => {
@@ -47,5 +47,14 @@ describe('rail-loops helpers', () => {
     expect(FACTORY_RAIL_LOOPS.find((f) => f.id === 'factory:freestyle')?.requiresFreestyle).toBe(true)
     // Graph-native built-in: only offered while the Loops feature is enabled.
     expect(FACTORY_RAIL_LOOPS.find((f) => f.id === 'factory:sdd-quick-openspec')?.requiresLoops).toBe(true)
+  })
+})
+
+describe('adoptedSelectedLoopId', () => {
+  it('adopts real user loop ids (uuids), never built-in ids', () => {
+    expect(adoptedSelectedLoopId('3f2a9c1e-8b7d-4e6f-a5c4-1b2d3e4f5a6b')).toBe('3f2a9c1e-8b7d-4e6f-a5c4-1b2d3e4f5a6b')
+    expect(adoptedSelectedLoopId('factory:implement')).toBeUndefined()
+    expect(adoptedSelectedLoopId(undefined)).toBeUndefined()
+    expect(adoptedSelectedLoopId('')).toBeUndefined()
   })
 })

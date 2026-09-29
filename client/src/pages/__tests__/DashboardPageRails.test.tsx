@@ -197,6 +197,28 @@ describe('DashboardPage — server rail reconcile (adopt agent/MCP launches)', (
     })
   })
 
+  it('adopts a real (uuid) user loop id as the rail selection, but not a built-in id', async () => {
+    mockActiveProjectId = 'proj-1'
+    const uuid = '3f2a9c1e-8b7d-4e6f-a5c4-1b2d3e4f5a6b'
+    global.fetch = railsResponse({
+      rails: [
+        { railIndex: 0, ticketIds: [] },
+        { railIndex: 1, ticketIds: [] },
+        { railIndex: 2, ticketIds: [] },
+      ],
+      activeJobs: {},
+      activeLoopRuns: { '1': { loopRunId: 'run-5', loopId: uuid }, '2': { loopRunId: 'run-6', loopId: 'factory:implement' } },
+    })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const rails = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
+      expect(rails[1].status).toBe('running')
+      expect(rails[1].selectedLoopId).toBe(uuid)
+      expect(rails[2].status).toBe('running')
+      expect(rails[2].selectedLoopId).not.toBe('factory:implement')
+    })
+  })
+
   it('derives the REAL mode from a factory loopId (desktop launches register as loop runs)', async () => {
     mockActiveProjectId = 'proj-1'
     global.fetch = railsResponse({

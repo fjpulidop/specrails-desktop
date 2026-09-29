@@ -54,6 +54,8 @@ Freestyle usa ferramentas e modelos nativos do provider. Claude tem transport
 interativo persistente; Kimi usa um processo agentic `kimi -p` sem stdin
 persistente.
 
+Os embutidos também são editáveis: edite um no Loop Builder e publique-o, e todos os rails que o escolhem rodam a sua versão (use **Restaurar original** para voltar atrás).
+
 Além dos embutidos, você pode **construir seus próprios loops** — repetir um ciclo verify → fix → verify até atingir uma meta, encadear comandos de shell entre AI Steps e muito mais. Esses loops personalizados aparecem no mesmo seletor de Loop. Essa é a próxima grande ideia: [O Loop Builder](the-loop-builder).
 
 ## A fila de jobs

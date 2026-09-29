@@ -51,9 +51,9 @@
     "publish": "Publish",
     "unpublish": "Unpublish",
     "duplicate": "Duplicate",
+    "restoreBuiltin": "Restore original",
     "use": "Use template",
     "preview": "Preview",
-    "fork": "Fork to edit",
     "run": "Run",
     "export": "Export",
     "import": "Import",
@@ -65,7 +65,8 @@
   "card": {
     "nodes_one": "{{count}} node",
     "nodes_other": "{{count}} nodes",
-    "usedIn": "In use · {{project}}"
+    "usedIn": "In use · {{project}}",
+    "builtinModified": "Edited"
   },
   "confirmDelete": "Delete this loop? It will disappear from every rail picker.",
   "newLoopName": "New loop",
@@ -81,6 +82,12 @@
     "saved": "Loop saved",
     "publish": "Publish",
     "published": "Loop published",
+    "builtin": {
+      "note": "Built-in loop. You are editing the built-in itself: once published, your changes apply to every rail, agent-chat launch and companion that uses it. Rails keep running the last published version while you edit. Use Restore original to go back to the default.",
+      "restored": "Built-in loop restored to its original version",
+      "confirmTitle": "Restore the original built-in?",
+      "confirmBody": "This discards your changes to this built-in and publishes its original version for every rail that uses it. Duplicate it first if you want to keep your version."
+    },
     "addNode": "Add node",
     "deleteNode": "Delete node",
     "config": {
@@ -274,7 +281,7 @@
     },
     "factory_implement": {
       "name": "Implement",
-      "description": "Fully autonomous: implement the spec, verify, and refine (fix) on failure — looping until all tests pass."
+      "description": "Implements every spec on the rail in one run: plan, implement, review and verify, fixing failures until the checks pass."
     },
     "factory_freestyle": {
       "name": "Freestyle",
@@ -436,7 +443,6 @@
     "skipped_other": "Skipped {{count}} duplicates: {{names}}",
     "invalid": "That file isn't a valid loops export."
   },
-  "automaticOnly": "Runs automatically when you ask for changes on a review — you don't start this one.",
   "core": {
     "selectInterrupt": "Select pending question or approval",
     "answerQuestion": "Answer question",

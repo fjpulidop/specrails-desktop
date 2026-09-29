@@ -61,6 +61,16 @@ describe('MCP operational contracts', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('loops restore_builtin is a write that posts to the built-in restore route', async () => {
+    const args = { action: 'restore_builtin', loopId: 'factory:implement' }
+    expect(tier(loops, args)).toBe('write')
+    expect(z.object(loops.inputSchema).safeParse(args).success).toBe(true)
+    await call(loops, args)
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:4299/api/loops/factory%3Aimplement/restore-builtin', expect.objectContaining({ method: 'POST' }))
+    await expect(call(loops, { action: 'restore_builtin' })).rejects.toThrow('loopId')
+    expect(loops.description).toMatch(/built-ins are ordinary editable loops/)
+  })
+
   it('job history has nextOffset and detail defaults to recent events with explicit earlier pagination', async () => {
     fetchMock.mockResolvedValueOnce(response({ jobs: [{ id: 'job-3' }, { id: 'job-4' }], total: 10 }))
     expect(await call(jobs, { action: 'list', limit: 2, offset: 2 })).toMatchObject({ offset: 2, nextOffset: 4 })

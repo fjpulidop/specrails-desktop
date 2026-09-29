@@ -34,7 +34,7 @@ Ou seja: construa um loop uma vez e depois escolha-o em qualquer rail, em qualqu
 
 Clique em **Loops** na barra lateral esquerda para ver a biblioteca: os três loops embutidos mais os seus próprios. Abra um para vê-lo, ou clique em **New loop** para começar de uma tela em branco.
 
-Você não consegue editar um embutido diretamente com facilidade — em vez disso, faça **Fork** dele. Isso te dá uma cópia editável de um grafo que funciona como ponto de partida, que é a forma mais fácil de aprender.
+Os loops embutidos são loops reais e editáveis. Abra um com **Edit** e altere-o como qualquer outro loop: ao salvar ele vira rascunho, e **Publish** aplica a sua versão em **todos os rails, lançamentos pelo chat do agente e lançamentos pelo Companion que usam esse embutido**. Enquanto a sua edição for um rascunho, os rails continuam executando a última versão publicada, então nada quebra no meio da edição. **Restaurar original** (no cartão ou no builder) volta o embutido à versão padrão; embutidos não podem ser excluídos. Prefere uma cópia separada? Use **Duplicate** — isso cria um loop comum e deixa o embutido intacto.
 
 ## Do que um loop é feito
 

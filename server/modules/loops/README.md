@@ -19,6 +19,7 @@ subdirectories, where present, enforce inward dependency rules.
 
 ## Reviewed public entry points
 
+- [runtime/builtin-loops.ts](runtime/builtin-loops.ts)
 - [runtime/loop-command-catalog.ts](runtime/loop-command-catalog.ts)
 - [runtime/loop-constants.ts](runtime/loop-constants.ts)
 - [runtime/loop-definition-recovery.ts](runtime/loop-definition-recovery.ts)
@@ -61,6 +62,38 @@ prepare → strict preflight → apply/tests → strict validation → archive (
 phases). `failureRecovery` allows one in-run phase retry or an artifact-only repair
 followed by revalidation; it never resets run budgets or changes the frozen target.
 See [scope, recovery and metrics](../../../docs/internals/spec-addenda.md#quick-sdd-scope-and-efficiency).
+
+## Editable built-in loops
+
+Desktop migration 31 adds `builtin_id`, `builtin_default_hash` and
+`published_graph` to `loops`. `runtime/builtin-loops.ts` (effectful coordinator)
+seeds one Published row per built-in whose id IS the canonical factory id
+(`factory:implement`, `factory:freestyle` when a provider supports Freestyle,
+`factory:sdd-quick-openspec`). `factory:batch` and the retired aliases are never
+seeded. Seeding runs when the desktop router registers the loops routes (startup)
+and again on `GET /loops` and `GET /loops/factory`; it is idempotent
+(`INSERT OR IGNORE` in an immediate transaction).
+
+- A row is **unedited** while the hash of its name, description and graph equals
+  `builtin_default_hash`. When Core capabilities are known and the default variant
+  changed (Core upgraded or an older package retained), unedited rows are refreshed.
+  User edits are never overwritten. If Core cannot be loaded, missing rows get the
+  legacy variant and existing rows stay as they are. A Freestyle row is kept when
+  the capability disappears; launch then fails with the existing provider check.
+- `publishLoop` writes `published_graph` for every loop, and migration 31
+  backfills it for loops that are already published.
+- `resolveBuiltinLoop` is used by every factory-id launch (`rails-router`) and by
+  `GET /loops/factory`. An edited Published row runs its graph. An edited Draft
+  runs its `published_graph`, so rails keep working during an edit. An unedited or
+  missing row runs the current code default. Edited graphs pass graph validation
+  and `assertEngineSupport` before any run or worktree is allocated.
+- Built-ins are edited through the normal `PUT`/`publish` flow. `PUT` is allowed
+  while a run uses a built-in: `LoopRunManager._run` clones the request graph and
+  definition runs resume from their frozen request, so an edit cannot reach a live
+  run. Other loops keep the running guard. `DELETE` and `unpublish` return
+  `409 builtin_loop`. `POST /loops/:id/restore-builtin` resets a built-in to the
+  current default and publishes it (409 while running). `POST
+  /loops/factory/:id/fork` duplicates the built-in's current content.
 
 ## Core definition authoring
 

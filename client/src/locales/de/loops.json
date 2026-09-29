@@ -51,9 +51,9 @@
     "publish": "Veröffentlichen",
     "unpublish": "Zurückziehen",
     "duplicate": "Duplizieren",
+    "restoreBuiltin": "Original wiederherstellen",
     "use": "Vorlage verwenden",
     "preview": "Vorschau",
-    "fork": "Zum Bearbeiten forken",
     "run": "Ausführen",
     "export": "Exportieren",
     "import": "Importieren",
@@ -65,7 +65,8 @@
   "card": {
     "nodes_one": "{{count}} Knoten",
     "nodes_other": "{{count}} Knoten",
-    "usedIn": "In Verwendung · {{project}}"
+    "usedIn": "In Verwendung · {{project}}",
+    "builtinModified": "Bearbeitet"
   },
   "confirmDelete": "Diesen Loop löschen? Er verschwindet aus jeder Rail-Auswahl.",
   "newLoopName": "Neuer Loop",
@@ -81,6 +82,12 @@
     "saved": "Loop gespeichert",
     "publish": "Veröffentlichen",
     "published": "Loop veröffentlicht",
+    "builtin": {
+      "note": "Integrierter Loop. Du bearbeitest den integrierten Loop selbst: Nach dem Veröffentlichen gelten deine Änderungen für jede Rail, jeden Start aus dem Agenten-Chat und Companion, die ihn verwenden. Rails führen während der Bearbeitung weiter die zuletzt veröffentlichte Version aus. Mit „Original wiederherstellen“ kehrst du zur Standardversion zurück.",
+      "restored": "Integrierter Loop auf die Originalversion zurückgesetzt",
+      "confirmTitle": "Originalen integrierten Loop wiederherstellen?",
+      "confirmBody": "Dadurch werden deine Änderungen an diesem integrierten Loop verworfen und seine Originalversion wird für alle Rails veröffentlicht, die ihn verwenden. Dupliziere ihn vorher, wenn du deine Version behalten möchtest."
+    },
     "addNode": "Knoten hinzufügen",
     "deleteNode": "Knoten löschen",
     "config": {
@@ -274,7 +281,7 @@
     },
     "factory_implement": {
       "name": "Implementieren",
-      "description": "Vollständig autonom: spec implementieren, verifizieren und bei Fehlern nachbessern (Fix) — in der Schleife, bis alle Tests bestehen."
+      "description": "Setzt alle Specs des Rails in einem Lauf um: planen, implementieren, prüfen und verifizieren, Fehler beheben, bis die Checks bestehen."
     },
     "factory_freestyle": {
       "name": "Freestyle",
@@ -436,7 +443,6 @@
     "skipped_other": "{{count}} Duplikate übersprungen: {{names}}",
     "invalid": "Diese Datei ist kein gültiger Loops-Export."
   },
-  "automaticOnly": "Läuft automatisch, wenn du bei einer Prüfung Änderungen erbittest — diesen startest du nicht selbst.",
   "core": {
     "selectInterrupt": "Offene Frage oder Freigabe auswählen",
     "answerQuestion": "Frage beantworten",

@@ -14,7 +14,7 @@ import { apiCall, projectPath, originConversationDefaults } from './types'
  *   - read:        list, get, templates, factory, commands, constants_list,
  *                  preview, run_get
  *   - write:       constant_create, constant_update, import, create, from_template,
- *                  fork, update, publish, unpublish, duplicate
+ *                  fork, update, publish, unpublish, duplicate, restore_builtin
  *   - ai-spawn:    run (spawns an AI CLI, incurs cost, async 202)
  *   - destructive: constant_delete, delete
  */
@@ -32,7 +32,8 @@ export function loopsTools(): McpToolSpec[] {
         'list (all saved loops), ' +
         'get (one loop by id), ' +
         'templates (built-in template catalog with graphs), ' +
-        'factory (built-in locked factory loops), ' +
+        'factory (the built-in loops — factory:implement, factory:freestyle, factory:sdd-quick-openspec — with the graph a rail launch runs; ' +
+        'built-ins are ordinary editable loops whose loopId IS the factory id: change them with update + publish and the change applies to every rail, chat launch and companion that uses that built-in), ' +
         'commands (magic-command catalog for the builder palette), ' +
         'constants_list (global cross-loop constants), ' +
         'constant_create (write), constant_update (write), constant_delete (destructive), ' +
@@ -40,11 +41,12 @@ export function loopsTools(): McpToolSpec[] {
         'import (import loops from an export envelope), ' +
         'create (new Draft loop), ' +
         'from_template (instantiate from a template), ' +
-        'fork (fork a factory loop into an editable Draft), ' +
-        'update (name/description/graph — reverts to Draft, 409 while running), ' +
-        'publish (graph-validated), unpublish (409 while running), ' +
+        'fork (same as duplicate for a built-in: copies it into a separate Draft; kept for back-compat), ' +
+        'update (name/description/graph — reverts to Draft; 409 while running except for built-ins, whose rails keep using the last published version until you publish), ' +
+        'publish (graph-validated), unpublish (409 while running; 409 builtin_loop for built-ins), ' +
         'duplicate (copy a loop), ' +
-        'delete (destructive — 409 while running), ' +
+        'restore_builtin (reset a built-in to its original default, Published — 409 while running), ' +
+        'delete (destructive — 409 while running; built-ins cannot be deleted: 409 builtin_loop, use restore_builtin), ' +
         'run (ai-spawn — standalone ticket-less run of a Published loop against a project: spawns an AI CLI, incurs token cost, returns 202 with loopRunId), ' +
         'run_get (read one loop run\'s live/terminal state — the post-timeout recovery read).',
       hintTier: 'read',
@@ -64,6 +66,7 @@ export function loopsTools(): McpToolSpec[] {
             'publish',
             'unpublish',
             'duplicate',
+            'restore_builtin',
           ].includes(action)
         ) {
           return 'write'
@@ -91,6 +94,7 @@ export function loopsTools(): McpToolSpec[] {
             'publish',
             'unpublish',
             'duplicate',
+            'restore_builtin',
             'delete',
             'run',
             'run_get',
@@ -100,12 +104,12 @@ export function loopsTools(): McpToolSpec[] {
           .string()
           .optional()
           .describe('Project id (run / run_get only — defaults to the active project; ignored by every other action)'),
-        loopId: z.string().optional().describe('Loop id (for get / update / publish / unpublish / duplicate / delete / run — must be Published for run)'),
+        loopId: z.string().optional().describe('Loop id (for get / update / publish / unpublish / duplicate / restore_builtin / delete / run — must be Published for run). Built-ins use their factory id, e.g. factory:implement'),
         repositoryIds: z.array(z.string().min(1)).min(1).max(50).optional().describe('run only: repository memberships to include in one coordinated standalone execution; omission retains primary-only behavior.'),
         loopRunId: z.string().optional().describe('Loop run id (for run_get — returned by run)'),
         constantId: z.string().optional().describe('Constant id (for constant_update / constant_delete)'),
         templateId: z.string().optional().describe('Template id (for from_template)'),
-        factoryId: z.string().optional().describe('Factory loop id (for fork)'),
+        factoryId: z.string().optional().describe('Built-in (factory) loop id (for fork, e.g. factory:implement)'),
         name: z
           .string()
           .optional()
@@ -231,6 +235,11 @@ export function loopsTools(): McpToolSpec[] {
             return apiCall(ctx, 'POST', `/loops/${encodeURIComponent(loopId)}/duplicate`, {
               ...(args.name !== undefined ? { name: args.name as string } : {}),
             })
+          }
+
+          case 'restore_builtin': {
+            if (!loopId) throw new Error('restore_builtin requires a "loopId" (a built-in id such as factory:implement).')
+            return apiCall(ctx, 'POST', `/loops/${encodeURIComponent(loopId)}/restore-builtin`)
           }
 
           // ── Standalone runs (project-scoped) ────────────────────────────────

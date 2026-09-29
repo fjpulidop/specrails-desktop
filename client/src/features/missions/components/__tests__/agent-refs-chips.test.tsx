@@ -242,19 +242,35 @@ describe('loop ref chips + resolution', () => {
 
   const graph = { nodes: [], edges: [], config: { maxIterations: 3, timeoutMinutes: 30 } }
 
-  it('openRef(loop factory id) resolves via /api/loops/factory and exposes loopRef', async () => {
+  it('openRef(loop factory id) opens the stored, editable built-in row', async () => {
     const fetchMock = vi.fn(async (url: string) => {
-      if (url === '/api/loops/factory') {
-        return { ok: true, status: 200, json: async () => ({ loops: [{ id: 'factory:implement', name: 'Implement', description: 'd', graph }] }) }
+      if (url === '/api/loops/factory%3Aimplement') {
+        return { ok: true, status: 200, json: async () => ({ loop: { id: 'factory:implement', builtinId: 'factory:implement', name: 'Team Implement', description: 'd', status: 'published', graph } }) }
       }
       return notFoundRes
     })
     vi.stubGlobal('fetch', fetchMock)
     const { result } = renderHook(() => useAgentRefActions())
     await act(async () => { await result.current.openRef('p1', { kind: 'loop', loopId: 'factory:implement' }) })
-    expect(result.current.loopRef).toMatchObject({ id: 'factory:implement', name: 'Implement', locked: true, status: null })
+    expect(result.current.loopRef).toMatchObject({ id: 'factory:implement', name: 'Team Implement', builtin: true, locked: false, status: 'published' })
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/loops/factory')
     act(() => result.current.closeLoopRef())
     expect(result.current.loopRef).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('openRef(loop factory id) falls back to the real /api/loops/factory shape (factoryLoops) when no row exists', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      // The server responds with `factoryLoops` — the old client read `loops` and always missed.
+      if (url === '/api/loops/factory') {
+        return { ok: true, status: 200, json: async () => ({ factoryLoops: [{ id: 'factory:implement', name: 'Implement', description: 'd', graph, editable: false }] }) }
+      }
+      return notFoundRes
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const { result } = renderHook(() => useAgentRefActions())
+    await act(async () => { await result.current.openRef('p1', { kind: 'loop', loopId: 'factory:implement' }) })
+    expect(result.current.loopRef).toMatchObject({ id: 'factory:implement', name: 'Implement', builtin: true, locked: true, status: null })
     vi.unstubAllGlobals()
   })
 
@@ -312,6 +328,7 @@ describe('LoopPreviewModal', () => {
       edges: [],
       config: { maxIterations: 5, timeoutMinutes: 60 },
     },
+    builtin: false,
     locked: false,
   }
 
@@ -329,10 +346,20 @@ describe('LoopPreviewModal', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('a locked factory loop hides the builder action and shows the built-in pill', () => {
+  it('a stored built-in shows the built-in pill and stays editable in the builder', () => {
     render(
       <MemoryRouter>
-        <LoopPreviewModal loop={{ ...loop, locked: true, status: null }} onClose={vi.fn()} />
+        <LoopPreviewModal loop={{ ...loop, id: 'factory:implement', builtin: true }} onClose={vi.fn()} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('loop-preview-open-builder')).toBeInTheDocument()
+    expect(screen.getByText('Built-in')).toBeInTheDocument()
+  })
+
+  it('an unseeded factory default is read-only (no builder action)', () => {
+    render(
+      <MemoryRouter>
+        <LoopPreviewModal loop={{ ...loop, builtin: true, locked: true, status: null }} onClose={vi.fn()} />
       </MemoryRouter>,
     )
     expect(screen.queryByTestId('loop-preview-open-builder')).toBeNull()

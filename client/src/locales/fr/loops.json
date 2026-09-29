@@ -51,9 +51,9 @@
     "publish": "Publier",
     "unpublish": "Dépublier",
     "duplicate": "Dupliquer",
+    "restoreBuiltin": "Restaurer l'original",
     "use": "Utiliser le modèle",
     "preview": "Aperçu",
-    "fork": "Dupliquer pour éditer",
     "run": "Exécuter",
     "export": "Exporter",
     "import": "Importer",
@@ -65,7 +65,8 @@
   "card": {
     "nodes_one": "{{count}} nœud",
     "nodes_other": "{{count}} nœuds",
-    "usedIn": "En cours d'utilisation · {{project}}"
+    "usedIn": "En cours d'utilisation · {{project}}",
+    "builtinModified": "Modifié"
   },
   "confirmDelete": "Supprimer cette boucle ? Elle disparaîtra de tous les sélecteurs de rail.",
   "newLoopName": "Nouvelle boucle",
@@ -81,6 +82,12 @@
     "saved": "Boucle enregistrée",
     "publish": "Publier",
     "published": "Boucle publiée",
+    "builtin": {
+      "note": "Loop intégré. Vous modifiez le loop intégré lui-même : une fois publié, vos changements s'appliquent à chaque rail, lancement depuis le chat de l'agent et Companion qui l'utilise. Les rails continuent d'exécuter la dernière version publiée pendant que vous modifiez. Utilisez Restaurer l'original pour revenir à la version par défaut.",
+      "restored": "Loop intégré restauré à sa version d'origine",
+      "confirmTitle": "Restaurer le loop intégré d'origine ?",
+      "confirmBody": "Cela annule vos modifications de ce loop intégré et publie sa version d'origine pour tous les rails qui l'utilisent. Dupliquez-le d'abord si vous voulez conserver votre version."
+    },
     "addNode": "Ajouter un nœud",
     "deleteNode": "Supprimer le nœud",
     "config": {
@@ -274,7 +281,7 @@
     },
     "factory_implement": {
       "name": "Implémenter",
-      "description": "Totalement autonome : implémente le spec, vérifie, puis corrige en cas d'échec — en bouclant jusqu'à ce que tous les tests passent."
+      "description": "Implémente toutes les specs du rail en une seule exécution : planifie, implémente, relit et vérifie, en corrigeant les échecs jusqu'à ce que les contrôles passent."
     },
     "factory_freestyle": {
       "name": "Freestyle",
@@ -436,7 +443,6 @@
     "skipped_other": "{{count}} doublons ignorés : {{names}}",
     "invalid": "Ce fichier n'est pas un export de loops valide."
   },
-  "automaticOnly": "S'exécute automatiquement quand vous demandez des changements sur une relecture — vous ne le lancez pas.",
   "core": {
     "selectInterrupt": "Choisir la question ou approbation en attente",
     "answerQuestion": "Répondre à la question",

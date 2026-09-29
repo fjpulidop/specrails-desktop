@@ -46,3 +46,10 @@ export function effectiveLoopId(selectedLoopId: string | null | undefined, mode:
   if (selectedLoopId === 'factory:batch') return 'factory:implement'
   return selectedLoopId || factoryIdForMode(mode)
 }
+
+/** The `selectedLoopId` a board adopts from a server-side loop run it did not
+ *  launch: user loops (random ids) are selected so the rail header labels the
+ *  run; built-ins (`factory:*`) keep the rail's own selection/mode. */
+export function adoptedSelectedLoopId(loopId: string | null | undefined): string | undefined {
+  return loopId && !loopId.startsWith('factory:') ? loopId : undefined
+}

@@ -51,6 +51,10 @@ export interface LoopDefinition {
   createdAt: string
   updatedAt: string
   hasLegacyGraph?: boolean
+  /** Canonical factory id when this loop IS an editable built-in (id === builtinId). */
+  builtinId?: string
+  /** Built-ins only: the content differs from its original default. */
+  builtinModified?: boolean
 }
 
 export interface LoopTemplateSummary {
@@ -62,26 +66,6 @@ export interface LoopTemplateSummary {
   category?: string
   tags: string[]
   /** Full graph, included so the gallery can render a read-only preview. */
-  graph: LoopGraph
-}
-
-/** A built-in factory loop (locked) — implement / freestyle / SDD Quick. */
-export interface FactoryLoopSummary {
-  id: string
-  name: string
-  description: string
-  /** Legacy rail mode this loop maps to. */
-  mode: 'implement' | 'freestyle'
-  /** Adapter capability required to execute this factory loop, when any. */
-  requiredCapability?: 'freestyle'
-  /** Backward-compatible field from older servers. */
-  claudeOnly?: boolean
-  /**
-   * False for a loop the platform runs on its own initiative and the user cannot
-   * start by hand. Absent on older servers, which only ever shipped launchable
-   * loops — so `!== false` is the correct read.
-   */
-  launchable?: boolean
   graph: LoopGraph
 }
 
@@ -213,15 +197,13 @@ export const loopsApi = {
       await send<{ loop: LoopDefinition }>('POST', `/loops/from-template/${templateId}`, name ? { name } : {})
     ).loop
   },
-  async factoryLoops(): Promise<FactoryLoopSummary[]> {
-    return (await send<{ factoryLoops: FactoryLoopSummary[] }>('GET', '/loops/factory')).factoryLoops
-  },
   /** Magic-command catalog for the builder palette ({ name, label, description }). */
   async loopCommands(): Promise<{ name: string; label: string; description: string }[]> {
     return (await send<{ commands: { name: string; label: string; description: string }[] }>('GET', '/loops/commands')).commands
   },
-  async forkFactory(id: string, name?: string): Promise<LoopDefinition> {
-    return (await send<{ loop: LoopDefinition }>('POST', `/loops/factory/${id}/fork`, name ? { name } : {})).loop
+  /** Reset a built-in loop to its original default (Published). */
+  async restoreBuiltin(id: string): Promise<LoopDefinition> {
+    return (await send<{ loop: LoopDefinition }>('POST', `/loops/${encodeURIComponent(id)}/restore-builtin`)).loop
   },
   // ── Constants library (global) ──────────────────────────────────────────────
   async loopConstants(): Promise<LoopConstant[]> {

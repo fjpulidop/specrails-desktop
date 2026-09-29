@@ -34,7 +34,7 @@ Quindi: costruisci un loop una volta, poi scegli quel loop su qualsiasi rail in 
 
 Clicca **Loops** nella sidebar sinistra per vedere la libreria: i tre loop integrati più tutti i tuoi. Aprine uno per visualizzarlo, oppure clicca **New loop** per partire da una tela bianca.
 
-Non puoi modificare facilmente un integrato in modo diretto — invece fanne un **Fork**. Ti dà una copia modificabile di un grafo funzionante da cui partire, ed è il modo più semplice per imparare.
+I loop integrati sono loop veri e modificabili. Aprine uno con **Edit** e cambialo come qualsiasi altro loop: salvando torna in bozza, e **Publish** applica la tua versione a **ogni rail, avvio dalla chat dell'agente e avvio da Companion che usa quel loop integrato**. Finché la modifica è una bozza, i rail continuano a eseguire l'ultima versione pubblicata, quindi nulla si rompe a metà modifica. **Ripristina originale** (sulla card o nel builder) riporta un loop integrato alla versione predefinita; i loop integrati non si possono eliminare. Preferisci una copia separata? Usa **Duplicate**: crea un loop normale e lascia intatto quello integrato.
 
 ## Di cosa è fatto un loop
 

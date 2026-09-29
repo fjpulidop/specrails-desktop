@@ -1,8 +1,8 @@
 /**
  * Built-in "factory" loops — the app-owned loops that replace the old rail modes
- * (`implement` / Freestyle's `freestyle` mode). They appear in the Loops
- * gallery as read-only (locked) entries the user can run on a rail or "Fork to
- * edit" into an editable custom loop.
+ * (`implement` / Freestyle's `freestyle` mode). These are the code DEFAULTS;
+ * `builtin-loops.ts` seeds them as editable loop rows (same ids) and resolves
+ * launches to an edited, published row when one exists.
  *
  * Each carries the canonical rail `mode` it maps to. The rail launch routes a
  * factory loop to the matching engine via that mode (QueueManager slash command /
@@ -85,7 +85,7 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
   {
     id: 'factory:implement',
     name: 'Implement',
-    description: 'Run the Core implementation pipeline for the spec. Core owns implementation, review, verification and corrections.',
+    description: 'Implements every spec on the rail in one run: plan, implement, review and verify, fixing failures until the checks pass.',
     mode: 'implement',
     graph: coreImplementationGraph('implement'),
   },

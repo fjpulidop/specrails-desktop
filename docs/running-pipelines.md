@@ -65,7 +65,7 @@ Beyond the built-ins, the **Loops** section (left sidebar, above the project lis
 - **Loop Decider** — an AI node that, each iteration, decides **continue** (loop back) or **stop** (exit) based on a goal you write — e.g. *“the verification step reported VERIFICATION: PASS”*. This is what powers autonomous **verify → fix → verify until green** loops.
 - **Start / End** — entry and terminal nodes.
 
-Each run is bounded by **max iterations**, a wall-clock **timeout**, and an optional **cost cap** (USD, checked between steps). The builder also has live validation, a dry-run preview (resolve every step's exact text without spawning), import/export to JSON, and copy/paste of steps across loops. **Fork** a built-in to start from a working graph, then **Publish** to make a loop selectable on any rail.
+Each run is bounded by **max iterations**, a wall-clock **timeout**, and an optional **cost cap** (USD, checked between steps). The builder also has live validation, a dry-run preview (resolve every step's exact text without spawning), import/export to JSON, and copy/paste of steps across loops. **Publish** makes a loop selectable on any rail. Built-ins are editable loops too: edit one in place and publish it to change that built-in for every rail, agent-chat launch and Companion launch that uses it (rails keep the last published version while your edit is a Draft); **Restore original** resets it and **Duplicate** copies it into a separate loop. Built-ins cannot be deleted.
 
 On the legacy traversal, Kimi runs built-in and custom loops whose graph contains AI/shell steps but no
 **Loop Decider**. A Decider's constrained `continue`/`stop` verdict is a

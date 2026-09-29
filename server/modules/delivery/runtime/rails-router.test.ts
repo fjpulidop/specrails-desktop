@@ -11,7 +11,9 @@ import { initDesktopDb } from '../../../desktop-db'
 import { createRailsRouter, prDeliveryRevisionAllowed } from './rails-router'
 import { PrContinuationIsolationError } from './rail-isolated-launch'
 import { getRail, setRailTickets } from './rails-store'
-import { createLoop, publishLoop } from '../../loops/runtime/loops-store'
+import { createLoop, getLoop, publishLoop, updateLoop } from '../../loops/runtime/loops-store'
+import { ensureBuiltinLoops } from '../../loops/runtime/builtin-loops'
+import { getFactoryLoop } from '../../loops/runtime/loop-factory'
 import { createLoopRun } from '../../loops/runtime/loop-runs-store'
 import { createPrDelivery, getActivePrDeliveryByRail, getPrDelivery, transitionDecision, type CreatePrDeliveryInput } from './rail-pr-store'
 import type { LoopGraph } from '../../loops/runtime/loop-graph'
@@ -735,6 +737,57 @@ describe('rails-router loop mode', () => {
     expect(runArg.effort).toBe('high')
     expect((runArg.spec as { title: string }).title).toBe('T')
     expect(railLoopRuns.size).toBe(1)
+  })
+
+  describe('editable built-ins', () => {
+    const env = { loadCapabilities: async () => ({}), freestyleAvailable: () => true }
+    function launchApp(run: ReturnType<typeof vi.fn>, assertEngineSupport?: ReturnType<typeof vi.fn>) {
+      return appWith(db, {
+        desktopDb,
+        loopRunManager: { run, cancel: vi.fn(), ...(assertEngineSupport ? { assertEngineSupport } : {}) },
+        getTicketSpec: () => ({ title: 'T', description: 'D' }),
+      })
+    }
+    function withMaxIterations(graph: LoopGraph, maxIterations: number): LoopGraph {
+      return { ...structuredClone(graph), config: { ...graph.config, maxIterations } }
+    }
+
+    it('launches the edited published graph of factory:implement, and keeps it while a newer edit is Draft', async () => {
+      await ensureBuiltinLoops(desktopDb, env)
+      const seeded = getLoop(desktopDb, 'factory:implement')!
+      updateLoop(desktopDb, seeded.id, { graph: withMaxIterations(seeded.graph, 2), name: 'Team Implement' })
+      publishLoop(desktopDb, seeded.id)
+      const run = vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 })
+      const first = await request(launchApp(run)).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+      expect(first.status).toBe(202)
+      expect(first.body.mode).toBe('implement')
+      expect(run.mock.calls[0][0]).toMatchObject({ loopId: 'factory:implement', loopName: 'Team Implement' })
+      expect((run.mock.calls[0][0] as { graph: LoopGraph }).graph.config.maxIterations).toBe(2)
+      // A Draft edit never reaches rails until it is published.
+      updateLoop(desktopDb, seeded.id, { graph: withMaxIterations(seeded.graph, 9) })
+      await request(launchApp(run)).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+      expect((run.mock.calls[1][0] as { graph: LoopGraph }).graph.config.maxIterations).toBe(2)
+    })
+
+    it('uses the code default for an unedited built-in row', async () => {
+      await ensureBuiltinLoops(desktopDb, env)
+      const run = vi.fn().mockResolvedValue({ runId: 'r', outcome: 'success', iterations: 1, totalCostUsd: 0 })
+      await request(launchApp(run)).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+      expect((run.mock.calls[0][0] as { graph: LoopGraph }).graph).toEqual(getFactoryLoop('factory:implement')!.graph)
+    })
+
+    it('checks engine support for an edited built-in before allocating runs', async () => {
+      await ensureBuiltinLoops(desktopDb, env)
+      const seeded = getLoop(desktopDb, 'factory:implement')!
+      updateLoop(desktopDb, seeded.id, { graph: withMaxIterations(seeded.graph, 2) })
+      publishLoop(desktopDb, seeded.id)
+      const run = vi.fn()
+      const assertEngineSupport = vi.fn(async () => { throw new Error('legacy_engine_unavailable: Convert this loop to Core first.') })
+      const res = await request(launchApp(run, assertEngineSupport)).post('/rails/0/launch').send({ loopId: 'factory:implement' })
+      expect(res.status).toBe(409)
+      expect(res.body).toEqual({ error: 'legacy_engine_unavailable', loopId: 'factory:implement', detail: 'Convert this loop to Core first.' })
+      expect(run).not.toHaveBeenCalled()
+    })
   })
 
   it('refuses a legacy loop with 409 before allocating runs when the active Core lacks engine 1', async () => {
