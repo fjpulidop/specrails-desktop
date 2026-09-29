@@ -1377,7 +1377,7 @@ export class ProjectRegistry {
           : { ok: false, status: r.status, ...internalApiError(r) }
       },
       assignTickets: async (railIndex, ticketIds) => {
-        const r = await internalApi.call('PUT', `${railsBase}/${railIndex}/tickets`, { ticketIds, mode: 'batch-implement' })
+        const r = await internalApi.call('PUT', `${railsBase}/${railIndex}/tickets`, { ticketIds, mode: 'implement' })
         return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
       },
       launch: async (railIndex, body) => {
@@ -1399,6 +1399,14 @@ export class ProjectRegistry {
           return hit ? hit.railIndex : null
         } catch { return null }
       },
+      listRails: () => {
+        try { return getRails(db).map((r) => ({ railIndex: r.railIndex, name: r.name ?? null })) } catch { return [] }
+      },
+      railBusy: (railIndex) => [...railJobs.values(), ...railLoopRuns.values()].some((entry) => entry.railIndex === railIndex),
+      renameRail: async (railIndex, name) => {
+        const r = await internalApi.call('PUT', `${railsBase}/${railIndex}/name`, { name })
+        return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
+      },
       getDelivery: (id) => {
         const row = getPrDelivery(db, id)
         return row ? toPrDeliverySnapshot(row) : null
@@ -1409,7 +1417,7 @@ export class ProjectRegistry {
       },
       readTickets: () => {
         try {
-          return Object.values(readStore(ticketStorePath()).tickets).map((t) => ({ id: t.id, status: t.status, labels: t.labels ?? [] }))
+          return Object.values(readStore(ticketStorePath()).tickets).map((t) => ({ id: t.id, status: t.status, labels: t.labels ?? [], prerequisites: Array.isArray(t.prerequisites) ? t.prerequisites : [], executionOrder: t.execution_order ?? null }))
         } catch { return [] }
       },
       readBlueprint: () => { const ws = blueprintWorkspace(); return ws ? readBlueprint(ws) : null },

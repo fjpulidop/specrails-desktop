@@ -13,12 +13,9 @@ import {
   launchMilestone,
   milestoneLabel,
   readMilestoneAutoAdvance,
-  readMilestoneLaunchMode,
   resumeChain,
   saveMilestoneAutoAdvance,
-  saveMilestoneLaunchMode,
   setChainAutoAdvance,
-  type MilestoneLaunchMode,
 } from '../../lib/milestone-launch'
 import { isMilestoneLaunchable } from '../../lib/milestone-progress'
 import { MilestoneAutoAdvanceToggle, MilestoneCard } from './MilestoneProgressCard'
@@ -45,8 +42,8 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
   const [panelOpen, setPanelOpen] = useState(false)
   const [launching, setLaunching] = useState(false)
   const [chainBusy, setChainBusy] = useState(false)
-  const [launchMode, setLaunchMode] = useState<MilestoneLaunchMode>(() => readMilestoneLaunchMode())
-  // Wave checkpoints (D9): OFF by default — the chain asks before each next rail.
+  // Wave checkpoints (D9): auto-continue is ON by default; turning it off makes
+  // the chain ask before each next rail. A failure always pauses.
   const [autoAdvance, setAutoAdvance] = useState<boolean>(() => readMilestoneAutoAdvance())
   const [generating, setGenerating] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -96,27 +93,27 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     if (!activeProjectId || launching) return
     setLaunching(true)
     try {
-      const result = await launchMilestone(activeProjectId, 1, launchMode, { autoAdvance })
+      const result = await launchMilestone(activeProjectId, 1, { autoAdvance })
       const label = milestoneLabel(1)
       if (result.ok) {
         const totalRails = result.launched.length + result.pending.length
-        if (launchMode === 'sequential' && result.pending.length > 0) {
+        if (result.pending.length > 0) {
           toast.success(t(autoAdvance ? 'milestoneProgress.toast.launched' : 'milestoneProgress.toast.launchedCheckpoint', { milestone: label, count: result.ticketCount, n: totalRails }))
-        } else if (result.skippedCount > 0) {
-          toast.warning(t('milestoneProgress.toast.launchedPartial', { milestone: label, count: result.ticketCount, skipped: result.skippedCount }))
         } else {
           toast.success(t('milestoneProgress.toast.launchedAll', { milestone: label, count: result.ticketCount, n: totalRails }))
         }
         setPanelOpen(false)
       } else if (result.reason === 'chain_active') {
         toast.info(t('milestoneProgress.toast.chainActive', { milestone: label }))
+      } else if (result.reason === 'rail_limit_reached') {
+        toast.warning(t('milestoneProgress.toast.railLimitReached', { milestone: label }))
       } else {
         toast.error(t('done.launchFailed'), { description: result.detail ?? result.error })
       }
     } finally {
       setLaunching(false)
     }
-  }, [activeProjectId, autoAdvance, launching, launchMode, t])
+  }, [activeProjectId, autoAdvance, launching, t])
 
   const handleSetAutoAdvance = useCallback(async (chainId: string, on: boolean) => {
     if (!activeProjectId || chainBusy) return
@@ -181,40 +178,16 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
 
   const launchControls = m1Launchable ? (
     <>
-      {/* Sequential | Parallel — sequential (default) chains each ≤3-spec rail
-          on the previous rail's delivered branch; parallel launches all at once. */}
-      <div
-        className="flex rounded-md border border-border/40 p-0.5 text-[10px]"
-        role="radiogroup"
-        aria-label={t('sequential.modeLabel')}
-        title={launchMode === 'sequential' ? t('milestoneProgress.sequentialHint') : t('milestoneProgress.parallelHint')}
-        data-testid="milestone-launch-mode"
-      >
-        {(['sequential', 'parallel'] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            role="radio"
-            aria-checked={launchMode === m}
-            onClick={() => { setLaunchMode(m); saveMilestoneLaunchMode(m) }}
-            className={cn(
-              'flex-1 rounded px-1.5 py-1 font-medium transition-colors',
-              launchMode === m
-                ? 'bg-accent-primary/15 text-accent-primary'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {t(`sequential.mode.${m}`)}
-          </button>
-        ))}
-      </div>
-      {launchMode === 'sequential' && (
-        <MilestoneAutoAdvanceToggle
-          checked={autoAdvance}
-          onChange={(on) => { setAutoAdvance(on); saveMilestoneAutoAdvance(on) }}
-          testId="sidebar-auto-advance"
-        />
-      )}
+      {/* One spec per rail, launched in dependency order; each rail stacks on
+          the previous rail's delivered branch. */}
+      <p className="text-[10px] text-muted-foreground" data-testid="milestone-launch-hint">
+        {t('milestoneProgress.sequentialHint')}
+      </p>
+      <MilestoneAutoAdvanceToggle
+        checked={autoAdvance}
+        onChange={(on) => { setAutoAdvance(on); saveMilestoneAutoAdvance(on) }}
+        testId="sidebar-auto-advance"
+      />
       <button
         type="button"
         onClick={handleLaunchM1}

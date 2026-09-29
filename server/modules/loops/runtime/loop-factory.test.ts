@@ -4,7 +4,7 @@ import { validateLoopGraph } from './loop-graph'
 import { assertDeciderBranches } from './loop-templates.test'
 
 describe('factory loops', () => {
-  it.each([['factory:implement', 'implement'], ['factory:batch', 'batch']])('%s runs its Core command once and ends without extra AI gates', (id, command) => {
+  it.each([['factory:implement', 'implement']])('%s runs its Core command once and ends without extra AI gates', (id, command) => {
     const graph = getFactoryLoop(id)!.graph
     expect(graph.nodes.map((node) => node.type)).toEqual(['start', 'ai-step', 'end'])
     expect(graph.nodes[1].data?.prompt).toBe(`{{cmd:${command}}}`)
@@ -14,13 +14,16 @@ describe('factory loops', () => {
     ])
   })
 
-  it('ships implement / batch / freestyle mapped to canonical rail modes + the graph-native openspec loop', () => {
+  it('ships implement / freestyle mapped to canonical rail modes + the graph-native openspec loop', () => {
     expect(FACTORY_LOOPS.map((f) => f.id)).toEqual([
-      'factory:implement', 'factory:batch', 'factory:freestyle',
+      'factory:implement', 'factory:freestyle',
       'factory:sdd-quick-openspec',
     ])
     expect(getFactoryLoop('factory:implement')?.mode).toBe('implement')
-    expect(getFactoryLoop('factory:batch')?.mode).toBe('batch-implement')
+    // Removed Batch loop: the saved id resolves to Implement and is never listed.
+    expect(getFactoryLoop('factory:batch')?.id).toBe('factory:implement')
+    expect(getFactoryLoop('factory:batch')?.mode).toBe('implement')
+    expect(FACTORY_LOOPS.some((f) => f.id === 'factory:batch' || (f.mode as string) === 'batch-implement')).toBe(false)
     expect(getFactoryLoop('factory:freestyle')?.mode).toBe('freestyle')
     // Graph-native: no rail-mode fallback — runs only via the LoopRunManager.
     expect(getFactoryLoop('factory:sdd-quick-openspec')?.mode).toBe('loop')
@@ -88,7 +91,10 @@ describe('factory loops', () => {
     expect(isFactoryLoopId('factory:implement')).toBe(true)
     expect(isFactoryLoopId('abc123')).toBe(false)
     expect(isFactoryLoopId(null)).toBe(false)
-    expect(factoryLoopMode('factory:batch')).toBe('batch-implement')
+    expect(factoryLoopMode('factory:batch')).toBe('implement')
+    expect(factoryLoopForMode('implement')?.id).toBe('factory:implement')
+    expect(factoryLoopForMode('batch-implement')?.id).toBe('factory:implement')
+    expect(factoryLoopForMode('batch')?.id).toBe('factory:implement')
     expect(factoryLoopForMode('freestyle')?.id).toBe('factory:freestyle')
     expect(factoryLoopForMode('loop')).toBeUndefined()
   })

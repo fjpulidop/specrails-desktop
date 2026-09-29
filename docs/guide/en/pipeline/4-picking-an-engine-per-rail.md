@@ -23,14 +23,14 @@ The selected engine runs every phase of that rail's pipeline. If the chosen engi
 
 ## What each engine is good at
 
-All four run the standard **Implement** and **Batch** pipelines. Here's a practical guide to choosing:
+All four run the standard **Implement** pipeline. Here's a practical guide to choosing:
 
 | Engine | Reach for it when… | Notes |
 |--------|--------------------|-------|
 | **Claude** | You want native billed cost, persistent job interaction, and the richest hard tool-policy controls. | Supports profiles, Freestyle, and structured transforms such as Contract Layer/SMASH. |
 | **Codex** | You prefer the OpenAI Codex CLI or want to compare implementations across providers. | `codex` ≥ 0.128.0. No native cost reporting — the app fills in cost from its rate card. Profiles don't apply. |
 | **Gemini** | You want Google's Gemini CLI, native telemetry, or a cheaper run for routine specs. | `gemini` ≥ 0.11.0 (set `GEMINI_API_KEY`). Native OTLP telemetry. Profiles don't apply. |
-| **Kimi** | You want Kimi Code's autonomous agentic CLI for implementation, Batch, Freestyle, or loops without a Decider. | External `kimi` ≥ 0.27.0. Profiles/manual roles and K3 low/high/max effort are supported; tokens and USD cost are unavailable. |
+| **Kimi** | You want Kimi Code's autonomous agentic CLI for implementation, Freestyle, or loops without a Decider. | External `kimi` ≥ 0.27.0. Profiles/manual roles and K3 low/high/max effort are supported; tokens and USD cost are unavailable. |
 
 ### Capability differences
 

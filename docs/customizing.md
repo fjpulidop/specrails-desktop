@@ -63,7 +63,7 @@ The daily counter is the sum of completed-job cost since midnight, so it resets 
 
 ### Rail pre-prompt
 
-A custom instruction appended to every **Implement** and **Batch-implement** rail job, after the ticket context and before execution. Use it for stable project guidance that should accompany every rail run (e.g. "keep migrations backward compatible, add tests for every change"). Leave it blank for none.
+A custom instruction appended to every **Implement** rail job, after the ticket context and before execution. Use it for stable project guidance that should accompany every rail run (e.g. "keep migrations backward compatible, add tests for every change"). Leave it blank for none.
 
 ### Freestyle pre-prompt
 

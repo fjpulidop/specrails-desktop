@@ -16,8 +16,7 @@ vi.mock('../../lib/loops-api', () => ({
     unpublish: vi.fn(),
     duplicate: vi.fn(),
     remove: vi.fn(),
-    factoryLoops: vi.fn(),
-    forkFactory: vi.fn(),
+    restoreBuiltin: vi.fn(),
   },
   LoopPublishError: class LoopPublishError extends Error {
     errors: unknown[] = []
@@ -58,8 +57,7 @@ beforeEach(() => {
   api.unpublish.mockResolvedValue(loop({}))
   api.duplicate.mockResolvedValue(loop({ id: 'dup' }))
   api.remove.mockResolvedValue(undefined)
-  api.factoryLoops.mockResolvedValue([])
-  api.forkFactory.mockResolvedValue(loop({ id: 'forked' }))
+  api.restoreBuiltin.mockResolvedValue(loop({ id: 'factory:implement', builtinId: 'factory:implement', status: 'published' }))
 })
 
 describe('LoopsPage', () => {
@@ -229,77 +227,43 @@ describe('LoopsPage', () => {
     expect(await screen.findByText('1 node')).toBeInTheDocument()
   })
 
-  it('lists built-in factory loops and forks one into an editable draft', async () => {
-    api.factoryLoops.mockResolvedValue([
-      { id: 'factory:implement', name: 'Implement', description: 'Run the pipeline', mode: 'implement', claudeOnly: false, graph: tmplGraph },
+  it('lists built-ins as editable loops in their own section (no Fork, no Delete)', async () => {
+    api.list.mockResolvedValue([
+      loop({ id: 'factory:implement', name: 'Implement', status: 'published', builtinId: 'factory:implement', builtinModified: false }),
+      loop({ id: 'u1', name: 'Mine', status: 'published' }),
     ])
     renderPage()
-    expect(await screen.findByText('Implement')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Fork to edit'))
-    await waitFor(() => expect(api.forkFactory).toHaveBeenCalledWith('factory:implement'))
+    const card = await screen.findByTestId('builtin-loop-card')
+    expect(within(card).getByText('Implement')).toBeInTheDocument()
+    expect(within(card).getByTestId('builtin-badge')).toHaveTextContent('Built-in')
+    expect(within(card).getByLabelText('Edit')).toBeInTheDocument()
+    expect(within(card).getByLabelText('Duplicate')).toBeInTheDocument()
+    expect(within(card).queryByLabelText('Delete')).not.toBeInTheDocument()
+    expect(within(card).queryByLabelText('Unpublish')).not.toBeInTheDocument()
+    // Unedited → nothing to restore.
+    expect(within(card).queryByLabelText('Restore original')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Fork to edit/i)).not.toBeInTheDocument()
+    // Never listed twice: the Published section holds only the user's loop.
+    expect(screen.getAllByTestId('loop-card')).toHaveLength(1)
+    fireEvent.click(within(card).getByLabelText('Duplicate'))
+    await waitFor(() => expect(api.duplicate).toHaveBeenCalledWith('factory:implement'))
   })
 
-  it('previews a built-in factory loop, then forks it from the modal (not fromTemplate)', async () => {
-    api.factoryLoops.mockResolvedValue([
-      { id: 'factory:implement', name: 'Implement', description: 'Run the pipeline', mode: 'implement', claudeOnly: false, graph: tmplGraph },
+  it('restores an edited built-in after confirmation', async () => {
+    api.list.mockResolvedValue([
+      loop({ id: 'factory:implement', name: 'Team Implement', status: 'draft', builtinId: 'factory:implement', builtinModified: true }),
     ])
     renderPage()
-    await screen.findByText('Implement')
-    // Open the preview for the built-in (the card has both Preview + Fork to edit).
-    fireEvent.click(screen.getByText('Preview'))
-    const dialog = await screen.findByRole('dialog')
-    // The modal CTA for a built-in is "Fork to edit", NOT "Use template".
-    expect(within(dialog).queryByRole('button', { name: /Use template/i })).not.toBeInTheDocument()
-    fireEvent.click(within(dialog).getByRole('button', { name: /Fork to edit/i }))
-    await waitFor(() => expect(api.forkFactory).toHaveBeenCalledWith('factory:implement'))
-    expect(api.fromTemplate).not.toHaveBeenCalled()
+    const card = await screen.findByTestId('builtin-loop-card')
+    expect(within(card).getByText('Team Implement')).toBeInTheDocument()
+    expect(within(card).getByText(/Edited/)).toBeInTheDocument()
+    // An edited Draft built-in can be published from the card.
+    expect(within(card).getByLabelText('Publish')).toBeInTheDocument()
+    fireEvent.click(within(card).getByLabelText('Restore original'))
+    fireEvent.click(await screen.findByTestId('confirm-restore-builtin'))
+    await waitFor(() => expect(api.restoreBuiltin).toHaveBeenCalledWith('factory:implement'))
   })
 })
-
-describe('LoopsPage — non-launchable built-ins', () => {
-  const revision = {
-    id: 'factory:revision',
-    name: 'Revision',
-    description: 'Applies the one change you asked for…',
-    mode: 'loop' as const,
-    launchable: false,
-    graph: { nodes: [], edges: [], config: {} } as never,
-  }
-  const implement = {
-    id: 'factory:implement',
-    name: 'Implement',
-    description: 'Fully autonomous…',
-    mode: 'implement' as const,
-    launchable: true,
-    graph: { nodes: [], edges: [], config: {} } as never,
-  }
-
-  it('says the loop runs automatically instead of leaving a card with no way to start it', async () => {
-    api.factoryLoops.mockResolvedValue([implement, revision])
-    renderPage()
-    expect(await screen.findByText('Revision')).toBeInTheDocument()
-    const note = screen.getByTestId('factory-loop-automatic')
-    expect(note).toHaveTextContent(/Runs automatically when you ask for changes/i)
-    // Exactly one card carries it — a launchable built-in must not.
-    expect(screen.getAllByTestId('factory-loop-automatic')).toHaveLength(1)
-  })
-
-  it('keeps preview and fork available on it (discovery is the point)', async () => {
-    api.factoryLoops.mockResolvedValue([revision])
-    renderPage()
-    await screen.findByText('Revision')
-    expect(screen.getByRole('button', { name: /preview/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /fork/i })).toBeInTheDocument()
-  })
-
-  it('shows no note for a server that predates the flag', async () => {
-    api.factoryLoops.mockResolvedValue([{ ...implement, launchable: undefined }])
-    renderPage()
-    await screen.findByText('Implement')
-    expect(screen.queryByTestId('factory-loop-automatic')).not.toBeInTheDocument()
-  })
-})
-
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 

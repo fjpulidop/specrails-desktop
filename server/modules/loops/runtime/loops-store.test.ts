@@ -14,6 +14,7 @@ import {
   importLoops,
   LoopValidationError,
   LoopPublicationConflict,
+  readPublishedLoopGraph,
 } from './loops-store'
 import { emptyLoopGraph, type LoopGraph } from './loop-graph'
 
@@ -245,4 +246,20 @@ it('does not publish a renamed or deleted loop from an earlier validation snapsh
   expect(getLoop(db, 'loop')).toMatchObject({ name: 'Changed', status: 'draft' })
   deleteLoop(db, 'loop')
   expect(() => publishLoop(db, 'loop', validated)).toThrow(LoopPublicationConflict)
+})
+
+describe('published graph snapshot (migration 31)', () => {
+  it('publishLoop snapshots the graph and a later edit keeps the previous snapshot', () => {
+    createLoop(db, { id: 'snap', name: 'Snap', graph: publishableGraph() })
+    expect(readPublishedLoopGraph(db, 'snap')).toBeUndefined()
+    publishLoop(db, 'snap')
+    expect(readPublishedLoopGraph(db, 'snap')).toEqual(publishableGraph())
+    const edited = { ...publishableGraph(), config: { maxIterations: 9, timeoutMinutes: 20 } }
+    updateLoop(db, 'snap', { graph: edited })
+    expect(getLoop(db, 'snap')?.status).toBe('draft')
+    expect(readPublishedLoopGraph(db, 'snap')).toEqual(publishableGraph())
+    publishLoop(db, 'snap')
+    expect(readPublishedLoopGraph(db, 'snap')).toEqual(edited)
+    expect(getLoop(db, 'snap')?.builtinId).toBeUndefined()
+  })
 })

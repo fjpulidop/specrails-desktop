@@ -22,7 +22,7 @@
   },
   "prePrompt": {
     "title": "Pré-prompt de rail",
-    "description": "Instructions supplémentaires propres au projet, ajoutées aux jobs de rail implement et batch-implement après le contexte du ticket et avant l'exécution.",
+    "description": "Instructions supplémentaires propres au projet, ajoutées aux jobs de rail implement après le contexte du ticket et avant l'exécution.",
     "label": "Pré-prompt",
     "placeholder": "Exemple : privilégier les changements incrémentaux, garder les migrations rétrocompatibles et ajouter des tests pour chaque changement de rail.",
     "helper": "À utiliser pour des consignes projet stables qui doivent accompagner chaque exécution d'implémentation sur rail.",

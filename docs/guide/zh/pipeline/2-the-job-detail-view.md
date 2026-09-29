@@ -22,7 +22,7 @@
 
 ## 流水线阶段
 
-对于 `Implement` 和 `Batch` 任务，整个运行会走过 slash 命令所定义的各个阶段——默认是：
+对于 `Implement` 任务，整个运行会走过 slash 命令所定义的各个阶段——默认是：
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -112,7 +112,6 @@ Architect ──► Developer ──► Reviewer ──► Ship
 ## 接下来去哪儿
 
 - [Rail 与任务](rails-and-jobs)——启动与排队。
-- [批量实现与多功能](batch-implement-and-multi-feature)——多个 spec、依赖批次。
 - [追踪成本](../analytics/tracking-cost)——把单任务成本汇成项目级分析。
 
 ## 工作流重启后

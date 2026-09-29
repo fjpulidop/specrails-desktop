@@ -10,7 +10,7 @@
 
 发布时，Core 会验证草稿并在相关步骤上显示错误。启动时会再次验证项目配置。引擎不可用时请更新 Core。现有 Desktop 循环保留原来的编辑器和执行方式，下面的章节介绍这些旧版流程。
 
-**一条 rail 运行的是一个 Loop。** 内置的那些 loop（`Implement`、`Batch`、`Freestyle`）覆盖了日常场景，但 **Loop Builder** 让你能设计自己的——一个可视化的、n8n 风格的编辑器，用来做那种"重复执行直到目标达成"的自动化。本页会讲清楚什么是 loop、怎么搭一个，以及怎么在 rail 上运行它。
+**一条 rail 运行的是一个 Loop。** 内置的那些 loop（`Implement`、`Freestyle`、`SDD Quick (OpenSpec)`）覆盖了日常场景，但 **Loop Builder** 让你能设计自己的——一个可视化的、n8n 风格的编辑器，用来做那种"重复执行直到目标达成"的自动化。本页会讲清楚什么是 loop、怎么搭一个，以及怎么在 rail 上运行它。
 
 ## Loop 与 rail——它们的关系
 
@@ -20,9 +20,8 @@
    Loop Builder (左侧栏)                   Rails (右)
    ───────────────────────────             ─────────────
    Implement   (内置)                       Rail 1
-   Batch       (内置)          在此挑选 ►       Loop: Verify-until-green
-   Freestyle   (内置)                          ▶ Play
-   Verify-until-green (你的)
+   Freestyle   (内置)          在此挑选 ►       Loop: Verify-until-green
+   Verify-until-green (你的)                          ▶ Play
 ```
 
 - loop 住在 **Loops** 区里（左侧栏，和你的项目并列）——它们是**全局**的，跨所有项目共享。
@@ -35,7 +34,7 @@
 
 点左侧栏的 **Loops**，就能看到这个库：三个内置 loop，再加上你自己的所有 loop。打开一个来查看，或者点 **New loop** 从一张空白画布开始。
 
-你没法轻易地直接编辑内置 loop——而是要 **Fork** 它。这会给你一份可编辑的副本，从一个能跑通的图出发，这也是最容易上手的学习方式。
+内置 loop 是真正可编辑的 loop。用 **Edit** 打开它，像编辑其他 loop 一样修改：保存后它会变成草稿，**Publish** 后你的版本会应用到**所有使用这个内置 loop 的轨道、代理聊天启动和 Companion 启动**。在你的修改还是草稿时，轨道会继续运行最后发布的版本，所以编辑中途不会出问题。**恢复原始版本**（在卡片上或构建器中）可以把内置 loop 重置为默认版本；内置 loop 不能删除。想要一份独立的副本？用 **Duplicate**——它会创建一个普通 loop，内置 loop 保持不变。
 
 ## 一个 loop 由什么组成
 

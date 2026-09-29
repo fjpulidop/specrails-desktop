@@ -205,7 +205,6 @@
     "viewJobLog": "查看任务日志",
     "log": "日志",
     "implement": "实现",
-    "batch": "批量",
     "freestyle": "Freestyle",
     "freestyleTitle": "Freestyle — 所选提供方自主实现该 Spec，不走流水线",
     "loop": "Loop",

@@ -213,7 +213,7 @@
       "steerLabel": "Mitten im Lauf steuern",
       "steerBody": "Claude-Läufe sind interaktiv: stelle Fragen oder lenke um, während sie arbeiten, und folge einem erzählten Fortschritt statt roher Logs.",
       "loopsLabel": "Eigene Loops bauen",
-      "loopsBody": "<b>Loops</b> ist ein visueller Builder: verkette KI-Schritte, Shell-Befehle und einen <b>Loop Decider</b>, der wiederholt, bis das Ziel erreicht ist. Implement, Batch und Freestyle sind fertig dabei.",
+      "loopsBody": "<b>Loops</b> ist ein visueller Builder: verkette KI-Schritte, Shell-Befehle und einen <b>Loop Decider</b>, der wiederholt, bis das Ziel erreicht ist. Implement und Freestyle sind fertig dabei.",
       "profilesLabel": "Agentenprofile & Vorgaben",
       "profilesBody": "Lege fest, welche Agenten laufen und welches Modell jeder nutzt: pro Projektprofil, pro Rail oder einmal für die ganze Maschine unter Einstellungen → Specrails-Agenten.",
       "isolationLabel": "Viele Projekte, isoliert",

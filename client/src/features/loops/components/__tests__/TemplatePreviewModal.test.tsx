@@ -51,25 +51,11 @@ describe('TemplatePreviewModal', () => {
     expect(onUse).toHaveBeenCalledWith('ship-and-green')
   })
 
-  it('labels the CTA "Use template" in use mode (default)', () => {
+  it('only offers "Use template" — built-ins are edited in place, never forked here', () => {
     render(<TemplatePreviewModal template={tmpl()} onClose={() => {}} onUse={() => {}} />)
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByRole('button', { name: /Use template/i })).toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: /Fork to edit/i })).not.toBeInTheDocument()
-  })
-
-  it('labels the CTA "Fork to edit" in fork mode (built-in factory loop)', () => {
-    render(<TemplatePreviewModal template={tmpl()} mode="fork" onClose={() => {}} onUse={() => {}} />)
-    const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getByRole('button', { name: /Fork to edit/i })).toBeInTheDocument()
-    expect(within(dialog).queryByRole('button', { name: /Use template/i })).not.toBeInTheDocument()
-  })
-
-  it('fires onUse with the id from the Fork button in fork mode', () => {
-    const onUse = vi.fn()
-    render(<TemplatePreviewModal template={tmpl()} mode="fork" onClose={() => {}} onUse={onUse} />)
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Fork to edit/i }))
-    expect(onUse).toHaveBeenCalledWith('ship-and-green')
   })
 
   it('fires onClose from the Cancel button', () => {

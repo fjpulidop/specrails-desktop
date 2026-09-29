@@ -22,7 +22,7 @@ Two panels sit above the full streaming log; on a running Claude job, a chat com
 
 ## Pipeline phases
 
-For `Implement` and `Batch` jobs, the run moves through the phases defined by the slash command — by default:
+For `Implement` jobs, the run moves through the phases defined by the slash command — by default:
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -113,7 +113,6 @@ Handy for sharing a run with a teammate, or filing a precise bug report.
 ## Where to go next
 
 - [Rails & jobs](rails-and-jobs) — launching and queueing.
-- [Batch implement & multi-feature](batch-implement-and-multi-feature) — many specs, dependency waves.
 - [Tracking cost](../analytics/tracking-cost) — turn per-job costs into project analytics.
 
 ## After a workflow restart

@@ -398,6 +398,36 @@ describe('db', () => {
       }
     })
 
+    it('migration 70 converts stored Batch rails to implement', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-remove-batch-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        const insert = db.prepare('INSERT INTO rails (rail_index, ticket_id, position, mode) VALUES (?, ?, ?, ?)')
+        insert.run(0, 1, 0, 'batch-implement')
+        insert.run(0, 2, 1, 'batch-implement')
+        insert.run(1, 3, 0, 'batch')
+        insert.run(2, 4, 0, 'freestyle')
+        insert.run(3, 5, 0, 'loop')
+        db.prepare('DELETE FROM schema_migrations WHERE version = 70').run()
+        db.close()
+        db = initDb(dbPath)
+
+        const modes = db.prepare('SELECT rail_index, mode FROM rails ORDER BY rail_index, position').all()
+        expect(modes).toEqual([
+          { rail_index: 0, mode: 'implement' },
+          { rail_index: 0, mode: 'implement' },
+          { rail_index: 1, mode: 'implement' },
+          { rail_index: 2, mode: 'freestyle' },
+          { rail_index: 3, mode: 'loop' },
+        ])
+        expect(db.prepare('SELECT version FROM schema_migrations WHERE version = 70').get()).toEqual({ version: 70 })
+      } finally {
+        try { db.close() } catch { /* already closed */ }
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
     it('migration 54 adds durable safety archive storage to delivery rows', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-pr-safety-archives-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')

@@ -83,8 +83,6 @@
     "description": "Votre backlog du Jalon 1 est sur le tableau, étiqueté M1.",
     "launchM1": "Lancer le Jalon 1",
     "openProject": "Ouvrir le projet",
-    "launchToast": "Jalon 1 lancé — {{count}} specs réparties sur des rails (max 3 par rail)",
-    "launchPartialToast": "Jalon 1 partiellement lancé — {{count}} specs lancées, {{skipped}} en attente",
     "launchFailed": "Impossible de lancer le Jalon 1"
   },
   "sidebar": {
@@ -134,13 +132,6 @@
     "description": "Description de la spec",
     "acceptanceCriteria": "Critères d'acceptation",
     "criteriaEmpty": "Aucun critère d'acceptation pour le moment."
-  },
-  "sequential": {
-    "modeLabel": "Mode de lancement",
-    "mode": {
-      "sequential": "Séquentiel",
-      "parallel": "Parallèle"
-    }
   },
   "generation": {
     "writing": "Rédaction des specs du jalon 1…",
@@ -311,7 +302,8 @@
         "head_discarded": "la livraison sur laquelle repose le rail suivant a été abandonnée",
         "run_lost": "le rail en cours est introuvable après un redémarrage",
         "unknown": "en pause",
-        "provider_limit": "la limite d'utilisation du fournisseur a été atteinte"
+        "provider_limit": "la limite d'utilisation du fournisseur a été atteinte",
+        "rail_limit_reached": "chaque rail porte une PR en attente de votre décision — fusionnez ou abandonnez des PR en attente pour libérer un rail, puis reprenez"
       },
       "checkpoint": "Rail {{k}} sur {{n}} livré — lancer le rail {{next}} ?",
       "launchNext": "Lancer le rail suivant",
@@ -325,9 +317,8 @@
       "autoFailed": "Impossible de mettre à jour la chaîne"
     },
     "toast": {
-      "launched": "{{milestone}} lancé — {{count}} specs sur le rail 1 sur {{n}} ; les rails suivants s'enchaînent automatiquement",
-      "launchedAll": "{{milestone}} lancé — {{count}} specs sur {{n}} rails",
-      "launchedPartial": "{{milestone}} partiellement lancé — {{count}} specs lancées, {{skipped}} en attente",
+      "launched": "{{milestone}} lancé — la spec 1 sur {{n}} est sur son rail ; les specs suivantes s'enchaînent automatiquement, un rail chacune",
+      "launchedAll": "{{milestone}} lancé — une spec par rail ({{n}} au total)",
       "chainActive": "{{milestone}} est déjà en cours de lancement — voir le panneau Blueprint",
       "chunkLaunched": "{{milestone}} — rail {{k}} sur {{n}} lancé",
       "paused": "{{milestone}} en pause — {{reason}}",
@@ -335,13 +326,13 @@
       "delivered": "{{milestone}} livré — {{count}} specs attendent votre revue",
       "review": "Revoir",
       "completed": "{{milestone}} terminé — toutes les specs fusionnées",
-      "launchedCheckpoint": "{{milestone}} lancé — {{count}} specs sur le rail 1 sur {{n}} ; on vous demandera avant chaque rail suivant",
+      "launchedCheckpoint": "{{milestone}} lancé — la spec 1 sur {{n}} est sur son rail ; on vous demandera avant chaque suivante",
       "checkpoint": "{{milestone}} — rail {{k}} sur {{n}} livré. Lancer le rail suivant ?",
       "launchNext": "Lancer le rail suivant",
-      "autoContinue": "Continuer auto"
+      "autoContinue": "Continuer auto",
+      "railLimitReached": "{{milestone}} n'a pas pu être lancé — chaque rail porte une PR en attente de votre décision. Fusionnez ou abandonnez des PR en attente pour libérer un rail."
     },
-    "sequentialHint": "Chaque rail part de la branche du rail précédent",
-    "parallelHint": "Rails indépendants depuis la branche d'intégration (sans empilement)"
+    "sequentialHint": "Une spec par rail, dans l'ordre des dépendances — chaque rail part de la branche du rail précédent"
   },
   "decisionCard": {
     "settledLabel": "Décision prise",

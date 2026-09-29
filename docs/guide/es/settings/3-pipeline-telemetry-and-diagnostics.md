@@ -52,5 +52,4 @@ El historial del loop conserva el resultado final independientemente de la telem
 opcional del proveedor. Separa ejecución, aceptación de Core y entrega, y distingue
 pasos, evaluaciones del decider y turnos del agente. Los tiempos e intentos por fase
 proceden del registro de Core; no se deduce un coste por fase a partir del total. Con
-runtimes antiguos, la evidencia queda como no disponible. Consulta el resultado de
-Implement en la guía de ejecución por lotes.
+runtimes antiguos, la evidencia queda como no disponible.

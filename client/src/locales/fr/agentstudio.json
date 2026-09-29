@@ -93,7 +93,7 @@
     "descriptionPlaceholder": "À quoi sert ce profil ?",
     "orchestrator": {
       "heading": "Orchestrateur",
-      "description": "Modèle de premier niveau pour les deux commandes. batch-implement délègue à implement pour chaque fonctionnalité, donc chaque rail qu'il lance hérite de la chaîne d'agents de ce profil."
+      "description": "Modèle de premier niveau pour la commande implement. Chaque rail qu'elle exécute hérite de la chaîne d'agents de ce profil."
     },
     "agentChain": {
       "heading": "Chaîne d'agents ({{n}})",

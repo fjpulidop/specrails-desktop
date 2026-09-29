@@ -93,7 +93,7 @@
     "descriptionPlaceholder": "Wofür ist dieses Profil?",
     "orchestrator": {
       "heading": "Orchestrator",
-      "description": "Top-Level-Modell für beide Befehle. batch-implement delegiert pro Feature an implement, daher erbt jede gestartete Rail die Agenten-Kette dieses Profils."
+      "description": "Top-Level-Modell für den implement-Befehl. Jede damit gestartete Rail erbt die Agenten-Kette dieses Profils."
     },
     "agentChain": {
       "heading": "Agenten-Kette ({{n}})",

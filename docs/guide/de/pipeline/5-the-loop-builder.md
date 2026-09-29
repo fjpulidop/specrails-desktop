@@ -10,7 +10,7 @@ Erstelle unter **Komponenten** einen wiederverwendbaren Ablauf, deklariere Einga
 
 Beim Veröffentlichen validiert Core den Entwurf und markiert fehlerhafte Schritte. Beim Start wird die Projektkonfiguration erneut geprüft. Aktualisiere Core, wenn die Engine fehlt. Bestehende Desktop-Loops behalten ihren bisherigen Editor und Ablauf; die folgenden Abschnitte beschreiben diese.
 
-Eine **rail führt einen Loop aus**. Die eingebauten Loops (`Implement`, `Batch`, `Freestyle`) decken die Alltagsfälle ab, aber der **Loop Builder** lässt dich deine eigenen entwerfen — ein visueller Editor im n8n-Stil für Automatisierung, die sich wiederholt, bis ein Ziel erreicht ist. Diese Seite erklärt, was ein Loop ist, wie du einen baust und wie du ihn auf einer rail ausführst.
+Eine **rail führt einen Loop aus**. Die eingebauten Loops (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) decken die Alltagsfälle ab, aber der **Loop Builder** lässt dich deine eigenen entwerfen — ein visueller Editor im n8n-Stil für Automatisierung, die sich wiederholt, bis ein Ziel erreicht ist. Diese Seite erklärt, was ein Loop ist, wie du einen baust und wie du ihn auf einer rail ausführst.
 
 ## Loops und rails — die Beziehung
 
@@ -20,9 +20,8 @@ Ein **Loop** ist das *Rezept* für die Arbeit; eine **rail** ist die *Spur*, die
    Loop Builder (linke Seitenleiste)        Rails (rechts)
    ───────────────────────────             ─────────────
    Implement   (eingebaut)                  Rail 1
-   Batch       (eingebaut)     wählen auf ►    Loop: Verify-until-green
-   Freestyle   (eingebaut)                     ▶ Play
-   Verify-until-green (deiner)
+   Freestyle   (eingebaut)     wählen auf ►    Loop: Verify-until-green
+   Verify-until-green (deiner)                     ▶ Play
 ```
 
 - Loops leben im **Loops**-Bereich (linke Seitenleiste, neben deinen Projekten) — sie sind **global**, projektübergreifend geteilt.
@@ -35,7 +34,7 @@ Also: Bau einen Loop einmal, dann wähl ihn auf jeder rail in jedem Projekt.
 
 Klick **Loops** in der linken Seitenleiste, um die Bibliothek zu sehen: die drei eingebauten Loops plus alle deine eigenen. Öffne einen, um ihn anzusehen, oder klick **New loop**, um mit einer leeren Leinwand zu starten.
 
-Einen eingebauten Loop kannst du nicht ohne Weiteres direkt bearbeiten — stattdessen **Fork** ihn. Das gibt dir eine bearbeitbare Kopie eines funktionierenden Graphen als Ausgangspunkt, was der einfachste Weg zum Lernen ist.
+Eingebaute Loops sind echte, bearbeitbare Loops. Öffne einen mit **Edit** und ändere ihn wie jeden anderen Loop: Beim Speichern wird er zum Entwurf, und **Publish** wendet deine Version auf **jede Rail, jeden Start aus dem Agenten-Chat und jeden Companion-Start an, der diesen eingebauten Loop verwendet**. Solange deine Änderung ein Entwurf ist, führen Rails weiter die zuletzt veröffentlichte Version aus – mitten im Bearbeiten geht also nichts kaputt. **Original wiederherstellen** (auf der Karte oder im Builder) setzt einen eingebauten Loop auf die Standardversion zurück; eingebaute Loops lassen sich nicht löschen. Lieber eine separate Kopie? Nutze **Duplicate** – das erzeugt einen normalen Loop und lässt den eingebauten unverändert.
 
 ## Woraus ein Loop besteht
 

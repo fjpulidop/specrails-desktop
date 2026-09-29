@@ -2,7 +2,8 @@ import type { LoopGraph } from './loops-api'
 
 /**
  * Whether a loop "needs a ticket" — it references a `{{spec.*}}` token or one of
- * the ticket-consuming commands (`{{cmd:implement|batch|freestyle}}`). Ticket-
+ * the ticket-consuming commands (`{{cmd:implement|freestyle}}`, plus the legacy `{{cmd:batch}}`
+ * alias of implement). Ticket-
  * needing loops run from a rail (the rail provides the spec); ticket-LESS loops
  * (CI watch, repo-wide lint — no spec/ticket reference) run standalone from the
  * Loops page "Run" action.

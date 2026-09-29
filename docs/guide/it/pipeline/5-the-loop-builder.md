@@ -10,7 +10,7 @@ Crea un corpo riutilizzabile in **Componenti**, dichiara ingressi e uscite e sel
 
 La pubblicazione invia la bozza a Core e mostra gli errori sui passaggi interessati. L'avvio convalida nuovamente la configurazione del progetto. Aggiorna Core se il motore non è disponibile. I loop precedenti conservano editor ed esecuzione; le sezioni seguenti li descrivono.
 
-Un **rail esegue un Loop**. I loop integrati (`Implement`, `Batch`, `Freestyle`) coprono i casi di tutti i giorni, ma il **Loop Builder** ti permette di progettare i tuoi — un editor visuale in stile n8n per automazioni che si ripetono finché un obiettivo non è raggiunto. Questa pagina spiega cos'è un loop, come costruirne uno e come eseguirlo su un rail.
+Un **rail esegue un Loop**. I loop integrati (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) coprono i casi di tutti i giorni, ma il **Loop Builder** ti permette di progettare i tuoi — un editor visuale in stile n8n per automazioni che si ripetono finché un obiettivo non è raggiunto. Questa pagina spiega cos'è un loop, come costruirne uno e come eseguirlo su un rail.
 
 ## Loop e rail — la relazione
 
@@ -20,9 +20,8 @@ Un **loop** è la *ricetta* del lavoro; un **rail** è la *corsia* che lo esegue
    Loop Builder (sidebar sinistra)         Rail (destra)
    ───────────────────────────             ─────────────
    Implement   (integrato)                 Rail 1
-   Batch       (integrato)     scegli su ►    Loop: Verify-until-green
-   Freestyle   (integrato)                    ▶ Play
-   Verify-until-green (tuo)
+   Freestyle   (integrato)     scegli su ►    Loop: Verify-until-green
+   Verify-until-green (tuo)                    ▶ Play
 ```
 
 - I loop vivono nella sezione **Loops** (sidebar sinistra, accanto ai tuoi progetti) — sono **globali**, condivisi tra tutti i progetti.
@@ -35,7 +34,7 @@ Quindi: costruisci un loop una volta, poi scegli quel loop su qualsiasi rail in 
 
 Clicca **Loops** nella sidebar sinistra per vedere la libreria: i tre loop integrati più tutti i tuoi. Aprine uno per visualizzarlo, oppure clicca **New loop** per partire da una tela bianca.
 
-Non puoi modificare facilmente un integrato in modo diretto — invece fanne un **Fork**. Ti dà una copia modificabile di un grafo funzionante da cui partire, ed è il modo più semplice per imparare.
+I loop integrati sono loop veri e modificabili. Aprine uno con **Edit** e cambialo come qualsiasi altro loop: salvando torna in bozza, e **Publish** applica la tua versione a **ogni rail, avvio dalla chat dell'agente e avvio da Companion che usa quel loop integrato**. Finché la modifica è una bozza, i rail continuano a eseguire l'ultima versione pubblicata, quindi nulla si rompe a metà modifica. **Ripristina originale** (sulla card o nel builder) riporta un loop integrato alla versione predefinita; i loop integrati non si possono eliminare. Preferisci una copia separata? Usa **Duplicate**: crea un loop normale e lascia intatto quello integrato.
 
 ## Di cosa è fatto un loop
 

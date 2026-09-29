@@ -93,7 +93,7 @@
     "descriptionPlaceholder": "A cosa serve questo profilo?",
     "orchestrator": {
       "heading": "Orchestratore",
-      "description": "Modello di primo livello per entrambi i comandi. batch-implement delega a implement per ogni feature, quindi ogni rail che genera eredita la catena di agenti di questo profilo."
+      "description": "Modello di primo livello per il comando implement. Ogni rail che esegue eredita la catena di agenti di questo profilo."
     },
     "agentChain": {
       "heading": "Catena di agenti ({{n}})",

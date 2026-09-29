@@ -15,7 +15,7 @@ Specrails supports **four AI providers**: Anthropic's
 
 **What works with Gemini:** Explore Spec, Quick spec, AI Edit, the terminal
 "Open AI CLI" launcher, cost analytics, **and the full rails pipeline**
-(`/specrails:implement`, `batch-implement`). Gemini does not advertise
+(`/specrails:implement`). Gemini does not advertise
 **Freestyle rails**; choose Claude or Kimi for that autonomous rail mode.
 
 ## Prerequisites

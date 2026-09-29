@@ -82,17 +82,17 @@ describe('getRail', () => {
   })
 
   it('returns assigned tickets in position order', () => {
-    setRailTickets(db, 2, [5, 15, 25], 'batch-implement')
+    setRailTickets(db, 2, [5, 15, 25], 'freestyle')
     const rail = getRail(db, 2)
     expect(rail.ticketIds).toEqual([5, 15, 25])
-    expect(rail.mode).toBe('batch-implement')
+    expect(rail.mode).toBe('freestyle')
   })
 })
 
 describe('setRailTickets', () => {
   it('persists mode', () => {
-    setRailTickets(db, 0, [1], 'batch-implement')
-    expect(getRail(db, 0).mode).toBe('batch-implement')
+    setRailTickets(db, 0, [1], 'freestyle')
+    expect(getRail(db, 0).mode).toBe('freestyle')
   })
 
   it('defaults mode to implement when omitted', () => {
@@ -137,10 +137,10 @@ describe('setRailTickets', () => {
   })
 
   it('returns the new state', () => {
-    const out = setRailTickets(db, 1, [7, 8], 'batch-implement', 'security')
+    const out = setRailTickets(db, 1, [7, 8], 'freestyle', 'security')
     expect(out.railIndex).toBe(1)
     expect(out.ticketIds).toEqual([7, 8])
-    expect(out.mode).toBe('batch-implement')
+    expect(out.mode).toBe('freestyle')
     expect(out.profileName).toBe('security')
   })
 })

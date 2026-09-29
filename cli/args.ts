@@ -11,9 +11,15 @@ export const DEFAULT_PORT = 4200
 
 export const KNOWN_VERBS = new Set([
   'implement',
-  'batch-implement',
   'retry',
 ])
+
+/** Removed verbs mapped to their replacement so old muscle memory never sends a
+ *  command Core no longer ships. Batch was folded into implement, which runs
+ *  every listed issue in one aggregate run. */
+const VERB_ALIASES: Readonly<Record<string, string>> = {
+  'batch-implement': 'implement',
+}
 
 
 // ---------------------------------------------------------------------------
@@ -90,9 +96,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
     return { mode: 'raw', resolved, port, projectOverride }
   }
 
-  // Known verb: inject /specrails: prefix
-  if (KNOWN_VERBS.has(first)) {
-    const resolved = `/specrails:${args.join(' ')}`
+  // Known verb (or removed alias): inject /specrails: prefix
+  const verb = VERB_ALIASES[first] ?? first
+  if (KNOWN_VERBS.has(verb)) {
+    const resolved = `/specrails:${[verb, ...args.slice(1)].join(' ')}`
     return { mode: 'command', resolved, port, projectOverride }
   }
 

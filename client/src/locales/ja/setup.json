@@ -213,7 +213,7 @@
       "steerLabel": "実行中に舵を取る",
       "steerBody": "Claude のランは対話式です。作業中に質問や方向転換ができ、生ログではなくナレーション付きの進捗を追えます。",
       "loopsLabel": "独自のループを作る",
-      "loopsBody": "<b>Loops</b> はビジュアルビルダーです。AI ステップ、シェルコマンド、目標達成まで繰り返す<b>ループデサイダー</b>をつなげます。Implement、Batch、Freestyle はすぐ使えます。",
+      "loopsBody": "<b>Loops</b> はビジュアルビルダーです。AI ステップ、シェルコマンド、目標達成まで繰り返す<b>ループデサイダー</b>をつなげます。Implement、Freestyle はすぐ使えます。",
       "profilesLabel": "エージェントプロファイルと既定値",
       "profilesBody": "どのエージェントを動かし、それぞれどのモデルを使うかを決めます。プロジェクトのプロファイル単位、レール単位、または設定 → Specrails エージェントでマシン全体に一度だけ。",
       "isolationLabel": "多くのプロジェクトを隔離",

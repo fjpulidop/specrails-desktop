@@ -12,7 +12,7 @@ Create a reusable body under **Components**, declare its input variables and out
 
 The remaining sections describe the existing Desktop loop nodes and rail behavior.
 
-A **rail runs a Loop**. The built-in loops (`Implement`, `Batch`, `Freestyle`) cover the everyday cases, but the **Loop Builder** lets you design your own — a visual, n8n-style editor for automation that repeats until a goal is met. This page explains what a loop is, how to build one, and how to run it on a rail.
+A **rail runs a Loop**. The built-in loops (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) cover the everyday cases, but the **Loop Builder** lets you design your own — a visual, n8n-style editor for automation that repeats until a goal is met. This page explains what a loop is, how to build one, and how to run it on a rail.
 
 ## Loops and rails — the relationship
 
@@ -22,9 +22,8 @@ A **loop** is the *recipe* for the work; a **rail** is the *lane* that runs it a
    Loop Builder (left sidebar)             Rails (right)
    ───────────────────────────             ─────────────
    Implement   (built-in)                  Rail 1
-   Batch       (built-in)      pick on ►      Loop: Verify-until-green
-   Freestyle   (built-in)                     ▶ Play
-   Verify-until-green (yours)
+   Freestyle   (built-in)      pick on ►      Loop: Verify-until-green
+   Verify-until-green (yours)                     ▶ Play
 ```
 
 - Loops live in the **Loops** section (left sidebar, alongside your projects) — they are **global**, shared across every project.
@@ -37,7 +36,7 @@ So: build a loop once, then pick it on any rail in any project.
 
 Click **Loops** in the left sidebar to see the library: the three built-in loops plus any of your own. Open one to view it, or click **New loop** to start from a blank canvas.
 
-You can't easily edit a built-in directly — instead **Fork** it. That gives you an editable copy of a working graph to start from, which is the easiest way to learn.
+Built-in loops are real, editable loops. Open one with **Edit** and change it like any other loop: saving turns it into a Draft, and **Publish** applies your version to **every rail, agent-chat launch and Companion launch that uses that built-in**. While your edit is a Draft, rails keep running the last published version, so nothing breaks mid-edit. **Restore original** (on the card or in the builder) resets a built-in to its default; built-ins cannot be deleted. Prefer a separate copy? Use **Duplicate** — it creates an ordinary loop that leaves the built-in untouched.
 
 ## What a loop is made of
 

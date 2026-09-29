@@ -22,14 +22,14 @@ O motor selecionado corre todas as fases do pipeline desse rail. Se a CLI do mot
 
 ## Em que cada motor é bom
 
-Os quatro correm os pipelines standard **Implement** e **Batch**:
+Os quatro correm o pipeline standard **Implement**:
 
 | Motor | Recorra a ele quando… | Notas |
 |--------|--------------------|-------|
 | **Claude** | Precisa de custo nativo, interação persistente ou tool policy rigorosa. | Perfis, Freestyle e transformações estruturadas. |
 | **Codex** | Prefere o Codex CLI da OpenAI ou quer comparar implementações entre fornecedores. | `codex` ≥ 0.128.0. Sem reporte de custo nativo — a app preenche o custo a partir da sua tabela de preços. Os perfis não se aplicam. |
 | **Gemini** | Quer o Gemini CLI da Google, telemetria nativa ou uma execução mais barata para specs de rotina. | `gemini` ≥ 0.11.0 (defina `GEMINI_API_KEY`). Telemetria OTLP nativa. Os perfis não se aplicam. |
-| **Kimi** | Quer Kimi agentic para Implement, Batch, Freestyle ou loops sem Decider. | `kimi` ≥ 0.27.0 externo; perfis/roles, effort só K3; tokens/custo indisponíveis. |
+| **Kimi** | Quer Kimi agentic para Implement, Freestyle ou loops sem Decider. | `kimi` ≥ 0.27.0 externo; perfis/roles, effort só K3; tokens/custo indisponíveis. |
 
 ### Diferenças de capability
 

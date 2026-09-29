@@ -34,7 +34,7 @@ command. Spike-verified 2026-07-03 against **claude 2.1.198**: the claude CLI ex
 commands arriving as stream-json stdin user frames **exactly like the argv `-p "/cmd"` path**
 (evidence pointer: the dated comment block above the interactive gate in
 `server/modules/execution/runtime/queue-manager.ts` `_startJob`, and `loop-executors.ts` `planInteractiveAiStep`). That
-makes every job — `/specrails:implement`, `/specrails:batch-implement`, distilled loop commands,
+makes every job — `/specrails:implement`, distilled loop commands,
 custom commands — transport-compatible, so the default flipped to interactive for every
 persistent-stdin-capable provider.
 
@@ -73,7 +73,7 @@ slipped in meanwhile queues/writes a new turn and **extends the session** instea
 
 ## Loop-step ownership and routing
 
-All dashboard rail launches (factory `Implement`/`Batch`/`Freestyle` and custom loops) run
+All dashboard rail launches (factory `Implement`/`Freestyle`/SDD Quick and custom loops) run
 through the `LoopRunManager`. When interactive jobs are enabled and the provider supports
 persistent stdin, each claude **ai-step** runs as its own `InteractiveJobSession`
 (`planInteractiveAiStep` builds the spawn plan; `_runInteractiveAiStep` owns the lifecycle):

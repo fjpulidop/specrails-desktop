@@ -108,11 +108,25 @@ describe('GET /:projectId/blueprint — progress payload', () => {
     const app = createApp(ctx)
     let res = await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({ mode: 'sequential', autoAdvance: false })
     expect(res.status).toBe(202)
-    expect(start).toHaveBeenCalledWith(1, 'sequential', { autoAdvance: false })
+    expect(res.body.mode).toBe('sequential')
+    expect(start).toHaveBeenCalledWith(1, { autoAdvance: false })
     res = await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({})
-    expect(start).toHaveBeenLastCalledWith(1, 'sequential', { autoAdvance: undefined })
+    // Omitted autoAdvance: the chain manager defaults it to ON.
+    expect(start).toHaveBeenLastCalledWith(1, { autoAdvance: undefined })
     res = await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({ autoAdvance: 'yes' })
     expect(res.status).toBe(400)
+    // The retired Parallel option is accepted from old clients and runs sequentially.
+    res = await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({ mode: 'parallel', autoAdvance: true })
+    expect(res.status).toBe(202)
+    expect(res.body.mode).toBe('sequential')
+    expect(start).toHaveBeenLastCalledWith(1, { autoAdvance: true })
+    res = await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({ mode: 'waves' })
+    expect(res.status).toBe(400)
+    // The typed rail-limit guard is relayed for the UI to localize.
+    start.mockResolvedValueOnce({ ok: false, status: 409, error: 'rail_limit_reached', chainId: 'c2' } as never)
+    res = await request(app).post('/api/projects/proj-1/blueprint/milestones/1/launch').send({})
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'rail_limit_reached', chainId: 'c2' })
 
     res = await request(app).patch('/api/projects/proj-1/blueprint/chains/c1').send({ autoAdvance: true })
     expect(res.status).toBe(202)

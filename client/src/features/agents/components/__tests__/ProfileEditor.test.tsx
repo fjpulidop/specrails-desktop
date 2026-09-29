@@ -120,8 +120,8 @@ describe('ProfileEditor', () => {
       )
     })
 
-    expect(screen.getByText(/\/skill:specrails-implement.*\/skill:specrails-batch-implement/))
-      .toBeInTheDocument()
+    expect(screen.getByText('/skill:specrails-implement')).toBeInTheDocument()
+    expect(screen.queryByText(/batch-implement/)).not.toBeInTheDocument()
     expect(screen.getByTestId('profile-orchestrator-model')).toHaveValue('k3')
     expect(screen.queryByDisplayValue('sonnet')).not.toBeInTheDocument()
   })

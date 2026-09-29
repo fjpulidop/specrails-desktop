@@ -368,8 +368,10 @@ export function createDesktopRouter(
   // routes live on the global `/api` router (loops are NOT project-scoped). The
   // A loop is "running" iff any project's per-project DB has an in-flight
   // loop_run for it — so edit/unpublish/delete are blocked (409) while it runs.
+  // Built-ins are seeded as editable rows here (startup) and on `GET /loops`.
   registerLoopsRoutes(router, {
     db: registry.desktopDb,
+    builtinLoops: {},
     isLoopRunning: (loopId) =>
       registry.listContexts().some((c) => countRunningForLoop(c.db, loopId) > 0),
   })

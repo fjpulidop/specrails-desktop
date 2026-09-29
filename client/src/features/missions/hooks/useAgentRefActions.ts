@@ -12,33 +12,41 @@ export interface AgentJobRef {
   jobId: string
 }
 
-/** What the loop preview modal needs — a stored loop or a built-in factory one. */
+/** What the loop preview modal needs — a stored loop (built-ins included) or,
+ *  when a built-in has no stored row yet, its read-only factory default. */
 export interface AgentLoopRef {
   id: string
   name: string
   description: string | null
-  /** 'draft' | 'published' for stored loops; null for factory (built-in) loops. */
+  /** 'draft' | 'published' for stored loops; null for an unseeded factory default. */
   status: string | null
   graph: LoopGraph
-  /** Built-in factory loop — locked, not editable in the builder. */
+  /** Built-in (`factory:*`) loop — editable in the builder when stored. */
+  builtin: boolean
+  /** Not editable in the builder (an unseeded factory default). */
   locked: boolean
 }
 
+interface StoredLoop { id: string; name: string; description: string | null; status: string; graph: LoopGraph; builtinId?: string }
+interface FactoryEntry { id: string; name: string; description: string; graph: LoopGraph; editable?: boolean; status?: string }
+
 /** Loops are APP-GLOBAL (`/api/loops`, no project scope). Returns null on miss
- *  (unknown id, loops section disabled, network hiccup handled by caller). */
+ *  (unknown id, loops section disabled, network hiccup handled by caller).
+ *  Built-ins are stored loops whose id is the factory id, so the stored row is
+ *  tried first; `/loops/factory` (its `factoryLoops` list) is the fallback. */
 async function fetchLoopRef(loopId: string): Promise<AgentLoopRef | null> {
-  if (loopId.startsWith('factory:')) {
-    const res = await fetch(`${API_ORIGIN}/api/loops/factory`)
-    if (!res.ok) return null
-    const body = (await res.json()) as { loops?: Array<{ id: string; name: string; description: string; graph: LoopGraph }> }
-    const hit = (body.loops ?? []).find((l) => l.id === loopId)
-    return hit ? { id: hit.id, name: hit.name, description: hit.description, status: null, graph: hit.graph, locked: true } : null
-  }
   const res = await fetch(`${API_ORIGIN}/api/loops/${encodeURIComponent(loopId)}`)
-  if (!res.ok) return null
-  const body = (await res.json()) as { loop?: { id: string; name: string; description: string | null; status: string; graph: LoopGraph } }
-  const loop = body.loop
-  return loop ? { id: loop.id, name: loop.name, description: loop.description, status: loop.status, graph: loop.graph, locked: false } : null
+  if (res.ok) {
+    const loop = ((await res.json()) as { loop?: StoredLoop }).loop
+    if (loop) return { id: loop.id, name: loop.name, description: loop.description, status: loop.status, graph: loop.graph, builtin: Boolean(loop.builtinId), locked: false }
+  }
+  if (!loopId.startsWith('factory:')) return null
+  const factory = await fetch(`${API_ORIGIN}/api/loops/factory`)
+  if (!factory.ok) return null
+  const hit = (((await factory.json()) as { factoryLoops?: FactoryEntry[] }).factoryLoops ?? []).find((l) => l.id === loopId)
+  return hit
+    ? { id: hit.id, name: hit.name, description: hit.description, status: hit.editable ? (hit.status ?? 'published') : null, graph: hit.graph, builtin: true, locked: hit.editable !== true }
+    : null
 }
 
 async function fetchPullRequestUrl(projectId: string, prNumber: number): Promise<string | null> {

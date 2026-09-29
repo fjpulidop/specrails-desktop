@@ -14,7 +14,9 @@
  *      at click time (the click layer falls back to the loops API) and opens
  *      the read-only LoopPreviewModal instead — detection stays pattern-only.
  *   4. Factory loop ids — the literal `factory:implement|batch|freestyle`
- *      tokens, → the same LoopPreviewModal (built-in, locked).
+ *      tokens, → the same LoopPreviewModal (built-in, locked). `factory:batch`
+ *      is the removed Batch loop; historical text still links and the server
+ *      resolves it to Implement.
  *
  * Implemented as a remark plugin (`remarkAgentRefs`) so code blocks and inline
  * code are excluded for free (their content is a `code`/`inlineCode` literal,

@@ -51,9 +51,9 @@
     "publish": "Publicar",
     "unpublish": "Despublicar",
     "duplicate": "Duplicar",
+    "restoreBuiltin": "Restaurar original",
     "use": "Usar modelo",
     "preview": "Pré-visualização",
-    "fork": "Bifurcar para editar",
     "run": "Executar",
     "export": "Exportar",
     "import": "Importar",
@@ -65,7 +65,8 @@
   "card": {
     "nodes_one": "{{count}} nó",
     "nodes_other": "{{count}} nós",
-    "usedIn": "Em uso · {{project}}"
+    "usedIn": "Em uso · {{project}}",
+    "builtinModified": "Editado"
   },
   "confirmDelete": "Eliminar este loop? Desaparecerá de todos os seletores de rail.",
   "newLoopName": "Novo loop",
@@ -81,6 +82,12 @@
     "saved": "Loop guardado",
     "publish": "Publicar",
     "published": "Loop publicado",
+    "builtin": {
+      "note": "Loop integrado. Está a editar o próprio loop integrado: depois de publicado, as suas alterações aplicam-se a todos os rails, lançamentos a partir do chat do agente e ao Companion que o usam. Os rails continuam a executar a última versão publicada enquanto edita. Use Restaurar original para voltar à versão predefinida.",
+      "restored": "Loop integrado restaurado para a versão original",
+      "confirmTitle": "Restaurar o loop integrado original?",
+      "confirmBody": "Isto descarta as suas alterações a este loop integrado e publica a versão original para todos os rails que o usam. Duplique-o primeiro se quiser manter a sua versão."
+    },
     "addNode": "Adicionar nó",
     "deleteNode": "Eliminar nó",
     "config": {
@@ -274,11 +281,7 @@
     },
     "factory_implement": {
       "name": "Implementar",
-      "description": "Totalmente autônomo: implementa a spec, verifica e refina (corrige) em caso de falha — repetindo até todos os testes passarem."
-    },
-    "factory_batch": {
-      "name": "Implementar em Lote",
-      "description": "Implementa de uma vez todos os tickets do trilho e, em seguida, verifica + refina em caso de falha até ficar verde."
+      "description": "Implementa todas as specs do rail numa única execução: planeia, implementa, revê e verifica, corrigindo falhas até as verificações passarem."
     },
     "factory_freestyle": {
       "name": "Freestyle",
@@ -440,7 +443,6 @@
     "skipped_other": "{{count}} duplicados ignorados: {{names}}",
     "invalid": "Esse arquivo não é uma exportação de loops válida."
   },
-  "automaticOnly": "Executa automaticamente quando pede alterações numa revisão — este não é iniciado por você.",
   "core": {
     "selectInterrupt": "Selecionar pergunta ou aprovação pendente",
     "answerQuestion": "Responder à pergunta",

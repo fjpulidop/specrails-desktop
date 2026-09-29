@@ -34,7 +34,7 @@ import { TargetPrLaunchDialog } from '../../delivery/components/TargetPrLaunchDi
 import type { RailTargetPr } from '../../rails/components/RailTargetPrSelector'
 import { getApiBase } from '../../../lib/api'
 import { FEATURE_LOOPS_SECTION } from '../../../lib/feature-flags'
-import { effectiveLoopId, deriveRailMode } from '../../rails/lib/rail-loops'
+import { effectiveLoopId, deriveRailMode, adoptedSelectedLoopId } from '../../rails/lib/rail-loops'
 import { defaultModelForProvider, modelsForProvider } from '../../loops/lib/loop-run-models'
 import {
   defaultReasoningEffortForProvider,
@@ -67,8 +67,13 @@ const INITIAL_RAILS: RailState[] = [
   { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'implement', status: 'idle' },
 ]
 
-const isRailMode = (m: string | undefined): m is RailMode =>
-  m === 'implement' || m === 'batch-implement' || m === 'freestyle' || m === 'loop'
+/** Normalize a wire/persisted rail mode. The removed Batch mode
+ *  (`batch-implement` / `batch`) folds into `implement`, which already runs every
+ *  rail ticket in one aggregate run. Unknown values yield undefined. */
+const toRailMode = (m: string | undefined): RailMode | undefined =>
+  m === 'batch-implement' || m === 'batch'
+    ? 'implement'
+    : m === 'implement' || m === 'freestyle' || m === 'loop' ? m : undefined
 
 function prDecisionContinuesTickets(decision: RailPrStateSnapshot | undefined, ticketIds: number[]): boolean {
   if (!decision) return false
@@ -131,9 +136,14 @@ function loadRails(projectId: string | null): RailState[] | null {
   try {
     const raw = localStorage.getItem(`specrails-desktop:rails:${projectId}`)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as PersistedRail[]
+    const parsed = JSON.parse(raw) as (PersistedRail & { selectedLoopId?: string | null })[]
     if (!Array.isArray(parsed) || parsed.length === 0) return null
-    return parsed
+    // Rails persisted before Batch was removed load as Implement.
+    return parsed.map((rail) => ({
+      ...rail,
+      mode: toRailMode(rail.mode as string | undefined) ?? 'implement',
+      ...(rail.selectedLoopId === 'factory:batch' ? { selectedLoopId: 'factory:implement' } : {}),
+    }))
   } catch { return null }
 }
 
@@ -286,7 +296,7 @@ export default function DashboardPage() {
               // mode from the loopId instead of hardcoding 'loop'.
               const serverTickets = serverTicketsByIndex.get(idx) ?? []
               const jobMode = activeJobs[String(idx)]?.mode
-              const serverMode = isRailMode(jobMode) ? jobMode : loopRun ? deriveRailMode(loopRun.loopId) : undefined
+              const serverMode = toRailMode(jobMode) ?? (loopRun ? deriveRailMode(loopRun.loopId) : undefined)
               const ticketIds = serverTickets.length ? serverTickets : r.ticketIds
               adoptedTickets.set(r.id, ticketIds)
               changed = true
@@ -298,9 +308,7 @@ export default function DashboardPage() {
                 mode: serverMode ?? r.mode,
                 // A custom loop needs its id selected for the rail header to
                 // label the run; factory loops keep the rail's own selection.
-                ...(loopRun?.loopId && loopRun.loopId.startsWith('custom:')
-                  ? { selectedLoopId: loopRun.loopId }
-                  : {}),
+                ...(adoptedSelectedLoopId(loopRun?.loopId) ? { selectedLoopId: adoptedSelectedLoopId(loopRun?.loopId) } : {}),
               }
             }
             if (r.status !== 'running') return r
@@ -323,11 +331,8 @@ export default function DashboardPage() {
             if (knownIds.has(id)) continue
             const loopRun = activeLoopRuns[String(sr.railIndex)]
             const jobMode = activeJobs[String(sr.railIndex)]?.mode
-            const mode = isRailMode(jobMode)
-              ? jobMode
-              : loopRun
-                ? deriveRailMode(loopRun.loopId)
-                : isRailMode(sr.mode) ? sr.mode : 'implement'
+            const mode = toRailMode(jobMode)
+              ?? (loopRun ? deriveRailMode(loopRun.loopId) : toRailMode(sr.mode) ?? 'implement')
             const running = activeIndices.has(sr.railIndex)
             const ticketIds = serverTicketsByIndex.get(sr.railIndex) ?? []
             appended.push({
@@ -337,9 +342,7 @@ export default function DashboardPage() {
               mode,
               status: running ? ('running' as const) : ('idle' as const),
               activeJobId: activeJobs[String(sr.railIndex)]?.jobId ?? loopRun?.loopRunId,
-              ...(loopRun?.loopId && loopRun.loopId.startsWith('custom:')
-                ? { selectedLoopId: loopRun.loopId }
-                : {}),
+              ...(adoptedSelectedLoopId(loopRun?.loopId) ? { selectedLoopId: adoptedSelectedLoopId(loopRun?.loopId) } : {}),
             })
             if (ticketIds.length > 0) adoptedTickets.set(id, ticketIds)
             changed = true
@@ -621,7 +624,7 @@ export default function DashboardPage() {
             id: railId,
             label,
             ticketIds: serverTicketIds,
-            mode: isRailMode(m.mode) ? m.mode : 'implement',
+            mode: toRailMode(m.mode) ?? 'implement',
             status: 'idle' as const,
           }]
         }

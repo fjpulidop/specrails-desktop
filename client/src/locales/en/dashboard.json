@@ -205,7 +205,6 @@
     "viewJobLog": "View job log",
     "log": "Log",
     "implement": "Implement",
-    "batch": "Batch",
     "freestyle": "Freestyle",
     "freestyleTitle": "Freestyle — the selected provider implements the spec autonomously, no pipeline",
     "loop": "Loop",

@@ -11,6 +11,8 @@ import { FACTORY_RAIL_LOOPS } from '../../rails/lib/rail-loops'
  * defined client-side so they work even when the Loops section is off) plus, when
  * the Loops section is enabled, the user's PUBLISHED custom loops. Selecting a
  * loop drives the rail; the parent derives the legacy `mode` from the chosen id.
+ * Built-ins are also editable loop rows (`builtinId`); they stay in the built-in
+ * group (a renamed built-in shows its row name) and are never listed twice.
  */
 export function RailLoopSelector({
   value,
@@ -29,6 +31,7 @@ export function RailLoopSelector({
 }) {
   const { t } = useTranslation('dashboard')
   const [published, setPublished] = useState<LoopDefinition[]>([])
+  const [builtinRows, setBuiltinRows] = useState<Map<string, LoopDefinition>>(new Map())
 
   useEffect(() => {
     if (!loopsEnabled) return
@@ -37,7 +40,11 @@ export function RailLoopSelector({
       .list()
       // Only spec-driven loops belong on a rail (the rail feeds the spec).
       // Standalone loops are launched from the Loops page "Run" instead.
-      .then((ls) => { if (!cancelled) setPublished(ls.filter((l) => l.status === 'published' && loopNeedsTicket(l.graph))) })
+      .then((ls) => {
+        if (cancelled) return
+        setPublished(ls.filter((l) => !l.builtinId && l.status === 'published' && loopNeedsTicket(l.graph)))
+        setBuiltinRows(new Map(ls.filter((l) => l.builtinId).map((l) => [l.builtinId!, l])))
+      })
       .catch(() => { /* leave empty; built-in loops still available */ })
     return () => { cancelled = true }
   }, [loopsEnabled])
@@ -65,7 +72,7 @@ export function RailLoopSelector({
         <option value="" disabled>{t('railControls.pickLoop')}</option>
         <optgroup label={t('railControls.builtInLoops')}>
           {builtIn.map((f) => (
-            <option key={f.id} value={f.id}>{t(f.labelKey)}</option>
+            <option key={f.id} value={f.id}>{builtinRows.get(f.id)?.builtinModified ? builtinRows.get(f.id)!.name : t(f.labelKey)}</option>
           ))}
         </optgroup>
         {published.length > 0 && (

@@ -22,7 +22,7 @@
 
 ## パイプラインのフェーズ
 
-`Implement` と `Batch` のジョブでは、スラッシュコマンドが定義するフェーズに沿って実行が進みます — デフォルトでは次のとおりです。
+`Implement` のジョブでは、スラッシュコマンドが定義するフェーズに沿って実行が進みます — デフォルトでは次のとおりです。
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -113,7 +113,6 @@ Architect ──► Developer ──► Reviewer ──► Ship
 ## 次に読むもの
 
 - [レールとジョブ](rails-and-jobs) — 起動とキューイング。
-- [バッチ実装とマルチフィーチャー](batch-implement-and-multi-feature) — 多数のスペックと依存ウェーブ。
 - [コストの追跡](../analytics/tracking-cost) — ジョブごとのコストをプロジェクト分析へ。
 
 ## ワークフローの再起動後

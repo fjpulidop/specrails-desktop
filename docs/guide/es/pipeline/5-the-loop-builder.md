@@ -12,7 +12,7 @@ Crea un cuerpo reutilizable en **Componentes**, declara sus variables de entrada
 
 Las secciones siguientes describen los nodos antiguos de Desktop y su uso en rails.
 
-Un **rail ejecuta un Loop**. Los loops integrados (`Implement`, `Batch`, `Freestyle`) cubren los casos del día a día, pero el **Loop Builder** te permite diseñar el tuyo propio — un editor visual al estilo n8n para automatizaciones que se repiten hasta cumplir un objetivo. Esta página explica qué es un loop, cómo construir uno y cómo ejecutarlo en un rail.
+Un **rail ejecuta un Loop**. Los loops integrados (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) cubren los casos del día a día, pero el **Loop Builder** te permite diseñar el tuyo propio — un editor visual al estilo n8n para automatizaciones que se repiten hasta cumplir un objetivo. Esta página explica qué es un loop, cómo construir uno y cómo ejecutarlo en un rail.
 
 ## Loops y rails — la relación
 
@@ -22,9 +22,8 @@ Un **loop** es la *receta* del trabajo; un **rail** es el *carril* que la ejecut
    Loop Builder (barra lateral izq.)       Rails (derecha)
    ───────────────────────────             ─────────────
    Implement   (integrado)                 Rail 1
-   Batch       (integrado)     elige en ►     Loop: Verify-until-green
-   Freestyle   (integrado)                    ▶ Play
-   Verify-until-green (tuyo)
+   Freestyle   (integrado)     elige en ►     Loop: Verify-until-green
+   Verify-until-green (tuyo)                    ▶ Play
 ```
 
 - Los loops viven en la sección **Loops** (barra lateral izquierda, junto a tus proyectos) — son **globales**, compartidos entre todos los proyectos.
@@ -37,7 +36,7 @@ Así que: construye un loop una vez y luego elígelo en cualquier rail de cualqu
 
 Pulsa **Loops** en la barra lateral izquierda para ver la biblioteca: los tres loops integrados más los tuyos. Abre uno para verlo, o pulsa **New loop** para empezar desde un lienzo en blanco.
 
-No puedes editar fácilmente un integrado directamente — en su lugar, hazle **Fork**. Eso te da una copia editable de un grafo que funciona desde la que partir, que es la forma más fácil de aprender.
+Los loops integrados son loops reales y editables. Ábrelo con **Edit** y cámbialo como cualquier otro loop: al guardar pasa a Borrador y **Publish** aplica tu versión en **todos los rails, lanzamientos desde el chat del agente y Companion que usan ese integrado**. Mientras tu edición sea un Borrador, los rails siguen ejecutando la última versión publicada, así que nada se rompe a mitad de edición. **Restaurar original** (en la tarjeta o en el builder) devuelve el integrado a su versión por defecto; los integrados no se pueden borrar. ¿Prefieres una copia aparte? Usa **Duplicate**: crea un loop normal y deja el integrado intacto.
 
 ## De qué se compone un loop
 

@@ -213,7 +213,7 @@
       "steerLabel": "Dirige a meio da execução",
       "steerBody": "As execuções Claude são interativas: pergunta ou redireciona enquanto trabalham, e acompanha um progresso narrado em vez de logs em bruto.",
       "loopsLabel": "Constrói os teus loops",
-      "loopsBody": "<b>Loops</b> é um construtor visual: encadeia passos de IA, comandos de shell e um <b>Loop Decider</b> que repete até cumprir o objetivo. Implement, Batch e Freestyle vêm prontos a usar.",
+      "loopsBody": "<b>Loops</b> é um construtor visual: encadeia passos de IA, comandos de shell e um <b>Loop Decider</b> que repete até cumprir o objetivo. Implement e Freestyle vêm prontos a usar.",
       "profilesLabel": "Perfis de agente e predefinições",
       "profilesBody": "Decide que agentes correm e que modelo cada um usa: por perfil de projeto, por rail, ou uma vez para toda a máquina em Definições → Agentes Specrails.",
       "isolationLabel": "Muitos projetos, isolados",

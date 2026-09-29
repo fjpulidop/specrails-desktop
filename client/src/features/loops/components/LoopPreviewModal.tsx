@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Brain, Square, Pencil, Lock } from 'lucide-react'
+import { Brain, Square, Pencil } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { cn } from '../../../lib/utils'
 import type { AgentLoopRef } from '../../missions/hooks/useAgentRefActions'
@@ -11,7 +11,7 @@ import { NODE_ICON, nodeDetail } from './TemplatePreviewModal'
 /**
  * Read-only loop preview opened from an agent-chat loop reference chip: the
  * loop's steps (same visual language as `TemplatePreviewModal`), run limits and
- * status, plus an "Open in builder" jump for editable (non-factory) loops.
+ * status, plus an "Open in builder" jump for every stored loop (built-ins included).
  *
  * Hand-rolled portal modal (NOT ui/dialog): it must layer ABOVE the floating
  * agent panel, and Radix `DialogContent` is pinned at z-50 (< the panel's
@@ -65,15 +65,14 @@ export function LoopPreviewModal({
             <span
               className={cn(
                 'inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-medium uppercase tracking-wide',
-                loop.locked
+                loop.builtin
                   ? 'border-accent-info/40 bg-accent-info/10 text-accent-info'
                   : loop.status === 'published'
                     ? 'border-accent-success/40 bg-accent-success/10 text-accent-success'
                     : 'border-border/60 bg-surface/60 text-foreground/60',
               )}
             >
-              {loop.locked && <Lock className="h-2.5 w-2.5" />}
-              {loop.locked
+              {loop.builtin
                 ? t('preview.builtin')
                 : t(`status.${loop.status ?? 'draft'}`, { defaultValue: loop.status ?? '' })}
             </span>

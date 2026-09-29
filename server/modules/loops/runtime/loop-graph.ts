@@ -420,7 +420,8 @@ export interface LoopSpec {
 }
 
 /** Whether a loop "needs a ticket/spec" — it references a `{{spec.*}}` token or a
- *  ticket-consuming command (`{{cmd:implement|batch|freestyle}}`). Ticket-needing
+ *  ticket-consuming command (`{{cmd:implement|freestyle}}`, plus the legacy
+ *  `{{cmd:batch}}` alias of implement). Ticket-needing
  *  loops belong on a rail (the rail provides the spec). Ticket-LESS loops are
  *  standalone (repo-wide CI watch, lint, audit…) and run from the Loops page's
  *  "Run" action, NOT a rail — launching one on a rail would just re-run the same

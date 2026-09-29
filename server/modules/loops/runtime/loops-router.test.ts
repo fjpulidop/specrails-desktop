@@ -5,7 +5,9 @@ import request from 'supertest'
 import { initDesktopDb } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
 import { registerLoopsRoutes } from './loops-router'
-import type { LoopGraph } from './loop-graph'
+import { isDefinitionGraph, type LoopGraph } from './loop-graph'
+import { getLoop } from './loops-store'
+import type { BuiltinLoopEnvironment } from './builtin-loops'
 
 function validGraph(): LoopGraph {
   return {
@@ -169,7 +171,7 @@ describe('loops-router factory loops', () => {
     expect(res.status).toBe(200)
     const ids = res.body.factoryLoops.map((f: { id: string }) => f.id)
     expect(ids).toEqual([
-      'factory:implement', 'factory:batch', 'factory:freestyle',
+      'factory:implement', 'factory:freestyle',
       'factory:sdd-quick-openspec',
     ])
     // The catalog tells the client which entries have no launch path.
@@ -191,7 +193,7 @@ describe('loops-router factory loops', () => {
     expect(openspec.graph.nodes.some((n: { type: string }) => n.type === 'shell')).toBe(true)
   })
 
-  it('forks a factory loop into a new editable draft (factory unchanged)', async () => {
+  it('fork (back-compat alias of duplicate) creates a separate draft (built-in unchanged)', async () => {
     const res = await request(app).post('/api/loops/factory/factory:implement/fork').send({})
     expect(res.status).toBe(201)
     expect(res.body.loop.status).toBe('draft')
@@ -208,7 +210,8 @@ describe('loops-router factory loops', () => {
     const res = await request(app).get('/api/loops/commands')
     expect(res.status).toBe(200)
     const names = res.body.commands.map((c: { name: string }) => c.name)
-    expect(names).toEqual(expect.arrayContaining(['implement', 'batch', 'freestyle', 'verify', 'fix']))
+    expect(names).toEqual(expect.arrayContaining(['implement', 'freestyle', 'verify', 'fix']))
+    expect(names).not.toContain('batch') // removed Batch mode: hidden alias only
     expect(res.body.commands.every((c: { label: string }) => typeof c.label === 'string')).toBe(true)
   })
 
@@ -331,5 +334,93 @@ describe('original graph export', () => {
     expect((await request(app).get(`/api/loops/${id}/legacy-graph`)).status).toBe(200)
     process.env.SPECRAILS_LOOPS_SECTION = 'false'
     expect((await request(app).get(`/api/loops/${id}/legacy-graph`)).status).toBe(404)
+  })
+})
+
+describe('loops-router editable built-ins', () => {
+  const env: BuiltinLoopEnvironment = { loadCapabilities: async () => ({}), freestyleAvailable: () => true }
+  let running: Set<string>
+  let builtinApp: Express
+  beforeEach(() => {
+    running = new Set()
+    const router = Router()
+    builtinApp = express()
+    builtinApp.use(express.json())
+    registerLoopsRoutes(router, { db, isLoopRunning: (id) => running.has(id), builtinLoops: env })
+    builtinApp.use('/api', router)
+  })
+
+  async function builtins(): Promise<Array<{ id: string; builtinId?: string; status: string; builtinModified?: boolean }>> {
+    const res = await request(builtinApp).get('/api/loops')
+    expect(res.status).toBe(200)
+    return res.body.loops.filter((loop: { builtinId?: string }) => loop.builtinId)
+  }
+
+  it('lists the built-ins as published, editable loops', async () => {
+    const rows = await builtins()
+    expect(rows.map((row) => row.id).sort()).toEqual(['factory:freestyle', 'factory:implement', 'factory:sdd-quick-openspec'])
+    expect(rows.every((row) => row.status === 'published' && row.builtinModified === false)).toBe(true)
+  })
+
+  it('edits a built-in in place (Draft), then publishing applies it everywhere', async () => {
+    await builtins()
+    const current = getLoop(db, 'factory:implement')!
+    const graph = { ...current.graph, config: { ...current.graph.config, maxIterations: 4 } }
+    const put = await request(builtinApp).put('/api/loops/factory:implement').send({ graph })
+    expect(put.status).toBe(200)
+    expect(put.body.loop).toMatchObject({ id: 'factory:implement', status: 'draft', builtinModified: true })
+    // /loops/factory keeps reporting the last published graph while the edit is Draft.
+    const during = (await request(builtinApp).get('/api/loops/factory')).body.factoryLoops.find((f: { id: string }) => f.id === 'factory:implement')
+    expect(during).toMatchObject({ editable: true, status: 'draft', modified: true })
+    expect(during.graph.config.maxIterations).toBe(current.graph.config.maxIterations)
+    expect((await request(builtinApp).post('/api/loops/factory:implement/publish')).status).toBe(200)
+    const after = (await request(builtinApp).get('/api/loops/factory')).body.factoryLoops.find((f: { id: string }) => f.id === 'factory:implement')
+    expect(after.graph.config.maxIterations).toBe(4)
+  })
+
+  it('allows editing a built-in while a run uses it, but keeps the guard for other loops', async () => {
+    await builtins()
+    running.add('factory:implement')
+    expect((await request(builtinApp).put('/api/loops/factory:implement').send({ name: 'Implement (team)' })).status).toBe(200)
+    const created = await request(builtinApp).post('/api/loops').send({ name: 'Custom', graph: validGraph() })
+    running.add(created.body.loop.id)
+    expect((await request(builtinApp).put(`/api/loops/${created.body.loop.id}`).send({ name: 'Y' })).status).toBe(409)
+  })
+
+  it('refuses to delete or unpublish a built-in (409 builtin_loop)', async () => {
+    await builtins()
+    const del = await request(builtinApp).delete('/api/loops/factory:implement')
+    expect(del.status).toBe(409)
+    expect(del.body.error).toBe('builtin_loop')
+    expect(del.body.message).toMatch(/Restore original/)
+    expect((await request(builtinApp).post('/api/loops/factory:implement/unpublish')).body.error).toBe('builtin_loop')
+    expect(getLoop(db, 'factory:implement')).toBeDefined()
+  })
+
+  it('restores a built-in to its default and refuses non-built-ins or running built-ins', async () => {
+    await builtins()
+    await request(builtinApp).put('/api/loops/factory:implement').send({ name: 'Mine' })
+    running.add('factory:implement')
+    expect((await request(builtinApp).post('/api/loops/factory:implement/restore-builtin')).status).toBe(409)
+    running.clear()
+    const restored = await request(builtinApp).post('/api/loops/factory:implement/restore-builtin')
+    expect(restored.status).toBe(200)
+    expect(restored.body.loop).toMatchObject({ name: 'Implement', status: 'published', builtinModified: false })
+    expect(isDefinitionGraph(restored.body.loop.graph)).toBe(false)
+    const custom = await request(builtinApp).post('/api/loops').send({ name: 'Custom' })
+    expect((await request(builtinApp).post(`/api/loops/${custom.body.loop.id}/restore-builtin`)).status).toBe(400)
+    expect((await request(builtinApp).post('/api/loops/nope/restore-builtin')).status).toBe(404)
+  })
+
+  it('fork and duplicate copy the built-in current content into an ordinary draft', async () => {
+    await builtins()
+    await request(builtinApp).put('/api/loops/factory:implement').send({ description: 'Team variant' })
+    const fork = await request(builtinApp).post('/api/loops/factory/factory:implement/fork').send({})
+    expect(fork.status).toBe(201)
+    expect(fork.body.loop).toMatchObject({ status: 'draft', description: 'Team variant' })
+    expect(fork.body.loop.builtinId).toBeUndefined()
+    const dup = await request(builtinApp).post('/api/loops/factory:implement/duplicate').send({})
+    expect(dup.status).toBe(201)
+    expect(dup.body.loop.builtinId).toBeUndefined()
   })
 })

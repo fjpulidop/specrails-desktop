@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Play, Brain, Terminal, GitBranch, Square, Download, Copy } from 'lucide-react'
+import { Play, Brain, Terminal, GitBranch, Square, Download } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
 import { loopNeedsTicket } from '../lib/loop-ticket-need'
@@ -34,14 +34,11 @@ export function TemplatePreviewModal({
   template,
   onClose,
   onUse,
-  mode = 'use',
 }: {
   template: LoopTemplateSummary | null
   onClose: () => void
+  /** Clone the starter template via fromTemplate ("Use template"). */
   onUse: (id: string) => void
-  // 'use'  → starter template: clone via fromTemplate ("Use template").
-  // 'fork' → built-in factory loop: clone via forkFactory ("Fork to edit").
-  mode?: 'use' | 'fork'
 }) {
   const { t } = useTranslation('loops')
   const open = template !== null
@@ -121,10 +118,8 @@ export function TemplatePreviewModal({
                 {t('common:actions.cancel')}
               </Button>
               <Button onClick={() => onUse(template.id)}>
-                {mode === 'fork'
-                  ? <Copy className="w-3.5 h-3.5 mr-1.5" />
-                  : <Download className="w-3.5 h-3.5 mr-1.5" />}
-                {mode === 'fork' ? t('actions.fork') : t('actions.use')}
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+                {t('actions.use')}
               </Button>
             </DialogFooter>
           </>

@@ -16,7 +16,8 @@ framework is rejected rather than silently replacing an update.
 The release bundle pins Core 6.0.0 in `desktop-release.yml` and
 `scripts/assemble-bundled-core.lock.json`. Core 6 is the Desktop-only engine: it
 publishes integration contract 5.0 (no standalone `update`) and ships only the
-implement, batch-implement and retry workflows. Update both pins together and check compatibility against
+implement and retry workflows (Batch was folded into implement; Desktop no
+longer requires `batch-implement` but stays compatible with Cores that still ship it). Update both pins together and check compatibility against
 the staged published package; retained runs still use their original runtime.
 
 Desktop updates retain the complete npm installation, including dependencies,

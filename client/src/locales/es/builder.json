@@ -83,8 +83,6 @@
     "description": "Tu backlog del Hito 1 está en el tablero, etiquetado M1.",
     "launchM1": "Lanzar el Hito 1",
     "openProject": "Abrir el proyecto",
-    "launchToast": "Hito 1 lanzado — {{count}} specs repartidas en raíles (máx. 3 por raíl)",
-    "launchPartialToast": "Hito 1 lanzado parcialmente — {{count}} specs lanzadas, {{skipped}} pendientes",
     "launchFailed": "No se pudo lanzar el Hito 1"
   },
   "sidebar": {
@@ -134,13 +132,6 @@
     "description": "Descripción de la spec",
     "acceptanceCriteria": "Criterios de aceptación",
     "criteriaEmpty": "Aún no hay criterios de aceptación."
-  },
-  "sequential": {
-    "modeLabel": "Modo de lanzamiento",
-    "mode": {
-      "sequential": "Secuencial",
-      "parallel": "Paralelo"
-    }
   },
   "generation": {
     "writing": "Escribiendo las specs del Milestone 1…",
@@ -311,7 +302,8 @@
         "head_discarded": "se descartó la entrega sobre la que parte el siguiente rail",
         "run_lost": "no se encontró el rail en ejecución tras un reinicio",
         "unknown": "en pausa",
-        "provider_limit": "se alcanzó el límite de uso del proveedor"
+        "provider_limit": "se alcanzó el límite de uso del proveedor",
+        "rail_limit_reached": "todos los rails tienen un PR pendiente de tu decisión — fusiona o descarta PRs pendientes para liberar un rail y luego reanuda"
       },
       "checkpoint": "Rail {{k}} de {{n}} entregado — ¿lanzar el rail {{next}}?",
       "launchNext": "Lanzar siguiente rail",
@@ -325,9 +317,8 @@
       "autoFailed": "No se pudo actualizar la cadena"
     },
     "toast": {
-      "launched": "{{milestone}} lanzado — {{count}} specs en el rail 1 de {{n}}; los siguientes rails siguen automáticamente",
-      "launchedAll": "{{milestone}} lanzado — {{count}} specs en {{n}} rails",
-      "launchedPartial": "{{milestone}} lanzado parcialmente — {{count}} specs lanzadas, {{skipped}} pendientes",
+      "launched": "{{milestone}} lanzado — la spec 1 de {{n}} está en su rail; las siguientes specs siguen automáticamente, un rail cada una",
+      "launchedAll": "{{milestone}} lanzado — una spec por rail ({{n}} en total)",
       "chainActive": "{{milestone}} ya se está lanzando — mira el panel Blueprint",
       "chunkLaunched": "{{milestone}} — rail {{k}} de {{n}} lanzado",
       "paused": "{{milestone}} en pausa — {{reason}}",
@@ -335,13 +326,13 @@
       "delivered": "{{milestone}} entregado — {{count}} specs esperan tu revisión",
       "review": "Revisar",
       "completed": "{{milestone}} completado — todas las specs integradas",
-      "launchedCheckpoint": "{{milestone}} lanzado — {{count}} specs en el rail 1 de {{n}}; se te preguntará antes de cada rail siguiente",
+      "launchedCheckpoint": "{{milestone}} lanzado — la spec 1 de {{n}} está en su rail; se te preguntará antes de cada siguiente",
       "checkpoint": "{{milestone}} — rail {{k}} de {{n}} entregado. ¿Lanzar el siguiente rail?",
       "launchNext": "Lanzar siguiente rail",
-      "autoContinue": "Continuar automáticamente"
+      "autoContinue": "Continuar automáticamente",
+      "railLimitReached": "{{milestone}} no se pudo lanzar — todos los rails tienen un PR pendiente de tu decisión. Fusiona o descarta PRs pendientes para liberar un rail."
     },
-    "sequentialHint": "Cada rail parte de la rama del rail anterior",
-    "parallelHint": "Rails independientes desde la rama de integración (sin apilar)"
+    "sequentialHint": "Una spec por rail, en orden de dependencias — cada rail parte de la rama del rail anterior"
   },
   "decisionCard": {
     "settledLabel": "Decisión tomada",

@@ -76,8 +76,8 @@ function group(decision: PrDecision = 'on_review', repositoryIds = [PRIMARY, API
 
 describe('rail launch repository routing', () => {
   it('unions ticket scopes with legacy primary defaults and deduplicates before isolated launch', async () => {
-    setRailTickets(db, 0, [1, 2, 3], 'batch-implement')
-    const response = await request(app).post('/rails/0/launch').send({ mode: 'batch-implement' })
+    setRailTickets(db, 0, [1, 2, 3], 'implement')
+    const response = await request(app).post('/rails/0/launch').send({ mode: 'implement' })
     expect(response.status).toBe(202)
     expect(response.body).toMatchObject({ isolated: true, loopRunIds: ['isolated-run'] })
     expect(mocks.isolated).toHaveBeenCalledWith(expect.objectContaining({ ticketIds: [1, 2, 3], repositoryIds: [API, PRIMARY], scope: 'all' }))

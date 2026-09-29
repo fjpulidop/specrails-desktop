@@ -2398,8 +2398,9 @@ export class QueueManager {
           '- The pipeline must complete fully from start to finish in a single uninterrupted run.'
     }
 
-    // Local ticket store: implement/batch-implement jobs must read specs from
+    // Local ticket store: implement jobs must read specs from
     // .specrails/local-tickets.json — never from external trackers like Jira/Linear.
+    // (`batch-implement` stays matched only for historical/replayed commands.)
     if (/\/(specrails|sr):(implement|batch-implement)\b/.test(commandToRun)) {
       systemAppend += '\n\nIMPORTANT: The ticket/spec data for this project is stored locally in .specrails/local-tickets.json. ' +
         'You MUST read specs from this file. Do NOT attempt to fetch tickets from Jira, Linear, GitHub Issues, or any other external tracker. ' +
@@ -2429,7 +2430,7 @@ export class QueueManager {
     //    `$skill_name` to invoke a skill from `.codex/skills/<name>/SKILL.md`.
     //    Translate `/specrails:<name>` → `$<name>` so codex picks up the
     //    matching skill natively (which our scaffold writes for every
-    //    claude slash command — propose-spec, implement, batch-implement,
+    //    claude slash command — propose-spec, implement,
     //    explore-spec, retry, …). This is the rail equivalent of the
     //    user typing `$implement #1 --yes` themselves in `codex`.
     // Freestyle (capability-gated; currently Claude and Kimi): skip the slash

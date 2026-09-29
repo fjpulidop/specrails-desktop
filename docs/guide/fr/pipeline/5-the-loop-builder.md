@@ -10,7 +10,7 @@ Créez un corps réutilisable dans **Composants**, déclarez ses entrées et sor
 
 La publication demande à Core de valider le brouillon et affiche les erreurs sur les étapes concernées. Le lancement valide à nouveau la configuration du projet. Si le moteur est indisponible, mettez Core à jour. Les anciennes boucles conservent leur éditeur et leur exécution ; les sections suivantes les décrivent.
 
-Un **rail exécute un Loop**. Les loops intégrés (`Implement`, `Batch`, `Freestyle`) couvrent les cas du quotidien, mais le **Loop Builder** vous laisse concevoir les vôtres — un éditeur visuel, de style n8n, pour de l'automatisation qui se répète jusqu'à ce qu'un objectif soit atteint. Cette page explique ce qu'est un loop, comment en construire un, et comment l'exécuter sur un rail.
+Un **rail exécute un Loop**. Les loops intégrés (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) couvrent les cas du quotidien, mais le **Loop Builder** vous laisse concevoir les vôtres — un éditeur visuel, de style n8n, pour de l'automatisation qui se répète jusqu'à ce qu'un objectif soit atteint. Cette page explique ce qu'est un loop, comment en construire un, et comment l'exécuter sur un rail.
 
 ## Loops et rails — la relation
 
@@ -20,9 +20,8 @@ Un **loop** est la *recette* du travail ; un **rail** est la *voie* qui l'exécu
    Loop Builder (barre latérale gauche)    Rails (droite)
    ───────────────────────────             ─────────────
    Implement   (intégré)                   Rail 1
-   Batch       (intégré)      choisir ►       Loop: Verify-until-green
-   Freestyle   (intégré)                      ▶ Play
-   Verify-until-green (le vôtre)
+   Freestyle   (intégré)      choisir ►       Loop: Verify-until-green
+   Verify-until-green (le vôtre)                      ▶ Play
 ```
 
 - Les loops vivent dans la section **Loops** (barre latérale gauche, à côté de vos projets) — ils sont **globaux**, partagés entre tous les projets.
@@ -35,7 +34,7 @@ Donc : construisez un loop une fois, puis choisissez-le sur n'importe quel rail 
 
 Cliquez sur **Loops** dans la barre latérale gauche pour voir la bibliothèque : les trois loops intégrés plus les vôtres. Ouvrez-en un pour le visualiser, ou cliquez sur **New loop** pour partir d'un canevas vierge.
 
-Vous ne pouvez pas facilement éditer un intégré directement — à la place, faites un **Fork**. Cela vous donne une copie éditable d'un graphe fonctionnel pour démarrer, ce qui est la façon la plus simple d'apprendre.
+Les loops intégrés sont de vrais loops éditables. Ouvrez-en un avec **Edit** et modifiez-le comme n'importe quel loop : l'enregistrement le repasse en brouillon, et **Publish** applique votre version à **chaque rail, lancement depuis le chat de l'agent et lancement Companion qui utilise ce loop intégré**. Tant que votre modification est un brouillon, les rails continuent d'exécuter la dernière version publiée : rien ne casse en cours d'édition. **Restaurer l'original** (sur la carte ou dans le builder) remet un loop intégré à sa version par défaut ; les loops intégrés ne peuvent pas être supprimés. Vous préférez une copie séparée ? Utilisez **Duplicate** : cela crée un loop ordinaire et laisse le loop intégré intact.
 
 ## De quoi un loop est constitué
 

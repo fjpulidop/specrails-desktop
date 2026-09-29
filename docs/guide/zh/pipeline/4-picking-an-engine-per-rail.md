@@ -21,14 +21,14 @@ Specrails desktop 把 **Claude Code**、**Codex CLI**、**Gemini CLI** 和
 
 ## 每个引擎擅长什么
 
-三者都能跑标准的 **Implement** 和 **Batch** 流水线。下面是一份实用的选择指南：
+三者都能跑标准的 **Implement** 流水线。下面是一份实用的选择指南：
 
 | 引擎 | 在什么情况下选它…… | 说明 |
 |--------|--------------------|-------|
 | **Claude** | 需要原生成本、持久交互或严格 tool policy。 | Profile、Freestyle 和 structured transform。 |
 | **Codex** | 你更喜欢 OpenAI Codex CLI，或想跨提供方对比实现。 | `codex` ≥ 0.128.0。无原生成本上报——应用会用自己的价格表来补上成本。Profile 不适用。 |
 | **Gemini** | 你想用 Google 的 Gemini CLI、原生遥测，或为常规 spec 跑得更省钱。 | `gemini` ≥ 0.11.0（需设置 `GEMINI_API_KEY`）。原生 OTLP 遥测。Profile 不适用。 |
-| **Kimi** | 用 agentic Kimi 跑 Implement、Batch、Freestyle 或无 Decider 的 loop。 | 外部 `kimi` ≥ 0.27.0；profile/role，effort 仅 K3；token/cost unavailable。 |
+| **Kimi** | 用 agentic Kimi 跑 Implement、Freestyle 或无 Decider 的 loop。 | 外部 `kimi` ≥ 0.27.0；profile/role，effort 仅 K3；token/cost unavailable。 |
 
 ### Capability 差异
 
