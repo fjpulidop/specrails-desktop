@@ -10,7 +10,7 @@ run.
 | Repository | Integration PR chain | Expected version | Why that version |
 | --- | --- | --- | --- |
 | specrails-core | `main` ← #385 (C0) ← #389 (engine v2) | **6.1.0** | release-please on merge commits: 7 `feat`, 15 `fix`, no `!` or `BREAKING CHANGE` |
-| specrails-desktop | `main` ← #706 (D0) ← #708 (Desktop v2) | **2.58.0** | 20 `feat`, 10 `fix`, no breaking markers; one `wip` commit is ignored by release-please |
+| specrails-desktop | `main` ← #706 (D0) ← #708 (Desktop v2) ← #714 (Core-native templates) | **2.58.0** | 20 `feat`, 10 `fix`, no breaking markers; one `wip` commit is ignored by release-please |
 | specrails-web | `main` ← #218 | deploy only | documentation site |
 
 Contract: integration schema stays **5.1**; `runtime api` stays API 1 with
@@ -33,6 +33,8 @@ workflow and its identities (workflow 7, instructions 10) are unchanged.
 **Desktop 2.58.0.**
 - The loop builder authors Core workflows with typed pieces, nested graphs,
   Agent Studio roles and localized templates.
+- The template gallery keeps only the eight Core-native starters; 36
+  legacy-only templates are removed. Loops already cloned from them are kept.
 - Runs show Core steps, verification evidence, per-invocation accounting and
   steering receipts. Resume, cancel and fork keep the original Core package.
 - Saved legacy loops convert explicitly into reviewable drafts, and a read-only
@@ -64,8 +66,8 @@ workflow and its identities (workflow 7, instructions 10) are unchanged.
    - Run `npm run check-core-compat`, `npm run check:package` and the paired CI
      job.
    - Close Desktop 1.6 and Core 5.5 with the published-package evidence.
-5. **Desktop to main (owner).** Merge #706, then #708 (retargeted), with merge
-   commits. Optionally dispatch `Desktop Release` with `validation_only: true`
+5. **Desktop to main (owner).** Merge #714 into #708's branch, then #706, then
+   #708 (retargeted), with merge commits. Optionally dispatch `Desktop Release` with `validation_only: true`
    first: it builds, signs and tests without publishing.
 6. **Publish Desktop (owner).** Merge the release PR, and `v2.58.0` builds the
    native artifacts.
