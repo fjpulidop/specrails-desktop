@@ -9,8 +9,8 @@ run.
 
 | Repository | Integration PR chain | Expected version | Why that version |
 | --- | --- | --- | --- |
-| specrails-core | `main` ← #385 (C0) ← #389 (engine v2) | **6.1.0** | release-please on merge commits: 7 `feat`, 15 `fix`, no `!` or `BREAKING CHANGE` |
-| specrails-desktop | `main` ← #706 (D0) ← #708 (Desktop v2) ← #714 (Core-native templates) | **2.58.0** | 20 `feat`, 10 `fix`, no breaking markers; one `wip` commit is ignored by release-please |
+| specrails-core | `main` ← #389 (C0 + engine v2, consolidated) | **6.1.0** | release-please on merge commits: 7 `feat`, 15 `fix`, no `!` or `BREAKING CHANGE` |
+| specrails-desktop | `main` ← #708 (D0 + Desktop v2 + Core-native templates, consolidated) | **2.58.0** | 20 `feat`, 10 `fix`, no breaking markers; one `wip` commit is ignored by release-please |
 | specrails-web | `main` ← #218 | deploy only | documentation site |
 
 Contract: integration schema stays **5.1**; `runtime api` stays API 1 with
@@ -46,14 +46,13 @@ workflow and its identities (workflow 7, instructions 10) are unchanged.
 ## Order of operations
 
 1. **Pre-flight (done unless noted).**
-   - CI is green on #389 and #708 at their heads, checked again after the latest
-     pushes.
+   - CI must be green on #389 and #708 at their heads after consolidation.
    - `check-core-compat` passes against the current Core.
    - Web guide freshness and tests pass.
    - OpenSpec tasks list only release-dependent or real-data items as open.
 2. **Core to main (owner).**
-   - Merge #385 into `main`, retarget #389 to `main`, and merge it with a merge
-     commit.
+   - Merge #389 into `main` with a merge commit (#385 was consolidated into it
+     on 29 September).
    - `release.yml` requires green CI on that `main` commit, then release-please
      opens `chore(main): release 6.1.0`. Review its CHANGELOG.
 3. **Publish Core (owner).** Merging the release PR tags `v6.1.0` and publishes
@@ -66,8 +65,8 @@ workflow and its identities (workflow 7, instructions 10) are unchanged.
    - Run `npm run check-core-compat`, `npm run check:package` and the paired CI
      job.
    - Close Desktop 1.6 and Core 5.5 with the published-package evidence.
-5. **Desktop to main (owner).** Merge #714 into #708's branch, then #706, then
-   #708 (retargeted), with merge commits. Optionally dispatch `Desktop Release` with `validation_only: true`
+5. **Desktop to main (owner).** Merge #708 with a merge commit (#706 and #714
+   were consolidated into it on 29 September). Optionally dispatch `Desktop Release` with `validation_only: true`
    first: it builds, signs and tests without publishing.
 6. **Publish Desktop (owner).** Merge the release PR, and `v2.58.0` builds the
    native artifacts.
