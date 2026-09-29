@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
-import { verifyClientArtifact } from './verified-client.mjs'
+import { lockfileHash, verifyClientArtifact } from './verified-client.mjs'
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'verified-client-'))
@@ -34,4 +34,10 @@ test('tampered, stale, missing and extra frontend assets fail before restore', t
     const data = fixture(t); mutate(data)
     assert.throws(() => verifyClientArtifact(data.root, data.expected))
   }
+})
+test('the dependency lock identity ignores CRLF checkouts but not content', () => {
+  const lf = '{\n  "name": "client"\n}\n'
+  assert.equal(lockfileHash(lf), createHash('sha256').update(lf).digest('hex'))
+  assert.equal(lockfileHash(lf.replace(/\n/g, '\r\n')), lockfileHash(lf))
+  assert.notEqual(lockfileHash(lf.replace('client', 'other')), lockfileHash(lf))
 })

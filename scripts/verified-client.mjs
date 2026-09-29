@@ -17,11 +17,15 @@ function inventory(directory, relative = '') {
   })
 }
 
+// Windows checkouts may convert text files to CRLF; the receipt is staged on
+// Linux, so the lock identity hashes line-ending-normalized content.
+export const lockfileHash = text => hash(text.replace(/\r\n/g, '\n'))
+
 function identity(root) {
   const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim()
   assert.match(commit, /^[a-f0-9]{40}$/)
   if (process.env.GITHUB_SHA) assert.equal(commit, process.env.GITHUB_SHA, 'Frontend checkout differs from workflow commit')
-  return { commit, lockHash: hash(fs.readFileSync(path.join(root, 'client/package-lock.json'))) }
+  return { commit, lockHash: lockfileHash(fs.readFileSync(path.join(root, 'client/package-lock.json'), 'utf8')) }
 }
 
 export function verifyClientArtifact(artifact, expected) {
