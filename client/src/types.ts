@@ -79,6 +79,7 @@ export interface JobSummary {
   loopPaused?: boolean
   /** Human-decision pause reason from the loop engine. GET /jobs/:id only. */
   loopPauseReason?: string | null
+  pendingInterrupts?: Array<{id: string;nodePath: string;kind: 'question' | 'approval' | 'gate'; value?: unknown}>
   /**
    * Tickets referenced by the job's command, resolved against the project's
    * local ticket store at request time. Only populated by GET /jobs/:id;

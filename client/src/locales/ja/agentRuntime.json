@@ -170,7 +170,8 @@
       "paused": "一時停止",
       "cancelled": "キャンセル済み",
       "interrupted": "中断",
-      "unavailable": "利用不可"
+      "unavailable": "利用不可",
+      "expired": "期限切れ"
     },
     "question": "アーキテクトからの質問:",
     "answerLabel": "あなたの回答",
@@ -181,7 +182,8 @@
     "preserveProgress": "表示されたフェーズから、既存の作業と保存済み設定を保持して続行します。",
     "reviewDelivery": "実装が完了しました。引き渡しの前にジョブログで結果を確認してください。この続行では公開していません。",
     "prepareDelivery": "引き渡しを準備",
-    "dismiss": "閉じる"
+    "dismiss": "閉じる",
+    "selectRecovery": "復旧する中断された試行を選択"
   },
   "roleHints": {
     "architect": "コードを読み、提案・設計・タスク・仕様を書きます。読み取り専用。",
@@ -493,5 +495,79 @@
       }
     }
   },
-  "unsavedChanges": "未保存の変更"
+  "unsavedChanges": "未保存の変更",
+  "customRoles": {
+    "title": "カスタムロール",
+    "hint": "ワークフローのロールに再利用可能な指示と明示的な権限を設定します。",
+    "unsupported": "カスタムロールを編集するには Core を更新してください。",
+    "remove": "{{id}} を削除",
+    "access": "ソースコードへのアクセス",
+    "read": "読み取りのみ",
+    "write": "読み取りと書き込み",
+    "artifacts": "OpenSpec 成果物へのアクセス",
+    "none": "なし",
+    "tasks": "タスクのチェックボックスのみ",
+    "all": "変更のすべての成果物",
+    "skill": "OpenSpec スキル",
+    "noSkill": "スキルの関連付けなし",
+    "prompt": "ロールへの指示",
+    "id": "ロール ID",
+    "add": "ロールを追加",
+    "invalidId": "英字で始まる一意の小文字 ID を入力してください。英小文字・数字・ハイフンを64文字まで使用できます。組み込み ID は予約済みです。",
+    "escalationHint": "許可されたプロトコル修正でのみ上位モデルを使用できます。再試行回数は増えません。"
+  },
+  "steering": {
+    "title": "実行への指示",
+    "hint": "Core は、対応する次のエージェントのターンのために指示を保存します。送信しても質問への回答や承認にはなりません。",
+    "label": "追加の指示",
+    "send": "指示を送信",
+    "accepted": "Core が受信しました。エージェントでの使用を待っています。",
+    "pending": "エージェントのターン待ち",
+    "consumed": "エージェントが使用済み",
+    "counts": "待機中: {{pending}} · 使用済み: {{consumed}}",
+    "failed": "指示を送信できませんでした。同じメッセージを確認するには再試行してください。",
+    "unavailable": "受信記録の詳細を取得できません。",
+    "unreported": "このバージョンの Core は使用状況を報告しません。",
+    "truncated": "最近の受信記録と待機中のメッセージのみ表示しています。"
+  },
+  "studioRole": {
+    "title": "Core ロールの既定値",
+    "hint": "このファイルの既定値は新しいワークフローに適用されます。プロジェクトの明示的な設定が優先され、保存済みの実行は固定された設定を保持します。",
+    "invalid": "ロールの項目を変更する前に、エディターで YAML ヘッダーを修正してください。",
+    "escalationEffort": "上位モデルの推論レベル"
+  },
+  "retention": {
+    "title": "履歴の保持",
+    "description": "期限切れの実行履歴と未使用の Core バージョンを削除します。削除した履歴は再開や分岐ができません。実行中・復旧可能な実行や未完了の配信は保護され、ジョブログと費用記録は保持されます。",
+    "forever": "履歴を無期限に保持",
+    "days": "保持日数",
+    "save": "保持設定を保存",
+    "preview": "削除対象を確認",
+    "collect": "期限切れの履歴を削除",
+    "previewSummary": "対象：履歴 {{runs}} 件、未使用の Core バージョン {{packages}} 件。",
+    "collectedSummary": "期限切れ：履歴 {{runs}} 件。削除済み：未使用の Core バージョン {{packages}} 件。",
+    "more": "ほか {{count}} 件の実行。",
+    "failed": "保持設定を確認または更新できませんでした。",
+    "expired": "この実行履歴はプロジェクトの保持方針により期限切れになりました。ジョブログと費用記録は引き続き利用できます。",
+    "loading": "保持方針を読み込み中…",
+    "states": {
+      "protected": "保持",
+      "eligible": "対象",
+      "expired": "期限切れ",
+      "cleanup_pending": "削除待ち",
+      "busy": "使用中",
+      "error": "確認失敗"
+    },
+    "reasons": {
+      "disabled": "無期限保持",
+      "recoverable": "復旧可能",
+      "active": "実行中",
+      "human_pending": "人による回答待ち",
+      "interrupted_writes": "中断した書き込みの確認が必要",
+      "delivery_pending": "配信待ち",
+      "fork_pending": "依存する分岐が残っています",
+      "unknown_terminal_time": "完了日時が不明",
+      "within_retention": "保持期間内"
+    }
+  }
 }

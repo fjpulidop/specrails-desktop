@@ -1,0 +1,113 @@
+# Desktop core-agent-engine tasks
+
+Source detail: [Desktop task document](reference/core-agent-engine-tasks-desktop.md).
+All acceptance commands and evidence requirements there remain binding. A checked
+implementation task does not satisfy an unchecked release or telemetry gate.
+Initial delivery uses feat/core-engine-d0 paired with Core C0/C1 PRs.
+
+## 1. D0 — Runtime catalog compatibility
+
+- [x] 1.1 Parse optional engine/catalog/builtin descriptors and capability-gated CLI definition validation, including structured exit-1 errors.
+- [x] 1.2 Normalize v2 status and validate safe resume paths against authoritative run step membership while preserving legacy behavior.
+- [x] 1.3 Derive metrics step/role validation from run catalogs and frozen config; retain missing-value semantics and legacy fallbacks.
+- [x] 1.4 Align compatibility metadata, retained-package tests, module README and runtime guide with inspected sources and paired C0.
+- [x] 1.5 Run typecheck, affected runtime/compatibility suites, architecture audit, source-map generation and source-pair compatibility.
+- [x] 1.6 Complete published-package compatibility against released C0, record evidence/date/commit and close D0 release gate. (29 September 2026: `check-core-compat` passes against the published `specrails-core@6.1.0`, tag `v6.1.0` at `037f6820`, contract 5.1; bundle lock regenerated and CI paired pin moved to that commit.)
+
+- [x] 1.7 Split independent CI coverage lanes, preserve the required aggregate and all platform/package gates, and validate workflow syntax.
+
+Validation on 2026-09-26: D0 source `6e0711fb` passed 223 affected tests
+without skips and complete local coverage (server: 8,794 passed, 8 existing
+platform/opt-in skips; client: 4,647 passed). Typecheck, architecture, scripts,
+build, real package consumer and source-pair compatibility passed. The actual
+Desktop/Core smoke passed with Node 22.22.3, including pause/resume, correction,
+escalation, verification reuse, unknown billing and host Git ownership. Its HTTP
+fixture explicitly selects the `free` protocol. The Windows CI lane exposed three
+Unix-only CLI detection mocks; they now recognize both `which` and `where`.
+Published C0 compatibility remains open; these source results do not close 1.6.
+
+## 2. D1 — Definition authoring and Core launcher (requires published C4)
+
+- [x] 2.1 Vendor definition schema with byte-parity test; add structural graph model and capability catalog.
+- [x] 2.2 Implement pure deterministic graph compiler, interpolation and Core-owned hash validation.
+- [x] 2.3 Validate publication via Core and expose node-scoped errors in builder.
+- [x] 2.4 Implement exclusive frozen inputs and Core-only launch with host-owned git, cancellation and existing settlement.
+- [x] 2.5 Implement verification-aware delivery gate; negative completion remains a successful runtime verdict.
+- [x] 2.6 Build palette and inspectors including components/map/join with eight-locale parity and client tests.
+- [x] 2.7 Update user guides and run loop/runtime/delivery/client validation.
+
+Authoring validation on 2026-09-26: 143 server tests (including Core schema
+byte parity and architecture), 307 client tests (including eight-locale parity,
+schema forms, drag placement, typed connection validation and component canvas
+round-tripping) passed. Typecheck, architecture audit and source-map generation
+passed. The inspector extraction was checked again with seven focused tests.
+Execution, delivery, event accounting and human resume remain unchecked below;
+authoring validation does not close those integration gates.
+
+## 3. D1b — Minimal role library (requires C2)
+
+- [x] 3.1 Vendor role config schema and validate open role descriptors.
+- [x] 3.2 Add settings role rows, engine selection and localized validation with schema-parity tests.
+
+Implemented and focused tests passed; shared integration and remaining factory
+work are recorded in [CHECKPOINT-D1B-D5.md](CHECKPOINT-D1B-D5.md).
+
+## 4. D2 — Event projection and accounting (requires D1)
+
+- [x] 4.1 Project graph/step/branch events into existing loop events and nested explorer models.
+- [x] 4.2 Persist one invocation per AI attempt with idempotent replay, shared integer allocation and null usage.
+- [x] 4.3 Read Core evidence via retained CLI and preserve review confidence projection.
+- [x] 4.4 Add event fixture, accounting parity, replay, evidence and client explorer tests; update log guide.
+
+## 5. D3 — Human pauses and fork (requires D2 and C3)
+
+- [x] 5.1 Connect paused question/approval/gate states to job composer and single-writer resume.
+- [x] 5.2 Implement linked fork endpoint and explorer action including internal component nodes.
+- [x] 5.3 Test cancellation during pause, original-run preservation and isolated settlement.
+
+## 6. D4 — Restart recovery (requires D2)
+
+- [x] 6.1 Append next available migration for durable request, engine version and fork linkage.
+- [x] 6.2 Reconcile resumable v2 runs to paused while preserving jobs and existing legacy recovery.
+- [x] 6.3 Reconstruct launch and isolated settlement from durable records, expose recovery choice.
+- [x] 6.4 Test crashes across read/write/pause boundaries and idempotent accounting/delivery.
+
+## 7. D5 — Progressive factories (requires C4/C5/C6 respectively)
+
+- [x] 7.1 Port Quick SDD after C4 with sequence parity and capability fallback.
+- [x] 7.2 Port Freestyle and templates after C5 with sentinel/retry parity.
+- [x] 7.3 Port Implement and Batch after C6 with receipt/acceptance parity and stable factory aliases.
+- [x] 7.4 Update pipeline user documentation and run factory/template pairing tests.
+
+## 8. D6 — Agents role library (requires D1b/C5)
+
+- [x] 8.1 Project custom agent frontmatter and prompts into runtime role descriptors.
+- [x] 8.2 Integrate role selection and builtin read-only display; mark legacy routing for later removal.
+- [x] 8.3 Test role permissions, profiles API and Agent Studio flows.
+
+## 9. D7 — Steering and observation (requires C8)
+
+- [x] 9.1 Add retained-runtime signal endpoint and MCP action.
+- [x] 9.2 Show accepted/consumed steering receipts and attempt-boundary semantics in composer.
+- [x] 9.3 Expose run traces and validate routes, MCP, composer and documentation.
+
+## 10. D8 — Migration and retirement (requires parity and two telemetry releases)
+
+- [ ] 10.1 Record legacy launch/merge-back usage and collect two releases with zero legacy use.
+- [ ] 10.2 Implement compatibility compiler and prove parity across saved/factory/template graphs.
+- [ ] 10.3 Back up original loop graphs and migrate/revalidate published definitions.
+- [ ] 10.4 Prepare reviewed deltas for existing loop specs, then remove obsolete traversal/profile paths and tests exclusive to proven-unused code.
+- [ ] 10.5 Implement retained-package/run retention and paired Core7 compatibility.
+- [ ] 10.6 Run full CI, source and architecture audits; update Core/Desktop/Web documentation and companion contract.
+
+## Core 7 engine signal and Batch decision — 28 September 2026
+
+- Owner decisions: converted Batch keeps per-ticket isolation (recorded in
+  `D8-COMPATIBILITY-DECISIONS.md`); the `engines` proposal is approved and
+  implemented (`CORE7-COMPATIBILITY-PROPOSAL.md`, Implementation section).
+- 10.5 stays open until the paired Core 7 release exists: the retention part is
+  done, and the engine signal is implemented and tested against a Core that
+  advertises `[1, 2]` (real) and `[2]` (fixture).
+- First release prepared, not published: `RELEASE-PLAN.md` lists the expected
+  versions (Core 6.1.0, Desktop 2.58.0), draft notes and the ordered owner-gated
+  publish steps. 1.6 closes only against the published Core package.

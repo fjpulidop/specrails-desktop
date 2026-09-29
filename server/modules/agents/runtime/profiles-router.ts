@@ -1,4 +1,6 @@
 import fs from 'fs'
+import { nativeAgentFile, nativeAgentsDirectory, listNativeAgentFiles } from './agent-catalog'
+import { projectCustomAgentRole, type RuntimeRoleDescriptor } from './agent-role-descriptor'
 import { readProjectCoreVersion } from '../../../core-runtime'
 import path from 'path'
 import { Router, Request, Response } from 'express'
@@ -88,40 +90,13 @@ function projectAdapter(project: { provider?: string | null }, provider?: string
 }
 
 function agentFile(project: ProviderProject, agentId: string, provider?: string): string {
-  const root = specRoot(project)
-  const adapter = projectAdapter(project, provider)
-  return adapter.customRolePath?.(root, agentId)
-    ?? path.join(root, adapter.projectDirName, 'agents', `${agentId}.md`)
+  return nativeAgentFile(specRoot(project), agentId, provider ?? project.provider ?? 'claude')
 }
-
-/** The provider-native roles catalog directory. */
 function agentsCatalogDir(project: ProviderProject, provider?: string): string {
-  const probe = agentFile(project, '__catalog_probe__', provider)
-  // File-based roles use `<catalog>/<id>.md`; skill-based roles (Kimi) use
-  // `<catalog>/<id>/SKILL.md`.
-  return path.basename(probe) === 'SKILL.md'
-    ? path.dirname(path.dirname(probe))
-    : path.dirname(probe)
+  return nativeAgentsDirectory(specRoot(project), provider ?? project.provider ?? 'claude')
 }
-
-function listAgentFiles(
-  project: ProviderProject,
-  provider?: string,
-): Array<{ id: string; file: string }> {
-  const dir = agentsCatalogDir(project, provider)
-  if (!fs.existsSync(dir)) return []
-  const out: Array<{ id: string; file: string }> = []
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const id = entry.isDirectory()
-      ? entry.name
-      : entry.isFile() && entry.name.endsWith('.md')
-        ? entry.name.slice(0, -3)
-        : null
-    if (!id) continue
-    const file = agentFile(project, id, provider)
-    if (fs.existsSync(file)) out.push({ id, file })
-  }
-  return out
+function listAgentFiles(project: ProviderProject, provider?: string): Array<{ id: string; file: string }> {
+  return listNativeAgentFiles(specRoot(project), provider ?? project.provider ?? 'claude')
 }
 
 // Request augmentation declared in project-router.ts
@@ -176,8 +151,10 @@ function requireSafeStudioPolicy(res: Response, provider: string): boolean {
  * leaf (fs/path/js-yaml only), so this direct import does not create a router /
  * adapter cycle. */
 function validateCustomRoleBody(provider: string, agentId: string, body: string): string[] {
-  if (provider !== 'kimi') return []
-  return validateKimiRoleDocument(body, agentId, `${agentId}/SKILL.md`)
+  const errors = provider === 'kimi' ? validateKimiRoleDocument(body, agentId, `${agentId}/SKILL.md`) : []
+  try { projectCustomAgentRole({ id: agentId, content: body }, { provider }) }
+  catch (error) { errors.push(error instanceof Error ? error.message : 'Invalid Core role descriptor') }
+  return errors
 }
 
 export function createProfilesRouter(): Router {
@@ -467,6 +444,9 @@ export function createProfilesRouter(): Router {
         kind: 'upstream' | 'custom'
         description?: string
         model?: string
+        roleId?: string
+        runtimeRoleDefaults?: RuntimeRoleDescriptor
+        runtimeRoleError?: string
       }> = []
       for (const entry of files) {
         const id = entry.id
@@ -478,8 +458,15 @@ export function createProfilesRouter(): Router {
         if (!kind) continue
         let description: string | undefined
         let model: string | undefined
+        let projected: { roleId?: string; runtimeRoleDefaults?: RuntimeRoleDescriptor; runtimeRoleError?: string } = {}
         try {
           const body = fs.readFileSync(entry.file, 'utf8')
+          if (kind === 'custom') {
+            try {
+              const result = projectCustomAgentRole({ id, content: body }, { provider })
+              projected = { roleId: result.id, runtimeRoleDefaults: result.role }
+            } catch (error) { projected = { runtimeRoleError: error instanceof Error ? error.message : 'Invalid Core role descriptor' } }
+          }
           if (provider === 'kimi') {
             // Use the same js-yaml metadata parser as validation/execution so
             // folded/literal descriptions and quoted scalars render correctly.
@@ -522,7 +509,7 @@ export function createProfilesRouter(): Router {
         } catch {
           // ignore unreadable files
         }
-        agents.push({ id, kind, description, model })
+        agents.push({ id, kind, description, model, ...projected })
       }
       agents.sort((a, b) => a.id.localeCompare(b.id))
       res.json({ agents })
@@ -573,7 +560,7 @@ export function createProfilesRouter(): Router {
       }
       const roleErrors = validateCustomRoleBody(provider, id, body)
       if (roleErrors.length > 0) {
-        res.status(400).json({ error: 'invalid_kimi_skill', details: roleErrors })
+        res.status(400).json({ error: provider === 'kimi' ? 'invalid_kimi_skill' : 'invalid_agent_role', details: roleErrors })
         return
       }
       const file = agentFile(project, id, provider)
@@ -614,7 +601,7 @@ export function createProfilesRouter(): Router {
       }
       const roleErrors = validateCustomRoleBody(provider, agentId, body)
       if (roleErrors.length > 0) {
-        res.status(400).json({ error: 'invalid_kimi_skill', details: roleErrors })
+        res.status(400).json({ error: provider === 'kimi' ? 'invalid_kimi_skill' : 'invalid_agent_role', details: roleErrors })
         return
       }
       const file = agentFile(project, agentId, provider)

@@ -55,6 +55,7 @@ export interface MilestoneChainLaunched {
 export interface MilestoneChainSnapshot {
   id: string
   milestoneN: number
+  /** 'parallel' only on historical rows (the Parallel option was removed). */
   mode: 'sequential' | 'parallel'
   status: MilestoneChainStatus
   pauseReason: string | null

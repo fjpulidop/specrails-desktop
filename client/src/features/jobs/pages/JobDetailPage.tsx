@@ -446,6 +446,7 @@ export default function JobDetailPage() {
           phase · activity · actions, the pipeline chips once, and a collapsed
           Details disclosure with only real figures. */}
       <JobRunHeader
+        onOpenRun={id => navigate(`/jobs/${id}`)}
         job={job}
         events={events}
         phases={phases}
@@ -548,14 +549,14 @@ export default function JobDetailPage() {
                   variant="page"
                 />
               ) : isLoopJob ? (
-                <LoopStepExplorer events={events} jobStatus={job.status} variant="page" />
+                <LoopStepExplorer events={events} jobStatus={job.status} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} />
               ) : (
                 <LogViewer events={events} />
               )}
             </div>
           </div>
         ) : isLoopJob ? (
-          <LoopStepExplorer events={events} jobStatus={job.status} variant="page" />
+          <LoopStepExplorer events={events} jobStatus={job.status} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} />
         ) : (
           <LogViewer events={events} />
         )}
@@ -569,6 +570,7 @@ export default function JobDetailPage() {
           jobId={job.id}
           settleMode={job.interactiveSettleMode}
           initialAcceptingTurns={job.interactiveAcceptingTurns}
+            pendingInterrupts={job.pendingInterrupts}
           kind={job.command.startsWith('loop:') ? 'loop-step' : 'job'}
           variant="page"
           /* No onFinalized: the page's own job.finalized WS branch refetches. */

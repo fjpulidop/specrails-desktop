@@ -78,14 +78,27 @@ describe('DashboardPage — rail interactions', () => {
     expect(screen.getByText('Rail 3')).toBeInTheDocument()
   })
 
-  it('handleModeChange: clicking Batch button changes mode', () => {
+  it('does not offer the removed Batch mode on any rail', () => {
     render(<DashboardPage />)
-    // Each rail has Implement + Batch buttons; click Batch on first rail
-    const batchButtons = screen.getAllByText('Batch')
-    fireEvent.click(batchButtons[0])
-    // After mode change, the first Batch button becomes active (has bg-primary class)
-    // Just verify no errors thrown and component still renders
-    expect(screen.getByText('Rail 1')).toBeInTheDocument()
+    expect(screen.getAllByText('Implement').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Batch')).not.toBeInTheDocument()
+  })
+
+  it('loads rails persisted with the removed Batch mode as Implement', async () => {
+    mockActiveProjectId = 'proj-legacy'
+    localStorage.setItem('specrails-desktop:rails:proj-legacy', JSON.stringify([
+      { id: 'rail-1', label: 'Rail 1', ticketIds: [], mode: 'batch-implement', selectedLoopId: 'factory:batch', status: 'idle' },
+      { id: 'rail-2', label: 'Rail 2', ticketIds: [], mode: 'batch', status: 'idle' },
+      { id: 'rail-3', label: 'Rail 3', ticketIds: [], mode: 'freestyle', selectedLoopId: 'factory:freestyle', status: 'idle' },
+    ]))
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ rails: [], activeJobs: {}, activeLoopRuns: {}, profiles: [] }) })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const pickers = screen.getAllByTestId('rail-loop-selector') as HTMLSelectElement[]
+      expect(pickers[0].value).toBe('factory:implement')
+      expect(pickers[1].value).toBe('factory:implement')
+    })
+    expect(screen.queryByText('Batch')).not.toBeInTheDocument()
   })
 
   it('handleModeChange: clicking Implement button keeps mode', () => {
@@ -97,11 +110,11 @@ describe('DashboardPage — rail interactions', () => {
 
   it('saveRails: persists to localStorage when mode changes', () => {
     render(<DashboardPage />)
-    const batchButtons = screen.getAllByText('Batch')
-    fireEvent.click(batchButtons[0])
+    const implementButtons = screen.getAllByText('Implement')
+    fireEvent.click(implementButtons[0])
     // saveRails stores under specrails-desktop:rails:<projectId>
     // projectId is null in test so no-op — just verify no crash
-    expect(screen.getAllByText('Batch').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Implement').length).toBeGreaterThan(0)
   })
 })
 
@@ -181,6 +194,28 @@ describe('DashboardPage — server rail reconcile (adopt agent/MCP launches)', (
       expect(rails[1].activeJobId).toBe('run-4')
       expect(rails[1].mode).toBe('loop')
       expect(rails[1].selectedLoopId).toBe('custom:my-loop')
+    })
+  })
+
+  it('adopts a real (uuid) user loop id as the rail selection, but not a built-in id', async () => {
+    mockActiveProjectId = 'proj-1'
+    const uuid = '3f2a9c1e-8b7d-4e6f-a5c4-1b2d3e4f5a6b'
+    global.fetch = railsResponse({
+      rails: [
+        { railIndex: 0, ticketIds: [] },
+        { railIndex: 1, ticketIds: [] },
+        { railIndex: 2, ticketIds: [] },
+      ],
+      activeJobs: {},
+      activeLoopRuns: { '1': { loopRunId: 'run-5', loopId: uuid }, '2': { loopRunId: 'run-6', loopId: 'factory:implement' } },
+    })
+    render(<DashboardPage />)
+    await waitFor(() => {
+      const rails = JSON.parse(localStorage.getItem('specrails-desktop:rails:proj-1')!)
+      expect(rails[1].status).toBe('running')
+      expect(rails[1].selectedLoopId).toBe(uuid)
+      expect(rails[2].status).toBe('running')
+      expect(rails[2].selectedLoopId).not.toBe('factory:implement')
     })
   })
 

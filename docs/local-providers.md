@@ -45,7 +45,7 @@ without any of this.
 
 | Surface | How the local engine executes |
 |---|---|
-| Rails: implement / batch / custom loops | specrails-core's programmatic runtime, all three roles on the connection (`OpenAICompatibleExecutor`) |
+| Rails: implement / custom loops | specrails-core's programmatic runtime, all three roles on the connection (`OpenAICompatibleExecutor`) |
 | Rails: freestyle, verify / fix / decider steps, loop ai-steps | the bundled **local agent runner** |
 | Add Spec Quick + Explore, sidebar chat | the local agent runner (read-only tool set for Explore) |
 | Agent chat / missions | the local agent runner with the Specrails MCP bridge + your enabled external MCP servers |

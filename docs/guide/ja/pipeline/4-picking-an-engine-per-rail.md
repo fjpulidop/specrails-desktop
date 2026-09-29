@@ -22,14 +22,14 @@ install できます。
 
 ## それぞれのエンジンが得意なこと
 
-4 つすべてが **Implement** と **Batch** を実行します。
+4 つすべてが **Implement** を実行します。
 
 | エンジン | こんなときに | 補足 |
 |--------|--------------------|-------|
 | **Claude** | native cost、persistent interaction、strict tool policy が必要。 | Profile、Freestyle、structured transform。 |
 | **Codex** | OpenAI Codex CLI を好むとき、あるいはプロバイダー間で実装を比べたいとき。 | `codex` ≥ 0.128.0。ネイティブのコスト報告なし — アプリが料金表からコストを補います。プロファイルは適用されません。 |
 | **Gemini** | Google の Gemini CLI を使いたいとき、ネイティブのテレメトリがほしいとき、あるいは日常的なスペックを安く実行したいとき。 | `gemini` ≥ 0.11.0（`GEMINI_API_KEY` を設定）。ネイティブの OTLP テレメトリ。プロファイルは適用されません。 |
-| **Kimi** | Implement、Batch、Freestyle、Decider のない loop に agentic Kimi を使う。 | 外部 `kimi` ≥ 0.27.0。Profile/role、effort は K3 のみ。token/cost は unavailable。 |
+| **Kimi** | Implement、Freestyle、Decider のない loop に agentic Kimi を使う。 | 外部 `kimi` ≥ 0.27.0。Profile/role、effort は K3 のみ。token/cost は unavailable。 |
 
 ### Capability の違い
 

@@ -666,6 +666,29 @@ function applyDesktopMigrations(db: DbInstance): void {
       const cols = (db.prepare('PRAGMA table_info(agent_messages)').all() as { name: string }[]).map((c) => c.name)
       if (!cols.includes('intent')) db.exec(`ALTER TABLE agent_messages ADD COLUMN intent TEXT;`)
     },
+    // 30: preserve the original legacy loop graph before its first Core conversion.
+    // Column guards also support the existing migration replay fixtures.
+    () => {
+      const columns = (db.prepare('PRAGMA table_info(loops)').all() as { name: string }[]).map(column => column.name)
+      if (!columns.includes('graph_legacy')) db.exec('ALTER TABLE loops ADD COLUMN graph_legacy TEXT')
+      if (!columns.includes('graph_legacy_saved_at')) db.exec('ALTER TABLE loops ADD COLUMN graph_legacy_saved_at TEXT')
+    },
+    // 31: editable built-in loops. `builtin_id` marks the row that IS a built-in
+    // (its canonical factory id), `builtin_default_hash` records the default
+    // content last seeded (an unedited row may be refreshed when Core changes)
+    // and `published_graph` snapshots the last published graph so rails keep
+    // launching it while the loop is edited. Existing published loops are
+    // backfilled with their current graph. Column-guarded for replay fixtures.
+    () => {
+      const columns = (db.prepare('PRAGMA table_info(loops)').all() as { name: string }[]).map(column => column.name)
+      if (!columns.includes('builtin_id')) db.exec('ALTER TABLE loops ADD COLUMN builtin_id TEXT')
+      if (!columns.includes('builtin_default_hash')) db.exec('ALTER TABLE loops ADD COLUMN builtin_default_hash TEXT')
+      if (!columns.includes('published_graph')) db.exec('ALTER TABLE loops ADD COLUMN published_graph TEXT')
+      db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_loops_builtin_id ON loops(builtin_id) WHERE builtin_id IS NOT NULL;
+        UPDATE loops SET published_graph = graph WHERE status = 'published' AND published_graph IS NULL;
+      `)
+    },
   ]
 
   applyNumberedMigrations(db, migrations)

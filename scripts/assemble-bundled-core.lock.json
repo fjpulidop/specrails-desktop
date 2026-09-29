@@ -8,7 +8,7 @@
       "name": "bundled-core-stage",
       "version": "0.0.0",
       "dependencies": {
-        "specrails-core": "6.0.0"
+        "specrails-core": "6.1.0"
       }
     },
     "node_modules/@cfworker/json-schema": {
@@ -578,18 +578,18 @@
       }
     },
     "node_modules/@posthog/core": {
-      "version": "1.55.0",
-      "resolved": "https://registry.npmjs.org/@posthog/core/-/core-1.55.0.tgz",
-      "integrity": "sha512-x+0FR+uHsK3uJeofd5X4S2YS7hjaWkzkPN0X1GROHm9SvKw2RJ91kfQ7gT1bPtFwZSHNiRtteB7fX/xEMRN0IQ==",
+      "version": "1.55.2",
+      "resolved": "https://registry.npmjs.org/@posthog/core/-/core-1.55.2.tgz",
+      "integrity": "sha512-2mYxGbDmTLUs096VbcZqSWo0lrI48/BrX65r54NynxxFq409BOx9w73HxOAtOKZ1vblkdV6/GxQTe7KDcIQidg==",
       "license": "MIT",
       "dependencies": {
-        "@posthog/types": "^1.412.2"
+        "@posthog/types": "^1.412.4"
       }
     },
     "node_modules/@posthog/types": {
-      "version": "1.412.2",
-      "resolved": "https://registry.npmjs.org/@posthog/types/-/types-1.412.2.tgz",
-      "integrity": "sha512-taxTh8o6n7ZVlC8qBypZvF+6w7/18yNkS9XDiGCbutGTKqIljfzYi/7pumgwN3mcnl/n0e9A+JhF05+nLd4Xaw==",
+      "version": "1.412.4",
+      "resolved": "https://registry.npmjs.org/@posthog/types/-/types-1.412.4.tgz",
+      "integrity": "sha512-Q7lV9O9TbLngjOYw1ucm3bS3tn48xb1B4ZQdDy8gv7yfKe99hCTeWYG4xZ36nJM80VxpTF9TriiJt5hngDOkBg==",
       "license": "MIT"
     },
     "node_modules/@standard-schema/spec": {
@@ -651,9 +651,9 @@
       }
     },
     "node_modules/ansi-regex": {
-      "version": "6.3.0",
-      "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-6.3.0.tgz",
-      "integrity": "sha512-WpDfL7NO6j7tH88IDBNVdUJxDh9nmCteAVW9dsep846XdwF4naCBK+/tGLX3KJgcpgMRXCFlTM2hKGoK9FsdrQ==",
+      "version": "6.4.0",
+      "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-6.4.0.tgz",
+      "integrity": "sha512-KzTVk2tCWAHtYrvvvaP8bJKJq2pVinhLcGEQdtLIYPbmNGNyYe8QwNaTUYQp2J7/vIsUKt5QCqAfUkYyG9DkOw==",
       "license": "MIT",
       "engines": {
         "node": ">=12"
@@ -1342,9 +1342,9 @@
       }
     },
     "node_modules/hono": {
-      "version": "4.13.8",
-      "resolved": "https://registry.npmjs.org/hono/-/hono-4.13.8.tgz",
-      "integrity": "sha512-/Gng7NfoykZl2pjukW5Z6+8Yxm3BPRf86GTbQnt0SbySkvax4fyL4H3HhY1cCpBGmiW9XDRFzRV+CXK2W8QudQ==",
+      "version": "4.13.11",
+      "resolved": "https://registry.npmjs.org/hono/-/hono-4.13.11.tgz",
+      "integrity": "sha512-/SMX/RQNJn7oNmFwH6DtwDqcrzZU2otm1FD6OJe2cWF6cfy/F8hq0XVBv7xW3FTJshRQwuBnXHDq2kNsdZnshg==",
       "license": "MIT",
       "engines": {
         "node": ">=16.9.0"
@@ -1550,9 +1550,9 @@
       "license": "BSD-2-Clause"
     },
     "node_modules/langsmith": {
-      "version": "0.10.4",
-      "resolved": "https://registry.npmjs.org/langsmith/-/langsmith-0.10.4.tgz",
-      "integrity": "sha512-P8kIZYLih9zDOr6e+wBTIKjSe3ak6LeFMKQFQJgAWQ65tjzrI/NcathO31Txr6BQZCCN2HEPfKX/YFmdbVBTgQ==",
+      "version": "0.10.5",
+      "resolved": "https://registry.npmjs.org/langsmith/-/langsmith-0.10.5.tgz",
+      "integrity": "sha512-VUh6LQYGb+wjmMz5Ulazqx1rUHLbWi2XZvVkSHfxDjz6V7u9TJOB6jW5CC84xcpffu7Jr1MZpBbEz3gg972HbA==",
       "license": "MIT",
       "dependencies": {
         "p-queue": "6.6.2"
@@ -1944,12 +1944,12 @@
       }
     },
     "node_modules/posthog-node": {
-      "version": "5.52.4",
-      "resolved": "https://registry.npmjs.org/posthog-node/-/posthog-node-5.52.4.tgz",
-      "integrity": "sha512-P3p4OouGQfw/ouv+Px4gcVWLNwYsFB4JPyksYmxv7QRX4niwp1/C9XjQSUyl0nt+KoQnK14zFDfONHWVthwKDA==",
+      "version": "5.54.1",
+      "resolved": "https://registry.npmjs.org/posthog-node/-/posthog-node-5.54.1.tgz",
+      "integrity": "sha512-3+tg86gLKRaR+MjQOdALGUJQDAXHWVyDUJI2h3EJa0c4GWTQu3+R62C3t49dz1T3QWyJq1msq5Qa+B55/ZEHxg==",
       "license": "MIT",
       "dependencies": {
-        "@posthog/core": "^1.54.2"
+        "@posthog/core": "^1.55.2"
       },
       "engines": {
         "node": "^20.20.0 || >=22.22.0"
@@ -2281,9 +2281,9 @@
       }
     },
     "node_modules/specrails-core": {
-      "version": "6.0.0",
-      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-6.0.0.tgz",
-      "integrity": "sha512-m3CCtC7armZcAitrgfLWULI2otRozpLOtVcPtvgz9AAhjrMTmmJcYgOO7Dx9p72hkLkRyFN0PuaSSL//H7qZYg==",
+      "version": "6.1.0",
+      "resolved": "https://registry.npmjs.org/specrails-core/-/specrails-core-6.1.0.tgz",
+      "integrity": "sha512-LNGkxWw+IEORCDxkpsXjn4tOIbi4QeD4o1yS5trHo8NVHZtyvr9zFBfNDs8rGbKyTwQ9n9vYcHvcW5fQ4CyaVg==",
       "license": "MIT",
       "dependencies": {
         "@fission-ai/openspec": "1.4.1",
@@ -2291,6 +2291,7 @@
         "@langchain/langgraph": "1.4.14",
         "@langchain/langgraph-checkpoint": "1.1.5",
         "@modelcontextprotocol/sdk": "1.29.0",
+        "ajv": "^8.20.0",
         "cross-spawn": "7.0.6",
         "js-yaml": "^4.1.0",
         "picocolors": "^1.1.1",
@@ -2300,7 +2301,7 @@
         "specrails-core": "bin/specrails-core.mjs"
       },
       "engines": {
-        "node": ">=20.19.0"
+        "node": ">=22.22.3"
       }
     },
     "node_modules/statuses": {

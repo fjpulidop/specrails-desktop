@@ -13,6 +13,7 @@ import { isLoopsEnabled } from '../../../feature-flags'
 import {
   listLoops,
   getLoop,
+  readLegacyLoopGraph,
   createLoop,
   updateLoop,
   publishLoop,
@@ -21,10 +22,16 @@ import {
   deleteLoop,
   importLoops,
   LoopValidationError,
+  LoopPublicationConflict,
 } from './loops-store'
-import type { LoopGraph } from './loop-graph'
-import { LOOP_TEMPLATES, getLoopTemplate } from './loop-templates'
-import { FACTORY_LOOPS, getFactoryLoop } from './loop-factory'
+import { isDefinitionGraph, type LoopGraph } from './loop-graph'
+import { compileLoopToDefinition } from './loop-definition'
+import { convertLegacyLoop } from './loop-compat'
+import { assessLoopMigration } from './loop-migration'
+import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
+import { loopTemplatesForCapabilities, getLoopTemplate } from './loop-templates'
+import { factoryLoopsForCapabilities } from './loop-factory'
+import { ensureBuiltinLoops, resolveBuiltinLoop, restoreBuiltin, type BuiltinLoopEnvironment } from './builtin-loops'
 import { LOOP_COMMANDS } from './loop-command-catalog'
 import { listConstants, createConstant, updateConstant, deleteConstant, loadConstantMap, LoopConstantError } from './loop-constants'
 import { previewLoop } from './loop-preview'
@@ -35,6 +42,15 @@ export interface LoopsRoutesDeps {
    *  loop_runs). Update/unpublish/delete are rejected (409) while running.
    *  Defaults to "never running" until the run engine is wired (F6/F7). */
   isLoopRunning?: (loopId: string) => boolean
+  /** Seed the editable built-in rows (at registration and on `GET /loops`).
+   *  Omitted by focused tests that exercise a plain library. */
+  builtinLoops?: BuiltinLoopEnvironment
+}
+
+const BUILTIN_DELETE_MESSAGE = 'Built-in loops cannot be deleted. Use Restore original to reset it, or Duplicate it to keep a separate copy.'
+
+async function factoryCapabilities(): Promise<Record<string, number> | undefined> {
+  try { return (await loadCoreAgentRuntime()).api?.capabilities } catch { return undefined }
 }
 
 function isNonEmptyString(v: unknown): v is string {
@@ -44,6 +60,24 @@ function isNonEmptyString(v: unknown): v is string {
 export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void {
   const { db } = deps
   const isRunning = deps.isLoopRunning ?? (() => false)
+  const isBuiltin = (id: string): boolean => Boolean(getLoop(db, id)?.builtinId)
+
+  // One seeding pass at a time; later calls re-check (Core may have appeared or
+  // changed) and are cheap because the Core API probe is cached by fingerprint.
+  let seeding: Promise<unknown> | null = null
+  function seedBuiltins(): Promise<unknown> {
+    if (!deps.builtinLoops) return Promise.resolve()
+    if (!seeding) {
+      seeding = ensureBuiltinLoops(db, deps.builtinLoops)
+        .catch((error: unknown) => { console.warn('[loops] built-in loop seeding failed:', error instanceof Error ? error.message : error) })
+        .finally(() => { seeding = null })
+    }
+    return seeding
+  }
+  // Startup: the registry (and its desktop DB) exists when routes are registered.
+  // The Core API probe is synchronous on first use, so defer it past startup
+  // (and the listen call) instead of delaying the server by the probe timeout.
+  if (isLoopsEnabled() && deps.builtinLoops) setImmediate(() => { void seedBuiltins() }).unref?.()
 
   // Single gate: every loops route 404s when the feature is disabled.
   function guard(res: Response): boolean {
@@ -55,10 +89,10 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   }
 
   // ── Templates ──────────────────────────────────────────────────────────────
-  router.get('/loop-templates', (_req: Request, res: Response) => {
+  router.get('/loop-templates', async (_req: Request, res: Response) => {
     if (!guard(res)) return
     res.json({
-      templates: LOOP_TEMPLATES.map((t) => ({
+      templates: loopTemplatesForCapabilities(await factoryCapabilities()).map((t) => ({
         id: t.id,
         name: t.name,
         description: t.description,
@@ -72,8 +106,9 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   })
 
   // ── List / get ───────────────────────────────────────────────────────────────
-  router.get('/loops', (_req: Request, res: Response) => {
+  router.get('/loops', async (_req: Request, res: Response) => {
     if (!guard(res)) return
+    await seedBuiltins()
     res.json({ loops: listLoops(db) })
   })
 
@@ -84,35 +119,60 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
     res.json({ commands: LOOP_COMMANDS.map((c) => ({ name: c.name, label: c.label, description: c.description })) })
   })
 
-  // ── Factory loops (built-in, locked) ─────────────────────────────────────────
-  // Registered BEFORE `/loops/:id` so "factory" is not captured as an id.
-  router.get('/loops/factory', (_req: Request, res: Response) => {
+  // Catalog belongs to the installed runtime; global authoring has no project state.
+  router.get('/loops/catalog', async (_req: Request, res: Response) => {
     if (!guard(res)) return
+    try {
+      const runtime = await loadCoreAgentRuntime()
+      if (runtime.api?.capabilities?.engineV2 !== 1 || !runtime.listWorkflows) {
+        res.status(409).json({ error: 'engine_unsupported', message: 'Update Core to author executable workflows.' }); return
+      }
+      res.json(runtime.listWorkflows())
+    } catch (error) { res.status(503).json({ error: 'runtime_catalog_unavailable', message: error instanceof Error ? error.message : 'Core catalog unavailable' }) }
+  })
+
+  // ── Factory loops (built-ins) ────────────────────────────────────────────────
+  // Registered BEFORE `/loops/:id` so "factory" is not captured as an id. Kept
+  // for companion/mobile/MCP back-compat: each entry reflects its editable row
+  // when seeded (name, description and the graph a rail launch would run).
+  router.get('/loops/factory', async (_req: Request, res: Response) => {
+    if (!guard(res)) return
+    await seedBuiltins()
+    const capabilities = await factoryCapabilities()
     res.json({
-      factoryLoops: FACTORY_LOOPS.map((f) => ({
-        id: f.id,
-        name: f.name,
-        description: f.description,
-        mode: f.mode,
-        requiredCapability: f.requiredCapability ?? null,
-        // Absent means launchable (every pre-existing factory loop is).
-        launchable: f.launchable !== false,
-        graph: f.graph,
-      })),
+      factoryLoops: factoryLoopsForCapabilities(capabilities).map((f) => {
+        const resolved = resolveBuiltinLoop(db, f.id, capabilities)
+        return {
+          id: f.id,
+          name: resolved?.name ?? f.name,
+          description: resolved?.description ?? f.description,
+          mode: f.mode,
+          requiredCapability: f.requiredCapability ?? null,
+          // Absent means launchable (every pre-existing factory loop is).
+          launchable: f.launchable !== false,
+          graph: resolved?.graph ?? f.graph,
+          // Seeded built-ins are ordinary loops: edit them via PUT /loops/:id.
+          editable: Boolean(resolved?.row),
+          status: resolved?.row?.status ?? 'published',
+          modified: resolved?.row?.builtinModified ?? false,
+        }
+      }),
     })
   })
 
-  // Fork a factory loop into a new editable user Draft (leaves the factory intact).
-  router.post('/loops/factory/:id/fork', (req: Request, res: Response) => {
+  // Back-compat alias of `POST /loops/:id/duplicate` for a built-in: creates a
+  // separate Draft from the built-in's current content (the built-in is unchanged).
+  router.post('/loops/factory/:id/fork', async (req: Request, res: Response) => {
     if (!guard(res)) return
-    const f = getFactoryLoop(req.params.id as string)
-    if (!f) {
+    const resolved = resolveBuiltinLoop(db, req.params.id as string, await factoryCapabilities())
+    if (!resolved) {
       res.status(404).json({ error: 'Factory loop not found' })
       return
     }
     const body = req.body ?? {}
-    const name = isNonEmptyString(body.name) ? body.name.trim() : `${f.name} (fork)`
-    const loop = createLoop(db, { id: newId(), name, description: f.description, graph: f.graph })
+    const name = isNonEmptyString(body.name) ? body.name.trim() : `${resolved.name} (fork)`
+    const source = resolved.row ?? { description: resolved.description, graph: resolved.graph }
+    const loop = createLoop(db, { id: newId(), name, description: source.description, graph: source.graph })
     res.status(201).json({ loop })
   })
 
@@ -172,7 +232,8 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       return
     }
     const provider = typeof body.provider === 'string' ? body.provider : 'claude'
-    res.json(previewLoop(body.graph, { provider, constants: loadConstantMap(db) }))
+    try { res.json(previewLoop(body.graph, { provider, constants: loadConstantMap(db) })) }
+    catch (error) { res.status(400).json({ errors: [{ code: 'definition_invalid', message: error instanceof Error ? error.message : 'Invalid workflow' }] }) }
   })
 
   // Import loops from an export envelope. Duplicate NAMES are skipped (returned
@@ -185,6 +246,37 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       return
     }
     res.json(importLoops(db, body.loops, newId))
+  })
+
+  // Read-only migration assessment; registered before `/loops/:id`. It never
+  // converts or (un)publishes: conversion stays an explicit, reviewable step.
+  router.get('/loops/migration', async (_req: Request, res: Response) => {
+    if (!guard(res)) return
+    try {
+      const runtime = await loadCoreAgentRuntime()
+      const catalog = runtime.listWorkflows?.()
+      if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1 || !catalog || catalog.nodeKindsVersion < 5) {
+        res.status(409).json({ error: 'engine_unsupported', message: 'Migration assessment requires Core catalog version 5 or later.' }); return
+      }
+      const constants = loadConstantMap(db)
+      res.json(assessLoopMigration(listLoops(db), {
+        isRunning,
+        validate: (loop, graph) => {
+          const definition = compileLoopToDefinition(graph, { id: loop.id, title: loop.name, constants, provider: 'claude', spec: { id: 1, title: 'Sample spec', description: 'Migration assessment' } })
+          const validation = runtime.validateWorkflowDefinition(definition, { structural: true })
+          return validation.ok ? { ok: true } : { ok: false, errors: validation.errors.map(error => ({ ...error, nodeId: error.nodeId ?? error.path?.match(/^\/nodes\/([^/]+)/)?.[1] })) }
+        },
+      }))
+    } catch (error) {
+      res.status(503).json({ error: 'runtime_validation_unavailable', message: error instanceof Error ? error.message : 'Core validation unavailable' })
+    }
+  })
+
+  router.get('/loops/:id/legacy-graph', (req: Request, res: Response) => {
+    if (!guard(res)) return
+    const backup = readLegacyLoopGraph(db, req.params.id as string)
+    if (!backup) { res.status(404).json({ error: 'Original legacy graph not found' }); return }
+    res.json(backup)
   })
 
   router.get('/loops/:id', (req: Request, res: Response) => {
@@ -215,9 +307,9 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   })
 
   // ── Instantiate from a template ───────────────────────────────────────────────
-  router.post('/loops/from-template/:templateId', (req: Request, res: Response) => {
+  router.post('/loops/from-template/:templateId', async (req: Request, res: Response) => {
     if (!guard(res)) return
-    const template = getLoopTemplate(req.params.templateId as string)
+    const template = getLoopTemplate(req.params.templateId as string, await factoryCapabilities())
     if (!template) {
       res.status(404).json({ error: 'Template not found' })
       return
@@ -241,7 +333,10 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       res.status(404).json({ error: 'Loop not found' })
       return
     }
-    if (isRunning(id)) {
+    // Runs freeze a clone of their graph at launch, and built-in launches use
+    // the last Published snapshot while an edit is Draft, so a running built-in
+    // stays editable. Other loops keep the conservative running guard.
+    if (!isBuiltin(id) && isRunning(id)) {
       res.status(409).json({ error: 'Loop is running; stop the run before editing' })
       return
     }
@@ -263,7 +358,38 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
   })
 
   // ── Publish / unpublish ───────────────────────────────────────────────────────
-  router.post('/loops/:id/publish', (req: Request, res: Response) => {
+  router.post('/loops/:id/convert', async (req: Request, res: Response) => {
+    if (!guard(res)) return
+    const id = req.params.id as string, current = getLoop(db, id)
+    if (!current) { res.status(404).json({ error: 'Loop not found' }); return }
+    if (isRunning(id)) { res.status(409).json({ error: 'loop_running' }); return }
+    if (isDefinitionGraph(current.graph) && readLegacyLoopGraph(db, id)) {
+      res.json({ loop: current, nodeIds: {}, issues: [], alreadyConverted: true }); return
+    }
+    try {
+      const converted = convertLegacyLoop(current.graph, {
+        ...(typeof req.body?.repositoryId === 'string' && req.body.repositoryId.trim() ? { repositoryId: req.body.repositoryId.trim() } : {}),
+      })
+      if (!converted.ok) { res.status(422).json({ error: 'conversion_invalid', errors: converted.issues }); return }
+      const runtime = await loadCoreAgentRuntime()
+      const catalog = runtime.listWorkflows?.()
+      if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1 ||
+        !catalog || catalog.nodeKindsVersion < 5) {
+        res.status(409).json({ error: 'engine_unsupported', message: 'Legacy conversion requires Core catalog version 5 or later.' }); return
+      }
+      const definition = compileLoopToDefinition(converted.graph, { id: current.id, title: current.name, constants: loadConstantMap(db), provider: 'claude', spec: { id: 1, title: 'Sample spec', description: 'Conversion preview' } })
+      const validation = runtime.validateWorkflowDefinition(definition, { structural: true })
+      if (!validation.ok) { res.status(422).json({ error: 'conversion_invalid', errors: validation.errors }); return }
+      if (isRunning(id)) { res.status(409).json({ error: 'loop_running' }); return }
+      const loop = updateLoop(db, id, { graph: converted.graph }, current)
+      res.json({ loop, nodeIds: converted.nodeIds, issues: converted.issues })
+    } catch (error) {
+      if (error instanceof LoopPublicationConflict) { res.status(409).json({ error: 'loop_changed' }); return }
+      res.status(400).json({ error: 'conversion_invalid', message: error instanceof Error ? error.message : 'Conversion failed' })
+    }
+  })
+
+  router.post('/loops/:id/publish', async (req: Request, res: Response) => {
     if (!guard(res)) return
     const id = req.params.id as string
     if (!getLoop(db, id)) {
@@ -271,14 +397,31 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       return
     }
     try {
-      const loop = publishLoop(db, id)
+      const current = getLoop(db, id)!
+      if (isDefinitionGraph(current.graph)) {
+        const runtime = await loadCoreAgentRuntime()
+        if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1) {
+          res.status(409).json({ error: 'engine_unsupported', message: 'Update Core to publish executable workflows.' }); return
+        }
+        let draft
+        try { draft = compileLoopToDefinition(current.graph, { id: current.id, title: current.name, constants: loadConstantMap(db), provider: 'claude', spec: { id: 1, title: 'Sample spec', description: 'Publication preview' } }) }
+        catch (error) { res.status(400).json({ errors: [{ code: 'definition_invalid', message: error instanceof Error ? error.message : 'Invalid workflow' }] }); return }
+        const validation = runtime.validateWorkflowDefinition(draft, { structural: true })
+        if (!validation.ok) {
+          res.status(400).json({ errors: validation.errors.map(error => ({ ...error, nodeId: error.nodeId ?? error.path?.match(/^\/nodes\/([^/]+)/)?.[1] })) }); return
+        }
+      }
+      const loop = publishLoop(db, id, current)
       res.json({ loop })
     } catch (err) {
+      if (err instanceof LoopPublicationConflict) {
+        res.status(409).json({ error: err.message, code: 'loop_changed' }); return
+      }
       if (err instanceof LoopValidationError) {
         res.status(422).json({ error: 'Loop graph is invalid', errors: err.errors })
         return
       }
-      throw err
+      res.status(503).json({ error: 'runtime_validation_unavailable', message: err instanceof Error ? err.message : 'Core validation unavailable' })
     }
   })
 
@@ -289,11 +432,36 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       res.status(404).json({ error: 'Loop not found' })
       return
     }
+    if (isBuiltin(id)) {
+      res.status(409).json({ error: 'builtin_loop', message: 'Built-in loops stay available on rails. Edit and publish it, or use Restore original.' })
+      return
+    }
     if (isRunning(id)) {
       res.status(409).json({ error: 'Loop is running; stop the run first' })
       return
     }
     res.json({ loop: unpublishLoop(db, id) })
+  })
+
+  // ── Restore a built-in to its current default ─────────────────────────────────
+  router.post('/loops/:id/restore-builtin', async (req: Request, res: Response) => {
+    if (!guard(res)) return
+    const id = req.params.id as string
+    if (!getLoop(db, id)) {
+      res.status(404).json({ error: 'Loop not found' })
+      return
+    }
+    if (!isBuiltin(id)) {
+      res.status(400).json({ error: 'not_builtin', message: 'Only built-in loops can be restored.' })
+      return
+    }
+    if (isRunning(id)) {
+      res.status(409).json({ error: 'loop_running', message: 'Loop is running; stop the run before restoring it' })
+      return
+    }
+    const loop = await restoreBuiltin(db, id, deps.builtinLoops)
+    if (!loop) { res.status(404).json({ error: 'Built-in loop default not found' }); return }
+    res.json({ loop })
   })
 
   // ── Duplicate ─────────────────────────────────────────────────────────────────
@@ -317,6 +485,10 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
     const id = req.params.id as string
     if (!getLoop(db, id)) {
       res.status(404).json({ error: 'Loop not found' })
+      return
+    }
+    if (isBuiltin(id)) {
+      res.status(409).json({ error: 'builtin_loop', message: BUILTIN_DELETE_MESSAGE })
       return
     }
     if (isRunning(id)) {

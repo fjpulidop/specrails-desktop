@@ -4,6 +4,7 @@ import type { DbInstance } from '../../../db'
 import {
   listLoops,
   getLoop,
+  readLegacyLoopGraph,
   createLoop,
   updateLoop,
   publishLoop,
@@ -12,6 +13,8 @@ import {
   deleteLoop,
   importLoops,
   LoopValidationError,
+  LoopPublicationConflict,
+  readPublishedLoopGraph,
 } from './loops-store'
 import { emptyLoopGraph, type LoopGraph } from './loop-graph'
 
@@ -183,5 +186,80 @@ describe('loops-store duplicate (templates / clone)', () => {
       expect(result.imported).toHaveLength(1)
       expect(result.skipped).toEqual(['Twin'])
     })
+  })
+})
+
+function coreGraph(): LoopGraph {
+  const graph = publishableGraph()
+  graph.nodes[1] = { ...graph.nodes[1], type: 'core', data: { kind: 'condition', params: { expr: 'true' } } }
+  graph.edges[1].label = 'true'
+  graph.edges.push({ id: 'false', source: 'ai', target: 'e', label: 'false' })
+  return graph
+}
+
+describe('original legacy graph preservation', () => {
+  it('backs up the exact published JSON once and leaves the converted graph in Draft', () => {
+    const original = publishableGraph()
+    createLoop(db, { id: 'legacy', name: 'Original', graph: original })
+    publishLoop(db, 'legacy')
+    const bytes = JSON.stringify(original, null, 4)
+    db.prepare('UPDATE loops SET graph=? WHERE id=?').run(bytes, 'legacy')
+    expect(updateLoop(db, 'legacy', { graph: coreGraph() })).toMatchObject({ status: 'draft', hasLegacyGraph: true })
+    expect(db.prepare('SELECT graph_legacy FROM loops WHERE id=?').get('legacy')).toEqual({ graph_legacy: bytes })
+    const backup = readLegacyLoopGraph(db, 'legacy')
+    expect(backup).toEqual({ graph: original, savedAt: expect.any(String) })
+    updateLoop(db, 'legacy', { graph: { ...original, config: { ...original.config, maxIterations: 9 } } })
+    updateLoop(db, 'legacy', { graph: coreGraph() })
+    expect(readLegacyLoopGraph(db, 'legacy')).toEqual(backup)
+  })
+  it('rolls back the backup, publication state and edit together when the write fails', () => {
+    createLoop(db, { id: 'legacy', name: 'Original', graph: publishableGraph() })
+    publishLoop(db, 'legacy')
+    const before = db.prepare('SELECT * FROM loops WHERE id=?').get('legacy')
+    db.exec("CREATE TRIGGER fail_conversion BEFORE UPDATE ON loops WHEN NEW.graph_legacy IS NOT NULL BEGIN SELECT RAISE(ABORT, 'injected save failure'); END")
+    expect(() => updateLoop(db, 'legacy', { graph: coreGraph() })).toThrow('injected save failure')
+    expect(db.prepare('SELECT * FROM loops WHERE id=?').get('legacy')).toEqual(before)
+    expect(readLegacyLoopGraph(db, 'legacy')).toBeUndefined()
+  })
+  it('continues to save incomplete drafts without assuming they have a nodes array', () => {
+    createLoop(db, { id: 'draft', name: 'Draft' })
+    expect(updateLoop(db, 'draft', { graph: {} as LoopGraph })?.graph).toEqual({})
+    expect(updateLoop(db, 'draft', { graph: coreGraph() })?.graph).toEqual(coreGraph())
+    expect(readLegacyLoopGraph(db, 'draft')).toBeUndefined()
+  })
+  it('does not invent a predecessor for new Core graphs, legacy edits or missing loops', () => {
+    createLoop(db, { id: 'native', name: 'Native', graph: coreGraph() })
+    updateLoop(db, 'native', { name: 'Renamed' })
+    createLoop(db, { id: 'legacy', name: 'Legacy', graph: publishableGraph() })
+    updateLoop(db, 'legacy', { name: 'Edited legacy' })
+    for (const id of ['native', 'legacy', 'missing']) expect(readLegacyLoopGraph(db, id)).toBeUndefined()
+    expect(getLoop(db, 'native')?.hasLegacyGraph).toBeUndefined()
+  })
+})
+
+
+it('does not publish a renamed or deleted loop from an earlier validation snapshot', () => {
+  createLoop(db, { id: 'loop', name: 'Original', graph: publishableGraph() })
+  const validated = getLoop(db, 'loop')!
+  updateLoop(db, 'loop', { name: 'Changed' })
+  expect(() => publishLoop(db, 'loop', validated)).toThrow(LoopPublicationConflict)
+  expect(getLoop(db, 'loop')).toMatchObject({ name: 'Changed', status: 'draft' })
+  deleteLoop(db, 'loop')
+  expect(() => publishLoop(db, 'loop', validated)).toThrow(LoopPublicationConflict)
+})
+
+describe('published graph snapshot (migration 31)', () => {
+  it('publishLoop snapshots the graph and a later edit keeps the previous snapshot', () => {
+    createLoop(db, { id: 'snap', name: 'Snap', graph: publishableGraph() })
+    expect(readPublishedLoopGraph(db, 'snap')).toBeUndefined()
+    publishLoop(db, 'snap')
+    expect(readPublishedLoopGraph(db, 'snap')).toEqual(publishableGraph())
+    const edited = { ...publishableGraph(), config: { maxIterations: 9, timeoutMinutes: 20 } }
+    updateLoop(db, 'snap', { graph: edited })
+    expect(getLoop(db, 'snap')?.status).toBe('draft')
+    expect(readPublishedLoopGraph(db, 'snap')).toEqual(publishableGraph())
+    publishLoop(db, 'snap')
+    expect(readPublishedLoopGraph(db, 'snap')).toEqual(edited)
+    expect(getLoop(db, 'snap')?.builtinId).toBeUndefined()
   })
 })

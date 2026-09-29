@@ -1,5 +1,5 @@
 /**
- * Tests for the OpenSpec-lifecycle loop template (opsx-lifecycle) and the engine
+ * Tests for the OpenSpec-lifecycle graph (legacy Quick SDD factory) and the engine
  * support it relies on: the opsx:* provider-native magic commands, the
  * `{{run.changeId}}` run-scoped capture, and the shell `requireRunVars` archive
  * guard. See openspec/changes/opsx-lifecycle-loop-template.
@@ -93,12 +93,10 @@ describe('resolveRunVars', () => {
   })
 })
 
-// ── template registration (loop-template-catalog) ────────────────────────────
-describe('opsx-lifecycle template', () => {
-  it('is registered under the Automation category', () => {
-    const t = getLoopTemplate('opsx-lifecycle')
-    expect(t).toBeDefined()
-    expect(t!.category).toBe('Automation')
+// ── lifecycle graph (legacy Quick SDD factory) ──────────────────────────────
+describe('opsx-lifecycle graph', () => {
+  it('is no longer a gallery template (the Quick SDD built-in owns it)', () => {
+    expect(getLoopTemplate('opsx-lifecycle')).toBeUndefined()
   })
   it('has a valid graph', () => {
     expect(validateLoopGraph(opsxLifecycleGraph()).valid).toBe(true)

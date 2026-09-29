@@ -34,3 +34,9 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/loops`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+The log explorer consumes Core's public `runtime-graph.graph` through the pure
+`runtime-topology` parser. `RuntimeGraphExplorer` renders its actual transitions,
+supports nested components, and focuses exact scoped attempts in the existing log
+pipeline. It cannot edit or execute a graph; those actions belong to the builder
+and server control routes. Recorded trace identifiers are optional.

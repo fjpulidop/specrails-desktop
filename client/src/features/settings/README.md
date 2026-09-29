@@ -13,6 +13,8 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/AgentRuntimeRuns.tsx](components/AgentRuntimeRuns.tsx)
 - [components/ProjectSettingsDialog.tsx](components/ProjectSettingsDialog.tsx)
 - [components/RuntimeExecutionEvidence.tsx](components/RuntimeExecutionEvidence.tsx)
+- [components/RuntimeRecovery.tsx](components/RuntimeRecovery.tsx): exact-attempt recovery selection shared by saved executions and job details.
+- [components/RuntimeSteering.tsx](components/RuntimeSteering.tsx): shared durable steering inbox for saved runs and job details.
 - [components/pickers/LanguagePickerGrid.tsx](components/pickers/LanguagePickerGrid.tsx)
 - [components/pickers/ThemePickerGrid.tsx](components/pickers/ThemePickerGrid.tsx)
 - [components/theme-effects/Starfield.tsx](components/theme-effects/Starfield.tsx)

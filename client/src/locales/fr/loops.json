@@ -51,25 +51,30 @@
     "publish": "Publier",
     "unpublish": "Dépublier",
     "duplicate": "Dupliquer",
+    "restoreBuiltin": "Restaurer l'original",
     "use": "Utiliser le modèle",
     "preview": "Aperçu",
-    "fork": "Dupliquer pour éditer",
     "run": "Exécuter",
     "export": "Exporter",
     "import": "Importer",
-    "select": "Sélectionner {{name}}"
+    "select": "Sélectionner {{name}}",
+    "exportLegacy": "Exporter le graphe d’origine",
+    "originalCopyName": "Original : {{name}}",
+    "convert": "Convertir vers Core"
   },
   "card": {
     "nodes_one": "{{count}} nœud",
     "nodes_other": "{{count}} nœuds",
-    "usedIn": "En cours d'utilisation · {{project}}"
+    "usedIn": "En cours d'utilisation · {{project}}",
+    "builtinModified": "Modifié"
   },
   "confirmDelete": "Supprimer cette boucle ? Elle disparaîtra de tous les sélecteurs de rail.",
   "newLoopName": "Nouvelle boucle",
   "errors": {
     "load": "Échec du chargement des boucles",
     "save": "Échec de l'enregistrement de la boucle",
-    "publishInvalid": "Cette boucle ne peut pas encore être publiée — corrigez les problèmes signalés."
+    "publishInvalid": "Cette boucle ne peut pas encore être publiée — corrigez les problèmes signalés.",
+    "exportLegacy": "Impossible d’exporter le graphe d’origine."
   },
   "builder": {
     "back": "Retour aux boucles",
@@ -77,13 +82,19 @@
     "saved": "Boucle enregistrée",
     "publish": "Publier",
     "published": "Boucle publiée",
+    "builtin": {
+      "note": "Loop intégré. Vous modifiez le loop intégré lui-même : une fois publié, vos changements s'appliquent à chaque rail, lancement depuis le chat de l'agent et Companion qui l'utilise. Les rails continuent d'exécuter la dernière version publiée pendant que vous modifiez. Utilisez Restaurer l'original pour revenir à la version par défaut.",
+      "restored": "Loop intégré restauré à sa version d'origine",
+      "confirmTitle": "Restaurer le loop intégré d'origine ?",
+      "confirmBody": "Cela annule vos modifications de ce loop intégré et publie sa version d'origine pour tous les rails qui l'utilisent. Dupliquez-le d'abord si vous voulez conserver votre version."
+    },
     "addNode": "Ajouter un nœud",
     "deleteNode": "Supprimer le nœud",
     "config": {
       "maxIterations": "Itérations max",
       "timeout": "Délai (min)",
       "maxIterationsHint": "Plafond d'itérations du Loop Decider — la boucle s'arrête une fois atteint, même si l'objectif n'est pas rempli. Évite les boucles infinies.",
-      "timeoutHint": "Limite de temps réel pour toute l'exécution, en minutes. Si dépassée, l'exécution est arrêtée et marquée échouée — un filet de sécurité avec le nombre max d'itérations.",
+      "timeoutHint": "Limite de temps réel pour toute l'exécution, en minutes. Si dépassée, l'exécution est arrêtée et marquée échouée — un filet de sécurité avec le nombre max d'itérations. 0 désactive cette limite de temps ; les autres budgets et l’annulation restent actifs.",
       "maxCost": "Coût max ($)",
       "maxCostHint": "Budget USD optionnel pour toute l’exécution. Vérifié ENTRE les étapes (le coût d’une étape n’est connu qu’à sa fin), la boucle s’arrête avant l’étape suivante une fois le total dépassé — peut dépasser d’une étape. Pour les fournisseurs non-Claude, le coût est estimé. Vide = aucune limite."
     },
@@ -152,7 +163,10 @@
       "EMPTY_PROMPT": "L'AI Step a un prompt vide.",
       "EMPTY_COMMAND": "L'étape Shell a une commande vide.",
       "EMPTY_GOAL": "Le Loop Decider n'a pas d'objectif.",
-      "DEAD_END": "Cette étape n'a aucune connexion sortante."
+      "DEAD_END": "Cette étape n'a aucune connexion sortante.",
+      "MIXED_ENGINES": "Ne mélangez pas les anciennes étapes et les étapes Core.",
+      "CORE_OUTCOMES": "Reliez des résultats distincts et valides.",
+      "CORE_PIECE": "Sélectionnez une étape et ses paramètres."
     },
     "preview": {
       "label": "Aperçu",
@@ -160,6 +174,57 @@
       "sampleNote": "Les valeurs du spec sont des exemples ; commandes et constantes sont résolues telles qu'à l'exécution.",
       "empty": "Aucune étape à prévisualiser.",
       "error": "Échec de l'aperçu"
+    },
+    "core": {
+      "unavailable": "Moteur indisponible. Mettez Core à jour pour ajouter ou publier des étapes.",
+      "root": "Workflow principal",
+      "components": "Composants",
+      "componentName": "Nom du composant",
+      "addComponent": "Ajouter un composant",
+      "openComponent": "Ouvrir le composant",
+      "breadcrumbs": "Navigation du workflow",
+      "select": "Choisir une option",
+      "valueType": "Type de valeur",
+      "addItem": "Ajouter un élément",
+      "fieldName": "Nom du champ",
+      "addField": "Ajouter {{name}}",
+      "removeField": "Supprimer {{name}}",
+      "variant": "Format de {{name}}",
+      "tooDeep": "La valeur contient trop de niveaux.",
+      "pieces": {
+        "prompt": "Prompt",
+        "role-turn": "Tour de rôle",
+        "decider": "Décision",
+        "condition": "Condition",
+        "verify": "Vérifier",
+        "shell": "Shell",
+        "openspec-validate": "Valider OpenSpec",
+        "openspec-archive": "Archiver OpenSpec",
+        "approval": "Approbation",
+        "question": "Question",
+        "gate": "Pause",
+        "map": "Parcourir",
+        "join": "Regrouper",
+        "component": "Composant",
+        "implementation": "Implémentation",
+        "end": "Fin",
+        "assign": "Définir des variables"
+      },
+      "groups": {
+        "ai": "IA",
+        "verification": "Vérification",
+        "openspec": "OpenSpec",
+        "control": "Contrôle du flux"
+      },
+      "options": "Options du workflow",
+      "reviewerStep": "Nœud de preuves de revue",
+      "reviewerAutomatic": "Automatique (revues d’implémentation)",
+      "reviewerHint": "Choisissez le tour de rôle qui fournit la revue structurée. La revue IA ne remplace pas la vérification par l’hôte.",
+      "assignment": {
+        "set": "Définir les valeurs",
+        "increment": "Ajuster les compteurs"
+      },
+      "requiredContinue": "Continuer tant que cette condition est remplie"
     }
   },
   "preview": {
@@ -216,155 +281,11 @@
     },
     "factory_implement": {
       "name": "Implémenter",
-      "description": "Totalement autonome : implémente le spec, vérifie, puis corrige en cas d'échec — en bouclant jusqu'à ce que tous les tests passent."
-    },
-    "factory_batch": {
-      "name": "Implémentation par lots",
-      "description": "Implémente d'un coup tous les tickets du rail, puis vérifie et corrige en cas d'échec jusqu'au vert."
+      "description": "Implémente toutes les specs du rail en une seule exécution : planifie, implémente, relit et vérifie, en corrigeant les échecs jusqu'à ce que les contrôles passent."
     },
     "factory_freestyle": {
       "name": "Freestyle",
       "description": "Confie la spec directement au modèle en toute liberté — sans pipeline, il travaille comme un agent de code classique, puis vérifie + affine jusqu'au vert. Claude uniquement."
-    },
-    "autoloop-tdd": {
-      "name": "Autoloop TDD",
-      "description": "Un cycle red-green-refactor strict pour {{spec.title}} : chaque comportement est d'abord verrouillé par un test qui échoue, puis on écrit juste ce qu'il faut de code pour le faire passer au vert, avant de nettoyer — en répétant jusqu'à couvrir entièrement la spec."
-    },
-    "e2e-until-green": {
-      "name": "E2E jusqu'au vert",
-      "description": "Lance la suite E2E pour {{spec.title}}, diagnostique chaque parcours utilisateur en échec, corrige le défaut d'UI ou d'intégration sous-jacent, et continue le cycle jusqu'à ce que toutes les specs E2E passent."
-    },
-    "flaky-test-triage": {
-      "name": "Tri des tests instables",
-      "description": "Relance plusieurs fois les tests en échec autour de {{spec.title}} pour distinguer les vraies régressions des instabilités passagères, puis répare les vraies casses et stabilise ou documente les tests instables."
-    },
-    "independent-verifier-pass": {
-      "name": "Vérification indépendante",
-      "description": "Une vérification adversariale de {{spec.title}} : relance build, lint et tests à zéro, ne fais confiance qu'à la sortie brute des commandes (jamais à un « ça marche » antérieur), et fais remonter ou corrige chaque écart."
-    },
-    "post-edit-test-guard": {
-      "name": "Garde-fou post-édition",
-      "description": "Après chaque lot de modifications pour {{spec.title}}, lance aussitôt l'ensemble de tests le plus ciblé touchant les fichiers modifiés — pour attraper les régressions dès leur apparition plutôt qu'à la fin."
-    },
-    "post-merge-regression-guard": {
-      "name": "Garde anti-régression post-merge",
-      "description": "Juste après qu'un merge ou un rebase fait entrer le travail des autres dans {{spec.title}}, lance le smoke test rapide pour repérer immédiatement toute casse d'intégration — avant de bâtir de nouvelles fonctionnalités par-dessus."
-    },
-    "pre-commit-guard": {
-      "name": "Garde pré-commit",
-      "description": "Un verrou de sécurité pour {{spec.title}} qui intercepte chaque commit : la suite de tests passe d'abord, et le commit est refusé tant qu'elle est au rouge, pour que du code cassé n'entre jamais dans l'historique."
-    },
-    "visual-regression-until-match": {
-      "name": "Régression visuelle jusqu'à correspondance",
-      "description": "Capture des instantanés visuels de l'UI modifiée, traque chaque écart de pixels involontaire, et corrige jusqu'à ce que la suite visuelle soit au vert avec uniquement les changements de design approuvés."
-    },
-    "format-until-clean": {
-      "name": "Formater jusqu'au propre",
-      "description": "Applique le formateur du projet, règle les quelques problèmes de style qu'il ne peut pas corriger automatiquement, et continue jusqu'à ce qu'un nouveau passage ne touche plus rien dans l'arbre de travail."
-    },
-    "lint-typecheck-fix": {
-      "name": "Corriger lint et typage",
-      "description": "Lance le lint et le vérificateur de types, résous chaque problème signalé avec la modification la plus minime possible, et boucle jusqu'à ce que les deux contrôles reviennent parfaitement propres."
-    },
-    "a11y-audit-until-clean": {
-      "name": "Audit a11y jusqu'au propre",
-      "description": "Lance les contrôles d'accessibilité automatisés sur les écrans modifiés, corrige les violations catégorie par catégorie, et répète jusqu'à ce que l'audit ne remonte plus aucun problème."
-    },
-    "de-sloppify-pass": {
-      "name": "Passe de nettoyage",
-      "description": "Une fois la fonctionnalité livrée, balaie le diff pour traquer les restes négligés — sorties de debug, branches mortes, noms bâclés, fonctions surchargées — nettoie-les, et prouve que le nettoyage n'a rien cassé."
-    },
-    "fix-ci-until-green": {
-      "name": "Réparer la CI jusqu'au vert",
-      "description": "Récupère le dernier run CI rouge de cette branche, reproduis la casse en local, corrige la vraie cause, pousse, et continue le cycle jusqu'à ce que tous les contrôles soient au vert."
-    },
-    "pr-babysitter": {
-      "name": "Nounou de PR",
-      "description": "À intervalle régulier, passe en revue les pull requests que tu surveilles et garde chacune fusionnable : relance la CI rouge, rebase celles en retard sur la branche de base, et relance celles qui stagnent — en escaladant tout ce qui demande une décision humaine."
-    },
-    "pr-watch-loop": {
-      "name": "Boucle de veille PR",
-      "description": "Interroge à cadence régulière les pull requests de ta liste de veille, résume l'état de la CI et de la revue de chacune, puis règle les blocages triviaux ou fais remonter ce qui requiert un responsable."
-    },
-    "pr-self-review": {
-      "name": "Auto-revue de PR",
-      "description": "Critique ton propre diff comme le ferait un reviewer senior exigeant, corrige ce que tu trouves, et re-révise jusqu'à ce qu'un passage propre ne remonte plus rien de critique — avant même que la PR ne quitte tes mains."
-    },
-    "spec-first-ship": {
-      "name": "Livrer par la spec",
-      "description": "Mène une checklist d'exigences écrite jusqu'au bout, point par point — chaque passe implémente une seule exigence non cochée, la prouve et la coche — pour que la spec soit le contrat du « terminé »."
-    },
-    "dependency-audit-weekly": {
-      "name": "Audit hebdo des dépendances",
-      "description": "Chaque semaine, fais le point sur les paquets en retard, trie-les entre mises à jour sûres et risquées, et restitue un plan de montée de version clair et actionnable."
-    },
-    "dependency-upgrade-one-by-one": {
-      "name": "Mettre à jour une dépendance à la fois",
-      "description": "Monte exactement un paquet obsolète par passe, répare ce que la montée casse, prouve que le projet fonctionne toujours, et committe — bien plus sûr que de tout mettre à jour d'un coup."
-    },
-    "knip-until-clean": {
-      "name": "Élaguer le code mort jusqu'au propre",
-      "description": "Traque les exports non référencés, les fichiers orphelins et les dépendances que personne n'importe, supprime-les en toute sécurité, et continue jusqu'à ce que le scanner de code mort n'ait plus rien à signaler."
-    },
-    "docs-sync-after-edits": {
-      "name": "Synchroniser la doc au code",
-      "description": "Après une série de modifications de code, retrouve chaque doc concernée — README, référence API, commentaires inline — et remets-la en phase avec le comportement réel du code."
-    },
-    "security-audit-weekly": {
-      "name": "Audit de sécurité hebdo",
-      "description": "Lance chaque semaine un scan de vulnérabilités sur l'arbre des dépendances, trie les résultats par gravité et exposition réelle, et restitue un plan de remédiation priorisé."
-    },
-    "npm-audit-fix-loop": {
-      "name": "Corriger les vulnérabilités une à une",
-      "description": "Traite les alertes de dépendances critiques et élevées de manière maîtrisée — une correction par passe, chacune vérifiée contre la suite de tests — plutôt qu'un force-fix aveugle qui peut casser le build en silence."
-    },
-    "api-contract-until-match": {
-      "name": "Contrat API jusqu'à correspondance",
-      "description": "Fais évoluer l'implémentation jusqu'à ce que ses réponses respectent le contrat API publié, en comblant tout écart entre ce que le schéma promet et ce que les handlers renvoient réellement."
-    },
-    "openapi-sync-until-valid": {
-      "name": "Synchroniser OpenAPI jusqu'à validité",
-      "description": "Maintiens le document OpenAPI bien formé et fidèle aux vrais handlers de routes, en corrigeant les erreurs de spec et les écarts code/doc à chaque passe jusqu'à ce que le lint soit satisfait."
-    },
-    "migration-until-applied": {
-      "name": "Migration jusqu'à application",
-      "description": "Fais avancer proprement le schéma de la base : exécute les migrations en attente, répare les défauts de schéma ou de SQL qu'elles révèlent, et confirme que l'historique de migration reste cohérent."
-    },
-    "bundle-size-budget": {
-      "name": "Budget de taille du bundle",
-      "description": "Livre la fonctionnalité sans faire dépasser au bundle client son budget — mesure à chaque passe puis élague, découpe le code ou charge à la demande jusqu'à ce que le seuil de taille soit au vert."
-    },
-    "changelog-sync-after-ship": {
-      "name": "Synchroniser le changelog après livraison",
-      "description": "Après une livraison, assure-toi que le changelog raconte l'histoire côté utilisateur : passe en revue ce qui a été livré, rédige des entrées au format Keep a Changelog, et confirme que rien de visible n'a été oublié."
-    },
-    "guardrails-learning-loop": {
-      "name": "Boucle d'apprentissage des garde-fous",
-      "description": "Itère sur les contrôles jusqu'à les faire passer au vert, mais chaque fois qu'un contrôle échoue deux fois de la même manière, note d'abord un garde-fou pour que la boucle ne gaspille jamais d'itérations à retenter une approche déjà vouée à l'échec."
-    },
-    "ralph-story-executor": {
-      "name": "Exécuteur de stories du backlog",
-      "description": "Traite un backlog de user stories une à une avec un contexte neuf à chaque passe : prends la prochaine story inachevée, construis-la seule, prouve que les contrôles du projet restent au vert, committe, et marque-la terminée avant de passer à la suivante."
-    },
-    "investigation-script-loop": {
-      "name": "Boucle de script d'investigation",
-      "description": "Cerne empiriquement la vraie cause d'un bug : écris un petit script jetable qui exerce le comportement suspect, lance-le, lis la sortie réelle, et affine la sonde jusqu'à ce que la sortie elle-même prouve la cause racine."
-    },
-    "reflexion-debug-loop": {
-      "name": "Boucle de debug réflexive",
-      "description": "Fais passer un test en échec au vert sans tourner en rond : à chaque tentative ratée, note une courte réflexion sur disque et consulte-la avant l'essai suivant, pour que la boucle ne répète jamais une correction déjà écartée."
-    },
-    "merge-conflict-resolver": {
-      "name": "Résolveur de conflits de merge",
-      "description": "Mets la branche à jour avec sa cible par un rebase, puis résous chaque fichier en conflit un par un en préservant l'intention des deux côtés, et prouve que le résultat passe toujours avant de déclarer la branche à jour."
-    },
-    "staging-smoke-test": {
-      "name": "Smoke test de staging",
-      "description": "Après un déploiement en staging, déroule une checklist de smoke test fixe — auth, parcours utilisateur principaux, intégrations clés — en corrigeant le plus petit problème à chaque casse et en relançant jusqu'à ce que toute la checklist revienne propre."
-    },
-    "deploy-verification-loop": {
-      "name": "Boucle de vérification de déploiement",
-      "description": "Une fois le déploiement sorti, interroge les endpoints de santé et de smoke test à intervalle régulier, en investiguant et corrigeant ou escaladant toute réponse non saine, et continue de vérifier jusqu'à ce que chaque endpoint configuré reporte un succès."
     },
     "factory_openspec": {
       "name": "OpenSpec Lifecycle",
@@ -382,5 +303,39 @@
     "skipped_other": "{{count}} doublons ignorés : {{names}}",
     "invalid": "Ce fichier n'est pas un export de loops valide."
   },
-  "automaticOnly": "S'exécute automatiquement quand vous demandez des changements sur une relecture — vous ne le lancez pas."
+  "core": {
+    "selectInterrupt": "Choisir la question ou approbation en attente",
+    "answerQuestion": "Répondre à la question",
+    "approval": "Approbation",
+    "approveContinue": "Approuver et continuer",
+    "paused": "En pause",
+    "acceptance": "Acceptation",
+    "verified": "Vérifié"
+  },
+  "conversion": {
+    "title": "Convertir {{name}} vers Core",
+    "description": "Core valide le graphe converti avant de l’enregistrer comme brouillon. L’original reste exportable. Vérifiez le nouveau workflow avant de le publier.",
+    "repository": "Dépôt des étapes shell sans destination",
+    "selectRepository": "Choisissez le dépôt d’origine",
+    "submit": "Convertir et vérifier",
+    "pending": "Conversion…",
+    "error": "Échec de la conversion",
+    "coreRequired": "Mettez Core à jour pour convertir ce workflow."
+  },
+  "migration": {
+    "title": "Vérification de la migration vers Core",
+    "description": "Vérifie chaque loop enregistrée avec le Core installé. Rien n’est converti ni publié automatiquement.",
+    "check": "Vérifier",
+    "checking": "Vérification…",
+    "failed": "Impossible de vérifier les loops.",
+    "empty": "Aucune loop enregistrée.",
+    "allCurrent": "Toutes les loops utilisent déjà Core et sont valides.",
+    "states": {
+      "current": "À jour",
+      "invalid": "Refusée par le Core installé",
+      "convertible": "Prête à convertir",
+      "needs_attention": "À examiner",
+      "running": "En cours"
+    }
+  }
 }

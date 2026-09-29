@@ -161,7 +161,9 @@ describe('Core implementation factories delegate the complete pipeline once', ()
     expect(result.outcome).toBe(failed ? 'failed' : 'success')
     expect(runAiStep).toHaveBeenCalledOnce()
     const prompt = vi.mocked(runAiStep).mock.calls[0]?.[0]?.prompt
-    expect(prompt).toContain(factoryId === 'factory:batch' ? '/specrails:batch-implement' : '/specrails:implement')
+    // The removed Batch id resolves to Implement: one aggregate implement run.
+    expect(prompt).toContain('/specrails:implement #1 #2')
+    expect(prompt).not.toContain('batch-implement')
     expect(runDecider).not.toHaveBeenCalled()
     expect(runShell).not.toHaveBeenCalled()
   })

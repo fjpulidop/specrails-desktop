@@ -511,6 +511,20 @@ memory: project
       expect(result.reason).toBe('name_changed')
     })
 
+    it.each([false, true])('rejects invalid engine metadata before writing even with force=%s', async force => {
+      const refineId = await startReady()
+      const file = path.join(projectPath, '.claude', 'agents', 'custom-foo.md')
+      const before = fs.readFileSync(file, 'utf8')
+      const status = getRefineSession(db, refineId)!.status
+      db.prepare('UPDATE agent_refine_sessions SET draft_body = ? WHERE id = ?').run(
+        VALID_BODY.replace('name: custom-foo', 'name: custom-foo\nengine:\n  maxTurns: -1'), refineId,
+      )
+      expect(mgr.apply({ refineId, force })).toEqual({ ok: false, reason: 'invalid_agent_role' })
+      expect(fs.readFileSync(file, 'utf8')).toBe(before)
+      expect(getRefineSession(db, refineId)!.status).toBe(status)
+      expect((db.prepare('SELECT COUNT(*) AS count FROM agent_versions').get() as { count: number }).count).toBe(0)
+    })
+
     it('returns session_not_found for unknown id', () => {
       expect(mgr.apply({ refineId: 'nope' }).reason).toBe('session_not_found')
     })

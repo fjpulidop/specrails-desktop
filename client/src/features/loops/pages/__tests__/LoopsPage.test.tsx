@@ -1,12 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import LoopsPage from '../LoopsPage'
+import { toast } from 'sonner'
 import { loopsApi, type LoopDefinition } from '../../lib/loops-api'
 
 vi.mock('../../lib/loops-api', () => ({
   loopsApi: {
     list: vi.fn(),
+    legacyGraph: vi.fn(),
     templates: vi.fn(),
     create: vi.fn(),
     fromTemplate: vi.fn(),
@@ -14,8 +16,7 @@ vi.mock('../../lib/loops-api', () => ({
     unpublish: vi.fn(),
     duplicate: vi.fn(),
     remove: vi.fn(),
-    factoryLoops: vi.fn(),
-    forkFactory: vi.fn(),
+    restoreBuiltin: vi.fn(),
   },
   LoopPublishError: class LoopPublishError extends Error {
     errors: unknown[] = []
@@ -56,8 +57,7 @@ beforeEach(() => {
   api.unpublish.mockResolvedValue(loop({}))
   api.duplicate.mockResolvedValue(loop({ id: 'dup' }))
   api.remove.mockResolvedValue(undefined)
-  api.factoryLoops.mockResolvedValue([])
-  api.forkFactory.mockResolvedValue(loop({ id: 'forked' }))
+  api.restoreBuiltin.mockResolvedValue(loop({ id: 'factory:implement', builtinId: 'factory:implement', status: 'published' }))
 })
 
 describe('LoopsPage', () => {
@@ -154,19 +154,19 @@ describe('LoopsPage', () => {
   })
 
   it('matches search against the localized (catalog) text, not just the server fields', async () => {
-    // id `flaky-test-triage` has a catalog entry whose description contains
-    // "intermittent"; the server description here does NOT. Searching the
+    // id `coverage-climb` has a catalog entry whose description contains
+    // "thresholds"; the server description here does NOT. Searching the
     // localized word must still find it.
     api.templates.mockResolvedValue([
-      { id: 'flaky-test-triage', name: 'srv-name-a', description: 'srv-desc-no-match', category: 'Testing', tags: [], graph: tmplGraph },
-      { id: 'merge-conflict-resolver', name: 'srv-name-b', description: 'srv-desc-b', category: 'Git', tags: [], graph: tmplGraph },
+      { id: 'coverage-climb', name: 'srv-name-a', description: 'srv-desc-no-match', category: 'Testing', tags: [], graph: tmplGraph },
+      { id: 'build-fix', name: 'srv-name-b', description: 'srv-desc-b', category: 'CI', tags: [], graph: tmplGraph },
     ])
     renderPage()
     // card shows the localized catalog name, not the server name
-    await screen.findByText('Flaky Test Triage')
-    fireEvent.change(screen.getByTestId('template-search'), { target: { value: 'intermittent' } })
-    await waitFor(() => expect(screen.queryByText('Merge Conflict Resolver')).not.toBeInTheDocument())
-    expect(screen.getByText('Flaky Test Triage')).toBeInTheDocument()
+    await screen.findByText('Coverage Climb')
+    fireEvent.change(screen.getByTestId('template-search'), { target: { value: 'thresholds' } })
+    await waitFor(() => expect(screen.queryByText('Build Fix')).not.toBeInTheDocument())
+    expect(screen.getByText('Coverage Climb')).toBeInTheDocument()
   })
 
   it('filters templates by clicking a category chip', async () => {
@@ -227,73 +227,82 @@ describe('LoopsPage', () => {
     expect(await screen.findByText('1 node')).toBeInTheDocument()
   })
 
-  it('lists built-in factory loops and forks one into an editable draft', async () => {
-    api.factoryLoops.mockResolvedValue([
-      { id: 'factory:implement', name: 'Implement', description: 'Run the pipeline', mode: 'implement', claudeOnly: false, graph: tmplGraph },
+  it('lists built-ins as editable loops in their own section (no Fork, no Delete)', async () => {
+    api.list.mockResolvedValue([
+      loop({ id: 'factory:implement', name: 'Implement', status: 'published', builtinId: 'factory:implement', builtinModified: false }),
+      loop({ id: 'u1', name: 'Mine', status: 'published' }),
     ])
     renderPage()
-    expect(await screen.findByText('Implement')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Fork to edit'))
-    await waitFor(() => expect(api.forkFactory).toHaveBeenCalledWith('factory:implement'))
+    const card = await screen.findByTestId('builtin-loop-card')
+    expect(within(card).getByText('Implement')).toBeInTheDocument()
+    expect(within(card).getByTestId('builtin-badge')).toHaveTextContent('Built-in')
+    expect(within(card).getByLabelText('Edit')).toBeInTheDocument()
+    expect(within(card).getByLabelText('Duplicate')).toBeInTheDocument()
+    expect(within(card).queryByLabelText('Delete')).not.toBeInTheDocument()
+    expect(within(card).queryByLabelText('Unpublish')).not.toBeInTheDocument()
+    // Unedited → nothing to restore.
+    expect(within(card).queryByLabelText('Restore original')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Fork to edit/i)).not.toBeInTheDocument()
+    // Never listed twice: the Published section holds only the user's loop.
+    expect(screen.getAllByTestId('loop-card')).toHaveLength(1)
+    fireEvent.click(within(card).getByLabelText('Duplicate'))
+    await waitFor(() => expect(api.duplicate).toHaveBeenCalledWith('factory:implement'))
   })
 
-  it('previews a built-in factory loop, then forks it from the modal (not fromTemplate)', async () => {
-    api.factoryLoops.mockResolvedValue([
-      { id: 'factory:implement', name: 'Implement', description: 'Run the pipeline', mode: 'implement', claudeOnly: false, graph: tmplGraph },
+  it('restores an edited built-in after confirmation', async () => {
+    api.list.mockResolvedValue([
+      loop({ id: 'factory:implement', name: 'Team Implement', status: 'draft', builtinId: 'factory:implement', builtinModified: true }),
     ])
     renderPage()
-    await screen.findByText('Implement')
-    // Open the preview for the built-in (the card has both Preview + Fork to edit).
-    fireEvent.click(screen.getByText('Preview'))
-    const dialog = await screen.findByRole('dialog')
-    // The modal CTA for a built-in is "Fork to edit", NOT "Use template".
-    expect(within(dialog).queryByRole('button', { name: /Use template/i })).not.toBeInTheDocument()
-    fireEvent.click(within(dialog).getByRole('button', { name: /Fork to edit/i }))
-    await waitFor(() => expect(api.forkFactory).toHaveBeenCalledWith('factory:implement'))
-    expect(api.fromTemplate).not.toHaveBeenCalled()
+    const card = await screen.findByTestId('builtin-loop-card')
+    expect(within(card).getByText('Team Implement')).toBeInTheDocument()
+    expect(within(card).getByText(/Edited/)).toBeInTheDocument()
+    // An edited Draft built-in can be published from the card.
+    expect(within(card).getByLabelText('Publish')).toBeInTheDocument()
+    fireEvent.click(within(card).getByLabelText('Restore original'))
+    fireEvent.click(await screen.findByTestId('confirm-restore-builtin'))
+    await waitFor(() => expect(api.restoreBuiltin).toHaveBeenCalledWith('factory:implement'))
   })
 })
 
-describe('LoopsPage — non-launchable built-ins', () => {
-  const revision = {
-    id: 'factory:revision',
-    name: 'Revision',
-    description: 'Applies the one change you asked for…',
-    mode: 'loop' as const,
-    launchable: false,
-    graph: { nodes: [], edges: [], config: {} } as never,
-  }
-  const implement = {
-    id: 'factory:implement',
-    name: 'Implement',
-    description: 'Fully autonomous…',
-    mode: 'implement' as const,
-    launchable: true,
-    graph: { nodes: [], edges: [], config: {} } as never,
-  }
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
-  it('says the loop runs automatically instead of leaving a card with no way to start it', async () => {
-    api.factoryLoops.mockResolvedValue([implement, revision])
+describe('preserved original graph export', () => {
+  it('downloads the retained original rather than the current edited graph', async () => {
+    const current = loop({ hasLegacyGraph: true })
+    const original = { ...current.graph, config: { ...current.graph.config, maxIterations: 77 } }
+    api.list.mockResolvedValue([current])
+    api.legacyGraph.mockResolvedValue({ graph: original, savedAt: '2026-09-27' })
+    const blobs: Blob[] = []
+    const NativeURL = URL
+    vi.stubGlobal('URL', class extends NativeURL {
+      static createObjectURL(blob: Blob) { blobs.push(blob); return 'blob:original' }
+      static revokeObjectURL = vi.fn()
+    })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     renderPage()
-    expect(await screen.findByText('Revision')).toBeInTheDocument()
-    const note = screen.getByTestId('factory-loop-automatic')
-    expect(note).toHaveTextContent(/Runs automatically when you ask for changes/i)
-    // Exactly one card carries it — a launchable built-in must not.
-    expect(screen.getAllByTestId('factory-loop-automatic')).toHaveLength(1)
+    fireEvent.click(await screen.findByRole('button', { name: 'Export original graph' }))
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
+    expect(api.legacyGraph).toHaveBeenCalledWith(current.id)
+    const text = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = reject
+      reader.readAsText(blobs[0])
+    })
+    expect(JSON.parse(text).loops[0].graph).toEqual(original)
+    expect(JSON.parse(text).loops[0].name).toBe('Original: My Loop')
+    expect(current.graph.config.maxIterations).toBe(10)
+    expect(api.publish).not.toHaveBeenCalled()
   })
-
-  it('keeps preview and fork available on it (discovery is the point)', async () => {
-    api.factoryLoops.mockResolvedValue([revision])
+  it('reports a missing backup and does not fall back to exporting the current graph', async () => {
+    api.list.mockResolvedValue([loop({ hasLegacyGraph: true })])
+    api.legacyGraph.mockRejectedValue(new Error('missing'))
+    const error = vi.spyOn(toast, 'error')
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     renderPage()
-    await screen.findByText('Revision')
-    expect(screen.getByRole('button', { name: /preview/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /fork/i })).toBeInTheDocument()
-  })
-
-  it('shows no note for a server that predates the flag', async () => {
-    api.factoryLoops.mockResolvedValue([{ ...implement, launchable: undefined }])
-    renderPage()
-    await screen.findByText('Implement')
-    expect(screen.queryByTestId('factory-loop-automatic')).not.toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: 'Export original graph' }))
+    await waitFor(() => expect(error).toHaveBeenCalledWith('Could not export the original graph.'))
+    expect(click).not.toHaveBeenCalled()
   })
 })

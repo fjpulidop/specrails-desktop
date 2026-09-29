@@ -278,7 +278,27 @@
     "stalledIdle_one": "{{count}} 分間プロバイダーの出力がなく、アプリがこの試行を停止しました",
     "stalledIdle_other": "{{count}} 分間プロバイダーの出力がなく、アプリがこの試行を停止しました",
     "providerLimit": "プロバイダー上限",
-    "providerLimitHint": "プロバイダーが利用上限の通知を返したため、アプリはループを続けずに実行を停止しました。"
+    "providerLimitHint": "プロバイダーが利用上限の通知を返したため、アプリはループを続けずに実行を停止しました。",
+    "paused": "一時停止中",
+    "runtimeGraph": "実行グラフ",
+    "graphBack": "戻る",
+    "graphOpenComponent": "コンポーネントを開く",
+    "graphNoAttempts": "記録された試行はありません",
+    "graphState": {
+      "running": "実行中",
+      "paused": "一時停止",
+      "failed": "失敗",
+      "stalled": "進行停止",
+      "interrupted": "中断",
+      "ok": "成功",
+      "pending": "待機中",
+      "unknown": "不明"
+    },
+    "repeatFromHere": "ここから繰り返す",
+    "forkFailed": "リンクされた実行を作成できませんでした",
+    "forkPending": "保留中の分岐を完了するには、最初に選択したステップを再試行してください。",
+    "forkCreated": "リンクされた実行を作成しました。開いて選択したチェックポイントから再開してください。",
+    "openFork": "リンクされた実行を開く"
   },
   "logViewer": {
     "loading": "ログを読み込み中...",

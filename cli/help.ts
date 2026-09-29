@@ -41,7 +41,7 @@ ${bold('Project Required:')}
 
 ${bold('Usage:')}
   specrails-desktop implement #42                Run a known specrails verb (prepends /specrails:)
-  specrails-desktop batch-implement #40 #41      Batch implementation across issues
+  specrails-desktop implement #40 #41            Implement several issues in one run
   specrails-desktop retry                        Resume the saved implementation run
   specrails-desktop "any raw prompt"             Pass a raw prompt directly to claude
   specrails-desktop --status                     Print manager status and exit

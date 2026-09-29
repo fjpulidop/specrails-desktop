@@ -324,6 +324,17 @@ describe('decision sets', () => {
 })
 
 describe('reconcileFailedBuildingPrDeliveries', () => {
+  it('preserves an engine v2 restart pause and its building delivery for retained-runtime recovery', () => {
+    mk('recoverable', 0)
+    transitionDecision(db, 'recoverable', 'building', 'building', { runIds: ['core-run'] })
+    createLoopRun(db, { id: 'core-run', projectId: 'proj', loopId: 'factory:implement', railIndex: 0, ticketId: 1, iterationLimit: 1, startedAt: '2026-09-26T19:00:00Z' })
+    db.prepare("UPDATE loop_runs SET engine_version=2,status='paused',restart_reason='restart' WHERE id='core-run'").run()
+    expect(reconcileFailedBuildingPrDeliveries(db, { startup: true })).toEqual([])
+    expect(getPrDelivery(db, 'recoverable')).toMatchObject({ decision: 'building', status_code: 'restart_pending' })
+    expect(reconcileFailedBuildingPrDeliveries(db, { startup: true })).toEqual([])
+    expect(getPrDelivery(db, 'recoverable')?.decision).toBe('building')
+  })
+
   it('turns a stranded building row with only failed settled runs into implementation_failed', () => {
     mk('a', 0)
     transitionDecision(db, 'a', 'building', 'building', { runIds: ['run-1'] })

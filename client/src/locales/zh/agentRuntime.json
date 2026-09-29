@@ -170,7 +170,8 @@
       "paused": "已暂停",
       "cancelled": "已取消",
       "interrupted": "已中断",
-      "unavailable": "不可用"
+      "unavailable": "不可用",
+      "expired": "已过期"
     },
     "question": "架构师提问:",
     "answerLabel": "你的回答",
@@ -181,7 +182,8 @@
     "preserveProgress": "从所示阶段继续，保留已有工作和保存的设置。",
     "reviewDelivery": "实现已完成。交付前请在任务日志中检查结果；本次继续执行未发布结果。",
     "prepareDelivery": "准备交付",
-    "dismiss": "忽略"
+    "dismiss": "忽略",
+    "selectRecovery": "选择要恢复的中断尝试"
   },
   "roleHints": {
     "architect": "阅读代码并撰写提案、设计、任务和规范。只读。",
@@ -493,5 +495,79 @@
       }
     }
   },
-  "unsavedChanges": "未保存的更改"
+  "unsavedChanges": "未保存的更改",
+  "customRoles": {
+    "title": "自定义角色",
+    "hint": "为工作流角色定义可复用的指令和明确的权限。",
+    "unsupported": "更新 Core 后即可编辑自定义角色。",
+    "remove": "删除 {{id}}",
+    "access": "源代码访问权限",
+    "read": "只读",
+    "write": "读写",
+    "artifacts": "OpenSpec 工件访问权限",
+    "none": "无",
+    "tasks": "仅任务复选框",
+    "all": "该变更的所有工件",
+    "skill": "OpenSpec 技能",
+    "noSkill": "不绑定技能",
+    "prompt": "角色指令",
+    "id": "角色 ID",
+    "add": "添加角色",
+    "invalidId": "使用以字母开头的唯一小写 ID，最多包含64个字母、数字或连字符。内置 ID 为保留名称。",
+    "escalationHint": "仅允许的协议修复可以使用升级模型，不会增加重试次数。"
+  },
+  "steering": {
+    "title": "运行指令",
+    "hint": "Core 会保存这些指令，供下一个符合条件的代理回合使用。发送指令不会回答问题或授予批准。",
+    "label": "补充指令",
+    "send": "发送指令",
+    "accepted": "Core 已接收，等待代理使用。",
+    "pending": "等待代理回合",
+    "consumed": "代理已使用",
+    "counts": "待处理：{{pending}} · 已使用：{{consumed}}",
+    "failed": "无法发送指令。请重试以确认同一条消息。",
+    "unavailable": "无法获取接收记录详情。",
+    "unreported": "此 Core 版本不报告使用状态。",
+    "truncated": "仅显示最近的接收记录和待处理消息。"
+  },
+  "studioRole": {
+    "title": "Core 角色默认值",
+    "hint": "这些文件默认值适用于新工作流。项目的显式设置优先；已保存的运行保留其固定配置。",
+    "invalid": "更改角色字段前，请先在编辑器中修正 YAML 头部。",
+    "escalationEffort": "更高级模型的推理强度"
+  },
+  "retention": {
+    "title": "历史保留",
+    "description": "删除已过期的执行历史和未使用的 Core 版本。已删除的历史无法恢复执行或创建分支。运行中、可恢复的执行和待交付内容仍受保护；任务日志与费用记录会保留。",
+    "forever": "永久保留历史",
+    "days": "保留天数",
+    "save": "保存保留设置",
+    "preview": "预览清理",
+    "collect": "删除过期历史",
+    "previewSummary": "可清理：{{runs}} 条历史和 {{packages}} 个未使用的 Core 版本。",
+    "collectedSummary": "已过期：{{runs}} 条历史。已删除：{{packages}} 个未使用的 Core 版本。",
+    "more": "另有 {{count}} 次执行。",
+    "failed": "无法查看或更新保留设置。",
+    "expired": "此执行历史已根据项目策略过期。任务日志和费用记录仍然可用。",
+    "loading": "正在加载保留策略…",
+    "states": {
+      "protected": "已保留",
+      "eligible": "可清理",
+      "expired": "已过期",
+      "cleanup_pending": "等待清理",
+      "busy": "使用中",
+      "error": "检查失败"
+    },
+    "reasons": {
+      "disabled": "永久保留",
+      "recoverable": "仍可恢复",
+      "active": "执行中",
+      "human_pending": "等待人工回复",
+      "interrupted_writes": "中断的写入需要检查",
+      "delivery_pending": "等待交付",
+      "fork_pending": "仍有依赖分支",
+      "unknown_terminal_time": "完成时间未知",
+      "within_retention": "仍在保留期限内"
+    }
+  }
 }

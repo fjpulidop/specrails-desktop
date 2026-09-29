@@ -12,7 +12,7 @@
  *    autonomous prompt.
  *
  * Each command declares its TICKET SCOPE:
- *  - `all`        → one run over ALL the rail's tickets (`#1 #2 #3`). implement, batch.
+ *  - `all`        → one run over ALL the rail's tickets (`#1 #2 #3`). implement.
  *  - `per-ticket` → one run per ticket. Freestyle (and the default).
  *
  * Expansion order in the engine: `expandCommands()` FIRST (injects the ticket ids),
@@ -96,13 +96,6 @@ export const LOOP_COMMANDS: LoopCommand[] = [
     label: 'implement',
     description: "Run Core’s programmatic agent workflow (architect → developer → verification → reviewer → archive) over the rail's tickets.",
     coreCommand: 'implement',
-    ticketScope: 'all',
-  },
-  {
-    name: 'batch',
-    label: 'batch',
-    description: "Run all selected tickets as one frozen candidate through Core’s programmatic agent workflow.",
-    coreCommand: 'batch-implement',
     ticketScope: 'all',
   },
   {
@@ -254,7 +247,7 @@ export const LOOP_COMMANDS: LoopCommand[] = [
   // native opsx command fall back to the `template` prompt. Archive is invoked via
   // the `openspec` CLI in a shell node (provider-independent) and has no command.
   // NOTE: opsx commands are confirmed on claude today; codex/gemini lean on the
-  // fallback until OpenSpec ships their native commands (see opsx-lifecycle loop).
+  // fallback until OpenSpec ships their native commands (see the legacy Quick SDD graph).
   {
     name: 'opsx:ff', label: 'opsx:ff', ticketScope: 'per-ticket',
     description: 'OpenSpec fast-forward: create (or continue) a change and generate all its artifacts (proposal, specs, design, tasks). Native /opsx:ff (claude/gemini) or $opsx:ff (codex).',
@@ -341,7 +334,18 @@ export const LOOP_COMMANDS: LoopCommand[] = [
   },
 ]
 
-const COMMANDS_BY_NAME = new Map(LOOP_COMMANDS.map((c) => [c.name, c]))
+/** Hidden, unlisted aliases kept so saved loops keep working. `{{cmd:batch}}`
+ *  belonged to the removed Batch mode; it now expands exactly like
+ *  `{{cmd:implement}}` (one aggregate run over all the rail's tickets). */
+const LOOP_COMMAND_ALIASES: Readonly<Record<string, string>> = { batch: 'implement' }
+
+const COMMANDS_BY_NAME = new Map<string, LoopCommand>([
+  ...LOOP_COMMANDS.map((c) => [c.name, c] as const),
+  ...Object.entries(LOOP_COMMAND_ALIASES).flatMap(([alias, target]) => {
+    const cmd = LOOP_COMMANDS.find((c) => c.name === target)
+    return cmd ? [[alias, cmd] as const] : []
+  }),
+])
 
 export function getLoopCommand(name: string): LoopCommand | undefined {
   return COMMANDS_BY_NAME.get(name)
@@ -365,7 +369,6 @@ export interface ExpandCommandOpts {
  *  identical in shape to the rail's `/specrails:implement #1 #2 --yes`. Codex has
  *  no `/namespace:cmd` parser, so it invokes the equivalent `$<name>` skill. */
 function nativeInvocation(coreCommand: string, provider: string, ids: number[]): string {
-  if (provider === 'codex' && coreCommand === 'implement' && ids.length > 1) coreCommand = 'batch-implement'
   const head = provider === 'codex'
     ? `$${coreCommand}`
     : provider === 'kimi'

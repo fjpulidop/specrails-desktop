@@ -1,10 +1,12 @@
 // Server-durable milestone launch chain (premium-milestone-progress, D3/D4).
 //
-// "Launch Milestone N" in sequential mode: chunk the milestone's todo specs
-// (≤3 per rail), launch chunk 1 through the ORDINARY rails launch route, and
-// — when that chunk's delivery settles — launch the next chunk STACKED on the
-// delivered branch, so a greenfield walking skeleton accumulates without
-// waiting for a merge. The plan lives in SQLite (survives window close, app
+// "Launch Milestone N": order the milestone's todo specs by their declared
+// dependencies (prerequisites, then execution_order), put ONE spec on each
+// rail (mode `implement`), launch the first through the ORDINARY rails launch
+// route, and — when that spec's delivery settles — launch the next one STACKED
+// on the delivered branch, so a greenfield walking skeleton accumulates without
+// waiting for a merge. Launches are always sequential (the Parallel option was
+// removed); auto-continue is on by default and a failure always pauses. The plan lives in SQLite (survives window close, app
 // restart, machine sleep), advances from the delivery-settle chokepoint (the
 // `rail.pr_state` broadcast tapped in the project's bound broadcast — the
 // engine's `onLoopRunFinished` fires BEFORE the delivery row leaves
@@ -29,20 +31,12 @@ import {
   toChainSnapshot,
   updateChain,
   isActiveChainStatus,
-  type MilestoneChainMode,
   type MilestoneChainRow,
 } from './milestone-chain-store'
 import { newId } from '../../../ids'
 
-export const MAX_TICKETS_PER_CHAIN_CHUNK = 3
-
-/** `SPECRAILS_MILESTONE_CHAIN=false|0|off` ⇒ every milestone launch is parallel and no row is written. */
-export function isMilestoneChainEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  const raw = env.SPECRAILS_MILESTONE_CHAIN
-  if (raw === undefined || raw === '') return true
-  const normalized = raw.trim().toLowerCase()
-  return !(normalized === '0' || normalized === 'false' || normalized === 'off')
-}
+/** One spec per rail: every chunk of a milestone chain carries exactly one spec. */
+export const MAX_TICKETS_PER_CHAIN_CHUNK = 1
 
 export function chunkTickets(ticketIds: number[], size = MAX_TICKETS_PER_CHAIN_CHUNK): number[][] {
   const chunks: number[][] = []
@@ -50,23 +44,68 @@ export function chunkTickets(ticketIds: number[], size = MAX_TICKETS_PER_CHAIN_C
   return chunks
 }
 
-export function chainRailName(n: number, chunkIndex: number, totalChunks: number): string {
-  const label = milestoneLabelFor(n)
-  return totalChunks === 1 ? label : `${label} · ${chunkIndex + 1}`
+/**
+ * Launch order for a milestone's specs: a stable topological order over the
+ * specs' `prerequisites` (edges to specs outside the set — already done or in
+ * another milestone — are ignored), ties broken by `execution_order` (unset
+ * last) and then id. A dependency cycle cannot block the milestone: the
+ * remaining specs follow in tie order.
+ */
+export function orderChainTickets(tickets: ReadonlyArray<Pick<ProgressTicket, 'id' | 'prerequisites' | 'executionOrder'>>): number[] {
+  const byId = new Map(tickets.map((t) => [t.id, t]))
+  const rank = (a: number, b: number): number => {
+    const ea = byId.get(a)?.executionOrder ?? Number.POSITIVE_INFINITY
+    const eb = byId.get(b)?.executionOrder ?? Number.POSITIVE_INFINITY
+    return ea !== eb ? (ea < eb ? -1 : 1) : a - b
+  }
+  const pending = new Map<number, Set<number>>()
+  for (const t of tickets) {
+    pending.set(t.id, new Set((t.prerequisites ?? []).filter((id) => id !== t.id && byId.has(id))))
+  }
+  const order: number[] = []
+  while (pending.size > 0) {
+    const ready = [...pending.entries()].filter(([, deps]) => deps.size === 0).map(([id]) => id).sort(rank)
+    // Cycle: take the best-ranked remaining spec so the chain still progresses.
+    const next = ready[0] ?? [...pending.keys()].sort(rank)[0]
+    order.push(next)
+    pending.delete(next)
+    for (const deps of pending.values()) deps.delete(next)
+  }
+  return order
 }
+
+/** Builder rails are named after their spec: `M1 · #12`. */
+export function chainRailName(n: number, ticketIds: readonly number[]): string {
+  const label = milestoneLabelFor(n)
+  return ticketIds.length ? `${label} · ${ticketIds.map((id) => `#${id}`).join(' ')}` : label
+}
+
+/** A rail name the Project Builder owns (`M<n>` or `M<n> · …`). */
+export function isBuilderRailName(name: string | null | undefined): boolean {
+  return typeof name === 'string' && /^M\d+(?: · .+)?$/.test(name)
+}
+
+/** Pause reason when every rail slot is taken by undecided work. */
+export const RAIL_LIMIT_REACHED = 'rail_limit_reached'
 
 export type ChainIoFailure = { ok: false; status: number; error: string; detail?: string }
 
 export interface MilestoneChainIO {
   createRail(name: string): Promise<{ ok: true; railIndex: number } | ChainIoFailure>
   assignTickets(railIndex: number, ticketIds: number[]): Promise<{ ok: true } | ChainIoFailure>
-  launch(railIndex: number, body: { mode: 'batch-implement'; baseBranch?: string; baseDeliveryIds?: string[] }): Promise<{ ok: true; loopRunIds: string[] } | ChainIoFailure>
+  launch(railIndex: number, body: { mode: 'implement'; baseBranch?: string; baseDeliveryIds?: string[] }): Promise<{ ok: true; loopRunIds: string[] } | ChainIoFailure>
   /** Newest non-terminal delivery on the rail (read right after a launch). */
   activeDeliveryForRail(railIndex: number): PrDeliverySnapshot | null
   /** A rail already carrying this chain-rail name (e.g. from a previous chain
    *  of the same milestone), else null — reused when nothing undecided sits on
    *  it, so relaunching a milestone never piles up duplicate "M1 · 1" rails. */
   findRailByName?(name: string): number | null
+  /** Every rail slot with its display name (reuse candidates). */
+  listRails?(): { railIndex: number; name: string | null }[]
+  /** True while a job/loop run is active on the rail. */
+  railBusy?(railIndex: number): boolean
+  /** Rename a reused rail after the spec it now carries. */
+  renameRail?(railIndex: number, name: string): Promise<{ ok: true } | ChainIoFailure>
   getDelivery(deliveryId: string): PrDeliverySnapshot | null
   branchExists(branch: string): Promise<boolean>
   readTickets(): ProgressTicket[]
@@ -76,7 +115,6 @@ export interface MilestoneChainIO {
   runState(runId: string): { settled: boolean; outcome: string | null } | null
   broadcast(msg: WsMessage): void
   now?(): number
-  enabled?(): boolean
 }
 
 export type ChainStartResult =
@@ -100,10 +138,6 @@ export class MilestoneChainManager {
 
   private now(): number {
     return this.io.now?.() ?? Date.now()
-  }
-
-  private enabled(): boolean {
-    return this.io.enabled?.() ?? isMilestoneChainEnabled()
   }
 
   /** Non-terminal chains. */
@@ -141,31 +175,32 @@ export class MilestoneChainManager {
 
   private todoTicketIds(n: number): number[] {
     const label = milestoneLabelFor(n)
-    return this.io.readTickets()
-      .filter((t) => t.status === 'todo' && Array.isArray(t.labels) && t.labels.includes(label))
-      .map((t) => t.id)
-      .sort((a, b) => a - b)
+    return orderChainTickets(this.io.readTickets()
+      .filter((t) => t.status === 'todo' && Array.isArray(t.labels) && t.labels.includes(label)))
   }
 
-  /** Create → assign → launch ONE chunk on a fresh rail — or, for a retry,
-   *  on the rail the failed attempt used when nothing undecided sits on it. */
-  private async launchChunk(n: number, chunks: number[][], chunkIndex: number, baseBranch: string | null, reuseRailIndex: number | null = null, baseDeliveryIds?: string[]): Promise<LaunchedChunk> {
+  /** Assign → launch ONE spec on a rail: the retried chunk's previous rail,
+   *  else a free builder-owned rail (same name, this chain's, then any builder
+   *  rail), else a fresh one. At the rail limit it fails `rail_limit_reached`. */
+  private async launchChunk(n: number, chunks: number[][], chunkIndex: number, baseBranch: string | null, reuseRailIndex: number | null = null, baseDeliveryIds?: string[], chain?: MilestoneChainRow): Promise<LaunchedChunk> {
     const ticketIds = chunks[chunkIndex]
     let railIndex: number
-    const name = chainRailName(n, chunkIndex, chunks.length)
-    const byName = reuseRailIndex === null ? this.freeRailNamed(name) : null
-    if (reuseRailIndex !== null) {
-      railIndex = reuseRailIndex
-    } else if (byName !== null) {
-      railIndex = byName
+    const name = chainRailName(n, ticketIds)
+    const reused = reuseRailIndex ?? this.freeRailNamed(name) ?? this.freeBuilderRail(chain)
+    if (reused !== null) {
+      railIndex = reused
+      if (this.railName(reused) !== name && this.io.renameRail) {
+        // Best effort: a stale label is cosmetic, never a reason to stop.
+        try { await this.io.renameRail(reused, name) } catch { /* keep the old label */ }
+      }
     } else {
       const rail = await this.io.createRail(name)
-      if (!rail.ok) return rail
+      if (!rail.ok) return rail.error === RAIL_LIMIT_REACHED ? { ...rail, status: 409 } : rail
       railIndex = rail.railIndex
     }
     const assigned = await this.io.assignTickets(railIndex, ticketIds)
     if (!assigned.ok) return assigned
-    const launched = await this.io.launch(railIndex, { mode: 'batch-implement', ...(baseDeliveryIds?.length ? { baseDeliveryIds } : baseBranch ? { baseBranch } : {}) })
+    const launched = await this.io.launch(railIndex, { mode: 'implement', ...(baseDeliveryIds?.length ? { baseDeliveryIds } : baseBranch ? { baseBranch } : {}) })
     if (!launched.ok) return launched
     const delivery = this.io.activeDeliveryForRail(railIndex)
     return {
@@ -180,7 +215,33 @@ export class MilestoneChainManager {
     try {
       const index = this.io.findRailByName?.(name) ?? null
       if (index === null) return null
-      return this.io.activeDeliveryForRail(index) ? null : index
+      return this.railFree(index) ? index : null
+    } catch {
+      return null
+    }
+  }
+
+  private railName(railIndex: number): string | null {
+    try { return this.io.listRails?.().find((r) => r.railIndex === railIndex)?.name ?? null } catch { return null }
+  }
+
+  /** Nothing undecided, nothing running, and no other active chain mid-flight on it. */
+  private railFree(railIndex: number): boolean {
+    if (this.io.activeDeliveryForRail(railIndex)) return false
+    if (this.io.railBusy?.(railIndex)) return false
+    return !listActiveChains(this.db).some((row) => row.current_rail_index === railIndex && (row.current_delivery_id !== null || parseRunIds(row).length > 0))
+  }
+
+  /** Before allocating a new rail slot: a rail this chain already used, else
+   *  any builder-named rail, that is free (its PR decided or nothing on it). */
+  private freeBuilderRail(chain?: MilestoneChainRow): number | null {
+    try {
+      const own = chain ? parseLaunched(chain).map((l) => l.railIndex) : []
+      const builder = (this.io.listRails?.() ?? []).filter((r) => isBuilderRailName(r.name)).map((r) => r.railIndex)
+      for (const index of [...new Set([...own, ...builder])]) {
+        if (this.railFree(index)) return index
+      }
+      return null
     } catch {
       return null
     }
@@ -199,10 +260,13 @@ export class MilestoneChainManager {
     }
   }
 
-  async start(n: number, requestedMode: MilestoneChainMode, opts: { autoAdvance?: boolean } = {}): Promise<ChainStartResult> {
-    const enabled = this.enabled()
+  /**
+   * Launch a milestone. Always sequential: one spec per rail, each stacked on
+   * the previous delivered branch. `autoAdvance` defaults to ON; turning it off
+   * parks the chain at a checkpoint after every delivered rail.
+   */
+  async start(n: number, opts: { autoAdvance?: boolean } = {}): Promise<ChainStartResult> {
     const autoAdvance = opts.autoAdvance !== false
-    const mode: MilestoneChainMode = enabled ? requestedMode : 'parallel'
     const active = listActiveChains(this.db).find((c) => c.milestone_n === n)
     if (active) return { ok: false, status: 409, error: 'chain_active', chainId: active.id }
     const blueprint = this.io.readBlueprint()
@@ -212,36 +276,15 @@ export class MilestoneChainManager {
     if (ticketIds.length === 0) return { ok: false, status: 400, error: 'no_tickets', detail: `no todo specs labeled ${milestoneLabelFor(n)}` }
     const chunks = chunkTickets(ticketIds)
 
-    if (mode === 'parallel') {
-      const launched: MilestoneChainLaunched[] = []
-      let failure: ChainIoFailure | null = null
-      for (let i = 0; i < chunks.length; i++) {
-        const r = await this.launchChunk(n, chunks, i, null)
-        if (!r.ok) { failure = r; break }
-        launched.push(r.entry)
-      }
-      if (launched.length === 0 && failure) return { ok: false, status: failure.status, error: failure.error, detail: failure.detail }
-      let chainId: string | null = null
-      if (enabled) {
-        // Recorded `completed` so parallel milestones show chunk ordering in
-        // the same progress model; never advances anything.
-        const row = createChain(this.db, { id: newId(), milestoneN: n, milestoneId: milestone.id, mode, chunks, integrationBranch: await this.safeIntegrationBranch(), status: 'completed', nowMs: this.now() })
-        updateChain(this.db, row.id, 'completed', { nextChunk: launched.length, launched }, this.now())
-        chainId = row.id
-        const fresh = getChain(this.db, row.id)
-        if (fresh) this.emit(fresh)
-      }
-      return { ok: true, status: 202, chainId, launched, pending: chunks.slice(launched.length) }
-    }
-
     const row = createChain(this.db, {
-      id: newId(), milestoneN: n, milestoneId: milestone.id, mode, chunks,
+      id: newId(), milestoneN: n, milestoneId: milestone.id, mode: 'sequential', chunks,
       integrationBranch: await this.safeIntegrationBranch(), autoAdvance, nowMs: this.now(),
     })
-    const first = await this.launchChunk(n, chunks, 0, null)
+    const first = await this.launchChunk(n, chunks, 0, null, null, undefined, row)
     if (!first.ok) {
-      // Nothing launched ⇒ no chain remains active (the route relays the guard).
-      updateChain(this.db, row.id, 'running', { status: 'cancelled', pauseReason: `launch_rejected:${first.error}` }, this.now())
+      // Nothing launched ⇒ no chain remains active (the route relays the guard,
+      // including `rail_limit_reached` when every rail holds undecided work).
+      updateChain(this.db, row.id, 'running', { status: 'cancelled', pauseReason: first.error === RAIL_LIMIT_REACHED ? RAIL_LIMIT_REACHED : `launch_rejected:${first.error}` }, this.now())
       return { ok: false, status: first.status, error: first.error, detail: first.detail, chainId: row.id }
     }
     this.recordLaunched(row.id, first.entry)
@@ -309,11 +352,14 @@ export class MilestoneChainManager {
     }
     updateChain(this.db, row.id, row.status, { status: 'waiting', headBranch: head, pauseReason: null }, this.now())
     const reuse = chunkIndex < row.next_chunk ? this.reusableRailFor(row, chunkIndex) : null
-    const r = await this.launchChunk(row.milestone_n, chunks, chunkIndex, head, reuse, multiRepositoryHistory ? earlierDeliveries : undefined)
+    const r = await this.launchChunk(row.milestone_n, chunks, chunkIndex, head, reuse, multiRepositoryHistory ? earlierDeliveries : undefined, row)
     const current = getChain(this.db, chainId)
     if (!current || !isActiveChainStatus(current.status)) return
     if (!r.ok) {
-      this.pause(current, `launch_rejected:${r.error}`)
+      // Every rail holds undecided work: wait for the user to decide pending
+      // PRs, then Resume launches this same spec.
+      if (r.error === RAIL_LIMIT_REACHED) this.pause(current, RAIL_LIMIT_REACHED)
+      else this.pause(current, `launch_rejected:${r.error}`)
       return
     }
     this.recordLaunched(chainId, r.entry)

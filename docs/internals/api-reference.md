@@ -440,11 +440,11 @@ A non-developer-friendly file tree + Monaco viewer with plain-language AI summar
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/` | List rails |
-| `PUT` | `/:railIndex/tickets` | Assign tickets to a rail. Body `{ ticketIds: number[] }` |
+| `PUT` | `/:railIndex/tickets` | Assign tickets to a rail. Body `{ ticketIds: number[], mode?, profileName?, aiEngine? }`. An omitted `mode` keeps the rail's stored mode; `mode` must be `implement` / `freestyle` / `loop` (400 otherwise), with `batch-implement` / `batch` normalized to `implement`. |
 | `PUT` | `/:railIndex/profile` | Set the rail's default profile |
 | `PUT` | `/:railIndex/engine` | Set the rail's AI engine override. Body `{ aiEngine }` (string — one of the project's providers — or `null` to clear) |
 | `PUT` | `/:railIndex/name` | Set the rail's display name. Body `{ name }` (string or `null` to clear back to the default label); 400 if longer than 60 characters |
-| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, loopId?, profileName?, aiEngine?, model?, reasoning_effort?, originConversationId?, originSurface?, interactive? }`. `mode` is `implement` / `batch-implement` / `freestyle` / `loop`; a factory `loopId` maps to its canonical rail mode. `model` and `reasoning_effort` are validated against the effective adapter/model (Kimi effort is K3-only). Kimi + a loop containing a Decider returns a capability error before the first step. Claude alone advertises persistent in-job stdin; `interactive` remains wire-compatible. Returns `202 { jobId, railIndex, mode }`; a missing provider CLI fails before a job starts. |
+| `POST` | `/:railIndex/launch` | Launch the rail. Body `{ mode?, loopId?, profileName?, aiEngine?, model?, reasoning_effort?, originConversationId?, originSurface?, interactive? }`. `mode` is `implement` / `freestyle` / `loop` (the removed Batch mode's `batch-implement` / `batch` are accepted as input aliases and normalized to `implement`); a factory `loopId` maps to its canonical rail mode (`factory:batch` resolves to `factory:implement`). `model` and `reasoning_effort` are validated against the effective adapter/model (Kimi effort is K3-only). Kimi + a loop containing a Decider returns a capability error before the first step. Claude alone advertises persistent in-job stdin; `interactive` remains wire-compatible. Returns `202 { jobId, railIndex, mode }`; a missing provider CLI fails before a job starts. |
 | `POST` | `/:railIndex/stop` | Stop the rail's running job (cancels every job the rail registered) |
 
 ---

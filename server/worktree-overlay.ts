@@ -550,7 +550,7 @@ function mergeChildren(
 function refreshLegacyInstructions(text: string): string {
   return text.replace(/<!-- specrails-managed:start -->[\s\S]*?<!-- specrails-managed:end -->/g, block => {
     if (!block.includes('skills/sr-*')) return block
-    return '<!-- specrails-managed:start -->\n\n# Specrails agent runtime\n\nFollow the frozen repository scope and official OpenSpec workflow supplied for your role. The host coordinates architect, developer, verification and reviewer; do not launch nested implement or batch-implement orchestration. Read project README, manifests, contracts and relevant nested instructions. Report incomplete tasks and permission blockers with their repository and path.\n\n<!-- specrails-managed:end -->'
+    return '<!-- specrails-managed:start -->\n\n# Specrails agent runtime\n\nFollow the frozen repository scope and official OpenSpec workflow supplied for your role. The host coordinates architect, developer, verification and reviewer; do not launch nested implement orchestration. Read project README, manifests, contracts and relevant nested instructions. Report incomplete tasks and permission blockers with their repository and path.\n\n<!-- specrails-managed:end -->'
   })
 }
 

@@ -133,7 +133,7 @@ function LoopStepSectionInner({
         status === 'running' && 'border-accent-primary/40',
         status === 'failed' && 'border-destructive/30',
         status === 'stalled' && 'border-dashed border-destructive/40',
-        status === 'interrupted' && 'border-dashed border-accent-warning/40',
+        (status === 'interrupted' || status === 'paused') && 'border-dashed border-accent-warning/40',
         (status === 'ok' || status === 'unknown') && 'border-border/20',
       )}
     >
@@ -163,6 +163,8 @@ function LoopStepSectionInner({
           <span className="text-[12px] font-semibold text-foreground leading-none truncate">
             {stepDisplayTitle(meta)}
           </span>
+          {meta.branch && <span className="max-w-40 truncate font-mono text-[10px] text-muted-foreground" title={meta.scopeId}>{meta.branch}</span>}
+          {status === 'paused' && <span className="text-[10px] text-accent-warning">{t('loopExplorer.paused', { defaultValue: 'Paused' })}</span>}
           {meta.iteration != null && meta.iteration >= 1 && (
             <span className="shrink-0 rounded-full bg-muted/60 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground tabular-nums">
               {t('loopExplorer.iterationBadge', { count: meta.iteration })}

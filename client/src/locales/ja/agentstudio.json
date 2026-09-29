@@ -93,7 +93,7 @@
     "descriptionPlaceholder": "このプロファイルの用途は？",
     "orchestrator": {
       "heading": "オーケストレーター",
-      "description": "両コマンドの最上位モデルです。batch-implement はフィーチャーごとに implement に委譲するため、起動されるすべてのレールがこのプロファイルのエージェントチェーンを継承します。"
+      "description": "implement コマンドの最上位モデルです。実行されるすべてのレールがこのプロファイルのエージェントチェーンを継承します。"
     },
     "agentChain": {
       "heading": "エージェントチェーン（{{n}}）",
@@ -136,7 +136,8 @@
       "moveUp": "上へ移動",
       "coreDefaultBadge": "コア · デフォルト",
       "coreDefaultTitle": "コアのフォールバック — パイプラインの最終手段のルールで、sr-developer に固定されています"
-    }
+    },
+    "legacyWorkflowNotice": "オーケストレーターとルーティングの設定は従来のワークフローに適用されます。Core のワークフローでは Loop Builder で選択したロールを使用します。"
   },
   "agentSelector": {
     "coreBadge": "コア",

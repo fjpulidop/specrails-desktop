@@ -2,15 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   MAX_TICKETS_PER_RAIL,
   LEGACY_SEQUENTIAL_PLANS_KEY,
-  MILESTONE_LAUNCH_MODE_KEY,
+  LEGACY_MILESTONE_LAUNCH_MODE_KEY,
   chunkTickets,
   filterMilestoneTickets,
   launchMilestone,
   resumeChain,
   cancelChain,
   milestoneLabel,
-  readMilestoneLaunchMode,
-  saveMilestoneLaunchMode,
   dropLegacySequentialPlans,
   MILESTONE_AUTO_ADVANCE_KEY,
   readMilestoneAutoAdvance,
@@ -39,53 +37,50 @@ describe('milestoneLabel / filterMilestoneTickets / chunkTickets', () => {
     expect(filterMilestoneTickets(tickets, 2)).toEqual([3])
   })
 
-  it('chunks tickets into groups of at most MAX_TICKETS_PER_RAIL', () => {
-    expect(MAX_TICKETS_PER_RAIL).toBe(3)
-    expect(chunkTickets([1, 2, 3, 4, 5, 6, 7])).toEqual([[1, 2, 3], [4, 5, 6], [7]])
+  it('puts one spec on each rail', () => {
+    expect(MAX_TICKETS_PER_RAIL).toBe(1)
+    expect(chunkTickets([1, 2, 3])).toEqual([[1], [2], [3]])
     expect(chunkTickets([])).toEqual([])
   })
 })
 
-describe('launch mode + legacy plan cleanup (localStorage)', () => {
+describe('legacy launch-state cleanup (localStorage)', () => {
   beforeEach(() => localStorage.clear())
 
-  it('defaults to sequential and persists an explicit choice', () => {
-    expect(readMilestoneLaunchMode()).toBe('sequential')
-    saveMilestoneLaunchMode('parallel')
-    expect(localStorage.getItem(MILESTONE_LAUNCH_MODE_KEY)).toBe('parallel')
-    expect(readMilestoneLaunchMode()).toBe('parallel')
-  })
-
-  it('drops the retired sequencer plans once', () => {
+  it('drops the retired sequencer plans once and the retired Parallel preference', () => {
     localStorage.setItem(LEGACY_SEQUENTIAL_PLANS_KEY, '[{"projectId":"p"}]')
+    localStorage.setItem(LEGACY_MILESTONE_LAUNCH_MODE_KEY, 'parallel')
     expect(dropLegacySequentialPlans()).toBe(true)
     expect(localStorage.getItem(LEGACY_SEQUENTIAL_PLANS_KEY)).toBeNull()
+    expect(localStorage.getItem(LEGACY_MILESTONE_LAUNCH_MODE_KEY)).toBeNull()
     expect(dropLegacySequentialPlans()).toBe(false)
   })
 })
 
 describe('launchMilestone (server-owned chain)', () => {
-  it('POSTs the mode to the milestone launch route and returns the launched/pending plan', async () => {
+  it('POSTs to the milestone launch route (no mode) and returns the launched/pending plan', async () => {
+    localStorage.clear()
     const calls: Array<{ url: string; init?: RequestInit }> = []
     const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ url, init })
       return jsonRes(202, {
         chainId: 'chain-1',
-        launched: [{ chunk: 1, railIndex: 3, ticketIds: [1, 2, 3], runIds: ['run-1'], deliveryId: 'd-3' }],
-        pending: [[4, 5, 6], [7, 8]],
+        mode: 'sequential',
+        launched: [{ chunk: 1, railIndex: 3, ticketIds: [1], runIds: ['run-1'], deliveryId: 'd-3' }],
+        pending: [[2], [3]],
       })
     }) as unknown as typeof fetch
 
-    const result = await launchMilestone('proj-1', 1, 'sequential', fetchImpl)
+    const result = await launchMilestone('proj-1', 1, fetchImpl)
     expect(result).toEqual({
-      ok: true, chainId: 'chain-1', ticketCount: 3, skippedCount: 5,
-      launched: [{ chunk: 1, railIndex: 3, ticketIds: [1, 2, 3], runIds: ['run-1'], deliveryId: 'd-3' }],
-      pending: [[4, 5, 6], [7, 8]],
+      ok: true, chainId: 'chain-1', ticketCount: 1, skippedCount: 2,
+      launched: [{ chunk: 1, railIndex: 3, ticketIds: [1], runIds: ['run-1'], deliveryId: 'd-3' }],
+      pending: [[2], [3]],
     })
     expect(calls[0].url).toBe('/api/projects/proj-1/blueprint/milestones/1/launch')
     expect(calls[0].init?.method).toBe('POST')
-    // Auto-advance rides the body from the stored preference (default OFF = checkpoints).
-    expect(JSON.parse(String(calls[0].init?.body))).toEqual({ mode: 'sequential', autoAdvance: false })
+    // Auto-advance rides the body from the stored preference (default ON).
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({ autoAdvance: true })
   })
 
   it('maps the typed refusals (chain_active / no_tickets / not found / unavailable / guard)', async () => {
@@ -94,6 +89,7 @@ describe('launchMilestone (server-owned chain)', () => {
       [400, { error: 'no_tickets', detail: 'none' }, 'no_tickets'],
       [404, { error: 'milestone_not_found' }, 'milestone_not_found'],
       [503, { error: 'milestone_chain_unavailable' }, 'unavailable'],
+      [409, { error: 'rail_limit_reached' }, 'rail_limit_reached'],
       [409, { error: 'tickets_in_flight' }, 'launch_rejected'],
       [500, 'not json', 'launch_rejected'],
     ]
@@ -101,7 +97,7 @@ describe('launchMilestone (server-owned chain)', () => {
       const fetchImpl = vi.fn(async () => (typeof body === 'string'
         ? ({ ok: false, status, json: async () => { throw new Error('bad json') } } as unknown as Response)
         : jsonRes(status, body))) as unknown as typeof fetch
-      const result = await launchMilestone('p', 1, 'parallel', fetchImpl)
+      const result = await launchMilestone('p', 1, fetchImpl)
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.reason).toBe(reason)
@@ -113,13 +109,13 @@ describe('launchMilestone (server-owned chain)', () => {
 
   it('a network failure is reported, never thrown', async () => {
     const fetchImpl = vi.fn(async () => { throw new Error('offline') }) as unknown as typeof fetch
-    const result = await launchMilestone('p', 1, 'sequential', fetchImpl)
+    const result = await launchMilestone('p', 1, fetchImpl)
     expect(result).toMatchObject({ ok: false, reason: 'network', detail: 'offline' })
   })
 
   it('tolerates a malformed 202 body', async () => {
     const fetchImpl = vi.fn(async () => jsonRes(202, { launched: 'x', pending: [1, [2]] })) as unknown as typeof fetch
-    const result = await launchMilestone('p', 1, 'sequential', fetchImpl)
+    const result = await launchMilestone('p', 1, fetchImpl)
     expect(result).toEqual({ ok: true, chainId: null, launched: [], pending: [[2]], ticketCount: 0, skippedCount: 1 })
   })
 })
@@ -127,23 +123,23 @@ describe('launchMilestone (server-owned chain)', () => {
 describe('wave checkpoints (autoAdvance)', () => {
   beforeEach(() => localStorage.clear())
 
-  it('the stored preference defaults OFF and persists', () => {
-    expect(readMilestoneAutoAdvance()).toBe(false)
-    saveMilestoneAutoAdvance(true)
-    expect(localStorage.getItem(MILESTONE_AUTO_ADVANCE_KEY)).toBe('true')
+  it('the stored preference defaults ON and persists', () => {
     expect(readMilestoneAutoAdvance()).toBe(true)
     saveMilestoneAutoAdvance(false)
+    expect(localStorage.getItem(MILESTONE_AUTO_ADVANCE_KEY)).toBe('false')
     expect(readMilestoneAutoAdvance()).toBe(false)
+    saveMilestoneAutoAdvance(true)
+    expect(readMilestoneAutoAdvance()).toBe(true)
   })
 
   it('launchMilestone sends an explicit autoAdvance option, else the stored preference', async () => {
     const bodies: unknown[] = []
     const fetchImpl = vi.fn(async (_url: string, init?: RequestInit) => { bodies.push(JSON.parse(String(init?.body))); return jsonRes(202, { chainId: 'c', launched: [], pending: [] }) }) as unknown as typeof fetch
-    await launchMilestone('p', 1, 'sequential', { autoAdvance: true, fetchImpl })
-    saveMilestoneAutoAdvance(true)
-    await launchMilestone('p', 1, 'sequential', { fetchImpl })
-    await launchMilestone('p', 1, 'parallel', { autoAdvance: false, fetchImpl })
-    expect(bodies).toEqual([{ mode: 'sequential', autoAdvance: true }, { mode: 'sequential', autoAdvance: true }, { mode: 'parallel', autoAdvance: false }])
+    await launchMilestone('p', 1, { autoAdvance: false, fetchImpl })
+    saveMilestoneAutoAdvance(false)
+    await launchMilestone('p', 1, { fetchImpl })
+    await launchMilestone('p', 1, { autoAdvance: true, fetchImpl })
+    expect(bodies).toEqual([{ autoAdvance: false }, { autoAdvance: false }, { autoAdvance: true }])
   })
 
   it('setChainAutoAdvance PATCHes the chain and parses the snapshot; errors relay', async () => {

@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
-import type { AgentRuntimeConfig, RuntimeAgent, RuntimeAgentRole } from '../lib/agent-runtime'
+import type { AgentRuntimeConfig, RuntimeAgent } from '../lib/agent-runtime'
 import { Input } from '../../../components/ui/input'
 
 export interface RoleCapability {
-  role: RuntimeAgentRole; tier: 'base' | 'escalation'; provider: string; model: string | null
+  role: string; tier: 'base' | 'escalation'; provider: string; model: string | null
   transport: string; continuation: 'supported' | 'unsupported' | 'unknown'
   effortSupport: 'supported' | 'unsupported' | 'unknown'; supportedEfforts: string[] | null
 }
@@ -20,13 +20,13 @@ function Effort({ value, capability, onChange }: { value?: string; capability?: 
     <span className="block text-muted-foreground">{capability?.effortSupport === 'supported' ? capability.transport : t('efficiency.unknownSupport')}</span>
   </label>
 }
-export function RuntimeRoleEfficiency({ role, agent, capabilities, onChange }: { role: RuntimeAgentRole; agent: RuntimeAgent; capabilities: RoleCapability[]; onChange(agent: RuntimeAgent): void }) {
+export function RuntimeRoleEfficiency({ role, agent, capabilities, onChange }: { role: string; agent: RuntimeAgent; capabilities: RoleCapability[]; onChange(agent: RuntimeAgent): void }) {
   const { t } = useTranslation('agentRuntime')
   const capability = (tier: 'base' | 'escalation') => capabilities.find(item => item.role === role && item.tier === tier && item.provider === agent.provider && item.model === ((tier === 'base' ? agent.model : agent.escalation?.model) ?? null))
   return <div className="mt-3 space-y-3 border-t pt-3">
     <Effort value={agent.effort} capability={capability('base')} onChange={effort => onChange({ ...agent, effort })} />
     <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={Boolean(agent.escalation)} disabled={!agent.model} onChange={event => onChange({ ...agent, escalation: event.target.checked ? { model: '' } : undefined })} />{t('efficiency.escalation')}</label>
-    <p className="text-xs text-muted-foreground">{t(`efficiency.triggers.${role}`)} {!agent.model && t('efficiency.baseRequired')}</p>
+    <p className="text-xs text-muted-foreground">{t(['architect', 'developer', 'reviewer', 'fixer'].includes(role) ? `efficiency.triggers.${role}` : 'customRoles.escalationHint')} {!agent.model && t('efficiency.baseRequired')}</p>
     {agent.escalation && <div className="grid gap-3 sm:grid-cols-2">
       <label className="block space-y-1 text-xs">{t('efficiency.escalationModel')}<Input value={agent.escalation.model} onChange={event => onChange({ ...agent, escalation: { ...agent.escalation!, model: event.target.value, effort: undefined } })} /></label>
       <Effort value={agent.escalation.effort} capability={capability('escalation')} onChange={effort => onChange({ ...agent, escalation: { ...agent.escalation!, effort } })} />

@@ -199,12 +199,22 @@ describe('specrails_rails — create_rail + launch_all', () => {
   })
 
   it('launch_all uses each rail\'s STORED mode', async () => {
+    setRailTickets(db, 0, [1], 'implement')
+    const { data } = await call({ action: 'launch_all' })
+    expect(data.launched).toBe(1)
+    expect((data.results as { railIndex: number; mode?: string }[]).find((r) => r.railIndex === 0)?.mode)
+      .toBe('implement')
+    expect(enqueue.mock.calls[0][0]).toContain('/specrails:implement #1')
+  })
+
+  it('launch_all runs a rail still stored with the removed batch-implement mode as implement', async () => {
     setRailTickets(db, 0, [1], 'batch-implement')
     const { data } = await call({ action: 'launch_all' })
     expect(data.launched).toBe(1)
     expect((data.results as { railIndex: number; mode?: string }[]).find((r) => r.railIndex === 0)?.mode)
-      .toBe('batch-implement')
-    expect(enqueue.mock.calls[0][0]).toContain('batch-implement')
+      .toBe('implement')
+    expect(enqueue.mock.calls[0][0]).toContain('/specrails:implement #1')
+    expect(enqueue.mock.calls[0][0]).not.toContain('batch-implement')
   })
 
   it('launch_all maps a raced tickets_in_flight 409 to a skip, not a failure', async () => {

@@ -64,7 +64,7 @@ it.skipIf(!process.env.SPECRAILS_EFFICIENCY_CORE_ROOT)('boots the actual paired 
   const context = file('pipeline/paired/desktop-context.json', '{}')
   const retained = retainAgentRuntime(cli, context)
   const api = JSON.parse(execFileSync(process.execPath, [retained, 'api'], { encoding: 'utf8', timeout: 30000 }))
-  expect(api).toMatchObject({ type: 'runtime-api', apiVersion: 1, workflowVersions: ['5'] })
+  expect(api).toMatchObject({ type: 'runtime-api', apiVersion: 1, workflowVersions: ['7'] })
   expect(resolveRetainedAgentRuntime(context)).toBe(retained)
 }, 120000)
 

@@ -22,7 +22,7 @@ Dos paneles se sitúan encima del log completo en streaming; en un job de Claude
 
 ## Fases del pipeline
 
-Para los jobs `Implement` y `Batch`, la ejecución avanza por las fases que define el slash command — por defecto:
+Para los jobs `Implement`, la ejecución avanza por las fases que define el slash command — por defecto:
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -113,5 +113,14 @@ Práctico para compartir una ejecución con un compañero o para abrir un inform
 ## A dónde ir después
 
 - [Rails y jobs](rails-and-jobs) — lanzamiento y encolado.
-- [Batch implement y multifuncionalidad](batch-implement-and-multi-feature) — muchas specs, oleadas por dependencias.
 - [Seguimiento de costes](../analytics/tracking-cost) — convierte los costes por job en analíticas de proyecto.
+
+## Después de reiniciar un workflow
+
+Tras una caída, reanuda el workflow guardado con su configuración y repositorios originales. Una escritura interrumpida exige seleccionar el intento exacto después de revisar el diff del worktree. Los pasos completados se conservan. Una llamada al proveedor cuya respuesta se perdió sigue contabilizada como interrumpida y con consumo desconocido; nunca se presenta como gratuita. Si los registros guardados no permiten demostrar la entrega original, la recuperación muestra un error y conserva el worktree.
+
+Cuando un paso de decisión se detiene para preguntar, la reanudación reutiliza la decisión guardada y transmite la respuesta humana al siguiente paso. No vuelve a llamar al modelo para esa misma decisión. Un prompt pausado sí puede necesitar otro turno del modelo para aplicar tu respuesta.
+
+## Conservación del historial
+
+Las ejecuciones guardadas se conservan indefinidamente por defecto. En **Ejecuciones guardadas → Conservación del historial**, un proyecto puede conservarlas entre 1 y 3650 días. Nada se borra en segundo plano: guarda la política, elige **Previsualizar limpieza** y revisa cada ejecución y su motivo antes de **Eliminar historial caducado**. Una ejecución sigue protegida mientras está activa, espera tu respuesta o aprobación, tiene una escritura interrumpida, una entrega abierta o un fork que aún depende de ella. Solo se elimina el historial de ejecución dentro del almacenamiento de Specrails del proyecto; tu repositorio, los worktrees, el log del job y los registros de coste se conservan. Una ejecución caducada aparece como **Caducado** y ya no se puede reanudar ni bifurcar. Las versiones de Core que aún usa una ejecución conservada nunca se eliminan.

@@ -1,3 +1,4 @@
+import { RuntimeRecovery } from '../../../settings/components/RuntimeRecovery'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ChevronDown, Loader2, MessageCircleQuestion } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -12,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/
 import { PipelineProgress } from '../PipelineProgress'
 import { AgentRuntimeMetrics } from '../../../settings/components/AgentRuntimeMetrics'
 import { RuntimeExecutionEvidence } from '../../../settings/components/RuntimeExecutionEvidence'
+import { RuntimeSteering } from '../../../settings/components/RuntimeSteering'
 import { useRuntimeRuns } from './useRuntimeRuns'
 import {
   extractModifiedFiles,
@@ -53,6 +55,7 @@ export interface JobRunHeaderProps {
   pipelineTotals?: PipelineTotals | null
   /** Surface-owned buttons (Cancel / Re-run / Export) rendered on row 1. */
   actions?: ReactNode
+  onOpenRun?(runId: string): void
 }
 
 /**
@@ -63,7 +66,7 @@ export interface JobRunHeaderProps {
  * authoritative totals after exit, the runtime continuation when it exists.
  * Nothing is ever a placeholder or an estimate.
  */
-export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions }: JobRunHeaderProps) {
+export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId, variant, pipelineTotals, actions, onOpenRun }: JobRunHeaderProps) {
   const { t } = useTranslation('jobs')
   const { t: tRuntime } = useTranslation('agentRuntime')
   const isRunning = job.status === 'running'
@@ -130,6 +133,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
   const runtimeActions = run ? (
     <>
       {run.canResume && !answerable && (
+        run.engineVersion === 2 && run.recoverableSteps.length > 0 ? <RuntimeRecovery key={`${projectId}:${run.runId}`} run={run} busy={busy} onRecover={attempts => void runtime.act(run, 'recover', attempts)} /> :
         <Button size="sm" className="h-7" disabled={busy} onClick={() => void runtime.act(run, run.recoverableSteps.length ? 'recover' : run.pendingApproval ? 'approve' : 'resume')}>
           {run.recoverableSteps.length ? tRuntime('runs.recover') : run.pendingApproval ? tRuntime('runs.approve') : tRuntime('runs.resume')}
         </Button>
@@ -143,6 +147,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
       {run.canSettle && (
         <Button size="sm" className="h-7" disabled={busy} onClick={() => void runtime.act(run, 'settle')}>{tRuntime('runs.prepareDelivery')}</Button>
       )}
+      {run.forkSuccessor && onOpenRun && <Button size="sm" variant="outline" onClick={() => onOpenRun(run.forkSuccessor!)}>{t('loopExplorer.openFork')}</Button>}
       {run.canCancel && (
         <Button size="sm" variant="secondary" className="h-7" disabled={busy} onClick={() => void runtime.act(run, 'cancel')}>{tRuntime('runs.cancel')}</Button>
       )}
@@ -299,6 +304,7 @@ export function JobRunHeader({ job, events, phases, phaseDefinitions, projectId,
               )}
               {run?.metrics && <AgentRuntimeMetrics metrics={run.metrics} />}
               {run && <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />}
+              {run && <RuntimeSteering projectId={projectId} run={run} onAccepted={runtime.refresh} />}
             </section>
           )}
         </div>

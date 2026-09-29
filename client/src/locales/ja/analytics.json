@@ -212,5 +212,20 @@
     "turnsAndTokens": "{{turns}} ターン · {{tokens}} トークン",
     "untitled": "無題のミッション",
     "estimatedNote": "推定コストを含む"
+  },
+  "legacyUsage": {
+    "title": "従来のワークフローの使用状況",
+    "refresh": "件数を更新",
+    "scope": "このプロジェクトで記録されたすべてのイベント。支出フィルターは適用されません。",
+    "unavailable": "件数を更新できませんでした。",
+    "loading": "記録された使用状況を読み込み中…",
+    "total": "記録されたイベント: {{count}}",
+    "last": "最終イベント:",
+    "evidence": "これらの件数だけでは、従来の互換性を廃止できることの証明にはなりません。",
+    "kinds": {
+      "legacy_loop_traversal": "従来のループ",
+      "queue_manager_slash": "キュー内のコマンド",
+      "merge_back": "ローカル統合"
+    }
   }
 }

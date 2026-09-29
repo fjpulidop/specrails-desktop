@@ -284,6 +284,29 @@ export function settleSpecAddendaAt(storePath: string, ticketIds: readonly numbe
   }
 }
 
+/** A fork inherits only the frozen addendum IDs of its ancestors. Callers must
+ * supply tickets whose current causal owner is the child. Transfer and settle
+ * share the existing file-store mutation so a crash cannot leave half a claim. */
+export function settleForkAddendaAt(storePath: string, ticketIds: readonly number[], runId: string, claims: ReadonlyArray<{ runId: string; ids: string[] }>, outcome: SpecAddendaSettleOutcome): { changedTicketIds: number[]; store: TicketStore | null } {
+  if (!ticketIds.length || !claims.length) return { changedTicketIds: [], store: null }
+  const inherited = new Map(claims.map(claim => [claim.runId, new Set(claim.ids)]))
+  const selected = (a: SpecAddendum) => a.status === 'in_flight' && a.run_id !== null && inherited.get(a.run_id)?.has(a.id) === true
+  const probe = readStore(storePath)
+  if (!ticketIds.some(id => readSpecAddenda(probe.tickets[String(id)]?.addenda).some(selected))) return { changedTicketIds: [], store: null }
+  let changedTicketIds: number[] = []
+  const store = mutateStore(storePath, current => {
+    for (const id of ticketIds) {
+      const ticket = current.tickets[String(id)]
+      if (!ticket) continue
+      const addenda = readSpecAddenda(ticket.addenda)
+      for (const a of addenda) if (selected(a)) a.run_id = runId
+      ticket.addenda = addenda
+    }
+    changedTicketIds = settleSpecAddenda(current, ticketIds, runId, outcome)
+  })
+  return { changedTicketIds, store }
+}
+
 /**
  * A discarded delivery destroyed the work its addenda were applied by: reopen
  * exactly those (by id, from the delivery's frozen snapshot) so the next launch

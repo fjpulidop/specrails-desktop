@@ -7,11 +7,12 @@ import express from 'express'
 import request from 'supertest'
 import { createJob, initDb, type DbInstance } from '../../../db'
 import { createLoopRun, listLoopStepRecoveries } from '../../loops/runtime/loop-runs-store'
-import { AgentRuntimeControls, readAgentRuntimeStatus, RuntimeControlError, validateRuntimeResumeInput } from './agent-runtime-controls'
+import { AgentRuntimeControls, readAgentRuntimeStatus, readRuntimeSteering, RuntimeControlError, validateRuntimeResumeInput } from './agent-runtime-controls'
 import { registerAgentRuntimeControlRoutes, shutdownAgentRuntimeControls } from './agent-runtime-controls-router'
 import type { ProjectContext } from '../../../project-registry'
 import type { AiStepResult } from '../../loops/runtime/loop-run-manager'
 import { recoverOrphanLoopStepAccounting } from '../../loops/runtime/loop-run-manager'
+import summaryContract from '../../../schemas/fixtures/runtime-efficiency-summary.v1.json'
 
 const loader = vi.hoisted(() => ({ cli: null as string | null }))
 vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: () => loader.cli }))
@@ -44,6 +45,73 @@ beforeEach(() => {
 afterEach(() => { service.shutdown(); vi.restoreAllMocks(); db.close(); fs.rmSync(directory, { recursive: true, force: true }) })
 
 describe('agent runtime lifecycle', () => {
+  it('sends steering through the retained CLI stdin with a stable id and Core acceptance time', async () => {
+    status.mockResolvedValue({ ...state(), engineVersion: 2 })
+    loader.cli = path.join(directory, 'signal.cjs')
+    const acceptedAt = '2026-09-26T19:00:00.000Z'
+    fs.writeFileSync(loader.cli, `let input='';process.stdin.setEncoding('utf8');process.stdin.on('data', chunk=>input+=chunk);process.stdin.on('end',()=>{require('node:assert/strict').equal(input, 'Keep the acceptance tests intact');require('node:assert/strict').ok(!process.argv.includes(input));process.stdout.write(JSON.stringify({type:'runtime-signal-accepted',id:process.argv[process.argv.indexOf('--request-id')+1],acceptedAt:${JSON.stringify(acceptedAt)}}))})`)
+    const body = { requestId: 'operator-1', text: 'Keep the acceptance tests intact' }
+    expect(await service.signal('run-1', body)).toEqual({ id: body.requestId, acceptedAt })
+    expect(await service.signal('run-1', body)).toEqual({ id: body.requestId, acceptedAt })
+    expect(execute).not.toHaveBeenCalled()
+    expect(service.isActive('run-1')).toBe(false)
+  })
+
+  it('rejects invalid steering, legacy runs and Core conflicts without starting a workflow', async () => {
+    for (const body of [null, [], {}, { text: 'a' }, { text: '', requestId: 'id' }, { text: 'a'.repeat(20_001), requestId: 'id' }, { text: 'a', requestId: '../other' }, { text: 'a', requestId: 'id', extra: true }]) {
+      await expect(service.signal('run-1', body)).rejects.toMatchObject({ statusCode: 400, code: 'invalid_steering_request' })
+    }
+    expect(status).not.toHaveBeenCalled()
+    const body = { text: 'Steer', requestId: 'same-id' }
+    await expect(service.signal('run-1', body)).rejects.toMatchObject({ code: 'steering_unsupported' })
+    status.mockResolvedValue({ ...state(), engineVersion: 2 })
+    loader.cli = path.join(directory, 'reject.cjs')
+    fs.writeFileSync(loader.cli, `process.stdout.write(JSON.stringify({type:'runtime-result',status:'failed',error:{code:'control_conflict',message:'Id already used'}}));process.exitCode=1`)
+    await expect(service.signal('run-1', body)).rejects.toMatchObject({ statusCode: 409, code: 'control_conflict' })
+    await expect(service.signal('../foreign', body)).rejects.toMatchObject({ code: 'invalid_run_id' })
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it.each([0, 1])('fences steering and resume controls while fork adoption is %i', async adopted => {
+    db.prepare("UPDATE loop_runs SET engine_version=2,status='paused' WHERE id='run-1'").run()
+    db.prepare('INSERT INTO definition_fork_operations (project_id,source_run_id,request_id,child_run_id,request_json,adopted) VALUES (?,?,?,?,?,?)')
+      .run('p1', 'run-1', 'fork-request', 'child-1', '{}', adopted)
+    status.mockResolvedValue({ ...state(), engineVersion: 2, lease: null })
+    const control = vi.fn()
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, control })
+    await expect(service.signal('run-1', { text: 'Steer', requestId: 'op-1' })).rejects.toMatchObject({ statusCode: 409, code: 'runtime_fork_pending' })
+    expect(status).not.toHaveBeenCalled()
+    expect(control).not.toHaveBeenCalled()
+    const summary = await service.summary('run-1')
+    expect(summary).toMatchObject({ canResume: false, canCancel: false, canSettle: false, recoverableSteps: [] })
+    expect(summary.pendingApproval).toBeUndefined()
+    expect(summary.forkSuccessor).toBe(adopted ? 'child-1' : undefined)
+  })
+
+  it('rechecks fork ownership after asynchronous status inspection', async () => {
+    const control = vi.fn()
+    service = new AgentRuntimeControls(ctx, { status, execute, kill, control })
+    status.mockImplementationOnce(async () => {
+      db.prepare('INSERT INTO definition_fork_operations (project_id,source_run_id,request_id,child_run_id,request_json) VALUES (?,?,?,?,?)')
+        .run('p1', 'run-1', 'fork-request', 'child-1', '{}')
+      return { ...state(), engineVersion: 2 }
+    })
+    await expect(service.signal('run-1', { text: 'Steer', requestId: 'op-1' })).rejects.toMatchObject({ code: 'runtime_fork_pending' })
+    expect(control).not.toHaveBeenCalled()
+  })
+
+  it('projects validated durable steering receipts without inventing consumption for older runtimes', () => {
+    expect(readRuntimeSteering(undefined)).toBeUndefined()
+    const receipt = { id: 'op', acceptedAt: '2026-09-26T19:00:00Z', preview: 'Hello', length: 5, status: 'pending' }
+    const inbox = { receipts: [receipt], pending: 1, consumed: 0, truncated: false, consumptionReported: true }
+    expect(readRuntimeSteering(inbox)).toEqual(inbox)
+    expect(() => readRuntimeSteering({ ...inbox, receipts: [{ ...receipt, status: 'consumed' }] })).toThrow('invalid steering')
+    expect(() => readRuntimeSteering({ ...inbox, pending: -1 })).toThrow('invalid steering')
+    expect(() => readRuntimeSteering({ ...inbox, receipts: [{ ...receipt, preview: 'a'.repeat(241) }] })).toThrow('invalid steering')
+    const consumed = { ...receipt, status: 'consumed', consumedAttemptId: 'attempt-1', consumedAt: '2026-09-26T19:00:01Z' }
+    expect(readRuntimeSteering({ ...inbox, receipts: [consumed], pending: 0, consumed: 1 })?.receipts).toEqual([consumed])
+  })
+
   it('reserves scoped recovery, forwards only the original context and audits the outcome', async () => {
     let resolveRepair!: (value: unknown) => void
     const recovery = vi.fn(() => new Promise(resolve => { resolveRepair = resolve }))
@@ -120,6 +188,35 @@ describe('agent runtime lifecycle', () => {
     expect(JSON.stringify(await service.summary('run-1'))).not.toContain('do not forward')
     status.mockResolvedValue(state())
     expect((await service.summary('run-1')).metrics).toBeUndefined()
+  })
+
+  it('projects exact v2 attempts and prevents legacy continuation from changing its accounting', async () => {
+    const stepIds = ['draft', 'build', 'check', 'implement/reviewer', 'publish', 'finish']
+    const snapshot = { ...state(), engineVersion: 2, recoverableSteps: [{ attemptId: 'attempt-review', nodePath: 'implement/reviewer', scopeId: 'root' }], nextStep: 'implement/reviewer', pendingApproval: undefined,
+      steps: Object.fromEntries(stepIds.map(id => [id, { status: id === 'implement/reviewer' ? 'interrupted' : 'succeeded', kind: 'prompt' }])) }
+    status.mockResolvedValue(snapshot)
+    expect(await service.summary('run-1')).toMatchObject({ engineVersion: 2, nextStep: 'implement/reviewer', recoverableSteps: ['attempt-review'] })
+    await expect(service.resume('run-1', { recover: ['attempt-review'] })).rejects.toMatchObject({ code: 'definition_lifecycle_required' })
+    expect(execute).not.toHaveBeenCalled()
+    expect(service.isActive('run-1')).toBe(false)
+  })
+
+  it('distinguishes a recovered v2 pause from a live Core lease', async () => {
+    db.prepare("UPDATE loop_runs SET engine_version=2, status='paused', restart_reason='restart' WHERE id='run-1'").run()
+    status.mockResolvedValue({ ...state(), engineVersion: 2, lease: null, recoverableSteps: [{ attemptId: 'attempt-left', nodePath: 'write', scopeId: 'left' }] })
+    expect(await service.summary('run-1')).toMatchObject({ active: false, canResume: true, recoverableSteps: ['attempt-left'], recoveryAttempts: [{ scopeId: 'left' }] })
+    status.mockResolvedValue({ ...state(), engineVersion: 2, lease: { active: true } })
+    expect(await service.summary('run-1')).toMatchObject({ active: true, canResume: false })
+    status.mockClear()
+    await expect(service.resume('run-1', {})).rejects.toMatchObject({ code: 'definition_lifecycle_required' })
+    expect(status).not.toHaveBeenCalled()
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('keeps the legacy allowlist after syntactic HTTP validation', async () => {
+    expect(validateRuntimeResumeInput({ recover: ['custom/step'] })).toEqual({ recover: ['custom/step'] })
+    await expect(service.resume('run-1', { recover: ['custom/step'] })).rejects.toMatchObject({ code: 'invalid_resume_request' })
+    expect(execute).not.toHaveBeenCalled()
   })
   it('shows a later transport failure even if Core left its previous checkpoint unchanged', async () => {
     const { writeRuntimeHistory } = await import('./agent-runtime-history')
@@ -309,12 +406,34 @@ describe('agent runtime lifecycle', () => {
     expect(await service.summary('../escape')).toMatchObject({ status: 'unavailable' })
   })
 
-  it.each([null, [], { contextPath: '/other' }, { approve: 'archive' }, { recover: ['../other'] }, { invalidate: ['verify', 'verify'] }, { answer: '' }, { answer: '   ' }, { answer: 42 }, { answer: ['text'] }, { answer: 'x'.repeat(20_001) }])('rejects arbitrary resume inputs %j', (input) => {
+  it.each([null, [], { contextPath: '/other' }, { approve: 'archive' }, { recover: ['../other'] }, { recover: ['one//two'] }, { recover: ['a/b/c/d/e'] }, { recover: ['a/END'] }, { recover: ['a'.repeat(121)] }, { invalidate: ['verify', 'verify'] }, { answer: '' }, { answer: '   ' }, { answer: 42 }, { answer: ['text'] }, { answer: 'x'.repeat(20_001) }])('rejects arbitrary resume inputs %j', (input) => {
     expect(() => validateRuntimeResumeInput(input)).toThrow(RuntimeControlError)
   })
-  it('accepts only phase control arrays and a bounded answer', () => {
+  it('accepts safe node control arrays and a bounded answer', () => {
     expect(validateRuntimeResumeInput({ approve: ['archive'], recover: ['developer'], invalidate: ['verify'] })).toEqual({ approve: ['archive'], recover: ['developer'], invalidate: ['verify'] })
     expect(validateRuntimeResumeInput({ answer: 'x'.repeat(20_000) })).toEqual({ answer: 'x'.repeat(20_000) })
+  })
+
+  it('normalizes v2 compact status metrics and derives open roles from frozen configuration', async () => {
+    loader.cli = path.join(directory, 'status.cjs')
+    const stepIds = ['draft', 'build', 'check', 'implement/reviewer', 'publish', 'finish']
+    const total = { attempts: 1, measuredAttempts: 1, durationMs: 10, agentDurationMs: 8, providerCalls: 1, toolCalls: 2, inputTokens: 100, outputTokens: 10, costUsd: null, uncachedInputTokens: null, cacheReadInputTokens: null, cacheWriteInputTokens: null }
+    const metrics = { schemaVersion: 1, total, phases: stepIds.map(stepId => ({ ...total, stepId, providers: ['local'], models: [] })) }
+    const roleIds = ['architect', 'developer', 'reviewer', 'auditor']
+    const fixture = summaryContract.fixtures.success
+    const efficiencySummary = { ...fixture, runId: 'run-1', roles: roleIds.map(role => ({ ...fixture.roles[0], role })) }
+    fs.writeFileSync(path.join(runDirectory, 'desktop-runtime-config.json'), JSON.stringify({ agents: { architect: {}, developer: {}, reviewer: {} }, roles: { auditor: {} } }))
+    const wire = { type: 'runtime-status', engineVersion: 2, state: { runId: 'run-1', status: 'paused', nextNodePath: 'implement/reviewer', steps: Object.fromEntries(stepIds.map(id => [id, { status: 'paused', kind: 'prompt' }])) }, metrics, efficiencySummary }
+    Object.assign(wire.state, { pendingApproval: { stepId: 'publish', reason: 'Proceed?' }, pendingInterrupts: [{ id: 'approve-7', nodePath: 'publish', kind: 'approval' }], recoverableSteps: [{ attemptId: 'attempt-9', nodePath: 'build', scopeId: 'root' }], lease: null })
+    fs.writeFileSync(loader.cli, `console.log(${JSON.stringify(JSON.stringify(wire))})`)
+    expect(await readAgentRuntimeStatus(contextPath, directory, process.env)).toMatchObject({ pendingApproval: { stepId: 'approve-7' }, recoverableSteps: [{ attemptId: 'attempt-9' }] })
+    expect(await readAgentRuntimeStatus(contextPath, directory, process.env)).toMatchObject({ engineVersion: 2, nextStep: 'implement/reviewer', roleIds, metrics, efficiencySummary: { runId: 'run-1', roles: efficiencySummary.roles } })
+    fs.unlinkSync(path.join(runDirectory, 'desktop-runtime-config.json'))
+    expect((await readAgentRuntimeStatus(contextPath, directory, process.env))?.efficiencySummary).toBeUndefined()
+    for (const state of [{ ...wire.state, nextNodePath: 'unknown' }, { ...wire.state, steps: { '../escape': { status: 'paused' } } }, { ...wire.state, steps: [] }, { ...wire.state, steps: { draft: null } }]) {
+      fs.writeFileSync(loader.cli, `console.log(${JSON.stringify(JSON.stringify({ ...wire, state }))})`)
+      await expect(readAgentRuntimeStatus(contextPath, directory, process.env)).rejects.toThrow('invalid')
+    }
   })
 
   it('exposes an open architect question, requires its answer to resume and forwards the answer to Core', async () => {
@@ -364,6 +483,12 @@ describe('agent runtime lifecycle', () => {
     const cancel = vi.spyOn(AgentRuntimeControls.prototype, 'cancel').mockReturnValue()
     const stop = vi.spyOn(AgentRuntimeControls.prototype, 'shutdown').mockReturnValue()
     const base = '/api/projects/p1/agent-runtime/runs'
+    const steeringReceipt = { id: 'operator-1', acceptedAt: '2026-09-26T12:00:00.000Z' }
+    const signal = vi.spyOn(AgentRuntimeControls.prototype, 'signal').mockResolvedValue(steeringReceipt)
+    await request(app).post(base + '/run-1/steer').send({ text: 'Keep the API', requestId: 'operator-1' }).expect(202, steeringReceipt)
+    expect(signal).toHaveBeenCalledWith('run-1', { text: 'Keep the API', requestId: 'operator-1' })
+    signal.mockRejectedValueOnce(new RuntimeControlError(409, 'control_conflict', 'Request identity already used'))
+    await request(app).post(base + '/run-1/steer').send({ text: 'Changed', requestId: 'operator-1' }).expect(409, { error: 'control_conflict', message: 'Request identity already used' })
     const summary = vi.spyOn(AgentRuntimeControls.prototype, 'summary').mockResolvedValue({ runId: 'run-1', status: 'failed', nextStep: 'developer', recoverableSteps: [], active: false, canResume: true, canCancel: false })
     await request(app).get(base + '/run-1').expect(200).expect(res => expect(res.body.runs[0].runId).toBe('run-1'))
     await request(app).get(base + '/legacy-job').expect(200, { runs: [] })
@@ -383,6 +508,8 @@ describe('agent runtime lifecycle', () => {
     await request(app).post(base + '/run-1/resume').send({ cwd: '/bad' }).expect(400)
     // The fixer is a graph node of its own: an interrupted correction round is recoverable like any step.
     await request(app).post(base + '/run-1/resume').send({ recover: ['fixer'] }).expect(202)
+    await request(app).post(base + '/run-1/resume').send({ recover: ['custom/step'] }).expect(202)
+    resume.mockRejectedValueOnce(new RuntimeControlError(400, 'invalid_resume_request', 'Unknown saved workflow node'))
     await request(app).post(base + '/run-1/resume').send({ recover: ['alien'] }).expect(400)
     await request(app).post(base + '/run-1/resume').send({ answer: 'Use Redis' }).expect(202)
     expect(resume).toHaveBeenCalledWith('run-1', { answer: 'Use Redis' })
@@ -403,5 +530,26 @@ describe('agent runtime lifecycle', () => {
     await request(app).post(base + '/run-1/cancel').expect(500)
     shutdownAgentRuntimeControls(ctx); expect(stop).toHaveBeenCalledOnce()
     shutdownAgentRuntimeControls({})
+  })
+})
+
+describe('runtime retention HTTP contract', () => {
+  function api() {
+    const app = express(); app.use(express.json()); const router = express.Router()
+    registerAgentRuntimeControlRoutes({ router, ctx: () => ctx } as never); app.use('/api/projects', router)
+    return request(app)
+  }
+  it('defaults to indefinite retention and preview-only collection', async () => {
+    expect((await api().get('/api/projects/p1/agent-runtime/retention')).body).toEqual({ policy: { days: null } })
+    const result = await api().post('/api/projects/p1/agent-runtime/retention/collect').send({})
+    expect(result.status).toBe(200)
+    expect(result.body).toMatchObject({ dryRun: true, runs: [{ state: 'protected', reasons: ['disabled'] }] })
+    expect(fs.existsSync(contextPath)).toBe(true)
+  })
+  it('validates project policy before saving and rejects force shortcuts', async () => {
+    expect((await api().put('/api/projects/p1/agent-runtime/retention').send({ days: 30 })).body).toEqual({ policy: { days: 30 } })
+    expect((await api().put('/api/projects/p1/agent-runtime/retention').send({ days: 0 })).status).toBe(400)
+    expect((await api().get('/api/projects/p1/agent-runtime/retention')).body).toEqual({ policy: { days: 30 } })
+    expect((await api().post('/api/projects/p1/agent-runtime/retention/collect').send({ force: true })).status).toBe(400)
   })
 })

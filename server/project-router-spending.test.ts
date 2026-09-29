@@ -121,6 +121,15 @@ describe('project-router-spending', () => {
     fs.rmSync(h.tmpDir, { recursive: true, force: true })
   })
 
+  it('exposes observed legacy counts without asserting two-release retirement evidence', async () => {
+    h.db.prepare('INSERT INTO legacy_launch_events (id,kind,project_id,run_id,at) VALUES (?,?,?,?,?)').run('e1', 'legacy_loop_traversal', PROJECT_ID, 'r1', '2026-09-26T12:00:00.000Z')
+    const base = `/api/projects/${PROJECT_ID}/analytics/legacy-launches`
+    const result = await request(h.app).get(base).expect(200)
+    expect(result.body).toMatchObject({ total: 1, byKind: { legacy_loop_traversal: 1 }, retirementEvidence: 'not-evaluated' })
+    await request(h.app).get(base + '?since=invalid').expect(400)
+    await request(h.app).get(base + '?since=2026-09-27').expect(200).expect(response => expect(response.body.total).toBe(0))
+  })
+
   // ─── BUG-ANALYTICS-18 / 36: /spending enriches topTickets titles ────────────
   describe('GET /spending — topTickets title enrichment', () => {
     it('populates ticketTitle for a live ticket (not "Deleted")', async () => {
@@ -181,7 +190,7 @@ describe('project-router-spending', () => {
     it('sets truncated when totalAvailable exceeds returned rows (limit path)', async () => {
       for (let i = 0; i < 5; i++) insert(h.db, { surface: 'job', cost: 1 })
       const res = await request(h.app).get(`/api/projects/${PROJECT_ID}/invocations?limit=2`)
-      expect(res.status).toBe(200)
+      expect(res.status, `Unexpected invocation response: ${JSON.stringify(res.body)}`).toBe(200)
       expect(res.body.rows.length).toBe(2)
       expect(res.body.totalAvailable).toBe(5)
       expect(res.body.truncated).toBe(true)

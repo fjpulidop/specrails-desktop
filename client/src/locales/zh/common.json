@@ -81,7 +81,8 @@
     "superseded": "已被较新的运行取代",
     "cleanup_incomplete": "清理未完成",
     "status_failed": "worktree 状态检查失败",
-    "ref_mismatch": "分支引用不匹配"
+    "ref_mismatch": "分支引用不匹配",
+    "restart_pending": "等待工作流恢复"
   },
   "prRecovery": {
     "inProgress": "项目恢复仍在进行中。你的交付内容是安全的，请稍后重试。",

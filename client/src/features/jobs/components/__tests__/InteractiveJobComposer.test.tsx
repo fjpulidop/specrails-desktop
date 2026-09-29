@@ -251,3 +251,24 @@ describe('InteractiveJobComposer', () => {
     })
   })
 })
+
+describe('Core workflow human controls',()=>{
+  beforeEach(()=>{vi.clearAllMocks();wsHandlers.clear();global.fetch=vi.fn().mockResolvedValue({ok:true,json:async()=>({ok:true})})})
+  it('does not turn typed text into approval and sends explicit approval for the selected interrupt',async()=>{
+    const user=userEvent.setup()
+    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'a1',nodePath:'archive',kind:'approval',value:{prompt:'Archive this change?'}}]} />)
+    expect(screen.getByText('Archive this change?')).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox'),'yes{Enter}')
+    expect(global.fetch).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button',{name:'Approve and continue'}))
+    await waitFor(()=>expect(global.fetch).toHaveBeenCalledWith('/api/jobs/run-1/messages',expect.objectContaining({body:JSON.stringify({text:'yes',interruptId:'a1',approve:true})})))
+  })
+  it('requires selection among concurrent questions and sends its exact interrupt id',async()=>{
+    const user=userEvent.setup()
+    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'q1',nodePath:'map[0]/ask',kind:'question'},{id:'q2',nodePath:'map[1]/ask',kind:'question'}]} />)
+    await user.type(screen.getByRole('textbox'),'Answer')
+    expect(screen.getByRole('button',{name:'Send'})).toBeDisabled()
+    await user.selectOptions(screen.getByRole('combobox'),'q2');await user.click(screen.getByRole('button',{name:'Send'}))
+    await waitFor(()=>expect(global.fetch).toHaveBeenCalledWith('/api/jobs/run-1/messages',expect.objectContaining({body:JSON.stringify({text:'Answer',interruptId:'q2'})})))
+  })
+})

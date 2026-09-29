@@ -81,7 +81,8 @@
     "superseded": "Replaced by a newer run",
     "cleanup_incomplete": "Cleanup incomplete",
     "status_failed": "Worktree status check failed",
-    "ref_mismatch": "Branch reference mismatch"
+    "ref_mismatch": "Branch reference mismatch",
+    "restart_pending": "Waiting for workflow recovery"
   },
   "prRecovery": {
     "inProgress": "Project recovery is still in progress. Your delivery is safe — retry in a moment.",

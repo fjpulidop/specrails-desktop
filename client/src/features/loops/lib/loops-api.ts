@@ -5,7 +5,10 @@
  */
 
 export type LoopStatus = 'draft' | 'published'
-export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'condition' | 'end'
+export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'condition' | 'core' | 'end'
+export type CoreNodeKind = 'prompt' | 'role-turn' | 'decider' | 'condition' | 'assign' | 'verify' | 'shell'
+  | 'openspec-validate' | 'openspec-archive' | 'approval' | 'question' | 'gate' | 'map' | 'join'
+  | 'component' | 'implementation' | 'end'
 export type LoopJoin = 'AND' | 'OR'
 /** Which Decider verdict routes down an edge: 'continue' = loop, 'stop' = exit. */
 export type LoopBranch = 'continue' | 'stop'
@@ -24,12 +27,19 @@ export interface LoopEdge {
   join?: LoopJoin
   /** Set on edges leaving a `decider` (maps to React Flow `sourceHandle`). */
   branch?: LoopBranch
+  label?: string
 }
 
 export interface LoopGraph {
   nodes: LoopNode[]
   edges: LoopEdge[]
-  config: { maxIterations: number; timeoutMinutes: number; maxCostUsd?: number; layout?: 'vertical' | 'horizontal' | 'grid' | 'manual' }
+  config: { maxIterations: number; timeoutMinutes: number; maxCostUsd?: number; maxTokens?: number; maxTransitions?: number;
+    journal?: 'ledger-only' | 'implementation'; change?: 'new' | 'existing' | 'none'; reviewerStepId?: string; legacyDeciderRole?: string;
+    policies?: { failFast?: number; noProgress?: number; historyMaxChars?: number; concurrency?: number };
+    layout?: 'vertical' | 'horizontal' | 'grid' | 'manual' }
+  inputs?: string[]
+  outputs?: string[]
+  components?: Record<string, LoopGraph>
 }
 
 export interface LoopDefinition {
@@ -40,6 +50,11 @@ export interface LoopDefinition {
   graph: LoopGraph
   createdAt: string
   updatedAt: string
+  hasLegacyGraph?: boolean
+  /** Canonical factory id when this loop IS an editable built-in (id === builtinId). */
+  builtinId?: string
+  /** Built-ins only: the content differs from its original default. */
+  builtinModified?: boolean
 }
 
 export interface LoopTemplateSummary {
@@ -54,30 +69,20 @@ export interface LoopTemplateSummary {
   graph: LoopGraph
 }
 
-/** A built-in factory loop (locked) — implement / batch / freestyle. */
-export interface FactoryLoopSummary {
-  id: string
-  name: string
-  description: string
-  /** Legacy rail mode this loop maps to. */
-  mode: 'implement' | 'batch-implement' | 'freestyle'
-  /** Adapter capability required to execute this factory loop, when any. */
-  requiredCapability?: 'freestyle'
-  /** Backward-compatible field from older servers. */
-  claudeOnly?: boolean
-  /**
-   * False for a loop the platform runs on its own initiative and the user cannot
-   * start by hand. Absent on older servers, which only ever shipped launchable
-   * loops — so `!== false` is the correct read.
-   */
-  launchable?: boolean
-  graph: LoopGraph
+export interface WorkflowPieceDescriptor {
+  kind: CoreNodeKind
+  paramsSchema: Record<string, unknown>
+  outcomes: string[]
+  effect: 'read' | 'write' | 'derived'
+  requiresAI: boolean
 }
+export interface WorkflowCatalog { definitionSchema?: Record<string, unknown>; nodeKindsVersion: number; nodeKinds: WorkflowPieceDescriptor[]; builtins: Array<{ id: string; version: string; deprecated: boolean }> }
 
 export interface GraphValidationError {
   code: string
   message: string
   nodeId?: string
+  path?: string
   edgeId?: string
 }
 
@@ -119,7 +124,7 @@ async function parse<T>(res: Response): Promise<T> {
     } catch {
       body = undefined
     }
-    if (res.status === 422 && body && typeof body === 'object' && 'errors' in body) {
+    if ((res.status === 422 || res.status === 400) && body && typeof body === 'object' && 'errors' in body) {
       throw new LoopPublishError((body as { errors: GraphValidationError[] }).errors ?? [])
     }
     const message =
@@ -140,12 +145,27 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
   return parse<T>(res)
 }
 
+export type LoopMigrationState = 'current' | 'invalid' | 'convertible' | 'needs_attention' | 'running'
+export interface LoopMigrationEntry {
+  id: string; name: string; status: 'draft' | 'published'; engine: 'legacy' | 'core'; hasLegacyGraph: boolean
+  state: LoopMigrationState; issues: Array<{ code: string; message: string; nodeId?: string }>
+}
+export interface LoopMigrationReport { loops: LoopMigrationEntry[]; summary: Record<LoopMigrationState, number> }
+
 export const loopsApi = {
+  async migration(): Promise<LoopMigrationReport> { return send('GET', '/loops/migration') },
+  async catalog(): Promise<WorkflowCatalog> { return send('GET', '/loops/catalog') },
   async list(): Promise<LoopDefinition[]> {
     return (await send<{ loops: LoopDefinition[] }>('GET', '/loops')).loops
   },
   async get(id: string): Promise<LoopDefinition> {
     return (await send<{ loop: LoopDefinition }>('GET', `/loops/${id}`)).loop
+  },
+  async legacyGraph(id: string): Promise<{ graph: LoopGraph; savedAt: string }> {
+    return send('GET', `/loops/${encodeURIComponent(id)}/legacy-graph`)
+  },
+  async convert(id: string, repositoryId?: string): Promise<{ loop: LoopDefinition; nodeIds: Record<string, string>; alreadyConverted?: boolean }> {
+    return send('POST', `/loops/${encodeURIComponent(id)}/convert`, { ...(repositoryId ? { repositoryId } : {}) })
   },
   async create(input: { name: string; description?: string; graph?: LoopGraph }): Promise<LoopDefinition> {
     return (await send<{ loop: LoopDefinition }>('POST', '/loops', input)).loop
@@ -177,15 +197,13 @@ export const loopsApi = {
       await send<{ loop: LoopDefinition }>('POST', `/loops/from-template/${templateId}`, name ? { name } : {})
     ).loop
   },
-  async factoryLoops(): Promise<FactoryLoopSummary[]> {
-    return (await send<{ factoryLoops: FactoryLoopSummary[] }>('GET', '/loops/factory')).factoryLoops
-  },
   /** Magic-command catalog for the builder palette ({ name, label, description }). */
   async loopCommands(): Promise<{ name: string; label: string; description: string }[]> {
     return (await send<{ commands: { name: string; label: string; description: string }[] }>('GET', '/loops/commands')).commands
   },
-  async forkFactory(id: string, name?: string): Promise<LoopDefinition> {
-    return (await send<{ loop: LoopDefinition }>('POST', `/loops/factory/${id}/fork`, name ? { name } : {})).loop
+  /** Reset a built-in loop to its original default (Published). */
+  async restoreBuiltin(id: string): Promise<LoopDefinition> {
+    return (await send<{ loop: LoopDefinition }>('POST', `/loops/${encodeURIComponent(id)}/restore-builtin`)).loop
   },
   // ── Constants library (global) ──────────────────────────────────────────────
   async loopConstants(): Promise<LoopConstant[]> {

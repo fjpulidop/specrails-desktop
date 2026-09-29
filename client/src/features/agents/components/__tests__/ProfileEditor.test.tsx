@@ -60,6 +60,7 @@ describe('ProfileEditor', () => {
     expect(screen.queryByRole('combobox', { name: /routing target/i })).not.toBeInTheDocument()
     // A "core · default" badge is rendered.
     expect(screen.getByText(/core · default/i)).toBeInTheDocument()
+    expect(screen.getByText(/Orchestrator and routing settings apply to legacy workflows/)).toBeInTheDocument()
     // No edit / remove / reorder buttons for the default rule.
     expect(screen.queryByRole('button', { name: /edit rule 1/i })).not.toBeInTheDocument()
   })
@@ -119,8 +120,8 @@ describe('ProfileEditor', () => {
       )
     })
 
-    expect(screen.getByText(/\/skill:specrails-implement.*\/skill:specrails-batch-implement/))
-      .toBeInTheDocument()
+    expect(screen.getByText('/skill:specrails-implement')).toBeInTheDocument()
+    expect(screen.queryByText(/batch-implement/)).not.toBeInTheDocument()
     expect(screen.getByTestId('profile-orchestrator-model')).toHaveValue('k3')
     expect(screen.queryByDisplayValue('sonnet')).not.toBeInTheDocument()
   })

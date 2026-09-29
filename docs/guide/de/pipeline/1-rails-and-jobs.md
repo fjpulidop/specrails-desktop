@@ -18,12 +18,12 @@ SpecsBoard (links)          Rails (rechts)
 
 Eine Rail ist eine **Ausführungsspur**. Du ziehst eine Spec-Karte vom SpecsBoard auf eine Rail und drückst dann **▶ Play**. In Git-Repositories startet die Rail die Pipeline in einem isolierten Git-Worktree, damit die KI Dateien bearbeiten und Tests ausführen kann, ohne deinen aktiven Arbeitsbaum zu berühren. Ist das Projekt noch kein Git-Repo, degradiert Specrails klar sichtbar zur Ausführung im gemeinsamen Ordner und sagt dir, dass keine Branch- oder PR-Karte erscheinen wird.
 
-Du kannst mehrere rails anlegen, um deine Arbeit in benannten Spuren zu organisieren (eine für das Feature, an dem du gerade dran bist, eine weitere, die dahinter wartet). Rails sind **dynamisch**: Der **+ Hinzufügen**-Button im Rails-Header erstellt eine neue Spur (bis zu 12 pro Projekt), und leere, inaktive Spuren lassen sich löschen. Jede rail ist server-gestützt — dein Spuren-Set übersteht Reloads und ist für den mobilen Companion und den eingebauten Agenten sichtbar; der Agent kann sogar selbst eine rail anlegen, wenn alle Spuren belegt sind. Mehr zu mehreren rails und zum Stapelbetrieb findest du unter [Batch implement & Multi-Feature](batch-implement-and-multi-feature).
+Du kannst mehrere rails anlegen, um deine Arbeit in benannten Spuren zu organisieren (eine für das Feature, an dem du gerade dran bist, eine weitere, die dahinter wartet). Rails sind **dynamisch**: Der **+ Hinzufügen**-Button im Rails-Header erstellt eine neue Spur (bis zu 12 pro Projekt), und leere, inaktive Spuren lassen sich löschen. Jede rail ist server-gestützt — dein Spuren-Set übersteht Reloads und ist für den mobilen Companion und den eingebauten Agenten sichtbar; der Agent kann sogar selbst eine rail anlegen, wenn alle Spuren belegt sind.
 
 ## Eine Rail auf einer Spec starten
 
 1. **Zieh eine Spec-Karte** vom SpecsBoard auf eine rail. Die ID der Spec taucht in der Spec-Liste der rail auf. (Du ziehst lieber nicht? Nutze das **Move to rail**-Popover auf der Spec-Karte — es zeigt pro rail einen Status-Punkt, damit du keine Arbeit auf eine belegte Spur ablegst.)
-2. **Wähle einen Loop** im rail-Header. Eine rail führt einen **Loop** aus — das ist die Arbeit, die sie erledigt. Standard ist der eingebaute `Implement`-Loop; du kannst auch `Batch`, `Freestyle` oder einen selbst gebauten Loop wählen. Siehe [Der Loop Builder](the-loop-builder).
+2. **Wähle einen Loop** im rail-Header. Eine rail führt einen **Loop** aus — das ist die Arbeit, die sie erledigt. Standard ist der eingebaute `Implement`-Loop; du kannst auch `Freestyle` oder einen selbst gebauten Loop wählen. Siehe [Der Loop Builder](the-loop-builder).
 3. **Drück ▶ Play.**
 
 Das war's. Die rail startet einen KI-CLI-Prozess im richtigen Ausführungskontext und legt mit der Pipeline los.
@@ -34,24 +34,27 @@ Das war's. Die rail startet einen KI-CLI-Prozess im richtigen Ausführungskontex
 |---------|--------------|
 | **Status-Pill** | `idle`, `running` oder `failed`. Es gibt kein eigenes „completed“ — eine rail kehrt auf `idle` zurück, wenn ihr Job sauber durchläuft. |
 | **Spec-Liste** | Die IDs, die dieser rail zugewiesen sind. Zieh weitere hinein oder heraus, um sie wieder zu lösen. |
-| **Loop-Auswahl** | Der Loop, den diese rail ausführt — ein eingebauter (`Implement` / `Batch` / `Freestyle`) oder ein eigener Loop. Siehe Tabelle unten. Pro rail gespeichert. |
+| **Loop-Auswahl** | Der Loop, den diese rail ausführt — ein eingebauter (`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`) oder ein eigener Loop. Siehe Tabelle unten. Pro rail gespeichert. |
 | **Profil-Auswahl** | Welches Provider-Profil läuft (Claude- und Kimi-Rails). |
 | **Engine-Auswahl** | Welcher Provider die Rail ausführt — Claude, Codex, Gemini oder Kimi. |
 | **▶ Play / ■ Stop** | Starten oder abbrechen. |
 
 ### Was eine rail ausführt: Loops
 
-Eine rail führt einen **Loop** aus — das Rezept für die Arbeit. Drei Loops sind **eingebaut** und decken die gängigen Fälle ab:
+Eine rail führt einen **Loop** aus — das Rezept für die Arbeit. Zwei Loops sind **eingebaut** und decken die gängigen Fälle ab:
 
 | Eingebauter Loop | Befehl | Was er macht |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | Ein Job für alle Specs auf der rail. Durchläuft die komplette Pipeline Architect → Developer → Reviewer → Ship. Der Alltagsstandard. |
-| **Batch** | `/specrails:batch-implement` | Ein Job, der die Specs der rail nacheinander abarbeitet — in abhängigkeitsbewussten Wellen. Ideal für mehrere zusammenhängende Specs. |
 | **Freestyle** | Freestyle | Claude oder Kimi implementiert jede Spec eigenständig und **umgeht** dabei die Pipeline. |
+
+Für mehrere Specs legst du zusammengehörige (bis zu 3) auf eine rail — `Implement` führt sie als einen gemeinsamen Job aus — oder verteilst unabhängige Specs auf mehrere rails: Jede git-gestützte rail läuft parallel in ihrem eigenen isolierten Worktree.
 
 Freestyle nutzt native Tools und Modelle des Providers. Claude hat persistenten
 interaktiven Transport; Kimi nutzt einen agentischen `kimi -p`-Prozess ohne
 persistentes stdin.
+
+Auch die eingebauten Loops sind bearbeitbar: Bearbeite einen im Loop Builder und veröffentliche ihn, dann führt jede rail, die ihn wählt, deine Version aus (mit **Original wiederherstellen** gehst du zurück).
 
 Über die eingebauten Loops hinaus kannst du **deine eigenen Loops bauen** — einen verify → fix → verify-Zyklus wiederholen, bis ein Ziel erreicht ist, Shell-Befehle zwischen KI-Schritten verketten und mehr. Diese eigenen Loops erscheinen in derselben Loop-Auswahl. Das ist die nächste große Idee: [Der Loop Builder](the-loop-builder).
 
@@ -98,5 +101,4 @@ Wenn etwas nicht stimmt:
 
 - [Der Loop Builder](the-loop-builder) — was eine rail ausführt und wie du deine eigenen Loops baust.
 - [Die Job-Detail-Ansicht](the-job-detail-view) — Phasen, Live-Metriken, Ticket-Karten.
-- [Batch implement & Multi-Feature](batch-implement-and-multi-feature) — mehrere Specs auf einmal ausführen.
 - [Engine pro Rail wählen](picking-an-engine-per-rail) — Claude, Codex, Gemini oder Kimi.

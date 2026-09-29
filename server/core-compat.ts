@@ -8,12 +8,17 @@ import { getCoreRuntimeStatus } from './core-runtime'
 // Windows has no `which`; probe PATH via `where` instead.
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
+/** Paired development target; older supported contracts remain compatible. */
+export const EXPECTED_CORE_CONTRACT_SCHEMA_VERSION = '5.1'
+
 // These must mirror KNOWN_VERBS in cli/specrails-desktop.ts
 const DESKTOP_KNOWN_COMMANDS = new Set([
   'implement',
-  'batch-implement',
   'retry',
 ])
+// Commands older Cores still ship that Desktop no longer invokes. They are
+// tolerated (not drift) but never required: Batch was folded into implement.
+const DESKTOP_TOLERATED_LEGACY_COMMANDS = new Set(['batch-implement'])
 
 // v1.0: cli.initArgs / cli.updateArgs (flat); checkpoints/commands as string[]
 // v2.0: cli.claude / cli.codex (per-provider objects) + specrailsDir
@@ -21,6 +26,8 @@ const DESKTOP_KNOWN_COMMANDS = new Set([
 //       object (key â description); `commands` field dropped from the contract
 // v4.0: deterministic init/update lifecycle, provider workflows and local runtime;
 //       removed enrichment is no longer required to prove provider support.
+// v5.1: additive engine, nodeKinds and builtins descriptors are informational;
+//       execution features are gated by runtime api capabilities.
 interface IntegrationContract {
   schemaVersion: string
   lifecycle?: { mode?: string; requiresEnrich?: boolean }
@@ -78,7 +85,7 @@ function isRenderedProviderContract(provider: string, value: unknown): boolean {
     if (!isStringArray(value.cli.initArgs) || !value.cli.initArgs.includes('init')) return false
     if (value.updateCommand === 'update' && (!isStringArray(value.cli.updateArgs) || !value.cli.updateArgs.includes('update'))) return false
     const workflows = value.workflows
-    if (!['implement', 'batch-implement', 'retry'].every(name => typeof workflows[name] === 'string' && workflows[name])) return false
+    if (!['implement', 'retry'].every(name => typeof workflows[name] === 'string' && workflows[name])) return false
     return provider !== 'kimi' || (value.cli.providerBinary === 'kimi'
       && value.cli.skillRunner === '.kimi-code/specrails/run-skill.mjs'
       && isStringArray(value.cli.workflowArgs) && value.cli.workflowArgs.includes(value.cli.skillRunner))
@@ -295,7 +302,7 @@ export async function checkCoreCompat(): Promise<CoreCompatResult> {
   // v3 dropped the `commands` field from the contract â when absent, the
   // command-set check is a no-op (cannot prove drift either way).
   const contractCommands: string[] = Array.isArray(contract.commands) ? contract.commands : []
-  const missingCommands = contractCommands.filter((c) => !DESKTOP_KNOWN_COMMANDS.has(c))
+  const missingCommands = contractCommands.filter((c) => !DESKTOP_KNOWN_COMMANDS.has(c) && !DESKTOP_TOLERATED_LEGACY_COMMANDS.has(c))
   const extraCommands = contract.commands === undefined
     ? []
     : [...DESKTOP_KNOWN_COMMANDS].filter((c) => !contractCommands.includes(c))

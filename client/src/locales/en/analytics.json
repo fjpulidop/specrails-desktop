@@ -212,5 +212,20 @@
     "turnsAndTokens": "{{turns}} turns · {{tokens}} tokens",
     "untitled": "Untitled mission",
     "estimatedNote": "Includes estimated costs"
+  },
+  "legacyUsage": {
+    "title": "Legacy workflow usage",
+    "refresh": "Refresh counts",
+    "scope": "All recorded events for this project, independent of spending filters.",
+    "unavailable": "Could not refresh these counters.",
+    "loading": "Loading recorded usage…",
+    "total": "Recorded events: {{count}}",
+    "last": "Last event:",
+    "evidence": "These counters alone do not prove that legacy compatibility can be retired.",
+    "kinds": {
+      "legacy_loop_traversal": "Classic loops",
+      "queue_manager_slash": "Queued commands",
+      "merge_back": "Local integrations"
+    }
   }
 }

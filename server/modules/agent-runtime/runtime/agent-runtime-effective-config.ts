@@ -1,6 +1,44 @@
 import { getAdapter, hasAdapter, isLocalAdapterId } from '../../../providers'
 import type { RuntimeConfig, RuntimeProviderOverride } from './agent-runtime-settings'
 
+/** The loop decision role uses the selected review engine, but has no OpenSpec
+ * workflow obligation. Native implementation's reviewer keeps its own policy. */
+export function workflowRoleDefaults(config: RuntimeConfig): NonNullable<RuntimeConfig['roles']> {
+  return { 'loop-decider': { ...config.agents.reviewer, access: 'read', artifacts: 'none' } }
+}
+
+/** Explicit launch-owned roles, used when a converted workflow has a different
+ * decision engine from the project's reviewer. Validate the complete selection
+ * before applying it; project settings and caller descriptors remain untouched. */
+export function bindWorkflowRoleSelections(config: RuntimeConfig, definition: unknown,
+  selections: RuntimeConfig['roles']): Record<string, string> {
+  if (!selections || !Object.keys(selections).length) return {}
+  const declared = (definition as { roles?: unknown } | undefined)?.roles
+  const names = Object.keys(selections)
+  if (!Array.isArray(declared) || names.some(id => !declared.includes(id) ||
+    !/^[a-z][a-z0-9-]{0,63}$/.test(id) ||
+    ['architect', 'developer', 'reviewer', 'fixer', 'constructor', 'prototype'].includes(id))) {
+    throw new Error('Workflow role selections must name declared custom roles')
+  }
+  config.roles = { ...config.roles, ...structuredClone(selections) }
+  fillDefaultRoleModels(config)
+  return Object.fromEntries(names.map(id => [id, 'explicit-workflow-selection']))
+}
+
+/** Bind only roles referenced by the frozen definition; preserve explicit
+ * project assignments and never persist generated defaults into project files. */
+export function bindWorkflowRoleDefaults(config: RuntimeConfig, definition: unknown): Record<string, string> {
+  const roles = (definition as { roles?: unknown } | undefined)?.roles
+  if (!Array.isArray(roles) || !roles.includes('loop-decider')) return {}
+  const existing = config.roles?.['loop-decider']
+  if (existing) {
+    if (existing.access !== 'read' || existing.artifacts !== 'none' || existing.openspecSkill) throw new Error('loop-decider requires read access, no artifact writes and no OpenSpec skill')
+    return { 'loop-decider': 'project-role' }
+  }
+  config.roles = { ...config.roles, ...workflowRoleDefaults(config) }
+  return { 'loop-decider': 'inherited-reviewer-engine' }
+}
+
 /** A pure admission resolver; only deliberate launch intent overrides a project role. */
 export function resolveEffectiveRuntimeConfig(input: RuntimeConfig, options: {
   repositoryIds: string[]
@@ -26,6 +64,10 @@ export function resolveEffectiveRuntimeConfig(input: RuntimeConfig, options: {
       if (role === 'fixer') config.fixer = next; else config.agents[role] = next
     }
   }
+  if (override && config.roles) for (const [id, current] of Object.entries(config.roles)) {
+    const changed = current.provider !== override.provider || (override.model !== undefined && override.model !== current.model)
+    config.roles[id] = { ...current, provider: override.provider, model: override.model ?? (current.provider !== override.provider ? undefined : current.model), effort: override.effort ?? (changed ? undefined : current.effort), escalation: changed ? undefined : current.escalation }
+  }
   fillDefaultRoleModels(config)
   config.verification = config.verification.filter(check => options.repositoryIds.includes(check.repositoryId))
   return { config, origins: { architect: override ? 'explicit-launch-override' : options.source, developer: override ? 'explicit-launch-override' : options.source, reviewer: override ? 'explicit-launch-override' : options.source } }
@@ -39,8 +81,8 @@ export function resolveEffectiveRuntimeConfig(input: RuntimeConfig, options: {
  * picking a local engine with "provider default" failed the check with
  * "Role architect requires a model for its API provider".
  */
-export function fillDefaultRoleModels<T extends Pick<RuntimeConfig, 'agents' | 'providers'> & { fixer?: RuntimeConfig['fixer'] }>(config: T, options: { localOnly?: boolean } = {}): T {
-  for (const agent of [...Object.values(config.agents), ...(config.fixer ? [config.fixer] : [])]) {
+export function fillDefaultRoleModels<T extends Pick<RuntimeConfig, 'agents' | 'providers'> & { fixer?: RuntimeConfig['fixer']; roles?: RuntimeConfig['roles'] }>(config: T, options: { localOnly?: boolean } = {}): T {
+  for (const agent of [...Object.values(config.agents), ...Object.values(config.roles ?? {}), ...(config.fixer ? [config.fixer] : [])]) {
     const provider = config.providers.find(entry => entry.id === agent.provider)
     if (!agent.model && provider?.kind === 'cli' && !options.localOnly) agent.model = getAdapter(provider.cli).defaultModel()
     if (!agent.model && provider?.kind === 'openai-compatible' && hasAdapter(provider.id) && isLocalAdapterId(provider.id)) agent.model = getAdapter(provider.id).defaultModel()

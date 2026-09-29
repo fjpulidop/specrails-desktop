@@ -22,7 +22,7 @@ Deux panneaux se trouvent au-dessus du log en streaming complet ; sur un job Cla
 
 ## Les phases du pipeline
 
-Pour les jobs `Implement` et `Batch`, l'exécution traverse les phases définies par la slash command — par défaut :
+Pour les jobs `Implement`, l'exécution traverse les phases définies par la slash command — par défaut :
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -113,5 +113,14 @@ Pratique pour partager une exécution avec un coéquipier, ou pour déposer un r
 ## Où aller ensuite
 
 - [Rails et jobs](rails-and-jobs) — lancement et mise en file.
-- [Batch implement et multi-fonctionnalité](batch-implement-and-multi-feature) — plusieurs specs, vagues de dépendances.
 - [Suivre le coût](../analytics/tracking-cost) — transformer les coûts par job en analytics de projet.
+
+## Après le redémarrage d’un workflow
+
+Après un arrêt brutal, reprenez le workflow enregistré avec sa configuration et ses dépôts d’origine. Une écriture interrompue exige de sélectionner la tentative exacte après avoir examiné le diff du worktree. Les étapes terminées sont conservées. Un appel au fournisseur dont la réponse a été perdue reste comptabilisé comme interrompu, avec une consommation inconnue ; il n’est jamais présenté comme gratuit. Si les données enregistrées ne permettent pas de prouver la livraison d’origine, la récupération affiche une erreur et conserve le worktree.
+
+Quand une étape de décision pose une question, la reprise réutilise la décision enregistrée et transmet la réponse humaine à l’étape suivante. Elle ne rappelle pas le modèle pour cette même décision. Un prompt en pause peut nécessiter un nouveau tour du modèle pour appliquer votre réponse.
+
+## Conservation de l’historique
+
+Les exécutions enregistrées sont conservées indéfiniment par défaut. Dans **Exécutions enregistrées → Conservation de l’historique**, un projet peut les conserver de 1 à 3650 jours. Rien n’est supprimé en arrière-plan : enregistrez la politique, choisissez **Aperçu du nettoyage** et examinez chaque exécution et sa raison avant **Supprimer les historiques expirés**. Une exécution reste protégée tant qu’elle est active, attend votre réponse ou approbation, a une écriture interrompue, une livraison ouverte ou un fork qui en dépend encore. Seul l’historique d’exécution dans le stockage Specrails du projet est supprimé ; votre dépôt, les worktrees, le journal du job et les coûts sont conservés. Une exécution expirée apparaît comme **Expiré** et ne peut plus être reprise ni forkée. Les versions de Core encore utilisées par une exécution conservée sont toujours gardées.

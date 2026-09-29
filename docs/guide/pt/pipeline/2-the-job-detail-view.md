@@ -22,7 +22,7 @@ Dois painéis ficam por cima do log completo em streaming; num job Claude em exe
 
 ## Fases do pipeline
 
-Para os jobs `Implement` e `Batch`, a execução percorre as fases definidas pelo slash command — por default:
+Para os jobs `Implement`, a execução percorre as fases definidas pelo slash command — por default:
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -112,5 +112,14 @@ Se a [telemetria](../settings/customizing) estava ativada para o job, aparece um
 ## Para onde ir a seguir
 
 - [Rails e jobs](rails-and-jobs) — lançar e enfileirar.
-- [Batch implement e multi-feature](batch-implement-and-multi-feature) — muitas specs, ondas de dependências.
 - [Acompanhar o custo](../analytics/tracking-cost) — transformar os custos por job em analytics do projeto.
+
+## Após reiniciar um workflow
+
+Após uma falha, retome o workflow salvo com a configuração e os repositórios originais. Uma escrita interrompida exige selecionar a tentativa exata depois de revisar o diff do worktree. As etapas concluídas são preservadas. Uma chamada ao provedor cuja resposta foi perdida continua contabilizada como interrompida, com consumo desconhecido; nunca é apresentada como gratuita. Se os registros salvos não comprovarem a entrega original, a recuperação mostra um erro e preserva o worktree.
+
+Quando uma etapa de decisão pausa para fazer uma pergunta, a retomada reutiliza a decisão salva e transmite a resposta humana à próxima etapa. O modelo não é chamado novamente para essa mesma decisão. Um prompt pausado pode precisar de outro turno do modelo para aplicar sua resposta.
+
+## Retenção do histórico
+
+As execuções guardadas são mantidas indefinidamente por omissão. Em **Execuções guardadas → Retenção do histórico**, um projeto pode mantê-las entre 1 e 3650 dias. Nada é eliminado em segundo plano: guarde a política, escolha **Pré-visualizar limpeza** e reveja cada execução e o seu motivo antes de **Eliminar histórico expirado**. Uma execução continua protegida enquanto está ativa, aguarda a sua resposta ou aprovação, tem uma escrita interrompida, uma entrega aberta ou um fork que ainda depende dela. Só é removido o histórico de execução no armazenamento Specrails do projeto; o repositório, os worktrees, o log do job e os registos de custo mantêm-se. Uma execução expirada aparece como **Expirado** e já não pode ser retomada nem bifurcada. As versões do Core ainda usadas por uma execução mantida são sempre preservadas.

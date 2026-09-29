@@ -8,6 +8,45 @@ const response = (data: unknown, ok = true) => ({ ok, json: async () => data }) 
 beforeEach(() => { vi.clearAllMocks(); global.fetch = vi.fn().mockResolvedValue(response({ runs: [] })) })
 
 describe('AgentRuntimeRuns', () => {
+  it('recovers v2 through the definition lifecycle with exact attempt IDs', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, recoverableSteps: ['attempt-7'], status: 'interrupted' })] }))
+    render(<AgentRuntimeRuns projectId="p1" />)
+    await user.click(await screen.findByRole('checkbox', { name: 'attempt-7' }))
+    await user.click(await screen.findByRole('button', { name: 'Recover interrupted phase' }))
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/loop-runs/run-1/resume', expect.objectContaining({ method: 'POST', body: JSON.stringify({ recover: ['attempt-7'] }) }))
+  })
+
+  it('retries v2 settlement through the original definition lifecycle', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, status: 'succeeded', canResume: false, canSettle: true })] }))
+    render(<AgentRuntimeRuns projectId="p1" />)
+    await user.click(await screen.findByRole('button', { name: 'Prepare delivery' }))
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/loop-runs/run-1/resume', expect.objectContaining({ method: 'POST', body: '{}' }))
+  })
+  it('ignores a failed action response after switching projects', async () => {
+    const user = userEvent.setup()
+    let fail!: (value: Response) => void
+    vi.mocked(fetch).mockImplementation(async (_url, options) => options?.method === 'POST'
+      ? new Promise<Response>(resolve => { fail = resolve })
+      : response({ runs: [run()] }))
+    const view = render(<AgentRuntimeRuns projectId="p1" />)
+    await user.click(await screen.findByRole('button', { name: 'Resume' }))
+    view.rerender(<AgentRuntimeRuns projectId="p2" />)
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/projects/p2/agent-runtime/runs', expect.anything()))
+    await act(async () => fail(response({ message: 'Old project failure' }, false)))
+    expect(screen.queryByText('Old project failure')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Resume' })).toBeEnabled()
+  })
+
+  it('cancels v2 through the definition lifecycle', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, canResume: false, canCancel: true, active: true })] }))
+    render(<AgentRuntimeRuns projectId="p1" />)
+    await user.click(await screen.findByRole('button', { name: 'Cancel continuation' }))
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/loop-runs/run-1/cancel', expect.objectContaining({ method: 'POST', body: '{}' }))
+  })
+
   it('prepares an already completed runtime delivery without resuming the agents', async () => {
     const user = userEvent.setup()
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'succeeded', nextStep: null, canResume: false, canSettle: true })] }))

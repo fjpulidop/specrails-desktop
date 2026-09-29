@@ -170,7 +170,8 @@
       "paused": "Em pausa",
       "cancelled": "Cancelado",
       "interrupted": "Interrompido",
-      "unavailable": "Indisponível"
+      "unavailable": "Indisponível",
+      "expired": "Expirado"
     },
     "question": "O arquiteto pergunta:",
     "answerLabel": "A sua resposta",
@@ -181,7 +182,8 @@
     "preserveProgress": "Continue a partir da fase indicada, preservando o trabalho e as configurações guardadas.",
     "reviewDelivery": "Implementação concluída. Reveja o resultado no log antes da entrega; esta continuação não o publicou.",
     "prepareDelivery": "Preparar entrega",
-    "dismiss": "Descartar"
+    "dismiss": "Descartar",
+    "selectRecovery": "Selecione as tentativas interrompidas a recuperar"
   },
   "roleHints": {
     "architect": "Lê o código e escreve a proposta, o design, as tarefas e a spec. Só leitura.",
@@ -493,5 +495,79 @@
       }
     }
   },
-  "unsavedChanges": "Alterações não guardadas"
+  "unsavedChanges": "Alterações não guardadas",
+  "customRoles": {
+    "title": "Funções personalizadas",
+    "hint": "Defina instruções reutilizáveis e permissões explícitas para as funções do fluxo.",
+    "unsupported": "Atualize o Core para editar funções personalizadas.",
+    "remove": "Remover {{id}}",
+    "access": "Acesso ao código",
+    "read": "Somente leitura",
+    "write": "Leitura e escrita",
+    "artifacts": "Acesso aos artefatos OpenSpec",
+    "none": "Nenhum",
+    "tasks": "Somente caixas de tarefas",
+    "all": "Todos os artefatos da alteração",
+    "skill": "Skill do OpenSpec",
+    "noSkill": "Nenhuma skill associada",
+    "prompt": "Instruções da função",
+    "id": "ID da função",
+    "add": "Adicionar função",
+    "invalidId": "Use um ID único em minúsculas que comece com uma letra, com até 64 letras, números ou hífens. Os IDs integrados são reservados.",
+    "escalationHint": "Somente uma correção permitida do protocolo pode usar o modelo de escalonamento. Nenhuma tentativa extra é adicionada."
+  },
+  "steering": {
+    "title": "Instruções de execução",
+    "hint": "O Core guarda estas instruções para o próximo turno de agente compatível. O envio não responde a perguntas nem concede aprovações.",
+    "label": "Instruções adicionais",
+    "send": "Enviar instruções",
+    "accepted": "Recebidas pelo Core; aguardando utilização.",
+    "pending": "Aguardando um turno de agente",
+    "consumed": "Utilizadas por um agente",
+    "counts": "Pendentes: {{pending}} · Utilizadas: {{consumed}}",
+    "failed": "Não foi possível enviar as instruções. Tente novamente para confirmar a mesma mensagem.",
+    "unavailable": "Os detalhes dos recibos estão indisponíveis.",
+    "unreported": "Esta versão do Core não informa a utilização.",
+    "truncated": "São apresentados apenas os recibos recentes e as mensagens pendentes."
+  },
+  "studioRole": {
+    "title": "Valores padrão do papel do Core",
+    "hint": "Estes valores do arquivo aplicam-se a novos workflows. As configurações explícitas do projeto têm prioridade; as execuções salvas mantêm as configurações fixadas.",
+    "invalid": "Corrija o cabeçalho YAML no editor antes de alterar os campos do papel.",
+    "escalationEffort": "Esforço de raciocínio do modelo superior"
+  },
+  "retention": {
+    "title": "Retenção do histórico",
+    "description": "Elimine históricos expirados e versões do Core sem uso. Históricos eliminados não podem ser retomados nem bifurcados. Execuções ativas ou recuperáveis e entregas pendentes ficam protegidas; registos de trabalhos e custos são mantidos.",
+    "forever": "Manter o histórico indefinidamente",
+    "days": "Dias de retenção",
+    "save": "Guardar retenção",
+    "preview": "Pré-visualizar limpeza",
+    "collect": "Eliminar histórico expirado",
+    "previewSummary": "Elegíveis: {{runs}} históricos e {{packages}} versões do Core sem uso.",
+    "collectedSummary": "Expirados: {{runs}} históricos. Removidas: {{packages}} versões do Core sem uso.",
+    "more": "{{count}} execuções adicionais.",
+    "failed": "Não foi possível consultar ou atualizar a retenção.",
+    "expired": "Este histórico expirou segundo a política do projeto. O registo do trabalho e a contabilidade continuam disponíveis.",
+    "loading": "A carregar a política…",
+    "states": {
+      "protected": "Mantido",
+      "eligible": "Elegível",
+      "expired": "Expirado",
+      "cleanup_pending": "Limpeza pendente",
+      "busy": "Em uso",
+      "error": "Falha na inspeção"
+    },
+    "reasons": {
+      "disabled": "Retenção indefinida",
+      "recoverable": "Recuperação ainda disponível",
+      "active": "Execução ativa",
+      "human_pending": "A aguardar resposta humana",
+      "interrupted_writes": "Escritas interrompidas por rever",
+      "delivery_pending": "Entrega pendente",
+      "fork_pending": "Existe uma bifurcação dependente",
+      "unknown_terminal_time": "Data de conclusão desconhecida",
+      "within_retention": "Dentro do período de retenção"
+    }
+  }
 }

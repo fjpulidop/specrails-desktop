@@ -170,7 +170,8 @@
       "paused": "In pausa",
       "cancelled": "Annullato",
       "interrupted": "Interrotto",
-      "unavailable": "Non disponibile"
+      "unavailable": "Non disponibile",
+      "expired": "Scaduto"
     },
     "question": "L'architetto chiede:",
     "answerLabel": "La tua risposta",
@@ -181,7 +182,8 @@
     "preserveProgress": "Riprendi dalla fase indicata, conservando il lavoro e le impostazioni salvate.",
     "reviewDelivery": "Implementazione completata. Controlla il risultato nel log prima della consegna; questa ripresa non lo ha pubblicato.",
     "prepareDelivery": "Prepara consegna",
-    "dismiss": "Ignora"
+    "dismiss": "Ignora",
+    "selectRecovery": "Seleziona i tentativi interrotti da riprendere"
   },
   "roleHints": {
     "architect": "Legge il codice e scrive proposta, design, attività e spec. Sola lettura.",
@@ -493,5 +495,79 @@
       }
     }
   },
-  "unsavedChanges": "Modifiche non salvate"
+  "unsavedChanges": "Modifiche non salvate",
+  "customRoles": {
+    "title": "Ruoli personalizzati",
+    "hint": "Definisci istruzioni riutilizzabili e autorizzazioni esplicite per i ruoli del flusso.",
+    "unsupported": "Aggiorna Core per modificare i ruoli personalizzati.",
+    "remove": "Rimuovi {{id}}",
+    "access": "Accesso al codice",
+    "read": "Sola lettura",
+    "write": "Lettura e scrittura",
+    "artifacts": "Accesso agli artefatti OpenSpec",
+    "none": "Nessuno",
+    "tasks": "Solo caselle delle attività",
+    "all": "Tutti gli artefatti della modifica",
+    "skill": "Skill OpenSpec",
+    "noSkill": "Nessuno skill associato",
+    "prompt": "Istruzioni del ruolo",
+    "id": "ID del ruolo",
+    "add": "Aggiungi ruolo",
+    "invalidId": "Usa un ID univoco in minuscolo che inizi con una lettera, con un massimo di 64 lettere, numeri o trattini. Gli ID integrati sono riservati.",
+    "escalationHint": "Solo una correzione consentita del protocollo può usare il modello superiore. Non viene aggiunto alcun tentativo."
+  },
+  "steering": {
+    "title": "Istruzioni di esecuzione",
+    "hint": "Core conserva queste istruzioni per il prossimo turno di agente compatibile. L’invio non risponde alle domande e non concede approvazioni.",
+    "label": "Istruzioni aggiuntive",
+    "send": "Invia istruzioni",
+    "accepted": "Ricevute da Core; in attesa di utilizzo.",
+    "pending": "In attesa di un turno di agente",
+    "consumed": "Utilizzate da un agente",
+    "counts": "In attesa: {{pending}} · Utilizzate: {{consumed}}",
+    "failed": "Impossibile inviare le istruzioni. Riprova per confermare lo stesso messaggio.",
+    "unavailable": "I dettagli delle ricevute non sono disponibili.",
+    "unreported": "Questa versione di Core non segnala l’utilizzo.",
+    "truncated": "Sono mostrate solo le ricevute recenti e i messaggi in attesa."
+  },
+  "studioRole": {
+    "title": "Valori predefiniti del ruolo Core",
+    "hint": "Questi valori del file si applicano ai nuovi workflow. Le impostazioni esplicite del progetto hanno la precedenza; le esecuzioni salvate mantengono le impostazioni fissate.",
+    "invalid": "Correggi l’intestazione YAML nell’editor prima di modificare i campi del ruolo.",
+    "escalationEffort": "Sforzo di ragionamento del modello superiore"
+  },
+  "retention": {
+    "title": "Conservazione della cronologia",
+    "description": "Elimina le cronologie scadute e le versioni di Core inutilizzate. Le cronologie eliminate non possono essere riprese o biforcate. Le esecuzioni attive o recuperabili e le consegne in sospeso restano protette; i log e i costi vengono conservati.",
+    "forever": "Conserva la cronologia indefinitamente",
+    "days": "Giorni di conservazione",
+    "save": "Salva conservazione",
+    "preview": "Anteprima pulizia",
+    "collect": "Elimina cronologia scaduta",
+    "previewSummary": "Idonei: {{runs}} cronologie e {{packages}} versioni di Core inutilizzate.",
+    "collectedSummary": "Scadute: {{runs}} cronologie. Rimosse: {{packages}} versioni di Core inutilizzate.",
+    "more": "{{count}} esecuzioni aggiuntive.",
+    "failed": "Impossibile consultare o aggiornare la conservazione.",
+    "expired": "Questa cronologia è scaduta secondo la politica del progetto. Il log e la contabilità restano disponibili.",
+    "loading": "Caricamento della politica…",
+    "states": {
+      "protected": "Conservato",
+      "eligible": "Idoneo",
+      "expired": "Scaduto",
+      "cleanup_pending": "Pulizia in sospeso",
+      "busy": "In uso",
+      "error": "Verifica non riuscita"
+    },
+    "reasons": {
+      "disabled": "Conservazione indefinita",
+      "recoverable": "Recupero ancora disponibile",
+      "active": "Esecuzione attiva",
+      "human_pending": "In attesa di risposta umana",
+      "interrupted_writes": "Scritture interrotte da verificare",
+      "delivery_pending": "Consegna in sospeso",
+      "fork_pending": "Resta una biforcazione dipendente",
+      "unknown_terminal_time": "Data di completamento sconosciuta",
+      "within_retention": "Periodo di conservazione non scaduto"
+    }
+  }
 }

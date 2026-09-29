@@ -29,3 +29,11 @@ describe('classifyLoopEffect', () => {
     expect(classifyLoopEffect(graph([]))).toBe('read-only')
   })
 })
+
+it('isolates writable Core pieces and reusable components conservatively', () => {
+  const core = { nodes: [{ id: 'core', type: 'core' as const, position: { x: 0, y: 0 }, data: { kind: 'prompt' as const, params: { access: 'read' } } }], edges: [], config: { maxIterations: 1, timeoutMinutes: 0 } }
+  expect(classifyLoopEffect(core)).toBe('read-only')
+  core.nodes[0].data.params.access = 'write'
+  expect(classifyLoopEffect(core)).toBe('mutating')
+  expect(classifyLoopEffect({ nodes: [], edges: [], config: core.config, components: { write: core } })).toBe('mutating')
+})

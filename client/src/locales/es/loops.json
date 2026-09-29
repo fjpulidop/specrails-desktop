@@ -51,25 +51,30 @@
     "publish": "Publicar",
     "unpublish": "Despublicar",
     "duplicate": "Duplicar",
+    "restoreBuiltin": "Restaurar original",
     "use": "Usar plantilla",
     "preview": "Vista previa",
-    "fork": "Bifurcar para editar",
     "run": "Ejecutar",
     "export": "Exportar",
     "import": "Importar",
-    "select": "Seleccionar {{name}}"
+    "select": "Seleccionar {{name}}",
+    "exportLegacy": "Exportar grafo original",
+    "originalCopyName": "Original: {{name}}",
+    "convert": "Convertir a Core"
   },
   "card": {
     "nodes_one": "{{count}} nodo",
     "nodes_other": "{{count}} nodos",
-    "usedIn": "En uso · {{project}}"
+    "usedIn": "En uso · {{project}}",
+    "builtinModified": "Editado"
   },
   "confirmDelete": "¿Eliminar este loop? Desaparecerá de todos los selectores de rieles.",
   "newLoopName": "Nuevo loop",
   "errors": {
     "load": "No se pudieron cargar los loops",
     "save": "No se pudo guardar el loop",
-    "publishInvalid": "Este loop aún no se puede publicar — corrige los problemas resaltados."
+    "publishInvalid": "Este loop aún no se puede publicar — corrige los problemas resaltados.",
+    "exportLegacy": "No se pudo exportar el grafo original."
   },
   "builder": {
     "back": "Volver a los loops",
@@ -77,13 +82,19 @@
     "saved": "Loop guardado",
     "publish": "Publicar",
     "published": "Loop publicado",
+    "builtin": {
+      "note": "Loop integrado. Estás editando el propio loop integrado: al publicarlo, tus cambios se aplican en todos los rails, lanzamientos desde el chat del agente y en Companion donde se use. Los rails siguen ejecutando la última versión publicada mientras editas. Usa Restaurar original para volver a la versión por defecto.",
+      "restored": "Loop integrado restaurado a su versión original",
+      "confirmTitle": "¿Restaurar el loop integrado original?",
+      "confirmBody": "Esto descarta tus cambios en este loop integrado y publica su versión original para todos los rails que lo usan. Duplícalo antes si quieres conservar tu versión."
+    },
     "addNode": "Añadir nodo",
     "deleteNode": "Eliminar nodo",
     "config": {
       "maxIterations": "Iteraciones máximas",
       "timeout": "Tiempo límite (min)",
       "maxIterationsHint": "Tope de iteraciones del Loop Decider — el loop se detiene al alcanzarlo aunque no se cumpla el objetivo. Evita bucles infinitos.",
-      "timeoutHint": "Límite de tiempo real de toda la ejecución, en minutos. Si se supera, la ejecución se detiene y se marca como fallida — una red de seguridad junto a las iteraciones máximas.",
+      "timeoutHint": "Límite de tiempo real de toda la ejecución, en minutos. Si se supera, la ejecución se detiene y se marca como fallida — una red de seguridad junto a las iteraciones máximas. 0 desactiva este límite de tiempo; los demás presupuestos y la cancelación siguen activos.",
       "maxCost": "Coste máx ($)",
       "maxCostHint": "Presupuesto opcional en USD para toda la ejecución. Se comprueba ENTRE pasos (el coste de un paso solo se sabe al terminarlo), así que el loop para antes del siguiente paso cuando el total lo supera — puede pasarse un paso. En proveedores no-Claude el coste es estimado. Vacío = sin tope."
     },
@@ -152,7 +163,10 @@
       "EMPTY_PROMPT": "El Paso de IA tiene el prompt vacío.",
       "EMPTY_COMMAND": "El paso Shell tiene el comando vacío.",
       "EMPTY_GOAL": "El Decisor no tiene objetivo.",
-      "DEAD_END": "Este paso no tiene conexión de salida."
+      "DEAD_END": "Este paso no tiene conexión de salida.",
+      "MIXED_ENGINES": "No mezcles pasos antiguos con piezas de Core.",
+      "CORE_OUTCOMES": "Conecta resultados distintos y válidos.",
+      "CORE_PIECE": "Selecciona una pieza y sus parámetros."
     },
     "preview": {
       "label": "Previsualizar",
@@ -160,6 +174,57 @@
       "sampleNote": "Los valores del spec son de ejemplo; comandos y constantes se resuelven tal cual en ejecución.",
       "empty": "No hay pasos que previsualizar.",
       "error": "Falló la previsualización"
+    },
+    "core": {
+      "unavailable": "Motor de workflows no disponible. Actualiza Core para añadir o publicar piezas.",
+      "root": "Workflow principal",
+      "components": "Componentes",
+      "componentName": "Nombre del componente",
+      "addComponent": "Añadir componente",
+      "openComponent": "Abrir componente",
+      "breadcrumbs": "Navegación del workflow",
+      "select": "Elige una opción",
+      "valueType": "Tipo de valor",
+      "addItem": "Añadir elemento",
+      "fieldName": "Nombre del campo",
+      "addField": "Añadir {{name}}",
+      "removeField": "Eliminar {{name}}",
+      "variant": "Formato de {{name}}",
+      "tooDeep": "El valor tiene demasiados niveles.",
+      "pieces": {
+        "prompt": "Prompt",
+        "role-turn": "Turno de rol",
+        "decider": "Decisión",
+        "condition": "Condición",
+        "verify": "Verificar",
+        "shell": "Shell",
+        "openspec-validate": "Validar OpenSpec",
+        "openspec-archive": "Archivar OpenSpec",
+        "approval": "Aprobación",
+        "question": "Pregunta",
+        "gate": "Pausa",
+        "map": "Mapear",
+        "join": "Unir",
+        "component": "Componente",
+        "implementation": "Implementación",
+        "end": "Fin",
+        "assign": "Asignar variables"
+      },
+      "groups": {
+        "ai": "IA",
+        "verification": "Verificación",
+        "openspec": "OpenSpec",
+        "control": "Control de flujo"
+      },
+      "options": "Opciones del workflow",
+      "reviewerStep": "Nodo de evidencia de revisión",
+      "reviewerAutomatic": "Automático (revisiones de implementación)",
+      "reviewerHint": "Elige el turno de rol que aporta la revisión estructurada. La revisión de IA no sustituye la verificación del host.",
+      "assignment": {
+        "set": "Asignar valores",
+        "increment": "Ajustar contadores"
+      },
+      "requiredContinue": "Continuar mientras se cumpla esta condición"
     }
   },
   "preview": {
@@ -216,155 +281,11 @@
     },
     "factory_implement": {
       "name": "Implementar",
-      "description": "Totalmente autónomo: implementa la spec, verifica y refina (corrige) cuando falla, encadenando hasta que pasen todos los tests."
-    },
-    "factory_batch": {
-      "name": "Implementar en lote",
-      "description": "Implementa de golpe todos los tickets del raíl y luego verifica y refina cuando falla hasta que esté en verde."
+      "description": "Implementa todas las specs del rail en una sola ejecución: planifica, implementa, revisa y verifica, corrigiendo fallos hasta que pasen las comprobaciones."
     },
     "factory_freestyle": {
       "name": "Freestyle",
       "description": "Entrega la spec directamente al modelo con total libertad — sin pipeline, trabaja como un agente de código normal, y después verifica + refina hasta quedar en verde. Solo Claude."
-    },
-    "autoloop-tdd": {
-      "name": "Autoloop TDD",
-      "description": "Un ciclo estricto de rojo-verde-refactor para {{spec.title}}: fija cada comportamiento con una prueba que falle primero, escribe solo el código justo para ponerla en verde y luego limpia, repitiendo hasta cubrir toda la spec."
-    },
-    "e2e-until-green": {
-      "name": "E2E hasta verde",
-      "description": "Ejecuta la suite end-to-end de {{spec.title}}, diagnostica cada flujo de usuario que falla, corrige el defecto de UI o integración subyacente y sigue iterando hasta que todas las pruebas E2E pasen."
-    },
-    "flaky-test-triage": {
-      "name": "Triaje de tests flaky",
-      "description": "Reejecuta varias veces las pruebas que fallan en torno a {{spec.title}} para distinguir regresiones reales de fallos intermitentes, luego repara las roturas reales y estabiliza o documenta las flaky."
-    },
-    "independent-verifier-pass": {
-      "name": "Verificación independiente",
-      "description": "Una verificación adversarial de {{spec.title}}: reejecuta build, lint y tests desde cero, confía solo en la salida real de los comandos (no en un 'funciona' anterior) y saca a la luz o corrige cada hueco."
-    },
-    "post-edit-test-guard": {
-      "name": "Guardia de tests tras editar",
-      "description": "Tras cada tanda de ediciones en {{spec.title}}, ejecuta de inmediato el conjunto más reducido de pruebas que tocan los archivos cambiados, detectando regresiones en cuanto aparecen en lugar de al final."
-    },
-    "post-merge-regression-guard": {
-      "name": "Guardia tras el merge",
-      "description": "Justo después de que un merge o rebase incorpore el trabajo de otros a {{spec.title}}, ejecuta el smoke test rápido para detectar roturas de integración de inmediato, antes de empezar nada nuevo encima."
-    },
-    "pre-commit-guard": {
-      "name": "Guardia pre-commit",
-      "description": "Una barrera de seguridad para {{spec.title}} que intercepta cada commit: primero ejecuta la suite de pruebas y rechaza el commit mientras esté en rojo, para que el código roto nunca entre en el historial."
-    },
-    "visual-regression-until-match": {
-      "name": "Regresión visual hasta cuadrar",
-      "description": "Captura instantáneas visuales de la UI modificada, persigue cada diferencia de píxeles no intencionada y autocorrige hasta que la suite visual esté en verde, con solo los cambios de diseño deliberados aprobados."
-    },
-    "format-until-clean": {
-      "name": "Formatear hasta limpio",
-      "description": "Aplica el formateador del proyecto, arregla los pocos problemas de estilo que no puede corregir solo y sigue hasta que una nueva pasada de formato deje el árbol de trabajo sin tocar."
-    },
-    "lint-typecheck-fix": {
-      "name": "Arreglar lint y tipos",
-      "description": "Ejecuta el lint y el comprobador de tipos, resuelve cada problema con la edición más pequeña posible e itera hasta que ambas barreras queden completamente limpias."
-    },
-    "a11y-audit-until-clean": {
-      "name": "Auditoría A11y hasta limpio",
-      "description": "Pasa las comprobaciones automáticas de accesibilidad por las pantallas modificadas, corrige las infracciones categoría a categoría y repite hasta que la auditoría no devuelva ningún problema."
-    },
-    "de-sloppify-pass": {
-      "name": "Pasada de pulido",
-      "description": "Tras aterrizar la funcionalidad, peina el diff en busca de descuidos: trazas de depuración, ramas muertas, nombres flojos, funciones infladas; límpialos y demuestra que la limpieza no rompió nada."
-    },
-    "fix-ci-until-green": {
-      "name": "Arreglar CI hasta verde",
-      "description": "Recupera la ejecución de CI más reciente en rojo de esta rama, reproduce la rotura en tu máquina, corrige la causa real, haz push y sigue iterando hasta que todas las comprobaciones pasen."
-    },
-    "pr-babysitter": {
-      "name": "Niñera de PRs",
-      "description": "A intervalos regulares, repasa las pull requests que vigilas y mantenlas mergeables: reanima la CI en rojo, haz rebase de las que se han quedado atrás respecto a la rama base y avisa de las estancadas, escalando lo que deba decidir una persona."
-    },
-    "pr-watch-loop": {
-      "name": "Vigilancia de PRs",
-      "description": "Sondea con cadencia constante las pull requests de tu lista de seguimiento, resume el estado de CI y de revisión de cada una, y o bien despacha los bloqueos triviales o señala lo que necesita un responsable."
-    },
-    "pr-self-review": {
-      "name": "Autorrevisión de PR",
-      "description": "Critica tu propio diff como lo haría un revisor sénior exigente, resuelve lo que encuentres y revísalo de nuevo hasta que una pasada limpia no saque nada crítico, antes de que la PR salga de tus manos."
-    },
-    "spec-first-ship": {
-      "name": "Entrega guiada por spec",
-      "description": "Lleva una checklist de requisitos hasta el final de uno en uno: cada pasada implementa un requisito sin marcar, lo demuestra y lo tacha, de modo que la spec es el contrato de lo que está hecho."
-    },
-    "dependency-audit-weekly": {
-      "name": "Auditoría semanal de dependencias",
-      "description": "Cada semana revisa qué paquetes se han quedado atrás, clasifícalos entre seguros de actualizar y arriesgados, y devuelve un plan de actualización claro y accionable."
-    },
-    "dependency-upgrade-one-by-one": {
-      "name": "Actualizar dependencias de una en una",
-      "description": "Actualiza exactamente un paquete obsoleto por pasada, repara lo que la subida rompa, demuestra que el proyecto sigue funcionando y haz commit; mucho más seguro que actualizar todo de golpe."
-    },
-    "knip-until-clean": {
-      "name": "Podar código muerto hasta limpio",
-      "description": "Rastrea exports sin referenciar, archivos huérfanos y dependencias que nadie importa, elimínalos con seguridad y sigue hasta que el escáner de código muerto no tenga nada que reportar."
-    },
-    "docs-sync-after-edits": {
-      "name": "Sincronizar docs con el código",
-      "description": "Tras una ronda de ediciones, localiza cada documento que los cambios tocaron (README, referencia de la API, comentarios en línea) y ponlos de nuevo en consonancia con cómo se comporta ahora el código."
-    },
-    "security-audit-weekly": {
-      "name": "Auditoría semanal de seguridad",
-      "description": "Ejecuta un escaneo semanal de vulnerabilidades sobre el árbol de dependencias, triaja lo que aparezca por severidad y exposición real, y devuelve un plan de remediación priorizado."
-    },
-    "npm-audit-fix-loop": {
-      "name": "Parchear vulnerabilidades de una en una",
-      "description": "Resuelve los avisos altos y críticos de dependencias con cuidado (una corrección por pasada, cada una verificada contra la suite de pruebas) en lugar de un force-fix a ciegas que puede romper el build en silencio."
-    },
-    "api-contract-until-match": {
-      "name": "Contrato de API hasta cuadrar",
-      "description": "Lleva la implementación hasta que sus respuestas respeten el contrato de la API publicada, cerrando cualquier brecha entre lo que promete el esquema y lo que devuelven realmente los handlers."
-    },
-    "openapi-sync-until-valid": {
-      "name": "Sincronizar OpenAPI hasta válido",
-      "description": "Mantén el documento OpenAPI bien formado y fiel a los handlers de ruta reales, reparando errores de la spec y la deriva entre código y documento en cada pasada hasta que el lint quede satisfecho."
-    },
-    "migration-until-applied": {
-      "name": "Migración hasta aplicada",
-      "description": "Avanza el esquema de la base de datos sin sobresaltos: ejecuta las migraciones pendientes, repara los fallos de esquema o SQL que afloren y confirma que el historial de migraciones se mantiene coherente."
-    },
-    "bundle-size-budget": {
-      "name": "Presupuesto de tamaño del bundle",
-      "description": "Aterriza la funcionalidad sin inflar el bundle del cliente por encima de su presupuesto: mide en cada pasada y recorta, divide el código o aplica carga diferida hasta que la barrera de tamaño esté en verde."
-    },
-    "changelog-sync-after-ship": {
-      "name": "Sincronizar changelog tras entregar",
-      "description": "Tras entregar, asegúrate de que el changelog cuente la historia de cara al usuario: revisa lo que aterrizó, escribe entradas estilo Keep a Changelog y confirma que no se quedó nada visible fuera."
-    },
-    "guardrails-learning-loop": {
-      "name": "Bucle de aprendizaje con guardarraíles",
-      "description": "Sigue iterando sobre las barreras hasta que pasen, pero cada vez que una comprobación falle igual dos veces, anota primero una nota de guardarraíl para que el bucle no malgaste iteraciones reintentando un enfoque que ya falló."
-    },
-    "ralph-story-executor": {
-      "name": "Ejecutor de historias del backlog",
-      "description": "Trabaja un backlog de historias de usuario de una en una con contexto nuevo en cada pasada: elige la siguiente historia sin terminar, construye solo esa, demuestra que las barreras del proyecto siguen en verde, haz commit y márcala como hecha antes de seguir."
-    },
-    "investigation-script-loop": {
-      "name": "Bucle de script de investigación",
-      "description": "Localiza empíricamente la causa real de un bug: escribe un script desechable diminuto que ejercite el comportamiento sospechoso, ejecútalo, lee la salida real y refina la sonda hasta que la propia salida demuestre la causa raíz."
-    },
-    "reflexion-debug-loop": {
-      "name": "Bucle de depuración con reflexión",
-      "description": "Pon en verde una prueba que falla sin dar vueltas: cada vez que un intento falle, anota una breve reflexión en disco y consúltala antes del siguiente intento, para que el bucle no repita una solución ya descartada."
-    },
-    "merge-conflict-resolver": {
-      "name": "Resolutor de conflictos de merge",
-      "description": "Pon la rama al día con su destino mediante rebase, luego resuelve cada conflicto archivo a archivo preservando la intención de ambos lados, y demuestra que el resultado sigue pasando antes de declarar la rama al día."
-    },
-    "staging-smoke-test": {
-      "name": "Smoke test en staging",
-      "description": "Tras un despliegue en staging, recorre una checklist fija de smoke (auth, los flujos de usuario centrales y las integraciones clave), corrigiendo el problema más pequeño cada vez que algo se rompa y reejecutando hasta que toda la checklist quede limpia."
-    },
-    "deploy-verification-loop": {
-      "name": "Bucle de verificación del despliegue",
-      "description": "Tras salir un despliegue, sondea a intervalos los endpoints de salud y de smoke, investiga y corrige o escala cualquier respuesta no saludable, y sigue comprobando hasta que todos los endpoints configurados reporten éxito."
     },
     "factory_openspec": {
       "name": "OpenSpec Lifecycle",
@@ -382,5 +303,39 @@
     "skipped_other": "Omitidos {{count}} duplicados: {{names}}",
     "invalid": "Ese archivo no es una exportación de loops válida."
   },
-  "automaticOnly": "Se ejecuta automáticamente cuando pides cambios en una revisión — este no lo lanzas tú."
+  "core": {
+    "selectInterrupt": "Selecciona la pregunta o aprobación pendiente",
+    "answerQuestion": "Responder pregunta",
+    "approval": "Aprobación",
+    "approveContinue": "Aprobar y continuar",
+    "paused": "En pausa",
+    "acceptance": "Aceptación",
+    "verified": "Verificado"
+  },
+  "conversion": {
+    "title": "Convertir {{name}} a Core",
+    "description": "Core valida el grafo convertido antes de guardarlo como borrador. El original sigue disponible para exportar. Revisa el nuevo workflow antes de publicarlo.",
+    "repository": "Repositorio de los pasos shell sin destino",
+    "selectRepository": "Elige el repositorio original",
+    "submit": "Convertir y revisar",
+    "pending": "Convirtiendo…",
+    "error": "No se pudo convertir",
+    "coreRequired": "Actualiza Core para convertir este workflow."
+  },
+  "migration": {
+    "title": "Comprobación de migración a Core",
+    "description": "Comprueba cada loop guardado contra el Core instalado. No se convierte ni se publica nada automáticamente.",
+    "check": "Comprobar",
+    "checking": "Comprobando…",
+    "failed": "No se pudieron comprobar los loops.",
+    "empty": "No hay loops guardados.",
+    "allCurrent": "Todos los loops ya usan Core y son válidos.",
+    "states": {
+      "current": "Al día",
+      "invalid": "Rechazado por el Core instalado",
+      "convertible": "Listo para convertir",
+      "needs_attention": "Requiere atención",
+      "running": "En ejecución"
+    }
+  }
 }

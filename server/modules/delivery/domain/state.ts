@@ -45,6 +45,7 @@ export type PrDeliveryOutcome =
 
 /** Stable machine reason; clients localize these rather than raw git stderr. */
 export type PrDeliveryStatusCode =
+  | 'restart_pending'
   | 'implementation_running'
   | 'implementation_failed'
   | 'ready_for_review'

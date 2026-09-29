@@ -278,7 +278,27 @@
     "stalledIdle_one": "{{count}} 分钟内无提供方输出，应用已停止此次尝试",
     "stalledIdle_other": "{{count}} 分钟内无提供方输出，应用已停止此次尝试",
     "providerLimit": "提供商限额",
-    "providerLimitHint": "提供商返回了用量限额提示，应用已停止运行而不是继续循环。"
+    "providerLimitHint": "提供商返回了用量限额提示，应用已停止运行而不是继续循环。",
+    "paused": "已暂停",
+    "runtimeGraph": "执行图",
+    "graphBack": "返回",
+    "graphOpenComponent": "打开组件",
+    "graphNoAttempts": "没有已记录的尝试",
+    "graphState": {
+      "running": "运行中",
+      "paused": "已暂停",
+      "failed": "失败",
+      "stalled": "无进展",
+      "interrupted": "已中断",
+      "ok": "成功",
+      "pending": "待处理",
+      "unknown": "未知"
+    },
+    "repeatFromHere": "从此处重复",
+    "forkFailed": "无法创建关联运行",
+    "forkPending": "请重试最初选择的步骤，以完成待处理的分支。",
+    "forkCreated": "已创建关联运行。请打开并从所选检查点恢复。",
+    "openFork": "打开关联运行"
   },
   "logViewer": {
     "loading": "正在加载日志…",

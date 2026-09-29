@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LoopMigrationPanel } from '../components/LoopMigrationPanel'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Workflow, Plus, Pencil, Trash2, Copy, Upload, Download, Sparkles, Eye, Play, FileDown, FileUp } from 'lucide-react'
+import { Workflow, Plus, Pencil, Trash2, Copy, Upload, Download, Sparkles, Eye, Play, FileDown, FileUp, RotateCcw } from 'lucide-react'
 import { buildExportEnvelope, parseImportFile, exportFilename } from '../lib/loop-export'
 import { filterTemplates, categoryCounts } from '../lib/loop-template-filter'
 import { TemplatePreviewModal } from '../components/TemplatePreviewModal'
 import { LoopRunModal } from '../components/LoopRunModal'
+import { LegacyConversionModal } from '../components/LegacyConversionModal'
 import { loopNeedsTicket } from '../lib/loop-ticket-need'
 import { useDesktop, projectProviders } from '../../../hooks/useDesktop'
 import { cn } from '../../../lib/utils'
@@ -17,7 +19,6 @@ import {
   LoopPublishError,
   type LoopDefinition,
   type LoopTemplateSummary,
-  type FactoryLoopSummary,
 } from '../lib/loops-api'
 
 const STATUS_BADGE: Record<LoopDefinition['status'], string> = {
@@ -58,14 +59,12 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
   const locDesc = useCallback((id: string, fallback: string) => t(`catalog.${catKey(id)}.description`, { defaultValue: fallback }), [t, catKey])
   const [loops, setLoops] = useState<LoopDefinition[]>([])
   const [templates, setTemplates] = useState<LoopTemplateSummary[]>([])
-  const [factoryLoops, setFactoryLoops] = useState<FactoryLoopSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [previewTemplate, setPreviewTemplate] = useState<LoopTemplateSummary | null>(null)
-  // Whether the previewed item is a starter template (clone via fromTemplate) or
-  // a built-in factory loop (clone via forkFactory). Drives the modal's CTA.
-  const [previewMode, setPreviewMode] = useState<'use' | 'fork'>('use')
+  const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null)
   const [runLoop, setRunLoop] = useState<LoopDefinition | null>(null)
+  const [conversionLoop, setConversionLoop] = useState<LoopDefinition | null>(null)
   // Multi-select for export. Selection is over user loops only (drafts+published).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   // Template-gallery discovery filter (search query + selected category chips),
@@ -113,10 +112,16 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
     URL.revokeObjectURL(url)
   }, [])
 
+  const downloadLegacyGraph = useCallback(async (loop: LoopDefinition) => {
+    try {
+      const backup = await loopsApi.legacyGraph(loop.id)
+      downloadLoops([{ ...loop, name: t('actions.originalCopyName', { name: loop.name }), graph: backup.graph }])
+    } catch { toast.error(t('errors.exportLegacy')) }
+  }, [downloadLoops, t])
+
   const reload = useCallback(async () => {
     try {
-      // List + templates are the core gallery; load them first so a failure of
-      // the (newer) factory-loops endpoint can never blank the page.
+      // Built-ins are ordinary loop rows (builtinId set), listed with the library.
       const [ls, ts] = await Promise.all([loopsApi.list(), loopsApi.templates()])
       setLoops(ls)
       setTemplates(ts)
@@ -124,13 +129,6 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
       toast.error(t('errors.load'))
     } finally {
       setLoading(false)
-    }
-    // Factory loops are best-effort (older server / endpoint missing → just no
-    // Built-in section). Never let this break the rest of the gallery.
-    try {
-      setFactoryLoops(await loopsApi.factoryLoops())
-    } catch {
-      setFactoryLoops([])
     }
   }, [t])
 
@@ -178,18 +176,6 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
     [t, openBuilder]
   )
 
-  const handleFork = useCallback(
-    async (id: string) => {
-      try {
-        const loop = await loopsApi.forkFactory(id)
-        openBuilder(loop.id)
-      } catch {
-        toast.error(t('errors.save'))
-      }
-    },
-    [t, openBuilder]
-  )
-
   // Launch a ticket-less loop standalone against a chosen project, then jump to
   // its job log (switching the active project to that target).
   const handleRunExecute = useCallback(
@@ -208,18 +194,6 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
     },
     [runLoop, navigate, setActiveProjectId, t]
   )
-
-  // Preview a factory loop by adapting it to the template-preview shape.
-  const previewFactory = useCallback((f: FactoryLoopSummary) => {
-    setPreviewMode('fork')
-    setPreviewTemplate({
-      id: f.id,
-      name: locName(f.id, f.name),
-      description: locDesc(f.id, f.description),
-      tags: f.requiredCapability ? [f.requiredCapability] : f.claudeOnly ? ['claude-only'] : [],
-      graph: f.graph,
-    })
-  }, [locName, locDesc])
 
   const handlePublish = useCallback(
     async (id: string) => {
@@ -258,6 +232,20 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
     [t, reload]
   )
 
+  // Restore original: discards edits, back to the default for every rail using it.
+  const doRestore = useCallback(async () => {
+    const id = confirmRestoreId
+    if (!id) return
+    setConfirmRestoreId(null)
+    try {
+      await loopsApi.restoreBuiltin(id)
+      await reload()
+      toast.success(t('builder.builtin.restored'))
+    } catch {
+      toast.error(t('errors.save'))
+    }
+  }, [confirmRestoreId, t, reload])
+
   // Open the in-app confirm modal (replaces the native window.confirm).
   const handleDelete = useCallback((id: string) => setConfirmDeleteId(id), [])
 
@@ -273,8 +261,11 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
     }
   }, [confirmDeleteId, t, reload])
 
-  const drafts = loops.filter((l) => l.status === 'draft')
-  const published = loops.filter((l) => l.status === 'published')
+  // Built-ins are listed in their own section and never duplicated below.
+  const builtIns = loops.filter((l) => l.builtinId)
+  const userLoops = loops.filter((l) => !l.builtinId)
+  const drafts = userLoops.filter((l) => l.status === 'draft')
+  const published = userLoops.filter((l) => l.status === 'published')
   const templateCounts = categoryCounts(templates)
   // Search also matches the LOCALIZED text shown on the card (name, description,
   // category label), not just the server English, so a query in the user's
@@ -350,6 +341,8 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
               </div>
             )}
 
+            {loops.length > 0 && <LoopMigrationPanel onConvert={id => { const loop = loops.find(item => item.id === id); if (loop) setConversionLoop(loop) }} />}
+
             {published.length > 0 && (
               <Section title={t('sections.published')}>
                 {published.map((loop) => (
@@ -362,6 +355,8 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
                     onUnpublish={() => handleUnpublish(loop.id)}
                     onDuplicate={() => handleDuplicate(loop.id)}
                     onExport={() => downloadLoops([loop])}
+                    onExportLegacy={loop.hasLegacyGraph ? () => void downloadLegacyGraph(loop) : undefined}
+                    onConvert={loop.graph.nodes.some(node => node.type === 'core') ? undefined : () => setConversionLoop(loop)}
                     onDelete={() => handleDelete(loop.id)}
                     onRun={loopNeedsTicket(loop.graph) ? undefined : () => setRunLoop(loop)}
                   />
@@ -381,58 +376,29 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
                     onPublish={() => handlePublish(loop.id)}
                     onDuplicate={() => handleDuplicate(loop.id)}
                     onExport={() => downloadLoops([loop])}
+                    onExportLegacy={loop.hasLegacyGraph ? () => void downloadLegacyGraph(loop) : undefined}
+                    onConvert={loop.graph.nodes.some(node => node.type === 'core') ? undefined : () => setConversionLoop(loop)}
                     onDelete={() => handleDelete(loop.id)}
                   />
                 ))}
               </Section>
             )}
 
-            {factoryLoops.length > 0 && (
+            {builtIns.length > 0 && (
               <Section title={t('sections.builtIn')}>
-                {factoryLoops.map((f) => (
-                  <div
-                    key={f.id}
-                    className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2"
-                    data-testid="factory-loop-card"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Workflow className="w-3.5 h-3.5 text-accent-primary" />
-                      <span className="text-sm font-medium text-foreground">{locName(f.id, f.name)}</span>
-                      <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground">
-                        {t('builtInBadge')}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground flex-1">{locDesc(f.id, f.description)}</p>
-                    {f.launchable === false && (
-                      // Without this the card reads as a loop whose Run button is
-                      // missing. It has none by design: the app starts it itself.
-                      <p
-                        className="text-[11px] text-accent-info/90 flex items-start gap-1.5"
-                        data-testid="factory-loop-automatic"
-                      >
-                        <Sparkles className="w-3 h-3 mt-0.5 shrink-0" aria-hidden />
-                        {t('automaticOnly')}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => previewFactory(f)}
-                        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground"
-                      >
-                        <Eye className="w-3 h-3" />
-                        {t('actions.preview')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleFork(f.id)}
-                        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground"
-                      >
-                        <Copy className="w-3 h-3" />
-                        {t('actions.fork')}
-                      </button>
-                    </div>
-                  </div>
+                {builtIns.map((loop) => (
+                  <LoopCard
+                    key={loop.id}
+                    loop={{ ...loop, name: loop.builtinModified ? loop.name : locName(loop.id, loop.name) }}
+                    builtIn
+                    selected={selectedIds.has(loop.id)}
+                    onToggleSelect={() => toggleSelect(loop.id)}
+                    onEdit={() => openBuilder(loop.id)}
+                    onPublish={loop.status === 'draft' ? () => handlePublish(loop.id) : undefined}
+                    onDuplicate={() => handleDuplicate(loop.id)}
+                    onExport={() => downloadLoops([loop])}
+                    onRestore={loop.builtinModified ? () => setConfirmRestoreId(loop.id) : undefined}
+                  />
                 ))}
               </Section>
             )}
@@ -527,7 +493,7 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => { setPreviewMode('use'); setPreviewTemplate({ ...tmpl, name: locName(tmpl.id, tmpl.name), description: locDesc(tmpl.id, tmpl.description) }) }}
+                            onClick={() => setPreviewTemplate({ ...tmpl, name: locName(tmpl.id, tmpl.name), description: locDesc(tmpl.id, tmpl.description) })}
                             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs border border-border hover:bg-muted text-foreground"
                           >
                             <Eye className="w-3 h-3" />
@@ -573,19 +539,43 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
         </DialogContent>
       </Dialog>
 
-      {/* Read-only preview before cloning. Built-in factory loops fork (forkFactory);
-          starter templates clone (fromTemplate) — routed by previewMode. */}
+      {/* Restore-original confirm for an edited built-in. */}
+      <Dialog open={confirmRestoreId !== null} onOpenChange={(o) => { if (!o) setConfirmRestoreId(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="w-4 h-4" />
+              {t('builder.builtin.confirmTitle')}
+            </DialogTitle>
+            <DialogDescription>{t('builder.builtin.confirmBody')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmRestoreId(null)}>
+              {t('common:actions.cancel')}
+            </Button>
+            <Button data-testid="confirm-restore-builtin" onClick={() => void doRestore()}>
+              {t('actions.restoreBuiltin')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Read-only preview of a starter template before cloning it (fromTemplate). */}
       <TemplatePreviewModal
         template={previewTemplate}
-        mode={previewMode}
         onClose={() => setPreviewTemplate(null)}
         onUse={(id) => {
           setPreviewTemplate(null)
-          void (previewMode === 'fork' ? handleFork(id) : handleUseTemplate(id))
+          void handleUseTemplate(id)
         }}
       />
 
       {/* Standalone Run for a ticket-less loop (pick a project + provider/effort). */}
+      {conversionLoop && <LegacyConversionModal key={conversionLoop.id} loop={conversionLoop} projects={projects}
+        onClose={() => setConversionLoop(null)} onConverted={converted => {
+          setLoops(current => current.map(loop => loop.id === converted.id ? converted : loop))
+          setConversionLoop(null); openBuilder(converted.id)
+        }} />}
       <LoopRunModal
         loop={runLoop ? { id: runLoop.id, name: runLoop.name } : null}
         projects={projects.map((p) => ({ id: p.id, name: p.name, providers: projectProviders(p), repositories: p.repositories }))}
@@ -607,6 +597,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function LoopCard({
   loop,
+  builtIn = false,
   selected,
   onToggleSelect,
   onEdit,
@@ -614,10 +605,15 @@ function LoopCard({
   onUnpublish,
   onDuplicate,
   onExport,
+  onExportLegacy,
+  onConvert,
   onDelete,
   onRun,
+  onRestore,
 }: {
   loop: LoopDefinition
+  /** Built-in loop: badge, no Delete/Unpublish/Convert; Restore when edited. */
+  builtIn?: boolean
   selected: boolean
   onToggleSelect: () => void
   onEdit: () => void
@@ -625,14 +621,18 @@ function LoopCard({
   onUnpublish?: () => void
   onDuplicate: () => void
   onExport: () => void
-  onDelete: () => void
+  onExportLegacy?: () => void
+  onConvert?: () => void
+  onDelete?: () => void
   /** Present only for ticket-less published loops → standalone Run. */
   onRun?: () => void
+  /** Built-ins with edits → reset to the original default. */
+  onRestore?: () => void
 }) {
   const { t } = useTranslation('loops')
   const nodeCount = loop.graph?.nodes?.length ?? 0
   return (
-    <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2" data-testid="loop-card">
+    <div className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2" data-testid={builtIn ? 'builtin-loop-card' : 'loop-card'}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <input
@@ -644,9 +644,19 @@ function LoopCard({
           />
           <span className="text-sm font-medium text-foreground truncate">{loop.name}</span>
         </div>
-        <StatusBadge status={loop.status} />
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {builtIn && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-muted text-muted-foreground" data-testid="builtin-badge">
+              {t('builtInBadge')}
+            </span>
+          )}
+          <StatusBadge status={loop.status} />
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground">{t('card.nodes', { count: nodeCount })}</p>
+      <p className="text-xs text-muted-foreground">
+        {t('card.nodes', { count: nodeCount })}
+        {builtIn && loop.builtinModified && <span className="ml-1.5 text-accent-secondary">· {t('card.builtinModified')}</span>}
+      </p>
       <div className="flex items-center gap-1 flex-wrap">
         {onRun && <CardButton icon={Play} label={t('actions.run')} onClick={onRun} />}
         <CardButton icon={Pencil} label={t('actions.edit')} onClick={onEdit} />
@@ -654,7 +664,10 @@ function LoopCard({
         {onUnpublish && <CardButton icon={Download} label={t('actions.unpublish')} onClick={onUnpublish} />}
         <CardButton icon={Copy} label={t('actions.duplicate')} onClick={onDuplicate} />
         <CardButton icon={FileDown} label={t('actions.export')} onClick={onExport} />
-        <CardButton icon={Trash2} label={t('actions.delete')} onClick={onDelete} danger />
+        {onExportLegacy && <CardButton icon={FileDown} label={t('actions.exportLegacy')} onClick={onExportLegacy} />}
+        {onConvert && <CardButton icon={Workflow} label={t('actions.convert')} onClick={onConvert} />}
+        {onRestore && <CardButton icon={RotateCcw} label={t('actions.restoreBuiltin')} onClick={onRestore} />}
+        {onDelete && <CardButton icon={Trash2} label={t('actions.delete')} onClick={onDelete} danger />}
       </div>
     </div>
   )

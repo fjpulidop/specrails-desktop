@@ -22,7 +22,7 @@ Klick auf eine beliebige Job-Karte auf der **Jobs**-Seite, und du landest hier: 
 
 ## Pipeline-Phasen
 
-Bei `Implement`- und `Batch`-Jobs durchläuft der Lauf die Phasen, die der Slash-Befehl definiert — standardmäßig:
+Bei `Implement`-Jobs durchläuft der Lauf die Phasen, die der Slash-Befehl definiert — standardmäßig:
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -113,5 +113,14 @@ Praktisch, um einen Lauf mit einem Teammitglied zu teilen oder einen präzisen F
 ## Wie es weitergeht
 
 - [Rails & Jobs](rails-and-jobs) — Starten und Einreihen in die Queue.
-- [Batch implement & Multi-Feature](batch-implement-and-multi-feature) — viele Specs, abhängigkeitsbewusste Wellen.
 - [Kosten verfolgen](../analytics/tracking-cost) — aus Kosten pro Job Projekt-Analysen machen.
+
+## Nach einem Workflow-Neustart
+
+Setze nach einem Absturz den gespeicherten Workflow mit seiner ursprünglichen Konfiguration und seinen ursprünglichen Repositorys fort. Prüfe bei einem unterbrochenen Schreibvorgang zuerst den Worktree-Diff und wähle dann den genauen Versuch aus. Abgeschlossene Schritte bleiben erhalten. Ein Anbieteraufruf mit verlorener Antwort wird weiterhin als unterbrochen mit unbekanntem Verbrauch gezählt, niemals als kostenlos. Lässt sich die ursprüngliche Auslieferung anhand der gespeicherten Daten nicht belegen, zeigt die Wiederherstellung einen Fehler und erhält den Worktree.
+
+Wenn ein Entscheidungsschritt wegen einer Frage pausiert, verwendet die Fortsetzung die gespeicherte Entscheidung und gibt die menschliche Antwort an den nächsten Schritt weiter. Das Modell wird für dieselbe Entscheidung nicht erneut aufgerufen. Ein pausierter Prompt kann einen weiteren Modellaufruf benötigen, um Ihre Antwort umzusetzen.
+
+## Aufbewahrung des Verlaufs
+
+Gespeicherte Ausführungen werden standardmäßig unbegrenzt aufbewahrt. Unter **Gespeicherte Ausführungen → Aufbewahrung des Verlaufs** kann ein Projekt sie stattdessen 1 bis 3650 Tage aufbewahren. Im Hintergrund wird nichts gelöscht: Speichere die Richtlinie, wähle **Bereinigung prüfen** und prüfe jede Ausführung samt Grund, bevor du **Abgelaufenen Verlauf löschen** wählst. Eine Ausführung bleibt geschützt, solange sie aktiv ist, auf deine Antwort oder Freigabe wartet, einen unterbrochenen Schreibvorgang, eine offene Auslieferung oder einen davon abhängigen Fork hat. Entfernt wird nur der Laufzeitverlauf im Specrails-Speicher des Projekts; Repository, Worktrees, Job-Log und Kostendaten bleiben erhalten. Eine abgelaufene Ausführung wird als **Abgelaufen** angezeigt und kann nicht mehr fortgesetzt oder geforkt werden. Core-Versionen, die eine verbleibende Ausführung noch nutzt, bleiben immer erhalten.

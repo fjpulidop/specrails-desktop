@@ -98,9 +98,13 @@ describe('FrameworkManager', () => {
     home = mkdtempSync(path.join(os.tmpdir(), 'fm-home-'))
     coreDir = mkdtempSync(path.join(os.tmpdir(), 'fm-core-'))
     prevCoreEnv = process.env.SPECRAILS_BUNDLED_CORE_PATH
+    // These fixtures exercise bundled discovery independently of the paired
+    // runtime selected by the surrounding integration-test command.
+    vi.stubEnv('SPECRAILS_CORE_BIN', '')
   })
 
   afterEach(() => {
+    vi.unstubAllEnvs()
     if (prevCoreEnv === undefined) delete process.env.SPECRAILS_BUNDLED_CORE_PATH
     else process.env.SPECRAILS_BUNDLED_CORE_PATH = prevCoreEnv
     rmSync(home, { recursive: true, force: true })

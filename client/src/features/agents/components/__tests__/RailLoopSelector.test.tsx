@@ -18,7 +18,9 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
     render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled={false} />)
     const sel = screen.getByTestId('rail-loop-selector')
     expect(within(sel).getByRole('option', { name: 'Implement' })).toBeInTheDocument()
-    expect(within(sel).getByRole('option', { name: 'Batch' })).toBeInTheDocument()
+    expect(within(sel).getByRole('option', { name: 'Freestyle' })).toBeInTheDocument()
+    // The removed Batch mode is never offered.
+    expect(within(sel).queryByRole('option', { name: 'Batch' })).not.toBeInTheDocument()
   })
 
   it('hides the provider-owned Freestyle built-in when the capability is unavailable', () => {
@@ -66,7 +68,27 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
   it('fires onChange with the chosen loop id', () => {
     const onChange = vi.fn()
     render(<RailLoopSelector value="factory:implement" onChange={onChange} loopsEnabled={false} />)
-    fireEvent.change(screen.getByTestId('rail-loop-selector'), { target: { value: 'factory:batch' } })
-    expect(onChange).toHaveBeenCalledWith('factory:batch')
+    fireEvent.change(screen.getByTestId('rail-loop-selector'), { target: { value: 'factory:freestyle' } })
+    expect(onChange).toHaveBeenCalledWith('factory:freestyle')
+  })
+})
+
+describe('RailLoopSelector with editable built-in rows', () => {
+  const builtinGraph = { nodes: [{ id: 'ai', type: 'ai-step' as const, position: { x: 0, y: 0 }, data: { prompt: '{{cmd:implement}}' } }], edges: [], config: { maxIterations: 12, timeoutMinutes: 0 } }
+
+  it('never lists a built-in row twice (built-in group only) and shows a renamed built-in by its row name', async () => {
+    api.list.mockResolvedValue([
+      { id: 'factory:implement', builtinId: 'factory:implement', builtinModified: true, name: 'Team Implement', status: 'published', graph: builtinGraph, description: null, createdAt: '', updatedAt: '' },
+      { id: 'factory:sdd-quick-openspec', builtinId: 'factory:sdd-quick-openspec', builtinModified: false, name: 'SDD Quick (OpenSpec)', status: 'published', graph: builtinGraph, description: null, createdAt: '', updatedAt: '' },
+      { id: 'c1', name: 'My Loop', status: 'published', graph: builtinGraph, description: null, createdAt: '', updatedAt: '' },
+    ])
+    render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled />)
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Team Implement' })).toBeInTheDocument())
+    const sel = screen.getByTestId('rail-loop-selector')
+    const values = within(sel).getAllByRole('option').map((option) => (option as HTMLOptionElement).value)
+    expect(values.filter((value) => value === 'factory:implement')).toHaveLength(1)
+    expect(values.filter((value) => value === 'factory:sdd-quick-openspec')).toHaveLength(1)
+    expect(within(sel).getByRole('option', { name: 'My Loop' })).toBeInTheDocument()
+    expect(within(sel).queryByRole('option', { name: 'Implement' })).not.toBeInTheDocument()
   })
 })

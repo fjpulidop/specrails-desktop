@@ -93,7 +93,7 @@
     "descriptionPlaceholder": "Para que serve este perfil?",
     "orchestrator": {
       "heading": "Orquestrador",
-      "description": "Modelo de topo para ambos os comandos. O batch-implement delega no implement por feature, pelo que cada rail que lança herda a cadeia de agentes deste perfil."
+      "description": "Modelo de topo para o comando implement. Cada rail que executa herda a cadeia de agentes deste perfil."
     },
     "agentChain": {
       "heading": "Cadeia de agentes ({{n}})",
@@ -136,7 +136,8 @@
       "moveUp": "Mover para cima",
       "coreDefaultBadge": "core · default",
       "coreDefaultTitle": "Fallback core — a regra de último recurso do pipeline, fixada no sr-developer"
-    }
+    },
+    "legacyWorkflowNotice": "As definições do orquestrador e do encaminhamento aplicam-se aos workflows antigos. Os workflows Core usam os papéis selecionados no editor de loops."
   },
   "agentSelector": {
     "coreBadge": "core",

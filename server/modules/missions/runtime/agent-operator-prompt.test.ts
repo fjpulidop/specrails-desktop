@@ -131,7 +131,7 @@ describe('OPERATOR_INSTRUCTIONS — launch, then release the turn', () => {
   })
 
   it('classifies small work with the SDD Quick OpenSpec guardrail', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle, SDD Quick (OpenSpec), Implement, or Batch')
+    expect(OPERATOR_INSTRUCTIONS).toContain('Freestyle, SDD Quick (OpenSpec), or Implement')
     expect(OPERATOR_INSTRUCTIONS).toContain('ticket-local implementation-only work when OpenSpec artifacts are relevant')
     expect(OPERATOR_INSTRUCTIONS).toContain("loopId:'factory:sdd-quick-openspec'")
     expect(OPERATOR_INSTRUCTIONS).toContain('openspecChangeName')
@@ -229,7 +229,7 @@ describe('OPERATOR_SYSTEM_PROMPT — compact distillation stays in sync', () => 
 
 describe('OPERATOR_SYSTEM_PROMPT — SDD Quick policy', () => {
   it('carries SDD Quick OpenSpec strategy in the compact prompt', () => {
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('Freestyle, SDD Quick (OpenSpec), Implement, or Batch')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('Freestyle, SDD Quick (OpenSpec), or Implement')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('Freestyle is only ticket-local implementation-only')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('factory:sdd-quick-openspec')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('openspecChangeName')
@@ -240,17 +240,27 @@ describe('OPERATOR_SYSTEM_PROMPT — SDD Quick policy', () => {
   })
 })
 
-describe('batch sizing recommendation (max 3 specs per rail)', () => {
-  it('OPERATOR_INSTRUCTIONS caps batch-implement recommendations at 3 specs per rail', () => {
-    expect(OPERATOR_INSTRUCTIONS).toContain('Batch sizing: at most 3 specs per rail.')
+describe('rail sizing recommendation (max 3 specs per rail)', () => {
+  it('OPERATOR_INSTRUCTIONS caps implement recommendations at 3 specs per rail', () => {
+    expect(OPERATOR_INSTRUCTIONS).toContain('Rail sizing: at most 3 specs per rail.')
+    expect(OPERATOR_INSTRUCTIONS).toContain('an `implement` launch, never propose more than 3 specs on one rail')
     expect(OPERATOR_INSTRUCTIONS).toContain('never propose more than 3 specs on one rail')
     // The escape hatch is explicit-user-insistence only.
     expect(OPERATOR_INSTRUCTIONS).toContain('when the user explicitly insists')
   })
 
   it('OPERATOR_SYSTEM_PROMPT carries the same cap', () => {
-    expect(OPERATOR_SYSTEM_PROMPT).toContain('never recommend more than 3 specs per rail')
+    expect(OPERATOR_SYSTEM_PROMPT).toContain('when proposing implement work never recommend more than 3 specs per rail')
     expect(OPERATOR_SYSTEM_PROMPT).toContain('exceeding 3 only on explicit user insistence')
+  })
+})
+
+describe('removed Batch mode', () => {
+  it('neither prompt offers batch-implement or a Batch strategy', () => {
+    for (const prompt of [OPERATOR_INSTRUCTIONS, OPERATOR_SYSTEM_PROMPT]) {
+      expect(prompt).not.toContain('batch-implement')
+      expect(prompt).not.toMatch(/Implement, or Batch/)
+    }
   })
 })
 

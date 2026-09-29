@@ -19,7 +19,7 @@ import { parseFollowUpInput, type PrFollowUp } from './pr-follow-up-scope'
 export const RAIL_LAUNCH_FENCE = 'rail-launch'
 export const RAIL_LAUNCH_PROPOSAL_VERSION = 1
 
-export const RAIL_LAUNCH_MODES = ['implement', 'batch-implement', 'freestyle', 'loop'] as const
+export const RAIL_LAUNCH_MODES = ['implement', 'freestyle', 'loop'] as const
 export type RailLaunchMode = (typeof RAIL_LAUNCH_MODES)[number]
 
 export interface RailLaunchProposal {
@@ -114,7 +114,8 @@ export function coerceRailLaunchProposal(value: unknown): { ok: true; proposal: 
   const ticketIds = coerceTicketIds(value.ticketIds ?? value.specs ?? value.tickets)
   if (ticketIds.length === 0) return { ok: false, reason: 'no_tickets' }
   const modeRaw = optString(value.mode)?.toLowerCase().replace(/_/g, '-') ?? 'implement'
-  const mode = modeRaw === 'batch' ? 'batch-implement' : modeRaw
+  // The removed Batch mode folds into implement (one aggregate run per rail).
+  const mode = modeRaw === 'batch' || modeRaw === 'batch-implement' ? 'implement' : modeRaw
   if (!(RAIL_LAUNCH_MODES as readonly string[]).includes(mode)) return { ok: false, reason: 'invalid_mode' }
   const newRailRaw = value.newRail
   const newRail = newRailRaw === true

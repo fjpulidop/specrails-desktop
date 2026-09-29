@@ -94,8 +94,10 @@ describe('loop-runs-store', () => {
     expect(paused.iteration_count).toBe(2)
     expect(listActiveLoopRuns(db, 'p1').map((r) => r.id)).toEqual(['r1'])
 
+    db.prepare("UPDATE loop_runs SET restart_reason = 'restart' WHERE id = ?").run('r1')
     const resumed = resumeLoopRun(db, 'r1')!
     expect(resumed.status).toBe('running')
+    expect(resumed.restart_reason).toBeNull()
     expect(resumed.final_outcome).toBeNull()
   })
 

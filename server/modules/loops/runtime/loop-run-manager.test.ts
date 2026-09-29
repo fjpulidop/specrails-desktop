@@ -111,6 +111,7 @@ describe('LoopRunManager fail-fast (provider down / out of quota)', () => {
     await manager(ex).run({ ...baseReq(), profileName })
     expect(planInteractiveAiStep).toHaveBeenCalledWith(expect.objectContaining({ profileName }))
     expect(ex.runAiStep).toHaveBeenCalledWith(expect.objectContaining({ profileName }))
+    expect(db.prepare('SELECT kind,project_id FROM legacy_launch_events').all()).toEqual([{ kind: 'legacy_loop_traversal', project_id: 'p1' }])
   })
 
   it('does not accept STOP over a failed verification, then succeeds after a clean repair pass', async () => {
@@ -2875,5 +2876,30 @@ describe('terminal acceptance evidence', () => {
     const event = getJobEvents(db, result.runId).find(event => event.event_type === 'loop_completion')!
     expect(JSON.parse(event.payload)).toMatchObject({ execution: 'success', core: { completion: { validation, delivery: 'pending-host' } } })
     expect(getLoopRun(db, result.runId)?.final_outcome).toBe(result.outcome)
+  })
+})
+
+describe('LoopRunManager graph isolation (editable built-ins)', () => {
+  it('runs the graph cloned at launch even when the source graph is edited mid-run', async () => {
+    const graph = loopGraph()
+    let edit: (() => void) | undefined
+    const prompts: string[] = []
+    const ex = makeExecutors({
+      runAiStep: vi.fn(async (input: { prompt: string }) => {
+        prompts.push(input.prompt)
+        edit?.()
+        return { text: 'did work', sessionId: 's1', cost: 0.01, tokens: 100, provider: 'claude', model: 'sonnet' }
+      }) as unknown as LoopExecutors['runAiStep'],
+      runDecider: vi.fn()
+        .mockResolvedValueOnce({ continue: true, reasoning: 'again', parsed: true, cost: 0, tokens: 1, provider: 'claude', model: 'sonnet' })
+        .mockResolvedValue({ continue: false, reasoning: 'done', parsed: true, cost: 0, tokens: 1, provider: 'claude', model: 'sonnet' }),
+    })
+    // Simulate `PUT /loops/:id` saving a new prompt while the first step runs.
+    edit = () => { graph.nodes[1].data = { prompt: 'EDITED {{spec.title}}' }; graph.nodes.splice(2, 1) }
+    const result = await manager(ex).run({ ...baseReq(), graph })
+    expect(result.outcome).toBe('success')
+    expect(prompts).toHaveLength(2)
+    expect(prompts.every((prompt) => prompt.includes('Implement') && !prompt.includes('EDITED'))).toBe(true)
+    expect(ex.runShell).toHaveBeenCalledTimes(2)
   })
 })

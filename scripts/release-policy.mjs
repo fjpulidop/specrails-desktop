@@ -93,6 +93,26 @@ export async function verifyLatestChannel(version, { fetchImpl = fetch, now = Da
   const current = await response.json()
   assertPromotion(version, current.version)
 }
+/** Retention expiry permits one source rebuild; API errors or conflicting evidence never do. */
+export async function retainedClientArtifact({ repository, sha, runId, request = githubJson }) {
+  validIdentity(repository, sha)
+  if (!Number.isSafeInteger(runId) || runId < 1) throw new Error('Invalid admitted CI run ID.')
+  const run = await request(`/repos/${repository}/actions/runs/${runId}`)
+  if (run.id !== runId || run.head_sha !== sha || run.event !== 'push' || run.conclusion !== 'success' || run.status !== 'completed'
+    || run.repository?.full_name !== repository || run.head_repository?.full_name !== repository) throw new Error('Frontend evidence must belong to the admitted successful source CI.')
+  const matches = []
+  for (let page = 1; page <= 100; page++) {
+    const response = await request(`/repos/${repository}/actions/runs/${runId}/artifacts?per_page=100&page=${page}`)
+    if (!Array.isArray(response.artifacts)) throw new Error('GitHub returned an invalid artifact inventory.')
+    matches.push(...response.artifacts.filter(artifact => artifact.name === 'verified-desktop-client' && artifact.expired === false))
+    if (response.artifacts.length < 100) {
+      if (matches.length > 1) throw new Error('Ambiguous frontend evidence for this CI run.')
+      if (matches.length && (!Number.isSafeInteger(matches[0].id) || matches[0].id < 1)) throw new Error('Invalid frontend artifact identity.')
+      return matches[0]?.id ?? null
+    }
+  }
+  throw new Error('Artifact inventory exceeds its bounded pagination limit.')
+}
 export function verifiedNpmPackage(directory, expected) {
   const receipt = JSON.parse(fs.readFileSync(path.join(directory, 'package-verification.json'), 'utf8'))
   if (receipt.name !== expected.name || receipt.version !== expected.version) throw new Error('The package receipt does not match this release source.')
@@ -144,7 +164,8 @@ async function main(command) {
     const checkoutSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
     const mode = desktopReleaseMode({ eventName: process.env.GITHUB_EVENT_NAME, validationOnly: process.env.VALIDATION_ONLY,
       ref: process.env.GITHUB_REF, repository, sha, checkoutSha, version })
-    await requireSuccessfulCi({ repository, sha, branch: mode.ciBranch })
+    const ciRun = await requireSuccessfulCi({ repository, sha, branch: mode.ciBranch })
+    output('ci_run_id', ciRun.id)
     output('publish', String(mode.publish))
     output('version', mode.version)
     if (mode.tag) output('tag', mode.tag)
@@ -152,6 +173,10 @@ async function main(command) {
     validIdentity(repository, sha)
     const current = await githubJson(`/repos/${repository}/git/ref/heads/main`)
     output('current', current.object?.sha === sha ? 'true' : 'false')
+  } else if (command === 'client-artifact') {
+    const artifact = await retainedClientArtifact({ repository, sha, runId: Number(process.env.CI_RUN_ID) })
+    output('available', artifact === null ? 'false' : 'true')
+    if (artifact !== null) output('artifact_id', artifact)
   } else if (command === 'latest') {
     await verifyLatestChannel(process.env.RELEASE_VERSION)
   } else if (command === 'npm-status') {
@@ -160,6 +185,6 @@ async function main(command) {
     output('published', await npmPackageStatus(receipt) ? 'true' : 'false')
   } else if (command === 'core-version') {
     output('version', stableVersion(process.env.CORE_VERSION))
-  } else throw new Error('Usage: release-policy.mjs tag|ci|desktop-admission|main-current|latest|npm-status|core-version')
+  } else throw new Error('Usage: release-policy.mjs tag|ci|desktop-admission|client-artifact|main-current|latest|npm-status|core-version')
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv[2]).catch(error => { console.error(error.message); process.exitCode = 1 })

@@ -15,7 +15,7 @@ Each connection also has an **Agent loop** setting. **Compact** (default) drives
 
 ## What you get
 
-- Rails (implement, batch, freestyle, custom loops), Explore and Quick specs, chat and missions all run on the local model.
+- Rails (implement, freestyle, custom loops), Explore and Quick specs, chat and missions all run on the local model.
 - Missions keep their Specrails tools and your external MCP servers.
 - Sessions resume across turns; interactive jobs work.
 - Cost is honest: tokens are recorded, cost stays *unknown* unless you enter rates (then it is marked *estimated*).

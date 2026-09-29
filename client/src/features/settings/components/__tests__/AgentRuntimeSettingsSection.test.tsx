@@ -16,7 +16,7 @@ const defaults = (): AgentRuntimeConfig => ({
 const snapshot = (config = defaults(), runtimeAvailable = true, configured = false) => ({ config, configured, runtimeAvailable })
 const response = (data: unknown, ok = true) => ({ ok, json: async () => data }) as Response
 const suggestions = { repositories: [{ id: 'primary-p1', name: 'App' }], suggestions: [{ repositoryId: 'primary-p1', command: 'npm', args: ['test'], reason: 'package.json test script "test"' }] }
-function mockServer(options: { detected?: unknown; configured?: boolean; config?: AgentRuntimeConfig; suggestions?: unknown; runtimeAvailable?: boolean; guardrails?: unknown; save?: (init: RequestInit) => Promise<Response> } = {}) {
+function mockServer(options: { detected?: unknown; configured?: boolean; config?: AgentRuntimeConfig; suggestions?: unknown; runtimeAvailable?: boolean; openRolesAvailable?: boolean; guardrails?: unknown; save?: (init: RequestInit) => Promise<Response> } = {}) {
   global.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
     if (String(url).endsWith('/capabilities')) return response({ schemaVersion: 1, roles: [] })
     if (String(url).endsWith('/verification-suggestions')) return response(options.suggestions ?? suggestions)
@@ -24,8 +24,8 @@ function mockServer(options: { detected?: unknown; configured?: boolean; config?
     if (String(url).endsWith('/agent-runtime/guardrails')) return response(options.guardrails ?? { supported: true, catalog: [{ id: 'plan-validation', phase: 'architect' }, { id: 'empty-write', phase: 'developer' }] })
     if (String(url).includes('/providers/detected')) return response(options.detected ?? { detected: [], providers: {} })
     if (init?.method === 'PUT' && options.save) return options.save(init)
-    if (init?.method === 'PUT') return response(snapshot(JSON.parse(String(init.body)) as AgentRuntimeConfig, options.runtimeAvailable ?? true, true))
-    return response(snapshot(options.config ?? defaults(), options.runtimeAvailable ?? true, options.configured ?? false))
+    if (init?.method === 'PUT') return response({ ...snapshot(JSON.parse(String(init.body)) as AgentRuntimeConfig, options.runtimeAvailable ?? true, true), openRolesAvailable: options.openRolesAvailable })
+    return response({ ...snapshot(options.config ?? defaults(), options.runtimeAvailable ?? true, options.configured ?? false), openRolesAvailable: options.openRolesAvailable })
   })
 }
 const putBodies = () => vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PUT').map(([, init]) => JSON.parse(String(init?.body)) as AgentRuntimeConfig)
@@ -387,4 +387,17 @@ describe('AgentRuntimeSettingsSection', () => {
     await waitFor(() => expect(putBodies().length).toBe(2))
     expect('thinking' in putBodies().at(-1)!.agents.developer).toBe(false)
   })
+})
+
+it('saves a custom role engine and prompt with explicit independent permissions', async () => {
+  mockServer({ configured: true, openRolesAvailable: true })
+  const user = userEvent.setup(); render(<AgentRuntimeSettingsSection />)
+  await user.type(await screen.findByLabelText('Role ID'), 'security-reviewer')
+  await user.click(screen.getByRole('button', { name: 'Add role' }))
+  const role = within(screen.getByRole('group', { name: 'security-reviewer' }))
+  await user.type(role.getByLabelText('Role instructions'), 'Inspect actual security evidence.')
+  await user.selectOptions(role.getByLabelText('OpenSpec artifact access'), 'tasks-checkboxes')
+  await user.click(screen.getByRole('button', { name: 'Save runtime settings' }))
+  await waitFor(() => expect(putBodies().at(-1)?.roles).toMatchObject({ 'security-reviewer': { provider: 'claude', access: 'read', artifacts: 'tasks-checkboxes', prompt: 'Inspect actual security evidence.' } }))
+  expect(putBodies().at(-1)?.agents).toEqual(defaults().agents)
 })

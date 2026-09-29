@@ -1,6 +1,16 @@
 # O Loop Builder
 
-Um **rail roda um Loop**. Os loops embutidos (`Implement`, `Batch`, `Freestyle`) cobrem os casos do dia a dia, mas o **Loop Builder** deixa você desenhar os seus próprios — um editor visual, no estilo n8n, para automação que se repete até atingir uma meta. Esta página explica o que é um loop, como construir um e como rodá-lo em um rail.
+## Workflows Core
+
+Com um motor Core compatível, um novo canvas apresenta as dezassete etapas do catálogo instalado. Clique ou arraste uma etapa e preencha o formulário. Os fornecedores e papéis pertencem ao projeto ativo. Ligue cada saída identificada a outra etapa ou a Fim; cada saída permite uma ligação.
+
+Os formulários cobrem campos opcionais, objetos, listas e dicionários para IA, condições, verificação, shell, OpenSpec, aprovações, perguntas, pausas, mapas, uniões, componentes e implementação. As opções incluem limites de tokens e transições e concorrência. As visitas dentro de componentes também contam para o limite.
+
+Crie um corpo reutilizável em **Componentes**, declare entradas e saídas e selecione-o numa etapa Componente ou Mapear. A navegação regressa ao canvas principal sem perder alterações. Um Fim local pode selecionar uma saída através de `exit`.
+
+A publicação envia o rascunho ao Core e apresenta os erros nas etapas. O lançamento valida novamente a configuração do projeto. Atualize o Core se o motor estiver indisponível. Os loops antigos mantêm o editor e a execução anteriores; as secções seguintes descrevem-nos.
+
+Um **rail roda um Loop**. Os loops embutidos (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) cobrem os casos do dia a dia, mas o **Loop Builder** deixa você desenhar os seus próprios — um editor visual, no estilo n8n, para automação que se repete até atingir uma meta. Esta página explica o que é um loop, como construir um e como rodá-lo em um rail.
 
 ## Loops e rails — a relação
 
@@ -10,9 +20,8 @@ Um **loop** é a *receita* do trabalho; um **rail** é a *pista* que o roda cont
    Loop Builder (barra lateral esq.)        Rails (direita)
    ───────────────────────────             ─────────────
    Implement   (embutido)                  Rail 1
-   Batch       (embutido)      escolha ►      Loop: Verify-until-green
-   Freestyle   (embutido)                     ▶ Play
-   Verify-until-green (seu)
+   Freestyle   (embutido)      escolha ►      Loop: Verify-until-green
+   Verify-until-green (seu)                     ▶ Play
 ```
 
 - Os loops vivem na seção **Loops** (barra lateral esquerda, ao lado dos seus projetos) — eles são **globais**, compartilhados por todos os projetos.
@@ -25,7 +34,7 @@ Ou seja: construa um loop uma vez e depois escolha-o em qualquer rail, em qualqu
 
 Clique em **Loops** na barra lateral esquerda para ver a biblioteca: os três loops embutidos mais os seus próprios. Abra um para vê-lo, ou clique em **New loop** para começar de uma tela em branco.
 
-Você não consegue editar um embutido diretamente com facilidade — em vez disso, faça **Fork** dele. Isso te dá uma cópia editável de um grafo que funciona como ponto de partida, que é a forma mais fácil de aprender.
+Os loops embutidos são loops reais e editáveis. Abra um com **Edit** e altere-o como qualquer outro loop: ao salvar ele vira rascunho, e **Publish** aplica a sua versão em **todos os rails, lançamentos pelo chat do agente e lançamentos pelo Companion que usam esse embutido**. Enquanto a sua edição for um rascunho, os rails continuam executando a última versão publicada, então nada quebra no meio da edição. **Restaurar original** (no cartão ou no builder) volta o embutido à versão padrão; embutidos não podem ser excluídos. Prefere uma cópia separada? Use **Duplicate** — isso cria um loop comum e deixa o embutido intacto.
 
 ## Do que um loop é feito
 
@@ -93,3 +102,13 @@ A execução transmite ao vivo na vista **Jobs** com as mesmas métricas e o mes
 - [Rails e jobs](rails-and-jobs) — lançando rails e a fila de jobs.
 - [A vista de detalhe do job](the-job-detail-view) — acompanhando uma execução ao vivo.
 - [Escolhendo um motor por rail](picking-an-engine-per-rail) — o rail (não o loop) escolhe o provedor.
+
+Quando a versão de Core selecionada disponibiliza limites por invocação, os blocos de prompt, função e decider oferecem `timeoutMs` e `idleTimeoutMs`. Use `0` para desativar esse temporizador da etapa ou remova o campo para herdar o valor padrão. Os orçamentos do workflow completo e o cancelamento continuam ativos. Uma etapa de verificação que faz uma pergunta bloqueante espera sua resposta antes de aceitar um resultado bem-sucedido.
+
+Quando um grafo antigo salvo é substituído pela primeira vez por blocos Core, o grafo original é preservado. A biblioteca passa a oferecer **Exportar grafo original**. A exportação tem um nome diferente para permitir a importação como rascunho separado, sem substituir o workflow atual. A conversão e as edições posteriores nunca publicam um loop automaticamente.
+
+Use **Definir variáveis** para preservar o estado durante uma pausa: defina valores JSON tipados ou ajuste um contador inteiro existente. Esta peça não faz chamadas à IA. Todas as alterações são guardadas em conjunto; um contador inválido deixa todas as variáveis intactas. As variáveis de um componente mapeado permanecem locais a esse componente.
+
+No Decider, **Continuar enquanto esta condição se verificar** protege o trabalho obrigatório pendente. Por exemplo, `$vars.failedPass == true` transforma uma proposta de paragem em continuação até o workflow limpar esse indicador. A decisão continua a ser executada e as repetições sem alterações continuam sujeitas ao limite de falta de progresso. As perguntas humanas continuam a aguardar uma resposta.
+
+Para migrar um loop guardado do motor anterior, escolha **Converter para Core** na biblioteca. Selecione o repositório original quando um passo shell não tiver um âmbito explícito. A conversão valida o grafo e guarda um rascunho com uma cópia exportável do original. Reveja as ligações e publique explicitamente. Loops em execução não podem ser convertidos; alterações concorrentes são preservadas. Os passos de escrita exigem comandos reais de verificação e Quick SDD utiliza o OpenSpec incluído no Core. Atualize o Core se a conversão não estiver disponível.

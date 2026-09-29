@@ -13,7 +13,13 @@
 import type { LoopGraph } from './loop-graph'
 
 export function classifyLoopEffect(graph: LoopGraph): 'mutating' | 'read-only' {
-  const writes = graph.nodes.some((n) => n.type === 'ai-step' || n.type === 'shell')
+  const writes = graph.nodes.some(n => {
+    if (n.type === 'ai-step' || n.type === 'shell') return true
+    if (n.type !== 'core') return false
+    if (n.data?.kind === 'prompt') return n.data.params?.access !== 'read'
+    // Role access binds at launch; isolation is conservative before that binding.
+    return ['role-turn', 'verify', 'shell', 'openspec-archive', 'implementation', 'component', 'map'].includes(String(n.data?.kind))
+  }) || Object.values(graph.components ?? {}).some(component => classifyLoopEffect(component) === 'mutating')
   return writes ? 'mutating' : 'read-only'
 }
 

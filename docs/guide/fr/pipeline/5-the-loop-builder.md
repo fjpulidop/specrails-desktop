@@ -1,6 +1,16 @@
 # Le Loop Builder
 
-Un **rail exécute un Loop**. Les loops intégrés (`Implement`, `Batch`, `Freestyle`) couvrent les cas du quotidien, mais le **Loop Builder** vous laisse concevoir les vôtres — un éditeur visuel, de style n8n, pour de l'automatisation qui se répète jusqu'à ce qu'un objectif soit atteint. Cette page explique ce qu'est un loop, comment en construire un, et comment l'exécuter sur un rail.
+## Workflows Core
+
+Avec un moteur Core compatible, un nouveau canevas affiche les dix-sept étapes du catalogue installé. Cliquez sur une étape ou faites-la glisser, puis remplissez son formulaire. Les fournisseurs et rôles proviennent du projet actif. Reliez chaque sortie nommée à une autre étape ou à Fin ; une sortie accepte une seule connexion.
+
+Les formulaires couvrent les champs facultatifs, objets, listes et dictionnaires de toutes les étapes : IA, conditions, vérification, shell, OpenSpec, approbation, question, pause, parcours, regroupement, composants et implémentation. Les options exposent les limites de jetons et de transitions et la concurrence. Les visites internes aux composants comptent dans la limite.
+
+Créez un corps réutilisable dans **Composants**, déclarez ses entrées et sorties, puis sélectionnez-le dans une étape Composant ou Parcourir. Le fil de navigation revient au canevas principal sans perdre les modifications. Une étape Fin peut choisir une sortie locale avec `exit`.
+
+La publication demande à Core de valider le brouillon et affiche les erreurs sur les étapes concernées. Le lancement valide à nouveau la configuration du projet. Si le moteur est indisponible, mettez Core à jour. Les anciennes boucles conservent leur éditeur et leur exécution ; les sections suivantes les décrivent.
+
+Un **rail exécute un Loop**. Les loops intégrés (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) couvrent les cas du quotidien, mais le **Loop Builder** vous laisse concevoir les vôtres — un éditeur visuel, de style n8n, pour de l'automatisation qui se répète jusqu'à ce qu'un objectif soit atteint. Cette page explique ce qu'est un loop, comment en construire un, et comment l'exécuter sur un rail.
 
 ## Loops et rails — la relation
 
@@ -10,9 +20,8 @@ Un **loop** est la *recette* du travail ; un **rail** est la *voie* qui l'exécu
    Loop Builder (barre latérale gauche)    Rails (droite)
    ───────────────────────────             ─────────────
    Implement   (intégré)                   Rail 1
-   Batch       (intégré)      choisir ►       Loop: Verify-until-green
-   Freestyle   (intégré)                      ▶ Play
-   Verify-until-green (le vôtre)
+   Freestyle   (intégré)      choisir ►       Loop: Verify-until-green
+   Verify-until-green (le vôtre)                      ▶ Play
 ```
 
 - Les loops vivent dans la section **Loops** (barre latérale gauche, à côté de vos projets) — ils sont **globaux**, partagés entre tous les projets.
@@ -25,7 +34,7 @@ Donc : construisez un loop une fois, puis choisissez-le sur n'importe quel rail 
 
 Cliquez sur **Loops** dans la barre latérale gauche pour voir la bibliothèque : les trois loops intégrés plus les vôtres. Ouvrez-en un pour le visualiser, ou cliquez sur **New loop** pour partir d'un canevas vierge.
 
-Vous ne pouvez pas facilement éditer un intégré directement — à la place, faites un **Fork**. Cela vous donne une copie éditable d'un graphe fonctionnel pour démarrer, ce qui est la façon la plus simple d'apprendre.
+Les loops intégrés sont de vrais loops éditables. Ouvrez-en un avec **Edit** et modifiez-le comme n'importe quel loop : l'enregistrement le repasse en brouillon, et **Publish** applique votre version à **chaque rail, lancement depuis le chat de l'agent et lancement Companion qui utilise ce loop intégré**. Tant que votre modification est un brouillon, les rails continuent d'exécuter la dernière version publiée : rien ne casse en cours d'édition. **Restaurer l'original** (sur la carte ou dans le builder) remet un loop intégré à sa version par défaut ; les loops intégrés ne peuvent pas être supprimés. Vous préférez une copie séparée ? Utilisez **Duplicate** : cela crée un loop ordinaire et laisse le loop intégré intact.
 
 ## De quoi un loop est constitué
 
@@ -93,3 +102,13 @@ L'exécution se diffuse en direct dans la vue **Jobs** avec les mêmes métrique
 - [Rails et jobs](rails-and-jobs) — lancer des rails et la file d'attente des jobs.
 - [La vue détaillée du job](the-job-detail-view) — suivre une exécution en direct.
 - [Choisir un moteur par rail](picking-an-engine-per-rail) — c'est le rail (pas le loop) qui choisit le provider.
+
+Lorsque la version de Core sélectionnée expose les limites par invocation, les blocs prompt, rôle et decider proposent `timeoutMs` et `idleTimeoutMs`. La valeur `0` désactive le temporisateur correspondant pour cette étape ; supprimer le champ rétablit la valeur héritée. Les budgets du workflow complet et son annulation restent actifs. Une étape de vérification qui pose une question bloquante attend votre réponse avant d’accepter un résultat réussi.
+
+Lorsqu’un ancien graphe enregistré est remplacé pour la première fois par des blocs Core, le graphe d’origine est conservé. La bibliothèque propose alors **Exporter le graphe d’origine**. L’export porte un nom distinct pour pouvoir être importé comme brouillon séparé sans remplacer le workflow actuel. La conversion et les modifications ultérieures ne publient jamais automatiquement une boucle.
+
+Utilisez **Définir les variables** pour conserver un état pendant une pause : définissez des valeurs JSON typées ou ajustez un compteur entier existant. Cette pièce ne fait aucun appel à l’IA. Toutes les modifications sont enregistrées ensemble ; un compteur invalide laisse toutes les variables inchangées. Les variables d’un composant mappé restent locales à ce composant.
+
+Pour un Decider, **Continuer tant que cette condition est remplie** protège les tâches obligatoires restantes. Par exemple, `$vars.failedPass == true` transforme une proposition d’arrêt en poursuite jusqu’à ce que le workflow efface cet indicateur. La décision est tout de même exécutée et les répétitions sans changement restent soumises à la limite de progression. Les questions humaines attendent toujours une réponse.
+
+Pour migrer une boucle enregistrée de l’ancien moteur, choisissez **Convertir vers Core** dans la bibliothèque. Sélectionnez le dépôt d’origine si une étape shell n’a pas de périmètre explicite. La conversion valide le graphe et enregistre un brouillon avec une copie exportable de l’original. Vérifiez les connexions puis publiez explicitement. Les boucles en cours ne peuvent pas être converties et les modifications concurrentes sont préservées. Les étapes d’écriture exigent de vraies commandes de vérification ; Quick SDD utilise OpenSpec inclus dans Core. Mettez Core à jour si la conversion est indisponible.

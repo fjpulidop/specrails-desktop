@@ -170,7 +170,8 @@
       "paused": "Paused",
       "cancelled": "Cancelled",
       "interrupted": "Interrupted",
-      "unavailable": "Unavailable"
+      "unavailable": "Unavailable",
+      "expired": "Expired"
     },
     "question": "The architect asks:",
     "answerLabel": "Your answer",
@@ -181,7 +182,8 @@
     "preserveProgress": "Continue from the indicated phase, preserving your existing work and saved settings.",
     "reviewDelivery": "Implementation completed. Review the result in this job log before arranging delivery; this continuation has not published it.",
     "prepareDelivery": "Prepare delivery",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "selectRecovery": "Select the interrupted attempts to recover"
   },
   "roleHints": {
     "architect": "Reads the code and writes the proposal, design, tasks and spec. Read-only.",
@@ -493,5 +495,79 @@
       }
     }
   },
-  "unsavedChanges": "Unsaved changes"
+  "unsavedChanges": "Unsaved changes",
+  "customRoles": {
+    "title": "Custom roles",
+    "hint": "Declare reusable instructions and explicit permissions for workflow roles.",
+    "unsupported": "Update Core to edit custom roles.",
+    "remove": "Remove {{id}}",
+    "access": "Source access",
+    "read": "Read only",
+    "write": "Read and write",
+    "artifacts": "OpenSpec artifact access",
+    "none": "None",
+    "tasks": "Task checkboxes only",
+    "all": "All change artifacts",
+    "skill": "OpenSpec skill",
+    "noSkill": "No skill binding",
+    "prompt": "Role instructions",
+    "id": "Role ID",
+    "add": "Add role",
+    "invalidId": "Use a unique lowercase ID beginning with a letter, up to 64 letters, digits or hyphens. Built-in IDs are reserved.",
+    "escalationHint": "Only a permitted protocol repair may use the escalation model. No extra retry is added."
+  },
+  "steering": {
+    "title": "Run instructions",
+    "hint": "Core saves these instructions for the next eligible agent turn. Sending does not answer a question or grant approval.",
+    "label": "Additional instructions",
+    "send": "Send instructions",
+    "accepted": "Accepted by Core; awaiting consumption.",
+    "pending": "Awaiting an agent turn",
+    "consumed": "Consumed by an agent",
+    "counts": "Pending: {{pending}} · Consumed: {{consumed}}",
+    "failed": "Could not send instructions. Retry to confirm the same message.",
+    "unavailable": "Receipt details are unavailable.",
+    "unreported": "This Core version does not report consumption.",
+    "truncated": "Only the most recent receipts and pending messages are shown."
+  },
+  "studioRole": {
+    "title": "Core role defaults",
+    "hint": "These file defaults apply to new workflows. Explicit project settings take precedence; saved runs keep their frozen settings.",
+    "invalid": "Fix the YAML frontmatter in the editor before changing role fields.",
+    "escalationEffort": "Higher-tier reasoning effort"
+  },
+  "retention": {
+    "title": "History retention",
+    "description": "Delete expired execution histories and unused Core versions. Deleted histories cannot be resumed or forked. Active or recoverable runs and pending deliveries stay protected; job logs and cost records remain.",
+    "forever": "Keep history indefinitely",
+    "days": "Retention days",
+    "save": "Save retention",
+    "preview": "Preview cleanup",
+    "collect": "Delete expired history",
+    "previewSummary": "Eligible: {{runs}} histories and {{packages}} unused Core versions.",
+    "collectedSummary": "Expired: {{runs}} histories. Removed: {{packages}} unused Core versions.",
+    "more": "{{count}} additional executions.",
+    "failed": "Could not inspect or update retention.",
+    "expired": "This execution history expired under the project policy. Its job log and accounting remain available.",
+    "loading": "Loading retention policy…",
+    "states": {
+      "protected": "Kept",
+      "eligible": "Eligible",
+      "expired": "Expired",
+      "cleanup_pending": "Cleanup pending",
+      "busy": "In use",
+      "error": "Inspection failed"
+    },
+    "reasons": {
+      "disabled": "Indefinite retention",
+      "recoverable": "Recovery remains available",
+      "active": "Active execution",
+      "human_pending": "Waiting for a human",
+      "interrupted_writes": "Interrupted writes need review",
+      "delivery_pending": "Delivery is pending",
+      "fork_pending": "A dependent fork remains",
+      "unknown_terminal_time": "Completion time is unknown",
+      "within_retention": "Still within the retention period"
+    }
+  }
 }

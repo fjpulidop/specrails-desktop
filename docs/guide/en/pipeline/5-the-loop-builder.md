@@ -1,6 +1,18 @@
 # The Loop Builder
 
-A **rail runs a Loop**. The built-in loops (`Implement`, `Batch`, `Freestyle`) cover the everyday cases, but the **Loop Builder** lets you design your own — a visual, n8n-style editor for automation that repeats until a goal is met. This page explains what a loop is, how to build one, and how to run it on a rail.
+## Core workflows
+
+With a compatible Core engine, a new canvas shows the installed catalog of seventeen pieces. Click or drag a piece onto the canvas, select it, and complete its parameter form. Provider and role choices come from the active project. A piece's named output handles show the outcomes it can produce; connect each outcome to another piece or an End. A source outcome can have one connection.
+
+The catalog includes prompts, role turns, decisions, conditions, verification, shell, OpenSpec validation and archival, approvals, questions, gates, maps, joins, reusable components, implementation and End. Optional fields, nested objects, arrays and dictionary values are editable through the form. **Workflow options** also exposes token and transition limits and concurrency policies. An explicit transition limit counts all visits inside components and map branches.
+
+Create a reusable body under **Components**, declare its input variables and output labels, then select it from a Component or Map piece. The breadcrumb returns to the root canvas without losing edits. A component End has a business outcome and an optional `exit` matching one of the component's output labels.
+
+**Publish** sends the draft to Core for validation. Errors appear in the problems panel and highlight the affected nodes. Launch validates the selected project's effective configuration again. The installed Core owns the execution format and its hash. If it is unavailable, update Core to author or publish these workflows; existing Desktop loops keep their original editor and execution behavior.
+
+The remaining sections describe the existing Desktop loop nodes and rail behavior.
+
+A **rail runs a Loop**. The built-in loops (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) cover the everyday cases, but the **Loop Builder** lets you design your own — a visual, n8n-style editor for automation that repeats until a goal is met. This page explains what a loop is, how to build one, and how to run it on a rail.
 
 ## Loops and rails — the relationship
 
@@ -10,9 +22,8 @@ A **loop** is the *recipe* for the work; a **rail** is the *lane* that runs it a
    Loop Builder (left sidebar)             Rails (right)
    ───────────────────────────             ─────────────
    Implement   (built-in)                  Rail 1
-   Batch       (built-in)      pick on ►      Loop: Verify-until-green
-   Freestyle   (built-in)                     ▶ Play
-   Verify-until-green (yours)
+   Freestyle   (built-in)      pick on ►      Loop: Verify-until-green
+   Verify-until-green (yours)                     ▶ Play
 ```
 
 - Loops live in the **Loops** section (left sidebar, alongside your projects) — they are **global**, shared across every project.
@@ -25,7 +36,7 @@ So: build a loop once, then pick it on any rail in any project.
 
 Click **Loops** in the left sidebar to see the library: the three built-in loops plus any of your own. Open one to view it, or click **New loop** to start from a blank canvas.
 
-You can't easily edit a built-in directly — instead **Fork** it. That gives you an editable copy of a working graph to start from, which is the easiest way to learn.
+Built-in loops are real, editable loops. Open one with **Edit** and change it like any other loop: saving turns it into a Draft, and **Publish** applies your version to **every rail, agent-chat launch and Companion launch that uses that built-in**. While your edit is a Draft, rails keep running the last published version, so nothing breaks mid-edit. **Restore original** (on the card or in the builder) resets a built-in to its default; built-ins cannot be deleted. Prefer a separate copy? Use **Duplicate** — it creates an ordinary loop that leaves the built-in untouched.
 
 ## What a loop is made of
 
@@ -94,3 +105,21 @@ The run streams live in the **Jobs** view with the same metrics and cost trackin
 - [Rails & jobs](rails-and-jobs) — launching rails and the job queue.
 - [The Job Detail view](the-job-detail-view) — watching a run live.
 - [Picking an engine per rail](picking-an-engine-per-rail) — the rail (not the loop) picks the provider.
+
+When the selected Core exposes invocation limits, prompt, role and decider
+pieces offer `timeoutMs` and `idleTimeoutMs`. Set a limit to `0` to disable that
+step timer, or remove the field to inherit the default. Whole-workflow budgets
+and cancellation still apply. A verification step that asks a blocking question
+waits for your answer before accepting a success result.
+
+When a saved legacy graph is first replaced with Core pieces, its original graph is preserved. The library then offers **Export original graph**. The export has a distinct name so you can import it as a separate draft without replacing the current workflow. Conversion and later edits never publish a loop automatically.
+
+Use **Set variables** for state that must survive a pause: set typed JSON values or adjust an existing integer counter. This piece makes no AI call. All updates commit together; an invalid counter leaves every variable unchanged. Variables in a mapped component remain local to that component.
+
+For a Decider, **Continue while this condition holds** can protect unfinished required work. For example, `$vars.failedPass == true` converts a stop proposal into continue until the workflow clears that flag. The decision still runs, and repeated unchanged work remains subject to the no-progress limit. Human questions still pause for an answer.
+
+To migrate a saved legacy loop, choose **Convert to Core** in the loop library. Select the original repository when a shell step has no explicit scope. Conversion validates the graph and saves a draft with an exportable copy of the original. Review the connected steps and publish explicitly. Running loops cannot be converted; conflicting edits are preserved. Converted writers require real verification commands, and Quick SDD uses the OpenSpec version included in Core. Update Core if conversion is unavailable.
+
+To see which saved loops still need attention, open **Core migration check** in the loop library and choose **Check**. It lists loops the installed Core rejects, loops ready to convert and loops that need a repository or other fix. It never converts or publishes anything on its own.
+
+A future Core that runs only Core workflows refuses to launch an unconverted loop on a rail. Desktop shows a message that points you to **Convert to Core** instead of starting a run that would fail midway. Runs that already started keep the Core version that created them.

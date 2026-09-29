@@ -9,6 +9,8 @@
  */
 import { expandCommands } from './loop-command-catalog'
 import { interpolateSpec, findStartNode, successors, type LoopGraph, type LoopNode, type LoopSpec } from './loop-graph'
+import { compileLoopToDefinition } from './loop-definition'
+import { isDefinitionGraph } from './loop-graph'
 import { resolveConstants } from './loop-constants'
 
 export interface PreviewStep {
@@ -55,6 +57,13 @@ export function previewLoop(
 ): { steps: PreviewStep[] } {
   const spec = opts.spec ?? SAMPLE_SPEC
   const steps: PreviewStep[] = []
+  if (isDefinitionGraph(graph)) {
+    const definition = compileLoopToDefinition(graph, { ...opts, spec })
+    for (const [prefix, body] of [['', definition], ...Object.entries(definition.components ?? {})] as const) for (const [id, node] of Object.entries(body.nodes)) {
+      steps.push({ nodeId: prefix ? `${prefix}/${id}` : id, kind: node.kind, label: node.label, text: JSON.stringify(node.params, null, 2) })
+    }
+    return { steps }
+  }
   for (const node of visitOrder(graph)) {
     const label = typeof node.data?.label === 'string' && node.data.label.trim() ? node.data.label.trim() : undefined
     let text: string | null = null

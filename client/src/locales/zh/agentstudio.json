@@ -93,7 +93,7 @@
     "descriptionPlaceholder": "这个 Profile 用来做什么？",
     "orchestrator": {
       "heading": "编排器",
-      "description": "两个命令共用的顶层模型。batch-implement 会按 feature 委派给 implement，因此它启动的每条 rail 都会继承此 Profile 的 Agent 链。"
+      "description": "implement 命令的顶层模型。它运行的每条 rail 都会继承此 Profile 的 Agent 链。"
     },
     "agentChain": {
       "heading": "Agent 链（{{n}}）",
@@ -136,7 +136,8 @@
       "moveUp": "上移",
       "coreDefaultBadge": "核心 · 默认",
       "coreDefaultTitle": "核心兜底——流水线的最终兜底规则，固定指向 sr-developer"
-    }
+    },
+    "legacyWorkflowNotice": "编排器和路由设置适用于旧版工作流。Core 工作流使用在 Loop Builder 中选择的角色。"
   },
   "agentSelector": {
     "coreBadge": "核心",

@@ -212,5 +212,20 @@
     "turnsAndTokens": "{{turns}} Züge · {{tokens}} Tokens",
     "untitled": "Unbenannte Mission",
     "estimatedNote": "Enthält geschätzte Kosten"
+  },
+  "legacyUsage": {
+    "title": "Nutzung älterer Workflows",
+    "refresh": "Zähler aktualisieren",
+    "scope": "Alle erfassten Ereignisse dieses Projekts, unabhängig von Kostenfiltern.",
+    "unavailable": "Diese Zähler konnten nicht aktualisiert werden.",
+    "loading": "Erfasste Nutzung wird geladen…",
+    "total": "Erfasste Ereignisse: {{count}}",
+    "last": "Letztes Ereignis:",
+    "evidence": "Diese Zähler allein belegen nicht, dass ältere Kompatibilität entfernt werden kann.",
+    "kinds": {
+      "legacy_loop_traversal": "Klassische Loops",
+      "queue_manager_slash": "Befehle in der Warteschlange",
+      "merge_back": "Lokale Integrationen"
+    }
   }
 }

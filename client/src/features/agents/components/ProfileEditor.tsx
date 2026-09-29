@@ -362,14 +362,14 @@ export function ProfileEditor({
 
       {/* Orchestrator */}
       <section>
+        <p className="text-xs text-muted-foreground mb-3">{t('profileEditor.legacyWorkflowNotice')}</p>
         <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
           {t('profileEditor.orchestrator.heading')}
         </h2>
         <div className="flex items-center gap-3 p-3 rounded-md border border-border">
           <div className="flex-1 min-w-0">
             <div className="text-sm font-mono text-foreground truncate">
-              {formatCommandForProvider('/specrails:implement', provider)} ·{' '}
-              {formatCommandForProvider('/specrails:batch-implement', provider)}
+              {formatCommandForProvider('/specrails:implement', provider)}
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
               {t('profileEditor.orchestrator.description')}

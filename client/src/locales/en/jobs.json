@@ -278,7 +278,27 @@
     "stalledIdle_one": "No provider output for {{count}} minute — the app stopped this attempt",
     "stalledIdle_other": "No provider output for {{count}} minutes — the app stopped this attempt",
     "providerLimit": "Provider limit",
-    "providerLimitHint": "The provider answered with a usage or rate-limit notice, so the app stopped the run instead of cycling."
+    "providerLimitHint": "The provider answered with a usage or rate-limit notice, so the app stopped the run instead of cycling.",
+    "paused": "Paused",
+    "runtimeGraph": "Run graph",
+    "graphBack": "Back",
+    "graphOpenComponent": "Open component",
+    "graphNoAttempts": "No recorded attempts",
+    "graphState": {
+      "running": "Running",
+      "paused": "Paused",
+      "failed": "Failed",
+      "stalled": "Stalled",
+      "interrupted": "Interrupted",
+      "ok": "Succeeded",
+      "pending": "Pending",
+      "unknown": "Unknown"
+    },
+    "repeatFromHere": "Repeat from here",
+    "forkFailed": "Could not create the linked run",
+    "forkPending": "Retry the originally selected step to finish the pending fork.",
+    "forkCreated": "Linked run created. Open it and resume from the selected checkpoint.",
+    "openFork": "Open linked run"
   },
   "logViewer": {
     "loading": "Loading logs...",

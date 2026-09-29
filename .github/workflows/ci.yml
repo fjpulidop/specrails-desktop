@@ -99,9 +99,71 @@ jobs:
           server/modules/agent-runtime/runtime/agent-runtime-settings.test.ts
           server/modules/agent-runtime/runtime/agent-runtime-verification-suggestions.test.ts
           server/modules/agent-runtime/runtime/agent-runtime-controls.test.ts
+          server/modules/agent-runtime/runtime/agent-runtime-metrics.test.ts
+          server/core-compat.test.ts
           server/modules/agent-runtime/runtime/agent-runtime-accounting.test.ts
           server/agent-runtime-integration.test.ts
           server/loop-runtime-accounting.test.ts
+
+  # Pinned integration evidence: these tests must not silently skip because a
+  # runner lacks a Core checkout. Advance the pin only with paired acceptance.
+  paired-core-engine:
+    name: Paired Core engine (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # Windows runs every real-Core crash, fork and factory suite serially (~20 min).
+    timeout-minutes: 40
+    env:
+      SPECRAILS_CORE_SOURCE_DIR: ${{ github.workspace }}/.paired/core
+      SPECRAILS_EFFICIENCY_CORE_ROOT: ${{ github.workspace }}/.paired/core
+      SPECRAILS_CORE_BIN: ${{ github.workspace }}/.paired/core/bin/specrails-core.mjs
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          repository: fjpulidop/specrails-core
+          ref: 037f68204fcc8ad6c733f984012d071b1120a709  # v6.1.0
+          path: .paired/core
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            .paired/core/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix .paired/core
+      - run: npm run build --prefix .paired/core
+      - run: npm run check-core-compat
+      - name: Verify real CLI authoring, roles, factories, fork, settlement, retention and steering
+        run: >-
+          npx vitest run --maxWorkers=1 --reporter=default --reporter=junit
+          --outputFile.junit=paired-core-results.xml
+          server/modules/loops/runtime/loop-definition-schema.test.ts
+          server/modules/loops/runtime/loop-core-factory.test.ts
+          server/modules/loops/runtime/loop-definition-recovery.test.ts
+          server/modules/loops/runtime/loop-definition-crash-paired.test.ts
+          server/modules/loops/runtime/loop-factory-paired.test.ts
+          server/modules/loops/runtime/loop-compat-paired.test.ts
+          server/modules/agent-runtime/runtime/agent-studio-paired.test.ts
+          server/modules/delivery/runtime/definition-fork-paired.test.ts
+          server/modules/agent-runtime/runtime/agent-runtime-retention-paired.test.ts
+          server/modules/agent-runtime/runtime/agent-runtime-steering-paired.test.ts
+          server/modules/loops/runtime/loop-legacy-engine-paired.test.ts
+      - name: Retain paired acceptance results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: paired-core-${{ matrix.os }}
+          path: paired-core-results.xml
+          if-no-files-found: error
+          retention-days: 14
 
   # These fixtures use local/in-memory pages and temporary native profiles.
   # They do not start a sidecar, read a user database or call an AI provider.
@@ -166,9 +228,9 @@ jobs:
         working-directory: src-tauri
         run: ./target/debug/examples/native-browser-multiwindow-smoke
 
-  test:
+  quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
@@ -189,24 +251,125 @@ jobs:
       - run: npm run build
       - run: npm run check:package
       - run: npm run test:scripts
-      # Single vitest pass: the coverage run below executes the full server+cli
-      # suite with thresholds enforced, so a plain `npm test` here would run the
-      # same 100+ files twice (check-core-compat is kept as its own step above).
-      - name: Coverage (enforced — fails if below 70% global / 80% server thresholds)
-        run: npm run test:coverage
-      - name: Upload coverage report
+      - run: npm run audit:architecture
+      # test:scripts already checks the generated source map without rewriting it.
+      - name: Preserve the verified platform-independent frontend for release
+        run: node scripts/verified-client.mjs stage '${{ runner.temp }}/verified-client'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: verified-desktop-client
+          path: ${{ runner.temp }}/verified-client/
+          if-no-files-found: error
+          retention-days: 30
+
+  # Partial reports never authorize a release. Each merge verifies commit,
+  # locks, Vitest version and an exhaustive, non-overlapping test inventory.
+  coverage-shards:
+    name: Coverage (${{ matrix.suite }} ${{ matrix.part }}/${{ matrix.count }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { suite: server, part: 1, count: 3, prefix: '.' }
+          - { suite: server, part: 2, count: 3, prefix: '.' }
+          - { suite: server, part: 3, count: 3, prefix: '.' }
+          - { suite: client, part: 1, count: 4, prefix: client }
+          - { suite: client, part: 2, count: 4, prefix: client }
+          - { suite: client, part: 3, count: 4, prefix: client }
+          - { suite: client, part: 4, count: 4, prefix: client }
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: ${{ matrix.prefix }}/package-lock.json
+      - run: npm ci --prefix '${{ matrix.prefix }}'
+      - name: Run assigned tests and collect coverage
+        run: node scripts/coverage-shards.mjs run '${{ matrix.suite }}' '${{ matrix.part }}/${{ matrix.count }}' '${{ runner.temp }}/coverage-shard'
+      - name: Preserve shard evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: coverage-${{ matrix.suite }}-shard-${{ matrix.part }}
+          path: |
+            ${{ runner.temp }}/coverage-shard/*.manifest.json
+            ${{ runner.temp }}/coverage-shard/*.blob.json
+          if-no-files-found: error
+          retention-days: 7
+
+  server-coverage:
+    needs: coverage-shards
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: coverage-server-shard-*
+          path: ${{ runner.temp }}/coverage-shards
+          merge-multiple: true
+      - name: Verify complete evidence and enforce existing coverage thresholds
+        run: node scripts/coverage-shards.mjs merge server 3 '${{ runner.temp }}/coverage-shards'
+      - name: Upload complete coverage report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: coverage-report
           path: coverage/
           retention-days: 30
-      - name: Client coverage (enforced — fails if below 80% thresholds)
-        run: cd client && npm run test:coverage
-      - name: Upload client coverage report
+
+  client-coverage:
+    needs: coverage-shards
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+        with:
+          node-version: 22.22.3
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci --prefix client
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: coverage-client-shard-*
+          path: ${{ runner.temp }}/coverage-shards
+          merge-multiple: true
+      - name: Verify complete evidence and enforce existing coverage thresholds
+        run: node scripts/coverage-shards.mjs merge client 4 '${{ runner.temp }}/coverage-shards'
+      - name: Upload complete coverage report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: client-coverage-report
           path: client/coverage/
           retention-days: 30
+
+  # Preserve the required check name. A skipped/failed/cancelled prerequisite
+  # must never turn the aggregate green, including on merge queue runs.
+  test:
+    if: always()
+    needs: [quality, server-coverage, client-coverage, workflow-lint, secret-scan, bundled-core-windows, agent-runtime-portability, paired-core-engine, native-macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every CI gate to succeed
+        env:
+          CI_GATE_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node -e 'const gates = JSON.parse(process.env.CI_GATE_RESULTS); const failed = Object.entries(gates).filter(([, gate]) => gate.result !== "success"); if (failed.length) { console.error(failed.map(([name, gate]) => name + ": " + gate.result).join("\n")); process.exit(1) }'

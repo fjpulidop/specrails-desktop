@@ -6,6 +6,7 @@ import { getApiBase } from '../../../lib/api'
 import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
 import { ConfirmDialog } from './PromptDialog'
+import { AgentRoleFields } from './AgentRoleFields'
 
 interface AgentVersion {
   version: number
@@ -219,7 +220,7 @@ export function AgentStudio({
   }, [showVersions, loadVersions])
 
   // Local validation
-  const nameValid = /^custom-[a-z0-9][a-z0-9-]*$/.test(id)
+  const nameValid = /^custom-[a-z][a-z0-9-]{0,63}$/.test(id) && !['custom-architect', 'custom-developer', 'custom-reviewer', 'custom-fixer'].includes(id)
   const bodyValid = body.trim().length > 0
   const hasFrontmatter = /^---\s*\n[\s\S]*?\n---/.test(body)
   const canSave = bodyValid && hasFrontmatter && (isCreate ? nameValid : true) && dirty
@@ -229,7 +230,7 @@ export function AgentStudio({
     setError(null)
     try {
       let res: Response
-      const persistedBody = isCreate && provider === 'kimi'
+      const persistedBody = isCreate
         ? synchronizeFrontmatterName(body, id)
         : body
       if (isCreate) {
@@ -247,7 +248,8 @@ export function AgentStudio({
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? t('studio.errors.saveFailed', { status: res.status }))
+        const details = Array.isArray(err.details) ? err.details.filter((value: unknown) => typeof value === 'string').join('; ') : ''
+        throw new Error(details || err.error || t('studio.errors.saveFailed', { status: res.status }))
       }
       setDirty(false)
       if (persistedBody !== body) setBody(persistedBody)
@@ -366,11 +368,7 @@ export function AgentStudio({
               onChange={(e) => {
                 const nextId = e.target.value
                 setId(nextId)
-                if (provider === 'kimi') {
-                  setBody((current) =>
-                    synchronizeFrontmatterName(current, nextId || 'custom-<name>'),
-                  )
-                }
+                setBody((current) => synchronizeFrontmatterName(current, nextId || 'custom-<name>'))
                 setDirty(true)
               }}
               placeholder="custom-my-agent"
@@ -474,6 +472,8 @@ export function AgentStudio({
           <Trans t={t} i18nKey="studio.validation.missingFrontmatter" components={{ code: <code /> }} />
         </div>
       )}
+
+      {(isCreate || agentId?.startsWith('custom-')) && <AgentRoleFields body={body} onChange={value => { setBody(value); setDirty(true) }} />}
 
       {/* Body + versions */}
       <div className="flex flex-1 min-h-0">

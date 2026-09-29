@@ -22,7 +22,7 @@
   },
   "prePrompt": {
     "title": "Rail-Pre-Prompt",
-    "description": "Zusätzliche projektspezifische Anweisungen, die an implement- und batch-implement-Rail-Jobs angehängt werden – nach dem Ticket-Kontext und vor der Ausführung.",
+    "description": "Zusätzliche projektspezifische Anweisungen, die an implement-Rail-Jobs angehängt werden – nach dem Ticket-Kontext und vor der Ausführung.",
     "label": "Pre-Prompt",
     "placeholder": "Beispiel: Bevorzuge inkrementelle Änderungen, halte Migrationen abwärtskompatibel und füge Tests für jede Rail-Änderung hinzu.",
     "helper": "Für stabile Projektleitlinien, die jeden Rail-Implementierungslauf begleiten sollen.",

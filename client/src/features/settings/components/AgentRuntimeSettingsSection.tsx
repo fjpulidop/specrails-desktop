@@ -7,6 +7,7 @@ import { LoopRoleFields, loopRoleEffectiveModel, useLoopRoles, type LoopRole } f
 import { PHASE_GROUP_IDS, PHASE_GROUPS, PIPELINE_PHASES, PhaseCard, PhaseGroupHeading, PipelineStepper, type PhaseEngine, type PipelinePhase } from './PipelineStepper'
 import { isLocalEngineId, providerLabel } from '../../providers/lib/provider-capabilities'
 import { ProviderTabs } from './ProviderTabs'
+import { CustomRuntimeRoles } from './CustomRuntimeRoles'
 import { RuntimeGuardrails } from './RuntimeGuardrails'
 import { repositoryApiBase, projectRepositories } from '../../projects/lib/project-repositories'
 import { defaultModelForProvider, modelsForProvider } from '../../loops/lib/loop-run-models'
@@ -99,11 +100,11 @@ function RuntimeSettings({ projectId, cache, repositories, projectProviderIds }:
   const capabilitySelection = JSON.stringify([projectId, config?.providers, config && RUNTIME_ROLES.map(role => {
     const agent = config.agents[role]
     return [role, agent.provider, agent.model ?? null, agent.escalation?.model || null]
-  }), config?.fixer ? ['fixer', config.fixer.provider, config.fixer.model ?? null, config.fixer.escalation?.model || null] : null])
+  }), config?.roles && Object.entries(config.roles).map(([id, role]) => [id, role.provider, role.model ?? null, role.escalation?.model ?? null]), config?.fixer ? ['fixer', config.fixer.provider, config.fixer.model ?? null, config.fixer.escalation?.model || null] : null])
   async function checkCapabilities(signal?: AbortSignal) {
     if (!currentConfig.current) return
     const selected = structuredClone(currentConfig.current)
-    for (const agent of [...Object.values(selected.agents), ...(selected.fixer ? [selected.fixer] : [])]) if (agent.escalation && !agent.escalation.model.trim()) delete agent.escalation
+    for (const agent of [...Object.values(selected.agents), ...Object.values(selected.roles ?? {}), ...(selected.fixer ? [selected.fixer] : [])]) if (agent.escalation && !agent.escalation.model.trim()) delete agent.escalation
     const requestId = ++capabilityRequest.current
     setCheckingCapabilities(true); setCapabilityError(false)
     try {
@@ -172,6 +173,14 @@ function RuntimeSettings({ projectId, cache, repositories, projectProviderIds }:
   }, [endpoint, projectId, cache, reload, t])
 
   function update(next: AgentRuntimeConfig) {
+    // Explicit aliases remain identical to the immutable builtin policy when its engine changes.
+    if (next.roles) {
+      next = { ...next, roles: { ...next.roles } }
+      for (const id of RUNTIME_ROLES) if (next.roles![id]) {
+        const { access, artifacts, openspecSkill } = next.roles![id]
+        next.roles![id] = { ...next.agents[id], access, artifacts, openspecSkill }
+      }
+    }
     dirty.current = true
     setSaved(false); setUnsaved(true)
     setConfig(next)
@@ -300,17 +309,18 @@ function RuntimeSettings({ projectId, cache, repositories, projectProviderIds }:
   }
 
   /** Provider/model/turns/effort/escalation for a runtime role; the fixer edits `config.fixer` instead of an `agents` entry. */
-  function renderRuntimeRole(role: RuntimeAgentRole) {
+  function renderRuntimeRole(role: string) {
     if (!config) return null
-    const agent = role === 'fixer' ? config.fixer : config.agents[role]
+    const custom = !(RUNTIME_ROLES as readonly string[]).includes(role) && role !== 'fixer'
+    const agent = role === 'fixer' ? config.fixer : custom ? config.roles?.[role] : config.agents[role as RuntimeAgentRole & keyof typeof config.agents]
     if (!agent) return null
     const provider = config.providers.find((item) => item.id === agent.provider)
-    const setAgent = (next: RuntimeAgent) => update(role === 'fixer' ? { ...config, fixer: next } : { ...config, agents: { ...config.agents, [role]: next } })
+    const setAgent = (next: RuntimeAgent) => update(custom ? { ...config, roles: { ...config.roles, [role]: { ...config.roles![role], ...next } } } : role === 'fixer' ? { ...config, fixer: next } : { ...config, agents: { ...config.agents, [role]: next } })
     const catalog = provider?.kind === 'cli' ? modelsForProvider(provider.cli) : []
     const fallback = provider?.kind === 'cli' ? defaultModelForProvider(provider.cli) : ''
     const unknownModel = agent.model && !catalog.some((model) => model.value === agent.model) ? agent.model : null
     return <>
-      {role !== 'fixer' && <p className="mb-2 text-xs text-muted-foreground">{t(`roleHints.${role}`)}</p>}
+      {!custom && role !== 'fixer' && <p className="mb-2 text-xs text-muted-foreground">{t(`roleHints.${role}`)}</p>}
       <div className="grid gap-3 sm:grid-cols-3">
         <fieldset className="space-y-2 sm:col-span-3"><legend className="text-xs">{t('agents.provider')}</legend>
           <ProviderTabs
@@ -478,6 +488,8 @@ function RuntimeSettings({ projectId, cache, repositories, projectProviderIds }:
             <RuntimeGuardrails projectId={projectId} guardrails={config.guardrails} onChange={(guardrails) => { const next = { ...config, guardrails }; if (!guardrails) delete next.guardrails; update(next) }} />
           </div>
         </section>
+
+        <CustomRuntimeRoles roles={Object.fromEntries(Object.entries(config.roles ?? {}).map(([id, role]) => [id, { ...role, ...(config.rolePrompts?.[id] ? { prompt: config.rolePrompts[id] } : {}) }]))} provider={config.providers[0]?.id ?? ''} supported={snapshot?.openRolesAvailable === true} onChange={roles => { const prompts = { ...config.rolePrompts }; for (const id of Object.keys(config.roles ?? {})) if (!(RUNTIME_ROLES as readonly string[]).includes(id)) delete prompts[id]; update({ ...config, roles, rolePrompts: Object.keys(prompts).length ? prompts : undefined }) }} renderEngine={renderRuntimeRole} />
 
         {snapshot?.efficiencyAvailable === false && <p className="text-xs text-muted-foreground">{t('efficiency.capabilitiesFailed')}</p>}
         <fieldset disabled={snapshot?.efficiencyAvailable === false}><RuntimeEfficiencyControls config={config} onChange={update} /></fieldset>

@@ -12,15 +12,17 @@ import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 /** Running SUM of every completed turn's REAL usage (from job.turn_done /
  *  job.finalized — never an estimate). */
 export interface InteractiveJobTotals {
-  tokens_in: number
-  tokens_out: number
-  tokens_cache_read: number
-  tokens_cache_create: number
-  total_cost_usd: number
-  num_turns: number
+  tokens_in: number | null
+  tokens_out: number | null
+  tokens_cache_read: number | null
+  tokens_cache_create: number | null
+  total_cost_usd: number | null
+  num_turns: number | null
 }
 
+type PendingInterrupt = { id: string; nodePath: string; kind: 'question' | 'approval' | 'gate'; value?: unknown }
 export interface InteractiveJobComposerProps {
+  pendingInterrupts?: PendingInterrupt[]
   jobId: string
   /** Explicit project scope (agent-chat ref chips open jobs from the mission's
    *  pinned project, which may differ from the active one). Defaults to the
@@ -125,11 +127,21 @@ export function InteractiveJobComposer({
   projectId,
   settleMode,
   initialAcceptingTurns,
+  pendingInterrupts,
   kind = 'job',
   variant = 'page',
   onFinalized,
 }: InteractiveJobComposerProps) {
   const { t } = useTranslation('jobs')
+  const { t: tl } = useTranslation('loops')
+  const [pending, setPending] = useState<PendingInterrupt[]>(pendingInterrupts ?? [])
+  const [interruptId, setInterruptId] = useState(pendingInterrupts?.length === 1 ? pendingInterrupts[0].id : '')
+  useEffect(() => {
+    setPending(pendingInterrupts ?? [])
+    setInterruptId(pendingInterrupts?.length === 1 ? pendingInterrupts[0].id : '')
+  }, [pendingInterrupts])
+  const selectedInterrupt = pending.find(item => item.id === interruptId)
+  const needsApproval = selectedInterrupt !== undefined && selectedInterrupt.kind !== 'question'
   const mode: 'finalize' | 'auto' = settleMode ?? 'finalize'
   // Call-time so the default path keeps getApiBase()'s lazy resolution.
   const apiBase = () => (projectId ? `${API_ORIGIN}/api/projects/${projectId}` : getApiBase())
@@ -173,6 +185,10 @@ export function InteractiveJobComposer({
         onFinalizedRef.current?.()
       } else if (msg.type === 'job.interactive') {
         dispatch({ type: 'accepting', accepting: !!msg.acceptingTurns })
+        if (Array.isArray(msg.pendingInterrupts)) {
+          const items = msg.pendingInterrupts as PendingInterrupt[]
+          setPending(items); setInterruptId(items.length === 1 ? items[0].id : '')
+        }
       }
     }
     wsCtx.registerHandler(handlerId, handler)
@@ -183,20 +199,21 @@ export function InteractiveJobComposer({
   // accepting=false is either finalizing or about to unmount — never blocked.
   const waiting = kind === 'loop-step' && !state.accepting
 
-  async function handleSend(): Promise<void> {
+  async function handleSend(approve = false): Promise<void> {
     const body = text.trim()
-    if (!body || sending || waiting) return
+    if ((!body && !approve) || sending || waiting || (pending.length > 0 && !selectedInterrupt) || (needsApproval && !approve)) return
     setSending(true)
     try {
       const res = await fetch(`${apiBase()}/jobs/${jobId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: body }),
+        body: JSON.stringify({ text: body, ...(selectedInterrupt ? { interruptId: selectedInterrupt.id } : {}), ...(approve ? { approve: true } : {}) }),
       })
       if (res.ok) {
         setText('')
+        if (selectedInterrupt) { setPending([]); setInterruptId(''); dispatch({ type: 'accepting', accepting: false }) }
         requestAnimationFrame(() => textareaRef.current?.focus())
-      } else if (res.status === 409 && kind === 'loop-step') {
+      } else if (res.status === 409 && kind === 'loop-step' && !pending.length) {
         // Between steps — keep the drafted text and show the waiting state.
         dispatch({ type: 'blocked' })
       } else {
@@ -238,7 +255,7 @@ export function InteractiveJobComposer({
     }
   }
 
-  const sendDisabled = sending || waiting || !text.trim()
+  const sendDisabled = sending || waiting || !text.trim() || needsApproval || (pending.length > 0 && !selectedInterrupt)
   const workingLabel = t('detail.interactive.working')
 
   return (
@@ -284,12 +301,12 @@ export function InteractiveJobComposer({
           {state.totals && (
             <span className="tabular-nums">
               {t('detail.interactive.liveTotals', {
-                turns: state.totals.num_turns,
-                cost: state.totals.total_cost_usd.toFixed(4),
+                turns: state.totals.num_turns ?? t('completion.unavailable'),
+                cost: state.totals.total_cost_usd?.toFixed(4) ?? t('completion.unavailable'),
               })}
             </span>
           )}
-          {mode === 'finalize' ? (
+          {pending.length ? null : mode === 'finalize' ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -339,7 +356,19 @@ export function InteractiveJobComposer({
       {/* Quiet mode hint: auto jobs finish themselves; between loop steps the
           waiting explainer replaces it. Finalize mode needs no hint (the button
           IS the contract, unchanged). */}
-      {mode === 'auto' && (
+      {pending.length > 0 && (
+        <div className="space-y-2 rounded-md border border-accent-warning/30 bg-accent-warning/5 p-3">
+          <label className="block text-sm">{tl('core.selectInterrupt')}
+            <select aria-label={tl('core.selectInterrupt')} className="mt-1 w-full rounded border border-border bg-background p-2" value={interruptId} onChange={event => setInterruptId(event.target.value)}>
+              <option value="">{tl('core.selectInterrupt')}</option>
+              {pending.map(item => <option key={item.id} value={item.id}>{item.nodePath} · {tl(`core.${item.kind === 'question' ? 'answerQuestion' : 'approval'}`)}</option>)}
+            </select>
+          </label>
+          {selectedInterrupt && typeof selectedInterrupt.value === 'object' && selectedInterrupt.value !== null && typeof (selectedInterrupt.value as {prompt?: unknown}).prompt === 'string' && <p className="whitespace-pre-wrap text-sm">{String((selectedInterrupt.value as {prompt: string}).prompt)}</p>}
+          {needsApproval && <Button onClick={() => void handleSend(true)} disabled={sending || waiting}>{tl('core.approveContinue')}</Button>}
+        </div>
+      )}
+      {mode === 'auto' && !pending.length && (
         <p className="text-[11px] leading-snug text-muted-foreground/60">
           {waiting ? t('detail.interactive.waitingForStep') : t('detail.interactive.autoHint')}
         </p>
