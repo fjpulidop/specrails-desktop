@@ -52,4 +52,4 @@ Loop history stores a terminal result independently of optional provider telemet
 It separates process execution from Core acceptance and delivery, and distinguishes
 steps, decider evaluations and agent turns. Phase durations and attempts come from
 Core's journal; no per-phase cost is inferred from the total. Older runtimes keep
-acceptance evidence unavailable. See the implementation result in the batch guide.
+acceptance evidence unavailable.

@@ -369,8 +369,7 @@ export function ProfileEditor({
         <div className="flex items-center gap-3 p-3 rounded-md border border-border">
           <div className="flex-1 min-w-0">
             <div className="text-sm font-mono text-foreground truncate">
-              {formatCommandForProvider('/specrails:implement', provider)} ·{' '}
-              {formatCommandForProvider('/specrails:batch-implement', provider)}
+              {formatCommandForProvider('/specrails:implement', provider)}
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">
               {t('profileEditor.orchestrator.description')}

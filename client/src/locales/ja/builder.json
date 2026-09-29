@@ -83,8 +83,6 @@
     "description": "マイルストーン1のバックログが M1 ラベル付きでボードにあります。",
     "launchM1": "マイルストーン1を起動",
     "openProject": "プロジェクトを開く",
-    "launchToast": "マイルストーン1を起動 — {{count}} 件のスペックをレールに分配（1レール最大3件）",
-    "launchPartialToast": "マイルストーン1を部分的に起動 — {{count}} 件を起動、{{skipped}} 件が保留",
     "launchFailed": "マイルストーン1を起動できませんでした"
   },
   "sidebar": {
@@ -134,13 +132,6 @@
     "description": "スペックの説明",
     "acceptanceCriteria": "受け入れ基準",
     "criteriaEmpty": "受け入れ基準はまだありません。"
-  },
-  "sequential": {
-    "modeLabel": "起動モード",
-    "mode": {
-      "sequential": "順次",
-      "parallel": "並列"
-    }
   },
   "generation": {
     "writing": "マイルストーン 1 のスペックを作成中…",
@@ -311,7 +302,8 @@
         "head_discarded": "次のレールの基になる納品が破棄されました",
         "run_lost": "再起動後に実行中のレールが見つかりません",
         "unknown": "一時停止",
-        "provider_limit": "プロバイダーの利用上限に達しました"
+        "provider_limit": "プロバイダーの利用上限に達しました",
+        "rail_limit_reached": "すべてのレールに判断待ちの PR があります — 保留中の PR をマージまたは破棄してレールを空けてから再開してください"
       },
       "checkpoint": "レール {{k}}/{{n}} を納品 — レール {{next}} を起動しますか？",
       "launchNext": "次のレールを起動",
@@ -325,9 +317,8 @@
       "autoFailed": "チェーンを更新できませんでした"
     },
     "toast": {
-      "launched": "{{milestone}} を起動 — レール 1/{{n}} に {{count}} 件のスペック。以降のレールは自動で続きます",
-      "launchedAll": "{{milestone}} を起動 — {{n}} 本のレールに {{count}} 件のスペック",
-      "launchedPartial": "{{milestone}} を一部起動 — {{count}} 件を起動、{{skipped}} 件が保留",
+      "launched": "{{milestone}} を起動 — スペック 1/{{n}} がレール上にあります。以降のスペックはそれぞれ 1 レールで自動的に続きます",
+      "launchedAll": "{{milestone}} を起動 — 1 レールに 1 スペック（合計 {{n}}）",
       "chainActive": "{{milestone}} はすでに起動中です — ブループリントパネルを確認",
       "chunkLaunched": "{{milestone}} — レール {{k}}/{{n}} を起動",
       "paused": "{{milestone}} を一時停止 — {{reason}}",
@@ -335,13 +326,13 @@
       "delivered": "{{milestone}} を納品 — {{count}} 件のスペックがレビュー待ちです",
       "review": "レビュー",
       "completed": "{{milestone}} 完了 — すべてのスペックをマージ済み",
-      "launchedCheckpoint": "{{milestone}} を起動 — レール 1/{{n}} に {{count}} 件のスペック。次のレールごとに確認します",
+      "launchedCheckpoint": "{{milestone}} を起動 — スペック 1/{{n}} がレール上にあります。次のスペックごとに確認します",
       "checkpoint": "{{milestone}} — レール {{k}}/{{n}} を納品。次のレールを起動しますか？",
       "launchNext": "次のレールを起動",
-      "autoContinue": "自動続行"
+      "autoContinue": "自動続行",
+      "railLimitReached": "{{milestone}} を起動できませんでした — すべてのレールに判断待ちの PR があります。保留中の PR をマージまたは破棄してレールを空けてください。"
     },
-    "sequentialHint": "各レールは前のレールのブランチを基に構築します",
-    "parallelHint": "統合ブランチから独立したレール（積み重ねなし）"
+    "sequentialHint": "1 レールに 1 スペック、依存関係の順に — 各レールは前のレールのブランチを基に構築します"
   },
   "decisionCard": {
     "settledLabel": "決定済み",

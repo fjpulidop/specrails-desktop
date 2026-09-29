@@ -44,7 +44,7 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
   expect(spawnSync('git', ['-C', repository, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'baseline']).status).toBe(0)
   const runtime = path.join(backlog, '.specrails/pipeline', id); mkdirSync(runtime, { recursive: true })
   const contextPath = path.join(runtime, 'desktop-context.json'), configPath = path.join(root, id + '-config.json')
-  const specs = (mode === 'batch' ? [1, 2] : [1]).map(ticket => ({ id: ticket, title: 'Return two', description: 'code.cjs returns two', repositoryIds: ['repo'], acceptanceCriteria: ['Function returns 2'] }))
+  const specs = [1].map(ticket => ({ id: ticket, title: 'Return two', description: 'code.cjs returns two', repositoryIds: ['repo'], acceptanceCriteria: ['Function returns 2'] }))
   writeFileSync(contextPath, JSON.stringify({ schemaVersion: 1, runId: id, backlogRoot: backlog, artifactRoot: repository, artifactRepositoryId: 'repo', repositories: [{ id: 'repo', name: 'Repo', path: repository }], ownership: { git: 'host', backlog: 'host', worktrees: 'host' }, specs }))
   const config = JSON.parse(readFileSync(path.join(core!, 'src/agent-runtime/engine/__fixtures__/acceptance/runtime-config.json'), 'utf8'))
   config.verification = [{ repositoryId: 'repo', command: process.execPath, args: ['-e', 'if(require("./code.cjs")!==2)process.exit(9);console.log("actual value verified")'] }]
@@ -79,16 +79,12 @@ async function execute(mode: string, legacy = false, stall = false, blockAt?: st
   expect(readFileSync(path.join(repository, 'code.cjs'), 'utf8')).toBe('module.exports = 2\n')
   return { result, calls, events }
 }
-it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['implement', 'batch', 'quick-sdd', 'freestyle'])('executes the %s factory through the real bridge and Core with deterministic local executors', async mode => {
+it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['implement', 'quick-sdd', 'freestyle'])('executes the %s factory through the real bridge and Core with deterministic local executors', async mode => {
   const actual = await execute(mode)
   if (mode === 'implement') {
     const legacy = await execute(mode, true)
     expect(actual.calls.map(call => call.role)).toEqual(legacy.calls.map(call => call.role))
     expect(actual.calls.map(call => call.role)).toEqual(['architect', 'developer', 'reviewer'])
-  } else if (mode === 'batch') {
-    expect(actual.calls.filter(call => call.role === 'architect')).toHaveLength(2)
-    expect(actual.calls.filter(call => call.role === 'developer')).toHaveLength(2)
-    expect(actual.calls.filter(call => call.role === 'reviewer')).toHaveLength(2)
   } else if (mode === 'quick-sdd') {
     expect(actual.calls.map(call => call.nativeCommand.id)).toEqual(['opsx:ff', 'opsx:apply'])
   } else {
@@ -126,21 +122,11 @@ it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js')))('c
   expect(actual.calls.filter(call => call.role === 'prompt').every(call => call.model !== 'selected-decider')).toBe(true)
 }, 180_000)
 
-it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['implement', 'batch'])('executes the converted legacy %s factory with actual implementation evidence', async mode => {
+it.skipIf(!core || !existsSync(path.join(core, 'dist/agent-runtime/cli.js'))).each(['implement'])('executes the converted legacy %s factory with actual implementation evidence', async mode => {
   const actual = await execute(mode, false, false, undefined, undefined, true)
-  const count = mode === 'batch' ? 2 : 1
-  for (const role of ['architect', 'developer', 'reviewer']) expect(actual.calls.filter(call => call.role === role)).toHaveLength(count)
+  for (const role of ['architect', 'developer', 'reviewer']) expect(actual.calls.filter(call => call.role === role)).toHaveLength(1)
   expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
-  // Compare with the original engine on the same factory. Implement must match
-  // exactly. Batch diverges by owner decision (28 September 2026): the original
-  // runs one combined pipeline for every ticket, while the converted graph
-  // isolates one implementation per ticket before global verification, at about
-  // twice the invocations for two tickets. Pin both shapes so a change in either
-  // invocation count is noticed.
+  // Compare with the original engine on the same factory: it must match exactly.
   const original = await execute(mode, true)
-  if (mode === 'implement') expect(actual.calls.map(call => call.role)).toEqual(original.calls.map(call => call.role))
-  else {
-    expect(original.calls.map(call => call.role)).toEqual(['architect', 'developer', 'reviewer'])
-    expect(actual.calls.map(call => call.role).sort()).toEqual(original.calls.flatMap(call => Array(count).fill(call.role)).sort())
-  }
+  expect(actual.calls.map(call => call.role)).toEqual(original.calls.map(call => call.role))
 }, 180_000)

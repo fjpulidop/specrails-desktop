@@ -93,7 +93,7 @@
     "descriptionPlaceholder": "What is this profile for?",
     "orchestrator": {
       "heading": "Orchestrator",
-      "description": "Top-level model for both commands. batch-implement delegates to implement per feature, so every rail it spawns inherits this profile's agent chain."
+      "description": "Top-level model for the implement command. Every rail it runs inherits this profile's agent chain."
     },
     "agentChain": {
       "heading": "Agent chain ({{n}})",

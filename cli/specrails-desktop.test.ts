@@ -96,7 +96,7 @@ describe('parseArgs', () => {
   })
   it('passes extra args through', () => { expect(parseArgs(['add', '/some/path'])).toEqual({ mode: 'desktop', subArgs: ['add', '/some/path'], port: 4200 }) })
   it('injects /specrails: prefix for known verbs', () => { expect(parseArgs(['implement', '#42'])).toEqual({ mode: 'command', resolved: '/specrails:implement #42', port: 4200 }) })
-  it('injects /specrails: prefix for batch-implement', () => { expect(parseArgs(['batch-implement', '#40', '#41'])).toEqual({ mode: 'command', resolved: '/specrails:batch-implement #40 #41', port: 4200 }) })
+  it('maps the removed batch-implement verb to implement', () => { expect(parseArgs(['batch-implement', '#40', '#41'])).toEqual({ mode: 'command', resolved: '/specrails:implement #40 #41', port: 4200 }) })
   it('passes through slash-prefixed commands as raw', () => { expect(parseArgs(['/specrails:implement', '#42'])).toEqual({ mode: 'raw', resolved: '/specrails:implement #42', port: 4200 }) })
   it('treats unknown tokens as raw prompt', () => { expect(parseArgs(['do something interesting'])).toEqual({ mode: 'raw', resolved: 'do something interesting', port: 4200 }) })
   it('strips --port from args before routing', () => { expect(parseArgs(['--port', '9999', 'implement', '#1'])).toEqual({ mode: 'command', resolved: '/specrails:implement #1', port: 9999 }) })
@@ -118,7 +118,7 @@ describe('getVersion', () => {
 describe('KNOWN_VERBS', () => {
   it('contains expected verbs', () => {
     expect(KNOWN_VERBS.has('implement')).toBe(true)
-    expect(KNOWN_VERBS.has('batch-implement')).toBe(true)
+    expect(KNOWN_VERBS.has('batch-implement')).toBe(false)
     expect(KNOWN_VERBS.has('retry')).toBe(true)
     expect(KNOWN_VERBS.has('health-check')).toBe(false)
     expect(KNOWN_VERBS.has('nonexistent')).toBe(false)

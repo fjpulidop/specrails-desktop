@@ -106,6 +106,10 @@ export interface ProgressTicket {
   id: number
   status: string
   labels: string[]
+  /** Spec ids that must be delivered first (launch ordering only). */
+  prerequisites?: number[]
+  /** Planner-assigned position (launch ordering tie-break). */
+  executionOrder?: number | null
 }
 
 export interface ProgressActiveRun {

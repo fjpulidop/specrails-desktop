@@ -21,14 +21,14 @@ Die ausgewählte Engine führt jede Phase der Pipeline dieser Rail aus. Ist die 
 
 ## Wofür jede Engine gut ist
 
-Alle vier führen **Implement** und **Batch** aus:
+Alle vier führen **Implement** aus:
 
 | Engine | Greif dazu, wenn… | Hinweise |
 |--------|--------------------|-------|
 | **Claude** | Du native Kosten, persistente Interaktion oder strikte Tool-Policies brauchst. | Profile, Freestyle und strukturierte Transforms. |
 | **Codex** | Du die OpenAI Codex CLI bevorzugst oder Implementierungen über verschiedene Provider hinweg vergleichen willst. | `codex` ≥ 0.128.0. Keine native Kostenmeldung — die App ergänzt die Kosten aus ihrer Preistabelle. Profile gelten nicht. |
 | **Gemini** | Du Googles Gemini CLI, native Telemetrie oder einen günstigeren Lauf für Routine-Specs willst. | `gemini` ≥ 0.11.0 (setze `GEMINI_API_KEY`). Native OTLP-Telemetrie. Profile gelten nicht. |
-| **Kimi** | Du agentisches Kimi für Implement, Batch, Freestyle oder Loops ohne Decider willst. | Externes `kimi` ≥ 0.27.0; Profile/Rollen, Effort nur K3; Tokens/Kosten nicht verfügbar. |
+| **Kimi** | Du agentisches Kimi für Implement, Freestyle oder Loops ohne Decider willst. | Externes `kimi` ≥ 0.27.0; Profile/Rollen, Effort nur K3; Tokens/Kosten nicht verfügbar. |
 
 ### Fähigkeitsunterschiede
 

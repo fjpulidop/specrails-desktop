@@ -2679,10 +2679,12 @@ describe('QueueManager', () => {
       vi.mocked(mockUuidV4).mockReturnValue('codex-sr-alias' as any)
 
       const qmCodex = new QueueManager(broadcast, undefined, [], undefined, { provider: 'codex' })
-      qmCodex.enqueue('/sr:batch-implement #2 #3')
+      qmCodex.enqueue('/sr:implement #2 #3')
 
       const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
-      expect(spawnArgs.some((a) => a.includes('$batch-implement'))).toBe(true)
+      expect(spawnArgs.some((a) => a.includes('$implement #2 #3'))).toBe(true)
+      // Multi-ticket implement stays implement: Batch was removed.
+      expect(spawnArgs.some((a) => a.includes('batch-implement'))).toBe(false)
     })
 
     it('keeps /specrails:<name> verbatim for claude rails (no translation)', () => {

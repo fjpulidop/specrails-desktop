@@ -1,6 +1,6 @@
 /**
  * Built-in "factory" loops — the app-owned loops that replace the old rail modes
- * (`implement` / `batch-implement` / Freestyle's `freestyle` mode). They appear in the Loops
+ * (`implement` / Freestyle's `freestyle` mode). They appear in the Loops
  * gallery as read-only (locked) entries the user can run on a rail or "Fork to
  * edit" into an editable custom loop.
  *
@@ -24,7 +24,7 @@ export interface FactoryLoop {
   /** Rail mode this loop maps to: a canonical engine mode,
    *  or `'loop'` for graph-native factory loops that ONLY run through the
    *  LoopRunManager (no QueueManager fallback — launch 403s when Loops are disabled). */
-  mode: 'implement' | 'batch-implement' | 'freestyle' | 'loop'
+  mode: 'implement' | 'freestyle' | 'loop'
   /** Provider capability required to launch this factory loop. */
   requiredCapability?: 'freestyle'
   /**
@@ -50,7 +50,7 @@ const FACTORY_LOOP_TIMEOUT_MIN = 0
 const FACTORY_AI_STEP_TIMEOUT_MIN = 0
 
 /** Core owns the complete implementation/review cycle. Desktop runs it once. */
-function coreImplementationGraph(command: 'implement' | 'batch'): LoopGraph {
+function coreImplementationGraph(command: 'implement'): LoopGraph {
   return {
     nodes: [
       { id: 'start', type: 'start', position: { x: 0, y: 0 } },
@@ -90,13 +90,6 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
     graph: coreImplementationGraph('implement'),
   },
   {
-    id: 'factory:batch',
-    name: 'Batch Implement',
-    description: 'Run the Core batch implementation pipeline for all the rail\'s tickets. Core owns implementation, review, verification and corrections across the batch.',
-    mode: 'batch-implement',
-    graph: coreImplementationGraph('batch'),
-  },
-  {
     id: 'factory:freestyle',
     // User-facing name for the canonical freestyle mode: it hands the spec straight to the model
     // with full freedom — no pipeline, it works like a regular coding agent.
@@ -111,6 +104,8 @@ export const FACTORY_LOOPS: FactoryLoop[] = [
 ]
 
 const FACTORY_ALIASES = new Map<string, FactoryLoop>([
+  // Batch was removed: `implement` already runs every rail ticket in one aggregate run.
+  ['factory:batch', FACTORY_LOOPS.find(f => f.id === 'factory:implement')!],
   ['factory:openspec', SDD_QUICK_OPENSPEC_FACTORY],
   [FACTORY_REVISION_LOOP_ID, SDD_QUICK_OPENSPEC_FACTORY],
 ])
@@ -122,7 +117,7 @@ const FACTORY_BY_ID = new Map<string, FactoryLoop>([
 
 export function factoryLoopsForCapabilities(capabilities?: Record<string, number>): FactoryLoop[] {
   if (capabilities?.engineV2 !== 1 || capabilities.workflowDefinitions !== 1) return FACTORY_LOOPS
-  return FACTORY_LOOPS.map(factory => ({ ...factory, graph: coreFactoryGraph(factory.id === 'factory:implement' ? 'implement' : factory.id === 'factory:batch' ? 'batch' : factory.id === 'factory:freestyle' ? 'freestyle' : 'quick-sdd') }))
+  return FACTORY_LOOPS.map(factory => ({ ...factory, graph: coreFactoryGraph(factory.id === 'factory:implement' ? 'implement' : factory.id === 'factory:freestyle' ? 'freestyle' : 'quick-sdd') }))
 }
 
 export function getFactoryLoop(id: string, capabilities?: Record<string, number>): FactoryLoop | undefined {
@@ -145,7 +140,8 @@ export function factoryLoopMode(id: string): FactoryLoop['mode'] | undefined {
  *  `mode` and no selected loop resolves to a factory loop on read). */
 export function factoryLoopForMode(mode: string, capabilities?: Record<string, number>): FactoryLoop | undefined {
   if (mode === 'implement') return getFactoryLoop('factory:implement', capabilities)
-  if (mode === 'batch-implement') return getFactoryLoop('factory:batch', capabilities)
+  // Removed Batch mode: stored `batch-implement` / `batch` rails resolve to Implement.
+  if (mode === 'batch-implement' || mode === 'batch') return getFactoryLoop('factory:implement', capabilities)
   if (mode === 'freestyle') return getFactoryLoop('factory:freestyle', capabilities)
   return undefined
 }

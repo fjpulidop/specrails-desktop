@@ -10,7 +10,7 @@ Créez un corps réutilisable dans **Composants**, déclarez ses entrées et sor
 
 La publication demande à Core de valider le brouillon et affiche les erreurs sur les étapes concernées. Le lancement valide à nouveau la configuration du projet. Si le moteur est indisponible, mettez Core à jour. Les anciennes boucles conservent leur éditeur et leur exécution ; les sections suivantes les décrivent.
 
-Un **rail exécute un Loop**. Les loops intégrés (`Implement`, `Batch`, `Freestyle`) couvrent les cas du quotidien, mais le **Loop Builder** vous laisse concevoir les vôtres — un éditeur visuel, de style n8n, pour de l'automatisation qui se répète jusqu'à ce qu'un objectif soit atteint. Cette page explique ce qu'est un loop, comment en construire un, et comment l'exécuter sur un rail.
+Un **rail exécute un Loop**. Les loops intégrés (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) couvrent les cas du quotidien, mais le **Loop Builder** vous laisse concevoir les vôtres — un éditeur visuel, de style n8n, pour de l'automatisation qui se répète jusqu'à ce qu'un objectif soit atteint. Cette page explique ce qu'est un loop, comment en construire un, et comment l'exécuter sur un rail.
 
 ## Loops et rails — la relation
 
@@ -20,9 +20,8 @@ Un **loop** est la *recette* du travail ; un **rail** est la *voie* qui l'exécu
    Loop Builder (barre latérale gauche)    Rails (droite)
    ───────────────────────────             ─────────────
    Implement   (intégré)                   Rail 1
-   Batch       (intégré)      choisir ►       Loop: Verify-until-green
-   Freestyle   (intégré)                      ▶ Play
-   Verify-until-green (le vôtre)
+   Freestyle   (intégré)      choisir ►       Loop: Verify-until-green
+   Verify-until-green (le vôtre)                      ▶ Play
 ```
 
 - Les loops vivent dans la section **Loops** (barre latérale gauche, à côté de vos projets) — ils sont **globaux**, partagés entre tous les projets.

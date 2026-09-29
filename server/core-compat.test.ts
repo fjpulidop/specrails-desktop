@@ -154,6 +154,22 @@ describe('checkCoreCompat', () => {
     expect(result.supportedProviders).toEqual(['claude', 'codex', 'gemini', 'kimi'])
   })
 
+  it('does not require the removed batch-implement workflow or command', async () => {
+    const providers = Object.fromEntries(['claude', 'codex'].map(provider => [provider, {
+      initCommand: 'init',
+      cli: { initArgs: ['init', '--yes', '--provider', provider] },
+      workflows: { implement: 'implement', retry: 'retry' },
+    }]))
+    setupContractInTmpDir({ ...COMPATIBLE_CONTRACT, commands: ['implement', 'retry'], schemaVersion: '5.1', coreVersion: '6.1.0', providers }, tmpDir)
+    expect(await checkCoreCompat()).toMatchObject({ compatible: true, missingCommands: [], extraCommands: [], supportedProviders: ['claude', 'codex'] })
+  })
+
+  it('keeps older Cores that still ship batch-implement compatible', async () => {
+    setupContractInTmpDir(COMPATIBLE_CONTRACT, tmpDir)
+    expect(COMPATIBLE_CONTRACT.commands).toContain('batch-implement')
+    expect(await checkCoreCompat()).toMatchObject({ compatible: true, missingCommands: [], extraCommands: [] })
+  })
+
   it('keeps schema 5.1 engine metadata informational and preserves the Desktop command surface', async () => {
     expect(EXPECTED_CORE_CONTRACT_SCHEMA_VERSION).toBe('5.1')
     setupContractInTmpDir({ ...COMPATIBLE_CONTRACT, schemaVersion: '5.1', coreVersion: '6.0.1',

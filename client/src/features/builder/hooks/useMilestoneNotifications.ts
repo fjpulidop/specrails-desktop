@@ -30,7 +30,7 @@ interface UseMilestoneNotificationsOpts {
 
 export function localizeChainPauseReason(reason: string | null): string {
   const { key, detail } = chainPauseReason(reason)
-  const known = ['chunk_failed', 'chunk_stalled', 'chunk_stopped', 'provider_limit', 'launch_rejected', 'head_missing', 'head_discarded', 'run_lost']
+  const known = ['chunk_failed', 'chunk_stalled', 'chunk_stopped', 'provider_limit', 'launch_rejected', 'head_missing', 'head_discarded', 'run_lost', 'rail_limit_reached']
   if (!known.includes(key)) return reason ?? ''
   return i18n.t(`builder:milestoneProgress.chain.reasons.${key}`, { detail })
 }

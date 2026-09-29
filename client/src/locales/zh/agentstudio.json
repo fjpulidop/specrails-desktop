@@ -93,7 +93,7 @@
     "descriptionPlaceholder": "这个 Profile 用来做什么？",
     "orchestrator": {
       "heading": "编排器",
-      "description": "两个命令共用的顶层模型。batch-implement 会按 feature 委派给 implement，因此它启动的每条 rail 都会继承此 Profile 的 Agent 链。"
+      "description": "implement 命令的顶层模型。它运行的每条 rail 都会继承此 Profile 的 Agent 链。"
     },
     "agentChain": {
       "heading": "Agent 链（{{n}}）",

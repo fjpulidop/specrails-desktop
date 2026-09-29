@@ -8,7 +8,6 @@ import type { RailMode } from '../components/RailControls'
 /** Factory loop id for each legacy mode (the rail's built-in loops). */
 export const FACTORY_LOOP_ID: Record<Exclude<RailMode, 'loop'>, string> = {
   implement: 'factory:implement',
-  'batch-implement': 'factory:batch',
   freestyle: 'factory:freestyle',
 }
 
@@ -20,7 +19,6 @@ export const FACTORY_LOOP_ID: Record<Exclude<RailMode, 'loop'>, string> = {
  */
 export const FACTORY_RAIL_LOOPS: { id: string; labelKey: string; requiresFreestyle?: boolean; requiresLoops?: boolean }[] = [
   { id: 'factory:implement', labelKey: 'railControls.implement' },
-  { id: 'factory:batch', labelKey: 'railControls.batch' },
   { id: 'factory:freestyle', labelKey: 'railControls.freestyle', requiresFreestyle: true },
   // Graph-native built-in: runs only through the LoopRunManager, so it is
   // offered only while the Loops feature is enabled.
@@ -35,8 +33,8 @@ export function factoryIdForMode(mode: RailMode): string {
 /** Derive the legacy `mode` from a chosen loop id (factory → its mode; any custom
  *  loop → 'loop'). */
 export function deriveRailMode(loopId: string | null | undefined): RailMode {
-  if (loopId === 'factory:implement') return 'implement'
-  if (loopId === 'factory:batch') return 'batch-implement'
+  // `factory:batch` is the removed Batch loop; it now runs as Implement.
+  if (loopId === 'factory:implement' || loopId === 'factory:batch') return 'implement'
   if (loopId === 'factory:freestyle') return 'freestyle'
   return 'loop'
 }
@@ -45,5 +43,6 @@ export function deriveRailMode(loopId: string | null | undefined): RailMode {
  *  factory loop matching its (legacy) mode — so a mode-only rail still resolves. */
 export function effectiveLoopId(selectedLoopId: string | null | undefined, mode: RailMode, hasAddenda = false): string {
   if (hasAddenda || selectedLoopId === 'factory:revision') return 'factory:sdd-quick-openspec'
+  if (selectedLoopId === 'factory:batch') return 'factory:implement'
   return selectedLoopId || factoryIdForMode(mode)
 }

@@ -41,6 +41,7 @@ describe('Core factory definitions', () => {
     expect(factoryLoopsForCapabilities({ engineV2: 1 }).every(factory => !isDefinitionGraph(factory.graph))).toBe(true)
     expect(factoryLoopsForCapabilities(capabilities).every(factory => isDefinitionGraph(factory.graph))).toBe(true)
     expect(getFactoryLoop('factory:revision', capabilities)?.id).toBe('factory:sdd-quick-openspec')
+    expect(getFactoryLoop('factory:batch', capabilities)?.graph).toEqual(getFactoryLoop('factory:implement', capabilities)?.graph)
     expect(getFactoryLoop('factory:openspec', capabilities)?.graph).toEqual(getFactoryLoop('factory:sdd-quick-openspec', capabilities)?.graph)
   })
   it('compiles every factory with global verified delivery and a bounded graph', () => {
@@ -49,10 +50,9 @@ describe('Core factory definitions', () => {
       const definition = compileLoopToDefinition(factory.graph, { id: factory.id, title: factory.name, provider: 'claude', constants: {}, repositoryCount: 2 })
       expect(definition.delivery.requiresVerified).toBe(true)
       expect(definition.maxTransitions).toBeGreaterThan(0)
-      if (factory.id === 'factory:batch') {
-        expect(definition.nodes.batch).toMatchObject({ kind: 'map', params: { over: 'tickets' } })
-        expect(definition.nodes.join.ends.next).toBe('verify')
-        expect(definition.nodes.verify.kind).toBe('verify')
+      if (factory.id === 'factory:implement') {
+        // One aggregate implementation over every rail ticket — no map/join.
+        expect(Object.values(definition.nodes).some((node) => (node as { kind?: string }).kind === 'map')).toBe(false)
       }
     }
   })

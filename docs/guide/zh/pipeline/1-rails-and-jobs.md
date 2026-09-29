@@ -18,12 +18,12 @@ SpecsBoard (左)             Rails (右)
 
 rail 是一条**执行通道**。你从 SpecsBoard 上拖一张 spec 卡片放到某条 rail 上，然后按下 **▶ Play**。对于 git 仓库，这条 rail 会在隔离的 git worktree 中启动流水线，让 AI 可以改文件、跑测试，而不会碰你当前活跃的工作树。如果项目还不是 git 仓库，Specrails 会明确降级到共享文件夹执行，并告诉你不会出现分支或 PR 卡片。
 
-你可以同时拥有好几条 rail，把工作组织成一条条命名的通道（一条放你眼下专注的功能，另一条排在它后面候着）。rail 是**动态的**：Rails 头部的 **+ 添加** 按钮可以新建一条通道（每个项目最多 12 条），空闲且为空的通道可以删除。每条 rail 都由服务器托管，所以你的通道集合在刷新后依然保留，移动端 companion 和内置代理都能看到——当所有通道都在忙时，代理甚至能自己创建一条 rail。关于多 rail 和批量运行的更多内容，请看 [批量实现与多功能](batch-implement-and-multi-feature)。
+你可以同时拥有好几条 rail，把工作组织成一条条命名的通道（一条放你眼下专注的功能，另一条排在它后面候着）。rail 是**动态的**：Rails 头部的 **+ 添加** 按钮可以新建一条通道（每个项目最多 12 条），空闲且为空的通道可以删除。每条 rail 都由服务器托管，所以你的通道集合在刷新后依然保留，移动端 companion 和内置代理都能看到——当所有通道都在忙时，代理甚至能自己创建一条 rail。
 
 ## 在某个 spec 上启动一条 rail
 
 1. **把一张 spec 卡片拖**到某条 rail 上。该 spec 的 ID 会出现在这条 rail 的 spec 列表里。（不想拖？用 spec 卡片上的 **放入 Rail** 弹窗——它会为每条 rail 显示一个状态圆点，避免你把活儿丢进一条正忙的通道。）
-2. **在 rail 头部挑一个 Loop。** 一条 rail 运行的是一个 **Loop**——也就是它要做的活儿。默认是内置的 `Implement` loop；你也可以挑 `Batch`、`Freestyle`，或者你自己搭的某个自定义 loop。见 [Loop Builder](the-loop-builder)。
+2. **在 rail 头部挑一个 Loop。** 一条 rail 运行的是一个 **Loop**——也就是它要做的活儿。默认是内置的 `Implement` loop；你也可以挑 `Freestyle`，或者你自己搭的某个自定义 loop。见 [Loop Builder](the-loop-builder)。
 3. **按下 ▶ Play。**
 
 就这么简单。rail 会在正确的执行上下文里启动一个 AI CLI 进程，开始跑流水线。
@@ -34,20 +34,21 @@ rail 是一条**执行通道**。你从 SpecsBoard 上拖一张 spec 卡片放�
 |---------|--------------|
 | **状态标签** | `idle`、`running` 或 `failed`。这里没有单独的"completed"——任务干净地跑完后，rail 会回到 `idle`。 |
 | **spec 列表** | 分配给这条 rail 的 ID。可以再拖进来，也可以拖出去解除关联。 |
-| **Loop 选择器** | 这条 rail 运行的 Loop——内置的（`Implement` / `Batch` / `Freestyle`）或某个自定义 loop。见下表。按 rail 单独记忆。 |
+| **Loop 选择器** | 这条 rail 运行的 Loop——内置的（`Implement` / `Freestyle` / `SDD Quick (OpenSpec)`）或某个自定义 loop。见下表。按 rail 单独记忆。 |
 | **Profile 选择器** | 使用哪个 provider profile（Claude/Kimi rail）。 |
 | **引擎选择器** | 哪个 provider 运行 rail——Claude、Codex、Gemini 或 Kimi。 |
 | **▶ Play / ■ Stop** | 启动或取消。 |
 
 ### rail 运行的是什么：Loop
 
-一条 rail 运行的是一个 **Loop**——干活的配方。有三个 loop 是**内置**的，覆盖了常见情况：
+一条 rail 运行的是一个 **Loop**——干活的配方。有两个 loop 是**内置**的，覆盖了常见情况：
 
 | 内置 loop | 命令 | 作用 |
 |------|---------|--------------|
 | **Implement** | `/specrails:implement` | 一个任务覆盖这条 rail 上的所有 spec。跑完整的 Architect → Developer → Reviewer → Ship 流水线。日常默认选项。 |
-| **Batch** | `/specrails:batch-implement` | 一个任务，按依赖感知的批次（wave）依次处理 rail 上的各个 spec。最适合一组相关的 spec。 |
 | **Freestyle** | Freestyle | Claude 或 Kimi 自主实现每个 spec，**绕过**流水线。 |
+
+要运行多个 spec，可以把相关的（最多 3 个）放到同一条 rail 上——`Implement` 会把它们作为一个整体任务运行——或者把彼此独立的 spec 分到多条 rail：每条基于 git 的 rail 都在自己隔离的 worktree 中并行运行。
 
 Freestyle 使用 provider 的 native tool/model。Claude 有 persistent
 interactive transport；Kimi 使用没有 persistent stdin 的 agentic
@@ -98,5 +99,4 @@ interactive transport；Kimi 使用没有 persistent stdin 的 agentic
 
 - [Loop Builder](the-loop-builder)——rail 运行的是什么，以及如何搭建你自己的 loop。
 - [任务详情视图](the-job-detail-view)——阶段、实时指标、工单卡片。
-- [批量实现与多功能](batch-implement-and-multi-feature)——一次跑多个 spec。
 - [为每条 rail 选择引擎](picking-an-engine-per-rail)——Claude、Codex、Gemini 或 Kimi。

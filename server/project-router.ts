@@ -270,9 +270,11 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   })
 
   // Milestone launch chain (premium-milestone-progress D3): "Launch Milestone
-  // N" is server-owned — chunked into ≤3-spec rails, launched through the
-  // ordinary rails launch route, and (sequential) chained on each chunk's
-  // delivered branch. The client keeps NO plan in browser storage.
+  // N" is server-owned — one spec per rail in dependency order, launched
+  // through the ordinary rails launch route and chained on each spec's
+  // delivered branch. Always sequential: the retired `mode: 'parallel'` is
+  // accepted for old clients and runs sequentially (the response echoes
+  // `mode: 'sequential'`). `autoAdvance` defaults to true.
   router.post('/:projectId/blueprint/milestones/:n/launch', async (req: Request, res: Response) => {
     const projectCtx = ctx(req)
     const n = Number.parseInt(String(req.params.n), 10)
@@ -281,7 +283,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     }
     const rawMode = (req.body ?? {}).mode
     if (rawMode !== undefined && rawMode !== 'sequential' && rawMode !== 'parallel') {
-      res.status(400).json({ error: "mode must be 'sequential' or 'parallel'" }); return
+      res.status(400).json({ error: "mode must be 'sequential'" }); return
     }
     const rawAuto = (req.body ?? {}).autoAdvance
     if (rawAuto !== undefined && typeof rawAuto !== 'boolean') {
@@ -290,9 +292,9 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     const chains = projectCtx.milestoneChains
     if (!chains) { res.status(503).json({ error: 'milestone_chain_unavailable' }); return }
     try {
-      const result = await chains.start(n, rawMode ?? 'sequential', { autoAdvance: rawAuto })
+      const result = await chains.start(n, { autoAdvance: rawAuto })
       if (result.ok) {
-        res.status(202).json({ chainId: result.chainId, launched: result.launched, pending: result.pending })
+        res.status(202).json({ chainId: result.chainId, mode: 'sequential', launched: result.launched, pending: result.pending })
       } else {
         res.status(result.status).json({ error: result.error, ...(result.detail ? { detail: result.detail } : {}), ...(result.chainId ? { chainId: result.chainId } : {}) })
       }

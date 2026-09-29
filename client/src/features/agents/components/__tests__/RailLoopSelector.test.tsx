@@ -18,7 +18,9 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
     render(<RailLoopSelector value={null} onChange={() => {}} loopsEnabled={false} />)
     const sel = screen.getByTestId('rail-loop-selector')
     expect(within(sel).getByRole('option', { name: 'Implement' })).toBeInTheDocument()
-    expect(within(sel).getByRole('option', { name: 'Batch' })).toBeInTheDocument()
+    expect(within(sel).getByRole('option', { name: 'Freestyle' })).toBeInTheDocument()
+    // The removed Batch mode is never offered.
+    expect(within(sel).queryByRole('option', { name: 'Batch' })).not.toBeInTheDocument()
   })
 
   it('hides the provider-owned Freestyle built-in when the capability is unavailable', () => {
@@ -66,7 +68,7 @@ describe('RailLoopSelector (unified rail Loop picker)', () => {
   it('fires onChange with the chosen loop id', () => {
     const onChange = vi.fn()
     render(<RailLoopSelector value="factory:implement" onChange={onChange} loopsEnabled={false} />)
-    fireEvent.change(screen.getByTestId('rail-loop-selector'), { target: { value: 'factory:batch' } })
-    expect(onChange).toHaveBeenCalledWith('factory:batch')
+    fireEvent.change(screen.getByTestId('rail-loop-selector'), { target: { value: 'factory:freestyle' } })
+    expect(onChange).toHaveBeenCalledWith('factory:freestyle')
   })
 })

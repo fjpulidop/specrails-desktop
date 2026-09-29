@@ -16,7 +16,7 @@ function rail(over: Partial<MilestoneRail> = {}): MilestoneRail {
 }
 const delivery = (decision: string) => ({ id: 'd-3', railIndex: 3, ticketIds: [1, 2, 3], decision, branch: 'feat/1', baseBranch: 'main', prUrl: null, prNumber: null, prState: 'none', createdAt: null })
 function chain(over: Partial<MilestoneChainSnapshot> = {}): MilestoneChainSnapshot {
-  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-batch', launched: [], updatedAt: 'x', ...over }
+  return { id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, autoAdvance: true, nextChunk: 2, totalChunks: 3, currentRailIndex: 4, headBranch: 'feat/1-implement', launched: [], updatedAt: 'x', ...over }
 }
 
 describe('MilestoneProgressBar', () => {
@@ -67,6 +67,11 @@ describe('MilestoneCard', () => {
     expect(screen.getByTestId('milestone-rail-running')).toHaveTextContent(/Running · 1m/)
   })
 
+  it('a chain paused at the rail limit explains how to free a rail', () => {
+    render(<MilestoneCard progress={progress({ chain: chain({ status: 'paused', pauseReason: 'rail_limit_reached' }) })} onResume={vi.fn()} />)
+    expect(screen.getByTestId('milestone-chain-row')).toHaveTextContent('Paused — every rail holds a PR awaiting your decision — merge or discard pending PRs to free a rail, then resume')
+  })
+
   it('hides a completed chain once no rail is live; a cancelled chain is not shown either', () => {
     const { rerender } = render(<MilestoneCard progress={progress({ chain: chain({ status: 'completed' }) })} />)
     expect(screen.queryByTestId('milestone-chain-row')).not.toBeInTheDocument()
@@ -88,7 +93,7 @@ describe('MilestoneChainRow / MilestoneRailRow', () => {
     render(<MilestoneChainRow chain={chain()} onCancel={onCancel} />)
     expect(screen.getByTestId('milestone-chain-row')).toHaveTextContent('Sequential chain · rail 2 of 3')
     expect(screen.getByTestId('milestone-chain-row')).toHaveTextContent('waiting for rail 2 to settle')
-    expect(screen.getByTestId('milestone-chain-row')).toHaveTextContent('feat/1-batch')
+    expect(screen.getByTestId('milestone-chain-row')).toHaveTextContent('feat/1-implement')
     await user.click(screen.getByTestId('milestone-chain-cancel'))
     expect(onCancel).toHaveBeenCalledWith('c1')
     expect(screen.queryByTestId('milestone-chain-resume')).not.toBeInTheDocument()

@@ -56,7 +56,7 @@ Mission mode (Agent Mode) replaces the routed dashboard, so `RailsBoard`, `Specs
 Parser pair `server/modules/delivery/runtime/rail-launch-parser.ts` ⇄ `client/src/features/rails/lib/rail-launch-draft.ts` (byte-identical except the mirror note; `server/modules/delivery/runtime/rail-launch-parser.test.ts` enforces parity). `extractRailLaunchProposals(content, streaming)` returns `{ body, proposals, rejected, pending, truncated, repaired }`:
 
 - tolerant JSON repair (`json-tolerant`) before rejecting; `repaired` flags it;
-- unknown keys dropped; `ticketIds` accepts `12`, `"12"`, `"#12"` (also under `specs` / `tickets`); `mode` accepts `batch` for `batch-implement`, `newRail: true` for an unnamed rail; `railIndex` is ignored when `newRail` is set;
+- unknown keys dropped; `ticketIds` accepts `12`, `"12"`, `"#12"` (also under `specs` / `tickets`); `mode` folds the removed `batch` / `batch-implement` into `implement`, `newRail: true` for an unnamed rail; `railIndex` is ignored when `newRail` is set;
 - rejection reasons: `invalid_json | not_object | unsupported_version | no_tickets | invalid_mode`, each with a ≤160-char excerpt — never silent;
 - while streaming an open fence is cut from the body (`pending`); once settled an unreadable open fence is cut and reported `truncated`;
 - every valid block is kept in order: a batch proposal is N blocks, N cards.

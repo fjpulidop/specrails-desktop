@@ -2,11 +2,12 @@
 
 > OpenSpec change `add-project-builder`. Greenfield project creation from an
 > idea: a day-0 blueprint conversation, an orchestrated bootstrap commit, and a
-> milestone lifecycle (Launch M1 batch rail, sidebar re-entry, Generate M2+).
+> milestone lifecycle (Launch M1 — one spec per rail, sequential —, sidebar
+> re-entry, Generate M2+).
 
 > **Kimi capability boundary:** Kimi may be selected as a target provider for
 > the materialized project, and it may launch an already committed milestone
-> through the normal agentic Batch rail. Day-0 blueprint snapshots and M2+
+> through ordinary agentic Implement rails. Day-0 blueprint snapshots and M2+
 > milestone generation are pure structured-output actions and therefore fail
 > closed for Kimi 0.27 `-p`; no Kimi process is spawned for them.
 
@@ -505,22 +506,29 @@ step 6 it is an ordinary project missing only the remote.
 
 Generating detailed M2+ specs uses the same pure-output capability gate as
 day-0 blueprint generation. Kimi cannot be selected for that generation turn.
-Launching the already committed M1/M2+ tickets is ordinary Batch rail
-execution and can use Kimi.
+Launching the already committed M1/M2+ tickets is ordinary Implement rail
+execution (one spec per rail) and can use Kimi.
 
 - **Launch Milestone N is SERVER-owned** (premium-milestone-progress D3):
-  `POST /api/projects/:id/blueprint/milestones/:n/launch { mode }`
+  `POST /api/projects/:id/blueprint/milestones/:n/launch { autoAdvance? }`
+  (always sequential: the retired `mode: 'parallel'` is still accepted from
+  old clients and runs sequentially — the 202 echoes `mode: 'sequential'`;
+  any other `mode` is a 400)
   (`client/src/features/builder/lib/milestone-launch.ts` `launchMilestone` is one POST; the
   old browser-local `MilestoneSequencerContext` + its `localStorage` plan are
   GONE — `dropLegacySequentialPlans()` forgets the leftover key on load).
   `server/modules/builder/runtime/milestone-chain.ts` `MilestoneChainManager` gathers the `M<n>`
-  `todo` tickets, chunks them (≤3, `chainRailName` → `M<n>` / `M<n> · k`),
+  `todo` tickets, orders them by dependencies (`orderChainTickets`: stable
+  topological order over `prerequisites` inside the set, ties by
+  `execution_order` then id; a cycle never blocks), puts ONE spec on each
+  rail (`MAX_TICKETS_PER_CHAIN_CHUNK = 1`, `chainRailName` → `M<n> · #<id>`,
+  launch body `mode: 'implement'`),
   persists ONE `milestone_launch_chains` row (`server/modules/builder/runtime/milestone-chain-store.ts`,
   migration 58, partial unique index = one non-terminal chain per milestone;
   CAS `updateChain`) and launches chunk 1 through the app's OWN rails launch
   route over loopback (`server/internal-api.ts`, lifted from the MCP tools'
   `apiCall`) so every existing guard applies and each 4xx becomes a typed
-  `pause_reason` (`launch_rejected:<error>`). **Sequential (default)** chains
+  `pause_reason` (`launch_rejected:<error>`). The chain
   the next chunk when the in-flight chunk's DELIVERY settles — the manager taps
   the project's bound broadcast for `rail.pr_state` (the engine's
   `onLoopRunFinished` fires BEFORE the delivery row leaves `building`, so it is
@@ -546,12 +554,23 @@ execution and can use Kimi.
   the same milestone likewise reuses a rail already named for the chunk
   (`io.findRailByName` → `rails-store` `getRails`) when it holds no undecided
   delivery, so relaunching M1 never piles up duplicate "M1 · 1" rails;
+  **Rail limit (MAX_RAILS 12).** Before creating a rail the manager reuses a
+  free builder-owned rail — the retried chunk's rail, a rail already named for
+  the spec, a rail this chain used, then any `M<n>`-named rail — where "free"
+  means no undecided delivery, no active job/loop run (`io.railBusy`) and no
+  other chain mid-flight on it; a reused rail is renamed after its spec
+  (`io.renameRail`, best effort). When no rail is free and `POST /rails`
+  answers `rail_limit_reached`, a later spec PAUSES the chain with
+  `pause_reason: rail_limit_reached` (localized: decide pending PRs to free a
+  rail, then Resume launches the same spec); on the FIRST spec nothing
+  launches, the row is cancelled and the route relays 409
+  `rail_limit_reached`.
   `…/cancel` stops the chain and leaves in-flight rails alone. Startup
   recovery (`recoverOnStartup`, run once the HTTP server listens) replays a
   chunk that settled while the server was down exactly once.
-  **Wave checkpoints (D9).** The row carries `auto_advance` (default 1 for
-  API callers; the UI sends the user's stored preference
-  `localStorage['specrails-desktop:milestone-auto-advance']`, default OFF)
+  **Wave checkpoints (D9).** The row carries `auto_advance` (default 1 when
+  omitted; the UI sends the user's stored preference
+  `localStorage['specrails-desktop:milestone-auto-advance']`, default ON)
   and a non-terminal status `awaiting_approval`. When a chunk's delivery
   settles successfully and auto-advance is off (and chunks remain), the
   manager records the head and parks the chain at `awaiting_approval`
@@ -563,13 +582,13 @@ execution and can use Kimi.
   counts as active (one non-terminal chain per milestone, cancellable) and is
   ignored by startup recovery (waiting for the user is the point); a failure
   always PAUSES regardless of the flag (checkpoints are reached only by
-  success). Client: `launchMilestone(projectId, n, mode, { autoAdvance })`,
+  success). Client: `launchMilestone(projectId, n, { autoAdvance })`,
   `setChainAutoAdvance`, `readMilestoneAutoAdvance`/`saveMilestoneAutoAdvance`
   (`milestone-launch.ts`); `chainAtCheckpoint` + `isMilestoneLaunchable`
-  excludes a checkpoint (`milestone-progress.ts`). **Parallel**
-  launches every chunk at once from the integration branch (row recorded
-  `completed` so the progress model still orders the rails). Kill switch
-  `SPECRAILS_MILESTONE_CHAIN=false` ⇒ parallel, no row. Merging a STACKED
+  excludes a checkpoint (`milestone-progress.ts`). The former **Parallel**
+  option and the `SPECRAILS_MILESTONE_CHAIN=false` kill switch were removed
+  (`remove-batch-and-sequential-builder`); completed `mode: 'parallel'` rows
+  already in the database still render ("Parallel launch"). Merging a STACKED
   chunk sweeps its merged ancestors (`sweepMergedChainAncestors` in
   `rail-pr-decision.ts`: chain-local, `git merge-base --is-ancestor`, same
   CAS + ticket effect + Jira hook) and merge-local integrates into the CHAIN's
@@ -577,7 +596,7 @@ execution and can use Kimi.
   discarding a delivery a later chunk was built on pauses its chain
   (`pauseChainsForDiscardedHead`) and the decision surfaces warn first
   (`discardStackedNote` ×3 namespaces). Offered on the Builder done screen and
-  the sidebar entry with the Sequential | Parallel toggle.
+  the sidebar entry with the auto-continue switch (no launch-mode toggle).
 - **Milestone progress is SERVER-derived** (premium-milestone-progress D2):
   `server/modules/builder/runtime/milestone-progress.ts` `deriveMilestoneProgress` builds, per
   milestone, counts by spec state (`total/done/onReview/inProgress/todo/failed`

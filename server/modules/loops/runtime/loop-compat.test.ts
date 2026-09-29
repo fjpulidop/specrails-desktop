@@ -60,3 +60,24 @@ it.each([...FACTORY_LOOPS, ...LEGACY_LOOP_TEMPLATES].map(item => [item.id, item.
   expect(result.ok, JSON.stringify(result)).toBe(true)
   if (result.ok) expect(() => compileLoopToDefinition(result.graph, { provider: 'claude', constants: {}, repositoryCount: 2, spec: { ticketIds: [1, 2] } })).not.toThrow()
 })
+it.each(['{{cmd:batch}}', '/specrails:batch-implement #1 #2 --yes', '$batch-implement #1 #2 --yes', '/skill:specrails-batch-implement #1 --yes'])(
+  'converts a saved removed-Batch step (%s) exactly like implement: one aggregate implementation node, no map/join',
+  (prompt) => {
+    const source = (text: string): LoopGraph => ({
+      nodes: [{ id: 'start', type: 'start', position: { x: 0, y: 0 } },
+        { id: 'work', type: 'ai-step', position: { x: 0, y: 1 }, data: { prompt: text } },
+        { id: 'done', type: 'end', position: { x: 0, y: 2 } }],
+      edges: [{ id: 'start-work', source: 'start', target: 'work' }, { id: 'work-done', source: 'work', target: 'done' }],
+      config: { maxIterations: 3, timeoutMinutes: 0, aiStepTimeoutMinutes: 0 },
+    })
+    const batch = convertLegacyLoop(source(prompt)), implement = convertLegacyLoop(source('{{cmd:implement}}'))
+    expect(batch.ok && implement.ok, JSON.stringify(batch)).toBe(true)
+    if (!batch.ok || !implement.ok) throw Error('conversion failed')
+    const kinds = batch.graph.nodes.map(node => node.data?.kind).filter(Boolean)
+    expect(kinds).toContain('implementation')
+    expect(kinds).not.toContain('map')
+    expect(kinds).not.toContain('join')
+    expect(batch.graph.components).toBeUndefined()
+    expect(batch.graph.config.journal).toBe('implementation')
+    expect(batch.graph.nodes.map(node => [node.id, node.data?.kind])).toEqual(implement.graph.nodes.map(node => [node.id, node.data?.kind]))
+  })

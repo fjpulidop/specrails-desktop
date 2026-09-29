@@ -12,7 +12,7 @@ Crea un cuerpo reutilizable en **Componentes**, declara sus variables de entrada
 
 Las secciones siguientes describen los nodos antiguos de Desktop y su uso en rails.
 
-Un **rail ejecuta un Loop**. Los loops integrados (`Implement`, `Batch`, `Freestyle`) cubren los casos del día a día, pero el **Loop Builder** te permite diseñar el tuyo propio — un editor visual al estilo n8n para automatizaciones que se repiten hasta cumplir un objetivo. Esta página explica qué es un loop, cómo construir uno y cómo ejecutarlo en un rail.
+Un **rail ejecuta un Loop**. Los loops integrados (`Implement`, `Freestyle`, `SDD Quick (OpenSpec)`) cubren los casos del día a día, pero el **Loop Builder** te permite diseñar el tuyo propio — un editor visual al estilo n8n para automatizaciones que se repiten hasta cumplir un objetivo. Esta página explica qué es un loop, cómo construir uno y cómo ejecutarlo en un rail.
 
 ## Loops y rails — la relación
 
@@ -22,9 +22,8 @@ Un **loop** es la *receta* del trabajo; un **rail** es el *carril* que la ejecut
    Loop Builder (barra lateral izq.)       Rails (derecha)
    ───────────────────────────             ─────────────
    Implement   (integrado)                 Rail 1
-   Batch       (integrado)     elige en ►     Loop: Verify-until-green
-   Freestyle   (integrado)                    ▶ Play
-   Verify-until-green (tuyo)
+   Freestyle   (integrado)     elige en ►     Loop: Verify-until-green
+   Verify-until-green (tuyo)                    ▶ Play
 ```
 
 - Los loops viven en la sección **Loops** (barra lateral izquierda, junto a tus proyectos) — son **globales**, compartidos entre todos los proyectos.

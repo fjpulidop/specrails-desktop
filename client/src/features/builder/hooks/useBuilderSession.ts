@@ -14,7 +14,7 @@ import {
   type BlueprintRejectionReason,
 } from '../lib/blueprint-draft'
 import type { CommitFormValue } from '../components/project-builder/BlueprintCommitForm'
-import { launchMilestone, milestoneLabel, readMilestoneLaunchMode, readMilestoneAutoAdvance } from '../lib/milestone-launch'
+import { launchMilestone, milestoneLabel, readMilestoneAutoAdvance } from '../lib/milestone-launch'
 import { analyzeBlueprintSpecQuality, type BuilderSpecQualityIssue } from '../lib/blueprint-spec-quality'
 import { deriveReadiness, localizeQualityIssue, type ReadinessReport } from '../lib/blueprint-readiness'
 import {
@@ -707,19 +707,17 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
     if (!createdProjectId || launching) return
     setLaunching(true)
     try {
-      // Server-owned launch (premium-milestone-progress): ≤3-spec rails,
-      // sequential chunks stacked server-side. The done screen then shows the
-      // live milestone card — "Open the project" remains the exit.
-      const mode = readMilestoneLaunchMode()
+      // Server-owned launch (premium-milestone-progress): one spec per rail in
+      // dependency order, each stacked server-side on the previous delivered
+      // branch. The done screen then shows the live milestone card — "Open the
+      // project" remains the exit.
       const autoAdvance = readMilestoneAutoAdvance()
-      const result = await launchMilestone(createdProjectId, 1, mode, { autoAdvance })
+      const result = await launchMilestone(createdProjectId, 1, { autoAdvance })
       const label = milestoneLabel(1)
       if (result.ok) {
         const totalRails = result.launched.length + result.pending.length
-        if (mode === 'sequential' && result.pending.length > 0) {
+        if (result.pending.length > 0) {
           toast.success(t(autoAdvance ? 'milestoneProgress.toast.launched' : 'milestoneProgress.toast.launchedCheckpoint', { milestone: label, count: result.ticketCount, n: totalRails }))
-        } else if (result.skippedCount > 0) {
-          toast.warning(t('milestoneProgress.toast.launchedPartial', { milestone: label, count: result.ticketCount, skipped: result.skippedCount }))
         } else {
           toast.success(t('milestoneProgress.toast.launchedAll', { milestone: label, count: result.ticketCount, n: totalRails }))
         }
@@ -729,6 +727,8 @@ export function useBuilderSession(enabled: boolean, opts: { onFinished: () => vo
         toast.info(t('milestoneProgress.toast.chainActive', { milestone: label }))
         setActiveProjectId(createdProjectId)
         setLaunched(true)
+      } else if (result.reason === 'rail_limit_reached') {
+        toast.warning(t('milestoneProgress.toast.railLimitReached', { milestone: label }))
       } else {
         toast.error(t('done.launchFailed'), { description: result.detail ?? result.error })
       }

@@ -22,7 +22,7 @@ Due pannelli stanno sopra il log completo in streaming; su un job Claude in esec
 
 ## Fasi della pipeline
 
-Per i job `Implement` e `Batch`, l'esecuzione attraversa le fasi definite dallo slash command — per impostazione predefinita:
+Per i job `Implement`, l'esecuzione attraversa le fasi definite dallo slash command — per impostazione predefinita:
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -113,7 +113,6 @@ Comodo per condividere un'esecuzione con un collega, o per inviare una segnalazi
 ## Dove andare ora
 
 - [Rail e job](rails-and-jobs) — avvio e accodamento.
-- [Batch implement e multi-feature](batch-implement-and-multi-feature) — molte spec, ondate di dipendenze.
 - [Tracciare i costi](../analytics/tracking-cost) — trasforma i costi per job in analytics di progetto.
 
 ## Dopo il riavvio di un workflow

@@ -22,7 +22,7 @@ Dois painéis ficam por cima do log completo em streaming; num job Claude em exe
 
 ## Fases do pipeline
 
-Para os jobs `Implement` e `Batch`, a execução percorre as fases definidas pelo slash command — por default:
+Para os jobs `Implement`, a execução percorre as fases definidas pelo slash command — por default:
 
 ```
 Architect ──► Developer ──► Reviewer ──► Ship
@@ -112,7 +112,6 @@ Se a [telemetria](../settings/customizing) estava ativada para o job, aparece um
 ## Para onde ir a seguir
 
 - [Rails e jobs](rails-and-jobs) — lançar e enfileirar.
-- [Batch implement e multi-feature](batch-implement-and-multi-feature) — muitas specs, ondas de dependências.
 - [Acompanhar o custo](../analytics/tracking-cost) — transformar os custos por job em analytics do projeto.
 
 ## Após reiniciar um workflow

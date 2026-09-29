@@ -26,9 +26,11 @@ describe('extractRailLaunchProposals', () => {
     expect('ignored' in p).toBe(false)
   })
 
-  it('defaults mode, accepts batch alias and newRail, drops railIndex when newRail is set', () => {
+  it('defaults mode, folds removed batch aliases into implement, accepts newRail, drops railIndex when newRail is set', () => {
     const out = extractRailLaunchProposals(block({ ticketIds: [3], newRail: { name: 'Fresh' }, railIndex: 4, mode: 'batch' }))
-    expect(out.proposals[0].mode).toBe('batch-implement')
+    expect(out.proposals[0].mode).toBe('implement')
+    expect(extractRailLaunchProposals(block({ ticketIds: [3], mode: 'batch-implement' })).proposals[0].mode).toBe('implement')
+    expect(extractRailLaunchProposals(block({ ticketIds: [3], mode: 'batch_implement' })).proposals[0].mode).toBe('implement')
     expect(out.proposals[0].newRail).toEqual({ name: 'Fresh' })
     expect(out.proposals[0].railIndex).toBeNull()
     expect(extractRailLaunchProposals(block({ ticketIds: [3], newRail: true })).proposals[0].newRail).toEqual({ name: null })

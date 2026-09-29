@@ -51,7 +51,7 @@ The CLI also forwards workflow commands to a running server. Its legacy direct f
 | --- | --- |
 | Specs | Explore an idea in conversation, generate a Quick Spec, refine its contract, or capture a website as context. Structured AI actions are offered only when the provider supports their required tool restrictions. |
 | Missions | Converse with an agent using project, spec and file references. Follow-ups queue by default; explicit **Steer** sends a correction into a running invocation through its supported transport. Delivery and read acknowledgements remain distinct. |
-| Board and rails | Assign specs to execution lanes and select Implement, Batch Implement, SDD Quick, Freestyle or a published custom loop, subject to provider capabilities. Inspect live steps, errors and retry state. |
+| Board and rails | Assign specs to execution lanes and select Implement, SDD Quick, Freestyle or a published custom loop, subject to provider capabilities. Inspect live steps, errors and retry state. |
 | Multiple repositories | One project owns a shared backlog and can include several local repositories. Specs select their affected repositories; execution prepares their worktrees together and presents delivery evidence and actions per repository. |
 | Review and delivery | Inspect recorded changes, create or publish a PR, integrate locally, or check out completed work. Conflicts and stale evidence require resolution; a multi-repo spec completes only when all required deliveries are accepted. |
 | Files | Browse and search by repository, jump to lines, read source, inspect recorded diffs and construction history, and request an AI summary. This is a read-only explorer, not an editor. |

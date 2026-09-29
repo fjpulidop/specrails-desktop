@@ -276,10 +276,6 @@
       "name": "Implementar",
       "description": "Totalmente autônomo: implementa a spec, verifica e refina (corrige) em caso de falha — repetindo até todos os testes passarem."
     },
-    "factory_batch": {
-      "name": "Implementar em Lote",
-      "description": "Implementa de uma vez todos os tickets do trilho e, em seguida, verifica + refina em caso de falha até ficar verde."
-    },
     "factory_freestyle": {
       "name": "Freestyle",
       "description": "Entrega a spec diretamente ao modelo com total liberdade — sem pipeline, ele trabalha como um agente de código normal, depois verifica + refina até ficar verde. Somente Claude."
