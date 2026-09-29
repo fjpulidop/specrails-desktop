@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.58.1](https://github.com/fjpulidop/specrails-desktop/compare/v2.58.0...v2.58.1) (2026-09-29)
+
+
+### Bug Fixes
+
+* **release:** hash the frontend lock independent of line endings ([#716](https://github.com/fjpulidop/specrails-desktop/issues/716)) ([7c715a7](https://github.com/fjpulidop/specrails-desktop/commit/7c715a701739b1833fd01acbb3726c1f305e071d))
+
 ## [2.58.0](https://github.com/fjpulidop/specrails-desktop/compare/v2.57.1...v2.58.0) (2026-09-29)
 
 
