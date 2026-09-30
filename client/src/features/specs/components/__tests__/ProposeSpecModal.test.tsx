@@ -108,7 +108,7 @@ describe('ProposeSpecModal', () => {
             model: 'sonnet',
             provider: 'claude',
             allowed: [
-              { value: 'sonnet', label: 'Claude Sonnet' },
+              { value: 'sonnet', label: 'Claude Sonnet 5.5' },
               { value: 'opus', label: 'Claude Opus' },
               { value: 'haiku', label: 'Claude Haiku' },
             ],
@@ -327,7 +327,7 @@ describe('ProposeSpecModal', () => {
   it('hands slider-derived context through to Explore launch payload', async () => {
     const onExploreLaunch = vi.fn()
     render(<ProposeSpecModal open={true} onClose={onCloseMock} tickets={emptyTickets} onExploreLaunch={onExploreLaunch} />)
-    await waitFor(() => expect(screen.getByText('Claude Sonnet')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Claude Sonnet 5.5')).toBeInTheDocument())
     const exploreTab = screen.getAllByRole('tab').find((t) => t.textContent?.toLowerCase().includes('explore'))!
     fireEvent.click(exploreTab)
     fireEvent.click(screen.getByTestId('scope-stop-max'))
@@ -381,7 +381,7 @@ describe('ProposeSpecModal', () => {
       if (typeof url === 'string' && url.includes('/default-spec-model')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ model: 'sonnet', provider: 'claude', allowed: [{ value: 'sonnet', label: 'Claude Sonnet' }] }),
+          json: async () => ({ model: 'sonnet', provider: 'claude', allowed: [{ value: 'sonnet', label: 'Claude Sonnet 5.5' }] }),
         })
       }
       return Promise.resolve({ ok: true, json: async () => ({ requestId: 'req-1' }) })
@@ -413,7 +413,7 @@ describe('ProposeSpecModal', () => {
             model: 'opus',
             provider: 'claude',
             allowed: [
-              { value: 'sonnet', label: 'Claude Sonnet' },
+              { value: 'sonnet', label: 'Claude Sonnet 5.5' },
               { value: 'opus', label: 'Claude Opus' },
             ],
           }),
@@ -454,7 +454,7 @@ describe('ProposeSpecModal', () => {
             model: 'haiku',
             provider: 'claude',
             allowed: [
-              { value: 'sonnet', label: 'Claude Sonnet' },
+              { value: 'sonnet', label: 'Claude Sonnet 5.5' },
               { value: 'haiku', label: 'Claude Haiku' },
             ],
           }),
@@ -526,7 +526,7 @@ describe('ProposeSpecModal', () => {
       if (typeof url === 'string' && url.includes('/default-spec-model')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ model: 'sonnet', provider: 'claude', allowed: [{ value: 'sonnet', label: 'Claude Sonnet' }] }),
+          json: async () => ({ model: 'sonnet', provider: 'claude', allowed: [{ value: 'sonnet', label: 'Claude Sonnet 5.5' }] }),
         })
       }
       return Promise.resolve({ ok: true, json: async () => ({ requestId: 'req-fast' }) })
@@ -648,7 +648,7 @@ describe('ProposeSpecModal', () => {
   it('shows a Raw error toast and does not close when from-prompt fails', async () => {
     ;(global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
       if (typeof url === 'string' && url.includes('/default-spec-model')) {
-        return Promise.resolve({ ok: true, json: async () => ({ model: 'sonnet', provider: 'claude', allowed: [{ value: 'sonnet', label: 'Claude Sonnet' }] }) })
+        return Promise.resolve({ ok: true, json: async () => ({ model: 'sonnet', provider: 'claude', allowed: [{ value: 'sonnet', label: 'Claude Sonnet 5.5' }] }) })
       }
       if (typeof url === 'string' && url.includes('/tickets/from-prompt')) {
         return Promise.resolve({ ok: false, json: async () => ({ error: 'boom' }) })

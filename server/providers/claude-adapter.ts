@@ -21,7 +21,7 @@ import type {
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
 const CLAUDE_MODELS = [
-  { value: 'sonnet', label: 'Claude Sonnet', default: true as const },
+  { value: 'sonnet', label: 'Claude Sonnet 5.5', default: true as const },
   { value: 'fable', label: 'Claude Fable' },
   { value: 'opus', label: 'Claude Opus 5.5' },
   { value: 'haiku', label: 'Claude Haiku' },
@@ -31,6 +31,7 @@ const CLAUDE_MODELS = [
  *  CLI accepts collapse to the short alias. */
 function normaliseModel(model: string | null | undefined): string {
   switch (model) {
+    case 'claude-sonnet-5-5':
     case 'claude-sonnet-5':
     case 'claude-sonnet-4-6':
     case 'claude-sonnet-4-5':
@@ -58,14 +59,15 @@ function normaliseModel(model: string | null | undefined): string {
 /**
  * Catalog aliases whose GENERATION Specrails pins explicitly.
  *
- * The catalog value (`opus`) stays the stored, validated and displayed identity
+ * The catalog aliases (`sonnet`, `opus`) stay the stored and validated identities
  * — profiles, project settings, conversation rows and analytics all keep using
  * it, and `normaliseModel` collapses the pinned id back to it. Only the spawn
  * argument is expanded, so picking "Claude Opus" is a product decision about
  * WHICH Opus runs instead of delegating that to whatever generation the CLI's
- * bare `opus` alias currently points at.
+ * bare model alias currently points at.
  */
 const PINNED_ALIAS_MODEL_IDS: Readonly<Record<string, string>> = {
+  sonnet: 'claude-sonnet-5-5',
   opus: 'claude-opus-5-5',
 }
 

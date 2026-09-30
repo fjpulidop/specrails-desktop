@@ -48,7 +48,7 @@ vi.mock('../../lib/agent-api', async (orig) => {
     enableMcp: vi.fn(async () => {}),
     getAvailableProviders: vi.fn(async () => ({ any: true, installed: ['claude'] })),
     getAgentModels: vi.fn(async () => ({
-      models: [{ value: 'sonnet', label: 'Claude Sonnet', default: true }],
+      models: [{ value: 'sonnet', label: 'Claude Sonnet 5.5', default: true }],
       supportsImageInput: true,
       efforts: ['low', 'medium', 'high'],
     })),

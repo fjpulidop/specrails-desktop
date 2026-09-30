@@ -65,7 +65,7 @@ vi.mock('../../lib/agent-api', async (orig) => {
         ? [{ value: 'gpt-5.5', label: 'GPT-5.5', default: true }, { value: 'gpt-5.4', label: 'GPT-5.4' }]
         : p === 'kimi'
           ? [{ value: 'k3', label: 'Kimi K3', default: true }, { value: 'kimi-for-coding', label: 'Kimi for Coding' }]
-        : [{ value: 'sonnet', label: 'Claude Sonnet', default: true }, { value: 'opus', label: 'Claude Opus' }],
+        : [{ value: 'sonnet', label: 'Claude Sonnet 5.5', default: true }, { value: 'opus', label: 'Claude Opus' }],
       supportsImageInput: p !== 'gemini',
       customModelAliases: p === 'kimi',
       efforts: p === 'gemini'
@@ -558,7 +558,7 @@ describe('AgentChatProvider', () => {
     const user = userEvent.setup()
     render(<AgentChatProvider><AgentComposer /></AgentChatProvider>)
     const trigger = screen.getByTestId('agent-runtime-selector')
-    await waitFor(() => expect(trigger).toHaveTextContent('Claude Sonnet'))
+    await waitFor(() => expect(trigger).toHaveTextContent('Claude Sonnet 5.5'))
     expect(trigger).not.toHaveTextContent('Provider')
     expect(screen.queryByTestId('agent-provider-selector')).not.toBeInTheDocument()
     expect(screen.getByTestId('agent-composer-controls')).toContainElement(trigger)
@@ -575,7 +575,7 @@ describe('AgentChatProvider', () => {
   it('does not offer hidden providers in a new mission', async () => {
     const user = userEvent.setup()
     render(<AgentChatProvider><AgentComposer /></AgentChatProvider>)
-    await waitFor(() => expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Claude Sonnet'))
+    await waitFor(() => expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Claude Sonnet 5.5'))
     await user.click(screen.getByTestId('agent-runtime-selector'))
     await user.click(screen.getByRole('button', { name: /Claude Sonnet/ }))
     expect(screen.queryByRole('button', { name: 'Kimi' })).toBeNull()
@@ -587,10 +587,10 @@ describe('AgentChatProvider', () => {
     vi.mocked(agentApi.patchAgentConversation).mockRejectedValueOnce(new Error('offline'))
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await user.click(screen.getByRole('button', { name: 'open' }))
-    await waitFor(() => expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Claude Sonnet'))
+    await waitFor(() => expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Claude Sonnet 5.5'))
     await chooseProvider(user, 'Codex')
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong. Try again.'))
-    expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Claude Sonnet')
+    expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Claude Sonnet 5.5')
   })
 
   it('opens, ensures a conversation, streams a turn, persists on done', async () => {

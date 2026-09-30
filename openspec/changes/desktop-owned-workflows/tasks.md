@@ -86,3 +86,10 @@ passes: 416 suites, 9,149 tests, 58 skipped. Thresholds and timeouts remain
 unchanged. Production build and the installed-package check also pass against
 the final public catalog changes. Companion PRs: Desktop #718, Core #398 and
 Web #223 (264 web tests and 6 documentation synchronization tests pass).
+
+Sonnet 5.5 follow-up: Desktop catalogs show the new version, and Desktop/Core
+expand `sonnet` to `claude-sonnet-5-5`. Historical concrete Sonnet IDs retain
+their earlier estimation rates. Typechecks, 592 provider/accounting server
+tests, 1,090 affected client tests, 393 changed-fixture client tests and 61 Core
+CLI tests pass. Paired Core compatibility, builds and both installed package
+checks pass. Anthropic source: https://platform.claude.com/docs/en/models/sonnet-5-5/overview.

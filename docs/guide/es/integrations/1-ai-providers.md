@@ -15,3 +15,5 @@ Detectar la CLI no garantiza cuota ni conexión en la siguiente llamada. Resuelv
 Los registros del proyecto se guardan localmente, pero las llamadas al modelo e integraciones pueden enviar contexto fuera del equipo. Elige referencias y adjuntos teniendo esto presente.
 
 Razonamiento, respuestas estructuradas, subagentes y guía durante un turno varían por proveedor. Consulta los [ajustes de ejecución](/docs/pipeline-picking-an-engine-per-rail) y [Guiar](/docs/missions-steering-and-receipts).
+
+La selección Sonnet ejecuta Claude Sonnet 5.5 (`claude-sonnet-5-5`). [Anthropic](https://platform.claude.com/docs/en/models/sonnet-5-5/overview).

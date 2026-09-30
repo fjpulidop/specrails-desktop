@@ -15,3 +15,5 @@ A successful discovery check does not guarantee quota or network availability fo
 The app keeps project records locally, while model requests and configured integrations may send context outside your machine. Choose which references and attachments to provide with that in mind.
 
 Capabilities differ: reasoning controls, structured responses, subagents and active-turn steering are not interchangeable across providers. See [provider execution settings](/docs/pipeline-picking-an-engine-per-rail) and [steering](/docs/missions-steering-and-receipts).
+
+The Sonnet selection runs Claude Sonnet 5.5 (`claude-sonnet-5-5`). [Anthropic](https://platform.claude.com/docs/en/models/sonnet-5-5/overview).

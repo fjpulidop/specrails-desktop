@@ -183,10 +183,10 @@ describe('estimateCostUsd', () => {
 
 describe('estimateCostUsd — claude cache-write tier + Anthropic usage semantics (CRIT-1 / refuted-#3)', () => {
   it('bills tokens_cache_create at cacheWritePer1M (1.25x input) for claude', () => {
-    // claude:sonnet → input 3.00, output 15.00, cache_read 0.30, cache_write 3.75
+    // Sonnet 5.5: input 2.00, output 10.00, cache_read 0.20, cache_write 2.50
     const cost = estimateCostUsd('claude', 'sonnet', { tokens_cache_create: 1_000_000 })
-    // Only cache-write tokens present → 1M * 3.75 / 1M = 3.75
-    expect(cost).toBeCloseTo(3.75, 6)
+    // Only cache-write tokens present → 1M * 2.50 / 1M = 2.50
+    expect(cost).toBeCloseTo(2.5, 6)
   })
 
   it('cache-create-only payload IS billable for claude (opposite of codex/gemini null)', () => {
@@ -202,8 +202,8 @@ describe('estimateCostUsd — claude cache-write tier + Anthropic usage semantic
       tokens_in: 1_000_000,
       tokens_cache_read: 1_000_000,
     })
-    // 1M * 3.00 (input, not reduced) + 1M * 0.30 (cache read) / 1M = 3.30
-    expect(cost).toBeCloseTo(3.3, 6)
+    // 1M * 2.00 input + 1M * 0.20 cache read = 2.20
+    expect(cost).toBeCloseTo(2.2, 6)
   })
 
   it('sums input + output + cache-read + cache-write for a full claude breakdown', () => {
@@ -213,15 +213,15 @@ describe('estimateCostUsd — claude cache-write tier + Anthropic usage semantic
       tokens_cache_read: 500_000,
       tokens_cache_create: 40_000,
     })
-    // 100k*3.00 + 20k*15.00 + 500k*0.30 + 40k*3.75 all /1M
-    // = 0.30 + 0.30 + 0.15 + 0.15 = 0.90
-    expect(cost).toBeCloseTo(0.9, 6)
+    // 100k*2.00 + 20k*10.00 + 500k*0.20 + 40k*2.50 all /1M = 0.60
+    expect(cost).toBeCloseTo(0.6, 6)
   })
 
-  it('prices full claude model ids by collapsing to the family alias', () => {
+  it('preserves historical Sonnet estimates when upgrading the alias', () => {
     const viaFull = estimateCostUsd('claude', 'claude-sonnet-4-6', { tokens_in: 1_000_000 })
     const viaAlias = estimateCostUsd('claude', 'sonnet', { tokens_in: 1_000_000 })
-    expect(viaFull).toBe(viaAlias)
+    expect(viaAlias).toBeCloseTo(2.0, 6)
+    expect(estimateCostUsd('claude', 'claude-sonnet-5-5', { tokens_in: 1_000_000 })).toBe(viaAlias)
     expect(viaFull).toBeCloseTo(3.0, 6)
   })
 })

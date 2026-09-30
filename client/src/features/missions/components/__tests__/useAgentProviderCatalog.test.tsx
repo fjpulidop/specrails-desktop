@@ -49,7 +49,7 @@ describe('useAgentProviderCatalog', () => {
 
     await act(async () => {
       claude.resolve({
-        models: [{ value: 'sonnet', label: 'Claude Sonnet', default: true }],
+        models: [{ value: 'sonnet', label: 'Claude Sonnet 5.5', default: true }],
         efforts: ['low', 'medium', 'high'],
         supportsImageInput: true,
         customModelAliases: false,

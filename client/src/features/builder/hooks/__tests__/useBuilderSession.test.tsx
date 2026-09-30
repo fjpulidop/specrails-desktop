@@ -382,7 +382,7 @@ describe('useBuilderSession', () => {
     mockFetch({
       '/api/blueprint/models?provider=claude': {
         body: {
-          models: [{ value: 'sonnet', label: 'Claude Sonnet', default: true }],
+          models: [{ value: 'sonnet', label: 'Claude Sonnet 5.5', default: true }],
           efforts: ['low', 'medium', 'high', 'xhigh'],
         },
       },
@@ -400,7 +400,7 @@ describe('useBuilderSession', () => {
   it('omits reasoning_effort for a provider without an effort knob', async () => {
     mockFetch({
       '/api/blueprint/models?provider=claude': {
-        body: { models: [{ value: 'sonnet', label: 'Claude Sonnet' }], efforts: ['low', 'medium', 'high'] },
+        body: { models: [{ value: 'sonnet', label: 'Claude Sonnet 5.5' }], efforts: ['low', 'medium', 'high'] },
       },
       '/api/blueprint/models?provider=gemini': {
         body: { models: [{ value: 'gemini-pro', label: 'Gemini Pro' }], efforts: [] },
@@ -425,7 +425,7 @@ describe('useBuilderSession', () => {
     mockFetch({
       '/api/blueprint/models?provider=claude': {
         body: {
-          models: [{ value: 'sonnet', label: 'Claude Sonnet' }],
+          models: [{ value: 'sonnet', label: 'Claude Sonnet 5.5' }],
           defaultModel: 'sonnet',
           efforts: ['low', 'medium', 'high'],
         },

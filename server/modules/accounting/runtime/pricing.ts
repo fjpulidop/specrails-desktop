@@ -120,7 +120,10 @@ export const PRICING: Record<string, PriceEntry> = {
   // Opus 5.5: https://platform.claude.com/docs/en/models/opus-5-5/overview
   'claude:opus': { inputPer1M: 4.00, outputPer1M: 20.00, cacheReadPer1M: 0.20, cacheWritePer1M: 5.00, inputIncludesCacheReads: false, lastReviewedAt: '2026-09-24' },
   'claude:claude-opus-5-5': { inputPer1M: 4.00, outputPer1M: 20.00, cacheReadPer1M: 0.20, cacheWritePer1M: 5.00, inputIncludesCacheReads: false, lastReviewedAt: '2026-09-24' },
-  'claude:sonnet': { inputPer1M: 3.00,  outputPer1M: 15.00, cacheReadPer1M: 0.30, cacheWritePer1M: 3.75,  inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
+  'claude:claude-sonnet-5': { inputPer1M: 3.00, outputPer1M: 15.00, cacheReadPer1M: 0.30, cacheWritePer1M: 3.75, inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
+  // Sonnet 5.5: https://platform.claude.com/docs/en/models/sonnet-5-5/overview
+  'claude:sonnet': { inputPer1M: 2.00, outputPer1M: 10.00, cacheReadPer1M: 0.20, cacheWritePer1M: 2.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-09-30' },
+  'claude:claude-sonnet-5-5': { inputPer1M: 2.00, outputPer1M: 10.00, cacheReadPer1M: 0.20, cacheWritePer1M: 2.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-09-30' },
   'claude:haiku':  { inputPer1M: 1.00,  outputPer1M: 5.00,  cacheReadPer1M: 0.10, cacheWritePer1M: 1.25,  inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
   'claude:fable':  { inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 1.00, cacheWritePer1M: 12.50, inputIncludesCacheReads: false, lastReviewedAt: '2026-07-02' },
 }
@@ -140,6 +143,7 @@ export function resolvePriceEntry(providerId: string, model: string): PriceEntry
   if (providerId === 'claude') {
     // Keep the existing estimates for older concrete Opus generations.
     if (/^claude-opus-(?:4(?:-|$)|5$)/.test(model)) return PRICING['claude:claude-opus-5']
+    if (/^claude-sonnet-(?:4(?:-|$)|5$)/.test(model)) return PRICING['claude:claude-sonnet-5']
     const family = CLAUDE_MODEL_FAMILY.exec(model)
     if (family) return PRICING[`claude:${family[1]}`]
   }
