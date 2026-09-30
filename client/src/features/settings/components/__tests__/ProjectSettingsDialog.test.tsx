@@ -17,6 +17,7 @@ vi.mock('../TerminalSettingsSection', () => ({
 }))
 
 import { ProjectSettingsDialog } from '../ProjectSettingsDialog'
+import { ProjectRepositoriesSection } from '../ProjectRepositoriesSection'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -66,5 +67,20 @@ describe('ProjectSettingsDialog', () => {
     await waitForSelfFetchingSections()
     fireEvent.keyDown(document.body, { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
+  })
+})
+
+
+describe('Project code workspace settings', () => {
+  it('saves a child code workspace without relocating the primary project folder', async () => {
+    const repository = { id: 'primary-p1', projectId: 'p1', name: 'acme-api', path: '/acme', isPrimary: true, kind: 'git', integrationBranch: null, addedAt: '', workspacePath: '/acme/skills-studio' }
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ repositories: [repository] }) })
+    render(<ProjectRepositoriesSection />)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    expect(screen.getByLabelText('Folder path')).toBeDisabled()
+    fireEvent.change(screen.getByLabelText(/Code workspace path/), { target: { value: 'skills-studio' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/repositories/primary-p1'), expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ name: 'acme-api', integrationBranch: null, workspacePath: null, workspacePaths: ['skills-studio'] }) })))
+    expect(await screen.findByText('Code workspace path: /acme/skills-studio')).toBeInTheDocument()
   })
 })

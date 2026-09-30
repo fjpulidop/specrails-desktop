@@ -57,6 +57,29 @@ describe('tool catalog smoke (all domains)', () => {
     setActiveProject(null)
   })
 
+  it('routes workspace membership configuration through guarded project endpoints with the proper permission tier', async () => {
+    const tool = buildToolSpecs().find(t => t.name === 'specrails_projects')!
+    const tier = tool.tier as (args: Record<string, unknown>) => string
+    expect(tier({ action: 'repositories' })).toBe('read')
+    expect(tier({ action: 'repository_update' })).toBe('write')
+    expect(tier({ action: 'repository_remove' })).toBe('destructive')
+    await tool.handler(ctx, { action: 'repository_update', projectId: 'p1', repositoryId: 'primary-p1', workspacePaths: ['studio'] })
+    const [url, init] = fetchMock.mock.calls.at(-1)! as unknown as [string, RequestInit]
+    expect(url).toContain('/api/projects/p1/repositories/primary-p1')
+    expect(init.method).toBe('PATCH')
+    expect(JSON.parse(String(init.body))).toEqual({ workspacePaths: ['studio'] })
+    expect(() => tool.handler(ctx, { action: 'repository_update', projectId: 'p1' })).toThrow('repositoryId')
+  })
+
+  it('forwards code workspaces on registration and standalone loop launches', async () => {
+    const setup = buildToolSpecs().find(t => t.name === 'specrails_setup')!
+    await setup.handler(ctx, { action: 'add_project', path: '/skills', workspacePaths: ['studio'], repositories: [{ path: '/api' }] })
+    expect(JSON.parse(String((fetchMock.mock.calls.at(-1)! as unknown as [string, RequestInit])[1].body))).toMatchObject({ workspacePaths: ['studio'], repositories: [{ path: '/api' }] })
+    const loop = buildToolSpecs().find(t => t.name === 'specrails_loops')!
+    await loop.handler(ctx, { action: 'run', projectId: 'p1', loopId: 'factory:freestyle', workspaceSelection: { 'primary-p1': ['/skills/studio'] } })
+    expect(JSON.parse(String((fetchMock.mock.calls.at(-1)! as unknown as [string, RequestInit])[1].body))).toMatchObject({ workspaceSelection: { 'primary-p1': ['/skills/studio'] } })
+  })
+
   it('every tool has a name, description and input schema', () => {
     for (const spec of buildToolSpecs()) {
       expect(spec.name).toMatch(/^specrails_/)

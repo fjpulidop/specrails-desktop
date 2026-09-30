@@ -4,7 +4,7 @@ import os from 'os'
 import path from 'path'
 import { execFileSync } from 'child_process'
 import { initDesktopDb, addProject, getProject, addProjectRepository, updateProjectRepository, removeProjectRepository, listProjectRepositories, removeProject } from './desktop-db'
-import { assertDistinctRepositories, getProjectRepositories, inspectRepositoryPath, resolveProjectRepository, resolveRepositoryProject, validateTicketRepositoryIds, type RepositoryProject } from './project-repositories'
+import { assertDistinctRepositories, getProjectRepositories, inspectRepositoryPath, resolveProjectRepository, resolveRepositoryProject, validateTicketRepositoryIds, validateWorkspaceSelection, type RepositoryProject } from './project-repositories'
 import type { DbInstance } from './db'
 
 let temp: string
@@ -25,12 +25,55 @@ describe('project repository membership', () => {
     expect(getProject(db, project.id)?.repositories).toEqual(project.repositories)
   })
 
+  it('keeps the project and Git roots while persisting an explicit child workspace', () => {
+    const parent = mkdir('skills'), studio = mkdir('skills/skills-studio')
+    const project = addProject(db, { id: 'skills', slug: 'skills', name: 'Skills', path: parent })
+    const member = updateProjectRepository(db, project.id, 'primary-skills', { workspacePath: 'skills-studio' })
+    expect(member).toMatchObject({ path: parent, workspacePath: fs.realpathSync(studio), isPrimary: true })
+    expect(getProject(db, project.id)?.path).toBe(parent)
+    expect(listProjectRepositories(db, project.id)[0].workspacePath).toBe(fs.realpathSync(studio))
+    expect(() => updateProjectRepository(db, project.id, member.id, { workspacePath: '..' })).toThrow('inside')
+    expect(() => updateProjectRepository(db, project.id, member.id, { workspacePath: 'missing' })).toThrow('unavailable')
+    expect(listProjectRepositories(db, project.id)[0].workspacePath).toBe(fs.realpathSync(studio))
+    expect(updateProjectRepository(db, project.id, member.id, { workspacePath: null }).workspacePath).toBeUndefined()
+  })
+
+  it('registers explicit code workspaces at project creation and accepts a container with independent Git children', () => {
+    const parent = mkdir('skills'), studio = mkdir('skills/skills-studio'), service = mkdir('skills/skills-service')
+    const project = addProject(db, { id: 'new', slug: 'new', name: 'Skills', path: parent, workspacePaths: ['skills-studio', 'skills-service'] })
+    expect(project.repositories?.[0].workspacePaths).toEqual([fs.realpathSync(studio), fs.realpathSync(service)])
+    const containerParent = mkdir('container'), containerStudio = mkdir('container/studio'), containerService = mkdir('container/service')
+    git(containerStudio, 'init'); git(containerService, 'init')
+    const container = addProject(db, { id: 'container', slug: 'container', name: 'Container', path: containerParent, repositories: [{ path: containerStudio }, { path: containerService }] })
+    expect(container.repositories?.map(member => member.kind)).toEqual(['folder', 'git', 'git'])
+  })
+
+  it('persists multiple code workspaces in one Git membership with one delivery owner', () => {
+    const parent = mkdir('monorepo'), studio = mkdir('monorepo/skills-studio'), service = mkdir('monorepo/skills-service')
+    git(parent, 'init')
+    const project = addProject(db, { id: 'mono', slug: 'mono', name: 'Skills', path: parent })
+    const member = updateProjectRepository(db, project.id, 'primary-mono', { workspacePaths: ['skills-studio', 'skills-service'] })
+    expect(member.workspacePaths).toEqual([fs.realpathSync(studio), fs.realpathSync(service)])
+    expect(listProjectRepositories(db, project.id)).toHaveLength(1)
+    for (const workspacePaths of [[], ['skills-studio', 'skills-studio'], ['.', 'skills-studio'], ['../outside']]) expect(() => updateProjectRepository(db, project.id, member.id, { workspacePaths })).toThrow()
+    expect(updateProjectRepository(db, project.id, member.id, { workspacePaths: null }).workspacePaths).toBeUndefined()
+  })
+
+  it('does not let symlinks or nested independent Git repositories masquerade as a code workspace', () => {
+    const parent = mkdir('skills'), outside = mkdir('outside'), nested = mkdir('skills/nested')
+    fs.symlinkSync(outside, path.join(parent, 'alias'))
+    git(nested, 'init')
+    expect(() => inspectRepositoryPath({ path: parent, workspacePath: 'alias' })).toThrow('inside')
+    expect(() => inspectRepositoryPath({ path: parent, workspacePath: 'nested' })).toThrow('separate workspace')
+    expect(() => inspectRepositoryPath({ path: parent, workspacePath: '' })).toThrow('empty')
+  })
+
   it('backfills v25 without changing IDs, histories, settings or missing primary paths, and survives reopen', () => {
     db.close()
     const file = path.join(temp, 'desktop.sqlite')
     db = initDesktopDb(file)
     const original = addProject(db, { id: 'legacy', slug: 'same-slug', name: 'Legacy', path: path.join(temp, 'missing') })
-    db.exec("DROP TABLE project_repositories; DELETE FROM schema_migrations WHERE version = 26; INSERT INTO desktop_settings VALUES ('sentinel', 'keep')")
+    db.exec("DROP TABLE project_repositories; DELETE FROM schema_migrations WHERE version IN (26,32); INSERT INTO desktop_settings VALUES ('sentinel', 'keep')")
     db.close()
     db = initDesktopDb(file)
     expect(getProject(db, 'legacy')).toMatchObject({ id: original.id, slug: original.slug, path: original.path, db_path: original.db_path, added_at: original.added_at, primaryRepositoryId: 'primary-legacy', repositories: [{ id: 'primary-legacy', available: false }] })
@@ -120,4 +163,11 @@ describe('strict scope and path resolution', () => {
     expect(() => inspectRepositoryPath({ path: temp, integrationBranch: 'bad\nbranch' })).toThrow('integrationBranch')
     expect(() => assertDistinctRepositories([inspectRepositoryPath({ path: temp }), inspectRepositoryPath({ path: mkdir('nested') })])).toThrow('distinct')
   })
+})
+
+it('validates launch selections against registered workspace paths and selected memberships', () => {
+  const parent = mkdir('selection'); mkdir('selection/studio'); mkdir('selection/service')
+  const project = addProject(db, { id: 'selection', slug: 'selection', name: 'Selection', path: parent, workspacePaths: ['studio', 'service'] })
+  expect(validateWorkspaceSelection(project, { 'primary-selection': ['studio'] }, ['primary-selection'])).toEqual({ 'primary-selection': [fs.realpathSync(path.join(parent, 'studio'))] })
+  for (const selection of [{ 'primary-selection': [] }, { 'primary-selection': ['.'] }, { other: ['studio'] }, { 'primary-selection': ['studio', 'studio'] }]) expect(() => validateWorkspaceSelection(project, selection, ['primary-selection'])).toThrow()
 })

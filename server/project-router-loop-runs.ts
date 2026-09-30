@@ -29,7 +29,7 @@ import { resolveProjectExecution } from './workspace-resolution'
 import { referencesUnsupportedProviderCommand } from './modules/loops/runtime/loop-command-catalog'
 import { newId } from './ids'
 import type { ReasoningEffort } from './providers/types'
-import { getProjectRepositories, validateTicketRepositoryIds, RepositoryValidationError } from './project-repositories'
+import { getProjectRepositories, validateTicketRepositoryIds, validateWorkspaceSelection, RepositoryValidationError } from './project-repositories'
 import { launchMultiRepositoryRail } from './modules/delivery/runtime/multi-repo-execution'
 import { getRails, getRail, createRail, deleteRail, MAX_RAILS } from './modules/delivery/runtime/rails-store'
 import { getActivePrDeliveryByRail } from './modules/delivery/runtime/rail-pr-store'
@@ -290,9 +290,11 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       effort = globalAgentDefaults.pipelineEffort as ReasoningEffort
     }
     let repositoryIds: string[]
+    let workspaceSelection: Record<string, string[]> | undefined
     const primary = getProjectRepositories(c.project).find((repository) => repository.isPrimary)!
     try {
       repositoryIds = validateTicketRepositoryIds(c.project, body.repositoryIds) ?? [primary.id]
+      workspaceSelection = validateWorkspaceSelection(c.project, body.workspaceSelection, repositoryIds)
       assertLoopShellRepositoryScope(loop.graph, repositoryIds)
       assertProcessAdmission(c.project.id)
     } catch (error) {
@@ -318,7 +320,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
       try {
         let prDeliveryId: string | undefined
         const ids = await launchMultiRepositoryRail({
-          ctx: c, railIndex: rail.railIndex, ticketIds: [], repositoryIds, scope: 'all',
+          ctx: c, railIndex: rail.railIndex, ticketIds: [], repositoryIds, workspaceSelection, scope: 'all',
           loopId, loopName: loop.name, loopGraph: loop.graph, provider, model, effort,
           onPrDeliveryCreated: (id) => { prDeliveryId = id },
         })
@@ -347,6 +349,7 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
         graph: loop.graph,
         projectId: c.project.id,
         repositoryId: primary.id,
+        workspacePaths: workspaceSelection?.[primary.id],
         cwd: exec.cwd,
         repoDir: exec.relocated ? exec.repoDir : undefined,
         railIndex: null,

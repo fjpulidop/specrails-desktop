@@ -110,6 +110,14 @@ describe('AgentRailLaunchCard', () => {
     expect(screen.getByText('Add at least one spec to launch.')).toBeInTheDocument()
   })
 
+  it('preserves agent-selected workspace paths in the launch and frozen intent', async () => {
+    renderCard({ repositoryIds: ['primary-p1'], workspaceSelection: { 'primary-p1': ['/skills/studio'] } })
+    await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('rail-card-play')) })
+    await waitFor(() => expect(screen.getByTestId('agent-rail-launch-stub-launched')).toBeInTheDocument())
+    expect(body(calls.find(c => c.url.endsWith('/rails/1/launch'))!)).toMatchObject({ repositoryIds: ['primary-p1'], workspaceSelection: { 'primary-p1': ['/skills/studio'] } })
+  })
+
   it('Play: edits win, launches with the mission origin, then freezes as launched', async () => {
     renderCard()
     await waitFor(() => expect(screen.getByTestId('rail-card-play')).toBeEnabled())

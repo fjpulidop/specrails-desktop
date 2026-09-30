@@ -55,7 +55,7 @@ import { isValidBranchName } from '../../../integration-branch'
 import { durableBranchHeads, durableOverlayCleanupEvidence, durableSettlementIgnoredPaths, releaseRailWorktrees } from './rail-worktree-release'
 import { checkoutProjectReviewBranch, getProjectGitInfo, inspectProjectCheckoutCleanliness } from '../../../project-git'
 import { defaultExec } from './pr-publisher'
-import { getProjectRepositories, resolveProjectRepository, validateTicketRepositoryIds, RepositoryValidationError } from '../../../project-repositories'
+import { getProjectRepositories, resolveProjectRepository, validateTicketRepositoryIds, validateWorkspaceSelection, RepositoryValidationError } from '../../../project-repositories'
 import { checkoutRepositoryDelivery } from './multi-repo-checkout'
 import { resolveRepositoryDeliveryBases } from './multi-repo-bases'
 import { listRepositoryDeliveries } from './multi-repo-execution'
@@ -507,7 +507,7 @@ export function createRailsRouter(): Router {
     catch { res.status(400).json({ error: 'invalid_runtime_provider_override' }); return }
     // Non-string values fail the VALID_MODES check below.
     let mode = normalizeRailMode(req.body?.mode ?? 'implement') as string
-    const { repositoryIds: rawRepositoryIds, baseDeliveryIds, profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch, followUp: rawFollowUp } = req.body ?? {}
+    const { repositoryIds: rawRepositoryIds, workspaceSelection: rawWorkspaceSelection, baseDeliveryIds, profileName, aiEngine, model, loopId: rawLoopId, reasoning_effort, originConversationId, originSurface, targetPrNumber, revisionOfDeliveryId, revisionNote, baseBranch: rawBaseBranch, followUp: rawFollowUp } = req.body ?? {}
     // PR review follow-up (pr-follow-up-fixes): a typed, bounded, FROZEN scope
     // for "resolve these review comments". It rides the delivery row and every
     // ai-step prompt — never the spec, whose description Jira-linked projects
@@ -639,12 +639,14 @@ export function createRailsRouter(): Router {
     }
 
     let repositoryIds: string[]
+    let workspaceSelection: Record<string, string[]> | undefined
     const primaryRepository = getProjectRepositories(c.project).find((repository) => repository.isPrimary)!
     try {
       const requiredRepositoryIds = [...new Set(rail.ticketIds.flatMap((id) =>
         validateTicketRepositoryIds(c.project, c.getTicketSpec?.(id)?.repositoryIds) ?? [primaryRepository.id],
       ))]
       repositoryIds = validateTicketRepositoryIds(c.project, rawRepositoryIds) ?? requiredRepositoryIds
+      workspaceSelection = validateWorkspaceSelection(c.project, rawWorkspaceSelection, repositoryIds)
       const missing = requiredRepositoryIds.filter((id) => !repositoryIds.includes(id))
       if (missing.length) {
         res.status(400).json({ error: 'repository_scope_incomplete', missingRepositoryIds: missing,
@@ -1068,7 +1070,7 @@ export function createRailsRouter(): Router {
             try {
               const ids = await launchIsolatedRail({
                 runtimeProviderOverride,
-                ctx: c, railIndex, ticketIds: [...rail.ticketIds], repositoryIds, ...repositoryBases, loopId, loopName, loopGraph,
+                ctx: c, railIndex, ticketIds: [...rail.ticketIds], repositoryIds, workspaceSelection, ...repositoryBases, loopId, loopName, loopGraph,
                 provider: loopProvider, model: loopModel, effort, scope,
                 ...(deciderEngine ? { deciderEngine } : {}),
                 profileName: resolvedProfile,
@@ -1202,6 +1204,7 @@ export function createRailsRouter(): Router {
               graph: loopGraph,
               projectId: c.project.id,
               repositoryId: primaryRepository.id,
+              workspacePaths: workspaceSelection?.[primaryRepository.id],
               cwd: loopExec.cwd,
               repoDir: loopExec.relocated ? loopExec.repoDir : undefined,
               railIndex,

@@ -29,6 +29,8 @@ export interface RailLaunchProposal {
   /** Create a fresh rail (name optional). Wins over railIndex when both are set. */
   newRail: { name: string | null } | null
   ticketIds: number[]
+  repositoryIds?: string[]
+  workspaceSelection?: Record<string, string[]>
   mode: RailLaunchMode
   loopId: string | null
   aiEngine: string | null
@@ -49,7 +51,7 @@ export interface RailLaunchProposal {
 export type FollowUpProposal = Omit<PrFollowUp, 'id' | 'hash'>
 
 export interface RejectedRailLaunchBlock {
-  reason: 'invalid_json' | 'not_object' | 'unsupported_version' | 'no_tickets' | 'invalid_mode'
+  reason: 'invalid_json' | 'not_object' | 'unsupported_version' | 'no_tickets' | 'invalid_mode' | 'invalid_workspace_selection'
   /** ≤ 160 chars of the offending payload for the muted "unreadable" note. */
   excerpt: string
 }
@@ -117,6 +119,10 @@ export function coerceRailLaunchProposal(value: unknown): { ok: true; proposal: 
   // The removed Batch mode folds into implement (one aggregate run per rail).
   const mode = modeRaw === 'batch' || modeRaw === 'batch-implement' ? 'implement' : modeRaw
   if (!(RAIL_LAUNCH_MODES as readonly string[]).includes(mode)) return { ok: false, reason: 'invalid_mode' }
+  const repositoryIds = value.repositoryIds
+  const workspaceSelection = value.workspaceSelection
+  if (repositoryIds !== undefined && (!Array.isArray(repositoryIds) || !repositoryIds.length || repositoryIds.length > 50 || repositoryIds.some(id => typeof id !== 'string' || !id.trim()) || new Set(repositoryIds).size !== repositoryIds.length)) return { ok: false, reason: 'invalid_workspace_selection' }
+  if (workspaceSelection !== undefined && (!isRecord(workspaceSelection) || !Object.keys(workspaceSelection).length || Object.keys(workspaceSelection).length > 50 || Object.entries(workspaceSelection).some(([id, paths]) => !id.trim() || !Array.isArray(paths) || !paths.length || paths.length > 50 || paths.some(item => typeof item !== 'string' || !item.trim() || item.length > 4096) || new Set(paths).size !== paths.length))) return { ok: false, reason: 'invalid_workspace_selection' }
   const newRailRaw = value.newRail
   const newRail = newRailRaw === true
     ? { name: null }
@@ -131,6 +137,8 @@ export function coerceRailLaunchProposal(value: unknown): { ok: true; proposal: 
       railIndex,
       newRail,
       ticketIds,
+      ...(repositoryIds !== undefined ? { repositoryIds: repositoryIds as string[] } : {}),
+      ...(workspaceSelection !== undefined ? { workspaceSelection: workspaceSelection as Record<string, string[]> } : {}),
       mode: mode as RailLaunchMode,
       loopId: optString(value.loopId, 120),
       aiEngine: optString(value.aiEngine ?? value.provider ?? value.engine, 80),

@@ -98,6 +98,7 @@ export interface IsolatedLaunchInput {
   runtimeProviderOverride?: RuntimeProviderOverride
   /** Registered write targets. When omitted, use the specs' targets, then primary. */
   repositoryIds?: string[]
+  workspaceSelection?: Record<string, string[]>
   repositoryContinuation?: { deliveryId: string; decision: PrDecision }
   repositoryBaseBranches?: Record<string, string>
   repositoryBaseShas?: Record<string, string>
@@ -1488,6 +1489,7 @@ export async function launchIsolatedRail(input: IsolatedLaunchInput, io: Isolate
         runId: a.runId, loopId, loopName, graph: loopGraph, projectId: ctx.project.id,
         cwd: a.handle.worktreePath, repoDir: a.handle.worktreePath,
         repositoryId: singleRepositoryId,
+        workspacePaths: singleRepositoryId ? input.workspaceSelection?.[singleRepositoryId] : undefined,
         isolation: { branch: a.handle.branch, worktreePath: a.handle.worktreePath },
         railIndex, ticketId: a.ticketIds.length ? a.ticketId : null,
         spec: {

@@ -26,14 +26,14 @@ function graphWith(prompt: string): LoopGraph {
 let desktopDb: DbInstance
 let run: ReturnType<typeof vi.fn>
 
-function buildApp(project: { providers: string[]; provider: string }): Express {
+function buildApp(project: { providers: string[]; provider: string; repositories?: import('./project-repositories').ProjectRepository[] }): Express {
   run = vi.fn().mockResolvedValue({ runId: 'rid', outcome: 'success', iterations: 1, totalCostUsd: 0 })
   const app = express()
   app.use(express.json())
   const router = Router()
   const ctx = () => ({
     desktopDb,
-    project: { id: 'p1', slug: 's1', path: '/repo', provider: project.provider, providers: project.providers },
+    project: { id: 'p1', slug: 's1', path: '/repo', repositories: project.repositories, provider: project.provider, providers: project.providers },
     loopRunManager: { run, cancel: vi.fn() },
     onLoopRunFinished: vi.fn(),
   })
@@ -64,6 +64,17 @@ describe('project-router standalone loop runs', () => {
     const arg = run.mock.calls[0][0] as { railIndex: unknown; ticketId: unknown }
     expect(arg.railIndex).toBeNull()
     expect(arg.ticketId).toBeNull()
+  })
+
+  it('freezes selected registered workspace paths and rejects parent scope before spawning', async () => {
+    const id = publish('workspace-loop')
+    const app = buildApp({ provider: 'claude', providers: ['claude'], repositories: [{ id: 'primary-p1', projectId: 'p1', name: 'Skills', path: '/repo', kind: 'folder', isPrimary: true, integrationBranch: null, addedAt: '', workspacePaths: ['/repo/studio', '/repo/service'] }] })
+    const invalid = await request(app).post('/api/projects/p1/loop-runs').send({ loopId: id, workspaceSelection: { 'primary-p1': ['/repo'] } })
+    expect(invalid.status).toBe(400)
+    expect(run).not.toHaveBeenCalled()
+    const valid = await request(app).post('/api/projects/p1/loop-runs').send({ loopId: id, workspaceSelection: { 'primary-p1': ['studio'] } })
+    expect(valid.status).toBe(202)
+    expect(run.mock.calls[0][0]).toMatchObject({ workspacePaths: ['/repo/studio'] })
   })
 
   it('400s an unpublished loop', async () => {

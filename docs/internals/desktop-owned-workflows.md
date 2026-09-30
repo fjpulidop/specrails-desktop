@@ -91,3 +91,31 @@ provider’s default rather than an incompatible mission model. Inherited agents
 may still override model or effort individually. The inheritance marker is never
 passed to Core as a connection. Builtin refresh upgrades unchanged factory
 recipes; customized loops retain their explicit selections.
+
+## Projects and code workspaces
+
+Registration and project settings accept `workspacePaths`, one directory per line,
+absolute or relative to the registered repository. For `skills`, configure
+`skills-studio` to work in that child directory. Configure several folders of the
+same Git checkout under one membership to preserve one branch and delivery owner.
+An omitted list means the registered folder is itself the code workspace.
+Independent nested Git checkouts can be attached to a non-Git project container as
+separate memberships; specs must select those members for isolated writes.
+
+Rails and mission implementation cards expose workspace checkboxes.
+`workspaceSelection` maps repository IDs to a nonempty subset of their registered
+paths. The operator discovers these paths from project context and may include
+`repositoryIds` and `workspaceSelection` in a `rail-launch` proposal or a direct MCP
+launch. Unknown paths and memberships fail before resource allocation. A launch
+never modifies project workspace configuration. Rail choices are saved with the
+project's dashboard state; card choices are saved in the message's launch intent.
+
+All three workflows freeze selected code scopes and configured checks. Checks
+without a directory expand across selected workspaces; explicit checks for other
+registered workspaces are excluded. Every executed check must remain inside a
+selected code workspace, including after symlink resolution. Multiple scopes require
+an explicit workspace directory for agent-proposed checks. Logs show actual command
+directories, and agents receive the same absolute paths for manual checks. These
+code workspaces are distinct from the internal agent/artifact workspace.
+
+The MCP exposes workspace inventory and membership configuration through `specrails_projects` (`repositories`, `repository_add`, `repository_update`, `repository_remove`). Updates reuse the HTTP lifecycle guards. `specrails_setup(add_project)` accepts primary `workspacePaths` and additional `repositories`; both `specrails_rails(launch)` and `specrails_loops(run)` accept the same `workspaceSelection` map. Project resolution also recognizes registered workspace paths.

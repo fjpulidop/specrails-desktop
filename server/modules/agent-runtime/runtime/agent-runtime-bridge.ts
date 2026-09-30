@@ -6,7 +6,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, isAbsolute, join, posix } from 'node:path'
+import { dirname, isAbsolute, join, posix, relative, resolve, sep } from 'node:path'
 import { createInterface } from 'node:readline'
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime, validateRequestedRoleEfforts } from './agent-runtime-loader'
 import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
@@ -27,13 +27,31 @@ export function runtimeChangeName(runId: string): string {
  * root where a monorepo test script fans out to every workspace. An explicit
  * cwd is relative to the registered directory; one already inside the scope is kept.
  */
-export function scopedHostChecks<T extends { repositoryId: string; cwd?: string }>(checks: readonly T[], repositories: ReadonlyArray<{ id: string; scope?: string[] }> = []): T[] {
-  return checks.map(check => {
-    const scope = repositories.find(repository => repository.id === check.repositoryId)?.scope?.[0]
-    if (!scope || (check.cwd !== undefined && isAbsolute(check.cwd))) return check
-    const cwd = (check.cwd ?? '.').replace(/\\/g, '/')
-    const inside = cwd === scope || cwd.startsWith(scope + '/')
-    return { ...check, cwd: inside ? cwd : posix.normalize(posix.join(scope, cwd)) }
+export function scopedHostChecks<T extends { repositoryId: string; cwd?: string }>(checks: readonly T[], repositories: ReadonlyArray<{ id: string; path?: string; scope?: string[]; registeredScope?: string[] }> = []): T[] {
+  return checks.flatMap(check => {
+    const repository = repositories.find(repository => repository.id === check.repositoryId)
+    const scopes = repository?.scope
+    if (!repository || !scopes?.length) return [check]
+    if (check.cwd === undefined) return scopes.map((scope, index) => ({ ...check, cwd: scope,
+      ...((check as { key?: string }).key && scopes.length > 1 ? { key: (check as T & { key: string }).key.slice(0, 90) + '-workspace-' + index } : {}),
+    }))
+    const declared = repository.registeredScope
+    const inputCwd = check.cwd.replace(/\\/g, '/')
+    const rawCwd = isAbsolute(inputCwd) && repository.path ? relative(repository.path, inputCwd).split(sep).join('/') : inputCwd
+    if (!isAbsolute(rawCwd) && declared?.some(root => rawCwd === root || rawCwd.startsWith(root + '/')) && !scopes.some(root => rawCwd === root || rawCwd.startsWith(root + '/'))) return []
+    let cwd = check.cwd.replace(/\\/g, '/')
+    if (isAbsolute(cwd)) {
+      if (!repository.path) throw new Error('Verification workspace root is unavailable')
+      cwd = relative(repository.path, cwd).split(sep).join('/')
+    } else {
+      const normalized = posix.normalize(cwd)
+      if (scopes.some(scope => cwd === scope || cwd.startsWith(scope + '/'))) cwd = normalized
+      else if (scopes.length === 1) cwd = posix.join(scopes[0], normalized)
+      else throw new Error('Verification must select an explicit workspace cwd when several scopes are configured')
+    }
+    cwd = posix.normalize(cwd)
+    if (!scopes.some(root => cwd === root || cwd.startsWith(root + '/'))) throw new Error(`Verification cwd ${JSON.stringify(check.cwd)} escapes the selected code workspace ${scopes.join(', ')}`)
+    return [{ ...check, cwd }]
   })
 }
 
@@ -125,7 +143,7 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
   let cli = selectedCli
   if (!cli) throw new Error('Programmatic agent runtime is enabled but its Core CLI is unavailable. Build or bundle the compatible Core runtime.')
   if (!options.resume && (!options.configPath || !options.change)) throw new Error('New programmatic runs require configuration and a change name')
-  const admittedContext = JSON.parse(readFileSync(options.contextPath, 'utf8')) as { runId?: unknown; artifactRoot?: string; repositories?: Array<RuntimeLogRepository & { scope?: string[] }> }
+  const admittedContext = JSON.parse(readFileSync(options.contextPath, 'utf8')) as { runId?: unknown; artifactRoot?: string; repositories?: Array<RuntimeLogRepository & { scope?: string[]; registeredScope?: string[] }> }
   if (typeof admittedContext.runId !== 'string') throw new Error('Core context is missing its run identity')
   const args = [cli, options.resume ? 'resume' : 'run', '--context', options.contextPath]
   if (!options.resume) {
@@ -188,6 +206,14 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
   const definitionFile = join(dirname(options.contextPath), 'desktop-workflow-definition.json')
   const requiresVerified = definitionEngine && (JSON.parse(readFileSync(definitionFile, 'utf8')) as { delivery?: { requiresVerified?: boolean } }).delivery?.requiresVerified === true
   const frozenPath = join(dirname(options.contextPath), 'desktop-runtime-config.json')
+  if (existsSync(frozenPath)) {
+    const checks = (JSON.parse(readFileSync(frozenPath, 'utf8')) as RuntimeConfig).verification
+    for (const check of checks) {
+      const repository = admittedContext.repositories?.find(repo => repo.id === check.repositoryId)
+      const cwd = repository?.path ? resolve(repository.path, check.cwd ?? repository.scope?.[0] ?? '.') : check.cwd
+      try { options.onLine?.(`[verification scope] ${JSON.stringify({ repositoryId: check.repositoryId, workspace: repository?.name, cwd, command: check.command, args: check.args })}\n`) } catch { /* Advisory log observer. */ }
+    }
+  }
   if (existsSync(frozenPath)) {
     const frozen = JSON.parse(readFileSync(frozenPath, 'utf8')) as { agents: Record<string, { provider: string; model?: string }>; fixer?: { provider: string; model?: string } }
     for (const [role, assignment] of [...Object.entries(frozen.agents), ...(frozen.fixer ? [['fixer', frozen.fixer] as const] : [])]) {

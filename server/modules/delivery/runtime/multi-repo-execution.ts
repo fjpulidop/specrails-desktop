@@ -325,6 +325,9 @@ export async function launchMultiRepositoryRail(input: IsolatedLaunchInput, io: 
         const head = await git.run(['rev-parse', '--verify', 'HEAD'], worktree.worktree_path)
         if (head.code !== 0 || !/^[a-f0-9]{40,64}$/i.test(head.stdout.trim())) throw new Error(`Cannot freeze HEAD for ${repository.name}`)
         manifest.repositories.push({ repositoryId: repository.id, name: repository.name, sourcePath: repository.path,
+          ...(repository.workspacePath ? { workspacePath: repository.workspacePath } : {}),
+          ...(repository.workspacePaths ? { workspacePaths: [...repository.workspacePaths] } : {}),
+          ...((input.workspaceSelection?.[repository.id] ?? previousRepository?.selectedWorkspacePaths) ? { selectedWorkspacePaths: [...(input.workspaceSelection?.[repository.id] ?? previousRepository!.selectedWorkspacePaths!)] } : {}),
           gitCommonDir: repositoryLockKey(repository.path), baseBranch: child.base_branch, integrationBranch: integrationBranches.get(repository.id) ?? previousRepository?.integrationBranch ?? child.base_branch, baseSha: head.stdout.trim(),
           worktreePath: worktree.worktree_path, branch: worktree.branch, worktreeId: worktree.id })
       }

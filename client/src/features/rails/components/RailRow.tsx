@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { RepositoryScopeSelector } from '../../projects/components/RepositoryScopeSelector'
+import { projectRepositories } from '../../projects/lib/project-repositories'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { AgentRuntimeRuns } from '../../settings/components/AgentRuntimeRuns'
 import { useDroppable, useDndContext } from '@dnd-kit/core'
@@ -95,6 +97,8 @@ interface RailRowProps {
   onLoopChange?: (loopId: string) => void
   onEffortChange?: (effort: ReasoningEffort) => void
   onTargetPrChange?: (value: RailTargetPr | null) => void
+  workspaceSelection?: Record<string, string[]>
+  onWorkspaceSelectionChange?: (selection: Record<string, string[]>) => void
   onToggle: () => void
   onTicketClick: (ticket: LocalTicket) => void
   onDelete: () => void
@@ -110,11 +114,15 @@ export function RailRow({
   id, label, tickets, mode, status, activeJobId, profileName, aiEngine, freestyleModel, loopModel, providers,
   loopAvailable, selectedLoopId, reasoningEffort, targetPr, worktreeSummary, prDecision, onPrDecision, onPrCheckout, executionMetric, jiggleMode,
   dragHandleListeners, dragHandleAttributes, density = 'normal',
-  onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, onLoopChange, onEffortChange, onTargetPrChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
+  onModeChange, onProfileChange, onEngineChange, onFreestyleModelChange, onLoopModelChange, onLoopChange, onEffortChange, onTargetPrChange, workspaceSelection, onWorkspaceSelectionChange, onToggle, onTicketClick, onDelete, onLongPress, onRename,
   onTicketMoveToSpecs,
 }: RailRowProps) {
   const { t } = useTranslation('dashboard')
-  const { activeProjectId } = useDesktop()
+  const { activeProjectId, projects } = useDesktop()
+  const repositories = projectRepositories(projects.find(project => project.id === activeProjectId))
+  const primary = repositories.find(member => member.isPrimary)
+  const repositoryIds = [...new Set(tickets.flatMap(ticket => ticket.repositoryIds ?? (primary ? [primary.id] : [])))]
+  const workspacePicker = onWorkspaceSelectionChange ? <RepositoryScopeSelector workspaceOnly value={repositoryIds} repositories={repositories} onChange={() => {}} workspaceSelection={workspaceSelection} onWorkspaceChange={onWorkspaceSelectionChange} disabled={status === 'running'} /> : null
   // Server rail index for identity-keyed endpoints (pr-candidates). Null for
   // exotic/test ids — the target-PR selector simply doesn't render then.
   const serverRailIdx = railIndexFromId(id)
@@ -528,6 +536,7 @@ export function RailRow({
           </div>
         )}
 
+        {workspacePicker}
         {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
         {/* Ask-first PR decision strip (safe-pr-review-flow) */}
         {prDecision && onPrDecision && (
@@ -695,6 +704,7 @@ export function RailRow({
             </div>
           )}
 
+          {workspacePicker}
           {activeProjectId && serverRailIdx !== null && <AgentRuntimeRuns projectId={activeProjectId} railIndex={serverRailIdx} contextual />}
           {/* Ask-first PR decision strip (safe-pr-review-flow) */}
           {prDecision && onPrDecision && (

@@ -625,6 +625,13 @@ summary later.
   N-1. When talking to the user ALWAYS use the 1-based label (tool results
   include \`railLabel\`, e.g. railIndex 3 → "Rail 4") or the rail's custom name;
   never quote the raw railIndex as the rail's name.
+- Code workspace selection: discover \`workspacePaths\` in the project context. A
+  project folder can contain several code workspaces; tests must run in the
+  workspace being changed. Include \`workspaceSelection\` (repository ID → array
+  of registered workspace paths) in rail-launch cards and direct launch calls to
+  target a subset. Preserve \`repositoryIds\` for affected Git memberships. Do not
+  invent paths or substitute the parent folder. Omission uses every configured
+  workspace for each affected membership.
 - Configure then launch: \`specrails_rails(set_tickets, railIndex, ticketIds)\` →
   \`specrails_rails(launch, railIndex, mode, …)\`. Setting a profile and then
   switching the rail's engine to a provider without profile support
@@ -888,6 +895,8 @@ never as a launch):
   \`null\` means "the rail's / project's default".
 - \`targetPrNumber\` / \`baseBranch\`: only when the user named an existing PR
   or a branch to stack on.
+- \`repositoryIds\`: selected registered repository memberships, consistent with the specs.
+- \`workspaceSelection\`: optional object mapping each selected repository id to a non-empty array of registered workspace paths. Discover paths from project context; never invent them. Omission uses every configured workspace. The card lets the user edit this choice before Play.
 - \`rationale\`: ONE sentence — why this grouping / engine.
 
 Prose around the block: say what you propose in one or two lines and stop —
@@ -917,7 +926,7 @@ export function buildOperatorInstructions(): string {
   return isMissionRailCardsEnabled() ? `${OPERATOR_INSTRUCTIONS}\n${RAIL_LAUNCH_CARD_SECTION}` : OPERATOR_INSTRUCTIONS
 }
 
-export const RAIL_LAUNCH_CARD_SYSTEM_CLAUSE = ' When the user asks to assign, prepare or launch specs on a rail WITHOUT explicitly saying to launch now, do not call specrails_rails launch — emit one fenced rail-launch JSON block per rail (ticketIds, railIndex or newRail, mode, loopId, aiEngine, model, reasoningEffort, profileName, rationale) so the app renders an editable launch card the user plays; never propose a rail whose availability is not free. A message starting with "[Specrails run-failure briefing" is app-posted: answer in ≤ 6 lines with the failure and ONE recommended next action, and never resume, recover, relaunch or discard in that turn.'
+export const RAIL_LAUNCH_CARD_SYSTEM_CLAUSE = ' When the user asks to assign, prepare or launch specs on a rail WITHOUT explicitly saying to launch now, do not call specrails_rails launch — emit one fenced rail-launch JSON block per rail (ticketIds, railIndex or newRail, mode, loopId, aiEngine, model, reasoningEffort, profileName, repositoryIds, workspaceSelection, rationale) so the app renders an editable launch card the user plays; never propose a rail whose availability is not free. A message starting with "[Specrails run-failure briefing" is app-posted: answer in ≤ 6 lines with the failure and ONE recommended next action, and never resume, recover, relaunch or discard in that turn.'
 
 /** The per-turn system prompt (flag-aware). */
 export function buildOperatorSystemPrompt(): string {

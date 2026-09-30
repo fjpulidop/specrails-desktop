@@ -102,9 +102,9 @@
     "resetPosition": "Restablecer posición"
   },
   "repositories": {
-    "title": "Repositorios y carpetas",
+    "title": "Workspaces y carpetas de contexto del proyecto",
     "additional": "Carpetas adicionales",
-    "sharedBacklog": "Un proyecto, un backlog común. Cada spec puede seleccionar uno o varios repositorios.",
+    "sharedBacklog": "Un proyecto tiene un backlog compartido y uno o varios workspaces de código. Un workspace puede ser la carpeta del proyecto o una carpeta dentro de un repositorio.",
     "folderNumber": "Carpeta {{number}}",
     "removeFolder": "Quitar carpeta",
     "addFolder": "Añadir carpeta",
@@ -118,14 +118,18 @@
     "browse": "Seleccionar carpeta",
     "integrationBranch": "Rama de integración",
     "branchDefault": "Usar la predeterminada del repositorio",
-    "specScope": "Repositorios de esta spec",
-    "scopeHint": "Selecciona los repositorios que puede modificar esta spec. Las demás carpetas siguen disponibles como contexto.",
+    "specScope": "Workspaces de esta spec",
+    "scopeHint": "Selecciona los workspaces de código que esta spec puede modificar y verificar. Las carpetas no seleccionadas siguen disponibles como contexto.",
     "invalidSelection": "Un repositorio seleccionado ya no está registrado. Actualiza la selección antes de guardar.",
     "shellTarget": "Repositorio de este comando",
     "shellDefault": "Repositorio de ejecución (ejecuciones con un único repo)",
     "shellHint": "Obligatorio cuando la ejecución afecta a varios repositorios.",
     "select": "Repositorio",
-    "all": "Todos los repositorios"
+    "all": "Todos los repositorios",
+    "workspacePath": "Ruta del workspace de código",
+    "workspaceHint": "Opcional. Una carpeta por línea, absoluta o relativa a este repositorio. Vacío usa la carpeta del repositorio. Implement, Quick SDD y Freestyle verifican cada workspace de código indicado.",
+    "launchWorkspaces": "Workspaces de esta ejecución",
+    "launchWorkspaceHint": "Los cambios de código y los tests se limitan a estas carpetas. Selecciona al menos un workspace por repositorio afectado."
   },
   "repositoryDelivery": {
     "building": "Implementando",

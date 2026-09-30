@@ -102,9 +102,9 @@
     "resetPosition": "Reset modal position"
   },
   "repositories": {
-    "title": "Repositories and folders",
+    "title": "Project workspaces and context folders",
     "additional": "Additional folders",
-    "sharedBacklog": "One project, one shared backlog. Specs can select one or several repositories.",
+    "sharedBacklog": "A project has one shared backlog and one or more code workspaces. A workspace may be the project folder or a folder inside a repository.",
     "folderNumber": "Folder {{number}}",
     "removeFolder": "Remove folder",
     "addFolder": "Add folder",
@@ -118,14 +118,18 @@
     "browse": "Choose folder",
     "integrationBranch": "Integration branch",
     "branchDefault": "Use repository default",
-    "specScope": "Repositories for this spec",
-    "scopeHint": "Select the repositories this spec can change. Unselected folders remain available for context.",
+    "specScope": "Workspaces for this spec",
+    "scopeHint": "Select the code workspaces this spec can change and verify. Unselected folders remain available for context.",
     "invalidSelection": "A selected repository is no longer registered. Update the selection before saving.",
     "shellTarget": "Repository for this command",
     "shellDefault": "Run repository (single-repository runs)",
     "shellHint": "Required when a run affects several repositories.",
     "select": "Repository",
-    "all": "All repositories"
+    "all": "All repositories",
+    "workspacePath": "Code workspace path",
+    "workspaceHint": "Optional. One directory per line, absolute or relative to this repository. Empty uses the repository folder. Implement, Quick SDD and Freestyle verify each listed code workspace.",
+    "launchWorkspaces": "Workspaces for this run",
+    "launchWorkspaceHint": "Code changes and tests are scoped to these folders. Select at least one workspace for each affected repository."
   },
   "repositoryDelivery": {
     "building": "Building",

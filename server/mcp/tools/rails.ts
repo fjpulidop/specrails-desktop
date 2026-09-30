@@ -61,6 +61,7 @@ export function railsTools(): McpToolSpec[] {
           .describe('Operation to perform'),
         projectId: z.string().optional().describe('Project id (defaults to the active project)'),
         repositoryIds: z.array(z.string().min(1)).min(1).max(50).optional().describe('launch only: explicit affected repository memberships for the coordinated run; must include every repository required by the assigned specs. Omission uses the assigned specs\' repository selections.'),
+        workspaceSelection: z.record(z.string(), z.array(z.string().min(1)).min(1)).optional().describe('launch only: map selected repository IDs to registered code workspace paths; discover workspacePaths through project context. Omission verifies all configured code workspaces. Never use the parent project path unless it is itself a registered code workspace.'),
         repositoryId: z.string().min(1).optional().describe('review_packet only: member of a grouped delivery to inspect; omission returns the public parent with grouped outcomes.'),
         railIndex: z
           .number()
@@ -248,6 +249,7 @@ export function railsTools(): McpToolSpec[] {
             if (args.reasoning_effort !== undefined) body.reasoning_effort = args.reasoning_effort as string
             if (args.targetPrNumber !== undefined) body.targetPrNumber = args.targetPrNumber as number
             if (args.repositoryIds !== undefined) body.repositoryIds = args.repositoryIds
+            if (args.workspaceSelection !== undefined) body.workspaceSelection = args.workspaceSelection
             if (args.baseBranch !== undefined) body.baseBranch = args.baseBranch as string
             // Revision of a delivery already awaiting the user's decision: the
             // ONE launch allowed against an undecided delivery. The route

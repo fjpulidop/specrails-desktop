@@ -521,7 +521,7 @@ export function createDesktopRouter(
 
   // POST /api/projects — register a new project by path
   router.post('/projects', async (req, res) => {
-    const { path: projectPath, name, provider, providers: providersRaw, repositories: repositoriesRaw } = req.body ?? {}
+    const { path: projectPath, name, provider, providers: providersRaw, repositories: repositoriesRaw, workspacePaths } = req.body ?? {}
     if (!projectPath || typeof projectPath !== 'string') {
       res.status(400).json({ error: 'path is required' })
       return
@@ -618,7 +618,7 @@ export function createDesktopRouter(
     try {
       if (repositoriesRaw !== undefined && !Array.isArray(repositoriesRaw)) throw new RepositoryValidationError('repositories must be an array')
       repositories = (repositoriesRaw ?? []).map((input: ProjectRepositoryInput) => inspectRepositoryPath(input))
-      const primary = inspectRepositoryPath({ path: canonicalPath })
+      const primary = inspectRepositoryPath({ path: canonicalPath, workspacePaths })
       assertDistinctRepositories([primary, ...repositories.map((input) => inspectRepositoryPath(input))])
       if (repositories.some((repository) => !isPathSafe(repository.path))) throw new RepositoryValidationError('Registering system directories is not allowed')
     } catch (err) {
@@ -652,6 +652,7 @@ export function createDesktopRouter(
         provider: providers[0],
         providers,
         repositories,
+        workspacePaths,
       })
       broadcast({
         type: 'desktop.project_added',
@@ -710,7 +711,7 @@ export function createDesktopRouter(
     try {
       const body = req.body ?? {}
       const input: Partial<ProjectRepositoryInput> = {}
-      for (const key of ['path', 'name', 'integrationBranch'] as const) if (Object.prototype.hasOwnProperty.call(body, key)) Object.assign(input, { [key]: body[key] })
+      for (const key of ['path', 'name', 'integrationBranch', 'workspacePath', 'workspacePaths'] as const) if (Object.prototype.hasOwnProperty.call(body, key)) Object.assign(input, { [key]: body[key] })
       if (input.path !== undefined) {
         const inspected = inspectRepositoryPath(input as ProjectRepositoryInput)
         if (!isPathSafe(inspected.path)) throw new RepositoryValidationError('Registering system directories is not allowed')

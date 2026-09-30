@@ -136,7 +136,7 @@ export function jobsTools(): McpToolSpec[] {
         text: z.string().optional().describe('Prompt text for interactive_turn'),
         chatId: z.string().optional().describe('Conversation id for background_logs ownership. background_start/background_kill ignore this field and use the authenticated in-app capability.'),
         repositoryId: z.string().min(1).optional().describe('spawn/background_start: repository membership ID; required when the project has several repositories. spawn accepts only the primary repository; use specrails_rails launch or specrails_loops run for other repositories.'),
-        cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected repository root'),
+        cwd: z.string().optional().describe('Optional cwd for background_start; resolved inside the selected repository root. For tests/dev servers, discover workspacePaths with specrails_projects get and pass the intended code workspace cwd explicitly'),
         pid: z.number().int().positive().optional().describe('Background process pid for background_logs/background_kill'),
         processId: z.string().min(1).max(200).optional().describe('Background execution UUID returned by background_start/list. Pass with pid on logs/kill to avoid targeting a reused PID.'),
         includeFinished: z.boolean().optional().describe('background_list: include persisted completed/disconnected executions (default true). Active applications are listed first; use limit/offset for older history.'),

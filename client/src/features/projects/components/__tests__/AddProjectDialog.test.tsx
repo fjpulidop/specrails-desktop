@@ -110,6 +110,19 @@ describe('AddProjectDialog', () => {
     expect(screen.queryByRole('textbox', { name: 'Folder 2' })).not.toBeInTheDocument()
   })
 
+  it('registers a project with explicit code workspaces and clears their draft after success', async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(<AddProjectDialog open onClose={vi.fn()} />)
+    await waitFor(() => expect(screen.getByTestId('prerequisites-panel')).toHaveAttribute('data-state', 'ok'))
+    await user.type(screen.getByPlaceholderText('/Users/me/my-project'), '/projects/skills')
+    await user.type(screen.getByRole('textbox', { name: /Code workspace path/ }), 'skills-studio\nskills-service')
+    await user.click(screen.getByTestId('add-project-submit'))
+    await waitFor(() => expect(mockAddProject).toHaveBeenCalledWith('/projects/skills', undefined, undefined, [], ['skills-studio', 'skills-service']))
+    rerender(<AddProjectDialog open={false} onClose={vi.fn()} />)
+    rerender(<AddProjectDialog open onClose={vi.fn()} />)
+    expect(screen.getByRole('textbox', { name: /Code workspace path/ })).toHaveValue('')
+  })
+
   it('preserves the multi-root draft on server rejection and lets the user remove a conflicting folder', async () => {
     const user = userEvent.setup()
     const onClose = vi.fn()

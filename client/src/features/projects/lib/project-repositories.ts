@@ -6,6 +6,8 @@ export interface ProjectRepository {
   projectId: string
   name: string
   path: string
+  workspacePath?: string
+  workspacePaths?: string[]
   isPrimary: boolean
   kind: 'git' | 'folder'
   integrationBranch: string | null
@@ -15,6 +17,8 @@ export interface ProjectRepository {
 
 export interface RepositoryInput {
   path: string
+  workspacePath?: string | null
+  workspacePaths?: string[] | null
   name?: string
   integrationBranch?: string | null
 }

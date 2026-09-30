@@ -33,10 +33,20 @@ describe('host checks of a package inside a larger checkout', () => {
       { repositoryId: 'courses', command: 'yarn', args: ['test'] },
       { repositoryId: 'courses', command: 'yarn', args: ['lint'], cwd: 'src' },
       { repositoryId: 'courses', command: 'yarn', args: ['e2e'], cwd: 'apps/busuu-courses/playwright' },
-      { repositoryId: 'courses', command: 'yarn', args: ['root'], cwd: '..' },
       { repositoryId: 'api', command: 'npm', args: ['test'] },
-    ], repositories).map(check => check.cwd)).toEqual(['apps/busuu-courses', 'apps/busuu-courses/src', 'apps/busuu-courses/playwright', 'apps', undefined])
+    ], repositories).map(check => check.cwd)).toEqual(['apps/busuu-courses', 'apps/busuu-courses/src', 'apps/busuu-courses/playwright', undefined])
     expect(scopedHostChecks([{ repositoryId: 'courses', command: 'yarn', args: ['test'] }])).toEqual([{ repositoryId: 'courses', command: 'yarn', args: ['test'] }])
+  })
+
+  it('rejects parent and sibling workspaces and absolute paths to the live checkout', () => {
+    const repositories = [{ id: 'studio', path: root, scope: ['skills-studio'] }]
+    for (const cwd of ['..', '../skills-service', 'skills-studio/../skills-service', join(root, 'skills-service')]) {
+      expect(() => scopedHostChecks([{ repositoryId: 'studio', cwd }], repositories)).toThrow('escapes')
+    }
+    expect(scopedHostChecks([{ repositoryId: 'studio', cwd: join(root, 'skills-studio', 'tests') }], repositories)[0].cwd).toBe('skills-studio/tests')
+    const shared = [{ id: 'studio', scope: ['skills-studio', 'skills-service'] }]
+    expect(scopedHostChecks([{ repositoryId: 'studio', key: 'tests' }], shared)).toEqual([{ repositoryId: 'studio', key: 'tests-workspace-0', cwd: 'skills-studio' }, { repositoryId: 'studio', key: 'tests-workspace-1', cwd: 'skills-service' }])
+    expect(() => scopedHostChecks([{ repositoryId: 'studio', cwd: '.' }], shared)).toThrow('explicit workspace')
   })
 
   it('freezes the scoped cwd into the configuration Core receives', async () => {
@@ -320,4 +330,9 @@ describe('Core definition process bridge', () => {
     script(`console.log(JSON.stringify(${JSON.stringify(v2())}));`)
     expect(await runAgentRuntimeInvocation({...options(),engineVersion:2,resume:true,onRuntimeEvent:()=>{throw new Error('database unavailable')}})).toMatchObject({runtimeStatus:'failed',errorText:'database unavailable'})
   })
+})
+
+it('excludes host checks configured for unselected registered workspaces', () => {
+  const repositories = [{ id: 'skills', scope: ['studio'], registeredScope: ['studio', 'service'] }]
+  expect(scopedHostChecks([{ repositoryId: 'skills', cwd: 'studio', key: 'studio-tests' }, { repositoryId: 'skills', cwd: 'service', key: 'service-tests' }], repositories)).toEqual([{ repositoryId: 'skills', cwd: 'studio', key: 'studio-tests' }])
 })

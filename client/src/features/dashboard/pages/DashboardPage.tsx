@@ -1315,6 +1315,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: launchMode,
+          ...(rail.workspaceSelection ? { workspaceSelection: rail.workspaceSelection } : {}),
           ...(!rolesLaunch && (rail.aiEngine != null || launchMode === 'loop' && (rail.loopModel || launchEffort)) ? { runtimeProviderOverride: { provider: launchProvider, ...(launchMode === 'loop' && rail.loopModel ? { model: rail.loopModel } : {}), ...(launchMode === 'loop' && launchEffort ? { effort: launchEffort } : {}) } } : {}),
           // rail.profileName can be a string (explicit), null (force legacy),
           // or undefined (let server fall back to stored rail profile or defaults).
@@ -1549,6 +1550,7 @@ export default function DashboardPage() {
             onEffortChange={handleEffortChange}
             onToggle={handleToggle}
             onTargetPrChange={handleTargetPrChange}
+            onWorkspaceSelectionChange={(railId, workspaceSelection) => updateRails(prev => prev.map(rail => rail.id === railId ? { ...rail, workspaceSelection } : rail))}
             onTicketClick={setDetailTicket}
             onAddRail={() => { void handleAddRail() }}
             onDeleteRail={(railId) => { void handleDeleteRail(railId) }}
