@@ -1,9 +1,11 @@
+import { useMissionPaneClose, useMissionPaneLayoutId } from '../context/MissionSplitViewsContext'
+import { MissionSplitLayout } from './MissionSplitLayout'
 import { useMissionWindows } from '../context/MissionWindowsContext'
 import { useMissionViewRevision } from '../lib/mission-view-state'
-import { Suspense, lazy, useEffect } from 'react'
+import { Suspense, lazy, useEffect, type ReactNode } from 'react'
+import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { motion, MotionConfig } from 'motion/react'
-import { Bot } from 'lucide-react'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useAgentWorkspace } from '../context/AgentWorkspaceContext'
 import { useDesktop } from '../../../hooks/useDesktop'
@@ -28,8 +30,18 @@ const AgentModeAnalyticsPane = lazy(() =>
  * the shared conversation view, optionally split with an inline Code pane. Never
  * calls `ensureActive` on mount, so the EMPTY state is reachable.
  */
-export function AgentModeSurface() {
+function EmptyPaneClose() {
+  const closePane = useMissionPaneClose()
   const { t } = useTranslation('agent')
+  return closePane ? <button type="button" aria-label={t('split.close')} title={t('split.close')} onClick={closePane} className="absolute right-2 top-2 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button> : null
+}
+
+function ConversationLayout({ splitPane, children }: { splitPane: boolean; children: ReactNode }) {
+  return splitPane ? <>{children}</> : <MissionSplitLayout>{children}</MissionSplitLayout>
+}
+
+export function AgentModeSurface({ splitPane = false }: { splitPane?: boolean } = {}) {
+  const composerLayoutId = useMissionPaneLayoutId()
   const { active, refreshConversations, builderMode } = useAgentChat()
  const { codePaneOpen, jobsPaneOpen, analyticsPaneOpen } = useAgentWorkspace()
   const { activeProjectId } = useDesktop()
@@ -38,8 +50,6 @@ export function AgentModeSurface() {
   const external = !windows.current && windows.transfers.some(item => item.conversationId === active?.id && item.state === 'detached')
   const activeTheme = useActiveTheme()
   const isGalaxy = activeTheme.id === 'galaxy'
-  // Code Rain gets a themed empty-state title.
-  const emptyTitle = activeTheme.id === 'code-rain' ? t('emptyTitleCodeRain') : t('emptyTitle')
 
   // Populate the sidebar conversation tree without opening the floating panel.
   useEffect(() => {
@@ -69,6 +79,7 @@ export function AgentModeSurface() {
               'radial-gradient(60% 55% at 50% 45%, color-mix(in srgb, var(--color-accent-primary) 13%, transparent), transparent 70%)',
           }}
         />
+        <ConversationLayout splitPane={splitPane}>
         {builderMode.active ? (
           // ── BUILDER MODE (reskin): a "new mission" in new-project mode — the
           // MISSION format (centered column, docked composer) with the halo on
@@ -81,9 +92,10 @@ export function AgentModeSurface() {
           // ── EMPTY: centered composer card. The card carries the shared
           // `layoutId`, so the first send morphs it down into the docked
           // composer of the conversation view (and New Mission morphs it back).
-          <div className="relative z-10 flex h-full w-full items-center justify-center px-6">
+          <div className="relative z-10 flex h-full w-full items-center justify-center px-4">
+            <EmptyPaneClose />
             <motion.div
-              layoutId="agent-composer-dock"
+              layoutId={composerLayoutId}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{
@@ -91,12 +103,8 @@ export function AgentModeSurface() {
                 ease: [0.34, 1.56, 0.64, 1],
                 layout: { type: 'spring', stiffness: 350, damping: 34 },
               }}
-              className="w-full max-w-[680px] rounded-2xl border border-border/60 bg-card/90 p-4 shadow-2xl backdrop-blur-xl"
+              className="w-full max-w-[960px]"
             >
-              <div className="mb-3 flex items-center gap-2 px-1">
-                <Bot className="h-4 w-4 text-accent-primary" />
-                <span className="text-sm font-medium text-foreground/80">{emptyTitle}</span>
-              </div>
               <AgentComposer autoFocus />
             </motion.div>
           </div>
@@ -106,6 +114,7 @@ export function AgentModeSurface() {
             <AgentConversationView variant="inline" />
           </div>
         )}
+        </ConversationLayout>
       </div>
 
       {showJobs && (

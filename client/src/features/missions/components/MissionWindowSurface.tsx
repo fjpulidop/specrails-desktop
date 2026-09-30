@@ -8,11 +8,10 @@ import { projectProviders, useDesktop } from '../../../hooks/useDesktop'
 import { useProjectTerminals } from '../../terminals/context/TerminalsContext'
 import { FEATURE_TERMINAL_PANEL } from '../../../lib/feature-flags'
 import { AgentModeSurface } from './AgentModeSurface'
-import { AgentWorkspaceSidebar } from './AgentWorkspaceSidebar'
 import { BottomPanel } from '../../terminals/components/terminal/BottomPanel'
 
-/** A native mission window reuses the conversation and tools, without main
- * navigation, global notifications or updater/sidecar lifecycle hooks. */
+/** A native mission window reuses the conversation and tools, without sidebars,
+ * main navigation, global notifications or updater/sidecar lifecycle hooks. */
 export function MissionWindowSurface() {
   const { t } = useTranslation('agent')
   const { current, initialized } = useMissionWindows()
@@ -40,6 +39,5 @@ export function MissionWindowSurface() {
         provider={project.provider} providers={projectProviders(project)} state={panelState}
         viewportHeight={height - 36} statusBarHeight={0} />}
     </div>
-    <AgentWorkspaceSidebar missionOnly />
   </div>
 }

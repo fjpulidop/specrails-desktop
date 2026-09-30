@@ -42,7 +42,7 @@ export function bindWorkflowRoleDefaults(config: RuntimeConfig, definition: unkn
 /** A pure admission resolver; only deliberate launch intent overrides a project role. */
 export function resolveEffectiveRuntimeConfig(input: RuntimeConfig, options: {
   repositoryIds: string[]
-  source: 'project-role' | 'default'
+  source: 'project-role' | 'default' | 'loop-role'
   providerOverride?: RuntimeProviderOverride
 }) {
   const config = structuredClone(input)

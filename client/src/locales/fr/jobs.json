@@ -281,6 +281,8 @@
     "providerLimitHint": "Le fournisseur a répondu par un avis de limite d'utilisation ; l'app a arrêté l'exécution au lieu de boucler.",
     "paused": "En pause",
     "runtimeGraph": "Graphe d’exécution",
+    "graphFullscreen": "Plein écran",
+    "graphExitFullscreen": "Quitter le plein écran",
     "graphBack": "Retour",
     "graphOpenComponent": "Ouvrir le composant",
     "graphNoAttempts": "Aucune tentative enregistrée",

@@ -8,6 +8,9 @@ mod browser;
 mod mission_windows;
 #[path = "../src/invoke_guard.rs"]
 mod invoke_guard;
+#[allow(dead_code)]
+#[path = "../src/loop_windows.rs"]
+mod loop_windows;
 use std::{borrow::Cow, sync::atomic::{AtomicI32, Ordering}, time::Duration};
 use serde_json::{json, Value};
 use tauri::{Assets, Listener, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
@@ -41,6 +44,31 @@ async fn run(app: tauri::AppHandle) -> Result<(), String> {
         if std::time::Instant::now()>origin_deadline { return Err("main interface did not commit the application origin".into()); }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
+    loop_windows::loop_window_open(app.clone(), main_view.clone(), Some("project-a".into()), Some("factory:implement".into()))?;
+    let editor=app.webview_windows().into_values().find(|window| window.label().starts_with("loops-")).ok_or("loop editor missing")?;
+    await_window_state("loop editor did not load its target", || Ok(editor.url().map_err(|e|e.to_string())?.query_pairs().any(|(key,value)| key=="loopId" && value=="factory:implement"))).await?;
+    loop_windows::loop_window_open(app.clone(), main_view.clone(), Some("project-a".into()), Some("factory:implement".into()))?;
+    assert_eq!(app.webview_windows().values().filter(|window| window.label().starts_with("loops-")).count(),1,"reopening must focus the existing draft");
+    assert!(loop_windows::permits_command(editor.label(), "desktop_save_text"));
+    assert!(!loop_windows::permits_command(editor.label(), "restart_app"));
+    main.minimize().map_err(|e| e.to_string())?;
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    assert!(editor.is_visible().map_err(|e| e.to_string())? && !editor.is_minimized().map_err(|e| e.to_string())?);
+    main.unminimize().map_err(|e| e.to_string())?;
+    editor.close().map_err(|e|e.to_string())?;
+    await_window_state("loop editor must actually close", || Ok(app.get_webview_window(editor.label()).is_none())).await?;
+    assert!(!loop_windows::permits_command(editor.label(), "desktop_save_text"));
+    println!("PASS independent loop editor target, reuse, isolation, close and privilege cleanup");
+    loop_windows::plugin_window_open(app.clone(), main_view.clone())?;
+    let plugins=app.webview_windows().into_values().find(|window| window.label().starts_with("plugins-")).ok_or("Plugins manager missing")?;
+    await_window_state("Plugins manager did not load", || Ok(plugins.url().map_err(|e|e.to_string())?.query_pairs().any(|(key,value)| key=="pluginsWindow" && value=="1"))).await?;
+    loop_windows::plugin_window_open(app.clone(), main_view.clone())?;
+    assert_eq!(app.webview_windows().values().filter(|window| window.label().starts_with("plugins-")).count(),1,"reopening Plugins must preserve its forms");
+    assert!(!loop_windows::permits_command(plugins.label(), "restart_app"));
+    plugins.close().map_err(|e|e.to_string())?;
+    await_window_state("Plugins manager must actually close", || Ok(app.get_webview_window(plugins.label()).is_none())).await?;
+    assert!(!loop_windows::permits_command(plugins.label(), "desktop_save_text"));
+    println!("PASS independent Plugins target, reuse, close and privilege cleanup");
     let first=mission_windows::detach(&app,Some("project-a".into()),"conversation-a".into(),snapshot("conversation-a",Some("project-a"),"draft A #1")).await?;
     let a=app.get_webview_window(&first.window_label).ok_or("child missing")?;
     assert!(!a.is_visible().map_err(|e| e.to_string())?, "unacknowledged destination stays hidden");
@@ -130,7 +158,7 @@ fn main() {
     let app=tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_shell::init()).plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(|invoke| invoke_guard::dispatch(invoke,tauri::generate_handler![mission_windows::mission_windows_supported,mission_windows::mission_window_current]))
-        .on_window_event(mission_windows::handle_window_event)
+        .on_window_event(|window, event| { mission_windows::handle_window_event(window, event); loop_windows::handle_window_event(window, event); })
         .setup(|app| {
             WebviewWindowBuilder::new(app,"main",WebviewUrl::App("index.html".into())).title("Specrails mission fixture").inner_size(1100.0,800.0).incognito(true).build()?;
             let app=app.handle().clone(); tauri::async_runtime::spawn(async move {

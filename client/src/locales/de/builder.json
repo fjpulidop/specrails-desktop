@@ -303,18 +303,20 @@
         "run_lost": "das laufende Rail wurde nach einem Neustart nicht gefunden",
         "unknown": "pausiert",
         "provider_limit": "das Nutzungslimit des Anbieters ist erreicht",
-        "rail_limit_reached": "jedes Rail hat einen PR, der auf deine Entscheidung wartet – merge oder verwirf offene PRs, um ein Rail freizugeben, und setze dann fort"
+        "rail_limit_reached": "jedes Rail hat einen PR, der auf deine Entscheidung wartet – merge oder verwirf offene PRs, um ein Rail freizugeben, und setze dann fort",
+        "integration_failed": "spec integration failed ({{detail}}); resume retries integration"
       },
       "checkpoint": "Rail {{k}} von {{n}} geliefert — Rail {{next}} starten?",
       "launchNext": "Nächstes Rail starten",
       "nextLaunched": "Nächstes Rail gestartet",
       "autoAdvance": "Automatisch fortfahren",
-      "autoAdvanceHint": "Startet jedes nächste Rail, sobald das vorherige geliefert ist",
+      "autoAdvanceHint": "Integrates each spec before creating the next worktree",
       "checkpointHint": "Hält nach jedem Rail an und fragt vor dem nächsten Start",
       "checkpointNote": "hält nach diesem Rail an",
       "autoOn": "Automatisches Fortfahren an — die nächsten Rails starten von selbst",
       "autoOff": "Automatisches Fortfahren aus — vor jedem Rail wird gefragt",
-      "autoFailed": "Kette konnte nicht aktualisiert werden"
+      "autoFailed": "Kette konnte nicht aktualisiert werden",
+      "integrating": "integrating this spec before launching the next"
     },
     "toast": {
       "launched": "{{milestone}} gestartet – Spec 1 von {{n}} läuft auf seinem Rail; die nächsten Specs folgen automatisch, je ein Rail",

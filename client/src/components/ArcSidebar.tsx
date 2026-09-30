@@ -1,3 +1,5 @@
+import { MissionConversationMenu } from '../features/missions/components/MissionConversationMenu'
+import { useMissionSplitViews } from '../features/missions/context/MissionSplitViewsContext'
 import { keyboardLabel } from '../lib/keyboard-label'
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -125,6 +127,7 @@ function ConversationRow({
   }
 
   return (
+    <MissionConversationMenu conversationId={conversation.id}>
     <div
       role="button"
       tabIndex={0}
@@ -206,6 +209,7 @@ function ConversationRow({
         </>
       )}
     </div>
+    </MissionConversationMenu>
   )
 }
 
@@ -493,8 +497,9 @@ export function ArcSidebar({
     })
   }
 
+  const splitViews = useMissionSplitViews()
   const handleSelectConversation = (id: string) => {
-    void agentChat.selectConversation(id)
+    if (!splitViews.focusExisting(id)) { splitViews.showPrimary(); void agentChat.selectConversation(id) }
     // A global route (/loops, /docs) occupies the center in Agent Mode — leave
     // it so the selected thread is actually visible on the agent surface.
     if (onGlobalRoute) navigate('/')

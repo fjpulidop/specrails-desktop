@@ -1,3 +1,5 @@
+import { coreFactoryGraph } from './loop-core-factory'
+import { defaultLoopAgents } from './loop-agents'
 /**
  * Specrails-owned loop templates — starter graphs the user clones into a Draft
  * ("Use template"). Authored from scratch (own text + own naming); they encode
@@ -368,7 +370,8 @@ export const LEGACY_LOOP_TEMPLATES: readonly LoopTemplate[] = LOOP_TEMPLATES
 // - every mutating starter runs the real `verify` piece over the project's
 //   configured checks and ends with `requiresVerified: true` — a passing sentinel
 //   alone never reaches a success end;
-// - ship-and-green = native `implementation` → verify → decider → prompt(fix) loop;
+// - ship-and-green expands implementation operations when supported, then
+//   verify → decider → prompt(fix); old Core retains the compatibility wrapper;
 // - prompts, goals and iteration caps come from STARTER_TEXT (legacy parity).
 
 /** Fix step shared by every mutating Core starter. Reuses the tuned `{{cmd:fix}}`
@@ -394,7 +397,7 @@ const CORE_GOAL_EVIDENCE = 'The configured host verification already passed on t
 const SHIP_AND_GREEN_GOAL = 'Stop only when the history proves the spec is implemented: every acceptance criterion maps to real code and behavioral evidence across every selected ticket and repository, and the configured host verification passed on the current candidate. Setup, planning, a launched subagent or green baseline checks alone are insufficient; continue when work is missing or incomplete.'
 
 /** Wall-clock cap for starters (legacy default). ship-and-green is untimed like the
- *  Implement factory: the native implementation piece runs the whole pipeline. */
+ *  Implement factory: implementation operations retain their own execution limits. */
 const STARTER_TIMEOUT_MIN = 30
 
 type CoreStarterShape = 'ship' | 'verify-fix' | 'quality' | 'watch'
@@ -411,8 +414,9 @@ const CORE_STARTER_SHAPES: Record<CoreStarterTemplateId, CoreStarterShape> = {
 
 /** Core definition graph for one of the eight starters. Deterministic: same id ⇒
  *  structurally identical graph (positions included). */
-export function coreStarterGraph(id: CoreStarterTemplateId): LoopGraph {
+export function coreStarterGraph(id: CoreStarterTemplateId, independent = false, configurable = false): LoopGraph {
   const shape = CORE_STARTER_SHAPES[id]
+  if (shape === 'ship' && configurable) return coreFactoryGraph('implement', true, true)
   const { prompt, goal, maxIterations } = STARTER_TEXT[id]
   const nodes: LoopNode[] = [{ id: 'start', type: 'start', position: { x: COL_X, y: 0 } }]
   const edges: LoopGraph['edges'] = []
@@ -454,11 +458,24 @@ export function coreStarterGraph(id: CoreStarterTemplateId): LoopGraph {
     { id: 'done', type: 'end', position: { x: COL_X, y: ROW_GAP * nodes.length }, data: successEnd },
     { id: 'failed', type: 'end', position: { x: COL_RIGHT_X, y: ROW_GAP * nodes.length }, data: { outcome: 'failure' } },
   )
+  if (independent) {
+    config.agents = defaultLoopAgents(shape === 'ship' ? 'implementation' : 'free')
+    if (shape === 'ship') {
+      const operations = coreFactoryGraph('implement', true)
+      const path = (id: string) => id === 'done' ? 'verify' : id === 'failed' ? 'failed' : `implementation-${id}`
+      nodes.splice(nodes.findIndex(node => node.id === 'implement'), 1)
+      const remove = new Set(edges.filter(edge => edge.source === 'implement').map(edge => edge.id))
+      for (let i = edges.length - 1; i >= 0; i--) if (remove.has(edges[i].id)) edges.splice(i, 1)
+      for (const edge of edges) if (edge.target === 'implement') edge.target = path('architect')
+      for (const node of operations.nodes.filter(node => node.type === 'core')) nodes.push({ ...node, id: path(node.id) })
+      for (const edge of operations.edges.filter(edge => edge.source !== 'start')) edges.push({ ...edge, id: 'implementation-' + edge.id, source: path(edge.source), target: path(edge.target) })
+    }
+  }
   return { nodes, edges, config }
 }
 
 const CORE_STARTER_DESCRIPTIONS: Record<CoreStarterTemplateId, string> = {
-  'ship-and-green': 'Fully autonomous: run Core\'s native implementation pipeline for the spec, then verify with the project\'s configured checks and refine (fix) on failure — verify → decide → fix until green. Success requires a verified candidate; no human intervention.',
+  'ship-and-green': 'Fully autonomous: run the loop\'s implementation steps for the spec, then verify with the project\'s configured checks and refine (fix) on failure — verify → decide → fix until green. Success requires a verified candidate; no human intervention.',
   'verify-pass': 'Autonomous verify-and-fix: run the project\'s configured build/lint/tests through Core\'s verify piece, then refine on failure — verify → fix → verify until green.',
   'ci-watch': 'Poll CI checks on the open PR (the agent uses the repo\'s CI tooling) until every check is green. Read-only: the watcher never edits the repository.',
   'lint-and-fix': 'The agent detects and runs the project\'s linter and fixes every issue, iterating until the codebase is clean. Every pass is confirmed by the project\'s configured verification before the loop can succeed.',
@@ -489,7 +506,7 @@ export function loopTemplatesForCapabilities(capabilities?: Record<string, numbe
       ...template,
       description: CORE_STARTER_DESCRIPTIONS[template.id],
       ...(readOnly ? { readOnly: true } : {}),
-      graph: coreStarterGraph(template.id),
+      graph: coreStarterGraph(template.id, capabilities?.implementationSteps === 1, capabilities?.workflowAgentSteps === 1),
     }
   })
 }

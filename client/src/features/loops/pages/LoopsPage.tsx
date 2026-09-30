@@ -1,3 +1,5 @@
+import { ExternalLink } from 'lucide-react'
+import { isLoopWindowRoute, openLoopWindow } from '../lib/loop-windows'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LoopMigrationPanel } from '../components/LoopMigrationPanel'
@@ -41,12 +43,13 @@ function StatusBadge({ status }: { status: LoopDefinition['status'] }) {
 }
 
 export interface LoopsPageProps {
-  /** Mission-mode loops dialog: open the embedded builder in place instead of
-   *  navigating to /loops/:id/edit (that route has no home in Agent mode). */
+  /** Independent loop window: open its builder in place without routing
+   *  the main application. */
   onOpenBuilder?: (id: string) => void
+  onWindowOpened?: () => void
 }
 
-export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
+export default function LoopsPage({ onOpenBuilder, onWindowOpened }: LoopsPageProps = {}) {
   const { t } = useTranslation('loops')
   const navigate = useNavigate()
   // Template / built-in name+description are authored in English on the server;
@@ -89,7 +92,7 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
   }, [])
   const clearTemplateFilter = useCallback(() => { setTemplateQuery(''); setSelectedCategories([]) }, [])
   const importInputRef = useRef<HTMLInputElement>(null)
-  const { projects, setActiveProjectId } = useDesktop()
+  const { projects, activeProjectId, setActiveProjectId } = useDesktop()
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -290,6 +293,9 @@ export default function LoopsPage({ onOpenBuilder }: LoopsPageProps = {}) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {!isLoopWindowRoute() && <button type="button" onClick={() => void openLoopWindow(activeProjectId).then(() => onWindowOpened?.()).catch(error => toast.error(String(error)))} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-xs border border-border hover:bg-muted">
+              <ExternalLink className="w-3.5 h-3.5" />{t('window.open')}
+            </button>}
             {selectedIds.size > 0 && (
               <button
                 type="button"

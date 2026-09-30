@@ -217,7 +217,7 @@ export interface InteractiveAiStepPlan {
 }
 
 export interface LoopExecutors {
-  assertDefinitionSupport?(): Promise<void>
+  assertDefinitionSupport?(graph?: LoopRunRequest['graph']): Promise<void>
   /** Rejects a legacy traversal when the active Core has no engine 1 (Core 7). */
   assertLegacyEngineSupport?(): Promise<void>
   runDefinition?(input: DefinitionLoopInvocation): Promise<DefinitionRuntimeResult>
@@ -943,7 +943,7 @@ export class LoopRunManager {
   async assertEngineSupport(graph: LoopRunRequest['graph']): Promise<void> {
     if (isDefinitionGraph(graph)) {
       if (!this.executors.runDefinition) throw new Error('engine_unsupported: Core workflow execution is unavailable')
-      await this.executors.assertDefinitionSupport?.()
+      await this.executors.assertDefinitionSupport?.(graph)
     } else await this.executors.assertLegacyEngineSupport?.()
   }
   private definitionForkOwnsRun(runId: string): boolean {

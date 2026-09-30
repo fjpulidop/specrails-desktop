@@ -60,11 +60,11 @@ describe('LoopRunModal', () => {
     fireEvent.change(within(dialog).getByLabelText('Provider'), { target: { value: 'codex' } })
     const modelSel = within(dialog).getByTestId('run-model-select') as HTMLSelectElement
     // Codex catalog, default GPT-5.5; no Claude models present.
-    expect(modelSel.value).toBe('gpt-5.5')
-    expect(within(modelSel).getByRole('option', { name: 'GPT-5.5' })).toBeInTheDocument()
+    expect(modelSel.value).toBe('gpt-6.1-sol')
+    expect(within(modelSel).getByRole('option', { name: 'GPT-6.1 Sol' })).toBeInTheDocument()
     expect(within(modelSel).queryByRole('option', { name: 'Claude Sonnet' })).not.toBeInTheDocument()
     fireEvent.click(within(dialog).getByRole('button', { name: /Execute/i }))
-    expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex', model: 'gpt-5.5' }))
+    expect(onExecute).toHaveBeenCalledWith(expect.objectContaining({ provider: 'codex', model: 'gpt-6.1-sol' }))
   })
 
   it('offers only Kimi low/high/max effort and submits a valid default', () => {

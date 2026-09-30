@@ -345,7 +345,7 @@ export function CoreParameterForm({
   return (
     <label className="block space-y-1 text-xs">
       {label}
-      {options?.length ? (
+      {options?.length && label !== 'roleId' ? (
         <select
           className={inputClass}
           value={typeof value === 'string' ? value : ''}
@@ -368,16 +368,16 @@ export function CoreParameterForm({
         />
       ) : (
         <input
-          list={models?.length ? id : undefined}
+          list={models?.length || label === 'roleId' && options?.length ? id : undefined}
           className={inputClass}
           value={typeof value === 'string' ? value : ''}
           maxLength={typeof schema.maxLength === 'number' ? schema.maxLength : undefined}
           onChange={(event) => onChange(event.target.value)}
         />
       )}
-      {models?.length ? (
+      {models?.length || label === 'roleId' && options?.length ? (
         <datalist id={id}>
-          {models.map((model) => (
+          {(models ?? options ?? []).map((model) => (
             <option key={model} value={model} />
           ))}
         </datalist>

@@ -52,10 +52,12 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     showCloseButton?: boolean
+    /** Override the backdrop layer together with content for nested dialogs. */
+    overlayClassName?: string
     /** Opt-in: make this modal movable (drag the panel) + resizable (corner/edge grips). */
     movableResizable?: boolean
   }
->(({ className, children, showCloseButton = true, movableResizable = false, style, ...props }, ref) => {
+>(({ className, overlayClassName, children, showCloseButton = true, movableResizable = false, style, ...props }, ref) => {
   // Dialog-style modals are RESIZE-ONLY: there is no obvious drag handle, so a
   // whole-panel move makes body clicks accidentally reposition the modal. The
   // user resizes from the corner/edge grips; the modal stays centered.
@@ -69,7 +71,7 @@ const DialogContent = React.forwardRef<
     // Center within the usable window area, below desktop controls.
     return (
       <DialogPortal>
-        <DialogOverlay />
+        <DialogOverlay className={overlayClassName} />
         <DialogPrimitive.Content
           ref={ref}
           style={{ ...style, ...modalDialogStyle() }}
@@ -92,7 +94,7 @@ const DialogContent = React.forwardRef<
   // overflow/transform — so it works regardless of the modal's inner layout).
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         ref={mergedRef}
         style={{ ...style, ...modalDialogStyle(), ...panelStyle }}

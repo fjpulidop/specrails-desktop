@@ -84,7 +84,8 @@
       "title": "Plugins",
       "subtitle": "Global tools and project integrations, managed from one place.",
       "readyCount_one": "{{count}} ready",
-      "readyCount_other": "{{count}} ready"
+      "readyCount_other": "{{count}} ready",
+      "openWindow": "Open in window"
     },
     "search": {
       "placeholder": "Search plugins"

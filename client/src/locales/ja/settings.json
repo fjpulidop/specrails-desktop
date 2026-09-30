@@ -267,7 +267,7 @@
       "budget": "予算",
       "telemetry": "テレメトリ",
       "terminal": "ターミナル",
-      "agentRuntime": "エージェント実行エンジン"
+      "agentRuntime": "検証コマンド"
     }
   },
   "integrationBranch": {

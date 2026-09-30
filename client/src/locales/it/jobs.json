@@ -281,6 +281,8 @@
     "providerLimitHint": "Il provider ha risposto con un avviso di limite d'uso, quindi l'app ha fermato la run invece di continuare a ciclare.",
     "paused": "In pausa",
     "runtimeGraph": "Grafo di esecuzione",
+    "graphFullscreen": "Schermo intero",
+    "graphExitFullscreen": "Esci da schermo intero",
     "graphBack": "Indietro",
     "graphOpenComponent": "Apri componente",
     "graphNoAttempts": "Nessun tentativo registrato",

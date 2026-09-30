@@ -7,6 +7,9 @@ mod browser;
 #[cfg(any(target_os = "macos", windows))]
 #[path = "../src/invoke_guard.rs"]
 mod invoke_guard;
+#[allow(dead_code)]
+#[path = "../src/loop_windows.rs"]
+mod loop_windows;
 #[cfg(any(target_os = "macos", windows))]
 #[allow(dead_code)]
 #[path = "../src/mission_windows.rs"]

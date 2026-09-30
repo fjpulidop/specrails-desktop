@@ -546,46 +546,43 @@ describe('Browser-capture adoption (mission flow)', () => {
 })
 
 describe('AgentChatProvider', () => {
-  it('keeps project, provider, model and effort selectors visually coherent', async () => {
+  async function chooseProvider(user: ReturnType<typeof userEvent.setup>, name: string) {
+    await user.click(screen.getByTestId('agent-runtime-selector'))
+    const popup = screen.getByRole('dialog', { name: 'Model and effort' })
+    if (within(popup).queryByRole('slider')) await user.click(within(popup).getByRole('button', { name: /Claude Sonnet|GPT-5.5|Kimi K3/ }))
+    await user.click(within(popup).getByRole('button', { name: /^Provider:/ }))
+    await user.click(within(popup).getByRole('button', { name, exact: true }))
+  }
+
+  it('shows a single model/effort trigger below the editor and changes provider within its menu', async () => {
     const user = userEvent.setup()
     render(<AgentChatProvider><AgentComposer /></AgentChatProvider>)
-
-    const projectTrigger = screen.getByText('Home').closest('button')
-    const providerTrigger = screen.getByTestId('agent-provider-selector')
-    const modelTrigger = await screen.findByTestId('agent-model-selector')
-    const effortTrigger = await screen.findByTestId('agent-effort-selector')
-
-    expect(projectTrigger).not.toBeNull()
-    expect(providerTrigger.className).toBe(projectTrigger!.className)
-    expect(modelTrigger.className).toBe(providerTrigger.className)
-    expect(effortTrigger.className).toBe(providerTrigger.className)
-
-    await user.click(providerTrigger)
-    await user.click(screen.getByRole('option', { name: 'Codex' }))
-    await waitFor(() => expect(providerTrigger).toHaveTextContent('Codex'))
-    await waitFor(() => expect(modelTrigger).toHaveTextContent('GPT-5.5'))
-
-    const codexEffortTrigger = await screen.findByTestId('agent-effort-selector')
-    await user.click(codexEffortTrigger)
-    await user.click(screen.getByRole('option', { name: 'High' }))
-    await waitFor(() => expect(codexEffortTrigger).toHaveTextContent('High'))
+    const trigger = screen.getByTestId('agent-runtime-selector')
+    await waitFor(() => expect(trigger).toHaveTextContent('Claude Sonnet'))
+    expect(trigger).not.toHaveTextContent('Provider')
+    expect(screen.queryByTestId('agent-provider-selector')).not.toBeInTheDocument()
+    expect(screen.getByTestId('agent-composer-controls')).toContainElement(trigger)
+    const editor = screen.getByRole('textbox', { name: /mission/i })
+    expect(editor.compareDocumentPosition(trigger) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await chooseProvider(user, 'Codex')
+    await waitFor(() => expect(trigger).toHaveTextContent('GPT-5.5'))
+    await user.keyboard('{Escape}')
+    await user.click(trigger)
+    fireEvent.change(screen.getByRole('slider', { name: 'Effort' }), { target: { value: '2' } })
+    await waitFor(() => expect(trigger).toHaveTextContent('High'))
   })
 
   it('accepts an exact custom Kimi alias and hides K3-only effort immediately', async () => {
     const user = userEvent.setup()
     render(<AgentChatProvider><AgentComposer /></AgentChatProvider>)
-
-    const providerTrigger = screen.getByTestId('agent-provider-selector')
-    await user.click(providerTrigger)
-    await user.click(screen.getByRole('option', { name: 'Kimi' }))
-    await waitFor(() => expect(providerTrigger).toHaveTextContent('Kimi'))
-    expect(await screen.findByTestId('agent-effort-selector')).toBeInTheDocument()
-
-    const modelInput = screen.getByTestId('agent-model-selector')
+    await waitFor(() => expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Claude Sonnet'))
+    await chooseProvider(user, 'Kimi')
+    const modelInput = await screen.findByRole('combobox', { name: 'Model' })
     fireEvent.change(modelInput, { target: { value: 'Moonshot-Team/Private_Coder:v2' } })
     fireEvent.blur(modelInput)
     await waitFor(() => expect(modelInput).toHaveValue('Moonshot-Team/Private_Coder:v2'))
-    expect(screen.queryByTestId('agent-effort-selector')).not.toBeInTheDocument()
+    expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Moonshot-Team/Private_Coder:v2')
+    expect(screen.queryByRole('slider', { name: 'Effort' })).not.toBeInTheDocument()
   })
 
   it('surfaces provider selection persistence failures instead of failing silently', async () => {
@@ -593,13 +590,10 @@ describe('AgentChatProvider', () => {
     vi.mocked(agentApi.patchAgentConversation).mockRejectedValueOnce(new Error('offline'))
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await user.click(screen.getByRole('button', { name: 'open' }))
-
-    const providerTrigger = await screen.findByTestId('agent-provider-selector')
-    await user.click(providerTrigger)
-    await user.click(screen.getByRole('option', { name: 'Codex' }))
-
+    await waitFor(() => expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Claude Sonnet'))
+    await chooseProvider(user, 'Codex')
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong. Try again.'))
-    expect(providerTrigger).toHaveTextContent('Claude')
+    expect(screen.getByTestId('agent-runtime-selector')).toHaveTextContent('Claude Sonnet')
   })
 
   it('opens, ensures a conversation, streams a turn, persists on done', async () => {
@@ -688,7 +682,7 @@ describe('AgentChatProvider', () => {
     })
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = (await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' }))
+    const box = (await screen.findByRole('textbox', { name: /mission/i }))
     // ↑ from empty → most recent
     fireEvent.keyDown(box, { key: 'ArrowUp' })
     expect(editorText(box)).toBe('second prompt')
@@ -1080,14 +1074,14 @@ describe('AgentChatProvider', () => {
   it('a typed-but-unsent draft SURVIVES unmounting the composer (Mission⇄Board switch)', async () => {
     const first = render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box = await screen.findByRole('textbox', { name: /mission/i })
     inputEditor(box, 'idea a medio escribir')
     // Switch to Board mode = the whole agent surface unmounts.
     first.unmount()
     // Back to Mission Control: the draft is right where it was left.
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box2 = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box2 = await screen.findByRole('textbox', { name: /mission/i })
     expect(editorText(box2)).toBe('idea a medio escribir')
     // Sending clears the stored draft AT SUBMIT — the box must not keep showing
     // the prompt while the turn is still being delivered.
@@ -1104,7 +1098,7 @@ describe('AgentChatProvider', () => {
   it('lets @ select a project and sends the resolved context reference', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box = await screen.findByRole('textbox', { name: /mission/i })
 
     inputEditor(box, '@deck', 5)
     expect(await screen.findByTestId('agent-context-palette')).toBeInTheDocument()
@@ -1123,7 +1117,7 @@ describe('AgentChatProvider', () => {
   it('inserts @ at the invoked position and sends the surrounding text in its original order', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box = await screen.findByRole('textbox', { name: /mission/i })
 
     inputEditor(box, 'revisa @deck y explica los cambios', 'revisa @deck'.length)
     await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
@@ -1157,7 +1151,7 @@ describe('AgentChatProvider', () => {
     } as Response)
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box = await screen.findByRole('textbox', { name: /mission/i })
 
     inputEditor(box, 'implementemos el #1 y verifica los tests', 'implementemos el #1'.length)
     const palette = await screen.findByTestId('agent-context-palette')
@@ -1186,7 +1180,7 @@ describe('AgentChatProvider', () => {
   it('keeps repeated references at both positions and removing one preserves the other metadata', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box = await screen.findByRole('textbox', { name: /mission/i })
     inputEditor(box, 'revisa @deck')
     await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
     selectEditor(box, editorText(box).length)
@@ -1210,14 +1204,14 @@ describe('AgentChatProvider', () => {
   it('preserves the position and metadata of an unsent reference across Mission/Board remounts', async () => {
     const first = render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box = await screen.findByRole('textbox', { name: /mission/i })
     inputEditor(box, 'trabaja en @deck y resume', 'trabaja en @deck'.length)
     await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
     first.unmount()
 
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const restored = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const restored = await screen.findByRole('textbox', { name: /mission/i })
     expect(editorText(restored)).toBe('trabaja en @deckdex y resume')
     const pill = restored.querySelector('[data-inline-reference]')!
     expect(visibleNodeText(pill.previousSibling)).toBe('trabaja en ')
@@ -1239,12 +1233,12 @@ describe('AgentChatProvider', () => {
     }))
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const firstEditor = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const firstEditor = await screen.findByRole('textbox', { name: /mission/i })
     inputEditor(firstEditor, 'revisa @deck en la primera misión', 'revisa @deck'.length)
     await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
 
     await act(async () => { fireEvent.click(screen.getByText('go-c2')) })
-    const secondEditor = screen.getByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const secondEditor = screen.getByRole('textbox', { name: /mission/i })
     expect(secondEditor).not.toBe(firstEditor)
     expect(editorText(secondEditor)).toBe('')
     fireEvent.keyDown(secondEditor, { key: 'z', metaKey: true })
@@ -1253,13 +1247,13 @@ describe('AgentChatProvider', () => {
     inputEditor(secondEditor, 'borrador de la segunda misión')
 
     await act(async () => { fireEvent.click(screen.getByText('go-c1')) })
-    const restored = screen.getByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const restored = screen.getByRole('textbox', { name: /mission/i })
     fireEvent.keyDown(restored, { key: 'z', metaKey: true })
     expect(editorText(restored)).toBe('revisa @deckdex en la primera misión')
     expect(restored.querySelector('[data-inline-reference]')).toHaveAttribute('data-token', '@deckdex')
 
     await act(async () => { fireEvent.click(screen.getByText('go-c2')) })
-    const secondRestored = screen.getByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const secondRestored = screen.getByRole('textbox', { name: /mission/i })
     fireEvent.keyDown(secondRestored, { key: 'z', metaKey: true })
     expect(editorText(secondRestored)).toBe('borrador de la segunda misión')
     expect(secondRestored.querySelector('[data-inline-reference]')).toBeNull()
@@ -1267,7 +1261,7 @@ describe('AgentChatProvider', () => {
 
   it('materializes a new mission before uploading an attachment from the empty composer', async () => {
     render(<StrictMode><AgentChatProvider><AgentComposer /></AgentChatProvider></StrictMode>)
-    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box = await screen.findByRole('textbox', { name: /mission/i })
     inputEditor(box, 'usa este archivo')
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement | null
@@ -1280,14 +1274,14 @@ describe('AgentChatProvider', () => {
 
     await waitFor(() => expect(agentApi.createAgentConversation).toHaveBeenCalledTimes(1))
     expect(agentApi.uploadAgentAttachment).toHaveBeenCalledWith('c1', file)
-    expect(editorText(screen.getByRole('textbox', { name: 'Ask the agent to do anything…' }))).toBe('usa este archivo')
+    expect(editorText(screen.getByRole('textbox', { name: /mission/i }))).toBe('usa este archivo')
     expect(await screen.findByText('brief.txt')).toBeInTheDocument()
   })
 
   it('opens the same command palette from + and inserts a selected action', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box = await screen.findByRole('textbox', { name: /mission/i })
 
     fireEvent.click(screen.getByLabelText('Add context or action'))
     fireEvent.click(screen.getByText('Action'))
@@ -1307,7 +1301,7 @@ describe('AgentChatProvider', () => {
   it('closes the + menu on outside click and Escape', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    await screen.findByRole('textbox', { name: /mission/i })
 
     fireEvent.click(screen.getByLabelText('Add context or action'))
     expect(screen.getByText('Reference')).toBeInTheDocument()
@@ -1323,7 +1317,7 @@ describe('AgentChatProvider', () => {
   it('filters / actions while typing and accepts the highlighted result with Enter', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box = await screen.findByRole('textbox', { name: /mission/i })
 
     inputEditor(box, '/sta', 4)
     expect(await screen.findByText('Show status')).toBeInTheDocument()
@@ -1335,7 +1329,7 @@ describe('AgentChatProvider', () => {
   it('turns no-result @ queries into recovery actions', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box = await screen.findByRole('textbox', { name: /mission/i })
 
     inputEditor(box, '@missing-x', 10)
     expect(await screen.findByText('Search all Specrails')).toBeInTheDocument()
@@ -1355,7 +1349,7 @@ describe('AgentChatProvider', () => {
   it('Shift+Tab inside the composer editor cycles the tier exactly once (no focus jump, no double-cycle)', async () => {
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const box = await screen.findByRole('textbox', { name: /mission/i })
     await act(async () => { fireEvent.keyDown(box, { key: 'Tab', shiftKey: true }) })
     // Once — the composer handler stops propagation so the view wrapper's
     // Shift+Tab listener doesn't cycle a second time.
@@ -1594,7 +1588,7 @@ describe('AgentComposer queue-edit mode', () => {
     }))
     await openWithQueuedMessages(['parked in c1'])
     await act(async () => { fireEvent.click(screen.getByText('go-c2')) })
-    const secondEditor = screen.getByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const secondEditor = screen.getByRole('textbox', { name: /mission/i })
     inputEditor(secondEditor, 'revisa @deck')
     await act(async () => { fireEvent.click(await screen.findByRole('option', { name: /deckdex/ })) })
 
@@ -1603,7 +1597,7 @@ describe('AgentComposer queue-edit mode', () => {
     fireEvent.keyDown(firstEditor, { key: 'ArrowUp' })
     expect(screen.getByTestId('queue-edit-chip')).toBeInTheDocument()
     await act(async () => { fireEvent.click(screen.getByText('go-c2')) })
-    const restored = screen.getByRole('textbox', { name: 'Ask the agent to do anything…' })
+    const restored = screen.getByRole('textbox', { name: /mission/i })
     expect(restored.querySelector('[data-inline-reference]')).toHaveAttribute('data-token', '@deckdex')
     fireEvent.keyDown(restored, { key: 'z', metaKey: true })
     expect(editorText(restored)).toBe('revisa @deckdex')
@@ -1626,7 +1620,7 @@ describe('AgentComposer queue-edit mode', () => {
     })
     render(<AgentChatProvider><Harness /></AgentChatProvider>)
     await act(async () => { fireEvent.click(screen.getByText('open')) })
-    const box = (await screen.findByRole('textbox', { name: 'Ask the agent to do anything…' }))
+    const box = (await screen.findByRole('textbox', { name: /mission/i }))
     fireEvent.keyDown(box, { key: 'ArrowUp' })
     expect(editorText(box)).toBe('past prompt') // history, not queue-edit
     expect(screen.queryByTestId('queue-edit-chip')).not.toBeInTheDocument()

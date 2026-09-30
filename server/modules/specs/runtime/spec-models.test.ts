@@ -20,8 +20,8 @@ describe('spec-models', () => {
 
   it('accepts Astra for spec generation without changing the Codex default', () => {
     expect(isValidModelForProvider('gpt-6-astra', 'codex')).toBe(true)
-    expect(getModelsForProvider('codex')[0]).toEqual({ value: 'gpt-6-astra', label: 'GPT-6 Astra' })
-    expect(getProviderDefault('codex')).toBe('gpt-5.5')
+    expect(getModelsForProvider('codex')[0]).toEqual({ value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' })
+    expect(getProviderDefault('codex')).toBe('gpt-6.1-sol')
     expect(isValidModelForProvider('gpt-6-astra', 'claude')).toBe(false)
   })
 

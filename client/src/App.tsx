@@ -1,3 +1,5 @@
+import { isPluginWindowRoute } from './features/plugins/lib/plugin-windows'
+import { isLoopWindowRoute } from './features/loops/lib/loop-windows'
 import { MissionWindowsProvider } from './features/missions/context/MissionWindowsContext'
 import { isMissionWindowRoute } from './features/missions/lib/mission-windows'
 import { MissionWindowBindings } from './features/missions/components/MissionWindowBindings'
@@ -32,6 +34,7 @@ const PluginsPage = lazy(() => import('./features/plugins/pages/PluginsPage'))
 const DesktopAnalyticsPage = lazy(() => import('./features/analytics/pages/DesktopAnalyticsPage'))
 const DocsPage = lazy(() => import('./features/docs/pages/DocsPage'))
 const DocsDialog = lazy(() => import('./features/docs/components/DocsDialog'))
+const LoopWindowSurface = lazy(() => import('./features/loops/components/LoopWindowSurface').then(module => ({ default: module.LoopWindowSurface })))
 const LoopsPage = lazy(() => import('./features/loops/pages/LoopsPage'))
 const LoopBuilderPage = lazy(() => import('./features/loops/pages/LoopBuilderPage'))
 import { ProjectLayout } from './components/ProjectLayout'
@@ -209,7 +212,6 @@ function DesktopApp() {
   const location = useLocation()
   const terminals = useTerminals()
   const agentChat = useAgentChat()
-  const { startNewConversation } = agentChat
   const { uiMode } = useUiMode()
 
   // Two-way sync between split-view comparison state and ?compare=… URL params.
@@ -219,10 +221,9 @@ function DesktopApp() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [loopsOpen, setLoopsOpen] = useState(false)
-  // Mission mode has no /loops/:id/edit route home, so the loops dialog swaps
-  // its body library ↔ embedded builder on this id (null = library).
   const [loopBuilderId, setLoopBuilderId] = useState<string | null>(null)
   const [pluginsOpen, setPluginsOpen] = useState(false)
+  const closeLoops = useCallback(() => { setLoopsOpen(false); setLoopBuilderId(null) }, [])
   // Mission-mode review packet (a Board ROUTE elsewhere): the delivery id open as a modal.
   const [reviewDeliveryId, setReviewDeliveryId] = useState<string | null>(null)
   const [docsOpen, setDocsOpen] = useState(false)
@@ -293,8 +294,7 @@ function DesktopApp() {
   const onPluginsRoute = location.pathname.startsWith('/plugins')
   const onDocsRoute = location.pathname.startsWith('/docs')
   // Docs remains an in-place global route in both modes. Loops and Plugins are
-  // board pages in Kanban mode, but Mission mode owns them as modal surfaces over
-  // the empty New Mission composer.
+  // board pages in Kanban mode and modal surfaces over the current mission.
   const onGlobalRoute = onDocsRoute || (uiMode !== 'agent' && (onLoopsRoute || onPluginsRoute))
 
   useLayoutEffect(() => {
@@ -320,19 +320,20 @@ function DesktopApp() {
       if (transition.surface === 'loops') {
         setPluginsOpen(false)
         setLoopsOpen(true)
-        if (transition.loopBuilderId) setLoopBuilderId(transition.loopBuilderId)
+        setLoopBuilderId(transition.loopBuilderId ?? null)
+        if (location.pathname !== transition.backgroundPath) navigate(transition.backgroundPath, { replace: true })
+        return
       } else {
-        setLoopsOpen(false)
+        closeLoops()
         setPluginsOpen(true)
       }
-      startNewConversation(activeProjectId)
       if (location.pathname !== transition.backgroundPath) {
         navigate(transition.backgroundPath, { replace: true })
       }
       return
     }
 
-    setLoopsOpen(false)
+    closeLoops()
     setPluginsOpen(false)
     setReviewDeliveryId(null)
     if (location.pathname !== transition.path) {
@@ -341,11 +342,11 @@ function DesktopApp() {
   }, [
     activeProjectId,
     location.pathname,
-    loopsOpen,
     navigate,
+    closeLoops,
+    loopsOpen,
     pluginsOpen,
     reviewDeliveryId,
-    startNewConversation,
     uiMode,
   ])
 
@@ -423,7 +424,7 @@ function DesktopApp() {
         <div className="flex-1 overflow-hidden">
           {uiMode === 'agent' && !onGlobalRoute ? (
             // Agent Mode replaces the routed dashboard; Docs still falls through
-            // to <Routes>, while Loops/Plugins are modalized over New Mission.
+            // to <Routes>; Loops and Plugins open modals with an optional window action.
             <AgentModeSurface />
           ) : (
             <Suspense fallback={<div className="flex-1 flex items-center justify-center"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
@@ -431,9 +432,8 @@ function DesktopApp() {
                 <Route path="/docs" element={<DocsPage />} />
                 <Route path="/docs/:category/:slug" element={<DocsPage />} />
                 {/* Loops — GLOBAL routes (cross-project), outside ProjectLayout.
-                    In Mission mode neither route renders: the modalize transition
-                    opens the loops dialog (library, or the embedded builder when
-                    the path carries /loops/:id/edit). */}
+                    In Mission mode these routes open a modal, preserving
+                    the selected loop and the current mission. */}
                 {FEATURE_LOOPS_SECTION && <Route path="/loops" element={<LoopsPage />} />}
                 {FEATURE_LOOPS_SECTION && <Route path="/loops/:id/edit" element={<LoopBuilderPage />} />}
                 <Route path="/plugins" element={<PluginsPage />} />
@@ -504,35 +504,27 @@ function DesktopApp() {
         </DialogContent>
       </Dialog>
 
-      {/* Mission-mode Loops: a near-full-screen modal over the agent surface, so
-          opening Loops doesn't yank the user out of their mission (kanban mode
-          keeps the /loops route). Renders the SAME LoopsPage. */}
-      <Dialog
-        open={loopsOpen}
-        onOpenChange={(open) => {
-          setLoopsOpen(open)
-          if (!open) setLoopBuilderId(null)
-        }}
-      >
-        <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col">
+
+      <Dialog open={loopsOpen} onOpenChange={open => { if (!open) closeLoops() }}>
+        <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col" data-testid="loops-modal">
           <DialogTitle className="sr-only">{t('nav:arcSidebar.loops')}</DialogTitle>
-          <DialogDescription className="sr-only">
-            {t('nav:globalSurfaceModal.loopsDescription')}
-          </DialogDescription>
-          <GlobalSurfaceDialogChrome
-            surface="loops"
-            onClose={() => { setLoopsOpen(false); setLoopBuilderId(null) }}
-          />
-          <div className="flex-1 overflow-auto">
-            <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
-              {loopBuilderId ? (
-                <div className="h-full">
-                  <LoopBuilderPage loopId={loopBuilderId} onExit={() => setLoopBuilderId(null)} />
-                </div>
-              ) : (
-                <LoopsPage onOpenBuilder={setLoopBuilderId} />
-              )}
+          <DialogDescription className="sr-only">{t('nav:globalSurfaceModal.loopsDescription')}</DialogDescription>
+          <GlobalSurfaceDialogChrome surface="loops" onClose={closeLoops} />
+          <div className="flex-1 min-h-0 overflow-auto">
+            <Suspense fallback={null}>
+              {loopBuilderId ? <LoopBuilderPage loopId={loopBuilderId} onExit={() => setLoopBuilderId(null)} onWindowOpened={closeLoops} />
+                : <LoopsPage onOpenBuilder={setLoopBuilderId} onWindowOpened={closeLoops} />}
             </Suspense>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={pluginsOpen} onOpenChange={setPluginsOpen}>
+        <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col" data-testid="plugins-modal">
+          <DialogTitle className="sr-only">{t('nav:arcSidebar.plugins')}</DialogTitle>
+          <DialogDescription className="sr-only">{t('nav:globalSurfaceModal.pluginsDescription')}</DialogDescription>
+          <GlobalSurfaceDialogChrome surface="plugins" onClose={() => setPluginsOpen(false)} />
+          <div className="flex-1 min-h-0 overflow-auto">
+            <Suspense fallback={null}><PluginsPage onWindowOpened={() => setPluginsOpen(false)} /></Suspense>
           </div>
         </DialogContent>
       </Dialog>
@@ -557,23 +549,7 @@ function DesktopApp() {
         </Dialog>
       )}
 
-      <Dialog open={pluginsOpen} onOpenChange={setPluginsOpen}>
-        <DialogContent showCloseButton={false} className="max-w-[96vw] w-[96vw] h-[92vh] max-h-[92vh] overflow-hidden p-0 flex flex-col">
-          <DialogTitle className="sr-only">{t('nav:arcSidebar.plugins')}</DialogTitle>
-          <DialogDescription className="sr-only">
-            {t('nav:globalSurfaceModal.pluginsDescription')}
-          </DialogDescription>
-          <GlobalSurfaceDialogChrome
-            surface="plugins"
-            onClose={() => setPluginsOpen(false)}
-          />
-          <div className="flex-1 overflow-auto">
-            <Suspense fallback={<div className="flex items-center justify-center h-40"><p className="text-sm text-muted-foreground">{t('states.loading')}</p></div>}>
-              <PluginsPage />
-            </Suspense>
-          </div>
-        </DialogContent>
-      </Dialog>
+
 
       <Suspense fallback={null}>
         <DocsDialog open={docsOpen} onClose={closeDocs} />
@@ -694,6 +670,17 @@ function MainDesktopUpdateNotifier() {
 export default function App() {
   const secondary = isMissionWindowRoute()
   useSuppressNativeContextMenu()
+  if (isLoopWindowRoute() || isPluginWindowRoute()) return (
+    <SharedWebSocketProvider url={WS_URL}><ThemeProvider><LanguageProvider>
+      <DesktopProvider isolated><UiModeProvider initialMode="agent" persist={false}>
+        <div className="h-screen flex flex-col overflow-hidden">
+          <TitleBar />
+          <Suspense fallback={null}>{isPluginWindowRoute() ? <div className="flex-1 min-h-0"><PluginsPage /></div> : <LoopWindowSurface />}</Suspense>
+          <ThemedToaster />
+        </div>
+      </UiModeProvider></DesktopProvider>
+    </LanguageProvider></ThemeProvider></SharedWebSocketProvider>
+  )
 
   return (
     <div

@@ -127,7 +127,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           repository: fjpulidop/specrails-core
-          ref: 037f68204fcc8ad6c733f984012d071b1120a709  # v6.1.0
+          ref: b3a774b511124e5da437d95698e64f82d9d318d2  # Paired generic workflow operations
           path: .paired/core
           persist-credentials: false
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f

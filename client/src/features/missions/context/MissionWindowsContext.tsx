@@ -10,6 +10,7 @@ export interface MissionWindowsContextValue extends MissionWindowsState {
   focus(conversationId: string): Promise<boolean>
   discard(conversationId: string): Promise<boolean>
   isEditable(conversationId: string): boolean
+  isEditableInSplit(conversationId: string): boolean
   isPending(conversationId: string): boolean
   clearError(): void
   refresh(): Promise<void>
@@ -18,7 +19,7 @@ const noop = () => {}
 const fallback: MissionWindowsContextValue = {
   available: false, initialized: true, current: null, transfers: [], pending: [], error: null,
   registerHandlers: () => noop, detach: async () => false, attach: async () => false, focus: async () => false, discard: async () => false,
-  isEditable: () => true, isPending: () => false, clearError: noop, refresh: async () => {},
+  isEditable: () => true, isEditableInSplit: () => true, isPending: () => false, clearError: noop, refresh: async () => {},
 }
 const MissionWindowsContext = createContext<MissionWindowsContextValue>(fallback)
 
@@ -38,10 +39,18 @@ export function MissionWindowsProvider({ children, bridge = missionWindowBridge,
   const value = useMemo<MissionWindowsContextValue>(() => ({ ...state,
     registerHandlers: controller.registerHandlers, detach: controller.detach, attach: controller.attach,
     focus: controller.focus, isEditable: controller.isEditable, isPending: controller.isPending,
+    isEditableInSplit: controller.isEditableInSplit,
     discard: controller.discard,
     clearError: controller.clearError, refresh: controller.refresh,
   }), [state, controller])
   return <MissionWindowsContext.Provider value={value}>{children}</MissionWindowsContext.Provider>
 }
 export function useMissionWindows(): MissionWindowsContextValue { return useContext(MissionWindowsContext) }
+/** Pane-local edit checks, with native detach actions owned by the primary view. */
+export function MissionSplitWindowScope({ children }: { children: ReactNode }) {
+  const windows = useMissionWindows()
+  const value = useMemo(() => ({ ...windows, available: false, current: null,
+    isEditable: windows.isEditableInSplit ?? windows.isEditable }), [windows])
+  return <MissionWindowsContext.Provider value={value}>{children}</MissionWindowsContext.Provider>
+}
 export type { MissionWindowHandlers }

@@ -267,7 +267,7 @@
       "budget": "Budget",
       "telemetry": "Telemetrie",
       "terminal": "Terminal",
-      "agentRuntime": "Agenten-Laufzeit"
+      "agentRuntime": "Verifikationsbefehle"
     }
   },
   "integrationBranch": {

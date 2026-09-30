@@ -2855,7 +2855,7 @@ describe('project-router', () => {
       const res = await request(app)
         .post('/api/projects/proj-1/chat/conversations')
         .send({
-          model: 'gpt-5.4-mini',
+          model: 'gpt-5.6-luna',
           kind: 'explore',
           contextScope: { specrails: true, openspec: true, full: true, mcp: false, contractRefine: true },
         })
@@ -4017,8 +4017,8 @@ describe('project-router', () => {
       const res = await request(app).get('/api/projects/proj-1/default-spec-model')
       expect(res.status).toBe(200)
       expect(res.body.provider).toBe('codex')
-      expect(res.body.model).toBe('gpt-5.5')
-      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex'])
+      expect(res.body.model).toBe('gpt-6.1-sol')
+      expect(res.body.allowed.map((m: { value: string }) => m.value)).toEqual(['gpt-6.1-sol', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
     })
 
     it('honors install-config defaults.model when valid', async () => {
@@ -4153,7 +4153,7 @@ describe('project-router', () => {
 
       const modelByProvider: Record<string, string> = {
         claude: 'opus',
-        codex: 'gpt-5.5',
+        codex: 'gpt-6.1-sol',
         gemini: 'gemini-3.5-flash',
         kimi: 'k3',
       }
@@ -4214,7 +4214,7 @@ describe('project-router', () => {
 
     it.each([
       ['claude', 'sonnet', 'opus'],
-      ['codex', 'gpt-5.5', 'gpt-5.4'],
+      ['codex', 'gpt-6.1-sol', 'gpt-6-astra'],
       ['gemini', 'gemini-3.5-flash', 'gemini-3.1-pro-preview'],
       ['kimi', 'k3', 'kimi-for-coding'],
     ] as const)(
@@ -4241,7 +4241,7 @@ describe('project-router', () => {
 
     it.each([
       ['claude', 'opus', 'haiku'],
-      ['codex', 'gpt-5.4', 'gpt-5.4-mini'],
+      ['codex', 'gpt-6-astra', 'gpt-5.6-luna'],
       ['gemini', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-lite'],
       ['kimi', 'kimi-for-coding', 'kimi-for-coding-highspeed'],
     ] as const)(
@@ -4282,7 +4282,7 @@ describe('project-router', () => {
 
       const patched = await request(app)
         .patch('/api/projects/proj-1/agent-models')
-        .send({ overrides: { 'sr-architect': 'gpt-5.4' } })
+        .send({ overrides: { 'sr-architect': 'gpt-6-astra' } })
 
       expect(patched.status).toBe(200)
       const config = fs.readFileSync(
@@ -4290,7 +4290,7 @@ describe('project-router', () => {
         'utf8',
       )
       expect(config).toContain('provider: codex')
-      expect(config).toContain('defaults: { model: gpt-5.5 }')
+      expect(config).toContain('defaults: { model: gpt-6.1-sol }')
       expect(config).not.toContain('sonnet')
     })
 
@@ -4401,7 +4401,7 @@ describe('project-router', () => {
 
     it.each([
       ['claude', 'opus'],
-      ['codex', 'gpt-5.4'],
+      ['codex', 'gpt-6-astra'],
       ['gemini', 'gemini-3.1-pro-preview'],
     ] as const)(
       'keeps the existing .claude agent projection byte-identical for %s',
@@ -4465,7 +4465,7 @@ describe('project-router', () => {
       const { app } = createApp(new Map([['proj-1', ctx]]))
       const res = await request(app)
         .post('/api/projects/proj-1/tickets/generate-spec')
-        .send({ idea: 'idea', model: 'gpt-5.4-mini' })
+        .send({ idea: 'idea', model: 'gpt-5.6-luna' })
       expect(res.status).toBe(400)
     })
 
@@ -4626,7 +4626,7 @@ describe('project-router multi-provider', () => {
       expect(res.status).toBe(200)
       expect(res.body.provider).toBe('codex')
       expect(res.body.providers).toEqual(['claude', 'codex'])
-      expect(res.body.allowed.some((m: { value: string }) => m.value === 'gpt-5.5')).toBe(true)
+      expect(res.body.allowed.some((m: { value: string }) => m.value === 'gpt-6.1-sol')).toBe(true)
     })
 
     it('falls back to the primary provider when ?provider= is not installed', async () => {
@@ -4664,7 +4664,7 @@ describe('project-router multi-provider', () => {
       expect(res.status).toBe(201)
       expect(res.body.conversation.provider).toBe('codex')
       // codex model default
-      expect(res.body.conversation.model).toBe('gpt-5.5')
+      expect(res.body.conversation.model).toBe('gpt-6.1-sol')
     })
 
     it('rejects an aiEngine not installed for the project', async () => {

@@ -15,8 +15,11 @@ import {
   LoopValidationError,
   LoopPublicationConflict,
   readPublishedLoopGraph,
+  seedBuiltinLoops,
 } from './loops-store'
 import { emptyLoopGraph, type LoopGraph } from './loop-graph'
+import { coreFactoryGraph } from './loop-core-factory'
+import { defaultLoopAgents } from './loop-agents'
 
 function publishableGraph(): LoopGraph {
   return {
@@ -37,6 +40,21 @@ let db: DbInstance
 
 beforeEach(() => {
   db = initDesktopDb(':memory:')
+})
+
+it('refreshes inherited Freestyle instructions while preserving a customized builtin', () => {
+  const current = { id: 'factory:freestyle', name: 'Freestyle', description: 'Free-form implementation', graph: coreFactoryGraph('freestyle', true) }
+  const previous = { ...current, graph: structuredClone(current.graph) }
+  previous.graph.config.agents = defaultLoopAgents()
+  seedBuiltinLoops(db, [previous], { refresh: true })
+  expect(seedBuiltinLoops(db, [current], { refresh: true }).refreshed).toEqual([current.id])
+  expect(readPublishedLoopGraph(db, current.id)?.config.agents?.rolePrompts?.developer).not.toContain('openspec-apply-change')
+  const custom = structuredClone(current.graph)
+  custom.config.agents!.rolePrompts!.developer = 'My custom developer'
+  updateLoop(db, current.id, { graph: custom })
+  publishLoop(db, current.id)
+  expect(seedBuiltinLoops(db, [previous], { refresh: true }).refreshed).toEqual([])
+  expect(readPublishedLoopGraph(db, current.id)?.config.agents?.rolePrompts?.developer).toBe('My custom developer')
 })
 
 describe('loops-store CRUD', () => {
@@ -262,4 +280,21 @@ describe('published graph snapshot (migration 31)', () => {
     expect(readPublishedLoopGraph(db, 'snap')).toEqual(edited)
     expect(getLoop(db, 'snap')?.builtinId).toBeUndefined()
   })
+})
+
+it('refreshes unchanged builtin provider defaults while preserving explicit selections', () => {
+  const current = { id: 'factory:implement', name: 'Implement', description: 'Implementation', graph: coreFactoryGraph('implement', true) }
+  const previous = structuredClone(current)
+  for (const agent of Object.values(previous.graph.config.agents!.agents)) agent.provider = 'claude'
+  previous.graph.config.agents!.fixer!.provider = 'claude'
+  for (const agent of Object.values(previous.graph.config.agents!.roles ?? {})) agent.provider = 'claude'
+  seedBuiltinLoops(db, [previous], { refresh: true })
+  expect(seedBuiltinLoops(db, [current], { refresh: true }).refreshed).toEqual([current.id])
+  expect(readPublishedLoopGraph(db, current.id)?.config.agents?.agents.architect.provider).toBe('inherit')
+  const custom = structuredClone(current.graph)
+  custom.config.agents!.agents.architect.provider = 'claude'
+  updateLoop(db, current.id, { graph: custom })
+  publishLoop(db, current.id)
+  expect(seedBuiltinLoops(db, [current], { refresh: true }).refreshed).toEqual([])
+  expect(readPublishedLoopGraph(db, current.id)?.config.agents?.agents.architect.provider).toBe('claude')
 })

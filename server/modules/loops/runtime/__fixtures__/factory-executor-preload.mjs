@@ -33,13 +33,18 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
           await runOpenSpec(resolveOpenSpecCli(), request.cwd, ['new', 'change', change, '--json'])
           for (const [file, content] of Object.entries(artifacts('feature'))) { fs.mkdirSync(path.dirname(path.join(active, file)), { recursive: true }); fs.writeFileSync(path.join(active, file), content) }
         } else if (request.nativeCommand.id === 'opsx:apply') {
-          fs.writeFileSync(path.join(request.cwd, 'code.cjs'), 'module.exports = 2\n')
+          fs.writeFileSync(path.join(request.cwd, 'code.cjs'), request.role === 'build' && process.env.SPECRAILS_FACTORY_CORRECT === '1' ? 'module.exports = 3\n' : 'module.exports = 2\n')
           fs.writeFileSync(path.join(active, 'tasks.md'), '- [x] 1. Update and verify the function\n')
         } else throw Error('Unexpected native command')
         return { text: 'Native skill completed', usage }
       }
       if (request.prompt.includes('You are the Loop Decider')) return { text: JSON.stringify({ verdict: process.env.SPECRAILS_FACTORY_STALL === '1' ? 'continue' : 'stop', reason: process.env.SPECRAILS_FACTORY_STALL === '1' ? 'Another acceptance obligation remains missing.' : 'Actual host checks now prove the requested value.' }), usage }
+      if (request.role === 'accessibility') return { text: 'Accessibility review completed against actual code.', usage }
       if (!request.openspec) {
+        if (request.prompt.includes('Implement the following spec completely')) {
+          if (!request.prompt.includes('Title: Return two') || !request.prompt.includes('code.cjs returns two') || request.prompt.includes('openspec-apply-change'))
+            throw Error('Freestyle received an unrendered spec or instructions for an unbound apply workflow')
+        }
         // The first claimed PASS is intentionally false; only the fix turn
         // changes code. This proves sentinels cannot replace host verification.
         if (++promptTurns > 1) fs.writeFileSync(path.join(request.cwd, 'code.cjs'), 'module.exports = 2\n')
@@ -47,22 +52,25 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
       }
       const tools = new OpenSpecTools(request.openspec), change = request.openspec.change
       await tools.execute({ action: 'load_skill' })
-      if (request.role === 'architect') {
+      if (['architect', 'plan'].includes(request.role)) {
         await tools.execute({ action: 'new' })
         for (const [file, content] of Object.entries(artifacts('feature-' + change.slice(-6)))) {
           const artifact = file.startsWith('specs/') ? 'specs' : file.slice(0, -3)
           await tools.execute({ action: 'instructions', artifact })
           await tools.execute({ action: 'write_artifact', path: file, content })
         }
-        return { text: '{"confidence":"high"}', usage }
+        const calls = fs.readFileSync(process.env.SPECRAILS_FACTORY_CALLS, 'utf8').trim().split('\n').map(line => JSON.parse(line))
+        const low = process.env.SPECRAILS_FACTORY_CONFIDENCE === '1' && calls.filter(call => call.role === 'plan').length <= 2
+        return { text: request.role === 'plan' ? JSON.stringify({ confidence: low ? 'low' : 'high', question: low ? 'Confirm the requested value?' : '', verification: [] }) : '{"confidence":"high"}', usage }
       }
       await tools.execute({ action: 'instructions', artifact: 'apply' })
-      if (request.role === 'developer') {
-        fs.writeFileSync(path.join(request.cwd, 'code.cjs'), 'module.exports = 2\n')
+      if (['developer', 'build', 'correct'].includes(request.role)) {
+        fs.writeFileSync(path.join(request.cwd, 'code.cjs'), request.role === 'build' && process.env.SPECRAILS_FACTORY_CORRECT === '1' ? 'module.exports = 3\n' : 'module.exports = 2\n')
         const file = path.join(request.openspec.root, 'openspec/changes', change, 'tasks.md')
         fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replaceAll('- [ ]', '- [x]'))
-        return { text: 'Implemented the required value.', usage }
+        return { text: request.role === 'developer' ? 'Implemented the required value.' : '{"summary":"Implemented the required value.","incomplete":[]}', usage }
       }
+      if (request.role === 'assess') return { text: JSON.stringify({ approved: true, summary: 'Read actual code and verification evidence', issues: [], score: 90, aspects: { type_correctness: 90, pattern_adherence: 90, test_coverage: 90, security: 90, architectural_alignment: 90 } }), usage }
       const obligations = JSON.parse(request.prompt.split('Current frozen acceptance obligations (all remain required):\n')[1].split('\n')[0])
       return { text: JSON.stringify({ approved: true, summary: 'Inspected actual code and host verification', issues: [], score: 90,
         aspects: { type_correctness: 90, pattern_adherence: 90, test_coverage: 90, security: 90, architectural_alignment: 90 },

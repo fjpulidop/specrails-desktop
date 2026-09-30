@@ -182,6 +182,7 @@ export function CoreNodeInspector({
           onChange={(event) => onChange({ label: event.target.value })}
         />
       </label>
+      {['implementation', 'implementation-step'].includes(data.coreKind ?? '') && <p className="text-xs text-muted-foreground">{t('builder.core.legacyImplementation')}</p>}
       {piece ? (
         <CoreParameterForm
           key={nodeId}

@@ -189,8 +189,8 @@ describe('loops-router factory loops', () => {
     const openspec = res.body.factoryLoops.find((f: { id: string }) => f.id === 'factory:sdd-quick-openspec')
     expect(openspec.mode).toBe('loop')
     expect(openspec.requiredCapability).toBeNull()
-    // The graph is the opsx lifecycle: ff → apply → verify → decider → archive.
-    expect(openspec.graph.nodes.some((n: { type: string }) => n.type === 'shell')).toBe(true)
+    // Both capability variants contain an executable OpenSpec lifecycle.
+    expect(openspec.graph.nodes.some((n: { type: string }) => ['shell', 'core'].includes(n.type))).toBe(true)
   })
 
   it('fork (back-compat alias of duplicate) creates a separate draft (built-in unchanged)', async () => {

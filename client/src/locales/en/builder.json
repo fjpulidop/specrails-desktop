@@ -303,18 +303,20 @@
         "run_lost": "the running rail could not be found after a restart",
         "unknown": "paused",
         "provider_limit": "the provider's usage limit was reached",
-        "rail_limit_reached": "every rail holds a PR awaiting your decision — merge or discard pending PRs to free a rail, then resume"
+        "rail_limit_reached": "every rail holds a PR awaiting your decision — merge or discard pending PRs to free a rail, then resume",
+        "integration_failed": "spec integration failed ({{detail}}); resume retries integration"
       },
       "checkpoint": "Rail {{k}} of {{n}} delivered — launch rail {{next}}?",
       "launchNext": "Launch next rail",
       "nextLaunched": "Next rail launched",
       "autoAdvance": "Continue automatically",
-      "autoAdvanceHint": "Launch each next rail as soon as the previous one is delivered",
+      "autoAdvanceHint": "Integrates each spec before creating the next worktree",
       "checkpointHint": "Stop after each rail and ask before launching the next",
       "checkpointNote": "stops after this rail",
       "autoOn": "Auto-continue on — the next rails launch on their own",
       "autoOff": "Auto-continue off — you'll be asked before each next rail",
-      "autoFailed": "Could not update the chain"
+      "autoFailed": "Could not update the chain",
+      "integrating": "integrating this spec before launching the next"
     },
     "toast": {
       "launched": "{{milestone}} launched — spec 1 of {{n}} is on its rail; the next specs follow automatically, one rail each",

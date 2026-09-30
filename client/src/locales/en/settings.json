@@ -267,7 +267,7 @@
       "budget": "Budget",
       "telemetry": "Telemetry",
       "terminal": "Terminal",
-      "agentRuntime": "Agent runtime"
+      "agentRuntime": "Verification commands"
     }
   },
   "integrationBranch": {

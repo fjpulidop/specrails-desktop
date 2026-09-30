@@ -47,8 +47,10 @@ The retired `factory:revision` id is a compatibility alias, absent from the gall
 
 When the selected Core advertises both `engineV2: 1` and `workflowDefinitions: 1`,
 the same factory IDs resolve through `loop-core-factory.ts` to editable Core
-definitions. Implement uses the native implementation subgraph; Batch maps frozen
-tickets to isolated implementations and verifies the whole candidate after join.
+definitions. With `implementationSteps: 1`, Implement expands into independent
+architect/developer/fixer/verify/reviewer/archive operations and all three recipes
+carry loop-owned agents. Older Core packages retain the native implementation
+wrapper. See [Desktop workflow ownership](../../../docs/internals/desktop-owned-workflows.md).
 Quick SDD and Freestyle prompts explicitly pause on `LOOP_BLOCKED` questions;
 resume forwards the answer without replaying completed phases.
 Quick SDD uses two native skill prompts plus real validation, archive and host
@@ -218,3 +220,11 @@ refuses a fresh legacy traversal with `legacy_engine_unavailable` before anythin
 is persisted. The rails launch route answers 409 before allocating worktrees.
 Resumes keep their retained package and are never re-checked. A missing Core does
 not block legacy traversal.
+
+New agent steps use loop-defined roles and editable task/schema/permissions rather
+than Core phases. Implement and Ship recipes are capability-gated by
+`workflowAgentSteps: 1`. See [the workflow guide](../../../docs/internals/desktop-owned-workflows.md) for generic gates, compatibility and recovery.
+
+Loop recipes use `inherit` for default agent engines. The runtime binds that
+assignment to the mission/rail launch before freezing the run; explicit loop
+provider selections remain independent of the launch provider.

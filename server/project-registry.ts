@@ -1389,6 +1389,11 @@ export class ProjectRegistry {
             : typeof data.jobId === 'string' ? [data.jobId] : []
         return { ok: true, loopRunIds: ids.filter((v): v is string => typeof v === 'string') }
       },
+      integrateDelivery: async (delivery) => {
+        const action = delivery.decision === 'no_changes' ? 'acknowledge-no-changes' : 'merge-local'
+        const r = await internalApi.call('POST', `${railsBase}/pr-decision`, { prDeliveryId: delivery.id, expectedDecision: delivery.decision, action })
+        return r.ok ? { ok: true } : { ok: false, status: r.status, ...internalApiError(r) }
+      },
       activeDeliveryForRail: (railIndex) => {
         const row = getActivePrDeliveryByRail(db, railIndex)
         return row ? toPrDeliverySnapshot(row) : null

@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { initDb, type DbInstance } from '../../../db'
 import { MilestoneChainManager, chunkTickets, chainRailName, orderChainTickets, isBuilderRailName, MAX_TICKETS_PER_CHAIN_CHUNK, type MilestoneChainIO } from './milestone-chain'
@@ -658,4 +662,101 @@ describe('MilestoneChainManager — startup recovery', () => {
     await new MilestoneChainManager(db, 'p1', f.io).recoverOnStartup()
     expect(getChain(db, res.ok ? res.chainId! : '')!).toMatchObject({ status: 'paused', pause_reason: 'run_lost' })
   })
+})
+
+
+describe('incremental integration before the next spec', () => {
+  it('waits for confirmed integration and launches the next spec from the accumulated integration branch once', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    let finish!: () => void
+    f.io.integrateDelivery = vi.fn(async delivery => {
+      await new Promise<void>(resolve => { finish = resolve })
+      f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' })
+      return { ok: true }
+    })
+    await mgr.start(1)
+    settle(f, mgr, 3, 'on_review', 'spec-one')
+    settle(f, mgr, 3, 'on_review', 'spec-one')
+    await flush()
+    expect(f.launches).toHaveLength(1)
+    expect(f.io.integrateDelivery).toHaveBeenCalledTimes(1)
+    finish(); await flush(); await flush()
+    expect(f.launches).toHaveLength(2)
+    expect(f.launches[1].body).toEqual({ mode: 'implement', baseBranch: 'main' })
+    expect(f.assignments[1].ticketIds).toEqual([2])
+  })
+  it('pauses failed integration and retries integration rather than reimplementing the same spec', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    const integrate = vi.fn<NonNullable<MilestoneChainIO['integrateDelivery']>>()
+      .mockResolvedValueOnce({ ok: false, status: 409, error: 'merge_local_blocked' })
+      .mockImplementationOnce(async delivery => { f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' }); return { ok: true } })
+    f.io.integrateDelivery = integrate
+    const started = await mgr.start(1)
+    expect(started.ok).toBe(true)
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
+    const row = listActiveChains(db)[0]
+    expect(row).toMatchObject({ status: 'paused', pause_reason: 'integration_failed:merge_local_blocked', current_delivery_id: 'd-3', retry_chunk: null })
+    expect(f.launches).toHaveLength(1)
+    await mgr.resume(row.id); await flush()
+    expect(integrate).toHaveBeenCalledTimes(2)
+    expect(f.assignments.map(item => item.ticketIds)).toEqual([[1], [2]])
+  })
+  it('recovers an integration pending at restart and honors checkpoints after integration', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    f.io.integrateDelivery = async delivery => { f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' }); return { ok: true } }
+    await mgr.start(1, { autoAdvance: false })
+    const row = listActiveChains(db)[0]
+    f.deliveries.set('d-3', { ...f.deliveries.get('d-3')!, decision: 'on_review', branch: 'spec-one' })
+    updateChain(db, row.id, 'running', { status: 'waiting', pauseReason: 'integration_pending' })
+    await new MilestoneChainManager(db, 'p', f.io).recoverOnStartup()
+    expect(getChain(db, row.id)).toMatchObject({ status: 'awaiting_approval', head_branch: 'main', current_delivery_id: null })
+    expect(f.launches).toHaveLength(1)
+    await mgr.resume(row.id)
+    expect(f.launches[1].body.baseBranch).toBe('main')
+  })
+  it('never advances an incomplete spec even if a partial delivery is on review', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    f.io.integrateDelivery = vi.fn()
+    await mgr.start(1)
+    f.deliveries.set('d-3', { ...f.deliveries.get('d-3')!, implementationOutcome: 'partially_succeeded' })
+    settle(f, mgr, 3, 'on_review', 'partial'); await flush()
+    expect(f.io.integrateDelivery).not.toHaveBeenCalled()
+    expect(f.launches).toHaveLength(1)
+    expect(listActiveChains(db)[0].status).toBe('paused')
+  })
+})
+
+it('builds three specs cumulatively in real Git worktrees by integrating each before the next allocation', async () => {
+  const repository = mkdtempSync(path.join(tmpdir(), 'incremental-builder-'))
+  const git = (args: string[], cwd = repository) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  try {
+    git(['init', '-q', '-b', 'main']); git(['config', 'user.name', 'Fixture']); git(['config', 'user.email', 'fixture@example.invalid'])
+    writeFileSync(path.join(repository, 'project.txt'), 'baseline\n'); git(['add', '.']); git(['commit', '-qm', 'baseline'])
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io), launch = f.io.launch
+    const worktrees: string[] = []
+    f.io.launch = async (rail, body) => {
+      const worktree = path.join(repository, 'worktree-' + (worktrees.length + 1))
+      git(['worktree', 'add', '-b', 'spec-' + (worktrees.length + 1), worktree, body.baseBranch ?? 'main'])
+      const before = readFileSync(path.join(worktree, 'project.txt'), 'utf8')
+      expect(before).toBe('baseline\n' + worktrees.map((_, i) => 'spec-' + (i + 1) + '\n').join(''))
+      writeFileSync(path.join(worktree, 'project.txt'), before + 'spec-' + (worktrees.length + 1) + '\n')
+      git(['add', 'project.txt'], worktree); git(['commit', '-qm', 'implement spec'], worktree)
+      worktrees.push(worktree)
+      return launch(rail, body)
+    }
+    f.io.integrateDelivery = async delivery => {
+      git(['merge', '--no-ff', '--no-edit', delivery.branch!])
+      f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' })
+      return { ok: true }
+    }
+    await mgr.start(1)
+    for (let spec = 1; spec <= 3; spec++) {
+      const rail = f.launches.at(-1)!.railIndex
+      settle(f, mgr, rail, 'on_review', 'spec-' + spec)
+      await flush(); await flush()
+    }
+    expect(f.launches).toHaveLength(3)
+    expect(readFileSync(path.join(repository, 'project.txt'), 'utf8')).toBe('baseline\nspec-1\nspec-2\nspec-3\n')
+    expect(listChains(db)[0].status).toBe('completed')
+  } finally { rmSync(repository, { recursive: true, force: true }) }
 })

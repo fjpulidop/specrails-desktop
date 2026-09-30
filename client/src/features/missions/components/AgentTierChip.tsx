@@ -12,11 +12,12 @@ const TIERS: { level: AgentTierLevel; key: string; icon: typeof Eye; tone: strin
 
 interface Props {
   level: AgentTierLevel
+  compact?: boolean
   onCycle: () => void
 }
 
 /** Live, Shift+Tab-cyclable cumulative tier chip (design D4). */
-export function AgentTierChip({ level, onCycle }: Props) {
+export function AgentTierChip({ level, onCycle, compact = false }: Props) {
   const { t } = useTranslation('agent')
   const tier = TIERS[level]
   const Icon = tier.icon
@@ -27,7 +28,7 @@ export function AgentTierChip({ level, onCycle }: Props) {
       onClick={onCycle}
       title={t(`tier.${tier.key}.desc`)}
       aria-label={`${t(`tier.${tier.key}.name`)} — ${t('tier.cycleHint')}`}
-      className={`group flex items-center gap-1.5 rounded-full border border-border/60 bg-surface/70 px-2.5 py-1 text-xs font-medium ${tier.tone} transition-colors hover:bg-surface`}
+      className={`group flex shrink-0 items-center gap-1.5 rounded-full ${compact ? 'h-8 px-1.5 py-1' : 'border border-border/60 bg-surface/70 px-2.5 py-1'} ${compact ? 'text-sm' : 'text-xs'} font-medium ${tier.tone} transition-colors hover:bg-surface`}
       data-agent-interactive
     >
       <motion.span
@@ -37,17 +38,17 @@ export function AgentTierChip({ level, onCycle }: Props) {
         transition={{ duration: 0.28, ease: 'easeOut' }}
         className="flex items-center gap-1.5"
       >
-        <Icon className="h-3.5 w-3.5" />
-        {t(`tier.${tier.key}.name`)}
+        <Icon className="h-4 w-4" />
+        <span className={compact ? 'hidden @min-[640px]:inline' : undefined}>{t(`tier.${tier.key}.name`)}</span>
       </motion.span>
-      <span className="ml-1 flex gap-0.5" aria-hidden>
+      {!compact && <span className="ml-1 flex gap-0.5" aria-hidden>
         {TIERS.map((s) => (
           <span
             key={s.level}
             className={`h-1 w-2 rounded-full transition-colors duration-200 ${s.level <= level ? tier.bar : 'bg-border/50'}`}
           />
         ))}
-      </span>
+      </span>}
     </button>
   )
 }

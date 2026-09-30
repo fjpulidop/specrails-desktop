@@ -388,7 +388,7 @@ export function formatDescriptionWithCriteria(body: string, criteria: string[]):
  * Order:
  *   1. `models.defaults.model` from the install-config.yaml (per-project HOME
  *      dir), if it parses AND is in the provider allow-list.
- *   2. Provider default from `PROVIDER_DEFAULT_MODEL` (`sonnet` / `gpt-5.5`).
+ *   2. Provider default from `PROVIDER_DEFAULT_MODEL` (`sonnet` / `gpt-6.1-sol`).
  *
  * Logs a warning when the configured value exists but is not valid for the
  * project's provider.

@@ -2,7 +2,7 @@
   "title": "Controllo missioni",
   "subtitle": "Gestisci Specrails chattando",
   "trigger": "Controllo missioni",
-  "composerPlaceholder": "Chiedi all'agente qualsiasi cosa…",
+  "composerPlaceholder": "Qual è la missione?",
   "send": "Invia",
   "stop": "Ferma",
   "copy": "Copia",
@@ -705,5 +705,40 @@
     "briefing": {
       "title": "Resoconto automatico dell’errore"
     }
+  },
+  "split": {
+    "open": "Vista divisa",
+    "menu": "Azioni della conversazione",
+    "add": "Aggiungi conversazione in vista divisa",
+    "close": "Chiudi vista divisa",
+    "loadFailed": "Impossibile caricare questa conversazione.",
+    "retry": "Riprova"
+  },
+  "runtimeSelector": {
+    "label": "Modello e impegno",
+    "resetEffort": "Ripristina impegno",
+    "back": "Indietro"
+  },
+  "missionPlaceholders": {
+    "0": "Qual è la missione?",
+    "1": "Con quale missione iniziamo?",
+    "2": "Qual è la nostra missione oggi?",
+    "3": "Qual è la prossima missione?",
+    "4": "Cosa vuoi ottenere con questa missione?",
+    "5": "Quale missione avviamo?",
+    "6": "Da dove iniziamo questa missione?",
+    "7": "Qual è l’obiettivo di questa missione?",
+    "8": "Cosa costruiamo in questa missione?",
+    "9": "Cosa miglioriamo con questa missione?",
+    "10": "Quale sfida affrontiamo in questa missione?",
+    "11": "Qual è il primo passo della missione?",
+    "12": "Raccontami la missione che hai in mente…",
+    "13": "Descrivi la tua prossima missione…",
+    "14": "Diamo forma alla tua prossima missione…",
+    "15": "Cosa dovrebbe realizzare questa missione?",
+    "16": "Quale missione vorresti completare?",
+    "17": "Cosa risolviamo in questa missione?",
+    "18": "Cosa renderebbe questa missione un successo?",
+    "19": "Tutto pronto per una nuova missione. Iniziamo?"
   }
 }

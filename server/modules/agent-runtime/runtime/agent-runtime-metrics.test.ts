@@ -35,6 +35,9 @@ it('validates open roles and escalations against frozen roles while preserving t
   const selected = applyRuntimeSelectionOrigins(parsed, { schemaVersion: 1, runId: fixture.runId, origins: { architect: 'default', developer: 'explicit-launch-override', reviewer: 'project-role' } }, fixture.runId)
   expect(selected?.roles.find(role => role.role === 'developer')?.origin).toBe('explicit-launch-override')
   expect(selected?.roles.find(role => role.role === 'auditor')?.origin).toBe('core-config')
+  const loop = applyRuntimeSelectionOrigins(parsed, { schemaVersion: 1, runId: fixture.runId, origins: Object.fromEntries(roleIds.map(role => [role, 'loop-role'])) }, fixture.runId)
+  expect(loop?.roles.every(role => role.origin === 'loop-role')).toBe(true)
+  expect(loop?.roles.map(({ origin: _origin, ...role }) => role)).toEqual(parsed?.roles.map(({ origin: _origin, ...role }) => role))
 })
 
 it('accepts packaged Core summary fixtures without a sibling checkout and strips unrecognized payloads', async () => {

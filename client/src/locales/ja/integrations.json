@@ -84,7 +84,8 @@
       "title": "プラグイン",
       "subtitle": "グローバルツールとプロジェクト連携を 1 か所で管理します。",
       "readyCount_one": "{{count}} 件準備完了",
-      "readyCount_other": "{{count}} 件準備完了"
+      "readyCount_other": "{{count}} 件準備完了",
+      "openWindow": "Open in window"
     },
     "search": {
       "placeholder": "プラグインを検索"

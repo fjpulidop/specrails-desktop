@@ -193,7 +193,7 @@
       "tooDeep": "值的嵌套层级过深。",
       "pieces": {
         "prompt": "提示词",
-        "role-turn": "角色执行",
+        "role-turn": "Agent step",
         "decider": "决策",
         "condition": "条件",
         "verify": "验证",
@@ -208,7 +208,9 @@
         "component": "组件",
         "implementation": "实现",
         "end": "结束",
-        "assign": "设置变量"
+        "assign": "设置变量",
+        "implementation-step": "Implementation step",
+        "artifact-contract": "Artifact contract"
       },
       "groups": {
         "ai": "AI",
@@ -224,8 +226,11 @@
         "set": "设置值",
         "increment": "调整计数器"
       },
-      "requiredContinue": "满足此条件时继续"
-    }
+      "requiredContinue": "满足此条件时继续",
+      "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
+      "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
+    },
+    "loopSettings": "Advanced settings"
   },
   "preview": {
     "steps": "步骤",
@@ -337,5 +342,8 @@
       "needs_attention": "需要处理",
       "running": "运行中"
     }
+  },
+  "window": {
+    "open": "Open in window"
   }
 }

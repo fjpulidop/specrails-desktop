@@ -1,12 +1,12 @@
 # Programmatic agent runtime
 
-Desktop can hand implementation to Core's **runtime API 1**. Core runs architect, developer, fixer, deterministic verification, reviewer and archive as separate LangGraph phases. Desktop keeps project/worktree selection, rail lifecycle, logs, accounting and delivery ownership.
+Desktop owns the Implement, Freestyle and Quick SDD workflow graphs and their loop agent definitions. With Core's `implementationSteps: 1` capability, Implement invokes architect, developer, fixer, deterministic verification, reviewer and archive as independent operations. Core executes the graph through LangGraph and owns durable evidence and recovery. Desktop keeps project/worktree selection, rail lifecycle, logs, accounting and delivery ownership.
 
 This is the only implementation engine in the current source tree. It applies to implementation rail steps and their Core completion check. Mission chat and unrelated AI features keep their existing transports. Provider-native implementation prompts and skills are not invoked inside the programmatic phases.
 
 ## Build the paired source
 
-Use Node **20.19.0+** for Core; Node **22.22.3** matches Desktop's native CI runtime. Provider requirements can be higher. Both repositories' dependencies must be installed.
+Use Node **22.22.3+** for Core; Node **22.22.3** matches Desktop's native CI runtime. Provider requirements can be higher. Both repositories' dependencies must be installed.
 
 ```sh
 cd ../specrails-core
@@ -53,31 +53,30 @@ Desktop negotiates `runtime api` and sends configuration to `runtime validate --
 
 `SPECRAILS_CORE_RUNTIME_PATH` selects this execution module. The existing `SPECRAILS_CORE_BIN` controls the installation/lifecycle resolver and is a different setting. Prefer a paired source bundle when testing the complete installation and execution flow.
 
-## Configure a project
+## Configure a loop and its project checks
 
-1. Open **Project settings → Agent runtime** (its own section in the project dialog).
-2. Choose a provider per role. The model dropdown lists each CLI's catalog with the default marked; turns, attempts and timeout show their defaults in the fields. Claude, Codex, Gemini and Kimi remain available; open **General settings → Specrails Agents → Provider connections** to add an OpenAI-compatible endpoint for a local or remote model (local endpoints do not require a key; API providers need an explicit model).
-3. Verification commands are optional. A project that never saved runtime settings is prefilled with the checks Desktop detects offline (`package.json` test/type-check/lint scripts with the right package manager, Cargo, Go, pytest, Gradle, Maven, .NET, Make); **Detect project checks** re-runs that detection. Each row is a repository plus one command line (`npm run test -- --strict`; quotes group arguments). Leave the list empty and the architect proposes the project's own checks on each run; repositories with no automated check are still reviewed and recorded as unverified in Core's receipt.
-4. **Review gate** and **Architect confidence** are optional. Review thresholds (overall score and the five aspects: type correctness, pattern adherence, test coverage, security, architectural alignment) can only *tighten* Core's own gate: the floors are 70 overall, 75 for security and 60 for every other aspect, and Desktop rejects lower values before saving (`Review threshold review.minScore must be at least 70 (Core's own review gate)`). Empty fields omit the key so Core's defaults apply. `architect.onLowConfidence` decides what happens when, after one autonomous investigation pass, the architect's design is still low in confidence: `ask` (default) pauses the run with the architect's question; `proceed` continues on stated assumptions.
-5. Save the project settings. Implementation always uses the agent runtime.
-6. Start an implementation through the normal rail flow.
+1. Open the loop builder and edit **Loop agents**. Definitions, models, effort,
+   turn limits, fixer routing, custom roles and workflow policy belong to the loop.
+   Publishing a builtin applies to future runs in every project; duplicate it for
+   a specialized flow.
+2. Configure provider connections under **General settings → Specrails Agents →
+   Provider connections**. Connections remain global; loop agents reference them.
+3. Open **Project settings → Verification commands** for repository checks.
+   **Detect project checks** finds local commands without AI. Each row retains its
+   repository, command, arguments and metadata. With no configured checks the
+   Implement architect proposes checks; unverified repositories remain explicit.
+4. Publish the loop and launch it through the normal rail flow. Review thresholds
+   may only tighten Core's floors (70 overall, 75 security, 60 other aspects).
+   Archive approval and low-confidence architect behavior are loop policies.
 
-Settings are saved at `<project execution .specrails directory>/agent-runtime.json`. Missing configuration uses the default agent runtime. The retired enabled flag cannot select another engine. Malformed configuration blocks admission; it is not ignored. Saving verifies that Core exposes the expected API. Connections are stored globally in `~/.specrails/runtime-providers.json`; project files retain role references, models, limits and verification. Existing embedded connections migrate once, with stable disambiguated IDs on endpoint conflicts. New runs freeze the resolved configuration, while saved runs retain their original snapshot.
+Only verification is read from the project's `.specrails/agent-runtime.json` for
+new loop-owned recipes. Historical roles remain available for explicit import
+and old saved graphs. The editor never silently imports a project's settings
+into a shared builtin. Connections remain in `~/.specrails/runtime-providers.json`.
+Admission freezes the resolved graph, roles, checks and Core package; resume
+uses that snapshot. See [migration and recovery](desktop-owned-workflows.md).
 
-With a paired Core advertising `openRoles: 1`, **Custom roles** adds named project
-roles with their own provider, model, prompt and explicit source/artifact access.
-New roles start with read-only source access and no artifact writes. Artifact
-access is independent: an analyst may read code and write OpenSpec documents
-without gaining source write access. Optional OpenSpec skills use the provider's
-native syntax. Custom roles reuse effort, turns and escalation controls; escalation
-can use the one permitted protocol repair and does not add another retry. Existing
-architect/developer/reviewer policies remain fixed. Removing a custom role affects
-future runs; admitted runs retain their frozen role configuration. Older Core
-packages keep ordinary settings available and reject saving unsupported roles.
-
-**A package of a larger checkout.** A repository registered as a subdirectory of its git checkout (for example `apps/web` inside a monorepo) is isolated in a worktree of the whole checkout, so Desktop passes that directory to Core as the repository `scope` in `desktop-context.json` (Core capability `repositoryScope`). Configured checks run inside the package: a check without `cwd`, or with a `cwd` relative to the registered directory, never runs at the checkout root, where a monorepo test script fans out to every workspace. Core keeps the change inside the scope: after each developer or fixer turn it undoes edits outside it, the reviewer judges only the git change set measured against the run's base, a check that fails for missing credentials, variables or registry access stops the run for the host instead of starting a correction round, and a correction loop that stops converging stops with the reason instead of repeating the same checks. Runs admitted before scopes existed keep their frozen whole-checkout context.
-
-Core owns role instructions and permissions. The developer role edits and runs commands inside its CLI sandbox (the same autonomy as the legacy Implement step); architect and reviewer are read-only. A legacy rail profile/model selection does not override the runtime's per-role provider configuration. The JSON schema is [server/schemas/agent-runtime.schema.json](../../server/schemas/agent-runtime.schema.json), mirrored from Core. For a complete configuration, custom executor examples, Kimi capabilities and API tooling details, see [Core's runtime guide](https://github.com/fjpulidop/specrails-core/blob/main/docs/agent-runtime.md) in the paired revision.
+Desktop owns editable role definitions; Core owns their artifact protocol and execution permissions. The developer role edits and runs commands inside its CLI sandbox (the same autonomy as the legacy Implement step); architect and reviewer are read-only. A legacy rail profile/model selection does not override the runtime's per-role provider configuration. The JSON schema is [server/schemas/agent-runtime.schema.json](../../server/schemas/agent-runtime.schema.json), mirrored from Core. For a complete configuration, custom executor examples, Kimi capabilities and API tooling details, see [Core's runtime guide](https://github.com/fjpulidop/specrails-core/blob/main/docs/agent-runtime.md) in the paired revision.
 
 The built-in Claude adapter supports its native dollar cap. Built-in Codex, Gemini, Kimi and OpenAI-compatible adapters reject `maxCostUsd`; remove that limit for mixed-provider/local runs. Kimi also rejects token caps because its usage is unavailable. Unknown cost/tokens remain unknown in accounting, rather than becoming zero. Attempt, timeout and tool limits remain available. Existing provider services, licenses and inference costs are separate from the free open-source orchestration runtime.
 
@@ -98,7 +97,7 @@ The rail creates a frozen Core execution context for its original repository/wor
 
 A run pauses (Core exit code 2) either on an **approval** (`pendingApproval`, for example before archive) or on a **question** (`pendingQuestion: { stepId, requestedAt, question }`) when the architect is configured to ask on low confidence. A pending question can only be resumed together with an answer: the runs panel shows the question with a textarea and an **Answer and resume** action, which posts `{ "answer": "…" }` (nonempty, at most 20,000 characters). Resuming without an answer while a question is open is rejected with `400 answer_required`. Once Core records `answeredAt`, the question is history and ordinary resume applies again. The bridge reports a paused run's reason in the job log: awaiting approval, or the pending question text.
 
-**Implementation cards and job detail** expose resume, archive approval, question answering, interrupted-step recovery and continuation cancellation actions next to the work. Cards query their latest job by original rail identity; job detail queries its exact run. Legacy jobs render no runtime panel. **Jobs → Saved executions** retains the cross-run history. Project settings contain runtime configuration only. A continuation resumes from the phase shown, in the original worktree, and writes its progress into that job's log (a `[runtime] continuation started from phase …` banner, tool activity, phase notes and the final outcome). Resuming a run that stopped at the developer attempt limit grants a fresh attempt budget. Wait for the original rail execution to settle before resuming. Active rail jobs are stopped through their job controls; the continuation's Cancel action owns only continuations started from this panel.
+**Implementation cards and job detail** expose resume, archive approval, question answering, interrupted-step recovery and continuation cancellation actions next to the work. Cards query their latest job by original rail identity; job detail queries its exact run. Legacy jobs render no runtime panel. **Jobs → Saved executions** retains the cross-run history. Project settings contain repository verification commands; the loop owns agents and policy. A continuation resumes from the phase shown, in the original worktree, and writes its progress into that job's log (a `[runtime] continuation started from phase …` banner, tool activity, phase notes and the final outcome). Resuming a run that stopped at the developer attempt limit grants a fresh attempt budget. Wait for the original rail execution to settle before resuming. Active rail jobs are stopped through their job controls; the continuation's Cancel action owns only continuations started from this panel.
 
 Resume retains valid completed phases and rechecks Core evidence. Changed code or environment requires fresh verification/review. An ambiguous interrupted write requires an explicit recovery action after inspecting partial changes. A changed frozen config/identity requires a new run. Missing original worktrees or mismatched execution manifests block recovery; the controller never invents a replacement worktree.
 
@@ -327,3 +326,10 @@ default. Workflow duration/cost/token budgets and cancellation still apply.
 Role repair and session fallback retain the selected bounds, including Kimi ACP
 transport. A verification prompt reporting `LOOP_BLOCKED` pauses for the human
 answer before its success sentinel can be accepted.
+
+## Loop-owned workflows
+
+New Desktop recipes on Core with `implementationSteps: 1` own their graph and
+agent definitions. Project settings retain verification commands. See
+[workflow ownership, migration and frozen recovery](desktop-owned-workflows.md).
+Historical project role fields remain readable for legacy runs and explicit import.

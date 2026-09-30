@@ -48,12 +48,14 @@ export interface DefinitionLaunch {
   model?: string
   effort?: string
   roles?: Record<string, { access?: 'read' | 'write' }>
+  /** Admission resolves global connection defaults before freezing prompt engines. */
+  loopAgents?: LoopGraph['config']['agents']
   repositoryCount?: number
   changeId?: string
   briefing?: string
 }
 
-const AI_KINDS = new Set<CoreNodeKind>(['prompt', 'role-turn', 'decider', 'implementation'])
+const AI_KINDS = new Set<CoreNodeKind>(['prompt', 'role-turn', 'decider', 'implementation', 'implementation-step'])
 const object = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
@@ -61,6 +63,7 @@ const object = (value: unknown): value is Record<string, unknown> =>
 export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaunch): CoreWorkflowDefinition {
   assertDefinitionGraph(graph)
   const allGraphs = [graph, ...Object.values(graph.components ?? {})]
+  if (!graph.config.agents && allGraphs.some(body => body.nodes.some(node => node.data?.kind === 'implementation-step'))) throw new Error('Independent implementation steps require loop-owned agents')
   for (const body of allGraphs) {
     assertDefinitionGraph(body)
     const validation = validateLoopGraph(body)
@@ -96,14 +99,23 @@ export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaun
               ...(typeof node.data?.reason === 'string' ? { reason: node.data.reason } : {}),
             }
           : node.data!.params!
-      const engineInput = object(rawParams.engine) ? rawParams.engine : {}
-      const provider = typeof engineInput.provider === 'string' ? engineInput.provider : launch.provider
+      const promptRole = node.id === 'fix' ? 'fixer' : node.id === 'prepare' ? 'architect' : rawParams.access === 'read' ? 'reviewer' : 'developer'
+      const agents = graph.config.agents ? launch.loopAgents ?? graph.config.agents : undefined
+      const loopEngine = agents ? (promptRole === 'fixer' ? agents.fixer ?? agents.agents.developer : agents.agents[promptRole]) : undefined
+      const engineInput = { ...(loopEngine ? { provider: loopEngine.provider, ...(loopEngine.model ? { model: loopEngine.model } : {}), ...(loopEngine.effort ? { effort: loopEngine.effort } : {}), ...(loopEngine.thinking ? { thinking: loopEngine.thinking } : {}), ...(loopEngine.maxTurns ? { maxTurns: loopEngine.maxTurns } : {}) } : {}), ...(object(rawParams.engine) ? rawParams.engine : {}) }
+      const inherited = engineInput.provider === 'inherit'
+      const provider = inherited ? launch.provider : typeof engineInput.provider === 'string' ? engineInput.provider : launch.provider
+      if (inherited) {
+        engineInput.provider = provider
+        if (!engineInput.model && launch.model) engineInput.model = launch.model
+        if (!engineInput.effort && launch.effort) engineInput.effort = launch.effort
+      }
       const params = resolveValue(rawParams, launch, provider) as Record<string, unknown>
       if (kind === 'prompt') {
         params.engine = {
           provider,
-          ...(provider === launch.provider && launch.model ? { model: launch.model } : {}),
-          ...(provider === launch.provider && launch.effort ? { effort: launch.effort } : {}),
+          ...(!loopEngine && provider === launch.provider && launch.model ? { model: launch.model } : {}),
+          ...(!loopEngine && provider === launch.provider && launch.effort ? { effort: launch.effort } : {}),
           ...engineInput,
         }
         if (
@@ -118,12 +130,19 @@ export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaun
           }
         }
       }
+      if (kind === 'prompt' && graph.config.agents) {
+        const definition = graph.config.agents.rolePrompts?.[promptRole]?.replaceAll('{{', '{{{{')
+        if (definition) {
+          if (object(params.nativeCommand)) params.nativeCommand = { ...params.nativeCommand, args: String(params.nativeCommand.args ?? '') + '\n\nLoop agent definition:\n' + definition }
+          else if (typeof params.text === 'string') params.text = definition + '\n\n' + params.text
+        }
+      }
       if (launch.briefing && ['prompt','role-turn','decider'].includes(kind)) {
         const suffix = '\n\nFrozen launch context:\n' + launch.briefing
         if (object(params.nativeCommand)) params.nativeCommand = { ...params.nativeCommand, args: String(params.nativeCommand.args ?? '') + suffix }
         else for (const field of ['text','prompt','goal']) if (typeof params[field] === 'string') params[field] += suffix
       }
-      if (kind === 'implementation') for (const role of ['architect', 'developer', 'reviewer']) roleIds.add(role)
+      if ((kind === 'implementation' || kind === 'implementation-step')) for (const role of ['architect', 'developer', 'reviewer']) roleIds.add(role)
       if ((kind === 'role-turn' || kind === 'decider') && typeof params.roleId === 'string')
         roleIds.add(params.roleId)
       if (kind === 'end' && params.outcome === 'success' && params.requiresVerified === undefined)
@@ -161,7 +180,7 @@ export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaun
       .map(([id, component]) => [id, compileBody(component)]),
   )
   const implementation = [body, ...Object.values(components)].some((component) =>
-    Object.values(component.nodes).some((node) => node.kind === 'implementation'),
+    Object.values(component.nodes).some((node) => (node.kind === 'implementation' || node.kind === 'implementation-step')),
   )
   const budget = {
     ...(graph.config.maxCostUsd && graph.config.maxCostUsd > 0
@@ -198,8 +217,8 @@ function pieceWrites(node: LoopNode, roles: DefinitionLaunch['roles']): boolean 
   const kind = node.data?.kind,
     params = node.data?.params ?? {}
   if (kind === 'prompt') return params.access !== 'read'
-  if (kind === 'role-turn') return roles?.[String(params.roleId)]?.access !== 'read'
-  return ['verify', 'shell', 'openspec-archive', 'implementation'].includes(kind ?? '')
+  if (kind === 'role-turn') return (roles ?? {})[String(params.roleId)]?.access !== 'read'
+  return ['verify', 'shell', 'openspec-archive', 'implementation', 'implementation-step'].includes(kind ?? '')
 }
 
 /** Expand templates once. Text inserted by spec/constants cannot introduce another token. */
@@ -209,9 +228,16 @@ function resolveValue(value: unknown, launch: DefinitionLaunch, provider: string
       /\{\{\{\{|\{\{\s*(?:spec\.\w+|const:[A-Za-z0-9_.-]+|cmd:[\w:-]+)\s*\}\}/g,
       (token) => {
         if (token === '{{{{') return token // Core resolves the literal escape at execution.
-        if (/^\{\{\s*spec\./.test(token)) return interpolateSpec(token, launch.spec)
-        if (/^\{\{\s*const:/.test(token)) return resolveConstants(token.replace(/\s+/g, ''), launch.constants)
-        return expandCommands(token, { provider, ticketIds: launch.spec?.ticketIds, specId: launch.spec?.id })
+        if (/^\{\{\s*spec\./.test(token)) return interpolateSpec(token, launch.spec).replaceAll('{{', '{{{{')
+        if (/^\{\{\s*const:/.test(token)) return resolveConstants(token.replace(/\s+/g, ''), launch.constants).replaceAll('{{', '{{{{')
+        // Registry templates contain launch tokens themselves. Resolve only
+        // those trusted tokens, never commands introduced by task data.
+        return expandCommands(token, { provider, ticketIds: launch.spec?.ticketIds, specId: launch.spec?.id }).replace(
+          /\{\{\s*(?:spec\.\w+|const:[A-Za-z0-9_.-]+)\s*\}\}/g,
+          nested => (/^\{\{\s*spec\./.test(nested)
+            ? interpolateSpec(nested, launch.spec)
+            : resolveConstants(nested.replace(/\s+/g, ''), launch.constants)).replaceAll('{{', '{{{{'),
+        )
       },
     )
   }

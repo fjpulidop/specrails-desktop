@@ -1,3 +1,4 @@
+import type { LoopAgentConfig } from './loop-agents'
 /**
  * Loop graph model + validation — the pure core shared by the canvas builder
  * (`loop-builder-canvas`) and the publish gate (`loops-store.publishLoop`).
@@ -12,8 +13,8 @@
 export type LoopNodeType = 'start' | 'ai-step' | 'shell' | 'decider' | 'condition' | 'core' | 'end'
 
 export const CORE_NODE_KINDS = ['prompt', 'role-turn', 'decider', 'condition', 'assign', 'verify', 'shell',
-  'openspec-validate', 'openspec-archive', 'approval', 'question', 'gate', 'map', 'join',
-  'component', 'implementation', 'end'] as const
+  'artifact-contract', 'openspec-validate', 'openspec-archive', 'approval', 'question', 'gate', 'map', 'join',
+  'component', 'implementation', 'implementation-step', 'end'] as const
 export type CoreNodeKind = typeof CORE_NODE_KINDS[number]
 export interface CorePieceShape { kind: string; outcomes: readonly string[] }
 
@@ -58,6 +59,8 @@ export interface LoopEdge {
 }
 
 export interface LoopGraphConfig {
+  /** Global, published agent definitions; no implicit project overrides. */
+  agents?: LoopAgentConfig
   /** Hard upper bound on iterations regardless of the Decider's verdict. */
   maxIterations: number
   /** Wall-clock timeout for the whole run, in minutes. 0 ⇒ no run deadline
@@ -80,6 +83,8 @@ export interface LoopGraphConfig {
    *  drives the canvas layout when the loop is re-opened in the builder. */
   layout?: 'vertical' | 'horizontal' | 'grid' | 'manual'
   journal?: 'ledger-only' | 'implementation'
+  /** How a rail groups its selected tickets into executions. */
+  ticketScope?: 'all' | 'per-ticket'
   change?: 'new' | 'existing' | 'none'
   maxTransitions?: number
   maxTokens?: number
@@ -108,7 +113,7 @@ export function isDefinitionReviewerPath(graph: LoopGraph, value: unknown): valu
   for (let index = 0; index < segments.length; index++) {
     const node: LoopNode | undefined = body?.nodes.find(item => item.id === segments[index])
     if (!node || node.type !== 'core') return false
-    if (index === segments.length - 1) return node.data?.kind === 'role-turn'
+    if (index === segments.length - 1) return node.data?.kind === 'role-turn' || node.data?.kind === 'implementation-step' && node.data.params?.phase === 'reviewer'
     const ref: unknown = node.data?.kind === 'component' ? node.data.params?.ref : node.data?.kind === 'map' ? node.data.params?.body : undefined
     body = typeof ref === 'string' ? graph.components?.[ref] : undefined
   }
@@ -282,6 +287,7 @@ export function validateLoopGraph(graph: LoopGraph, catalog?: readonly CorePiece
     (cfg.maxCostUsd !== undefined && !Number.isFinite(cfg.maxCostUsd)) ||
     (cfg.maxTransitions !== undefined && (!Number.isInteger(cfg.maxTransitions) || cfg.maxTransitions < 1 || cfg.maxTransitions > 10000)) ||
     (cfg.maxTokens !== undefined && (!Number.isInteger(cfg.maxTokens) || cfg.maxTokens < 1)) ||
+    (cfg.ticketScope !== undefined && !['all', 'per-ticket'].includes(cfg.ticketScope)) ||
     (cfg.reviewerStepId !== undefined && !isDefinitionReviewerPath(graph, cfg.reviewerStepId))
   ) {
     errors.push({
@@ -431,7 +437,7 @@ const TICKET_CMD_RE = /\{\{\s*cmd:(implement|batch|freestyle)\b/
 export function loopNeedsTicket(graph: LoopGraph | undefined): boolean {
   if (!graph) return false
   for (const node of graph.nodes) {
-    if (node.type === 'core' && node.data?.kind === 'implementation') return true
+    if (node.type === 'core' && ['implementation', 'implementation-step'].includes(node.data?.kind ?? '')) return true
     const text = [node.data?.prompt, node.data?.command, node.data?.goal,
       node.type === 'core' ? JSON.stringify(node.data?.params) : undefined]
       .filter((v) => typeof v === 'string')

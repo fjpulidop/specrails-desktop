@@ -18,7 +18,7 @@ export function classifyLoopEffect(graph: LoopGraph): 'mutating' | 'read-only' {
     if (n.type !== 'core') return false
     if (n.data?.kind === 'prompt') return n.data.params?.access !== 'read'
     // Role access binds at launch; isolation is conservative before that binding.
-    return ['role-turn', 'verify', 'shell', 'openspec-archive', 'implementation', 'component', 'map'].includes(String(n.data?.kind))
+    return ['role-turn', 'verify', 'shell', 'openspec-archive', 'implementation', 'implementation-step', 'component', 'map'].includes(String(n.data?.kind))
   }) || Object.values(graph.components ?? {}).some(component => classifyLoopEffect(component) === 'mutating')
   return writes ? 'mutating' : 'read-only'
 }

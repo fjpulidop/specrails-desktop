@@ -1,3 +1,4 @@
+import { useMissionPaneLayoutId } from '../context/MissionSplitViewsContext'
 import { useMissionWindows } from '../context/MissionWindowsContext'
 import { isLocalEngineId } from '../../providers/lib/provider-capabilities'
 import { readMissionScroll, saveMissionScroll, useMissionViewRevision } from '../lib/mission-view-state'
@@ -17,7 +18,6 @@ import { AgentActivityLogModal } from './AgentActivityLogModal'
 import { AgentMessage } from './AgentMessage'
 import { AgentQueuedMessage } from './AgentQueuedMessage'
 import { AgentComposer } from './AgentComposer'
-import { AgentThinkingHalo } from './AgentThinkingHalo'
 import { AgentPrDecisionCard } from './AgentPrDecisionCard'
 import { AgentPrPinnedDock, PrDecisionPill } from './AgentPrPinnedDock'
 import { AgentConversationHeader } from './AgentConversationHeader'
@@ -87,6 +87,7 @@ export function AgentConversationView({ variant }: { variant: 'floating' | 'inli
 }
 
 function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' }) {
+  const composerLayoutId = useMissionPaneLayoutId()
   const { t } = useTranslation('agent')
   const {
     active, messages, streamingText, isStreaming, liveTools, turnTools, queuedMessages,
@@ -189,11 +190,11 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
   // The inline surface caps the conversation column so it reads like Cursor's
   // centered thread on wide screens; the floating panel fills its own frame.
   const threadClass = inline
-    ? 'mx-auto flex w-full max-w-[820px] flex-1 flex-col overflow-hidden'
-    : 'flex flex-1 flex-col overflow-hidden'
+    ? 'mx-auto flex w-full max-w-[1040px] min-h-0 flex-1 flex-col overflow-hidden'
+    : 'flex min-h-0 flex-1 flex-col overflow-hidden'
 
   return (
-    <div className={`flex h-full flex-col overflow-hidden ${inline ? '' : ''}`} onKeyDown={onKeyDown}>
+    <div className={`flex h-full min-h-0 flex-col overflow-hidden ${inline ? '' : ''}`} onKeyDown={onKeyDown}>
       {providersReady === false && (
         <div className="flex items-start gap-2 border-b border-border/50 bg-accent-warning/10 px-3 py-2 text-xs text-foreground">
           <PackageOpen className="mt-0.5 h-4 w-4 shrink-0 text-accent-warning" />
@@ -227,7 +228,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
           initial={inline ? { opacity: 0, y: 8 } : false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
-          className="flex-1 space-y-5 overflow-y-auto px-4 py-4"
+          className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4"
         >
           {messages.length === 0 && !isStreaming && (
             <div className="flex h-full flex-col items-center justify-center text-center text-foreground/50">
@@ -363,25 +364,20 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
 
         {inline ? (
           // Docked composer card — same visual language as the EMPTY hero card
-          // (rounded glass card, not an edge-to-edge bar) and the morph target
+          // (a single flat surface) and the morph target
           // of its shared `layoutId`.
           <div className="shrink-0 px-4 pb-4">
             <motion.div
-              layoutId="agent-composer-dock"
+              layoutId={composerLayoutId}
               transition={{ layout: { type: 'spring', stiffness: 350, damping: 34 } }}
-              className="relative mx-auto w-full max-w-[680px] rounded-2xl border border-border/60 bg-card/90 p-3 shadow-2xl backdrop-blur-xl"
+              className="relative mx-auto w-full max-w-[960px]"
               data-testid="agent-composer-dock"
             >
-              {/* Thinking halo (Settings ▸ Effects): the Builder's ring orbits the
-                  WHOLE composer card while the agent thinks / writes — same
-                  outer-edge treatment as the Builder's hero card. */}
-              <AgentThinkingHalo active={isStreaming} radius="1rem" inset={-3} />
               <AgentComposer queueEditRequest={queueEditRequest} />
             </motion.div>
           </div>
         ) : (
           <div className="relative shrink-0 border-t border-border/50 bg-surface/30 p-3" data-testid="agent-composer-dock">
-            <AgentThinkingHalo active={isStreaming} radius="0.75rem" inset={-2} />
             {/* Kanban floating panel: the project selector lives in the panel
                 HEADER (next to the Agent title), so the composer hides its own. */}
             <AgentComposer hideProjectSelector queueEditRequest={queueEditRequest} />

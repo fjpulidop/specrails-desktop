@@ -5,7 +5,9 @@ import { Input } from '../../../components/ui/input'
 import { CUSTOM_ROLE_ID, RUNTIME_ROLES, type RuntimeRoleDescriptor } from '../lib/agent-runtime'
 
 const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-2 text-sm'
-export function CustomRuntimeRoles({ roles = {}, provider, supported, onChange, renderEngine }: {
+export function CustomRuntimeRoles({ roles = {}, provider, supported, onChange, renderEngine, visibleRoleIds, manageRoles = true }: {
+  manageRoles?: boolean
+  visibleRoleIds?: string[]
   roles?: Record<string, RuntimeRoleDescriptor>
   provider: string
   supported: boolean
@@ -14,19 +16,19 @@ export function CustomRuntimeRoles({ roles = {}, provider, supported, onChange, 
 }) {
   const { t } = useTranslation('agentRuntime')
   const [id, setId] = useState(''), [error, setError] = useState(false)
-  const custom = Object.entries(roles).filter(([key]) => !(RUNTIME_ROLES as readonly string[]).includes(key))
+  const custom = Object.entries(roles).filter(([key]) => !(RUNTIME_ROLES as readonly string[]).includes(key) && (!visibleRoleIds || visibleRoleIds.includes(key)))
   function add() {
     if (!CUSTOM_ROLE_ID.test(id) || id === 'fixer' || (RUNTIME_ROLES as readonly string[]).includes(id) || Object.prototype.hasOwnProperty.call(roles, id)) { setError(true); return }
     onChange({ ...roles, [id]: { provider, access: 'read', artifacts: 'none' } }); setId(''); setError(false)
   }
   return <section className="space-y-3" aria-labelledby="custom-runtime-roles">
-    <div><h3 id="custom-runtime-roles" className="text-sm font-medium">{t('customRoles.title')}</h3><p className="text-xs text-muted-foreground">{t('customRoles.hint')}</p></div>
+    {manageRoles && <div><h3 id="custom-runtime-roles" className="text-sm font-medium">{t('customRoles.title')}</h3><p className="text-xs text-muted-foreground">{t('customRoles.hint')}</p></div>}
     {!supported && <p className="text-xs text-muted-foreground">{t('customRoles.unsupported')}</p>}
     {custom.map(([key, role]) => {
       const update = (value: Partial<RuntimeRoleDescriptor>) => onChange({ ...roles, [key]: { ...role, ...value } })
       return <fieldset key={key} className="space-y-3 rounded-lg border p-3" aria-label={key}>
         <legend className="px-1 font-mono text-sm">{key}</legend>
-        <div className="flex justify-end"><Button size="sm" variant="ghost" onClick={() => { const next = { ...roles }; delete next[key]; onChange(next) }}>{t('customRoles.remove', { id: key })}</Button></div>
+        {manageRoles && <div className="flex justify-end"><Button size="sm" variant="ghost" onClick={() => { const next = { ...roles }; delete next[key]; onChange(next) }}>{t('customRoles.remove', { id: key })}</Button></div>}
         <fieldset disabled={!supported} className="space-y-3">
           {renderEngine(key)}
           <div className="grid gap-3 sm:grid-cols-2">
@@ -38,7 +40,7 @@ export function CustomRuntimeRoles({ roles = {}, provider, supported, onChange, 
         </fieldset>
       </fieldset>
     })}
-    <fieldset disabled={!supported || !provider} className="flex items-end gap-2"><label className="min-w-0 flex-1 space-y-1 text-xs">{t('customRoles.id')}<Input value={id} maxLength={64} placeholder="security-reviewer" onChange={event => { setId(event.target.value); setError(false) }} /></label><Button variant="secondary" onClick={add}>{t('customRoles.add')}</Button></fieldset>
+    {manageRoles && <fieldset disabled={!supported || !provider} className="flex items-end gap-2"><label className="min-w-0 flex-1 space-y-1 text-xs">{t('customRoles.id')}<Input value={id} maxLength={64} placeholder="security-reviewer" onChange={event => { setId(event.target.value); setError(false) }} /></label><Button variant="secondary" onClick={add}>{t('customRoles.add')}</Button></fieldset>}
     {error && <p role="alert" className="text-xs text-destructive">{t('customRoles.invalidId')}</p>}
   </section>
 }

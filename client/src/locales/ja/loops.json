@@ -193,7 +193,7 @@
       "tooDeep": "値の階層が深すぎます。",
       "pieces": {
         "prompt": "プロンプト",
-        "role-turn": "ロールの実行",
+        "role-turn": "Agent step",
         "decider": "判断",
         "condition": "条件",
         "verify": "検証",
@@ -208,7 +208,9 @@
         "component": "コンポーネント",
         "implementation": "実装",
         "end": "終了",
-        "assign": "変数を設定"
+        "assign": "変数を設定",
+        "implementation-step": "Implementation step",
+        "artifact-contract": "Artifact contract"
       },
       "groups": {
         "ai": "AI",
@@ -224,8 +226,11 @@
         "set": "値を設定",
         "increment": "カウンターを調整"
       },
-      "requiredContinue": "この条件が成立する間は続行"
-    }
+      "requiredContinue": "この条件が成立する間は続行",
+      "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
+      "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
+    },
+    "loopSettings": "Advanced settings"
   },
   "preview": {
     "steps": "ステップ",
@@ -337,5 +342,8 @@
       "needs_attention": "要対応",
       "running": "実行中"
     }
+  },
+  "window": {
+    "open": "Open in window"
   }
 }

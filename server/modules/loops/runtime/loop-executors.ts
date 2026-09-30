@@ -212,9 +212,16 @@ export function createLoopExecutors(
       const host = readFrozenRuntimeHost(contextPath, resolveEnv(), runId)
       await runAgentRuntimeControl({ kind: 'cancel', runId, contextPath, requestId, ...host })
     },
-    async assertDefinitionSupport() {
+    async assertDefinitionSupport(graph) {
       const runtime = await loadCoreAgentRuntime()
       if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1) throw new Error('engine_unsupported: Update Core to run workflow definitions')
+      if (graph && [graph, ...Object.values(graph.components ?? {})].some(body => body.nodes.some(node => node.data?.kind === 'artifact-contract'))) {
+        if (runtime.api?.capabilities?.workflowAgentSteps !== 1) throw new Error('engine_unsupported: Update Core to run configurable workflow agent steps')
+      }
+      if (graph && [graph, ...Object.values(graph.components ?? {})].some(body => body.nodes.some(node => node.data?.kind === 'implementation-step'))) {
+        if (runtime.api?.capabilities?.implementationSteps !== 1) throw new Error('engine_unsupported: Update Core to run independent implementation steps')
+        if (!graph.config.agents) throw new Error('Independent implementation steps require loop-owned agents')
+      }
     },
     async assertLegacyEngineSupport() {
       // Legacy traversal predates Core: only a Core that positively lacks engine 1 blocks it.
@@ -238,10 +245,11 @@ export function createLoopExecutors(
       const result = await runAgentRuntimeInvocation({
         contextPath: core.contextPath, cwd: request.cwd, env: core.env,
         configPath: runtimeConfigPath(request.cwd), engineVersion: 2,
+        loopConfig: request.graph.config.agents,
         change: seeded?.id ?? runtimeChangeName(runId),
         resume: input.resume, answer: input.answer, approve: input.approve, interruptId: input.interruptId,
-        defaultProvider: request.provider, providerOverride: request.runtimeProviderOverride,
-        ...(request.graph.config.legacyDeciderRole ? { workflowRoleBindings: {
+        defaultProvider: request.provider, providerOverride: request.runtimeProviderOverride ?? (request.graph.config.agents ? { provider: request.provider, model: request.model, effort: request.effort } : undefined),
+        ...(!request.graph.config.agents && request.graph.config.legacyDeciderRole ? { workflowRoleBindings: {
           [request.graph.config.legacyDeciderRole]: {
             ...(request.deciderEngine ?? { provider: request.provider, model: request.model, effort: request.effort }),
             access: 'read' as const, artifacts: 'none' as const,
@@ -249,6 +257,7 @@ export function createLoopExecutors(
         } } : {}),
         ...(!input.resume ? { prepareDefinition: (config) => compileLoopToDefinition(request.graph, {
           id: request.loopId, title: request.loopName, spec: request.spec,
+          ...(request.graph.config.agents ? { loopAgents: config } : {}),
           constants: request.constants ?? {}, provider: request.provider, model: request.model, effort: request.effort,
           roles: { architect: { access: 'read' }, developer: { access: 'write' }, reviewer: { access: 'read' }, ...config.roles }, repositoryCount: request.executionManifest?.repositories.length ?? 1,
           changeId: seeded?.id, briefing,

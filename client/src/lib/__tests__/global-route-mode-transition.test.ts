@@ -10,7 +10,7 @@ describe('global route mode transitions', () => {
     expect(modalSurfaceForPath('/')).toBeNull()
   })
 
-  it('modalizes Loops and sends the background to New Mission when entering Mission mode from Board', () => {
+  it('opens Loops as a modal over the mission when entering Mission mode from Board', () => {
     expect(getGlobalRouteModeTransition({
       uiMode: 'agent',
       pathname: '/loops',
@@ -19,7 +19,7 @@ describe('global route mode transitions', () => {
     })).toEqual({ kind: 'modalize', surface: 'loops', backgroundPath: '/' })
   })
 
-  it('modalizes Plugins and sends the background to New Mission when entering Mission mode from Board', () => {
+  it('opens Plugins as a modal and preserves the mission when entering Mission mode from Board', () => {
     expect(getGlobalRouteModeTransition({
       uiMode: 'agent',
       pathname: '/plugins',
@@ -52,7 +52,7 @@ describe('global route mode transitions', () => {
     expect(loopBuilderIdForPath('/plugins')).toBeNull()
   })
 
-  it('mission mode modalizes the builder route carrying the loop id', () => {
+  it('mission mode opens the builder modal carrying the loop id', () => {
     expect(getGlobalRouteModeTransition({
       uiMode: 'agent',
       pathname: '/loops/loop-9/edit',

@@ -193,7 +193,7 @@
       "tooDeep": "Der Wert ist zu tief verschachtelt.",
       "pieces": {
         "prompt": "Prompt",
-        "role-turn": "Rollenschritt",
+        "role-turn": "Agent step",
         "decider": "Entscheidung",
         "condition": "Bedingung",
         "verify": "Prüfen",
@@ -208,7 +208,9 @@
         "component": "Komponente",
         "implementation": "Implementierung",
         "end": "Ende",
-        "assign": "Variablen setzen"
+        "assign": "Variablen setzen",
+        "implementation-step": "Implementation step",
+        "artifact-contract": "Artifact contract"
       },
       "groups": {
         "ai": "KI",
@@ -224,8 +226,11 @@
         "set": "Werte setzen",
         "increment": "Zähler anpassen"
       },
-      "requiredContinue": "Fortsetzen, solange diese Bedingung erfüllt ist"
-    }
+      "requiredContinue": "Fortsetzen, solange diese Bedingung erfüllt ist",
+      "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
+      "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
+    },
+    "loopSettings": "Advanced settings"
   },
   "preview": {
     "steps": "Schritte",
@@ -337,5 +342,8 @@
       "needs_attention": "Braucht Aufmerksamkeit",
       "running": "Läuft"
     }
+  },
+  "window": {
+    "open": "Open in window"
   }
 }

@@ -486,7 +486,7 @@ describe('agent-chat-router', () => {
     const claude = await req(app, 'GET', '/api/agent/models?provider=claude')
     expect(claude.body.models.some((m: { value: string }) => m.value === 'sonnet')).toBe(true)
     const codex = await req(app, 'GET', '/api/agent/models?provider=codex')
-    expect(codex.body.models.some((m: { value: string }) => m.value === 'gpt-5.5')).toBe(true)
+    expect(codex.body.models.some((m: { value: string }) => m.value === 'gpt-6.1-sol')).toBe(true)
     const kimi = await req(app, 'GET', '/api/agent/models?provider=kimi')
     expect(kimi.body.customModelAliases).toBe(true)
     expect(kimi.body.models.some((m: { value: string }) => m.value === 'k3')).toBe(true)
@@ -496,8 +496,9 @@ describe('agent-chat-router', () => {
     const c = await req(app, 'POST', '/api/agent/conversations', { provider: 'codex' })
     const id = c.body.conversation.id
     expect((await req(app, 'PATCH', `/api/agent/conversations/${id}`, { model: 'sonnet' })).status).toBe(400)
-    const ok = await req(app, 'PATCH', `/api/agent/conversations/${id}`, { model: 'gpt-5.5' })
-    expect(ok.body.conversation.model).toBe('gpt-5.5')
+    const ok = await req(app, 'PATCH', `/api/agent/conversations/${id}`, { model: 'gpt-6.1-sol' })
+    expect(ok.body.conversation.model).toBe('gpt-6.1-sol')
+    expect((await req(app, 'PATCH', `/api/agent/conversations/${id}`, { model: 'gpt-5.5' })).status).toBe(400)
   })
 
   it('preserves safe custom Kimi aliases and rejects unsafe argv-like values', async () => {
@@ -539,7 +540,7 @@ describe('agent-chat-router', () => {
     const claude = await req(app, 'GET', '/api/agent/models?provider=claude')
     expect(claude.body.efforts).toEqual(['low', 'medium', 'high', 'xhigh'])
     const codex = await req(app, 'GET', '/api/agent/models?provider=codex')
-    expect(codex.body.efforts).toEqual(['low', 'medium', 'high', 'xhigh'])
+    expect(codex.body.efforts).toEqual(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
     const gemini = await req(app, 'GET', '/api/agent/models?provider=gemini')
     expect(gemini.body.efforts).toEqual([])
     const kimiK3 = await req(app, 'GET', '/api/agent/models?provider=kimi&model=k3')

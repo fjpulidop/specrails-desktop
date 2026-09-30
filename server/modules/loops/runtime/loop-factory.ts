@@ -117,7 +117,7 @@ const FACTORY_BY_ID = new Map<string, FactoryLoop>([
 
 export function factoryLoopsForCapabilities(capabilities?: Record<string, number>): FactoryLoop[] {
   if (capabilities?.engineV2 !== 1 || capabilities.workflowDefinitions !== 1) return FACTORY_LOOPS
-  return FACTORY_LOOPS.map(factory => ({ ...factory, graph: coreFactoryGraph(factory.id === 'factory:implement' ? 'implement' : factory.id === 'factory:freestyle' ? 'freestyle' : 'quick-sdd') }))
+  return FACTORY_LOOPS.map(factory => ({ ...factory, graph: coreFactoryGraph(factory.id === 'factory:implement' ? 'implement' : factory.id === 'factory:freestyle' ? 'freestyle' : 'quick-sdd', capabilities.implementationSteps === 1, capabilities.workflowAgentSteps === 1) }))
 }
 
 export function getFactoryLoop(id: string, capabilities?: Record<string, number>): FactoryLoop | undefined {

@@ -12,6 +12,9 @@ import { syncLocalAdapters } from '../../../providers/local-adapter-registry'
 import { unregisterAdapter } from '../../../providers/registry'
 import '../../../providers'
 
+// These cases exercise legacy project-owned engines; modern ownership is covered by rails-router.test.
+vi.mock('../../agent-runtime/runtime/agent-runtime-loader', () => ({ loadCoreAgentRuntime: async () => ({ api: { capabilities: {} } }) }))
+
 vi.mock('../../../project-git', async (importActual) => ({
   ...(await importActual<typeof import('../../../project-git')>()),
   getRepoStatus: vi.fn(async () => 'no-git'),

@@ -10,7 +10,7 @@ import { dirname, isAbsolute, join, posix } from 'node:path'
 import { createInterface } from 'node:readline'
 import { findCoreAgentRuntimeCli, loadCoreAgentRuntime, validateRequestedRoleEfforts } from './agent-runtime-loader'
 import { retainAgentRuntime, resolveRetainedAgentRuntime } from './agent-runtime-package'
-import { loadRuntimeConfigFile, loadRuntimeRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates } from './agent-runtime-settings'
+import { loadLoopRuntimeConfig, type LoopRuntimeSettings, loadRuntimeConfigFile, loadRuntimeRolePrompts, stripDesktopConnectionFields, coreConnectionFieldGates } from './agent-runtime-settings'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
 import type { DefinitionCompletion, DefinitionInterrupt, DefinitionPrepared } from '../../loops/runtime/loop-definition-run'
@@ -81,6 +81,7 @@ export interface AgentRuntimeInvocationOptions {
   onPrepared?(metadata: DefinitionPrepared): void
   prepareDefinition?(config: Readonly<RuntimeConfig>): unknown
   /** Explicit launch selections for custom roles declared by this definition. */
+  loopConfig?: LoopRuntimeSettings
   workflowRoleBindings?: RuntimeConfig['roles']
   defaultProvider?: string
   /** A selected launch provider applies to every role; absent selection preserves role settings. */
@@ -119,7 +120,7 @@ interface RuntimeResult {
  * rail's cancellation and worktree ownership remain in Desktop. */
 export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationOptions): Promise<AiStepResult> {
   const definitionEngine = options.engineVersion === 2 || options.definitionPath !== undefined || options.prepareDefinition !== undefined
-  if (options.resume && (options.definitionPath || options.prepareDefinition || options.workflowRoleBindings)) throw new Error('Resume must use the frozen workflow definition and role bindings')
+  if (options.resume && (options.definitionPath || options.prepareDefinition || options.workflowRoleBindings || options.loopConfig)) throw new Error('Resume must use the frozen workflow definition and role bindings')
   const selectedCli = options.resume ? resolveRetainedAgentRuntime(options.contextPath) : findCoreAgentRuntimeCli()
   let cli = selectedCli
   if (!cli) throw new Error('Programmatic agent runtime is enabled but its Core CLI is unavailable. Build or bundle the compatible Core runtime.')
@@ -130,11 +131,11 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
   if (!options.resume) {
     if (!Array.isArray(admittedContext.repositories) || !admittedContext.repositories.length || admittedContext.repositories.some(repo => !repo || typeof repo.id !== 'string' || !repo.id)) throw new Error('Core context is missing its repository scope')
     const source = existsSync(options.configPath!) ? 'project-role' : 'default'
-    const { config, origins } = resolveEffectiveRuntimeConfig(loadRuntimeConfigFile(options.configPath!, options.defaultProvider), {
-      repositoryIds: admittedContext.repositories.map(repo => repo.id), source, providerOverride: options.providerOverride,
+    const { config, origins } = resolveEffectiveRuntimeConfig(options.loopConfig ? loadLoopRuntimeConfig(options.configPath!, options.loopConfig, options.providerOverride ?? { provider: options.defaultProvider ?? 'claude' }) : loadRuntimeConfigFile(options.configPath!, options.defaultProvider), {
+      repositoryIds: admittedContext.repositories.map(repo => repo.id), source: options.loopConfig ? 'loop-role' : source, providerOverride: options.loopConfig ? undefined : options.providerOverride,
     })
     config.verification = scopedHostChecks(config.verification, admittedContext.repositories)
-    config.rolePrompts = { ...(await loadCoreAgentRuntime()).rolePromptDefaults(), ...loadRuntimeRolePrompts(), ...config.rolePrompts }
+    if (!options.loopConfig) config.rolePrompts = { ...(await loadCoreAgentRuntime()).rolePromptDefaults(), ...loadRuntimeRolePrompts(), ...config.rolePrompts }
     // Core rejects unknown connection keys: drop the desktop-only local-engine
     // fields (label/defaultModel/rates/supportsReasoningEffort) before Core sees it.
     const runtime = await loadCoreAgentRuntime()
@@ -151,8 +152,10 @@ export async function runAgentRuntimeInvocation(options: AgentRuntimeInvocationO
       : options.definitionPath ? JSON.parse(readFileSync(options.definitionPath, 'utf8')) : undefined : undefined
     if (definitionEngine && !draft) throw new Error('A new Core workflow requires a definition')
     const selectedOrigins = bindWorkflowRoleSelections(config, draft, options.workflowRoleBindings)
+    if (options.loopConfig && (draft as { roles?: string[] } | undefined)?.roles?.includes('loop-decider') && !config.roles?.['loop-decider']) throw new Error('The loop must define its loop-decider agent')
     const workflowOrigins = { ...bindWorkflowRoleDefaults(config, draft), ...selectedOrigins }
-    const override = options.providerOverride
+    if (options.loopConfig) for (const role of Object.keys(config.roles ?? {})) workflowOrigins[role] = 'loop-role'
+    const override = options.loopConfig ? undefined : options.providerOverride
     runtime.validateRuntimeConfig(JSON.parse(JSON.stringify(config)))
     validateRequestedRoleEfforts(runtime, config)
     cli = retainAgentRuntime(cli, options.contextPath)

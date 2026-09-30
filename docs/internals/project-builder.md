@@ -529,15 +529,14 @@ execution (one spec per rail) and can use Kimi.
   route over loopback (`server/internal-api.ts`, lifted from the MCP tools'
   `apiCall`) so every existing guard applies and each 4xx becomes a typed
   `pause_reason` (`launch_rejected:<error>`). The chain
-  the next chunk when the in-flight chunk's DELIVERY settles — the manager taps
-  the project's bound broadcast for `rail.pr_state` (the engine's
-  `onLoopRunFinished` fires BEFORE the delivery row leaves `building`, so it is
-  only the delivery-less shared-cwd fallback, recording `last_run_outcome` to
-  name the pause reason) — and **STACKS** it: chunk k+1 launches with
-  `baseBranch = chunk k's delivered branch` (the rails launch route's new
-  `baseBranch` param → `resolveIntegrationBranch({ explicit })`, recorded as
-  the delivery's `base_branch`, so a walking skeleton accumulates without
-  waiting for a merge). `no_changes` keeps the previous head; failure /
+  advances the next chunk only after the in-flight delivery is integrated.
+  The manager taps the project's bound `rail.pr_state` broadcast and uses the
+  ordinary guarded local decision route to integrate the completed spec.
+  `onLoopRunFinished` remains the delivery-less shared-cwd fallback.
+  Chunk k+1 starts from the accumulated integration branch; an integration
+  failure retains the current delivery for retry and never allocates the next
+  worktree. `no_changes` is acknowledged through the same decision surface.
+  Failure /
   stall / stop / launch refusal / missing head / discarded head / lost run
   PAUSE the chain (`chunk_failed | chunk_stalled | chunk_stopped |
   launch_rejected:<e> | head_missing | head_discarded | run_lost`) — never
@@ -572,7 +571,7 @@ execution (one spec per rail) and can use Kimi.
   omitted; the UI sends the user's stored preference
   `localStorage['specrails-desktop:milestone-auto-advance']`, default ON)
   and a non-terminal status `awaiting_approval`. When a chunk's delivery
-  settles successfully and auto-advance is off (and chunks remain), the
+  integrates successfully and auto-advance is off (and chunks remain), the
   manager records the head and parks the chain at `awaiting_approval`
   (`afterChunkSuccess`) instead of launching — a HEALTHY decision point, unlike
   `paused` whose Resume retries the SAME chunk. `…/chains/:id/resume` launches
@@ -588,7 +587,8 @@ execution (one spec per rail) and can use Kimi.
   excludes a checkpoint (`milestone-progress.ts`). The former **Parallel**
   option and the `SPECRAILS_MILESTONE_CHAIN=false` kill switch were removed
   (`remove-batch-and-sequential-builder`); completed `mode: 'parallel'` rows
-  already in the database still render ("Parallel launch"). Merging a STACKED
+  already in the database still render ("Parallel launch"). Historical STACKED
+  chains remain supported: merging a stacked
   chunk sweeps its merged ancestors (`sweepMergedChainAncestors` in
   `rail-pr-decision.ts`: chain-local, `git merge-base --is-ancestor`, same
   CAS + ticket effect + Jira hook) and merge-local integrates into the CHAIN's
@@ -706,3 +706,26 @@ Minimize-to-dock for Builder conversations (no `projectId` to tag — resume is
 now the hero list instead), an orphan-dir startup sweeper, non-GitHub remotes,
 editing an existing blueprint via the day-0 Builder, a live side-panel draft
 during M2 generation, an app-driven repair turn for M2+ (ChatManager path).
+
+## Incremental spec integration
+
+The production milestone chain integrates each fully implemented spec through
+`POST /rails/pr-decision` (`merge-local`, or acknowledgement for no changes)
+before creating the next worktree. The next spec starts from the accumulated
+integration branch. It no longer stacks production launches on undecided feature
+branches or carries previous delivery IDs as the next worktree's base.
+
+The chain retains its current delivery while `waiting` with
+`integration_pending`. Duplicate settle events cannot start a second integration.
+Only a durable `merged`/`completed` delivery allows advancement. Conflicts,
+unconfirmed decisions or partially implemented specs pause the chain. Resume
+retries failed integration, not implementation; startup recovers pending
+integration. The existing per-spec checkpoint happens after integration when
+auto-continue is disabled. Cancellation stops further advancement.
+
+The regular local-merge path retains repository locks, clean-checkout checks,
+isolated assembly, exact verified commits, ticket effects and recovery evidence.
+An existing remote PR still uses remote merge authority and blocks local merge.
+Legacy adapters without an integration port keep their old stacking behavior.
+Tests cover three real Git worktrees accumulating one project, duplicate events,
+failed integration/resume and a restart before integration settlement.

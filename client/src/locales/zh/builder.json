@@ -303,18 +303,20 @@
         "run_lost": "重启后找不到运行中的轨道",
         "unknown": "已暂停",
         "provider_limit": "已达到提供商用量限额",
-        "rail_limit_reached": "每条轨道都有等待你决定的 PR — 合并或放弃待处理的 PR 以释放轨道，然后继续"
+        "rail_limit_reached": "每条轨道都有等待你决定的 PR — 合并或放弃待处理的 PR 以释放轨道，然后继续",
+        "integration_failed": "spec integration failed ({{detail}}); resume retries integration"
       },
       "checkpoint": "第 {{k}}/{{n}} 条轨道已交付 — 启动第 {{next}} 条？",
       "launchNext": "启动下一条轨道",
       "nextLaunched": "下一条轨道已启动",
       "autoAdvance": "自动继续",
-      "autoAdvanceHint": "上一条轨道交付后立即启动下一条",
+      "autoAdvanceHint": "Integrates each spec before creating the next worktree",
       "checkpointHint": "每条轨道结束后暂停，启动下一条前先询问",
       "checkpointNote": "本轨道结束后暂停",
       "autoOn": "已开启自动继续 — 后续轨道将自动启动",
       "autoOff": "已关闭自动继续 — 每条轨道启动前都会询问",
-      "autoFailed": "无法更新链"
+      "autoFailed": "无法更新链",
+      "integrating": "integrating this spec before launching the next"
     },
     "toast": {
       "launched": "{{milestone}} 已启动 — 第 1/{{n}} 个规格已在其轨道上；后续规格将自动跟进，每个一条轨道",

@@ -140,31 +140,31 @@ describe('ChatInput', () => {
     expect(onModelChange).toHaveBeenCalledWith('opus')
   })
 
-  it('when provider=codex, dropdown lists gpt-5.5 as the first option', () => {
+  it('when provider=codex, dropdown lists gpt-6.1-sol as the first option', () => {
     render(
       <ChatInput
         {...defaultProps}
         provider="codex"
-        model="gpt-5.5"
+        model="gpt-6.1-sol"
       />
     )
     const select = screen.getByRole('combobox') as HTMLSelectElement
     const options = Array.from(select.options).map((o) => o.value)
-    expect(options[0]).toBe('gpt-5.5')
-    expect(options).toContain('gpt-5.4')
-    expect(options).toContain('gpt-5.3-codex')
+    expect(options[0]).toBe('gpt-6.1-sol')
+    expect(options).toContain('gpt-6-astra')
+    expect(options).not.toEqual(expect.arrayContaining(['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex']))
   })
 
-  it('when provider=codex, model selector value is gpt-5.4-mini when set', () => {
+  it('when provider=codex, model selector value is gpt-5.6-luna when set', () => {
     render(
       <ChatInput
         {...defaultProps}
         provider="codex"
-        model="gpt-5.4-mini"
+        model="gpt-5.6-luna"
       />
     )
     const select = screen.getByRole('combobox') as HTMLSelectElement
-    expect(select.value).toBe('gpt-5.4-mini')
+    expect(select.value).toBe('gpt-5.6-luna')
   })
 
   it('preserves and commits a safe custom Kimi alias exactly', () => {

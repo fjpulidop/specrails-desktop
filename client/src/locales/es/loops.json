@@ -193,7 +193,7 @@
       "tooDeep": "El valor tiene demasiados niveles.",
       "pieces": {
         "prompt": "Prompt",
-        "role-turn": "Turno de rol",
+        "role-turn": "Paso agente",
         "decider": "Decisión",
         "condition": "Condición",
         "verify": "Verificar",
@@ -208,7 +208,9 @@
         "component": "Componente",
         "implementation": "Implementación",
         "end": "Fin",
-        "assign": "Asignar variables"
+        "assign": "Asignar variables",
+        "implementation-step": "Paso de implementación",
+        "artifact-contract": "Comprobar artefactos"
       },
       "groups": {
         "ai": "IA",
@@ -224,8 +226,11 @@
         "set": "Asignar valores",
         "increment": "Ajustar contadores"
       },
-      "requiredContinue": "Continuar mientras se cumpla esta condición"
-    }
+      "requiredContinue": "Continuar mientras se cumpla esta condición",
+      "agentTaskDefault": "Ejecuta la tarea definida para este paso usando el contexto del workflow.",
+      "legacyImplementation": "Este paso conserva las fases de una versión anterior. Para definir tu propio paso, añade un Paso agente. En los loops integrados, Restaurar original carga el nuevo flujo."
+    },
+    "loopSettings": "Ajustes avanzados"
   },
   "preview": {
     "steps": "Pasos",
@@ -337,5 +342,8 @@
       "needs_attention": "Requiere atención",
       "running": "En ejecución"
     }
+  },
+  "window": {
+    "open": "Abrir en ventana"
   }
 }

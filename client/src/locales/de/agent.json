@@ -2,7 +2,7 @@
   "title": "Missionszentrale",
   "subtitle": "Specrails per Chat bedienen",
   "trigger": "Missionszentrale",
-  "composerPlaceholder": "Bitte den Agenten um alles…",
+  "composerPlaceholder": "Was ist die Mission?",
   "send": "Senden",
   "stop": "Stopp",
   "copy": "Kopieren",
@@ -705,5 +705,40 @@
     "briefing": {
       "title": "Automatischer Fehlerbericht"
     }
+  },
+  "split": {
+    "open": "Geteilte Ansicht",
+    "menu": "Unterhaltungsaktionen",
+    "add": "Unterhaltung in geteilter Ansicht hinzufügen",
+    "close": "Geteilte Ansicht schließen",
+    "loadFailed": "Diese Unterhaltung konnte nicht geladen werden.",
+    "retry": "Erneut versuchen"
+  },
+  "runtimeSelector": {
+    "label": "Modell und Aufwand",
+    "resetEffort": "Aufwand zurücksetzen",
+    "back": "Zurück"
+  },
+  "missionPlaceholders": {
+    "0": "Was ist die Mission?",
+    "1": "Mit welcher Mission beginnen wir?",
+    "2": "Was ist unsere Mission heute?",
+    "3": "Was ist unsere nächste Mission?",
+    "4": "Was möchtest du mit dieser Mission erreichen?",
+    "5": "Welche Mission starten wir?",
+    "6": "Wo beginnen wir diese Mission?",
+    "7": "Was ist das Ziel dieser Mission?",
+    "8": "Was bauen wir in dieser Mission?",
+    "9": "Was verbessern wir in dieser Mission?",
+    "10": "Welche Herausforderung gehen wir in dieser Mission an?",
+    "11": "Was ist der erste Schritt dieser Mission?",
+    "12": "Erzähl mir von der Mission, die du im Sinn hast…",
+    "13": "Beschreibe deine nächste Mission…",
+    "14": "Gestalten wir deine nächste Mission…",
+    "15": "Was soll diese Mission bewirken?",
+    "16": "Welche Mission möchtest du abschließen?",
+    "17": "Was lösen wir in dieser Mission?",
+    "18": "Was macht diese Mission zu einem Erfolg?",
+    "19": "Bereit für eine neue Mission. Fangen wir an?"
   }
 }

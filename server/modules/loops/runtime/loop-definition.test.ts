@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { compileLoopToDefinition } from './loop-definition'
+import { coreFactoryGraph } from './loop-core-factory'
 import { assertDefinitionGraph, isDefinitionGraph, isDefinitionReviewerPath, validateLoopGraph, type LoopGraph } from './loop-graph'
 
 it('validates a custom evidence reviewer against an exact role-turn instance path', () => {
@@ -51,6 +52,21 @@ function fixture(): LoopGraph {
 }
 
 describe('Core workflow authoring contract', () => {
+  it('renders launch data inside command templates without applying implementation instructions to Freestyle', () => {
+    const graph = coreFactoryGraph('freestyle', true)
+    const definition = compileLoopToDefinition(graph, { ...launch, constants: { GUARDRAILS: 'Keep tests intact' },
+      spec: { title: 'Pieza fantasma', description: 'Render {{run.changeId}} and {{cmd:verify}} literally', acceptanceCriteria: ['Ghost predicts landing'] } })
+    expect(definition.nodes.implement.params.text).toContain('Title: Pieza fantasma')
+    expect(definition.nodes.implement.params.text).toContain('Render {{{{run.changeId}} and {{{{cmd:verify}} literally')
+    expect(definition.nodes.implement.params.text).not.toMatch(/\{\{spec\./)
+    expect(definition.nodes.implement.params.text).not.toContain('openspec-apply-change')
+    expect(definition.nodes.fix.params.text).not.toContain('openspec-apply-change')
+    graph.nodes.find(node => node.id === 'fix')!.data!.params!.text = '{{cmd:test}}'
+    expect(compileLoopToDefinition(graph, { ...launch, constants: { GUARDRAILS: 'Keep tests intact' } }).nodes.fix.params.text).toContain('Keep tests intact')
+    graph.config.agents!.rolePrompts!.developer = 'Custom free agent'
+    expect(compileLoopToDefinition(graph, launch).nodes.implement.params.text).toContain('Custom free agent')
+  })
+
   it('compiles scoped assignments without AI bindings and rejects a catalog that lacks them', () => {
     const graph = fixture()
     graph.nodes[1].data = { kind: 'assign', params: { set: { failed: false }, increment: { iteration: 1 } } }
@@ -95,7 +111,7 @@ describe('Core workflow authoring contract', () => {
     expect(definition.id).toBe('factory-quick')
     expect(definition.entry).toBe('work')
     expect(definition.nodes.start).toBeUndefined()
-    expect(definition.nodes.work.params.text).toBe('Verified work: Fix {{cmd:verify}} / {{run.changeId}}')
+    expect(definition.nodes.work.params.text).toBe('Verified work: Fix {{{{cmd:verify}} / {{run.changeId}}')
     expect(definition.nodes.work.params.engine).toEqual({ provider: 'claude', model: 'chosen-model' })
     expect(definition.nodes.finish.params.requiresVerified).toBe(true)
     expect(definition.budget).toEqual({ maxCostUsd: 0.5, maxTokens: 1000, maxDurationMs: 120_000 })

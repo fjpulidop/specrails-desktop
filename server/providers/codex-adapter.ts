@@ -44,20 +44,19 @@ const CODEX_MIN_VERSION = '0.128.0'
 const CODEX_MODELS = [
   // Newest first. gpt-6-astra has no rate card in `server/modules/accounting/runtime/pricing.ts` yet, so
   // its turns show cost as unavailable (honest-metrics: never fabricated).
+  { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', default: true as const },
   { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
   { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
   { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
   { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
-  { value: 'gpt-5.5', label: 'GPT-5.5', default: true as const },
-  { value: 'gpt-5.4', label: 'GPT-5.4' },
-  { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
-  { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex' },
 ] as const
 
 // Model-specific CLI capabilities (models/list, reviewed 2026-09-05).
 // Keep the provider-wide union for legacy models without current metadata.
 const BASE_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const
 const CODEX_MODEL_EFFORTS: Record<string, readonly ReasoningEffort[]> = {
+  // Codex models/list advertises these six efforts for Sol 6.1 (2026-09-30).
+  'gpt-6.1-sol': [...BASE_EFFORTS, 'max', 'ultra'],
   'gpt-6-astra': [...BASE_EFFORTS, 'max', 'ultra'],
   'gpt-5.6-sol': [...BASE_EFFORTS, 'max', 'ultra'],
   'gpt-5.6-terra': [...BASE_EFFORTS, 'max', 'ultra'],
@@ -382,7 +381,7 @@ export const codexAdapter = {
   modelCatalog: () => CODEX_MODELS,
   reasoningEffortsForModel: (model: string) => CODEX_MODEL_EFFORTS[model]
     ?? ['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
-  defaultModel: () => 'gpt-5.5',
+  defaultModel: () => 'gpt-6.1-sol',
   buildArgs: buildCodexArgs,
   parseStreamLine: parseCodexStreamLine,
   extractResult: extractCodexResult,

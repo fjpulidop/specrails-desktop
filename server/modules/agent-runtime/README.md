@@ -27,6 +27,17 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/agent-runtime` and any affected consumers.
 
+## Loop admission
+
+For graphs with `config.agents`, the bridge validates explicit loop definitions,
+resolves global connections, and reads only verification commands from the
+project runtime file. Project agents, global prompt overrides and launch model
+choices do not replace the loop assignments. The compiler receives the resolved
+loop engines, including connection defaults. Selection provenance uses
+`loop-role`. New independent implementation graphs require loop-owned agents.
+Resume refuses replacement configuration and uses the retained run snapshot.
+See [workflow ownership](../../../docs/internals/desktop-owned-workflows.md).
+
 ## Configured roles
 
 `workflowRoleDefaults` exposes app-owned read-only decision-role defaults.

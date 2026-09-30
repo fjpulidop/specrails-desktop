@@ -24,3 +24,8 @@ independent of manifest generation. Prefer a focused public subpath over an
 eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/builder` and any affected consumers.
+
+Production milestone chains integrate each delivery through the guarded local
+merge decision before allocating the next spec worktree. Integration failures
+retain the delivery for retry; restart replays pending integration. See
+[project builder](../../../docs/internals/project-builder.md#incremental-spec-integration).

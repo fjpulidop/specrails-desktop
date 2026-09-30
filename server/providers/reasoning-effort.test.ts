@@ -3,7 +3,7 @@ import { claudeAdapter } from './claude-adapter'
 import { codexAdapter } from './codex-adapter'
 import { geminiAdapter } from './gemini-adapter'
 import type { SpawnOptions } from './types'
-import { isReasoningEffortValidForModel } from './runtime'
+import { isReasoningEffortValidForModel, defaultReasoningEffortForModel } from './runtime'
 
 function opts(over: Partial<SpawnOptions> = {}): SpawnOptions {
   return { prompt: 'Do the task.', model: 'sonnet', ...over }
@@ -93,4 +93,17 @@ describe('reasoning effort — claude (native --effort flag)', () => {
     const args = claudeAdapter.buildArgs('rail-job', opts({ reasoning_effort: 'high' }))
     expect(args.some((a) => a.includes('model_reasoning_effort'))).toBe(false)
   })
+})
+
+it.each(['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const)('passes GPT-6.1 Sol with %s to Codex unchanged', effort => {
+  expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6.1-sol', effort)).toBe(true)
+  const args = codexAdapter.buildArgs('rail-job', opts({ model: 'gpt-6.1-sol', reasoning_effort: effort }))
+  expect(argAfter(args, '--model')).toBe('gpt-6.1-sol')
+  expect(args).toContain(`model_reasoning_effort="${effort}"`)
+  expect(isReasoningEffortValidForModel(codexAdapter, 'gpt-6.1-sol', 'minimal')).toBe(false)
+})
+
+it('defaults Codex to GPT-6.1 Sol and medium reasoning', () => {
+  expect(codexAdapter.defaultModel()).toBe('gpt-6.1-sol')
+  expect(defaultReasoningEffortForModel(codexAdapter, codexAdapter.defaultModel())).toBe('medium')
 })

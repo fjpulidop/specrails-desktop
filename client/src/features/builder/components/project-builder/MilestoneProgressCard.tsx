@@ -310,7 +310,7 @@ export function MilestoneChainRow({ chain, busy = false, onResume, onCancel, onS
         ) : chain.status === 'cancelled' ? (
           <span className="flex items-center gap-1"><Ban className="h-3 w-3" aria-hidden />{t('milestoneProgress.chain.cancelled')}</span>
         ) : (
-          <span>{t('milestoneProgress.chain.waiting', { k: chain.nextChunk })}</span>
+          <span>{chain.pauseReason === 'integration_pending' ? t('milestoneProgress.chain.integrating') : t('milestoneProgress.chain.waiting', { k: chain.nextChunk })}</span>
         )}
       </div>
       {showToggle && onSetAutoAdvance && (

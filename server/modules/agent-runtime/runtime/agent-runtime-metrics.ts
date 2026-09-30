@@ -131,7 +131,7 @@ export function readRuntimeEfficiencySummary(value: unknown, catalog?: RuntimeMe
 export function applyRuntimeSelectionOrigins(summary: RuntimeEfficiencySummary | undefined, selection: unknown, runId: string): RuntimeEfficiencySummary | undefined {
   const record = object(selection), origins = object(record?.origins)
   if (!summary || record?.schemaVersion !== 1 || record.runId !== runId || !origins) return summary
-  if (!['architect', 'developer', 'reviewer'].every(role => ['project-role', 'default', ...(role === 'developer' ? ['explicit-launch-override'] : [])].includes(String(origins[role])))) return summary
+  if (!['architect', 'developer', 'reviewer'].every(role => ['loop-role', 'project-role', 'default', ...(role === 'developer' ? ['explicit-launch-override'] : [])].includes(String(origins[role])))) return summary
   return { ...summary, roles: summary.roles.map(role => {
     const origin = origins[role.role]
     return { ...role, origin: typeof origin === 'string' ? origin : role.origin }

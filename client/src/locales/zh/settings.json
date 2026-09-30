@@ -267,7 +267,7 @@
       "budget": "预算",
       "telemetry": "遥测",
       "terminal": "终端",
-      "agentRuntime": "代理运行引擎"
+      "agentRuntime": "验证命令"
     }
   },
   "integrationBranch": {

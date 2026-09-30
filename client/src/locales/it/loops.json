@@ -193,7 +193,7 @@
       "tooDeep": "Il valore contiene troppi livelli.",
       "pieces": {
         "prompt": "Prompt",
-        "role-turn": "Turno del ruolo",
+        "role-turn": "Agent step",
         "decider": "Decisione",
         "condition": "Condizione",
         "verify": "Verifica",
@@ -208,7 +208,9 @@
         "component": "Componente",
         "implementation": "Implementazione",
         "end": "Fine",
-        "assign": "Impostare variabili"
+        "assign": "Impostare variabili",
+        "implementation-step": "Implementation step",
+        "artifact-contract": "Artifact contract"
       },
       "groups": {
         "ai": "IA",
@@ -224,8 +226,11 @@
         "set": "Impostare valori",
         "increment": "Modificare contatori"
       },
-      "requiredContinue": "Continua finché questa condizione è vera"
-    }
+      "requiredContinue": "Continua finché questa condizione è vera",
+      "agentTaskDefault": "Execute the task defined for this step using the workflow context.",
+      "legacyImplementation": "This step retains phases from an earlier version. Add an Agent step to define your own step. For builtin loops, Restore original loads the new workflow."
+    },
+    "loopSettings": "Advanced settings"
   },
   "preview": {
     "steps": "Passi",
@@ -337,5 +342,8 @@
       "needs_attention": "Richiede attenzione",
       "running": "In esecuzione"
     }
+  },
+  "window": {
+    "open": "Open in window"
   }
 }

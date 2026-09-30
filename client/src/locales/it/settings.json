@@ -267,7 +267,7 @@
       "budget": "Budget",
       "telemetry": "Telemetria",
       "terminal": "Terminale",
-      "agentRuntime": "Motore degli agenti"
+      "agentRuntime": "Comandi di verifica"
     }
   },
   "integrationBranch": {

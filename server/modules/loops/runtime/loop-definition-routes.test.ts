@@ -3,6 +3,7 @@ import express from 'express'
 import request from 'supertest'
 import { initDesktopDb } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
+import { defaultLoopAgents } from './loop-agents'
 import { registerLoopsRoutes } from './loops-router'
 import type { LoopGraph } from './loop-graph'
 import { getLoop, readLegacyLoopGraph, updateLoop } from './loops-store'
@@ -228,4 +229,14 @@ describe('migration assessment', () => {
     runtime.listWorkflows.mockReturnValue({ nodeKindsVersion: 4 })
     expect((await api().get('/api/loops/migration')).status).toBe(409)
   })
+})
+
+it('keeps a loop draft when its agent configuration omits definitions or includes project connections', async () => {
+  const res = await api().post('/api/loops').send({ name: 'Loop-owned agents', graph: { ...graph(), config: { ...graph().config, agents: { ...defaultLoopAgents(), providers: [] } } } })
+  expect(res.status).toBe(201)
+  const id = res.body.loop.id
+  const rejected = await api().post(`/api/loops/${id}/publish`)
+  expect(rejected.status).toBe(422)
+  expect(rejected.body.error).toBe('invalid_loop_agents')
+  expect(getLoop(db, id)?.status).toBe('draft')
 })

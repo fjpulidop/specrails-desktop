@@ -584,7 +584,7 @@ export function projectDefinitionRuntimeEvidence(status: DefinitionRunProbe, rev
   for (const scope of status.scopes) {
     if (!['succeeded', 'failed'].includes(scope.status) || !scope.attemptId || !isRecord(scope.output)) continue
     const output = scope.output
-    if (scope.kind === 'verify' && typeof output.receiptId === 'string' && Array.isArray(output.commands)) {
+    if ((scope.kind === 'verify' || scope.kind === 'implementation-step' && output.phase === 'verify') && typeof output.receiptId === 'string' && Array.isArray(output.commands)) {
       for (const raw of output.commands) {
         if (commands.length >= RUNTIME_LIST_CAP) break
         if (!isRecord(raw) || typeof raw.command !== 'string' || !Number.isInteger(raw.exitCode)) continue
@@ -594,6 +594,7 @@ export function projectDefinitionRuntimeEvidence(status: DefinitionRunProbe, rev
       }
     }
     const review = scope.status !== 'succeeded' ? null : scope.kind === 'implementation' ? parseRuntimeReview(output.review)
+      : scope.kind === 'implementation-step' && output.phase === 'reviewer' ? parseRuntimeReview(output)
       : reviewerStepId === scope.nodePath && scope.kind === 'role-turn' ? parseRuntimeReview(output.structured ?? output) : null
     if (review) scopedReviews.push({ nodePath: scope.nodePath, scopeId: scope.scopeId, attemptId: scope.attemptId, review })
   }

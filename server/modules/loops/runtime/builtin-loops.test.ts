@@ -151,3 +151,19 @@ describe('restoring a built-in', () => {
     expect(await restoreBuiltin(db, 'missing', withCore)).toBeUndefined()
   })
 })
+
+it('upgrades unedited wrapper recipes while preserving published edits and independent copies', async () => {
+  await ensureBuiltinLoops(db, withCore)
+  const old = getLoop(db, 'factory:freestyle')!
+  updateLoop(db, old.id, { graph: editedGraph(old.graph) })
+  publishLoop(db, old.id)
+  const caps = { ...CORE, implementationSteps: 1 }
+  await ensureBuiltinLoops(db, { ...withCore, loadCapabilities: async () => caps })
+  expect(getLoop(db, 'factory:implement')!.graph.config.agents?.rolePrompts?.developer).toBeTruthy()
+  expect(getLoop(db, old.id)!.graph.config.agents).toBeUndefined()
+  const copy = duplicateLoop(db, 'factory:implement', 'project-copy', 'Specific project')!
+  const graph = structuredClone(copy.graph)
+  graph.config.agents!.rolePrompts!.developer = 'Only for this copy'
+  updateLoop(db, copy.id, { graph })
+  expect(getLoop(db, 'factory:implement')!.graph.config.agents!.rolePrompts!.developer).not.toBe('Only for this copy')
+})

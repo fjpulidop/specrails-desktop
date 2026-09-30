@@ -152,8 +152,8 @@ describe('validateProfile', () => {
   it('accepts a profile with provider: codex and codex models', () => {
     const p = baseProfile('codex-default')
     p.provider = 'codex'
-    p.orchestrator.model = 'gpt-5.4-mini'
-    p.agents = p.agents.map((a) => ({ ...a, model: 'gpt-5.4-mini' }))
+    p.orchestrator.model = 'gpt-6.1-sol'
+    p.agents = p.agents.map((a) => ({ ...a, model: 'gpt-6.1-sol' }))
     expect(() => validateProfile(p)).not.toThrow()
   })
 
@@ -192,14 +192,14 @@ describe('validateProfile', () => {
 
   it('rejects codex models on a claude profile (when expectedProvider=claude)', () => {
     const p = baseProfile('claude-bad')
-    p.orchestrator.model = 'gpt-5.4-mini'
+    p.orchestrator.model = 'gpt-6.1-sol'
     expect(() => validateProfile(p)).toThrow(ProfileValidationError)
   })
 
   it('per-agent model validated against the resolved provider catalog', () => {
     const p = baseProfile('codex-agent-mix')
     p.provider = 'codex'
-    p.orchestrator.model = 'gpt-5.4-mini'
+    p.orchestrator.model = 'gpt-6.1-sol'
     // One agent slips a claude alias — should be rejected
     p.agents[0].model = 'sonnet'
     expect(() => validateProfile(p)).toThrow(ProfileValidationError)
@@ -214,9 +214,9 @@ describe('validateProfile', () => {
   it('expectedProvider arg drives validation when profile.provider is absent', () => {
     const p = baseProfile('codex-implicit')
     delete p.provider
-    p.orchestrator.model = 'gpt-5.4-mini'
-    p.agents = p.agents.map((a) => ({ ...a, model: 'gpt-5.4-mini' }))
-    // Default expectedProvider is 'claude' — gpt-5.4-mini is not in claude catalog
+    p.orchestrator.model = 'gpt-6.1-sol'
+    p.agents = p.agents.map((a) => ({ ...a, model: 'gpt-6.1-sol' }))
+    // Default expectedProvider is 'claude' — gpt-6.1-sol is not in claude catalog
     expect(() => validateProfile(p)).toThrow(ProfileValidationError)
     // With explicit codex, it passes
     expect(() => validateProfile(p, 'codex')).not.toThrow()
@@ -291,7 +291,7 @@ describe('CRUD', () => {
       name: 'codex-default',
       description: 'c',
       provider: 'codex',
-      orchestrator: { model: 'gpt-5.4-mini' },
+      orchestrator: { model: 'gpt-6.1-sol' },
       agents: [
         { id: 'sr-architect', required: true },
         { id: 'sr-developer', required: true },
@@ -300,7 +300,7 @@ describe('CRUD', () => {
       routing: [{ default: true, agent: 'sr-developer' }],
     }
     createProfile(projectRoot, codex, 'codex')
-    expect(getProfile(projectRoot, 'codex-default', 'codex').orchestrator.model).toBe('gpt-5.4-mini')
+    expect(getProfile(projectRoot, 'codex-default', 'codex').orchestrator.model).toBe('gpt-6.1-sol')
   })
 
   it('keeps Claude default and Kimi default profiles collision-free', () => {

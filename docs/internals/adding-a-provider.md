@@ -404,3 +404,10 @@ The `opus` catalog value selects Claude Opus 5.5 (`claude-opus-5-5`). Keep the
 Claude adapter pin, selector labels, Core CLI executor and cost estimates aligned
 when advancing this alias. Concrete historical model IDs in usage events retain
 their existing estimates; provider-reported cost remains authoritative.
+
+Codex GPT-6.1 Sol (`gpt-6.1-sol`) is selectable in all static catalogs. Its
+CLI effort list is low, medium, high, xhigh, max and ultra, as advertised by
+Codex models/list on 2026-09-30. Codex defaults to GPT-6.1 Sol with medium effort. GPT-5.5, GPT-5.4, GPT-5.4 Mini
+and GPT-5.3 Codex are omitted from selectable catalogs. The
+[OpenAI model page](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
+describes the API model; Codex-specific effort metadata controls CLI selectors.

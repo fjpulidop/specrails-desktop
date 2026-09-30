@@ -9,7 +9,7 @@ fn is_main_interface(label: &str) -> bool { label == "main" }
 
 pub fn dispatch<R: Runtime>(invoke: Invoke<R>, handler: impl FnOnce(Invoke<R>) -> bool) -> bool {
     let caller = invoke.message.webview_ref();
-    if caller.label() != caller.window().label() || !crate::mission_windows::permits_command(caller.label(), invoke.message.command()) {
+    if caller.label() != caller.window().label() || !(crate::mission_windows::permits_command(caller.label(), invoke.message.command()) || crate::loop_windows::permits_command(caller.label(), invoke.message.command())) {
         invoke.resolver.reject("This command is not available to this Specrails interface");
         return true;
     }

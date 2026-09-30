@@ -281,6 +281,8 @@
     "providerLimitHint": "El proveedor respondió con un aviso de límite de uso, así que la app detuvo el run en vez de seguir iterando.",
     "paused": "En pausa",
     "runtimeGraph": "Grafo de ejecución",
+    "graphFullscreen": "Pantalla completa",
+    "graphExitFullscreen": "Salir de pantalla completa",
     "graphBack": "Volver",
     "graphOpenComponent": "Abrir componente",
     "graphNoAttempts": "Sin intentos registrados",
