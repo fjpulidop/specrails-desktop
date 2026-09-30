@@ -52,7 +52,7 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'runtime integration spaces '))
   vi.spyOn(os, 'homedir').mockImplementation(() => join(root, 'home'))
   workspace = join(root, 'project state'); worktree = join(root, 'Core worktree'); secondWorktree = join(root, 'Desktop worktree')
-  for (const directory of [join(workspace, '.specrails'), worktree, secondWorktree]) mkdirSync(directory, { recursive: true })
+  for (const directory of [join(workspace, '.specrails'), worktree, secondWorktree, join(root, 'source-core'), join(root, 'source-desktop')]) mkdirSync(directory, { recursive: true })
   configPath = join(workspace, '.specrails', 'agent-runtime.json')
   fixture.cli = join(root, 'cli.mjs')
   writeConfig(); control({})
