@@ -16,7 +16,7 @@ describe('SpecModelPicker', () => {
       <SpecModelPicker
         value="opus"
         allowed={[
-          { value: 'sonnet', label: 'Claude Sonnet 5.5' },
+          { value: 'sonnet', label: 'Sonnet 5.5' },
           { value: 'opus', label: 'Claude Opus' },
         ]}
         loading={false}
@@ -88,7 +88,7 @@ describe('useDefaultSpecModel', () => {
         model: 'opus',
         provider: 'claude',
         allowed: [
-          { value: 'sonnet', label: 'Claude Sonnet 5.5' },
+          { value: 'sonnet', label: 'Sonnet 5.5' },
           { value: 'opus', label: 'Claude Opus' },
         ],
         customModelAliases: false,

@@ -24,7 +24,7 @@ vi.mock('../../lib/agent-api', async original => {
     pinned_project_id: `p${index + 1}`, tier_level: 0, created_at: '', updated_at: '' }))
   return { ...actual, listAgentConversations: vi.fn(async () => conversations),
     getAgentConversation: vi.fn(async (id: string) => ({ conversation: conversations.find(conversation => conversation.id === id), messages: [], live: { isStreaming: false, streamingText: '' }, pendingMessages: [] })),
-    getAgentModels: vi.fn(async () => ({ models: [{ value: 'sonnet', label: 'Claude Sonnet 5.5', default: true }], efforts: ['medium', 'high'], customModelAliases: false, supportsImageInput: true })),
+    getAgentModels: vi.fn(async () => ({ models: [{ value: 'sonnet', label: 'Sonnet 5.5', default: true }], efforts: ['medium', 'high'], customModelAliases: false, supportsImageInput: true })),
     sendAgentMessage: vi.fn(async () => ({ queued: false })), abortAgentTurn: vi.fn(async () => {}),
     patchAgentConversation: vi.fn(), createAgentConversation: vi.fn(), deleteAgentConversation: vi.fn(),
     getMcpStatus: vi.fn(async () => ({ enabled: true })), getAvailableProviders: vi.fn(async () => ({ any: true, installed: ['claude'] })) }

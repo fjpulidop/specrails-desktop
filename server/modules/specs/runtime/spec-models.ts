@@ -12,8 +12,8 @@ export interface SpecModelOption {
 }
 
 export const CLAUDE_MODELS: SpecModelOption[] = [
-  { value: 'sonnet', label: 'Claude Sonnet 5.5' },
-  { value: 'fable', label: 'Claude Fable' },
+  { value: 'sonnet', label: 'Sonnet 5.5' },
+  { value: 'fable', label: 'Fable 5.1' },
   { value: 'opus', label: 'Claude Opus' },
   { value: 'haiku', label: 'Claude Haiku' },
 ]

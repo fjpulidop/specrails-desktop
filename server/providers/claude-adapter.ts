@@ -21,8 +21,8 @@ import type {
 const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
 
 const CLAUDE_MODELS = [
-  { value: 'sonnet', label: 'Claude Sonnet 5.5', default: true as const },
-  { value: 'fable', label: 'Claude Fable' },
+  { value: 'sonnet', label: 'Sonnet 5.5', default: true as const },
+  { value: 'fable', label: 'Fable 5.1' },
   { value: 'opus', label: 'Claude Opus 5.5' },
   { value: 'haiku', label: 'Claude Haiku' },
 ] as const

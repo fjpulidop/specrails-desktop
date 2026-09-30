@@ -8,7 +8,7 @@ describe('RailModelSelector', () => {
     const select = screen.getByTestId('rail-model-selector') as HTMLSelectElement
     expect(select.value).toBe('sonnet')
     expect(screen.getByText('Claude Haiku')).toBeInTheDocument()
-    expect(screen.getByText('Claude Sonnet 5.5')).toBeInTheDocument()
+    expect(screen.getByText('Sonnet 5.5')).toBeInTheDocument()
     expect(screen.getByText('Claude Opus 5.5')).toBeInTheDocument()
   })
 
