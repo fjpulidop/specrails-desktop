@@ -38,7 +38,8 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/delivery` and any affected consumers.
 
-Delivery change requests and same-spec addenda continue through Quick SDD using
+Delivery change requests and same-spec addenda default to Quick SDD, while
+respecting an explicit loop or mode selection (including Implement), using
 the existing supersession/rollback contract. `revisionOfDeliveryId` remains the
 wire field for identifying the generation; it no longer selects a Revision loop.
 See [spec addenda](../../../docs/internals/spec-addenda.md).

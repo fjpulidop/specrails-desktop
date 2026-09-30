@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { compileLoopToDefinition } from './loop-definition'
+import { configurableImplementGraph } from './loop-implement-recipe'
 import { coreFactoryGraph } from './loop-core-factory'
 import { assertDefinitionGraph, isDefinitionGraph, isDefinitionReviewerPath, validateLoopGraph, type LoopGraph } from './loop-graph'
 
@@ -196,4 +197,30 @@ it('does not transfer a rail model or effort to a different node-selected provid
   const graph = fixture()
   graph.nodes[1].data!.params = { text: 'Review', access: 'read', engine: { provider: 'local' } }
   expect(compileLoopToDefinition(graph, { ...launch, effort: 'high' }).nodes.work.params.engine).toEqual({ provider: 'local' })
+})
+
+
+it('requires applied evidence for every frozen addendum before Implement can archive', () => {
+  const graph = configurableImplementGraph()
+  const original = structuredClone(graph)
+  const definition = compileLoopToDefinition(graph, { ...launch, id: 'factory:implement', addendaIds: ['a-first', 'a-second'], briefing: 'Frozen delta' })
+  const schema = definition.nodes.reviewer.params.structuredOutput as { required: string[]; properties: { addenda: { required: string[]; properties: Record<string, { properties: { id: { const: string }; verdict: { enum: string[] } } }> } } }
+  expect(schema.required).toContain('addenda')
+  expect(schema.properties.addenda.required).toEqual(['a0', 'a1'])
+  expect(schema.properties.addenda.properties.a0.properties.id.const).toBe('a-first')
+  expect(schema.properties.addenda.properties.a1.properties.id.const).toBe('a-second')
+  expect(schema.properties.addenda.properties.a0.properties.verdict.enum).toEqual(['applied', 'partial', 'blocked'])
+  expect(definition.nodes['review-policy'].params.expr).toContain('$outputs.reviewer.structured.approved == true')
+  for (const slot of ['a0', 'a1']) {
+    expect(definition.nodes['addenda-review-0'].params.expr).toContain(`$outputs.reviewer.structured.addenda.${slot}.verdict == "applied"`)
+    expect(definition.nodes['addenda-review-0'].params.expr).toContain(`$outputs.reviewer.structured.addenda.${slot}.files.length > 0`)
+    expect(definition.nodes['addenda-review-0'].params.expr).toContain(`$outputs.reviewer.structured.addenda.${slot}.tests.length > 0`)
+  }
+  expect(definition.nodes.reviewer.ends.next).toBe('addenda-review-0')
+  expect(definition.nodes['addenda-review-0'].ends).toEqual({ true: 'review-policy', false: 'fixer' })
+  expect(definition.nodes['review-policy'].ends).toEqual({ true: 'approve', false: 'fixer' })
+  expect(definition.nodes.archive.params.requiresVerified).toBe(true)
+  expect(definition.nodes.architect.params.prompt).toContain('Frozen delta')
+  expect(graph).toEqual(original)
+  expect(compileLoopToDefinition(graph, { ...launch, id: 'factory:implement' }).nodes.reviewer.params.structuredOutput).not.toHaveProperty('properties.addenda')
 })

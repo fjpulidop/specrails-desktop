@@ -238,7 +238,10 @@ export function createLoopExecutors(
         return {...result,runtimeStatus:result.runtimeStatus ?? 'failed'}
       }
       const seeded = seedChangeId({ ...request, runId })
-      const briefing = [request.followUp?.briefing, request.addenda?.briefing].filter(Boolean).join('\n\n')
+      const delta = seeded && (seeded.source === 'addenda' || seeded.source === 'revision')
+        ? `DELTA OPENSPEC TARGET: ${seeded.id}. Use ONLY openspec/changes/${seeded.id}/; create it if missing. Inspect the current branch before planning. For delivered work, plan and implement ONLY the attached addenda or delivery change request, preserving existing behavior outside the delta. For work not yet implemented, implement the full spec together with its addenda. Map each requested change to acceptance checks. Do not redo or archive the original proposal. Report each addendum id with concrete files and test evidence.`
+        : undefined
+      const briefing = [delta, request.constants?.REVISION_REQUEST, request.followUp?.briefing, request.addenda?.briefing].filter(Boolean).join('\n\n')
       const spec = request.spec && briefing ? { ...request.spec, description: [request.spec.description, briefing].filter(Boolean).join('\n\n'), ...(request.spec.tickets ? { tickets: request.spec.tickets.map(ticket => ({...ticket,description:[ticket.description,briefing].filter(Boolean).join('\n\n')})) } : {}) } : request.spec
       const env = { ...programmaticStepEnv(resolveEnv(), request.repoDir, request.executionManifest), SPECRAILS_GIT_AUTO: 'false' }
       const core = prepareCoreExecution({ run: { runId, projectId: request.projectId, repositoryId: request.repositoryId, spec, goal: request.spec?.title ?? request.loopName }, cwd: request.cwd, repoDir: request.repoDir, manifest: request.executionManifest, env, sourcePath: request.executionManifest ? undefined : opts.sourcePath?.() })
@@ -260,7 +263,7 @@ export function createLoopExecutors(
           ...(request.graph.config.agents ? { loopAgents: config } : {}),
           constants: request.constants ?? {}, provider: request.provider, model: request.model, effort: request.effort,
           roles: { architect: { access: 'read' }, developer: { access: 'write' }, reviewer: { access: 'read' }, ...config.roles }, repositoryCount: request.executionManifest?.repositories.length ?? 1,
-          changeId: seeded?.id, briefing,
+          changeId: seeded?.id, briefing, addendaIds: request.addenda?.ids,
         }) } : {}),
         onPrepared: input.onPrepared, onLine: input.onLine, onRuntimeEvent: input.onRuntimeEvent, onSpawn: input.onSpawn, timeoutMs: input.timeoutMs,
       })

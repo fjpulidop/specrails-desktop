@@ -7,7 +7,7 @@ import { useDroppable, useDndContext } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { GripVertical, Trash2, ArrowLeft, Layers } from 'lucide-react'
 import { RailControls, type RailMode, type RailStatus } from './RailControls'
-import { effectiveLoopId } from '../lib/rail-loops'
+import { deriveRailMode, effectiveLoopId } from '../lib/rail-loops'
 import { SpecCard } from '../../specs/components/SpecCard'
 import { RailProfileSelector } from '../../agents/components/RailProfileSelector'
 import { RailEngineSelector } from '../../agents/components/RailEngineSelector'
@@ -122,7 +122,7 @@ export function RailRow({
   // profile/model/effort pickers give way to a chip (each role is configured
   // in Settings ▸ Specrails Agents) and capability checks use the primary.
   const hasAddenda = tickets.some((ticket) => ticket.addenda?.some((a) => a.status === 'open'))
-  const effectiveMode = hasAddenda ? 'loop' : mode
+  const effectiveMode = deriveRailMode(effectiveLoopId(selectedLoopId, mode, hasAddenda))
   const rolesEngine = isRolesEngine(aiEngine)
   const effectiveProvider = (rolesEngine ? providers?.[0] : aiEngine) ?? providers?.[0] ?? 'claude'
   const profileApplies = !rolesEngine && providerSupportsProfiles(effectiveProvider)
@@ -489,7 +489,6 @@ export function RailRow({
           {loopModelPickerEl}
           {onLoopChange && !isRunning && (
             <RailLoopSelector
-              disabled={hasAddenda}
               value={effectiveLoopId(selectedLoopId, mode, hasAddenda)}
               onChange={onLoopChange}
               freestyleAvailable={freestyleAvailable}
@@ -722,7 +721,6 @@ export function RailRow({
               {loopModelPickerEl}
               {showLoopSel && onLoopChange && (
                 <RailLoopSelector
-                  disabled={hasAddenda}
                   value={effectiveLoopId(selectedLoopId, mode, hasAddenda)}
                   onChange={onLoopChange}
                   freestyleAvailable={freestyleAvailable}

@@ -588,7 +588,7 @@ describe('spec addenda on the packet (spec-addenda)', () => {
     { ticketId: 1, id: 'a1', kind: 'change-request' as const, title: 'Idempotency', hash: 'h1' },
     { ticketId: 1, id: 'a2', kind: 'constraint' as const, title: 'No new deps', hash: 'h2' },
   ]
-  function addendaDelivery(verifyTail: string | null) {
+  function addendaDelivery(verifyTail: string | null, runtime?: DeliverySettleEvidence['units'][number]['runtime']) {
     createPrDelivery(db, {
       id: 'del-a', railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement',
       ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard',
@@ -596,7 +596,7 @@ describe('spec addenda on the packet (spec-addenda)', () => {
     })
     transitionDecision(db, 'del-a', 'building', 'on_review', {
       branches: [unit()], runIds: ['run-1'], implementationOutcome: 'succeeded', deliveryOutcome: 'ready', statusCode: 'ready_for_review',
-      settleEvidence: evidence({ verifyTail }),
+      settleEvidence: evidence({ verifyTail, runtime }),
     })
     return composeReviewPacket({ db, row: getPrDelivery(db, 'del-a')! })
   }
@@ -607,6 +607,15 @@ describe('spec addenda on the packet (spec-addenda)', () => {
     expect(packet.specAddendaReport).toEqual([
       { addendumId: 'a1', verdict: 'applied', files: 'lib/api.ts', tests: 'api.test.ts', notes: null },
       { addendumId: 'a2', verdict: 'blocked', files: null, tests: null, notes: 'needs a decision' },
+    ])
+  })
+
+  it('reads the definition reviewer report when there is no legacy verify tail', () => {
+    const packet = addendaDelivery(null, { commands: [], checks: [], findings: [], review: {
+      approved: true, score: 90, aspects: {}, issues: [], summary: '- [a1] applied — files: lib/api.ts — tests: api.test.ts',
+    } })
+    expect(packet.specAddendaReport).toEqual([
+      { addendumId: 'a1', verdict: 'applied', files: 'lib/api.ts', tests: 'api.test.ts', notes: null },
     ])
   })
 

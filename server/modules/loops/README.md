@@ -41,7 +41,8 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/loops` and any affected consumers.
 
-Quick SDD owns delivery changes and addenda. It seeds a distinct delta target,
+Quick SDD is the default for delivery changes and addenda; explicit workflows
+(including Implement) take precedence. Each addendum launch seeds a distinct delta target,
 briefs each AI phase, and requires per-addendum coverage before validation/archive.
 The retired `factory:revision` id is a compatibility alias, absent from the gallery.
 
@@ -228,3 +229,8 @@ than Core phases. Implement and Ship recipes are capability-gated by
 Loop recipes use `inherit` for default agent engines. The runtime binds that
 assignment to the mission/rail launch before freezing the run; explicit loop
 provider selections remain independent of the launch provider.
+
+Implement receives a fresh frozen OpenSpec delta target for addenda and delivery
+changes. On delivered work, its planner preserves the existing implementation
+and plans only the delta. Its reviewer must report every frozen addendum with
+files and tests; partial or missing evidence cannot pass the acceptance policy.

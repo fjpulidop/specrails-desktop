@@ -1748,16 +1748,19 @@ describe('rails-router POST /:railIndex/launch — spec addenda + preparation-fa
     expect(broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'ticket_updated', projectId: 'p1' }))
   })
 
-  it.each(['factory:implement', 'factory:sdd-quick-openspec', 'factory:freestyle'])('continues a same-spec pending delivery with addenda using Quick SDD (%s)', async (loopId) => {
+  it.each([
+    { loopId: 'factory:implement' }, { loopId: 'factory:sdd-quick-openspec' },
+    { loopId: 'factory:freestyle' }, { mode: 'implement' }, {},
+  ])('continues a same-spec pending delivery with addenda using the selected workflow (%j)', async (selection) => {
     seedAddenda()
     const row = createPrDelivery(db, { railIndex: 0, loopId: 'factory:implement', railKey: '0-factory:implement', ticketIds: [1], baseBranch: 'main', loopName: 'Implement', originSurface: 'dashboard' })
     transitionDecision(db, row.id, 'building', 'on_review', { branches: [{ ticketId: 1, branch: 'feat/x', succeeded: true }] })
     mockRepoStatus.mockResolvedValue('ok')
     mockLaunchIsolated.mockResolvedValue(['next-run'])
     const res = await request(appWith(db, { desktopDb, projectPath: projDir, loopRunManager: { run: vi.fn(), cancel: vi.fn() } }))
-      .post('/rails/0/launch').send({ loopId })
+      .post('/rails/0/launch').send(selection)
     expect(res.status, JSON.stringify(res.body)).toBe(202)
-    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: 'factory:sdd-quick-openspec', revision: expect.objectContaining({ ofDeliveryId: row.id, note: expect.stringContaining('[a1] Idempotency') }) }))
+    expect(mockLaunchIsolated).toHaveBeenCalledWith(expect.objectContaining({ loopId: selection.loopId ?? (selection.mode === 'implement' ? 'factory:implement' : 'factory:sdd-quick-openspec'), revision: expect.objectContaining({ ofDeliveryId: row.id, note: expect.stringContaining('[a1] Idempotency') }) }))
     // A local review has no published PR yet: never pass a null PR target.
     expect(mockLaunchIsolated.mock.calls[0][0].requiredPrContinuation).toBeUndefined()
   })
@@ -2698,11 +2701,11 @@ describe('rails-router launch — revision of an undecided delivery', () => {
     expect(call.loopGraph).toEqual(getFactoryLoop('factory:sdd-quick-openspec', (await probeCoreCapabilities()).capabilities)!.graph)
   })
 
-  it('routes delivery change requests to Quick SDD even with a stale custom selection', async () => {
+  it('honors explicit Implement for delivery change requests', async () => {
     const id = mkOnReviewRail()
-    const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'x', loopId: 'not-a-factory-loop' })
+    const res = await launch({ revisionOfDeliveryId: id, revisionNote: 'x', loopId: 'factory:implement' })
     expect(res.status).toBe(202)
-    expect(mockLaunchIsolated.mock.calls[0][0].loopId).toBe('factory:sdd-quick-openspec')
+    expect(mockLaunchIsolated.mock.calls[0][0].loopId).toBe('factory:implement')
   })
 
   it('still 409s an ordinary launch while the delivery is undecided', async () => {

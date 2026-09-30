@@ -53,6 +53,7 @@ export interface DefinitionLaunch {
   repositoryCount?: number
   changeId?: string
   briefing?: string
+  addendaIds?: readonly string[]
 }
 
 const AI_KINDS = new Set<CoreNodeKind>(['prompt', 'role-turn', 'decider', 'implementation', 'implementation-step'])
@@ -174,6 +175,46 @@ export function compileLoopToDefinition(graph: LoopGraph, launch: DefinitionLaun
     }
   }
   const body = compileBody(graph)
+  // Specialize the Desktop Implement recipe with the frozen launch scope.
+  // Its ordinary review/candidate gates remain in place; an addendum cannot
+  // disappear behind a generic approved=true response.
+  if (launch.id === 'factory:implement' && launch.addendaIds?.length) {
+    const reviewer = body.nodes.reviewer
+    const policy = body.nodes['review-policy']
+    if (reviewer?.kind === 'role-turn' && policy?.kind === 'condition' && object(reviewer.params.structuredOutput)) {
+      const schema = reviewer.params.structuredOutput
+      const entries = Object.fromEntries(launch.addendaIds.map((id, index) => [`a${index}`, {
+        type: 'object', additionalProperties: false, required: ['id', 'verdict', 'files', 'tests'],
+        properties: {
+          id: { type: 'string', const: id },
+          verdict: { enum: ['applied', 'partial', 'blocked'] },
+          files: { type: 'array', items: { type: 'string', minLength: 1 }, maxItems: 100 },
+          tests: { type: 'array', items: { type: 'string', minLength: 1 }, maxItems: 100 },
+        },
+      }]))
+      reviewer.params.structuredOutput = {
+        ...schema, properties: { ...(object(schema.properties) ? schema.properties : {}), addenda: { type: 'object', additionalProperties: false, properties: entries, required: Object.keys(entries) } },
+        required: [...(Array.isArray(schema.required) ? schema.required : []), 'addenda'],
+      }
+      reviewer.params.prompt += '\nReport every frozen addendum in addenda (slots in launch order): ' + JSON.stringify(launch.addendaIds) + '. Inspect real code and verification evidence. Use applied only with concrete files and executed tests; otherwise partial or blocked. Also include one line per addendum in summary: - [id] applied — files: paths — tests: commands and results.'
+      const checks = launch.addendaIds.map((_, index) => {
+        const ref = `$outputs.reviewer.structured.addenda.a${index}`
+        return `${ref}.verdict == "applied" && ${ref}.files.length > 0 && ${ref}.tests.length > 0`
+      })
+      // Core bounds expression length/token count. Keep large addendum scopes
+      // in small successive gates instead of generating one unbounded expression.
+      let next = reviewer.ends.next
+      for (let offset = checks.length - 1; offset >= 0; offset -= 10) {
+        const first = Math.max(0, offset - 9)
+        let id = `addenda-review-${first}`
+        while (body.nodes[id]) id += '-gate'
+        body.nodes[id] = { kind: 'condition', params: { expr: checks.slice(first, offset + 1).map(expr => `(${expr})`).join(' && ') }, ends: { true: next, false: policy.ends.false } }
+        next = id
+      }
+      reviewer.ends.next = next
+      body.maxTransitions = Math.min(10000, body.maxTransitions! + Math.ceil(checks.length / 10) * graph.config.maxIterations)
+    }
+  }
   const components = Object.fromEntries(
     Object.entries(graph.components ?? {})
       .sort(([a], [b]) => a.localeCompare(b, 'en'))

@@ -654,15 +654,15 @@ summary later.
   relaunch strategy even when \`main\` did not have that spec before the PR. If
   asked why a strategy was chosen, verify against active PR contents before
   answering.
-- **"Change something about work already delivered" = a Quick SDD continuation.** When
+- **"Change something about work already delivered" = a delivery continuation.** When
   the user asks for a modification to a delivery that is awaiting their decision
   (any non-terminal card: \`on_review\`, \`pr_draft\`, \`pr_ready\`, \`no_changes\`,
   \`implementation_failed\`), call \`specrails_rails(launch)\` with
   \`revisionOfDeliveryId\` = that card's \`prDeliveryId\` and \`revisionNote\` = what
   they asked for, in their own words. Do NOT tell them to publish, discard or
-  merge first, and do NOT relaunch the ordinary implement mode: a revision
-  always uses Quick SDD: pass \`loopId:'factory:sdd-quick-openspec'\` alongside the delivery
-  target. The server preserves the branch while running Quick SDD. The rail must still carry exactly that delivery's
+  merge first. Respect the user's explicit loop selection, including Implement:
+  pass that loopId alongside the delivery target. Without a preference, use
+  \`loopId:'factory:sdd-quick-openspec'\`. The server preserves the branch. The rail must still carry exactly that delivery's
   specs; a mismatch returns \`invalid_revision_target\`, which means re-check the
   rail's spec assignment rather than retrying blindly.
 - **"Resolve / fix the review comments on this PR" = a FOLLOW-UP launch, never a
@@ -703,9 +703,9 @@ summary later.
   \`dismiss_addendum\` withdraws it. Prefer an addendum + normal launch over a
   \`revisionNote\` when the change should stay attached to the spec for later
   runs; the two combine freely.
-  **Addenda on an existing branch/open PR ALWAYS run Quick SDD**, never Revision.
-  Use \`loopId:'factory:sdd-quick-openspec'\`; the server routes addenda there
-  even if the rail stores a different loop. A same-spec pending delivery is
+  **Respect explicit loop selection for addenda**, including Implement.
+  Recommend Quick SDD when no preference was given; never silently replace
+  Implement with Quick SDD after agreeing to use Implement. A same-spec pending delivery is
   continued without requiring publish/discard first. Keep the exact ticket and
   repository scope; pass the delivery id when known. The runtime assigns a NEW
   run-specific OpenSpec change for the frozen addenda, so NEVER edit

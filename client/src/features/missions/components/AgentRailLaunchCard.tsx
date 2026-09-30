@@ -567,7 +567,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
 
         {/* Loop · engine · model · effort · profile */}
         <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
-          <AgentToolbarSelector label={t('railCard.fields.loop')} icon={Workflow} value={effectiveLoop} options={loopOptions} disabled={!!busy || hasAddenda} testId="rail-card-loop" onSelect={(v) => patch({ loopId: v })} />
+          <AgentToolbarSelector label={t('railCard.fields.loop')} icon={Workflow} value={effectiveLoop} options={loopOptions} disabled={!!busy} testId="rail-card-loop" onSelect={(v) => patch({ loopId: v })} />
           {engineOptions.length > 1 && (
             <AgentToolbarSelector label={t('railCard.fields.engine')} icon={Cpu} value={effectiveEngine ?? ''} options={engineOptions} disabled={!!busy} testId="rail-card-engine" onSelect={(v) => patch({ aiEngine: v, model: null, reasoningEffort: null, profileName: null })} />
           )}

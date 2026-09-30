@@ -70,7 +70,13 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
         fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replaceAll('- [ ]', '- [x]'))
         return { text: request.role === 'developer' ? 'Implemented the required value.' : '{"summary":"Implemented the required value.","incomplete":[]}', usage }
       }
-      if (request.role === 'assess') return { text: JSON.stringify({ approved: true, summary: 'Read actual code and verification evidence', issues: [], score: 90, aspects: { type_correctness: 90, pattern_adherence: 90, test_coverage: 90, security: 90, architectural_alignment: 90 } }), usage }
+      if (request.role === 'assess') {
+        const ids = JSON.parse(process.env.SPECRAILS_FACTORY_ADDENDA ?? '[]')
+        const calls = fs.readFileSync(process.env.SPECRAILS_FACTORY_CALLS, 'utf8').trim().split('\n').map(line => JSON.parse(line))
+        const verdict = calls.filter(call => call.role === 'assess').length === 1 ? 'partial' : 'applied'
+        const addenda = Object.fromEntries(ids.map((id, index) => [`a${index}`, { id, verdict, files: ['code.cjs'], tests: ['Node verifies value equals 2'] }]))
+        return { text: JSON.stringify({ approved: true, summary: 'Read actual code and verification evidence', issues: [], score: 90, aspects: { type_correctness: 90, pattern_adherence: 90, test_coverage: 90, security: 90, architectural_alignment: 90 }, ...(ids.length ? { addenda } : {}) }), usage }
+      }
       const obligations = JSON.parse(request.prompt.split('Current frozen acceptance obligations (all remain required):\n')[1].split('\n')[0])
       return { text: JSON.stringify({ approved: true, summary: 'Inspected actual code and host verification', issues: [], score: 90,
         aspects: { type_correctness: 90, pattern_adherence: 90, test_coverage: 90, security: 90, architectural_alignment: 90 },

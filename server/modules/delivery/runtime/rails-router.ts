@@ -559,6 +559,7 @@ export function createRailsRouter(): Router {
     if (baseBranch && !isLoopsEnabled()) {
       res.status(400).json({ error: 'base_branch_requires_isolation', detail: 'baseBranch requires an isolated (worktree) loop launch; loops are disabled' }); return
     }
+    const explicitLoop = (typeof rawLoopId === 'string' && rawLoopId.length > 0) || req.body?.mode != null
     let loopId: unknown = rawLoopId
     // Origin link (safe-pr-review-flow): an agent-chat/MCP launch tags itself so
     // the PR decision can later be posted back into the launching conversation.
@@ -592,8 +593,8 @@ export function createRailsRouter(): Router {
     if (isLoopsEnabled() && (typeof loopId !== 'string' || !loopId) && mode !== 'loop') {
       loopId = factoryLoopForMode(mode as string)?.id
     }
-    // Delivery continuation always uses Quick SDD; the old Revision loop is retired.
-    if (revisionOfDeliveryId && isLoopsEnabled()) {
+    // Quick SDD is the continuation default; an explicit workflow takes precedence.
+    if (revisionOfDeliveryId && isLoopsEnabled() && !explicitLoop) {
       loopId = 'factory:sdd-quick-openspec'
       mode = 'loop'
     }
@@ -629,10 +630,10 @@ export function createRailsRouter(): Router {
       res.status(400).json({ error: 'Rail has no tickets assigned' }); return
     }
 
-    // The durable delta chooses Quick SDD regardless of stale rail/agent defaults.
+    // A durable delta defaults to Quick SDD when the caller has not chosen a workflow.
     // Revision is a delivery-continuation mechanism, not the implementation loop.
     const launchAddenda = planSpecAddendaAt(ticketStorePathForProject(c.project), rail.ticketIds)
-    if (launchAddenda.length && isLoopsEnabled()) {
+    if (launchAddenda.length && isLoopsEnabled() && !explicitLoop) {
       loopId = 'factory:sdd-quick-openspec'
       mode = 'loop'
     }

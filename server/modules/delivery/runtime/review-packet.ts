@@ -433,7 +433,7 @@ export interface ComposeReviewPacketInput {
  * harvested verify tails (the final reply of record). Nothing else is guessed. */
 function followUpReportSource(evidence: DeliverySettleEvidence | null): string | null {
   if (!evidence) return null
-  const parts = evidence.units.flatMap((unit) => [unit.verifyTail, unit.sentinelDetail]).filter((v): v is string => typeof v === 'string' && v.length > 0)
+  const parts = evidence.units.flatMap((unit) => [unit.verifyTail, unit.sentinelDetail, unit.runtime?.review?.summary]).filter((v): v is string => typeof v === 'string' && v.length > 0)
   return parts.length > 0 ? parts.join('\n') : null
 }
 

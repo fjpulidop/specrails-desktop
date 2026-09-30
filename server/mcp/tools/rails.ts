@@ -45,7 +45,7 @@ export function railsTools(): McpToolSpec[] {
         'When launched from the in-app agent chat without an explicit aiEngine, the engine defaults to your conversation\'s provider. On that same provider, an omitted model inherits the conversation model; an explicit model wins (pass aiEngine to override; launch_all always uses each rail\'s stored engine). ' +
         'For Implement, the selected launch provider applies to ALL runtime roles (architect, developer, reviewer); an explicit launch model/effort also applies to each role. Resuming an existing execution keeps its original frozen role configuration; start a new launch to change providers. ' +
         'User-facing naming: call the free-form autonomous mode "Freestyle"; use "freestyle" as the canonical API enum value for that same capability. ' +
-        'For small OpenSpec-governed work, recommend "SDD Quick (OpenSpec)" and launch with mode "loop" plus loopId "factory:sdd-quick-openspec"; keep Freestyle for ticket-local implementation-only work. ' +
+        'Always honor an explicit workflow selection, including Implement for addenda or delivery changes. Without a preference, for small OpenSpec-governed work, recommend "SDD Quick (OpenSpec)" and launch with mode "loop" plus loopId "factory:sdd-quick-openspec"; keep Freestyle for ticket-local implementation-only work. ' +
         'NAMING: railIndex is the 0-BASED internal identity; the dashboard shows rails 1-based ("Rail N" = railIndex N-1). When talking to the user, ALWAYS say "Rail <railIndex + 1>" (or the rail\'s custom name) — results include railLabel with the correct user-facing label.',
       hintTier: 'read',
       tier: (a) => {
@@ -122,11 +122,11 @@ export function railsTools(): McpToolSpec[] {
         revisionOfDeliveryId: z
           .string()
           .optional()
-          .describe('Revise a delivery that is ALREADY awaiting the user\'s decision (launch). Continues with Quick SDD (the Revision loop is retired): pass its prDeliveryId (from rails.prDeliveries) together with revisionNote. Use it whenever the user asks for a change to work you already delivered — never publish/discard/merge first. The rail must still carry exactly that delivery\'s specs.'),
+          .describe('Revise a delivery that is ALREADY awaiting the user\'s decision (launch). Continues with the explicitly selected loop, defaulting to Quick SDD (the Revision loop is retired): pass its prDeliveryId (from rails.prDeliveries) together with revisionNote. Use it whenever the user asks for a change to work you already delivered — never publish/discard/merge first. The rail must still carry exactly that delivery\'s specs.'),
         revisionNote: z
           .string()
           .optional()
-          .describe('What to change, in the user\'s own words (required with revisionOfDeliveryId). It is injected into every Quick SDD phase and shown on the updated review packet as "what you asked to change".'),
+          .describe('What to change, in the user\'s own words (required with revisionOfDeliveryId). It is injected into every selected workflow phase and shown on the updated review packet as "what you asked to change".'),
         followUp: z
           .object({
             comments: z.array(z.object({
